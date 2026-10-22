@@ -179,6 +179,26 @@ const SocialApp: React.FC = () => {
         return next;
     });
 
+    // Notifications represent named simulated interactions, never anonymous aggregate traffic.
+    const [simulatedFollows, setSimulatedFollows] = useState<string[]>(() => {
+        try { const saved = JSON.parse(localStorage.getItem('spark_simulated_follows') || '[]'); return Array.isArray(saved) ? saved : []; } catch { return []; }
+    });
+    const registerSimulatedInteraction = (actor: { id: string; name: string; avatar?: string }, post: SocialPost, kind: 'likes' | 'follows') => {
+        if (post.authorType !== 'user') return;
+        const noticeId = kind + ':' + actor.id + ':' + (kind === 'likes' ? post.id : 'user');
+        if (kind === 'follows') {
+            if (simulatedFollows.includes(actor.id)) return;
+            setSimulatedFollows(prev => {
+                if (prev.includes(actor.id)) return prev;
+                const next = [...prev, actor.id];
+                localStorage.setItem('spark_simulated_follows', JSON.stringify(next));
+                return next;
+            });
+        }
+        addNotices([{ id: noticeId, kind, actor: actor.name, avatar: actor.avatar,
+            content: kind === 'likes' ? '赞了你的笔记《' + post.title + '》' : '关注了你',
+            postId: kind === 'likes' ? post.id : undefined, time: Date.now(), read: false }]);
+    };
     const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
     });
@@ -930,6 +950,13 @@ ${post.content || '(楼主没写正文)'}
                     ...current,
                     comments: mergeSocialComments(current.comments || [], comments),
                 }));
+                if (post.authorType === 'user') {
+                    // A named commenter may also like the post; this is a separate simulated action.
+                    comments.filter(comment => comment.authorType === 'character' && comment.authorCharId).forEach(comment => {
+                        if (Math.random() < 0.45) registerSimulatedInteraction({ id: comment.authorCharId!, name: comment.authorName, avatar: comment.authorAvatar }, post, 'likes');
+                        if (Math.random() < 0.12) registerSimulatedInteraction({ id: comment.authorCharId!, name: comment.authorName, avatar: comment.authorAvatar }, post, 'follows');
+                    });
+                }
                 if (post.authorType === 'user') addNotices(comments.filter(comment => comment.authorType !== 'user').map(comment => ({
                     id: 'comment:' + comment.id, kind: 'comments' as const, actor: comment.authorName,
                     avatar: comment.authorAvatar, content: comment.content, postId: post.id, time: Date.now(), read: false,
