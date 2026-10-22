@@ -1467,12 +1467,17 @@ ${buildSparkCommentHistory(post)}
                             <button type="button" onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`relative ${activeTab === 'home' && feedTab === 'discover' ? 'text-slate-900' : 'text-slate-400'}`}>发现{activeTab === 'home' && feedTab === 'discover' && <span className="absolute -bottom-2 left-1 right-1 h-0.5 bg-[#ff2442] rounded-full" />}</button>
                         </div>
                         <div className="flex items-center gap-3 text-xs shrink-0">
+                            <button type="button" aria-label="搜索" onClick={() => { setSearchOpen(v => !v); setActiveTab('home'); setFeedTab('discover'); }} className="text-slate-600 text-xl">⌕</button>
                             <button type="button" onClick={() => setShowUtilityShelf(true)} className="text-slate-500">收纳</button>
                             <button type="button" onClick={() => setShowSettings(true)} className="text-slate-700 font-bold">设置</button>
                         </div>
                     </div>
                 </div>
 
+                {searchOpen && <div className="flex items-center gap-2 px-3 py-2 bg-white/90 border-b border-slate-100">
+                    <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="搜索笔记、话题、用户" className="flex-1 min-w-0 rounded-full bg-slate-100 px-3 py-2 text-sm outline-none" />
+                    <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="text-slate-400 text-xs">取消</button>
+                </div>}
                 {/* Content Area */}
                 <div ref={feedScrollRef} onTouchStart={onFeedTouchStart} onTouchMove={onFeedTouchMove} onTouchEnd={onFeedTouchEnd} onTouchCancel={onFeedTouchEnd} className="flex-1 overflow-y-auto no-scrollbar overscroll-y-contain">
                     
