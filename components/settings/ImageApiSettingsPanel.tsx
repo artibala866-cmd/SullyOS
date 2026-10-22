@@ -22,7 +22,7 @@ export const ImageApiSettingsPanel: React.FC = () => {
   const fetchModels = async () => {
     setLoading(true); setStatus('正在拉取模型...');
     try {
-      const url = form.baseUrl.replace(new RegExp('/+ + '/models';
+      const url = form.baseUrl.trim().replace(/[/]+$/, '') + '/models';
       const response = await fetch(url, { headers: { Authorization: 'Bearer ' + form.apiKey } });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const json = await response.json();
