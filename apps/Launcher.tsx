@@ -1068,45 +1068,54 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
           {appPages.map((pageApps, idx) => (
               <div
                 key={idx}
-                className="launcher-page w-full flex-shrink-0 snap-center snap-always flex flex-col px-6 pt-12 pb-8 h-full"
+                className={`launcher-page w-full flex-shrink-0 snap-center snap-always flex flex-col h-full min-h-0 ${idx === 0 ? "px-5 pt-3 pb-2 overflow-hidden" : "px-6 pt-12 pb-8"}`}
                 style={{ contentVisibility: 'auto', contain: 'layout paint', transform: 'translateZ(0)' }}
               >
                   {idx === 0 ? (
-                      <div className="w-full flex flex-col gap-4 text-[#292929] pb-4">
-                          <div className="relative rounded-[32px] overflow-visible mt-5">
-                              <div className="h-28 rounded-t-[32px] bg-gradient-to-b from-[#c9cacc] via-[#dfe0e1] to-[#f3f3f3] border border-white/70" />
+                      <div className="w-full h-full min-h-0 flex flex-col justify-between gap-2 text-[#292929] overflow-hidden">
+                          <div className="relative rounded-[28px] overflow-visible shrink min-h-0">
+                              <button type="button" onClick={() => openApp(AppID.Appearance)}
+                                  className="w-full h-[clamp(58px,11vh,112px)] rounded-t-[28px] bg-gradient-to-b from-[#b9babd] to-[#e8e8e9] border border-white/70 overflow-hidden relative"
+                                  aria-label="更换角色资料背景照片">
+                                  {theme.launcherWidgets?.['wide']
+                                      ? <TokenImg value={theme.launcherWidgets['wide']} className="w-full h-full object-cover grayscale" alt="角色资料背景照片" loading="lazy" />
+                                      : <span className="absolute inset-0 flex items-start justify-end p-3 text-[10px] text-[#666] tracking-wider">+ 添加封面照片</span>}
+                              </button>
                               <button type="button" onClick={() => openApp(AppID.Chat)}
-                                  className="absolute top-[60px] left-1/2 -translate-x-1/2 w-[88px] h-[88px] rounded-full bg-[#eee] border-[4px] border-white shadow-[0_6px_18px_rgba(0,0,0,0.13)] overflow-hidden active:scale-95 transition-transform"
+                                  className="absolute top-[clamp(30px,5.5vh,60px)] left-1/2 -translate-x-1/2 w-[clamp(60px,9vh,88px)] h-[clamp(60px,9vh,88px)] rounded-full bg-[#eee] border-[4px] border-white shadow-[0_6px_18px_rgba(0,0,0,0.13)] overflow-hidden active:scale-95 transition-transform"
                                   aria-label="打开角色聊天">
                                   {widgetChar?.avatar
                                       ? <TokenImg value={widgetChar.avatar} className="w-full h-full object-cover" alt={widgetChar.name} loading="lazy" />
                                       : <span className="flex items-center justify-center h-full text-3xl">♡</span>}
                               </button>
                               <button type="button" onClick={() => openApp(AppID.Chat)}
-                                  className="w-full rounded-b-[32px] bg-white/95 border border-white shadow-[0_12px_28px_rgba(0,0,0,0.07)] pt-14 pb-6 px-5 text-center active:opacity-80">
+                                  className="w-full rounded-b-[32px] bg-white/95 border border-white shadow-[0_12px_28px_rgba(0,0,0,0.07)] pt-[clamp(28px,5vh,55px)] pb-[clamp(10px,2vh,24px)] px-5 text-center active:opacity-80">
                                   <h2 className="text-[19px] font-bold tracking-tight">{widgetChar?.name || 'MY CHAR'}</h2>
                                   <p className="text-[11px] text-[#999] mt-1">CHARACTER PROFILE</p>
-                                  <p className="text-[12px] text-[#555] mt-3 leading-relaxed line-clamp-2">{widgetChar?.description || lastMessage || '点击进入聊天'}</p>
+                                  <p className="text-[12px] text-[#555] mt-2 leading-relaxed line-clamp-2">{widgetChar?.description || lastMessage || '点击进入聊天'}</p>
                                   {widgetUnread > 0 && <span className="inline-block mt-2 rounded-full bg-[#252525] px-2.5 py-1 text-[10px] text-white">{widgetUnread} 条未读</span>}
                               </button>
                           </div>
                           <button type="button" onClick={() => openApp(AppID.Appearance)}
-                              className="relative w-full h-[78px] rounded-[18px] bg-white/85 border-[5px] border-white shadow-[0_5px_18px_rgba(0,0,0,0.08)] overflow-hidden flex items-stretch active:scale-[0.99] transition-transform"
+                              className="relative w-full h-[clamp(58px,10vh,86px)] shrink-0 bg-white shadow-[0_5px_18px_rgba(0,0,0,0.08)] active:scale-[0.99] transition-transform p-[7px]"
+                              style={{ clipPath: 'polygon(0% 10%, 2% 10%, 2% 0%, 10% 0%, 10% 9%, 12% 9%, 12% 0%, 22% 0%, 22% 9%, 24% 9%, 24% 0%, 34% 0%, 34% 9%, 36% 9%, 36% 0%, 46% 0%, 46% 9%, 48% 9%, 48% 0%, 58% 0%, 58% 9%, 60% 9%, 60% 0%, 70% 0%, 70% 9%, 72% 9%, 72% 0%, 82% 0%, 82% 9%, 84% 9%, 84% 0%, 94% 0%, 94% 9%, 96% 9%, 96% 0%, 100% 0%, 100% 90%, 98% 90%, 98% 100%, 88% 100%, 88% 91%, 86% 91%, 86% 100%, 76% 100%, 76% 91%, 74% 91%, 74% 100%, 64% 100%, 64% 91%, 62% 91%, 62% 100%, 52% 100%, 52% 91%, 50% 91%, 50% 100%, 40% 100%, 40% 91%, 38% 91%, 38% 100%, 28% 100%, 28% 91%, 26% 91%, 26% 100%, 16% 100%, 16% 91%, 14% 91%, 14% 100%, 4% 100%, 4% 91%, 0% 91%)' }}
                               aria-label="编辑首页照片胶片">
-                              {(['tl','tr','wide','dsq'] as const).map((key, index) => (
-                                  <div key={key} className="flex-1 min-w-0 border-r border-dashed border-[#ccc] relative bg-[#eeeeef] overflow-hidden">
-                                      {theme.launcherWidgets?.[key]
-                                          ? <TokenImg value={theme.launcherWidgets[key]} className="w-full h-full object-cover grayscale" alt={`照片 ${index + 1}`} loading="lazy" />
-                                          : <div className="w-full h-full flex items-center justify-center text-[#aaa] text-xl font-light">+</div>}
-                                  </div>
-                              ))}
-                              <div className="w-6 bg-white flex items-center justify-center"><span className="text-[10px] tracking-[-2px] text-[#555] rotate-90">||||||</span></div>
+                              <div className="w-full h-full flex items-stretch bg-[#f0f0f0] overflow-hidden">
+                                  {(['tl','tr','wide','dsq'] as const).map((key, index) => (
+                                      <div key={key} className="flex-1 min-w-0 border-r-2 border-dashed border-white relative bg-[#e7e7e8] overflow-hidden">
+                                          {theme.launcherWidgets?.[key]
+                                              ? <TokenImg value={theme.launcherWidgets[key]} className="w-full h-full object-cover grayscale" alt={`照片 ${index + 1}`} loading="lazy" />
+                                              : <div className="w-full h-full flex items-center justify-center text-[#aaa] text-xl font-light">+</div>}
+                                      </div>
+                                  ))}
+                                  <div className="w-5 bg-white flex items-center justify-center"><span className="text-[9px] tracking-[-2px] text-[#555] rotate-90">||||||</span></div>
+                              </div>
                           </button>
-                          <div className="grid grid-cols-[1.1fr_1fr] gap-3 items-start">
-                              <div className="min-w-0 aspect-[0.95] rounded-[28px] overflow-hidden bg-white/80 border border-white shadow-[0_7px_24px_rgba(0,0,0,0.07)]">
+                          <div className="grid grid-cols-[1.1fr_1fr] gap-3 items-start shrink min-h-0">
+                              <div className="min-w-0 aspect-square max-h-[min(24vh,185px)] rounded-[28px] overflow-hidden bg-white/80 border border-white shadow-[0_7px_24px_rgba(0,0,0,0.07)]">
                                   <NowPlayingSquareWidget contentColor="#252525" />
                               </div>
-                              <div className="grid grid-cols-2 gap-x-1 gap-y-5 py-1">
+                              <div className="grid grid-cols-2 gap-x-1 gap-y-2 py-1">
                                   {[AppID.Character,AppID.MemoryPalace,AppID.User,AppID.Room].map(id => {
                                       const app = INSTALLED_APPS.find(item => item.id === id);
                                       return app ? <div key={id} className="min-w-0 flex justify-center"><AppIcon app={app} onClick={() => { if (!layoutEditing) openApp(id); }} size="sm" /></div> : null;
