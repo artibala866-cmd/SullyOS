@@ -515,6 +515,8 @@ const getFireStash = (scratch: Record<string, unknown> | undefined): FireStash |
  * 取整一分钟的话，下一跳来的时候还差几秒没到期，白白多等一整跳。
  */
 const REPLY_IN_FLIGHT_DEFER_MS = 45_000;
+// 用户刚开口后的短暂保护窗：避免回复刚结束，旧定时主动消息立刻插进来重开话题。
+const RECENT_CHAT_QUIET_WINDOW_MS = 2 * 60_000;
 
 /** 两个时间戳取较新的那个；两个都没有为 null。 */
 const laterOf = (a: number | null, b: number | null): number | null =>
@@ -1892,11 +1894,18 @@ export const amsgHooks = {
     const presence = parseAmsgChatPresence(
       charRows.find((r) => r.key === AMSG_CHAT_PRESENCE_KEY)?.value,
     );
-    if (!instant && policy === 'expire' && isFreshChatPresence(presence, charId, ctx.now.getTime())) {
+    const nowMs = ctx.now.getTime();
+    const replyInFlight = isFreshChatPresence(presence, charId, nowMs);
+    const recentUserMessage = presence?.charId === charId
+      && typeof presence.lastUserMessageAt === 'number'
+      && presence.lastUserMessageAt <= nowMs + 10_000
+      && nowMs - presence.lastUserMessageAt <= RECENT_CHAT_QUIET_WINDOW_MS;
+    if (!instant && policy === 'expire' && (replyInFlight || recentUserMessage)) {
       console.log('[amsg:defer]', {
         taskId: ctx.task.id,
-        reason: 'reply-in-flight',
+        reason: replyInFlight ? 'reply-in-flight' : 'recent-chat-quiet-window',
         presenceActiveAt: presence?.activeAt,
+        lastUserMessageAt: presence?.lastUserMessageAt,
       });
       return { defer: { afterMs: REPLY_IN_FLIGHT_DEFER_MS } } as const;
     }
