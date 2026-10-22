@@ -12,7 +12,6 @@ import {
 import type { ScheduleCardAppearance } from '../../types';
 import { useOS } from '../../context/OSContext';
 import {
-    SCHEDULE_CARD_PRESETS,
     SCHEDULE_CSS_SCOPE_HINT,
     SCHEDULE_CSS_SCOPE_REGEX,
     resolveScheduleCardPalette,
@@ -21,39 +20,6 @@ import {
     runCssRenderabilityCheck,
     validateScopedCss,
 } from '../../utils/scopedCss';
-
-const CSS_TEMPLATES = [
-    {
-        name: '柔光玻璃',
-        code: `.sully-schedule-root{
-  backdrop-filter:blur(18px) saturate(1.25)!important;
-  box-shadow:0 18px 50px rgba(43,25,68,.22),inset 0 1px 0 rgba(255,255,255,.22)!important;
-}
-.sully-schedule-item-current{
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--schedule-accent) 30%,transparent)!important;
-}`,
-    },
-    {
-        name: '纸胶带',
-        code: `.sully-schedule-root{border-radius:18px!important;box-shadow:0 12px 28px rgba(86,62,42,.16)!important;}
-.sully-schedule-header::after{
-  content:"";position:absolute;top:-7px;left:50%;width:72px;height:18px;
-  transform:translateX(-50%) rotate(-2deg);background:rgba(255,244,197,.68);
-  box-shadow:0 2px 4px rgba(91,72,51,.08);
-}
-.sully-schedule-activity{font-family:"Songti SC",serif!important;letter-spacing:.04em!important;}`,
-    },
-    {
-        name: '夜光边框',
-        code: `.sully-schedule-root{
-  border:1px solid color-mix(in srgb,var(--schedule-accent) 58%,transparent)!important;
-  box-shadow:0 0 28px color-mix(in srgb,var(--schedule-accent) 24%,transparent),inset 0 0 20px rgba(255,255,255,.035)!important;
-}
-.sully-schedule-time,.sully-schedule-activity{
-  text-shadow:0 0 10px color-mix(in srgb,var(--schedule-accent) 38%,transparent)!important;
-}`,
-    },
-];
 
 const AI_PROMPT = `你是 CSS 设计师，请为 SullyOS·糯米机 的日程卡片写一段自定义 CSS。
 只能使用以 .sully-schedule-* 开头的选择器；覆盖内联样式时使用 !important。
@@ -80,10 +46,10 @@ const AI_PROMPT = `你是 CSS 设计师，请为 SullyOS·糯米机 的日程卡
 
 function defaultDraft(current?: ScheduleCardAppearance): ScheduleCardAppearance {
     return {
-        preset: current?.preset || 'original',
-        background: current?.background || '#21192b',
-        textColor: current?.textColor || '#f8f3ff',
-        accentColor: current?.accentColor || '#c9a7ff',
+        preset: 'custom',
+        background: current?.background || '#e6e7e9',
+        textColor: current?.textColor || '#303238',
+        accentColor: current?.accentColor || '#62656a',
         customCss: current?.customCss || '',
     };
 }
@@ -176,8 +142,8 @@ const ScheduleAppearanceButton: React.FC<{ compact?: boolean }> = ({ compact = f
             >
                 <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 bg-[#fbfafc]/95 backdrop-blur border-b border-slate-200/70">
                     <div>
-                        <div className="text-[10px] font-bold tracking-[.2em] uppercase text-violet-400">Schedule skin</div>
-                        <h2 className="text-base font-black mt-0.5">日程卡片美化</h2><button className="text-xs text-violet-600 mt-2" onClick={()=>{setOpen(false);requestBeautyLibrary('schedule');openApp(AppID.Appearance);}}>到外观 App 收藏与分享 ›</button>
+                        <div className="text-[10px] font-bold tracking-[.2em] uppercase text-slate-400">Schedule skin</div>
+                        <h2 className="text-base font-black mt-0.5">日程卡片美化</h2><button className="text-xs text-slate-600 mt-2" onClick={()=>{setOpen(false);requestBeautyLibrary('schedule');openApp(AppID.Appearance);}}>到外观 App 收藏与分享 ›</button>
                     </div>
                     <button
                         className="w-9 h-9 rounded-full grid place-items-center bg-slate-100 text-slate-500"
@@ -194,48 +160,15 @@ const ScheduleAppearanceButton: React.FC<{ compact?: boolean }> = ({ compact = f
                             <h3 className="text-sm font-bold">配色</h3>
                             <p className="text-[11px] text-slate-400 mt-1">桌面、房间和聊天里的日程卡会一起变化。</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-2.5">
-                            {SCHEDULE_CARD_PRESETS.map(preset => {
-                                const selected = (draft.preset || 'original') === preset.id;
-                                const palette = resolveScheduleCardPalette(
-                                    { ...draft, preset: preset.id },
-                                    theme.hue,
-                                    theme.contentColor || '#ffffff',
-                                );
-                                return (
-                                    <button
-                                        key={preset.id}
-                                        className={`relative overflow-hidden rounded-2xl p-3 text-left min-h-[82px] transition-transform active:scale-[.98] ${
-                                            selected ? 'ring-2 ring-violet-400 ring-offset-2' : ''
-                                        }`}
-                                        style={{ background: palette.background, color: palette.text }}
-                                        onClick={() => setDraft(current => ({ ...current, preset: preset.id }))}
-                                    >
-                                        <span className="block text-sm font-black" style={{ color: palette.accent }}>{preset.name}</span>
-                                        <span className="block text-[10px] mt-1 opacity-60">{preset.description}</span>
-                                        <span className="absolute right-3 bottom-3 flex gap-1">
-                                            <i className="w-3 h-3 rounded-full border border-black/10" style={{ background: palette.text }} />
-                                            <i className="w-3 h-3 rounded-full border border-black/10" style={{ background: palette.accent }} />
-                                        </span>
-                                        {selected && <Check size={15} weight="bold" className="absolute right-3 top-3" />}
-                                    </button>
-                                );
-                            })}
-                            <button
-                                className={`rounded-2xl min-h-[82px] p-3 text-left border-2 border-dashed ${
-                                    draft.preset === 'custom'
-                                        ? 'border-violet-400 bg-violet-50'
-                                        : 'border-slate-200 bg-white'
-                                }`}
-                                onClick={() => setDraft(current => ({ ...current, preset: 'custom' }))}
-                            >
-                                <span className="block text-sm font-black text-slate-700">自定义配色</span>
-                                <span className="block text-[10px] text-slate-400 mt-1">背景 · 文字 · 强调色</span>
-                            </button>
+                        <div className="rounded-2xl border border-[#d8dadd] bg-gradient-to-br from-white to-[#e8e9eb] p-4 text-[#383a3e]">
+                            <div className="text-sm font-semibold">灰白磨砂 · 默认</div>
+                            <p className="text-[11px] text-[#8b8e93] mt-1">统一低饱和样式，不提供彩色预设。</p>
                         </div>
+                        <button className="mt-3 w-full rounded-xl border border-[#d8dadd] bg-white/80 px-4 py-3 text-left text-xs font-semibold text-[#4c4f54]"
+                            onClick={() => setDraft(current => ({ ...current, preset: 'custom' }))}>自定义通道 · 配色与 CSS</button>
                     </section>
 
-                    {draft.preset === 'custom' && (
+                    {(
                         <section className="rounded-2xl border border-slate-200 bg-white p-4">
                             <div
                                 className="h-20 rounded-xl mb-4 p-3 flex flex-col justify-between"
@@ -246,9 +179,9 @@ const ScheduleAppearanceButton: React.FC<{ compact?: boolean }> = ({ compact = f
                             </div>
                             <div className="grid grid-cols-3 gap-3">
                                 {([
-                                    ['background', '背景', draft.background || '#21192b'],
-                                    ['textColor', '文字', draft.textColor || '#f8f3ff'],
-                                    ['accentColor', '强调', draft.accentColor || '#c9a7ff'],
+                                    ['background', '背景', draft.background || '#e6e7e9'],
+                                    ['textColor', '文字', draft.textColor || '#303238'],
+                                    ['accentColor', '强调', draft.accentColor || '#62656a'],
                                 ] as const).map(([key, label, value]) => (
                                     <label key={key} className="text-[11px] text-slate-500">
                                         <span className="block mb-1.5">{label}</span>
@@ -278,27 +211,10 @@ const ScheduleAppearanceButton: React.FC<{ compact?: boolean }> = ({ compact = f
                             </div>
                             <button
                                 onClick={copyPrompt}
-                                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-50 text-violet-600 text-[11px] font-bold"
+                                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 text-slate-600 text-[11px] font-bold"
                             >
                                 {copied ? <Check size={13} /> : <Copy size={13} />}
                                 {copied ? '已复制' : '复制 AI 提示词'}
-                            </button>
-                        </div>
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3">
-                            {CSS_TEMPLATES.map(template => (
-                                <button
-                                    key={template.name}
-                                    className="shrink-0 px-3 py-2 rounded-xl border border-slate-200 bg-white text-[11px] font-bold text-slate-600"
-                                    onClick={() => setDraft(current => ({ ...current, customCss: template.code }))}
-                                >
-                                    {template.name}
-                                </button>
-                            ))}
-                            <button
-                                className="shrink-0 px-3 py-2 rounded-xl border border-slate-200 bg-white text-[11px] font-bold text-slate-400"
-                                onClick={() => setDraft(current => ({ ...current, customCss: '' }))}
-                            >
-                                清空 CSS
                             </button>
                         </div>
                         <textarea
@@ -306,7 +222,7 @@ const ScheduleAppearanceButton: React.FC<{ compact?: boolean }> = ({ compact = f
                             onChange={event => setDraft(current => ({ ...current, customCss: event.target.value }))}
                             rows={11}
                             spellCheck={false}
-                            className="w-full resize-y rounded-2xl border border-slate-200 bg-[#17141d] p-4 font-mono text-[11px] leading-5 text-violet-100 outline-none focus:border-violet-400"
+                            className="w-full resize-y rounded-2xl border border-slate-200 bg-[#17141d] p-4 font-mono text-[11px] leading-5 text-slate-100 outline-none focus:border-slate-400"
                             placeholder=".sully-schedule-root {&#10;  border-radius: 20px !important;&#10;}"
                         />
                         {!validation.isValid && (
