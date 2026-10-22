@@ -181,7 +181,7 @@ const XhsStockApp: React.FC = () => {
             >
                 添加到图库
             </button>
-            </> 
+            </>}
         </div>
     );
 
