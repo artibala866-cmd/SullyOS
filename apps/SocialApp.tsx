@@ -195,6 +195,8 @@ const SocialApp: React.FC = () => {
                 return next;
             });
         }
+        if (notices.some(item => item.id === noticeId)) return;
+        if (kind === 'likes') updatePostInFeed(post.id, current => ({ ...current, likes: current.likes + 1 }));
         addNotices([{ id: noticeId, kind, actor: actor.name, avatar: actor.avatar,
             content: kind === 'likes' ? '赞了你的笔记《' + post.title + '》' : '关注了你',
             postId: kind === 'likes' ? post.id : undefined, time: Date.now(), read: false }]);
