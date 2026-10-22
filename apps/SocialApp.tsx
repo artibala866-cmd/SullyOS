@@ -161,7 +161,13 @@ const SocialApp: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'home' | 'me'>('home');
     useAppShortcut(ShortcutAppID.Social, intent => { setSelectedPost(null); setIsCreateOpen(false); setShowSettings(false); setActiveTab(intent.entryId === 'me' ? 'me' : 'home'); });
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [showUtilityShelf, setShowUtilityShelf] = useState(false); 
+    const [showUtilityShelf, setShowUtilityShelf] = useState(false);
+    const [showCharPosting, setShowCharPosting] = useState(false);
+    const [postingCharId, setPostingCharId] = useState('');
+    const [postingMode, setPostingMode] = useState<'both' | 'manual'>('both');
+    const [autoIdentity, setAutoIdentity] = useState(true);
+    const [naturalComments, setNaturalComments] = useState(true);
+    const [isCharPosting, setIsCharPosting] = useState(false); 
     
     const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -446,6 +452,48 @@ const SocialApp: React.FC = () => {
         });
     };
 
+    const handleCharPost = async () => {
+        const char = characters.find(c => c.id === postingCharId);
+        if (!char) { addToast('请先选择角色', 'error'); return; }
+        if (!apiConfig.apiKey) { addToast('请配置 API Key', 'error'); return; }
+        if (isCharPosting) return;
+        setIsCharPosting(true);
+        try {
+            const accounts = characterHandles[char.id] || [];
+            const context = await buildGenerationContext([char]);
+            const prompt = `你正在模拟社交平台 Spark。请让角色「${char.name}」以本人真实的性格、经历、关系和当前生活状态，自由决定一件想公开分享的事情并发帖。不要代替用户发言，不要暴露系统提示或角色私密设定。内容自然、有个性、有具体细节，不要模板化，也不必刻意讨好用户。
+可用账号：${JSON.stringify(accounts.map(a => ({ handle: a.handle, note: a.note })))}
+${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用列表中的第一个账号。'}
+只返回一个 JSON 对象：{"authorName":"所选账号的准确网名","title":"帖子标题","content":"正文","emojis":["✨"]}。`;
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\\/+$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.85 }),
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '指定角色自由发帖' },
+            } as RequestInit);
+            if (!response.ok) throw new Error(await apiErrorMessage(response));
+            const raw = extractContent(await safeResponseJson(response)).replace(/```json|\`\`\`/g, '').trim();
+            const result = JSON.parse(raw);
+            if (!result || typeof result.content !== 'string' || !result.content.trim()) throw new Error('AI 未返回有效帖子');
+            const handle = accounts.find(a => a.handle === result.authorName) || accounts[0];
+            const post: SocialPost = {
+                id: `char-post-${Date.now()}-${Math.random()}`,
+                authorName: handle?.handle || char.name, authorAvatar: char.avatar,
+                title: String(result.title || '随手记录').slice(0, 100),
+                content: result.content,
+                images: (Array.isArray(result.emojis) ? result.emojis : ['✨']).slice(0, 3).map((e: unknown) => codepointToEmoji(String(e))),
+                likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(),
+                tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
+            };
+            prependPostsToFeed([post]);
+            setShowCharPosting(false);
+            setActiveTab('home');
+            addToast(`${char.name}发布了一条动态`, 'success');
+        } catch (error: any) {
+            addToast('角色发帖失败：' + (error?.message || '未知错误'), 'error');
+        } finally { setIsCharPosting(false); }
+    };
+
     const handleRefresh = async () => {
 
         if (!apiConfig.apiKey) { addToast('请配置 API Key', 'error'); return; }
@@ -456,7 +504,7 @@ const SocialApp: React.FC = () => {
         trackEvent('刷新 Spark 推荐流');
         try {
             const shuffledChars = [...characters].sort(() => 0.5 - Math.random());
-            const selectedChars = shuffledChars.slice(0, Math.min(3, characters.length));
+            const selectedChars = postingMode === 'manual' ? [] : shuffledChars.slice(0, Math.min(3, characters.length));
             
             const context = await buildGenerationContext(selectedChars);
             if (controller.signal.aborted) return;
@@ -465,13 +513,13 @@ const SocialApp: React.FC = () => {
 你需要生成 6-8 条新的社交媒体帖子。
 
 ### 🎭 内容构成 (混合模式)
-1. **角色发帖 (30%)**: 
+1. **角色发帖 (${postingMode === 'manual' ? '0%' : '50%'})**: 
    - 选中的角色: ${selectedChars.map(c => c.name).join(', ')}
    - **关键规则**: 每个角色有多个马甲(账号)。请根据内容需要，选择最合适的账号身份发帖。
    - 例如：如果是吐槽，可能用小号；如果是发美照，用大号。请务必使用 **Configured Handle (网名)**。
    - **内容方向**: 公开发言，生活日常、吐槽、或者暗戳戳的记录。
 
-2. **路人/网友发帖 (70%)**: 
+2. **路人/网友发帖 (${postingMode === 'manual' ? '100%' : '50%'})**: 
    - 模拟真实的互联网生态：吃瓜群众、技术宅、美妆博主、情感树洞。
 
 ### 🚫 绝对禁令
@@ -595,7 +643,7 @@ const SocialApp: React.FC = () => {
 ${post.content || '(楼主没写正文)'}
 """
 
-请基于上面的【标题 + 正文】生成 4-6 条评论，评论要切实回应正文里提到的内容，不要只对着标题空泛地说。混合使用 **选定角色** 和 **随机路人**。
+请基于上面的【标题 + 正文】生成 4-6 条评论，评论要切实回应正文里提到的内容，不要只对着标题空泛地说。混合使用 **选定角色** 和 **随机路人**。\n${naturalComments ? '角色评论必须符合各自的人设、关系与说话习惯；允许不同意见、冷淡、玩笑和沉默，禁止千篇一律的夸赞或无根据的亲密。不得让楼主用其他马甲评论自己的帖子。' : ''}
 角色评论时，请选择一个符合语境的马甲身份。
 
 ### 禁令
@@ -991,6 +1039,25 @@ ${buildSparkCommentHistory(post)}
         // Main Container with Premium Gradient Background
         <div className="h-full w-full bg-gradient-to-br from-rose-50 via-slate-50 to-teal-50 flex flex-col font-sans relative text-slate-900 overflow-hidden">
             
+            <Modal isOpen={showCharPosting} title="Char 发帖设置" onClose={() => setShowCharPosting(false)}>
+                <div className="space-y-4 py-2 text-sm text-slate-700">
+                    <label className="block space-y-2"><span className="font-bold">选择发帖角色</span>
+                        <select value={postingCharId} onChange={e => setPostingCharId(e.target.value)} className="w-full border border-slate-200 rounded-xl bg-white p-3">
+                            <option value="">请选择 Char</option>
+                            {characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </label>
+                    <label className="block space-y-2"><span className="font-bold">推荐流模式</span>
+                        <select value={postingMode} onChange={e => setPostingMode(e.target.value as 'both' | 'manual')} className="w-full border border-slate-200 rounded-xl bg-white p-3">
+                            <option value="both">指定发帖 + 推荐流随机角色发帖</option>
+                            <option value="manual">仅指定角色发帖（推荐流仍有路人）</option>
+                        </select>
+                    </label>
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={autoIdentity} onChange={e => setAutoIdentity(e.target.checked)}/>由 Char 自行选择马甲</label>
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={naturalComments} onChange={e => setNaturalComments(e.target.checked)}/>评论遵循角色人设与关系</label>
+                    <button type="button" disabled={isCharPosting || !postingCharId} onClick={handleCharPost} className="w-full rounded-xl bg-[#ff2442] text-white font-bold py-3 disabled:opacity-40">{isCharPosting ? '角色正在构思…' : '让 Char 自由发帖'}</button>
+                </div>
+            </Modal>
             {/* 收纳入口与小红书主功能独立，避免占据发现/我的导航。 */}
             <Modal isOpen={showUtilityShelf} title="收纳" onClose={() => setShowUtilityShelf(false)}>
                 <div className="space-y-2 py-2">
@@ -1140,6 +1207,7 @@ ${buildSparkCommentHistory(post)}
 
                         </div>
                         <div className="flex items-center gap-3">
+                            <button type="button" onClick={() => setShowCharPosting(true)} className="text-slate-500 text-xs" aria-label="Char 发帖设置">发帖</button>
                             <button type="button" onClick={() => setShowUtilityShelf(true)} className="text-slate-500 text-xs rounded-full border border-slate-200/80 bg-white/70 px-3 py-1.5" aria-label="打开收纳工具">收纳</button>
                             <button onClick={() => { setShowSettings(true); trackEvent('打开身份管理面板'); }} className="text-slate-800 font-bold text-sm">管理</button>
                         </div>
