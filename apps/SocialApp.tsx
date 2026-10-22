@@ -249,7 +249,18 @@ const SocialApp: React.FC = () => {
         ? <TokenImg value={value} className={className + ' object-cover'} />
         : <span>{codepointToEmoji(value || '✨')}</span>;
 
-    // Comment Input State
+    const [sparkMemories, setSparkMemories] = useState<Record<string, string[]>>(() => {
+        try { return JSON.parse(localStorage.getItem('spark_char_memories') || '{}'); } catch { return {}; }
+    });
+    const sparkMemoriesRef = useRef(sparkMemories);
+    const remember = (charId: string | undefined, post: SocialPost, event: string) => {
+        if (!charId) return;
+        const next = { ...sparkMemoriesRef.current, [charId]: [...(sparkMemoriesRef.current[charId] || []), new Date().toLocaleDateString() + ' 《' + post.title.slice(0, 70) + '》 ' + event.slice(0, 250)].slice(-60) };
+        sparkMemoriesRef.current = next;
+        setSparkMemories(next);
+        localStorage.setItem('spark_char_memories', JSON.stringify(next));
+    };
+        // Comment Input State
     const [commentInput, setCommentInput] = useState('');
     const [isReplyingToUser, setIsReplyingToUser] = useState(false);
 
