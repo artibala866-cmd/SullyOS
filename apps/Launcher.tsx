@@ -1072,61 +1072,50 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                 style={{ contentVisibility: 'auto', contain: 'layout paint', transform: 'translateZ(0)' }}
               >
                   {idx === 0 ? (
-                      <div className="w-[90%] max-w-[380px] mx-auto h-full min-h-0 flex flex-col justify-start gap-[clamp(14px,3vh,28px)] text-[#292929] pt-[clamp(10px,2vh,24px)] pb-2 overflow-hidden">
-                          {/* Compact floating profile, with a user-editable photo cover. */}
-                          <div className="relative w-full shrink-0">
+                      <div className="w-full h-full min-h-0 flex flex-col items-center justify-start gap-[clamp(12px,2.3vh,24px)] text-[#292929] overflow-hidden pt-[clamp(8px,2vh,22px)] pb-8">
+                          <div className="relative w-full max-w-[330px] shrink-0">
                               <button type="button" onClick={() => openApp(AppID.Appearance)}
-                                  className="w-full h-[clamp(68px,10vh,105px)] rounded-t-[27px] bg-gradient-to-b from-[#c4c5c6] to-[#ededee] border border-white/70 overflow-hidden relative"
+                                  className="w-full h-[clamp(70px,11vh,110px)] rounded-t-[25px] bg-gradient-to-b from-[#b9babd] to-[#e8e8e9] border border-white/70 overflow-hidden relative"
                                   aria-label="更换角色资料背景照片">
-                                  {theme.launcherWidgets?.wide
-                                      ? <TokenImg value={theme.launcherWidgets.wide} className="w-full h-full object-cover grayscale" alt="角色资料背景照片" loading="lazy" />
+                                  {theme.launcherWidgets?.['wide']
+                                      ? <TokenImg value={theme.launcherWidgets['wide']} className="w-full h-full object-cover grayscale" alt="角色资料背景照片" loading="lazy" />
                                       : <span className="absolute inset-0 flex items-start justify-end p-3 text-[10px] text-[#666] tracking-wider">+ 添加封面照片</span>}
                               </button>
                               <button type="button" onClick={() => openApp(AppID.Chat)}
-                                  className="absolute top-[clamp(37px,5.5vh,65px)] left-1/2 -translate-x-1/2 w-[clamp(56px,8vh,76px)] h-[clamp(56px,8vh,76px)] rounded-full bg-[#eee] border-[4px] border-white shadow-[0_6px_18px_rgba(0,0,0,0.13)] overflow-hidden active:scale-95 transition-transform z-10"
+                                  className="absolute top-[clamp(40px,7vh,75px)] left-1/2 -translate-x-1/2 w-[clamp(58px,8vh,76px)] h-[clamp(58px,8vh,76px)] rounded-full bg-[#eee] border-[4px] border-white shadow-[0_6px_18px_rgba(0,0,0,0.13)] overflow-hidden active:scale-95 transition-transform z-10"
                                   aria-label="打开角色聊天">
                                   {widgetChar?.avatar
                                       ? <TokenImg value={widgetChar.avatar} className="w-full h-full object-cover" alt={widgetChar.name} loading="lazy" />
-                                      : <span className="flex items-center justify-center h-full text-2xl">♡</span>}
+                                      : <span className="flex items-center justify-center h-full text-3xl">♡</span>}
                               </button>
                               <button type="button" onClick={() => openApp(AppID.Chat)}
-                                  className="w-full rounded-b-[27px] bg-white/95 border border-white shadow-[0_9px_20px_rgba(0,0,0,0.055)] pt-[clamp(31px,4.8vh,50px)] pb-[clamp(12px,2vh,20px)] px-5 text-center active:opacity-80">
-                                  <h2 className="text-[clamp(15px,2.5vh,19px)] font-bold tracking-tight">{widgetChar?.name || 'MY CHAR'}</h2>
+                                  className="w-full rounded-b-[25px] bg-white/95 border border-white shadow-[0_9px_22px_rgba(0,0,0,0.06)] pt-[clamp(30px,5vh,50px)] pb-[clamp(11px,1.8vh,18px)] px-5 text-center active:opacity-80">
+                                  <h2 className="text-[17px] font-semibold tracking-tight">{widgetChar?.name || 'MY CHAR'}</h2>
                                   <p className="text-[10px] text-[#999] mt-1 tracking-wider">CHARACTER PROFILE</p>
                                   <p className="text-[11px] text-[#555] mt-2 leading-relaxed line-clamp-2">{widgetChar?.description || lastMessage || '点击进入聊天'}</p>
                                   {widgetUnread > 0 && <span className="inline-block mt-1 rounded-full bg-[#252525] px-2 py-0.5 text-[10px] text-white">{widgetUnread} 条未读</span>}
                               </button>
                           </div>
-                          {/* Semicircle-perforated ticket: wide notches on both edges, photos safely inset. */}
                           <button type="button" onClick={() => openApp(AppID.Appearance)}
-                              className="relative w-full h-[clamp(62px,9vh,84px)] shrink-0 bg-white shadow-[0_5px_18px_rgba(0,0,0,0.08)] active:scale-[0.99] transition-transform px-[9px] py-[11px]"
-                              style={{
-                                  WebkitMaskImage: 'radial-gradient(circle at 18px 0px, transparent 8px, black 9px), radial-gradient(circle at 18px 100%, transparent 8px, black 9px)',
-                                  maskImage: 'radial-gradient(circle at 18px 0px, transparent 8px, black 9px), radial-gradient(circle at 18px 100%, transparent 8px, black 9px)',
-                                  WebkitMaskSize: '36px 100%',
-                                  maskSize: '36px 100%',
-                                  WebkitMaskRepeat: 'repeat-x',
-                                  maskRepeat: 'repeat-x',
-                                  WebkitMaskComposite: 'source-in',
-                                  maskComposite: 'intersect'
-                              }}
+                              className="relative w-full max-w-[330px] h-[clamp(64px,9vh,82px)] shrink-0 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.07)] active:scale-[0.99] transition-transform p-[9px] overflow-hidden"
+                              style={{ WebkitMaskImage: 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20440%20100%22%20preserveAspectRatio%3D%22none%22%3E%3Crect%20width%3D%22440%22%20height%3D%22100%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%2226%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2226%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2274%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2274%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22122%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22122%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22170%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22170%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22218%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22218%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22266%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22266%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22314%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22314%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22362%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22362%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22410%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22410%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3C%2Fsvg%3E', maskImage: 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20440%20100%22%20preserveAspectRatio%3D%22none%22%3E%3Crect%20width%3D%22440%22%20height%3D%22100%22%20fill%3D%22white%22%2F%3E%3Ccircle%20cx%3D%2226%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2226%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2274%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%2274%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22122%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22122%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22170%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22170%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22218%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22218%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22266%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22266%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22314%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22314%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22362%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22362%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22410%22%20cy%3D%220%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3Ccircle%20cx%3D%22410%22%20cy%3D%22100%22%20r%3D%2211%22%20fill%3D%22black%22%2F%3E%3C%2Fsvg%3E', WebkitMaskSize: '100% 100%', maskSize: '100% 100%' }}
                               aria-label="编辑首页照片胶片">
-                              <div className="w-full h-full flex items-stretch bg-[#f0f0f0] overflow-hidden">
+                              <div className="w-full h-full flex items-stretch bg-[#f0f0f0] overflow-hidden border border-[#eee]">
                                   {(['tl','tr','wide','dsq'] as const).map((key, index) => (
                                       <div key={key} className="flex-1 min-w-0 border-r-2 border-dashed border-white relative bg-[#e7e7e8] overflow-hidden">
                                           {theme.launcherWidgets?.[key]
                                               ? <TokenImg value={theme.launcherWidgets[key]} className="w-full h-full object-cover grayscale" alt={`照片 ${index + 1}`} loading="lazy" />
-                                              : <div className="w-full h-full flex items-center justify-center text-[#aaa] text-lg font-light">+</div>}
+                                              : <div className="w-full h-full flex items-center justify-center text-[#aaa] text-xl font-light">+</div>}
                                       </div>
                                   ))}
-                                  <div className="w-5 bg-white flex items-center justify-center"><span className="text-[9px] tracking-[-2px] text-[#555] rotate-90">||||||</span></div>
+                                  <div className="w-4 bg-white flex items-center justify-center"><span className="text-[9px] tracking-[-2px] text-[#555] rotate-90">||||||</span></div>
                               </div>
                           </button>
-                          <div className="grid grid-cols-[1.1fr_1fr] gap-3 items-start shrink-0">
-                              <div className="min-w-0 aspect-square max-h-[clamp(130px,19vh,180px)] rounded-[25px] overflow-hidden bg-white/80 border border-white shadow-[0_7px_24px_rgba(0,0,0,0.07)]">
+                          <div className="w-full max-w-[330px] grid grid-cols-[1.04fr_1fr] gap-4 items-start shrink-0">
+                              <div className="min-w-0 aspect-square rounded-[23px] overflow-hidden bg-white/80 border border-white shadow-[0_5px_18px_rgba(0,0,0,0.06)]">
                                   <NowPlayingSquareWidget contentColor="#252525" />
                               </div>
-                              <div className="grid grid-cols-2 gap-x-1 gap-y-3 py-1">
+                              <div className="grid grid-cols-2 gap-x-2 gap-y-3 py-1">
                                   {[AppID.Character,AppID.MemoryPalace,AppID.User,AppID.Room].map(id => {
                                       const app = INSTALLED_APPS.find(item => item.id === id);
                                       return app ? <div key={id} className="min-w-0 flex justify-center"><AppIcon app={app} onClick={() => { if (!layoutEditing) openApp(id); }} size="sm" /></div> : null;
