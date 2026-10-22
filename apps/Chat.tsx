@@ -1739,7 +1739,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             case 'meetup': if (char) { setShowPanel('none'); openDateWithChar(char.id); } break;
             case 'proactive': setShowProactiveModal(true); break;
             case 'active-msg-2': setShowActiveMsg2Modal(true); break;
-            case 'emotion': setModalType('schedule'); break; // 情绪已并入日程，打开同一 modal
+            case 'emotion': break; // 情绪 Buff 入口已停用；日程使用独立入口
             case 'schedule': setModalType('schedule'); break;
             case 'mcd-not-configured':
                 addToast('请先到设置 → 麦当劳 启用并填入 MCP Token', 'info');
@@ -2131,12 +2131,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     const handleScheduleStyleChange = async (style: 'lifestyle' | 'mindful') => {
         if (!char) return;
-        // 与情绪/意识流强制同步：启用日程时自动启用情绪感知
-        const prevEmotion = char.emotionConfig;
-        const nextEmotion = { ...(prevEmotion || {}), enabled: true };
-        updateCharacter(char.id, { scheduleStyle: style, emotionConfig: nextEmotion });
-        // Force regenerate with new style — use updated char object
-        const updatedChar = { ...char, scheduleStyle: style, emotionConfig: nextEmotion };
+        // 日程风格独立于情绪感知，不更改角色的情绪配置。
+        updateCharacter(char.id, { scheduleStyle: style });
+        const updatedChar = { ...char, scheduleStyle: style };
         if (!isScheduleFeatureOn(updatedChar)) return;
         setIsScheduleGenerating(true);
         try {
@@ -2149,31 +2146,19 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
     };
 
-    // 日程 / 情绪 buff 总开关
-    // 关闭：清空前台 scheduleData，同时清空可能已缓存的 buff 注入（防止继续污染下一轮 prompt）
+    // 仅控制角色日程。关闭不影响角色的情绪配置或历史记录。
     // 打开：若还没生成今日日程，立即生成一次
     const handleToggleScheduleFeature = async () => {
         if (!char) return;
         const nextEnabled = !isScheduleFeatureOn(char);
         const patch: any = { scheduleFeatureEnabled: nextEnabled };
-        if (nextEnabled) {
-            // 与 handleScheduleStyleChange 对齐：开日程 = 同步开情绪/意识流。
-            // 旧逻辑下，新角色的 emotionConfig 从未初始化（undefined），
-            // 仅切总开关而不点风格时，emotionConfig?.enabled 始终落 false，
-            // 副 API 闸门 (isScheduleFeatureOn && emotionConfig?.enabled) 永远过不去。
-            patch.emotionConfig = { ...(char.emotionConfig || {}), enabled: true };
-        } else {
-            // 关闭时顺手把 buff 注入清空，避免上一轮残留继续注入
-            patch.buffInjection = '';
-            patch.activeBuffs = [];
-        }
         updateCharacter(char.id, patch);
         if (!nextEnabled) {
             setScheduleData(null);
-            addToast('日程与情绪已关闭', 'info');
+            addToast('日程已关闭', 'info');
             return;
         }
-        addToast('日程与情绪已开启', 'success');
+        addToast('日程已开启', 'success');
         // 打开后立刻尝试生成（若今日未生成且已选风格）
         const updatedChar = { ...char, ...patch };
         if (updatedChar.scheduleStyle) {
@@ -4481,7 +4466,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 onClose={()=>setModalType('none')}
             />}
 
-            {/* 情绪设置已嵌入日程 Modal（与日程强制同步开/关），不再单独渲染 */}
+            {/* 日程与情绪配置独立；不再从日程开关启用情绪 Buff。 */}
 
             {/* 🍔 麦当劳小程序 - MCP 数据流按钮驱动, 协同聊天走主 pipeline (完整人设/记忆/日程) */}
             {memoryRepairOpen && char && (
