@@ -40,10 +40,7 @@ const ScheduleApp = lazyApp(() => import('../apps/ScheduleApp'));
 const RoomApp = lazyApp(() => import('../apps/RoomApp'));
 const SocialApp = lazyApp(() => import('../apps/SocialApp'));
 const StudyApp = lazyApp(() => import('../apps/StudyApp'));
-const FAQApp = lazyApp(() => import('../apps/FAQApp'));
-const GameApp = lazyApp(() => import('../apps/GameApp'));
 const WorldbookApp = lazyApp(() => import('../apps/WorldbookApp'));
-const NovelApp = lazyApp(() => import('../apps/NovelApp'));
 const XhsStockApp = lazyApp(() => import('../apps/XhsStockApp'));
 const XhsFreeRoamApp = lazyApp(() => import('../apps/XhsFreeRoamApp'));
 const BrowserApp = lazyApp(() => import('../apps/BrowserApp'));
@@ -64,8 +61,8 @@ const CharCreatorDevApp = lazyApp(() => import('../apps/CharCreatorDevApp'));
 const APP_IDLE_PRELOAD_ORDER: PreloadableLazy[] = [
   Chat, Character, Settings, Appearance, GroupChat, RoomApp,
   JournalApp, ScheduleApp, SocialApp, MusicApp, CallApp, Gallery, DateApp, UserApp,
-  StudyApp, GameApp, NovelApp, WorldbookApp, MemoryPalaceApp, HandbookApp,
-  WorldHomeApp, SongwritingApp, GuidebookApp, FAQApp, HotNewsApp,
+  StudyApp, WorldbookApp, MemoryPalaceApp, HandbookApp,
+  WorldHomeApp, SongwritingApp, GuidebookApp, HotNewsApp,
   XhsStockApp, XhsFreeRoamApp, BrowserApp, VoiceDesignerApp, ThemeMaker, QQBridge,
   CharCreatorDevApp,
 ];
@@ -82,8 +79,8 @@ const APP_BY_ID: Partial<Record<AppID, PreloadableLazy>> = {
   [AppID.Gallery]: Gallery, [AppID.Date]: DateApp, [AppID.User]: UserApp,
   [AppID.Journal]: JournalApp, [AppID.Schedule]: ScheduleApp, [AppID.Room]: RoomApp,
   [AppID.Social]: SocialApp, [AppID.Study]: StudyApp,
-  [AppID.FAQ]: FAQApp, [AppID.Game]: GameApp, [AppID.Worldbook]: WorldbookApp,
-  [AppID.Novel]: NovelApp, [AppID.XhsStock]: XhsStockApp,
+  [AppID.Worldbook]: WorldbookApp,
+  [AppID.XhsStock]: XhsStockApp,
   [AppID.XhsFreeRoam]: XhsFreeRoamApp, [AppID.Browser]: BrowserApp, [AppID.Songwriting]: SongwritingApp,
   [AppID.Music]: MusicApp, [AppID.Call]: CallApp, [AppID.VoiceDesigner]: VoiceDesignerApp,
   [AppID.Guidebook]: GuidebookApp, [AppID.MemoryPalace]: MemoryPalaceApp,
@@ -943,10 +940,7 @@ const PhoneShell: React.FC = () => {
       case AppID.Room: return <RoomApp />; 
       case AppID.Social: return <SocialApp />;
       case AppID.Study: return <StudyApp />; 
-      case AppID.FAQ: return <FAQApp />; 
-      case AppID.Game: return <GameApp />; 
       case AppID.Worldbook: return <WorldbookApp />;
-      case AppID.Novel: return <NovelApp />; 
       case AppID.XhsStock: return <XhsStockApp />;
       case AppID.XhsFreeRoam: return <XhsFreeRoamApp />;
       case AppID.Browser: return <BrowserApp />;
