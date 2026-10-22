@@ -205,6 +205,21 @@ const SocialApp: React.FC = () => {
     const [dmThreads, setDmThreads] = useState<Record<string, SparkDM[]>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_dm_threads') || '{}'); } catch { return {}; }
     });
+    const [npcPersonas, setNpcPersonas] = useState<Record<string, string>>(() => {
+        try { return JSON.parse(localStorage.getItem('spark_npc_personas') || '{}'); } catch { return {}; }
+    });
+    const [dmUnread, setDmUnread] = useState<Record<string, number>>(() => {
+        try { return JSON.parse(localStorage.getItem('spark_dm_unread') || '{}'); } catch { return {}; }
+    });
+    const [dmFilter, setDmFilter] = useState<'all' | 'following' | 'strangers'>('all');
+    const openSparkDM = (account: { handle: string; avatar: string }) => {
+        setDmTarget(account);
+        setDmUnread(prev => {
+            const next = { ...prev, [account.handle]: 0 };
+            localStorage.setItem('spark_dm_unread', JSON.stringify(next));
+            return next;
+        });
+    };
     const [dmTarget, setDmTarget] = useState<{ handle: string; avatar: string } | null>(null);
     const [dmInput, setDmInput] = useState('');
     const [dmBusy, setDmBusy] = useState(false);
@@ -225,7 +240,7 @@ const SocialApp: React.FC = () => {
             const authorPosts = feedRef.current.filter(post => post.authorName === target.handle).sort((a, b) => a.timestamp - b.timestamp);
             const firstPost = authorPosts[0];
             const owner = characters.find(char => (characterHandles[char.id] || []).some(account => account.handle === target.handle));
-            const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场，不要变成客服，也不要知道其他人的私聊或隐藏身份。';
+            const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。你的稳定人物设定：' + (npcPersonas[target.handle] || '根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场') + '。不要变成客服，也不要知道其他人的私聊或隐藏身份。';
             const prompt = identity + '\n当前聊天账号：' + target.handle + '\n这个账号最早的帖子（性格与经历线索）：' + (firstPost ? firstPost.title + '\n' + firstPost.content : '暂无公开帖子') + '\n只扮演此账号本人，回复最后一条私信；简短自然，不要解释设定，不要总以句号结尾。';
             const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
                 method: 'POST',
@@ -1144,7 +1159,7 @@ ${buildSparkCommentHistory(post)}
 标题：${post.title}
 内容：${post.content}
 当前粉丝数约：${followers}。
-请生成 ${count} 位不同的陌生网友主动发来的第一条私信，真实中文互联网口吻。类型多样：正常交流、求教程、交朋友、合作邀约、好奇、社恐试探、莫名其妙的搭话、误会、阴阳怪气、无厘头怪事等。粉丝多时允许出现更多奇怪的邀约和冒失搭话，但不要每个人都奇怪；要根据帖子内容决定具体说什么。每个网友要有不同性格，消息长短不一，不要机械句号、套话或重复。禁止假冒现实机构、索要隐私或诱导转账。只输出 JSON 数组，每项格式 {"name":"独特网名","message":"私信内容"}。网名不能与 ${socialProfile.name} 相同。`;
+请生成 ${count} 位不同的陌生网友主动发来的第一条私信，真实中文互联网口吻。类型多样：正常交流、求教程、交朋友、合作邀约、好奇、社恐试探、莫名其妙的搭话、误会、阴阳怪气、无厘头怪事等。粉丝多时允许出现更多奇怪的邀约和冒失搭话，但不要每个人都奇怪；要根据帖子内容决定具体说什么。每个网友要有不同性格，消息长短不一，不要机械句号、套话或重复。禁止假冒现实机构、索要隐私或诱导转账。只输出 JSON 数组，每项格式 {"name":"独特网名","persona":"固定性格、兴趣、说话风格与搭话动机","message":"私信内容"}。网名不能与 ${socialProfile.name} 相同。`;
             const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
@@ -1155,6 +1170,8 @@ ${buildSparkCommentHistory(post)}
             const data = await safeResponseJson(response);
             const parsed = safeParseJSON(extractContent(data));
             if (!Array.isArray(parsed)) return;
+            const newPersonas: Record<string, string> = {};
+            const newUnread: Record<string, number> = {};
             setDmThreads(prev => {
                 const next = { ...prev };
                 const used = new Set(Object.keys(next));
@@ -1164,10 +1181,14 @@ ${buildSparkCommentHistory(post)}
                     if (!name || !message || name === socialProfile.name || used.has(name)) continue;
                     used.add(name);
                     next[name] = [{ role: 'assistant', content: message, time: Date.now() }];
+                    newPersonas[name] = String(entry?.persona || '因看到用户的笔记《' + post.title + '》主动搭话，言谈风格：' + message).slice(0, 500);
+                    newUnread[name] = 1;
                 }
                 localStorage.setItem('spark_dm_threads', JSON.stringify(next));
                 return next;
             });
+            setNpcPersonas(prev => { const next = { ...prev, ...newPersonas }; localStorage.setItem('spark_npc_personas', JSON.stringify(next)); return next; });
+            setDmUnread(prev => { const next = { ...prev, ...newUnread }; localStorage.setItem('spark_dm_unread', JSON.stringify(next)); return next; });
         } catch (error) { console.warn('Spark incoming DM generation failed', error); }
     };
 
