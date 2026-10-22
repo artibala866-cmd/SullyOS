@@ -1,0 +1,28 @@
+name: Build downloadable HTML preview
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+  workflow_dispatch:
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm run build
+      - name: Upload HTML preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: sullyos-html-preview
+          path: dist/
+          if-no-files-found: error
