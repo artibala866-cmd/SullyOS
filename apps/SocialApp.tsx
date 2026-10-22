@@ -227,7 +227,7 @@ const SocialApp: React.FC = () => {
             const owner = characters.find(char => (characterHandles[char.id] || []).some(account => account.handle === target.handle));
             const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场，不要变成客服，也不要知道其他人的私聊或隐藏身份。';
             const prompt = identity + '\n当前聊天账号：' + target.handle + '\n这个账号最早的帖子（性格与经历线索）：' + (firstPost ? firstPost.title + '\n' + firstPost.content : '暂无公开帖子') + '\n只扮演此账号本人，回复最后一条私信；简短自然，不要解释设定，不要总以句号结尾。';
-            const response = await fetch(apiConfig.baseUrl.replace(/\\/+$/, '') + '/chat/completions', {
+            const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiConfig.apiKey },
                 body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'system', content: prompt }, ...history.slice(-20).map(item => ({ role: item.role, content: item.content }))], temperature: 0.9 }),
