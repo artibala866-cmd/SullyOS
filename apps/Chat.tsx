@@ -1,3 +1,4 @@
+import { readLifeClock, writeLifeClock } from '../utils/sullyLifeClock';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
 import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellation';
@@ -145,6 +146,15 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const osTheme = useMemo(()=>homePhone?homePhoneAppearance(baseOsTheme):resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId,!!homePhone]);
     const isProactiveComposing = !!(activeCharacterId && proactiveComposingChars[activeCharacterId]);
     const localDateKey = useLocalDateKey();
+    const [lifeMode, setLifeMode] = useState(() => readLifeClock().mode);
+    const [lifePacing, setLifePacing] = useState(() => localStorage.getItem('sully_life_pacing') !== 'off');
+    const toggleLifeMode = () => {
+        const previous = readLifeClock();
+        const mode = previous.mode === 'real' ? 'virtual' : 'real';
+        writeLifeClock({ mode, virtualTime: mode === 'virtual' ? Date.now() : previous.virtualTime });
+        setLifeMode(mode);
+    };
+
 
     // 记忆宫殿高水位（用于清空聊天时的安全检查）
     const getMemoryPalaceHWM = useCallback(async (charId: string): Promise<number> => {
@@ -3455,7 +3465,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const handleSendCallback = useCallback(() => handleSendText(), [char, input, replyTarget, inputPreferences]);
     const handleCharSelectCallback = useCallback((id: string) => { setActiveCharacterId(id); setShowPanel('none'); }, []);
     const autoReply = useChatAutoReply({
-        enabled: inputPreferences.autoReply,
+        enabled: inputPreferences.autoReply || lifePacing,
+        naturalPacing: lifePacing,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
         blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
@@ -3465,6 +3476,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         generating: isTyping || instantChatPending || isProactiveComposing,
         onGenerate: handleManualTrigger,
     });
+    // One-tap life pacing; the shared clock keeps memories unchanged.
     // 角色自定义聊天背景：字段值可能是 blobref 令牌（二进制在 IndexedDB），这里解析成能直接
     // 喂进 CSS url() 的地址；data: / http(s) 之类的非令牌值渲染期原样透传。
     // hook 必须在下面的空态早退之前调用，所以用可选链读 char。
@@ -4051,6 +4063,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 );
             })()}
 
+            <div className="flex items-center justify-center gap-2 py-1 bg-white/60 text-[10px] text-slate-500">
+                <button type="button" onClick={() => { const next = !lifePacing; setLifePacing(next); localStorage.setItem('sully_life_pacing', next ? 'on' : 'off'); }} className="rounded-full px-2 py-1 bg-slate-100">{lifePacing ? '真人感 · 开' : '真人感 · 关'}</button>
+                <button type="button" onClick={toggleLifeMode} className="rounded-full px-2 py-1 bg-slate-100">{lifeMode === 'real' ? '现实时间' : '虚拟时间'}</button>
+                {lifeMode === 'virtual' && <button type="button" onClick={() => { const state = readLifeClock(); writeLifeClock({ ...state, virtualTime: state.virtualTime + 60 * 60 * 1000 }); }} className="rounded-full px-2 py-1 bg-slate-100">剧情 +1小时</button>}
+            </div>
             <div ref={scrollRef} onScroll={handleChatScroll} onClick={() => { if (inputPreferences.autoReply) setShowPanel('none'); }} className="flex-1 overflow-y-auto overflow-x-hidden pt-6 pb-6 no-scrollbar" style={{ backgroundImage: activeTheme.type === 'custom' && activeTheme.user.backgroundImage ? 'none' : undefined }}>
                 {windowedFocusMsgId !== null && (
                     <div className="sticky top-0 z-20 flex justify-center pb-2 pointer-events-none">
