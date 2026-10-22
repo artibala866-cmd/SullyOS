@@ -206,7 +206,7 @@ const SocialApp: React.FC = () => {
         } catch { return []; }
     });
     // Modes: 'home' (Feed) | 'me' (Profile) | 'create' (Modal Overlay)
-    const [activeTab, setActiveTab] = useState<'home' | 'me'>('home');
+    const [activeTab, setActiveTab] = useState<'home' | 'me' | 'market' | 'messages'>('home');
     useAppShortcut(ShortcutAppID.Social, intent => { setSelectedPost(null); setIsCreateOpen(false); setShowSettings(false); setActiveTab(intent.entryId === 'me' ? 'me' : 'home'); });
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [showUtilityShelf, setShowUtilityShelf] = useState(false);
@@ -1034,18 +1034,12 @@ ${buildSparkCommentHistory(post)}
     };
 
     const renderFeedItem = (post: SocialPost) => (
-        <div key={post.id} onClick={() => handleOpenPost(post)} className="min-w-0 bg-white/70 backdrop-blur-md rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all cursor-pointer active:scale-[0.98] border border-white/50 relative group">
+        <div key={post.id} onClick={() => handleOpenPost(post)} className="break-inside-avoid mb-3 min-w-0 bg-white rounded-xl overflow-hidden shadow-sm cursor-pointer active:scale-[0.98] relative group">
             <div className="aspect-[4/5] w-full flex items-center justify-center relative overflow-hidden" style={{ background: post.bgStyle }}>
-                {/* Decorative Overlay for "Premium" look */}
-                <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px]"></div>
-                <div className="relative z-10 w-full h-full flex items-center justify-center text-6xl drop-shadow-xl">{postVisual(post.images[0], 'w-full h-full')}</div>
-                {post.title && (
-                    <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/50 via-black/20 to-transparent">
-                        <h3 className="text-white font-bold text-sm line-clamp-2 drop-shadow-md leading-tight">{post.title}</h3>
-                    </div>
-                )}
+                <div className="relative w-full h-full flex items-center justify-center text-5xl">{postVisual(post.images[0], 'w-full h-full')}</div>
             </div>
-            <div className="p-3">
+            <div className="px-2.5 pt-2 pb-3">
+                <h3 className="text-sm font-semibold text-slate-800 leading-snug line-clamp-2 mb-2">{post.title}</h3>
                 <div className="flex justify-between items-center gap-2">
                     <div className="flex flex-1 items-center gap-2 min-w-0">
                         <TokenImg value={post.authorAvatar} className="w-5 h-5 rounded-full object-cover shrink-0 ring-1 ring-white/50" />
@@ -1411,15 +1405,16 @@ ${buildSparkCommentHistory(post)}
                 <div className="sticky top-0 z-30 bg-white/60 backdrop-blur-xl border-b border-white/20" style={{ paddingTop: 'var(--safe-top)' }}>
                     <div className="h-11 flex items-center justify-between px-4">
                         <button onClick={closeApp} className="p-1"><Icons.Back onClick={closeApp} /></button>
-                        <div className="flex gap-6 text-base font-bold text-slate-300">
-                            <button className={`${activeTab === 'home' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('home'); trackEvent('切换 Spark 主标签', { tab: 'home' }); }}>发现</button>
-                            <button className={`${activeTab === 'me' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('me'); trackEvent('切换 Spark 主标签', { tab: 'me' }); }}>我的</button>
-
+                        <div className="flex items-center gap-4 text-sm font-bold min-w-0">
+                            <button type="button" onClick={() => { setActiveTab('home'); setFeedTab('following'); }} className={`flex items-center gap-1 ${activeTab === 'home' && feedTab === 'following' ? 'text-slate-900' : 'text-slate-400'}`}>
+                                {(() => { const latest = feed.find(p => p.authorType === 'character' && followedHandles.includes(p.authorName)); return latest ? <TokenImg value={latest.authorAvatar} className="w-6 h-6 rounded-full object-cover" /> : null; })()}
+                                关注
+                            </button>
+                            <button type="button" onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`relative ${activeTab === 'home' && feedTab === 'discover' ? 'text-slate-900' : 'text-slate-400'}`}>发现{activeTab === 'home' && feedTab === 'discover' && <span className="absolute -bottom-2 left-1 right-1 h-0.5 bg-[#ff2442] rounded-full" />}</button>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <button type="button" onClick={() => setShowCharPosting(true)} className="text-slate-500 text-xs" aria-label="Char 发帖设置">发帖</button>
-                            <button type="button" onClick={() => setShowUtilityShelf(true)} className="text-slate-500 text-xs rounded-full border border-slate-200/80 bg-white/70 px-3 py-1.5" aria-label="打开收纳工具">收纳</button>
-                            <button onClick={() => { setShowSettings(true); trackEvent('打开身份管理面板'); }} className="text-slate-800 font-bold text-sm">管理</button>
+                        <div className="flex items-center gap-3 text-xs shrink-0">
+                            <button type="button" onClick={() => setShowUtilityShelf(true)} className="text-slate-500">收纳</button>
+                            <button type="button" onClick={() => setShowSettings(true)} className="text-slate-700 font-bold">设置</button>
                         </div>
                     </div>
                 </div>
@@ -1429,12 +1424,6 @@ ${buildSparkCommentHistory(post)}
                     
                     {activeTab === 'home' && (
                         <div className="p-2 min-h-full">
-                            <div className="flex justify-center gap-2 py-2">
-                                <button type="button" onClick={() => setFeedTab('discover')}
-                                    className={`px-5 py-2 rounded-full text-xs font-bold ${feedTab === 'discover' ? 'bg-[#ff2442] text-white' : 'bg-white text-slate-500'}`}>发现</button>
-                                <button type="button" onClick={() => setFeedTab('following')}
-                                    className={`px-5 py-2 rounded-full text-xs font-bold ${feedTab === 'following' ? 'bg-[#ff2442] text-white' : 'bg-white text-slate-500'}`}>关注</button>
-                            </div>
                             {/* Refresh Button - Above Posts */}
                             <div className="flex items-center justify-center py-3">
                                 {isRefreshing ? (
@@ -1448,12 +1437,13 @@ ${buildSparkCommentHistory(post)}
                                 )}
                             </div>
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
-                            <div className="grid grid-cols-2 items-start gap-x-2 gap-y-3 pb-24">
+                            <div className="columns-2 gap-2 pb-24">
                                 {feed.filter(post => feedTab === 'discover' || followedHandles.includes(post.authorName)).map(post => renderFeedItem(post))}
                             </div>
                         </div>
                     )}
 
+                    {(activeTab === 'market' || activeTab === 'messages') && <div className="min-h-full flex items-center justify-center text-sm text-slate-400">{activeTab === 'market' ? '集市' : '消息'} · 待完善</div>}
                     {activeTab === 'me' && (
                         <div className="min-h-full bg-white/80 backdrop-blur-xl animate-fade-in">
                             {/* Profile Header (Enhanced) */}
@@ -1570,15 +1560,12 @@ ${buildSparkCommentHistory(post)}
                     )}
                 </div>
 
-                {/* Bottom Navigation - Floating Glass Island (Only shown when not creating) */}
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] h-16 bg-white/80 backdrop-blur-2xl rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 flex items-center justify-around z-40">
-                    <button onClick={() => { setActiveTab('home'); trackEvent('切换 Spark 主标签', { tab: 'home' }); }} className={`text-sm font-medium flex flex-col items-center justify-center gap-0.5 transition-all w-12 h-12 rounded-full ${activeTab === 'home' ? 'text-slate-900 bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                        <House size={24} weight={activeTab === 'home' ? 'fill' : 'regular'} />
-                    </button>
-                    <button onClick={() => { setIsCreateOpen(true); trackEvent('打开发布笔记面板'); }} className="w-12 h-12 bg-[#ff2442] text-white rounded-full flex items-center justify-center shadow-lg shadow-red-200 active:scale-95 transition-transform text-2xl font-light -mt-6 border-4 border-white/50">+</button>
-                    <button onClick={() => { setActiveTab('me'); trackEvent('切换 Spark 主标签', { tab: 'me' }); }} className={`text-sm font-medium flex flex-col items-center justify-center gap-0.5 transition-all w-12 h-12 rounded-full ${activeTab === 'me' ? 'text-slate-900 bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                        <User size={24} />
-                    </button>
+                <div className="absolute bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-100 flex items-center justify-around h-16" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+                    <button onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`text-sm ${activeTab === 'home' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>首页</button>
+                    <button onClick={() => setActiveTab('market')} className={`text-sm ${activeTab === 'market' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>集市</button>
+                    <button onClick={() => setIsCreateOpen(true)} aria-label="发布笔记" className="w-14 h-12 bg-[#ff2442] rounded-xl text-white text-4xl leading-none">+</button>
+                    <button onClick={() => setActiveTab('messages')} className={`text-sm ${activeTab === 'messages' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>消息</button>
+                    <button onClick={() => setActiveTab('me')} className={`text-sm ${activeTab === 'me' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>我</button>
                 </div>
             </div>
 
