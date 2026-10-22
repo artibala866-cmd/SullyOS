@@ -119,6 +119,28 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     const sendButtonRef = useRef<HTMLButtonElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
+    // Android 收起软键盘可能不触发 blur；仅在确实观察到视口先缩小后恢复时解除焦点。
+    useEffect(() => {
+        if (!canEndEditing || !isInputFocused || !window.visualViewport) return;
+        const viewport = window.visualViewport;
+        const fullHeight = Math.max(document.documentElement.clientHeight, window.innerHeight);
+        let keyboardSeen = fullHeight - viewport.height - viewport.offsetTop > 140;
+        const onResize = () => {
+            const covered = fullHeight - viewport.height - viewport.offsetTop > 140;
+            if (covered) keyboardSeen = true;
+            else if (keyboardSeen && document.activeElement === textareaRef.current) {
+                keyboardSeen = false;
+                textareaRef.current?.blur();
+            }
+        };
+        viewport.addEventListener('resize', onResize);
+        viewport.addEventListener('scroll', onResize);
+        return () => {
+            viewport.removeEventListener('resize', onResize);
+            viewport.removeEventListener('scroll', onResize);
+        };
+    }, [canEndEditing, isInputFocused]);
+
     const [isComposing, setIsComposing] = useState(false);
     const [dismissedSuggestionInput, setDismissedSuggestionInput] = useState<string | null>(null);
     const suggestedEmojis = useMemo(() => emojiSuggestionsEnabled && !isComposing && !selectionMode
