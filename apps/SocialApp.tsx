@@ -472,7 +472,7 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '指定角色自由发帖' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
-            const raw = extractContent(await safeResponseJson(response)).replace(/```json|\`\`\`/g, '').trim();
+            const raw = extractContent(await safeResponseJson(response)).replace(/```json|```/g, '').trim();
             const result = JSON.parse(raw);
             if (!result || typeof result.content !== 'string' || !result.content.trim()) throw new Error('AI 未返回有效帖子');
             const handle = accounts.find(a => a.handle === result.authorName) || accounts[0];
