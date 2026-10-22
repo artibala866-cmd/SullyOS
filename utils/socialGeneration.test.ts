@@ -31,6 +31,19 @@ describe('Spark persona and conversation context', () => {
         expect(aBlock).not.toContain(b.systemPrompt);
     });
 
+    it('keeps Spark interaction memories inside the matching character profile', async () => {
+        const context = await buildSparkGenerationContext([a, b], user, social, handles, {}, {
+            'a-id': ['阿青只记得自己的笔记收到一条评论'],
+            'b-id': ['Sully只记得自己分享过一篇笔记'],
+        });
+        const aBlock = context.slice(context.indexOf('<<< 角色档案 charId="a-id"'), context.indexOf('<<< 角色档案结束 charId="a-id"'));
+        const bBlock = context.slice(context.indexOf('<<< 角色档案 charId="b-id"'), context.indexOf('<<< 角色档案结束 charId="b-id"'));
+        expect(aBlock).toContain('阿青只记得自己的笔记收到一条评论');
+        expect(aBlock).not.toContain('Sully只记得自己分享过一篇笔记');
+        expect(bBlock).toContain('Sully只记得自己分享过一篇笔记');
+        expect(bBlock).not.toContain('阿青只记得自己的笔记收到一条评论');
+    });
+
     it('keeps the post author and recent interlocutors ahead of random candidates', () => {
         const post = { authorName: '小花园', authorType: 'character', authorCharId: 'a-id', comments: [
             { authorName: 'SullyDev', authorCharId: 'b-id', authorType: 'character', content: '你指的是周六那次吗？' },
