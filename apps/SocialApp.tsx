@@ -158,6 +158,8 @@ const SocialApp: React.FC = () => {
     const { closeApp, openApp, characters, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
     const [feed, setFeed] = useState<SocialPost[]>([]);
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
+    const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
+    const [namingCharId, setNamingCharId] = useState<string | null>(null);
     const [followedHandles, setFollowedHandles] = useState<string[]>(() => {
         try {
             const saved = JSON.parse(localStorage.getItem('spark_followed_handles') || '[]');
@@ -347,6 +349,36 @@ const SocialApp: React.FC = () => {
     }, [selectedPost?.comments.length]);
 
     // --- Helpers ---
+
+    const suggestAccountNames = async (charId: string) => {
+        const char = characters.find(c => c.id === charId);
+        if (!char || !apiConfig.apiKey || namingCharId) { if (!apiConfig.apiKey) addToast('请配置 API Key', 'error'); return; }
+        setNamingCharId(charId);
+        try {
+            const context = await buildGenerationContext([char]);
+            const accounts = characterHandles[charId] || [];
+            const prompt = `请严格根据角色核心人设、社会身份、爱好和公开形象，给角色「${char.name}」设计真实社交平台网名。大号不一定是本名；小号要体现不同使用目的，但不能泄露私密身份。已有账号：${JSON.stringify(accounts)}。只输出 JSON 数组，每项 {"id":"已有账号id","handle":"独特网名"}，每个账号一项，不能重复、不能与用户网名相同。`;
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.8 }),
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '角色自拟账号昵称' },
+            } as RequestInit);
+            if (!response.ok) throw new Error(await apiErrorMessage(response));
+            const items = safeParseJSON(extractContent(await safeResponseJson(response)));
+            if (!Array.isArray(items)) throw new Error('返回格式不正确');
+            const used = new Set([socialProfile.name.trim().toLowerCase()]);
+            const suggestions = new Map<string, string>();
+            for (const item of items) {
+                const name = typeof item?.handle === 'string' ? item.handle.trim().slice(0, 30) : '';
+                if (!accounts.some(a => a.id === item?.id) || !name || used.has(name.toLowerCase())) continue;
+                suggestions.set(item.id, name); used.add(name.toLowerCase());
+            }
+            if (!suggestions.size) throw new Error('没有有效的网名');
+            setCharacterHandles(prev => ({ ...prev, [charId]: (prev[charId] || []).map(a => suggestions.has(a.id) ? { ...a, handle: suggestions.get(a.id)! } : a) }));
+            addToast('已根据角色人设生成昵称', 'success');
+        } catch (e: any) { addToast('生成昵称失败：' + e.message, 'error'); }
+        finally { setNamingCharId(null); }
+    };
 
     const addSubAccount = (charId: string) => {
         const newAcct: SubAccount = {
@@ -918,6 +950,12 @@ ${buildSparkCommentHistory(post)}
     // --- Renderers ---
 
     // 1. Feed Item (Glassmorphism)
+    const accountPosts = (handle: string) => feed.filter(p => p.authorName === handle);
+    const accountFollowerCount = (handle: string, isMain: boolean) => {
+        const seed = Array.from(handle).reduce((sum, c) => (sum * 31 + c.charCodeAt(0)) >>> 0, 7);
+        return isMain ? 120 + seed % 18000 : 3 + seed % 1800;
+    };
+
     const renderFeedItem = (post: SocialPost) => (
         <div key={post.id} onClick={() => handleOpenPost(post)} className="min-w-0 bg-white/70 backdrop-blur-md rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all cursor-pointer active:scale-[0.98] border border-white/50 relative group">
             <div className="aspect-[4/5] w-full flex items-center justify-center relative overflow-hidden" style={{ background: post.bgStyle }}>
@@ -966,8 +1004,10 @@ ${buildSparkCommentHistory(post)}
                     <div className="flex items-center justify-between px-4 bg-white/60 backdrop-blur-xl border-b border-white/20 shrink-0 relative z-20" style={{ paddingTop: 'max(12px, var(--safe-top))', paddingBottom: '12px' }}>
                         <button onClick={handleClosePost} className="p-2 -m-2 active:opacity-60"><Icons.Back /></button>
                         <div className="flex items-center gap-2">
-                            <TokenImg value={selectedPost.authorAvatar} className="w-8 h-8 rounded-full object-cover border border-white/50" />
-                            <span className="text-sm font-bold text-slate-800">{selectedPost.authorName}</span>
+                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar })} aria-label="查看作者主页">
+                                <TokenImg value={selectedPost.authorAvatar} className="w-8 h-8 rounded-full object-cover border border-white/50" />
+                            </button>
+                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar })} className="text-sm font-bold text-slate-800">{selectedPost.authorName}</button>
                             {selectedPost.authorType !== 'user' && (
                                 <button type="button" onClick={() => toggleFollow(selectedPost.authorName)}
                                     className="ml-auto rounded-full border border-[#ff2442]/30 px-3 py-1 text-xs font-bold text-[#ff2442]">
@@ -1061,6 +1101,40 @@ ${buildSparkCommentHistory(post)}
         // Main Container with Premium Gradient Background
         <div className="h-full w-full bg-gradient-to-br from-rose-50 via-slate-50 to-teal-50 flex flex-col font-sans relative text-slate-900 overflow-hidden">
             
+            {viewedAccount && (() => {
+                const posts = accountPosts(viewedAccount.handle);
+                const owner = characters.find(c => (characterHandles[c.id] || []).some(a => a.handle === viewedAccount.handle));
+                const account = owner && (characterHandles[owner.id] || []).find(a => a.handle === viewedAccount.handle);
+                const isMain = account?.id === 'default' || account?.note === '主账号';
+                return <div className="absolute inset-0 z-[80] flex flex-col bg-white" style={{ paddingTop: 'max(12px, var(--safe-top))' }}>
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+                        <button onClick={() => setViewedAccount(null)} className="text-xl px-2" aria-label="返回">‹</button>
+                        <span className="font-bold truncate">{viewedAccount.handle}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 pb-24">
+                        <div className="flex items-center gap-4">
+                            <TokenImg value={viewedAccount.avatar} className="w-16 h-16 rounded-full object-cover" />
+                            <div className="min-w-0"><h2 className="text-xl font-bold break-words">{viewedAccount.handle}</h2>
+                                <p className="text-xs text-slate-400">Spark 账号</p></div>
+                        </div>
+                        <div className="flex gap-7 text-xs text-slate-500 my-5">
+                            <span><strong className="text-slate-800">{posts.length}</strong> 笔记</span>
+                            <span><strong className="text-slate-800">{accountFollowerCount(viewedAccount.handle, !!isMain)}</strong> 粉丝</span>
+                        </div>
+                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#ff2442] text-white font-bold py-2 mb-5">
+                            {followedHandles.includes(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
+                        </button>}
+                        <p className="font-bold text-sm border-b pb-3 mb-3">TA 的笔记</p>
+                        <div className="grid grid-cols-2 gap-3">
+                            {posts.map(post => <button type="button" key={post.id} onClick={() => { setViewedAccount(null); handleOpenPost(post); }} className="text-left rounded-xl border border-slate-100 overflow-hidden">
+                                <div className="aspect-[4/5] flex items-center justify-center text-5xl" style={{ background: post.bgStyle }}>{codepointToEmoji(post.images[0])}</div>
+                                <div className="p-2 text-xs font-bold line-clamp-2">{post.title}</div>
+                            </button>)}
+                        </div>
+                        {!posts.length && <p className="text-center text-xs text-slate-400 py-12">这个账号还没有发布笔记</p>}
+                    </div>
+                </div>;
+            })()}
             <Modal isOpen={showCharPosting} title="Char 发帖设置" onClose={() => setShowCharPosting(false)}>
                 <div className="space-y-4 py-2 text-sm text-slate-700">
                     <div className="space-y-2">
@@ -1105,6 +1179,7 @@ ${buildSparkCommentHistory(post)}
                                 <div className="flex items-center gap-2">
                                     <TokenImg value={c.avatar} className="w-6 h-6 rounded-full object-cover" />
                                     <span className="text-sm font-bold text-slate-700">{c.name}</span>
+                                    <button type="button" disabled={namingCharId !== null} onClick={() => suggestAccountNames(c.id)} className="text-[10px] border border-rose-200 text-rose-500 px-2 py-1 rounded-full disabled:opacity-50">{namingCharId === c.id ? '生成中…' : 'AI 起昵称'}</button>
                                     <button onClick={() => addSubAccount(c.id)} className="ml-auto text-[10px] bg-[#ff2442] text-white px-2 py-1 rounded-full shadow-sm active:scale-95 transition-transform">+ 添加马甲</button>
                                 </div>
                                 
