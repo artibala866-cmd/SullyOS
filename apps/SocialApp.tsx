@@ -163,6 +163,9 @@ const SocialApp: React.FC = () => {
     const [notices, setNotices] = useState<SparkNotice[]>(() => {
         try { const saved = JSON.parse(localStorage.getItem('spark_notifications') || '[]'); return Array.isArray(saved) ? saved : []; } catch { return []; }
     });
+    const [followerHistory, setFollowerHistory] = useState<{ id: string; count: number; time: number }[]>(() => {
+        try { const saved = JSON.parse(localStorage.getItem('spark_follower_history') || '[]'); return Array.isArray(saved) ? saved : []; } catch { return []; }
+    });
     const [expandedNoticeGroups, setExpandedNoticeGroups] = useState<string[]>([]);
     const noticeGroups = (kind: SparkNotice['kind']) => {
         const items = notices.filter(n => n.kind === kind).sort((a, b) => b.time - a.time);
@@ -296,6 +299,14 @@ const SocialApp: React.FC = () => {
             counts[key] = Math.max(0, (counts[key] || 0) + difference);
             changes[key] = (changes[key] || 0) + difference;
             next[post.id] = now;
+        }
+        const userIncrease = Object.entries(changes).filter(([key, delta]) => key === 'user' && delta > 0).reduce((sum, [, delta]) => sum + delta, 0);
+        if (userIncrease > 0) {
+            setFollowerHistory(prev => {
+                const nextHistory = [{ id: 'growth:' + Date.now() + ':' + Math.random(), count: userIncrease, time: Date.now() }, ...prev].slice(0, 100);
+                localStorage.setItem('spark_follower_history', JSON.stringify(nextHistory));
+                return nextHistory;
+            });
         }
         trafficRef.current = next;
         fanCountsRef.current = counts;
