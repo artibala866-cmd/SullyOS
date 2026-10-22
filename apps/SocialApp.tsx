@@ -4,7 +4,7 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useState, useEffect, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile } from '../types';
+import { AppID, CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile } from '../types';
 import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants } from '../utils/socialGeneration';
 import { processImageToBlob } from '../utils/file';
 import { putImageBlob } from '../utils/blobRef';
@@ -155,7 +155,7 @@ const Icons = {
 // --- Main App ---
 
 const SocialApp: React.FC = () => {
-    const { closeApp, characters, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
+    const { closeApp, openApp, characters, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
     const [feed, setFeed] = useState<SocialPost[]>([]);
     // Modes: 'home' (Feed) | 'me' (Profile) | 'create' (Modal Overlay)
     const [activeTab, setActiveTab] = useState<'home' | 'me'>('home');
@@ -1129,6 +1129,8 @@ ${buildSparkCommentHistory(post)}
                         <div className="flex gap-6 text-base font-bold text-slate-300">
                             <button className={`${activeTab === 'home' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('home'); trackEvent('切换 Spark 主标签', { tab: 'home' }); }}>发现</button>
                             <button className={`${activeTab === 'me' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('me'); trackEvent('切换 Spark 主标签', { tab: 'me' }); }}>我的</button>
+                            <button type="button" onClick={() => openApp(AppID.XhsStock)} className="text-[11px] text-slate-500 whitespace-nowrap" aria-label="打开小红书图库">图库</button>
+                            <button type="button" onClick={() => openApp(AppID.XhsFreeRoam)} className="text-[11px] text-slate-500 whitespace-nowrap" aria-label="打开自由活动">自由活动</button>
                         </div>
                         <button onClick={() => { setShowSettings(true); trackEvent('打开身份管理面板'); }} className="text-slate-800 font-bold text-sm">管理</button>
                     </div>
