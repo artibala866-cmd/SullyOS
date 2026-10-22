@@ -1150,38 +1150,23 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                                   })}
                               </div>
                           </div>
-                          <div className="launcher-pinwheel-grid grid grid-cols-2 gap-x-3 gap-y-4 w-full">
-                              {pinwheelOrder.filter(cell => cell !== 'music' && (cell === 'image' ? theme.launcherImageVisible !== false : true)).map(cell => (
-                                  <div
-                                      key={cell}
-                                      data-launcher-item={cell}
-                                      data-launcher-kind="widget"
-                                      className={`relative aspect-square min-w-0 ${layoutEditing ? 'launcher-edit-item' : ''}`}
-                                  >
-                                      {layoutEditing && (cell === 'music' || cell === 'image') && (
-                                          <button type="button" data-launcher-control className="launcher-widget-remove"
-                                              aria-label={cell === 'music' ? '删除音乐组件' : '删除图片组件'}
-                                              onClick={e => {
-                                                  e.stopPropagation();
-                                                  updateTheme(cell === 'music' ? { launcherMusicVisible: false } : { launcherImageVisible: false });
-                                              }}>删除</button>
-                                      )}
-                                      {cell === 'music' ? (
-                                          <NowPlayingSquareWidget contentColor={contentColor} />
-                                      ) : cell === 'appsA' ? (
-                                          <AppQuadGrid apps={page2QuadA} openApp={openApp} editing={layoutEditing} />
-                                      ) : cell === 'appsB' ? (
-                                          <AppQuadGrid apps={page2QuadB} openApp={openApp} editing={layoutEditing} />
-                                      ) : (
-                                          <DesktopSquareImage
-                                              image={theme.launcherWidgets?.['dsq']}
-                                              contentColor={contentColor}
-                                              onClick={() => { if (!layoutEditing) openApp(AppID.Appearance); }}
-                                              acnh={acnh}
-                                          />
-                                      )}
+                          {/* 黑白唱片与倾斜拍立得：刻意留白，不占满桌面 */}
+                          <div className="relative mx-auto w-full max-w-[300px] h-[clamp(130px,21vh,180px)] mt-1 mb-2" aria-label="黑胶唱片与拍立得照片">
+                              <div className="absolute left-[9%] top-[8%] w-[46%] aspect-square rounded-full shadow-[0_7px_16px_rgba(0,0,0,.17)] border-[5px] border-[#222] bg-[repeating-radial-gradient(circle_at_center,#202020_0px,#202020_5px,#373737_6px,#161616_8px)] flex items-center justify-center">
+                                  <div className="w-[34%] aspect-square rounded-full bg-[#e6e6e6] border border-[#888] flex items-center justify-center"><span className="w-2 h-2 rounded-full bg-[#333]" /></div>
+                              </div>
+                              <button type="button" onClick={() => { if (!layoutEditing) openApp(AppID.Appearance); }} className="absolute right-[9%] top-[4%] w-[43%] aspect-[.86] bg-white p-[7px] pb-[20px] shadow-[0_7px_17px_rgba(0,0,0,.15)] rotate-[9deg] active:scale-95 transition-transform" aria-label="更换拍立得照片">
+                                  <div className="w-full h-full bg-[#e5e5e5] overflow-hidden flex items-center justify-center">
+                                      {theme.launcherWidgets?.['dsq'] ? <TokenImg value={theme.launcherWidgets['dsq']} className="w-full h-full object-cover grayscale" alt="拍立得照片" loading="lazy" /> : <span className="text-[#999] text-[11px] tracking-widest">ADD PHOTO</span>}
                                   </div>
-                              ))}
+                              </button>
+                          </div>
+                          {/* 与首页相同的小号图标；两排最多八个，其他应用留在后续页面 */}
+                          <div className="grid grid-cols-4 gap-x-2 gap-y-4 w-full max-w-[330px] mx-auto pt-1">
+                              {[AppID.Call, AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.XhsFreeRoam].map(id => {
+                                  const app = gridApps.find(a => a.id === id) || INSTALLED_APPS.find(a => a.id === id);
+                                  return app ? <div key={id} className="min-w-0 flex justify-center"><AppIcon app={app} onClick={() => { if (!layoutEditing) openApp(id); }} size="sm" /></div> : null;
+                              })}
                           </div>
                       </div>
                   ) : (
