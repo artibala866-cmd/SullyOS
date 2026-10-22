@@ -94,36 +94,20 @@ export function resolveScheduleCardPalette(
     hue: number = 260,
     fallbackText: string = '#ffffff',
 ): ScheduleCardPalette {
-    const presetId = appearance?.preset || 'original';
-    if (presetId === 'original') {
-        const accent = `hsl(${hue}, 70%, 65%)`;
-        return {
-            preset: 'original',
-            background: `linear-gradient(145deg, hsl(${hue}, 40%, 12%), hsl(${hue}, 35%, 8%))`,
-            base: `hsl(${hue}, 40%, 12%)`,
-            text: fallbackText,
-            accent,
-            accentSoft: `hsla(${hue}, 70%, 55%, 0.28)`,
-            line: 'rgba(255,255,255,0.16)',
-            isOriginal: true,
-        };
-    }
-
-    const preset = presetId === 'custom'
-        ? null
-        : SCHEDULE_CARD_PRESETS.find(item => item.id === presetId) || SCHEDULE_CARD_PRESETS[0];
-    const background = preset?.background || appearance?.background || '#21192b';
-    const base = preset?.base || appearance?.background || '#21192b';
-    const text = preset?.text || appearance?.textColor || '#f8f3ff';
-    const accent = preset?.accent || appearance?.accentColor || '#c9a7ff';
+    // One shared neutral palette for every schedule surface. Legacy colorful presets
+    // are deliberately interpreted as the monochrome default until customized.
+    const custom = appearance?.preset === 'custom';
+    const background = custom ? appearance?.background || '#e6e7e9' : 'linear-gradient(145deg,rgba(255,255,255,.94),rgba(228,230,233,.90))';
+    const text = custom ? appearance?.textColor || '#303238' : '#303238';
+    const accent = custom ? appearance?.accentColor || '#62656a' : '#62656a';
     return {
-        preset: presetId,
+        preset: custom ? 'custom' : 'original',
         background,
-        base,
+        base: custom ? appearance?.background || '#e6e7e9' : '#f2f3f4',
         text,
         accent,
-        accentSoft: hexToRgba(accent, 0.18),
-        line: hexToRgba(text, 0.16),
+        accentSoft: hexToRgba(accent, 0.10),
+        line: 'rgba(93,97,103,.16)',
         isOriginal: false,
     };
 }
