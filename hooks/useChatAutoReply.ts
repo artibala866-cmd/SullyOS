@@ -11,6 +11,7 @@ interface Options {
     generating: boolean;
     onGenerate: () => void;
     naturalPacing?: boolean;
+    lifeActivity?: 'sleep' | 'busy' | 'free' | null;
 }
 
 const newWork = () => ({ pending: false, sends: new Set<symbol>(), cancelVersion: 0 });
@@ -81,7 +82,10 @@ export function useChatAutoReply(options: Options) {
             setSeconds(null);
             return;
         }
-        const delay = current.current.naturalPacing ? getNaturalReplyDelay(current.current.conversationId || '') : CHAT_AUTO_REPLY_DELAY_MS;
+        const activity = current.current.lifeActivity;
+        const delay = current.current.naturalPacing
+            ? activity === 'sleep' ? 90_000 : activity === 'busy' ? 18_000 : activity === 'free' ? 3_000 : getNaturalReplyDelay(current.current.conversationId || '')
+            : CHAT_AUTO_REPLY_DELAY_MS;
         setSeconds(Math.ceil(delay / 1000));
         const tick = window.setInterval(() => { if (ready()) setSeconds(value => value == null ? null : Math.max(1, value - 1)); }, 1000);
         const timer = window.setTimeout(() => {
@@ -90,7 +94,7 @@ export function useChatAutoReply(options: Options) {
             current.current.onGenerate();
         }, delay);
         return () => { window.clearInterval(tick); window.clearTimeout(timer); };
-    }, [revision, visible, options.enabled, options.active, options.blocked, options.generating, options.conversationId, cancel]);
+    }, [revision, visible, options.enabled, options.active, options.blocked, options.generating, options.conversationId, options.lifeActivity, cancel]);
 
     return { seconds, beginSend, cancel };
 }
