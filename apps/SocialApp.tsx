@@ -157,6 +157,13 @@ const Icons = {
 const SocialApp: React.FC = () => {
     const { closeApp, openApp, characters, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
     const [feed, setFeed] = useState<SocialPost[]>([]);
+    const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
+    const [followedHandles, setFollowedHandles] = useState<string[]>(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('spark_followed_handles') || '[]');
+            return Array.isArray(saved) ? saved.filter((v): v is string => typeof v === 'string') : [];
+        } catch { return []; }
+    });
     // Modes: 'home' (Feed) | 'me' (Profile) | 'create' (Modal Overlay)
     const [activeTab, setActiveTab] = useState<'home' | 'me'>('home');
     useAppShortcut(ShortcutAppID.Social, intent => { setSelectedPost(null); setIsCreateOpen(false); setShowSettings(false); setActiveTab(intent.entryId === 'me' ? 'me' : 'home'); });
@@ -448,6 +455,14 @@ const SocialApp: React.FC = () => {
         const history = [{ role: 'user', content: prompt }];
         return ContextBuilder.buildGroupWorldbookRequest({ members, user: userProfile, history,
             render: (slots, turns) => [{ role: 'system', content: slots.before + context + slots.after }, ...turns],
+        });
+    };
+
+    const toggleFollow = (handle: string) => {
+        setFollowedHandles(prev => {
+            const next = prev.includes(handle) ? prev.filter(h => h !== handle) : [...prev, handle];
+            localStorage.setItem('spark_followed_handles', JSON.stringify(next));
+            return next;
         });
     };
 
@@ -953,6 +968,12 @@ ${buildSparkCommentHistory(post)}
                         <div className="flex items-center gap-2">
                             <TokenImg value={selectedPost.authorAvatar} className="w-8 h-8 rounded-full object-cover border border-white/50" />
                             <span className="text-sm font-bold text-slate-800">{selectedPost.authorName}</span>
+                            {selectedPost.authorType !== 'user' && (
+                                <button type="button" onClick={() => toggleFollow(selectedPost.authorName)}
+                                    className="ml-auto rounded-full border border-[#ff2442]/30 px-3 py-1 text-xs font-bold text-[#ff2442]">
+                                    {followedHandles.includes(selectedPost.authorName) ? '已关注 ✓' : '+ 关注'}
+                                </button>
+                            )}
                         </div>
                         <button onClick={() => { setShowShareModal(true); trackEvent('打开分享帖子面板'); }} className="p-2 -m-2 active:opacity-60"><Icons.Share onClick={() => setShowShareModal(true)} className="w-6 h-6 text-slate-800 cursor-pointer hover:text-[#ff2442]" /></button>
                     </div>
@@ -1224,6 +1245,12 @@ ${buildSparkCommentHistory(post)}
                     
                     {activeTab === 'home' && (
                         <div className="p-2 min-h-full">
+                            <div className="flex justify-center gap-2 py-2">
+                                <button type="button" onClick={() => setFeedTab('discover')}
+                                    className={`px-5 py-2 rounded-full text-xs font-bold ${feedTab === 'discover' ? 'bg-[#ff2442] text-white' : 'bg-white text-slate-500'}`}>发现</button>
+                                <button type="button" onClick={() => setFeedTab('following')}
+                                    className={`px-5 py-2 rounded-full text-xs font-bold ${feedTab === 'following' ? 'bg-[#ff2442] text-white' : 'bg-white text-slate-500'}`}>关注</button>
+                            </div>
                             {/* Refresh Button - Above Posts */}
                             <div className="flex items-center justify-center py-3">
                                 {isRefreshing ? (
@@ -1238,7 +1265,7 @@ ${buildSparkCommentHistory(post)}
                             </div>
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
                             <div className="grid grid-cols-2 items-start gap-x-2 gap-y-3 pb-24">
-                                {feed.map(post => renderFeedItem(post))}
+                                {feed.filter(post => feedTab === 'discover' || followedHandles.includes(post.authorName)).map(post => renderFeedItem(post))}
                             </div>
                         </div>
                     )}
