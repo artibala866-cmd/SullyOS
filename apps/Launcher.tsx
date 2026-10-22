@@ -275,7 +275,7 @@ const AppGridPage = React.memo(({
                      <AppIcon
                         app={app}
                         onClick={() => { if (!editing) openApp(app.id); }}
-                        size="md"
+                        size="sm"
                      />
                  </div>
              ))}
@@ -928,9 +928,9 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
       setLayoutEditing(false);
   };
 
-  const contentColor = theme.contentColor || '#ffffff';
+  const contentColor = '#252525';
   const acnh = theme.skin === 'animalcrossing'; // 动森彩蛋：Dock 换奶油木质底
-  const paper = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
+  const paper = false;
   // 已迁移 App 外壳已收回到可见 viewport 底边，dock 仅需自留视觉间距，无需再 + safe-bottom
   // （否则会比 home 条上方多让 34px，dock 看起来悬空）。
   const launcherBottomInset = '1.25rem';
@@ -963,6 +963,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   return (
     <div
       className={`launcher-desktop h-full w-full flex flex-col relative z-10 overflow-hidden font-sans select-none ${layoutEditing ? 'launcher-editing' : ''}`}
+      style={{ background: 'radial-gradient(ellipse at 12% 0%, #ffffff 0%, transparent 52%), radial-gradient(ellipse at 95% 80%, #c7c9cd 0%, transparent 58%), linear-gradient(150deg, #f7f7f8 0%, #e7e8eb 48%, #d9dade 100%)', color: '#252525' }}
       onPointerDown={handleLayoutPointerDown}
       onPointerMove={handleLayoutPointerMove}
       onPointerUp={finishLayoutPointer}
@@ -1070,15 +1071,38 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                   {idx === 0 ? (
                       // Page 1 (original): Clock + Chat + 4x2 App Grid
                       <>
-                        <DesktopClock />
-                        <CharacterWidget
-                            char={widgetChar}
-                            unreadCount={widgetUnread}
-                            lastMessage={lastMessage}
-                            onClick={() => openApp(AppID.Chat)}
-                            contentColor={contentColor}
-                            paper={paper}
-                        />
+                        <div className="flex flex-col items-center gap-3 mb-5 pt-2">
+                            <div className="w-full flex items-center justify-between text-[#525252] text-[10px] tracking-[0.25em] uppercase">
+                                <span>MY LITTLE WORLD</span><span>HOME / 01</span>
+                            </div>
+                            <button type="button" onClick={() => openApp(AppID.Chat)} className="relative w-28 h-28 rounded-full border-[5px] border-white bg-[#e5e5e7] shadow-[0_12px_28px_rgba(0,0,0,0.12)] overflow-visible active:scale-95 transition-transform" aria-label="打开角色聊天">
+                                <div className="w-full h-full rounded-full overflow-hidden">
+                                    {widgetChar?.avatar ? <TokenImg value={widgetChar.avatar} className="w-full h-full object-cover" alt={widgetChar.name} loading="lazy" /> : <span className="w-full h-full flex items-center justify-center text-3xl text-[#777]">♡</span>}
+                                </div>
+                                {widgetUnread > 0 && <span className="absolute top-0 right-0 rounded-full bg-[#222] text-white text-[10px] px-2 py-1">{widgetUnread > 9 ? '9+' : widgetUnread}</span>}
+                            </button>
+                            <button type="button" onClick={() => openApp(AppID.Chat)} className="text-center text-[#222] active:opacity-60">
+                                <span className="block font-semibold text-[18px] tracking-tight">{widgetChar?.name || 'MY CHAR'}</span>
+                                <span className="block text-[11px] text-[#777] max-w-[250px] truncate mt-1">{lastMessage || 'a little note to you'}</span>
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <button type="button" onClick={() => openApp(AppID.Appearance)} className="aspect-[1.2] bg-white/80 border border-white rounded-[1.65rem] shadow-[0_6px_24px_rgba(0,0,0,0.045)] overflow-hidden text-left relative active:scale-[0.98] transition-transform" aria-label="编辑桌面照片">
+                                {theme.launcherWidgets?.['tl'] ? <TokenImg value={theme.launcherWidgets['tl']} className="w-full h-full object-cover" alt="桌面照片" loading="lazy" /> : <div className="h-full flex flex-col justify-between p-4"><span className="text-[10px] text-[#999] tracking-[0.2em]">PHOTO / 01</span><span className="text-3xl font-light text-[#b4b4b4]">＋</span><span className="text-[10px] text-[#777]">添加照片</span></div>}
+                            </button>
+                            <button type="button" onClick={() => openApp(AppID.Appearance)} className="aspect-[1.2] bg-white/80 border border-white rounded-[1.65rem] shadow-[0_6px_24px_rgba(0,0,0,0.045)] overflow-hidden text-left active:scale-[0.98] transition-transform" aria-label="编辑第二张桌面照片">
+                                {theme.launcherWidgets?.['tr'] ? <TokenImg value={theme.launcherWidgets['tr']} className="w-full h-full object-cover" alt="桌面照片" loading="lazy" /> : <div className="h-full flex flex-col justify-between p-4"><span className="text-[10px] text-[#999] tracking-[0.2em]">PHOTO / 02</span><span className="text-3xl font-light text-[#b4b4b4]">＋</span><span className="text-[10px] text-[#777]">添加照片</span></div>}
+                            </button>
+                            <div className="bg-white/70 border border-white rounded-[1.5rem] p-4 min-h-[98px] shadow-[0_6px_24px_rgba(0,0,0,0.035)]">
+                                <span className="text-[10px] tracking-[0.2em] text-[#999]">TODAY</span>
+                                <div className="mt-2 text-[22px] font-light tracking-tight">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                <span className="text-[10px] text-[#999]">a soft little day</span>
+                            </div>
+                            <button type="button" onClick={() => openApp(AppID.Chat)} className="bg-white/70 border border-white rounded-[1.5rem] p-4 min-h-[98px] shadow-[0_6px_24px_rgba(0,0,0,0.035)] text-left active:scale-[0.98]">
+                                <span className="text-[10px] tracking-[0.2em] text-[#999]">A NOTE TO YOU</span>
+                                <p className="text-[12px] text-[#333] mt-3 leading-relaxed line-clamp-3">{lastMessage || 'Take your time, little by little.'}</p>
+                            </button>
+                        </div>
                         <div className="flex-1">
                             <AppGridPage apps={pageApps} openApp={openApp} acnh={acnh} editing={layoutEditing} />
                         </div>
@@ -1234,9 +1258,9 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
            <div
              className={`rounded-[1.75rem] px-4 py-3 flex gap-3 sm:gap-6 items-center mx-auto max-w-full justify-between overflow-x-auto no-scrollbar transform-gpu ${acnh || paper ? '' : 'bg-white/30 border border-white/25 shadow-[0_8px_40px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]'}`}
              style={acnh ? { background: 'transparent' } : paper ? {
-               background: 'rgba(224,221,215,0.42)',
-               border: '1px solid rgba(91,72,51,0.07)',
-               boxShadow: '0 6px 18px rgba(91,72,51,0.065)',
+               background: 'rgba(255,255,255,0.75)',
+               border: '1px solid rgba(255,255,255,0.9)',
+               boxShadow: '0 8px 28px rgba(0,0,0,0.07)',
              } : undefined}
            >
                {dockAppsConfig.map(app => (
