@@ -1540,7 +1540,29 @@ ${buildSparkCommentHistory(post)}
                         </div>
                     )}
 
-                    {(activeTab === 'market' || activeTab === 'messages') && <div className="min-h-full flex items-center justify-center text-sm text-slate-400">{activeTab === 'market' ? '集市' : '消息'} · 待完善</div>}
+                    {activeTab === 'market' && <div className="min-h-full flex items-center justify-center text-sm text-slate-400">集市 · 待完善</div>}
+                    {activeTab === 'messages' && <div className="min-h-full bg-white pb-24">
+                        <h2 className="text-center text-lg font-bold py-5">消息</h2>
+                        {!noticeCategory ? <>
+                            <div className="grid grid-cols-3 gap-2 px-4 py-5 border-b border-slate-100">
+                                {([{ kind: 'likes', icon: '♥', label: '赞和收藏', color: 'bg-rose-100 text-rose-500' }, { kind: 'follows', icon: '●', label: '新增关注', color: 'bg-blue-100 text-blue-500' }, { kind: 'comments', icon: '●●', label: '评论和@', color: 'bg-emerald-100 text-emerald-500' }] as const).map(item => <button key={item.kind} type="button" onClick={() => { setNoticeCategory(item.kind); markNoticesRead(item.kind); }} className="flex flex-col items-center gap-2">
+                                    <span className={`relative w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${item.color}`}>{item.icon}
+                                        {notices.some(n => n.kind === item.kind && !n.read) && <span className="absolute -right-1 -top-1 w-3 h-3 rounded-full bg-[#ff2442]" />}
+                                    </span><span className="text-xs text-slate-700">{item.label}</span>
+                                </button>)}
+                            </div>
+                            <p className="px-5 py-6 text-xs text-slate-400">与帖子有关的互动消息会显示在上方分类中</p>
+                        </> : <>
+                            <button type="button" onClick={() => setNoticeCategory(null)} className="px-4 py-3 text-sm text-slate-600">‹ 返回消息</button>
+                            <h3 className="px-4 pb-3 text-sm font-bold">{noticeCategory === 'likes' ? '赞和收藏' : noticeCategory === 'follows' ? '新增关注' : '评论和@'}</h3>
+                            {notices.filter(n => n.kind === noticeCategory).map(n => <button key={n.id} type="button" onClick={() => { const post = feed.find(p => p.id === n.postId); if (post) handleOpenPost(post); }} className="w-full text-left flex gap-3 px-4 py-3 border-b border-slate-50 items-center">
+                                <span className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center shrink-0">{n.avatar ? <TokenImg value={n.avatar} className="w-full h-full rounded-full object-cover" /> : '✦'}</span>
+                                <span className="flex-1 min-w-0"><strong className="text-sm block truncate">{n.actor}</strong><span className="text-xs text-slate-500 line-clamp-2">{n.content}</span></span>
+                                <span className="text-[10px] text-slate-400 shrink-0">{new Date(n.time).toLocaleDateString()}</span>
+                            </button>)}
+                            {!notices.some(n => n.kind === noticeCategory) && <p className="text-center py-16 text-xs text-slate-400">还没有收到相关消息</p>}
+                        </>}
+                    </div>}
                     {activeTab === 'me' && (
                         <div className="min-h-full bg-white/80 backdrop-blur-xl animate-fade-in">
                             {/* Profile Header (Enhanced) */}
