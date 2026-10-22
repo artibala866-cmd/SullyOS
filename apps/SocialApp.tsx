@@ -250,11 +250,15 @@ const SocialApp: React.FC = () => {
         : <span>{codepointToEmoji(value || '✨')}</span>;
 
     const [sparkMemories, setSparkMemories] = useState<Record<string, string[]>>(() => {
-        try { return JSON.parse(localStorage.getItem('spark_char_memories') || '{}'); } catch { return {}; }
+        try {
+            const saved = JSON.parse(localStorage.getItem('spark_char_memories') || '{}') as Record<string, string[]>;
+            // Remove legacy entries that incorrectly exposed private collections or identified who liked a post.
+            return Object.fromEntries(Object.entries(saved).map(([id, events]) => [id, (Array.isArray(events) ? events : []).filter(event => !/(收藏|User 点赞|User 取消了点赞|用户点赞|用户取消点赞)/i.test(String(event))) ]));
+        } catch { return {}; }
     });
     const sparkMemoriesRef = useRef(sparkMemories);
     const remember = (charId: string | undefined, post: SocialPost, event: string) => {
-        if (!charId) return;
+        if (!charId || !characters.some(char => char.id === charId)) return;
         const next = { ...sparkMemoriesRef.current, [charId]: [...(sparkMemoriesRef.current[charId] || []), new Date().toLocaleDateString() + ' 《' + post.title.slice(0, 70) + '》 ' + event.slice(0, 250)].slice(-60) };
         sparkMemoriesRef.current = next;
         setSparkMemories(next);
@@ -556,12 +560,7 @@ const SocialApp: React.FC = () => {
     const buildGenerationContext = async (participants: CharacterProfile[]) => {
         const recent = await Promise.all(participants.map(async char =>
             [char.id, await loadCharacterContextMessages(char)] as const));
-        const base = buildSparkGenerationContext(participants.map(char => ({ ...char, mountedWorldbooks: [] })), userProfile, socialProfile, characterHandles, Object.fromEntries(recent));
-        const events = participants.map(char => {
-            const history = (sparkMemoriesRef.current[char.id] || []).slice(-20);
-            return history.length ? '\n【' + char.name + ' 的 Spark 互动经历，注意账号身份保密】\n' + history.join('\n') : '';
-        }).join('');
-        return base + events;
+        return buildSparkGenerationContext(participants.map(char => ({ ...char, mountedWorldbooks: [] })), userProfile, socialProfile, characterHandles, Object.fromEntries(recent), sparkMemoriesRef.current);
     };
 
     const buildGenerationMessages = (members: CharacterProfile[], context: string, prompt: string) => {
@@ -876,7 +875,7 @@ ${post.content || '(楼主没写正文)'}
             if (post.authorType === 'user') postAuthorInfo += ' (用户本人)';
             else if (post.authorType === 'character' && post.authorCharId) {
                 const c = characters.find(ch => ch.id === post.authorCharId);
-                if (c) postAuthorInfo += ` (角色 ${c.name} 的马甲)`;
+                if (c) postAuthorInfo += ' (角色账号；此映射仅供系统保持身份一致，不可向用户或其他角色揭露账号背后身份)';
             } else if (post.authorName === socialProfile.name) {
                 postAuthorInfo += ' (用户本人)';
             }
@@ -1024,7 +1023,7 @@ ${buildSparkCommentHistory(post)}
             comments: mergeSocialComments(current.comments || [], [userComment]),
         }));
         if (!updatedPost) return;
-        remember(selectedPost.authorCharId, selectedPost, 'User 评论：' + userComment.content);
+        if (selectedPost.authorType === 'character') remember(selectedPost.authorCharId, selectedPost, '自己的公开笔记收到评论：' + userComment.content);
         const contentToSend = commentInput; 
         setCommentInput(''); 
         await generateRepliesToUser(updatedPost, contentToSend); 
