@@ -1737,7 +1737,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // 选表情、选分类之类的动作不上报。
         if ([
             'transfer', 'archive', 'settings', 'chrome-css', 'chrome-sound', 'fine-tune',
-            'meetup', 'proactive', 'active-msg-2', 'schedule', 'mcd-request', 'luckin-request',
+            'meetup', 'proactive', 'active-msg-2', 'schedule', 'life-pacing', 'mcd-request', 'luckin-request',
             'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration',
             // 独立小功能：点一下就是用了一次，跟「打开某个面板」同一性质。
             // send-emoji / select-category 这些是「挑哪一个」，不进名单。
@@ -1769,6 +1769,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             case 'active-msg-2': setShowActiveMsg2Modal(true); break;
             case 'emotion': break; // 情绪 Buff 入口已停用；日程使用独立入口
             case 'schedule': setModalType('schedule'); break;
+            case 'life-pacing': {
+                const next = !lifePacing;
+                setLifePacing(next);
+                localStorage.setItem('sully_life_pacing', next ? 'on' : 'off');
+                break;
+            }
             case 'mcd-not-configured':
                 addToast('请先到设置 → 麦当劳 启用并填入 MCP Token', 'info');
                 break;
@@ -4082,11 +4088,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 );
             })()}
 
-            <div className="flex items-center justify-center gap-2 py-1 bg-white/60 text-[10px] text-slate-500">
-                <button type="button" onClick={() => { const next = !lifePacing; setLifePacing(next); localStorage.setItem('sully_life_pacing', next ? 'on' : 'off'); }} className="rounded-full px-2 py-1 bg-slate-100">{lifePacing ? '真人感 · 开' : '真人感 · 关'}</button>
-                <button type="button" onClick={toggleLifeMode} className="rounded-full px-2 py-1 bg-slate-100">{lifeMode === 'real' ? '现实时间' : '虚拟时间'}</button>
-                {lifeMode === 'virtual' && <button type="button" onClick={() => { const state = readLifeClock(); writeLifeClock({ ...state, virtualTime: state.virtualTime + 60 * 60 * 1000 }); }} className="rounded-full px-2 py-1 bg-slate-100">剧情 +1小时</button>}
-            </div>
             <div ref={scrollRef} onScroll={handleChatScroll} onClick={() => { if (inputPreferences.autoReply) setShowPanel('none'); }} className="flex-1 overflow-y-auto overflow-x-hidden pt-6 pb-6 no-scrollbar" style={{ backgroundImage: activeTheme.type === 'custom' && activeTheme.user.backgroundImage ? 'none' : undefined }}>
                 {windowedFocusMsgId !== null && (
                     <div className="sticky top-0 z-20 flex justify-center pb-2 pointer-events-none">
@@ -4365,6 +4366,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
                 <ChatInputArea
                     compactHome={!!homePhone}
+                    lifePacingEnabled={lifePacing}
                     input={input} setInput={handleInputChange}
                     isTyping={isTyping || instantChatPending} selectionMode={selectionMode}
                     showPanel={showPanel} setShowPanel={setShowPanel}
