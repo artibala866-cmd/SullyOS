@@ -1369,7 +1369,7 @@ ${isInitialGeneration ? `
                <div className="flex-1 overflow-y-auto p-5 no-scrollbar pb-10">
                    {detailTab === 'identity' && (
                        <div className="space-y-6 animate-fade-in">
-                           {formData && <CharacterImagePanel characterId={formData.id} />}
+
                            <div className="flex items-center gap-5">
                                <div className="relative group cursor-pointer w-24 h-24 shrink-0" onClick={() => fileInputRef.current?.click()}>
                                    <div className="w-full h-full rounded-[2rem] shadow-md bg-white border-4 border-white overflow-hidden relative"><TokenImg value={formData.avatar} className={`w-full h-full object-cover ${isCompressing ? 'opacity-50 blur-sm' : ''}`} alt="A" /></div>
@@ -1595,6 +1595,10 @@ ${isInitialGeneration ? `
                                </div>
                            </div>
 
+                           </CharacterSettingsSection>
+
+                           <CharacterSettingsSection title="角色生图设定" summary="参考图、外貌描述与生成">
+                             {formData && <CharacterImagePanel characterId={formData.id} />}
                            </CharacterSettingsSection>
 
                            <CharacterSettingsSection title="角色语音音色" summary={formData.voiceProfile?.voiceName || '音色与合成参数'}>
