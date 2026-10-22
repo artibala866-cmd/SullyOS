@@ -1170,7 +1170,9 @@ ${buildSparkCommentHistory(post)}
                                             <div className="flex justify-between items-start">
                                                 <span className={`text-xs font-bold ${c.isCharacter ? 'text-slate-800' : 'text-slate-500'}`}>{c.authorName}</span>
                                                 <div className="flex items-center gap-1 text-slate-400 cursor-pointer hover:text-[#ff2442]">
-                                                    <Icons.Heart filled={false} className="w-3.5 h-3.5" />
+                                                    <button type="button" aria-label="点赞评论" onClick={() => updatePostInFeed(selectedPost.id, current => ({ ...current, comments: current.comments.map(item => item.id === c.id ? { ...item, likes: item.likes + 1 } : item) }))}>
+                                        <Icons.Heart filled={false} className="w-3.5 h-3.5" />
+                                    </button>
                                                     <span className="text-[10px]">{c.likes}</span>
                                                 </div>
                                             </div>
@@ -1208,7 +1210,7 @@ ${buildSparkCommentHistory(post)}
                                     <span className="text-[10px] font-medium">{selectedPost.likes}</span>
                                 </div>
                                 <div className="flex flex-col items-center gap-0.5">
-                                    <Icons.Star filled={selectedPost.isCollected} onClick={() => { updatePostInFeed(selectedPost.id, current => ({ ...current, isCollected: !current.isCollected })); trackEvent('收藏一条帖子', { action: selectedPost.isCollected ? 'uncollect' : 'collect' }); }} className="w-6 h-6" />
+                                    <Icons.Star filled={selectedPost.isCollected} onClick={() => { remember(selectedPost.authorCharId, selectedPost, selectedPost.isCollected ? 'User 取消收藏' : 'User 收藏了笔记'); updatePostInFeed(selectedPost.id, current => ({ ...current, isCollected: !current.isCollected })); trackEvent('收藏一条帖子', { action: selectedPost.isCollected ? 'uncollect' : 'collect' }); }} className="w-6 h-6" />
                                     <span className="text-[10px] font-medium">{selectedPost.isCollected ? '已收藏' : '收藏'}</span>
                                 </div>
                             </div>
