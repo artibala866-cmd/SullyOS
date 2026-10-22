@@ -637,6 +637,7 @@ const SocialApp: React.FC = () => {
                 });
             }
             prependPostsToFeed([post]);
+            remember(char.id, post, '自己发布了笔记：' + post.content);
             }
             setShowCharPosting(false);
             setActiveTab('home');
@@ -954,6 +955,7 @@ ${buildSparkCommentHistory(post)}
         if (!selectedPost) return;
         try {
             await DB.saveMessage({ charId: isGroup ? 'user' : targetId, groupId: isGroup ? targetId : undefined, role: 'user', type: 'social_card', content: '[分享帖子]', metadata: { post: selectedPost } });
+            if (!isGroup) remember(targetId, selectedPost, 'User 分享这篇笔记到私聊');
             setShowShareModal(false);
             addToast('分享成功', 'success');
             trackEvent('分享帖子到聊天');
@@ -990,6 +992,7 @@ ${buildSparkCommentHistory(post)}
     const handleDeletePost = (postId: string) => { removePostFromFeed(postId); addToast('帖子已删除', 'success'); trackEvent('删除一条帖子'); };
     const handleLike = (e: any, post: SocialPost) => {
         e.stopPropagation();
+        remember(post.authorCharId, post, post.isLiked ? 'User 取消了点赞' : 'User 点赞了这篇笔记');
         updatePostInFeed(post.id, current => ({
             ...current,
             isLiked: !current.isLiked,
@@ -1016,6 +1019,7 @@ ${buildSparkCommentHistory(post)}
             comments: mergeSocialComments(current.comments || [], [userComment]),
         }));
         if (!updatedPost) return;
+        remember(selectedPost.authorCharId, selectedPost, 'User 评论：' + userComment.content);
         const contentToSend = commentInput; 
         setCommentInput(''); 
         await generateRepliesToUser(updatedPost, contentToSend); 
