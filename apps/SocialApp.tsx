@@ -159,6 +159,26 @@ const Icons = {
 const SocialApp: React.FC = () => {
     const { closeApp, openApp, characters, worldbooks, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
     const [feed, setFeed] = useState<SocialPost[]>([]);
+    type SparkNotice = { id: string; kind: 'likes' | 'follows' | 'comments'; actor: string; avatar?: string; content: string; postId?: string; time: number; read: boolean };
+    const [notices, setNotices] = useState<SparkNotice[]>(() => {
+        try { const saved = JSON.parse(localStorage.getItem('spark_notifications') || '[]'); return Array.isArray(saved) ? saved : []; } catch { return []; }
+    });
+    const [noticeCategory, setNoticeCategory] = useState<'likes' | 'follows' | 'comments' | null>(null);
+    const addNotices = (incoming: SparkNotice[]) => {
+        if (!incoming.length) return;
+        setNotices(prev => {
+            const existing = new Set(prev.map(item => item.id));
+            const next = [...incoming.filter(item => !existing.has(item.id)), ...prev].slice(0, 250);
+            localStorage.setItem('spark_notifications', JSON.stringify(next));
+            return next;
+        });
+    };
+    const markNoticesRead = (kind: SparkNotice['kind']) => setNotices(prev => {
+        const next = prev.map(item => item.kind === kind ? { ...item, read: true } : item);
+        localStorage.setItem('spark_notifications', JSON.stringify(next));
+        return next;
+    });
+
     const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
     });
@@ -910,6 +930,10 @@ ${post.content || '(楼主没写正文)'}
                     ...current,
                     comments: mergeSocialComments(current.comments || [], comments),
                 }));
+                if (post.authorType === 'user') addNotices(comments.filter(comment => comment.authorType !== 'user').map(comment => ({
+                    id: 'comment:' + comment.id, kind: 'comments' as const, actor: comment.authorName,
+                    avatar: comment.authorAvatar, content: comment.content, postId: post.id, time: Date.now(), read: false,
+                })));
             }
         } catch (e: any) {
             if (e?.name !== 'AbortError') addToast(`评论加载失败: ${e?.message || e}`, 'error');
@@ -1003,6 +1027,10 @@ ${buildSparkCommentHistory(post)}
                         ...current,
                         comments: mergeSocialComments(current.comments || [], newReplies),
                     }));
+                    addNotices(newReplies.map(reply => ({
+                        id: 'reply:' + reply.id, kind: 'comments' as const, actor: reply.authorName,
+                        avatar: reply.authorAvatar, content: reply.content, postId: post.id, time: Date.now(), read: false,
+                    })));
                     for (const reply of newReplies) {
                         remember(reply.authorCharId, post, '自己回复了 User：' + reply.content);
                         if (post.authorCharId && post.authorCharId !== reply.authorCharId) remember(post.authorCharId, post, reply.authorName + ' 回复了 User：' + reply.content);
