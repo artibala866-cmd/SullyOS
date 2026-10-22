@@ -85,11 +85,56 @@ const ScheduleApp: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'quest' | 'server_events'>('quest');
     useAppShortcut(ShortcutAppID.Schedule, intent => setActiveTab(intent.entryId === 'server_events' ? 'server_events' : 'quest'));
     
+    // Pomodoro session uses a wall-clock deadline so background tabs do not slow the timer.
+    const [focusMinutes, setFocusMinutes] = useState(25);
+    const [focusTask, setFocusTask] = useState('');
+    const [focusCharId, setFocusCharId] = useState(activeCharacterId || '');
+    const [focusDeadline, setFocusDeadline] = useState<number | null>(null);
+    const [focusSeconds, setFocusSeconds] = useState(25 * 60);
+    const [focusFinished, setFocusFinished] = useState(false);
+    const [exitConfirm, setExitConfirm] = useState(false);
+    const [exitText, setExitText] = useState('');
+    const [exitWaitUntil, setExitWaitUntil] = useState<number | null>(null);
+    const [focusNow, setFocusNow] = useState(Date.now());
+    useEffect(() => {
+        const timer = window.setInterval(() => setFocusNow(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+    useEffect(() => {
+        if (focusDeadline === null) return;
+        const remaining = Math.max(0, Math.ceil((focusDeadline - focusNow) / 1000));
+        setFocusSeconds(remaining);
+        if (remaining === 0) {
+            setFocusDeadline(null);
+            setFocusFinished(true);
+        }
+    }, [focusDeadline, focusNow]);
+    const startFocus = () => {
+        if (!focusTask.trim()) { addToast('请先填写专注任务', 'error'); return; }
+        setFocusSeconds(focusMinutes * 60);
+        setFocusDeadline(Date.now() + focusMinutes * 60000);
+        setFocusFinished(false);
+        setExitConfirm(false);
+    };
+    const leaveFocus = () => {
+        if (focusDeadline === null) { closeApp(); return; }
+        setExitConfirm(true);
+        setExitText('');
+        setExitWaitUntil(Date.now() + 10000);
+    };
+    const stopFocus = () => {
+        setFocusDeadline(null);
+        setFocusFinished(false);
+        setFocusSeconds(focusMinutes * 60);
+        setExitConfirm(false);
+        closeApp();
+    };
+
     // Processing State for feedback
     const [processingTaskIds, setProcessingTaskIds] = useState<Set<string>>(new Set());
 
     // Theme State
-    const [currentThemeMode, setCurrentThemeMode] = useState<ThemeMode>('cyber');
+    const [currentThemeMode, setCurrentThemeMode] = useState<ThemeMode>('minimal');
     const theme = THEMES[currentThemeMode];
 
     // Add Modal States
@@ -378,6 +423,37 @@ const ScheduleApp: React.FC = () => {
     return (
         <div className={`h-full w-full flex flex-col ${theme.font} ${theme.bg} ${theme.text} relative overflow-hidden transition-colors duration-500`}>
              
+             <section className="relative z-10 px-5 pt-4 pb-3 bg-[#eeeeee] border-b border-[#d7d7d7] text-[#666666]">
+                <div className="text-[10px] tracking-[0.3em] uppercase text-center mb-3">Focus / 番茄钟</div>
+                <div className="rounded-3xl bg-[#eeeeee] shadow-[5px_5px_12px_#d1d1d1,-5px_-5px_12px_#ffffff] p-4 space-y-3">
+                    <input aria-label="专注任务" className="w-full bg-white/70 rounded-xl px-3 py-2 text-sm outline-none" placeholder="今天要完成什么？" value={focusTask} disabled={focusDeadline !== null} onChange={e => setFocusTask(e.target.value)} />
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs shrink-0">监督 Char</label>
+                        <select aria-label="选择监督角色" className="flex-1 min-w-0 rounded-xl p-2 text-sm bg-white/70" value={focusCharId} onChange={e => setFocusCharId(e.target.value)}>
+                            <option value="">暂不选择</option>
+                            {characters.map(char => <option key={char.id} value={char.id}>{char.name}</option>)}
+                        </select>
+                        <select aria-label="专注时长" className="rounded-xl p-2 text-sm bg-white/70" disabled={focusDeadline !== null} value={focusMinutes} onChange={e => { const minutes = Number(e.target.value); setFocusMinutes(minutes); setFocusSeconds(minutes * 60); }}>
+                            {[15, 25, 45, 60].map(n => <option key={n} value={n}>{n} 分钟</option>)}
+                        </select>
+                    </div>
+                    <div className="text-center text-5xl tracking-widest font-light tabular-nums">{String(Math.floor(focusSeconds / 60)).padStart(2, '0')}:{String(focusSeconds % 60).padStart(2, '0')}</div>
+                    <div className="text-center text-xs text-[#999]">{focusFinished ? '本轮专注已结束' : focusDeadline !== null ? '专注进行中' : '准备开始'}</div>
+                    <button className="w-full py-2.5 rounded-xl bg-[#777] text-white text-sm" disabled={focusDeadline !== null} onClick={startFocus}>{focusFinished ? '开始下一轮' : '开始专注'}</button>
+                    {focusDeadline !== null && <button className="w-full py-2 text-xs underline" onClick={leaveFocus}>中断本轮专注</button>}
+                </div>
+             </section>
+             {exitConfirm && <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center p-6">
+                <div className="w-full bg-[#f3f3f3] rounded-3xl p-5 space-y-4 text-[#555] shadow-xl">
+                    <h2 className="text-lg font-medium">真的要退出学习吗？</h2>
+                    <p className="text-sm">任务尚未完成。可以再坚持一会儿，或确认中断。</p>
+                    <p className="text-xs">冷静倒计时：{Math.max(0, Math.ceil(((exitWaitUntil || 0) - focusNow) / 1000))} 秒</p>
+                    <input className="w-full p-3 bg-white rounded-xl text-sm" placeholder="输入：真的要退出学习吗" value={exitText} onChange={e => setExitText(e.target.value)} />
+                    <button className="w-full rounded-xl bg-[#777] text-white p-3" onClick={() => setExitConfirm(false)}>继续专注</button>
+                    <button className="w-full text-sm disabled:opacity-30" disabled={exitText.trim() !== '真的要退出学习吗' || focusNow < (exitWaitUntil || 0)} onClick={stopFocus}>确认中断并退出</button>
+                    <button className="w-full text-xs underline" onClick={stopFocus}>紧急退出</button>
+                </div>
+             </div>}
              {/* Tech Background Grid (Only for Cyber) */}
              {currentThemeMode === 'cyber' && (
                  <div className="absolute inset-0 pointer-events-none opacity-20" 
@@ -401,7 +477,7 @@ const ScheduleApp: React.FC = () => {
              {/* Header */}
              <div className={`border-b ${theme.border} backdrop-blur-sm sticky top-0 z-20 shrink-0 relative transition-colors duration-300`} style={{ paddingTop: 'var(--safe-top)' }}>
                 <div className="pt-12 pb-4 px-6 flex items-center justify-between h-24 box-border">
-                <button onClick={closeApp} className={`p-2 -ml-2 rounded-full active:scale-90 transition-transform ${currentThemeMode === 'minimal' ? 'bg-[#eef2f6] shadow-[4px_4px_8px_#d1d9e6,-4px_-4px_8px_#ffffff]' : 'hover:bg-black/5'}`}>
+                <button onClick={leaveFocus} className={`p-2 -ml-2 rounded-full active:scale-90 transition-transform ${currentThemeMode === 'minimal' ? 'bg-[#eef2f6] shadow-[4px_4px_8px_#d1d9e6,-4px_-4px_8px_#ffffff]' : 'hover:bg-black/5'}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-6 h-6 ${theme.accent}`}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                 </button>
 
