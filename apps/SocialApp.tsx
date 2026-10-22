@@ -1251,65 +1251,20 @@ ${buildSparkCommentHistory(post)}
                 </div>
             </Modal>
             {/* --- Modals (Settings, Share) --- */}
-            <Modal isOpen={showSettings} title="身份管理" onClose={() => setShowSettings(false)}>
-                <div className="space-y-6">
-                    <div className="max-h-[50vh] overflow-y-auto no-scrollbar space-y-6 px-1">
-                        <p className="text-xs text-slate-400 bg-slate-50 p-2 rounded-lg">
-                            为角色添加“马甲”(Sub-Accounts)。AI 发帖时会根据内容选择合适的身份。
-                        </p>
-                        {/* 分组筛选（没建分组时不渲染） */}
-                        <CharacterGroupFilterBar characters={characters} groups={characterGroups} value={identityGroupId} onChange={setIdentityGroupId} className="!mt-3 -mx-1 px-1" />
-                        {filterCharactersByGroup(characters, characterGroups, identityGroupId).map(c => (
-                            <div key={c.id} className="space-y-3 pb-4 border-b border-slate-50">
-                                <div className="flex items-center gap-2">
-                                    <TokenImg value={c.avatar} className="w-6 h-6 rounded-full object-cover" />
-                                    <span className="text-sm font-bold text-slate-700">{c.name}</span>
-                                    <button type="button" disabled={namingCharId !== null} onClick={() => suggestAccountNames(c.id)} className="text-[10px] border border-rose-200 text-rose-500 px-2 py-1 rounded-full disabled:opacity-50">{namingCharId === c.id ? '生成中…' : 'AI 起昵称'}</button>
-                                    <button onClick={() => addSubAccount(c.id)} className="ml-auto text-[10px] bg-[#ff2442] text-white px-2 py-1 rounded-full shadow-sm active:scale-95 transition-transform">+ 添加马甲</button>
-                                </div>
-                                
-                                <div className="space-y-2 pl-4 border-l-2 border-slate-100">
-                                    {(characterHandles[c.id] || []).map((acct) => (
-                                        <div key={acct.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm space-y-2 relative group">
-                                            <div className="flex gap-2">
-                                                <div className="flex-1">
-                                                    <label className="text-[9px] text-slate-400 uppercase font-bold">网名 (Handle)</label>
-                                                    <input 
-                                                        value={acct.handle} 
-                                                        onChange={(e) => updateSubAccount(c.id, acct.id, 'handle', e.target.value)} 
-                                                        className="w-full text-sm font-bold text-slate-800 border-b border-dashed border-slate-200 focus:border-[#ff2442] outline-none py-1" 
-                                                    />
-                                                </div>
-                                                <button 
-                                                    onClick={() => deleteSubAccount(c.id, acct.id)}
-                                                    className="text-slate-300 hover:text-red-400 p-1"
-                                                    title="删除"
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
-                                            <div>
-                                                <label className="text-[9px] text-slate-400 uppercase font-bold">备注 (Context Note)</label>
-                                                <input 
-                                                    value={acct.note} 
-                                                    onChange={(e) => updateSubAccount(c.id, acct.id, 'note', e.target.value)} 
-                                                    placeholder="例如: 吐槽号 / 认真模式"
-                                                    className="w-full text-xs text-slate-500 bg-slate-50 rounded px-2 py-1 focus:bg-white transition-colors outline-none" 
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {(characterHandles[c.id]?.length || 0) === 0 && (
-                                        <div className="text-[10px] text-red-400 italic flex items-center gap-1"><Warning size={12} weight="bold" /> 请至少保留一个身份</div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+            <Modal isOpen={showSettings} title="Spark 设置" onClose={() => setShowSettings(false)}>
+                <div className="space-y-4 py-2 text-sm">
+                    <p className="text-xs text-slate-500">选择参与 Spark 的 Char。大号与马甲由 AI 依据人设自行决定，不再由 User 手动创建或指定。</p>
+                    <div className="grid grid-cols-4 gap-3 max-h-60 overflow-y-auto">
+                        {characters.map(c => <button type="button" key={c.id} onClick={() => setPostingCharIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1">
+                            <span className={`w-12 h-12 rounded-full ${postingCharIds.includes(c.id) ? 'ring-2 ring-rose-500 ring-offset-2' : ''}`}><TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" /></span>
+                            <span className="text-[11px] truncate max-w-full">{c.name}</span>
+                        </button>)}
                     </div>
-                    <div className="flex gap-3 pt-2">
-                        <button onClick={handleClearFeed} className="flex-1 py-3 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl text-xs active:bg-slate-50">清空推荐流</button>
-                        <button onClick={() => setShowSettings(false)} className="flex-1 py-3 bg-[#ff2442] text-white font-bold rounded-xl text-xs shadow-lg shadow-red-200 active:scale-95 transition-transform">完成</button>
-                    </div>
+                    <p className="text-xs text-slate-400">已选择 {postingCharIds.length} 位角色</p>
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={naturalComments} onChange={e => setNaturalComments(e.target.checked)} />评论遵循角色人设与关系</label>
+                    <p className="text-xs text-slate-400">主动发帖时间：定时功能尚未接通，目前不会自动发帖。</p>
+                    <button type="button" disabled={isCharPosting || !postingCharIds.length} onClick={() => { setShowSettings(false); void handleCharPost(); }} className="w-full bg-[#ff2442] text-white rounded-xl py-3 font-bold disabled:opacity-40">{isCharPosting ? '发布中…' : '让选中的 Char 现在发帖'}</button>
+                    <button type="button" onClick={() => setShowSettings(false)} className="w-full border rounded-xl py-2">完成</button>
                 </div>
             </Modal>
 
