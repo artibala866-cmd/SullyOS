@@ -1,689 +1,179 @@
-
-
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
-import { DB } from '../utils/db';
-import { Task, Anniversary, CharacterProfile } from '../types';
-import Modal from '../components/os/Modal';
-import { ContextBuilder } from '../utils/context';
-import { safeResponseJson } from '../utils/safeApi';
-import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
-import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
-import { getCalendarDayDifference, getLocalDateKey } from '../utils/localDate';
-import { useLocalDateKey } from '../hooks/useLocalDateKey';
-import { trackEvent } from '../utils/analytics';
-import TokenImg from '../components/os/TokenImg';
 
-const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
-const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
-
-type ThemeMode = 'cyber' | 'soft' | 'minimal';
-
-// Theme Configuration Definitions
-const THEMES: Record<ThemeMode, any> = {
-    cyber: {
-        id: 'cyber',
-        bg: 'bg-[#0f172a]',
-        text: 'text-slate-200',
-        textSub: 'text-slate-500',
-        accent: 'text-cyan-400',
-        border: 'border-cyan-900/30',
-        card: 'bg-slate-900/50 backdrop-blur-md border border-slate-700/50',
-        buttonPrimary: 'bg-cyan-600 hover:bg-cyan-500 text-white rounded-none skew-x-[-10deg]',
-        font: 'font-mono',
-        iconDone: 'text-green-500',
-        decoLine: 'bg-slate-800',
-        modalBg: 'bg-[#0f172a] border border-cyan-500',
-        input: 'bg-slate-800 text-white border-none rounded-none',
-        label: 'QUEST LOG',
-        eventLabel: 'SERVER EVENTS'
-    },
-    soft: {
-        id: 'soft',
-        bg: 'bg-[#fff0f5]', // Lavender Blush
-        text: 'text-slate-700',
-        textSub: 'text-slate-400',
-        accent: 'text-pink-500',
-        border: 'border-pink-100',
-        card: 'bg-white/80 backdrop-blur-xl rounded-[2rem] shadow-sm border border-white',
-        buttonPrimary: 'bg-pink-400 hover:bg-pink-500 text-white rounded-2xl shadow-lg shadow-pink-200',
-        font: 'font-sans',
-        iconDone: 'text-pink-400',
-        decoLine: 'bg-pink-200',
-        modalBg: 'bg-white/90 rounded-[2.5rem]',
-        input: 'bg-pink-50 text-slate-700 border border-pink-100 rounded-xl',
-        label: '心愿单',
-        eventLabel: '纪念日'
-    },
-    minimal: {
-        id: 'minimal',
-        bg: 'bg-[#eef2f6]', // Classic Neumorphism base
-        text: 'text-slate-600',
-        textSub: 'text-slate-400',
-        accent: 'text-indigo-500',
-        border: 'border-transparent',
-        // Neumorphism Outer Shadow
-        card: 'bg-[#eef2f6] rounded-2xl shadow-[6px_6px_12px_#d1d9e6,-6px_-6px_12px_#ffffff]',
-        // Neumorphism Pressed State simulation for buttons usually, but here flat prompt
-        buttonPrimary: 'bg-[#eef2f6] text-slate-600 font-bold rounded-xl shadow-[6px_6px_12px_#d1d9e6,-6px_-6px_12px_#ffffff] active:shadow-[inset_4px_4px_8px_#d1d9e6,inset_-4px_-4px_8px_#ffffff]',
-        font: 'font-sans',
-        iconDone: 'text-slate-400',
-        decoLine: 'bg-slate-300',
-        modalBg: 'bg-[#eef2f6] rounded-2xl shadow-2xl',
-        input: 'bg-[#eef2f6] text-slate-700 rounded-xl shadow-[inset_2px_2px_5px_#d1d9e6,inset_-2px_-2px_5px_#ffffff]',
-        label: 'Focus',
-        eventLabel: 'Timeline'
-    }
+type FocusTask = { id: string; title: string; done: boolean; sessions: number };
+type FocusRecord = { date: string; minutes: number; taskId: string };
+type FocusMode = 'focus' | 'break';
+type Session = { mode: FocusMode; deadline: number; duration: number; taskId: string };
+type Note = { id: string; role: 'user' | 'system'; content: string };
+const STORAGE = 'sully_pomodoro_v1';
+const EXIT_PHRASE = '真的要退出学习吗';
+const pad = (n: number) => String(n).padStart(2, '0');
+const today = () => new Date().toLocaleDateString('sv-SE');
+const load = <T,>(key: string, fallback: T): T => {
+  try { const raw = localStorage.getItem(STORAGE + '_' + key); return raw ? JSON.parse(raw) as T : fallback; }
+  catch { return fallback; }
+};
+const save = (key: string, value: unknown) => {
+  try { localStorage.setItem(STORAGE + '_' + key, JSON.stringify(value)); } catch { /* storage disabled */ }
 };
 
 const ScheduleApp: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, characterGroups } = useOS();
-    const localDateKey = useLocalDateKey();
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [anniversaries, setAnniversaries] = useState<Anniversary[]>([]);
-    const [activeTab, setActiveTab] = useState<'quest' | 'server_events'>('quest');
-    useAppShortcut(ShortcutAppID.Schedule, intent => setActiveTab(intent.entryId === 'server_events' ? 'server_events' : 'quest'));
-    
-    // Pomodoro session uses a wall-clock deadline so background tabs do not slow the timer.
-    const [focusMinutes, setFocusMinutes] = useState(25);
-    const [focusTask, setFocusTask] = useState('');
-    const [focusCharId, setFocusCharId] = useState(activeCharacterId || '');
-    const [focusDeadline, setFocusDeadline] = useState<number | null>(null);
-    const [focusSeconds, setFocusSeconds] = useState(25 * 60);
-    const [focusFinished, setFocusFinished] = useState(false);
-    const [exitConfirm, setExitConfirm] = useState(false);
-    const [exitText, setExitText] = useState('');
-    const [exitWaitUntil, setExitWaitUntil] = useState<number | null>(null);
-    const [focusNow, setFocusNow] = useState(Date.now());
-    useEffect(() => {
-        const timer = window.setInterval(() => setFocusNow(Date.now()), 1000);
-        return () => window.clearInterval(timer);
-    }, []);
-    useEffect(() => {
-        if (focusDeadline === null) return;
-        const remaining = Math.max(0, Math.ceil((focusDeadline - focusNow) / 1000));
-        setFocusSeconds(remaining);
-        if (remaining === 0) {
-            setFocusDeadline(null);
-            setFocusFinished(true);
-        }
-    }, [focusDeadline, focusNow]);
-    const startFocus = () => {
-        if (!focusTask.trim()) { addToast('请先填写专注任务', 'error'); return; }
-        setFocusSeconds(focusMinutes * 60);
-        setFocusDeadline(Date.now() + focusMinutes * 60000);
-        setFocusFinished(false);
-        setExitConfirm(false);
-    };
-    const leaveFocus = () => {
-        if (focusDeadline === null) { closeApp(); return; }
-        setExitConfirm(true);
-        setExitText('');
-        setExitWaitUntil(Date.now() + 10000);
-    };
-    const stopFocus = () => {
-        setFocusDeadline(null);
-        setFocusFinished(false);
-        setFocusSeconds(focusMinutes * 60);
-        setExitConfirm(false);
-        closeApp();
-    };
-
-    // Processing State for feedback
-    const [processingTaskIds, setProcessingTaskIds] = useState<Set<string>>(new Set());
-
-    // Theme State
-    const [currentThemeMode, setCurrentThemeMode] = useState<ThemeMode>('minimal');
-    const theme = THEMES[currentThemeMode];
-
-    // Add Modal States
-    const [showTaskModal, setShowTaskModal] = useState(false);
-    const [showAnniModal, setShowAnniModal] = useState(false);
-
-    // Forms
-    const [newTaskTitle, setNewTaskTitle] = useState('');
-    const [newTaskSupervisor, setNewTaskSupervisor] = useState<string>(activeCharacterId || '');
-    const [supervisorGroupId, setSupervisorGroupId] = useState<string>(GROUP_FILTER_ALL); // 选监督人的分组筛选
-
-    const [newAnniTitle, setNewAnniTitle] = useState('');
-    const [newAnniDate, setNewAnniDate] = useState('');
-    const [newAnniChar, setNewAnniChar] = useState<string>(activeCharacterId || '');
-    const [anniCharGroupId, setAnniCharGroupId] = useState<string>(GROUP_FILTER_ALL); // 纪念日关联对象的分组筛选
-
-    useEffect(() => {
-        loadData();
-        // Load theme from local storage if needed, defaulting to cyber
-        const saved = localStorage.getItem('schedule_app_theme');
-        if (saved && THEMES[saved as ThemeMode]) {
-            setCurrentThemeMode(saved as ThemeMode);
-        }
-    }, []);
-
-    const toggleTheme = () => {
-        const modes: ThemeMode[] = ['cyber', 'soft', 'minimal'];
-        const nextIndex = (modes.indexOf(currentThemeMode) + 1) % modes.length;
-        const nextMode = modes[nextIndex];
-        setCurrentThemeMode(nextMode);
-        localStorage.setItem('schedule_app_theme', nextMode);
-        trackEvent('切换日程界面主题', { theme: nextMode });
-    };
-
-    const loadData = async () => {
-        const [t, a] = await Promise.all([DB.getAllTasks(), DB.getAllAnniversaries()]);
-        setTasks(t.sort((a, b) => b.createdAt - a.createdAt));
-        setAnniversaries(a.sort((a, b) => a.date.localeCompare(b.date)));
-    };
-
-    // --- AI Logic ---
-
-    const generateTaskReward = async (task: Task) => {
-
-        const supervisor = characters.find(c => c.id === task.supervisorId);
-        if (!supervisor || !apiConfig.apiKey) {
-            addToast('任务已完成', 'success');
-            return;
-        }
-
-        // FEEDBACK: Show loading state immediately
-        // Note: The caller handles setting processingTaskIds, but we can also add a toast
-        addToast(`${supervisor.name} 正在确认你的成果...`, 'info');
-
-        try {
-            // 1. Build Persona Context
-            // RESTORED: Full context
-            await injectMemoryPalace(supervisor, undefined, task.title);
-            const characterContextInput = { char: supervisor, user: userProfile };
-
-
-            const userPrompt = `
-### 场景：任务完成 (Task Completed)
-用户 (${userProfile.name}) 刚刚在现实生活中完成了一个任务/契约： "${task.title}"。
-你是监督人。
-
-### 任务
-请根据你的人设，对用户完成任务这一行为做出反应。
-- 如果你是严厉的：勉强认可，或者催促下一个。
-- 如果你是温柔的：给予温暖的夸奖。
-- 如果你是傲娇的：别扭地表示一下。
-- **关键**：不要问我用什么语气，**你自己**根据你的人设决定。
-
-**输出要求**:
-- 仅输出一句话（类似气泡通知）。
-- **必须使用用户常用语言**。
-- 不要有引号。`;
-
-            // 2. Separate System and User roles
-            const messages = [
-                { role: "system", content: '' },
-                { role: "user", content: userPrompt }
-            ];
-
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({
-                    model: apiConfig.model,
-                    messages: (await ContextBuilder.buildCharacterRequest(characterContextInput, messages)),
-                    temperature: 0.9, 
-                    max_tokens: 8000 
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`API Error ${response.status}: ${errorText.slice(0, 100)}`);
-            }
-
-            const data = await safeResponseJson(response);
-            
-            // Extract content, handling potential reasoning_content or empty standard content
-            let text = data.choices?.[0]?.message?.content?.trim();
-            if (!text && data.choices?.[0]?.message?.reasoning_content) {
-                // If standard content is empty but model "thought" about it, try to use thought or fallback
-                console.warn("AI returned empty content but has reasoning.");
-            }
-            
-            if (text) {
-                text = text.replace(/^["']|["']$/g, '');
-                addToast(`${supervisor.name}: ${text}`, 'success');
-                // Inject into Chat Memory (Localized & Personalized)
-                await DB.saveMessage({
-                    charId: supervisor.id,
-                    role: 'system',
-                    type: 'text',
-                    content: `[系统: ${userProfile.name} 完成了任务 "${task.title}"。${supervisor.name} 评价道: "${text}"]`
-                });
-            } else {
-                console.warn("AI returned empty content", data);
-                addToast('任务完成 (AI 未返回评价)', 'success');
-            }
-
-        } catch (e: any) {
-            console.error("Task Reward Error:", e);
-            addToast(`评价生成失败: ${e.message}`, 'error');
-        }
-    };
-
-    const generateAnniversaryThought = async (anni: Anniversary) => {
-
-        const char = characters.find(c => c.id === anni.charId);
-        if (!char || !apiConfig.apiKey) return;
-
-        // Check cache (24h)
-        if (anni.aiThought && anni.lastThoughtGeneratedAt && (Date.now() - anni.lastThoughtGeneratedAt < 24 * 60 * 60 * 1000)) {
-            return;
-        }
-
-        // FEEDBACK: Show loading state if explicit call
-        if (Date.now() - (anni.lastThoughtGeneratedAt || 0) > 10000) {
-             addToast(`${char.name} 正在查阅日历...`, 'info');
-        }
-
-        const daysDiff = getCalendarDayDifference(getLocalDateKey(), anni.date) ?? 0;
-        const dayText = daysDiff > 0 ? `还有 ${daysDiff} 天` : (daysDiff === 0 ? '就是今天!' : `已经过去 ${Math.abs(daysDiff)} 天了`);
-
-        // RESTORED: Full context
-        await injectMemoryPalace(char, undefined, anni.title);
-        const characterContextInput = { char, user: userProfile };
-
-
-        const userPrompt = `
-### 场景：纪念日提醒
-事件: "${anni.title}"
-时间状态: ${dayText}
-
-### 任务
-请根据你的人设，针对这个日期发表一句简短的感想。
-**输出要求**:
-- 仅输出一句话。
-- **必须使用用户常用语言**。`;
-
-        const messages = [
-            { role: "system", content: '' },
-            { role: "user", content: userPrompt }
-        ];
-
-        try {
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({
-                    model: apiConfig.model,
-                    messages: (await ContextBuilder.buildCharacterRequest(characterContextInput, messages)),
-                    temperature: 0.8,
-                    max_tokens: 8000
-                })
-            });
-
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(`API Error ${response.status}: ${errorText.slice(0, 50)}`);
-            }
-
-            const data = await safeResponseJson(response);
-            const text = data.choices?.[0]?.message?.content?.trim().replace(/^["']|["']$/g, '');
-            
-            if (text) {
-                const updatedAnni = { ...anni, aiThought: text, lastThoughtGeneratedAt: Date.now() };
-                await DB.saveAnniversary(updatedAnni);
-                setAnniversaries(prev => prev.map(a => a.id === anni.id ? updatedAnni : a));
-            } else {
-                console.warn("AI returned empty thought", data);
-            }
-        } catch (e: any) { 
-            console.error("Anniversary Thought Error:", e);
-            // No toast for background update failure to avoid annoyance
-        }
-    };
-
-    // --- Actions ---
-
-    const handleAddTask = async () => {
-        if (!newTaskTitle.trim()) return;
-        const task: Task = {
-            id: `task-${Date.now()}`,
-            title: newTaskTitle,
-            supervisorId: newTaskSupervisor || characters[0]?.id,
-            tone: 'gentle', // Deprecated but kept for type compatibility
-            isCompleted: false,
-            createdAt: Date.now()
-        };
-        await DB.saveTask(task);
-        setTasks(prev => [task, ...prev]);
-        setShowTaskModal(false);
-        setNewTaskTitle('');
-    };
-
-    const handleToggleTask = async (task: Task) => {
-        const updated = { ...task, isCompleted: !task.isCompleted, completedAt: !task.isCompleted ? Date.now() : undefined };
-        await DB.saveTask(updated);
-        setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
-        
-        if (updated.isCompleted) {
-            // Start Visual Loading State on the Item
-            setProcessingTaskIds(prev => new Set(prev).add(task.id));
-            try {
-                await generateTaskReward(updated);
-            } finally {
-                // End Visual Loading State
-                setProcessingTaskIds(prev => {
-                    const next = new Set(prev);
-                    next.delete(task.id);
-                    return next;
-                });
-            }
-        }
-    };
-
-    const handleDeleteTask = async (id: string) => {
-        await DB.deleteTask(id);
-        setTasks(prev => prev.filter(t => t.id !== id));
-    };
-
-    const handleAddAnni = async () => {
-        if (!newAnniTitle.trim() || !newAnniDate) return;
-        const anni: Anniversary = {
-            id: `anni-${Date.now()}`,
-            title: newAnniTitle,
-            date: newAnniDate,
-            charId: newAnniChar || characters[0]?.id
-        };
-        await DB.saveAnniversary(anni);
-        setAnniversaries(prev => [...prev, anni].sort((a, b) => a.date.localeCompare(b.date)));
-        setShowAnniModal(false);
-        setNewAnniTitle('');
-        setNewAnniDate('');
-        
-        // Remove immediate trigger to avoid double calls (useEffect will handle if it's upcoming)
-    };
-
-    const handleDeleteAnni = async (id: string) => {
-        await DB.deleteAnniversary(id);
-        setAnniversaries(prev => prev.filter(a => a.id !== id));
-    };
-
-    // --- Render Helpers ---
-
-    const getDaysUntil = (dateStr: string) => {
-        return getCalendarDayDifference(localDateKey, dateStr) ?? Number.POSITIVE_INFINITY;
-    };
-
-    const upcomingAnni = useMemo(() => {
-        return anniversaries.filter(a => getDaysUntil(a.date) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0];
-    }, [anniversaries, localDateKey]);
-
-    // Trigger thoughts for upcoming anniversary on load
-    useEffect(() => {
-        if (upcomingAnni) {
-            generateAnniversaryThought(upcomingAnni);
-        }
-    }, [upcomingAnni]);
-
-    return (
-        <div className={`h-full w-full flex flex-col ${theme.font} ${theme.bg} ${theme.text} relative overflow-hidden transition-colors duration-500`}>
-             
-             <section className="relative z-10 px-5 pt-4 pb-3 bg-[#eeeeee] border-b border-[#d7d7d7] text-[#666666]">
-                <div className="text-[10px] tracking-[0.3em] uppercase text-center mb-3">Focus / 番茄钟</div>
-                <div className="rounded-3xl bg-[#eeeeee] shadow-[5px_5px_12px_#d1d1d1,-5px_-5px_12px_#ffffff] p-4 space-y-3">
-                    <input aria-label="专注任务" className="w-full bg-white/70 rounded-xl px-3 py-2 text-sm outline-none" placeholder="今天要完成什么？" value={focusTask} disabled={focusDeadline !== null} onChange={e => setFocusTask(e.target.value)} />
-                    <div className="flex items-center gap-2">
-                        <label className="text-xs shrink-0">监督 Char</label>
-                        <select aria-label="选择监督角色" className="flex-1 min-w-0 rounded-xl p-2 text-sm bg-white/70" value={focusCharId} onChange={e => setFocusCharId(e.target.value)}>
-                            <option value="">暂不选择</option>
-                            {characters.map(char => <option key={char.id} value={char.id}>{char.name}</option>)}
-                        </select>
-                        <select aria-label="专注时长" className="rounded-xl p-2 text-sm bg-white/70" disabled={focusDeadline !== null} value={focusMinutes} onChange={e => { const minutes = Number(e.target.value); setFocusMinutes(minutes); setFocusSeconds(minutes * 60); }}>
-                            {[15, 25, 45, 60].map(n => <option key={n} value={n}>{n} 分钟</option>)}
-                        </select>
-                    </div>
-                    <div className="text-center text-5xl tracking-widest font-light tabular-nums">{String(Math.floor(focusSeconds / 60)).padStart(2, '0')}:{String(focusSeconds % 60).padStart(2, '0')}</div>
-                    <div className="text-center text-xs text-[#999]">{focusFinished ? '本轮专注已结束' : focusDeadline !== null ? '专注进行中' : '准备开始'}</div>
-                    <button className="w-full py-2.5 rounded-xl bg-[#777] text-white text-sm" disabled={focusDeadline !== null} onClick={startFocus}>{focusFinished ? '开始下一轮' : '开始专注'}</button>
-                    {focusDeadline !== null && <button className="w-full py-2 text-xs underline" onClick={leaveFocus}>中断本轮专注</button>}
-                </div>
-             </section>
-             {exitConfirm && <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center p-6">
-                <div className="w-full bg-[#f3f3f3] rounded-3xl p-5 space-y-4 text-[#555] shadow-xl">
-                    <h2 className="text-lg font-medium">真的要退出学习吗？</h2>
-                    <p className="text-sm">任务尚未完成。可以再坚持一会儿，或确认中断。</p>
-                    <p className="text-xs">冷静倒计时：{Math.max(0, Math.ceil(((exitWaitUntil || 0) - focusNow) / 1000))} 秒</p>
-                    <input className="w-full p-3 bg-white rounded-xl text-sm" placeholder="输入：真的要退出学习吗" value={exitText} onChange={e => setExitText(e.target.value)} />
-                    <button className="w-full rounded-xl bg-[#777] text-white p-3" onClick={() => setExitConfirm(false)}>继续专注</button>
-                    <button className="w-full text-sm disabled:opacity-30" disabled={exitText.trim() !== '真的要退出学习吗' || focusNow < (exitWaitUntil || 0)} onClick={stopFocus}>确认中断并退出</button>
-                    <button className="w-full text-xs underline" onClick={stopFocus}>紧急退出</button>
-                </div>
-             </div>}
-             {/* Tech Background Grid (Only for Cyber) */}
-             {currentThemeMode === 'cyber' && (
-                 <div className="absolute inset-0 pointer-events-none opacity-20" 
-                      style={{ 
-                          backgroundImage: 'linear-gradient(rgba(56, 189, 248, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(56, 189, 248, 0.1) 1px, transparent 1px)', 
-                          backgroundSize: '40px 40px' 
-                      }}>
-                 </div>
-             )}
-             
-             {/* Soft Background Pattern (Only for Soft) */}
-             {currentThemeMode === 'soft' && (
-                 <div className="absolute inset-0 pointer-events-none opacity-30" 
-                      style={{ 
-                          backgroundImage: 'radial-gradient(#fbcfe8 2px, transparent 2px)', 
-                          backgroundSize: '20px 20px' 
-                      }}>
-                 </div>
-             )}
-
-             {/* Header */}
-             <div className={`border-b ${theme.border} backdrop-blur-sm sticky top-0 z-20 shrink-0 relative transition-colors duration-300`} style={{ paddingTop: 'var(--safe-top)' }}>
-                <div className="pt-12 pb-4 px-6 flex items-center justify-between h-24 box-border">
-                <button onClick={leaveFocus} className={`p-2 -ml-2 rounded-full active:scale-90 transition-transform ${currentThemeMode === 'minimal' ? 'bg-[#eef2f6] shadow-[4px_4px_8px_#d1d9e6,-4px_-4px_8px_#ffffff]' : 'hover:bg-black/5'}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-6 h-6 ${theme.accent}`}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-                </button>
-
-                {/* Tabs */}
-                <div className={`flex gap-1 p-1 rounded-lg ${currentThemeMode === 'cyber' ? 'bg-black/40 border border-cyan-900/50' : (currentThemeMode === 'minimal' ? 'bg-[#eef2f6] shadow-[inset_2px_2px_5px_#d1d9e6,inset_-2px_-2px_5px_#ffffff]' : 'bg-white/50')}`}>
-                    <button onClick={() => { setActiveTab('quest'); trackEvent('切换日程标签页', { tab: 'quest' }); }} className={`px-4 py-1.5 rounded text-xs font-bold transition-all ${activeTab === 'quest' ? `${theme.accent} ${currentThemeMode === 'cyber' ? 'bg-cyan-900/50 shadow-sm' : (currentThemeMode === 'minimal' ? 'shadow-[2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] bg-[#eef2f6]' : 'bg-white shadow-sm')}` : `${theme.textSub}`}`}>{theme.label}</button>
-                    <button onClick={() => { setActiveTab('server_events'); trackEvent('切换日程标签页', { tab: 'server_events' }); }} className={`px-4 py-1.5 rounded text-xs font-bold transition-all ${activeTab === 'server_events' ? `${theme.accent} ${currentThemeMode === 'cyber' ? 'bg-cyan-900/50 shadow-sm' : (currentThemeMode === 'minimal' ? 'shadow-[2px_2px_5px_#d1d9e6,-2px_-2px_5px_#ffffff] bg-[#eef2f6]' : 'bg-white shadow-sm')}` : `${theme.textSub}`}`}>{theme.eventLabel}</button>
-                </div>
-
-                {/* Right Actions */}
-                <div className="flex gap-2">
-                    {/* Theme Switcher */}
-                    <button onClick={toggleTheme} className={`p-2 rounded-full active:scale-90 transition-transform ${currentThemeMode === 'minimal' ? 'shadow-[4px_4px_8px_#d1d9e6,-4px_-4px_8px_#ffffff]' : 'bg-white/10 hover:bg-white/20'}`}>
-                        {currentThemeMode === 'cyber' && <img src={twemojiUrl('1f47e')} alt="alien" className="w-5 h-5" />}
-                        {currentThemeMode === 'soft' && <img src={twemojiUrl('1f338')} alt="blossom" className="w-5 h-5" />}
-                        {currentThemeMode === 'minimal' && <img src={twemojiUrl('26aa')} alt="circle" className="w-5 h-5" />}
-                    </button>
-
-                    {/* Add Button */}
-                    <button onClick={() => { activeTab === 'quest' ? setShowTaskModal(true) : setShowAnniModal(true); trackEvent('打开新建条目弹窗', { kind: activeTab }); }} className={`p-2 rounded-full active:scale-90 transition-transform ${theme.accent} ${currentThemeMode === 'minimal' ? 'shadow-[4px_4px_8px_#d1d9e6,-4px_-4px_8px_#ffffff]' : 'hover:bg-white/10'}`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                    </button>
-                </div>
-                </div>
-
-                {/* Decoration Line */}
-                {currentThemeMode === 'cyber' && <div className="absolute bottom-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>}
-            </div>
-
-            <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-8 z-10">
-                
-                {/* Hero Anniversary Card */}
-                {upcomingAnni && (
-                    <div className={`w-full rounded-2xl p-5 relative overflow-hidden group transition-all duration-300 ${currentThemeMode === 'minimal' ? 'bg-[#eef2f6] shadow-[inset_5px_5px_10px_#d1d9e6,inset_-5px_-5px_10px_#ffffff]' : (currentThemeMode === 'soft' ? 'bg-gradient-to-r from-pink-300 to-purple-300 text-white shadow-lg shadow-pink-200' : 'bg-gradient-to-r from-slate-900 to-slate-800 border border-purple-500/30')}`}>
-                        <div className="relative z-10">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${currentThemeMode === 'minimal' ? 'text-slate-400' : 'text-white/80 bg-white/20'}`}>即将到来</div>
-                                <div className="text-3xl font-bold tracking-tighter">{getDaysUntil(upcomingAnni.date)} <span className="text-xs opacity-60 font-normal">天后</span></div>
-                            </div>
-                            <div className="text-xl font-bold mb-4">{upcomingAnni.title}</div>
-                            
-                            {/* AI Thought Bubble */}
-                            <div className={`flex items-start gap-3 p-3 rounded-xl ${currentThemeMode === 'minimal' ? 'bg-[#eef2f6] shadow-[5px_5px_10px_#d1d9e6,-5px_-5px_10px_#ffffff]' : 'bg-white/20 backdrop-blur-md'}`}>
-                                <TokenImg value={characters.find(c => c.id === upcomingAnni.charId)?.avatar} className="w-8 h-8 rounded-full object-cover" />
-                                <div className={`text-xs font-medium leading-relaxed italic ${currentThemeMode === 'minimal' ? 'text-slate-500' : 'text-white/90'}`}>
-                                    "{upcomingAnni.aiThought || "加载中..."}"
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'quest' && (
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 mb-2 px-1">
-                            <div className={`w-2 h-2 rounded-full animate-pulse ${currentThemeMode === 'cyber' ? 'bg-cyan-500' : (currentThemeMode === 'soft' ? 'bg-pink-400' : 'bg-slate-400')}`}></div>
-                            <h3 className={`text-xs font-bold uppercase tracking-[0.2em] ${theme.accent}`}>进行中任务</h3>
-                        </div>
-                        
-                        {tasks.filter(t => !t.isCompleted).length === 0 && (
-                            <div className={`text-center py-12 border-2 border-dashed rounded-xl ${currentThemeMode === 'cyber' ? 'border-slate-800' : 'border-slate-200'}`}>
-                                <div className={theme.textSub}>暂无任务</div>
-                            </div>
-                        )}
-
-                        {tasks.filter(t => !t.isCompleted).map(task => {
-                            const supervisor = characters.find(c => c.id === task.supervisorId);
-                            const isProcessing = processingTaskIds.has(task.id);
-                            
-                            return (
-                                <div key={task.id} className={`${theme.card} p-4 flex items-center gap-4 group relative overflow-hidden transition-all duration-300`}>
-                                    {/* Supervisor Icon */}
-                                    <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 relative border border-white/10">
-                                        {supervisor ? <TokenImg value={supervisor.avatar} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" /> : <span className="text-xs">?</span>}
-                                        <div className={`absolute -bottom-0 -right-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${currentThemeMode === 'soft' ? 'bg-white text-pink-500' : 'bg-black text-cyan-500'}`}>!</div>
-                                    </div>
-                                    
-                                    <div className="flex-1">
-                                        <div className={`${theme.text} font-bold text-sm tracking-wide`}>{task.title}</div>
-                                        <div className={`text-[10px] ${theme.textSub} mt-1 font-mono uppercase`}>
-                                            监督人: {supervisor?.name || 'Unknown'}
-                                        </div>
-                                    </div>
-
-                                    {/* Action Button Area */}
-                                    {isProcessing ? (
-                                        <div className="flex items-center gap-2 px-2 py-2">
-                                            <div className={`w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin ${theme.accent}`}></div>
-                                            <span className={`text-[10px] font-bold animate-pulse ${theme.accent}`}>验收中...</span>
-                                        </div>
-                                    ) : (
-                                        <button 
-                                            onClick={() => handleToggleTask(task)}
-                                            className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded transition-all active:scale-95 ${currentThemeMode === 'minimal' ? 'shadow-[4px_4px_8px_#d1d9e6,-4px_-4px_8px_#ffffff] text-slate-500 active:shadow-[inset_2px_2px_5px_#d1d9e6,inset_-2px_-2px_5px_#ffffff]' : (currentThemeMode === 'soft' ? 'bg-pink-100 text-pink-500' : 'bg-cyan-900/30 text-cyan-400 border border-cyan-800')}`}
-                                        >
-                                            完成
-                                        </button>
-                                    )}
-                                    
-                                    <button onClick={() => handleDeleteTask(task.id)} className="absolute top-2 right-2 text-slate-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1">×</button>
-                                </div>
-                            );
-                        })}
-
-                        {tasks.filter(t => t.isCompleted).length > 0 && (
-                            <div className="pt-8 opacity-50">
-                                <h3 className={`text-xs font-bold uppercase tracking-[0.2em] px-1 mb-4 ${theme.textSub}`}>已完成</h3>
-                                {tasks.filter(t => t.isCompleted).map(task => (
-                                    <div key={task.id} className={`flex items-center gap-3 py-2 px-2 border-b ${currentThemeMode === 'cyber' ? 'border-slate-800/50' : 'border-slate-100'}`}>
-                                        <div className={`${theme.iconDone} text-xs font-mono`}>[DONE]</div>
-                                        <span className={`text-sm line-through ${theme.textSub}`}>{task.title}</span>
-                                        <button onClick={() => handleDeleteTask(task.id)} className="ml-auto text-slate-400 hover:text-red-500 text-xs">DEL</button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'server_events' && (
-                    <div className={`relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-0 before:w-[1px] ${theme.decoLine}`}>
-                        {/* Anniversaries List */}
-                        <div>
-                             <h3 className={`text-xs font-bold uppercase tracking-widest mb-6 -ml-6 pl-6 ${theme.textSub}`}>时间线事件</h3>
-                             <div className="space-y-4">
-                                 {anniversaries.map(a => (
-                                     <div key={a.id} className="relative group">
-                                         <div className={`absolute -left-[20px] top-4 w-2 h-2 rounded-full z-10 ${currentThemeMode === 'cyber' ? 'bg-black border border-purple-500' : 'bg-pink-400'}`}></div>
-                                         <div className={`${theme.card} p-4 flex justify-between items-center transition-colors`}>
-                                             <div>
-                                                 <div className={`text-sm font-bold ${theme.text}`}>{a.title}</div>
-                                                 <div className={`text-[10px] ${theme.textSub} font-mono mt-1`}>{a.date} · {characters.find(c => c.id === a.charId)?.name}</div>
-                                             </div>
-                                             <button onClick={() => handleDeleteAnni(a.id)} className="text-slate-400 hover:text-red-400 p-2 opacity-0 group-hover:opacity-100 transition-opacity">×</button>
-                                         </div>
-                                     </div>
-                                 ))}
-                             </div>
-                        </div>
-
-                        {/* Completed Tasks History Log */}
-                         <div>
-                             <h3 className={`text-xs font-bold uppercase tracking-widest mb-6 -ml-6 pl-6 pt-4 ${theme.textSub}`}>完成履历</h3>
-                             <div className="space-y-4">
-                                 {tasks.filter(t => t.isCompleted).sort((a,b) => (b.completedAt || 0) - (a.completedAt || 0)).map(t => (
-                                     <div key={t.id} className="relative">
-                                         <div className={`absolute -left-[20px] top-2 w-2 h-2 rounded-full z-10 ${currentThemeMode === 'cyber' ? 'bg-black border border-green-600' : 'bg-slate-300'}`}></div>
-                                         <div className={`text-xs ${theme.textSub} font-mono`}>[{new Date(t.completedAt || 0).toLocaleDateString()}] 任务完成</div>
-                                         <div className={`text-sm ${theme.text} font-bold mt-1 pl-1 border-l-2 ${theme.decoLine}`}>{t.title}</div>
-                                     </div>
-                                 ))}
-                             </div>
-                         </div>
-                    </div>
-                )}
-
-            </div>
-
-            {/* Task Modal */}
-            <Modal isOpen={showTaskModal} title={currentThemeMode === 'cyber' ? "INITIALIZE QUEST" : "新建任务"} onClose={() => setShowTaskModal(false)} footer={<button onClick={handleAddTask} className={`w-full py-3 font-bold transition-all ${theme.buttonPrimary}`}>确认添加</button>}>
-                <div className={`space-y-6 ${currentThemeMode === 'minimal' ? 'p-2' : ''}`}>
-                    <input autoFocus value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} placeholder="任务目标 (例如: 背单词)" className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
-                    
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-widest">选择监督人</label>
-                        {/* 分组筛选（没建分组时不渲染）。Modal 恒为白底，走浅色配色 */}
-                        <CharacterGroupFilterBar characters={characters} groups={characterGroups}
-                            value={supervisorGroupId} onChange={setSupervisorGroupId} className="mb-2" />
-                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                            {filterCharactersByGroup(characters, characterGroups, supervisorGroupId).map(c => (
-                                <button key={c.id} onClick={() => setNewTaskSupervisor(c.id)} className={`flex flex-col items-center gap-2 p-2 rounded-lg border transition-all min-w-[60px] ${newTaskSupervisor === c.id ? `${currentThemeMode === 'minimal' ? 'shadow-[inset_2px_2px_5px_#d1d9e6,inset_-2px_-2px_5px_#ffffff]' : 'border-current'}` : 'border-transparent opacity-50'}`}>
-                                    <TokenImg value={c.avatar} className="w-10 h-10 rounded-md object-cover" />
-                                    <span className={`text-[10px] font-bold whitespace-nowrap ${theme.text}`}>{c.name}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* Anniversary Modal */}
-            <Modal isOpen={showAnniModal} title={currentThemeMode === 'cyber' ? "REGISTER EVENT" : "添加纪念日"} onClose={() => setShowAnniModal(false)} footer={<button onClick={handleAddAnni} className={`w-full py-3 font-bold transition-all ${theme.buttonPrimary}`}>保存记录</button>}>
-                <div className={`space-y-4 ${currentThemeMode === 'minimal' ? 'p-2' : ''}`}>
-                    <input value={newAnniTitle} onChange={e => setNewAnniTitle(e.target.value)} placeholder="事件名称 (例如: 第一次见面)" className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
-                    <input type="date" value={newAnniDate} onChange={e => setNewAnniDate(e.target.value)} className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
-                    
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-widest">关联对象</label>
-                        {/* 分组筛选（没建分组时不渲染）。Modal 恒为白底，走浅色配色 */}
-                        <CharacterGroupFilterBar characters={characters} groups={characterGroups}
-                            value={anniCharGroupId} onChange={setAnniCharGroupId} className="mb-2" />
-                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                            {filterCharactersByGroup(characters, characterGroups, anniCharGroupId).map(c => (
-                                <button key={c.id} onClick={() => setNewAnniChar(c.id)} className={`flex flex-col items-center gap-2 p-2 rounded-lg border transition-all min-w-[60px] ${newAnniChar === c.id ? `${currentThemeMode === 'minimal' ? 'shadow-[inset_2px_2px_5px_#d1d9e6,inset_-2px_-2px_5px_#ffffff]' : 'border-current'}` : 'border-transparent opacity-50'}`}>
-                                    <TokenImg value={c.avatar} className="w-10 h-10 rounded-md object-cover" />
-                                    <span className={`text-[10px] font-bold whitespace-nowrap ${theme.text}`}>{c.name}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </Modal>
+  const { closeApp, characters, activeCharacterId, addToast } = useOS();
+  const [tasks, setTasks] = useState<FocusTask[]>(() => load('tasks', []));
+  const [records, setRecords] = useState<FocusRecord[]>(() => load('records', []));
+  const [taskInput, setTaskInput] = useState('');
+  const [selectedTask, setSelectedTask] = useState(() => load('selectedTask', ''));
+  const [charId, setCharId] = useState(() => load('charId', activeCharacterId || ''));
+  const [focusMinutes, setFocusMinutes] = useState(() => load('focusMinutes', 25));
+  const [breakMinutes, setBreakMinutes] = useState(() => load('breakMinutes', 5));
+  const [session, setSession] = useState<Session | null>(() => load('session', null));
+  const [now, setNow] = useState(Date.now());
+  const [exitOpen, setExitOpen] = useState(false);
+  const [exitPhrase, setExitPhrase] = useState('');
+  const [exitDeadline, setExitDeadline] = useState(0);
+  const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'chat'>('timer');
+  const [notes, setNotes] = useState<Note[]>(() => load('notes', []));
+  const [message, setMessage] = useState('');
+  const processed = useRef<number | null>(null);
+  const activeChar = characters.find(c => c.id === charId);
+  const remaining = session ? Math.max(0, Math.ceil((session.deadline - now) / 1000)) : (focusMinutes * 60);
+  const activeTask = tasks.find(t => t.id === (session?.taskId || selectedTask));
+  const todayRecords = records.filter(r => r.date === today());
+  const totalToday = todayRecords.reduce((sum, r) => sum + r.minutes, 0);
+  const shell = 'rounded-[24px] bg-[#eeeeee] shadow-[6px_6px_14px_#d2d2d2,-6px_-6px_14px_#ffffff]';
+  const inset = 'rounded-2xl bg-[#eeeeee] shadow-[inset_3px_3px_7px_#d1d1d1,inset_-3px_-3px_7px_#ffffff]';
+  const btn = 'rounded-2xl px-4 py-3 text-sm font-medium bg-[#777] text-white disabled:opacity-40';
+  useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 500); return () => window.clearInterval(id); }, []);
+  useEffect(() => { save('tasks', tasks); }, [tasks]);
+  useEffect(() => { save('records', records); }, [records]);
+  useEffect(() => { save('selectedTask', selectedTask); }, [selectedTask]);
+  useEffect(() => { save('charId', charId); }, [charId]);
+  useEffect(() => { save('focusMinutes', focusMinutes); }, [focusMinutes]);
+  useEffect(() => { save('breakMinutes', breakMinutes); }, [breakMinutes]);
+  useEffect(() => { save('session', session); }, [session]);
+  useEffect(() => { save('notes', notes); }, [notes]);
+  useEffect(() => {
+    if (!session || now < session.deadline || processed.current === session.deadline) return;
+    processed.current = session.deadline;
+    if (session.mode === 'focus') {
+      setRecords(prev => [...prev, { date: today(), minutes: session.duration, taskId: session.taskId }]);
+      setTasks(prev => prev.map(t => t.id === session.taskId ? { ...t, sessions: t.sessions + 1 } : t));
+      addToast('专注完成，可以休息了', 'success');
+    } else {
+      addToast('休息结束，准备下一轮', 'success');
+    }
+    setSession(null);
+  }, [session, now, addToast]);
+  useEffect(() => {
+    if (!session) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [session]);
+  const addTask = () => {
+    const title = taskInput.trim();
+    if (!title) return;
+    const id = String(Date.now()) + Math.random().toString(36).slice(2);
+    setTasks(prev => [...prev, { id, title, done: false, sessions: 0 }]);
+    setSelectedTask(id);
+    setTaskInput('');
+  };
+  const start = (mode: FocusMode) => {
+    if (mode === 'focus' && !selectedTask) { addToast('请先选择或创建任务', 'error'); setTab('tasks'); return; }
+    const duration = mode === 'focus' ? focusMinutes : breakMinutes;
+    processed.current = null;
+    setSession({ mode, duration, deadline: Date.now() + duration * 60000, taskId: selectedTask });
+    setTab('timer');
+  };
+  const requestExit = () => {
+    if (!session) { closeApp(); return; }
+    setExitPhrase('');
+    setExitDeadline(Date.now() + 10_000);
+    setExitOpen(true);
+  };
+  const quit = () => { setSession(null); setExitOpen(false); closeApp(); };
+  const sendNote = () => {
+    const content = message.trim();
+    if (!content) return;
+    setNotes(prev => [...prev, { id: String(Date.now()), role: 'user', content }]);
+    setMessage('');
+  };
+  return (
+    <div className="h-full w-full flex flex-col overflow-hidden bg-[#eeeeee] text-[#666] font-sans" style={{ paddingTop: 'var(--safe-top)' }}>
+      <header className="px-5 pt-5 pb-4 flex items-center justify-between shrink-0">
+        <button aria-label="返回" onClick={requestExit} className="text-2xl px-2">‹</button>
+        <div className="text-xs tracking-[0.3em] font-medium">FOCUS / 番茄钟</div>
+        <div className="w-8" />
+      </header>
+      <main className="flex-1 overflow-y-auto px-5 pb-8 space-y-5">
+        {tab === 'timer' && <>
+          <section className={shell + ' p-6 space-y-5'}>
+            <div className="text-center text-xs tracking-widest text-[#999]">{session?.mode === 'break' ? 'REST TIME' : 'STAY FOCUSED'}</div>
+            <div className="text-center text-sm truncate">{session?.mode === 'break' ? '好好休息一下' : activeTask?.title || '先选择一项任务'}</div>
+            <div className="text-center text-[62px] leading-none font-light tracking-wider tabular-nums">{pad(Math.floor(remaining / 60))}:{pad(remaining % 60)}</div>
+            <div className="h-1.5 rounded-full bg-[#d6d6d6] overflow-hidden"><div className="h-full bg-[#888] transition-all" style={{ width: session ? `${Math.max(0, Math.min(100, (1 - remaining / (session.duration * 60)) * 100))}%` : '0%' }} /></div>
+            <div className="text-center text-xs text-[#999]">{session ? session.mode === 'focus' ? '正在专注，请保持节奏' : '休息中' : '准备开始'}</div>
+            {!session && <div className="grid grid-cols-2 gap-3">
+              <label className="text-xs space-y-2">专注分钟<input aria-label="专注分钟" type="number" min={1} max={180} value={focusMinutes} onChange={e => setFocusMinutes(Math.max(1, Math.min(180, Number(e.target.value) || 1)))} className={inset + ' w-full p-3 text-center outline-none'} /></label>
+              <label className="text-xs space-y-2">休息分钟<input aria-label="休息分钟" type="number" min={1} max={60} value={breakMinutes} onChange={e => setBreakMinutes(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} className={inset + ' w-full p-3 text-center outline-none'} /></label>
+            </div>}
+            {session ? <button className={btn + ' w-full'} onClick={requestExit}>中断本轮</button> : <div className="grid grid-cols-2 gap-3"><button className={btn} onClick={() => start('focus')}>开始专注</button><button className={btn + ' !bg-[#aaa]'} onClick={() => start('break')}>开始休息</button></div>}
+          </section>
+          <section className={shell + ' p-5 space-y-3'}>
+            <div className="text-xs tracking-widest">当前任务</div>
+            <select aria-label="当前任务" value={selectedTask} disabled={!!session} onChange={e => setSelectedTask(e.target.value)} className={inset + ' w-full p-3 text-sm outline-none'}>
+              <option value="">请选择任务</option>
+              {tasks.filter(t => !t.done).map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+            </select>
+            <div className="flex justify-between text-xs text-[#999]"><span>今日专注</span><span>{totalToday} 分钟 · {todayRecords.length} 轮</span></div>
+          </section>
+        </>}
+        {tab === 'tasks' && <section className={shell + ' p-5 space-y-4'}>
+          <div className="tracking-widest text-xs">TASKS / 任务清单</div>
+          <form onSubmit={e => { e.preventDefault(); addTask(); }} className="flex gap-2"><input aria-label="新任务" value={taskInput} onChange={e => setTaskInput(e.target.value)} placeholder="写下今天的目标" className={inset + ' min-w-0 flex-1 p-3 text-sm outline-none'} /><button className={btn} type="submit">添加</button></form>
+          {tasks.length === 0 && <p className="text-sm text-[#999] py-5 text-center">还没有任务</p>}
+          {tasks.map(t => <div key={t.id} className={inset + ' p-3 flex items-center gap-3 text-sm'}>
+            <input type="checkbox" aria-label={`完成${t.title}`} checked={t.done} onChange={e => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: e.target.checked } : x))} />
+            <button className={`min-w-0 flex-1 text-left break-words ${t.done ? 'line-through opacity-50' : ''}`} onClick={() => { setSelectedTask(t.id); setTab('timer'); }}>{t.title}<span className="block text-xs text-[#aaa] mt-1">{t.sessions} 轮专注</span></button>
+            <button aria-label={`删除${t.title}`} className="px-2 text-[#aaa]" onClick={() => { setTasks(prev => prev.filter(x => x.id !== t.id)); if (selectedTask === t.id) setSelectedTask(''); }}>×</button>
+          </div>)}
+        </section>}
+        {tab === 'stats' && <section className={shell + ' p-5 space-y-5'}>
+          <div className="tracking-widest text-xs">STATISTICS / 专注统计</div>
+          <div className="grid grid-cols-2 gap-3"><div className={inset + ' p-4 text-center'}><div className="text-3xl">{totalToday}</div><div className="text-xs mt-2">今日分钟</div></div><div className={inset + ' p-4 text-center'}><div className="text-3xl">{todayRecords.length}</div><div className="text-xs mt-2">今日轮次</div></div></div>
+          <div className="text-sm">累计专注：{records.reduce((sum, r) => sum + r.minutes, 0)} 分钟</div>
+          <div className="text-sm">完成任务：{tasks.filter(t => t.done).length} 项</div>
+          <p className="text-xs text-[#aaa]">仅统计完整结束的专注轮次；数据保存在当前浏览器。</p>
+        </section>}
+        {tab === 'chat' && <section className={shell + ' p-5 space-y-4'}>
+          <div className="tracking-widest text-xs">SUPERVISOR / 监督记录</div>
+          <select aria-label="监督角色" value={charId} onChange={e => setCharId(e.target.value)} className={inset + ' w-full p-3 text-sm'}>
+            <option value="">不选择角色</option>{characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <p className="text-xs text-[#999]">已选择：{activeChar?.name || '无'}。监督记录与神经链接聊天分开保存；角色 AI 回复尚未接入。</p>
+          <div className={inset + ' min-h-[150px] max-h-[300px] overflow-y-auto p-3 space-y-2'}>
+            {notes.length === 0 && <p className="text-xs text-[#aaa]">记录一下今天的专注感受吧。</p>}
+            {notes.map(n => <p key={n.id} className="text-sm break-words">{n.content}</p>)}
+          </div>
+          <form onSubmit={e => { e.preventDefault(); sendNote(); }} className="flex gap-2"><input aria-label="记录内容" value={message} onChange={e => setMessage(e.target.value)} className={inset + ' min-w-0 flex-1 p-3 text-sm'} placeholder="写下想说的话" /><button type="submit" className={btn}>记录</button></form>
+        </section>}
+      </main>
+      <nav className="shrink-0 grid grid-cols-4 gap-2 px-4 py-4 border-t border-[#dedede] bg-[#eeeeee]" style={{ paddingBottom: 'max(16px, var(--safe-bottom, 0px))' }}>
+        {([['timer','计时'],['tasks','任务'],['stats','统计'],['chat','监督']] as const).map(([id, title]) => <button key={id} onClick={() => setTab(id)} className={`rounded-2xl py-3 text-xs ${tab === id ? 'bg-[#777] text-white' : 'bg-[#eeeeee] shadow-[3px_3px_7px_#d1d1d1,-3px_-3px_7px_#fff]'}`}>{title}</button>)}
+      </nav>
+      {exitOpen && <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-[#eeeeee] rounded-3xl p-6 space-y-4 shadow-xl">
+          <h2 className="text-lg font-medium">真的要退出学习吗？</h2>
+          <p className="text-sm">还没完成这一轮。你可以继续，也可以确认退出。</p>
+          <div className="text-xs text-[#999]">冷静倒计时：{Math.max(0, Math.ceil((exitDeadline - now) / 1000))} 秒</div>
+          <input aria-label="退出确认文字" value={exitPhrase} onChange={e => setExitPhrase(e.target.value)} placeholder={EXIT_PHRASE} className="w-full p-3 bg-white rounded-xl text-sm" />
+          <button className={btn + ' w-full'} onClick={() => setExitOpen(false)}>继续专注</button>
+          <button className="w-full py-2 text-sm disabled:opacity-30" disabled={exitPhrase.trim() !== EXIT_PHRASE || now < exitDeadline} onClick={quit}>确认中断并退出</button>
+          <button className="w-full text-xs underline" onClick={quit}>紧急退出</button>
         </div>
-    );
+      </div>}
+    </div>
+  );
 };
-
 export default ScheduleApp;
-import { useAppShortcut } from '../utils/appShortcutLaunch';
-import { AppID as ShortcutAppID } from '../types';
