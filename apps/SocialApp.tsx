@@ -209,6 +209,9 @@ const SocialApp: React.FC = () => {
         setInterestScores(next);
         localStorage.setItem('spark_interest_scores', JSON.stringify(next));
     };
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchOpen, setSearchOpen] = useState(false);
+    const searchMatches = (post: SocialPost) => !searchQuery.trim() || [post.title, post.content, post.authorName, ...(post.tags || [])].some(value => String(value || '').toLowerCase().includes(searchQuery.trim().toLowerCase()));
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
@@ -1481,7 +1484,7 @@ ${buildSparkCommentHistory(post)}
                             </div>}
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
                             <div className="columns-2 gap-2 pb-24">
-                                {feed.filter(post => feedTab === 'discover' || followedHandles.includes(post.authorName)).map(post => renderFeedItem(post))}
+                                {feed.filter(post => (feedTab === 'discover' || followedHandles.includes(post.authorName)) && searchMatches(post)).map(post => renderFeedItem(post))}
                             </div>
                         </div>
                     )}
