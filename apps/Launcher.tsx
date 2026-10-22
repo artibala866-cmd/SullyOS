@@ -593,7 +593,9 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   const appPages = useMemo(() => {
       // 首页四个固定入口不占用后续应用页名额；其余应用全部从第二页开始。
       const primaryIds = new Set([AppID.Character, AppID.MemoryPalace, AppID.User, AppID.Room]);
-      const secondaryApps = gridApps.filter(app => !primaryIds.has(app.id));
+      // 第二页的八个固定快捷入口不再重复占用后续应用页名额。
+      const page2ShortcutIds = new Set([AppID.Call, AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.XhsFreeRoam]);
+      const secondaryApps = gridApps.filter(app => !primaryIds.has(app.id) && !page2ShortcutIds.has(app.id));
       const pages: typeof INSTALLED_APPS[] = [[]];
       for (let i = 0; i < secondaryApps.length; i += APPS_PER_PAGE) {
           pages.push(secondaryApps.slice(i, i + APPS_PER_PAGE));
@@ -1133,19 +1135,19 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                       </div>
                   ) : idx === 1 ? (
                       // Page 2: Schedule 4x2 widget on top + Pinwheel (Music / 2x2 icons / 2x2 icons / Image) below
-                      <div className="launcher-pinwheel-content w-full flex flex-col gap-5">
+                      <div className="launcher-pinwheel-content w-full flex flex-col gap-[clamp(10px,2vh,20px)]">
                           <div className="w-full rounded-[25px] bg-white/95 border border-white/80 shadow-[0_6px_20px_rgba(0,0,0,.05)] px-4 py-4 text-[#292929]">
                               <div className="flex justify-between items-center mb-3">
                                   <span className="text-[12px] font-semibold tracking-[.12em]">WEEKLY / 本周日程</span>
                                   <span className="text-[10px] text-[#999]">点击今天查看角色日程</span>
                               </div>
-                              <div className="grid grid-cols-7 gap-1">
+                              <div className="grid grid-cols-7 gap-0 sm:gap-1">
                                   {weekDates.map(d => {
                                       const today = new Date();
                                       const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
                                       return <button key={d.key} type="button" onClick={() => { if (d.key === scheduleDateKey) { setScheduleViewerOpen(true); trackEvent('打开角色日程面板'); } }} disabled={d.key !== scheduleDateKey} className="flex flex-col items-center gap-2 py-1 disabled:cursor-default" aria-label={d.key === scheduleDateKey ? '查看今日角色日程' : `${d.key}`}>
                                           <span className="text-[10px] text-[#999]">周{d.label}</span>
-                                          <span className={`w-9 h-9 rounded-full flex items-center justify-center text-[14px] ${d.key === todayKey ? 'bg-[#222] text-white font-semibold' : 'text-[#333] hover:bg-[#eee]'}`}>{d.day}</span>
+                                          <span className={`w-[clamp(28px,8vw,36px)] h-[clamp(28px,8vw,36px)] rounded-full flex items-center justify-center text-[14px] ${d.key === todayKey ? 'bg-[#222] text-white font-semibold' : 'text-[#333] hover:bg-[#eee]'}`}>{d.day}</span>
                                       </button>;
                                   })}
                               </div>
@@ -1162,7 +1164,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                               </button>
                           </div>
                           {/* 与首页相同的小号图标；两排最多八个，其他应用留在后续页面 */}
-                          <div className="grid grid-cols-4 gap-x-2 gap-y-4 w-full max-w-[330px] mx-auto pt-1">
+                          <div className="grid grid-cols-4 gap-x-2 gap-y-[clamp(6px,1.5vh,16px)] w-full max-w-[330px] mx-auto pt-1 pb-3">
                               {[AppID.Call, AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.XhsFreeRoam].map(id => {
                                   const app = gridApps.find(a => a.id === id) || INSTALLED_APPS.find(a => a.id === id);
                                   return app ? <div key={id} className="min-w-0 flex justify-center"><AppIcon app={app} onClick={() => { if (!layoutEditing) openApp(id); }} size="sm" /></div> : null;
