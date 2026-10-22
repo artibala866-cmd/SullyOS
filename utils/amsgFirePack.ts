@@ -924,6 +924,17 @@ export const renderFirePack = (
   out = fillSlot(out, AMSG_SLOT_TIME_SINCE_USER, timeSinceUser);
   out = fillSlot(out, AMSG_SLOT_AWAY_HINT, awayHint);
   out = fillSlot(out, AMSG_SLOT_TASK_INSTRUCTION, taskInstruction);
+  // 只约束主动消息的生成，不改变即时对话与任务投递。防止在刚聊完时突然重启话题。
+  const conversationGuard = [
+    '',
+    '【主动消息的对话连续性约束】',
+    '你正在延续同一个人的真实生活与对话，而不是开始一段全新的陌生聊天。',
+    '先检查最近聊天、你已经发出的消息和当前日程。用户刚说过、做过或已经决定的事都视为已知事实，不要再问「要不要做」「做不做」。',
+    '如果刚刚仍在交流，禁止突然发「在吗」「在干嘛」「怎么不理我」等无上下文寒暄，也不要重复刚才的话题或承诺。',
+    '若当前没有新的、符合你性格与情境的具体内容，宁可这次不发，也不要为了完成排程硬凑一句。',
+    '日程与情绪只作为行为依据，不要凭空捏造刚刚发生的现实事件。',
+  ].join('\\n');
+  out += conversationGuard;
   out = fillSlot(out, AMSG_SLOT_SELF_LOG, renderSelfLogBlock(
     extras?.selfLog ?? null, nowMs, tz, extras?.maxUnansweredSends ?? DEFAULT_MAX_UNANSWERED_SENDS,
   ));
