@@ -1,3 +1,4 @@
+import { getNaturalReplyDelay } from '../utils/sullyLifeClock';
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 
 export const CHAT_AUTO_REPLY_DELAY_MS = 2000;
@@ -9,6 +10,7 @@ interface Options {
     blocked: boolean;
     generating: boolean;
     onGenerate: () => void;
+    naturalPacing?: boolean;
 }
 
 const newWork = () => ({ pending: false, sends: new Set<symbol>(), cancelVersion: 0 });
@@ -79,14 +81,15 @@ export function useChatAutoReply(options: Options) {
             setSeconds(null);
             return;
         }
-        setSeconds(2);
-        const tick = window.setTimeout(() => { if (ready()) setSeconds(1); }, 1000);
+        const delay = current.current.naturalPacing ? getNaturalReplyDelay(current.current.conversationId || '') : CHAT_AUTO_REPLY_DELAY_MS;
+        setSeconds(Math.ceil(delay / 1000));
+        const tick = window.setInterval(() => { if (ready()) setSeconds(value => value == null ? null : Math.max(1, value - 1)); }, 1000);
         const timer = window.setTimeout(() => {
             if (!ready()) return;
             cancel();
             current.current.onGenerate();
-        }, CHAT_AUTO_REPLY_DELAY_MS);
-        return () => { window.clearTimeout(tick); window.clearTimeout(timer); };
+        }, delay);
+        return () => { window.clearInterval(tick); window.clearTimeout(timer); };
     }, [revision, visible, options.enabled, options.active, options.blocked, options.generating, options.conversationId, cancel]);
 
     return { seconds, beginSend, cancel };
