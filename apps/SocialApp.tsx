@@ -1132,6 +1132,45 @@ ${buildSparkCommentHistory(post)}
         } catch (e) { addToast('分享失败', 'error'); }
     };
 
+    const generateIncomingDMs = async (post: SocialPost) => {
+        if (!apiConfig.apiKey) return;
+        const followers = Math.max(0, fanCountsRef.current.user || 0);
+        // A small account can still receive a DM; larger accounts receive more, but capped per post.
+        const chance = Math.min(0.88, 0.18 + Math.log10(followers + 1) * 0.14);
+        if (Math.random() >= chance) return;
+        const count = Math.min(5, 1 + Math.floor(Math.log10(followers + 1) / 1.6) + (Math.random() < 0.2 ? 1 : 0));
+        try {
+            const prompt = `你在模拟 Spark 小红书式社交平台。用户刚发了一条公开笔记：
+标题：${post.title}
+内容：${post.content}
+当前粉丝数约：${followers}。
+请生成 ${count} 位不同的陌生网友主动发来的第一条私信，真实中文互联网口吻。类型多样：正常交流、求教程、交朋友、合作邀约、好奇、社恐试探、莫名其妙的搭话、误会、阴阳怪气、无厘头怪事等。粉丝多时允许出现更多奇怪的邀约和冒失搭话，但不要每个人都奇怪；要根据帖子内容决定具体说什么。每个网友要有不同性格，消息长短不一，不要机械句号、套话或重复。禁止假冒现实机构、索要隐私或诱导转账。只输出 JSON 数组，每项格式 {"name":"独特网名","message":"私信内容"}。网名不能与 ${socialProfile.name} 相同。`;
+            const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
+                body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.95 }),
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '发帖后陌生人主动私信' },
+            } as RequestInit);
+            if (!response.ok) throw new Error(await apiErrorMessage(response));
+            const data = await safeResponseJson(response);
+            const parsed = safeParseJSON(extractContent(data));
+            if (!Array.isArray(parsed)) return;
+            setDmThreads(prev => {
+                const next = { ...prev };
+                const used = new Set(Object.keys(next));
+                for (const entry of parsed.slice(0, count)) {
+                    const name = String(entry?.name || '').trim().slice(0, 32);
+                    const message = String(entry?.message || '').trim().slice(0, 500);
+                    if (!name || !message || name === socialProfile.name || used.has(name)) continue;
+                    used.add(name);
+                    next[name] = [{ role: 'assistant', content: message, time: Date.now() }];
+                }
+                localStorage.setItem('spark_dm_threads', JSON.stringify(next));
+                return next;
+            });
+        } catch (error) { console.warn('Spark incoming DM generation failed', error); }
+    };
+
     const handleCreatePost = () => {
         if (!newPostContent.trim()) return;
         const post: SocialPost = {
@@ -1158,7 +1197,7 @@ ${buildSparkCommentHistory(post)}
         setIsCreateOpen(false); // Close Modal
         setActiveTab('home'); 
         addToast('发布成功，正在等待互动…', 'success');
-        if (apiConfig.apiKey) void generateComments(post);
+        if (apiConfig.apiKey) { void generateComments(post); void generateIncomingDMs(post); }
     };
 
     const handleDeletePost = (postId: string) => { removePostFromFeed(postId); addToast('帖子已删除', 'success'); trackEvent('删除一条帖子'); };
