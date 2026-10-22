@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
+import { ContextBuilder } from '../utils/context';
+import { safeResponseJson, extractContent } from '../utils/safeApi';
 
 type FocusTask = { id: string; title: string; done: boolean; sessions: number };
 type FocusRecord = { date: string; minutes: number; taskId: string };
 type FocusMode = 'focus' | 'break';
 type Session = { mode: FocusMode; deadline: number; duration: number; taskId: string };
-type Note = { id: string; role: 'user' | 'system'; content: string };
+type Note = { id: string; role: 'user' | 'assistant'; content: string };
 const STORAGE = 'sully_pomodoro_v1';
 const EXIT_PHRASE = '真的要退出学习吗';
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -19,7 +21,7 @@ const save = (key: string, value: unknown) => {
 };
 
 const ScheduleApp: React.FC = () => {
-  const { closeApp, characters, activeCharacterId, addToast } = useOS();
+  const { closeApp, characters, activeCharacterId, addToast, apiConfig, userProfile } = useOS();
   const [tasks, setTasks] = useState<FocusTask[]>(() => load('tasks', []));
   const [records, setRecords] = useState<FocusRecord[]>(() => load('records', []));
   const [taskInput, setTaskInput] = useState('');
@@ -35,6 +37,7 @@ const ScheduleApp: React.FC = () => {
   const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'chat'>('timer');
   const [notes, setNotes] = useState<Note[]>(() => load('notes', []));
   const [message, setMessage] = useState('');
+  const [replying, setReplying] = useState(false);
   const processed = useRef<number | null>(null);
   const activeChar = characters.find(c => c.id === charId);
   const remaining = session ? Math.max(0, Math.ceil((session.deadline - now) / 1000)) : (focusMinutes * 60);
@@ -93,11 +96,41 @@ const ScheduleApp: React.FC = () => {
     setExitOpen(true);
   };
   const quit = () => { setSession(null); setExitOpen(false); closeApp(); };
-  const sendNote = () => {
+  const sendNote = async () => {
     const content = message.trim();
-    if (!content) return;
-    setNotes(prev => [...prev, { id: String(Date.now()), role: 'user', content }]);
+    if (!content || replying) return;
+    if (!activeChar) { addToast('请先选择监督角色', 'error'); return; }
+    if (!apiConfig.apiKey || !apiConfig.model) { addToast('请先配置聊天 AI', 'error'); return; }
+    const history = [...notes, { id: String(Date.now()), role: 'user' as const, content }];
+    setNotes(history);
     setMessage('');
+    setReplying(true);
+    try {
+      const context = ContextBuilder.buildCoreContext(activeChar, userProfile, true);
+      const task = activeTask?.title || '自由专注';
+      const phase = session?.mode === 'focus' ? '正在专注' : session?.mode === 'break' ? '正在休息' : '尚未开始计时';
+      const response = await fetch(`${apiConfig.baseUrl.replace(/\\/+$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
+        body: JSON.stringify({
+          model: apiConfig.model,
+          messages: [
+            { role: 'system', content: `${context}\\n\\n你正在番茄钟的独立监督对话中。保持角色原本的人设和说话方式，像自然交流一样回应用户，适度鼓励、提醒或陪伴，不要扮演系统提示。当前任务：${task}；状态：${phase}；剩余约 ${Math.ceil(remaining / 60)} 分钟。回答简短自然。` },
+            ...history.slice(-16).map(n => ({ role: n.role, content: n.content })),
+          ],
+          temperature: 0.8,
+        }),
+      });
+      const data = await safeResponseJson(response);
+      if (!response.ok) throw new Error(data?.error?.message || `HTTP ${response.status}`);
+      const reply = extractContent(data?.choices?.[0]?.message?.content);
+      if (!reply?.trim()) throw new Error('AI 返回了空回复');
+      setNotes(prev => [...prev, { id: String(Date.now()) + '_reply', role: 'assistant', content: reply.trim() }]);
+    } catch (error) {
+      addToast(`角色回复失败：${error instanceof Error ? error.message : '请检查 API 设置'}`, 'error');
+    } finally {
+      setReplying(false);
+    }
   };
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-[#eeeeee] text-[#666] font-sans" style={{ paddingTop: 'var(--safe-top)' }}>
@@ -151,12 +184,13 @@ const ScheduleApp: React.FC = () => {
           <select aria-label="监督角色" value={charId} onChange={e => setCharId(e.target.value)} className={inset + ' w-full p-3 text-sm'}>
             <option value="">不选择角色</option>{characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <p className="text-xs text-[#999]">已选择：{activeChar?.name || '无'}。监督记录与神经链接聊天分开保存；角色 AI 回复尚未接入。</p>
+          <p className="text-xs text-[#999]">已选择：{activeChar?.name || '无'}。监督记录与神经链接聊天分开保存；角色会根据当前任务与专注状态回复。</p>
           <div className={inset + ' min-h-[150px] max-h-[300px] overflow-y-auto p-3 space-y-2'}>
             {notes.length === 0 && <p className="text-xs text-[#aaa]">记录一下今天的专注感受吧。</p>}
-            {notes.map(n => <p key={n.id} className="text-sm break-words">{n.content}</p>)}
+            {notes.map(n => <p key={n.id} className="text-sm break-words"><span className="text-xs text-[#999]">{n.role === 'assistant' ? (activeChar?.name || '角色') : '我'}：</span>{n.content}</p>)}
+            {replying && <p className="text-xs text-[#999]">角色正在回复…</p>}
           </div>
-          <form onSubmit={e => { e.preventDefault(); sendNote(); }} className="flex gap-2"><input aria-label="记录内容" value={message} onChange={e => setMessage(e.target.value)} className={inset + ' min-w-0 flex-1 p-3 text-sm'} placeholder="写下想说的话" /><button type="submit" className={btn}>记录</button></form>
+          <form onSubmit={e => { e.preventDefault(); void sendNote(); }} className="flex gap-2"><input aria-label="记录内容" value={message} onChange={e => setMessage(e.target.value)} className={inset + ' min-w-0 flex-1 p-3 text-sm'} placeholder="写下想说的话" /><button type="submit" disabled={replying} className={btn}>{replying ? '回复中' : '发送'}</button></form>
         </section>}
       </main>
       <nav className="shrink-0 grid grid-cols-4 gap-2 px-4 py-4 border-t border-[#dedede] bg-[#eeeeee]" style={{ paddingBottom: 'max(16px, var(--safe-bottom, 0px))' }}>
