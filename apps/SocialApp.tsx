@@ -1152,6 +1152,12 @@ ${buildSparkCommentHistory(post)}
         feedRef.current = [];
         setFeed([]);
         setSelectedPost(null);
+        // Keep the inbox consistent: cleared posts cannot be opened from old notices.
+        setNotices(prev => {
+            const next = prev.filter(item => !item.postId);
+            localStorage.setItem('spark_notifications', JSON.stringify(next));
+            return next;
+        });
         DB.clearSocialPosts();
         setShowSettings(false);
         addToast('推荐流已清空', 'success');
@@ -1341,7 +1347,7 @@ ${buildSparkCommentHistory(post)}
                             <span><strong className="text-slate-800">{posts.length}</strong> 笔记</span>
                             <span><strong className="text-slate-800">{fanCounts[owner ? 'char:' + owner.id + ':' + viewedAccount.handle : 'public:' + viewedAccount.handle] ?? 0}</strong> 粉丝</span>
                         </div>
-                        {owner && fanChanges['char:' + owner.id + ':' + viewedAccount.handle] !== undefined && <p className="text-xs text-slate-500 mb-3">最近发帖粉丝变化：{fanChanges['char:' + owner.id + ':' + viewedAccount.handle] > 0 ? '+' : ''}{fanChanges['char:' + owner.id + ':' + viewedAccount.handle]}</p>}
+
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#ff2442] text-white font-bold py-2 mb-5">
                             {followedHandles.includes(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
                         </button>}
