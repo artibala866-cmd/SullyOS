@@ -196,6 +196,19 @@ const SocialApp: React.FC = () => {
     };
     const fanCountsRef = useRef(fanCounts);
     useEffect(() => { fanCountsRef.current = fanCounts; }, [fanCounts]);
+    // Private on-device recommendation interests: only affect discovery generation.
+    const [interestScores, setInterestScores] = useState<Record<string, number>>(() => {
+        try { return JSON.parse(localStorage.getItem('spark_interest_scores') || '{}'); } catch { return {}; }
+    });
+    const interestRef = useRef(interestScores);
+    const learnInterest = (post: SocialPost, weight: number) => {
+        const tokens = Array.from(new Set(((post.title || '') + ' ' + (post.content || '') + ' ' + (post.tags || []).join(' ')).toLowerCase().match(/[\\u4e00-\\u9fff]{2,5}|[a-z]{3,18}/g) || [])).filter(token => !/^(今天|感觉|真的|一个|什么|就是|自己|这个|那个|一下|大家|可以|还是|因为|然后|没有|一些|我们|你们|他们)$/.test(token)).slice(0, 24);
+        const next = { ...interestRef.current };
+        for (const token of tokens) next[token] = Math.max(0, Math.min(30, (next[token] || 0) + weight));
+        interestRef.current = next;
+        setInterestScores(next);
+        localStorage.setItem('spark_interest_scores', JSON.stringify(next));
+    };
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
@@ -690,7 +703,9 @@ const SocialApp: React.FC = () => {
             const context = await buildGenerationContext(selectedChars);
             if (controller.signal.aborted) return;
 
+            const interests = Object.entries(interestRef.current).filter(([, score]) => score > 0.5).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([topic, score]) => topic + '(' + Math.round(score) + ')').join('、');
             const prompt = `### 任务: 模拟社交APP "Spark" 的推荐流
+【隐形兴趣推荐】根据用户近期发帖、点赞、评论和点开阅读积累的兴趣权重，适当提高相关内容比例：${interests || '暂无明显偏好'}。例如经常看绘画就多推荐绘画，常互动帅哥内容就多推荐相关话题；保留约三分之一探索内容，不要所有帖子都同一主题，也不要向用户或角色揭露兴趣画像。
 你需要生成 6-8 条新的社交媒体帖子。
 
 ### 🎭 内容构成 (混合模式)
@@ -1016,6 +1031,7 @@ ${buildSparkCommentHistory(post)}
             authorType: 'user',
         };
         prependPostsToFeed([post]);
+        learnInterest(post, 4);
         setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); setLocalPostImage(''); 
         setIsCreateOpen(false); // Close Modal
         setActiveTab('home'); 
@@ -1026,6 +1042,7 @@ ${buildSparkCommentHistory(post)}
     const handleLike = (e: any, post: SocialPost) => {
         e.stopPropagation();
         if (post.authorType === 'character') remember(post.authorCharId, post, post.isLiked ? '自己的笔记少了一个赞' : '自己的笔记收到点赞');
+        learnInterest(post, post.isLiked ? -2 : 2);
         updatePostInFeed(post.id, current => ({
             ...current,
             isLiked: !current.isLiked,
@@ -1052,6 +1069,7 @@ ${buildSparkCommentHistory(post)}
             comments: mergeSocialComments(current.comments || [], [userComment]),
         }));
         if (!updatedPost) return;
+        learnInterest(selectedPost, 3);
         if (selectedPost.authorType === 'character') remember(selectedPost.authorCharId, selectedPost, '自己的公开笔记收到评论：' + userComment.content);
         const contentToSend = commentInput; 
         setCommentInput(''); 
@@ -1061,6 +1079,7 @@ ${buildSparkCommentHistory(post)}
     const handleOpenPost = (post: SocialPost) => {
         const livePost = feedRef.current.find(item => item.id === post.id) || post;
         setSelectedPost(livePost);
+        learnInterest(livePost, 0.3);
         generateComments(livePost);
     };
 
@@ -1172,7 +1191,7 @@ ${buildSparkCommentHistory(post)}
                                 {selectedPost.tags.map(t => <span key={t} className="text-xs font-bold text-blue-600 bg-blue-50/50 backdrop-blur-sm border border-blue-100 px-2.5 py-1 rounded-full">#{t}</span>)}
                             </div>
                             <div className="text-xs text-slate-400 font-medium border-b border-slate-100/50 pb-6">{new Date(selectedPost.timestamp).toLocaleDateString()}</div>
-                            {postTraffic[selectedPost.id] && <div className="grid grid-cols-3 gap-2 rounded-xl bg-rose-50/70 p-3 text-center text-xs text-slate-600">
+                            {selectedPost.authorType === 'user' && postTraffic[selectedPost.id] && <div className="grid grid-cols-3 gap-2 rounded-xl bg-rose-50/70 p-3 text-center text-xs text-slate-600">
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].impressions.toLocaleString()}</strong>曝光</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].reads.toLocaleString()}</strong>阅读</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].score}</strong>内容表现</div>
