@@ -3318,6 +3318,7 @@ export interface Toast {
 
 export interface XhsStockImage {
     id: string;
+    category?: 'material' | 'avatar' | 'sticker';
     url: string;           // 图床URL (must be public https)
     tags: string[];        // 标签 e.g. ['美食','咖啡','下午茶']
     addedAt: number;       // timestamp
