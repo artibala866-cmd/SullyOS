@@ -744,6 +744,7 @@ const SocialApp: React.FC = () => {
             });
             if (!newPosts.length) throw new Error('模型返回的作者身份不匹配，未添加帖子');
             prependPostsToFeed(newPosts);
+            for (const post of newPosts) remember(post.authorCharId, post, '自己发布了笔记：' + post.content);
             addToast('首页已刷新: 冲浪模式开启', 'success');
         } catch (e: any) {
             if (e?.name !== 'AbortError') addToast('刷新失败: ' + e.message, 'error');
@@ -938,6 +939,10 @@ ${buildSparkCommentHistory(post)}
                         ...current,
                         comments: mergeSocialComments(current.comments || [], newReplies),
                     }));
+                    for (const reply of newReplies) {
+                        remember(reply.authorCharId, post, '自己回复了 User：' + reply.content);
+                        if (post.authorCharId && post.authorCharId !== reply.authorCharId) remember(post.authorCharId, post, reply.authorName + ' 回复了 User：' + reply.content);
+                    }
                     addToast(`收到 ${newReplies.length} 条新回复`, 'info');
                 }
             }
