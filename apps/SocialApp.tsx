@@ -1,4 +1,5 @@
 import { ContextBuilder } from '../utils/context';
+import { evaluateSparkTraffic, sparkTrafficKey, type SparkTraffic } from '../utils/sparkTraffic';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -161,28 +162,38 @@ const SocialApp: React.FC = () => {
         try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
     });
     const [fanChanges, setFanChanges] = useState<Record<string, number>>({});
+    const [postTraffic, setPostTraffic] = useState<Record<string, SparkTraffic>>(() => {
+        try { return JSON.parse(localStorage.getItem('spark_post_traffic') || '{}'); } catch { return {}; }
+    });
+    const trafficRef = useRef(postTraffic);
     const [editingFans, setEditingFans] = useState(false);
     const [fanInput, setFanInput] = useState('0');
-    const fanKey = (post: SocialPost) => post.authorType === 'user' ? 'user' : post.authorType === 'character' && post.authorCharId ? 'char:' + post.authorCharId + ':' + post.authorName : 'public:' + post.authorName;
-    const applyFanChange = (posts: SocialPost[]) => {
+    const fanKey = sparkTrafficKey;
+    const applyTraffic = (posts: SocialPost[]) => {
+        const previous = trafficRef.current;
+        const next = { ...previous };
+        const counts = { ...fanCountsRef.current };
         const changes: Record<string, number> = {};
-        setFanCounts(prev => {
-            const next = { ...prev };
-            for (const post of posts) {
-                if (post.authorType !== 'user' && post.authorType !== 'character') continue;
-                const key = fanKey(post);
-                const current = next[key] || 0;
-                const score = (post.content.length * 7 + post.title.length * 13 + Date.now() % 97) % 100;
-                const size = Math.max(1, Math.round(Math.sqrt(current + 16) / 3));
-                const delta = score < 20 ? -Math.min(current, size) : size * (score > 85 ? 4 : score > 60 ? 2 : 1);
-                next[key] = Math.max(0, current + delta);
-                changes[key] = (changes[key] || 0) + delta;
-            }
-            localStorage.setItem('spark_fan_counts', JSON.stringify(next));
-            return next;
-        });
+        for (const post of posts) {
+            if (post.authorType !== 'user' && post.authorType !== 'character') continue;
+            const key = fanKey(post);
+            const old = previous[post.id];
+            const now = evaluateSparkTraffic(post, counts[key] || 0, old);
+            if (old && old.evaluatedLikes === now.evaluatedLikes && old.evaluatedComments === now.evaluatedComments && old.evaluatedSaves === now.evaluatedSaves) continue;
+            const difference = now.followersDelta - (old?.followersDelta || 0);
+            counts[key] = Math.max(0, (counts[key] || 0) + difference);
+            changes[key] = (changes[key] || 0) + difference;
+            next[post.id] = now;
+        }
+        trafficRef.current = next;
+        fanCountsRef.current = counts;
+        setPostTraffic(next);
+        setFanCounts(counts);
         setFanChanges(changes);
+        localStorage.setItem('spark_post_traffic', JSON.stringify(next));
+        localStorage.setItem('spark_fan_counts', JSON.stringify(counts));
     };
+    const fanCountsRef = useRef(fanCounts);
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
@@ -479,7 +490,7 @@ const SocialApp: React.FC = () => {
         const next = prependUniqueSocialPosts(feedRef.current, newPosts);
         feedRef.current = next;
         setFeed(next);
-        applyFanChange(newPosts);
+        applyTraffic(newPosts);
         // Only persist the new batch. Re-saving the request's stale feed snapshot
         // could erase comments or user posts that arrived while it was running.
         Promise.all(newPosts.map(p => DB.saveSocialPost(p))).catch(console.error);
@@ -492,6 +503,7 @@ const SocialApp: React.FC = () => {
         setFeed(result.feed);
         setSelectedPost(current => (current?.id === postId ? result.post! : current));
         DB.saveSocialPost(result.post).catch(console.error);
+        applyTraffic([result.post]);
         return result.post;
     };
 
@@ -1071,6 +1083,14 @@ ${buildSparkCommentHistory(post)}
                                 {selectedPost.tags.map(t => <span key={t} className="text-xs font-bold text-blue-600 bg-blue-50/50 backdrop-blur-sm border border-blue-100 px-2.5 py-1 rounded-full">#{t}</span>)}
                             </div>
                             <div className="text-xs text-slate-400 font-medium border-b border-slate-100/50 pb-6">{new Date(selectedPost.timestamp).toLocaleDateString()}</div>
+                            {postTraffic[selectedPost.id] && <div className="grid grid-cols-3 gap-2 rounded-xl bg-rose-50/70 p-3 text-center text-xs text-slate-600">
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].impressions.toLocaleString()}</strong>曝光</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].reads.toLocaleString()}</strong>阅读</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].score}</strong>内容表现</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].likes}</strong>点赞</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].comments}</strong>评论</div>
+                                <div><strong className="block text-base text-rose-500">{postTraffic[selectedPost.id].followersDelta > 0 ? '+' : ''}{postTraffic[selectedPost.id].followersDelta}</strong>带来粉丝</div>
+                            </div>}
                         </div>
 
                         {/* Comments Section */}
