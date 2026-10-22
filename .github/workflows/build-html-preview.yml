@@ -1,12 +1,22 @@
-name: Build downloadable HTML preview
+name: Build and publish SullyOS test site
 on:
   push:
     branches: [remove-checkphone-vrworld-lifesim]
   workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: sullyos-pages
+  cancel-in-progress: true
 jobs:
   preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,11 +28,14 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build
+      - name: Build original SullyOS for GitHub Pages
+        env:
+          GITHUB_PAGES: '1'
         run: pnpm run build
-      - name: Upload HTML preview
-        uses: actions/upload-artifact@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
-          name: sullyos-html-preview
           path: dist/
-          if-no-files-found: error
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
