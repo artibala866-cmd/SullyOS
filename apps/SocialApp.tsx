@@ -1401,6 +1401,23 @@ ${buildSparkCommentHistory(post)}
         // Main Container with Premium Gradient Background
         <div className="h-full w-full bg-gradient-to-br from-rose-50 via-slate-50 to-teal-50 flex flex-col font-sans relative text-slate-900 overflow-hidden">
             
+            {dmTarget && <div className="absolute inset-0 z-[90] bg-white flex flex-col" style={{ paddingTop: 'var(--safe-top)' }}>
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+                    <button type="button" onClick={() => setDmTarget(null)} className="text-xl">‹</button>
+                    <TokenImg value={dmTarget.avatar} className="w-9 h-9 rounded-full object-cover" />
+                    <strong className="truncate text-sm">{dmTarget.handle}</strong>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+                    {(dmThreads[dmTarget.handle] || []).map((message, index) => <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#ff2442] text-white' : 'bg-white text-slate-800'}`}>{message.content}</div>
+                    </div>)}
+                    {dmBusy && <p className="text-xs text-slate-400">对方正在输入…</p>}
+                </div>
+                <div className="flex items-center gap-2 p-3 border-t border-slate-100" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}>
+                    <input value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void sendSparkDM(); }} placeholder="发送私信…" className="flex-1 min-w-0 rounded-full bg-slate-100 px-4 py-2 text-sm" />
+                    <button type="button" disabled={dmBusy || !dmInput.trim()} onClick={() => void sendSparkDM()} className="text-[#ff2442] font-bold disabled:opacity-40">发送</button>
+                </div>
+            </div>}
             {viewedAccount && (() => {
                 const posts = accountPosts(viewedAccount.handle);
                 const owner = characters.find(c => (characterHandles[c.id] || []).some(a => a.handle === viewedAccount.handle));
@@ -1422,6 +1439,7 @@ ${buildSparkCommentHistory(post)}
                             <span><strong className="text-slate-800">{fanCounts[owner ? 'char:' + owner.id + ':' + viewedAccount.handle : 'public:' + viewedAccount.handle] ?? 0}</strong> 粉丝</span>
                         </div>
 
+                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => { setDmTarget(viewedAccount); setViewedAccount(null); }} className="w-full rounded-full border border-[#ff2442] text-[#ff2442] font-bold py-2 mb-2">私信</button>}
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#ff2442] text-white font-bold py-2 mb-5">
                             {followedHandles.includes(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
                         </button>}
