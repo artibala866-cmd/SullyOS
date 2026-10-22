@@ -160,7 +160,8 @@ const SocialApp: React.FC = () => {
     // Modes: 'home' (Feed) | 'me' (Profile) | 'create' (Modal Overlay)
     const [activeTab, setActiveTab] = useState<'home' | 'me'>('home');
     useAppShortcut(ShortcutAppID.Social, intent => { setSelectedPost(null); setIsCreateOpen(false); setShowSettings(false); setActiveTab(intent.entryId === 'me' ? 'me' : 'home'); });
-    const [isCreateOpen, setIsCreateOpen] = useState(false); 
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [showUtilityShelf, setShowUtilityShelf] = useState(false); 
     
     const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -990,6 +991,13 @@ ${buildSparkCommentHistory(post)}
         // Main Container with Premium Gradient Background
         <div className="h-full w-full bg-gradient-to-br from-rose-50 via-slate-50 to-teal-50 flex flex-col font-sans relative text-slate-900 overflow-hidden">
             
+            {/* 收纳入口与小红书主功能独立，避免占据发现/我的导航。 */}
+            <Modal isOpen={showUtilityShelf} title="收纳" onClose={() => setShowUtilityShelf(false)}>
+                <div className="space-y-2 py-2">
+                    <button type="button" onClick={() => { setShowUtilityShelf(false); openApp(AppID.XhsStock); }} className="w-full flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-700"><span>小红书图库</span><span className="text-slate-400">›</span></button>
+                    <button type="button" onClick={() => { setShowUtilityShelf(false); openApp(AppID.XhsFreeRoam); }} className="w-full flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-700"><span>自由活动</span><span className="text-slate-400">›</span></button>
+                </div>
+            </Modal>
             {/* --- Modals (Settings, Share) --- */}
             <Modal isOpen={showSettings} title="身份管理" onClose={() => setShowSettings(false)}>
                 <div className="space-y-6">
@@ -1129,10 +1137,12 @@ ${buildSparkCommentHistory(post)}
                         <div className="flex gap-6 text-base font-bold text-slate-300">
                             <button className={`${activeTab === 'home' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('home'); trackEvent('切换 Spark 主标签', { tab: 'home' }); }}>发现</button>
                             <button className={`${activeTab === 'me' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('me'); trackEvent('切换 Spark 主标签', { tab: 'me' }); }}>我的</button>
-                            <button type="button" onClick={() => openApp(AppID.XhsStock)} className="text-[11px] text-slate-500 whitespace-nowrap" aria-label="打开小红书图库">图库</button>
-                            <button type="button" onClick={() => openApp(AppID.XhsFreeRoam)} className="text-[11px] text-slate-500 whitespace-nowrap" aria-label="打开自由活动">自由活动</button>
+
                         </div>
-                        <button onClick={() => { setShowSettings(true); trackEvent('打开身份管理面板'); }} className="text-slate-800 font-bold text-sm">管理</button>
+                        <div className="flex items-center gap-3">
+                            <button type="button" onClick={() => setShowUtilityShelf(true)} className="text-slate-500 text-xs rounded-full border border-slate-200/80 bg-white/70 px-3 py-1.5" aria-label="打开收纳工具">收纳</button>
+                            <button onClick={() => { setShowSettings(true); trackEvent('打开身份管理面板'); }} className="text-slate-800 font-bold text-sm">管理</button>
+                        </div>
                     </div>
                 </div>
 
