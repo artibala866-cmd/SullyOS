@@ -1894,7 +1894,6 @@ export const amsgHooks = {
     const presence = parseAmsgChatPresence(
       charRows.find((r) => r.key === AMSG_CHAT_PRESENCE_KEY)?.value,
     );
-    const nowMs = ctx.now.getTime();
     const replyInFlight = isFreshChatPresence(presence, charId, nowMs);
     const recentUserMessage = presence?.charId === charId
       && typeof presence.lastUserMessageAt === 'number'
