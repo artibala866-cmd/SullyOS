@@ -2334,6 +2334,27 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               return;
           }
 
+          // Avoid interrupting an active conversation or sending a second reply.
+          const chatting = (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId)
+              || isEmbeddedChatVisible(charId);
+          if (chatting) {
+              drainQueuedProactive();
+              return;
+          }
+          const recentConversation = (await DB.getRecentMessagesByCharId(charId, 30, true))
+              .filter(m => !m.metadata?.proactiveHint)
+              .sort((a, b) => a.timestamp - b.timestamp);
+          const latest = recentConversation[recentConversation.length - 1];
+          if (!latest || latest.role === 'user' || Date.now() - latest.timestamp < 45 * 60 * 1000) {
+              drainQueuedProactive();
+              return;
+          }
+          if (recentConversation.filter(m =>
+              m.role === 'assistant' && Date.now() - m.timestamp < 3 * 60 * 60 * 1000).length >= 3) {
+              drainQueuedProactive();
+              return;
+          }
+
           // 页面内主动消息与私聊使用同一角色默认；旧主动消息副 API 不再参与取值。
           const api = resolveDialogueApi(currentApiConfig, char);
           if (!api.baseUrl) {
