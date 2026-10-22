@@ -657,11 +657,6 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
       return characters.find(c => c.id === activeCharacterId) || characters[0];
   }, [characters, scheduleCharId, activeCharacterId]);
   const scheduleDateKey = useLocalDateKey(resolveCharTimeZone(scheduleChar));
-  const [weekSelectedDate, setWeekSelectedDate] = useState<string | null>(null);
-  const [weekSchedule, setWeekSchedule] = useState<DailySchedule | null>(null);
-  const [weekLoading, setWeekLoading] = useState(false);
-  const [weekDraft, setWeekDraft] = useState('');
-  const [weekSaving, setWeekSaving] = useState(false);
   const weekDates = useMemo(() => {
       const today = new Date();
       const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (today.getDay() + 6) % 7);
@@ -671,35 +666,6 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
           return { key: `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`, day: day.getDate(), label: ['一','二','三','四','五','六','日'][i] };
       });
   }, [scheduleDateKey]);
-  useEffect(() => {
-      if (!weekSelectedDate || !scheduleChar) return;
-      let cancelled = false;
-      setWeekLoading(true);
-      setWeekSchedule(null);
-      DB.getDailySchedule(scheduleChar.id, weekSelectedDate).then(data => {
-          if (!cancelled) setWeekSchedule(data);
-      }).catch(() => {}).finally(() => { if (!cancelled) setWeekLoading(false); });
-      return () => { cancelled = true; };
-  }, [weekSelectedDate, scheduleChar?.id]);
-  const saveWeekSchedule = async () => {
-      if (!weekSelectedDate || !scheduleChar || !weekDraft.trim() || weekSaving) return;
-      const slots = weekDraft.split('\n').map(line => {
-          const match = line.trim().match(/^([01]\\d|2[0-3]):([0-5]\\d)\\s+(.+)$/);
-          return match ? { startTime: `${match[1]}:${match[2]}`, activity: match[3].trim() } : null;
-      }).filter((slot): slot is {startTime:string;activity:string} => !!slot).sort((a,b) => a.startTime.localeCompare(b.startTime));
-      if (!slots.length) { alert('请按“09:00 学习”格式，每行填写一项日程'); return; }
-      setWeekSaving(true);
-      try {
-          const next: DailySchedule = { id: `${scheduleChar.id}_${weekSelectedDate}`, charId: scheduleChar.id, date: weekSelectedDate, slots, generatedAt: Date.now() };
-          await DB.saveDailySchedule(next);
-          setWeekSchedule(next);
-          if (weekSelectedDate === scheduleDateKey) setScheduleData(next);
-          setWeekDraft('');
-      } catch { alert('保存失败，请重试'); } finally { setWeekSaving(false); }
-  };
-
-
-
   useEffect(() => {
       if (!scheduleChar || !isDataLoaded) return;
       getDailyScheduleForChar(scheduleChar).then(s => setScheduleData(s)).catch(() => {});
@@ -1171,13 +1137,13 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                           <div className="w-full rounded-[25px] bg-white/95 border border-white/80 shadow-[0_6px_20px_rgba(0,0,0,.05)] px-4 py-4 text-[#292929]">
                               <div className="flex justify-between items-center mb-3">
                                   <span className="text-[12px] font-semibold tracking-[.12em]">WEEKLY / 本周日程</span>
-                                  <span className="text-[10px] text-[#999]">点击日期查看或创建</span>
+                                  <span className="text-[10px] text-[#999]">点击今天查看角色日程</span>
                               </div>
                               <div className="grid grid-cols-7 gap-1">
                                   {weekDates.map(d => {
                                       const today = new Date();
                                       const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-                                      return <button key={d.key} type="button" onClick={() => setWeekSelectedDate(d.key)} className="flex flex-col items-center gap-2 py-1" aria-label={`查看${d.key}的日程`}>
+                                      return <button key={d.key} type="button" onClick={() => { if (d.key === scheduleDateKey) { setScheduleViewerOpen(true); trackEvent('打开角色日程面板'); } }} disabled={d.key !== scheduleDateKey} className="flex flex-col items-center gap-2 py-1 disabled:cursor-default" aria-label={d.key === scheduleDateKey ? '查看今日角色日程' : `${d.key}`}>
                                           <span className="text-[10px] text-[#999]">周{d.label}</span>
                                           <span className={`w-9 h-9 rounded-full flex items-center justify-center text-[14px] ${d.key === todayKey ? 'bg-[#222] text-white font-semibold' : 'text-[#333] hover:bg-[#eee]'}`}>{d.day}</span>
                                       </button>;
@@ -1296,25 +1262,6 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
 
       </div>
 
-      {weekSelectedDate && (
-          <div className="fixed inset-0 z-[210] bg-black/45 flex items-center justify-center px-5" onClick={() => setWeekSelectedDate(null)}>
-              <section className="w-full max-w-[360px] max-h-[78vh] overflow-y-auto rounded-[26px] bg-white p-5 text-[#222] shadow-xl" onClick={e => e.stopPropagation()}>
-                  <div className="flex justify-between items-center mb-4">
-                      <div><div className="text-[11px] tracking-[.2em] text-[#999]">DAILY SCHEDULE</div><h3 className="text-xl font-semibold mt-1">{weekSelectedDate}</h3></div>
-                      <button type="button" onClick={() => setWeekSelectedDate(null)} className="w-9 h-9 rounded-full bg-[#f2f2f2] text-xl" aria-label="关闭日程">×</button>
-                  </div>
-                  <p className="text-xs text-[#888] mb-3">{scheduleChar?.name || '当前角色'} · 独立日程</p>
-                  {weekLoading ? <p className="py-4 text-sm text-[#999]">正在读取日程…</p> : weekSchedule?.slots.length ? (
-                      <div className="space-y-2 mb-4">{weekSchedule.slots.map((slot,i) => <div key={i} className="flex gap-4 items-start border-b border-[#eee] py-2"><span className="text-xs font-semibold w-12 shrink-0">{slot.startTime}</span><span className="text-sm">{slot.activity}</span></div>)}</div>
-                  ) : <p className="text-sm text-[#999] py-3">这一天还没有日程，可以直接在这里创建。</p>}
-                  <div className="border-t border-[#eee] pt-3">
-                      <label className="block text-xs text-[#777] mb-2">新建 / 覆盖日程（每行一项）</label>
-                      <textarea value={weekDraft} onChange={e => setWeekDraft(e.target.value)} rows={4} placeholder={'09:00 阅读\\n12:00 午餐\\n15:00 休息'} className="w-full bg-[#f5f5f5] rounded-xl p-3 text-sm resize-none outline-none" />
-                      <button type="button" disabled={weekSaving || !weekDraft.trim()} onClick={saveWeekSchedule} className="mt-3 w-full rounded-xl bg-[#222] text-white py-3 text-sm disabled:opacity-40">{weekSaving ? '保存中…' : '保存日程'}</button>
-                  </div>
-              </section>
-          </div>
-      )}
       {/* Page Indicators */}
       <div
           className="absolute left-0 w-full flex justify-center gap-1 pointer-events-none z-20"
