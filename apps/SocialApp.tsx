@@ -203,7 +203,20 @@ const SocialApp: React.FC = () => {
     const interestRef = useRef(interestScores);
     const learnInterest = (post: SocialPost, weight: number) => {
         const tokens = Array.from(new Set(((post.title || '') + ' ' + (post.content || '') + ' ' + (post.tags || []).join(' ')).toLowerCase().match(/[\\u4e00-\\u9fff]{2,5}|[a-z]{3,18}/g) || [])).filter(token => !/^(今天|感觉|真的|一个|什么|就是|自己|这个|那个|一下|大家|可以|还是|因为|然后|没有|一些|我们|你们|他们)$/.test(token)).slice(0, 24);
+        const categories: Record<string, string[]> = {
+            '绘画插画': ['画画', '绘画', '插画', '板绘', '水彩', '速写', '画师', '稿件', '约稿', '美术', 'procreate', 'illustration', 'art'],
+            '二次元动漫': ['动漫', '漫画', '番剧', 'cos', '二次元', '同人', 'oc', '手办', '游戏'],
+            '帅哥颜值': ['帅哥', '男神', '颜值', '腹肌', '男模', '美男', '帅气', '写真'],
+            '穿搭时尚': ['穿搭', '衣服', '时尚', '妆容', '化妆', 'ootd', '搭配'],
+            '美食探店': ['美食', '吃饭', '甜品', '烘焙', '咖啡', '餐厅', '探店', '做饭'],
+            '宠物动物': ['猫咪', '狗狗', '宠物', '小猫', '小狗', '动物'],
+            '生活日常': ['日常', '生活', '旅行', '旅游', '上班', '学习', '校园'],
+        };
+        const textContent = ((post.title || '') + ' ' + (post.content || '') + ' ' + (post.tags || []).join(' ')).toLowerCase();
         const next = { ...interestRef.current };
+        for (const [category, keywords] of Object.entries(categories)) {
+            if (keywords.some(word => textContent.includes(word))) next[category] = Math.max(0, Math.min(30, (next[category] || 0) + weight * 2));
+        }
         for (const token of tokens) next[token] = Math.max(0, Math.min(30, (next[token] || 0) + weight));
         interestRef.current = next;
         setInterestScores(next);
@@ -706,7 +719,12 @@ const SocialApp: React.FC = () => {
             const context = await buildGenerationContext(selectedChars);
             if (controller.signal.aborted) return;
 
-            const interests = Object.entries(interestRef.current).filter(([, score]) => score > 0.5).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([topic, score]) => topic + '(' + Math.round(score) + ')').join('、');
+            // Gently age interests on each refresh so older tastes gradually make room for new ones.
+            const aged = Object.fromEntries(Object.entries(interestRef.current).map(([topic, score]) => [topic, Math.round(score * 0.94 * 100) / 100]).filter(([, score]) => Number(score) >= 0.2)) as Record<string, number>;
+            interestRef.current = aged;
+            setInterestScores(aged);
+            localStorage.setItem('spark_interest_scores', JSON.stringify(aged));
+            const interests = Object.entries(aged).filter(([, score]) => score > 0.5).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([topic, score]) => topic + '(' + Math.round(score) + ')').join('、');
             const prompt = `### 任务: 模拟社交APP "Spark" 的推荐流
 【隐形兴趣推荐】根据用户近期发帖、点赞、评论和点开阅读积累的兴趣权重，适当提高相关内容比例：${interests || '暂无明显偏好'}。例如经常看绘画就多推荐绘画，常互动帅哥内容就多推荐相关话题；保留约三分之一探索内容，不要所有帖子都同一主题，也不要向用户或角色揭露兴趣画像。
 你需要生成 6-8 条新的社交媒体帖子。
