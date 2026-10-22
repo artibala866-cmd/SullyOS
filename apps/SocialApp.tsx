@@ -683,11 +683,13 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
                 item = { ...item, authorName: author.name };
                 let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${item.authorName}`;
                 const matchedChar = author.character;
+                const avatarPool = stockImages.filter(img => img.category === 'avatar');
+                const stockAvatar = avatarPool.length ? avatarPool[Array.from(String(item.authorName)).reduce((n, c) => n + c.charCodeAt(0), 0) % avatarPool.length] : undefined;
                 if (matchedChar) avatar = matchedChar.avatar;
                 const isCharacterPost = !!matchedChar;
                 if (!isCharacterPost) {
                     const seeds = ['micah', 'avataaars', 'bottts', 'notionists'];
-                    avatar = `https://api.dicebear.com/7.x/${seeds[Math.floor(Math.random() * seeds.length)]}/svg?seed=${item.authorName + Math.random()}`;
+                    avatar = stockAvatar?.url || `https://api.dicebear.com/7.x/${seeds[Math.floor(Math.random() * seeds.length)]}/svg?seed=${item.authorName + Math.random()}`;
                 }
                 // Normalize emoji content. AI usually returns real emoji chars; fall back to a ✨ char (not codepoint) for safety.
                 const rawEmojis = Array.isArray(item.emojis) && item.emojis.length > 0 ? item.emojis : ['✨'];
