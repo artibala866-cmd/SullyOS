@@ -1499,7 +1499,7 @@ ${buildSparkCommentHistory(post)}
                             <span><strong className="text-slate-800">{fanCounts[owner ? 'char:' + owner.id + ':' + viewedAccount.handle : 'public:' + viewedAccount.handle] ?? 0}</strong> 粉丝</span>
                         </div>
 
-                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => { setDmTarget(viewedAccount); setViewedAccount(null); }} className="w-full rounded-full border border-[#ff2442] text-[#ff2442] font-bold py-2 mb-2">私信</button>}
+                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => { openSparkDM(viewedAccount); setViewedAccount(null); }} className="w-full rounded-full border border-[#ff2442] text-[#ff2442] font-bold py-2 mb-2">私信</button>}
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#ff2442] text-white font-bold py-2 mb-5">
                             {followedHandles.includes(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
                         </button>}
@@ -1709,12 +1709,17 @@ ${buildSparkCommentHistory(post)}
                                     </span><span className="text-xs text-slate-700">{item.label}</span>
                                 </button>)}
                             </div>
-                            <h3 className="px-5 pt-5 pb-2 text-sm font-bold">私信</h3>
-                            {Object.entries(dmThreads).filter(([, messages]) => messages.length > 0).map(([handle, messages]) => {
+                            <div className="px-5 pt-5 pb-2 flex items-center justify-between">
+                                <h3 className="text-sm font-bold">私信 {Object.values(dmUnread).reduce((sum, count) => sum + count, 0) > 0 ? '(' + Object.values(dmUnread).reduce((sum, count) => sum + count, 0) + ')' : ''}</h3>
+                            </div>
+                            <div className="flex gap-2 px-5 pb-3">
+                                {([{ id: 'all', label: '全部' }, { id: 'following', label: '已关注' }, { id: 'strangers', label: '陌生人' }] as const).map(tab => <button key={tab.id} type="button" onClick={() => setDmFilter(tab.id)} className={`rounded-full px-3 py-1 text-xs ${dmFilter === tab.id ? 'bg-[#ff2442] text-white' : 'bg-slate-100 text-slate-600'}`}>{tab.label}</button>)}
+                            </div>
+                            {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 && (dmFilter === 'all' || (dmFilter === 'following' ? followedHandles.includes(handle) : !followedHandles.includes(handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
                                 const accountPost = feed.find(post => post.authorName === handle);
-                                return <button key={handle} type="button" onClick={() => setDmTarget({ handle, avatar: accountPost?.authorAvatar || '' })} className="w-full flex gap-3 items-center px-5 py-3 border-b border-slate-50 text-left">
+                                return <button key={handle} type="button" onClick={() => openSparkDM({ handle, avatar: accountPost?.authorAvatar || '' })} className="w-full flex gap-3 items-center px-5 py-3 border-b border-slate-50 text-left">
                                     <span className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden">{accountPost?.authorAvatar ? <TokenImg value={accountPost.authorAvatar} className="w-full h-full object-cover" /> : '✦'}</span>
-                                    <span className="min-w-0 flex-1"><strong className="block text-sm truncate">{handle}</strong><span className="block text-xs text-slate-400 truncate">{messages[messages.length - 1]?.content}</span></span>
+                                    <span className="min-w-0 flex-1"><strong className="block text-sm truncate">{handle}</strong><span className="block text-xs text-slate-400 truncate">{messages[messages.length - 1]?.content}</span></span>{(dmUnread[handle] || 0) > 0 && <span className="shrink-0 rounded-full bg-[#ff2442] text-white text-[10px] px-1.5 py-0.5">{dmUnread[handle] > 99 ? "99+" : dmUnread[handle]}</span>}
                                 </button>;
                             })}
                             {!Object.values(dmThreads).some(messages => messages.length > 0) && <p className="px-5 py-6 text-xs text-slate-400">还没有私信，进入网友主页可以发起聊天</p>}
