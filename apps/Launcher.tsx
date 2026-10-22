@@ -592,14 +592,20 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   const APPS_PER_PAGE = 8;
   const appPages = useMemo(() => {
       const primaryIds = new Set([AppID.Character, AppID.MemoryPalace, AppID.User, AppID.Room]);
-      // 第二页固定入口只在第二页显示；其他应用仍保留在应用网格。
+      // 第二页固定入口只在第二页显示；世界书、日期入口不在后续应用页重复出现。
       const page2Ids = new Set([AppID.Call, AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.XhsFreeRoam]);
-      const secondaryApps = gridApps.filter(app => !primaryIds.has(app.id) && !page2Ids.has(app.id));
-      const pages: typeof INSTALLED_APPS[] = [[], []];
-      for (let i = 0; i < secondaryApps.length; i += APPS_PER_PAGE) {
+      // 音乐与捏脸固定放在第三页；其他入口仍保留并按原顺序分页。
+      const page3PinnedIds = new Set([AppID.Music, AppID.Appearance]);
+      const page3PinnedApps = gridApps.filter(app => page3PinnedIds.has(app.id));
+      const secondaryApps = gridApps.filter(app =>
+          !primaryIds.has(app.id) &&
+          !page2Ids.has(app.id) &&
+          !page3PinnedIds.has(app.id)
+      );
+      const pages: typeof INSTALLED_APPS[] = [[], [], [...page3PinnedApps, ...secondaryApps.slice(0, Math.max(0, APPS_PER_PAGE - page3PinnedApps.length))]];
+      for (let i = Math.max(0, APPS_PER_PAGE - page3PinnedApps.length); i < secondaryApps.length; i += APPS_PER_PAGE) {
           pages.push(secondaryApps.slice(i, i + APPS_PER_PAGE));
       }
-      while (pages.length < 3) pages.push([]);
       return pages;
   }, [gridApps]);
 
