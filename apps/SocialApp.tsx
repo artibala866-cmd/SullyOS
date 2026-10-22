@@ -1649,7 +1649,16 @@ ${buildSparkCommentHistory(post)}
                                     </span><span className="text-xs text-slate-700">{item.label}</span>
                                 </button>)}
                             </div>
-                            <p className="px-5 py-6 text-xs text-slate-400">与帖子有关的互动消息会显示在上方分类中</p>
+                            <h3 className="px-5 pt-5 pb-2 text-sm font-bold">私信</h3>
+                            {Object.entries(dmThreads).filter(([, messages]) => messages.length > 0).map(([handle, messages]) => {
+                                const accountPost = feed.find(post => post.authorName === handle);
+                                return <button key={handle} type="button" onClick={() => setDmTarget({ handle, avatar: accountPost?.authorAvatar || '' })} className="w-full flex gap-3 items-center px-5 py-3 border-b border-slate-50 text-left">
+                                    <span className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden">{accountPost?.authorAvatar ? <TokenImg value={accountPost.authorAvatar} className="w-full h-full object-cover" /> : '✦'}</span>
+                                    <span className="min-w-0 flex-1"><strong className="block text-sm truncate">{handle}</strong><span className="block text-xs text-slate-400 truncate">{messages[messages.length - 1]?.content}</span></span>
+                                </button>;
+                            })}
+                            {!Object.values(dmThreads).some(messages => messages.length > 0) && <p className="px-5 py-6 text-xs text-slate-400">还没有私信，进入网友主页可以发起聊天</p>}
+
                         </> : <>
                             <button type="button" onClick={() => setNoticeCategory(null)} className="px-4 py-3 text-sm text-slate-600">‹ 返回消息</button>
                             <h3 className="px-4 pb-3 text-sm font-bold">{noticeCategory === 'likes' ? '赞和收藏' : noticeCategory === 'follows' ? '新增关注' : '评论和@'}</h3>
