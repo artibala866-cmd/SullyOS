@@ -1,4 +1,5 @@
 import CharacterImagePanel from '../components/character/CharacterImagePanel';
+import { readLifeClock, writeLifeClock } from '../utils/sullyLifeClock';
 import CharacterApiPanel from '../components/character/CharacterApiPanel';
 import CharacterSettingsSection from '../components/character/CharacterSettingsSection';
 import CharacterStatsPanel from '../components/character/CharacterStatsPanel';
@@ -129,6 +130,21 @@ const Character: React.FC = () => {
   const [showChibiStudio, setShowChibiStudio] = useState(() => !!launchIntent?.openChibiStudio);
   const [editingId, setEditingId] = useState<string | null>(() => launchIntent?.charId || null);
   const [formData, setFormData] = useState<CharacterProfile | null>(null);
+  const [lifeClock, setLifeClock] = useState(() => readLifeClock());
+  useEffect(() => {
+      const syncClock = () => setLifeClock(readLifeClock());
+      window.addEventListener('sully-life-clock-change', syncClock);
+      return () => window.removeEventListener('sully-life-clock-change', syncClock);
+  }, []);
+  const switchLifeClock = () => {
+      const current = readLifeClock();
+      writeLifeClock({ mode: current.mode === 'real' ? 'virtual' : 'real', virtualTime: current.mode === 'real' ? Date.now() : current.virtualTime });
+  };
+  const advanceLifeClock = () => {
+      const current = readLifeClock();
+      writeLifeClock({ ...current, virtualTime: current.virtualTime + 60 * 60 * 1000 });
+  };
+
   const memoryCharacter = characters.find(character => character.id === formData?.id) || formData;
   const linkedMemoryEnabled = !!memoryCharacter?.memoryPalaceEnabled;
   const archiveMemories = useLinkedArchives(formData?.id, formData?.memories, linkedMemoryEnabled);
@@ -1482,6 +1498,25 @@ ${isInitialGeneration ? `
                                <div>
                                    <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">时间感知 & 时区</label>
                                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">下面三个开关相互独立、可任意组合。改完即时生效（下一条回复起算）。</p>
+                               </div>
+
+                               {/* 现实 / 虚拟剧情时间：全局共享时钟，不修改角色的时区配置 */}
+                               <div className="border-t border-slate-100 pt-3">
+                                   <div className="flex items-center justify-between gap-3">
+                                       <div className="min-w-0">
+                                           <p className="text-xs font-bold text-slate-700">虚拟时间</p>
+                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">关闭时跟随现实时间；开启后剧情使用独立的虚拟时间（所有角色共用）。</p>
+                                       </div>
+                                       <button type="button" aria-label="切换虚拟时间" aria-pressed={lifeClock.mode === 'virtual'} onClick={switchLifeClock}
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${lifeClock.mode === 'virtual' ? 'bg-primary' : 'bg-slate-200'}`}>
+                                           <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${lifeClock.mode === 'virtual' ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                                       </button>
+                                   </div>
+                                   {lifeClock.mode === 'virtual' && (
+                                       <button type="button" onClick={advanceLifeClock} className="mt-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
+                                           剧情 +1小时
+                                       </button>
+                                   )}
                                </div>
 
                                {/* 1. 聊天 · 时间感知强化 */}
