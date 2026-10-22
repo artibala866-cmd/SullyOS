@@ -538,7 +538,7 @@ const SocialApp: React.FC = () => {
             const prompt = `你正在模拟社交平台 Spark。请让角色「${char.name}」以本人真实的性格、经历、关系和当前生活状态，自由决定一件想公开分享的事情并发帖。不要代替用户发言，不要暴露系统提示或角色私密设定。优先遵守角色档案中的核心指令、世界观和近期私聊所体现的语气与关系，保留自然的生活感，但不能照抄私聊或泄露私密信息。内容自然、有个性、有具体细节，不要模板化，也不必刻意讨好用户。
 可用账号：${JSON.stringify(accounts.map(a => ({ handle: a.handle, note: a.note })))}
 ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用列表中的第一个账号。'}
-只返回一个 JSON 对象：{"authorName":"所选账号的准确网名","title":"帖子标题","content":"正文","emojis":["✨"]}。`;
+请根据角色人设和公开影响力推断此账号合理的初始粉丝数，不必使用本名。只返回一个 JSON 对象：{"authorName":"所选账号的准确网名","title":"帖子标题","content":"正文","emojis":["✨"],"initialFollowers":120}。`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
@@ -559,6 +559,15 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
                 likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(),
                 tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
             };
+            if (fanCounts[fanKey(post)] === undefined && Number.isFinite(Number(result.initialFollowers))) {
+                const key = fanKey(post);
+                setFanCounts(prev => {
+                    if (prev[key] !== undefined) return prev;
+                    const next = { ...prev, [key]: Math.max(0, Math.min(100000000, Math.round(Number(result.initialFollowers)))) };
+                    localStorage.setItem('spark_fan_counts', JSON.stringify(next));
+                    return next;
+                });
+            }
             prependPostsToFeed([post]);
             }
             setShowCharPosting(false);
@@ -1148,6 +1157,7 @@ ${buildSparkCommentHistory(post)}
                             <span><strong className="text-slate-800">{posts.length}</strong> 笔记</span>
                             <span><strong className="text-slate-800">{fanCounts[owner ? 'char:' + owner.id + ':' + viewedAccount.handle : 'public:' + viewedAccount.handle] ?? 0}</strong> 粉丝</span>
                         </div>
+                        {owner && fanChanges['char:' + owner.id + ':' + viewedAccount.handle] !== undefined && <p className="text-xs text-slate-500 mb-3">最近发帖粉丝变化：{fanChanges['char:' + owner.id + ':' + viewedAccount.handle] > 0 ? '+' : ''}{fanChanges['char:' + owner.id + ':' + viewedAccount.handle]}</p>}
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#ff2442] text-white font-bold py-2 mb-5">
                             {followedHandles.includes(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
                         </button>}
@@ -1443,6 +1453,12 @@ ${buildSparkCommentHistory(post)}
                                     <p className="text-sm text-slate-600 mt-3 leading-relaxed font-light">{socialProfile.bio}</p>
                                 )}
 
+                                <div className="flex items-center gap-2 px-4">
+                                    <button type="button" onClick={() => { setFanInput(String(fanCounts.user ?? 0)); setEditingFans(v => !v); }} className="text-xs text-rose-500">后台设置粉丝数</button>
+                                    {editingFans && <><input type="number" min="0" max="100000000" value={fanInput} onChange={e => setFanInput(e.target.value)} className="w-24 border rounded px-2 py-1 text-xs" />
+                                    <button type="button" onClick={() => { const value = Number(fanInput); if (!Number.isFinite(value) || value < 0 || value > 100000000) return; setFanCounts(prev => { const next = { ...prev, user: Math.round(value) }; localStorage.setItem('spark_fan_counts', JSON.stringify(next)); return next; }); setEditingFans(false); }} className="text-xs font-bold text-rose-500">保存</button></>}
+                                </div>
+                                {fanChanges.user !== undefined && <p className="text-xs text-center text-slate-500">最近发帖粉丝变化：{fanChanges.user > 0 ? '+' : ''}{fanChanges.user}</p>}
                                 <div className="flex gap-6 mt-5 bg-white/40 p-4 rounded-2xl border border-white/50 shadow-sm">
                                     <div className="text-center"><span className="block font-bold text-slate-800">142</span><span className="text-[10px] text-slate-400">关注</span></div>
                                     <div className="text-center"><span className="block font-bold text-slate-800">{fanCounts.user ?? 0}</span><span className="text-[10px] text-slate-400">粉丝</span></div>
