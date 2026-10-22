@@ -157,7 +157,7 @@ const Icons = {
 // --- Main App ---
 
 const SocialApp: React.FC = () => {
-    const { closeApp, openApp, characters, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
+    const { closeApp, openApp, characters, worldbooks, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
     const [feed, setFeed] = useState<SocialPost[]>([]);
     const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
@@ -270,6 +270,14 @@ const SocialApp: React.FC = () => {
 
     // Settings / Handle Management
     const [showSettings, setShowSettings] = useState(false);
+    const [sparkWorldbookIds, setSparkWorldbookIds] = useState<string[]>(() => {
+        try { const saved = JSON.parse(localStorage.getItem('spark_worldbook_ids') || '[]'); return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []; } catch { return []; }
+    });
+    const toggleSparkWorldbook = (id: string) => setSparkWorldbookIds(prev => {
+        const next = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
+        localStorage.setItem('spark_worldbook_ids', JSON.stringify(next));
+        return next;
+    });
     const [characterHandles, setCharacterHandles] = useState<Record<string, SubAccount[]>>({});
     const [identityGroupId, setIdentityGroupId] = useState(GROUP_FILTER_ALL); // 身份管理弹窗的角色分组筛选
 
@@ -560,7 +568,7 @@ const SocialApp: React.FC = () => {
     const buildGenerationContext = async (participants: CharacterProfile[]) => {
         const recent = await Promise.all(participants.map(async char =>
             [char.id, await loadCharacterContextMessages(char)] as const));
-        return buildSparkGenerationContext(participants.map(char => ({ ...char, mountedWorldbooks: [] })), userProfile, socialProfile, characterHandles, Object.fromEntries(recent), sparkMemoriesRef.current);
+        return buildSparkGenerationContext(participants.map(char => ({ ...char, mountedWorldbooks: worldbooks.filter(wb => sparkWorldbookIds.includes(wb.id) && !wb.disable).map(wb => ({ ...wb })) })), userProfile, socialProfile, characterHandles, Object.fromEntries(recent), sparkMemoriesRef.current);
     };
 
     const buildGenerationMessages = (members: CharacterProfile[], context: string, prompt: string) => {
@@ -1301,6 +1309,15 @@ ${buildSparkCommentHistory(post)}
                     </div>
                     <p className="text-xs text-slate-400">已选择 {postingCharIds.length} 位角色</p>
                     <label className="flex items-center gap-2"><input type="checkbox" checked={naturalComments} onChange={e => setNaturalComments(e.target.checked)} />评论遵循角色人设与关系</label>
+                    <div className="border-t border-slate-100 pt-3 space-y-2">
+                        <p className="font-semibold text-slate-700">Spark 读取的世界书</p>
+                        <p className="text-xs text-slate-400">仅本应用的 AI 生成读取选中的世界书，不修改其他 App 的挂载配置。</p>
+                        <div className="max-h-40 overflow-y-auto space-y-2">
+                            {worldbooks.filter(wb => !wb.disable).map(wb => <label key={wb.id} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={sparkWorldbookIds.includes(wb.id)} onChange={() => toggleSparkWorldbook(wb.id)} /><span className="truncate">{wb.title}</span></label>)}
+                            {!worldbooks.some(wb => !wb.disable) && <p className="text-xs text-slate-400">暂无可用世界书</p>}
+                        </div>
+                    </div>
+                    <button type="button" onClick={() => { if (window.confirm('确定清空 Spark 推荐流中的全部帖子和评论吗？此操作无法撤销。')) handleClearFeed(); }} className="w-full border border-red-200 text-red-500 rounded-xl py-2 text-xs">清除推荐流</button>
                     <p className="text-xs text-slate-400">主动发帖时间：定时功能尚未接通，目前不会自动发帖。</p>
                     <button type="button" disabled={isCharPosting || !postingCharIds.length} onClick={() => { setShowSettings(false); void handleCharPost(); }} className="w-full bg-[#ff2442] text-white rounded-xl py-3 font-bold disabled:opacity-40">{isCharPosting ? '发布中…' : '让选中的 Char 现在发帖'}</button>
                     <button type="button" onClick={() => setShowSettings(false)} className="w-full border rounded-xl py-2">完成</button>
