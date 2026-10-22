@@ -465,7 +465,7 @@ const SocialApp: React.FC = () => {
 可用账号：${JSON.stringify(accounts.map(a => ({ handle: a.handle, note: a.note })))}
 ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用列表中的第一个账号。'}
 只返回一个 JSON 对象：{"authorName":"所选账号的准确网名","title":"帖子标题","content":"正文","emojis":["✨"]}。`;
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.85 }),
