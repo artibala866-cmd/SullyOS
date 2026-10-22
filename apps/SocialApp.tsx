@@ -1016,19 +1016,32 @@ ${post.content || '(楼主没写正文)'}
                             authorCharId: char?.id,
                         } as SocialComment];
                     });
-                if (!comments.length) throw new Error('模型返回的评论身份不匹配，未添加评论');
+                // One public comment per character per post, including across different aliases.
+                const seenCharacters = new Set((feedRef.current.find(item => item.id === post.id)?.comments || []).map(item => item.authorCharId).filter(Boolean));
+                const seenStrangers = new Set((feedRef.current.find(item => item.id === post.id)?.comments || []).map(item => item.authorName));
+                const uniqueComments = uniqueComments.filter(comment => {
+                    if (comment.authorCharId) {
+                        if (seenCharacters.has(comment.authorCharId)) return false;
+                        seenCharacters.add(comment.authorCharId);
+                    } else {
+                        if (seenStrangers.has(comment.authorName)) return false;
+                        seenStrangers.add(comment.authorName);
+                    }
+                    return true;
+                });
+                if (!uniqueComments.length) return;
                 updatePostInFeed(post.id, current => ({
                     ...current,
-                    comments: mergeSocialComments(current.comments || [], comments),
+                    comments: mergeSocialComments(current.comments || [], uniqueComments),
                 }));
                 if (post.authorType === 'user') {
                     // A named commenter may also like the post; this is a separate simulated action.
-                    comments.filter(comment => comment.authorType !== 'user').forEach(comment => {
+                    uniqueComments.filter(comment => comment.authorType !== 'user').forEach(comment => {
                         if (Math.random() < 0.45) registerSimulatedInteraction({ id: comment.authorCharId || 'npc:' + comment.authorName, name: comment.authorName, avatar: comment.authorAvatar }, post, 'likes');
                         if (Math.random() < 0.12) registerSimulatedInteraction({ id: comment.authorCharId || 'npc:' + comment.authorName, name: comment.authorName, avatar: comment.authorAvatar }, post, 'follows');
                     });
                 }
-                if (post.authorType === 'user') addNotices(comments.filter(comment => comment.authorType !== 'user').map(comment => ({
+                if (post.authorType === 'user') addNotices(uniqueComments.filter(comment => comment.authorType !== 'user').map(comment => ({
                     id: 'comment:' + comment.id, kind: 'comments' as const, actor: comment.authorName,
                     avatar: comment.authorAvatar, content: comment.content, postId: post.id, time: Date.now(), read: false,
                 })));
