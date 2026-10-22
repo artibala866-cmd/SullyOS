@@ -1,11 +1,12 @@
 import { ContextBuilder } from '../utils/context';
 import { evaluateSparkTraffic, sparkTrafficKey, type SparkTraffic } from '../utils/sparkTraffic';
+import { chooseSparkStock } from '../utils/sparkStock';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { AppID, CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile } from '../types';
+import { AppID, CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile, XhsStockImage } from '../types';
 import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants } from '../utils/socialGeneration';
 import { processImageToBlob } from '../utils/file';
 import { putImageBlob } from '../utils/blobRef';
@@ -223,6 +224,18 @@ const SocialApp: React.FC = () => {
     const [newPostTitle, setNewPostTitle] = useState('');
     const [newPostContent, setNewPostContent] = useState('');
     const [newPostEmoji, setNewPostEmoji] = useState('2728');
+    const [stockImages, setStockImages] = useState<XhsStockImage[]>([]);
+    const [selectedStockUrl, setSelectedStockUrl] = useState('');
+    const reloadStock = async () => setStockImages(await DB.getXhsStockImages());
+    useEffect(() => { void reloadStock(); }, []);
+    const pickStock = (title: string, content: string) => {
+        const selected = chooseSparkStock(stockImages, title, content);
+        if (selected) void DB.updateXhsStockImageUsage(selected.id);
+        return selected?.url;
+    };
+    const postVisual = (value: string | undefined, className: string) => value && /^https?:\/\//i.test(value)
+        ? <img src={value} alt="笔记配图" loading="lazy" className={className + ' object-cover'} />
+        : <span>{codepointToEmoji(value || '✨')}</span>;
 
     // Comment Input State
     const [commentInput, setCommentInput] = useState('');
@@ -568,7 +581,7 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
                 authorName: handle?.handle || char.name, authorAvatar: char.avatar,
                 title: String(result.title || '随手记录').slice(0, 100),
                 content: result.content,
-                images: (Array.isArray(result.emojis) ? result.emojis : ['✨']).slice(0, 3).map((e: unknown) => codepointToEmoji(String(e))),
+                images: [pickStock(String(result.title || ''), result.content) || '✨'],
                 likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(),
                 tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
             };
@@ -666,7 +679,7 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
                 }
                 // Normalize emoji content. AI usually returns real emoji chars; fall back to a ✨ char (not codepoint) for safety.
                 const rawEmojis = Array.isArray(item.emojis) && item.emojis.length > 0 ? item.emojis : ['✨'];
-                const images = rawEmojis.map((e: any) => codepointToEmoji(String(e ?? '✨')));
+                const images = [pickStock(String(item.title || ''), String(item.content || '')) || '✨'];
                 return [{
                     id: `post-${Date.now()}-${Math.random()}`,
                     authorName: item.authorName || 'Unknown',
@@ -914,7 +927,7 @@ ${buildSparkCommentHistory(post)}
             content: newPostContent,
             // Sticker selector stores twemoji codepoints (eg "2728"); convert to the real emoji char
             // so that the feed/detail views render an emoji instead of the raw codepoint text.
-            images: [codepointToEmoji(newPostEmoji)],
+            images: [selectedStockUrl || pickStock(newPostTitle, newPostContent) || codepointToEmoji(newPostEmoji)],
             likes: 0,
             isCollected: false,
             isLiked: false,
@@ -925,7 +938,7 @@ ${buildSparkCommentHistory(post)}
             authorType: 'user',
         };
         prependPostsToFeed([post]);
-        setNewPostContent(''); setNewPostTitle(''); 
+        setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); 
         setIsCreateOpen(false); // Close Modal
         setActiveTab('home'); 
         addToast('发布成功', 'success');
@@ -1011,7 +1024,7 @@ ${buildSparkCommentHistory(post)}
             <div className="aspect-[4/5] w-full flex items-center justify-center relative overflow-hidden" style={{ background: post.bgStyle }}>
                 {/* Decorative Overlay for "Premium" look */}
                 <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px]"></div>
-                <div className="relative z-10 text-6xl drop-shadow-xl filter saturate-150 transform transition-transform group-hover:scale-110 duration-500">{codepointToEmoji(post.images[0])}</div>
+                <div className="relative z-10 w-full h-full flex items-center justify-center text-6xl drop-shadow-xl">{postVisual(post.images[0], 'w-full h-full')}</div>
                 {post.title && (
                     <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/50 via-black/20 to-transparent">
                         <h3 className="text-white font-bold text-sm line-clamp-2 drop-shadow-md leading-tight">{post.title}</h3>
@@ -1074,7 +1087,7 @@ ${buildSparkCommentHistory(post)}
                         <div className="w-full aspect-square flex items-center justify-center text-[8rem] relative overflow-hidden" style={{ background: selectedPost.bgStyle }}>
                             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/10"></div>
                             {/* Removed animate-bounce-slow to prevent reflow jitter */}
-                            <div className="relative z-10 drop-shadow-2xl filter saturate-125">{codepointToEmoji(selectedPost.images[0])}</div>
+                            <div className="relative z-10 w-full h-full flex items-center justify-center text-[8rem]">{postVisual(selectedPost.images[0], 'w-full h-full')}</div>
                         </div>
 
                         <div className="p-6 space-y-4">
@@ -1186,7 +1199,7 @@ ${buildSparkCommentHistory(post)}
                         <p className="font-bold text-sm border-b pb-3 mb-3">TA 的笔记</p>
                         <div className="grid grid-cols-2 gap-3">
                             {posts.map(post => <button type="button" key={post.id} onClick={() => { setViewedAccount(null); handleOpenPost(post); }} className="text-left rounded-xl border border-slate-100 overflow-hidden">
-                                <div className="aspect-[4/5] flex items-center justify-center text-5xl" style={{ background: post.bgStyle }}>{codepointToEmoji(post.images[0])}</div>
+                                <div className="aspect-[4/5] flex items-center justify-center text-5xl" style={{ background: post.bgStyle }}>{postVisual(post.images[0], 'w-full h-full')}</div>
                                 <div className="p-2 text-xs font-bold line-clamp-2">{post.title}</div>
                             </button>)}
                         </div>
@@ -1333,6 +1346,18 @@ ${buildSparkCommentHistory(post)}
                             className="w-full h-auto min-h-[200px] resize-none outline-none text-base leading-relaxed placeholder:text-slate-300 font-medium" 
                         />
                         
+                        <div className="mt-4 pt-4 border-t border-slate-50">
+                            <div className="flex justify-between items-center mb-2">
+                                <p className="text-xs font-bold text-slate-500">从小红书图库选配图（URL，不存图片本体）</p>
+                                <button type="button" onClick={() => void reloadStock()} className="text-xs text-rose-500">刷新图库</button>
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto pb-2">
+                                {stockImages.map(img => <button type="button" key={img.id} onClick={() => setSelectedStockUrl(img.url)} className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${selectedStockUrl === img.url ? 'border-rose-500' : 'border-transparent'}`}>
+                                    <img src={img.url} alt={img.tags.join(' ')} loading="lazy" className="w-full h-full object-cover" />
+                                </button>)}
+                            </div>
+                            {!stockImages.length && <p className="text-xs text-slate-400">图库为空，可以先去「收纳 → 小红书图库」添加 URL 素材。</p>}
+                        </div>
                         {/* Sticker Selector - Flowing after text */}
                         <div className="mt-4 pt-4 border-t border-slate-50">
                             <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">添加心情贴纸 (Sticker)</p>
