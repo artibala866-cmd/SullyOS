@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useOS } from '../context/OSContext';
+import { AppID } from '../types';
 import { DB } from '../utils/db';
 import { XhsStockImage } from '../types';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import { trackEvent } from '../utils/analytics';
 
 const XhsStockApp: React.FC = () => {
-    const { closeApp, addToast } = useOS();
+    const { openApp, addToast } = useOS();
+    const closeApp = () => openApp(AppID.Social);
     const [images, setImages] = useState<XhsStockImage[]>([]);
     const [view, setView] = useState<'list' | 'add'>('list');
     const [newUrl, setNewUrl] = useState('');
