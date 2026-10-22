@@ -119,6 +119,18 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     const sendButtonRef = useRef<HTMLButtonElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
+    const [isComposing, setIsComposing] = useState(false);
+    const [dismissedSuggestionInput, setDismissedSuggestionInput] = useState<string | null>(null);
+    const suggestedEmojis = useMemo(() => emojiSuggestionsEnabled && !isComposing && !selectionMode
+        && showPanel === 'none' && dismissedSuggestionInput !== input
+        ? findEmojiSuggestions(suggestionEmojis, input) : [],
+    [emojiSuggestionsEnabled, isComposing, selectionMode, showPanel, dismissedSuggestionInput, suggestionEmojis, input]);
+
+    useEffect(() => {
+        setDismissedSuggestionInput(null);
+    }, [input, activeCharacterId]);
+    const canSwitchToGenerate = sendButtonGenerates && !!onGenerate;
+    const canEndEditing = canSwitchToGenerate || autoReplyEnabled;
     // Android 收起软键盘可能不触发 blur；仅在确实观察到视口先缩小后恢复时解除焦点。
     useEffect(() => {
         if (!canEndEditing || !isInputFocused || !window.visualViewport) return;
@@ -141,18 +153,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         };
     }, [canEndEditing, isInputFocused]);
 
-    const [isComposing, setIsComposing] = useState(false);
-    const [dismissedSuggestionInput, setDismissedSuggestionInput] = useState<string | null>(null);
-    const suggestedEmojis = useMemo(() => emojiSuggestionsEnabled && !isComposing && !selectionMode
-        && showPanel === 'none' && dismissedSuggestionInput !== input
-        ? findEmojiSuggestions(suggestionEmojis, input) : [],
-    [emojiSuggestionsEnabled, isComposing, selectionMode, showPanel, dismissedSuggestionInput, suggestionEmojis, input]);
-
-    useEffect(() => {
-        setDismissedSuggestionInput(null);
-    }, [input, activeCharacterId]);
-    const canSwitchToGenerate = sendButtonGenerates && !!onGenerate;
-    const canEndEditing = canSwitchToGenerate || autoReplyEnabled;
     const isGenerateButton = canSwitchToGenerate && !isInputFocused;
     const primaryButtonDisabled = isGenerateButton ? false : !input.trim();
 
