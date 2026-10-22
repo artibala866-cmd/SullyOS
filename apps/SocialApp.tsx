@@ -194,6 +194,7 @@ const SocialApp: React.FC = () => {
         localStorage.setItem('spark_fan_counts', JSON.stringify(counts));
     };
     const fanCountsRef = useRef(fanCounts);
+    useEffect(() => { fanCountsRef.current = fanCounts; }, [fanCounts]);
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
@@ -571,12 +572,13 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
                 likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(),
                 tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
             };
-            if (fanCounts[fanKey(post)] === undefined && Number.isFinite(Number(result.initialFollowers))) {
+            if (fanCountsRef.current[fanKey(post)] === undefined && Number.isFinite(Number(result.initialFollowers))) {
                 const key = fanKey(post);
                 setFanCounts(prev => {
                     if (prev[key] !== undefined) return prev;
                     const next = { ...prev, [key]: Math.max(0, Math.min(100000000, Math.round(Number(result.initialFollowers)))) };
                     localStorage.setItem('spark_fan_counts', JSON.stringify(next));
+                    fanCountsRef.current = next;
                     return next;
                 });
             }
