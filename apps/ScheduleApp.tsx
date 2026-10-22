@@ -109,7 +109,7 @@ const ScheduleApp: React.FC = () => {
       const context = ContextBuilder.buildCoreContext(activeChar, userProfile, true);
       const task = activeTask?.title || '自由专注';
       const phase = session?.mode === 'focus' ? '正在专注' : session?.mode === 'break' ? '正在休息' : '尚未开始计时';
-      const response = await fetch(`${apiConfig.baseUrl.replace(/\\/+$/, '')}/chat/completions`, {
+      const response = await fetch(`${apiConfig.baseUrl.replace(/\/$/, '')}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
         body: JSON.stringify({
