@@ -1140,7 +1140,7 @@ ${buildSparkCommentHistory(post)}
                                                     <span className="text-[10px]">{c.likes}</span>
                                                 </div>
                                             </div>
-                                            <p className="text-[13px] text-slate-700 mt-0.5 leading-normal font-light">{c.content}</p>
+                                            <div className="text-[13px] text-slate-700 mt-0.5 leading-normal font-light whitespace-pre-wrap">{c.content.split(/(\[表情包\]\(https?:\/\/[^\s)]+\))/g).map((part, i) => { const match = part.match(/^\[表情包\]\((https?:\/\/[^\s)]+)\)$/); return match ? <img key={i} src={match[1]} alt="表情包" className="max-w-32 max-h-32 object-contain rounded-lg my-1" /> : <React.Fragment key={i}>{part}</React.Fragment>; })}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -1149,6 +1149,10 @@ ${buildSparkCommentHistory(post)}
                         </div>
                     </div>
 
+                    {showCommentStickers && <div className="absolute bottom-16 left-0 right-0 z-40 bg-white border-t border-slate-100 p-3 grid grid-cols-5 gap-2 max-h-44 overflow-y-auto">
+                        {stockImages.filter(img => img.category === 'sticker').map(img => <button type="button" key={img.id} onClick={() => { setCommentInput(prev => prev + ' [表情包](' + img.url + ')'); setShowCommentStickers(false); }}><img src={img.url} alt={img.tags.join(' ')} className="w-full aspect-square object-contain" /></button>)}
+                        {!stockImages.some(img => img.category === 'sticker') && <p className="col-span-5 text-xs text-slate-400">请先在小红书图库的「评论表情包」分类添加图片。</p>}
+                    </div>}
                     {/* Bottom Input Bar - Absolute to sit on top of scroll area at bottom */}
                     <div className="absolute bottom-0 w-full pb-[var(--safe-bottom,0px)] z-30 pointer-events-none">
                          <div className="pointer-events-auto h-16 bg-white/80 backdrop-blur-xl border-t border-white/40 px-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
@@ -1163,6 +1167,7 @@ ${buildSparkCommentHistory(post)}
                                 />
                                 {commentInput.trim() && <button disabled={loadingComments || isReplyingToUser} onClick={handleSendComment} className="text-[#ff2442] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
                             </div>
+                            <button type="button" onClick={() => setShowCommentStickers(v => !v)} className="text-xs text-rose-500 shrink-0">表情包</button>
                             <div className="flex gap-5 text-slate-600 shrink-0 items-center">
                                 <div className="flex flex-col items-center gap-0.5">
                                     <Icons.Heart filled={selectedPost.isLiked} onClick={(e) => handleLike(e, selectedPost)} className="w-6 h-6" />
