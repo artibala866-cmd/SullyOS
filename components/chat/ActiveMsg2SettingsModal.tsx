@@ -118,6 +118,10 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [enabled, setEnabled] = useState(() => isAmsg2EnabledForChar(char));
   // 即时对话按角色单独关：undefined = 跟随全局默认开，所以只有显式 false 才显示成关。
   const [instantChatOn, setInstantChatOn] = useState(saved?.instantChatEnabled !== false);
+  // 真人感第一阶段：按角色记住偏好，暂不接管消息发送或后台排程。
+  const [realismEnabled, setRealismEnabled] = useState(() => {
+    try { return localStorage.getItem(`sully_realism_${char.id}`) === 'on'; } catch { return false; }
+  });
   // 全局那道门开没开（isInstantChatReady 读回来的）。没开时下面那行开关置灰。
   const [globalInstantChatOn, setGlobalInstantChatOn] = useState(false);
   const [mode, setMode] = useState<ActiveMsg2Mode>('auto');
@@ -161,6 +165,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     // 工具注入门分家（见 isAmsg2EnabledForChar 的注释）。
     setEnabled(isAmsg2EnabledForChar(char));
     setInstantChatOn(config?.instantChatEnabled !== false);
+    try { setRealismEnabled(localStorage.getItem(`sully_realism_${char.id}`) === 'on'); } catch { setRealismEnabled(false); }
     setMaxTokens(config?.maxTokens ? String(config.maxTokens) : '');
 
     const editing = editingTaskUuid ? list.find((t) => t.taskUuid === editingTaskUuid) : undefined;
@@ -652,6 +657,23 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${globalInstantChatOn && instantChatOn ? 'bg-fuchsia-500' : 'bg-slate-200'} ${!globalInstantChatOn ? 'opacity-50' : ''}`}
           >
             <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${globalInstantChatOn && instantChatOn ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </div>
+
+        {/* 真人感第一阶段只保存角色偏好；后续接通状态机前不改变现有回复行为。 */}
+        <div className="flex items-center justify-between rounded-2xl p-4 border border-slate-200 bg-white">
+          <div className="min-w-0 pr-3">
+            <div className="font-bold text-slate-700">真人感（准备中）</div>
+            <div className="text-xs text-slate-400 mt-1 leading-relaxed">按角色保存偏好，保留手动推进。自动延迟回复、动态日程和 Spark 自主活动将在后续阶段接通；当前开关不会改变回复时机。</div>
+          </div>
+          <button type="button" aria-label="真人感偏好" aria-pressed={realismEnabled}
+            onClick={() => {
+              const next = !realismEnabled;
+              try { localStorage.setItem(`sully_realism_${char.id}`, next ? 'on' : 'off'); setRealismEnabled(next); }
+              catch { addToast('真人感偏好保存失败，请检查浏览器存储。', 'error'); }
+            }}
+            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${realismEnabled ? 'bg-fuchsia-500' : 'bg-slate-200'}`}>
+            <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${realismEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </div>
 
