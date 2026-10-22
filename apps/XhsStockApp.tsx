@@ -12,6 +12,8 @@ const XhsStockApp: React.FC = () => {
     const { openApp, addToast } = useOS();
     const closeApp = () => openApp(AppID.Social);
     const [images, setImages] = useState<XhsStockImage[]>([]);
+    const [category, setCategory] = useState<'material' | 'avatar' | 'sticker'>('material');
+    const categoryLabels = { material: '发帖素材', avatar: 'NPC / Char 小号头像', sticker: '评论表情包' };
     const [view, setView] = useState<'list' | 'add'>('list');
     const [newUrl, setNewUrl] = useState('');
     const [bulkText, setBulkText] = useState('');
@@ -19,11 +21,11 @@ const XhsStockApp: React.FC = () => {
     const importDrafts = async (text: string) => {
         const drafts = parseSparkStock(text);
         if (!drafts.length) { addToast('没有识别到有效的图片 URL，请检查格式', 'error'); return; }
-        const existing = new Set(images.map(i => i.url));
+        const existing = new Set(images.filter(i => (i.category || 'material') === category).map(i => i.url));
         let count = 0;
         for (const draft of drafts) {
             if (existing.has(draft.url)) continue;
-            await DB.saveXhsStockImage({ id: 'xhs_stock_' + Date.now() + '_' + count, url: draft.url, tags: draft.tags, addedAt: Date.now(), usedCount: 0 });
+            await DB.saveXhsStockImage({ id: 'xhs_stock_' + Date.now() + '_' + count, url: draft.url, tags: draft.tags, addedAt: Date.now(), usedCount: 0, category });
             existing.add(draft.url);
             count++;
         }
@@ -58,11 +60,12 @@ const XhsStockApp: React.FC = () => {
     useEffect(() => { loadImages(); }, [loadImages]);
 
     // All unique tags
-    const allTags = Array.from(new Set(images.flatMap(img => img.tags))).sort();
+    const categoryImages = images.filter(img => (img.category || 'material') === category);
+    const allTags = Array.from(new Set(categoryImages.flatMap(img => img.tags))).sort();
 
     const filteredImages = filterTag
-        ? images.filter(img => img.tags.includes(filterTag))
-        : images;
+        ? categoryImages.filter(img => img.tags.includes(filterTag))
+        : categoryImages;
 
     const handleAdd = async () => {
         const url = newUrl.trim();
@@ -78,6 +81,7 @@ const XhsStockApp: React.FC = () => {
             tags,
             addedAt: Date.now(),
             usedCount: 0,
+            category,
         };
 
         await DB.saveXhsStockImage(img);
@@ -106,6 +110,7 @@ const XhsStockApp: React.FC = () => {
 
     const renderAddForm = () => (
         <div className="p-5 space-y-5 animate-fade-in">
+            <p className="text-xs text-rose-500 font-bold">当前分类：{categoryLabels[category]}</p>
             <div className="flex gap-2">
                 <button type="button" onClick={() => setBulkMode(false)} className={`rounded-full px-4 py-2 text-xs ${!bulkMode ? 'bg-red-500 text-white' : 'bg-white'}`}>单张添加</button>
                 <button type="button" onClick={() => setBulkMode(true)} className={`rounded-full px-4 py-2 text-xs ${bulkMode ? 'bg-red-500 text-white' : 'bg-white'}`}>批量导入</button>
@@ -182,6 +187,9 @@ const XhsStockApp: React.FC = () => {
 
     const renderList = () => (
         <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="flex gap-2 px-3 py-3 overflow-x-auto border-b border-slate-100">
+                {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map(key => <button key={key} type="button" onClick={() => { setCategory(key); setFilterTag(null); }} className={`shrink-0 px-3 py-2 rounded-full text-xs font-bold ${category === key ? 'bg-red-500 text-white' : 'bg-white text-slate-600'}`}>{categoryLabels[key]}</button>)}
+            </div>
             {/* Tag filter */}
             {allTags.length > 0 && (
                 <div className="flex gap-1.5 px-4 py-3 overflow-x-auto no-scrollbar border-b border-slate-100">
@@ -189,10 +197,10 @@ const XhsStockApp: React.FC = () => {
                         onClick={() => setFilterTag(null)}
                         className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${!filterTag ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-500'}`}
                     >
-                        全部 ({images.length})
+                        全部 ({categoryImages.length})
                     </button>
                     {allTags.map(tag => {
-                        const count = images.filter(img => img.tags.includes(tag)).length;
+                        const count = categoryImages.filter(img => img.tags.includes(tag)).length;
                         return (
                             <button
                                 key={tag}
@@ -284,9 +292,9 @@ const XhsStockApp: React.FC = () => {
                         </svg>
                     </button>
                     <h1 className="text-lg font-semibold text-slate-800 ml-2 tracking-tight">
-                        {view === 'add' ? '添加图片' : '小红书图库'}
+                        {view === 'add' ? '添加图片 · ' + categoryLabels[category] : '小红书图库'}
                     </h1>
-                    <span className="text-xs text-slate-400 ml-2 font-mono">{images.length}</span>
+                    <span className="text-xs text-slate-400 ml-2 font-mono">{categoryImages.length}</span>
                     <div className="flex-1" />
                     {view === 'list' && <button type="button" onClick={downloadJson} className="text-xs text-red-500 font-bold mr-3">导出 JSON</button>}
                     {view === 'list' && (
