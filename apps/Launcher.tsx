@@ -591,9 +591,12 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   //        3+ = plain grid. Pad to at least 3 slots so the pinwheel/widget pages always exist.
   const APPS_PER_PAGE = 8;
   const appPages = useMemo(() => {
-      const pages: typeof INSTALLED_APPS[] = [];
-      for (let i = 0; i < gridApps.length; i += APPS_PER_PAGE) {
-          pages.push(gridApps.slice(i, i + APPS_PER_PAGE));
+      // 首页四个固定入口不占用后续应用页名额；其余应用全部从第二页开始。
+      const primaryIds = new Set([AppID.Character, AppID.MemoryPalace, AppID.User, AppID.Room]);
+      const secondaryApps = gridApps.filter(app => !primaryIds.has(app.id));
+      const pages: typeof INSTALLED_APPS[] = [[]];
+      for (let i = 0; i < secondaryApps.length; i += APPS_PER_PAGE) {
+          pages.push(secondaryApps.slice(i, i + APPS_PER_PAGE));
       }
       while (pages.length < 3) pages.push([]);
       return pages;
