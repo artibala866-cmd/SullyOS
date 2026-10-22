@@ -276,6 +276,93 @@
   }
 }
 </script>
+
+    <!-- Monochrome iOS-inspired settings skin: scoped to Settings app only. -->
+    <style>
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] {
+        background: linear-gradient(160deg,#f8f8f9 0%,#eeeeef 52%,#e6e6e8 100%) !important;
+        color: #202124;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans SC", sans-serif;
+        font-weight: 400;
+        filter: grayscale(1);
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] > div[class*="sticky"] {
+        background: rgba(250,250,251,.94) !important;
+        border-bottom: 1px solid #e6e6e7 !important;
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] section {
+        background: #fff !important;
+        border: 1px solid #e9e9eb !important;
+        border-radius: 24px !important;
+        box-shadow: 0 5px 22px rgba(0,0,0,.035) !important;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] section > div:first-child > button {
+        min-height: 48px;
+        gap: 12px;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] section > div:first-child h2 {
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        letter-spacing: .015em !important;
+        color: #222 !important;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] section > div:first-child button > div:first-child {
+        background: #f2f2f3 !important;
+        color: #343434 !important;
+        border-radius: 14px !important;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea) {
+        background: #f7f7f8 !important;
+        border: 1px solid #e4e4e6 !important;
+        border-radius: 13px !important;
+        color: #252525 !important;
+        box-shadow: none !important;
+        accent-color: #262626;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(input,textarea,select):focus-visible {
+        outline: 2px solid #555 !important;
+        outline-offset: 1px;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(input[type="checkbox"],input[type="radio"],input[type="range"]) {
+        accent-color: #222 !important;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-gradient"],
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-primary"],
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-violet-5"],
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-amber-5"],
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-emerald-5"],
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-blue-5"] {
+        background: #242424 !important;
+        background-image: none !important;
+        color: #fff !important;
+        border-color: #242424 !important;
+        box-shadow: none !important;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-white"],
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-slate-"],
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-rose-"],
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a)[class*="bg-red-"] {
+        background: #f4f4f5 !important;
+        color: #292929 !important;
+        border-color: #e4e4e5 !important;
+        box-shadow: none !important;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] [class*="peer-checked:bg-"] {
+        background-color: #d4d4d5 !important;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] input:checked + [class*="peer-checked:bg-"] {
+        background-color: #292929 !important;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a) {
+        -webkit-tap-highlight-color: transparent;
+      }
+      div[class*="bg-[#f3f4f8]"][class*="font-light"] :is(button,a):focus-visible {
+        outline: 2px solid #333;
+        outline-offset: 2px;
+      }
+    </style>
 </head>
   <body>
     <div id="root"></div>
