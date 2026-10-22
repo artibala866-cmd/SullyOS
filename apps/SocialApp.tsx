@@ -226,15 +226,27 @@ const SocialApp: React.FC = () => {
     const [newPostEmoji, setNewPostEmoji] = useState('2728');
     const [stockImages, setStockImages] = useState<XhsStockImage[]>([]);
     const [selectedStockUrl, setSelectedStockUrl] = useState('');
+    const [localPostImage, setLocalPostImage] = useState('');
+    const [showCommentStickers, setShowCommentStickers] = useState(false);
+    const handleLocalPostPhoto = async (file?: File) => {
+        if (!file) return;
+        try {
+            const blob = await processImageToBlob(file);
+            const ref = await putImageBlob(blob);
+            setLocalPostImage(ref);
+            setSelectedStockUrl('');
+            addToast('已选择本地照片', 'success');
+        } catch (error: any) { addToast('照片导入失败：' + (error?.message || '未知错误'), 'error'); }
+    };
     const reloadStock = async () => setStockImages(await DB.getXhsStockImages());
     useEffect(() => { void reloadStock(); }, []);
     const pickStock = (title: string, content: string) => {
-        const selected = chooseSparkStock(stockImages, title, content);
+        const selected = chooseSparkStock(stockImages.filter(img => !img.category || img.category === 'material'), title, content);
         if (selected) void DB.updateXhsStockImageUsage(selected.id);
         return selected?.url;
     };
-    const postVisual = (value: string | undefined, className: string) => value && /^https?:\/\//i.test(value)
-        ? <img src={value} alt="笔记配图" loading="lazy" className={className + ' object-cover'} />
+    const postVisual = (value: string | undefined, className: string) => value && (/^https?:\/\//i.test(value) || value.startsWith('blobref:'))
+        ? <TokenImg value={value} className={className + ' object-cover'} />
         : <span>{codepointToEmoji(value || '✨')}</span>;
 
     // Comment Input State
@@ -927,7 +939,7 @@ ${buildSparkCommentHistory(post)}
             content: newPostContent,
             // Sticker selector stores twemoji codepoints (eg "2728"); convert to the real emoji char
             // so that the feed/detail views render an emoji instead of the raw codepoint text.
-            images: [selectedStockUrl || pickStock(newPostTitle, newPostContent) || codepointToEmoji(newPostEmoji)],
+            images: [localPostImage || selectedStockUrl || pickStock(newPostTitle, newPostContent) || codepointToEmoji(newPostEmoji)],
             likes: 0,
             isCollected: false,
             isLiked: false,
@@ -938,7 +950,7 @@ ${buildSparkCommentHistory(post)}
             authorType: 'user',
         };
         prependPostsToFeed([post]);
-        setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); 
+        setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); setLocalPostImage(''); 
         setIsCreateOpen(false); // Close Modal
         setActiveTab('home'); 
         addToast('发布成功', 'success');
@@ -1352,11 +1364,17 @@ ${buildSparkCommentHistory(post)}
                                 <button type="button" onClick={() => void reloadStock()} className="text-xs text-rose-500">刷新图库</button>
                             </div>
                             <div className="flex gap-2 overflow-x-auto pb-2">
-                                {stockImages.map(img => <button type="button" key={img.id} onClick={() => setSelectedStockUrl(img.url)} className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${selectedStockUrl === img.url ? 'border-rose-500' : 'border-transparent'}`}>
+                                {stockImages.filter(img => !img.category || img.category === 'material').map(img => <button type="button" key={img.id} onClick={() => setSelectedStockUrl(img.url)} className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${selectedStockUrl === img.url ? 'border-rose-500' : 'border-transparent'}`}>
                                     <img src={img.url} alt={img.tags.join(' ')} loading="lazy" className="w-full h-full object-cover" />
                                 </button>)}
                             </div>
-                            {!stockImages.length && <p className="text-xs text-slate-400">图库为空，可以先去「收纳 → 小红书图库」添加 URL 素材。</p>}
+                            {!stockImages.filter(img => !img.category || img.category === 'material').length && <p className="text-xs text-slate-400">图库为空，可以先去「收纳 → 小红书图库」添加 URL 素材。</p>}
+                        </div>
+                        <div className="mt-3 rounded-xl border border-slate-100 p-3">
+                            <label className="text-xs font-bold text-slate-600">从本地相册选择图片
+                                <input type="file" accept="image/*" onChange={e => { void handleLocalPostPhoto(e.target.files?.[0]); e.target.value = ''; }} className="block w-full text-xs mt-2" />
+                            </label>
+                            {localPostImage && <div className="mt-2 flex items-center gap-3"><TokenImg value={localPostImage} className="w-20 h-20 rounded-lg object-cover" /><button type="button" onClick={() => setLocalPostImage('')} className="text-xs text-red-500">移除</button></div>}
                         </div>
                         {/* Sticker Selector - Flowing after text */}
                         <div className="mt-4 pt-4 border-t border-slate-50">
