@@ -1761,6 +1761,16 @@ ${buildSparkCommentHistory(post)}
                         </> : <>
                             <button type="button" onClick={() => setNoticeCategory(null)} className="px-4 py-3 text-sm text-slate-600">‹ 返回消息</button>
                             <h3 className="px-4 pb-3 text-sm font-bold">{noticeCategory === 'likes' ? '赞和收藏' : noticeCategory === 'follows' ? '新增关注' : '评论和@'}</h3>
+                            {noticeCategory === 'follows' && <div className="mx-4 mb-3 rounded-xl bg-rose-50 p-4">
+                                <p className="text-xs text-slate-500">主页粉丝总数</p>
+                                <p className="text-2xl font-bold text-[#ff2442]">{fanCounts.user ?? 0}</p>
+                                <p className="text-xs text-slate-500 mt-2">帖子带来的新增粉丝：{followerHistory.reduce((sum, item) => sum + item.count, 0)} 人（记录启用后的变化）</p>
+                                <p className="text-xs text-slate-400 mt-1">下方列出有明确账号的关注者；其余增长只显示人数，不虚构昵称。</p>
+                            </div>}
+                            {noticeCategory === 'follows' && followerHistory.map(item => <div key={item.id} className="px-4 py-3 border-b border-slate-50 flex justify-between text-sm">
+                                <span>帖子流量带来新增粉丝 <strong className="text-[#ff2442]">+{item.count}</strong></span>
+                                <span className="text-xs text-slate-400">{new Date(item.time).toLocaleDateString()}</span>
+                            </div>)}
                             {noticeGroups(noticeCategory).map(group => {
                                 const unique = group.entries.filter((entry, index, all) => all.findIndex(item => item.actor === entry.actor) === index);
                                 const shown = expandedNoticeGroups.includes(group.key) ? unique : unique.slice(0, 5);
@@ -1783,7 +1793,7 @@ ${buildSparkCommentHistory(post)}
                                     {post && <button type="button" onClick={() => handleOpenPost(post)} className="block text-xs text-slate-400 mt-2">查看原帖 ›</button>}
                                 </div>;
                             })}
-                            {!notices.some(n => n.kind === noticeCategory) && <p className="text-center py-16 text-xs text-slate-400">还没有收到相关消息</p>}
+                            {!notices.some(n => n.kind === noticeCategory) && !(noticeCategory === 'follows' && followerHistory.length) && <p className="text-center py-16 text-xs text-slate-400">还没有收到相关消息</p>}
                         </>}
                     </div>}
                     {activeTab === 'me' && (
