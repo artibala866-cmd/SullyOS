@@ -476,133 +476,49 @@ interface ScheduleFullscreenViewerProps {
 }
 
 export const ScheduleFullscreenViewer: React.FC<ScheduleFullscreenViewerProps> = ({
-    open,
-    onClose,
-    characters,
-    activeCharId,
-    onSwitchCharacter,
-    schedule,
-    activeCharacter,
-    contentColor = '#ffffff',
+    open, onClose, characters, activeCharId, onSwitchCharacter, schedule, activeCharacter,
 }) => {
-    // Lock scroll of background
     useEffect(() => {
         if (!open) return;
-        const prev = document.body.style.overflow;
+        const old = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = prev; };
+        return () => { document.body.style.overflow = old; };
     }, [open]);
-
-    // Close on ESC
     useEffect(() => {
         if (!open) return;
         const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [open, onClose]);
-
-    // 这层全屏查看器不跟随卡片配色，固定用默认色相做强调色
-    const accentHsl = 'hsl(260, 70%, 65%)';
-
     if (!open) return null;
-
     return (
-        <div
-            className="fixed inset-0 z-[200] flex flex-col animate-fade-in"
-            style={{
-                background: 'rgba(6, 8, 16, 0.72)',
-                backdropFilter: 'blur(22px) saturate(1.2)',
-                WebkitBackdropFilter: 'blur(22px) saturate(1.2)',
-                color: contentColor,
-            }}
-            onClick={onClose}
-        >
-            {/* Header */}
-            <div
-                className="flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+1rem)] pb-3 shrink-0"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div>
-                    <div className="text-[10px] font-bold tracking-[0.25em] uppercase opacity-50">Today</div>
-                    <div className="text-lg font-black tracking-tight" style={{ color: accentHsl }}>
-                        Daily Schedule
-                    </div>
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center px-4 py-8"
+             style={{ background: 'rgba(31,33,37,.46)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}
+             onClick={onClose}>
+            <div className="w-full max-w-[520px] max-h-full flex flex-col overflow-hidden rounded-[30px] border border-white/80 text-[#303238]"
+                 style={{ background: 'linear-gradient(145deg,rgba(255,255,255,.94),rgba(231,233,236,.87))', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)', boxShadow: '0 22px 65px rgba(30,32,38,.20)' }}
+                 onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                    <div><div className="text-[10px] tracking-[.28em] text-[#93969b]">CHARACTER / DAILY</div><h2 className="mt-1 text-xl font-semibold tracking-wide">今日日程</h2></div>
+                    <button onClick={onClose} aria-label="关闭日程" className="w-9 h-9 rounded-full border border-[#d5d7da] bg-white/75 text-xl">×</button>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-transform active:scale-90"
-                    style={{
-                        background: 'rgba(255,255,255,0.12)',
-                        border: '1px solid rgba(255,255,255,0.18)',
-                    }}
-                    aria-label="Close"
-                >
-                    <svg viewBox="0 0 24 24" fill="none" strokeWidth={2.2} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
-                    </svg>
-                </button>
-            </div>
-
-            {/* Character switcher */}
-            {characters.length > 0 && (
-                <div
-                    className="shrink-0 px-5 pb-3"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-1 px-1">
-                        {characters.map(c => {
-                            const isActive = c.id === activeCharId;
-                            return (
-                                <button
-                                    key={c.id}
-                                    onClick={() => onSwitchCharacter(c.id)}
-                                    className="shrink-0 flex flex-col items-center gap-1 transition-transform active:scale-95"
-                                    style={{ width: 56 }}
-                                >
-                                    <div
-                                        className={`w-12 h-12 rounded-2xl overflow-hidden transition-all ${isActive ? 'scale-105' : 'opacity-55'}`}
-                                        style={{
-                                            border: isActive
-                                                ? `2px solid ${accentHsl}`
-                                                : '2px solid rgba(255,255,255,0.12)',
-                                            boxShadow: isActive
-                                                ? '0 6px 18px hsla(260, 70%, 55%, 0.45)'
-                                                : 'none',
-                                        }}
-                                    >
-                                        {c.avatar ? (
-                                            <TokenImg value={c.avatar} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                        ) : (
-                                            <div className="w-full h-full bg-white/10 flex items-center justify-center text-sm font-bold">
-                                                {c.name[0]}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <span
-                                        className={`text-[10px] truncate max-w-full font-semibold tracking-wide ${isActive ? 'opacity-100' : 'opacity-45'}`}
-                                    >
-                                        {c.name}
-                                    </span>
-                                </button>
-                            );
-                        })}
+                {activeCharacter && (
+                    <div className="mx-5 mb-4 overflow-hidden rounded-[22px] border border-white/80 bg-[#e5e6e8]">
+                        <div className="h-28 sm:h-36 relative bg-gradient-to-r from-[#c7c9cc] via-[#e9eaec] to-[#bfc1c5]">
+                            {activeCharacter.avatar && <TokenImg value={activeCharacter.avatar} alt="" className="w-full h-full object-cover object-center" loading="lazy" />}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent pointer-events-none" />
+                            <div className="absolute bottom-3 left-4 text-white font-semibold text-lg drop-shadow-sm">{activeCharacter.name}</div>
+                        </div>
                     </div>
-                </div>
-            )}
-
-            {/* Schedule card */}
-            <div
-                className="flex-1 min-h-0 overflow-y-auto px-5 pb-[calc(var(--safe-bottom,0px)+1.5rem)] no-scrollbar"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <ScheduleCard
-                    schedule={schedule}
-                    character={activeCharacter}
-                    contentColor={contentColor}
-                    compact={true}
-                />
-                <div className="text-[10px] text-center opacity-40 mt-4 tracking-widest">
-                    TAP OUTSIDE TO CLOSE · 点空白处关闭
+                )}
+                {characters.length > 1 && <div className="flex gap-2 px-5 pb-4 overflow-x-auto no-scrollbar">
+                    {characters.map(c => <button key={c.id} onClick={() => onSwitchCharacter(c.id)}
+                        className={`shrink-0 rounded-full border px-3 py-1.5 text-xs ${c.id === activeCharId ? 'bg-[#34363a] text-white border-[#34363a]' : 'bg-white/65 border-[#d9dade] text-[#777a80]'}`}>{c.name}</button>)}
+                </div>}
+                <div className="overflow-y-auto min-h-0 px-5 pb-6 no-scrollbar">
+                    <div className="rounded-[22px] bg-white/55 border border-white/85 p-2">
+                        <ScheduleCard schedule={schedule} character={activeCharacter} contentColor="#34363a" compact={true} />
+                    </div>
                 </div>
             </div>
         </div>
