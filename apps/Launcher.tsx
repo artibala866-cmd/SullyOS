@@ -591,10 +591,11 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   //        3+ = plain grid. Pad to at least 3 slots so the pinwheel/widget pages always exist.
   const APPS_PER_PAGE = 8;
   const appPages = useMemo(() => {
-      // 首页四个固定入口不占用后续应用页名额；其余应用全部从第二页开始。
       const primaryIds = new Set([AppID.Character, AppID.MemoryPalace, AppID.User, AppID.Room]);
-      const secondaryApps = gridApps.filter(app => !primaryIds.has(app.id));
-      const pages: typeof INSTALLED_APPS[] = [[]];
+      // 第二页固定入口只在第二页显示；其他应用仍保留在应用网格。
+      const page2Ids = new Set([AppID.Call, AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.XhsFreeRoam]);
+      const secondaryApps = gridApps.filter(app => !primaryIds.has(app.id) && !page2Ids.has(app.id));
+      const pages: typeof INSTALLED_APPS[] = [[], []];
       for (let i = 0; i < secondaryApps.length; i += APPS_PER_PAGE) {
           pages.push(secondaryApps.slice(i, i + APPS_PER_PAGE));
       }
@@ -608,7 +609,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   const page2QuadB = useMemo(() => page2Apps.slice(4, 8), [page2Apps]);
 
   // Total pages = App Pages + 1 Widget Page
-  const totalPages = appPages.length + 1;
+  const totalPages = appPages.length;
 
   useEffect(() => { activePageIndexRef.current = activePageIndex; }, [activePageIndex]);
 
@@ -1234,16 +1235,6 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                   )}
               </div>
           ))}
-
-          {/* Final Page: Widgets */}
-          <WidgetsPage
-            contentColor={contentColor}
-            openApp={openApp}
-            anniversaries={anniversaries}
-            characters={characters}
-            acnh={acnh}
-            paper={paper}
-          />
 
       </div>
 
