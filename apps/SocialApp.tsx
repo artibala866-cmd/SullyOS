@@ -1143,21 +1143,29 @@ ${buildSparkCommentHistory(post)}
                             authorCharId: char?.id,
                         } as SocialComment];
                     });
-                if (!newReplies.length) throw new Error('模型返回的回复身份不匹配，未添加回复');
-                if (newReplies.length > 0) {
+                // A character gets at most one public reply on this post; use DMs for further conversation.
+                const existingCharIds = new Set((feedRef.current.find(item => item.id === post.id)?.comments || []).map(item => item.authorCharId).filter(Boolean));
+                const publicReplies = newReplies.filter(reply => {
+                    if (!reply.authorCharId) return true;
+                    if (existingCharIds.has(reply.authorCharId)) return false;
+                    existingCharIds.add(reply.authorCharId);
+                    return true;
+                });
+                if (!publicReplies.length) return;
+                if (publicReplies.length > 0) {
                     updatePostInFeed(post.id, current => ({
                         ...current,
-                        comments: mergeSocialComments(current.comments || [], newReplies),
+                        comments: mergeSocialComments(current.comments || [], publicReplies),
                     }));
-                    addNotices(newReplies.map(reply => ({
+                    addNotices(publicReplies.map(reply => ({
                         id: 'reply:' + reply.id, kind: 'comments' as const, actor: reply.authorName,
                         avatar: reply.authorAvatar, content: reply.content, postId: post.id, time: Date.now(), read: false,
                     })));
-                    for (const reply of newReplies) {
+                    for (const reply of publicReplies) {
                         remember(reply.authorCharId, post, '自己回复了 User：' + reply.content);
                         if (post.authorCharId && post.authorCharId !== reply.authorCharId) remember(post.authorCharId, post, reply.authorName + ' 回复了 User：' + reply.content);
                     }
-                    addToast(`收到 ${newReplies.length} 条新回复`, 'info');
+                    addToast(`收到 ${publicReplies.length} 条新回复`, 'info');
                 }
             }
         } catch (e: any) {
