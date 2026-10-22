@@ -503,11 +503,13 @@ export const ScheduleFullscreenViewer: React.FC<ScheduleFullscreenViewerProps> =
                     <button onClick={onClose} aria-label="关闭日程" className="w-9 h-9 rounded-full border border-[#d5d7da] bg-white/75 text-xl">×</button>
                 </div>
                 {activeCharacter && (
-                    <div className="mx-5 mb-4 overflow-hidden rounded-[22px] border border-white/80 bg-[#e5e6e8]">
-                        <div className="h-28 sm:h-36 relative bg-gradient-to-r from-[#c7c9cc] via-[#e9eaec] to-[#bfc1c5]">
-                            {activeCharacter.avatar && <TokenImg value={activeCharacter.avatar} alt="" className="w-full h-full object-cover object-center" loading="lazy" />}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent pointer-events-none" />
-                            <div className="absolute bottom-3 left-4 text-white font-semibold text-lg drop-shadow-sm">{activeCharacter.name}</div>
+                    <div className="mx-5 mb-4 flex items-center gap-3 rounded-[20px] bg-white/60 border border-white/85 p-3">
+                        <div className="w-14 h-14 shrink-0 rounded-full overflow-hidden border-[3px] border-white shadow-sm bg-[#dedfe1]">
+                            {activeCharacter.avatar && <TokenImg value={activeCharacter.avatar} alt="" className="w-full h-full object-cover" loading="lazy" />}
+                        </div>
+                        <div className="min-w-0">
+                            <div className="text-sm font-semibold text-[#303238] truncate">{activeCharacter.name}</div>
+                            <div className="text-[10px] tracking-[.16em] text-[#97999e] mt-1">CHARACTER SCHEDULE</div>
                         </div>
                     </div>
                 )}
