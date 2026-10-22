@@ -3489,8 +3489,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const handleSendCallback = useCallback(() => handleSendText(), [char, input, replyTarget, inputPreferences]);
     const handleCharSelectCallback = useCallback((id: string) => { setActiveCharacterId(id); setShowPanel('none'); }, []);
     const autoReply = useChatAutoReply({
-        enabled: inputPreferences.autoReply || lifePacing,
-        naturalPacing: lifePacing,
+        enabled: inputPreferences.autoReply || lifePacing || (() => { try { return localStorage.getItem(`sully_realism_${activeCharacterId}`) === 'on'; } catch { return false; } })(),
+        naturalPacing: lifePacing || (() => { try { return localStorage.getItem(`sully_realism_${activeCharacterId}`) === 'on'; } catch { return false; } })(),
         lifeActivity,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
