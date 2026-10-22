@@ -997,7 +997,7 @@ ${buildSparkCommentHistory(post)}
     const handleDeletePost = (postId: string) => { removePostFromFeed(postId); addToast('帖子已删除', 'success'); trackEvent('删除一条帖子'); };
     const handleLike = (e: any, post: SocialPost) => {
         e.stopPropagation();
-        remember(post.authorCharId, post, post.isLiked ? 'User 取消了点赞' : 'User 点赞了这篇笔记');
+        if (post.authorType === 'character') remember(post.authorCharId, post, post.isLiked ? '自己的笔记少了一个赞' : '自己的笔记收到点赞');
         updatePostInFeed(post.id, current => ({
             ...current,
             isLiked: !current.isLiked,
@@ -1210,7 +1210,7 @@ ${buildSparkCommentHistory(post)}
                                     <span className="text-[10px] font-medium">{selectedPost.likes}</span>
                                 </div>
                                 <div className="flex flex-col items-center gap-0.5">
-                                    <Icons.Star filled={selectedPost.isCollected} onClick={() => { remember(selectedPost.authorCharId, selectedPost, selectedPost.isCollected ? 'User 取消收藏' : 'User 收藏了笔记'); updatePostInFeed(selectedPost.id, current => ({ ...current, isCollected: !current.isCollected })); trackEvent('收藏一条帖子', { action: selectedPost.isCollected ? 'uncollect' : 'collect' }); }} className="w-6 h-6" />
+                                    <Icons.Star filled={selectedPost.isCollected} onClick={() => {  updatePostInFeed(selectedPost.id, current => ({ ...current, isCollected: !current.isCollected })); trackEvent('收藏一条帖子', { action: selectedPost.isCollected ? 'uncollect' : 'collect' }); }} className="w-6 h-6" />
                                     <span className="text-[10px] font-medium">{selectedPost.isCollected ? '已收藏' : '收藏'}</span>
                                 </div>
                             </div>
