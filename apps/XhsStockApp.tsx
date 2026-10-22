@@ -6,6 +6,7 @@ import { DB } from '../utils/db';
 import { XhsStockImage } from '../types';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import { trackEvent } from '../utils/analytics';
+import { parseSparkStock, exportSparkStock } from '../utils/sparkStock';
 
 const XhsStockApp: React.FC = () => {
     const { openApp, addToast } = useOS();
@@ -13,6 +14,34 @@ const XhsStockApp: React.FC = () => {
     const [images, setImages] = useState<XhsStockImage[]>([]);
     const [view, setView] = useState<'list' | 'add'>('list');
     const [newUrl, setNewUrl] = useState('');
+    const [bulkText, setBulkText] = useState('');
+    const [bulkMode, setBulkMode] = useState(false);
+    const importDrafts = async (text: string) => {
+        const drafts = parseSparkStock(text);
+        if (!drafts.length) { addToast('没有识别到有效的图片 URL，请检查格式', 'error'); return; }
+        const existing = new Set(images.map(i => i.url));
+        let count = 0;
+        for (const draft of drafts) {
+            if (existing.has(draft.url)) continue;
+            await DB.saveXhsStockImage({ id: 'xhs_stock_' + Date.now() + '_' + count, url: draft.url, tags: draft.tags, addedAt: Date.now(), usedCount: 0 });
+            existing.add(draft.url);
+            count++;
+        }
+        await loadImages();
+        addToast('成功导入 ' + count + ' 张，跳过 ' + (drafts.length - count) + ' 张重复图片', 'success');
+    };
+    const importFile = async (file?: File) => {
+        if (!file) return;
+        if (!/\.(txt|json|md|csv)$/i.test(file.name)) { addToast('当前支持 TXT、JSON、MD、CSV 文本文件', 'error'); return; }
+        await importDrafts(await file.text());
+    };
+    const downloadJson = () => {
+        const blob = new Blob([exportSparkStock(images)], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url; anchor.download = 'spark-stock.json'; anchor.click();
+        URL.revokeObjectURL(url);
+    };
     const [newTags, setNewTags] = useState('');
     const [previewOk, setPreviewOk] = useState<boolean | null>(null);
     const [confirmDialog, setConfirmDialog] = useState<{
@@ -77,6 +106,18 @@ const XhsStockApp: React.FC = () => {
 
     const renderAddForm = () => (
         <div className="p-5 space-y-5 animate-fade-in">
+            <div className="flex gap-2">
+                <button type="button" onClick={() => setBulkMode(false)} className={`rounded-full px-4 py-2 text-xs ${!bulkMode ? 'bg-red-500 text-white' : 'bg-white'}`}>单张添加</button>
+                <button type="button" onClick={() => setBulkMode(true)} className={`rounded-full px-4 py-2 text-xs ${bulkMode ? 'bg-red-500 text-white' : 'bg-white'}`}>批量导入</button>
+            </div>
+            {bulkMode ? <div className="space-y-3">
+                <p className="text-xs text-slate-500">每行一张，例如：咖啡：[https://example.com/coffee.jpg]，也支持 咖啡：[图片](https://example.com/coffee.jpg)。JSON 支持 url、tags 字段。</p>
+                <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={8} placeholder="咖啡：[https://example.com/coffee.jpg]" className="w-full rounded-xl border border-slate-200 p-3 text-xs" />
+                <label className="block text-xs text-slate-600">导入 TXT / JSON / MD / CSV 文件
+                    <input type="file" accept=".txt,.json,.md,.csv,text/plain,application/json" onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }} className="block mt-2 w-full text-xs" />
+                </label>
+                <button type="button" onClick={() => { void importDrafts(bulkText); }} className="w-full rounded-xl bg-red-500 text-white font-bold py-3">批量入库</button>
+            </div> : <>
             {/* URL Input */}
             <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">图片URL</label>
@@ -135,6 +176,7 @@ const XhsStockApp: React.FC = () => {
             >
                 添加到图库
             </button>
+            </> 
         </div>
     );
 
@@ -246,6 +288,7 @@ const XhsStockApp: React.FC = () => {
                     </h1>
                     <span className="text-xs text-slate-400 ml-2 font-mono">{images.length}</span>
                     <div className="flex-1" />
+                    {view === 'list' && <button type="button" onClick={downloadJson} className="text-xs text-red-500 font-bold mr-3">导出 JSON</button>}
                     {view === 'list' && (
                         <button
                             onClick={() => { setView('add'); trackEvent('打开囤图添加表单'); }}
