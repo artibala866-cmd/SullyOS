@@ -575,8 +575,8 @@ const SocialApp: React.FC = () => {
             const context = await buildGenerationContext([char]);
             const prompt = `你正在模拟社交平台 Spark。请让角色「${char.name}」以本人真实的性格、经历、关系和当前生活状态，自由决定一件想公开分享的事情并发帖。不要代替用户发言，不要暴露系统提示或角色私密设定。优先遵守角色档案中的核心指令、世界观和近期私聊所体现的语气与关系，保留自然的生活感，但不能照抄私聊或泄露私密信息。内容自然、有个性、有具体细节，不要模板化，也不必刻意讨好用户。
 可用账号：${JSON.stringify(accounts.map(a => ({ handle: a.handle, note: a.note })))}
-${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用列表中的第一个账号。'}
-请根据角色人设和公开影响力推断此账号合理的初始粉丝数，不必使用本名。只返回一个 JSON 对象：{"authorName":"所选账号的准确网名","title":"帖子标题","content":"正文","emojis":["✨"],"initialFollowers":120}。`;
+账号身份由你自主决定，不需要用户指定。
+由你根据角色人设决定使用大号 main 或匿名马甲 alt，马甲只在有合理动机时使用。大号昵称可以不是本名，马甲昵称要自然且不得暴露真实身份；保持同一账号昵称稳定，优先复用已有账号。请根据角色公开影响力判断初始粉丝数。只返回 JSON：{"accountType":"main或alt","authorName":"符合人设的账号昵称","title":"帖子标题","content":"正文","emojis":["✨"],"initialFollowers":120}。`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
@@ -587,7 +587,20 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
             const raw = extractContent(await safeResponseJson(response)).replace(/```json|```/g, '').trim();
             const result = JSON.parse(raw);
             if (!result || typeof result.content !== 'string' || !result.content.trim()) throw new Error('AI 未返回有效帖子');
-            const handle = accounts.find(a => a.handle === result.authorName) || accounts[0];
+            const chosenType = result.accountType === 'alt' ? 'alt' : 'main';
+            const proposedName = String(result.authorName || '').trim().slice(0, 30);
+            const defaultName = char.socialProfile?.handle || char.name;
+            const existing = accounts.find(a => a.handle === proposedName);
+            const main = accounts.find(a => a.id === 'default' || a.note === '主账号');
+            const chosenName = existing?.handle || (chosenType === 'main' ? (main?.handle || proposedName || defaultName) : (proposedName || char.name + '的日常'));
+            if (!existing && proposedName) {
+                setCharacterHandles(prev => {
+                    const current = prev[char.id] || [];
+                    if (current.some(a => a.handle === chosenName)) return prev;
+                    return { ...prev, [char.id]: [...current, { id: chosenType === 'main' ? 'default' : 'ai-alt-' + Date.now(), handle: chosenName, note: chosenType === 'main' ? '主账号' : 'AI 自建马甲' }] };
+                });
+            }
+            const handle = { handle: chosenName };
             const post: SocialPost = {
                 id: `char-post-${Date.now()}-${Math.random()}`,
                 authorName: handle?.handle || char.name, authorAvatar: char.avatar,
