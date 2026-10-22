@@ -1,4 +1,4 @@
-import { readLifeClock, writeLifeClock } from '../utils/sullyLifeClock';
+import { readLifeClock, writeLifeClock, getLifeTime, currentLifeActivity, classifyLifeActivity } from '../utils/sullyLifeClock';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
 import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellation';
@@ -148,6 +148,24 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const localDateKey = useLocalDateKey();
     const [lifeMode, setLifeMode] = useState(() => readLifeClock().mode);
     const [lifePacing, setLifePacing] = useState(() => localStorage.getItem('sully_life_pacing') !== 'off');
+
+    const [lifeActivity, setLifeActivity] = useState<'sleep' | 'busy' | 'free' | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        const refresh = async () => {
+            const target = characters.find(c => c.id === activeCharacterId);
+            if (!target) { if (!cancelled) setLifeActivity(null); return; }
+            try {
+                const schedule = await getDailyScheduleForChar(target, new Date(getLifeTime()));
+                if (!cancelled) setLifeActivity(schedule ? classifyLifeActivity(currentLifeActivity(schedule.slots)?.activity || '') : null);
+            } catch { if (!cancelled) setLifeActivity(null); }
+        };
+        void refresh();
+        const timer = window.setInterval(() => { void refresh(); }, 60_000);
+        window.addEventListener('sully-life-clock-change', refresh);
+        return () => { cancelled = true; clearInterval(timer); window.removeEventListener('sully-life-clock-change', refresh); };
+    }, [activeCharacterId, characters, lifeMode]);
+
     const toggleLifeMode = () => {
         const previous = readLifeClock();
         const mode = previous.mode === 'real' ? 'virtual' : 'real';
@@ -3467,6 +3485,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const autoReply = useChatAutoReply({
         enabled: inputPreferences.autoReply || lifePacing,
         naturalPacing: lifePacing,
+        lifeActivity,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
         blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
