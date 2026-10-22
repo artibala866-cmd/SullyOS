@@ -556,7 +556,12 @@ const SocialApp: React.FC = () => {
     const buildGenerationContext = async (participants: CharacterProfile[]) => {
         const recent = await Promise.all(participants.map(async char =>
             [char.id, await loadCharacterContextMessages(char)] as const));
-        return buildSparkGenerationContext(participants.map(char => ({ ...char, mountedWorldbooks: [] })), userProfile, socialProfile, characterHandles, Object.fromEntries(recent));
+        const base = buildSparkGenerationContext(participants.map(char => ({ ...char, mountedWorldbooks: [] })), userProfile, socialProfile, characterHandles, Object.fromEntries(recent));
+        const events = participants.map(char => {
+            const history = (sparkMemoriesRef.current[char.id] || []).slice(-20);
+            return history.length ? '\n【' + char.name + ' 的 Spark 互动经历，注意账号身份保密】\n' + history.join('\n') : '';
+        }).join('');
+        return base + events;
     };
 
     const buildGenerationMessages = (members: CharacterProfile[], context: string, prompt: string) => {
