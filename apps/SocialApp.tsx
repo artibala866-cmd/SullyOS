@@ -201,6 +201,50 @@ const SocialApp: React.FC = () => {
             content: kind === 'likes' ? '赞了你的笔记《' + post.title + '》' : '关注了你',
             postId: kind === 'likes' ? post.id : undefined, time: Date.now(), read: false }]);
     };
+    type SparkDM = { role: 'user' | 'assistant'; content: string; time: number };
+    const [dmThreads, setDmThreads] = useState<Record<string, SparkDM[]>>(() => {
+        try { return JSON.parse(localStorage.getItem('spark_dm_threads') || '{}'); } catch { return {}; }
+    });
+    const [dmTarget, setDmTarget] = useState<{ handle: string; avatar: string } | null>(null);
+    const [dmInput, setDmInput] = useState('');
+    const [dmBusy, setDmBusy] = useState(false);
+    const sendSparkDM = async () => {
+        if (!dmTarget || !dmInput.trim() || dmBusy) return;
+        const target = dmTarget;
+        const text = dmInput.trim();
+        const history = [...(dmThreads[target.handle] || []), { role: 'user' as const, content: text, time: Date.now() }];
+        setDmInput('');
+        setDmThreads(prev => {
+            const next = { ...prev, [target.handle]: history };
+            localStorage.setItem('spark_dm_threads', JSON.stringify(next));
+            return next;
+        });
+        if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
+        setDmBusy(true);
+        try {
+            const authorPosts = feedRef.current.filter(post => post.authorName === target.handle).sort((a, b) => a.timestamp - b.timestamp);
+            const firstPost = authorPosts[0];
+            const owner = characters.find(char => (characterHandles[char.id] || []).some(account => account.handle === target.handle));
+            const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场，不要变成客服，也不要知道其他人的私聊或隐藏身份。';
+            const prompt = identity + '\n当前聊天账号：' + target.handle + '\n这个账号最早的帖子（性格与经历线索）：' + (firstPost ? firstPost.title + '\n' + firstPost.content : '暂无公开帖子') + '\n只扮演此账号本人，回复最后一条私信；简短自然，不要解释设定，不要总以句号结尾。';
+            const response = await fetch(apiConfig.baseUrl.replace(/\\/+$/, '') + '/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiConfig.apiKey },
+                body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'system', content: prompt }, ...history.slice(-20).map(item => ({ role: item.role, content: item.content }))], temperature: 0.9 }),
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: 'Spark 私信' },
+            } as RequestInit);
+            if (!response.ok) throw new Error(await apiErrorMessage(response));
+            const data = await safeResponseJson(response);
+            const answer = extractContent(data).trim();
+            if (!answer) throw new Error('空回复');
+            setDmThreads(prev => {
+                const next = { ...prev, [target.handle]: [...(prev[target.handle] || history), { role: 'assistant', content: answer, time: Date.now() }] };
+                localStorage.setItem('spark_dm_threads', JSON.stringify(next));
+                return next;
+            });
+        } catch (error: any) { addToast('私信回复失败：' + (error?.message || '未知错误'), 'error'); }
+        finally { setDmBusy(false); }
+    };
     const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
     });
