@@ -1069,44 +1069,48 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                 style={{ contentVisibility: 'auto', contain: 'layout paint', transform: 'translateZ(0)' }}
               >
                   {idx === 0 ? (
-                      // Page 1 (original): Clock + Chat + 4x2 App Grid
-                      <>
-                        <div className="flex flex-col items-center gap-3 mb-5 pt-2">
-                            <div className="w-full flex items-center justify-between text-[#525252] text-[10px] tracking-[0.25em] uppercase">
-                                <span>MY LITTLE WORLD</span><span>HOME / 01</span>
-                            </div>
-                            <button type="button" onClick={() => openApp(AppID.Chat)} className="relative w-28 h-28 rounded-full border-[5px] border-white bg-[#e5e5e7] shadow-[0_12px_28px_rgba(0,0,0,0.12)] overflow-visible active:scale-95 transition-transform" aria-label="打开角色聊天">
-                                <div className="w-full h-full rounded-full overflow-hidden">
-                                    {widgetChar?.avatar ? <TokenImg value={widgetChar.avatar} className="w-full h-full object-cover" alt={widgetChar.name} loading="lazy" /> : <span className="w-full h-full flex items-center justify-center text-3xl text-[#777]">♡</span>}
-                                </div>
-                                {widgetUnread > 0 && <span className="absolute top-0 right-0 rounded-full bg-[#222] text-white text-[10px] px-2 py-1">{widgetUnread > 9 ? '9+' : widgetUnread}</span>}
-                            </button>
-                            <button type="button" onClick={() => openApp(AppID.Chat)} className="text-center text-[#222] active:opacity-60">
-                                <span className="block font-semibold text-[18px] tracking-tight">{widgetChar?.name || 'MY CHAR'}</span>
-                                <span className="block text-[11px] text-[#777] max-w-[250px] truncate mt-1">{lastMessage || 'a little note to you'}</span>
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 mb-6">
-                            <button type="button" onClick={() => openApp(AppID.Appearance)} className="aspect-[1.2] bg-white/80 border border-white rounded-[1.65rem] shadow-[0_6px_24px_rgba(0,0,0,0.045)] overflow-hidden text-left relative active:scale-[0.98] transition-transform" aria-label="编辑桌面照片">
-                                {theme.launcherWidgets?.['tl'] ? <TokenImg value={theme.launcherWidgets['tl']} className="w-full h-full object-cover" alt="桌面照片" loading="lazy" /> : <div className="h-full flex flex-col justify-between p-4"><span className="text-[10px] text-[#999] tracking-[0.2em]">PHOTO / 01</span><span className="text-3xl font-light text-[#b4b4b4]">＋</span><span className="text-[10px] text-[#777]">添加照片</span></div>}
-                            </button>
-                            <button type="button" onClick={() => openApp(AppID.Appearance)} className="aspect-[1.2] bg-white/80 border border-white rounded-[1.65rem] shadow-[0_6px_24px_rgba(0,0,0,0.045)] overflow-hidden text-left active:scale-[0.98] transition-transform" aria-label="编辑第二张桌面照片">
-                                {theme.launcherWidgets?.['tr'] ? <TokenImg value={theme.launcherWidgets['tr']} className="w-full h-full object-cover" alt="桌面照片" loading="lazy" /> : <div className="h-full flex flex-col justify-between p-4"><span className="text-[10px] text-[#999] tracking-[0.2em]">PHOTO / 02</span><span className="text-3xl font-light text-[#b4b4b4]">＋</span><span className="text-[10px] text-[#777]">添加照片</span></div>}
-                            </button>
-                            <div className="bg-white/70 border border-white rounded-[1.5rem] p-4 min-h-[98px] shadow-[0_6px_24px_rgba(0,0,0,0.035)]">
-                                <span className="text-[10px] tracking-[0.2em] text-[#999]">TODAY</span>
-                                <div className="mt-2 text-[22px] font-light tracking-tight">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                                <span className="text-[10px] text-[#999]">a soft little day</span>
-                            </div>
-                            <button type="button" onClick={() => openApp(AppID.Chat)} className="bg-white/70 border border-white rounded-[1.5rem] p-4 min-h-[98px] shadow-[0_6px_24px_rgba(0,0,0,0.035)] text-left active:scale-[0.98]">
-                                <span className="text-[10px] tracking-[0.2em] text-[#999]">A NOTE TO YOU</span>
-                                <p className="text-[12px] text-[#333] mt-3 leading-relaxed line-clamp-3">{lastMessage || 'Take your time, little by little.'}</p>
-                            </button>
-                        </div>
-                        <div className="flex-1">
-                            <AppGridPage apps={pageApps} openApp={openApp} acnh={acnh} editing={layoutEditing} />
-                        </div>
-                      </>
+                      <div className="w-full flex flex-col gap-4 text-[#292929] pb-4">
+                          <div className="relative rounded-[32px] overflow-visible mt-5">
+                              <div className="h-28 rounded-t-[32px] bg-gradient-to-b from-[#c9cacc] via-[#dfe0e1] to-[#f3f3f3] border border-white/70" />
+                              <button type="button" onClick={() => openApp(AppID.Chat)}
+                                  className="absolute top-[60px] left-1/2 -translate-x-1/2 w-[88px] h-[88px] rounded-full bg-[#eee] border-[4px] border-white shadow-[0_6px_18px_rgba(0,0,0,0.13)] overflow-hidden active:scale-95 transition-transform"
+                                  aria-label="打开角色聊天">
+                                  {widgetChar?.avatar
+                                      ? <TokenImg value={widgetChar.avatar} className="w-full h-full object-cover" alt={widgetChar.name} loading="lazy" />
+                                      : <span className="flex items-center justify-center h-full text-3xl">♡</span>}
+                              </button>
+                              <button type="button" onClick={() => openApp(AppID.Chat)}
+                                  className="w-full rounded-b-[32px] bg-white/95 border border-white shadow-[0_12px_28px_rgba(0,0,0,0.07)] pt-14 pb-6 px-5 text-center active:opacity-80">
+                                  <h2 className="text-[19px] font-bold tracking-tight">{widgetChar?.name || 'MY CHAR'}</h2>
+                                  <p className="text-[11px] text-[#999] mt-1">CHARACTER PROFILE</p>
+                                  <p className="text-[12px] text-[#555] mt-3 leading-relaxed line-clamp-2">{widgetChar?.description || lastMessage || '点击进入聊天'}</p>
+                                  {widgetUnread > 0 && <span className="inline-block mt-2 rounded-full bg-[#252525] px-2.5 py-1 text-[10px] text-white">{widgetUnread} 条未读</span>}
+                              </button>
+                          </div>
+                          <button type="button" onClick={() => openApp(AppID.Appearance)}
+                              className="relative w-full h-[78px] rounded-[18px] bg-white/85 border-[5px] border-white shadow-[0_5px_18px_rgba(0,0,0,0.08)] overflow-hidden flex items-stretch active:scale-[0.99] transition-transform"
+                              aria-label="编辑首页照片胶片">
+                              {(['tl','tr','wide','dsq'] as const).map((key, index) => (
+                                  <div key={key} className="flex-1 min-w-0 border-r border-dashed border-[#ccc] relative bg-[#eeeeef] overflow-hidden">
+                                      {theme.launcherWidgets?.[key]
+                                          ? <TokenImg value={theme.launcherWidgets[key]} className="w-full h-full object-cover grayscale" alt={`照片 ${index + 1}`} loading="lazy" />
+                                          : <div className="w-full h-full flex items-center justify-center text-[#aaa] text-xl font-light">+</div>}
+                                  </div>
+                              ))}
+                              <div className="w-6 bg-white flex items-center justify-center"><span className="text-[10px] tracking-[-2px] text-[#555] rotate-90">||||||</span></div>
+                          </button>
+                          <div className="grid grid-cols-[1.1fr_1fr] gap-3 items-start">
+                              <div className="min-w-0 aspect-[0.95] rounded-[28px] overflow-hidden bg-white/80 border border-white shadow-[0_7px_24px_rgba(0,0,0,0.07)]">
+                                  <NowPlayingSquareWidget contentColor="#252525" />
+                              </div>
+                              <div className="grid grid-cols-2 gap-x-1 gap-y-5 py-1">
+                                  {[AppID.Character,AppID.MemoryPalace,AppID.User,AppID.Room].map(id => {
+                                      const app = INSTALLED_APPS.find(item => item.id === id);
+                                      return app ? <div key={id} className="min-w-0 flex justify-center"><AppIcon app={app} onClick={() => { if (!layoutEditing) openApp(id); }} size="sm" /></div> : null;
+                                  })}
+                              </div>
+                          </div>
+                      </div>
                   ) : idx === 1 ? (
                       // Page 2: Schedule 4x2 widget on top + Pinwheel (Music / 2x2 icons / 2x2 icons / Image) below
                       <div className="launcher-pinwheel-content w-full flex flex-col gap-5">
@@ -1121,7 +1125,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                               />
                           )}
                           <div className="launcher-pinwheel-grid grid grid-cols-2 gap-x-3 gap-y-5 w-full">
-                              {pinwheelOrder.filter(cell => cell === 'music' ? theme.launcherMusicVisible !== false : cell === 'image' ? theme.launcherImageVisible !== false : true).map(cell => (
+                              {pinwheelOrder.filter(cell => cell !== 'music' && (cell === 'image' ? theme.launcherImageVisible !== false : true)).map(cell => (
                                   <div
                                       key={cell}
                                       data-launcher-item={cell}
