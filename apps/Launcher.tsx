@@ -593,9 +593,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   const appPages = useMemo(() => {
       // 首页四个固定入口不占用后续应用页名额；其余应用全部从第二页开始。
       const primaryIds = new Set([AppID.Character, AppID.MemoryPalace, AppID.User, AppID.Room]);
-      // 第二页的八个固定快捷入口不再重复占用后续应用页名额。
-      const page2ShortcutIds = new Set([AppID.Call, AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.XhsFreeRoam]);
-      const secondaryApps = gridApps.filter(app => !primaryIds.has(app.id) && !page2ShortcutIds.has(app.id));
+      const secondaryApps = gridApps.filter(app => !primaryIds.has(app.id));
       const pages: typeof INSTALLED_APPS[] = [[]];
       for (let i = 0; i < secondaryApps.length; i += APPS_PER_PAGE) {
           pages.push(secondaryApps.slice(i, i + APPS_PER_PAGE));
