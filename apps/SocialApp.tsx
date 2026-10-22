@@ -157,6 +157,32 @@ const Icons = {
 const SocialApp: React.FC = () => {
     const { closeApp, openApp, characters, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
     const [feed, setFeed] = useState<SocialPost[]>([]);
+    const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
+        try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
+    });
+    const [fanChanges, setFanChanges] = useState<Record<string, number>>({});
+    const [editingFans, setEditingFans] = useState(false);
+    const [fanInput, setFanInput] = useState('0');
+    const fanKey = (post: SocialPost) => post.authorType === 'user' ? 'user' : post.authorType === 'character' && post.authorCharId ? 'char:' + post.authorCharId + ':' + post.authorName : 'public:' + post.authorName;
+    const applyFanChange = (posts: SocialPost[]) => {
+        const changes: Record<string, number> = {};
+        setFanCounts(prev => {
+            const next = { ...prev };
+            for (const post of posts) {
+                if (post.authorType !== 'user' && post.authorType !== 'character') continue;
+                const key = fanKey(post);
+                const current = next[key] || 0;
+                const score = (post.content.length * 7 + post.title.length * 13 + Date.now() % 97) % 100;
+                const size = Math.max(1, Math.round(Math.sqrt(current + 16) / 3));
+                const delta = score < 20 ? -Math.min(current, size) : size * (score > 85 ? 4 : score > 60 ? 2 : 1);
+                next[key] = Math.max(0, current + delta);
+                changes[key] = (changes[key] || 0) + delta;
+            }
+            localStorage.setItem('spark_fan_counts', JSON.stringify(next));
+            return next;
+        });
+        setFanChanges(changes);
+    };
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
@@ -453,6 +479,7 @@ const SocialApp: React.FC = () => {
         const next = prependUniqueSocialPosts(feedRef.current, newPosts);
         feedRef.current = next;
         setFeed(next);
+        applyFanChange(newPosts);
         // Only persist the new batch. Re-saving the request's stale feed snapshot
         // could erase comments or user posts that arrived while it was running.
         Promise.all(newPosts.map(p => DB.saveSocialPost(p))).catch(console.error);
@@ -1119,7 +1146,7 @@ ${buildSparkCommentHistory(post)}
                         </div>
                         <div className="flex gap-7 text-xs text-slate-500 my-5">
                             <span><strong className="text-slate-800">{posts.length}</strong> 笔记</span>
-                            <span><strong className="text-slate-800">{accountFollowerCount(viewedAccount.handle, !!isMain)}</strong> 粉丝</span>
+                            <span><strong className="text-slate-800">{fanCounts[owner ? 'char:' + owner.id + ':' + viewedAccount.handle : 'public:' + viewedAccount.handle] ?? 0}</strong> 粉丝</span>
                         </div>
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#ff2442] text-white font-bold py-2 mb-5">
                             {followedHandles.includes(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
@@ -1418,7 +1445,7 @@ ${buildSparkCommentHistory(post)}
 
                                 <div className="flex gap-6 mt-5 bg-white/40 p-4 rounded-2xl border border-white/50 shadow-sm">
                                     <div className="text-center"><span className="block font-bold text-slate-800">142</span><span className="text-[10px] text-slate-400">关注</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">12.5k</span><span className="text-[10px] text-slate-400">粉丝</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{fanCounts.user ?? 0}</span><span className="text-[10px] text-slate-400">粉丝</span></div>
                                     <div className="text-center"><span className="block font-bold text-slate-800">8902</span><span className="text-[10px] text-slate-400">获赞与收藏</span></div>
                                 </div>
                             </div>
