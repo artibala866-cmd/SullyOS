@@ -46,7 +46,8 @@ const RESULT_COLORS: Record<string, string> = {
 };
 
 const XhsFreeRoamApp: React.FC = () => {
-    const { closeApp, addToast, characters, activeCharacterId, apiConfig, realtimeConfig, userProfile, characterGroups } = useOS();
+    const { openApp, addToast, characters, activeCharacterId, apiConfig, realtimeConfig, userProfile, characterGroups } = useOS();
+    const closeApp = () => openApp(AppID.Social);
 
     // Character selector — default to activeCharacterId, but user can switch
     const [selectedCharId, setSelectedCharId] = useState<string>(activeCharacterId || characters[0]?.id || '');
