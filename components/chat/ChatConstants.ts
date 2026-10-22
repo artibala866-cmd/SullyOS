@@ -4,19 +4,19 @@ import { ChatTheme } from '../../types';
 // Built-in presets map to the new data structure for consistency
 export const PRESET_THEMES: Record<string, ChatTheme> = {
     default: {
-        id: 'default', name: 'Indigo', type: 'preset',
-        user: { textColor: '#ffffff', backgroundColor: '#6366f1', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 }, 
-        ai: { textColor: '#1e293b', backgroundColor: '#ffffff', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 }
+        id: 'default', name: '黑白气泡', type: 'preset',
+        user: { textColor: '#ffffff', backgroundColor: '#242424', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 },
+        ai: { textColor: '#202020', backgroundColor: '#ffffff', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 }
     },
     dream: {
-        id: 'dream', name: 'Dream', type: 'preset',
-        user: { textColor: '#ffffff', backgroundColor: '#f472b6', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 },
-        ai: { textColor: '#1e293b', backgroundColor: '#ffffff', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 }
+        id: 'dream', name: '微信气泡', type: 'preset',
+        user: { textColor: '#1b1b1b', backgroundColor: '#95ec69', borderRadius: 12, opacity: 1, backgroundImageOpacity: 0.5 },
+        ai: { textColor: '#202020', backgroundColor: '#ffffff', borderRadius: 12, opacity: 1, backgroundImageOpacity: 0.5 }
     },
     forest: {
-        id: 'forest', name: 'Forest', type: 'preset',
-        user: { textColor: '#ffffff', backgroundColor: '#10b981', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 },
-        ai: { textColor: '#1e293b', backgroundColor: '#ffffff', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 }
+        id: 'forest', name: 'QQ气泡', type: 'preset',
+        user: { textColor: '#ffffff', backgroundColor: '#12b7f5', borderRadius: 18, opacity: 1, backgroundImageOpacity: 0.5 },
+        ai: { textColor: '#202020', backgroundColor: '#ffffff', borderRadius: 18, opacity: 1, backgroundImageOpacity: 0.5 }
     },
 };
 
