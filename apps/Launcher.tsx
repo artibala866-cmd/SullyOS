@@ -489,47 +489,6 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   const [scheduleData, setScheduleData] = useState<DailySchedule | null>(null);
   const [scheduleCharId, setScheduleCharId] = useState<string | null>(null);
   const [scheduleViewerOpen, setScheduleViewerOpen] = useState(false);
-  const [weekSelectedDate, setWeekSelectedDate] = useState<string | null>(null);
-  const [weekSchedule, setWeekSchedule] = useState<DailySchedule | null>(null);
-  const [weekLoading, setWeekLoading] = useState(false);
-  const [weekDraft, setWeekDraft] = useState('');
-  const [weekSaving, setWeekSaving] = useState(false);
-  const weekDates = useMemo(() => {
-      const today = new Date();
-      const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (today.getDay() + 6) % 7);
-      return Array.from({ length: 7 }, (_, i) => {
-          const day = new Date(monday);
-          day.setDate(monday.getDate() + i);
-          return { key: `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`, day: day.getDate(), label: ['一','二','三','四','五','六','日'][i] };
-      });
-  }, [scheduleDateKey]);
-  useEffect(() => {
-      if (!weekSelectedDate || !scheduleChar) return;
-      let cancelled = false;
-      setWeekLoading(true);
-      setWeekSchedule(null);
-      DB.getDailySchedule(scheduleChar.id, weekSelectedDate).then(data => {
-          if (!cancelled) setWeekSchedule(data);
-      }).catch(() => {}).finally(() => { if (!cancelled) setWeekLoading(false); });
-      return () => { cancelled = true; };
-  }, [weekSelectedDate, scheduleChar?.id]);
-  const saveWeekSchedule = async () => {
-      if (!weekSelectedDate || !scheduleChar || !weekDraft.trim() || weekSaving) return;
-      const slots = weekDraft.split('\n').map(line => {
-          const match = line.trim().match(/^([01]\\d|2[0-3]):([0-5]\\d)\\s+(.+)$/);
-          return match ? { startTime: `${match[1]}:${match[2]}`, activity: match[3].trim() } : null;
-      }).filter((slot): slot is {startTime:string;activity:string} => !!slot).sort((a,b) => a.startTime.localeCompare(b.startTime));
-      if (!slots.length) { alert('请按“09:00 学习”格式，每行填写一项日程'); return; }
-      setWeekSaving(true);
-      try {
-          const next: DailySchedule = { id: `${scheduleChar.id}_${weekSelectedDate}`, charId: scheduleChar.id, date: weekSelectedDate, slots, generatedAt: Date.now() };
-          await DB.saveDailySchedule(next);
-          setWeekSchedule(next);
-          if (weekSelectedDate === scheduleDateKey) setScheduleData(next);
-          setWeekDraft('');
-      } catch { alert('保存失败，请重试'); } finally { setWeekSaving(false); }
-  };
-
   const [layoutEditing, setLayoutEditing] = useState(false);
   const layoutPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutPointer = useRef<{
@@ -698,6 +657,48 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
       return characters.find(c => c.id === activeCharacterId) || characters[0];
   }, [characters, scheduleCharId, activeCharacterId]);
   const scheduleDateKey = useLocalDateKey(resolveCharTimeZone(scheduleChar));
+  const [weekSelectedDate, setWeekSelectedDate] = useState<string | null>(null);
+  const [weekSchedule, setWeekSchedule] = useState<DailySchedule | null>(null);
+  const [weekLoading, setWeekLoading] = useState(false);
+  const [weekDraft, setWeekDraft] = useState('');
+  const [weekSaving, setWeekSaving] = useState(false);
+  const weekDates = useMemo(() => {
+      const today = new Date();
+      const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (today.getDay() + 6) % 7);
+      return Array.from({ length: 7 }, (_, i) => {
+          const day = new Date(monday);
+          day.setDate(monday.getDate() + i);
+          return { key: `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`, day: day.getDate(), label: ['一','二','三','四','五','六','日'][i] };
+      });
+  }, [scheduleDateKey]);
+  useEffect(() => {
+      if (!weekSelectedDate || !scheduleChar) return;
+      let cancelled = false;
+      setWeekLoading(true);
+      setWeekSchedule(null);
+      DB.getDailySchedule(scheduleChar.id, weekSelectedDate).then(data => {
+          if (!cancelled) setWeekSchedule(data);
+      }).catch(() => {}).finally(() => { if (!cancelled) setWeekLoading(false); });
+      return () => { cancelled = true; };
+  }, [weekSelectedDate, scheduleChar?.id]);
+  const saveWeekSchedule = async () => {
+      if (!weekSelectedDate || !scheduleChar || !weekDraft.trim() || weekSaving) return;
+      const slots = weekDraft.split('\n').map(line => {
+          const match = line.trim().match(/^([01]\\d|2[0-3]):([0-5]\\d)\\s+(.+)$/);
+          return match ? { startTime: `${match[1]}:${match[2]}`, activity: match[3].trim() } : null;
+      }).filter((slot): slot is {startTime:string;activity:string} => !!slot).sort((a,b) => a.startTime.localeCompare(b.startTime));
+      if (!slots.length) { alert('请按“09:00 学习”格式，每行填写一项日程'); return; }
+      setWeekSaving(true);
+      try {
+          const next: DailySchedule = { id: `${scheduleChar.id}_${weekSelectedDate}`, charId: scheduleChar.id, date: weekSelectedDate, slots, generatedAt: Date.now() };
+          await DB.saveDailySchedule(next);
+          setWeekSchedule(next);
+          if (weekSelectedDate === scheduleDateKey) setScheduleData(next);
+          setWeekDraft('');
+      } catch { alert('保存失败，请重试'); } finally { setWeekSaving(false); }
+  };
+
+
 
   useEffect(() => {
       if (!scheduleChar || !isDataLoaded) return;
