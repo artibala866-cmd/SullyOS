@@ -163,6 +163,16 @@ const SocialApp: React.FC = () => {
     const [notices, setNotices] = useState<SparkNotice[]>(() => {
         try { const saved = JSON.parse(localStorage.getItem('spark_notifications') || '[]'); return Array.isArray(saved) ? saved : []; } catch { return []; }
     });
+    const [expandedNoticeGroups, setExpandedNoticeGroups] = useState<string[]>([]);
+    const noticeGroups = (kind: SparkNotice['kind']) => {
+        const items = notices.filter(n => n.kind === kind).sort((a, b) => b.time - a.time);
+        const grouped = new Map<string, SparkNotice[]>();
+        for (const item of items) {
+            const key = kind === 'follows' ? 'new-followers' : kind === 'likes' ? 'post:' + (item.postId || item.id) : item.id;
+            grouped.set(key, [...(grouped.get(key) || []), item]);
+        }
+        return [...grouped.entries()].map(([key, entries]) => ({ key, entries }));
+    };
     const [noticeCategory, setNoticeCategory] = useState<'likes' | 'follows' | 'comments' | null>(null);
     const addNotices = (incoming: SparkNotice[]) => {
         if (!incoming.length) return;
@@ -1727,11 +1737,28 @@ ${buildSparkCommentHistory(post)}
                         </> : <>
                             <button type="button" onClick={() => setNoticeCategory(null)} className="px-4 py-3 text-sm text-slate-600">‹ 返回消息</button>
                             <h3 className="px-4 pb-3 text-sm font-bold">{noticeCategory === 'likes' ? '赞和收藏' : noticeCategory === 'follows' ? '新增关注' : '评论和@'}</h3>
-                            {notices.filter(n => n.kind === noticeCategory).map(n => <button key={n.id} type="button" onClick={() => { const post = feed.find(p => p.id === n.postId); if (post) handleOpenPost(post); }} className="w-full text-left flex gap-3 px-4 py-3 border-b border-slate-50 items-center">
-                                <span className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center shrink-0">{n.avatar ? <TokenImg value={n.avatar} className="w-full h-full rounded-full object-cover" /> : '✦'}</span>
-                                <span className="flex-1 min-w-0"><strong className="text-sm block truncate">{n.actor}</strong><span className="text-xs text-slate-500 line-clamp-2">{n.content}</span></span>
-                                <span className="text-[10px] text-slate-400 shrink-0">{new Date(n.time).toLocaleDateString()}</span>
-                            </button>)}
+                            {noticeGroups(noticeCategory).map(group => {
+                                const unique = group.entries.filter((entry, index, all) => all.findIndex(item => item.actor === entry.actor) === index);
+                                const shown = expandedNoticeGroups.includes(group.key) ? unique : unique.slice(0, 5);
+                                const post = feed.find(p => p.id === group.entries[0]?.postId);
+                                return <div key={group.key} className="border-b border-slate-100 px-4 py-3">
+                                    {noticeCategory === 'likes' && <p className="text-xs text-slate-500 mb-2">你的笔记《{post?.title || '已删除的笔记'}》收到 {unique.length} 位用户的赞或收藏</p>}
+                                    {noticeCategory === 'follows' && <p className="text-xs text-slate-500 mb-2">最近关注你的人 · {unique.length} 位</p>}
+                                    <div className="flex flex-wrap gap-3">
+                                        {shown.map(n => <button key={n.id} type="button" onClick={() => {
+                                            const accountPost = feed.find(p => p.authorName === n.actor);
+                                            if (accountPost) setViewedAccount({ handle: n.actor, avatar: n.avatar || accountPost.authorAvatar });
+                                            else openSparkDM({ handle: n.actor, avatar: n.avatar || '' });
+                                        }} className="flex items-center gap-1.5 max-w-[45%] min-w-0 text-left">
+                                            <span className="w-8 h-8 shrink-0 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">{n.avatar ? <TokenImg value={n.avatar} className="w-full h-full object-cover" /> : '✦'}</span>
+                                            <span className="text-xs truncate">{n.actor}</span>
+                                        </button>)}
+                                    </div>
+                                    {noticeCategory === 'comments' && <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">{group.entries[0].content}</p>}
+                                    {unique.length > 5 && <button type="button" onClick={() => setExpandedNoticeGroups(prev => prev.includes(group.key) ? prev.filter(key => key !== group.key) : [...prev, group.key])} className="text-xs text-[#ff2442] mt-3">{expandedNoticeGroups.includes(group.key) ? '收起' : '查看全部 ' + unique.length + ' 人 ›'}</button>}
+                                    {post && <button type="button" onClick={() => handleOpenPost(post)} className="block text-xs text-slate-400 mt-2">查看原帖 ›</button>}
+                                </div>;
+                            })}
                             {!notices.some(n => n.kind === noticeCategory) && <p className="text-center py-16 text-xs text-slate-400">还没有收到相关消息</p>}
                         </>}
                     </div>}
