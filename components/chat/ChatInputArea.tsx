@@ -66,6 +66,7 @@ interface ChatInputAreaProps {
     canReroll: boolean;
     // Proactive messaging
     isProactiveActive?: boolean;
+    lifePacingEnabled?: boolean;
     // 麦当劳 MCP
     mcdConfigured?: boolean;   // 设置里 token 已填且启用
     mcdActivated?: boolean;    // 当前会话已发"麦请求"
@@ -99,6 +100,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     categories = [], activeCategory = 'default',
     onReroll, canReroll,
     isProactiveActive,
+    lifePacingEnabled,
     mcdConfigured = false,
     mcdActivated = false,
     luckinConfigured = false,
@@ -527,6 +529,12 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 <ArrowsClockwise className="w-6 h-6" weight="bold" />
             </div>)}
             <span className="text-xs font-bold">重新生成</span>
+        </button>,
+        <button key="life-pacing" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${lifePacingEnabled ? 'bg-indigo-50 text-indigo-500 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                <Brain className="w-6 h-6" weight="bold" />
+            </div>
+            <span className="text-xs font-bold">真人感 · {lifePacingEnabled ? '开' : '关'}</span>
         </button>,
         <button key="schedule" onClick={() => onPanelAction('schedule')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="schedule" /> : (
