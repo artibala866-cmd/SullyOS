@@ -954,9 +954,9 @@ ${post.content || '(楼主没写正文)'}
                 }));
                 if (post.authorType === 'user') {
                     // A named commenter may also like the post; this is a separate simulated action.
-                    comments.filter(comment => comment.authorType === 'character' && comment.authorCharId).forEach(comment => {
-                        if (Math.random() < 0.45) registerSimulatedInteraction({ id: comment.authorCharId!, name: comment.authorName, avatar: comment.authorAvatar }, post, 'likes');
-                        if (Math.random() < 0.12) registerSimulatedInteraction({ id: comment.authorCharId!, name: comment.authorName, avatar: comment.authorAvatar }, post, 'follows');
+                    comments.filter(comment => comment.authorType !== 'user').forEach(comment => {
+                        if (Math.random() < 0.45) registerSimulatedInteraction({ id: comment.authorCharId || 'npc:' + comment.authorName, name: comment.authorName, avatar: comment.authorAvatar }, post, 'likes');
+                        if (Math.random() < 0.12) registerSimulatedInteraction({ id: comment.authorCharId || 'npc:' + comment.authorName, name: comment.authorName, avatar: comment.authorAvatar }, post, 'follows');
                     });
                 }
                 if (post.authorType === 'user') addNotices(comments.filter(comment => comment.authorType !== 'user').map(comment => ({
@@ -1113,7 +1113,8 @@ ${buildSparkCommentHistory(post)}
         setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); setLocalPostImage(''); 
         setIsCreateOpen(false); // Close Modal
         setActiveTab('home'); 
-        addToast('发布成功', 'success');
+        addToast('发布成功，正在等待互动…', 'success');
+        if (apiConfig.apiKey) void generateComments(post);
     };
 
     const handleDeletePost = (postId: string) => { removePostFromFeed(postId); addToast('帖子已删除', 'success'); trackEvent('删除一条帖子'); };
