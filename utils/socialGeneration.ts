@@ -12,7 +12,7 @@ export function getSparkHandles(char: CharacterProfile, handles: Handles): SubAc
 
 /** All three generation paths share the same identity and persona contract. */
 export async function buildSparkGenerationContext(participants: CharacterProfile[], user: UserProfile, social: SocialAppProfile, handles: Handles,
-    recentMessages: Record<string, Message[]> = {},
+    recentMessages: Record<string, Message[]> = {}, sparkMemories: Record<string, string[]> = {},
 ): Promise<string> {
     const profiles = (await Promise.all(participants.map(async char => {
         const recent = (recentMessages[char.id] || []).slice(-6);
@@ -24,6 +24,9 @@ export async function buildSparkGenerationContext(participants: CharacterProfile
 角色名: ${char.name}
 可用账号: ${JSON.stringify(getSparkHandles(char, handles).map(h => ({ authorName: h.handle, note: h.note })))}
 本档案中的“你/我”、设定、记忆和说话方式只属于 ${char.name}，不得套到其他角色身上。
+【仅此角色可用的 Spark 互动记忆】
+${(sparkMemories[char.id] || []).slice(-20).join('\n') || '(暂无已知互动；不得编造)'}
+这些记忆是角色视角信息。其他角色不得使用、引用或知道；不得由后台账号映射推断用户对其他账号的行为。点赞只代表此账号的帖子收到点赞，不代表知道点赞者身份；收藏、浏览及用户与其他人的私聊均不可见。记忆只作背景，不要每次机械提起。
 ${core}
 近期私聊片段（只用于该角色理解关系，不得在公开评论泄露）:
 ${recent.map(m => formatMessageForPrompt(m, char.name, user.name).slice(0, 800)).join('\n') || '(无近期片段，不编造共同经历)'}
@@ -33,7 +36,7 @@ ${recent.map(m => formatMessageForPrompt(m, char.name, user.name).slice(0, 800))
 每条发言只能属于一个作者。角色必须只使用自己档案中的人设、口吻、记忆和账号，禁止混用其他角色的资料。
 charId 必须从档案原样复制，authorName/author 必须是同一 charId 下的账号。路人使用新网名，charId 为 null，不得冒用角色账号。
 用户始终是互动对象，禁止代替用户发帖或评论。资料不足时不要编造用户的姓名、设定或共同经历。
-公开发言遵守信息边界，不能泄露私聊原文或其他角色的私密信息。
+公开发言遵守信息边界，不能泄露私聊原文或其他角色的私密信息。角色只知道自己亲自参与、自己的账号公开收到或别人明确告诉自己的事；禁止上帝视角和第四面墙。不同账号的内部归属只用于系统保持身份一致，不可在公开内容中揭穿马甲。不得因用户点赞其他账号而嫉妒、质问或推断用户不爱自己。
 【用户身份对应】
 现实/角色互动姓名: ${JSON.stringify(user.name)}
 用户设定: ${user.bio || '(未填写)'}
