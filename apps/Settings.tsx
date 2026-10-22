@@ -1,3 +1,4 @@
+import ImageApiSettingsPanel from '../components/settings/ImageApiSettingsPanel';
 import NavigationBallSettings from '../components/settings/NavigationBallSettings';
 import { useSettingsFocus } from '../utils/settingsNavigation';
 import ApiPresetGroups from '../components/settings/ApiPresetGroups';
@@ -2789,7 +2790,7 @@ const Settings: React.FC = () => {
 
         {/* 其他 API 区域 — 非 LLM 类（语音、写歌等），不会跟随预设切换 */}
         <SettingsSection
-            title="其他 API"
+            title="语音 API"
             icon={
                 <div className="p-2 bg-amber-100/50 rounded-xl text-amber-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -3116,10 +3117,12 @@ const Settings: React.FC = () => {
                 </div>
 
                 <button onClick={handleSaveOtherApis} className="w-full py-3 rounded-2xl font-bold text-white shadow-lg shadow-amber-500/20 bg-amber-500 active:scale-95 transition-all mt-2">
-                    {otherStatusMsg || '保存其他 API'}
+                    {otherStatusMsg || '保存语音 API'}
                 </button>
             </div>
         </SettingsSection>
+
+        <ImageApiSettingsPanel />
 
         {/* 实时感知配置区域 */}
         <SettingsSection
