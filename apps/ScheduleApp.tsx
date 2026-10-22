@@ -123,7 +123,7 @@ const ScheduleApp: React.FC = () => {
       });
       const data = await safeResponseJson(response);
       if (!response.ok) throw new Error(data?.error?.message || `HTTP ${response.status}`);
-      const reply = extractContent(data?.choices?.[0]?.message?.content);
+      const reply = extractContent(data);
       if (!reply?.trim()) throw new Error('AI 返回了空回复');
       setNotes(prev => [...prev, { id: String(Date.now()) + '_reply', role: 'assistant', content: reply.trim() }]);
     } catch (error) {
