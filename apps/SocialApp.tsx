@@ -218,6 +218,27 @@ const SocialApp: React.FC = () => {
     
     const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const feedScrollRef = useRef<HTMLDivElement>(null);
+    const pullStartY = useRef<number | null>(null);
+    const [pullDistance, setPullDistance] = useState(0);
+    const pullDistanceRef = useRef(0);
+    const onFeedTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+        if (activeTab !== 'home' || isRefreshing || (feedScrollRef.current?.scrollTop || 0) > 0) { pullStartY.current = null; return; }
+        pullStartY.current = e.touches[0]?.clientY ?? null;
+    };
+    const onFeedTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+        if (pullStartY.current === null || activeTab !== 'home' || (feedScrollRef.current?.scrollTop || 0) > 0) return;
+        const delta = Math.max(0, Math.min(100, ((e.touches[0]?.clientY ?? pullStartY.current) - pullStartY.current) * 0.45));
+        pullDistanceRef.current = delta;
+        setPullDistance(delta);
+    };
+    const onFeedTouchEnd = () => {
+        const shouldRefresh = pullStartY.current !== null && pullDistanceRef.current >= 65;
+        pullStartY.current = null;
+        pullDistanceRef.current = 0;
+        setPullDistance(0);
+        if (shouldRefresh && !isRefreshing) void handleRefresh();
+    };
     const [loadingComments, setLoadingComments] = useState(false);
     
     // Post Creation State
@@ -1431,22 +1452,14 @@ ${buildSparkCommentHistory(post)}
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto no-scrollbar">
+                <div ref={feedScrollRef} onTouchStart={onFeedTouchStart} onTouchMove={onFeedTouchMove} onTouchEnd={onFeedTouchEnd} onTouchCancel={onFeedTouchEnd} className="flex-1 overflow-y-auto no-scrollbar overscroll-y-contain">
                     
                     {activeTab === 'home' && (
                         <div className="p-2 min-h-full">
-                            {/* Refresh Button - Above Posts */}
-                            <div className="flex items-center justify-center py-3">
-                                {isRefreshing ? (
-                                    <div className="text-center text-xs text-[#ff2442] font-bold animate-pulse flex items-center gap-2">
-                                        <div className="w-4 h-4 border-2 border-[#ff2442] border-t-transparent rounded-full animate-spin"></div> 正在获取新鲜事...
-                                    </div>
-                                ) : (
-                                    <button onClick={handleRefresh} className="px-6 py-2 bg-white/80 backdrop-blur-md rounded-full text-xs font-bold text-slate-500 shadow-sm border border-white hover:text-[#ff2442] active:scale-95 transition-all">
-                                        点击刷新推荐流
-                                    </button>
-                                )}
-                            </div>
+                            {(pullDistance > 0 || isRefreshing) && <div className="flex justify-center items-center overflow-hidden text-[#ff2442]" style={{ height: isRefreshing ? 40 : pullDistance }}>
+                                <div className={`w-5 h-5 border-2 border-[#ff2442] border-t-transparent rounded-full ${isRefreshing ? 'animate-spin' : ''}`} style={{ transform: isRefreshing ? undefined : `rotate(${pullDistance * 5}deg)` }} />
+                                <span className="text-xs ml-2">{isRefreshing ? '正在刷新…' : pullDistance >= 65 ? '松开刷新' : '下拉刷新'}</span>
+                            </div>}
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
                             <div className="columns-2 gap-2 pb-24">
                                 {feed.filter(post => feedTab === 'discover' || followedHandles.includes(post.authorName)).map(post => renderFeedItem(post))}
