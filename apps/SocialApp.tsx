@@ -163,8 +163,7 @@ const SocialApp: React.FC = () => {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [showUtilityShelf, setShowUtilityShelf] = useState(false);
     const [showCharPosting, setShowCharPosting] = useState(false);
-    const [postingCharId, setPostingCharId] = useState('');
-    const [postingMode, setPostingMode] = useState<'both' | 'manual'>('both');
+    const [postingCharIds, setPostingCharIds] = useState<string[]>([]);
     const [autoIdentity, setAutoIdentity] = useState(true);
     const [naturalComments, setNaturalComments] = useState(true);
     const [isCharPosting, setIsCharPosting] = useState(false); 
@@ -453,12 +452,13 @@ const SocialApp: React.FC = () => {
     };
 
     const handleCharPost = async () => {
-        const char = characters.find(c => c.id === postingCharId);
-        if (!char) { addToast('请先选择角色', 'error'); return; }
+        const selected = characters.filter(c => postingCharIds.includes(c.id));
+        if (!selected.length) { addToast('请先选择角色', 'error'); return; }
         if (!apiConfig.apiKey) { addToast('请配置 API Key', 'error'); return; }
         if (isCharPosting) return;
         setIsCharPosting(true);
         try {
+            for (const char of selected) {
             const accounts = characterHandles[char.id] || [];
             const context = await buildGenerationContext([char]);
             const prompt = `你正在模拟社交平台 Spark。请让角色「${char.name}」以本人真实的性格、经历、关系和当前生活状态，自由决定一件想公开分享的事情并发帖。不要代替用户发言，不要暴露系统提示或角色私密设定。优先遵守角色档案中的核心指令、世界观和近期私聊所体现的语气与关系，保留自然的生活感，但不能照抄私聊或泄露私密信息。内容自然、有个性、有具体细节，不要模板化，也不必刻意讨好用户。
@@ -486,9 +486,10 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
                 tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
             };
             prependPostsToFeed([post]);
+            }
             setShowCharPosting(false);
             setActiveTab('home');
-            addToast(`${char.name}发布了一条动态`, 'success');
+            addToast(`已让 ${selected.length} 位角色发布动态`, 'success');
         } catch (error: any) {
             addToast('角色发帖失败：' + (error?.message || '未知错误'), 'error');
         } finally { setIsCharPosting(false); }
@@ -504,7 +505,7 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
         trackEvent('刷新 Spark 推荐流');
         try {
             const shuffledChars = [...characters].sort(() => 0.5 - Math.random());
-            const selectedChars = postingMode === 'manual' ? [] : shuffledChars.slice(0, Math.min(3, characters.length));
+            const selectedChars = shuffledChars.slice(0, Math.min(3, characters.length));
             
             const context = await buildGenerationContext(selectedChars);
             if (controller.signal.aborted) return;
@@ -513,13 +514,13 @@ ${autoIdentity ? '根据发帖内容自主选择最合适的账号。' : '使用
 你需要生成 6-8 条新的社交媒体帖子。
 
 ### 🎭 内容构成 (混合模式)
-1. **角色发帖 (${postingMode === 'manual' ? '0%' : '50%'})**: 
+1. **角色发帖 (30%)**: 
    - 选中的角色: ${selectedChars.map(c => c.name).join(', ')}
    - **关键规则**: 每个角色有多个马甲(账号)。请根据内容需要，选择最合适的账号身份发帖。
    - 例如：如果是吐槽，可能用小号；如果是发美照，用大号。请务必使用 **Configured Handle (网名)**。
    - **内容方向**: 公开发言，生活日常、吐槽、或者暗戳戳的记录。
 
-2. **路人/网友发帖 (${postingMode === 'manual' ? '100%' : '50%'})**: 
+2. **路人/网友发帖 (70%)**: 
    - 模拟真实的互联网生态：吃瓜群众、技术宅、美妆博主、情感树洞。
 
 ### 🚫 绝对禁令
@@ -1041,21 +1042,25 @@ ${buildSparkCommentHistory(post)}
             
             <Modal isOpen={showCharPosting} title="Char 发帖设置" onClose={() => setShowCharPosting(false)}>
                 <div className="space-y-4 py-2 text-sm text-slate-700">
-                    <label className="block space-y-2"><span className="font-bold">选择发帖角色</span>
-                        <select value={postingCharId} onChange={e => setPostingCharId(e.target.value)} className="w-full border border-slate-200 rounded-xl bg-white p-3">
-                            <option value="">请选择 Char</option>
-                            {characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </label>
-                    <label className="block space-y-2"><span className="font-bold">推荐流模式</span>
-                        <select value={postingMode} onChange={e => setPostingMode(e.target.value as 'both' | 'manual')} className="w-full border border-slate-200 rounded-xl bg-white p-3">
-                            <option value="both">指定发帖 + 推荐流随机角色发帖</option>
-                            <option value="manual">仅指定角色发帖（推荐流仍有路人）</option>
-                        </select>
-                    </label>
+                    <div className="space-y-2">
+                        <p className="font-bold">选择发帖角色（可多选）</p>
+                        <div className="grid grid-cols-4 gap-3 max-h-52 overflow-y-auto py-2">
+                            {characters.map(c => {
+                                const checked = postingCharIds.includes(c.id);
+                                return <button type="button" key={c.id} aria-pressed={checked} onClick={() => setPostingCharIds(prev => checked ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1 min-w-0">
+                                    <span className={`relative block w-12 h-12 rounded-full ${checked ? 'ring-2 ring-[#ff2442] ring-offset-2' : ''}`}>
+                                        <TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" />
+                                        {checked && <span className="absolute -right-1 -bottom-1 w-5 h-5 rounded-full bg-[#ff2442] text-white text-xs flex items-center justify-center">✓</span>}
+                                    </span>
+                                    <span className="text-[11px] truncate max-w-full">{c.name}</span>
+                                </button>;
+                            })}
+                        </div>
+                        <p className="text-xs text-slate-400">已选 {postingCharIds.length} 位，每位角色自由发布自己的动态</p>
+                    </div>
                     <label className="flex items-center gap-2"><input type="checkbox" checked={autoIdentity} onChange={e => setAutoIdentity(e.target.checked)}/>由 Char 自行选择马甲</label>
                     <label className="flex items-center gap-2"><input type="checkbox" checked={naturalComments} onChange={e => setNaturalComments(e.target.checked)}/>评论遵循角色人设与关系</label>
-                    <button type="button" disabled={isCharPosting || !postingCharId} onClick={handleCharPost} className="w-full rounded-xl bg-[#ff2442] text-white font-bold py-3 disabled:opacity-40">{isCharPosting ? '角色正在构思…' : '让 Char 自由发帖'}</button>
+                    <button type="button" disabled={isCharPosting || postingCharIds.length === 0} onClick={handleCharPost} className="w-full rounded-xl bg-[#ff2442] text-white font-bold py-3 disabled:opacity-40">{isCharPosting ? '角色正在构思…' : '让 Char 自由发帖'}</button>
                 </div>
             </Modal>
             {/* 收纳入口与小红书主功能独立，避免占据发现/我的导航。 */}
