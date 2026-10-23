@@ -373,7 +373,7 @@ export const ContextBuilder = {
             lyricSnippet?: string[];
         } | null,
         // char 是否已和 user "一起听"（由 MusicContext.listeningTogetherWith 决定）。
-        // 暂停 / 切歌 / 播放出错 / user 显式踢出 都会让 char 从名单里掉出来，
+        // 只有明确退出或播放失败等情况才会移除 char；切歌不自动退出，
         // 走到这里时就会退回 "对方在听" 的旁观措辞。
         isListeningTogether?: boolean,
         // 刚才一起听途中歌被切了（本 char 在名单里、还没重新加入）。
@@ -391,7 +391,7 @@ export const ContextBuilder = {
             } else {
                 lines.push(`${userName || '对方'} 正在听《${userListening.songName}》— ${userListening.artists}`);
                 if (recentTrackSwitch && recentTrackSwitch.songName !== userListening.songName) {
-                    lines.push(`（你们刚才本来在一起听《${recentTrackSwitch.songName}》— ${recentTrackSwitch.artists}，播放器切歌后那次"一起听"自然结束了。你能察觉到歌换成了现在这首；想继续陪 ${userName || '对方'} 听下去就在回复里自然接上并重新加入，不想也不必勉强，顺其自然。）`);
+                    lines.push(`（你注意到播放器从《${recentTrackSwitch.songName}》切换到了这首歌。切歌本身不会结束一起听；是否继续陪伴取决于你自己的意愿。）`);
                 }
             }
             if (userListening.lyricWindow.length > 0) {
