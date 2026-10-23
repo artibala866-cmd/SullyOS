@@ -65,3 +65,15 @@ export function setAutonomousAvatarEnabled(characterId: string, enabled: boolean
   const lib = readCharacterAvatarLibrary(characterId);
   saveCharacterAvatarLibrary(characterId, { ...lib, autonomousEnabled: enabled });
 }
+
+/** Notify mounted private-chat and character-phone surfaces after an avatar selection. */
+export const CHARACTER_AVATAR_CHANGED = 'sully:character-avatar-changed';
+export function notifyCharacterAvatarChanged(characterId: string): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHARACTER_AVATAR_CHANGED, { detail: { characterId } }));
+}
+/** Select an existing library image and broadcast. Caller may additionally persist to CharacterProfile.avatar. */
+export function activateCharacterAvatar(characterId: string, avatarId: string, autonomous = false): string | null {
+  const image = chooseCharacterAvatar(characterId, avatarId, autonomous);
+  if (image) notifyCharacterAvatarChanged(characterId);
+  return image;
+}
