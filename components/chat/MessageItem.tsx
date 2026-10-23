@@ -1648,6 +1648,25 @@ const MessageItem = React.memo(({
         }
     }
 
+    // 一起听邀请来自真实聊天消息；接受/拒绝由聊天页统一处理。
+    if (m.metadata?.musicListenInvite) {
+        const fromChar = m.metadata.inviter === 'char';
+        return (
+            <div className="flex justify-center py-2">
+                <div className="w-64 rounded-2xl border border-neutral-300 bg-white/90 p-4 text-neutral-800">
+                    <div className="text-xs font-semibold">一起听邀请</div>
+                    <div className="mt-2 text-sm">{fromChar ? `${charName} 邀请你一起听音乐` : '你邀请对方一起听音乐'}</div>
+                    {fromChar && !m.metadata?.resolved && (
+                        <div className="mt-3 flex gap-2">
+                            <button className="rounded-lg border border-neutral-400 px-3 py-1 text-xs" onClick={() => window.dispatchEvent(new CustomEvent('music-listen-invite-answer', { detail: { charId: m.charId, messageId: m.id, accepted: true } }))}>接受</button>
+                            <button className="rounded-lg border border-neutral-400 px-3 py-1 text-xs" onClick={() => window.dispatchEvent(new CustomEvent('music-listen-invite-answer', { detail: { charId: m.charId, messageId: m.id, accepted: false } }))}>拒绝</button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     // --- Music Card Rendering (一起听 / 加入歌单) ---
     if (m.type === 'music_card' && m.metadata?.song) {
         const song = m.metadata.song as { songId: number; name: string; artists: string; albumPic: string };
