@@ -58,3 +58,29 @@ export function deleteCharacterMoment(characterId: string, postId: string, actor
   if(!target || target.deletedAt) return false;
   return save(characterId,posts.map(p=>p.id===postId?{...p,deletedAt:Date.now(),deletedBy:actor}:p));
 }
+
+/** Interactions use stable identity IDs, never nicknames. */
+export function setMomentLike(characterId: string, postId: string, actorId: string, liked: boolean): boolean {
+  if (!actorId) return false;
+  const posts = readCharacterMoments(characterId);
+  const target = posts.find(p => p.id === postId && !p.deletedAt);
+  if (!target) return false;
+  const current = target.likes || [];
+  const likes = liked ? (current.some(l => l.actorId === actorId) ? current : [...current, {actorId,createdAt:Date.now()}]) : current.filter(l => l.actorId !== actorId);
+  return save(characterId,posts.map(p=>p.id===postId?{...p,likes}:p));
+}
+export function addMomentComment(characterId: string, postId: string, comment: MomentComment): boolean {
+  if (!comment.id || !comment.authorId || !comment.text.trim() || !Number.isFinite(comment.createdAt)) return false;
+  const posts = readCharacterMoments(characterId);
+  const target = posts.find(p => p.id === postId && !p.deletedAt);
+  if (!target || (target.comments||[]).some(c=>c.id===comment.id)) return false;
+  if (comment.replyToId && !(target.comments||[]).some(c=>c.id===comment.replyToId && !c.deletedAt)) return false;
+  return save(characterId,posts.map(p=>p.id===postId?{...p,comments:[...(p.comments||[]),comment]}:p));
+}
+export function deleteMomentComment(characterId: string, postId: string, commentId: string, actorId: string): boolean {
+  const posts=readCharacterMoments(characterId);
+  const target=posts.find(p=>p.id===postId && !p.deletedAt);
+  const comment=target?.comments?.find(c=>c.id===commentId && !c.deletedAt);
+  if(!comment || comment.authorId!==actorId) return false;
+  return save(characterId,posts.map(p=>p.id===postId?{...p,comments:(p.comments||[]).map(c=>c.id===commentId?{...c,deletedAt:Date.now()}:c)}:p));
+}
