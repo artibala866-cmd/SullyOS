@@ -2059,10 +2059,10 @@ export const useChatAI = ({
             const rawAiContent = amsg2LeadIns.length
                 ? mergeToolRoundLeadIns(amsg2LeadIns, data.choices?.[0]?.message?.content || '')
                 : data.choices?.[0]?.message?.content || '';
-            const puffAvatarMatch = /\\{\\s*"t"\\s*:\\s*"set_avatar"\\s*,\\s*(?:"n"\\s*:\\s*(-?\\d+)|"src"\\s*:\\s*"user_avatar")\\s*\\}/i.exec(rawAiContent);
-            const withoutPuffAvatar = rawAiContent.replace(/\\{\\s*"t"\\s*:\\s*"set_avatar"\\s*,\\s*(?:"n"\\s*:\\s*-?\\d+|"src"\\s*:\\s*"user_avatar")\\s*\\}/gi, '').trim();
-            const avatarChoiceMatch = /<char_avatar_choice\s+id=["']([^"']+)["']\s*\/>/i.exec(rawAiContent);
-            const avatarCleanContent = rawAiContent.replace(/<char_avatar_choice\s+id=["'][^"']+["']\s*\/>/gi, '').trim();
+            const puffAvatarMatch = /\{\s*"t"\s*:\s*"set_avatar"\s*,\s*(?:"n"\s*:\s*(-?\d+)|"src"\s*:\s*"user_avatar")\s*\}/i.exec(rawAiContent);
+            const withoutPuffAvatar = rawAiContent.replace(/\{\s*"t"\s*:\s*"set_avatar"\s*,\s*(?:"n"\s*:\s*-?\d+|"src"\s*:\s*"user_avatar")\s*\}/gi, '').trim();
+            const avatarChoiceMatch = /<char_avatar_choice\s+id=["']([^"']+)["']\s*\/>/i.exec(withoutPuffAvatar);
+            const avatarCleanContent = withoutPuffAvatar.replace(/<char_avatar_choice\s+id=["'][^"']+["']\s*\/>/gi, '').trim();
             const sarReply = parseSARModuleReply(avatarCleanContent, sarModulePlan);
             const latestUserMessage = findSARTurnUserMessage(currentMsgs);
             const sarModuleEvents = createSARModuleEventMeta(sarModulePlan);
