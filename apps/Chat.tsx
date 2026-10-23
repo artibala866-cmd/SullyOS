@@ -473,7 +473,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     }, [activeCharacterId]);
 
     // --- Initialize Hook ---
-    const { isTyping, streamingBubbles, streamingThinking, streamingHandoverIds, inboxStatus, recallStatus, searchStatus, diaryStatus, emotionStatus, memoryPalaceStatus, memoryPalaceResult, setMemoryPalaceResult, lastDigestResult, setLastDigestResult, lastTokenUsage, tokenBreakdown, setLastTokenUsage, triggerAI, isProactiveActive } = useChatAI({
+    const { isTyping, streamingBubbles, streamingThinking, streamingHandoverIds, inboxStatus, recallStatus, searchStatus, diaryStatus, emotionStatus, memoryPalaceStatus, memoryPalaceResult, setMemoryPalaceResult, lastDigestResult, setLastDigestResult, lastTokenUsage, tokenBreakdown, setLastTokenUsage, triggerAI } = useChatAI({
         char,
         homePhoneContext:homePhone?.getContext,
         userProfile,
@@ -4408,7 +4408,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     activeCategory={activeCategory}
                     onReroll={handleReroll}
                     canReroll={canReroll}
-                    isProactiveActive={isProactiveActive}
                     mcdConfigured={mcdConfiguredFlag}
                     mcdActivated={mcdActivated}
                     luckinConfigured={luckinConfiguredFlag}
