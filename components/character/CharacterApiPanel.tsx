@@ -86,40 +86,40 @@ export default function CharacterApiPanel({ character, onChange }: {
     onChange(api); close();
   };
   const activePreset = draft ? findActivePresetId(apiPresets, draft) : null;
-  return <section className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
-    <h3 className="text-xs font-bold text-slate-700">独立 API</h3>
-    <p className="text-xs text-slate-600 break-words" data-testid="character-api-status">
+  return <section className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-100 space-y-3">
+    <h3 className="text-xs font-bold text-neutral-700">独立 API</h3>
+    <p className="text-xs text-neutral-600 break-words" data-testid="character-api-status">
       {character.dialogueApi ? '目前使用的为：' : '目前跟随设置中的 API：'}
       {describeDialogueApi(character.dialogueApi || apiConfig)}
     </p>
-    <p className="text-[11px] text-slate-400 leading-relaxed">用于私聊、见面、电话、群聊逐人回复、彼方角色活动和主动消息。App 独立 API 优先；TRPG 等统一生成和记忆、情绪、识图、语音合成仍用原配置。</p>
+    <p className="text-[11px] text-neutral-400 leading-relaxed">用于私聊、见面、电话、群聊逐人回复、彼方角色活动和主动消息。App 独立 API 优先；TRPG 等统一生成和记忆、情绪、识图、语音合成仍用原配置。</p>
     <div className="flex flex-wrap gap-2">
-      <button type="button" onClick={open} className="px-3 py-2 text-xs font-bold rounded-xl bg-primary/10 text-primary active:scale-95 transition-transform">
+      <button type="button" onClick={open} className="px-3 py-2 text-xs font-bold rounded-xl bg-[#eeeeee] text-[#262626] active:scale-95 transition-transform">
         {character.dialogueApi ? '修改独立 API' : '为角色使用独立 API'}
       </button>
-      {character.dialogueApi && <button type="button" onClick={() => onChange(undefined)} className="px-3 py-2 text-xs text-slate-500 rounded-xl bg-slate-100">跟随设置中的 API</button>}
+      {character.dialogueApi && <button type="button" onClick={() => onChange(undefined)} className="px-3 py-2 text-xs text-neutral-500 rounded-xl bg-neutral-100">跟随设置中的 API</button>}
     </div>
     <Modal isOpen={!!draft && !picker} title="角色独立 API" onClose={close} footer={<>
-      <button type="button" onClick={close} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">取消</button>
-      <button type="button" onClick={save} className="flex-1 py-3 bg-primary text-white font-bold rounded-2xl">确定</button>
+      <button type="button" onClick={close} className="flex-1 py-3 bg-neutral-100 text-neutral-500 font-bold rounded-2xl">取消</button>
+      <button type="button" onClick={save} className="flex-1 py-3 bg-[#262626] text-white font-bold rounded-2xl">确定</button>
     </>}>
       {draft && <div className="space-y-4">
         {apiPresets.length > 0 && <div className="space-y-2">
-          <h4 className="text-[10px] font-bold text-slate-400 tracking-widest">API 预设</h4>
+          <h4 className="text-[10px] font-bold text-neutral-400 tracking-widest">API 预设</h4>
           <ApiPresetGroups presets={apiPresets}>{preset => <button key={preset.id} type="button"
             onClick={() => changeDraft(configFromPreset(preset))}
-            className={`rounded-lg px-3 py-2 text-xs border ${activePreset === preset.id ? 'bg-primary/5 border-primary/30 text-primary' : 'bg-white border-slate-200 text-slate-600'}`}>
+            className={`rounded-lg px-3 py-2 text-xs border ${activePreset === preset.id ? 'bg-[#f2f2f2] border-[#a3a3a3] text-[#262626]' : 'bg-white border-neutral-200 text-neutral-600'}`}>
             {preset.name}{activePreset === preset.id ? ' · 已选' : ''}
           </button>}</ApiPresetGroups>
-          <p className="text-[10px] text-slate-400">与设置共用预设及分组；点确定后只应用到当前角色。</p>
+          <p className="text-[10px] text-neutral-400">与设置共用预设及分组；点确定后只应用到当前角色。</p>
         </div>}
         <DialogueApiFields value={draft} onChange={changeDraft} fetchModels={fetchModels} isLoadingModels={loading}
           openModelPicker={() => { setPickerModel(draft.model); setPicker(true); }} />
         <button type="button" onClick={testConnection} disabled={testing || !draft.baseUrl.trim() || !draft.model.trim()}
-          className="w-full py-2.5 rounded-xl border border-primary/30 text-primary text-xs font-bold disabled:opacity-40">
+          className="w-full py-2.5 rounded-xl border border-[#a3a3a3] text-[#262626] text-xs font-bold disabled:opacity-40">
           {testing ? '测试中…' : '测试连接'}
         </button>
-        {status && <p role="status" className="text-xs text-slate-500 break-words">{status}</p>}
+        {status && <p role="status" className="text-xs text-neutral-500 break-words">{status}</p>}
       </div>}
     </Modal>
     <Modal isOpen={!!draft && picker} title="选择模型" onClose={() => setPicker(false)}>
