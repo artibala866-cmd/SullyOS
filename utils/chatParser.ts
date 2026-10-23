@@ -42,6 +42,8 @@ export interface MusicActionHooks {
     getListeningSnapshot: () => MusicActionSnapshot | null;
     /** 将 charId 加入"一起听"名单（chatParser 不维护状态，只通知） */
     joinListeningTogether: (charId: string) => void;
+    /** 角色可以主动结束伴听，不影响用户的音乐播放。 */
+    stopListeningTogether?: (charId: string) => void;
     /**
      * 把 song 加到 char 的歌单。
      * 返回 { playlistTitle, created } —— created=true 表示这次是新建了歌单。
@@ -292,11 +294,11 @@ export const ChatParser = {
         //   [[MUSIC_ACTION:join_and_add(|...)]]              → 同 add 一套
         //   [[MUSIC_ACTION:join_and_add_new|新歌单标题|描述]]  → 同 add_new
         // 用 | 分隔参数，避免和 : 冲突（标题里很容易出现 :)
-        const MUSIC_TAG_RE = /\[\[MUSIC_ACTION:(join|add|add_new|join_and_add|join_and_add_new)(?:\|([^\]]*))?\]\]/;
-        const MUSIC_TAG_GLOBAL_RE = /\[\[MUSIC_ACTION:(?:join|add|add_new|join_and_add|join_and_add_new)(?:\|[^\]]*)?\]\]/g;
+        const MUSIC_TAG_RE = /\[\[MUSIC_ACTION:(stop|join|add|add_new|join_and_add|join_and_add_new)(?:\|([^\]]*))?\]\]/;
+        const MUSIC_TAG_GLOBAL_RE = /\[\[MUSIC_ACTION:(?:stop|join|add|add_new|join_and_add|join_and_add_new)(?:\|[^\]]*)?\]\]/g;
         const musicMatch = content.match(MUSIC_TAG_RE);
         if (musicMatch && musicHooks) {
-            const verb = musicMatch[1] as 'join' | 'add' | 'add_new' | 'join_and_add' | 'join_and_add_new';
+            const verb = musicMatch[1] as 'stop' | 'join' | 'add' | 'add_new' | 'join_and_add' | 'join_and_add_new';
             const argsRaw = (musicMatch[2] || '').trim();
             const args = argsRaw ? argsRaw.split('|').map(s => s.trim()).filter(Boolean) : [];
             // 卡片元数据里只用 join / add / join_and_add 三种意图，把 _new 折叠回 add 系
@@ -304,8 +306,9 @@ export const ChatParser = {
                 verb === 'join' ? 'join'
                 : (verb === 'add' || verb === 'add_new') ? 'add'
                 : 'join_and_add';
+            if (verb === 'stop') musicHooks.stopListeningTogether?.(charId);
             const wantsJoin = verb === 'join' || verb === 'join_and_add' || verb === 'join_and_add_new';
-            const wantsAdd = verb !== 'join';
+            const wantsAdd = verb !== 'join' && verb !== 'stop';
 
             let target: AddSongTarget | undefined;
             if (wantsAdd) {
