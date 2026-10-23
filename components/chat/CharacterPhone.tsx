@@ -17,6 +17,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [thread, setThread] = useState('');
   const [contactId, setContactId] = useState('');
   const [editing, setEditing] = useState(false);
+  const [refreshingContacts, setRefreshingContacts] = useState(false);
   const [draft, setDraft] = useState({ name:'', identity:'', personality:'', relationship:'', background:'' });
   const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
@@ -47,7 +48,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const createProfile = async () => {
     if (busy) return;
     if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先配置聊天 API'); return; }
-    setBusy(true); setError('');
+    setBusy(true); setRefreshingContacts(true); setError('');
     try {
       const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
@@ -66,7 +67,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       const profile: NpcProfile = { id: crypto.randomUUID(), name: npcName, identity: data.identity.slice(0, 240), personality: data.personality.slice(0, 700), relationship: data.relationship.slice(0, 400), background: data.background.slice(0, 900), source: 'generated', createdAt: Date.now() };
       persistProfiles([...profiles, profile]);
       recordCharacterLifeEvent({ id: 'contact:' + profile.id, characterId, kind: 'contact-added', occurredAt: profile.createdAt, source: 'phone', summary: '新增联系人：' + profile.name, contactId: profile.id });
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); setRefreshingContacts(false); }
   };
   const generate = async (npcName = '') => {
     if (busy) return;
@@ -126,8 +127,8 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
         {screen === 'home' && <div className="grid grid-cols-4 gap-4 p-6">{apps.map(({id,label,Icon})=><button key={id} onClick={()=>{setScreen(id);setTab('chats');}} className="flex flex-col items-center gap-2 text-xs"><span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#18c45b] text-white"><Icon size={31} weight="fill"/></span>{label}</button>)}</div>}
         {screen === 'wechat' && tab === 'chats' && (records.length ? records.map(r=><button key={r.id} type="button" onClick={()=>{setThread(r.id);setScreen('thread');}} className="flex w-full items-center gap-3 border-b border-[#e5e5e5] bg-white px-4 py-3 text-left"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#b9d9c6] text-xl text-white">{r.name.slice(0,1)}</div><div className="min-w-0 flex-1"><div className="truncate text-[17px] text-[#222]">{r.name}</div><div className="truncate pt-1 text-[13px] text-[#999]">{r.preview}</div></div><span className="self-start text-xs text-[#aaa]">{timeLabel(r.time)}</span></button>) : <p className="p-8 text-center text-sm text-[#999]">暂无聊天记录，请先在通讯录生成 NPC 档案</p>)}
         {screen === 'wechat' && tab === 'contacts' && <div className="bg-white">
-          <button type="button" disabled={busy} onClick={createProfile} className="flex w-full items-center gap-3 border-b border-[#eee] px-5 py-3 text-left disabled:opacity-50"><span className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-400 text-white"><Plus size={24}/></span>{busy?'正在生成联系人…':'AI生成新朋友'}</button>
-          <div className="bg-[#ededed] px-5 py-2 text-xs text-[#888]">联系人 · {profiles.length}</div>
+          <button type="button" disabled={busy} onClick={createProfile} className="flex w-full items-center gap-3 border-b border-[#eee] px-5 py-3 text-left disabled:opacity-50"><span className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-400 text-white"><Plus size={24}/></span>{refreshingContacts?'正在根据人设查找联系人…':'刷新生成联系人'}</button>
+          <div className="bg-[#ededed] px-5 py-2 text-xs text-[#888]">联系人 · {profiles.length}　点击上方按钮手动生成，不自动乱加</div>
           {[...profiles].sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')).map(p=><button type="button" key={p.id} onClick={()=>openContact(p)} className="flex w-full items-center gap-3 border-b border-[#eee] px-5 py-3 text-left"><span className="flex h-11 w-11 items-center justify-center rounded-md bg-[#a9cbb5] text-lg text-white">{p.name.slice(0,1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-base">{p.name}</span><span className="block truncate text-xs text-[#999]">{p.relationship}</span></span><span className="text-[#bbb]">›</span></button>)}
         </div>}
         {screen === 'contact-detail' && contact && <div className="space-y-3 pb-6">
