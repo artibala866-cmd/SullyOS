@@ -1,5 +1,5 @@
 import { resolveDialogueApi } from '../utils/characterApi';
-import { readCharacterAvatarLibrary, activateCharacterAvatar } from '../utils/characterAvatarLibrary';
+import { readCharacterAvatarLibrary, activateCharacterAvatar, notifyCharacterAvatarChanged } from '../utils/characterAvatarLibrary';
 import { createReplyRun, withReplyCancellation } from '../utils/chatReplyCancellation';
 
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
@@ -933,13 +933,25 @@ export const useChatAI = ({
             })));
             const avatarLibrary = readCharacterAvatarLibrary(char.id);
             const avatarCandidates = avatarLibrary.autonomousEnabled ? avatarLibrary.entries.slice(0, 24) : [];
+            // Puff-style: only images in the current user's consecutive turn are numbered.
+            // Do not scan older conversation photos or auto-add images to the library.
+            const currentTurnImages: string[] = [];
+            for (let i = contextMsgs.length - 1; i >= 0; i--) {
+                const message = contextMsgs[i];
+                if (message.role !== 'user') break;
+                if (message.type === 'image' && typeof message.content === 'string') currentTurnImages.unshift(message.content);
+            }
+            const puffAvatarInstruction = '\\n[私聊换头像]只有在用户明确让你换头像、或当前对话确实有换头像意图时才可执行。'
+                + (currentTurnImages.length ? '本轮用户发来的图片从早到晚编号为 [图1] 至 [图' + currentTurnImages.length + ']。' : '本轮没有新图片，不要凭空指定图片。')
+                + '选择本轮图片时单独输出 {"t":"set_avatar","n":1}（n 是图片序号）；选择用户当前头像时输出 {"t":"set_avatar","src":"user_avatar"}。'
+                + '普通图片聊天不代表授权换头像；不要擅自换头像。此指令不展示给用户。\\n';
             const avatarInstruction = avatarLibrary.autonomousEnabled
                 ? '\\n\\n[角色头像自主选择]根据人设和当前对话自主判断是否换头像，不要频繁更换，也不要机械地接受所有图片。'
                   + (avatarCandidates.length ? '可选收藏头像：' + avatarCandidates.map(e => e.id).join(', ') + '。' : '')
                   + '若选择收藏头像则使用 <char_avatar_choice id="收藏头像ID"/>。不换则不输出指令。只能用提供的ID，不能生成图片URL。你也可以自然地邀请用户换情侣头像，但绝不能擅自更改用户头像。\\n'
                 : '';
-            if (avatarInstruction) payload.fullMessages.unshift({ role: 'system', content: avatarInstruction } as any);
-            const systemPrompt = payload.systemPrompt + avatarInstruction;
+            payload.fullMessages.unshift({ role: 'system', content: puffAvatarInstruction + avatarInstruction } as any);
+            const systemPrompt = payload.systemPrompt + puffAvatarInstruction + avatarInstruction;
             const cleanedApiMessages = payload.cleanedApiMessages;
             // 在续说补丁和本地/即时对话分流前检查最终历史，不能用补出来的 user 掩盖空上下文。
             assertChatHasDialogue(payload.fullMessages);
@@ -2047,6 +2059,8 @@ export const useChatAI = ({
             const rawAiContent = amsg2LeadIns.length
                 ? mergeToolRoundLeadIns(amsg2LeadIns, data.choices?.[0]?.message?.content || '')
                 : data.choices?.[0]?.message?.content || '';
+            const puffAvatarMatch = /\\{\\s*"t"\\s*:\\s*"set_avatar"\\s*,\\s*(?:"n"\\s*:\\s*(-?\\d+)|"src"\\s*:\\s*"user_avatar")\\s*\\}/i.exec(rawAiContent);
+            const withoutPuffAvatar = rawAiContent.replace(/\\{\\s*"t"\\s*:\\s*"set_avatar"\\s*,\\s*(?:"n"\\s*:\\s*-?\\d+|"src"\\s*:\\s*"user_avatar")\\s*\\}/gi, '').trim();
             const avatarChoiceMatch = /<char_avatar_choice\s+id=["']([^"']+)["']\s*\/>/i.exec(rawAiContent);
             const avatarCleanContent = rawAiContent.replace(/<char_avatar_choice\s+id=["'][^"']+["']\s*\/>/gi, '').trim();
             const sarReply = parseSARModuleReply(avatarCleanContent, sarModulePlan);
@@ -2114,6 +2128,18 @@ export const useChatAI = ({
                 directives: [],
                 sarModuleSurface: assistantSurfaceMeta,
             }));
+            if (puffAvatarMatch) {
+                try {
+                    const requestedNumber = puffAvatarMatch[1] === undefined ? null : Number(puffAvatarMatch[1]);
+                    const chosenImage = requestedNumber === null
+                        ? (userProfile.perCharAvatars?.[char.id] || userProfile.avatar)
+                        : currentTurnImages[requestedNumber === -1 ? currentTurnImages.length - 1 : requestedNumber - 1];
+                    if (chosenImage) {
+                        await updateCharacter(char.id, { avatar: chosenImage });
+                        notifyCharacterAvatarChanged(char.id);
+                    }
+                } catch (avatarError) { console.warn('[Avatar] set_avatar failed', avatarError); }
+            }
             if (avatarChoiceMatch && avatarLibrary.autonomousEnabled) {
                 try {
                     const selectedId = avatarChoiceMatch[1];
