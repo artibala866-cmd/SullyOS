@@ -1755,6 +1755,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             trackEvent('打开聊天功能面板项', { action: type });
         }
         switch (type) {
+            case 'avatar-library': setShowPanel('none'); setAvatarLibraryOpen(true); break;
             case 'character-phone': setShowPanel('none'); setCharacterPhoneOpen(true); break;
             case 'collaboration': setShowPanel('none'); setCollaborationOpen(true); break;
             case 'memory-link': setShowPanel('none'); setMemoryRepairOpen(true); break;
@@ -3944,7 +3945,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 document.body,
              )}
 
-             {!homePhone && <button type="button" onClick={() => setAvatarLibraryOpen(true)} className="absolute top-5 right-24 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-neutral-300 bg-white/95 text-neutral-900 shadow-sm" aria-label="打开角色头像库" title="头像库"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3.5 3-3L20 17"/></svg></button>}
              {avatarLibraryOpen && <CharacterAvatarLibraryModal characterId={char.id} defaultAvatar={char.avatar} onClose={() => setAvatarLibraryOpen(false)} onApply={async (image) => { await updateCharacter(char.id, {avatar:image}); }} />}
              {homePhone?<header className="home-phone-chat-header"><span className="home-phone-chat-avatar" aria-hidden="true">{char.name.slice(0,1)}</span><div><strong>{chatCharacterDisplayName(char)}</strong><small>{isTyping||instantChatPending?'正在输入…':'在家，也想给你发消息'}</small></div><button onClick={handleManualTrigger} disabled={isTyping} aria-label="让对方回复">↗</button></header>:<ChatHeader
                 selectionMode={selectionMode}
