@@ -9,13 +9,14 @@ export const speakerKey = (speaker: PhoneSpeaker): string =>
 export const sameSpeaker = (a: PhoneSpeaker, b: PhoneSpeaker): boolean => speakerKey(a) === speakerKey(b);
 export function parseGeneratedPhoneMessages(input: unknown, contactId: string): PhoneMessage[] {
   if (!Array.isArray(input)) return [];
-  return input.slice(0, 12).flatMap((item: unknown) => {
+  return input.slice(0, 24).flatMap((item: unknown) => {
     if (!item || typeof item !== 'object') return [];
     const m = item as Record<string, unknown>;
     if (typeof m.text !== 'string' || !m.text.trim()) return [];
     // No fallback to display-name matching. Ambiguous model output is rejected.
-    const speaker: PhoneSpeaker | null = m.speaker === 'owner' ? { role: 'owner' }
-      : m.speaker === 'contact' ? { role: 'contact', contactId } : null;
+    const tag = m.speaker ?? m.role;
+    const speaker: PhoneSpeaker | null = tag === 'owner' || tag === 'char' ? { role: 'owner' }
+      : tag === 'contact' || tag === 'npc' ? { role: 'contact', contactId } : null;
     return speaker ? [{ speaker, text: m.text.slice(0, 600) }] : [];
   });
 }
