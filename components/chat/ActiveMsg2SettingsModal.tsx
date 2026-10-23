@@ -73,6 +73,9 @@ interface ActiveMsg2SettingsModalProps {
     updater: (prev: ActiveMsg2CharacterConfig | undefined) => ActiveMsg2CharacterConfig,
   ) => void;
   addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  onOpenLegacy?: () => void;
+  lifePacingEnabled?: boolean;
+  onToggleLifePacing?: () => void;
 }
 
 const MODE_OPTIONS = [
@@ -108,6 +111,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   realtimeConfig,
   onSave,
   addToast,
+  onOpenLegacy,
+  lifePacingEnabled,
+  onToggleLifePacing,
 }) => {
   const saved = char.activeMsg2Config;
   const tasks = saved?.tasks ?? [];
@@ -118,10 +124,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [enabled, setEnabled] = useState(() => isAmsg2EnabledForChar(char));
   // 即时对话按角色单独关：undefined = 跟随全局默认开，所以只有显式 false 才显示成关。
   const [instantChatOn, setInstantChatOn] = useState(saved?.instantChatEnabled !== false);
-  // 真人感第一阶段：按角色记住偏好，暂不接管消息发送或后台排程。
-  const [realismEnabled, setRealismEnabled] = useState(() => {
-    try { return localStorage.getItem(`sully_realism_${char.id}`) === 'on'; } catch { return false; }
-  });
   // 全局那道门开没开（isInstantChatReady 读回来的）。没开时下面那行开关置灰。
   const [globalInstantChatOn, setGlobalInstantChatOn] = useState(false);
   const [mode, setMode] = useState<ActiveMsg2Mode>('auto');
@@ -660,22 +662,11 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           </button>
         </div>
 
-        {/* 真人感第一阶段只保存角色偏好；后续接通状态机前不改变现有回复行为。 */}
         <div className="flex items-center justify-between rounded-2xl p-4 border border-slate-200 bg-white">
-          <div className="min-w-0 pr-3">
-            <div className="font-bold text-slate-700">真人感（准备中）</div>
-            <div className="text-xs text-slate-400 mt-1 leading-relaxed">按角色保存偏好，保留手动推进。自动延迟回复、动态日程和 Spark 自主活动将在后续阶段接通；当前开关不会改变回复时机。</div>
-          </div>
-          <button type="button" aria-label="真人感偏好" aria-pressed={realismEnabled}
-            onClick={() => {
-              const next = !realismEnabled;
-              try { localStorage.setItem(`sully_realism_${char.id}`, next ? 'on' : 'off'); setRealismEnabled(next); }
-              catch { addToast('真人感偏好保存失败，请检查浏览器存储。', 'error'); }
-            }}
-            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${realismEnabled ? 'bg-fuchsia-500' : 'bg-slate-200'}`}>
-            <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${realismEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-          </button>
+          <div><div className="font-bold text-slate-700">真人感</div><div className="text-xs text-slate-400 mt-1">与聊天加号菜单原有的真人感开关相同</div></div>
+          <button type="button" onClick={onToggleLifePacing} aria-label="切换真人感" aria-pressed={!!lifePacingEnabled} className={`w-12 h-7 rounded-full relative ${lifePacingEnabled ? 'bg-slate-700' : 'bg-slate-200'}`}><span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${lifePacingEnabled ? 'translate-x-5' : ''}`}/></button>
         </div>
+        <button type="button" onClick={onOpenLegacy} className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left text-slate-700">原主动消息设置（本地定时） ›</button>
 
         {/* 「主动频率」：几条上限集中在自己那一页改、自己那一页存，这里只放一行摘要。
             今天主动找了几次摆在摘要下面——上限是不是在起作用，用户一眼能看到。 */}
