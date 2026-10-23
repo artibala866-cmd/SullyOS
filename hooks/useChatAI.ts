@@ -2143,8 +2143,11 @@ export const useChatAI = ({
                 try {
                     const selectedId = avatarChoiceMatch[1];
                     if (avatarCandidates.some(e => e.id === selectedId)) {
-                        const image = activateCharacterAvatar(char.id, selectedId, true);
-                        if (image) await updateCharacter(char.id, { avatar: image });
+                        const image = avatarCandidates.find(e => e.id === selectedId)?.image;
+                        if (image) {
+                            await updateCharacter(char.id, { avatar: image });
+                            activateCharacterAvatar(char.id, selectedId, true);
+                        }
                     }
                 } catch (avatarError) { console.warn('[Avatar] autonomous selection failed', avatarError); }
             }
