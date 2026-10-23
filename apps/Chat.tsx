@@ -8,6 +8,8 @@ import { startsNewMessageGroup } from '../utils/chatMessageGrouping';
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
 import BlobRefStyle from '../components/chat/BlobRefStyle';
 import CharacterPhone from '../components/chat/CharacterPhone';
+import CharacterAvatarLibraryModal from '../components/chat/CharacterAvatarLibraryModal';
+import { readCharacterAvatarLibrary, CHARACTER_AVATAR_CHANGED } from '../utils/characterAvatarLibrary';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
@@ -200,6 +202,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
     const [characterPhoneOpen, setCharacterPhoneOpen] = useState(false);
+    const [avatarLibraryOpen, setAvatarLibraryOpen] = useState(false);
+    const [avatarRevision, setAvatarRevision] = useState(0);
+    useEffect(() => { const sync = (event: Event) => { if ((event as CustomEvent<{characterId:string}>).detail?.characterId === activeCharacterId) setAvatarRevision(n => n + 1); }; window.addEventListener(CHARACTER_AVATAR_CHANGED, sync); return () => window.removeEventListener(CHARACTER_AVATAR_CHANGED, sync); }, [activeCharacterId]);
     const [collaborationOpen, setCollaborationOpen] = useState(false);
     const [collaborationPreviewAssetId, setCollaborationPreviewAssetId] = useState<string | null>(null);
     const [memoryRepairOpen, setMemoryRepairOpen] = useState(false);
@@ -353,6 +358,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [showingTargetIds, setShowingTargetIds] = useState<Set<number>>(new Set());
 
     const char = characters.find(c => c.id === activeCharacterId) || characters[0];
+    const selectedAvatar = useMemo(() => { if (!char) return ''; const lib = readCharacterAvatarLibrary(char.id); return lib.entries.find(e => e.id === lib.activeId)?.image || char.avatar; }, [char?.id, char?.avatar, avatarRevision]);
     const memoryRepairRound = useMemo(() => {
         let assistantIndex = -1;
         for (let i = messages.length - 1; i >= 0; i--) {
@@ -3938,11 +3944,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 document.body,
              )}
 
+             {!homePhone && <button type="button" onClick={() => setAvatarLibraryOpen(true)} className="absolute top-16 right-3 z-30 rounded-full border border-neutral-300 bg-white/90 px-3 py-1 text-xs text-neutral-700 shadow-sm" aria-label="打开角色头像库">头像库</button>}
+             {avatarLibraryOpen && <CharacterAvatarLibraryModal characterId={char.id} defaultAvatar={char.avatar} onClose={() => setAvatarLibraryOpen(false)} onApply={async (image) => { await updateCharacter(char.id, {avatar:image}); }} />}
              {homePhone?<header className="home-phone-chat-header"><span className="home-phone-chat-avatar" aria-hidden="true">{char.name.slice(0,1)}</span><div><strong>{chatCharacterDisplayName(char)}</strong><small>{isTyping||instantChatPending?'正在输入…':'在家，也想给你发消息'}</small></div><button onClick={handleManualTrigger} disabled={isTyping} aria-label="让对方回复">↗</button></header>:<ChatHeader
                 selectionMode={selectionMode}
                 selectedCount={selectedMsgIds.size + Array.from(selectedThinkingMsgIds).filter(id => !selectedMsgIds.has(id)).length}
                 onCancelSelection={() => { setSelectionMode(false); setSelectedMsgIds(new Set()); setSelectedThinkingMsgIds(new Set()); }}
-                activeCharacter={char}
+                activeCharacter={{...char, avatar: selectedAvatar}}
                 isTyping={isTyping || instantChatPending}
                 isSummarizing={isSummarizing}
                 isEmotionEvaluating={emotionStatus === 'evaluating'}
@@ -4162,7 +4170,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             isFirstInGroup={breaksWithPrevious}
                             isLastInGroup={breaksWithNext}
                             activeTheme={activeTheme}
-                            charAvatar={char.avatar}
+                            charAvatar={selectedAvatar}
                             charName={char.name}
                             userAvatar={userProfile.perCharAvatars?.[char.id] || userProfile.avatar}
                             isLatestMessage={!nextMessage}
