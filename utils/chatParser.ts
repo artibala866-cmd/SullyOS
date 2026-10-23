@@ -45,6 +45,7 @@ export interface MusicActionHooks {
     /** 角色可以主动结束伴听，不影响用户的音乐播放。 */
     stopListeningTogether?: (charId: string) => void;
     rejectListeningInvite?: (charId: string) => void;
+    inviteUserListening?: (charId: string) => Promise<void>;
     /** 角色在伴听时切到播放队列中的歌曲。 */
     playListeningTrack?: (charId: string, query: string) => boolean;
     /**
@@ -297,11 +298,11 @@ export const ChatParser = {
         //   [[MUSIC_ACTION:join_and_add(|...)]]              → 同 add 一套
         //   [[MUSIC_ACTION:join_and_add_new|新歌单标题|描述]]  → 同 add_new
         // 用 | 分隔参数，避免和 : 冲突（标题里很容易出现 :)
-        const MUSIC_TAG_RE = /\[\[MUSIC_ACTION:(play|reject|stop|join|add|add_new|join_and_add|join_and_add_new)(?:\|([^\]]*))?\]\]/;
-        const MUSIC_TAG_GLOBAL_RE = /\[\[MUSIC_ACTION:(?:play|reject|stop|join|add|add_new|join_and_add|join_and_add_new)(?:\|[^\]]*)?\]\]/g;
+        const MUSIC_TAG_RE = /\[\[MUSIC_ACTION:(invite|play|reject|stop|join|add|add_new|join_and_add|join_and_add_new)(?:\|([^\]]*))?\]\]/;
+        const MUSIC_TAG_GLOBAL_RE = /\[\[MUSIC_ACTION:(?:invite|play|reject|stop|join|add|add_new|join_and_add|join_and_add_new)(?:\|[^\]]*)?\]\]/g;
         const musicMatch = content.match(MUSIC_TAG_RE);
         if (musicMatch && musicHooks) {
-            const verb = musicMatch[1] as 'play' | 'reject' | 'stop' | 'join' | 'add' | 'add_new' | 'join_and_add' | 'join_and_add_new';
+            const verb = musicMatch[1] as 'invite' | 'play' | 'reject' | 'stop' | 'join' | 'add' | 'add_new' | 'join_and_add' | 'join_and_add_new';
             const argsRaw = (musicMatch[2] || '').trim();
             const args = argsRaw ? argsRaw.split('|').map(s => s.trim()).filter(Boolean) : [];
             // 卡片元数据里只用 join / add / join_and_add 三种意图，把 _new 折叠回 add 系
@@ -309,11 +310,12 @@ export const ChatParser = {
                 verb === 'join' ? 'join'
                 : (verb === 'add' || verb === 'add_new') ? 'add'
                 : 'join_and_add';
+            if (verb === 'invite') await replyStep(async () => musicHooks.inviteUserListening?.(charId));
             if (verb === 'stop') musicHooks.stopListeningTogether?.(charId);
             if (verb === 'reject') musicHooks.rejectListeningInvite?.(charId);
             if (verb === 'play' && args[0]) musicHooks.playListeningTrack?.(charId, args[0]);
             const wantsJoin = verb === 'join' || verb === 'join_and_add' || verb === 'join_and_add_new';
-            const wantsAdd = verb !== 'join' && verb !== 'stop' && verb !== 'reject' && verb !== 'play';
+            const wantsAdd = verb !== 'join' && verb !== 'invite' && verb !== 'stop' && verb !== 'reject' && verb !== 'play';
 
             let target: AddSongTarget | undefined;
             if (wantsAdd) {
@@ -331,7 +333,7 @@ export const ChatParser = {
             const snap = frozen
                 ? await replyStep(async () => resolveFrozenSongSnapshot(charId, frozen))
                 : musicHooks.getListeningSnapshot();
-            if (snap && verb !== 'stop' && verb !== 'reject' && verb !== 'play') {
+            if (snap && verb !== 'invite' && verb !== 'stop' && verb !== 'reject' && verb !== 'play') {
                 let addedToPlaylistTitle: string | undefined;
                 let playlistCreated = false;
                 if (wantsJoin) {
