@@ -14,7 +14,6 @@ export const APP_SHORTCUT_ENTRIES: Partial<Record<AppID, Entry[]>> = {
   [AppID.Character]: pages(['identity', '角色设定', 'characters'], ['memory', '记忆', 'characters'], ['impression', '印象', 'characters'], ['plates', '门牌', 'characters'], ['chibi', '手办柜', 'characters'], ['stats', '角色统计', 'characters']),
   [AppID.Date]: pages(['entry', '见面准备', 'characters'], ['settings', '见面设置', 'characters'], ['history', '见面记录', 'characters'], ['story', '剧情剧场']),
   [AppID.Call]: pages(['role-select', '通话准备', 'characters'], ['history', '通话记录']),
-  [AppID.CheckPhone]: pages(['home', '手机桌面', 'characters'], ['chat', '聊天记录', 'characters'], ['contacts', '通讯录', 'characters'], ['call', '通话记录', 'characters'], ['taobao', '购物', 'characters'], ['waimai', '外卖', 'characters'], ['social', '朋友圈', 'characters'], ['aiagent', '智能体', 'characters'], ['persona', '人生模拟', 'characters'], ['lifelog', '生活记录', 'characters']),
   [AppID.MemoryPalace]: pages(['palace', '记忆房间', 'characters'], ['pixelHome', '像素家园', 'characters'], ['all', '全部记忆', 'characters'], ['boxes', '记忆盒', 'characters'], ['settings', '角色记忆设置', 'characters'], ['globalSettings', '全局记忆设置']),
   [AppID.Music]: pages(['profile', '我的音乐'], ['search', '搜索音乐'], ['player', '正在播放'], ['visit_char', '角色音乐角落', 'characters'], ['settings', '音乐设置']),
   [AppID.Novel]: pages(['shelf', '书稿', 'resources'], ['library', '角色创作档案', 'characters'], ['create', '新建书稿']),
