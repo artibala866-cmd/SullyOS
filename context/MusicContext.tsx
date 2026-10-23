@@ -597,10 +597,23 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [playMode, setPlayMode] = useState<PlayMode>('loop');
 
   // 一起听 - char 加入后在 miniPlayer / 播放页显示徽标；切歌 / 结束自动清空
-  const [listeningTogetherWith, setListeningTogetherWith] = useState<string[]>([]);
+  const [listeningTogetherWith, setListeningTogetherWith] = useState<string[]>(() => {
+    try { const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}'); return Array.isArray(saved.partners) ? saved.partners.filter((id: unknown) => typeof id === 'string') : []; } catch { return []; }
+  });
   // 伴听会话与歌曲解耦：记录起始时间，供聊天/主动消息读取。
-  const [listeningStartedAt, setListeningStartedAt] = useState<Record<string, number>>({});
-  const [listeningInvites, setListeningInvites] = useState<Record<string, 'pending' | 'accepted' | 'rejected'>>({});
+  const [listeningStartedAt, setListeningStartedAt] = useState<Record<string, number>>(() => {
+    try { const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}'); return saved.startedAt && typeof saved.startedAt === 'object' ? saved.startedAt : {}; } catch { return {}; }
+  });
+  const [listeningInvites, setListeningInvites] = useState<Record<string, 'pending' | 'accepted' | 'rejected'>>(() => {
+    try { const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}'); return saved.invites && typeof saved.invites === 'object' ? saved.invites : {}; } catch { return {}; }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('sully_music_together_v1', JSON.stringify({
+        partners: listeningTogetherWith, startedAt: listeningStartedAt, invites: listeningInvites,
+      }));
+    } catch (err) { console.warn('[MusicTogether] 会话状态持久化失败', err); }
+  }, [listeningTogetherWith, listeningStartedAt, listeningInvites]);
   const inviteListeningPartner = useCallback((charId: string) => {
     // 邀请必须先作为真实的用户聊天消息保存，再进入待回应状态。
     void DB.saveMessage({
