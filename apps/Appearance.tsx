@@ -1439,8 +1439,8 @@ const Appearance: React.FC = () => {
 
                 {/* Page 2 Widget Images */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">主页 1 / 3 · 照片组件</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">与桌面照片位置一一对应：主页 1 的双照片及横幅、主页 3 的双照片及横幅。点击单独上传，长按移除，不会覆盖其他照片。</p>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">主页照片 · 四个独立图槽</h2>
+                    <p className="text-[10px] text-slate-400 mb-4">当前桌面共有 4 个可独立上传的照片图槽：左照片、右照片、横幅、拍立得。主页 1 胶片与主页 3 照片展示复用对应图槽；点击单独上传，长按移除。</p>
                     <input type="file" ref={widgetInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWidgetUpload(e.target.files[0])} />
                     <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <div className="flex gap-2">
