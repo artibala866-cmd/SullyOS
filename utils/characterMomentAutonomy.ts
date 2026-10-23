@@ -3,6 +3,7 @@ import { publishCharacterMoment, readCharacterMoments } from './characterPhoneMo
 import { buildCharacterPhoneContext } from './characterPhoneContext';
 import { getDailyScheduleForChar } from './dailySchedule';
 import { getCurrentScheduleSlotIndex } from './scheduleTime';
+import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { safeResponseJson, extractContent } from './safeApi';
 import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from '../types';
 
@@ -96,6 +97,11 @@ export async function considerAutonomousMoment(input: {
     });
     if (!post) return 'skipped';
     writeState(id, { ...readState(id), lastPostAt: post.createdAt });
+    recordCharacterLifeEvent({
+      id: 'moment:' + post.id, characterId: id, kind: 'moment-post',
+      occurredAt: post.createdAt, source: 'phone',
+      summary: 'Char 自主发布朋友圈：' + post.text.slice(0, 100)
+    });
     return 'posted';
   } catch (error) {
     console.warn('[CharacterMoments] autonomous decision failed', error);
