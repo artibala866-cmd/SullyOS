@@ -53,7 +53,7 @@ export function staticCachePlugin(release: Release): Plugin {
         }
       };
       for (const item of Object.values(bundle)) {
-        if (item.type === 'chunk' && (item.isEntry || ['Launcher', 'Settings'].includes(item.name))) visit(item.fileName);
+        if (item.type === 'chunk' && (item.isEntry || ['Launcher', 'Settings', 'Chat'].includes(item.name))) visit(item.fileName);
       }
     },
     async closeBundle(error) {
