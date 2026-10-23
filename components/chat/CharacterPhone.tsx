@@ -1,4 +1,5 @@
 import PhoneMemo from './PhoneMemo';
+import {considerCharacterMemo} from '../../utils/characterMemoAutonomy';
 import Gallery from '../../apps/Gallery';
 import { refreshNpcMoments } from '../../utils/refreshNpcMoments';
 import PhoneStatusBar from './PhoneStatusBar';
@@ -63,6 +64,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
   const [moments, setMoments] = useState<CharacterMoment[]>(() => readCharacterMoments(characterId));
   const [momentBusy, setMomentBusy] = useState(false);
+  const [memoBusy,setMemoBusy]=useState(false);
   const [chatComposer,setChatComposer]=useState('');
   const [npcMomentLoading,setNpcMomentLoading]=useState(false);
   const npcPullStart=useRef<number|null>(null);
@@ -103,6 +105,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const fullPersona = [persona, char.worldview || '', ...(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content)].filter(Boolean).join('\n\n').slice(0, 24000);
   const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
   const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前生活状态，不等于必然在玩手机；不可凭空断言已发生社交行为。` : '目前没有可用的角色当日日程，不得编造当前行程。';
+  const generateMemo=async()=>{if(memoBusy)return;setMemoBusy(true);setError('');try{if(!api.apiKey||!api.baseUrl||!api.model)throw new Error('请先配置聊天 API');await considerCharacterMemo({characterId,name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n'),userName:userProfile.name,api,events:readCharacterLifeEvents(characterId),manual:true});}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setMemoBusy(false);}};
   const loadRealContext = () => buildCharacterPhoneContext(char, userProfile, groups, realtimeConfig);
   const createProfile = async () => {
     if (busy) return;
@@ -331,7 +334,7 @@ ${scheduleContext}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><div className={'max-w-[78%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}>{m.text}</div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={char.avatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
         {screen === 'moments' && <PullToRefresh loading={npcMomentLoading} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]"><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={char.avatar||name} src={char.avatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-24"/><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={char.avatar} userProfile={userProfile}/></div></PullToRefresh>}
-        {screen === 'memo' && <PhoneMemo characterId={characterId}/>}
+        {screen === 'memo' && <PhoneMemo characterId={characterId} onGenerate={generateMemo} generating={memoBusy}/>}
         {screen === 'gallery' && <Gallery lockedCharacterId={characterId} onExit={()=>setScreen('home')}/>}
         {screen === 'calls' && <p className="p-8 text-center text-sm text-[#888]">电话记录与拨号功能待接入</p>}
         {screen === 'sms' && <p className="p-8 text-center text-sm text-[#888]">短信收发功能待接入</p>}
