@@ -8,7 +8,6 @@ import { selectCharacterContextMessages } from './chatContextRange';
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, DailySchedule } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
-import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
 import { normalizeMessageContent, stickerNameFromUrl, theaterWhenPhrase } from './messageFormat';
 import { formatTransferRecord } from './transferFormat';
@@ -1359,9 +1358,7 @@ ${voiceActingGuide()}`;
                     try {
                         const card = m.metadata?.scoreCard || JSON.parse(m.content);
                         const qixiCard = tryParseQixiEventChatCard(card);
-                        if (card?.type === 'lifesim_reset_card') {
-                            content = `${timeStr} ${formatLifeSimResetCardForContext(card, char?.name)}`;
-                        } else if (qixiCard) {
+                        if (qixiCard) {
                             content = `${timeStr} ${formatQixiEventCardForContext(qixiCard, 'char')}`;
                         } else if (card?.type === 'diary_card') {
                             const uName = card.userName || userProfile?.name || '用户';
