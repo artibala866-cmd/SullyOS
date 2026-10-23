@@ -1384,15 +1384,15 @@ ${isInitialGeneration ? `
                </div>
                <div className="flex-1 overflow-y-auto px-5 pt-6 no-scrollbar pb-10">
                    {detailTab === 'identity' && (
-                       <div className="space-y-6 animate-fade-in">
+                       <div className="space-y-5 animate-fade-in">
 
-                           <div className="flex items-center gap-5">
+                           <div className="flex items-center gap-4 rounded-[20px] bg-white border border-black/[0.06] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
                                <div className="relative group cursor-pointer w-24 h-24 shrink-0" onClick={() => fileInputRef.current?.click()}>
                                    <div className="w-full h-full rounded-[22px] shadow-sm bg-white border-[3px] border-white overflow-hidden relative"><TokenImg value={formData.avatar} className={`w-full h-full object-cover ${isCompressing ? 'opacity-50 blur-sm' : ''}`} alt="A" /></div>
                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                                </div>
                                <div className="min-w-0 flex-1 space-y-3">
-                                   <input value={formData.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full bg-transparent py-1 text-xl font-medium text-slate-800 border-b border-slate-200" placeholder="名称" />
+                                   <input value={formData.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full bg-transparent py-1 text-xl font-semibold tracking-tight text-[#222222] border-b border-[#e5e5e5] outline-none focus:border-[#777777]" placeholder="名称" />
                                    <div className="flex min-w-0 items-center gap-2 border-b border-slate-200">
                                        <input value={characterRemark(formData.description)} onChange={(e) => handleChange('description', e.target.value)} className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-500 outline-none focus-visible:ring-1 focus-visible:ring-[#777777]" placeholder="输入备注" aria-label="输入备注" />
                                        <label title="聊天显示备注" className="relative flex shrink-0 cursor-pointer items-center gap-1.5 py-2 text-[10px] text-slate-400">
@@ -1435,7 +1435,7 @@ ${isInitialGeneration ? `
                                        }}
                                        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                        placeholder="或粘贴图片 URL（回车确认）"
-                                       className="w-full bg-transparent py-1 text-xs text-slate-400 border-b border-slate-200 placeholder:text-slate-300"
+                                       className="w-full bg-transparent py-1 text-xs text-[#777777] border-b border-[#e5e5e5] placeholder:text-[#b0b0b0] outline-none focus:border-[#777777]"
                                    />
                                </div>
                            </div>
@@ -1586,7 +1586,7 @@ ${isInitialGeneration ? `
                            {/* 生活记录注入：总开关 + 4 个模块小开关（数据在档案 App「生活记录」里维护） */}
                            <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-4">
                                <div>
-                                   <label className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block">生活记录注入</label>
+                                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">生活记录注入</label>
                                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">把你在「档案 → 生活记录」里的生理期 / 药盒 / 记账 / 锻炼作为潜意识背景注入给该角色；你明确说出相关事实时，ta 还能帮你顺手记一笔（聊天里会出卡片，可确认 / 否决）。</p>
                                </div>
 
@@ -1639,7 +1639,7 @@ ${isInitialGeneration ? `
                            <CharacterSettingsSection title="角色语音音色" summary={formData.voiceProfile?.voiceName || '音色与合成参数'}>
                            <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-3">
                                <div className="flex items-center justify-between">
-                                   <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1"><SpeakerHigh size={12} /> 角色语音音色</label>
+                                   <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1"><SpeakerHigh size={12} /> 角色语音音色</label>
                                    <div className="flex gap-1.5">
                                        <button
                                            onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.VoiceDesigner); }}
@@ -1649,7 +1649,7 @@ ${isInitialGeneration ? `
                                        </button>
                                        <button
                                            onClick={handleLoadMiniMaxVoices}
-                                           className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded font-bold hover:bg-emerald-100 disabled:opacity-60"
+                                           className="text-[10px] bg-slate-100 text-slate-700 px-2 py-1 rounded font-bold hover:bg-slate-200 disabled:opacity-60"
                                            disabled={isLoadingVoices}
                                        >
                                            {isLoadingVoices ? '拉取中...' : '拉取可用音色'}
@@ -1724,7 +1724,7 @@ ${isInitialGeneration ? `
 
                                {/* 鱼声 Fish Audio 音色：仅当全局语音服务商切到鱼声时生效（设置 → 其他 API） */}
                                <div className="rounded-2xl border border-slate-200/60 bg-slate-50/40 p-2.5 space-y-1.5">
-                                   <div className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">鱼声 Fish 音色</div>
+                                   <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">鱼声 Fish 音色</div>
                                    <input
                                        value={formData.voiceProfile?.fishReferenceId || ''}
                                        onChange={(e) => handleChange('voiceProfile', {
@@ -1837,7 +1837,7 @@ ${isInitialGeneration ? `
                                                    <div className="mb-2 flex justify-end"><button type="button" onClick={() => {
                                                        const ids = new Set(books.map(book => book.id));
                                                        setFormData(prev => prev ? { ...prev, mountedWorldbooks: (prev.mountedWorldbooks || []).filter(book => !ids.has(book.id)) } : prev);
-                                                   }} className="py-1 text-[11px] text-rose-400">整组取消挂载</button></div>
+                                                   }} className="py-1 text-[11px] text-slate-500">整组取消挂载</button></div>
                                                    {books.map(wb => <div key={wb.id} className="flex items-start gap-2 border-t border-slate-100 py-2">
                                                        <details className="min-w-0 flex-1" onToggle={event => {
                                                            const open = event.currentTarget.open;
