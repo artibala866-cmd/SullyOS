@@ -51,22 +51,22 @@ import {
 
 // ── 神经链接 · 列表页视觉件（黑白灰留白风）────────────────────
 // 之前的「星点 + 玻璃饰带 + 华丽头像框」看久了眼花、低端机也重绘卡。
-// 改成留白为主的干净版：纯淡紫底、圆角方钮、朴素圆头像、素白卡片。
+// 改成留白为主的干净版：纯灰阶底、圆角方钮、朴素圆头像、素白卡片。
 // 无常驻动画 / 无 filter / 无大模糊阴影，既清爽又省电。仅列表页，编辑页不动。
 
-/** 顶栏圆角方钮（squircle）：白底细紫描边 + 线性图标 + 底部小字标签 */
+/** 顶栏圆角方钮（squircle）：白底浅灰描边 + 线性图标 + 底部小字标签 */
 const ToolButton: React.FC<{ label: string; title?: string; onClick: () => void; children: React.ReactNode }> = ({ label, title, onClick, children }) => (
     <button onClick={onClick} title={title} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
-        <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-200/80 text-slate-500 shadow-[0_2px_6px_rgba(15,23,42,0.10)]">
+        <span className="w-11 h-11 flex items-center justify-center rounded-[15px] bg-white border border-black/[0.07] text-[#242424] shadow-[0_2px_8px_rgba(0,0,0,0.035)]">
             {children}
         </span>
-        <span className="text-[11px] text-slate-400/90 font-medium tracking-wider">{label}</span>
+        <span className="text-[11px] text-[#737373] font-medium tracking-wide">{label}</span>
     </button>
 );
 
 const CharacterCard: React.FC<{
     char: CharacterProfile;
-    /** 当前激活（正在聊）的角色走淡紫高亮 */
+    /** 当前激活（正在聊）的角色走灰阶高亮 */
     active?: boolean;
     onClick: () => void;
     onDelete: (e: React.MouseEvent) => void;
@@ -74,8 +74,8 @@ const CharacterCard: React.FC<{
     <div
         data-guide={char.id === 'preset-sully-v2' ? 'sully-card' : undefined}
         onClick={onClick}
-        className={`relative px-4 py-3.5 rounded-3xl border bg-white transition-colors cursor-pointer group shrink-0 shadow-[0_2px_10px_rgba(15,23,42,0.07)] ${
-            active ? 'border-slate-300' : 'border-slate-100 hover:border-slate-200'
+        className={`relative px-4 py-4 rounded-[20px] border bg-white transition-colors cursor-pointer group shrink-0 shadow-[0_2px_12px_rgba(0,0,0,0.035)] ${
+            active ? 'border-[#777777] ring-1 ring-black/[0.05]' : 'border-black/[0.06] hover:border-[#b5b5b5]'
         }`}
     >
         <div className="flex items-center gap-4">
@@ -83,10 +83,10 @@ const CharacterCard: React.FC<{
                 <TokenImg value={char.avatar} className="w-full h-full object-cover" alt={char.name} />
             </div>
             <div className="flex-1 min-w-0 pr-6">
-                <h3 className="text-lg font-bold truncate text-slate-800">
+                <h3 className="text-[16px] font-semibold tracking-[-0.02em] truncate text-[#191919]">
                     {char.name}
                 </h3>
-                <p className="text-xs truncate mt-0.5 text-slate-400/80">
+                <p className="text-xs truncate mt-1 text-[#8a8a8a]">
                     {char.description || '暂无描述'}
                 </p>
             </div>
@@ -1227,17 +1227,17 @@ ${isInitialGeneration ? `
   };
 
   return (
-    <div className="h-full w-full bg-slate-50/30 font-light relative">
+    <div className="h-full w-full bg-[#f2f2f4] text-[#171717] font-sans relative">
        {view === 'list' ? (
            <div className="flex flex-col h-full animate-fade-in relative"
-                style={{ background: 'linear-gradient(180deg, #f5f2fb 0%, #ece6f6 100%)' }}>
+                style={{ background: '#f2f2f4' }}>
                {/* safe-area: pt 用 max(3.5rem, 刘海高度)，保呼吸感同时更高刘海设备不被挡 */}
-               <div className="px-6 pb-4 shrink-0 flex items-start justify-between" style={{ paddingTop: 'max(3.5rem, var(--safe-top))' }}>
+               <div className="px-6 pb-6 shrink-0 flex items-start justify-between border-b border-black/[0.06]" style={{ paddingTop: 'max(3.5rem, var(--safe-top))' }}>
                    <div className="relative">
                        <span className="absolute -top-3 -left-2 text-slate-300 text-xs select-none">✦</span>
                        <span className="absolute -top-1 left-9 text-slate-200 text-[10px] select-none">✦</span>
-                       <h1 className="text-[30px] font-serif font-bold tracking-wide leading-tight text-slate-800">神经链接</h1>
-                       <p className="text-xs text-slate-400/90 mt-2">已建立 <span className="font-bold text-slate-500">{characters.length}</span> 个角色连接</p>
+                       <h1 className="text-[32px] font-sans font-semibold tracking-[-0.045em] leading-tight text-[#171717]">神经链接</h1>
+                       <p className="text-xs text-[#777777] mt-2 tracking-wide">已建立 <span className="font-bold text-slate-500">{characters.length}</span> 个角色连接</p>
                    </div>
                    <div className="flex gap-3 pt-1">
                         <ToolButton label="分组" title="角色分组管理" onClick={() => { setShowGroupModal(true); trackEvent('打开角色分组管理弹窗'); }}>
@@ -1256,7 +1256,7 @@ ${isInitialGeneration ? `
                         <input type="file" ref={cardImportRef} className="hidden" accept=".json,.png,application/json,image/png" onChange={handleImportCard} />
                    </div>
                </div>
-               <div className="flex-1 overflow-y-auto px-5 pb-20 no-scrollbar flex flex-col gap-3">
+               <div className="flex-1 overflow-y-auto px-5 pt-5 pb-20 no-scrollbar flex flex-col gap-3">
                    {(() => {
                        // 建过分组 → 按组折叠展开（不再分页，分组本身就把列表变短了）；
                        // 没建过分组 → 维持原来的分页列表，零变化。
@@ -1283,11 +1283,11 @@ ${isInitialGeneration ? `
                                            <div key={section.id} className="shrink-0">
                                                {/* 分组条：干净的圆角白卡，左折叠箭头 + 组名 + 数量胶囊，右侧 ">" 指示可展开 */}
                                                <button onClick={() => toggleGroupExpanded(section.id)}
-                                                   className={`w-full h-14 flex items-center gap-3 px-5 rounded-2xl bg-white border transition-colors active:scale-[0.99] ${expanded ? 'border-slate-200' : 'border-slate-100 hover:border-slate-200'} shadow-[0_2px_10px_rgba(15,23,42,0.07)]`}>
+                                                   className={`w-full h-14 flex items-center gap-3 px-5 rounded-[18px] bg-white border transition-colors active:scale-[0.99] ${expanded ? 'border-slate-200' : 'border-slate-100 hover:border-slate-200'} shadow-[0_2px_12px_rgba(0,0,0,0.035)]`}>
                                                    <svg viewBox="0 0 12 12" className={`w-3 h-3 text-slate-400 transition-transform ${expanded ? '' : '-rotate-90'}`}>
                                                        <path d="M2 4l4 5 4-5z" fill="currentColor" />
                                                    </svg>
-                                                   <span className="text-base font-bold text-slate-700 tracking-wide truncate">{section.name}</span>
+                                                   <span className="text-[15px] font-semibold text-[#222222] tracking-tight truncate">{section.name}</span>
                                                    <span className="min-w-[26px] px-2 py-0.5 rounded-full bg-slate-100/70 text-[12px] text-slate-500 text-center font-medium tabular-nums">{section.chars.length}</span>
                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 ml-auto text-slate-300 transition-transform ${expanded ? 'rotate-90' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
                                                </button>
@@ -1313,7 +1313,7 @@ ${isInitialGeneration ? `
                                            </div>
                                        );
                                    })}
-                                   <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-slate-300/70 text-slate-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
+                                   <button onClick={handleAddCharacter} className="w-full py-4 rounded-[18px] border border-dashed border-[#b9b9b9] text-[#666666] text-sm bg-white/70 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>新建链接
                                    </button>
                                </>
@@ -1359,7 +1359,7 @@ ${isInitialGeneration ? `
                </div>
            </div>
        ) : formData && (
-           <div className="flex flex-col h-full animate-fade-in bg-slate-50/50 relative">
+           <div className="flex flex-col h-full animate-fade-in bg-[#f2f2f4] relative">
                {/* safe-area: OUTER 保留渐变背景 + 模糊 + sticky，刘海高度由 paddingTop 让位；
                    INNER 不再用 h-32 沉底——那是老的「做高栏 + 内容沉底」状态栏预留写法，会和 safe-top 叠加出一大块空白。
                    改为内容自然高度、直接贴在 safe-top 下方。 */}
