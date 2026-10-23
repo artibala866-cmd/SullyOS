@@ -193,7 +193,24 @@ ${scheduleContext}
       }
       if(!incoming.length) throw new Error('本次未生成有效微信会话，未保存');
       const replaced=new Set(incoming.map(x=>x.id));
-      persist([...incoming,...records.filter(r=>!replaced.has(r.id))]);
+      const updatedRecords = [...incoming,...records.filter(r=>!replaced.has(r.id))];
+      try { localStorage.setItem(storageKey, JSON.stringify(updatedRecords)); }
+      catch { setError('微信消息保存失败，本次不记录生活事件'); return; }
+      setRecords(updatedRecords);
+      // Record only messages that were actually generated and persisted, not an
+      // imagined completion of the current schedule. Existing event consumers
+      // handle active-message synchronization and selective palace extraction.
+      for (const thread of incoming) {
+        const oldThread = records.find(r=>r.id===thread.id);
+        const newMessages = thread.messages.slice(oldThread?.messages.length || 0);
+        if (!newMessages.length || !newMessages.some(m=>m.speaker.role==='owner')) continue;
+        recordCharacterLifeEvent({
+          id:'npc-chat:inbox:'+thread.id+':'+now,
+          characterId, kind:'npc-chat', occurredAt:now, source:'phone',
+          contactId:thread.contactId,
+          summary:'已保存的微信对话：'+newMessages.slice(-12).map(m=>(m.speaker.role==='owner'?name:thread.name)+'：'+m.text.trim()).join('；').slice(0,1200)
+        });
+      }
       if(nextPending.length!==pending.length){writePendingContacts(characterId,nextPending);setPendingContacts(nextPending);}
       setTab('chats');
     } catch(e){setError(e instanceof Error?e.message:String(e));}
