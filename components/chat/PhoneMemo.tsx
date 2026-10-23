@@ -1,6 +1,12 @@
-import React,{useState} from 'react';
+import React,{useEffect,useState} from 'react';
+import {CHARACTER_MEMOS_CHANGED,readCharacterMemos,type CharacterMemoEntry,type MemoCategory} from '../../utils/characterPhoneMemos';
+const labels:Record<MemoCategory,string>={thought:'碎碎念',daily:'日常记录',expense:'记账',idea:'灵感', 'about-user':'关于你',unsent:'没说出口'};
 export default function PhoneMemo({characterId}:{characterId:string}){
-  const key='sully_character_phone_memo_v1:'+characterId;
-  const [value,setValue]=useState(()=>{try{return localStorage.getItem(key)||'';}catch{return '';}});
-  return <section className="min-h-full bg-[#fffdf6] p-5"><p className="mb-3 text-sm text-gray-500">备忘录 · 仅保存在当前角色手机</p><textarea aria-label="备忘录" placeholder="写点什么…" value={value} onChange={e=>{setValue(e.target.value);try{localStorage.setItem(key,e.target.value);}catch{}}} className="min-h-[55vh] w-full resize-none bg-transparent text-base leading-7 outline-none"/></section>;
+  const [entries,setEntries]=useState<CharacterMemoEntry[]>(()=>readCharacterMemos(characterId));
+  const [selected,setSelected]=useState<CharacterMemoEntry|null>(null);
+  useEffect(()=>{const sync=()=>setEntries(readCharacterMemos(characterId));sync();window.addEventListener(CHARACTER_MEMOS_CHANGED,sync);return()=>window.removeEventListener(CHARACTER_MEMOS_CHANGED,sync);},[characterId]);
+  return <section className="min-h-full bg-[#fffdf6] p-4">
+    <div className="mb-4"><h3 className="text-xl font-semibold text-[#4d4a43]">备忘录</h3><p className="mt-1 text-xs text-[#999]">Char 私人记录 · 自动保存</p></div>
+    {selected?<article><button className="mb-5 text-sm text-[#a28348]" onClick={()=>setSelected(null)}>‹ 所有备忘录</button><p className="text-xs text-[#999]">{labels[selected.category]} · {new Date(selected.createdAt).toLocaleString('zh-CN')}</p><h4 className="my-4 text-xl font-medium">{selected.title||labels[selected.category]}</h4><p className="whitespace-pre-wrap break-words text-[15px] leading-7">{selected.body}</p></article>:<div className="space-y-2">{entries.map(entry=><button key={entry.id} onClick={()=>setSelected(entry)} className="w-full rounded-xl border border-[#f0e9d7] bg-white p-4 text-left shadow-sm"><span className="text-xs text-[#ac9464]">{labels[entry.category]}</span><strong className="mt-1 block truncate text-base text-[#514a40]">{entry.title||entry.body.split('\n')[0]}</strong><p className="mt-1 line-clamp-2 whitespace-pre-wrap text-sm text-[#888]">{entry.body}</p><time className="mt-2 block text-[11px] text-[#aaa]">{new Date(entry.createdAt).toLocaleString('zh-CN')}</time></button>)}{!entries.length&&<p className="py-20 text-center text-sm text-[#999]">还没有留下记录。<br/>等 Char 有想记下的事情，这里会慢慢出现笔记。</p>}</div>}
+  </section>;
 }
