@@ -55,7 +55,7 @@ export function removeCharacterAvatar(characterId: string, avatarId: string): vo
 /** The AI can only choose a saved image, never an arbitrary URL from its output. */
 export function chooseCharacterAvatar(characterId: string, avatarId: string, autonomous = false, now = Date.now()): string | null {
   const lib = readCharacterAvatarLibrary(characterId);
-  if (autonomous && (!lib.autonomousEnabled || (lib.lastChangedAt && now - lib.lastChangedAt < 24 * 60 * 60 * 1000))) return null;
+  if (autonomous && !lib.autonomousEnabled) return null;
   const entry = lib.entries.find(e => e.id === avatarId);
   if (!entry) return null;
   saveCharacterAvatarLibrary(characterId, { ...lib, activeId: entry.id, lastChangedAt: now });
