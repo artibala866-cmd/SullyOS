@@ -1,5 +1,5 @@
 import { resolveDialogueApi } from '../utils/characterApi';
-import { readCharacterAvatarLibrary, activateCharacterAvatar, notifyCharacterAvatarChanged } from '../utils/characterAvatarLibrary';
+import { readCharacterAvatarLibrary, saveCharacterAvatarLibrary, activateCharacterAvatar, notifyCharacterAvatarChanged } from '../utils/characterAvatarLibrary';
 import { createReplyRun, withReplyCancellation } from '../utils/chatReplyCancellation';
 
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
@@ -2136,6 +2136,7 @@ export const useChatAI = ({
                         : currentTurnImages[requestedNumber === -1 ? currentTurnImages.length - 1 : requestedNumber - 1];
                     if (chosenImage) {
                         await updateCharacter(char.id, { avatar: chosenImage });
+                        saveCharacterAvatarLibrary(char.id, { ...readCharacterAvatarLibrary(char.id), activeId: undefined });
                         notifyCharacterAvatarChanged(char.id);
                     }
                 } catch (avatarError) { console.warn('[Avatar] set_avatar failed', avatarError); }
