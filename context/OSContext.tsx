@@ -506,6 +506,11 @@ const PREVIOUS_DEFAULT_WALLPAPER = [
 
 // 默认桌面使用低对比暖米纸纹：只靠同色系层次与极细纤维感建立质感，
 // 不再用粉绿撞色渐变。字符串同时作为“仍在使用系统默认壁纸”的稳定标记。
+const BEIGE_DEFAULT_WALLPAPER = [
+  'radial-gradient(120% 85% at 12% 0%, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0) 58%)',
+  'linear-gradient(145deg, #fafafa 0%, #f2f2f2 54%, #e9e9e9 100%)',
+].join(', ');
+
 export const DEFAULT_WALLPAPER = [
   'radial-gradient(120% 85% at 12% 0%, rgba(255,255,255,0.64) 0%, rgba(255,255,255,0) 58%)',
   'repeating-linear-gradient(0deg, rgba(76,69,60,0.010) 0px, rgba(76,69,60,0.010) 1px, transparent 1px, transparent 4px)',
@@ -514,10 +519,10 @@ export const DEFAULT_WALLPAPER = [
 
 /** 纸感桌面的唯一默认配色来源；外观 App 的“默认风格”也直接复用，避免再次漂回旧粉蓝配置。 */
 export const DEFAULT_PAPER_APPEARANCE = {
-  hue: 88,
-  saturation: 14,
-  lightness: 46,
-  contentColor: '#4b4136',
+  hue: 0,
+  saturation: 0,
+  lightness: 45,
+  contentColor: '#292929',
   desktopVariant: 'paper',
 } as const;
 
@@ -551,7 +556,7 @@ const migrateLegacyDefaultPalette = (theme: OSTheme): OSTheme => {
 
 export const isPaperWallpaper = (wallpaper?: string) => {
   if (!wallpaper) return false;
-  if (wallpaper === DEFAULT_WALLPAPER || wallpaper === PREVIOUS_DEFAULT_WALLPAPER) return true;
+  if (wallpaper === DEFAULT_WALLPAPER || wallpaper === BEIGE_DEFAULT_WALLPAPER || wallpaper === PREVIOUS_DEFAULT_WALLPAPER) return true;
   const compact = wallpaper.toLowerCase().replace(/\s+/g, '');
   return (
     compact.includes('#f3ecdf') ||
@@ -1455,7 +1460,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                  loadedTheme = { ...loadedTheme, ...parsed };
                  // 仅迁移旧系统默认值；用户自定义过的壁纸、文字色和主题色全部保留。
                  const preserveNostalgia = shouldPreserveLegacyDefaultWallpaper(loadedTheme.wallpaper, loadedTheme.desktopVariant);
-                 if ((!preserveNostalgia && isLegacyDefaultWallpaper(loadedTheme.wallpaper)) || (isPaperWallpaper(loadedTheme.wallpaper) && loadedTheme.wallpaper !== DEFAULT_WALLPAPER)) {
+                 if ((!preserveNostalgia && (isLegacyDefaultWallpaper(loadedTheme.wallpaper) || loadedTheme.wallpaper === BEIGE_DEFAULT_WALLPAPER)) || (isPaperWallpaper(loadedTheme.wallpaper) && loadedTheme.wallpaper !== DEFAULT_WALLPAPER)) {
                      loadedTheme.wallpaper = DEFAULT_WALLPAPER;
                      loadedTheme = migrateLegacyDefaultPalette(loadedTheme);
                  }
