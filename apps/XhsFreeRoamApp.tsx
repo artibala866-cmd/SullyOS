@@ -783,6 +783,14 @@ const XhsFreeRoamApp: React.FC = () => {
             {/* Main content */}
             {isRunning ? renderLivePanel() : viewMode === 'profile' ? renderProfile() : renderHistory()}
 
+            {/* Explicit navigation back to the actual Xiaohongshu app. */}
+            <div className="shrink-0 bg-white px-4 pt-2">
+                <button type="button" onClick={() => openApp(AppID.Social)}
+                    className="w-full rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-600 active:bg-rose-100">
+                    ← 返回小红书
+                </button>
+            </div>
+
             {/* Bottom action area */}
             <div className="shrink-0 px-4 pb-5 pt-3 border-t border-slate-100 bg-white/80 backdrop-blur-sm">
                 <button
