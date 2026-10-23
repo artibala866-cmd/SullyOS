@@ -237,17 +237,21 @@ const MusicApp: React.FC = () => {
 
       {current && (
         <div className="px-5 pb-2 flex items-center gap-2 flex-wrap relative z-10">
-          {listeningTogetherWith.length > 0
-            ? companions.map(c => (
-                <span key={c.id} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-600">
-                  与 {c.name} 一起听 · {Math.max(1, Math.floor((Date.now() - (listeningStartedAt[c.id] || Date.now())) / 60000))} 分钟
-                  <button className="ml-2 underline" onClick={() => removeListeningPartner(c.id)}>结束</button>
-                </span>
-              ))
-            : characters.slice(0, 4).map(c => (
-                <button key={c.id} disabled={listeningInvites[c.id] === 'pending'} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-600 disabled:opacity-50"
-                  onClick={() => inviteListeningPartner(c.id)}>{listeningInvites[c.id] === 'pending' ? `已邀请 ${c.name} · 待回应` : `邀请 ${c.name} 一起听`}</button>
-              ))}
+          {characters.map(c => {
+            const active = listeningTogetherWith.includes(c.id);
+            const status = listeningInvites[c.id];
+            return (
+              <span key={c.id} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-600">
+                {active ? `与 ${c.name} 一起听 · ${Math.floor((Date.now() - (listeningStartedAt[c.id] || Date.now())) / 60000)} 分钟`
+                  : status === 'pending' ? `${c.name} · 等待回应`
+                  : status === 'rejected' ? `${c.name} · 已拒绝`
+                  : c.name}
+                <button className="ml-2 underline" onClick={() => active ? removeListeningPartner(c.id) : inviteListeningPartner(c.id)}>
+                  {active ? '结束' : status === 'pending' ? '重新邀请' : '邀请'}
+                </button>
+              </span>
+            );
+          })}
         </div>
       )}
       {current && (
