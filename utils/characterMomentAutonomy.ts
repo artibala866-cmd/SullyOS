@@ -70,7 +70,7 @@ export async function considerAutonomousMoment(input: {
     const slot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)];
     const scheduleHint = slot ? `日程状态：${slot.activity}，仅为计划，绝不视作已完成事件。` : '没有已确认的当日日程。';
     const recent = old.slice(0, 6).map(p => ({ text: p.text.slice(0, 160), deleted: !!p.deletedAt }));
-    const response = await fetch(api.baseUrl.replace(/\\/+$/, '') + '/chat/completions', {
+    const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
       body: JSON.stringify({ model: api.model, stream: false, messages: [
@@ -80,7 +80,7 @@ export async function considerAutonomousMoment(input: {
     });
     const json = await safeResponseJson(response);
     if (!response.ok) throw new Error(json?.error?.message || 'HTTP ' + response.status);
-    const raw = extractContent(json).trim().replace(/^\`\`\`(?:json)?\\s*/i, '').replace(/\\s*\`\`\`$/, '');
+    const raw = extractContent(json).trim().replace(/^`{3}(?:json)?\s*/i, '').replace(/\s*`{3}$/, '');
     const data: unknown = JSON.parse(raw);
     const parsed = data as { publish?: unknown; text?: unknown; eventIds?: unknown };
     const ids = Array.isArray(parsed.eventIds)
