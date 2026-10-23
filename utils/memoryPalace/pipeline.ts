@@ -1509,6 +1509,7 @@ export async function ingestDiaryToPalace(
     charDiaryText: string,
     lightLLMConfig: LightLLMConfig | null | undefined,
     userName: string,
+    minimumImportance = 0,
 ): Promise<DiaryIngestResult> {
     if (!char.memoryPalaceEnabled) return { status: 'palace_disabled' };
     if (!lightLLMConfig?.baseUrl || !lightLLMConfig?.apiKey) {
@@ -1569,6 +1570,11 @@ export async function ingestDiaryToPalace(
         [], // 不喂便利贴
     );
 
+    // Phone-derived experiences require a higher threshold than an intentional diary archive.
+    // Preserve the diary's existing behavior when minimumImportance is omitted.
+    if (minimumImportance > 0) {
+        extracted.memories = extracted.memories.filter(node => node.importance >= minimumImportance);
+    }
     if (extracted.memories.length === 0) {
         console.log(`🏰 [DiaryIngest] LLM 未提取出记忆节点`);
         return { status: 'extracted_none', stored: 0, skipped: 0 };
