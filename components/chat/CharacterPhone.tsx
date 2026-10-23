@@ -1,4 +1,4 @@
-import { readPendingContacts, writePendingContacts, type PendingPhoneContact } from '../../utils/characterPhoneRequests';
+import { PENDING_PHONE_CONTACTS_CHANGED, readPendingContacts, writePendingContacts, type PendingPhoneContact } from '../../utils/characterPhoneRequests';
 import { DB } from '../../utils/db';
 import { mirrorPrivateChat } from '../../utils/characterPhonePrivateSync';
 import type { PhoneThreadV2 } from '../../utils/characterPhoneModel';
@@ -43,6 +43,12 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [addingContact, setAddingContact] = useState(false);
   const [pendingContacts, setPendingContacts] = useState<PendingPhoneContact[]>(() => readPendingContacts(characterId));
   const [realNameDraft, setRealNameDraft] = useState('');
+  useEffect(() => {
+    setPendingContacts(readPendingContacts(characterId));
+    const onChange = (event: Event) => {if ((event as CustomEvent<{characterId:string}>).detail?.characterId === characterId) setPendingContacts(readPendingContacts(characterId));};
+    window.addEventListener(PENDING_PHONE_CONTACTS_CHANGED,onChange);
+    return () => window.removeEventListener(PENDING_PHONE_CONTACTS_CHANGED,onChange);
+  },[characterId]);
   const [draft, setDraft] = useState({ name:'', identity:'', personality:'', relationship:'', background:'' });
   const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
