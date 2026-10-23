@@ -382,6 +382,8 @@ interface MusicContextType {
   // 一起听 — 当前哪些 char 和 user 一起听（仅视觉状态，不影响播放）
   // 歌曲切换 / 结束时自动清空
   listeningTogetherWith: string[];
+  listeningStartedAt: Record<string, number>;
+  lastListeningEnd: { charId: string; durationMs: number; at: number } | null;
   addListeningPartner: (charId: string) => void;
   removeListeningPartner: (charId: string) => void;
   clearListeningPartners: () => void;
@@ -1029,7 +1031,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     playSong, togglePlay, nextSong, prevSong, seek,
     playMode, setPlayMode,
     liked, toggleLike,
-    listeningTogetherWith, addListeningPartner, removeListeningPartner, clearListeningPartners,
+    listeningTogetherWith, listeningStartedAt, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
     recentTrackChange,
     toast, setToastHandler,
     localAlbumSongs, addLocalSong, removeLocalSong,
