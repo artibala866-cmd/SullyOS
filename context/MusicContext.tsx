@@ -938,6 +938,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       joinListeningTogether: (cid: string) => {
         addListeningPartner(cid);
       },
+      stopListeningTogether: (cid: string) => {
+        removeListeningPartner(cid);
+      },
       addSongToCharPlaylist: async (cid, song, target) => {
         try {
           const all = await DB.getAllCharacters();
@@ -1015,7 +1018,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       },
     };
-  }, [current, addListeningPartner]);
+  }, [current, addListeningPartner, removeListeningPartner]);
 
   const value: MusicContextType = {
     cfg, setCfg, effectiveWorkerUrl,
