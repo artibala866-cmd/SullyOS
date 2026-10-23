@@ -507,14 +507,14 @@ const PREVIOUS_DEFAULT_WALLPAPER = [
 // 默认桌面使用低对比暖米纸纹：只靠同色系层次与极细纤维感建立质感，
 // 不再用粉绿撞色渐变。字符串同时作为“仍在使用系统默认壁纸”的稳定标记。
 const BEIGE_DEFAULT_WALLPAPER = [
-  'radial-gradient(120% 85% at 12% 0%, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0) 58%)',
-  'linear-gradient(145deg, #fafafa 0%, #f2f2f2 54%, #e9e9e9 100%)',
-].join(', ');
-
-export const DEFAULT_WALLPAPER = [
   'radial-gradient(120% 85% at 12% 0%, rgba(255,255,255,0.64) 0%, rgba(255,255,255,0) 58%)',
   'repeating-linear-gradient(0deg, rgba(76,69,60,0.010) 0px, rgba(76,69,60,0.010) 1px, transparent 1px, transparent 4px)',
   'linear-gradient(145deg, #fdfcf9 0%, #f8f6f1 54%, #f1eee8 100%)',
+].join(', ');
+
+export const DEFAULT_WALLPAPER = [
+  'radial-gradient(120% 85% at 12% 0%, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0) 58%)',
+  'linear-gradient(145deg, #fafafa 0%, #f2f2f2 54%, #e9e9e9 100%)',
 ].join(', ');
 
 /** 纸感桌面的唯一默认配色来源；外观 App 的“默认风格”也直接复用，避免再次漂回旧粉蓝配置。 */
