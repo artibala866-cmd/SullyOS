@@ -29,17 +29,30 @@ const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
 const PAPER_STYLES = [
     { id: 'plain', name: '白纸', css: 'bg-white', text: 'text-slate-700' },
     { id: 'grid', name: '网格', css: 'bg-white', text: 'text-slate-700', style: { backgroundImage: 'linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px' } },
-    { id: 'dot', name: '点阵', css: 'bg-[#fffdf5]', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#d1d5db 1px, transparent 1px)', backgroundSize: '20px 20px' } },
-    { id: 'lined', name: '横线', css: 'bg-[#fefce8]', text: 'text-slate-700', style: { backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, #e5e7eb 23px, #e5e7eb 24px)' } },
+    { id: 'dot', name: '点阵', css: 'bg-[#fafafa]', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#d1d5db 1px, transparent 1px)', backgroundSize: '20px 20px' } },
+    { id: 'lined', name: '横线', css: 'bg-[#f5f5f5]', text: 'text-slate-700', style: { backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, #e5e7eb 23px, #e5e7eb 24px)' } },
     { id: 'dark', name: '夜空', css: 'bg-slate-800', text: 'text-white/90' },
-    { id: 'pink', name: '少女', css: 'bg-pink-50', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#fbcfe8 2px, transparent 2px)', backgroundSize: '30px 30px' } },
+    { id: 'pink', name: '少女', css: 'bg-neutral-100', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#b3b3b3 2px, transparent 2px)', backgroundSize: '30px 30px' } },
 ];
 
+// Monochrome scrapbook stamps: embedded SVGs keep working offline and retain sticker drag/resize behavior.
+const journalStamp = (shape: string): string => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><g fill="none" stroke="#252525" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${shape}</g></svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+};
 const DEFAULT_STICKERS = [
-    twemojiUrl('2728'), twemojiUrl('1f496'), twemojiUrl('1f338'), twemojiUrl('1f380'), twemojiUrl('1f370'),
-    twemojiUrl('1f431'), twemojiUrl('1f436'), twemojiUrl('2601-fe0f'), twemojiUrl('1f319'), twemojiUrl('2b50'),
-    twemojiUrl('1f3b5'), twemojiUrl('1f33f'), twemojiUrl('1f353'), twemojiUrl('1f9f8'), twemojiUrl('1f388'),
-    twemojiUrl('1f48c'), twemojiUrl('1f4a4'), twemojiUrl('1f97a'), twemojiUrl('1f621'), twemojiUrl('1f62d'),
+    journalStamp('<path d="M48 9 57 36 85 48 57 58 48 86 38 58 11 48 38 36Z"/>'),
+    journalStamp('<path d="M48 82 17 51C-5 25 29 7 48 33 67 7 101 25 79 51Z"/>'),
+    journalStamp('<circle cx="48" cy="48" r="29"/><path d="M19 48h58M48 19v58M28 28l40 40M68 28 28 68"/>'),
+    journalStamp('<rect x="18" y="22" width="60" height="52" rx="2"/><path d="M27 34h42M27 46h42M27 58h27"/>'),
+    journalStamp('<circle cx="48" cy="48" r="33"/><circle cx="48" cy="48" r="25" stroke-dasharray="2 7"/><path d="M32 48h32M48 32v32"/>'),
+    journalStamp('<path d="M17 20h62v56H17zM27 31h42M27 42h42M27 53h30M27 64h22"/>'),
+    journalStamp('<path d="M16 29h64v43H16zM16 29l32 25 32-25"/>'),
+    journalStamp('<path d="M19 72 72 19M56 19h16v16M19 19h22M19 19v22"/>'),
+    journalStamp('<path d="M18 48h60M48 18v60"/><circle cx="48" cy="48" r="22"/>'),
+    journalStamp('<path d="M22 75 75 22M22 22l53 53"/><circle cx="48" cy="48" r="34"/>'),
+    journalStamp('<path d="M24 17h48v62H24zM33 30h30M33 42h30M33 54h30M33 66h17"/>'),
+    journalStamp('<path d="M15 60 35 40l15 15 29-30M62 25h17v17"/>'),
 ];
 
 // 兜底：extractJson 都救不回来时，内容可能是「模型没按 JSON 写的散文」，也可能是
@@ -783,13 +796,13 @@ ${charPart}
                                 <>
                                     {/* Delete Button (Top Right) */}
                                     <div 
-                                        className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs shadow-md cursor-pointer pointer-events-auto"
+                                        className="absolute -top-3 -right-3 w-6 h-6 bg-neutral-500 text-white rounded-full flex items-center justify-center text-xs shadow-md cursor-pointer pointer-events-auto"
                                         onClick={(e) => { e.stopPropagation(); removeStickerFromPage(s.id); }}
                                     >×</div>
                                     
                                     {/* Resize Handle (Bottom Right) */}
                                     <div 
-                                        className="absolute -bottom-2 -right-2 w-5 h-5 bg-blue-500 rounded-full border-2 border-white shadow-md cursor-nwse-resize pointer-events-auto"
+                                        className="absolute -bottom-2 -right-2 w-5 h-5 bg-neutral-500 rounded-full border-2 border-white shadow-md cursor-nwse-resize pointer-events-auto"
                                         onPointerDown={(e) => handlePointerDown(e, s.id, 'resize')}
                                     ></div>
                                 </>
@@ -806,14 +819,14 @@ ${charPart}
 
     const renderEmptyCharPage = () => (
         <div className="sully-journal-empty w-full h-full bg-[#252525] rounded-3xl border border-white/5 flex flex-col items-center justify-center text-white/40 gap-4 p-8 text-center">
-            <div className="opacity-20 animate-pulse"><img src={twemojiUrl('1f48c')} alt="letter" className="w-12 h-12" /></div>
+            <div className="opacity-20 animate-pulse"><img src={DEFAULT_STICKERS[6]} alt="letter" className="w-12 h-12" /></div>
             {isThinking ? (
                 <div className="space-y-2">
-                    <p className="text-sm font-medium text-amber-500">对方正在阅读你的日记...</p>
+                    <p className="text-sm font-medium text-neutral-500">对方正在阅读你的日记...</p>
                     <div className="flex justify-center gap-1">
-                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce"></div>
-                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce delay-100"></div>
-                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce delay-200"></div>
+                        <div className="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce"></div>
+                        <div className="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce delay-100"></div>
+                        <div className="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce delay-200"></div>
                     </div>
                 </div>
             ) : (
@@ -821,7 +834,7 @@ ${charPart}
                     <p className="text-sm">写完日记后，点击下方按钮<br/>邀请 {selectedChar?.name} 交换日记。</p>
                     <button
                         onClick={handleExchange}
-                        className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold rounded-full shadow-[0_0_20px_rgba(245,158,11,0.3)] active:scale-95 transition-all mt-2"
+                        className="px-6 py-3 bg-neutral-500 hover:bg-neutral-400 text-white text-sm font-bold rounded-full shadow-[0_0_20px_rgba(40,40,40,0.2)] active:scale-95 transition-all mt-2"
                     >
                         查看 TA 的今日
                     </button>
@@ -837,18 +850,18 @@ ${charPart}
             title="交换日记 · 更新了"
             onClose={dismissIntro}
             footer={
-                <button onClick={dismissIntro} className="w-full py-3 bg-amber-500 text-white font-bold rounded-2xl active:scale-95 transition-transform">
+                <button onClick={dismissIntro} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl active:scale-95 transition-transform">
                     我知道了
                 </button>
             }
         >
             <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
-                <p className="font-bold text-amber-700">几个新变化,先看一眼:</p>
-                <div className="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 space-y-2">
-                    <p><span className="font-bold text-amber-700">① 自动同步聊天:</span> 角色回复了你的日记之后,会自动变成一张漂亮卡片出现在和这个角色的聊天里 —— 不用再手动发送。你之后在日记本里改文字 / 删日记,聊天里那张卡片也会跟着同步。</p>
-                    <p><span className="font-bold text-amber-700">② 单向日记不进记忆:</span> 如果你只是单方面写给角色看(没让 ta 回复),这一篇就不会进入任何记忆,按以前的方式存着就好。</p>
-                    <p><span className="font-bold text-amber-700">③ 新日记不用管归档:</span> 本次更新<b>之后</b>新写的日记走的就是上面"自动同步聊天"那条线 —— 卡片进了聊天后，系统会像处理普通消息一样自动帮你整理。不需要也<b>不应该</b>再手动归档一次。所以新日记你看不到归档入口, 这是故意的。</p>
-                    <p><span className="font-bold text-amber-700">④ 老日记还能手动归档:</span> 本次更新<b>之前</b>留下的老日记里, 如果是角色回复过的, <b>点进那篇日记, 右上角会有一个"归档"按钮</b>, 点一下就行 —— 就会把这篇日记整理进角色的记忆里，开了记忆宫殿的角色会记得更细。</p>
+                <p className="font-bold text-neutral-700">几个新变化,先看一眼:</p>
+                <div className="rounded-2xl bg-neutral-50 border border-neutral-100 px-4 py-3 space-y-2">
+                    <p><span className="font-bold text-neutral-700">① 自动同步聊天:</span> 角色回复了你的日记之后,会自动变成一张漂亮卡片出现在和这个角色的聊天里 —— 不用再手动发送。你之后在日记本里改文字 / 删日记,聊天里那张卡片也会跟着同步。</p>
+                    <p><span className="font-bold text-neutral-700">② 单向日记不进记忆:</span> 如果你只是单方面写给角色看(没让 ta 回复),这一篇就不会进入任何记忆,按以前的方式存着就好。</p>
+                    <p><span className="font-bold text-neutral-700">③ 新日记不用管归档:</span> 本次更新<b>之后</b>新写的日记走的就是上面"自动同步聊天"那条线 —— 卡片进了聊天后，系统会像处理普通消息一样自动帮你整理。不需要也<b>不应该</b>再手动归档一次。所以新日记你看不到归档入口, 这是故意的。</p>
+                    <p><span className="font-bold text-neutral-700">④ 老日记还能手动归档:</span> 本次更新<b>之前</b>留下的老日记里, 如果是角色回复过的, <b>点进那篇日记, 右上角会有一个"归档"按钮</b>, 点一下就行 —— 就会把这篇日记整理进角色的记忆里，开了记忆宫殿的角色会记得更细。</p>
                 </div>
                 <p className="text-xs text-slate-400">这条提示只出现一次。</p>
             </div>
@@ -889,7 +902,7 @@ ${charPart}
                 title={`已归档 · ${archiveResult.date}`}
                 onClose={() => setArchiveResult(null)}
                 footer={
-                    <button onClick={() => setArchiveResult(null)} className="w-full py-3 bg-amber-500 text-white font-bold rounded-2xl active:scale-95 transition-transform">
+                    <button onClick={() => setArchiveResult(null)} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl active:scale-95 transition-transform">
                         知道了
                     </button>
                 }
@@ -897,27 +910,27 @@ ${charPart}
                 <div className="space-y-3 text-sm text-slate-700 leading-relaxed max-h-[60vh] overflow-y-auto no-scrollbar pr-1">
                     {/* 顶部一行: 数据流向示意 */}
                     {archiveResult.summaryOrigin === 'palace_bullets' ? (
-                        <div className="rounded-xl bg-gradient-to-r from-emerald-50 to-purple-50 border border-emerald-200/60 px-3 py-2 text-[11px] text-slate-600">
-                            ✓ 这次归档同时进了 <b className="text-emerald-700">神经链接</b> 和 <b className="text-purple-700">记忆宫殿</b>,
+                        <div className="rounded-xl bg-gradient-to-r from-neutral-50 to-neutral-50 border border-neutral-200/60 px-3 py-2 text-[11px] text-slate-600">
+                            ✓ 这次归档同时进了 <b className="text-neutral-700">神经链接</b> 和 <b className="text-neutral-700">记忆宫殿</b>,
                             两边拿的是 <b>同一组提取出来的内容</b> —— 这次提取出的几条记忆会一并存进神经链接。
                         </div>
                     ) : (
-                        <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 px-3 py-2 text-[11px] text-slate-600">
-                            这次归档只进了 <b className="text-emerald-700">神经链接</b>, 用主 API 生成的散文式总结。原因看下面"记忆宫殿"那块。
+                        <div className="rounded-xl bg-neutral-50/70 border border-neutral-100 px-3 py-2 text-[11px] text-slate-600">
+                            这次归档只进了 <b className="text-neutral-700">神经链接</b>, 用主 API 生成的散文式总结。原因看下面"记忆宫殿"那块。
                         </div>
                     )}
 
                     {/* 神经链接 */}
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 space-y-2">
+                    <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 px-4 py-3 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700">● 神经链接</span>
-                            <span className="text-[10px] text-emerald-600/70">写入 1 条 · 日期 {archiveResult.date}</span>
-                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">mood={archiveResult.summaryOrigin === 'palace_bullets' ? 'diary_palace' : 'diary'}</span>
+                            <span className="text-[10px] font-bold tracking-widest uppercase text-neutral-700">● 神经链接</span>
+                            <span className="text-[10px] text-neutral-600/70">写入 1 条 · 日期 {archiveResult.date}</span>
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-700">mood={archiveResult.summaryOrigin === 'palace_bullets' ? 'diary_palace' : 'diary'}</span>
                         </div>
                         <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: archiveResult.summaryOrigin === 'palace_bullets' ? 'inherit' : 'ui-serif, Georgia, serif' }}>
                             {archiveResult.summary}
                         </p>
-                        <p className="text-[10px] text-emerald-700/70">
+                        <p className="text-[10px] text-neutral-700/70">
                             ↑ 这条会出现在「{archiveResult.charName}」的本月详细记录里, 自动跟聊天上下文一起送进 LLM。
                             {archiveResult.summaryOrigin === 'palace_bullets'
                                 ? ' 每个 bullet 都对应下面记忆宫殿里的一个节点。'
@@ -927,16 +940,16 @@ ${charPart}
 
                     {/* 记忆宫殿 */}
                     <div className={`rounded-2xl border px-4 py-3 space-y-2 ${
-                        palaceStatus.tone === 'on' ? 'border-purple-100 bg-purple-50/70'
+                        palaceStatus.tone === 'on' ? 'border-neutral-100 bg-neutral-50/70'
                         : palaceStatus.tone === 'off' ? 'border-slate-100 bg-slate-50'
-                        : palaceStatus.tone === 'warn' ? 'border-amber-100 bg-amber-50/70'
-                        : 'border-red-100 bg-red-50/70'
+                        : palaceStatus.tone === 'warn' ? 'border-neutral-100 bg-neutral-50/70'
+                        : 'border-neutral-100 bg-neutral-50/70'
                     }`}>
                         <div className={`text-[10px] font-bold tracking-widest uppercase ${
-                            palaceStatus.tone === 'on' ? 'text-purple-700'
+                            palaceStatus.tone === 'on' ? 'text-neutral-700'
                             : palaceStatus.tone === 'off' ? 'text-slate-500'
-                            : palaceStatus.tone === 'warn' ? 'text-amber-700'
-                            : 'text-red-600'
+                            : palaceStatus.tone === 'warn' ? 'text-neutral-700'
+                            : 'text-neutral-600'
                         }`}>
                             ◆ {palaceStatus.title}
                         </div>
@@ -944,10 +957,10 @@ ${charPart}
                         {palaceNodes.length > 0 && (
                             <div className="space-y-1.5 pt-1">
                                 {palaceNodes.map((n, i) => (
-                                    <div key={i} className="rounded-xl bg-white/80 border border-purple-100 px-3 py-2">
+                                    <div key={i} className="rounded-xl bg-white/80 border border-neutral-100 px-3 py-2">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{getRoomLabel(n.room, userName)}</span>
-                                            <span className="text-[9px] font-mono text-purple-500/70">重要度 {n.importance}/10</span>
+                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-700">{getRoomLabel(n.room, userName)}</span>
+                                            <span className="text-[9px] font-mono text-neutral-500/70">重要度 {n.importance}/10</span>
                                             {n.mood && <span className="text-[9px] text-slate-400">· {n.mood}</span>}
                                         </div>
                                         <p className="text-[12px] text-slate-700 leading-snug">{n.content}</p>
@@ -970,17 +983,17 @@ ${charPart}
 
     if (mode === 'select') {
         return (
-            <div className={`sully-journal-root sully-journal-select h-full w-full bg-amber-50 flex flex-col font-light${journalLayoutClass}`}>
+            <div className={`sully-journal-root sully-journal-select h-full w-full bg-neutral-50 flex flex-col font-light${journalLayoutClass}`}>
                 <JournalAppearanceStyle appearance={effectiveJournalAppearance} />
                 {introModal}
                 {archiveResultModal}
                 <JournalThemeArtwork preset={effectiveJournalPreset} scene="select" />
-                <div className="sully-journal-header border-b border-amber-100 bg-amber-50/80 backdrop-blur-sm sticky top-0 z-20 shrink-0" style={{ paddingTop: 'var(--chrome-top)' }}>
+                <div className="sully-journal-header border-b border-neutral-100 bg-neutral-50/80 backdrop-blur-sm sticky top-0 z-20 shrink-0" style={{ paddingTop: 'var(--chrome-top)' }}>
                     <div className="h-12 px-6 flex items-center justify-between">
-                        <button onClick={closeApp} aria-label="返回桌面" className="sully-journal-back p-2 -ml-2 rounded-full hover:bg-amber-100/50 active:scale-90 transition-transform">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-amber-900"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                        <button onClick={closeApp} aria-label="返回桌面" className="sully-journal-back p-2 -ml-2 rounded-full hover:bg-neutral-100/50 active:scale-90 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-neutral-900"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
-                        <span className="sully-journal-header-title font-bold text-amber-900 text-lg tracking-wide">选择日记本</span>
+                        <span className="sully-journal-header-title font-bold text-neutral-900 text-lg tracking-wide">选择日记本</span>
                         <JournalAppearanceButton compact {...journalAppearanceButtonProps} />
                     </div>
                 </div>
@@ -992,11 +1005,11 @@ ${charPart}
                     {filterCharactersByGroup(characters, characterGroups, journalGroupId).map(c => (
                         <div key={c.id} onClick={() => handleCharSelect(c)} className="sully-journal-notebook aspect-[3/4] bg-white rounded-r-2xl rounded-l-md border-l-4 border-l-amber-800 shadow-[2px_4px_12px_rgba(0,0,0,0.08)] p-4 flex flex-col items-center justify-center gap-3 cursor-pointer active:scale-95 transition-all relative overflow-hidden group">
                             <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/10 to-transparent"></div>
-                            <div className="sully-journal-notebook-avatar w-16 h-16 rounded-full p-[2px] border border-amber-100 bg-amber-50">
+                            <div className="sully-journal-notebook-avatar w-16 h-16 rounded-full p-[2px] border border-neutral-100 bg-neutral-50">
                                 <TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" />
                             </div>
-                            <span className="sully-journal-notebook-name font-bold text-amber-900 text-sm">{c.name}</span>
-                            <span className="sully-journal-notebook-label text-[9px] text-amber-600 bg-amber-50 px-2 py-1 rounded-full font-mono uppercase tracking-wide">Journal</span>
+                            <span className="sully-journal-notebook-name font-bold text-neutral-900 text-sm">{c.name}</span>
+                            <span className="sully-journal-notebook-label text-[9px] text-neutral-600 bg-neutral-50 px-2 py-1 rounded-full font-mono uppercase tracking-wide">Journal</span>
                         </div>
                     ))}
                 </div>
@@ -1011,7 +1024,7 @@ ${charPart}
                 {introModal}
                 {archiveResultModal}
                 <JournalThemeArtwork preset={effectiveJournalPreset} scene="calendar" />
-                <div className="sully-journal-calendar-hero pb-6 px-6 bg-amber-500 shadow-lg shrink-0 rounded-b-[2rem] z-20" style={{ paddingTop: 'max(3rem, var(--safe-top))' }}>
+                <div className="sully-journal-calendar-hero pb-6 px-6 bg-neutral-500 shadow-lg shrink-0 rounded-b-[2rem] z-20" style={{ paddingTop: 'max(3rem, var(--safe-top))' }}>
                     <div className="flex justify-between items-start mb-4">
                          <button onClick={() => setMode('select')} aria-label="返回日记本选择" className="sully-journal-back text-white/80 hover:text-white transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
@@ -1025,15 +1038,15 @@ ${charPart}
                 </div>
 
                 <div className="sully-journal-calendar-list flex-1 overflow-y-auto p-5 pb-20 no-scrollbar">
-                    <button onClick={() => openEntry(getLocalDateStr())} className="sully-journal-new-entry w-full py-5 mb-8 border-2 border-dashed border-amber-200 rounded-2xl text-amber-500 font-bold flex items-center justify-center gap-2 hover:bg-amber-50 active:scale-95 transition-all">
+                    <button onClick={() => openEntry(getLocalDateStr())} className="sully-journal-new-entry w-full py-5 mb-8 border-2 border-dashed border-neutral-200 rounded-2xl text-neutral-500 font-bold flex items-center justify-center gap-2 hover:bg-neutral-50 active:scale-95 transition-all">
                         <span className="text-xl">+</span> 写今天的日记
                     </button>
                     
                     <div className="space-y-4">
                         {diaries.map(d => (
                             <div key={d.id} onClick={() => openEntry(d.date)} className="sully-journal-entry flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm active:scale-95 transition-all hover:shadow-md cursor-pointer relative overflow-hidden group">
-                                <div className="sully-journal-entry-accent absolute left-0 top-0 bottom-0 w-1 bg-amber-400"></div>
-                                <div className="sully-journal-entry-date w-14 h-14 bg-amber-50 rounded-xl flex flex-col items-center justify-center text-amber-800 shrink-0 border border-amber-100">
+                                <div className="sully-journal-entry-accent absolute left-0 top-0 bottom-0 w-1 bg-neutral-400"></div>
+                                <div className="sully-journal-entry-date w-14 h-14 bg-neutral-50 rounded-xl flex flex-col items-center justify-center text-neutral-800 shrink-0 border border-neutral-100">
                                     <span className="text-[10px] font-bold opacity-60">{d.date.split('-')[1]}月</span>
                                     <span className="text-xl font-bold leading-none">{d.date.split('-')[2]}</span>
                                 </div>
@@ -1042,9 +1055,9 @@ ${charPart}
                                     <div className="flex justify-between items-center mt-1">
                                         <p className="sully-journal-entry-year text-xs text-slate-400 font-mono">{d.date.split('-')[0]}</p>
                                         <div className="sully-journal-entry-badges flex gap-2">
-                                            {d.charPage && <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-[9px] font-bold">已回复</span>}
-                                            {d.chatCardMessageId && <span className="px-2 py-0.5 bg-emerald-50 text-emerald-500 rounded-full text-[9px] font-bold">同步聊天</span>}
-                                            {d.isArchived && <span className="px-2 py-0.5 bg-amber-100 text-amber-600 rounded-full text-[9px] font-bold">已归档</span>}
+                                            {d.charPage && <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-full text-[9px] font-bold">已回复</span>}
+                                            {d.chatCardMessageId && <span className="px-2 py-0.5 bg-neutral-50 text-neutral-500 rounded-full text-[9px] font-bold">同步聊天</span>}
+                                            {d.isArchived && <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-full text-[9px] font-bold">已归档</span>}
                                         </div>
                                     </div>
                                 </div>
@@ -1054,7 +1067,7 @@ ${charPart}
                                         e.stopPropagation();
                                         setDeletingDiary(d);
                                     }}
-                                    className="w-8 h-8 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex items-center justify-center"
+                                    className="w-8 h-8 rounded-full text-slate-400 hover:text-neutral-500 hover:bg-neutral-50 transition-colors flex items-center justify-center"
                                     title="删除日记"
                                     aria-label="删除日记"
                                 >
@@ -1074,7 +1087,7 @@ ${charPart}
                     footer={
                         <div className="flex gap-2 w-full">
                             <button onClick={() => setDeletingDiary(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button>
-                            <button onClick={handleDeleteDiary} className="flex-1 py-3 bg-red-500 text-white rounded-2xl font-bold">删除</button>
+                            <button onClick={handleDeleteDiary} className="flex-1 py-3 bg-neutral-500 text-white rounded-2xl font-bold">删除</button>
                         </div>
                     }
                 >
@@ -1106,7 +1119,7 @@ ${charPart}
                         {activeTab === 'char' && (
                             <button
                                 onClick={() => setHideCharStickers(!hideCharStickers)}
-                                className={`p-2 rounded-full transition-colors ${hideCharStickers ? 'bg-red-500/20 text-red-400' : 'bg-white/10 text-white/60'}`}
+                                className={`p-2 rounded-full transition-colors ${hideCharStickers ? 'bg-neutral-500/20 text-neutral-400' : 'bg-white/10 text-white/60'}`}
                                 title={hideCharStickers ? "显示贴纸" : "隐藏贴纸"}
                             >
                                 {hideCharStickers ? (
@@ -1118,13 +1131,13 @@ ${charPart}
                         )}
 
                         {currentEntry?.chatCardMessageId && (
-                            <div className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 flex items-center gap-1.5" title="该日记已自动同步为聊天卡片">
+                            <div className="px-3 py-1 rounded-full text-[10px] font-bold bg-neutral-500/15 text-neutral-300 flex items-center gap-1.5" title="该日记已自动同步为聊天卡片">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                                 已同步聊天
                             </div>
                         )}
                         {currentEntry?.isArchived && (
-                            <div className="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 flex items-center gap-1.5" title="该日记已归档进神经链接">
+                            <div className="px-3 py-1 rounded-full text-[10px] font-bold bg-neutral-500/15 text-neutral-300 flex items-center gap-1.5" title="该日记已归档进神经链接">
                                 <Archive size={11} weight="fill" />
                                 已归档
                             </div>
@@ -1135,12 +1148,12 @@ ${charPart}
                             <button
                                 onClick={() => handleArchiveDiary(currentEntry)}
                                 disabled={archivingId === currentEntry.id}
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg transition-all flex items-center gap-1.5 ${archivingId === currentEntry.id ? 'bg-amber-700/60 text-amber-200 cursor-wait' : 'bg-amber-500 text-white hover:bg-amber-400 active:scale-95'}`}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg transition-all flex items-center gap-1.5 ${archivingId === currentEntry.id ? 'bg-neutral-700/60 text-neutral-200 cursor-wait' : 'bg-neutral-500 text-white hover:bg-neutral-400 active:scale-95'}`}
                                 title={'把这篇老日记归档进神经链接' + (selectedChar?.memoryPalaceEnabled ? ' / 记忆宫殿' : '')}
                             >
                                 {archivingId === currentEntry.id ? (
                                     <>
-                                        <div className="w-3 h-3 border-2 border-amber-200/40 border-t-amber-100 rounded-full animate-spin"></div>
+                                        <div className="w-3 h-3 border-2 border-neutral-200/40 border-t-amber-100 rounded-full animate-spin"></div>
                                         归档中
                                     </>
                                 ) : (
@@ -1198,10 +1211,10 @@ ${charPart}
                     </button>
                     <button 
                         onClick={() => { setActiveTab('char'); setSelectedStickerId(null); trackEvent('切换日记页标签', { page: 'char' }); }}
-                        className={`sully-journal-tab ${activeTab === 'char' ? 'sully-journal-tab-active' : ''} flex-1 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-300 relative overflow-hidden ${activeTab === 'char' ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/50' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+                        className={`sully-journal-tab ${activeTab === 'char' ? 'sully-journal-tab-active' : ''} flex-1 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-300 relative overflow-hidden ${activeTab === 'char' ? 'bg-neutral-500 text-white shadow-lg shadow-neutral-900/50' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
                     >
                         {selectedChar?.name || 'Partner'}
-                        {currentEntry?.charPage && activeTab !== 'char' && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full shadow-sm animate-pulse"></div>}
+                        {currentEntry?.charPage && activeTab !== 'char' && <div className="absolute top-2 right-2 w-2 h-2 bg-neutral-500 rounded-full shadow-sm animate-pulse"></div>}
                     </button>
                 </div>
 
@@ -1232,7 +1245,7 @@ ${charPart}
                         
                         <button 
                             onClick={() => { setShowStickerPanel(!showStickerPanel); if (!showStickerPanel) trackEvent('打开贴纸面板'); }}
-                            className={`sully-journal-sticker-button w-11 h-11 rounded-full flex items-center justify-center text-xl shadow-lg active:scale-90 transition-transform ${showStickerPanel ? 'bg-white text-black' : 'bg-gradient-to-br from-amber-400 to-orange-500 text-white'}`}
+                            className={`sully-journal-sticker-button w-11 h-11 rounded-full flex items-center justify-center text-xl shadow-lg active:scale-90 transition-transform ${showStickerPanel ? 'bg-white text-black' : 'bg-gradient-to-br from-neutral-700 to-neutral-900 text-white'}`}
                         >
                             <Sparkle size={24} weight="fill" />
                         </button>
@@ -1289,7 +1302,7 @@ ${charPart}
             {/* Sticker Delete Confirmation Modal */}
             <Modal 
                 isOpen={!!deletingSticker} title="删除贴纸素材" onClose={() => setDeletingSticker(null)}
-                footer={<div className="flex gap-2 w-full"><button onClick={() => setDeletingSticker(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button><button onClick={handleDeleteStickerAsset} className="flex-1 py-3 bg-red-500 text-white rounded-2xl font-bold">删除</button></div>}
+                footer={<div className="flex gap-2 w-full"><button onClick={() => setDeletingSticker(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button><button onClick={handleDeleteStickerAsset} className="flex-1 py-3 bg-neutral-500 text-white rounded-2xl font-bold">删除</button></div>}
             >
                 <div className="flex flex-col items-center gap-3 py-2">
                     {deletingSticker && <img src={deletingSticker.url} className="w-16 h-16 object-contain rounded-lg bg-slate-100 border" />}
