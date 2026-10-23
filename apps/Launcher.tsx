@@ -1128,8 +1128,8 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                               </div>
                           </button>
                           <div className="w-full max-w-[300px] grid grid-cols-[1.04fr_1fr] gap-3 items-start shrink-0">
-                              <div className="min-w-0 aspect-square rounded-[23px] overflow-hidden bg-white/80 border border-white shadow-[0_5px_18px_rgba(0,0,0,0.06)]">
-                                  <NowPlayingSquareWidget contentColor="#252525" />
+                              <div className="min-w-0 aspect-square rounded-[23px] overflow-hidden bg-[#202020] shadow-[0_7px_18px_rgba(0,0,0,0.15)]">
+                                  <NowPlayingSquareWidget contentColor="#ffffff" monochrome />
                               </div>
                               <div className="grid grid-cols-2 gap-x-2 gap-y-1 py-0">
                                   {[AppID.Character,AppID.MemoryPalace,AppID.User,AppID.Room].map(id => {
