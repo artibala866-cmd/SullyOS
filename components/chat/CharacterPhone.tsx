@@ -58,6 +58,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
   const [moments, setMoments] = useState<CharacterMoment[]>(() => readCharacterMoments(characterId));
   const [momentBusy, setMomentBusy] = useState(false);
+  const [chatComposer,setChatComposer]=useState('');
   const [npcMomentLoading,setNpcMomentLoading]=useState(false);
   const npcPullStart=useRef<number|null>(null);
   useEffect(() => {setMoments(readCharacterMoments(characterId)); const sync=(event:Event)=>{if((event as CustomEvent<{characterId:string}>).detail?.characterId===characterId)setMoments(readCharacterMoments(characterId));};window.addEventListener(CHARACTER_MOMENTS_CHANGED,sync);return ()=>window.removeEventListener(CHARACTER_MOMENTS_CHANGED,sync);},[characterId]);
@@ -228,7 +229,7 @@ ${scheduleContext}
       const npc = profile.name;
       if (!npc) throw new Error('NPC 名称为空');
       const existing = target;
-      const next: ChatRecord = { id: existing?.id || crypto.randomUUID(), contactId: profile.id, name: npc, preview: messages[messages.length - 1].text, time: Date.now(), messages: [...(existing?.messages || []), ...messages] };
+      const next: ChatRecord = { id: existing?.id || crypto.randomUUID(), contactId: profile.id, name: npc, preview: messages[messages.length - 1].text, time: Date.now(), messages: [...(existing?.messages || []), ...messages.map((m,i)=>({...m,createdAt:Date.now()-(messages.length-1-i)*25000}))] };
       persist([next, ...records.filter(r => r.id !== existing?.id)]); setTab('chats');
       recordCharacterLifeEvent({ id: 'npc-chat:' + next.id + ':' + next.time, characterId, kind: 'npc-chat', occurredAt: next.time, source: 'phone', summary: name + ' 与 ' + npc + ' 进行了微信聊天', contactId: profile.id });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
