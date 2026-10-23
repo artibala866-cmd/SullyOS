@@ -2299,8 +2299,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // Only substantive first-hand phone posts have enough source material for
               // a conservative palace extraction. A generic "chatted with NPC" event
               // or a new contact is not evidence of an important life experience.
-              if (char.memoryPalaceEnabled && recordedEvent.kind === 'moment-post'
-                  && recordedEvent.summary.length >= 65 && recordedEvent.occurredAt <= Date.now()) {
+              if (char.memoryPalaceEnabled
+                  && (recordedEvent.kind === 'moment-post' || recordedEvent.kind === 'npc-chat')
+                  && recordedEvent.summary.length >= (recordedEvent.kind === 'npc-chat' ? 100 : 65)
+                  && recordedEvent.occurredAt <= Date.now()) {
                   const key = 'sully_phone_palace_ingested_v1:' + charId;
                   const eventId = recordedEvent.id;
                   const previously = (() => {
@@ -2313,7 +2315,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       const dateKey = [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
                       void import('../utils/memoryPalace/pipeline').then(({ ingestDiaryToPalace }) =>
                           ingestDiaryToPalace(char, dateKey, '', 
-                              '[已发布的角色本人朋友圈，非计划或日程]\\n' + recordedEvent.summary,
+                              (recordedEvent.kind === 'npc-chat' ? '[已保存的角色本人微信对话，可能包含重要事实；需筛选，不代表所有内容均为长期事实]\\n' : '[已发布的角色本人朋友圈，非计划或日程]\\n') + recordedEvent.summary,
                               llm, userProfileRef.current?.name || '', 7)
                       ).then(result => {
                           if (result.status === 'done' || result.status === 'extracted_none') {
