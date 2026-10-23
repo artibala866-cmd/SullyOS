@@ -265,6 +265,13 @@ const MusicApp: React.FC = () => {
 
       {current && (
         <div className="px-5 pb-2 flex items-center gap-2 flex-wrap relative z-10">
+          {characters.filter(c => !!charInvites[c.id]).map(c => (
+            <span key={`char-invite-${c.id}`} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-700">
+              {c.name} 邀请你一起听
+              <button className="ml-2 underline" onClick={() => void answerCharInvite(c.id, true)}>接受</button>
+              <button className="ml-2 underline" onClick={() => void answerCharInvite(c.id, false)}>拒绝</button>
+            </span>
+          ))}
           {characters.map(c => {
             const active = listeningTogetherWith.includes(c.id);
             const status = listeningInvites[c.id];
