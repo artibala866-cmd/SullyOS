@@ -10,14 +10,13 @@ import { shouldShowAnniversaryGift, markAnniversaryGiftSeen } from '../utils/ann
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { IMPORT_IN_PROGRESS_KEY, useOS } from '../context/OSContext';
 import StatusBar from './os/StatusBar';
-import { SARModuleMonitor } from './sar/SARModuleMonitor';
 import Launcher from '../apps/Launcher';
 import CompanionLockChrome from './os/CompanionLockChrome';
 import { loadCompanionFrameStyle } from './os/companionFrameStyles';
 import { createPreloadableLazy, type PreloadableLazy } from './os/preloadableLazy';
 
 // 按需懒加载各 App —— 切到对应 App 时才下载/解析其代码块，首屏只加载 Launcher 与外壳，
-// 大体积 App（MemoryPalace / VRWorld / Songwriting 等）不再压在主包里。
+// 大体积 App（MemoryPalace / Songwriting 等）不再压在主包里。
 // 默认导出直接 lazy；命名导出（SpecialMomentsApp）用 .then 适配成 { default }。
 // Launcher 保持静态导入：桌面常驻、需要秒开，不走懒加载。
 //
@@ -1035,7 +1034,6 @@ const PhoneShell: React.FC = () => {
           {/* Overlays: Global Mini Player (when music is playing in background) */}
           <GlobalMiniPlayer />
           <NavigationBall />
-          {!isLocked && <SARModuleMonitor />}
 
           {/* Overlays: 人格模拟生成全局指示条 */}
           <PersonaSimIndicator />
