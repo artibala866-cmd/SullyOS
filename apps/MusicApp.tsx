@@ -33,11 +33,39 @@ const MusicApp: React.FC = () => {
     lyric, tlyric, activeLyricIdx,
     profile, playSong, togglePlay, nextSong, prevSong, seek,
     liked, toggleLike, setToastHandler,
-    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, removeListeningPartner,
+    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, respondListeningInvite, removeListeningPartner,
     addLocalSong, removeLocalSong, localAlbumSongs,
     playMode, setPlayMode,
     regeneratingId, regeneratingStatus,
   } = useMusic();
+  const [charInvites, setCharInvites] = useState<Record<string, number>>({});
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      const entries = await Promise.all(characters.map(async c => {
+        const messages = await DB.getMessagesByCharId(c.id);
+        const last = [...messages].reverse().find(m => m.metadata?.musicListenInvite && m.metadata?.inviter === 'char');
+        const answered = last && messages.some(m => m.timestamp >= last.timestamp && m.metadata?.musicListenInviteResponseTo === last.id);
+        return [c.id, last && !answered ? last.id : 0] as const;
+      }));
+      if (!cancelled) setCharInvites(Object.fromEntries(entries.filter(([, id]) => id > 0)));
+    };
+    void refresh().catch(console.warn);
+    const onInvite = () => { void refresh().catch(console.warn); };
+    window.addEventListener('music-listen-invite-created', onInvite);
+    return () => { cancelled = true; window.removeEventListener('music-listen-invite-created', onInvite); };
+  }, [characters]);
+  const answerCharInvite = useCallback(async (charId: string, accepted: boolean) => {
+    const messageId = charInvites[charId];
+    if (!messageId) return;
+    await DB.saveMessage({
+      charId, role: 'user', type: 'system',
+      content: accepted ? '[一起听邀请] 已接受邀请。' : '[一起听邀请] 已拒绝邀请。',
+      metadata: { musicListenInviteResponseTo: messageId, accepted },
+    });
+    respondListeningInvite(charId, accepted);
+    setCharInvites(prev => { const next = { ...prev }; delete next[charId]; return next; });
+  }, [charInvites, respondListeningInvite]);
   const isCurrentRegenerating = !!current && current.id === regeneratingId;
   // 把对轴入口和单曲循环按钮移到 SubActions 里，避免散乱
   // 下载本地生成的歌曲到本地文件系统
