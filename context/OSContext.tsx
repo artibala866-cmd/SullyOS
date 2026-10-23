@@ -36,6 +36,8 @@ import { ensureCompanionVoiceAssetsForBackup, isCompanionVoiceAssetId } from '..
 import { collectCharacterCompanionVoiceAssetIds } from '../utils/companionPresets';
 import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/memoryPalace/db';
 import { ProactiveChat } from '../utils/proactiveChat';
+import { considerCharacterMemo } from '../utils/characterMemoAutonomy';
+import { readCharacterLifeEvents } from '../utils/characterLifeEvents';
 import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
 import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
 import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
@@ -2291,6 +2293,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               char, user: userProfileRef.current, groups: groupsRef.current,
               realtimeConfig: realtimeConfigRef.current, api
           });
+          void considerCharacterMemo({characterId:charId,name:char.name,persona:char.persona||'',api,events:readCharacterLifeEvents(charId)}).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
       };
       window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
       return () => window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
