@@ -1437,10 +1437,41 @@ const Appearance: React.FC = () => {
                     </div>
                 </section>
 
+                {/* Current grayscale launcher: independently editable filmstrip and page-three photographs. */}
+                <section className="bg-white rounded-3xl p-5 shadow-sm border border-neutral-200">
+                    <h2 className="text-sm font-bold text-neutral-800 mb-2">当前桌面 · 独立照片位置</h2>
+                    <p className="text-[11px] text-neutral-500 mb-4">每个位置都可以单独上传图片。未设置新图片时继续显示原有照片，不会丢失旧素材；长按已设置的预览可移除。</p>
+                    <div className="grid grid-cols-2 gap-3">
+                        {([
+                            ['film1', '主页 1 · 胶片 ①', 'tl'],
+                            ['film2', '主页 1 · 胶片 ②', 'tr'],
+                            ['film3', '主页 1 · 胶片 ③', 'wide'],
+                            ['film4', '主页 1 · 胶片 ④', 'dsq'],
+                            ['page3tl', '主页 3 · 左照片', 'tl'],
+                            ['page3tr', '主页 3 · 右照片', 'tr'],
+                            ['page3wide', '主页 3 · 横幅', 'wide'],
+                        ] as const).map(([slot, label, fallback]) => {
+                            const custom = theme.launcherWidgets?.[slot];
+                            const img = custom || theme.launcherWidgets?.[fallback];
+                            return <div key={slot} className="min-w-0">
+                                <div className="text-[11px] text-neutral-600 mb-1.5">{label}</div>
+                                <LongPressArea
+                                    className="h-24 rounded-2xl overflow-hidden relative bg-neutral-100 border border-neutral-200 cursor-pointer flex items-center justify-center"
+                                    onClick={() => { setActiveWidgetSlot(slot); widgetInputRef.current?.click(); }}
+                                    onLongPress={() => { if (custom) { removeWidget(slot); addToast('已恢复原有照片', 'success'); } }}
+                                >
+                                    {img ? <TokenImg value={img} className="w-full h-full object-cover" alt={label} /> : <span className="text-neutral-400 text-xl">＋</span>}
+                                </LongPressArea>
+                                <div className="text-[10px] text-neutral-400 mt-1">{custom ? '已单独设置 · 长按恢复' : '点击添加 / 更换'}</div>
+                            </div>;
+                        })}
+                    </div>
+                </section>
+
                 {/* Page 2 Widget Images */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">主页照片 · 四个独立图槽</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">当前桌面共有 4 个可独立上传的照片图槽：左照片、右照片、横幅、拍立得。主页 1 胶片与主页 3 照片展示复用对应图槽；点击单独上传，长按移除。</p>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">原有照片素材 · 基础图槽</h2>
+                    <p className="text-[10px] text-slate-400 mb-4">这些是原有照片数据，继续保留以兼容旧布局。上方已新增 7 个独立照片位置；原有素材不会被自动删除。</p>
                     <input type="file" ref={widgetInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWidgetUpload(e.target.files[0])} />
                     <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <div className="flex gap-2">
