@@ -49,7 +49,7 @@ import {
     getExternalMemoryOverLimitMessage,
 } from '../utils/memoryPalace/externalMemory';
 
-// ── 神经链接 · 列表页视觉件（淡紫留白风）────────────────────
+// ── 神经链接 · 列表页视觉件（黑白灰留白风）────────────────────
 // 之前的「星点 + 玻璃饰带 + 华丽头像框」看久了眼花、低端机也重绘卡。
 // 改成留白为主的干净版：纯淡紫底、圆角方钮、朴素圆头像、素白卡片。
 // 无常驻动画 / 无 filter / 无大模糊阴影，既清爽又省电。仅列表页，编辑页不动。
@@ -57,10 +57,10 @@ import {
 /** 顶栏圆角方钮（squircle）：白底细紫描边 + 线性图标 + 底部小字标签 */
 const ToolButton: React.FC<{ label: string; title?: string; onClick: () => void; children: React.ReactNode }> = ({ label, title, onClick, children }) => (
     <button onClick={onClick} title={title} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
-        <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-violet-200/80 text-violet-500 shadow-[0_2px_6px_rgba(140,120,200,0.10)]">
+        <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-200/80 text-slate-500 shadow-[0_2px_6px_rgba(15,23,42,0.10)]">
             {children}
         </span>
-        <span className="text-[11px] text-violet-400/90 font-medium tracking-wider">{label}</span>
+        <span className="text-[11px] text-slate-400/90 font-medium tracking-wider">{label}</span>
     </button>
 );
 
@@ -74,26 +74,26 @@ const CharacterCard: React.FC<{
     <div
         data-guide={char.id === 'preset-sully-v2' ? 'sully-card' : undefined}
         onClick={onClick}
-        className={`relative px-4 py-3.5 rounded-3xl border bg-white transition-colors cursor-pointer group shrink-0 shadow-[0_2px_10px_rgba(140,120,200,0.07)] ${
-            active ? 'border-violet-300' : 'border-slate-100 hover:border-violet-200'
+        className={`relative px-4 py-3.5 rounded-3xl border bg-white transition-colors cursor-pointer group shrink-0 shadow-[0_2px_10px_rgba(15,23,42,0.07)] ${
+            active ? 'border-slate-300' : 'border-slate-100 hover:border-slate-200'
         }`}
     >
         <div className="flex items-center gap-4">
-            <div className="w-14 h-14 shrink-0 rounded-full overflow-hidden border border-violet-100 bg-violet-50">
+            <div className="w-14 h-14 shrink-0 rounded-full overflow-hidden border border-slate-100 bg-slate-50">
                 <TokenImg value={char.avatar} className="w-full h-full object-cover" alt={char.name} />
             </div>
             <div className="flex-1 min-w-0 pr-6">
                 <h3 className="text-lg font-bold truncate text-slate-800">
                     {char.name}
                 </h3>
-                <p className="text-xs truncate mt-0.5 text-violet-400/80">
+                <p className="text-xs truncate mt-0.5 text-slate-400/80">
                     {char.description || '暂无描述'}
                 </p>
             </div>
         </div>
         <button
             onClick={onDelete}
-            className="absolute top-1/2 -translate-y-1/2 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-300 hover:text-violet-400 hover:border-violet-200 active:scale-90 transition-colors"
+            className="absolute top-1/2 -translate-y-1/2 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-300 hover:text-slate-400 hover:border-slate-200 active:scale-90 transition-colors"
         >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -1234,10 +1234,10 @@ ${isInitialGeneration ? `
                {/* safe-area: pt 用 max(3.5rem, 刘海高度)，保呼吸感同时更高刘海设备不被挡 */}
                <div className="px-6 pb-4 shrink-0 flex items-start justify-between" style={{ paddingTop: 'max(3.5rem, var(--safe-top))' }}>
                    <div className="relative">
-                       <span className="absolute -top-3 -left-2 text-violet-300 text-xs select-none">✦</span>
-                       <span className="absolute -top-1 left-9 text-violet-200 text-[10px] select-none">✦</span>
+                       <span className="absolute -top-3 -left-2 text-slate-300 text-xs select-none">✦</span>
+                       <span className="absolute -top-1 left-9 text-slate-200 text-[10px] select-none">✦</span>
                        <h1 className="text-[30px] font-serif font-bold tracking-wide leading-tight text-slate-800">神经链接</h1>
-                       <p className="text-xs text-violet-400/90 mt-2">已建立 <span className="font-bold text-violet-500">{characters.length}</span> 个角色连接</p>
+                       <p className="text-xs text-slate-400/90 mt-2">已建立 <span className="font-bold text-slate-500">{characters.length}</span> 个角色连接</p>
                    </div>
                    <div className="flex gap-3 pt-1">
                         <ToolButton label="分组" title="角色分组管理" onClick={() => { setShowGroupModal(true); trackEvent('打开角色分组管理弹窗'); }}>
@@ -1283,12 +1283,12 @@ ${isInitialGeneration ? `
                                            <div key={section.id} className="shrink-0">
                                                {/* 分组条：干净的圆角白卡，左折叠箭头 + 组名 + 数量胶囊，右侧 ">" 指示可展开 */}
                                                <button onClick={() => toggleGroupExpanded(section.id)}
-                                                   className={`w-full h-14 flex items-center gap-3 px-5 rounded-2xl bg-white border transition-colors active:scale-[0.99] ${expanded ? 'border-violet-200' : 'border-slate-100 hover:border-violet-200'} shadow-[0_2px_10px_rgba(140,120,200,0.07)]`}>
-                                                   <svg viewBox="0 0 12 12" className={`w-3 h-3 text-violet-400 transition-transform ${expanded ? '' : '-rotate-90'}`}>
+                                                   className={`w-full h-14 flex items-center gap-3 px-5 rounded-2xl bg-white border transition-colors active:scale-[0.99] ${expanded ? 'border-slate-200' : 'border-slate-100 hover:border-slate-200'} shadow-[0_2px_10px_rgba(15,23,42,0.07)]`}>
+                                                   <svg viewBox="0 0 12 12" className={`w-3 h-3 text-slate-400 transition-transform ${expanded ? '' : '-rotate-90'}`}>
                                                        <path d="M2 4l4 5 4-5z" fill="currentColor" />
                                                    </svg>
                                                    <span className="text-base font-bold text-slate-700 tracking-wide truncate">{section.name}</span>
-                                                   <span className="min-w-[26px] px-2 py-0.5 rounded-full bg-violet-100/70 text-[12px] text-violet-500 text-center font-medium tabular-nums">{section.chars.length}</span>
+                                                   <span className="min-w-[26px] px-2 py-0.5 rounded-full bg-slate-100/70 text-[12px] text-slate-500 text-center font-medium tabular-nums">{section.chars.length}</span>
                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 ml-auto text-slate-300 transition-transform ${expanded ? 'rotate-90' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
                                                </button>
                                                {expanded && (
@@ -1306,14 +1306,14 @@ ${isInitialGeneration ? `
                                                            />
                                                        ))}
                                                        {section.chars.length === 0 && (
-                                                           <div className="text-xs text-violet-300 px-3 pb-1">空分组——在角色「设定」页里指派</div>
+                                                           <div className="text-xs text-slate-300 px-3 pb-1">空分组——在角色「设定」页里指派</div>
                                                        )}
                                                    </div>
                                                )}
                                            </div>
                                        );
                                    })}
-                                   <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-violet-300/70 text-violet-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
+                                   <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-slate-300/70 text-slate-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>新建链接
                                    </button>
                                </>
@@ -1337,18 +1337,18 @@ ${isInitialGeneration ? `
                                        }}
                                    />
                                ))}
-                               <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-violet-300/70 text-violet-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
+                               <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-slate-300/70 text-slate-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>新建链接
                                </button>
                                {totalPages > 1 && (
                                    <div className="flex items-center justify-center gap-3 pt-2 shrink-0">
                                        <button onClick={() => setCharPage(Math.max(0, page - 1))} disabled={page === 0}
-                                           className="w-9 h-9 rounded-full bg-white/70 border border-violet-100 shadow-sm flex items-center justify-center text-violet-400 disabled:opacity-30 active:scale-90 transition-all">
+                                           className="w-9 h-9 rounded-full bg-white/70 border border-slate-100 shadow-sm flex items-center justify-center text-slate-400 disabled:opacity-30 active:scale-90 transition-all">
                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                                        </button>
-                                       <span className="text-sm text-violet-500 font-medium tabular-nums min-w-[40px] text-center">{page + 1}/{totalPages}</span>
+                                       <span className="text-sm text-slate-500 font-medium tabular-nums min-w-[40px] text-center">{page + 1}/{totalPages}</span>
                                        <button onClick={() => setCharPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
-                                           className="w-9 h-9 rounded-full bg-white/70 border border-violet-100 shadow-sm flex items-center justify-center text-violet-400 disabled:opacity-30 active:scale-90 transition-all">
+                                           className="w-9 h-9 rounded-full bg-white/70 border border-slate-100 shadow-sm flex items-center justify-center text-slate-400 disabled:opacity-30 active:scale-90 transition-all">
                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
                                        </button>
                                    </div>
@@ -1496,7 +1496,7 @@ ${isInitialGeneration ? `
                            {/* 时间感知 & 时区：三个独立开关，可任意组合（聊天时间感知 / 自定义时区 / 线下时间感知） */}
                            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-4">
                                <div>
-                                   <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">时间感知 & 时区</label>
+                                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">时间感知 & 时区</label>
                                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">下面三个开关相互独立、可任意组合。改完即时生效（下一条回复起算）。</p>
                                </div>
 
@@ -1643,7 +1643,7 @@ ${isInitialGeneration ? `
                                    <div className="flex gap-1.5">
                                        <button
                                            onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.VoiceDesigner); }}
-                                           className="text-[10px] bg-violet-50 text-violet-700 px-2 py-1 rounded font-bold hover:bg-violet-100 flex items-center gap-0.5"
+                                           className="text-[10px] bg-slate-50 text-slate-700 px-2 py-1 rounded font-bold hover:bg-slate-100 flex items-center gap-0.5"
                                        >
                                            <SlidersHorizontal size={10} weight="bold" /> 捏声音
                                        </button>
@@ -1658,9 +1658,9 @@ ${isInitialGeneration ? `
                                </div>
                                <p className="text-[11px] text-slate-500">已有 voice_id 可直接填，不依赖查询。聊天角色配置后，后续接 TTS 可直接读取。</p>
 
-                               <div className="rounded-2xl border border-violet-200/60 bg-violet-50/40 p-2.5 space-y-2">
+                               <div className="rounded-2xl border border-slate-200/60 bg-slate-50/40 p-2.5 space-y-2">
                                    <div className="flex items-center justify-between gap-2">
-                                       <span className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">MiniMax 合成参数</span>
+                                       <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">MiniMax 合成参数</span>
                                        <span className="text-[9px] text-slate-400">老角色默认经典</span>
                                    </div>
                                    <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/80 p-1">
@@ -1677,7 +1677,7 @@ ${isInitialGeneration ? `
                                                        ...(formData.voiceProfile || {}),
                                                        minimaxParamVersion: version,
                                                    })}
-                                                   className={`rounded-lg px-2 py-1.5 text-[10px] font-bold transition-colors ${activeVersion === version ? 'bg-violet-500 text-white shadow-sm' : 'text-slate-400'}`}
+                                                   className={`rounded-lg px-2 py-1.5 text-[10px] font-bold transition-colors ${activeVersion === version ? 'bg-slate-500 text-white shadow-sm' : 'text-slate-400'}`}
                                                >
                                                    {label}
                                                </button>
@@ -1738,14 +1738,14 @@ ${isInitialGeneration ? `
                                </div>
 
                                {/* ElevenLabs 音色：角色独立保存，设置页只负责 Key / 模型。 */}
-                               <div className="rounded-2xl border border-violet-200/60 bg-violet-50/40 p-2.5 space-y-1.5">
+                               <div className="rounded-2xl border border-slate-200/60 bg-slate-50/40 p-2.5 space-y-1.5">
                                    <div className="flex items-center justify-between gap-2">
-                                       <div className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">ElevenLabs 音色</div>
+                                       <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">ElevenLabs 音色</div>
                                        <button
                                            type="button"
                                            onClick={() => void handleTestElevenLabsVoice()}
                                            disabled={isTestingElevenLabsVoice}
-                                           className="text-[10px] rounded-lg border border-violet-200 bg-white px-2 py-1 font-bold text-violet-600 disabled:opacity-50"
+                                           className="text-[10px] rounded-lg border border-slate-200 bg-white px-2 py-1 font-bold text-slate-600 disabled:opacity-50"
                                        >
                                            {isTestingElevenLabsVoice ? '试听中…' : '试听'}
                                        </button>
@@ -1821,8 +1821,8 @@ ${isInitialGeneration ? `
                            {/* Worldbook Section */}
                            <div>
                                <div className="flex justify-between items-center mb-2 px-1">
-                                   <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block flex items-center gap-1"><Books size={12} /> 扩展设定 (Worldbooks)</label>
-                                   <button onClick={openWorldbookModal} className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold hover:bg-indigo-100">+ 挂载</button>
+                                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block flex items-center gap-1"><Books size={12} /> 扩展设定 (Worldbooks)</label>
+                                   <button onClick={openWorldbookModal} className="text-[10px] bg-slate-50 text-slate-600 px-2 py-1 rounded font-bold hover:bg-slate-100">+ 挂载</button>
                                 </div>
                                 <div className="space-y-2">
                                    {formData.mountedWorldbooks && formData.mountedWorldbooks.length > 0 ? (
@@ -1831,7 +1831,7 @@ ${isInitialGeneration ? `
                                            groups.set(category, [...(groups.get(category) || []), book]);
                                            return groups;
                                        }, new Map<string, NonNullable<CharacterProfile['mountedWorldbooks']>>())].map(([category, books]) => (
-                                           <details key={category} className="rounded-2xl border border-indigo-50 bg-white overflow-hidden" data-mounted-worldbook-group={category}>
+                                           <details key={category} className="rounded-2xl border border-slate-50 bg-white overflow-hidden" data-mounted-worldbook-group={category}>
                                                <summary className="cursor-pointer px-4 py-3 text-xs font-bold text-slate-700 break-words">{category} <span className="font-normal text-slate-400">· {books.length} 条</span></summary>
                                                <div className="px-4 pb-3">
                                                    <div className="mb-2 flex justify-end"><button type="button" onClick={() => {
@@ -1970,14 +1970,14 @@ ${isInitialGeneration ? `
            <div className="space-y-3">
                <p className="text-xs text-slate-400">将遍历所有聊天记录，按天使用所选提示词模板生成记忆总结。</p>
                {/* Prompt Selection */}
-               <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100">
-                   <label className="text-[10px] font-bold text-indigo-400 uppercase mb-2 block">选择提示词模板</label>
+               <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">选择提示词模板</label>
                    <div className="flex flex-col gap-2">
                        {archivePrompts.map(p => (
-                           <div key={p.id} onClick={() => { setSelectedPromptId(p.id); localStorage.setItem('chat_active_archive_prompt_id', p.id); }} className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between ${selectedPromptId === p.id ? 'bg-white border-indigo-500 shadow-sm ring-1 ring-indigo-500' : 'bg-white/50 border-indigo-200 hover:bg-white'}`}>
-                               <span className={`text-xs font-bold ${selectedPromptId === p.id ? 'text-indigo-700' : 'text-slate-600'}`}>{p.name}</span>
+                           <div key={p.id} onClick={() => { setSelectedPromptId(p.id); localStorage.setItem('chat_active_archive_prompt_id', p.id); }} className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between ${selectedPromptId === p.id ? 'bg-white border-slate-500 shadow-sm ring-1 ring-slate-500' : 'bg-white/50 border-slate-200 hover:bg-white'}`}>
+                               <span className={`text-xs font-bold ${selectedPromptId === p.id ? 'text-slate-700' : 'text-slate-600'}`}>{p.name}</span>
                                <div className="flex gap-1.5">
-                                   <button onClick={(e) => { e.stopPropagation(); setEditingPrompt(p); setShowPromptEditor(true); }} className="text-[10px] text-slate-400 hover:text-indigo-500 px-2 py-0.5 rounded bg-slate-100 hover:bg-indigo-50">查看</button>
+                                   <button onClick={(e) => { e.stopPropagation(); setEditingPrompt(p); setShowPromptEditor(true); }} className="text-[10px] text-slate-400 hover:text-slate-500 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-50">查看</button>
                                    {!p.id.startsWith('preset_') && (
                                        <button onClick={(e) => { e.stopPropagation(); const next = archivePrompts.filter(ap => ap.id !== p.id); setArchivePrompts(next); localStorage.setItem('chat_archive_prompts', JSON.stringify(next.filter(ap => !ap.id.startsWith('preset_')))); if (selectedPromptId === p.id) setSelectedPromptId('preset_rational'); }} className="text-[10px] text-red-300 hover:text-red-500 px-1.5 py-0.5 rounded hover:bg-red-50">x</button>
                                    )}
@@ -1985,7 +1985,7 @@ ${isInitialGeneration ? `
                            </div>
                        ))}
                    </div>
-                   <button onClick={() => { const newP = { id: `custom_${Date.now()}`, name: '新自定义模板', content: DEFAULT_ARCHIVE_PROMPTS[0].content }; setEditingPrompt(newP); setShowPromptEditor(true); }} className="mt-2 w-full py-1.5 text-xs font-bold text-indigo-500 border border-dashed border-indigo-300 rounded-lg hover:bg-indigo-100">+ 新建自定义提示词</button>
+                   <button onClick={() => { const newP = { id: `custom_${Date.now()}`, name: '新自定义模板', content: DEFAULT_ARCHIVE_PROMPTS[0].content }; setEditingPrompt(newP); setShowPromptEditor(true); }} className="mt-2 w-full py-1.5 text-xs font-bold text-slate-500 border border-dashed border-slate-300 rounded-lg hover:bg-slate-100">+ 新建自定义提示词</button>
                </div>
                {/* Date Range */}
                <div className="flex gap-2">
@@ -2052,7 +2052,7 @@ ${isInitialGeneration ? `
                             value={wbModalSearch}
                             onChange={e => setWbModalSearch(e.target.value)}
                             placeholder="搜索世界书标题或分组..."
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:bg-white focus:border-indigo-300 transition-all"
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:bg-white focus:border-slate-300 transition-all"
                         />
                         {wbModalSearchResults ? (
                             // 搜索态：扁平结果列表
@@ -2067,7 +2067,7 @@ ${isInitialGeneration ? `
                                                 key={wb.id}
                                                 onClick={() => !isMounted && mountWorldbook(wb.id)}
                                                 disabled={isMounted}
-                                                className={`w-full p-3 rounded-xl border text-left transition-all ${isMounted ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed' : 'bg-white border-indigo-100 hover:border-indigo-300 shadow-sm active:scale-95'}`}
+                                                className={`w-full p-3 rounded-xl border text-left transition-all ${isMounted ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm active:scale-95'}`}
                                             >
                                                 <div className="flex justify-between items-center gap-2">
                                                     <span className="font-bold text-slate-700 text-sm truncate">{wb.title}</span>
@@ -2101,7 +2101,7 @@ ${isInitialGeneration ? `
                                             <span className="text-[10px] text-slate-400 shrink-0">{books.length}</span>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); mountCategory(category); }}
-                                                className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold hover:bg-indigo-100 shrink-0"
+                                                className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded font-bold hover:bg-slate-100 shrink-0"
                                             >
                                                 挂载整组
                                             </button>
@@ -2115,7 +2115,7 @@ ${isInitialGeneration ? `
                                                             key={wb.id}
                                                             onClick={() => !isMounted && mountWorldbook(wb.id)}
                                                             disabled={isMounted}
-                                                            className={`w-full p-3 rounded-xl border text-left transition-all ${isMounted ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed' : 'bg-white border-indigo-100 hover:border-indigo-300 shadow-sm active:scale-95'}`}
+                                                            className={`w-full p-3 rounded-xl border text-left transition-all ${isMounted ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm active:scale-95'}`}
                                                         >
                                                             <div className="flex justify-between items-center gap-2">
                                                                 <span className="font-bold text-slate-700 text-sm truncate">{wb.title}</span>
