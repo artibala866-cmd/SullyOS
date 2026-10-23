@@ -1,6 +1,9 @@
 export type NpcProfile = {
   id: string;
   name: string;
+  nickname?: string;
+  realName?: string;
+  remark?: string;
   identity: string;
   personality: string;
   relationship: string;
