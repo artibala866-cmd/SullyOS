@@ -98,7 +98,6 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Schedule, name: '番茄钟', icon: 'Schedule', color: 'cyan' },
   { id: AppID.Worldbook, name: '世界书', icon: 'Worldbook', color: 'indigo' },
   { id: AppID.HotNews, name: '热点', icon: 'HotNews', color: 'red' },
-  { id: AppID.Gallery, name: '相册', icon: 'Gallery', color: 'orange' },
   { id: AppID.XhsFreeRoam, name: '自由活动', icon: 'XhsFreeRoam', color: 'rose' },
   { id: AppID.XhsStock, name: '小红书图库', icon: 'XhsStock', color: 'red' },
   { id: AppID.Appearance, name: '外观', icon: 'Appearance', color: 'slate' },
