@@ -201,7 +201,7 @@ ${scheduleContext}
     } catch { return; }
     void generateInbox();
   },[screen,tab,characterId,api.apiKey,api.model,api.baseUrl]);
-  const generate = async (npcName = '') => {
+  const generate = async (npcName = '', guidance = '') => {
     if (busy) return;
     if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先在 SullyOS 设置中配置聊天 API'); return; }
     const profile = profiles.find(p => p.id === npcName) || (!npcName && profiles.length === 1 ? profiles[0] : undefined);
@@ -216,7 +216,7 @@ ${scheduleContext}
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
         body: JSON.stringify({ model: api.model, stream: false, temperature: 0.85, messages: [
           { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt.slice(0, 42000)}。现在生成角色「${name}」手机里的微信消息，不要直接回复User。手机主人Char的ID是${characterId}。${scheduleContext}固定NPC档案：姓名${profile.name}，身份${profile.identity}，性格${profile.personality}，与角色关系${profile.relationship}，背景${profile.background}。必须严格遵守该档案，不得更名、改身份或改关系。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => (m.speaker?.role === 'owner' ? '[手机主人]' : m.speaker?.role === 'contact' ? '[联系人]' : '[旧消息身份未验证]') + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"${profile.name}","messages":[{"speaker":"contact","text":"短消息"},{"speaker":"owner","text":"短消息"}]}。speaker只能为owner或contact，owner是手机主人Char，contact是当前联系人；即使双方同名或是水仙，也绝对不能根据名字推断发言者。User不是NPC，不能混入。必须生成8到14条独立的微信消息，双方都要有发言，每条一条气泡，禁止把整段对话塞入单条text。至少8条，否则视为失败。不要markdown。已有记录：${context}` },
-          { role: 'user', content: '生成一段符合角色设定、像真实朋友微信聊天一样的日常对话。' }
+          { role: 'user', content: '生成一段符合角色设定、像真实朋友微信聊天一样的日常对话。'+(guidance.trim()?'参考方向（不是User发送的消息）：'+guidance.trim().slice(0,300):'') }
         ] })
       });
       const json = await safeResponseJson(response);
