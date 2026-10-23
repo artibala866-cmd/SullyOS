@@ -2,15 +2,17 @@ import React from 'react';
 import { setMomentLike, addMomentComment, deleteCharacterMoment } from '../../utils/characterPhoneMoments';
 import { useState } from 'react';
 import type { CharacterMoment } from '../../utils/characterPhoneMoments';
+import type { UserProfile } from '../../types';
 import type { NpcProfile } from '../../utils/characterPhoneNpcs';
 
-export function MomentsTimeline({name,characterId,posts,contacts}:{name:string;characterId:string;posts:CharacterMoment[];contacts:NpcProfile[]}) {
+export function MomentsTimeline({name,characterId,posts,contacts,charAvatar,userProfile}:{name:string;characterId:string;posts:CharacterMoment[];contacts:NpcProfile[];charAvatar?:string;userProfile?:UserProfile}) {
   const [reply,setReply]=useState('');
   const [draft,setDraft]=useState('');
+  const avatar=(id:string)=>id===characterId?charAvatar:id==='user'?(userProfile?.perCharAvatars?.[characterId]||userProfile?.avatar):undefined;
   const label=(id:string)=>id===characterId?name:contacts.find(p=>p.id===id)?.nickname||contacts.find(p=>p.id===id)?.name||'微信好友';
   return <section className="bg-white">
     {posts.filter(p=>!p.deletedAt).map(p=><article key={p.id} className="flex gap-3 border-b border-gray-100 px-4 py-5">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-teal-200">{label(p.authorId).slice(0,1)}</div>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-teal-200">{avatar(p.authorId)?<img src={avatar(p.authorId)} alt={label(p.authorId)+'头像'} className="h-full w-full rounded object-cover"/>:label(p.authorId).slice(0,1)}</div>
       <div className="min-w-0 flex-1"><strong className="text-[#536c93]">{label(p.authorId)}</strong><p className="mt-2 whitespace-pre-wrap break-words text-sm">{p.text}</p>
       {!!p.imageUrls?.length&&<div className="mt-2 grid grid-cols-3 gap-1">{p.imageUrls.map((url,i)=><img key={i} src={url} alt="朋友圈图片" className="aspect-square w-full object-cover"/>)}</div>}
       <div className="mt-3 flex items-center justify-between text-xs text-gray-400"><time>{new Date(p.createdAt).toLocaleString('zh-CN')}</time><span className="flex gap-3"><button onClick={()=>setMomentLike(characterId,p.id,'user',!p.likes?.some(l=>l.actorId==='user'))}>赞</button><button onClick={()=>setReply(p.id)}>评论</button>{p.authorId===characterId&&<button onClick={()=>{if(window.confirm('删除这条朋友圈？'))deleteCharacterMoment(characterId,p.id,'user');}}>删除</button>}</span></div>
