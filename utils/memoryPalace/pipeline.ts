@@ -1557,7 +1557,7 @@ export async function ingestDiaryToPalace(
     // 角色 / 用户档案给 LLM 当上下文
     let charContext = `[角色档案]\n名字: ${char.name}\n核心设定:\n${char.systemPrompt || '无'}\n`;
     if (char.worldview?.trim()) charContext += `世界观: ${char.worldview}\n`;
-    charContext += `\n[用户档案]\n名字: ${userName || '用户'}\n\n[来源说明]\n这是来自【交换日记】app 的一次归档，不是普通聊天，是一篇双方各写一页的正式日记。\n`;
+    charContext += `\n[用户档案]\n名字: ${userName || '用户'}\n\n[来源说明]\n${minimumImportance > 0 ? '这是角色手机中已保存的生活内容，只提取明确发生、值得长期记住的角色经历；聊天里的计划、传闻、猜测不可当成已发生事实。' : '这是来自【交换日记】app 的一次归档，不是普通聊天，是一篇双方各写一页的正式日记。'}\n`;
 
     const extracted = await extractMemoriesFromBuffer(
         fakeMessages,
