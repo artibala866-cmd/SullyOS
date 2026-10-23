@@ -134,7 +134,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     try {
       const context = await loadRealContext();
       const existing = records.map(r => ({ id:r.contactId || r.id, name:r.name, recent:r.messages.slice(-6).map(m=>({role:m.speaker?.role,text:m.text})) }));
-      const response = await fetch(api.baseUrl.replace(/\\/+$/, '') + '/chat/completions', {
+      const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+api.apiKey},
         body:JSON.stringify({model:api.model,stream:false,temperature:0.8,messages:[
           {role:'system',content:`以下是私聊真实的角色系统上下文（包括世界书、性格、生活状态）：${context.systemPrompt.slice(0,36000)}。
@@ -149,7 +149,7 @@ ${scheduleContext}
       });
       const json = await safeResponseJson(response);
       if(!response.ok) throw new Error(json?.error?.message || 'HTTP '+response.status);
-      const raw=extractContent(json).trim().replace(/^```(?:json)?\\s*/i,'').replace(/\\s*```$/,'');
+      const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
       const data=JSON.parse(raw);
       if(!Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
       const incoming: ChatRecord[]=[];
