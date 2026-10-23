@@ -626,6 +626,26 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setListeningInvites(prev => ({ ...prev, [charId]: accepted ? 'accepted' : 'rejected' }));
     if (accepted) addListeningPartner(charId);
   }, [addListeningPartner]);
+  useEffect(() => {
+    const onAnswer = (event: Event) => {
+      const detail = (event as CustomEvent<{ charId: string; messageId: number; accepted: boolean }>).detail;
+      if (!detail?.charId || !Number.isInteger(detail.messageId)) return;
+      void (async () => {
+        const messages = await DB.getMessagesByCharId(detail.charId);
+        const invitation = messages.find(m => m.id === detail.messageId && m.metadata?.musicListenInvite && m.metadata?.inviter === 'char');
+        if (!invitation || messages.some(m => m.metadata?.musicListenInviteResponseTo === detail.messageId)) return;
+        await DB.saveMessage({
+          charId: detail.charId, role: 'user', type: 'system',
+          content: detail.accepted ? '[一起听邀请] 已接受邀请。' : '[一起听邀请] 已拒绝邀请。',
+          metadata: { musicListenInviteResponseTo: detail.messageId, accepted: detail.accepted },
+        });
+        respondListeningInvite(detail.charId, detail.accepted);
+        window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', { detail }));
+      })().catch(err => console.warn('[MusicTogether] 邀请回应保存失败', err));
+    };
+    window.addEventListener('music-listen-invite-answer', onAnswer);
+    return () => window.removeEventListener('music-listen-invite-answer', onAnswer);
+  }, [respondListeningInvite]);
   const listeningStartedAtRef = useRef(listeningStartedAt);
   listeningStartedAtRef.current = listeningStartedAt;
   const removeListeningPartner = useCallback((charId: string) => {
