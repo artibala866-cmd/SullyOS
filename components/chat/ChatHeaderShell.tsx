@@ -427,7 +427,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
                         {triggerIconNode}
                     </button>}
                     {extraAction && (
-                        <button onClick={extraAction.onClick} className={`absolute right-10 bottom-2 p-2 ${iconButtonClass}`} title={extraAction.label} aria-label={extraAction.label}>
+                        <button onClick={extraAction.onClick} className={`absolute ${hideTrigger ? "right-0" : "right-10"} bottom-2 p-2 ${iconButtonClass}`} title={extraAction.label} aria-label={extraAction.label}>
                             {extraAction.icon}
                         </button>
                     )}
