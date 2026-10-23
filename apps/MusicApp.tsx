@@ -33,7 +33,7 @@ const MusicApp: React.FC = () => {
     lyric, tlyric, activeLyricIdx,
     profile, playSong, togglePlay, nextSong, prevSong, seek,
     liked, toggleLike, setToastHandler,
-    listeningTogetherWith, removeListeningPartner,
+    listeningTogetherWith, listeningStartedAt, addListeningPartner, removeListeningPartner,
     addLocalSong, removeLocalSong, localAlbumSongs,
     playMode, setPlayMode,
     regeneratingId, regeneratingStatus,
@@ -235,6 +235,21 @@ const MusicApp: React.FC = () => {
         ))}
       </div>
 
+      {current && (
+        <div className="px-5 pb-2 flex items-center gap-2 flex-wrap relative z-10">
+          {listeningTogetherWith.length > 0
+            ? companions.map(c => (
+                <span key={c.id} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-600">
+                  与 {c.name} 一起听 · {Math.max(1, Math.floor((Date.now() - (listeningStartedAt[c.id] || Date.now())) / 60000))} 分钟
+                  <button className="ml-2 underline" onClick={() => removeListeningPartner(c.id)}>结束</button>
+                </span>
+              ))
+            : characters.slice(0, 4).map(c => (
+                <button key={c.id} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-600"
+                  onClick={() => addListeningPartner(c.id)}>邀请 {c.name} 一起听</button>
+              ))}
+        </div>
+      )}
       {current && (
         <MiniPlayer
           name={current.name}
