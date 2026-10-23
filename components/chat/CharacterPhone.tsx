@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
 import { safeResponseJson, extractContent } from '../../utils/safeApi';
-import { readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
+import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
 type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings';
@@ -17,6 +17,15 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name:'', identity:'', personality:'', relationship:'', background:'' });
   const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
+  useEffect(() => {
+    setProfiles(readNpcProfiles(characterId));
+    const sync = (event: Event) => {
+      const detail = (event as CustomEvent<{ characterId: string }>).detail;
+      if (detail?.characterId === characterId) setProfiles(readNpcProfiles(characterId));
+    };
+    window.addEventListener(CHARACTER_PHONE_CONTACT_CHANGED, sync);
+    return () => window.removeEventListener(CHARACTER_PHONE_CONTACT_CHANGED, sync);
+  }, [characterId]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const storageKey = 'sully_character_phone_wechat_v1:' + characterId;
