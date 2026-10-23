@@ -28,6 +28,17 @@ describe('character schedule context', () => {
     expect(getDailyScheduleForChar).toHaveBeenCalledWith(char, now);
   });
 
+  it('keeps an absent schedule distinct from confirmed activity', async () => {
+    vi.mocked(getDailyScheduleForChar).mockResolvedValue(null);
+    vi.mocked(readCharacterLifeEvents).mockReturnValue([
+      { id: 'meal', characterId: 'char-a', kind: 'activity', occurredAt: now.getTime() - 2000, source: 'phone', summary: '已与朋友吃饭' },
+    ]);
+    const result = await getCharacterLifeScheduleContext(char, now);
+    expect(result.plannedActivity).toBeNull();
+    expect(result.plannedDescription).toBeNull();
+    expect(result.confirmedEvents.map(e => e.id)).toEqual(['meal']);
+  });
+
   it('only returns recent confirmed events belonging to this character', async () => {
     vi.mocked(getDailyScheduleForChar).mockResolvedValue(null);
     vi.mocked(readCharacterLifeEvents).mockReturnValue([
