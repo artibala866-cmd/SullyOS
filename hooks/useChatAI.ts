@@ -1,5 +1,5 @@
 import { resolveDialogueApi } from '../utils/characterApi';
-import { readCharacterAvatarLibrary, activateCharacterAvatar } from '../utils/characterAvatarLibrary';
+import { readCharacterAvatarLibrary, activateCharacterAvatar, addCharacterAvatar } from '../utils/characterAvatarLibrary';
 import { createReplyRun, withReplyCancellation } from '../utils/chatReplyCancellation';
 
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
@@ -933,7 +933,17 @@ export const useChatAI = ({
             })));
             const avatarLibrary = readCharacterAvatarLibrary(char.id);
             const avatarCandidates = avatarLibrary.autonomousEnabled ? avatarLibrary.entries.slice(0, 24) : [];
-            const avatarInstruction = avatarCandidates.length > 0 ? '\n\n[角色头像自主选择]你可以根据当前聊天语境和自己的性格决定是否换头像，但这应是少见且有动机的行为，绝不可每轮都换。仅能从以下已收藏头像编号中选择：' + avatarCandidates.map((e, i) => (i + 1) + ':' + e.id).join(', ') + '。如果确实决定换，请在回复最后独占一行输出 <char_avatar_choice id="头像ID"/>。没有换头像意图时不要输出标签；不要在普通聊天文字中提及指令。不得凭空指定图片。\n' : '';
+            // Only the most recent user-sent image is eligible; never trust an AI-provided URL.
+            const recentUserImage = [...contextMsgs].reverse().find(m => m.role === 'user' && m.type === 'image');
+            const chatImageEligible = avatarLibrary.autonomousEnabled && !!recentUserImage
+                && Date.now() - recentUserImage.timestamp < 20 * 60 * 1000
+                && (!avatarLibrary.lastChangedAt || Date.now() - avatarLibrary.lastChangedAt >= 24 * 60 * 60 * 1000);
+            const avatarInstruction = avatarLibrary.autonomousEnabled
+                ? '\\n\\n[角色头像自主选择]根据人设和当前对话自主判断是否换头像，不要频繁更换，也不要机械地接受所有图片。'
+                  + (avatarCandidates.length ? '可选收藏头像：' + avatarCandidates.map(e => e.id).join(', ') + '。' : '')
+                  + (chatImageEligible ? '最近的用户聊天图片可用于换头像，若你确实想用它，回复末尾独占一行输出 <char_avatar_choice id="chat_image"/>。' : '')
+                  + '若选择收藏头像则使用 <char_avatar_choice id="收藏头像ID"/>。不换则不输出指令。只能用提供的ID，不能生成图片URL。你也可以自然地邀请用户换情侣头像，但绝不能擅自更改用户头像。\\n'
+                : '';
             if (avatarInstruction) payload.fullMessages.unshift({ role: 'system', content: avatarInstruction } as any);
             const systemPrompt = payload.systemPrompt + avatarInstruction;
             const cleanedApiMessages = payload.cleanedApiMessages;
@@ -2110,10 +2120,17 @@ export const useChatAI = ({
                 directives: [],
                 sarModuleSurface: assistantSurfaceMeta,
             }));
-            if (avatarChoiceMatch && avatarCandidates.some(e => e.id === avatarChoiceMatch[1])) {
+            if (avatarChoiceMatch && avatarLibrary.autonomousEnabled) {
                 try {
-                    const image = activateCharacterAvatar(char.id, avatarChoiceMatch[1], true);
-                    if (image) await updateCharacter(char.id, { avatar: image });
+                    let selectedId = avatarChoiceMatch[1];
+                    if (selectedId === 'chat_image' && chatImageEligible && recentUserImage) {
+                        const entry = addCharacterAvatar(char.id, recentUserImage.content, 'chat');
+                        selectedId = entry.id;
+                    }
+                    if (selectedId !== 'chat_image' && (avatarCandidates.some(e => e.id === selectedId) || (chatImageEligible && selectedId === readCharacterAvatarLibrary(char.id).entries.find(e => e.image === recentUserImage?.content)?.id))) {
+                        const image = activateCharacterAvatar(char.id, selectedId, true);
+                        if (image) await updateCharacter(char.id, { avatar: image });
+                    }
                 } catch (avatarError) { console.warn('[Avatar] autonomous selection failed', avatarError); }
             }
             replyRun.markCompleted();
