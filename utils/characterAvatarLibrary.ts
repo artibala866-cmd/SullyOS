@@ -31,7 +31,7 @@ export function saveCharacterAvatarLibrary(characterId: string, data: CharacterA
   localStorage.setItem(key(characterId), JSON.stringify(data));
 }
 export function addCharacterAvatar(characterId: string, image: string, source: CharacterAvatarEntry['source'] = 'upload'): CharacterAvatarEntry {
-  if (!image || !/^(https?:\/\/|data:image\/|blob-ref:|blob:|asset:)/i.test(image)) {
+  if (!image || !/^(https?:\/\/|data:image\/|blobref:|blob-ref:|blob:|asset:|\/assets\/)/i.test(image)) {
     throw new Error('Unsupported avatar image reference');
   }
   const lib = readCharacterAvatarLibrary(characterId);
