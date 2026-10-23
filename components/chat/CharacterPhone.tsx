@@ -4,7 +4,7 @@ import { mirrorPrivateChat } from '../../utils/characterPhonePrivateSync';
 import type { PhoneThreadV2 } from '../../utils/characterPhoneModel';
 import { buildCharacterPhoneContext } from '../../utils/characterPhoneContext';
 import type { UserProfile, GroupProfile, RealtimeConfig } from '../../types';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
 import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
@@ -76,6 +76,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     return () => { live = false; window.clearInterval(timer); };
   }, [char.id, char.customTimezone, char.customTimezoneEnabled]);
   const [busy, setBusy] = useState(false);
+  const autoAttempted = useRef(false);
   const [error, setError] = useState('');
   const storageKey = 'sully_character_phone_wechat_v1:' + characterId;
   const [records, setRecords] = useState<ChatRecord[]>(() => {
@@ -177,6 +178,19 @@ ${scheduleContext}
     } catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{setBusy(false);}
   };
+  // Opening WeChat refreshes the simulated inbox at most once per 12 hours per character.
+  // Real User messages are mirrored separately; no NPC profile is required.
+  useEffect(() => {
+    if(screen!=='wechat' || tab!=='chats' || autoAttempted.current || busy || !api.apiKey || !api.model || !api.baseUrl) return;
+    autoAttempted.current=true;
+    const key='sully_phone_inbox_auto_at:'+characterId;
+    try {
+      const last=Number(localStorage.getItem(key)||'0');
+      if(Date.now()-last<12*60*60*1000) return;
+      localStorage.setItem(key,String(Date.now()));
+    } catch { return; }
+    void generateInbox();
+  },[screen,tab,characterId,api.apiKey,api.model,api.baseUrl]);
   const generate = async (npcName = '') => {
     if (busy) return;
     if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先在 SullyOS 设置中配置聊天 API'); return; }
