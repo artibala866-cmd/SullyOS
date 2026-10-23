@@ -215,8 +215,8 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
   },
   {
     id: 'default',
-    name: '默认风格',
-    desc: '暖米白纸感桌面 · 低对比柔和配色',
+    name: '黑白灰 · 当前桌面',
+    desc: '黑白灰 INS 桌面 · 对应当前黑胶与拍立得布局',
     swatch: DEFAULT_WALLPAPER,
     config: {
       skin: 'default',
@@ -1397,12 +1397,12 @@ const Appearance: React.FC = () => {
 
                 {/* Page 1 Desktop Square Image */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">首页方形图片</h2>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">主页 2 · 拍立得照片</h2>
                     <label className="flex items-center gap-2 mb-3 text-sm text-slate-700">
                         <input type="checkbox" checked={theme.launcherImageVisible !== false} onChange={e => updateTheme({ launcherImageVisible: e.target.checked })} />
                         显示图片组件
                     </label>
-                    <p className="text-[10px] text-slate-400 mb-4">桌面第二页的方形图片，长按下方预览可清除图片；取消勾选可隐藏组件。</p>
+                    <p className="text-[10px] text-slate-400 mb-4">对应主页 2 黑胶旁的拍立得照片。点击上传图片，长按预览移除；不会替换其他照片。</p>
                     <div className="flex justify-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         {(() => {
                             const slot = 'dsq';
@@ -1428,7 +1428,7 @@ const Appearance: React.FC = () => {
                                     ) : (
                                         <div className="text-slate-300 text-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 mx-auto mb-1"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                                            <span className="text-[10px]">方图</span>
+                                            <span className="text-[10px]">拍立得</span>
                                         </div>
                                     )}
                                 </LongPressArea>
@@ -1439,8 +1439,8 @@ const Appearance: React.FC = () => {
 
                 {/* Page 2 Widget Images */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">桌面小组件</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">上传小组件图片（如时钟截图、推图等），长按移除</p>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">主页 1 / 3 · 照片组件</h2>
+                    <p className="text-[10px] text-slate-400 mb-4">与桌面照片位置一一对应：主页 1 的双照片及横幅、主页 3 的双照片及横幅。点击单独上传，长按移除，不会覆盖其他照片。</p>
                     <input type="file" ref={widgetInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWidgetUpload(e.target.files[0])} />
                     <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <div className="flex gap-2">
