@@ -138,25 +138,25 @@ type PaperTheme = {
 };
 
 const PAPER_THEMES: Record<string, PaperTheme> = {
-    'kraft-paper': { background: '#ead7b6', ink: '#49392a', muted: '#8a7056', rule: 'rgba(113,82,51,.18)', accent: '#a6634a', sheet: 'rgba(255,248,232,.72)' },
-    'old-photo':   { background: '#e9dfc8', ink: '#494137', muted: '#887b68', rule: 'rgba(92,77,57,.16)', accent: '#a87958', sheet: 'rgba(255,252,239,.74)' },
-    'ink-wash':    { background: '#dce0e2', ink: '#293136', muted: '#69747a', rule: 'rgba(42,53,60,.14)', accent: '#596d77', sheet: 'rgba(250,252,252,.72)' },
-    'dried-rose':  { background: '#ead9d9', ink: '#543b42', muted: '#916f78', rule: 'rgba(108,65,77,.14)', accent: '#a96679', sheet: 'rgba(255,248,248,.72)' },
-    'midnight':    { background: '#1e2025', ink: '#f0e9df', muted: '#b7ada2', rule: 'rgba(255,255,255,.12)', accent: '#d8a9b8', sheet: 'rgba(34,37,43,.82)' },
-    'linen':       { background: '#eeece6', ink: '#3f3d39', muted: '#817d75', rule: 'rgba(77,73,66,.13)', accent: '#827b91', sheet: 'rgba(255,255,252,.75)' },
-    'tea-stain':   { background: '#eee0bd', ink: '#4d412f', muted: '#8d7756', rule: 'rgba(110,83,44,.15)', accent: '#a77645', sheet: 'rgba(255,249,229,.72)' },
-    'forest':      { background: '#d9e1d8', ink: '#2f4033', muted: '#6e806f', rule: 'rgba(45,75,52,.14)', accent: '#668267', sheet: 'rgba(248,253,247,.72)' },
+    'kraft-paper': { background: '#f3f3f3', ink: '#262626', muted: '#737373', rule: 'rgba(113,82,51,.18)', accent: '#525252', sheet: 'rgba(255,248,232,.72)' },
+    'old-photo':   { background: '#ededed', ink: '#262626', muted: '#737373', rule: 'rgba(92,77,57,.16)', accent: '#525252', sheet: 'rgba(255,252,239,.74)' },
+    'ink-wash':    { background: '#e5e5e5', ink: '#262626', muted: '#737373', rule: 'rgba(42,53,60,.14)', accent: '#525252', sheet: 'rgba(250,252,252,.72)' },
+    'dried-rose':  { background: '#efefef', ink: '#262626', muted: '#737373', rule: 'rgba(108,65,77,.14)', accent: '#737373', sheet: 'rgba(255,248,248,.72)' },
+    'midnight':    { background: '#202020', ink: '#fafafa', muted: '#b3b3b3', rule: 'rgba(255,255,255,.12)', accent: '#a3a3a3', sheet: 'rgba(34,37,43,.82)' },
+    'linen':       { background: '#f5f5f5', ink: '#262626', muted: '#737373', rule: 'rgba(77,73,66,.13)', accent: '#737373', sheet: 'rgba(255,255,252,.75)' },
+    'tea-stain':   { background: '#ebebeb', ink: '#262626', muted: '#737373', rule: 'rgba(110,83,44,.15)', accent: '#525252', sheet: 'rgba(255,249,229,.72)' },
+    'forest':      { background: '#e1e1e1', ink: '#262626', muted: '#737373', rule: 'rgba(45,75,52,.14)', accent: '#525252', sheet: 'rgba(248,253,247,.72)' },
 };
 
 const getPaperTheme = (styleId: string): PaperTheme => {
     if (!styleId.startsWith('custom:')) return PAPER_THEMES[styleId] || PAPER_THEMES.linen;
     const palette = styleId.slice('custom:'.length).split('-');
-    const from = palette[0] || '#f4c2cf';
-    const via = palette[1] || '#cfc3e8';
-    const to = palette[2] || '#9bcbf8';
+    const from = palette[0] || '#eeeeee';
+    const via = palette[1] || '#aaaaaa';
+    const to = palette[2] || '#555555';
     return {
         background: `linear-gradient(145deg, ${from} 0%, ${via} 52%, ${to} 100%)`,
-        ink: '#2f2a38',
+        ink: '#262626',
         muted: 'rgba(47,42,56,.62)',
         rule: 'rgba(47,42,56,.13)',
         accent: via,
@@ -218,9 +218,9 @@ const SongwritingApp: React.FC = () => {
         { section: 'chorus', lines: 4, chars: '6-10' },
     ]);
     const [showStructureBanner, setShowStructureBanner] = useState(true);
-    const [customCoverFrom, setCustomCoverFrom] = useState('#FB7185');
-    const [customCoverVia, setCustomCoverVia] = useState('#A855F7');
-    const [customCoverTo, setCustomCoverTo] = useState('#2563EB');
+    const [customCoverFrom, setCustomCoverFrom] = useState('#eeeeee');
+    const [customCoverVia, setCustomCoverVia] = useState('#aaaaaa');
+    const [customCoverTo, setCustomCoverTo] = useState('#555555');
 
     // Write View State
     const [inputText, setInputText] = useState('');
@@ -344,7 +344,7 @@ const SongwritingApp: React.FC = () => {
         }
 
         const [, palette = ''] = styleId.split(':');
-        const [from = '#FB7185', via = '#A855F7', to = '#2563EB'] = palette.split('-');
+        const [from = '#eeeeee', via = '#aaaaaa', to = '#555555'] = palette.split('-');
         return {
             textClass: 'text-white',
             className: '',
@@ -429,7 +429,7 @@ const SongwritingApp: React.FC = () => {
     const resetTempState = () => {
         setTempTitle(''); setTempSubtitle(''); setTempGenre('pop'); setTempMood('happy'); setTempLyricStyle('adaptive'); setTempLyricStyleCategory('chinese');
         setTempCollaboratorId(''); setTempCoverStyle(COVER_STYLES[0]?.id || 'dawn-blush');
-        setCustomCoverFrom('#FB7185'); setCustomCoverVia('#A855F7'); setCustomCoverTo('#2563EB');
+        setCustomCoverFrom('#eeeeee'); setCustomCoverVia('#aaaaaa'); setCustomCoverTo('#555555');
         setTempTemplate('free');
         setTempCustomSections([
             { section: 'verse', lines: 4, chars: '8-12' },
@@ -1460,9 +1460,9 @@ const SongwritingApp: React.FC = () => {
 
             // 樱粉 → 薰衣草 → 水蓝渐变背景
             const grad = ctx.createLinearGradient(0, 0, SIZE, SIZE);
-            grad.addColorStop(0, '#f2b8c6');
-            grad.addColorStop(0.5, '#c5b3e6');
-            grad.addColorStop(1, '#9bcbf8');
+            grad.addColorStop(0, '#eeeeee');
+            grad.addColorStop(0.5, '#aaaaaa');
+            grad.addColorStop(1, '#555555');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, SIZE, SIZE);
 
@@ -1697,7 +1697,7 @@ const SongwritingApp: React.FC = () => {
                     {drafts.length > 0 && (
                         <div>
                             <div className="flex items-center gap-3 mb-4 px-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                <div className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
                                 <h2 className="text-[10px] font-medium text-stone-400 uppercase tracking-[0.2em]">草稿</h2>
                                 <div className="flex-1 h-[1px] bg-stone-200/80" />
                             </div>
@@ -1740,7 +1740,7 @@ const SongwritingApp: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteSong(song.id); }} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-stone-100 text-stone-400 w-6 h-6 rounded-full flex items-center justify-center text-xs transition-opacity hover:bg-red-50 hover:text-red-400">×</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteSong(song.id); }} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-stone-100 text-stone-400 w-6 h-6 rounded-full flex items-center justify-center text-xs transition-opacity hover:bg-neutral-50 hover:text-neutral-400">×</button>
                                         </div>
                                     );
                                 })}
@@ -1791,7 +1791,7 @@ const SongwritingApp: React.FC = () => {
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>
                                                 </button>
                                             </div>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteSong(song.id); }} className="absolute top-2 right-12 opacity-0 group-hover:opacity-100 bg-stone-100 text-stone-400 w-6 h-6 rounded-full flex items-center justify-center text-xs transition-opacity hover:bg-red-50 hover:text-red-400">×</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteSong(song.id); }} className="absolute top-2 right-12 opacity-0 group-hover:opacity-100 bg-stone-100 text-stone-400 w-6 h-6 rounded-full flex items-center justify-center text-xs transition-opacity hover:bg-neutral-50 hover:text-neutral-400">×</button>
                                         </div>
                                     );
                                 })}
@@ -3159,7 +3159,7 @@ const SongwritingApp: React.FC = () => {
                                 className="w-full rounded-xl px-3 py-2 text-[12px] font-mono focus:outline-none transition-colors resize-none"
                                 style={{
                                     background: '#0d1418',
-                                    color: '#9bcbf8',
+                                    color: '#555555',
                                     border: `1px solid ${MusicC.primary}40`,
                                 }}
                             />
