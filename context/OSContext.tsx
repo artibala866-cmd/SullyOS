@@ -2296,6 +2296,32 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // The sync layer already coalesces updates, retries, and skips chars without AI tasks.
           if (recordedEvent.source === 'phone') {
               markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
+              // Only substantive first-hand phone posts have enough source material for
+              // a conservative palace extraction. A generic "chatted with NPC" event
+              // or a new contact is not evidence of an important life experience.
+              if (char.memoryPalaceEnabled && recordedEvent.kind === 'moment-post'
+                  && recordedEvent.summary.length >= 65 && recordedEvent.occurredAt <= Date.now()) {
+                  const key = 'sully_phone_palace_ingested_v1:' + charId;
+                  const eventId = recordedEvent.id;
+                  const previously = (() => {
+                      try { return JSON.parse(localStorage.getItem(key) || '[]') as string[]; } catch { return []; }
+                  })();
+                  if (!previously.includes(eventId)) {
+                      const config = memoryPalaceConfigRef.current;
+                      const llm = config.lightLLM?.baseUrl ? config.lightLLM : resolveDialogueApi(apiConfigRef.current, char);
+                      const date = new Date(recordedEvent.occurredAt);
+                      const dateKey = [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
+                      void import('../utils/memoryPalace/pipeline').then(({ ingestDiaryToPalace }) =>
+                          ingestDiaryToPalace(char, dateKey, '', 
+                              '[已发布的角色本人朋友圈，非计划或日程]\\n' + recordedEvent.summary,
+                              llm, userProfileRef.current?.name || '', 7)
+                      ).then(result => {
+                          if (result.status === 'done' || result.status === 'extracted_none') {
+                              try { localStorage.setItem(key, JSON.stringify([...previously, eventId].slice(-500))); } catch { /* retry on next event */ }
+                          }
+                      }).catch(error => console.warn('[PhonePalace] phone memory extraction skipped', error));
+                  }
+              }
           }
           if (!shouldDispatchLifeEvent(recordedEvent, charId)) return;
           const consumers = getLifeEventConsumers(recordedEvent.kind);
