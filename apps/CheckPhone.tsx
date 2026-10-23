@@ -1,3 +1,4 @@
+import { readCharacterMoments, addMomentComment, setMomentLike, CHARACTER_MOMENTS_CHANGED } from '../utils/characterPhoneMoments';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
@@ -265,6 +266,9 @@ const CheckPhone: React.FC = () => {
     const [activeAppId, setActiveAppId] = useState<string>('home');
     const [targetChar, setTargetChar] = useState<CharacterProfile | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [momentsVersion, setMomentsVersion] = useState(0);
+    const [momentReplyDrafts, setMomentReplyDrafts] = useState<Record<string,string>>({});
+    useEffect(() => { const refresh = () => setMomentsVersion(v => v + 1); window.addEventListener(CHARACTER_MOMENTS_CHANGED, refresh); return () => window.removeEventListener(CHARACTER_MOMENTS_CHANGED, refresh); }, []);
     const [page, setPage] = useState(0); // 0 = home, 1 = custom apps
     const [selectPage, setSelectPage] = useState(0); // Target Device 选人界面的翻页（每页 6 人）
     const [selectGroupId, setSelectGroupId] = useState(GROUP_FILTER_ALL); // 选人界面的分组筛选
@@ -2491,12 +2495,29 @@ ${olderText}
     const renderMoments = () => {
         const accent = '#c084fc';
         const list = records.filter(r => r.type === 'social').sort((a, b) => b.timestamp - a.timestamp);
+        void momentsVersion;
+        const realPosts = targetChar ? readCharacterMoments(targetChar.id).filter(p => !p.deletedAt && p.visibility !== 'private') : [];
         return (
             <SubAppShell>
                 <TermHeader title="Moments" sub="朋友圈" accent={accent} onBack={() => setActiveAppId('home')}
                     right={<ImagesSquare size={20} weight="fill" style={{ color: accent }} />} />
                 <div className="flex-1 overflow-y-auto px-4 pt-2 no-scrollbar pb-28 overscroll-contain space-y-3">
-                    {list.length === 0 && <EmptyState text="还没有动态" />}
+                    {list.length === 0 && realPosts.length === 0 && <EmptyState text="还没有动态" />}
+                    {realPosts.map(post => (
+                        <div key={post.id} className="rounded-2xl p-4 bg-white/[0.035] border border-white/[0.06] space-y-3">
+                            <div className="text-[13px] font-semibold text-white">{post.authorId === targetChar?.id ? charName : post.authorId}</div>
+                            <div className="text-[10px] text-white/40">{new Date(post.createdAt).toLocaleString()}</div>
+                            <div className="text-[13px] text-white/80 whitespace-pre-wrap">{post.text}</div>
+                            {post.imageUrls.map((url,i) => <TokenImg key={i} value={url} className="max-w-full rounded-lg" />)}
+                            <div className="flex gap-4 text-xs text-white/60">
+                                <button onClick={() => targetChar && setMomentLike(targetChar.id,post.id,'user:'+userProfile.name,!post.likes?.some(l=>l.actorId==='user:'+userProfile.name))}>♥ {post.likes?.length || 0}</button>
+                                <span>评论 {post.comments?.filter(x=>!x.deletedAt).length || 0}</span>
+                            </div>
+                            {(post.comments||[]).filter(x=>!x.deletedAt).map(comment=><div key={comment.id} className="text-xs text-white/70"><span className="font-semibold text-violet-300">{comment.authorId}：</span>{comment.text}</div>)}
+                            <div className="flex gap-2"><input aria-label="评论朋友圈" placeholder="写评论…" value={momentReplyDrafts[post.id]||''} onChange={e=>setMomentReplyDrafts(d=>({...d,[post.id]:e.target.value}))} className="min-w-0 flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs text-white" />
+                                <button className="text-xs text-violet-300" onClick={()=>{const message=momentReplyDrafts[post.id]?.trim();if(!targetChar||!message)return;if(addMomentComment(targetChar.id,post.id,{id:crypto.randomUUID(),authorId:'user:'+userProfile.name,text:message,createdAt:Date.now()}))setMomentReplyDrafts(d=>({...d,[post.id]:''}));}}>发送</button></div>
+                        </div>
+                    ))}
                     {list.map(r => (
                         <div key={r.id} {...evidenceEntryProps(r, 'social')}
                             className="group relative rounded-2xl p-4 pr-8 bg-white/[0.035] border border-white/[0.06] animate-slide-up cursor-pointer active:scale-[0.99] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60">
