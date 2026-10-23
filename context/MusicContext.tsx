@@ -1006,6 +1006,21 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       joinListeningTogether: (cid: string) => {
         addListeningPartner(cid);
+        void (async () => {
+          const messages = await DB.getMessagesByCharId(cid, true);
+          const invite = [...messages].reverse().find(m =>
+            m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
+            !messages.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+          if (!invite) return;
+          await DB.saveMessage({
+            charId: cid, role: 'assistant', type: 'system',
+            content: '[一起听邀请] 已接受邀请。',
+            metadata: { musicListenInviteResponseTo: invite.id, accepted: true },
+          });
+          window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
+            detail: { charId: cid, messageId: invite.id, accepted: true },
+          }));
+        })().catch(err => console.warn('[MusicTogether] 接受邀请记录失败', err));
       },
       inviteUserListening: async (cid: string) => {
         // AI 发出的邀请先落入对应角色的聊天历史；等待用户选择，不自动加入。
@@ -1018,6 +1033,21 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       rejectListeningInvite: (cid: string) => {
         respondListeningInvite(cid, false);
+        void (async () => {
+          const messages = await DB.getMessagesByCharId(cid, true);
+          const invite = [...messages].reverse().find(m =>
+            m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
+            !messages.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+          if (!invite) return;
+          await DB.saveMessage({
+            charId: cid, role: 'assistant', type: 'system',
+            content: '[一起听邀请] 已拒绝邀请。',
+            metadata: { musicListenInviteResponseTo: invite.id, accepted: false },
+          });
+          window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
+            detail: { charId: cid, messageId: invite.id, accepted: false },
+          }));
+        })().catch(err => console.warn('[MusicTogether] 拒绝邀请记录失败', err));
       },
       playListeningTrack: (cid: string, query: string) => {
         // 只允许正在一起听的角色操作现有播放队列，不凭空播放不明歌曲。
