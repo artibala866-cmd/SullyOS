@@ -9,7 +9,7 @@ import type { NpcProfile } from '../../utils/characterPhoneNpcs';
 export function MomentsTimeline({name,characterId,posts,contacts,charAvatar,userProfile}:{name:string;characterId:string;posts:CharacterMoment[];contacts:NpcProfile[];charAvatar?:string;userProfile?:UserProfile}) {
   const [reply,setReply]=useState('');
   const [draft,setDraft]=useState('');
-  const avatar=(id:string)=>id===characterId?charAvatar:id==='user'?(userProfile?.perCharAvatars?.[characterId]||userProfile?.avatar):undefined;
+  const avatar=(id:string)=>id===characterId?charAvatar:id==='user'?(userProfile?.perCharAvatars?.[characterId]||userProfile?.avatar):contacts.find(p=>p.id===id)?.avatar;
   const label=(id:string)=>id===characterId?name:contacts.find(p=>p.id===id)?.nickname||contacts.find(p=>p.id===id)?.name||'微信好友';
   return <section className="bg-white">
     {posts.filter(p=>!p.deletedAt).map(p=><article key={p.id} className="flex gap-3 border-b border-gray-100 px-4 py-5">
