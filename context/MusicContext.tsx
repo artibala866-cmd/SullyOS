@@ -165,6 +165,8 @@ export interface MusicPlaybackSnapshot {
   listeningTogetherWith: string[];
   cfg: MusicCfg;
   recentTrackChange?: RecentTrackChange | null;
+  listeningStartedAt?: Record<string, number>;
+  lastListeningEnd?: { charId: string; durationMs: number; at: number } | null;
 }
 let __musicPlaybackSnapshot: MusicPlaybackSnapshot | null = null;
 export const loadMusicPlaybackSnapshot = (): MusicPlaybackSnapshot | null => __musicPlaybackSnapshot;
@@ -590,14 +592,23 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 一起听 - char 加入后在 miniPlayer / 播放页显示徽标；切歌 / 结束自动清空
   const [listeningTogetherWith, setListeningTogetherWith] = useState<string[]>([]);
+  // 伴听会话与歌曲解耦：记录起始时间，供聊天/主动消息读取。
+  const [listeningStartedAt, setListeningStartedAt] = useState<Record<string, number>>({});
+  const [lastListeningEnd, setLastListeningEnd] = useState<{ charId: string; durationMs: number; at: number } | null>(null);
   const addListeningPartner = useCallback((charId: string) => {
     setListeningTogetherWith(prev => prev.includes(charId) ? prev : [...prev, charId]);
+    setListeningStartedAt(prev => prev[charId] ? prev : { ...prev, [charId]: Date.now() });
   }, []);
   const removeListeningPartner = useCallback((charId: string) => {
     setListeningTogetherWith(prev => prev.filter(id => id !== charId));
+    setListeningStartedAt(prev => {
+      if (prev[charId]) setLastListeningEnd({ charId, durationMs: Date.now() - prev[charId], at: Date.now() });
+      const next = { ...prev }; delete next[charId]; return next;
+    });
   }, []);
   const clearListeningPartners = useCallback(() => {
     setListeningTogetherWith(prev => prev.length ? [] : prev);
+    setListeningStartedAt({});
   }, []);
 
   // 切歌后清空上一首的"一起听"。只结束状态，不触发主动消息 ——
@@ -901,8 +912,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       listeningTogetherWith,
       cfg,
       recentTrackChange,
+      listeningStartedAt,
+      lastListeningEnd,
     };
-  }, [current, playing, lyric, activeLyricIdx, listeningTogetherWith, cfg, recentTrackChange]);
+  }, [current, playing, lyric, activeLyricIdx, listeningTogetherWith, cfg, recentTrackChange, listeningStartedAt, lastListeningEnd]);
 
   // 把整组 musicHooks 写到模块级 slot — useChatAI 和 activeMsgRuntime 都从这里取.
   // current / addListeningPartner 变化时刷新闭包, 保证读到的是最新 React state.
