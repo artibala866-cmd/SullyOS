@@ -13,7 +13,7 @@ import { normalizeMessageContent, stickerNameFromUrl, theaterWhenPhrase } from '
 import { formatTransferRecord } from './transferFormat';
 import { computeCurrentListening, getCurrentSlot } from './charMusicSchedule';
 import { getCharLyricSnippet } from './charLyricCache';
-import { MusicCfg, loadMusicCfgStandalone } from '../context/MusicContext';
+import { MusicCfg, loadMusicCfgStandalone, loadMusicPlaybackSnapshot } from '../context/MusicContext';
 import { RealtimeContextManager, NotionManager, FeishuManager, defaultRealtimeConfig } from './realtimeContext';
 import { isScheduleFeatureOn } from './scheduleFeature';
 import { VOICE_ACTING_GUIDE } from './minimaxTts';
@@ -584,6 +584,10 @@ ${groupLogStr}\n`;
                 isListeningTogether,
                 recentTrackSwitch,
             );
+            const invitation = !forFirePack ? loadMusicPlaybackSnapshot()?.listeningInvites?.[char.id] : undefined;
+            if (invitation === 'pending') {
+                volatileState += '\n### 【一起听邀请】\n对方刚刚邀请你一起听音乐，邀请正在等待你回应。根据你的人设、日程和当前对话，自主决定接受或拒绝。接受时在回复中输出一次 [[MUSIC_ACTION:join]]；拒绝时输出一次 [[MUSIC_ACTION:reject]]。不要假装已经加入，也不要重复发出邀请。\n';
+            }
             if (musicBlock) {
                 volatileState += `\n${musicBlock}\n`;
                 if (userListeningContext && promptOptions?.appRules === undefined) {
