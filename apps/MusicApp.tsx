@@ -58,14 +58,10 @@ const MusicApp: React.FC = () => {
   const answerCharInvite = useCallback(async (charId: string, accepted: boolean) => {
     const messageId = charInvites[charId];
     if (!messageId) return;
-    await DB.saveMessage({
-      charId, role: 'user', type: 'system',
-      content: accepted ? '[一起听邀请] 已接受邀请。' : '[一起听邀请] 已拒绝邀请。',
-      metadata: { musicListenInviteResponseTo: messageId, accepted },
-    });
-    respondListeningInvite(charId, accepted);
-    setCharInvites(prev => { const next = { ...prev }; delete next[charId]; return next; });
-  }, [charInvites, respondListeningInvite]);
+    window.dispatchEvent(new CustomEvent('music-listen-invite-answer', {
+      detail: { charId, messageId, accepted },
+    }));
+  }, [charInvites]);
   const isCurrentRegenerating = !!current && current.id === regeneratingId;
   // 把对轴入口和单曲循环按钮移到 SubActions 里，避免散乱
   // 下载本地生成的歌曲到本地文件系统
