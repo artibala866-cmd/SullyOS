@@ -27,6 +27,7 @@ import { isAmsg2EnabledForChar } from './amsg2Tasks';
 import { getCharNameById } from './charNameRegistry';
 import { getLocalDateKey } from './localDate';
 import { getDailyScheduleForChar } from './dailySchedule';
+import { readCharacterLifeEvents } from './characterLifeEvents';
 import { formatRelativeAge } from './groupChat/relativeTime';
 import { isBlobRef } from './blobRef';
 import { voiceLanguagePromptLabel } from './voiceLanguage';
@@ -361,6 +362,19 @@ export const ChatPrompts = {
             // （见 ContextBuilder.buildTimeAwarenessBlock）。生成器类调用不给，默认就没有。
             timeOptions: { skipTimeAwareness: forFirePack || timelyByWorker, conversational: true },
         }));
+
+        // 手机实际经历属于私聊背景；不把计划当事实，也不强制角色汇报。
+        // fire_pack 的快照可能过期，暂不将这些易变事件写进定时主动消息模板。
+        if (!forFirePack && typeof localStorage !== 'undefined') {
+            const phoneEvents = readCharacterLifeEvents(char.id)
+                .filter(event => event.source === 'phone' && event.occurredAt <= Date.now())
+                .slice(0, 12);
+            if (phoneEvents.length) {
+                volatileState += '\n【手机里已发生的经历（仅供自然衔接）】\n'
+                    + phoneEvents.map(event => '- ' + new Date(event.occurredAt).toLocaleString() + ' ' + event.summary.slice(0, 160)).join('\n')
+                    + '\n这些不是待执行的日程；不必主动汇报，不得补造未记录的细节。\n';
+            }
+        }
 
         // ── 并发发起所有独立的异步取数（网络 + IndexedDB），下面按原顺序拼接 ──
         // 原来是 7 段串行 await，总耗时 = 各段之和；现在取 max。
