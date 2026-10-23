@@ -646,7 +646,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!detail?.charId || !Number.isInteger(detail.messageId) || answeringInviteIds.current.has(detail.messageId)) return;
       answeringInviteIds.current.add(detail.messageId);
       void (async () => {
-        const messages = await DB.getMessagesByCharId(detail.charId);
+        const messages = await DB.getMessagesByCharId(detail.charId, true);
         const invitation = messages.find(m => m.id === detail.messageId && m.metadata?.musicListenInvite && m.metadata?.inviter === 'char');
         if (!invitation || messages.some(m => m.metadata?.musicListenInviteResponseTo === detail.messageId)) return;
         await DB.saveMessage({
