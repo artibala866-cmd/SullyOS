@@ -33,8 +33,8 @@ export default function CharacterAvatarLibraryModal({ characterId, defaultAvatar
       <div className="flex items-center justify-between"><h2 className="font-semibold">角色头像库</h2><button onClick={onClose} aria-label="关闭头像库">关闭</button></div>
       <p className="my-3 text-xs text-neutral-500">每位角色独立保存。选择后同步私聊、角色档案与查手机。</p>
       <label className="inline-block cursor-pointer rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm">添加图片<input type="file" accept="image/*" className="hidden" disabled={busy} onChange={upload}/></label>
-      <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={library.autonomousEnabled} onChange={e=>{setAutonomousAvatarEnabled(characterId,e.target.checked);refresh();}}/>允许 Char 自主选择收藏头像</label>
-      <p className="mt-1 text-xs text-neutral-500">自主选择需要聊天 AI 接入后才能生效。</p>
+      <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={library.autonomousEnabled} onChange={e=>{setAutonomousAvatarEnabled(characterId,e.target.checked);refresh();}}/>允许 Char 自主换头像（聊天图片及收藏）</label>
+      <p className="mt-1 text-xs text-neutral-500">开启后，Char 可以根据聊天情境选择最新收到的图片或已收藏头像；是否更换由 Char 决定。</p>
       <div className="mt-4 grid max-h-72 grid-cols-3 gap-3 overflow-y-auto">
         {library.entries.map(entry=><div key={entry.id} className="rounded-xl border border-neutral-200 bg-white p-1">
           <TokenImg value={entry.image} className="aspect-square w-full rounded-lg object-cover" alt="收藏头像"/>
