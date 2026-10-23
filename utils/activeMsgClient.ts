@@ -1,3 +1,4 @@
+import { readCharacterLifeEvents } from './characterLifeEvents';
 import { resolveDialogueApi } from './characterApi';
 import { stoppedReplyStateEntries } from './amsgStoppedReplyClient';
 import { loadCharacterContextMessages } from './chatContextRange';
@@ -893,6 +894,12 @@ export const buildFirePack = async (
     `（开口前回到你自己：这条得是 ${char.name} 会发的那一条——语气、用词、节奏都只属于你。哪怕只是随口一句，也要是你。）`,
   ].join('\n');
 
+  // 使用现有手机生活事件台账；只携带已发生事件及时间戳，不创建第二份生活状态。
+  const phoneEvents = templateStub ? [] : readCharacterLifeEvents(char.id)
+    .filter(event => event.source === 'phone' && event.occurredAt <= Date.now())
+    .slice(0, 12)
+    .map(event => ({ occurredAt: event.occurredAt, summary: event.summary.slice(0, 160) }));
+
   return {
     // 版本号只有 amsgFirePack 那一份说了算：写死数字的话，升版时 worker 侧的 parseFirePack
     // 已经在按新号校验，而这里还发着旧号，表现是每条任务到点都硬失败。
@@ -917,6 +924,7 @@ export const buildFirePack = async (
     // 「此刻在做什么」也带原始素材：整天的作息表 + 歌单抽样池，worker 到点按 tzId
     // 挑当前时段。烤成文字的话，凌晨三点触发时角色会说「我在健身房呢」。
     scene,
+    phoneEvents,
   };
 };
 
