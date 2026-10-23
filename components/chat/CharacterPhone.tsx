@@ -1,3 +1,4 @@
+import { DB } from '../../utils/db';
 import { mirrorPrivateChat } from '../../utils/characterPhonePrivateSync';
 import type { PhoneThreadV2 } from '../../utils/characterPhoneModel';
 import { buildCharacterPhoneContext } from '../../utils/characterPhoneContext';
@@ -28,7 +29,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [hiddenPrivate, setHiddenPrivate] = useState(false);
   useEffect(() => {
     let active = true;
-    const refresh = async () => { try { const context = await buildCharacterPhoneContext(char, userProfile, groups, realtimeConfig); if(active) setPrivateThread(mirrorPrivateChat(characterId, context.privateMessages)); } catch { /* private chat stays authoritative; never synthesize it */ } };
+    const refresh = async () => { try { const messages = await DB.getMessagesByCharId(characterId, true); if(active) setPrivateThread(mirrorPrivateChat(characterId, messages)); } catch { /* private chat stays authoritative; never synthesize it */ } };
     void refresh();
     const timer = window.setInterval(refresh, 30_000);
     return () => { active=false;window.clearInterval(timer); };
