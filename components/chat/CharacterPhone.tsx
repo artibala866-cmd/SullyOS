@@ -1,3 +1,4 @@
+import { refreshNpcMoments } from '../../utils/refreshNpcMoments';
 import { MomentsTimeline } from './MomentsTimeline';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment, deleteCharacterMoment, type CharacterMoment } from '../../utils/characterPhoneMoments';
 import { PENDING_PHONE_CONTACTS_CHANGED, readPendingContacts, writePendingContacts, type PendingPhoneContact } from '../../utils/characterPhoneRequests';
@@ -56,6 +57,8 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
   const [moments, setMoments] = useState<CharacterMoment[]>(() => readCharacterMoments(characterId));
   const [momentBusy, setMomentBusy] = useState(false);
+  const [npcMomentLoading,setNpcMomentLoading]=useState(false);
+  const npcPullStart=useRef<number|null>(null);
   useEffect(() => {setMoments(readCharacterMoments(characterId)); const sync=(event:Event)=>{if((event as CustomEvent<{characterId:string}>).detail?.characterId===characterId)setMoments(readCharacterMoments(characterId));};window.addEventListener(CHARACTER_MOMENTS_CHANGED,sync);return ()=>window.removeEventListener(CHARACTER_MOMENTS_CHANGED,sync);},[characterId]);
   useEffect(() => {
     setLifeEvents(readCharacterLifeEvents(characterId));
@@ -256,6 +259,7 @@ ${scheduleContext}
     }catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{setMomentBusy(false);}
   };
+  const loadNpcMoments=async()=>{if(npcMomentLoading)return;setNpcMomentLoading(true);setError('');try{await refreshNpcMoments(characterId,profiles,api);}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setNpcMomentLoading(false);}};
   const isPrivateThread = thread === 'private:' + characterId;
   const active = records.find(r => r.id === thread);
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
