@@ -60,7 +60,6 @@ const CharacterEntryTransition: React.FC<Props> = ({ name, avatar, onDone }) => 
       <style>{`
         @keyframes charVeilIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes charAvatarIn { 0% { opacity:0; transform: translateY(12px) scale(.84) } 100% { opacity:1; transform: translateY(0) scale(1) } }
-        @keyframes charGlowIn { 0% { opacity:0; transform: translate(-50%,-50%) scale(.6) } 45% { opacity:.85 } 100% { opacity:.6; transform: translate(-50%,-50%) scale(1) } }
         @keyframes charNameIn { from { opacity:0; transform: translateY(12px) } to { opacity:1; transform: translateY(0) } }
         @keyframes charLineIn { from { opacity:0; transform: scaleX(0) } to { opacity:.7; transform: scaleX(1) } }
       `}</style>
@@ -75,7 +74,7 @@ const CharacterEntryTransition: React.FC<Props> = ({ name, avatar, onDone }) => 
         }} />
       ) : (
         <div className="absolute inset-0" style={{
-          background: 'radial-gradient(120% 100% at 50% 40%, hsla(var(--primary-hue),55%,40%,0.9), #0c0b1e 70%)',
+          background: 'linear-gradient(155deg, #383838, #151515)',
         }} />
       )}
       {/* 压暗 + 暗角：让中心头像与名字清晰浮出（静态） */}
@@ -91,20 +90,13 @@ const CharacterEntryTransition: React.FC<Props> = ({ name, avatar, onDone }) => 
         }}
       >
         <div className="relative" style={{ width: 132, height: 132 }}>
-          {/* 柔光晕（在头像后绽放） */}
-          <div className="absolute" style={{
-            left: '50%', top: '50%', width: 230, height: 230, transform: 'translate(-50%,-50%)',
-            borderRadius: '9999px', filter: 'blur(8px)',
-            background: 'radial-gradient(circle, rgba(255,255,255,0.5) 0%, hsla(var(--primary-hue),80%,80%,0.32) 40%, transparent 66%)',
-            animation: reduced ? 'charVeilIn 240ms ease-out both' : 'charGlowIn 680ms cubic-bezier(0.22,1,0.36,1) 40ms both',
-          }} />
           {/* 头像：缩放 + 淡入「对焦」，不用 filter:blur（避免每帧重栅格化卡顿） */}
           <div
             className="absolute inset-0 rounded-full bg-cover bg-center"
             style={{
               backgroundImage: avatarBg || undefined,
-              backgroundColor: avatarBg ? undefined : 'hsla(var(--primary-hue),50%,55%,0.6)',
-              boxShadow: '0 8px 40px rgba(0,0,0,0.45), 0 0 0 1.5px rgba(255,255,255,0.5), 0 0 28px hsla(var(--primary-hue),80%,80%,0.45)',
+              backgroundColor: avatarBg ? undefined : '#737373',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.45)',
               animation: reduced ? 'charVeilIn 280ms ease-out both' : 'charAvatarIn 560ms cubic-bezier(0.22,1,0.36,1) 90ms both',
               willChange: 'transform, opacity',
             }}
@@ -113,7 +105,7 @@ const CharacterEntryTransition: React.FC<Props> = ({ name, avatar, onDone }) => 
         <div
           className="mt-5 text-white text-2xl font-medium tracking-wide"
           style={{
-            textShadow: '0 2px 18px rgba(0,0,0,0.5), 0 0 24px hsla(var(--primary-hue),80%,80%,0.3)',
+            textShadow: '0 2px 12px rgba(0,0,0,0.45)',
             animation: reduced ? 'charNameIn 300ms ease-out both' : 'charNameIn 480ms cubic-bezier(0.22,1,0.36,1) 320ms both',
           }}
         >
