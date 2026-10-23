@@ -941,14 +941,12 @@ export const useChatAI = ({
                 if (message.role !== 'user') break;
                 if (message.type === 'image' && typeof message.content === 'string') currentTurnImages.unshift(message.content);
             }
-            const puffAvatarInstruction = '\\n[私聊换头像]只有在用户明确让你换头像、或当前对话确实有换头像意图时才可执行。'
-                + (currentTurnImages.length ? '本轮用户发来的图片从早到晚编号为 [图1] 至 [图' + currentTurnImages.length + ']。' : '本轮没有新图片，不要凭空指定图片。')
-                + '选择本轮图片时单独输出 {"t":"set_avatar","n":1}（n 是图片序号）；选择用户当前头像时输出 {"t":"set_avatar","src":"user_avatar"}。'
-                + '普通图片聊天不代表授权换头像；不要擅自换头像。此指令不展示给用户。\\n';
-            const avatarInstruction = avatarLibrary.autonomousEnabled
-                ? '\\n\\n[角色头像自主选择]根据人设和当前对话自主判断是否换头像，不要频繁更换，也不要机械地接受所有图片。'
-                  + (avatarCandidates.length ? '可选收藏头像：' + avatarCandidates.map(e => e.id).join(', ') + '。' : '')
-                  + '若选择收藏头像则使用 <char_avatar_choice id="收藏头像ID"/>。不换则不输出指令。只能用提供的ID，不能生成图片URL。你也可以自然地邀请用户换情侣头像，但绝不能擅自更改用户头像。\\n'
+            const puffAvatarInstruction = '\n[私聊换头像]只有用户明确提出换头像，才使用本轮图片。'
+                + (currentTurnImages.length ? '本轮用户图片按顺序编号为1至' + currentTurnImages.length + '。' : '本轮没有新图片，不要指定图片。')
+                + '使用本轮图片时输出 {"t":"set_avatar","n":1}（n为图片序号）；使用用户当前头像时输出 {"t":"set_avatar","src":"user_avatar"}。普通图片不是换头像指令。\n';
+            const avatarInstruction = avatarLibrary.autonomousEnabled && avatarCandidates.length
+                ? '\n[头像库]可以自主从已收藏头像中选择：' + avatarCandidates.map(e => e.id).join(', ')
+                    + '。选择时输出 <char_avatar_choice id="头像ID"/>。不要与 set_avatar 同时输出。\n'
                 : '';
             payload.fullMessages.unshift({ role: 'system', content: puffAvatarInstruction + avatarInstruction } as any);
             const systemPrompt = payload.systemPrompt + puffAvatarInstruction + avatarInstruction;
@@ -2141,7 +2139,7 @@ export const useChatAI = ({
                     }
                 } catch (avatarError) { console.warn('[Avatar] set_avatar failed', avatarError); }
             }
-            if (avatarChoiceMatch && avatarLibrary.autonomousEnabled) {
+            if (!puffAvatarMatch && avatarChoiceMatch && avatarLibrary.autonomousEnabled) {
                 try {
                     const selectedId = avatarChoiceMatch[1];
                     if (avatarCandidates.some(e => e.id === selectedId)) {
