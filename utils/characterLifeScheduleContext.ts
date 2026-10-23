@@ -19,7 +19,7 @@ export async function getCharacterLifeScheduleContext(
     plannedActivity: slot?.activity ?? null,
     plannedDescription: slot?.description ?? null,
     confirmedEvents: (confirmedEvents ?? readCharacterLifeEvents(char.id)).filter(
-      event => event.occurredAt <= now && now - event.occurredAt < 72 * 60 * 60 * 1000
+      event => event.characterId === char.id && Number.isFinite(event.occurredAt) && event.occurredAt <= now && now - event.occurredAt < 72 * 60 * 60 * 1000
     ).slice(0, 20),
   };
 }
