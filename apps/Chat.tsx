@@ -4607,7 +4607,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             />
 
 
-            {characterPhoneOpen && char && <CharacterPhone name={chatCharacterDisplayName(char)} characterId={char.id} persona={char.description || ''} api={apiConfig} onClose={() => setCharacterPhoneOpen(false)} />}
+            {characterPhoneOpen && char && <CharacterPhone name={chatCharacterDisplayName(char)} characterId={char.id} char={char} persona={char.description || ''} api={apiConfig} onClose={() => setCharacterPhoneOpen(false)} />}
             {/* Forward Modal */}
             {char && <MemoryContextSelfCheck key={`memory-self-check:${char.id}`} character={char} active={activeApp === AppID.Chat && modalType === 'none'} onDisable={months => {
                 const closing = new Set(months);
