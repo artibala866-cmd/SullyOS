@@ -31,7 +31,7 @@ export function readCharacterMoments(characterId: string): CharacterMoment[] {
     const parsed: unknown = JSON.parse(localStorage.getItem(key(characterId)) || '[]');
     return Array.isArray(parsed) ? parsed.filter((p): p is CharacterMoment =>
       !!p && typeof p.id === 'string' && p.characterId === characterId &&
-      p.authorId === characterId && typeof p.text === 'string' &&
+      typeof p.authorId === 'string' && !!p.authorId && typeof p.text === 'string' &&
       Array.isArray(p.imageUrls) && Number.isFinite(p.createdAt)
     ).sort((a,b)=>b.createdAt-a.createdAt) : [];
   } catch { return []; }
@@ -43,11 +43,11 @@ function save(characterId: string, posts: CharacterMoment[]): boolean {
     return true;
   } catch { return false; }
 }
-export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'createdAt'|'authorId'> & { id?: string; createdAt?: number }): CharacterMoment | null {
+export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'createdAt'> & { id?: string; createdAt?: number; authorId?: string }): CharacterMoment | null {
   if (!input.characterId || (!input.text.trim() && !input.imageUrls.length && !input.media?.length && !input.quote)) return null;
   if (input.visibility === 'selected' && !input.visibleTo?.length) return null;
   if (input.imageUrls.length > 9 || (input.media?.length || 0) > 9) return null;
-  const post: CharacterMoment = {...input,id:input.id||crypto.randomUUID(),createdAt:input.createdAt||Date.now(),authorId:input.characterId};
+  const post: CharacterMoment = {...input,id:input.id||crypto.randomUUID(),createdAt:input.createdAt||Date.now(),authorId:input.authorId || input.characterId};
   const old=readCharacterMoments(input.characterId);
   if(old.some(p=>p.id===post.id)) return null;
   // An event can motivate only one post, including when the first post was later soft-deleted.
@@ -59,7 +59,7 @@ export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'created
 export function deleteCharacterMoment(characterId: string, postId: string, actor: 'char'|'user'): boolean {
   const posts=readCharacterMoments(characterId);
   const target=posts.find(p=>p.id===postId);
-  if(!target || target.deletedAt) return false;
+  if(!target || target.deletedAt || target.authorId !== characterId) return false;
   return save(characterId,posts.map(p=>p.id===postId?{...p,deletedAt:Date.now(),deletedBy:actor}:p));
 }
 
