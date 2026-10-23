@@ -7,8 +7,8 @@ import { SongSheet, SongLine, SongComment, SongMood, SongGenre, SongAudio, Music
 import {
     SONG_GENRES,
     SONG_MOODS,
-    SECTION_LABELS,
-    COVER_STYLES,
+    SECTION_LABELS as BASE_SECTION_LABELS,
+    COVER_STYLES as BASE_COVER_STYLES,
     SongPrompts,
     LYRIC_TEMPLATES,
     LYRIC_CO_WRITING_STYLES,
@@ -41,6 +41,16 @@ import {
     type MinimaxMusicInput,
 } from '../utils/minimaxMusic';
 import { Sparkle, CrossStar, GlassProgress, MetaChip } from './music/MusicUI';
+
+// 只覆盖写歌应用的段落徽章和封面预设颜色，不修改共享歌曲数据。
+const SECTION_LABELS = Object.fromEntries(Object.entries(BASE_SECTION_LABELS).map(([id, item]) => [id, {
+    ...item, color: id === 'chorus' ? 'bg-neutral-800 text-white' : 'bg-neutral-200/70 text-neutral-700',
+}])) as typeof BASE_SECTION_LABELS;
+const COVER_STYLES = BASE_COVER_STYLES.map(style => ({
+    ...style,
+    gradient: style.id === 'midnight' ? 'from-neutral-800 via-neutral-900 to-black' : 'from-neutral-100 via-neutral-200 to-neutral-300',
+    text: style.id === 'midnight' ? 'text-white' : 'text-neutral-800',
+}));
 
 // 写歌专属黑白灰色板；不影响独立音乐播放器的主题。
 const MusicC = {
