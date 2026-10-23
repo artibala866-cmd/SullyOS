@@ -564,7 +564,7 @@ const MemoryWaterlineEditor: React.FC<{
                     style={{
                         margin: '0 10px 10px', padding: '11px 12px', borderRadius: 12,
                         background: '#fff', border: '1px solid #e2e8f0', color: '#475569',
-                        fontSize: 10, lineHeight: 1.65, boxShadow: '0 5px 14px rgba(88,28,135,0.08)',
+                        fontSize: 10, lineHeight: 1.65, boxShadow: '0 5px 14px rgba(48,48,48,0.08)',
                     }}
                     onClick={e => e.stopPropagation()}
                 >
@@ -606,7 +606,7 @@ const MemoryWaterlineEditor: React.FC<{
                                         background: active ? '#f1f5f9' : 'rgba(255,255,255,0.78)',
                                         color: active ? '#334155' : '#6b7280',
                                         textAlign: 'left', cursor: disabled ? 'wait' : 'pointer',
-                                        boxShadow: active ? '0 2px 8px rgba(100,116,139,0.1)' : 'none',
+                                        boxShadow: active ? '0 2px 8px rgba(114,114,114,0.1)' : 'none',
                                     }}
                                 >
                                     <span style={{ display: 'block', fontSize: 10, fontWeight: 800 }}>{WATERLINE_PRESET_COPY[preset].label}</span>
@@ -2344,7 +2344,7 @@ export default function MemoryPalaceApp() {
                 style={{
                     paddingLeft: 20, paddingRight: 20, paddingBottom: 28, paddingTop: SAFE_PAD_TOP,
                     maxHeight: '100%', overflowY: 'auto',
-                    background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 40%, #ffffff 100%)',
+                    background: '#f2f2f4',
                     minHeight: '100%',
                     position: 'relative',
                 }}
@@ -2354,7 +2354,7 @@ export default function MemoryPalaceApp() {
                     style={{
                         position: 'absolute', top: -40, right: -40, width: 220, height: 220,
                         borderRadius: '50%',
-                        background: 'radial-gradient(circle, rgba(100,116,139,0.22) 0%, rgba(100,116,139,0) 70%)',
+                        background: 'radial-gradient(circle, rgba(114,114,114,0.22) 0%, rgba(114,114,114,0) 70%)',
                         pointerEvents: 'none',
                     }}
                 />
@@ -2362,7 +2362,7 @@ export default function MemoryPalaceApp() {
                     style={{
                         position: 'absolute', top: 160, left: -60, width: 200, height: 200,
                         borderRadius: '50%',
-                        background: 'radial-gradient(circle, rgba(100,116,139,0.14) 0%, rgba(100,116,139,0) 70%)',
+                        background: 'radial-gradient(circle, rgba(114,114,114,0.14) 0%, rgba(114,114,114,0) 70%)',
                         pointerEvents: 'none',
                     }}
                 />
@@ -2373,8 +2373,8 @@ export default function MemoryPalaceApp() {
                         style={{
                             fontSize: 12, color: '#334155', cursor: 'pointer',
                             padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6,
-                            borderRadius: 999, background: 'rgba(100,116,139,0.08)',
-                            border: '1px solid rgba(100,116,139,0.15)', fontWeight: 600,
+                            borderRadius: 999, background: 'rgba(114,114,114,0.08)',
+                            border: '1px solid rgba(114,114,114,0.15)', fontWeight: 600,
                             letterSpacing: '0.04em',
                         }}
                     >
@@ -2393,12 +2393,12 @@ export default function MemoryPalaceApp() {
                                 ? 'rgba(255,255,255,0.8)'
                                 : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
                             border: hasEmbeddingConfig
-                                ? '1px solid rgba(100,116,139,0.15)'
+                                ? '1px solid rgba(114,114,114,0.15)'
                                 : '1.5px solid #64748b',
                             color: hasEmbeddingConfig ? '#334155' : '#475569',
                             boxShadow: hasEmbeddingConfig
-                                ? '0 2px 6px rgba(100,116,139,0.08)'
-                                : '0 0 0 3px rgba(245,158,11,0.15), 0 4px 10px rgba(245,158,11,0.2)',
+                                ? '0 2px 6px rgba(114,114,114,0.08)'
+                                : '0 0 0 3px rgba(166,166,166,0.15), 0 4px 10px rgba(166,166,166,0.2)',
                             animation: hasEmbeddingConfig ? undefined : 'pulse 2s ease-in-out infinite',
                         }}
                     >
@@ -2424,12 +2424,12 @@ export default function MemoryPalaceApp() {
                             border: '1.5px solid #64748b',
                             cursor: 'pointer',
                             display: 'flex', alignItems: 'center', gap: 10,
-                            boxShadow: '0 4px 14px rgba(245,158,11,0.2)',
+                            boxShadow: '0 4px 14px rgba(166,166,166,0.2)',
                         }}
                     >
                         <span style={{
                             width: 32, height: 32, borderRadius: 10,
-                            background: 'rgba(245,158,11,0.2)',
+                            background: 'rgba(166,166,166,0.2)',
                             color: '#475569',
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                             flexShrink: 0,
@@ -2464,7 +2464,7 @@ export default function MemoryPalaceApp() {
                         style={{
                             fontSize: 28, fontWeight: 800, color: '#0f172a',
                             letterSpacing: '-0.01em',
-                            background: 'linear-gradient(135deg, #0f172a 0%, #334155 50%, #334155 100%)',
+                            background: 'linear-gradient(135deg, #171717 0%, #404040 100%)',
                             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text',
                             marginBottom: 6,
@@ -2511,8 +2511,8 @@ export default function MemoryPalaceApp() {
                                             ? 'linear-gradient(135deg, #64748b 0%, #64748b 100%)'
                                             : 'linear-gradient(135deg, #e5e7eb 0%, #f3f4f6 100%)',
                                         boxShadow: palaceOn
-                                            ? '0 10px 30px -8px rgba(100,116,139,0.35), 0 4px 12px rgba(100,116,139,0.12)'
-                                            : '0 4px 14px rgba(15,23,42,0.05)',
+                                            ? '0 10px 30px -8px rgba(114,114,114,0.35), 0 4px 12px rgba(114,114,114,0.12)'
+                                            : '0 4px 14px rgba(23,23,23,0.05)',
                                         transition: 'all 0.3s ease',
                                     }}
                                 >
@@ -2537,8 +2537,8 @@ export default function MemoryPalaceApp() {
                                                     width: 56, height: 56, borderRadius: 18, overflow: 'hidden',
                                                     flexShrink: 0,
                                                     boxShadow: palaceOn
-                                                        ? '0 0 0 2px #fff, 0 0 0 4px rgba(100,116,139,0.5), 0 6px 16px rgba(100,116,139,0.25)'
-                                                        : '0 2px 8px rgba(15,23,42,0.08)',
+                                                        ? '0 0 0 2px #fff, 0 0 0 4px rgba(114,114,114,0.5), 0 6px 16px rgba(114,114,114,0.25)'
+                                                        : '0 2px 8px rgba(23,23,23,0.08)',
                                                     background: '#f3f4f6',
                                                 }}
                                             >
@@ -2550,7 +2550,7 @@ export default function MemoryPalaceApp() {
                                                             width: 12, height: 12, borderRadius: '50%',
                                                             background: 'linear-gradient(135deg, #64748b, #64748b)',
                                                             border: '2px solid #fff',
-                                                            boxShadow: '0 0 6px rgba(100,116,139,0.6)',
+                                                            boxShadow: '0 0 6px rgba(114,114,114,0.6)',
                                                         }}
                                                     />
                                                 )}
@@ -2584,7 +2584,7 @@ export default function MemoryPalaceApp() {
                                                         background: 'linear-gradient(135deg, #64748b 0%, #334155 100%)',
                                                         color: '#fff',
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        boxShadow: '0 4px 10px rgba(100,116,139,0.3)',
+                                                        boxShadow: '0 4px 10px rgba(114,114,114,0.3)',
                                                     }}
                                                 >
                                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
@@ -2609,7 +2609,7 @@ export default function MemoryPalaceApp() {
                                                         style={{
                                                             width: 30, height: 30, borderRadius: 10,
                                                             background: palaceOn
-                                                                ? 'linear-gradient(135deg, rgba(100,116,139,0.2), rgba(100,116,139,0.15))'
+                                                                ? 'linear-gradient(135deg, rgba(114,114,114,0.2), rgba(114,114,114,0.15))'
                                                                 : '#f3f4f6',
                                                             color: palaceOn ? '#334155' : '#9ca3af',
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2656,7 +2656,7 @@ export default function MemoryPalaceApp() {
                                                                 : '#e5e7eb',
                                                             transition: 'background 0.25s',
                                                             boxShadow: palaceOn
-                                                                ? 'inset 0 1px 2px rgba(0,0,0,0.1), 0 2px 6px rgba(100,116,139,0.3)'
+                                                                ? 'inset 0 1px 2px rgba(0,0,0,0.1), 0 2px 6px rgba(114,114,114,0.3)'
                                                                 : 'inset 0 1px 2px rgba(0,0,0,0.05)',
                                                         }}
                                                     />
@@ -2687,7 +2687,7 @@ export default function MemoryPalaceApp() {
                                                         style={{
                                                             width: 30, height: 30, borderRadius: 10,
                                                             background: autoOn && palaceOn
-                                                                ? 'linear-gradient(135deg, rgba(100,116,139,0.2), rgba(100,116,139,0.15))'
+                                                                ? 'linear-gradient(135deg, rgba(114,114,114,0.2), rgba(114,114,114,0.15))'
                                                                 : '#f3f4f6',
                                                             color: autoOn && palaceOn ? '#334155' : '#9ca3af',
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2738,7 +2738,7 @@ export default function MemoryPalaceApp() {
                                                                 : '#e5e7eb',
                                                             transition: 'background 0.25s',
                                                             boxShadow: autoOn
-                                                                ? 'inset 0 1px 2px rgba(0,0,0,0.1), 0 2px 6px rgba(100,116,139,0.3)'
+                                                                ? 'inset 0 1px 2px rgba(0,0,0,0.1), 0 2px 6px rgba(114,114,114,0.3)'
                                                                 : 'inset 0 1px 2px rgba(0,0,0,0.05)',
                                                             opacity: syncing ? 0.6 : 1,
                                                         }}
@@ -2784,7 +2784,7 @@ export default function MemoryPalaceApp() {
                             position: 'fixed', inset: 0, zIndex: 200,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             padding: 24,
-                            background: 'rgba(31,17,71,0.45)',
+                            background: 'rgba(24,24,24,0.45)',
                             backdropFilter: 'blur(8px)',
                             WebkitBackdropFilter: 'blur(8px)',
                             animation: 'fade-in 0.2s ease-out',
@@ -2800,15 +2800,15 @@ export default function MemoryPalaceApp() {
                                 width: '100%', maxWidth: 360,
                                 borderRadius: 28, overflow: 'hidden',
                                 background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
-                                boxShadow: '0 25px 60px -15px rgba(100,116,139,0.4), 0 10px 30px rgba(0,0,0,0.15)',
-                                border: '1px solid rgba(100,116,139,0.25)',
+                                boxShadow: '0 25px 60px -15px rgba(114,114,114,0.4), 0 10px 30px rgba(0,0,0,0.15)',
+                                border: '1px solid rgba(114,114,114,0.25)',
                             }}
                         >
                             {/* Hero 头部 */}
                             <div
                                 style={{
                                     padding: '26px 24px 20px',
-                                    background: 'linear-gradient(135deg, rgba(100,116,139,0.12) 0%, rgba(100,116,139,0.08) 100%)',
+                                    background: 'linear-gradient(135deg, rgba(114,114,114,0.12) 0%, rgba(114,114,114,0.08) 100%)',
                                     textAlign: 'center',
                                     position: 'relative',
                                 }}
@@ -2820,7 +2820,7 @@ export default function MemoryPalaceApp() {
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         background: 'linear-gradient(135deg, #64748b 0%, #334155 100%)',
                                         color: '#fff',
-                                        boxShadow: '0 8px 20px rgba(100,116,139,0.35)',
+                                        boxShadow: '0 8px 20px rgba(114,114,114,0.35)',
                                     }}
                                 >
                                     <Icon name="sync" size={26} />
@@ -2847,8 +2847,8 @@ export default function MemoryPalaceApp() {
                                     <div
                                         style={{
                                             padding: '12px 14px', borderRadius: 16,
-                                            background: 'rgba(100,116,139,0.08)',
-                                            border: '1px solid rgba(100,116,139,0.2)',
+                                            background: 'rgba(114,114,114,0.08)',
+                                            border: '1px solid rgba(114,114,114,0.2)',
                                         }}
                                     >
                                         <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', letterSpacing: '0.16em', textTransform: 'uppercase' }}>未同步</div>
@@ -2860,8 +2860,8 @@ export default function MemoryPalaceApp() {
                                     <div
                                         style={{
                                             padding: '12px 14px', borderRadius: 16,
-                                            background: 'rgba(100,116,139,0.08)',
-                                            border: '1px solid rgba(100,116,139,0.2)',
+                                            background: 'rgba(114,114,114,0.08)',
+                                            border: '1px solid rgba(114,114,114,0.2)',
                                         }}
                                     >
                                         <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', letterSpacing: '0.16em', textTransform: 'uppercase' }}>预计</div>
@@ -2904,7 +2904,7 @@ export default function MemoryPalaceApp() {
                                         background: 'linear-gradient(135deg, #64748b 0%, #334155 100%)',
                                         color: '#fff', fontSize: 14, fontWeight: 700,
                                         letterSpacing: '0.02em',
-                                        boxShadow: '0 6px 16px rgba(100,116,139,0.35)',
+                                        boxShadow: '0 6px 16px rgba(114,114,114,0.35)',
                                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                                     }}
                                 >
@@ -2918,7 +2918,7 @@ export default function MemoryPalaceApp() {
                                     }}
                                     style={{
                                         padding: '11px 0', borderRadius: 16,
-                                        border: '1px solid rgba(100,116,139,0.2)',
+                                        border: '1px solid rgba(114,114,114,0.2)',
                                         cursor: 'pointer',
                                         background: 'transparent',
                                         color: '#334155', fontSize: 13, fontWeight: 600,
@@ -3180,8 +3180,8 @@ export default function MemoryPalaceApp() {
 
                 {!guideSetup && <div style={{
                     padding: 14, borderRadius: 14, marginBottom: 16,
-                    background: '#fef2f2', border: '2px solid #fca5a5',
-                    fontSize: 12, color: '#991b1b', lineHeight: 1.7,
+                    background: '#f7f7f7', border: '2px solid #b5b5b5',
+                    fontSize: 12, color: '#404040', lineHeight: 1.7,
                 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Icon name="warning" size={14} />
@@ -3190,14 +3190,14 @@ export default function MemoryPalaceApp() {
                     记忆宫殿的后台处理（话题切分、记忆提取、关联分析、认知消化）使用下方配置的「副 API」，
                     日常对话期间每轮会调用几次。<br/>
                     <b>建议配一个超低价的模型</b>跑后台任务就行，具体选哪家哪款自己对比；按量 vs 按次差别在这个量级下都不大，真想省心自己比一下单价即可。<br/>
-                    <span style={{ fontSize: 11, color: '#b91c1c' }}>
+                    <span style={{ fontSize: 11, color: '#404040' }}>
                         注：「导入旧记忆」是一次性大批量操作，调用次数会明显多于日常，单独见那里的提示。
                     </span>
                 </div>}
 
                 {/* 副 API 配置 */}
-                <div style={{ background: '#f0fdf4', borderRadius: 16, padding: 16, border: '1px solid #bbf7d0', marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ background: '#f7f7f7', borderRadius: 16, padding: 16, border: '1px solid #e5e5e5', marginBottom: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#404040', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Icon name="robot" size={14} />
                         <span>副 API（后台处理用）</span>
                     </div>
@@ -3207,8 +3207,8 @@ export default function MemoryPalaceApp() {
                     </div>
                     <MainApiMemoryChoice />
                     {!guideSetup && <div style={{
-                        fontSize: 10, color: '#9a3412', background: '#fff7ed',
-                        border: '1px solid #fed7aa', borderRadius: 8, padding: '6px 8px',
+                        fontSize: 10, color: '#404040', background: '#f7f7f7',
+                        border: '1px solid #d4d4d4', borderRadius: 8, padding: '6px 8px',
                         marginBottom: 12, lineHeight: 1.6,
                     }}>
                         下方<b>不填</b>（URL 留空）时，记忆宫殿会<b>自动回退用主 API</b> 跑后台处理。
@@ -3228,7 +3228,7 @@ export default function MemoryPalaceApp() {
                                         setLightModel(p.config.model);
                                     }} style={{
                                         padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-                                        border: '1px solid #bbf7d0', background: 'white', color: '#166534',
+                                        border: '1px solid #e5e5e5', background: 'white', color: '#404040',
                                         cursor: 'pointer',
                                     }}>
                                         {p.name}
@@ -3325,7 +3325,7 @@ export default function MemoryPalaceApp() {
                     {lightTestResult && (
                         <div style={{
                             marginTop: 8, fontSize: 12, padding: '8px 12px', borderRadius: 8,
-                            background: lightTestResult.startsWith('[ok]') ? '#f0fdf4' : '#fef2f2',
+                            background: lightTestResult.startsWith('[ok]') ? '#f7f7f7' : '#f7f7f7',
                             color: lightTestResult.startsWith('[ok]') ? '#475569' : '#475569',
                         }}>
                             <StatusMessage msg={lightTestResult} />
@@ -3333,7 +3333,7 @@ export default function MemoryPalaceApp() {
                     )}
 
                     {!guideSetup && !hasLightApi && (
-                        <div style={{ marginTop: 8, fontSize: 11, color: '#a16207', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <div style={{ marginTop: 8, fontSize: 11, color: '#666666', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                             <Icon name="warning" size={12} />
                             <span>副 API 未配置 — 后台处理会<b>回退使用主 API</b>（功能可用，但会占主 API 额度）</span>
                         </div>
@@ -3341,7 +3341,7 @@ export default function MemoryPalaceApp() {
                 </div>
 
                 {/* Embedding API */}
-                <div data-guide="embedding" style={{ background: '#f8f7ff', borderRadius: 16, padding: 16, border: '1px solid #e9e5ff' }}>
+                <div data-guide="embedding" style={{ background: '#f7f7f7', borderRadius: 16, padding: 16, border: '1px solid #e5e5e5' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Icon name="link" size={14} />
                         <span>Embedding API（OpenAI 兼容格式）</span>
@@ -3350,7 +3350,7 @@ export default function MemoryPalaceApp() {
                         新手可使用硅基流动（SiliconFlow），请先在网页版完成实名认证才能使用。
                         下方选择向量模型并填入 API Key 后保存。熟悉 Embedding 的用户也可配置其他兼容向量模型；不要填聊天模型。
                         <br/>
-                        <span style={{ color: '#a16207', fontWeight: 600 }}>
+                        <span style={{ color: '#666666', fontWeight: 600 }}>
                             注意：Embedding 用的是 <code>/embeddings</code> 端点，和主 API 不通用，因此
                             <b>不会自动回退</b>。不配置则记忆宫殿的向量化流程无法运行。
                         </span>
@@ -3381,7 +3381,7 @@ export default function MemoryPalaceApp() {
                                 />
                                 <button onClick={() => window.open('https://cloud.siliconflow.cn/account/ak', '_blank')} style={{
                                     padding: '8px 12px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-                                    border: '1px solid #e9e5ff', background: 'white', color: '#334155',
+                                    border: '1px solid #e5e5e5', background: 'white', color: '#334155',
                                     cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
                                 }}>
                                     获取 Key →
@@ -3396,8 +3396,8 @@ export default function MemoryPalaceApp() {
                             {memoryPalaceConfig.embedding.model && totalCount > 0 && (
                                 <div style={{
                                     margin: '0 0 10px 0', padding: '10px 14px', borderRadius: 12,
-                                    border: '1.5px solid #fca5a5', background: '#fef2f2',
-                                    fontSize: 11, color: '#991b1b', lineHeight: 1.7,
+                                    border: '1.5px solid #b5b5b5', background: '#f7f7f7',
+                                    fontSize: 11, color: '#404040', lineHeight: 1.7,
                                 }}>
                                     <span style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 4 }}>
                                         <Icon name="warning" size={12} />
@@ -3533,7 +3533,7 @@ export default function MemoryPalaceApp() {
                     {testResult && (
                         <div style={{
                             marginTop: 8, fontSize: 12, padding: '8px 12px', borderRadius: 8,
-                            background: testResult.startsWith('[ok]') ? '#f0fdf4' : '#fef2f2',
+                            background: testResult.startsWith('[ok]') ? '#f7f7f7' : '#f7f7f7',
                             color: testResult.startsWith('[ok]') ? '#475569' : '#475569',
                         }}>
                             <StatusMessage msg={testResult} />
@@ -3543,17 +3543,17 @@ export default function MemoryPalaceApp() {
 
                 {!guideSetup && <>
                 {/* Rerank API（可选 cross-encoder 二次排序） */}
-                <details style={{ marginTop: 16, background: '#f0f9ff', borderRadius: 16, padding: 16, border: '1px solid #bae6fd' }}>
+                <details style={{ marginTop: 16, background: '#f7f7f7', borderRadius: 16, padding: 16, border: '1px solid #e5e5e5' }}>
                     <summary style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#666666', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             <Icon name="target" size={14} />
                             <span>Rerank 模型（可选 / 二次排序增强）</span>
                         </span>
                         {rrEnabled && (
                             <span style={{
                                 fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                                color: (rrUrl && rrKey) ? '#15803d' : '#475569',
-                                background: (rrUrl && rrKey) ? '#dcfce7' : '#f1f5f9',
+                                color: (rrUrl && rrKey) ? '#666666' : '#475569',
+                                background: (rrUrl && rrKey) ? '#f7f7f7' : '#f1f5f9',
                             }}>
                                 {(rrUrl && rrKey) ? '已启用' : '待配置'}
                             </span>
@@ -3562,8 +3562,8 @@ export default function MemoryPalaceApp() {
 
                     <div style={{
                         marginTop: 12, padding: 12, borderRadius: 12,
-                        background: '#eff6ff', border: '1px solid #bfdbfe',
-                        fontSize: 11, color: '#1e3a8a', lineHeight: 1.7,
+                        background: '#f7f7f7', border: '1px solid #d4d4d4',
+                        fontSize: 11, color: '#404040', lineHeight: 1.7,
                     }}>
                         <div style={{ fontWeight: 700, marginBottom: 4 }}>rerank 是干啥的？</div>
                         开了之后能让跟你这句话最相关的记忆更准地被翻出来；可选增强，不开也不影响。
@@ -3576,9 +3576,9 @@ export default function MemoryPalaceApp() {
                                 type="checkbox"
                                 checked={rrEnabled}
                                 onChange={e => setRrEnabled(e.target.checked)}
-                                style={{ accentColor: '#0369a1' }}
+                                style={{ accentColor: '#666666' }}
                             />
-                            <span style={{ fontSize: 12, fontWeight: 600, color: '#0369a1' }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: '#666666' }}>
                                 启用 Rerank 通道
                             </span>
                         </label>
@@ -3592,9 +3592,9 @@ export default function MemoryPalaceApp() {
                             disabled={!embUrl.trim() || !embKey.trim()}
                             style={{
                                 padding: '8px 12px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-                                border: '1px solid #bae6fd',
+                                border: '1px solid #e5e5e5',
                                 background: (!embUrl.trim() || !embKey.trim()) ? '#f1f5f9' : 'white',
-                                color: (!embUrl.trim() || !embKey.trim()) ? '#94a3b8' : '#0369a1',
+                                color: (!embUrl.trim() || !embKey.trim()) ? '#94a3b8' : '#666666',
                                 cursor: (!embUrl.trim() || !embKey.trim()) ? 'not-allowed' : 'pointer',
                                 textAlign: 'left',
                             }}
@@ -3632,9 +3632,9 @@ export default function MemoryPalaceApp() {
                             <label className={labelClass}>RERANK 模型</label>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
                                 {[
-                                    { model: 'BAAI/bge-reranker-v2-m3', tag: '推荐', desc: '多语言 cross-encoder，中文强，免费额度大', color: '#0369a1' },
+                                    { model: 'BAAI/bge-reranker-v2-m3', tag: '推荐', desc: '多语言 cross-encoder，中文强，免费额度大', color: '#666666' },
                                     { model: 'Pro/BAAI/bge-reranker-v2-m3', tag: 'Pro 版', desc: '加速推理，延迟更低，按量计费', color: '#64748b' },
-                                    { model: 'netease-youdao/bce-reranker-base_v1', tag: '免费', desc: '网易有道 BCE，中文专精', color: '#10b981' },
+                                    { model: 'netease-youdao/bce-reranker-base_v1', tag: '免费', desc: '网易有道 BCE，中文专精', color: '#888888' },
                                 ].map(opt => {
                                     const isActive = rrModel === opt.model;
                                     return (
@@ -3687,7 +3687,7 @@ export default function MemoryPalaceApp() {
                         style={{
                             width: '100%', marginTop: 16, padding: '12px 0',
                             borderRadius: 16, border: 'none', fontWeight: 700, fontSize: 14,
-                            color: 'white', background: '#0369a1', cursor: 'pointer',
+                            color: 'white', background: '#666666', cursor: 'pointer',
                         }}
                     >
                         {rrSaved ? '✓ 已保存' : '保存 Rerank 配置'}
@@ -3722,7 +3722,7 @@ export default function MemoryPalaceApp() {
                         style={{
                             width: '100%', marginTop: 8, padding: '10px 0',
                             borderRadius: 12, border: '1px solid #0369a144',
-                            fontWeight: 600, fontSize: 13, color: '#0369a1',
+                            fontWeight: 600, fontSize: 13, color: '#666666',
                             background: 'white',
                             cursor: rrTesting ? 'not-allowed' : 'pointer',
                         }}
@@ -3738,7 +3738,7 @@ export default function MemoryPalaceApp() {
                     {rrTestResult && (
                         <div style={{
                             marginTop: 8, fontSize: 12, padding: '8px 12px', borderRadius: 8,
-                            background: rrTestResult.startsWith('[ok]') ? '#f0fdf4' : rrTestResult.startsWith('[warn]') ? '#fffbeb' : '#fef2f2',
+                            background: rrTestResult.startsWith('[ok]') ? '#f7f7f7' : rrTestResult.startsWith('[warn]') ? '#f7f7f7' : '#f7f7f7',
                             color: rrTestResult.startsWith('[ok]') ? '#475569' : rrTestResult.startsWith('[warn]') ? '#475569' : '#475569',
                         }}>
                             <StatusMessage msg={rrTestResult} />
@@ -3756,8 +3756,8 @@ export default function MemoryPalaceApp() {
                         {remoteVectorConfig.enabled && (
                             <span style={{
                                 fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                                color: remoteVectorConfig.initialized ? '#15803d' : '#475569',
-                                background: remoteVectorConfig.initialized ? '#dcfce7' : '#f1f5f9',
+                                color: remoteVectorConfig.initialized ? '#666666' : '#475569',
+                                background: remoteVectorConfig.initialized ? '#f7f7f7' : '#f1f5f9',
                             }}>
                                 {remoteVectorConfig.initialized ? '已连接' : '待初始化'}
                             </span>
@@ -3767,13 +3767,13 @@ export default function MemoryPalaceApp() {
                     {/* 什么时候考虑用 */}
                     <div style={{
                         marginTop: 12, padding: 12, borderRadius: 12,
-                        background: '#fffbeb', border: '1px solid #e2e8f0',
+                        background: '#f7f7f7', border: '1px solid #e2e8f0',
                         fontSize: 11, color: '#334155', lineHeight: 1.7,
                     }}>
                         <div style={{ fontWeight: 700, marginBottom: 4 }}>什么时候考虑搞这个？</div>
                         当你觉得<b>向量搜索变卡</b>的时候（一般要到 2–3 万条记忆以上才会有感觉）。
                         万条以内本地完全跑得动，<b>不用折腾</b>。
-                        <div style={{ marginTop: 8, padding: 8, borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+                        <div style={{ marginTop: 8, padding: 8, borderRadius: 8, background: '#f7f7f7', border: '1px solid #d4d4d4', color: '#404040', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
                             <span style={{ flexShrink: 0, marginTop: 2 }}><Icon name="warning" size={12} /></span>
                             <div>
                                 <b>开了远程 ≠ 数据万事大吉。</b>
@@ -3799,7 +3799,7 @@ export default function MemoryPalaceApp() {
                     </a>
 
                     {/* 3 步操作提示 */}
-                    <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: '#f1f5f9', fontSize: 11, color: '#5b21b6', lineHeight: 1.8 }}>
+                    <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: '#f1f5f9', fontSize: 11, color: '#404040', lineHeight: 1.8 }}>
                         <b>3 步搞定：</b><br/>
                         1. 注册 Supabase（GitHub 一键登录，见上方教程）<br/>
                         2. 在 Supabase SQL Editor 里运行下方初始化 SQL<br/>
@@ -3833,7 +3833,7 @@ export default function MemoryPalaceApp() {
                         </div>
                         {showInitSQL && (
                             <pre style={{
-                                background: '#0f172a', color: '#86efac', fontSize: 9, padding: 12, borderRadius: 10,
+                                background: '#0f172a', color: '#d4d4d4', fontSize: 9, padding: 12, borderRadius: 10,
                                 overflow: 'auto', maxHeight: 200, lineHeight: 1.6, whiteSpace: 'pre-wrap',
                             }}>{`create extension if not exists vector;
 create table if not exists memory_vectors (
@@ -3994,11 +3994,11 @@ create table if not exists memory_vectors (
                 </details>
 
                 <details style={{ marginTop: 12 }}>
-                    <summary style={{ fontSize: 10, color: '#0f766e', cursor: 'pointer', userSelect: 'none' }}>
+                    <summary style={{ fontSize: 10, color: '#666666', cursor: 'pointer', userSelect: 'none' }}>
                         ChatApp 交流步伐
                     </summary>
-                    <div style={{ marginTop: 8, background: '#f0fdfa', borderRadius: 12, padding: 14, border: '1px solid #99f6e4' }}>
-                        <div style={{ fontSize: 11, color: '#115e59', lineHeight: 1.65, marginBottom: 12 }}>
+                    <div style={{ marginTop: 8, background: '#f7f7f7', borderRadius: 12, padding: 14, border: '1px solid #e5e5e5' }}>
+                        <div style={{ fontSize: 11, color: '#404040', lineHeight: 1.65, marginBottom: 12 }}>
                             设置这个角色愿意在多大程度上跟随用户当下的说话步伐。0% 表示该维度完全保持自己，100% 也只会在安全范围内适应，不会改写角色人格。
                         </div>
                         {([
@@ -4014,7 +4014,7 @@ create table if not exists memory_vectors (
                                 <div key={key} style={{ marginBottom: key === 'emoji' ? 0 : 10 }}>
                                     <label className={labelClass} style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <span>{label}</span>
-                                        <span style={{ color: '#0f766e' }}>{Math.round(value * 100)}%</span>
+                                        <span style={{ color: '#666666' }}>{Math.round(value * 100)}%</span>
                                     </label>
                                     <input
                                         type="range"
@@ -4023,7 +4023,7 @@ create table if not exists memory_vectors (
                                         step="0.05"
                                         value={value}
                                         onChange={event => updateAccommodation(key, parseFloat(event.target.value))}
-                                        style={{ width: '100%', accentColor: '#0f766e' }}
+                                        style={{ width: '100%', accentColor: '#666666' }}
                                     />
                                 </div>
                             );
@@ -4032,13 +4032,13 @@ create table if not exists memory_vectors (
                             onClick={() => updateCharacter(char.id, { interactionAccommodation: { ...DEFAULT_CHARACTER_ACCOMMODATION } })}
                             style={{
                                 width: '100%', marginTop: 12, padding: '8px 0', borderRadius: 9,
-                                border: '1px solid #99f6e4', background: '#ffffff',
-                                fontSize: 11, fontWeight: 700, color: '#0f766e', cursor: 'pointer',
+                                border: '1px solid #e5e5e5', background: '#ffffff',
+                                fontSize: 11, fontWeight: 700, color: '#666666', cursor: 'pointer',
                             }}
                         >
                             恢复温和默认值
                         </button>
-                        <div style={{ fontSize: 10, color: '#0f766e', lineHeight: 1.55, marginTop: 10 }}>
+                        <div style={{ fontSize: 10, color: '#666666', lineHeight: 1.55, marginTop: 10 }}>
                             这里只影响 ChatApp 回复。角色回复不会被拿来反向训练这些数值，其他 App 的写作人格也不会变化。
                         </div>
                     </div>
@@ -4046,7 +4046,7 @@ create table if not exists memory_vectors (
 
                 {/* 手动总结与向量化（保底机制）：圈选聊天区间走一次总结，不碰水位线 */}
                 <div style={{ marginTop: 16, background: '#f1f5f9', borderRadius: 16, padding: 16, border: '1px solid #cbd5e1' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#5b21b6', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#404040', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Icon name="book" size={14} />
                         <span>手动总结与向量化</span>
                     </div>
@@ -4105,7 +4105,7 @@ create table if not exists memory_vectors (
                                 position: 'fixed', inset: 0, zIndex: 210,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 padding: 12,
-                                background: 'rgba(31,17,71,0.45)',
+                                background: 'rgba(24,24,24,0.45)',
                                 animation: 'fade-in 0.2s ease-out',
                             }}
                             onClick={() => { if (!rangeRunning) setRangeModalOpen(false); }}
@@ -4118,8 +4118,8 @@ create table if not exists memory_vectors (
                                     display: 'flex', flexDirection: 'column',
                                     borderRadius: 24, overflow: 'hidden',
                                     background: '#ffffff',
-                                    boxShadow: '0 25px 60px -15px rgba(100,116,139,0.4), 0 10px 30px rgba(0,0,0,0.15)',
-                                    border: '1px solid rgba(100,116,139,0.25)',
+                                    boxShadow: '0 25px 60px -15px rgba(114,114,114,0.4), 0 10px 30px rgba(0,0,0,0.15)',
+                                    border: '1px solid rgba(114,114,114,0.25)',
                                 }}
                             >
                                 {/* 头部 */}
@@ -4305,7 +4305,7 @@ create table if not exists memory_vectors (
                         style={{
                             position: 'fixed', inset: 0, zIndex: 220,
                             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-                            background: 'rgba(15,23,42,0.55)',
+                            background: 'rgba(23,23,23,0.55)',
                             backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
                             animation: 'fade-in 0.2s ease-out',
                         }}
@@ -4317,16 +4317,16 @@ create table if not exists memory_vectors (
                                 width: '100%', maxWidth: 380, maxHeight: '82vh',
                                 display: 'flex', flexDirection: 'column', overflow: 'hidden',
                                 background: 'linear-gradient(160deg, #ffffff 0%, #f8fafc 100%)',
-                                borderRadius: 28, border: '1px solid rgba(148,163,184,0.18)',
-                                boxShadow: '0 20px 50px -20px rgba(15,23,42,0.35)',
+                                borderRadius: 28, border: '1px solid rgba(161,161,161,0.18)',
+                                boxShadow: '0 20px 50px -20px rgba(23,23,23,0.35)',
                             }}
                         >
                             <div style={{ padding: '26px 24px 14px', textAlign: 'center' }}>
                                 <div style={{
                                     width: 54, height: 54, margin: '0 auto 12px', borderRadius: 18,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: 'linear-gradient(135deg, rgba(100,116,139,0.14), rgba(100,116,139,0.06))',
-                                    border: '1px solid rgba(100,116,139,0.15)', fontSize: 26,
+                                    background: 'linear-gradient(135deg, rgba(114,114,114,0.14), rgba(114,114,114,0.06))',
+                                    border: '1px solid rgba(114,114,114,0.15)', fontSize: 26,
                                 }}>🗂️</div>
                                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#334155' }}>Manual Summary</div>
                                 <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>手动总结完成</div>
@@ -4348,11 +4348,11 @@ create table if not exists memory_vectors (
                                     const roomMeta: Record<string, { label: string; color: string }> = {
                                         living_room: { label: '客厅', color: '#64748b' },
                                         bedroom: { label: '卧室', color: '#475569' },
-                                        study: { label: '书房', color: '#0ea5e9' },
+                                        study: { label: '书房', color: '#888888' },
                                         user_room: { label: '用户房间', color: '#64748b' },
-                                        self_room: { label: '自我房间', color: '#10b981' },
+                                        self_room: { label: '自我房间', color: '#888888' },
                                         attic: { label: '阁楼', color: '#475569' },
-                                        windowsill: { label: '窗台', color: '#14b8a6' },
+                                        windowsill: { label: '窗台', color: '#888888' },
                                     };
                                     const meta = roomMeta[m.room] || { label: m.room, color: '#64748b' };
                                     const roomLabel = getRoomLabel(m.room as any, userProfile?.name) || meta.label;
@@ -4371,7 +4371,7 @@ create table if not exists memory_vectors (
                                             {m.tags.length > 0 && (
                                                 <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
                                                     {m.tags.map((t, j) => (
-                                                        <span key={j} style={{ fontSize: 9, padding: '1px 6px', borderRadius: 999, background: 'rgba(148,163,184,0.15)', color: '#64748b' }}>{t}</span>
+                                                        <span key={j} style={{ fontSize: 9, padding: '1px 6px', borderRadius: 999, background: 'rgba(161,161,161,0.15)', color: '#64748b' }}>{t}</span>
                                                     ))}
                                                 </div>
                                             )}
@@ -4392,7 +4392,7 @@ create table if not exists memory_vectors (
                                         width: '100%', padding: '12px 0', borderRadius: 14, border: 'none',
                                         color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
                                         background: 'linear-gradient(135deg, #334155, #475569)',
-                                        boxShadow: '0 6px 18px -6px rgba(100,116,139,0.5)',
+                                        boxShadow: '0 6px 18px -6px rgba(114,114,114,0.5)',
                                     }}
                                 >
                                     确认
@@ -4404,7 +4404,7 @@ create table if not exists memory_vectors (
 
                 {/* 聊天记录向量化 */}
                 {/* 迁移旧记忆 */}
-                <div style={{ marginTop: 16, background: '#fefce8', borderRadius: 16, padding: 16, border: '1px solid #e2e8f0' }}>
+                <div style={{ marginTop: 16, background: '#f7f7f7', borderRadius: 16, padding: 16, border: '1px solid #e2e8f0' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Icon name="download" size={14} />
                         <span>导入旧记忆</span>
@@ -4417,8 +4417,8 @@ create table if not exists memory_vectors (
                     {/* 开销提示：旧记忆一次性灌入 LLM 是一次性高消耗，提醒用户避免误用昂贵 API */}
                     <div style={{
                         marginBottom: 12, padding: 10, borderRadius: 10,
-                        border: '1px solid #fca5a5', background: '#fef2f2',
-                        fontSize: 11, color: '#991b1b', lineHeight: 1.7,
+                        border: '1px solid #b5b5b5', background: '#f7f7f7',
+                        fontSize: 11, color: '#404040', lineHeight: 1.7,
                     }}>
                         <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
                             <Icon name="money" size={12} />
@@ -4530,7 +4530,7 @@ create table if not exists memory_vectors (
                         disabled={deleting}
                         style={{
                             width: '100%', marginTop: 8, padding: '8px 0',
-                            borderRadius: 10, border: '1px solid #fecaca',
+                            borderRadius: 10, border: '1px solid #d4d4d4',
                             fontSize: 12, fontWeight: 600,
                             color: '#475569', background: 'white',
                             cursor: deleting ? 'not-allowed' : 'pointer',
@@ -4546,8 +4546,8 @@ create table if not exists memory_vectors (
                 </div>
 
                 {/* 认知消化（手动触发/测试） */}
-                <div style={{ marginTop: 16, background: '#f0fdf4', borderRadius: 16, padding: 16, border: '1px solid #bbf7d0' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ marginTop: 16, background: '#f7f7f7', borderRadius: 16, padding: 16, border: '1px solid #e5e5e5' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#404040', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <RoomIcon room="attic" size={14} style={{ color: ROOM_COLORS.attic }} />
                         <span>认知消化</span>
                     </div>
@@ -4608,9 +4608,9 @@ create table if not exists memory_vectors (
                         }}
                         style={{
                             width: '100%', marginTop: 8, padding: '8px 0',
-                            borderRadius: 10, border: '1px solid #bbf7d0',
+                            borderRadius: 10, border: '1px solid #e5e5e5',
                             fontSize: 12, fontWeight: 600,
-                            color: '#166534', background: 'white', cursor: 'pointer',
+                            color: '#404040', background: 'white', cursor: 'pointer',
                         }}
                     >
                         {digestReports === null ? '查看消化日志' : '收起消化日志'}
@@ -4656,7 +4656,7 @@ create table if not exists memory_vectors (
                                                 {examinedCount === 0 && outcomeCount === 0 && submitCount === 0 && (
                                                     <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>这次没有待消化的内容{report.plateUpdated.length > 0 ? '，但整理了门牌' : ''}</div>
                                                 )}
-                                                {report.examined.map(sec => renderSection(sec, '#0ea5e9'))}
+                                                {report.examined.map(sec => renderSection(sec, '#888888'))}
                                                 {report.outcomes.map(sec => renderSection(sec, '#475569'))}
                                                 {report.plateSubmissions.map(sec => renderSection(sec, '#475569'))}
                                                 {report.plateUpdated.length > 0 && (
@@ -4684,8 +4684,8 @@ create table if not exists memory_vectors (
                 </div>
 
                 {/* 导出 / 导入记忆：接入外置记忆库、跨设备迁移 */}
-                <div style={{ marginTop: 16, background: '#eff6ff', borderRadius: 16, padding: 16, border: '1px solid #bfdbfe' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1e40af', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ marginTop: 16, background: '#f7f7f7', borderRadius: 16, padding: 16, border: '1px solid #d4d4d4' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#404040', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Icon name="download" size={14} />
                         <span>导出 / 导入记忆</span>
                     </div>
@@ -4727,7 +4727,7 @@ create table if not exists memory_vectors (
                             width: '100%', padding: '10px 0', borderRadius: 12,
                             border: 'none', fontWeight: 700, fontSize: 13,
                             color: 'white',
-                            background: exporting ? '#d4d4d4' : '#2563eb',
+                            background: exporting ? '#d4d4d4' : '#666666',
                             cursor: exporting ? 'not-allowed' : 'pointer',
                         }}
                     >
@@ -4741,8 +4741,8 @@ create table if not exists memory_vectors (
 
 
                     {/* 外部文本搬家：原文清洗后直接向量化、分房间并建链 */}
-                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #dbeafe' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#1e40af', marginBottom: 6 }}>
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #e5e5e5' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#404040', marginBottom: 6 }}>
                             从其它地方搬入原始记忆
                         </div>
                         <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 10, lineHeight: 1.65 }}>
@@ -4761,7 +4761,7 @@ create table if not exists memory_vectors (
                                 minHeight: 150,
                                 resize: 'vertical',
                                 borderRadius: 12,
-                                border: '1px solid #bfdbfe',
+                                border: '1px solid #d4d4d4',
                                 background: externalImporting ? '#f8fafc' : 'white',
                                 color: '#334155',
                                 fontSize: 12,
@@ -4784,7 +4784,7 @@ create table if not exists memory_vectors (
                                 fontSize: 11,
                                 lineHeight: 1.65,
                                 color: '#475569',
-                                background: '#fffbeb',
+                                background: '#f7f7f7',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: 10,
                                 padding: 10,
@@ -4817,7 +4817,7 @@ create table if not exists memory_vectors (
                             </div>
                         </details>
                         {externalImportProgress && (
-                            <div style={{ fontSize: 11, color: '#2563eb', marginBottom: 8 }}>
+                            <div style={{ fontSize: 11, color: '#666666', marginBottom: 8 }}>
                                 {externalImportProgress}
                             </div>
                         )}
@@ -4854,7 +4854,7 @@ create table if not exists memory_vectors (
                     </div>
 
                     {/* 结构化导入：把本系统导出的 JSON 合并回当前角色（跨设备迁移 / 恢复） */}
-                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #dbeafe' }}>
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #e5e5e5' }}>
                         <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 10, lineHeight: 1.6 }}>
                             已经是 SullyOS·糯米机 记忆宫殿 JSON 的文件无需清洗，可直接合并进 <b>{char.name}</b>（追加，不覆盖）。
                         </div>
@@ -4877,8 +4877,8 @@ create table if not exists memory_vectors (
                             disabled={importing}
                             style={{
                                 width: '100%', padding: '10px 0', borderRadius: 12,
-                                border: '1px solid #bfdbfe', fontWeight: 700, fontSize: 13,
-                                color: '#1d4ed8', background: 'white',
+                                border: '1px solid #d4d4d4', fontWeight: 700, fontSize: 13,
+                                color: '#404040', background: 'white',
                                 cursor: importing ? 'not-allowed' : 'pointer',
                             }}
                         >
@@ -4896,12 +4896,12 @@ create table if not exists memory_vectors (
                 {/* 危险区：一键清空 */}
                 {!guideSetup && <MemoryMaintenancePanel key={char?.id || 'global'} config={memoryPalaceConfig} update={updateMemoryPalaceConfig} char={isGlobal ? null : char} userName={userProfile.name} />}
                 {isGlobal && !guideSetup && (
-                <div style={{ marginTop: 16, background: '#fef2f2', borderRadius: 16, padding: 16, border: '2px solid #fca5a5' }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#991b1b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ marginTop: 16, background: '#f7f7f7', borderRadius: 16, padding: 16, border: '2px solid #b5b5b5' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#404040', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Icon name="warning" size={14} />
                         <span>危险区：一键清空向量记忆</span>
                     </div>
-                    <div style={{ fontSize: 11, color: '#7f1d1d', marginBottom: 12, lineHeight: 1.7 }}>
+                    <div style={{ fontSize: 11, color: '#242424', marginBottom: 12, lineHeight: 1.7 }}>
                         清空【所有角色】的记忆节点、向量、关联、事件盒、便利贴、期盼、高水位标记。
                         可选择同时清空云端 Supabase <code>memory_vectors</code> 全表。
                         <b> 此操作不可撤销。</b>
@@ -4910,7 +4910,7 @@ create table if not exists memory_vectors (
                     {wipeResult && (
                         <div style={{
                             fontSize: 12, marginBottom: 10,
-                            color: wipeResult.startsWith('[err]') ? '#475569' : '#166534',
+                            color: wipeResult.startsWith('[err]') ? '#475569' : '#404040',
                         }}>
                             <StatusMessage msg={wipeResult} />
                         </div>
@@ -4922,8 +4922,8 @@ create table if not exists memory_vectors (
                             disabled={wiping}
                             style={{
                                 width: '100%', padding: '10px 0', borderRadius: 12,
-                                border: '1px solid #fecaca', fontWeight: 700, fontSize: 13,
-                                color: '#b91c1c', background: 'white',
+                                border: '1px solid #d4d4d4', fontWeight: 700, fontSize: 13,
+                                color: '#404040', background: 'white',
                                 cursor: wiping ? 'not-allowed' : 'pointer',
                             }}
                         >
@@ -4992,7 +4992,7 @@ create table if not exists memory_vectors (
                             width: 32, height: 32, borderRadius: 10,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             cursor: 'pointer',
-                            background: '#f3f0ff', color: '#334155',
+                            background: '#f0f0f0', color: '#334155',
                         }}
                     >
                         <Icon name="settings" size={16} />
@@ -5017,8 +5017,8 @@ create table if not exists memory_vectors (
                                 display: 'inline-flex', alignItems: 'center', gap: 5,
                                 fontSize: 11, fontWeight: 600, color: '#334155',
                                 cursor: 'pointer', padding: '4px 12px',
-                                borderRadius: 8, border: '1px solid #e9e5ff',
-                                background: '#f8f6ff',
+                                borderRadius: 8, border: '1px solid #e5e5e5',
+                                background: '#f7f7f7',
                             }}
                         >
                             <Icon name="list" size={13} />
@@ -5030,8 +5030,8 @@ create table if not exists memory_vectors (
                                 display: 'inline-flex', alignItems: 'center', gap: 5,
                                 fontSize: 11, fontWeight: 600, color: '#475569',
                                 cursor: 'pointer', padding: '4px 12px',
-                                borderRadius: 8, border: '1px solid #c7d2fe',
-                                background: '#eef2ff',
+                                borderRadius: 8, border: '1px solid #d4d4d4',
+                                background: '#f0f0f0',
                             }}
                         >
                             <Icon name="box" size={13} />
@@ -5089,7 +5089,7 @@ create table if not exists memory_vectors (
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: 10,
                                         padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
-                                        backgroundColor: c.id === activeCharacterId ? '#f3f0ff' : 'transparent',
+                                        backgroundColor: c.id === activeCharacterId ? '#f0f0f0' : 'transparent',
                                     }}
                                 >
                                     <TokenImg value={c.avatar} alt="" style={{ width: 32, height: 32, borderRadius: 10, objectFit: 'cover' }} />
@@ -5139,7 +5139,7 @@ create table if not exists memory_vectors (
                             return (
                                 <div key={node.id} style={{
                                     padding: '10px 12px', borderRadius: 10, marginBottom: 6,
-                                    border: '1px solid #e2e8f0', background: '#fffbeb',
+                                    border: '1px solid #e2e8f0', background: '#f7f7f7',
                                     display: 'flex', alignItems: 'flex-start', gap: 8,
                                 }}>
                                     <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => openMemory(node, 'all')}>
@@ -5276,8 +5276,8 @@ create table if not exists memory_vectors (
                                 }}
                                 style={{
                                 padding: 10, borderRadius: 8, marginBottom: 6,
-                                backgroundColor: ant.status === 'fulfilled' ? '#ecfdf5' :
-                                    ant.status === 'disappointed' ? '#fef2f2' : '#fefce8',
+                                backgroundColor: ant.status === 'fulfilled' ? '#f7f7f7' :
+                                    ant.status === 'disappointed' ? '#f7f7f7' : '#f7f7f7',
                                 fontSize: 13, display: 'flex', alignItems: 'flex-start', gap: 6,
                                 cursor: 'pointer', userSelect: 'none', touchAction: 'pan-y',
                             }}>
@@ -5314,7 +5314,7 @@ create table if not exists memory_vectors (
                         }}
                         style={{
                             position: 'fixed', inset: 0, zIndex: 120,
-                            background: 'rgba(15,23,42,0.42)', backdropFilter: 'blur(4px)',
+                            background: 'rgba(23,23,23,0.42)', backdropFilter: 'blur(4px)',
                             display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
                             padding: 16,
                         }}
@@ -5324,7 +5324,7 @@ create table if not exists memory_vectors (
                             style={{
                                 width: '100%', maxWidth: 520, padding: 18,
                                 borderRadius: 22, background: 'white',
-                                boxShadow: '0 18px 50px rgba(15,23,42,0.22)',
+                                boxShadow: '0 18px 50px rgba(23,23,23,0.22)',
                             }}
                         >
                             <div style={{ fontSize: 16, fontWeight: 700, color: '#1f2937' }}>修改窗台期盼</div>
@@ -5340,7 +5340,7 @@ create table if not exists memory_vectors (
                                 style={{
                                     width: '100%', boxSizing: 'border-box', resize: 'vertical',
                                     border: '1px solid #e5e7eb', borderRadius: 14,
-                                    background: '#fffbeb', color: '#1f2937',
+                                    background: '#f7f7f7', color: '#1f2937',
                                     fontSize: 14, lineHeight: 1.6, padding: 12, outline: 'none',
                                 }}
                             />
@@ -5350,7 +5350,7 @@ create table if not exists memory_vectors (
                                     disabled={savingAnticipation}
                                     style={{
                                         padding: '10px 14px', borderRadius: 12,
-                                        border: '1px solid #fecaca', background: '#fef2f2',
+                                        border: '1px solid #d4d4d4', background: '#f7f7f7',
                                         color: '#475569', fontWeight: 700, cursor: 'pointer',
                                     }}
                                 >
@@ -5426,7 +5426,7 @@ create table if not exists memory_vectors (
                             style={{
                                 padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
                                 border: allSortBy === s ? '2px solid #334155' : '1px solid #d4d4d4',
-                                background: allSortBy === s ? '#f3f0ff' : 'white',
+                                background: allSortBy === s ? '#f0f0f0' : 'white',
                                 color: allSortBy === s ? '#334155' : '#6b7280',
                                 cursor: 'pointer',
                             }}
@@ -5477,7 +5477,7 @@ create table if not exists memory_vectors (
                                     {node.tags.map((t: string) => (
                                         <span key={t} style={{
                                             fontSize: 10, padding: '1px 6px', borderRadius: 4,
-                                            backgroundColor: '#f3f0ff', color: '#334155',
+                                            backgroundColor: '#f0f0f0', color: '#334155',
                                         }}>{t}</span>
                                     ))}
                                 </div>
@@ -5525,8 +5525,8 @@ create table if not exists memory_vectors (
                                 key={box.id}
                                 style={{
                                     borderRadius: 12, marginBottom: 10,
-                                    border: '1px solid #c7d2fe',
-                                    background: expanded ? '#f5f7ff' : '#fafbff',
+                                    border: '1px solid #d4d4d4',
+                                    background: expanded ? '#f7f7f7' : '#f7f7f7',
                                     overflow: 'hidden',
                                 }}
                             >
@@ -5535,7 +5535,7 @@ create table if not exists memory_vectors (
                                     style={{ padding: 12, cursor: 'pointer' }}
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#3730a3', flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#404040', flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
                                             <Icon name="box" size={14} />
                                             <span>{box.name || '未命名'}</span>
                                             {box.sealed && <span style={{ fontSize: 10, marginLeft: 4, padding: '1px 6px', borderRadius: 4, background: '#f1f5f9', color: '#475569' }}>已封盒</span>}
@@ -5546,8 +5546,8 @@ create table if not exists memory_vectors (
                                             style={{
                                                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                                 width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                                                border: '1px solid #c7d2fe',
-                                                background: editingBoxId === box.id ? '#e0e7ff' : '#fff',
+                                                border: '1px solid #d4d4d4',
+                                                background: editingBoxId === box.id ? '#e5e5e5' : '#fff',
                                                 color: '#475569', cursor: 'pointer', padding: 0,
                                             }}
                                         >
@@ -5560,7 +5560,7 @@ create table if not exists memory_vectors (
                                             {box.tags.slice(0, 6).map(t => (
                                                 <span key={t} style={{
                                                     fontSize: 10, padding: '1px 6px', borderRadius: 4,
-                                                    backgroundColor: '#e0e7ff', color: '#4338ca',
+                                                    backgroundColor: '#e5e5e5', color: '#404040',
                                                 }}>{t}</span>
                                             ))}
                                         </div>
@@ -5574,12 +5574,12 @@ create table if not exists memory_vectors (
                                 </div>
 
                                 {editingBoxId === box.id && (
-                                    <div style={{ padding: '0 12px 12px', borderTop: '1px solid #e0e7ff' }}>
+                                    <div style={{ padding: '0 12px 12px', borderTop: '1px solid #e5e5e5' }}>
                                         <div style={{ fontSize: 10, color: '#6b7280', margin: '10px 0 8px', lineHeight: 1.5 }}>
                                             盒名和标签仅用于召回时的展示抬头，不参与检索打分（改它不影响召回哪些记忆）。
                                             注意：盒子之后再次压缩时，副 API 可能重新生成盒名/标签覆盖你的修改，不满意再改一次即可。
                                         </div>
-                                        <label style={{ fontSize: 11, fontWeight: 600, color: '#4338ca' }}>盒名</label>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: '#404040' }}>盒名</label>
                                         <input
                                             value={boxNameDraft}
                                             onChange={e => setBoxNameDraft(e.target.value)}
@@ -5587,18 +5587,18 @@ create table if not exists memory_vectors (
                                             maxLength={40}
                                             style={{
                                                 width: '100%', boxSizing: 'border-box', marginTop: 4, marginBottom: 10,
-                                                padding: '6px 8px', borderRadius: 6, border: '1px solid #c7d2fe',
+                                                padding: '6px 8px', borderRadius: 6, border: '1px solid #d4d4d4',
                                                 fontSize: 13, outline: 'none',
                                             }}
                                         />
-                                        <label style={{ fontSize: 11, fontWeight: 600, color: '#4338ca' }}>标签（逗号分隔，最多 20 个）</label>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: '#404040' }}>标签（逗号分隔，最多 20 个）</label>
                                         <input
                                             value={boxTagsDraft}
                                             onChange={e => setBoxTagsDraft(e.target.value)}
                                             placeholder="如：买衣服, 退货, 流行款"
                                             style={{
                                                 width: '100%', boxSizing: 'border-box', marginTop: 4, marginBottom: 10,
-                                                padding: '6px 8px', borderRadius: 6, border: '1px solid #c7d2fe',
+                                                padding: '6px 8px', borderRadius: 6, border: '1px solid #d4d4d4',
                                                 fontSize: 13, outline: 'none',
                                             }}
                                         />
@@ -5634,11 +5634,11 @@ create table if not exists memory_vectors (
                                 )}
 
                                 {expanded && members && (
-                                    <div style={{ padding: '0 12px 12px', borderTop: '1px solid #e0e7ff' }}>
+                                    <div style={{ padding: '0 12px 12px', borderTop: '1px solid #e5e5e5' }}>
                                         {(members.live.length > 0 || members.archived.length > 0) && (
                                             <div style={{
                                                 marginTop: 10, padding: '9px 10px', borderRadius: 8,
-                                                border: '1px solid #c7d2fe', background: '#eef2ff',
+                                                border: '1px solid #d4d4d4', background: '#f0f0f0',
                                                 display: 'flex', alignItems: 'center', gap: 10,
                                             }}>
                                                 <div style={{ flex: 1, minWidth: 0, fontSize: 10, lineHeight: 1.45, color: '#475569' }}>
@@ -5651,7 +5651,7 @@ create table if not exists memory_vectors (
                                                     style={{
                                                         display: 'inline-flex', alignItems: 'center', gap: 4,
                                                         flexShrink: 0, padding: '5px 9px', borderRadius: 7,
-                                                        border: '1px solid #a5b4fc', background: '#fff',
+                                                        border: '1px solid #b5b5b5', background: '#fff',
                                                         color: '#334155', fontSize: 10, fontWeight: 700,
                                                         cursor: regeneratingBoxId !== null ? 'wait' : 'pointer',
                                                         opacity: regeneratingBoxId !== null && regeneratingBoxId !== box.id ? 0.5 : 1,
@@ -5667,7 +5667,7 @@ create table if not exists memory_vectors (
                                                 onClick={() => openMemory(members.summary!, 'boxes')}
                                                 style={{
                                                     marginTop: 10, padding: 10, borderRadius: 8,
-                                                    border: '1px solid #fcd34d', background: '#f1f5f9',
+                                                    border: '1px solid #d4d4d4', background: '#f1f5f9',
                                                     cursor: 'pointer',
                                                 }}
                                             >
@@ -5688,7 +5688,7 @@ create table if not exists memory_vectors (
                                                         <Icon name="box" size={11} />
                                                         <span>活节点（{members.live.length}）</span>
                                                         {members.live.length >= 15 && (
-                                                            <span style={{ marginLeft: 4, fontSize: 9, color: '#b91c1c', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                                            <span style={{ marginLeft: 4, fontSize: 9, color: '#404040', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                                                                 <Icon name="warning" size={10} />
                                                                 <span>压缩可能连续失败</span>
                                                             </span>
@@ -5698,7 +5698,7 @@ create table if not exists memory_vectors (
                                                         onClick={(e) => { e.stopPropagation(); handleUnbindAllLive(box); }}
                                                         style={{
                                                             fontSize: 10, padding: '3px 8px', borderRadius: 6,
-                                                            border: '1px solid #fecaca', background: '#fef2f2', color: '#b91c1c',
+                                                            border: '1px solid #d4d4d4', background: '#f7f7f7', color: '#404040',
                                                             cursor: 'pointer',
                                                         }}
                                                         title="把所有活节点移出盒子，变回独立记忆（记忆不删）"
@@ -5712,7 +5712,7 @@ create table if not exists memory_vectors (
                                                         onClick={() => openMemory(n, 'boxes')}
                                                         style={{
                                                             padding: 8, borderRadius: 8, marginBottom: 4,
-                                                            border: '1px solid #e0e7ff', background: 'white',
+                                                            border: '1px solid #e5e5e5', background: 'white',
                                                             cursor: 'pointer',
                                                         }}
                                                     >
@@ -5758,7 +5758,7 @@ create table if not exists memory_vectors (
                                                             style={{
                                                                 position: 'absolute', top: 6, right: 6,
                                                                 fontSize: 10, padding: '3px 8px', borderRadius: 6,
-                                                                border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d',
+                                                                border: '1px solid #e5e5e5', background: '#f7f7f7', color: '#666666',
                                                                 fontWeight: 600, cursor: 'pointer',
                                                             }}
                                                         >
@@ -5823,9 +5823,9 @@ create table if not exists memory_vectors (
                     <div style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         padding: '8px 12px', borderRadius: 10, marginBottom: 12,
-                        background: '#fef2f2', border: '1px solid #fecaca',
+                        background: '#f7f7f7', border: '1px solid #d4d4d4',
                     }}>
-                        <div style={{ fontSize: 12, color: '#991b1b' }}>
+                        <div style={{ fontSize: 12, color: '#404040' }}>
                             已选 {selectedIds.size} 条
                             <span
                                 onClick={() => setSelectedIds(new Set(roomNodes.map(n => n.id)))}
@@ -5860,7 +5860,7 @@ create table if not exists memory_vectors (
                                 padding: 12, borderRadius: 10, marginBottom: 8,
                                 border: `1px solid ${selectMode && selectedIds.has(node.id) ? '#475569' : '#e5e7eb'}`,
                                 cursor: 'pointer',
-                                backgroundColor: selectMode && selectedIds.has(node.id) ? '#fef2f2' : '#fafafa',
+                                backgroundColor: selectMode && selectedIds.has(node.id) ? '#f7f7f7' : '#fafafa',
                             }}
                         >
                             {selectMode && (
@@ -6057,7 +6057,7 @@ create table if not exists memory_vectors (
                                         onClick={() => { setShowLinkSearch(!showLinkSearch); setLinkSearchQuery(''); setLinkSearchResults([]); }}
                                         style={{
                                             fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
-                                            border: '1px solid #e0e7ff', background: showLinkSearch ? '#e0e7ff' : 'white',
+                                            border: '1px solid #e5e5e5', background: showLinkSearch ? '#e5e5e5' : 'white',
                                             color: '#475569', cursor: 'pointer',
                                         }}
                                     >
@@ -6067,7 +6067,7 @@ create table if not exists memory_vectors (
 
                                 {/* 搜索添加关联 */}
                                 {showLinkSearch && (
-                                    <div style={{ marginBottom: 10, padding: 10, borderRadius: 10, border: '1px solid #e0e7ff', background: '#faf9ff' }}>
+                                    <div style={{ marginBottom: 10, padding: 10, borderRadius: 10, border: '1px solid #e5e5e5', background: '#f7f7f7' }}>
                                         <input
                                             type="text"
                                             value={linkSearchQuery}
@@ -6146,8 +6146,8 @@ create table if not exists memory_vectors (
                                 {currentBox && (
                                     <div style={{
                                         padding: '8px 10px', borderRadius: 8, marginBottom: 8,
-                                        border: '1px solid #c7d2fe', background: '#eef2ff',
-                                        fontSize: 11, lineHeight: 1.5, color: '#3730a3',
+                                        border: '1px solid #d4d4d4', background: '#f0f0f0',
+                                        fontSize: 11, lineHeight: 1.5, color: '#404040',
                                     }}>
                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                                             <Icon name="box" size={12} />
@@ -6168,7 +6168,7 @@ create table if not exists memory_vectors (
                                     const isArchived = relation === 'box_archived';
                                     const isLegacy = relation === 'legacy_causal';
                                     const bg = isSummary ? '#f1f5f9' : isArchived ? '#f5f5f5' : '#f1f5f9';
-                                    const border = isSummary ? '#fcd34d' : isArchived ? '#e5e7eb' : '#e0e7ff';
+                                    const border = isSummary ? '#d4d4d4' : isArchived ? '#e5e7eb' : '#e5e5e5';
                                     const relationIcon = isSummary ? 'sparkle'
                                         : isArchived ? 'moon'
                                         : isLegacy ? 'link'
@@ -6243,9 +6243,9 @@ create table if not exists memory_vectors (
                                 disabled={deleting}
                                 style={{
                                     marginTop: 16, width: '100%', padding: '10px 0',
-                                    borderRadius: 10, border: '1px solid #fecaca',
+                                    borderRadius: 10, border: '1px solid #d4d4d4',
                                     fontSize: 12, fontWeight: 600,
-                                    color: '#475569', background: '#fef2f2',
+                                    color: '#475569', background: '#f7f7f7',
                                     cursor: deleting ? 'not-allowed' : 'pointer',
                                 }}
                             >
