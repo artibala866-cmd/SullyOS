@@ -32,7 +32,7 @@ export async function considerCharacterMemo(input:{characterId:string;name:strin
   }
   if(data.action==='delete'&&!manual&&typeof data.id==='string')return removeCharacterMemo(characterId,data.id);
   if(data.action==='update'&&typeof data.id==='string'&&typeof data.body==='string'&&data.body.trim()){
-    const old=history.find(m=>m.id===data.id);if(old&&old.body.trim()!==data.body.trim())return updateCharacterMemo(characterId,data.id,{body:data.body.slice(0,2400)});
+    const old=history.find(m=>m.id===data.id);if(old&&old.body.trim()!==data.body.trim())return updateCharacterMemo(characterId,data.id,{body:data.body.slice(0,2400),sourceEventIds:[...new Set([...(old.sourceEventIds||[]),...events.map(e=>e.id)])]});
   }
   if(data.action!=='create'||!categories.includes(data.category)||typeof data.body!=='string'||!data.body.trim()){
     if(manual)throw new Error('AI 未返回有效更新，未修改备忘录。请重试。');return false;
