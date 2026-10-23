@@ -2627,6 +2627,12 @@ ${olderText}
                     right={contactSelectMode
                         ? <button onClick={exitContactSelect} className="text-[12px] font-semibold text-white/80 active:scale-90 transition">取消</button>
                         : <button onClick={() => setShowContactModal(true)} className="text-white/80 active:scale-90 transition"><UserPlus size={20} weight="bold" /></button>} />
+                <div className="px-4 pt-2 shrink-0">
+                    <button disabled={isLoading} onClick={() => void handleGenerate('chat')}
+                        className="w-full rounded-xl py-2.5 text-[12px] font-semibold text-white bg-pink-500/20 border border-pink-400/25 disabled:opacity-40">
+                        {isLoading ? '正在生成微信消息…' : '生成微信消息 · 多个聊天框'}
+                    </button>
+                </div>
                 {/* 约束开关：是否允许虚构 NPC */}
                 <div className="px-4 pt-1 pb-2 shrink-0">
                     <div className="w-full flex items-center gap-2 rounded-xl px-3 py-2 bg-white/[0.04] border border-white/[0.07]">
