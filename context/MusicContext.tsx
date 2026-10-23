@@ -1173,7 +1173,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           source: 'discovered',
           addedAt: Date.now(),
         };
-        const saved = await __musicHooks?.addSongToCharPlaylist(cid, song);
+        const saved = await __musicHooks?.addSongToCharPlaylist(cid, song, { kind: 'new', title: '我喜欢的音乐', description: '角色主动收藏的歌曲' });
         return !!saved;
       },
     };
