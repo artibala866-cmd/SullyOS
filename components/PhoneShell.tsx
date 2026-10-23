@@ -66,8 +66,8 @@ const APP_IDLE_PRELOAD_ORDER: PreloadableLazy[] = [
   CharCreatorDevApp,
 ];
 
-const IDLE_PRELOAD_START_MS = 600;
-const IDLE_PRELOAD_GAP_MS = 250;
+const IDLE_PRELOAD_START_MS = 4000;
+const IDLE_PRELOAD_GAP_MS = 1200;
 let idlePreloadCursor = 0;
 
 // AppID → 懒加载组件，供「按下即预取」复用同一个模块 Promise。
@@ -467,7 +467,7 @@ const PhoneShell: React.FC = () => {
     if (!bootAnimationEnabled) setBootDone(true);
   }, [bootAnimationEnabled]);
 
-  // 折中预热策略：首屏/开机完全让路；桌面稳定约 600ms 后，能力足够的设备就逐个预热。
+  // 折中预热策略：首屏/开机完全让路；桌面稳定约 4 秒后，能力足够的设备就逐个预热。
   // 每次严格等待当前 chunk 下载 + 解析完成，再空一拍取下一个。用户一按屏幕或进入 App，
   // 立刻取消所有尚未开始的任务；已经在飞的一个 import 无法中止，但最多只会与目标 App 并行一个。
   useEffect(() => {
