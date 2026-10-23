@@ -116,9 +116,9 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     setInitializingPhone(true);setError('');
     try{
       const context=await loadRealContext();
-      const response=await fetch(api.baseUrl.replace(/\\/+$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},body:JSON.stringify({model:api.model,stream:false,messages:[{role:'system',content:'为这个角色决定其私人手机桌面的应用选择与顺序。所有角色都必须保留微信、备忘录、相册；电话、短信、浏览器根据人物生活习惯选择0-3个。不同性格应有不同的排序与可选应用。只能输出JSON对象：{"appIds":["wechat","memo","gallery","calls"]}。不得输出其他应用。角色：'+name+'。角色上下文：'+context.systemPrompt.slice(0,14000)},{role:'user',content:'根据该角色的生活方式初始化其专属手机桌面。'}]})});
+      const response=await fetch(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},body:JSON.stringify({model:api.model,stream:false,messages:[{role:'system',content:'为这个角色决定其私人手机桌面的应用选择与顺序。所有角色都必须保留微信、备忘录、相册；电话、短信、浏览器根据人物生活习惯选择0-3个。不同性格应有不同的排序与可选应用。只能输出JSON对象：{"appIds":["wechat","memo","gallery","calls"]}。不得输出其他应用。角色：'+name+'。角色上下文：'+context.systemPrompt.slice(0,14000)},{role:'user',content:'根据该角色的生活方式初始化其专属手机桌面。'}]})});
       const json=await safeResponseJson(response);if(!response.ok)throw new Error(json?.error?.message||'初始化失败');
-      const raw=extractContent(json).trim().replace(/^```(?:json)?\\s*/i,'').replace(/\\s*```$/,'');
+      const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
       const result=JSON.parse(raw);
       const allowed:PhoneAppId[]=['wechat','memo','gallery','calls','sms','browser'];
       const chosen:PhoneAppId[]=Array.isArray(result.appIds)?result.appIds.filter((id:PhoneAppId)=>allowed.includes(id)):[];
