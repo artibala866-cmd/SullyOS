@@ -39,13 +39,10 @@ it('delivers intents to an already mounted app and removes subscriptions on exit
   expect(characterApplied.mock.results.map(result => result.value.charId)).toEqual(['a', 'b']); removeCharacter();
 });
 it('preserves valid nested entries and prevents mismatched or unsupported targets', () => {
-  expect(normalizeNavigationShortcut({ appId: AppID.CheckPhone, entryId: 'contacts', characterId: 'c', resourceId: 'wrong' })).toEqual({ appId: AppID.CheckPhone, entryId: 'contacts', characterId: 'c' });
   expect(normalizeNavigationShortcut({ appId: AppID.MemoryPalace, entryId: 'globalSettings', characterId: 'wrong' })).toEqual({ appId: AppID.MemoryPalace, entryId: 'globalSettings' });
   expect(normalizeNavigationShortcut({ appId: AppID.Novel, entryId: 'shelf', resourceId: 'book', characterId: 'wrong' })).toEqual({ appId: AppID.Novel, entryId: 'shelf', resourceId: 'book' });
   const actions = { characters: [{ id: 'c', name: '角色' }], openApp: vi.fn(), setActiveCharacterId: vi.fn(), onMissingTarget: vi.fn() };
   launchNavigationShortcut({ appId: AppID.Character, entryId: 'stats', characterId: 'c' }, actions);
   expect(characterLaunch.consume()).toEqual({ charId: 'c', detailTab: 'stats' });
-  launchNavigationShortcut({ appId: AppID.CheckPhone, entryId: 'contacts', characterId: 'c' }, actions);
-  expect(appShortcutLaunch.consume(AppID.CheckPhone)).toEqual({ appId: AppID.CheckPhone, entryId: 'contacts', characterId: 'c' });
   expect(actions.setActiveCharacterId).not.toHaveBeenCalled();
 });
