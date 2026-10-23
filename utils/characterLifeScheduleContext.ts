@@ -7,6 +7,7 @@ import { readCharacterLifeEvents } from './characterLifeEvents';
 export async function getCharacterLifeScheduleContext(
   char: Pick<CharacterProfile, 'id' | 'customTimezoneEnabled' | 'customTimezone'>,
   at: Date = new Date(),
+  confirmedEvents?: ReturnType<typeof readCharacterLifeEvents>,
 ) {
   const schedule = await getDailyScheduleForChar(char, at);
   const index = schedule ? getCurrentScheduleSlotIndex(schedule.slots, char, at) : -1;
@@ -17,7 +18,7 @@ export async function getCharacterLifeScheduleContext(
     observedAt: now,
     plannedActivity: slot?.activity ?? null,
     plannedDescription: slot?.description ?? null,
-    confirmedEvents: readCharacterLifeEvents(char.id).filter(
+    confirmedEvents: (confirmedEvents ?? readCharacterLifeEvents(char.id)).filter(
       event => event.occurredAt <= now && now - event.occurredAt < 72 * 60 * 60 * 1000
     ).slice(0, 20),
   };
