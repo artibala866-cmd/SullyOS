@@ -346,10 +346,10 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
 
                 <div className="space-y-7 p-5">
                     <section>
-                        <h3 className="text-sm font-bold">默认主题</h3>
-                        <p className="mt-1 text-[11px] text-slate-400">先选择主题和 CSS，再点底部“预览并浏览”；保存后才会对所有角色生效。</p>
+                        <h3 className="text-sm font-bold">手账外观</h3>
+                        <p className="mt-1 text-[11px] text-slate-400">保留黑白拼贴手账与自定义 CSS。预览满意后再保存。</p>
                         <div className="mt-3 grid grid-cols-2 gap-2.5">
-                            {JOURNAL_APPEARANCE_PRESETS.map(preset => {
+                            {JOURNAL_APPEARANCE_PRESETS.filter(preset => preset.id === 'original').map(preset => {
                                 const selected = (draft.preset || 'original') === preset.id;
                                 return (
                                     <button
@@ -407,7 +407,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                             </button>
                         </div>
                         <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-[10px] leading-4 text-emerald-700">
-                            导出会把内置主题展开成完整 CSS；导入后自动切到“原本琥珀”，只运行文件里的样式。导入仅替换当前预览，点击“保存样式”后才正式生效。
+                            导出会把内置主题展开成完整 CSS；导入后自动切到“黑白拼贴手账”，只运行文件里的样式。导入仅替换当前预览，点击“保存样式”后才正式生效。
                         </p>
 
                         <div className="mb-3 flex gap-2 overflow-x-auto no-scrollbar">
