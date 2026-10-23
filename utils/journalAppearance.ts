@@ -265,14 +265,35 @@ const MIDNIGHT_CSS = `.sully-journal-theme-midnight{
 @media(max-width:719px){.sully-journal-theme-midnight .sully-journal-header{margin:8px 8px 0}.sully-journal-theme-midnight .sully-journal-group-filter{margin-inline:8px}.sully-journal-theme-midnight .sully-journal-notebook-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;padding:18px 12px 90px!important}.sully-journal-theme-midnight .sully-journal-calendar-hero{margin:8px 8px 0}.sully-journal-theme-midnight .sully-journal-calendar-list{margin:0 8px 8px;padding-inline:12px!important}.sully-journal-theme-midnight .sully-journal-calendar-list>div{grid-template-columns:1fr}.sully-journal-theme-midnight .sully-journal-editor-header{margin:0;border-inline:0}.sully-journal-theme-midnight .sully-journal-editor-stage{margin:0;border-inline:0}.sully-journal-theme-midnight .sully-journal-spread{display:block;padding:10px}.sully-journal-theme-midnight .sully-journal-spread-page.is-inactive{display:none}.sully-journal-theme-midnight .sully-journal-bottom-controls{position:relative!important;right:auto;top:auto;bottom:auto;width:auto;padding:8px 0 0!important;border:0!important;border-top:2px solid var(--memory-blue)!important;display:block}.sully-journal-theme-midnight .sully-journal-tabs{display:flex!important;margin:0 16px 12px!important}.sully-journal-theme-midnight .sully-journal-bottom-controls>div:nth-child(2){display:flex!important;padding:0 20px 12px!important}.sully-journal-theme-midnight .sully-journal-paper-picker{display:flex!important}.sully-journal-theme-midnight .sully-journal-sticker-panel{position:relative;right:auto;bottom:auto;width:auto}.sully-journal-theme-midnight .sully-journal-page-content{padding:27px 23px!important}.sully-journal-theme-midnight .sully-journal-inspector-ghost{display:none}}
 `;
 
+const MONO_SCRAPBOOK_CSS = `
+.sully-journal-root{background:#f8f8f8!important;color:#252525}
+.sully-journal-select{background:radial-gradient(circle,#d8d8d8 1.3px,transparent 1.6px) 0 0/27px 27px,#fafafa!important}
+.sully-journal-header{background:rgba(255,255,255,.94)!important;border-color:#d8d8d8!important;color:#252525!important}
+.sully-journal-calendar-hero{background:#292929!important;color:#fff!important;border-radius:0!important;box-shadow:none!important}
+.sully-journal-calendar-hero *{color:#fff}
+.sully-journal-notebook{background:#fff!important;border:1px solid #292929!important;box-shadow:5px 5px 0 #dedede!important}
+.sully-journal-notebook-label{background:#eee!important;color:#333!important}
+.sully-journal-entry{background:#fff!important;border:1px solid #dedede!important;box-shadow:none!important}
+.sully-journal-entry-accent{background:#292929!important}
+.sully-journal-new-entry{border-color:#666!important;color:#292929!important;background:#fafafa!important}
+.sully-journal-write{background:#202020!important}
+.sully-journal-spread-page{box-shadow:0 10px 28px rgba(0,0,0,.16)!important}
+.sully-journal-paper{border:1px solid #c9c9c9!important}
+.sully-journal-paper-user{background-color:#fff!important}
+.sully-journal-paper-char{background-color:#f5f5f5!important}
+.sully-journal-page-meta{letter-spacing:.13em}
+.sully-journal-sticker-panel{background:#252525!important}
+.sully-journal-sticker-button{background:#292929!important;color:#fff!important}
+`;
+
 export const JOURNAL_APPEARANCE_PRESETS: JournalAppearancePreset[] = [
     {
         id: 'original',
-        name: '原本琥珀',
-        description: '保留现在的交换日记界面',
-        colors: ['#f59e0b', '#fffbeb', '#1a1a1a'],
+        name: '黑白拼贴手账',
+        description: '极简黑白纸张、波点与杂志式留白',
+        colors: ['#ffffff', '#292929', '#dedede'],
         layout: 'classic',
-        css: '',
+        css: MONO_SCRAPBOOK_CSS,
     },
     {
         id: 'letterpress',
