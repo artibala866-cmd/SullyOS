@@ -1369,16 +1369,16 @@ ${isInitialGeneration ? `
                <div className="bg-[#f2f2f4]/95 backdrop-blur-sm border-b border-black/[0.06] shrink-0 z-40 sticky top-0" style={{ paddingTop: 'max(2.75rem, var(--safe-top))' }}>
                  <div className="flex flex-col px-5 pt-2 pb-2">
                    <div className="flex justify-between items-center mb-3">
-                       <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/60 flex items-center gap-1 text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg><span className="text-sm font-medium">列表</span></button>
+                       <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/60 flex items-center gap-1 text-neutral-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg><span className="text-sm font-medium">列表</span></button>
                        <button data-guide={formData.id === 'preset-sully-v2' ? 'sully-message' : undefined} onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.Chat); }} className="text-xs px-3 py-1.5 bg-[#222222] text-white rounded-full font-bold shadow-sm shadow-black/10 flex items-center gap-1 active:scale-95 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926H16.5a.75.75 0 0 1 0 1.5H3.693l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.155.75.75 0 0 0 0-1.114A28.897 28.897 0 0 0 3.105 2.288Z" /></svg>发消息</button>
                    </div>
                    <div className="flex gap-6 overflow-x-auto whitespace-nowrap no-scrollbar [&>button]:shrink-0 text-[13px] font-medium text-[#888888] pl-1">
-                       <button onClick={() => { setDetailTab('identity'); trackEvent('切换角色详情标签页', { tab: 'identity' }); }} className={`pb-2 transition-colors relative ${detailTab === 'identity' ? 'text-slate-800' : ''}`}>设定{detailTab === 'identity' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('memory'); trackEvent('切换角色详情标签页', { tab: 'memory' }); }} className={`pb-2 transition-colors relative ${detailTab === 'memory' ? 'text-slate-800' : ''}`}>记忆 ({(formData.memories || []).length}){detailTab === 'memory' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('impression'); trackEvent('切换角色详情标签页', { tab: 'impression' }); }} className={`pb-2 transition-colors relative ${detailTab === 'impression' ? 'text-slate-800' : ''}`}>印象{detailTab === 'impression' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('plates'); trackEvent('切换角色详情标签页', { tab: 'plates' }); }} className={`pb-2 transition-colors relative ${detailTab === 'plates' ? 'text-slate-800' : ''}`}>门牌{detailTab === 'plates' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('chibi'); trackEvent('切换角色详情标签页', { tab: 'chibi' }); }} className={`pb-2 transition-colors relative ${detailTab === 'chibi' ? 'text-slate-800' : ''}`}>手办{detailTab === 'chibi' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
-                       <button onClick={() => setDetailTab('stats')} className={`pb-2 transition-colors relative ${detailTab === 'stats' ? 'text-slate-800' : ''}`}>角色统计{detailTab === 'stats' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full" />}</button>
+                       <button onClick={() => { setDetailTab('identity'); trackEvent('切换角色详情标签页', { tab: 'identity' }); }} className={`pb-2 transition-colors relative ${detailTab === 'identity' ? 'text-neutral-800' : ''}`}>设定{detailTab === 'identity' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('memory'); trackEvent('切换角色详情标签页', { tab: 'memory' }); }} className={`pb-2 transition-colors relative ${detailTab === 'memory' ? 'text-neutral-800' : ''}`}>记忆 ({(formData.memories || []).length}){detailTab === 'memory' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('impression'); trackEvent('切换角色详情标签页', { tab: 'impression' }); }} className={`pb-2 transition-colors relative ${detailTab === 'impression' ? 'text-neutral-800' : ''}`}>印象{detailTab === 'impression' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('plates'); trackEvent('切换角色详情标签页', { tab: 'plates' }); }} className={`pb-2 transition-colors relative ${detailTab === 'plates' ? 'text-neutral-800' : ''}`}>门牌{detailTab === 'plates' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('chibi'); trackEvent('切换角色详情标签页', { tab: 'chibi' }); }} className={`pb-2 transition-colors relative ${detailTab === 'chibi' ? 'text-neutral-800' : ''}`}>手办{detailTab === 'chibi' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => setDetailTab('stats')} className={`pb-2 transition-colors relative ${detailTab === 'stats' ? 'text-neutral-800' : ''}`}>角色统计{detailTab === 'stats' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full" />}</button>
                    </div>
                  </div>
                </div>
@@ -1393,12 +1393,12 @@ ${isInitialGeneration ? `
                                </div>
                                <div className="min-w-0 flex-1 space-y-3">
                                    <input value={formData.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full bg-transparent py-1 text-xl font-semibold tracking-tight text-[#222222] border-b border-[#e5e5e5] outline-none focus:border-[#777777]" placeholder="名称" />
-                                   <div className="flex min-w-0 items-center gap-2 border-b border-slate-200">
-                                       <input value={characterRemark(formData.description)} onChange={(e) => handleChange('description', e.target.value)} className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-500 outline-none focus-visible:ring-1 focus-visible:ring-[#777777]" placeholder="输入备注" aria-label="输入备注" />
-                                       <label title="聊天显示备注" className="relative flex shrink-0 cursor-pointer items-center gap-1.5 py-2 text-[10px] text-slate-400">
+                                   <div className="flex min-w-0 items-center gap-2 border-b border-neutral-200">
+                                       <input value={characterRemark(formData.description)} onChange={(e) => handleChange('description', e.target.value)} className="min-w-0 flex-1 bg-transparent py-1 text-sm text-neutral-500 outline-none focus-visible:ring-1 focus-visible:ring-[#777777]" placeholder="输入备注" aria-label="输入备注" />
+                                       <label title="聊天显示备注" className="relative flex shrink-0 cursor-pointer items-center gap-1.5 py-2 text-[10px] text-neutral-400">
                                            <span>聊天显示</span>
                                            <input type="checkbox" role="switch" aria-label="聊天显示备注" checked={!!formData.chatShowRemark} onChange={e => handleChange('chatShowRemark', e.target.checked)} className="peer sr-only" />
-                                           <span aria-hidden="true" className="relative h-4 w-7 rounded-full bg-slate-200 transition-colors peer-checked:bg-[#222222] peer-focus-visible:ring-2 peer-focus-visible:ring-[#777777] peer-focus-visible:ring-offset-2 after:absolute after:left-0.5 after:top-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-3" />
+                                           <span aria-hidden="true" className="relative h-4 w-7 rounded-full bg-neutral-200 transition-colors peer-checked:bg-[#222222] peer-focus-visible:ring-2 peer-focus-visible:ring-[#777777] peer-focus-visible:ring-offset-2 after:absolute after:left-0.5 after:top-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-3" />
                                        </label>
                                    </div>
                                    {/* 头像 URL 入口: 与左侧上传文件平级. 走 draft -> 失焦/回车 commit,
@@ -1441,12 +1441,12 @@ ${isInitialGeneration ? `
                            </div>
 
                            <div>
-                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">分组</label>
+                               <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5 block">分组</label>
                                <div className="flex gap-2 items-center">
                                    <select
                                        value={formData.groupId && characterGroups.some(g => g.id === formData.groupId) ? formData.groupId : ''}
                                        onChange={e => handleChange('groupId', e.target.value || undefined)}
-                                       className="flex-1 bg-white rounded-[15px] border border-black/[0.06] px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:ring-1 focus:ring-[#999999]/30 outline-none appearance-none"
+                                       className="flex-1 bg-white rounded-[15px] border border-black/[0.06] px-4 py-2.5 text-sm text-neutral-700 shadow-sm focus:ring-1 focus:ring-[#999999]/30 outline-none appearance-none"
                                    >
                                        <option value="">未分组</option>
                                        {sortCharacterGroups(characterGroups).map(g => (
@@ -1454,7 +1454,7 @@ ${isInitialGeneration ? `
                                        ))}
                                    </select>
                                    {detailGroupDraft === null ? (
-                                       <button onClick={() => setDetailGroupDraft('')} className="px-3 py-2.5 rounded-2xl bg-white text-xs text-slate-500 shadow-sm active:scale-95 transition-transform shrink-0">＋新建</button>
+                                       <button onClick={() => setDetailGroupDraft('')} className="px-3 py-2.5 rounded-2xl bg-white text-xs text-neutral-500 shadow-sm active:scale-95 transition-transform shrink-0">＋新建</button>
                                    ) : (
                                        <input
                                            autoFocus
@@ -1471,19 +1471,19 @@ ${isInitialGeneration ? `
                                            }}
                                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                            placeholder="分组名，回车确认"
-                                           className="w-36 px-3 py-2.5 rounded-2xl bg-white text-xs text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-[#999999]/30 shrink-0"
+                                           className="w-36 px-3 py-2.5 rounded-2xl bg-white text-xs text-neutral-700 shadow-sm outline-none focus:ring-1 focus:ring-[#999999]/30 shrink-0"
                                        />
                                    )}
                                </div>
                            </div>
 
                            <div>
-                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">核心指令 (System Prompt)</label>
+                               <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5 block">核心指令 (System Prompt)</label>
                                <textarea value={formData.systemPrompt} onChange={(e) => handleChange('systemPrompt', e.target.value)} className="w-full h-40 bg-white rounded-[20px] p-5 border border-black/[0.06] text-sm shadow-sm resize-none focus:ring-1 focus:ring-[#999999]/30 transition-all vr-reader-scroll" placeholder="设定..." />
                            </div>
 
                            <div>
-                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">世界观 / 设定补充 (Worldview & Lore)</label>
+                               <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5 block">世界观 / 设定补充 (Worldview & Lore)</label>
                                <textarea
                                     value={formData.worldview || ''}
                                     onChange={(e) => handleChange('worldview', e.target.value)}
@@ -1496,39 +1496,39 @@ ${isInitialGeneration ? `
                            {/* 时间感知 & 时区：三个独立开关，可任意组合（聊天时间感知 / 自定义时区 / 线下时间感知） */}
                            <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-4">
                                <div>
-                                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">时间感知 & 时区</label>
-                                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">下面三个开关相互独立、可任意组合。改完即时生效（下一条回复起算）。</p>
+                                   <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">时间感知 & 时区</label>
+                                   <p className="text-[11px] text-neutral-400 mt-1 leading-relaxed">下面三个开关相互独立、可任意组合。改完即时生效（下一条回复起算）。</p>
                                </div>
 
                                {/* 现实 / 虚拟剧情时间：全局共享时钟，不修改角色的时区配置 */}
-                               <div className="border-t border-slate-100 pt-3">
+                               <div className="border-t border-neutral-100 pt-3">
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">虚拟时间</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">关闭时跟随现实时间；开启后剧情使用独立的虚拟时间（所有角色共用）。</p>
+                                           <p className="text-xs font-bold text-neutral-700">虚拟时间</p>
+                                           <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">关闭时跟随现实时间；开启后剧情使用独立的虚拟时间（所有角色共用）。</p>
                                        </div>
                                        <button type="button" aria-label="切换虚拟时间" aria-pressed={lifeClock.mode === 'virtual'} onClick={switchLifeClock}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${lifeClock.mode === 'virtual' ? 'bg-[#222222]' : 'bg-slate-200'}`}>
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${lifeClock.mode === 'virtual' ? 'bg-[#222222]' : 'bg-neutral-200'}`}>
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${lifeClock.mode === 'virtual' ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
                                    </div>
                                    {lifeClock.mode === 'virtual' && (
-                                       <button type="button" onClick={advanceLifeClock} className="mt-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
+                                       <button type="button" onClick={advanceLifeClock} className="mt-3 px-3 py-2 rounded-xl bg-neutral-50 border border-neutral-200 text-xs font-semibold text-neutral-600">
                                            剧情 +1小时
                                        </button>
                                    )}
                                </div>
 
                                {/* 1. 聊天 · 时间感知强化 */}
-                               <div className="border-t border-slate-100 pt-3">
+                               <div className="border-t border-neutral-100 pt-3">
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">聊天 · 时间感知强化</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认开。开启后角色会知道现实时间和你们多久没聊；关掉后不再提供现实时间与消息时间戳，更适合架空剧情。</p>
+                                           <p className="text-xs font-bold text-neutral-700">聊天 · 时间感知强化</p>
+                                           <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">默认开。开启后角色会知道现实时间和你们多久没聊；关掉后不再提供现实时间与消息时间戳，更适合架空剧情。</p>
                                        </div>
                                        <button
                                            onClick={() => handleChange('timeAwarenessEnabled', formData.timeAwarenessEnabled === false)}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.timeAwarenessEnabled !== false ? 'bg-[#222222]' : 'bg-slate-200'}`}
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.timeAwarenessEnabled !== false ? 'bg-[#222222]' : 'bg-neutral-200'}`}
                                        >
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.timeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
@@ -1536,15 +1536,15 @@ ${isInitialGeneration ? `
                                </div>
 
                                {/* 2. 自定义时区（异国恋等） */}
-                               <div className="border-t border-slate-100 pt-3">
+                               <div className="border-t border-neutral-100 pt-3">
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">自定义时区</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认关（跟随本机）。开启后角色活在自己的时区里，按所选时区过日子，也知道和你有时差——适合异国恋、角色身处异国。</p>
+                                           <p className="text-xs font-bold text-neutral-700">自定义时区</p>
+                                           <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">默认关（跟随本机）。开启后角色活在自己的时区里，按所选时区过日子，也知道和你有时差——适合异国恋、角色身处异国。</p>
                                        </div>
                                        <button
                                            onClick={() => handleChange('customTimezoneEnabled', !formData.customTimezoneEnabled)}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.customTimezoneEnabled ? 'bg-[#222222]' : 'bg-slate-200'}`}
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.customTimezoneEnabled ? 'bg-[#222222]' : 'bg-neutral-200'}`}
                                        >
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.customTimezoneEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
@@ -1553,7 +1553,7 @@ ${isInitialGeneration ? `
                                        <select
                                            value={formData.customTimezone || ''}
                                            onChange={(e) => handleChange('customTimezone', e.target.value)}
-                                           className="mt-3 w-full bg-slate-50 rounded-2xl px-3 py-2.5 text-xs border border-slate-200 outline-none focus:ring-1 focus:ring-[#999999]/30"
+                                           className="mt-3 w-full bg-neutral-50 rounded-2xl px-3 py-2.5 text-xs border border-neutral-200 outline-none focus:ring-1 focus:ring-[#999999]/30"
                                        >
                                            <option value="">请选择角色所在时区…</option>
                                            {COMMON_TIMEZONES.map(tz => (
@@ -1564,15 +1564,15 @@ ${isInitialGeneration ? `
                                </div>
 
                                {/* 3. 线下时间感知（约会 / 见面 App） */}
-                               <div className="border-t border-slate-100 pt-3">
+                               <div className="border-t border-neutral-100 pt-3">
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">线下时间感知（约会）</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认开。见面时剧情会跟着现实时间走。关掉后剧情脱离现实时间线，更适合纯架空。</p>
+                                           <p className="text-xs font-bold text-neutral-700">线下时间感知（约会）</p>
+                                           <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">默认开。见面时剧情会跟着现实时间走。关掉后剧情脱离现实时间线，更适合纯架空。</p>
                                        </div>
                                        <button
                                            onClick={() => handleChange('dateTimeAwarenessEnabled', formData.dateTimeAwarenessEnabled === false ? undefined : false)}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.dateTimeAwarenessEnabled !== false ? 'bg-[#222222]' : 'bg-slate-200'}`}
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.dateTimeAwarenessEnabled !== false ? 'bg-[#222222]' : 'bg-neutral-200'}`}
                                        >
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.dateTimeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
@@ -1586,20 +1586,20 @@ ${isInitialGeneration ? `
                            {/* 生活记录注入：总开关 + 4 个模块小开关（数据在档案 App「生活记录」里维护） */}
                            <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-4">
                                <div>
-                                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">生活记录注入</label>
-                                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">把你在「档案 → 生活记录」里的生理期 / 药盒 / 记账 / 锻炼作为潜意识背景注入给该角色；你明确说出相关事实时，ta 还能帮你顺手记一笔（聊天里会出卡片，可确认 / 否决）。</p>
+                                   <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">生活记录注入</label>
+                                   <p className="text-[11px] text-neutral-400 mt-1 leading-relaxed">把你在「档案 → 生活记录」里的生理期 / 药盒 / 记账 / 锻炼作为潜意识背景注入给该角色；你明确说出相关事实时，ta 还能帮你顺手记一笔（聊天里会出卡片，可确认 / 否决）。</p>
                                </div>
 
                                {/* 总开关 */}
-                               <div className="border-t border-slate-100 pt-3">
+                               <div className="border-t border-neutral-100 pt-3">
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">总开关</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认关。关闭时不注入任何生活记录内容，连代记指令的用法都不会教给角色。</p>
+                                           <p className="text-xs font-bold text-neutral-700">总开关</p>
+                                           <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">默认关。关闭时不注入任何生活记录内容，连代记指令的用法都不会教给角色。</p>
                                        </div>
                                        <button
                                            onClick={() => { handleChange('lifeRecordEnabled', !formData.lifeRecordEnabled); trackEvent('开启角色生活记录注入', { state: formData.lifeRecordEnabled ? 'off' : 'on' }); }}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.lifeRecordEnabled ? 'bg-[#222222]' : 'bg-slate-200'}`}
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.lifeRecordEnabled ? 'bg-[#222222]' : 'bg-neutral-200'}`}
                                        >
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.lifeRecordEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
@@ -1607,7 +1607,7 @@ ${isInitialGeneration ? `
                                </div>
 
                                {/* 模块小开关（总开关关闭时整体置灰） */}
-                               <div className={`border-t border-slate-100 pt-3 space-y-3 ${formData.lifeRecordEnabled ? '' : 'opacity-40 pointer-events-none'}`}>
+                               <div className={`border-t border-neutral-100 pt-3 space-y-3 ${formData.lifeRecordEnabled ? '' : 'opacity-40 pointer-events-none'}`}>
                                    {([
                                        ['lifeRecordPeriodEnabled', 'period', '生理期', '经期状态 / 周期预测 + 代记「来了 / 结束了」'],
                                        ['lifeRecordMedEnabled', 'med', '药盒', '今日用药计划与打卡情况 + 代记「吃了 xx 药」'],
@@ -1616,12 +1616,12 @@ ${isInitialGeneration ? `
                                    ] as const).filter(([, moduleKey]) => !hiddenLifeModules.includes(moduleKey)).map(([field, , label, desc]) => (
                                        <div key={field} className="flex items-center justify-between gap-3">
                                            <div className="min-w-0">
-                                               <p className="text-xs font-bold text-slate-700">{label}</p>
-                                               <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{desc}</p>
+                                               <p className="text-xs font-bold text-neutral-700">{label}</p>
+                                               <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">{desc}</p>
                                            </div>
                                            <button
                                                onClick={() => handleChange(field, formData[field] === false)}
-                                               className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData[field] !== false ? 'bg-[#222222]' : 'bg-slate-200'}`}
+                                               className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData[field] !== false ? 'bg-[#222222]' : 'bg-neutral-200'}`}
                                            >
                                                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData[field] !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                            </button>
@@ -1639,29 +1639,29 @@ ${isInitialGeneration ? `
                            <CharacterSettingsSection title="角色语音音色" summary={formData.voiceProfile?.voiceName || '音色与合成参数'}>
                            <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-3">
                                <div className="flex items-center justify-between">
-                                   <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1"><SpeakerHigh size={12} /> 角色语音音色</label>
+                                   <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest flex items-center gap-1"><SpeakerHigh size={12} /> 角色语音音色</label>
                                    <div className="flex gap-1.5">
                                        <button
                                            onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.VoiceDesigner); }}
-                                           className="text-[10px] bg-slate-50 text-slate-700 px-2 py-1 rounded font-bold hover:bg-slate-100 flex items-center gap-0.5"
+                                           className="text-[10px] bg-neutral-50 text-neutral-700 px-2 py-1 rounded font-bold hover:bg-neutral-100 flex items-center gap-0.5"
                                        >
                                            <SlidersHorizontal size={10} weight="bold" /> 捏声音
                                        </button>
                                        <button
                                            onClick={handleLoadMiniMaxVoices}
-                                           className="text-[10px] bg-slate-100 text-slate-700 px-2 py-1 rounded font-bold hover:bg-slate-200 disabled:opacity-60"
+                                           className="text-[10px] bg-neutral-100 text-neutral-700 px-2 py-1 rounded font-bold hover:bg-neutral-200 disabled:opacity-60"
                                            disabled={isLoadingVoices}
                                        >
                                            {isLoadingVoices ? '拉取中...' : '拉取可用音色'}
                                        </button>
                                    </div>
                                </div>
-                               <p className="text-[11px] text-slate-500">已有 voice_id 可直接填，不依赖查询。聊天角色配置后，后续接 TTS 可直接读取。</p>
+                               <p className="text-[11px] text-neutral-500">已有 voice_id 可直接填，不依赖查询。聊天角色配置后，后续接 TTS 可直接读取。</p>
 
-                               <div className="rounded-2xl border border-slate-200/60 bg-slate-50/40 p-2.5 space-y-2">
+                               <div className="rounded-2xl border border-neutral-200/60 bg-neutral-50/40 p-2.5 space-y-2">
                                    <div className="flex items-center justify-between gap-2">
-                                       <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">MiniMax 合成参数</span>
-                                       <span className="text-[9px] text-slate-400">老角色默认经典</span>
+                                       <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest">MiniMax 合成参数</span>
+                                       <span className="text-[9px] text-neutral-400">老角色默认经典</span>
                                    </div>
                                    <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/80 p-1">
                                        {([
@@ -1677,14 +1677,14 @@ ${isInitialGeneration ? `
                                                        ...(formData.voiceProfile || {}),
                                                        minimaxParamVersion: version,
                                                    })}
-                                                   className={`rounded-lg px-2 py-1.5 text-[10px] font-bold transition-colors ${activeVersion === version ? 'bg-slate-500 text-white shadow-sm' : 'text-slate-400'}`}
+                                                   className={`rounded-lg px-2 py-1.5 text-[10px] font-bold transition-colors ${activeVersion === version ? 'bg-neutral-500 text-white shadow-sm' : 'text-neutral-400'}`}
                                                >
                                                    {label}
                                                </button>
                                            );
                                        })}
                                    </div>
-                                   <p className="text-[10px] text-slate-400 leading-relaxed">
+                                   <p className="text-[10px] text-neutral-400 leading-relaxed">
                                        {formData.voiceProfile?.minimaxParamVersion === 'natural-v2'
                                            ? '对齐捏声音试听与聊天、见面、电话参数，保留模型原生韵律，不再自动给每个标点插停顿。'
                                            : '保留现有自动停顿、参数限幅和动态情感优先规则，历史效果不会改变。'}
@@ -1703,7 +1703,7 @@ ${isInitialGeneration ? `
                                            model: formData.voiceProfile?.model || 'speech-2.8-hd',
                                            notes: formData.voiceProfile?.notes || '',
                                        })}
-                                       className="w-full bg-slate-50 rounded-2xl px-3 py-2 text-xs border border-slate-200"
+                                       className="w-full bg-neutral-50 rounded-2xl px-3 py-2 text-xs border border-neutral-200"
                                        placeholder="voice_id（可直接贴）"
                                    />
                                    <input
@@ -1717,35 +1717,35 @@ ${isInitialGeneration ? `
                                            model: e.target.value,
                                            notes: formData.voiceProfile?.notes || '',
                                        })}
-                                       className="w-full bg-slate-50 rounded-2xl px-3 py-2 text-xs border border-slate-200"
+                                       className="w-full bg-neutral-50 rounded-2xl px-3 py-2 text-xs border border-neutral-200"
                                        placeholder="TTS 模型（默认 speech-2.8-hd）"
                                    />
                                </div>
 
                                {/* 鱼声 Fish Audio 音色：仅当全局语音服务商切到鱼声时生效（设置 → 其他 API） */}
-                               <div className="rounded-2xl border border-slate-200/60 bg-slate-50/40 p-2.5 space-y-1.5">
-                                   <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">鱼声 Fish 音色</div>
+                               <div className="rounded-2xl border border-neutral-200/60 bg-neutral-50/40 p-2.5 space-y-1.5">
+                                   <div className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest">鱼声 Fish 音色</div>
                                    <input
                                        value={formData.voiceProfile?.fishReferenceId || ''}
                                        onChange={(e) => handleChange('voiceProfile', {
                                            ...(formData.voiceProfile || {}),
                                            fishReferenceId: e.target.value,
                                        })}
-                                       className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-slate-200"
+                                       className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-neutral-200"
                                        placeholder="粘贴 reference_id 或整条 fish.audio 链接"
                                    />
-                                   <p className="text-[10px] text-slate-400">从 fish.audio 选好音色后，把那一页的链接（含 ?modelId=…）或 32 位 id 直接贴进来都行，会自动识别。设置里语音选「鱼声 Fish」后该角色就用它合成；与上面的 MiniMax voice_id 各存各的。</p>
+                                   <p className="text-[10px] text-neutral-400">从 fish.audio 选好音色后，把那一页的链接（含 ?modelId=…）或 32 位 id 直接贴进来都行，会自动识别。设置里语音选「鱼声 Fish」后该角色就用它合成；与上面的 MiniMax voice_id 各存各的。</p>
                                </div>
 
                                {/* ElevenLabs 音色：角色独立保存，设置页只负责 Key / 模型。 */}
-                               <div className="rounded-2xl border border-slate-200/60 bg-slate-50/40 p-2.5 space-y-1.5">
+                               <div className="rounded-2xl border border-neutral-200/60 bg-neutral-50/40 p-2.5 space-y-1.5">
                                    <div className="flex items-center justify-between gap-2">
-                                       <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">ElevenLabs 音色</div>
+                                       <div className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest">ElevenLabs 音色</div>
                                        <button
                                            type="button"
                                            onClick={() => void handleTestElevenLabsVoice()}
                                            disabled={isTestingElevenLabsVoice}
-                                           className="text-[10px] rounded-lg border border-slate-200 bg-white px-2 py-1 font-bold text-slate-600 disabled:opacity-50"
+                                           className="text-[10px] rounded-lg border border-neutral-200 bg-white px-2 py-1 font-bold text-neutral-600 disabled:opacity-50"
                                        >
                                            {isTestingElevenLabsVoice ? '试听中…' : '试听'}
                                        </button>
@@ -1756,17 +1756,17 @@ ${isInitialGeneration ? `
                                            ...(formData.voiceProfile || {}),
                                            elevenLabsVoiceId: e.target.value,
                                        })}
-                                       className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-slate-200"
+                                       className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-neutral-200"
                                        placeholder="粘贴 Voice ID 或 ElevenLabs 音色页面链接"
                                    />
-                                   <p className="text-[10px] text-slate-400">从 ElevenLabs Voices / Voice Library 复制 Voice ID；也可直接粘贴含 voiceId 的页面链接。设置里语音选 ElevenLabs 后使用，与 MiniMax、鱼声音色分别保存。</p>
+                                   <p className="text-[10px] text-neutral-400">从 ElevenLabs Voices / Voice Library 复制 Voice ID；也可直接粘贴含 voiceId 的页面链接。设置里语音选 ElevenLabs 后使用，与 MiniMax、鱼声音色分别保存。</p>
                                </div>
 
                                {/* 语速：三家 TTS 共用 voiceProfile.speed */}
                                <div className="space-y-1 pt-1">
                                    <div className="flex items-center justify-between">
-                                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">语速</label>
-                                       <span className="text-[11px] font-mono text-slate-500">{(formData.voiceProfile?.speed ?? 1).toFixed(2)}×</span>
+                                       <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">语速</label>
+                                       <span className="text-[11px] font-mono text-neutral-500">{(formData.voiceProfile?.speed ?? 1).toFixed(2)}×</span>
                                    </div>
                                    <input
                                        type="range"
@@ -1780,7 +1780,7 @@ ${isInitialGeneration ? `
                                        })}
                                        className="w-full accent-primary"
                                    />
-                                   <p className="text-[10px] text-slate-400">越小越慢、越像娓娓道来。1.0 正常；觉得“赶”就拉到 0.85–0.95。MiniMax、鱼声与 ElevenLabs 共用该角色的语速。</p>
+                                   <p className="text-[10px] text-neutral-400">越小越慢、越像娓娓道来。1.0 正常；觉得“赶”就拉到 0.85–0.95。MiniMax、鱼声与 ElevenLabs 共用该角色的语速。</p>
                                </div>
 
                                {(voiceOptions.system.length + voiceOptions.voice_cloning.length + voiceOptions.voice_generation.length) > 0 && (
@@ -1794,16 +1794,16 @@ ${isInitialGeneration ? `
                                            if (!list.length) return null;
                                            return (
                                                <div key={source}>
-                                                   <div className="text-[10px] text-slate-400 mb-1">{label}</div>
+                                                   <div className="text-[10px] text-neutral-400 mb-1">{label}</div>
                                                    <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
                                                        {list.slice(0, 50).map((v) => (
                                                            <button
                                                                key={`${source}-${v.voice_id}`}
                                                                onClick={() => applyVoiceToCharacter(v, source)}
-                                                               className="w-full text-left px-2 py-1 rounded-xl text-xs border border-slate-200 hover:border-slate-300 hover:bg-slate-100/60"
+                                                               className="w-full text-left px-2 py-1 rounded-xl text-xs border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-100/60"
                                                            >
-                                                               <div className="font-medium text-slate-700 truncate">{v.voice_name || '未命名音色'}</div>
-                                                               <div className="text-[10px] text-slate-400 truncate">{v.voice_id}</div>
+                                                               <div className="font-medium text-neutral-700 truncate">{v.voice_name || '未命名音色'}</div>
+                                                               <div className="text-[10px] text-neutral-400 truncate">{v.voice_id}</div>
                                                            </button>
                                                        ))}
                                                    </div>
@@ -1821,8 +1821,8 @@ ${isInitialGeneration ? `
                            {/* Worldbook Section */}
                            <div>
                                <div className="flex justify-between items-center mb-2 px-1">
-                                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block flex items-center gap-1"><Books size={12} /> 扩展设定 (Worldbooks)</label>
-                                   <button onClick={openWorldbookModal} className="text-[10px] bg-slate-50 text-slate-600 px-2 py-1 rounded font-bold hover:bg-slate-100">+ 挂载</button>
+                                   <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block flex items-center gap-1"><Books size={12} /> 扩展设定 (Worldbooks)</label>
+                                   <button onClick={openWorldbookModal} className="text-[10px] bg-neutral-50 text-neutral-600 px-2 py-1 rounded font-bold hover:bg-neutral-100">+ 挂载</button>
                                 </div>
                                 <div className="space-y-2">
                                    {formData.mountedWorldbooks && formData.mountedWorldbooks.length > 0 ? (
@@ -1831,28 +1831,28 @@ ${isInitialGeneration ? `
                                            groups.set(category, [...(groups.get(category) || []), book]);
                                            return groups;
                                        }, new Map<string, NonNullable<CharacterProfile['mountedWorldbooks']>>())].map(([category, books]) => (
-                                           <details key={category} className="rounded-2xl border border-slate-50 bg-white overflow-hidden" data-mounted-worldbook-group={category}>
-                                               <summary className="cursor-pointer px-4 py-3 text-xs font-bold text-slate-700 break-words">{category} <span className="font-normal text-slate-400">· {books.length} 条</span></summary>
+                                           <details key={category} className="rounded-2xl border border-neutral-50 bg-white overflow-hidden" data-mounted-worldbook-group={category}>
+                                               <summary className="cursor-pointer px-4 py-3 text-xs font-bold text-neutral-700 break-words">{category} <span className="font-normal text-neutral-400">· {books.length} 条</span></summary>
                                                <div className="px-4 pb-3">
                                                    <div className="mb-2 flex justify-end"><button type="button" onClick={() => {
                                                        const ids = new Set(books.map(book => book.id));
                                                        setFormData(prev => prev ? { ...prev, mountedWorldbooks: (prev.mountedWorldbooks || []).filter(book => !ids.has(book.id)) } : prev);
-                                                   }} className="py-1 text-[11px] text-slate-500">整组取消挂载</button></div>
-                                                   {books.map(wb => <div key={wb.id} className="flex items-start gap-2 border-t border-slate-100 py-2">
+                                                   }} className="py-1 text-[11px] text-neutral-500">整组取消挂载</button></div>
+                                                   {books.map(wb => <div key={wb.id} className="flex items-start gap-2 border-t border-neutral-100 py-2">
                                                        <details className="min-w-0 flex-1" onToggle={event => {
                                                            const open = event.currentTarget.open;
                                                            setExpandedMountedBookIds(prev => { const next = new Set(prev); if (open) next.add(wb.id); else next.delete(wb.id); return next; });
                                                        }}>
-                                                           <summary className="cursor-pointer text-xs text-slate-600 break-words">{wb.title}</summary>
-                                                           {expandedMountedBookIds.has(wb.id) && <p className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-slate-500">{wb.content}</p>}
+                                                           <summary className="cursor-pointer text-xs text-neutral-600 break-words">{wb.title}</summary>
+                                                           {expandedMountedBookIds.has(wb.id) && <p className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-neutral-500">{wb.content}</p>}
                                                        </details>
-                                                       <button type="button" aria-label={'取消挂载 ' + wb.title} onClick={() => unmountWorldbook(wb.id)} className="shrink-0 px-2 text-slate-400">×</button>
+                                                       <button type="button" aria-label={'取消挂载 ' + wb.title} onClick={() => unmountWorldbook(wb.id)} className="shrink-0 px-2 text-neutral-400">×</button>
                                                    </div>)}
                                                </div>
                                            </details>
                                        ))
                                    ) : (
-                                       <div className="text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
+                                       <div className="text-center py-4 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 text-neutral-400 text-xs">
                                            暂未挂载任何世界书
                                        </div>
                                    )}
@@ -1863,14 +1863,14 @@ ${isInitialGeneration ? `
                            <div className="pt-4">
                                <button
                                    onClick={handleExportCard}
-                                   className="w-full py-4 bg-slate-800 text-white rounded-2xl text-xs font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-slate-700 active:scale-95 transition-all"
+                                   className="w-full py-4 bg-[#222222] text-white rounded-2xl text-xs font-bold shadow-md shadow-black/10 flex items-center justify-center gap-2 hover:bg-[#333333] active:scale-95 transition-all"
                                >
                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                                    </svg>
                                    分享 / 导出角色卡
                                </button>
-                               <p className="text-[10px] text-slate-400 text-center mt-2">导出内容不包含记忆库和聊天记录</p>
+                               <p className="text-[10px] text-neutral-400 text-center mt-2">导出内容不包含记忆库和聊天记录</p>
                            </div>
                        </div>
                    )}
@@ -1878,9 +1878,9 @@ ${isInitialGeneration ? `
                    {detailTab === 'memory' && (
                        <div className="space-y-4 animate-fade-in">
                            <div className="flex justify-center gap-2 mb-4">
-                               <button onClick={() => { setShowBatchModal(true); trackEvent('打开批量记忆总结弹窗'); }} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">批量总结（可指定日期）</button>
-                               <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">导入/清洗</button>
-                               <button onClick={handleExportPreview} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">备份</button>
+                               <button onClick={() => { setShowBatchModal(true); trackEvent('打开批量记忆总结弹窗'); }} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-neutral-500 shadow-sm border border-neutral-100">批量总结（可指定日期）</button>
+                               <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-neutral-500 shadow-sm border border-neutral-100">导入/清洗</button>
+                               <button onClick={handleExportPreview} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-neutral-500 shadow-sm border border-neutral-100">备份</button>
                            </div>
                            <MemoryArchivist
                                memories={archiveMemories}
@@ -1939,9 +1939,9 @@ ${isInitialGeneration ? `
        )}
 
        {/* Modals ... */}
-       <Modal isOpen={showImportModal} title="记忆导入/清洗" onClose={() => setShowImportModal(false)} footer={<><button onClick={() => setShowImportModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">取消</button><button onClick={handleImportMemories} disabled={isProcessingMemory || importLengthInfo.overLimit} className={`flex-1 py-3 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 ${importLengthInfo.overLimit ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-[#222222] shadow-black/10'}`}>{isProcessingMemory && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}{isProcessingMemory ? '处理中...' : importLengthInfo.overLimit ? '请先分批' : '开始执行'}</button></>}>
+       <Modal isOpen={showImportModal} title="记忆导入/清洗" onClose={() => setShowImportModal(false)} footer={<><button onClick={() => setShowImportModal(false)} className="flex-1 py-3 bg-neutral-100 text-neutral-500 font-bold rounded-2xl">取消</button><button onClick={handleImportMemories} disabled={isProcessingMemory || importLengthInfo.overLimit} className={`flex-1 py-3 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 ${importLengthInfo.overLimit ? 'bg-neutral-300 cursor-not-allowed shadow-none' : 'bg-[#222222] shadow-black/10'}`}>{isProcessingMemory && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}{isProcessingMemory ? '处理中...' : importLengthInfo.overLimit ? '请先分批' : '开始执行'}</button></>}>
            <div className="space-y-3">
-               <div className="text-xs text-slate-400 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+               <div className="text-xs text-neutral-400 leading-relaxed bg-neutral-50 p-3 rounded-xl border border-neutral-100">
                    适合从其它应用“搬家”。最多 5 万字，字数只在本地统计；AI 只整理时间与事件结构，不摘要、不合并、不省略原有细节。5 万字以内会自动分批，无需手动切。
                </div>
                {importStatus && <div className="text-xs text-primary font-medium">{importStatus}</div>}
@@ -1949,14 +1949,14 @@ ${isInitialGeneration ? `
                    value={importText}
                    onChange={e => setImportText(e.target.value)}
                    placeholder="在此粘贴从别处带来的记忆文本…"
-                   className="w-full h-40 bg-slate-100 border-none rounded-2xl px-4 py-3 text-sm text-slate-700 resize-none focus:ring-2 focus:ring-[#999999]/30 transition-all"
+                   className="w-full h-40 bg-neutral-100 border-none rounded-2xl px-4 py-3 text-sm text-neutral-700 resize-none focus:ring-2 focus:ring-[#999999]/30 transition-all"
                />
                {importLengthInfo.overLimit && (
                    <div className="text-xs leading-relaxed rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-700">
                        {getExternalMemoryOverLimitMessage(importText)}
                    </div>
                )}
-               <div className={`text-right text-[10px] ${importLengthInfo.overLimit ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
+               <div className={`text-right text-[10px] ${importLengthInfo.overLimit ? 'text-red-500 font-bold' : 'text-neutral-400'}`}>
                    {importLengthInfo.count.toLocaleString()} / {EXTERNAL_MEMORY_MAX_CHARS.toLocaleString()} 字（本地统计）
                </div>
            </div>
@@ -1964,20 +1964,20 @@ ${isInitialGeneration ? `
 
        <Modal isOpen={showBatchModal} title="批量记忆总结" onClose={() => { setShowBatchModal(false); setShowPromptEditor(false); }} footer={
            isBatchProcessing ?
-           <div className="w-full py-3 bg-slate-100 text-primary font-bold rounded-2xl text-center flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>{batchProgress}</div> :
+           <div className="w-full py-3 bg-neutral-100 text-primary font-bold rounded-2xl text-center flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>{batchProgress}</div> :
            <button onClick={handleBatchSummarize} className="w-full py-3 bg-[#222222] text-white font-bold rounded-2xl">开始生成</button>
        }>
            <div className="space-y-3">
-               <p className="text-xs text-slate-400">将遍历所有聊天记录，按天使用所选提示词模板生成记忆总结。</p>
+               <p className="text-xs text-neutral-400">将遍历所有聊天记录，按天使用所选提示词模板生成记忆总结。</p>
                {/* Prompt Selection */}
-               <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">选择提示词模板</label>
+               <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-100">
+                   <label className="text-[10px] font-bold text-neutral-400 uppercase mb-2 block">选择提示词模板</label>
                    <div className="flex flex-col gap-2">
                        {archivePrompts.map(p => (
-                           <div key={p.id} onClick={() => { setSelectedPromptId(p.id); localStorage.setItem('chat_active_archive_prompt_id', p.id); }} className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between ${selectedPromptId === p.id ? 'bg-white border-slate-500 shadow-sm ring-1 ring-slate-500' : 'bg-white/50 border-slate-200 hover:bg-white'}`}>
-                               <span className={`text-xs font-bold ${selectedPromptId === p.id ? 'text-slate-700' : 'text-slate-600'}`}>{p.name}</span>
+                           <div key={p.id} onClick={() => { setSelectedPromptId(p.id); localStorage.setItem('chat_active_archive_prompt_id', p.id); }} className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between ${selectedPromptId === p.id ? 'bg-white border-neutral-500 shadow-sm ring-1 ring-neutral-500' : 'bg-white/50 border-neutral-200 hover:bg-white'}`}>
+                               <span className={`text-xs font-bold ${selectedPromptId === p.id ? 'text-neutral-700' : 'text-neutral-600'}`}>{p.name}</span>
                                <div className="flex gap-1.5">
-                                   <button onClick={(e) => { e.stopPropagation(); setEditingPrompt(p); setShowPromptEditor(true); }} className="text-[10px] text-slate-400 hover:text-slate-500 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-50">查看</button>
+                                   <button onClick={(e) => { e.stopPropagation(); setEditingPrompt(p); setShowPromptEditor(true); }} className="text-[10px] text-neutral-400 hover:text-neutral-500 px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-50">查看</button>
                                    {!p.id.startsWith('preset_') && (
                                        <button onClick={(e) => { e.stopPropagation(); const next = archivePrompts.filter(ap => ap.id !== p.id); setArchivePrompts(next); localStorage.setItem('chat_archive_prompts', JSON.stringify(next.filter(ap => !ap.id.startsWith('preset_')))); if (selectedPromptId === p.id) setSelectedPromptId('preset_rational'); }} className="text-[10px] text-red-300 hover:text-red-500 px-1.5 py-0.5 rounded hover:bg-red-50">x</button>
                                    )}
@@ -1985,14 +1985,14 @@ ${isInitialGeneration ? `
                            </div>
                        ))}
                    </div>
-                   <button onClick={() => { const newP = { id: `custom_${Date.now()}`, name: '新自定义模板', content: DEFAULT_ARCHIVE_PROMPTS[0].content }; setEditingPrompt(newP); setShowPromptEditor(true); }} className="mt-2 w-full py-1.5 text-xs font-bold text-slate-500 border border-dashed border-slate-300 rounded-lg hover:bg-slate-100">+ 新建自定义提示词</button>
+                   <button onClick={() => { const newP = { id: `custom_${Date.now()}`, name: '新自定义模板', content: DEFAULT_ARCHIVE_PROMPTS[0].content }; setEditingPrompt(newP); setShowPromptEditor(true); }} className="mt-2 w-full py-1.5 text-xs font-bold text-neutral-500 border border-dashed border-neutral-300 rounded-lg hover:bg-neutral-100">+ 新建自定义提示词</button>
                </div>
                {/* Date Range */}
                <div className="flex gap-2">
-                   <div className="flex-1"><label className="text-[10px] uppercase text-slate-400 font-bold">开始日期 (可选)</label><input type="date" value={batchRange.start} onChange={e => setBatchRange({...batchRange, start: e.target.value})} className="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs" /></div>
-                   <div className="flex-1"><label className="text-[10px] uppercase text-slate-400 font-bold">结束日期 (可选)</label><input type="date" value={batchRange.end} onChange={e => setBatchRange({...batchRange, end: e.target.value})} className="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs" /></div>
+                   <div className="flex-1"><label className="text-[10px] uppercase text-neutral-400 font-bold">开始日期 (可选)</label><input type="date" value={batchRange.start} onChange={e => setBatchRange({...batchRange, start: e.target.value})} className="w-full bg-neutral-100 rounded-xl px-3 py-2 text-xs" /></div>
+                   <div className="flex-1"><label className="text-[10px] uppercase text-neutral-400 font-bold">结束日期 (可选)</label><input type="date" value={batchRange.end} onChange={e => setBatchRange({...batchRange, end: e.target.value})} className="w-full bg-neutral-100 rounded-xl px-3 py-2 text-xs" /></div>
                </div>
-               <div className="text-[10px] text-slate-400 bg-slate-50 p-2.5 rounded-xl leading-relaxed">
+               <div className="text-[10px] text-neutral-400 bg-neutral-50 p-2.5 rounded-xl leading-relaxed">
                    支持变量: <code>{'${dateStr}'}</code>, <code>{'${char.name}'}</code>, <code>{'${userProfile.name}'}</code>, <code>{'${rawLog}'}</code>
                </div>
            </div>
@@ -2015,24 +2015,24 @@ ${isInitialGeneration ? `
                    value={editingPrompt?.name || ''}
                    onChange={e => setEditingPrompt(prev => prev ? {...prev, name: e.target.value} : null)}
                    placeholder="预设名称"
-                   className="w-full px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#999999]/30"
+                   className="w-full px-4 py-2 bg-neutral-100 rounded-xl text-sm font-bold text-neutral-700 outline-none focus:ring-2 focus:ring-[#999999]/30"
                    readOnly={editingPrompt?.id.startsWith('preset_')}
                />
                <textarea
                    value={editingPrompt?.content || ''}
                    onChange={e => setEditingPrompt(prev => prev ? {...prev, content: e.target.value} : null)}
-                   className="w-full h-64 bg-slate-100 rounded-xl p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-[#999999]/30 leading-relaxed"
+                   className="w-full h-64 bg-neutral-100 rounded-xl p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-[#999999]/30 leading-relaxed"
                    placeholder="输入提示词内容..."
                    readOnly={editingPrompt?.id.startsWith('preset_')}
                />
                {editingPrompt?.id.startsWith('preset_') && (
-                   <p className="text-[10px] text-slate-400 text-center">预设模板不可编辑（仅查看）</p>
+                   <p className="text-[10px] text-neutral-400 text-center">预设模板不可编辑（仅查看）</p>
                )}
            </div>
        </Modal>
 
-       <Modal isOpen={showExportModal} title="导出文本" onClose={() => setShowExportModal(false)} footer={<div className="flex gap-2 w-full"><button onClick={() => { navigator.clipboard.writeText(exportText); addToast('已复制', 'success'); }} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">复制全文</button><button onClick={handleExportMemoryFile} className="flex-1 py-3 bg-slate-800 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>导出文件</button></div>}>
-           <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-2"><div className="text-[10px] text-slate-400">已自动复制到剪贴板。如果分享失败，请直接手动复制。</div><textarea value={exportText} readOnly className="w-full h-40 bg-transparent border-none text-[10px] font-mono text-slate-600 resize-none focus:ring-0 leading-relaxed select-all" onClick={(e) => e.currentTarget.select()}/></div>
+       <Modal isOpen={showExportModal} title="导出文本" onClose={() => setShowExportModal(false)} footer={<div className="flex gap-2 w-full"><button onClick={() => { navigator.clipboard.writeText(exportText); addToast('已复制', 'success'); }} className="flex-1 py-3 bg-neutral-100 text-neutral-600 font-bold rounded-2xl">复制全文</button><button onClick={handleExportMemoryFile} className="flex-1 py-3 bg-neutral-800 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>导出文件</button></div>}>
+           <div className="bg-neutral-50 rounded-2xl p-3 border border-neutral-100 space-y-2"><div className="text-[10px] text-neutral-400">已自动复制到剪贴板。如果分享失败，请直接手动复制。</div><textarea value={exportText} readOnly className="w-full h-40 bg-transparent border-none text-[10px] font-mono text-neutral-600 resize-none focus:ring-0 leading-relaxed select-all" onClick={(e) => e.currentTarget.select()}/></div>
        </Modal>
 
         {/* Worldbook Select Modal */}
@@ -2043,7 +2043,7 @@ ${isInitialGeneration ? `
         >
             <div className="max-h-[50vh] overflow-y-auto no-scrollbar space-y-3 p-1">
                 {worldbooks.length === 0 ? (
-                    <div className="text-center text-slate-400 text-xs py-8">
+                    <div className="text-center text-neutral-400 text-xs py-8">
                         还没有世界书，请去桌面【世界书】App 创建。
                     </div>
                 ) : (
@@ -2052,13 +2052,13 @@ ${isInitialGeneration ? `
                             value={wbModalSearch}
                             onChange={e => setWbModalSearch(e.target.value)}
                             placeholder="搜索世界书标题或分组..."
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:bg-white focus:border-slate-300 transition-all"
+                            className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-700 outline-none focus:bg-white focus:border-neutral-300 transition-all"
                         />
                         {wbModalSearchResults ? (
                             // 搜索态：扁平结果列表
                             <div className="space-y-2">
                                 {wbModalSearchResults.books.length === 0 ? (
-                                    <div className="text-center text-slate-400 text-xs py-6">没有匹配的世界书。</div>
+                                    <div className="text-center text-neutral-400 text-xs py-6">没有匹配的世界书。</div>
                                 ) : (
                                     wbModalSearchResults.books.map(wb => {
                                         const isMounted = formData?.mountedWorldbooks?.some(m => m.id === wb.id);
@@ -2067,19 +2067,19 @@ ${isInitialGeneration ? `
                                                 key={wb.id}
                                                 onClick={() => !isMounted && mountWorldbook(wb.id)}
                                                 disabled={isMounted}
-                                                className={`w-full p-3 rounded-xl border text-left transition-all ${isMounted ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm active:scale-95'}`}
+                                                className={`w-full p-3 rounded-xl border text-left transition-all ${isMounted ? 'bg-neutral-50 border-neutral-200 opacity-50 cursor-not-allowed' : 'bg-white border-neutral-100 hover:border-neutral-300 shadow-sm active:scale-95'}`}
                                             >
                                                 <div className="flex justify-between items-center gap-2">
-                                                    <span className="font-bold text-slate-700 text-sm truncate">{wb.title}</span>
-                                                    {isMounted && <span className="text-[10px] text-slate-400 shrink-0">已挂载</span>}
+                                                    <span className="font-bold text-neutral-700 text-sm truncate">{wb.title}</span>
+                                                    {isMounted && <span className="text-[10px] text-neutral-400 shrink-0">已挂载</span>}
                                                 </div>
-                                                <div className="text-[10px] text-slate-400 truncate mt-0.5">{wb.category || '未分类设定 (General)'}</div>
+                                                <div className="text-[10px] text-neutral-400 truncate mt-0.5">{wb.category || '未分类设定 (General)'}</div>
                                             </button>
                                         );
                                     })
                                 )}
                                 {wbModalSearchResults.total > wbModalSearchResults.books.length && (
-                                    <div className="text-center text-[10px] text-slate-400 py-1">
+                                    <div className="text-center text-[10px] text-neutral-400 py-1">
                                         共 {wbModalSearchResults.total} 条匹配，仅显示前 {wbModalSearchResults.books.length} 条，请继续输入缩小范围。
                                     </div>
                                 )}
@@ -2089,19 +2089,19 @@ ${isInitialGeneration ? `
                             wbModalGroups.map(([category, books]) => {
                                 const isExpanded = wbModalExpandedCategory === category;
                                 return (
-                                    <div key={category} className="rounded-xl border border-slate-100 bg-slate-50/50 overflow-hidden">
+                                    <div key={category} className="rounded-xl border border-neutral-100 bg-neutral-50/50 overflow-hidden">
                                         <div
                                             onClick={() => setWbModalExpandedCategory(isExpanded ? null : category)}
                                             className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none"
                                         >
-                                            <span className={`transition-transform duration-200 text-slate-400 ${isExpanded ? 'rotate-90' : ''}`}>
+                                            <span className={`transition-transform duration-200 text-neutral-400 ${isExpanded ? 'rotate-90' : ''}`}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" /></svg>
                                             </span>
-                                            <h4 className="flex-1 min-w-0 text-xs font-bold text-slate-500 truncate">{category}</h4>
-                                            <span className="text-[10px] text-slate-400 shrink-0">{books.length}</span>
+                                            <h4 className="flex-1 min-w-0 text-xs font-bold text-neutral-500 truncate">{category}</h4>
+                                            <span className="text-[10px] text-neutral-400 shrink-0">{books.length}</span>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); mountCategory(category); }}
-                                                className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded font-bold hover:bg-slate-100 shrink-0"
+                                                className="text-[10px] bg-neutral-50 text-neutral-600 px-2 py-0.5 rounded font-bold hover:bg-neutral-100 shrink-0"
                                             >
                                                 挂载整组
                                             </button>
@@ -2115,11 +2115,11 @@ ${isInitialGeneration ? `
                                                             key={wb.id}
                                                             onClick={() => !isMounted && mountWorldbook(wb.id)}
                                                             disabled={isMounted}
-                                                            className={`w-full p-3 rounded-xl border text-left transition-all ${isMounted ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm active:scale-95'}`}
+                                                            className={`w-full p-3 rounded-xl border text-left transition-all ${isMounted ? 'bg-neutral-50 border-neutral-200 opacity-50 cursor-not-allowed' : 'bg-white border-neutral-100 hover:border-neutral-300 shadow-sm active:scale-95'}`}
                                                         >
                                                             <div className="flex justify-between items-center gap-2">
-                                                                <span className="font-bold text-slate-700 text-sm truncate">{wb.title}</span>
-                                                                {isMounted && <span className="text-[10px] text-slate-400 shrink-0">已挂载</span>}
+                                                                <span className="font-bold text-neutral-700 text-sm truncate">{wb.title}</span>
+                                                                {isMounted && <span className="text-[10px] text-neutral-400 shrink-0">已挂载</span>}
                                                             </div>
                                                         </button>
                                                     );
@@ -2144,26 +2144,26 @@ ${isInitialGeneration ? `
                         onChange={e => setNewGroupName(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') handleAddGroup(); }}
                         placeholder="新分组名称"
-                        className="flex-1 px-4 py-2.5 bg-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#999999]/30"
+                        className="flex-1 px-4 py-2.5 bg-neutral-100 rounded-xl text-sm text-neutral-700 outline-none focus:ring-2 focus:ring-[#999999]/30"
                     />
                     <button onClick={handleAddGroup} className="px-4 py-2.5 bg-[#222222] text-white text-sm font-bold rounded-xl shadow-sm shadow-black/10 active:scale-95 transition-transform shrink-0">添加</button>
                 </div>
                 {characterGroups.length === 0 ? (
-                    <div className="text-center text-xs text-slate-400 py-6">还没有分组。建一个试试——角色列表和各处选角色的地方都会按组展示。</div>
+                    <div className="text-center text-xs text-neutral-400 py-6">还没有分组。建一个试试——角色列表和各处选角色的地方都会按组展示。</div>
                 ) : (
                     <div className="space-y-2 max-h-64 overflow-y-auto no-scrollbar">
                         {sortCharacterGroups(characterGroups).map(g => (
-                            <div key={g.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <div key={g.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-neutral-50 border border-neutral-100">
                                 <input
                                     defaultValue={g.name}
                                     onBlur={e => { const v = e.target.value.trim(); if (v && v !== g.name) renameCharacterGroup(g.id, v); else e.target.value = g.name; }}
                                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                    className="flex-1 min-w-0 bg-transparent text-sm text-slate-700 outline-none border-b border-transparent focus:border-slate-300 py-0.5"
+                                    className="flex-1 min-w-0 bg-transparent text-sm text-neutral-700 outline-none border-b border-transparent focus:border-neutral-300 py-0.5"
                                 />
-                                <span className="text-xs text-slate-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 个角色</span>
+                                <span className="text-xs text-neutral-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 个角色</span>
                                 <button
                                     onClick={() => { deleteCharacterGroup(g.id); addToast(`分组「${g.name}」已删除，组内角色回到未分组`, 'info'); }}
-                                    className="p-1.5 rounded-full text-slate-300 hover:bg-red-50 hover:text-red-400 transition-all shrink-0"
+                                    className="p-1.5 rounded-full text-neutral-300 hover:bg-red-50 hover:text-red-400 transition-all shrink-0"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                 </button>
@@ -2171,7 +2171,7 @@ ${isInitialGeneration ? `
                         ))}
                     </div>
                 )}
-                <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 p-2.5 rounded-xl">删除分组不会删除角色，组内角色会回到「未分组」。给角色指派分组：进入角色的「设定」页。</p>
+                <p className="text-[10px] text-neutral-400 leading-relaxed bg-neutral-50 p-2.5 rounded-xl">删除分组不会删除角色，组内角色会回到「未分组」。给角色指派分组：进入角色的「设定」页。</p>
             </div>
         </Modal>
 
@@ -2179,14 +2179,14 @@ ${isInitialGeneration ? `
             isOpen={!!deleteConfirmTarget}
             title="断开连接"
             onClose={() => setDeleteConfirmTarget(null)}
-            footer={<div className="flex gap-2 w-full"><button onClick={() => setDeleteConfirmTarget(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold">保留</button><button onClick={confirmDeleteCharacter} disabled={isDeleting} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-50">{isDeleting ? '断开中...' : '确认断开'}</button></div>}
+            footer={<div className="flex gap-2 w-full"><button onClick={() => setDeleteConfirmTarget(null)} className="flex-1 py-3 bg-neutral-100 text-neutral-500 rounded-2xl font-bold">保留</button><button onClick={confirmDeleteCharacter} disabled={isDeleting} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-50">{isDeleting ? '断开中...' : '确认断开'}</button></div>}
         >
             <div className="flex flex-col items-center gap-3 py-4">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
-                <p className="text-sm text-slate-600 text-center leading-relaxed">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-neutral-300"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                <p className="text-sm text-neutral-600 text-center leading-relaxed">
                     确定要删除与该角色的所有连接吗？<br/>
                     <span className="text-xs text-red-400 font-bold">该操作不可恢复，记忆将被清空。</span><br/>
-                    <span className="text-[10px] text-slate-400">仅对 ta 可见的专属表情分类也会一并删除。</span>
+                    <span className="text-[10px] text-neutral-400">仅对 ta 可见的专属表情分类也会一并删除。</span>
                 </p>
             </div>
         </Modal>
@@ -2201,7 +2201,7 @@ ${isInitialGeneration ? `
                 <button
                     onClick={() => { if (cloudCleanupFailTarget && !isDeleting) void runDeleteCharacter(cloudCleanupFailTarget); }}
                     disabled={isDeleting}
-                    className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold disabled:opacity-50"
+                    className="flex-1 py-3 bg-neutral-100 text-neutral-600 rounded-2xl font-bold disabled:opacity-50"
                 >{isDeleting ? '重试中...' : '重试'}</button>
                 <button
                     onClick={() => { if (cloudCleanupFailTarget && !isDeleting) void runDeleteCharacter(cloudCleanupFailTarget, true); }}
@@ -2210,10 +2210,10 @@ ${isInitialGeneration ? `
                 >仍然删除</button>
             </div>}
         >
-            <p className="text-sm text-slate-600 leading-relaxed py-2">
+            <p className="text-sm text-neutral-600 leading-relaxed py-2">
                 ta 的云端数据还没能确认清理（可能是断网或 Worker 没响应），本地角色暂时没有删除。<br/>
                 <span className="text-xs text-red-400 font-bold">选「仍然删除」的话，残留的任务之后可能仍会到点推送</span>
-                <span className="text-xs text-slate-400">——可以去设置 → 主动消息 2.0 → 云端数据管理继续检查。</span>
+                <span className="text-xs text-neutral-400">——可以去设置 → 主动消息 2.0 → 云端数据管理继续检查。</span>
             </p>
         </Modal>
     </div>
