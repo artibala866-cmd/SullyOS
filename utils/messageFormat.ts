@@ -12,7 +12,6 @@
  */
 
 import type { Message, Emoji } from '../types';
-import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
 import { formatTransferRecord } from './transferFormat';
 import { formatStatCount } from './videoParser';
@@ -145,9 +144,6 @@ export function normalizeMessageContent(
     if (type === 'score_card') {
         try {
             const card = msg.metadata?.scoreCard || JSON.parse(msg.content);
-            if (card?.type === 'lifesim_reset_card') {
-                return formatLifeSimResetCardForContext(card, charName);
-            }
             const qixiCard = tryParseQixiEventChatCard(card);
             if (qixiCard) return formatQixiEventCardForContext(qixiCard, 'archive');
             if (card?.type === 'guidebook_card') {
