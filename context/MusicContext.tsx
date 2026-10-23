@@ -383,6 +383,9 @@ interface MusicContextType {
   // 歌曲切换 / 结束时自动清空
   listeningTogetherWith: string[];
   listeningStartedAt: Record<string, number>;
+  listeningInvites: Record<string, 'pending' | 'accepted' | 'rejected'>;
+  inviteListeningPartner: (charId: string) => void;
+  respondListeningInvite: (charId: string, accepted: boolean) => void;
   lastListeningEnd: { charId: string; durationMs: number; at: number } | null;
   addListeningPartner: (charId: string) => void;
   removeListeningPartner: (charId: string) => void;
@@ -596,13 +599,23 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [listeningTogetherWith, setListeningTogetherWith] = useState<string[]>([]);
   // 伴听会话与歌曲解耦：记录起始时间，供聊天/主动消息读取。
   const [listeningStartedAt, setListeningStartedAt] = useState<Record<string, number>>({});
+  const [listeningInvites, setListeningInvites] = useState<Record<string, 'pending' | 'accepted' | 'rejected'>>({});
+  const inviteListeningPartner = useCallback((charId: string) => {
+    setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
+  }, []);
   const [lastListeningEnd, setLastListeningEnd] = useState<{ charId: string; durationMs: number; at: number } | null>(null);
   const addListeningPartner = useCallback((charId: string) => {
     setListeningTogetherWith(prev => prev.includes(charId) ? prev : [...prev, charId]);
+    setListeningInvites(prev => ({ ...prev, [charId]: 'accepted' }));
     setListeningStartedAt(prev => prev[charId] ? prev : { ...prev, [charId]: Date.now() });
   }, []);
+  const respondListeningInvite = useCallback((charId: string, accepted: boolean) => {
+    setListeningInvites(prev => ({ ...prev, [charId]: accepted ? 'accepted' : 'rejected' }));
+    if (accepted) addListeningPartner(charId);
+  }, [addListeningPartner]);
   const removeListeningPartner = useCallback((charId: string) => {
     setListeningTogetherWith(prev => prev.filter(id => id !== charId));
+    setListeningInvites(prev => { const next = { ...prev }; delete next[charId]; return next; });
     setListeningStartedAt(prev => {
       if (prev[charId]) setLastListeningEnd({ charId, durationMs: Date.now() - prev[charId], at: Date.now() });
       const next = { ...prev }; delete next[charId]; return next;
@@ -1031,7 +1044,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     playSong, togglePlay, nextSong, prevSong, seek,
     playMode, setPlayMode,
     liked, toggleLike,
-    listeningTogetherWith, listeningStartedAt, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
+    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, respondListeningInvite, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
     recentTrackChange,
     toast, setToastHandler,
     localAlbumSongs, addLocalSong, removeLocalSong,
