@@ -166,6 +166,7 @@ export interface MusicPlaybackSnapshot {
   cfg: MusicCfg;
   recentTrackChange?: RecentTrackChange | null;
   listeningStartedAt?: Record<string, number>;
+  listeningInvites?: Record<string, 'pending' | 'accepted' | 'rejected'>;
   lastListeningEnd?: { charId: string; durationMs: number; at: number } | null;
 }
 let __musicPlaybackSnapshot: MusicPlaybackSnapshot | null = null;
@@ -928,9 +929,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       cfg,
       recentTrackChange,
       listeningStartedAt,
+      listeningInvites,
       lastListeningEnd,
     };
-  }, [current, playing, lyric, activeLyricIdx, listeningTogetherWith, cfg, recentTrackChange, listeningStartedAt, lastListeningEnd]);
+  }, [current, playing, lyric, activeLyricIdx, listeningTogetherWith, cfg, recentTrackChange, listeningStartedAt, listeningInvites, lastListeningEnd]);
 
   // 把整组 musicHooks 写到模块级 slot — useChatAI 和 activeMsgRuntime 都从这里取.
   // current / addListeningPartner 变化时刷新闭包, 保证读到的是最新 React state.
@@ -952,6 +954,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       joinListeningTogether: (cid: string) => {
         addListeningPartner(cid);
+      },
+      rejectListeningInvite: (cid: string) => {
+        respondListeningInvite(cid, false);
       },
       stopListeningTogether: (cid: string) => {
         removeListeningPartner(cid);
@@ -1033,7 +1038,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       },
     };
-  }, [current, addListeningPartner, removeListeningPartner]);
+  }, [current, addListeningPartner, removeListeningPartner, respondListeningInvite]);
 
   const value: MusicContextType = {
     cfg, setCfg, effectiveWorkerUrl,
