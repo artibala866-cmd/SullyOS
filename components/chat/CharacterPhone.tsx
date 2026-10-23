@@ -21,6 +21,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [contactId, setContactId] = useState('');
   const [editing, setEditing] = useState(false);
   const [refreshingContacts, setRefreshingContacts] = useState(false);
+  const [addingContact, setAddingContact] = useState(false);
   const [draft, setDraft] = useState({ name:'', identity:'', personality:'', relationship:'', background:'' });
   const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
@@ -56,6 +57,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const persistProfiles = (next: NpcProfile[]) => { try { saveNpcProfiles(characterId, next); setProfiles(next); } catch { setError('联系人档案保存失败'); } };
   const persist = (next: ChatRecord[]) => { setRecords(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { setError('存储空间不足，记录未能保存'); } };
   const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'thread' || screen === 'moments' || screen === 'wallet' || screen === 'settings') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
+  const fullPersona = [persona, char.worldview || '', ...(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content)].filter(Boolean).join('\n\n').slice(0, 24000);
   const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
   const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前生活状态，不等于必然在玩手机；不可凭空断言已发生社交行为。` : '目前没有可用的角色当日日程，不得编造当前行程。';
   const createProfile = async () => {
@@ -66,8 +68,8 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
         body: JSON.stringify({ model: api.model, stream: false, messages: [
-          { role: 'system', content: `你是严格的角色设定档案管理员，不是随机NPC生成器。手机主人Char的唯一ID是${characterId}，显示名${name}。角色人设：${persona.slice(0, 9500)}。${scheduleContext}只能从人设明确提到或可明确推导的真实社会关系中选择联系人；没有足够依据则返回JSON {\"error\":\"人设中缺少可确认的联系人，请补充人物关系\"}，禁止凭空杜撰朋友、家人、同事及亲密关系。已有联系人：${profiles.map(p => p.name+'('+p.relationship+')').join('、')}。User与Char与NPC身份不同；同名或水仙不能视为同一人。仅返回JSON对象，字段name,identity,personality,relationship,background均为非空字符串。` },
-          { role: 'user', content: '根据人设中已有的人物关系建立一份联系人档案；无法确认则返回error，不要编造。不要生成聊天消息。' }
+          { role: 'system', content: `你是严格的角色设定档案管理员，不是随机NPC生成器。手机主人Char的唯一ID是${characterId}，显示名${name}。角色人设：${fullPersona}。${scheduleContext}优先从角色设定与世界书里提到的人物创建联系人；如果没有明确姓名，可以根据世界观、身份、地点和生活圈生成合理的新NPC，但绝不编造与原设定冲突的亲密关系。不得把User或手机主人当成NPC。已有联系人：${profiles.map(p => p.name+'('+p.relationship+')').join('、')}。User与Char与NPC身份不同；同名或水仙不能视为同一人。仅返回JSON对象，字段name,identity,personality,relationship,background均为非空字符串。` },
+          { role: 'user', content: '综合角色设定和世界书生成一份合理且具体的联系人档案。优先已有设定人物；无明确人物时可以创建符合生活圈的普通NPC。不要生成聊天消息。' }
         ] })
       });
       const json = await safeResponseJson(response);
@@ -81,6 +83,13 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       persistProfiles([...profiles, profile]);
       recordCharacterLifeEvent({ id: 'contact:' + profile.id, characterId, kind: 'contact-added', occurredAt: profile.createdAt, source: 'phone', summary: '新增联系人：' + profile.name, contactId: profile.id });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); setRefreshingContacts(false); }
+  };
+  const addManualContact = () => {
+    if (!draft.name.trim() || !draft.identity.trim() || !draft.personality.trim() || !draft.relationship.trim()) { setError('请填写姓名、身份、性格及关系'); return; }
+    const profile: NpcProfile = { id: crypto.randomUUID(), name: draft.name.trim(), identity: draft.identity.trim(), personality: draft.personality.trim(), relationship: draft.relationship.trim(), background: draft.background.trim(), source: 'generated', createdAt: Date.now() };
+    persistProfiles([...profiles, profile]);
+    recordCharacterLifeEvent({ id: 'contact:' + profile.id, characterId, kind: 'contact-added', occurredAt: profile.createdAt, source: 'phone', summary: '添加联系人：' + profile.name, contactId: profile.id });
+    setAddingContact(false); setError(''); openContact(profile);
   };
   const generate = async (npcName = '') => {
     if (busy) return;
@@ -142,6 +151,8 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
         {screen === 'wechat' && tab === 'contacts' && <div className="bg-white">
           <button type="button" disabled={busy} onClick={createProfile} className="flex w-full items-center gap-3 border-b border-[#eee] px-5 py-3 text-left disabled:opacity-50"><span className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-400 text-white"><Plus size={24}/></span>{refreshingContacts?'正在根据人设查找联系人…':'刷新生成联系人'}</button>
           {currentSlot && <div className="bg-[#ededed] px-5 py-2 text-xs text-[#777]">当前生活状态 · {currentSlot.activity}{currentSlot.location ? ' · '+currentSlot.location : ''}</div>}
+          <button type="button" onClick={()=>{setAddingContact(v=>!v);setDraft({name:'',identity:'',personality:'',relationship:'',background:''});}} className="w-full border-b border-[#eee] bg-white px-5 py-3 text-left text-[#1b9c5a]">＋ 手动添加联系人</button>
+          {addingContact && <div className="space-y-2 bg-white px-5 py-3">{([{key:'name',label:'姓名'},{key:'identity',label:'身份'},{key:'personality',label:'性格'},{key:'relationship',label:'与Char关系'},{key:'background',label:'背景'}] as const).map(({key,label})=><label key={key} className="flex items-start gap-2 text-sm"><span className="w-20 shrink-0 pt-2">{label}</span><textarea rows={key==='background'?3:1} value={draft[key]} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))} className="min-w-0 flex-1 rounded border border-[#ddd] p-2"/></label>)}<button type="button" onClick={addManualContact} className="w-full rounded bg-[#07b75b] py-2 text-white">保存联系人</button></div>}
           <div className="bg-[#ededed] px-5 py-2 text-xs text-[#888]">联系人 · {profiles.length}　点击上方按钮手动生成，不自动乱加</div>
           {[...profiles].sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')).map(p=><button type="button" key={p.id} onClick={()=>openContact(p)} className="flex w-full items-center gap-3 border-b border-[#eee] px-5 py-3 text-left"><span className="flex h-11 w-11 items-center justify-center rounded-md bg-[#a9cbb5] text-lg text-white">{p.name.slice(0,1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-base">{p.name}</span><span className="block truncate text-xs text-[#999]">{p.relationship}</span></span><span className="text-[#bbb]">›</span></button>)}
         </div>}
