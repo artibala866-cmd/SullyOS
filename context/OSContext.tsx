@@ -2283,6 +2283,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // Keep a ref to latest account state so the listener is stable across renders.
   useEffect(() => {
       if (!isDataLoaded) return;
+      const palaceInFlight = new Set<string>();
       const onLifeEvent = (event: Event) => {
           const detail = (event as CustomEvent<{ characterId?: string; eventId?: string }>).detail;
           const charId = detail?.characterId;
@@ -2308,7 +2309,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   const previously = (() => {
                       try { return JSON.parse(localStorage.getItem(key) || '[]') as string[]; } catch { return []; }
                   })();
-                  if (!previously.includes(eventId)) {
+                  if (!previously.includes(eventId) && !palaceInFlight.has(charId + ':' + eventId)) {
+                      palaceInFlight.add(charId + ':' + eventId);
                       const config = memoryPalaceConfigRef.current;
                       const llm = config.lightLLM?.baseUrl ? config.lightLLM : resolveDialogueApi(apiConfigRef.current, char);
                       const date = new Date(recordedEvent.occurredAt);
@@ -2319,9 +2321,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                               llm, userProfileRef.current?.name || '', 7)
                       ).then(result => {
                           if (result.status === 'done' || result.status === 'extracted_none') {
-                              try { localStorage.setItem(key, JSON.stringify([...previously, eventId].slice(-500))); } catch { /* retry on next event */ }
+                              try {
+                                  const latest = JSON.parse(localStorage.getItem(key) || '[]') as string[];
+                                  localStorage.setItem(key, JSON.stringify([...new Set([...latest, eventId])].slice(-500)));
+                              } catch { /* retry on next event */ }
                           }
-                      }).catch(error => console.warn('[PhonePalace] phone memory extraction skipped', error));
+                      }).catch(error => console.warn('[PhonePalace] phone memory extraction skipped', error))
+                        .finally(() => palaceInFlight.delete(charId + ':' + eventId));
                   }
               }
           }
