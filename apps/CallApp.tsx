@@ -375,7 +375,7 @@ const cleanCurrentVoiceMarkupForDisplay = (text?: string | null): string => {
   return text;
 };
 
-const renderAssistantLine = (text: string, accent = '#8b5cf6') => {
+const renderAssistantLine = (text: string, accent = '#777777') => {
   // 朗读用的停顿标记 <#0.4#> 不显示出来
   let trimmed = text.replace(/<#[\d.]+#>/g, '').trim();
   // 鱼声的 inline cue（[whispering]/[break] 等）是演出指令，不该显示给用户。
@@ -397,7 +397,7 @@ const renderAssistantLine = (text: string, accent = '#8b5cf6') => {
       );
     }
     if (/^（[^（）\n]{1,48}）$/.test(part)) {
-      return <div key={`cue-${idx}`} className="text-violet-300/95 italic my-1.5 text-[0.85em]">{part}</div>;
+      return <div key={`cue-${idx}`} className="text-neutral-300/95 italic my-1.5 text-[0.85em]">{part}</div>;
     }
     return <React.Fragment key={`t-${idx}`}>{part}</React.Fragment>;
   });
@@ -540,8 +540,8 @@ const CallApp: React.FC = () => {
   useEffect(() => saveCallPreferences(callPreferences), [callPreferences]);
   // 电话 App 独立的浅色主题偏好（覆盖选人页/通话中/视频/记录页）
   const [callTheme, setCallTheme] = useState<'dark' | 'light'>(() => {
-    try { return localStorage.getItem('sully-call-theme-v1') === 'light' ? 'light' : 'dark'; }
-    catch { return 'dark'; }
+    try { return 'light'; }
+    catch { return 'light'; }
   });
   const lightTheme = callTheme === 'light';
   useEffect(() => {
@@ -1201,22 +1201,7 @@ const CallApp: React.FC = () => {
     input.click();
   };
   // 从角色聊天主题中提取强调色，用于通话界面的按钮和高亮
-  const accentColor = useMemo(() => {
-    const themeId = selectedChar?.bubbleStyle || 'default';
-    const theme: ChatTheme | undefined = customThemes?.find((t: ChatTheme) => t.id === themeId) || PRESET_THEMES[themeId];
-    const raw = (theme?.user?.backgroundColor || '#8b5cf6').trim();
-    // 通话界面靠 accent 做发光/描边/光环——主题色太暗（如纯黑）会让这些全部"消失"，
-    // 按键也没了漂亮的边。这里给最低亮度兜底：太暗就回落到亮紫，保证每个角色都有边。
-    const m = /^#?([0-9a-f]{6})$/i.exec(raw) || /^#?([0-9a-f]{3})$/i.exec(raw);
-    if (m) {
-      let hex = m[1];
-      if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-      const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
-      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-      if (lum < 90) return '#a78bfa';
-    }
-    return raw;
-  }, [selectedChar?.bubbleStyle, customThemes]);
+  const accentColor = '#666666';
   const callScrollableRef = useRef<HTMLDivElement | null>(null);
   const draftInputRef = useRef<HTMLInputElement | null>(null);
   // 输入面板默认展开，但「进入通话」时不能自动聚焦输入框——移动端一聚焦就弹
@@ -2964,9 +2949,9 @@ ${sentencePlan}`;
   };
 
   const avatarImportOverlay = avatarImportStatus ? (
-    <div className="sully-stage-dark absolute inset-0 z-[120] flex items-center justify-center bg-[#07050c]/88 px-8 text-center backdrop-blur-xl">
+    <div className="sully-stage-dark absolute inset-0 z-[120] flex items-center justify-center bg-[#292929]/88 px-8 text-center backdrop-blur-xl">
       <div className="max-w-[20rem]">
-        <span className="mx-auto mb-4 block h-9 w-9 animate-spin rounded-full border-2 border-white/15 border-t-violet-300" />
+        <span className="mx-auto mb-4 block h-9 w-9 animate-spin rounded-full border-2 border-white/15 border-t-neutral-300" />
         <div className="text-sm leading-relaxed text-white/85">{avatarImportStatus}</div>
         <div className="mt-3 text-[10px] leading-relaxed text-white/40">包含 8K 贴图的模型首次导入可能需要 10–30 秒。请保持当前页面打开，不要重复点击按钮；完成后会自动进入动作权限页面。</div>
       </div>
@@ -2987,7 +2972,7 @@ ${sentencePlan}`;
     const page = Math.min(rolePage, totalPages - 1);
     const pagedChars = groupChars.slice(page * ROLES_PER_PAGE, page * ROLES_PER_PAGE + ROLES_PER_PAGE);
     return (
-      <div className={`relative h-full w-full bg-gradient-to-b text-white flex flex-col overflow-hidden ${lightTheme ? 'sully-call-light from-[#f5f2fd] via-[#eef0f8] to-[#e9ecf5]' : 'from-[#140d28] via-[#0a0613] to-[#05030c]'}`}>
+      <div className={`relative h-full w-full bg-gradient-to-b text-white flex flex-col overflow-hidden ${lightTheme ? 'sully-call-light from-[#f7f7f7] via-[#eeeeee] to-[#e5e5e5]' : 'from-[#3b3b3b] via-[#292929] to-[#1f1f1f]'}`}>
         {lightTheme && <style>{CALL_LIGHT_THEME_CSS}</style>}
         {avatarImportOverlay}
         {vroidBetaOverlay}
@@ -3324,7 +3309,7 @@ ${sentencePlan}`;
   }
   if (viewMode === 'history') {
     return (
-      <div className={`h-full w-full bg-gradient-to-b text-white px-5 pb-6 flex flex-col ${lightTheme ? 'sully-call-light from-[#f5f2fd] via-[#eef0f8] to-[#eef0f8]' : 'from-[#140d28] via-[#0a0613] to-[#0a0613]'}`} style={{ paddingTop: 'max(2.5rem, var(--safe-top))' }}>
+      <div className={`h-full w-full bg-gradient-to-b text-white px-5 pb-6 flex flex-col ${lightTheme ? 'sully-call-light from-[#f4f4f4] via-[#eeeeee] to-[#eeeeee]' : 'from-[#3b3b3b] via-[#292929] to-[#292929]'}`} style={{ paddingTop: 'max(2.5rem, var(--safe-top))' }}>
         {lightTheme && <style>{CALL_LIGHT_THEME_CSS}</style>}
         <div className="flex items-center justify-between">
           <button onClick={() => setViewMode('role-select')} className="text-sm text-white/45">← 返回</button>
@@ -3349,7 +3334,7 @@ ${sentencePlan}`;
                   <div className="font-medium text-sm">{record.characterName}</div>
                   <div className="text-xs text-white/45 mt-0.5">{record.mode === 'video' ? '视频' : record.mode === 'voice' ? '语音' : '通话'} · {formatDuration(record.durationSec)} · {turnCount}轮对话</div>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(record); }} className="text-xs px-2 py-1 rounded-lg text-white/35 transition hover:text-rose-300">删除</button>
+                <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(record); }} className="text-xs px-2 py-1 rounded-lg text-white/35 transition hover:text-neutral-300">删除</button>
               </div>
               <div className="text-xs text-white/60 mt-2.5 italic leading-relaxed line-clamp-2">{keepsake}</div>
               <div className="text-[10px] text-white/30 mt-1.5">{record.createdAt}</div>
@@ -3360,12 +3345,12 @@ ${sentencePlan}`;
         {/* Delete confirm overlay */}
         {deleteConfirmRecord && (
           <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-6">
-            <div className={`w-full max-w-sm rounded-3xl border border-white/15 bg-gradient-to-b p-5 shadow-2xl ${lightTheme ? 'from-white to-[#f0edf9]' : 'from-[#1a1130] to-[#0a0613]'}`}>
+            <div className={`w-full max-w-sm rounded-3xl border border-white/15 bg-gradient-to-b p-5 shadow-2xl ${lightTheme ? 'from-white to-[#f2f2f2]' : 'from-[#424242] to-[#292929]'}`}>
               <div className="text-base font-semibold text-white">删除通话记录？</div>
               <p className="mt-2 text-sm text-white/55 leading-relaxed">和 {deleteConfirmRecord.characterName} 的这通通话将被永久删除。</p>
               <div className="mt-5 grid grid-cols-2 gap-2">
                 <button onClick={() => setDeleteConfirmRecord(null)} className="py-2.5 rounded-2xl border border-white/20 text-white/80 transition active:scale-[0.97]">取消</button>
-                <button onClick={confirmDeleteRecord} className="keep-white py-2.5 rounded-2xl bg-rose-500/80 text-white font-semibold transition active:scale-[0.97]">删除</button>
+                <button onClick={confirmDeleteRecord} className="keep-white py-2.5 rounded-2xl bg-neutral-500/80 text-white font-semibold transition active:scale-[0.97]">删除</button>
               </div>
             </div>
           </div>
@@ -3375,7 +3360,7 @@ ${sentencePlan}`;
   }
   if (viewMode === 'record-detail' && recordDetail) {
     return (
-      <div className={`h-full w-full bg-gradient-to-b text-white px-5 pb-6 flex flex-col ${lightTheme ? 'sully-call-light from-[#f5f2fd] via-[#eef0f8] to-[#eef0f8]' : 'from-[#140d28] via-[#0a0613] to-[#0a0613]'}`} style={{ paddingTop: 'max(2.5rem, var(--safe-top))' }}>
+      <div className={`h-full w-full bg-gradient-to-b text-white px-5 pb-6 flex flex-col ${lightTheme ? 'sully-call-light from-[#f4f4f4] via-[#eeeeee] to-[#eeeeee]' : 'from-[#3b3b3b] via-[#292929] to-[#292929]'}`} style={{ paddingTop: 'max(2.5rem, var(--safe-top))' }}>
         {lightTheme && <style>{CALL_LIGHT_THEME_CSS}</style>}
         <div className="flex items-center justify-between">
           <button onClick={() => setViewMode('history')} className="text-sm text-white/45">← 返回</button>
@@ -3486,7 +3471,7 @@ ${sentencePlan}`;
   const callControlSize = callMode === 'video' ? 'h-10 w-10' : 'h-14 w-14';
   return (
     <div
-      className={`h-full w-full relative text-white flex flex-col overflow-hidden ${lightTheme ? 'sully-call-light bg-[#eef0f7]' : 'bg-[#0a0613]'}`}
+      className={`h-full w-full relative text-white flex flex-col overflow-hidden ${lightTheme ? 'sully-call-light bg-[#eeeeee]' : 'bg-[#292929]'}`}
       data-avatar-touch-pending={pendingAvatarTouchCount}
       data-call-video-layout={callMode === 'video' ? videoCallLayout : undefined}
     >
@@ -3513,7 +3498,7 @@ ${sentencePlan}`;
       <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-[150%] h-80 rounded-full blur-3xl opacity-25 pointer-events-none"
         style={{ background: `radial-gradient(closest-side, ${accentColor}, transparent)` }} />
       {/* vignette —— 浅色主题换成柔白薄纱，压住模糊头像但不发灰 */}
-      <div className={`absolute inset-0 bg-gradient-to-b pointer-events-none ${lightTheme ? 'from-white/60 via-[#f2f0fa]/70 to-white/80' : 'from-black/55 via-[#0a0613]/75 to-black/90'}`} />
+      <div className={`absolute inset-0 bg-gradient-to-b pointer-events-none ${lightTheme ? 'from-white/60 via-[#f4f4f4]/70 to-white/80' : 'from-black/55 via-[#292929]/75 to-black/90'}`} />
       {/* floating sparkles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {CALL_SPARKLES.map((p, i) => (
@@ -3640,7 +3625,7 @@ ${sentencePlan}`;
                 ><ArrowsClockwise size={19} /></button>}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/70 to-transparent" aria-hidden />
                 <span
-                  className={`absolute left-2 top-2 rounded-full border border-white/15 bg-black/50 px-1.5 py-0.5 text-[6px] font-semibold tracking-[0.14em] backdrop-blur-md ${userCameraMode === 'emotion' ? 'text-emerald-200' : userCameraMode === 'snapshot' ? 'text-violet-200' : 'text-white/70'}`}
+                  className={`absolute left-2 top-2 rounded-full border border-white/15 bg-black/50 px-1.5 py-0.5 text-[6px] font-semibold tracking-[0.14em] backdrop-blur-md ${userCameraMode === 'emotion' ? 'text-neutral-200' : userCameraMode === 'snapshot' ? 'text-neutral-200' : 'text-white/70'}`}
                 >
                   {userCameraMode === 'emotion' ? 'LIVE · YOU' : userCameraMode === 'snapshot' ? 'SNAP · YOU' : 'YOU'}
                 </span>
@@ -3850,7 +3835,7 @@ ${sentencePlan}`;
             )}
           </div>
         )})}
-        {errorMessage && <div className="text-xs text-rose-300/80 px-1">{errorMessage}</div>}
+        {errorMessage && <div className="text-xs text-neutral-300/80 px-1">{errorMessage}</div>}
       </div>
       )}
       {showInputPanel && (
@@ -3862,7 +3847,7 @@ ${sentencePlan}`;
                 disabled={sendingBusy}
                 title={isListening ? '结束语音输入' : '按一下开始说话'}
                 className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition active:scale-90 disabled:opacity-40"
-                style={isListening ? { background: '#f0569f', boxShadow: '0 0 14px #f0569f99' } : { background: 'rgba(255,255,255,0.08)' }}
+                style={isListening ? { background: '#777777', boxShadow: '0 0 14px #77777799' } : { background: 'rgba(255,255,255,0.08)' }}
               >
                 <Microphone size={18} weight="fill" className={isListening ? 'text-white animate-pulse' : 'text-white/70'} />
               </button>
@@ -3876,7 +3861,7 @@ ${sentencePlan}`;
             />
             <button onClick={handleTurn} disabled={sendingBusy} className="keep-white shrink-0 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-40 transition active:scale-95" style={{ backgroundColor: accentColor, boxShadow: `0 0 16px ${accentColor}66` }}>{sendingBusy ? '…' : '发送'}</button>
           </div>
-          {!sendingBusy && pendingCallRetryText && !draftInput.trim() && <div className="text-[10px] text-amber-200/70 mt-1 px-1">上一句话还没得到回复，点击重试即可继续</div>}
+          {!sendingBusy && pendingCallRetryText && !draftInput.trim() && <div className="text-[10px] text-neutral-200/70 mt-1 px-1">上一句话还没得到回复，点击重试即可继续</div>}
           {isListening && <div className="text-[10px] text-white/40 mt-1 px-1 animate-pulse">正在聆听，点麦克风结束</div>}
         </div>
       )}
@@ -3916,9 +3901,9 @@ ${sentencePlan}`;
           </button>
           {/* end call */}
           <button onClick={handleHangup} className={`flex flex-col items-center transition active:scale-95 ${callMode === 'video' ? 'gap-0.5' : 'gap-1.5'}`}>
-            <span className={`${callControlSize} rounded-full border flex items-center justify-center backdrop-blur-md transition hover:bg-rose-500/20 mx-auto`}
+            <span className={`${callControlSize} rounded-full border flex items-center justify-center backdrop-blur-md transition hover:bg-neutral-500/20 mx-auto`}
               style={{ background: 'rgba(244,63,94,0.12)', borderColor: 'rgba(251,113,133,0.4)' }}>
-              <PhoneDisconnect size={22} weight="fill" className="text-rose-300/90" />
+              <PhoneDisconnect size={22} weight="fill" className="text-neutral-300/90" />
             </span>
             <span className="text-[10px] text-white/70">结束通话</span>
           </button>
@@ -3959,7 +3944,7 @@ ${sentencePlan}`;
       )}
       {showBgPicker && (
         <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end" onClick={() => setShowBgPicker(false)}>
-          <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-[#f6f4fc]' : 'bg-[#120c22]'}`} onClick={e => e.stopPropagation()}>
+          <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-[#f4f4f4]' : 'bg-[#333333]'}`} onClick={e => e.stopPropagation()}>
             <div className="text-sm text-white/80 font-medium">视频背景</div>
             <p className="text-xs text-white/40">本地图片保存在你自己的设备里（IndexedDB，随备份导出）；图床直链则每次在线加载。</p>
             <button onClick={chooseStageBackgroundFile} className="w-full py-2.5 rounded-2xl border border-white/15 bg-white/[0.06] text-sm text-white/85 transition active:scale-[0.98]">
@@ -3984,7 +3969,7 @@ ${sentencePlan}`;
       )}
       {showLangPicker && (
         <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end" onClick={() => setShowLangPicker(false)}>
-          <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-[#f6f4fc]' : 'bg-[#120c22]'}`} onClick={e => e.stopPropagation()}>
+          <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-[#f4f4f4]' : 'bg-[#333333]'}`} onClick={e => e.stopPropagation()}>
             <div className="text-sm text-white/80 font-medium">语音语种</div>
             <p className="text-xs text-white/40">选择后，角色会用中文回复，语音则用对应语种朗读</p>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -3996,13 +3981,13 @@ ${sentencePlan}`;
                 </button>
               ))}
             </div>
-            {voiceLang === 'yue' && <p className="text-[10px] text-amber-300/70">{CANTONESE_VOICE_SUPPORT_NOTE}</p>}
+            {voiceLang === 'yue' && <p className="text-[10px] text-neutral-300/70">{CANTONESE_VOICE_SUPPORT_NOTE}</p>}
           </div>
         </div>
       )}
       {showHangupConfirm && (
         <div className="absolute inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-center justify-center px-6">
-          <div className={`w-full max-w-sm rounded-3xl border border-white/15 bg-gradient-to-b p-5 shadow-2xl ${lightTheme ? 'from-white to-[#f0edf9]' : 'from-[#1a1130] to-[#0a0613]'}`}>
+          <div className={`w-full max-w-sm rounded-3xl border border-white/15 bg-gradient-to-b p-5 shadow-2xl ${lightTheme ? 'from-white to-[#f2f2f2]' : 'from-[#424242] to-[#292929]'}`}>
             <div className="text-lg font-semibold text-white">要挂了吗？</div>
             <p className="mt-2 text-sm text-white/65 leading-relaxed">和{selectedChar?.name || '对方'}聊了 {formatDuration(elapsedSeconds)}，这通电话会好好保存下来。</p>
             <div className="mt-5 space-y-2">
@@ -4023,12 +4008,12 @@ ${sentencePlan}`;
                   addToast('通话已挂起，点击顶部绿色条可随时回来', 'success');
                   trackEvent('挂起通话到后台');
                 }
-              }} className="keep-white w-full py-2.5 rounded-2xl bg-emerald-500/80 text-white font-semibold transition active:scale-[0.97] flex items-center justify-center gap-2">
+              }} className="keep-white w-full py-2.5 rounded-2xl bg-neutral-500/80 text-white font-semibold transition active:scale-[0.97] flex items-center justify-center gap-2">
                 <span>先忙别的</span><span className="text-xs opacity-70">（挂起通话）</span>
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => setShowHangupConfirm(false)} className="py-2.5 rounded-2xl border border-white/20 text-white/80 transition active:scale-[0.97]">再聊会儿</button>
-                <button onClick={finishCall} className="py-2.5 rounded-2xl bg-rose-500/20 border border-rose-300/40 text-rose-200 font-semibold transition active:scale-[0.97]">挂了吧</button>
+                <button onClick={finishCall} className="py-2.5 rounded-2xl bg-neutral-500/20 border border-neutral-300/40 text-neutral-200 font-semibold transition active:scale-[0.97]">挂了吧</button>
               </div>
             </div>
           </div>
@@ -4036,7 +4021,7 @@ ${sentencePlan}`;
       )}
       {editingBubble && (
         <div className="absolute inset-0 bg-black/60 flex items-end z-50">
-          <div className={`w-full border-t border-white/10 p-5 space-y-3 ${lightTheme ? 'bg-[#f6f4fc]' : 'bg-[#120c22]'}`}>
+          <div className={`w-full border-t border-white/10 p-5 space-y-3 ${lightTheme ? 'bg-[#f4f4f4]' : 'bg-[#333333]'}`}>
             <div className="text-sm text-white/70">改一下刚才说的话</div>
             <textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} className="w-full h-24 bg-black/30 rounded-xl p-3 text-sm outline-none resize-none placeholder:text-white/30" placeholder="重新措辞……" autoFocus />
             <div className="flex gap-2">
