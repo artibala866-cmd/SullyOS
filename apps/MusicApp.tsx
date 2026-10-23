@@ -53,7 +53,12 @@ const MusicApp: React.FC = () => {
     void refresh().catch(console.warn);
     const onInvite = () => { void refresh().catch(console.warn); };
     window.addEventListener('music-listen-invite-created', onInvite);
-    return () => { cancelled = true; window.removeEventListener('music-listen-invite-created', onInvite); };
+    window.addEventListener('music-listen-invite-resolved', onInvite);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('music-listen-invite-created', onInvite);
+      window.removeEventListener('music-listen-invite-resolved', onInvite);
+    };
   }, [characters]);
   const answerCharInvite = useCallback(async (charId: string, accepted: boolean) => {
     const messageId = charInvites[charId];
