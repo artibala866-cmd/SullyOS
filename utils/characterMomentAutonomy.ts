@@ -1,8 +1,7 @@
 import { readCharacterLifeEvents, type CharacterLifeEvent } from './characterLifeEvents';
 import { publishCharacterMoment, readCharacterMoments } from './characterPhoneMoments';
 import { buildCharacterPhoneContext } from './characterPhoneContext';
-import { getDailyScheduleForChar } from './dailySchedule';
-import { getCurrentScheduleSlotIndex } from './scheduleTime';
+import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { safeResponseJson, extractContent } from './safeApi';
 import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from '../types';
@@ -67,15 +66,16 @@ export async function considerAutonomousMoment(input: {
     // Reserve this opportunity before network calls. Failures still obey a cooldown.
     if (!writeState(id, { ...state, lastDecisionAt: now })) return 'unavailable';
     const context = await buildCharacterPhoneContext(char, user, groups, realtimeConfig);
-    const schedule = await getDailyScheduleForChar(char);
-    const slot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)];
-    const scheduleHint = slot ? `日程状态：${slot.activity}，仅为计划，绝不视作已完成事件。` : '没有已确认的当日日程。';
+    const life = await getCharacterLifeScheduleContext(char, new Date(now));
+    const scheduleHint = life.plannedActivity
+      ? `当前计划：${life.plannedActivity}${life.plannedDescription ? '（' + life.plannedDescription + '）' : ''}。这只是计划，不能当作已发生事实。`
+      : '当前没有可用的日程计划。';
     const recent = old.slice(0, 6).map(p => ({ text: p.text.slice(0, 160), deleted: !!p.deletedAt }));
     const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
       body: JSON.stringify({ model: api.model, stream: false, messages: [
-        { role: 'system', content: `你是${char.name}的朋友圈自主决策。基于角色原本人设、世界书、真实私聊与已记录事件决定是否发一条纯文字朋友圈。可以不发；不要迎合User。不要把日程、推测、AI先前写过的朋友圈当成真实发生的事，也不要伪造照片和聊天截图。${scheduleHint}真实上下文：${context.systemPrompt.slice(0, 24000)}。新增已发生生活事件：${JSON.stringify(events).slice(0, 5500)}。近期朋友圈：${JSON.stringify(recent)}。只能引用给出的事件ID；若没有值得发的内容请选择publish:false。必须只返回JSON：{"publish":false,"text":"","eventIds":[]}或{"publish":true,"text":"朋友圈正文","eventIds":["真实事件ID"]}。` },
+        { role: 'system', content: `你是${char.name}的朋友圈自主决策。基于角色原本人设、世界书、真实私聊与已记录事件决定是否发一条纯文字朋友圈。可以不发；不要迎合User。不要把日程、推测、AI先前写过的朋友圈当成真实发生的事，也不要伪造照片和聊天截图。${scheduleHint}真实上下文：${context.systemPrompt.slice(0, 24000)}。已确认生活事实（仅作连续性背景，不得扩大为未发生的经历）：${JSON.stringify(life.confirmedEvents.slice(0, 12)).slice(0, 3500)}。本次可引用的新增真实事件：${JSON.stringify(events).slice(0, 5500)}。近期朋友圈：${JSON.stringify(recent)}。只能引用给出的事件ID；若没有值得发的内容请选择publish:false。必须只返回JSON：{"publish":false,"text":"","eventIds":[]}或{"publish":true,"text":"朋友圈正文","eventIds":["真实事件ID"]}。` },
         { role: 'user', content: '这是角色自己的生活，不是给User的回复。请决定发还是不发。' }
       ] })
     });
