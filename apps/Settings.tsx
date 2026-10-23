@@ -34,7 +34,6 @@ import { DATE_VOICE_GUIDE } from '../utils/datePrompts';
 import { Sun, Newspaper, NotePencil, Notebook, Book, ForkKnife, Coffee, PlugsConnected } from '@phosphor-icons/react';
 import { loadMcpServers, saveMcpServers, createMcpServer, testMcpConnection, resetMcpSession, getMcpUseNativeTools, setMcpUseNativeTools, type McpServerConfig } from '../utils/mcpClient';
 import { loadPushConfig, savePushConfig, registerScheduleOnWorker, startHeartbeat, stopHeartbeat, isPushConfigAvailable, ensureSubscribed, sendTestPush, getPushDiagnostics, resetSubscription, deepResetSubscription, type PushDiagnostics } from '../utils/proactivePushConfig';
-import { ProactiveChat } from '../utils/proactiveChat';
 import { PushVapidSettingsModal } from '../components/settings/PushVapidSettingsModal';
 import AmsgCloudDataModal from '../components/settings/AmsgCloudDataModal';
 import PushSubscriptionPanel from '../components/settings/PushSubscriptionPanel';
@@ -811,26 +810,9 @@ const Settings: React.FC = () => {
       setPpEnabled(true);
       startHeartbeat();
 
-      // Step 3: register any existing per-character schedules.
-      const schedules = ProactiveChat.getSchedules();
-      let okCount = 0;
-      for (const s of schedules) {
-          if (await registerScheduleOnWorker(s.charId, s.intervalMs)) okCount++;
-      }
-
-      if (schedules.length === 0) {
-          trackEvent('启用主动消息 Push 加速', { result: 'success' });
-          trackEvent('启用 Push 加速器的结果', { result: 'ok-no-schedule' });
-          setPpStatus('已启用（订阅已建立。暂无主动消息定时，下次开启角色主动消息时会自动注册）');
-      } else if (okCount < schedules.length) {
-          trackEvent('启用主动消息 Push 加速', { result: 'partial' });
-          trackEvent('启用 Push 加速器的结果', { result: 'ok-partial-schedule' });
-          setPpStatus(`已启用：${okCount}/${schedules.length} 个定时注册成功`);
-      } else {
-          trackEvent('启用主动消息 Push 加速', { result: 'success' });
-          trackEvent('启用 Push 加速器的结果', { result: 'ok' });
-          setPpStatus(`已启用，${okCount} 个主动消息定时已注册`);
-      }
+      trackEvent('启用主动消息 Push 加速', { result: 'success' });
+      trackEvent('启用 Push 加速器的结果', { result: 'ok' });
+      setPpStatus('已启用通知订阅。旧版本地定时主动消息已移除。');
       setPpBusy(false);
       await refreshPpDiag();
   };
@@ -840,7 +822,7 @@ const Settings: React.FC = () => {
       savePushConfig(false);
       setPpEnabled(false);
       stopHeartbeat();
-      setPpStatus('已关闭（主动消息退回本地计时器）');
+      setPpStatus('已关闭主动消息推送加速。');
       await refreshPpDiag();
   };
 
@@ -900,9 +882,6 @@ const Settings: React.FC = () => {
       // 无论成败, 按钮都回归"重置订阅" — 下次出问题再次累计触发 morph
       setPpZombieStreak(0);
       if (res.ok) {
-          // ProactiveChat.resume() 把所有 schedule 推回新 SW. deepResetSubscription 内部
-          // 不调它是为了避免循环依赖 (ProactiveChat 反向依赖 proactivePushConfig).
-          try { ProactiveChat.resume(); } catch (e) { console.warn('[Settings] ProactiveChat.resume failed', e); }
           trackEvent('深度重置推送订阅', { result: 'success' });
           setPpStatus('订阅已重建。可以再点"发一条测试推送"试一下。');
       } else {
