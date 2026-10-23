@@ -452,6 +452,9 @@ export interface AmsgFirePack {
    * AMSG_SLOT_SCENE。没日程的角色为 null，那个槽位被抹平。
    */
   scene: AmsgFireScene | null;
+  /** Last client-synced actual phone events; never treated as live cloud data. */
+  phoneEvents?: Array<{ occurredAt: number; summary: string }>;
+
   /**
    * 即时对话用的对话消息（见 AmsgFirePackChat）。只有开了即时对话的角色才带，
    * 定时任务那条路不读它。标了 `amsgInstantChat` 的任务缺这一份 = 按失败处理，
@@ -935,6 +938,17 @@ export const renderFirePack = (
     '日程与情绪只作为行为依据，不要凭空捏造刚刚发生的现实事件。',
   ].join('\\n');
   out += conversationGuard;
+  // Only past events from the latest synced pack, with explicit snapshot age.
+  // The worker cannot read the browser's localStorage while the app is closed.
+  const events = (pack.phoneEvents ?? []).filter(e =>
+    Number.isFinite(e.occurredAt) && e.occurredAt <= nowMs && typeof e.summary === 'string'
+  ).slice(0, 12);
+  if (events.length) {
+    out += '\n【上次同步的手机经历（可能不是最新状态）】\n'
+      + events.map(e => '- ' + new Date(e.occurredAt).toISOString() + ' ' + e.summary.slice(0, 160)).join('\n')
+      + '\n这些是上次同步前已发生的事；不得假定同步后没有新变化，也不必逐条汇报。\n';
+  }
+
   out = fillSlot(out, AMSG_SLOT_SELF_LOG, renderSelfLogBlock(
     extras?.selfLog ?? null, nowMs, tz, extras?.maxUnansweredSends ?? DEFAULT_MAX_UNANSWERED_SENDS,
   ));
