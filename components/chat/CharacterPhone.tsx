@@ -1,5 +1,5 @@
 import PhoneMemo from './PhoneMemo';
-import CharacterPhoneGallery from './CharacterPhoneGallery';
+import Gallery from '../../apps/Gallery';
 import { refreshNpcMoments } from '../../utils/refreshNpcMoments';
 import PhoneStatusBar from './PhoneStatusBar';
 import PhoneAvatar from './PhoneAvatar';
@@ -329,7 +329,7 @@ ${scheduleContext}
         {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={char.avatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
         {screen === 'moments' && <PullToRefresh loading={npcMomentLoading} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]"><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={char.avatar||name} src={char.avatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-24"/><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={char.avatar} userProfile={userProfile}/></div></PullToRefresh>}
         {screen === 'memo' && <PhoneMemo characterId={characterId}/>}
-        {screen === 'gallery' && <CharacterPhoneGallery characterId={characterId}/>}
+        {screen === 'gallery' && <Gallery lockedCharacterId={characterId} onExit={()=>setScreen('home')}/>}
         {screen === 'calls' && <p className="p-8 text-center text-sm text-[#888]">电话记录与拨号功能待接入</p>}
         {screen === 'sms' && <p className="p-8 text-center text-sm text-[#888]">短信收发功能待接入</p>}
         {screen === 'browser' && <p className="p-8 text-center text-sm text-[#888]">浏览器功能待接入</p>}
