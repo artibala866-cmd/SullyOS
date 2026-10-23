@@ -17,7 +17,7 @@ const formatTime = (sec: number) => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentColor }) => {
+const NowPlayingSquareWidget: React.FC<{ contentColor: string; monochrome?: boolean }> = ({ contentColor, monochrome = false }) => {
   const { openApp, theme } = useOS();
   const { current, playing, progress, duration, togglePlay, nextSong, prevSong } = useMusic();
   const acnh = theme.skin === 'animalcrossing'; // 动森：奶油卡片 + 薄荷进度
@@ -92,6 +92,45 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentCol
             <SkipForward size={12} weight="fill" />
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // 首页专用黑白播放器：参考黑底圆角音乐面板，保留原播放功能。
+  if (monochrome) {
+    const bars = [5, 9, 14, 22, 33, 46, 64, 86, 58, 38, 30, 41, 57, 39, 27, 19, 12, 7, 4];
+    return (
+      <div onClick={() => openApp(AppID.Music)}
+        className="relative w-full h-full overflow-hidden rounded-[23px] bg-[#202020] text-white flex flex-col justify-between px-3 py-3 cursor-pointer active:scale-[0.98] transition-transform"
+        style={{ boxShadow: '0 8px 18px rgba(0,0,0,.18)' }}>
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <span className="text-[8px] font-medium tracking-[.18em] text-white/55">NOW PLAYING</span>
+          <span className="text-[9px] font-semibold tabular-nums text-white/80">{formatTime(progress)}</span>
+        </div>
+        <div className="flex-1 min-h-0 flex items-center justify-center gap-[2px] py-1" aria-hidden="true">
+          {bars.map((height, i) => (
+            <span key={i} className="w-[3px] shrink min-w-[1px] rounded-full bg-[#a3a3a3]"
+              style={{ height: `${height}%`, maxHeight: '100%', opacity: playing ? .92 : .68,
+                animation: playing ? `sullyWave ${1.1 + (i % 4) * .18}s ease-in-out infinite alternate` : 'none',
+                animationDelay: `${i * -0.09}s` }} />
+          ))}
+        </div>
+        <div className="min-w-0 text-center mb-1">
+          <div className="text-[10px] font-semibold truncate">{title}</div>
+          <div className="text-[8px] text-white/55 truncate">{artists}</div>
+        </div>
+        <div className="flex items-center justify-center gap-4">
+          <button type="button" aria-label="上一首" disabled={!hasSong} onClick={handlePrev} className="text-white/85 disabled:opacity-30 active:scale-90"><SkipBack size={15} weight="fill" /></button>
+          <button type="button" aria-label={playing ? '暂停' : '播放'} onClick={handlePlay}
+            className="w-9 h-9 shrink-0 rounded-full bg-white text-[#202020] flex items-center justify-center shadow-sm active:scale-95">
+            {playing ? <Pause size={17} weight="fill" /> : <Play size={17} weight="fill" />}
+          </button>
+          <button type="button" aria-label="下一首" disabled={!hasSong} onClick={handleNext} className="text-white/85 disabled:opacity-30 active:scale-90"><SkipForward size={15} weight="fill" /></button>
+        </div>
+        <div className="h-[3px] rounded-full bg-white/20 overflow-hidden mt-2" aria-label="播放进度">
+          <div className="h-full rounded-full bg-white transition-[width] duration-150" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+        </div>
+        <style>{`@keyframes sullyWave { from { transform: scaleY(.55) } to { transform: scaleY(1) } } @media(prefers-reduced-motion:reduce){ .sully-wave{animation:none!important} }`}</style>
       </div>
     );
   }
