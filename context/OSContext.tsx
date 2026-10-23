@@ -2297,7 +2297,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               char, user: userProfileRef.current, groups: groupsRef.current,
               realtimeConfig: realtimeConfigRef.current, api
           });
-          if (consumers.includes('memo')) void considerCharacterMemo({characterId:charId,name:char.name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,6000),api,events:readCharacterLifeEvents(charId)}).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
+          if (consumers.includes('memo')) void considerCharacterMemo({characterId:charId,name:char.name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,6000),api,events:readCharacterLifeEvents(charId),char}).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
       };
       window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
       return () => window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
