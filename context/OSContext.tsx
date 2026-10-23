@@ -2288,10 +2288,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const charId = detail?.characterId;
           if (!charId || !detail?.eventId || !userProfileRef.current) return;
           const recordedEvent = readCharacterLifeEvents(charId).find(e => e.id === detail.eventId);
-          if (!recordedEvent || !shouldDispatchLifeEvent(recordedEvent, charId)) return;
-          const consumers = getLifeEventConsumers(recordedEvent.kind);
+          if (!recordedEvent) return;
           const char = charactersRef.current.find(c => c.id === charId);
           if (!char) return;
+          // A real phone action changes the existing fire_pack context, regardless of
+          // whether it also qualifies for an autonomous Moments/Memo reaction.
+          // The sync layer already coalesces updates, retries, and skips chars without AI tasks.
+          if (recordedEvent.source === 'phone') {
+              markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
+          }
+          if (!shouldDispatchLifeEvent(recordedEvent, charId)) return;
+          const consumers = getLifeEventConsumers(recordedEvent.kind);
           const api = resolveDialogueApi(apiConfigRef.current, char);
           if (consumers.includes('moments')) void considerAutonomousMoment({
               char, user: userProfileRef.current, groups: groupsRef.current,
