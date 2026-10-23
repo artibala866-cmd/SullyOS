@@ -1,4 +1,5 @@
 import PhoneMemo from './PhoneMemo';
+import { readCharacterAvatarLibrary } from '../../utils/characterAvatarLibrary';
 import {considerCharacterMemo} from '../../utils/characterMemoAutonomy';
 import Gallery from '../../apps/Gallery';
 import { refreshNpcMoments } from '../../utils/refreshNpcMoments';
@@ -31,6 +32,18 @@ type Api = { baseUrl: string; apiKey: string; model: string };
 const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots, color:'bg-[#18c45b]' },{id:'memo' as const,label:'备忘录',Icon:NotePencil,color:'bg-[#e7a941]'},{id:'gallery' as const,label:'相册',Icon:Images,color:'bg-[#e58a69]'}];
 const timeLabel = (time: number) => new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 export default function CharacterPhone({ name, characterId, persona, api, onClose, char, userProfile, groups, realtimeConfig }: { name: string; characterId: string; persona: string; api: Api; onClose: () => void; char: CharacterProfile; userProfile: UserProfile; groups: GroupProfile[]; realtimeConfig?: RealtimeConfig }) {
+  const [avatarRevision, setAvatarRevision] = useState(0);
+  useEffect(() => {
+    const refresh = (event: Event) => {
+      if ((event as CustomEvent<{ characterId: string }>).detail?.characterId === characterId) setAvatarRevision(v => v + 1);
+    };
+    window.addEventListener('sully:character-avatar-changed', refresh);
+    return () => window.removeEventListener('sully:character-avatar-changed', refresh);
+  }, [characterId]);
+  const phoneAvatar = React.useMemo(() => {
+    const lib = readCharacterAvatarLibrary(characterId);
+    return lib.entries.find(entry => entry.id === lib.activeId)?.image || char.avatar;
+  }, [characterId, char.avatar, avatarRevision]);
   const [screen, setScreen] = useState<Screen>('home');
   const [tab, setTab] = useState<Tab>('chats');
   const [thread, setThread] = useState('');
@@ -351,8 +364,8 @@ ${scheduleContext}
         {screen === 'wechat' && tab === 'discover' && row('朋友圈',<Images size={23}/>,()=>setScreen('moments'))}
         {screen === 'wechat' && tab === 'me' && <div className="pt-4">{row(name,<User size={24}/>,()=>{})}<div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>setScreen('settings'))}</div></div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><div className={'max-w-[78%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}>{m.text}</div></div>)}</div>}
-        {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={char.avatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
-        {screen === 'moments' && <PullToRefresh loading={npcMomentLoading} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]"><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={char.avatar||name} src={char.avatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-24"/><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={char.avatar} userProfile={userProfile}/></div></PullToRefresh>}
+        {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
+        {screen === 'moments' && <PullToRefresh loading={npcMomentLoading} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]"><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={phoneAvatar||name} src={phoneAvatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-24"/><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={char.avatar} userProfile={userProfile}/></div></PullToRefresh>}
         {screen === 'memo' && <PhoneMemo characterId={characterId} onGenerate={generateMemo} generating={memoBusy}/>}
         {screen === 'gallery' && <Gallery lockedCharacterId={characterId} onExit={()=>setScreen('home')}/>}
         {screen === 'calls' && <p className="p-8 text-center text-sm text-[#888]">电话记录与拨号功能待接入</p>}
