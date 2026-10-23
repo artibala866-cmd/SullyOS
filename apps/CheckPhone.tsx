@@ -1014,6 +1014,36 @@ ${realCharRule}
         finally { setIsLoading(false); }
     };
 
+    // Generate grounded NPC engagement on an existing Char post, never fake counters.
+    const generateMomentNpcInteractions = async (postId: string) => {
+        if (!targetChar || !effectiveApiConfig.apiKey || isLoading) return;
+        const char = targetChar;
+        const post = readCharacterMoments(char.id).find(p => p.id === postId && !p.deletedAt);
+        const contacts = (char.phoneState?.contacts || []).filter(x => x.kind === 'npc' && x.id && x.name).slice(0,12);
+        if (!post || !contacts.length) { addToast('请先生成 NPC 联系人', 'info'); return; }
+        setIsLoading(true);
+        try {
+            const prompt = `这是${char.name}的朋友圈：「${post.text.slice(0,700)}」。以下是TA手机里真实已有的NPC联系人：${JSON.stringify(contacts.map(x=>({id:x.id,name:x.name,identity:x.identity,note:x.note}))).slice(0,4000)}。请按关系决定谁会点赞或评论，不要强制人人参与。只返回JSON数组，最多3项：[{"id":"联系人原ID","like":true,"comment":"自然的短评论或空字符串"}]。只能使用给定ID，不要虚构联系人。评论可以调侃、关心或有分歧，不要机械夸奖。`;
+            const raw = await callLLM(prompt);
+            const parsed = extractJson(raw);
+            if (!Array.isArray(parsed)) throw new Error('invalid NPC engagement');
+            let count = 0;
+            for (const entry of parsed.slice(0,3)) {
+                const contact = contacts.find(x => x.id === entry?.id);
+                if (!contact) continue;
+                if (entry.like === true) { setMomentLike(char.id,postId,contact.id,true); count++; }
+                if (typeof entry.comment === 'string' && entry.comment.trim()) {
+                    const existing = readCharacterMoments(char.id).find(x=>x.id===postId)?.comments || [];
+                    if (!existing.some(x=>x.authorId===contact.id && !x.deletedAt)) {
+                        if(addMomentComment(char.id,postId,{id:crypto.randomUUID(),authorId:contact.id,text:entry.comment.trim().slice(0,200),createdAt:Date.now()})) count++;
+                    }
+                }
+            }
+            addToast(count ? 'NPC 已互动' : '这次没人互动', 'success');
+        } catch(e) { console.error('[CheckPhone] NPC interactions failed',e); addToast('NPC 互动生成失败','error'); }
+        finally { setIsLoading(false); }
+    };
+
     // 生成：偷看机主在某个 AI 服务里的使用记录
     const handleGenerateAiAgent = async (service: AiServiceKind) => {
 
@@ -2528,8 +2558,9 @@ ${olderText}
                             <div className="flex gap-4 text-xs text-white/60">
                                 <button onClick={() => targetChar && setMomentLike(targetChar.id,post.id,'user:'+userProfile.name,!post.likes?.some(l=>l.actorId==='user:'+userProfile.name))}>♥ {post.likes?.length || 0}</button>
                                 <span>评论 {post.comments?.filter(x=>!x.deletedAt).length || 0}</span>
+                                <button disabled={isLoading} onClick={()=>void generateMomentNpcInteractions(post.id)} className="ml-auto text-violet-300 disabled:opacity-40">看看谁会互动</button>
                             </div>
-                            {(post.comments||[]).filter(x=>!x.deletedAt).map(comment=><div key={comment.id} className="text-xs text-white/70"><span className="font-semibold text-violet-300">{comment.authorId}：</span>{comment.text}</div>)}
+                            {(post.comments||[]).filter(x=>!x.deletedAt).map(comment=><div key={comment.id} className="text-xs text-white/70"><span className="font-semibold text-violet-300">{comment.authorId === targetChar?.id ? charName : (targetChar?.phoneState?.contacts || []).find(x=>x.id===comment.authorId)?.name || (comment.authorId.startsWith("user:") ? userProfile.name : comment.authorId)}：</span>{comment.text}</div>)}
                             <div className="flex gap-2"><input aria-label="评论朋友圈" placeholder="写评论…" value={momentReplyDrafts[post.id]||''} onChange={e=>setMomentReplyDrafts(d=>({...d,[post.id]:e.target.value}))} className="min-w-0 flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs text-white" />
                                 <button className="text-xs text-violet-300" onClick={()=>{const message=momentReplyDrafts[post.id]?.trim();if(!targetChar||!message)return;const commentId=crypto.randomUUID();if(addMomentComment(targetChar.id,post.id,{id:commentId,authorId:'user:'+userProfile.name,text:message,createdAt:Date.now()})){setMomentReplyDrafts(d=>({...d,[post.id]:''}));void replyToMomentComment(post.id,commentId,message);}}}>发送</button></div>
                         </div>
