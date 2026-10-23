@@ -1735,11 +1735,10 @@ ${olderText}
         } else if (!name) {
             addToast('请填写联系人名字', 'error'); return;
         }
-        // Newly discovered contacts begin as a request, rather than silently becoming friends.
-        mutateContacts(cs => upsertContact(cs, { name, kind: ncKind, linkedCharId, affinity: 0, status: 'pending' }));
+        mutateContacts(cs => upsertContact(cs, { name, kind: ncKind, linkedCharId, affinity: 0, status: 'friend' }));
         setShowContactModal(false);
         setNcName(''); setNcKind('npc'); setNcLinkedId('');
-        addToast('已发送好友申请，等待通过', 'success');
+        addToast('已添加联系人', 'success');
         trackEvent('手动添加一位联系人', { contactKind: ncKind });
     };
 
@@ -3058,11 +3057,6 @@ ${olderText}
         const hidden = convExpanded ? 0 : Math.max(0, parsed.length - CAP);
         const shown = hidden > 0 ? parsed.slice(-CAP) : parsed;
         const statusLabel = c.status === 'friend' ? '好友' : c.status === 'deleted' ? '已删除' : c.status === 'blocked' ? '已拉黑' : '待定';
-        const acceptFriendRequest = () => {
-            mutateContacts(cs => cs.map(x => x.id === c.id ? { ...x, status: 'friend' as const } : x));
-            setSelectedContact(prev => prev?.id === c.id ? { ...prev, status: 'friend' } : prev);
-            addToast('好友申请已通过', 'success');
-        };
         const aff = affinityDraft ?? c.affinity;
         const commitAff = () => { if (affinityDraft != null) { handleSetAffinity(c, affinityDraft); setAffinityDraft(null); } };
         const closeProfile = () => { setShowProfile(false); setEditingIdentity(false); setEditingNote(false); };
@@ -3071,7 +3065,6 @@ ${olderText}
             : <div className={`${size} rounded-2xl flex items-center justify-center shrink-0 text-white font-semibold ${txt}`} style={{ background: `linear-gradient(135deg, ${accent}40, ${accent}10)` }}>{c.name[0]}</div>;
         return (
             <SubAppShell>
-                {c.status === 'pending' && <div className="mx-4 mt-2 p-3 rounded-xl bg-pink-500/10 border border-pink-400/20 text-xs text-white/80 flex items-center gap-2"><span className="flex-1">好友申请待通过</span><button onClick={acceptFriendRequest} className="rounded-lg bg-pink-500 px-3 py-2 text-white">通过申请</button></div>}
                 {/* 聊天式顶栏：返回 + 可点的头像/名字（进资料） */}
                 <div className="shrink-0 z-20">
                     <StatusStrip />
