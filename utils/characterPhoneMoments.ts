@@ -1,5 +1,5 @@
 /** Char-owned Moments ledger. No AI calls or invented events on read. */
-export type MomentOrigin = 'char' | 'real-mode' | 'amsg2';
+export type MomentOrigin = 'char' | 'npc' | 'real-mode' | 'amsg2';
 export type MomentVisibility = 'all' | 'selected' | 'private';
 export interface MomentLike { actorId: string; createdAt: number }
 export interface MomentComment { id: string; authorId: string; text: string; createdAt: number; replyToId?: string; deletedAt?: number }
@@ -43,7 +43,7 @@ function save(characterId: string, posts: CharacterMoment[]): boolean {
     return true;
   } catch { return false; }
 }
-export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'createdAt'> & { id?: string; createdAt?: number; authorId?: string }): CharacterMoment | null {
+export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'createdAt'|'authorId'> & { id?: string; createdAt?: number; authorId?: string }): CharacterMoment | null {
   if (!input.characterId || (!input.text.trim() && !input.imageUrls.length && !input.media?.length && !input.quote)) return null;
   if (input.visibility === 'selected' && !input.visibleTo?.length) return null;
   if (input.imageUrls.length > 9 || (input.media?.length || 0) > 9) return null;
