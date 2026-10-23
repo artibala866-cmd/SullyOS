@@ -540,6 +540,44 @@ const CheckPhone: React.FC = () => {
         setPage(0);
     };
 
+    // Clear only this character's CheckPhone content; never touch main chats or global settings.
+    const handleClearPhoneContent = () => {
+        if (!targetChar) return;
+        const characterId = targetChar.id;
+        askConfirm({
+            title: '清空这台手机的全部内容？',
+            desc: '将删除当前角色查手机内的聊天、联系人、朋友圈、记录及自建应用内容。无法恢复；不会删除主聊天记录或其他角色的数据。',
+            confirmLabel: '全部清空',
+            danger: true,
+            onConfirm: () => {
+                updateCharacter(characterId, cur => ({
+                    phoneState: {
+                        records: [],
+                        contacts: [],
+                        customApps: [],
+                        sendToChat: cur.phoneState?.sendToChat,
+                        allowFictionalContacts: cur.phoneState?.allowFictionalContacts,
+                    },
+                }));
+                try {
+                    localStorage.removeItem('sully_character_moments_v1:' + characterId);
+                    localStorage.removeItem('sully_character_phone_npcs_v1:' + characterId);
+                    const prefix = 'sully_moment_npc_checked_v1:' + characterId + ':';
+                    for (let i = localStorage.length - 1; i >= 0; i--) {
+                        const key = localStorage.key(i);
+                        if (key?.startsWith(prefix)) localStorage.removeItem(key);
+                    }
+                    window.dispatchEvent(new CustomEvent(CHARACTER_MOMENTS_CHANGED, { detail: { characterId } }));
+                } catch (error) { console.error('[CheckPhone] clear local records failed', error); }
+                setSelectedContact(null);
+                setSelectedChatRecord(null);
+                setSelectedEvidenceRecord(null);
+                setActiveAppId('home');
+                addToast('这台手机的内容已清空', 'success');
+            },
+        });
+    };
+
     // 切换「查手机内容是否同步到私聊」（默认开）
     const toggleSendToChat = () => {
         if (!targetChar) return;
@@ -3445,6 +3483,10 @@ ${olderText}
                     <span className="text-[15px] font-light mt-1 tabular-nums">{temp}°C</span>
                 </div>
             </div>
+
+            <button onClick={handleClearPhoneContent} className="mb-3 text-[11px] text-rose-300/70 hover:text-rose-200 flex items-center gap-1.5" aria-label="清空查手机全部内容">
+                <Trash size={13} /> 清空这台手机的内容
+            </button>
 
             {/* Time */}
             <div className="mb-4">
