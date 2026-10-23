@@ -240,11 +240,6 @@ export function createStaticCache(deps: CacheDependencies) {
     const key = entry ? keyFor(entry) : request.url;
 
     return (async () => {
-      // The page can outlive a deployment. Its lazy chunks use immutable hashed URLs,
-      // but the hosting provider may have removed those files during the new deploy.
-      // A known hashed module should be retained when it was fetched before the update;
-      // for a missing one, bypass the HTTP cache once and report the real failure.
-      // Never replace a module request with an HTML fallback page.
 
       const shell = entry && shellPaths.has(absolute(entry.url));
       if (entry && !hashed && await isShellStale()) {
@@ -273,11 +268,11 @@ export function createStaticCache(deps: CacheDependencies) {
       // A hashed name always has the same content, so the HTTP cache may answer. Other known
       // revisions are revalidated: an older HTTP force-cache response must not satisfy them.
       let response = await deps.fetch(entry && !hashed ? new Request(request, { cache: 'no-cache' }) : request);
-      if (entry && hashed && missing(response)) {
+      if (hashed && missing(response)) {
         // An HTTP cache can hold a fallback page under this name; ask the server before deciding.
         void response.body?.cancel().catch(() => {});
         response = await deps.fetch(new Request(request, { cache: 'reload' }));
-        if (missing(response)) waitUntil(markShellStale());
+        if (missing(response) && entry) waitUntil(markShellStale());
       }
       // A missing old shell must not be replaced by HTML from a different deployment.
       if (!isShell && (entry || external)) waitUntil(remember(key, response.clone(), entry));
