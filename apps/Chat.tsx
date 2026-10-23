@@ -4476,6 +4476,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onSave={(updater) => updateCharacter(char.id, (prev) => ({
                         activeMsg2Config: updater(prev.activeMsg2Config),
                     }))}
+                    onOpenLegacy={() => { setShowActiveMsg2Modal(false); setShowProactiveModal(true); }}
+                    lifePacingEnabled={lifePacing}
+                    onToggleLifePacing={() => { const next = !lifePacing; setLifePacing(next); localStorage.setItem('sully_life_pacing', next ? 'on' : 'off'); }}
                     addToast={addToast}
                 />
             )}
