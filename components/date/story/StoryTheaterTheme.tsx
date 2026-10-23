@@ -41,17 +41,17 @@ function readAppearance(): StoryAppearance {
 
 const STORY_THEME_CSS = `
 .story-theme {
-  --story-bg: #f6f4ef;
-  --story-surface: #fffdfa;
+  --story-bg: #f3f3f3;
+  --story-surface: #ffffff;
   --story-raised: #ffffff;
-  --story-ink: #243047;
-  --story-muted: #728097;
-  --story-faint: #aeb7c6;
-  --story-line: #dce1e8;
-  --story-soft: #e9edf2;
-  --story-accent: #7c3aed;
-  --story-accent-soft: #ede9fe;
-  --story-accent-ink: #6d28d9;
+  --story-ink: #262626;
+  --story-muted: #737373;
+  --story-faint: #a3a3a3;
+  --story-line: #dedede;
+  --story-soft: #eeeeee;
+  --story-accent: #444444;
+  --story-accent-soft: #eeeeee;
+  --story-accent-ink: #262626;
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -60,36 +60,36 @@ const STORY_THEME_CSS = `
   color-scheme: light;
 }
 .story-theme-dark {
-  --story-bg: #111519;
-  --story-surface: #181e24;
-  --story-raised: #202831;
-  --story-ink: #edf1f5;
-  --story-muted: #a3afbe;
-  --story-faint: #6f7b89;
-  --story-line: #303a45;
-  --story-soft: #252e37;
-  --story-accent: #ad8bff;
-  --story-accent-soft: #2e2548;
-  --story-accent-ink: #c8b4ff;
+  --story-bg: #171717;
+  --story-surface: #202020;
+  --story-raised: #292929;
+  --story-ink: #f5f5f5;
+  --story-muted: #b0b0b0;
+  --story-faint: #888888;
+  --story-line: #444444;
+  --story-soft: #333333;
+  --story-accent: #cccccc;
+  --story-accent-soft: #383838;
+  --story-accent-ink: #eeeeee;
   color-scheme: dark;
 }
 .story-theme.story-decor-cinema {
-  --story-bg: #faf4f0;
-  --story-surface: #fffaf4;
-  --story-raised: #fffdf9;
-  --story-line: #eadbd5;
-  --story-accent: #8b5cf6;
-  --story-accent-soft: #f0e7ff;
-  --story-accent-ink: #7c3aed;
+  --story-bg: #eaeaea;
+  --story-surface: #f8f8f8;
+  --story-raised: #ffffff;
+  --story-line: #cccccc;
+  --story-accent: #444444;
+  --story-accent-soft: #e5e5e5;
+  --story-accent-ink: #444444;
 }
 .story-theme-dark.story-decor-cinema {
-  --story-bg: #0d1020;
-  --story-surface: #15182b;
-  --story-raised: #1d2037;
-  --story-line: #343854;
-  --story-accent: #bd9cff;
-  --story-accent-soft: #30264d;
-  --story-accent-ink: #d5c3ff;
+  --story-bg: #101010;
+  --story-surface: #191919;
+  --story-raised: #242424;
+  --story-line: #444444;
+  --story-accent: #eeeeee;
+  --story-accent-soft: #333333;
+  --story-accent-ink: #ffffff;
 }
 .story-theme::before {
   content: '';
@@ -104,7 +104,7 @@ const STORY_THEME_CSS = `
   opacity: 1;
   background:
     radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--story-accent) 17%, transparent) 0, transparent 28%),
-    radial-gradient(circle at 92% 34%, rgba(251, 191, 36, .12) 0, transparent 25%),
+    radial-gradient(circle at 92% 34%, rgba(193,193,193,.12) 0, transparent 25%),
     linear-gradient(115deg, transparent 0 47%, rgba(255,255,255,.035) 48% 49%, transparent 50% 100%);
 }
 .story-theme > * { position: relative; z-index: 1; }
@@ -123,9 +123,9 @@ const STORY_THEME_CSS = `
 .story-theme .bg-violet-50, .story-theme .bg-violet-100 { background-color: var(--story-accent-soft) !important; }
 .story-theme .bg-violet-500, .story-theme .bg-violet-600 { background-color: var(--story-accent) !important; }
 .story-theme .border-violet-100, .story-theme .border-violet-200 { border-color: color-mix(in srgb, var(--story-accent) 34%, var(--story-line)) !important; }
-.story-theme-dark .bg-rose-50\\/70 { background-color: rgba(78, 35, 55, .72) !important; }
-.story-theme-dark .text-rose-800, .story-theme-dark .text-rose-700, .story-theme-dark .text-rose-600, .story-theme-dark .text-rose-500 { color: #f4a8bd !important; }
-.story-theme-dark .border-rose-200, .story-theme-dark .border-rose-200\\/70 { border-color: rgba(244, 168, 189, .28) !important; }
+.story-theme-dark .bg-rose-50\\/70 { background-color: rgba(46,46,46,.72) !important; }
+.story-theme-dark .text-rose-800, .story-theme-dark .text-rose-700, .story-theme-dark .text-rose-600, .story-theme-dark .text-rose-500 { color: #eeeeee !important; }
+.story-theme-dark .border-rose-200, .story-theme-dark .border-rose-200\\/70 { border-color: rgba(186,186,186,.28) !important; }
 .story-theme .story-safe-header { padding-top: max(1.25rem, var(--safe-top)); }
 .story-theme .story-safe-footer { padding-bottom: calc(var(--safe-bottom) + 12px); }
 .story-theme .story-safe-sheet { padding-bottom: calc(var(--safe-bottom) + 18px); }
@@ -224,7 +224,7 @@ export const StoryAppearanceButton: React.FC<{ className?: string }> = ({ classN
         </button>
         {open && createPortal(<div
             className={`story-theme story-theme-${appearance.color} story-decor-${appearance.decor} fixed inset-0 z-[90] flex items-end sm:items-center justify-center overflow-y-auto overscroll-contain`}
-            style={{ position: 'fixed', paddingTop: 'max(12px, var(--safe-top))', paddingBottom: 'max(0px, var(--safe-bottom))', backgroundColor: 'rgba(2, 6, 23, .35)' }}
+            style={{ position: 'fixed', paddingTop: 'max(12px, var(--safe-top))', paddingBottom: 'max(0px, var(--safe-bottom))', backgroundColor: 'rgba(0, 0, 0, .35)' }}
             onClick={closePanel}
             role='presentation'
         >
