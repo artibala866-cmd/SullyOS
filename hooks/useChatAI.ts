@@ -1,4 +1,5 @@
 import { resolveDialogueApi } from '../utils/characterApi';
+import { readCharacterAvatarLibrary, activateCharacterAvatar } from '../utils/characterAvatarLibrary';
 import { createReplyRun, withReplyCancellation } from '../utils/chatReplyCancellation';
 
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
@@ -930,7 +931,11 @@ export const useChatAI = ({
                 recallEntryPoint: 'chat_app',
                 onPreparationStage:event=>{if(event.status==='end')perfStages['payload.'+event.stage]=event.ms;},
             })));
-            const systemPrompt = payload.systemPrompt;
+            const avatarLibrary = readCharacterAvatarLibrary(char.id);
+            const avatarCandidates = avatarLibrary.autonomousEnabled ? avatarLibrary.entries.slice(0, 24) : [];
+            const avatarInstruction = avatarCandidates.length > 0 ? '\n\n[角色头像自主选择]你可以根据当前聊天语境和自己的性格决定是否换头像，但这应是少见且有动机的行为，绝不可每轮都换。仅能从以下已收藏头像编号中选择：' + avatarCandidates.map((e, i) => (i + 1) + ':' + e.id).join(', ') + '。如果确实决定换，请在回复最后独占一行输出 <char_avatar_choice id="头像ID"/>。没有换头像意图时不要输出标签；不要在普通聊天文字中提及指令。不得凭空指定图片。\n' : '';
+            if (avatarInstruction) payload.fullMessages.unshift({ role: 'system', content: avatarInstruction } as any);
+            const systemPrompt = payload.systemPrompt + avatarInstruction;
             const cleanedApiMessages = payload.cleanedApiMessages;
             // 在续说补丁和本地/即时对话分流前检查最终历史，不能用补出来的 user 掩盖空上下文。
             assertChatHasDialogue(payload.fullMessages);
@@ -2038,7 +2043,9 @@ export const useChatAI = ({
             const rawAiContent = amsg2LeadIns.length
                 ? mergeToolRoundLeadIns(amsg2LeadIns, data.choices?.[0]?.message?.content || '')
                 : data.choices?.[0]?.message?.content || '';
-            const sarReply = parseSARModuleReply(rawAiContent, sarModulePlan);
+            const avatarChoiceMatch = /<char_avatar_choice\s+id=["']([^"']+)["']\s*\/>/i.exec(rawAiContent);
+            const avatarCleanContent = rawAiContent.replace(/<char_avatar_choice\s+id=["'][^"']+["']\s*\/>/gi, '').trim();
+            const sarReply = parseSARModuleReply(avatarCleanContent, sarModulePlan);
             const latestUserMessage = findSARTurnUserMessage(currentMsgs);
             const sarModuleEvents = createSARModuleEventMeta(sarModulePlan);
             const userSurfaces = parseSARUserSurfaces(sarReply.userSurface,
@@ -2103,6 +2110,12 @@ export const useChatAI = ({
                 directives: [],
                 sarModuleSurface: assistantSurfaceMeta,
             }));
+            if (avatarChoiceMatch && avatarCandidates.some(e => e.id === avatarChoiceMatch[1])) {
+                try {
+                    const image = activateCharacterAvatar(char.id, avatarChoiceMatch[1], true);
+                    if (image) await updateCharacter(char.id, { avatar: image });
+                } catch (avatarError) { console.warn('[Avatar] autonomous selection failed', avatarError); }
+            }
             replyRun.markCompleted();
             // 最后一批正式消息已交给 setMessages；同一轮更新撤掉预览，不再逐条补弹。
             setStreamingBubbles([]);
