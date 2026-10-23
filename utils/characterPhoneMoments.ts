@@ -50,6 +50,10 @@ export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'created
   const post: CharacterMoment = {...input,id:input.id||crypto.randomUUID(),createdAt:input.createdAt||Date.now(),authorId:input.characterId};
   const old=readCharacterMoments(input.characterId);
   if(old.some(p=>p.id===post.id)) return null;
+  // An event can motivate only one post, including when the first post was later soft-deleted.
+  // Enforce this at persistence level so concurrent decision paths cannot simply rely on UI guards.
+  const eventIds = post.provenance?.eventIds || [];
+  if (eventIds.length && old.some(p => p.provenance?.eventIds?.some(id => eventIds.includes(id)))) return null;
   return save(input.characterId,[post,...old]) ? post : null;
 }
 export function deleteCharacterMoment(characterId: string, postId: string, actor: 'char'|'user'): boolean {
