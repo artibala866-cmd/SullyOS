@@ -22,6 +22,13 @@ if (import.meta.env.VITE_AMSG_NATIVE_PUSH === 'true' && Capacitor.isNativePlatfo
   }
 }
 
+// Remove only obsolete local interval schedules; ActiveMsg 2.0 stores its tasks separately.
+try {
+  for (const key of ['proactive_schedules', 'proactive_schedule', 'proactive_last_fire_map', 'proactive_last_fire']) {
+    localStorage.removeItem(key);
+  }
+} catch { /* storage unavailable */ }
+
 // Prepare storage and the SW in parallel. Only background writers wait for both;
 // DatabaseGuard shares this read check and never waits for the SW/offline downloads.
 startDatabaseOpenDiagnostics();
@@ -30,7 +37,6 @@ void databaseReady.then(releaseDatabaseDiagnosticPersistence, releaseDatabaseDia
 const keepAliveReady = KeepAlive.init();
 Promise.all([databaseReady, keepAliveReady]).then(() => {
   recordDatabaseOpen('background-ready');
-  // Resume any active proactive schedule after SW is ready
   void ActiveMsgRuntime.init();
   // Record every wake the SW reports so the diagnostic panel can show "last received".
   installWakeListener();
