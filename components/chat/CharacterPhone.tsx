@@ -105,7 +105,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const fullPersona = [persona, char.worldview || '', ...(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content)].filter(Boolean).join('\n\n').slice(0, 24000);
   const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
   const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前生活状态，不等于必然在玩手机；不可凭空断言已发生社交行为。` : '目前没有可用的角色当日日程，不得编造当前行程。';
-  const generateMemo=async()=>{if(memoBusy)return;setMemoBusy(true);setError('');try{if(!api.apiKey||!api.baseUrl||!api.model)throw new Error('请先配置聊天 API');await considerCharacterMemo({characterId,name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n'),userName:userProfile.name,api,events:readCharacterLifeEvents(characterId),manual:true});}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setMemoBusy(false);}};
+  const generateMemo=async()=>{if(memoBusy)return;setMemoBusy(true);setError('');try{if(!api.apiKey||!api.baseUrl||!api.model)throw new Error('请先配置聊天 API');const context=await loadRealContext();await considerCharacterMemo({characterId,name,chatContext:context.systemPrompt,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n'),userName:userProfile.name,api,events:readCharacterLifeEvents(characterId),manual:true});}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setMemoBusy(false);}};
   const loadRealContext = () => buildCharacterPhoneContext(char, userProfile, groups, realtimeConfig);
   const createProfile = async () => {
     if (busy) return;
