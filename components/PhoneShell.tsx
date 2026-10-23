@@ -433,11 +433,28 @@ const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: b
     );
   }
   if (!show) return null;
-  // 通用应用加载占位：中性灰 iOS 风格，不使用主题色光晕。
+  // 轻量 CSS 聊天气泡：三颗灰点依次落下并回弹，保持低饱和黑白灰。
   return (
     <div className="w-full h-full flex items-center justify-center bg-transparent" style={{ animation: 'appLoadIn 280ms ease-out both' }}>
-      <style>{`@keyframes appLoadIn{from{opacity:0}to{opacity:1}}`}</style>
-      <div role="status" aria-label="正在加载" className="w-9 h-9 rounded-full border-[2.5px] border-neutral-300 border-t-neutral-700 animate-spin" />
+      <style>{`
+        @keyframes appLoadIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes sullyBubbleDotDrop {
+          0%, 16%, 72%, 100% { transform: translateY(-9px); opacity: .45; }
+          34% { transform: translateY(7px); opacity: 1; }
+          47% { transform: translateY(2px); opacity: .85; }
+          57% { transform: translateY(7px); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .sully-bubble-dot { animation: none !important; transform: none !important; opacity: .8 !important; }
+        }
+      `}</style>
+      <div role="status" aria-label="正在加载" className="relative flex h-[64px] w-[112px] items-center justify-center gap-[10px] rounded-[22px] border border-neutral-200 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.07)]">
+        <span aria-hidden="true" className="absolute -bottom-[7px] left-[23px] h-[14px] w-[14px] rotate-45 rounded-[3px] border-b border-r border-neutral-200 bg-white" />
+        {[0, 1, 2].map(i => (
+          <span key={i} aria-hidden="true" className="sully-bubble-dot relative z-10 h-[9px] w-[9px] rounded-full bg-[#737373]"
+            style={{ animation: 'sullyBubbleDotDrop 1.65s ease-in-out infinite', animationDelay: `${i * 0.2}s` }} />
+        ))}
+      </div>
     </div>
   );
 };
