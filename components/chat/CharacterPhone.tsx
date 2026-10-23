@@ -157,9 +157,9 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
 ${scheduleContext}
 已有会话：${JSON.stringify(existing).slice(0,6500)}
 已确认联系人：${JSON.stringify(profiles.map(p=>({id:p.id,nickname:p.nickname||p.name,realName:p.realName,identity:p.identity,relationship:p.relationship,personality:p.personality}))).slice(0,6500)}
-生成3至6个不同微信会话，每个会话3至10条独立消息。涵盖真实生活中合适的亲友、学校/工作、普通事务、群通知或服务通知，不强制每类出现。不是所有人都热情友善；允许简短、冷淡、忙碌、无回复，禁止无意义互夸和装乖。仅模拟手机内容，不将模拟内容冒充真人感已经发生的事件。
+这是增量更新，不是初始化或重建。优先挑选已有会话延续对话，每个已有会话只输出1至5条真正的新消息；只有生活情境需要时才新增少量联系人或通知。不得重述、改写或重新生成已有消息，不得复制历史聊天气泡。涵盖真实生活中合适的亲友、学校/工作、普通事务、群通知或服务通知，不强制每类出现。不是所有人都热情友善；允许简短、冷淡、忙碌、无回复，禁止无意义互夸和装乖。仅模拟手机内容，不将模拟内容冒充真人感已经发生的事件。
 严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","relationship":"与Char的关系","background":"背景","kind":"npc|group|service","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}]}。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
-          {role:'user',content:'根据手机主人自己的生活和已有上下文，批量更新整个微信收件箱，不需要事先存在NPC联系人。'}
+          {role:'user',content:'根据手机主人自己的生活和已有上下文，增量更新现有微信收件箱：优先续写已有联系人对话，适量补充新通知或新联系人。不得重复已有聊天。'}
         ]})
       });
       const json = await safeResponseJson(response);
@@ -180,7 +180,10 @@ ${scheduleContext}
         const messages=parseGeneratedPhoneMessages(item.messages,id);
         if(!messages.length) continue;
         const existingRecord=previous || records.find(r=>r.contactId===id);
-        incoming.push({id:existingRecord?.id||crypto.randomUUID(),contactId:id,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),preview:messages[messages.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...messages]});
+        const seen=new Set((existingRecord?.messages||[]).map(m=>m.speaker?.role+'|'+m.text.trim()));
+        const fresh=messages.filter(m=>{const k=m.speaker?.role+'|'+m.text.trim();if(seen.has(k))return false;seen.add(k);return true;});
+        if(!fresh.length)continue;
+        incoming.push({id:existingRecord?.id||crypto.randomUUID(),contactId:id,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),preview:fresh[fresh.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...fresh]});
         if(!linked && item.kind==='npc' && !nextPending.some(p=>p.id===id)){
           nextPending.push({id,nickname:item.nickname.trim().slice(0,40),realName:typeof item.realName==='string'?item.realName:'',identity:String(item.identity||'普通联系人'),personality:String(item.personality||'尚不清楚'),relationship:String(item.relationship||'普通认识'),background:String(item.background||''),createdAt:now,source:'chat'});
         }
