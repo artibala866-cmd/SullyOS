@@ -594,7 +594,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   const appPages = useMemo(() => {
       const primaryIds = new Set([AppID.Character, AppID.MemoryPalace, AppID.User, AppID.Room]);
       // 第二页固定入口只在第二页显示；世界书、日期入口不在后续应用页重复出现。
-      const page2Ids = new Set([AppID.Music, AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.XhsFreeRoam, AppID.XhsStock]);
+      const page2Ids = new Set([AppID.Music, AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.XhsFreeRoam, AppID.XhsStock, AppID.Guidebook]);
       // 音乐移至第二页唯一入口；第三页只固定捏脸，其余入口仍按原顺序分页。
       const page3PinnedIds = new Set([AppID.Appearance]);
       const page3PinnedApps = gridApps.filter(app => page3PinnedIds.has(app.id));
@@ -1171,7 +1171,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                           </div>
                           {/* 与首页相同的小号图标；两排最多八个，其他应用留在后续页面 */}
                           <div className="grid grid-cols-4 gap-x-2 gap-y-[clamp(6px,1.5vh,16px)] w-full max-w-[330px] mx-auto pt-1 pb-3">
-                              {[AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.Music].map(id => {
+                              {[AppID.Date, AppID.Worldbook, AppID.Songwriting, AppID.Study, AppID.Schedule, AppID.Journal, AppID.Music, AppID.Guidebook].map(id => {
                                   const app = gridApps.find(a => a.id === id) || INSTALLED_APPS.find(a => a.id === id);
                                   return app ? <div key={id} className="min-w-0 flex justify-center"><AppIcon app={app} onClick={() => { if (!layoutEditing) openApp(id); }} size="sm" /></div> : null;
                               })}
