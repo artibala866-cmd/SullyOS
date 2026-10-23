@@ -1119,8 +1119,8 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                               <div className="w-full h-full flex items-stretch bg-[#f0f0f0] overflow-hidden border border-[#eee]">
                                   {(['tl','tr','wide','dsq'] as const).map((key, index) => (
                                       <div key={key} className="flex-1 min-w-0 border-r-2 border-dashed border-white relative bg-[#e7e7e8] overflow-hidden">
-                                          {theme.launcherWidgets?.[key]
-                                              ? <TokenImg value={theme.launcherWidgets[key]} className="w-full h-full object-cover grayscale" alt={`照片 ${index + 1}`} loading="lazy" />
+                                          {(theme.launcherWidgets?.[`film${index + 1}`] || theme.launcherWidgets?.[key])
+                                              ? <TokenImg value={theme.launcherWidgets[`film${index + 1}`] || theme.launcherWidgets[key]} className="w-full h-full object-cover grayscale" alt={`照片 ${index + 1}`} loading="lazy" />
                                               : <div className="w-full h-full flex items-center justify-center text-[#aaa] text-xl font-light">+</div>}
                                       </div>
                                   ))}
@@ -1182,7 +1182,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                       <div className="pt-10 flex-1 flex flex-col relative">
                           {idx === 2 && (() => {
                             const raw = theme.launcherWidgets || {};
-                            const w = { ...raw };
+                            const w = { ...raw, tl: raw['page3tl'] || raw['tl'], tr: raw['page3tr'] || raw['tr'], wide: raw['page3wide'] || raw['wide'] };
                             const hasAny = w['tl'] || w['tr'] || w['wide'];
                             const hasTopRow = w['tl'] || w['tr'];
                             return (
