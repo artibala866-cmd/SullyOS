@@ -641,8 +641,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
   const clearListeningPartners = useCallback(() => {
     setListeningTogetherWith(prev => prev.length ? [] : prev);
-    setListeningStartedAt({});
-  }, []);
+    Object.keys(listeningStartedAtRef.current).forEach(removeListeningPartner);
+  }, [removeListeningPartner]);
 
   // 切歌后清空上一首的"一起听"。只结束状态，不触发主动消息 ——
   // 换歌信息记进 recentTrackChange，char 下一轮正常回复时经 prompt 注入察觉，
