@@ -614,11 +614,28 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setListeningInvites(prev => ({ ...prev, [charId]: accepted ? 'accepted' : 'rejected' }));
     if (accepted) addListeningPartner(charId);
   }, [addListeningPartner]);
+  const listeningStartedAtRef = useRef(listeningStartedAt);
+  listeningStartedAtRef.current = listeningStartedAt;
   const removeListeningPartner = useCallback((charId: string) => {
+    const startedAt = listeningStartedAtRef.current[charId];
+    if (startedAt) {
+      const at = Date.now();
+      const durationMs = Math.max(0, at - startedAt);
+      setLastListeningEnd({ charId, durationMs, at });
+      const minutes = Math.floor(durationMs / 60000);
+      // 作为系统事件存入该角色的聊天历史，让后续聊天可引用真实伴听经历。
+      void DB.saveMessage({
+        charId, role: 'system', type: 'system',
+        content: `[一起听结束] 本次共同听歌持续 ${minutes} 分钟。`,
+        metadata: { musicListenEvent: 'ended', startedAt, endedAt: at, durationMs },
+      }).catch(err => console.warn('[MusicTogether] 结束事件保存失败', err));
+      const next = { ...listeningStartedAtRef.current };
+      delete next[charId];
+      listeningStartedAtRef.current = next;
+    }
     setListeningTogetherWith(prev => prev.filter(id => id !== charId));
     setListeningInvites(prev => { const next = { ...prev }; delete next[charId]; return next; });
     setListeningStartedAt(prev => {
-      if (prev[charId]) setLastListeningEnd({ charId, durationMs: Date.now() - prev[charId], at: Date.now() });
       const next = { ...prev }; delete next[charId]; return next;
     });
   }, []);
