@@ -573,7 +573,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         </button>,
         <button key="life-pacing" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${lifePacingEnabled ? 'bg-slate-100 text-slate-900 border-slate-300' : 'bg-white text-slate-500 border-slate-200'}`}>
-                <Brain className="w-6 h-6" weight="regular" />
+                <svg width="26" height="26" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="14" cy="14" r="9"/><path d="M10 11c1-1.5 2.4-1.5 3.5 0M18 11c-1-1.5-2.4-1.5-3.5 0M10 17c2.5 3 5.5 3 8 0"/></svg>
             </div>
             <span className="text-xs font-bold">真人感 · {lifePacingEnabled ? '开' : '关'}</span>
         </button>,
