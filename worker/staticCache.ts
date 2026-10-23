@@ -240,6 +240,12 @@ export function createStaticCache(deps: CacheDependencies) {
     const key = entry ? keyFor(entry) : request.url;
 
     return (async () => {
+      // The page can outlive a deployment. Its lazy chunks use immutable hashed URLs,
+      // but the hosting provider may have removed those files during the new deploy.
+      // A known hashed module should be retained when it was fetched before the update;
+      // for a missing one, bypass the HTTP cache once and report the real failure.
+      // Never replace a module request with an HTML fallback page.
+
       const shell = entry && shellPaths.has(absolute(entry.url));
       if (entry && !hashed && await isShellStale()) {
         // The release now on the server supplies the page and the files that keep their names
