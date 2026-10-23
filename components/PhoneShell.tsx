@@ -415,7 +415,7 @@ const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: b
           <button
             type="button"
             onClick={() => { trackEvent('卡死页点刷新恢复'); window.location.reload(); }}
-            className="w-full px-6 py-3 bg-red-600 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
+            className="w-full px-6 py-3 bg-neutral-800 rounded-full font-bold text-sm shadow-sm active:scale-95 transition-transform"
           >
             刷新恢复
           </button>
@@ -433,16 +433,11 @@ const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: b
     );
   }
   if (!show) return null;
-  // 静态柔光点：仅一次性淡入，之后无任何持续动画（零运行时开销），透明底透出壁纸。
+  // 通用应用加载占位：中性灰 iOS 风格，不使用主题色光晕。
   return (
     <div className="w-full h-full flex items-center justify-center bg-transparent" style={{ animation: 'appLoadIn 280ms ease-out both' }}>
       <style>{`@keyframes appLoadIn{from{opacity:0}to{opacity:1}}`}</style>
-      <div className="relative" style={{ width: 72, height: 72 }}>
-        {/* 静态柔光 */}
-        <div className="absolute inset-0" style={{ borderRadius: '9999px', filter: 'blur(8px)', background: 'radial-gradient(circle, hsla(var(--primary-hue),75%,72%,0.42) 0%, hsla(var(--primary-hue),70%,60%,0.10) 50%, transparent 70%)' }} />
-        {/* 静态内核 */}
-        <div className="absolute" style={{ left: '50%', top: '50%', width: 10, height: 10, transform: 'translate(-50%,-50%)', borderRadius: '9999px', background: 'radial-gradient(circle, #fff, hsla(var(--primary-hue),80%,75%,0.6) 60%, transparent)', boxShadow: '0 0 10px hsla(var(--primary-hue),80%,75%,0.6)' }} />
-      </div>
+      <div role="status" aria-label="正在加载" className="w-9 h-9 rounded-full border-[2.5px] border-neutral-300 border-t-neutral-700 animate-spin" />
     </div>
   );
 };
@@ -966,7 +961,7 @@ const PhoneShell: React.FC = () => {
   const shellPadsSafeArea = shellHandlesSafeArea(activeApp);
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-pink-200 via-purple-200 to-indigo-200 text-slate-900 font-sans select-none overscroll-none">
+    <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-[#fafafa] via-[#f4f4f4] to-[#ececec] text-neutral-900 font-sans select-none overscroll-none">
        {/* Optimized Background Layer */}
        {/* 壁纸底层：进 App 时只柔和虚化/压暗作背景，不再做缩放「过场」——
           进 App 的过渡感统一交给 App 容器的淡入（见下方 animate-fade-in 包裹层）。 */}
