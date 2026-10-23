@@ -661,8 +661,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // 作为系统事件存入该角色的聊天历史，让后续聊天可引用真实伴听经历。
       void DB.saveMessage({
         charId, role: 'system', type: 'system',
-        content: `[一起听结束] 本次共同听歌持续 ${minutes} 分钟。`,
-        metadata: { musicListenEvent: 'ended', startedAt, endedAt: at, durationMs },
+        content: `[一起听结束] 本次共同听歌持续 ${minutes} 分钟。结束时播放：${current?.name || '未知歌曲'} - ${current?.artists || '未知歌手'}。`,
+        metadata: {
+          musicListenEvent: 'ended', startedAt, endedAt: at, durationMs,
+          songId: current?.id, songName: current?.name, artists: current?.artists,
+        },
       }).catch(err => console.warn('[MusicTogether] 结束事件保存失败', err));
       const next = { ...listeningStartedAtRef.current };
       delete next[charId];
