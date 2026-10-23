@@ -94,7 +94,7 @@ const MusicApp: React.FC = () => {
   // 把 OS toast 注入到 Music Context（这样全局播放报错也能弹 toast）
   useEffect(() => { setToastHandler(addToast); }, [addToast, setToastHandler]);
 
-  const [view, setView] = useState<View>('profile');
+  const [view, setView] = useState<View>('search');
   // ── 手动对轴 modal state ──
   const [showLyricSync, setShowLyricSync] = useState(false);
   const [syncDraft, setSyncDraft] = useState<number[]>([]);
@@ -163,7 +163,7 @@ const MusicApp: React.FC = () => {
               onClick={() => setView('profile')}
               className="p-1.5 rounded-full transition-all"
               style={{ color: C.primary }}
-              title="我的"
+              title="网易云账号（可选）"
             >
               <UserIcon size={16} weight="bold" />
             </button>
@@ -194,7 +194,7 @@ const MusicApp: React.FC = () => {
           </button>
         </div>
       )}
-      {!cfg.cookie && (
+      {!cfg.cookie && false && (
         <div className="px-5 -mt-1 mb-1.5 relative z-10">
           <button
             onClick={() => setView('profile')}
