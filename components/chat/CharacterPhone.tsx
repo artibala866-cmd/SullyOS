@@ -54,8 +54,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
   const [moments, setMoments] = useState<CharacterMoment[]>(() => readCharacterMoments(characterId));
-  const [momentDraft, setMomentDraft] = useState('');
-  const [momentComposer, setMomentComposer] = useState(false);
+  const [momentBusy, setMomentBusy] = useState(false);
   useEffect(() => {setMoments(readCharacterMoments(characterId)); const sync=(event:Event)=>{if((event as CustomEvent<{characterId:string}>).detail?.characterId===characterId)setMoments(readCharacterMoments(characterId));};window.addEventListener(CHARACTER_MOMENTS_CHANGED,sync);return ()=>window.removeEventListener(CHARACTER_MOMENTS_CHANGED,sync);},[characterId]);
   useEffect(() => {
     setLifeEvents(readCharacterLifeEvents(characterId));
@@ -229,6 +228,33 @@ ${scheduleContext}
       recordCharacterLifeEvent({ id: 'npc-chat:' + next.id + ':' + next.time, characterId, kind: 'npc-chat', occurredAt: next.time, source: 'phone', summary: name + ' 与 ' + npc + ' 进行了微信聊天', contactId: profile.id });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
+  const letCharDecideMoment = async () => {
+    if(momentBusy) return;
+    if(!api.apiKey || !api.baseUrl || !api.model){setError('请先配置聊天 API，Char 才能自主决定是否发朋友圈');return;}
+    setMomentBusy(true);setError('');
+    try {
+      const context=await loadRealContext();
+      const events=readCharacterLifeEvents(characterId).filter(e=>e.kind!=='moment-post' && e.kind!=='moment-comment').slice(0,18);
+      const recent=readCharacterMoments(characterId).slice(0,8).map(p=>({text:p.text,time:p.createdAt,deleted:!!p.deletedAt}));
+      const response=await fetch(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
+        method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
+        body:JSON.stringify({model:api.model,stream:false,temperature:0.85,messages:[
+          {role:'system',content:`你是角色${name}的朋友圈自主决策器。根据真实私聊上下文、角色人设、世界书、日程及已发生的生活事件判断角色现在是否愿意发朋友圈。角色可以自恋、炫耀、冷淡、毒舌、琐碎，也可以完全不发；不要讨好User。不要把想法、猜测、日程计划当成已经发生的事实。绝不能伪造聊天截图、现实照片或未发生的事件。当前日程：${scheduleContext}。私聊真实上下文：${context.systemPrompt.slice(0,30000)}。已记录的生活事件：${JSON.stringify(events).slice(0,7500)}。近期朋友圈：${JSON.stringify(recent).slice(0,3500)}。只返回JSON：{"publish":true或false,"text":"符合角色口吻的朋友圈文字","eventIds":["引用的真实事件ID"]}。如果没有想发的内容，publish为false。首阶段只发纯文字，图片由后续独立生图系统提供。`},
+          {role:'user',content:'由Char自己决定此刻要不要发布一条朋友圈。'}
+        ]})
+      });
+      const json=await safeResponseJson(response);
+      if(!response.ok)throw new Error(json?.error?.message||'HTTP '+response.status);
+      const data=JSON.parse(extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));
+      if(data.publish!==true){setError(name+'现在不想发朋友圈');return;}
+      if(typeof data.text!=='string'||!data.text.trim())throw new Error('AI 未返回有效朋友圈文字');
+      const ids=Array.isArray(data.eventIds)?data.eventIds.filter((id:unknown):id is string=>typeof id==='string'&&events.some(e=>e.id===id)):[];
+      const post=publishCharacterMoment({characterId,origin:'char',text:data.text.trim().slice(0,2000),imageUrls:[],visibility:'all',provenance:{eventIds:ids,decision:ids.length?'event-triggered':'spontaneous'}});
+      if(!post)throw new Error('朋友圈保存失败');
+      recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+post.text.slice(0,100)});
+    }catch(e){setError(e instanceof Error?e.message:String(e));}
+    finally{setMomentBusy(false);}
+  };
   const isPrivateThread = thread === 'private:' + characterId;
   const active = records.find(r => r.id === thread);
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
@@ -290,8 +316,7 @@ ${scheduleContext}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><div className={'max-w-[78%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}>{m.text}</div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <div className="space-y-4 p-4">{active?.messages.map((m,i)=><div key={i} className={`flex gap-2 ${m.speaker?.role === 'owner' ? 'flex-row-reverse' : ''}`}><div className={`max-w-[78%] rounded-lg px-3 py-2 text-[15px] leading-relaxed ${m.speaker?.role === 'owner' ? 'bg-[#95ec69]' : 'bg-white'}`}><span className="mb-1 block text-[10px] text-[#777]">{m.speaker?.role === 'owner' ? name : m.speaker?.role === 'contact' ? active?.name : '旧消息'}</span>{m.text}</div></div>)}</div>}
         {screen === 'moments' && <div className="space-y-3 p-4">
-          <div className="flex items-center justify-between"><span className="text-sm text-[#777]">{name}的朋友圈</span><button type="button" onClick={()=>setMomentComposer(v=>!v)} className="rounded bg-[#07b75b] px-3 py-2 text-sm text-white">＋ 发布</button></div>
-          {momentComposer && <div className="space-y-2 rounded-lg bg-white p-3"><p className="text-xs text-[#888]">第一阶段：手动录入 Char 已决定发布的内容；不会自动冒充 Char 发帖。</p><textarea value={momentDraft} onChange={e=>setMomentDraft(e.target.value)} placeholder="记录 Char 要发布的朋友圈内容" className="min-h-24 w-full resize-y rounded border border-[#ddd] p-2 text-sm"/><button type="button" disabled={!momentDraft.trim()} className="rounded bg-[#07b75b] px-4 py-2 text-sm text-white disabled:opacity-40" onClick={()=>{const post=publishCharacterMoment({characterId,origin:'char',text:momentDraft.trim(),imageUrls:[],visibility:'all'});if(!post){setError('朋友圈保存失败');return;}recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',occurredAt:post.createdAt,source:'phone',summary:'Char 发布朋友圈：'+post.text.slice(0,100)});setMomentDraft('');setMomentComposer(false);}}>保存发布</button></div>}
+          <div className="flex items-center justify-between gap-3"><span className="text-sm text-[#777]">{name}的朋友圈</span><button type="button" disabled={momentBusy} onClick={()=>void letCharDecideMoment()} className="rounded bg-[#07b75b] px-3 py-2 text-sm text-white disabled:opacity-50">{momentBusy?'Char 正在考虑…':'让 Char 自己决定'}</button></div>
           {moments.filter(p=>!p.deletedAt).map(p=><article key={p.id} className="rounded-lg bg-white p-4"><div className="mb-2 text-sm font-semibold text-[#4872a0]">{name}</div>{p.text&&<p className="whitespace-pre-wrap break-words text-sm text-[#333]">{p.text}</p>}{p.imageUrls.length>0&&<div className="mt-2 grid grid-cols-3 gap-1">{p.imageUrls.map((url,i)=><img key={i} src={url} alt="朋友圈图片" className="aspect-square w-full rounded object-cover"/>)}</div>}{p.quote&&<blockquote className="mt-2 rounded bg-[#f5f5f5] p-2 text-xs">{p.quote.excerpt}</blockquote>}<div className="mt-3 flex items-center justify-between text-xs text-[#999]"><time>{new Date(p.createdAt).toLocaleString('zh-CN')}</time><button type="button" className="text-red-500" onClick={()=>{if(window.confirm('确定帮 Char 删除这条朋友圈吗？')){if(!deleteCharacterMoment(characterId,p.id,'user'))setError('删除失败');}}}>帮 Char 删除</button></div></article>)}
           {!moments.some(p=>!p.deletedAt)&&<p className="p-8 text-center text-sm text-[#888]">暂无已发布的朋友圈</p>}
         </div>}
