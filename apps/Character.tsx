@@ -1366,39 +1366,39 @@ ${isInitialGeneration ? `
                {/* 顶栏 paddingTop 用 max(2.75rem, safe-top) 保底：--safe-top 为 0 的环境
                    （无刘海/某些 WebView）下也留出状态栏高度，避免「列表/发消息」贴到状态栏。
                    与列表页及全项目 detail 顶栏惯例（max(rem, var(--safe-top))）一致。 */}
-               <div className="bg-gradient-to-b from-white/90 to-transparent backdrop-blur-sm shrink-0 z-40 sticky top-0" style={{ paddingTop: 'max(2.75rem, var(--safe-top))' }}>
+               <div className="bg-[#f2f2f4]/95 backdrop-blur-sm border-b border-black/[0.06] shrink-0 z-40 sticky top-0" style={{ paddingTop: 'max(2.75rem, var(--safe-top))' }}>
                  <div className="flex flex-col px-5 pt-2 pb-2">
                    <div className="flex justify-between items-center mb-3">
                        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/60 flex items-center gap-1 text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg><span className="text-sm font-medium">列表</span></button>
-                       <button data-guide={formData.id === 'preset-sully-v2' ? 'sully-message' : undefined} onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.Chat); }} className="text-xs px-3 py-1.5 bg-primary text-white rounded-full font-bold shadow-sm shadow-primary/30 flex items-center gap-1 active:scale-95 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926H16.5a.75.75 0 0 1 0 1.5H3.693l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.155.75.75 0 0 0 0-1.114A28.897 28.897 0 0 0 3.105 2.288Z" /></svg>发消息</button>
+                       <button data-guide={formData.id === 'preset-sully-v2' ? 'sully-message' : undefined} onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.Chat); }} className="text-xs px-3 py-1.5 bg-[#222222] text-white rounded-full font-bold shadow-sm shadow-black/10 flex items-center gap-1 active:scale-95 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926H16.5a.75.75 0 0 1 0 1.5H3.693l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.155.75.75 0 0 0 0-1.114A28.897 28.897 0 0 0 3.105 2.288Z" /></svg>发消息</button>
                    </div>
-                   <div className="flex gap-5 overflow-x-auto whitespace-nowrap no-scrollbar [&>button]:shrink-0 text-sm font-medium text-slate-400 pl-1">
-                       <button onClick={() => { setDetailTab('identity'); trackEvent('切换角色详情标签页', { tab: 'identity' }); }} className={`pb-2 transition-colors relative ${detailTab === 'identity' ? 'text-slate-800' : ''}`}>设定{detailTab === 'identity' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('memory'); trackEvent('切换角色详情标签页', { tab: 'memory' }); }} className={`pb-2 transition-colors relative ${detailTab === 'memory' ? 'text-slate-800' : ''}`}>记忆 ({(formData.memories || []).length}){detailTab === 'memory' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('impression'); trackEvent('切换角色详情标签页', { tab: 'impression' }); }} className={`pb-2 transition-colors relative ${detailTab === 'impression' ? 'text-slate-800' : ''}`}>印象{detailTab === 'impression' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('plates'); trackEvent('切换角色详情标签页', { tab: 'plates' }); }} className={`pb-2 transition-colors relative ${detailTab === 'plates' ? 'text-slate-800' : ''}`}>门牌{detailTab === 'plates' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('chibi'); trackEvent('切换角色详情标签页', { tab: 'chibi' }); }} className={`pb-2 transition-colors relative ${detailTab === 'chibi' ? 'text-slate-800' : ''}`}>手办{detailTab === 'chibi' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
-                       <button onClick={() => setDetailTab('stats')} className={`pb-2 transition-colors relative ${detailTab === 'stats' ? 'text-slate-800' : ''}`}>角色统计{detailTab === 'stats' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full" />}</button>
+                   <div className="flex gap-6 overflow-x-auto whitespace-nowrap no-scrollbar [&>button]:shrink-0 text-[13px] font-medium text-[#888888] pl-1">
+                       <button onClick={() => { setDetailTab('identity'); trackEvent('切换角色详情标签页', { tab: 'identity' }); }} className={`pb-2 transition-colors relative ${detailTab === 'identity' ? 'text-slate-800' : ''}`}>设定{detailTab === 'identity' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('memory'); trackEvent('切换角色详情标签页', { tab: 'memory' }); }} className={`pb-2 transition-colors relative ${detailTab === 'memory' ? 'text-slate-800' : ''}`}>记忆 ({(formData.memories || []).length}){detailTab === 'memory' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('impression'); trackEvent('切换角色详情标签页', { tab: 'impression' }); }} className={`pb-2 transition-colors relative ${detailTab === 'impression' ? 'text-slate-800' : ''}`}>印象{detailTab === 'impression' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('plates'); trackEvent('切换角色详情标签页', { tab: 'plates' }); }} className={`pb-2 transition-colors relative ${detailTab === 'plates' ? 'text-slate-800' : ''}`}>门牌{detailTab === 'plates' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('chibi'); trackEvent('切换角色详情标签页', { tab: 'chibi' }); }} className={`pb-2 transition-colors relative ${detailTab === 'chibi' ? 'text-slate-800' : ''}`}>手办{detailTab === 'chibi' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full"></div>}</button>
+                       <button onClick={() => setDetailTab('stats')} className={`pb-2 transition-colors relative ${detailTab === 'stats' ? 'text-slate-800' : ''}`}>角色统计{detailTab === 'stats' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#222222] rounded-full" />}</button>
                    </div>
                  </div>
                </div>
-               <div className="flex-1 overflow-y-auto p-5 no-scrollbar pb-10">
+               <div className="flex-1 overflow-y-auto px-5 pt-6 no-scrollbar pb-10">
                    {detailTab === 'identity' && (
                        <div className="space-y-6 animate-fade-in">
 
                            <div className="flex items-center gap-5">
                                <div className="relative group cursor-pointer w-24 h-24 shrink-0" onClick={() => fileInputRef.current?.click()}>
-                                   <div className="w-full h-full rounded-[2rem] shadow-md bg-white border-4 border-white overflow-hidden relative"><TokenImg value={formData.avatar} className={`w-full h-full object-cover ${isCompressing ? 'opacity-50 blur-sm' : ''}`} alt="A" /></div>
+                                   <div className="w-full h-full rounded-[22px] shadow-sm bg-white border-[3px] border-white overflow-hidden relative"><TokenImg value={formData.avatar} className={`w-full h-full object-cover ${isCompressing ? 'opacity-50 blur-sm' : ''}`} alt="A" /></div>
                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                                </div>
                                <div className="min-w-0 flex-1 space-y-3">
                                    <input value={formData.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full bg-transparent py-1 text-xl font-medium text-slate-800 border-b border-slate-200" placeholder="名称" />
                                    <div className="flex min-w-0 items-center gap-2 border-b border-slate-200">
-                                       <input value={characterRemark(formData.description)} onChange={(e) => handleChange('description', e.target.value)} className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-500 outline-none focus-visible:ring-1 focus-visible:ring-primary" placeholder="输入备注" aria-label="输入备注" />
+                                       <input value={characterRemark(formData.description)} onChange={(e) => handleChange('description', e.target.value)} className="min-w-0 flex-1 bg-transparent py-1 text-sm text-slate-500 outline-none focus-visible:ring-1 focus-visible:ring-[#777777]" placeholder="输入备注" aria-label="输入备注" />
                                        <label title="聊天显示备注" className="relative flex shrink-0 cursor-pointer items-center gap-1.5 py-2 text-[10px] text-slate-400">
                                            <span>聊天显示</span>
                                            <input type="checkbox" role="switch" aria-label="聊天显示备注" checked={!!formData.chatShowRemark} onChange={e => handleChange('chatShowRemark', e.target.checked)} className="peer sr-only" />
-                                           <span aria-hidden="true" className="relative h-4 w-7 rounded-full bg-slate-200 transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 after:absolute after:left-0.5 after:top-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-3" />
+                                           <span aria-hidden="true" className="relative h-4 w-7 rounded-full bg-slate-200 transition-colors peer-checked:bg-[#222222] peer-focus-visible:ring-2 peer-focus-visible:ring-[#777777] peer-focus-visible:ring-offset-2 after:absolute after:left-0.5 after:top-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-3" />
                                        </label>
                                    </div>
                                    {/* 头像 URL 入口: 与左侧上传文件平级. 走 draft -> 失焦/回车 commit,
@@ -1446,7 +1446,7 @@ ${isInitialGeneration ? `
                                    <select
                                        value={formData.groupId && characterGroups.some(g => g.id === formData.groupId) ? formData.groupId : ''}
                                        onChange={e => handleChange('groupId', e.target.value || undefined)}
-                                       className="flex-1 bg-white rounded-2xl px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:ring-1 focus:ring-primary/20 outline-none appearance-none"
+                                       className="flex-1 bg-white rounded-[15px] border border-black/[0.06] px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:ring-1 focus:ring-[#999999]/30 outline-none appearance-none"
                                    >
                                        <option value="">未分组</option>
                                        {sortCharacterGroups(characterGroups).map(g => (
@@ -1471,7 +1471,7 @@ ${isInitialGeneration ? `
                                            }}
                                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                            placeholder="分组名，回车确认"
-                                           className="w-36 px-3 py-2.5 rounded-2xl bg-white text-xs text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-primary/20 shrink-0"
+                                           className="w-36 px-3 py-2.5 rounded-2xl bg-white text-xs text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-[#999999]/30 shrink-0"
                                        />
                                    )}
                                </div>
@@ -1479,7 +1479,7 @@ ${isInitialGeneration ? `
 
                            <div>
                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">核心指令 (System Prompt)</label>
-                               <textarea value={formData.systemPrompt} onChange={(e) => handleChange('systemPrompt', e.target.value)} className="w-full h-40 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll" placeholder="设定..." />
+                               <textarea value={formData.systemPrompt} onChange={(e) => handleChange('systemPrompt', e.target.value)} className="w-full h-40 bg-white rounded-[20px] p-5 border border-black/[0.06] text-sm shadow-sm resize-none focus:ring-1 focus:ring-[#999999]/30 transition-all vr-reader-scroll" placeholder="设定..." />
                            </div>
 
                            <div>
@@ -1487,14 +1487,14 @@ ${isInitialGeneration ? `
                                <textarea
                                     value={formData.worldview || ''}
                                     onChange={(e) => handleChange('worldview', e.target.value)}
-                                    className="w-full h-24 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll"
+                                    className="w-full h-24 bg-white rounded-[20px] p-5 border border-black/[0.06] text-sm shadow-sm resize-none focus:ring-1 focus:ring-[#999999]/30 transition-all vr-reader-scroll"
                                     placeholder="在这个世界里，魔法是存在的..."
                                 />
                            </div>
 
                            <CharacterSettingsSection title="时间感知与时区" summary={formData.customTimezoneEnabled ? formData.customTimezone || '自定义时区' : '跟随本机时区'}>
                            {/* 时间感知 & 时区：三个独立开关，可任意组合（聊天时间感知 / 自定义时区 / 线下时间感知） */}
-                           <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-4">
+                           <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-4">
                                <div>
                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">时间感知 & 时区</label>
                                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">下面三个开关相互独立、可任意组合。改完即时生效（下一条回复起算）。</p>
@@ -1508,7 +1508,7 @@ ${isInitialGeneration ? `
                                            <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">关闭时跟随现实时间；开启后剧情使用独立的虚拟时间（所有角色共用）。</p>
                                        </div>
                                        <button type="button" aria-label="切换虚拟时间" aria-pressed={lifeClock.mode === 'virtual'} onClick={switchLifeClock}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${lifeClock.mode === 'virtual' ? 'bg-primary' : 'bg-slate-200'}`}>
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${lifeClock.mode === 'virtual' ? 'bg-[#222222]' : 'bg-slate-200'}`}>
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${lifeClock.mode === 'virtual' ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
                                    </div>
@@ -1528,7 +1528,7 @@ ${isInitialGeneration ? `
                                        </div>
                                        <button
                                            onClick={() => handleChange('timeAwarenessEnabled', formData.timeAwarenessEnabled === false)}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.timeAwarenessEnabled !== false ? 'bg-primary' : 'bg-slate-200'}`}
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.timeAwarenessEnabled !== false ? 'bg-[#222222]' : 'bg-slate-200'}`}
                                        >
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.timeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
@@ -1544,7 +1544,7 @@ ${isInitialGeneration ? `
                                        </div>
                                        <button
                                            onClick={() => handleChange('customTimezoneEnabled', !formData.customTimezoneEnabled)}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.customTimezoneEnabled ? 'bg-primary' : 'bg-slate-200'}`}
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.customTimezoneEnabled ? 'bg-[#222222]' : 'bg-slate-200'}`}
                                        >
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.customTimezoneEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
@@ -1553,7 +1553,7 @@ ${isInitialGeneration ? `
                                        <select
                                            value={formData.customTimezone || ''}
                                            onChange={(e) => handleChange('customTimezone', e.target.value)}
-                                           className="mt-3 w-full bg-slate-50 rounded-2xl px-3 py-2.5 text-xs border border-slate-200 outline-none focus:ring-1 focus:ring-primary/30"
+                                           className="mt-3 w-full bg-slate-50 rounded-2xl px-3 py-2.5 text-xs border border-slate-200 outline-none focus:ring-1 focus:ring-[#999999]/30"
                                        >
                                            <option value="">请选择角色所在时区…</option>
                                            {COMMON_TIMEZONES.map(tz => (
@@ -1572,7 +1572,7 @@ ${isInitialGeneration ? `
                                        </div>
                                        <button
                                            onClick={() => handleChange('dateTimeAwarenessEnabled', formData.dateTimeAwarenessEnabled === false ? undefined : false)}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.dateTimeAwarenessEnabled !== false ? 'bg-primary' : 'bg-slate-200'}`}
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.dateTimeAwarenessEnabled !== false ? 'bg-[#222222]' : 'bg-slate-200'}`}
                                        >
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.dateTimeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
@@ -1584,7 +1584,7 @@ ${isInitialGeneration ? `
 
                            <CharacterSettingsSection title="生活记录注入" summary={formData.lifeRecordEnabled ? '已开启' : '未开启'}>
                            {/* 生活记录注入：总开关 + 4 个模块小开关（数据在档案 App「生活记录」里维护） */}
-                           <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-4">
+                           <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-4">
                                <div>
                                    <label className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block">生活记录注入</label>
                                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">把你在「档案 → 生活记录」里的生理期 / 药盒 / 记账 / 锻炼作为潜意识背景注入给该角色；你明确说出相关事实时，ta 还能帮你顺手记一笔（聊天里会出卡片，可确认 / 否决）。</p>
@@ -1599,7 +1599,7 @@ ${isInitialGeneration ? `
                                        </div>
                                        <button
                                            onClick={() => { handleChange('lifeRecordEnabled', !formData.lifeRecordEnabled); trackEvent('开启角色生活记录注入', { state: formData.lifeRecordEnabled ? 'off' : 'on' }); }}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.lifeRecordEnabled ? 'bg-primary' : 'bg-slate-200'}`}
+                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.lifeRecordEnabled ? 'bg-[#222222]' : 'bg-slate-200'}`}
                                        >
                                            <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.lifeRecordEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                        </button>
@@ -1621,7 +1621,7 @@ ${isInitialGeneration ? `
                                            </div>
                                            <button
                                                onClick={() => handleChange(field, formData[field] === false)}
-                                               className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData[field] !== false ? 'bg-primary' : 'bg-slate-200'}`}
+                                               className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData[field] !== false ? 'bg-[#222222]' : 'bg-slate-200'}`}
                                            >
                                                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData[field] !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                                            </button>
@@ -1637,7 +1637,7 @@ ${isInitialGeneration ? `
                            </CharacterSettingsSection>
 
                            <CharacterSettingsSection title="角色语音音色" summary={formData.voiceProfile?.voiceName || '音色与合成参数'}>
-                           <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
+                           <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-3">
                                <div className="flex items-center justify-between">
                                    <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1"><SpeakerHigh size={12} /> 角色语音音色</label>
                                    <div className="flex gap-1.5">
@@ -1723,7 +1723,7 @@ ${isInitialGeneration ? `
                                </div>
 
                                {/* 鱼声 Fish Audio 音色：仅当全局语音服务商切到鱼声时生效（设置 → 其他 API） */}
-                               <div className="rounded-2xl border border-sky-200/60 bg-sky-50/40 p-2.5 space-y-1.5">
+                               <div className="rounded-2xl border border-slate-200/60 bg-slate-50/40 p-2.5 space-y-1.5">
                                    <div className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">鱼声 Fish 音色</div>
                                    <input
                                        value={formData.voiceProfile?.fishReferenceId || ''}
@@ -1800,7 +1800,7 @@ ${isInitialGeneration ? `
                                                            <button
                                                                key={`${source}-${v.voice_id}`}
                                                                onClick={() => applyVoiceToCharacter(v, source)}
-                                                               className="w-full text-left px-2 py-1 rounded-xl text-xs border border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/40"
+                                                               className="w-full text-left px-2 py-1 rounded-xl text-xs border border-slate-200 hover:border-slate-300 hover:bg-slate-100/60"
                                                            >
                                                                <div className="font-medium text-slate-700 truncate">{v.voice_name || '未命名音色'}</div>
                                                                <div className="text-[10px] text-slate-400 truncate">{v.voice_id}</div>
@@ -1939,7 +1939,7 @@ ${isInitialGeneration ? `
        )}
 
        {/* Modals ... */}
-       <Modal isOpen={showImportModal} title="记忆导入/清洗" onClose={() => setShowImportModal(false)} footer={<><button onClick={() => setShowImportModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">取消</button><button onClick={handleImportMemories} disabled={isProcessingMemory || importLengthInfo.overLimit} className={`flex-1 py-3 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 ${importLengthInfo.overLimit ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-primary shadow-primary/30'}`}>{isProcessingMemory && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}{isProcessingMemory ? '处理中...' : importLengthInfo.overLimit ? '请先分批' : '开始执行'}</button></>}>
+       <Modal isOpen={showImportModal} title="记忆导入/清洗" onClose={() => setShowImportModal(false)} footer={<><button onClick={() => setShowImportModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">取消</button><button onClick={handleImportMemories} disabled={isProcessingMemory || importLengthInfo.overLimit} className={`flex-1 py-3 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 ${importLengthInfo.overLimit ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-[#222222] shadow-black/10'}`}>{isProcessingMemory && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}{isProcessingMemory ? '处理中...' : importLengthInfo.overLimit ? '请先分批' : '开始执行'}</button></>}>
            <div className="space-y-3">
                <div className="text-xs text-slate-400 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
                    适合从其它应用“搬家”。最多 5 万字，字数只在本地统计；AI 只整理时间与事件结构，不摘要、不合并、不省略原有细节。5 万字以内会自动分批，无需手动切。
@@ -1949,7 +1949,7 @@ ${isInitialGeneration ? `
                    value={importText}
                    onChange={e => setImportText(e.target.value)}
                    placeholder="在此粘贴从别处带来的记忆文本…"
-                   className="w-full h-40 bg-slate-100 border-none rounded-2xl px-4 py-3 text-sm text-slate-700 resize-none focus:ring-2 focus:ring-primary/20 transition-all"
+                   className="w-full h-40 bg-slate-100 border-none rounded-2xl px-4 py-3 text-sm text-slate-700 resize-none focus:ring-2 focus:ring-[#999999]/30 transition-all"
                />
                {importLengthInfo.overLimit && (
                    <div className="text-xs leading-relaxed rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-700">
@@ -1965,7 +1965,7 @@ ${isInitialGeneration ? `
        <Modal isOpen={showBatchModal} title="批量记忆总结" onClose={() => { setShowBatchModal(false); setShowPromptEditor(false); }} footer={
            isBatchProcessing ?
            <div className="w-full py-3 bg-slate-100 text-primary font-bold rounded-2xl text-center flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>{batchProgress}</div> :
-           <button onClick={handleBatchSummarize} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">开始生成</button>
+           <button onClick={handleBatchSummarize} className="w-full py-3 bg-[#222222] text-white font-bold rounded-2xl">开始生成</button>
        }>
            <div className="space-y-3">
                <p className="text-xs text-slate-400">将遍历所有聊天记录，按天使用所选提示词模板生成记忆总结。</p>
@@ -2009,19 +2009,19 @@ ${isInitialGeneration ? `
            localStorage.setItem('chat_active_archive_prompt_id', editingPrompt.id);
            setShowPromptEditor(false);
            addToast('提示词已保存', 'success');
-       }} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">保存</button>}>
+       }} className="w-full py-3 bg-[#222222] text-white font-bold rounded-2xl">保存</button>}>
            <div className="space-y-3">
                <input
                    value={editingPrompt?.name || ''}
                    onChange={e => setEditingPrompt(prev => prev ? {...prev, name: e.target.value} : null)}
                    placeholder="预设名称"
-                   className="w-full px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
+                   className="w-full px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#999999]/30"
                    readOnly={editingPrompt?.id.startsWith('preset_')}
                />
                <textarea
                    value={editingPrompt?.content || ''}
                    onChange={e => setEditingPrompt(prev => prev ? {...prev, content: e.target.value} : null)}
-                   className="w-full h-64 bg-slate-100 rounded-xl p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 leading-relaxed"
+                   className="w-full h-64 bg-slate-100 rounded-xl p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-[#999999]/30 leading-relaxed"
                    placeholder="输入提示词内容..."
                    readOnly={editingPrompt?.id.startsWith('preset_')}
                />
@@ -2144,9 +2144,9 @@ ${isInitialGeneration ? `
                         onChange={e => setNewGroupName(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') handleAddGroup(); }}
                         placeholder="新分组名称"
-                        className="flex-1 px-4 py-2.5 bg-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
+                        className="flex-1 px-4 py-2.5 bg-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-[#999999]/30"
                     />
-                    <button onClick={handleAddGroup} className="px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-sm shadow-primary/30 active:scale-95 transition-transform shrink-0">添加</button>
+                    <button onClick={handleAddGroup} className="px-4 py-2.5 bg-[#222222] text-white text-sm font-bold rounded-xl shadow-sm shadow-black/10 active:scale-95 transition-transform shrink-0">添加</button>
                 </div>
                 {characterGroups.length === 0 ? (
                     <div className="text-center text-xs text-slate-400 py-6">还没有分组。建一个试试——角色列表和各处选角色的地方都会按组展示。</div>
