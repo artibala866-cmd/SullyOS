@@ -122,7 +122,7 @@ function useLongPress(callback: () => void, ms = 500) {
 const GameFrame: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
     <div className={`w-full h-full flex flex-col overflow-hidden ${className}`}
         style={{
-            background: 'linear-gradient(180deg, #f0ebe8 0%, #ece6e9 30%, #e8e4ea 70%, #e5e0e3 100%)',
+            background: 'linear-gradient(180deg, #ececec 0%, #e7e7e7 30%, #e5e5e5 70%, #e1e1e1 100%)',
         }}>
         {children}
     </div>
@@ -140,28 +140,28 @@ const GameHeader: React.FC<{
         {/* Decorative spiral dots */}
         <div className="absolute left-1 top-0 bottom-0 flex flex-col items-center justify-center gap-1.5 z-10" style={{ paddingTop: 'var(--safe-top)' }}>
             {[0, 1, 2, 3, 4].map(i => (
-                <div key={i} className="w-2 h-2 rounded-full" style={{ background: 'rgba(180,165,170,0.4)', border: '1px solid rgba(160,145,150,0.2)' }} />
+                <div key={i} className="w-2 h-2 rounded-full" style={{ background: 'rgba(169,169,169,0.4)', border: '1px solid rgba(149,149,149,0.2)' }} />
             ))}
         </div>
         <div className="flex items-center gap-2.5 pl-5 pr-3 py-2.5"
-            style={{ background: 'linear-gradient(135deg, rgba(200,185,190,0.3) 0%, rgba(190,175,195,0.2) 100%)', borderBottom: '2px solid rgba(180,165,170,0.2)', paddingTop: 'calc(var(--safe-top) + 0.625rem)' }}>
-            <button onClick={onBack} className="w-7 h-7 rounded-full bg-white/60 flex items-center justify-center text-xs font-bold active:scale-90 transition-transform shadow-sm backdrop-blur-sm" style={{ color: '#9b8a8e' }}>
+            style={{ background: 'linear-gradient(135deg, rgba(189,189,189,0.3) 0%, rgba(180,180,180,0.2) 100%)', borderBottom: '2px solid rgba(169,169,169,0.2)', paddingTop: 'calc(var(--safe-top) + 0.625rem)' }}>
+            <button onClick={onBack} className="w-7 h-7 rounded-full bg-white/60 flex items-center justify-center text-xs font-bold active:scale-90 transition-transform shadow-sm backdrop-blur-sm" style={{ color: '#8e8e8e' }}>
                 <ArrowLeft size={14} />
             </button>
             {charAvatar && (
-                <TokenImg value={charAvatar} className="w-8 h-8 rounded-full object-cover shadow-md" style={{ boxShadow: '0 0 0 2px rgba(180,165,170,0.4)' }} />
+                <TokenImg value={charAvatar} className="w-8 h-8 rounded-full object-cover shadow-md" style={{ boxShadow: '0 0 0 2px rgba(169,169,169,0.4)' }} />
             )}
             <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold truncate" style={{ color: '#5a4a50' }}>{title}</div>
-                {subtitle && <div className="text-[10px]" style={{ color: '#9b8a8e' }}>{subtitle}</div>}
+                <div className="text-sm font-bold truncate" style={{ color: '#4e4e4e' }}>{title}</div>
+                {subtitle && <div className="text-[10px]" style={{ color: '#8e8e8e' }}>{subtitle}</div>}
             </div>
             {affinity != null && (
                 <div className="px-2.5 py-1 rounded-full text-xs font-bold shadow-sm" style={{
                     background: affinity >= 0
-                        ? 'linear-gradient(135deg, rgba(200,175,175,0.4), rgba(190,160,165,0.3))'
-                        : 'linear-gradient(135deg, rgba(170,175,200,0.4), rgba(160,165,190,0.3))',
-                    color: affinity >= 0 ? '#8b6a6e' : '#6a6e8b',
-                    border: affinity >= 0 ? '1px solid rgba(190,160,165,0.3)' : '1px solid rgba(160,165,190,0.3)',
+                        ? 'linear-gradient(135deg, rgba(180,180,180,0.4), rgba(167,167,167,0.3))'
+                        : 'linear-gradient(135deg, rgba(176,176,176,0.4), rgba(166,166,166,0.3))',
+                    color: affinity >= 0 ? '#717171' : '#6f6f6f',
+                    border: affinity >= 0 ? '1px solid rgba(167,167,167,0.3)' : '1px solid rgba(166,166,166,0.3)',
                 }}>
                     <Heart size={10} weight="fill" className="mr-0.5" />{affinity}
                 </div>
@@ -174,7 +174,7 @@ const GameHeader: React.FC<{
 const Card: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className = '', onClick }) => (
     <div onClick={onClick}
         className={`bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm ${onClick ? 'active:scale-[0.98] cursor-pointer' : ''} transition-all ${className}`}
-        style={{ border: '1px solid rgba(200,185,190,0.3)', boxShadow: '0 2px 8px rgba(160,145,150,0.08), 0 1px 3px rgba(0,0,0,0.04)' }}>
+        style={{ border: '1px solid rgba(189,189,189,0.3)', boxShadow: '0 2px 8px rgba(149,149,149,0.08), 0 1px 3px rgba(0,0,0,0.04)' }}>
         {children}
     </div>
 );
@@ -183,19 +183,19 @@ const Card: React.FC<{ children: React.ReactNode; className?: string; onClick?: 
 const StatBar: React.FC<{ label: string; value: number; max?: number; color?: string }> = ({ label, value, max = 100, color = 'warm' }) => {
     const pct = Math.min(Math.max((value + 100) / 200 * 100, 0), 100);
     const colorMap: Record<string, string> = {
-        warm: 'linear-gradient(90deg, #c9b1bd, #b8909a)',
-        blue: 'linear-gradient(90deg, #a0b0c8, #8a9ab8)',
-        green: 'linear-gradient(90deg, #a0c8b0, #8ab8a0)',
-        purple: 'linear-gradient(90deg, #b0a0c8, #9a8ab8)',
+        warm: 'linear-gradient(90deg, #b7b7b7, #999999)',
+        blue: 'linear-gradient(90deg, #aeaeae, #999999)',
+        green: 'linear-gradient(90deg, #bebebe, #acacac)',
+        purple: 'linear-gradient(90deg, #a6a6a6, #919191)',
     };
     return (
         <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold w-14 text-right shrink-0" style={{ color: '#8b7a7e' }}>{label}</span>
-            <div className="flex-1 h-3 rounded-full overflow-hidden shadow-inner" style={{ background: 'rgba(230,220,225,0.6)', border: '1px solid rgba(200,185,190,0.3)' }}>
+            <span className="text-[10px] font-bold w-14 text-right shrink-0" style={{ color: '#7e7e7e' }}>{label}</span>
+            <div className="flex-1 h-3 rounded-full overflow-hidden shadow-inner" style={{ background: 'rgba(222,222,222,0.6)', border: '1px solid rgba(189,189,189,0.3)' }}>
                 <div className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${pct}%`, background: colorMap[color] || colorMap.warm }} />
             </div>
-            <span className="text-[10px] font-mono font-bold w-8" style={{ color: '#8b7a7e' }}>{value}</span>
+            <span className="text-[10px] font-mono font-bold w-8" style={{ color: '#7e7e7e' }}>{value}</span>
         </div>
     );
 };
@@ -230,8 +230,8 @@ const TypewriterSegments: React.FC<{
                 <SegmentBubble key={i} seg={seg} charName={charName} />
             ))}
             {visibleCount < segments.length && (
-                <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(140,125,130,0.7)' }}>
-                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#b8a0a8' }} />
+                <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(129,129,129,0.7)' }}>
+                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#a6a6a6' }} />
                     <span>{segments[visibleCount]?.speaker === 'gm' ? 'GM' : charName} 正在说话...</span>
                 </div>
             )}
@@ -243,14 +243,14 @@ const TypewriterSegments: React.FC<{
 const SegmentBubble: React.FC<{ seg: { speaker: string; text: string }; charName: string }> = ({ seg, charName }) => (
     <div className="animate-fade-in">
         {seg.speaker === 'gm' ? (
-            <div className="rounded-xl px-3 py-2 shadow-sm" style={{ background: 'rgba(235,232,238,0.6)', border: '1px solid rgba(180,175,195,0.25)' }}>
-                <span className="text-[10px] font-bold mr-1.5 px-1.5 py-0.5 rounded" style={{ color: '#7a7590', background: 'rgba(180,175,195,0.2)' }}>GM</span>
-                <span className="text-xs leading-relaxed" style={{ color: '#5a5570' }}>{seg.text}</span>
+            <div className="rounded-xl px-3 py-2 shadow-sm" style={{ background: 'rgba(233,233,233,0.6)', border: '1px solid rgba(178,178,178,0.25)' }}>
+                <span className="text-[10px] font-bold mr-1.5 px-1.5 py-0.5 rounded" style={{ color: '#787878', background: 'rgba(178,178,178,0.2)' }}>GM</span>
+                <span className="text-xs leading-relaxed" style={{ color: '#585858' }}>{seg.text}</span>
             </div>
         ) : (
-            <div className="rounded-xl px-3 py-2 shadow-sm ml-4" style={{ background: 'linear-gradient(135deg, rgba(245,238,235,0.7), rgba(240,232,230,0.6))', border: '1px solid rgba(200,180,175,0.25)' }}>
-                <span className="text-[10px] font-bold mr-1.5 inline-flex items-center gap-0.5" style={{ color: '#9b7a7e' }}><Heart size={10} weight="fill" /> {charName}</span>
-                <span className="text-sm leading-relaxed" style={{ color: '#5a4a4e' }}>{seg.text}</span>
+            <div className="rounded-xl px-3 py-2 shadow-sm ml-4" style={{ background: 'linear-gradient(135deg, rgba(239,239,239,0.7), rgba(234,234,234,0.6))', border: '1px solid rgba(184,184,184,0.25)' }}>
+                <span className="text-[10px] font-bold mr-1.5 inline-flex items-center gap-0.5" style={{ color: '#818181' }}><Heart size={10} weight="fill" /> {charName}</span>
+                <span className="text-sm leading-relaxed" style={{ color: '#4e4e4e' }}>{seg.text}</span>
             </div>
         )}
     </div>
@@ -277,22 +277,22 @@ const RoundDisplay: React.FC<{
             <Card className="p-3 space-y-2.5">
                 {/* Round header — tap to toggle expand */}
                 <button className="w-full flex items-center gap-2" onClick={() => setExpanded(e => !e)}>
-                    <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] text-white font-bold shadow-sm" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] text-white font-bold shadow-sm" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                         {round.roundNumber}
                     </div>
-                    <div className="h-px flex-1" style={{ background: 'rgba(200,185,190,0.25)' }} />
+                    <div className="h-px flex-1" style={{ background: 'rgba(189,189,189,0.25)' }} />
                     <div className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        affinityDiff > 0 ? 'bg-emerald-100/60 text-emerald-600' : affinityDiff < 0 ? 'bg-red-100/60 text-red-500' : 'bg-gray-100 text-gray-500'
+                        affinityDiff > 0 ? 'bg-neutral-100/60 text-neutral-600' : affinityDiff < 0 ? 'bg-neutral-100/60 text-neutral-500' : 'bg-gray-100 text-gray-500'
                     }`}>
                         {affinityDiff >= 0 ? '+' : ''}{affinityDiff}
                     </div>
-                    <span className="text-[10px] shrink-0" style={{ color: 'rgba(160,145,150,0.5)' }}>{expanded ? <CaretUp size={12} /> : <CaretDown size={12} />}</span>
+                    <span className="text-[10px] shrink-0" style={{ color: 'rgba(149,149,149,0.5)' }}>{expanded ? <CaretUp size={12} /> : <CaretDown size={12} />}</span>
                 </button>
 
                 {/* GM Narration — always visible */}
-                <div className="rounded-lg px-2.5 py-1.5" style={{ background: 'rgba(235,232,238,0.6)', border: '1px solid rgba(180,175,195,0.2)' }}>
-                    <span className="text-[9px] font-bold mr-1" style={{ color: '#7a7590' }}>GM</span>
-                    <span className="text-[11px]" style={{ color: '#5a5570' }}>{round.gmNarration}</span>
+                <div className="rounded-lg px-2.5 py-1.5" style={{ background: 'rgba(233,233,233,0.6)', border: '1px solid rgba(178,178,178,0.2)' }}>
+                    <span className="text-[9px] font-bold mr-1" style={{ color: '#787878' }}>GM</span>
+                    <span className="text-[11px]" style={{ color: '#585858' }}>{round.gmNarration}</span>
                 </div>
 
                 {/* Collapsed summary: chosen option + reaction */}
@@ -301,25 +301,25 @@ const RoundDisplay: React.FC<{
                         {/* Only show chosen option */}
                         <div className="text-xs px-2.5 py-2 rounded-xl flex items-center gap-2"
                             style={{
-                                background: 'linear-gradient(135deg, rgba(245,238,235,0.8), rgba(240,230,228,0.7))',
-                                border: '2px solid rgba(196,139,139,0.4)',
-                                color: '#5a4a4e',
+                                background: 'linear-gradient(135deg, rgba(239,239,239,0.8), rgba(232,232,232,0.7))',
+                                border: '2px solid rgba(151,151,151,0.4)',
+                                color: '#4e4e4e',
                             }}>
-                            <span className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center text-[10px] font-bold shrink-0" style={{ border: '1px solid rgba(200,185,190,0.3)' }}>
+                            <span className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center text-[10px] font-bold shrink-0" style={{ border: '1px solid rgba(189,189,189,0.3)' }}>
                                 {String.fromCharCode(65 + round.charChoice)}
                             </span>
                             <span className="flex-1 truncate">{chosen?.text}</span>
-                            <span className="text-[9px] text-white px-1.5 py-0.5 rounded-full font-bold shrink-0" style={{ background: '#b8909a' }}>
+                            <span className="text-[9px] text-white px-1.5 py-0.5 rounded-full font-bold shrink-0" style={{ background: '#999999' }}>
                                 <ArrowLeft size={10} className="inline" /> {charName}
                             </span>
-                            <span className={`text-[10px] font-mono font-bold shrink-0 ${(chosen?.affinity || 0) >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                            <span className={`text-[10px] font-mono font-bold shrink-0 ${(chosen?.affinity || 0) >= 0 ? 'text-neutral-500' : 'text-neutral-400'}`}>
                                 {(chosen?.affinity || 0) >= 0 ? '+' : ''}{chosen?.affinity}
                             </span>
                         </div>
                         {/* Brief reaction */}
-                        <div className="rounded-lg px-2.5 py-1.5" style={{ background: 'linear-gradient(135deg, rgba(245,238,235,0.6), rgba(240,232,230,0.5))', border: '1px solid rgba(200,180,175,0.2)' }}>
-                            <span className="font-bold text-[11px] mr-1 inline-flex items-center gap-0.5" style={{ color: '#9b7a7e' }}><Heart size={11} weight="fill" /> {charName}</span>
-                            <span className="text-xs" style={{ color: '#5a4a4e' }}>{round.charReaction}</span>
+                        <div className="rounded-lg px-2.5 py-1.5" style={{ background: 'linear-gradient(135deg, rgba(239,239,239,0.6), rgba(234,234,234,0.5))', border: '1px solid rgba(184,184,184,0.2)' }}>
+                            <span className="font-bold text-[11px] mr-1 inline-flex items-center gap-0.5" style={{ color: '#818181' }}><Heart size={11} weight="fill" /> {charName}</span>
+                            <span className="text-xs" style={{ color: '#4e4e4e' }}>{round.charReaction}</span>
                         </div>
                     </div>
                 )}
@@ -332,24 +332,24 @@ const RoundDisplay: React.FC<{
                             {round.options.map((opt, i) => (
                                 <div key={i} className="text-xs px-2.5 py-2 rounded-xl transition-all flex items-center gap-2"
                                     style={i === round.charChoice ? {
-                                        background: 'linear-gradient(135deg, rgba(245,238,235,0.8), rgba(240,230,228,0.7))',
-                                        border: '2px solid rgba(196,139,139,0.4)',
-                                        color: '#5a4a4e',
+                                        background: 'linear-gradient(135deg, rgba(239,239,239,0.8), rgba(232,232,232,0.7))',
+                                        border: '2px solid rgba(151,151,151,0.4)',
+                                        color: '#4e4e4e',
                                     } : {
                                         background: 'rgba(255,255,255,0.5)',
-                                        border: '1px solid rgba(200,185,190,0.25)',
-                                        color: 'rgba(120,105,110,0.5)',
+                                        border: '1px solid rgba(189,189,189,0.25)',
+                                        color: 'rgba(109,109,109,0.5)',
                                     }}>
-                                    <span className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center text-[10px] font-bold shrink-0" style={{ border: '1px solid rgba(200,185,190,0.3)' }}>
+                                    <span className="w-5 h-5 rounded-full bg-white/80 flex items-center justify-center text-[10px] font-bold shrink-0" style={{ border: '1px solid rgba(189,189,189,0.3)' }}>
                                         {String.fromCharCode(65 + i)}
                                     </span>
                                     <span className="flex-1">{opt.text}</span>
                                     {i === round.charChoice && (
-                                        <span className="text-[9px] text-white px-1.5 py-0.5 rounded-full font-bold shrink-0" style={{ background: '#b8909a' }}>
+                                        <span className="text-[9px] text-white px-1.5 py-0.5 rounded-full font-bold shrink-0" style={{ background: '#999999' }}>
                                             <ArrowLeft size={10} className="inline" /> {charName}
                                         </span>
                                     )}
-                                    <span className={`text-[10px] font-mono font-bold shrink-0 ${opt.affinity >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                                    <span className={`text-[10px] font-mono font-bold shrink-0 ${opt.affinity >= 0 ? 'text-neutral-500' : 'text-neutral-400'}`}>
                                         {opt.affinity >= 0 ? '+' : ''}{opt.affinity}
                                     </span>
                                 </div>
@@ -357,35 +357,35 @@ const RoundDisplay: React.FC<{
                         </div>
 
                         {/* Inner Thought (now includes prediction) */}
-                        <div className="rounded-lg px-2.5 py-2" style={{ background: 'rgba(230,225,238,0.5)', border: '1px solid rgba(185,175,200,0.25)' }}>
-                            <div className="text-[9px] font-bold mb-0.5" style={{ color: '#8a80a0' }}>内心 OS &amp; 预判</div>
-                            <div className="text-[11px] italic leading-relaxed" style={{ color: '#6a6080' }}>{round.charInnerThought}</div>
+                        <div className="rounded-lg px-2.5 py-2" style={{ background: 'rgba(227,227,227,0.5)', border: '1px solid rgba(179,179,179,0.25)' }}>
+                            <div className="text-[9px] font-bold mb-0.5" style={{ color: '#848484' }}>内心 OS &amp; 预判</div>
+                            <div className="text-[11px] italic leading-relaxed" style={{ color: '#646464' }}>{round.charInnerThought}</div>
                         </div>
 
                         {/* Score bar */}
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px]" style={{ color: 'rgba(140,125,130,0.6)' }}>好感度</span>
-                            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(230,220,225,0.5)' }}>
+                            <span className="text-[10px]" style={{ color: 'rgba(129,129,129,0.6)' }}>好感度</span>
+                            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(222,222,222,0.5)' }}>
                                 <div className={`h-full rounded-full transition-all duration-500 ${
-                                    affinityDiff > 0 ? 'bg-gradient-to-r from-emerald-300 to-emerald-400' : affinityDiff < 0 ? 'bg-gradient-to-r from-red-300 to-red-400' : 'bg-gray-300'
+                                    affinityDiff > 0 ? 'bg-gradient-to-r from-neutral-300 to-neutral-400' : affinityDiff < 0 ? 'bg-gradient-to-r from-neutral-300 to-neutral-400' : 'bg-gray-300'
                                 }`} style={{ width: `${Math.min(Math.abs(affinityDiff) * 3, 100)}%` }} />
                             </div>
-                            <span className="text-[10px] font-mono" style={{ color: 'rgba(140,125,130,0.5)' }}>{round.affinityBefore}<ArrowRight size={10} className="inline" />{round.affinityAfter}</span>
+                            <span className="text-[10px] font-mono" style={{ color: 'rgba(129,129,129,0.5)' }}>{round.affinityBefore}<ArrowRight size={10} className="inline" />{round.affinityAfter}</span>
                         </div>
 
                         {/* Reaction */}
-                        <div className="rounded-lg px-2.5 py-2" style={{ background: 'linear-gradient(135deg, rgba(245,238,235,0.6), rgba(240,232,230,0.5))', border: '1px solid rgba(200,180,175,0.2)' }}>
-                            <span className="font-bold text-[11px] mr-1 inline-flex items-center gap-0.5" style={{ color: '#9b7a7e' }}><Heart size={11} weight="fill" /> {charName}</span>
-                            <span className="text-xs" style={{ color: '#5a4a4e' }}>{round.charReaction}</span>
+                        <div className="rounded-lg px-2.5 py-2" style={{ background: 'linear-gradient(135deg, rgba(239,239,239,0.6), rgba(234,234,234,0.5))', border: '1px solid rgba(184,184,184,0.2)' }}>
+                            <span className="font-bold text-[11px] mr-1 inline-flex items-center gap-0.5" style={{ color: '#818181' }}><Heart size={11} weight="fill" /> {charName}</span>
+                            <span className="text-xs" style={{ color: '#4e4e4e' }}>{round.charReaction}</span>
                         </div>
 
                         {/* Insight — char's reading of what user's scoring reveals */}
                         {round.charInsight && (
-                            <div className="rounded-xl px-3 py-2.5" style={{ background: 'linear-gradient(135deg, rgba(220,235,248,0.55), rgba(210,228,245,0.45))', border: '1px solid rgba(160,190,220,0.35)' }}>
-                                <div className="text-[9px] font-bold mb-1 flex items-center gap-1" style={{ color: '#5a7a9e' }}>
+                            <div className="rounded-xl px-3 py-2.5" style={{ background: 'linear-gradient(135deg, rgba(233,233,233,0.55), rgba(225,225,225,0.45))', border: '1px solid rgba(186,186,186,0.35)' }}>
+                                <div className="text-[9px] font-bold mb-1 flex items-center gap-1" style={{ color: '#767676' }}>
                                     <Diamond size={12} weight="fill" /> 关于你的发现
                                 </div>
-                                <div className="text-xs leading-relaxed italic" style={{ color: '#3a5a78' }}>
+                                <div className="text-xs leading-relaxed italic" style={{ color: '#555555' }}>
                                     {round.charInsight}
                                 </div>
                             </div>
@@ -393,12 +393,12 @@ const RoundDisplay: React.FC<{
 
                         {/* Exploration */}
                         {round.charExploration && (
-                            <div className="rounded-xl px-3 py-2.5" style={{ background: 'linear-gradient(135deg, rgba(240,235,225,0.6), rgba(238,230,218,0.5))', border: '1px solid rgba(210,195,175,0.3)' }}>
-                                <div className="text-[9px] font-bold mb-1 flex items-center gap-1" style={{ color: '#a09070' }}>
+                            <div className="rounded-xl px-3 py-2.5" style={{ background: 'linear-gradient(135deg, rgba(235,235,235,0.6), rgba(231,231,231,0.5))', border: '1px solid rgba(197,197,197,0.3)' }}>
+                                <div className="text-[9px] font-bold mb-1 flex items-center gap-1" style={{ color: '#919191' }}>
                                     <Sparkle size={12} weight="fill" /> 深入探讨
                                 </div>
-                                <div className="text-xs leading-relaxed" style={{ color: '#6a5a45' }}>
-                                    <span className="font-bold mr-1" style={{ color: '#8a7a60' }}>{charName}:</span>{round.charExploration}
+                                <div className="text-xs leading-relaxed" style={{ color: '#5c5c5c' }}>
+                                    <span className="font-bold mr-1" style={{ color: '#7c7c7c' }}>{charName}:</span>{round.charExploration}
                                 </div>
                             </div>
                         )}
@@ -426,22 +426,22 @@ const EndCard: React.FC<{
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
             <div className="relative w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar rounded-3xl shadow-xl"
-                style={{ background: 'linear-gradient(180deg, #f0ebe8 0%, #fff 20%, #ece6e9 100%)', border: '2px solid rgba(200,185,190,0.4)' }}>
+                style={{ background: 'linear-gradient(180deg, #ececec 0%, #fff 20%, #e7e7e7 100%)', border: '2px solid rgba(189,189,189,0.4)' }}>
                 {/* Header with character */}
                 <div className="text-center pt-5 pb-3 px-5 relative">
                     {/* Decorative corners */}
-                    <div className="absolute top-2 left-3 text-lg" style={{ color: 'rgba(180,165,170,0.3)' }}><FlowerLotus size={18} /></div>
-                    <div className="absolute top-2 right-3 text-lg" style={{ color: 'rgba(180,165,170,0.3)' }}><FlowerLotus size={18} /></div>
+                    <div className="absolute top-2 left-3 text-lg" style={{ color: 'rgba(169,169,169,0.3)' }}><FlowerLotus size={18} /></div>
+                    <div className="absolute top-2 right-3 text-lg" style={{ color: 'rgba(169,169,169,0.3)' }}><FlowerLotus size={18} /></div>
 
                     {charAvatar ? (
-                        <TokenImg value={charAvatar} className="w-16 h-16 rounded-2xl object-cover shadow-lg mx-auto mb-2" style={{ boxShadow: '0 0 0 3px rgba(180,165,170,0.35), 0 4px 12px rgba(0,0,0,0.1)' }} />
+                        <TokenImg value={charAvatar} className="w-16 h-16 rounded-2xl object-cover shadow-lg mx-auto mb-2" style={{ boxShadow: '0 0 0 3px rgba(169,169,169,0.35), 0 4px 12px rgba(0,0,0,0.1)' }} />
                     ) : (
-                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg mx-auto mb-2" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)', boxShadow: '0 0 0 3px rgba(180,165,170,0.35)' }}>
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg mx-auto mb-2" style={{ background: 'linear-gradient(135deg, #999999, #818181)', boxShadow: '0 0 0 3px rgba(169,169,169,0.35)' }}>
                             {charName[0]}
                         </div>
                     )}
-                    <div className="text-[10px] font-bold tracking-widest uppercase mb-1" style={{ color: '#9b8a8e' }}>攻略本 · 结算报告</div>
-                    <div className="text-xl font-black" style={{ color: '#5a4a50' }}>「{title}」</div>
+                    <div className="text-[10px] font-bold tracking-widest uppercase mb-1" style={{ color: '#8e8e8e' }}>攻略本 · 结算报告</div>
+                    <div className="text-xl font-black" style={{ color: '#4e4e4e' }}>「{title}」</div>
                 </div>
 
                 <div className="px-4 pb-4 space-y-3">
@@ -449,14 +449,14 @@ const EndCard: React.FC<{
                     <Card className="p-3">
                         <div className="flex items-center justify-between">
                             <div>
-                                <div className="text-sm font-bold" style={{ color: '#5a4a50' }}>{charName}</div>
-                                <div className="text-[10px]" style={{ color: '#9b8a8e' }}>{session.rounds.length} 回合</div>
+                                <div className="text-sm font-bold" style={{ color: '#4e4e4e' }}>{charName}</div>
+                                <div className="text-[10px]" style={{ color: '#8e8e8e' }}>{session.rounds.length} 回合</div>
                             </div>
                             <div className="text-right">
-                                <div className={`text-2xl font-black ${diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                                <div className={`text-2xl font-black ${diff > 0 ? 'text-neutral-500' : diff < 0 ? 'text-neutral-400' : 'text-gray-400'}`}>
                                     {finalAffinity}
                                 </div>
-                                <div className="text-[10px]" style={{ color: '#9b8a8e' }}>
+                                <div className="text-[10px]" style={{ color: '#8e8e8e' }}>
                                     {diff >= 0 ? '+' : ''}{diff} 从 {session.initialAffinity}
                                 </div>
                             </div>
@@ -466,7 +466,7 @@ const EndCard: React.FC<{
 
                     {/* Verdict */}
                     <Card className="p-3">
-                        <div className="text-sm leading-relaxed italic" style={{ color: '#5a4a50' }}>
+                        <div className="text-sm leading-relaxed italic" style={{ color: '#4e4e4e' }}>
                             "{charVerdict}"
                         </div>
                     </Card>
@@ -474,12 +474,12 @@ const EndCard: React.FC<{
                     {/* Highlights */}
                     {highlights.length > 0 && (
                         <Card className="p-3 space-y-1.5">
-                            <div className="text-[10px] tracking-wider font-bold flex items-center gap-1" style={{ color: '#9b8a8e' }}>
+                            <div className="text-[10px] tracking-wider font-bold flex items-center gap-1" style={{ color: '#8e8e8e' }}>
                                 <Star size={12} weight="fill" /> 名场面
                             </div>
                             {highlights.map((h, i) => (
-                                <div key={i} className="text-xs flex gap-2 rounded-lg p-2" style={{ color: '#5a4a50', background: 'rgba(245,238,235,0.5)' }}>
-                                    <span className="shrink-0" style={{ color: '#b8909a' }}><CaretRight size={12} weight="bold" /></span>
+                                <div key={i} className="text-xs flex gap-2 rounded-lg p-2" style={{ color: '#4e4e4e', background: 'rgba(239,239,239,0.5)' }}>
+                                    <span className="shrink-0" style={{ color: '#999999' }}><CaretRight size={12} weight="bold" /></span>
                                     <span>{h}</span>
                                 </div>
                             ))}
@@ -488,11 +488,11 @@ const EndCard: React.FC<{
 
                     {/* New Insight — the discovery of this session */}
                     {session.endCard?.charNewInsight && (
-                        <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, rgba(215,230,248,0.65), rgba(200,220,245,0.5))', border: '1px solid rgba(150,185,225,0.4)' }}>
-                            <div className="text-[10px] font-bold flex items-center gap-1 mb-2" style={{ color: '#4a6a92' }}>
+                        <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, rgba(228,228,228,0.65), rgba(218,218,218,0.5))', border: '1px solid rgba(180,180,180,0.4)' }}>
+                            <div className="text-[10px] font-bold flex items-center gap-1 mb-2" style={{ color: '#666666' }}>
                                 <Diamond size={12} weight="fill" /> 这局游戏让我发现的你
                             </div>
-                            <div className="text-sm leading-relaxed italic" style={{ color: '#2a4a68' }}>
+                            <div className="text-sm leading-relaxed italic" style={{ color: '#454545' }}>
                                 {session.endCard.charNewInsight}
                             </div>
                         </div>
@@ -501,14 +501,14 @@ const EndCard: React.FC<{
                     {/* Character Summary */}
                     {charSummary && (
                         <button onClick={() => setExpanded(!expanded)} className="w-full text-left">
-                            <div className="rounded-2xl p-3 backdrop-blur-sm transition-all" style={{ background: 'linear-gradient(135deg, rgba(245,238,235,0.6), rgba(235,228,238,0.5))', border: '1px solid rgba(200,185,190,0.25)' }}>
+                            <div className="rounded-2xl p-3 backdrop-blur-sm transition-all" style={{ background: 'linear-gradient(135deg, rgba(239,239,239,0.6), rgba(230,230,230,0.5))', border: '1px solid rgba(189,189,189,0.25)' }}>
                                 <div className="flex items-center justify-between mb-1">
-                                    <div className="text-[10px] font-bold flex items-center gap-1" style={{ color: '#9b7a7e' }}>
+                                    <div className="text-[10px] font-bold flex items-center gap-1" style={{ color: '#818181' }}>
                                         <Heart size={12} weight="fill" /> {charName}的真心话
                                     </div>
-                                    <span className="text-xs" style={{ color: '#b8a0a8' }}>{expanded ? <CaretUp size={12} /> : <CaretDown size={12} />}</span>
+                                    <span className="text-xs" style={{ color: '#a6a6a6' }}>{expanded ? <CaretUp size={12} /> : <CaretDown size={12} />}</span>
                                 </div>
-                                <div className={`text-sm leading-relaxed ${expanded ? '' : 'line-clamp-2'}`} style={{ color: '#5a4a50' }}>
+                                <div className={`text-sm leading-relaxed ${expanded ? '' : 'line-clamp-2'}`} style={{ color: '#4e4e4e' }}>
                                     {charSummary}
                                 </div>
                             </div>
@@ -518,13 +518,13 @@ const EndCard: React.FC<{
 
                 {/* Actions */}
                 <div className="px-4 pb-4 pt-1 flex gap-2 sticky bottom-0"
-                    style={{ background: 'linear-gradient(0deg, #ece6e9 0%, transparent 100%)' }}>
+                    style={{ background: 'linear-gradient(0deg, #e7e7e7 0%, transparent 100%)' }}>
                     <button onClick={onClose}
-                        className="flex-1 py-2.5 bg-white/80 text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm" style={{ color: '#8b7a7e', border: '1px solid rgba(200,185,190,0.3)' }}>
+                        className="flex-1 py-2.5 bg-white/80 text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm" style={{ color: '#7e7e7e', border: '1px solid rgba(189,189,189,0.3)' }}>
                         关闭
                     </button>
                     <button onClick={onSendToChat}
-                        className="flex-1 py-2.5 text-white text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                        className="flex-1 py-2.5 text-white text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                         发送到聊天
                     </button>
                 </div>
@@ -550,36 +550,36 @@ const SessionCard: React.FC<{
             <div {...longPressHandlers}>
                 <div className="flex items-center gap-3">
                     {char?.avatar ? (
-                        <TokenImg value={char.avatar} className="w-11 h-11 rounded-xl object-cover shadow-sm" style={{ boxShadow: '0 0 0 2px rgba(200,185,190,0.4)' }} />
+                        <TokenImg value={char.avatar} className="w-11 h-11 rounded-xl object-cover shadow-sm" style={{ boxShadow: '0 0 0 2px rgba(189,189,189,0.4)' }} />
                     ) : (
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold shadow-sm" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold shadow-sm" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                             {char?.name?.[0] || '?'}
                         </div>
                     )}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold truncate" style={{ color: '#5a4a50' }}>{char?.name || '???'}</span>
+                            <span className="text-sm font-bold truncate" style={{ color: '#4e4e4e' }}>{char?.name || '???'}</span>
                             {session.endCard && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(200,185,190,0.2)', color: '#8b6a6e', border: '1px solid rgba(200,185,190,0.3)' }}>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(189,189,189,0.2)', color: '#717171', border: '1px solid rgba(189,189,189,0.3)' }}>
                                     「{session.endCard.title}」
                                 </span>
                             )}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[10px]" style={{ color: '#9b8a8e' }}>{fmtDate(session.createdAt)}</span>
-                            <span className="text-[10px]" style={{ color: '#c0b0b5' }}>·</span>
-                            <span className="text-[10px]" style={{ color: '#9b8a8e' }}>{session.rounds.length}回合</span>
-                            <span className="text-[10px]" style={{ color: '#c0b0b5' }}>·</span>
-                            <span className={`text-[10px] font-bold`} style={{ color: session.status === 'ended' ? '#9b8a8e' : '#b89a60' }}>
+                            <span className="text-[10px]" style={{ color: '#8e8e8e' }}>{fmtDate(session.createdAt)}</span>
+                            <span className="text-[10px]" style={{ color: '#b4b4b4' }}>·</span>
+                            <span className="text-[10px]" style={{ color: '#8e8e8e' }}>{session.rounds.length}回合</span>
+                            <span className="text-[10px]" style={{ color: '#b4b4b4' }}>·</span>
+                            <span className={`text-[10px] font-bold`} style={{ color: session.status === 'ended' ? '#8e8e8e' : '#9c9c9c' }}>
                                 {session.status === 'ended' ? '已结算' : '进行中'}
                             </span>
                         </div>
                     </div>
                     <div className="text-right shrink-0">
-                        <div className={`text-lg font-black ${diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                        <div className={`text-lg font-black ${diff > 0 ? 'text-neutral-500' : diff < 0 ? 'text-neutral-400' : 'text-gray-400'}`}>
                             {session.currentAffinity}
                         </div>
-                        <div className="text-[10px]" style={{ color: '#9b8a8e' }}>
+                        <div className="text-[10px]" style={{ color: '#8e8e8e' }}>
                             {diff >= 0 ? '+' : ''}{diff}
                         </div>
                     </div>
@@ -1078,7 +1078,7 @@ const GuidebookApp: React.FC = () => {
         return (
             <GameFrame>
                 {/* Cinematic header - no standard GameHeader */}
-                <div className="shrink-0 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(30,20,40,0.85) 0%, rgba(60,30,50,0.7) 50%, rgba(40,20,50,0.85) 100%)', paddingTop: 'var(--safe-top)' }}>
+                <div className="shrink-0 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(24,24,24,0.85) 0%, rgba(38,38,38,0.7) 50%, rgba(26,26,26,0.85) 100%)', paddingTop: 'var(--safe-top)' }}>
                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.03) 3px, rgba(255,255,255,0.03) 4px)' }} />
                     <div className="flex items-center gap-3 px-4 py-3 relative z-10">
                         <button onClick={closeApp} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/60 text-xs active:scale-90 transition-transform backdrop-blur-sm border border-white/10">
@@ -1093,14 +1093,14 @@ const GuidebookApp: React.FC = () => {
                         </button>
                     </div>
                     {/* Decorative bottom line */}
-                    <div className="h-px" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(244,143,177,0.4) 30%, rgba(167,139,250,0.4) 70%, transparent 100%)' }} />
+                    <div className="h-px" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(167,167,167,0.4) 30%, rgba(153,153,153,0.4) 70%, transparent 100%)' }} />
                 </div>
 
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {/* Title area */}
                     <div className="px-5 pt-5 pb-2">
-                        <div className="text-[9px] tracking-[0.25em] text-pink-400/50 font-light mb-1" style={{ fontFamily: 'Georgia, serif' }}>— SELECT YOUR TARGET —</div>
-                        <div className="text-pink-700/70 text-xs">选择攻略你的角色</div>
+                        <div className="text-[9px] tracking-[0.25em] text-neutral-400/50 font-light mb-1" style={{ fontFamily: 'Georgia, serif' }}>— SELECT YOUR TARGET —</div>
+                        <div className="text-neutral-700/70 text-xs">选择攻略你的角色</div>
                     </div>
 
                     {/* Character Banners */}
@@ -1129,7 +1129,7 @@ const GuidebookApp: React.FC = () => {
                                             />
                                         ) : (
                                             <div className="absolute inset-0" style={{
-                                                background: `linear-gradient(${isEven ? '135deg' : '225deg'}, #4a1942 0%, #2d1b4e 40%, #1a1a2e 100%)`
+                                                background: `linear-gradient(${isEven ? '135deg' : '225deg'}, #262626 0%, #232323 40%, #1b1b1b 100%)`
                                             }} />
                                         )}
 
@@ -1158,13 +1158,13 @@ const GuidebookApp: React.FC = () => {
                                                     />
                                                     {/* Ring glow */}
                                                     <div className="absolute inset-0 rounded-full" style={{
-                                                        boxShadow: '0 0 12px rgba(244,143,177,0.25), 0 0 4px rgba(167,139,250,0.15)',
+                                                        boxShadow: '0 0 12px rgba(167,167,167,0.25), 0 0 4px rgba(153,153,153,0.15)',
                                                     }} />
                                                 </div>
                                             ) : (
                                                 <div className="w-[60px] h-[60px] rounded-full flex items-center justify-center text-white/70 text-xl font-bold shadow-lg"
                                                     style={{
-                                                        background: 'linear-gradient(135deg, rgba(100,60,120,0.8) 0%, rgba(60,40,80,0.9) 100%)',
+                                                        background: 'linear-gradient(135deg, rgba(73,73,73,0.8) 0%, rgba(47,47,47,0.9) 100%)',
                                                         border: '2px solid rgba(255,255,255,0.15)',
                                                         boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
                                                     }}>
@@ -1193,8 +1193,8 @@ const GuidebookApp: React.FC = () => {
                                             {/* Session badge */}
                                             {charSessions.length > 0 && (
                                                 <div className={`flex items-center gap-1.5 mt-1 ${isEven ? '' : 'flex-row-reverse'}`}>
-                                                    <div className="h-px w-3 bg-pink-300/40" />
-                                                    <span className="text-[8px] text-pink-200/50 tracking-wider">
+                                                    <div className="h-px w-3 bg-neutral-300/40" />
+                                                    <span className="text-[8px] text-neutral-200/50 tracking-wider">
                                                         {charSessions.length}回攻略{lastSession?.endCard ? ` ·「${lastSession.endCard.title}」` : ''}
                                                     </span>
                                                 </div>
@@ -1207,14 +1207,14 @@ const GuidebookApp: React.FC = () => {
                                         </div>
 
                                         {/* Hover/active glow */}
-                                        <div className="absolute inset-0 bg-pink-400/0 group-active:bg-pink-400/10 transition-colors duration-200" style={{ borderRadius: '4px' }} />
+                                        <div className="absolute inset-0 bg-neutral-400/0 group-active:bg-neutral-400/10 transition-colors duration-200" style={{ borderRadius: '4px' }} />
                                     </div>
 
                                     {/* Thin accent line under each card */}
                                     <div className="h-[2px] mt-0.5" style={{
                                         background: isEven
-                                            ? 'linear-gradient(90deg, rgba(244,143,177,0.5) 0%, rgba(167,139,250,0.3) 50%, transparent 100%)'
-                                            : 'linear-gradient(270deg, rgba(244,143,177,0.5) 0%, rgba(167,139,250,0.3) 50%, transparent 100%)'
+                                            ? 'linear-gradient(90deg, rgba(167,167,167,0.5) 0%, rgba(153,153,153,0.3) 50%, transparent 100%)'
+                                            : 'linear-gradient(270deg, rgba(167,167,167,0.5) 0%, rgba(153,153,153,0.3) 50%, transparent 100%)'
                                     }} />
                                 </button>
                             );
@@ -1223,8 +1223,8 @@ const GuidebookApp: React.FC = () => {
 
                     {characters.length === 0 && (
                         <div className="text-center py-16 px-6">
-                            <div className="text-[10px] tracking-[0.3em] mb-2" style={{ fontFamily: 'Georgia, serif', color: 'rgba(180,165,170,0.3)' }}>NO CHARACTERS FOUND</div>
-                            <div className="text-xs" style={{ color: 'rgba(160,145,150,0.5)' }}>还没有角色，先去创建一个吧</div>
+                            <div className="text-[10px] tracking-[0.3em] mb-2" style={{ fontFamily: 'Georgia, serif', color: 'rgba(169,169,169,0.3)' }}>NO CHARACTERS FOUND</div>
+                            <div className="text-xs" style={{ color: 'rgba(149,149,149,0.5)' }}>还没有角色，先去创建一个吧</div>
                         </div>
                     )}
 
@@ -1233,9 +1233,9 @@ const GuidebookApp: React.FC = () => {
                         <div className="px-4 pb-4 mt-2">
                             {/* Section divider */}
                             <div className="flex items-center gap-2 mb-3 px-1">
-                                <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(244,143,177,0.25) 50%, transparent 100%)' }} />
-                                <span className="text-[8px] tracking-[0.3em] text-pink-400/40" style={{ fontFamily: 'Georgia, serif' }}>HISTORY</span>
-                                <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(244,143,177,0.25) 50%, transparent 100%)' }} />
+                                <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(167,167,167,0.25) 50%, transparent 100%)' }} />
+                                <span className="text-[8px] tracking-[0.3em] text-neutral-400/40" style={{ fontFamily: 'Georgia, serif' }}>HISTORY</span>
+                                <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(167,167,167,0.25) 50%, transparent 100%)' }} />
                             </div>
                             <div className="space-y-2">
                                 {savedSessions.map(s => (
@@ -1256,10 +1256,10 @@ const GuidebookApp: React.FC = () => {
                 {showTutorial && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
                         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowTutorial(false)} />
-                        <div className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl" style={{ background: 'linear-gradient(160deg, #2a1a2e 0%, #1a1228 60%, #221530 100%)', border: '1px solid rgba(244,143,177,0.15)' }}>
+                        <div className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl" style={{ background: 'linear-gradient(160deg, #1f1f1f 0%, #151515 60%, #1a1a1a 100%)', border: '1px solid rgba(167,167,167,0.15)' }}>
                             {/* Header */}
                             <div className="px-5 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                <div className="text-[9px] tracking-[0.3em] text-pink-400/50 mb-1" style={{ fontFamily: 'Georgia, serif' }}>HOW TO PLAY</div>
+                                <div className="text-[9px] tracking-[0.3em] text-neutral-400/50 mb-1" style={{ fontFamily: 'Georgia, serif' }}>HOW TO PLAY</div>
                                 <div className="text-lg font-bold text-white/90">攻略本 · 玩法说明</div>
                             </div>
                             {/* Content */}
@@ -1273,7 +1273,7 @@ const GuidebookApp: React.FC = () => {
                                     { icon: <Cards size={14} weight="fill" />, title: '结算卡片', desc: '游戏结束后生成结算卡，包含角色的真实评语和本局高光时刻，还可以发送到聊天。' },
                                 ].map((item, i) => (
                                     <div key={i} className="flex gap-3">
-                                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5" style={{ background: 'rgba(244,143,177,0.15)', color: '#f48fb1' }}>{item.icon}</div>
+                                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5" style={{ background: 'rgba(167,167,167,0.15)', color: '#a7a7a7' }}>{item.icon}</div>
                                         <div>
                                             <div className="text-xs font-bold text-white/80 mb-0.5">{item.title}</div>
                                             <div className="text-[11px] leading-relaxed text-white/45">{item.desc}</div>
@@ -1283,7 +1283,7 @@ const GuidebookApp: React.FC = () => {
                             </div>
                             {/* Close */}
                             <div className="px-5 pb-5 pt-3">
-                                <button onClick={() => setShowTutorial(false)} className="w-full py-2.5 rounded-2xl text-sm font-bold active:scale-95 transition-transform" style={{ background: 'linear-gradient(135deg, rgba(244,143,177,0.25), rgba(167,139,250,0.2))', color: '#f48fb1', border: '1px solid rgba(244,143,177,0.2)' }}>
+                                <button onClick={() => setShowTutorial(false)} className="w-full py-2.5 rounded-2xl text-sm font-bold active:scale-95 transition-transform" style={{ background: 'linear-gradient(135deg, rgba(167,167,167,0.25), rgba(153,153,153,0.2))', color: '#a7a7a7', border: '1px solid rgba(167,167,167,0.2)' }}>
                                     明白了！开始攻略 <ArrowRight size={14} className="inline" />
                                 </button>
                             </div>
@@ -1296,10 +1296,10 @@ const GuidebookApp: React.FC = () => {
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
                         <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setDeleteSessionId(null)} />
                         <Card className="relative p-5 max-w-xs w-full space-y-3">
-                            <div className="font-bold text-sm text-center" style={{ color: '#5a4a50' }}>删除这条记录？</div>
+                            <div className="font-bold text-sm text-center" style={{ color: '#4e4e4e' }}>删除这条记录？</div>
                             <div className="flex gap-2">
-                                <button onClick={() => setDeleteSessionId(null)} className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-xl active:scale-95 transition-transform" style={{ color: '#8b7a7e', border: '1px solid rgba(200,185,190,0.3)' }}>取消</button>
-                                <button onClick={() => handleDeleteSession(deleteSessionId)} className="flex-1 py-2.5 bg-red-400 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform shadow-sm">删除</button>
+                                <button onClick={() => setDeleteSessionId(null)} className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-xl active:scale-95 transition-transform" style={{ color: '#7e7e7e', border: '1px solid rgba(189,189,189,0.3)' }}>取消</button>
+                                <button onClick={() => handleDeleteSession(deleteSessionId)} className="flex-1 py-2.5 bg-neutral-400 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform shadow-sm">删除</button>
                             </div>
                         </Card>
                     </div>
@@ -1314,7 +1314,7 @@ const GuidebookApp: React.FC = () => {
         return (
             <GameFrame>
                 {/* Cinematic header matching lobby style */}
-                <div className="shrink-0 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(30,20,40,0.85) 0%, rgba(60,30,50,0.7) 50%, rgba(40,20,50,0.85) 100%)', paddingTop: 'var(--safe-top)' }}>
+                <div className="shrink-0 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(24,24,24,0.85) 0%, rgba(38,38,38,0.7) 50%, rgba(26,26,26,0.85) 100%)', paddingTop: 'var(--safe-top)' }}>
                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.03) 3px, rgba(255,255,255,0.03) 4px)' }} />
                     <div className="flex items-center gap-3 px-4 py-3 relative z-10">
                         <button onClick={backToLobby} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/60 text-xs active:scale-90 transition-transform backdrop-blur-sm border border-white/10">
@@ -1325,7 +1325,7 @@ const GuidebookApp: React.FC = () => {
                             <div className="text-base font-bold text-white/90 tracking-wider mt-0.5">新游戏</div>
                         </div>
                     </div>
-                    <div className="h-px" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(196,139,139,0.4) 30%, rgba(185,163,187,0.4) 70%, transparent 100%)' }} />
+                    <div className="h-px" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(151,151,151,0.4) 30%, rgba(169,169,169,0.4) 70%, transparent 100%)' }} />
                 </div>
 
                 <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -1340,7 +1340,7 @@ const GuidebookApp: React.FC = () => {
                                         style={{ objectPosition: 'center 25%', filter: 'brightness(0.6) contrast(1.1) saturate(1.3) blur(1px)' }}
                                     />
                                 ) : (
-                                    <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #4a1942 0%, #2d1b4e 40%, #1a1a2e 100%)' }} />
+                                    <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #262626 0%, #232323 40%, #1b1b1b 100%)' }} />
                                 )}
                                 {/* Overlay gradient */}
                                 <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.3) 100%)' }} />
@@ -1351,15 +1351,15 @@ const GuidebookApp: React.FC = () => {
                                     {/* Portrait */}
                                     {setupChar.avatar ? (
                                         <TokenImg value={setupChar.avatar} className="w-14 h-14 rounded-full object-cover shrink-0 shadow-lg"
-                                            style={{ border: '2px solid rgba(255,255,255,0.25)', boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 0 12px rgba(196,139,139,0.2)' }} />
+                                            style={{ border: '2px solid rgba(255,255,255,0.25)', boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 0 12px rgba(151,151,151,0.2)' }} />
                                     ) : (
                                         <div className="w-14 h-14 rounded-full flex items-center justify-center text-white/70 text-xl font-bold shrink-0 shadow-lg"
-                                            style={{ background: 'linear-gradient(135deg, rgba(100,60,120,0.8), rgba(60,40,80,0.9))', border: '2px solid rgba(255,255,255,0.15)' }}>
+                                            style={{ background: 'linear-gradient(135deg, rgba(73,73,73,0.8), rgba(47,47,47,0.9))', border: '2px solid rgba(255,255,255,0.15)' }}>
                                             {setupChar.name[0]}
                                         </div>
                                     )}
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-[9px] tracking-[0.2em] text-pink-200/40" style={{ fontFamily: 'Georgia, serif' }}>TARGET</div>
+                                        <div className="text-[9px] tracking-[0.2em] text-neutral-200/40" style={{ fontFamily: 'Georgia, serif' }}>TARGET</div>
                                         <div className="text-white font-bold text-lg tracking-wide" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
                                             {setupChar.name}
                                         </div>
@@ -1370,31 +1370,31 @@ const GuidebookApp: React.FC = () => {
                                 </div>
                             </div>
                             {/* Accent line */}
-                            <div className="h-[2px]" style={{ background: 'linear-gradient(90deg, rgba(196,139,139,0.5) 0%, rgba(185,163,187,0.4) 50%, transparent 100%)' }} />
+                            <div className="h-[2px]" style={{ background: 'linear-gradient(90deg, rgba(151,151,151,0.5) 0%, rgba(169,169,169,0.4) 50%, transparent 100%)' }} />
                         </div>
                     )}
 
                     {/* Settings Area - Morandi dusty pink palette */}
                     <div className="px-4 pt-4 pb-3 space-y-3">
                         {/* Initial Affinity */}
-                        <div className="relative rounded-2xl overflow-hidden" style={{ background: 'rgba(245,238,235,0.7)', backdropFilter: 'blur(8px)', border: '1.5px solid rgba(200,180,175,0.25)' }}>
+                        <div className="relative rounded-2xl overflow-hidden" style={{ background: 'rgba(239,239,239,0.7)', backdropFilter: 'blur(8px)', border: '1.5px solid rgba(184,184,184,0.25)' }}>
                             <div className="p-3.5 space-y-2.5">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1.5">
-                                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" style={{ background: 'linear-gradient(135deg, #d4a0a0, #c48b8b)', color: 'white' }}><Heart size={12} weight="fill" /></div>
-                                        <span className="text-xs font-bold" style={{ color: '#8b6f6f' }}>初始好感度</span>
+                                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" style={{ background: 'linear-gradient(135deg, #ababab, #979797)', color: 'white' }}><Heart size={12} weight="fill" /></div>
+                                        <span className="text-xs font-bold" style={{ color: '#757575' }}>初始好感度</span>
                                     </div>
-                                    <div className="px-2.5 py-0.5 rounded-full text-xs font-bold" style={{ color: '#9b7a7a', background: 'rgba(212,160,160,0.15)', border: '1px solid rgba(200,180,175,0.2)' }}>
+                                    <div className="px-2.5 py-0.5 rounded-full text-xs font-bold" style={{ color: '#818181', background: 'rgba(171,171,171,0.15)', border: '1px solid rgba(184,184,184,0.2)' }}>
                                         {initialAffinity}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2.5">
                                     <div className="flex-1 relative h-7 flex items-center">
                                         {/* Track background */}
-                                        <div className="absolute inset-x-0 h-2 rounded-full" style={{ background: 'rgba(212,180,175,0.25)', top: '50%', transform: 'translateY(-50%)' }} />
+                                        <div className="absolute inset-x-0 h-2 rounded-full" style={{ background: 'rgba(186,186,186,0.25)', top: '50%', transform: 'translateY(-50%)' }} />
                                         {/* Fill */}
                                         <div className="absolute h-2 rounded-full" style={{
-                                            background: 'linear-gradient(90deg, #c9b1bd, #c48b8b)',
+                                            background: 'linear-gradient(90deg, #b7b7b7, #979797)',
                                             width: `${(initialAffinity + 100) / 200 * 100}%`,
                                             top: '50%', transform: 'translateY(-50%)',
                                         }} />
@@ -1405,7 +1405,7 @@ const GuidebookApp: React.FC = () => {
                                         <div className="absolute w-5 h-5 rounded-full bg-white pointer-events-none" style={{
                                             left: `calc(${(initialAffinity + 100) / 200 * 100}% - 10px)`,
                                             top: '50%', transform: 'translateY(-50%)',
-                                            border: '2.5px solid #c48b8b',
+                                            border: '2.5px solid #979797',
                                             boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
                                             zIndex: 1,
                                         }} />
@@ -1413,32 +1413,32 @@ const GuidebookApp: React.FC = () => {
                                     <input type="number" value={initialAffinity}
                                         onChange={e => setInitialAffinity(Number(e.target.value))}
                                         className="w-14 rounded-xl px-2 py-1.5 text-center text-xs font-bold focus:outline-none"
-                                        style={{ color: '#8b6f6f', background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(200,180,175,0.2)' }} />
+                                        style={{ color: '#757575', background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(184,184,184,0.2)' }} />
                                 </div>
-                                <div className="text-[9px]" style={{ color: 'rgba(160,130,130,0.5)' }}>支持负数，随便填（角色会看到并做出反应）</div>
+                                <div className="text-[9px]" style={{ color: 'rgba(136,136,136,0.5)' }}>支持负数，随便填（角色会看到并做出反应）</div>
                             </div>
                         </div>
 
                         {/* Max Rounds */}
-                        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(245,238,235,0.7)', backdropFilter: 'blur(8px)', border: '1.5px solid rgba(200,180,175,0.25)' }}>
+                        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(239,239,239,0.7)', backdropFilter: 'blur(8px)', border: '1.5px solid rgba(184,184,184,0.25)' }}>
                             <div className="p-3 space-y-2">
                                 <div className="flex items-center gap-1.5">
-                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" style={{ background: 'linear-gradient(135deg, #c9b1bd, #b89aaa)', color: 'white' }}><Sparkle size={12} weight="fill" /></div>
-                                    <span className="text-xs font-bold" style={{ color: '#8b6f6f' }}>回合数</span>
+                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" style={{ background: 'linear-gradient(135deg, #b7b7b7, #a2a2a2)', color: 'white' }}><Sparkle size={12} weight="fill" /></div>
+                                    <span className="text-xs font-bold" style={{ color: '#757575' }}>回合数</span>
                                 </div>
                                 <div className="grid grid-cols-4 gap-1.5">
                                     {[3, 5, 8, 10].map(n => (
                                         <button key={n} onClick={() => { trackEvent('选择攻略回合数', { rounds: n }); setMaxRounds(n); }}
                                             className="py-2 rounded-xl text-xs transition-all active:scale-90"
                                             style={maxRounds === n ? {
-                                                background: 'linear-gradient(135deg, #c9a0a0, #b88a8a)',
+                                                background: 'linear-gradient(135deg, #a9a9a9, #949494)',
                                                 color: 'white',
                                                 fontWeight: 700,
-                                                boxShadow: '0 2px 6px rgba(180,130,130,0.2)',
+                                                boxShadow: '0 2px 6px rgba(141,141,141,0.2)',
                                             } : {
                                                 background: 'rgba(255,255,255,0.5)',
-                                                color: 'rgba(160,130,130,0.6)',
-                                                border: '1px solid rgba(200,180,175,0.2)',
+                                                color: 'rgba(136,136,136,0.6)',
+                                                border: '1px solid rgba(184,184,184,0.2)',
                                             }}>{n}</button>
                                     ))}
                                 </div>
@@ -1446,12 +1446,12 @@ const GuidebookApp: React.FC = () => {
                         </div>
 
                         {/* Fantasy Scenario / World Setting */}
-                        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(245,238,235,0.7)', backdropFilter: 'blur(8px)', border: '1.5px solid rgba(200,180,175,0.25)' }}>
+                        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(239,239,239,0.7)', backdropFilter: 'blur(8px)', border: '1.5px solid rgba(184,184,184,0.25)' }}>
                             <div className="p-3.5 space-y-2.5">
                                 <div className="flex items-center gap-1.5">
-                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" style={{ background: 'linear-gradient(135deg, #c5b8c9, #b5a3bb)', color: 'white' }}><FlowerLotus size={12} weight="fill" /></div>
-                                    <span className="text-xs font-bold" style={{ color: '#8b6f6f' }}>幻想场景</span>
-                                    <span className="text-[9px] ml-0.5" style={{ color: 'rgba(160,130,130,0.4)' }}>选一个或自己写</span>
+                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" style={{ background: 'linear-gradient(135deg, #bcbcbc, #a9a9a9)', color: 'white' }}><FlowerLotus size={12} weight="fill" /></div>
+                                    <span className="text-xs font-bold" style={{ color: '#757575' }}>幻想场景</span>
+                                    <span className="text-[9px] ml-0.5" style={{ color: 'rgba(136,136,136,0.4)' }}>选一个或自己写</span>
                                 </div>
                                 {/* Fantasy Presets */}
                                 <div className="grid grid-cols-3 gap-1.5">
@@ -1466,14 +1466,14 @@ const GuidebookApp: React.FC = () => {
                                         <button key={preset.label} onClick={() => { trackEvent('选择幻想场景预设', { preset: preset.label }); setScenarioHint(preset.value); }}
                                             className="py-2 px-1 rounded-xl text-[10px] transition-all active:scale-90 text-center leading-tight"
                                             style={scenarioHint === preset.value && preset.value ? {
-                                                background: 'linear-gradient(135deg, #c9a0a0, #b88a8a)',
+                                                background: 'linear-gradient(135deg, #a9a9a9, #949494)',
                                                 color: 'white',
                                                 fontWeight: 700,
-                                                boxShadow: '0 2px 6px rgba(180,130,130,0.2)',
+                                                boxShadow: '0 2px 6px rgba(141,141,141,0.2)',
                                             } : {
                                                 background: 'rgba(255,255,255,0.5)',
-                                                color: 'rgba(120,100,100,0.6)',
-                                                border: '1px solid rgba(200,180,175,0.2)',
+                                                color: 'rgba(104,104,104,0.6)',
+                                                border: '1px solid rgba(184,184,184,0.2)',
                                             }}>
                                             <img src={preset.icon} className="w-4 h-4 inline" alt="" />{' '}{preset.label}
                                         </button>
@@ -1482,14 +1482,14 @@ const GuidebookApp: React.FC = () => {
                                 <input type="text" value={scenarioHint} onChange={e => setScenarioHint(e.target.value)}
                                     placeholder="自由描述: 在某个游戏里/小说背景/咖啡馆偶遇/雨天同伞..."
                                     className="w-full rounded-xl px-3 py-2.5 text-xs focus:outline-none placeholder-stone-300"
-                                    style={{ color: '#6b5555', background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(200,180,175,0.2)' }}
+                                    style={{ color: '#5a5a5a', background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(184,184,184,0.2)' }}
                                     />
-                                <div className="text-[9px]" style={{ color: 'rgba(160,130,130,0.4)' }}>大胆设想！这是游戏，不用拘束于现实</div>
+                                <div className="text-[9px]" style={{ color: 'rgba(136,136,136,0.4)' }}>大胆设想！这是游戏，不用拘束于现实</div>
                             </div>
                         </div>
 
                         {error && (
-                            <div className="rounded-2xl p-3 text-xs" style={{ color: '#a06060', background: 'rgba(240,220,220,0.6)', border: '1px solid rgba(200,160,160,0.3)' }}>
+                            <div className="rounded-2xl p-3 text-xs" style={{ color: '#6e6e6e', background: 'rgba(224,224,224,0.6)', border: '1px solid rgba(169,169,169,0.3)' }}>
                                 {error}
                             </div>
                         )}
@@ -1501,10 +1501,10 @@ const GuidebookApp: React.FC = () => {
                     <button onClick={handleStartGame} disabled={!selectedCharId || isLoading}
                         className="w-full py-3.5 font-bold text-sm tracking-wider active:scale-[0.97] transition-all disabled:opacity-40"
                         style={{
-                            background: 'linear-gradient(135deg, #c9a0a0 0%, #b88a8a 50%, #a07878 100%)',
+                            background: 'linear-gradient(135deg, #a9a9a9 0%, #949494 50%, #818181 100%)',
                             color: 'white',
                             borderRadius: '16px',
-                            boxShadow: '0 4px 16px rgba(180,130,130,0.3), 0 2px 6px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.15)',
+                            boxShadow: '0 4px 16px rgba(141,141,141,0.3), 0 2px 6px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.15)',
                             border: '1px solid rgba(255,255,255,0.1)',
                         }}>
                         {isLoading ? (
@@ -1535,7 +1535,7 @@ const GuidebookApp: React.FC = () => {
                 <TypewriterSegments segments={openingSegments} charName={selectedChar?.name || '???'} onDone={handleOpeningDone} />
                 <div className="p-4 shrink-0">
                     <button onClick={handleOpeningDone}
-                        className="w-full py-2.5 bg-white/70 text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm" style={{ color: '#8b7a7e', border: '1px solid rgba(200,185,190,0.3)' }}>
+                        className="w-full py-2.5 bg-white/70 text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm" style={{ color: '#7e7e7e', border: '1px solid rgba(189,189,189,0.3)' }}>
                         跳过 <ArrowRight size={14} className="inline" />
                     </button>
                 </div>
@@ -1574,9 +1574,9 @@ const GuidebookApp: React.FC = () => {
                             <SegmentBubble key={i} seg={seg} charName={charName} />
                         ))}
                         <div className="flex items-center gap-2 my-2">
-                            <div className="h-px flex-1" style={{ background: 'rgba(200,185,190,0.25)' }} />
-                            <span className="text-[10px] font-bold" style={{ color: 'rgba(160,145,150,0.5)' }}>游戏开始</span>
-                            <div className="h-px flex-1" style={{ background: 'rgba(200,185,190,0.25)' }} />
+                            <div className="h-px flex-1" style={{ background: 'rgba(189,189,189,0.25)' }} />
+                            <span className="text-[10px] font-bold" style={{ color: 'rgba(149,149,149,0.5)' }}>游戏开始</span>
+                            <div className="h-px flex-1" style={{ background: 'rgba(189,189,189,0.25)' }} />
                         </div>
                     </div>
                 )}
@@ -1597,23 +1597,23 @@ const GuidebookApp: React.FC = () => {
                 {isReplay && session?.endCard && (
                     <Card className="p-4 space-y-3 mt-2">
                         <div className="text-center">
-                            <div className="text-[10px] tracking-wider font-bold mb-1 flex items-center justify-center gap-1" style={{ color: '#9b8a8e' }}><Sparkle size={12} weight="fill" /> 结算 <Sparkle size={12} weight="fill" /></div>
-                            <div className="text-lg font-black" style={{ color: '#5a4a50' }}>「{session.endCard.title}」</div>
+                            <div className="text-[10px] tracking-wider font-bold mb-1 flex items-center justify-center gap-1" style={{ color: '#8e8e8e' }}><Sparkle size={12} weight="fill" /> 结算 <Sparkle size={12} weight="fill" /></div>
+                            <div className="text-lg font-black" style={{ color: '#4e4e4e' }}>「{session.endCard.title}」</div>
                         </div>
-                        <div className="text-sm italic text-center rounded-xl p-2" style={{ color: '#5a4a50', background: 'rgba(245,238,235,0.5)' }}>
+                        <div className="text-sm italic text-center rounded-xl p-2" style={{ color: '#4e4e4e', background: 'rgba(239,239,239,0.5)' }}>
                             "{session.endCard.charVerdict}"
                         </div>
                         {session.endCard.highlights.map((h, i) => (
-                            <div key={i} className="text-xs flex gap-2 rounded-lg p-2" style={{ color: '#5a4a50', background: 'rgba(245,238,235,0.3)' }}>
-                                <span className="shrink-0" style={{ color: '#b8909a' }}><CaretRight size={12} weight="bold" /></span><span>{h}</span>
+                            <div key={i} className="text-xs flex gap-2 rounded-lg p-2" style={{ color: '#4e4e4e', background: 'rgba(239,239,239,0.3)' }}>
+                                <span className="shrink-0" style={{ color: '#999999' }}><CaretRight size={12} weight="bold" /></span><span>{h}</span>
                             </div>
                         ))}
                         {session.endCard.charSummary && (
-                            <div className="rounded-xl p-3" style={{ background: 'linear-gradient(135deg, rgba(245,238,235,0.5), rgba(235,228,238,0.4))', border: '1px solid rgba(200,185,190,0.2)' }}>
-                                <div className="text-[10px] font-bold mb-1 flex items-center gap-1" style={{ color: '#9b7a7e' }}>
+                            <div className="rounded-xl p-3" style={{ background: 'linear-gradient(135deg, rgba(239,239,239,0.5), rgba(230,230,230,0.4))', border: '1px solid rgba(189,189,189,0.2)' }}>
+                                <div className="text-[10px] font-bold mb-1 flex items-center gap-1" style={{ color: '#818181' }}>
                                     <Heart size={12} weight="fill" /> {charName}的真心话
                                 </div>
-                                <div className="text-sm leading-relaxed" style={{ color: '#5a4a50' }}>{session.endCard.charSummary}</div>
+                                <div className="text-sm leading-relaxed" style={{ color: '#4e4e4e' }}>{session.endCard.charSummary}</div>
                             </div>
                         )}
                     </Card>
@@ -1621,8 +1621,8 @@ const GuidebookApp: React.FC = () => {
 
                 {/* Loading */}
                 {isLoading && (
-                    <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(140,125,130,0.7)' }}>
-                        <div className="w-4 h-4 rounded-full animate-spin" style={{ border: '2px solid rgba(200,185,190,0.3)', borderTopColor: '#b8909a' }} />
+                    <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(129,129,129,0.7)' }}>
+                        <div className="w-4 h-4 rounded-full animate-spin" style={{ border: '2px solid rgba(189,189,189,0.3)', borderTopColor: '#999999' }} />
                         <span>{charName} 正在思考...</span>
                     </div>
                 )}
@@ -1630,7 +1630,7 @@ const GuidebookApp: React.FC = () => {
                 {error && (
                     // Card 只用自己那套卡片样式，不转发 style，这里原来传的红框/浅红底从来没生效过，就别传了
                     <Card className="p-3">
-                        <div className="text-red-500 text-xs">{error}</div>
+                        <div className="text-neutral-500 text-xs">{error}</div>
                     </Card>
                 )}
             </div>
@@ -1638,16 +1638,16 @@ const GuidebookApp: React.FC = () => {
             {/* Input Area (playing only) */}
             {!isReplay && session?.status === 'playing' && !isLoading && (
                 <div className="shrink-0"
-                    style={{ background: 'linear-gradient(0deg, rgba(240,235,232,0.95) 0%, rgba(236,230,233,0.9) 100%)', borderTop: '2px solid rgba(200,185,190,0.15)' }}>
+                    style={{ background: 'linear-gradient(0deg, rgba(236,236,236,0.95) 0%, rgba(231,231,231,0.9) 100%)', borderTop: '2px solid rgba(189,189,189,0.15)' }}>
 
                     {/* Collapse toggle bar */}
                     <button onClick={() => setInputCollapsed(c => !c)}
                         className="w-full flex items-center justify-center gap-1.5 py-2 active:bg-white/30 transition-colors"
-                        style={{ borderBottom: inputCollapsed ? 'none' : '1px solid rgba(200,185,190,0.1)' }}>
-                        <span className="text-[10px] font-bold" style={{ color: '#9b8a8e' }}>
+                        style={{ borderBottom: inputCollapsed ? 'none' : '1px solid rgba(189,189,189,0.1)' }}>
+                        <span className="text-[10px] font-bold" style={{ color: '#8e8e8e' }}>
                             {inputCollapsed ? '展开编辑面板' : '收起编辑面板'}
                         </span>
-                        <span className="text-[10px]" style={{ color: 'rgba(160,145,150,0.5)' }}>
+                        <span className="text-[10px]" style={{ color: 'rgba(149,149,149,0.5)' }}>
                             {inputCollapsed ? <CaretUp size={12} /> : <CaretDown size={12} />}
                         </span>
                     </button>
@@ -1657,29 +1657,29 @@ const GuidebookApp: React.FC = () => {
                             {/* Tappable scenario row */}
                             <button onClick={() => { setEditingScenario(true); setEditScenarioText(roundScenario); }}
                                 className="w-full flex gap-2 items-start active:scale-[0.98] transition-transform"
-                                style={{ background: 'rgba(255,255,255,0.7)', border: '1px dashed rgba(200,185,190,0.3)', borderRadius: '12px', padding: '8px 10px' }}>
-                                <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] shrink-0 mt-0.5" style={{ background: 'rgba(200,185,190,0.2)', color: '#9b8a8e' }}><FlowerLotus size={12} /></span>
-                                <span className="flex-1 text-left text-xs leading-relaxed truncate" style={{ color: roundScenario ? '#5a4a50' : 'rgba(160,140,145,0.5)' }}>
+                                style={{ background: 'rgba(255,255,255,0.7)', border: '1px dashed rgba(189,189,189,0.3)', borderRadius: '12px', padding: '8px 10px' }}>
+                                <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] shrink-0 mt-0.5" style={{ background: 'rgba(189,189,189,0.2)', color: '#8e8e8e' }}><FlowerLotus size={12} /></span>
+                                <span className="flex-1 text-left text-xs leading-relaxed truncate" style={{ color: roundScenario ? '#4e4e4e' : 'rgba(145,145,145,0.5)' }}>
                                     {roundScenario || '场景描述 (可选，留空由GM发挥)'}
                                 </span>
-                                <span className="text-[10px] shrink-0 mt-0.5" style={{ color: 'rgba(160,140,145,0.5)' }}><PencilSimple size={12} /></span>
+                                <span className="text-[10px] shrink-0 mt-0.5" style={{ color: 'rgba(145,145,145,0.5)' }}><PencilSimple size={12} /></span>
                             </button>
 
                             {/* Tappable option rows */}
                             {[0, 1, 2].map(i => (
                                 <button key={i} onClick={() => { setEditingOptIdx(i); setEditOptText(optionTexts[i]); setEditOptScore(String(optionScores[i])); }}
                                     className="w-full flex gap-2 items-start active:scale-[0.98] transition-transform"
-                                    style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(200,185,190,0.3)', borderRadius: '12px', padding: '8px 10px' }}>
-                                    <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] text-white font-bold shrink-0 shadow-sm mt-0.5" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                                    style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(189,189,189,0.3)', borderRadius: '12px', padding: '8px 10px' }}>
+                                    <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] text-white font-bold shrink-0 shadow-sm mt-0.5" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                                         {String.fromCharCode(65 + i)}
                                     </span>
-                                    <span className="flex-1 text-left text-xs leading-relaxed truncate" style={{ color: optionTexts[i] ? '#5a4a50' : 'rgba(160,140,145,0.5)' }}>
+                                    <span className="flex-1 text-left text-xs leading-relaxed truncate" style={{ color: optionTexts[i] ? '#4e4e4e' : 'rgba(145,145,145,0.5)' }}>
                                         {optionTexts[i] || `${charName}的行为${String.fromCharCode(65 + i)}...`}
                                     </span>
-                                    <span className="text-[10px] font-bold shrink-0 px-1.5 py-0.5 rounded-lg" style={{ color: optionScores[i] >= 0 ? '#7a5a5e' : '#5a5a7a', background: optionScores[i] >= 0 ? 'rgba(200,170,175,0.2)' : 'rgba(170,170,200,0.2)' }}>
+                                    <span className="text-[10px] font-bold shrink-0 px-1.5 py-0.5 rounded-lg" style={{ color: optionScores[i] >= 0 ? '#616161' : '#5c5c5c', background: optionScores[i] >= 0 ? 'rgba(177,177,177,0.2)' : 'rgba(172,172,172,0.2)' }}>
                                         {optionScores[i] >= 0 ? '+' : ''}{optionScores[i]}
                                     </span>
-                                    <span className="text-[10px] shrink-0" style={{ color: 'rgba(160,140,145,0.5)' }}><PencilSimple size={12} /></span>
+                                    <span className="text-[10px] shrink-0" style={{ color: 'rgba(145,145,145,0.5)' }}><PencilSimple size={12} /></span>
                                 </button>
                             ))}
 
@@ -1687,21 +1687,21 @@ const GuidebookApp: React.FC = () => {
                             <input type="text" value={nextDirectionHint} onChange={e => setNextDirectionHint(e.target.value)}
                                 placeholder="接下来对GM的剧情方向指导 (选填)"
                                 className="w-full rounded-xl px-3 py-2 text-[11px] focus:outline-none"
-                                style={{ background: 'rgba(255,255,255,0.5)', border: '1px dashed rgba(200,185,190,0.3)', color: '#5a4a50' }} />
+                                style={{ background: 'rgba(255,255,255,0.5)', border: '1px dashed rgba(189,189,189,0.3)', color: '#4e4e4e' }} />
 
                             <div className="flex gap-2">
                                 <button onClick={handleAIAssist} disabled={isLoading}
-                                    className="flex-1 py-2 bg-white/70 text-xs font-bold rounded-xl active:scale-95 transition-transform shadow-sm" style={{ color: '#9b8a8e', border: '1px solid rgba(200,185,190,0.3)' }}>
+                                    className="flex-1 py-2 bg-white/70 text-xs font-bold rounded-xl active:scale-95 transition-transform shadow-sm" style={{ color: '#8e8e8e', border: '1px solid rgba(189,189,189,0.3)' }}>
                                     <Sparkle size={12} weight="fill" className="inline" /> AI 一键填入
                                 </button>
                                 <button onClick={handleSubmitRound} disabled={isLoading || optionTexts.some(t => !t.trim())}
-                                    className="flex-1 py-2 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-50 shadow-md" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                                    className="flex-1 py-2 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-50 shadow-md" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                                     提交本回合
                                 </button>
                             </div>
 
                             <button onClick={handleEndGame} disabled={isLoading || !session.rounds.length}
-                                className="w-full py-2 bg-white/50 text-xs rounded-xl active:scale-95 transition-transform disabled:opacity-30" style={{ color: '#9b8a8e', border: '1px solid rgba(200,185,190,0.2)' }}>
+                                className="w-full py-2 bg-white/50 text-xs rounded-xl active:scale-95 transition-transform disabled:opacity-30" style={{ color: '#8e8e8e', border: '1px solid rgba(189,189,189,0.2)' }}>
                                 就到这吧 · 生成结算卡片
                             </button>
                         </div>
@@ -1711,9 +1711,9 @@ const GuidebookApp: React.FC = () => {
 
             {/* Replay footer */}
             {isReplay && (
-                <div className="shrink-0 p-3" style={{ background: 'linear-gradient(0deg, rgba(236,230,233,0.9) 0%, transparent 100%)' }}>
+                <div className="shrink-0 p-3" style={{ background: 'linear-gradient(0deg, rgba(231,231,231,0.9) 0%, transparent 100%)' }}>
                     <button onClick={backToLobby}
-                        className="w-full py-2.5 bg-white/70 text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm" style={{ color: '#8b7a7e', border: '1px solid rgba(200,185,190,0.3)' }}>
+                        className="w-full py-2.5 bg-white/70 text-sm font-bold rounded-xl active:scale-95 transition-transform shadow-sm" style={{ color: '#7e7e7e', border: '1px solid rgba(189,189,189,0.3)' }}>
                         返回列表
                     </button>
                 </div>
@@ -1735,15 +1735,15 @@ const GuidebookApp: React.FC = () => {
                 <div className="fixed inset-0 z-40 flex items-center justify-center p-6">
                     <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowExceedWarning(false)} />
                     <Card className="relative p-5 max-w-xs w-full space-y-3">
-                        <div className="font-bold text-sm text-center" style={{ color: '#5a4a50' }}>已达到预设回合数 ({session?.maxRounds})</div>
-                        <div className="text-xs text-center" style={{ color: '#9b8a8e' }}>要继续玩还是结算？</div>
+                        <div className="font-bold text-sm text-center" style={{ color: '#4e4e4e' }}>已达到预设回合数 ({session?.maxRounds})</div>
+                        <div className="text-xs text-center" style={{ color: '#8e8e8e' }}>要继续玩还是结算？</div>
                         <div className="flex gap-2">
                             <button onClick={() => setShowExceedWarning(false)}
-                                className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-xl active:scale-95 transition-transform" style={{ color: '#8b7a7e', border: '1px solid rgba(200,185,190,0.3)' }}>
+                                className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-xl active:scale-95 transition-transform" style={{ color: '#7e7e7e', border: '1px solid rgba(189,189,189,0.3)' }}>
                                 继续玩！
                             </button>
                             <button onClick={handleEndGame}
-                                className="flex-1 py-2.5 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                                className="flex-1 py-2.5 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                                 结算
                             </button>
                         </div>
@@ -1755,18 +1755,18 @@ const GuidebookApp: React.FC = () => {
             {editingOptIdx !== null && (
                 <div className="fixed inset-0 z-50 flex items-end justify-center p-3 pb-4" style={{ paddingBottom: `calc(1rem + var(--safe-bottom))` }}>
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditingOptIdx(null)} />
-                    <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] overflow-y-auto" style={{ background: 'linear-gradient(160deg, #f5f0ee 0%, #ece6e9 100%)', border: '1px solid rgba(200,185,190,0.3)' }}>
-                        <div className="px-5 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(200,185,190,0.15)' }}>
+                    <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] overflow-y-auto" style={{ background: 'linear-gradient(160deg, #f1f1f1 0%, #e7e7e7 100%)', border: '1px solid rgba(189,189,189,0.3)' }}>
+                        <div className="px-5 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(189,189,189,0.15)' }}>
                             <div className="flex items-center gap-2">
-                                <span className="w-7 h-7 rounded-xl flex items-center justify-center text-sm text-white font-bold shadow-sm" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                                <span className="w-7 h-7 rounded-xl flex items-center justify-center text-sm text-white font-bold shadow-sm" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                                     {editingOptIdx !== null ? String.fromCharCode(65 + editingOptIdx) : ''}
                                 </span>
-                                <span className="text-sm font-bold" style={{ color: '#5a4a50' }}>编辑选项</span>
+                                <span className="text-sm font-bold" style={{ color: '#4e4e4e' }}>编辑选项</span>
                             </div>
                         </div>
                         <div className="px-5 py-4 space-y-3">
                             <div>
-                                <div className="text-[10px] font-bold mb-1.5" style={{ color: '#9b8a8e' }}>选项内容</div>
+                                <div className="text-[10px] font-bold mb-1.5" style={{ color: '#8e8e8e' }}>选项内容</div>
                                 <textarea
                                     autoFocus
                                     value={editOptText}
@@ -1774,11 +1774,11 @@ const GuidebookApp: React.FC = () => {
                                     rows={8}
                                     placeholder={`${charName}的行为...`}
                                     className="w-full rounded-2xl px-3.5 py-3 text-sm focus:outline-none resize-none"
-                                    style={{ background: 'rgba(255,255,255,0.8)', border: '1.5px solid rgba(200,185,190,0.4)', color: '#5a4a50', lineHeight: '1.8' }}
+                                    style={{ background: 'rgba(255,255,255,0.8)', border: '1.5px solid rgba(189,189,189,0.4)', color: '#4e4e4e', lineHeight: '1.8' }}
                                 />
                             </div>
                             <div>
-                                <div className="text-[10px] font-bold mb-1.5" style={{ color: '#9b8a8e' }}>好感度变化（支持负数）</div>
+                                <div className="text-[10px] font-bold mb-1.5" style={{ color: '#8e8e8e' }}>好感度变化（支持负数）</div>
                                 <input
                                     type="text" inputMode="numeric"
                                     value={editOptScore}
@@ -1789,13 +1789,13 @@ const GuidebookApp: React.FC = () => {
                                     }}
                                     placeholder="0"
                                     className="w-full rounded-2xl px-3 py-2.5 text-sm text-center font-bold focus:outline-none"
-                                    style={{ background: 'rgba(255,255,255,0.8)', border: '1.5px solid rgba(200,185,190,0.4)', color: '#5a4a50' }}
+                                    style={{ background: 'rgba(255,255,255,0.8)', border: '1.5px solid rgba(189,189,189,0.4)', color: '#4e4e4e' }}
                                 />
                             </div>
                         </div>
                         <div className="flex gap-2 px-5 pb-5">
                             <button onClick={() => setEditingOptIdx(null)}
-                                className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-2xl active:scale-95 transition-transform" style={{ color: '#8b7a7e', border: '1px solid rgba(200,185,190,0.3)' }}>
+                                className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-2xl active:scale-95 transition-transform" style={{ color: '#7e7e7e', border: '1px solid rgba(189,189,189,0.3)' }}>
                                 取消
                             </button>
                             <button onClick={() => {
@@ -1805,7 +1805,7 @@ const GuidebookApp: React.FC = () => {
                                 setEditingOptIdx(null);
                                 trackEvent('手动编辑一个选项');
                             }}
-                                className="flex-1 py-2.5 text-white text-xs font-bold rounded-2xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                                className="flex-1 py-2.5 text-white text-xs font-bold rounded-2xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                                 确认
                             </button>
                         </div>
@@ -1817,15 +1817,15 @@ const GuidebookApp: React.FC = () => {
             {editingScenario && (
                 <div className="fixed inset-0 z-50 flex items-end justify-center p-3 pb-4" style={{ paddingBottom: `calc(1rem + var(--safe-bottom))` }}>
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditingScenario(false)} />
-                    <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] overflow-y-auto" style={{ background: 'linear-gradient(160deg, #f5f0ee 0%, #ece6e9 100%)', border: '1px solid rgba(200,185,190,0.3)' }}>
-                        <div className="px-5 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(200,185,190,0.15)' }}>
+                    <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] overflow-y-auto" style={{ background: 'linear-gradient(160deg, #f1f1f1 0%, #e7e7e7 100%)', border: '1px solid rgba(189,189,189,0.3)' }}>
+                        <div className="px-5 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(189,189,189,0.15)' }}>
                             <div className="flex items-center gap-2">
-                                <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] shrink-0" style={{ background: 'rgba(200,185,190,0.2)', color: '#9b8a8e' }}><FlowerLotus size={12} /></span>
-                                <span className="text-sm font-bold" style={{ color: '#5a4a50' }}>编辑场景描述</span>
+                                <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] shrink-0" style={{ background: 'rgba(189,189,189,0.2)', color: '#8e8e8e' }}><FlowerLotus size={12} /></span>
+                                <span className="text-sm font-bold" style={{ color: '#4e4e4e' }}>编辑场景描述</span>
                             </div>
                         </div>
                         <div className="px-5 py-4">
-                            <div className="text-[10px] font-bold mb-1.5" style={{ color: '#9b8a8e' }}>GM 会在这个场景基础上展开叙事 (留空则由GM自由发挥)</div>
+                            <div className="text-[10px] font-bold mb-1.5" style={{ color: '#8e8e8e' }}>GM 会在这个场景基础上展开叙事 (留空则由GM自由发挥)</div>
                             <textarea
                                 autoFocus
                                 value={editScenarioText}
@@ -1833,16 +1833,16 @@ const GuidebookApp: React.FC = () => {
                                 rows={10}
                                 placeholder="比如: 雨天在咖啡馆偶遇 / 一起被困在电梯里 / 在图书馆发现对方的秘密日记..."
                                 className="w-full rounded-2xl px-3.5 py-3 text-sm focus:outline-none resize-none"
-                                style={{ background: 'rgba(255,255,255,0.8)', border: '1.5px solid rgba(200,185,190,0.4)', color: '#5a4a50', lineHeight: '1.8' }}
+                                style={{ background: 'rgba(255,255,255,0.8)', border: '1.5px solid rgba(189,189,189,0.4)', color: '#4e4e4e', lineHeight: '1.8' }}
                             />
                         </div>
                         <div className="flex gap-2 px-5 pb-5">
                             <button onClick={() => setEditingScenario(false)}
-                                className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-2xl active:scale-95 transition-transform" style={{ color: '#8b7a7e', border: '1px solid rgba(200,185,190,0.3)' }}>
+                                className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-2xl active:scale-95 transition-transform" style={{ color: '#7e7e7e', border: '1px solid rgba(189,189,189,0.3)' }}>
                                 取消
                             </button>
                             <button onClick={() => { setRoundScenario(editScenarioText); setEditingScenario(false); trackEvent('手动编辑本回合场景'); }}
-                                className="flex-1 py-2.5 text-white text-xs font-bold rounded-2xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                                className="flex-1 py-2.5 text-white text-xs font-bold rounded-2xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                                 确认
                             </button>
                         </div>
@@ -1855,15 +1855,15 @@ const GuidebookApp: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
                     <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowExitConfirm(false)} />
                     <Card className="relative p-5 max-w-xs w-full space-y-3">
-                        <div className="font-bold text-sm text-center" style={{ color: '#5a4a50' }}>退出游戏？</div>
-                        <div className="text-xs text-center" style={{ color: '#9b8a8e' }}>进度已自动保存，下次可以继续</div>
+                        <div className="font-bold text-sm text-center" style={{ color: '#4e4e4e' }}>退出游戏？</div>
+                        <div className="text-xs text-center" style={{ color: '#8e8e8e' }}>进度已自动保存，下次可以继续</div>
                         <div className="flex gap-2">
                             <button onClick={() => setShowExitConfirm(false)}
-                                className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-xl active:scale-95 transition-transform" style={{ color: '#8b7a7e', border: '1px solid rgba(200,185,190,0.3)' }}>
+                                className="flex-1 py-2.5 bg-white/80 text-xs font-bold rounded-xl active:scale-95 transition-transform" style={{ color: '#7e7e7e', border: '1px solid rgba(189,189,189,0.3)' }}>
                                 继续玩
                             </button>
                             <button onClick={() => { setShowExitConfirm(false); backToLobby(); }}
-                                className="flex-1 py-2.5 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>
+                                className="flex-1 py-2.5 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform shadow-md" style={{ background: 'linear-gradient(135deg, #999999, #818181)' }}>
                                 退出
                             </button>
                         </div>
@@ -1876,26 +1876,26 @@ const GuidebookApp: React.FC = () => {
                 <div className="fixed inset-0 z-40 flex items-end justify-center p-4 pb-8" style={{ paddingBottom: `calc(2rem + var(--safe-bottom))` }}>
                     <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setContextMenuRound(null)} />
                     <Card className="relative w-full max-w-sm overflow-hidden">
-                        <div className="text-center text-xs py-2" style={{ color: '#9b8a8e', borderBottom: '1px solid rgba(200,185,190,0.2)' }}>
+                        <div className="text-center text-xs py-2" style={{ color: '#8e8e8e', borderBottom: '1px solid rgba(189,189,189,0.2)' }}>
                             第 {(session?.rounds[contextMenuRound]?.roundNumber) || '?'} 回合
                         </div>
                         <button
                             onClick={() => handleRegenerateFrom(contextMenuRound)}
-                            className="w-full py-3.5 text-sm font-bold transition-colors" style={{ color: '#5a4a50' }}
+                            className="w-full py-3.5 text-sm font-bold transition-colors" style={{ color: '#4e4e4e' }}
                         >
                             从这里重新生成
                         </button>
-                        <div className="h-px" style={{ background: 'rgba(200,185,190,0.2)' }} />
+                        <div className="h-px" style={{ background: 'rgba(189,189,189,0.2)' }} />
                         <button
                             onClick={() => handleDeleteFrom(contextMenuRound)}
-                            className="w-full py-3.5 text-sm text-red-400 font-bold transition-colors"
+                            className="w-full py-3.5 text-sm text-neutral-400 font-bold transition-colors"
                         >
                             删除此回合及之后的内容
                         </button>
-                        <div className="h-px" style={{ background: 'rgba(200,185,190,0.2)' }} />
+                        <div className="h-px" style={{ background: 'rgba(189,189,189,0.2)' }} />
                         <button
                             onClick={() => setContextMenuRound(null)}
-                            className="w-full py-3 text-sm transition-colors" style={{ color: '#9b8a8e' }}
+                            className="w-full py-3 text-sm transition-colors" style={{ color: '#8e8e8e' }}
                         >
                             取消
                         </button>
