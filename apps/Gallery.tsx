@@ -16,15 +16,17 @@ import {
     saveGalleryImageContentFavorite,
 } from '../utils/contentFavorites';
 
-const Gallery: React.FC = () => {
+const Gallery: React.FC<{lockedCharacterId?:string; onExit?:()=>void}> = ({lockedCharacterId,onExit}) => {
     const { closeApp, characters, apiConfig, addToast } = useOS();
-    const [view, setView] = useState<'albums' | 'grid' | 'detail'>('albums');
-    const [activeCharId, setActiveCharId] = useState<string | null>(null);
+    const [view, setView] = useState<'albums' | 'grid' | 'detail'>(lockedCharacterId?'grid':'albums');
+    const [activeCharId, setActiveCharId] = useState<string | null>(lockedCharacterId||null);
     useAppShortcut(ShortcutAppID.Gallery, intent => {
+        if(lockedCharacterId)return;
         if (activeCharId !== intent.characterId) setImages([]);
         setSelectedImage(null); setActiveCharId(intent.characterId || null);
         setView(intent.characterId ? 'grid' : 'albums');
     });
+    useEffect(()=>{if(lockedCharacterId){setActiveCharId(lockedCharacterId);setSelectedImage(null);setView('grid');setImages([]);}},[lockedCharacterId]);
     const [images, setImages] = useState<GalleryImage[]>([]);
     const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
     const [isReviewing, setIsReviewing] = useState(false);
@@ -60,6 +62,7 @@ const Gallery: React.FC = () => {
     }, [activeCharId]);
 
     const handleCharClick = (id: string) => {
+        if(lockedCharacterId&&id!==lockedCharacterId)return;
         setActiveCharId(id);
         setView('grid');
         trackEvent('打开角色相册');
@@ -108,8 +111,8 @@ const Gallery: React.FC = () => {
 
     const handleBack = () => {
         if (view === 'detail') { setView('grid'); setShowChatContext(false); }
-        else if (view === 'grid') { setView('albums'); setActiveCharId(null); }
-        else closeApp();
+        else if (view === 'grid') { if(lockedCharacterId)onExit?.();else {setView('albums');setActiveCharId(null);} }
+        else if(lockedCharacterId)onExit?.();else closeApp();
     };
 
     // Long-press handlers for album deletion
