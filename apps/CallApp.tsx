@@ -3345,7 +3345,7 @@ ${sentencePlan}`;
         {/* Delete confirm overlay */}
         {deleteConfirmRecord && (
           <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-6">
-            <div className={`w-full max-w-sm rounded-3xl border border-white/15 bg-gradient-to-b p-5 shadow-2xl ${lightTheme ? 'from-white to-[#f2f2f2]' : 'from-[#424242] to-[#292929]'}`}>
+            <div className={`w-full max-w-sm rounded-3xl border border-white/35 bg-gradient-to-b backdrop-blur-xl p-5 shadow-xl ${lightTheme ? 'from-white/85 to-[#f2f2f2]/80' : 'from-[#424242]/85 to-[#292929]/85'}`}>
               <div className="text-base font-semibold text-white">删除通话记录？</div>
               <p className="mt-2 text-sm text-white/55 leading-relaxed">和 {deleteConfirmRecord.characterName} 的这通通话将被永久删除。</p>
               <div className="mt-5 grid grid-cols-2 gap-2">
@@ -3944,7 +3944,7 @@ ${sentencePlan}`;
       )}
       {showBgPicker && (
         <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end" onClick={() => setShowBgPicker(false)}>
-          <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-[#f4f4f4]' : 'bg-[#333333]'}`} onClick={e => e.stopPropagation()}>
+          <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-white/75 backdrop-blur-xl' : 'bg-[#333333]/80 backdrop-blur-xl'}`} onClick={e => e.stopPropagation()}>
             <div className="text-sm text-white/80 font-medium">视频背景</div>
             <p className="text-xs text-white/40">本地图片保存在你自己的设备里（IndexedDB，随备份导出）；图床直链则每次在线加载。</p>
             <button onClick={chooseStageBackgroundFile} className="w-full py-2.5 rounded-2xl border border-white/15 bg-white/[0.06] text-sm text-white/85 transition active:scale-[0.98]">
@@ -3969,7 +3969,7 @@ ${sentencePlan}`;
       )}
       {showLangPicker && (
         <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end" onClick={() => setShowLangPicker(false)}>
-          <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-[#f4f4f4]' : 'bg-[#333333]'}`} onClick={e => e.stopPropagation()}>
+          <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-white/75 backdrop-blur-xl' : 'bg-[#333333]/80 backdrop-blur-xl'}`} onClick={e => e.stopPropagation()}>
             <div className="text-sm text-white/80 font-medium">语音语种</div>
             <p className="text-xs text-white/40">选择后，角色会用中文回复，语音则用对应语种朗读</p>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -3987,7 +3987,7 @@ ${sentencePlan}`;
       )}
       {showHangupConfirm && (
         <div className="absolute inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-center justify-center px-6">
-          <div className={`w-full max-w-sm rounded-3xl border border-white/15 bg-gradient-to-b p-5 shadow-2xl ${lightTheme ? 'from-white to-[#f2f2f2]' : 'from-[#424242] to-[#292929]'}`}>
+          <div className={`w-full max-w-sm rounded-3xl border border-white/35 bg-gradient-to-b backdrop-blur-xl p-5 shadow-xl ${lightTheme ? 'from-white/85 to-[#f2f2f2]/80' : 'from-[#424242]/85 to-[#292929]/85'}`}>
             <div className="text-lg font-semibold text-white">要挂了吗？</div>
             <p className="mt-2 text-sm text-white/65 leading-relaxed">和{selectedChar?.name || '对方'}聊了 {formatDuration(elapsedSeconds)}，这通电话会好好保存下来。</p>
             <div className="mt-5 space-y-2">
@@ -4021,7 +4021,7 @@ ${sentencePlan}`;
       )}
       {editingBubble && (
         <div className="absolute inset-0 bg-black/60 flex items-end z-50">
-          <div className={`w-full border-t border-white/10 p-5 space-y-3 ${lightTheme ? 'bg-[#f4f4f4]' : 'bg-[#333333]'}`}>
+          <div className={`w-full border-t border-white/10 p-5 space-y-3 ${lightTheme ? 'bg-white/75 backdrop-blur-xl' : 'bg-[#333333]/80 backdrop-blur-xl'}`}>
             <div className="text-sm text-white/70">改一下刚才说的话</div>
             <textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} className="w-full h-24 bg-black/30 rounded-xl p-3 text-sm outline-none resize-none placeholder:text-white/30" placeholder="重新措辞……" autoFocus />
             <div className="flex gap-2">
