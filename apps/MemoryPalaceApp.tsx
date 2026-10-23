@@ -2343,9 +2343,10 @@ export default function MemoryPalaceApp() {
             <div
                 style={{
                     paddingLeft: 20, paddingRight: 20, paddingBottom: 28, paddingTop: SAFE_PAD_TOP,
-                    maxHeight: '100%', overflowY: 'auto',
+                    width: '100%', height: '100%', minWidth: 0, minHeight: 0,
+                    boxSizing: 'border-box', overflow: 'hidden',
+                    overscrollBehavior: 'none', touchAction: 'pan-y',
                     background: '#f2f2f4',
-                    minHeight: '100%',
                     position: 'relative',
                 }}
             >
