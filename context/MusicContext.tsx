@@ -984,6 +984,15 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       joinListeningTogether: (cid: string) => {
         addListeningPartner(cid);
       },
+      inviteUserListening: async (cid: string) => {
+        // AI 发出的邀请先落入对应角色的聊天历史；等待用户选择，不自动加入。
+        const messageId = await DB.saveMessage({
+          charId: cid, role: 'assistant', type: 'system',
+          content: '[一起听邀请] 要不要一起听歌？',
+          metadata: { musicListenInvite: true, inviter: 'char', status: 'pending', invitedAt: Date.now() },
+        });
+        window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId: cid, messageId } }));
+      },
       rejectListeningInvite: (cid: string) => {
         respondListeningInvite(cid, false);
       },
