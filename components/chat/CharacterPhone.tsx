@@ -1,3 +1,5 @@
+import PhoneMemo from './PhoneMemo';
+import CharacterPhoneGallery from './CharacterPhoneGallery';
 import { refreshNpcMoments } from '../../utils/refreshNpcMoments';
 import PhoneStatusBar from './PhoneStatusBar';
 import PhoneAvatar from './PhoneAvatar';
@@ -12,7 +14,7 @@ import type { PhoneThreadV2 } from '../../utils/characterPhoneModel';
 import { buildCharacterPhoneContext } from '../../utils/characterPhoneContext';
 import type { UserProfile, GroupProfile, RealtimeConfig } from '../../types';
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
+import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, Phone, NotePencil, ChatText, Globe, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
 import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
 import type { CharacterProfile, DailySchedule } from '../../types';
@@ -22,10 +24,10 @@ import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacter
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
-type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings';
+type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser';
 type ChatRecord = { id: string; contactId?: string; name: string; preview: string; time: number; messages: PhoneMessage[] };
 type Api = { baseUrl: string; apiKey: string; model: string };
-const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots }];
+const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots, color:'bg-[#18c45b]' },{id:'memo' as const,label:'备忘录',Icon:NotePencil,color:'bg-[#e7a941]'},{id:'gallery' as const,label:'相册',Icon:Images,color:'bg-[#e58a69]'}];
 const timeLabel = (time: number) => new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 export default function CharacterPhone({ name, characterId, persona, api, onClose, char, userProfile, groups, realtimeConfig }: { name: string; characterId: string; persona: string; api: Api; onClose: () => void; char: CharacterProfile; userProfile: UserProfile; groups: GroupProfile[]; realtimeConfig?: RealtimeConfig }) {
   const [screen, setScreen] = useState<Screen>('home');
@@ -295,7 +297,7 @@ ${scheduleContext}
         </header>}
       <main className="min-h-0 flex-1 overflow-y-auto">
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
-        {screen === 'home' && <div className="grid grid-cols-4 gap-4 p-6">{apps.map(({id,label,Icon})=><button key={id} onClick={()=>{setScreen(id);setTab('chats');}} className="flex flex-col items-center gap-2 text-xs"><span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#18c45b] text-white"><Icon size={31} weight="fill"/></span>{label}</button>)}</div>}
+        {screen === 'home' && <div className="grid grid-cols-4 gap-4 p-6">{apps.map(({id,label,Icon,color:appColor})=><button key={id} onClick={()=>{setScreen(id);setTab('chats');}} className="flex flex-col items-center gap-2 text-xs"><span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${appColor} text-white`}><Icon size={31} weight="fill"/></span>{label}</button>)}</div>}
         {screen === 'wechat' && tab === 'chats' && <div>
           {!hiddenPrivate && privateThread && <div className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(privateThread.id);setTouchX(null);}}>
             <button type="button" onClick={()=>{setThread(privateThread.id);setScreen('thread');}} className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#eee] px-4 py-3 text-left"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#80b5db] text-white">{userProfile.name.slice(0,1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-base">{userProfile.name} <small className="text-[#888]">真实私聊</small></span><span className="block truncate text-xs text-[#999]">{privatePreview?.text || '暂无私聊消息'}</span></span></button>{swipedId===privateThread.id&&<button type="button" onClick={()=>deleteChat(privateThread.id)} className="bg-red-500 px-4 text-white">删除</button>}
