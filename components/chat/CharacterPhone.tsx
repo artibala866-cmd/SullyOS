@@ -1,5 +1,4 @@
 import PhoneMemo from './PhoneMemo';
-import {readPhoneManifest,savePhoneManifest,type PhoneAppId,type PhoneManifest} from '../../utils/characterPhoneManifest';
 import {considerCharacterMemo} from '../../utils/characterMemoAutonomy';
 import Gallery from '../../apps/Gallery';
 import { refreshNpcMoments } from '../../utils/refreshNpcMoments';
@@ -29,13 +28,10 @@ type Tab = 'chats' | 'contacts' | 'discover' | 'me';
 type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser';
 type ChatRecord = { id: string; contactId?: string; name: string; preview: string; time: number; messages: PhoneMessage[] };
 type Api = { baseUrl: string; apiKey: string; model: string };
-const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots, color:'bg-[#18c45b]' },{id:'memo' as const,label:'备忘录',Icon:NotePencil,color:'bg-[#e7a941]'},{id:'gallery' as const,label:'相册',Icon:Images,color:'bg-[#e58a69]'},{id:'calls' as const,label:'电话',Icon:Phone,color:'bg-[#42ad83]'},{id:'sms' as const,label:'短信',Icon:ChatText,color:'bg-[#66a6db]'},{id:'browser' as const,label:'浏览器',Icon:Globe,color:'bg-[#6391b9]'}];
+const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots, color:'bg-[#18c45b]' },{id:'memo' as const,label:'备忘录',Icon:NotePencil,color:'bg-[#e7a941]'},{id:'gallery' as const,label:'相册',Icon:Images,color:'bg-[#e58a69]'}];
 const timeLabel = (time: number) => new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 export default function CharacterPhone({ name, characterId, persona, api, onClose, char, userProfile, groups, realtimeConfig }: { name: string; characterId: string; persona: string; api: Api; onClose: () => void; char: CharacterProfile; userProfile: UserProfile; groups: GroupProfile[]; realtimeConfig?: RealtimeConfig }) {
   const [screen, setScreen] = useState<Screen>('home');
-  const [phoneManifest,setPhoneManifest]=useState<PhoneManifest|null>(()=>readPhoneManifest(characterId));
-  const [initializingPhone,setInitializingPhone]=useState(false);
-  useEffect(()=>setPhoneManifest(readPhoneManifest(characterId)),[characterId]);
   const [tab, setTab] = useState<Tab>('chats');
   const [thread, setThread] = useState('');
   const [privateThread, setPrivateThread] = useState<PhoneThreadV2 | null>(null);
@@ -110,23 +106,6 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
   const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前生活状态，不等于必然在玩手机；不可凭空断言已发生社交行为。` : '目前没有可用的角色当日日程，不得编造当前行程。';
   const generateMemo=async()=>{if(memoBusy)return;setMemoBusy(true);setError('');try{if(!api.apiKey||!api.baseUrl||!api.model)throw new Error('请先配置聊天 API');const context=await loadRealContext();await considerCharacterMemo({characterId,name,chatContext:context.systemPrompt,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n'),userName:userProfile.name,api,events:readCharacterLifeEvents(characterId),manual:true});}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setMemoBusy(false);}};
-  const initializePhone=async()=>{
-    if(initializingPhone)return;
-    if(!api.apiKey||!api.baseUrl||!api.model){setError('请先配置聊天 API');return;}
-    setInitializingPhone(true);setError('');
-    try{
-      const context=await loadRealContext();
-      const response=await fetch(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},body:JSON.stringify({model:api.model,stream:false,messages:[{role:'system',content:'为这个角色决定其私人手机桌面的应用选择与顺序。所有角色都必须保留微信、备忘录、相册；电话、短信、浏览器根据人物生活习惯选择0-3个。不同性格应有不同的排序与可选应用。只能输出JSON对象：{"appIds":["wechat","memo","gallery","calls"]}。不得输出其他应用。角色：'+name+'。角色上下文：'+context.systemPrompt.slice(0,14000)},{role:'user',content:'根据该角色的生活方式初始化其专属手机桌面。'}]})});
-      const json=await safeResponseJson(response);if(!response.ok)throw new Error(json?.error?.message||'初始化失败');
-      const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
-      const result=JSON.parse(raw);
-      const allowed:PhoneAppId[]=['wechat','memo','gallery','calls','sms','browser'];
-      const chosen:PhoneAppId[]=Array.isArray(result.appIds)?result.appIds.filter((id:PhoneAppId)=>allowed.includes(id)):[];
-      const appIds=[...new Set<PhoneAppId>([...chosen,'wechat','memo','gallery'])];
-      const now=Date.now();const manifest:PhoneManifest={characterId,appIds,createdAt:phoneManifest?.createdAt||now,updatedAt:now};
-      if(!savePhoneManifest(manifest))throw new Error('手机桌面保存失败');setPhoneManifest(manifest);
-    }catch(e){setError(e instanceof Error?e.message:String(e));}finally{setInitializingPhone(false);}
-  };
   const loadRealContext = () => buildCharacterPhoneContext(char, userProfile, groups, realtimeConfig);
   const createProfile = async () => {
     if (busy) return;
@@ -324,7 +303,7 @@ ${scheduleContext}
         </header>}
       <main className="min-h-0 flex-1 overflow-y-auto">
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
-        {screen === 'home' && <><div className="flex justify-end px-6 pt-3"><button type="button" disabled={initializingPhone} onClick={()=>void initializePhone()} className="rounded-full bg-white/80 px-4 py-2 text-xs text-gray-600 shadow-sm disabled:opacity-50">{initializingPhone?'正在初始化…':phoneManifest?'重新选择桌面应用':'AI 初始化角色手机'}</button></div><div className="grid grid-cols-4 gap-4 p-6">{(phoneManifest?phoneManifest.appIds.map(id=>apps.find(a=>a.id===id)).filter((a):a is typeof apps[number]=>!!a):apps.slice(0,3)).map(({id,label,Icon,color:appColor})=><button key={id} onClick={()=>{setScreen(id);setTab('chats');}} className="flex flex-col items-center gap-2 text-xs"><span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${appColor} text-white`}><Icon size={31} weight="fill"/></span>{label}</button>)}</div></>}
+        {screen === 'home' && <div className="grid grid-cols-4 gap-4 p-6">{apps.map(({id,label,Icon,color:appColor})=><button key={id} onClick={()=>{setScreen(id);setTab('chats');}} className="flex flex-col items-center gap-2 text-xs"><span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${appColor} text-white`}><Icon size={31} weight="fill"/></span>{label}</button>)}</div>}
         {screen === 'wechat' && tab === 'chats' && <div>
           {!hiddenPrivate && privateThread && <div className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(privateThread.id);setTouchX(null);}}>
             <button type="button" onClick={()=>{setThread(privateThread.id);setScreen('thread');}} className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#eee] px-4 py-3 text-left"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#80b5db] text-white">{userProfile.name.slice(0,1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-base">{userProfile.name} <small className="text-[#888]">真实私聊</small></span><span className="block truncate text-xs text-[#999]">{privatePreview?.text || '暂无私聊消息'}</span></span></button>{swipedId===privateThread.id&&<button type="button" onClick={()=>deleteChat(privateThread.id)} className="bg-red-500 px-4 text-white">删除</button>}
