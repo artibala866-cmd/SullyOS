@@ -758,21 +758,21 @@ const DateApp: React.FC = () => {
         if (pages.length === 0) pages.push([]);
         // 浅色主题（参考「小屋 · 小小窝」房间）：薰衣草浅背景 + 柔星点 + 衬线标题 + 罗盘环角色卡
         const th = {
-            pageBg: 'linear-gradient(180deg,#efe9f7 0%,#f4eff9 45%,#f7f2fb 100%)',
-            stars: 'radial-gradient(1.5px 1.5px at 14% 16%,rgba(190,160,225,.45),transparent),radial-gradient(1px 1px at 80% 12%,rgba(220,190,235,.5),transparent),radial-gradient(1.5px 1.5px at 42% 28%,rgba(180,200,240,.4),transparent),radial-gradient(1px 1px at 86% 42%,rgba(200,175,230,.4),transparent),radial-gradient(1px 1px at 22% 66%,rgba(210,185,235,.35),transparent),radial-gradient(1px 1px at 66% 80%,rgba(200,210,240,.35),transparent)',
-            title: '#6a5790', titleShadow: 'rgba(170,150,220,.4)', line: 'rgba(150,120,190,.5)',
-            cardBorder: 'rgba(170,140,210,.3)', cardShadow: '0 8px 22px rgba(150,120,200,.18)',
-            inner: 'rgba(170,140,210,.22)', gem: 'rgba(190,160,220,.85)',
-            tick: 'rgba(170,140,210,.16)', halo: 'rgba(200,175,235,.3)',
-            ring1: 'rgba(180,150,215,.5)', ring2: 'rgba(180,150,215,.25)', avGlow: 'rgba(190,160,235,.4)',
+            pageBg: 'linear-gradient(180deg,#f3f3f3 0%,#eeeeee 45%,#e9e9e9 100%)',
+            stars: 'radial-gradient(1.5px 1.5px at 14% 16%,rgba(171,171,171,.45),transparent),radial-gradient(1px 1px at 80% 12%,rgba(200,200,200,.5),transparent),radial-gradient(1.5px 1.5px at 42% 28%,rgba(199,199,199,.4),transparent),radial-gradient(1px 1px at 86% 42%,rgba(184,184,184,.4),transparent),radial-gradient(1px 1px at 22% 66%,rgba(194,194,194,.35),transparent),radial-gradient(1px 1px at 66% 80%,rgba(210,210,210,.35),transparent)',
+            title: '#292929', titleShadow: 'rgba(159,159,159,.4)', line: 'rgba(131,131,131,.5)',
+            cardBorder: 'rgba(151,151,151,.3)', cardShadow: '0 8px 22px rgba(132,132,132,.18)',
+            inner: 'rgba(151,151,151,.22)', gem: 'rgba(171,171,171,.85)',
+            tick: 'rgba(151,151,151,.16)', halo: 'rgba(185,185,185,.3)',
+            ring1: 'rgba(161,161,161,.5)', ring2: 'rgba(161,161,161,.25)', avGlow: 'rgba(172,172,172,.4)',
         };
         // 每张卡片按序循环的柔色底——粉/薰衣草/浅蓝渐变（同小小窝浅色卡）
         const CARD_TINTS = [
-            'linear-gradient(180deg,rgba(250,212,228,.85),rgba(242,228,246,.8))',
-            'linear-gradient(180deg,rgba(232,228,248,.85),rgba(242,238,250,.8))',
-            'linear-gradient(180deg,rgba(226,216,246,.85),rgba(238,230,249,.8))',
-            'linear-gradient(180deg,rgba(212,230,247,.85),rgba(234,240,250,.8))',
-            'linear-gradient(180deg,rgba(226,212,245,.85),rgba(238,228,249,.8))',
+            'linear-gradient(180deg,rgba(221,221,221,.85),rgba(232,232,232,.8))',
+            'linear-gradient(180deg,rgba(230,230,230,.85),rgba(240,240,240,.8))',
+            'linear-gradient(180deg,rgba(220,220,220,.85),rgba(233,233,233,.8))',
+            'linear-gradient(180deg,rgba(227,227,227,.85),rgba(239,239,239,.8))',
+            'linear-gradient(180deg,rgba(217,217,217,.85),rgba(232,232,232,.8))',
             'linear-gradient(180deg,rgba(234,231,242,.88),rgba(242,240,247,.82))',
         ];
         return (
@@ -785,21 +785,21 @@ const DateApp: React.FC = () => {
                     <div className="relative flex items-center justify-center px-5 pt-2">
                         <button onClick={() => { if (cameFromChat) { returnToChat(); } else { closeApp(); } }}
                                 className="absolute left-4 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all"
-                                style={{ color: '#8f7bb5', background: 'rgba(255,255,255,0.6)', boxShadow: '0 2px 8px rgba(150,120,200,0.15)' }}>
+                                style={{ color: '#777777', background: 'rgba(255,255,255,0.6)', boxShadow: '0 2px 8px rgba(132,132,132,0.15)' }}>
                             <CaretLeft size={19} weight="bold" />
                         </button>
                         <div className="text-center">
                             <h1 className="text-[26px] tracking-[0.14em]" style={{ fontFamily: `'Noto Serif SC',serif`, color: th.title, textShadow: `0 2px 18px ${th.titleShadow}` }}>选择见面对象</h1>
                             <div className="flex items-center justify-center gap-2 mt-1.5">
                                 <span className="h-px w-10" style={{ background: `linear-gradient(90deg,transparent,${th.line})` }} />
-                                <span className="text-[9px] tracking-[0.4em] font-bold" style={{ color: 'rgba(150,120,190,0.75)' }}>✦ CHOOSE CHARACTER ✦</span>
+                                <span className="text-[9px] tracking-[0.4em] font-bold" style={{ color: 'rgba(131,131,131,0.75)' }}>✦ CHOOSE CHARACTER ✦</span>
                                 <span className="h-px w-10" style={{ background: `linear-gradient(270deg,transparent,${th.line})` }} />
                             </div>
                         </div>
                     </div>
                     <div className='mx-auto mt-4 mb-3 grid w-[min(18rem,calc(100%-2.5rem))] grid-cols-2 rounded-xl bg-white/45 p-1 shadow-sm'>
-                        <button className='rounded-lg bg-white py-2 text-xs font-bold text-[#715d99] shadow-sm'>陪伴</button>
-                        <button onClick={() => setMeetSurface('story')} className='rounded-lg py-2 text-xs font-bold text-[#8f7bb5]'>剧情</button>
+                        <button className='rounded-lg bg-white py-2 text-xs font-bold text-[#555555] shadow-sm'>陪伴</button>
+                        <button onClick={() => setMeetSurface('story')} className='rounded-lg py-2 text-xs font-bold text-[#777777]'>剧情</button>
                     </div>
                     {/* 分组筛选（没建分组时不渲染）。切组后回到第一页 */}
                     <CharacterGroupFilterBar characters={characters} groups={characterGroups} dark
@@ -810,7 +810,7 @@ const DateApp: React.FC = () => {
 
                 {/* 分页卡片区 */}
                 {selectChars.length === 0 ? (
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-3" style={{ color: 'rgba(150,120,190,0.7)' }}>
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-3" style={{ color: 'rgba(131,131,131,0.7)' }}>
                         <Sparkle size={40} weight="light" />
                         <span className="text-xs tracking-wider">{characters.length ? '该分组下没有角色' : '还没有可见面的角色'}</span>
                     </div>
@@ -826,7 +826,7 @@ const DateApp: React.FC = () => {
                                         return (
                                         <div key={c.id} onClick={() => handleCharClick(c)}
                                              className="group relative rounded-2xl px-3 pt-8 pb-5 flex flex-col items-center active:scale-95 transition-all overflow-hidden"
-                                             style={{ background: tint, border: `1px solid ${th.cardBorder}`, boxShadow: th.cardShadow }}>
+                                             style={{ background: tint, backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: `1px solid ${th.cardBorder}`, boxShadow: th.cardShadow }}>
                                             {/* 内描框 + 四角宝石 */}
                                             <div className="absolute inset-[7px] rounded-xl pointer-events-none" style={{ border: `1px solid ${th.inner}` }} />
                                             <span className="absolute top-[10px] left-[10px] w-1.5 h-1.5 rotate-45" style={{ background: th.gem }} />
@@ -835,23 +835,23 @@ const DateApp: React.FC = () => {
                                             <span className="absolute bottom-[10px] right-[10px] w-1.5 h-1.5 rotate-45" style={{ background: th.gem }} />
                                             {/* 在线徽标 */}
                                             <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full z-10"
-                                                 style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(120,200,160,0.4)', boxShadow: '0 1px 4px rgba(120,90,170,0.12)' }}>
+                                                 style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(180,180,180,0.4)', boxShadow: '0 1px 4px rgba(102,102,102,0.12)' }}>
                                                 <span className="relative flex h-1.5 w-1.5">
-                                                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-                                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                                                    <span className="absolute inline-flex h-full w-full rounded-full bg-neutral-400 opacity-60 animate-ping" />
+                                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-neutral-500" />
                                                 </span>
-                                                <span className="text-[8px] font-bold text-emerald-600 tracking-wider">在线</span>
+                                                <span className="text-[8px] font-bold text-neutral-600 tracking-wider">在线</span>
                                             </div>
                                             {/* 设置 / 记录（竖排） */}
                                             <div className="absolute top-2 right-2 flex flex-col gap-1 z-20">
                                                 <button onClick={(e) => { e.stopPropagation(); openSettings(c); }} title="布置场景 / 设定立绘 / 观测"
-                                                        className="w-7 h-7 rounded-lg text-purple-500 flex items-center justify-center active:scale-90 transition-all"
-                                                        style={{ background: 'rgba(255,255,255,0.88)', boxShadow: '0 1px 5px rgba(120,90,170,0.2)' }}>
+                                                        className="w-7 h-7 rounded-lg text-neutral-500 flex items-center justify-center active:scale-90 transition-all"
+                                                        style={{ background: 'rgba(255,255,255,0.78)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', boxShadow: '0 1px 5px rgba(102,102,102,0.2)' }}>
                                                     <GearSix size={15} weight="fill" />
                                                 </button>
                                                 <button onClick={(e) => { e.stopPropagation(); openHistory(c); }} title="见面记录"
-                                                        className="w-7 h-7 rounded-lg text-purple-500 flex items-center justify-center active:scale-90 transition-all"
-                                                        style={{ background: 'rgba(255,255,255,0.88)', boxShadow: '0 1px 5px rgba(120,90,170,0.2)' }}>
+                                                        className="w-7 h-7 rounded-lg text-neutral-500 flex items-center justify-center active:scale-90 transition-all"
+                                                        style={{ background: 'rgba(255,255,255,0.88)', boxShadow: '0 1px 5px rgba(102,102,102,0.2)' }}>
                                                     <BookOpen size={15} weight="fill" />
                                                 </button>
                                             </div>
@@ -866,8 +866,8 @@ const DateApp: React.FC = () => {
                                                 </div>
                                             </div>
                                             {/* 名字 + 简介 */}
-                                            <span className="mt-3 text-[14px] font-semibold tracking-wide truncate max-w-full" style={{ color: '#4b3b6b', fontFamily: `'Noto Serif SC',serif` }}>{c.name}</span>
-                                            <span className="mt-0.5 text-[10px] truncate max-w-full" style={{ color: c.description ? 'rgba(120,95,160,0.78)' : 'rgba(150,130,185,0.6)' }}>{c.description || '走过去见 ta'}</span>
+                                            <span className="mt-3 text-[14px] font-semibold tracking-wide truncate max-w-full" style={{ color: '#404040', fontFamily: `'Noto Serif SC',serif` }}>{c.name}</span>
+                                            <span className="mt-0.5 text-[10px] truncate max-w-full" style={{ color: c.description ? 'rgba(105,105,105,0.78)' : 'rgba(138,138,138,0.6)' }}>{c.description || '走过去见 ta'}</span>
                                         </div>
                                         );
                                     })}
@@ -883,7 +883,7 @@ const DateApp: React.FC = () => {
                         {pages.map((_, pi) => (
                             <button key={pi} onClick={() => goSelectPage(pi)} aria-label={`第 ${pi + 1} 页`}
                                     className="h-2 rounded-full transition-all"
-                                    style={{ width: pi === selectPage ? 24 : 8, background: pi === selectPage ? '#a78bd6' : 'rgba(170,140,210,0.35)' }} />
+                                    style={{ width: pi === selectPage ? 24 : 8, background: pi === selectPage ? '#999999' : 'rgba(151,151,151,0.35)' }} />
                         ))}
                     </div>
                 )}
@@ -893,36 +893,36 @@ const DateApp: React.FC = () => {
 
     if (mode === 'history') {
         return (
-            <div className="h-full w-full bg-slate-50 flex flex-col font-light" onClick={() => historyMenuMsg && setHistoryMenuMsg(null)}>
-                <div className="border-b border-slate-200 bg-white sticky top-0 z-10" style={{ paddingTop: 'var(--safe-top)' }}>
+            <div className="h-full w-full bg-neutral-50 flex flex-col font-light" onClick={() => historyMenuMsg && setHistoryMenuMsg(null)}>
+                <div className="border-b border-neutral-200 bg-white sticky top-0 z-10" style={{ paddingTop: 'var(--safe-top)' }}>
                     <div className="h-16 flex items-center justify-between px-4">
-                        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-slate-100"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg></button>
+                        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-neutral-100"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg></button>
                         <div className="text-center min-w-0">
-                            <div className="font-bold text-slate-700">见面记录</div>
-                            <div className="text-[10px] text-slate-400 truncate max-w-36">{char.name}</div>
+                            <div className="font-bold text-neutral-700">见面记录</div>
+                            <div className="text-[10px] text-neutral-400 truncate max-w-36">{char.name}</div>
                         </div>
                         <button
                             onClick={(event) => { event.stopPropagation(); handleExportAllHistory(); }}
                             disabled={historyBusy || historyMessages.length === 0}
-                            className="text-xs font-bold text-blue-500 px-2 py-2 -mr-2 rounded-lg hover:bg-blue-50 disabled:opacity-40"
+                            className="text-xs font-bold text-neutral-500 px-2 py-2 -mr-2 rounded-lg hover:bg-neutral-50 disabled:opacity-40"
                         >
                             导出全部
                         </button>
                     </div>
                     <div className="px-4 pb-3 flex items-center gap-2">
-                        <div className="flex-1 p-1 rounded-xl bg-slate-100 flex">
+                        <div className="flex-1 p-1 rounded-xl bg-neutral-100 flex">
                             <button
                                 onClick={() => setHistoryView('encounter')}
-                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${historyView === 'encounter' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
+                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${historyView === 'encounter' ? 'bg-white text-neutral-800 shadow-sm' : 'text-neutral-400'}`}
                             >按次</button>
                             <button
                                 onClick={() => setHistoryView('date')}
-                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${historyView === 'date' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
+                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${historyView === 'date' ? 'bg-white text-neutral-800 shadow-sm' : 'text-neutral-400'}`}
                             >按日期</button>
                         </div>
                         <button
                             onClick={() => setHistorySortOrder(order => order === 'newest' ? 'oldest' : 'newest')}
-                            className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-[11px] font-bold text-slate-500 whitespace-nowrap"
+                            className="h-9 px-3 rounded-xl border border-neutral-200 bg-white text-[11px] font-bold text-neutral-500 whitespace-nowrap"
                             title="切换排序方向"
                         >
                             {historySortOrder === 'newest' ? '新 → 旧' : '旧 → 新'}
@@ -930,14 +930,14 @@ const DateApp: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-20">
-                    {historyGroups.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-2"><BookOpen size={48} className="opacity-50" /><span className="text-xs">暂无见面记录</span></div> : historyGroups.map((group) => (
-                        <div key={group.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                            <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex gap-3 justify-between items-center">
+                    {historyGroups.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-neutral-400 gap-2"><BookOpen size={48} className="opacity-50" /><span className="text-xs">暂无见面记录</span></div> : historyGroups.map((group) => (
+                        <div key={group.id} className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
+                            <div className="bg-neutral-50 px-4 py-3 border-b border-neutral-100 flex gap-3 justify-between items-center">
                                 <div className="min-w-0">
-                                    <div className="text-xs font-bold text-slate-600 tracking-wide truncate">
+                                    <div className="text-xs font-bold text-neutral-600 tracking-wide truncate">
                                         {historyView === 'encounter' ? formatDateHistoryTime(group.startAt, true) : formatDateHistoryDate(group.startAt)}
                                     </div>
-                                    <div className="text-[10px] text-slate-400 mt-1">
+                                    <div className="text-[10px] text-neutral-400 mt-1">
                                         {historyView === 'encounter'
                                             ? (group.hasOpeningAnchor ? '一次完整见面' : '旧记录 · 按日期兼容整理')
                                             : (group.encounterCount > 0 ? `${group.encounterCount} 次见面` : '旧记录')}
@@ -950,7 +950,7 @@ const DateApp: React.FC = () => {
                                         exportHistoryGroups([group], `${historyView === 'encounter' ? '本次' : '当天'}_${group.dateKey}`);
                                     }}
                                     disabled={historyBusy}
-                                    className="shrink-0 text-[11px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full disabled:opacity-40"
+                                    className="shrink-0 text-[11px] font-bold text-neutral-500 bg-neutral-50 px-3 py-1.5 rounded-full disabled:opacity-40"
                                 >导出{historyView === 'encounter' ? '本次' : '当天'}</button>
                             </div>
                             <div className="p-4 space-y-4">
@@ -968,10 +968,10 @@ const DateApp: React.FC = () => {
                                             onMouseLeave={handleHistoryLongPressEnd}
                                             onContextMenu={(e) => { e.preventDefault(); setHistoryMenuMsg(m); setHistoryMenuPos({ x: e.clientX, y: e.clientY }); }}
                                         >
-                                            <div className={`max-w-[90%] text-sm leading-relaxed whitespace-pre-wrap ${m.role === 'user' ? 'text-slate-500 text-right italic' : 'text-slate-800'}`}>
-                                                {m.role === 'user' ? <span className="bg-slate-100 px-3 py-2 rounded-xl rounded-tr-none inline-block">{text}</span> : <span>{text || '(无内容)'}</span>}
+                                            <div className={`max-w-[90%] text-sm leading-relaxed whitespace-pre-wrap ${m.role === 'user' ? 'text-neutral-500 text-right italic' : 'text-neutral-800'}`}>
+                                                {m.role === 'user' ? <span className="bg-neutral-100 px-3 py-2 rounded-xl rounded-tr-none inline-block">{text}</span> : <span>{text || '(无内容)'}</span>}
                                             </div>
-                                            <div className="text-[9px] text-slate-300 mt-1 px-1">{formatDateHistoryTime(m.timestamp)}</div>
+                                            <div className="text-[9px] text-neutral-300 mt-1 px-1">{formatDateHistoryTime(m.timestamp)}</div>
                                         </div>
                                     );
                                 })}
@@ -982,7 +982,7 @@ const DateApp: React.FC = () => {
                         <button
                             onClick={handleLoadMoreHistory}
                             disabled={historyBusy}
-                            className="w-full py-3 rounded-2xl border border-slate-200 bg-white text-xs font-bold text-slate-500 disabled:opacity-50"
+                            className="w-full py-3 rounded-2xl border border-neutral-200 bg-white text-xs font-bold text-neutral-500 disabled:opacity-50"
                         >
                             {historyBusy ? '正在加载…' : '加载更早的见面记录'}
                         </button>
@@ -992,21 +992,21 @@ const DateApp: React.FC = () => {
                 {/* Long-press context menu */}
                 {historyMenuMsg && (
                     <div
-                        className="fixed z-50 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-fade-in"
+                        className="fixed z-50 bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden animate-fade-in"
                         style={{ top: Math.min(historyMenuPos.y, window.innerHeight - 120), left: Math.min(historyMenuPos.x, window.innerWidth - 140) }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
                             onClick={() => handleHistoryEditOpen(historyMenuMsg)}
-                            className="w-full px-5 py-3 text-sm text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 flex items-center gap-2"
+                            className="w-full px-5 py-3 text-sm text-left text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 flex items-center gap-2"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" /></svg>
                             编辑
                         </button>
-                        <div className="border-t border-slate-100" />
+                        <div className="border-t border-neutral-100" />
                         <button
                             onClick={() => handleHistoryDelete(historyMenuMsg)}
-                            className="w-full px-5 py-3 text-sm text-left text-red-500 hover:bg-red-50 active:bg-red-100 flex items-center gap-2"
+                            className="w-full px-5 py-3 text-sm text-left text-neutral-500 hover:bg-neutral-50 active:bg-neutral-100 flex items-center gap-2"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                             删除
@@ -1017,14 +1017,14 @@ const DateApp: React.FC = () => {
                 {/* History edit modal */}
                 <Modal isOpen={!!historyEditMsg} title="编辑消息" onClose={() => setHistoryEditMsg(null)} footer={
                     <div className="flex gap-3 w-full">
-                        <button onClick={() => setHistoryEditMsg(null)} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold">取消</button>
-                        <button onClick={handleHistoryEditConfirm} className="flex-1 py-3 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-200">保存</button>
+                        <button onClick={() => setHistoryEditMsg(null)} className="flex-1 py-3 bg-neutral-100 rounded-2xl text-neutral-600 font-bold">取消</button>
+                        <button onClick={handleHistoryEditConfirm} className="flex-1 py-3 bg-neutral-500 text-white rounded-2xl font-bold shadow-lg shadow-neutral-200">保存</button>
                     </div>
                 }>
                     <textarea
                         value={historyEditContent}
                         onChange={(e) => setHistoryEditContent(e.target.value)}
-                        className="w-full h-48 p-3 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        className="w-full h-48 p-3 border border-neutral-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-300"
                     />
                 </Modal>
             </div>
@@ -1050,12 +1050,12 @@ const DateApp: React.FC = () => {
                     </button>
                 </div>
                 <Modal isOpen={showEntryNotice} title="选择这次见面的开场方式" onClose={dismissEntryNotice}
-                    footer={<button onClick={dismissEntryNotice} className="w-full py-3 rounded-2xl bg-slate-800 text-white font-bold">知道了</button>}>
-                    <div className="space-y-4 text-sm leading-6 text-slate-600">
-                        <p><strong className="block text-slate-800">靠近他 · 你主动走过去</strong>先生成一段开场，看看他此刻在做什么，再由你走过去与他互动。</p>
-                        <p><strong className="block text-slate-800">让他靠近 · 他主动来见你</strong>由角色结合上下文，以合理的方式来到你面前并开场，接下来由你回应。</p>
-                        <p><strong className="block text-slate-800">直接见面 · 不生成开场白</strong>直接进入对话，你可以输入内容，也可以点“继续”让他先回应。</p>
-                        <p className="text-xs text-slate-400">三种方式都会参考已有上下文，只是开场方式不同，不会清空之前的互动。</p>
+                    footer={<button onClick={dismissEntryNotice} className="w-full py-3 rounded-2xl bg-neutral-800 text-white font-bold">知道了</button>}>
+                    <div className="space-y-4 text-sm leading-6 text-neutral-600">
+                        <p><strong className="block text-neutral-800">靠近他 · 你主动走过去</strong>先生成一段开场，看看他此刻在做什么，再由你走过去与他互动。</p>
+                        <p><strong className="block text-neutral-800">让他靠近 · 他主动来见你</strong>由角色结合上下文，以合理的方式来到你面前并开场，接下来由你回应。</p>
+                        <p><strong className="block text-neutral-800">直接见面 · 不生成开场白</strong>直接进入对话，你可以输入内容，也可以点“继续”让他先回应。</p>
+                        <p className="text-xs text-neutral-400">三种方式都会参考已有上下文，只是开场方式不同，不会清空之前的互动。</p>
                     </div>
                 </Modal>
             </div>
@@ -1136,18 +1136,18 @@ const DateApp: React.FC = () => {
                             style={{
                                 background: 'rgba(255,255,255,0.88)',
                                 borderRadius: 999,
-                                border: '1px solid rgba(99,102,241,0.18)',
-                                boxShadow: '0 6px 18px -6px rgba(15,23,42,0.22)',
+                                border: '1px solid rgba(111,111,111,0.18)',
+                                boxShadow: '0 6px 18px -6px rgba(23,23,23,0.22)',
                             }}
                         >
                             <span
-                                className="shrink-0 inline-block w-3.5 h-3.5 rounded-full border-2 border-slate-200 animate-spin"
-                                style={{ borderTopColor: '#6366f1', animationDuration: '0.9s' }}
+                                className="shrink-0 inline-block w-3.5 h-3.5 rounded-full border-2 border-neutral-200 animate-spin"
+                                style={{ borderTopColor: '#777777', animationDuration: '0.9s' }}
                             />
-                            <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                            <span className="text-[11px] font-semibold text-neutral-700 whitespace-nowrap">
                                 {char.name}正在沉思
                             </span>
-                            <span className="text-[10px] text-slate-400 truncate">{memoryPalaceStatus}</span>
+                            <span className="text-[10px] text-neutral-400 truncate">{memoryPalaceStatus}</span>
                         </div>
                     </div>
                 )}
@@ -1156,7 +1156,7 @@ const DateApp: React.FC = () => {
                 {memoryPalaceResult && (
                     <div
                         className="absolute inset-0 z-[200] flex items-center justify-center p-4 animate-fade-in"
-                        style={{ pointerEvents: 'all', background: 'rgba(15,23,42,0.55)' }}
+                        style={{ pointerEvents: 'all', background: 'rgba(23,23,23,0.55)' }}
                         onClick={() => setMemoryPalaceResult(null)}
                     >
                         <div
@@ -1164,33 +1164,33 @@ const DateApp: React.FC = () => {
                             style={{
                                 background: 'linear-gradient(160deg, #ffffff 0%, #f8fafc 100%)',
                                 borderRadius: 28,
-                                border: '1px solid rgba(148,163,184,0.18)',
-                                boxShadow: '0 20px 50px -20px rgba(15,23,42,0.35)',
+                                border: '1px solid rgba(161,161,161,0.18)',
+                                boxShadow: '0 20px 50px -20px rgba(23,23,23,0.35)',
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div
                                 className="absolute top-0 left-0 right-0 h-[2px] pointer-events-none"
-                                style={{ background: 'linear-gradient(90deg, transparent, #6366f1, #a5b4fc, #6366f1, transparent)' }}
+                                style={{ background: 'linear-gradient(90deg, transparent, #777777, #c5c5c5, #777777, transparent)' }}
                             />
                             <div className="px-6 pt-7 pb-4 text-center">
                                 <div
                                     className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-3"
                                     style={{
-                                        background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(129,140,248,0.06))',
-                                        border: '1px solid rgba(99,102,241,0.15)',
+                                        background: 'linear-gradient(135deg, rgba(111,111,111,0.12), rgba(145,145,145,0.06))',
+                                        border: '1px solid rgba(111,111,111,0.15)',
                                     }}
                                 >
                                     <span style={{ fontSize: 26 }}>🗂️</span>
                                 </div>
-                                <div className="text-[10px] tracking-[0.25em] uppercase font-semibold" style={{ color: '#6366f1' }}>Memory Palace</div>
-                                <p className="text-[17px] font-bold mt-1" style={{ color: '#0f172a' }}>记忆整理完成</p>
-                                <p className="text-[11px] text-slate-400 mt-1">
+                                <div className="text-[10px] tracking-[0.25em] uppercase font-semibold" style={{ color: '#777777' }}>Memory Palace</div>
+                                <p className="text-[17px] font-bold mt-1" style={{ color: '#262626' }}>记忆整理完成</p>
+                                <p className="text-[11px] text-neutral-400 mt-1">
                                     新增 {memoryPalaceResult.stored} 条 · 去重跳过 {memoryPalaceResult.skipped} 条
                                     {memoryPalaceResult.batches.length > 1 && ` · ${memoryPalaceResult.batches.length} 批`}
                                 </p>
                                 {memoryPalaceResult.batches.some(b => !b.ok) && (
-                                    <p className="text-[10px] text-red-500 mt-1">
+                                    <p className="text-[10px] text-neutral-500 mt-1">
                                         {memoryPalaceResult.batches.filter(b => !b.ok).map(b => `第 ${b.index} 批失败`).join(', ')}
                                     </p>
                                 )}
@@ -1198,15 +1198,15 @@ const DateApp: React.FC = () => {
                             <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-2 no-scrollbar">
                                 {memoryPalaceResult.memories.map((m, i) => {
                                     const roomMeta: Record<string, { label: string; color: string }> = {
-                                        living_room: { label: '客厅', color: '#f59e0b' },
-                                        bedroom: { label: '卧室', color: '#8b5cf6' },
-                                        study: { label: '书房', color: '#0ea5e9' },
-                                        user_room: { label: '用户房间', color: '#ec4899' },
-                                        self_room: { label: '自我房间', color: '#10b981' },
-                                        attic: { label: '阁楼', color: '#6366f1' },
-                                        windowsill: { label: '窗台', color: '#14b8a6' },
+                                        living_room: { label: '客厅', color: '#999999' },
+                                        bedroom: { label: '卧室', color: '#888888' },
+                                        study: { label: '书房', color: '#888888' },
+                                        user_room: { label: '用户房间', color: '#888888' },
+                                        self_room: { label: '自我房间', color: '#777777' },
+                                        attic: { label: '阁楼', color: '#777777' },
+                                        windowsill: { label: '窗台', color: '#888888' },
                                     };
-                                    const meta = roomMeta[m.room] || { label: m.room, color: '#64748b' };
+                                    const meta = roomMeta[m.room] || { label: m.room, color: '#737373' };
                                     const roomLabel = getRoomLabel(m.room as any, userProfile?.name) || meta.label;
                                     return (
                                         <div
@@ -1224,15 +1224,15 @@ const DateApp: React.FC = () => {
                                                 >
                                                     {roomLabel}
                                                 </span>
-                                                <span className="text-[10px] text-slate-400">{m.mood}</span>
-                                                <span className="text-[10px] font-bold ml-auto" style={{ color: '#f59e0b' }}>{'★'.repeat(Math.min(m.importance, 5))}</span>
+                                                <span className="text-[10px] text-neutral-400">{m.mood}</span>
+                                                <span className="text-[10px] font-bold ml-auto" style={{ color: '#999999' }}>{'★'.repeat(Math.min(m.importance, 5))}</span>
                                             </div>
-                                            <p className="text-[12px] text-slate-700 leading-relaxed">{m.content}</p>
+                                            <p className="text-[12px] text-neutral-700 leading-relaxed">{m.content}</p>
                                             {m.tags.length > 0 && (
                                                 <div className="flex gap-1 mt-2 flex-wrap">
                                                     {m.tags.map((t, j) => (
                                                         <span key={j} className="text-[9px] px-1.5 py-0.5 rounded-full"
-                                                            style={{ background: 'rgba(148,163,184,0.15)', color: '#64748b' }}
+                                                            style={{ background: 'rgba(161,161,161,0.15)', color: '#737373' }}
                                                         >{t}</span>
                                                     ))}
                                                 </div>
@@ -1241,7 +1241,7 @@ const DateApp: React.FC = () => {
                                     );
                                 })}
                                 {memoryPalaceResult.memories.length === 0 && (
-                                    <p className="text-center text-xs text-slate-400 py-4">本次未提取到新记忆</p>
+                                    <p className="text-center text-xs text-neutral-400 py-4">本次未提取到新记忆</p>
                                 )}
                             </div>
                             <div className="px-6 pb-6 pt-2">
@@ -1249,8 +1249,8 @@ const DateApp: React.FC = () => {
                                     onClick={() => setMemoryPalaceResult(null)}
                                     className="w-full py-3 text-white text-[13px] font-bold rounded-2xl active:scale-[0.98] transition-transform"
                                     style={{
-                                        background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                                        boxShadow: '0 6px 18px -6px rgba(79,70,229,0.5)',
+                                        background: 'linear-gradient(135deg, #777777, #555555)',
+                                        boxShadow: '0 6px 18px -6px rgba(83,83,83,0.5)',
                                     }}
                                 >
                                     确认
@@ -1261,8 +1261,8 @@ const DateApp: React.FC = () => {
                 )}
 
                 {/* Global Message Edit Modal for Session Mode */}
-                <Modal isOpen={isEditModalOpen} title="编辑内容" onClose={() => setIsEditModalOpen(false)} footer={<><button onClick={() => setIsEditModalOpen(false)} className="flex-1 py-3 bg-slate-100 rounded-2xl">取消</button><button onClick={confirmEditMessage} className="flex-1 py-3 bg-primary text-white font-bold rounded-2xl">保存</button></>}>
-                    <textarea value={editContent} onChange={e => setEditContent(e.target.value)} className="w-full h-32 bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-primary/20 transition-all text-sm leading-relaxed" />
+                <Modal isOpen={isEditModalOpen} title="编辑内容" onClose={() => setIsEditModalOpen(false)} footer={<><button onClick={() => setIsEditModalOpen(false)} className="flex-1 py-3 bg-neutral-100 rounded-2xl">取消</button><button onClick={confirmEditMessage} className="flex-1 py-3 bg-primary text-white font-bold rounded-2xl">保存</button></>}>
+                    <textarea value={editContent} onChange={e => setEditContent(e.target.value)} className="w-full h-32 bg-neutral-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-primary/20 transition-all text-sm leading-relaxed" />
                 </Modal>
             </>
         );
