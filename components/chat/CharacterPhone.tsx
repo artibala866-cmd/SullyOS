@@ -4,15 +4,13 @@ import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, House }
 type Screen = 'home' | 'wechat' | 'contacts' | 'moments' | 'wallet' | 'settings';
 const apps = [
   { id: 'wechat' as const, label: '微信', Icon: ChatCircleDots },
-  { id: 'wallet' as const, label: '钱包', Icon: Wallet },
-  { id: 'settings' as const, label: '设置', Icon: GearSix },
 ];
 // A standalone, extensible character-phone shell. Future apps belong in this registry,
 // not in the user phone launcher. No synthetic NPC activity is generated on opening.
 export default function CharacterPhone({ name, onClose }: { name: string; onClose: () => void }) {
   const [screen, setScreen] = useState<Screen>('home');
   const title: Record<Screen, string> = { home: name + '的手机', wechat: '微信', contacts: '联系人', moments: '朋友圈', wallet: '钱包', settings: '设置' };
-  const goBack = () => screen === 'contacts' || screen === 'moments' ? setScreen('wechat') : setScreen('home');
+  const goBack = () => screen === 'home' ? onClose() : screen === 'wechat' ? setScreen('home') : setScreen('wechat');
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-3" role="dialog" aria-modal="true" aria-label={title[screen]}>
       <div className="relative flex h-[min(92dvh,800px)] w-full max-w-[420px] flex-col overflow-hidden rounded-[34px] border-[6px] border-slate-900 bg-[#f6f7f9] shadow-2xl">
@@ -29,6 +27,8 @@ export default function CharacterPhone({ name, onClose }: { name: string; onClos
           {screen === 'wechat' && <div className="space-y-3">
             <button type="button" onClick={() => setScreen('contacts')} className="flex w-full items-center gap-3 rounded-xl bg-white p-4 text-left"><UsersThree size={24} />联系人</button>
             <button type="button" onClick={() => setScreen('moments')} className="flex w-full items-center gap-3 rounded-xl bg-white p-4 text-left"><Images size={24} />朋友圈</button>
+            <button type="button" onClick={() => setScreen('wallet')} className="flex w-full items-center gap-3 rounded-xl bg-white p-4 text-left"><Wallet size={24} />钱包</button>
+            <button type="button" onClick={() => setScreen('settings')} className="flex w-full items-center gap-3 rounded-xl bg-white p-4 text-left"><GearSix size={24} />设置</button>
             <div className="rounded-xl bg-white p-5 text-center text-sm text-slate-400">聊天记录将在接入 NPC 事件后显示</div>
           </div>}
           {screen === 'contacts' && <p className="rounded-xl bg-white p-5 text-sm text-slate-500">联系人框架已就绪，等待接入角色设定中的 NPC。</p>}
