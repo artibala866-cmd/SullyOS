@@ -12,6 +12,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [screen, setScreen] = useState<Screen>('home');
   const [tab, setTab] = useState<Tab>('chats');
   const [thread, setThread] = useState('');
+  const [selectedNpc, setSelectedNpc] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const storageKey = 'sully_character_phone_wechat_v1:' + characterId;
@@ -20,16 +21,17 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   });
   const persist = (next: ChatRecord[]) => { setRecords(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { setError('存储空间不足，记录未能保存'); } };
   const back = () => { if (screen === 'thread' || screen === 'moments' || screen === 'wallet' || screen === 'settings') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
-  const generate = async () => {
+  const generate = async (npcName = selectedNpc) => {
     if (busy) return;
     if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先在 SullyOS 设置中配置聊天 API'); return; }
     setBusy(true); setError('');
     try {
-      const context = records.slice(0, 6).map(r => r.name + '：' + r.messages.slice(-4).map(m => m.from + '：' + m.text).join(' / ')).join('\n');
+      const target = npcName ? records.find(r => r.name === npcName) : undefined;
+      const context = records.slice(0, 6).map(r => r.name + '：' + r.messages.slice(-8).map(m => m.from + '：' + m.text).join(' / ')).join('\n');
       const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
         body: JSON.stringify({ model: api.model, stream: false, temperature: 0.85, messages: [
-          { role: 'system', content: `你正在模拟角色「${name}」的私人微信，角色设定：${persona.slice(0, 4500)}。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。对话不一定围绕用户。只输出合法JSON对象：{"name":"NPC名字","messages":[{"from":"NPC名字","text":"短消息"},{"from":"${name}","text":"短消息"}]}。共4到8条短消息，不要markdown。已有记录：${context}` },
+          { role: 'system', content: `你正在模拟角色「${name}」的私人微信，角色设定：${persona.slice(0, 4500)}。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => m.from + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"NPC名字","messages":[{"from":"NPC名字","text":"短消息"},{"from":"${name}","text":"短消息"}]}。共4到8条短消息，不要markdown。已有记录：${context}` },
           { role: 'user', content: '生成一段符合角色设定、像真实朋友微信聊天一样的日常对话。' }
         ] })
       });
@@ -40,8 +42,11 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       if (typeof data.name !== 'string' || !Array.isArray(data.messages)) throw new Error('生成内容格式不正确');
       const messages = data.messages.slice(0, 12).filter((m: any) => typeof m?.from === 'string' && typeof m?.text === 'string').map((m: any) => ({ from: m.from.slice(0, 40), text: m.text.slice(0, 600) }));
       if (!messages.length) throw new Error('没有生成有效消息');
-      const next: ChatRecord = { id: String(Date.now()), name: data.name.slice(0, 40), preview: messages[messages.length - 1].text, time: Date.now(), messages };
-      persist([next, ...records]); setTab('chats');
+      const npc = target?.name || data.name.trim().slice(0, 40);
+      if (!npc) throw new Error('NPC 名称为空');
+      const existing = target || records.find(r => r.name === npc);
+      const next: ChatRecord = { id: existing?.id || String(Date.now()), name: npc, preview: messages[messages.length - 1].text, time: Date.now(), messages: [...(existing?.messages || []), ...messages] };
+      persist([next, ...records.filter(r => r.id !== existing?.id)]); setTab('chats'); setSelectedNpc('');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
   const active = records.find(r => r.id === thread);
@@ -53,7 +58,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? active?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置' } as Record<string,string>)[screen]}</h2>
-          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="AI生成角色聊天记录" disabled={busy} onClick={generate}>{busy ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
+          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="AI生成角色聊天记录" disabled={busy} onClick={() => generate()}>{busy ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
         </header>}
       <main className="min-h-0 flex-1 overflow-y-auto">
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
@@ -67,6 +72,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
         {screen === 'wallet' && <p className="p-8 text-center text-sm text-[#888]">钱包与小红书集市交易后续接入</p>}
         {screen === 'settings' && <p className="p-8 text-center text-sm text-[#888]">NPC互动和API设置后续接入；当前生成使用私聊同一套聊天API</p>}
       </main>
+      {screen === 'thread' && active && <div className="flex shrink-0 items-center justify-center border-t border-[#ddd] bg-[#f8f8f8] px-4 py-3"><button type="button" disabled={busy} onClick={() => generate(active.name)} className="rounded-lg bg-[#07b75b] px-5 py-2 text-sm font-medium text-white disabled:opacity-50">{busy ? '正在生成…' : 'AI 续聊'}</button></div>}
       {screen === 'wechat' && <nav className="grid shrink-0 grid-cols-4 border-t border-[#ddd] bg-[#f8f8f8] py-2">{([{id:'chats',label:'微信',Icon:ChatCircleDots},{id:'contacts',label:'通讯录',Icon:UsersThree},{id:'discover',label:'发现',Icon:Compass},{id:'me',label:'我',Icon:User}] as const).map(({id,label,Icon})=><button key={id} onClick={()=>setTab(id)} className={`flex flex-col items-center gap-1 text-xs ${tab===id?'text-[#07b75b]':'text-[#222]'}`}><Icon size={26} weight={tab===id?'fill':'regular'}/>{label}</button>)}</nav>}
       {screen !== 'wechat' && <footer className="flex shrink-0 justify-center border-t border-[#ddd] bg-[#fafafa] py-2"><button type="button" onClick={()=>setScreen('home')} aria-label="返回手机桌面"><House size={21}/></button></footer>}
     </div>
