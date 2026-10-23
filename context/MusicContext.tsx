@@ -958,6 +958,18 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       rejectListeningInvite: (cid: string) => {
         respondListeningInvite(cid, false);
       },
+      playListeningTrack: (cid: string, query: string) => {
+        // 只允许正在一起听的角色操作现有播放队列，不凭空播放不明歌曲。
+        if (!listeningTogetherRef.current.includes(cid)) return false;
+        const needle = query.trim().toLocaleLowerCase();
+        if (!needle) return false;
+        const match = queueRef.current.find(song =>
+          song.name.toLocaleLowerCase() === needle ||
+          song.name.toLocaleLowerCase().includes(needle));
+        if (!match) return false;
+        void playSong(match);
+        return true;
+      },
       stopListeningTogether: (cid: string) => {
         removeListeningPartner(cid);
       },
@@ -1038,7 +1050,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       },
     };
-  }, [current, addListeningPartner, removeListeningPartner, respondListeningInvite]);
+  }, [current, addListeningPartner, removeListeningPartner, respondListeningInvite, playSong]);
 
   const value: MusicContextType = {
     cfg, setCfg, effectiveWorkerUrl,
