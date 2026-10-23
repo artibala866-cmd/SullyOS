@@ -934,7 +934,8 @@ export const useChatAI = ({
             const avatarLibrary = readCharacterAvatarLibrary(char.id);
             const avatarCandidates = avatarLibrary.autonomousEnabled ? avatarLibrary.entries.slice(0, 24) : [];
             // Only the most recent user-sent image is eligible; never trust an AI-provided URL.
-            const recentUserImage = [...contextMsgs].reverse().find(m => m.role === 'user' && m.type === 'image');
+            const latestUserTurn = [...contextMsgs].reverse().find(m => m.role === 'user');
+            const recentUserImage = latestUserTurn?.type === 'image' ? latestUserTurn : undefined;
             const chatImageEligible = avatarLibrary.autonomousEnabled && !!recentUserImage
                 && Date.now() - recentUserImage.timestamp < 20 * 60 * 1000
                 && (!avatarLibrary.lastChangedAt || Date.now() - avatarLibrary.lastChangedAt >= 24 * 60 * 60 * 1000);
