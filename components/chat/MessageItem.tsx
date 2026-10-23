@@ -3,10 +3,8 @@ import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anni
 
 
 import React, { useEffect, useRef, useState } from 'react';
-const AivenFishSaleReceipt = React.lazy(() => import('../../apps/vrWorld/AivenFishSaleReceipt').then(module => ({ default: module.AivenFishSaleReceipt })));
 import { Message, ChatTheme } from '../../types';
 import { phoneFieldToText } from '../../utils/phoneEvidence';
-import { tryParseLifeSimResetCard } from '../../utils/lifeSimChatCard';
 import { VALID_INTERJECTION_TAGS, cleanVoiceMarkupForDisplay } from '../../utils/minimaxTts';
 import { stripFishCuesForDisplay } from '../../utils/fishAudioTts';
 import { formatStatCount } from '../../utils/videoParser';
@@ -986,101 +984,6 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
     );
 };
 
-const LifeSimResetCardView: React.FC<{ card: any }> = ({ card }) => {
-    const parsed = tryParseLifeSimResetCard(card);
-    if (!parsed) return null;
-
-    return (
-        <div
-            className="w-72 overflow-hidden"
-            style={{
-                border: '2px solid #8f674a',
-                borderRadius: 2,
-                background: '#f4ede6',
-                boxShadow: '4px 4px 0 rgba(105, 74, 52, 0.28), inset 0 0 0 1px rgba(255,255,255,0.35)',
-            }}
-        >
-            <div
-                className="px-3 py-2 flex items-center gap-2"
-                style={{
-                    borderBottom: '2px solid rgba(96,65,44,0.22)',
-                    background: 'linear-gradient(180deg, #c99872, #9a6f52)',
-                }}
-            >
-                {parsed.charAvatar ? (
-                    <TokenImg value={parsed.charAvatar} className="w-8 h-8 object-cover shrink-0" style={{ borderRadius: 2, border: '2px solid rgba(255,255,255,0.25)' }} />
-                ) : (
-                    <div className="w-8 h-8 flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ borderRadius: 2, background: 'linear-gradient(135deg, #b86c3d, #d39b62)' }}>
-                        {parsed.charName?.[0] || '?'}
-                    </div>
-                )}
-                <div className="flex-1 min-w-0">
-                    <div className="text-[8px] font-bold tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.78)', fontFamily: 'monospace' }}>
-                        city-summary.exe
-                    </div>
-                    <div className="text-[11px] font-bold truncate" style={{ color: 'white' }}>
-                        {parsed.headline || parsed.title}
-                    </div>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                    <span style={{ width: 10, height: 10, borderRadius: 2, background: '#fbbf24', border: '1px solid rgba(0,0,0,0.12)' }} />
-                    <span style={{ width: 10, height: 10, borderRadius: 2, background: '#86efac', border: '1px solid rgba(0,0,0,0.12)' }} />
-                </div>
-            </div>
-
-            <div
-                className="px-3 py-3"
-                style={{
-                    backgroundImage: 'linear-gradient(rgba(143,103,74,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(143,103,74,0.06) 1px, transparent 1px)',
-                    backgroundSize: '8px 8px',
-                }}
-            >
-                <div className="flex items-center justify-between text-[9px] font-bold mb-2" style={{ color: '#8f7968', fontFamily: 'monospace' }}>
-                    <span>{parsed.charName}</span>
-                    <span>主线 {parsed.mainPlotCount}</span>
-                </div>
-                <div
-                    className="px-3 py-2.5"
-                    style={{
-                        borderRadius: 2,
-                        background: 'rgba(255,255,255,0.82)',
-                        border: '2px solid rgba(168,123,91,0.3)',
-                        boxShadow: 'inset 1px 1px 0 rgba(255,255,255,0.6)',
-                    }}
-                >
-                    <div className="text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: '#5b4c42' }}>
-                        {parsed.summary}
-                    </div>
-                </div>
-
-                <div className="mt-3 retro-inset px-2.5 py-2" style={{ borderRadius: 2 }}>
-                    <div className="flex items-center justify-between text-[9px] font-bold" style={{ color: '#8f7968', fontFamily: 'monospace' }}>
-                        <span>参与者 {parsed.participantNames.length}</span>
-                        <span>回合 {parsed.turnCount}</span>
-                    </div>
-                    <div className="mt-1 text-[9px] leading-relaxed" style={{ color: '#9b8677' }}>
-                        {parsed.participantNames.join('、') || '无参与角色'}
-                    </div>
-                </div>
-            </div>
-
-            <div
-                className="px-3 py-1.5 flex items-center justify-between"
-                style={{
-                    borderTop: '2px solid rgba(143,103,74,0.18)',
-                    background: 'linear-gradient(180deg, #eadfce, #dfd0bd)',
-                    fontFamily: 'monospace',
-                    fontSize: 9,
-                    color: '#836b5b',
-                }}
-            >
-                <span>memory://lifesim/session-card</span>
-                <span>OK</span>
-            </div>
-        </div>
-    );
-};
-
 interface MessageItemProps {
     /** Static decoration fixtures only; never enables playback or message actions. */
     previewExpanded?: boolean;
@@ -1386,7 +1289,7 @@ const MessageItem = React.memo(({
                         )}
                         <div className="w-full px-4 my-3" {...interactionProps}>
                             <div className="mx-auto w-72">
-                                <LifeSimResetCardView card={scoreData} />
+                                <span className="text-xs text-neutral-400">历史记录</span>
                             </div>
                         </div>
                     </div>
@@ -2235,7 +2138,6 @@ const MessageItem = React.memo(({
                         )}
                         {/* 留言簿：把角色在墙上留的原话也显示出来 */}
                         {md.privateWords && <blockquote className="mt-2 border-l-2 border-teal-200/50 pl-2 text-[12px] leading-relaxed text-indigo-50 whitespace-pre-wrap">{md.privateWords}</blockquote>}
-                        {md.fishing?.sale && <React.Suspense fallback={null}><AivenFishSaleReceipt sale={md.fishing.sale} sellerName={charName || 'Ta'} sellerWords={md.fishing.sale.sellerWords}/></React.Suspense>}
                         {(md.marketActivity || md.marketEventId) && <details className="mt-2 text-[11px] text-indigo-200/80">
                             <summary className="cursor-pointer">展开经过与原话</summary>
                             <p className="mt-2 whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
@@ -2815,7 +2717,7 @@ const MessageItem = React.memo(({
         try { scoreData = m.metadata?.scoreCard || JSON.parse(m.content); } catch {}
 
         if (scoreData?.type === 'lifesim_reset_card') {
-            return commonLayout(<LifeSimResetCardView card={scoreData} />);
+            return null;
         }
 
         if (scoreData?.type === 'qixi_event_card') {
