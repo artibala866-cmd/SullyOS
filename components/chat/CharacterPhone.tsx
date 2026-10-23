@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
+import { getDailyScheduleForChar } from '../../utils/dailySchedule';
+import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
+import type { CharacterProfile, DailySchedule } from '../../types';
 import { parseGeneratedPhoneMessages, type PhoneMessage } from '../../utils/characterPhoneIdentity';
 import { safeResponseJson, extractContent } from '../../utils/safeApi';
 import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
@@ -11,7 +14,7 @@ type ChatRecord = { id: string; contactId?: string; name: string; preview: strin
 type Api = { baseUrl: string; apiKey: string; model: string };
 const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots }];
 const timeLabel = (time: number) => new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-export default function CharacterPhone({ name, characterId, persona, api, onClose }: { name: string; characterId: string; persona: string; api: Api; onClose: () => void }) {
+export default function CharacterPhone({ name, characterId, persona, api, onClose, char }: { name: string; characterId: string; persona: string; api: Api; onClose: () => void; char: CharacterProfile }) {
   const [screen, setScreen] = useState<Screen>('home');
   const [tab, setTab] = useState<Tab>('chats');
   const [thread, setThread] = useState('');
@@ -36,6 +39,14 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     window.addEventListener(CHARACTER_PHONE_CONTACT_CHANGED, sync);
     return () => window.removeEventListener(CHARACTER_PHONE_CONTACT_CHANGED, sync);
   }, [characterId]);
+  const [schedule, setSchedule] = useState<DailySchedule | null>(null);
+  useEffect(() => {
+    let live = true;
+    const refresh = () => { getDailyScheduleForChar(char).then(v=>{if(live)setSchedule(v);}).catch(()=>{if(live)setSchedule(null);}); };
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    return () => { live = false; window.clearInterval(timer); };
+  }, [char.id, char.customTimezone, char.customTimezoneEnabled]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const storageKey = 'sully_character_phone_wechat_v1:' + characterId;
@@ -45,6 +56,8 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const persistProfiles = (next: NpcProfile[]) => { try { saveNpcProfiles(characterId, next); setProfiles(next); } catch { setError('联系人档案保存失败'); } };
   const persist = (next: ChatRecord[]) => { setRecords(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { setError('存储空间不足，记录未能保存'); } };
   const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'thread' || screen === 'moments' || screen === 'wallet' || screen === 'settings') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
+  const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
+  const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前生活状态，不等于必然在玩手机；不可凭空断言已发生社交行为。` : '目前没有可用的角色当日日程，不得编造当前行程。';
   const createProfile = async () => {
     if (busy) return;
     if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先配置聊天 API'); return; }
@@ -53,7 +66,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
         body: JSON.stringify({ model: api.model, stream: false, messages: [
-          { role: 'system', content: `你是严格的角色设定档案管理员，不是随机NPC生成器。手机主人Char的唯一ID是${characterId}，显示名${name}。角色人设：${persona.slice(0, 9500)}。只能从人设明确提到或可明确推导的真实社会关系中选择联系人；没有足够依据则返回JSON {\"error\":\"人设中缺少可确认的联系人，请补充人物关系\"}，禁止凭空杜撰朋友、家人、同事及亲密关系。已有联系人：${profiles.map(p => p.name+'('+p.relationship+')').join('、')}。User与Char与NPC身份不同；同名或水仙不能视为同一人。仅返回JSON对象，字段name,identity,personality,relationship,background均为非空字符串。` },
+          { role: 'system', content: `你是严格的角色设定档案管理员，不是随机NPC生成器。手机主人Char的唯一ID是${characterId}，显示名${name}。角色人设：${persona.slice(0, 9500)}。${scheduleContext}只能从人设明确提到或可明确推导的真实社会关系中选择联系人；没有足够依据则返回JSON {\"error\":\"人设中缺少可确认的联系人，请补充人物关系\"}，禁止凭空杜撰朋友、家人、同事及亲密关系。已有联系人：${profiles.map(p => p.name+'('+p.relationship+')').join('、')}。User与Char与NPC身份不同；同名或水仙不能视为同一人。仅返回JSON对象，字段name,identity,personality,relationship,background均为非空字符串。` },
           { role: 'user', content: '根据人设中已有的人物关系建立一份联系人档案；无法确认则返回error，不要编造。不要生成聊天消息。' }
         ] })
       });
@@ -82,7 +95,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
         body: JSON.stringify({ model: api.model, stream: false, temperature: 0.85, messages: [
-          { role: 'system', content: `你正在模拟角色「${name}」的私人微信，角色设定：${persona.slice(0, 9500)}。手机主人Char的ID是${characterId}。固定NPC档案：姓名${profile.name}，身份${profile.identity}，性格${profile.personality}，与角色关系${profile.relationship}，背景${profile.background}。必须严格遵守该档案，不得更名、改身份或改关系。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => (m.speaker?.role === 'owner' ? '[手机主人]' : m.speaker?.role === 'contact' ? '[联系人]' : '[旧消息身份未验证]') + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"${profile.name}","messages":[{"speaker":"contact","text":"短消息"},{"speaker":"owner","text":"短消息"}]}。speaker只能为owner或contact，owner是手机主人Char，contact是当前联系人；即使双方同名或是水仙，也绝对不能根据名字推断发言者。User不是NPC，不能混入。必须生成8到14条独立的微信消息，双方都要有发言，每条一条气泡，禁止把整段对话塞入单条text。至少8条，否则视为失败。不要markdown。已有记录：${context}` },
+          { role: 'system', content: `你正在模拟角色「${name}」的私人微信，角色设定：${persona.slice(0, 9500)}。手机主人Char的ID是${characterId}。${scheduleContext}固定NPC档案：姓名${profile.name}，身份${profile.identity}，性格${profile.personality}，与角色关系${profile.relationship}，背景${profile.background}。必须严格遵守该档案，不得更名、改身份或改关系。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => (m.speaker?.role === 'owner' ? '[手机主人]' : m.speaker?.role === 'contact' ? '[联系人]' : '[旧消息身份未验证]') + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"${profile.name}","messages":[{"speaker":"contact","text":"短消息"},{"speaker":"owner","text":"短消息"}]}。speaker只能为owner或contact，owner是手机主人Char，contact是当前联系人；即使双方同名或是水仙，也绝对不能根据名字推断发言者。User不是NPC，不能混入。必须生成8到14条独立的微信消息，双方都要有发言，每条一条气泡，禁止把整段对话塞入单条text。至少8条，否则视为失败。不要markdown。已有记录：${context}` },
           { role: 'user', content: '生成一段符合角色设定、像真实朋友微信聊天一样的日常对话。' }
         ] })
       });
@@ -128,6 +141,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
         {screen === 'wechat' && tab === 'chats' && (records.length ? records.map(r=><button key={r.id} type="button" onClick={()=>{setThread(r.id);setScreen('thread');}} className="flex w-full items-center gap-3 border-b border-[#e5e5e5] bg-white px-4 py-3 text-left"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#b9d9c6] text-xl text-white">{r.name.slice(0,1)}</div><div className="min-w-0 flex-1"><div className="truncate text-[17px] text-[#222]">{r.name}</div><div className="truncate pt-1 text-[13px] text-[#999]">{r.preview}</div></div><span className="self-start text-xs text-[#aaa]">{timeLabel(r.time)}</span></button>) : <p className="p-8 text-center text-sm text-[#999]">暂无聊天记录，请先在通讯录生成 NPC 档案</p>)}
         {screen === 'wechat' && tab === 'contacts' && <div className="bg-white">
           <button type="button" disabled={busy} onClick={createProfile} className="flex w-full items-center gap-3 border-b border-[#eee] px-5 py-3 text-left disabled:opacity-50"><span className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-400 text-white"><Plus size={24}/></span>{refreshingContacts?'正在根据人设查找联系人…':'刷新生成联系人'}</button>
+          {currentSlot && <div className="bg-[#ededed] px-5 py-2 text-xs text-[#777]">当前生活状态 · {currentSlot.activity}{currentSlot.location ? ' · '+currentSlot.location : ''}</div>}
           <div className="bg-[#ededed] px-5 py-2 text-xs text-[#888]">联系人 · {profiles.length}　点击上方按钮手动生成，不自动乱加</div>
           {[...profiles].sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')).map(p=><button type="button" key={p.id} onClick={()=>openContact(p)} className="flex w-full items-center gap-3 border-b border-[#eee] px-5 py-3 text-left"><span className="flex h-11 w-11 items-center justify-center rounded-md bg-[#a9cbb5] text-lg text-white">{p.name.slice(0,1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-base">{p.name}</span><span className="block truncate text-xs text-[#999]">{p.relationship}</span></span><span className="text-[#bbb]">›</span></button>)}
         </div>}
