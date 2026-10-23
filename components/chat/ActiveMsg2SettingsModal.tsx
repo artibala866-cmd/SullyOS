@@ -73,9 +73,6 @@ interface ActiveMsg2SettingsModalProps {
     updater: (prev: ActiveMsg2CharacterConfig | undefined) => ActiveMsg2CharacterConfig,
   ) => void;
   addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
-  onOpenLegacy?: () => void;
-  lifePacingEnabled?: boolean;
-  onToggleLifePacing?: () => void;
 }
 
 const MODE_OPTIONS = [
@@ -111,9 +108,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   realtimeConfig,
   onSave,
   addToast,
-  onOpenLegacy,
-  lifePacingEnabled,
-  onToggleLifePacing,
 }) => {
   const saved = char.activeMsg2Config;
   const tasks = saved?.tasks ?? [];
@@ -660,12 +654,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${globalInstantChatOn && instantChatOn ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </div>
-
-        <div className="flex items-center justify-between rounded-2xl p-4 border border-slate-200 bg-white">
-          <div><div className="font-bold text-slate-700">真人感</div><div className="text-xs text-slate-400 mt-1">与聊天加号菜单原有的真人感开关相同</div></div>
-          <button type="button" onClick={onToggleLifePacing} aria-label="切换真人感" aria-pressed={!!lifePacingEnabled} className={`w-12 h-7 rounded-full relative ${lifePacingEnabled ? 'bg-slate-700' : 'bg-slate-200'}`}><span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${lifePacingEnabled ? 'translate-x-5' : ''}`}/></button>
-        </div>
-        <button type="button" onClick={onOpenLegacy} className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left text-slate-700">原主动消息设置（本地定时） ›</button>
 
         {/* 「主动频率」：几条上限集中在自己那一页改、自己那一页存，这里只放一行摘要。
             今天主动找了几次摆在摘要下面——上限是不是在起作用，用户一眼能看到。 */}
