@@ -109,10 +109,10 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string; monochrome?: bool
         </div>
         <div className="flex-1 min-h-0 flex items-center justify-center gap-[2px] py-1" aria-hidden="true">
           {bars.map((height, i) => (
-            <span key={i} className="w-[3px] shrink min-w-[1px] rounded-full bg-[#a3a3a3]"
+            <span key={i} className="sully-wave-bar w-[3px] shrink min-w-[1px] rounded-full bg-[#a3a3a3]"
               style={{ height: `${height}%`, maxHeight: '100%', opacity: playing ? .92 : .68,
-                animation: playing ? `sullyWave ${1.1 + (i % 4) * .18}s ease-in-out infinite alternate` : 'none',
-                animationDelay: `${i * -0.09}s` }} />
+                animation: playing ? `sullyWave${i % 3} ${0.65 + (i % 5) * .14}s ease-in-out infinite` : 'none',
+                animationDelay: `${i * -0.17}s`, transformOrigin: 'center center' }} />
           ))}
         </div>
         <div className="min-w-0 text-center mb-1">
@@ -130,7 +130,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string; monochrome?: bool
         <div className="h-[3px] rounded-full bg-white/20 overflow-hidden mt-2" aria-label="播放进度">
           <div className="h-full rounded-full bg-white transition-[width] duration-150" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
         </div>
-        <style>{`@keyframes sullyWave { from { transform: scaleY(.55) } to { transform: scaleY(1) } } @media(prefers-reduced-motion:reduce){ .sully-wave{animation:none!important} }`}</style>
+        <style>{`@keyframes sullyWave0 { 0%,100%{transform:scaleY(.15)} 28%{transform:scaleY(1.18)} 55%{transform:scaleY(.34)} 77%{transform:scaleY(.9)} } @keyframes sullyWave1 { 0%,100%{transform:scaleY(.72)} 22%{transform:scaleY(.18)} 53%{transform:scaleY(1.25)} 79%{transform:scaleY(.26)} } @keyframes sullyWave2 { 0%,100%{transform:scaleY(.25)} 33%{transform:scaleY(.85)} 57%{transform:scaleY(.12)} 83%{transform:scaleY(1.2)} } @media(prefers-reduced-motion:reduce){ .sully-wave-bar{animation:none!important} }`}</style>
       </div>
     );
   }
