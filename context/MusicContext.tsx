@@ -1110,6 +1110,26 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return null;
         }
       },
+      favoriteListeningTrack: async (cid, query) => {
+        const needle = query?.trim().toLocaleLowerCase();
+        const selected = needle
+          ? queueRef.current.find(song => song.name.toLocaleLowerCase() === needle || song.name.toLocaleLowerCase().includes(needle))
+          : current;
+        if (!selected) return false;
+        const song: CharPlaylistSong = {
+          id: selected.id,
+          name: selected.name,
+          artists: selected.artists,
+          album: selected.album,
+          albumPic: selected.albumPic,
+          duration: selected.duration,
+          fee: selected.fee,
+          source: 'discovered',
+          addedAt: Date.now(),
+        };
+        const saved = await __musicHooks?.addSongToCharPlaylist(cid, song);
+        return !!saved;
+      },
     };
   }, [current, addListeningPartner, removeListeningPartner, respondListeningInvite, playSong]);
 
