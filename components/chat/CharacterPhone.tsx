@@ -1,3 +1,4 @@
+import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment, deleteCharacterMoment, type CharacterMoment } from '../../utils/characterPhoneMoments';
 import { PENDING_PHONE_CONTACTS_CHANGED, readPendingContacts, writePendingContacts, type PendingPhoneContact } from '../../utils/characterPhoneRequests';
 import { DB } from '../../utils/db';
 import { mirrorPrivateChat } from '../../utils/characterPhonePrivateSync';
@@ -52,6 +53,10 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [draft, setDraft] = useState({ name:'', identity:'', personality:'', relationship:'', background:'' });
   const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
+  const [moments, setMoments] = useState<CharacterMoment[]>(() => readCharacterMoments(characterId));
+  const [momentDraft, setMomentDraft] = useState('');
+  const [momentComposer, setMomentComposer] = useState(false);
+  useEffect(() => {setMoments(readCharacterMoments(characterId)); const sync=(event:Event)=>{if((event as CustomEvent<{characterId:string}>).detail?.characterId===characterId)setMoments(readCharacterMoments(characterId));};window.addEventListener(CHARACTER_MOMENTS_CHANGED,sync);return ()=>window.removeEventListener(CHARACTER_MOMENTS_CHANGED,sync);},[characterId]);
   useEffect(() => {
     setLifeEvents(readCharacterLifeEvents(characterId));
     const sync = (event: Event) => { if ((event as CustomEvent<{characterId:string}>).detail?.characterId === characterId) setLifeEvents(readCharacterLifeEvents(characterId)); };
@@ -284,7 +289,12 @@ ${scheduleContext}
         {screen === 'wechat' && tab === 'me' && <div className="pt-4">{row(name,<User size={24}/>,()=>{})}<div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>setScreen('settings'))}</div></div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><div className={'max-w-[78%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}>{m.text}</div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <div className="space-y-4 p-4">{active?.messages.map((m,i)=><div key={i} className={`flex gap-2 ${m.speaker?.role === 'owner' ? 'flex-row-reverse' : ''}`}><div className={`max-w-[78%] rounded-lg px-3 py-2 text-[15px] leading-relaxed ${m.speaker?.role === 'owner' ? 'bg-[#95ec69]' : 'bg-white'}`}><span className="mb-1 block text-[10px] text-[#777]">{m.speaker?.role === 'owner' ? name : m.speaker?.role === 'contact' ? active?.name : '旧消息'}</span>{m.text}</div></div>)}</div>}
-        {screen === 'moments' && <div className="space-y-3 p-4">{lifeEvents.filter(e=>e.kind==='moment-post'||e.kind==='moment-comment').length ? lifeEvents.filter(e=>e.kind==='moment-post'||e.kind==='moment-comment').map(e=><div key={e.id} className="rounded-lg bg-white p-4"><p className="text-sm text-[#333]">{e.summary}</p><time className="mt-2 block text-xs text-[#999]">{new Date(e.occurredAt).toLocaleString('zh-CN')}</time></div>) : <p className="p-8 text-center text-sm text-[#888]">暂无朋友圈动态，等待真人模式产生真实事件</p>}</div>}
+        {screen === 'moments' && <div className="space-y-3 p-4">
+          <div className="flex items-center justify-between"><span className="text-sm text-[#777]">{name}的朋友圈</span><button type="button" onClick={()=>setMomentComposer(v=>!v)} className="rounded bg-[#07b75b] px-3 py-2 text-sm text-white">＋ 发布</button></div>
+          {momentComposer && <div className="space-y-2 rounded-lg bg-white p-3"><p className="text-xs text-[#888]">第一阶段：手动录入 Char 已决定发布的内容；不会自动冒充 Char 发帖。</p><textarea value={momentDraft} onChange={e=>setMomentDraft(e.target.value)} placeholder="记录 Char 要发布的朋友圈内容" className="min-h-24 w-full resize-y rounded border border-[#ddd] p-2 text-sm"/><button type="button" disabled={!momentDraft.trim()} className="rounded bg-[#07b75b] px-4 py-2 text-sm text-white disabled:opacity-40" onClick={()=>{const post=publishCharacterMoment({characterId,origin:'char',text:momentDraft.trim(),imageUrls:[],visibility:'all'});if(!post){setError('朋友圈保存失败');return;}recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',occurredAt:post.createdAt,source:'phone',summary:'Char 发布朋友圈：'+post.text.slice(0,100)});setMomentDraft('');setMomentComposer(false);}}>保存发布</button></div>}
+          {moments.filter(p=>!p.deletedAt).map(p=><article key={p.id} className="rounded-lg bg-white p-4"><div className="mb-2 text-sm font-semibold text-[#4872a0]">{name}</div>{p.text&&<p className="whitespace-pre-wrap break-words text-sm text-[#333]">{p.text}</p>}{p.imageUrls.length>0&&<div className="mt-2 grid grid-cols-3 gap-1">{p.imageUrls.map((url,i)=><img key={i} src={url} alt="朋友圈图片" className="aspect-square w-full rounded object-cover"/>)}</div>}{p.quote&&<blockquote className="mt-2 rounded bg-[#f5f5f5] p-2 text-xs">{p.quote.excerpt}</blockquote>}<div className="mt-3 flex items-center justify-between text-xs text-[#999]"><time>{new Date(p.createdAt).toLocaleString('zh-CN')}</time><button type="button" className="text-red-500" onClick={()=>{if(window.confirm('确定帮 Char 删除这条朋友圈吗？')){if(!deleteCharacterMoment(characterId,p.id,'user'))setError('删除失败');}}}>帮 Char 删除</button></div></article>)}
+          {!moments.some(p=>!p.deletedAt)&&<p className="p-8 text-center text-sm text-[#888]">暂无已发布的朋友圈</p>}
+        </div>}
         {screen === 'wallet' && <p className="p-8 text-center text-sm text-[#888]">钱包与小红书集市交易后续接入</p>}
         {screen === 'settings' && <p className="p-8 text-center text-sm text-[#888]">NPC互动和API设置后续接入；当前生成使用私聊同一套聊天API</p>}
       </main>
