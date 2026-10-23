@@ -126,6 +126,57 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     recordCharacterLifeEvent({ id: 'contact:' + profile.id, characterId, kind: 'contact-added', occurredAt: profile.createdAt, source: 'phone', summary: '添加联系人：' + profile.name, contactId: profile.id });
     setAddingContact(false); setError(''); openContact(profile);
   };
+  // Inbox generation is independent of the contacts list. A single call yields several threads.
+  const generateInbox = async () => {
+    if (busy || !api.apiKey || !api.baseUrl || !api.model) return;
+    setBusy(true); setError('');
+    try {
+      const context = await loadRealContext();
+      const existing = records.map(r => ({ id:r.contactId || r.id, name:r.name, recent:r.messages.slice(-6).map(m=>({role:m.speaker?.role,text:m.text})) }));
+      const response = await fetch(api.baseUrl.replace(/\\/+$/, '') + '/chat/completions', {
+        method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+api.apiKey},
+        body:JSON.stringify({model:api.model,stream:false,temperature:0.8,messages:[
+          {role:'system',content:`以下是私聊真实的角色系统上下文（包括世界书、性格、生活状态）：${context.systemPrompt.slice(0,36000)}。
+你只负责补充手机主人Char（ID:${characterId}）的微信收件箱；不要代替User说话，也不要生成User聊天框，它从真实私聊数据库同步。
+${scheduleContext}
+已有会话：${JSON.stringify(existing).slice(0,6500)}
+已确认联系人：${JSON.stringify(profiles.map(p=>({id:p.id,nickname:p.nickname||p.name,realName:p.realName,identity:p.identity,relationship:p.relationship,personality:p.personality}))).slice(0,6500)}
+生成3至6个不同微信会话，每个会话3至10条独立消息。涵盖真实生活中合适的亲友、学校/工作、普通事务、群通知或服务通知，不强制每类出现。不是所有人都热情友善；允许简短、冷淡、忙碌、无回复，禁止无意义互夸和装乖。仅模拟手机内容，不将模拟内容冒充真人感已经发生的事件。
+严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","relationship":"与Char的关系","background":"背景","kind":"npc|group|service","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}]}。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
+          {role:'user',content:'根据手机主人自己的生活和已有上下文，批量更新整个微信收件箱，不需要事先存在NPC联系人。'}
+        ]})
+      });
+      const json = await safeResponseJson(response);
+      if(!response.ok) throw new Error(json?.error?.message || 'HTTP '+response.status);
+      const raw=extractContent(json).trim().replace(/^```(?:json)?\\s*/i,'').replace(/\\s*```$/,'');
+      const data=JSON.parse(raw);
+      if(!Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
+      const incoming: ChatRecord[]=[];
+      const pending=readPendingContacts(characterId);
+      const nextPending=[...pending];
+      const now=Date.now();
+      for(const item of data.threads.slice(0,8)){
+        if(!item || typeof item.nickname!=='string' || !item.nickname.trim() || !Array.isArray(item.messages)) continue;
+        if(!['npc','group','service'].includes(item.kind)) continue;
+        const linked=profiles.find(p=>p.id===item.contactId);
+        const previous=records.find(r=>r.contactId===item.contactId && item.contactId);
+        const id=linked?.id || previous?.contactId || (typeof item.contactId==='string' && item.contactId.startsWith('generated:') ? item.contactId : 'generated:'+crypto.randomUUID());
+        const messages=parseGeneratedPhoneMessages(item.messages,id);
+        if(!messages.length) continue;
+        const existingRecord=previous || records.find(r=>r.contactId===id);
+        incoming.push({id:existingRecord?.id||crypto.randomUUID(),contactId:id,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),preview:messages[messages.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...messages]});
+        if(!linked && item.kind==='npc' && !nextPending.some(p=>p.id===id)){
+          nextPending.push({id,nickname:item.nickname.trim().slice(0,40),realName:typeof item.realName==='string'?item.realName:'',identity:String(item.identity||'普通联系人'),personality:String(item.personality||'尚不清楚'),relationship:String(item.relationship||'普通认识'),background:String(item.background||''),createdAt:now,source:'chat'});
+        }
+      }
+      if(!incoming.length) throw new Error('本次未生成有效微信会话，未保存');
+      const replaced=new Set(incoming.map(x=>x.id));
+      persist([...incoming,...records.filter(r=>!replaced.has(r.id))]);
+      if(nextPending.length!==pending.length){writePendingContacts(characterId,nextPending);setPendingContacts(nextPending);}
+      setTab('chats');
+    } catch(e){setError(e instanceof Error?e.message:String(e));}
+    finally{setBusy(false);}
+  };
   const generate = async (npcName = '') => {
     if (busy) return;
     if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先在 SullyOS 设置中配置聊天 API'); return; }
@@ -185,7 +236,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置' } as Record<string,string>)[screen]}</h2>
-          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="AI生成角色聊天记录" disabled={busy} onClick={() => { if (profiles.length === 1) generate(profiles[0].id); else { setTab('contacts'); setError('请选择联系人，点击「生成聊天」'); } }}>{busy ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
+          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy} onClick={() => void generateInbox()}>{busy ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
         </header>}
       <main className="min-h-0 flex-1 overflow-y-auto">
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
