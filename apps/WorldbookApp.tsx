@@ -199,10 +199,55 @@ const WorldbookApp: React.FC = () => {
         const file = event.target.files?.[0];
         if (!file) return;
         try {
-            const source = await readShareFile(file, 'worldbook');
-            const text = await source.text();
-            const category = source.name.replace(/\.json$/i, '').trim() || '导入世界书';
-            const imported = parseStandardWorldbook(text, category);
+            const extension = file.name.split('.').pop()?.toLowerCase();
+            const category = file.name.replace(/\.(json|png|txt|docx|doc)$/i, '').trim() || '导入世界书';
+            let imported: Worldbook[];
+            if (extension === 'txt' || extension === 'docx') {
+                let text: string;
+                if (extension === 'txt') {
+                    text = await file.text();
+                } else {
+                    const JSZip = (await import('jszip')).default;
+                    const archive = await JSZip.loadAsync(await file.arrayBuffer());
+                    const xml = await archive.file('word/document.xml')?.async('string');
+                    if (!xml) throw new Error('Word 文档中没有可读取的正文');
+                    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+                    if (doc.querySelector('parsererror')) throw new Error('Word 文档格式无效');
+                    const paragraphs = Array.from(doc.getElementsByTagName('w:p'));
+                    text = paragraphs.map(p => Array.from(p.getElementsByTagName('w:t')).map(t => t.textContent || '').join('')).join('\n');
+                }
+                if (!text.trim()) throw new Error('文件内容为空，无法导入世界书');
+                const now = Date.now();
+                imported = [{
+                    id: `wb-${now}-${Math.random().toString(36).slice(2, 8)}`,
+                    title: category,
+                    content: text.trim(),
+                    category,
+                    createdAt: now,
+                    updatedAt: now,
+                    key: [],
+                    keysecondary: [],
+                    constant: true,
+                    selective: false,
+                    selectiveLogic: 0,
+                    order: 100,
+                    position: 1,
+                    disable: false,
+                    probability: 100,
+                    useProbability: false,
+                    depth: 4,
+                    role: null,
+                    scanDepth: null,
+                    caseSensitive: null,
+                    matchWholeWords: null,
+                    sourceUid: 0,
+                }];
+            } else if (extension === 'doc') {
+                throw new Error('旧版 .doc 暂不支持，请另存为 .docx 后导入');
+            } else {
+                const source = await readShareFile(file, 'worldbook');
+                imported = parseStandardWorldbook(await source.text(), category);
+            }
             for (const book of imported) await addWorldbook(book);
             addToast(`已导入 ${imported.length} 条世界书条目`, 'success');
             setExpandedCategory(category);
@@ -640,7 +685,7 @@ const WorldbookApp: React.FC = () => {
                                     {isSelecting ? '取消' : '管理'}
                                 </button>
                             )}
-                            <input ref={importRef} type="file" accept=".json,.png,application/json,image/png" className="hidden" onChange={handleImport} />
+                            <input ref={importRef} type="file" accept=".json,.png,.txt,.docx,.doc,application/json,image/png,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={handleImport} />
                             <button
                                 onClick={() => { setShowImportConfirm(true); trackEvent('打开导入世界书弹窗'); }}
                                 className="w-9 h-9 bg-white/80 text-neutral-500 border border-white rounded-full shadow-sm flex items-center justify-center active:scale-90 transition-transform"
