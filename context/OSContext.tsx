@@ -35,7 +35,6 @@ import { externalizeVoiceMessageBlobs, restoreVoiceMessageBlobs, shouldIncludeVo
 import { ensureCompanionVoiceAssetsForBackup, isCompanionVoiceAssetId } from '../utils/companionVoiceAssets';
 import { collectCharacterCompanionVoiceAssetIds } from '../utils/companionPresets';
 import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/memoryPalace/db';
-import { ProactiveChat } from '../utils/proactiveChat';
 import { considerCharacterMemo } from '../utils/characterMemoAutonomy';
 import { readCharacterLifeEvents } from '../utils/characterLifeEvents';
 import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
@@ -2798,10 +2797,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
       };
 
-      ProactiveChat.onTrigger((charId: string) => {
-          void runProactive(charId);
-      });
-
       // 「家园」演绎 —— 引擎跑在全局：用户不在家园界面（可能正在和别人私聊）时，
       // 观测/离线 tick 触发的一轮链式演绎照样完成并注入 world_card。
       const runWorld = async (worldId: string, trigger: 'observe' | 'tick') => {
@@ -2871,7 +2866,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       return () => {
           // Cleanup: detach proactive listeners when OSContext unmounts (unlikely but safe)
-          ProactiveChat.onTrigger(() => {});
           WorldScheduler.onTrigger(() => {});
           window.removeEventListener('world-reroll-request', onRerollRequest as EventListener);
       };
