@@ -998,6 +998,22 @@ ${realCharRule}
         return { recentMsgs };
     };
 
+    // Char replies to a visitor's comment using the configured phone API.
+    const replyToMomentComment = async (postId: string, commentId: string, text: string) => {
+        if (!targetChar || !effectiveApiConfig.apiKey || isLoading) return;
+        const char = targetChar;
+        const post = readCharacterMoments(char.id).find(p => p.id === postId && !p.deletedAt);
+        if (!post || post.authorId !== char.id || post.comments?.some(x => x.replyToId === commentId)) return;
+        setIsLoading(true);
+        try {
+            const reply = (await callLLM(`你是${char.name}。这是你自己朋友圈里的动态：「${post.text.slice(0,500)}」。有人评论：「${text.slice(0,300)}」。请根据你的人设和上下文，决定是否回复。可以不回复；若回复，只输出一条自然简短的评论，不要扮演其他人，不要添加姓名前缀。若不回复只输出[不回复]。`)).trim();
+            if (reply && !reply.includes('[不回复]')) {
+                addMomentComment(char.id, postId, { id: crypto.randomUUID(), authorId: char.id, text: reply.slice(0,300), createdAt: Date.now(), replyToId: commentId });
+            }
+        } catch (e) { console.error('[CheckPhone] moment reply failed', e); addToast('朋友圈回复生成失败', 'error'); }
+        finally { setIsLoading(false); }
+    };
+
     // 生成：偷看机主在某个 AI 服务里的使用记录
     const handleGenerateAiAgent = async (service: AiServiceKind) => {
 
@@ -2515,7 +2531,7 @@ ${olderText}
                             </div>
                             {(post.comments||[]).filter(x=>!x.deletedAt).map(comment=><div key={comment.id} className="text-xs text-white/70"><span className="font-semibold text-violet-300">{comment.authorId}：</span>{comment.text}</div>)}
                             <div className="flex gap-2"><input aria-label="评论朋友圈" placeholder="写评论…" value={momentReplyDrafts[post.id]||''} onChange={e=>setMomentReplyDrafts(d=>({...d,[post.id]:e.target.value}))} className="min-w-0 flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs text-white" />
-                                <button className="text-xs text-violet-300" onClick={()=>{const message=momentReplyDrafts[post.id]?.trim();if(!targetChar||!message)return;if(addMomentComment(targetChar.id,post.id,{id:crypto.randomUUID(),authorId:'user:'+userProfile.name,text:message,createdAt:Date.now()}))setMomentReplyDrafts(d=>({...d,[post.id]:''}));}}>发送</button></div>
+                                <button className="text-xs text-violet-300" onClick={()=>{const message=momentReplyDrafts[post.id]?.trim();if(!targetChar||!message)return;const commentId=crypto.randomUUID();if(addMomentComment(targetChar.id,post.id,{id:commentId,authorId:'user:'+userProfile.name,text:message,createdAt:Date.now()})){setMomentReplyDrafts(d=>({...d,[post.id]:''}));void replyToMomentComment(post.id,commentId,message);}}}>发送</button></div>
                         </div>
                     ))}
                     {list.map(r => (
