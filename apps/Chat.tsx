@@ -1072,6 +1072,21 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
     }, [activeCharacterId]);
 
+    // 邀请创建或回应后，立即重新读取真实聊天记录；避免切页后才显示。
+    useEffect(() => {
+        const refreshMusicInvite = (event: Event) => {
+            const detail = (event as CustomEvent<{ charId?: string }>).detail;
+            if (detail?.charId !== activeCharIdRef.current) return;
+            void reloadMessages(visibleCountRef.current);
+        };
+        window.addEventListener('music-listen-invite-created', refreshMusicInvite);
+        window.addEventListener('music-listen-invite-resolved', refreshMusicInvite);
+        return () => {
+            window.removeEventListener('music-listen-invite-created', refreshMusicInvite);
+            window.removeEventListener('music-listen-invite-resolved', refreshMusicInvite);
+        };
+    }, [reloadMessages]);
+
     useEffect(() => {
         if (activeCharacterId) {
             // Update ref BEFORE any async work so stale reloadMessages calls
