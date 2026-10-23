@@ -40,6 +40,7 @@ import { considerCharacterMemo } from '../utils/characterMemoAutonomy';
 import { readCharacterLifeEvents } from '../utils/characterLifeEvents';
 import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
 import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
+import { getLifeEventConsumers, shouldDispatchLifeEvent } from '../utils/characterLifeEventRouting';
 import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
 import { runWorldEpisode, rerollWorldCharBeat } from '../utils/worldHome/engine';
 import { migrateWorldDaySegs } from '../utils/worldHome/prompts';
@@ -2283,17 +2284,20 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
       if (!isDataLoaded) return;
       const onLifeEvent = (event: Event) => {
-          const detail = (event as CustomEvent<{ characterId?: string }>).detail;
+          const detail = (event as CustomEvent<{ characterId?: string; eventId?: string }>).detail;
           const charId = detail?.characterId;
-          if (!charId || !userProfileRef.current) return;
+          if (!charId || !detail?.eventId || !userProfileRef.current) return;
+          const recordedEvent = readCharacterLifeEvents(charId).find(e => e.id === detail.eventId);
+          if (!recordedEvent || !shouldDispatchLifeEvent(recordedEvent, charId)) return;
+          const consumers = getLifeEventConsumers(recordedEvent.kind);
           const char = charactersRef.current.find(c => c.id === charId);
           if (!char) return;
           const api = resolveDialogueApi(apiConfigRef.current, char);
-          void considerAutonomousMoment({
+          if (consumers.includes('moments')) void considerAutonomousMoment({
               char, user: userProfileRef.current, groups: groupsRef.current,
               realtimeConfig: realtimeConfigRef.current, api
           });
-          void considerCharacterMemo({characterId:charId,name:char.name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,6000),api,events:readCharacterLifeEvents(charId)}).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
+          if (consumers.includes('memo')) void considerCharacterMemo({characterId:charId,name:char.name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,6000),api,events:readCharacterLifeEvents(charId)}).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
       };
       window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
       return () => window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
