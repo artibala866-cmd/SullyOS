@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
 import { safeResponseJson, extractContent } from '../../utils/safeApi';
+import { readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
 type Screen = 'home' | 'wechat' | 'thread' | 'moments' | 'wallet' | 'settings';
@@ -12,18 +13,44 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [screen, setScreen] = useState<Screen>('home');
   const [tab, setTab] = useState<Tab>('chats');
   const [thread, setThread] = useState('');
-  const [selectedNpc, setSelectedNpc] = useState('');
+  const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const storageKey = 'sully_character_phone_wechat_v1:' + characterId;
   const [records, setRecords] = useState<ChatRecord[]>(() => {
     try { const value = JSON.parse(localStorage.getItem(storageKey) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; }
   });
+  const persistProfiles = (next: NpcProfile[]) => { try { saveNpcProfiles(characterId, next); setProfiles(next); } catch { setError('联系人档案保存失败'); } };
   const persist = (next: ChatRecord[]) => { setRecords(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { setError('存储空间不足，记录未能保存'); } };
   const back = () => { if (screen === 'thread' || screen === 'moments' || screen === 'wallet' || screen === 'settings') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
-  const generate = async (npcName = selectedNpc) => {
+  const createProfile = async () => {
+    if (busy) return;
+    if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先配置聊天 API'); return; }
+    setBusy(true); setError('');
+    try {
+      const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
+        body: JSON.stringify({ model: api.model, stream: false, messages: [
+          { role: 'system', content: `根据角色「${name}」的人设创建一位合理的微信联系人。角色人设：${persona.slice(0, 6500)}。不得违背已有关系或凭空认定NPC认识用户。已有联系人：${profiles.map(p => p.name).join('、')}。仅返回JSON对象，字段name,identity,personality,relationship,background均为非空字符串。` },
+          { role: 'user', content: '生成一位有独立生活、符合角色世界观的NPC联系人档案，不要生成聊天消息。' }
+        ] })
+      });
+      const json = await safeResponseJson(response);
+      if (!response.ok) throw new Error(json?.error?.message || 'HTTP ' + response.status);
+      const data = JSON.parse(extractContent(json).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+      if (!data || !['name','identity','personality','relationship','background'].every(k => typeof data[k] === 'string' && data[k].trim())) throw new Error('档案格式不正确');
+      const npcName = data.name.trim().slice(0, 40);
+      if (profiles.some(p => p.name === npcName)) throw new Error('联系人已存在，请重试');
+      const profile: NpcProfile = { id: crypto.randomUUID(), name: npcName, identity: data.identity.slice(0, 240), personality: data.personality.slice(0, 700), relationship: data.relationship.slice(0, 400), background: data.background.slice(0, 900), source: 'generated', createdAt: Date.now() };
+      persistProfiles([...profiles, profile]);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  };
+  const generate = async (npcName = '') => {
     if (busy) return;
     if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先在 SullyOS 设置中配置聊天 API'); return; }
+    const profile = profiles.find(p => p.name === npcName) || profiles[0];
+    if (!profile) { setError('请先到通讯录生成 NPC 档案'); setTab('contacts'); return; }
+    npcName = profile.name;
     setBusy(true); setError('');
     try {
       const target = npcName ? records.find(r => r.name === npcName) : undefined;
@@ -31,7 +58,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
         body: JSON.stringify({ model: api.model, stream: false, temperature: 0.85, messages: [
-          { role: 'system', content: `你正在模拟角色「${name}」的私人微信，角色设定：${persona.slice(0, 4500)}。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => m.from + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"NPC名字","messages":[{"from":"NPC名字","text":"短消息"},{"from":"${name}","text":"短消息"}]}。共4到8条短消息，不要markdown。已有记录：${context}` },
+          { role: 'system', content: `你正在模拟角色「${name}」的私人微信，角色设定：${persona.slice(0, 4500)}。固定NPC档案：姓名${profile.name}，身份${profile.identity}，性格${profile.personality}，与角色关系${profile.relationship}，背景${profile.background}。必须严格遵守该档案，不得更名、改身份或改关系。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => m.from + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"NPC名字","messages":[{"from":"NPC名字","text":"短消息"},{"from":"${name}","text":"短消息"}]}。共4到8条短消息，不要markdown。已有记录：${context}` },
           { role: 'user', content: '生成一段符合角色设定、像真实朋友微信聊天一样的日常对话。' }
         ] })
       });
@@ -42,11 +69,11 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       if (typeof data.name !== 'string' || !Array.isArray(data.messages)) throw new Error('生成内容格式不正确');
       const messages = data.messages.slice(0, 12).filter((m: any) => typeof m?.from === 'string' && typeof m?.text === 'string').map((m: any) => ({ from: m.from.slice(0, 40), text: m.text.slice(0, 600) }));
       if (!messages.length) throw new Error('没有生成有效消息');
-      const npc = target?.name || data.name.trim().slice(0, 40);
+      const npc = profile.name;
       if (!npc) throw new Error('NPC 名称为空');
       const existing = target || records.find(r => r.name === npc);
       const next: ChatRecord = { id: existing?.id || String(Date.now()), name: npc, preview: messages[messages.length - 1].text, time: Date.now(), messages: [...(existing?.messages || []), ...messages] };
-      persist([next, ...records.filter(r => r.id !== existing?.id)]); setTab('chats'); setSelectedNpc('');
+      persist([next, ...records.filter(r => r.id !== existing?.id)]); setTab('chats');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
   const active = records.find(r => r.id === thread);
@@ -58,13 +85,13 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? active?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置' } as Record<string,string>)[screen]}</h2>
-          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="AI生成角色聊天记录" disabled={busy} onClick={() => generate()}>{busy ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
+          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="AI生成角色聊天记录" disabled={busy} onClick={() => { if (profiles.length === 1) generate(profiles[0].name); else { setTab('contacts'); setError('请选择联系人，点击「生成聊天」'); } }}>{busy ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
         </header>}
       <main className="min-h-0 flex-1 overflow-y-auto">
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
         {screen === 'home' && <div className="grid grid-cols-4 gap-4 p-6">{apps.map(({id,label,Icon})=><button key={id} onClick={()=>{setScreen(id);setTab('chats');}} className="flex flex-col items-center gap-2 text-xs"><span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#18c45b] text-white"><Icon size={31} weight="fill"/></span>{label}</button>)}</div>}
-        {screen === 'wechat' && tab === 'chats' && (records.length ? records.map(r=><button key={r.id} type="button" onClick={()=>{setThread(r.id);setScreen('thread');}} className="flex w-full items-center gap-3 border-b border-[#e5e5e5] bg-white px-4 py-3 text-left"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#b9d9c6] text-xl text-white">{r.name.slice(0,1)}</div><div className="min-w-0 flex-1"><div className="truncate text-[17px] text-[#222]">{r.name}</div><div className="truncate pt-1 text-[13px] text-[#999]">{r.preview}</div></div><span className="self-start text-xs text-[#aaa]">{timeLabel(r.time)}</span></button>) : <p className="p-8 text-center text-sm text-[#999]">暂无聊天记录，点击右上角＋生成</p>)}
-        {screen === 'wechat' && tab === 'contacts' && <div>{row('新的朋友', <UsersThree size={23}/>, ()=>setError('联系人管理后续接入'))}{[...new Set(records.map(r=>r.name))].map(n=>row(n,<User size={22}/>,()=>{const r=records.find(x=>x.name===n);if(r){setThread(r.id);setScreen('thread');}}))}</div>}
+        {screen === 'wechat' && tab === 'chats' && (records.length ? records.map(r=><button key={r.id} type="button" onClick={()=>{setThread(r.id);setScreen('thread');}} className="flex w-full items-center gap-3 border-b border-[#e5e5e5] bg-white px-4 py-3 text-left"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#b9d9c6] text-xl text-white">{r.name.slice(0,1)}</div><div className="min-w-0 flex-1"><div className="truncate text-[17px] text-[#222]">{r.name}</div><div className="truncate pt-1 text-[13px] text-[#999]">{r.preview}</div></div><span className="self-start text-xs text-[#aaa]">{timeLabel(r.time)}</span></button>) : <p className="p-8 text-center text-sm text-[#999]">暂无聊天记录，请先在通讯录生成 NPC 档案</p>)}
+        {screen === 'wechat' && tab === 'contacts' && <div>{row(busy ? '正在生成联系人…' : '＋ AI生成NPC档案', <Plus size={23}/>, createProfile)}{profiles.map(p=><div key={p.id} className="border-b border-[#e8e8e8] bg-white px-5 py-4"><div className="font-semibold text-[#222]">{p.name} <span className="text-xs font-normal text-[#888]">{p.identity}</span></div><p className="mt-1 text-xs text-[#777]">{p.relationship} · {p.personality}</p><p className="mt-1 text-xs text-[#999]">{p.background}</p><button type="button" disabled={busy} onClick={()=>generate(p.name)} className="mt-3 rounded-lg bg-[#07b75b] px-3 py-1.5 text-xs text-white disabled:opacity-50">生成聊天</button></div>)}</div>}
         {screen === 'wechat' && tab === 'discover' && row('朋友圈',<Images size={23}/>,()=>setScreen('moments'))}
         {screen === 'wechat' && tab === 'me' && <div className="pt-4">{row(name,<User size={24}/>,()=>{})}<div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>setScreen('settings'))}</div></div>}
         {screen === 'thread' && <div className="space-y-4 p-4">{active?.messages.map((m,i)=><div key={i} className={`flex gap-2 ${m.from === name ? 'flex-row-reverse' : ''}`}><div className={`max-w-[78%] rounded-lg px-3 py-2 text-[15px] leading-relaxed ${m.from === name ? 'bg-[#95ec69]' : 'bg-white'}`}><span className="mb-1 block text-[10px] text-[#777]">{m.from}</span>{m.text}</div></div>)}</div>}
