@@ -12,3 +12,13 @@ export function appendCharacterMemo(input:Omit<CharacterMemoEntry,'id'|'createdA
   const entry:CharacterMemoEntry={...input,id:input.id||crypto.randomUUID(),createdAt:input.createdAt||Date.now(),body:input.body.trim()};
   try{localStorage.setItem(key(input.characterId),JSON.stringify([entry,...current].slice(0,500)));window.dispatchEvent(new CustomEvent(CHARACTER_MEMOS_CHANGED,{detail:{characterId:input.characterId}}));return entry;}catch{return null;}
 }
+
+export function updateCharacterMemo(characterId:string,id:string,patch:Partial<Pick<CharacterMemoEntry,'body'|'title'|'category'>>):boolean{
+ const entries=readCharacterMemos(characterId);const i=entries.findIndex(e=>e.id===id);if(i<0)return false;
+ entries[i]={...entries[i],...patch,id,characterId};
+ try{localStorage.setItem(key(characterId),JSON.stringify(entries));window.dispatchEvent(new CustomEvent(CHARACTER_MEMOS_CHANGED,{detail:{characterId}}));return true;}catch{return false;}
+}
+export function removeCharacterMemo(characterId:string,id:string):boolean{
+ const entries=readCharacterMemos(characterId);if(!entries.some(e=>e.id===id))return false;
+ try{localStorage.setItem(key(characterId),JSON.stringify(entries.filter(e=>e.id!==id)));window.dispatchEvent(new CustomEvent(CHARACTER_MEMOS_CHANGED,{detail:{characterId}}));return true;}catch{return false;}
+}
