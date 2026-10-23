@@ -23,7 +23,7 @@ export function saveNpcProfiles(characterId: string, profiles: NpcProfile[]) {
 // Caller must supply a profile grounded in the source character's persona.
 export function registerNpcProfile(characterId: string, profile: NpcProfile): NpcProfile[] {
   const previous = readNpcProfiles(characterId);
-  const updated = [profile, ...previous.filter(p => p.id !== profile.id && p.name !== profile.name)];
+  const updated = [profile, ...previous.filter(p => p.id !== profile.id)];
   saveNpcProfiles(characterId, updated);
   return updated;
 }
@@ -43,8 +43,7 @@ export function addDiscoveredContact(characterId: string, profile: NpcProfile): 
   }
   const previous = readNpcProfiles(characterId);
   const existing = previous.find(p => p.id === profile.id ||
-    (profile.linkedCharacterId && p.linkedCharacterId === profile.linkedCharacterId) ||
-    p.name === profile.name);
+    (profile.linkedCharacterId && p.linkedCharacterId === profile.linkedCharacterId));
   if (existing) return { added: false, profile: existing };
   saveNpcProfiles(characterId, [...previous, profile]);
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHARACTER_PHONE_CONTACT_CHANGED, { detail: { characterId, contactId: profile.id } }));
