@@ -571,6 +571,12 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             </div>)}
             <span className="text-xs font-bold">日程</span>
         </button>,
+        <button key="life-pacing" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${lifePacingEnabled ? 'bg-slate-100 text-slate-900 border-slate-300' : 'bg-white text-slate-500 border-slate-200'}`}>
+                <Brain className="w-6 h-6" weight="regular" />
+            </div>
+            <span className="text-xs font-bold">真人感 · {lifePacingEnabled ? '开' : '关'}</span>
+        </button>,
         <button key="active-msg-2" onClick={() => onPanelAction('active-msg-2')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="proactive" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
