@@ -36,6 +36,8 @@ import { ensureCompanionVoiceAssetsForBackup, isCompanionVoiceAssetId } from '..
 import { collectCharacterCompanionVoiceAssetIds } from '../utils/companionPresets';
 import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/memoryPalace/db';
 import { ProactiveChat } from '../utils/proactiveChat';
+import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
+import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
 import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
 import { runWorldEpisode, rerollWorldCharBeat } from '../utils/worldHome/engine';
 import { migrateWorldDaySegs } from '../utils/worldHome/prompts';
@@ -2274,6 +2276,26 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   groupsRef.current = groups;
   const realtimeConfigRef = useRef(realtimeConfig);
   realtimeConfigRef.current = realtimeConfig;
+  // Moments decisions listen to the shared life-event ledger; no new polling timer.
+  // Keep a ref to latest account state so the listener is stable across renders.
+  useEffect(() => {
+      if (!isDataLoaded) return;
+      const onLifeEvent = (event: Event) => {
+          const detail = (event as CustomEvent<{ characterId?: string }>).detail;
+          const charId = detail?.characterId;
+          if (!charId || !userProfileRef.current) return;
+          const char = charactersRef.current.find(c => c.id === charId);
+          if (!char) return;
+          const api = resolveDialogueApi(apiConfigRef.current, char);
+          void considerAutonomousMoment({
+              char, user: userProfileRef.current, groups: groupsRef.current,
+              realtimeConfig: realtimeConfigRef.current, api
+          });
+      };
+      window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
+      return () => window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
+  }, [isDataLoaded]);
+
   const memoryPalaceConfigRef = useRef(memoryPalaceConfig);
   memoryPalaceConfigRef.current = memoryPalaceConfig;
 
@@ -2698,6 +2720,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
 
               if (offset > 0) {
+                  // Only a successfully saved proactive response is an actual life event.
+                  // Do not make a scheduled intent or an uncompleted AI response into a fact.
+                  recordCharacterLifeEvent({
+                      id: 'proactive-message:' + charId + ':' + baseTimestamp,
+                      characterId: charId, kind: 'proactive-message', occurredAt: Date.now(),
+                      source: 'chat', summary: char.name + ' 主动向 User 发送了一条消息'
+                  });
                   const previewSource = savedPreviewChunks.join(' ').trim();
                   const preview = previewSource.replace(/\s+/g, ' ').trim().slice(0, 120)
                       || `${char.name} sent a proactive message`;
