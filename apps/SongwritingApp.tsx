@@ -138,14 +138,14 @@ type PaperTheme = {
 };
 
 const PAPER_THEMES: Record<string, PaperTheme> = {
-    'kraft-paper': { background: '#f3f3f3', ink: '#262626', muted: '#737373', rule: 'rgba(113,82,51,.18)', accent: '#525252', sheet: 'rgba(255,248,232,.72)' },
-    'old-photo':   { background: '#ededed', ink: '#262626', muted: '#737373', rule: 'rgba(92,77,57,.16)', accent: '#525252', sheet: 'rgba(255,252,239,.74)' },
-    'ink-wash':    { background: '#e5e5e5', ink: '#262626', muted: '#737373', rule: 'rgba(42,53,60,.14)', accent: '#525252', sheet: 'rgba(250,252,252,.72)' },
-    'dried-rose':  { background: '#efefef', ink: '#262626', muted: '#737373', rule: 'rgba(108,65,77,.14)', accent: '#737373', sheet: 'rgba(255,248,248,.72)' },
-    'midnight':    { background: '#202020', ink: '#fafafa', muted: '#b3b3b3', rule: 'rgba(255,255,255,.12)', accent: '#a3a3a3', sheet: 'rgba(34,37,43,.82)' },
-    'linen':       { background: '#f5f5f5', ink: '#262626', muted: '#737373', rule: 'rgba(77,73,66,.13)', accent: '#737373', sheet: 'rgba(255,255,252,.75)' },
-    'tea-stain':   { background: '#ebebeb', ink: '#262626', muted: '#737373', rule: 'rgba(110,83,44,.15)', accent: '#525252', sheet: 'rgba(255,249,229,.72)' },
-    'forest':      { background: '#e1e1e1', ink: '#262626', muted: '#737373', rule: 'rgba(45,75,52,.14)', accent: '#525252', sheet: 'rgba(248,253,247,.72)' },
+    'kraft-paper': { background: '#f3f3f3', ink: '#262626', muted: '#737373', rule: 'rgba(86,86,86,.18)', accent: '#525252', sheet: 'rgba(248,248,248,.72)' },
+    'old-photo':   { background: '#ededed', ink: '#262626', muted: '#737373', rule: 'rgba(79,79,79,.16)', accent: '#525252', sheet: 'rgba(252,252,252,.74)' },
+    'ink-wash':    { background: '#e5e5e5', ink: '#262626', muted: '#737373', rule: 'rgba(51,51,51,.14)', accent: '#525252', sheet: 'rgba(252,252,252,.72)' },
+    'dried-rose':  { background: '#efefef', ink: '#262626', muted: '#737373', rule: 'rgba(75,75,75,.14)', accent: '#737373', sheet: 'rgba(249,249,249,.72)' },
+    'midnight':    { background: '#202020', ink: '#fafafa', muted: '#b3b3b3', rule: 'rgba(255,255,255,.12)', accent: '#a3a3a3', sheet: 'rgba(37,37,37,.82)' },
+    'linen':       { background: '#f5f5f5', ink: '#262626', muted: '#737373', rule: 'rgba(73,73,73,.13)', accent: '#737373', sheet: 'rgba(255,255,255,.75)' },
+    'tea-stain':   { background: '#ebebeb', ink: '#262626', muted: '#737373', rule: 'rgba(86,86,86,.15)', accent: '#525252', sheet: 'rgba(249,249,249,.72)' },
+    'forest':      { background: '#e1e1e1', ink: '#262626', muted: '#737373', rule: 'rgba(67,67,67,.14)', accent: '#525252', sheet: 'rgba(252,252,252,.72)' },
 };
 
 const getPaperTheme = (styleId: string): PaperTheme => {
@@ -154,12 +154,21 @@ const getPaperTheme = (styleId: string): PaperTheme => {
     const from = palette[0] || '#eeeeee';
     const via = palette[1] || '#aaaaaa';
     const to = palette[2] || '#555555';
+    // Keep existing custom gradients but desaturate their presentation.
+    const gray = (hex: string): string => {
+        const match = /^#?([0-9a-f]{6})$/i.exec(hex);
+        if (!match) return '#a3a3a3';
+        const n = match[1];
+        const r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16);
+        const v = Math.round(.2126 * r + .7152 * g + .0722 * b).toString(16).padStart(2, '0');
+        return '#' + v + v + v;
+    };
     return {
-        background: `linear-gradient(145deg, ${from} 0%, ${via} 52%, ${to} 100%)`,
+        background: `linear-gradient(145deg, ${gray(from)} 0%, ${gray(via)} 52%, ${gray(to)} 100%)`,
         ink: '#262626',
-        muted: 'rgba(47,42,56,.62)',
-        rule: 'rgba(47,42,56,.13)',
-        accent: via,
+        muted: 'rgba(44,44,44,.62)',
+        rule: 'rgba(44,44,44,.13)',
+        accent: '#525252',
         sheet: 'rgba(255,255,255,.68)',
     };
 };
