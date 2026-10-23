@@ -13,7 +13,7 @@ export function appendCharacterMemo(input:Omit<CharacterMemoEntry,'id'|'createdA
   try{localStorage.setItem(key(input.characterId),JSON.stringify([entry,...current].slice(0,500)));window.dispatchEvent(new CustomEvent(CHARACTER_MEMOS_CHANGED,{detail:{characterId:input.characterId}}));return entry;}catch{return null;}
 }
 
-export function updateCharacterMemo(characterId:string,id:string,patch:Partial<Pick<CharacterMemoEntry,'body'|'title'|'category'>>):boolean{
+export function updateCharacterMemo(characterId:string,id:string,patch:Partial<Pick<CharacterMemoEntry,'body'|'title'|'category'|'sourceEventIds'>>):boolean{
  const entries=readCharacterMemos(characterId);const i=entries.findIndex(e=>e.id===id);if(i<0)return false;
  entries[i]={...entries[i],...patch,id,characterId};
  try{localStorage.setItem(key(characterId),JSON.stringify(entries));window.dispatchEvent(new CustomEvent(CHARACTER_MEMOS_CHANGED,{detail:{characterId}}));return true;}catch{return false;}
