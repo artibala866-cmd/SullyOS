@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
 import { safeResponseJson, extractContent } from '../../utils/safeApi';
+import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
@@ -17,6 +18,13 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name:'', identity:'', personality:'', relationship:'', background:'' });
   const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
+  const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
+  useEffect(() => {
+    setLifeEvents(readCharacterLifeEvents(characterId));
+    const sync = (event: Event) => { if ((event as CustomEvent<{characterId:string}>).detail?.characterId === characterId) setLifeEvents(readCharacterLifeEvents(characterId)); };
+    window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, sync);
+    return () => window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, sync);
+  }, [characterId]);
   useEffect(() => {
     setProfiles(readNpcProfiles(characterId));
     const sync = (event: Event) => {
@@ -55,6 +63,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       if (profiles.some(p => p.name === npcName)) throw new Error('联系人已存在，请重试');
       const profile: NpcProfile = { id: crypto.randomUUID(), name: npcName, identity: data.identity.slice(0, 240), personality: data.personality.slice(0, 700), relationship: data.relationship.slice(0, 400), background: data.background.slice(0, 900), source: 'generated', createdAt: Date.now() };
       persistProfiles([...profiles, profile]);
+      recordCharacterLifeEvent({ id: 'contact:' + profile.id, characterId, kind: 'contact-added', occurredAt: profile.createdAt, source: 'phone', summary: '新增联系人：' + profile.name, contactId: profile.id });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
   const generate = async (npcName = '') => {
@@ -86,6 +95,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       const existing = target || records.find(r => r.name === npc);
       const next: ChatRecord = { id: existing?.id || String(Date.now()), name: npc, preview: messages[messages.length - 1].text, time: Date.now(), messages: [...(existing?.messages || []), ...messages] };
       persist([next, ...records.filter(r => r.id !== existing?.id)]); setTab('chats');
+      recordCharacterLifeEvent({ id: 'npc-chat:' + next.id + ':' + next.time, characterId, kind: 'npc-chat', occurredAt: next.time, source: 'phone', summary: name + ' 与 ' + npc + ' 进行了微信聊天', contactId: profile.id });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
   const active = records.find(r => r.id === thread);
@@ -126,7 +136,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
         {screen === 'wechat' && tab === 'discover' && row('朋友圈',<Images size={23}/>,()=>setScreen('moments'))}
         {screen === 'wechat' && tab === 'me' && <div className="pt-4">{row(name,<User size={24}/>,()=>{})}<div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>setScreen('settings'))}</div></div>}
         {screen === 'thread' && <div className="space-y-4 p-4">{active?.messages.map((m,i)=><div key={i} className={`flex gap-2 ${m.from === name ? 'flex-row-reverse' : ''}`}><div className={`max-w-[78%] rounded-lg px-3 py-2 text-[15px] leading-relaxed ${m.from === name ? 'bg-[#95ec69]' : 'bg-white'}`}><span className="mb-1 block text-[10px] text-[#777]">{m.from}</span>{m.text}</div></div>)}</div>}
-        {screen === 'moments' && <p className="p-8 text-center text-sm text-[#888]">朋友圈动态后续接入真人模式事件</p>}
+        {screen === 'moments' && <div className="space-y-3 p-4">{lifeEvents.filter(e=>e.kind==='moment-post'||e.kind==='moment-comment').length ? lifeEvents.filter(e=>e.kind==='moment-post'||e.kind==='moment-comment').map(e=><div key={e.id} className="rounded-lg bg-white p-4"><p className="text-sm text-[#333]">{e.summary}</p><time className="mt-2 block text-xs text-[#999]">{new Date(e.occurredAt).toLocaleString('zh-CN')}</time></div>) : <p className="p-8 text-center text-sm text-[#888]">暂无朋友圈动态，等待真人模式产生真实事件</p>}</div>}
         {screen === 'wallet' && <p className="p-8 text-center text-sm text-[#888]">钱包与小红书集市交易后续接入</p>}
         {screen === 'settings' && <p className="p-8 text-center text-sm text-[#888]">NPC互动和API设置后续接入；当前生成使用私聊同一套聊天API</p>}
       </main>
