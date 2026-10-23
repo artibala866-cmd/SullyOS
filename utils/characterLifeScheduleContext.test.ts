@@ -39,6 +39,17 @@ describe('character schedule context', () => {
     expect(result.confirmedEvents.map(e => e.id)).toEqual(['meal']);
   });
 
+  it('reuses supplied events without reading the ledger and rejects other characters', async () => {
+    vi.mocked(getDailyScheduleForChar).mockResolvedValue(null);
+    const result = await getCharacterLifeScheduleContext(char, now, [
+      { id: 'valid', characterId: 'char-a', kind: 'activity', occurredAt: now.getTime() - 1000, source: 'phone', summary: '已发生' },
+      { id: 'other', characterId: 'char-b', kind: 'activity', occurredAt: now.getTime() - 1000, source: 'phone', summary: '别人的事件' },
+      { id: 'future', characterId: 'char-a', kind: 'activity', occurredAt: now.getTime() + 1000, source: 'phone', summary: '未来事件' },
+    ]);
+    expect(result.confirmedEvents.map(e => e.id)).toEqual(['valid']);
+    expect(readCharacterLifeEvents).not.toHaveBeenCalled();
+  });
+
   it('only returns recent confirmed events belonging to this character', async () => {
     vi.mocked(getDailyScheduleForChar).mockResolvedValue(null);
     vi.mocked(readCharacterLifeEvents).mockReturnValue([
