@@ -602,7 +602,19 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [listeningStartedAt, setListeningStartedAt] = useState<Record<string, number>>({});
   const [listeningInvites, setListeningInvites] = useState<Record<string, 'pending' | 'accepted' | 'rejected'>>({});
   const inviteListeningPartner = useCallback((charId: string) => {
-    setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
+    // 邀请必须先作为真实的用户聊天消息保存，再进入待回应状态。
+    void DB.saveMessage({
+      charId,
+      role: 'user',
+      type: 'system',
+      content: '[一起听邀请] 我邀请你一起听音乐。',
+      metadata: { musicListenInvite: true, status: 'pending', invitedAt: Date.now() },
+    }).then(messageId => {
+      setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
+      window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId, messageId } }));
+    }).catch(err => {
+      console.warn('[MusicTogether] 邀请消息保存失败', err);
+    });
   }, []);
   const [lastListeningEnd, setLastListeningEnd] = useState<{ charId: string; durationMs: number; at: number } | null>(null);
   const addListeningPartner = useCallback((charId: string) => {
