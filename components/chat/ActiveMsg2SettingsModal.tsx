@@ -167,7 +167,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     // 工具注入门分家（见 isAmsg2EnabledForChar 的注释）。
     setEnabled(isAmsg2EnabledForChar(char));
     setInstantChatOn(config?.instantChatEnabled !== false);
-    try { setRealismEnabled(localStorage.getItem(`sully_realism_${char.id}`) === 'on'); } catch { setRealismEnabled(false); }
     setMaxTokens(config?.maxTokens ? String(config.maxTokens) : '');
 
     const editing = editingTaskUuid ? list.find((t) => t.taskUuid === editingTaskUuid) : undefined;
