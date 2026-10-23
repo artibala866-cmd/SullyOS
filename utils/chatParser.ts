@@ -336,7 +336,7 @@ export const ChatParser = {
             const snap = frozen
                 ? await replyStep(async () => resolveFrozenSongSnapshot(charId, frozen))
                 : musicHooks.getListeningSnapshot();
-            if (snap && verb !== 'invite' && verb !== 'stop' && verb !== 'reject' && verb !== 'play') {
+            if (snap && verb !== 'favorite_current' && verb !== 'favorite_track' && verb !== 'invite' && verb !== 'stop' && verb !== 'reject' && verb !== 'play') {
                 let addedToPlaylistTitle: string | undefined;
                 let playlistCreated = false;
                 if (wantsJoin) {
