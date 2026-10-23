@@ -33,7 +33,7 @@ const MusicApp: React.FC = () => {
     lyric, tlyric, activeLyricIdx,
     profile, playSong, togglePlay, nextSong, prevSong, seek,
     liked, toggleLike, setToastHandler,
-    listeningTogetherWith, listeningStartedAt, addListeningPartner, removeListeningPartner,
+    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, removeListeningPartner,
     addLocalSong, removeLocalSong, localAlbumSongs,
     playMode, setPlayMode,
     regeneratingId, regeneratingStatus,
@@ -245,8 +245,8 @@ const MusicApp: React.FC = () => {
                 </span>
               ))
             : characters.slice(0, 4).map(c => (
-                <button key={c.id} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-600"
-                  onClick={() => addListeningPartner(c.id)}>邀请 {c.name} 一起听</button>
+                <button key={c.id} disabled={listeningInvites[c.id] === 'pending'} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-600 disabled:opacity-50"
+                  onClick={() => inviteListeningPartner(c.id)}>{listeningInvites[c.id] === 'pending' ? `已邀请 ${c.name} · 待回应` : `邀请 ${c.name} 一起听`}</button>
               ))}
         </div>
       )}
