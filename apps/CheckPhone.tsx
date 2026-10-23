@@ -1044,6 +1044,21 @@ ${realCharRule}
         finally { setIsLoading(false); }
     };
 
+    // New Char posts may receive NPC engagement without asking the player to press a button.
+    // Attempt each post at most once per device; never fabricate reactions if the API is unavailable.
+    useEffect(() => {
+        if (!targetChar || !effectiveApiConfig.apiKey || isLoading) return;
+        const posts = readCharacterMoments(targetChar.id).filter(p => !p.deletedAt && p.authorId === targetChar.id);
+        const candidate = posts.find(p => {
+            try { return localStorage.getItem('sully_moment_npc_checked_v1:' + targetChar.id + ':' + p.id) !== '1'; }
+            catch { return false; }
+        });
+        if (!candidate) return;
+        try { localStorage.setItem('sully_moment_npc_checked_v1:' + targetChar.id + ':' + candidate.id, '1'); }
+        catch { return; }
+        void generateMomentNpcInteractions(candidate.id);
+    }, [targetChar?.id, momentsVersion, effectiveApiConfig.apiKey, isLoading]);
+
     // 生成：偷看机主在某个 AI 服务里的使用记录
     const handleGenerateAiAgent = async (service: AiServiceKind) => {
 
@@ -2558,7 +2573,7 @@ ${olderText}
                             <div className="flex gap-4 text-xs text-white/60">
                                 <button onClick={() => targetChar && setMomentLike(targetChar.id,post.id,'user:'+userProfile.name,!post.likes?.some(l=>l.actorId==='user:'+userProfile.name))}>♥ {post.likes?.length || 0}</button>
                                 <span>评论 {post.comments?.filter(x=>!x.deletedAt).length || 0}</span>
-                                <button disabled={isLoading} onClick={()=>void generateMomentNpcInteractions(post.id)} className="ml-auto text-violet-300 disabled:opacity-40">看看谁会互动</button>
+                                
                             </div>
                             {(post.comments||[]).filter(x=>!x.deletedAt).map(comment=><div key={comment.id} className="text-xs text-white/70"><span className="font-semibold text-violet-300">{comment.authorId === targetChar?.id ? charName : (targetChar?.phoneState?.contacts || []).find(x=>x.id===comment.authorId)?.name || (comment.authorId.startsWith("user:") ? userProfile.name : comment.authorId)}：</span>{comment.text}</div>)}
                             <div className="flex gap-2"><input aria-label="评论朋友圈" placeholder="写评论…" value={momentReplyDrafts[post.id]||''} onChange={e=>setMomentReplyDrafts(d=>({...d,[post.id]:e.target.value}))} className="min-w-0 flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs text-white" />
