@@ -40,7 +40,17 @@ import {
     loadMinimaxMusicBlob,
     type MinimaxMusicInput,
 } from '../utils/minimaxMusic';
-import { C as MusicC, Sparkle, CrossStar, GlassProgress, MetaChip } from './music/MusicUI';
+import { Sparkle, CrossStar, GlassProgress, MetaChip } from './music/MusicUI';
+
+// 写歌专属黑白灰色板；不影响独立音乐播放器的主题。
+const MusicC = {
+    bg: '#fafafa', bgDeep: '#f2f2f2', bgTint: '#e9e9e9',
+    primary: '#303030', accent: '#525252', soft: '#ededed',
+    glow: '#d4d4d4', sakura: '#a3a3a3', lavender: '#737373',
+    surface: 'rgba(255,255,255,0.92)', glass: 'rgba(255,255,255,0.72)',
+    text: '#202020', muted: '#737373', faint: '#b3b3b3',
+    vip: '#525252', danger: '#525252',
+} as const;
 import Modal from '../components/os/Modal';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import TokenImg from '../components/os/TokenImg';
