@@ -246,11 +246,34 @@ export const musicApi = {
   async call(cfg: MusicCfg, path: string, body: any = {}) {
     return _cachedCall(path, body, cfg.cookie, () => musicApi._raw(cfg, path, body));
   },
-  search(cfg: MusicCfg, keyword: string, offset = 0) {
-    return musicApi.call(cfg, '/search', { keyword, limit: 30, offset, type: 1 });
+  async search(cfg: MusicCfg, keyword: string, offset = 0) {
+    try {
+      const result = await musicApi.call(cfg, '/search', { keyword, limit: 30, offset, type: 1 });
+      if (result?.result?.songs?.length) return result;
+    } catch { /* guest fallback */ }
+    const u = new URL('https://music-api.gdstudio.xyz/api.php');
+    for (const [k, v] of Object.entries({ types: 'search', source: 'netease', name: keyword, count: '30', pages: String(Math.floor(offset / 30) + 1) })) u.searchParams.set(k, v);
+    const res = await fetch(u.toString());
+    if (!res.ok) throw new Error('免登录搜索服务暂不可用');
+    const items = await res.json();
+    if (!Array.isArray(items)) throw new Error('免登录搜索数据异常');
+    return { result: { songs: items.map((x: any) => ({
+      id: Number(x.id), name: x.name, ar: [{ name: Array.isArray(x.artist) ? x.artist.join(' / ') : (x.artist || '') }],
+      al: { name: x.album || '', picUrl: x.pic_id ? 'https://music-api.gdstudio.xyz/api.php?types=pic&source=netease&id=' + encodeURIComponent(x.pic_id) + '&size=300' : '' },
+      dt: Number(x.duration || 0) * 1000, fee: 0,
+    })).filter((x: any) => Number.isFinite(x.id)) } };
   },
-  songUrl(cfg: MusicCfg, id: number) {
-    return musicApi.call(cfg, '/song/url', { ids: [id], level: cfg.quality });
+  async songUrl(cfg: MusicCfg, id: number) {
+    try {
+      const result = await musicApi.call(cfg, '/song/url', { ids: [id], level: cfg.quality });
+      if (result?.data?.[0]?.url) return result;
+    } catch { /* guest fallback */ }
+    const u = new URL('https://music-api.gdstudio.xyz/api.php');
+    for (const [k, v] of Object.entries({ types: 'url', source: 'netease', id: String(id), br: '128' })) u.searchParams.set(k, v);
+    const res = await fetch(u.toString());
+    if (!res.ok) throw new Error('免登录播放服务暂不可用');
+    const item = await res.json();
+    return { data: [{ url: typeof item?.url === 'string' ? item.url : null }] };
   },
   lyric(cfg: MusicCfg, id: number) {
     return musicApi.call(cfg, '/lyric', { id });
@@ -595,7 +618,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           at: Date.now(),
         });
       }
-      setListeningTogetherWith([]);
+      // 换歌不代表一起听结束；保留角色，切歌记录继续注入聊天上下文。
     }
     previousSongRef.current = current;
   }, [current]);
