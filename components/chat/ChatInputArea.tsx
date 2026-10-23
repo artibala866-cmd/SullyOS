@@ -508,6 +508,12 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
 
     // Keep one ordered list so removed or added entries cannot leave holes between pages.
     const actionTiles = [
+        <button key="character-phone" onClick={() => onPanelAction('character-phone')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-slate-200 border-slate-600' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                <ChatCircleDots className="w-6 h-6" weight="regular" />
+            </div>
+            <span className="text-xs font-bold">查手机</span>
+        </button>,
         <button key="collaboration" onClick={() => onPanelAction('collaboration')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#7c6ee6]' : isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
                 <Briefcase className="w-6 h-6" weight="fill" />
