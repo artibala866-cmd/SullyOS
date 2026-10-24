@@ -25,6 +25,7 @@ import {
 } from '../../utils/characterPhoneChats';
 import { findKnownNpc, registerDiscoveredNpc, noteNpcInteraction } from '../../utils/characterNpcNetwork';
 import { isCharacterPhoneAutonomyEnabled, setCharacterPhoneAutonomyEnabled } from '../../utils/characterPhoneAutonomy';
+import { beginCharacterPhoneRefresh, finishCharacterPhoneRefresh, isCharacterPhoneRefreshing, CHARACTER_PHONE_REFRESH_CHANGED } from '../../utils/characterPhoneRefreshTracker';
 import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
 import type { CharacterProfile, DailySchedule } from '../../types';
 import { parseGeneratedPhoneMessages, type PhoneMessage } from '../../utils/characterPhoneIdentity';
@@ -115,6 +116,17 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     return () => { live = false; window.clearInterval(timer); };
   }, [char.id, char.customTimezone, char.customTimezoneEnabled]);
   const [busy, setBusy] = useState(false);
+  const [sharedWechatRefreshing, setSharedWechatRefreshing] = useState(() => isCharacterPhoneRefreshing(characterId));
+  useEffect(() => {
+    setSharedWechatRefreshing(isCharacterPhoneRefreshing(characterId));
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ characterId: string; feature: string; running: boolean }>).detail;
+      if (detail?.characterId === characterId && detail.feature === 'wechat')
+        setSharedWechatRefreshing(detail.running);
+    };
+    window.addEventListener(CHARACTER_PHONE_REFRESH_CHANGED, handler);
+    return () => window.removeEventListener(CHARACTER_PHONE_REFRESH_CHANGED, handler);
+  }, [characterId]);
   const autoAttempted = useRef('');
   const [error, setError] = useState('');
   const storageKey = 'sully_character_phone_wechat_v1:' + characterId;
@@ -184,7 +196,8 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   };
   // Inbox generation is independent of the contacts list. A single call yields several threads.
   const generateInbox = async () => {
-    if (busy || !api.apiKey || !api.baseUrl || !api.model) return;
+    if (busy || !api.apiKey || !api.baseUrl || !api.model ||
+        !beginCharacterPhoneRefresh(characterId)) return;
     setBusy(true); setError('');
     try {
       const context = await loadRealContext();
@@ -287,13 +300,13 @@ ${scheduleContext}
       }
       setTab('chats');
     } catch(e){setError(e instanceof Error?e.message:String(e));}
-    finally{setBusy(false);}
+    finally{finishCharacterPhoneRefresh(characterId);setBusy(false);}
   };
   // Opening WeChat refreshes the simulated inbox at most once per 12 hours per character.
   // Real User messages are mirrored separately; no NPC profile is required.
   useEffect(() => {
     if(screen!=='wechat' || tab!=='chats') { autoAttempted.current=''; return; }
-    if(autoAttempted.current===characterId || busy || !api.apiKey || !api.model || !api.baseUrl) return;
+    if(autoAttempted.current===characterId || busy || sharedWechatRefreshing || !api.apiKey || !api.model || !api.baseUrl) return;
     autoAttempted.current=characterId;
     try {
       const last=Number(localStorage.getItem('sully_phone_inbox_auto_at:'+characterId)||'0');
@@ -302,11 +315,12 @@ ${scheduleContext}
     void generateInbox();
   },[screen,tab,characterId,api.apiKey,api.model,api.baseUrl]);
   const generate = async (npcName = '', guidance = '') => {
-    if (busy) return;
+    if (busy || sharedWechatRefreshing) return;
     if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先在 SullyOS 设置中配置聊天 API'); return; }
     const profile = profiles.find(p => p.id === npcName) || (!npcName && profiles.length === 1 ? profiles[0] : undefined);
     if (!profile) { setError('请先到通讯录生成 NPC 档案'); setTab('contacts'); return; }
     npcName = profile.name;
+    if (!beginCharacterPhoneRefresh(characterId)) return;
     setBusy(true); setError('');
     try {
       const realContext = await loadRealContext();
@@ -339,7 +353,7 @@ ${scheduleContext}
       noteNpcInteraction(characterId, profile.id, next.time, messages);
       setTab('chats');
       recordCharacterLifeEvent({ id: 'npc-chat:' + next.id + ':' + next.time, characterId, kind: 'npc-chat', occurredAt: next.time, source: 'phone', summary: '已保存的微信对话：' + messages.slice(-12).map(m => (m.speaker.role === 'owner' ? name : npc) + '：' + m.text.trim()).join('；').slice(0, 1200), contactId: profile.id });
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { finishCharacterPhoneRefresh(characterId);setBusy(false); }
   };
   const letCharDecideMoment = async () => {
     if(momentBusy) return;
@@ -395,7 +409,7 @@ ${scheduleContext}
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器' } as Record<string,string>)[screen]}</h2>
-          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy} onClick={() => void generateInbox()}>{busy ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
+          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy || sharedWechatRefreshing} onClick={() => void generateInbox()}>{busy || sharedWechatRefreshing ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
         </header>}
       <main className="min-h-0 flex-1 overflow-y-auto">
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
