@@ -94,7 +94,7 @@ const BankGameMenu: React.FC<Props> = ({
     return (
         <div className="space-y-5">
             {/* Premium Tab Bar */}
-            <div className="flex bg-white/60 backdrop-blur-sm p-1.5 rounded-2xl shadow-sm border border-[#E8DCC8]">
+            <div className="flex bg-white/60 backdrop-blur-sm p-1.5 rounded-2xl shadow-sm border border-neutral-200">
                 {[
                     { key: 'staff', label: '员工' },
                     { key: 'goals', label: '目标' }
@@ -104,8 +104,8 @@ const BankGameMenu: React.FC<Props> = ({
                         onClick={() => setTab(t.key as any)}
                         className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 ${
                             tab === t.key
-                                ? 'bg-gradient-to-br from-[#8D6E63] to-[#6D4C41] text-white shadow-lg'
-                                : 'text-[#8D6E63] hover:bg-[#FDF6E3]'
+                                ? 'bg-gradient-to-br from-neutral-700 to-neutral-900 text-white shadow-lg'
+                                : 'text-neutral-600 hover:bg-neutral-100'
                         }`}
                     >
                         {t.key === 'staff' ? <UsersThree size={16} weight="bold" /> : <Target size={16} weight="bold" />}
@@ -128,7 +128,7 @@ const BankGameMenu: React.FC<Props> = ({
                         </div>
                         <div className="space-y-3">
                             {state.shop.staff.map(s => (
-                                <div key={s.id} className="bg-white p-4 rounded-2xl border border-[#E8DCC8] shadow-sm hover:shadow-md transition-shadow">
+                                <div key={s.id} className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-sm hover:shadow-md transition-shadow">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onEditStaff(s)}>
                                             <div className="relative">
@@ -228,7 +228,7 @@ const BankGameMenu: React.FC<Props> = ({
                                                     className={`flex-shrink-0 flex flex-col items-center p-2 rounded-xl transition-all ${
                                                         selectedOwner === char.id
                                                             ? 'bg-gradient-to-br from-[#FF8A65] to-[#FF7043] shadow-lg scale-105'
-                                                            : 'bg-white border border-[#E8DCC8] hover:border-[#FF7043]'
+                                                            : 'bg-white border border-neutral-200 hover:border-[#FF7043]'
                                                     }`}
                                                 >
                                                     <TokenImg value={char.avatar} className="w-10 h-10 rounded-lg object-cover" />
@@ -246,7 +246,7 @@ const BankGameMenu: React.FC<Props> = ({
                                     value={customName}
                                     onChange={e => setCustomName(e.target.value)}
                                     placeholder={isPetMode ? "宠物名字" : "员工姓名"}
-                                    className="w-full bg-white rounded-xl px-4 py-2.5 text-sm border border-[#E8DCC8] outline-none focus:border-[#FF7043] transition-colors"
+                                    className="w-full bg-white rounded-xl px-4 py-2.5 text-sm border border-neutral-200 outline-none focus:border-[#FF7043] transition-colors"
                                 />
 
                                 {/* Avatar Section with Mode Toggle */}
@@ -281,7 +281,7 @@ const BankGameMenu: React.FC<Props> = ({
 
                                     <div className="flex gap-3">
                                         {/* Avatar Preview */}
-                                        <div className="w-14 h-14 flex-shrink-0 bg-white rounded-xl border border-[#E8DCC8] flex items-center justify-center overflow-hidden">
+                                        <div className="w-14 h-14 flex-shrink-0 bg-white rounded-xl border border-neutral-200 flex items-center justify-center overflow-hidden">
                                             {customAvatar.startsWith('data:') || customAvatar.startsWith('http') || isBlobRef(customAvatar) ? (
                                                 <TokenImg value={customAvatar} className="w-full h-full object-cover" onError={() => setCustomAvatar('https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f43e.png')} />
                                             ) : (
@@ -297,7 +297,7 @@ const BankGameMenu: React.FC<Props> = ({
                                                     value={avatarUrl}
                                                     onChange={e => handleAvatarUrlChange(e.target.value)}
                                                     placeholder="粘贴图床链接，如 https://..."
-                                                    className="w-full bg-white rounded-xl px-3 py-2 text-xs border border-[#E8DCC8] outline-none focus:border-[#42A5F5] transition-colors"
+                                                    className="w-full bg-white rounded-xl px-3 py-2 text-xs border border-neutral-200 outline-none focus:border-[#42A5F5] transition-colors"
                                                 />
                                                 <div className="text-[9px] text-[#66BB6A] flex items-center gap-1">
                                                     <Check size={10} weight="bold" />
@@ -333,7 +333,7 @@ const BankGameMenu: React.FC<Props> = ({
                                     <select
                                         value={customRole}
                                         onChange={(e) => setCustomRole(e.target.value as any)}
-                                        className="bg-white rounded-xl px-3 py-2 text-xs border border-[#E8DCC8] outline-none text-[#5D4037]"
+                                        className="bg-white rounded-xl px-3 py-2 text-xs border border-neutral-200 outline-none text-[#5D4037]"
                                     >
                                         <option value="waiter">{isPetMode ? '店小二' : '服务员'}</option>
                                         <option value="chef">{isPetMode ? '小帮厨' : '大厨'}</option>
@@ -365,7 +365,7 @@ const BankGameMenu: React.FC<Props> = ({
                         {/* Available Staff */}
                         <div className="space-y-2">
                             {AVAILABLE_STAFF.filter(s => !state.shop.staff.find(exist => exist.name === s.name)).map(s => (
-                                <div key={s.id} className="bg-[#FDF6E3] p-4 rounded-2xl border border-[#E8DCC8] flex items-center justify-between hover:bg-[#FFF8E1] transition-colors">
+                                <div key={s.id} className="bg-[#FDF6E3] p-4 rounded-2xl border border-neutral-200 flex items-center justify-between hover:bg-[#FFF8E1] transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className="w-12 h-12 rounded-xl bg-white/60 flex items-center justify-center overflow-hidden">
                                             <BankAssetIcon
@@ -467,7 +467,7 @@ const BankGameMenu: React.FC<Props> = ({
                         state.goals.map(g => {
                             const progress = Math.min(100, (g.currentAmount / g.targetAmount) * 100);
                             return (
-                                <div key={g.id} className="bg-white p-5 rounded-2xl border border-[#E8DCC8] shadow-sm relative group overflow-hidden">
+                                <div key={g.id} className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-sm relative group overflow-hidden">
                                     {/* Background progress */}
                                     <div
                                         className="absolute inset-0 bg-gradient-to-r from-[#C8E6C9] to-[#A5D6A7] opacity-20 transition-all duration-700"
