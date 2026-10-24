@@ -222,6 +222,9 @@ ${scheduleContext}
       if(!Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
       const incoming: ChatRecord[]=[];
       const newContacts: Array<{id:string;item:any;established:boolean}> = [];
+      // One LLM batch may mention the same new friend under different IDs.
+      // Resolve within the batch before committing any conversation.
+      const batchNpcIds = new Map<string, string>();
       // Re-read after the API call so the background NPC scheduler cannot
       // be overwritten by an older React render snapshot.
       const currentRecords = readCharacterPhoneChats(characterId);
@@ -235,7 +238,13 @@ ${scheduleContext}
           realName: item.realName, identity: item.identity, relationship: item.relationship,
         });
         const previous=currentRecords.find(r=>r.contactId===item.contactId && item.contactId);
-        const id=linked?.id || previous?.contactId || (typeof item.contactId==='string' && item.contactId.startsWith('generated:') ? item.contactId : 'generated:'+crypto.randomUUID());
+        const nicknameKey = (String(item.realName || item.nickname)).normalize('NFKC').trim().toLowerCase();
+        const socialKey = item.kind === 'npc'
+          ? nicknameKey + '|' + String(item.relationship || '').normalize('NFKC').trim().toLowerCase()
+          : '';
+        const id=linked?.id || previous?.contactId || (socialKey && batchNpcIds.get(socialKey)) ||
+          (typeof item.contactId==='string' && item.contactId.startsWith('generated:') ? item.contactId : 'generated:'+crypto.randomUUID());
+        if (socialKey && !batchNpcIds.has(socialKey)) batchNpcIds.set(socialKey,id);
         const messages=parseGeneratedPhoneMessages(item.messages,id);
         if(!messages.length) continue;
         const alreadyIncoming=incoming.find(r=>r.contactId===id);
@@ -246,7 +255,7 @@ ${scheduleContext}
         const updatedThread: ChatRecord = {id:existingRecord?.id||crypto.randomUUID(),contactId:id,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),preview:fresh[fresh.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...fresh]};
         if (alreadyIncoming) incoming[incoming.indexOf(alreadyIncoming)] = updatedThread;
         else incoming.push(updatedThread);
-        if(!linked && item.kind==='npc') newContacts.push({
+        if(!linked && item.kind==='npc' && !newContacts.some(contact=>contact.id===id)) newContacts.push({
           id, item, established: fresh.some(m=>m.speaker.role==='owner') &&
             fresh.some(m=>m.speaker.role==='contact'),
         });
@@ -274,7 +283,7 @@ ${scheduleContext}
             origin: item.origin === 'known' ? 'introduced'
               : item.origin === 'stranger' ? 'stranger' : 'introduced',
             evidence: 'social',
-          }, { conversationEstablished: established });
+          }, { conversationEstablished: established, blockedNames: [name, userProfile.name] });
           if (result.status === 'added' && result.profile) recordCharacterLifeEvent({
             id: 'contact:' + result.profile.id, characterId,
             kind: 'contact-added', occurredAt: result.profile.createdAt,
