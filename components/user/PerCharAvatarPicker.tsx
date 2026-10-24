@@ -237,7 +237,7 @@ const PerCharAvatarPicker: React.FC = () => {
                             {editingOverride && (
                                 <button
                                     onClick={() => { setOverride(editingChar.id, undefined); setUrlDraft(''); addToast('已恢复整体头像', 'success'); }}
-                                    className="flex-1 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[11px] font-bold text-rose-500 active:scale-[0.98] transition-transform">
+                                    className="flex-1 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-bold text-neutral-500 active:scale-[0.98] transition-transform">
                                     恢复整体头像
                                 </button>
                             )}
