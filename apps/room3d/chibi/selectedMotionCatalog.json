@@ -11,6 +11,17 @@
     "hashes": []
   },
   {
+    "id": "home-kiss",
+    "label": "站立亲亲",
+    "category": "kiss",
+    "source": "SullyOS procedural",
+    "sourceUrl": "",
+    "duration": 8.5,
+    "participants": 2,
+    "file": "home-kiss.json",
+    "hashes": []
+  },
+  {
     "id": "home-princess-carry",
     "label": "公主抱",
     "category": "close",
