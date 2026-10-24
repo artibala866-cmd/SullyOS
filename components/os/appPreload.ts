@@ -43,7 +43,6 @@ const importers: Partial<Record<AppID, () => Promise<unknown>>> = {
   [AppID.Social]: () => import('../../apps/SocialApp'),
   [AppID.Study]: () => import('../../apps/StudyApp'),
   [AppID.Worldbook]: () => import('../../apps/WorldbookApp'),
-  [AppID.Bank]: () => import('../../apps/BankApp'),
   [AppID.XhsStock]: () => import('../../apps/XhsStockApp'),
   [AppID.XhsFreeRoam]: () => import('../../apps/XhsFreeRoamApp'),
   [AppID.Browser]: () => import('../../apps/BrowserApp'),
@@ -56,7 +55,6 @@ const importers: Partial<Record<AppID, () => Promise<unknown>>> = {
   [AppID.Handbook]: () => import('../../apps/HandbookApp'),
   [AppID.QQBridge]: () => import('../../apps/QQBridge'),
   [AppID.HotNews]: () => import('../../apps/HotNewsApp'),
-  [AppID.SpecialMoments]: () => import('../ValentineEvent'),
   [AppID.CharCreatorDev]: () => import('../../apps/CharCreatorDevApp'),
 };
 
