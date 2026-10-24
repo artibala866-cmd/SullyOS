@@ -121,10 +121,8 @@ export interface OSTheme {
   chatCharacterSwitchAnimationEnabled?: boolean;
   /** App 代码块加载较慢时是否显示加载柔光动画。默认开启；超时恢复页不受影响。 */
   appLoadingAnimationEnabled?: boolean;
-  /** 桌面整体皮肤。'animalcrossing' = 动森风格（NookPhone 彩色圆角图标 + 暖色界面）；
-   *  'mobilegame' = 二次元手游首页风格（角色卡 + 等级经验条 + 货币栏 + 网格卡 + 罗盘 dock）；
-   *  'tamagotchi' = 电子宠物养成机（桌面即角色的小屋舞台 + 四颗糖果实体键）。默认 'default'。 */
-  skin?: 'default' | 'animalcrossing' | 'mobilegame' | 'tamagotchi' | 'companion' | 'homely';
+  /** 桌面整体皮肤。已退役的动森与电子宠物旧值启动时迁移为 default。 */
+  skin?: 'default' | 'mobilegame' | 'companion' | 'homely';
   /** 居家桌面配色；旧存档默认奶油杏橙，随主题保存。 */
   homelyPalette?: 'apricot' | 'blue' | 'rose' | 'lilac' | 'oat';
   /** 锁定居家陪伴对象；不跟随其他 App 的当前聊天角色切换。 */
@@ -133,7 +131,6 @@ export interface OSTheme {
   desktopVariant?: 'paper' | 'nostalgia';
   desktopClockStyle?: 'serif' | 'bold' | 'system';
   /** 动森皮肤下，聊天 App 是否也跟随换成动森界面。默认 true（undefined 视为 true）。关掉则聊天保持原样式。 */
-  acnhChatSync?: boolean;
   launcherWidgetImage?: string; // DEPRECATED: always stripped on load — never renders.
   launcherWidgets?: Record<string, string>; // slots: 'tl' | 'tr' | 'wide' | 'dsq' (legacy 'bl' / 'br' are banned)
   /** 默认桌面长按编辑后的 App / Dock / 第二页风车组件顺序。 */
