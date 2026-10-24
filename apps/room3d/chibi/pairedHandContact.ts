@@ -18,13 +18,15 @@ const pairCache=new WeakMap<SelectedClip,Pair>();
 export function sampledHandPair(clip:SelectedClip):Pair{
  const cached=pairCache.get(clip);
  if(cached)return cached;
+ // Sample five timestamps for both actors ONCE, then compare all pairs.
+ // Formerly this repeated bone-track interpolation for each of four pairs.
+ const frames=sampledTimes.map(t=>[
+  sampleSelected(clip.actors[0],clip.duration*t),
+  sampleSelected(clip.actors[1],clip.duration*t),
+ ] as const);
  const scores=pairs.map(pair=>({
   pair,
-  distance:sampledTimes.reduce((sum,t)=>{
-   const a=sampleSelected(clip.actors[0],clip.duration*t);
-   const b=sampleSelected(clip.actors[1],clip.duration*t);
-   return sum+a.points[pair[0]+'_hand'].distanceTo(b.points[pair[1]+'_hand']);
-  },0),
+  distance:frames.reduce((sum,[a,b])=>sum+a.points[pair[0]+'_hand'].distanceTo(b.points[pair[1]+'_hand']),0),
  }));
  const best=scores.sort((a,b)=>a.distance-b.distance)[0].pair;
  pairCache.set(clip,best);
