@@ -38,7 +38,7 @@ const RoomApp:React.FC=()=>{
  const char=characters.find(c=>c.id===selected);
  const dreamChar=characters.find(c=>c.id===dreamOwner)??char;
  const residents=char?[...(userProfile.vrState?.chibi?.state?[{id:'user',label:userProfile.name||'你',state:userProfile.vrState.chibi.state}]:[]),...characters.filter(c=>c.id!==char.id&&(c.chibiStudio?.home3D?.state||c.chibiStudio?.room?.state||c.chibiStudio?.vr?.state)).map(c=>({id:c.id,label:c.name,avatar:c.avatar,state:c.chibiStudio?.home3D?.state??c.chibiStudio?.room?.state??c.chibiStudio?.vr?.state,hair:c.chibiStudio?.home3D?.hair}))]:[];
- return <div className="relative h-full w-full overflow-hidden bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-900">
+ return <div className="room-dream-shell relative h-full w-full overflow-hidden bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-900">
   {char?<Suspense fallback={<div className="grid h-full place-items-center text-sm">正在打开 3D 家园…</div>}>
    <Home3DView key={char.id} suspended={activeApp!==AppID.Room||dreamOpen} character={char}
     onDefinitionChange={value=>updateCharacter(char.id,{homeDefinition:value})}
@@ -54,7 +54,8 @@ const RoomApp:React.FC=()=>{
     </button>)}
    </div>
   </div>}
-  {char&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="absolute right-4 top-[174px] z-40 flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0,0,0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation"}}><MoonStars size={23} weight="thin"/></button>}
+  <style>{`.room-dream-shell:has(.home-life-overlay) .room-dream-entry,.room-dream-shell:has([role="dialog"]) .room-dream-entry,.room-dream-shell:has(.home-social-panel) .room-dream-entry{display:none}`}</style>
+  {char&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 top-[236px] z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0,0,0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation"}}><MoonStars size={23} weight="thin"/></button>}
   {dreamOpen&&dreamChar&&<div className="absolute inset-0 z-50"><DreamTheater char={dreamChar} onExit={()=>{setDreamOpen(false);setDreamOwner(null);}}/></div>}
  </div>;
 };
