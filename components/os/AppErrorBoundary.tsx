@@ -198,7 +198,7 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
                             <button
                                 type="button"
                                 onClick={this.handleReload}
-                                className="w-full px-6 py-3 bg-red-600 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
+                                className="w-full px-6 py-3 bg-neutral-600 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
                             >
                                 {CHUNK_ERROR_RELOAD_LABEL}
                             </button>
@@ -252,7 +252,7 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
                     <button
                         type="button"
                         onClick={this.handleClose}
-                        className="w-full px-6 py-3 bg-red-600 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
+                        className="w-full px-6 py-3 bg-neutral-600 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
                     >
                         {ERROR_RETURN_LABEL}
                     </button>
