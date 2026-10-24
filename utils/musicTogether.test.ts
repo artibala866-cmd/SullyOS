@@ -57,4 +57,22 @@ describe('免登录音乐回退', () => {
     expect(result.lrc.lyric).toContain('Original');
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it('代理一直无响应时，会超时切到免登录搜索，不无限转圈', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(musicApi, 'call').mockImplementation(() => new Promise(() => {}));
+      const guestFetch = vi.fn(async () => new Response(JSON.stringify([{
+        id: 456, name: 'Fallback Song', artist: ['Guest Artist'], duration: 160,
+      }]), { status: 200 }));
+      vi.stubGlobal('fetch', guestFetch);
+      const searching = musicApi.search(guestCfg, 'Fallback Song');
+      await vi.advanceTimersByTimeAsync(6001);
+      const result = await searching;
+      expect(result.result.songs[0].name).toBe('Fallback Song');
+      expect(guestFetch).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
 });
