@@ -39,10 +39,13 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    const shorter=heads[0].y<=heads[1].y?a:b;
    const taller=shorter===a?b:a;
    const gap=Math.abs(heads[0].y-heads[1].y);
-   const rise=T.MathUtils.clamp(gap*.32,0,.18)*heightBlend;
-   const bend=T.MathUtils.clamp((gap-rise)*.55,0,.25)*heightBlend;
-   // Capture toe contact before posing. Tiptoeing rotates the ankle so the
-   // heel rises while the toes remain planted (not the reverse).
+   // Avoid switching roles or lifting feet for almost equal-height partners.
+   const difference=Math.max(0,gap-.035);
+   const rise=T.MathUtils.clamp(difference*.32,0,.18)*heightBlend;
+   const bend=T.MathUtils.clamp((difference-rise)*.55,0,.25)*heightBlend;
+   // Record both residents' original contact planes before modifying legs.
+   const groundOf=(v:ChibiVisitor)=>{v.root.updateWorldMatrix(true,true);return Math.min(...(['L_toe','R_toe','L_foot','R_foot'] as const).map(n=>v.rig!.bones[n].getWorldPosition(new T.Vector3()).y));};
+   const tallerGround=groundOf(taller);
    shorter.root.updateWorldMatrix(true,true);
    const toeBefore=['L_toe','R_toe'].map(n=>shorter.rig!.bones[n].getWorldPosition(new T.Vector3()));
    for(const side of ['L','R'] as const){
@@ -75,6 +78,10 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    taller.rig!.bones.spine.quaternion.multiply(rotation(bend*.9));
    taller.rig!.bones.chest.quaternion.multiply(rotation(bend*1.05));
    taller.rig!.bones.neck.quaternion.multiply(rotation(bend*.45));
+   // Knee flexion can lower the sole below the floor. Restore the taller
+   // resident's original contact plane without moving the navigation root.
+   const tallerCorrection=T.MathUtils.clamp(tallerGround-groundOf(taller),-.12,.12);
+   if(Math.abs(tallerCorrection)>1e-5)taller.translatePose(new T.Vector3(0,tallerCorrection,0));
    a.root.updateWorldMatrix(true,true);
    b.root.updateWorldMatrix(true,true);
   }
