@@ -15,54 +15,23 @@ import {
 import { validateScopedCss } from './scopedCss';
 
 describe('journalAppearance', () => {
-    it('ships several scoped presets and keeps the original preset unchanged', () => {
-        expect(JOURNAL_APPEARANCE_PRESETS.map(preset => preset.id)).toEqual([
-            'original',
-            'letterpress',
-            'sakura',
-            'forest',
-            'midnight',
-        ]);
-        expect(resolveJournalPreset('original').css).toBe('');
-
-        for (const preset of JOURNAL_APPEARANCE_PRESETS) {
-            const validation = validateScopedCss(
-                preset.css,
-                JOURNAL_CSS_SCOPE_REGEX,
-                JOURNAL_CSS_SCOPE_HINT,
-            );
-            expect(validation.errors, preset.name).toEqual([]);
-        }
+    it('ships one monochrome journal preset with scoped CSS', () => {
+        expect(JOURNAL_APPEARANCE_PRESETS.map(preset => preset.id)).toEqual(['original']);
+        const preset = resolveJournalPreset('original');
+        expect(preset.name).toBe('黑白拼贴手账');
+        expect(preset.css).toContain('.sully-journal-select');
+        expect(preset.css).toContain('.sully-journal-sticker-panel');
+        expect(preset.css).not.toContain('#f59e0b');
+        const validation = validateScopedCss(preset.css, JOURNAL_CSS_SCOPE_REGEX, JOURNAL_CSS_SCOPE_HINT);
+        expect(validation.errors).toEqual([]);
     });
 
-    it('gives every non-original preset its own layout language instead of a shared recolored shell', () => {
-        const themed = JOURNAL_APPEARANCE_PRESETS.filter(preset => preset.id !== 'original');
-        expect(new Set(themed.map(preset => preset.layout)).size).toBe(themed.length);
-
-        for (const preset of themed) {
-            expect(preset.css, preset.name).toContain(`.sully-journal-theme-${preset.id}`);
-            expect(preset.css, preset.name).toContain('.sully-journal-notebook-grid');
-            expect(preset.css, preset.name).toContain('.sully-journal-calendar-list');
-            expect(preset.css, preset.name).toContain('.sully-journal-spread');
-            expect(preset.css, preset.name).toContain('@media(max-width:719px)');
-        }
-
-        expect(resolveJournalPreset('letterpress').css).toContain('.sully-journal-post-route');
-        expect(resolveJournalPreset('sakura').css).toContain('.sully-journal-celestial-map');
-        expect(resolveJournalPreset('forest').css).toContain('.sully-journal-field-rings');
-        expect(resolveJournalPreset('midnight').css).toContain('.sully-journal-memory-circuit');
-
-        expect(resolveJournalPreset('letterpress').css).toContain('grid-template-columns:repeat(auto-fit,minmax(220px,1fr))');
-        expect(resolveJournalPreset('sakura').css).toContain('.sully-journal-notebook:first-child{grid-column:1/-1');
-        expect(resolveJournalPreset('forest').css).toContain('grid-template-columns:1fr!important');
-        expect(resolveJournalPreset('midnight').css).toContain('grid-template-columns:repeat(3,minmax(0,1fr))');
-    });
-
-    it('places custom CSS after the selected preset so users can override it', () => {
+    it('falls back to monochrome for legacy saved theme ids', () => {
+        expect(resolveJournalPreset('sakura').id).toBe('original');
+        expect(resolveJournalPreset('forest').id).toBe('original');
         const customCss = '.sully-journal-paper{border-radius:2px!important;}';
         const css = resolveJournalAppearanceCss({ preset: 'sakura', customCss });
-
-        expect(css).toContain('.sully-journal-theme-sakura');
+        expect(css).toContain('.sully-journal-select');
         expect(css.endsWith(customCss)).toBe(true);
     });
 
