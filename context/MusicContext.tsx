@@ -1096,16 +1096,38 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }));
         })().catch(err => console.warn('[MusicTogether] 拒绝邀请记录失败', err));
       },
-      playListeningTrack: (cid: string, query: string) => {
-        // 只允许正在一起听的角色操作现有播放队列，不凭空播放不明歌曲。
+      playListeningTrack: async (cid: string, query: string) => {
+        // 只有正在一起听的角色能切歌。优先使用现有队列，找不到再走同一套免登录搜索。
         if (!listeningTogetherRef.current.includes(cid)) return false;
         const needle = query.trim().toLocaleLowerCase();
         if (!needle) return false;
-        const match = queueRef.current.find(song =>
+        let match: Song | undefined = queueRef.current.find(song =>
           song.name.toLocaleLowerCase() === needle ||
           song.name.toLocaleLowerCase().includes(needle));
-        if (!match) return false;
-        void playSong(match);
+        if (!match) {
+          try {
+            const results = await musicApi.search(cfgRef.current, query.trim());
+            const candidates = (results?.result?.songs || []).slice(0, 30);
+            const hit = candidates.find((song: any) => String(song.name || '').trim().toLocaleLowerCase() === needle)
+              || candidates.find((song: any) => String(song.name || '').toLocaleLowerCase().includes(needle));
+            if (hit) {
+              match = {
+                id: Number(hit.id), name: String(hit.name || ''),
+                artists: (hit.ar || hit.artists || []).map((artist: any) => artist.name).join(' / '),
+                album: hit.al?.name || hit.album?.name || '',
+                albumPic: toHttps(hit.al?.picUrl || hit.album?.picUrl || ''),
+                duration: (hit.dt || hit.duration || 0) / 1000,
+                fee: hit.fee ?? 0,
+              };
+              if (!Number.isFinite(match.id)) match = undefined;
+            }
+          } catch (err) {
+            console.warn('[MusicTogether] 角色选歌搜索失败', err);
+          }
+        }
+        if (!listeningTogetherRef.current.includes(cid)) return false;
+        if (!match) { toast('角色想播放的歌曲没有找到，请尝试其他歌名', 'info'); return false; }
+        await playSong(match);
         return true;
       },
       stopListeningTogether: (cid: string) => {
