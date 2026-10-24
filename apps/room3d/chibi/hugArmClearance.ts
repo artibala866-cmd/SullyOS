@@ -81,12 +81,13 @@ export function keepHugArmOutside(owner:ChibiVisitor,recipient:ChibiVisitor,cont
  const handWorld=hand.getWorldQuaternion(new T.Quaternion());
  const before=palmContactReport(owner,contact);
  const errorBefore=before?.error??Infinity;
+ const sample=new T.Vector3();
  const penetration=(a:T.Vector3,b:T.Vector3,c:T.Vector3)=>{
   let depth=0;
   for(const [start,end] of [[a,b],[b,c]]){
-   for(let i=1;i<=4;i++){
-    const p=start.clone().lerp(end,i/4).applyMatrix4(inv);
-    depth=Math.max(depth,1-normalizedRadius(p,ARM_RADII));
+   for(let i=1;i<=3;i++){
+    sample.copy(start).lerp(end,i/3).applyMatrix4(inv);
+    depth=Math.max(depth,1-normalizedRadius(sample,ARM_RADII));
    }
   }
   return Math.max(0,depth);
@@ -132,7 +133,7 @@ export function keepHugArmOutside(owner:ChibiVisitor,recipient:ChibiVisitor,cont
  const actualElbow=elbow.getWorldPosition(new T.Vector3());
  const actualWrist=hand.getWorldPosition(new T.Vector3());
  const afterDepth=penetration(s,actualElbow,actualWrist);
- const excessiveError=!after||after.error>Math.max(.055,errorBefore+.018);
+ const excessiveError=!after||after.error>Math.max(.035,errorBefore+.012);
  const worseCollision=afterDepth>beforeDepth+.008;
  if(excessiveError||worseCollision){
   shoulder.quaternion.copy(originalUpper);
