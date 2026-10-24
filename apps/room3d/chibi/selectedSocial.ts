@@ -131,6 +131,21 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
    const needed=Math.sqrt(Math.max(0,.74**2-vertical**2)),gap=delta.length();
    if(gap<needed){if(gap<.001)delta.copy(points[1]).sub(points[0]);delta.normalize().multiplyScalar((needed-gap)/2);both[0].visitor.root.position.sub(delta);both[1].visitor.root.position.add(delta);both.forEach(r=>r.visitor.root.updateWorldMatrix(true,true));}
   }
+  if(s.action==='home-kiss'&&!pinned&&both.length===2&&both.every(r=>!!r.visitor.rig)){
+   // Align the actual heads, not the two navigation roots. Preserve a small
+   // face gap so the large chibi heads cannot pass through one another.
+   const v0=both[0].visitor,v1=both[1].visitor;
+   const h0=v0.getHeadWorldPosition(),h1=v1.getHeadWorldPosition();
+   const delta=h1.clone().sub(h0),horizontal=new T.Vector3(delta.x,0,delta.z);
+   const gap=horizontal.length(),targetGap=.66;
+   if(gap>.001){
+    const contact=smooth(sourceTime,3.4,5.1)*(1-smooth(sourceTime,9.2,11.5));
+    const shift=T.MathUtils.clamp(gap-targetGap,-.14,.24)*contact*.5;
+    const direction=horizontal.normalize().multiplyScalar(shift);
+    v0.root.position.add(direction);v1.root.position.sub(direction);
+    v0.root.updateWorldMatrix(true,true);v1.root.updateWorldMatrix(true,true);
+   }
+  }
   if(isIntimacy(s.action)&&both[0].visitor.rig)poseIntimacy(s.action,both,sourceTime,pinned?s.ids.indexOf(pinned.id):undefined);else contacts(both,frames,weight);prop?.update(sourceTime,s.clip.duration,weight);for(const r of both)r.visitor.setActionExpression(actionTime<s.clip.duration? actionExpression(s.action,socialActions[s.action].category,socialActions[s.action].label):'neutral',sourceTime);finish();
  }
  const restore=()=>{prop?.dispose();prop=null;session=null;draw();};
