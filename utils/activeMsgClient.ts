@@ -746,6 +746,12 @@ export const buildFirePack = async (
   },
 ): Promise<AmsgFirePack> => {
   const templateStub = opts?.templateStub === true;
+  // 主动消息模板每次构建都重新读取角色门牌，避免沿用旧会话快照。
+  char = { ...char, roomPlatesInjection: '' };
+  if (!templateStub && char.memoryPalaceEnabled) {
+    const { buildRoomPlatesInjection } = await import('./memoryPalace/roomPlates');
+    char.roomPlatesInjection = await buildRoomPlatesInjection(char.id, userProfile.name);
+  }
   const [{ lastUserMessageAt }, recentMessages, library, schedule] = await Promise.all([
     buildTimeGapHint(char.id),
     templateStub ? Promise.resolve([]) : loadCharacterContextMessages(char),
