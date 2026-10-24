@@ -353,7 +353,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  // After a seated hug the free resident yields when the other person rises.
  function separateResidentBodies(deltaSeconds){
   if(!visitor||!resident.visible||firstPerson||edit||overview||socialRuntime?.active||photoSession)return false;
-  const others=socialEntries.filter(e=>e.group.visible&&e.room===current().id&&e!==furnitureUser);
+  const others=socialEntries.filter(e=>e.group.visible&&e.room===current().id);
   if(!others.length)return false;
   const room=current(),offsetX=room.x*ROOM_STEP.x,offsetZ=room.z*ROOM_STEP.z;
   const primary={id:activeResidentId(),group:resident};
