@@ -54,7 +54,6 @@ import { normalizeAssistantActionFormatting } from './assistantActionFormat';
 import { markAmsgStateDirty } from './amsgStateSync';
 import { announceScheduleChanges, applyAssistantScheduleChanges } from './scheduleChange';
 import { isBlobRef } from './blobRef';
-import { consumeSARChatSurfaceChunk, type SARModuleSurfaceMeta } from './vrWorld/sarModuleRuntime';
 import { stripLeakedSourceTags } from './sanitize';
 
 // ─── 模块内辅助 ──────────────────────────────────────────────────────────────
@@ -579,8 +578,6 @@ export interface PostProcessCtx {
      * 在线送达 vs 离线补收的判定见 activeMsgRuntime.resolveInboxPersistTimestamp。
      */
     messageTimestamp?: number;
-    /** SAR 模块的纯展示层。canonical 正文仍走 rawAiContent 的完整后处理与落库。 */
-    sarModuleSurface?: SARModuleSurfaceMeta;
 }
 
 // ─── 主入口 ─────────────────────────────────────────────────────────────────
@@ -614,7 +611,6 @@ export async function applyAssistantPostProcessing(
         directives,
         reasoningContent: pushReasoningContent,
         messageTimestamp,
-        sarModuleSurface,
     } = ctx;
     const { baseUrl, headers, effectiveApi } = api;
     // 拟人打字延迟：流式预览已实时展示过气泡时（instantRender）跳过，避免二次慢放
@@ -811,29 +807,13 @@ export async function applyAssistantPostProcessing(
 
     // 把一段文本 (parseAndExecuteActions / HTML 之外的部分) 渲染成气泡并落库 —— 双语 / 表情 / 引用 / 分段
     // 与原 inline 末尾逻辑一致。抽出来是为了让"执行功能前的本轮正文 A"能在二轮前先展示, 二轮结果 B 复用同一套。
-    let sarSurfaceClaimed = false;
     const renderAndPersist = async (rawContent: string, firstThinkingChain: string | null): Promise<void> => {
         let firstMeta: any = firstThinkingChain ? { thinkingChain: firstThinkingChain } : null;
-        const surfaceChunks = !sarSurfaceClaimed && sarModuleSurface?.surface
-            ? splitSARChatSurfaceBubbles(sarModuleSurface.surface)
-            : [];
-        if (surfaceChunks.length > 0) sarSurfaceClaimed = true;
-        let surfaceIndex = 0;
-        const takeMeta = (base: any, canonicalChunk?: string): any => {
-            let surfaceChunk: string | undefined;
-            if (canonicalChunk !== undefined) {
-                const aligned = consumeSARChatSurfaceChunk(canonicalChunk, surfaceChunks, surfaceIndex);
-                surfaceChunk = aligned.surface;
-                surfaceIndex = aligned.nextIndex;
-            }
-            const sarMeta = surfaceChunk && sarModuleSurface
-                ? { sarModuleSurface: { ...sarModuleSurface, surface: surfaceChunk } }
-                : undefined;
-            const merged = firstMeta || sarMeta
-                ? { ...(base || {}), ...(sarMeta || {}), ...(firstMeta || {}) }
-                : base;
+        // Preserve all normal bubble metadata; no retired VR surface metadata is written.
+        const takeMeta = (base: any, _canonicalChunk?: string): any => {
+            const result = firstMeta ? { ...(base || {}), ...firstMeta } : base;
             firstMeta = null;
-            return merged;
+            return result;
         };
 
         // 表情按模型写的位置原地插发。名字在表情库里找不到时落一条降级文本气泡，不静默丢：
