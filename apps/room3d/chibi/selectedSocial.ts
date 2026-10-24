@@ -201,7 +201,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
     session=candidate;prop=createSocialProp(action,both);draw();return true;
    }finally{if(token===generation)loading=false;}
   },
-  advance(seconds:number){if(!Number.isFinite(seconds)||seconds<0)return;if(session){session.time=Math.min(session.time+seconds,socialActions[session.action].duration+session.approach);draw();if(session.time>=socialActions[session.action].duration+session.approach){restore();options.onComplete?.();}}},
+  advance(seconds:number){if(!Number.isFinite(seconds)||seconds<0)return;if(session){session.time=Math.min(session.time+seconds,socialActions[session.action].duration+session.approach);draw();if(session.time>=socialActions[session.action].duration+session.approach){if(session.action==='home-kiss'){for(const id of session.ids){const resident=states.get(id);if(resident){resident.home.copy(resident.visitor.root.position);resident.rotation.copy(resident.visitor.root.quaternion);}}}restore();options.onComplete?.();}}},
   seek(seconds:number){if(session&&Number.isFinite(seconds)){session.time=T.MathUtils.clamp(seconds,0,socialActions[session.action].duration+session.approach);draw();}},
   cancel(){generation++;loading=false;restore();},
   reset(){generation++;loading=false;restore();for(const r of states.values()){r.visitor.root.position.copy(r.home);r.visitor.root.quaternion.copy(r.rotation);}draw();},
