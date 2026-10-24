@@ -148,7 +148,7 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                     {/* ── 实时预览 ── */}
                     <div>
                         <h4 className="text-[11px] font-bold text-slate-500 mb-2">预览</h4>
-                        <div className="rounded-xl p-4 flex justify-center" style={{ background: style === 'ink' ? '#e9e0cd' : 'radial-gradient(circle at 30% 20%, #1e2433, #0a0d16)' }}>
+                        <div className="rounded-xl p-4 flex justify-center" style={{ background: style === 'ink' ? '#e1e1e1' : 'radial-gradient(circle at 30% 20%, #242424, #0d0d0d)' }}>
                             <div className="w-full max-w-[260px]">
                                 <ObserveHUD observation={previewObs} variant="card" charName={char.name} config={char.dateObserve} />
                             </div>
@@ -232,7 +232,7 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                                                 >
                                                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`}></div>
                                                 </button>
-                                                <button onClick={() => delCustom(c.id)} title="删除" className="text-slate-300 hover:text-red-400 transition-colors shrink-0 p-0.5">
+                                                <button onClick={() => delCustom(c.id)} title="删除" className="text-slate-300 hover:text-neutral-400 transition-colors shrink-0 p-0.5">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                                 </button>
                                             </div>
