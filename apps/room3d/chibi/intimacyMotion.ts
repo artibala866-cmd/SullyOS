@@ -3,37 +3,11 @@ import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
 import type {contactSolver} from './socialContact';
 import {poseHug} from './hugMotion';
+import {settleLegContact} from './legContactIK';
 
 type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
 const rotation=(x=0,y=0,z=0)=>new T.Quaternion().setFromEuler(new T.Euler(x,y,z));
-/** Small two-joint CCD correction for the planted toe during a kiss.
- * Operates in world space, converts each correction to joint-local rotation,
- * and clamps each iteration to avoid knee flips on stylized rigs. */
-function settleKissToe(v:ChibiVisitor,side:'L'|'R',target:T.Vector3,strength:number){
- const bones=v.rig!.bones,toe=bones[side+'_toe'];
- for(let iteration=0;iteration<2;iteration++){
-  for(const jointName of [side+'_shin',side+'_thigh']){
-   const joint=bones[jointName],parent=joint.parent;
-   if(!parent)continue;
-   v.root.updateWorldMatrix(true,true);
-   const pivot=joint.getWorldPosition(new T.Vector3());
-   const current=toe.getWorldPosition(new T.Vector3()).sub(pivot);
-   const desired=target.clone().sub(pivot);
-   if(current.lengthSq()<1e-7||desired.lengthSq()<1e-7)continue;
-   const worldDelta=new T.Quaternion().setFromUnitVectors(current.normalize(),desired.normalize());
-   const axis=new T.Vector3(),angle=2*Math.acos(T.MathUtils.clamp(worldDelta.w,-1,1));
-   if(angle<1e-5)continue;
-   axis.set(worldDelta.x,worldDelta.y,worldDelta.z);
-   if(axis.lengthSq()<1e-8)continue;
-   axis.normalize();
-   const parentWorld=parent.getWorldQuaternion(new T.Quaternion());
-   axis.applyQuaternion(parentWorld.invert()).normalize();
-   joint.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(axis,Math.min(angle,.075)*strength));
-  }
- }
- v.root.updateWorldMatrix(true,true);
-}
 export const isPrincessCarry=(id:string)=>id==='home-princess-carry'||id==='home-princess-carried';
 export const isIntimacy=(id:string)=>id==='home-hug'||id==='home-kiss'||isPrincessCarry(id);
 /** Reference-video phases, in elapsed seconds; neither role owns a separate clock. */
@@ -100,7 +74,7 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    // to rise. The short CCD chain shares the adjustment with shin and thigh.
    if(rise>.002)for(const side of ['L','R'] as const){
     const index=side==='L'?0:1;
-    settleKissToe(shorter,side,toeBefore[index],heightBlend);
+    settleLegContact(shorter,side,toeBefore[index],heightBlend);
    }
    // Preserve the lowest planted toe rather than averaging both feet:
    // averaging can leave one foot penetrating the floor.
