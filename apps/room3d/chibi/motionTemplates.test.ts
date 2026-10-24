@@ -45,6 +45,7 @@ describe('Stage 5 motion authoring contract',()=>{
  });
  it('rejects fake IK capabilities and ill-formed stage orders before launching a scene',()=>{
   expect(()=>compileMotionTemplates(metadata,{'new-pair':{participants:2,capabilities:['pairedSync','armWrap']}})).toThrow(/adapter/);
+  expect(()=>compileMotionTemplates(metadata,{'new-pair':{participants:2,capabilities:['pairedSync','armWrap'],adapter:'legacy'}})).toThrow(/adapter/);
   expect(()=>compileMotionTemplates(metadata,{'new-pair':{...pair(),phases:['contactIK','presentation']}})).toThrow(/stage/);
   expect(()=>compileMotionTemplates(metadata,{'new-face':{participants:2,capabilities:['pairedSync'],face:'noseTouch'}})).toThrow(/face/);
   expect(Object.keys(motionCapabilities)).toHaveLength(10);

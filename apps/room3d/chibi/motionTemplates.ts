@@ -107,8 +107,14 @@ export function compileMotionTemplates(
     draft.prop.kind==='cup'&&(draft.participants!==2||!Number.isFinite(draft.prop.handoffAt)||draft.prop.handoffAt<0)||
     draft.prop.kind==='phone'&&!['L','R'].includes(draft.prop.hand)))
    throw Error('Invalid prop template: '+id);
-  if((has('armWrap')||has('supportAndLift')||has('seatTransition'))&&draft.adapter!=='legacy')
-   throw Error('Specialized motion requires reviewed adapter: '+id);
+  if(has('armWrap')||has('supportAndLift')||has('seatTransition')){
+   // Declaring a legacy adapter is NOT sufficient. The original specialized
+   // action must actually exist in selectedSocial/intimacyMotion/seat state.
+   // Future IDs are rejected until a real tested adapter has been installed.
+   const supported=new Set(['home-hug','home-kiss','home-princess-carry','home-princess-carried']);
+   if(draft.adapter!=='legacy'||!supported.has(id))
+    throw Error('Specialized motion requires reviewed adapter: '+id);
+  }
   if(draft.phases){
    const plan=draft.phases;
    if(!plan.length||plan[0]!=='bodyPlacement'||plan.at(-1)!=='presentation'||

@@ -89,7 +89,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   const handled=new Set<string>();
   for(let i=0;i<2;i++)for(const side of ['L','R'] as const){
    const from=side+'_hand',a=frames[i].points[from],j=1-i;
-   const passing=session!.action==='cmu-22_13';
+   const passing=session!.action==='cmu-22_13'||motionTemplateFor(session!.action)?.prop?.kind==='cup';
    if(passing)continue; // The cup owns the two opposed grip targets during handover.
    const bodyProfile=profile?.kind==='bodyTouch'?profile:null;
    const choices=(passing?[i===0?'R_hand':'L_hand']:bodyProfile?bodyProfile.targetBones:['L_hand','R_hand']).map(n=>({n,d:a.distanceTo(frames[j].points[n])})).sort((a,b)=>a.d-b.d),nearest=choices[0];
