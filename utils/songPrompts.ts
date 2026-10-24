@@ -258,23 +258,23 @@ export const getLyricCoWritingStyle = (id: LyricCoWritingStyle | undefined) =>
 
 export const SECTION_LABELS: Record<string, { label: string; desc: string; color: string }> = {
     'intro': { label: '前奏/引入', desc: '歌曲的开场白，引人入胜', color: 'bg-stone-200/60 text-stone-600' },
-    'verse': { label: '主歌', desc: '叙事部分，铺垫情感', color: 'bg-amber-100/50 text-amber-700' },
-    'pre-chorus': { label: '导歌', desc: '过渡到副歌的桥段', color: 'bg-rose-100/50 text-rose-600' },
-    'chorus': { label: '副歌', desc: '最核心的旋律和情感高潮', color: 'bg-red-100/50 text-red-700' },
+    'verse': { label: '主歌', desc: '叙事部分，铺垫情感', color: 'bg-neutral-100/50 text-neutral-700' },
+    'pre-chorus': { label: '导歌', desc: '过渡到副歌的桥段', color: 'bg-neutral-100/50 text-neutral-600' },
+    'chorus': { label: '副歌', desc: '最核心的旋律和情感高潮', color: 'bg-neutral-100/50 text-neutral-700' },
     'bridge': { label: '桥段', desc: '转折变化，带来新视角', color: 'bg-stone-200/50 text-stone-500' },
     'outro': { label: '尾声', desc: '歌曲的结束与回味', color: 'bg-neutral-200/50 text-neutral-500' },
-    'free': { label: '自由段落', desc: '不限定位置，随心写', color: 'bg-orange-100/50 text-orange-600' },
+    'free': { label: '自由段落', desc: '不限定位置，随心写', color: 'bg-neutral-100/50 text-neutral-600' },
 };
 
 export const COVER_STYLES: { id: string; label: string; gradient: string; text: string }[] = [
-    { id: 'kraft-paper', label: '牛皮信封', gradient: 'from-amber-50 via-orange-50 to-amber-100', text: 'text-stone-800' },
-    { id: 'old-photo', label: '旧照片', gradient: 'from-amber-100 via-yellow-50 to-stone-100', text: 'text-stone-700' },
+    { id: 'kraft-paper', label: '牛皮信封', gradient: 'from-neutral-50 via-neutral-50 to-neutral-100', text: 'text-stone-800' },
+    { id: 'old-photo', label: '旧照片', gradient: 'from-neutral-100 via-neutral-50 to-stone-100', text: 'text-stone-700' },
     { id: 'ink-wash', label: '水墨', gradient: 'from-stone-100 via-slate-200 to-stone-300', text: 'text-stone-800' },
-    { id: 'dried-rose', label: '干燥花', gradient: 'from-rose-50 via-rose-100 to-stone-100', text: 'text-stone-700' },
+    { id: 'dried-rose', label: '干燥花', gradient: 'from-neutral-50 via-neutral-100 to-stone-100', text: 'text-stone-700' },
     { id: 'midnight', label: '深夜手记', gradient: 'from-stone-800 via-stone-900 to-neutral-900', text: 'text-stone-200' },
     { id: 'linen', label: '亚麻白', gradient: 'from-stone-50 via-neutral-50 to-stone-100', text: 'text-stone-700' },
-    { id: 'tea-stain', label: '茶渍', gradient: 'from-orange-50 via-amber-50 to-yellow-50', text: 'text-stone-700' },
-    { id: 'forest', label: '松林', gradient: 'from-stone-200 via-emerald-50 to-stone-100', text: 'text-stone-700' },
+    { id: 'tea-stain', label: '茶渍', gradient: 'from-neutral-50 via-neutral-50 to-neutral-50', text: 'text-stone-700' },
+    { id: 'forest', label: '松林', gradient: 'from-stone-200 via-neutral-50 to-stone-100', text: 'text-stone-700' },
 ];
 
 // --- Lyric Structure Templates ---
