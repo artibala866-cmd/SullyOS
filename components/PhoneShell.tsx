@@ -837,7 +837,6 @@ const PhoneShell: React.FC = () => {
   const bgImageValue = getBgStyle(theme.wallpaper);
   const lockBgImageValue = getBgStyle(theme.lockWallpaper || theme.wallpaper);
   const contentColor = theme.contentColor || '#ffffff';
-  const acnhSkin = theme.skin === 'animalcrossing'; // 动森彩蛋：锁屏换暖色草地点缀
   const storedCompanionFrame = theme.skin === 'companion' ? loadCompanionFrameStyle() : null;
   const companionLockFrame = storedCompanionFrame;
 
@@ -861,21 +860,7 @@ const PhoneShell: React.FC = () => {
       >
         {/* 锁屏柔和淡入：与开机「世界入场」退场衔接；body 背景本就是壁纸，故是无缝融入而非硬切。 */}
         <style>{`@keyframes lockReveal{from{opacity:0}to{opacity:1}}`}</style>
-        {acnhSkin ? (
-            <div className="absolute inset-0 transition-all duration-700 group-hover:opacity-0"
-                 style={{ background: 'linear-gradient(180deg, rgba(223, 223, 223,0.25) 0%, rgba(244, 244, 244,0.15) 45%, rgba(165, 165, 165,0.28) 100%)' }} />
-        ) : (
-            <div className="absolute inset-0 bg-black/5 backdrop-blur-sm transition-all group-hover:backdrop-blur-none group-hover:bg-transparent duration-700" />
-        )}
-
-        {/* 动森彩蛋：锁屏飘叶 */}
-        {acnhSkin && (
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <svg viewBox="0 0 100 100" className="absolute w-14 h-14 opacity-80 -rotate-[25deg]" style={{ left: '10%', top: '12%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#bfbfbf"/><path d="M50 14 L50 88" stroke="#7a7a7a" strokeWidth="3" fill="none" opacity="0.5"/></svg>
-                <svg viewBox="0 0 100 100" className="absolute w-12 h-12 opacity-75 rotate-[30deg] scale-x-[-1]" style={{ right: '12%', top: '20%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#a5a5a5"/><path d="M50 14 L50 88" stroke="#6b6b6b" strokeWidth="3" fill="none" opacity="0.5"/></svg>
-                <svg viewBox="0 0 100 100" className="absolute w-16 h-16 opacity-70 rotate-[12deg]" style={{ left: '16%', bottom: '14%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#999999"/><path d="M50 14 L50 88" stroke="#5c5c5c" strokeWidth="3" fill="none" opacity="0.5"/></svg>
-            </div>
-        )}
+        <div className="absolute inset-0 bg-black/5 backdrop-blur-sm transition-all group-hover:backdrop-blur-none group-hover:bg-transparent" />
 
         {companionLockFrame && (
           <CompanionLockChrome
@@ -893,13 +878,7 @@ const PhoneShell: React.FC = () => {
            <div className="text-8xl tracking-tighter opacity-95 font-bold">
              {virtualTime.hours.toString().padStart(2,'0')}<span className="animate-pulse">:</span>{virtualTime.minutes.toString().padStart(2,'0')}
            </div>
-           {acnhSkin ? (
-               <div className="text-lg tracking-widest opacity-90 mt-2 text-xs font-bold flex items-center justify-center gap-1.5">
-                   <span>🍃</span><span>无人岛生活</span><span>🍃</span>
-               </div>
-           ) : (
-               <div className="text-lg tracking-widest opacity-90 mt-2 uppercase text-xs font-bold">SullyOS·糯米机 Simulation</div>
-           )}
+           <div className="text-lg tracking-widest opacity-90 mt-2 uppercase text-xs font-bold">SullyOS·糯米机 Simulation</div>
         </div>}
 
         {!companionLockFrame && unreadCount > 0 && (
