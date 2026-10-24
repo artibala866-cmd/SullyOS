@@ -1,0 +1,55 @@
+# 3D 家园动作复用（开发说明）
+
+> 仅是内部技术分类，不替换用户看到的八个动作菜单分类。新增配置不等于新增动作，不能在加载时预取全部动画。
+
+## 十类基础能力
+
+| 能力键 | 用途 | 已有实现位置 |
+| --- | --- | --- |
+| `singlePose` | 单人动作、表情、姿态 | `selectedMotions.ts` / `visitor.ts` |
+| `handContact` | 手掌对齐、双人接触 | `socialContact.ts` / `pairedHandContact.ts` |
+| `bodyContact` | 肩部、身体接触锚点 | `socialContact.ts` / `motionContactProfiles.ts` |
+| `armWrap` | 拥抱、手臂环绕、体表避让 | `hugMotion.ts` / `hugArmClearance.ts` |
+| `faceContact` | 嘴唇和头颈定位 | `headContactIK.ts` |
+| `seatTransition` | 坐下、起身、坐姿切换 | `../seatChange.js` |
+| `residentNavigation` | 行走、路径避让 | `../residentNavigation.js` |
+| `pairedSync` | 双人共享时间轴、配对动作 | `selectedSocial.ts` |
+| `propInteraction` | 手机、杯子等道具 | `socialProps.ts` |
+| `supportAndLift` | 托举、脚底和重心补偿 | `intimacyMotion.ts` / `legContactIK.ts` |
+
+目前只有 **handContact / bodyContact** 的部分既有动作采用了新的声明式 contact profile。
+其他八类已有程度不同的专属实现，不代表已经迁移到统一模板。后续每一类都要单独验证再迁移。
+
+## 第一阶段：统一接触配置（已接线，待完整构建及画面测试）
+
+- `motionContactProfiles.ts`：声明式配置，不加载动画。
+- `pairedHandContact.ts`：固定双人手掌对、共享目标、复用现有 `contactSolver`；`WeakMap` 按 clip 缓存手对，只在首次配对时采样。
+- `selectedSocial.ts`：已有三个双人手掌动作改用 profile；五个肩部动作的原有目标骨骼与距离阈值改为 profile 参数。
+- 其他动作仍走旧分支，尤其**拥抱、亲吻、公主抱、坐姿拥抱、掰手腕**不在本阶段迁移范围内。
+
+已接入：
+
+| 动作 ID | 能力 | 参数保持一致 |
+| --- | --- | --- |
+| `cmu-20_10` | 手掌接触、双人同步 | 渐入 .15–.85，curl .38 |
+| `cmu-18_03` | 手掌接触、双人同步 | 渐入 .12–.55，curl .45 |
+| `cmu-20_12` | 手掌接触、双人同步 | 渐入 .10–.35，渐出 .65–1.10，curl .12 |
+| `cmu-22_07`, `cmu-22_05`, `cmu-22_04`, `cmu-22_09`, `cmu-22_03` | 身体接触 | 上臂目标、near .47、far .64 |
+
+## 添加同类动作的原则
+
+1. 从 `selectedMotionCatalog.json` 中已有动作开始，**不要直接修改或覆盖已验证的拥抱动作**。
+2. 如果动作符合 `pairedHands`：添加 `motionContactProfiles.ts` 配置，指定渐入/渐出、手指卷曲程度；保持 `pairedHandContact.ts` 的共享目标求解器不变。
+3. 如果符合 `bodyTouch`：先验证原素材的骨骼目标和接触范围，再添加 profile；它仍使用原有 legacy 几何追踪，不意味着肩膀自动满足所有碰撞约束。
+4. 当接触姿势有特殊需求（掰手腕、托举、头部接触等），**先保留专用逻辑**，不要强行套用通用手掌接口。
+5. 动作首次运行可以采样源片段，但**不能在每帧扫描整段动画**。
+6. 开发检查：配置测试、原版差异、自检动画加载、Android + Chrome 实际接触表现。没有实机测试时明确标注未验证。
+
+## 后续阶段（未实施）
+
+- 第二阶段：动作约束调用顺序与完整接触误差诊断；先适配一个动作，不全量替换。
+- 第三阶段：面部接触点配置（额头、脸颊），但不改变目前的亲吻 IK。
+- 第四阶段：寻路和起身退让统一，避免与亲密动作抢占根节点位置。
+- 第五阶段：为更多能力添加独立的动作模板与回归测试，按需加载和运行。
+
+**性能说明**：本阶段没有增加新的动画资源、骨骼或物理引擎。共享手对第一次识别只插值五个时间点 × 两个演员，共 10 次采样；之后 clip 命中缓存。代码复用不等于动画包自动变小，不能据此宣称有确定的 APK 缩小比例。
