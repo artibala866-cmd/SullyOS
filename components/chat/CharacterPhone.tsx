@@ -30,6 +30,10 @@ import {
 } from '../../utils/characterPhoneChats';
 import { findKnownNpc, registerDiscoveredNpc, noteNpcInteraction } from '../../utils/characterNpcNetwork';
 import { isCharacterPhoneAutonomyEnabled, setCharacterPhoneAutonomyEnabled } from '../../utils/characterPhoneAutonomy';
+import {
+  CHARACTER_PHONE_API_SETTINGS_CHANGED, CHARACTER_PHONE_API_BUDGET_CHANGED,
+  readPhoneAutonomyPreferences, readPhoneApiBudget, writePhoneAutonomyPreferences,
+} from '../../utils/characterPhoneApiBudget';
 import { beginCharacterPhoneRefresh, finishCharacterPhoneRefresh, isCharacterPhoneRefreshing, CHARACTER_PHONE_REFRESH_CHANGED } from '../../utils/characterPhoneRefreshTracker';
 import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
 import type { CharacterProfile, DailySchedule } from '../../types';
@@ -91,6 +95,31 @@ export default function CharacterPhone({
   };
   const [npcAutonomyEnabled, setNpcAutonomyEnabled] = useState(() => isCharacterPhoneAutonomyEnabled(characterId));
   useEffect(() => setNpcAutonomyEnabled(isCharacterPhoneAutonomyEnabled(characterId)), [characterId]);
+  const [phonePrefs,setPhonePrefs]=useState(()=>readPhoneAutonomyPreferences(characterId));
+  const [budgetInfo,setBudgetInfo]=useState(()=>readPhoneApiBudget(characterId));
+  useEffect(()=>{
+    const refresh=()=>{
+      setPhonePrefs(readPhoneAutonomyPreferences(characterId));
+      setBudgetInfo(readPhoneApiBudget(characterId));
+    };
+    refresh();
+    const onChange=(event:Event)=>{
+      if((event as CustomEvent<{characterId:string}>).detail?.characterId===characterId)refresh();
+    };
+    window.addEventListener(CHARACTER_PHONE_API_SETTINGS_CHANGED,onChange);
+    window.addEventListener(CHARACTER_PHONE_API_BUDGET_CHANGED,onChange);
+    return()=>{
+      window.removeEventListener(CHARACTER_PHONE_API_SETTINGS_CHANGED,onChange);
+      window.removeEventListener(CHARACTER_PHONE_API_BUDGET_CHANGED,onChange);
+    };
+  },[characterId]);
+  const changePhonePrefs=(updates:Partial<typeof phonePrefs>)=>{
+    try {
+      const next=writePhoneAutonomyPreferences(characterId,updates);
+      setPhonePrefs(next);
+      setBudgetInfo(readPhoneApiBudget(characterId));
+    }catch{setError('自主生活设置保存失败');}
+  };
   const [tab, setTab] = useState<Tab>('chats');
   const [thread, setThread] = useState('');
   const [privateThread, setPrivateThread] = useState<PhoneThreadV2 | null>(null);
@@ -544,7 +573,54 @@ ${scheduleContext}
         {screen === 'sms' && <p className="p-8 text-center text-sm text-[#888]">短信收发功能待接入</p>}
         {screen === 'browser' && <CharacterPhoneBrowser characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={api}/>}
         {screen === 'wallet' && <CharacterPhoneWallet characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={api}/>}
-        {screen === 'settings' && <div className="space-y-3 p-4"><label className="flex items-center justify-between rounded-xl bg-white px-4 py-4 text-sm"><span className="space-y-1"><span className="block font-semibold text-[#222]">NPC自主生活</span><span className="block text-xs text-[#777]">角色与联系人自主续聊、朋友圈评论和回复</span></span><input type="checkbox" className="h-5 w-5 accent-[#444]" checked={npcAutonomyEnabled} onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/></label><p className="px-2 text-xs leading-5 text-[#777]">使用角色当前聊天 API。后台活动受日程、每日次数与冷却约束；网页关闭后本地调度不会持续运行。主动消息 2.0 仍按原设置工作。</p></div>}
+        {screen === 'settings' && <div className="space-y-3 p-4">
+          <label className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-4 text-sm">
+            <span className="space-y-1"><span className="block font-semibold text-[#222]">Char 手机自主生活</span>
+              <span className="block text-xs leading-5 text-[#777]">NPC 微信续聊、朋友圈、浏览器与个人资料的总开关</span></span>
+            <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={npcAutonomyEnabled}
+              onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/>
+          </label>
+          <section className="space-y-4 rounded-2xl bg-white p-4">
+            <div><h3 className="text-sm font-semibold">AI 自主调用频率</h3>
+              <p className="mt-1 text-xs leading-5 text-[#888]">此角色的所有查手机自主功能共用额度，手动生成不占用该预算。</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <button type="button" aria-pressed={phonePrefs.pace==='economy'}
+                onClick={()=>changePhonePrefs({pace:'economy'})}
+                className={'rounded-xl border px-2 py-3 '+(phonePrefs.pace==='economy'
+                  ? 'border-[#333] bg-[#353535] text-white':'border-[#ddd] bg-[#f5f5f5]')}>省额度</button>
+              <button type="button" aria-pressed={phonePrefs.pace==='balanced'}
+                onClick={()=>changePhonePrefs({pace:'balanced'})}
+                className={'rounded-xl border px-2 py-3 '+(phonePrefs.pace==='balanced'
+                  ? 'border-[#333] bg-[#353535] text-white':'border-[#ddd] bg-[#f5f5f5]')}>均衡</button>
+            </div>
+            <div className="rounded-xl bg-[#f4f4f4] px-4 py-3 text-xs leading-6 text-[#666]">
+              <p>今日自主 API 调用：{budgetInfo.requests} / {budgetInfo.limit} 次</p>
+              <p>剩余：{budgetInfo.remaining} 次 · {phonePrefs.pace==='economy'?'至少间隔 65 分钟':'至少间隔 35 分钟'}</p>
+              {budgetInfo.remaining>0 && budgetInfo.nextAllowedAt>Date.now() &&
+                <p>下一次允许：{new Date(budgetInfo.nextAllowedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</p>}
+              {budgetInfo.remaining===0&&<p>今日已达到上限，按设备当地日期自动重置。</p>}
+            </div>
+          </section>
+          <section className="divide-y divide-[#eee] rounded-2xl bg-white px-4">
+            <label className="flex items-center justify-between gap-3 py-4 text-sm">
+              <span><span className="block font-medium">Char 自主搜百度</span>
+                <span className="mt-1 block text-xs text-[#888]">有生活动机才搜索，记录理由，不制造网页结果</span></span>
+              <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={phonePrefs.browserAutoEnabled}
+                onChange={e=>changePhonePrefs({browserAutoEnabled:e.target.checked})}/>
+            </label>
+            <label className="flex items-center justify-between gap-3 py-4 text-sm">
+              <span><span className="block font-medium">心情头像／戳一戳后缀</span>
+                <span className="mt-1 block text-xs text-[#888]">每天最多自动评估一次；头像需先识图并开启头像自主切换</span></span>
+              <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={phonePrefs.selfProfileAutoEnabled}
+                onChange={e=>changePhonePrefs({selfProfileAutoEnabled:e.target.checked})}/>
+            </label>
+          </section>
+          <p className="px-2 text-xs leading-5 text-[#888]">
+            默认省额度。只有应用在前台且 Char 的日程允许时才检查；不会在网页关闭后持续请求。
+            手动刷新和显式点击的生成按钮仍可使用聊天 API。主动消息 2.0 使用原来独立的机制，不受这里的预算影响。
+          </p>
+        </div>}
       </main>
       {screen === 'thread' && active && !isPrivateThread && <form className="flex shrink-0 items-center gap-2 border-t border-[#ddd] bg-[#f8f8f8] px-3 py-3" onSubmit={e=>{e.preventDefault();const guidance=chatComposer;setChatComposer('');void generate(active.contactId||active.name,guidance);}}><input aria-label="聊天续写方向" placeholder="输入聊天方向（可留空）" value={chatComposer} onChange={e=>setChatComposer(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-sm outline-none"/><button type="submit" disabled={busy} className="shrink-0 rounded-lg bg-[#07b75b] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busy?'续写中…':'发送'}</button></form>}
       {screen === 'home' && <nav className="mx-4 mb-4 grid shrink-0 grid-cols-3 gap-4 rounded-3xl bg-white/70 px-5 py-4">{([{id:'calls',label:'电话',Icon:Phone,color:'bg-[#36bd61]'},{id:'sms',label:'短信',Icon:ChatText,color:'bg-[#4bc77d]'},{id:'browser',label:'浏览器',Icon:Globe,color:'bg-[#5598df]'}] as const).map(({id,label,Icon,color})=><button key={id} onClick={()=>setScreen(id)} className="flex flex-col items-center gap-1 text-xs"><span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-white ${color}`}><Icon size={27} weight="fill"/></span>{label}</button>)}</nav>}
