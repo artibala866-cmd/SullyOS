@@ -47,7 +47,7 @@ export interface MusicActionHooks {
     rejectListeningInvite?: (charId: string) => void;
     inviteUserListening?: (charId: string) => Promise<void>;
     /** 角色在伴听时切到播放队列中的歌曲。 */
-    playListeningTrack?: (charId: string, query: string) => boolean;
+    playListeningTrack?: (charId: string, query: string) => Promise<boolean> | boolean;
     favoriteListeningTrack?: (charId: string, query?: string) => Promise<boolean>;
     /**
      * 把 song 加到 char 的歌单。
@@ -316,7 +316,7 @@ export const ChatParser = {
             if (verb === 'invite') await replyStep(async () => musicHooks.inviteUserListening?.(charId));
             if (verb === 'stop') musicHooks.stopListeningTogether?.(charId);
             if (verb === 'reject') musicHooks.rejectListeningInvite?.(charId);
-            if (verb === 'play' && args[0]) musicHooks.playListeningTrack?.(charId, args[0]);
+            if (verb === 'play' && args[0]) await replyStep(async () => musicHooks.playListeningTrack?.(charId, args[0]));
             const wantsJoin = verb === 'join' || verb === 'join_and_add' || verb === 'join_and_add_new';
             // 邀请接受不要求用户此刻已经开始播放；否则无歌时会一直停留在待回应。
             if (wantsJoin) musicHooks.joinListeningTogether(charId);
