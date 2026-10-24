@@ -46,6 +46,7 @@ import ApiCallLogModal from '../components/settings/ApiCallLogModal';
 import StorageUsagePanel from '../components/settings/StorageUsagePanel';
 import WebCacheControl from '../components/settings/WebCacheControl';
 import McpConnectionConsole from '../components/settings/McpConnectionConsole';
+import RealtimeMcpPresets from '../components/settings/RealtimeMcpPresets';
 import { DB } from '../utils/db';
 import { getBackupReminderState, setBackupReminderIntervalDays, daysSinceLastBackup, BACKUP_REMINDER_MIN_DAYS, BACKUP_REMINDER_MAX_DAYS } from '../utils/backupReminder';
 import {
@@ -4451,6 +4452,11 @@ const Settings: React.FC = () => {
                       </div>
                   )}
               </div>
+
+              {/* 预置 MCP 属于实时感知，不放在用户自定义 MCP 管理中。 */}
+              <RealtimeMcpPresets onConfigChanged={() => {
+                  scheduleMcpToolConfigSync(() => syncAmsgToolConfig(realtimeConfig));
+              }} />
 
               {/* 麦当劳 MCP */}
               <div className="bg-yellow-50/60 p-4 rounded-2xl space-y-3">
