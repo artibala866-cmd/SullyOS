@@ -60,7 +60,6 @@ import { collectAppearance, collectCharSettings, collectDataScale, collectFeatur
 import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormalize';
 import { getCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { markBackupDone } from '../utils/backupReminder';
-import { collectSARLocalBackup, restoreSARLocalBackup } from '../utils/vrWorld/sarBackup';
 import { normalizeCharacterImpression, normalizeCharacterDefaults } from '../utils/impression';
 import { migrateRetiredVrCharacterFigure, migrateRetiredVrUserFigure } from '../utils/retiredVrFigureMigration';
 import { normalizeModelIds } from '../utils/modelList';
@@ -104,8 +103,6 @@ import { isBenignApplicationConsoleMessage } from '../utils/applicationConsole';
 import { initLocalStorageMirror } from '../utils/lsMirror';
 import { cleanupInstantPushLegacyData } from '../utils/instantPushLegacyCleanup';
 // 备份用：把存在 localStorage 的本机配置随导出一起带走（键名须与 importFullData 对齐）
-import { exportPostOfficeLocal } from '../utils/vrWorld/postOffice';
-import { exportSignalLocal } from '../utils/vrWorld/signal';
 import { exportWorldHomeLocal } from '../utils/worldHome/localBackup';
 import { exportLuckinLocal } from '../utils/luckinMcpClient';
 import { exportMcdLocal } from '../utils/mcdMcpClient';
@@ -3734,11 +3731,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               'room_plates', 'digest_reports',
               'daily_schedule', 'memory_batches',
               'pixel_home_assets', 'pixel_home_layouts',
-              // 「彼方」虚拟世界各房间 store —— 早期导出清单漏了，导致备份不含房间数据
-              // 剧院的 vr_scripts(投稿剧本) / vr_plays(角色演过的话剧) / vr_presets(写作风格预设)
-              // 之前也漏在这份清单外，导出后这三类剧院数据全丢（导入端其实早已支持恢复）
-              'vr_novels', 'vr_annotations', 'cc_custom_parts', 'vr_music', 'vr_guestbook', 'vr_letters', 'vr_settings',
-              'vr_scripts', 'vr_plays', 'vr_presets',
+              'cc_custom_parts',
               // 家园（同世界观多角色大世界）——世界定义 + 演绎历史。导入端早已支持恢复
               // （worldHomeLocal 本机配置也已随导出带走），但这两个 store 之前漏在清单外，
               // 导致导出的备份不含家园数据。
@@ -3808,7 +3801,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
               // SAR 活动室：公告/初见、双卡池及人格推演记录必须跟用户历史一起迁移。
               chatInputPreferences: (mode === 'text_only' || mode === 'full') ? loadChatInputPreferences() : undefined,
-              sarLocalState: (mode === 'text_only' || mode === 'full') ? collectSARLocalBackup() : undefined,
 
               // 推送凭据 (VAPID)
               pushVapid: (mode === 'text_only' || mode === 'full') ? (() => { try { const s = localStorage.getItem('push_vapid_v1'); return s ? JSON.parse(s) : undefined; } catch { return undefined; } })() : undefined,
@@ -3921,8 +3913,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // 本机 localStorage 配置（导入端 importFullData 已支持恢复，之前导出漏发导致丢失）
               //  · 瑞幸 / 麦当劳 MCP 的点单 token + 启用状态（用户说的「那个码」）
               //  · 邮局身份、家园全局 API + 文风收藏
-              vrPostOffice: (mode === 'text_only' || mode === 'full') ? exportPostOfficeLocal() : undefined,
-              vrSignal: (mode === 'text_only' || mode === 'full') ? exportSignalLocal() : undefined, // 信号坠落处：句子归属「你·角色」+ 反复用清单
               worldHomeLocal: (mode === 'text_only' || mode === 'full') ? exportWorldHomeLocal() : undefined,
               luckinLocal: (mode === 'text_only' || mode === 'full') ? exportLuckinLocal() : undefined,
               mcdLocal: (mode === 'text_only' || mode === 'full') ? exportMcdLocal() : undefined,
@@ -4013,7 +4003,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
               if (backupData.socialAppData?.userProfile) processObject(backupData.socialAppData.userProfile, 'socialAppData.userProfile');
               if (backupData.socialAppData?.userBg) processObject(backupData.socialAppData.userBg, 'socialAppData.userBg');
-              if (backupData.sarLocalState) processObject(backupData.sarLocalState, 'sarLocalState');
               if (backupData.roomCustomAssets) processObject(backupData.roomCustomAssets, 'roomCustomAssets');
               if (backupData.theme) processObject(backupData.theme, 'theme');
               if (backupData.customIcons) processObject(backupData.customIcons, 'customIcons');
@@ -4025,7 +4014,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (backupData.roomCustomAssets) backupData.roomCustomAssets = stripBase64(backupData.roomCustomAssets);
               if (backupData.customIcons) backupData.customIcons = stripBase64(backupData.customIcons);
               if (backupData.appearancePresets) backupData.appearancePresets = stripBase64(backupData.appearancePresets);
-              if (backupData.sarLocalState) backupData.sarLocalState = stripBase64(backupData.sarLocalState);
               if (backupData.theme) {
                   // Save preset decoration content before stripping (SVGs start with data:image and would be stripped)
                   const savedPresetDecos = backupData.theme.desktopDecorations
@@ -4119,14 +4107,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               memory_batches: 'memoryBatches',
               pixel_home_assets: 'pixelHomeAssets',
               pixel_home_layouts: 'pixelHomeLayouts',
-              vr_novels: 'vrNovels',
-              vr_annotations: 'vrAnnotations',
               cc_custom_parts: 'customCreatorParts',
-              vr_letters: 'vrLetters',
-              vr_settings: 'vrSettings',
-              vr_scripts: 'vrScripts',
-              vr_plays: 'vrStagedPlays',
-              vr_presets: 'vrPresets',
               worlds: 'worlds',
               world_episodes: 'worldEpisodes',
               life_records: 'lifeRecords',
@@ -4373,18 +4354,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   case 'memory_batches': backupData.memoryBatches = processedData; break;
                   case 'pixel_home_assets': backupData.pixelHomeAssets = processedData; break;
                   case 'pixel_home_layouts': backupData.pixelHomeLayouts = processedData; break;
-                  // 「彼方」虚拟世界 —— 键名须与 importFullData 读取的字段对齐
-                  case 'vr_novels': backupData.vrNovels = processedData; break;
-                  case 'vr_annotations': backupData.vrAnnotations = processedData; break;
                   case 'cc_custom_parts': backupData.customCreatorParts = processedData; break;
-                  case 'vr_letters': backupData.vrLetters = processedData; break;
-                  case 'vr_settings': backupData.vrSettings = processedData; break;
-                  case 'vr_scripts': backupData.vrScripts = processedData; break;
-                  case 'vr_plays': backupData.vrStagedPlays = processedData; break;        // 角色演过的话剧
-                  case 'vr_presets': backupData.vrPresets = processedData; break;
-                  // 单例 store：导入端期望单个对象（取首条），非数组
-                  case 'vr_music': backupData.vrMusicRoom = Array.isArray(processedData) ? (processedData[0] || undefined) : (processedData || undefined); break;
-                  case 'vr_guestbook': backupData.vrGuestbook = Array.isArray(processedData) ? (processedData[0] || undefined) : (processedData || undefined); break;
                   // 家园 —— 键名须与 importFullData 读取的字段（data.worlds / data.worldEpisodes）对齐
                   case 'worlds': backupData.worlds = processedData; break;
                   case 'world_episodes': backupData.worldEpisodes = processedData; break;
@@ -4822,8 +4792,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           
           showImportProgress('settings', '正在恢复系统设置...', 92, { current: '系统设置', currentFile: '' });
-          if (data.sarLocalState) await restoreAssetsInPlace(data.sarLocalState, 'SAR 存档');
-          restoreSARLocalBackup(data.sarLocalState, { replaceMissing: replacesPrimaryHistory });
           if (data.chatInputPreferences !== undefined) saveChatInputPreferences(data.chatInputPreferences);
           if (data.theme) {
               await restoreAssetsInPlace(data.theme, '系统主题');
