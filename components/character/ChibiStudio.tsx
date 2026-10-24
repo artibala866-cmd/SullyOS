@@ -95,8 +95,8 @@ const DisplayCase: React.FC<{
                     <img src={url} alt={meta.label} className="relative z-10 object-contain mb-5 max-w-[70%]"
                         style={{ height: 128, animation: 'chibistudio-float 3.4s ease-in-out infinite', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,.55))' }} />
                 ) : (
-                    <div className="relative z-10 mb-8 flex flex-col items-center gap-2 text-neutral-200/40">
-                        <div className="w-20 h-24 rounded-xl border-2 border-dashed border-neutral-400/25 flex items-center justify-center">
+                    <div className="relative z-10 mb-8 flex flex-col items-center gap-2 text-indigo-200/40">
+                        <div className="w-20 h-24 rounded-xl border-2 border-dashed border-indigo-300/25 flex items-center justify-center">
                             <Sparkle size={22} />
                         </div>
                         <span className="text-[10px] tracking-widest">展台空着</span>
@@ -113,9 +113,9 @@ const DisplayCase: React.FC<{
                 <div className="flex items-baseline gap-2">
                     <span className="font-serif text-[15px] font-bold text-white tracking-wide">{meta.label}</span>
                     <span className="text-[9px] tracking-[3px] font-medium" style={{ color: meta.accent }}>{meta.en}</span>
-                    <span className="ml-auto text-[10px] text-neutral-200/50">{view.updatedAt ? new Date(view.updatedAt).toLocaleDateString() : ''}</span>
+                    <span className="ml-auto text-[10px] text-indigo-200/50">{view.updatedAt ? new Date(view.updatedAt).toLocaleDateString() : ''}</span>
                 </div>
-                <p className="text-[10.5px] text-neutral-200/55 mt-0.5 mb-2.5">{meta.desc}</p>
+                <p className="text-[10.5px] text-indigo-200/55 mt-0.5 mb-2.5">{meta.desc}</p>
                 <div className="flex gap-2">
                     <button onClick={onEdit}
                         className="flex-1 rounded-lg py-2 text-[11.5px] font-bold text-white flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
@@ -124,7 +124,7 @@ const DisplayCase: React.FC<{
                     </button>
                     {url && (
                         <button onClick={onSync}
-                            className="flex-1 rounded-lg py-2 text-[11.5px] font-medium text-neutral-100 border border-white/20 flex items-center justify-center gap-1.5 active:bg-white/10 transition-colors">
+                            className="flex-1 rounded-lg py-2 text-[11.5px] font-medium text-indigo-100 border border-white/20 flex items-center justify-center gap-1.5 active:bg-white/10 transition-colors">
                             <ArrowsClockwise size={13} weight="bold" /> 同步到全部
                         </button>
                     )}
@@ -164,8 +164,8 @@ export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> =
                 ))}
                 <div className="relative px-4 pt-4 pb-1 flex items-baseline gap-2">
                     <span className="font-serif text-[15px] font-bold text-white tracking-wide">QQ捏人 · 手办柜</span>
-                    <span className="text-[9px] tracking-[3px] text-neutral-300/60 font-medium">FIGURE STUDIO</span>
-                    <span className="ml-auto text-[10px] text-neutral-200/50">{dressed}/{SLOTS.length} 已上架</span>
+                    <span className="text-[9px] tracking-[3px] text-indigo-300/60 font-medium">FIGURE STUDIO</span>
+                    <span className="ml-auto text-[10px] text-indigo-200/50">{dressed}/{SLOTS.length} 已上架</span>
                 </div>
                 {/* 迷你展台 */}
                 <div className="relative grid grid-cols-2 gap-2 px-3 pb-4 pt-1">
@@ -180,7 +180,7 @@ export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> =
                                         <img src={url} alt={meta.label} className="relative z-10 object-contain mb-2.5 max-w-[80%]"
                                             style={{ height: 62, animation: 'chibistudio-float 3.4s ease-in-out infinite', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,.5))' }} />
                                     ) : (
-                                        <div className="relative z-10 mb-5 w-9 h-11 rounded-lg border border-dashed border-neutral-400/25 flex items-center justify-center text-neutral-200/35">
+                                        <div className="relative z-10 mb-5 w-9 h-11 rounded-lg border border-dashed border-indigo-300/25 flex items-center justify-center text-indigo-200/35">
                                             <Sparkle size={13} />
                                         </div>
                                     )}
@@ -188,7 +188,7 @@ export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> =
                                         style={{ background: `linear-gradient(180deg, ${meta.accent}50, rgba(255,255,255,0.07))` }} />
                                 </div>
                                 <div className="relative text-center pb-1.5">
-                                    <span className="text-[9.5px] font-bold text-neutral-100/85">{meta.label}</span>
+                                    <span className="text-[9.5px] font-bold text-indigo-100/85">{meta.label}</span>
                                 </div>
                             </div>
                         );
@@ -371,26 +371,26 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
             {/* 顶栏 */}
             <div className="shrink-0 px-5 pb-3" style={{ paddingTop: STUDIO_TOP }}>
                 <div className="flex items-center gap-2 pt-2">
-                    <button onClick={onClose} className="p-2 -ml-2 rounded-full text-neutral-100 active:bg-white/10"><CaretLeft size={20} weight="bold" /></button>
+                    <button onClick={onClose} className="p-2 -ml-2 rounded-full text-indigo-100 active:bg-white/10"><CaretLeft size={20} weight="bold" /></button>
                     <div>
                         <h2 className="font-serif text-lg font-bold text-white tracking-wide leading-tight">QQ捏人 · 手办柜</h2>
-                        <p className="text-[10px] tracking-[3px] text-neutral-300/60">FIGURE STUDIO</p>
+                        <p className="text-[10px] tracking-[3px] text-indigo-300/60">FIGURE STUDIO</p>
                     </div>
                     <div className="ml-auto flex items-center gap-2 rounded-full pl-1 pr-3 py-1 border border-white/15 bg-white/5">
                         <TokenImg value={char.avatar} alt={char.name} className="w-6 h-6 rounded-full object-cover border border-white/30" />
-                        <span className="text-[11px] text-neutral-100 font-medium max-w-[80px] truncate">{char.name}</span>
+                        <span className="text-[11px] text-indigo-100 font-medium max-w-[80px] truncate">{char.name}</span>
                     </div>
                 </div>
-                <p className="text-[10.5px] text-neutral-300/55 mt-2 pl-1">
+                <p className="text-[10.5px] text-indigo-300/55 mt-2 pl-1">
                     同一角色现有的 Q 版形象——可以各捏各的，也可以挑一只「同步到全部」。
                 </p>
                 {/* 自定义素材工坊入口：PSD 批量导入自己的部件（正式站用户也能用） */}
                 <button onClick={() => setShowUploader(true)}
-                    className="mt-3 w-full flex items-center gap-2 rounded-xl px-3.5 py-2.5 border border-neutral-400/25 active:scale-[0.99] transition-transform"
+                    className="mt-3 w-full flex items-center gap-2 rounded-xl px-3.5 py-2.5 border border-amber-300/25 active:scale-[0.99] transition-transform"
                     style={{ background: 'linear-gradient(135deg, rgba(251,191,36,0.14), rgba(245,158,11,0.06))' }}>
-                    <FileArrowUp size={16} weight="bold" className="text-neutral-300 shrink-0" />
-                    <span className="text-[12px] font-bold text-neutral-100 tracking-wide">上传自定义素材（PSD 批量导入）</span>
-                    <CaretRight size={15} weight="bold" className="ml-auto text-neutral-200/50" />
+                    <FileArrowUp size={16} weight="bold" className="text-amber-300 shrink-0" />
+                    <span className="text-[12px] font-bold text-amber-100 tracking-wide">上传自定义素材（PSD 批量导入）</span>
+                    <CaretRight size={15} weight="bold" className="ml-auto text-amber-200/50" />
                 </button>
             </div>
 
@@ -404,7 +404,7 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
                         onSync={() => setSyncConfirm(v.meta.id)} />
                 ))}
                 {!rec && (
-                    <p className="text-[10px] text-neutral-300/45 text-center px-6 leading-relaxed">
+                    <p className="text-[10px] text-indigo-300/45 text-center px-6 leading-relaxed">
                         「特别时光」这只捏好后不会立刻出现在活动里——下次进 520 活动时会自动穿上这套造型。
                     </p>
                 )}
@@ -420,9 +420,9 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
                             onClick={e => e.stopPropagation()}>
                             <div className="flex items-center mb-2">
                                 <span className="text-[14px] font-bold text-white">以「{meta.label}」这只为准？</span>
-                                <button onClick={() => !syncing && setSyncConfirm(null)} className="ml-auto p-1 text-neutral-300/60"><X size={18} /></button>
+                                <button onClick={() => !syncing && setSyncConfirm(null)} className="ml-auto p-1 text-indigo-300/60"><X size={18} /></button>
                             </div>
-                            <p className="text-[11px] text-neutral-200/60 leading-relaxed mb-4">
+                            <p className="text-[11px] text-indigo-200/60 leading-relaxed mb-4">
                                 两个现有的形象槽会被同步成这套造型。
                             </p>
                             <button disabled={syncing} onClick={() => { void syncFrom(syncConfirm); }}
