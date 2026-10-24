@@ -10,6 +10,14 @@ export type PhoneBrowserVisit = {
   query: string;
   url: string;
   visitedAt: number;
+  /** Why the owner actually chose this query, not a claim about page contents. */
+  title?: string;
+  summary?: string;
+  aiJudgement?: string;
+  mood?: string;
+  plannedActivity?: string;
+  sourceEventIds?: string[];
+  origin?: 'ai-generated' | 'manual';
 };
 export const CHARACTER_PHONE_BROWSER_CHANGED = 'sully:character-phone-browser-changed';
 const key = (id: string) => 'sully_character_phone_browser_v1:' + id;
@@ -76,6 +84,8 @@ export function recordPhoneBrowserNavigation(
   characterId: string,
   navigation: { kind: PhoneBrowserVisit['kind']; query: string; url: string },
   actor: PhoneBrowserVisit['actor'] = 'user',
+  detail?: Partial<Pick<PhoneBrowserVisit,
+    'title' | 'summary' | 'aiJudgement' | 'mood' | 'plannedActivity' | 'sourceEventIds' | 'origin'>>,
 ): PhoneBrowserVisit | null {
   if (!characterId || !/^https?:\/\//i.test(navigation.url)) return null;
   // Validating via URL also prevents forged non-web schemes reaching history.
@@ -89,8 +99,22 @@ export function recordPhoneBrowserNavigation(
     id: crypto.randomUUID(), characterId, actor,
     kind: navigation.kind, query:navigation.query.slice(0,200),
     url:navigation.url.slice(0,2048), visitedAt:now,
+    ...(detail ? {
+      title: typeof detail.title==='string' ? detail.title.trim().slice(0,120) : undefined,
+      summary: typeof detail.summary==='string' ? detail.summary.trim().slice(0,480) : undefined,
+      aiJudgement: typeof detail.aiJudgement==='string' ? detail.aiJudgement.trim().slice(0,360) : undefined,
+      mood: typeof detail.mood==='string' ? detail.mood.trim().slice(0,100) : undefined,
+      plannedActivity: typeof detail.plannedActivity==='string' ? detail.plannedActivity.trim().slice(0,150) : undefined,
+      sourceEventIds: Array.isArray(detail.sourceEventIds)
+        ? detail.sourceEventIds.filter((s):s is string=>typeof s==='string').slice(0,6):undefined,
+      origin: detail.origin==='ai-generated'?'ai-generated':'manual',
+    } : { origin:'manual' as const }),
   };
-  const result = [entry, ...previous.filter(p=>p.url !== entry.url)].slice(0,100);
+  // Repeated visits are legitimate. Keep separate visits across time, but do
+  // not allow two autonomous generations to create identical recent searches.
+  if (actor==='char' && previous.some(p=>p.actor==='char' && p.url===entry.url && now-p.visitedAt < 12*3600_000))
+    return null;
+  const result = [entry, ...previous.filter(p=>p.actor!=='user' || p.url!==entry.url)].slice(0,100);
   return writeHistory(characterId,result) ? entry : null;
 }
 
