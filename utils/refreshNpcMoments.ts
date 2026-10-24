@@ -1,6 +1,7 @@
 import { readCharacterMoments, publishCharacterMoment } from './characterPhoneMoments';
 import { readCharacterPhoneChats } from './characterPhoneChats';
 import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
+import { canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
 import { beginCharacterPhoneRefresh, finishCharacterPhoneRefresh } from './characterPhoneRefreshTracker';
 import type { NpcProfile } from './characterPhoneNpcs';
 import { safeResponseJson, extractContent } from './safeApi';
@@ -55,7 +56,7 @@ export async function refreshNpcMoments(characterId:string, contacts:NpcProfile[
 export async function considerAutonomousNpcMoments(
   characterId: string, api: Api,
 ): Promise<number> {
-  if (!isCharacterPhoneAutonomyEnabled(characterId)) return 0;
+  if (!isCharacterPhoneAutonomyEnabled(characterId) || !canUsePhoneApiBudget(characterId)) return 0;
   const contacts = (await import('./characterPhoneNpcs')).readNpcProfiles(characterId);
   if (!contacts.length) return 0;
   const key = 'sully_npc_moments_autonomy_v1:' + characterId;
@@ -65,7 +66,8 @@ export async function considerAutonomousNpcMoments(
   try { previous = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
   const attempts = previous.day === day ? Number(previous.attempts || 0) : 0;
   if (attempts >= 2 || now - Number(previous.at || 0) < 5 * 3600000) return 0;
-  // Reserve the attempt before the API call, including when no NPC wants to post.
+  // Spend the shared quota only for an actually eligible NPC refresh.
+  if (!reservePhoneApiBudget(characterId)) return 0;
   try { localStorage.setItem(key, JSON.stringify({ day, attempts: attempts + 1, at: now })); }
   catch { return 0; }
   try { return await refreshNpcMoments(characterId, contacts, api); }
