@@ -106,8 +106,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
    if(isIntimacy(s.action)){
     const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));
     r.visitor.root.quaternion.copy(turn).slerp(toward,smooth(actionTime,0,.6));
-    // 与拥抱一样先完成站位，再迈近一步；仅在实际移动时播放短促步态。
-    // 2.45 秒前完成落脚，剩余时间停稳后再进入亲吻。
+    // Approach already reached the contact point; no second walking animation.
     r.visitor.animate(sourceTime,'idle');
    }else{
     const {heading,lean}=splitMotionHeading(frames[i].rotations.hips);
@@ -173,7 +172,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
     const candidate={action,ids,time:0,clip,origin,sourceOrigin,rotation,scale,starts,turns,paths:[] as T.Vector3[][],approach:0};
     const fits=()=>{const paths=both.map(()=>[] as T.Vector3[]),first=locations(candidate,0);
      const target=action==='home-kiss'&&!pinned?locations(candidate,3.5):first;
-     const routes=starts.map((p,i)=>ids[i]===pinned?.id?[p.clone(),p.clone()]:p.distanceTo(target[i])<.12?[p.clone(),p.clone()]:options.findPath?options.findPath(p,target[i]):[p.clone(),target[i].clone()]);if(routes.some(p=>!p?.length))return false;
+     const routes=starts.map((p,i)=>ids[i]===pinned?.id?[p.clone(),p.clone()]:options.findPath?options.findPath(p,target[i]):[p.clone(),target[i].clone()]);if(routes.some(p=>!p?.length))return false;
      candidate.paths=routes as T.Vector3[][];
      candidate.approach=Math.max(...candidate.paths.map((path,i)=>path.slice(1).reduce((n,p,j)=>n+p.distanceTo(path[j]),0)/((both[i].walkSpeed??1.05)*(action==='home-kiss'?1.65:1))));
      for(let i=0;i<routes.length;i++)for(let j=1;j<routes[i]!.length;j++){const from=routes[i]![j-1],to=routes[i]![j],steps=Math.max(1,Math.ceil(from.distanceTo(to)/.08));for(let step=0;step<=steps;step++)paths[i].push(from.clone().lerp(to,step/steps));}
