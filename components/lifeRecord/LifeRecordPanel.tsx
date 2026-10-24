@@ -22,9 +22,9 @@ import { formatMoney, sumMoney } from '../../utils/format';
  */
 
 const SERIF = "'Noto Serif SC','Source Han Serif SC','Songti SC','SimSun',Georgia,serif";
-const INK = '#4a4039';
-const FADE = '#8b8378';
-const FAINT = '#b3aca1';
+const INK = '#424242';
+const FADE = '#848484';
+const FAINT = '#adadad';
 
 interface ModuleTheme {
     cn: string;           // 页签中文名（直白命名）
@@ -44,24 +44,24 @@ const iconStroke = (accent: string): React.SVGProps<SVGSVGElement> => ({
 
 const THEMES: Record<LifeRecordModule, ModuleTheme> = {
     period: {
-        cn: '生理期', en: 'CYCLE', accent: '#a34a5e', deep: '#7d3646', soft: '#e7c3ca',
-        paper: 'linear-gradient(160deg,#fdf8f6 0%,#faeef0 100%)',
-        icon: <svg {...iconStroke('#a34a5e')}><circle cx="12" cy="12" r="8.2" /><path d="M12 7.5v4.5l3 2" /></svg>,
+        cn: '生理期', en: 'CYCLE', accent: '#5e5e5e', deep: '#464646', soft: '#cbcbcb',
+        paper: 'linear-gradient(160deg,#fdf8f6 0%,#f1f1f1 100%)',
+        icon: <svg {...iconStroke('#5e5e5e')}><circle cx="12" cy="12" r="8.2" /><path d="M12 7.5v4.5l3 2" /></svg>,
     },
     med: {
-        cn: '药盒', en: 'PHARMACY', accent: '#3e7c6f', deep: '#2e5f55', soft: '#bfdcd3',
+        cn: '药盒', en: 'PHARMACY', accent: '#6e6e6e', deep: '#545454', soft: '#d5d5d5',
         paper: 'linear-gradient(160deg,#f7fbf8 0%,#eaf4ef 100%)',
-        icon: <svg {...iconStroke('#3e7c6f')}><path d="M9.5 3h5M10 3v4.2L5.8 14a4.6 4.6 0 0 0 4 7h4.4a4.6 4.6 0 0 0 4-7L14 7.2V3M7.5 15.5h9" /></svg>,
+        icon: <svg {...iconStroke('#6e6e6e')}><path d="M9.5 3h5M10 3v4.2L5.8 14a4.6 4.6 0 0 0 4 7h4.4a4.6 4.6 0 0 0 4-7L14 7.2V3M7.5 15.5h9" /></svg>,
     },
     expense: {
-        cn: '记账', en: 'LEDGER', accent: '#9a7433', deep: '#775724', soft: '#e2d0a8',
-        paper: 'linear-gradient(160deg,#fdfaf2 0%,#f8f1de 100%)',
-        icon: <svg {...iconStroke('#9a7433')}><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5v15A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5v-15ZM9 3v18M12.5 8h3.5M12.5 12h3.5" /></svg>,
+        cn: '记账', en: 'LEDGER', accent: '#777777', deep: '#5a5a5a', soft: '#d1d1d1',
+        paper: 'linear-gradient(160deg,#fdfaf2 0%,#f1f1f1 100%)',
+        icon: <svg {...iconStroke('#777777')}><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5v15A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5v-15ZM9 3v18M12.5 8h3.5M12.5 12h3.5" /></svg>,
     },
     exercise: {
-        cn: '锻炼', en: 'TRAINING', accent: '#5d7345', deep: '#465936', soft: '#ccd8b6',
-        paper: 'linear-gradient(160deg,#f9fbf3 0%,#eef4e2 100%)',
-        icon: <svg {...iconStroke('#5d7345')}><path d="M7 8v8M4.5 10v4M17 8v8M19.5 10v4M7 12h10" /></svg>,
+        cn: '锻炼', en: 'TRAINING', accent: '#6b6b6b', deep: '#525252', soft: '#d3d3d3',
+        paper: 'linear-gradient(160deg,#f9fbf3 0%,#f1f1f1 100%)',
+        icon: <svg {...iconStroke('#6b6b6b')}><path d="M7 8v8M4.5 10v4M17 8v8M19.5 10v4M7 12h10" /></svg>,
     },
 };
 
@@ -497,11 +497,11 @@ const LifeRecordPanel: React.FC = () => {
                 className="text-[9px] px-2 py-0.5 rounded-full shrink-0"
                 style={p.enabled
                     ? { color: THEMES.med.accent, border: `1px solid ${THEMES.med.accent}55` }
-                    : { color: FAINT, border: '1px solid #e5ddcd' }}
+                    : { color: FAINT, border: '1px solid #dedede' }}
             >
                 {p.enabled ? '启用' : '停用'}
             </button>
-            <button onClick={async () => { await DB.deleteMedPlan(p.id); await reload(); }} className="px-1 text-slate-300 hover:text-rose-400 shrink-0">✕</button>
+            <button onClick={async () => { await DB.deleteMedPlan(p.id); await reload(); }} className="px-1 text-slate-300 hover:text-neutral-400 shrink-0">✕</button>
         </div>
     );
 
@@ -568,7 +568,7 @@ const LifeRecordPanel: React.FC = () => {
         <div className="space-y-4">
             {visibleModules.length > 0 && (
                 <div className="flex gap-1.5 rounded-[6px] p-1.5"
-                    style={{ background: '#f2ede4', border: '1px solid #e5ddcd', boxShadow: 'inset 0 1px 3px #0000000a' }}>
+                    style={{ background: '#ededed', border: '1px solid #dedede', boxShadow: 'inset 0 1px 3px #0000000a' }}>
                     {visibleModules.map(m => (
                         <ModuleTab
                             key={m}
@@ -642,7 +642,7 @@ const LifeRecordPanel: React.FC = () => {
                                         </span>
                                     )}
                                     {periodStatus.ovulationDate && periodStatus.ovulationEnd! >= today && (
-                                        <span className="text-[9px] px-2.5 py-1 rounded-full" style={{ fontFamily: SERIF, color: '#8a6a2f', background: '#f4e9d2aa', border: '1px solid #e2d0a8' }}>
+                                        <span className="text-[9px] px-2.5 py-1 rounded-full" style={{ fontFamily: SERIF, color: '#6d6d6d', background: '#f4e9d2aa', border: '1px solid #d1d1d1' }}>
                                             排卵期约 {fmtMD(periodStatus.ovulationStart!)}~{fmtMD(periodStatus.ovulationEnd!)}
                                         </span>
                                     )}
@@ -713,10 +713,10 @@ const LifeRecordPanel: React.FC = () => {
                                                 className="relative mx-auto w-7 h-7 rounded-full flex items-center justify-center text-[10px] tabular-nums transition-transform active:scale-90"
                                                 style={{
                                                     fontFamily: SERIF,
-                                                    color: isPeriod ? '#fdfbf7' : isOvu ? '#8a6a2f' : clickable ? INK : FAINT,
+                                                    color: isPeriod ? '#fdfbf7' : isOvu ? '#6d6d6d' : clickable ? INK : FAINT,
                                                     background: isPeriod ? THEMES.period.accent : isOvuWindow ? '#f4e9d2aa' : 'transparent',
                                                     border: isPred ? `1.5px dashed ${THEMES.period.accent}88`
-                                                        : isOvu ? '1.5px solid #cfa75f'
+                                                        : isOvu ? '1.5px solid #aaaaaa'
                                                         : isToday ? `1.5px solid ${THEMES.period.soft}` : '1.5px solid transparent',
                                                     fontWeight: isToday || isPeriod ? 700 : 400,
                                                     opacity: clickable || isPred || isOvu || isOvuWindow ? 1 : 0.45,
@@ -730,8 +730,8 @@ const LifeRecordPanel: React.FC = () => {
                                 <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-3 text-[8px]" style={{ color: FADE, fontFamily: SERIF }}>
                                     <span><span className="inline-block w-2 h-2 rounded-full align-[-1px] mr-1" style={{ background: THEMES.period.accent }} />生理期</span>
                                     <span><span className="inline-block w-2 h-2 rounded-full align-[-1px] mr-1" style={{ border: `1.5px dashed ${THEMES.period.accent}88` }} />预测</span>
-                                    <span><span className="inline-block w-2 h-2 rounded-full align-[-1px] mr-1" style={{ border: '1.5px solid #cfa75f' }} />排卵日</span>
-                                    <span><span className="inline-block w-2 h-2 rounded-full align-[-1px] mr-1" style={{ background: '#f4e9d2' }} />排卵期</span>
+                                    <span><span className="inline-block w-2 h-2 rounded-full align-[-1px] mr-1" style={{ border: '1.5px solid #aaaaaa' }} />排卵日</span>
+                                    <span><span className="inline-block w-2 h-2 rounded-full align-[-1px] mr-1" style={{ background: '#eaeaea' }} />排卵期</span>
                                     <span>点过去的日期可补记</span>
                                 </div>
                                 <p className="text-[8px] text-center mt-1.5" style={{ color: FAINT, fontFamily: SERIF }}>预测为日历法估算，仅供参考</p>
@@ -778,7 +778,7 @@ const LifeRecordPanel: React.FC = () => {
                                                     background: THEMES.med.accent, color: '#fdfbf7', transform: 'rotate(-8deg)',
                                                     boxShadow: `inset 0 0 0 2px #ffffff40, 0 3px 8px -3px ${THEMES.med.accent}`,
                                                 } : {
-                                                    border: `1.5px dashed ${THEMES.med.soft}`, color: '#c9c2b5',
+                                                    border: `1.5px dashed ${THEMES.med.soft}`, color: '#c3c3c3',
                                                 }}>
                                                 {taken ? '✓' : ''}
                                             </span>
@@ -793,7 +793,7 @@ const LifeRecordPanel: React.FC = () => {
                                 {dayMeds.filter(r => !r.payload.planId).map(r => (
                                     <div key={r.id} className="flex items-center justify-between text-[11px] py-1" style={{ fontFamily: SERIF }}>
                                         <span style={{ color: INK }}>{r.payload.name}<span className="text-[9px]" style={{ color: FAINT }}>{recordedByLabel(r)}</span></span>
-                                        <button onClick={() => removeRecord(r)} className="px-1.5 text-slate-300 hover:text-rose-400">✕</button>
+                                        <button onClick={() => removeRecord(r)} className="px-1.5 text-slate-300 hover:text-neutral-400">✕</button>
                                     </div>
                                 ))}
                             </div>
@@ -826,13 +826,13 @@ const LifeRecordPanel: React.FC = () => {
                                         className="flex-1 py-1.5 rounded-full text-[10px] font-bold transition-colors"
                                         style={planKind === k
                                             ? { background: `${THEMES.med.accent}18`, color: THEMES.med.deep, border: `1px solid ${THEMES.med.accent}66`, fontFamily: SERIF }
-                                            : { color: FAINT, border: '1px solid #e5ddcd', fontFamily: SERIF }}>
+                                            : { color: FAINT, border: '1px solid #dedede', fontFamily: SERIF }}>
                                         {label}
                                     </button>
                                 ))}
                                 <select value={planInterval} onChange={e => setPlanInterval(parseInt(e.target.value, 10))}
                                     className="w-[74px] text-[10px] bg-transparent outline-none text-center"
-                                    style={{ ...inkInputStyle(THEMES.med), border: '1px solid #e5ddcd', borderRadius: 999, color: THEMES.med.deep }}>
+                                    style={{ ...inkInputStyle(THEMES.med), border: '1px solid #dedede', borderRadius: 999, color: THEMES.med.deep }}>
                                     <option value={1}>每天</option>
                                     <option value={2}>隔天</option>
                                     <option value={3}>每3天</option>
@@ -918,7 +918,7 @@ const LifeRecordPanel: React.FC = () => {
                                         <span className="font-bold tabular-nums" style={{ color: THEMES.expense.accent }}>{formatMoney(t.amount)}</span>
                                         <button
                                             onClick={async () => { await DB.deleteTransaction(t.id); await reload(); addToast('记录已删除', 'success'); }}
-                                            className="px-1 text-slate-300 hover:text-rose-400"
+                                            className="px-1 text-slate-300 hover:text-neutral-400"
                                         >✕</button>
                                     </div>
                                 ))}
@@ -1009,7 +1009,7 @@ const LifeRecordPanel: React.FC = () => {
                                             {fmtCN(r.date)} · {r.payload.activity}{r.payload.duration ? ` ${r.payload.duration}` : ''}
                                             <span className="text-[9px]" style={{ color: FAINT }}>{recordedByLabel(r)}</span>
                                         </span>
-                                        <button onClick={() => removeRecord(r)} className="px-1 text-slate-300 hover:text-rose-400">✕</button>
+                                        <button onClick={() => removeRecord(r)} className="px-1 text-slate-300 hover:text-neutral-400">✕</button>
                                     </div>
                                 ))}
                             </div>
@@ -1059,7 +1059,7 @@ const LifeRecordPanel: React.FC = () => {
                                 {records.some(r => r.module === 'period' && r.date === daySheet) && (
                                     <button onClick={() => clearPeriodDay(daySheet)}
                                         className="w-full py-2 rounded-full text-[12px] font-bold"
-                                        style={{ fontFamily: SERIF, color: FADE, border: '1px solid #e5ddcd', background: '#ffffff90' }}>
+                                        style={{ fontFamily: SERIF, color: FADE, border: '1px solid #dedede', background: '#ffffff90' }}>
                                         清除这一天的记录
                                     </button>
                                 )}
@@ -1092,7 +1092,7 @@ const LifeRecordPanel: React.FC = () => {
                                 <button
                                     onClick={() => setHideCandidate(null)}
                                     className="flex-1 py-2 rounded-full text-[12px] font-bold"
-                                    style={{ fontFamily: SERIF, color: FADE, border: '1px solid #e5ddcd', background: '#ffffff90' }}
+                                    style={{ fontFamily: SERIF, color: FADE, border: '1px solid #dedede', background: '#ffffff90' }}
                                 >
                                     先留着
                                 </button>
@@ -1121,7 +1121,7 @@ const LifeRecordPanel: React.FC = () => {
                             <div className="space-y-2 mb-4">
                                 {hiddenModules.map(m => (
                                     <div key={m} className="flex items-center justify-between px-3 py-2 rounded-[4px]"
-                                        style={{ background: '#ffffff90', border: '1px solid #e5ddcd' }}>
+                                        style={{ background: '#ffffff90', border: '1px solid #dedede' }}>
                                         <span className="flex items-center gap-2 text-[12px] font-bold" style={{ fontFamily: SERIF, color: INK }}>
                                             {THEMES[m].icon}{THEMES[m].cn}
                                         </span>
@@ -1141,7 +1141,7 @@ const LifeRecordPanel: React.FC = () => {
                             <button
                                 onClick={() => setShowRestore(false)}
                                 className="w-full py-2 rounded-full text-[12px] font-bold"
-                                style={{ fontFamily: SERIF, color: FADE, border: '1px solid #e5ddcd', background: '#ffffff90' }}
+                                style={{ fontFamily: SERIF, color: FADE, border: '1px solid #dedede', background: '#ffffff90' }}
                             >
                                 收起
                             </button>
