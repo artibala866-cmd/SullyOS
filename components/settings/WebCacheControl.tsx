@@ -16,15 +16,15 @@ export default function WebCacheControl() {
       </p>
       {state.stats && <p className="mt-2 text-slate-500">启动资源 {mb(state.stats.shellBytes)} · 按需资源 {mb(state.stats.runtimeBytes)}（{state.stats.runtimeEntries} 项）</p>}
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" disabled={state.working} onClick={() => void webUpdateSession.check()} className="rounded-xl bg-violet-100 px-3 py-2 text-violet-700 disabled:opacity-50">{state.working ? '处理中…' : '检查网页更新'}</button>
+        <button type="button" disabled={state.working} onClick={() => void webUpdateSession.check()} className="rounded-xl bg-neutral-100 px-3 py-2 text-neutral-700 disabled:opacity-50">{state.working ? '处理中…' : '检查网页更新'}</button>
         <button type="button" disabled={state.working} onClick={() => setConfirmClear(true)} className="rounded-xl bg-white px-3 py-2 disabled:opacity-50">清理按需缓存</button>
         <button type="button" disabled={state.working} onClick={() => void webUpdateSession.refreshStats()} className="px-2 py-2 text-slate-500">刷新用量</button>
-        {state.stats && !state.stats.offlineReady && <button type="button" disabled={state.working} onClick={() => void webUpdateSession.prepareOffline()} className="px-2 py-2 text-violet-700">重试下载启动资源</button>}
+        {state.stats && !state.stats.offlineReady && <button type="button" disabled={state.working} onClick={() => void webUpdateSession.prepareOffline()} className="px-2 py-2 text-neutral-700">重试下载启动资源</button>}
       </div>
       {confirmClear && <div className="mt-3 rounded-xl bg-white p-3">
         <p>只清理下载的图片、模型等按需资源，保留启动资源、聊天记录、角色和推送订阅。</p>
         <div className="mt-2 flex gap-3">
-          <button type="button" onClick={() => { setConfirmClear(false); void webUpdateSession.clearRuntime(); }} className="text-violet-700">确认清理</button>
+          <button type="button" onClick={() => { setConfirmClear(false); void webUpdateSession.clearRuntime(); }} className="text-neutral-700">确认清理</button>
           <button type="button" onClick={() => setConfirmClear(false)}>取消</button>
         </div>
       </div>}
