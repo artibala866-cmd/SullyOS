@@ -469,6 +469,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [queue, setQueueState] = useState<Song[]>(initialState.queue);
   const [idx, setIdx] = useState<number>(initialState.idx);
   const current = idx >= 0 && idx < queue.length ? queue[idx] : null;
+  // 结束一起听的回调保持稳定，但必须读取最新播放曲目，而不是首次渲染时的空值。
+  const currentSongRef = useRef(current);
+  currentSongRef.current = current;
 
   // 「一起写的歌」本地专辑 — 由写歌 App 同步过来的 ACE-Step / MiniMax 出歌
   const [localAlbumSongs, setLocalAlbumSongs] = useState<Song[]>(loadLocalAlbum);
@@ -690,10 +693,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // 作为系统事件存入该角色的聊天历史，让后续聊天可引用真实伴听经历。
       void DB.saveMessage({
         charId, role: 'system', type: 'system',
-        content: `[一起听结束] 本次共同听歌持续 ${minutes} 分钟。结束时播放：${current?.name || '未知歌曲'} - ${current?.artists || '未知歌手'}。`,
+        content: `[一起听结束] 本次共同听歌持续 ${minutes} 分钟。结束时播放：${currentSongRef.current?.name || '未知歌曲'} - ${currentSongRef.current?.artists || '未知歌手'}。`,
         metadata: {
           musicListenEvent: 'ended', startedAt, endedAt: at, durationMs,
-          songId: current?.id, songName: current?.name, artists: current?.artists,
+          songId: currentSongRef.current?.id, songName: currentSongRef.current?.name, artists: currentSongRef.current?.artists,
         },
       }).catch(err => console.warn('[MusicTogether] 结束事件保存失败', err));
       const next = { ...listeningStartedAtRef.current };
