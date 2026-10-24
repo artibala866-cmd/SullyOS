@@ -18,6 +18,12 @@ import type { UserProfile, GroupProfile, RealtimeConfig } from '../../types';
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, Phone, NotePencil, ChatText, Globe, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
+import {
+  CHARACTER_PHONE_CHATS_CHANGED, readCharacterPhoneChats,
+  updateCharacterPhoneChats, notifyCharacterPhoneChatsChanged,
+  type CharacterPhoneChat,
+} from '../../utils/characterPhoneChats';
+import { findKnownNpc, registerDiscoveredNpc, noteNpcInteraction } from '../../utils/characterNpcNetwork';
 import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
 import type { CharacterProfile, DailySchedule } from '../../types';
 import { parseGeneratedPhoneMessages, type PhoneMessage } from '../../utils/characterPhoneIdentity';
@@ -27,7 +33,7 @@ import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
 type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser';
-type ChatRecord = { id: string; contactId?: string; name: string; preview: string; time: number; messages: PhoneMessage[] };
+type ChatRecord = CharacterPhoneChat;
 type Api = { baseUrl: string; apiKey: string; model: string };
 const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots, color:'bg-[#18c45b]' },{id:'memo' as const,label:'备忘录',Icon:NotePencil,color:'bg-[#e7a941]'},{id:'gallery' as const,label:'相册',Icon:Images,color:'bg-[#e58a69]'}];
 const timeLabel = (time: number) => new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -109,14 +115,24 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const autoAttempted = useRef('');
   const [error, setError] = useState('');
   const storageKey = 'sully_character_phone_wechat_v1:' + characterId;
-  const [records, setRecords] = useState<ChatRecord[]>(() => {
-    try { const value = JSON.parse(localStorage.getItem(storageKey) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; }
-  });
+  const [records, setRecords] = useState<ChatRecord[]>(() => readCharacterPhoneChats(characterId));
+  useEffect(() => {
+    setRecords(readCharacterPhoneChats(characterId));
+    const onChange = (event: Event) => {
+      if ((event as CustomEvent<{characterId: string}>).detail?.characterId === characterId)
+        setRecords(readCharacterPhoneChats(characterId));
+    };
+    window.addEventListener(CHARACTER_PHONE_CHATS_CHANGED, onChange);
+    return () => window.removeEventListener(CHARACTER_PHONE_CHATS_CHANGED, onChange);
+  }, [characterId]);
   const persistProfiles = (next: NpcProfile[]): boolean => {
     try { saveNpcProfiles(characterId, next); setProfiles(next); return true; }
     catch { setError('联系人档案保存失败'); return false; }
   };
-  const persist = (next: ChatRecord[]) => { setRecords(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { setError('存储空间不足，记录未能保存'); } };
+  const persist = (next: ChatRecord[]): boolean => {
+    try { updateCharacterPhoneChats(characterId, () => next); setRecords(next); return true; }
+    catch { setError('存储空间不足，记录未能保存'); return false; }
+  };
   const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'memo' || screen === 'gallery' || screen === 'calls' || screen === 'sms' || screen === 'browser') setScreen('home'); else if (screen === 'thread' || screen === 'moments' || screen === 'wallet' || screen === 'settings') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
   const fullPersona = [persona, char.worldview || '', ...(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content)].filter(Boolean).join('\n\n').slice(0, 24000);
   const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
@@ -292,7 +308,9 @@ ${scheduleContext}
       const next: ChatRecord = { id: existing?.id || crypto.randomUUID(), contactId: profile.id, name: npc, preview: messages[messages.length - 1].text, time: Date.now(), messages: [...(existing?.messages || []), ...messages.map((m,i)=>({...m,createdAt:Date.now()-(messages.length-1-i)*25000}))] };
       try { localStorage.setItem(storageKey, JSON.stringify([next, ...records.filter(r => r.id !== existing?.id)])); }
       catch { setError('聊天记录保存失败，本次不记录生活事件'); return; }
-      setRecords([next, ...records.filter(r => r.id !== existing?.id)]); setTab('chats');
+      setRecords([next, ...records.filter(r => r.id !== existing?.id)]); notifyCharacterPhoneChatsChanged(characterId);
+      noteNpcInteraction(characterId, profile.id, next.time);
+      setTab('chats');
       recordCharacterLifeEvent({ id: 'npc-chat:' + next.id + ':' + next.time, characterId, kind: 'npc-chat', occurredAt: next.time, source: 'phone', summary: '已保存的微信对话：' + messages.slice(-12).map(m => (m.speaker.role === 'owner' ? name : npc) + '：' + m.text.trim()).join('；').slice(0, 1200), contactId: profile.id });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
