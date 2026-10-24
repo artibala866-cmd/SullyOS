@@ -1,14 +1,38 @@
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
+import {BLANK_SCALE,BLANK_HEAD_SCALE,fitBlankHeadY} from './blankBody';
 
-const lipOffset=new T.Vector3(0,.56,.23);
-/** Approximate lip anchor in head-local coordinates. The rig has no lip bone. */
+/**
+ * The face is part of the skinned blank-body surface, not a separate lip bone.
+ * Derive the mouth anchor from the same source-space head proportions used to
+ * build that surface. This keeps headSize/bodyHeight variants in sync.
+ *
+ * Source coordinates: the visible front of the face is +Z; the mouth lies
+ * below the face centre. Keep these landmarks together for future face actions.
+ */
+const MOUTH_SOURCE_Y=.235;
+const FACE_SOURCE_Z=.132;
+const lipOffsetFor=(v:ChibiVisitor)=>{
+ const rig=v.rig!;
+ const head=rig.bones.head;
+ // Geometry is fitted with headSize and bodyHeight, while the rig head pivot
+ // follows bodyHeightY. Derive the local offset from the actual rest pivot.
+ const height=rig.bodyHeight;
+ const size=(rig.mesh.geometry.userData.headSize as number|undefined)??1;
+ const mouthY=fitBlankHeadY((MOUTH_SOURCE_Y+.5)*BLANK_SCALE,{bodyHeight:height,headSize:size});
+ // Head bone position is a rest-space offset from its parent; recover its
+ // unposed world-independent bind position from the skeleton bone inverse.
+ const index=rig.skeleton.bones.indexOf(head);
+ const bindWorld=new T.Matrix4().copy(rig.skeleton.boneInverses[index]).invert();
+ const bindPoint=new T.Vector3(0,mouthY,FACE_SOURCE_Z*BLANK_SCALE*BLANK_HEAD_SCALE.z*size);
+ return bindPoint.applyMatrix4(bindWorld.invert());
+};
+/** Mouth anchor in posed world coordinates, including head scale and rotation. */
 export function lipWorld(v:ChibiVisitor){
  v.root.updateWorldMatrix(true,true);
- return v.rig!.bones.head.localToWorld(lipOffset.clone());
+ return v.rig!.bones.head.localToWorld(lipOffsetFor(v));
 }
-/** Limited world-space aiming shared by kissing and future face contact actions.
- * Rotates neck and head toward the partner's lip anchor without translating roots. */
+/** Limited world-space aiming shared by kissing and future face contact actions. */
 export function aimLipContact(v:ChibiVisitor,target:T.Vector3,weight:number){
  if(!v.rig||weight<=0)return;
  const head=v.rig.bones.head,neck=v.rig.bones.neck;
