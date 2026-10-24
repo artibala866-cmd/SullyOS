@@ -226,7 +226,7 @@ const ScheduleAppearanceButton: React.FC<{ compact?: boolean }> = ({ compact = f
                             placeholder=".sully-schedule-root {&#10;  border-radius: 20px !important;&#10;}"
                         />
                         {!validation.isValid && (
-                            <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[11px] leading-5 text-rose-600">
+                            <div className="mt-2 rounded-xl bg-neutral-50 px-3 py-2 text-[11px] leading-5 text-neutral-600">
                                 {validation.errors[0]}
                             </div>
                         )}
