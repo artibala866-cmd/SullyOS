@@ -195,7 +195,7 @@ ${scheduleContext}
 已有会话：${JSON.stringify(existing).slice(0,6500)}
 已确认联系人：${JSON.stringify(profiles.map(p=>({id:p.id,nickname:p.nickname||p.name,realName:p.realName,identity:p.identity,relationship:p.relationship,personality:p.personality}))).slice(0,6500)}
 这是增量更新，不是初始化或重建。优先挑选已有会话延续对话，每个已有会话只输出1至5条真正的新消息；只有生活情境需要时才新增少量联系人或通知。不得重述、改写或重新生成已有消息，不得复制历史聊天气泡。涵盖真实生活中合适的亲友、学校/工作、普通事务、群通知或服务通知，不强制每类出现。不是所有人都热情友善；允许简短、冷淡、忙碌、无回复，禁止无意义互夸和装乖。仅模拟手机内容，不将模拟内容冒充真人感已经发生的事件。
-严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","relationship":"与Char的关系","background":"背景","kind":"npc|group|service","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}]}。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
+严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","speechStyle":"惯用口气","boundary":"交往边界","relationship":"与Char的关系","background":"背景","origin":"known|introduced|stranger","kind":"npc|group|service","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}]}。已认识的人用known；新认识但已互相交流用introduced；陌生人用stranger。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
           {role:'user',content:'根据手机主人自己的生活和已有上下文，增量更新现有微信收件箱：优先续写已有联系人对话，适量补充新通知或新联系人。不得重复已有聊天。'}
         ]})
       });
@@ -205,55 +205,76 @@ ${scheduleContext}
       const data=JSON.parse(raw);
       if(!Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
       const incoming: ChatRecord[]=[];
-      const pending=readPendingContacts(characterId);
-      const nextPending=[...pending];
+      const newContacts: Array<{id:string;item:any;established:boolean}> = [];
+      // Re-read after the API call so the background NPC scheduler cannot
+      // be overwritten by an older React render snapshot.
+      const currentRecords = readCharacterPhoneChats(characterId);
+      const currentProfiles = readNpcProfiles(characterId);
       const now=Date.now();
       for(const item of data.threads.slice(0,8)){
         if(!item || typeof item.nickname!=='string' || !item.nickname.trim() || !Array.isArray(item.messages)) continue;
         if(!['npc','group','service'].includes(item.kind)) continue;
-        const linked=profiles.find(p=>p.id===item.contactId);
-        const previous=records.find(r=>r.contactId===item.contactId && item.contactId);
+        const linked=findKnownNpc(currentProfiles, {
+          contactId: item.contactId, name: item.nickname,
+          realName: item.realName, identity: item.identity, relationship: item.relationship,
+        });
+        const previous=currentRecords.find(r=>r.contactId===item.contactId && item.contactId);
         const id=linked?.id || previous?.contactId || (typeof item.contactId==='string' && item.contactId.startsWith('generated:') ? item.contactId : 'generated:'+crypto.randomUUID());
         const messages=parseGeneratedPhoneMessages(item.messages,id);
         if(!messages.length) continue;
         const alreadyIncoming=incoming.find(r=>r.contactId===id);
-        const existingRecord=alreadyIncoming || previous || records.find(r=>r.contactId===id);
+        const existingRecord=alreadyIncoming || previous || currentRecords.find(r=>r.contactId===id);
         const seen=new Set((existingRecord?.messages||[]).slice(-24).map(m=>m.speaker?.role+'|'+m.text.trim()));
         const fresh=messages.filter(m=>{const k=m.speaker?.role+'|'+m.text.trim();if(seen.has(k))return false;seen.add(k);return true;});
         if(!fresh.length)continue;
         const updatedThread: ChatRecord = {id:existingRecord?.id||crypto.randomUUID(),contactId:id,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),preview:fresh[fresh.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...fresh]};
         if (alreadyIncoming) incoming[incoming.indexOf(alreadyIncoming)] = updatedThread;
         else incoming.push(updatedThread);
-        if(!linked && item.kind==='npc' && !nextPending.some(p=>p.id===id)){
-          nextPending.push({id,nickname:item.nickname.trim().slice(0,40),realName:typeof item.realName==='string'?item.realName:'',identity:String(item.identity||'普通联系人'),personality:String(item.personality||'尚不清楚'),relationship:String(item.relationship||'普通认识'),background:String(item.background||''),createdAt:now,source:'chat'});
-        }
+        if(!linked && item.kind==='npc') newContacts.push({
+          id, item, established: fresh.some(m=>m.speaker.role==='owner') &&
+            fresh.some(m=>m.speaker.role==='contact'),
+        });
       }
       if(!incoming.length) throw new Error('本次未生成有效微信会话，未保存');
       const replaced=new Set(incoming.map(x=>x.id));
-      const updatedRecords = [...incoming,...records.filter(r=>!replaced.has(r.id))];
-      // Both the inbox and new-contact requests must persist before publishing
-      // life events. On a quota failure, restore the previous inbox snapshot.
-      const previousInbox = localStorage.getItem(storageKey);
+      const updatedRecords = [...incoming,...currentRecords.filter(r=>!replaced.has(r.id))];
       try {
-        localStorage.setItem(storageKey, JSON.stringify(updatedRecords));
-        if (nextPending.length !== pending.length) writePendingContacts(characterId,nextPending);
+        updateCharacterPhoneChats(characterId, () => updatedRecords);
       } catch {
-        try {
-          if (previousInbox === null) localStorage.removeItem(storageKey);
-          else localStorage.setItem(storageKey,previousInbox);
-        } catch { /* storage unavailable: no life event is emitted */ }
-        setError('微信记录或联系人请求保存失败，本次不记录生活事件');
+        setError('微信记录保存失败，本次不记录生活事件');
         return;
       }
       setRecords(updatedRecords);
-      if (nextPending.length !== pending.length) setPendingContacts(nextPending);
+      // Contacts are created *after* real phone messages have been saved.
+      // Established acquaintances enter the address book; strangers/request
+      // only enter the existing pending contacts lane.
+      for (const {id,item,established} of newContacts) {
+        try {
+          const result = registerDiscoveredNpc(characterId, {
+            contactId: id, name: item.nickname,
+            nickname: item.nickname, realName: item.realName, identity: item.identity,
+            personality: item.personality, relationship: item.relationship,
+            background: item.background, speechStyle: item.speechStyle, boundary: item.boundary,
+            origin: item.origin === 'known' ? 'introduced'
+              : item.origin === 'stranger' ? 'stranger' : 'introduced',
+            evidence: 'social',
+          }, { conversationEstablished: established });
+          if (result.status === 'added' && result.profile) recordCharacterLifeEvent({
+            id: 'contact:' + result.profile.id, characterId,
+            kind: 'contact-added', occurredAt: result.profile.createdAt,
+            source: 'phone', contactId: result.profile.id,
+            summary: '微信生活中新增联系人：' + result.profile.name,
+          });
+        } catch (error) { console.warn('[CharacterPhone] contact discovery skipped', error); }
+      }
       try { localStorage.setItem('sully_phone_inbox_auto_at:'+characterId,String(Date.now())); } catch { /* auto-refresh can retry */ }
       // Record only the messages that were actually saved, never treat a
       // scheduled activity as already completed.
       for (const thread of incoming) {
-        const oldThread = records.find(r=>r.id===thread.id);
+        const oldThread = currentRecords.find(r=>r.id===thread.id);
         const newMessages = thread.messages.slice(oldThread?.messages.length || 0);
         if (!newMessages.length) continue;
+        if (thread.contactId) noteNpcInteraction(characterId,thread.contactId,now);
         recordCharacterLifeEvent({
           id:'npc-chat:inbox:'+thread.id+':'+now,
           characterId, kind:'npc-chat', occurredAt:now, source:'phone',
