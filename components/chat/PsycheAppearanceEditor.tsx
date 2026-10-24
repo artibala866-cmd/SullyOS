@@ -38,7 +38,7 @@ const ColorField: React.FC<{ label: string; value: string; onChange: (v: string)
             type="text"
             value={value}
             onChange={e => onChange(e.target.value)}
-            className="flex-1 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono focus:outline-none focus:border-indigo-300"
+            className="flex-1 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono focus:outline-none focus:border-neutral-400"
             placeholder="#rrggbb 或 css 渐变"
         />
     </label>
@@ -125,7 +125,7 @@ return <div className="space-y-5">                    {/* 2. 卡片风格 */}
                                     <button
                                         key={item.id}
                                         onClick={() => onChange({ styleId: item.id })}
-                                        className={`text-left rounded-xl p-2 border transition-all ${active ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-slate-300'}`}
+                                        className={`text-left rounded-xl p-2 border transition-all ${active ? 'border-neutral-600 ring-2 ring-neutral-200' : 'border-slate-200 hover:border-slate-300'}`}
                                     >
                                         <StylePreview styleId={item.id} customColors={value.customColors} compact />
                                         <div className="mt-1.5 flex items-baseline gap-1.5">
@@ -174,11 +174,11 @@ return <div className="space-y-5">                    {/* 2. 卡片风格 */}
                         <h3 className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-2">CSS 美化（进阶）</h3>
                         <p className="text-[10.5px] text-slate-400 mb-2 leading-relaxed">
                             在上面选好的风格基础上，再用 CSS 精修心象卡片。可用类名：
-                            <code className="text-indigo-400">.sully-psyche-card</code>（卡片）、
-                            <code className="text-indigo-400">.sully-psyche-title</code>（标题）、
-                            <code className="text-indigo-400">.sully-psyche-preview</code>（折叠首句）、
-                            <code className="text-indigo-400">.sully-psyche-body</code>（展开正文）。
-                            想覆盖风格自带的颜色时记得加 <code className="text-indigo-400">!important</code>。
+                            <code className="text-neutral-500">.sully-psyche-card</code>（卡片）、
+                            <code className="text-neutral-500">.sully-psyche-title</code>（标题）、
+                            <code className="text-neutral-500">.sully-psyche-preview</code>（折叠首句）、
+                            <code className="text-neutral-500">.sully-psyche-body</code>（展开正文）。
+                            想覆盖风格自带的颜色时记得加 <code className="text-neutral-500">!important</code>。
                         </p>
                         <textarea
                             value={draftCss}
@@ -186,7 +186,7 @@ return <div className="space-y-5">                    {/* 2. 卡片风格 */}
                             onBlur={commitCss}
                             spellCheck={false}
                             placeholder={'.sully-psyche-card {\n  border-radius: 16px !important;\n}'}
-                            className={`w-full h-32 bg-slate-50 rounded-xl p-3 text-[11px] font-mono resize-none border focus:outline-none ${cssValidation.isValid ? 'border-slate-200 focus:border-indigo-300' : 'border-red-300 focus:border-red-400'}`}
+                            className={`w-full h-32 bg-slate-50 rounded-xl p-3 text-[11px] font-mono resize-none border focus:outline-none ${cssValidation.isValid ? 'border-slate-200 focus:border-neutral-400' : 'border-neutral-300 focus:border-neutral-600'}`}
                         />
                         {!cssValidation.isValid && (
                             <div className="mt-1 space-y-0.5">
