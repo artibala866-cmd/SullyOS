@@ -115,6 +115,8 @@ export function keepHugArmOutside(owner:ChibiVisitor,recipient:ChibiVisitor,cont
   const angle=i*Math.PI/6;
   const direction=pole.clone().multiplyScalar(Math.cos(angle)).addScaledVector(cross,Math.sin(angle));
   const candidate=centre.clone().addScaledVector(direction,radius);
+  // Never flip the elbow across the torso merely to improve a proxy score.
+  if(candidate.distanceTo(e)>upper*.95)continue;
   const depth=penetration(s,candidate,w);
   const score=depth*8+.055*(1-direction.dot(pole))+.10*candidate.distanceTo(e);
   if(score<bestScore-.003){bestScore=score;bestElbow=candidate;}
