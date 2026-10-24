@@ -63,7 +63,7 @@ const RoomApp:React.FC=()=>{
  },[dream.deepLink,dream.status,dream.status==='idle'?null:dream.charId,setActiveCharacterId]);
  const char=characters.find(c=>c.id===selected);
  const dreamChar=characters.find(c=>c.id===dreamOwner)??char;
- const residents=char?[...(userProfile.vrState?.chibi?.state?[{id:'user',label:userProfile.name||'你',state:userProfile.vrState.chibi.state}]:[]),...characters.filter(c=>c.id!==char.id&&(c.chibiStudio?.home3D?.state||c.chibiStudio?.room?.state||c.chibiStudio?.vr?.state)).map(c=>({id:c.id,label:c.name,avatar:c.avatar,state:c.chibiStudio?.home3D?.state??c.chibiStudio?.room?.state??c.chibiStudio?.vr?.state,hair:c.chibiStudio?.home3D?.hair}))]:[];
+ const residents=char?[...(userProfile.chibiStudio?.userChibi?.state?[{id:'user',label:userProfile.name||'你',state:userProfile.chibiStudio.userChibi.state}]:[]),...characters.filter(c=>c.id!==char.id&&(c.chibiStudio?.home3D?.state||c.chibiStudio?.room?.state)).map(c=>({id:c.id,label:c.name,avatar:c.avatar,state:c.chibiStudio?.home3D?.state??c.chibiStudio?.room?.state,hair:c.chibiStudio?.home3D?.hair}))]:[];
  return <div ref={shellRef} className="room-dream-shell relative h-full w-full overflow-hidden bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-900">
   {char?<Suspense fallback={<div className="grid h-full place-items-center text-sm">正在打开 3D 家园…</div>}>
    <Home3DView key={char.id} suspended={activeApp!==AppID.Room||dreamOpen} character={char}
