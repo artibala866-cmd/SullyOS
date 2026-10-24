@@ -33,6 +33,7 @@ import { isCharacterPhoneAutonomyEnabled, setCharacterPhoneAutonomyEnabled } fro
 import {
   CHARACTER_PHONE_API_SETTINGS_CHANGED, CHARACTER_PHONE_API_BUDGET_CHANGED,
   readPhoneAutonomyPreferences, readPhoneApiBudget, writePhoneAutonomyPreferences,
+  canUsePhoneApiBudget, reservePhoneApiBudget,
 } from '../../utils/characterPhoneApiBudget';
 import { beginCharacterPhoneRefresh, finishCharacterPhoneRefresh, isCharacterPhoneRefreshing, CHARACTER_PHONE_REFRESH_CHANGED } from '../../utils/characterPhoneRefreshTracker';
 import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
@@ -240,7 +241,7 @@ export default function CharacterPhone({
       const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
         body: JSON.stringify({ model: api.model, stream: false, messages: [
-          { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt.slice(0, 42000)}。现在生成手机联系人资料，不要直接回复User。手机主人Char的唯一ID是${characterId}，显示名${name}。角色人设：${fullPersona}。${scheduleContext}优先从角色设定与世界书里提到的人物创建联系人；如果没有明确姓名，可以根据世界观、身份、地点和生活圈生成合理的新NPC，但绝不编造与原设定冲突的亲密关系。不得把User或手机主人当成NPC。已有联系人（不要重复身份）：${profiles.map(p => p.name+'('+p.relationship+')').join('、')}。User与Char与NPC身份不同；同名或水仙不能视为同一人。一次生成${batchCount}个不同生活领域的联系人，允许亲友、同事、同学、普通熟人、事务性联系人，不能全是亲密朋友。只返回JSON对象：{"contacts":[{"name":"","identity":"","personality":"","relationship":"","background":""}]}。` },
+          { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt.slice(0, 14000)}。现在生成手机联系人资料，不要直接回复User。手机主人Char的唯一ID是${characterId}，显示名${name}。角色人设：${fullPersona}。${scheduleContext}优先从角色设定与世界书里提到的人物创建联系人；如果没有明确姓名，可以根据世界观、身份、地点和生活圈生成合理的新NPC，但绝不编造与原设定冲突的亲密关系。不得把User或手机主人当成NPC。已有联系人（不要重复身份）：${profiles.map(p => p.name+'('+p.relationship+')').join('、')}。User与Char与NPC身份不同；同名或水仙不能视为同一人。一次生成${batchCount}个不同生活领域的联系人，允许亲友、同事、同学、普通熟人、事务性联系人，不能全是亲密朋友。只返回JSON对象：{"contacts":[{"name":"","identity":"","personality":"","relationship":"","background":""}]}。` },
           { role: 'user', content: '综合角色设定和世界书批量生成${batchCount}份不同且具体的联系人档案。优先已有设定人物；无明确人物时可以创建符合生活圈的普通NPC。不要生成聊天消息。' }
         ] })
       });
@@ -272,13 +273,18 @@ export default function CharacterPhone({
     setAddingContact(false); setError(''); openContact(profile);
   };
   // Inbox generation is independent of the contacts list. A single call yields several threads.
-  const generateInbox = async () => {
+  const generateInbox = async (automatic = false) => {
     if (busy || !api.apiKey || !api.baseUrl || !api.model ||
+        (automatic && (!isCharacterPhoneAutonomyEnabled(characterId) ||
+            !canUsePhoneApiBudget(characterId))) ||
         !beginCharacterPhoneRefresh(characterId)) return;
     setBusy(true); setError('');
     try {
       const context = await loadRealContext();
       const existing = records.map(r => ({ id:r.contactId || r.id, name:r.name, recent:r.messages.slice(-6).map(m=>({role:m.speaker?.role,text:m.text})) }));
+      // Unlike an explicit tap, opening WeChat is a background decision;
+      // reserve one shared API token immediately before the provider call.
+      if (automatic && !reservePhoneApiBudget(characterId)) return;
       const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+api.apiKey},
         body:JSON.stringify({model:api.model,stream:false,temperature:0.8,messages:[
@@ -392,13 +398,15 @@ ${scheduleContext}
   // Real User messages are mirrored separately; no NPC profile is required.
   useEffect(() => {
     if(screen!=='wechat' || tab!=='chats') { autoAttempted.current=''; return; }
-    if(autoAttempted.current===characterId || busy || sharedWechatRefreshing || !api.apiKey || !api.model || !api.baseUrl) return;
+    if(autoAttempted.current===characterId || busy || sharedWechatRefreshing ||
+        !isCharacterPhoneAutonomyEnabled(characterId) || !canUsePhoneApiBudget(characterId) ||
+        !api.apiKey || !api.model || !api.baseUrl) return;
     autoAttempted.current=characterId;
     try {
       const last=Number(localStorage.getItem('sully_phone_inbox_auto_at:'+characterId)||'0');
       if(Date.now()-last<12*60*60*1000) return;
     } catch { return; }
-    void generateInbox();
+    void generateInbox(true);
   },[screen,tab,characterId,api.apiKey,api.model,api.baseUrl]);
   const generate = async (npcName = '', guidance = '') => {
     if (busy || sharedWechatRefreshing) return;
@@ -415,7 +423,7 @@ ${scheduleContext}
       const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
         body: JSON.stringify({ model: api.model, stream: false, temperature: 0.85, messages: [
-          { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt.slice(0, 42000)}。现在生成角色「${name}」手机里的微信消息，不要直接回复User。手机主人Char的ID是${characterId}。${scheduleContext}固定NPC档案：姓名${profile.name}，身份${profile.identity}，性格${profile.personality}，与角色关系${profile.relationship}，背景${profile.background}。必须严格遵守该档案，不得更名、改身份或改关系。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => (m.speaker?.role === 'owner' ? '[手机主人]' : m.speaker?.role === 'contact' ? '[联系人]' : '[旧消息身份未验证]') + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"${profile.name}","messages":[{"speaker":"contact","text":"短消息"},{"speaker":"owner","text":"短消息"}]}。speaker只能为owner或contact，owner是手机主人Char，contact是当前联系人；即使双方同名或是水仙，也绝对不能根据名字推断发言者。User不是NPC，不能混入。必须生成8到14条独立的微信消息，双方都要有发言，每条一条气泡，禁止把整段对话塞入单条text。至少8条，否则视为失败。不要markdown。已有记录：${context}` },
+          { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt.slice(0, 14000)}。现在生成角色「${name}」手机里的微信消息，不要直接回复User。手机主人Char的ID是${characterId}。${scheduleContext}固定NPC档案：姓名${profile.name}，身份${profile.identity}，性格${profile.personality}，与角色关系${profile.relationship}，背景${profile.background}。必须严格遵守该档案，不得更名、改身份或改关系。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => (m.speaker?.role === 'owner' ? '[手机主人]' : m.speaker?.role === 'contact' ? '[联系人]' : '[旧消息身份未验证]') + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"${profile.name}","messages":[{"speaker":"contact","text":"短消息"},{"speaker":"owner","text":"短消息"}]}。speaker只能为owner或contact，owner是手机主人Char，contact是当前联系人；即使双方同名或是水仙，也绝对不能根据名字推断发言者。User不是NPC，不能混入。必须生成8到14条独立的微信消息，双方都要有发言，每条一条气泡，禁止把整段对话塞入单条text。至少8条，否则视为失败。不要markdown。已有记录：${context}` },
           { role: 'user', content: '生成一段符合角色设定、像真实朋友微信聊天一样的日常对话。'+(guidance.trim()?'参考方向（不是User发送的消息）：'+guidance.trim().slice(0,300):'') }
         ] })
       });
