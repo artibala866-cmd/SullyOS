@@ -161,15 +161,26 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
     setInitializing(true);
     try {
       const newProfile = await CharMusicPersona.initialize(char, userProfile, apiConfig);
-      // 角色在生成音乐人格前，可能已经通过一起听收藏过歌曲；初始化不应覆盖它们。
-      const savedPlaylists = (char.musicProfile?.playlists || []).filter(p => p.songs.length > 0);
-      const mergedProfile = savedPlaylists.length
-        ? { ...newProfile, playlists: [
-            ...newProfile.playlists,
-            ...savedPlaylists.filter(saved => !newProfile.playlists.some(p => p.title === saved.title)),
-          ] }
-        : newProfile;
-      updateCharacter(char.id, { musicProfile: mergedProfile });
+      // 音乐人格生成可能耗时数秒：完成后重新读取 DB，避免期间 AI 新收藏的歌曲丢失。
+      const persisted = (await DB.getAllCharacters()).find(item => item.id === char.id);
+      const savedPlaylists = (persisted?.musicProfile?.playlists || char.musicProfile?.playlists || [])
+        .filter(p => p.songs.length > 0);
+      const titleKey = (title: string) => title.trim().toLocaleLowerCase();
+      const mergedPlaylists = newProfile.playlists.map(generated => {
+        const saved = savedPlaylists.find(p => titleKey(p.title) === titleKey(generated.title));
+        return saved
+          ? { ...generated, songs: [
+              ...generated.songs,
+              ...saved.songs.filter(song => !generated.songs.some(existing => existing.id === song.id)),
+            ] }
+          : generated;
+      });
+      const extraPlaylists = savedPlaylists.filter(saved =>
+        !newProfile.playlists.some(generated => titleKey(generated.title) === titleKey(saved.title)));
+      updateCharacter(char.id, { musicProfile: {
+        ...newProfile,
+        playlists: [...mergedPlaylists, ...extraPlaylists],
+      } });
       addToast(`${char.name} 的音乐角落已开启`, 'success');
       trackEvent('生成角色的音乐人格');
     } catch (e: any) {
