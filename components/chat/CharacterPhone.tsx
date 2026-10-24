@@ -277,7 +277,7 @@ ${scheduleContext}
         const oldThread = currentRecords.find(r=>r.id===thread.id);
         const newMessages = thread.messages.slice(oldThread?.messages.length || 0);
         if (!newMessages.length) continue;
-        if (thread.contactId) noteNpcInteraction(characterId,thread.contactId,now);
+        if (thread.contactId) noteNpcInteraction(characterId,thread.contactId,now,newMessages);
         recordCharacterLifeEvent({
           id:'npc-chat:inbox:'+thread.id+':'+now,
           characterId, kind:'npc-chat', occurredAt:now, source:'phone',
@@ -336,7 +336,7 @@ ${scheduleContext}
       try { updateCharacterPhoneChats(characterId, () => [next, ...stored.filter(r => r.id !== existing?.id)]); }
       catch { setError('聊天记录保存失败，本次不记录生活事件'); return; }
       setRecords(readCharacterPhoneChats(characterId));
-      noteNpcInteraction(characterId, profile.id, next.time);
+      noteNpcInteraction(characterId, profile.id, next.time, messages);
       setTab('chats');
       recordCharacterLifeEvent({ id: 'npc-chat:' + next.id + ':' + next.time, characterId, kind: 'npc-chat', occurredAt: next.time, source: 'phone', summary: '已保存的微信对话：' + messages.slice(-12).map(m => (m.speaker.role === 'owner' ? name : npc) + '：' + m.text.trim()).join('；').slice(0, 1200), contactId: profile.id });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
