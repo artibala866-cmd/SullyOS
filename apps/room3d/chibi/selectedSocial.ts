@@ -217,6 +217,31 @@ function twirlHandPair(clip:SelectedClip):readonly [HandSide,HandSide]{
    }
    r.visitor.root.updateWorldMatrix(true,true);
   });
+  // Lightweight paired torso/pelvis collision proxies; no mesh scan.
+  // Preserve close-contact intimacy and pinned poses for their own solvers.
+  if(!pinned&&both.length===2&&both.every(r=>!!r.visitor.rig)&&!isIntimacy(s.action)){
+   const a=both[0].visitor,b=both[1].visitor;
+   let penetration=0;
+   const direction=new T.Vector3();
+   for(const [bone,radius] of [['hips',.32],['chest',.38]] as const){
+    const pa=a.rig!.bones[bone].getWorldPosition(new T.Vector3());
+    const pb=b.rig!.bones[bone].getWorldPosition(new T.Vector3());
+    const delta=pb.sub(pa),vertical=Math.abs(delta.y);
+    if(vertical>=radius*2)continue;
+    delta.y=0;
+    const gap=delta.length(),minimum=Math.sqrt(Math.max(0,(radius*2)**2-vertical**2));
+    if(gap<minimum&&minimum-gap>penetration){
+     penetration=minimum-gap;
+     if(gap>.0001)direction.copy(delta).divideScalar(gap);
+    }
+   }
+   if(penetration>.0001){
+    if(direction.lengthSq()<.5){direction.copy(b.root.position).sub(a.root.position).setY(0);if(direction.lengthSq()<.0001)direction.set(1,0,0);direction.normalize();}
+    direction.multiplyScalar(Math.min(penetration,.10)*.5);
+    a.root.position.sub(direction);b.root.position.add(direction);
+    a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
+   }
+  }
   // The head has very different proportions from the source human. Separate
   // the actual posed head centres before solving hands, including height gaps.
   if(!pinned&&both.length===2&&both[0].visitor.rig&&!isIntimacy(s.action)){
