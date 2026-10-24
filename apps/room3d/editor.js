@@ -1940,7 +1940,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(cameraArrival){const t=THREE.MathUtils.smootherstep(elapsed-cameraArrival.start,0,reducedMotion?.01:1.1),{from,to}=cameraArrival;camera.position.copy(from.position).lerp(to.position,t);controls.target.copy(from.target).lerp(to.target,t);camera.zoom=THREE.MathUtils.lerp(from.zoom,to.zoom,t);camera.updateProjectionMatrix();dirty=true;if(t>=1)cameraArrival=null;}
   let settling=false;if(!manual&&!document.hidden)elapsed+=dt;
   const petMoving=petSystem?.update(manual?0:dt);if(petMoving)dirty=true;
-  if(!document.hidden&&now-lastDraw>=frameInterval-.5){
+  // Idle breathing and furniture sway do not need full interaction FPS.
+  // Preserve full speed for walking, gestures, camera movement and input.
+  const interactiveMotion=!!(socialRuntime?.active||walking||drag||pointerDown||cameraArrival||companionGesture||companionTravel||companionRise||companionPhone||conversation||homelyAttention||homelyPoke||homelyMusic.playing||kitchenTask||kitchenEffects.moving||walkFeedback.active||photoSession);
+  const idleInterval=(phone||touch)&&!interactiveMotion&&!edit&&!overview?1000/15:frameInterval;
+  if(!document.hidden&&now-lastDraw>=idleInterval-.5){
    if(petSystem?.consumeShadowChange())invalidateRoomShadows();
    const applianceChanged=kitchenEffects.updateDoors(manual?0:dt,reducedMotion);if(applianceChanged){dirty=true;invalidateRoomShadows();}
    const breathing=animated.length&&!overview&&!reducedMotion&&qualities[quality].motion;
