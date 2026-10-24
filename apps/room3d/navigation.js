@@ -36,7 +36,7 @@ export function walkingMap(home,level,catalog,{headWidth=1.5,headBottom=.7,headT
 /** Only on path requests; never run grid search in the animation frame. */
 export function findWalkPath(map,start,target,{targetRadius=0}={}){
  const clear=(a,b)=>{
-  const n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.035));
+  const n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.06));
   for(let i=0;i<=n;i++)if(!map.free(a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n))return false;
   return true;
  };

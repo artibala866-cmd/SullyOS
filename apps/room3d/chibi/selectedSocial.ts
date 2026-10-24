@@ -280,20 +280,29 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     if(ids.length===1&&options.facingTarget){const direction=options.facingTarget.clone().sub(starts[0]);if(direction.lengthSq()>.0001)rotation.setFromAxisAngle(yAxis,Math.atan2(direction.x,direction.z));}
     if(pinned){const i=ids.indexOf(pinned.id),sourceHeading=splitMotionHeading(sampleSelected(clip.actors[i],0).rotations.hips).heading;rotation.copy(pinnedRotation!).multiply(sourceHeading.invert());}
     const candidate={action,ids,time:0,clip,origin,sourceOrigin,rotation,scale,starts,turns,paths:[] as T.Vector3[][],approach:0};
-    const fits=()=>{const paths=both.map(()=>[] as T.Vector3[]),first=locations(candidate,0);
+    const fits=()=>{
+     const first=locations(candidate,0);
      const target=action==='home-kiss'&&!pinned?locations(candidate,3.5):first;
-     const routes=starts.map((p,i)=>ids[i]===pinned?.id?[p.clone(),p.clone()]:options.findPath?options.findPath(p,target[i]):[p.clone(),target[i].clone()]);if(routes.some(p=>!p?.length))return false;
-     candidate.paths=routes as T.Vector3[][];
-     candidate.approach=Math.max(...candidate.paths.map((path,i)=>path.slice(1).reduce((n,p,j)=>n+p.distanceTo(path[j]),0)/((both[i].walkSpeed??1.05)*(action==='home-kiss'?1.65:1))));
-     for(let i=0;i<routes.length;i++)for(let j=1;j<routes[i]!.length;j++){const from=routes[i]![j-1],to=routes[i]![j],steps=Math.max(1,Math.ceil(from.distanceTo(to)/.08));for(let step=0;step<=steps;step++)paths[i].push(from.clone().lerp(to,step/steps));}
      const moving=(paths:T.Vector3[][])=>paths.filter((_,i)=>ids[i]!==pinned?.id);
-     if(options.canPlace&&!options.canPlace(moving(paths)))return false;
+     // The existing tests are unchanged, but reject impossible action space
+     // BEFORE expensive pathfinding for any of the alternate positions.
      const motion=both.map(()=>[] as T.Vector3[]);
      for(let t=0;t<=clip.duration+.001;t+=.1)(action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,Math.min(t,clip.duration))).forEach((p,i)=>motion[i].push(p));
      const perform=options.canPerform||options.canPlace;
      if(perform&&!perform(moving(motion)))return false;
-     // Temporary furniture overlap must not leave the residents standing in it.
-     return !options.canPlace||options.canPlace(moving((action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,clip.duration)).map(p=>[p])));};
+     // The final roots must remain on valid standing floor.
+     if(options.canPlace&&!options.canPlace(moving((action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,clip.duration)).map(p=>[p]))))return false;
+     const paths=both.map(()=>[] as T.Vector3[]);
+     const routes=starts.map((p,i)=>ids[i]===pinned?.id?[p.clone(),p.clone()]:options.findPath?options.findPath(p,target[i]):[p.clone(),target[i].clone()]);
+     if(routes.some(p=>!p?.length))return false;
+     candidate.paths=routes as T.Vector3[][];
+     candidate.approach=Math.max(...candidate.paths.map((path,i)=>path.slice(1).reduce((n,p,j)=>n+p.distanceTo(path[j]),0)/((both[i].walkSpeed??1.05)*(action==='home-kiss'?1.65:1))));
+     for(let i=0;i<routes.length;i++)for(let j=1;j<routes[i]!.length;j++){
+      const from=routes[i]![j-1],to=routes[i]![j],steps=Math.max(1,Math.ceil(from.distanceTo(to)/.08));
+      for(let step=0;step<=steps;step++)paths[i].push(from.clone().lerp(to,step/steps));
+     }
+     return !options.canPlace||options.canPlace(moving(paths));
+    };
     let valid=fits();if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned)for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
     if(!valid)throw Error(action==='cmu-22_09'?'坐着的人身后没有可站立的位置，请先给椅背后留出空地':'这段动作需要更大的空地，先移动居民或挪开家具');
     session=candidate;constraintPipeline.activate(action);prop=createSocialProp(action,both);draw();return true;
