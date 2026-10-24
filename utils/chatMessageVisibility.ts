@@ -17,6 +17,8 @@ export const isVisibleChatMessage = (message: Message, hideSystemLogs = false): 
     && message.metadata?.source !== 'home'
     && message.metadata?.source !== 'story_theater_memory'
     && !message.metadata?.proactiveHint
+    // 邀请卡片本身会显示接受/拒绝/撤回；回应记录仍在 DB 供 AI 读取，不重复渲染一条系统气泡。
+    && !message.metadata?.musicListenInviteResponseTo
     && !(hideSystemLogs && message.role === 'system' && message.type !== 'score_card')
 );
 
