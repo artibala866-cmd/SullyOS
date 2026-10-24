@@ -83,6 +83,21 @@ function twirlHandPair(clip:SelectedClip):readonly [HandSide,HandSide]{
     return;
    }
   }
+  // "拉住对方 1": use the same shared-palm IK as twirl, with the
+  // hand pair cached by clip. Never scan motion tracks inside the render loop.
+  if(session?.action==='cmu-18_03'){
+   const [a,b]=both;
+   if(a?.visitor.rig&&b?.visitor.rig&&a.solver&&b.solver){
+    const [sa,sb]=twirlHandPair(session.clip);
+    const target=sharedPalmTarget(palm(a.visitor,sa),palm(b.visitor,sb));
+    const reach=smooth(session.time-session.approach,.12,.55);
+    for(const [resident,side] of [[a,sa],[b,sb]] as const){
+     const q=resident.visitor.rig!.bones[side+'_hand'].getWorldQuaternion(new T.Quaternion());
+     resident.solver({side,point:target.clone(),direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(q),normal:new T.Vector3(0,1,0).applyQuaternion(q),curl:.45},weight*reach);
+    }
+    return;
+   }
+  }
   // Arm wrestling must keep one hand pair throughout the contest.
   // Generic nearest-hand detection can switch partners as the wrists rotate.
   if(session?.action==='cmu-22_17'){
