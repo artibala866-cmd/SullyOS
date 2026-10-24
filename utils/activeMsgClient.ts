@@ -2989,9 +2989,7 @@ export const ActiveMsgClient = {
         // 老 worker 那条路还带着副 API 的 apiKey，它只能待在这个加密信封里——worker
         // 组推送前会把它摘掉，一个字节都不许跟着 push 出门。
         ...(emotionEvalSpec ? { amsgEmotionEval: emotionEvalSpec } : {}),
-        // SAR 模块生效 / 恢复期的那一轮：请求时冻结的快照（见 AmsgSarModuleSnapshot）。
-        // 只有收尾用得到的最小字段，不含凭据，worker 原样挂回末条推送。
-        ...(params.sarModule ? { amsgSar: params.sarModule } : {}),
+        // Retired 彼方 metadata is never sent to the cloud Worker.
         // 刻意不带 amsgExpirePolicy：防穿帮闸问的是「到点还该不该主动开口」，
         // 对「回一句用户刚说的话」不适用，带上去反而会把用户等着的回复吞掉。
       },
