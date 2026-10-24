@@ -3270,7 +3270,7 @@ export interface CharacterExportData extends Omit<CharacterProfile, 'id' | 'memo
 
 export interface UserProfile {
     wardrobeOutfits?: import('./apps/room3d/chibi/outfitLibrary').SavedOutfit[];
-    chibiStudio?: { home3D?: HomeFigureSlot };
+    chibiStudio?: { home3D?: HomeFigureSlot; userChibi?: ChibiStudioSlot };
     name: string;
     avatar: string;
     bio: string;
