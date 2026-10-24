@@ -444,7 +444,23 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   companionWalk=null;
   if(companionSmile){setResidentExpression(primaryResidentId,companionSmile.old||{});companionSmile=null;}
  }
+ let companionYield=null;
  function updateCompanion(){
+  if(companionYield){
+   const y=companionYield;
+   if(y.room!==current().id||y.revision!==manualRevision||edit||overview||conversation||socialRuntime?.active){companionYield=null;}
+   else{
+    const t=THREE.MathUtils.clamp((elapsed-y.start)/.65,0,1),e=t*t*(3-2*t);
+    y.actor.group.position.lerpVectors(y.from,y.to,e);
+    y.actor.visitor?.animate(elapsed-y.start,t<1?'walk':'idle');
+    dirty=true;
+    if(t>=1){
+     companionYield=null;
+     if(y.person.group.visible&&characterSeatState().seat)companionRise={person:y.person,room:y.room,revision:y.revision,rising:true,front:y.front,seat:y.transform.position,rotation:y.transform.rotation,pose:y.transform.pose,poseData:y.poseData,start:elapsed};
+    }
+   }
+  }
+
   if(companionFurniture){const f=companionFurniture;if(f.revision!==manualRevision||f.room!==current().id){companionFurniture=null;}else if(!conversation&&elapsed>=f.until){companionFurniture=null;if(furnitureUser){if(furnitureUser.parkedActivity){furnitureUser.parkedActivity.activity=null;furnitureUser.parkedActivity.motion='idle';furnitureUser.parkedActivity.until=0;}dirty=true;}else if(['computer','race','mirror-outfit'].includes(f.kind))runAction({action:'chibi-game-stop'});else if(f.kind==='water')stopWalking();dirty=true;}}
 
   if(companionRise){const r=companionRise;if(r.revision!==manualRevision||r.room!==current().id||companionActors().person.visitor!==r.person.visitor||conversation||edit||overview||state.autonomy===false){cancelCompanionAction();return;}
@@ -491,7 +507,21 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(action==='stand'){
    if(!snapshot.canRise){companionLastResult='尚在休息或正在交谈';return false;}
    const seat=characterSeatState(),transform=seatTransform(current(),catalog,seat.seat,!!person.visitor.rig),front=transform&&seatEntry(transform,navMap(),[current().x*ROOM_STEP.x,current().z*ROOM_STEP.z]);
-   if(!front||Math.hypot(front[0]-user.group.position.x,front[2]-user.group.position.z)<.55){companionLastResult='座位前没有安全起身位置';return false;}
+   if(!front){companionLastResult='座位前没有安全起身位置';return false;}
+   if(Math.hypot(front[0]-user.group.position.x,front[2]-user.group.position.z)<.55){
+    if(firstPerson||!user.visitor||getResidentPosture('user')!=='standing'||companionYield){companionLastResult='座位前没有安全起身位置';return false;}
+    const from=user.group.position.clone(),dx=from.x-front[0],dz=from.z-front[2];
+    const map=navMap(),ox=current().x*ROOM_STEP.x,oz=current().z*ROOM_STEP.z;
+    let target=null;
+    for(const angle of [0,Math.PI/4,-Math.PI/4,Math.PI/2,-Math.PI/2,Math.PI]){
+     const heading=Math.atan2(dx||1,dz||0)+angle;
+     const x=front[0]+Math.sin(heading)*.95,z=front[2]+Math.cos(heading)*.95;
+     if(Math.hypot(x-person.group.position.x,z-person.group.position.z)>.75&&map.free(x+ox,z+oz)){target=new THREE.Vector3(x,from.y,z);break;}
+    }
+    if(!target){companionLastResult='附近没有可退让的位置';return false;}
+    companionYield={actor:user,person,room:current().id,revision:manualRevision,from,to:target,front,transform,poseData:seat.pose,start:elapsed};
+    companionLastResult='正在让出起身空间';dirty=true;wake();return true;
+   }
    companionRise={person,room:current().id,revision:manualRevision,rising:true,front,seat:transform.position,rotation:transform.rotation,pose:transform.pose,poseData:seat.pose,start:elapsed};dirty=true;wake();return true;
   }
   if(action==='furniture'){
