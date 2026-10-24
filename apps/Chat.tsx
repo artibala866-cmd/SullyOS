@@ -9,7 +9,6 @@ import { startsNewMessageGroup } from '../utils/chatMessageGrouping';
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
 import BlobRefStyle from '../components/chat/BlobRefStyle';
 import CharacterPhone from '../components/chat/CharacterPhone';
-import CharacterAvatarLibraryModal from '../components/chat/CharacterAvatarLibraryModal';
 import { readCharacterAvatarLibrary, CHARACTER_AVATAR_CHANGED } from '../utils/characterAvatarLibrary';
 import { readCharacterPhoneSelfProfile } from '../utils/characterPhoneSelfProfile';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
@@ -208,7 +207,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
     const [characterPhoneOpen, setCharacterPhoneOpen] = useState(false);
-    const [avatarLibraryOpen, setAvatarLibraryOpen] = useState(false);
     const [avatarRevision, setAvatarRevision] = useState(0);
     useEffect(() => { const sync = (event: Event) => { if ((event as CustomEvent<{characterId:string}>).detail?.characterId === activeCharacterId) setAvatarRevision(n => n + 1); }; window.addEventListener(CHARACTER_AVATAR_CHANGED, sync); return () => window.removeEventListener(CHARACTER_AVATAR_CHANGED, sync); }, [activeCharacterId]);
     const [collaborationOpen, setCollaborationOpen] = useState(false);
@@ -1774,7 +1772,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             trackEvent('打开聊天功能面板项', { action: type });
         }
         switch (type) {
-            case 'avatar-library': setShowPanel('none'); setAvatarLibraryOpen(true); break;
             case 'character-phone': setShowPanel('none'); setCharacterPhoneOpen(true); break;
             case 'collaboration': setShowPanel('none'); setCollaborationOpen(true); break;
             case 'memory-link': setShowPanel('none'); setMemoryRepairOpen(true); break;
@@ -3974,7 +3971,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 document.body,
              )}
 
-             {avatarLibraryOpen && <CharacterAvatarLibraryModal characterId={char.id} defaultAvatar={char.avatar} visionApiConfig={apiConfig.visionApi} onClose={() => setAvatarLibraryOpen(false)} onApply={async (image) => { await updateCharacter(char.id, {avatar:image}); }} />}
              {homePhone?<header className="home-phone-chat-header"><span className="home-phone-chat-avatar" aria-hidden="true">{char.name.slice(0,1)}</span><div><strong>{chatCharacterDisplayName(char)}</strong><small>{isTyping||instantChatPending?'正在输入…':'在家，也想给你发消息'}</small></div><button onClick={handleManualTrigger} disabled={isTyping} aria-label="让对方回复">↗</button></header>:<ChatHeader
                 selectionMode={selectionMode}
                 selectedCount={selectedMsgIds.size + Array.from(selectedThinkingMsgIds).filter(id => !selectedMsgIds.has(id)).length}
