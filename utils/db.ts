@@ -23,8 +23,6 @@ import {
     VRWorldNovel, VRLibraryCategory, VRNovelAnnotation, CustomCreatorPart, VRMusicRoomState, VRGuestbookState, VRScript, VRStagedPlay, VRLetter,
     WorldProfile, WorldEpisode, StoryTheaterEntry, StoryTheaterPreset, StoryTheaterMask
 } from '../types';
-import { exportPostOfficeLocal, importPostOfficeLocal } from './vrWorld/postOffice';
-import { exportSignalLocal, importSignalLocal } from './vrWorld/signal';
 import { exportLuckinLocal, importLuckinLocal } from './luckinMcpClient';
 import { exportMcdLocal, importMcdLocal } from './mcdMcpClient';
 import { exportMcpLocal, importMcpLocal } from './mcpClient';
@@ -32,7 +30,6 @@ import { exportHome3DLocal, importHome3DLocal, HOME3D_LOCAL_KEYS } from './home3
 import { exportAmsg2GlobalConfig, importAmsg2GlobalConfig } from './activeMsgStore';
 import { exportWorldHomeLocal, importWorldHomeLocal } from './worldHome/localBackup';
 import { exportDesktopSkinLocal, importDesktopSkinLocal } from './desktopSkinBackup';
-import { editLibrary, VR_LIBRARY_RECORD, type LibraryEdit } from './vrWorld/library';
 
 const DB_NAME = 'AetherOS_Data';
 // v67：两条并行线各自用掉了 v65/v66（A线: blob_assets + 生活记录；B线: room_plates 门牌 + digest_reports 消化日志），
@@ -2633,35 +2630,6 @@ export const DB = {
   },
 
   // --- VR World 「彼方」 全局小说库 ---
-  getVRLibraryCategories: async (): Promise<VRLibraryCategory[]> => {
-      const db = await openDB();
-      const rows = await readLocalCursor<{ categories?: VRLibraryCategory[] }>(db, STORE_VR_SETTINGS, { query: VR_LIBRARY_RECORD, limit: 1 });
-      return rows[0]?.categories || [];
-  },
-
-  editVRLibrary: async (edit: LibraryEdit): Promise<void> => {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-          const tx = db.transaction([STORE_VR_SETTINGS, STORE_VR_NOVELS], 'readwrite');
-          const settings = tx.objectStore(STORE_VR_SETTINGS), books = tx.objectStore(STORE_VR_NOVELS);
-          const categoryRequest = settings.get(VR_LIBRARY_RECORD), novelRequest = books.getAll();
-          let ready = 0;
-          let failure: unknown;
-          const apply = () => {
-              if (++ready !== 2) return;
-              try {
-                  const result = editLibrary(categoryRequest.result?.categories || [], novelRequest.result || [], edit);
-                  settings.put({ id: VR_LIBRARY_RECORD, categories: result.categories });
-                  for (const novel of result.changed) books.put(novel);
-              } catch (error) { failure = error; tx.abort(); }
-          };
-          categoryRequest.onsuccess = apply;
-          novelRequest.onsuccess = apply;
-          tx.oncomplete = () => resolve();
-          tx.onerror = tx.onabort = () => reject(failure || tx.error || new Error('书库分类保存失败'));
-      });
-  },
-
   getVRNovelSummaries: async (): Promise<import('../types').VRWorldNovelSummary[]> => {
       const db = await openDB();
       if (!db.objectStoreNames.contains(STORE_VR_NOVELS)) return [];
@@ -3656,8 +3624,6 @@ export const DB = {
           vrPresets,
           vrLetters,
           vrSettings,
-          vrPostOffice: exportPostOfficeLocal(), // 邮局本机配置（身份/后端地址，存 localStorage）
-          vrSignal: exportSignalLocal(),         // 信号坠落处本机记录（句子归属「你·角色」+ 反复用清单，存 localStorage）
           worlds,
           worldEpisodes,
           worldHomeLocal: exportWorldHomeLocal(), // 家园本机配置：全局 API + 文风收藏（存 localStorage）
@@ -4112,14 +4078,6 @@ export const DB = {
           }
           data.vrSettings = undefined as any;
       }, data.vrSettings?.length || 0);
-      await runSection('邮局身份', (data as any).vrPostOffice !== undefined, async () => {
-          importPostOfficeLocal((data as any).vrPostOffice);
-          (data as any).vrPostOffice = undefined;
-      }, 1);
-      await runSection('信号坠落处', (data as any).vrSignal !== undefined, async () => {
-          importSignalLocal((data as any).vrSignal);
-          (data as any).vrSignal = undefined;
-      }, 1);
       await runSection('家园世界', data.worlds !== undefined, async () => {
           await clearAndAdd(STORE_WORLDS, data.worlds, '家园世界', false);
           data.worlds = undefined as any;
