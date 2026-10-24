@@ -234,6 +234,35 @@ export const toHttps = (url: string): string => {
 };
 
 /* ───────────── API ───────────── */
+// 免登录时先试已有 Worker，但不允许失联的 Worker 一直阻塞备用音源。
+const withMusicWorkerDeadline = async <T,>(request: Promise<T>, ms: number): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      request,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('音乐代理响应超时')), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+const getGuestMusicJson = async (url: URL, unavailable: string): Promise<any> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(url.toString(), { signal: controller.signal });
+    if (!res.ok) throw new Error(unavailable);
+    return await res.json();
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw new Error('免登录音乐服务响应超时，请稍后重试');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+/* ───────────── API ───────────── */
 export const musicApi = {
   // 内部：真正打网络（不走缓存）
   async _raw(cfg: MusicCfg, path: string, body: any = {}) {
@@ -252,14 +281,12 @@ export const musicApi = {
   },
   async search(cfg: MusicCfg, keyword: string, offset = 0) {
     try {
-      const result = await musicApi.call(cfg, '/search', { keyword, limit: 30, offset, type: 1 });
+      const result = await withMusicWorkerDeadline(musicApi.call(cfg, '/search', { keyword, limit: 30, offset, type: 1 }), cfg.cookie ? 12000 : 6000);
       if (result?.result?.songs?.length) return result;
     } catch { /* guest fallback */ }
     const u = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'search', source: 'netease', name: keyword, count: '30', pages: String(Math.floor(offset / 30) + 1) })) u.searchParams.set(k, v);
-    const res = await fetch(u.toString());
-    if (!res.ok) throw new Error('免登录搜索服务暂不可用');
-    const items = await res.json();
+    const items = await getGuestMusicJson(u, '免登录搜索服务暂不可用');
     if (!Array.isArray(items)) throw new Error('免登录搜索数据异常');
     return { result: { songs: items.map((x: any) => ({
       id: Number(x.id), name: x.name, ar: [{ name: Array.isArray(x.artist) ? x.artist.join(' / ') : (x.artist || '') }],
@@ -270,29 +297,25 @@ export const musicApi = {
   },
   async songUrl(cfg: MusicCfg, id: number) {
     try {
-      const result = await musicApi.call(cfg, '/song/url', { ids: [id], level: cfg.quality });
+      const result = await withMusicWorkerDeadline(musicApi.call(cfg, '/song/url', { ids: [id], level: cfg.quality }), cfg.cookie ? 12000 : 6000);
       if (result?.data?.[0]?.url) return result;
     } catch { /* guest fallback */ }
     const u = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'url', source: 'netease', id: String(id), br: '128' })) u.searchParams.set(k, v);
-    const res = await fetch(u.toString());
-    if (!res.ok) throw new Error('免登录播放服务暂不可用');
-    const item = await res.json();
+    const item = await getGuestMusicJson(u, '免登录播放服务暂不可用');
     return { data: [{ url: typeof item?.url === 'string' ? item.url : null }] };
   },
   async lyric(cfg: MusicCfg, id: number) {
     // 优先使用原有 Worker；无歌词或接口失败时，尝试免登录歌词服务。
     try {
-      const result = await musicApi.call(cfg, '/lyric', { id });
+      const result = await withMusicWorkerDeadline(musicApi.call(cfg, '/lyric', { id }), cfg.cookie ? 12000 : 6000);
       if (typeof result?.lrc?.lyric === 'string' && result.lrc.lyric.trim()) return result;
     } catch { /* guest fallback */ }
     const u = new URL('https://music-api.gdstudio.xyz/api.php');
     u.searchParams.set('types', 'lyric');
     u.searchParams.set('source', 'netease');
     u.searchParams.set('id', String(id));
-    const res = await fetch(u.toString());
-    if (!res.ok) throw new Error('免登录歌词服务暂不可用');
-    const data = await res.json();
+    const data = await getGuestMusicJson(u, '免登录歌词服务暂不可用');
     if (!data || typeof data !== 'object') throw new Error('免登录歌词数据异常');
     return {
       lrc: { lyric: typeof data.lyric === 'string' ? data.lyric : '' },
