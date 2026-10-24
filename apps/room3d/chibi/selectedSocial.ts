@@ -52,6 +52,32 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
     }
    });return;
   }
+  // The twirl clip starts with a wide capture-space arm pose. Identify
+  // its actual holding hands across the clip, not from a single frame,
+  // then drive those hands toward one stable contact target.
+  if(session?.action==='cmu-20_10'){
+   const [a,b]=both;
+   if(a?.visitor.rig&&b?.visitor.rig&&a.solver&&b.solver){
+    const pairs=[['R','R'],['R','L'],['L','R'],['L','L']] as const;
+    const pair=pairs.map(pair=>({
+     pair,score:[.2,.35,.5,.65,.8].reduce((sum,t)=>{
+      const fa=sampleSelected(session!.clip.actors[0],session!.clip.duration*t);
+      const fb=sampleSelected(session!.clip.actors[1],session!.clip.duration*t);
+      return sum+fa.points[pair[0]+'_hand'].distanceTo(fb.points[pair[1]+'_hand']);
+     },0)
+    })).sort((x,y)=>x.score-y.score)[0].pair;
+    const [sa,sb]=pair;
+    const pa=palm(a.visitor,sa),pb=palm(b.visitor,sb);
+    const target=sharedPalmTarget(pa,pb);
+    // Gradually reach in rather than immediately spreading both arms.
+    const reach=smooth(session!.time-session!.approach,.15,.85);
+    for(const [resident,side] of [[a,sa],[b,sb]] as const){
+     const q=resident.visitor.rig!.bones[side+'_hand'].getWorldQuaternion(new T.Quaternion());
+     resident.solver({side,point:target.clone(),direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(q),normal:new T.Vector3(0,1,0).applyQuaternion(q),curl:.38},weight*reach);
+    }
+    return;
+   }
+  }
   // Arm wrestling must keep one hand pair throughout the contest.
   // Generic nearest-hand detection can switch partners as the wrists rotate.
   if(session?.action==='cmu-22_17'){
