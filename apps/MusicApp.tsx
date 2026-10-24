@@ -43,10 +43,12 @@ const MusicApp: React.FC = () => {
     let cancelled = false;
     const refresh = async () => {
       const entries = await Promise.all(characters.map(async c => {
-        const messages = await DB.getMessagesByCharId(c.id);
-        const last = [...messages].reverse().find(m => m.metadata?.musicListenInvite && m.metadata?.inviter === 'char');
-        const answered = last && messages.some(m => m.timestamp >= last.timestamp && m.metadata?.musicListenInviteResponseTo === last.id);
-        return [c.id, last && !answered ? last.id : 0] as const;
+        // 邀请与回应可能已被记忆宫殿归档；用完整历史判断真正尚未回应的邀请。
+        const messages = await DB.getMessagesByCharId(c.id, true);
+        const pending = [...messages].reverse().find(m =>
+          m.metadata?.musicListenInvite && m.metadata?.inviter === 'char' &&
+          !messages.some(response => response.metadata?.musicListenInviteResponseTo === m.id));
+        return [c.id, pending?.id ?? 0] as const;
       }));
       if (!cancelled) setCharInvites(Object.fromEntries(entries.filter(([, id]) => id > 0)));
     };
@@ -273,7 +275,7 @@ const MusicApp: React.FC = () => {
               <button className="ml-2 underline" onClick={() => void answerCharInvite(c.id, false)}>拒绝</button>
             </span>
           ))}
-          {characters.map(c => {
+          {characters.filter(c => !charInvites[c.id]).map(c => {
             const active = listeningTogetherWith.includes(c.id);
             const status = listeningInvites[c.id];
             return (
