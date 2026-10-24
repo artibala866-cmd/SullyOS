@@ -109,7 +109,7 @@ const VersionInfo: React.FC = () => {
                 </span>
             </div>
             {hint && (
-                <div className="text-[9px] font-mono text-amber-500/80 tracking-normal normal-case">
+                <div className="text-[9px] font-mono text-neutral-500/80 tracking-normal normal-case">
                     {hint}
                 </div>
             )}
