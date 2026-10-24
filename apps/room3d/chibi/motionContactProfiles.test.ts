@@ -42,21 +42,26 @@ describe('authored paired contact windows',()=>{
   expect(contactEnvelope(profile,.50)).toBeGreaterThan(0);
   expect(contactEnvelope(profile,.85)).toBe(1);
  });
- it('preserves grab reach window',()=>{
+ it('does not drag the grab actor into a T pose before the clip raises its arms',()=>{
   const profile=motionContactProfile('cmu-18_03');
   if(profile?.kind!=='pairedHands')throw Error('Missing grab profile');
   expect(profile.curl).toBe(.45);
-  expect(contactEnvelope(profile,.12)).toBe(0);
-  expect(contactEnvelope(profile,.55)).toBe(1);
+  // The renderer holds source frame zero for .6 s; IK must not start yet.
+  expect(contactEnvelope(profile,.60)).toBe(0);
+  expect(contactEnvelope(profile,.90)).toBe(0);
+  expect(contactEnvelope(profile,1.10)).toBeGreaterThan(0);
+  expect(contactEnvelope(profile,1.30)).toBe(1);
  });
- it('releases low-five before walking away',()=>{
+ it('aligns low-five contact to the actual capture after the .6-second source offset',()=>{
   const profile=motionContactProfile('cmu-20_12');
   if(profile?.kind!=='pairedHands')throw Error('Missing low-five profile');
   expect(profile.curl).toBe(.12);
-  expect(contactEnvelope(profile,.09)).toBe(0);
-  expect(contactEnvelope(profile,.35)).toBe(1);
-  expect(contactEnvelope(profile,.65)).toBe(1);
-  expect(contactEnvelope(profile,1.1)).toBe(0);
+  // Authored palms approach around source .8–1.1 s (action 1.4–1.7).
+  expect(contactEnvelope(profile,.60)).toBe(0);
+  expect(contactEnvelope(profile,1.05)).toBe(0);
+  expect(contactEnvelope(profile,1.42)).toBe(1);
+  expect(contactEnvelope(profile,1.70)).toBe(1);
+  expect(contactEnvelope(profile,2.03)).toBe(0);
   expect(contactEnvelope(profile,Number.NaN)).toBe(0);
  });
 });
