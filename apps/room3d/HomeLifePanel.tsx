@@ -4,8 +4,6 @@ import type {HomeConversationContext} from '../../utils/homeConversation';
 import {makeDebugLogger} from '../../utils/devDebug';
 const actionLog=makeDebugLogger('api','Home action');
 import {awaitHomeStage} from '../../utils/homeReplyStage';
-import {getLastInnerState} from '../../utils/emotionState';
-import {homeEmotionEnabled} from '../../utils/homeEmotion';
 import type {HomeInitiativeRequest} from './HomePresenceBubbles';
 
 import {Button,Switch} from './islandComponents';
@@ -23,14 +21,6 @@ import {waitForHomeSecretOrigin} from '../../utils/homeSecrets';
 import type {SecretNoteOrigin} from '../../utils/secretNote';
 
 export default function HomeLifePanel({editor,character,user,api,conversationContext,panel,onPanel,onDefinition,onFigures,initiative,active=true,onBusyChange,presentation='home'}:{presentation?:'home'|'homely';onBusyChange?:(busy:boolean)=>void;active?:boolean;initiative?:HomeInitiativeRequest;editor:HomeEditor;character?:CharacterProfile;user?:UserProfile;api?:APIConfig;conversationContext?:HomeConversationContext;panel:string|null;onPanel:(name:string|null)=>void;onDefinition?:()=>void;onFigures?:()=>void}){
- const [inner,setInner]=useState<{charId?:string;text:string}>({charId:character?.id,text:character?getLastInnerState(character.id):''});
- useEffect(()=>{
-  const id=character?.id;
-  setInner({charId:id,text:id?getLastInnerState(id):''});
-  const updateInner=(event:Event)=>{const d=(event as CustomEvent).detail;if(id&&d?.charId===id&&typeof d.innerState==='string')setInner({charId:id,text:d.innerState});};
-  window.addEventListener('emotion-innerstate-updated',updateInner);
-  return ()=>window.removeEventListener('emotion-innerstate-updated',updateInner);
- },[character?.id,panel]);
  useEffect(()=>()=>onBusyChange?.(false),[onBusyChange]);
  const [draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[filter,setFilter]=useState('all'),[limit,setLimit]=useState(40),[revision,refresh]=useState(0);
  useEffect(()=>{onBusyChange?.(busy);},[busy,onBusyChange]);
@@ -115,16 +105,13 @@ export default function HomeLifePanel({editor,character,user,api,conversationCon
  const remove=(record:HomeRecord)=>{controller.current?.abort(new DOMException('家园记录已修改，取消旧回复','AbortError'));const all=current();setRemoved({record,index:all.findIndex(e=>e.id===record.id)});update(all.filter(e=>e.id!==record.id));};
  const restore=()=>{if(!removed)return;const all=current();all.splice(Math.min(removed.index,all.length),0,removed.record);update(all);setRemoved(undefined);};
  const sourceName={user:'手动',local:'自主',model:'模型'};
- const title=panel==='mood'?`${character?.name||'TA'}的心情`:panel==='chat'?`和${character?.name||'TA'}聊聊`:panel==='journal'?'家里的日常':'我的家';
+ const title=panel==='chat'?`和${character?.name||'TA'}聊聊`:panel==='journal'?'家里的日常':'我的家';
  if(!panel||panel==='interact')return null;
  const docked=presentation==='homely'&&panel==='chat';
  return <div className={`home-life-overlay ${docked?'homely-chat':''}`} onPointerDown={e=>{if(!docked&&e.target===e.currentTarget)onPanel(null);}}>
   <section ref={sheet} className={`home-life-sheet home-life-${panel}`} aria-label={title} role="dialog" aria-modal={docked?undefined:true} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onPanel(null);}if(e.key==='Tab'&&!docked){const items=[...e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),textarea:not(:disabled),input:not(:disabled),summary')].filter(el=>el.getClientRects().length);const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}}}>
    <header><div><small>{scene.roomName}</small><h2>{title}</h2></div><button className="home-icon" aria-label={docked?'收起家园聊天':'关闭面板'} onClick={()=>onPanel(null)}>{docked?<span className="homely-chat-collapse" aria-hidden="true">⌄</span>:<X size={22}/>}</button></header>
-   {panel==='mood'?<div className="home-mood-detail">
-    {character&&homeEmotionEnabled(character)&&<section className="home-inner-state" aria-label="内心想法"><h3>内心想法</h3><p>{inner.charId===character.id&&inner.text?inner.text:'还没有内心想法，情绪评估完成后会显示在这里。'}</p></section>}
-    {!character||!homeEmotionEnabled(character)?<p className="home-life-empty">尚未开启情绪 buff，可在角色的情绪设置中开启。</p>:!character.activeBuffs?.length?<p className="home-life-empty">暂时没有情绪 buff，交谈后的情绪更新会显示在这里。</p>:character.activeBuffs.map(buff=><article key={buff.id} className="home-mood-item"><span className="home-mood-icon" aria-hidden="true">{buff.emoji||'💭'}</span><div><h3>{buff.label}</h3><span className="home-mood-strength" aria-label={`强度 ${buff.intensity}`}>{'●'.repeat(Math.max(1,Math.min(5,buff.intensity||1)))}</span>{buff.description&&<p>{buff.description}</p>}</div></article>)}
-   </div>:panel==='more'?<div className="home-menu-grid island-menu-grid">
+   {panel==='more'?<div className="home-menu-grid island-menu-grid">
     {[
      {label:'宠物',tone:'mint',note:'照顾伙伴、装扮与小记',Icon:PawPrint,run:()=>{onPanel(null);trackHomeFeature('pets');editor.openPets();}},
      {label:'布置房间',tone:'butter',note:'家具与装修',Icon:PaintBrush,run:()=>{onPanel(null);trackHomeFeature('edit');editor.openPanel('decorate');}},
