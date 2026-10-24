@@ -36,7 +36,7 @@ export function currentLifeActivity(slots: Array<{startTime: string; activity: s
     const date = new Date(at);
     const minutes = date.getHours() * 60 + date.getMinutes();
     const sorted = slots.map(slot => {
-        const match = /^(\\d{1,2}):(\\d{2})$/.exec(slot.startTime);
+        const match = /^(\d{1,2}):(\d{2})$/.exec(slot.startTime);
         return match ? { ...slot, minute: Number(match[1]) * 60 + Number(match[2]) } : null;
     }).filter((slot): slot is {startTime: string; activity: string; minute: number} => slot !== null).sort((a,b) => a.minute-b.minute);
     if (!sorted.length) return null;
