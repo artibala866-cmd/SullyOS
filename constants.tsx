@@ -84,8 +84,8 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Chat, name: 'Message', icon: 'Chat', color: 'green' },
   { id: AppID.Call, name: '电话', icon: 'Call', color: 'emerald' },
   { id: AppID.GroupChat, name: '群聊', icon: 'GroupChat', color: 'violet' },
-  { id: AppID.Room, name: '小小窝', icon: 'Room', color: 'rose' },
-  // 家园不再做独立桌面图标，改从「小小窝 · 像素家园」里进入（openApp(AppID.WorldHome) 仍可渲染）
+  { id: AppID.Room, name: '3D家园', icon: 'Room', color: 'rose' },
+  // 家园不再做独立桌面图标，由 3D 家园统一进入（openApp(AppID.WorldHome) 仍可渲染）
   // { id: AppID.WorldHome, name: '家园', icon: 'WorldHome', color: 'emerald' },
   // { id: AppID.Browser, name: '浏览器', icon: 'Browser', color: 'blue' }, // Hidden
   { id: AppID.Date, name: '见面', icon: 'Date', color: 'pink' },
@@ -109,7 +109,7 @@ export const INSTALLED_APPS: AppConfig[] = [
 ];
 
 // 桌面上没有图标、但仍能从别处进去的 App。使用统计要靠这份补上中文名——
-// 只查 INSTALLED_APPS 的话这些 App 会被静默漏掉（比如「家园」是从小小窝进的）。
+// 只查 INSTALLED_APPS 的话这些 App 会被静默漏掉（比如兼容入口「家园」不在桌面上）。
 export const HIDDEN_APP_NAMES: Partial<Record<AppID, string>> = {
   [AppID.WorldHome]: '家园',
 };
