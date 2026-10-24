@@ -85,7 +85,7 @@ export const JournalThemeArtwork: React.FC<JournalThemeArtworkProps> = ({ preset
 
 export const JournalThemeThumbnail: React.FC<{ preset: JournalAppearancePresetId }> = ({ preset }) => {
     if (preset === 'original') {
-        return <div className="h-11 overflow-hidden rounded-lg border border-amber-200 bg-amber-50 p-2"><div className="h-full rounded-r-md border-l-4 border-amber-700 bg-white shadow-sm" /></div>;
+        return <div className="h-11 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 p-2"><div className="h-full rounded-r-md border-l-4 border-neutral-700 bg-white shadow-sm" /></div>;
     }
     if (preset === 'letterpress') {
         return <svg className="h-11 w-full rounded-lg bg-[#d8d8d8]" viewBox="0 0 150 48" aria-hidden="true"><path fill="#ebebeb" stroke="#5c5c5c" d="M9 8h132v32H9z"/><path fill="none" stroke="#616161" strokeDasharray="3 2" d="M18 30C49 8 72 43 111 16"/><circle cx="115" cy="15" r="9" fill="none" stroke="#616161" strokeWidth="2"/><path fill="#4f4f4f" d="M18 14h47v4H18zm0 7h31v3H18z"/></svg>;
