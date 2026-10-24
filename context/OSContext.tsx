@@ -41,6 +41,7 @@ import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
 import { runCharacterPhoneAutonomy } from '../utils/characterPhoneAutonomy';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
 import { CHARACTER_MOMENTS_CHANGED } from '../utils/characterPhoneMoments';
+import { considerAutonomousNpcMoments } from '../utils/refreshNpcMoments';
 import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
 import { getLifeEventConsumers, shouldDispatchLifeEvent } from '../utils/characterLifeEventRouting';
 import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
@@ -2440,6 +2441,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current, api,
               });
               if (!disposed) await runCharacterMomentInteractionAutonomy({char, api});
+              if (!disposed) await considerAutonomousNpcMoments(char.id, api);
           } catch (error) {
               console.warn('[CharacterPhone] autonomous foreground tick skipped', error);
           } finally { running = false; }
