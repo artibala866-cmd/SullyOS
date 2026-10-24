@@ -2407,9 +2407,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const api = resolveDialogueApi(apiConfigRef.current, char);
           if (consumers.includes('moments')) void considerAutonomousMoment({
               char, user: userProfileRef.current, groups: groupsRef.current,
-              realtimeConfig: realtimeConfigRef.current, api
+              realtimeConfig: realtimeConfigRef.current, api,
+              budgeted: recordedEvent.source === 'phone',
           });
-          if (consumers.includes('memo')) void considerCharacterMemo({characterId:charId,name:char.name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,6000),api,events:readCharacterLifeEvents(charId),char}).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
+          if (consumers.includes('memo')) void considerCharacterMemo({characterId:charId,name:char.name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,6000),api,events:readCharacterLifeEvents(charId),char,
+              budgeted: recordedEvent.source === 'phone',
+          }).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
       };
       const onVisible = () => { if (document.visibilityState === 'visible') recoverPhoneMemories(); };
       window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
@@ -2447,7 +2450,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!canUsePhoneApiBudget(char.id)) return;
           running = true;
           try {
-              const featureOrder = ['wechat', 'comments', 'browser', 'profile', 'npc-moments'] as const;
+              const featureOrder = ['wechat', 'comments', 'browser', 'profile', 'npc-moments', 'moments-post', 'memo'] as const;
               const index = phoneFeatureCursor.get(char.id) || 0;
               const order = [...featureOrder.slice(index), ...featureOrder.slice(0, index)];
               for (const feature of order) {
@@ -2469,8 +2472,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   } else if (feature === 'profile') {
                       await runCharacterPhoneSelfAutonomy(char, api,
                           async image => { updateCharacter(char.id, {avatar:image}); });
-                  } else {
+                  } else if (feature === 'npc-moments') {
                       await considerAutonomousNpcMoments(char.id, api);
+                  } else if (feature === 'moments-post') {
+                      await considerAutonomousMoment({
+                          char, user:userProfileRef.current!, groups:groupsRef.current,
+                          realtimeConfig:realtimeConfigRef.current, api, budgeted:true,
+                      });
+                  } else {
+                      await considerCharacterMemo({
+                          characterId:char.id, name:char.name,
+                          persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,4200),
+                          api,events:readCharacterLifeEvents(char.id),char,budgeted:true,
+                      });
                   }
                   const after = readPhoneApiBudget(char.id).requests;
                   if (after > before) {
