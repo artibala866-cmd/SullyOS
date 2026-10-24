@@ -11,12 +11,12 @@ import React from 'react';
 import { seedFloat, seedRange, seedCentered } from './paper';
 
 const PEN_COLORS = [
-    '#e89b91',  // 樱粉
-    '#c94a4a',  // 红
-    '#5a7a8e',  // 蓝
-    '#88c5a8',  // 绿
-    '#d6b85a',  // 黄
-    '#a98ec4',  // 紫
+    '#ababab',  // 樱粉
+    '#656565',  // 红
+    '#757575',  // 蓝
+    '#b6b6b6',  // 绿
+    '#b8b8b8',  // 黄
+    '#989898',  // 紫
 ];
 
 type MarkKind = 'underline' | 'circle' | 'arrow' | 'star' | 'tick' | 'wave' | 'highlight';
