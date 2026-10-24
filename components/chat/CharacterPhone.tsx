@@ -24,6 +24,7 @@ import {
   type CharacterPhoneChat,
 } from '../../utils/characterPhoneChats';
 import { findKnownNpc, registerDiscoveredNpc, noteNpcInteraction } from '../../utils/characterNpcNetwork';
+import { isCharacterPhoneAutonomyEnabled, setCharacterPhoneAutonomyEnabled } from '../../utils/characterPhoneAutonomy';
 import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
 import type { CharacterProfile, DailySchedule } from '../../types';
 import { parseGeneratedPhoneMessages, type PhoneMessage } from '../../utils/characterPhoneIdentity';
@@ -51,6 +52,8 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     return lib.entries.find(entry => entry.id === lib.activeId)?.image || char.avatar;
   }, [characterId, char.avatar, avatarRevision]);
   const [screen, setScreen] = useState<Screen>('home');
+  const [npcAutonomyEnabled, setNpcAutonomyEnabled] = useState(() => isCharacterPhoneAutonomyEnabled(characterId));
+  useEffect(() => setNpcAutonomyEnabled(isCharacterPhoneAutonomyEnabled(characterId)), [characterId]);
   const [tab, setTab] = useState<Tab>('chats');
   const [thread, setThread] = useState('');
   const [privateThread, setPrivateThread] = useState<PhoneThreadV2 | null>(null);
@@ -433,7 +436,7 @@ ${scheduleContext}
         {screen === 'sms' && <p className="p-8 text-center text-sm text-[#888]">短信收发功能待接入</p>}
         {screen === 'browser' && <p className="p-8 text-center text-sm text-[#888]">浏览器功能待接入</p>}
         {screen === 'wallet' && <p className="p-8 text-center text-sm text-[#888]">钱包与小红书集市交易后续接入</p>}
-        {screen === 'settings' && <p className="p-8 text-center text-sm text-[#888]">NPC互动和API设置后续接入；当前生成使用私聊同一套聊天API</p>}
+        {screen === 'settings' && <div className="space-y-3 p-4"><label className="flex items-center justify-between rounded-xl bg-white px-4 py-4 text-sm"><span className="space-y-1"><span className="block font-semibold text-[#222]">NPC自主生活</span><span className="block text-xs text-[#777]">角色与联系人自主续聊、朋友圈评论和回复</span></span><input type="checkbox" className="h-5 w-5 accent-[#444]" checked={npcAutonomyEnabled} onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/></label><p className="px-2 text-xs leading-5 text-[#777]">使用角色当前聊天 API。后台活动受日程、每日次数与冷却约束；网页关闭后本地调度不会持续运行。主动消息 2.0 仍按原设置工作。</p></div>}
       </main>
       {screen === 'thread' && active && !isPrivateThread && <form className="flex shrink-0 items-center gap-2 border-t border-[#ddd] bg-[#f8f8f8] px-3 py-3" onSubmit={e=>{e.preventDefault();const guidance=chatComposer;setChatComposer('');void generate(active.contactId||active.name,guidance);}}><input aria-label="聊天续写方向" placeholder="输入聊天方向（可留空）" value={chatComposer} onChange={e=>setChatComposer(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-sm outline-none"/><button type="submit" disabled={busy} className="shrink-0 rounded-lg bg-[#07b75b] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busy?'续写中…':'发送'}</button></form>}
       {screen === 'home' && <nav className="mx-4 mb-4 grid shrink-0 grid-cols-3 gap-4 rounded-3xl bg-white/70 px-5 py-4">{([{id:'calls',label:'电话',Icon:Phone,color:'bg-[#36bd61]'},{id:'sms',label:'短信',Icon:ChatText,color:'bg-[#4bc77d]'},{id:'browser',label:'浏览器',Icon:Globe,color:'bg-[#5598df]'}] as const).map(({id,label,Icon,color})=><button key={id} onClick={()=>setScreen(id)} className="flex flex-col items-center gap-1 text-xs"><span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-white ${color}`}><Icon size={27} weight="fill"/></span>{label}</button>)}</nav>}
