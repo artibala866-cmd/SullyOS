@@ -86,13 +86,8 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
    });finish();return;
   }
   const actionTime=s.time-s.approach,kissAction=s.action==='home-kiss',sourceTime=T.MathUtils.clamp(kissAction?Math.max(0,actionTime-.15)+1.5:actionTime-.6,0,s.clip.duration),weight=kissAction?smooth(actionTime,0,.25):smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
-  const both=s.ids.map(id=>states.get(id)!),frames=s.clip.actors.map(a=>sampleSelected(a,sourceTime)),points=locations(s,sourceTime);
-  // One short correction step, then hold the same spot through the kiss.
-  if(kissAction&&!pinned){
-   const from=locations(s,0),to=locations(s,3.5);
-   const step=smooth(actionTime,.05,.85);
-   points.forEach((p,i)=>p.copy(from[i]).lerp(to[i],step));
-  }
+  const both=s.ids.map(id=>states.get(id)!),frames=s.clip.actors.map(a=>sampleSelected(a,sourceTime)),points=kissAction&&!pinned?locations(s,3.5):locations(s,sourceTime);
+  // Kiss has one destination: approach reaches it, then the roots remain fixed.
   for(const r of states.values())if(!s.ids.includes(r.id))r.visitor.animate(s.time,'idle');
   both.forEach((r,i)=>{
    if(r.id===pinned?.id){holdPinned();if(!isIntimacy(s.action))r.visitor.applySelectedFrame(frames[i],weight,pinned.pose);r.visitor.root.updateWorldMatrix(true,true);return;}
@@ -113,14 +108,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
     r.visitor.root.quaternion.copy(turn).slerp(toward,smooth(actionTime,0,.6));
     // 与拥抱一样先完成站位，再迈近一步；仅在实际移动时播放短促步态。
     // 2.45 秒前完成落脚，剩余时间停稳后再进入亲吻。
-    if(kissAction&&actionTime>=.05&&actionTime<.85){
-     const previous=locations(s,0)[i],destination=locations(s,3.5)[i];
-     const direction=destination.clone().sub(previous);direction.y=0;
-     if(direction.lengthSq()>.0001){
-      r.visitor.root.quaternion.copy(new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(direction.x,direction.z)));
-      r.visitor.animate((actionTime-.05)*1.2,'walk');
-     }else r.visitor.animate(sourceTime,'idle');
-    }else r.visitor.animate(sourceTime,'idle');
+    r.visitor.animate(sourceTime,'idle');
    }else{
     const {heading,lean}=splitMotionHeading(frames[i].rotations.hips);
     // The sampled pelvis already contains this actor's capture heading. Put it
@@ -184,18 +172,19 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
     if(pinned){const i=ids.indexOf(pinned.id),sourceHeading=splitMotionHeading(sampleSelected(clip.actors[i],0).rotations.hips).heading;rotation.copy(pinnedRotation!).multiply(sourceHeading.invert());}
     const candidate={action,ids,time:0,clip,origin,sourceOrigin,rotation,scale,starts,turns,paths:[] as T.Vector3[][],approach:0};
     const fits=()=>{const paths=both.map(()=>[] as T.Vector3[]),first=locations(candidate,0);
-     const routes=starts.map((p,i)=>ids[i]===pinned?.id?[p.clone(),p.clone()]:options.findPath?options.findPath(p,first[i]):[p.clone(),first[i].clone()]);if(routes.some(p=>!p?.length))return false;
+     const target=action==='home-kiss'&&!pinned?locations(candidate,3.5):first;
+     const routes=starts.map((p,i)=>ids[i]===pinned?.id?[p.clone(),p.clone()]:p.distanceTo(target[i])<.12?[p.clone(),p.clone()]:options.findPath?options.findPath(p,target[i]):[p.clone(),target[i].clone()]);if(routes.some(p=>!p?.length))return false;
      candidate.paths=routes as T.Vector3[][];
-     candidate.approach=Math.max(...candidate.paths.map((path,i)=>path.slice(1).reduce((n,p,j)=>n+p.distanceTo(path[j]),0)/(both[i].walkSpeed??1.05)));
+     candidate.approach=Math.max(...candidate.paths.map((path,i)=>path.slice(1).reduce((n,p,j)=>n+p.distanceTo(path[j]),0)/((both[i].walkSpeed??1.05)*(action==='home-kiss'?1.65:1))));
      for(let i=0;i<routes.length;i++)for(let j=1;j<routes[i]!.length;j++){const from=routes[i]![j-1],to=routes[i]![j],steps=Math.max(1,Math.ceil(from.distanceTo(to)/.08));for(let step=0;step<=steps;step++)paths[i].push(from.clone().lerp(to,step/steps));}
      const moving=(paths:T.Vector3[][])=>paths.filter((_,i)=>ids[i]!==pinned?.id);
      if(options.canPlace&&!options.canPlace(moving(paths)))return false;
      const motion=both.map(()=>[] as T.Vector3[]);
-     for(let t=0;t<=clip.duration+.001;t+=.1)locations(candidate,Math.min(t,clip.duration)).forEach((p,i)=>motion[i].push(p));
+     for(let t=0;t<=clip.duration+.001;t+=.1)(action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,Math.min(t,clip.duration))).forEach((p,i)=>motion[i].push(p));
      const perform=options.canPerform||options.canPlace;
      if(perform&&!perform(moving(motion)))return false;
      // Temporary furniture overlap must not leave the residents standing in it.
-     return !options.canPlace||options.canPlace(moving(locations(candidate,clip.duration).map(p=>[p])));};
+     return !options.canPlace||options.canPlace(moving((action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,clip.duration)).map(p=>[p])));};
     let valid=fits();if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned)for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
     if(!valid)throw Error(action==='cmu-22_09'?'坐着的人身后没有可站立的位置，请先给椅背后留出空地':'这段动作需要更大的空地，先移动居民或挪开家具');
     session=candidate;prop=createSocialProp(action,both);draw();return true;
