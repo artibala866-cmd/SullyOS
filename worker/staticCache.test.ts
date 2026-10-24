@@ -180,6 +180,7 @@ describe('static resource cache', () => {
     await f.engine.markReplaced();
     f.bodies['index.html'] = '<html>two</html>';
     expect(await f.text('')).toContain('two');
+    expect(f.requestModes.at(-1)).toBe('no-store'); // Never reuse the browser's old HTML.
     const restarted = await fixture('one', f.storage); restarted.offline();
     expect(await restarted.text('')).toContain('one');
   });
