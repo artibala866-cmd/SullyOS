@@ -17,6 +17,7 @@ const RoomApp:React.FC=()=>{
  const intent=roomLaunch.peek();
  const [selected,setSelected]=useState<string|null>(()=>intent?.charId||null);
  const [dreamOpen,setDreamOpen]=useState(()=>!!intent?.openDream);
+ const [dreamOwner,setDreamOwner]=useState<string|null>(()=>intent?.openDream?intent.charId??null:null);
  const [group,setGroup]=useState(GROUP_FILTER_ALL);
  const dream=useDreamSim();
  useEffect(()=>{
@@ -24,7 +25,7 @@ const RoomApp:React.FC=()=>{
    const next=roomLaunch.consume();
    if(!next)return;
    if(next.charId){setSelected(next.charId);setActiveCharacterId(next.charId);}
-   if(next.openDream)setDreamOpen(true);
+   if(next.openDream){setDreamOwner(next.charId??null);setDreamOpen(true);}else{setDreamOpen(false);setDreamOwner(null);}
   };
   apply();
   return roomLaunch.subscribe(apply);
@@ -32,9 +33,10 @@ const RoomApp:React.FC=()=>{
  useEffect(()=>{
   if(!dream.deepLink||dream.status==='idle')return;
   setSelected(dream.charId);setActiveCharacterId(dream.charId);
-  setDreamOpen(true);dreamSimStore.clearDeepLink();
+  setDreamOwner(dream.charId);setDreamOpen(true);dreamSimStore.clearDeepLink();
  },[dream.deepLink,dream.status,dream.status==='idle'?null:dream.charId,setActiveCharacterId]);
  const char=characters.find(c=>c.id===selected);
+ const dreamChar=characters.find(c=>c.id===dreamOwner)??char;
  const residents=char?[...(userProfile.vrState?.chibi?.state?[{id:'user',label:userProfile.name||'你',state:userProfile.vrState.chibi.state}]:[]),...characters.filter(c=>c.id!==char.id&&(c.chibiStudio?.home3D?.state||c.chibiStudio?.room?.state||c.chibiStudio?.vr?.state)).map(c=>({id:c.id,label:c.name,avatar:c.avatar,state:c.chibiStudio?.home3D?.state??c.chibiStudio?.room?.state??c.chibiStudio?.vr?.state,hair:c.chibiStudio?.home3D?.hair}))]:[];
  return <div className="relative h-full w-full overflow-hidden bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-900">
   {char?<Suspense fallback={<div className="grid h-full place-items-center text-sm">正在打开 3D 家园…</div>}>
@@ -52,8 +54,8 @@ const RoomApp:React.FC=()=>{
     </button>)}
    </div>
   </div>}
-  {char&&!dreamOpen&&<button onClick={()=>setDreamOpen(true)} aria-label="查看梦境" className="absolute left-3 top-20 z-40 flex items-center gap-2 rounded-full border border-white/70 bg-white/85 px-3 py-2 text-xs text-neutral-800 shadow-md backdrop-blur"><MoonStars size={17}/>梦境</button>}
-  {dreamOpen&&char&&<div className="absolute inset-0 z-50"><DreamTheater char={char} onExit={()=>setDreamOpen(false)}/></div>}
+  {char&&!dreamOpen&&<button onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" className="absolute left-3 top-20 z-40 flex items-center gap-2 rounded-full border border-white/70 bg-white/85 px-3 py-2 text-xs text-neutral-800 shadow-md backdrop-blur"><MoonStars size={17}/>梦境</button>}
+  {dreamOpen&&dreamChar&&<div className="absolute inset-0 z-50"><DreamTheater char={dreamChar} onExit={()=>{setDreamOpen(false);setDreamOwner(null);}}/></div>}
  </div>;
 };
 export default RoomApp;
