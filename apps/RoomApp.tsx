@@ -54,7 +54,7 @@ const RoomApp:React.FC=()=>{
     </button>)}
    </div>
   </div>}
-  {char&&!dreamOpen&&<button onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" className="absolute left-3 top-20 z-40 flex items-center gap-2 rounded-full border border-white/70 bg-white/85 px-3 py-2 text-xs text-neutral-800 shadow-md backdrop-blur"><MoonStars size={17}/>梦境</button>}
+  {char&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="absolute right-4 top-[174px] z-40 flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0,0,0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation"}}><MoonStars size={23} weight="thin"/></button>}
   {dreamOpen&&dreamChar&&<div className="absolute inset-0 z-50"><DreamTheater char={dreamChar} onExit={()=>{setDreamOpen(false);setDreamOwner(null);}}/></div>}
  </div>;
 };
