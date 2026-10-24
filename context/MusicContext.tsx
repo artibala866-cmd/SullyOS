@@ -262,7 +262,8 @@ export const musicApi = {
     if (!Array.isArray(items)) throw new Error('免登录搜索数据异常');
     return { result: { songs: items.map((x: any) => ({
       id: Number(x.id), name: x.name, ar: [{ name: Array.isArray(x.artist) ? x.artist.join(' / ') : (x.artist || '') }],
-      al: { name: x.album || '', picUrl: x.pic_id ? 'https://music-api.gdstudio.xyz/api.php?types=pic&source=netease&id=' + encodeURIComponent(x.pic_id) + '&size=300' : '' },
+      // GD Studio 的 types=pic 返回的是 JSON {url}，不能直接当 <img src> 使用。
+      al: { name: x.album || '', picUrl: typeof x.pic_url === 'string' && /^https:\/\//i.test(x.pic_url) ? x.pic_url : '' },
       dt: Number(x.duration || 0) * 1000, fee: 0,
     })).filter((x: any) => Number.isFinite(x.id)) } };
   },
@@ -837,6 +838,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLoadingSong(true); setLyric([]); setTlyric([]); setProgress(0); setDuration(0);
     try {
       // ── Local-source branch ── 本地生成的歌（写歌 App 出歌）从 IndexedDB 取 blob
+      if (song.local && !song.localAssetKey) {
+        toast('本地歌曲缺少音频文件，无法播放', 'error');
+        return;
+      }
       if (song.local && song.localAssetKey) {
         const a = audioRef.current!;
         const entry = await DB.getAssetRaw(song.localAssetKey).catch(() => null) as
