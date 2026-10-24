@@ -14,20 +14,20 @@ import TokenImg from '../../components/os/TokenImg';
 export const C = {
   bg:       '#fbfbff',       // 几乎纯白 (一抹紫灰)
   bgDeep:   '#f3f1fa',       // 轻雾紫
-  bgTint:   '#ebe9f5',       // 最深层也只是浅紫雾
-  primary:  '#807c9d',       // 淡紫调灰 — 比深紫更柔，饱和度更低
-  accent:   '#b3a8ce',       // 淡紫
-  soft:     '#e0d9f0',       // secondary container — 紫雾
-  glow:     '#cdc6e9',       // 发光淡紫
-  sakura:   '#f4c2cf',       // 樱花粉 (装饰)
-  lavender: '#cfc3e8',       // 薰衣草 (装饰)
+  bgTint:   '#eaeaea',       // 最深层也只是浅紫雾
+  primary:  '#7f7f7f',       // 淡紫调灰 — 比深紫更柔，饱和度更低
+  accent:   '#adadad',       // 淡紫
+  soft:     '#dcdcdc',       // secondary container — 紫雾
+  glow:     '#cacaca',       // 发光淡紫
+  sakura:   '#cecece',       // 樱花粉 (装饰)
+  lavender: '#c8c8c8',       // 薰衣草 (装饰)
   surface:  'rgba(255,255,255,0.65)',
   glass:    'rgba(255,255,255,0.35)',
   text:     '#22232a',       // 正文
-  muted:    '#7c779a',       // 弱文字 (紫调)
-  faint:    '#bcb8cc',       // 超弱
-  vip:      '#d4a06a',       // VIP
-  danger:   '#ba1a1a',
+  muted:    '#7b7b7b',       // 弱文字 (紫调)
+  faint:    '#bababa',       // 超弱
+  vip:      '#a7a7a7',       // VIP
+  danger:   '#3c3c3c',
 } as const;
 
 /* ══════════ 全局 CSS 动画 (注入一次) ══════════ */
@@ -191,7 +191,7 @@ export const SongRow: React.FC<{
       <div className="flex items-center gap-1.5 text-sm truncate" style={{ color: C.text }}>
         {isVip && (
           <span className="text-[8px] px-1.5 py-[1px] rounded-full text-white font-medium shrink-0"
-            style={{ background: `linear-gradient(135deg, ${C.vip}, #e0b88a)`, letterSpacing: '0.05em' }}>VIP</span>
+            style={{ background: `linear-gradient(135deg, ${C.vip}, #bdbdbd)`, letterSpacing: '0.05em' }}>VIP</span>
         )}
         <span className="truncate font-normal">{name}</span>
       </div>
