@@ -4,7 +4,6 @@ import { AppConfig } from '../../types';
 import { Icons } from '../../constants';
 import { isPaperWallpaper, useOS } from '../../context/OSContext';
 import { useBlobRefUrl } from '../../utils/blobRef';
-import { getAcnhIcon } from './acnhIcons';
 import { preloadApp } from './appPreload';
 
 interface AppIconProps {
@@ -15,20 +14,11 @@ interface AppIconProps {
   variant?: 'default' | 'minimal' | 'dock';
 }
 
-// 动森（NookPhone）风格瓦片配色 —— 直接用 animal-island-ui 的应用色板（精确 hex）。
-const NOOK_TILE_COLORS: Record<string, string> = {
-  indigo: '#9f9f9f', violet: '#919191', purple: '#919191', fuchsia: '#b8b8b8',
-  pink: '#b8b8b8', rose: '#909090', red: '#909090', orange: '#a0a0a0',
-  amber: '#cfcfcf', lime: '#cecece', green: '#b5b5b5', emerald: '#c1c1c1',
-  cyan: '#c1c1c1', blue: '#9f9f9f', slate: '#858585',
-};
-
 const AppIcon: React.FC<AppIconProps> = React.memo(({ app, onClick, size = 'md', hideLabel = false, variant = 'default' }) => {
   const { customIcons, theme } = useOS();
   const IconComponent = Icons[app.icon] || Icons.Settings;
   const customIconUrl = useBlobRefUrl(customIcons[app.id]);
-  const isNook = theme.skin === 'animalcrossing';
-  const isPaperDesktop = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
+  const isPaperDesktop = theme.skin !== 'mobilegame' && isPaperWallpaper(theme.wallpaper);
   const preserveCustomOutline = !!customIconUrl && theme.preserveCustomIconOutlines === true;
 
   // Korean editorial / monochrome desktop: repository-level replacement.
