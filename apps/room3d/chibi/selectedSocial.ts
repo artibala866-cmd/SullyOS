@@ -37,6 +37,18 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
   return points;
  }
  const palm=(v:ChibiVisitor,side:string)=>v.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side as 'L'|'R'));
+type HandSide='L'|'R';
+const twirlPairCache=new WeakMap<SelectedClip,readonly [HandSide,HandSide]>();
+function twirlHandPair(clip:SelectedClip):readonly [HandSide,HandSide]{
+ const cached=twirlPairCache.get(clip);if(cached)return cached;
+ const pairs=[['R','R'],['R','L'],['L','R'],['L','L']] as const;
+ const pair=pairs.map(pair=>({pair,score:[.2,.35,.5,.65,.8].reduce((sum,t)=>{
+  const fa=sampleSelected(clip.actors[0],clip.duration*t);
+  const fb=sampleSelected(clip.actors[1],clip.duration*t);
+  return sum+fa.points[pair[0]+'_hand'].distanceTo(fb.points[pair[1]+'_hand']);
+ },0)})).sort((x,y)=>x.score-y.score)[0].pair;
+ twirlPairCache.set(clip,pair);return pair;
+}
  function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weight:number){
   if(both.length!==2)return;
   if(session?.action==='home-hug'){
@@ -58,15 +70,8 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
   if(session?.action==='cmu-20_10'){
    const [a,b]=both;
    if(a?.visitor.rig&&b?.visitor.rig&&a.solver&&b.solver){
-    const pairs=[['R','R'],['R','L'],['L','R'],['L','L']] as const;
-    const pair=pairs.map(pair=>({
-     pair,score:[.2,.35,.5,.65,.8].reduce((sum,t)=>{
-      const fa=sampleSelected(session!.clip.actors[0],session!.clip.duration*t);
-      const fb=sampleSelected(session!.clip.actors[1],session!.clip.duration*t);
-      return sum+fa.points[pair[0]+'_hand'].distanceTo(fb.points[pair[1]+'_hand']);
-     },0)
-    })).sort((x,y)=>x.score-y.score)[0].pair;
-    const [sa,sb]=pair;
+    // Resolve the pair once per loaded clip; never resample all tracks per frame.
+    const [sa,sb]=twirlHandPair(session.clip);
     const pa=palm(a.visitor,sa),pb=palm(b.visitor,sb);
     const target=sharedPalmTarget(pa,pb);
     // Gradually reach in rather than immediately spreading both arms.
