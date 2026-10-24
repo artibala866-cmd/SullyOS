@@ -73,7 +73,7 @@ export async function runCharacterMomentInteractionAutonomy(input: {
         id: p.id, name: p.name, role: p.relationship,
         personality: [p.personality, p.speechStyle, p.boundary].filter(Boolean).join('；').slice(0, 650),
       })),
-    ].filter(a => a.id !== post.authorId).slice(0, 12);
+    ].slice(0, 12);
     if (!actors.length) return 'skipped';
     const publicComments = (post.comments || []).filter(c => !c.deletedAt).slice(-12);
     const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
@@ -108,6 +108,10 @@ NPC 只有真实在主人通讯录的人可以参与。关系冷淡的人可以�
       if (!live || live.visibility !== 'all' ||
         (live.comments || []).filter(c => !c.deletedAt).length >= MAX_POST_COMMENTS) break;
       const actor = actors.find(a => a.id === action.actorId)!;
+      // Authors may answer *existing* comments on their own post, but may not
+      // like their own post or fabricate a top-level self-comment.
+      if (actor.id === post.authorId &&
+          (action.type !== 'comment' || !action.replyToId)) continue;
       if (action.type === 'like') {
         if ((live.likes || []).some(l => l.actorId === actor.id)) continue;
         if (setMomentLike(char.id, post.id, actor.id, true)) changed++;
