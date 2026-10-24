@@ -8,7 +8,7 @@ type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
 const rotation=(x=0,y=0,z=0)=>new T.Quaternion().setFromEuler(new T.Euler(x,y,z));
 export const isPrincessCarry=(id:string)=>id==='home-princess-carry'||id==='home-princess-carried';
-export const isIntimacy=(id:string)=>id==='home-hug'||isPrincessCarry(id);
+export const isIntimacy=(id:string)=>id==='home-hug'||id==='home-kiss'||isPrincessCarry(id);
 /** Reference-video phases, in elapsed seconds; neither role owns a separate clock. */
 export function intimacyPhase(action:string,time:number){
  const carry=isPrincessCarry(action);
@@ -23,6 +23,22 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
  const [a,b]=both.map(r=>r.visitor),p=intimacyPhase(action,time);
  if(!a.rig||!b.rig)return;
  if(action==='home-hug'){if(seatedIndex===0||seatedIndex===1)poseSeatedHug(both,time,seatedIndex);else poseHug(both,time);return;}
+ if(action==='home-kiss'){
+  const hold=smooth(time,.8,2.2)*(1-smooth(time,6.6,8));
+  const kiss=smooth(time,3.1,4)*(1-smooth(time,5.4,6.3));
+  both.forEach((owner,i)=>{
+   const v=owner.visitor,partner=both[1-i].visitor;
+   v.rig!.bones.neck.quaternion.multiply(rotation(.05*kiss,0,(i===0?-.06:.06)*kiss));
+   v.rig!.bones.head.quaternion.multiply(rotation(.08*kiss,0,(i===0?-.07:.07)*kiss));
+   v.root.updateWorldMatrix(true,true);partner.root.updateWorldMatrix(true,true);
+   const side=i===0?'R':'L',otherSide=i===0?'L':'R';
+   const target=v.rig!.bones[side+'_hand'].getWorldPosition(new T.Vector3())
+    .lerp(partner.rig!.bones[otherSide+'_hand'].getWorldPosition(new T.Vector3()),.5);
+   owner.solver?.({side,point:target,direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(v.root.quaternion),normal:new T.Vector3(0,1,0),curl:.2},hold);
+  });
+  return;
+ }
+
  const turn=(v:ChibiVisitor,n:string,q:T.Quaternion,w:number)=>v.rig!.bones[n].quaternion.slerp(q,w);
  const point=(v:ChibiVisitor,n:string,offset=[0,0,0])=>v.rig!.bones[n].localToWorld(new T.Vector3(...offset));
  const contact=(index:number,side:'L'|'R',target:T.Vector3,curl=.18)=>{
