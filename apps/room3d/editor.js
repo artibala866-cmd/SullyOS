@@ -1960,9 +1960,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function dispose(){homelyForeground?.dispose();homelyForeground=null;parkedMealEffects?.dispose();parkedMealEffects=null;userSpeech=null;cancelCompanionAction();petSystem?.dispose();petSystem=null;interiorBackdrop.dispose();clearTimeout(tapTimer);lampGlow.dispose();walkFeedback.dispose();clearTimeout(faceTimer);faceTimer=0;clearTimeout(lightTimer);lightTimer=0;if(destroyed&&!kit)return;stopSocial();for(const e of [...socialEntries])removeSocialResident(e.id);gamingEffects.clear();clearComparison();visitor?.dispose();visitor=null;watering.dispose();mat.geometry.dispose();mat.material.dispose();kitchenEffects.dispose();kitchenWork.dispose();bathroomEffects.dispose();finishes.dispose();windowDaylight.dispose();resident.clear();destroyed=true;abort.abort(homeDisposalReason());observer.disconnect();cancelAnimationFrame(frame);controls.dispose();clearContent();for(const m of materialCache.values())m.dispose();materialCache.clear();kit?.scene.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material]){for(const value of Object.values(m))if(value?.isTexture)value.dispose();m.dispose()}}});distantGeometry.dispose();for(const m of distantMaterials.values())m.dispose();distantMaterials.clear();key.shadow.dispose();grid.geometry.dispose();grid.material.dispose();footprint.geometry.dispose();footprint.material.dispose();for(const material of outlineMaterials)material.dispose();ground.geometry.dispose();ground.material.dispose();selection.geometry.dispose();selection.material.dispose();furnitureHalo.dispose();roomFinish.dispose();renderer.dispose();host.innerHTML='';host.classList.remove('home3d');}
  signal?.addEventListener('abort',dispose,{once:true});
  try{
-  [catalog,kit]=await Promise.all([fetch(new URL('catalog.json',assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('家具目录加载失败');return r.json()}),fetch(new URL('kit.glb',assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('家具模型加载失败');return r.arrayBuffer()}).then(data=>new GLTFLoader().parseAsync(data,assetBase))]);
+  host.querySelector('.h3-loading').textContent='正在加载家园基础模型…';
+   [catalog,kit]=await Promise.all([fetch(new URL('catalog.json',assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('家具目录加载失败');return r.json()}),fetch(new URL('kit.glb',assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('家具模型加载失败');return r.arrayBuffer()}).then(data=>new GLTFLoader().parseAsync(data,assetBase))]);
   if(destroyed){dispose();return {dispose}}
-  const doorData=await fetch(new URL('showroom-door.glb',assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('蝴蝶结门加载失败');return r.arrayBuffer()});
+  host.querySelector('.h3-loading').textContent='正在准备房间入口…';
+   const doorData=await fetch(new URL('showroom-door.glb',assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('蝴蝶结门加载失败');return r.arrayBuffer()});
   ribbonDoorTemplate=(await new GLTFLoader().parseAsync(doorData,assetBase)).scene;kit.scene.add(ribbonDoorTemplate);
   catalog.push(...BUILDING_ASSETS);for(const a of catalog)assetIndex.set(a.id,a);
   for(const root of createBuildingTemplates())kit.scene.add(root);
@@ -1973,13 +1975,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!incoming&&storageKey){const text=localStorage.getItem(storageKey);if(text)incoming=JSON.parse(text)}
   state=incoming?validateHome(incoming,catalog):(onMenu?createStarterHome(catalog):createHome(catalog));residentRoom=state.rooms.some(r=>r.id===state.residentRoomId)?state.residentRoomId:state.activeRoomId;if(onMenu)state.activeRoomId=residentRoom;journal=readHomeRecords(state);state.records=journal;
   // Load only the visible room before the first frame; pet-only assets are deferred.
-   await Promise.all(neededAssets().map(ensureAsset));
+   const initialFurniture=neededAssets();
+   host.querySelector('.h3-loading').textContent='正在加载当前房间的家具…';
+   await Promise.all(initialFurniture.map(ensureAsset));
    if(destroyed)return {dispose};
    for(const a of catalog)thumbs.set(a.id,new URL('thumbnails/'+a.id+'.png'+(a.revision?'?v='+encodeURIComponent(a.revision):''),assetBase).href);
    const petAssetIds=[...new Set(catalog.filter(a=>a.petSpecies).map(a=>a.id))].filter(id=>!templates.has(id));
    const mountPets=()=>{if(destroyed||petSystem)return;petSystem=mountPetSystem({host,scene,getHour:()=>nowInTimeZone(timeZone).getHours(),showEntry:!onMenu,onEvent:event=>{const record=petHomeRecord(event,state,residentPortraits.user?.label||'用户');if(record){journal.push(record);persist();}},contactBridge:beginPetContact,beforeOpen:closeInteraction,home:()=>state,catalog,templates,changed:(rebuildScene=false)=>{persist();if(rebuildScene){rebuild();renderUI();}},invalidate:()=>{dirty=true;wake();},context:()=>({paused:suspended||document.hidden,edit,overview,reducedMotion}),actors:()=>{const entries=[...(visitor&&resident.visible?[{id:activeResidentId(),group:resident}]:[]),...socialEntries.filter(e=>e.group.visible)];return entries.map(e=>({id:e.id,roomId:current().id,x:e.group.position.x,z:e.group.position.z,busy:!!walking||!!socialRuntime?.active||!!kitchenTask||!!visitorActivity||!!visitorSeat}));}});petSystem?.reconcile();dirty=true;wake();};
    if(!petAssetIds.length)mountPets();
-   else Promise.all(petAssetIds.map(ensureAsset)).then(()=>{if(!destroyed)mountPets();}).catch(e=>{if(!destroyed)console.warn('宠物资源延迟加载失败',e);});
+   else setTimeout(()=>{if(destroyed)return;Promise.all(petAssetIds.map(ensureAsset)).then(()=>{if(!destroyed)mountPets();}).catch(e=>{if(!destroyed)console.warn('宠物资源延迟加载失败',e);});},1200);
    if(!incoming||JSON.stringify(incoming)!==JSON.stringify(state))persist();
   host.querySelector('.h3-loading').remove();rebuild();renderUI();tick();
   if(thumbnailExport){
