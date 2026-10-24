@@ -277,7 +277,7 @@ const PresetPreview: React.FC<{ preset: AppearancePreset }> = ({ preset }) => {
     const { hue, saturation, lightness, contentColor, desktopDecorations, wallpaper } = preset.theme;
     const resolvedWallpaper = useBlobRefUrl(wallpaper);
 
-    const themeGradient = `linear-gradient(135deg, hsl(${hue}, ${saturation}%, ${lightness}%), hsl(${hue + 30}, ${saturation}%, ${Math.max(lightness - 15, 10)}%))`;
+    const themeGradient = `linear-gradient(135deg, hsl(0, 0%, ${lightness}%), hsl(0, 0%, ${Math.max(lightness - 15, 10)}%))`;
     const isCssGradient = !!wallpaper
         && (wallpaper.startsWith('linear-gradient') || wallpaper.startsWith('radial-gradient') || wallpaper.startsWith('conic-gradient'));
 
@@ -293,7 +293,7 @@ const PresetPreview: React.FC<{ preset: AppearancePreset }> = ({ preset }) => {
         <div className="h-14 relative overflow-hidden" style={{ background }}>
             <div className="absolute inset-0 bg-black/10" />
             <div className="absolute bottom-1.5 left-3 flex gap-1">
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: `hsl(${hue}, ${saturation}%, ${lightness}%)` }} />
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: `hsl(0, 0%, ${lightness}%)` }} />
                 <div className="w-4 h-4 rounded-full" style={{ backgroundColor: contentColor || '#ffffff' }} />
             </div>
             {desktopDecorations && desktopDecorations.length > 0 && (
@@ -690,11 +690,11 @@ const Appearance: React.FC = () => {
   };
 
   const THEME_PRESETS: { name: string, config: Partial<OSTheme>, color: string }[] = [
-      { name: 'Indigo', config: { hue: 245, saturation: 25, lightness: 65, contentColor: '#ffffff' }, color: 'hsl(245, 25%, 65%)' },
-      { name: 'Sakura', config: { hue: 350, saturation: 70, lightness: 80, contentColor: '#3f3f3f' }, color: 'hsl(350, 70%, 80%)' },
-      { name: 'Cyber', config: { hue: 170, saturation: 100, lightness: 45, contentColor: '#ffffff' }, color: 'hsl(170, 100%, 45%)' },
+      { name: 'Indigo', config: { hue: 245, saturation: 25, lightness: 65, contentColor: '#ffffff' }, color: 'hsl(0, 0%, 65%)' },
+      { name: 'Sakura', config: { hue: 350, saturation: 70, lightness: 80, contentColor: '#3f3f3f' }, color: 'hsl(0, 0%, 80%)' },
+      { name: 'Cyber', config: { hue: 170, saturation: 100, lightness: 45, contentColor: '#ffffff' }, color: 'hsl(0, 0%, 45%)' },
       { name: 'Noir', config: { hue: 0, saturation: 0, lightness: 20, contentColor: '#ffffff' }, color: 'hsl(0, 0%, 20%)' },
-      { name: 'Sunset', config: { hue: 20, saturation: 90, lightness: 60, contentColor: '#ffffff' }, color: 'hsl(20, 90%, 60%)' },
+      { name: 'Sunset', config: { hue: 20, saturation: 90, lightness: 60, contentColor: '#ffffff' }, color: 'hsl(0, 0%, 60%)' },
   ];
 
   const handleWallpaperUpload = async (file: File) => {
@@ -1112,7 +1112,7 @@ const Appearance: React.FC = () => {
                                 <span>Hue</span><span>{theme.hue}°</span>
                             </div>
                             <input type="range" min="0" max="360" value={theme.hue} onChange={(e) => updateTheme({ hue: parseInt(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary" />
-                            <div className="h-2 w-full rounded-full mt-3 opacity-50" style={{ background: `linear-gradient(to right, hsl(0, 50%, 80%), hsl(60, 50%, 80%), hsl(120, 50%, 80%), hsl(180, 50%, 80%), hsl(240, 50%, 80%), hsl(300, 50%, 80%), hsl(360, 50%, 80%))`}}></div>
+                            <div className="h-2 w-full rounded-full mt-3 opacity-50" style={{ background: `linear-gradient(to right, hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%))`}}></div>
                         </div>
                         <div>
                             <div className="flex justify-between text-xs text-slate-500 mb-2 font-medium">
@@ -1550,7 +1550,7 @@ const Appearance: React.FC = () => {
 
                     {/* Live Preview */}
                     <div className="relative w-full aspect-[9/16] bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200 shadow-inner"
-                         style={{ background: theme.wallpaper ? `url(${theme.wallpaper}) center/cover` : `linear-gradient(135deg, hsl(${theme.hue}, ${theme.saturation}%, ${theme.lightness}%), hsl(${theme.hue + 30}, ${theme.saturation}%, ${Math.max(theme.lightness - 15, 10)}%))` }}>
+                         style={{ background: theme.wallpaper ? `url(${theme.wallpaper}) center/cover` : `linear-gradient(135deg, hsl(0, 0%, ${theme.lightness}%), hsl(0, 0%, ${Math.max(theme.lightness - 15, 10)}%))` }}>
                         <div className="absolute inset-0 bg-black/10"></div>
                         {/* Render widget previews */}
                         <div className="absolute top-[12%] left-4 right-4 space-y-1.5 pointer-events-none">
