@@ -91,7 +91,7 @@ const McpConnectionConsole: React.FC<{
     const isRealtimePreset = (server: McpServerConfig): boolean =>
         !!server.presetId?.startsWith('realtime.') ||
         ['电影与剧集 · Orca', 'B站 · 视频搜索', 'B站 · 字幕与评论'].includes(server.name) ||
-        server.url.replace(/\\/+$/, '') === 'https://orca-mcp.mmdju.workers.dev/mcp';
+        server.url.replace(/\/+$/, '') === 'https://orca-mcp.mmdju.workers.dev/mcp';
     const customServers = servers.filter(server => !isRealtimePreset(server));
 
     const summary = useMemo(() => {
