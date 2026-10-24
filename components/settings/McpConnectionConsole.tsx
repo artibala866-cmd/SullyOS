@@ -365,6 +365,26 @@ const McpConnectionConsole: React.FC<{
                                             <div>
                                                 <FieldLabel>Streamable HTTP 端点</FieldLabel>
                                                 <input className={`${inputClass} font-mono`} value={server.url} onChange={event => update(server.id, { url: event.target.value.trim() })} placeholder="https://example.com/mcp" />
+                                                {(server.name === 'B站 · 视频搜索' || server.name === 'B站 · 字幕与评论') && (
+                                                    <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] leading-relaxed text-slate-600">
+                                                        <a
+                                                            href={server.name === 'B站 · 视频搜索'
+                                                                ? 'https://github.com/masx200/bilibili-mcp-server'
+                                                                : 'https://github.com/masx200/bilibili-video-info-mcp'}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="font-semibold text-slate-800 underline underline-offset-2"
+                                                        >
+                                                            查看原项目源码及部署说明 ↗
+                                                        </a>
+                                                        <p className="mt-1 text-slate-500">
+                                                            此项目需自行部署 MCP 服务；GitHub 不提供可直接领取的 MCP Key。
+                                                            {server.name === 'B站 · 字幕与评论'
+                                                                ? ' 部分字幕/评论接口可能需要 B站登录凭据，请按项目文档配置。'
+                                                                : ' 如自行设置服务鉴权，请将部署时生成的 Token 填入下方。'}
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
