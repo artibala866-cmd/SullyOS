@@ -1835,6 +1835,7 @@ const Settings: React.FC = () => {
       // 云端凭据 + 按配置裁剪过的提示词一起刷，否则角色到点会照着旧提示词调已关掉的工具。
       syncAmsgToolConfigAndPrompts(nextRealtimeConfig, { characters, userProfile, groups });
       addToast('实时感知配置已保存', 'success');
+      flushMcpToolConfigSync();
       setShowRealtimeModal(false);
   };
 
@@ -4096,7 +4097,7 @@ const Settings: React.FC = () => {
       <Modal
           isOpen={showRealtimeModal}
           title="实时感知配置"
-          onClose={() => setShowRealtimeModal(false)}
+          onClose={() => { setShowRealtimeModal(false); flushMcpToolConfigSync(); }}
           footer={<button onClick={handleSaveRealtimeConfig} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg">保存配置</button>}
       >
           <div className="space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
