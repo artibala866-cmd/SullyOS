@@ -78,7 +78,7 @@ export function compileMotionTemplates(
  const templates:Record<string,MotionTemplate>={};
  const inherited:Record<string,MotionTemplateDraft>={};
  for(const [id,contact] of Object.entries(existingContacts))
-  inherited[id]={participants:2,capabilities:contact.capabilities,contact,phases:existingPlans[id]};
+  inherited[id]={participants:2,capabilities:[...new Set<MotionCapability>(['pairedSync','residentNavigation',...contact.capabilities])],contact,phases:existingPlans[id]};
  for(const id of Object.keys(custom))if(id in inherited)throw Error('Motion template duplicates an existing contact profile: '+id);
  const phases=new Set<MotionConstraintPhase>(['bodyPlacement','clearance','contactIK','presentation']);
  for(const [id,draft] of Object.entries({...inherited,...custom})){

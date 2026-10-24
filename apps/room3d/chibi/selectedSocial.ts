@@ -7,7 +7,9 @@ import {furniturePalm} from './furnitureMotion';
 import {createSocialProp} from './socialProps';
 import {isIntimacy,isPrincessCarry,poseIntimacy} from './intimacyMotion';
 import {splitMotionHeading} from './motionHeading';
-import {motionContactProfile} from './motionContactProfiles';
+import {motionTemplateFor,motionTemplateContact,motionTemplateConstraintPlans} from './motionTemplates';
+import {createMotionTemplateScope} from './motionTemplateScope';
+import {applyTemplateFaceContact} from './templateFaceContact';
 import {applyPairedHandContact} from './pairedHandContact';
 import {createMotionConstraintPipeline} from './motionConstraintPipeline';
 export {motionCategories} from './selectedMotions';
@@ -25,6 +27,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
  const pinned=options.pinned, pinnedState=pinned?states.get(pinned.id):undefined;
  const pinnedPosition=pinnedState?.home.clone(),pinnedRotation=pinnedState?.rotation.clone();
  const holdPinned=()=>{if(pinnedState&&pinned){pinnedState.visitor.root.position.copy(pinnedPosition!);pinnedState.visitor.root.quaternion.copy(pinnedRotation!);pinnedState.visitor.animate(0,'idle','seated',pinned.pose);}};
+ const motionScope=createMotionTemplateScope();
  let prop:ReturnType<typeof createSocialProp>=null;
  const finish=()=>{for(const r of states.values())r.visitor.finishPose();};
  function locations(s:Session,time:number){
@@ -57,7 +60,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   }
   // Stage 1: three established paired-hand actions share one configured
   // runtime. The same IK solver and cached source-pair selection are retained.
-  const profile=motionContactProfile(session!.action);
+  const profile=motionTemplateContact(session!.action);
   if(profile?.kind==='pairedHands'){
    const [a,b]=both;
    if(a&&b&&applyPairedHandContact(profile,session!.clip,[a,b],weight,session!.time-session!.approach))return;
@@ -174,9 +177,17 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
  const constraintPipeline=createMotionConstraintPipeline({
   bodyPlacement:()=>correctPairedBodies(constraintFrame.both),
   clearance:()=>correctHeadClearance(constraintFrame.both,constraintFrame.points),
-  contactIK:()=>contacts(constraintFrame.both,constraintFrame.frames,constraintFrame.weight),
+  contactIK:()=>{
+   const template=motionTemplateFor(session!.action);
+   if(!template?.face||template.contact)contacts(constraintFrame.both,constraintFrame.frames,constraintFrame.weight);
+   if(template?.face&&constraintFrame.both.length===2)applyTemplateFaceContact(
+    template.face,
+    [constraintFrame.both[0].visitor,constraintFrame.both[1].visitor],
+    constraintFrame.actionTime,constraintFrame.weight
+   );
+  },
   presentation:()=>presentPostPose(constraintFrame.both,constraintFrame.sourceTime,constraintFrame.actionTime,constraintFrame.weight),
- });
+ },motionTemplateConstraintPlans);
 
  function draw(){
   if(!session){for(const r of states.values())if(r.id!==pinned?.id)r.visitor.animate(0,'idle');holdPinned();finish();return;}
@@ -230,7 +241,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   });
   // One action verifies the configured order; every other motion retains the
   // original body/head correction, intimacy and contact sequencing.
-  if(s.action==='cmu-20_10'){
+  if(constraintPipeline.phases){
    constraintFrame.both=both;
    constraintFrame.frames=frames;
    constraintFrame.points=points;
@@ -260,7 +271,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    presentPostPose(both,sourceTime,actionTime,weight);
   }
  }
- const restore=()=>{constraintPipeline.reset();prop?.dispose();prop=null;session=null;draw();};
+ const restore=()=>{constraintPipeline.reset();motionScope.stop();prop=null;session=null;draw();};
  return {
   get active(){return !!session;},
   async start(action:SocialAction,a:string,b?:string){
@@ -305,7 +316,9 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     };
     let valid=fits();if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned)for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
     if(!valid)throw Error(action==='cmu-22_09'?'坐着的人身后没有可站立的位置，请先给椅背后留出空地':'这段动作需要更大的空地，先移动居民或挪开家具');
-    session=candidate;constraintPipeline.activate(action);prop=createSocialProp(action,both);draw();return true;
+    session=candidate;motionScope.begin(action);constraintPipeline.activate(action);
+     prop=motionScope.own(createSocialProp(action,both,motionTemplateFor(action)?.prop));
+     draw();return true;
    }finally{if(token===generation)loading=false;}
   },
   advance(seconds:number){if(!Number.isFinite(seconds)||seconds<0)return;if(session){session.time=Math.min(session.time+seconds,socialActions[session.action].duration+session.approach);draw();if(session.time>=socialActions[session.action].duration+session.approach){if(session.action==='home-kiss'){for(const id of session.ids){const resident=states.get(id);if(resident){resident.home.copy(resident.visitor.root.position);resident.rotation.copy(resident.visitor.root.quaternion);}}}restore();options.onComplete?.();}}},

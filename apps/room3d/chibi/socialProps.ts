@@ -3,6 +3,7 @@ import type {ChibiVisitor} from './visitor';
 import {furniturePalm} from './furnitureMotion';
 import {BLANK_SCALE} from './blankBody';
 import {waterGrip} from './waterGrip';
+import type {MotionPropTemplate} from './motionTemplates';
 // Reviewed source roles: review-phone holds with L and taps with R; texting
 // holds with R while L hangs at the side. Do not choose by handedness alone.
 const phoneHands:Record<string,'L'|'R'>={
@@ -11,8 +12,9 @@ const phoneHands:Record<string,'L'|'R'>={
  'vrma-cae36da2cc8b9845':'R',
 };
 /** Transient props belong to an action, never to the furniture save. */
-export function createSocialProp(id:string,visitors:ChibiVisitor[]){
- const phoneSide=phoneHands[id],phone=!!phoneSide,drink=id==='cmu-22_13';
+export function createSocialProp(id:string,visitors:ChibiVisitor[],template?:MotionPropTemplate){
+ const phoneSide=template?.kind==='phone'?template.hand:phoneHands[id],phone=!!phoneSide,drink=template?.kind==='cup'||id==='cmu-22_13';
+ const handoffAt=template?.kind==='cup'?template.handoffAt:2.262;
  if(!phone&&!drink)return null;
  const root=new T.Group(),materials:T.Material[]=[],geometries:T.BufferGeometry[]=[];
  const mesh=(geometry:T.BufferGeometry,color:string)=>{const material=new T.MeshStandardMaterial({color,roughness:.65});materials.push(material);geometries.push(geometry);const m=new T.Mesh(geometry,material);root.add(m);return m;};
@@ -41,7 +43,7 @@ export function createSocialProp(id:string,visitors:ChibiVisitor[]){
   update(time:number,duration:number,weight:number){
    // Reviewed 22_13: A holds in the left hand; B receives with the right.
    // Their source wrists are closest at 2.262 s on the shared capture clock.
-   const receiving=drink&&time>2.262,owner=visitors[receiving?1:0],side=phoneSide??(drink&&!receiving?'L':'R');root.visible=weight>.02;
+   const receiving=drink&&time>handoffAt,owner=visitors[receiving?1:0],side=phoneSide??(drink&&!receiving?'L':'R');root.visible=weight>.02;
    if(phone&&owner.rig)return; // Bone parenting follows rotation as well as position.
    if(grip?.(time,weight))return;
    const p=owner.rig?owner.rig.bones[side+'_hand'].localToWorld(furniturePalm(side)):owner.classicPoint(side+'_hand');
