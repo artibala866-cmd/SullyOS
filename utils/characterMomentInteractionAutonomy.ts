@@ -1,5 +1,6 @@
 import type { CharacterProfile } from '../types';
 import { readNpcProfiles } from './characterPhoneNpcs';
+import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import {
   readCharacterMoments, addMomentComment, setMomentLike,
   type CharacterMoment,
@@ -15,17 +16,18 @@ type Api = { baseUrl: string; apiKey: string; model: string };
 const key = (charId: string) => 'sully_moments_interactions_v1:' + charId;
 const locks = new Set<string>();
 const MAX_POST_COMMENTS = 12;
-type State = { day: string; actions: number; lastAttempt: number; lastByPost: Record<string, number> };
+type State = { day: string; actions: number; attempts: number; lastAttempt: number; lastByPost: Record<string, number> };
 function stateFor(charId: string, now: number): State {
   const day = new Date(now).toLocaleDateString('en-CA');
   try {
     const parsed = JSON.parse(localStorage.getItem(key(charId)) || '{}');
     return {
       day, actions: parsed.day === day && Number.isFinite(parsed.actions) ? parsed.actions : 0,
+      attempts: parsed.day === day && Number.isFinite(parsed.attempts) ? parsed.attempts : 0,
       lastAttempt: Number.isFinite(parsed.lastAttempt) ? parsed.lastAttempt : 0,
       lastByPost: parsed.lastByPost && typeof parsed.lastByPost === 'object' ? parsed.lastByPost : {},
     };
-  } catch { return { day, actions: 0, lastAttempt: 0, lastByPost: {} }; }
+  } catch { return { day, actions: 0, attempts: 0, lastAttempt: 0, lastByPost: {} }; }
 }
 function storeState(charId: string, state: State) {
   localStorage.setItem(key(charId), JSON.stringify(state));
@@ -50,19 +52,21 @@ export async function runCharacterMomentInteractionAutonomy(input: {
 }): Promise<'acted' | 'skipped' | 'unavailable' | 'failed'> {
   const { char, api } = input;
   if (!char?.id || !api?.apiKey || !api.baseUrl || !api.model ||
-    typeof document === 'undefined' || document.visibilityState !== 'visible') return 'unavailable';
+    typeof document === 'undefined' || document.visibilityState !== 'visible' ||
+    !isCharacterPhoneAutonomyEnabled(char.id)) return 'unavailable';
   if (locks.has(char.id)) return 'skipped';
   locks.add(char.id);
   const now = Date.now();
   try {
     const state = stateFor(char.id, now);
-    if (state.actions >= 10 || now - state.lastAttempt < 20 * 60_000) return 'skipped';
+    if (state.actions >= 10 || state.attempts >= 12 || now - state.lastAttempt < 20 * 60_000) return 'skipped';
     const contacts = readNpcProfiles(char.id);
     if (!contacts.length) return 'skipped';
     const known = new Set([char.id, ...contacts.map(p => p.id)]);
     const post = selectPost(readCharacterMoments(char.id), state, now, known);
     if (!post) return 'skipped';
     state.lastAttempt = now;
+    state.attempts++;
     state.lastByPost[post.id] = now;
     storeState(char.id, state);
     // The owner and saved contacts share a social circle. Exclude the
@@ -86,7 +90,7 @@ export async function runCharacterMomentInteractionAutonomy(input: {
 可以参与的人（唯一ID，不是昵称）：${JSON.stringify(actors).slice(0, 6000)}
 这是一轮一两个自然动作，不是写整场戏；允许没人有反应。
 NPC 只有真实在主人通讯录的人可以参与。关系冷淡的人可以不留言，不能每人轮流表扬。
-允许点赞、直接评论帖子、回复已经存在且未删除的评论；
+允许点赞、直接评论帖子、回复已经存在且未删除的评论；发帖作者只能回复已经存在的别人的评论，不可给自己点赞或发自言自语的顶层评论。
 回复时 replyToId 必须精确复制已有评论ID，不能引用本轮尚未生成的评论。
 要符合角色关系和说话习惯；不能制造冲突人设的新事实或替User发消息。
 只能返回JSON：{"actions":[{"actorId":"参与人ID","type":"like|comment","text":"评论文字，点赞留空","replyToId":"回复已有评论ID，可留空"}]}。
