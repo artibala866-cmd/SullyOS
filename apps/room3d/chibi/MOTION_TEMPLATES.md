@@ -143,3 +143,12 @@ pnpm run build
 - `adapter:'legacy'` 不能让未知 ID 伪装成已实现的拥抱/托举动作。编译器只认可真正已绑定的既有专用动作，其他 ID 会明确报错。未来新增复杂动作，先完成并验证对应专用适配，再扩充允许列表。
 
 **两种动作时间务必分清**：`pairedHands.enter/exit` 和 `faceContact` 的渐入/渐出使用接近结束后的 **actionTime**；而 `cup(handoffAt)` 控制 `socialProps.update(sourceTime,...)`，参数是素材 **sourceTime**。播放器普通动作有 0.6 秒的源帧延迟；水杯交接要按素材中的实际握手帧设定，不能直接把 actionTime 填给 `cup`。
+
+## 实例：摸头（新增亲密动作）
+
+- ID `home-head-pat`；名称「摸头」，`close` 分类，原 43 个动作不变，总数 44。
+- 使用 `motionTemplatePresets.headPat({patSide:'R',patStrokes:2,ruffleStrokes:2})`；以后同类动作只需配置手和次数，不需要新建播放器。
+- `public/room3d/motions/selected/home-head-pat.json` 是双人站位与时间轴的轻量静态 clip，`headPatMotion.ts` 调用现有 idle 姿态、头顶锚点与 contactSolver，所有接近与复位仍由 `selectedSocial.ts` 管理。
+- 依次是单手摸两下（约 1.10–3.10s）、双手揉两下（约 3.70–6.28s）、收手复位（约 7.18s）。两只手在头顶反向交错移动，位置随当前头部实时更新。
+- 被摸者先顺从微低头，之后晃头、稍微后缩并露出惊讶表情，最后恢复微笑。这里的「炸毛」是演出反应，**没有改动发丝物理或发型网格**。
+- 不修改拥抱、亲吻等现有专用逻辑，也不增加每帧常驻物理任务。新 `headPatMotion.test.ts` 测单/双手次数、头顶追踪、不滑动根节点和表情；Android Chrome 实机还需检查不同身高发型是否准确接触。

@@ -40,8 +40,9 @@ describe('head pet and playful hair ruffle',()=>{
   expect(headPatTimeline(4,recipe).double).toBeGreaterThan(.9);
   expect(headPatTimeline(7.5,recipe).single).toBe(0);
   const xs=Array.from({length:301},(_,i)=>headPatTimeline(3.7+i*(6.28-3.7)/300,recipe).rubX);
-  let turns=0;for(let i=1;i<xs.length;i++)if(xs[i-1]<0&&xs[i]>=0)turns++;
-  expect(turns).toBe(2);
+  // Count two positive crests, not zero crossings at the final endpoint.
+  const crests=xs.filter((v,i)=>i>0&&i<xs.length-1&&v>xs[i-1]&&v>=xs[i+1]&&v>.2);
+  expect(crests).toHaveLength(2);
  });
  it('uses existing contact method for old classic bodies and does not translate roots',()=>{
   const a=resident(-.5),b=resident(.5),p=a.visitor.root.position.clone();
@@ -53,6 +54,26 @@ describe('head pet and playful hair ruffle',()=>{
   applyHeadPatMotion(recipe,[a,b],4.6,1);
   expect(a.classicContact).toHaveBeenCalledTimes(2);
   expect(a.classicContact.mock.calls.map(c=>c[0]).sort()).toEqual(['L','R']);
+ });
+
+ it('tracks a moving crown using both existing arm IK goals without shifting either root',()=>{
+  const giver=resident(-.5),receiver=resident(.5),solve=vi.fn();
+  const p=giver.visitor.root.position.clone(),q=receiver.visitor.root.position.clone();
+  const crown={height:1.9};
+  const neck=new T.Bone(),head=new T.Bone(),chest=new T.Bone(),mesh=new T.Group();
+  receiver.visitor.root.add(chest);chest.add(neck);neck.add(head);receiver.visitor.root.add(mesh);
+  (giver.visitor as any).rig={};
+  (giver as any).solver=solve;
+  (receiver.visitor as any).rig={bones:{head,neck,chest},mesh};
+  (receiver.visitor as any).getHeadTopWorldPosition=()=>new T.Vector3(.5,crown.height,0);
+  applyHeadPatMotion(recipe,[giver,receiver],4.6,1);
+  expect(solve).toHaveBeenCalledTimes(2);
+  const before=solve.mock.calls[0][0].point.y;
+  crown.height+=.19;solve.mockClear();
+  applyHeadPatMotion(recipe,[giver,receiver],4.6,1);
+  expect(solve.mock.calls[0][0].point.y).toBeGreaterThan(before+.12);
+  expect(giver.visitor.root.position).toEqual(p);
+  expect(receiver.visitor.root.position).toEqual(q);
  });
  it('keeps receiver smiling before the rub and surprised only during ruffling',()=>{
   const a=resident(0),b=resident(1);

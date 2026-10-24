@@ -113,3 +113,5 @@
 - `vitest.config.ts` 与 `.github/workflows/build-html-preview.yml`：3D 家园模板回归测试已纳入自动构建。旧 43 动作及八个 UI 类别未修改。
 - 复杂拥抱、坐姿与托举仍须先完成真正的适配器；声明 `adapter:'legacy'` 不代表已有对应实现。
 - 完整开发手册、示例代码、性能约束和实机验收见 [`MOTION_TEMPLATES.md`](./MOTION_TEMPLATES.md)。
+
+新动作实例：通过第五阶段模板加入「摸头」（亲密），详见 [`MOTION_TEMPLATES.md`](./MOTION_TEMPLATES.md)。保留原 43 个动作，目录现为 44 个。
