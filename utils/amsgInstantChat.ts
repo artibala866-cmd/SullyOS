@@ -33,7 +33,6 @@ import { dispatchAmsgResult } from './amsgResults';
 import { DB } from './db';
 import type { AmsgEmotionEvalSpec } from '../worker/amsg/src/emotionEval';
 import { AMSG_BUNDLE_VERSION } from './amsgBundleVersion';
-import type { AmsgSarModuleSnapshot } from './vrWorld/sarEnvelopeCore';
 
 const HEADER = '[AmsgInstantChat]';
 
@@ -535,11 +534,6 @@ export const sendInstantChatTurn = async (params: {
    * 不传就是这一轮不评估（角色没开情绪评估 / 本轮跳过）。
    */
   emotionEval?: AmsgEmotionEvalSpec;
-  /**
-   * SAR 临时模块的请求时快照（buildAmsgSarModuleSnapshot 组的那份）。只在角色或用户
-   * 身上有模块时传；worker 拆信封、落库侧收尾都只认它，不在回程时现算。
-   */
-  sarModule?: AmsgSarModuleSnapshot;
 }): Promise<InstantChatSendResult> => {
   const supersedes = getInstantChatPending(params.char.id);
   const requestedUuid = crypto.randomUUID();
@@ -580,7 +574,6 @@ export const sendInstantChatTurn = async (params: {
       groups: params.groups,
       realtimeConfig: params.realtimeConfig,
       ...(params.emotionEval ? { emotionEval: params.emotionEval } : {}),
-      ...(params.sarModule ? { sarModule: params.sarModule } : {}),
       ...(supersedes ? { supersedesUuid: supersedes.uuid } : {}),
     });
     // A stop during POST still needs the accepted UUID so the remote task can be cancelled.
