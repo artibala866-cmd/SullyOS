@@ -125,6 +125,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  const lightUniforms=createRoomLightUniforms();
  let quality='clear';try{const saved=localStorage.getItem('sully-home3d-quality');if(qualities[saved])quality=saved}catch{}
  let detailBudget=qualities[quality].details,frameInterval=1000/qualities[quality].fps,orbitMode=false,inTick=false;
+ let gpuContextLost=false;
  function wake(){if(!destroyed&&!suspended&&!document.hidden&&!gpuContextLost&&!frame&&!inTick&&state)frame=requestAnimationFrame(tick)}
  const materialCache=new Map(),usedMaterials=new Set(),paintTargets=new Map(),defaultPaintColors=new Map();
  let furnitureOutlineEnabled=true;try{furnitureOutlineEnabled=localStorage.getItem('sully-home3d-furniture-outline')!=='off';}catch{}
@@ -1906,7 +1907,6 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  host.tabIndex=0;host.addEventListener('keydown',keydown,{signal:abort.signal});
  // Mobile browsers may discard the GPU context when the tab is backgrounded.
  // Do not recreate the editor here: its furniture and resident state must survive.
- let gpuContextLost=false;
  const onContextLost=e=>{e.preventDefault();gpuContextLost=true;cancelAnimationFrame(frame);frame=0;};
  const onContextRestored=()=>{gpuContextLost=false;renderer.resetState();resize();dirty=true;lastTick=performance.now();wake();};
  renderer.domElement.addEventListener('webglcontextlost',onContextLost,{signal:abort.signal});
