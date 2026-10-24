@@ -19,16 +19,16 @@ export function readPendingContacts(id: string): PendingPhoneContact[] {
 }
 export function writePendingContacts(id: string, contacts: PendingPhoneContact[]): void {
   localStorage.setItem(storageKey(id), JSON.stringify(contacts));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PENDING_PHONE_CONTACTS_CHANGED, { detail: { characterId: id } }));
 }
 
 export const PENDING_PHONE_CONTACTS_CHANGED = 'sully:pending-phone-contacts-changed';
 export function queuePendingContact(characterId: string, request: PendingPhoneContact): boolean {
-  if (!characterId || !request.id || !request.nickname.trim() || !request.realName.trim()) return false;
+  if (!characterId || !request.id || !request.nickname.trim()) return false;
   const existing = readPendingContacts(characterId);
   if (existing.some(item => item.id === request.id || (request.linkedCharacterId && item.linkedCharacterId === request.linkedCharacterId))) return false;
   try {
     writePendingContacts(characterId, [...existing, request]);
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PENDING_PHONE_CONTACTS_CHANGED, { detail: { characterId } }));
     return true;
   } catch { return false; }
 }
