@@ -1117,14 +1117,14 @@ const MessageItem = React.memo(({
     const bubbleBgUrl = useBlobRefUrl(styleConfig.backgroundImage);
     const [showVoiceText, setShowVoiceText] = useState(previewExpanded);
     const [showSarTruth, setShowSarTruth] = useState(false);
-    const [inviteAnswer, setInviteAnswer] = useState<'accepted' | 'rejected' | null>(null);
+    const [inviteAnswer, setInviteAnswer] = useState<'accepted' | 'rejected' | 'cancelled' | null>(null);
     useEffect(() => {
-        if (!m.metadata?.musicListenInvite || m.metadata?.inviter !== 'char') return;
+        if (!m.metadata?.musicListenInvite) return;
         let cancelled = false;
         const refresh = async () => {
             const history = await DB.getMessagesByCharId(m.charId, true);
             const response = history.find(item => item.metadata?.musicListenInviteResponseTo === m.id);
-            if (!cancelled) setInviteAnswer(response ? (response.metadata?.accepted ? 'accepted' : 'rejected') : null);
+            if (!cancelled) setInviteAnswer(response ? (response.metadata?.cancelled ? 'cancelled' : response.metadata?.accepted ? 'accepted' : 'rejected') : null);
         };
         void refresh().catch(console.warn);
         const onResolved = (event: Event) => {
@@ -1674,7 +1674,8 @@ const MessageItem = React.memo(({
                 <div className="w-64 rounded-2xl border border-neutral-300 bg-white/90 p-4 text-neutral-800">
                     <div className="text-xs font-semibold">一起听邀请</div>
                     <div className="mt-2 text-sm">{fromChar ? `${charName} 邀请你一起听音乐` : '你邀请对方一起听音乐'}</div>
-                    {fromChar && inviteAnswer && <div className="mt-3 text-xs text-neutral-500">{inviteAnswer === 'accepted' ? '已接受' : '已拒绝'}</div>}
+                    {inviteAnswer && <div className="mt-3 text-xs text-neutral-500">{inviteAnswer === 'accepted' ? '已接受' : inviteAnswer === 'cancelled' ? '已撤回' : '已拒绝'}</div>}
+                    {!fromChar && !inviteAnswer && <button className="mt-3 rounded-lg border border-neutral-400 px-3 py-1 text-xs" onClick={() => window.dispatchEvent(new CustomEvent('music-listen-invite-cancel', { detail: { charId: m.charId, messageId: m.id } }))}>撤回邀请</button>}
                     {fromChar && !inviteAnswer && (
                         <div className="mt-3 flex gap-2">
                             <button className="rounded-lg border border-neutral-400 px-3 py-1 text-xs" onClick={() => window.dispatchEvent(new CustomEvent('music-listen-invite-answer', { detail: { charId: m.charId, messageId: m.id, accepted: true } }))}>接受</button>
