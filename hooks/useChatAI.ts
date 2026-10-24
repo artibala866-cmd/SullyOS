@@ -59,16 +59,6 @@ import { buildClaudeProxyCompatibilityBody, shouldRetryClaudeProxyCompatibility 
 import { routeMiniAppToolCall } from '../utils/miniAppToolRoute';
 import { applyEmotionEvalRaw, extractAssistantText } from '../utils/emotionApply';
 import { announceChatGen, CHAT_GEN_EVENTS } from '../utils/chatGenEvents';
-import {
-    advanceSARModuleAfterReply,
-    buildAmsgSarModuleSnapshot,
-    createSARModuleEventMeta,
-    createSARModuleSurfaceMeta,
-    findSARTurnUserMessage,
-    getSARModuleRuntimePlan,
-    parseSARModuleReply,
-} from '../utils/vrWorld/sarModuleRuntime';
-import { parseSARUserSurfaces, selectSARUserSurfaceTargets } from '../utils/vrWorld/sarUserSurface';
 import { isEmotionEvalSkipped } from '../utils/devDebug';
 import {prepareHomeSecretTask,failHomeSecretTask} from '../utils/homeSecrets';
 import type {SecretNoteOriginPromise} from '../utils/secretNote';
@@ -655,10 +645,6 @@ export const useChatAI = ({
         const charForGen: CharacterProfile = skipEmotionInjection
             ? { ...char, buffInjection: '', activeBuffs: [] }
             : char;
-        // 一轮开始时冻结模块快照：API 飞行期间的 UI 更新不能改变这一轮要不要污染、
-        // 也不能让成功结算时多扣/少扣。重掷仍使用效果，但成功后不再次扣回合。
-        const sarModulePlan = getSARModuleRuntimePlan(charForGen, userProfile);
-
         // 工具会话累加本轮新任务；finally 打脏时也要读这一份最新配置。
         const amsg2Session = createAmsg2ToolSession({
             char, userProfile, groups, realtimeConfig, apiConfig, updateCharacter,
@@ -804,24 +790,11 @@ export const useChatAI = ({
             // false，和「全局没开」同一待遇——下面那条 veto trace 的条件够不到它，
             // 静默走本地。那是用户的主动选择，每条消息刷一遍 warn 就成骚扰了。
             //
-            // SAR 模块生效期的回复是 <SAR_MODULE_OUTPUT> 信封，要由 worker 在分段之前拆开。
-            // 旧 bundle 不认信封，会把它当普通正文切成一串气泡、控制标签直接上屏，比留在本地跑
-            // 糟得多。所以这类回合要求确认那台 Worker 是当前 bundle：存量为空（老用户刚更新 App、
-            // 握手探测还没回来）就当场探一次（带 3 秒超时），探到旧版 → outdated，探不到 →
-            // unverified，两种都留在本地跑。只剩恢复期提示（afterglow）的回合不需要信封，
-            // 任何 Worker 都跑得了，不探也不拦。
             const instantChatReadiness = await replyStep(async () => resolveInstantChatReadiness(char, {
-                ensureBundleVersion: sarModulePlan.requiresEnvelope,
+                ensureBundleVersion: false,
             }));
             const instantChatOn = instantChatReadiness.ready;
-            // 只在 ready 时判：没 ready 的那几档（含 config-unreadable）各有自己的收场，
-            // 这里再挂一个否决会把「配置读不出来就明确报错」那档错判成「本来就不走即时对话」。
-            const sarWorkerVeto: string | null = !instantChatOn || !sarModulePlan.requiresEnvelope ? null
-                : instantChatReadiness.workerBundleCurrent === false ? 'sar-module-worker-outdated'
-                    : instantChatReadiness.workerBundleCurrent === undefined ? 'sar-module-worker-unverified'
-                        : null;
-            const instantChatVeto: string | null = sarWorkerVeto
-                ?? (luckinChatOn ? 'luckin-chat'
+            const instantChatVeto: string | null = (luckinChatOn ? 'luckin-chat'
                 : mcdMiniOpen ? 'mcd'
                     : luckinMiniOpen ? 'luckin'
                         : mcpWorkerUnreachable ? 'mcp-worker-unreachable' : null);
@@ -1254,7 +1227,7 @@ export const useChatAI = ({
             // 走不走这条路，构建 payload 之前的 instantChatRoute 已经算完了，这里只认它
             // 一个值：「这份 prompt 剥没剥时效段」和「这一轮走不走云端」必须是同一个判断，
             // 各算各的话两边总有一天会不同意，剥过的那份 prompt 就落到别的路上去了。
-            // 没上云的那些情形（SAR 模块遇上旧版或没确认版本的 Worker / 点单否决 / MCP 地址够不着）在那一段里已经报过 trace，
+            // 没上云的那些情形（点单否决 / MCP 地址够不着）在那一段里已经报过 trace，
             // 这边不重复报，也不重复拦。
             //
             // MCP 刻意不在排除名单里：worker fire 时自己解析 tool_config、自己跑后台
@@ -1269,13 +1242,6 @@ export const useChatAI = ({
                 const amsg2NoticesBlock = amsg2ToolsInjected && amsg2Notices.length
                     ? buildAmsg2NoticesText(amsg2Notices, resolveCharTimeZone(char), userProfile.name)
                     : null;
-                const amsgSarSnapshot = buildAmsgSarModuleSnapshot({
-                    plan: sarModulePlan,
-                    charId: char.id,
-                    currentMsgs,
-                    historyMsgs: contextMsgs,
-                    reroll: skipEmotionInjection,
-                });
                 const instantChatResult = await replyStep(async () => sendInstantChatTurn({
                     signal: replyRun.signal,
                     char,
@@ -1309,10 +1275,6 @@ export const useChatAI = ({
                     // （见 worker/amsg/src/emotionEval.ts）。放在这里而不是本地 fire 一枪，
                     // 是因为用户发完就能关页面——留在本地的话，页面一关情绪底色就停更了。
                     ...(cloudEmotionEval ? { emotionEval: cloudEmotionEval } : {}),
-                    // SAR 模块的请求时快照：worker 按它拆信封、逐段带回外显，落库侧按它写事件、
-                    // 推进回合（本地路径在回复成功后做的那几件事）。目标消息取自喂给 prompt 的
-                    // 同一份 contextMsgs，和模型看到的 USER_SURFACE 列表是同一批 id。
-                    ...(amsgSarSnapshot ? { sarModule: amsgSarSnapshot } : {}),
                 }));
                 if (instantChatResult.ok) {
                     // 这次 POST 已经把权威的那份 fire_pack 传上去了，收尾不必再打脏重传一遍。
@@ -1349,7 +1311,7 @@ export const useChatAI = ({
             // 每次 onDelta 基于累计全文全量重算（safeFetchJson 重试会重开流，天然重置）；
             // 正文尾句和思考内容只在累计文本确实变化时触发重渲染。
             // SAR 的正文包在结构化容器里，流式阶段不能把 TRUE/SURFACE 控制标签闪给用户。
-            const streamUiEligible = !!userStream && !toolModeActive && !bilingualActive && !sarModulePlan.requiresEnvelope;
+            const streamUiEligible = !!userStream && !toolModeActive && !bilingualActive;
             const streamPreviewEligible = streamUiEligible;
             const streamThinkingEligible = streamUiEligible && payload.flags.thinkingActive;
             // 预览真的上过屏才置 true → 后处理落库时跳过拟人打字延迟（instantRender），
@@ -2060,26 +2022,6 @@ export const useChatAI = ({
             const withoutPuffAvatar = rawAiContent.replace(/\{\s*"t"\s*:\s*"set_avatar"\s*,\s*(?:"n"\s*:\s*-?\d+|"src"\s*:\s*"user_avatar")\s*\}/gi, '').trim();
             const avatarChoiceMatch = /<char_avatar_choice\s+id=["']([^"']+)["']\s*\/>/i.exec(withoutPuffAvatar);
             const avatarCleanContent = withoutPuffAvatar.replace(/<char_avatar_choice\s+id=["'][^"']+["']\s*\/>/gi, '').trim();
-            const sarReply = parseSARModuleReply(avatarCleanContent, sarModulePlan);
-            const latestUserMessage = findSARTurnUserMessage(currentMsgs);
-            const sarModuleEvents = createSARModuleEventMeta(sarModulePlan);
-            const userSurfaces = parseSARUserSurfaces(sarReply.userSurface,
-                selectSARUserSurfaceTargets(contextMsgs, char.id, sarModulePlan.user));
-            for (const [messageId, surface] of userSurfaces) {
-                const meta = createSARModuleSurfaceMeta(sarModulePlan.user!, surface);
-                if (meta) await replyStep(async () => DB.updateMessageMetadata(messageId, previous => ({
-                    ...(previous || {}), sarModuleSurface: meta,
-                })));
-            }
-            if (latestUserMessage?.id && sarModuleEvents.length > 0) {
-                await replyStep(async () => DB.updateMessageMetadata(latestUserMessage.id, previous => ({
-                    ...(previous || {}),
-                    ...(sarModuleEvents.length > 0 ? { sarModuleEvents } : {}),
-                })));
-            }
-            const assistantSurfaceMeta = sarModulePlan.character?.phase === 'active' && sarReply.assistantSurface
-                ? createSARModuleSurfaceMeta(sarModulePlan.character, sarReply.assistantSurface)
-                : undefined;
             const xhsCaches: XhsCaches = {
                 xsecTokenCache: xsecTokenCacheRef.current,
                 noteTitleCache: noteTitleCacheRef.current,
@@ -2087,7 +2029,7 @@ export const useChatAI = ({
                 commentAuthorNameCache: commentAuthorNameCacheRef.current,
                 commentParentIdCache: commentParentIdCacheRef.current,
             };
-            await replyStep(async () => applyAssistantPostProcessing(sarReply.canonical, {
+            await replyStep(async () => applyAssistantPostProcessing(avatarCleanContent, {
                 replyRun,
                 char,
                 userProfile,
@@ -2123,7 +2065,6 @@ export const useChatAI = ({
                 // Phase 0: 本地 fetch 路径保持原逻辑, 不跳 2nd-pass LLM, 也没有结构化 directives。
                 skipSecondPassLLM: false,
                 directives: [],
-                sarModuleSurface: assistantSurfaceMeta,
             }));
             if (puffAvatarMatch) {
                 try {
@@ -2154,20 +2095,6 @@ export const useChatAI = ({
             // 最后一批正式消息已交给 setMessages；同一轮更新撤掉预览，不再逐条补弹。
             setStreamingBubbles([]);
             setStreamingThinking('');
-
-            // 到这里说明正文已成功落库。失败 / 中断不会经过；重掷是替换旧回合，不重复扣寿命。
-            if (!skipEmotionInjection) {
-                if (sarModulePlan.character) {
-                    updateCharacter(char.id, previous => ({
-                        vrState: { ...(previous.vrState || { enabled: false, intervalMinutes: 120 }), sarModule: advanceSARModuleAfterReply(previous.vrState?.sarModule, sarModulePlan.character) },
-                    }));
-                }
-                if (sarModulePlan.user) {
-                    updateUserProfile(previous => ({
-                        vrState: { ...(previous.vrState || { enabled: false }), sarModule: advanceSARModuleAfterReply(previous.vrState?.sarModule, sarModulePlan.user) },
-                    }));
-                }
-            }
 
             // 本地路径回复已全部落库。OSContext 监听这个事件 bump lastMsgTimestamp——
             // 当前挂载的 Chat（可能是切走又切回后新 mount 的实例，本闭包的 setMessages
