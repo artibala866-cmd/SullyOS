@@ -80,10 +80,10 @@ describe('web update consent', () => {
     await ahead.session.attach(ahead.registration as unknown as ServiceWorkerRegistration);
     expect((ahead.container.controller as unknown as FakeWorker).messages).toEqual([]);
   });
-  it('leaves a downloaded same-version release for the next page load', async () => {
+  it('announces a downloaded same-version maintenance release before an old chunk is opened', async () => {
     const f = fixture(PAGE_BUILD, true, PAGE_VERSION);
     await f.session.attach(f.registration as unknown as ServiceWorkerRegistration);
-    expect(f.session.getSnapshot().available).toBe(false);
+    expect(f.session.getSnapshot().available).toBe(true);
     expect(f.worker.messages).toEqual([]);
   });
   it('lets the waiting worker follow quietly when the page already runs its release', async () => {
@@ -106,7 +106,7 @@ describe('web update consent', () => {
     await f.session.attach(f.registration as unknown as ServiceWorkerRegistration);
     expect(f.worker.messages).toEqual([]);
   });
-  it('neither announces nor applies a same-version update that arrives while the app is in use', async () => {
+  it('announces but never silently applies a same-version update while the app is in use', async () => {
     const f = fixture(PAGE_BUILD, true, PAGE_VERSION);
     Object.assign(f.registration, { waiting: null });
     await f.session.attach(f.registration as unknown as ServiceWorkerRegistration);
@@ -116,7 +116,7 @@ describe('web update consent', () => {
     f.worker.state = 'installed'; Object.assign(f.registration, { installing: null, waiting: f.worker });
     f.worker.dispatchEvent(new Event('statechange'));
     await new Promise(resolve => setTimeout(resolve, 0));
-    expect(f.session.getSnapshot()).toMatchObject({ available: false, working: false });
+    expect(f.session.getSnapshot()).toMatchObject({ available: true, working: false });
     expect(f.worker.messages).toEqual([]);
     // Asking for it in settings still offers it.
     await f.session.check();
@@ -136,7 +136,7 @@ describe('web update consent', () => {
     expect(f.session.getSnapshot().available).toBe(true);
     expect(f.worker.messages).toEqual([]);
   });
-  it('does not interrupt a second tab when another tab applied a same-version update', async () => {
+  it('offers a reload but never automatically interrupts a second tab after same-version takeover', async () => {
     const f = fixture(PAGE_BUILD, true, PAGE_VERSION);
     Object.assign(f.registration, { waiting: null });
     await f.session.attach(f.registration as unknown as ServiceWorkerRegistration);
@@ -144,7 +144,7 @@ describe('web update consent', () => {
     f.container.dispatchEvent(new Event('controllerchange'));
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(f.reloads()).toBe(0);
-    expect(f.session.getSnapshot().available).toBe(false);
+    expect(f.session.getSnapshot().available).toBe(true);
   });
   it('keeps the notice dismissed when a background check finds the same waiting update', async () => {
     const f = fixture(); await f.session.attach(f.registration as unknown as ServiceWorkerRegistration);
