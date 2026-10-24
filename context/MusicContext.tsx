@@ -1044,6 +1044,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [current, playing, lyric, activeLyricIdx, listeningTogetherWith, cfg, recentTrackChange, listeningStartedAt, listeningInvites, lastListeningEnd]);
 
+  const creatingCharInvites = useRef(new Set<string>());
   // 把整组 musicHooks 写到模块级 slot — useChatAI 和 activeMsgRuntime 都从这里取.
   // current / addListeningPartner 变化时刷新闭包, 保证读到的是最新 React state.
   // addSongToCharPlaylist 直接落 DB, 落完广播 'char-music-profile-updated' 让 OSContext
@@ -1081,13 +1082,24 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         })().catch(err => console.warn('[MusicTogether] 接受邀请记录失败', err));
       },
       inviteUserListening: async (cid: string) => {
-        // AI 发出的邀请先落入对应角色的聊天历史；等待用户选择，不自动加入。
-        const messageId = await DB.saveMessage({
-          charId: cid, role: 'assistant', type: 'system',
-          content: '[一起听邀请] 要不要一起听歌？',
-          metadata: { musicListenInvite: true, inviter: 'char', status: 'pending', invitedAt: Date.now() },
-        });
-        window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId: cid, messageId } }));
+        if (creatingCharInvites.current.has(cid)) return;
+        creatingCharInvites.current.add(cid);
+        try {
+          // AI 每个角色同一时间只保留一条待回应邀请，防止主动消息多次触发叠卡。
+          const messages = await DB.getMessagesByCharId(cid, true);
+          const pending = [...messages].reverse().find(m =>
+            m.metadata?.musicListenInvite && m.metadata?.inviter === 'char' &&
+            !messages.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+          if (pending) return;
+          const messageId = await DB.saveMessage({
+            charId: cid, role: 'assistant', type: 'system',
+            content: '[一起听邀请] 要不要一起听歌？',
+            metadata: { musicListenInvite: true, inviter: 'char', status: 'pending', invitedAt: Date.now() },
+          });
+          window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId: cid, messageId } }));
+        } finally {
+          creatingCharInvites.current.delete(cid);
+        }
       },
       rejectListeningInvite: (cid: string) => {
         respondListeningInvite(cid, false);
