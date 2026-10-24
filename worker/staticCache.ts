@@ -246,7 +246,7 @@ export function createStaticCache(deps: CacheDependencies) {
         // The release now on the server supplies the page and the files that keep their names
         // across releases; offline, the copies of this build below still start the app.
         try {
-          const fresh = await deps.fetch(isShell ? request : new Request(request, { cache: 'no-cache' }));
+          const fresh = await deps.fetch(new Request(request, { cache: 'no-store' }));
           if (fresh.ok || fresh.type === 'opaqueredirect') return fresh;
         } catch { /* cached copy */ }
       }
