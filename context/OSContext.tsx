@@ -1844,9 +1844,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
       const root = document.documentElement;
       // Default fallback values match index.html
-      const h = theme.hue ?? 245;
-      const s = theme.saturation ?? 25;
-      const l = theme.lightness ?? 65;
+      // UI highlights always remain neutral, including saved colorful theme preferences.
+      const h = 0;
+      const s = 0;
+      const l = theme.lightness ?? 38;
       
       root.style.setProperty('--primary-hue', String(h));
       root.style.setProperty('--primary-sat', `${s}%`);
