@@ -66,8 +66,12 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    }
    shorter.root.updateWorldMatrix(true,true);
    const toeAfter=['L_toe','R_toe'].map(n=>shorter.rig!.bones[n].getWorldPosition(new T.Vector3()));
-   const correction=(toeBefore[0].y-toeAfter[0].y+toeBefore[1].y-toeAfter[1].y)*.5;
-   shorter.translatePose(new T.Vector3(0,T.MathUtils.clamp(correction,-.12,.12),0));
+   // Preserve the lowest planted toe rather than averaging both feet:
+   // averaging can leave one foot penetrating the floor.
+   const beforeFloor=Math.min(...toeBefore.map(p=>p.y));
+   const afterFloor=Math.min(...toeAfter.map(p=>p.y));
+   const correction=T.MathUtils.clamp(beforeFloor-afterFloor,-.12,.12);
+   shorter.translatePose(new T.Vector3(0,correction,0));
    taller.rig!.bones.spine.quaternion.multiply(rotation(bend*.9));
    taller.rig!.bones.chest.quaternion.multiply(rotation(bend*1.05));
    taller.rig!.bones.neck.quaternion.multiply(rotation(bend*.45));
