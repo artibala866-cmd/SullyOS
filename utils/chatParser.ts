@@ -318,6 +318,8 @@ export const ChatParser = {
             if (verb === 'reject') musicHooks.rejectListeningInvite?.(charId);
             if (verb === 'play' && args[0]) musicHooks.playListeningTrack?.(charId, args[0]);
             const wantsJoin = verb === 'join' || verb === 'join_and_add' || verb === 'join_and_add_new';
+            // 邀请接受不要求用户此刻已经开始播放；否则无歌时会一直停留在待回应。
+            if (wantsJoin) musicHooks.joinListeningTogether(charId);
             const wantsAdd = verb !== 'join' && verb !== 'favorite_current' && verb !== 'favorite_track' && verb !== 'invite' && verb !== 'stop' && verb !== 'reject' && verb !== 'play';
 
             let target: AddSongTarget | undefined;
@@ -339,9 +341,6 @@ export const ChatParser = {
             if (snap && verb !== 'favorite_current' && verb !== 'favorite_track' && verb !== 'invite' && verb !== 'stop' && verb !== 'reject' && verb !== 'play') {
                 let addedToPlaylistTitle: string | undefined;
                 let playlistCreated = false;
-                if (wantsJoin) {
-                    musicHooks.joinListeningTogether(charId);
-                }
                 if (wantsAdd) {
                     try {
                         const playlistSong: CharPlaylistSong = {
