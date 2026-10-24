@@ -1,4 +1,5 @@
 import { readCharacterLifeEvents } from './characterLifeEvents';
+import { readNpcProfiles } from './characterPhoneNpcs';
 import { resolveDialogueApi } from './characterApi';
 import { stoppedReplyStateEntries } from './amsgStoppedReplyClient';
 import { loadCharacterContextMessages } from './chatContextRange';
@@ -904,7 +905,19 @@ export const buildFirePack = async (
   const phoneEvents = templateStub ? [] : readCharacterLifeEvents(char.id)
     .filter(event => event.source === 'phone' && event.occurredAt <= Date.now())
     .slice(0, 12)
-    .map(event => ({ occurredAt: event.occurredAt, summary: event.summary.slice(0, 160) }));
+    .map(event => ({ occurredAt: event.occurredAt, summary: event.summary.slice(0, 200) }));
+  // Existing character-owned contacts remain the source of truth.
+  // Carry only a small relationship summary, never entire private NPC chats.
+  const phoneSocialContacts = templateStub ? [] : readNpcProfiles(char.id)
+    .filter(p => !!p.name && !!p.relationship)
+    .sort((a, b) => (b.lastInteractedAt || 0) - (a.lastInteractedAt || 0))
+    .slice(0, 8)
+    .map(p => ({
+      id: p.id, name: (p.remark || p.nickname || p.name).slice(0, 40),
+      relationship: p.relationship.slice(0, 100),
+      trait: [p.personality.slice(0, 95), p.speechStyle || ''].filter(Boolean).join('；').slice(0, 130),
+      continuity: (p.relationshipNotes || '').slice(-170),
+    }));
 
   return {
     // 版本号只有 amsgFirePack 那一份说了算：写死数字的话，升版时 worker 侧的 parseFirePack
@@ -931,6 +944,7 @@ export const buildFirePack = async (
     // 挑当前时段。烤成文字的话，凌晨三点触发时角色会说「我在健身房呢」。
     scene,
     phoneEvents,
+    phoneSocialContacts,
   };
 };
 
