@@ -113,7 +113,8 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
      if(motion.lengthSq()>.000001){
       const walking=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(motion.x,motion.z));
       r.visitor.root.quaternion.copy(walking);
-      r.visitor.animate(sourceTime,'walk');
+      // 亲亲专用靠近步态：降低碎步频率，保持动作轨迹与其他互动不变。
+      r.visitor.animate(sourceTime*.72,'walk');
      }else r.visitor.animate(sourceTime,'idle');
     }else r.visitor.animate(sourceTime,'idle');
    }else{
