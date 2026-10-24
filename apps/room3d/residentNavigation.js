@@ -1,6 +1,11 @@
 // Use the body footprint; hair and accessories may overlap in narrow rooms.
 export function withResidents(map,people,start){
- return {...map,free:(x,z)=>map.free(x,z)&&people.every(p=>Math.hypot(x-p[0],z-p[1])>=Math.min(.58,start?Math.hypot(start[0]-p[0],start[1]-p[1]):.58)-1e-6)};
+ return {...map,free:(x,z)=>map.free(x,z)&&people.every(p=>{
+  const d=Math.hypot(x-p[0],z-p[1]),initial=start?Math.hypot(start[0]-p[0],start[1]-p[1]):Infinity;
+  if(d>=.56-1e-6)return true;
+  // Only a short outward corridor for an already overlapping walker.
+  return !!start&&initial<.56&&d>=initial-1e-6&&Math.hypot(x-start[0],z-start[1])<=.56-initial+.06;
+ })};
 }
 export function residentBlocksStep(from,to,people){
  const vx=to[0]-from[0],vz=to[1]-from[1];

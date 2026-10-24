@@ -33,46 +33,89 @@ export function walkingMap(home,level,catalog,{headWidth=1.5,headBottom=.7,headT
  };
  return {free,cells,obstacles,areas};
 }
+/** Only on path requests; never run grid search in the animation frame. */
 export function findWalkPath(map,start,target,{targetRadius=0}={}){
- // Only a direct ground click can snap. Furniture/door contact targets remain
- // exact, and a valid but disconnected destination must never jump a wall.
- if(targetRadius>0&&!map.free(...target)&&map.free(...start)){
-  const candidates=[];
+ const clear=(a,b)=>{
+  const n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.035));
+  for(let i=0;i<=n;i++)if(!map.free(a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n))return false;
+  return true;
+ };
+ if(!map.free(...target)){
+  if(targetRadius<=0||!map.free(...start))return null;
+  const nearby=[];
   for(let radius=.15;radius<=Math.min(targetRadius,.6)+.001;radius+=.15)for(let i=0;i<16;i++){
    const angle=i*Math.PI/8,p=[target[0]+Math.cos(angle)*radius,target[1]+Math.sin(angle)*radius];
-   if(map.free(...p))candidates.push(p);
+   if(map.free(...p))nearby.push(p);
   }
-  for(const p of candidates.slice(0,8)){const path=findWalkPath(map,start,p);if(path)return path;}
+  // A blocked click can have a reachable position on its far side.
+  for(const p of nearby.slice(0,32)){const found=findWalkPath(map,start,p);if(found)return found;}
   return null;
  }
- const step=.2,key=(x,z)=>x+','+z,point=([x,z])=>[x*step,z*step];
- const clear=(a,b)=>{const n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.07));for(let i=0;i<=n;i++)if(!map.free(a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n))return false;return true;};
- if(!map.free(...start)||!map.free(...target))return null;
- if(clear(start,target))return [start,target];
- // A valid exact endpoint can round into furniture. Attach it to each nearby
- // reachable grid node instead of rejecting the route at that rounding step.
- const attachments=p=>{
-  const center=p.map(v=>Math.round(v/step)),result=[];
-  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
-   const node=[center[0]+dx,center[1]+dz];if(clear(p,point(node)))result.push(node);
+ if(!map.free(...start)){
+  // Standing next to furniture can place the root inside its wide safety
+  // margin, but we must never escape THROUGH a real wall or furniture mesh.
+  if(!Array.isArray(map.cells)||!Array.isArray(map.obstacles))return null;
+  const coreFree=(x,z)=>map.cells.some(c=>x>=c[0]&&x<=c[2]&&z>=c[1]&&z<=c[3])&&!map.obstacles.some(b=>b[1]<1.4&&b[4]>.18&&x>b[0]&&x<b[3]&&z>b[2]&&z<b[5]);
+  if(!coreFree(...start))return null;
+  for(const radius of [.08,.16,.24,.32])for(let i=0;i<16;i++){
+   const angle=i*Math.PI/8,p=[start[0]+Math.cos(angle)*radius,start[1]+Math.sin(angle)*radius];
+   if(!map.free(...p))continue;
+   let safe=true;for(let j=1;j<=Math.ceil(radius/.03);j++){
+    const t=j/Math.ceil(radius/.03);
+    if(!coreFree(start[0]+(p[0]-start[0])*t,start[1]+(p[1]-start[1])*t)){safe=false;break;}
+   }
+   if(!safe)continue;
+   const found=findWalkPath(map,p,target);if(found)return [start,...found];
   }
-  return result.sort((a,b)=>Math.hypot(a[0]*step-p[0],a[1]*step-p[1])-Math.hypot(b[0]*step-p[0],b[1]*step-p[1]));
- };
- const sources=attachments(start),goals=new Set(attachments(target).map(p=>key(...p)));
- if(!sources.length||!goals.size)return null;
- const queue=[...sources],parents=new Map(sources.map(p=>[key(...p),null]));let end=null;
- for(let n=0;n<queue.length&&n<40000;n++){
-  const p=queue[n];if(goals.has(key(...p))){end=p;break;}
-  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
-   const next=[p[0]+dx,p[1]+dz],id=key(...next);if(parents.has(id)||!map.free(...point(next)))continue;
-   if(dx&&dz&&(!map.free(...point([p[0]+dx,p[1]]))||!map.free(...point([p[0],p[1]+dz]))))continue;
-   parents.set(id,p);queue.push(next);
-  }
+  return null;
  }
- if(!end)return null;const path=[target];for(let p=end;p;p=parents.get(key(...p)))path.push(point(p));path.push(start);path.reverse();
- // Remove grid zigzags without cutting corners; do not overshoot the destination
- // and turn backwards for the final few centimetres.
- const smooth=[start];for(let i=0;i<path.length-1;){let j=path.length-1;while(j>i+1&&!clear(path[i],path[j]))j--;smooth.push(path[j]);i=j;}return smooth;
+ if(clear(start,target))return [start,target];
+ const routeOnGrid=(step,limit)=>{
+  const key=p=>p[0]+','+p[1],loc=p=>[p[0]*step,p[1]*step],round=p=>p.map(x=>Math.round(x/step));
+  const walkable=new Map();
+  const open=p=>{const id=key(p);if(!walkable.has(id))walkable.set(id,map.free(...loc(p)));return walkable.get(id);};
+  const attachment=p=>{
+   const c=round(p),nodes=[],reach=step<.15?2:1;
+   for(let dx=-reach;dx<=reach;dx++)for(let dz=-reach;dz<=reach;dz++){
+    const node=[c[0]+dx,c[1]+dz];if(open(node)&&clear(p,loc(node)))nodes.push(node);
+   }
+   return nodes.sort((a,b)=>Math.hypot(a[0]*step-p[0],a[1]*step-p[1])-Math.hypot(b[0]*step-p[0],b[1]*step-p[1]));
+  };
+  const sources=attachment(start),goals=new Set(attachment(target).map(key));
+  if(!sources.length||!goals.size)return null;
+  const heap=[],best=new Map(),parent=new Map(),heuristic=p=>Math.hypot(p[0]*step-target[0],p[1]*step-target[1]);
+  const push=v=>{let i=heap.length;heap.push(v);while(i){const j=(i-1)>>1;if(heap[j].f<=v.f)break;heap[i]=heap[j];i=j;}heap[i]=v;};
+  const pop=()=>{const first=heap[0],last=heap.pop();if(heap.length){let i=0;while(i*2+1<heap.length){let j=i*2+1;if(j+1<heap.length&&heap[j+1].f<heap[j].f)j++;if(last.f<=heap[j].f)break;heap[i]=heap[j];i=j;}heap[i]=last;}return first;};
+  for(const node of sources){const id=key(node),g=Math.hypot(node[0]*step-start[0],node[1]*step-start[1]);if(g>=(best.get(id)??Infinity))continue;best.set(id,g);parent.set(id,null);push({node,g,f:g+heuristic(node)});}
+  const directions=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  let endpoint=null,visited=0;
+  while(heap.length&&visited++<limit){
+   const current=pop(),p=current.node,id=key(p);
+   if(current.g>(best.get(id)??Infinity)+1e-7)continue;
+   if(goals.has(id)){endpoint=p;break;}
+   for(const [dx,dz] of directions){
+    const next=[p[0]+dx,p[1]+dz],id=key(next);
+    if(!open(next)||dx&&dz&&(!open([p[0]+dx,p[1]])||!open([p[0],p[1]+dz])))continue;
+    const g=current.g+step*Math.hypot(dx,dz);
+    if(g+1e-7>=(best.get(id)??Infinity)||!clear(loc(p),loc(next)))continue;
+    best.set(id,g);parent.set(id,p);push({node:next,g,f:g+heuristic(next)});
+   }
+  }
+  if(!endpoint)return null;
+  const points=[target];
+  for(let p=endpoint;p;p=parent.get(key(p)))points.push(loc(p));
+  points.push(start);points.reverse();
+  const smooth=[start];
+  for(let i=0;i<points.length-1;){
+   let j=points.length-1;
+   while(j>i+1&&!clear(points[i],points[j]))j--;
+   if(!clear(points[i],points[j]))return null;
+   smooth.push(points[j]);i=j;
+  }
+  return smooth;
+ };
+ // Normal paths use the cheap .2 grid. Only actual failures retry .1.
+ return routeOnGrid(.2,20000)||routeOnGrid(.1,24000);
 }
 export function doorTarget(home,room,edge,outside=false){
  const e=ROOM_EDGES[edge],d=boundary(room,edge).door;if(!d)return null;
