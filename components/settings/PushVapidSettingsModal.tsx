@@ -136,7 +136,7 @@ export const PushVapidSettingsModal: React.FC<PushVapidSettingsModalProps> = ({ 
           <button
             type="button"
             onClick={handleSave}
-            className="flex-1 py-3 bg-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 text-sm"
+            className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200 text-sm"
           >
             保存
           </button>
@@ -145,7 +145,7 @@ export const PushVapidSettingsModal: React.FC<PushVapidSettingsModalProps> = ({ 
     >
       <div className="space-y-5 text-sm">
 
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-[11px] text-amber-800 leading-relaxed">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 text-[11px] text-neutral-800 leading-relaxed">
           <p className="font-bold mb-1">⚠ 一份 VAPID, 两个用法</p>
           <p>
             浏览器订阅 push 用<b>公钥</b>; Worker 签名 push 用<b>私钥</b>.
@@ -176,7 +176,7 @@ export const PushVapidSettingsModal: React.FC<PushVapidSettingsModalProps> = ({ 
             value={publicKey}
             onChange={(e) => setPublicKey(e.target.value)}
             placeholder="BA…（点下方「生成新密钥对」自动生成）"
-            className="w-full text-[11px] font-mono bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-400"
+            className="w-full text-[11px] font-mono bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400"
           />
         </div>
 
@@ -197,7 +197,7 @@ export const PushVapidSettingsModal: React.FC<PushVapidSettingsModalProps> = ({ 
                   <button
                     type="button"
                     onClick={() => void handleCopyPrivateKey()}
-                    className="text-[11px] text-indigo-500 hover:text-indigo-600 font-medium"
+                    className="text-[11px] text-neutral-500 hover:text-neutral-600 font-medium"
                   >
                     复制
                   </button>
@@ -211,7 +211,7 @@ export const PushVapidSettingsModal: React.FC<PushVapidSettingsModalProps> = ({ 
               onChange={(e) => setPrivateKey(e.target.value)}
               rows={3}
               placeholder="点下方「生成新密钥对」自动生成"
-              className="w-full font-mono text-[11px] bg-white border border-slate-200 rounded-xl p-2 resize-none leading-relaxed focus:outline-none focus:border-indigo-400"
+              className="w-full font-mono text-[11px] bg-white border border-slate-200 rounded-xl p-2 resize-none leading-relaxed focus:outline-none focus:border-neutral-400"
             />
           ) : (
             <div className="w-full text-[11px] font-mono bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-500 select-none break-all">
@@ -229,7 +229,7 @@ export const PushVapidSettingsModal: React.FC<PushVapidSettingsModalProps> = ({ 
             type="button"
             onClick={() => void handleGenerate()}
             disabled={generating}
-            className={`py-2.5 rounded-xl text-[11px] font-bold ${generating ? 'bg-slate-200 text-slate-400' : 'bg-indigo-500 text-white hover:bg-indigo-600'}`}
+            className={`py-2.5 rounded-xl text-[11px] font-bold ${generating ? 'bg-slate-200 text-slate-400' : 'bg-neutral-500 text-white hover:bg-neutral-600'}`}
           >
             {generating ? '生成中…' : (publicKey ? '🔄 重新生成密钥对' : '生成新密钥对')}
           </button>
@@ -248,7 +248,7 @@ export const PushVapidSettingsModal: React.FC<PushVapidSettingsModalProps> = ({ 
             <button
               type="button"
               onClick={handleClear}
-              className="text-[11px] text-rose-500 hover:text-rose-600 font-medium underline-offset-2 hover:underline"
+              className="text-[11px] text-neutral-500 hover:text-neutral-600 font-medium underline-offset-2 hover:underline"
             >
               清空 VAPID（重新部署后推送订阅要重建）
             </button>
