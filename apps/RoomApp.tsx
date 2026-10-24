@@ -13,7 +13,7 @@ const Home3DView=React.lazy(()=>import('./room3d/Home3DSetupEntry'));
 /** The original hand-drawn 2D room and world-home screens are intentionally
  * not imported. Dream Theater is retained as a standalone 3D-home feature. */
 const RoomApp:React.FC=()=>{
- const {activeApp,closeApp,characters,characterGroups,activeCharacterId,setActiveCharacterId,updateCharacter,userProfile}=useOS();
+ const {activeApp,closeApp,characters,characterGroups,setActiveCharacterId,updateCharacter,userProfile}=useOS();
  const intent=roomLaunch.peek();
  const [selected,setSelected]=useState<string|null>(()=>intent?.charId||null);
  const [dreamOpen,setDreamOpen]=useState(()=>!!intent?.openDream);
@@ -48,7 +48,7 @@ const RoomApp:React.FC=()=>{
    <CharacterGroupFilterBar characters={characters} groups={characterGroups} value={group} onChange={setGroup} className="mt-5"/>
    <div className="mt-5 grid grid-cols-2 gap-3 overflow-y-auto pb-8">
     {filterCharactersByGroup(characters,characterGroups,group).map(c=><button key={c.id} onClick={()=>{setSelected(c.id);setActiveCharacterId(c.id);}} className="flex flex-col items-center gap-3 rounded-2xl bg-white/75 p-5 text-sm shadow-sm">
-     <TokenImg src={c.avatar} className="h-16 w-16 rounded-full object-cover"/><span>{c.name}</span>
+     <TokenImg value={c.avatar} className="h-16 w-16 rounded-full object-cover"/><span>{c.name}</span>
     </button>)}
    </div>
   </div>}
