@@ -89,12 +89,9 @@ export const toSARModuleSurfaceSource = (state: SARModuleRuntimeState): SARModul
 
 /** worker 拿快照还原出解信封所需的最小 plan；两边都没模块时返回 null。 */
 export const planFromSARModuleSnapshot = (snapshot: AmsgSarModuleSnapshot | null | undefined): SARModuleRuntimePlan | null => {
-    if (!snapshot || (!snapshot.character && !snapshot.user)) return null;
-    const character = snapshot.character as SARModuleRuntimeState | undefined;
-    const user = snapshot.user as SARModuleRuntimeState | undefined;
-    const hasActiveEffect = character?.phase === 'active' || user?.phase === 'active';
-    const hasAfterglow = character?.phase === 'afterglow' || user?.phase === 'afterglow';
-    return { character, user, hasActiveEffect, hasAfterglow, requiresEnvelope: hasActiveEffect };
+    // 彼方 has been retired. Do not reactivate an old pending Worker task or push payload.
+    void snapshot;
+    return null;
 };
 
 const isPlainSARChatActionOnlyChunk = (text: string): boolean => {
