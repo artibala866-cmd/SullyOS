@@ -36,7 +36,7 @@ export function migrateRetiredVrCharacterFigure(char: CharacterProfile): { value
   return {
     value: {
       ...char,
-      ...(migrateImage ? { sprites: { ...char.sprites, chibi: sourceImage } } : {}),
+      ...(migrateImage ? { sprites: { ...char.sprites, chibi: sourceImage! } } : {}),
       ...(migrateState ? {
         chibiStudio: {
           ...char.chibiStudio,
