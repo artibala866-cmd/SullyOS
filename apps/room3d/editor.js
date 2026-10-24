@@ -12,6 +12,7 @@ import './socialWheel.css';
 import './petWheel.css';
 import {withResidents,residentBlocksStep} from './residentNavigation.js';
 import {residentSeparationStep,chooseResidentToYield} from './residentSeparation.js';
+import {clearSocialObservers} from './socialSpace.js';
 import {petHomeRecord} from '../../utils/homePetRecords';
 import {homeDisposalReason} from '../../utils/homeAssetCancellation';
 import {socialPostureAllowed,SEATED_TARGET_ACTIONS} from './socialPosture';
@@ -324,9 +325,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   // Social trajectories start at the same valid walking positions as the resident.
   const room=current(),map=navMap();
   const motionMap=walkingMap({...state,rooms:state.rooms.map(r=>({...r,items:r.items.filter(i=>asset(i.assetId)?.building)}))},room.level,catalog,{headWidth,...visitor?.navigation,walkClearance:true});
-  const clearOfOthers=paths=>paths.every(path=>path.every(p=>entries.filter(e=>e.id!==a&&(socialActions[action].participants!==2||e.id!==b)).every(e=>Math.hypot(e.visitor.root.position.x-p.x,e.visitor.root.position.z-p.z)>=headWidth+.08)));
+  // Only uninvolved actors reserve ordinary .60 core-body space.
+  const observers=entries.filter(e=>e.id!==a&&(socialActions[action].participants!==2||e.id!==b)).map(e=>e.visitor.root.position);
+  const clearOfOthers=paths=>clearSocialObservers(paths,observers);
 
-  socialRuntime=createSocialScene(entries,{facingTarget:socialActions[action].participants===1?entries.find(e=>e.id===(a==='user'?primaryResidentId:'user'))?.visitor.root.position.clone():undefined,pinned:seatedTarget?{id:pinnedId,pose:pinnedId===activeResidentId()?currentSeatPose()||{}:socialEntries.find(e=>e.id===pinnedId)?.parkedPose||{}}:undefined,onComplete:()=>{if(action==='cmu-22_01')queueMicrotask(()=>standResident(b));},findPath:(from,to)=>{const path=findWalkPath(map,[from.x+room.x*ROOM_STEP.x,from.z+room.z*ROOM_STEP.z],[to.x+room.x*ROOM_STEP.x,to.z+room.z*ROOM_STEP.z]);return path?[from.clone(),...path.map(p=>new THREE.Vector3(p[0]-room.x*ROOM_STEP.x,.18,p[1]-room.z*ROOM_STEP.z)),to.clone()]:null;},origins:Array.from({length:17},(_,i)=>(i-8)*.45).flatMap(z=>Array.from({length:21},(_,i)=>new THREE.Vector3((i-10)*.45,.18,z))).filter(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)).sort((p,q)=>p.distanceToSquared(resident.position)-q.distanceToSquared(resident.position)),canPerform:paths=>clearOfOthers(paths)&&paths.every(path=>path.every(p=>motionMap.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z))),canPlace:paths=>paths.every(path=>path.every(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)&&entries.filter(e=>e.id!==a&&(socialActions[action].participants!==2||e.id!==b)).every(e=>Math.hypot(e.visitor.root.position.x-p.x,e.visitor.root.position.z-p.z)>=headWidth+.08)))});
+  socialRuntime=createSocialScene(entries,{facingTarget:socialActions[action].participants===1?entries.find(e=>e.id===(a==='user'?primaryResidentId:'user'))?.visitor.root.position.clone():undefined,pinned:seatedTarget?{id:pinnedId,pose:pinnedId===activeResidentId()?currentSeatPose()||{}:socialEntries.find(e=>e.id===pinnedId)?.parkedPose||{}}:undefined,onComplete:()=>{if(action==='cmu-22_01')queueMicrotask(()=>standResident(b));},findPath:(from,to)=>{const path=findWalkPath(map,[from.x+room.x*ROOM_STEP.x,from.z+room.z*ROOM_STEP.z],[to.x+room.x*ROOM_STEP.x,to.z+room.z*ROOM_STEP.z]);return path?[from.clone(),...path.map(p=>new THREE.Vector3(p[0]-room.x*ROOM_STEP.x,.18,p[1]-room.z*ROOM_STEP.z)),to.clone()]:null;},origins:Array.from({length:17},(_,i)=>(i-8)*.45).flatMap(z=>Array.from({length:21},(_,i)=>new THREE.Vector3((i-10)*.45,.18,z))).filter(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)).sort((p,q)=>p.distanceToSquared(resident.position)-q.distanceToSquared(resident.position)),canPerform:paths=>clearOfOthers(paths)&&paths.every(path=>path.every(p=>motionMap.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z))),canPlace:paths=>paths.every(path=>path.every(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)&&clearSocialObservers([[p]],observers)))});
   socialRoom=room.id;const runtime=socialRuntime;const started=await runtime.start(action,a,b);if(!started||runtime!==socialRuntime)return false;
   const person=id=>id===primaryResidentId?ownerName:socialEntries.find(e=>e.id===id)?.label||'你';
   const label=socialActions[action].label.replace(/\s*[AB]→[AB]/g,'').replace(/\s*·\s*双人/g,'');
@@ -523,7 +526,21 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    let remaining=Math.max(0,elapsed-travel.last)*(travel.person.visitor.walkSpeed||1.05);travel.last=elapsed;
    while(remaining>0&&travel.index<travel.path.length){const p=travel.path[travel.index],dx=p[0]-offset[0]-root.position.x,dz=p[1]-offset[1]-root.position.z,d=Math.hypot(dx,dz),step=Math.min(remaining,d);
     const nx=root.position.x+(d?dx/d*step:0),nz=root.position.z+(d?dz/d*step:0);
-    if(user&&residentBlocksStep([root.position.x,root.position.z],[nx,nz],[[user.group.position.x,user.group.position.z]])){if(!furnitureUser)visitorLocation={x:root.position.x+offset[0],z:root.position.z+offset[1],level:current().level};cancelCompanionAction();return;}
+    if(user&&residentBlocksStep([root.position.x,root.position.z],[nx,nz],[[user.group.position.x,user.group.position.z]])){
+      travel.blockedSince??=elapsed;
+      if(elapsed-(travel.lastReroute??-Infinity)>=.42){
+       travel.lastReroute=elapsed;
+       const here=[root.position.x+offset[0],root.position.z+offset[1]],other=[user.group.position.x+offset[0],user.group.position.z+offset[1]];
+       const route=findWalkPath(withResidents(navMap(),[other],here),here,travel.path.at(-1));
+       if(route?.length>1&&!residentBlocksStep([root.position.x,root.position.z],[route[1][0]-offset[0],route[1][1]-offset[1]],[[user.group.position.x,user.group.position.z]])){
+        travel.path=route;travel.index=1;travel.blockedSince=null;travel.last=elapsed;dirty=true;wake();return;
+       }
+      }
+      if(elapsed-travel.blockedSince<1.4){travel.last=elapsed;travel.person.visitor.animate(0,'idle');dirty=true;wake();return;}
+      if(!furnitureUser)visitorLocation={x:root.position.x+offset[0],z:root.position.z+offset[1],level:current().level};
+      companionLastResult='前方通道拥挤，本次原地停止';cancelCompanionAction();return;
+     }
+     travel.blockedSince=null;
     if(d>.001)setResidentHeading(root,Math.atan2(dx,dz));root.position.x=nx;root.position.z=nz;remaining-=step;if(d<=step+.001)travel.index++;else break;
    }
    travel.person.visitor.animate(elapsed-travel.start,'walk');
@@ -624,7 +641,8 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(Math.abs(p[0]-offset[0])>=ROOM_HALF.x-.3||Math.abs(p[1]-offset[1])>=ROOM_HALF.z-.3)continue;
    const path=findWalkPath(map,start,p);if(path&&path.every(q=>Math.hypot(q[0]-offset[0]-user.group.position.x,q[1]-offset[1]-user.group.position.z)>.55))candidates.push({p,path});
   }
-  candidates.sort((a,b)=>a.path.length-b.path.length);if(!candidates.length){if(action==='wander'){companionLastResult='没有可达空地，本次未走动';return false;}companionLastResult='未找到可达的靠近位置';return false;}
+  const routeLength=path=>path.slice(1).reduce((d,p,i)=>d+Math.hypot(p[0]-path[i][0],p[1]-path[i][1]),0);
+  candidates.sort((a,b)=>routeLength(a.path)-routeLength(b.path));if(!candidates.length){if(action==='wander'){companionLastResult='没有可达空地，本次未走动';return false;}companionLastResult='未找到可达的靠近位置';return false;}
   companionUserPosition={x:user.group.position.x,z:user.group.position.z,room:room.id};
   companionTravel={person,path:candidates[0].path,index:1,offset,room:room.id,revision:manualRevision,action,name,start:elapsed,last:elapsed};dirty=true;wake();
   return true;
@@ -802,7 +820,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const offset=[current().x*ROOM_STEP.x,current().z*ROOM_STEP.z],start=[resident.position.x+offset[0],resident.position.z+offset[1]],map=residentWalkMap(start);
    const front=seatEntry(option.pose,{free:(x,z)=>map.free(x,z)&&!!findWalkPath(map,start,[x,z])},offset);
    if(!front||!walkTo([front[0]+current().x*ROOM_STEP.x,front[2]+current().z*ROOM_STEP.z]))return false;
-   if(!await wait(()=>!walking))return false;
+   const walkSession=walking;if(!await wait(()=>!walking)||walkSession?.failed)return false;
    runAction({...option.a.data,recordSource:'model'});
    return await wait(()=>!seatChange)&&!!visitorSeat&&!visitorSeat.bed;
   };
@@ -952,7 +970,22 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    // never move the neighbour or respawn either resident.
    const step=Math.min(length,remaining),next=[visitorLocation.x+(length?dx*step/length:0),visitorLocation.z+(length?dz*step/length:0)];
    const blocked=residentBlocksStep([visitorLocation.x,visitorLocation.z],next,nearbyResidents());
-   if(blocked){resident.position.set(visitorLocation.x-current().x*ROOM_STEP.x,.18,visitorLocation.z-current().z*ROOM_STEP.z);stopWalking();notify('有人在前面，先停一下');return;}
+   if(blocked){
+     const session=walking,here=[visitorLocation.x,visitorLocation.z];
+     session.blockedSince??=elapsed;
+     if(elapsed-(session.lastReroute??-Infinity)>=.42){
+      session.lastReroute=elapsed;
+      const route=findWalkPath(residentWalkMap(here),here,session.path.at(-1));
+      if(route?.length>1&&!residentBlocksStep(here,route[1],nearbyResidents())){
+       session.path=route;session.index=1;session.blockedSince=null;session.last=elapsed;visitorMotion='walk';dirty=true;wake();return;
+      }
+     }
+     if(elapsed-session.blockedSince<1.4){session.last=elapsed;visitorMotion='idle';dirty=true;wake();return;}
+     session.failed=true;
+     resident.position.set(here[0]-current().x*ROOM_STEP.x,.18,here[1]-current().z*ROOM_STEP.z);
+     stopWalking();notify('前方有人，已在原地安全停下');return;
+    }
+    walking.blockedSince=null;visitorMotion='walk';
    if(length>.001)setResidentHeading(resident,Math.atan2(dx,dz));
    if(length>remaining){visitorLocation.x+=dx*remaining/length;visitorLocation.z+=dz*remaining/length;break;}
    visitorLocation.x=p[0];visitorLocation.z=p[1];remaining-=length;walking.index++;
