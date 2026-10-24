@@ -38,6 +38,8 @@ import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/
 import { considerCharacterMemo } from '../utils/characterMemoAutonomy';
 import { readCharacterLifeEvents } from '../utils/characterLifeEvents';
 import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
+import { runCharacterPhoneAutonomy } from '../utils/characterPhoneAutonomy';
+import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
 import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
 import { getLifeEventConsumers, shouldDispatchLifeEvent } from '../utils/characterLifeEventRouting';
 import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
@@ -2409,6 +2411,45 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           disposed = true;
           queue.clear();
           window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
+          document.removeEventListener('visibilitychange', onVisible);
+      };
+  }, [isDataLoaded]);
+
+  // Character-owned NPC phone actions, NOT a second User-facing AMSG system.
+  // Bounded, one character at a time; only while app is in the foreground.
+  // Every persisted action enters the original life-event ledger, whose listener
+  // already refreshes AMSG 2.0 and selectively archives Memory Palace facts.
+  useEffect(() => {
+      if (!isDataLoaded) return;
+      let disposed = false;
+      let running = false;
+      let cursor = 0;
+      const tick = async () => {
+          if (disposed || running || document.visibilityState !== 'visible') return;
+          const all = charactersRef.current.filter(c => !!c.id);
+          if (!all.length || !userProfileRef.current) return;
+          const char = all[cursor++ % all.length];
+          const api = resolveDialogueApi(apiConfigRef.current, char);
+          if (!api.baseUrl || !api.apiKey || !api.model) return;
+          running = true;
+          try {
+              await runCharacterPhoneAutonomy({
+                  char, user: userProfileRef.current,
+                  groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current, api,
+              });
+              if (!disposed) await runCharacterMomentInteractionAutonomy({char, api});
+          } catch (error) {
+              console.warn('[CharacterPhone] autonomous foreground tick skipped', error);
+          } finally { running = false; }
+      };
+      const onVisible = () => { if (document.visibilityState === 'visible') void tick(); };
+      const initial = window.setTimeout(() => { void tick(); }, 10_000);
+      const interval = window.setInterval(() => { void tick(); }, 3 * 60_000);
+      document.addEventListener('visibilitychange', onVisible);
+      return () => {
+          disposed = true;
+          window.clearTimeout(initial);
+          window.clearInterval(interval);
           document.removeEventListener('visibilitychange', onVisible);
       };
   }, [isDataLoaded]);
