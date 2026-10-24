@@ -1,4 +1,4 @@
-import React,{useEffect,useState,Suspense} from 'react';
+import React,{useEffect,useState,useRef,useLayoutEffect,Suspense} from 'react';
 import {useOS} from '../context/OSContext';
 import {AppID} from '../types';
 import {roomLaunch} from '../utils/roomLaunch';
@@ -8,6 +8,7 @@ import {CharacterGroupFilterBar,filterCharactersByGroup,GROUP_FILTER_ALL} from '
 import TokenImg from '../components/os/TokenImg';
 import {MoonStars,ArrowLeft} from '@phosphor-icons/react';
 
+const charForRail=(id:string|null,chars:{id:string}[])=>!!id&&chars.some(c=>c.id===id);
 const Home3DView=React.lazy(()=>import('./room3d/Home3DSetupEntry'));
 
 /** The original hand-drawn 2D room and world-home screens are intentionally
@@ -20,6 +21,31 @@ const RoomApp:React.FC=()=>{
  const [dreamOwner,setDreamOwner]=useState<string|null>(()=>intent?.openDream?intent.charId??null:null);
  const [group,setGroup]=useState(GROUP_FILTER_ALL);
  const dream=useDreamSim();
+ const shellRef=useRef<HTMLDivElement>(null);
+ const [dreamTop,setDreamTop]=useState<number|null>(null);
+ useLayoutEffect(()=>{
+  if(!charForRail(selected,characters))return;
+  const shell=shellRef.current;
+  if(!shell)return;
+  let frame=0;
+  const update=()=>{
+   const rail=shell.querySelector<HTMLElement>('.h3-resident-rail');
+   if(!rail||rail.hidden||!rail.getClientRects().length){setDreamTop(null);return;}
+   const buttons=[...rail.querySelectorAll<HTMLElement>('button[data-resident]')];
+   if(!buttons.length){setDreamTop(null);return;}
+   const last=buttons[buttons.length-1];
+   const rect=last.getBoundingClientRect(),parent=shell.getBoundingClientRect();
+   setDreamTop(Math.max(0,rect.bottom-parent.top+18));
+  };
+  const schedule=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(update);};
+  const observer=new ResizeObserver(schedule);
+  observer.observe(shell);
+  const mutation=new MutationObserver(()=>{const rail=shell.querySelector('.h3-resident-rail');if(rail)observer.observe(rail);schedule();});
+  mutation.observe(shell,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
+  window.addEventListener('resize',schedule);
+  schedule();
+  return()=>{cancelAnimationFrame(frame);observer.disconnect();mutation.disconnect();window.removeEventListener('resize',schedule);};
+ },[selected,characters.length]);
  useEffect(()=>{
   const apply=()=>{
    const next=roomLaunch.consume();
@@ -38,7 +64,7 @@ const RoomApp:React.FC=()=>{
  const char=characters.find(c=>c.id===selected);
  const dreamChar=characters.find(c=>c.id===dreamOwner)??char;
  const residents=char?[...(userProfile.vrState?.chibi?.state?[{id:'user',label:userProfile.name||'你',state:userProfile.vrState.chibi.state}]:[]),...characters.filter(c=>c.id!==char.id&&(c.chibiStudio?.home3D?.state||c.chibiStudio?.room?.state||c.chibiStudio?.vr?.state)).map(c=>({id:c.id,label:c.name,avatar:c.avatar,state:c.chibiStudio?.home3D?.state??c.chibiStudio?.room?.state??c.chibiStudio?.vr?.state,hair:c.chibiStudio?.home3D?.hair}))]:[];
- return <div className="room-dream-shell relative h-full w-full overflow-hidden bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-900">
+ return <div ref={shellRef} className="room-dream-shell relative h-full w-full overflow-hidden bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-900">
   {char?<Suspense fallback={<div className="grid h-full place-items-center text-sm">正在打开 3D 家园…</div>}>
    <Home3DView key={char.id} suspended={activeApp!==AppID.Room||dreamOpen} character={char}
     onDefinitionChange={value=>updateCharacter(char.id,{homeDefinition:value})}
@@ -55,7 +81,7 @@ const RoomApp:React.FC=()=>{
    </div>
   </div>}
   <style>{`.room-dream-shell:has(.home-life-overlay) .room-dream-entry,.room-dream-shell:has([role="dialog"]) .room-dream-entry,.room-dream-shell:has(.home-social .home-social-wheel) .room-dream-entry,.room-dream-shell:has(.home-social section) .room-dream-entry,.room-dream-shell:has(.home-social[aria-expanded="true"]) .room-dream-entry{display:none}`}</style>
-  {char&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 top-[236px] z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0,0,0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation"}}><MoonStars size={23} weight="thin"/></button>}
+  {char&&!dreamOpen&&dreamTop!==null&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0,0,0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation",top:dreamTop}}><MoonStars size={23} weight="thin"/></button>}
   {dreamOpen&&dreamChar&&<div className="absolute inset-0 z-50"><DreamTheater char={dreamChar} onExit={()=>{setDreamOpen(false);setDreamOwner(null);}}/></div>}
  </div>;
 };
