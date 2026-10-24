@@ -82,21 +82,19 @@ export function createWebUpdateSession(deps: Dependencies) {
       update({ working: false, message: '更新暂未接管，请重新检查更新后再试' });
     }
   };
-  // Only a release with a new version number interrupts the user, unless they asked in settings.
-  // For any other downloaded release the worker in charge sends page loads to the network, so the
-  // next refresh is that release; its page then lets the waiting worker follow, with nothing to
-  // reload. A worker that cannot name its release is announced.
+  // Announce newer builds even without an app version bump, before the user opens missing lazy chunks.
+  // Never refresh a page with potentially unsaved edits without the user's consent.
   const offer = async (worker: ServiceWorker) => {
     const release = userAsked ? null : await deps.request(worker, 'SULLY_CACHE_STATUS').catch(() => null);
     if (worker.state === 'redundant') return;
-    if (release?.appVersion !== deps.appVersion) available();
-    else if (release.buildId !== deps.buildId || blocked || !deps.canReload()) {
-      update({ working: false, message: '新版本已下载，下次打开或刷新时生效' });
-    } else {
-      // While the takeover is under way the old worker must stay idle: a message to it would make
-      // the browser hold the new one back.
-      followingUntil = Date.now() + 15000;
-      try { worker.postMessage({ type: 'SULLY_ACTIVATE_UPDATE' }); } catch { followingUntil = 0; }
+    if (release?.buildId === deps.buildId) {
+      // This page already runs the waiting worker's code; follow without refreshing.
+      if (!blocked && deps.canReload()) {
+        followingUntil = Date.now() + 15000;
+        try { worker.postMessage({ type: 'SULLY_ACTIVATE_UPDATE' }); } catch { followingUntil = 0; }
+      }
+    } else if (!release || isNewerBuild(release.buildId, deps.buildId)) {
+      available();
     }
   };
   const inspect = async () => {
@@ -106,11 +104,8 @@ export function createWebUpdateSession(deps: Dependencies) {
     try {
       const stats = await deps.request(worker, 'SULLY_CACHE_STATUS');
       update({ stats });
-      // A newer worker already controls this page (another tab applied it): a reload picks up its
-      // shell, which is worth announcing for a new version number. An older worker means the page
-      // came from the network ahead of it; its replacement is handled through `waiting` once
-      // downloaded, and reloading before that changes nothing.
-      if (isNewerBuild(stats.buildId, deps.buildId)) { if (userAsked || stats.appVersion !== deps.appVersion) available(); }
+      // Another tab may have installed a newer maintenance build. The old page must reload.
+      if (isNewerBuild(stats.buildId, deps.buildId)) available();
       else if (stats.buildId === deps.buildId && !stats.offlineReady) {
         // A first installation becomes active before its offline shell exists: fetch it once in the background.
         if (!autoPrepared && !state.working) { autoPrepared = true; void prepareOffline(); }
@@ -166,7 +161,7 @@ export function createWebUpdateSession(deps: Dependencies) {
   });
 
   const check = async (manual = true) => {
-    if (!registration || checking || state.working || (!manual && Date.now() - lastCheck < 60 * 60 * 1000)) return;
+    if (!registration || checking || state.working || (!manual && Date.now() - lastCheck < 2 * 60 * 1000)) return;
     lastCheck = Date.now();
     checking = true;
     // Background checks stay silent: they must not disable buttons or replace what the user is reading.
@@ -248,12 +243,16 @@ export const webUpdateSession = createWebUpdateSession({
 export function watchWebUpdates(registration: ServiceWorkerRegistration) {
   // The dev server and the native app (built with `--mode capacitor`) run the push-only worker.
   if (import.meta.env.DEV || import.meta.env.MODE === 'capacitor') return;
-  void webUpdateSession.attach(registration);
+  void webUpdateSession.attach(registration).then(() => {
+    if (document.visibilityState === 'visible' && navigator.onLine) void webUpdateSession.check(false);
+  });
   if (watchingUpdates) return;
   watchingUpdates = true;
   const check = () => { if (document.visibilityState === 'visible' && navigator.onLine) void webUpdateSession.check(false); };
   document.addEventListener('visibilitychange', check);
+  window.addEventListener('focus', check);
+  window.addEventListener('pageshow', check);
   window.addEventListener('online', check);
-  setInterval(check, 60 * 60 * 1000);
+  setInterval(check, 2 * 60 * 1000);
 }
 let watchingUpdates = false;
