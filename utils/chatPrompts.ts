@@ -26,6 +26,7 @@ import { getCharNameById } from './charNameRegistry';
 import { getLocalDateKey } from './localDate';
 import { getDailyScheduleForChar } from './dailySchedule';
 import { readCharacterLifeEvents } from './characterLifeEvents';
+import { readNpcProfiles } from './characterPhoneNpcs';
 import { formatRelativeAge } from './groupChat/relativeTime';
 import { isBlobRef } from './blobRef';
 import { voiceLanguagePromptLabel } from './voiceLanguage';
@@ -369,8 +370,23 @@ export const ChatPrompts = {
                 .slice(0, 12);
             if (phoneEvents.length) {
                 volatileState += '\n【手机里已发生的经历（仅供自然衔接）】\n'
-                    + phoneEvents.map(event => '- ' + new Date(event.occurredAt).toLocaleString() + ' ' + event.summary.slice(0, 160)).join('\n')
+                    + phoneEvents.map(event => '- ' + new Date(event.occurredAt).toLocaleString() + ' ' + event.summary.slice(0, 200)).join('\n')
                     + '\n这些不是待执行的日程；不必主动汇报，不得补造未记录的细节。\n';
+            }
+            // The phone contact directory is a persistent social identity
+            // source, not a second AI personality and not proof of new events.
+            const knownPhoneContacts = readNpcProfiles(char.id)
+                .filter(p => !!p.name && !!p.relationship)
+                .sort((a, b) => (b.lastInteractedAt || 0) - (a.lastInteractedAt || 0))
+                .slice(0, 8);
+            if (knownPhoneContacts.length) {
+                volatileState += '\n【手机联系人 · 已认识的人】\n'
+                    + knownPhoneContacts.map(p => '- ' + (p.remark || p.nickname || p.name).slice(0, 40)
+                        + '：' + p.relationship.slice(0, 100)
+                        + '；' + p.personality.slice(0, 95)
+                        + (p.relationshipNotes ? '；聊天曾提及：' + p.relationshipNotes.slice(-170) : '')
+                    ).join('\n')
+                    + '\n这是稳定的人物关系背景，不是此刻发生的对话；不必向 User 汇报。\n';
             }
         }
 
