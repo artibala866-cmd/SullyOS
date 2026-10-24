@@ -40,7 +40,7 @@ import { readCharacterLifeEvents } from '../utils/characterLifeEvents';
 import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
 import { runCharacterPhoneAutonomy } from '../utils/characterPhoneAutonomy';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
-import { CHARACTER_MOMENTS_CHANGED } from '../utils/characterPhoneMoments';
+import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments } from '../utils/characterPhoneMoments';
 import { considerAutonomousNpcMoments } from '../utils/refreshNpcMoments';
 import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
 import { getLifeEventConsumers, shouldDispatchLifeEvent } from '../utils/characterLifeEventRouting';
@@ -2311,10 +2311,20 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const queue = new Map<string, ReturnType<typeof readCharacterLifeEvents>[number]>();
       const retryAfter = new Map<string, number>();
       const processedKey = (charId: string) => 'sully_phone_palace_ingested_v1:' + charId;
-      const isPalaceCandidate = (event: ReturnType<typeof readCharacterLifeEvents>[number]) =>
-          event.source === 'phone' && (event.kind === 'npc-chat' || event.kind === 'moment-post') &&
-          event.summary.trim().length >= (event.kind === 'npc-chat' ? 55 : 20) &&
-          event.occurredAt > 0 && event.occurredAt <= Date.now();
+      const isPalaceCandidate = (event: ReturnType<typeof readCharacterLifeEvents>[number]) => {
+          if (event.source !== 'phone' || event.occurredAt <= 0 ||
+              event.occurredAt > Date.now()) return false;
+          if (event.kind === 'npc-chat') return event.summary.trim().length >= 55;
+          if (event.kind === 'moment-post') return event.summary.trim().length >= 20;
+          // NPC-to-NPC chatter on an unrelated post is not necessarily Char's
+          // experience. Only their own comment or replies on their own post
+          // are eligible for the conservative importance>=7 memory extractor.
+          if (event.kind !== 'moment-comment' || event.summary.trim().length < 40) return false;
+          if (event.contactId === event.characterId) return true;
+          return !!event.relatedMessageId &&
+              readCharacterMoments(event.characterId).some(p =>
+                  p.id === event.relatedMessageId && p.authorId === event.characterId);
+      };
       const alreadyProcessed = (charId: string, id: string): boolean => {
           try {
               const stored: unknown = JSON.parse(localStorage.getItem(processedKey(charId)) || '[]');
@@ -2347,7 +2357,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   try {
                       const { ingestPhoneEventToPalace } = await import('../utils/memoryPalace/pipeline');
                       const result = await ingestPhoneEventToPalace(char, {
-                          id: event.id, kind: event.kind as 'npc-chat' | 'moment-post',
+                          id: event.id, kind: event.kind as 'npc-chat' | 'moment-post' | 'moment-comment',
                           occurredAt: event.occurredAt, summary: event.summary,
                       }, llm, userProfileRef.current?.name || '');
                       if (result.status === 'extracted_none' ||
