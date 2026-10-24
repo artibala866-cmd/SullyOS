@@ -868,7 +868,7 @@ async function adoptSelfScheduledTasks(message: ActiveMsg2InboxMessage): Promise
     await DB.saveCharacter({
       ...char,
       activeMsg2Config: {
-        ...(char.activeMsg2Config ?? { enabled: true }),
+        ...(char.activeMsg2Config ?? { enabled: false }),
         tasks: pruneStaleTasks([...existing, ...added], Date.now()),
       },
     });
@@ -925,7 +925,7 @@ async function applyRemoteTaskMutations(message: ActiveMsg2InboxMessage): Promis
 
     await DB.saveCharacter({
       ...char,
-      activeMsg2Config: { ...(char.activeMsg2Config ?? { enabled: true }), tasks: next },
+      activeMsg2Config: { ...(char.activeMsg2Config ?? { enabled: false }), tasks: next },
     });
     console.log('[ActiveMsg] 消账角色取消/改期的任务', { cancelled, renewed });
     // 与认领共用同一个事件：监听方（OSContext）做的是「重读角色」，增删改对它是一回事。
