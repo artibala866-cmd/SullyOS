@@ -47,9 +47,23 @@ export function poseHug(both:Resident[],time:number,seatedIndex?:number){
    const ready=point(v,'chest',[sign*.86,-.18,.40]);
    const recipe={side,targetBone:'chest',offset:[-sign*.30,i===0?-.14:-.30,-.36] as [number,number,number],direction:[sign,0,0] as [number,number,number],normal:[0,1,0] as [number,number,number]};
    const back=contactFromRecipe(partner,recipe)?.point??point(partner,'chest',recipe.offset);
+   // Keep the palm on the outer rear surface of the partner rather than
+   // allowing a straight-line interpolation through their torso.
+   const partnerCenter=partner.rig!.bones.chest.getWorldPosition(new T.Vector3());
+   const away=back.clone().sub(partnerCenter);
+   away.y=0;
+   if(away.lengthSq()>.0001)back.add(away.normalize().multiplyScalar(.12));
    // Travel around the flank, not straight through the torso. Reverse this arc
    // while releasing, before lowering the arms beside the body.
-   const target=ready.lerp(back,p.wrap).add(new T.Vector3(sign*.27,.07,0).applyQuaternion(ownerQ).multiplyScalar(Math.sin(Math.PI*p.wrap)));
+   const target=ready.lerp(back,p.wrap).add(new T.Vector3(sign*.36,.07,0).applyQuaternion(ownerQ).multiplyScalar(Math.sin(Math.PI*p.wrap)));
+   // During the wrap, push the trajectory outside the partner's torso.
+   const centre=partner.rig!.bones.chest.getWorldPosition(new T.Vector3());
+   const radial=target.clone().sub(centre);radial.y=0;
+   const radius=.43;
+   if(p.wrap>.08&&radial.lengthSq()>1e-8&&radial.length()<radius){
+    const clearance=smooth(p.wrap,.08,.38);
+    target.add(radial.normalize().multiplyScalar((radius-radial.length())*clearance));
+   }
    target.add(new T.Vector3(0,.04,-.24).applyQuaternion(backQ).multiplyScalar(p.pat));
    const {direction,normal}=hugHandContact(side,i,p.wrap,p.pat,ownerQ,backQ);
    solver?.({side,point:target,direction,normal},p.reach);
