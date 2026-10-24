@@ -30,17 +30,17 @@ const AndroidUpdateControl: React.FC = () => {
         type="button"
         onClick={() => void onClick()}
         disabled={busy}
-        className="rounded-full bg-violet-100 px-4 py-2 text-[11px] font-bold text-violet-700 transition-transform active:scale-95 disabled:opacity-60"
+        className="rounded-full bg-neutral-100 px-4 py-2 text-[11px] font-bold text-neutral-700 transition-transform active:scale-95 disabled:opacity-60"
       >
         {label}
       </button>
       {phase === 'downloading' && (
         <div className="h-1 w-40 overflow-hidden rounded-full bg-slate-100">
-          <div className="h-full bg-violet-400 transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
+          <div className="h-full bg-neutral-400 transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
         </div>
       )}
       {message && (
-        <p className={`max-w-[280px] text-center text-[10px] leading-relaxed ${phase === 'error' ? 'text-rose-500' : 'text-slate-400'}`}>
+        <p className={`max-w-[280px] text-center text-[10px] leading-relaxed ${phase === 'error' ? 'text-neutral-500' : 'text-slate-400'}`}>
           {message}
         </p>
       )}
