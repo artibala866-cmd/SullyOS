@@ -16,7 +16,8 @@ export function residentSeparationStep(mover,anchor,{
  if(minimum<=0||maxStep<=0)return null;
  const dx=mover[0]-anchor[0],dz=mover[1]-anchor[1],distance=Math.hypot(dx,dz);
  if(distance>=minimum-.001)return null;
- const travel=Math.min(maxStep,minimum-distance+.015);
+ // Never push past the requested separation radius.
+ const travel=Math.min(maxStep,minimum-distance);
  const heading=Math.atan2(dz,dx);
  const angles=[0,Math.PI/6,-Math.PI/6,Math.PI/3,-Math.PI/3,Math.PI/2,-Math.PI/2];
  // A half-step allows residents to slide past nearby furniture instead of

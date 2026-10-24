@@ -355,18 +355,20 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  // collision step on Android. Editing/room changes invalidate the short cache.
  let residentShellMap=null,residentShellRoom=null,residentShellMapAt=-Infinity;
  function separateResidentBodies(deltaSeconds){
-  if(!visitor||!resident.visible||firstPerson||edit||overview||socialRuntime?.active||photoSession){residentShellMap=null;return false;}
+  if(!visitor||!resident.visible||firstPerson||edit||overview||socialRuntime?.active||photoSession||companionYield){residentShellMap=null;return false;}
   const others=socialEntries.filter(e=>e.group.visible&&(e.room===current().id||e.settledRoom===current().id));
   if(!others.length)return false;
   const room=current(),offsetX=room.x*ROOM_STEP.x,offsetZ=room.z*ROOM_STEP.z;
   const primary={id:activeResidentId(),group:resident};
   let map=null,moved=false;
   for(const other of others){
-   const minimum=THREE.MathUtils.clamp((headWidth+(other.width||1.5))*.34,.82,1.15);
+   // Keep the same small shell as ordinary walking instead of a wide push-out ring.
+   const minimum=.60;
    if(Math.hypot(primary.group.position.x-other.group.position.x,primary.group.position.z-other.group.position.z)>=minimum-.005)continue;
    const firstPosture=getResidentPosture(primary.id),secondPosture=getResidentPosture(other.id);
-   const firstFree=firstPosture==='standing'&&!visitorActivity&&!visitorPlant&&!kitchenTask;
-   const secondFree=secondPosture==='standing'&&!other.parkedActivity?.activity;
+   // A moving resident owns its root; passive shells only correct idle neighbours.
+   const firstFree=firstPosture==='standing'&&!visitorActivity&&!visitorPlant&&!kitchenTask&&!walking&&!(companionTravel?.person.group===primary.group)&&!(companionRise?.person.group===primary.group);
+   const secondFree=secondPosture==='standing'&&!other.parkedActivity?.activity&&!(companionTravel?.person.group===other.group)&&!(companionRise?.person.group===other.group);
    // Sofa / rise roots stay anchored; the standing character yields first.
    const side=chooseResidentToYield(
     {id:primary.id,canMove:firstFree},
@@ -383,7 +385,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const next=residentSeparationStep(
     [mover.group.position.x,mover.group.position.z],
     [anchor.group.position.x,anchor.group.position.z],
-    {minimum,maxStep:THREE.MathUtils.clamp(deltaSeconds*2,.025,.11),
+    {minimum,maxStep:THREE.MathUtils.clamp(deltaSeconds*1.1,.008,.045),
      free:(x,z)=>map.free(x+offsetX,z+offsetZ)}
    );
    if(!next)continue;
@@ -556,17 +558,22 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(!front){companionLastResult='座位前没有安全起身位置';return false;}
    if(Math.hypot(front[0]-user.group.position.x,front[2]-user.group.position.z)<.55){
     if(firstPerson||!user.visitor||getResidentPosture('user')!=='standing'||companionYield){companionLastResult='座位前没有安全起身位置';return false;}
-    const from=user.group.position.clone(),dx=from.x-front[0],dz=from.z-front[2];
-    const map=navMap(),ox=current().x*ROOM_STEP.x,oz=current().z*ROOM_STEP.z;
-    let target=null;
-    for(const angle of [0,Math.PI/4,-Math.PI/4,Math.PI/2,-Math.PI/2,Math.PI]){
-     const heading=Math.atan2(dx||1,dz||0)+angle;
-     const x=front[0]+Math.sin(heading)*.95,z=front[2]+Math.cos(heading)*.95;
-     if(Math.hypot(x-person.group.position.x,z-person.group.position.z)>.75&&map.free(x+ox,z+oz)){target=new THREE.Vector3(x,from.y,z);break;}
-    }
-    if(!target){companionLastResult='附近没有可退让的位置';return false;}
-    companionYield={actor:user,person,room:current().id,revision:manualRevision,from,to:target,front,transform,poseData:seat.pose,start:elapsed};
-    companionLastResult='正在让出起身空间';dirty=true;wake();return true;
+    const from=user.group.position.clone(),dx=from.x-front[0],dz=from.z-front[2],gap=Math.hypot(dx,dz);
+     // Allow at most a short purposeful step; never shove the user to .95.
+     const required=Math.max(0,.60-gap);
+     if(required>.30){companionLastResult='起身空间太挤，请先让出一点位置';return false;}
+     const map=navMap(),ox=current().x*ROOM_STEP.x,oz=current().z*ROOM_STEP.z;
+     const heading=gap>.0001?Math.atan2(dx,dz):Math.atan2(from.x-person.group.position.x||1,from.z-person.group.position.z);
+     let target=null;
+     for(const angle of [0,Math.PI/6,-Math.PI/6,Math.PI/3,-Math.PI/3]){
+      const x=from.x+Math.sin(heading+angle)*required,z=from.z+Math.cos(heading+angle)*required;
+      if(Math.hypot(x-front[0],z-front[2])<.59||!map.free(x+ox,z+oz))continue;
+      if(!map.free(from.x+(x-from.x)*.5+ox,from.z+(z-from.z)*.5+oz))continue;
+      target=new THREE.Vector3(x,from.y,z);break;
+     }
+     if(!target){companionLastResult='座位附近没有安全的小范围退让位置';return false;}
+     companionYield={actor:user,person,room:current().id,revision:manualRevision,from,to:target,front,transform,poseData:seat.pose,start:elapsed};
+     companionLastResult='正在小步让出起身空间';dirty=true;wake();return true;
    }
    companionRise={person,room:current().id,revision:manualRevision,rising:true,front,seat:transform.position,rotation:transform.rotation,pose:transform.pose,poseData:seat.pose,start:elapsed};dirty=true;wake();return true;
   }

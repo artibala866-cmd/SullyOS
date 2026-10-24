@@ -43,6 +43,15 @@ describe('resident body shells',()=>{
   expect(distance(next,anchor)).toBeGreaterThan(distance(from,anchor));
   expect(distance(next,from)).toBeLessThanOrEqual(.081);
  });
+ it('uses only the remaining overlap, never a fixed extra push',()=>{
+  const from=[.56,0],next=residentSeparationStep(from,[0,0],{minimum:.60,maxStep:.1});
+  expect(next).not.toBeNull();
+  expect(distance(next,[0,0])).toBeCloseTo(.60,6);
+  expect(distance(next,from)).toBeCloseTo(.04,6);
+ });
+ it('does nothing when a person is already clear of the small shell',()=>{
+  expect(residentSeparationStep([.61,0],[0,0],{minimum:.60,maxStep:.045})).toBeNull();
+ });
  it('rejects malformed or unbounded corrections',()=>{
   expect(residentSeparationStep([NaN,0],[0,0])).toBeNull();
   expect(residentSeparationStep([0,0],[0,0],{maxStep:0})).toBeNull();
