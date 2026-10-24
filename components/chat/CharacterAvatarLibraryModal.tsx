@@ -85,7 +85,7 @@ export default function CharacterAvatarLibraryModal({
     } catch(e){setError(e instanceof Error?e.message:'头像更新失败');}
     finally{setBusy(false);}
   };
-  return <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/45 p-5" role="dialog" aria-modal="true" aria-label="角色头像库">
+  return <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/45 p-5" role="dialog" aria-modal="true" aria-label="角色头像库">
     <div className="w-full max-w-md rounded-2xl bg-neutral-50 p-5 text-neutral-900 shadow-xl">
       <div className="flex items-center justify-between"><h2 className="font-semibold">角色头像库</h2><button onClick={onClose} aria-label="关闭头像库">关闭</button></div>
       <p className="my-3 text-xs text-neutral-500">与私聊共用同一个头像库。新头像先识图、保存描述，再允许加入；旧头像打开时补识图。</p>
