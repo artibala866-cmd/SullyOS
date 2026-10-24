@@ -30,7 +30,7 @@ import HomeQualityTip from './HomeQualityTip';
 import {useHomeCompanion} from './useHomeCompanion';
 import {HomeSpeechBubble} from './HomeSpeechBubble';
 
-export default function Home3DView({value,onChange,onBack,character,user,api,conversationContext,onDefinition,onFigures,parts:previewParts,hair:inputHair,suspended=false,residents=[],onEditor,presentation='home'}:{presentation?:'home'|'homely';value?:Home3DState;onChange:(value:Home3DState)=>void;onBack:()=>void;character?:CharacterProfile;user?:UserProfile;api?:APIConfig;conversationContext?:HomeConversationContext;onDefinition?:()=>void;onFigures?:()=>void;parts?:Parts;hair?:HairSettings;suspended?:boolean;residents?:HomeResidentOption[];onEditor?:(editor:HomeEditor)=>void}){
+export default function Home3DView({value,onChange,onBack,character,user,api,conversationContext,onDefinition,onFigures,parts:previewParts,hair:inputHair,suspended=false,residents=[],onEditor,onReadyChange,presentation='home'}:{onReadyChange?:(ready:boolean)=>void;presentation?:'home'|'homely';value?:Home3DState;onChange:(value:Home3DState)=>void;onBack:()=>void;character?:CharacterProfile;user?:UserProfile;api?:APIConfig;conversationContext?:HomeConversationContext;onDefinition?:()=>void;onFigures?:()=>void;parts?:Parts;hair?:HairSettings;suspended?:boolean;residents?:HomeResidentOption[];onEditor?:(editor:HomeEditor)=>void}){
  const homely=presentation==='homely';
  const entryTracked=useRef(false);
  const hair=inputHair??character?.chibiStudio?.home3D?.hair;
@@ -40,6 +40,9 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
  useEffect(()=>{editor?.setResidentPortraits([{id:character?.id??'resident',label:character?.name??'小人',avatar:characterAvatar},...residents.map(r=>({id:r.id,label:r.label,avatar:r.id==='user'?userAvatar:r.avatar}))]);},[editor,character?.id,character?.name,characterAvatar,userAvatar,residents]);
  useEffect(()=>{if(editor&&!suspended&&!entryTracked.current){entryTracked.current=true;trackHomeEntry(presentation);}},[editor,suspended,presentation]);
  const [bodyOverride,setBodyOverride]=useState<'blank'|'classic'>(),[mainReady,setMainReady]=useState(false);
+ // Expose real scene + resident readiness to the owning 3D-home shell.
+ // Do not make floating controls visible merely because a character was selected.
+ useEffect(()=>{onReadyChange?.(!!editor&&mainReady&&!suspended);return()=>onReadyChange?.(false);},[editor,mainReady,suspended,onReadyChange]);
  const {away,currentSchedule}=useHomeSchedule(editor,character,mainReady,suspended);
  useHomeCompanion(editor,character,user,api,mainReady,suspended);
  const [photoActive,setPhotoActive]=useState(false),[phoneOpen,setPhoneOpen]=useState(false),[phoneBusy,setPhoneBusy]=useState(false),[homeBusy,setHomeBusy]=useState(false);
