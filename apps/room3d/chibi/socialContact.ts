@@ -36,6 +36,28 @@ export function createHandContactLock(anchor:BodyContactAnchor,side:HandSide,cur
   resolve(){return engaged?resolveBodyContact(anchor,side,curl):null;},
  };
 }
+/** Reusable, frame-independent contact recipe for authored social motions.
+ * Call after both actors' torso poses are updated; do not retain world targets. */
+export type ContactRecipe={
+ side:HandSide;targetBone:string;offset:readonly [number,number,number];
+ direction:readonly [number,number,number];normal:readonly [number,number,number];curl?:number;
+};
+export function contactFromRecipe(recipient:ChibiVisitor,recipe:ContactRecipe):Contact|null{
+ const bone=recipient.rig?.bones[recipe.targetBone];
+ if(!bone)return null;
+ return resolveBodyContact(bodyContactAnchor(
+  bone,new T.Vector3(...recipe.offset),new T.Vector3(...recipe.direction),new T.Vector3(...recipe.normal)
+ ),recipe.side,recipe.curl);
+}
+/** Optional shared helper: authored motions supply a recipe and blend weight. */
+export function applyContactRecipe(
+ recipient:ChibiVisitor,recipe:ContactRecipe,
+ solve:ReturnType<typeof contactSolver>,weight:number
+){
+ const contact=contactFromRecipe(recipient,recipe);
+ if(contact&&solve&&weight>0)solve(contact,weight);
+ return contact;
+}
 export function contactSolver(visitor:ChibiVisitor){
  const rig=visitor.rig;if(!rig)return null;
  const goals=[new T.Bone(),new T.Bone()],bones=[...rig.skeleton.bones,...goals];
