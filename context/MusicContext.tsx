@@ -403,7 +403,7 @@ interface MusicContextType {
   listeningStartedAt: Record<string, number>;
   listeningInvites: Record<string, 'pending' | 'accepted' | 'rejected'>;
   inviteListeningPartner: (charId: string) => void;
-  cancelListeningInvite: (charId: string) => void;
+  cancelListeningInvite: (charId: string, messageId?: number) => void;
   respondListeningInvite: (charId: string, accepted: boolean) => void;
   lastListeningEnd: { charId: string; durationMs: number; at: number } | null;
   addListeningPartner: (charId: string) => void;
@@ -678,11 +678,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     })().catch(err => console.warn('[MusicTogether] 邀请消息保存失败', err))
       .finally(() => invitingCharIds.current.delete(charId));
   }, []);
-  const cancelListeningInvite = useCallback((charId: string) => {
+  const cancelListeningInvite = useCallback((charId: string, messageId?: number) => {
     void (async () => {
       const messages = await DB.getMessagesByCharId(charId, true);
       const pending = [...messages].reverse().find(m =>
-        m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
+        (!messageId || m.id === messageId) && m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
         !messages.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
       if (!pending) return;
       await DB.saveMessage({
@@ -700,6 +700,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
     })().catch(err => console.warn('[MusicTogether] 撤回邀请失败', err));
   }, []);
+  useEffect(() => {
+    const onCancel = (event: Event) => {
+      const detail = (event as CustomEvent<{ charId?: string; messageId?: number }>).detail;
+      if (detail?.charId && Number.isInteger(detail.messageId)) cancelListeningInvite(detail.charId, detail.messageId);
+    };
+    window.addEventListener('music-listen-invite-cancel', onCancel);
+    return () => window.removeEventListener('music-listen-invite-cancel', onCancel);
+  }, [cancelListeningInvite]);
   const [lastListeningEnd, setLastListeningEnd] = useState<{ charId: string; durationMs: number; at: number } | null>(null);
   const addListeningPartner = useCallback((charId: string) => {
     setListeningTogetherWith(prev => prev.includes(charId) ? prev : [...prev, charId]);
