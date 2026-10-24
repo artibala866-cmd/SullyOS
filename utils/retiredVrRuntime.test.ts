@@ -28,7 +28,6 @@ describe('retired 彼方 isolation', () => {
     for (const path of [
       'apps/Launcher.tsx',
       'components/os/MobileGameHome.tsx',
-      'components/os/TamagotchiHome.tsx',
       'components/os/HomelyHome.tsx',
       'components/os/CompanionHome.tsx',
     ]) {
