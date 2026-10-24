@@ -351,8 +351,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  };
  // Horizontal body shells run only outside paired interactions.
  // After a seated hug the free resident yields when the other person rises.
+ // Reuse the room walking map across nearby frames; never rebuild it for every
+ // collision step on Android. Editing/room changes invalidate the short cache.
+ let residentShellMap=null,residentShellRoom=null,residentShellMapAt=-Infinity;
  function separateResidentBodies(deltaSeconds){
-  if(!visitor||!resident.visible||firstPerson||edit||overview||socialRuntime?.active||photoSession)return false;
+  if(!visitor||!resident.visible||firstPerson||edit||overview||socialRuntime?.active||photoSession){residentShellMap=null;return false;}
   const others=socialEntries.filter(e=>e.group.visible&&(e.room===current().id||e.settledRoom===current().id));
   if(!others.length)return false;
   const room=current(),offsetX=room.x*ROOM_STEP.x,offsetZ=room.z*ROOM_STEP.z;
@@ -373,7 +376,10 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
     secondFree?other:firstFree?primary:null;
    if(!mover)continue;
    const anchor=mover===primary?other:primary;
-   map??=navMap();
+   if(!residentShellMap||residentShellRoom!==room.id||elapsed-residentShellMapAt>1){
+    residentShellMap=navMap();residentShellRoom=room.id;residentShellMapAt=elapsed;
+   }
+   map=residentShellMap;
    const next=residentSeparationStep(
     [mover.group.position.x,mover.group.position.z],
     [anchor.group.position.x,anchor.group.position.z],
