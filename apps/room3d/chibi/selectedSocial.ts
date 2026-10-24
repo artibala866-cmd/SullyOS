@@ -87,6 +87,13 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
   }
   const actionTime=s.time-s.approach,sourceTime=T.MathUtils.clamp(actionTime-.6,0,s.clip.duration),weight=smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
   const both=s.ids.map(id=>states.get(id)!),frames=s.clip.actors.map(a=>sampleSelected(a,sourceTime)),points=locations(s,sourceTime);
+  // 亲亲：站位寻路已在 approach 阶段完成。把捕捉动画开头连续的
+  // 3.5 秒碎步平移整理成一次有起步、落脚、停稳的靠近，终点仍与原片一致。
+  if(s.action==='home-kiss'&&!pinned&&sourceTime<3.5){
+   const start=locations(s,0),end=locations(s,3.5);
+   const step=smooth(sourceTime,.35,2.45);
+   points.forEach((p,i)=>p.copy(start[i]).lerp(end[i],step));
+  }
   for(const r of states.values())if(!s.ids.includes(r.id))r.visitor.animate(s.time,'idle');
   both.forEach((r,i)=>{
    if(r.id===pinned?.id){holdPinned();if(!isIntimacy(s.action))r.visitor.applySelectedFrame(frames[i],weight,pinned.pose);r.visitor.root.updateWorldMatrix(true,true);return;}
@@ -105,16 +112,14 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
    if(isIntimacy(s.action)){
     const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));
     r.visitor.root.quaternion.copy(turn).slerp(toward,smooth(actionTime,0,.6));
-    // The clip moves the two roots closer during its first 3.5 seconds.
-    // Match those translations with footstep animation, then settle to idle.
-    if(s.action==='home-kiss'&&sourceTime<3.5){
-     const previous=locations(s,Math.max(0,sourceTime-.08))[i];
-     const motion=points[i].clone().sub(previous);motion.y=0;
-     if(motion.lengthSq()>.000001){
-      const walking=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(motion.x,motion.z));
-      r.visitor.root.quaternion.copy(walking);
-      // 亲亲专用靠近步态：降低碎步频率，保持动作轨迹与其他互动不变。
-      r.visitor.animate(sourceTime*.72,'walk');
+    // 与拥抱一样先完成站位，再迈近一步；仅在实际移动时播放短促步态。
+    // 2.45 秒前完成落脚，剩余时间停稳后再进入亲吻。
+    if(s.action==='home-kiss'&&sourceTime>=.35&&sourceTime<2.45){
+     const previous=locations(s,0)[i],destination=locations(s,3.5)[i];
+     const direction=destination.clone().sub(previous);direction.y=0;
+     if(direction.lengthSq()>.0001){
+      r.visitor.root.quaternion.copy(new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(direction.x,direction.z)));
+      r.visitor.animate((sourceTime-.35)*.65,'walk');
      }else r.visitor.animate(sourceTime,'idle');
     }else r.visitor.animate(sourceTime,'idle');
    }else{
