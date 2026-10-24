@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FilmStrip, MagnifyingGlass, TextT } from '@phosphor-icons/react';
 import {
     createMcpServer, loadMcpServers, saveMcpServers, resetMcpSession, testMcpConnection,
@@ -33,6 +33,25 @@ const RealtimeMcpPresets: React.FC<{ onConfigChanged: () => void }> = ({ onConfi
     const [servers, setServers] = useState<McpServerConfig[]>(loadMcpServers);
     const [testing, setTesting] = useState<string | null>(null);
     const [statuses, setStatuses] = useState<Record<string, string>>({});
+    // Migrate previously created cards to stable identities without changing credentials
+    // or enabled state; future renames in generic MCP management won't break lookup.
+    useEffect(() => {
+        const current = loadMcpServers();
+        let changed = false;
+        const next = current.map(server => {
+            if (server.presetId) return server;
+            const preset = PRESETS.find(p => server.name === p.name || (!!p.url && server.url === p.url));
+            if (!preset) return server;
+            changed = true;
+            return { ...server, presetId: preset.id };
+        });
+        if (changed) {
+            saveMcpServers(next);
+            setServers(next);
+            onConfigChanged();
+        }
+    }, []);
+
     type Preset = typeof PRESETS[number];
     const match = (server: McpServerConfig, preset: Preset) =>
         server.presetId === preset.id ||
