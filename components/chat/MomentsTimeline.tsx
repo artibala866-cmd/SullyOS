@@ -64,7 +64,7 @@ export function MomentsTimeline({
             if (!draft.trim()) return;
             const saved = addMomentComment(characterId, p.id, {
               id: crypto.randomUUID(), authorId: 'user', text: draft.trim(), createdAt: Date.now(),
-              ...(reply.commentId ? { replyToId: reply.commentId } : {}),
+              ...(reply?.commentId ? { replyToId: reply.commentId } : {}),
             });
             if (saved) { setDraft(''); setReply(null); }
           }}>
