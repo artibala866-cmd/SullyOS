@@ -77,7 +77,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                     <p>
                         原版情绪 buff 就在这里。与日程<b>强制同步</b>：日程开 → 自动启用；日程关 → 一起停。
                     </p>
-                    <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                    <p className="text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1.5">
                         ⚙️ 下方不填 = 自动用主 API。想细腻点就填个 <b>Claude 系列</b>模型。
                     </p>
                 </div>
@@ -98,7 +98,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                             <button
                                 key={preset.id}
                                 onClick={() => loadPreset(preset)}
-                                className="flex items-center bg-white border border-slate-200 rounded-lg px-3 py-1 shadow-sm text-xs font-medium text-slate-600 hover:text-pink-500 hover:border-pink-200 active:scale-95 transition-all"
+                                className="flex items-center bg-white border border-slate-200 rounded-lg px-3 py-1 shadow-sm text-xs font-medium text-slate-600 hover:text-neutral-500 hover:border-neutral-200 active:scale-95 transition-all"
                             >
                                 {preset.name}
                                 <span className="ml-1.5 text-slate-300">{preset.config.model}</span>
@@ -133,7 +133,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                         />
                         <button
                             onClick={handleSavePreset}
-                            className="px-4 py-2 bg-pink-500 text-white text-sm font-bold rounded-xl active:scale-95 transition-transform"
+                            className="px-4 py-2 bg-neutral-500 text-white text-sm font-bold rounded-xl active:scale-95 transition-transform"
                         >
                             保存
                         </button>
@@ -176,7 +176,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                     disabled={!dirty}
                     className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${
                         dirty
-                            ? 'bg-pink-500 text-white shadow-md active:scale-95'
+                            ? 'bg-neutral-500 text-white shadow-md active:scale-95'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                 >
@@ -189,7 +189,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                 <div>
                     <div className="flex items-center justify-between mb-2">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">当前情绪状态</label>
-                        <button onClick={onClearBuffs} className="text-xs text-slate-400 hover:text-red-400 transition-colors">清除</button>
+                        <button onClick={onClearBuffs} className="text-xs text-slate-400 hover:text-neutral-400 transition-colors">清除</button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {buffs.map(buff => (
@@ -198,8 +198,8 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold"
                                 style={{
                                     backgroundColor: buff.color ? buff.color + '22' : '#fdf2f8',
-                                    color: buff.color || '#db2777',
-                                    border: `1px solid ${buff.color ? buff.color + '55' : '#fbcfe8'}`
+                                    color: buff.color || '#646464',
+                                    border: `1px solid ${buff.color ? buff.color + '55' : '#dcdcdc'}`
                                 }}
                             >
                                 {buff.emoji && <span>{buff.emoji}</span>}
