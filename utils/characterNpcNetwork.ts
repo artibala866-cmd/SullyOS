@@ -54,10 +54,16 @@ export function findKnownNpc(
 export function registerDiscoveredNpc(
   characterId: string,
   raw: NpcDiscovery,
-  options: { conversationEstablished?: boolean } = {},
+  options: { conversationEstablished?: boolean; blockedNames?: string[] } = {},
 ): { status: 'existing' | 'added' | 'pending' | 'ignored'; profile?: NpcProfile } {
   const name = compact(raw.name, 40);
-  if (!characterId || !name || norm(name) === norm(characterId) || /^(user|char|用户|手机主人)$/i.test(name))
+  // An LLM can hallucinate a phone contact using the real User's nickname.
+  // Name guard complements stable IDs; never duplicate User or Char as an NPC.
+  const forbidden = (options.blockedNames || []).some(block =>
+    !!block?.trim() && (norm(name) === norm(block) ||
+      (!!raw.realName && norm(raw.realName) === norm(block))));
+  if (!characterId || !name || forbidden || norm(name) === norm(characterId) ||
+      /^(user|char|用户|手机主人)$/i.test(name))
     return { status: 'ignored' };
   const original = readNpcProfiles(characterId);
   const existing = findKnownNpc(original, { ...raw, name });
