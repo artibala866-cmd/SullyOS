@@ -127,6 +127,7 @@ NPC 只有真实在主人通讯录的人可以参与。关系冷淡的人可以�
       const target = replyToId ? publicComments.find(c => c.id === replyToId) : null;
       // A reply to a removed or nonexistent public comment is invalid.
       if (replyToId && (!target || !(live.comments || []).some(c => c.id === replyToId && !c.deletedAt))) continue;
+      if (target?.authorId === actor.id) continue; // no automatic self-conversations
       if ((live.comments || []).some(c => c.authorId === actor.id && c.text.trim() === text)) continue;
       const commentId = crypto.randomUUID();
       if (addMomentComment(char.id, post.id, {
@@ -137,6 +138,7 @@ NPC 只有真实在主人通讯录的人可以参与。关系冷淡的人可以�
         recordCharacterLifeEvent({
           id: 'moment-comment:' + commentId, characterId: char.id, kind: 'moment-comment',
           occurredAt: Date.now(), source: 'phone',
+          contactId: actor.id, relatedMessageId: post.id,
           summary: actor.name + '在朋友圈' + (replyToId ? '回复评论' : '留言') + '：' + text,
         });
       }
