@@ -131,20 +131,6 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
    const needed=Math.sqrt(Math.max(0,.74**2-vertical**2)),gap=delta.length();
    if(gap<needed){if(gap<.001)delta.copy(points[1]).sub(points[0]);delta.normalize().multiplyScalar((needed-gap)/2);both[0].visitor.root.position.sub(delta);both[1].visitor.root.position.add(delta);both.forEach(r=>r.visitor.root.updateWorldMatrix(true,true));}
   }
-  if(s.action==='home-kiss'&&both.length===2&&!pinned){
-   // Maintain a face-to-face clearance using the actual animated head positions.
-   // The minimum includes a little breathing room so noses and cheeks do not intersect.
-   const heads=both.map(r=>r.visitor.getHeadWorldPosition()),delta=heads[1].clone().sub(heads[0]);
-   const horizontal=new T.Vector3(delta.x,0,delta.z),gap=horizontal.length();
-   const minHeadGap=both[0].visitor.rig?.62:.92;
-   if(gap<minHeadGap){
-    if(gap<.0001)horizontal.copy(points[1]).sub(points[0]).setY(0);
-    if(horizontal.lengthSq()<.0001)horizontal.set(0,0,1);
-    horizontal.normalize().multiplyScalar((minHeadGap-gap)/2);
-    both[0].visitor.root.position.sub(horizontal);both[1].visitor.root.position.add(horizontal);
-    both.forEach(r=>r.visitor.root.updateWorldMatrix(true,true));
-   }
-  }
   if(isIntimacy(s.action)&&both[0].visitor.rig)poseIntimacy(s.action,both,sourceTime,pinned?s.ids.indexOf(pinned.id):undefined);else contacts(both,frames,weight);prop?.update(sourceTime,s.clip.duration,weight);for(const r of both)r.visitor.setActionExpression(actionTime<s.clip.duration? actionExpression(s.action,socialActions[s.action].category,socialActions[s.action].label):'neutral',sourceTime);finish();
  }
  const restore=()=>{prop?.dispose();prop=null;session=null;draw();};
