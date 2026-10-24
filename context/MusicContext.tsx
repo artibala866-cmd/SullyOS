@@ -646,6 +646,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [listeningInvites, setListeningInvites] = useState<Record<string, 'pending' | 'accepted' | 'rejected'>>(() => {
     try { const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}'); return saved.invites && typeof saved.invites === 'object' ? saved.invites : {}; } catch { return {}; }
   });
+  const listeningTogetherRef = useRef(listeningTogetherWith);
+  listeningTogetherRef.current = listeningTogetherWith;
+
   useEffect(() => {
     try {
       localStorage.setItem('sully_music_together_v1', JSON.stringify({
@@ -803,8 +806,6 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 换歌信息记进 recentTrackChange，char 下一轮正常回复时经 prompt 注入察觉，
   // 自行决定是否重新加入。
   const previousSongRef = useRef<Song | null>(null);
-  const listeningTogetherRef = useRef(listeningTogetherWith);
-  listeningTogetherRef.current = listeningTogetherWith;
   const [recentTrackChange, setRecentTrackChange] = useState<RecentTrackChange | null>(null);
   useEffect(() => {
     const previousSong = previousSongRef.current;
