@@ -252,14 +252,14 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
       </div>
 
       {setupMode === 'import' && (
-        <div className="mx-4 mt-3 shrink-0 border-l-4 border-fuchsia-300 bg-fuchsia-300/10 px-3 py-2.5" data-testid="live2d-wardrobe-onboarding">
-          <div className="flex items-center gap-2 text-[11px] font-semibold text-fuchsia-100"><TShirt size={15} weight="fill" /> 哪些按键会切换服装？</div>
+        <div className="mx-4 mt-3 shrink-0 border-l-4 border-neutral-300 bg-neutral-300/10 px-3 py-2.5" data-testid="live2d-wardrobe-onboarding">
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-neutral-100"><TShirt size={15} weight="fill" /> 哪些按键会切换服装？</div>
           <p className="mt-1 text-[9px] leading-relaxed text-white/48">先点左侧播放确认效果，再勾选「加入衣橱」。服装动作会强制设为仅手动，AI 永远看不到也不能私自替换。</p>
         </div>
       )}
 
       <div className="min-h-0 flex-1 px-4 pb-3 pt-3">
-        <div className="relative h-full min-h-[260px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#171322] to-[#090810]">
+        <div className="relative h-full min-h-[260px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#151515] to-[#090810]">
           <div className="absolute inset-0 opacity-60" style={{ background: `radial-gradient(circle at 50% 55%, ${accentColor}38, transparent 64%)` }} />
           <Live2DAvatarCanvas
             key={`${config.assetId}-${previewRetryKey}`}
@@ -285,7 +285,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
           {customDraft && !loading && (
             <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
               <div className="min-w-0 rounded-2xl border border-white/10 bg-black/55 px-3 py-2 backdrop-blur-md">
-                <div className="text-[9px] font-medium text-emerald-200/80">
+                <div className="text-[9px] font-medium text-neutral-200/80">
                   {focusedSemantics ? `${focusedSemantics.areaLabel} · ${focusedSemantics.label}` : '动作预览'}
                 </div>
                 <div className="mt-0.5 max-w-[52vw] truncate text-[9px] text-white/45">
@@ -301,7 +301,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                 </button>
                 <button
                   onClick={() => setShowTargetPreview(true)}
-                  className={`rounded-full px-2.5 py-1 text-[9px] transition ${showTargetPreview ? 'bg-emerald-400/20 text-emerald-100' : 'text-white/40'}`}
+                  className={`rounded-full px-2.5 py-1 text-[9px] transition ${showTargetPreview ? 'bg-neutral-400/20 text-neutral-100' : 'text-white/40'}`}
                 >
                   目标
                 </button>
@@ -309,11 +309,11 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
             </div>
           )}
           {previewError && (
-            <div className="absolute inset-x-3 bottom-3 rounded-xl border border-rose-300/20 bg-rose-950/85 px-3 py-2 text-[10px] text-rose-100">
+            <div className="absolute inset-x-3 bottom-3 rounded-xl border border-neutral-300/20 bg-neutral-950/85 px-3 py-2 text-[10px] text-neutral-100">
               <span className="line-clamp-3 break-all">{previewError}</span>
               <button
                 onClick={() => { setPreviewError(''); setLoading(true); setLoadingStage('正在重新加载模型…'); setPreviewRetryKey(key => key + 1); }}
-                className="mt-1.5 rounded-full border border-rose-200/30 bg-rose-400/15 px-2.5 py-1 text-[10px] font-medium text-rose-50 active:scale-95"
+                className="mt-1.5 rounded-full border border-neutral-200/30 bg-neutral-400/15 px-2.5 py-1 text-[10px] font-medium text-neutral-50 active:scale-95"
               >
                 重新加载
               </button>
@@ -328,7 +328,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
         onPointerMove={onSettingsBubblePointerMove}
         onPointerUp={onSettingsBubblePointerUp}
         onPointerCancel={() => { settingsBubbleDragRef.current = null; }}
-        className={`fixed z-[94] flex h-12 w-12 items-center justify-center rounded-full shadow-[0_12px_34px_rgba(0,0,0,.48)] transition-colors active:scale-90 ${settingsPanelOpen ? 'bg-violet-500 text-white ring-4 ring-violet-300/20' : 'border border-violet-300/35 bg-[#16111f]/95 text-violet-200 backdrop-blur-xl'}`}
+        className={`fixed z-[94] flex h-12 w-12 items-center justify-center rounded-full shadow-[0_12px_34px_rgba(0,0,0,.48)] transition-colors active:scale-90 ${settingsPanelOpen ? 'bg-neutral-500 text-white ring-4 ring-neutral-300/20' : 'border border-neutral-300/35 bg-[#131313]/95 text-neutral-200 backdrop-blur-xl'}`}
         style={settingsBubblePos
           ? { left: settingsBubblePos.x, top: settingsBubblePos.y, touchAction: 'none' }
           : { right: 12, top: 'calc(max(1.25rem, var(--safe-top)) + 34vh)', touchAction: 'none' }}
@@ -374,7 +374,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
             >近景</button>
             <button
               onClick={() => setFraming({ scale: 5.4, offsetX: 0, offsetY: 2.15 })}
-              className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-1 text-[9px] text-violet-200"
+              className="rounded-full border border-neutral-300/20 bg-neutral-400/10 px-2 py-1 text-[9px] text-neutral-200"
             >贴脸</button>
             <button onClick={() => setFraming(defaultFraming)} className="px-1 text-[9px] text-white/35">恢复默认</button>
           </div>
@@ -394,7 +394,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
               step={control.step}
               value={framing[control.key]}
               onChange={event => setFraming(current => ({ ...current, [control.key]: Number(event.target.value) }))}
-              className="h-1 w-full accent-violet-400"
+              className="h-1 w-full accent-neutral-400"
             />
             <span className="text-right tabular-nums text-white/55">{control.display}</span>
           </label>
@@ -405,21 +405,21 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
         <div className="min-h-0 flex flex-1 flex-col">
 
       <div className="flex shrink-0 items-center gap-2 overflow-x-auto px-3 py-3 no-scrollbar">
-        <span className="shrink-0 rounded-full bg-violet-400/15 px-2.5 py-1 text-[10px] text-violet-200">AI {counts.ai}</span>
+        <span className="shrink-0 rounded-full bg-neutral-400/15 px-2.5 py-1 text-[10px] text-neutral-200">AI {counts.ai}</span>
         <span className="shrink-0 rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] text-sky-200">手动 {counts.manual}</span>
-        <span className="shrink-0 rounded-full bg-rose-400/15 px-2.5 py-1 text-[10px] text-rose-200">禁用 {counts.blocked}</span>
-        <span className="shrink-0 rounded-full bg-fuchsia-400/15 px-2.5 py-1 text-[10px] text-fuchsia-100">衣橱 {counts.wardrobe}</span>
+        <span className="shrink-0 rounded-full bg-neutral-400/15 px-2.5 py-1 text-[10px] text-neutral-200">禁用 {counts.blocked}</span>
+        <span className="shrink-0 rounded-full bg-neutral-400/15 px-2.5 py-1 text-[10px] text-neutral-100">衣橱 {counts.wardrobe}</span>
         <button
           onClick={() => openCustomDraft()}
           disabled={!modelParameters.length}
-          className="shrink-0 inline-flex items-center gap-1 rounded-full border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-[10px] text-emerald-200 disabled:opacity-35"
+          className="shrink-0 inline-flex items-center gap-1 rounded-full border border-neutral-300/25 bg-neutral-400/10 px-2.5 py-1 text-[10px] text-neutral-200 disabled:opacity-35"
           title={modelParameters.length ? '像 VTube Studio 那样自建一组参数动作' : '等模型加载完成后可用'}
         >
           <Plus size={10} weight="bold" /> 参数动作
         </button>
         <span className="min-w-4 flex-1" />
         <button onClick={() => setActions(current => current.map(action => ({ ...action, permission: 'manual' })))} className="shrink-0 text-[10px] text-white/45">全部仅手动</button>
-        <button onClick={() => setActions(current => current.map(action => action.wardrobe ? { ...action, permission: 'manual' } : { ...action, permission: 'blocked' }))} className="shrink-0 text-[10px] text-rose-300/65">其余禁用</button>
+        <button onClick={() => setActions(current => current.map(action => action.wardrobe ? { ...action, permission: 'manual' } : { ...action, permission: 'blocked' }))} className="shrink-0 text-[10px] text-neutral-300/65">其余禁用</button>
       </div>
 
       <p className="shrink-0 px-3 pb-2 text-[9px] leading-relaxed text-white/35">
@@ -434,7 +434,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
         ) : (
           <div className="space-y-2">
             {actions.map(action => (
-              <div key={action.id} data-live2d-action-id={action.id} data-live2d-wardrobe={action.wardrobe ? 'true' : 'false'} className={`rounded-2xl border p-3 ${action.wardrobe ? 'border-fuchsia-300/35 bg-fuchsia-300/[0.07]' : 'border-white/10 bg-white/[0.045]'}`}>
+              <div key={action.id} data-live2d-action-id={action.id} data-live2d-wardrobe={action.wardrobe ? 'true' : 'false'} className={`rounded-2xl border p-3 ${action.wardrobe ? 'border-neutral-300/35 bg-neutral-300/[0.07]' : 'border-white/10 bg-white/[0.045]'}`}>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setPreviewAction({ id: action.id, nonce: Date.now() + Math.random() })}
@@ -467,7 +467,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                       </button>
                       <button
                         onClick={() => setActions(current => current.filter(item => item.id !== action.id))}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-rose-300/70 active:scale-90"
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-neutral-300/70 active:scale-90"
                         aria-label={`删除 ${action.name}`}
                       >
                         <Trash size={12} weight="bold" />
@@ -478,7 +478,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                 <button
                   type="button"
                   onClick={() => toggleWardrobe(action.id)}
-                  className={`mt-2.5 flex w-full items-center justify-between border px-3 py-2 text-left text-[10px] transition active:scale-[.99] ${action.wardrobe ? 'border-fuchsia-300/35 bg-fuchsia-300/15 text-fuchsia-100' : 'border-white/8 bg-black/15 text-white/42'}`}
+                  className={`mt-2.5 flex w-full items-center justify-between border px-3 py-2 text-left text-[10px] transition active:scale-[.99] ${action.wardrobe ? 'border-neutral-300/35 bg-neutral-300/15 text-neutral-100' : 'border-white/8 bg-black/15 text-white/42'}`}
                 >
                   <span className="flex items-center gap-2"><TShirt size={13} weight={action.wardrobe ? 'fill' : 'regular'} /> {action.wardrobe ? '已加入真·衣橱' : '这是服装切换动作'}</span>
                   <span>{action.wardrobe ? '仅手动' : '加入'}</span>
@@ -487,7 +487,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveWardrobeActionId(action.id)}
-                    className={`mt-1.5 flex w-full items-center justify-between border px-3 py-2 text-left text-[10px] ${activeWardrobeActionId === action.id ? 'border-emerald-300/35 bg-emerald-300/15 text-emerald-100' : 'border-white/8 bg-black/15 text-white/42'}`}
+                    className={`mt-1.5 flex w-full items-center justify-between border px-3 py-2 text-left text-[10px] ${activeWardrobeActionId === action.id ? 'border-neutral-300/35 bg-neutral-300/15 text-neutral-100' : 'border-white/8 bg-black/15 text-white/42'}`}
                   >
                     <span>导入完成后默认穿这套</span>
                     <span>{activeWardrobeActionId === action.id ? '当前默认' : '设为默认'}</span>
@@ -528,7 +528,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
           <div className="shrink-0 border-b border-white/10 px-4 pb-3 pt-3">
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
-                <div className="text-[9px] font-medium tracking-[0.18em] text-emerald-200/55">动作实验台</div>
+                <div className="text-[9px] font-medium tracking-[0.18em] text-neutral-200/55">动作实验台</div>
                 <input
                   value={customDraft.name}
                   onChange={event => setCustomDraft(current => current ? { ...current, name: event.target.value } : current)}
@@ -565,7 +565,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                 <button
                   onClick={addDraftParam}
                   disabled={!modelParameters.length}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-4 py-2 text-[11px] text-emerald-100 disabled:opacity-35"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-neutral-300/20 bg-neutral-400/10 px-4 py-2 text-[11px] text-neutral-100 disabled:opacity-35"
                 >
                   <Plus size={12} weight="bold" /> 添加第一个变化
                 </button>
@@ -583,12 +583,12 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                   key={`${param.id}-${index}`}
                   data-live2d-parameter-id={param.id}
                   onPointerDown={() => setFocusedParamId(param.id)}
-                  className={`border-b py-4 transition-colors ${isFocused ? 'border-emerald-300/20' : 'border-white/[0.07]'}`}
+                  className={`border-b py-4 transition-colors ${isFocused ? 'border-neutral-300/20' : 'border-white/[0.07]'}`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-emerald-400/10 px-2 py-0.5 text-[9px] font-medium text-emerald-200/80">
+                        <span className="rounded-full bg-neutral-400/10 px-2 py-0.5 text-[9px] font-medium text-neutral-200/80">
                           {semantics.areaLabel}
                         </span>
                         <span className="text-[13px] font-medium text-white/90">{semantics.label}</span>
@@ -600,7 +600,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                     </span>
                     <button
                       onClick={() => setCustomDraft(current => current ? { ...current, params: current.params.filter((_, i) => i !== index) } : current)}
-                      className="flex h-7 w-7 shrink-0 items-center justify-center text-rose-300/55 active:scale-90"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center text-neutral-300/55 active:scale-90"
                       aria-label={`移除${semantics.label}`}
                     >
                       <Trash size={12} weight="bold" />
@@ -655,7 +655,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                           setFocusedParamId(param.id);
                           setShowTargetPreview(true);
                         }}
-                        className="relative z-10 h-1 w-full accent-emerald-400"
+                        className="relative z-10 h-1 w-full accent-neutral-400"
                       />
                     </div>
                     <div className="mt-1.5 flex items-center justify-between text-[9px]">
@@ -663,7 +663,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                       <span className="text-white/38">{semantics.positiveLabel} · {max.toFixed(2)}</span>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
-                      <span className="text-[10px] tabular-nums text-emerald-100/75">
+                      <span className="text-[10px] tabular-nums text-neutral-100/75">
                         目标 {param.value.toFixed(2)}
                         <span className="ml-2 text-white/28">默认 {defaultValue.toFixed(2)}</span>
                       </span>
