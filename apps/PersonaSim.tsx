@@ -42,7 +42,7 @@ const DAILY = ['平凡的周二', '周末宅家', '深夜失眠', '上班的一�
 const EVENTS = ['第一次见到某人', '告白当天', '考试成绩公布', '离职那天', '医院检查结果出来的下午', '一场争吵之后'];
 
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
-const ACCENT = '#b89bff';
+const ACCENT = '#a8a8a8';
 
 // ============================================================
 //  TYPEWRITER — the soul of screenlife (type → delete → retype)
@@ -320,10 +320,10 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                     </div>
 
                     {/* 体验卡 · 中二叠甲：显得很牛逼，同时声明这只是小剧场、不代表角色真实情况 */}
-                    <div className="relative rounded-2xl overflow-hidden mb-6 border border-[#b89bff]/25"
-                        style={{ background: 'linear-gradient(135deg, rgba(184,155,255,0.16), rgba(184,155,255,0.03))' }}>
+                    <div className="relative rounded-2xl overflow-hidden mb-6 border border-[#a8a8a8]/25"
+                        style={{ background: 'linear-gradient(135deg, rgba(168, 168, 168,0.16), rgba(168, 168, 168,0.03))' }}>
                         <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: ACCENT }} />
-                        <div className="absolute -top-8 -right-6 w-28 h-28 rounded-full blur-2xl pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(184,155,255,0.4), transparent 70%)' }} />
+                        <div className="absolute -top-8 -right-6 w-28 h-28 rounded-full blur-2xl pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(168, 168, 168,0.4), transparent 70%)' }} />
                         <div className="relative p-4 pl-5">
                             <div className="flex items-center justify-between mb-2.5">
                                 <span className="text-[9px] tracking-[0.28em] uppercase font-bold" style={{ color: ACCENT }}>✦ Experience Ticket · 体验卡</span>
@@ -343,7 +343,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                         {(['daily', 'event'] as const).map(m => (
                             <button key={m} onClick={() => { setMode(m); trackEvent('切换人格模拟类型', { mode: m }); }}
                                 className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold transition"
-                                style={mode === m ? { background: ACCENT, color: '#1a1530' } : { color: 'rgba(255,255,255,0.5)' }}>
+                                style={mode === m ? { background: ACCENT, color: '#181818' } : { color: 'rgba(255, 255, 255,0.5)' }}>
                                 {m === 'daily' ? '日常模拟' : '事件模拟'}
                             </button>
                         ))}
@@ -365,10 +365,10 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                                 <button key={o.id} onClick={() => { setPresence(o.id); trackEvent('选择你的存在感', { presence: o.id }); }}
                                     className="rounded-2xl py-2.5 border transition active:scale-[0.98] text-center"
                                     style={active
-                                        ? { background: ACCENT, color: '#1a1530', borderColor: 'transparent' }
-                                        : { background: 'rgba(255,255,255,0.035)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }}>
+                                        ? { background: ACCENT, color: '#181818', borderColor: 'transparent' }
+                                        : { background: 'rgba(255, 255, 255,0.035)', borderColor: 'rgba(255, 255, 255,0.06)', color: 'rgba(255, 255, 255,0.8)' }}>
                                     <div className="text-[12.5px] font-semibold">{o.label}</div>
-                                    <div className={`text-[9px] mt-0.5 ${active ? 'text-[#1a1530]/70' : 'text-white/35'}`}>{o.desc}</div>
+                                    <div className={`text-[9px] mt-0.5 ${active ? 'text-[#181818]/70' : 'text-white/35'}`}>{o.desc}</div>
                                 </button>
                             );
                         })}
@@ -388,10 +388,10 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                                 <button key={o.id} onClick={() => { setTone(o.id); trackEvent('选择演出基调', { tone: o.id }); }}
                                     className="rounded-2xl py-2.5 border transition active:scale-[0.98] text-center"
                                     style={active
-                                        ? { background: ACCENT, color: '#1a1530', borderColor: 'transparent' }
-                                        : { background: 'rgba(255,255,255,0.035)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }}>
+                                        ? { background: ACCENT, color: '#181818', borderColor: 'transparent' }
+                                        : { background: 'rgba(255, 255, 255,0.035)', borderColor: 'rgba(255, 255, 255,0.06)', color: 'rgba(255, 255, 255,0.8)' }}>
                                     <div className="text-[12.5px] font-semibold">{o.label}</div>
-                                    <div className={`text-[9px] mt-0.5 ${active ? 'text-[#1a1530]/70' : 'text-white/35'}`}>{o.desc}</div>
+                                    <div className={`text-[9px] mt-0.5 ${active ? 'text-[#181818]/70' : 'text-white/35'}`}>{o.desc}</div>
                                 </button>
                             );
                         })}
@@ -406,8 +406,8 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                                 <button key={s} onClick={() => setTheme(s)}
                                     className="text-left rounded-2xl px-3.5 py-3 border transition active:scale-[0.98]"
                                     style={active
-                                        ? { background: ACCENT, color: '#1a1530', borderColor: 'transparent' }
-                                        : { background: 'rgba(255,255,255,0.035)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.85)' }}>
+                                        ? { background: ACCENT, color: '#181818', borderColor: 'transparent' }
+                                        : { background: 'rgba(255, 255, 255,0.035)', borderColor: 'rgba(255, 255, 255,0.06)', color: 'rgba(255, 255, 255,0.85)' }}>
                                     <span className="text-[12.5px] font-medium">{s}</span>
                                 </button>
                             );
@@ -422,7 +422,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
 
                     <button onClick={() => requestStart(mode, theme)} disabled={!theme.trim()}
                         className="w-full py-3.5 rounded-2xl text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-40"
-                        style={{ background: ACCENT, color: '#1a1530' }}>
+                        style={{ background: ACCENT, color: '#181818' }}>
                         开始演出 <ArrowRight size={15} weight="bold" />
                     </button>
                 </div>
@@ -480,8 +480,8 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                     <button onClick={sendAsMemory} disabled={memorySent}
                         className="mt-8 w-full max-w-[300px] py-3 rounded-2xl text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-60"
                         style={memorySent
-                            ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)' }
-                            : { background: ACCENT, color: '#1a1530' }}>
+                            ? { background: 'rgba(255, 255, 255,0.06)', color: 'rgba(255, 255, 255,0.55)', border: '1px solid rgba(255, 255, 255,0.1)' }
+                            : { background: ACCENT, color: '#181818' }}>
                         {memorySent
                             ? <><Check size={15} weight="bold" /> 已成为 TA 的回忆</>
                             : <><PaperPlaneTilt size={15} weight="fill" /> 作为回忆发送给 TA</>}
@@ -494,7 +494,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                         <button onClick={restart} className="px-5 py-2.5 rounded-xl text-[12px] text-white/70 bg-white/[0.06] border border-white/[0.08] flex items-center gap-1.5 active:scale-95 transition">
                             <ArrowClockwise size={14} /> 再看一次
                         </button>
-                        <button onClick={() => { openLifeLog(); }} className="px-5 py-2.5 rounded-xl text-[12px] font-semibold text-[#1a1530] flex items-center gap-1.5 active:scale-95 transition" style={{ background: ACCENT }}>
+                        <button onClick={() => { openLifeLog(); }} className="px-5 py-2.5 rounded-xl text-[12px] font-semibold text-[#181818] flex items-center gap-1.5 active:scale-95 transition" style={{ background: ACCENT }}>
                             <ClockCounterClockwise size={14} weight="bold" /> 生活记录
                         </button>
                     </div>
@@ -550,7 +550,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                     <span className="text-[10px] text-white/30">轻触继续 · 长按快进</span>
                     <button onClick={(e) => { e.stopPropagation(); setAutoplay(a => !a); trackEvent('切换演出自动播放'); }}
                         className="w-9 h-9 rounded-full flex items-center justify-center border border-white/[0.1] text-white/70 active:scale-90 transition"
-                        style={autoplay ? { background: ACCENT, color: '#1a1530', borderColor: 'transparent' } : undefined}>
+                        style={autoplay ? { background: ACCENT, color: '#181818', borderColor: 'transparent' } : undefined}>
                         {autoplay ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
                     </button>
                 </div>
@@ -571,12 +571,12 @@ type Vibe = NonNullable<Beat['vibe']>;
 const rnd = (n: number) => { const x = Math.sin(n * 99.73) * 43758.545; return x - Math.floor(x); };
 
 const vibeTint: Record<Vibe, string> = {
-    calm: 'rgba(255,255,255,0.9)',
-    chaotic: 'rgba(255,255,255,0.85)',
-    happy: '#ffb3d9',
-    anxious: '#ff9a9a',
-    numb: 'rgba(255,255,255,0.45)',
-    tender: '#e6c9ff',
+    calm: 'rgba(255, 255, 255,0.9)',
+    chaotic: 'rgba(255, 255, 255,0.85)',
+    happy: '#c6c6c6',
+    anxious: '#afafaf',
+    numb: 'rgba(255, 255, 255,0.45)',
+    tender: '#d3d3d3',
 };
 
 // 内心独白气泡（逐字敲出，按情绪微调色调）
@@ -611,7 +611,7 @@ const MoodThought: React.FC<{ text: string; vibe?: Vibe }> = ({ text, vibe = 'ca
                             opacity: 0.35 + rnd(i + 9) * 0.6,
                             color: 'white',
                             animationDelay: `${i * 90}ms`, animationFillMode: 'backwards',
-                            textShadow: '0 1px 8px rgba(0,0,0,0.5)',
+                            textShadow: '0 1px 8px rgba(0, 0, 0,0.5)',
                         }}>
                         {f}
                     </span>
@@ -626,12 +626,12 @@ const MoodThought: React.FC<{ text: string; vibe?: Vibe }> = ({ text, vibe = 'ca
                 {deco.map((d, i) => (
                     <span key={i} className="absolute animate-float" style={{
                         bottom: `${10 + rnd(i + 2) * 20}%`, left: `${8 + rnd(i + 4) * 80}%`,
-                        fontSize: `${14 + rnd(i + 6) * 14}px`, color: '#ffc2e0',
+                        fontSize: `${14 + rnd(i + 6) * 14}px`, color: '#d1d1d1',
                         animationDelay: `${i * 350}ms`, opacity: 0.8,
                     }}>{d}</span>
                 ))}
                 <p className="text-[20px] text-center leading-relaxed animate-fade-in"
-                    style={{ background: 'linear-gradient(90deg,#ffd6ec,#ffb3d9,#ffc2e0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    style={{ background: 'linear-gradient(90deg,#e0e0e0,#c6c6c6,#d1d1d1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                     {text}
                 </p>
             </div>
@@ -641,7 +641,7 @@ const MoodThought: React.FC<{ text: string; vibe?: Vibe }> = ({ text, vibe = 'ca
         return (
             <div className="absolute inset-0 flex items-center justify-center px-10">
                 <p className="text-[18px] text-center leading-relaxed tracking-tight animate-pulse"
-                    style={{ color: vibeTint.anxious, textShadow: '0 0 12px rgba(255,80,80,0.3)' }}>
+                    style={{ color: vibeTint.anxious, textShadow: '0 0 12px rgba(117, 117, 117,0.3)' }}>
                     {text}
                 </p>
             </div>
@@ -662,7 +662,7 @@ const MoodThought: React.FC<{ text: string; vibe?: Vibe }> = ({ text, vibe = 'ca
             <Typewriter drafts={[]} sent={text} placeholder=""
                 className="text-[19px] text-center leading-relaxed"
                 />
-            {vibe === 'tender' && <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at 50% 50%, rgba(230,201,255,0.12), transparent 60%)' }} />}
+            {vibe === 'tender' && <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at 50% 50%, rgba(211, 211, 211,0.12), transparent 60%)' }} />}
         </div>
     );
 };
@@ -678,7 +678,7 @@ const ScreenContent: React.FC<{ beat: Beat; char: CharacterProfile; showMono: bo
         if (beat.kind === 'lock') {
             return (
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="text-[64px] font-extralight text-white tracking-tight tabular-nums leading-none animate-fade-in" style={{ textShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>{beat.time || ''}</div>
+                    <div className="text-[64px] font-extralight text-white tracking-tight tabular-nums leading-none animate-fade-in" style={{ textShadow: '0 4px 24px rgba(0, 0, 0,0.5)' }}>{beat.time || ''}</div>
                     {beat.notif && (
                         <div className="mt-10 w-[78%] rounded-2xl px-4 py-3 bg-black/70 border border-white/[0.15] animate-slide-up">
                             <div className="text-[10px] text-white/50 uppercase tracking-wide mb-0.5">{beat.notif.app}</div>
@@ -695,13 +695,13 @@ const ScreenContent: React.FC<{ beat: Beat; char: CharacterProfile; showMono: bo
             const f = beat.flashback;
             return (
                 <div className="absolute inset-0 flex flex-col items-center justify-center"
-                    style={{ background: `radial-gradient(circle at 50% 45%, ${f?.tint || '#3a2a4a'} 0%, #07080c 78%)` }}>
+                    style={{ background: `radial-gradient(circle at 50% 45%, ${f?.tint || '#303030'} 0%, #080808 78%)` }}>
                     <div className="absolute top-4 left-4 right-4 rounded-2xl px-4 py-2.5 bg-black/75 border border-white/[0.15] flex items-center gap-2 animate-slide-down">
-                        <ImageSquare size={16} className="text-pink-300" />
+                        <ImageSquare size={16} className="text-neutral-300" />
                         <span className="text-[12px] text-white/85 font-medium">{f?.label || f?.date || '过去的某天'}</span>
                     </div>
                     <div className="w-[68%] aspect-[4/5] rounded-2xl overflow-hidden border border-white/[0.1] shadow-2xl relative grayscale-[35%] animate-fade-in"
-                        style={{ background: `linear-gradient(160deg, ${f?.tint || '#5a4a6a'}, #1a1520)`, animationDuration: '1.4s' }}>
+                        style={{ background: `linear-gradient(160deg, ${f?.tint || '#505050'}, #171717)`, animationDuration: '1.4s' }}>
                         <div className="absolute inset-0 flex items-center justify-center opacity-40">
                             <ImageSquare size={48} weight="thin" className="text-white" />
                         </div>
@@ -754,10 +754,10 @@ const Overlay: React.FC<{ beat: Beat }> = ({ beat }) => {
     }
     // notification
     const n = beat.notif;
-    const toneColor = n?.tone === 'sms' ? '#4ade80' : n?.tone === 'flashback' ? '#ff5fb0' : ACCENT;
+    const toneColor = n?.tone === 'sms' ? '#b8b8b8' : n?.tone === 'flashback' ? '#878787' : ACCENT;
     return (
         <div className="absolute inset-0">
-            <div className="absolute top-4 left-4 right-4 rounded-2xl px-4 py-3 bg-[#16131f]/95 border border-white/[0.16] animate-notif-pop shadow-2xl">
+            <div className="absolute top-4 left-4 right-4 rounded-2xl px-4 py-3 bg-[#151515]/95 border border-white/[0.16] animate-notif-pop shadow-2xl">
                 <div className="flex items-center gap-2 mb-1">
                     <span className="w-2 h-2 rounded-full" style={{ background: toneColor, boxShadow: `0 0 8px ${toneColor}` }} />
                     <span className="text-[10px] text-white/55 uppercase tracking-wide">{n?.app}</span>
@@ -795,7 +795,7 @@ const AppView: React.FC<{ app: NonNullable<Beat['app']>; char: CharacterProfile 
                 {app.chat.lines.map((l, i) => (
                     <div key={i} className={`flex ${l.me ? 'justify-end' : 'justify-start'} animate-fade-in`}
                         style={{ animationDelay: `${i * 320}ms`, animationFillMode: 'backwards' }}>
-                        <div className={`px-3.5 py-2 rounded-2xl max-w-[74%] text-[13px] leading-relaxed ${l.me ? 'text-[#1a1530] rounded-br-md' : 'bg-white/[0.08] text-white/90 border border-white/[0.06] rounded-bl-md'}`}
+                        <div className={`px-3.5 py-2 rounded-2xl max-w-[74%] text-[13px] leading-relaxed ${l.me ? 'text-[#181818] rounded-br-md' : 'bg-white/[0.08] text-white/90 border border-white/[0.06] rounded-bl-md'}`}
                             style={l.me ? { background: ACCENT } : undefined}>
                             {l.text}
                         </div>
@@ -847,7 +847,7 @@ const AppView: React.FC<{ app: NonNullable<Beat['app']>; char: CharacterProfile 
         return (
             <div className="h-full flex items-center justify-center p-6">
                 <div className="w-full aspect-[4/5] rounded-2xl overflow-hidden border border-white/[0.08] relative"
-                    style={{ background: `linear-gradient(155deg, ${f.tint || '#3a4a5a'}, #14161c)` }}>
+                    style={{ background: `linear-gradient(155deg, ${f.tint || '#484848'}, #161616)` }}>
                     <div className="absolute inset-0 flex items-center justify-center opacity-30"><ImageSquare size={44} weight="thin" className="text-white" /></div>
                     <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/65 to-transparent">
                         {f.date && <div className="text-[9px] text-white/45 tabular-nums">{f.date}</div>}
@@ -931,10 +931,10 @@ const Shell: React.FC<{ children: React.ReactNode; wallpaper?: string }> = ({ ch
     // 令牌喂不了 CSS url()，在这儿解析一次；非令牌值原样透传。
     const wallpaperUrl = useBlobRefUrl(wallpaper);
     return (
-    <div className="absolute inset-0 z-[80] flex flex-col overflow-hidden text-white" style={{ background: '#07080c' }}>
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(130% 80% at 50% 0%, #1a1726 0%, #0a0b12 60%, #07080c 100%)' }} />
+    <div className="absolute inset-0 z-[80] flex flex-col overflow-hidden text-white" style={{ background: '#080808' }}>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(130% 80% at 50% 0%, #191919 0%, #0b0b0b 60%, #080808 100%)' }} />
         {wallpaperUrl && <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: `url("${wallpaperUrl}")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(7,8,12,0.4), rgba(7,8,12,0.2) 40%, rgba(7,8,12,0.9))' }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(8, 8, 8,0.4), rgba(8, 8, 8,0.2) 40%, rgba(8, 8, 8,0.9))' }} />
         <div className="relative z-10 flex flex-col flex-1 min-h-0">{children}</div>
     </div>
     );
@@ -1034,7 +1034,7 @@ export const LifeLog: React.FC<{
                         <p className="text-[12.5px] text-white/60 leading-relaxed" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>{log.summary}</p>
                         <div className="flex items-center justify-between mt-3 gap-2">
                             {log.buff?.label ? (
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px]" style={{ borderColor: `${log.buff.color || ACCENT}55`, color: 'rgba(255,255,255,0.8)', background: `${log.buff.color || ACCENT}14` }}>
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px]" style={{ borderColor: `${log.buff.color || ACCENT}55`, color: 'rgba(255, 255, 255,0.8)', background: `${log.buff.color || ACCENT}14` }}>
                                     <span>{log.buff.emoji || '✨'}</span>{log.buff.label}
                                 </div>
                             ) : <span />}
@@ -1047,7 +1047,7 @@ export const LifeLog: React.FC<{
                                 ) : null}
                                 <button onClick={() => sendLog(log)} disabled={!!sent[log.id]}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-semibold active:scale-95 transition disabled:opacity-60"
-                                    style={sent[log.id] ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' } : { background: ACCENT, color: '#1a1530' }}>
+                                    style={sent[log.id] ? { background: 'rgba(255, 255, 255,0.06)', color: 'rgba(255, 255, 255,0.5)' } : { background: ACCENT, color: '#181818' }}>
                                     {sent[log.id] ? <><Check size={12} weight="bold" /> 已发送</> : <><PaperPlaneTilt size={12} weight="fill" /> 发送给 TA</>}
                                 </button>
                             </div>
@@ -1274,12 +1274,12 @@ kind 取值与字段：
 - {"kind":"app","app":{"name":"微信","view":"chat","chat":{"name":"妈","lines":[{"me":false,"text":"吃饭了吗"},{"me":true,"text":"吃了"}]}}}
 - {"kind":"app","app":{"name":"微信","view":"compose","compose":{"to":"她","drafts":["在吗","你最近还好吗"],"sent":null}}}  // 打字后删除；sent=null表示最终没发，sent填字符串表示最终发送
 - {"kind":"app","app":{"name":"搜索","view":"search","search":{"engine":"百度","queries":[{"q":"失眠怎么办","deleted":true},{"q":"长期睡不好会死吗","deleted":true},{"q":"猫为什么半夜叫"}]}}}
-- {"kind":"app","app":{"name":"相册","view":"photo","photo":{"caption":"...","date":"2024-06-19","tint":"#5a6a7a"}}}
+- {"kind":"app","app":{"name":"相册","view":"photo","photo":{"caption":"...","date":"2024-06-19","tint":"#686868"}}}
 - {"kind":"app","app":{"name":"音乐","view":"music","music":{"song":"...","artist":"...","state":"单曲循环"}}}
 - {"kind":"app","app":{"name":"备忘录","view":"notes","notes":{"title":"待办","items":["...","..."]}}}
 - {"kind":"app","app":{"name":"浏览器","view":"browser","browser":{"tabs":["...","..."]}}}
 - {"kind":"app","app":{"name":"天气","view":"weather","weather":{"city":"...","temp":22,"desc":"多云"}}}
-- {"kind":"flashback","time":"15:00","flashback":{"label":"三个月前的今天","caption":"...","date":"...","tint":"#4a3a5a"},"monologue":""}  // 记忆闪回(可选)，label=自洽的时间口径，monologue留空=沉默
+- {"kind":"flashback","time":"15:00","flashback":{"label":"三个月前的今天","caption":"...","date":"...","tint":"#404040"},"monologue":""}  // 记忆闪回(可选)，label=自洽的时间口径，monologue留空=沉默
 - {"kind":"end","time":"23:40"}  // 最后一个 beat 必须是 end
 
 请严格贴合上面的【本场变奏】，并把【下猛料】那段吃透：beats 给足 40~64 个、独白密集、细节具体、数字行为反复、高潮拉长、结尾收束落地。**务必保证 JSON 完整闭合、结尾收好**——若篇幅吃紧，宁可砍掉几个中段 beat，也要留足收尾、把括号全部闭合，绝不允许写到一半被截断。直接输出 JSON 对象。`;

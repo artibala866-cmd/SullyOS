@@ -272,9 +272,9 @@ const QQBridge: React.FC = () => {
 
   const statusColor = {
     idle: 'bg-slate-300 text-slate-700',
-    connecting: 'bg-amber-300 text-amber-800 animate-pulse',
-    connected: 'bg-emerald-400 text-emerald-900',
-    error: 'bg-rose-400 text-rose-900',
+    connecting: 'bg-neutral-300 text-neutral-800 animate-pulse',
+    connected: 'bg-neutral-400 text-neutral-900',
+    error: 'bg-neutral-400 text-neutral-900',
   }[wsStatus];
 
   const statusText = {
@@ -303,9 +303,9 @@ const QQBridge: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto p-5 space-y-5 no-scrollbar pb-20">
         {/* Intro */}
-        <section className="bg-gradient-to-br from-sky-50 to-indigo-50 rounded-3xl p-5 border border-sky-100/80">
+        <section className="bg-gradient-to-br from-neutral-50 to-neutral-50 rounded-3xl p-5 border border-neutral-100/80">
           <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 bg-sky-100 rounded-xl text-sky-600"><Plugs weight="bold" className="w-4 h-4" /></div>
+            <div className="p-2 bg-neutral-100 rounded-xl text-neutral-600"><Plugs weight="bold" className="w-4 h-4" /></div>
             <h2 className="text-sm font-semibold text-slate-700 tracking-wider">怎么用</h2>
           </div>
           <ol className="text-[11px] leading-5 text-slate-600 list-decimal pl-5 space-y-1">
@@ -319,7 +319,7 @@ const QQBridge: React.FC = () => {
         {/* NapCat connection */}
         <section className="bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50 space-y-3">
           <div className="flex items-center gap-2 mb-1">
-            <div className="p-2 bg-indigo-100 rounded-xl text-indigo-600"><Plug weight="bold" className="w-4 h-4" /></div>
+            <div className="p-2 bg-neutral-100 rounded-xl text-neutral-600"><Plug weight="bold" className="w-4 h-4" /></div>
             <h2 className="text-sm font-semibold text-slate-600 tracking-wider">NapCat 连接</h2>
           </div>
 
@@ -331,7 +331,7 @@ const QQBridge: React.FC = () => {
               onChange={e => setWsUrl(e.target.value)}
               placeholder="ws://127.0.0.1:3001"
               disabled={enabled}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-sky-300 disabled:opacity-60"
+              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-neutral-300 disabled:opacity-60"
             />
           </label>
 
@@ -343,7 +343,7 @@ const QQBridge: React.FC = () => {
               onChange={e => setToken(e.target.value)}
               placeholder="留空即不发送"
               disabled={enabled}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-sky-300 disabled:opacity-60"
+              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-neutral-300 disabled:opacity-60"
             />
           </label>
 
@@ -354,7 +354,7 @@ const QQBridge: React.FC = () => {
               value={whitelist}
               onChange={e => setWhitelist(e.target.value)}
               placeholder="例如 12345678 87654321"
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-sky-300"
+              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-neutral-300"
             />
           </label>
         </section>
@@ -382,8 +382,8 @@ const QQBridge: React.FC = () => {
                     disabled={enabled}
                     className={`flex items-center gap-2 p-2 rounded-2xl border text-left transition-all ${
                       selected
-                        ? 'bg-sky-50 border-sky-300 shadow-sm'
-                        : 'bg-white border-slate-200 hover:border-sky-200'
+                        ? 'bg-neutral-50 border-neutral-300 shadow-sm'
+                        : 'bg-white border-slate-200 hover:border-neutral-200'
                     } ${enabled ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
                   >
                     <TokenImg value={c.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
@@ -417,8 +417,8 @@ const QQBridge: React.FC = () => {
               onClick={() => { setEnabled(v => !v); trackEvent('切换 QQ 桥接开关', { action: enabled ? 'off' : 'on' }); }}
               className={`shrink-0 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all active:scale-95 ${
                 enabled
-                  ? 'bg-rose-500 text-white shadow-sm'
-                  : 'bg-emerald-500 text-white shadow-sm'
+                  ? 'bg-neutral-500 text-white shadow-sm'
+                  : 'bg-neutral-500 text-white shadow-sm'
               }`}
             >
               <Power weight="bold" className="w-4 h-4" />
@@ -426,8 +426,8 @@ const QQBridge: React.FC = () => {
             </button>
           </div>
           {chatAI.isTyping && (
-            <div className="mt-3 text-[11px] text-sky-600 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
+            <div className="mt-3 text-[11px] text-neutral-600 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-neutral-500 animate-pulse"></span>
               {char?.name} 正在生成回复…
             </div>
           )}
@@ -453,9 +453,9 @@ const QQBridge: React.FC = () => {
                 <div
                   key={i}
                   className={
-                    l.kind === 'in' ? 'text-sky-300'
-                      : l.kind === 'out' ? 'text-emerald-300'
-                      : l.kind === 'error' ? 'text-rose-300'
+                    l.kind === 'in' ? 'text-neutral-300'
+                      : l.kind === 'out' ? 'text-neutral-300'
+                      : l.kind === 'error' ? 'text-neutral-300'
                       : 'text-slate-300'
                   }
                 >

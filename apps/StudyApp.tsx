@@ -56,12 +56,12 @@ const loadKatex = async (): Promise<KatexLike> => {
 
 // --- Styles ---
 const GRADIENTS = [
-    'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
-    'linear-gradient(120deg, #f093fb 0%, #f5576c 100%)',
-    'linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%)',
-    'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
-    'linear-gradient(to top, #5ee7df 0%, #b490ca 100%)',
-    'linear-gradient(to right, #43e97b 0%, #38f9d7 100%)'
+    'linear-gradient(135deg, #cdcdcd 0%, #bdbdbd 100%)',
+    'linear-gradient(120deg, #aeaeae 0%, #7a7a7a 100%)',
+    'linear-gradient(to top, #d7d7d7 0%, #e9e9e9 100%)',
+    'linear-gradient(135deg, #d2d2d2 0%, #b2b2b2 100%)',
+    'linear-gradient(to top, #c9c9c9 0%, #9c9c9c 100%)',
+    'linear-gradient(to right, #bebebe 0%, #cecece 100%)'
 ];
 
 // --- Renderer Component ---
@@ -82,12 +82,12 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
                 output: 'html',
             });
             if (!html) {
-                return <span className="font-mono text-emerald-200">{latex}</span>;
+                return <span className="font-mono text-neutral-200">{latex}</span>;
             }
             // Force white color for KaTeX elements specifically
             return <span dangerouslySetInnerHTML={{ __html: html }} className={displayMode ? "block my-2 w-full overflow-x-auto" : "inline-block mx-1"} />;
         } catch (e) {
-            return <span className="text-red-400 text-xs font-mono bg-black/20 p-1 rounded">{latex}</span>;
+            return <span className="text-neutral-400 text-xs font-mono bg-black/20 p-1 rounded">{latex}</span>;
         }
     };
 
@@ -105,13 +105,13 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
                 return <span key={i}>{renderMath(part.slice(1, -1), false)}</span>;
             }
             if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={i} className="text-emerald-300 font-bold mx-0.5">{part.slice(2, -2)}</strong>;
+                return <strong key={i} className="text-neutral-300 font-bold mx-0.5">{part.slice(2, -2)}</strong>;
             }
             if (part.startsWith('*') && part.endsWith('*')) {
-                return <em key={i} className="text-emerald-200/80 italic">{part.slice(1, -1)}</em>;
+                return <em key={i} className="text-neutral-200/80 italic">{part.slice(1, -1)}</em>;
             }
             if (part.startsWith('`') && part.endsWith('`')) {
-                return <code key={i} className="bg-black/40 text-orange-200 px-1.5 py-0.5 rounded font-mono text-xs mx-0.5 border border-white/10">{part.slice(1, -1)}</code>;
+                return <code key={i} className="bg-black/40 text-neutral-200 px-1.5 py-0.5 rounded font-mono text-xs mx-0.5 border border-white/10">{part.slice(1, -1)}</code>;
             }
             return <span key={i}>{part}</span>;
         });
@@ -138,7 +138,7 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
         if (codeMatch) {
             const id = parseInt(codeMatch[1]);
             return (
-                <pre key={index} className="bg-black/60 p-4 rounded-xl font-mono text-xs text-emerald-100 my-4 overflow-x-auto border border-white/10 shadow-inner whitespace-pre-wrap leading-relaxed">
+                <pre key={index} className="bg-black/60 p-4 rounded-xl font-mono text-xs text-neutral-100 my-4 overflow-x-auto border border-white/10 shadow-inner whitespace-pre-wrap leading-relaxed">
                     {storedCode[id]}
                 </pre>
             );
@@ -146,13 +146,13 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
 
         // Headers
         if (trimmed.startsWith('# ')) return <h1 key={index} className="text-3xl font-bold text-white mt-8 mb-6 pb-2 border-b-2 border-white/20 font-serif">{trimmed.slice(2)}</h1>;
-        if (trimmed.startsWith('## ')) return <h2 key={index} className="text-2xl font-bold text-emerald-200 mt-6 mb-4 font-serif">{trimmed.slice(3)}</h2>;
-        if (trimmed.startsWith('### ')) return <h3 key={index} className="text-xl font-bold text-emerald-300 mt-5 mb-2 font-serif">{trimmed.slice(4)}</h3>;
+        if (trimmed.startsWith('## ')) return <h2 key={index} className="text-2xl font-bold text-neutral-200 mt-6 mb-4 font-serif">{trimmed.slice(3)}</h2>;
+        if (trimmed.startsWith('### ')) return <h3 key={index} className="text-xl font-bold text-neutral-300 mt-5 mb-2 font-serif">{trimmed.slice(4)}</h3>;
 
         // Blockquotes
         if (trimmed.startsWith('> ')) {
             return (
-                <div key={index} className="border-l-4 border-emerald-500/50 bg-white/5 p-4 my-3 rounded-r-xl text-emerald-100 italic">
+                <div key={index} className="border-l-4 border-neutral-500/50 bg-white/5 p-4 my-3 rounded-r-xl text-neutral-100 italic">
                     {parseInline(trimmed.slice(2))}
                 </div>
             );
@@ -162,7 +162,7 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
         if (trimmed.match(/^[-•]\s/)) {
             return (
                 <div key={index} className="flex gap-3 my-2 pl-2">
-                    <span className="text-emerald-400 font-bold mt-1">•</span>
+                    <span className="text-neutral-400 font-bold mt-1">•</span>
                     <span className="text-white/90 leading-relaxed">{parseInline(trimmed.slice(2))}</span>
                 </div>
             );
@@ -173,7 +173,7 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
         if (numMatch) {
              return (
                 <div key={index} className="flex gap-3 my-2 pl-2">
-                    <span className="text-emerald-400 font-bold font-mono mt-1">{numMatch[1]}.</span>
+                    <span className="text-neutral-400 font-bold font-mono mt-1">{numMatch[1]}.</span>
                     <span className="text-white/90 leading-relaxed">{parseInline(numMatch[2])}</span>
                 </div>
             );
@@ -221,7 +221,7 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
                     <thead className="bg-white/10">
                         <tr>
                             {header.map((cell, i) => (
-                                <th key={i} className="px-3 py-2 text-emerald-200 font-bold border-b border-white/10">
+                                <th key={i} className="px-3 py-2 text-neutral-200 font-bold border-b border-white/10">
                                     {parseInline(cell)}
                                 </th>
                             ))}
@@ -295,8 +295,8 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
             
             {renderedBlocks}
             {isTyping && (
-                <div className="mt-4 animate-pulse flex items-center gap-2 text-emerald-500">
-                    <span className="w-2 h-5 bg-emerald-500"></span>
+                <div className="mt-4 animate-pulse flex items-center gap-2 text-neutral-500">
+                    <span className="w-2 h-5 bg-neutral-500"></span>
                     <span className="text-xs font-mono tracking-widest">WRITING...</span>
                 </div>
             )}
@@ -1290,8 +1290,8 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
     // PRACTICE BOOK VIEW
     if (mode === 'practice_book') {
         return (
-            <div className="h-full w-full bg-[#fdfbf7] flex flex-col font-sans relative">
-                <div className="bg-[#fdfbf7]/90 backdrop-blur-md border-b border-[#e5e5e5] shrink-0 sticky top-0 z-20" style={{ paddingTop: 'var(--safe-top)' }}>
+            <div className="h-full w-full bg-[#fbfbfb] flex flex-col font-sans relative">
+                <div className="bg-[#fbfbfb]/90 backdrop-blur-md border-b border-[#e5e5e5] shrink-0 sticky top-0 z-20" style={{ paddingTop: 'var(--safe-top)' }}>
                     <div className="flex items-center px-6 py-3">
                         <div className="flex justify-between items-center w-full">
                             <button onClick={() => setMode('bookshelf')} className="p-2 -ml-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
@@ -1320,16 +1320,16 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                             <div className="text-xs text-slate-500 mt-0.5 truncate">{quiz.chapterTitle}</div>
                                             <div className="flex items-center gap-3 mt-2">
                                                 {quiz.status === 'graded' ? (
-                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${quiz.score === quiz.totalQuestions ? 'bg-emerald-100 text-emerald-600' : quiz.score >= quiz.totalQuestions * 0.6 ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
+                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${quiz.score === quiz.totalQuestions ? 'bg-neutral-100 text-neutral-600' : quiz.score >= quiz.totalQuestions * 0.6 ? 'bg-neutral-100 text-neutral-600' : 'bg-neutral-100 text-neutral-600'}`}>
                                                         {quiz.score}/{quiz.totalQuestions}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">答题中</span>
+                                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">答题中</span>
                                                 )}
                                                 <span className="text-[10px] text-slate-400">{new Date(quiz.createdAt).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                        <button onClick={(e) => { e.stopPropagation(); setDeleteQuizTarget(quiz); }} className="p-2 text-slate-300 hover:text-red-400 transition-colors">
+                                        <button onClick={(e) => { e.stopPropagation(); setDeleteQuizTarget(quiz); }} className="p-2 text-slate-300 hover:text-neutral-400 transition-colors">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                                         </button>
                                     </div>
@@ -1343,12 +1343,12 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                 <Modal isOpen={!!deleteQuizTarget} title="删除试卷" onClose={() => setDeleteQuizTarget(null)} footer={
                     <div className="flex gap-2 w-full">
                         <button onClick={() => setDeleteQuizTarget(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">取消</button>
-                        <button onClick={confirmDeleteQuiz} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200">确认删除</button>
+                        <button onClick={confirmDeleteQuiz} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200">确认删除</button>
                     </div>
                 }>
                     <div className="py-4 text-center">
                         <p className="text-sm text-slate-600 mb-2">确定要删除这份试卷吗？</p>
-                        <p className="text-xs text-red-400">试卷和锐评内容将被永久删除。</p>
+                        <p className="text-xs text-neutral-400">试卷和锐评内容将被永久删除。</p>
                     </div>
                 </Modal>
             </div>
@@ -1360,7 +1360,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
         const viewQuiz = reviewingQuiz || quizSession;
         return (
             <div className="h-full w-full bg-[#2b2b2b] flex flex-col relative overflow-hidden font-sans">
-                <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255, 255, 255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
 
                 {/* Header */}
                 <div className="bg-[#1a1a1a]/80 backdrop-blur-md px-4 pb-4 flex items-center justify-between z-30 border-b border-white/10" style={{ paddingTop: 'max(1rem, var(--safe-top))' }}>
@@ -1369,7 +1369,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     </button>
                     <div className="text-center">
                         <div className="text-white font-bold text-sm">批改结果</div>
-                        <div className={`text-xs font-bold mt-0.5 ${viewQuiz.score === viewQuiz.totalQuestions ? 'text-emerald-400' : viewQuiz.score >= viewQuiz.totalQuestions * 0.6 ? 'text-amber-400' : 'text-red-400'}`}>
+                        <div className={`text-xs font-bold mt-0.5 ${viewQuiz.score === viewQuiz.totalQuestions ? 'text-neutral-400' : viewQuiz.score >= viewQuiz.totalQuestions * 0.6 ? 'text-neutral-400' : 'text-neutral-400'}`}>
                             {viewQuiz.score}/{viewQuiz.totalQuestions} ({Math.round((viewQuiz.score / viewQuiz.totalQuestions) * 100)}%)
                         </div>
                     </div>
@@ -1379,7 +1379,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto no-scrollbar p-6 pb-24 relative z-10">
                     {/* Score Card */}
-                    <div className={`rounded-2xl p-6 mb-6 text-center ${viewQuiz.score === viewQuiz.totalQuestions ? 'bg-emerald-900/30 border border-emerald-500/30' : viewQuiz.score >= viewQuiz.totalQuestions * 0.6 ? 'bg-amber-900/30 border border-amber-500/30' : 'bg-red-900/30 border border-red-500/30'}`}>
+                    <div className={`rounded-2xl p-6 mb-6 text-center ${viewQuiz.score === viewQuiz.totalQuestions ? 'bg-neutral-900/30 border border-neutral-500/30' : viewQuiz.score >= viewQuiz.totalQuestions * 0.6 ? 'bg-neutral-900/30 border border-neutral-500/30' : 'bg-neutral-900/30 border border-neutral-500/30'}`}>
                         <div className="text-5xl font-bold text-white mb-2">{viewQuiz.score}<span className="text-2xl text-white/50">/{viewQuiz.totalQuestions}</span></div>
                         <div className="text-sm text-white/60">{viewQuiz.chapterTitle}</div>
                     </div>
@@ -1387,9 +1387,9 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     {/* Questions Review */}
                     <div className="space-y-4 mb-6">
                         {viewQuiz.questions.map((q, i) => (
-                            <div key={q.id} className={`rounded-2xl p-4 border ${q.isCorrect ? 'bg-emerald-900/10 border-emerald-500/20' : 'bg-red-900/10 border-red-500/20'}`}>
+                            <div key={q.id} className={`rounded-2xl p-4 border ${q.isCorrect ? 'bg-neutral-900/10 border-neutral-500/20' : 'bg-neutral-900/10 border-neutral-500/20'}`}>
                                 <div className="flex items-start gap-2 mb-2">
-                                    <span className={`text-sm font-bold shrink-0 ${q.isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{q.isCorrect ? <Check size={16} weight="bold" /> : <X size={16} weight="bold" />}</span>
+                                    <span className={`text-sm font-bold shrink-0 ${q.isCorrect ? 'text-neutral-400' : 'text-neutral-400'}`}>{q.isCorrect ? <Check size={16} weight="bold" /> : <X size={16} weight="bold" />}</span>
                                     <span className="text-white/90 text-sm">{i + 1}. {q.stem}</span>
                                 </div>
                                 {q.options && (
@@ -1399,7 +1399,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                             const isUserPick = q.userAnswer?.toUpperCase() === optLetter.toUpperCase();
                                             const isCorrectOpt = q.answer.toUpperCase() === optLetter.toUpperCase();
                                             return (
-                                                <div key={oi} className={`text-xs px-2 py-1 rounded ${isCorrectOpt ? 'text-emerald-300 bg-emerald-500/10' : isUserPick && !q.isCorrect ? 'text-red-300 bg-red-500/10' : 'text-white/50'}`}>
+                                                <div key={oi} className={`text-xs px-2 py-1 rounded ${isCorrectOpt ? 'text-neutral-300 bg-neutral-500/10' : isUserPick && !q.isCorrect ? 'text-neutral-300 bg-neutral-500/10' : 'text-white/50'}`}>
                                                     {opt} {isCorrectOpt && !q.isCorrect && '← 正确答案'} {isUserPick && !q.isCorrect && '← 你的选择'}
                                                 </div>
                                             );
@@ -1408,8 +1408,8 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 )}
                                 {q.type !== 'choice' && (
                                     <div className="ml-6 text-xs space-y-1 mb-2">
-                                        <div className={`${q.isCorrect ? 'text-emerald-300' : 'text-red-300'}`}>你的答案: {q.userAnswer || '(未作答)'}</div>
-                                        {!q.isCorrect && <div className="text-emerald-300">正确答案: {q.answer}</div>}
+                                        <div className={`${q.isCorrect ? 'text-neutral-300' : 'text-neutral-300'}`}>你的答案: {q.userAnswer || '(未作答)'}</div>
+                                        {!q.isCorrect && <div className="text-neutral-300">正确答案: {q.answer}</div>}
                                     </div>
                                 )}
                                 {q.explanation && <div className="ml-6 text-[10px] text-white/40 mt-1">解析: {q.explanation}</div>}
@@ -1419,7 +1419,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                     <div className="ml-6 mt-3 space-y-2">
                                         {q.notes.map((note, ni) => (
                                             <div key={ni} className="bg-white/5 rounded-xl p-3 border border-white/5">
-                                                <div className="text-[10px] text-amber-400 font-bold mb-1">Q: {note.question}</div>
+                                                <div className="text-[10px] text-neutral-400 font-bold mb-1">Q: {note.question}</div>
                                                 <div className="text-xs text-white/70 leading-relaxed">
                                                     <BlackboardRenderer text={note.answer} katexRenderer={katexRenderer} />
                                                 </div>
@@ -1437,21 +1437,21 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                                 onChange={e => setFollowUpInput(e.target.value)}
                                                 onKeyDown={e => e.key === 'Enter' && handleFollowUp(q.id)}
                                                 placeholder="哪里不明白？"
-                                                className="flex-1 bg-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-white/30 outline-none border border-white/10 focus:border-amber-500/50"
+                                                className="flex-1 bg-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-white/30 outline-none border border-white/10 focus:border-neutral-500/50"
                                                 autoFocus
                                                 disabled={followUpLoading}
                                             />
                                             {followUpLoading ? (
-                                                <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
+                                                <div className="w-6 h-6 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
                                             ) : (
                                                 <>
-                                                    <button onClick={() => handleFollowUp(q.id)} disabled={!followUpInput.trim()} className="text-amber-400 text-xs font-bold px-2 py-1 hover:bg-white/5 rounded disabled:opacity-30">发送</button>
+                                                    <button onClick={() => handleFollowUp(q.id)} disabled={!followUpInput.trim()} className="text-neutral-400 text-xs font-bold px-2 py-1 hover:bg-white/5 rounded disabled:opacity-30">发送</button>
                                                     <button onClick={() => { setAskingQuestionId(''); setFollowUpInput(''); }} className="text-white/30 text-xs px-1">取消</button>
                                                 </>
                                             )}
                                         </div>
                                     ) : (
-                                        <button onClick={() => setAskingQuestionId(q.id)} className="text-[10px] text-amber-400/70 hover:text-amber-400 transition-colors flex items-center gap-1">
+                                        <button onClick={() => setAskingQuestionId(q.id)} className="text-[10px] text-neutral-400/70 hover:text-neutral-400 transition-colors flex items-center gap-1">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
                                             追问
                                         </button>
@@ -1465,8 +1465,8 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     {viewQuiz.aiReview && (
                         <div className="mb-6">
                             <div className="flex items-center gap-2 mb-3">
-                                {selectedChar && <TokenImg value={selectedChar.avatar} className="w-8 h-8 rounded-full object-cover border-2 border-emerald-500/30" />}
-                                <span className="text-emerald-400 text-sm font-bold">{selectedChar?.name || '助教'} 的锐评</span>
+                                {selectedChar && <TokenImg value={selectedChar.avatar} className="w-8 h-8 rounded-full object-cover border-2 border-neutral-500/30" />}
+                                <span className="text-neutral-400 text-sm font-bold">{selectedChar?.name || '助教'} 的锐评</span>
                             </div>
                             <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
                                 <BlackboardRenderer text={viewQuiz.aiReview} katexRenderer={katexRenderer} />
@@ -1477,7 +1477,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
 
                 {/* Bottom Bar */}
                 <div className="absolute bottom-0 w-full bg-[#1a1a1a]/95 backdrop-blur-xl border-t border-white/10 p-4 z-30 pb-safe">
-                    <button onClick={() => { setMode('classroom'); setReviewingQuiz(null); }} className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-900/30 active:scale-95 transition-all">
+                    <button onClick={() => { setMode('classroom'); setReviewingQuiz(null); }} className="w-full h-12 bg-neutral-600 hover:bg-neutral-500 text-white rounded-2xl font-bold shadow-lg shadow-neutral-900/30 active:scale-95 transition-all">
                         返回课堂
                     </button>
                 </div>
@@ -1488,9 +1488,9 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
     // QUIZ ANSWERING VIEW
     if (mode === 'quiz') {
         return (
-            <div className="h-full w-full bg-[#fdfbf7] flex flex-col font-sans relative">
+            <div className="h-full w-full bg-[#fbfbfb] flex flex-col font-sans relative">
                 {/* Header */}
-                <div className="bg-[#fdfbf7]/90 backdrop-blur-md border-b border-[#e5e5e5] shrink-0 sticky top-0 z-20" style={{ paddingTop: 'var(--safe-top)' }}>
+                <div className="bg-[#fbfbfb]/90 backdrop-blur-md border-b border-[#e5e5e5] shrink-0 sticky top-0 z-20" style={{ paddingTop: 'var(--safe-top)' }}>
                     <div className="flex items-center px-6 py-3">
                         <div className="flex justify-between items-center w-full">
                             <button onClick={() => {
@@ -1514,7 +1514,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                 {/* Loading State */}
                 {quizLoading ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                        <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-10 h-10 border-3 border-neutral-500 border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-sm text-slate-500 font-bold">{quizLoading}</span>
                         {selectedChar && (
                             <div className="flex items-center gap-2 mt-2">
@@ -1532,7 +1532,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                     <div key={q.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                                         {/* Question Header */}
                                         <div className="flex items-start gap-2 mb-4">
-                                            <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-full shrink-0">
+                                            <span className="bg-neutral-100 text-neutral-700 text-xs font-bold px-2 py-0.5 rounded-full shrink-0">
                                                 {q.type === 'choice' ? '选择' : q.type === 'true_false' ? '判断' : '填空'}
                                             </span>
                                             <span className="text-sm text-slate-800 font-medium leading-relaxed">{i + 1}. {q.stem}</span>
@@ -1545,7 +1545,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                                     const optLetter = opt.charAt(0);
                                                     const isSelected = (quizUserAnswers[q.id] || '').toUpperCase() === optLetter.toUpperCase();
                                                     return (
-                                                        <button key={oi} onClick={() => handleQuizAnswer(q.id, optLetter)} className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all ${isSelected ? 'bg-emerald-500 text-white font-bold shadow-sm' : 'bg-slate-50 text-slate-700 hover:bg-slate-100 active:scale-[0.98]'}`}>
+                                                        <button key={oi} onClick={() => handleQuizAnswer(q.id, optLetter)} className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all ${isSelected ? 'bg-neutral-500 text-white font-bold shadow-sm' : 'bg-slate-50 text-slate-700 hover:bg-slate-100 active:scale-[0.98]'}`}>
                                                             {opt}
                                                         </button>
                                                     );
@@ -1558,7 +1558,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                                 {[{ val: 'true', label: '正确' }, { val: 'false', label: '错误' }].map(opt => {
                                                     const isSelected = quizUserAnswers[q.id] === opt.val;
                                                     return (
-                                                        <button key={opt.val} onClick={() => handleQuizAnswer(q.id, opt.val)} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${isSelected ? (opt.val === 'true' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white') : 'bg-slate-50 text-slate-600 hover:bg-slate-100 active:scale-[0.98]'}`}>
+                                                        <button key={opt.val} onClick={() => handleQuizAnswer(q.id, opt.val)} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${isSelected ? (opt.val === 'true' ? 'bg-neutral-500 text-white' : 'bg-neutral-500 text-white') : 'bg-slate-50 text-slate-600 hover:bg-slate-100 active:scale-[0.98]'}`}>
                                                             {opt.val === 'true' ? <CheckCircle size={16} weight="bold" className="inline" /> : <XCircle size={16} weight="bold" className="inline" />} {opt.label}
                                                         </button>
                                                     );
@@ -1580,11 +1580,11 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                         </div>
 
                         {/* Submit Bar */}
-                        <div className="absolute bottom-0 w-full bg-[#fdfbf7]/95 backdrop-blur-xl border-t border-slate-200 p-4 z-30 pb-safe">
+                        <div className="absolute bottom-0 w-full bg-[#fbfbfb]/95 backdrop-blur-xl border-t border-slate-200 p-4 z-30 pb-safe">
                             <button
                                 onClick={submitQuiz}
                                 disabled={!!quizLoading}
-                                className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200 active:scale-95 transition-all disabled:opacity-50"
+                                className="w-full h-12 bg-neutral-600 hover:bg-neutral-500 text-white rounded-2xl font-bold shadow-lg shadow-neutral-200 active:scale-95 transition-all disabled:opacity-50"
                             >
                                 {quizLoading ? quizLoading : `交卷 (${Object.keys(quizUserAnswers).length}/${quizSession.questions.length})`}
                             </button>
@@ -1597,8 +1597,8 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
 
     if (mode === 'bookshelf') {
         return (
-            <div className="h-full w-full bg-[#fdfbf7] flex flex-col font-sans relative">
-                <div className="bg-[#fdfbf7]/90 backdrop-blur-md border-b border-[#e5e5e5] shrink-0 sticky top-0 z-20" style={{ paddingTop: 'var(--safe-top)' }}>
+            <div className="h-full w-full bg-[#fbfbfb] flex flex-col font-sans relative">
+                <div className="bg-[#fbfbfb]/90 backdrop-blur-md border-b border-[#e5e5e5] shrink-0 sticky top-0 z-20" style={{ paddingTop: 'var(--safe-top)' }}>
                     <div className="flex items-center px-6 py-3">
                     <div className="flex justify-between items-center w-full">
                         <button onClick={closeApp} className="p-2 -ml-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
@@ -1627,7 +1627,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                         <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                             {filterCharactersByGroup(characters, characterGroups, tutorGroupId).map(c => (
                                 <div key={c.id} onClick={() => setSelectedChar(c)} className={`flex flex-col items-center gap-2 cursor-pointer transition-opacity ${selectedChar?.id === c.id ? 'opacity-100' : 'opacity-50'}`}>
-                                    <div className={`w-14 h-14 rounded-full p-[2px] ${selectedChar?.id === c.id ? 'border-2 border-emerald-500' : 'border border-slate-200'}`}>
+                                    <div className={`w-14 h-14 rounded-full p-[2px] ${selectedChar?.id === c.id ? 'border-2 border-neutral-500' : 'border border-slate-200'}`}>
                                         <TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" />
                                     </div>
                                     <span className="text-[10px] font-bold text-slate-600">{c.name}</span>
@@ -1639,10 +1639,10 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">我的课程</h3>
                     
                     <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => fileInputRef.current?.click()} className="aspect-[3/4] rounded-r-xl rounded-l-sm border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-emerald-400 hover:text-emerald-500 transition-colors bg-white">
+                        <button onClick={() => fileInputRef.current?.click()} className="aspect-[3/4] rounded-r-xl rounded-l-sm border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-neutral-400 hover:text-neutral-500 transition-colors bg-white">
                             {isProcessing ? (
                                 <div className="text-center px-2">
-                                    <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                                    <div className="w-6 h-6 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                                     <span className="text-[10px]">{processStatus}</span>
                                 </div>
                             ) : (
@@ -1669,7 +1669,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 </div>
                                 <button 
                                     onClick={(e) => requestDeleteCourse(e, course)} 
-                                    className="absolute top-2 right-2 bg-black/20 hover:bg-red-500 text-white w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-md transition-all z-20"
+                                    className="absolute top-2 right-2 bg-black/20 hover:bg-neutral-500 text-white w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-md transition-all z-20"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
@@ -1678,7 +1678,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     </div>
                 </div>
 
-                <Modal isOpen={showImportModal} title="课程设置" onClose={() => setShowImportModal(false)} footer={<button onClick={confirmImport} className="w-full py-3 bg-emerald-500 text-white font-bold rounded-2xl">开始生成</button>}>
+                <Modal isOpen={showImportModal} title="课程设置" onClose={() => setShowImportModal(false)} footer={<button onClick={confirmImport} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl">开始生成</button>}>
                     <div className="space-y-4">
                         <div className="text-xs text-slate-500">
                             已加载: <span className="font-bold text-slate-700">{tempPdfData?.name}</span>
@@ -1688,7 +1688,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">选择预设提示词</label>
                                 <div className="flex flex-wrap gap-2">
                                     {tutorPresets.map(p => (
-                                        <button key={p.id} onClick={() => setImportPreference(p.prompt)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${importPreference === p.prompt ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                        <button key={p.id} onClick={() => setImportPreference(p.prompt)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${importPreference === p.prompt ? 'bg-neutral-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                                             {p.name}
                                         </button>
                                     ))}
@@ -1718,11 +1718,11 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 <input value={localStudyKey} onChange={e => setLocalStudyKey(e.target.value)} placeholder="API Key" type="password" className="w-full bg-slate-100 rounded-xl p-3 text-sm focus:outline-emerald-500" />
                                 <input value={localStudyModel} onChange={e => setLocalStudyModel(e.target.value)} placeholder="模型名称 (e.g. gpt-4o)" className="w-full bg-slate-100 rounded-xl p-3 text-sm focus:outline-emerald-500" />
                                 <div className="flex gap-2">
-                                    <button onClick={saveStudyApi} className="flex-1 py-2.5 bg-emerald-500 text-white font-bold rounded-xl text-xs">保存</button>
+                                    <button onClick={saveStudyApi} className="flex-1 py-2.5 bg-neutral-500 text-white font-bold rounded-xl text-xs">保存</button>
                                     <button onClick={clearStudyApi} className="py-2.5 px-4 bg-slate-200 text-slate-500 font-bold rounded-xl text-xs">清除</button>
                                 </div>
                                 {(studyApi.baseUrl || studyApi.model) && (
-                                    <div className="text-[10px] text-emerald-600 bg-emerald-50 rounded-lg p-2">
+                                    <div className="text-[10px] text-neutral-600 bg-neutral-50 rounded-lg p-2">
                                         当前使用专用 API: {studyApi.model || effectiveApi.model}
                                     </div>
                                 )}
@@ -1740,10 +1740,10 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                                 <div className="text-sm font-bold text-slate-700">{p.name}</div>
                                                 <div className="text-xs text-slate-400 truncate">{p.prompt}</div>
                                             </div>
-                                            <button onClick={() => { setEditingPreset(p); setPresetName(p.name); setPresetPrompt(p.prompt); }} className="text-slate-400 hover:text-emerald-500 shrink-0 p-1">
+                                            <button onClick={() => { setEditingPreset(p); setPresetName(p.name); setPresetPrompt(p.prompt); }} className="text-slate-400 hover:text-neutral-500 shrink-0 p-1">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" /></svg>
                                             </button>
-                                            <button onClick={() => deletePreset(p.id)} className="text-slate-400 hover:text-red-500 shrink-0 p-1">
+                                            <button onClick={() => deletePreset(p.id)} className="text-slate-400 hover:text-neutral-500 shrink-0 p-1">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                             </button>
                                         </div>
@@ -1753,7 +1753,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                             <div className="space-y-2 bg-slate-100 rounded-xl p-3">
                                 <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="预设名称（如：数学辅导）" className="w-full bg-white rounded-lg p-2.5 text-sm focus:outline-emerald-500" />
                                 <textarea value={presetPrompt} onChange={e => setPresetPrompt(e.target.value)} placeholder="提示词内容（如：请用中文讲解，多用简单的比喻...）" className="w-full bg-white rounded-lg p-2.5 text-sm focus:outline-emerald-500 resize-none h-24" />
-                                <button onClick={handleSavePreset} disabled={!presetName.trim() || !presetPrompt.trim()} className="w-full py-2.5 bg-emerald-500 text-white font-bold rounded-xl text-xs disabled:opacity-40">
+                                <button onClick={handleSavePreset} disabled={!presetName.trim() || !presetPrompt.trim()} className="w-full py-2.5 bg-neutral-500 text-white font-bold rounded-xl text-xs disabled:opacity-40">
                                     {editingPreset ? '更新预设' : '添加预设'}
                                 </button>
                                 {editingPreset && (
@@ -1772,13 +1772,13 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     footer={
                         <div className="flex gap-2 w-full">
                             <button onClick={() => setDeleteTarget(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">取消</button>
-                            <button onClick={confirmDeleteCourse} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200">确认删除</button>
+                            <button onClick={confirmDeleteCourse} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200">确认删除</button>
                         </div>
                     }
                 >
                     <div className="py-4 text-center">
                         <p className="text-sm text-slate-600 mb-2">确定要删除课程 <br/><span className="font-bold text-slate-800">"{deleteTarget?.title}"</span> 吗？</p>
-                        <p className="text-xs text-red-400">删除后无法恢复，学习进度将丢失。</p>
+                        <p className="text-xs text-neutral-400">删除后无法恢复，学习进度将丢失。</p>
                     </div>
                 </Modal>
             </div>
@@ -1790,7 +1790,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
         <div className="h-full w-full bg-[#2b2b2b] flex flex-col relative overflow-hidden font-sans">
             
             {/* Background Texture - Board */}
-            <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+            <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255, 255, 255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
 
             {/* Header Overlay */}
             <div className="absolute top-0 w-full px-4 pb-4 flex justify-between z-30 pointer-events-none" style={{ paddingTop: 'max(1rem, var(--safe-top))' }}>
@@ -1803,7 +1803,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                     </div>
                     {/* Character Visibility Toggle */}
-                    <button onClick={() => setShowAssistant(!showAssistant)} className={`bg-black/30 p-2 rounded-full backdrop-blur-md border border-white/10 pointer-events-auto transition-colors ${showAssistant ? 'text-emerald-400' : 'text-white/40'}`}>
+                    <button onClick={() => setShowAssistant(!showAssistant)} className={`bg-black/30 p-2 rounded-full backdrop-blur-md border border-white/10 pointer-events-auto transition-colors ${showAssistant ? 'text-neutral-400' : 'text-white/40'}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5"><path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z" /></svg>
                     </button>
                 </div>
@@ -1820,10 +1820,10 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 <button 
                                     key={ch.id} 
                                     onClick={() => jumpToChapter(idx)}
-                                    className={`w-full text-left p-3 rounded-xl text-xs transition-all ${idx === activeCourse.currentChapterIndex ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:bg-white/5'}`}
+                                    className={`w-full text-left p-3 rounded-xl text-xs transition-all ${idx === activeCourse.currentChapterIndex ? 'bg-neutral-600 text-white font-bold' : 'text-slate-400 hover:bg-white/5'}`}
                                 >
                                     <div className="flex items-center gap-2">
-                                        {ch.isCompleted ? <Check size={14} weight="bold" className="text-emerald-400" /> : <span className="w-2 h-2 rounded-full bg-slate-600"></span>}
+                                        {ch.isCompleted ? <Check size={14} weight="bold" className="text-neutral-400" /> : <span className="w-2 h-2 rounded-full bg-slate-600"></span>}
                                         {ch.title}
                                     </div>
                                 </button>
@@ -1845,7 +1845,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                 <div className="absolute bottom-20 right-[-20px] w-[160px] h-[220px] z-20 pointer-events-none flex items-end justify-center transition-all duration-500 animate-slide-in-right" style={{ transform: isTyping ? 'scale(1.05)' : 'scale(1)', opacity: isTyping || classroomState === 'teaching' ? 1 : 0.8 }}>
                      <TokenImg
                         value={currentSprite}
-                        className="max-h-full max-w-full object-contain drop-shadow-[0_5px_15px_rgba(0,0,0,0.5)]"
+                        className="max-h-full max-w-full object-contain drop-shadow-[0_5px_15px_rgba(0, 0, 0,0.5)]"
                     />
                 </div>
             )}
@@ -1858,7 +1858,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                             LECTURING...
                         </div>
                     ) : classroomState === 'finished' ? (
-                        <button onClick={() => setMode('bookshelf')} className="flex-1 h-12 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-bold shadow-lg shadow-emerald-900/20 active:scale-95 transition-all">
+                        <button onClick={() => setMode('bookshelf')} className="flex-1 h-12 bg-neutral-500 hover:bg-neutral-400 text-white rounded-2xl font-bold shadow-lg shadow-neutral-900/20 active:scale-95 transition-all">
                             完成课程
                         </button>
                     ) : classroomState === 'q_and_a' ? (
@@ -1870,7 +1870,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 className="flex-1 bg-transparent px-4 py-2 text-white text-sm outline-none placeholder:text-white/30"
                                 autoFocus
                             />
-                            <button onClick={handleAskQuestion} className="bg-emerald-500 text-white px-5 py-2 rounded-xl text-xs font-bold ml-2 shadow-sm">发送</button>
+                            <button onClick={handleAskQuestion} className="bg-neutral-500 text-white px-5 py-2 rounded-xl text-xs font-bold ml-2 shadow-sm">发送</button>
                         </div>
                     ) : (
                         <>
@@ -1880,10 +1880,10 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                             <button onClick={() => setClassroomState('q_and_a')} className="w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-bold border border-white/10 active:scale-95 transition-all flex items-center justify-center">
                                 <Hand size={24} />
                             </button>
-                            <button onClick={openQuizSetup} className="w-12 h-12 bg-amber-600/80 hover:bg-amber-500 text-white rounded-2xl font-bold border border-amber-400/30 active:scale-95 transition-all flex items-center justify-center" title="刷题">
+                            <button onClick={openQuizSetup} className="w-12 h-12 bg-neutral-600/80 hover:bg-neutral-500 text-white rounded-2xl font-bold border border-neutral-400/30 active:scale-95 transition-all flex items-center justify-center" title="刷题">
                                 <Notepad size={24} />
                             </button>
-                            <button onClick={handleFinishChapter} className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-900/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+                            <button onClick={handleFinishChapter} className="flex-1 h-12 bg-neutral-600 hover:bg-neutral-500 text-white rounded-2xl font-bold shadow-lg shadow-neutral-900/30 active:scale-95 transition-all flex items-center justify-center gap-2">
                                 下一章 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                             </button>
                         </>
@@ -1893,7 +1893,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
 
             {/* Quiz Setup Modal */}
             <Modal isOpen={quizShowSetup} title="刷题设置" onClose={() => setQuizShowSetup(false)} footer={
-                <button onClick={generateQuiz} disabled={quizTypes.length === 0} className="w-full py-3 bg-amber-500 text-white font-bold rounded-2xl disabled:opacity-40">
+                <button onClick={generateQuiz} disabled={quizTypes.length === 0} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl disabled:opacity-40">
                     开始出题
                 </button>
             }>
@@ -1908,7 +1908,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                             {([['choice', '选择题'], ['true_false', '判断题'], ['fill_blank', '填空题']] as const).map(([val, label]) => {
                                 const isOn = quizTypes.includes(val);
                                 return (
-                                    <button key={val} onClick={() => setQuizTypes(prev => isOn ? prev.filter(t => t !== val) : [...prev, val])} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${isOn ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                    <button key={val} onClick={() => setQuizTypes(prev => isOn ? prev.filter(t => t !== val) : [...prev, val])} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${isOn ? 'bg-neutral-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
                                         {label}
                                     </button>
                                 );
@@ -1918,7 +1918,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">题目数量: {quizCount}</label>
-                        <input type="range" min={3} max={15} value={quizCount} onChange={e => setQuizCount(Number(e.target.value))} className="w-full accent-amber-500" />
+                        <input type="range" min={3} max={15} value={quizCount} onChange={e => setQuizCount(Number(e.target.value))} className="w-full accent-neutral-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1">
                             <span>3题</span><span>15题</span>
                         </div>

@@ -65,18 +65,18 @@ const STICKER_OPTIONS = [
 ];
 
 // --- Constants & Styles ---
-const BRAND_COLOR = '#ff2442'; // Premium Red
+const BRAND_COLOR = '#555555'; // Premium Red
 
 // Advanced Gradients for "Image" backgrounds
 const POST_STYLES = [
-    { name: 'Sunset', bg: 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%)', text: '#fff' },
-    { name: 'Ocean', bg: 'linear-gradient(120deg, #89f7fe 0%, #66a6ff 100%)', text: '#fff' },
-    { name: 'Peach', bg: 'linear-gradient(to top, #fff1eb 0%, #ace0f9 100%)', text: '#555' },
-    { name: 'Night', bg: 'linear-gradient(to top, #30cfd0 0%, #330867 100%)', text: '#fff' },
-    { name: 'Love', bg: 'linear-gradient(to top, #f43b47 0%, #453a94 100%)', text: '#fff' },
-    { name: 'Fresh', bg: 'linear-gradient(120deg, #d4fc79 0%, #96e6a1 100%)', text: '#444' },
-    { name: 'Lemon', bg: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', text: '#fff' },
-    { name: 'Plum', bg: 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)', text: '#fff' },
+    { name: 'Sunset', bg: 'linear-gradient(135deg, #b0b0b0 0%, #dbdbdb 99%, #dbdbdb 100%)', text: '#ffffff' },
+    { name: 'Ocean', bg: 'linear-gradient(120deg, #e0e0e0 0%, #9f9f9f 100%)', text: '#ffffff' },
+    { name: 'Peach', bg: 'linear-gradient(to top, #f4f4f4 0%, #d7d7d7 100%)', text: '#555555' },
+    { name: 'Night', bg: 'linear-gradient(to top, #adadad 0%, #181818 100%)', text: '#ffffff' },
+    { name: 'Love', bg: 'linear-gradient(to top, #636363 0%, #434343 100%)', text: '#ffffff' },
+    { name: 'Fresh', bg: 'linear-gradient(120deg, #eaeaea 0%, #d0d0d0 100%)', text: '#444444' },
+    { name: 'Lemon', bg: 'linear-gradient(135deg, #d2d2d2 0%, #b2b2b2 100%)', text: '#ffffff' },
+    { name: 'Plum', bg: 'linear-gradient(135deg, #cdcdcd 0%, #bdbdbd 100%)', text: '#ffffff' },
 ];
 
 const getRandomStyle = () => POST_STYLES[Math.floor(Math.random() * POST_STYLES.length)];
@@ -122,7 +122,7 @@ const Icons = {
         </svg>
     ),
     Star: ({ filled, onClick, className }: { filled?: boolean, onClick?: (e: any) => void, className?: string }) => (
-        <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={filled ? "#fbbf24" : "none"} stroke={filled ? "#fbbf24" : "currentColor"} strokeWidth={2} className={`transition-transform active:scale-75 cursor-pointer ${className || "w-6 h-6"}`}>
+        <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={filled ? "#c1c1c1" : "none"} stroke={filled ? "#c1c1c1" : "currentColor"} strokeWidth={2} className={`transition-transform active:scale-75 cursor-pointer ${className || "w-6 h-6"}`}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.563.563 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.563.563 0 0 0-.182-.557l-4.204-3.602a.563.563 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
         </svg>
     ),
@@ -1367,7 +1367,7 @@ ${buildSparkCommentHistory(post)}
                     </div>
                 </div>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }} className="absolute top-2 right-2 z-20 w-6 h-6 bg-black/20 text-white rounded-full flex items-center justify-center text-xs backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80">×</button>
+            <button onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }} className="absolute top-2 right-2 z-20 w-6 h-6 bg-black/20 text-white rounded-full flex items-center justify-center text-xs backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-500/80">×</button>
         </div>
     );
 
@@ -1397,12 +1397,12 @@ ${buildSparkCommentHistory(post)}
                             <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar })} className="text-sm font-bold text-slate-800">{selectedPost.authorName}</button>
                             {selectedPost.authorType !== 'user' && (
                                 <button type="button" onClick={() => toggleFollow(selectedPost.authorName)}
-                                    className="ml-auto rounded-full border border-[#ff2442]/30 px-3 py-1 text-xs font-bold text-[#ff2442]">
+                                    className="ml-auto rounded-full border border-[#555555]/30 px-3 py-1 text-xs font-bold text-[#555555]">
                                     {followedHandles.includes(selectedPost.authorName) ? '已关注 ✓' : '+ 关注'}
                                 </button>
                             )}
                         </div>
-                        <button onClick={() => { setShowShareModal(true); trackEvent('打开分享帖子面板'); }} className="p-2 -m-2 active:opacity-60"><Icons.Share onClick={() => setShowShareModal(true)} className="w-6 h-6 text-slate-800 cursor-pointer hover:text-[#ff2442]" /></button>
+                        <button onClick={() => { setShowShareModal(true); trackEvent('打开分享帖子面板'); }} className="p-2 -m-2 active:opacity-60"><Icons.Share onClick={() => setShowShareModal(true)} className="w-6 h-6 text-slate-800 cursor-pointer hover:text-[#555555]" /></button>
                     </div>
 
                     {/* Scrollable Area */}
@@ -1419,16 +1419,16 @@ ${buildSparkCommentHistory(post)}
                             <p className="text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap font-light">{selectedPost.content}</p>
                             
                             <div className="flex gap-2 flex-wrap pt-2">
-                                {selectedPost.tags.map(t => <span key={t} className="text-xs font-bold text-blue-600 bg-blue-50/50 backdrop-blur-sm border border-blue-100 px-2.5 py-1 rounded-full">#{t}</span>)}
+                                {selectedPost.tags.map(t => <span key={t} className="text-xs font-bold text-neutral-600 bg-neutral-50/50 backdrop-blur-sm border border-neutral-100 px-2.5 py-1 rounded-full">#{t}</span>)}
                             </div>
                             <div className="text-xs text-slate-400 font-medium border-b border-slate-100/50 pb-6">{new Date(selectedPost.timestamp).toLocaleDateString()}</div>
-                            {selectedPost.authorType === 'user' && postTraffic[selectedPost.id] && <div className="grid grid-cols-3 gap-2 rounded-xl bg-rose-50/70 p-3 text-center text-xs text-slate-600">
+                            {selectedPost.authorType === 'user' && postTraffic[selectedPost.id] && <div className="grid grid-cols-3 gap-2 rounded-xl bg-neutral-50/70 p-3 text-center text-xs text-slate-600">
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].impressions.toLocaleString()}</strong>曝光</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].reads.toLocaleString()}</strong>阅读</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].score}</strong>内容表现</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].likes}</strong>点赞</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].comments}</strong>评论</div>
-                                <div><strong className="block text-base text-rose-500">{postTraffic[selectedPost.id].followersDelta > 0 ? '+' : ''}{postTraffic[selectedPost.id].followersDelta}</strong>带来粉丝</div>
+                                <div><strong className="block text-base text-neutral-500">{postTraffic[selectedPost.id].followersDelta > 0 ? '+' : ''}{postTraffic[selectedPost.id].followersDelta}</strong>带来粉丝</div>
                             </div>}
                         </div>
 
@@ -1436,7 +1436,7 @@ ${buildSparkCommentHistory(post)}
                         <div className="px-6 pb-6">
                             <div className="text-sm font-bold text-slate-800 mb-6 flex items-center gap-2">
                                 <span>共 {selectedPost.comments.length} 条评论</span>
-                                {(loadingComments || isReplyingToUser) && <div className="w-3 h-3 border-2 border-slate-300 border-t-[#ff2442] rounded-full animate-spin"></div>}
+                                {(loadingComments || isReplyingToUser) && <div className="w-3 h-3 border-2 border-slate-300 border-t-[#555555] rounded-full animate-spin"></div>}
                             </div>
                             
                             <div className="space-y-6">
@@ -1447,7 +1447,7 @@ ${buildSparkCommentHistory(post)}
                                         <div className="flex-1">
                                             <div className="flex justify-between items-start">
                                                 <span className={`text-xs font-bold ${c.isCharacter ? 'text-slate-800' : 'text-slate-500'}`}>{c.authorName}</span>
-                                                <div className="flex items-center gap-1 text-slate-400 cursor-pointer hover:text-[#ff2442]">
+                                                <div className="flex items-center gap-1 text-slate-400 cursor-pointer hover:text-[#555555]">
                                                     <button type="button" aria-label="点赞评论" onClick={() => updatePostInFeed(selectedPost.id, current => ({ ...current, comments: current.comments.map(item => item.id === c.id ? { ...item, likes: item.likes + 1 } : item) }))}>
                                         <Icons.Heart filled={false} className="w-3.5 h-3.5" />
                                     </button>
@@ -1469,7 +1469,7 @@ ${buildSparkCommentHistory(post)}
                     </div>}
                     {/* Bottom Input Bar - Absolute to sit on top of scroll area at bottom */}
                     <div className="absolute bottom-0 w-full pb-[var(--safe-bottom,0px)] z-30 pointer-events-none">
-                         <div className="pointer-events-auto h-16 bg-white/80 backdrop-blur-xl border-t border-white/40 px-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+                         <div className="pointer-events-auto h-16 bg-white/80 backdrop-blur-xl border-t border-white/40 px-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgba(0, 0, 0,0.03)]">
                             <div className="flex-1 bg-slate-100/50 rounded-full px-5 py-2.5 flex items-center gap-2 focus-within:bg-white focus-within:ring-1 focus-within:ring-slate-200 transition-all border border-transparent focus-within:border-slate-200">
                                 <input 
                                     value={commentInput}
@@ -1479,9 +1479,9 @@ ${buildSparkCommentHistory(post)}
                                     placeholder="说点什么..."
                                     className="bg-transparent text-sm w-full outline-none text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
                                 />
-                                {commentInput.trim() && <button disabled={loadingComments || isReplyingToUser} onClick={handleSendComment} className="text-[#ff2442] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
+                                {commentInput.trim() && <button disabled={loadingComments || isReplyingToUser} onClick={handleSendComment} className="text-[#555555] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
                             </div>
-                            <button type="button" onClick={() => setShowCommentStickers(v => !v)} className="text-xs text-rose-500 shrink-0">表情包</button>
+                            <button type="button" onClick={() => setShowCommentStickers(v => !v)} className="text-xs text-neutral-500 shrink-0">表情包</button>
                             <div className="flex gap-5 text-slate-600 shrink-0 items-center">
                                 <div className="flex flex-col items-center gap-0.5">
                                     <Icons.Heart filled={selectedPost.isLiked} onClick={(e) => handleLike(e, selectedPost)} className="w-6 h-6" />
@@ -1501,7 +1501,7 @@ ${buildSparkCommentHistory(post)}
 
     return (
         // Main Container with Premium Gradient Background
-        <div className="h-full w-full bg-gradient-to-br from-rose-50 via-slate-50 to-teal-50 flex flex-col font-sans relative text-slate-900 overflow-hidden">
+        <div className="h-full w-full bg-gradient-to-br from-neutral-50 via-slate-50 to-neutral-50 flex flex-col font-sans relative text-slate-900 overflow-hidden">
             
             {dmTarget && <div className="absolute inset-0 z-[90] bg-white flex flex-col" style={{ paddingTop: 'var(--safe-top)' }}>
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
@@ -1511,13 +1511,13 @@ ${buildSparkCommentHistory(post)}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
                     {(dmThreads[dmTarget.handle] || []).map((message, index) => <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#ff2442] text-white' : 'bg-white text-slate-800'}`}>{message.content}</div>
+                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#555555] text-white' : 'bg-white text-slate-800'}`}>{message.content}</div>
                     </div>)}
                     {dmBusy && <p className="text-xs text-slate-400">对方正在输入…</p>}
                 </div>
                 <div className="flex items-center gap-2 p-3 border-t border-slate-100" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}>
                     <input value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void sendSparkDM(); }} placeholder="发送私信…" className="flex-1 min-w-0 rounded-full bg-slate-100 px-4 py-2 text-sm" />
-                    <button type="button" disabled={dmBusy || !dmInput.trim()} onClick={() => void sendSparkDM()} className="text-[#ff2442] font-bold disabled:opacity-40">发送</button>
+                    <button type="button" disabled={dmBusy || !dmInput.trim()} onClick={() => void sendSparkDM()} className="text-[#555555] font-bold disabled:opacity-40">发送</button>
                 </div>
             </div>}
             {viewedAccount && (() => {
@@ -1541,8 +1541,8 @@ ${buildSparkCommentHistory(post)}
                             <span><strong className="text-slate-800">{fanCounts[owner ? 'char:' + owner.id + ':' + viewedAccount.handle : 'public:' + viewedAccount.handle] ?? 0}</strong> 粉丝</span>
                         </div>
 
-                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => { openSparkDM(viewedAccount); setViewedAccount(null); }} className="w-full rounded-full border border-[#ff2442] text-[#ff2442] font-bold py-2 mb-2">私信</button>}
-                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#ff2442] text-white font-bold py-2 mb-5">
+                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => { openSparkDM(viewedAccount); setViewedAccount(null); }} className="w-full rounded-full border border-[#555555] text-[#555555] font-bold py-2 mb-2">私信</button>}
+                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#555555] text-white font-bold py-2 mb-5">
                             {followedHandles.includes(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
                         </button>}
                         <p className="font-bold text-sm border-b pb-3 mb-3">TA 的笔记</p>
@@ -1564,9 +1564,9 @@ ${buildSparkCommentHistory(post)}
                             {characters.map(c => {
                                 const checked = postingCharIds.includes(c.id);
                                 return <button type="button" key={c.id} aria-pressed={checked} onClick={() => setPostingCharIds(prev => checked ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1 min-w-0">
-                                    <span className={`relative block w-12 h-12 rounded-full ${checked ? 'ring-2 ring-[#ff2442] ring-offset-2' : ''}`}>
+                                    <span className={`relative block w-12 h-12 rounded-full ${checked ? 'ring-2 ring-[#555555] ring-offset-2' : ''}`}>
                                         <TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" />
-                                        {checked && <span className="absolute -right-1 -bottom-1 w-5 h-5 rounded-full bg-[#ff2442] text-white text-xs flex items-center justify-center">✓</span>}
+                                        {checked && <span className="absolute -right-1 -bottom-1 w-5 h-5 rounded-full bg-[#555555] text-white text-xs flex items-center justify-center">✓</span>}
                                     </span>
                                     <span className="text-[11px] truncate max-w-full">{c.name}</span>
                                 </button>;
@@ -1576,7 +1576,7 @@ ${buildSparkCommentHistory(post)}
                     </div>
                     <label className="flex items-center gap-2"><input type="checkbox" checked={autoIdentity} onChange={e => setAutoIdentity(e.target.checked)}/>由 Char 自行选择马甲</label>
                     <label className="flex items-center gap-2"><input type="checkbox" checked={naturalComments} onChange={e => setNaturalComments(e.target.checked)}/>评论遵循角色人设与关系</label>
-                    <button type="button" disabled={isCharPosting || postingCharIds.length === 0} onClick={handleCharPost} className="w-full rounded-xl bg-[#ff2442] text-white font-bold py-3 disabled:opacity-40">{isCharPosting ? '角色正在构思…' : '让 Char 自由发帖'}</button>
+                    <button type="button" disabled={isCharPosting || postingCharIds.length === 0} onClick={handleCharPost} className="w-full rounded-xl bg-[#555555] text-white font-bold py-3 disabled:opacity-40">{isCharPosting ? '角色正在构思…' : '让 Char 自由发帖'}</button>
                 </div>
             </Modal>
             {/* 收纳入口与小红书主功能独立，避免占据发现/我的导航。 */}
@@ -1592,7 +1592,7 @@ ${buildSparkCommentHistory(post)}
                     <p className="text-xs text-slate-500">选择参与 Spark 的 Char。大号与马甲由 AI 依据人设自行决定，不再由 User 手动创建或指定。</p>
                     <div className="grid grid-cols-4 gap-3 max-h-60 overflow-y-auto">
                         {characters.map(c => <button type="button" key={c.id} onClick={() => setPostingCharIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1">
-                            <span className={`w-12 h-12 rounded-full ${postingCharIds.includes(c.id) ? 'ring-2 ring-rose-500 ring-offset-2' : ''}`}><TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" /></span>
+                            <span className={`w-12 h-12 rounded-full ${postingCharIds.includes(c.id) ? 'ring-2 ring-neutral-500 ring-offset-2' : ''}`}><TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" /></span>
                             <span className="text-[11px] truncate max-w-full">{c.name}</span>
                         </button>)}
                     </div>
@@ -1606,9 +1606,9 @@ ${buildSparkCommentHistory(post)}
                             {!worldbooks.some(wb => !wb.disable) && <p className="text-xs text-slate-400">暂无可用世界书</p>}
                         </div>
                     </div>
-                    <button type="button" onClick={() => { if (window.confirm('确定清空 Spark 推荐流中的全部帖子和评论吗？此操作无法撤销。')) handleClearFeed(); }} className="w-full border border-red-200 text-red-500 rounded-xl py-2 text-xs">清除推荐流</button>
+                    <button type="button" onClick={() => { if (window.confirm('确定清空 Spark 推荐流中的全部帖子和评论吗？此操作无法撤销。')) handleClearFeed(); }} className="w-full border border-neutral-200 text-neutral-500 rounded-xl py-2 text-xs">清除推荐流</button>
                     <p className="text-xs text-slate-400">主动发帖时间：定时功能尚未接通，目前不会自动发帖。</p>
-                    <button type="button" disabled={isCharPosting || !postingCharIds.length} onClick={() => { setShowSettings(false); void handleCharPost(); }} className="w-full bg-[#ff2442] text-white rounded-xl py-3 font-bold disabled:opacity-40">{isCharPosting ? '发布中…' : '让选中的 Char 现在发帖'}</button>
+                    <button type="button" disabled={isCharPosting || !postingCharIds.length} onClick={() => { setShowSettings(false); void handleCharPost(); }} className="w-full bg-[#555555] text-white rounded-xl py-3 font-bold disabled:opacity-40">{isCharPosting ? '发布中…' : '让选中的 Char 现在发帖'}</button>
                     <button type="button" onClick={() => setShowSettings(false)} className="w-full border rounded-xl py-2">完成</button>
                 </div>
             </Modal>
@@ -1637,7 +1637,7 @@ ${buildSparkCommentHistory(post)}
                             <button
                                 onClick={handleCreatePost}
                                 disabled={!newPostContent.trim()}
-                                className={`px-4 py-1.5 rounded-full text-xs font-bold text-white transition-all ${newPostContent.trim() ? 'bg-[#ff2442] shadow-md shadow-red-200' : 'bg-slate-200 text-slate-400'}`}
+                                className={`px-4 py-1.5 rounded-full text-xs font-bold text-white transition-all ${newPostContent.trim() ? 'bg-[#555555] shadow-md shadow-neutral-200' : 'bg-slate-200 text-slate-400'}`}
                             >
                                 发布
                             </button>
@@ -1662,10 +1662,10 @@ ${buildSparkCommentHistory(post)}
                         <div className="mt-4 pt-4 border-t border-slate-50">
                             <div className="flex justify-between items-center mb-2">
                                 <p className="text-xs font-bold text-slate-500">从小红书图库选配图（URL，不存图片本体）</p>
-                                <button type="button" onClick={() => void reloadStock()} className="text-xs text-rose-500">刷新图库</button>
+                                <button type="button" onClick={() => void reloadStock()} className="text-xs text-neutral-500">刷新图库</button>
                             </div>
                             <div className="flex gap-2 overflow-x-auto pb-2">
-                                {stockImages.filter(img => !img.category || img.category === 'material').map(img => <button type="button" key={img.id} onClick={() => setSelectedStockUrl(img.url)} className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${selectedStockUrl === img.url ? 'border-rose-500' : 'border-transparent'}`}>
+                                {stockImages.filter(img => !img.category || img.category === 'material').map(img => <button type="button" key={img.id} onClick={() => setSelectedStockUrl(img.url)} className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${selectedStockUrl === img.url ? 'border-neutral-500' : 'border-transparent'}`}>
                                     <img src={img.url} alt={img.tags.join(' ')} loading="lazy" className="w-full h-full object-cover" />
                                 </button>)}
                             </div>
@@ -1675,7 +1675,7 @@ ${buildSparkCommentHistory(post)}
                             <label className="text-xs font-bold text-slate-600">从本地相册选择图片
                                 <input type="file" accept="image/*" onChange={e => { void handleLocalPostPhoto(e.target.files?.[0]); e.target.value = ''; }} className="block w-full text-xs mt-2" />
                             </label>
-                            {localPostImage && <div className="mt-2 flex items-center gap-3"><TokenImg value={localPostImage} className="w-20 h-20 rounded-lg object-cover" /><button type="button" onClick={() => setLocalPostImage('')} className="text-xs text-red-500">移除</button></div>}
+                            {localPostImage && <div className="mt-2 flex items-center gap-3"><TokenImg value={localPostImage} className="w-20 h-20 rounded-lg object-cover" /><button type="button" onClick={() => setLocalPostImage('')} className="text-xs text-neutral-500">移除</button></div>}
                         </div>
                         {/* Sticker Selector - Flowing after text */}
                         <div className="mt-4 pt-4 border-t border-slate-50">
@@ -1685,7 +1685,7 @@ ${buildSparkCommentHistory(post)}
                                     <button
                                         key={sticker.code}
                                         onClick={() => setNewPostEmoji(sticker.code)}
-                                        className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-all shrink-0 ${newPostEmoji === sticker.code ? 'border-[#ff2442] bg-red-50' : 'border-slate-100'}`}
+                                        className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-all shrink-0 ${newPostEmoji === sticker.code ? 'border-[#555555] bg-neutral-50' : 'border-slate-100'}`}
                                     >
                                         <img src={twemojiUrl(sticker.code)} alt={sticker.label} className="w-7 h-7" />
                                     </button>
@@ -1710,7 +1710,7 @@ ${buildSparkCommentHistory(post)}
                                 {(() => { const latest = feed.find(p => p.authorType === 'character' && followedHandles.includes(p.authorName)); return latest ? <TokenImg value={latest.authorAvatar} className="w-6 h-6 rounded-full object-cover" /> : null; })()}
                                 关注
                             </button>
-                            <button type="button" onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`relative ${activeTab === 'home' && feedTab === 'discover' ? 'text-slate-900' : 'text-slate-400'}`}>发现{activeTab === 'home' && feedTab === 'discover' && <span className="absolute -bottom-2 left-1 right-1 h-0.5 bg-[#ff2442] rounded-full" />}</button>
+                            <button type="button" onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`relative ${activeTab === 'home' && feedTab === 'discover' ? 'text-slate-900' : 'text-slate-400'}`}>发现{activeTab === 'home' && feedTab === 'discover' && <span className="absolute -bottom-2 left-1 right-1 h-0.5 bg-[#555555] rounded-full" />}</button>
                         </div>
                         <div className="flex items-center gap-3 text-xs shrink-0">
                             <button type="button" aria-label="搜索" onClick={() => { setSearchOpen(v => !v); setActiveTab('home'); setFeedTab('discover'); }} className="text-slate-600 text-xl">⌕</button>
@@ -1729,8 +1729,8 @@ ${buildSparkCommentHistory(post)}
                     
                     {activeTab === 'home' && (
                         <div className="p-2 min-h-full">
-                            {(pullDistance > 0 || isRefreshing) && <div className="flex justify-center items-center overflow-hidden text-[#ff2442]" style={{ height: isRefreshing ? 40 : pullDistance }}>
-                                <div className={`w-5 h-5 border-2 border-[#ff2442] border-t-transparent rounded-full ${isRefreshing ? 'animate-spin' : ''}`} style={{ transform: isRefreshing ? undefined : `rotate(${pullDistance * 5}deg)` }} />
+                            {(pullDistance > 0 || isRefreshing) && <div className="flex justify-center items-center overflow-hidden text-[#555555]" style={{ height: isRefreshing ? 40 : pullDistance }}>
+                                <div className={`w-5 h-5 border-2 border-[#555555] border-t-transparent rounded-full ${isRefreshing ? 'animate-spin' : ''}`} style={{ transform: isRefreshing ? undefined : `rotate(${pullDistance * 5}deg)` }} />
                                 <span className="text-xs ml-2">{isRefreshing ? '正在刷新…' : pullDistance >= 65 ? '松开刷新' : '下拉刷新'}</span>
                             </div>}
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
@@ -1745,9 +1745,9 @@ ${buildSparkCommentHistory(post)}
                         <h2 className="text-center text-lg font-bold py-5">消息</h2>
                         {!noticeCategory ? <>
                             <div className="grid grid-cols-3 gap-2 px-4 py-5 border-b border-slate-100">
-                                {([{ kind: 'likes', icon: '♥', label: '赞和收藏', color: 'bg-rose-100 text-rose-500' }, { kind: 'follows', icon: '●', label: '新增关注', color: 'bg-blue-100 text-blue-500' }, { kind: 'comments', icon: '●●', label: '评论和@', color: 'bg-emerald-100 text-emerald-500' }] as const).map(item => <button key={item.kind} type="button" onClick={() => { setNoticeCategory(item.kind); markNoticesRead(item.kind); }} className="flex flex-col items-center gap-2">
+                                {([{ kind: 'likes', icon: '♥', label: '赞和收藏', color: 'bg-neutral-100 text-neutral-500' }, { kind: 'follows', icon: '●', label: '新增关注', color: 'bg-neutral-100 text-neutral-500' }, { kind: 'comments', icon: '●●', label: '评论和@', color: 'bg-neutral-100 text-neutral-500' }] as const).map(item => <button key={item.kind} type="button" onClick={() => { setNoticeCategory(item.kind); markNoticesRead(item.kind); }} className="flex flex-col items-center gap-2">
                                     <span className={`relative w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${item.color}`}>{item.icon}
-                                        {notices.some(n => n.kind === item.kind && !n.read) && <span className="absolute -right-1 -top-1 w-3 h-3 rounded-full bg-[#ff2442]" />}
+                                        {notices.some(n => n.kind === item.kind && !n.read) && <span className="absolute -right-1 -top-1 w-3 h-3 rounded-full bg-[#555555]" />}
                                     </span><span className="text-xs text-slate-700">{item.label}</span>
                                 </button>)}
                             </div>
@@ -1755,13 +1755,13 @@ ${buildSparkCommentHistory(post)}
                                 <h3 className="text-sm font-bold">私信 {Object.values(dmUnread).reduce((sum, count) => sum + count, 0) > 0 ? '(' + Object.values(dmUnread).reduce((sum, count) => sum + count, 0) + ')' : ''}</h3>
                             </div>
                             <div className="flex gap-2 px-5 pb-3">
-                                {([{ id: 'all', label: '全部' }, { id: 'following', label: '已关注' }, { id: 'strangers', label: '陌生人' }] as const).map(tab => <button key={tab.id} type="button" onClick={() => setDmFilter(tab.id)} className={`rounded-full px-3 py-1 text-xs ${dmFilter === tab.id ? 'bg-[#ff2442] text-white' : 'bg-slate-100 text-slate-600'}`}>{tab.label}</button>)}
+                                {([{ id: 'all', label: '全部' }, { id: 'following', label: '已关注' }, { id: 'strangers', label: '陌生人' }] as const).map(tab => <button key={tab.id} type="button" onClick={() => setDmFilter(tab.id)} className={`rounded-full px-3 py-1 text-xs ${dmFilter === tab.id ? 'bg-[#555555] text-white' : 'bg-slate-100 text-slate-600'}`}>{tab.label}</button>)}
                             </div>
                             {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 && (dmFilter === 'all' || (dmFilter === 'following' ? followedHandles.includes(handle) : !followedHandles.includes(handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
                                 const accountPost = feed.find(post => post.authorName === handle);
                                 return <button key={handle} type="button" onClick={() => openSparkDM({ handle, avatar: accountPost?.authorAvatar || '' })} className="w-full flex gap-3 items-center px-5 py-3 border-b border-slate-50 text-left">
                                     <span className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden">{accountPost?.authorAvatar ? <TokenImg value={accountPost.authorAvatar} className="w-full h-full object-cover" /> : '✦'}</span>
-                                    <span className="min-w-0 flex-1"><strong className="block text-sm truncate">{handle}</strong><span className="block text-xs text-slate-400 truncate">{messages[messages.length - 1]?.content}</span></span>{(dmUnread[handle] || 0) > 0 && <span className="shrink-0 rounded-full bg-[#ff2442] text-white text-[10px] px-1.5 py-0.5">{dmUnread[handle] > 99 ? "99+" : dmUnread[handle]}</span>}
+                                    <span className="min-w-0 flex-1"><strong className="block text-sm truncate">{handle}</strong><span className="block text-xs text-slate-400 truncate">{messages[messages.length - 1]?.content}</span></span>{(dmUnread[handle] || 0) > 0 && <span className="shrink-0 rounded-full bg-[#555555] text-white text-[10px] px-1.5 py-0.5">{dmUnread[handle] > 99 ? "99+" : dmUnread[handle]}</span>}
                                 </button>;
                             })}
                             {!Object.values(dmThreads).some(messages => messages.length > 0) && <p className="px-5 py-6 text-xs text-slate-400">还没有私信，进入网友主页可以发起聊天</p>}
@@ -1769,14 +1769,14 @@ ${buildSparkCommentHistory(post)}
                         </> : <>
                             <button type="button" onClick={() => setNoticeCategory(null)} className="px-4 py-3 text-sm text-slate-600">‹ 返回消息</button>
                             <h3 className="px-4 pb-3 text-sm font-bold">{noticeCategory === 'likes' ? '赞和收藏' : noticeCategory === 'follows' ? '新增关注' : '评论和@'}</h3>
-                            {noticeCategory === 'follows' && <div className="mx-4 mb-3 rounded-xl bg-rose-50 p-4">
+                            {noticeCategory === 'follows' && <div className="mx-4 mb-3 rounded-xl bg-neutral-50 p-4">
                                 <p className="text-xs text-slate-500">主页粉丝总数</p>
-                                <p className="text-2xl font-bold text-[#ff2442]">{fanCounts.user ?? 0}</p>
+                                <p className="text-2xl font-bold text-[#555555]">{fanCounts.user ?? 0}</p>
                                 <p className="text-xs text-slate-500 mt-2">帖子带来的新增粉丝：{followerHistory.reduce((sum, item) => sum + item.count, 0)} 人（记录启用后的变化）</p>
                                 <p className="text-xs text-slate-400 mt-1">下方列出有明确账号的关注者；其余增长只显示人数，不虚构昵称。</p>
                             </div>}
                             {noticeCategory === 'follows' && followerHistory.map(item => <div key={item.id} className="px-4 py-3 border-b border-slate-50 flex justify-between text-sm">
-                                <span>帖子流量带来新增粉丝 <strong className="text-[#ff2442]">+{item.count}</strong></span>
+                                <span>帖子流量带来新增粉丝 <strong className="text-[#555555]">+{item.count}</strong></span>
                                 <span className="text-xs text-slate-400">{new Date(item.time).toLocaleDateString()}</span>
                             </div>)}
                             {noticeGroups(noticeCategory).map(group => {
@@ -1797,7 +1797,7 @@ ${buildSparkCommentHistory(post)}
                                         </button>)}
                                     </div>
                                     {noticeCategory === 'comments' && <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">{group.entries[0].content}</p>}
-                                    {unique.length > 5 && <button type="button" onClick={() => setExpandedNoticeGroups(prev => prev.includes(group.key) ? prev.filter(key => key !== group.key) : [...prev, group.key])} className="text-xs text-[#ff2442] mt-3">{expandedNoticeGroups.includes(group.key) ? '收起' : '查看全部 ' + unique.length + ' 人 ›'}</button>}
+                                    {unique.length > 5 && <button type="button" onClick={() => setExpandedNoticeGroups(prev => prev.includes(group.key) ? prev.filter(key => key !== group.key) : [...prev, group.key])} className="text-xs text-[#555555] mt-3">{expandedNoticeGroups.includes(group.key) ? '收起' : '查看全部 ' + unique.length + ' 人 ›'}</button>}
                                     {post && <button type="button" onClick={() => handleOpenPost(post)} className="block text-xs text-slate-400 mt-2">查看原帖 ›</button>}
                                 </div>;
                             })}
@@ -1876,9 +1876,9 @@ ${buildSparkCommentHistory(post)}
                                 )}
 
                                 <div className="flex items-center gap-2 px-4">
-                                    <button type="button" onClick={() => { setFanInput(String(fanCounts.user ?? 0)); setEditingFans(v => !v); }} className="text-xs text-rose-500">后台设置粉丝数</button>
+                                    <button type="button" onClick={() => { setFanInput(String(fanCounts.user ?? 0)); setEditingFans(v => !v); }} className="text-xs text-neutral-500">后台设置粉丝数</button>
                                     {editingFans && <><input type="number" min="0" max="100000000" value={fanInput} onChange={e => setFanInput(e.target.value)} className="w-24 border rounded px-2 py-1 text-xs" />
-                                    <button type="button" onClick={() => { const value = Number(fanInput); if (!Number.isFinite(value) || value < 0 || value > 100000000) return; setFanCounts(prev => { const next = { ...prev, user: Math.round(value) }; localStorage.setItem('spark_fan_counts', JSON.stringify(next)); return next; }); setEditingFans(false); }} className="text-xs font-bold text-rose-500">保存</button></>}
+                                    <button type="button" onClick={() => { const value = Number(fanInput); if (!Number.isFinite(value) || value < 0 || value > 100000000) return; setFanCounts(prev => { const next = { ...prev, user: Math.round(value) }; localStorage.setItem('spark_fan_counts', JSON.stringify(next)); return next; }); setEditingFans(false); }} className="text-xs font-bold text-neutral-500">保存</button></>}
                                 </div>
                                 {fanChanges.user !== undefined && <p className="text-xs text-center text-slate-500">最近发帖粉丝变化：{fanChanges.user > 0 ? '+' : ''}{fanChanges.user}</p>}
                                 <div className="flex gap-6 mt-5 bg-white/40 p-4 rounded-2xl border border-white/50 shadow-sm">
@@ -1890,8 +1890,8 @@ ${buildSparkCommentHistory(post)}
 
                             {/* Sticky Tabs */}
                             <div className="sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100 flex">
-                                <button onClick={() => { setProfileTab('notes'); trackEvent('切换个人主页子标签', { tab: 'notes' }); }} className={`flex-1 py-3 text-sm font-bold transition-colors ${profileTab === 'notes' ? 'text-slate-900 border-b-2 border-[#ff2442]' : 'text-slate-400'}`}>笔记</button>
-                                <button onClick={() => { setProfileTab('collects'); trackEvent('切换个人主页子标签', { tab: 'collects' }); }} className={`flex-1 py-3 text-sm font-bold transition-colors ${profileTab === 'collects' ? 'text-slate-900 border-b-2 border-[#ff2442]' : 'text-slate-400'}`}>收藏</button>
+                                <button onClick={() => { setProfileTab('notes'); trackEvent('切换个人主页子标签', { tab: 'notes' }); }} className={`flex-1 py-3 text-sm font-bold transition-colors ${profileTab === 'notes' ? 'text-slate-900 border-b-2 border-[#555555]' : 'text-slate-400'}`}>笔记</button>
+                                <button onClick={() => { setProfileTab('collects'); trackEvent('切换个人主页子标签', { tab: 'collects' }); }} className={`flex-1 py-3 text-sm font-bold transition-colors ${profileTab === 'collects' ? 'text-slate-900 border-b-2 border-[#555555]' : 'text-slate-400'}`}>收藏</button>
                             </div>
 
                             <div className="p-2 min-h-[300px] bg-slate-50/50 pb-24">
@@ -1923,7 +1923,7 @@ ${buildSparkCommentHistory(post)}
                 <div className="absolute bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-100 flex items-center justify-around h-16" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                     <button onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`text-sm ${activeTab === 'home' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>首页</button>
                     <button onClick={() => setActiveTab('market')} className={`text-sm ${activeTab === 'market' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>集市</button>
-                    <button onClick={() => setIsCreateOpen(true)} aria-label="发布笔记" className="w-14 h-12 bg-[#ff2442] rounded-xl text-white text-4xl leading-none">+</button>
+                    <button onClick={() => setIsCreateOpen(true)} aria-label="发布笔记" className="w-14 h-12 bg-[#555555] rounded-xl text-white text-4xl leading-none">+</button>
                     <button onClick={() => setActiveTab('messages')} className={`text-sm ${activeTab === 'messages' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>消息</button>
                     <button onClick={() => setActiveTab('me')} className={`text-sm ${activeTab === 'me' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>我</button>
                 </div>

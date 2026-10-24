@@ -337,7 +337,7 @@ const MusicApp: React.FC = () => {
             {isCurrentRegenerating && (
               <div className="absolute inset-0 rounded-full flex items-center justify-center pointer-events-none"
                 style={{
-                  background: `radial-gradient(circle, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.35) 70%)`,
+                  background: `radial-gradient(circle, rgba(0, 0, 0,0.55) 30%, rgba(0, 0, 0,0.35) 70%)`,
                   backdropFilter: 'blur(6px)',
                   WebkitBackdropFilter: 'blur(6px)',
                   boxShadow: `0 0 30px ${C.glow}80`,
@@ -431,7 +431,7 @@ const MusicApp: React.FC = () => {
                             color: active ? undefined : C.faint,
                             ...(active
                               ? {
-                                  background: `linear-gradient(135deg, ${C.primary} 0%, ${C.accent} 50%, #9a6bc5 100%)`,
+                                  background: `linear-gradient(135deg, ${C.primary} 0%, ${C.accent} 50%, #7b7b7b 100%)`,
                                   WebkitBackgroundClip: 'text',
                                   WebkitTextFillColor: 'transparent',
                                   backgroundClip: 'text',
@@ -565,7 +565,7 @@ const MusicApp: React.FC = () => {
                   style={{
                     background: cfg.quality === q ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : C.glass,
                     color: cfg.quality === q ? 'white' : C.muted,
-                    border: cfg.quality === q ? '1px solid transparent' : `1px solid rgba(255,255,255,0.3)`,
+                    border: cfg.quality === q ? '1px solid transparent' : `1px solid rgba(255, 255, 255,0.3)`,
                     boxShadow: cfg.quality === q ? `0 2px 12px ${C.glow}30` : 'none',
                     backdropFilter: 'blur(8px)',
                   }}
@@ -601,7 +601,7 @@ const MusicApp: React.FC = () => {
               style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, boxShadow: `0 3px 18px ${C.glow}30` }}>
               <span className="relative z-10">保存</span>
               <div className="absolute inset-0 pointer-events-none" style={{
-                background: `linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%)`,
+                background: `linear-gradient(90deg, transparent 30%, rgba(255, 255, 255,0.25) 50%, transparent 70%)`,
                 backgroundSize: '200% 100%', animation: 'shizuku-shimmer 3s ease-in-out infinite',
               }} />
             </button>
@@ -667,7 +667,7 @@ const MusicApp: React.FC = () => {
             <BokehBg />
             {/* Header */}
             <div className="relative z-10 shizuku-glass-strong"
-              style={{ borderBottom: `1px solid rgba(255,255,255,0.3)`, paddingTop: 'var(--safe-top)' }}>
+              style={{ borderBottom: `1px solid rgba(255, 255, 255,0.3)`, paddingTop: 'var(--safe-top)' }}>
               <div className="flex items-center justify-between h-12 px-4">
                 <button onClick={() => setShowLyricSync(false)} className="text-[11px] px-2 py-1 rounded-full" style={{ color: C.muted }}>取消</button>
                 <div className="flex items-center gap-1.5">
@@ -740,7 +740,7 @@ const MusicApp: React.FC = () => {
                         style={{
                           background: isActive
                             ? `linear-gradient(135deg, ${C.glow}25, ${C.lavender}18)`
-                            : 'rgba(255,255,255,0.5)',
+                            : 'rgba(255, 255, 255,0.5)',
                           border: `1px solid ${isActive ? C.glow + '60' : C.faint + '30'}`,
                           boxShadow: isActive ? `0 2px 12px ${C.glow}30` : 'none',
                         }}
