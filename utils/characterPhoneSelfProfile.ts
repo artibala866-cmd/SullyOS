@@ -5,6 +5,7 @@ import {
   activateCharacterAvatar, readCharacterAvatarLibrary,
 } from './characterAvatarLibrary';
 import { extractContent, safeResponseJson } from './safeApi';
+import { readPhoneAutonomyPreferences, canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
 
 export type PhoneSelfProfile = {
   characterId:string;
@@ -52,16 +53,17 @@ export async function runCharacterPhoneSelfAutonomy(
   if(!char.id || !api.baseUrl || !api.apiKey || !api.model || typeof localStorage==='undefined')
     return 'skipped';
   if(lock.has(char.id))return 'skipped';
+  if(!force && (!readPhoneAutonomyPreferences(char.id).selfProfileAutoEnabled || !canUsePhoneApiBudget(char.id)))return 'skipped';
   const now=Date.now();
   try {
-    if(!force && now-Number(localStorage.getItem(cooldownKey(char.id))||'0')<12*3600_000)
+    if(!force && now-Number(localStorage.getItem(cooldownKey(char.id))||'0')<24*3600_000)
       return 'skipped';
   } catch {return 'skipped';}
   lock.add(char.id);
   try {
     const lib=readCharacterAvatarLibrary(char.id);
     const candidates=lib.autonomousEnabled
-      ?lib.entries.filter(e=>!!e.visionDescription).slice(0,22):[];
+      ?lib.entries.filter(e=>!!e.visionDescription).slice(0,14):[];
     const old=readCharacterPhoneSelfProfile(char.id);
     const inner=getLastInnerState(char.id).slice(0,1400);
     const life=await getCharacterLifeScheduleContext(char,new Date(now));
@@ -69,17 +71,18 @@ export async function runCharacterPhoneSelfAutonomy(
       return 'skipped';
     // Update a single social profile + image together instead of two API
     // requests fighting over the same character mood.
+    if(!force && !reservePhoneApiBudget(char.id))return 'skipped';
     localStorage.setItem(cooldownKey(char.id),String(now));
     const response=await fetch(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
       method:'POST',signal:AbortSignal.timeout(60_000),
       headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
       body:JSON.stringify({model:api.model,stream:false,temperature:0.7,messages:[
         {role:'system',content:`你为角色 ${char.name} 自己的微信“我”的个人资料作自然调整。
-你不能改变角色设定或扮演 User。当前角色人设：${[char.systemPrompt,char.description,char.worldview].filter(Boolean).join('\n').slice(0,7200)}
+你不能改变角色设定或扮演 User。当前角色人设：${[char.systemPrompt,char.description,char.worldview].filter(Boolean).join('\n').slice(0,4500)}
 上一段保存的内心状态（可能过时）：${inner||'无'}。
 当前角色日程（只是计划）：${life.plannedActivity||'无'}；${life.plannedDescription||''}。
 当前戳一戳后缀：${old.pokeSuffix||'未设置'}。
-头像库识图结果（只有这些 ID 可以用，其他图片一律不存在）：${JSON.stringify(candidates.map(e=>({id:e.id,description:e.visionDescription?.slice(0,440)}))).slice(0,8500)}
+头像库识图结果（只有这些 ID 可以用，其他图片一律不存在）：${JSON.stringify(candidates.map(e=>({id:e.id,description:e.visionDescription?.slice(0,300)}))).slice(0,4500)}
 如果心情和现有头像不适合，可以选择合适的已识图头像；不必每次换。
 戳一戳“后缀”是别人戳了戳角色后显示的文字，如“的书包里藏着糖”“的肩膀”。
 必须是符合角色性格与此刻心境的 2 至 20 个汉字/符号，不可以包含真实隐私或 URL。
