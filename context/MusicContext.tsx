@@ -565,6 +565,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 喜欢列表
   const [likedSet, setLikedSet] = useState<Set<number>>(new Set());
+  const [guestLikedSet, setGuestLikedSet] = useState<Set<number>>(() => {
+    try {
+      const ids = JSON.parse(localStorage.getItem('sully_music_guest_likes_v1') || '[]');
+      return new Set<number>(Array.isArray(ids) ? ids.filter((id: unknown) => Number.isInteger(id)) : []);
+    } catch { return new Set<number>(); }
+  });
   useEffect(() => {
     if (!cfg.cookie) { setLikedSet(new Set()); return; }
     musicApi.call(cfg, '/likelist', {}).then(r => {
@@ -579,7 +585,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const liked = !!current && (
     current.local
       ? localAlbumSongs.some(s => s.id === current.id)
-      : likedSet.has(current.id)
+      : (cfg.cookie ? likedSet : guestLikedSet).has(current.id)
   );
   const toggleLike = useCallback(async () => {
     if (!current) return;
@@ -595,8 +601,19 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return;
     }
-    // ── 网易云歌 ──
-    if (!cfg.cookie) { toast('需要登录网易云账号', 'error'); return; }
+    // ── 免登录歌曲的喜欢只保存到本地，不假装同步到网易云账号 ──
+    if (!cfg.cookie) {
+      const willLike = !guestLikedSet.has(current.id);
+      setGuestLikedSet(prev => {
+        const next = new Set(prev);
+        if (willLike) next.add(current.id); else next.delete(current.id);
+        try { localStorage.setItem('sully_music_guest_likes_v1', JSON.stringify([...next])); } catch {}
+        return next;
+      });
+      toast(willLike ? '已添加到本地喜欢' : '已从本地喜欢移除', 'success');
+      return;
+    }
+    // ── 登录后的网易云歌曲仍同步到账号 ──
     const willLike = !likedSet.has(current.id);
     try {
       await musicApi.call(cfg, '/like', { id: current.id, like: willLike });
@@ -610,7 +627,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e: any) {
       toast(`喜欢失败: ${e.message}`, 'error');
     }
-  }, [current, cfg, likedSet, localAlbumSongs, addLocalSong, removeLocalSong, toast]);
+  }, [current, cfg, likedSet, guestLikedSet, localAlbumSongs, addLocalSong, removeLocalSong, toast]);
 
   // 播放模式
   const [playMode, setPlayMode] = useState<PlayMode>('loop');
@@ -796,7 +813,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const { alsoSetQueue = true, replaceQueue, startIdx } = opts;
     const requestId = ++playRequestSeq.current;
     const aBeforeLoad = audioRef.current;
-    if (aBeforeLoad) { aBeforeLoad.pause(); aBeforeLoad.removeAttribute('src'); aBeforeLoad.load(); }
+    if (aBeforeLoad) {
+      const previousUrl = aBeforeLoad.src;
+      aBeforeLoad.pause(); aBeforeLoad.removeAttribute('src'); aBeforeLoad.load();
+      if (previousUrl.startsWith('blob:')) URL.revokeObjectURL(previousUrl);
+    }
     currentSongRef.current = song;
 
     if (replaceQueue) {
