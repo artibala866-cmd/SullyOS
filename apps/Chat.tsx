@@ -3558,8 +3558,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         );
     }
 
-    // 动森彩蛋模式（受「聊天联动」开关控制：关掉则聊天保持原样式）
-    const acnh = osTheme.skin === 'animalcrossing' && osTheme.acnhChatSync !== false;
     const chatChromeStyle = osTheme.chatChromeStyle || 'soft';
     const chatBackgroundStyle = osTheme.chatBackgroundStyle || 'plain';
     const chatRootClass =
@@ -3600,16 +3598,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
               : {
                   backgroundImage: 'none',
                 };
-    // 动森彩蛋：浅奶油米黄中心（上下绿条由 header/输入栏负责），配色参考 Pocket Camp。
-    const acnhRootClass = 'flex flex-col h-full overflow-hidden relative font-sans transition-[background-color] duration-500';
-    const acnhRootStyle: React.CSSProperties = {
-        backgroundColor: '#f0f0f0',
-        backgroundImage: 'none',
-    };
-    const finalRootClass = acnh ? acnhRootClass : chatRootClass;
-    // 动森下强制覆盖角色自定义聊天背景，保证整机一致的彩蛋观感
-    // 进入/切换的过场由 CharacterEntryTransition 覆盖层负责，根容器不再自己做淡入。
-    const finalRootStyle = acnh ? acnhRootStyle : chatRootStyle;
     // 聊天细节微调（外观 → 聊天细节，全局打底；角色开了「聊天装扮」时逐字段覆盖）：
     // CSS 全默认时为空串不注入；chatModuleAlign 不走 CSS，作为布局属性传给 MessageItem。
     const mergedFineTune = useMemo(() => mergeChatFineTune(osTheme, homePhone?undefined:char?.chatFineTune), [osTheme, char?.chatFineTune,!!homePhone]);
@@ -3620,8 +3608,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     return (
         <div
-            className={`sully-chat-root ${finalRootClass}`}
-            style={finalRootStyle}
+            className={`sully-chat-root ${chatRootClass}`}
+            style={chatRootStyle}
         >
              {/* 聊天细节微调（外观 App 可视化设置生成）：排在用户自定义 CSS 之前——
                  同为 !important 时后写的胜，手写美化代码永远可覆盖可视化设置。 */}
@@ -3671,29 +3659,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                  .sully-chat-inputbar textarea,.sully-chat-inputbar button{pointer-events:auto!important;visibility:visible!important;}
                `}</style>
              )}
-
-             {/* 动森彩蛋：作用域 CSS 覆盖气泡——奶油 AI 气泡 + 蜜桃用户气泡，暖棕文字，绕开 MessageItem 复杂逻辑 */}
-             {acnh && <style>{`
-                .sully-bubble-ai {
-                    background: #f4f4f4 !important;
-                    color: #5c5c5c !important;
-                    border: 1.5px solid #e6e6e6 !important;
-                    border-radius: 24px !important;
-                    box-shadow: 0 4px 10px -5px rgba(97, 97, 97,0.28) !important;
-                }
-                .sully-bubble-user {
-                    background: #cecece !important;
-                    color: #4f4f4f !important;
-                    border: 1.5px solid #bfbfbf !important;
-                    border-radius: 24px !important;
-                    box-shadow: 0 4px 10px -5px rgba(107, 107, 107,0.32) !important;
-                }
-                /* 仅动森：聊天正文放大一点 */
-                .sully-bubble-ai .text-\\[15px\\], .sully-bubble-user .text-\\[15px\\] {
-                    font-size: 16.5px !important;
-                    line-height: 1.7 !important;
-                }
-             `}</style>}
 
              {/* 记忆整理中 — 顶部浮动胶囊（不阻塞交互，轻量无 backdrop-filter） */}
              {memoryPalaceStatus && (
@@ -4003,7 +3968,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 statusStyle={osTheme.chatStatusStyle}
                 chromeStyle={osTheme.chatChromeStyle}
                 hideBuffs={osTheme.chatHideHeaderBuffs}
-                acnh={acnh}
+
              />}
 
             {/* 认知消化结果弹窗 — 全屏玻璃拟态 */}
@@ -4445,7 +4410,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     inputStyle={osTheme.chatInputStyle}
                     sendButtonStyle={osTheme.chatSendButtonStyle}
                     chromeStyle={osTheme.chatChromeStyle}
-                    acnh={acnh}
+
                 />
             </div>
 
