@@ -299,8 +299,8 @@ const JournalPageEditor: React.FC<Props> = ({
                                 onClick={onDelete}
                                 className="px-3 py-2 rounded-full text-[12px] active:scale-95 transition flex items-center gap-1.5"
                                 style={{
-                                    ...CUTE_STACK, color: '#c4708a',
-                                    background: '#fff', border: `1.5px solid #f5d0d8`,
+                                    ...CUTE_STACK, color: '#848484',
+                                    background: '#fff', border: `1.5px solid #d8d8d8`,
                                 }}
                             >
                                 <Trash className="w-3.5 h-3.5" weight="bold" /> 撕掉
