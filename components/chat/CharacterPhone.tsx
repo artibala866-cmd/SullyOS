@@ -1,5 +1,8 @@
 import PhoneMemo from './PhoneMemo';
+import CharacterAvatarLibraryModal from './CharacterAvatarLibraryModal';
+import { createPortal } from 'react-dom';
 import { readCharacterAvatarLibrary } from '../../utils/characterAvatarLibrary';
+import { CHARACTER_PHONE_SELF_CHANGED, readCharacterPhoneSelfProfile, runCharacterPhoneSelfAutonomy } from '../../utils/characterPhoneSelfProfile';
 import {considerCharacterMemo} from '../../utils/characterMemoAutonomy';
 import Gallery from '../../apps/Gallery';
 import { refreshNpcMoments } from '../../utils/refreshNpcMoments';
@@ -16,7 +19,7 @@ import { DB } from '../../utils/db';
 import { mirrorPrivateChat } from '../../utils/characterPhonePrivateSync';
 import type { PhoneThreadV2 } from '../../utils/characterPhoneModel';
 import { buildCharacterPhoneContext } from '../../utils/characterPhoneContext';
-import type { UserProfile, GroupProfile, RealtimeConfig } from '../../types';
+import type { UserProfile, GroupProfile, RealtimeConfig, VisionApiConfig } from '../../types';
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, Phone, NotePencil, ChatText, Globe, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
@@ -36,12 +39,20 @@ import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacter
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
-type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser';
+type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser' | 'profile';
 type ChatRecord = CharacterPhoneChat;
-type Api = { baseUrl: string; apiKey: string; model: string };
+type Api = { baseUrl: string; apiKey: string; model: string; visionApi?: VisionApiConfig };
 const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots, color:'bg-[#18c45b]' },{id:'memo' as const,label:'备忘录',Icon:NotePencil,color:'bg-[#e7a941]'},{id:'gallery' as const,label:'相册',Icon:Images,color:'bg-[#e58a69]'}];
 const timeLabel = (time: number) => new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-export default function CharacterPhone({ name, characterId, persona, api, onClose, char, userProfile, groups, realtimeConfig }: { name: string; characterId: string; persona: string; api: Api; onClose: () => void; char: CharacterProfile; userProfile: UserProfile; groups: GroupProfile[]; realtimeConfig?: RealtimeConfig }) {
+export default function CharacterPhone({
+  name, characterId, persona, api, onClose, char, userProfile, groups, realtimeConfig, onApplyAvatar, onPoke,
+}: {
+  name:string; characterId:string; persona:string; api:Api; onClose:()=>void;
+  char:CharacterProfile; userProfile:UserProfile; groups:GroupProfile[];
+  realtimeConfig?:RealtimeConfig;
+  onApplyAvatar:(image:string)=>Promise<void>;
+  onPoke:(suffix:string)=>void;
+}) {
   const [avatarRevision, setAvatarRevision] = useState(0);
   useEffect(() => {
     const refresh = (event: Event) => {
@@ -55,6 +66,29 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     return lib.entries.find(entry => entry.id === lib.activeId)?.image || char.avatar;
   }, [characterId, char.avatar, avatarRevision]);
   const [screen, setScreen] = useState<Screen>('home');
+  const [avatarLibraryOpen,setAvatarLibraryOpen] = useState(false);
+  const [selfAutoBusy,setSelfAutoBusy] = useState(false);
+  const [selfAutoNotice,setSelfAutoNotice] = useState('');
+  const [selfProfile,setSelfProfile] = useState(() => readCharacterPhoneSelfProfile(characterId));
+  useEffect(() => {
+    setSelfProfile(readCharacterPhoneSelfProfile(characterId));
+    const sync=(event:Event) => {
+      if((event as CustomEvent<{characterId:string}>).detail?.characterId===characterId)
+        setSelfProfile(readCharacterPhoneSelfProfile(characterId));
+    };
+    window.addEventListener(CHARACTER_PHONE_SELF_CHANGED,sync);
+    return()=>window.removeEventListener(CHARACTER_PHONE_SELF_CHANGED,sync);
+  },[characterId]);
+  const adjustSelfProfile = async () => {
+    if(selfAutoBusy)return;
+    setSelfAutoBusy(true);setSelfAutoNotice('');
+    try {
+      const status=await runCharacterPhoneSelfAutonomy(char,api,onApplyAvatar,true);
+      setSelfAutoNotice(status==='changed'?'Char 已根据自己的状态更新个人资料':
+        status==='skipped'?'Char 觉得现在不用改变资料':'本次调整失败，请检查聊天 API');
+    } catch(e) {setSelfAutoNotice(e instanceof Error?e.message:'本次调整失败');}
+    finally{setSelfAutoBusy(false);}
+  };
   const [npcAutonomyEnabled, setNpcAutonomyEnabled] = useState(() => isCharacterPhoneAutonomyEnabled(characterId));
   useEffect(() => setNpcAutonomyEnabled(isCharacterPhoneAutonomyEnabled(characterId)), [characterId]);
   const [tab, setTab] = useState<Tab>('chats');
@@ -162,7 +196,7 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     try { updateCharacterPhoneChats(characterId, () => next); setRecords(next); return true; }
     catch { setError('存储空间不足，记录未能保存'); return false; }
   };
-  const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'memo' || screen === 'gallery' || screen === 'calls' || screen === 'sms' || screen === 'browser') setScreen('home'); else if (screen === 'thread' || screen === 'moments' || screen === 'wallet' || screen === 'settings') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
+  const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'memo' || screen === 'gallery' || screen === 'calls' || screen === 'sms' || screen === 'browser') setScreen('home'); else if(screen==='profile'){setScreen('wechat');setTab('me');} else if (screen === 'thread' || screen === 'moments' || screen === 'wallet' || screen === 'settings') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
   const fullPersona = [persona, char.worldview || '', ...(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content)].filter(Boolean).join('\n\n').slice(0, 24000);
   const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
   const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前生活状态，不等于必然在玩手机；不可凭空断言已发生社交行为。` : '目前没有可用的角色当日日程，不得编造当前行程。';
@@ -431,7 +465,7 @@ ${scheduleContext}
       {screen === 'home' ? <header className="flex items-center gap-3 px-4 py-3"><button onClick={onClose} aria-label="关闭"><ArrowLeft size={23}/></button><strong className="flex-1 text-center">{name}的手机</strong><span className="w-6"/></header> :
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
-          <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器' } as Record<string,string>)[screen]}</h2>
+          <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器',profile:'个人资料' } as Record<string,string>)[screen]}</h2>
           {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy || sharedWechatRefreshing} onClick={() => void generateInbox()}>{busy || sharedWechatRefreshing ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
         </header>}
       <main className="min-h-0 flex-1 overflow-y-auto">
@@ -463,11 +497,48 @@ ${scheduleContext}
           <div className="space-y-3 px-5">{editing?<><button type="button" onClick={saveContact} className="w-full rounded-lg bg-[#07b75b] py-3 text-white">保存档案</button><button type="button" onClick={()=>setEditing(false)} className="w-full rounded-lg bg-white py-3">取消</button></>:<><button type="button" onClick={()=>setEditing(true)} className="w-full rounded-lg bg-white py-3">编辑联系人资料</button><button type="button" disabled={busy} onClick={()=>{setScreen('wechat');setTab('contacts');void generate(contact.id);}} className="w-full rounded-lg bg-[#07b75b] py-3 text-white disabled:opacity-50">AI生成聊天</button></>}</div>
         </div>}
         {screen === 'wechat' && tab === 'discover' && row('朋友圈',<Images size={23}/>,()=>setScreen('moments'))}
-        {screen === 'wechat' && tab === 'me' && <div className="pt-4">{row(name,<User size={24}/>,()=>{})}<div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>setScreen('settings'))}</div></div>}
+        {screen === 'wechat' && tab === 'me' && <div className="pt-4">
+           <button type="button" onClick={()=>setScreen('profile')} className="flex w-full items-center gap-4 bg-white px-5 py-5 text-left">
+             <PhoneAvatar src={phoneAvatar} name={name} className="h-16 w-16 rounded-xl text-xl"/>
+             <span className="min-w-0 flex-1"><strong className="block truncate text-xl">{name}</strong>
+               <span className="mt-1 block truncate text-xs text-[#999]">{selfProfile.pokeSuffix ? '戳一戳'+selfProfile.pokeSuffix : '查看我的资料与头像库'}</span>
+             </span><span className="text-[#aaa]">›</span>
+           </button>
+           <div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>setScreen('settings'))}</div>
+         </div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex items-start gap-2.5 '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><PhoneAvatar src={m.speakerId.startsWith('owner:') ? phoneAvatar : (userProfile.perCharAvatars?.[characterId] || userProfile.avatar)} name={m.speakerId.startsWith('owner:') ? name : userProfile.name} className="h-10 w-10 rounded-lg text-sm"/><div className={'relative max-w-[78%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}><span className={'absolute top-3 h-2.5 w-2.5 rotate-45 '+(m.speakerId.startsWith('owner:')?'-right-1 bg-[#95ec69]':'-left-1 bg-white')}/><span className="relative">{m.text}</span></div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
         {screen === 'moments' && <PullToRefresh loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]"><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={phoneAvatar||name} src={phoneAvatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-24"/><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/></div></PullToRefresh>}
-        {screen === 'memo' && <PhoneMemo characterId={characterId} onGenerate={generateMemo} generating={memoBusy}/>}
+        {screen === 'profile' && <div className="space-y-4 pb-8 text-[#252525]">
+           <section className="bg-white px-5 py-7">
+             <div className="flex items-center gap-5">
+               <button type="button" aria-label="打开角色头像库" onClick={()=>setAvatarLibraryOpen(true)}>
+                 <PhoneAvatar src={phoneAvatar} name={name} className="h-[84px] w-[84px] rounded-2xl text-2xl"/>
+               </button>
+               <div className="min-w-0 flex-1"><h3 className="truncate text-xl font-semibold">{name}</h3>
+                 <p className="mt-1 text-xs text-[#999]">此手机主人 · Char</p>
+                 {selfProfile.mood && <p className="mt-2 text-xs text-[#777]">最近心情：{selfProfile.mood}</p>}
+               </div>
+             </div>
+           </section>
+           <div className="bg-white">{row('头像库',<Images size={23}/>,()=>setAvatarLibraryOpen(true))}</div>
+           <section className="bg-white px-5 py-5">
+             <h4 className="text-sm font-semibold">戳一戳后缀</h4>
+             <p className="mt-3 rounded-xl bg-[#f4f4f4] p-4 text-sm">{selfProfile.pokeSuffix
+               ? '戳了戳'+name+selfProfile.pokeSuffix : '还没有后缀，Char 可以自己设置'}</p>
+             {selfProfile.reason && <p className="mt-2 text-xs leading-5 text-[#888]">Char 的想法：{selfProfile.reason}</p>}
+             <div className="mt-4 grid grid-cols-2 gap-3">
+               <button type="button" onClick={()=>onPoke(selfProfile.pokeSuffix)} className="rounded-xl bg-[#ececec] px-3 py-3 text-sm">戳一戳</button>
+               <button type="button" disabled={selfAutoBusy} onClick={()=>void adjustSelfProfile()}
+                 className="rounded-xl bg-[#303030] px-3 py-3 text-sm text-white disabled:opacity-50">
+                 {selfAutoBusy?'Char 正在调整…':'让 Char 自改'}
+               </button>
+             </div>
+             {selfAutoNotice && <p role="status" className="mt-3 text-xs leading-5 text-[#777]">{selfAutoNotice}</p>}
+           </section>
+           <p className="px-5 text-xs leading-5 text-[#999]">与私聊共用头像库和戳一戳功能。头像先识图后保存，开启自主换头像后，Char 会依据已有心情和图片描述选择。</p>
+         </div>}
+         {screen === 'memo' && <PhoneMemo characterId={characterId} onGenerate={generateMemo} generating={memoBusy}/>}
         {screen === 'gallery' && <Gallery lockedCharacterId={characterId} onExit={()=>setScreen('home')}/>}
         {screen === 'calls' && <p className="p-8 text-center text-sm text-[#888]">电话记录与拨号功能待接入</p>}
         {screen === 'sms' && <p className="p-8 text-center text-sm text-[#888]">短信收发功能待接入</p>}
@@ -480,5 +551,11 @@ ${scheduleContext}
       {screen === 'wechat' && <nav className="grid shrink-0 grid-cols-4 border-t border-[#ddd] bg-[#f8f8f8] py-2">{([{id:'chats',label:'微信',Icon:ChatCircleDots},{id:'contacts',label:'通讯录',Icon:UsersThree},{id:'discover',label:'发现',Icon:Compass},{id:'me',label:'我',Icon:User}] as const).map(({id,label,Icon})=><button key={id} onClick={()=>setTab(id)} className={`flex flex-col items-center gap-1 text-xs ${tab===id?'text-neutral-800':'text-[#222]'}`}><Icon size={26} weight={tab===id?'fill':'regular'}/>{label}</button>)}</nav>}
       {screen !== 'wechat' && <footer className="flex shrink-0 justify-center border-t border-[#ddd] bg-[#fafafa] py-2"><button type="button" onClick={()=>setScreen('home')} aria-label="返回手机桌面"><House size={21}/></button></footer>}
     </div>
+    {avatarLibraryOpen && createPortal(
+      <CharacterAvatarLibraryModal characterId={characterId} defaultAvatar={char.avatar}
+        visionApiConfig={api.visionApi} onClose={()=>setAvatarLibraryOpen(false)}
+        onApply={onApplyAvatar}/>,
+      document.body
+    )}
   </div>;
 }
