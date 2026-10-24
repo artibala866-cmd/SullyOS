@@ -40,7 +40,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
   return points;
  }
  const palm=(v:ChibiVisitor,side:string)=>v.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side as 'L'|'R'));
-function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weight:number){
+function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:MotionFrame[],weight:number){
   if(both.length!==2)return;
   if(session?.action==='home-hug'){
    both.forEach((owner,i)=>{const partner=both[1-i]!;
@@ -119,7 +119,7 @@ function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weig
   * only their invocation is routed through the optional Stage 2 schedule.
   * For un-migrated actions they still run in the original order.
   */
- function correctPairedBodies(both:ReturnType<typeof states.get>[]){
+ function correctPairedBodies(both:NonNullable<ReturnType<typeof states.get>>[]){
   const s=session;
   if(!s)return;
   // Lightweight paired torso/pelvis collision proxies; no mesh scan.
@@ -148,7 +148,7 @@ function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weig
    }
   }
  }
- function correctHeadClearance(both:ReturnType<typeof states.get>[],points:T.Vector3[]){
+ function correctHeadClearance(both:NonNullable<ReturnType<typeof states.get>>[],points:T.Vector3[]){
   const s=session;
   if(!s)return;
   // The head has very different proportions from the source human. Separate
@@ -159,14 +159,14 @@ function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weig
    if(gap<needed){if(gap<.001)delta.copy(points[1]).sub(points[0]);delta.normalize().multiplyScalar((needed-gap)/2);both[0].visitor.root.position.sub(delta);both[1].visitor.root.position.add(delta);both.forEach(r=>r.visitor.root.updateWorldMatrix(true,true));}
   }
  }
- function presentPostPose(both:ReturnType<typeof states.get>[],sourceTime:number,actionTime:number,weight:number){
+ function presentPostPose(both:NonNullable<ReturnType<typeof states.get>>[],sourceTime:number,actionTime:number,weight:number){
   const s=session!;
   prop?.update(sourceTime,s.clip.duration,weight);for(const r of both)r.visitor.setActionExpression(actionTime<s.clip.duration? actionExpression(s.action,socialActions[s.action].category,socialActions[s.action].label):'neutral',sourceTime);finish();
  }
  // One stable set of callbacks per scene; frame data reuses this object.
  // No scheduler allocations, phase sorting or IK re-creation per frame.
  const constraintFrame={
-  both:[] as ReturnType<typeof states.get>[],
+  both:[] as NonNullable<ReturnType<typeof states.get>>[],
   frames:[] as MotionFrame[],
   points:[] as T.Vector3[],
   weight:0,sourceTime:0,actionTime:0,
