@@ -534,7 +534,7 @@ Generate realistic results linking to hypothetical URLs.`;
                             value={braveKey} 
                             onChange={e => setBraveKey(e.target.value)} 
                             placeholder="BSA-..." 
-                            className="w-full bg-slate-100 rounded-xl px-4 py-3 text-sm focus:outline-neutral-500 font-mono" 
+                            className="w-full bg-slate-100 rounded-xl px-4 py-3 text-sm focus:outline-blue-500 font-mono" 
                         />
                         <p className="text-[10px] text-slate-400 mt-2 leading-relaxed bg-slate-50 p-2 rounded">
                             <span className="font-bold">注意：</span> 配置 Key 后可搜索现实世界的内容（如B站、小红书）。<br/>
