@@ -11,7 +11,6 @@ import { CharacterProfile, Anniversary, AppID, DailySchedule } from '../types';
 import { ScheduleHomeWidget, ScheduleFullscreenViewer } from '../components/schedule/ScheduleHomeWidget';
 import NowPlayingSquareWidget from '../components/os/NowPlayingSquareWidget';
 import MobileGameHome from '../components/os/MobileGameHome';
-import TamagotchiHome from '../components/os/TamagotchiHome';
 import { getDailyScheduleForChar } from '../utils/dailySchedule';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../utils/timezone';
@@ -28,7 +27,7 @@ const DesktopClock = React.memo(() => {
     const contentColor = theme.contentColor || '#ffffff';
     const clockStyle = theme.desktopClockStyle || (theme.desktopVariant === 'nostalgia' ? 'bold' : 'serif');
     const serifClock = clockStyle === 'serif';
-    const paper = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
+    const paper = theme.skin !== 'mobilegame' && isPaperWallpaper(theme.wallpaper);
 
     const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -46,25 +45,6 @@ const DesktopClock = React.memo(() => {
 
     const hh = virtualTime.hours.toString().padStart(2, '0');
     const mm = virtualTime.minutes.toString().padStart(2, '0');
-
-    // 动森彩蛋：NookPhone 主屏时钟 —— 问候 + 大号时间(主角) + 星期·日期
-    if (theme.skin === 'animalcrossing') {
-        const weekdayTitle = dayName.charAt(0) + dayName.slice(1).toLowerCase();
-        const monthTitle = monthName.charAt(0) + monthName.slice(1).toLowerCase();
-        return (
-            <div className="mt-7 mb-5 text-center animate-fade-in select-none">
-                <div className="text-[13px] font-extrabold tracking-wide" style={{ color: '#7b7b7b' }}>
-                    🍃 {greeting}, Resident
-                </div>
-                <div className="text-[3.5rem] font-extrabold leading-none mt-1.5 tracking-[2px]" style={{ color: '#767676' }}>
-                    {hh}<span className="animate-pulse" style={{ color: '#c9c9c9' }}>:</span>{mm}
-                </div>
-                <div className="text-[15px] font-bold mt-1.5" style={{ color: '#606060' }}>
-                    {weekdayTitle} · {monthTitle} {Number(dateNum)}
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="flex flex-col mb-5 mt-5 relative animate-fade-in" style={{ color: contentColor }}>
@@ -129,46 +109,8 @@ const CharacterWidget = React.memo(({
     contentColor: string,
     paper?: boolean,
 }) => {
-    const { theme } = useOS();
-    const acnh = theme.skin === 'animalcrossing'; // 动森彩蛋：会"说话"的村民卡
     // 卡片底的虚化头像画在 CSS background-image 上，吃不到 TokenImg 的解析，这里自己解析一次。
     const avatarUrl = useBlobRefUrl(char?.avatar);
-
-    // 动森：村民头像 + AC 对话气泡（显示最近消息，点开聊天）
-    if (acnh) {
-        return (
-            <div className="mb-4 animate-fade-in" onClick={onClick}>
-                <div className="flex items-end gap-2.5 cursor-pointer active:scale-[0.98] transition-transform">
-                    {/* 村民头像（圆角方块 + 白边） */}
-                    <div className="relative w-[60px] h-[60px] shrink-0 rounded-[26%] overflow-hidden bg-[#e2e2e2]"
-                        style={{ border: '3px solid #ffffff', boxShadow: '0 4px 10px -2px rgba(53, 53, 53,0.28)' }}>
-                        {char?.avatar
-                            ? <TokenImg value={char.avatar} className="w-full h-full object-cover" alt="char" loading="lazy" />
-                            : <div className="w-full h-full flex items-center justify-center text-2xl">🍃</div>}
-                        {unreadCount > 0 && (
-                            <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#909090] rounded-full flex items-center justify-center text-[10px] font-bold text-white"
-                                style={{ border: '2px solid #ffffff' }}>
-                                {unreadCount > 9 ? '9+' : unreadCount}
-                            </div>
-                        )}
-                    </div>
-                    {/* AC 对话气泡 */}
-                    <div className="relative flex-1 min-w-0 mb-1">
-                        <div className="absolute -left-1.5 bottom-3 w-3 h-3 rotate-45"
-                            style={{ background: '#fbfbfb', borderLeft: '2px solid #e1e1e1', borderBottom: '2px solid #e1e1e1' }} />
-                        <div className="relative rounded-2xl px-3.5 py-2.5"
-                            style={{ background: '#fbfbfb', border: '2px solid #e1e1e1', boxShadow: '0 4px 12px -5px rgba(93, 93, 93,0.25)' }}>
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                                <span className="text-[13px] font-extrabold truncate" style={{ color: '#606060' }}>{char?.name || 'Resident'}</span>
-                                <span className="text-[11px] leading-none">{unreadCount > 0 ? '💬' : '🍃'}</span>
-                            </div>
-                            <div className="text-[11px] leading-snug line-clamp-2" style={{ color: '#8d8d8d' }}>{lastMessage}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="mb-3 group animate-fade-in">
@@ -179,10 +121,6 @@ const CharacterWidget = React.memo(({
                     background: 'rgba(221, 221, 221,0.40)',
                     border: '1px solid rgba(75, 75, 75,0.07)',
                     boxShadow: '0 5px 16px rgba(75, 75, 75,0.055)',
-                } : acnh ? {
-                    background: 'rgb(242, 242, 242)',
-                    border: '2px solid #e2e2e2',
-                    boxShadow: '0 8px 24px 0 rgba(53, 53, 53,0.14)',
                 } : {
                     background: 'rgba(255, 255, 255,0.08)',
                     backdropFilter: 'blur(24px) saturate(1.4)',
@@ -191,8 +129,8 @@ const CharacterWidget = React.memo(({
                     boxShadow: '0 8px 32px rgba(0, 0, 0,0.15), inset 0 1px 0 rgba(255, 255, 255,0.08)',
                 }}
              >
-                 {/* 背景虚化角色头像（动森模式下省略，避免糊在奶油底上） */}
-                 {!acnh && !paper && avatarUrl && (
+                 {/* 背景虚化角色头像 */}
+                 {!paper && avatarUrl && (
                      <div className="absolute inset-0 opacity-25 pointer-events-none"
                          style={{
                              backgroundImage: `url(${avatarUrl})`,
@@ -207,8 +145,8 @@ const CharacterWidget = React.memo(({
                      {/* 头像 */}
                      <div className={`w-[68px] h-[68px] shrink-0 rounded-2xl overflow-hidden relative ${paper ? 'bg-[#d3d3d3]' : 'bg-slate-800'}`}
                          style={{
-                             border: paper ? '1px solid rgba(75, 75, 75,0.14)' : acnh ? '2px solid #e2e2e2' : '1.5px solid rgba(255, 255, 255,0.25)',
-                             boxShadow: paper ? '0 5px 14px rgba(75, 75, 75,0.13)' : acnh ? '0 4px 12px -4px rgba(53, 53, 53,0.25)' : '0 4px 14px rgba(0, 0, 0,0.25)',
+                             border: paper ? '1px solid rgba(75, 75, 75,0.14)' : '1.5px solid rgba(255, 255, 255,0.25)',
+                             boxShadow: paper ? '0 5px 14px rgba(75, 75, 75,0.13)' : '0 4px 14px rgba(0, 0, 0,0.25)',
                          }}>
                          {char ? (
                              <TokenImg value={char.avatar} className="w-full h-full object-cover" alt="char" loading="lazy" />
@@ -233,7 +171,7 @@ const CharacterWidget = React.memo(({
                                      style={{ background: 'rgba(104, 104, 104,0.9)', color: 'white' }}>NEW</div>
                              ) : (
                                  <div className="px-1.5 py-px rounded-full text-[8px] font-bold uppercase tracking-[0.15em]"
-                                     style={paper ? { background: 'rgba(127, 127, 127,0.16)', color: '#6e6e6e' } : acnh ? { background: '#a5a5a5', color: 'white' } : { background: 'rgba(255, 255, 255,0.18)' }}>Online</div>
+                                     style={paper ? { background: 'rgba(127, 127, 127,0.16)', color: '#6e6e6e' } : { background: 'rgba(255, 255, 255,0.18)' }}>Online</div>
                              )}
                          </div>
                          <div className="text-xs font-medium leading-relaxed opacity-85 flex items-start gap-1.5">
@@ -255,16 +193,14 @@ const CharacterWidget = React.memo(({
 const AppGridPage = React.memo(({
     apps,
     openApp,
-    acnh = false,
     editing = false,
 }: {
     apps: typeof INSTALLED_APPS,
     openApp: (id: AppID) => void,
-    acnh?: boolean,
     editing?: boolean,
 }) => {
     return (
-        <div className={`grid place-items-center animate-fade-in relative ${acnh ? 'grid-cols-4 gap-y-6 gap-x-2' : 'grid-cols-4 gap-y-6 gap-x-2'}`}>
+        <div className="grid grid-cols-4 gap-y-6 gap-x-2 place-items-center animate-fade-in relative">
              {apps.map(app => (
                  <div
                     key={app.id}
@@ -297,14 +233,13 @@ const AppQuadGrid = React.memo(({ apps, openApp, editing = false }: { apps: type
 });
 
 // 3c. Square image slot for pinwheel (bottom-right)
-const DesktopSquareImage = React.memo(({ image, contentColor, onClick, acnh = false }: {
+const DesktopSquareImage = React.memo(({ image, contentColor, onClick }: {
     image?: string,
     contentColor: string,
     onClick: () => void,
-    acnh?: boolean,
 }) => {
     const { theme } = useOS();
-    const paper = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
+    const paper = theme.skin !== 'mobilegame' && isPaperWallpaper(theme.wallpaper);
     return (
         <div
             onClick={onClick}
@@ -313,11 +248,6 @@ const DesktopSquareImage = React.memo(({ image, contentColor, onClick, acnh = fa
                 background: image ? 'rgba(221, 221, 221,0.26)' : 'rgba(221, 221, 221,0.38)',
                 border: '1px solid rgba(75, 75, 75,0.07)',
                 boxShadow: '0 5px 16px rgba(75, 75, 75,0.055)',
-                color: contentColor,
-            } : acnh ? {
-                background: image ? 'rgb(242, 242, 242)' : 'rgb(242, 242, 242)',
-                border: '2px solid #e2e2e2',
-                boxShadow: '0 6px 18px rgba(53, 53, 53,0.12)',
                 color: contentColor,
             } : {
                 background: image ? 'rgba(0, 0, 0,0.18)' : 'rgba(255, 255, 255,0.28)',
@@ -355,10 +285,7 @@ const CALENDAR_WEEKDAYS = [
 ] as const;
 
 // 4. Widget Page Component (Calendar + Events)
-const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characters, acnh = false, paper = false }: any) => {
-    // 动森：奶油卡片样式（替代暗色玻璃）
-    const acCard = acnh ? { background: 'rgb(242, 242, 242)', border: '2px solid #e2e2e2', boxShadow: '0 6px 18px rgba(53, 53, 53,0.12)' } : undefined;
-    const acDot = acnh ? '#a0a0a0' : undefined;
+const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characters, paper = false }: any) => {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
@@ -392,10 +319,10 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
 
     return (
         <div className="launcher-page w-full flex-shrink-0 snap-center snap-always flex flex-col px-6 pt-24 pb-8 space-y-6 h-full overflow-y-auto no-scrollbar">
-              <div className={`rounded-3xl p-6 ${acnh ? 'shadow-sm' : paper ? '' : 'bg-white/25 border border-white/25 shadow-xl'}`} style={paper ? { background: 'rgba(221, 221, 221,0.36)', border: '1px solid rgba(75, 75, 75,0.07)', boxShadow: '0 5px 16px rgba(75, 75, 75,0.05)' } : acCard}>
+              <div className={`rounded-3xl p-6 ${paper ? '' : 'bg-white/25 border border-white/25 shadow-xl'}`} style={paper ? { background: 'rgba(221, 221, 221,0.36)', border: '1px solid rgba(75, 75, 75,0.07)', boxShadow: '0 5px 16px rgba(75, 75, 75,0.05)' } : undefined}>
                   <div className="flex justify-between items-center mb-4" style={{ color: contentColor }}>
                       <h3 className="text-xl font-bold tracking-widest">{monthName} {currentYear}</h3>
-                      <div onClick={() => openApp('schedule')} className={`p-2 rounded-full cursor-pointer transition-colors ${acnh ? 'bg-[#c1c1c1]/30 hover:bg-[#c1c1c1]/50' : paper ? 'bg-[#7f7f7f]/10 hover:bg-[#7f7f7f]/20' : 'bg-white/20 hover:bg-white/40'}`}>
+                      <div onClick={() => openApp('schedule')} className={`p-2 rounded-full cursor-pointer transition-colors ${paper ? 'bg-[#7f7f7f]/10 hover:bg-[#7f7f7f]/20' : 'bg-white/20 hover:bg-white/40'}`}>
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                       </div>
                   </div>
@@ -414,22 +341,22 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
                           return (
                               <div key={day} className="flex flex-col items-center justify-center h-8 relative">
                                   <div
-                                    className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium ${isToday ? (acnh ? 'text-white font-bold' : paper ? 'text-white font-bold' : 'bg-white text-black font-bold shadow-lg') : 'opacity-80'}`}
-                                    style={isToday ? (acnh ? { background: '#a2a2a2' } : paper ? { background: '#7f7f7f', boxShadow: '0 4px 10px rgba(75, 75, 75,0.14)' } : {}) : { color: contentColor }}
+                                    className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium ${isToday ? (paper ? 'text-white font-bold' : 'bg-white text-black font-bold shadow-lg') : 'opacity-80'}`}
+                                    style={isToday ? (paper ? { background: '#7f7f7f', boxShadow: '0 4px 10px rgba(75, 75, 75,0.14)' } : {}) : { color: contentColor }}
                                   >
                                       {day}
                                   </div>
-                                  {hasEvent && <div className="w-1.5 h-1.5 rounded-full absolute bottom-0 shadow-sm border border-black/10" style={{ background: acDot || (paper ? '#797979' : '#999999') }}></div>}
+                                  {hasEvent && <div className="w-1.5 h-1.5 rounded-full absolute bottom-0 shadow-sm border border-black/10" style={{ background: paper ? '#797979' : '#999999' }}></div>}
                               </div>
                           );
                       })}
                   </div>
               </div>
 
-              <div className={`rounded-3xl p-5 flex flex-col flex-1 min-h-[200px] ${acnh ? 'shadow-sm' : paper ? '' : 'bg-white/25 border border-white/25 shadow-xl'}`} style={paper ? { background: 'rgba(221, 221, 221,0.36)', border: '1px solid rgba(75, 75, 75,0.07)', boxShadow: '0 5px 16px rgba(75, 75, 75,0.05)' } : acCard}>
+              <div className={`rounded-3xl p-5 flex flex-col flex-1 min-h-[200px] ${paper ? '' : 'bg-white/25 border border-white/25 shadow-xl'}`} style={paper ? { background: 'rgba(221, 221, 221,0.36)', border: '1px solid rgba(75, 75, 75,0.07)', boxShadow: '0 5px 16px rgba(75, 75, 75,0.05)' } : undefined}>
                   <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xs font-bold opacity-60 uppercase tracking-widest flex items-center gap-2" style={{ color: contentColor }}>
-                          <span className="w-2 h-2 rounded-full" style={{ background: acDot || (paper ? '#797979' : '#999999') }}></span> Upcoming Events
+                          <span className="w-2 h-2 rounded-full" style={{ background: paper ? '#797979' : '#999999' }}></span> Upcoming Events
                       </h3>
                       {eventPageCount > 1 && (
                           <div className="flex items-center gap-2 shrink-0" style={{ color: contentColor }}>
@@ -455,8 +382,8 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
                   </div>
                   <div className="space-y-3">
                       {upcomingEvents.length > 0 ? pagedEvents.map((anni: any) => (
-                          <div key={anni.id} className={`flex items-center gap-3 p-3 rounded-xl ${acnh ? 'bg-[#e7e7e7] border border-[#d7d7d7]' : paper ? 'bg-[#ededed]/70 border border-[#4b4b4b]/10' : 'bg-white/5 border border-white/10'}`}>
-                              <div className={`w-10 h-10 shrink-0 rounded-lg flex flex-col items-center justify-center ${acnh ? 'bg-[#c1c1c1] text-white border border-[#acacac]' : paper ? 'bg-[#797979]/12 text-[#656565] border border-[#797979]/15' : 'bg-neutral-500/20 text-neutral-200 border border-neutral-500/30'}`}>
+                          <div key={anni.id} className={`flex items-center gap-3 p-3 rounded-xl ${paper ? 'bg-[#ededed]/70 border border-[#4b4b4b]/10' : 'bg-white/5 border border-white/10'}`}>
+                              <div className={`w-10 h-10 shrink-0 rounded-lg flex flex-col items-center justify-center ${paper ? 'bg-[#797979]/12 text-[#656565] border border-[#797979]/15' : 'bg-neutral-500/20 text-neutral-200 border border-neutral-500/30'}`}>
                                   <span className="text-[9px] opacity-70">{anni.date.split('-')[1]}</span>
                                   <span className="text-sm font-bold leading-none">{anni.date.split('-')[2]}</span>
                               </div>
@@ -948,7 +875,6 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   };
 
   const contentColor = '#252525';
-  const acnh = theme.skin === 'animalcrossing'; // 动森彩蛋：Dock 换奶油木质底
   const paper = false;
   // 已迁移 App 外壳已收回到可见 viewport 底边，dock 仅需自留视觉间距，无需再 + safe-bottom
   // （否则会比 home 条上方多让 34px，dock 看起来悬空）。
@@ -963,10 +889,6 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   }
 
   // 电子宠物主题：桌面即养成机——角色真实小屋做舞台 + 四颗糖果实体键（独立组件自渲染）。
-  if (theme.skin === 'tamagotchi') {
-    return <TamagotchiHome />;
-  }
-
   if (theme.skin === 'homely') {
     return <React.Suspense fallback={<div className="h-full w-full bg-[#e1e1e1]" role="status">正在回家…</div>}><HomelyHome /></React.Suspense>;
   }
@@ -1050,13 +972,11 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
       )}
       
       {/* Visual Elements (Decorative Background - Static, low-cost gradients instead of blur) */}
-      {/* 动森模式跳过：这层冷蓝光斑会污染奶油底 */}
-      {!acnh && (
+      {/* Decorative background */}
       <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full" style={{ background: paper ? 'radial-gradient(circle, rgba(255, 255, 255,0.22) 0%, transparent 68%)' : 'radial-gradient(circle, rgba(255, 255, 255,0.05) 0%, transparent 70%)' }}></div>
           <div className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full" style={{ background: paper ? 'radial-gradient(circle, rgba(106, 106, 106,0.06) 0%, transparent 68%)' : 'radial-gradient(circle, rgba(123, 123, 123,0.08) 0%, transparent 70%)' }}></div>
       </div>
-      )}
 
       {/* Scrollable Content Layer */}
       {/* UPDATE: Added snap-always to children to ensure one-page-at-a-time scrolling on mobile swipe */}
@@ -1234,7 +1154,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                           <AppGridPage
                                 apps={pageApps}
                                 openApp={openApp}
-                                acnh={acnh}
+
                                 editing={layoutEditing}
                           />
                           <div className="flex-1"></div>
@@ -1269,8 +1189,8 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
            style={{ paddingBottom: launcherBottomInset }}
       >
            <div
-             className={`rounded-[1.75rem] px-4 py-3 flex gap-3 sm:gap-6 items-center mx-auto max-w-full justify-between overflow-x-auto no-scrollbar transform-gpu ${acnh || paper ? '' : 'bg-white/30 border border-white/25 shadow-[0_8px_40px_rgba(0, 0, 0,0.22),inset_0_1px_0_rgba(255, 255, 255,0.08)]'}`}
-             style={acnh ? { background: 'transparent' } : paper ? {
+             className={`rounded-[1.75rem] px-4 py-3 flex gap-3 sm:gap-6 items-center mx-auto max-w-full justify-between overflow-x-auto no-scrollbar transform-gpu ${paper ? '' : 'bg-white/30 border border-white/25 shadow-[0_8px_40px_rgba(0, 0, 0,0.22),inset_0_1px_0_rgba(255, 255, 255,0.08)]'}`}
+             style={paper ? {
                background: 'rgba(255, 255, 255,0.75)',
                border: '1px solid rgba(255, 255, 255,0.9)',
                boxShadow: '0 8px 28px rgba(0, 0, 0,0.07)',
