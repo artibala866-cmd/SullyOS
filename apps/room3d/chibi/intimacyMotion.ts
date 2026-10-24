@@ -93,6 +93,20 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    a.root.updateWorldMatrix(true,true);
    b.root.updateWorldMatrix(true,true);
   }
+  // For a height mismatch, the shorter partner lifts their chin and leans
+  // slightly back, clearing the taller partner's fringe before lip aiming.
+  // Apply around the local head X axis: negative X tilts the face upward
+  // for this +Z-facing rig. Blend in and out with the height correction.
+  if(heightBlend>0){
+   const gap=Math.abs(heads[0].y-heads[1].y);
+   const amount=T.MathUtils.clamp((gap-.035)*.65,0,.23)*heightBlend;
+   if(amount>.0001){
+    const shorter=heads[0].y<=heads[1].y?a:b;
+    shorter.rig!.bones.neck.quaternion.multiply(rotation(-amount*.35));
+    shorter.rig!.bones.head.quaternion.multiply(rotation(-amount*.65));
+    shorter.root.updateWorldMatrix(true,true);
+   }
+  }
   // Re-evaluate approximate lip anchors after the height correction.
   // A shared midpoint is a target, not a forced head translation.
   const lipA=lipWorld(a),lipB=lipWorld(b);
