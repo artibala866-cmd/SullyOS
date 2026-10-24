@@ -53,7 +53,7 @@ const CSS_SNIPPETS = [
 ];
 
 const normalizeAppearance = (appearance?: JournalAppearance): JournalAppearance => ({
-    preset: appearance?.preset || 'original',
+    preset: appearance?.preset === 'original' ? 'original' : 'original',
     customCss: appearance?.customCss || '',
 });
 
@@ -326,14 +326,14 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
             }}
         >
             <div
-                className="w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[30px] bg-[#fbfaf8] text-slate-800 shadow-2xl"
+                className="w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[30px] bg-[#fafafa] text-slate-800 shadow-2xl"
                 style={{ paddingBottom: 'max(22px, env(safe-area-inset-bottom))' }}
                 onMouseDown={event => event.stopPropagation()}
             >
                 <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-stone-200/80 bg-[#fbfaf8]/95 px-5 py-4 backdrop-blur">
                     <div>
-                        <div className="text-[10px] font-bold uppercase tracking-[.22em] text-amber-600/70">Exchange diary skin</div>
-                        <h2 className="mt-0.5 text-base font-black">交换日记美化</h2><button className="text-xs text-violet-600 mt-2" onClick={()=>{setOpen(false);requestBeautyLibrary('journal');openApp(AppID.Appearance);}}>到外观 App 收藏与分享 ›</button>
+                        <div className="text-[10px] font-bold uppercase tracking-[.22em] text-neutral-600/70">Exchange diary skin</div>
+                        <h2 className="mt-0.5 text-base font-black">交换日记美化</h2><button className="text-xs text-neutral-600 mt-2" onClick={()=>{setOpen(false);requestBeautyLibrary('journal');openApp(AppID.Appearance);}}>到外观 App 收藏与分享 ›</button>
                     </div>
                     <button
                         onClick={closePanel}
@@ -349,7 +349,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                         <h3 className="text-sm font-bold">手账外观</h3>
                         <p className="mt-1 text-[11px] text-slate-400">保留黑白拼贴手账与自定义 CSS。预览满意后再保存。</p>
                         <div className="mt-3 grid grid-cols-2 gap-2.5">
-                            {JOURNAL_APPEARANCE_PRESETS.filter(preset => preset.id === 'original').map(preset => {
+                            {JOURNAL_APPEARANCE_PRESETS.map(preset => {
                                 const selected = (draft.preset || 'original') === preset.id;
                                 return (
                                     <button
@@ -359,14 +359,14 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                                         }}
                                         className={`relative min-h-[92px] rounded-2xl border p-3 text-left transition-all active:scale-[.98] ${
                                             selected
-                                                ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-400'
+                                                ? 'border-neutral-500 bg-neutral-50 ring-1 ring-neutral-400'
                                                 : 'border-stone-200 bg-white'
                                         }`}
                                     >
                                         <div className="mb-3"><JournalThemeThumbnail preset={preset.id} /></div>
                                         <b className="block text-[12px]">{preset.name}</b>
                                         <span className="mt-1 block text-[10px] text-slate-400">{preset.description}</span>
-                                        {selected && <Check size={15} weight="bold" className="absolute right-3 top-3 text-amber-600" />}
+                                        {selected && <Check size={15} weight="bold" className="absolute right-3 top-3 text-neutral-600" />}
                                     </button>
                                 );
                             })}
@@ -381,7 +381,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                             </div>
                             <button
                                 onClick={copyPrompt}
-                                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-700"
+                                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-neutral-50 px-3 py-2 text-[11px] font-bold text-neutral-700"
                             >
                                 {copied ? <Check size={13} /> : <Copy size={13} />}
                                 {copied ? '已复制' : '复制 AI 提示词'}
@@ -406,7 +406,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                                 {(draft.preset || 'original') === 'original' ? '已独立使用' : '转为独立 CSS'}
                             </button>
                         </div>
-                        <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-[10px] leading-4 text-emerald-700">
+                        <p className="mb-3 rounded-xl bg-neutral-50 px-3 py-2 text-[10px] leading-4 text-neutral-700">
                             导出会把内置主题展开成完整 CSS；导入后自动切到“黑白拼贴手账”，只运行文件里的样式。导入仅替换当前预览，点击“保存样式”后才正式生效。
                         </p>
 
@@ -433,11 +433,11 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                             onChange={event => setDraft(current => ({ ...current, customCss: event.target.value }))}
                             rows={12}
                             spellCheck={false}
-                            className="w-full resize-y rounded-2xl border border-stone-200 bg-[#171513] p-4 font-mono text-[11px] leading-5 text-amber-100 outline-none focus:border-amber-500"
+                            className="w-full resize-y rounded-2xl border border-stone-200 bg-[#171717] p-4 font-mono text-[11px] leading-5 text-neutral-100 outline-none focus:border-neutral-500"
                             placeholder={'.sully-journal-paper {\n  border-radius: 8px !important;\n}\n\n.sully-journal-textarea {\n  font-family: serif !important;\n}'}
                         />
                         {!validation.isValid && (
-                            <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[11px] leading-5 text-rose-600">
+                            <div className="mt-2 rounded-xl bg-neutral-50 px-3 py-2 text-[11px] leading-5 text-neutral-600">
                                 {validation.errors[0]}
                             </div>
                         )}
@@ -467,7 +467,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                     <button
                         onClick={startPreview}
                         disabled={!validation.isValid}
-                        className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-2 text-[11px] font-bold text-amber-800 disabled:opacity-40"
+                        className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-neutral-300 bg-neutral-50 px-2 text-[11px] font-bold text-neutral-800 disabled:opacity-40"
                     >
                         <Eye size={15} />
                         预览并浏览
@@ -507,7 +507,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
 #sully-journal-preview-rescue .preview-actions{display:flex!important;flex:none!important;gap:6px!important;}
 #sully-journal-preview-rescue button{display:block!important;position:static!important;min-width:0!important;height:32px!important;margin:0!important;padding:0 10px!important;border:0!important;border-radius:10px!important;font-size:10px!important;font-weight:800!important;line-height:32px!important;transform:none!important;}
 #sully-journal-preview-rescue .preview-edit{background:rgba(255,255,255,.12)!important;color:white!important;}
-#sully-journal-preview-rescue .preview-cancel{background:#f59e0b!important;color:#2b1900!important;}
+#sully-journal-preview-rescue .preview-cancel{background:#525252!important;color:#262626!important;}
 @media(max-width:420px){#sully-journal-preview-rescue{padding:8px 9px!important}#sully-journal-preview-rescue .preview-copy small{display:none!important}#sully-journal-preview-rescue button{padding:0 8px!important}}
             `}</style>
             <div id="sully-journal-preview-rescue" role="status" aria-live="polite">
@@ -588,7 +588,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                 } ${
                     tone === 'dark'
                         ? 'border-white/10 bg-white/10 text-white/75 hover:bg-white/15'
-                        : 'border-amber-900/10 bg-white/45 text-amber-900 hover:bg-white/70'
+                        : 'border-neutral-900/10 bg-white/45 text-neutral-900 hover:bg-white/70'
                 }`}
                 title="交换日记样式"
                 aria-label="打开交换日记样式设置"
