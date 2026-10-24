@@ -46,7 +46,7 @@ const DEEP_RESET_THRESHOLD = 3;
 const Row: React.FC<{ label: string; value: string; bad?: boolean }> = ({ label, value, bad }) => (
   <div className="flex items-start justify-between gap-3">
     <span className="text-slate-500 shrink-0">{label}</span>
-    <span className={`text-right font-medium ${bad ? 'text-rose-600' : 'text-slate-700'}`}>{value}</span>
+    <span className={`text-right font-medium ${bad ? 'text-neutral-600' : 'text-slate-700'}`}>{value}</span>
   </div>
 );
 
@@ -241,14 +241,14 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
             {browser.endpoint && (
               <div className="pt-2 mt-2 border-t border-slate-200">
                 <p className="text-[10px] text-slate-400 mb-1">订阅端点（前 60 字符）</p>
-                <p className={`text-[10px] font-mono break-all leading-relaxed ${browser.endpointDead ? 'text-rose-600' : 'text-slate-500'}`}>
+                <p className={`text-[10px] font-mono break-all leading-relaxed ${browser.endpointDead ? 'text-neutral-600' : 'text-slate-500'}`}>
                   {browser.endpoint.slice(0, 60)}…
                 </p>
               </div>
             )}
 
             {browser.capabilityGap && (
-              <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 leading-relaxed">
+              <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                 {browser.capabilityGap}。
               </div>
             )}
@@ -258,11 +258,11 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
               const failure = browser.lastSubscribeFailure!;
               const elapsed = describeElapsed(failure.at);
               return (
-                <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 leading-relaxed">
+                <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                   <p className="font-semibold mb-1">上次建订阅失败{elapsed && `（${elapsed}）`}</p>
                   <p>{failure.text}。</p>
                   {(failure.kind === 'channel-unreachable' || failure.kind === 'no-subscription') && (
-                    <p className="mt-1.5 pt-1.5 border-t border-rose-200">
+                    <p className="mt-1.5 pt-1.5 border-t border-neutral-200">
                       这一类<b>重试多少次都是一样的结果</b>，问题不在这个站点、也不在权限，
                       换个浏览器、换个网络或换台设备才有用。
                     </p>
@@ -271,7 +271,7 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
               );
             })()}
             {browser.endpointDead && (
-              <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 leading-relaxed">
+              <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                 订阅地址变成了 <code className="font-mono">permanently-removed.invalid</code>，
                 意思是浏览器把这条订阅吊销了（常见原因：很久没打开、通知权限被改过、站点数据被清过）。
                 这个域名全球都不会解析，推送发过去必然失败。点下面的「重置订阅」重建一条就行。
@@ -280,8 +280,8 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
             {deliveryVerdict?.level === 'bad' && (
               <div className={`mt-2 p-2 border rounded-lg text-[10px] leading-relaxed ${
                 deliveryVerdict.level === 'bad'
-                  ? 'bg-rose-50 border-rose-200 text-rose-700'
-                  : 'bg-amber-50 border-amber-200 text-amber-700'
+                  ? 'bg-neutral-50 border-neutral-200 text-neutral-700'
+                  : 'bg-neutral-50 border-neutral-200 text-neutral-700'
               }`}>
                 <p className="font-semibold mb-1">推送被退回了</p>
                 <p>{deliveryVerdict.what}。</p>
@@ -297,7 +297,7 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
               </div>
             )}
             {registration === 'other-endpoint' && (
-              <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 leading-relaxed">
+              <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                 Worker 上登记的订阅不是这台设备——主动消息到点会推到<b>别处</b>，这台收不到。
                 换过设备、换过浏览器、或者换过 Worker 之后会这样（一个账号只存一份订阅，后登记的顶掉先前的）。
                 点「重置订阅」把它改成这台。
@@ -306,18 +306,18 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
             {/* 通道不通 / 内核不支持的时候不提「点重置订阅」：那一步必挂在建订阅上，
                 登记根本轮不到，上面那个失败框才是这台设备真正的结论。 */}
             {registration === 'missing' && !isSupportBad(browser) && (
-              <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 leading-relaxed">
+              <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                 Worker 上一份订阅都没有，到点没地方推。点「重置订阅」登记一下这台设备。
               </div>
             )}
             {browser.iosNeedsPwa && (
-              <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 leading-relaxed">
+              <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                 检测到 iOS Safari，但现在不是从主屏图标启动的。
                 iOS 的网页推送必须先「添加到主屏幕」、再从主屏图标打开才能用。
               </div>
             )}
             {browser.capacitorNative && (
-              <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 leading-relaxed">
+              <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                 你现在用的是<b>打包好的 App</b>，不是浏览器网页。网页推送这条通道在 App 里不存在，
                 这个面板可以直接忽略——不影响正常使用。
               </div>
@@ -334,7 +334,7 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
             resetting || refreshing || browser?.capacitorNative
               ? 'bg-slate-100 text-slate-400 border-slate-200'
               : deepMode || browser?.endpointDead || registrationText.bad || deliveryText.bad
-                ? 'bg-rose-500 text-white border-rose-500 hover:bg-rose-600'
+                ? 'bg-neutral-500 text-white border-neutral-500 hover:bg-neutral-600'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
           }`}
         >
