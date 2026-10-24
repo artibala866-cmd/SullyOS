@@ -2,7 +2,7 @@ import {actionExpression} from './actionExpression';
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
 import {selectedMotions,loadSelectedMotion,sampleSelected,type SelectedClip,type MotionFrame} from './selectedMotions';
-import {contactSolver} from './socialContact';
+import {contactSolver,sharedPalmTarget} from './socialContact';
 import {furniturePalm} from './furnitureMotion';
 import {createSocialProp} from './socialProps';
 import {isIntimacy,isPrincessCarry,poseIntimacy} from './intimacyMotion';
@@ -69,10 +69,16 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
    }
    const hand=owner.visitor.rig.bones[from],other=partner.visitor.rig!.bones[nearest.n];
    const target=nearest.n.endsWith('hand')?palm(partner.visitor,nearest.n[0]).lerp(palm(owner.visitor,side),.5):other.getWorldPosition(new T.Vector3()).add(new T.Vector3(nearest.n[0]==='L'?.04:-.04,.025,0).applyQuaternion(partner.visitor.root.getWorldQuaternion(new T.Quaternion())));
+   // A paired hand contact has one immutable goal for this frame. Capture
+   // both palm positions BEFORE either arm is solved, so the second hand
+   // cannot chase the first hand's newly modified pose.
+   const paired=nearest.n.endsWith('hand');
+   const shared=paired?sharedPalmTarget(palm(owner.visitor,side),palm(partner.visitor,nearest.n[0])):null;
+   if(shared)target.copy(shared);
    const contactWeight=weight*(1-smooth(nearest.d,near,far));
    const q=hand.getWorldQuaternion(new T.Quaternion()),direction=new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(q),normal=new T.Vector3(0,1,0).applyQuaternion(q);
    owner.solver!({side,point:target,direction,normal,curl:nearest.n.endsWith('hand')?.35:0},contactWeight);
-   if(nearest.n.endsWith('hand')){const otherSide=nearest.n[0] as 'L'|'R',oq=other.getWorldQuaternion(new T.Quaternion());partner.solver!({side:otherSide,point:target,direction:new T.Vector3(otherSide==='L'?1:-1,0,0).applyQuaternion(oq),normal:new T.Vector3(0,1,0).applyQuaternion(oq),curl:.35},contactWeight);handled.add(j+nearest.n);}
+   if(nearest.n.endsWith('hand')){const otherSide=nearest.n[0] as 'L'|'R',oq=other.getWorldQuaternion(new T.Quaternion());partner.solver!({side:otherSide,point:target.clone(),direction:new T.Vector3(otherSide==='L'?1:-1,0,0).applyQuaternion(oq),normal:new T.Vector3(0,1,0).applyQuaternion(oq),curl:.35},contactWeight);handled.add(j+nearest.n);}
    handled.add(i+from);
   }
  }
