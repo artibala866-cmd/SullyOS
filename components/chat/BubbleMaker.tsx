@@ -1206,7 +1206,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                     <div className="flex flex-col">
                         <h1 className="text-xl font-medium text-slate-700">气泡制作器</h1>
                         <div className="text-[10px] flex items-center gap-1.5 text-slate-500">
-                            <span className={`inline-flex w-2 h-2 rounded-full ${isAppliedToPreview && !isDirty ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
+                            <span className={`inline-flex w-2 h-2 rounded-full ${isAppliedToPreview && !isDirty ? 'bg-neutral-700' : 'bg-neutral-600'}`}></span>
                             {isAppliedToPreview && !isDirty ? '已保存到气泡库' : '有未保存的改动'}
                         </div>
                     </div>
@@ -1251,11 +1251,11 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                 {isThemeLibraryOpen && (customThemes.length > 0 ? (
                     <div className="mt-3">
                         {customThemes.length > 6 && (
-                            <input value={themeLibrarySearch} onChange={e => setThemeLibrarySearch(e.target.value)} placeholder="搜索我的气泡…" className="w-full mb-2.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs outline-none focus:border-indigo-300" />
+                            <input value={themeLibrarySearch} onChange={e => setThemeLibrarySearch(e.target.value)} placeholder="搜索我的气泡…" className="w-full mb-2.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs outline-none focus:border-neutral-400" />
                         )}
                         <div className="grid grid-cols-2 gap-2 max-h-[42vh] overflow-y-auto no-scrollbar pb-1">
                         {visibleSavedThemes.map((theme: ChatTheme) => (
-                            <div key={theme.id} className={`min-w-0 rounded-2xl border p-2.5 ${editingTheme.id === theme.id ? 'border-indigo-300 bg-indigo-50/70' : 'border-slate-200 bg-white'}`}>
+                            <div key={theme.id} className={`min-w-0 rounded-2xl border p-2.5 ${editingTheme.id === theme.id ? 'border-neutral-400 bg-neutral-50/70' : 'border-slate-200 bg-white'}`}>
                                 <div className="flex items-center gap-2 min-w-0">
                                     <span className="flex -space-x-1 shrink-0">
                                         <span className="w-5 h-5 rounded-full border-2 border-white shadow-sm" style={{ background: theme.user?.backgroundColor || '#6366f1' }} />
@@ -1264,7 +1264,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                                     <span className="text-xs font-bold text-slate-700 truncate">{theme.name}</span>
                                 </div>
                                 <div className="grid grid-cols-3 gap-1.5 mt-2.5">
-                                    <button onClick={() => editSavedTheme(theme)} className="py-1.5 rounded-xl bg-indigo-50 text-indigo-600 text-[11px] font-bold">选择载入</button>
+                                    <button onClick={() => editSavedTheme(theme)} className="py-1.5 rounded-xl bg-neutral-50 text-neutral-700 text-[11px] font-bold">选择载入</button>
                                     <button onClick={() => void exportSavedTheme(theme)} className="py-1.5 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-bold">导出</button>
                                     <button onClick={() => setPendingDeleteTheme(theme)} className="py-1.5 rounded-xl bg-red-50 text-red-500 text-[11px] font-bold">删除</button>
                                 </div>
@@ -1295,7 +1295,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                 `}</style>
 
                 <div className="w-full max-w-sm relative z-10 bg-white/70 dark:bg-black/20 backdrop-blur-sm rounded-2xl p-3 border border-white/30 shadow-sm">
-                    <div className={`absolute right-3 top-3 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm ${overallContrastScore.grade === 'A' ? 'bg-emerald-100 text-emerald-700' : overallContrastScore.grade === 'B' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
+                    <div className={`absolute right-3 top-3 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm ${overallContrastScore.grade === 'A' ? 'bg-neutral-100 text-neutral-800' : overallContrastScore.grade === 'B' ? 'bg-neutral-100 text-neutral-800' : 'bg-neutral-100 text-neutral-800'}`}>
                         可读性 {overallContrastScore.grade}
                     </div>
                     <div className="flex flex-wrap gap-2 mb-3">
@@ -1337,8 +1337,8 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                         <button onClick={() => setPreviewCompareMode('toggle')} className={`px-2 py-1 rounded-full ${previewCompareMode === 'toggle' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>一键切换</button>
                         {previewCompareMode === 'toggle' && (
                             <div className="flex items-center gap-1">
-                                <button onClick={() => setPreviewToggleTarget('A')} className={`px-2 py-1 rounded ${previewToggleTarget === 'A' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>A 当前编辑</button>
-                                <button onClick={() => setPreviewToggleTarget('B')} className={`px-2 py-1 rounded ${previewToggleTarget === 'B' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>B 上次保存</button>
+                                <button onClick={() => setPreviewToggleTarget('A')} className={`px-2 py-1 rounded ${previewToggleTarget === 'A' ? 'bg-neutral-800 text-white' : 'bg-slate-100 text-slate-500'}`}>A 当前编辑</button>
+                                <button onClick={() => setPreviewToggleTarget('B')} className={`px-2 py-1 rounded ${previewToggleTarget === 'B' ? 'bg-neutral-800 text-white' : 'bg-slate-100 text-slate-500'}`}>B 上次保存</button>
                             </div>
                         )}
                     </div>
@@ -1407,7 +1407,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                     <div className="flex min-w-0 flex-1 gap-5 overflow-x-auto no-scrollbar">
                         <button onClick={() => requestTabSwitch('user')} className={`text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'user' ? 'text-slate-800' : 'text-slate-300'}`}>用户气泡</button>
                         <button onClick={() => requestTabSwitch('ai')} className={`text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'ai' ? 'text-slate-800' : 'text-slate-300'}`}>角色气泡</button>
-                        <button onClick={() => requestTabSwitch('css')} className={`text-sm font-bold transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'css' ? 'text-indigo-600' : 'text-slate-300'}`}>
+                        <button onClick={() => requestTabSwitch('css')} className={`text-sm font-bold transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'css' ? 'text-neutral-700' : 'text-slate-300'}`}>
                             <span>⚡</span> 自定义CSS
                         </button>
                     </div>
@@ -1443,13 +1443,13 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                                 可使用 <code className="bg-slate-200 px-1 rounded">.sully-bubble-user</code>、<code className="bg-slate-200 px-1 rounded">.sully-bubble-ai</code> 定制气泡，使用 <code className="bg-slate-200 px-1 rounded">.sully-voice-bar</code>、<code className="bg-slate-200 px-1 rounded">.sully-voice-bar-button</code>、<code className="bg-slate-200 px-1 rounded">.sully-voice-bar-wave-segment</code> 单独定制语音条。
                                 <br/>连续消息可用 <code className="bg-slate-200 px-1 rounded">.sully-bubble-group-last</code> 命中组末气泡；基础样式里的“尾巴出现位置”也会自动隐藏中间气泡的伪元素尾巴。
                                 <br/>支持使用 <code className="text-red-400">!important</code> 覆盖可视化编辑器的设置。
-                                <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-2 text-[10px] text-indigo-700">
+                                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-[10px] text-neutral-800">
                                     <div className="font-semibold">优先级说明：可视化参数 vs CSS 覆盖</div>
                                     <div>1) 可视化滑杆/颜色面板先生成基础样式；2) 自定义 CSS 后应用；3) <code>!important</code> 仅对命中的属性强制生效，会压过同属性的可视化参数。</div>
                                 </div>
                                 <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
                                     <div>
-                                        <div className={`text-[10px] font-semibold ${cssValidation.isValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        <div className={`text-[10px] font-semibold ${cssValidation.isValid ? 'text-neutral-700' : 'text-neutral-700'}`}>
                                             {cssValidation.isValid ? '语法检查通过' : '语法检查未通过'}
                                         </div>
                                         <div className="text-[10px] text-slate-500">检测到 <code className="text-red-500">!important</code> {cssValidation.importantCount} 处</div>
@@ -1469,12 +1469,12 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                                 value={editingTheme.customCss || ''} 
                                 onChange={(e) => updateTheme(prev => ({ ...prev, customCss: e.target.value }))}
                                 placeholder="/* 在这里输入 CSS 代码 */"
-                                className="flex-1 w-full bg-slate-800 text-slate-300 font-mono text-xs p-4 rounded-xl resize-none shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"
+                                className="flex-1 w-full bg-slate-800 text-slate-300 font-mono text-xs p-4 rounded-xl resize-none shadow-inner focus:ring-2 focus:ring-neutral-600 outline-none leading-relaxed"
                                 spellCheck={false}
                             />
 
                             {!cssValidation.isValid && (
-                                <div className="text-[11px] rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
+                                <div className="text-[11px] rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2 text-neutral-800">
                                     <div className="font-semibold mb-1">CSS 错误提示（实时）</div>
                                     <ul className="space-y-1 list-disc pl-4">
                                         {cssValidation.errors.map((error, idx) => (
@@ -1493,7 +1493,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                                         <button
                                             key={snippet.id}
                                             onClick={() => insertCssSnippet(snippet)}
-                                            className="text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+                                            className="text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:border-neutral-400 hover:bg-neutral-50 transition-all"
                                         >
                                             <div className="text-xs font-semibold text-slate-700">{snippet.name}</div>
                                             <div className="text-[10px] text-slate-500 mt-1">{snippet.description}</div>
@@ -1531,7 +1531,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                             <div>
                                 <div className="flex items-center justify-between mb-2">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">风格模板卡片</label>
-                                    <button onClick={randomizeMonochrome} className="text-[10px] px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100">随机生成（同色系）</button>
+                                    <button onClick={randomizeMonochrome} className="text-[10px] px-2.5 py-1 rounded-full bg-neutral-50 text-neutral-700 border border-neutral-200 hover:bg-neutral-100">随机生成（同色系）</button>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     {STYLE_TEMPLATES.map(template => (
@@ -1559,22 +1559,22 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                             </div>
 
                             <>
-                                <div className={`rounded-xl border p-3 ${showLowContrastWarning ? 'border-amber-200 bg-amber-50/80' : 'border-emerald-200 bg-emerald-50/70'}`}>
+                                <div className={`rounded-xl border p-3 ${showLowContrastWarning ? 'border-neutral-300 bg-neutral-50/80' : 'border-neutral-300 bg-neutral-50/70'}`}>
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div>
                                             <div className="text-[11px] font-semibold text-slate-700">实时可读性评分：{activeContrastScore.grade}（{activeContrastScore.ratio.toFixed(2)}:1）</div>
-                                            <div className={`text-[10px] mt-1 ${showLowContrastWarning ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                            <div className={`text-[10px] mt-1 ${showLowContrastWarning ? 'text-neutral-800' : 'text-neutral-800'}`}>
                                                 {showLowContrastWarning ? '文字可读性偏低，建议提升文字与背景对比。' : '当前文字与背景对比良好。'}
                                             </div>
                                         </div>
                                         {showLowContrastWarning && (
-                                            <button onClick={oneClickFixContrast} className="text-[10px] px-2.5 py-1 rounded-full bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors">
+                                            <button onClick={oneClickFixContrast} className="text-[10px] px-2.5 py-1 rounded-full bg-neutral-700 text-white font-semibold hover:bg-neutral-800 transition-colors">
                                                 一键修复
                                             </button>
                                         )}
                                     </div>
                                     {showCombinedRisk && (
-                                        <div className="mt-2 text-[10px] text-rose-600 font-medium">
+                                        <div className="mt-2 text-[10px] text-neutral-700 font-medium">
                                             组合风险：背景图透明层较强 + 对比度不足，可能在复杂壁纸上难以阅读。
                                         </div>
                                     )}
@@ -1584,11 +1584,11 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                             {/* Colors & Opacity */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">文字颜色</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：自动对比</span></div>
+                                    <div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">文字颜色</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-50 text-neutral-700">推荐：自动对比</span></div>
                                     <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100"><input type="color" value={activeStyle.textColor} onChange={(e) => updateStyle('textColor', e.target.value)} className="w-8 h-8 rounded-lg border-none cursor-pointer bg-transparent" /></div>
                                 </div>
                                 <div>
-                                    <div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">气泡颜色 (Base)</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：同色系</span></div>
+                                    <div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">气泡颜色 (Base)</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-50 text-neutral-700">推荐：同色系</span></div>
                                     <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
                                         <input 
                                             type="color" 
@@ -1604,7 +1604,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                             <div>
                                 <div className="flex justify-between mb-2">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase">背景透明度 (Background Alpha)</label>
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：85%</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-50 text-neutral-700">推荐：85%</span>
                                 </div>
                                 <input 
                                     type="range" min="0" max="1" step="0.05" 
@@ -1618,7 +1618,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                             <div>
                                 <div className="flex justify-between mb-2">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase">气泡大小/紧凑度 (Size/Padding)</label>
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：12</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-50 text-neutral-700">推荐：12</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] text-slate-400">紧凑</span>
@@ -1635,7 +1635,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                             {/* Border Radius */}
                             <div className="space-y-3">
                                 <div>
-                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase">四角一起调</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">{activeStyle.borderRadius}px</span></div>
+                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase">四角一起调</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-50 text-neutral-700">{activeStyle.borderRadius}px</span></div>
                                     <input type="range" min="0" max="36" value={activeStyle.borderRadius} onChange={(e) => updateAllCornerRadii(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary" />
                                 </div>
                                 <details className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -1704,7 +1704,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                             {/* Background Image Opacity */}
                             {activeStyle.backgroundImage && (
                                 <div>
-                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase">底纹透明度</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：35%~55%</span></div>
+                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase">底纹透明度</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-50 text-neutral-700">推荐：35%~55%</span></div>
                                     <input type="range" min="0" max="1" step="0.05" value={activeStyle.backgroundImageOpacity ?? 0.5} onChange={(e) => updateStyle('backgroundImageOpacity', parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary" />
                                 </div>
                             )}
@@ -1933,7 +1933,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                         <p className="mt-2 text-sm text-slate-500">当前文字与背景的对比度过低，可能导致聊天内容难以辨认。仍要保存此样式吗？</p>
                         <div className="mt-5 flex gap-3">
                             <button onClick={() => setShowLowContrastConfirm(false)} className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 font-bold">再调整一下</button>
-                            <button onClick={() => { setShowLowContrastConfirm(false); doSaveTheme(pendingSaveExit); }} className="flex-1 py-2.5 rounded-2xl bg-amber-500 text-white font-bold">仍然保存</button>
+                            <button onClick={() => { setShowLowContrastConfirm(false); doSaveTheme(pendingSaveExit); }} className="flex-1 py-2.5 rounded-2xl bg-neutral-700 text-white font-bold">仍然保存</button>
                         </div>
                     </div>
                 </div>
@@ -1984,7 +1984,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                                             if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
                                             return next;
                                         })}
-                                        className={`flex items-center gap-3 p-2.5 rounded-2xl border cursor-pointer transition-all ${checked ? 'bg-indigo-50/80 border-indigo-200' : 'bg-white border-slate-100'}`}
+                                        className={`flex items-center gap-3 p-2.5 rounded-2xl border cursor-pointer transition-all ${checked ? 'bg-neutral-50/80 border-neutral-300' : 'bg-white border-slate-100'}`}
                                     >
                                         <TokenImg value={c.avatar} className="w-10 h-10 rounded-xl object-cover shrink-0" alt="" />
                                         <div className="flex-1 min-w-0">
@@ -1993,7 +1993,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                                                 {usingThis ? '正在用这套气泡' : (currentBubble && currentBubble !== 'default' ? '在用其他气泡' : '默认气泡')}
                                             </div>
                                         </div>
-                                        <div className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${checked ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
+                                        <div className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${checked ? 'bg-neutral-700 border-neutral-600' : 'border-slate-300'}`}>
                                             {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>}
                                         </div>
                                     </div>
