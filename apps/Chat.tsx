@@ -1782,8 +1782,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             case 'transfer': setModalType('transfer'); break;
             case 'poke': {
                 const suffix = char ? readCharacterPhoneSelfProfile(char.id).pokeSuffix : '';
-                const suffixText = suffix && char ? ' 我戳了戳' + chatCharacterDisplayName(char) + suffix : '';
-                handleSendText('[戳一戳]' + suffixText, 'interaction');
+                // Keep the original interaction payload; suffix is metadata
+                // so private-chat parsing and special message cards stay intact.
+                handleSendText('[戳一戳]', 'interaction', suffix ? {pokeSuffix:suffix} : undefined);
                 break;
             }
             case 'archive': setModalType(char?.memoryPalaceEnabled ? 'archive-legacy-warning' : 'archive-settings'); break;
@@ -4609,7 +4610,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
 
             {characterPhoneOpen && char && <CharacterPhone name={chatCharacterDisplayName(char)} characterId={char.id} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} persona={char.description || ''} api={apiConfig} onApplyAvatar={async (image) => {await updateCharacter(char.id, {avatar:image});}}
-                onPoke={(suffix) => {void handleSendText('[戳一戳]' + (suffix ? ' 我戳了戳' + chatCharacterDisplayName(char) + suffix : ''),'interaction');}}
+                onPoke={(suffix) => {void handleSendText('[戳一戳]','interaction',suffix ? {pokeSuffix:suffix} : undefined);}}
                 onClose={() => setCharacterPhoneOpen(false)} />}
             {/* Forward Modal */}
             {char && <MemoryContextSelfCheck key={`memory-self-check:${char.id}`} character={char} active={activeApp === AppID.Chat && modalType === 'none'} onDisable={months => {
