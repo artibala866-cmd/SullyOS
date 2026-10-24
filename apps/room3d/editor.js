@@ -123,7 +123,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  try{finishEnabled=localStorage.getItem('sully-home3d-light-finish')!=='off'}catch{}
  try{const mode=localStorage.getItem('sully-home3d-light-mode');if(mode==='auto'||Object.hasOwn(ROOM_LIGHT_PHASES,mode))lightMode=mode;}catch{}
  const lightUniforms=createRoomLightUniforms();
- let quality='clear';try{const saved=localStorage.getItem('sully-home3d-quality');if(qualities[saved])quality=saved}catch{}
+ let quality=phone||touch?'balanced':'clear';try{const saved=localStorage.getItem('sully-home3d-quality');if(qualities[saved])quality=saved}catch{}
  let detailBudget=qualities[quality].details,frameInterval=1000/qualities[quality].fps,orbitMode=false,inTick=false;
  let gpuContextLost=false;
  function wake(){if(!destroyed&&!suspended&&!document.hidden&&!gpuContextLost&&!frame&&!inTick&&state)frame=requestAnimationFrame(tick)}
@@ -1953,11 +1953,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   let incoming=initialState;
   if(!incoming&&storageKey){const text=localStorage.getItem(storageKey);if(text)incoming=JSON.parse(text)}
   state=incoming?validateHome(incoming,catalog):(onMenu?createStarterHome(catalog):createHome(catalog));residentRoom=state.rooms.some(r=>r.id===state.residentRoomId)?state.residentRoomId:state.activeRoomId;if(onMenu)state.activeRoomId=residentRoom;journal=readHomeRecords(state);state.records=journal;
-  await Promise.all([...new Set([...current().items.filter(i=>!i.stored).map(i=>i.assetId),...catalog.filter(a=>a.petSpecies).map(a=>a.id)])].filter(id=>!templates.has(id)).map(ensureAsset));
-  if(destroyed)return {dispose};
-  for(const a of catalog)thumbs.set(a.id,new URL('thumbnails/'+a.id+'.png'+(a.revision?'?v='+encodeURIComponent(a.revision):''),assetBase).href);
-  petSystem=mountPetSystem({host,scene,getHour:()=>nowInTimeZone(timeZone).getHours(),showEntry:!onMenu,onEvent:event=>{const record=petHomeRecord(event,state,residentPortraits.user?.label||'用户');if(record){journal.push(record);persist();}},contactBridge:beginPetContact,beforeOpen:closeInteraction,home:()=>state,catalog,templates,changed:(rebuildScene=false)=>{persist();if(rebuildScene){rebuild();renderUI();}},invalidate:()=>{dirty=true;wake();},context:()=>({paused:suspended||document.hidden,edit,overview,reducedMotion}),actors:()=>{const entries=[...(visitor&&resident.visible?[{id:activeResidentId(),group:resident}]:[]),...socialEntries.filter(e=>e.group.visible)];return entries.map(e=>({id:e.id,roomId:current().id,x:e.group.position.x,z:e.group.position.z,busy:!!walking||!!socialRuntime?.active||!!kitchenTask||!!visitorActivity||!!visitorSeat}));}});
-  if(!incoming||JSON.stringify(incoming)!==JSON.stringify(state))persist();
+  // Load only the visible room before the first frame; pet-only assets are deferred.
+   await Promise.all(neededAssets().map(ensureAsset));
+   if(destroyed)return {dispose};
+   for(const a of catalog)thumbs.set(a.id,new URL('thumbnails/'+a.id+'.png'+(a.revision?'?v='+encodeURIComponent(a.revision):''),assetBase).href);
+   const petAssetIds=[...new Set(catalog.filter(a=>a.petSpecies).map(a=>a.id))].filter(id=>!templates.has(id));
+   const mountPets=()=>{if(destroyed||petSystem)return;petSystem=mountPetSystem({host,scene,getHour:()=>nowInTimeZone(timeZone).getHours(),showEntry:!onMenu,onEvent:event=>{const record=petHomeRecord(event,state,residentPortraits.user?.label||'用户');if(record){journal.push(record);persist();}},contactBridge:beginPetContact,beforeOpen:closeInteraction,home:()=>state,catalog,templates,changed:(rebuildScene=false)=>{persist();if(rebuildScene){rebuild();renderUI();}},invalidate:()=>{dirty=true;wake();},context:()=>({paused:suspended||document.hidden,edit,overview,reducedMotion}),actors:()=>{const entries=[...(visitor&&resident.visible?[{id:activeResidentId(),group:resident}]:[]),...socialEntries.filter(e=>e.group.visible)];return entries.map(e=>({id:e.id,roomId:current().id,x:e.group.position.x,z:e.group.position.z,busy:!!walking||!!socialRuntime?.active||!!kitchenTask||!!visitorActivity||!!visitorSeat}));}});dirty=true;wake();};
+   if(!petAssetIds.length)mountPets();
+   else Promise.all(petAssetIds.map(ensureAsset)).then(()=>{if(!destroyed)mountPets();}).catch(e=>{if(!destroyed)console.warn('宠物资源延迟加载失败',e);});
+   if(!incoming||JSON.stringify(incoming)!==JSON.stringify(state))persist();
   host.querySelector('.h3-loading').remove();rebuild();renderUI();tick();
   if(thumbnailExport){
   await Promise.all(catalog.filter(a=>a.url&&!templates.has(a.id)).map(a=>ensureAsset(a.id)));
