@@ -8,7 +8,15 @@ import AppIcon from './AppIcon';
 import TokenImg from './TokenImg';
 import { getMobileGameArt } from './mobilegameArt';
 import { SCHEMES, hsl, schemePreview, type TgStyle } from './gotchiScheme';
-import { getChibi } from '../../utils/vrWorld/chibi';
+// Only use active, user-owned figure images; the retired VR slot is never read.
+const getHomeFigureArt = (char: CharacterProfile) => {
+    const custom = char.sprites?.chibi;
+    if (custom) return { img: custom, isFallback: false, flip: false };
+    const sprites = char.activeSkinSetId
+        ? char.dateSkinSets?.find(set => set.id === char.activeSkinSetId)?.sprites || char.sprites
+        : char.sprites;
+    return { img: sprites?.normal || sprites?.happy || char.avatar || '', isFallback: true, flip: false };
+};
 import { isDevDebugAvailable, subscribeDevDebugAvailability } from '../../utils/devDebug';
 
 // ===== 手游主题（mobilegame skin）=====
@@ -131,7 +139,6 @@ const QUICK_ENTRIES: { id: AppID; cn: string }[] = [
 const GRID_CARDS: { id: AppID; cn: string; en: string }[] = [
     { id: AppID.CheckPhone, cn: '查手机', en: 'PHONE' },
     { id: AppID.Date, cn: '见面', en: 'CONTACTS' },
-    { id: AppID.VRWorld, cn: '彼方', en: 'KANATA' },
     { id: AppID.Bank, cn: '存钱罐', en: 'PIGGYBANK' },
     { id: AppID.Schedule, cn: '日程', en: 'SCHEDULE' },
     { id: AppID.Settings, cn: '设置', en: 'SETTINGS' },
@@ -284,8 +291,8 @@ const MobileGameHome: React.FC = () => {
     const tagline = (widgetChar?.description || '不知名种草姬').slice(0, 36);
     const announcement = lastMessage || widgetChar?.description || '一切如常，等待新的故事发生。';
     const expPct = Math.min(100, Math.round((stats.exp / stats.expMax) * 100));
-    // 时钟卡角色：优先彼方 chibi 小贴纸（透明立绘），没有就头像融合
-    const chibi = widgetChar ? getChibi(widgetChar) : null;
+    // 时钟卡角色：优先自定义手办形象，否则使用当前角色头像
+    const chibi = widgetChar ? getHomeFigureArt(widgetChar) : null;
 
     const drawerApps = useMemo(
         () => INSTALLED_APPS.filter(a => a.id !== AppID.CharCreatorDev || devDebugVisible),
@@ -458,7 +465,7 @@ const MobileGameHome: React.FC = () => {
                         <span className="text-[12px]" style={{ color: PAL.pink }}>✦</span>
                     </div>
 
-                    {/* 角色：有彼方 chibi → 小贴纸；否则头像电影感融合（参考日常表/攻略本）*/}
+                    {/* 角色：有自定义形象 → 小贴纸；否则头像电影感融合（参考日常表/攻略本）*/}
                     {chibi?.img && (chibi.isFallback ? (
                         <div className="absolute right-0 top-0 bottom-0 w-[54%] pointer-events-none"
                             style={{
@@ -472,7 +479,7 @@ const MobileGameHome: React.FC = () => {
                         <TokenImg value={chibi.img} alt="" loading="lazy"
                             className="absolute right-0 bottom-0 object-contain object-bottom pointer-events-none"
                             style={{
-                                height: '64%', // 相对时钟卡高度，避免吃彼方里按 VR 调的绝对 scale 而巨大
+                                height: '64%', // 相对时钟卡高度，避免旧形象尺寸影响卡片高度
                                 transform: `scaleX(${chibi.flip ? -1 : 1})`,
                                 filter: 'drop-shadow(0 5px 10px rgba(120,90,170,0.45))',
                             }} />
