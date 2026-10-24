@@ -17,7 +17,7 @@
     
     <!-- PWA Settings -->
     <link rel="manifest" href="./manifest.webmanifest" />
-    <meta name="theme-color" content="#0f1115" />
+    <meta name="theme-color" content="#111111" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -33,6 +33,20 @@
     <script src="%BASE_URL%vendor/tailwind-3.4.17.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600&family=Nunito:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&family=DM+Serif+Display:ital@0;1&family=Caveat:wght@400;500;600;700&family=Shippori+Mincho:wght@400;500;600;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Ma+Shan+Zheng&family=Long+Cang&family=ZCOOL+KuaiLe&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script>
+      // SullyOS monochrome UI palette: retain existing utility class names while
+      // rendering buttons, switches, warnings and gradients in neutral grays.
+      // This does not alter photos, avatars, image files or user-supplied media.
+      const sullyNeutralScale = {
+        50: '#fafafa', 100: '#f5f5f5', 200: '#e5e5e5',
+        300: '#d4d4d4', 400: '#a3a3a3', 500: '#737373',
+        600: '#525252', 700: '#404040', 800: '#262626',
+        900: '#171717', 950: '#0a0a0a'
+      };
+      const sullyMonochromeUtilities = Object.fromEntries(
+        ['red','orange','amber','yellow','lime','green','emerald','teal','cyan',
+         'sky','blue','indigo','violet','purple','fuchsia','pink','rose',
+         'slate','zinc','stone'].map(name => [name, sullyNeutralScale])
+      );
       tailwind.config = {
         theme: {
           extend: {
@@ -40,6 +54,7 @@
               sans: ['var(--app-font)', 'sans-serif'],
             },
             colors: {
+              ...sullyMonochromeUtilities,
               primary: 'hsl(var(--primary-hue), var(--primary-sat), var(--primary-lightness))', 
               'primary-focus': 'hsl(var(--primary-hue), var(--primary-sat), calc(var(--primary-lightness) - 10%))',
               'primary-light': 'hsl(var(--primary-hue), var(--primary-sat), 92%)',
@@ -97,8 +112,8 @@
                 '100%': { transform: 'translateY(-30px) scale(1.1)', opacity: '0.6' },
               },
               glowPulse: {
-                '0%, 100%': { boxShadow: '0 0 15px rgba(139, 92, 246, 0.15)' },
-                '50%': { boxShadow: '0 0 25px rgba(139, 92, 246, 0.3)' },
+                '0%, 100%': { boxShadow: '0 0 15px rgba(75, 75, 75, 0.15)' },
+                '50%': { boxShadow: '0 0 25px rgba(75, 75, 75, 0.3)' },
               },
               shimmer: {
                 '0%': { backgroundPosition: '-200% 0' },
@@ -124,9 +139,11 @@
     </script>
     <style>
       :root {
-        --primary-hue: 245; 
-        --primary-sat: 25%;
-        --primary-lightness: 65%;
+        color-scheme: light;
+        accent-color: #303030;
+        --primary-hue: 0; 
+        --primary-sat: 0%;
+        --primary-lightness: 38%;
         /* 安全区单一来源：原生 env 与 JS 探测值 --standalone-safe-area-*（见 utils/iosStandalone.ts）取大，
            iOS 全屏 PWA 下原生 env 偶发返回 0 时由探测值兜底。新增 App 一律引用这三个变量。 */
         --safe-top: max(env(safe-area-inset-top, 0px), var(--standalone-safe-area-top, 0px));
@@ -148,7 +165,7 @@
         height: var(--app-height, 100lvh);
       }
       body {
-        background-color: #0f1115;
+        background-color: #111111;
         margin: 0;
         overflow: hidden;
         /* Critical: Prevent browser back/forward swipe navigation AND vertical rubber-banding */
