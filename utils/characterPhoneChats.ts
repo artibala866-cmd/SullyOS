@@ -35,7 +35,11 @@ export function updateCharacterPhoneChats(
   characterId: string,
   transform: (old: CharacterPhoneChat[]) => CharacterPhoneChat[],
 ): CharacterPhoneChat[] {
-  const next = transform(readCharacterPhoneChats(characterId));
+  const previous = readCharacterPhoneChats(characterId);
+  const next = transform(previous);
+  // A rejected duplicate delivery is not a new phone event. Avoid redundant
+  // multi-KB localStorage rewrites, UI reloads and unexpected cross-app refreshes.
+  if (next === previous) return previous;
   localStorage.setItem(phoneChatStorageKey(characterId), JSON.stringify(next));
   notifyCharacterPhoneChatsChanged(characterId);
   return next;
