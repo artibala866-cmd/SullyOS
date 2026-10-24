@@ -476,7 +476,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                             <b className="block text-white/90 mb-1">跳过显影动画</b>
                             <span className="text-white/45 text-xs">以后进入时直接看见召回痕迹</span>
                         </span>
-                        <span className={`w-10 h-6 rounded-full p-1 transition-colors ${skipAnimation ? 'bg-neutral-700' : 'bg-white/15'}`}>
+                        <span className={`w-10 h-6 rounded-full p-1 transition-colors ${skipAnimation ? 'bg-violet-400' : 'bg-white/15'}`}>
                             <span className={`block w-4 h-4 rounded-full bg-white transition-transform ${skipAnimation ? 'translate-x-4' : ''}`} />
                         </span>
                     </button>
@@ -635,7 +635,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                     <div className="memory-drawer-sheet">
                         <div className="flex items-start justify-between gap-4 mb-3">
                             <div>
-                                <div className="text-[11px] uppercase tracking-[.18em] text-neutral-300/45 mb-2">
+                                <div className="text-[11px] uppercase tracking-[.18em] text-violet-200/45 mb-2">
                                     {editorTarget.id === '__dialogue__' ? 'memory diagnosis' : 'patch in place'}
                                 </div>
                                 <h2 className="text-xl leading-tight">
@@ -684,13 +684,13 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                 </div>
                                 {suspectIds.length > 0 && (
                                     <div className="mb-4">
-                                        <div className="text-xs text-neutral-300/65 mb-2">可能需要核对</div>
+                                        <div className="text-xs text-amber-100/65 mb-2">可能需要核对</div>
                                         <div className="flex flex-wrap gap-2">
                                             {suspectIds.map((id, index) => (
                                                 <button
                                                     key={id}
                                                     onClick={() => openSuspect(id)}
-                                                    className="px-3 py-2 rounded-full bg-neutral-200/10 border border-neutral-200/15 text-xs text-neutral-100"
+                                                    className="px-3 py-2 rounded-full bg-amber-200/10 border border-amber-100/15 text-xs text-amber-50"
                                                 >
                                                     线索 {index + 1} · 去修改
                                                 </button>
@@ -708,7 +708,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                     <button
                                         onClick={submitConcern}
                                         disabled={!concern.trim() || diagnosing}
-                                        className="absolute right-3 bottom-3 w-10 h-10 rounded-full grid place-items-center bg-neutral-200 text-neutral-950 disabled:opacity-35"
+                                        className="absolute right-3 bottom-3 w-10 h-10 rounded-full grid place-items-center bg-violet-200 text-violet-950 disabled:opacity-35"
                                     >
                                         <PaperPlaneTilt size={17} weight="fill" />
                                     </button>
@@ -785,24 +785,24 @@ const NodeEditor: React.FC<{
                     <span>{formatRepairMemoryDate(item.node.createdAt)}</span>
                     <span>·</span>
                     <span>{getRoomLabel(item.node.room)}</span>
-                    {item.recalled && <span className="text-neutral-300/75">本轮经过</span>}
+                    {item.recalled && <span className="text-violet-200/75">本轮经过</span>}
                     {item.kind === 'archived' && <span className="text-white/35">已归档 · 本轮未注入</span>}
                     {!item.recalled && item.kind !== 'archived' && <span className="text-white/35">同盒展开 · 本轮未直接注入</span>}
                 </div>
                 {!editing && (
                     <button
-                        className="flex items-center gap-1.5 text-xs text-neutral-200/75"
+                        className="flex items-center gap-1.5 text-xs text-violet-100/75"
                         onClick={() => setEditing(true)}
                     >
                         <PencilSimple size={14} /> 修改
                     </button>
                 )}
             </div>
-            {reason && <div className="mb-3 text-xs leading-6 text-neutral-300/70">？？？：{reason}</div>}
+            {reason && <div className="mb-3 text-xs leading-6 text-amber-100/70">？？？：{reason}</div>}
             {editing ? (
                 <>
                     <textarea rows={Math.min(12, Math.max(5, Math.ceil(content.length / 34)))} value={content} onChange={event => setContent(event.target.value)} />
-                    {error && <p className="mt-2 text-xs text-neutral-300">{error}</p>}
+                    {error && <p className="mt-2 text-xs text-rose-300">{error}</p>}
                     <div className="flex justify-end gap-2 mt-3">
                         <button
                             className="memory-action-quiet"
