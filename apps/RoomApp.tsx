@@ -1,4 +1,4 @@
-import React,{useEffect,useState,useRef,useLayoutEffect,Suspense} from 'react';
+import React,{useEffect,useState,useRef,useLayoutEffect,useCallback,Suspense} from 'react';
 import {useOS} from '../context/OSContext';
 import {AppID} from '../types';
 import {roomLaunch} from '../utils/roomLaunch';
@@ -23,6 +23,8 @@ const RoomApp:React.FC=()=>{
  const dream=useDreamSim();
  const shellRef=useRef<HTMLDivElement>(null);
  const [dreamTop,setDreamTop]=useState(236);
+ const [homeReadyCharId,setHomeReadyCharId]=useState<string|null>(null);
+ const handleHomeReady=useCallback((ready:boolean)=>setHomeReadyCharId(ready?selected:null),[selected]);
  useLayoutEffect(()=>{
   if(!charForRail(selected,characters))return;
   const shell=shellRef.current;
@@ -66,7 +68,7 @@ const RoomApp:React.FC=()=>{
  const residents=char?[...(userProfile.chibiStudio?.userChibi?.state?[{id:'user',label:userProfile.name||'你',state:userProfile.chibiStudio.userChibi.state}]:[]),...characters.filter(c=>c.id!==char.id&&(c.chibiStudio?.home3D?.state||c.chibiStudio?.room?.state)).map(c=>({id:c.id,label:c.name,avatar:c.avatar,state:c.chibiStudio?.home3D?.state??c.chibiStudio?.room?.state,hair:c.chibiStudio?.home3D?.hair}))]:[];
  return <div ref={shellRef} className="room-dream-shell relative h-full w-full overflow-hidden bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-900">
   {char?<Suspense fallback={<div className="grid h-full place-items-center text-sm">正在打开 3D 家园…</div>}>
-   <Home3DView key={char.id} suspended={activeApp!==AppID.Room||dreamOpen} character={char}
+   <Home3DView key={char.id} suspended={activeApp!==AppID.Room||dreamOpen} onReadyChange={handleHomeReady} character={char}
     onDefinitionChange={value=>updateCharacter(char.id,{homeDefinition:value})}
     residents={residents} value={char.home3D} onChange={value=>updateCharacter(char.id,{home3D:value})}
     onBack={()=>{setDreamOpen(false);setSelected(null);}}/>
@@ -81,7 +83,7 @@ const RoomApp:React.FC=()=>{
    </div>
   </div>}
   <style>{`.room-dream-shell:has(.home-life-overlay) .room-dream-entry,.room-dream-shell:has([role="dialog"]) .room-dream-entry,.room-dream-shell:has(.home-social .home-social-wheel) .room-dream-entry,.room-dream-shell:has(.home-social section) .room-dream-entry,.room-dream-shell:has(.home-social[aria-expanded="true"]) .room-dream-entry{display:none}`}</style>
-  {char&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0, 0, 0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation",top:dreamTop}}><MoonStars size={23} weight="thin"/></button>}
+  {char&&homeReadyCharId===char.id&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0, 0, 0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation",top:dreamTop}}><MoonStars size={23} weight="thin"/></button>}
   {dreamOpen&&dreamChar&&<div className="absolute inset-0 z-50"><DreamTheater char={dreamChar} onExit={()=>{setDreamOpen(false);setDreamOwner(null);}}/></div>}
  </div>;
 };
