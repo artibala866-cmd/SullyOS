@@ -75,7 +75,7 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
    .then(e=>{if(!e||cancelled)return;setEditor(e);onEditor?.(e);}).catch(e=>{if(!cancelled)setError(e.message)});
   return()=>{cancelled=true;controller.abort(homeDisposalReason())};
  },[]);
- return <div className={`home-island ${homely?'homely-scene':''} relative h-full w-full`} data-chat-open={homely&&lifePanel==='chat'} data-photo-active={photoActive} style={{paddingBottom:'var(--safe-bottom, 0px)',background:'#fafafa'}}>
+ return <div className={`home-island ${homely?'homely-scene':''} relative h-full w-full min-h-0 overflow-hidden`} data-chat-open={homely&&lifePanel==='chat'} data-photo-active={photoActive} style={{background:'#fafafa'}}>
    <div ref={host} className="h-full w-full" />
    {editor&&!homely&&<HomeQualityTip editor={editor} active={!suspended&&!lifePanel&&!phoneOpen&&!photoActive}/>}
    {editor&&!suspended&&<>{(!homely||lifePanel!=='chat')&&<HomeSpeechBubble editor={editor}/>}<HomePresenceBubbles editor={editor} character={character} enabled={mainReady&&!lifePanel&&!phoneOpen} canInvite={!!api&&!!user} onInitiative={setInitiative}/></>}
