@@ -21,9 +21,6 @@ import JournalThemeArtwork from '../components/journal/JournalThemeArtwork';
 
 const INTRO_SEEN_KEY = 'journal_app_intro_seen_v4';
 
-const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
-const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
-
 // --- Assets & Constants ---
 
 const PAPER_STYLES = [
@@ -87,9 +84,10 @@ const JournalApp: React.FC = () => {
     // App 顶层，才能在选择页、列表页与书写页之间切换时继续预览同一套 CSS。
     const [previewJournalAppearance, setPreviewJournalAppearance] = useState<JournalAppearance | undefined>();
     const effectiveJournalAppearance = previewJournalAppearance || theme.journalAppearance;
-    // 原本琥珀严格保留旧的单页结构；其它主题拥有各自的实体 / 设备版式。
-    const effectiveJournalPreset = effectiveJournalAppearance?.preset || 'original';
-    const journalUsesScrapbookLayout = effectiveJournalPreset !== 'original';
+    // Only the monochrome notebook remains. Legacy saved preset IDs fall back
+    // to this layout, while user-authored CSS and diary data remain intact.
+    const effectiveJournalPreset = 'original' as const;
+    const journalUsesScrapbookLayout = false;
     const journalLayoutClass = journalUsesScrapbookLayout
         ? ` sully-journal-designed sully-journal-theme-${effectiveJournalPreset}`
         : '';
@@ -782,7 +780,7 @@ ${charPart}
                                 left: `${s.x}%`, 
                                 top: `${s.y}%`, 
                                 transform: `translate(-50%, -50%) rotate(${s.rotation}deg) scale(${scale})`,
-                                border: isSelected ? '2px dashed #3b82f6' : 'none',
+                                border: isSelected ? '2px dashed #303030' : 'none',
                                 borderRadius: '8px',
                                 padding: '4px'
                             }}
