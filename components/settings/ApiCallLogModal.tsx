@@ -127,7 +127,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                     <button
                         onClick={handleClear}
                         disabled={entries.length === 0}
-                        className="px-5 py-3 bg-rose-50 text-rose-500 font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-40"
+                        className="px-5 py-3 bg-neutral-50 text-neutral-500 font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-40"
                     >
                         清空
                     </button>
@@ -150,14 +150,14 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
             </div>
 
             {showHelp && (
-                <div className="mb-3 rounded-2xl bg-amber-50/70 border border-amber-200/60 px-4 py-3 text-[11px] text-slate-600 leading-relaxed space-y-2">
-                    <p className="font-bold text-amber-700">「实际后端」是什么——仅供参考，不是测谎仪</p>
+                <div className="mb-3 rounded-2xl bg-neutral-50/70 border border-neutral-200/60 px-4 py-3 text-[11px] text-slate-600 leading-relaxed space-y-2">
+                    <p className="font-bold text-neutral-700">「实际后端」是什么——仅供参考，不是测谎仪</p>
                     <p>
                         它是<span className="font-semibold">对面在回复里自己报的模型名字</span>。注意：这个名字是对面自己填的，可以是真的，也可以是假的。
                     </p>
                     <p className="font-semibold">三种情况：</p>
                     <p>
-                        <span className="font-semibold text-amber-600">🟡 琥珀色 + ⚠️</span>：报的名字和你要的对不上。
+                        <span className="font-semibold text-neutral-600">🟡 琥珀色 + ⚠️</span>：报的名字和你要的对不上。
                         <span className="font-semibold">有可能</span>被换了便宜模型，但也可能只是站子标签没写整齐——别只凭这一行去定罪。
                     </p>
                     <p>
@@ -170,7 +170,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                     <p>
                         想判断有没有被偷偷换模型，要几个信号<span className="font-semibold">一起看</span>：token 数是否突然对不上（比如平时 4 万这次 1.5 万）、速度是否突变、角色是否突然变笨/掉格式。只有一个信号异常时，先观望，多攒几轮再说。
                     </p>
-                    <div className="pt-2 border-t border-amber-200/60 space-y-2">
+                    <div className="pt-2 border-t border-neutral-200/60 space-y-2">
                         <p className="font-bold text-sky-700">带「☁️ 云端」的那些是什么</p>
                         <p>
                             开了<span className="font-semibold">即时对话</span>之后，聊天不再由这个页面发出去，而是交给你自己那台 Worker 在云端发——发完就能关页面，回复照样回得来。这类调用一样记在这里，只是有几处看不到：
@@ -182,7 +182,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                             <span className="font-semibold">没有耗时、没有实际后端</span>：请求在云端发出，本地既量不到时间，也看不到对面自报的模型名。
                         </p>
                         <p>
-                            <span className="font-semibold text-amber-600">「只算末轮」</span>：角色查了东西再接着说的那种，一轮里会调好几次模型，而云端只报得回最后一次的 token。这条记录上的数字<span className="font-semibold">比实际用量小</span>，别拿它去跟账单对齐。
+                            <span className="font-semibold text-neutral-600">「只算末轮」</span>：角色查了东西再接着说的那种，一轮里会调好几次模型，而云端只报得回最后一次的 token。这条记录上的数字<span className="font-semibold">比实际用量小</span>，别拿它去跟账单对齐。
                         </p>
                         <p>
                             <span className="font-semibold">「已顶替」</span>：这条还没等到回复你就又发了一句，云端把两句合成一次回。这一轮不再单独等回复了。
@@ -241,7 +241,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                                 key={e.id}
                                 onClick={hasBreakdown ? () => { if (!expanded) trackEvent('展开单条输入构成'); setExpandedId(expanded ? null : e.id); } : undefined}
                                 className={`rounded-2xl border p-3 ${
-                                    e.ok ? 'bg-white/70 border-slate-200/60' : 'bg-rose-50/60 border-rose-200/60'
+                                    e.ok ? 'bg-white/70 border-slate-200/60' : 'bg-neutral-50/60 border-neutral-200/60'
                                 } ${hasBreakdown ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}
                             >
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -260,8 +260,8 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                                         <span
                                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                                 e.superseded ? 'bg-slate-100 text-slate-500'
-                                                    : e.pending ? 'bg-amber-100 text-amber-600'
-                                                        : e.ok ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                                                    : e.pending ? 'bg-neutral-100 text-neutral-600'
+                                                        : e.ok ? 'bg-neutral-100 text-neutral-600' : 'bg-neutral-100 text-neutral-600'
                                             }`}
                                         >
                                             {e.superseded ? '已顶替'
@@ -287,8 +287,8 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                                         const swapped = !isSameCoreModel(e.model, e.backendModel);
                                         return (
                                             <div className="col-span-2 flex items-baseline gap-1.5 min-w-0">
-                                                <span className={`text-[10px] shrink-0 ${swapped ? 'text-amber-500' : 'text-slate-400'}`}>实际后端</span>
-                                                <span className={`break-all font-mono ${swapped ? 'font-semibold text-amber-600' : 'text-slate-500'}`}>
+                                                <span className={`text-[10px] shrink-0 ${swapped ? 'text-neutral-500' : 'text-slate-400'}`}>实际后端</span>
+                                                <span className={`break-all font-mono ${swapped ? 'font-semibold text-neutral-600' : 'text-slate-500'}`}>
                                                     {e.backendModel}{swapped ? ' ⚠️' : ''}
                                                 </span>
                                             </div>
@@ -307,7 +307,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                                                 </span>
                                                 {/* 云端这一轮调了不止一次模型时，回传的用量只有最后那次。
                                                     不注明的话这个数拿去对账永远对不上，还会以为是被多扣了 */}
-                                                {e.tokensPartial && <span className="text-amber-500"> · 只算末轮</span>}
+                                                {e.tokensPartial && <span className="text-neutral-500"> · 只算末轮</span>}
                                             </span>
                                         </div>
                                     )}
@@ -355,15 +355,15 @@ const CAPTURE_KIND_LABEL: Record<ApiRequestCaptureSectionKind, string> = {
 const CAPTURE_KIND_STYLE: Record<ApiRequestCaptureSectionKind, string> = {
     request: 'bg-slate-100 text-slate-500',
     tools: 'bg-sky-50 text-sky-600',
-    system: 'bg-violet-50 text-violet-600',
-    memory: 'bg-amber-50 text-amber-700',
-    worldbook: 'bg-emerald-50 text-emerald-700',
-    group: 'bg-fuchsia-50 text-fuchsia-700',
-    history: 'bg-orange-50 text-orange-700',
-    context: 'bg-indigo-50 text-indigo-600',
-    user: 'bg-blue-50 text-blue-600',
-    assistant: 'bg-rose-50 text-rose-600',
-    tool: 'bg-cyan-50 text-cyan-700',
+    system: 'bg-neutral-50 text-neutral-600',
+    memory: 'bg-neutral-50 text-neutral-700',
+    worldbook: 'bg-neutral-50 text-neutral-700',
+    group: 'bg-neutral-50 text-neutral-700',
+    history: 'bg-neutral-50 text-neutral-700',
+    context: 'bg-neutral-50 text-neutral-600',
+    user: 'bg-neutral-50 text-neutral-600',
+    assistant: 'bg-neutral-50 text-neutral-600',
+    tool: 'bg-neutral-50 text-neutral-700',
 };
 
 async function copyCaptureText(value: string): Promise<void> {
@@ -536,11 +536,11 @@ const OneShotCapturePanel: React.FC<{
             </div>
 
             <div className={`mt-3 rounded-2xl border px-4 py-3 ${
-                armed ? 'border-primary/25 bg-primary/5' : capture ? 'border-emerald-200/70 bg-emerald-50/40' : 'border-slate-200/60 bg-slate-50/60'
+                armed ? 'border-primary/25 bg-primary/5' : capture ? 'border-neutral-200/70 bg-neutral-50/40' : 'border-slate-200/60 bg-slate-50/60'
             }`}>
                 <div className="flex items-center gap-2 text-[11px] font-semibold">
-                    <span className={`h-2 w-2 rounded-full ${armed ? 'animate-pulse bg-primary' : capture ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                    <span className={armed ? 'text-primary' : capture ? 'text-emerald-700' : 'text-slate-500'}>
+                    <span className={`h-2 w-2 rounded-full ${armed ? 'animate-pulse bg-primary' : capture ? 'bg-neutral-500' : 'bg-slate-300'}`} />
+                    <span className={armed ? 'text-primary' : capture ? 'text-neutral-700' : 'text-slate-500'}>
                         {armed ? '等待下一次 LLM 调用…' : capture ? '已抓取，开关已自动关闭' : '尚未开启抓取'}
                     </span>
                 </div>
@@ -557,7 +557,7 @@ const OneShotCapturePanel: React.FC<{
                             <Field label="角色" value={capture.meta.charName} />
                             <div className="col-span-2"><Field label="模型" value={capture.model} mono wrap /></div>
                         </div>
-                        <div className="mt-3 border-y border-emerald-100/80 py-3">
+                        <div className="mt-3 border-y border-neutral-100/80 py-3">
                             <div className="flex items-end justify-between gap-4">
                                 <div>
                                     <div className="text-[9px] font-semibold text-slate-400">本次输入 Token</div>
@@ -568,17 +568,17 @@ const OneShotCapturePanel: React.FC<{
                                     <div>不是字符换算</div>
                                 </div>
                             </div>
-                            <div className="mt-2 border-t border-emerald-100/70 pt-2 text-[9px] leading-relaxed text-slate-400">
+                            <div className="mt-2 border-t border-neutral-100/70 pt-2 text-[9px] leading-relaxed text-slate-400">
                                 辅助计数：请求 JSON {fmt(capture.totalChars)} 字符（非 Token） · {capture.messageCount} 条消息 · {capture.sections.length} 个分区
                             </div>
                         </div>
 
                         {duplicateSummary && (
                             <div className={`mt-3 border-l-2 py-1.5 pl-3 ${
-                                duplicateSummary.groups === 0 ? 'border-emerald-400' : 'border-amber-400'
+                                duplicateSummary.groups === 0 ? 'border-neutral-400' : 'border-neutral-400'
                             }`}>
                                 <div className={`text-[10px] font-bold ${
-                                    duplicateSummary.groups === 0 ? 'text-emerald-700' : 'text-amber-700'
+                                    duplicateSummary.groups === 0 ? 'text-neutral-700' : 'text-neutral-700'
                                 }`}>
                                     {duplicateSummary.groups === 0
                                         ? '✓ 客户端发出前未发现完全重复的大段内容'
@@ -592,7 +592,7 @@ const OneShotCapturePanel: React.FC<{
                             </div>
                         )}
 
-                        <p className="mt-2 text-[10px] leading-relaxed text-amber-700/80">
+                        <p className="mt-2 text-[10px] leading-relaxed text-neutral-700/80">
                             内容仅保存在本机，可能含聊天和记忆隐私。发给别人排查前请先检查。
                             {capture.binaryPlaceholders > 0 && ` ${capture.binaryPlaceholders} 个图片/音频二进制只保留了类型和原始长度。`}
                         </p>
@@ -656,22 +656,22 @@ const OneShotCapturePanel: React.FC<{
                                     onClick={() => setShowFixedSections(value => !value)}
                                     className="flex w-full items-start gap-3 text-left"
                                 >
-                                    <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-violet-300" />
+                                    <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-neutral-300" />
                                     <span className="min-w-0 flex-1">
                                         <span className="flex items-center gap-2">
                                             <span className="text-[11px] font-bold text-slate-600">基础固定指令</span>
-                                            <span className="rounded-full bg-violet-50 px-1.5 py-0.5 text-[8px] font-semibold text-violet-500">稳定基线</span>
+                                            <span className="rounded-full bg-neutral-50 px-1.5 py-0.5 text-[8px] font-semibold text-neutral-500">稳定基线</span>
                                         </span>
                                         <span className="mt-0.5 block text-[9px] leading-relaxed text-slate-400">
                                             应用和预设正常工作所需，通常不会随聊天轮数持续增长；已合并显示，不作为首要膨胀项。
                                         </span>
                                     </span>
-                                    <span className="shrink-0 pt-0.5 text-[9px] font-semibold text-violet-500">
+                                    <span className="shrink-0 pt-0.5 text-[9px] font-semibold text-neutral-500">
                                         {showFixedSections ? '收起' : '查看明细'}
                                     </span>
                                 </button>
                                 {showFixedSections && (
-                                    <div className="mt-2 space-y-1.5 border-l border-violet-100 pl-3">
+                                    <div className="mt-2 space-y-1.5 border-l border-neutral-100 pl-3">
                                         {fixedSections.map(renderSection)}
                                     </div>
                                 )}
@@ -709,7 +709,7 @@ const OneShotCapturePanel: React.FC<{
 
                         <div className="mt-3 flex items-center justify-between gap-3">
                             <span className="text-[10px] font-semibold text-primary">{copyNotice}</span>
-                            <button type="button" onClick={onClear} className="ml-auto text-[10px] font-semibold text-rose-500">清除本次详情</button>
+                            <button type="button" onClick={onClear} className="ml-auto text-[10px] font-semibold text-neutral-500">清除本次详情</button>
                         </div>
                     </div>
                 )}
