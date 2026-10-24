@@ -1813,6 +1813,8 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
           body: message.previewBody || message.body,
           avatarUrl: message.avatarUrl,
           sentAt: eventSentAt,
+          messageId: message.messageId,
+          source: message.source,
         },
       }));
       activeMsgTrace('runtime-active-msg-received-dispatched', {
