@@ -29,8 +29,12 @@ export type MotionContactProfile=PairedHandProfile|BodyTouchProfile;
  */
 export const motionContactProfiles:Readonly<Record<string,MotionContactProfile>>={
  'cmu-20_10':{kind:'pairedHands',capabilities:['handContact','pairedSync'],pairing:'sampledClosest',enter:[.15,.85],curl:.38},
- 'cmu-18_03':{kind:'pairedHands',capabilities:['handContact','pairedSync'],pairing:'sampledClosest',enter:[.12,.55],curl:.45},
- 'cmu-20_12':{kind:'pairedHands',capabilities:['handContact','pairedSync'],pairing:'sampledClosest',enter:[.10,.35],exit:[.65,1.10],curl:.12},
+ // The player holds source frame zero until actionTime .6. Do not drag
+ // the wrists into a cross pose before the source clip has raised its arms.
+ 'cmu-18_03':{kind:'pairedHands',capabilities:['handContact','pairedSync'],pairing:'sampledClosest',enter:[.90,1.30],curl:.45},
+ // The actual low-five contact occurs at SOURCE .8–1.1 s, corresponding
+ // to actionTime 1.4–1.7 s after the player's .6 s source delay.
+ 'cmu-20_12':{kind:'pairedHands',capabilities:['handContact','pairedSync'],pairing:'sampledClosest',enter:[1.05,1.42],exit:[1.70,2.03],curl:.12},
  'cmu-22_07':{kind:'bodyTouch',capabilities:['bodyContact'],targetBones:['L_upperArm','R_upperArm'],near:.47,far:.64},
  'cmu-22_05':{kind:'bodyTouch',capabilities:['bodyContact'],targetBones:['L_upperArm','R_upperArm'],near:.47,far:.64},
  'cmu-22_04':{kind:'bodyTouch',capabilities:['bodyContact'],targetBones:['L_upperArm','R_upperArm'],near:.47,far:.64},
