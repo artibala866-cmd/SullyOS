@@ -11,7 +11,7 @@ const PRESETS = [
         name: '电影与剧集 · Orca',
         url: 'https://orca-mcp.mmdju.workers.dev/mcp',
         source: 'https://github.com/mmdju/orca-mcp',
-        hint: '公开影视资料服务；无需申请 Key。第三方端点可用性需实际测试。',
+        hint: '无需 Key，打开开关即可自动连接并启用。公开第三方服务可能受网络限制。',
     },
     {
         id: 'realtime.bilibili.search',
@@ -111,6 +111,41 @@ const RealtimeMcpPresets: React.FC<{ onConfigChanged: () => void }> = ({ onConfi
             setTesting(null);
         }
     };
+    // Orca has a documented public endpoint: switching it on should perform
+    // discovery automatically, rather than requiring users to hunt for a key.
+    const connectOrca = async (preset: typeof PRESETS[number], existing?: McpServerConfig) => {
+        if (testing) return;
+        const current = loadMcpServers();
+        const saved = current.find(item => match(item, preset));
+        const server = saved || existing || { ...createMcpServer(preset.name, preset.url), presetId: preset.id };
+        if (!saved) persist([...current, server]);
+        if (!server.url.trim()) {
+            setStatuses(old => ({ ...old, [preset.name]: '服务地址为空，请展开配置检查。' }));
+            return;
+        }
+        setTesting(server.id);
+        setStatuses(old => ({ ...old, [preset.name]: '正在连接公开电影 MCP…' }));
+        try {
+            const snapshot = JSON.stringify([server.url, server.token, server.customHeaders, server.proxyUrl, server.proxyKey]);
+            const result = await testMcpConnection(server);
+            const latest = loadMcpServers().find(item => item.id === server.id);
+            if (!latest || snapshot !== JSON.stringify([latest.url, latest.token, latest.customHeaders, latest.proxyUrl, latest.proxyKey])) {
+                setStatuses(old => ({ ...old, [preset.name]: '配置已修改，请重新连接。' }));
+                return;
+            }
+            if (result.ok && result.tools?.length && result.connection) {
+                update(latest, { tools: result.tools, lastConnection: result.connection, enabled: true });
+                setStatuses(old => ({ ...old, [preset.name]: `连接成功，已启用 ${result.tools.length} 个工具。` }));
+            } else {
+                update(latest, { enabled: false });
+                setStatuses(old => ({ ...old, [preset.name]: `连接失败：${result.message || '没有发现可用工具'}。请检查网络或 CORS 限制。` }));
+            }
+        } catch (error) {
+            setStatuses(old => ({ ...old, [preset.name]: `连接失败：${error instanceof Error ? error.message : '未知错误'}` }));
+        } finally {
+            setTesting(null);
+        }
+    };
     const icons = [FilmStrip, MagnifyingGlass, TextT];
     return (
         <div className="space-y-4">
@@ -131,12 +166,15 @@ const RealtimeMcpPresets: React.FC<{ onConfigChanged: () => void }> = ({ onConfi
                             <label className="relative inline-flex shrink-0 items-center cursor-pointer">
                                 <span className="sr-only">启用 {preset.name}</span>
                                 <input type="checkbox" checked={!!server?.enabled}
+                                    disabled={testing !== null}
                                     onChange={event => {
-                                        if (!server) {
+                                        if (event.target.checked && preset.id === 'realtime.orca' && !ready) {
+                                            void connectOrca(preset, server);
+                                        } else if (!server) {
                                             add(preset);
-                                            setStatuses(old => ({ ...old, [preset.name]: '已创建配置，请先展开配置、测试连接后再启用。' }));
+                                            setStatuses(old => ({ ...old, [preset.name]: '需要先部署服务器。请展开配置与来源填写地址。' }));
                                         } else if (!ready && event.target.checked) {
-                                            setStatuses(old => ({ ...old, [preset.name]: '请先填写服务地址并测试连接，再启用。' }));
+                                            setStatuses(old => ({ ...old, [preset.name]: '请先部署服务器并测试连接，再启用。' }));
                                         } else {
                                             update(server, { enabled: event.target.checked });
                                         }
