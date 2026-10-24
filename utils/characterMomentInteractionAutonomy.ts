@@ -35,15 +35,24 @@ function storeState(charId: string, state: State) {
 function selectPost(
   posts: CharacterMoment[], state: State, now: number, known: Set<string>,
 ): CharacterMoment | undefined {
-  return posts.find(post => {
-    if (post.deletedAt || post.visibility !== 'all' ||
-      now - post.createdAt > 3 * 86400000 || post.createdAt > now ||
-      !known.has(post.authorId) || (post.comments || []).filter(c => !c.deletedAt).length >= MAX_POST_COMMENTS ||
-      now - (state.lastByPost[post.id] || 0) < 2 * 3600000) return false;
-    // Fresh incoming User comments can be answered, but User never becomes
-    // a generated speaker. This selector gives them priority naturally.
-    return true;
-  });
+  const eligible = posts.filter(post =>
+    !post.deletedAt && post.visibility === 'all' &&
+    now - post.createdAt <= 3 * 86400000 && post.createdAt <= now &&
+    known.has(post.authorId) &&
+    (post.comments || []).filter(c => !c.deletedAt).length < MAX_POST_COMMENTS &&
+    now - (state.lastByPost[post.id] || 0) >= 2 * 3600000
+  );
+  // A recent real User comment (or a new NPC reply to Char) is a stronger
+  // reason to revisit an existing discussion than another generic fresh post.
+  const score = (post: CharacterMoment) => {
+    const comments = (post.comments || []).filter(c => !c.deletedAt &&
+      c.createdAt > (state.lastByPost[post.id] || 0));
+    const userReply = comments.some(c => c.authorId === 'user');
+    const npcToOwner = post.authorId === post.characterId &&
+      comments.some(c => c.authorId !== 'user' && c.authorId !== post.characterId);
+    return (userReply ? 4 : 0) + (npcToOwner ? 2 : 0);
+  };
+  return eligible.sort((a, b) => score(b) - score(a) || b.createdAt - a.createdAt)[0];
 }
 
 export async function runCharacterMomentInteractionAutonomy(input: {
