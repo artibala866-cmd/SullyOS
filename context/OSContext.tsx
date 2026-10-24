@@ -2270,11 +2270,83 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   groupsRef.current = groups;
   const realtimeConfigRef = useRef(realtimeConfig);
   realtimeConfigRef.current = realtimeConfig;
-  // Moments decisions listen to the shared life-event ledger; no new polling timer.
-  // Keep a ref to latest account state so the listener is stable across renders.
+  // One life-event ledger feeds both AMSG and the existing Memory Palace.
+  // Phone events are archived serially; a missed browser event can be recovered
+  // from persisted evidence after the app reloads or becomes visible again.
   useEffect(() => {
       if (!isDataLoaded) return;
-      const palaceInFlight = new Set<string>();
+      let disposed = false;
+      let draining = false;
+      const queue = new Map<string, ReturnType<typeof readCharacterLifeEvents>[number]>();
+      const retryAfter = new Map<string, number>();
+      const processedKey = (charId: string) => 'sully_phone_palace_ingested_v1:' + charId;
+      const isPalaceCandidate = (event: ReturnType<typeof readCharacterLifeEvents>[number]) =>
+          event.source === 'phone' && (event.kind === 'npc-chat' || event.kind === 'moment-post') &&
+          event.summary.trim().length >= (event.kind === 'npc-chat' ? 55 : 20) &&
+          event.occurredAt > 0 && event.occurredAt <= Date.now();
+      const alreadyProcessed = (charId: string, id: string): boolean => {
+          try {
+              const stored: unknown = JSON.parse(localStorage.getItem(processedKey(charId)) || '[]');
+              return Array.isArray(stored) && stored.includes(id);
+          } catch { return false; }
+      };
+      const markProcessed = (charId: string, id: string) => {
+          try {
+              const key = processedKey(charId);
+              const stored: unknown = JSON.parse(localStorage.getItem(key) || '[]');
+              const ids = Array.isArray(stored) ? stored.filter((value): value is string => typeof value === 'string') : [];
+              localStorage.setItem(key, JSON.stringify([...new Set([...ids, id])].slice(-500)));
+          } catch { /* keep source event available for a future retry */ }
+      };
+      const drainPhoneMemories = async () => {
+          if (draining || disposed) return;
+          draining = true;
+          try {
+              while (queue.size && !disposed) {
+                  const next = queue.entries().next().value as [string, ReturnType<typeof readCharacterLifeEvents>[number]];
+                  const [queueId, event] = next;
+                  queue.delete(queueId);
+                  const char = charactersRef.current.find(c => c.id === event.characterId);
+                  if (!char?.memoryPalaceEnabled || !isPalaceCandidate(event) ||
+                      alreadyProcessed(event.characterId, event.id) ||
+                      (retryAfter.get(queueId) || 0) > Date.now()) continue;
+                  const config = memoryPalaceConfigRef.current;
+                  const llm = config.lightLLM?.baseUrl ? config.lightLLM : resolveDialogueApi(apiConfigRef.current, char);
+                  if (!llm?.baseUrl || !llm?.apiKey || !llm?.model) continue;
+                  try {
+                      const { ingestPhoneEventToPalace } = await import('../utils/memoryPalace/pipeline');
+                      const result = await ingestPhoneEventToPalace(char, {
+                          id: event.id, kind: event.kind as 'npc-chat' | 'moment-post',
+                          occurredAt: event.occurredAt, summary: event.summary,
+                      }, llm, userProfileRef.current?.name || '');
+                      if (result.status === 'extracted_none' ||
+                          (result.status === 'done' && result.stored + result.skipped > 0)) {
+                          markProcessed(event.characterId, event.id);
+                      } else {
+                          // Missing embedding/API or failed storage is not "already remembered".
+                          retryAfter.set(queueId, Date.now() + 5 * 60_000);
+                      }
+                  } catch (error) {
+                      retryAfter.set(queueId, Date.now() + 5 * 60_000);
+                      console.warn('[PhonePalace] archive failed; original event retained for retry', error);
+                  }
+              }
+          } finally { draining = false; }
+      };
+      const enqueuePhoneMemory = (event: ReturnType<typeof readCharacterLifeEvents>[number]) => {
+          if (!isPalaceCandidate(event) || alreadyProcessed(event.characterId, event.id)) return;
+          queue.set(event.characterId + ':' + event.id, event);
+          void drainPhoneMemories();
+      };
+      const recoverPhoneMemories = () => {
+          if (document.visibilityState === 'hidden') return;
+          for (const char of charactersRef.current) {
+              if (!char.memoryPalaceEnabled) continue;
+              readCharacterLifeEvents(char.id)
+                  .filter(e => isPalaceCandidate(e) && Date.now() - e.occurredAt < 14 * 86400_000)
+                  .slice(0, 12).reverse().forEach(enqueuePhoneMemory);
+          }
+      };
       const onLifeEvent = (event: Event) => {
           const detail = (event as CustomEvent<{ characterId?: string; eventId?: string }>).detail;
           const charId = detail?.characterId;
@@ -2283,44 +2355,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!recordedEvent) return;
           const char = charactersRef.current.find(c => c.id === charId);
           if (!char) return;
-          // A real phone action changes the existing fire_pack context, regardless of
-          // whether it also qualifies for an autonomous Moments/Memo reaction.
-          // The sync layer already coalesces updates, retries, and skips chars without AI tasks.
           if (recordedEvent.source === 'phone') {
               markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
-              // Only substantive first-hand phone posts have enough source material for
-              // a conservative palace extraction. A generic "chatted with NPC" event
-              // or a new contact is not evidence of an important life experience.
-              if (char.memoryPalaceEnabled
-                  && (recordedEvent.kind === 'moment-post' || recordedEvent.kind === 'npc-chat')
-                  && recordedEvent.summary.length >= (recordedEvent.kind === 'npc-chat' ? 100 : 65)
-                  && recordedEvent.occurredAt <= Date.now()) {
-                  const key = 'sully_phone_palace_ingested_v1:' + charId;
-                  const eventId = recordedEvent.id;
-                  const previously = (() => {
-                      try { return JSON.parse(localStorage.getItem(key) || '[]') as string[]; } catch { return []; }
-                  })();
-                  if (!previously.includes(eventId) && !palaceInFlight.has(charId + ':' + eventId)) {
-                      palaceInFlight.add(charId + ':' + eventId);
-                      const config = memoryPalaceConfigRef.current;
-                      const llm = config.lightLLM?.baseUrl ? config.lightLLM : resolveDialogueApi(apiConfigRef.current, char);
-                      const date = new Date(recordedEvent.occurredAt);
-                      const dateKey = [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
-                      void import('../utils/memoryPalace/pipeline').then(({ ingestDiaryToPalace }) =>
-                          ingestDiaryToPalace(char, dateKey, '', 
-                              (recordedEvent.kind === 'npc-chat' ? '[已保存的角色本人微信对话，可能包含重要事实；需筛选，不代表所有内容均为长期事实]\\n' : '[已发布的角色本人朋友圈，非计划或日程]\\n') + recordedEvent.summary,
-                              llm, userProfileRef.current?.name || '', 7)
-                      ).then(result => {
-                          if (result.status === 'done' || result.status === 'extracted_none') {
-                              try {
-                                  const latest = JSON.parse(localStorage.getItem(key) || '[]') as string[];
-                                  localStorage.setItem(key, JSON.stringify([...new Set([...latest, eventId])].slice(-500)));
-                              } catch { /* retry on next event */ }
-                          }
-                      }).catch(error => console.warn('[PhonePalace] phone memory extraction skipped', error))
-                        .finally(() => palaceInFlight.delete(charId + ':' + eventId));
-                  }
-              }
+              enqueuePhoneMemory(recordedEvent);
           }
           if (!shouldDispatchLifeEvent(recordedEvent, charId)) return;
           const consumers = getLifeEventConsumers(recordedEvent.kind);
@@ -2331,8 +2368,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           });
           if (consumers.includes('memo')) void considerCharacterMemo({characterId:charId,name:char.name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,6000),api,events:readCharacterLifeEvents(charId),char}).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
       };
+      const onVisible = () => { if (document.visibilityState === 'visible') recoverPhoneMemories(); };
       window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
-      return () => window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
+      document.addEventListener('visibilitychange', onVisible);
+      recoverPhoneMemories();
+      return () => {
+          disposed = true;
+          queue.clear();
+          window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
+          document.removeEventListener('visibilitychange', onVisible);
+      };
   }, [isDataLoaded]);
 
   const memoryPalaceConfigRef = useRef(memoryPalaceConfig);
