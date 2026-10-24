@@ -34,6 +34,8 @@ jobs:
         run: pnpm exec vitest run utils/musicTogether.test.ts utils/musicInviteStatus.test.ts utils/musicWorkerUrl.test.ts utils/chatMessageVisibility.test.ts
       - name: Test web update and resource caching
         run: pnpm exec vitest run utils/appPreload.test.ts utils/webUpdateSession.test.ts utils/chunkLoadRecovery.test.ts worker/staticCache.test.ts worker/staticCacheLifecycle.test.ts scripts/static-cache-build.test.ts
+      - name: Audit remaining retired VR dependencies
+        run: node scripts/audit-retired-vr-dependencies.mjs
       - name: Test legacy figure migration
         run: pnpm exec vitest run utils/retiredVrFigureMigration.test.ts
       - name: Build original SullyOS for GitHub Pages
