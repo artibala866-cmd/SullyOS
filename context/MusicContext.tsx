@@ -403,6 +403,7 @@ interface MusicContextType {
   listeningStartedAt: Record<string, number>;
   listeningInvites: Record<string, 'pending' | 'accepted' | 'rejected'>;
   inviteListeningPartner: (charId: string) => void;
+  cancelListeningInvite: (charId: string) => void;
   respondListeningInvite: (charId: string, accepted: boolean) => void;
   lastListeningEnd: { charId: string; durationMs: number; at: number } | null;
   addListeningPartner: (charId: string) => void;
@@ -676,6 +677,28 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId, messageId } }));
     })().catch(err => console.warn('[MusicTogether] 邀请消息保存失败', err))
       .finally(() => invitingCharIds.current.delete(charId));
+  }, []);
+  const cancelListeningInvite = useCallback((charId: string) => {
+    void (async () => {
+      const messages = await DB.getMessagesByCharId(charId, true);
+      const pending = [...messages].reverse().find(m =>
+        m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
+        !messages.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+      if (!pending) return;
+      await DB.saveMessage({
+        charId, role: 'user', type: 'system',
+        content: '[一起听邀请] 我撤回了邀请。',
+        metadata: { musicListenInviteResponseTo: pending.id, accepted: false, cancelled: true },
+      });
+      setListeningInvites(prev => {
+        const next = { ...prev };
+        delete next[charId];
+        return next;
+      });
+      window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
+        detail: { charId, messageId: pending.id, accepted: false, cancelled: true },
+      }));
+    })().catch(err => console.warn('[MusicTogether] 撤回邀请失败', err));
   }, []);
   const [lastListeningEnd, setLastListeningEnd] = useState<{ charId: string; durationMs: number; at: number } | null>(null);
   const addListeningPartner = useCallback((charId: string) => {
@@ -1294,7 +1317,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     playSong, togglePlay, nextSong, prevSong, seek,
     playMode, setPlayMode,
     liked, toggleLike,
-    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, respondListeningInvite, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
+    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, respondListeningInvite, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
     recentTrackChange,
     toast, setToastHandler,
     localAlbumSongs, addLocalSong, removeLocalSong,
