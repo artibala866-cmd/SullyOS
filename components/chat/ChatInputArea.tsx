@@ -5,7 +5,6 @@ import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, Bo
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import { PRESET_THEMES } from './ChatConstants';
 import TokenImg from '../os/TokenImg';
-import { AcnhActionTile } from '../os/acnhIcons';
 import { isIOSStandaloneWebApp } from '../../utils/iosStandalone';
 import { trackEvent } from '../../utils/analytics';
 import { findEmojiSuggestions } from '../../utils/emojiSuggestions';
@@ -81,8 +80,6 @@ interface ChatInputAreaProps {
     inputStyle?: 'default' | 'rounded' | 'flat' | 'wechat' | 'ios' | 'telegram' | 'discord' | 'pixel';
     sendButtonStyle?: 'circle' | 'pill' | 'minimal';
     chromeStyle?: 'soft' | 'flat' | 'floating' | 'pixel';
-    /** 动森彩蛋模式：输入栏换成木质草绿圆角。 */
-    acnh?: boolean;
 }
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
@@ -110,7 +107,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     inputStyle = 'default',
     sendButtonStyle = 'circle',
     chromeStyle = 'soft',
-    acnh = false,
 }) => {
     const chatImageInputRef = useRef<HTMLInputElement>(null);
     const [cameraOpen, setCameraOpen] = useState(false);
@@ -403,27 +399,19 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
 
     const isDiscordStyle = inputStyle === 'discord';
     const isPixelStyle = inputStyle === 'pixel' || chromeStyle === 'pixel';
-    const shellClass = acnh
-        ? 'bg-[#cacaca] border-t-[3px] border-[#b2b2b2] shadow-[0_-3px_0_rgba(147, 147, 147,0.18)]'
-        : chromeStyle === 'pixel'
+    const shellClass = chromeStyle === 'pixel'
         ? 'bg-[#e0e0e0] border-t-[3px] border-[#6d6d6d] shadow-[0_-4px_0_rgba(95, 95, 95,0.15)]'
         : chromeStyle === 'flat'
           ? 'bg-white border-t border-slate-200 shadow-none'
           : chromeStyle === 'floating'
             ? 'bg-white/80 backdrop-blur-2xl border-t border-white/60 shadow-[0_-12px_30px_rgba(161, 161, 161,0.18)]'
             : 'bg-white/90 backdrop-blur-2xl border-t border-slate-200/50 shadow-[0_-5px_15px_rgba(0, 0, 0,0.02)]';
-    const actionButtonClass = acnh
-        ? 'w-11 h-11 shrink-0 rounded-full bg-[#9f9f9f] flex items-center justify-center text-white hover:bg-[#959595] transition-colors shadow-sm'
-        : isPixelStyle
+    const actionButtonClass = isPixelStyle
         ? 'w-11 h-11 shrink-0 rounded-[4px] border-2 border-[#6d6d6d] bg-[#f1f1f1] flex items-center justify-center text-[#6d6d6d] hover:bg-[#f8f8f8] transition-colors'
         : isDiscordStyle
           ? 'w-11 h-11 shrink-0 rounded-full bg-slate-800 flex items-center justify-center text-slate-200 hover:bg-slate-700 transition-colors'
           : 'w-11 h-11 shrink-0 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors';
-    const inputWrapClass =
-        acnh
-            ? 'bg-[#f4f4f4] border-2 border-[#dadada] rounded-full'
-            :
-        inputStyle === 'rounded'
+    const inputWrapClass = inputStyle === 'rounded'
             ? 'bg-slate-100 rounded-full'
             : inputStyle === 'flat'
               ? 'bg-transparent border-b border-slate-200 rounded-none'
@@ -438,10 +426,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                       : inputStyle === 'pixel'
                         ? 'bg-[#f1f1f1] border-2 border-[#6d6d6d] rounded-[4px]'
                         : 'bg-slate-100 rounded-[24px]';
-    const sendButtonClass = acnh
-        ? 'w-11 h-11 shrink-0 rounded-full bg-[#d0d0d0] text-[#5c5c5c] flex items-center justify-center shadow-md'
-        :
-        sendButtonStyle === 'pill'
+    const sendButtonClass = sendButtonStyle === 'pill'
             ? isPixelStyle
                 ? 'h-11 min-w-[72px] shrink-0 rounded-[4px] border-2 border-[#6d6d6d] bg-[#a0a0a0] px-4 text-[11px] font-bold text-[#f8f8f8]'
                 : 'h-11 min-w-[72px] shrink-0 rounded-full bg-primary px-4 text-[11px] font-bold text-white shadow-lg'
@@ -454,16 +439,12 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
               : isPixelStyle
                 ? 'w-11 h-11 shrink-0 rounded-[4px] border-2 border-[#6d6d6d] bg-[#a0a0a0] text-[#f8f8f8] flex items-center justify-center'
                 : 'w-11 h-11 shrink-0 rounded-full bg-primary text-white flex items-center justify-center transition-all shadow-lg';
-    const panelClass = acnh
-        ? 'bg-[#ececec] border-t-[3px] border-[#d7d7d7]'
-        : isPixelStyle
+    const panelClass = isPixelStyle
         ? 'bg-[#f1f1f1] border-t-2 border-[#6d6d6d]'
         : isDiscordStyle
           ? 'bg-slate-900/95 border-t border-white/10'
           : 'bg-slate-50 border-t border-slate-200/60';
-    const panelTopBarSurfaceClass = acnh
-        ? 'bg-[#e7e7e7] border-b-2 border-[#d7d7d7]'
-        : isPixelStyle
+    const panelTopBarSurfaceClass = isPixelStyle
         ? 'bg-[#e0e0e0] border-b-2 border-[#6d6d6d]'
         : isDiscordStyle
           ? 'bg-slate-950 border-b border-white/10'
@@ -484,16 +465,12 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         : isDiscordStyle
           ? 'w-6 h-6 rounded-full border border-white/10 bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 hover:bg-slate-700'
           : 'w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center shrink-0 hover:bg-slate-200';
-    const emojiImportTileClass = acnh
-        ? 'aspect-square bg-white rounded-2xl border-2 border-dashed border-[#c3c3c3] flex items-center justify-center text-2xl text-[#8f8f8f]'
-        : isPixelStyle
+    const emojiImportTileClass = isPixelStyle
         ? 'aspect-square bg-[#f8f8f8] rounded-2xl border-2 border-dashed border-[#6d6d6d]/40 flex items-center justify-center text-2xl text-[#6d6d6d]'
         : isDiscordStyle
           ? 'aspect-square bg-slate-800 rounded-2xl border-2 border-dashed border-slate-700 flex items-center justify-center text-2xl text-slate-400'
           : 'aspect-square bg-slate-100 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center text-2xl text-slate-400';
-    const emojiTileClass = acnh
-        ? 'bg-white rounded-2xl p-2 border-2 border-[#e1e1e1] shadow-sm relative active:scale-95 transition-transform select-none flex flex-col items-center'
-        : isPixelStyle
+    const emojiTileClass = isPixelStyle
         ? 'bg-[#f8f8f8] rounded-2xl p-2 border-2 border-[#6d6d6d]/20 shadow-sm relative active:scale-95 transition-transform select-none flex flex-col items-center'
         : isDiscordStyle
           ? 'bg-slate-800 rounded-2xl p-2 border border-white/10 shadow-sm relative active:scale-95 transition-transform select-none flex flex-col items-center'
@@ -508,61 +485,55 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
 
     // Keep one ordered list so removed or added entries cannot leave holes between pages.
     const actionTiles = [
-        <button key="character-phone" onClick={() => onPanelAction('character-phone')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+        <button key="character-phone" onClick={() => onPanelAction('character-phone')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-[#737373] border-slate-600' : 'bg-slate-100 text-[#737373] border-slate-200'}`}>
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M10 5h4M11 19h2"/></svg>
             </div>
             <span className="text-xs font-bold">查手机</span>
         </button>,
-        <button key="collaboration" onClick={() => onPanelAction('collaboration')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#dadada] text-[#737373]' : isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
+        <button key="collaboration" onClick={() => onPanelAction('collaboration')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
                 <Briefcase className="w-6 h-6" weight="fill" />
             </div>
             <span className="text-xs font-bold">协同工作</span>
         </button>,
-        <button key="meetup" onClick={() => onPanelAction('meetup')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+        <button key="meetup" onClick={() => onPanelAction('meetup')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
                 <Sparkle className="w-6 h-6" weight="fill" />
             </div>
             <span className="text-xs font-bold">见面</span>
         </button>,
-        <button key="transfer" onClick={() => onPanelAction('transfer')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            {acnh ? <AcnhActionTile kind="transfer" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100'}`}>
+        <button key="transfer" onClick={() => onPanelAction('transfer')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100'}`}>
                 <Money className="w-6 h-6" weight="bold" />
-            </div>)}
+            </div>}
             <span className="text-xs font-bold">转账</span>
         </button>,
-        <button key="poke" onClick={() => onPanelAction('poke')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            {acnh ? <AcnhActionTile kind="poke" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 border-neutral-400/20' : 'bg-neutral-50 border-neutral-100'}`}><img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f449.png" alt="poke" className="w-6 h-6" /></div>)}
+        <button key="poke" onClick={() => onPanelAction('poke')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 border-neutral-400/20' : 'bg-neutral-50 border-neutral-100'}`}><img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f449.png" alt="poke" className="w-6 h-6" /></div>}
             <span className="text-xs font-bold">戳一戳</span>
         </button>,
-        <button key="image" onClick={() => setCameraOpen(true)} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            {acnh ? <AcnhActionTile kind="image" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100'}`}>
+        <button key="image" onClick={() => setCameraOpen(true)} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100'}`}>
                 <Image className="w-6 h-6" weight="bold" />
-            </div>)}
+            </div>}
             <span className="text-xs font-bold">相册</span>
         </button>,
-        <button key="settings" onClick={() => onPanelAction('settings')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            {acnh ? <AcnhActionTile kind="settings" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-[#737373] border-white/10' : 'bg-slate-50 text-[#737373] border-slate-100'}`}>
-                <GearSix className="w-6 h-6" weight="bold" /></div>)}
+        <button key="settings" onClick={() => onPanelAction('settings')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-[#737373] border-white/10' : 'bg-slate-50 text-[#737373] border-slate-100'}`}>
+                <GearSix className="w-6 h-6" weight="bold" /></div>}
             <span className="text-xs font-bold">设置</span>
         </button>,
         <button key="reroll" onClick={onReroll} disabled={!canReroll} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${canReroll ? (isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]') : 'text-[#737373] opacity-50'}`}>
-            {acnh ? <AcnhActionTile kind="regenerate" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${canReroll ? (isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100') : (isDiscordStyle ? 'bg-slate-800 text-[#737373] border-white/10' : 'bg-slate-50 text-[#737373] border-slate-100')}`}>
+            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${canReroll ? (isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100') : (isDiscordStyle ? 'bg-slate-800 text-[#737373] border-white/10' : 'bg-slate-50 text-[#737373] border-slate-100'}`}>
                 <ArrowsClockwise className="w-6 h-6" weight="bold" />
             </div>)}
             <span className="text-xs font-bold">重新生成</span>
         </button>,
-        <button key="schedule" onClick={() => onPanelAction('schedule')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            {acnh ? <AcnhActionTile kind="schedule" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
+        <button key="schedule" onClick={() => onPanelAction('schedule')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
                 <CalendarBlank className="w-6 h-6" weight="bold" />
-            </div>)}
+            </div>}
             <span className="text-xs font-bold">日程</span>
         </button>,
         <button key="life-pacing" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
@@ -571,11 +542,10 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             </div>
             <span className="text-xs font-bold">真人感 · {lifePacingEnabled ? '开' : '关'}</span>
         </button>,
-        <button key="active-msg-2" onClick={() => onPanelAction('active-msg-2')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            {acnh ? <AcnhActionTile kind="proactive" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
+        <button key="active-msg-2" onClick={() => onPanelAction('active-msg-2')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
                 <Alarm className="w-6 h-6" weight="bold" />
-            </div>)}
+            </div>}
             <span className="text-xs font-bold">主动消息</span>
         </button>,
         <button key="mcd-not-configured"
@@ -583,17 +553,16 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             if (!mcdConfigured) { onPanelAction('mcd-not-configured'); return; }
             onPanelAction(mcdActivated ? 'mcd-end' : 'mcd-request');
           }}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'} ${!mcdConfigured ? 'opacity-50' : ''}`}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'} ${!mcdConfigured ? 'opacity-50' : ''}`}
         >
-          {acnh ? <div className="relative"><AcnhActionTile kind="mcd" />{mcdActivated && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#909090] border-2 border-white" />}</div> : (
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
+          {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
               mcdActivated
                 ? (isDiscordStyle ? 'bg-neutral-500/20 text-neutral-300 border-neutral-400/40' : 'bg-neutral-100 text-neutral-700 border-neutral-300')
                 : (isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-600 border-neutral-100')
           }`}>
               <ForkKnife className="w-6 h-6" weight="bold" />
               {mcdActivated && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-neutral-300 border-slate-900' : 'bg-neutral-500 border-white'}`} />}
-          </div>)}
+          </div>}
           <span className="text-xs font-bold">{mcdActivated ? '结束麦请求' : '麦当劳'}</span>
         </button>,
         <button key="luckin-not-configured"
@@ -601,7 +570,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             if (!luckinConfigured) { onPanelAction('luckin-not-configured'); return; }
             onPanelAction(luckinActivated ? 'luckin-end' : 'luckin-request');
           }}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'} ${!luckinConfigured ? 'opacity-50' : ''}`}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'} ${!luckinConfigured ? 'opacity-50' : ''}`}
         >
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
               luckinActivated
@@ -616,64 +585,61 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         <button key="html-mode-toggle"
           onClick={() => onPanelAction('html-mode-toggle')}
           onContextMenu={(e) => { e.preventDefault(); onPanelAction('html-mode-settings'); }}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform relative ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform relative ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
         >
-          {acnh ? <div className="relative"><AcnhActionTile kind="html" />{htmlModeEnabled && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#919191] border-2 border-white" />}</div> : (
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
+          {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
               htmlModeEnabled
                 ? (isDiscordStyle ? 'bg-neutral-500/20 text-neutral-300 border-neutral-400/40' : 'bg-neutral-100 text-neutral-600 border-neutral-200')
                 : (isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100')
           }`}>
               <Code className="w-6 h-6" weight="bold" />
               {htmlModeEnabled && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-neutral-400 border-slate-900' : 'bg-neutral-500 border-white'}`} />}
-          </div>)}
+          </div>}
           <span className="text-xs font-bold">{htmlModeEnabled ? 'HTML已开' : 'HTML模式'}</span>
         </button>,
         <button key="thinking-settings"
           onClick={() => onPanelAction('thinking-settings')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
         >
-          {acnh ? <div className="relative"><AcnhActionTile kind="thinking" />{showThinkingChain && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#9f9f9f] border-2 border-white" />}</div> : (
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
+          {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
               showThinkingChain
                 ? (isDiscordStyle ? 'bg-neutral-500/20 text-neutral-300 border-neutral-400/40' : 'bg-neutral-100 text-neutral-600 border-neutral-200')
                 : (isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100')
           }`}>
               <Brain className="w-6 h-6" weight="bold" />
               {showThinkingChain && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-neutral-400 border-slate-900' : 'bg-neutral-500 border-white'}`} />}
-          </div>)}
+          </div>}
           <span className="text-xs font-bold">{showThinkingChain ? '思考已开' : '展示思考'}</span>
         </button>,
         <button key="chrome-css"
           onClick={() => onPanelAction('chrome-css')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
         >
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#dadada] text-[#737373]' : isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
               <PencilSimple className="w-6 h-6" weight="bold" />
           </div>
           <span className="text-xs font-bold">聊天装扮</span>
         </button>,
-        <button key="archive" onClick={() => onPanelAction('archive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            {acnh ? <AcnhActionTile kind="archive" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100'}`}>
+        <button key="archive" onClick={() => onPanelAction('archive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100'}`}>
                 <BookOpenText className="w-6 h-6" weight="bold" />
-            </div>)}
+            </div>}
             <span className="text-xs font-bold">{isSummarizing ? '归档中...' : '记忆归档'}</span>
         </button>,
         <button key="memory-link"
           onClick={() => onPanelAction('memory-link')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
         >
-          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${acnh ? 'bg-white/70 border-[#dadada] text-[#737373]' : isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
+          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
             <LinkSimple className="w-6 h-6" weight="bold" />
           </span>
           <span className="text-xs font-bold">记忆链接</span>
         </button>,
         <button key="favorites"
           onClick={() => onPanelAction('favorites')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
         >
-          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${acnh ? 'bg-white/70 border-[#dadada] text-[#737373]' : isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-600 border-neutral-100'}`}>
+          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-600 border-neutral-100'}`}>
               <Star className="w-6 h-6" weight="fill" />
           </span>
           <span className="text-xs font-bold">收藏</span>
