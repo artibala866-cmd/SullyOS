@@ -9,6 +9,13 @@ export type NpcProfile = {
   personality: string;
   relationship: string;
   background: string;
+  /** Optional persistent social traits; older NPC records remain valid. */
+  speechStyle?: string;
+  boundary?: string;
+  relationshipNotes?: string;
+  lastInteractedAt?: number;
+  interactionCount?: number;
+  originEvidence?: 'worldbook' | 'character' | 'social' | 'suggested';
   source: 'generated' | 'chat' | 'xiaohongshu' | 'character';
   linkedCharacterId?: string;
   createdAt: number;
