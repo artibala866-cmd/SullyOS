@@ -9,6 +9,7 @@ import { appendCharacterPhoneMessages, readCharacterPhoneChats, type CharacterPh
 import { buildCharacterPhoneContext } from './characterPhoneContext';
 import { safeResponseJson, extractContent } from './safeApi';
 import { isCharacterPhoneRefreshing } from './characterPhoneRefreshTracker';
+import { canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
 
 /** NPC phone autonomy shares the existing schedule/phone/event/AMSG pipeline.
  * This scheduler ONLY writes the character-owned phone, never sends User a message
@@ -84,7 +85,7 @@ async function bootstrapSocialCircle(input: CharacterPhoneAutonomyInput): Promis
   const response = await queryJson(api, [
     { role: 'system', content: `你为虚构角色${char.name}整理其手机通讯录中的真实生活圈。
 必须遵守以下原设/世界书/私聊上下文，禁止改写已有角色身份、家庭、职业、恋爱关系。
-${context.systemPrompt.slice(0, 19000)}
+${context.systemPrompt.slice(0, 11000)}
 已有联系人：${JSON.stringify(knownContactSnapshot(existing)).slice(0, 3000)}
 待确认联系人：${JSON.stringify(pending.map(p => p.nickname)).slice(0, 500)}
 从原设提取最多三位有姓名/可辨称呼的亲友、同事、同学或邻居。
@@ -171,7 +172,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       !isCharacterPhoneAutonomyEnabled(char.id)) return 'unavailable';
   // User-triggered refresh/continuation owns the inbox while its LLM call is
   // in flight. Never start a competing background write in the same window.
-  if (isCharacterPhoneRefreshing(char.id)) return 'skipped';
+  if (isCharacterPhoneRefreshing(char.id) || !canUsePhoneApiBudget(char.id)) return 'skipped';
   if (locks.has(char.id)) return 'skipped';
   locks.add(char.id);
   const now = Date.now();
@@ -184,6 +185,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     writeState(char.id, state);
     let contacts = readNpcProfiles(char.id);
     if (contacts.length < 4 && now - state.bootstrapAt > DAY) {
+      if (!reservePhoneApiBudget(char.id)) return 'skipped';
       state.bootstrapAt = now;
       state.attemptsToday++;
       writeState(char.id, state);
@@ -208,17 +210,18 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       .filter(e => e.occurredAt <= now).slice(0, 9)
       .map(e => ({ time: e.occurredAt, text: e.summary.slice(0, 140) }));
     const speakerName = actor === 'owner' ? char.name : contact.name;
+    if (!reservePhoneApiBudget(char.id)) return 'skipped';
     state.attemptsToday++;
     writeState(char.id, state);
     const result = await queryJson(api, [
       { role: 'system', content: `你模拟一台虚构角色自己的微信手机，不能扮演User。
 本轮只能由${speakerName}说话，发给${actor === 'owner' ? contact.name : char.name}，禁止替另一方同时回复。
-Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).join('\n').slice(0, 6000)}
-角色相关世界书：${(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content).join('\n').slice(0, 4200)}
-联系人固定档案：${JSON.stringify(contact).slice(0, 3500)}
+Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).join('\n').slice(0, 4200)}
+角色相关世界书：${(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content).join('\n').slice(0, 2200)}
+联系人固定档案：${JSON.stringify(contact).slice(0, 1800)}
 当前日程计划（不是已发生事件）：${life.plannedActivity || '无'}，${life.plannedDescription || ''}。
 已经保存的生活经历：${JSON.stringify(events).slice(0, 2100)}
-此前双方真实保存的微信对话：${JSON.stringify(history).slice(0, 4500)}
+此前双方真实保存的微信对话：${JSON.stringify(history).slice(0, 2800)}
 这是${decision.why === 'unanswered' ? '对方留下了未回复消息，稍后自然回复' : '有合理契机的一次私人微信行为'}。
 人物语言应有个人习惯，允许嘴硬、冷淡、敷衍、吐槽和忙碌。
 不保证任何人随时有空，不得每轮互夸；不制造未经确认的现实事件或新的关系。
