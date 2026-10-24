@@ -11,6 +11,7 @@ import BlobRefStyle from '../components/chat/BlobRefStyle';
 import CharacterPhone from '../components/chat/CharacterPhone';
 import CharacterAvatarLibraryModal from '../components/chat/CharacterAvatarLibraryModal';
 import { readCharacterAvatarLibrary, CHARACTER_AVATAR_CHANGED } from '../utils/characterAvatarLibrary';
+import { readCharacterPhoneSelfProfile } from '../utils/characterPhoneSelfProfile';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
@@ -1779,7 +1780,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             case 'memory-link': setShowPanel('none'); setMemoryRepairOpen(true); break;
             case 'favorites': setShowPanel('none'); setFavoritesOpen(true); break;
             case 'transfer': setModalType('transfer'); break;
-            case 'poke': handleSendText('[戳一戳]', 'interaction'); break;
+            case 'poke': {
+                const suffix = char ? readCharacterPhoneSelfProfile(char.id).pokeSuffix : '';
+                const suffixText = suffix && char ? ' 我戳了戳' + chatCharacterDisplayName(char) + suffix : '';
+                handleSendText('[戳一戳]' + suffixText, 'interaction');
+                break;
+            }
             case 'archive': setModalType(char?.memoryPalaceEnabled ? 'archive-legacy-warning' : 'archive-settings'); break;
             case 'settings': setModalType('chat-settings'); break;
             case 'chrome-css': setShowPanel('none'); setDecorationTab('library'); setModalType('chrome-css'); break;
@@ -3967,7 +3973,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 document.body,
              )}
 
-             {avatarLibraryOpen && <CharacterAvatarLibraryModal characterId={char.id} defaultAvatar={char.avatar} onClose={() => setAvatarLibraryOpen(false)} onApply={async (image) => { await updateCharacter(char.id, {avatar:image}); }} />}
+             {avatarLibraryOpen && <CharacterAvatarLibraryModal characterId={char.id} defaultAvatar={char.avatar} visionApiConfig={apiConfig.visionApi} onClose={() => setAvatarLibraryOpen(false)} onApply={async (image) => { await updateCharacter(char.id, {avatar:image}); }} />}
              {homePhone?<header className="home-phone-chat-header"><span className="home-phone-chat-avatar" aria-hidden="true">{char.name.slice(0,1)}</span><div><strong>{chatCharacterDisplayName(char)}</strong><small>{isTyping||instantChatPending?'正在输入…':'在家，也想给你发消息'}</small></div><button onClick={handleManualTrigger} disabled={isTyping} aria-label="让对方回复">↗</button></header>:<ChatHeader
                 selectionMode={selectionMode}
                 selectedCount={selectedMsgIds.size + Array.from(selectedThinkingMsgIds).filter(id => !selectedMsgIds.has(id)).length}
@@ -4602,7 +4608,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             />
 
 
-            {characterPhoneOpen && char && <CharacterPhone name={chatCharacterDisplayName(char)} characterId={char.id} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} persona={char.description || ''} api={apiConfig} onClose={() => setCharacterPhoneOpen(false)} />}
+            {characterPhoneOpen && char && <CharacterPhone name={chatCharacterDisplayName(char)} characterId={char.id} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} persona={char.description || ''} api={apiConfig} onApplyAvatar={async (image) => {await updateCharacter(char.id, {avatar:image});}}
+                onPoke={(suffix) => {void handleSendText('[戳一戳]' + (suffix ? ' 我戳了戳' + chatCharacterDisplayName(char) + suffix : ''),'interaction');}}
+                onClose={() => setCharacterPhoneOpen(false)} />}
             {/* Forward Modal */}
             {char && <MemoryContextSelfCheck key={`memory-self-check:${char.id}`} character={char} active={activeApp === AppID.Chat && modalType === 'none'} onDisable={months => {
                 const closing = new Set(months);
