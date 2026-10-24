@@ -80,9 +80,16 @@ export async function runCharacterMomentInteractionAutonomy(input: {
     storeState(char.id, state);
     // The owner and saved contacts share a social circle. Exclude the
     // author and User from generated actors; User posts no synthetic replies.
+    const authorContact = contacts.find(p => p.id === post.authorId);
+    // Char knows their contacts; that does NOT imply every NPC in the phone
+    // knows every other NPC. Cross-NPC reactions need an explicit mutual edge.
+    const visibleContacts = post.authorId === char.id ? contacts :
+      contacts.filter(p => p.id !== post.authorId &&
+        !!authorContact?.mutualContactIds?.includes(p.id) &&
+        !!p.mutualContactIds?.includes(post.authorId));
     const actors = [
       { id: char.id, name: char.name, role: 'phone-owner', personality: (char.systemPrompt || '').slice(0, 900) },
-      ...contacts.map(p => ({
+      ...visibleContacts.map(p => ({
         id: p.id, name: p.name, role: p.relationship,
         personality: [p.personality, p.speechStyle, p.boundary].filter(Boolean).join('；').slice(0, 650),
       })),
