@@ -1,0 +1,129 @@
+import {
+  addDiscoveredContact, readNpcProfiles, saveNpcProfiles,
+  CHARACTER_PHONE_CONTACT_CHANGED, type NpcProfile,
+} from './characterPhoneNpcs';
+import { queuePendingContact, readPendingContacts } from './characterPhoneRequests';
+
+/** Character-owned social identity resolver.
+ * User, phone owner and NPC identities are never matched by display name alone.
+ * Stable IDs are preferred; name+relationship is only a legacy migration fallback.
+ */
+export type NpcDiscovery = {
+  contactId?: string;
+  name: string;
+  nickname?: string;
+  realName?: string;
+  identity?: string;
+  personality?: string;
+  relationship?: string;
+  background?: string;
+  speechStyle?: string;
+  boundary?: string;
+  origin?: 'known' | 'introduced' | 'stranger' | 'suggested';
+  evidence?: 'worldbook' | 'character' | 'social' | 'suggested';
+};
+
+const compact = (value: unknown, max: number): string =>
+  typeof value === 'string' ? value.trim().slice(0, max) : '';
+const norm = (value: string): string => value.normalize('NFKC').trim().toLowerCase().replace(/\s+/g, '');
+const knownRoles = /^(妈妈|母亲|爸爸|父亲|哥哥|姐姐|弟弟|妹妹|家人|同事|同学|朋友|上司|邻居|老师|导师|室友|伴侣|恋人)/;
+
+export function findKnownNpc(
+  profiles: NpcProfile[], discovery: Pick<NpcDiscovery, 'contactId' | 'name' | 'realName' | 'identity' | 'relationship'>,
+): NpcProfile | undefined {
+  if (discovery.contactId) {
+    const exact = profiles.find(p => p.id === discovery.contactId);
+    if (exact) return exact;
+  }
+  const name = norm(discovery.realName || discovery.name);
+  if (!name) return undefined;
+  const candidates = profiles.filter(p =>
+    norm(p.realName || p.name) === name ||
+    (discovery.realName && norm(p.name) === norm(discovery.name)) ||
+    (discovery.realName && norm(p.realName || '') === norm(discovery.realName)));
+  if (candidates.length !== 1) return undefined;
+  const match = candidates[0];
+  const identity = norm(discovery.identity || '');
+  const relation = norm(discovery.relationship || '');
+  if (identity && norm(match.identity) && identity !== norm(match.identity) &&
+      relation && norm(match.relationship) && relation !== norm(match.relationship)) return undefined;
+  return match;
+}
+
+export function registerDiscoveredNpc(
+  characterId: string,
+  raw: NpcDiscovery,
+  options: { conversationEstablished?: boolean } = {},
+): { status: 'existing' | 'added' | 'pending' | 'ignored'; profile?: NpcProfile } {
+  const name = compact(raw.name, 40);
+  if (!characterId || !name || norm(name) === norm(characterId) || /^(user|char|用户|手机主人)$/i.test(name))
+    return { status: 'ignored' };
+  const original = readNpcProfiles(characterId);
+  const existing = findKnownNpc(original, { ...raw, name });
+  if (existing) {
+    // User-edited name, relationship and existing identity are authoritative.
+    // Fill missing AI-provided social traits, never replace manual profile fields.
+    const patch = {
+      ...existing,
+      speechStyle: existing.speechStyle || compact(raw.speechStyle, 160),
+      boundary: existing.boundary || compact(raw.boundary, 160),
+    };
+    if (JSON.stringify(patch) !== JSON.stringify(existing)) {
+      saveNpcProfiles(characterId, original.map(p => p.id === existing.id ? patch : p));
+      window.dispatchEvent(new CustomEvent(CHARACTER_PHONE_CONTACT_CHANGED, { detail: { characterId, contactId: existing.id } }));
+    }
+    return { status: 'existing', profile: patch };
+  }
+  const pending = readPendingContacts(characterId);
+  const alreadyPending = pending.find(p => (raw.contactId && p.id === raw.contactId) ||
+    (norm(p.realName || p.nickname) === norm(raw.realName || name) &&
+      norm(p.relationship) === norm(raw.relationship || '普通认识')));
+  if (alreadyPending) return { status: 'pending' };
+
+  const relationship = compact(raw.relationship, 160) || '普通认识';
+  const identity = compact(raw.identity, 160) || '生活圈联系人';
+  const personality = compact(raw.personality, 400) || '说话自然，有自己的事情要忙';
+  const background = compact(raw.background, 600) || '与角色生活圈相关的人物';
+  const proposedId = compact(raw.contactId, 128);
+  // Do not let LLM supply IDs that collide with user or owner identity.
+  const id = proposedId.startsWith('generated:') && !original.some(p => p.id === proposedId)
+    ? proposedId : 'generated:' + crypto.randomUUID();
+  const isKnown = raw.origin === 'known' && (raw.evidence === 'worldbook' || raw.evidence === 'character');
+  const isEstablished = options.conversationEstablished && raw.origin !== 'stranger';
+  const hasKnownRelationship = knownRoles.test(relationship);
+  const shouldAdd = isKnown || !!isEstablished || (raw.origin === 'introduced' && hasKnownRelationship);
+
+  if (!shouldAdd) {
+    queuePendingContact(characterId, {
+      id, nickname: compact(raw.nickname, 40) || name,
+      realName: compact(raw.realName, 40), identity, personality,
+      relationship, background, createdAt: Date.now(), source: 'chat',
+    });
+    return { status: 'pending' };
+  }
+  const profile: NpcProfile = {
+    id, name, nickname: compact(raw.nickname, 40) || name,
+    realName: compact(raw.realName, 40),
+    identity, personality, relationship, background,
+    speechStyle: compact(raw.speechStyle, 160),
+    boundary: compact(raw.boundary, 160),
+    originEvidence: raw.evidence || 'social',
+    source: 'generated', createdAt: Date.now(),
+  };
+  return addDiscoveredContact(characterId, profile).added
+    ? { status: 'added', profile } : { status: 'ignored' };
+}
+
+/** Relationship continuity after a *saved* phone exchange; never edits character cards. */
+export function noteNpcInteraction(characterId: string, contactId: string, at = Date.now()): void {
+  const old = readNpcProfiles(characterId);
+  const p = old.find(row => row.id === contactId);
+  if (!p || !Number.isFinite(at) || at <= (p.lastInteractedAt || 0)) return;
+  const next: NpcProfile = {
+    ...p, lastInteractedAt: at, interactionCount: Math.min(10000, (p.interactionCount || 0) + 1),
+  };
+  try {
+    saveNpcProfiles(characterId, old.map(row => row.id === contactId ? next : row));
+    window.dispatchEvent(new CustomEvent(CHARACTER_PHONE_CONTACT_CHANGED, { detail: { characterId, contactId } }));
+  } catch { /* Chat storage stays authoritative if profile metadata cannot update */ }
+}
