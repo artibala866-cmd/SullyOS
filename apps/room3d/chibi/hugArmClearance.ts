@@ -35,8 +35,8 @@ export function hugOutsideTarget(recipient:ChibiVisitor,target:T.Vector3){
  const radius=normalizedRadius(local,RADII);
  if(radius<1.09){
   const offset=local.sub(CENTRE);
-  if(offset.lengthSq()<1e-8)offset.set(.7,0,-.7);
-  offset.multiplyScalar(1.09/Math.max(radius,1e-5));
+  if(radius<1e-5)offset.set(0,0,-RADII.z*1.09);
+  else offset.multiplyScalar(1.09/radius);
   target.copy(chest.localToWorld(offset.add(CENTRE)));
  }
  return target;
