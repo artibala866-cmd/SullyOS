@@ -653,9 +653,35 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
     } catch (err) { console.warn('[MusicTogether] 会话状态持久化失败', err); }
   }, [listeningTogetherWith, listeningStartedAt, listeningInvites]);
+  // 刷新后不能仅相信 localStorage 里的 pending：聊天记录可能已经收到回应或被归档。
+  // 以完整 DB 历史为准校正状态，避免 Char 再次把已结束的邀请当作待答复。
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const pendingIds = Object.keys(listeningInvites).filter(id => listeningInvites[id] === 'pending');
+      const reconciled = await Promise.all(pendingIds.map(async charId => {
+        const messages = await DB.getMessagesByCharId(charId, true);
+        return { charId, pending: !!findPendingMusicInvite(messages, 'user') };
+      }));
+      if (!alive) return;
+      setListeningInvites(prev => {
+        let next = prev;
+        for (const { charId, pending } of reconciled) {
+          if (!pending && next[charId] === 'pending') {
+            if (next === prev) next = { ...prev };
+            delete next[charId];
+          }
+        }
+        return next;
+      });
+    })().catch(err => console.warn('[MusicTogether] 待回应邀请校验失败', err));
+    return () => { alive = false; };
+  // 只在首次加载时读取持久化状态；日常改动由聊天事件同步。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const invitingCharIds = useRef(new Set<string>());
   const inviteListeningPartner = useCallback((charId: string) => {
-    if (!charId || invitingCharIds.current.has(charId)) return;
+    if (!charId || invitingCharIds.current.has(charId) || listeningTogetherRef.current.includes(charId)) return;
     invitingCharIds.current.add(charId);
     void (async () => {
       // 一次只允许一条未回应邀请；同时查历史记录，防止刷新或快速连点产生重复卡片。
@@ -1136,7 +1162,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         })().catch(err => console.warn('[MusicTogether] 接受邀请记录失败', err));
       },
       inviteUserListening: async (cid: string) => {
-        if (creatingCharInvites.current.has(cid)) return;
+        if (creatingCharInvites.current.has(cid) || listeningTogetherRef.current.includes(cid)) return;
         creatingCharInvites.current.add(cid);
         try {
           // AI 每个角色同一时间只保留一条待回应邀请，防止主动消息多次触发叠卡。
