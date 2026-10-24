@@ -29,18 +29,8 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
   const gaze=smooth(time,2.1,3.5)*(1-smooth(time,10.4,12));
   const kiss=smooth(time,4.2,5.4)*(1-smooth(time,9,10.7));
   const heads=both.map(r=>r.visitor.getHeadWorldPosition());
-  both.forEach((owner,i)=>{
-   const v=owner.visitor,partner=both[1-i].visitor;
-   const delta=heads[1-i].clone().sub(heads[i]);
-   // Aim at the other character's actual head height. Share the height
-   // difference between both necks instead of forcing a fixed downward nod.
-   const distance=Math.max(.5,Math.hypot(delta.x,delta.z));
-   const pitch=T.MathUtils.clamp(Math.atan2(delta.y,distance)*.55,-.20,.20);
-   const roll=(i===0?-.075:.075)*kiss;
-   v.rig!.bones.neck.quaternion.multiply(rotation(pitch*gaze*.55,0,roll*.4));
-   v.rig!.bones.head.quaternion.multiply(rotation(pitch*gaze*.45+.035*kiss,0,roll));
-   v.root.updateWorldMatrix(true,true);partner.root.updateWorldMatrix(true,true);
-  });
+  // Aim the face at the partner instead of applying the same downward nod
+  // to both residents. Height correction below happens before final aiming.
   // Adjust the kiss pose using the partners' actual head heights.
   // The shorter resident rises on their toes; the taller resident bends
   // slightly at the knees and waist. Both movements ease in and out.
@@ -64,6 +54,24 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    a.root.updateWorldMatrix(true,true);
    b.root.updateWorldMatrix(true,true);
   }
+  // Recompute the faces after height correction. The head-local +Z axis is
+  // the face's forward direction in the home rig; pitch is opposite for
+  // partners at different heights, so neither character blindly nods down.
+  const faces=both.map(r=>{
+   const v=r.visitor;
+   v.root.updateWorldMatrix(true,true);
+   return v.rig!.bones.head.localToWorld(new T.Vector3(0,.59,.17));
+  });
+  both.forEach((owner,i)=>{
+   const v=owner.visitor,other=faces[1-i],here=faces[i];
+   const delta=other.clone().sub(here);
+   const horizontal=Math.max(.35,Math.hypot(delta.x,delta.z));
+   const pitch=T.MathUtils.clamp(Math.atan2(delta.y,horizontal),-.26,.26);
+   const tilt=(i===0?-.055:.055)*kiss;
+   v.rig!.bones.neck.quaternion.multiply(rotation(-pitch*gaze*.48,0,tilt*.35));
+   v.rig!.bones.head.quaternion.multiply(rotation(-pitch*gaze*.52,0,tilt));
+   v.root.updateWorldMatrix(true,true);
+  });
   // Solve a shared hand contact after both heads have settled.
   const sides=['R','L'] as const;
   const handA=a.rig.bones.R_hand.getWorldPosition(new T.Vector3());
