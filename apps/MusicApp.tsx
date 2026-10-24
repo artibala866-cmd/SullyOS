@@ -266,8 +266,9 @@ const MusicApp: React.FC = () => {
         ))}
       </div>
 
-      {current && (
+      {characters.length > 0 && (
         <div className="px-5 pb-2 flex items-center gap-2 flex-wrap relative z-10">
+          <span className="text-xs font-semibold text-neutral-600">一起听</span>
           {characters.filter(c => !!charInvites[c.id]).map(c => (
             <span key={`char-invite-${c.id}`} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-700">
               {c.name} 邀请你一起听
@@ -284,8 +285,8 @@ const MusicApp: React.FC = () => {
                   : status === 'pending' ? `${c.name} · 等待回应`
                   : status === 'rejected' ? `${c.name} · 已拒绝`
                   : c.name}
-                <button className="ml-2 underline" onClick={() => active ? removeListeningPartner(c.id) : inviteListeningPartner(c.id)}>
-                  {active ? '结束' : status === 'pending' ? '重新邀请' : '邀请'}
+                <button className="ml-2 underline disabled:opacity-50" disabled={status === 'pending' && !active} onClick={() => active ? removeListeningPartner(c.id) : inviteListeningPartner(c.id)}>
+                  {active ? '结束' : status === 'pending' ? '等待中' : '邀请'}
                 </button>
               </span>
             );
