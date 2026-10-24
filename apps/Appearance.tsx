@@ -129,12 +129,8 @@ const CATEGORY_LABELS: Record<string, { code: string; label: string }> = {
 
 
 // --- 桌面整机风格（皮肤）---
-// 动森壁纸：NookPhone 同款奶油底（#f4f4f4），底部极淡草色透气。纯 CSS 渐变，让彩色图标平铺更跳。
-const ACNH_WALLPAPER = 'linear-gradient(180deg, #f4f4f4 0%, #efefef 58%, #eaeaea 100%)';
 // 手游主题壁纸：近白底 + 极淡薰衣草/粉光晕（照搬原创参考图，整体偏白不发紫）。
 const MOBILEGAME_WALLPAPER = 'radial-gradient(95% 55% at 85% 0%, #f2f2f2 0%, transparent 50%), radial-gradient(85% 55% at 6% 10%, #f4f4f4 0%, transparent 55%), linear-gradient(180deg, #fcfcfc 0%, #f7f7f7 55%, #f2f2f2 100%)';
-// 电子宠物主题壁纸：薰衣草奶油（照抄参考稿——柔紫底衬奶油卡片与紫描边）。
-const TAMAGOTCHI_WALLPAPER = 'radial-gradient(85% 50% at 80% 0%, #e0e0e0 0%, transparent 55%), radial-gradient(75% 45% at 12% 10%, #efefef 0%, transparent 55%), linear-gradient(180deg, #d8d8d8 0%, #d0d0d0 55%, #c9c9c9 100%)';
 const COMPANION_WALLPAPER = 'radial-gradient(90% 65% at 50% 5%, #626262 0%, transparent 62%), radial-gradient(75% 55% at 100% 50%, #333333 0%, transparent 72%), linear-gradient(180deg, #1e1e1e 0%, #0f0f0f 62%, #080808 100%)';
 
 type DesktopSkinOption = { id: string; name: string; desc: string; swatch: string; config: Partial<OSTheme> };
@@ -146,24 +142,6 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
     desc: '小屋日常同步 · 面对面聊天 · 家园小手机',
     swatch: 'linear-gradient(90deg,#c8c8c8 0%,#e2e2e2 48%,#f4f4f4 48%,#fafafa 100%)',
     config: { skin: 'homely', wallpaper: 'linear-gradient(180deg,#f4f4f4,#c8c8c8)', contentColor: '#575757' },
-  },
-  {
-    id: 'animalcrossing',
-    name: '动森风格',
-    desc: 'NookPhone 彩色图标 · 草地天空 · 暖色界面',
-    swatch: 'linear-gradient(135deg,#dfdfdf 0%,#d4d4d4 55%,#a5a5a5 100%)',
-    config: {
-      skin: 'animalcrossing',
-      desktopVariant: 'paper',
-      hue: 95, saturation: 48, lightness: 56,
-      contentColor: '#606060',
-      wallpaper: ACNH_WALLPAPER,
-      chatAvatarShape: 'rounded', chatAvatarSize: 'medium',
-      chatBubbleStyle: 'modern', chatMessageSpacing: 'spacious',
-      chatHeaderStyle: 'default', chatInputStyle: 'rounded',
-      chatChromeStyle: 'soft', chatBackgroundStyle: 'paper',
-      chatShowTimestamp: 'always',
-    },
   },
   {
     id: 'mobilegame',
@@ -179,24 +157,6 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
       chatAvatarShape: 'circle', chatAvatarSize: 'medium',
       chatBubbleStyle: 'modern', chatMessageSpacing: 'default',
       chatHeaderStyle: 'gradient', chatInputStyle: 'rounded',
-      chatChromeStyle: 'soft', chatBackgroundStyle: 'paper',
-      chatShowTimestamp: 'always',
-    },
-  },
-  {
-    id: 'tamagotchi',
-    name: '电子宠物 · 小小窝',
-    desc: '桌面就是一台养成机 · 角色住在自己的小屋里 · 薰衣草奶油',
-    swatch: 'linear-gradient(135deg,#d8d8d8 0%,#f9f9f9 52%,#b8b8b8 100%)',
-    config: {
-      skin: 'tamagotchi',
-      desktopVariant: 'paper',
-      hue: 258, saturation: 42, lightness: 66,
-      contentColor: '#747474',
-      wallpaper: TAMAGOTCHI_WALLPAPER,
-      chatAvatarShape: 'rounded', chatAvatarSize: 'medium',
-      chatBubbleStyle: 'modern', chatMessageSpacing: 'default',
-      chatHeaderStyle: 'default', chatInputStyle: 'rounded',
       chatChromeStyle: 'soft', chatBackgroundStyle: 'paper',
       chatShowTimestamp: 'always',
     },
@@ -233,36 +193,6 @@ const NOSTALGIA_SKIN: DesktopSkinOption = {
   swatch: NOSTALGIA_APPEARANCE.wallpaper,
   config: { ...NOSTALGIA_APPEARANCE },
 };
-
-// 动森叶子贴纸：切换动森皮肤时自动撒到桌面。用 acnh-leaf- 前缀标记，便于切回时单独清掉而不动用户自己的装饰。
-const ACNH_LEAF_PREFIX = 'acnh-leaf-';
-const acnhLeafSvg = (fill: string, vein: string) => `data:image/svg+xml,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">`
-  + `<path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="${fill}"/>`
-  + `<path d="M50 14 L50 88" stroke="${vein}" stroke-width="3" fill="none" opacity="0.5"/>`
-  + `<path d="M50 35 Q66 32 74 42" stroke="${vein}" stroke-width="2" fill="none" opacity="0.4"/>`
-  + `<path d="M50 52 Q34 49 26 59" stroke="${vein}" stroke-width="2" fill="none" opacity="0.4"/></svg>`
-)}`;
-const ACNH_LEAF_VARIANTS = [
-  acnhLeafSvg('#a5a5a5', '#6b6b6b'),
-  acnhLeafSvg('#bfbfbf', '#7a7a7a'),
-  acnhLeafSvg('#999999', '#5c5c5c'),
-];
-const ACNH_LEAF_LAYOUT: { x: number; y: number; scale: number; rotation: number; opacity: number; flip?: boolean }[] = [
-  { x: 12, y: 14, scale: 0.8, rotation: -20, opacity: 0.9 },
-  { x: 86, y: 17, scale: 0.7, rotation: 30, opacity: 0.85, flip: true },
-  { x: 17, y: 80, scale: 0.9, rotation: 15, opacity: 0.9 },
-  { x: 88, y: 78, scale: 0.72, rotation: -25, opacity: 0.85 },
-  { x: 50, y: 91, scale: 0.6, rotation: 8, opacity: 0.8 },
-  { x: 82, y: 48, scale: 0.55, rotation: -40, opacity: 0.7, flip: true },
-];
-const buildAcnhLeaves = (): DesktopDecoration[] => ACNH_LEAF_LAYOUT.map((p, i) => ({
-  id: `${ACNH_LEAF_PREFIX}${i}`,
-  type: 'preset',
-  content: ACNH_LEAF_VARIANTS[i % ACNH_LEAF_VARIANTS.length],
-  x: p.x, y: p.y, scale: p.scale, rotation: p.rotation, opacity: p.opacity,
-  zIndex: 5 + i, flip: p.flip,
-}));
 
 /**
  * 预设卡片顶部那条缩略图（壁纸打底 + 两个色块 + 装饰数量角标）。
@@ -804,11 +734,11 @@ const Appearance: React.FC = () => {
       addToast('网络字体已应用', 'success');
   };
 
-  // 切换桌面整机风格：动森模式自动撒叶子贴纸（保留用户已有装饰），切回默认时只清掉 acnh 叶子。
-  // 壁纸处理：进入动森前备份用户原壁纸（data URI 存 IndexedDB，渐变/URL 存 localStorage），
+  // 切换桌面整机风格：只保留仍受支持的主题。
+  // 壁纸处理：进入非默认主题前备份用户原壁纸（data URI 存 IndexedDB，渐变/URL 存 localStorage），
   // 切回默认时还原，避免覆盖用户自己设的桌面壁纸。
-  const ACNH_WP_BACKUP_KEY = 'acnh_wallpaper_backup';
-  const currentDesktopSkinId = theme.skin && theme.skin !== 'default'
+  const DESKTOP_WP_BACKUP_KEY = 'acnh_wallpaper_backup'; // Legacy key retained only to restore user wallpapers.
+  const currentDesktopSkinId = DESKTOP_SKINS.some(skin => skin.id === theme.skin && skin.id !== 'default')
       ? theme.skin
       : theme.desktopVariant === 'nostalgia' ? 'nostalgia' : 'default';
   const applyDesktopSkin = async (skin: DesktopSkinOption) => {
@@ -817,7 +747,7 @@ const Appearance: React.FC = () => {
 
       let wallpaper: string;
       if (!goingDefault) {
-          // 非默认皮肤（动森 / 手游 …）使用各自预设的壁纸
+          // 非默认皮肤使用各自预设的壁纸
           wallpaper = (skin.config.wallpaper as string) || DEFAULT_WALLPAPER;
           // 仅从「默认 → 某皮肤」时备份一次用户原壁纸；皮肤之间互切不再覆盖备份，保住最初的用户壁纸
           if (!currentlyThemed) {
@@ -825,15 +755,15 @@ const Appearance: React.FC = () => {
               const cur = dbWp || theme.wallpaper || '';
               if (cur && cur.startsWith('data:')) {
                   await DB.saveAsset('wallpaper_user_backup', cur);
-                  localStorage.setItem(ACNH_WP_BACKUP_KEY, '__asset__');
+                  localStorage.setItem(DESKTOP_WP_BACKUP_KEY, '__asset__');
               } else {
-                  localStorage.setItem(ACNH_WP_BACKUP_KEY, cur);
+                  localStorage.setItem(DESKTOP_WP_BACKUP_KEY, cur);
                   await DB.deleteAsset('wallpaper_user_backup');
               }
           }
       } else {
           // 切回默认：还原备份的用户壁纸
-          const marker = localStorage.getItem(ACNH_WP_BACKUP_KEY);
+          const marker = localStorage.getItem(DESKTOP_WP_BACKUP_KEY);
           if (marker === '__asset__') {
               wallpaper = (await DB.getAsset('wallpaper_user_backup')) || DEFAULT_WALLPAPER;
           } else if (marker !== null) {
@@ -843,8 +773,8 @@ const Appearance: React.FC = () => {
           }
       }
 
-      const existing = (theme.desktopDecorations || []).filter(d => !d.id.startsWith(ACNH_LEAF_PREFIX));
-      const desktopDecorations = skin.id === 'animalcrossing' ? [...existing, ...buildAcnhLeaves()] : existing;
+      // Delete generated legacy leaf stickers without touching user-made decorations.
+      const desktopDecorations = (theme.desktopDecorations || []).filter(d => !d.id.startsWith('acnh-leaf-'));
       // skin.config 里写死的 wallpaper 不用，改用上面算出的（备份/还原后的）值
       const { wallpaper: _ignored, ...restConfig } = skin.config;
       await updateTheme({ ...restConfig, wallpaper, desktopDecorations });
@@ -977,22 +907,6 @@ const Appearance: React.FC = () => {
                         )}
                     </button>
 
-                    {/* 动森模式专属：聊天 App 是否联动 */}
-                    {(theme.skin || 'default') === 'animalcrossing' && (
-                        <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
-                            <div className="min-w-0">
-                                <div className="text-xs font-bold text-slate-700">聊天界面跟随动森</div>
-                                <div className="text-[10px] text-slate-400 mt-0.5 leading-snug">关掉后，聊天 App 保持原来的样式</div>
-                            </div>
-                            <button
-                                onClick={() => updateTheme({ acnhChatSync: theme.acnhChatSync === false ? true : false })}
-                                className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${theme.acnhChatSync !== false ? 'bg-primary' : 'bg-slate-300'}`}
-                                aria-label="聊天界面跟随动森"
-                            >
-                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${theme.acnhChatSync !== false ? 'translate-x-5' : ''}`} />
-                            </button>
-                        </div>
-                    )}
                 </section>
 
                 {currentDesktopSkinId === 'companion' && (
