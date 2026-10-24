@@ -22,7 +22,6 @@ import {
     splitWorldbookSections,
     type WorldbookScanMessage,
 } from './worldbook';
-import { buildSARModulePrompt } from './vrWorld/sarModuleRuntime';
 
 /**
  * Memory Central
@@ -60,15 +59,8 @@ export const ContextBuilder = {
         }).sort((a, b) => (Number.isFinite(a.book.order) ? Number(a.book.order) : 100) - (Number.isFinite(b.book.order) ? Number(b.book.order) : 100)),
 
 
-    /**
-     * SAR 模块的唯一上下文出口。调用方按自身输出格式选择 chat/date，避免把模块规则
-     * 复制进每个 App，也避免误改基础人设、记忆召回或情绪状态本身。
-     */
-    buildSARModuleContext: (
-        char: CharacterProfile,
-        user: UserProfile,
-        surface: 'chat' | 'date' | 'home',
-    ): string => buildSARModulePrompt(char, user, surface),
+    /** Compatibility no-op while retired 彼方 callers are being detached. */
+    buildSARModuleContext: (_char: CharacterProfile, _user: UserProfile, _surface: 'chat' | 'date' | 'home'): string => '',
 
     /**
      * 构建角色设定+记忆上下文（角色名、核心指令、世界观 + 月度总结 & 当月日度总结）
