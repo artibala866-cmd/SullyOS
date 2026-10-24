@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FilmStrip, MagnifyingGlass, TextT } from '@phosphor-icons/react';
 import {
     createMcpServer, loadMcpServers, saveMcpServers, resetMcpSession, testMcpConnection,
     type McpServerConfig,
@@ -65,49 +66,79 @@ const RealtimeMcpPresets: React.FC<{ onConfigChanged: () => void }> = ({ onConfi
             setTesting(null);
         }
     };
+    const icons = [FilmStrip, MagnifyingGlass, TextT];
     return (
-        <div className="space-y-3">
-            <p className="text-xs font-bold text-slate-700">影视与 B站 MCP</p>
-            {PRESETS.map(preset => {
+        <div className="space-y-4">
+            {PRESETS.map((preset, index) => {
                 const server = servers.find(s => s.name === preset.name || (!!preset.url && s.url === preset.url));
                 const ready = !!server?.tools?.length;
+                const Icon = icons[index];
                 return (
-                    <div key={preset.name} className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
+                    <div key={preset.name} className="bg-slate-100/60 p-4 rounded-2xl space-y-3">
                         <div className="flex items-center justify-between gap-3">
-                            <span className="text-xs font-semibold text-slate-800">{preset.name}</span>
-                            {!server ? (
-                                <button type="button" onClick={() => add(preset)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs">添加</button>
-                            ) : (
-                                <label className="flex items-center gap-2 text-xs text-slate-600">
-                                    <input type="checkbox" checked={!!server.enabled} disabled={!ready}
-                                        onChange={e => update(server, { enabled: e.target.checked })} />启用
-                                </label>
-                            )}
+                            <div className="flex min-w-0 items-center gap-2.5">
+                                <Icon size={20} weight="fill" className="shrink-0 text-slate-800" />
+                                <span className="text-sm font-bold text-slate-800">{preset.name}</span>
+                                <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[9px] text-slate-600">
+                                    {ready ? '已连接' : 'MCP'}
+                                </span>
+                            </div>
+                            <label className="relative inline-flex shrink-0 items-center cursor-pointer">
+                                <span className="sr-only">启用 {preset.name}</span>
+                                <input type="checkbox" checked={!!server?.enabled}
+                                    onChange={event => {
+                                        if (!server) {
+                                            add(preset);
+                                            setStatuses(old => ({ ...old, [preset.name]: '已创建配置，请先展开配置、测试连接后再启用。' }));
+                                        } else if (!ready && event.target.checked) {
+                                            setStatuses(old => ({ ...old, [preset.name]: '请先填写服务地址并测试连接，再启用。' }));
+                                        } else {
+                                            update(server, { enabled: event.target.checked });
+                                        }
+                                    }}
+                                    className="sr-only peer" />
+                                <div className="w-11 h-6 bg-slate-300 rounded-full transition-colors peer-checked:bg-slate-800
+                                    after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5
+                                    after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-full" />
+                            </label>
                         </div>
-                        <p className="text-[10px] leading-relaxed text-slate-500">{preset.hint}</p>
-                        <a href={preset.source} target="_blank" rel="noopener noreferrer"
-                            className="inline-block text-[10px] text-slate-700 underline underline-offset-2">
-                            原项目 / 获取部署说明 ↗
-                        </a>
-                        {server && (
-                            <>
-                                <input aria-label={`${preset.name} MCP 地址`} value={server.url}
-                                    onChange={e => update(server, { url: e.target.value.trim() }, true)}
-                                    placeholder="填写部署后的 https://…/mcp"
-                                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700" />
-                                <button type="button" disabled={!server.url || testing === server.id}
-                                    onClick={() => test(server)}
-                                    className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-[11px] disabled:opacity-40">
-                                    {testing === server.id ? '连接中…' : '测试并读取工具'}
-                                </button>
-                                <span className="ml-2 text-[10px] text-slate-500">{ready ? `已发现 ${server.tools?.length} 个工具` : '未连接'}</span>
-                            </>
-                        )}
+                        <p className="text-[10px] text-slate-500 leading-relaxed">{preset.hint}</p>
+                        <details className="group">
+                            <summary className="cursor-pointer text-[10px] font-semibold text-slate-700">配置与来源</summary>
+                            <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                                <a href={preset.source} target="_blank" rel="noopener noreferrer"
+                                    className="inline-block text-[10px] text-slate-700 underline underline-offset-2">
+                                    查看原项目与部署说明 ↗
+                                </a>
+                                {!server ? (
+                                    <button type="button" onClick={() => add(preset)}
+                                        className="block rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700">
+                                        添加服务配置
+                                    </button>
+                                ) : (
+                                    <>
+                                        <input aria-label={`${preset.name} MCP 地址`} value={server.url}
+                                            onChange={event => update(server, { url: event.target.value.trim() }, true)}
+                                            placeholder="填写部署后的 https://…/mcp"
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-700" />
+                                        <div className="flex items-center gap-2">
+                                            <button type="button" disabled={!server.url || testing === server.id}
+                                                onClick={() => test(server)}
+                                                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-[11px] text-slate-700 disabled:opacity-40">
+                                                {testing === server.id ? '连接中…' : '测试并读取工具'}
+                                            </button>
+                                            <span className="text-[10px] text-slate-500">
+                                                {ready ? `已发现 ${server.tools?.length} 个工具` : '未连接'}
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </details>
                         {statuses[preset.name] && <p role="status" className="text-[10px] text-slate-600">{statuses[preset.name]}</p>}
                     </div>
                 );
             })}
-            <p className="text-[10px] text-slate-500">自定义 MCP 服务器请前往「MCP 管理」；这里仅管理已有服务预设。服务器配置和工具调用共用原有 MCP 系统。</p>
         </div>
     );
 };
