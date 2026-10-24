@@ -1510,7 +1510,7 @@ export async function ingestDiaryToPalace(
     lightLLMConfig: LightLLMConfig | null | undefined,
     userName: string,
     minimumImportance = 0,
-    phoneSource?: { id: string; occurredAt: number; kind: 'npc-chat' | 'moment-post' },
+    phoneSource?: { id: string; occurredAt: number; kind: 'npc-chat' | 'moment-post' | 'moment-comment' },
 ): Promise<DiaryIngestResult> {
     if (!char.memoryPalaceEnabled) return { status: 'palace_disabled' };
     if (!lightLLMConfig?.baseUrl || !lightLLMConfig?.apiKey) {
@@ -1616,7 +1616,7 @@ export async function ingestDiaryToPalace(
  */
 export function ingestPhoneEventToPalace(
     char: { id: string; name: string; memoryPalaceEnabled?: boolean; embeddingConfig?: any; systemPrompt?: string; worldview?: string },
-    event: { id: string; kind: 'npc-chat' | 'moment-post'; occurredAt: number; summary: string },
+    event: { id: string; kind: 'npc-chat' | 'moment-post' | 'moment-comment'; occurredAt: number; summary: string },
     lightLLMConfig: LightLLMConfig | null | undefined,
     userName: string,
 ): Promise<DiaryIngestResult> {
