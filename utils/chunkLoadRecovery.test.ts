@@ -84,6 +84,16 @@ describe('tryAutoReloadForChunkError', () => {
         expect(reload).toHaveBeenCalledTimes(1);
     });
 
+    it('离线时不强制刷新且不消耗恢复机会', () => {
+        const { reload } = stubEnv();
+        vi.stubGlobal('navigator', { onLine: false });
+        expect(tryAutoReloadForChunkError()).toBe(false);
+        expect(reload).not.toHaveBeenCalled();
+        vi.stubGlobal('navigator', { onLine: true });
+        expect(tryAutoReloadForChunkError()).toBe(true);
+        expect(reload).toHaveBeenCalledTimes(1);
+    });
+
     it('sessionStorage 不可用时不自动刷新 (没法防循环)', () => {
         const reload = vi.fn();
         vi.stubGlobal('window', { location: { reload } });
