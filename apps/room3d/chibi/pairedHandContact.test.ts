@@ -54,13 +54,18 @@ describe('reusable paired palm contact runtime',()=>{
   expect(a.calls[0].contact.curl).toBe(.38);
   expect(b.calls[0].weight).toBeCloseTo(.8);
  });
- it('does not run IK after the low-five contact window',()=>{
+ it('drives the low-five palms at contact, then stops before departure',()=>{
   const profile=motionContactProfile('cmu-20_12');
   if(profile?.kind!=='pairedHands')throw Error('Missing low-five profile');
   const a=actor(),b=actor();
   expect(applyPairedHandContact(profile,clip(),[a.resident,b.resident],1,1.5)).toBe(true);
-  expect(a.calls).toHaveLength(0);
-  expect(b.calls).toHaveLength(0);
+  expect(a.calls).toHaveLength(1);
+  expect(b.calls).toHaveLength(1);
+  expect(a.calls[0].contact.point.distanceTo(b.calls[0].contact.point)).toBe(0);
+  const c=actor(),d=actor();
+  expect(applyPairedHandContact(profile,clip(),[c.resident,d.resident],1,2.1)).toBe(true);
+  expect(c.calls).toHaveLength(0);
+  expect(d.calls).toHaveLength(0);
  });
  it('falls back for classic bodies without a rig',()=>{
   const profile=motionContactProfile('cmu-20_10');
