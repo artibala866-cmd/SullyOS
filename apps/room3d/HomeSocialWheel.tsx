@@ -2,12 +2,12 @@ import {BED_LEISURE} from './chibi/bedLeisure';
 import {socialPostureAllowed} from './socialPosture';
 import {Button} from './islandComponents';
 import React,{useEffect,useRef,useState} from 'react';
-import {HandWaving,ChatCircle,Heart,Flower,Smiley,Sparkle,CloudLightning,ArrowLeft,ArrowRight,X,Users,Stop,Handshake,HandsClapping,SmileySad,SmileyNervous,PersonSimpleRun,Moon,HandHeart} from '@phosphor-icons/react';
+import {HandWaving,ChatCircle,Heart,Flower,Smiley,Sparkle,CloudLightning,ArrowLeft,ArrowRight,X,Users,Stop,Handshake,HandsClapping,SmileySad,SmileyNervous,PersonSimpleRun,Moon,HandHeart,Lips} from '@phosphor-icons/react';
 import type {HomeEditor} from './editor.js';
 import {selectedMotions} from './chibi/selectedMotions';
 import {socialWheelLayout} from './socialWheelLayout';
 import './socialWheel.css';
-const categories=[['greet','招呼',HandWaving],['talk','聊天',ChatCircle],['care','关心',Flower],['close','亲密',Heart],['play','玩闹',Smiley],['self','小动作',Sparkle],['conflict','闹别扭',CloudLightning]] as const;
+const categories=[['greet','招呼',HandWaving],['talk','聊天',ChatCircle],['care','关心',Flower],['close','亲密',Heart],['kiss','亲亲',Lips],['play','玩闹',Smiley],['self','小动作',Sparkle],['conflict','闹别扭',CloudLightning]] as const;
 function motionIcon(label:string,fallback:typeof Sparkle){
  if(/鼓掌|击掌/.test(label))return HandsClapping;
  if(/招手|挥手/.test(label))return HandWaving;
