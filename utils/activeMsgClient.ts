@@ -114,7 +114,6 @@ import {
 // 只取一个常量：客户端算 firstSendTime 时要留的提前量，和包装层「把任务行拉到期」
 // 那一步是同一个数，各写各的就会出现「校验说时间要在未来 / cron 说还没到」的死角。
 import type { AmsgEmotionEvalSpec } from '../worker/amsg/src/emotionEval';
-import type { AmsgSarModuleSnapshot } from './vrWorld/sarEnvelopeCore';
 import { listRecallableMonths } from './agenticTools';
 import { ChatPrompts } from './chatPrompts';
 import { nowInTimeZone, resolveCharTimeZone, tzAwarenessNote } from './timezone';
@@ -2873,11 +2872,6 @@ export const ActiveMsgClient = {
      * 走 taskPayload —— 那份是端到端加密的信封，凭据不会以明文出门。
      */
     emotionEval?: AmsgEmotionEvalSpec;
-    /**
-     * SAR 临时模块的请求时快照（只在角色或用户身上有模块时带）。worker 按它拆信封、
-     * 逐段带回外显，并把它原样挂回最后一条推送，落库侧据此写事件、推进回合。
-     */
-    sarModule?: AmsgSarModuleSnapshot;
     /** 上一条还没被认领的即时对话任务，连发两条时用它顶掉（合并成一起回）。 */
     supersedesUuid?: string;
   }): Promise<{ uuid: string; clientTaskId: string }> {
