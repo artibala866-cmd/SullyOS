@@ -6,22 +6,21 @@ import { CreatorIframe, type ChibiResult, LIKE520_RECORD_KEY, isSullyChar, sully
 import CreatorPartsUploader from './CreatorPartsUploader';
 import { useBlobRefUrl, putImageBlob, dataUrlToBlob, resolveRefToDataUrl } from '../../utils/blobRef';
 import TokenImg from '../os/TokenImg';
-import { VR_DEFAULT_INTERVAL_MIN } from '../../utils/vrWorld/constants';
 import { CaretLeft, CaretRight, PencilSimple, ArrowsClockwise, Sparkle, X, FileArrowUp } from '@phosphor-icons/react';
 
 // ============================================================
 // QQ捏人工坊（神经链接）—— 手办展示柜
 //
-// 一只角色在三处有 Q 版形象：小小窝房间立绘（sprites.chibi，blobref）、
-// 彼方 chibi（vrState.chibi，dataURL）、特别时光 520 大头贴
+// 手办柜保留已有的形象槽：小小窝立绘（sprites.chibi，blobref）、
+// 特别时光 520 大头贴
 // （specialMomentRecords.like520_2026.customData.charChibi，dataURL）。
-// 这里把三处摆进一个展示柜：每个展台可单独捏（互不影响），也可以
-// 以某一只为准一键同步到三处。捏人器完整 state 存 char.chibiStudio，
+// 每个展台可单独捏（互不影响），也可以
+// 以某一只为准同步到现有形象槽。捏人器完整 state 存 char.chibiStudio，
 // 再编辑时经 CreatorIframe 的 savedState 整套还原（含换色/翻转）。
 // 图片本体仍写各 App 自己的消费字段——本组件不新增渲染路径。
 // ============================================================
 
-// 安全区（与彼方 ChibiEditor / index.html :root 单一来源对齐）：
+// 安全区（与 index.html :root 单一来源对齐）：
 //  · 全屏浮层顶栏统一用 --chrome-top（安全区 + SullyOS 状态栏；状态栏隐藏时自动塌回 --safe-top）。
 //    不能只用 --safe-top，否则状态栏显示时顶栏会怼进时钟/电量条。
 //  · 底部用 --safe-bottom（带 JS 探测兜底，iOS 全屏 PWA 原生 env(safe-area-inset-bottom)
@@ -41,7 +40,6 @@ interface SlotMeta {
 
 const SLOTS: SlotMeta[] = [
     { id: 'room', label: '小小窝', en: 'ROOM', desc: '站在房间里的立绘', accent: '#f4a3ca' },
-    { id: 'vr', label: '彼方', en: 'VR WORLD', desc: '彼方房间里的小人', accent: '#8f9bf4' },
     { id: 'like520', label: '特别时光', en: '520 EVENT', desc: '520 活动的大头贴', accent: '#f4b78f' },
 ];
 
@@ -146,10 +144,9 @@ export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> =
     const studio = char?.chibiStudio;
     const recChibi = char?.specialMomentRecords?.[LIKE520_RECORD_KEY]?.customData?.charChibi as { dataUrl?: string } | undefined;
     const roomUrl = useBlobRefUrl(char?.sprites?.['chibi']);
-    const vrUrl = useBlobRefUrl(char?.vrState?.chibi?.img);
     const l5Url = useBlobRefUrl(recChibi?.dataUrl || studio?.like520?.img);
     if (!char) return null;
-    const urlOf: Record<ChibiStudioSlotId, string | undefined> = { room: roomUrl, vr: vrUrl, like520: l5Url };
+    const urlOf: Record<ChibiStudioSlotId, string | undefined> = { room: roomUrl, like520: l5Url };
     const dressed = SLOTS.filter(s => !!urlOf[s.id]).length;
 
     return (
@@ -168,10 +165,10 @@ export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> =
                 <div className="relative px-4 pt-4 pb-1 flex items-baseline gap-2">
                     <span className="font-serif text-[15px] font-bold text-white tracking-wide">QQ捏人 · 手办柜</span>
                     <span className="text-[9px] tracking-[3px] text-indigo-300/60 font-medium">FIGURE STUDIO</span>
-                    <span className="ml-auto text-[10px] text-indigo-200/50">{dressed}/3 已上架</span>
+                    <span className="ml-auto text-[10px] text-indigo-200/50">{dressed}/{SLOTS.length} 已上架</span>
                 </div>
-                {/* 三格迷你展台 */}
-                <div className="relative grid grid-cols-3 gap-2 px-3 pb-4 pt-1">
+                {/* 迷你展台 */}
+                <div className="relative grid grid-cols-2 gap-2 px-3 pb-4 pt-1">
                     {SLOTS.map(meta => {
                         const url = urlOf[meta.id];
                         return (
@@ -205,7 +202,7 @@ export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> =
                 🧸 进入手办柜
             </button>
             <p className="text-[10.5px] text-slate-400 leading-relaxed px-1">
-                小小窝立绘、彼方小人、特别时光 520 大头贴——三处 Q 版形象在这里统一打理：可以各捏各的，也可以挑一只「同步到全部」。
+                小小窝立绘与原有活动大头贴在这里独立保存，也可以挑一只「同步到全部」。
             </p>
         </div>
     );
@@ -227,20 +224,17 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
 
     const rawOf: Record<ChibiStudioSlotId, string | undefined> = {
         room: char?.sprites?.['chibi'],
-        vr: char?.vrState?.chibi?.img,
         like520: recChibi?.dataUrl || studio?.like520?.img,
     };
-    // hooks 数量固定（三个槽位常量），条件仅在值上
+    // hooks 数量固定，条件仅在值上
     const roomUrl = useBlobRefUrl(rawOf.room);
-    const vrUrl = useBlobRefUrl(rawOf.vr);
     const l5Url = useBlobRefUrl(rawOf.like520);
 
     const views: SlotView[] = useMemo(() => {
         if (!char) return [];
-        const urlOf: Record<ChibiStudioSlotId, string | undefined> = { room: roomUrl, vr: vrUrl, like520: l5Url };
+        const urlOf: Record<ChibiStudioSlotId, string | undefined> = { room: roomUrl, like520: l5Url };
         const stateOf: Record<ChibiStudioSlotId, any> = {
             room: studio?.room?.state,
-            vr: studio?.vr?.state ?? char.vrState?.chibi?.state,
             like520: studio?.like520?.state ?? recChibi?.state,
         };
         return SLOTS.map(meta => ({
@@ -251,7 +245,7 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
             updatedAt: studio?.[meta.id]?.updatedAt,
         }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [char, roomUrl, vrUrl, l5Url]);
+    }, [char, roomUrl, l5Url]);
 
     if (!char) return null;
     const isSully = isSullyChar(char);
@@ -267,20 +261,6 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
                 updateCharacter(char.id, prev => ({
                     sprites: { ...(prev.sprites || {}), chibi: ref },
                     chibiStudio: { ...(prev.chibiStudio || {}), room: slotData },
-                }));
-            } else if (slot === 'vr') {
-                updateCharacter(char.id, prev => ({
-                    vrState: {
-                        ...(prev.vrState || { enabled: false, intervalMinutes: VR_DEFAULT_INTERVAL_MIN }),
-                        chibi: {
-                            img: r.transparentDataUrl,
-                            state: r.state,
-                            scale: prev.vrState?.chibi?.scale ?? 1,
-                            offsetY: prev.vrState?.chibi?.offsetY ?? 0,
-                            flip: prev.vrState?.chibi?.flip ?? false,
-                        },
-                    },
-                    chibiStudio: { ...(prev.chibiStudio || {}), vr: slotData },
                 }));
             } else {
                 updateCharacter(char.id, prev => {
@@ -309,13 +289,13 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
         setEditing(null);
     };
 
-    // ── 一键同步：以某槽为准，三处形象 + state 全部对齐 ──
+    // ── 同步到保留的形象槽 ──
     const syncFrom = async (source: ChibiStudioSlotId) => {
         const src = views.find(v => v.meta.id === source);
         if (!src?.raw) return;
         setSyncing(true);
         try {
-            // room 槽原始值可能是 blobref，先解析回 dataURL 才能喂给彼方/520（它们直接存 dataURL）
+            // room 槽可能是 blobref，解析为 dataURL 以便给活动图像使用
             const dataUrl = src.raw.startsWith('data:') ? src.raw : await resolveRefToDataUrl(src.raw);
             if (!dataUrl.startsWith('data:')) throw new Error('这只手办的图片格式不支持同步');
             const roomRef = source === 'room' ? src.raw : await putImageBlob(dataUrlToBlob(dataUrl));
@@ -326,16 +306,6 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
                 const existing = records[LIKE520_RECORD_KEY];
                 return {
                     sprites: { ...(prev.sprites || {}), chibi: roomRef },
-                    vrState: {
-                        ...(prev.vrState || { enabled: false, intervalMinutes: VR_DEFAULT_INTERVAL_MIN }),
-                        chibi: {
-                            img: dataUrl,
-                            state,
-                            scale: prev.vrState?.chibi?.scale ?? 1,
-                            offsetY: prev.vrState?.chibi?.offsetY ?? 0,
-                            flip: prev.vrState?.chibi?.flip ?? false,
-                        },
-                    },
                     ...(existing?.customData ? {
                         specialMomentRecords: {
                             ...records,
@@ -348,12 +318,11 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
                     chibiStudio: {
                         ...prev.chibiStudio,
                         room: { state, updatedAt: now },
-                        vr: { state, updatedAt: now },
                         like520: { state, img: dataUrl, updatedAt: now },
                     },
                 };
             });
-            addToast('三处形象已对齐 ✓', 'success');
+            addToast('形象已对齐 ✓', 'success');
         } catch (e: any) {
             addToast(`同步失败：${e?.message || e}`, 'error');
         }
@@ -413,7 +382,7 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
                     </div>
                 </div>
                 <p className="text-[10.5px] text-indigo-300/55 mt-2 pl-1">
-                    同一只角色在三个地方的 Q 版形象——可以各捏各的，也可以挑一只「同步到全部」。
+                    同一角色现有的 Q 版形象——可以各捏各的，也可以挑一只「同步到全部」。
                 </p>
                 {/* 自定义素材工坊入口：PSD 批量导入自己的部件（正式站用户也能用） */}
                 <button onClick={() => setShowUploader(true)}
@@ -454,7 +423,7 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
                                 <button onClick={() => !syncing && setSyncConfirm(null)} className="ml-auto p-1 text-indigo-300/60"><X size={18} /></button>
                             </div>
                             <p className="text-[11px] text-indigo-200/60 leading-relaxed mb-4">
-                                小小窝、彼方、特别时光三处会全部换成这套造型，另外两处现在的手办会被替换掉。
+                                两个现有的形象槽会被同步成这套造型。
                             </p>
                             <button disabled={syncing} onClick={() => { void syncFrom(syncConfirm); }}
                                 className="w-full rounded-xl py-2.5 text-[13px] font-bold text-white active:scale-[0.98] transition-transform disabled:opacity-60"
