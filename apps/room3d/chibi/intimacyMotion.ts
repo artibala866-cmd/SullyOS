@@ -41,21 +41,33 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    const gap=Math.abs(heads[0].y-heads[1].y);
    const rise=T.MathUtils.clamp(gap*.32,0,.18)*heightBlend;
    const bend=T.MathUtils.clamp((gap-rise)*.55,0,.25)*heightBlend;
+   // Capture toe contact before posing. Tiptoeing rotates the ankle so the
+   // heel rises while the toes remain planted (not the reverse).
+   shorter.root.updateWorldMatrix(true,true);
+   const toeBefore=['L_toe','R_toe'].map(n=>shorter.rig!.bones[n].getWorldPosition(new T.Vector3()));
    for(const side of ['L','R'] as const){
-    shorter.rig!.bones[side+'_foot'].quaternion.multiply(rotation(-rise*1.3));
+    const foot=shorter.rig!.bones[side+'_foot'];
+    const toe=shorter.rig!.bones[side+'_toe'];
+    const base=foot.quaternion.clone();
+    // Foot forward-axis differs between rigs; choose the direction that
+    // raises the heel relative to the toe in world space.
+    const angle=T.MathUtils.clamp(rise*1.8,0,.32);
+    foot.quaternion.copy(base).multiply(rotation(angle));
+    shorter.root.updateWorldMatrix(true,true);
+    const plus=foot.getWorldPosition(new T.Vector3()).y-toe.getWorldPosition(new T.Vector3()).y;
+    foot.quaternion.copy(base).multiply(rotation(-angle));
+    shorter.root.updateWorldMatrix(true,true);
+    const minus=foot.getWorldPosition(new T.Vector3()).y-toe.getWorldPosition(new T.Vector3()).y;
+    foot.quaternion.copy(base).multiply(rotation(plus>=minus?angle:-angle));
+    // The correction below keeps the toe on its original contact plane.
     taller.rig!.bones[side+'_thigh'].quaternion.multiply(rotation(-bend*1.8));
     taller.rig!.bones[side+'_shin'].quaternion.multiply(rotation(bend*3.1));
     taller.rig!.bones[side+'_foot'].quaternion.multiply(rotation(-bend*1.3));
    }
-   // Pivot the shorter body around its planted toe tips instead of lifting
-   // the whole model. The ankle extension creates the visible tiptoe pose.
    shorter.root.updateWorldMatrix(true,true);
-   const toes=['L_toe','R_toe'].map(n=>shorter.rig!.bones[n].getWorldPosition(new T.Vector3()));
-   const ground=Math.min(...toes.map(p=>p.y));
-   // Keep toe contact with the original ground plane; cap compensation so
-   // an exaggerated height difference cannot pull the resident into the air.
-   const lift=T.MathUtils.clamp(rise*.35,0,.055);
-   shorter.translatePose(new T.Vector3(0,Math.min(lift,Math.max(0,.035-ground)),0));
+   const toeAfter=['L_toe','R_toe'].map(n=>shorter.rig!.bones[n].getWorldPosition(new T.Vector3()));
+   const correction=(toeBefore[0].y-toeAfter[0].y+toeBefore[1].y-toeAfter[1].y)*.5;
+   shorter.translatePose(new T.Vector3(0,T.MathUtils.clamp(correction,-.12,.12),0));
    taller.rig!.bones.spine.quaternion.multiply(rotation(bend*.9));
    taller.rig!.bones.chest.quaternion.multiply(rotation(bend*1.05));
    taller.rig!.bones.neck.quaternion.multiply(rotation(bend*.45));
