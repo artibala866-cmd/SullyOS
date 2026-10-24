@@ -97,13 +97,19 @@ origin为known时必须能从原设或世界书找到证据，evidence取worldbo
   let created = false;
   for (const raw of response.contacts.slice(0, 4)) {
     if (!raw || typeof raw.name !== 'string' || !raw.name.trim()) continue;
+    // LLM's claimed "known" provenance is only accepted when the source
+    // character's actual prompt contains this identifiable person.
+    const hasExplicitSeed = typeof raw.name === 'string' &&
+      raw.name.trim().length >= 2 && context.systemPrompt.includes(raw.name.trim());
     const item: NpcDiscovery = {
       name: raw.name, nickname: raw.nickname, realName: raw.realName,
       identity: raw.identity, personality: raw.personality,
       relationship: raw.relationship, background: raw.background,
       speechStyle: raw.speechStyle, boundary: raw.boundary,
-      origin: ['known', 'introduced', 'stranger'].includes(raw.origin) ? raw.origin : 'suggested',
-      evidence: ['worldbook', 'character', 'suggested'].includes(raw.evidence) ? raw.evidence : 'suggested',
+      origin: raw.origin === 'known' && !hasExplicitSeed ? 'introduced' :
+        ['known', 'introduced', 'stranger'].includes(raw.origin) ? raw.origin : 'suggested',
+      evidence: hasExplicitSeed && ['worldbook', 'character'].includes(raw.evidence)
+        ? raw.evidence : 'suggested',
     };
     const result = registerDiscoveredNpc(char.id, item);
     if (result.status === 'added' || result.status === 'pending') created = true;
