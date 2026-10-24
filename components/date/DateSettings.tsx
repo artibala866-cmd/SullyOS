@@ -501,7 +501,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                         <div className="text-xs font-bold text-slate-600 capitalize truncate">{key}</div>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleDeleteCustomEmotion(key); }}
-                                            className="text-slate-300 hover:text-red-400 transition-colors shrink-0"
+                                            className="text-slate-300 hover:text-neutral-400 transition-colors shrink-0"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                         </button>
@@ -572,7 +572,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                         <button onClick={() => setEditingSkinId(editingSkinId === skin.id ? null : skin.id)} className="text-[10px] text-slate-500 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors">
                                             {editingSkinId === skin.id ? '收起' : '编辑'}
                                         </button>
-                                        <button onClick={() => handleDeleteSkinSet(skin.id)} className="text-slate-300 hover:text-red-400 transition-colors p-1">
+                                        <button onClick={() => handleDeleteSkinSet(skin.id)} className="text-slate-300 hover:text-neutral-400 transition-colors p-1">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                         </button>
                                     </div>
