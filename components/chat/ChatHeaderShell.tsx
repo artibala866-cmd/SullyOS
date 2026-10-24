@@ -219,7 +219,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
               : headerStyle === 'wechat'
                 ? 'bg-[#f7f7f7]/95 backdrop-blur-md border-b border-black/5 shadow-none'
                 : headerStyle === 'telegram'
-                  ? 'bg-white/85 backdrop-blur-xl border-b border-neutral-200 shadow-sm'
+                  ? 'bg-white/85 backdrop-blur-xl border-b border-sky-100 shadow-sm'
                   : headerStyle === 'discord'
                     ? 'bg-slate-900/95 backdrop-blur-xl border-b border-white/10 shadow-[0_10px_30px_rgba(15,23,42,0.35)]'
                     : headerStyle === 'pixel'
@@ -249,19 +249,19 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
     const actionButtonClass = acnh
         ? 'text-[#6b5a3e] hover:bg-black/5 rounded-full'
         : isDarkHeader
-        ? 'text-neutral-300 hover:bg-neutral-600/10 rounded-full'
+        ? 'text-sky-300 hover:bg-sky-400/10 rounded-full'
         : isPixelHeader
           ? 'text-[#fff7ed] hover:bg-[#f8f0e0]/20 rounded-[4px] border-2 border-[#8f674a] bg-[#f8f0e0]/10'
-          : 'text-neutral-600 hover:bg-neutral-50 rounded-full';
+          : 'text-indigo-500 hover:bg-indigo-50 rounded-full';
 
     // 在线状态由独立的外观设置决定，头部风格不能覆盖它。
     const onlineStatusNode = statusStyle === 'pill' ? (
-            <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${isDarkHeader ? 'bg-neutral-700/20 text-neutral-200 border-neutral-500/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/25' : 'bg-neutral-50 text-neutral-600 border-neutral-200'}`}>
+            <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${isDarkHeader ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/25' : 'bg-emerald-50 text-emerald-500 border-emerald-100'}`}>
                 {statusText ?? 'online'}
             </div>
         ) : statusStyle === 'dot' ? (
             <div className={`flex items-center gap-1 text-[10px] ${secondaryTextClass}`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-neutral-600" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span>{statusText ?? 'Online'}</span>
             </div>
         ) : (
@@ -336,12 +336,12 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
                 </div>
             )}
             {isEmotionEvaluating && (
-                <div className={`text-[9px] px-1.5 py-0.5 rounded-md font-semibold border animate-pulse ${isDarkHeader ? 'bg-neutral-700/15 text-neutral-200 border-neutral-500/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/20' : 'bg-neutral-50/95 text-neutral-600 border-neutral-300'}`}>
+                <div className={`text-[9px] px-1.5 py-0.5 rounded-md font-semibold border animate-pulse ${isDarkHeader ? 'bg-violet-500/15 text-violet-200 border-violet-400/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/20' : 'bg-violet-50/95 text-violet-500 border-violet-200'}`}>
                     情绪分析中
                 </div>
             )}
             {isMemoryPalaceProcessing && (
-                <div className={`text-[9px] px-1.5 py-0.5 rounded-md font-semibold border animate-pulse ${isDarkHeader ? 'bg-neutral-700/15 text-neutral-200 border-neutral-500/20' : isPixelHeader ? 'bg-[#f5f3ff] text-[#4338ca] border-[#4338ca]/20' : 'bg-neutral-50/95 text-neutral-700 border-neutral-300'}`}>
+                <div className={`text-[9px] px-1.5 py-0.5 rounded-md font-semibold border animate-pulse ${isDarkHeader ? 'bg-indigo-500/15 text-indigo-200 border-indigo-400/20' : isPixelHeader ? 'bg-[#f5f3ff] text-[#4338ca] border-[#4338ca]/20' : 'bg-indigo-50/95 text-indigo-600 border-indigo-200'}`}>
                     {memoryPalaceStatusText || '记忆整理中'}
                 </div>
             )}
@@ -376,7 +376,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
                         </div>
                     )}
                     {isEmotionEvaluating && (
-                        <div className={`text-[9px] px-1.5 py-0.5 rounded-md font-semibold border animate-pulse ${isDarkHeader ? 'bg-neutral-700/15 text-neutral-200 border-neutral-500/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/20' : 'bg-neutral-50 text-neutral-600 border-neutral-300'}`}>
+                        <div className={`text-[9px] px-1.5 py-0.5 rounded-md font-semibold border animate-pulse ${isDarkHeader ? 'bg-violet-500/15 text-violet-200 border-violet-400/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/20' : 'bg-violet-50 text-violet-500 border-violet-200'}`}>
                             情绪分析中
                         </div>
                     )}
