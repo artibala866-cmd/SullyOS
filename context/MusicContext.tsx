@@ -744,6 +744,32 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setListeningInvites(prev => ({ ...prev, [charId]: accepted ? 'accepted' : 'rejected' }));
     if (accepted) addListeningPartner(charId);
   }, [addListeningPartner]);
+  // Char 接受/拒绝来自用户的邀请只走这一个持久化入口，防止两套动作重复写回应。
+  const settlingUserInvites = useRef(new Set<string>());
+  const settleUserListeningInvite = useCallback(async (charId: string, accepted: boolean) => {
+    if (settlingUserInvites.current.has(charId)) return;
+    settlingUserInvites.current.add(charId);
+    try {
+      const messages = await DB.getMessagesByCharId(charId, true);
+      const invite = findPendingMusicInvite(messages, 'user');
+      if (invite) {
+        await DB.saveMessage({
+          charId, role: 'assistant', type: 'system',
+          content: accepted ? '[一起听邀请] 已接受邀请。' : '[一起听邀请] 已拒绝邀请。',
+          metadata: { musicListenInviteResponseTo: invite.id, accepted },
+        });
+        window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
+          detail: { charId, messageId: invite.id, accepted },
+        }));
+      }
+      // Char 在普通对话中主动加入时，不要求必须存在一条邀请卡片。
+      if (invite || accepted) respondListeningInvite(charId, accepted);
+    } catch (err) {
+      console.warn('[MusicTogether] 保存 Char 邀请回应失败', err);
+    } finally {
+      settlingUserInvites.current.delete(charId);
+    }
+  }, [respondListeningInvite]);
   const answeringInviteIds = useRef(new Set<number>());
   useEffect(() => {
     const onAnswer = (event: Event) => {
@@ -1146,21 +1172,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           fee: current.fee,
         };
       },
-      joinListeningTogether: (cid: string) => {
-        addListeningPartner(cid);
-        void (async () => {
-          const messages = await DB.getMessagesByCharId(cid, true);
-          const invite = findPendingMusicInvite(messages, 'user');
-          if (!invite) return;
-          await DB.saveMessage({
-            charId: cid, role: 'assistant', type: 'system',
-            content: '[一起听邀请] 已接受邀请。',
-            metadata: { musicListenInviteResponseTo: invite.id, accepted: true },
-          });
-          window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
-            detail: { charId: cid, messageId: invite.id, accepted: true },
-          }));
-        })().catch(err => console.warn('[MusicTogether] 接受邀请记录失败', err));
+      joinListeningTogether: async (cid: string) => {
+        await settleUserListeningInvite(cid, true);
       },
       inviteUserListening: async (cid: string) => {
         if (creatingCharInvites.current.has(cid) || listeningTogetherRef.current.includes(cid)) return;
@@ -1169,7 +1182,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // AI 每个角色同一时间只保留一条待回应邀请，防止主动消息多次触发叠卡。
           const messages = await DB.getMessagesByCharId(cid, true);
           const pending = findPendingMusicInvite(messages, 'char');
-          if (pending) return;
+          // 对方已经在等你回应时，不允许 Char 反向再发一张邀请。
+          if (pending || findPendingMusicInvite(messages, 'user')) return;
           const messageId = await DB.saveMessage({
             charId: cid, role: 'assistant', type: 'system',
             content: '[一起听邀请] 要不要一起听歌？',
@@ -1180,21 +1194,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           creatingCharInvites.current.delete(cid);
         }
       },
-      rejectListeningInvite: (cid: string) => {
-        respondListeningInvite(cid, false);
-        void (async () => {
-          const messages = await DB.getMessagesByCharId(cid, true);
-          const invite = findPendingMusicInvite(messages, 'user');
-          if (!invite) return;
-          await DB.saveMessage({
-            charId: cid, role: 'assistant', type: 'system',
-            content: '[一起听邀请] 已拒绝邀请。',
-            metadata: { musicListenInviteResponseTo: invite.id, accepted: false },
-          });
-          window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
-            detail: { charId: cid, messageId: invite.id, accepted: false },
-          }));
-        })().catch(err => console.warn('[MusicTogether] 拒绝邀请记录失败', err));
+      rejectListeningInvite: async (cid: string) => {
+        await settleUserListeningInvite(cid, false);
       },
       playListeningTrack: async (cid: string, query: string) => {
         // 只有正在一起听的角色能切歌。优先使用现有队列，找不到再走同一套免登录搜索。
@@ -1334,7 +1335,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return !!saved;
       },
     };
-  }, [current, addListeningPartner, removeListeningPartner, respondListeningInvite, playSong]);
+  }, [current, removeListeningPartner, playSong, settleUserListeningInvite]);
 
   const value: MusicContextType = {
     cfg, setCfg, effectiveWorkerUrl,
