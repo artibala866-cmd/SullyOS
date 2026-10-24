@@ -57,7 +57,7 @@ import {
 /** 顶栏圆角方钮（squircle）：白底浅灰描边 + 线性图标 + 底部小字标签 */
 const ToolButton: React.FC<{ label: string; title?: string; onClick: () => void; children: React.ReactNode }> = ({ label, title, onClick, children }) => (
     <button onClick={onClick} title={title} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
-        <span className="w-11 h-11 flex items-center justify-center rounded-[15px] bg-white border border-black/[0.07] text-[#242424] shadow-[0_2px_8px_rgba(0,0,0,0.035)]">
+        <span className="w-11 h-11 flex items-center justify-center rounded-[15px] bg-white border border-black/[0.07] text-[#242424] shadow-[0_2px_8px_rgba(0, 0, 0,0.035)]">
             {children}
         </span>
         <span className="text-[11px] text-[#737373] font-medium tracking-wide">{label}</span>
@@ -74,7 +74,7 @@ const CharacterCard: React.FC<{
     <div
         data-guide={char.id === 'preset-sully-v2' ? 'sully-card' : undefined}
         onClick={onClick}
-        className={`relative px-4 py-4 rounded-[20px] border bg-white transition-colors cursor-pointer group shrink-0 shadow-[0_2px_12px_rgba(0,0,0,0.035)] ${
+        className={`relative px-4 py-4 rounded-[20px] border bg-white transition-colors cursor-pointer group shrink-0 shadow-[0_2px_12px_rgba(0, 0, 0,0.035)] ${
             active ? 'border-[#777777] ring-1 ring-black/[0.05]' : 'border-black/[0.06] hover:border-[#b5b5b5]'
         }`}
     >
@@ -1227,10 +1227,10 @@ ${isInitialGeneration ? `
   };
 
   return (
-    <div className="h-full w-full bg-[#f2f2f4] text-[#171717] font-sans relative">
+    <div className="h-full w-full bg-[#f2f2f2] text-[#171717] font-sans relative">
        {view === 'list' ? (
            <div className="flex flex-col h-full animate-fade-in relative"
-                style={{ background: '#f2f2f4' }}>
+                style={{ background: '#f2f2f2' }}>
                {/* safe-area: pt 用 max(3.5rem, 刘海高度)，保呼吸感同时更高刘海设备不被挡 */}
                <div className="px-6 pb-6 shrink-0 flex items-start justify-between border-b border-black/[0.06]" style={{ paddingTop: 'max(3.5rem, var(--safe-top))' }}>
                    <div className="relative">
@@ -1283,7 +1283,7 @@ ${isInitialGeneration ? `
                                            <div key={section.id} className="shrink-0">
                                                {/* 分组条：干净的圆角白卡，左折叠箭头 + 组名 + 数量胶囊，右侧 ">" 指示可展开 */}
                                                <button onClick={() => toggleGroupExpanded(section.id)}
-                                                   className={`w-full h-14 flex items-center gap-3 px-5 rounded-[18px] bg-white border transition-colors active:scale-[0.99] ${expanded ? 'border-slate-200' : 'border-slate-100 hover:border-slate-200'} shadow-[0_2px_12px_rgba(0,0,0,0.035)]`}>
+                                                   className={`w-full h-14 flex items-center gap-3 px-5 rounded-[18px] bg-white border transition-colors active:scale-[0.99] ${expanded ? 'border-slate-200' : 'border-slate-100 hover:border-slate-200'} shadow-[0_2px_12px_rgba(0, 0, 0,0.035)]`}>
                                                    <svg viewBox="0 0 12 12" className={`w-3 h-3 text-slate-400 transition-transform ${expanded ? '' : '-rotate-90'}`}>
                                                        <path d="M2 4l4 5 4-5z" fill="currentColor" />
                                                    </svg>
@@ -1359,14 +1359,14 @@ ${isInitialGeneration ? `
                </div>
            </div>
        ) : formData && (
-           <div className="flex flex-col h-full animate-fade-in bg-[#f2f2f4] relative">
+           <div className="flex flex-col h-full animate-fade-in bg-[#f2f2f2] relative">
                {/* safe-area: OUTER 保留渐变背景 + 模糊 + sticky，刘海高度由 paddingTop 让位；
                    INNER 不再用 h-32 沉底——那是老的「做高栏 + 内容沉底」状态栏预留写法，会和 safe-top 叠加出一大块空白。
                    改为内容自然高度、直接贴在 safe-top 下方。 */}
                {/* 顶栏 paddingTop 用 max(2.75rem, safe-top) 保底：--safe-top 为 0 的环境
                    （无刘海/某些 WebView）下也留出状态栏高度，避免「列表/发消息」贴到状态栏。
                    与列表页及全项目 detail 顶栏惯例（max(rem, var(--safe-top))）一致。 */}
-               <div className="bg-[#f2f2f4]/95 backdrop-blur-sm border-b border-black/[0.06] shrink-0 z-40 sticky top-0" style={{ paddingTop: 'max(2.75rem, var(--safe-top))' }}>
+               <div className="bg-[#f2f2f2]/95 backdrop-blur-sm border-b border-black/[0.06] shrink-0 z-40 sticky top-0" style={{ paddingTop: 'max(2.75rem, var(--safe-top))' }}>
                  <div className="flex flex-col px-5 pt-2 pb-2">
                    <div className="flex justify-between items-center mb-3">
                        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/60 flex items-center gap-1 text-neutral-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg><span className="text-sm font-medium">列表</span></button>
@@ -1386,7 +1386,7 @@ ${isInitialGeneration ? `
                    {detailTab === 'identity' && (
                        <div className="space-y-5 animate-fade-in">
 
-                           <div className="flex items-center gap-4 rounded-[20px] bg-white border border-black/[0.06] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                           <div className="flex items-center gap-4 rounded-[20px] bg-white border border-black/[0.06] p-4 shadow-[0_2px_12px_rgba(0, 0, 0,0.03)]">
                                <div className="relative group cursor-pointer w-24 h-24 shrink-0" onClick={() => fileInputRef.current?.click()}>
                                    <div className="w-full h-full rounded-[22px] shadow-sm bg-white border-[3px] border-white overflow-hidden relative"><TokenImg value={formData.avatar} className={`w-full h-full object-cover ${isCompressing ? 'opacity-50 blur-sm' : ''}`} alt="A" /></div>
                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
@@ -1494,7 +1494,7 @@ ${isInitialGeneration ? `
 
                            <CharacterSettingsSection title="时间感知与时区" summary={formData.customTimezoneEnabled ? formData.customTimezone || '自定义时区' : '跟随本机时区'}>
                            {/* 时间感知 & 时区：三个独立开关，可任意组合（聊天时间感知 / 自定义时区 / 线下时间感知） */}
-                           <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-4">
+                           <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0, 0, 0,0.03)] border border-black/[0.06] space-y-4">
                                <div>
                                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">时间感知 & 时区</label>
                                    <p className="text-[11px] text-neutral-400 mt-1 leading-relaxed">下面三个开关相互独立、可任意组合。改完即时生效（下一条回复起算）。</p>
@@ -1584,7 +1584,7 @@ ${isInitialGeneration ? `
 
                            <CharacterSettingsSection title="生活记录注入" summary={formData.lifeRecordEnabled ? '已开启' : '未开启'}>
                            {/* 生活记录注入：总开关 + 4 个模块小开关（数据在档案 App「生活记录」里维护） */}
-                           <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-4">
+                           <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0, 0, 0,0.03)] border border-black/[0.06] space-y-4">
                                <div>
                                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">生活记录注入</label>
                                    <p className="text-[11px] text-neutral-400 mt-1 leading-relaxed">把你在「档案 → 生活记录」里的生理期 / 药盒 / 记账 / 锻炼作为潜意识背景注入给该角色；你明确说出相关事实时，ta 还能帮你顺手记一笔（聊天里会出卡片，可确认 / 否决）。</p>
@@ -1637,7 +1637,7 @@ ${isInitialGeneration ? `
                            </CharacterSettingsSection>
 
                            <CharacterSettingsSection title="角色语音音色" summary={formData.voiceProfile?.voiceName || '音色与合成参数'}>
-                           <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-black/[0.06] space-y-3">
+                           <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0, 0, 0,0.03)] border border-black/[0.06] space-y-3">
                                <div className="flex items-center justify-between">
                                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest flex items-center gap-1"><SpeakerHigh size={12} /> 角色语音音色</label>
                                    <div className="flex gap-1.5">
@@ -1952,11 +1952,11 @@ ${isInitialGeneration ? `
                    className="w-full h-40 bg-neutral-100 border-none rounded-2xl px-4 py-3 text-sm text-neutral-700 resize-none focus:ring-2 focus:ring-[#999999]/30 transition-all"
                />
                {importLengthInfo.overLimit && (
-                   <div className="text-xs leading-relaxed rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-700">
+                   <div className="text-xs leading-relaxed rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-neutral-700">
                        {getExternalMemoryOverLimitMessage(importText)}
                    </div>
                )}
-               <div className={`text-right text-[10px] ${importLengthInfo.overLimit ? 'text-red-500 font-bold' : 'text-neutral-400'}`}>
+               <div className={`text-right text-[10px] ${importLengthInfo.overLimit ? 'text-neutral-500 font-bold' : 'text-neutral-400'}`}>
                    {importLengthInfo.count.toLocaleString()} / {EXTERNAL_MEMORY_MAX_CHARS.toLocaleString()} 字（本地统计）
                </div>
            </div>
@@ -1979,7 +1979,7 @@ ${isInitialGeneration ? `
                                <div className="flex gap-1.5">
                                    <button onClick={(e) => { e.stopPropagation(); setEditingPrompt(p); setShowPromptEditor(true); }} className="text-[10px] text-neutral-400 hover:text-neutral-500 px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-50">查看</button>
                                    {!p.id.startsWith('preset_') && (
-                                       <button onClick={(e) => { e.stopPropagation(); const next = archivePrompts.filter(ap => ap.id !== p.id); setArchivePrompts(next); localStorage.setItem('chat_archive_prompts', JSON.stringify(next.filter(ap => !ap.id.startsWith('preset_')))); if (selectedPromptId === p.id) setSelectedPromptId('preset_rational'); }} className="text-[10px] text-red-300 hover:text-red-500 px-1.5 py-0.5 rounded hover:bg-red-50">x</button>
+                                       <button onClick={(e) => { e.stopPropagation(); const next = archivePrompts.filter(ap => ap.id !== p.id); setArchivePrompts(next); localStorage.setItem('chat_archive_prompts', JSON.stringify(next.filter(ap => !ap.id.startsWith('preset_')))); if (selectedPromptId === p.id) setSelectedPromptId('preset_rational'); }} className="text-[10px] text-neutral-300 hover:text-neutral-500 px-1.5 py-0.5 rounded hover:bg-neutral-50">x</button>
                                    )}
                                </div>
                            </div>
@@ -2163,7 +2163,7 @@ ${isInitialGeneration ? `
                                 <span className="text-xs text-neutral-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 个角色</span>
                                 <button
                                     onClick={() => { deleteCharacterGroup(g.id); addToast(`分组「${g.name}」已删除，组内角色回到未分组`, 'info'); }}
-                                    className="p-1.5 rounded-full text-neutral-300 hover:bg-red-50 hover:text-red-400 transition-all shrink-0"
+                                    className="p-1.5 rounded-full text-neutral-300 hover:bg-neutral-50 hover:text-neutral-400 transition-all shrink-0"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                 </button>
@@ -2179,13 +2179,13 @@ ${isInitialGeneration ? `
             isOpen={!!deleteConfirmTarget}
             title="断开连接"
             onClose={() => setDeleteConfirmTarget(null)}
-            footer={<div className="flex gap-2 w-full"><button onClick={() => setDeleteConfirmTarget(null)} className="flex-1 py-3 bg-neutral-100 text-neutral-500 rounded-2xl font-bold">保留</button><button onClick={confirmDeleteCharacter} disabled={isDeleting} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-50">{isDeleting ? '断开中...' : '确认断开'}</button></div>}
+            footer={<div className="flex gap-2 w-full"><button onClick={() => setDeleteConfirmTarget(null)} className="flex-1 py-3 bg-neutral-100 text-neutral-500 rounded-2xl font-bold">保留</button><button onClick={confirmDeleteCharacter} disabled={isDeleting} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200 disabled:opacity-50">{isDeleting ? '断开中...' : '确认断开'}</button></div>}
         >
             <div className="flex flex-col items-center gap-3 py-4">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-neutral-300"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
                 <p className="text-sm text-neutral-600 text-center leading-relaxed">
                     确定要删除与该角色的所有连接吗？<br/>
-                    <span className="text-xs text-red-400 font-bold">该操作不可恢复，记忆将被清空。</span><br/>
+                    <span className="text-xs text-neutral-400 font-bold">该操作不可恢复，记忆将被清空。</span><br/>
                     <span className="text-[10px] text-neutral-400">仅对 ta 可见的专属表情分类也会一并删除。</span>
                 </p>
             </div>
@@ -2206,13 +2206,13 @@ ${isInitialGeneration ? `
                 <button
                     onClick={() => { if (cloudCleanupFailTarget && !isDeleting) void runDeleteCharacter(cloudCleanupFailTarget, true); }}
                     disabled={isDeleting}
-                    className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-50"
+                    className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200 disabled:opacity-50"
                 >仍然删除</button>
             </div>}
         >
             <p className="text-sm text-neutral-600 leading-relaxed py-2">
                 ta 的云端数据还没能确认清理（可能是断网或 Worker 没响应），本地角色暂时没有删除。<br/>
-                <span className="text-xs text-red-400 font-bold">选「仍然删除」的话，残留的任务之后可能仍会到点推送</span>
+                <span className="text-xs text-neutral-400 font-bold">选「仍然删除」的话，残留的任务之后可能仍会到点推送</span>
                 <span className="text-xs text-neutral-400">——可以去设置 → 主动消息 2.0 → 云端数据管理继续检查。</span>
             </p>
         </Modal>

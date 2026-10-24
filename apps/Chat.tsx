@@ -3368,7 +3368,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             const css = String(artifact.payload.css || '');
             const stored = await DB.getAssetRaw('chrome_css_presets').catch(() => null);
             const presets = Array.isArray(stored) ? stored.filter(item => item && typeof item === 'object') : [];
-            const nextPreset = { name: artifact.title.slice(0, 50), code: css, swatch: '#e2e8f0' };
+            const nextPreset = { name: artifact.title.slice(0, 50), code: css, swatch: '#e7e7e7' };
             await DB.saveAssetRaw('chrome_css_presets', [nextPreset, ...presets.filter((item: any) => item.name !== nextPreset.name)].slice(0, 60));
             if (targetCharacterId) await updateCharacter(targetCharacterId, { chromeCustomCss: css });
             const target = characters.find(item => item.id === targetCharacterId);
@@ -3549,7 +3549,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // 这里给个温和空态，避免硬崩，也好让用户能退回桌面/重启恢复。
     if (!char) {
         return (
-            <div className="flex flex-col items-center justify-center h-full bg-[#f1f5f9] text-center px-8 gap-3">
+            <div className="flex flex-col items-center justify-center h-full bg-[#f4f4f4] text-center px-8 gap-3">
                 <div className="text-4xl">💤</div>
                 <div className="text-slate-600 text-sm font-medium">暂时没有可用的角色</div>
                 <div className="text-slate-400 text-xs leading-relaxed">数据可能未加载完成。请退回桌面后重新进入；若仍为空，重启应用即可恢复。</div>
@@ -3564,12 +3564,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const chatBackgroundStyle = osTheme.chatBackgroundStyle || 'plain';
     const chatRootClass =
         chatChromeStyle === 'pixel'
-            ? 'flex flex-col h-full bg-[#efe1cf] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500'
+            ? 'flex flex-col h-full bg-[#e3e3e3] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500'
             : chatChromeStyle === 'flat'
               ? 'flex flex-col h-full bg-white overflow-hidden relative font-sans transition-[background-image,background-color] duration-500'
               : chatChromeStyle === 'floating'
-                ? 'flex flex-col h-full bg-[#eef2ff] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500'
-                : 'flex flex-col h-full bg-[#f1f5f9] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500';
+                ? 'flex flex-col h-full bg-[#f2f2f2] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500'
+                : 'flex flex-col h-full bg-[#f4f4f4] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500';
     // 令牌还在读盘、或者图已经丢了时 resolvedChatBackground 是 undefined，这一帧按「没设背景」
     // 的样式走，免得渲染出一个 url("undefined")。
     const chatRootStyle: React.CSSProperties = resolvedChatBackground
@@ -3580,22 +3580,22 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
         : chatBackgroundStyle === 'grid'
           ? {
-              backgroundColor: chatChromeStyle === 'pixel' ? '#efe1cf' : '#f8fafc',
+              backgroundColor: chatChromeStyle === 'pixel' ? '#e3e3e3' : '#fafafa',
               backgroundImage:
-                  'linear-gradient(rgba(148,163,184,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.14) 1px, transparent 1px)',
+                  'linear-gradient(rgba(161, 161, 161,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(161, 161, 161,0.14) 1px, transparent 1px)',
               backgroundSize: '20px 20px',
             }
           : chatBackgroundStyle === 'paper'
             ? {
-                backgroundColor: chatChromeStyle === 'pixel' ? '#f4e8d9' : '#f9f7f2',
-                backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.12) 1px, transparent 0)',
+                backgroundColor: chatChromeStyle === 'pixel' ? '#e9e9e9' : '#f7f7f7',
+                backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(161, 161, 161,0.12) 1px, transparent 0)',
                 backgroundSize: '16px 16px',
               }
             : chatBackgroundStyle === 'mesh'
               ? {
-                  backgroundColor: '#f8fafc',
+                  backgroundColor: '#fafafa',
                   backgroundImage:
-                      'radial-gradient(circle at 15% 20%, rgba(59,130,246,0.18), transparent 28%), radial-gradient(circle at 85% 15%, rgba(244,114,182,0.18), transparent 24%), radial-gradient(circle at 60% 75%, rgba(45,212,191,0.18), transparent 26%)',
+                      'radial-gradient(circle at 15% 20%, rgba(123, 123, 123,0.18), transparent 28%), radial-gradient(circle at 85% 15%, rgba(147, 147, 147,0.18), transparent 24%), radial-gradient(circle at 60% 75%, rgba(175, 175, 175,0.18), transparent 26%)',
                 }
               : {
                   backgroundImage: 'none',
@@ -3603,7 +3603,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // 动森彩蛋：浅奶油米黄中心（上下绿条由 header/输入栏负责），配色参考 Pocket Camp。
     const acnhRootClass = 'flex flex-col h-full overflow-hidden relative font-sans transition-[background-color] duration-500';
     const acnhRootStyle: React.CSSProperties = {
-        backgroundColor: '#F6F0D8',
+        backgroundColor: '#f0f0f0',
         backgroundImage: 'none',
     };
     const finalRootClass = acnh ? acnhRootClass : chatRootClass;
@@ -3675,18 +3675,18 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
              {/* 动森彩蛋：作用域 CSS 覆盖气泡——奶油 AI 气泡 + 蜜桃用户气泡，暖棕文字，绕开 MessageItem 复杂逻辑 */}
              {acnh && <style>{`
                 .sully-bubble-ai {
-                    background: #FBF4DE !important;
-                    color: #6b5a3e !important;
-                    border: 1.5px solid #efe6c8 !important;
+                    background: #f4f4f4 !important;
+                    color: #5c5c5c !important;
+                    border: 1.5px solid #e6e6e6 !important;
                     border-radius: 24px !important;
-                    box-shadow: 0 4px 10px -5px rgba(120,95,45,0.28) !important;
+                    box-shadow: 0 4px 10px -5px rgba(97, 97, 97,0.28) !important;
                 }
                 .sully-bubble-user {
-                    background: #F5C896 !important;
-                    color: #6b4a2f !important;
-                    border: 1.5px solid #eeb87f !important;
+                    background: #cecece !important;
+                    color: #4f4f4f !important;
+                    border: 1.5px solid #bfbfbf !important;
                     border-radius: 24px !important;
-                    box-shadow: 0 4px 10px -5px rgba(150,100,55,0.32) !important;
+                    box-shadow: 0 4px 10px -5px rgba(107, 107, 107,0.32) !important;
                 }
                 /* 仅动森：聊天正文放大一点 */
                 .sully-bubble-ai .text-\\[15px\\], .sully-bubble-user .text-\\[15px\\] {
@@ -3708,15 +3708,15 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                      <div
                          className="flex items-center gap-2.5 pl-2.5 pr-3.5 py-2 max-w-[18rem]"
                          style={{
-                             background: 'rgba(255,255,255,0.88)',
+                             background: 'rgba(255, 255, 255,0.88)',
                              borderRadius: 999,
-                             border: '1px solid rgba(99,102,241,0.18)',
-                             boxShadow: '0 6px 18px -6px rgba(15,23,42,0.22)',
+                             border: '1px solid rgba(111, 111, 111,0.18)',
+                             boxShadow: '0 6px 18px -6px rgba(23, 23, 23,0.22)',
                          }}
                      >
                          <span
                              className="shrink-0 inline-block w-3.5 h-3.5 rounded-full border-2 border-slate-200 animate-spin"
-                             style={{ borderTopColor: '#6366f1', animationDuration: '0.9s' }}
+                             style={{ borderTopColor: '#6f6f6f', animationDuration: '0.9s' }}
                          />
                          <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
                              {char?.name || '角色'}正在沉思
@@ -3733,42 +3733,42 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                      className="absolute inset-0 z-[200] flex items-center justify-center p-4 animate-fade-in"
                      style={{
                          pointerEvents: 'all',
-                         background: 'rgba(15,23,42,0.55)',
+                         background: 'rgba(23, 23, 23,0.55)',
                      }}
                      onClick={() => setMemoryPalaceResult(null)}
                  >
                      <div
                          className="w-full max-w-sm max-h-[82vh] overflow-hidden flex flex-col relative"
                          style={{
-                             background: 'linear-gradient(160deg, #ffffff 0%, #f8fafc 100%)',
+                             background: 'linear-gradient(160deg, #ffffff 0%, #fafafa 100%)',
                              borderRadius: 28,
-                             border: '1px solid rgba(148,163,184,0.18)',
-                             boxShadow: '0 20px 50px -20px rgba(15,23,42,0.35)',
+                             border: '1px solid rgba(161, 161, 161,0.18)',
+                             boxShadow: '0 20px 50px -20px rgba(23, 23, 23,0.35)',
                          }}
                          onClick={(e) => e.stopPropagation()}
                      >
                          <div
                              className="absolute top-0 left-0 right-0 h-[2px] pointer-events-none"
-                             style={{ background: 'linear-gradient(90deg, transparent, #6366f1, #a5b4fc, #6366f1, transparent)' }}
+                             style={{ background: 'linear-gradient(90deg, transparent, #6f6f6f, #b6b6b6, #6f6f6f, transparent)' }}
                          />
                          <div className="px-6 pt-7 pb-4 text-center">
                              <div
                                  className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-3"
                                  style={{
-                                     background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(129,140,248,0.06))',
-                                     border: '1px solid rgba(99,102,241,0.15)',
+                                     background: 'linear-gradient(135deg, rgba(111, 111, 111,0.12), rgba(145, 145, 145,0.06))',
+                                     border: '1px solid rgba(111, 111, 111,0.15)',
                                  }}
                              >
                                  <span style={{ fontSize: 26 }}>🗂️</span>
                              </div>
-                             <div className="text-[10px] tracking-[0.25em] uppercase font-semibold" style={{ color: '#6366f1' }}>Memory Palace</div>
-                             <p className="text-[17px] font-bold mt-1" style={{ color: '#0f172a' }}>记忆整理完成</p>
+                             <div className="text-[10px] tracking-[0.25em] uppercase font-semibold" style={{ color: '#6f6f6f' }}>Memory Palace</div>
+                             <p className="text-[17px] font-bold mt-1" style={{ color: '#171717' }}>记忆整理完成</p>
                              <p className="text-[11px] text-slate-400 mt-1">
                                  新增 {memoryPalaceResult.stored} 条 · 去重跳过 {memoryPalaceResult.skipped} 条
                                  {memoryPalaceResult.batches.length > 1 && ` · ${memoryPalaceResult.batches.length} 批`}
                              </p>
                              {memoryPalaceResult.batches.some(b => !b.ok) && (
-                                 <p className="text-[10px] text-red-500 mt-1">
+                                 <p className="text-[10px] text-neutral-500 mt-1">
                                      {memoryPalaceResult.batches.filter(b => !b.ok).map(b => `batch ${b.index} 失败`).join(', ')}
                                  </p>
                              )}
@@ -3776,24 +3776,24 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                          <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-2 no-scrollbar">
                              {memoryPalaceResult.memories.map((m, i) => {
                                  const roomMeta: Record<string, { label: string; color: string }> = {
-                                     living_room: { label: '客厅', color: '#f59e0b' },
-                                     bedroom: { label: '卧室', color: '#8b5cf6' },
-                                     study: { label: '书房', color: '#0ea5e9' },
-                                     user_room: { label: '用户房间', color: '#ec4899' },
-                                     self_room: { label: '自我房间', color: '#10b981' },
-                                     attic: { label: '阁楼', color: '#6366f1' },
-                                     windowsill: { label: '窗台', color: '#14b8a6' },
+                                     living_room: { label: '客厅', color: '#a6a6a6' },
+                                     bedroom: { label: '卧室', color: '#717171' },
+                                     study: { label: '书房', color: '#8a8a8a' },
+                                     user_room: { label: '用户房间', color: '#717171' },
+                                     self_room: { label: '自我房间', color: '#919191' },
+                                     attic: { label: '阁楼', color: '#6f6f6f' },
+                                     windowsill: { label: '窗台', color: '#949494' },
                                  };
-                                 const meta = roomMeta[m.room] || { label: m.room, color: '#64748b' };
+                                 const meta = roomMeta[m.room] || { label: m.room, color: '#727272' };
                                  const roomLabel = getRoomLabel(m.room as any, userProfile?.name) || meta.label;
                                  return (
                                      <div
                                          key={i}
                                          className="p-3 rounded-2xl"
                                          style={{
-                                             background: 'rgba(255,255,255,0.75)',
+                                             background: 'rgba(255, 255, 255,0.75)',
                                              border: `1px solid ${meta.color}22`,
-                                             boxShadow: `0 2px 8px ${meta.color}14, inset 0 1px 0 rgba(255,255,255,0.8)`,
+                                             boxShadow: `0 2px 8px ${meta.color}14, inset 0 1px 0 rgba(255, 255, 255,0.8)`,
                                          }}
                                      >
                                          <div className="flex items-center gap-2 mb-1.5">
@@ -3803,14 +3803,14 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                                  {roomLabel}
                                              </span>
                                              <span className="text-[10px] text-slate-400">{m.mood}</span>
-                                             <span className="text-[10px] font-bold ml-auto" style={{ color: '#f59e0b' }}>{'★'.repeat(Math.min(m.importance, 5))}</span>
+                                             <span className="text-[10px] font-bold ml-auto" style={{ color: '#a6a6a6' }}>{'★'.repeat(Math.min(m.importance, 5))}</span>
                                          </div>
                                          <p className="text-[12px] text-slate-700 leading-relaxed">{m.content}</p>
                                          {m.tags.length > 0 && (
                                              <div className="flex gap-1 mt-2 flex-wrap">
                                                  {m.tags.map((t, j) => (
                                                      <span key={j} className="text-[9px] px-1.5 py-0.5 rounded-full"
-                                                         style={{ background: 'rgba(148,163,184,0.15)', color: '#64748b' }}
+                                                         style={{ background: 'rgba(161, 161, 161,0.15)', color: '#727272' }}
                                                      >{t}</span>
                                                  ))}
                                              </div>
@@ -3827,8 +3827,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                  onClick={() => setMemoryPalaceResult(null)}
                                  className="w-full py-3 text-white text-[13px] font-bold rounded-2xl active:scale-[0.98] transition-transform"
                                  style={{
-                                     background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                                     boxShadow: '0 6px 18px -6px rgba(79,70,229,0.5)',
+                                     background: 'linear-gradient(135deg, #6f6f6f, #535353)',
+                                     boxShadow: '0 6px 18px -6px rgba(83, 83, 83,0.5)',
                                  }}
                              >
                                  确认
@@ -4017,24 +4017,24 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     accent: string;       // base hue for chip/dot
                     items: Array<{ content: string; sub?: string }>;
                 }> = [];
-                if (r.resolved.length) groups.push({ key: 'resolved', label: '困惑化解', icon: '🕊️', accent: '#10b981', items: r.resolved.map(e => ({ content: e.content })) });
-                if (r.deepened.length) groups.push({ key: 'deepened', label: '创伤加深', icon: '💢', accent: '#f43f5e', items: r.deepened.map(e => ({ content: e.content })) });
-                if (r.internalized.length) groups.push({ key: 'internalized', label: '知识内化', icon: '🪞', accent: '#8b5cf6', items: r.internalized.map(e => ({ content: e.content })) });
-                if (r.selfInsights.length) groups.push({ key: 'insights', label: '自我领悟', icon: '💡', accent: '#f59e0b', items: r.selfInsights.map(t => ({ content: t })) });
-                if (r.selfConfused.length) groups.push({ key: 'confused', label: '新的自我困惑', icon: '🌀', accent: '#6366f1', items: r.selfConfused.map(e => ({ content: e.content })) });
-                if (r.synthesizedUser.length) groups.push({ key: 'synth', label: '用户认知整合', icon: '👤', accent: '#0ea5e9', items: r.synthesizedUser.map(e => ({ content: e.content, sub: e.category })) });
-                if (r.worries?.length) groups.push({ key: 'worries', label: '回看引发的担忧', icon: '😟', accent: '#f97316', items: r.worries.map(e => ({ content: e.content })) });
-                if (r.aspirations?.length) groups.push({ key: 'aspirations', label: '新的期盼', icon: '🌟', accent: '#eab308', items: r.aspirations.map(e => ({ content: e.content })) });
-                if (r.distilled?.length) groups.push({ key: 'distilled', label: '沉淀到门牌', icon: '🚪', accent: '#a855f7', items: r.distilled.map(e => ({ content: e.content })) });
-                if (r.fulfilled.length) groups.push({ key: 'fulfilled', label: '期盼实现', icon: '✨', accent: '#22c55e', items: r.fulfilled.map(e => ({ content: e.content })) });
-                if (r.disappointed.length) groups.push({ key: 'disappointed', label: '期盼落空', icon: '🍂', accent: '#94a3b8', items: r.disappointed.map(e => ({ content: e.content })) });
-                if (r.faded.length) groups.push({ key: 'faded', label: '淡忘', icon: '🌫️', accent: '#cbd5e1', items: r.faded.map(e => ({ content: e.content })) });
+                if (r.resolved.length) groups.push({ key: 'resolved', label: '困惑化解', icon: '🕊️', accent: '#919191', items: r.resolved.map(e => ({ content: e.content })) });
+                if (r.deepened.length) groups.push({ key: 'deepened', label: '创伤加深', icon: '💢', accent: '#686868', items: r.deepened.map(e => ({ content: e.content })) });
+                if (r.internalized.length) groups.push({ key: 'internalized', label: '知识内化', icon: '🪞', accent: '#717171', items: r.internalized.map(e => ({ content: e.content })) });
+                if (r.selfInsights.length) groups.push({ key: 'insights', label: '自我领悟', icon: '💡', accent: '#a6a6a6', items: r.selfInsights.map(t => ({ content: t })) });
+                if (r.selfConfused.length) groups.push({ key: 'confused', label: '新的自我困惑', icon: '🌀', accent: '#6f6f6f', items: r.selfConfused.map(e => ({ content: e.content })) });
+                if (r.synthesizedUser.length) groups.push({ key: 'synth', label: '用户认知整合', icon: '👤', accent: '#8a8a8a', items: r.synthesizedUser.map(e => ({ content: e.content, sub: e.category })) });
+                if (r.worries?.length) groups.push({ key: 'worries', label: '回看引发的担忧', icon: '😟', accent: '#898989', items: r.worries.map(e => ({ content: e.content })) });
+                if (r.aspirations?.length) groups.push({ key: 'aspirations', label: '新的期盼', icon: '🌟', accent: '#b2b2b2', items: r.aspirations.map(e => ({ content: e.content })) });
+                if (r.distilled?.length) groups.push({ key: 'distilled', label: '沉淀到门牌', icon: '🚪', accent: '#727272', items: r.distilled.map(e => ({ content: e.content })) });
+                if (r.fulfilled.length) groups.push({ key: 'fulfilled', label: '期盼实现', icon: '✨', accent: '#9b9b9b', items: r.fulfilled.map(e => ({ content: e.content })) });
+                if (r.disappointed.length) groups.push({ key: 'disappointed', label: '期盼落空', icon: '🍂', accent: '#a1a1a1', items: r.disappointed.map(e => ({ content: e.content })) });
+                if (r.faded.length) groups.push({ key: 'faded', label: '淡忘', icon: '🌫️', accent: '#d4d4d4', items: r.faded.map(e => ({ content: e.content })) });
                 if (groups.length === 0) return null;
                 return (
                     <div
                         className="absolute inset-0 z-[200] flex items-center justify-center p-4 animate-fade-in"
                         style={{
-                            background: 'radial-gradient(ellipse at top, rgba(16,185,129,0.18), rgba(0,0,0,0.55))',
+                            background: 'radial-gradient(ellipse at top, rgba(145, 145, 145,0.18), rgba(0, 0, 0,0.55))',
                             backdropFilter: 'blur(10px)',
                             WebkitBackdropFilter: 'blur(10px)',
                         }}
@@ -4043,31 +4043,31 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                         <div
                             className="w-full max-w-sm max-h-[85vh] overflow-hidden flex flex-col relative"
                             style={{
-                                background: 'linear-gradient(160deg, rgba(255,255,255,0.98) 0%, rgba(240,253,250,0.96) 100%)',
+                                background: 'linear-gradient(160deg, rgba(255, 255, 255,0.98) 0%, rgba(250, 250, 250,0.96) 100%)',
                                 borderRadius: 28,
-                                border: '1px solid rgba(255,255,255,0.7)',
-                                boxShadow: '0 30px 80px -20px rgba(16,185,129,0.35), 0 10px 40px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.9)',
+                                border: '1px solid rgba(255, 255, 255,0.7)',
+                                boxShadow: '0 30px 80px -20px rgba(145, 145, 145,0.35), 0 10px 40px rgba(0, 0, 0,0.15), inset 0 1px 0 rgba(255, 255, 255,0.9)',
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
                             {/* 顶部光晕条 */}
                             <div
                                 className="absolute top-0 left-0 right-0 h-1 pointer-events-none"
-                                style={{ background: 'linear-gradient(90deg, transparent, #10b981, #6ee7b7, #10b981, transparent)' }}
+                                style={{ background: 'linear-gradient(90deg, transparent, #919191, #cacaca, #919191, transparent)' }}
                             />
                             {/* 头部 */}
                             <div className="px-6 pt-7 pb-4 text-center">
                                 <div
                                     className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-3"
                                     style={{
-                                        background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(52,211,153,0.08))',
-                                        boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.9), 0 4px 16px rgba(16,185,129,0.2)',
+                                        background: 'linear-gradient(135deg, rgba(145, 145, 145,0.15), rgba(173, 173, 173,0.08))',
+                                        boxShadow: 'inset 0 1px 2px rgba(255, 255, 255,0.9), 0 4px 16px rgba(145, 145, 145,0.2)',
                                     }}
                                 >
                                     <span style={{ fontSize: 28 }}>🧠</span>
                                 </div>
-                                <div className="text-[11px] tracking-[0.2em] uppercase font-semibold" style={{ color: '#059669' }}>Cognitive Digest</div>
-                                <div className="text-[17px] font-bold mt-1" style={{ color: '#0f172a' }}>{char.name} 完成了一次认知消化</div>
+                                <div className="text-[11px] tracking-[0.2em] uppercase font-semibold" style={{ color: '#747474' }}>Cognitive Digest</div>
+                                <div className="text-[17px] font-bold mt-1" style={{ color: '#171717' }}>{char.name} 完成了一次认知消化</div>
                                 <div className="text-[11px] text-slate-400 mt-1">内心整理 · {groups.reduce((s, g) => s + g.items.length, 0)} 项变化</div>
                             </div>
 
@@ -4077,9 +4077,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                     <div key={g.key}
                                         className="rounded-2xl overflow-hidden"
                                         style={{
-                                            background: 'rgba(255,255,255,0.7)',
+                                            background: 'rgba(255, 255, 255,0.7)',
                                             border: `1px solid ${g.accent}22`,
-                                            boxShadow: `0 2px 8px ${g.accent}14, inset 0 1px 0 rgba(255,255,255,0.8)`,
+                                            boxShadow: `0 2px 8px ${g.accent}14, inset 0 1px 0 rgba(255, 255, 255,0.8)`,
                                         }}
                                     >
                                         <div className="px-4 py-2.5 flex items-center gap-2"
@@ -4115,8 +4115,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                     onClick={() => setLastDigestResult(null)}
                                     className="w-full py-3 text-white text-[13px] font-bold rounded-2xl active:scale-[0.98] transition-transform"
                                     style={{
-                                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                                        boxShadow: '0 8px 24px -4px rgba(16,185,129,0.45), inset 0 1px 0 rgba(255,255,255,0.25)',
+                                        background: 'linear-gradient(135deg, #919191, #747474)',
+                                        boxShadow: '0 8px 24px -4px rgba(145, 145, 145,0.45), inset 0 1px 0 rgba(255, 255, 255,0.25)',
                                     }}
                                 >
                                     放入心里
@@ -4182,7 +4182,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             key={m.id || i}
                             id={`chat-msg-${m.id}`}
                             className={[
-                                flashMsgId === m.id ? 'ring-2 ring-yellow-300 bg-yellow-50/40 rounded-2xl mx-2' : '',
+                                flashMsgId === m.id ? 'ring-2 ring-neutral-300 bg-neutral-50/40 rounded-2xl mx-2' : '',
                                 animatingIds.has(m.id) && !suppressEntranceAnimation ? 'animate-fade-in' : '',
                                 'transition-all duration-300',
                             ].filter(Boolean).join(' ')}
@@ -4320,22 +4320,22 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                     {inboxStatus}
                                 </div>
                             ) : isProactiveComposing && !isTyping && !recallStatus && !searchStatus && !diaryStatus ? (
-                                <div className="flex items-center gap-2 text-xs text-teal-600 font-medium">
+                                <div className="flex items-center gap-2 text-xs text-neutral-600 font-medium">
                                     <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     {char.name} 在给你写消息…
                                 </div>
                             ) : searchStatus ? (
-                                <div className="flex items-center gap-2 text-xs text-emerald-500 font-medium">
+                                <div className="flex items-center gap-2 text-xs text-neutral-500 font-medium">
                                     <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     🔍 {searchStatus}
                                 </div>
                             ) : recallStatus ? (
-                                <div className="flex items-center gap-2 text-xs text-indigo-500 font-medium">
+                                <div className="flex items-center gap-2 text-xs text-neutral-500 font-medium">
                                     <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     {recallStatus}
                                 </div>
                             ) : diaryStatus ? (
-                                <div className="flex items-center gap-2 text-xs text-amber-600 font-medium">
+                                <div className="flex items-center gap-2 text-xs text-neutral-600 font-medium">
                                     <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     📖 {diaryStatus}
                                 </div>
@@ -4349,43 +4349,43 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
             <div className="relative z-40">
                 {mcdActivated && (
-                    <div className="flex items-center justify-between px-4 py-1.5 bg-yellow-50 border-b border-yellow-200 text-xs">
-                        <div className="flex items-center gap-1.5 text-yellow-700 font-bold">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"/>
+                    <div className="flex items-center justify-between px-4 py-1.5 bg-neutral-50 border-b border-neutral-200 text-xs">
+                        <div className="flex items-center gap-1.5 text-neutral-700 font-bold">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-neutral-500 animate-pulse"/>
                             🍔 麦请求进行中
                         </div>
                         <button
                           onClick={() => handleSendText(MCD_DEACTIVATE_TRIGGER, 'text', { mcdDeactivate: true })}
-                          className="px-2.5 py-0.5 bg-yellow-200/80 text-yellow-800 rounded-full text-[11px] font-bold active:scale-95"
+                          className="px-2.5 py-0.5 bg-neutral-200/80 text-neutral-800 rounded-full text-[11px] font-bold active:scale-95"
                         >
                           结束
                         </button>
                     </div>
                 )}
                 {luckinActivated && (
-                    <div className="flex items-center justify-between px-4 py-1.5 bg-[#0B1F3A]/5 border-b border-[#0B1F3A]/15 text-xs">
-                        <div className="flex items-center gap-1.5 text-[#0B1F3A] font-bold">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C6A15B] animate-pulse"/>
+                    <div className="flex items-center justify-between px-4 py-1.5 bg-[#1d1d1d]/5 border-b border-[#1d1d1d]/15 text-xs">
+                        <div className="flex items-center gap-1.5 text-[#1d1d1d] font-bold">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#a4a4a4] animate-pulse"/>
                             🦌 瑞一杯进行中
-                            {luckinChatRef.current?.cityName && <span className="font-normal text-[#0B1F3A]/60">· {luckinChatRef.current.cityName}</span>}
+                            {luckinChatRef.current?.cityName && <span className="font-normal text-[#1d1d1d]/60">· {luckinChatRef.current.cityName}</span>}
                         </div>
                         <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => setShowLuckinHelp(true)}
                               title="瑞一杯怎么用"
-                              className="w-5 h-5 flex items-center justify-center bg-[#0B1F3A]/10 text-[#0B1F3A] rounded-full text-[11px] font-bold active:scale-95"
+                              className="w-5 h-5 flex items-center justify-center bg-[#1d1d1d]/10 text-[#1d1d1d] rounded-full text-[11px] font-bold active:scale-95"
                             >
                               ?
                             </button>
                             <button
                               onClick={() => setShowLuckinLoc(true)}
-                              className="px-2.5 py-0.5 bg-[#0B1F3A]/10 text-[#0B1F3A] rounded-full text-[11px] font-bold active:scale-95"
+                              className="px-2.5 py-0.5 bg-[#1d1d1d]/10 text-[#1d1d1d] rounded-full text-[11px] font-bold active:scale-95"
                             >
                               📍 改定位
                             </button>
                             <button
                               onClick={deactivateLuckin}
-                              className="px-2.5 py-0.5 bg-[#0B1F3A]/10 text-[#0B1F3A] rounded-full text-[11px] font-bold active:scale-95"
+                              className="px-2.5 py-0.5 bg-[#1d1d1d]/10 text-[#1d1d1d] rounded-full text-[11px] font-bold active:scale-95"
                             >
                               结束
                             </button>
@@ -4480,9 +4480,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                         enabled: !!(char as any).showThinkingChain,
                         styleId: ((char as any).thinkingChainStyle as any) || 'echo',
                         customColors: {
-                            bg: (char as any).thinkingChainCustomColors?.bg || '#1f2937',
-                            accent: (char as any).thinkingChainCustomColors?.accent || '#fbbf24',
-                            text: (char as any).thinkingChainCustomColors?.text || '#f1f5f9',
+                            bg: (char as any).thinkingChainCustomColors?.bg || '#282828',
+                            accent: (char as any).thinkingChainCustomColors?.accent || '#c1c1c1',
+                            text: (char as any).thinkingChainCustomColors?.text || '#f4f4f4',
                         },
                         customPrompt: (char as any).thinkingChainCustomPrompt || '',
                         customCss: (char as any).thinkingChainCustomCss || '',

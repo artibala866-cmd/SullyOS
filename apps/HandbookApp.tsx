@@ -333,7 +333,7 @@ const HandbookApp: React.FC = () => {
                 <button
                     onClick={handleBack}
                     className="w-9 h-9 flex items-center justify-center rounded-full active:scale-95 transition"
-                    style={{ background: 'rgba(253,246,231,0.7)', color: PAPER_TONES.ink }}
+                    style={{ background: 'rgba(246, 246, 246,0.7)', color: PAPER_TONES.ink }}
                 >
                     <CaretLeft className="w-4 h-4" weight="bold" />
                 </button>
@@ -384,10 +384,10 @@ const HandbookApp: React.FC = () => {
                         onClick={handleBack}
                         className="w-8 h-8 flex items-center justify-center rounded-full active:scale-95 transition shrink-0"
                         style={{
-                            background: 'rgba(255,248,251,0.92)',
+                            background: 'rgba(250, 250, 250,0.92)',
                             color: PAPER_TONES.ink,
                             backdropFilter: 'blur(8px)',
-                            boxShadow: '0 2px 8px -2px rgba(122,90,114,0.18)',
+                            boxShadow: '0 2px 8px -2px rgba(99, 99, 99,0.18)',
                         }}
                     >
                         <CaretLeft className="w-3.5 h-3.5" weight="bold" />
@@ -399,9 +399,9 @@ const HandbookApp: React.FC = () => {
                         className="px-3 active:scale-[0.98] transition flex items-center gap-1.5 rounded-full overflow-hidden"
                         style={{
                             height: 28,
-                            background: headerExpanded ? 'rgba(255,248,251,0.92)' : 'rgba(255,248,251,0.4)',
+                            background: headerExpanded ? 'rgba(250, 250, 250,0.92)' : 'rgba(250, 250, 250,0.4)',
                             backdropFilter: 'blur(8px)',
-                            boxShadow: headerExpanded ? '0 2px 8px -2px rgba(122,90,114,0.18)' : 'none',
+                            boxShadow: headerExpanded ? '0 2px 8px -2px rgba(99, 99, 99,0.18)' : 'none',
                             color: PAPER_TONES.ink,
                             ...SERIF_STACK,
                         }}
@@ -422,7 +422,7 @@ const HandbookApp: React.FC = () => {
                                             fontSize: 9,
                                             letterSpacing: '0.18em',
                                             color: PAPER_TONES.inkSoft,
-                                            background: 'rgba(220,199,213,0.35)',
+                                            background: 'rgba(204, 204, 204,0.35)',
                                         }}
                                     >
                                         ‹ P {floatingPaperIdx + 1}/{layouts.length} ›
@@ -438,10 +438,10 @@ const HandbookApp: React.FC = () => {
                         onClick={handleAddNote}
                         className="w-8 h-8 flex items-center justify-center rounded-full active:scale-95 transition shrink-0"
                         style={{
-                            background: 'rgba(255,248,251,0.92)',
+                            background: 'rgba(250, 250, 250,0.92)',
                             color: PAPER_TONES.ink,
                             backdropFilter: 'blur(8px)',
-                            boxShadow: '0 2px 8px -2px rgba(122,90,114,0.18)',
+                            boxShadow: '0 2px 8px -2px rgba(99, 99, 99,0.18)',
                         }}
                     >
                         <Plus className="w-3.5 h-3.5" weight="bold" />
@@ -459,8 +459,8 @@ const HandbookApp: React.FC = () => {
                 <div
                     className="pointer-events-auto flex items-center gap-1 rounded-full px-2 py-2"
                     style={{
-                        background: 'rgba(253,246,231,0.96)',
-                        boxShadow: '0 4px 14px -4px rgba(58,47,37,0.25), 0 0 0 1px rgba(168,140,100,0.15)',
+                        background: 'rgba(246, 246, 246,0.96)',
+                        boxShadow: '0 4px 14px -4px rgba(49, 49, 49,0.25), 0 0 0 1px rgba(143, 143, 143,0.15)',
                         backdropFilter: 'blur(6px)',
                     }}
                 >
@@ -471,8 +471,8 @@ const HandbookApp: React.FC = () => {
                         style={{
                             ...SERIF_STACK,
                             background: PAPER_TONES.cover,
-                            color: '#fdf6e7',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                            color: '#f6f6f6',
+                            boxShadow: '0 1px 3px rgba(0, 0, 0,0.15)',
                         }}
                     >
                         <Sparkle weight="fill" className="w-3 h-3" />

@@ -64,8 +64,8 @@ const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
 // 复用 Chat.tsx 的高颜值样式逻辑，但针对群聊微调
 const PRESET_THEME_GROUP: ChatTheme = {
     id: 'group_default', name: 'Group', type: 'preset',
-    user: { textColor: '#ffffff', backgroundColor: '#8b5cf6', borderRadius: 18, opacity: 1 }, // Violet for User
-    ai: { textColor: '#1e293b', backgroundColor: '#ffffff', borderRadius: 18, opacity: 1 }  // White for Others
+    user: { textColor: '#ffffff', backgroundColor: '#717171', borderRadius: 18, opacity: 1 }, // Violet for User
+    ai: { textColor: '#282828', backgroundColor: '#ffffff', borderRadius: 18, opacity: 1 }  // White for Others
 };
 
 // --- Sub-Component: 红包卡片（2.0：拼手气/专属 + 状态角标 + 回执结算条；旧数据 legacy 简卡） ---
@@ -80,7 +80,7 @@ const GroupPacketCard = ({ msg, nameOf, onOpen }: {
     if (meta?.packetReceipt) {
         const claimed = meta.packetReceipt === 'claimed';
         return (
-            <div className={`px-3 py-2 rounded-xl border text-[11px] flex items-center gap-2 ${claimed ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+            <div className={`px-3 py-2 rounded-xl border text-[11px] flex items-center gap-2 ${claimed ? 'bg-neutral-50 border-neutral-100 text-neutral-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                 <span>🧧</span>
                 <span>{meta.claimantName} {claimed ? '领取了' : '退回了'} {meta.senderName} 的红包{claimed && meta.amount != null ? ` ¥${meta.amount}` : ''}</span>
             </div>
@@ -90,7 +90,7 @@ const GroupPacketCard = ({ msg, nameOf, onOpen }: {
     // 旧数据（无 packet 判别字段）：legacy 简卡，渲染不变语义
     if (!meta?.packet) {
         return (
-            <div className="w-60 bg-[#fb923c] text-white p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden">
+            <div className="w-60 bg-[#a2a2a2] text-white p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden">
                 <div className="text-2xl">🧧</div>
                 <div className="z-10">
                     <div className="font-bold text-sm tracking-wide">红包 / 转账</div>
@@ -110,7 +110,7 @@ const GroupPacketCard = ({ msg, nameOf, onOpen }: {
     return (
         <div
             onClick={() => onOpen?.(msg)}
-            className={`w-60 p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden active:scale-95 transition-transform cursor-pointer text-white ${opened ? 'bg-[#f0b48c]' : 'bg-gradient-to-br from-[#fb923c] to-[#f43f5e]'}`}
+            className={`w-60 p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden active:scale-95 transition-transform cursor-pointer text-white ${opened ? 'bg-[#bebebe]' : 'bg-gradient-to-br from-[#a2a2a2] to-[#686868]'}`}
         >
             <div className="text-3xl drop-shadow-sm">🧧</div>
             <div className="z-10 min-w-0 flex-1 pb-3">
@@ -199,10 +199,10 @@ const GroupMessageItem = React.memo(({
         borderBottomRightRadius: cornerRadii.bottomRight,
         borderBottomLeftRadius: cornerRadii.bottomLeft,
         ...(bubbleVariant === 'outline' ? { border: `2px solid ${styleConfig.backgroundColor}`, boxShadow: 'none' } : {}),
-        ...(bubbleVariant === 'shadow' ? { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } : {}),
+        ...(bubbleVariant === 'shadow' ? { boxShadow: '0 4px 12px rgba(0, 0, 0,0.12)' } : {}),
         ...(bubbleVariant === 'flat' ? { boxShadow: 'none' } : {}),
-        ...(bubbleVariant === 'wechat' ? { boxShadow: 'none', border: '1px solid rgba(15,23,42,0.05)' } : {}),
-        ...(bubbleVariant === 'ios' ? { boxShadow: '0 10px 24px rgba(148,163,184,0.16)', border: '1px solid rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' } : {}),
+        ...(bubbleVariant === 'wechat' ? { boxShadow: 'none', border: '1px solid rgba(23, 23, 23,0.05)' } : {}),
+        ...(bubbleVariant === 'ios' ? { boxShadow: '0 10px 24px rgba(161, 161, 161,0.16)', border: '1px solid rgba(255, 255, 255,0.75)', backdropFilter: 'blur(12px)' } : {}),
     };
     // 气泡底纹画在 CSS background-image 上，拿不到 <img> 那层的自动解析，只能在顶层
     // 无条件解析一次（hook 不能进条件分支）。挂件/头像挂件走 TokenImg，各自组件内解析。
@@ -359,7 +359,7 @@ const GroupMessageItem = React.memo(({
                 const html = typeof msg.metadata?.htmlSource === 'string' ? msg.metadata.htmlSource : '';
                 if (!html) {
                     return (
-                        <div className="px-4 py-3 rounded-2xl bg-fuchsia-50 text-fuchsia-500 text-xs italic border border-fuchsia-100">
+                        <div className="px-4 py-3 rounded-2xl bg-neutral-50 text-neutral-500 text-xs italic border border-neutral-100">
                             [HTML 卡片数据缺失]
                         </div>
                     );
@@ -415,7 +415,7 @@ const GroupMessageItem = React.memo(({
         >
             {selectionMode && (
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer z-20" onClick={handleClick}>
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-violet-500 border-violet-500' : 'border-slate-300 bg-white'}`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-neutral-500 border-neutral-500' : 'border-slate-300 bg-white'}`}>
                         {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>}
                     </div>
                 </div>
@@ -1667,7 +1667,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     </button>
                     <span className="font-medium text-slate-700 text-lg tracking-wide pl-2">群聊列表</span>
                     <div className="flex-1"></div>
-                    <button onClick={() => { setModalType('create'); setSelectedMembers(new Set()); setTempGroupName(''); setMemberGroupId(GROUP_FILTER_ALL); trackEvent('打开创建群聊弹窗'); }} className="p-2 -mr-2 text-violet-500 bg-violet-50 hover:bg-violet-100 rounded-full transition-colors">
+                    <button onClick={() => { setModalType('create'); setSelectedMembers(new Set()); setTempGroupName(''); setMemberGroupId(GROUP_FILTER_ALL); trackEvent('打开创建群聊弹窗'); }} className="p-2 -mr-2 text-neutral-500 bg-neutral-50 hover:bg-neutral-100 rounded-full transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                     </button>
                     </div>
@@ -1675,7 +1675,7 @@ ${memberTimeline || '(暂无互动记录)'}
 
                 <div className="p-4 space-y-3 overflow-y-auto">
                     {groups.map(g => (
-                        <div key={g.id} onClick={() => { setActiveGroup(g); setView('chat'); }} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group hover:bg-violet-50/30">
+                        <div key={g.id} onClick={() => { setActiveGroup(g); setView('chat'); }} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group hover:bg-neutral-50/30">
                             {/* Group Avatar Logic */}
                             <div className="w-14 h-14 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 relative shadow-sm">
                                 {g.avatar ? (
@@ -1707,16 +1707,16 @@ ${memberTimeline || '(暂无互动记录)'}
                     )}
                 </div>
 
-                <Modal isOpen={modalType === 'create'} title="创建群聊" onClose={() => setModalType('none')} footer={<button onClick={handleCreateGroup} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg shadow-violet-200">创建</button>}>
+                <Modal isOpen={modalType === 'create'} title="创建群聊" onClose={() => setModalType('none')} footer={<button onClick={handleCreateGroup} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200">创建</button>}>
                     <div className="space-y-4">
-                        <input value={tempGroupName} onChange={e => setTempGroupName(e.target.value)} placeholder="群聊名称" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500/20 transition-all" />
+                        <input value={tempGroupName} onChange={e => setTempGroupName(e.target.value)} placeholder="群聊名称" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-neutral-500/20 transition-all" />
                         <div>
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">选择成员</label>
                             {/* 分组筛选（没建分组时不渲染）：只影响可选项的显示，不影响已勾选成员 */}
                             <CharacterGroupFilterBar characters={characters} groups={characterGroups} value={memberGroupId} onChange={setMemberGroupId} className="mb-2" />
                             <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
                                 {filterCharactersByGroup(characters, characterGroups, memberGroupId).map(c => (
-                                    <div key={c.id} onClick={() => toggleMemberSelection(c.id)} className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all cursor-pointer ${selectedMembers.has(c.id) ? 'border-violet-500 bg-violet-50 ring-1 ring-violet-500' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
+                                    <div key={c.id} onClick={() => toggleMemberSelection(c.id)} className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all cursor-pointer ${selectedMembers.has(c.id) ? 'border-neutral-500 bg-neutral-50 ring-1 ring-neutral-500' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
                                         <TokenImg value={c.avatar} className="w-10 h-10 rounded-full object-cover" />
                                         <span className="text-[9px] text-slate-600 truncate w-full text-center font-medium">{c.name}</span>
                                     </div>
@@ -1735,28 +1735,28 @@ ${memberTimeline || '(暂无互动记录)'}
     const chatChromeStyle = osTheme.chatChromeStyle || 'soft';
     const chatBackgroundStyle = osTheme.chatBackgroundStyle || 'plain';
     const groupChatRootClass = chatChromeStyle === 'pixel'
-        ? 'h-full w-full bg-[#efe1cf] flex flex-col overflow-hidden font-sans relative transition-[background-image,background-color] duration-500'
+        ? 'h-full w-full bg-[#e3e3e3] flex flex-col overflow-hidden font-sans relative transition-[background-image,background-color] duration-500'
         : chatChromeStyle === 'flat'
             ? 'h-full w-full bg-white flex flex-col overflow-hidden font-sans relative transition-[background-image,background-color] duration-500'
             : chatChromeStyle === 'floating'
-                ? 'h-full w-full bg-[#eef2ff] flex flex-col overflow-hidden font-sans relative transition-[background-image,background-color] duration-500'
-                : 'h-full w-full bg-[#f1f5f9] flex flex-col overflow-hidden font-sans relative transition-[background-image,background-color] duration-500';
+                ? 'h-full w-full bg-[#f2f2f2] flex flex-col overflow-hidden font-sans relative transition-[background-image,background-color] duration-500'
+                : 'h-full w-full bg-[#f4f4f4] flex flex-col overflow-hidden font-sans relative transition-[background-image,background-color] duration-500';
     const groupChatRootStyle: React.CSSProperties = chatBackgroundStyle === 'grid'
         ? {
-            backgroundColor: chatChromeStyle === 'pixel' ? '#efe1cf' : '#f8fafc',
-            backgroundImage: 'linear-gradient(rgba(148,163,184,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.14) 1px, transparent 1px)',
+            backgroundColor: chatChromeStyle === 'pixel' ? '#e3e3e3' : '#fafafa',
+            backgroundImage: 'linear-gradient(rgba(161, 161, 161,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(161, 161, 161,0.14) 1px, transparent 1px)',
             backgroundSize: '20px 20px',
         }
         : chatBackgroundStyle === 'paper'
             ? {
-                backgroundColor: chatChromeStyle === 'pixel' ? '#f4e8d9' : '#f9f7f2',
-                backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.12) 1px, transparent 0)',
+                backgroundColor: chatChromeStyle === 'pixel' ? '#e9e9e9' : '#f7f7f7',
+                backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(161, 161, 161,0.12) 1px, transparent 0)',
                 backgroundSize: '16px 16px',
             }
             : chatBackgroundStyle === 'mesh'
                 ? {
-                    backgroundColor: '#f8fafc',
-                    backgroundImage: 'radial-gradient(circle at 15% 20%, rgba(59,130,246,0.18), transparent 28%), radial-gradient(circle at 85% 15%, rgba(244,114,182,0.18), transparent 24%), radial-gradient(circle at 60% 75%, rgba(45,212,191,0.18), transparent 26%)',
+                    backgroundColor: '#fafafa',
+                    backgroundImage: 'radial-gradient(circle at 15% 20%, rgba(123, 123, 123,0.18), transparent 28%), radial-gradient(circle at 85% 15%, rgba(147, 147, 147,0.18), transparent 24%), radial-gradient(circle at 60% 75%, rgba(175, 175, 175,0.18), transparent 26%)',
                 }
                 : { backgroundImage: 'none' };
     const groupFineTuneCss = buildChatFineTuneCss(osTheme);
@@ -1764,7 +1764,7 @@ ${memberTimeline || '(暂无互动记录)'}
         ? 'h-full w-full flex flex-col overflow-hidden font-sans relative transition-[background-color] duration-500'
         : groupChatRootClass;
     const finalGroupRootStyle = acnh
-        ? { backgroundColor: '#F6F0D8', backgroundImage: 'none' }
+        ? { backgroundColor: '#f0f0f0', backgroundImage: 'none' }
         : groupChatRootStyle;
     return (
         <div className={`sully-chat-root ${finalGroupRootClass}`} style={finalGroupRootStyle}>
@@ -1800,15 +1800,15 @@ ${memberTimeline || '(暂无互动记录)'}
                     <div
                         className="flex items-center gap-2.5 pl-2.5 pr-3.5 py-2 max-w-[20rem]"
                         style={{
-                            background: 'rgba(255,255,255,0.88)',
+                            background: 'rgba(255, 255, 255,0.88)',
                             borderRadius: 999,
-                            border: '1px solid rgba(139,92,246,0.22)',
-                            boxShadow: '0 6px 18px -6px rgba(15,23,42,0.22)',
+                            border: '1px solid rgba(113, 113, 113,0.22)',
+                            boxShadow: '0 6px 18px -6px rgba(23, 23, 23,0.22)',
                         }}
                     >
                         <span
                             className="shrink-0 inline-block w-3.5 h-3.5 rounded-full border-2 border-slate-200 animate-spin"
-                            style={{ borderTopColor: '#8b5cf6', animationDuration: '0.9s' }}
+                            style={{ borderTopColor: '#717171', animationDuration: '0.9s' }}
                         />
                         <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
                             公共话题成盒中
@@ -1973,7 +1973,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 actionsContent={
                     <div className="p-6 grid grid-cols-4 gap-8">
                         <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-pink-50 text-pink-400 border-pink-100">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-400 border-neutral-100">
                                 <ImageIcon className="w-6 h-6" weight="bold" />
                             </div>
                             <span className="text-xs font-bold">相册</span>
@@ -1981,14 +1981,14 @@ ${memberTimeline || '(暂无互动记录)'}
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
 
                         <button onClick={() => { setModalType('transfer'); setShowPanel('none'); trackEvent('打开发红包面板'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-orange-50 text-orange-400 border-orange-100">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-400 border-neutral-100">
                                 <Money className="w-6 h-6" weight="bold" />
                             </div>
                             <span className="text-xs font-bold">红包</span>
                         </button>
 
                         <button onClick={openGroupSettings} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-violet-50 text-violet-500 border-violet-100">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-500 border-neutral-100">
                                 <GearSix className="w-6 h-6" weight="bold" />
                             </div>
                             <span className="text-xs font-bold">群设置</span>
@@ -1999,21 +1999,21 @@ ${memberTimeline || '(暂无互动记录)'}
                             disabled={!canReroll}
                             className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${canReroll ? 'text-slate-600' : 'text-slate-300 opacity-50'}`}
                         >
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${canReroll ? 'bg-emerald-50 text-emerald-400 border-emerald-100' : 'bg-slate-50 text-slate-300 border-slate-100'}`}>
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${canReroll ? 'bg-neutral-50 text-neutral-400 border-neutral-100' : 'bg-slate-50 text-slate-300 border-slate-100'}`}>
                                 <ArrowsClockwise className="w-6 h-6" weight="bold" />
                             </div>
                             <span className="text-xs font-bold">重新生成</span>
                         </button>
 
                         <button onClick={() => { setModalType('chrome-css'); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-sky-50 text-sky-500 border-sky-100">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-500 border-neutral-100">
                                 <PaintBrush className="w-6 h-6" weight="bold" />
                             </div>
                             <span className="text-xs font-bold">白框</span>
                         </button>
 
                         <button onClick={() => { setModalType('chrome-sound'); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-amber-50 text-amber-500 border-amber-100">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-500 border-neutral-100">
                                 <BellSimpleRinging className="w-6 h-6" weight="bold" />
                             </div>
                             <span className="text-xs font-bold">提示音</span>
@@ -2032,9 +2032,9 @@ ${memberTimeline || '(暂无互动记录)'}
                             onContextMenu={(e) => { e.preventDefault(); setTempHtmlPrompt(activeGroup?.htmlModeCustomPrompt || ''); setModalType('html-prompt'); setShowPanel('none'); }}
                             className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600 relative"
                         >
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${activeGroup?.htmlModeEnabled ? 'bg-fuchsia-100 text-fuchsia-600 border-fuchsia-200' : 'bg-fuchsia-50 text-fuchsia-500 border-fuchsia-100'}`}>
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${activeGroup?.htmlModeEnabled ? 'bg-neutral-100 text-neutral-600 border-neutral-200' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
                                 <Code className="w-6 h-6" weight="bold" />
-                                {activeGroup?.htmlModeEnabled && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-fuchsia-500 border-2 border-white" />}
+                                {activeGroup?.htmlModeEnabled && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-neutral-500 border-2 border-white" />}
                             </div>
                             <span className="text-xs font-bold">{activeGroup?.htmlModeEnabled ? 'HTML已开' : 'HTML模式'}</span>
                         </button>
@@ -2046,11 +2046,11 @@ ${memberTimeline || '(暂无互动记录)'}
             {/* --- Modals --- */}
 
             {/* Group Settings Modal */}
-            <Modal isOpen={modalType === 'settings'} title="群组设置" onClose={() => setModalType('none')} footer={<button onClick={handleUpdateGroupInfo} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg shadow-violet-200">保存修改</button>}>
+            <Modal isOpen={modalType === 'settings'} title="群组设置" onClose={() => setModalType('none')} footer={<button onClick={handleUpdateGroupInfo} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200">保存修改</button>}>
                 <div className="space-y-6">
                     {/* Header Info */}
                     <div className="flex justify-center">
-                        <div onClick={() => groupAvatarInputRef.current?.click()} className="w-24 h-24 rounded-3xl bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer overflow-hidden relative group hover:border-violet-400">
+                        <div onClick={() => groupAvatarInputRef.current?.click()} className="w-24 h-24 rounded-3xl bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer overflow-hidden relative group hover:border-neutral-400">
                             {activeGroup?.avatar ? <TokenImg value={activeGroup.avatar} className="w-full h-full object-cover opacity-90 group-hover:opacity-100" /> : <span className="text-xs text-slate-400 font-bold">更换头像</span>}
                             <div className="absolute inset-0 bg-black/20 hidden group-hover:flex items-center justify-center text-white"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" /></svg></div>
                         </div>
@@ -2058,7 +2058,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     </div>
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">群名称</label>
-                        <input value={tempGroupName} onChange={e => setTempGroupName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-violet-300 transition-all" />
+                        <input value={tempGroupName} onChange={e => setTempGroupName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-neutral-300 transition-all" />
                     </div>
 
                     <div className="pt-2 border-t border-slate-100">
@@ -2072,14 +2072,14 @@ ${memberTimeline || '(暂无互动记录)'}
                         <div className="flex flex-col gap-2">
                             <div
                                 onClick={() => { setTempReplyMode('director'); trackEvent('切换群聊回复生成模式', { mode: 'director' }); }}
-                                className={`p-3 rounded-xl border cursor-pointer transition-all ${tempReplyMode === 'director' ? 'border-violet-400 bg-violet-50 ring-1 ring-violet-400' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                                className={`p-3 rounded-xl border cursor-pointer transition-all ${tempReplyMode === 'director' ? 'border-neutral-400 bg-neutral-50 ring-1 ring-neutral-400' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                             >
                                 <div className="text-xs font-bold text-slate-700">导演模式（默认）</div>
                                 <p className="text-[9px] text-slate-400 mt-1 leading-tight">一次 API 调用生成整轮群聊。快、省 token，但角色偶尔可能串号。</p>
                             </div>
                             <div
                                 onClick={() => { setTempReplyMode('roundRobin'); trackEvent('切换群聊回复生成模式', { mode: 'roundRobin' }); }}
-                                className={`p-3 rounded-xl border cursor-pointer transition-all ${tempReplyMode === 'roundRobin' ? 'border-violet-400 bg-violet-50 ring-1 ring-violet-400' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                                className={`p-3 rounded-xl border cursor-pointer transition-all ${tempReplyMode === 'roundRobin' ? 'border-neutral-400 bg-neutral-50 ring-1 ring-neutral-400' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                             >
                                 <div className="text-xs font-bold text-slate-700">轮询模式</div>
                                 <p className="text-[9px] text-slate-400 mt-1 leading-tight">每位成员单独调用一次 API，按顺序逐个发言（每人必发言）。更真实、彻底防串号，但更慢，token 消耗约为导演模式 × 成员数。</p>
@@ -2097,7 +2097,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             </div>
                             <div
                                 onClick={() => setTempMemberBubbleIndependent(v => !v)}
-                                className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative shrink-0 ${tempMemberBubbleIndependent ? 'bg-violet-500' : 'bg-slate-200'}`}
+                                className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative shrink-0 ${tempMemberBubbleIndependent ? 'bg-neutral-500' : 'bg-slate-200'}`}
                             >
                                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${tempMemberBubbleIndependent ? 'left-[22px]' : 'left-0.5'}`} />
                             </div>
@@ -2110,7 +2110,7 @@ ${memberTimeline || '(暂无互动记录)'}
                                 <button
                                     key={opt.id || '_default'}
                                     onClick={() => setTempUserBubbleThemeId(opt.id)}
-                                    className={`shrink-0 px-3 py-2 rounded-xl border text-[10px] font-bold flex items-center gap-1.5 transition-all ${tempUserBubbleThemeId === opt.id ? 'border-violet-500 bg-violet-50 ring-1 ring-violet-500 text-violet-700' : 'border-slate-200 bg-white text-slate-500'}`}
+                                    className={`shrink-0 px-3 py-2 rounded-xl border text-[10px] font-bold flex items-center gap-1.5 transition-all ${tempUserBubbleThemeId === opt.id ? 'border-neutral-500 bg-neutral-50 ring-1 ring-neutral-500 text-neutral-700' : 'border-slate-200 bg-white text-slate-500'}`}
                                 >
                                     <span className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: opt.color }} />
                                     {opt.name}
@@ -2122,7 +2122,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     {/* Context Limit */}
                     <div className="pt-2 border-t border-slate-100">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">AI 上下文条数 ({contextLimit})</label>
-                        <input type="range" min="20" max="5000" step="10" value={contextLimit} onChange={e => { const v = parseInt(e.target.value); setContextLimit(v); localStorage.setItem('groupchat_context_limit', String(v)); }} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                        <input type="range" min="20" max="5000" step="10" value={contextLimit} onChange={e => { const v = parseInt(e.target.value); setContextLimit(v); localStorage.setItem('groupchat_context_limit', String(v)); }} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-neutral-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>5000 (超长记忆)</span></div>
                         <p className="text-[9px] text-slate-400 mt-1 leading-tight">角色每次发言时参考多少条群聊历史。越多越连贯，但越慢、越费 token。</p>
                     </div>
@@ -2130,7 +2130,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     {/* Private Chat Group Context Cap */}
                     <div className="pt-2 border-t border-slate-100">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">私聊里"近期群活动"取条数 ({tempPrivateContextCap})</label>
-                        <input type="range" min="20" max="500" step="10" value={tempPrivateContextCap} onChange={e => setTempPrivateContextCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                        <input type="range" min="20" max="500" step="10" value={tempPrivateContextCap} onChange={e => setTempPrivateContextCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-neutral-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>500 (完整)</span></div>
                         <p className="text-[9px] text-slate-400 mt-1 leading-tight">本群成员在自己的私聊里，最多看到本群最近多少条消息作为"近期群活动"上下文。</p>
                     </div>
@@ -2138,7 +2138,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     {/* Member Timeline Cap */}
                     <div className="pt-2 border-t border-slate-100">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">成员互动时间线条数 ({tempMemberTimelineCap})</label>
-                        <input type="range" min="20" max="200" step="10" value={tempMemberTimelineCap} onChange={e => setTempMemberTimelineCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                        <input type="range" min="20" max="200" step="10" value={tempMemberTimelineCap} onChange={e => setTempMemberTimelineCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-neutral-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>200 (完整)</span></div>
                         <p className="text-[9px] text-slate-400 mt-1 leading-tight">群里发言时，每位成员参考的"私聊+群聊合并时间线"条数。这条时间线让角色在群里的感情与私聊衔接。</p>
                     </div>
@@ -2147,7 +2147,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     <div className="pt-2 border-t border-slate-100 space-y-3">
                         <div className="flex items-center justify-between">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">群聊总结 · 公共话题盒</label>
-                            <span className="text-[10px] text-violet-500 font-bold">{activeGroup?.topicBoxes?.length || 0} 个盒子</span>
+                            <span className="text-[10px] text-neutral-500 font-bold">{activeGroup?.topicBoxes?.length || 0} 个盒子</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5">
                             {([
@@ -2161,34 +2161,34 @@ ${memberTimeline || '(暂无互动记录)'}
                                         await updateGroup(activeGroup.id, { topicArchiveMode: option.id });
                                         setActiveGroup({ ...activeGroup, topicArchiveMode: option.id });
                                         trackEvent('切换群聊总结整理方式', { mode: option.id });
-                                    }} className={`rounded-xl px-3 py-2.5 text-left transition-all ${active ? 'bg-white shadow-sm ring-1 ring-violet-100' : 'text-slate-400'}`}>
-                                        <div className={`text-[11px] font-bold ${active ? 'text-violet-600' : 'text-slate-500'}`}>{option.title}</div>
+                                    }} className={`rounded-xl px-3 py-2.5 text-left transition-all ${active ? 'bg-white shadow-sm ring-1 ring-neutral-100' : 'text-slate-400'}`}>
+                                        <div className={`text-[11px] font-bold ${active ? 'text-neutral-600' : 'text-slate-500'}`}>{option.title}</div>
                                         <div className="text-[9px] mt-0.5">{option.desc}</div>
                                     </button>
                                 );
                             })}
                         </div>
-                        <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 to-indigo-50 p-3.5 space-y-2">
-                            <p className="text-[11px] font-bold text-violet-700">一份总结，全群共同记住</p>
-                            <p className="text-[10px] leading-5 text-violet-600/80">
+                        <div className="rounded-2xl border border-neutral-100 bg-gradient-to-br from-neutral-50 to-neutral-50 p-3.5 space-y-2">
+                            <p className="text-[11px] font-bold text-neutral-700">一份总结，全群共同记住</p>
+                            <p className="text-[10px] leading-5 text-neutral-600/80">
                                 最近 {GROUP_TOPIC_HOT_ZONE} 条始终保留原文；更早的记录累计 {GROUP_TOPIC_BUFFER_THRESHOLD} 条后{(activeGroup?.topicArchiveMode || 'auto') === 'auto' ? '自动整理' : '等待你手动整理'}成公共话题盒。
                                 盒子只属于本群，同时会作为卡片送到每位成员私聊，之后可被各自的私聊上下文与归档正常理解。
                             </p>
                             <div className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2 text-[10px]">
                                 <span className="text-slate-500">热区以前待整理</span>
-                                <span className={`font-bold ${topicPendingCount >= GROUP_TOPIC_BUFFER_THRESHOLD ? 'text-amber-500' : 'text-slate-500'}`}>{topicPendingCount} / {GROUP_TOPIC_BUFFER_THRESHOLD} 条</span>
+                                <span className={`font-bold ${topicPendingCount >= GROUP_TOPIC_BUFFER_THRESHOLD ? 'text-neutral-500' : 'text-slate-500'}`}>{topicPendingCount} / {GROUP_TOPIC_BUFFER_THRESHOLD} 条</span>
                             </div>
                         </div>
 
                         <div className="bg-white border border-slate-100 rounded-2xl p-3 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center">✦</div>
+                            <div className="w-9 h-9 rounded-xl bg-neutral-50 flex items-center justify-center">✦</div>
                             <div>
                                 <div className="text-[10px] font-bold text-slate-600">内置 · 群聊共同记忆总结</div>
                                 <p className="text-[9px] text-slate-400 mt-0.5 leading-4">总结机会读取全体成员的简介、核心设定、世界观、写作人格与核心记忆，不再复用私聊归档风格。</p>
                             </div>
                         </div>
 
-                        <button onClick={() => { void createNextGroupTopicBox(true); trackEvent('手动整理群话题盒'); }} disabled={isSummarizing || topicPendingCount === 0} className={`w-full py-3 rounded-2xl border font-bold text-xs flex items-center justify-center gap-2 ${topicPendingCount === 0 ? 'bg-slate-50 border-slate-100 text-slate-300' : 'bg-violet-500 border-violet-500 text-white shadow-lg shadow-violet-200'}`}>
+                        <button onClick={() => { void createNextGroupTopicBox(true); trackEvent('手动整理群话题盒'); }} disabled={isSummarizing || topicPendingCount === 0} className={`w-full py-3 rounded-2xl border font-bold text-xs flex items-center justify-center gap-2 ${topicPendingCount === 0 ? 'bg-slate-50 border-slate-100 text-slate-300' : 'bg-neutral-500 border-neutral-500 text-white shadow-lg shadow-neutral-200'}`}>
                             {isSummarizing ? <><span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />{summaryProgress || '正在成盒…'}</> : '立即整理当前可归档内容'}
                         </button>
 
@@ -2203,13 +2203,13 @@ ${memberTimeline || '(暂无互动记录)'}
                                                 <textarea value={topicSummaryDraft} onChange={e => setTopicSummaryDraft(e.target.value)} className="w-full min-h-28 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs leading-5 resize-y" placeholder="共同回忆总结" />
                                                 <div className="flex gap-2">
                                                     <button onClick={() => setEditingTopicBoxId(null)} className="flex-1 py-2 rounded-xl bg-slate-100 text-slate-500 text-[11px] font-bold">取消</button>
-                                                    <button onClick={() => void saveTopicBoxEdit(box.id)} className="flex-1 py-2 rounded-xl bg-violet-500 text-white text-[11px] font-bold">保存并同步卡片</button>
+                                                    <button onClick={() => void saveTopicBoxEdit(box.id)} className="flex-1 py-2 rounded-xl bg-neutral-500 text-white text-[11px] font-bold">保存并同步卡片</button>
                                                 </div>
                                             </div>
                                         ) : (
                                             <>
                                                 <div className="flex items-start gap-2">
-                                                    <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">💬</div>
+                                                    <div className="w-8 h-8 rounded-xl bg-neutral-50 flex items-center justify-center shrink-0">💬</div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="text-xs font-bold text-slate-700">{box.title}</div>
                                                         <div className="text-[9px] text-slate-400 mt-0.5">归档 {box.messageCount} 条 · {new Date(box.createdAt).toLocaleDateString('zh-CN')}</div>
@@ -2217,8 +2217,8 @@ ${memberTimeline || '(暂无互动记录)'}
                                                 </div>
                                                 <p className="mt-2.5 text-[11px] leading-5 text-slate-600 whitespace-pre-wrap">{box.summary}</p>
                                                 <div className="mt-3 flex gap-2 justify-end">
-                                                    <button onClick={() => { setEditingTopicBoxId(box.id); setTopicTitleDraft(box.title); setTopicSummaryDraft(box.summary); }} className="px-3 py-1.5 rounded-lg bg-violet-50 text-violet-600 text-[10px] font-bold">修改</button>
-                                                    <button onClick={() => void deleteTopicBox(box.id)} className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-500 text-[10px] font-bold">删除</button>
+                                                    <button onClick={() => { setEditingTopicBoxId(box.id); setTopicTitleDraft(box.title); setTopicSummaryDraft(box.summary); }} className="px-3 py-1.5 rounded-lg bg-neutral-50 text-neutral-600 text-[10px] font-bold">修改</button>
+                                                    <button onClick={() => void deleteTopicBox(box.id)} className="px-3 py-1.5 rounded-lg bg-neutral-50 text-neutral-500 text-[10px] font-bold">删除</button>
                                                 </div>
                                             </>
                                         )}
@@ -2233,21 +2233,21 @@ ${memberTimeline || '(暂无互动记录)'}
 
                     {/* Danger Zone */}
                     <div className="pt-2 border-t border-slate-100">
-                        <label className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-3 block">危险区域</label>
+                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-3 block">危险区域</label>
                         
                         <div className="flex items-center gap-2 mb-3 cursor-pointer" onClick={() => setPreserveContext(!preserveContext)}>
-                             <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${preserveContext ? 'bg-violet-500 border-violet-500' : 'bg-slate-100 border-slate-300'}`}>
+                             <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${preserveContext ? 'bg-neutral-500 border-neutral-500' : 'bg-slate-100 border-slate-300'}`}>
                                  {preserveContext && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>}
                              </div>
                              <span className="text-xs text-slate-600">清空时保留最后10条记录 (维持语境)</span>
                         </div>
 
                         <div className="flex gap-2">
-                            <button onClick={handleClearHistory} className="flex-1 py-3 bg-red-50 text-red-500 font-bold rounded-2xl border border-red-100 active:scale-95 transition-transform flex items-center justify-center gap-2 text-xs">
+                            <button onClick={handleClearHistory} className="flex-1 py-3 bg-neutral-50 text-neutral-500 font-bold rounded-2xl border border-neutral-100 active:scale-95 transition-transform flex items-center justify-center gap-2 text-xs">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                                 清空聊天
                             </button>
-                            <button onClick={() => { if(activeGroup) handleDeleteGroup(activeGroup.id); }} className="flex-1 py-3 text-white bg-red-500 hover:bg-red-600 rounded-2xl text-xs font-bold transition-colors shadow-lg shadow-red-200">解散群聊</button>
+                            <button onClick={() => { if(activeGroup) handleDeleteGroup(activeGroup.id); }} className="flex-1 py-3 text-white bg-neutral-500 hover:bg-neutral-600 rounded-2xl text-xs font-bold transition-colors shadow-lg shadow-neutral-200">解散群聊</button>
                         </div>
                     </div>
                 </div>
@@ -2262,7 +2262,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             setModalType('none');
                             setSelectedMessage(null);
                         }}
-                        className="w-full py-3 bg-violet-50 text-violet-600 font-medium rounded-2xl active:bg-violet-100 transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-neutral-50 text-neutral-600 font-medium rounded-2xl active:bg-neutral-100 transition-colors flex items-center justify-center gap-2"
                     >
                         引用 / 回复
                     </button>
@@ -2279,7 +2279,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             修改内容
                         </button>
                     )}
-                    <button onClick={handleDeleteSingleMessage} className="w-full py-3 bg-red-50 text-red-500 font-medium rounded-2xl active:bg-red-100 transition-colors flex items-center justify-center gap-2">
+                    <button onClick={handleDeleteSingleMessage} className="w-full py-3 bg-neutral-50 text-neutral-500 font-medium rounded-2xl active:bg-neutral-100 transition-colors flex items-center justify-center gap-2">
                         删除消息
                     </button>
                 </div>
@@ -2298,7 +2298,7 @@ ${memberTimeline || '(暂无互动记录)'}
             </Modal>
 
             {/* Transfer Modal — 红包 2.0：拼手气 / 专属 */}
-            <Modal isOpen={modalType === 'transfer'} title="发送红包" onClose={() => setModalType('none')} footer={<button onClick={handleSendPacket} className="w-full py-3 bg-orange-500 text-white font-bold rounded-2xl shadow-lg shadow-orange-200">塞进红包</button>}>
+            <Modal isOpen={modalType === 'transfer'} title="发送红包" onClose={() => setModalType('none')} footer={<button onClick={handleSendPacket} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200">塞进红包</button>}>
                 <div className="space-y-4">
                     {/* Tab 切换 */}
                     <div className="flex gap-2">
@@ -2306,7 +2306,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             <button
                                 key={key}
                                 onClick={() => setPacketTab(key)}
-                                className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${packetTab === key ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 text-slate-500'}`}
+                                className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${packetTab === key ? 'bg-neutral-500 text-white shadow-md' : 'bg-slate-100 text-slate-500'}`}
                             >
                                 {label}
                             </button>
@@ -2330,7 +2330,7 @@ ${memberTimeline || '(暂无互动记录)'}
                                     const c = characters.find(ch => ch.id === mid);
                                     if (!c) return null;
                                     return (
-                                        <div key={mid} onClick={() => setPacketTargetId(mid)} className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all cursor-pointer ${packetTargetId === mid ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
+                                        <div key={mid} onClick={() => setPacketTargetId(mid)} className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all cursor-pointer ${packetTargetId === mid ? 'border-neutral-500 bg-neutral-50 ring-1 ring-neutral-500' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
                                             <TokenImg value={c.avatar} className="w-10 h-10 rounded-full object-cover" />
                                             <span className="text-[9px] text-slate-600 truncate w-full text-center font-medium">{c.name}</span>
                                         </div>
@@ -2361,7 +2361,7 @@ ${memberTimeline || '(暂无互动记录)'}
                                 <div className="text-4xl mb-1">🧧</div>
                                 <div className="font-bold text-slate-800">{senderName} 的{meta.packetType === 'lucky' ? '拼手气' : '专属'}红包</div>
                                 <div className="text-xs text-slate-400 mt-1">「{meta.note}」</div>
-                                <div className="text-2xl font-black text-orange-500 mt-2">¥{meta.totalAmount}</div>
+                                <div className="text-2xl font-black text-neutral-500 mt-2">¥{meta.totalAmount}</div>
                                 {meta.packetType === 'lucky' && (
                                     <div className="text-[10px] text-slate-400 mt-1">共 {meta.shares} 份 · 已领 {meta.claims.length} 份{status === 'expired' ? ' · 已过期' : ''}</div>
                                 )}
@@ -2381,7 +2381,7 @@ ${memberTimeline || '(暂无互动记录)'}
                                                     <div className="text-xs font-bold text-slate-700 truncate">{nameOf(c.claimantId)}</div>
                                                     <div className="text-[9px] text-slate-400">{new Date(c.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                                 </div>
-                                                <div className="text-sm font-black text-orange-500">¥{c.amount}</div>
+                                                <div className="text-sm font-black text-neutral-500">¥{c.amount}</div>
                                             </div>
                                         );
                                     })}
@@ -2389,13 +2389,13 @@ ${memberTimeline || '(暂无互动记录)'}
                             )}
 
                             {canGrabLucky && (
-                                <button onClick={() => handleUserPacketAction(pMsg, 'claim')} className="w-full py-3 bg-gradient-to-r from-orange-500 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-orange-200 active:scale-95 transition-transform">
+                                <button onClick={() => handleUserPacketAction(pMsg, 'claim')} className="w-full py-3 bg-gradient-to-r from-neutral-500 to-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200 active:scale-95 transition-transform">
                                     抢红包
                                 </button>
                             )}
                             {canResolveDirect && (
                                 <div className="flex gap-2">
-                                    <button onClick={() => handleUserPacketAction(pMsg, 'claim')} className="flex-1 py-3 bg-orange-500 text-white font-bold rounded-2xl shadow-lg shadow-orange-200 active:scale-95 transition-transform">收下</button>
+                                    <button onClick={() => handleUserPacketAction(pMsg, 'claim')} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200 active:scale-95 transition-transform">收下</button>
                                     <button onClick={() => handleUserPacketAction(pMsg, 'return')} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl active:scale-95 transition-transform">退回</button>
                                 </div>
                             )}
@@ -2408,7 +2408,7 @@ ${memberTimeline || '(暂无互动记录)'}
             {activeGroup && modalType === 'chrome-css' && (
                 <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/5" onClick={() => setModalType('none')}>
                     <div
-                        className="w-full max-h-[68vh] overflow-y-auto rounded-t-3xl border-t border-white/60 bg-white/95 p-5 shadow-[0_-12px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        className="w-full max-h-[68vh] overflow-y-auto rounded-t-3xl border-t border-white/60 bg-white/95 p-5 shadow-[0_-12px_40px_rgba(23, 23, 23,0.18)] backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                         style={{ paddingBottom: 'calc(1.25rem + var(--safe-bottom))' }}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -2435,8 +2435,8 @@ ${memberTimeline || '(暂无互动记录)'}
                                     position: 'fixed', top: 'calc(var(--safe-top) + 6px)', left: '50%', transform: 'translateX(-50%)',
                                     zIndex: 2147483647, display: 'flex', alignItems: 'center', gap: '4px',
                                     padding: '5px 12px', borderRadius: '999px',
-                                    background: 'rgba(15,23,42,0.62)', color: '#fff', fontSize: '11px', fontWeight: 700,
-                                    border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
+                                    background: 'rgba(23, 23, 23,0.62)', color: '#ffffff', fontSize: '11px', fontWeight: 700,
+                                    border: '1px solid rgba(255, 255, 255,0.3)', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0, 0, 0,0.35)',
                                 }}
                             >⟲ 还原本群白框</button>
                         </>,
@@ -2468,7 +2468,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 return (
                     <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/5" onClick={() => setModalType('none')}>
                         <div
-                            className="w-full max-h-[68vh] overflow-y-auto rounded-t-3xl border-t border-white/60 bg-white/95 p-5 shadow-[0_-12px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                            className="w-full max-h-[68vh] overflow-y-auto rounded-t-3xl border-t border-white/60 bg-white/95 p-5 shadow-[0_-12px_40px_rgba(23, 23, 23,0.18)] backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                             style={{ paddingBottom: 'calc(1.25rem + var(--safe-bottom))' }}
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -2494,7 +2494,7 @@ ${memberTimeline || '(暂无互动记录)'}
             {/* 群聊记忆规则 */}
             <Modal isOpen={modalType === 'help'} title="群聊记忆规则" onClose={() => setModalType('none')}>
                 <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
-                    <div className="rounded-2xl bg-violet-50 border border-violet-100 p-4 text-violet-800">
+                    <div className="rounded-2xl bg-neutral-50 border border-neutral-100 p-4 text-neutral-800">
                         群聊内容不是排队延迟发送。角色在私聊中“隔天提起”，通常是最近群聊、话题盒或个人群聊记忆被当作本轮话题选中了。
                     </div>
                     <div>
@@ -2518,7 +2518,7 @@ ${memberTimeline || '(暂无互动记录)'}
             {/* HTML 模式自定义提示词 Modal（瓦片右键/长按进入） */}
             <Modal
                 isOpen={modalType === 'html-prompt'} title="HTML 模式 · 自定义提示词" onClose={() => setModalType('none')}
-                footer={<button onClick={() => { if (activeGroup) { updateGroup(activeGroup.id, { htmlModeCustomPrompt: tempHtmlPrompt }); setActiveGroup({ ...activeGroup, htmlModeCustomPrompt: tempHtmlPrompt }); } setModalType('none'); addToast('已保存', 'success'); }} className="w-full py-3 bg-fuchsia-500 text-white font-bold rounded-2xl shadow-lg shadow-fuchsia-200">保存</button>}
+                footer={<button onClick={() => { if (activeGroup) { updateGroup(activeGroup.id, { htmlModeCustomPrompt: tempHtmlPrompt }); setActiveGroup({ ...activeGroup, htmlModeCustomPrompt: tempHtmlPrompt }); } setModalType('none'); addToast('已保存', 'success'); }} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200">保存</button>}
             >
                 <div className="space-y-3">
                     <p className="text-[10px] text-slate-400 leading-relaxed">追加在内置 HTML 提示词之后（不覆盖）。可以写卡片风格偏好、常用配色、想要的卡片类型等。</p>
@@ -2526,7 +2526,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         value={tempHtmlPrompt}
                         onChange={e => setTempHtmlPrompt(e.target.value)}
                         placeholder="例如：卡片统一用暖色系、圆角 16px；多用进度条和标签组……"
-                        className="w-full h-36 bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-fuchsia-300 transition-all text-sm leading-relaxed"
+                        className="w-full h-36 bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-neutral-300 transition-all text-sm leading-relaxed"
                     />
                 </div>
             </Modal>

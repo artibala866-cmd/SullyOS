@@ -279,14 +279,14 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
 
     const getCharGradient = (name: string): string => {
         const gradients = [
-            'linear-gradient(to bottom right, #fb7185, #ec4899)',
-            'linear-gradient(to bottom right, #a78bfa, #8b5cf6)',
-            'linear-gradient(to bottom right, #60a5fa, #6366f1)',
-            'linear-gradient(to bottom right, #22d3ee, #14b8a6)',
-            'linear-gradient(to bottom right, #34d399, #22c55e)',
-            'linear-gradient(to bottom right, #fbbf24, #f97316)',
-            'linear-gradient(to bottom right, #f87171, #f43f5e)',
-            'linear-gradient(to bottom right, #e879f9, #ec4899)',
+            'linear-gradient(to bottom right, #909090, #717171)',
+            'linear-gradient(to bottom right, #999999, #717171)',
+            'linear-gradient(to bottom right, #9c9c9c, #6f6f6f)',
+            'linear-gradient(to bottom right, #afafaf, #949494)',
+            'linear-gradient(to bottom right, #adadad, #9b9b9b)',
+            'linear-gradient(to bottom right, #c1c1c1, #898989)',
+            'linear-gradient(to bottom right, #8e8e8e, #686868)',
+            'linear-gradient(to bottom right, #9a9a9a, #717171)',
         ];
         let hash = 0;
         for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -311,7 +311,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                         className="flex flex-col gap-2.5 group active:scale-95 transition-all"
                     >
                         {/* Use w-full + padding-bottom hack for aspect ratio (better mobile compat than aspect-square) */}
-                        <div className="w-full relative rounded-3xl shadow-md overflow-hidden border border-white/60" style={{ paddingBottom: '100%', backgroundImage: getCharGradient(char.name), backgroundColor: '#94a3b8' }}>
+                        <div className="w-full relative rounded-3xl shadow-md overflow-hidden border border-white/60" style={{ paddingBottom: '100%', backgroundImage: getCharGradient(char.name), backgroundColor: '#a1a1a1' }}>
                             {/* Always-visible fallback: character initial + name color bg */}
                             <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
                                 <span className="text-white/60 text-5xl font-bold select-none drop-shadow-md">{char.name.charAt(0)}</span>
@@ -330,7 +330,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                             )}
                             <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
                             <div className="absolute bottom-0 left-0 right-0 z-30 px-3 pb-2.5 pt-6 bg-gradient-to-t from-black/50 to-transparent flex items-end justify-between">
-                                <span className="text-white text-sm font-bold drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">{char.name}</span>
+                                <span className="text-white text-sm font-bold drop-shadow-[0_1px_3px_rgba(0, 0, 0,0.8)]">{char.name}</span>
                                 {count > 0 && <span className="text-white/90 text-[10px] font-mono bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full">{count}</span>}
                             </div>
                         </div>
@@ -372,10 +372,10 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                 </button>
                 <div className="flex items-center gap-2 pointer-events-auto">
-                    <button onClick={() => void handleToggleImageFavorite()} className={`text-white backdrop-blur-md p-2 rounded-full active:scale-95 transition-transform border border-white/10 ${imageFavorited ? 'bg-amber-500/80' : 'bg-black/40 hover:bg-black/60'}`} aria-label={imageFavorited ? '取消收藏图片' : '收藏图片'}>
+                    <button onClick={() => void handleToggleImageFavorite()} className={`text-white backdrop-blur-md p-2 rounded-full active:scale-95 transition-transform border border-white/10 ${imageFavorited ? 'bg-neutral-500/80' : 'bg-black/40 hover:bg-black/60'}`} aria-label={imageFavorited ? '取消收藏图片' : '收藏图片'}>
                         <Star size={20} weight={imageFavorited ? 'fill' : 'regular'} />
                     </button>
-                    <button onClick={handleDeleteImage} className="text-white bg-black/40 backdrop-blur-md p-2 rounded-full active:scale-95 transition-transform hover:bg-red-600/60 border border-white/10">
+                    <button onClick={handleDeleteImage} className="text-white bg-black/40 backdrop-blur-md p-2 rounded-full active:scale-95 transition-transform hover:bg-neutral-600/60 border border-white/10">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                     </button>
                 </div>
@@ -435,7 +435,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                         <button
                             onClick={handleReview}
                             disabled={isReviewing}
-                            className="bg-white text-black px-6 py-3 rounded-full text-sm font-bold shadow-[0_0_20px_rgba(255,255,255,0.15)] active:scale-95 transition-transform flex items-center gap-2 hover:bg-slate-200"
+                            className="bg-white text-black px-6 py-3 rounded-full text-sm font-bold shadow-[0_0_20px_rgba(255, 255, 255,0.15)] active:scale-95 transition-transform flex items-center gap-2 hover:bg-slate-200"
                         >
                             {isReviewing ? (
                                 <><div className="w-4 h-4 border-2 border-slate-300 border-t-black rounded-full animate-spin"></div> 正在思考...</>

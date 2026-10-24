@@ -40,19 +40,19 @@ type Ambient = 'stars' | 'petals' | 'bubbles' | 'feathers' | 'dust' | 'sparkle' 
 interface DreamTheme { label: string; sub: string; accent: string; bg: string; ambient: Ambient; serif?: boolean; }
 
 const THEMES: Record<DreamArchetype, DreamTheme> = {
-    sweet:     { label: '甜梦',     sub: 'Sweet Dream',     accent: '#ffc2e0', bg: 'radial-gradient(130% 90% at 50% 20%, #3a2436 0%, #1c1620 60%, #120e16 100%)', ambient: 'sparkle', serif: true },
-    nightmare: { label: '噩梦',     sub: 'Nightmare',       accent: '#ff5f6d', bg: 'radial-gradient(120% 100% at 50% 0%, #2a0f12 0%, #100608 55%, #050304 100%)', ambient: 'dust' },
-    flower:    { label: '花之梦',   sub: 'Flower Dream',    accent: '#a8e6a0', bg: 'radial-gradient(130% 90% at 50% 25%, #1f3326 0%, #15211a 60%, #0d130f 100%)', ambient: 'petals', serif: true },
-    flying:    { label: '飞翔之梦', sub: 'Flying Dream',    accent: '#9fd8ff', bg: 'radial-gradient(140% 100% at 50% 10%, #1d2c40 0%, #14202f 55%, #0b1018 100%)', ambient: 'feathers', serif: true },
-    falling:   { label: '坠落之梦', sub: 'Falling Dream',   accent: '#9a8cff', bg: 'linear-gradient(180deg, #221c3a 0%, #15102a 45%, #0a0712 100%)', ambient: 'dust' },
-    starry:    { label: '星空之梦', sub: 'Starry Dream',    accent: '#cdd6ff', bg: 'radial-gradient(130% 110% at 50% 0%, #161a3a 0%, #0c0e22 55%, #05060f 100%)', ambient: 'stars', serif: true },
-    ocean:     { label: '海之梦',   sub: 'Ocean Dream',     accent: '#6fd3e0', bg: 'radial-gradient(130% 110% at 50% 80%, #103040 0%, #0a1d2a 55%, #060f16 100%)', ambient: 'bubbles', serif: true },
-    childhood: { label: '童年之梦', sub: 'Childhood Dream', accent: '#ffd98a', bg: 'radial-gradient(130% 95% at 50% 25%, #34281a 0%, #211a12 60%, #14100b 100%)', ambient: 'dust', serif: true },
-    anxiety:   { label: '焦虑之梦', sub: 'Anxiety Dream',   accent: '#ff9a9a', bg: 'radial-gradient(120% 100% at 50% 50%, #2a1f22 0%, #181214 60%, #0d0a0b 100%)', ambient: 'none' },
-    forgotten: { label: '遗忘之梦', sub: 'Forgotten Dream', accent: '#c9cdd6', bg: 'radial-gradient(130% 100% at 50% 40%, #232529 0%, #16171a 60%, #0c0d0f 100%)', ambient: 'dust', serif: true },
-    prophetic: { label: '预言之梦', sub: 'Prophetic Dream', accent: '#c9a8ff', bg: 'radial-gradient(130% 100% at 50% 15%, #271a3a 0%, #181029 60%, #0d0816 100%)', ambient: 'sparkle', serif: true },
-    lucid:     { label: '清醒梦',   sub: 'Lucid Dream',     accent: '#7ef0d0', bg: 'radial-gradient(140% 110% at 50% 30%, #15302e 0%, #0e201f 55%, #081413 100%)', ambient: 'sparkle' },
-    deepsleep: { label: '深眠',     sub: 'Deep Sleep',      accent: 'rgba(255,255,255,0.35)', bg: 'radial-gradient(120% 120% at 50% 50%, #0a0b10 0%, #050608 70%, #000 100%)', ambient: 'none', serif: true },
+    sweet:     { label: '甜梦',     sub: 'Sweet Dream',     accent: '#d1d1d1', bg: 'radial-gradient(130% 90% at 50% 20%, #2a2a2a 0%, #181818 60%, #0f0f0f 100%)', ambient: 'sparkle', serif: true },
+    nightmare: { label: '噩梦',     sub: 'Nightmare',       accent: '#828282', bg: 'radial-gradient(120% 100% at 50% 0%, #151515 0%, #080808 55%, #030303 100%)', ambient: 'dust' },
+    flower:    { label: '花之梦',   sub: 'Flower Dream',    accent: '#d4d4d4', bg: 'radial-gradient(130% 90% at 50% 25%, #2e2e2e 0%, #1e1e1e 60%, #111111 100%)', ambient: 'petals', serif: true },
+    flying:    { label: '飞翔之梦', sub: 'Flying Dream',    accent: '#cfcfcf', bg: 'radial-gradient(140% 100% at 50% 10%, #2a2a2a 0%, #1f1f1f 55%, #101010 100%)', ambient: 'feathers', serif: true },
+    falling:   { label: '坠落之梦', sub: 'Falling Dream',   accent: '#979797', bg: 'linear-gradient(180deg, #1f1f1f 0%, #131313 45%, #080808 100%)', ambient: 'dust' },
+    starry:    { label: '星空之梦', sub: 'Starry Dream',    accent: '#d7d7d7', bg: 'radial-gradient(130% 110% at 50% 0%, #1b1b1b 0%, #0f0f0f 55%, #060606 100%)', ambient: 'stars', serif: true },
+    ocean:     { label: '海之梦',   sub: 'Ocean Dream',     accent: '#bfbfbf', bg: 'radial-gradient(130% 110% at 50% 80%, #2a2a2a 0%, #1a1a1a 55%, #0e0e0e 100%)', ambient: 'bubbles', serif: true },
+    childhood: { label: '童年之梦', sub: 'Childhood Dream', accent: '#dbdbdb', bg: 'radial-gradient(130% 95% at 50% 25%, #2a2a2a 0%, #1b1b1b 60%, #101010 100%)', ambient: 'dust', serif: true },
+    anxiety:   { label: '焦虑之梦', sub: 'Anxiety Dream',   accent: '#afafaf', bg: 'radial-gradient(120% 100% at 50% 50%, #222222 0%, #131313 60%, #0b0b0b 100%)', ambient: 'none' },
+    forgotten: { label: '遗忘之梦', sub: 'Forgotten Dream', accent: '#cdcdcd', bg: 'radial-gradient(130% 100% at 50% 40%, #252525 0%, #171717 60%, #0d0d0d 100%)', ambient: 'dust', serif: true },
+    prophetic: { label: '预言之梦', sub: 'Prophetic Dream', accent: '#b5b5b5', bg: 'radial-gradient(130% 100% at 50% 15%, #1f1f1f 0%, #141414 60%, #0a0a0a 100%)', ambient: 'sparkle', serif: true },
+    lucid:     { label: '清醒梦',   sub: 'Lucid Dream',     accent: '#d5d5d5', bg: 'radial-gradient(140% 110% at 50% 30%, #2a2a2a 0%, #1c1c1c 55%, #111111 100%)', ambient: 'sparkle' },
+    deepsleep: { label: '深眠',     sub: 'Deep Sleep',      accent: 'rgba(255, 255, 255,0.35)', bg: 'radial-gradient(120% 120% at 50% 50%, #0b0b0b 0%, #060606 70%, #000000 100%)', ambient: 'none', serif: true },
 };
 
 // 选择器/调试用的固定顺序与「修正后的连续编号」。
@@ -129,7 +129,7 @@ const BoxCat: React.FC<{ archetype: DreamArchetype; size?: number; className?: s
         <div className="absolute inset-0 rounded-2xl" style={{ background: `radial-gradient(circle at 50% 40%, ${THEMES[archetype].accent}22, transparent 70%)` }} />
         <CdnImg path={boxPath(archetype)} alt={THEMES[archetype].label} loading="lazy"
             className="relative w-full h-full object-contain"
-            style={{ filter: 'drop-shadow(0 8px 22px rgba(0,0,0,0.45))' }}
+            style={{ filter: 'drop-shadow(0 8px 22px rgba(0, 0, 0,0.45))' }}
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
     </div>
 );
@@ -257,7 +257,7 @@ sweet 甜梦(温暖/甜点/柔软的笑) · nightmare 噩梦(被追逐/怪物/�
 - {"kind":"screenplay","lines":["内景 · 不存在的房间 — 夜","她（背对着）：你来晚了。","门：没关系。"]} // 剧本片段
 - {"kind":"diary","text":"今天又梦见那片海。或者那是昨天。","date":"某个星期天"} // 日记残页
 - {"kind":"message","text":"我把月亮放进口袋了，回来给你看","date":"发送给 ——"} // 发给无人的消息
-- {"kind":"image","caption":"一只倒着飞的鸟","tint":"#5a6a7a"}        // 纯文字成像的象征画面（caption 即诗，无图片占位）
+- {"kind":"image","caption":"一只倒着飞的鸟","tint":"#686868"}        // 纯文字成像的象征画面（caption 即诗，无图片占位）
 
 务必：18~40 个碎片、大量 silence 留白、kind 多样、意象并置而非叙述、敢于矛盾与不可能、**结尾戛然而止不收束不点题**。**保证 JSON 完整闭合**——篇幅吃紧就砍中段碎片，也要把括号全部闭合。直接输出 JSON 对象。`;
 }
@@ -365,7 +365,7 @@ const Cut: React.FC<{ text: string; theme: DreamTheme; seed?: number; base?: num
                         fontSize: `${size}px`,
                         fontWeight: weight as React.CSSProperties['fontWeight'],
                         transform: `rotate(${rot}deg) translateY(${dy}px)`,
-                        color: tone > 0.85 ? theme.accent : tone < 0.16 ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.92)',
+                        color: tone > 0.85 ? theme.accent : tone < 0.16 ? 'rgba(255, 255, 255,0.45)' : 'rgba(255, 255, 255,0.92)',
                         margin: '0 0.02em',
                         padding: boxed ? '0.02em 0.18em' : undefined,
                         background: boxed ? `${theme.accent}1f` : undefined,
@@ -457,7 +457,7 @@ const CollageItem: React.FC<{ frag: DreamFragment; theme: DreamTheme; index: num
         inner = (
             <span className="inline-block w-full text-left" style={{ maxWidth: 300 }}>
                 <span className="block relative rounded-2xl overflow-hidden border pt-4 pb-4 px-4"
-                    style={{ borderColor: `${tint}33`, background: 'linear-gradient(165deg, rgba(255,255,255,0.05), rgba(255,255,255,0.012))', boxShadow: `0 10px 34px ${tint}16` }}>
+                    style={{ borderColor: `${tint}33`, background: 'linear-gradient(165deg, rgba(255, 255, 255,0.05), rgba(255, 255, 255,0.012))', boxShadow: `0 10px 34px ${tint}16` }}>
                     {/* 顶部一道光 + 胶片齿孔 */}
                     <span className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${tint}66, transparent)` }} />
                     <span className="absolute inset-x-0 top-1.5 flex justify-between px-3 pointer-events-none" aria-hidden>
@@ -502,7 +502,7 @@ const CollageItem: React.FC<{ frag: DreamFragment; theme: DreamTheme; index: num
     } else if (frag.kind === 'message') {
         inner = <span className="inline-flex flex-col items-end gap-1">
             {frag.date && <span className="text-[9.5px] text-white/30 pr-1">{frag.date}</span>}
-            <span className="px-3.5 py-2 rounded-2xl rounded-br-md text-[13.5px] leading-relaxed text-[#15121c]" style={{ background: tint, maxWidth: 230 }}>{frag.text}</span>
+            <span className="px-3.5 py-2 rounded-2xl rounded-br-md text-[13.5px] leading-relaxed text-[#131313]" style={{ background: tint, maxWidth: 230 }}>{frag.text}</span>
             <span className="text-[8.5px] text-white/25 pr-1">· 未送达 ·</span>
         </span>;
     } else { // image — 不画图片占位框，配文本身就是诗：只渲染拼贴诗，留一点点色调点缀
@@ -528,7 +528,7 @@ const CollageItem: React.FC<{ frag: DreamFragment; theme: DreamTheme; index: num
 // ============================================================
 const Shell: React.FC<{ children: React.ReactNode; bg: string }> = ({ children, bg }) => (
     <div className="absolute inset-0 z-[400] flex flex-col overflow-hidden text-white" style={{ background: bg }}>
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(120% 90% at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%)' }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(120% 90% at 50% 50%, transparent 40%, rgba(0, 0, 0,0.55) 100%)' }} />
         <div className="relative z-10 flex flex-col flex-1 min-h-0">{children}</div>
     </div>
 );
@@ -552,7 +552,7 @@ const DreamPopup: React.FC<{ title: string; onClose: () => void; children: React
     <div className="absolute inset-0 z-[60] flex items-center justify-center p-7" onClick={onClose}>
         <div className="absolute inset-0 bg-black/65 backdrop-blur-sm" />
         <div className="relative w-full max-w-[300px] rounded-3xl border border-white/[0.12] p-5 animate-slide-up"
-            style={{ background: 'linear-gradient(160deg, #1c1a28, #121019)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+            style={{ background: 'linear-gradient(160deg, #1b1b1b, #111111)', boxShadow: '0 20px 60px rgba(0, 0, 0,0.5)' }}
             onClick={e => e.stopPropagation()}>
             <h3 className="text-[15px] font-semibold text-white text-center mb-2.5" style={{ fontFamily: SERIF }}>{title}</h3>
             <div className="text-[12px] text-white/65 leading-relaxed text-center">{children}</div>
@@ -759,14 +759,14 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
             <DreamPopup title={`今天已经看过 ${char.name} 的梦了哦`} onClose={() => setDayPrompt(null)}
                 actions={<>
                     <button onClick={() => setDayPrompt(null)} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-white/70 bg-white/[0.06] border border-white/[0.1]">好的</button>
-                    <button onClick={() => { setDayPrompt(null); trackEvent('无视今日提醒再看一场梦'); start({ override: true }); }} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-[#15121c]" style={{ background: '#cdd6ff' }}>少管我！</button>
+                    <button onClick={() => { setDayPrompt(null); trackEvent('无视今日提醒再看一场梦'); start({ override: true }); }} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-[#131313]" style={{ background: '#d7d7d7' }}>少管我！</button>
                 </>}>
                 一天看太多梦，就不灵了。<br />真要再看一场吗？（今天最多 {DREAM_DAILY_TYPE_CAP} 种）
             </DreamPopup>
         )}
         {dayPrompt === 'limit' && (
             <DreamPopup title={`今天 ${char.name} 的梦看满啦`} onClose={() => setDayPrompt(null)}
-                actions={<button onClick={() => setDayPrompt(null)} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-[#15121c]" style={{ background: '#cdd6ff' }}>好吧，明天见</button>}>
+                actions={<button onClick={() => setDayPrompt(null)} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-[#131313]" style={{ background: '#d7d7d7' }}>好吧，明天见</button>}>
                 同一天最多只能窥见 {DREAM_DAILY_TYPE_CAP} 种不同的梦。<br />剩下的，留给明晚。🌙
             </DreamPopup>
         )}
@@ -778,7 +778,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
     if (phase === 'idle' || phase === 'error') {
         return (
             <Shell bg={THEMES.starry.bg}>
-                <Ambient kind="stars" accent="#cdd6ff" />
+                <Ambient kind="stars" accent="#d7d7d7" />
                 <TopBar onBack={onExit} right={
                     <div className="flex items-center gap-2.5">
                         <button onClick={() => { setPhase('collection'); trackEvent('打开梦境盲盒收藏册'); }} className="flex items-center gap-1 text-[11px] text-white/55 active:scale-95 transition">
@@ -792,10 +792,10 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                 } />
                 <div className="flex-1 flex flex-col items-center justify-center px-9 text-center">
                     <div className="relative mb-7">
-                        <MoonStars size={52} weight="light" style={{ color: '#cdd6ff' }} />
-                        <div className="absolute inset-0 blur-2xl rounded-full" style={{ background: '#cdd6ff44' }} />
+                        <MoonStars size={52} weight="light" style={{ color: '#d7d7d7' }} />
+                        <div className="absolute inset-0 blur-2xl rounded-full" style={{ background: '#d7d7d744' }} />
                     </div>
-                    <div className="text-[10px] tracking-[0.4em] uppercase mb-3" style={{ color: '#cdd6ff' }}>Dream Theater</div>
+                    <div className="text-[10px] tracking-[0.4em] uppercase mb-3" style={{ color: '#d7d7d7' }}>Dream Theater</div>
                     <h1 className="text-[24px] font-light text-white leading-snug mb-4" style={{ fontFamily: SERIF }}>
                         偷看一场<br />{char.name} 已经忘记的梦
                     </h1>
@@ -807,12 +807,12 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                     </p>
 
                     {phase === 'error' && (
-                        <div className="mt-5 text-[12px] text-rose-300/80">梦没能成形…… 再试一次？</div>
+                        <div className="mt-5 text-[12px] text-neutral-300/80">梦没能成形…… 再试一次？</div>
                     )}
 
                     <button onClick={() => start()}
                         className="mt-9 w-full max-w-[280px] py-3.5 rounded-2xl text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition"
-                        style={{ background: '#cdd6ff', color: '#15121c' }}>
+                        style={{ background: '#d7d7d7', color: '#131313' }}>
                         <Eye size={16} weight="fill" /> {forcedArchetype ? `测试：${THEMES[forcedArchetype].label}` : '走进 ta 的梦'}
                     </button>
                     <p className="text-[10px] text-white/25 mt-3 max-w-[250px] leading-relaxed">
@@ -823,7 +823,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                     <div className="flex items-center gap-2.5 mt-7">
                         <button onClick={() => { setPhase('collection'); trackEvent('打开梦境盲盒收藏册'); }}
                             className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] border border-white/[0.1] bg-white/[0.04] text-white/75 active:scale-95 transition">
-                            🐾 盲盒收藏册 <span className="tabular-nums" style={{ color: '#cdd6ff' }}>{collectedCount}/{ALL_ARCHETYPES.length}</span>
+                            🐾 盲盒收藏册 <span className="tabular-nums" style={{ color: '#d7d7d7' }}>{collectedCount}/{ALL_ARCHETYPES.length}</span>
                         </button>
                         {dreamLogs.length > 0 && (
                             <button onClick={() => { setPhase('archive'); trackEvent('打开梦的残页存档'); }}
@@ -835,9 +835,9 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
 
                     {/* 仅本地测试：指定梦境（管理员调试指令，正式版不显示） */}
                     {devAvailable && (
-                        <div className="mt-8 w-full max-w-[300px] rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] p-3.5">
+                        <div className="mt-8 w-full max-w-[300px] rounded-2xl border border-neutral-300/20 bg-neutral-300/[0.04] p-3.5">
                             <div className="flex items-center justify-between mb-2.5">
-                                <span className="text-[10px] tracking-wider text-amber-200/80 font-semibold">🛠 指定梦境 · 仅本地测试</span>
+                                <span className="text-[10px] tracking-wider text-neutral-200/80 font-semibold">🛠 指定梦境 · 仅本地测试</span>
                                 {forcedArchetype && (
                                     <button onClick={() => setForcedArchetype(null)} className="text-[9px] text-white/40 underline active:scale-95">清除·改回自动</button>
                                 )}
@@ -849,8 +849,8 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                                         <button key={a} onClick={() => setForcedArchetype(active ? null : a)}
                                             className="py-1.5 rounded-lg text-[10.5px] border transition active:scale-95 flex items-center justify-center gap-1"
                                             style={active
-                                                ? { background: THEMES[a].accent, color: '#15121c', borderColor: 'transparent', fontWeight: 700 }
-                                                : { background: 'rgba(255,255,255,0.035)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>
+                                                ? { background: THEMES[a].accent, color: '#131313', borderColor: 'transparent', fontWeight: 700 }
+                                                : { background: 'rgba(255, 255, 255,0.035)', borderColor: 'rgba(255, 255, 255,0.08)', color: 'rgba(255, 255, 255,0.7)' }}>
                                             <span className="tabular-nums opacity-50 text-[8.5px]">{archetypeNo(a)}</span>{THEMES[a].label}
                                         </button>
                                     );
@@ -866,11 +866,11 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                 {/* 规则说明（右上角 ? 按钮） */}
                 {showHelp && (
                     <DreamPopup title="🌙 梦境规则" onClose={() => setShowHelp(false)}
-                        actions={<button onClick={() => setShowHelp(false)} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-[#15121c]" style={{ background: '#cdd6ff' }}>明白了</button>}>
+                        actions={<button onClick={() => setShowHelp(false)} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-[#131313]" style={{ background: '#d7d7d7' }}>明白了</button>}>
                         <div className="text-left space-y-2">
                             <p>· 一天原则上只看 <b className="text-white/80">一个</b> {char.name} 的梦。重复生成会被提醒，你仍可选「少管我！」继续。</p>
                             <p>· 但同一天对同一个人，最多只能看到 <b className="text-white/80">{DREAM_DAILY_TYPE_CAP} 种</b>不同类型的梦——看满了就明天再来。</p>
-                            <p>· 一共有 <b className="text-white/80">{ALL_ARCHETYPES.length}</b> 种梦，其中含 <b style={{ color: '#ffe08a' }}>1 个隐藏款 · 深眠</b>，小概率才会遇到。</p>
+                            <p>· 一共有 <b className="text-white/80">{ALL_ARCHETYPES.length}</b> 种梦，其中含 <b style={{ color: '#e0e0e0' }}>1 个隐藏款 · 深眠</b>，小概率才会遇到。</p>
                             <p>· 做完一场梦会抽到对应的梦境小猫，集进收藏册。</p>
                             <p>· ta 不会记得这些梦，但醒来会残留一层说不清的情绪。「梦的残页」里可长按删除某一页。</p>
                         </div>
@@ -889,7 +889,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
     if (phase === 'archive') {
         return (
             <Shell bg={THEMES.starry.bg}>
-                <Ambient kind="stars" accent="#cdd6ff" />
+                <Ambient kind="stars" accent="#d7d7d7" />
                 <TopBar onBack={() => setPhase('idle')} />
                 <div className="px-7 pb-3 shrink-0">
                     <h2 className="text-[18px] font-light text-white" style={{ fontFamily: SERIF }}>梦的残页</h2>
@@ -920,7 +920,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                                 {log.afterglow && <p className="text-[12px] text-white/55 leading-relaxed" style={{ fontFamily: SERIF }}>{log.afterglow}</p>}
                                 {log.buff?.label && (
                                     <div className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full border text-[10px]"
-                                        style={{ borderColor: `${log.buff.color || lt.accent}55`, color: 'rgba(255,255,255,0.8)', background: `${log.buff.color || lt.accent}14` }}>
+                                        style={{ borderColor: `${log.buff.color || lt.accent}55`, color: 'rgba(255, 255, 255,0.8)', background: `${log.buff.color || lt.accent}14` }}>
                                         <span>{log.buff.emoji || '✨'}</span>{log.buff.label}
                                     </div>
                                 )}
@@ -934,7 +934,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                     <DreamPopup title="撕掉这页梦？" onClose={() => setConfirmDelete(null)}
                         actions={<>
                             <button onClick={() => setConfirmDelete(null)} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-white/70 bg-white/[0.06] border border-white/[0.1]">留着</button>
-                            <button onClick={() => handleDeleteLog(confirmDelete)} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: '#e5566b' }}><Trash size={13} weight="bold" /> 撕掉</button>
+                            <button onClick={() => handleDeleteLog(confirmDelete)} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: '#767676' }}><Trash size={13} weight="bold" /> 撕掉</button>
                         </>}>
                         「{confirmDelete.title || '无题的梦'}」<br />撕掉后这页残梦就再也找不回来了。
                     </DreamPopup>
@@ -950,16 +950,16 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
         const total = ALL_ARCHETYPES.length;
         return (
             <Shell bg={THEMES.starry.bg}>
-                <Ambient kind="stars" accent="#cdd6ff" />
+                <Ambient kind="stars" accent="#d7d7d7" />
                 <TopBar onBack={() => setPhase(boxReveal ? 'end' : 'idle')} right={
                     <span className="text-[11px] text-white/55 tabular-nums">{collectedCount}/{total}</span>
                 } />
                 <div className="px-7 pb-3 shrink-0">
-                    <div className="text-[9px] tracking-[0.3em] uppercase" style={{ color: '#cdd6ff' }}>{DREAM_BOX_SERIES.sub} · Blind Box</div>
+                    <div className="text-[9px] tracking-[0.3em] uppercase" style={{ color: '#d7d7d7' }}>{DREAM_BOX_SERIES.sub} · Blind Box</div>
                     <h2 className="text-[19px] font-light text-white mt-1" style={{ fontFamily: SERIF }}>{DREAM_BOX_SERIES.title}</h2>
                     <p className="text-[11px] text-white/40 mt-1 leading-relaxed">做完一场梦，就抽到那种梦的小猫。集齐它们。</p>
                     <div className="h-[3px] rounded-full bg-white/[0.07] overflow-hidden mt-3">
-                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(collectedCount / total) * 100}%`, background: '#cdd6ff' }} />
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(collectedCount / total) * 100}%`, background: '#d7d7d7' }} />
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-10">
@@ -968,18 +968,18 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                             const owned = collection[a];
                             const t = THEMES[a];
                             const isSecret = a === 'deepsleep';   // 隐藏款 · 深眠 —— 要让人一眼看出「这格不一样」
-                            const GOLD = '#ffe08a';
+                            const GOLD = '#e0e0e0';
                             return (
                                 <div key={a} className={`relative rounded-2xl border overflow-hidden flex flex-col ${isSecret ? 'col-span-3 mx-auto' : ''}`}
                                     style={isSecret
-                                        ? { width: 'calc((100% - 1.5rem) / 3)', borderColor: owned ? `${GOLD}aa` : `${GOLD}55`, background: `linear-gradient(160deg, ${GOLD}1c, rgba(120,90,160,0.10) 60%, rgba(255,255,255,0.02))`, boxShadow: `0 0 22px ${GOLD}2e, inset 0 0 18px ${GOLD}14` }
+                                        ? { width: 'calc((100% - 1.5rem) / 3)', borderColor: owned ? `${GOLD}aa` : `${GOLD}55`, background: `linear-gradient(160deg, ${GOLD}1c, rgba(101, 101, 101,0.10) 60%, rgba(255, 255, 255,0.02))`, boxShadow: `0 0 22px ${GOLD}2e, inset 0 0 18px ${GOLD}14` }
                                         : owned
-                                            ? { borderColor: `${t.accent}40`, background: `linear-gradient(160deg, ${t.accent}14, rgba(255,255,255,0.02))` }
-                                            : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                                            ? { borderColor: `${t.accent}40`, background: `linear-gradient(160deg, ${t.accent}14, rgba(255, 255, 255,0.02))` }
+                                            : { borderColor: 'rgba(255, 255, 255,0.07)', background: 'rgba(255, 255, 255,0.02)' }}>
                                     {/* 隐藏款角标：无论解锁与否都标出来，制造「特别款」的存在感 */}
                                     {isSecret && (
                                         <span className="absolute top-0 left-0 z-10 px-1.5 py-0.5 text-[7.5px] font-bold tracking-wider rounded-br-lg"
-                                            style={{ background: GOLD, color: '#15121c' }}>✦ 隐藏款</span>
+                                            style={{ background: GOLD, color: '#131313' }}>✦ 隐藏款</span>
                                     )}
                                     {owned ? (
                                         <>
@@ -987,11 +987,11 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                                                 <BoxCat archetype={a} size={92} />
                                                 {owned.count > 1 && (
                                                     <span className="absolute top-1 right-1 text-[8.5px] px-1.5 py-0.5 rounded-full font-bold tabular-nums"
-                                                        style={{ background: isSecret ? GOLD : t.accent, color: '#15121c' }}>×{owned.count}</span>
+                                                        style={{ background: isSecret ? GOLD : t.accent, color: '#131313' }}>×{owned.count}</span>
                                                 )}
                                             </div>
                                             <div className="text-center pb-2 px-1">
-                                                <div className="text-[10.5px] leading-tight" style={{ fontFamily: SERIF, color: isSecret ? GOLD : 'rgba(255,255,255,0.85)' }}>{t.label}</div>
+                                                <div className="text-[10.5px] leading-tight" style={{ fontFamily: SERIF, color: isSecret ? GOLD : 'rgba(255, 255, 255,0.85)' }}>{t.label}</div>
                                                 <div className="text-[7.5px] tracking-wider uppercase mt-0.5" style={{ color: isSecret ? `${GOLD}cc` : `${t.accent}cc` }}>{t.sub}</div>
                                             </div>
                                         </>
@@ -1004,7 +1004,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                                         </div>
                                     ) : (
                                         <div className="aspect-square flex flex-col items-center justify-center gap-2 text-white/20"
-                                            style={{ background: 'radial-gradient(circle at 50% 45%, rgba(255,255,255,0.04), transparent 70%)' }}>
+                                            style={{ background: 'radial-gradient(circle at 50% 45%, rgba(255, 255, 255,0.04), transparent 70%)' }}>
                                             <Lock size={20} weight="light" />
                                             <span className="text-[18px] font-light tracking-[0.2em]">？</span>
                                         </div>
@@ -1027,12 +1027,12 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
     if (phase === 'loading') {
         return (
             <Shell bg={THEMES.starry.bg}>
-                <Ambient kind="stars" accent="#cdd6ff" />
+                <Ambient kind="stars" accent="#d7d7d7" />
                 <TopBar onBack={onExit} />
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 px-10 text-center">
                     <div className="relative">
-                        <MoonStars size={42} weight="light" style={{ color: '#cdd6ff' }} className="animate-pulse" />
-                        <div className="absolute inset-0 blur-2xl rounded-full" style={{ background: '#cdd6ff55' }} />
+                        <MoonStars size={42} weight="light" style={{ color: '#d7d7d7' }} className="animate-pulse" />
+                        <div className="absolute inset-0 blur-2xl rounded-full" style={{ background: '#d7d7d755' }} />
                     </div>
                     <div className="text-[13px] text-white/70" style={{ fontFamily: SERIF }}>ta 正在坠入梦里…</div>
                     <div className="text-[11px] text-white/35 leading-relaxed" style={{ fontFamily: SERIF }}>
@@ -1084,7 +1084,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                             </div>
                             <div className="mt-1 flex items-center gap-2">
                                 {boxReveal.isNew
-                                    ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider" style={{ background: theme.accent, color: '#15121c' }}>NEW ✦</span>
+                                    ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider" style={{ background: theme.accent, color: '#131313' }}>NEW ✦</span>
                                     : <span className="px-2 py-0.5 rounded-full text-[10px] text-white/60 border border-white/15">已有 · 再抽到 ×{boxReveal.count}</span>}
                                 <span className="text-[12px] text-white/80" style={{ fontFamily: SERIF }}>{THEMES[boxReveal.archetype].label}喵</span>
                             </div>
@@ -1102,7 +1102,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                         <button onClick={restart} className="px-5 py-2.5 rounded-xl text-[12px] text-white/70 bg-white/[0.06] border border-white/[0.08] flex items-center gap-1.5 active:scale-95 transition">
                             <ArrowClockwise size={14} /> 再看一遍
                         </button>
-                        <button onClick={() => start()} className="px-5 py-2.5 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 active:scale-95 transition" style={{ background: theme.accent, color: '#15121c' }}>
+                        <button onClick={() => start()} className="px-5 py-2.5 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 active:scale-95 transition" style={{ background: theme.accent, color: '#131313' }}>
                             <MoonStars size={14} weight="fill" /> 再做一个梦
                         </button>
                     </div>
@@ -1121,7 +1121,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
         return (
             <Shell bg={theme.bg}>
                 <div className="flex-1 flex flex-col items-center justify-center px-12 text-center select-none" onClick={finishDream}>
-                    <div className="w-3 h-3 rounded-full bg-white/40 animate-dot-pulse" style={{ boxShadow: '0 0 30px rgba(255,255,255,0.3)' }} />
+                    <div className="w-3 h-3 rounded-full bg-white/40 animate-dot-pulse" style={{ boxShadow: '0 0 30px rgba(255, 255, 255,0.3)' }} />
                     <p className="text-[12px] text-white/20 mt-12 tracking-[0.3em]" style={{ fontFamily: SERIF }}>……</p>
                     <p className="absolute bottom-12 text-[10px] text-white/20">轻触，醒来</p>
                 </div>
@@ -1154,7 +1154,7 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                             <span className="text-white/25 tracking-[0.45em] text-[11px]" style={{ fontFamily: SERIF }}>梦在这里散了</span>
                             <button onClick={(e) => { e.stopPropagation(); finishDream(); }}
                                 className="px-6 py-2.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
-                                style={{ background: theme.accent, color: '#15121c' }}>醒来</button>
+                                style={{ background: theme.accent, color: '#131313' }}>醒来</button>
                         </div>
                     )}
                 </div>
