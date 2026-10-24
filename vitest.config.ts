@@ -17,6 +17,9 @@ export default defineConfig({
       'utils/**/*.test.ts',
       'worker/**/*.test.ts',
       'scripts/**/*.test.ts',
+      // Reusable 3D motion architecture runs lightweight Node-only tests.
+      'apps/room3d/**/*.test.ts',
+      'apps/room3d/**/*.test.js',
     ],
     // 排除 React 组件 / 浏览器集成测 (没装 jsdom)
     exclude: ['node_modules', '**/node_modules/**', '.worktrees', 'dist'],
