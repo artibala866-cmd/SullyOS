@@ -80,7 +80,7 @@ export function poseHug(both:Resident[],time:number,seatedIndex?:number){
    }
    const {direction,normal}=hugHandContact(side,i,p.wrap,p.pat,ownerQ,backQ);
    solver?.({side,point:target,direction,normal},p.reach);
-   keepHugArmOutside(v,partner,side,p.reach*p.wrap,target);
+   keepHugArmOutside(v,partner,side,p.reach*p.wrap);
    poseHugFingers(v.rig!,side,time,i,p.arms,p.wrap,p.pat);
    v.root.updateWorldMatrix(true,true);
   }
