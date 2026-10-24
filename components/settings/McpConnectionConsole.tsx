@@ -124,6 +124,22 @@ const McpConnectionConsole: React.FC<{
         trackEvent('添加 MCP 服务器');
     };
 
+    // 电影/剧集 MCP 使用公开只读端点。只添加配置，不自动启用；用户测试通过后再启用。
+    const addMovieServer = () => {
+        const url = 'https://orca-mcp.mmdju.workers.dev/mcp';
+        const existing = servers.find(server => server.url.replace(/\/+$/, '') === url);
+        if (existing) {
+            setExpandedId(existing.id);
+            addToast('电影 MCP 已在列表中，请测试连接后启用', 'info');
+            return;
+        }
+        const next = createMcpServer('电影与剧集 · Orca', url);
+        persist([...servers, next]);
+        setExpandedId(next.id);
+        addToast('已添加电影 MCP，请测试连接并启用', 'success');
+        trackEvent('添加电影 MCP 预设');
+    };
+
     const removeServer = (server: McpServerConfig) => {
         if (!window.confirm(`删除「${server.name || '未命名服务器'}」？\n\n本机保存的 URL、凭据和工具清单会一并删除。`)) return;
         resetMcpSession(server.id);
@@ -206,6 +222,27 @@ const McpConnectionConsole: React.FC<{
                     <span className="ml-auto">配置保存在本机</span>
                 </div>
             </header>
+
+            <section className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-slate-800">电影与剧集 · Orca MCP</p>
+                        <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                            公开只读服务，可查询影视资料、评分和片单。无需填写密钥；服务由第三方运营。
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={addMovieServer}
+                        className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-[10px] font-bold text-slate-700 active:scale-95"
+                    >
+                        添加电影 MCP
+                    </button>
+                </div>
+                <p className="mt-2 text-[9px] leading-relaxed text-slate-400">
+                    添加后默认关闭；请先「测试并读取工具」，确认连接成功后手动启用。若浏览器提示 CORS，可配置自己的 MCP 代理。
+                </p>
+            </section>
 
             <section className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div className="min-w-0">
