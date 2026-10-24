@@ -1,4 +1,5 @@
-import { readLifeClock, writeLifeClock, getLifeTime, currentLifeActivity, classifyLifeActivity } from '../utils/sullyLifeClock';
+import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
+import { getCurrentScheduleSlotIndex } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
 import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellation';
@@ -160,7 +161,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             if (!target) { if (!cancelled) setLifeActivity(null); return; }
             try {
                 const schedule = await getDailyScheduleForChar(target, new Date(getLifeTime()));
-                if (!cancelled) setLifeActivity(schedule ? classifyLifeActivity(currentLifeActivity(schedule.slots)?.activity || '') : null);
+                if (!cancelled) {
+                    // Use the same character-local clock as the schedule display
+                    // and AMSG fire scene, including virtual-time mode.
+                    const slotIndex = schedule ? getCurrentScheduleSlotIndex(schedule.slots, target, new Date(getLifeTime())) : -1;
+                    const slot = schedule?.slots[slotIndex >= 0 ? slotIndex : schedule.slots.length - 1];
+                    setLifeActivity(schedule ? classifyLifeActivity(slot?.activity || '') : null);
+                }
             } catch { if (!cancelled) setLifeActivity(null); }
         };
         void refresh();
