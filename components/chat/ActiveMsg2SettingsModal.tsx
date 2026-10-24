@@ -603,7 +603,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">
             取消
           </button>
-          <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 py-3 bg-fuchsia-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
             {isSubmitting ? '保存中...' : !enabled ? '关闭 2.0' : (editingTaskUuid ? '保存修改' : '新建任务')}
           </button>
         </>
@@ -614,14 +614,14 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           这是新的云端主动消息入口。它会把当前角色设定、最近聊天快照和推送订阅一起提交到主动消息标准服务里。长周期循环任务建议在剧情变化后重新保存一次，避免使用过旧的上下文。
         </p>
 
-        <div className="flex items-center justify-between bg-fuchsia-50 border border-fuchsia-100 rounded-2xl p-4">
+        <div className="flex items-center justify-between bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
           <div>
             <div className="font-bold text-slate-700">启用主动消息 2.0</div>
-            <div className="text-xs text-fuchsia-600 mt-1">{pushSummary || '正在检查 Push 状态...'}</div>
+            <div className="text-xs text-neutral-600 mt-1">{pushSummary || '正在检查 Push 状态...'}</div>
           </div>
           <button
             onClick={handleToggleEnabled}
-            className={`w-12 h-7 rounded-full transition-colors relative ${enabled ? 'bg-fuchsia-500' : 'bg-slate-200'}`}
+            className={`w-12 h-7 rounded-full transition-colors relative ${enabled ? 'bg-neutral-500' : 'bg-slate-200'}`}
           >
             <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
@@ -649,7 +649,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           <button
             onClick={handleToggleInstantChat}
             disabled={!globalInstantChatOn}
-            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${globalInstantChatOn && instantChatOn ? 'bg-fuchsia-500' : 'bg-slate-200'} ${!globalInstantChatOn ? 'opacity-50' : ''}`}
+            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${globalInstantChatOn && instantChatOn ? 'bg-neutral-500' : 'bg-slate-200'} ${!globalInstantChatOn ? 'opacity-50' : ''}`}
           >
             <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${globalInstantChatOn && instantChatOn ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
@@ -662,11 +662,11 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             <div className="min-w-0 pr-3">
               <div className="font-bold text-slate-700">主动频率</div>
               <div className="text-xs text-slate-400 mt-1 leading-relaxed">{describePacingSummary(saved)}</div>
-              {todayLine ? <div className="text-xs text-fuchsia-600 mt-1 leading-relaxed">{todayLine}</div> : null}
+              {todayLine ? <div className="text-xs text-neutral-600 mt-1 leading-relaxed">{todayLine}</div> : null}
               {/* 「可以排重复的」没开、TA 名下却还挂着重复消息（多半是这项设置出现之前排的）：
                   这些到点会被跳过。不替用户删，说清楚两条路让用户自己选。 */}
               {selfRecurringTaskCount > 0 && !resolveAmsgLimits(saved).allowSelfRecurring ? (
-                <div className="text-xs text-amber-600 mt-1 leading-relaxed">
+                <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
                   TA 之前排过 {selfRecurringTaskCount} 次重复消息，之后都不会再发了。想留着，就在「调整」里打开「可以排每天、每周重复的消息」；不要了，可以在下面的列表里取消。
                 </div>
               ) : null}
@@ -703,7 +703,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                 // 文案里带时间就不会把老记录读成「现在还坏着」。
                 const remoteErrorText = describeRemoteLastError(remoteInfo?.lastError, formatTaskTime);
                 return (
-                  <div key={t.taskUuid} className={`rounded-2xl border px-4 py-3 text-xs ${editingTaskUuid === t.taskUuid ? 'border-fuchsia-400 bg-fuchsia-50' : 'border-slate-200 bg-white'}`}>
+                  <div key={t.taskUuid} className={`rounded-2xl border px-4 py-3 text-xs ${editingTaskUuid === t.taskUuid ? 'border-neutral-400 bg-neutral-50' : 'border-slate-200 bg-white'}`}>
                     <div className="flex items-center justify-between">
                       <div className="min-w-0">
                         <div className="font-bold text-slate-700 truncate">
@@ -720,7 +720,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                           <div className="text-slate-400 mt-1 text-[11px]">⚠ 远端不存在（可能已发送或在别处取消）</div>
                         ) : null}
                         {remoteErrorText ? (
-                          <div className="text-amber-600 mt-1 text-[11px]">⚠ {remoteErrorText}</div>
+                          <div className="text-neutral-600 mt-1 text-[11px]">⚠ {remoteErrorText}</div>
                         ) : null}
                         {/* 上面那行只留得下原因的关键半句，状态码和上游原话的其余部分都截掉了。
                             原文收在这里，排查或者截图问人时点开就能看到全文。stale 是个机器词，没有原文可看。 */}
@@ -733,14 +733,14 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                           </details>
                         ) : null}
                         {t.lastError ? (
-                          <div className="text-red-500 mt-1 text-[11px]">{t.lastError}</div>
+                          <div className="text-neutral-500 mt-1 text-[11px]">{t.lastError}</div>
                         ) : null}
                       </div>
                       <div className="flex gap-2 shrink-0 ml-2">
                         {enabled ? (
                           <button onClick={() => setEditingTaskUuid(t.taskUuid)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold">编辑</button>
                         ) : null}
-                        <button onClick={() => void handleCancelTask(t)} className="px-2.5 py-1.5 rounded-lg bg-red-50 text-red-500 font-bold">取消</button>
+                        <button onClick={() => void handleCancelTask(t)} className="px-2.5 py-1.5 rounded-lg bg-neutral-50 text-neutral-500 font-bold">取消</button>
                       </div>
                     </div>
                   </div>
@@ -748,7 +748,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
               })}
             </div>
             {editingTaskUuid ? (
-              <button onClick={() => setEditingTaskUuid(null)} className="mt-2 text-xs text-fuchsia-500 font-bold pl-1">
+              <button onClick={() => setEditingTaskUuid(null)} className="mt-2 text-xs text-neutral-500 font-bold pl-1">
                 ＋ 放弃编辑，改为新建任务
               </button>
             ) : null}
@@ -770,10 +770,10 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                       // fixed 进不了 worker 闸（taskNeedsLlm=false），策略统一钉成 force。
                       if (option.id === 'fixed') setExpirePolicy('force');
                     }}
-                    className={`w-full text-left rounded-2xl border px-4 py-3 transition-all ${mode === option.id ? 'bg-fuchsia-500 text-white border-fuchsia-500' : 'bg-white border-slate-200 text-slate-600'}`}
+                    className={`w-full text-left rounded-2xl border px-4 py-3 transition-all ${mode === option.id ? 'bg-neutral-500 text-white border-neutral-500' : 'bg-white border-slate-200 text-slate-600'}`}
                   >
                     <div className="font-bold">{option.label}</div>
-                    <div className={`text-xs mt-1 ${mode === option.id ? 'text-fuchsia-50' : 'text-slate-400'}`}>{option.desc}</div>
+                    <div className={`text-xs mt-1 ${mode === option.id ? 'text-neutral-50' : 'text-slate-400'}`}>{option.desc}</div>
                   </button>
                 ))}
               </div>
@@ -796,7 +796,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                   <button
                     key={option.id}
                     onClick={() => setRecurrenceType(option.id)}
-                    className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${recurrenceType === option.id ? 'bg-fuchsia-500 text-white border-fuchsia-500' : 'bg-white border-slate-200 text-slate-600'}`}
+                    className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${recurrenceType === option.id ? 'bg-neutral-500 text-white border-neutral-500' : 'bg-white border-slate-200 text-slate-600'}`}
                   >
                     {option.label}
                   </button>
@@ -818,10 +818,10 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                     <button
                       key={option.id}
                       onClick={() => setExpirePolicy(option.id)}
-                      className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${expirePolicy === option.id ? 'bg-fuchsia-500 text-white border-fuchsia-500' : 'bg-white border-slate-200 text-slate-600'}`}
+                      className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${expirePolicy === option.id ? 'bg-neutral-500 text-white border-neutral-500' : 'bg-white border-slate-200 text-slate-600'}`}
                     >
                       {option.label}
-                      <div className={`font-normal mt-0.5 ${expirePolicy === option.id ? 'text-fuchsia-100' : 'text-slate-400'}`}>{option.desc}</div>
+                      <div className={`font-normal mt-0.5 ${expirePolicy === option.id ? 'text-neutral-100' : 'text-slate-400'}`}>{option.desc}</div>
                     </button>
                   ))}
                 </div>
