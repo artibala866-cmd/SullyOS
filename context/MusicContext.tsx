@@ -755,6 +755,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           musicListenEvent: 'ended', startedAt, endedAt: at, durationMs,
           songId: currentSongRef.current?.id, songName: currentSongRef.current?.name, artists: currentSongRef.current?.artists,
         },
+      }).then(messageId => {
+        window.dispatchEvent(new CustomEvent('music-listen-session-ended', { detail: { charId, messageId } }));
       }).catch(err => console.warn('[MusicTogether] 结束事件保存失败', err));
       const next = { ...listeningStartedAtRef.current };
       delete next[charId];
