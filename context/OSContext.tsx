@@ -2356,7 +2356,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           for (const char of charactersRef.current) {
               if (!char.memoryPalaceEnabled) continue;
               readCharacterLifeEvents(char.id)
-                  .filter(e => isPalaceCandidate(e) && Date.now() - e.occurredAt < 14 * 86400_000)
+                  // Exclude completed entries before limiting replay. Otherwise
+                  // 12 newer completed items can permanently hide older failures.
+                  .filter(e => isPalaceCandidate(e) && Date.now() - e.occurredAt < 14 * 86400_000 &&
+                      !alreadyProcessed(char.id, e.id))
                   .slice(0, 12).reverse().forEach(enqueuePhoneMemory);
           }
       };
