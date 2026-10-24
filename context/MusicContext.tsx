@@ -633,20 +633,31 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
     } catch (err) { console.warn('[MusicTogether] 会话状态持久化失败', err); }
   }, [listeningTogetherWith, listeningStartedAt, listeningInvites]);
+  const invitingCharIds = useRef(new Set<string>());
   const inviteListeningPartner = useCallback((charId: string) => {
-    // 邀请必须先作为真实的用户聊天消息保存，再进入待回应状态。
-    void DB.saveMessage({
-      charId,
-      role: 'user',
-      type: 'system',
-      content: '[一起听邀请] 我邀请你一起听音乐。',
-      metadata: { musicListenInvite: true, status: 'pending', invitedAt: Date.now() },
-    }).then(messageId => {
+    if (!charId || invitingCharIds.current.has(charId)) return;
+    invitingCharIds.current.add(charId);
+    void (async () => {
+      // 一次只允许一条未回应邀请；同时查历史记录，防止刷新或快速连点产生重复卡片。
+      const history = await DB.getMessagesByCharId(charId, true);
+      const pending = [...history].reverse().find(m =>
+        m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
+        !history.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+      if (pending) {
+        setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
+        return;
+      }
+      const messageId = await DB.saveMessage({
+        charId,
+        role: 'user',
+        type: 'system',
+        content: '[一起听邀请] 我邀请你一起听音乐。',
+        metadata: { musicListenInvite: true, status: 'pending', invitedAt: Date.now() },
+      });
       setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
       window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId, messageId } }));
-    }).catch(err => {
-      console.warn('[MusicTogether] 邀请消息保存失败', err);
-    });
+    })().catch(err => console.warn('[MusicTogether] 邀请消息保存失败', err))
+      .finally(() => invitingCharIds.current.delete(charId));
   }, []);
   const [lastListeningEnd, setLastListeningEnd] = useState<{ charId: string; durationMs: number; at: number } | null>(null);
   const addListeningPartner = useCallback((charId: string) => {
