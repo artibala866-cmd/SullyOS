@@ -97,11 +97,30 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
   // A shared midpoint is a target, not a forced head translation.
   const lipA=lipWorld(a),lipB=lipWorld(b);
   const shared=lipA.clone().add(lipB).multiplyScalar(.5);
-  const lipGap=lipA.distanceTo(lipB);
-  const contactWeight=gaze*T.MathUtils.clamp((.9-lipGap)/.5,0,1);
+  // Do not gate aiming by lip distance: that prevented distant faces from
+  // ever acquiring the target. The root solver below handles the residual gap.
+  const contactWeight=gaze;
   if(contactWeight>0){
    aimLipContact(a,shared,contactWeight);
    aimLipContact(b,shared,contactWeight);
+  }
+  // The head/neck can rotate but cannot translate the mouth all the way
+  // to the partner. Close the remaining small gap with a bounded, symmetric
+  // horizontal root correction; keep feet on their existing ground plane.
+  if(kiss>.01){
+   const mouthA=lipWorld(a),mouthB=lipWorld(b);
+   const delta=mouthB.sub(mouthA);
+   const horizontal=new T.Vector3(delta.x,0,delta.z);
+   const distance=horizontal.length();
+   if(distance>.001){
+    const maxShift=.22*kiss;
+    const shift=Math.min(Math.max(0,distance-.035)*.5,maxShift);
+    const move=horizontal.multiplyScalar(shift/distance);
+    a.root.position.add(move);
+    b.root.position.sub(move);
+    a.root.updateWorldMatrix(true,true);
+    b.root.updateWorldMatrix(true,true);
+   }
   }
   // Preserve the small opposite head tilts from the original kiss pose.
   a.rig.bones.head.quaternion.multiply(rotation(0,0,-.055*kiss));
