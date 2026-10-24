@@ -332,7 +332,7 @@ const GlobalMiniPlayer: React.FC = () => {
           {/* 进度细条 */}
           <div className="absolute left-0 bottom-0 w-full h-[2px] bg-white/20 pointer-events-none">
             <div
-              className="h-full bg-gradient-to-r from-sky-400 to-indigo-400 transition-all duration-150"
+              className="h-full bg-gradient-to-r from-sky-400 to-neutral-400 transition-all duration-150"
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -429,7 +429,7 @@ const GlobalMiniPlayer: React.FC = () => {
         </div>
 
         {/* 底部细进度条 */}
-        <div className="absolute left-0 bottom-0 h-[2px] bg-gradient-to-r from-sky-400 to-indigo-400 transition-all duration-150"
+        <div className="absolute left-0 bottom-0 h-[2px] bg-gradient-to-r from-sky-400 to-neutral-400 transition-all duration-150"
           style={{ width: `${pct}%` }} />
       </div>
     </div>
