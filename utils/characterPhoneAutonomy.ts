@@ -135,7 +135,7 @@ function chooseAction(charId: string, contacts: NpcProfile[], threads: Character
     (b.thread?.time || 0) - (a.thread?.time || 0))[0];
   // No proactive phone activity while busy. Reading a schedule never writes
   // a life event, and no message is generated just because a slot ends.
-  if (busy || !available.length) return null;
+  if (!available.length) return null;
   const candidates = available.filter(contact => {
     const thread = threads.find(row => row.contactId === contact.id);
     const last = thread?.messages[thread.messages.length - 1];
@@ -151,7 +151,7 @@ function chooseAction(charId: string, contacts: NpcProfile[], threads: Character
   const last = thread?.messages[thread.messages.length - 1];
   // Sometimes Char proactively contacts a friend; sometimes a friend reaches
   // out. Never treat a second fictional character as User.
-  const actor: 'owner' | 'contact' = !last ? 'contact'
+  const actor: 'owner' | 'contact' = busy || !last ? 'contact'
     : (idHash(contact.id + Math.floor(now / DAY)) % 3 === 0 ? 'owner' : 'contact');
   return { contact, thread, actor, why: 'ordinary-life' };
 }
@@ -170,11 +170,11 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     // Reserve the attempt BEFORE the network request. The app may be reopened or
     // multiple phone surfaces may ask for updates in the same time window.
     state.lastAttemptAt = now;
-    state.attemptsToday++;
     writeState(char.id, state);
     let contacts = readNpcProfiles(char.id);
     if (contacts.length < 4 && now - state.bootstrapAt > DAY) {
       state.bootstrapAt = now;
+      state.attemptsToday++;
       writeState(char.id, state);
       try {
         if (await bootstrapSocialCircle(input)) return 'generated-contacts';
@@ -197,6 +197,8 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       .filter(e => e.occurredAt <= now).slice(0, 9)
       .map(e => ({ time: e.occurredAt, text: e.summary.slice(0, 140) }));
     const speakerName = actor === 'owner' ? char.name : contact.name;
+    state.attemptsToday++;
+    writeState(char.id, state);
     const result = await queryJson(api, [
       { role: 'system', content: `你模拟一台虚构角色自己的微信手机，不能扮演User。
 本轮只能由${speakerName}说话，发给${actor === 'owner' ? contact.name : char.name}，禁止替另一方同时回复。
