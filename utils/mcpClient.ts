@@ -54,6 +54,8 @@ export interface McpCustomHeader {
 
 export interface McpServerConfig {
     id: string;
+    /** Built-in realtime perception preset identity, stable across display-name edits. */
+    presetId?: string;
     name: string;
     url: string;
     /** Bearer Token，可选（Authorization: Bearer <token>） */
