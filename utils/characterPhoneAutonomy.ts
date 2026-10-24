@@ -240,7 +240,7 @@ Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).jo
     latestState.turnsToday++;
     latestState.contactAt[contact.id] = occurredAt;
     writeState(char.id, latestState);
-    noteNpcInteraction(char.id, contact.id, occurredAt);
+    noteNpcInteraction(char.id, contact.id, occurredAt, added.added);
     recordCharacterLifeEvent({
       id: 'npc-chat:auto:' + added.thread.id + ':' + occurredAt,
       characterId: char.id, kind: 'npc-chat', occurredAt,
