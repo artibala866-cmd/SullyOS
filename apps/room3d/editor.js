@@ -136,7 +136,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  const actionOrbit=document.createElement('div');actionOrbit.className='h3-interaction';actionOrbit.hidden=true;host.append(actionOrbit);
  const portraitRail=document.createElement('nav');portraitRail.className='h3-resident-rail';portraitRail.setAttribute('aria-label','定位房间成员');host.append(portraitRail);
  let residentPortraits={},cameraResident=null,portraitSignature='',scheduleLabel='';
- portraitRail.addEventListener('click',event=>{const pet=event.target.closest('button[data-home-pets]');if(pet){petSystem?.open(pet.dataset.homePets||undefined);return;}const call=event.target.closest('button[data-summon-all]');if(call){summonAll();return;}const button=event.target.closest('button[data-resident]');if(button){centerResident(button.dataset.resident);if(button.dataset.resident===primaryResidentId)onMenu?.('mood',primaryResidentId);}},{signal:abort.signal});
+ portraitRail.addEventListener('click',event=>{const pet=event.target.closest('button[data-home-pets]');if(pet){petSystem?.open(pet.dataset.homePets||undefined);return;}const call=event.target.closest('button[data-summon-all]');if(call){summonAll();return;}const button=event.target.closest('button[data-resident]');if(button){centerResident(button.dataset.resident);// Portraits only locate residents; the removed mood-buff panel is not opened.}},{signal:abort.signal});
  portraitRail.addEventListener('error',event=>{if(event.target.tagName==='IMG')event.target.hidden=true;},true);
  const scene=new THREE.Scene();scene.background=new THREE.Color('#e8dde7');const windowDaylight=createWindowDaylight(scene);
  const interiorBackdrop=createInteriorBackdrop();scene.add(interiorBackdrop.root);let interiorBases=[];
