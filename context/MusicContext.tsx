@@ -814,7 +814,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const prevSrc = a.src;
         if (prevSrc.startsWith('blob:')) URL.revokeObjectURL(prevSrc);
         a.src = URL.createObjectURL(blob);
-        a.play().catch(() => {});
+        a.play().catch((err) => { console.warn('[Music] 浏览器拒绝播放音源', err); toast('音源已获取，但浏览器无法开始播放，请尝试下一首或重新播放', 'error'); });
 
         // ── 本地歌词时间分布 ──
         // MiniMax / ACE-Step 不返回带时间戳的歌词，但我们写歌时就有原文。
