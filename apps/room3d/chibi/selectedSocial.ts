@@ -52,6 +52,27 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
     }
    });return;
   }
+  // Arm wrestling must keep one hand pair throughout the contest.
+  // Generic nearest-hand detection can switch partners as the wrists rotate.
+  if(session?.action==='cmu-22_17'){
+   const [left,right]=both;
+   if(left?.visitor.rig&&right?.visitor.rig&&left.solver&&right.solver){
+    const pairs=[['R','R'],['R','L'],['L','R'],['L','L']] as const;
+    const [sideA,sideB]=pairs.map(pair=>({
+     pair,d:frames[0].points[pair[0]+'_hand'].distanceTo(frames[1].points[pair[1]+'_hand'])
+    })).sort((a,b)=>a.d-b.d)[0].pair;
+    // Both palms are sampled before solving either arm. Keep the grip
+    // throughout the clip instead of dropping it at the generic threshold.
+    const target=sharedPalmTarget(palm(left.visitor,sideA),palm(right.visitor,sideB));
+    const contactWeight=weight;
+    for(const [resident,side] of [[left,sideA],[right,sideB]] as const){
+     const hand=resident.visitor.rig!.bones[side+'_hand'];
+     const q=hand.getWorldQuaternion(new T.Quaternion());
+     resident.solver({side,point:target.clone(),direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(q),normal:new T.Vector3(0,1,0).applyQuaternion(q),curl:.72},contactWeight);
+    }
+    return;
+   }
+  }
   const handled=new Set<string>();
   for(let i=0;i<2;i++)for(const side of ['L','R'] as const){
    const from=side+'_hand',a=frames[i].points[from],j=1-i;
