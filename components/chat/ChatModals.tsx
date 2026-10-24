@@ -450,7 +450,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                                 已处理原文不再重复注入，更早内容通过向量记忆召回。非特殊需求请勿调整。
                                             </p>
                                             {activeCharacter.contextUserStartMessageId && (
-                                                <p className="text-[10px] text-sky-700 mt-1.5 leading-relaxed">
+                                                <p className="text-[10px] text-neutral-700 mt-1.5 leading-relaxed">
                                                     当前另有用户断点，实际原文范围会在自适应上限内进一步缩小。
                                                 </p>
                                             )}
@@ -865,7 +865,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             {contextRangeSnapshot?.mode === 'adaptive' && !contextRangeSnapshot.maxRangeStartMessageId && ' 当前水位线后为 0 条，因此列表中没有额外橙色起点。'}
                         </div>
                         {contextRangeSnapshot?.userStartMessageId && (
-                            <div className="bg-sky-50 border border-sky-200 rounded-xl p-2.5 text-[11px] text-sky-800 leading-relaxed">
+                            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-[11px] text-neutral-800 leading-relaxed">
                                 <b>蓝色 · 用户断点</b>：只在最大范围内进一步隐藏更早原文；被移动中的最大范围越过后会自动失效。
                             </div>
                         )}
@@ -925,7 +925,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 const isHidden = !!(effectiveCut && m.id < effectiveCut);
                                 const isVectorized = hwm > 0 && m.id <= hwm;
                                 const cls = isUserStart
-                                    ? 'bg-sky-50 border-sky-300 ring-1 ring-sky-300'
+                                    ? 'bg-neutral-50 border-neutral-300 ring-1 ring-neutral-300'
                                     : isMaxStart
                                         ? 'bg-neutral-50 border-neutral-300 ring-1 ring-neutral-300'
                                         : isWatermark
@@ -954,7 +954,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                         <div className="flex flex-wrap justify-end gap-1 max-w-[42%]">
                                             {isWatermark && <span className="text-neutral-600 font-bold text-[9px] bg-white px-1.5 rounded-full border border-neutral-200">水位线</span>}
                                             {isMaxStart && <span className="text-neutral-600 font-bold text-[9px] bg-white px-1.5 rounded-full border border-neutral-200">最大范围</span>}
-                                            {isUserStart && <span className="text-sky-600 font-bold text-[9px] bg-white px-1.5 rounded-full border border-sky-200">用户断点</span>}
+                                            {isUserStart && <span className="text-neutral-600 font-bold text-[9px] bg-white px-1.5 rounded-full border border-neutral-200">用户断点</span>}
                                             {!isWatermark && !isMaxStart && !isUserStart && isHidden && <span className="text-slate-400 font-bold text-[9px] bg-white px-1.5 rounded-full border border-slate-200">AI 不读原文</span>}
                                             {!isWatermark && !isMaxStart && !isUserStart && isVectorized && !isHidden && <span className="text-neutral-400 font-bold text-[9px] bg-white px-1.5 rounded-full border border-neutral-100">已向量化</span>}
                                         </div>
@@ -1004,7 +1004,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         </button>
                     )}
                     {voiceDownloadable && onDownloadVoice && (
-                        <button onClick={() => { onDownloadVoice(); setModalType('none'); }} className="w-full py-3 bg-sky-50 text-sky-600 font-medium rounded-2xl active:bg-sky-100 transition-colors flex items-center justify-center gap-2">
+                        <button onClick={() => { onDownloadVoice(); setModalType('none'); }} className="w-full py-3 bg-neutral-50 text-neutral-600 font-medium rounded-2xl active:bg-neutral-100 transition-colors flex items-center justify-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                             下载语音
                         </button>
