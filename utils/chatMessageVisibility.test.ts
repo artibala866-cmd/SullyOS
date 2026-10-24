@@ -39,6 +39,18 @@ describe('私聊与桌面预览的消息范围', () => {
         expect(isChatPreviewMessage(message({ groupId: 'group' }))).toBe(false);
     });
 
+    it('一起听邀请只展示卡片，回应与撤回记录保存在数据库但不重复生成气泡', () => {
+        const invite = message({ id: 11, type: 'system', metadata: { musicListenInvite: true, inviter: 'char' } });
+        const accepted = message({ id: 12, type: 'system', metadata: { musicListenInviteResponseTo: 11, accepted: true } });
+        const declined = message({ id: 13, type: 'system', metadata: { musicListenInviteResponseTo: 11, accepted: false } });
+        const withdrawn = message({ id: 14, type: 'system', metadata: { musicListenInviteResponseTo: 11, cancelled: true } });
+        expect(isVisibleChatMessage(invite)).toBe(true);
+        expect(isChatPreviewMessage(invite)).toBe(true);
+        for (const row of [accepted, declined, withdrawn]) {
+            expect(isVisibleChatMessage(row)).toBe(false);
+            expect(isChatPreviewMessage(row)).toBe(false);
+        }
+    });
     it('桌面隐藏系统消息，聊天的隐藏日志设置仍保留评分卡', () => {
         const log = message({ role: 'system' });
         expect(isVisibleChatMessage(log)).toBe(true);
