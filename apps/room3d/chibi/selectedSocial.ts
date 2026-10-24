@@ -102,11 +102,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
     const bend=T.MathUtils.clamp((difference-.15)*2.5,0,.78);
     if(bend){for(const side of ['L','R'])for(const [joint,angle] of [['thigh',-bend],['shin',bend*2],['foot',-bend]] as const)frames[i].rotations[`${side}_${joint}`].multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),angle));frames[i].position.y-=1-Math.cos(bend);}
    }
-   if(s.action==='home-kiss'&&sourceTime<1.55){
-    // Real walking steps during the last approach, rather than sliding in idle.
-    r.visitor.animate(sourceTime,'walk');
-    r.visitor.root.updateWorldMatrix(true,true);
-   }else if(isIntimacy(s.action)){
+   if(isIntimacy(s.action)){
     const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));
     r.visitor.root.quaternion.copy(turn).slerp(toward,smooth(actionTime,0,.6));
     r.visitor.animate(sourceTime,'idle');
