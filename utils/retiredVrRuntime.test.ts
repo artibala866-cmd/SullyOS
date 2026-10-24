@@ -24,6 +24,18 @@ describe('retired 彼方 isolation', () => {
     expect(source('apps/RoomApp.tsx')).not.toContain('userProfile.vrState');
   });
 
+  it('keeps every desktop theme free of the removed VRWorld icon and launcher entry', () => {
+    for (const path of [
+      'apps/Launcher.tsx',
+      'components/os/MobileGameHome.tsx',
+      'components/os/TamagotchiHome.tsx',
+      'components/os/HomelyHome.tsx',
+      'components/os/CompanionHome.tsx',
+    ]) {
+      expect(source(path), path).not.toMatch(/\b(?:Icons|AppID)\.VRWorld\b/);
+    }
+  });
+
   it('never submits or reactivates legacy worker module effects', () => {
     expect(source('utils/activeMsgClient.ts')).not.toContain('...(params.sarModule ?');
     expect(source('utils/vrWorld/sarEnvelopeCore.ts')).toContain('void snapshot;');
