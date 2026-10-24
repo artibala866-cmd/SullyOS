@@ -1571,7 +1571,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                                 value={quizUserAnswers[q.id] || ''}
                                                 onChange={e => handleQuizAnswer(q.id, e.target.value)}
                                                 placeholder="输入你的答案..."
-                                                className="w-full bg-slate-50 rounded-xl px-4 py-3 text-sm focus:outline-neutral-500 border border-slate-200 ml-1"
+                                                className="w-full bg-slate-50 rounded-xl px-4 py-3 text-sm focus:outline-emerald-500 border border-slate-200 ml-1"
                                             />
                                         )}
                                     </div>
@@ -1701,7 +1701,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 value={importPreference}
                                 onChange={e => setImportPreference(e.target.value)}
                                 placeholder="例如：请用中文讲解，多用简单的比喻，针对数学公式详细推导..."
-                                className="w-full h-32 bg-slate-100 rounded-xl p-3 text-sm focus:outline-neutral-500 resize-none"
+                                className="w-full h-32 bg-slate-100 rounded-xl p-3 text-sm focus:outline-emerald-500 resize-none"
                             />
                         </div>
                     </div>
@@ -1714,9 +1714,9 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                         <div>
                             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">专用 API（留空则使用全局设置）</h4>
                             <div className="space-y-2">
-                                <input value={localStudyUrl} onChange={e => setLocalStudyUrl(e.target.value)} placeholder="API Base URL" className="w-full bg-slate-100 rounded-xl p-3 text-sm focus:outline-neutral-500" />
-                                <input value={localStudyKey} onChange={e => setLocalStudyKey(e.target.value)} placeholder="API Key" type="password" className="w-full bg-slate-100 rounded-xl p-3 text-sm focus:outline-neutral-500" />
-                                <input value={localStudyModel} onChange={e => setLocalStudyModel(e.target.value)} placeholder="模型名称 (e.g. gpt-4o)" className="w-full bg-slate-100 rounded-xl p-3 text-sm focus:outline-neutral-500" />
+                                <input value={localStudyUrl} onChange={e => setLocalStudyUrl(e.target.value)} placeholder="API Base URL" className="w-full bg-slate-100 rounded-xl p-3 text-sm focus:outline-emerald-500" />
+                                <input value={localStudyKey} onChange={e => setLocalStudyKey(e.target.value)} placeholder="API Key" type="password" className="w-full bg-slate-100 rounded-xl p-3 text-sm focus:outline-emerald-500" />
+                                <input value={localStudyModel} onChange={e => setLocalStudyModel(e.target.value)} placeholder="模型名称 (e.g. gpt-4o)" className="w-full bg-slate-100 rounded-xl p-3 text-sm focus:outline-emerald-500" />
                                 <div className="flex gap-2">
                                     <button onClick={saveStudyApi} className="flex-1 py-2.5 bg-neutral-500 text-white font-bold rounded-xl text-xs">保存</button>
                                     <button onClick={clearStudyApi} className="py-2.5 px-4 bg-slate-200 text-slate-500 font-bold rounded-xl text-xs">清除</button>
@@ -1751,8 +1751,8 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 </div>
                             )}
                             <div className="space-y-2 bg-slate-100 rounded-xl p-3">
-                                <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="预设名称（如：数学辅导）" className="w-full bg-white rounded-lg p-2.5 text-sm focus:outline-neutral-500" />
-                                <textarea value={presetPrompt} onChange={e => setPresetPrompt(e.target.value)} placeholder="提示词内容（如：请用中文讲解，多用简单的比喻...）" className="w-full bg-white rounded-lg p-2.5 text-sm focus:outline-neutral-500 resize-none h-24" />
+                                <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="预设名称（如：数学辅导）" className="w-full bg-white rounded-lg p-2.5 text-sm focus:outline-emerald-500" />
+                                <textarea value={presetPrompt} onChange={e => setPresetPrompt(e.target.value)} placeholder="提示词内容（如：请用中文讲解，多用简单的比喻...）" className="w-full bg-white rounded-lg p-2.5 text-sm focus:outline-emerald-500 resize-none h-24" />
                                 <button onClick={handleSavePreset} disabled={!presetName.trim() || !presetPrompt.trim()} className="w-full py-2.5 bg-neutral-500 text-white font-bold rounded-xl text-xs disabled:opacity-40">
                                     {editingPreset ? '更新预设' : '添加预设'}
                                 </button>
