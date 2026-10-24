@@ -110,10 +110,10 @@ const XhsStockApp: React.FC = () => {
 
     const renderAddForm = () => (
         <div className="p-5 space-y-5 animate-fade-in">
-            <p className="text-xs text-rose-500 font-bold">当前分类：{categoryLabels[category]}</p>
+            <p className="text-xs text-neutral-500 font-bold">当前分类：{categoryLabels[category]}</p>
             <div className="flex gap-2">
-                <button type="button" onClick={() => setBulkMode(false)} className={`rounded-full px-4 py-2 text-xs ${!bulkMode ? 'bg-red-500 text-white' : 'bg-white'}`}>单张添加</button>
-                <button type="button" onClick={() => setBulkMode(true)} className={`rounded-full px-4 py-2 text-xs ${bulkMode ? 'bg-red-500 text-white' : 'bg-white'}`}>批量导入</button>
+                <button type="button" onClick={() => setBulkMode(false)} className={`rounded-full px-4 py-2 text-xs ${!bulkMode ? 'bg-neutral-500 text-white' : 'bg-white'}`}>单张添加</button>
+                <button type="button" onClick={() => setBulkMode(true)} className={`rounded-full px-4 py-2 text-xs ${bulkMode ? 'bg-neutral-500 text-white' : 'bg-white'}`}>批量导入</button>
             </div>
             {bulkMode ? <div className="space-y-3">
                 <p className="text-xs text-slate-500">每行一张，例如：咖啡：[https://example.com/coffee.jpg]，也支持 咖啡：[图片](https://example.com/coffee.jpg)。JSON 支持 url、tags 字段。</p>
@@ -121,7 +121,7 @@ const XhsStockApp: React.FC = () => {
                 <label className="block text-xs text-slate-600">导入 TXT / JSON / MD / CSV 文件
                     <input type="file" accept=".txt,.json,.md,.csv,text/plain,application/json" onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }} className="block mt-2 w-full text-xs" />
                 </label>
-                <button type="button" onClick={() => { void importDrafts(bulkText); }} className="w-full rounded-xl bg-red-500 text-white font-bold py-3">批量入库</button>
+                <button type="button" onClick={() => { void importDrafts(bulkText); }} className="w-full rounded-xl bg-neutral-500 text-white font-bold py-3">批量入库</button>
             </div> : <>
             {/* URL Input */}
             <div>
@@ -131,7 +131,7 @@ const XhsStockApp: React.FC = () => {
                     value={newUrl}
                     onChange={e => { setNewUrl(e.target.value); setPreviewOk(null); }}
                     placeholder="https://your-image-host.com/image.jpg"
-                    className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-transparent placeholder:text-slate-300"
+                    className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:border-transparent placeholder:text-slate-300"
                 />
             </div>
 
@@ -147,8 +147,8 @@ const XhsStockApp: React.FC = () => {
                         alt="preview"
                     />
                     {previewOk === false && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-red-50/90">
-                            <span className="text-sm text-red-500 font-medium">图片加载失败，请检查URL</span>
+                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-50/90">
+                            <span className="text-sm text-neutral-500 font-medium">图片加载失败，请检查URL</span>
                         </div>
                     )}
                 </div>
@@ -162,12 +162,12 @@ const XhsStockApp: React.FC = () => {
                     value={newTags}
                     onChange={e => setNewTags(e.target.value)}
                     placeholder="美食 咖啡 下午茶 或 #穿搭 #日常"
-                    className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-transparent placeholder:text-slate-300"
+                    className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:border-transparent placeholder:text-slate-300"
                 />
                 {newTags && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                         {newTags.split(/[,，\s#]+/).filter(Boolean).map((tag, i) => (
-                            <span key={i} className="px-2.5 py-1 bg-red-50 text-red-500 text-xs rounded-full font-medium">#{tag}</span>
+                            <span key={i} className="px-2.5 py-1 bg-neutral-50 text-neutral-500 text-xs rounded-full font-medium">#{tag}</span>
                         ))}
                     </div>
                 )}
@@ -177,7 +177,7 @@ const XhsStockApp: React.FC = () => {
             <button
                 onClick={handleAdd}
                 disabled={!newUrl || previewOk === false}
-                className="w-full py-3.5 bg-gradient-to-r from-red-400 to-rose-500 text-white font-bold rounded-2xl shadow-lg active:scale-[0.98] transition-transform disabled:opacity-40 disabled:pointer-events-none text-sm"
+                className="w-full py-3.5 bg-gradient-to-r from-neutral-400 to-neutral-500 text-white font-bold rounded-2xl shadow-lg active:scale-[0.98] transition-transform disabled:opacity-40 disabled:pointer-events-none text-sm"
             >
                 添加到图库
             </button>
@@ -188,14 +188,14 @@ const XhsStockApp: React.FC = () => {
     const renderList = () => (
         <div className="flex-1 overflow-y-auto min-h-0">
             <div className="flex gap-2 px-3 py-3 overflow-x-auto border-b border-slate-100">
-                {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map(key => <button key={key} type="button" onClick={() => { setCategory(key); setFilterTag(null); }} className={`shrink-0 px-3 py-2 rounded-full text-xs font-bold ${category === key ? 'bg-red-500 text-white' : 'bg-white text-slate-600'}`}>{categoryLabels[key]}</button>)}
+                {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map(key => <button key={key} type="button" onClick={() => { setCategory(key); setFilterTag(null); }} className={`shrink-0 px-3 py-2 rounded-full text-xs font-bold ${category === key ? 'bg-neutral-500 text-white' : 'bg-white text-slate-600'}`}>{categoryLabels[key]}</button>)}
             </div>
             {/* Tag filter */}
             {allTags.length > 0 && (
                 <div className="flex gap-1.5 px-4 py-3 overflow-x-auto no-scrollbar border-b border-slate-100">
                     <button
                         onClick={() => setFilterTag(null)}
-                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${!filterTag ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-500'}`}
+                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${!filterTag ? 'bg-neutral-500 text-white' : 'bg-slate-100 text-slate-500'}`}
                     >
                         全部 ({categoryImages.length})
                     </button>
@@ -209,7 +209,7 @@ const XhsStockApp: React.FC = () => {
                                     setFilterTag(nextTag);
                                     if (nextTag) trackEvent('按标签筛选图库');
                                 }}
-                                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${filterTag === tag ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-500'}`}
+                                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${filterTag === tag ? 'bg-neutral-500 text-white' : 'bg-slate-100 text-slate-500'}`}
                             >
                                 #{tag} ({count})
                             </button>
@@ -242,7 +242,7 @@ const XhsStockApp: React.FC = () => {
                             </div>
                             {/* Used count badge */}
                             {img.usedCount > 0 && (
-                                <div className="absolute top-1 left-1 bg-red-500/80 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">
+                                <div className="absolute top-1 left-1 bg-neutral-500/80 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">
                                     x{img.usedCount}
                                 </div>
                             )}
@@ -296,11 +296,11 @@ const XhsStockApp: React.FC = () => {
                     </h1>
                     <span className="text-xs text-slate-400 ml-2 font-mono">{categoryImages.length}</span>
                     <div className="flex-1" />
-                    {view === 'list' && <button type="button" onClick={downloadJson} className="text-xs text-red-500 font-bold mr-3">导出 JSON</button>}
+                    {view === 'list' && <button type="button" onClick={downloadJson} className="text-xs text-neutral-500 font-bold mr-3">导出 JSON</button>}
                     {view === 'list' && (
                         <button
                             onClick={() => { setView('add'); trackEvent('打开囤图添加表单'); }}
-                            className="w-9 h-9 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
+                            className="w-9 h-9 rounded-full bg-neutral-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

@@ -40,8 +40,8 @@ const ActionIcon: React.FC<{ type: string; className?: string }> = ({ type, clas
 };
 
 const RESULT_COLORS: Record<string, string> = {
-    success: 'text-emerald-600 bg-emerald-50',
-    failed: 'text-red-500 bg-red-50',
+    success: 'text-neutral-600 bg-neutral-50',
+    failed: 'text-neutral-500 bg-neutral-50',
     skipped: 'text-slate-400 bg-slate-50',
 };
 
@@ -259,7 +259,7 @@ const XhsFreeRoamApp: React.FC = () => {
                                 key={c.id}
                                 onClick={() => { setSelectedCharId(c.id); setShowCharPicker(false); }}
                                 className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors
-                                    ${c.id === selectedCharId ? 'bg-rose-50' : 'active:bg-slate-50'}`}
+                                    ${c.id === selectedCharId ? 'bg-neutral-50' : 'active:bg-slate-50'}`}
                             >
                                 {c.avatar ? (
                                     <TokenImg value={c.avatar} className="w-8 h-8 rounded-full object-cover" alt="" />
@@ -271,7 +271,7 @@ const XhsFreeRoamApp: React.FC = () => {
                                     {c.description && <p className="text-[10px] text-slate-400 truncate">{c.description}</p>}
                                 </div>
                                 {c.id === selectedCharId && (
-                                    <div className="w-2 h-2 rounded-full bg-rose-400" />
+                                    <div className="w-2 h-2 rounded-full bg-neutral-400" />
                                 )}
                             </button>
                         ))}
@@ -284,7 +284,7 @@ const XhsFreeRoamApp: React.FC = () => {
     // No characters at all
     if (characters.length === 0) {
         return (
-            <div className="h-full flex flex-col bg-gradient-to-b from-rose-50 to-white">
+            <div className="h-full flex flex-col bg-gradient-to-b from-neutral-50 to-white">
                 <div className="flex items-center px-4 py-3 border-b border-slate-100" style={{ paddingTop: 'max(0.75rem, var(--safe-top))' }}>
                     <button onClick={closeApp} className="w-8 h-8 flex items-center justify-center text-slate-400 active:scale-90">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
@@ -319,9 +319,9 @@ const XhsFreeRoamApp: React.FC = () => {
                     </div>
 
                     {/* Thinking */}
-                    <div className="bg-violet-50 rounded-2xl p-3">
-                        <p className="text-[10px] font-bold text-violet-400 mb-1">内心想法</p>
-                        <p className="text-xs text-violet-700 leading-relaxed">{a.thinking}</p>
+                    <div className="bg-neutral-50 rounded-2xl p-3">
+                        <p className="text-[10px] font-bold text-neutral-400 mb-1">内心想法</p>
+                        <p className="text-xs text-neutral-700 leading-relaxed">{a.thinking}</p>
                     </div>
 
                     {/* Content details */}
@@ -340,14 +340,14 @@ const XhsFreeRoamApp: React.FC = () => {
                     {a.content.tags && a.content.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                             {a.content.tags.map((t, i) => (
-                                <span key={i} className="px-2 py-0.5 bg-red-50 text-red-500 text-[10px] rounded-full">#{t}</span>
+                                <span key={i} className="px-2 py-0.5 bg-neutral-50 text-neutral-500 text-[10px] rounded-full">#{t}</span>
                             ))}
                         </div>
                     )}
                     {a.content.keyword && (
-                        <div className="bg-blue-50 rounded-2xl p-3">
-                            <p className="text-[10px] font-bold text-blue-400 mb-1">搜索关键词</p>
-                            <p className="text-sm text-blue-700">{a.content.keyword}</p>
+                        <div className="bg-neutral-50 rounded-2xl p-3">
+                            <p className="text-[10px] font-bold text-neutral-400 mb-1">搜索关键词</p>
+                            <p className="text-sm text-neutral-700">{a.content.keyword}</p>
                         </div>
                     )}
 
@@ -368,11 +368,11 @@ const XhsFreeRoamApp: React.FC = () => {
                     {/* Saved topics */}
                     {a.content.savedTopics && a.content.savedTopics.length > 0 && (
                         <div className="space-y-1.5">
-                            <p className="text-[10px] font-bold text-amber-500">保存的话题</p>
+                            <p className="text-[10px] font-bold text-neutral-500">保存的话题</p>
                             {a.content.savedTopics.map((t, i) => (
-                                <div key={i} className="bg-amber-50 border border-amber-100 rounded-xl p-2.5">
-                                    <p className="text-xs font-medium text-amber-800">{t.title}</p>
-                                    <p className="text-[10px] text-amber-600 mt-0.5">{t.desc}</p>
+                                <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-xl p-2.5">
+                                    <p className="text-xs font-medium text-neutral-800">{t.title}</p>
+                                    <p className="text-[10px] text-neutral-600 mt-0.5">{t.desc}</p>
                                 </div>
                             ))}
                         </div>
@@ -380,11 +380,11 @@ const XhsFreeRoamApp: React.FC = () => {
 
                     {/* Comment */}
                     {a.content.commentText && (
-                        <div className="bg-green-50 rounded-2xl p-3">
-                            <p className="text-[10px] font-bold text-green-500 mb-1">评论内容</p>
-                            <p className="text-xs text-green-700">{a.content.commentText}</p>
+                        <div className="bg-neutral-50 rounded-2xl p-3">
+                            <p className="text-[10px] font-bold text-neutral-500 mb-1">评论内容</p>
+                            <p className="text-xs text-neutral-700">{a.content.commentText}</p>
                             {a.content.commentTarget && (
-                                <p className="text-[10px] text-green-500 mt-1">对「{a.content.commentTarget.title}」的评论</p>
+                                <p className="text-[10px] text-neutral-500 mt-1">对「{a.content.commentTarget.title}」的评论</p>
                             )}
                         </div>
                     )}
@@ -410,7 +410,7 @@ const XhsFreeRoamApp: React.FC = () => {
                                 }
                             });
                         }}
-                        className="w-full py-2.5 rounded-xl text-xs font-medium text-red-400 bg-red-50 active:bg-red-100 transition-colors"
+                        className="w-full py-2.5 rounded-xl text-xs font-medium text-neutral-400 bg-neutral-50 active:bg-neutral-100 transition-colors"
                     >
                         删除此条记录
                     </button>
@@ -431,7 +431,7 @@ const XhsFreeRoamApp: React.FC = () => {
                 <div className="w-full max-w-lg bg-white rounded-t-3xl px-5 pt-5 pb-6 max-h-[78vh] overflow-y-auto animate-slide-up" onClick={e => e.stopPropagation()}>
                     <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                            <p className="text-[10px] font-bold tracking-[0.16em] text-rose-400 uppercase">{char?.name}的笔记</p>
+                            <p className="text-[10px] font-bold tracking-[0.16em] text-neutral-400 uppercase">{char?.name}的笔记</p>
                             <h2 className="text-lg font-bold text-slate-900 mt-1 leading-snug">{post.title || '无标题'}</h2>
                         </div>
                         <button onClick={() => setShowOwnedPost(null)} className="text-xs text-slate-400 px-2 py-1 active:text-slate-700">关闭</button>
@@ -441,7 +441,7 @@ const XhsFreeRoamApp: React.FC = () => {
 
                     {post.tags && post.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-4">
-                            {post.tags.map(tag => <span key={tag} className="text-xs text-rose-500">#{tag}</span>)}
+                            {post.tags.map(tag => <span key={tag} className="text-xs text-neutral-500">#{tag}</span>)}
                         </div>
                     )}
 
@@ -494,7 +494,7 @@ const XhsFreeRoamApp: React.FC = () => {
                                 </div>
                                 <button
                                     onClick={() => handleClaimPost(note)}
-                                    className="shrink-0 px-3 py-2 rounded-full bg-rose-500 text-white text-[11px] font-bold active:scale-95 transition-transform"
+                                    className="shrink-0 px-3 py-2 rounded-full bg-neutral-500 text-white text-[11px] font-bold active:scale-95 transition-transform"
                                 >
                                     归到主页
                                 </button>
@@ -511,18 +511,18 @@ const XhsFreeRoamApp: React.FC = () => {
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
             {/* Status */}
             <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="w-2 h-2 rounded-full bg-neutral-400 animate-pulse" />
                 <span className="text-xs text-slate-600 font-medium">{status}</span>
             </div>
 
             {/* Thinking bubble */}
             {thinking && char && (
-                <div className="bg-violet-50 rounded-2xl p-3 animate-fade-in">
+                <div className="bg-neutral-50 rounded-2xl p-3 animate-fade-in">
                     <div className="flex items-center gap-1.5 mb-1">
                         {char.avatar && <TokenImg value={char.avatar} className="w-5 h-5 rounded-full object-cover" alt="" />}
-                        <span className="text-[10px] font-bold text-violet-400">{char.name}在想...</span>
+                        <span className="text-[10px] font-bold text-neutral-400">{char.name}在想...</span>
                     </div>
-                    <p className="text-xs text-violet-700 leading-relaxed italic">"{thinking}"</p>
+                    <p className="text-xs text-neutral-700 leading-relaxed italic">"{thinking}"</p>
                 </div>
             )}
 
@@ -544,7 +544,7 @@ const XhsFreeRoamApp: React.FC = () => {
 
             {isRunning && liveActivities.length === 0 && !thinking && (
                 <div className="flex flex-col items-center justify-center py-12 opacity-50">
-                    <div className="w-8 h-8 border-2 border-rose-300 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
                     <p className="text-xs text-slate-400 mt-3">{char?.name || '角色'}正在活动中...</p>
                 </div>
             )}
@@ -565,9 +565,9 @@ const XhsFreeRoamApp: React.FC = () => {
                 <section className="px-5 pt-6 pb-5">
                     <div className="flex items-center gap-4">
                         {char?.avatar ? (
-                            <TokenImg value={char.avatar} className="w-16 h-16 rounded-full object-cover ring-2 ring-rose-100" alt="" />
+                            <TokenImg value={char.avatar} className="w-16 h-16 rounded-full object-cover ring-2 ring-neutral-100" alt="" />
                         ) : (
-                            <div className="w-16 h-16 rounded-full bg-rose-50 flex items-center justify-center text-xl font-bold text-rose-500 ring-2 ring-rose-100">
+                            <div className="w-16 h-16 rounded-full bg-neutral-50 flex items-center justify-center text-xl font-bold text-neutral-500 ring-2 ring-neutral-100">
                                 {char?.name?.[0] || '?'}
                             </div>
                         )}
@@ -582,13 +582,13 @@ const XhsFreeRoamApp: React.FC = () => {
                         <div><p className="text-lg font-bold text-slate-900">{successfulReplies}</p><p className="text-[10px] text-slate-400">已回复</p></div>
                     </div>
 
-                    <p className="text-[11px] text-slate-500 leading-relaxed mt-4 border-l-2 border-rose-200 pl-3">
+                    <p className="text-[11px] text-slate-500 leading-relaxed mt-4 border-l-2 border-neutral-200 pl-3">
                         真实账号可以与其他角色共用；这里仅保存{char?.name || '该角色'}亲自发布的 note_id。清除活动记录不会删除主页归属。
                     </p>
                     <button
                         onClick={handleLoadClaimCandidates}
                         disabled={claimLoading || !mcpEnabled}
-                        className="mt-4 text-xs font-medium text-rose-500 disabled:text-slate-300 active:opacity-60"
+                        className="mt-4 text-xs font-medium text-neutral-500 disabled:text-slate-300 active:opacity-60"
                     >
                         {claimLoading ? '正在读取真实账号…' : '从真实账号认领旧帖子 →'}
                     </button>
@@ -612,7 +612,7 @@ const XhsFreeRoamApp: React.FC = () => {
                             <button
                                 key={post.id}
                                 onClick={() => { setShowOwnedPost(post); trackEvent('打开角色小红书主页帖子'); }}
-                                className="bg-white min-h-44 p-4 text-left flex flex-col active:bg-rose-50 transition-colors"
+                                className="bg-white min-h-44 p-4 text-left flex flex-col active:bg-neutral-50 transition-colors"
                             >
                                 <div className="flex-1">
                                     <p className="text-sm font-bold text-slate-800 leading-snug line-clamp-3">{post.title || '无标题'}</p>
@@ -636,7 +636,7 @@ const XhsFreeRoamApp: React.FC = () => {
             {activities.length === 0 ? (
                 <div className="flex flex-col items-center px-2 py-8 space-y-4">
                     <div className="text-center opacity-60">
-                        <Book size={48} weight="fill" className="text-rose-400" />
+                        <Book size={48} weight="fill" className="text-neutral-400" />
                         <p className="text-sm text-slate-500 font-medium mt-2">{char?.name || '角色'}还没有自由活动记录</p>
                     </div>
 
@@ -664,8 +664,8 @@ const XhsFreeRoamApp: React.FC = () => {
                                 ))}
                             </div>
                         </div>
-                        <div className="bg-rose-50 rounded-xl p-2.5">
-                            <p className="text-[10px] text-rose-400 leading-relaxed">
+                        <div className="bg-neutral-50 rounded-xl p-2.5">
+                            <p className="text-[10px] text-neutral-400 leading-relaxed">
                                 活动结束后，{char?.name || '角色'}会记住看到的内容。下次聊天时，ta可能会主动跟你分享在小红书上看到的有趣东西。
                             </p>
                         </div>
@@ -692,12 +692,12 @@ const XhsFreeRoamApp: React.FC = () => {
                             {a.thinking.slice(0, 80)}
                         </p>
                         {a.content.title && (
-                            <p className="text-[10px] text-rose-400 mt-0.5 line-clamp-1">{a.content.title}</p>
+                            <p className="text-[10px] text-neutral-400 mt-0.5 line-clamp-1">{a.content.title}</p>
                         )}
                         {a.content.savedTopics && a.content.savedTopics.length > 0 && (
                             <div className="flex gap-1 mt-1">
                                 {a.content.savedTopics.map((t, i) => (
-                                    <span key={i} className="text-[9px] bg-amber-50 text-amber-500 px-1.5 py-0.5 rounded-full">{t.title.slice(0, 10)}</span>
+                                    <span key={i} className="text-[9px] bg-neutral-50 text-neutral-500 px-1.5 py-0.5 rounded-full">{t.title.slice(0, 10)}</span>
                                 ))}
                             </div>
                         )}
@@ -708,7 +708,7 @@ const XhsFreeRoamApp: React.FC = () => {
     );
 
     return (
-        <div className="h-full flex flex-col bg-gradient-to-b from-rose-50 to-white">
+        <div className="h-full flex flex-col bg-gradient-to-b from-neutral-50 to-white">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0" style={{ paddingTop: 'max(0.75rem, var(--safe-top))' }}>
                 <div className="flex items-center gap-2">
@@ -722,9 +722,9 @@ const XhsFreeRoamApp: React.FC = () => {
                         disabled={isRunning}
                     >
                         {char?.avatar ? (
-                            <TokenImg value={char.avatar} className="w-7 h-7 rounded-full object-cover border-2 border-rose-200" alt="" />
+                            <TokenImg value={char.avatar} className="w-7 h-7 rounded-full object-cover border-2 border-neutral-200" alt="" />
                         ) : (
-                            <div className="w-7 h-7 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-500 border-2 border-rose-200">
+                            <div className="w-7 h-7 rounded-full bg-neutral-100 flex items-center justify-center text-xs font-bold text-neutral-500 border-2 border-neutral-200">
                                 {char?.name?.[0] || '?'}
                             </div>
                         )}
@@ -741,10 +741,10 @@ const XhsFreeRoamApp: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                     {/* MCP status indicator */}
-                    <div className={`w-2 h-2 rounded-full ${mcpStatus === 'connected' ? 'bg-emerald-400' : mcpStatus === 'error' ? 'bg-red-400' : 'bg-slate-300'}`} title={mcpStatus === 'connected' ? 'MCP已连接' : mcpStatus === 'error' ? 'MCP未连接' : '未检测'} />
+                    <div className={`w-2 h-2 rounded-full ${mcpStatus === 'connected' ? 'bg-neutral-400' : mcpStatus === 'error' ? 'bg-neutral-400' : 'bg-slate-300'}`} title={mcpStatus === 'connected' ? 'MCP已连接' : mcpStatus === 'error' ? 'MCP未连接' : '未检测'} />
 
                     {activities.length > 0 && !isRunning && viewMode === 'activity' && (
-                        <button onClick={handleClearHistory} className="text-[10px] text-slate-400 active:text-red-400">
+                        <button onClick={handleClearHistory} className="text-[10px] text-slate-400 active:text-neutral-400">
                             清除记录
                         </button>
                     )}
@@ -753,9 +753,9 @@ const XhsFreeRoamApp: React.FC = () => {
 
             {/* MCP not configured warning */}
             {!mcpEnabled && (
-                <div className="mx-4 mt-3 bg-amber-50 border border-amber-200 rounded-2xl p-3">
-                    <p className="text-xs text-amber-700 font-medium">小红书 MCP 未开启</p>
-                    <p className="text-[10px] text-amber-500 mt-1">
+                <div className="mx-4 mt-3 bg-neutral-50 border border-neutral-200 rounded-2xl p-3">
+                    <p className="text-xs text-neutral-700 font-medium">小红书 MCP 未开启</p>
+                    <p className="text-[10px] text-neutral-500 mt-1">
                         请前往 设置 → 实时感知 → 小红书 MCP，开启并配置 Server URL。
                     </p>
                 </div>
@@ -765,14 +765,14 @@ const XhsFreeRoamApp: React.FC = () => {
                 <div className="shrink-0 flex border-b border-slate-100 bg-white px-4">
                     <button
                         onClick={() => setViewMode('profile')}
-                        className={`flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-medium border-b-2 transition-colors ${viewMode === 'profile' ? 'text-rose-500 border-rose-400' : 'text-slate-400 border-transparent'}`}
+                        className={`flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-medium border-b-2 transition-colors ${viewMode === 'profile' ? 'text-neutral-500 border-neutral-400' : 'text-slate-400 border-transparent'}`}
                     >
                         <House size={15} weight={viewMode === 'profile' ? 'fill' : 'regular'} />
                         主页
                     </button>
                     <button
                         onClick={() => setViewMode('activity')}
-                        className={`flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-medium border-b-2 transition-colors ${viewMode === 'activity' ? 'text-rose-500 border-rose-400' : 'text-slate-400 border-transparent'}`}
+                        className={`flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-medium border-b-2 transition-colors ${viewMode === 'activity' ? 'text-neutral-500 border-neutral-400' : 'text-slate-400 border-transparent'}`}
                     >
                         <Book size={15} weight={viewMode === 'activity' ? 'fill' : 'regular'} />
                         活动
@@ -786,7 +786,7 @@ const XhsFreeRoamApp: React.FC = () => {
             {/* Explicit navigation back to the actual Xiaohongshu app. */}
             <div className="shrink-0 bg-white px-4 pt-2">
                 <button type="button" onClick={() => openApp(AppID.Social)}
-                    className="w-full rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-600 active:bg-rose-100">
+                    className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm font-medium text-neutral-600 active:bg-neutral-100">
                     ← 返回小红书
                 </button>
             </div>
@@ -801,7 +801,7 @@ const XhsFreeRoamApp: React.FC = () => {
                             ? 'bg-slate-100 text-slate-400 shadow-none cursor-wait'
                             : (!mcpEnabled || !char)
                                 ? 'bg-slate-100 text-slate-300 shadow-none cursor-not-allowed'
-                                : 'bg-gradient-to-r from-rose-400 to-red-500 text-white shadow-rose-200'
+                                : 'bg-gradient-to-r from-neutral-400 to-neutral-500 text-white shadow-neutral-200'
                         }`}
                 >
                     {isRunning ? (
@@ -816,7 +816,7 @@ const XhsFreeRoamApp: React.FC = () => {
                         </span>
                     )}
                 </button>
-                <p className="text-[9px] text-amber-400/80 text-center mt-2 leading-relaxed">
+                <p className="text-[9px] text-neutral-400/80 text-center mt-2 leading-relaxed">
                     角色可能会给无关用户评论，对真人造成困扰，请及时检查并清理不当评论
                 </p>
             </div>

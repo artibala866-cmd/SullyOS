@@ -382,7 +382,7 @@ const WorldbookApp: React.FC = () => {
     // EDIT MODAL (Full Screen Overlay Style)
     if (isEditing) {
         return (
-            <div className="h-full w-full bg-[#f5f6fa] flex flex-col font-sans animate-fade-in">
+            <div className="h-full w-full bg-[#f6f6f6] flex flex-col font-sans animate-fade-in">
                 <div className="bg-white/90 backdrop-blur-xl border-b border-neutral-200/70 shrink-0 z-20" style={{ paddingTop: 'var(--safe-top)' }}>
                     <div className="h-16 max-w-2xl mx-auto w-full flex items-center justify-between px-5">
                         <button onClick={() => setIsEditing(false)} className="px-3 py-2 -ml-3 rounded-xl text-neutral-500 font-semibold text-sm hover:bg-neutral-100 active:scale-95 transition-all">取消</button>
@@ -477,7 +477,7 @@ const WorldbookApp: React.FC = () => {
                                         type="checkbox"
                                         checked={!tempConstant}
                                         onChange={e => setTempConstant(!e.target.checked)}
-                                        className="w-4 h-4 accent-indigo-500"
+                                        className="w-4 h-4 accent-neutral-500"
                                     />
                                     <span><span className="block text-sm font-semibold text-neutral-700">启用关键词触发</span>
                                     <span className="block mt-1 text-[10px] text-neutral-500">关闭后改为常驻，已填关键词会保留。</span></span>
@@ -526,11 +526,11 @@ const WorldbookApp: React.FC = () => {
                                     )}
                                     <div className="grid grid-cols-2 gap-3">
                                         <label className="flex items-center gap-2 text-xs text-neutral-600">
-                                            <input type="checkbox" checked={tempCaseSensitive} onChange={e => setTempCaseSensitive(e.target.checked)} className="accent-indigo-500" />
+                                            <input type="checkbox" checked={tempCaseSensitive} onChange={e => setTempCaseSensitive(e.target.checked)} className="accent-neutral-500" />
                                             区分大小写
                                         </label>
                                         <label className="flex items-center gap-2 text-xs text-neutral-600">
-                                            <input type="checkbox" checked={tempWholeWords} onChange={e => setTempWholeWords(e.target.checked)} className="accent-indigo-500" />
+                                            <input type="checkbox" checked={tempWholeWords} onChange={e => setTempWholeWords(e.target.checked)} className="accent-neutral-500" />
                                             完整词匹配
                                         </label>
                                     </div>
@@ -615,7 +615,7 @@ const WorldbookApp: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className="flex items-center gap-2 text-xs font-bold text-neutral-500 mb-2">
-                                        <input type="checkbox" checked={tempUseProbability} onChange={e => setTempUseProbability(e.target.checked)} className="accent-indigo-500" />
+                                        <input type="checkbox" checked={tempUseProbability} onChange={e => setTempUseProbability(e.target.checked)} className="accent-neutral-500" />
                                         启用随机概率
                                     </label>
                                     <input

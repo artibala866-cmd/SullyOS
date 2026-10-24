@@ -420,12 +420,12 @@ const VoiceDesignerApp: React.FC = () => {
         {showValue && <span className="text-[11px] font-mono text-slate-600">{value}{unit}</span>}
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
-        className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-violet-500" />
+        className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-500" />
     </div>
   );
 
   return (
-    <div className="h-full w-full bg-gradient-to-b from-violet-50 to-white flex flex-col">
+    <div className="h-full w-full bg-gradient-to-b from-neutral-50 to-white flex flex-col">
       {/* Header */}
       <header className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-sm shrink-0" style={{ paddingTop: 'max(0.75rem, var(--safe-top))' }}>
         <div>
@@ -435,7 +435,7 @@ const VoiceDesignerApp: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleApply} className="text-[10px] px-3 py-1.5 rounded-full bg-violet-500 text-white font-bold flex items-center gap-1 active:scale-95 transition-transform">
+          <button onClick={handleApply} className="text-[10px] px-3 py-1.5 rounded-full bg-neutral-500 text-white font-bold flex items-center gap-1 active:scale-95 transition-transform">
             <FloppyDisk size={12} weight="bold" /> 应用
           </button>
           <button onClick={() => closeApp()} className="text-[10px] px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold">关闭</button>
@@ -444,20 +444,20 @@ const VoiceDesignerApp: React.FC = () => {
 
       {/* Tabs */}
       <div className="flex border-b border-slate-100 bg-white/60 shrink-0">
-        <button onClick={() => { setTab('mix'); trackEvent('切换捏声音标签页', { tab: 'mix' }); }} className={`flex-1 py-2.5 text-xs font-semibold transition-colors relative ${tab === 'mix' ? 'text-violet-600' : 'text-slate-400'}`}>
+        <button onClick={() => { setTab('mix'); trackEvent('切换捏声音标签页', { tab: 'mix' }); }} className={`flex-1 py-2.5 text-xs font-semibold transition-colors relative ${tab === 'mix' ? 'text-neutral-600' : 'text-slate-400'}`}>
           混合音色
-          {tab === 'mix' && <div className="absolute bottom-0 left-1/4 w-1/2 h-0.5 bg-violet-500 rounded-full" />}
+          {tab === 'mix' && <div className="absolute bottom-0 left-1/4 w-1/2 h-0.5 bg-neutral-500 rounded-full" />}
         </button>
-        <button onClick={() => { setTab('modify'); trackEvent('切换捏声音标签页', { tab: 'modify' }); }} className={`flex-1 py-2.5 text-xs font-semibold transition-colors relative ${tab === 'modify' ? 'text-violet-600' : 'text-slate-400'}`}>
+        <button onClick={() => { setTab('modify'); trackEvent('切换捏声音标签页', { tab: 'modify' }); }} className={`flex-1 py-2.5 text-xs font-semibold transition-colors relative ${tab === 'modify' ? 'text-neutral-600' : 'text-slate-400'}`}>
           音色微调
-          {tab === 'modify' && <div className="absolute bottom-0 left-1/4 w-1/2 h-0.5 bg-violet-500 rounded-full" />}
+          {tab === 'modify' && <div className="absolute bottom-0 left-1/4 w-1/2 h-0.5 bg-neutral-500 rounded-full" />}
         </button>
       </div>
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-        <div className="bg-white rounded-2xl p-4 border border-violet-100 shadow-sm space-y-2.5">
+        <div className="bg-white rounded-2xl p-4 border border-neutral-100 shadow-sm space-y-2.5">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-bold text-slate-700">MiniMax 合成参数</span>
             <span className="text-[9px] text-slate-400">按角色保存</span>
@@ -473,7 +473,7 @@ const VoiceDesignerApp: React.FC = () => {
             <button
               type="button"
               onClick={() => setMinimaxParamVersion('natural-v2')}
-              className={`rounded-lg px-2 py-2 text-[10px] font-bold transition-colors ${minimaxParamVersion === 'natural-v2' ? 'bg-violet-500 text-white shadow-sm' : 'text-slate-400'}`}
+              className={`rounded-lg px-2 py-2 text-[10px] font-bold transition-colors ${minimaxParamVersion === 'natural-v2' ? 'bg-neutral-500 text-white shadow-sm' : 'text-slate-400'}`}
             >
               新版自然参数
             </button>
@@ -494,11 +494,11 @@ const VoiceDesignerApp: React.FC = () => {
                 <div className="flex gap-2">
                   {availableVoices.length === 0 && (
                     <button onClick={handleLoadVoices} disabled={isLoadingVoices}
-                      className="text-[10px] px-2 py-1 rounded bg-violet-50 text-violet-600 font-bold hover:bg-violet-100 disabled:opacity-50">
+                      className="text-[10px] px-2 py-1 rounded bg-neutral-50 text-neutral-600 font-bold hover:bg-neutral-100 disabled:opacity-50">
                       {isLoadingVoices ? '加载中...' : '加载音色库'}
                     </button>
                   )}
-                  <button onClick={addTimberSlot} className="text-[10px] px-2 py-1 rounded bg-emerald-50 text-emerald-600 font-bold hover:bg-emerald-100 flex items-center gap-0.5">
+                  <button onClick={addTimberSlot} className="text-[10px] px-2 py-1 rounded bg-neutral-50 text-neutral-600 font-bold hover:bg-neutral-100 flex items-center gap-0.5">
                     <Plus size={10} weight="bold" /> 加声线
                   </button>
                 </div>
@@ -506,9 +506,9 @@ const VoiceDesignerApp: React.FC = () => {
               <p className="text-[10px] text-slate-400">添加多个音色并调节权重来混合出独特声线。单个音色也可以，后续在「音色微调」里精调。</p>
             </div>
 
-            <div className="flex items-start gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-              <Warning size={13} weight="fill" className="text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-[10px] text-amber-700 leading-relaxed">
+            <div className="flex items-start gap-1.5 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2">
+              <Warning size={13} weight="fill" className="text-neutral-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-neutral-700 leading-relaxed">
                 建议<b>只融合同一种语言</b>的音色。比如想要韩语角色，就只挑韩语音色来融——混入其它语种的音色容易让角色说话<b>带口音</b>。融好后用上方多语种样例分别试听确认。
               </p>
             </div>
@@ -518,7 +518,7 @@ const VoiceDesignerApp: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-500">声线 #{index + 1}</span>
                   {timberWeights.length > 1 && (
-                    <button onClick={() => removeTimberSlot(index)} className="text-slate-300 hover:text-red-400 p-1">
+                    <button onClick={() => removeTimberSlot(index)} className="text-slate-300 hover:text-neutral-400 p-1">
                       <Trash size={14} />
                     </button>
                   )}
@@ -527,12 +527,12 @@ const VoiceDesignerApp: React.FC = () => {
                   <input
                     value={tw.voice_id}
                     onChange={e => updateTimberVoiceId(index, e.target.value)}
-                    className="flex-1 bg-slate-50 rounded-xl px-3 py-2 text-xs border border-slate-200 focus:border-violet-300 transition-colors"
+                    className="flex-1 bg-slate-50 rounded-xl px-3 py-2 text-xs border border-slate-200 focus:border-neutral-300 transition-colors"
                     placeholder="输入 voice_id 或从库中选"
                   />
                   {availableVoices.length > 0 && (
                     <button onClick={() => { setPickingForIndex(index); setShowVoicePicker(true); trackEvent('打开音色选择器'); }}
-                      className="text-[10px] px-2 py-2 rounded-xl bg-violet-50 text-violet-600 font-bold hover:bg-violet-100 shrink-0">
+                      className="text-[10px] px-2 py-2 rounded-xl bg-neutral-50 text-neutral-600 font-bold hover:bg-neutral-100 shrink-0">
                       选
                     </button>
                   )}
@@ -582,7 +582,7 @@ const VoiceDesignerApp: React.FC = () => {
               <div className="flex flex-wrap gap-1.5">
                 {['', 'happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'calm'].map(em => (
                   <button key={em} onClick={() => setEmotion(em)}
-                    className={`text-[10px] px-2.5 py-1.5 rounded-full font-semibold transition-colors ${emotion === em ? 'bg-violet-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                    className={`text-[10px] px-2.5 py-1.5 rounded-full font-semibold transition-colors ${emotion === em ? 'bg-neutral-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                     {em === '' ? '自动' : em === 'happy' ? '开心' : em === 'sad' ? '伤感' : em === 'angry' ? '生气' : em === 'fearful' ? '恐惧' : em === 'disgusted' ? '厌恶' : em === 'surprised' ? '惊讶' : '平静'}
                   </button>
                 ))}
@@ -599,40 +599,40 @@ const VoiceDesignerApp: React.FC = () => {
         )}
 
         {/* ── Preview Section (always visible) ── */}
-        <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl p-4 border border-violet-100 space-y-3">
+        <div className="bg-gradient-to-r from-neutral-50 to-neutral-50 rounded-2xl p-4 border border-neutral-100 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-violet-700">试听预览</span>
-            <span className="text-[9px] text-violet-400">点语种切换样例</span>
+            <span className="text-xs font-bold text-neutral-700">试听预览</span>
+            <span className="text-[9px] text-neutral-400">点语种切换样例</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {PREVIEW_SAMPLES.map(s => (
               <button key={s.code}
                 onClick={() => { setPreviewLang(s.code); setPreviewText(s.text); trackEvent('切换试听语种样例', { lang: s.code }); }}
-                className={`text-[10px] px-2.5 py-1 rounded-full font-bold transition-colors ${previewLang === s.code ? 'bg-violet-500 text-white' : 'bg-white text-violet-500 border border-violet-200 hover:bg-violet-100'}`}>
+                className={`text-[10px] px-2.5 py-1 rounded-full font-bold transition-colors ${previewLang === s.code ? 'bg-neutral-500 text-white' : 'bg-white text-neutral-500 border border-neutral-200 hover:bg-neutral-100'}`}>
                 {s.label}
               </button>
             ))}
           </div>
           <textarea value={previewText} onChange={e => setPreviewText(e.target.value)}
-            rows={2} className="w-full bg-white rounded-xl px-3 py-2 text-xs border border-violet-200 resize-none"
+            rows={2} className="w-full bg-white rounded-xl px-3 py-2 text-xs border border-neutral-200 resize-none"
             placeholder="输入试听文本..." />
           <div className="flex gap-2">
             <button onClick={handlePreview} disabled={isGenerating}
-              className="flex-1 py-2 rounded-xl bg-violet-500 hover:bg-violet-400 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform">
+              className="flex-1 py-2 rounded-xl bg-neutral-500 hover:bg-neutral-400 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform">
               <SpeakerHigh size={14} weight="bold" /> {isGenerating ? '合成中...' : '试听'}
             </button>
             {audioUrl && (
               <>
                 <button onClick={() => { audioRef.current?.play().catch(() => {}); }}
-                  className="px-3 py-2 rounded-xl bg-violet-100 text-violet-600"><PlayCircle size={16} /></button>
+                  className="px-3 py-2 rounded-xl bg-neutral-100 text-neutral-600"><PlayCircle size={16} /></button>
                 <button onClick={() => { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } }}
-                  className="px-3 py-2 rounded-xl bg-violet-100 text-violet-600"><StopCircle size={16} /></button>
+                  className="px-3 py-2 rounded-xl bg-neutral-100 text-neutral-600"><StopCircle size={16} /></button>
               </>
             )}
           </div>
           {audioUrl && timberWeights.filter(tw => tw.voice_id.trim()).length > 1 && (
             <div className="space-y-1.5">
-              <p className="text-[10px] text-emerald-600/80 text-center">
+              <p className="text-[10px] text-neutral-600/80 text-center">
                 <Check size={12} weight="bold" className="inline" /> 混合声线已就绪，直接点「应用」即可使用。通话时会实时混合，效果与试听一致。
               </p>
               <details className="group">
@@ -640,7 +640,7 @@ const VoiceDesignerApp: React.FC = () => {
                   高级：固定为独立 voice_id（克隆）▸
                 </summary>
                 <div className="mt-2 space-y-1.5 pt-2 border-t border-slate-100">
-                  <p className="text-[10px] text-amber-600/70 text-center">
+                  <p className="text-[10px] text-neutral-600/70 text-center">
                     <Warning size={12} weight="bold" className="inline" /> 克隆会从试听音频中提取音色特征，生成的声音可能与混合试听有差异。仅在需要固定 voice_id 时使用。
                   </p>
                   <button onClick={handleBakeVoice} disabled={isBaking}
@@ -691,7 +691,7 @@ const VoiceDesignerApp: React.FC = () => {
                   updateTimberVoiceId(pickingForIndex, v.voice_id, v.voice_name || '');
                   setShowVoicePicker(false);
                 }}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs hover:bg-violet-50 border border-transparent hover:border-violet-200 transition-colors">
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs hover:bg-neutral-50 border border-transparent hover:border-neutral-200 transition-colors">
                   <div className="font-medium text-slate-700 truncate">{v.voice_name || '未命名'}</div>
                   <div className="text-[10px] text-slate-400 truncate">{v.voice_id}</div>
                 </button>

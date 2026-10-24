@@ -65,12 +65,12 @@ const UserApp: React.FC = () => {
                 {tab === 'profile' && <>
 
                 {/* Profile name card */}
-                <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,70,120,0.25)] border border-slate-100 overflow-hidden">
+                <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(76, 76, 76,0.25)] border border-slate-100 overflow-hidden">
                     {/* Cover banner */}
                     <div className="relative h-24" style={{ background: 'linear-gradient(135deg, hsl(var(--primary-hue),var(--primary-sat),72%) 0%, hsl(var(--primary-hue),var(--primary-sat),60%) 100%)' }}>
                         {/* soft decorative blobs */}
-                        <div className="absolute -top-6 -right-4 w-28 h-28 rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }} />
-                        <div className="absolute top-6 left-6 w-16 h-16 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }} />
+                        <div className="absolute -top-6 -right-4 w-28 h-28 rounded-full" style={{ background: 'rgba(255, 255, 255,0.18)' }} />
+                        <div className="absolute top-6 left-6 w-16 h-16 rounded-full" style={{ background: 'rgba(255, 255, 255,0.12)' }} />
                     </div>
 
                     {/* Avatar overlapping the banner */}
@@ -113,7 +113,7 @@ const UserApp: React.FC = () => {
                 <button onClick={() => setShowFigures(true)} className="w-full text-left bg-white rounded-2xl p-5 border border-slate-100"><strong className="text-slate-700">我的手办柜</strong><span className="block text-sm text-slate-400 mt-1">Chibi 与 3D 家园形象</span></button>
 
                 {/* About / setting card */}
-                <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,70,120,0.18)] border border-slate-100 p-5">
+                <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(76, 76, 76,0.18)] border border-slate-100 p-5">
                     <div className="flex items-center gap-2 mb-1">
                         <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
