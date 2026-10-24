@@ -514,12 +514,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             </div>
             <span className="text-xs font-bold">查手机</span>
         </button>,
-        <button key="avatar-library" onClick={() => onPanelAction('avatar-library')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-[#737373] border-slate-600' : 'bg-slate-100 text-[#737373] border-slate-200'}`}>
-                <svg width="27" height="27" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="14" cy="10" r="4"/><path d="M5 24c0-5 4-8 9-8s9 3 9 8"/><path d="M20 4h5v5M3 5h4"/></svg>
-            </div>
-            <span className="text-xs font-bold">头像库</span>
-        </button>,
         <button key="collaboration" onClick={() => onPanelAction('collaboration')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#737373]' : isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#dadada] text-[#737373]' : isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
                 <Briefcase className="w-6 h-6" weight="fill" />
