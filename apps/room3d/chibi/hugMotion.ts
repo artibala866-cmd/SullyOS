@@ -2,6 +2,7 @@ import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
 import {contactFromRecipe,type contactSolver} from './socialContact';
 import {hugHandContact,poseHugFingers} from './hugHands';
+import {keepHugArmOutside} from './hugArmClearance';
 
 type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
@@ -79,6 +80,7 @@ export function poseHug(both:Resident[],time:number,seatedIndex?:number){
    }
    const {direction,normal}=hugHandContact(side,i,p.wrap,p.pat,ownerQ,backQ);
    solver?.({side,point:target,direction,normal},p.reach);
+   keepHugArmOutside(v,partner,side,p.reach*p.wrap);
    poseHugFingers(v.rig!,side,time,i,p.arms,p.wrap,p.pat);
    v.root.updateWorldMatrix(true,true);
   }
