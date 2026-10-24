@@ -105,7 +105,17 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
    if(isIntimacy(s.action)){
     const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));
     r.visitor.root.quaternion.copy(turn).slerp(toward,smooth(actionTime,0,.6));
-    r.visitor.animate(sourceTime,'idle');
+    // The clip moves the two roots closer during its first 3.5 seconds.
+    // Match those translations with footstep animation, then settle to idle.
+    if(s.action==='home-kiss'&&sourceTime<3.5){
+     const previous=locations(s,Math.max(0,sourceTime-.08))[i];
+     const motion=points[i].clone().sub(previous);motion.y=0;
+     if(motion.lengthSq()>.000001){
+      const walking=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(motion.x,motion.z));
+      r.visitor.root.quaternion.copy(walking);
+      r.visitor.animate(sourceTime,'walk');
+     }else r.visitor.animate(sourceTime,'idle');
+    }else r.visitor.animate(sourceTime,'idle');
    }else{
     const {heading,lean}=splitMotionHeading(frames[i].rotations.hips);
     // The sampled pelvis already contains this actor's capture heading. Put it
