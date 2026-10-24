@@ -13,6 +13,7 @@ import React, {
 } from 'react';
 import { cachedCall as _cachedCall, invalidate as _invalidateCache, clearAll as _clearAllCache } from '../utils/musicCache';
 import { DB } from '../utils/db';
+import { findPendingMusicInvite } from '../utils/musicInviteStatus';
 import { getProxyWorkerUrl, DEFAULT_PROXY_WORKER, PROXY_WORKER_CHANGED_EVENT, isLegacyProxyWorkerUrl } from '../utils/proxyWorker';
 import type { PostProcessMusicHooks } from '../utils/applyAssistantPostProcessing';
 import { resolveRefToDataUrl } from '../utils/blobRef';
@@ -659,9 +660,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     void (async () => {
       // 一次只允许一条未回应邀请；同时查历史记录，防止刷新或快速连点产生重复卡片。
       const history = await DB.getMessagesByCharId(charId, true);
-      const pending = [...history].reverse().find(m =>
-        m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
-        !history.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+      const pending = findPendingMusicInvite(history, 'user');
       if (pending) {
         setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
         return;
@@ -681,9 +680,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const cancelListeningInvite = useCallback((charId: string, messageId?: number) => {
     void (async () => {
       const messages = await DB.getMessagesByCharId(charId, true);
-      const pending = [...messages].reverse().find(m =>
-        (!messageId || m.id === messageId) && m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
-        !messages.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+      const pending = findPendingMusicInvite(messages, 'user', messageId);
       if (!pending) return;
       await DB.saveMessage({
         charId, role: 'user', type: 'system',
@@ -1124,9 +1121,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addListeningPartner(cid);
         void (async () => {
           const messages = await DB.getMessagesByCharId(cid, true);
-          const invite = [...messages].reverse().find(m =>
-            m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
-            !messages.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+          const invite = findPendingMusicInvite(messages, 'user');
           if (!invite) return;
           await DB.saveMessage({
             charId: cid, role: 'assistant', type: 'system',
@@ -1144,9 +1139,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         try {
           // AI 每个角色同一时间只保留一条待回应邀请，防止主动消息多次触发叠卡。
           const messages = await DB.getMessagesByCharId(cid, true);
-          const pending = [...messages].reverse().find(m =>
-            m.metadata?.musicListenInvite && m.metadata?.inviter === 'char' &&
-            !messages.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+          const pending = findPendingMusicInvite(messages, 'char');
           if (pending) return;
           const messageId = await DB.saveMessage({
             charId: cid, role: 'assistant', type: 'system',
@@ -1162,9 +1155,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         respondListeningInvite(cid, false);
         void (async () => {
           const messages = await DB.getMessagesByCharId(cid, true);
-          const invite = [...messages].reverse().find(m =>
-            m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char' &&
-            !messages.some(reply => reply.metadata?.musicListenInviteResponseTo === m.id));
+          const invite = findPendingMusicInvite(messages, 'user');
           if (!invite) return;
           await DB.saveMessage({
             charId: cid, role: 'assistant', type: 'system',
