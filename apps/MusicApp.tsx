@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../context/OSContext';
 import { useMusic, musicApi, normalizeCookie, toHttps, Song } from '../context/MusicContext';
 import { DB } from '../utils/db';
+import { findPendingMusicInvite } from '../utils/musicInviteStatus';
 import { trackEvent } from '../utils/analytics';
 import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon } from '@phosphor-icons/react';
 import {
@@ -45,9 +46,7 @@ const MusicApp: React.FC = () => {
       const entries = await Promise.all(characters.map(async c => {
         // 邀请与回应可能已被记忆宫殿归档；用完整历史判断真正尚未回应的邀请。
         const messages = await DB.getMessagesByCharId(c.id, true);
-        const pending = [...messages].reverse().find(m =>
-          m.metadata?.musicListenInvite && m.metadata?.inviter === 'char' &&
-          !messages.some(response => response.metadata?.musicListenInviteResponseTo === m.id));
+        const pending = findPendingMusicInvite(messages, 'char');
         return [c.id, pending?.id ?? 0] as const;
       }));
       if (!cancelled) setCharInvites(Object.fromEntries(entries.filter(([, id]) => id > 0)));
