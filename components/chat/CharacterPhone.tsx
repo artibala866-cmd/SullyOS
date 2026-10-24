@@ -90,6 +90,18 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
   const [memoBusy,setMemoBusy]=useState(false);
   const [chatComposer,setChatComposer]=useState('');
   const [npcMomentLoading,setNpcMomentLoading]=useState(false);
+  const [sharedMomentsRefreshing,setSharedMomentsRefreshing]=useState(() =>
+    isCharacterPhoneRefreshing(characterId, 'moments'));
+  useEffect(() => {
+    setSharedMomentsRefreshing(isCharacterPhoneRefreshing(characterId, 'moments'));
+    const handler=(event: Event) => {
+      const d=(event as CustomEvent<{characterId:string;feature:string;running:boolean}>).detail;
+      if(d?.characterId===characterId && d.feature==='moments')
+        setSharedMomentsRefreshing(d.running);
+    };
+    window.addEventListener(CHARACTER_PHONE_REFRESH_CHANGED,handler);
+    return()=>window.removeEventListener(CHARACTER_PHONE_REFRESH_CHANGED,handler);
+  },[characterId]);
   const npcPullStart=useRef<number|null>(null);
   useEffect(() => {setMoments(readCharacterMoments(characterId)); const sync=(event:Event)=>{if((event as CustomEvent<{characterId:string}>).detail?.characterId===characterId)setMoments(readCharacterMoments(characterId));};window.addEventListener(CHARACTER_MOMENTS_CHANGED,sync);return ()=>window.removeEventListener(CHARACTER_MOMENTS_CHANGED,sync);},[characterId]);
   useEffect(() => {
@@ -391,7 +403,7 @@ ${scheduleContext}
     }catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{setMomentBusy(false);}
   };
-  const loadNpcMoments=async()=>{if(npcMomentLoading)return;setNpcMomentLoading(true);setError('');try{await refreshNpcMoments(characterId,profiles,api);}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setNpcMomentLoading(false);}};
+  const loadNpcMoments=async()=>{if(npcMomentLoading||sharedMomentsRefreshing||isCharacterPhoneRefreshing(characterId,'moments'))return;setNpcMomentLoading(true);setError('');try{await refreshNpcMoments(characterId,profiles,api);}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setNpcMomentLoading(false);}};
   const isPrivateThread = thread === 'private:' + characterId;
   const active = records.find(r => r.id === thread);
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
@@ -452,7 +464,7 @@ ${scheduleContext}
         {screen === 'wechat' && tab === 'me' && <div className="pt-4">{row(name,<User size={24}/>,()=>{})}<div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>setScreen('settings'))}</div></div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex items-start gap-2.5 '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><PhoneAvatar src={m.speakerId.startsWith('owner:') ? phoneAvatar : (userProfile.perCharAvatars?.[characterId] || userProfile.avatar)} name={m.speakerId.startsWith('owner:') ? name : userProfile.name} className="h-10 w-10 rounded-lg text-sm"/><div className={'relative max-w-[78%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}><span className={'absolute top-3 h-2.5 w-2.5 rotate-45 '+(m.speakerId.startsWith('owner:')?'-right-1 bg-[#95ec69]':'-left-1 bg-white')}/><span className="relative">{m.text}</span></div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
-        {screen === 'moments' && <PullToRefresh loading={npcMomentLoading} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]"><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={phoneAvatar||name} src={phoneAvatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-24"/><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/></div></PullToRefresh>}
+        {screen === 'moments' && <PullToRefresh loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]"><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={phoneAvatar||name} src={phoneAvatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-24"/><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/></div></PullToRefresh>}
         {screen === 'memo' && <PhoneMemo characterId={characterId} onGenerate={generateMemo} generating={memoBusy}/>}
         {screen === 'gallery' && <Gallery lockedCharacterId={characterId} onExit={()=>setScreen('home')}/>}
         {screen === 'calls' && <p className="p-8 text-center text-sm text-[#888]">电话记录与拨号功能待接入</p>}
