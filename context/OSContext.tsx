@@ -40,6 +40,7 @@ import { readCharacterLifeEvents } from '../utils/characterLifeEvents';
 import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
 import { runCharacterPhoneAutonomy } from '../utils/characterPhoneAutonomy';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
+import { CHARACTER_MOMENTS_CHANGED } from '../utils/characterPhoneMoments';
 import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
 import { getLifeEventConsumers, shouldDispatchLifeEvent } from '../utils/characterLifeEventRouting';
 import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
@@ -2424,6 +2425,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let disposed = false;
       let running = false;
       let cursor = 0;
+      const momentTimers = new Map<string, ReturnType<typeof setTimeout>>();
       const tick = async () => {
           if (disposed || running || document.visibilityState !== 'visible') return;
           const all = charactersRef.current.filter(c => !!c.id);
@@ -2442,15 +2444,36 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               console.warn('[CharacterPhone] autonomous foreground tick skipped', error);
           } finally { running = false; }
       };
+      // Newly published posts and new User comments receive a foreground
+      // reaction opportunity without waiting for the next 3-minute OS tick.
+      // The per-character social cooldown/limits still prevent comment loops.
+      const onMomentsChanged = (event: Event) => {
+          const charId = (event as CustomEvent<{characterId?:string}>).detail?.characterId;
+          if (!charId || disposed || document.visibilityState !== 'visible') return;
+          const pending = momentTimers.get(charId);
+          if (pending) clearTimeout(pending);
+          momentTimers.set(charId, window.setTimeout(() => {
+              momentTimers.delete(charId);
+              if (disposed || running || document.visibilityState !== 'visible') return;
+              const char = charactersRef.current.find(c => c.id === charId);
+              if (!char) return;
+              const api = resolveDialogueApi(apiConfigRef.current, char);
+              void runCharacterMomentInteractionAutonomy({char, api});
+          }, 15_000));
+      };
       const onVisible = () => { if (document.visibilityState === 'visible') void tick(); };
       const initial = window.setTimeout(() => { void tick(); }, 10_000);
       const interval = window.setInterval(() => { void tick(); }, 3 * 60_000);
       document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener(CHARACTER_MOMENTS_CHANGED, onMomentsChanged);
       return () => {
           disposed = true;
           window.clearTimeout(initial);
           window.clearInterval(interval);
           document.removeEventListener('visibilitychange', onVisible);
+          window.removeEventListener(CHARACTER_MOMENTS_CHANGED, onMomentsChanged);
+          for (const timer of momentTimers.values()) clearTimeout(timer);
+          momentTimers.clear();
       };
   }, [isDataLoaded]);
 
