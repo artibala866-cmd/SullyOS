@@ -19,7 +19,9 @@ export function createBedLeisure(rig:ReturnType<typeof bindBlankBody>,body:T.Gro
   const blend=(name:string,rotation:T.Quaternion)=>b[name].quaternion.slerp(rotation,enter);
   if(mode==='bed-side'){
    // Roll around the supported hips, with staggered knees and hands in front.
-   b.hips.quaternion.multiply(q(0,1.25*enter,0));
+   // Keep the pelvis anchored to the mattress; rotating the hips here
+   // twists the entire leg chain out of the supported sleeping pose.
+   // Side-lying is expressed through the limb offsets below instead.
    blend('L_thigh',q(-.32,0,-.035));blend('L_shin',q(.62));
    blend('R_thigh',q(-.48,0,.035));blend('R_shin',q(.83));
    blend('head',q(.02,-.10,.05));
