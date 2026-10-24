@@ -43,7 +43,7 @@ export default function CharacterAvatarLibraryModal({ characterId, defaultAvatar
         </div>)}
       </div>
       {!library.entries.length && <p className="py-6 text-center text-sm text-neutral-400">还没有收藏的头像</p>}
-      {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-neutral-600">{error}</p>}
     </div>
   </div>;
 }
