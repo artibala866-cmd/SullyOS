@@ -7,6 +7,8 @@ import {furniturePalm} from './furnitureMotion';
 import {createSocialProp} from './socialProps';
 import {isIntimacy,isPrincessCarry,poseIntimacy} from './intimacyMotion';
 import {splitMotionHeading} from './motionHeading';
+import {motionContactProfile} from './motionContactProfiles';
+import {applyPairedHandContact} from './pairedHandContact';
 export {motionCategories} from './selectedMotions';
 export type SocialAction=string;
 export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-kiss'?9.6:e.duration+1.2}]));
@@ -37,19 +39,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
   return points;
  }
  const palm=(v:ChibiVisitor,side:string)=>v.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side as 'L'|'R'));
-type HandSide='L'|'R';
-const twirlPairCache=new WeakMap<SelectedClip,readonly [HandSide,HandSide]>();
-function twirlHandPair(clip:SelectedClip):readonly [HandSide,HandSide]{
- const cached=twirlPairCache.get(clip);if(cached)return cached;
- const pairs=[['R','R'],['R','L'],['L','R'],['L','L']] as const;
- const pair=pairs.map(pair=>({pair,score:[.2,.35,.5,.65,.8].reduce((sum,t)=>{
-  const fa=sampleSelected(clip.actors[0],clip.duration*t);
-  const fb=sampleSelected(clip.actors[1],clip.duration*t);
-  return sum+fa.points[pair[0]+'_hand'].distanceTo(fb.points[pair[1]+'_hand']);
- },0)})).sort((x,y)=>x.score-y.score)[0].pair;
- twirlPairCache.set(clip,pair);return pair;
-}
- function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weight:number){
+function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weight:number){
   if(both.length!==2)return;
   if(session?.action==='home-hug'){
    both.forEach((owner,i)=>{const partner=both[1-i]!;
@@ -64,57 +54,12 @@ function twirlHandPair(clip:SelectedClip):readonly [HandSide,HandSide]{
     }
    });return;
   }
-  // The twirl clip starts with a wide capture-space arm pose. Identify
-  // its actual holding hands across the clip, not from a single frame,
-  // then drive those hands toward one stable contact target.
-  if(session?.action==='cmu-20_10'){
+  // Stage 1: three established paired-hand actions share one configured
+  // runtime. The same IK solver and cached source-pair selection are retained.
+  const profile=motionContactProfile(session!.action);
+  if(profile?.kind==='pairedHands'){
    const [a,b]=both;
-   if(a?.visitor.rig&&b?.visitor.rig&&a.solver&&b.solver){
-    // Resolve the pair once per loaded clip; never resample all tracks per frame.
-    const [sa,sb]=twirlHandPair(session.clip);
-    const pa=palm(a.visitor,sa),pb=palm(b.visitor,sb);
-    const target=sharedPalmTarget(pa,pb);
-    // Gradually reach in rather than immediately spreading both arms.
-    const reach=smooth(session!.time-session!.approach,.15,.85);
-    for(const [resident,side] of [[a,sa],[b,sb]] as const){
-     const q=resident.visitor.rig!.bones[side+'_hand'].getWorldQuaternion(new T.Quaternion());
-     resident.solver({side,point:target.clone(),direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(q),normal:new T.Vector3(0,1,0).applyQuaternion(q),curl:.38},weight*reach);
-    }
-    return;
-   }
-  }
-  // "拉住对方 1": use the same shared-palm IK as twirl, with the
-  // hand pair cached by clip. Never scan motion tracks inside the render loop.
-  if(session?.action==='cmu-18_03'){
-   const [a,b]=both;
-   if(a?.visitor.rig&&b?.visitor.rig&&a.solver&&b.solver){
-    const [sa,sb]=twirlHandPair(session.clip);
-    const target=sharedPalmTarget(palm(a.visitor,sa),palm(b.visitor,sb));
-    const reach=smooth(session.time-session.approach,.12,.55);
-    for(const [resident,side] of [[a,sa],[b,sb]] as const){
-     const q=resident.visitor.rig!.bones[side+'_hand'].getWorldQuaternion(new T.Quaternion());
-     resident.solver({side,point:target.clone(),direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(q),normal:new T.Vector3(0,1,0).applyQuaternion(q),curl:.45},weight*reach);
-    }
-    return;
-   }
-  }
-  // Low-five then walk away: align palms only during the brief contact
-  // phase, leaving the departure motion free. Hand pairing is cached.
-  if(session?.action==='cmu-20_12'){
-   const [a,b]=both;
-   if(a?.visitor.rig&&b?.visitor.rig&&a.solver&&b.solver){
-    const [sa,sb]=twirlHandPair(session.clip);
-    const elapsed=session.time-session.approach;
-    const contact= smooth(elapsed,.10,.35)*(1-smooth(elapsed,.65,1.10));
-    if(contact>0){
-     const target=sharedPalmTarget(palm(a.visitor,sa),palm(b.visitor,sb));
-     for(const [resident,side] of [[a,sa],[b,sb]] as const){
-      const q=resident.visitor.rig!.bones[side+'_hand'].getWorldQuaternion(new T.Quaternion());
-      resident.solver({side,point:target.clone(),direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(q),normal:new T.Vector3(0,1,0).applyQuaternion(q),curl:.12},weight*contact);
-     }
-    }
-    return;
-   }
+   if(a&&b&&applyPairedHandContact(profile,session!.clip,[a,b],weight,session!.time-session!.approach))return;
   }
   // Arm wrestling must keep one hand pair throughout the contest.
   // Generic nearest-hand detection can switch partners as the wrists rotate.
@@ -142,9 +87,10 @@ function twirlHandPair(clip:SelectedClip):readonly [HandSide,HandSide]{
    const from=side+'_hand',a=frames[i].points[from],j=1-i;
    const passing=session!.action==='cmu-22_13';
    if(passing)continue; // The cup owns the two opposed grip targets during handover.
-   const shoulders=['cmu-22_07','cmu-22_05','cmu-22_04','cmu-22_09','cmu-22_03'].includes(session!.action);
-   const choices=(passing?[i===0?'R_hand':'L_hand']:shoulders?['L_upperArm','R_upperArm']:['L_hand','R_hand']).map(n=>({n,d:a.distanceTo(frames[j].points[n])})).sort((a,b)=>a.d-b.d),nearest=choices[0];
-   const near=shoulders?.47:passing?.5:.20,far=shoulders?.64:passing?.6:.36;
+   const bodyProfile=profile?.kind==='bodyTouch'?profile:null;
+   const shoulders=!!bodyProfile;
+   const choices=(passing?[i===0?'R_hand':'L_hand']:bodyProfile?bodyProfile.targetBones:['L_hand','R_hand']).map(n=>({n,d:a.distanceTo(frames[j].points[n])})).sort((a,b)=>a.d-b.d),nearest=choices[0];
+   const near=bodyProfile?.near??(passing?.5:.20),far=bodyProfile?.far??(passing?.6:.36);
    if(nearest.d>far||handled.has(i+from))continue;
    const owner=both[i]!,partner=both[j]!;
    if(!owner.visitor.rig){
