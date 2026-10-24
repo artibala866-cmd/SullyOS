@@ -17,10 +17,10 @@ interface AppIconProps {
 
 // 动森（NookPhone）风格瓦片配色 —— 直接用 animal-island-ui 的应用色板（精确 hex）。
 const NOOK_TILE_COLORS: Record<string, string> = {
-  indigo: '#889DF0', violet: '#B77DEE', purple: '#B77DEE', fuchsia: '#F8A6B2',
-  pink: '#F8A6B2', rose: '#FC736D', red: '#FC736D', orange: '#E59266',
-  amber: '#F7CD67', lime: '#D1DA49', green: '#8AC68A', emerald: '#82D5BB',
-  cyan: '#82D5BB', blue: '#889DF0', slate: '#9A835A',
+  indigo: '#9f9f9f', violet: '#919191', purple: '#919191', fuchsia: '#b8b8b8',
+  pink: '#b8b8b8', rose: '#909090', red: '#909090', orange: '#a0a0a0',
+  amber: '#cfcfcf', lime: '#cecece', green: '#b5b5b5', emerald: '#c1c1c1',
+  cyan: '#c1c1c1', blue: '#9f9f9f', slate: '#858585',
 };
 
 const AppIcon: React.FC<AppIconProps> = React.memo(({ app, onClick, size = 'md', hideLabel = false, variant = 'default' }) => {
