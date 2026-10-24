@@ -53,7 +53,7 @@ export default function MemoryMaintenancePanel({ config, update, char, userName 
         } catch (error: any) { setMessage(error?.message || '本步失败，请稍后重试。'); }
         finally { running.delete(char.id); setBusy(false); }
     };
-    return <details style={{ marginTop: 24, fontSize: 12, color: '#64748b' }}>
+    return <details style={{ marginTop: 24, fontSize: 12, color: '#727272' }}>
         <summary style={{ cursor: 'pointer' }}>低频维护 · API 有频率限制时使用</summary>
         <div style={{ padding: 12, background: '#f8fafc', borderRadius: 12, marginTop: 8 }}>
             <label><input type="checkbox" checked={config.manualMaintenance === true} disabled={busy}
@@ -61,12 +61,12 @@ export default function MemoryMaintenancePanel({ config, update, char, userName 
             <p>默认关闭。开启后暂停聊天后的自动提取和认知消化，到角色记忆设置中手动推进。已启动的任务会继续结束。聊天召回照常使用已有记忆；待提取原文会继续保留。</p>
             <label>宫殿请求最小间隔（秒） <input type="number" min={1} max={3600} value={config.maintenanceIntervalSeconds || 60} disabled={busy}
                 onChange={event => update({ maintenanceIntervalSeconds: Math.max(1, Math.min(3600, Number(event.target.value) || 60)) })}
-                style={{ width: 70, color: '#1e293b', background: 'white', border: '1px solid #cbd5e1' }} /></label>
+                style={{ width: 70, color: '#282828', background: 'white', border: '1px solid #d4d4d4' }} /></label>
             <p>默认 60 秒。包括本页宫殿副 API 与向量请求；一步可能包含多个请求，逐个等待。其它设备、主聊天与已提交的云端任务不受这个间隔控制。</p>
-            {char && config.manualMaintenance && <button onClick={() => { setStep(readStep(char.id)); setOpen(true); }} style={{ padding: '8px 14px', color: '#fff', background: '#64748b', borderRadius: 8 }}>开始 / 继续维护</button>}
+            {char && config.manualMaintenance && <button onClick={() => { setStep(readStep(char.id)); setOpen(true); }} style={{ padding: '8px 14px', color: '#fff', background: '#727272', borderRadius: 8 }}>开始 / 继续维护</button>}
         </div>
         {open && char && <div role="dialog" aria-modal="true" aria-label="低频维护" style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#0008', display: 'grid', placeItems: 'center', padding: 24 }}>
-            <div style={{ background: 'white', color: '#334155', padding: 24, borderRadius: 20, maxWidth: 360, width: '100%' }}>
+            <div style={{ background: 'white', color: '#3f3f3f', padding: 24, borderRadius: 20, maxWidth: 360, width: '100%' }}>
                 <h3>{char.name} · {labels[step]}</h3>
                 <p>提取记忆 → 逐盒压缩 → 整理门牌。每次点击仅推进当前步骤，完成后停下等待。认知消化仍可在原入口单独手动运行。</p>
                 <p role="status" style={{ whiteSpace: 'pre-wrap' }}>{message || '准备好后点击下一步。关闭弹窗会保留步骤。'}</p>
