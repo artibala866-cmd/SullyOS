@@ -204,7 +204,7 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode, onCloseApp
                     </button>
                     <button
                         onClick={() => { this.setState({ hasError: false }); this.props.onCloseApp(); }}
-                        className="px-6 py-3 bg-red-600 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
+                        className="px-6 py-3 bg-neutral-600 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
                     >
                         返回桌面
                     </button>
@@ -283,8 +283,8 @@ const DisclaimerPopup: React.FC<{ onAccept: () => void }> = ({ onAccept }) => (
         </ul>
 
         {/* Highlighted warning */}
-        <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 mt-3">
-          <p className="text-[13px] font-bold text-red-600 text-center leading-relaxed">
+        <div className="bg-neutral-50 border-2 border-neutral-200 rounded-2xl p-4 mt-3">
+          <p className="text-[13px] font-bold text-neutral-600 text-center leading-relaxed">
             本程序完全免费！<br />
             如果您是通过<span className="underline decoration-2 decoration-red-400">付费购买</span>获得此程序的，说明您已被倒卖欺骗。<br />
             请向售卖者维权追责！
@@ -296,7 +296,7 @@ const DisclaimerPopup: React.FC<{ onAccept: () => void }> = ({ onAccept }) => (
       <div className="px-6 pb-7 pt-2">
         <button
           onClick={onAccept}
-          className="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 transition-transform text-sm"
+          className="w-full py-3.5 bg-gradient-to-r from-neutral-500 to-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200 active:scale-95 transition-transform text-sm"
         >
           我已知悉，继续使用
         </button>
@@ -341,11 +341,11 @@ const ImportRecoveryPopup: React.FC<{
               : '系统检测到上一次导入没有走到完成步骤，可能是浏览器或系统在导入过程中强制重启了。请重新导入同一个备份文件，避免数据只恢复了一半。'}
           </p>
           {hasError && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-3 text-[12px] text-red-700 leading-relaxed whitespace-pre-wrap break-words select-text">
+            <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 text-[12px] text-neutral-700 leading-relaxed whitespace-pre-wrap break-words select-text">
               {marker.error}
             </div>
           )}
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-[12px] text-amber-700 leading-relaxed">
+          <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 text-[12px] text-neutral-700 leading-relaxed">
             <div>中断阶段：{phaseLabel}</div>
             {marker.current && <div>当前部分：{marker.current}</div>}
             {hasItemProgress && <div>条目进度：{marker.itemDone || 0}/{marker.itemTotal}</div>}
@@ -368,7 +368,7 @@ const ImportRecoveryPopup: React.FC<{
           </button>
           <button
             onClick={onReimport}
-            className="py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-200 active:scale-95 transition-transform text-sm"
+            className="py-3 bg-gradient-to-r from-neutral-500 to-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200 active:scale-95 transition-transform text-sm"
           >
             去重新导入
           </button>
@@ -442,7 +442,7 @@ const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: b
           .sully-bubble-dot { animation: none !important; transform: none !important; opacity: .8 !important; }
         }
       `}</style>
-      <div role="status" aria-label="正在加载" className="relative flex h-[64px] w-[112px] items-center justify-center gap-[10px] rounded-[22px] border border-neutral-200 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.07)]">
+      <div role="status" aria-label="正在加载" className="relative flex h-[64px] w-[112px] items-center justify-center gap-[10px] rounded-[22px] border border-neutral-200 bg-white shadow-[0_8px_30px_rgba(0, 0, 0,0.07)]">
         <span aria-hidden="true" className="absolute -bottom-[7px] left-[23px] h-[14px] w-[14px] rotate-45 rounded-[3px] border-b border-r border-neutral-200 bg-white" />
         {[0, 1, 2].map(i => (
           <span key={i} aria-hidden="true" className="sully-bubble-dot relative z-10 h-[9px] w-[9px] rounded-full bg-[#737373]"
@@ -805,7 +805,7 @@ const PhoneShell: React.FC = () => {
 
     const wallpaper = theme.wallpaper;
     const backgroundValue = !wallpaper
-      ? '#0f1115'
+      ? '#111111'
       : (wallpaper.startsWith('http') || wallpaper.startsWith('data:') || wallpaper.startsWith('blob:') || wallpaper.startsWith('./') || wallpaper.startsWith('/'))
         ? `url(${wallpaper})`
         : wallpaper;
@@ -826,7 +826,7 @@ const PhoneShell: React.FC = () => {
 
   // 兜底：理论上 bootDone 时数据已就绪；万一未就绪（极端慢）退化为最简静态深色屏，不闪 spinner。
   if (!isDataLoaded) {
-    return <div className="w-full h-full" style={{ background: '#05060f' }} />;
+    return <div className="w-full h-full" style={{ background: '#060606' }} />;
   }
 
   const getBgStyle = (wp: string) => {
@@ -863,7 +863,7 @@ const PhoneShell: React.FC = () => {
         <style>{`@keyframes lockReveal{from{opacity:0}to{opacity:1}}`}</style>
         {acnhSkin ? (
             <div className="absolute inset-0 transition-all duration-700 group-hover:opacity-0"
-                 style={{ background: 'linear-gradient(180deg, rgba(188,231,245,0.25) 0%, rgba(255,247,176,0.15) 45%, rgba(124,186,76,0.28) 100%)' }} />
+                 style={{ background: 'linear-gradient(180deg, rgba(223, 223, 223,0.25) 0%, rgba(244, 244, 244,0.15) 45%, rgba(165, 165, 165,0.28) 100%)' }} />
         ) : (
             <div className="absolute inset-0 bg-black/5 backdrop-blur-sm transition-all group-hover:backdrop-blur-none group-hover:bg-transparent duration-700" />
         )}
@@ -871,9 +871,9 @@ const PhoneShell: React.FC = () => {
         {/* 动森彩蛋：锁屏飘叶 */}
         {acnhSkin && (
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <svg viewBox="0 0 100 100" className="absolute w-14 h-14 opacity-80 -rotate-[25deg]" style={{ left: '10%', top: '12%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#9ED25F"/><path d="M50 14 L50 88" stroke="#5c8a30" strokeWidth="3" fill="none" opacity="0.5"/></svg>
-                <svg viewBox="0 0 100 100" className="absolute w-12 h-12 opacity-75 rotate-[30deg] scale-x-[-1]" style={{ right: '12%', top: '20%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#7CBA4C"/><path d="M50 14 L50 88" stroke="#4d7a2a" strokeWidth="3" fill="none" opacity="0.5"/></svg>
-                <svg viewBox="0 0 100 100" className="absolute w-16 h-16 opacity-70 rotate-[12deg]" style={{ left: '16%', bottom: '14%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#5FAE6E"/><path d="M50 14 L50 88" stroke="#356b3f" strokeWidth="3" fill="none" opacity="0.5"/></svg>
+                <svg viewBox="0 0 100 100" className="absolute w-14 h-14 opacity-80 -rotate-[25deg]" style={{ left: '10%', top: '12%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#bfbfbf"/><path d="M50 14 L50 88" stroke="#7a7a7a" strokeWidth="3" fill="none" opacity="0.5"/></svg>
+                <svg viewBox="0 0 100 100" className="absolute w-12 h-12 opacity-75 rotate-[30deg] scale-x-[-1]" style={{ right: '12%', top: '20%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#a5a5a5"/><path d="M50 14 L50 88" stroke="#6b6b6b" strokeWidth="3" fill="none" opacity="0.5"/></svg>
+                <svg viewBox="0 0 100 100" className="absolute w-16 h-16 opacity-70 rotate-[12deg]" style={{ left: '16%', bottom: '14%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#999999"/><path d="M50 14 L50 88" stroke="#5c5c5c" strokeWidth="3" fill="none" opacity="0.5"/></svg>
             </div>
         )}
 
@@ -889,7 +889,7 @@ const PhoneShell: React.FC = () => {
           />
         )}
 
-        {!companionLockFrame && <div className="absolute top-24 w-full text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+        {!companionLockFrame && <div className="absolute top-24 w-full text-center drop-shadow-[0_2px_4px_rgba(0, 0, 0,0.3)]">
            <div className="text-8xl tracking-tighter opacity-95 font-bold">
              {virtualTime.hours.toString().padStart(2,'0')}<span className="animate-pulse">:</span>{virtualTime.minutes.toString().padStart(2,'0')}
            </div>
@@ -905,7 +905,7 @@ const PhoneShell: React.FC = () => {
         {!companionLockFrame && unreadCount > 0 && (
             <div className="absolute top-[40%] left-4 right-4 animate-slide-up">
                 <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/10 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-green-500 flex items-center justify-center text-white shrink-0 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-neutral-500 flex items-center justify-center text-white shrink-0 shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M4.804 21.644A6.707 6.707 0 0 0 6 21.75a6.721 6.721 0 0 0 3.583-1.029c.774.182 1.584.279 2.417.279 5.322 0 9.75-3.97 9.75-9 0-5.03-4.428-9-9.75-9s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.192.232.226.277.428.254.543a3.73 3.73 0 0 1-.814 1.686.75.75 0 0 0 .44 1.223ZM8.25 10.875a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25ZM10.875 12a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clipRule="evenodd" /></svg>
                     </div>
                     <div className="flex-1 min-w-0 text-white text-left">
@@ -1028,7 +1028,7 @@ const PhoneShell: React.FC = () => {
           {suspendedCall && activeApp !== AppID.Call && (
             <button
               onClick={resumeCall}
-              className="absolute left-0 w-full z-[55] flex items-center justify-center gap-2 bg-emerald-500 text-white text-xs font-bold py-1.5 animate-pulse cursor-pointer active:bg-emerald-600 transition-colors"
+              className="absolute left-0 w-full z-[55] flex items-center justify-center gap-2 bg-neutral-500 text-white text-xs font-bold py-1.5 animate-pulse cursor-pointer active:bg-neutral-600 transition-colors"
               style={{ top: 'max(1.75rem, calc(var(--chrome-top, 1.5rem) + 0.25rem))' }}
             >
               <span className="w-2 h-2 rounded-full bg-white animate-ping" />
@@ -1051,8 +1051,8 @@ const PhoneShell: React.FC = () => {
           <div className="absolute top-12 left-0 w-full flex flex-col items-center gap-2 pointer-events-none z-[60]">
               {toasts.map(toast => (
                  <div key={toast.id} className="animate-fade-in bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-xl border border-black/5 flex items-start gap-3 max-w-[85%] ring-1 ring-white/20">
-                     {toast.type === 'success' && <div className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0"></div>}
-                     {toast.type === 'error' && <div className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></div>}
+                     {toast.type === 'success' && <div className="w-2.5 h-2.5 rounded-full bg-neutral-500 shrink-0"></div>}
+                     {toast.type === 'error' && <div className="w-2.5 h-2.5 rounded-full bg-neutral-500 shrink-0"></div>}
                      {toast.type === 'info' && <div className="w-2.5 h-2.5 rounded-full bg-primary shrink-0"></div>}
                      <span className="min-w-0 text-left text-xs font-bold text-slate-800 whitespace-normal break-words [overflow-wrap:anywhere] leading-5">{toast.message}</span>
                  </div>

@@ -53,13 +53,13 @@ const DesktopClock = React.memo(() => {
         const monthTitle = monthName.charAt(0) + monthName.slice(1).toLowerCase();
         return (
             <div className="mt-7 mb-5 text-center animate-fade-in select-none">
-                <div className="text-[13px] font-extrabold tracking-wide" style={{ color: '#8a7a5c' }}>
+                <div className="text-[13px] font-extrabold tracking-wide" style={{ color: '#7b7b7b' }}>
                     🍃 {greeting}, Resident
                 </div>
-                <div className="text-[3.5rem] font-extrabold leading-none mt-1.5 tracking-[2px]" style={{ color: '#8b7355' }}>
-                    {hh}<span className="animate-pulse" style={{ color: '#cfcab2' }}>:</span>{mm}
+                <div className="text-[3.5rem] font-extrabold leading-none mt-1.5 tracking-[2px]" style={{ color: '#767676' }}>
+                    {hh}<span className="animate-pulse" style={{ color: '#c9c9c9' }}>:</span>{mm}
                 </div>
-                <div className="text-[15px] font-bold mt-1.5" style={{ color: '#725C4E' }}>
+                <div className="text-[15px] font-bold mt-1.5" style={{ color: '#606060' }}>
                     {weekdayTitle} · {monthTitle} {Number(dateNum)}
                 </div>
             </div>
@@ -72,10 +72,10 @@ const DesktopClock = React.memo(() => {
             <div className="flex items-center gap-2 mb-3 opacity-90">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
                     style={{
-                        background: paper ? 'rgba(224,221,215,0.30)' : 'rgba(255,255,255,0.28)',
-                        border: paper ? '1px solid rgba(91,72,51,0.07)' : '1px solid rgba(255,255,255,0.18)',
+                        background: paper ? 'rgba(221, 221, 221,0.30)' : 'rgba(255, 255, 255,0.28)',
+                        border: paper ? '1px solid rgba(75, 75, 75,0.07)' : '1px solid rgba(255, 255, 255,0.18)',
                     }}>
-                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: paper ? '#788369' : '#4ade80', boxShadow: paper ? 'none' : '0 0 6px #4ade80' }} />
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: paper ? '#7f7f7f' : '#b8b8b8', boxShadow: paper ? 'none' : '0 0 6px #b8b8b8' }} />
                     <span className="text-[9px] font-bold tracking-[0.2em] uppercase">System Online</span>
                 </div>
                 <div className="h-[1px] flex-1 bg-gradient-to-r from-current to-transparent opacity-30" />
@@ -90,7 +90,7 @@ const DesktopClock = React.memo(() => {
             {/* 主时钟 */}
             <div className="flex items-end gap-4">
                 <div className="relative">
-                    <div className={`${serifClock ? 'text-[5.65rem] font-semibold tracking-[-0.055em] drop-shadow-[0_2px_0_rgba(255,255,255,0.34)]' : 'text-[6.25rem] font-black tracking-tighter drop-shadow-2xl'} leading-[0.84]`}
+                    <div className={`${serifClock ? 'text-[5.65rem] font-semibold tracking-[-0.055em] drop-shadow-[0_2px_0_rgba(255, 255, 255,0.34)]' : 'text-[6.25rem] font-black tracking-tighter drop-shadow-2xl'} leading-[0.84]`}
                         style={{ fontFamily: clockStyle === 'system' ? 'inherit' : serifClock ? `'Iowan Old Style', 'Baskerville', 'Times New Roman', serif` : `'Space Grotesk', 'SF Pro Display', sans-serif`, fontFeatureSettings: '"tnum"' }}>
                         <span>{virtualTime.hours.toString().padStart(2, '0')}</span>
                         <span className="opacity-35 font-thin mx-0.5 animate-pulse">:</span>
@@ -98,7 +98,7 @@ const DesktopClock = React.memo(() => {
                     </div>
                     {/* 细光斑 */}
                     {!paper && <div className="absolute -top-2 -right-3 w-8 h-8 rounded-full pointer-events-none"
-                        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.4), transparent 70%)' }} />}
+                        style={{ background: 'radial-gradient(circle, rgba(255, 255, 255,0.4), transparent 70%)' }} />}
                 </div>
 
                 <div className="flex flex-col justify-end pb-2.5 gap-0.5">
@@ -140,14 +140,14 @@ const CharacterWidget = React.memo(({
             <div className="mb-4 animate-fade-in" onClick={onClick}>
                 <div className="flex items-end gap-2.5 cursor-pointer active:scale-[0.98] transition-transform">
                     {/* 村民头像（圆角方块 + 白边） */}
-                    <div className="relative w-[60px] h-[60px] shrink-0 rounded-[26%] overflow-hidden bg-[#e8e2d6]"
-                        style={{ border: '3px solid #ffffff', boxShadow: '0 4px 10px -2px rgba(61,52,40,0.28)' }}>
+                    <div className="relative w-[60px] h-[60px] shrink-0 rounded-[26%] overflow-hidden bg-[#e2e2e2]"
+                        style={{ border: '3px solid #ffffff', boxShadow: '0 4px 10px -2px rgba(53, 53, 53,0.28)' }}>
                         {char?.avatar
                             ? <TokenImg value={char.avatar} className="w-full h-full object-cover" alt="char" loading="lazy" />
                             : <div className="w-full h-full flex items-center justify-center text-2xl">🍃</div>}
                         {unreadCount > 0 && (
-                            <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#fc736d] rounded-full flex items-center justify-center text-[10px] font-bold text-white"
-                                style={{ border: '2px solid #fff' }}>
+                            <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#909090] rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                                style={{ border: '2px solid #ffffff' }}>
                                 {unreadCount > 9 ? '9+' : unreadCount}
                             </div>
                         )}
@@ -155,14 +155,14 @@ const CharacterWidget = React.memo(({
                     {/* AC 对话气泡 */}
                     <div className="relative flex-1 min-w-0 mb-1">
                         <div className="absolute -left-1.5 bottom-3 w-3 h-3 rotate-45"
-                            style={{ background: '#FFFBF2', borderLeft: '2px solid #ece0c8', borderBottom: '2px solid #ece0c8' }} />
+                            style={{ background: '#fbfbfb', borderLeft: '2px solid #e1e1e1', borderBottom: '2px solid #e1e1e1' }} />
                         <div className="relative rounded-2xl px-3.5 py-2.5"
-                            style={{ background: '#FFFBF2', border: '2px solid #ece0c8', boxShadow: '0 4px 12px -5px rgba(120,90,40,0.25)' }}>
+                            style={{ background: '#fbfbfb', border: '2px solid #e1e1e1', boxShadow: '0 4px 12px -5px rgba(93, 93, 93,0.25)' }}>
                             <div className="flex items-center gap-1.5 mb-0.5">
-                                <span className="text-[13px] font-extrabold truncate" style={{ color: '#725d42' }}>{char?.name || 'Resident'}</span>
+                                <span className="text-[13px] font-extrabold truncate" style={{ color: '#606060' }}>{char?.name || 'Resident'}</span>
                                 <span className="text-[11px] leading-none">{unreadCount > 0 ? '💬' : '🍃'}</span>
                             </div>
-                            <div className="text-[11px] leading-snug line-clamp-2" style={{ color: '#9f8b68' }}>{lastMessage}</div>
+                            <div className="text-[11px] leading-snug line-clamp-2" style={{ color: '#8d8d8d' }}>{lastMessage}</div>
                         </div>
                     </div>
                 </div>
@@ -176,19 +176,19 @@ const CharacterWidget = React.memo(({
                 className="relative h-24 w-full overflow-hidden rounded-3xl cursor-pointer transition-transform duration-300 active:scale-[0.98]"
                 onClick={onClick}
                 style={paper ? {
-                    background: 'rgba(224,221,215,0.40)',
-                    border: '1px solid rgba(91,72,51,0.07)',
-                    boxShadow: '0 5px 16px rgba(91,72,51,0.055)',
+                    background: 'rgba(221, 221, 221,0.40)',
+                    border: '1px solid rgba(75, 75, 75,0.07)',
+                    boxShadow: '0 5px 16px rgba(75, 75, 75,0.055)',
                 } : acnh ? {
-                    background: 'rgb(247,243,223)',
-                    border: '2px solid #e8e2d6',
-                    boxShadow: '0 8px 24px 0 rgba(61,52,40,0.14)',
+                    background: 'rgb(242, 242, 242)',
+                    border: '2px solid #e2e2e2',
+                    boxShadow: '0 8px 24px 0 rgba(53, 53, 53,0.14)',
                 } : {
-                    background: 'rgba(255,255,255,0.08)',
+                    background: 'rgba(255, 255, 255,0.08)',
                     backdropFilter: 'blur(24px) saturate(1.4)',
                     WebkitBackdropFilter: 'blur(24px) saturate(1.4)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255, 255, 255,0.12)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0,0.15), inset 0 1px 0 rgba(255, 255, 255,0.08)',
                 }}
              >
                  {/* 背景虚化角色头像（动森模式下省略，避免糊在奶油底上） */}
@@ -205,20 +205,20 @@ const CharacterWidget = React.memo(({
 
                  <div className="relative flex items-center p-3 gap-3 h-full">
                      {/* 头像 */}
-                     <div className={`w-[68px] h-[68px] shrink-0 rounded-2xl overflow-hidden relative ${paper ? 'bg-[#ded2c1]' : 'bg-slate-800'}`}
+                     <div className={`w-[68px] h-[68px] shrink-0 rounded-2xl overflow-hidden relative ${paper ? 'bg-[#d3d3d3]' : 'bg-slate-800'}`}
                          style={{
-                             border: paper ? '1px solid rgba(91,72,51,0.14)' : acnh ? '2px solid #e8e2d6' : '1.5px solid rgba(255,255,255,0.25)',
-                             boxShadow: paper ? '0 5px 14px rgba(91,72,51,0.13)' : acnh ? '0 4px 12px -4px rgba(61,52,40,0.25)' : '0 4px 14px rgba(0,0,0,0.25)',
+                             border: paper ? '1px solid rgba(75, 75, 75,0.14)' : acnh ? '2px solid #e2e2e2' : '1.5px solid rgba(255, 255, 255,0.25)',
+                             boxShadow: paper ? '0 5px 14px rgba(75, 75, 75,0.13)' : acnh ? '0 4px 12px -4px rgba(53, 53, 53,0.25)' : '0 4px 14px rgba(0, 0, 0,0.25)',
                          }}>
                          {char ? (
                              <TokenImg value={char.avatar} className="w-full h-full object-cover" alt="char" loading="lazy" />
                          ) : <div className="w-full h-full bg-white/10 animate-pulse" />}
                          {unreadCount > 0 ? (
-                            <div className="absolute bottom-0.5 right-0.5 min-w-[16px] h-[16px] px-1 bg-red-500 rounded-full border border-white/30 shadow-sm flex items-center justify-center text-[9px] font-bold text-white">
+                            <div className="absolute bottom-0.5 right-0.5 min-w-[16px] h-[16px] px-1 bg-neutral-500 rounded-full border border-white/30 shadow-sm flex items-center justify-center text-[9px] font-bold text-white">
                                 {unreadCount > 9 ? '9+' : unreadCount}
                             </div>
                          ) : (
-                            <div className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-white/60" style={{ background: paper ? '#788369' : '#4ade80', boxShadow: paper ? 'none' : '0 0 6px #4ade80' }}></div>
+                            <div className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-white/60" style={{ background: paper ? '#7f7f7f' : '#b8b8b8', boxShadow: paper ? 'none' : '0 0 6px #b8b8b8' }}></div>
                          )}
                      </div>
 
@@ -230,10 +230,10 @@ const CharacterWidget = React.memo(({
                              </h3>
                              {unreadCount > 0 ? (
                                  <div className="px-1.5 py-px rounded-full text-[8px] font-bold uppercase tracking-[0.15em]"
-                                     style={{ background: 'rgba(239,68,68,0.9)', color: 'white' }}>NEW</div>
+                                     style={{ background: 'rgba(104, 104, 104,0.9)', color: 'white' }}>NEW</div>
                              ) : (
                                  <div className="px-1.5 py-px rounded-full text-[8px] font-bold uppercase tracking-[0.15em]"
-                                     style={paper ? { background: 'rgba(120,131,105,0.16)', color: '#68725b' } : acnh ? { background: '#7cba4c', color: 'white' } : { background: 'rgba(255,255,255,0.18)' }}>Online</div>
+                                     style={paper ? { background: 'rgba(127, 127, 127,0.16)', color: '#6e6e6e' } : acnh ? { background: '#a5a5a5', color: 'white' } : { background: 'rgba(255, 255, 255,0.18)' }}>Online</div>
                              )}
                          </div>
                          <div className="text-xs font-medium leading-relaxed opacity-85 flex items-start gap-1.5">
@@ -310,19 +310,19 @@ const DesktopSquareImage = React.memo(({ image, contentColor, onClick, acnh = fa
             onClick={onClick}
             className="relative w-full h-full rounded-[1.75rem] overflow-hidden cursor-pointer animate-fade-in transition-transform active:scale-[0.98]"
             style={paper ? {
-                background: image ? 'rgba(224,221,215,0.26)' : 'rgba(224,221,215,0.38)',
-                border: '1px solid rgba(91,72,51,0.07)',
-                boxShadow: '0 5px 16px rgba(91,72,51,0.055)',
+                background: image ? 'rgba(221, 221, 221,0.26)' : 'rgba(221, 221, 221,0.38)',
+                border: '1px solid rgba(75, 75, 75,0.07)',
+                boxShadow: '0 5px 16px rgba(75, 75, 75,0.055)',
                 color: contentColor,
             } : acnh ? {
-                background: image ? 'rgb(247,243,223)' : 'rgb(247,243,223)',
-                border: '2px solid #e8e2d6',
-                boxShadow: '0 6px 18px rgba(61,52,40,0.12)',
+                background: image ? 'rgb(242, 242, 242)' : 'rgb(242, 242, 242)',
+                border: '2px solid #e2e2e2',
+                boxShadow: '0 6px 18px rgba(53, 53, 53,0.12)',
                 color: contentColor,
             } : {
-                background: image ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.28)',
-                border: '1px solid rgba(255,255,255,0.18)',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.07)',
+                background: image ? 'rgba(0, 0, 0,0.18)' : 'rgba(255, 255, 255,0.28)',
+                border: '1px solid rgba(255, 255, 255,0.18)',
+                boxShadow: '0 8px 30px rgba(0, 0, 0,0.22), inset 0 1px 0 rgba(255, 255, 255,0.07)',
                 color: contentColor,
             }}
         >
@@ -331,7 +331,7 @@ const DesktopSquareImage = React.memo(({ image, contentColor, onClick, acnh = fa
             ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center">
                     <div className="w-9 h-9 rounded-full flex items-center justify-center"
-                        style={{ background: paper ? 'rgba(120,131,105,0.10)' : 'rgba(255,255,255,0.1)', border: paper ? '1px solid rgba(91,72,51,0.12)' : '1px solid rgba(255,255,255,0.16)' }}>
+                        style={{ background: paper ? 'rgba(127, 127, 127,0.10)' : 'rgba(255, 255, 255,0.1)', border: paper ? '1px solid rgba(75, 75, 75,0.12)' : '1px solid rgba(255, 255, 255,0.16)' }}>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" className="w-4 h-4 opacity-70">
                             <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                         </svg>
@@ -357,8 +357,8 @@ const CALENDAR_WEEKDAYS = [
 // 4. Widget Page Component (Calendar + Events)
 const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characters, acnh = false, paper = false }: any) => {
     // 动森：奶油卡片样式（替代暗色玻璃）
-    const acCard = acnh ? { background: 'rgb(247,243,223)', border: '2px solid #e8e2d6', boxShadow: '0 6px 18px rgba(61,52,40,0.12)' } : undefined;
-    const acDot = acnh ? '#6fba2c' : undefined;
+    const acCard = acnh ? { background: 'rgb(242, 242, 242)', border: '2px solid #e2e2e2', boxShadow: '0 6px 18px rgba(53, 53, 53,0.12)' } : undefined;
+    const acDot = acnh ? '#a0a0a0' : undefined;
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
@@ -392,10 +392,10 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
 
     return (
         <div className="launcher-page w-full flex-shrink-0 snap-center snap-always flex flex-col px-6 pt-24 pb-8 space-y-6 h-full overflow-y-auto no-scrollbar">
-              <div className={`rounded-3xl p-6 ${acnh ? 'shadow-sm' : paper ? '' : 'bg-white/25 border border-white/25 shadow-xl'}`} style={paper ? { background: 'rgba(224,221,215,0.36)', border: '1px solid rgba(91,72,51,0.07)', boxShadow: '0 5px 16px rgba(91,72,51,0.05)' } : acCard}>
+              <div className={`rounded-3xl p-6 ${acnh ? 'shadow-sm' : paper ? '' : 'bg-white/25 border border-white/25 shadow-xl'}`} style={paper ? { background: 'rgba(221, 221, 221,0.36)', border: '1px solid rgba(75, 75, 75,0.07)', boxShadow: '0 5px 16px rgba(75, 75, 75,0.05)' } : acCard}>
                   <div className="flex justify-between items-center mb-4" style={{ color: contentColor }}>
                       <h3 className="text-xl font-bold tracking-widest">{monthName} {currentYear}</h3>
-                      <div onClick={() => openApp('schedule')} className={`p-2 rounded-full cursor-pointer transition-colors ${acnh ? 'bg-[#82D5BB]/30 hover:bg-[#82D5BB]/50' : paper ? 'bg-[#788369]/10 hover:bg-[#788369]/20' : 'bg-white/20 hover:bg-white/40'}`}>
+                      <div onClick={() => openApp('schedule')} className={`p-2 rounded-full cursor-pointer transition-colors ${acnh ? 'bg-[#c1c1c1]/30 hover:bg-[#c1c1c1]/50' : paper ? 'bg-[#7f7f7f]/10 hover:bg-[#7f7f7f]/20' : 'bg-white/20 hover:bg-white/40'}`}>
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                       </div>
                   </div>
@@ -415,28 +415,28 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
                               <div key={day} className="flex flex-col items-center justify-center h-8 relative">
                                   <div
                                     className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium ${isToday ? (acnh ? 'text-white font-bold' : paper ? 'text-white font-bold' : 'bg-white text-black font-bold shadow-lg') : 'opacity-80'}`}
-                                    style={isToday ? (acnh ? { background: '#19c8b9' } : paper ? { background: '#788369', boxShadow: '0 4px 10px rgba(91,72,51,0.14)' } : {}) : { color: contentColor }}
+                                    style={isToday ? (acnh ? { background: '#a2a2a2' } : paper ? { background: '#7f7f7f', boxShadow: '0 4px 10px rgba(75, 75, 75,0.14)' } : {}) : { color: contentColor }}
                                   >
                                       {day}
                                   </div>
-                                  {hasEvent && <div className="w-1.5 h-1.5 rounded-full absolute bottom-0 shadow-sm border border-black/10" style={{ background: acDot || (paper ? '#a66f52' : '#c084fc') }}></div>}
+                                  {hasEvent && <div className="w-1.5 h-1.5 rounded-full absolute bottom-0 shadow-sm border border-black/10" style={{ background: acDot || (paper ? '#797979' : '#999999') }}></div>}
                               </div>
                           );
                       })}
                   </div>
               </div>
 
-              <div className={`rounded-3xl p-5 flex flex-col flex-1 min-h-[200px] ${acnh ? 'shadow-sm' : paper ? '' : 'bg-white/25 border border-white/25 shadow-xl'}`} style={paper ? { background: 'rgba(224,221,215,0.36)', border: '1px solid rgba(91,72,51,0.07)', boxShadow: '0 5px 16px rgba(91,72,51,0.05)' } : acCard}>
+              <div className={`rounded-3xl p-5 flex flex-col flex-1 min-h-[200px] ${acnh ? 'shadow-sm' : paper ? '' : 'bg-white/25 border border-white/25 shadow-xl'}`} style={paper ? { background: 'rgba(221, 221, 221,0.36)', border: '1px solid rgba(75, 75, 75,0.07)', boxShadow: '0 5px 16px rgba(75, 75, 75,0.05)' } : acCard}>
                   <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xs font-bold opacity-60 uppercase tracking-widest flex items-center gap-2" style={{ color: contentColor }}>
-                          <span className="w-2 h-2 rounded-full" style={{ background: acDot || (paper ? '#a66f52' : '#c084fc') }}></span> Upcoming Events
+                          <span className="w-2 h-2 rounded-full" style={{ background: acDot || (paper ? '#797979' : '#999999') }}></span> Upcoming Events
                       </h3>
                       {eventPageCount > 1 && (
                           <div className="flex items-center gap-2 shrink-0" style={{ color: contentColor }}>
                               <button
                                   onClick={(e) => { e.stopPropagation(); setEventPage(p => Math.max(0, p - 1)); }}
                                   disabled={eventPage === 0}
-                                  className={`w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-25 transition-colors active:scale-90 ${paper ? 'bg-[#788369]/10 hover:bg-[#788369]/20' : 'bg-white/15 hover:bg-white/30'}`}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-25 transition-colors active:scale-90 ${paper ? 'bg-[#7f7f7f]/10 hover:bg-[#7f7f7f]/20' : 'bg-white/15 hover:bg-white/30'}`}
                                   aria-label="Previous events"
                               >
                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
@@ -445,7 +445,7 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
                               <button
                                   onClick={(e) => { e.stopPropagation(); setEventPage(p => Math.min(eventPageCount - 1, p + 1)); }}
                                   disabled={eventPage >= eventPageCount - 1}
-                                  className={`w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-25 transition-colors active:scale-90 ${paper ? 'bg-[#788369]/10 hover:bg-[#788369]/20' : 'bg-white/15 hover:bg-white/30'}`}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-25 transition-colors active:scale-90 ${paper ? 'bg-[#7f7f7f]/10 hover:bg-[#7f7f7f]/20' : 'bg-white/15 hover:bg-white/30'}`}
                                   aria-label="Next events"
                               >
                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
@@ -455,8 +455,8 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
                   </div>
                   <div className="space-y-3">
                       {upcomingEvents.length > 0 ? pagedEvents.map((anni: any) => (
-                          <div key={anni.id} className={`flex items-center gap-3 p-3 rounded-xl ${acnh ? 'bg-[#efe7d4] border border-[#e0d6c0]' : paper ? 'bg-[#f3ecdf]/70 border border-[#5b4833]/10' : 'bg-white/5 border border-white/10'}`}>
-                              <div className={`w-10 h-10 shrink-0 rounded-lg flex flex-col items-center justify-center ${acnh ? 'bg-[#82D5BB] text-white border border-[#6cc0a6]' : paper ? 'bg-[#a66f52]/12 text-[#8c5d46] border border-[#a66f52]/15' : 'bg-purple-500/20 text-purple-200 border border-purple-500/30'}`}>
+                          <div key={anni.id} className={`flex items-center gap-3 p-3 rounded-xl ${acnh ? 'bg-[#e7e7e7] border border-[#d7d7d7]' : paper ? 'bg-[#ededed]/70 border border-[#4b4b4b]/10' : 'bg-white/5 border border-white/10'}`}>
+                              <div className={`w-10 h-10 shrink-0 rounded-lg flex flex-col items-center justify-center ${acnh ? 'bg-[#c1c1c1] text-white border border-[#acacac]' : paper ? 'bg-[#797979]/12 text-[#656565] border border-[#797979]/15' : 'bg-neutral-500/20 text-neutral-200 border border-neutral-500/30'}`}>
                                   <span className="text-[9px] opacity-70">{anni.date.split('-')[1]}</span>
                                   <span className="text-sm font-bold leading-none">{anni.date.split('-')[2]}</span>
                               </div>
@@ -968,12 +968,12 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   }
 
   if (theme.skin === 'homely') {
-    return <React.Suspense fallback={<div className="h-full w-full bg-[#dce3d5]" role="status">正在回家…</div>}><HomelyHome /></React.Suspense>;
+    return <React.Suspense fallback={<div className="h-full w-full bg-[#e1e1e1]" role="status">正在回家…</div>}><HomelyHome /></React.Suspense>;
   }
 
   if (theme.skin === 'companion') {
     return (
-      <React.Suspense fallback={<div className="h-full w-full bg-[#100d1c]" />}>
+      <React.Suspense fallback={<div className="h-full w-full bg-[#0f0f0f]" />}>
         <CompanionHome />
       </React.Suspense>
     );
@@ -982,7 +982,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   return (
     <div
       className={`launcher-desktop h-full w-full flex flex-col relative z-10 overflow-hidden font-sans select-none ${layoutEditing ? 'launcher-editing' : ''}`}
-      style={{ background: 'radial-gradient(ellipse at 12% 0%, #ffffff 0%, transparent 52%), radial-gradient(ellipse at 95% 80%, #c7c9cd 0%, transparent 58%), linear-gradient(150deg, #f7f7f8 0%, #e7e8eb 48%, #d9dade 100%)', color: '#252525' }}
+      style={{ background: 'radial-gradient(ellipse at 12% 0%, #ffffff 0%, transparent 52%), radial-gradient(ellipse at 95% 80%, #c9c9c9 0%, transparent 58%), linear-gradient(150deg, #f7f7f7 0%, #e8e8e8 48%, #dadada 100%)', color: '#252525' }}
       onPointerDown={handleLayoutPointerDown}
       onPointerMove={handleLayoutPointerMove}
       onPointerUp={finishLayoutPointer}
@@ -1006,7 +1006,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
         .launcher-widget-remove {
           position: absolute; top: 0; right: 0; z-index: 30;
           min-width: 44px; min-height: 44px; border-radius: 999px;
-          background: #fffdf8; color: #a93232; box-shadow: 0 2px 8px #0003;
+          background: #fdfdfd; color: #4b4b4b; box-shadow: 0 2px 8px #0003;
           font-size: 12px; touch-action: manipulation;
         }
         @media (orientation: landscape) {
@@ -1029,13 +1029,13 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
         }
         .launcher-drag-ghost {
           opacity: .96;
-          filter: drop-shadow(0 12px 14px rgba(75,65,54,.18));
+          filter: drop-shadow(0 12px 14px rgba(66, 66, 66,.18));
           cursor: grabbing;
         }
         .launcher-drop-target {
           transform: scale(.93);
           opacity: .52;
-          outline: 1.5px dashed rgba(75,65,54,.36);
+          outline: 1.5px dashed rgba(66, 66, 66,.36);
           outline-offset: 5px;
           border-radius: 1.35rem;
         }
@@ -1043,7 +1043,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
 
       {layoutEditing && (
           <div className="absolute top-[calc(var(--safe-top)+0.65rem)] left-4 right-4 z-50 flex items-center justify-between rounded-full px-3 py-2"
-              style={{ background: 'rgba(75,65,54,0.88)', color: '#fffdf8', boxShadow: '0 8px 24px rgba(75,65,54,0.20)' }}>
+              style={{ background: 'rgba(66, 66, 66,0.88)', color: '#fdfdfd', boxShadow: '0 8px 24px rgba(66, 66, 66,0.20)' }}>
               <span className="text-[10px] font-semibold tracking-wide">按住拖动，松手交换位置</span>
               <button onClick={finishLayoutEditing} className="ml-3 px-3 py-1 rounded-full text-[10px] font-bold bg-white/15 active:scale-95">完成</button>
           </div>
@@ -1053,8 +1053,8 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
       {/* 动森模式跳过：这层冷蓝光斑会污染奶油底 */}
       {!acnh && (
       <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full" style={{ background: paper ? 'radial-gradient(circle, rgba(255,255,255,0.22) 0%, transparent 68%)' : 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)' }}></div>
-          <div className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full" style={{ background: paper ? 'radial-gradient(circle, rgba(123,104,78,0.06) 0%, transparent 68%)' : 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)' }}></div>
+          <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full" style={{ background: paper ? 'radial-gradient(circle, rgba(255, 255, 255,0.22) 0%, transparent 68%)' : 'radial-gradient(circle, rgba(255, 255, 255,0.05) 0%, transparent 70%)' }}></div>
+          <div className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full" style={{ background: paper ? 'radial-gradient(circle, rgba(106, 106, 106,0.06) 0%, transparent 68%)' : 'radial-gradient(circle, rgba(123, 123, 123,0.08) 0%, transparent 70%)' }}></div>
       </div>
       )}
 
@@ -1091,44 +1091,44 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                       <div className="w-full h-full min-h-0 flex flex-col items-center justify-start gap-[clamp(6px,1vh,11px)] text-[#292929] overflow-hidden pt-1 pb-0">
                           <div className="relative w-full max-w-[330px] shrink-0">
                               <button type="button" onClick={() => openApp(AppID.Appearance)}
-                                  className="w-full h-[clamp(56px,9vh,88px)] rounded-t-[25px] bg-gradient-to-b from-[#b9babd] to-[#e8e8e9] border border-white/70 overflow-hidden relative"
+                                  className="w-full h-[clamp(56px,9vh,88px)] rounded-t-[25px] bg-gradient-to-b from-[#bababa] to-[#e8e8e8] border border-white/70 overflow-hidden relative"
                                   aria-label="更换角色资料背景照片">
                                   {theme.launcherWidgets?.['wide']
                                       ? <TokenImg value={theme.launcherWidgets['wide']} className="w-full h-full object-cover grayscale" alt="角色资料背景照片" loading="lazy" />
-                                      : <span className="absolute inset-0 flex items-start justify-end p-3 text-[10px] text-[#666] tracking-wider">+ 添加封面照片</span>}
+                                      : <span className="absolute inset-0 flex items-start justify-end p-3 text-[10px] text-[#666666] tracking-wider">+ 添加封面照片</span>}
                               </button>
                               <button type="button" onClick={() => openApp(AppID.Chat)}
-                                  className="absolute top-[clamp(32px,5.5vh,57px)] left-1/2 -translate-x-1/2 w-[clamp(58px,8vh,76px)] h-[clamp(58px,8vh,76px)] rounded-full bg-[#eee] border-[4px] border-white shadow-[0_6px_18px_rgba(0,0,0,0.13)] overflow-hidden active:scale-95 transition-transform z-10"
+                                  className="absolute top-[clamp(32px,5.5vh,57px)] left-1/2 -translate-x-1/2 w-[clamp(58px,8vh,76px)] h-[clamp(58px,8vh,76px)] rounded-full bg-[#eeeeee] border-[4px] border-white shadow-[0_6px_18px_rgba(0, 0, 0,0.13)] overflow-hidden active:scale-95 transition-transform z-10"
                                   aria-label="打开角色聊天">
                                   {widgetChar?.avatar
                                       ? <TokenImg value={widgetChar.avatar} className="w-full h-full object-cover" alt={widgetChar.name} loading="lazy" />
                                       : <span className="flex items-center justify-center h-full text-3xl">♡</span>}
                               </button>
                               <button type="button" onClick={() => openApp(AppID.Chat)}
-                                  className="w-full rounded-b-[25px] bg-white/95 border border-white shadow-[0_9px_22px_rgba(0,0,0,0.06)] pt-[clamp(32px,5vh,44px)] pb-[clamp(8px,1.4vh,13px)] px-5 text-center active:opacity-80">
+                                  className="w-full rounded-b-[25px] bg-white/95 border border-white shadow-[0_9px_22px_rgba(0, 0, 0,0.06)] pt-[clamp(32px,5vh,44px)] pb-[clamp(8px,1.4vh,13px)] px-5 text-center active:opacity-80">
                                   <h2 className="text-[17px] font-semibold tracking-tight">{widgetChar?.name || 'MY CHAR'}</h2>
-                                  <p className="text-[10px] text-[#999] mt-1 tracking-wider">CHARACTER PROFILE</p>
-                                  <p className="text-[11px] text-[#555] mt-2 leading-relaxed line-clamp-2">{widgetChar?.description || lastMessage || '点击进入聊天'}</p>
+                                  <p className="text-[10px] text-[#999999] mt-1 tracking-wider">CHARACTER PROFILE</p>
+                                  <p className="text-[11px] text-[#555555] mt-2 leading-relaxed line-clamp-2">{widgetChar?.description || lastMessage || '点击进入聊天'}</p>
                                   {widgetUnread > 0 && <span className="inline-block mt-1 rounded-full bg-[#252525] px-2 py-0.5 text-[10px] text-white">{widgetUnread} 条未读</span>}
                               </button>
                           </div>
                           <button type="button" onClick={() => openApp(AppID.Appearance)}
-                              className="relative w-full max-w-[330px] h-[clamp(56px,8vh,72px)] shrink-0 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.07)] active:scale-[0.99] transition-transform p-[9px] overflow-hidden"
+                              className="relative w-full max-w-[330px] h-[clamp(56px,8vh,72px)] shrink-0 bg-white shadow-[0_4px_12px_rgba(0, 0, 0,0.07)] active:scale-[0.99] transition-transform p-[9px] overflow-hidden"
                               style={{ WebkitMaskImage: 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20440%20100%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20fill%3D%22black%22%20fill-rule%3D%22evenodd%22%20d%3D%22M0%200H440V100H0Z%20M-12%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M-12%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M48%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M48%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M130%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M130%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M214%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M214%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M298%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M298%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M380%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M380%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M428%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M428%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%22%2F%3E%3C%2Fsvg%3E', maskImage: 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20440%20100%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20fill%3D%22black%22%20fill-rule%3D%22evenodd%22%20d%3D%22M0%200H440V100H0Z%20M-12%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M-12%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M48%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M48%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M130%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M130%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M214%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M214%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M298%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M298%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M380%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M380%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M428%200%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%20M428%20100%20a12%2012%200%201%200%2024%200%20a12%2012%200%201%200%20-24%200Z%22%2F%3E%3C%2Fsvg%3E', WebkitMaskSize: '100% 100%', maskSize: '100% 100%' }}
                               aria-label="编辑首页照片胶片">
-                              <div className="w-full h-full flex items-stretch bg-[#f0f0f0] overflow-hidden border border-[#eee]">
+                              <div className="w-full h-full flex items-stretch bg-[#f0f0f0] overflow-hidden border border-[#eeeeee]">
                                   {(['tl','tr','wide','dsq'] as const).map((key, index) => (
-                                      <div key={key} className="flex-1 min-w-0 border-r-2 border-dashed border-white relative bg-[#e7e7e8] overflow-hidden">
+                                      <div key={key} className="flex-1 min-w-0 border-r-2 border-dashed border-white relative bg-[#e7e7e7] overflow-hidden">
                                           {(theme.launcherWidgets?.[`film${index + 1}`] || theme.launcherWidgets?.[key])
                                               ? <TokenImg value={theme.launcherWidgets[`film${index + 1}`] || theme.launcherWidgets[key]} className="w-full h-full object-cover grayscale" alt={`照片 ${index + 1}`} loading="lazy" />
-                                              : <div className="w-full h-full flex items-center justify-center text-[#aaa] text-xl font-light">+</div>}
+                                              : <div className="w-full h-full flex items-center justify-center text-[#aaaaaa] text-xl font-light">+</div>}
                                       </div>
                                   ))}
-                                  <div className="w-4 bg-white flex items-center justify-center"><span className="text-[9px] tracking-[-2px] text-[#555] rotate-90">||||||</span></div>
+                                  <div className="w-4 bg-white flex items-center justify-center"><span className="text-[9px] tracking-[-2px] text-[#555555] rotate-90">||||||</span></div>
                               </div>
                           </button>
                           <div className="w-full max-w-[300px] grid grid-cols-[1.04fr_1fr] gap-3 items-start shrink-0">
-                              <div className="min-w-0 aspect-square rounded-[23px] overflow-hidden bg-[#202020] shadow-[0_7px_18px_rgba(0,0,0,0.15)]">
+                              <div className="min-w-0 aspect-square rounded-[23px] overflow-hidden bg-[#202020] shadow-[0_7px_18px_rgba(0, 0, 0,0.15)]">
                                   <NowPlayingSquareWidget contentColor="#ffffff" monochrome />
                               </div>
                               <div className="grid grid-cols-2 gap-x-2 gap-y-1 py-0">
@@ -1142,30 +1142,30 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                   ) : idx === 1 ? (
                       // Page 2: Schedule 4x2 widget on top + Pinwheel (Music / 2x2 icons / 2x2 icons / Image) below
                       <div className="launcher-pinwheel-content w-full flex flex-col gap-[clamp(10px,2vh,20px)]">
-                          <div className="w-full rounded-[25px] bg-white/95 border border-white/80 shadow-[0_6px_20px_rgba(0,0,0,.05)] px-4 py-4 text-[#292929]">
+                          <div className="w-full rounded-[25px] bg-white/95 border border-white/80 shadow-[0_6px_20px_rgba(0, 0, 0,.05)] px-4 py-4 text-[#292929]">
                               <div className="flex justify-between items-center mb-3">
                                   <span className="text-[12px] font-semibold tracking-[.12em]">WEEKLY / 本周日程</span>
-                                  <span className="text-[10px] text-[#999]">点击今天查看角色日程</span>
+                                  <span className="text-[10px] text-[#999999]">点击今天查看角色日程</span>
                               </div>
                               <div className="grid grid-cols-7 gap-0 sm:gap-1">
                                   {weekDates.map(d => {
                                       const today = new Date();
                                       const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
                                       return <button key={d.key} type="button" onClick={() => { if (d.key === scheduleDateKey) { setScheduleViewerOpen(true); trackEvent('打开角色日程面板'); } }} disabled={d.key !== scheduleDateKey} className="flex flex-col items-center gap-2 py-1 disabled:cursor-default" aria-label={d.key === scheduleDateKey ? '查看今日角色日程' : `${d.key}`}>
-                                          <span className="text-[10px] text-[#999]">周{d.label}</span>
-                                          <span className={`w-[clamp(28px,8vw,36px)] h-[clamp(28px,8vw,36px)] rounded-full flex items-center justify-center text-[14px] ${d.key === todayKey ? 'bg-[#222] text-white font-semibold' : 'text-[#333] hover:bg-[#eee]'}`}>{d.day}</span>
+                                          <span className="text-[10px] text-[#999999]">周{d.label}</span>
+                                          <span className={`w-[clamp(28px,8vw,36px)] h-[clamp(28px,8vw,36px)] rounded-full flex items-center justify-center text-[14px] ${d.key === todayKey ? 'bg-[#222222] text-white font-semibold' : 'text-[#333333] hover:bg-[#eeeeee]'}`}>{d.day}</span>
                                       </button>;
                                   })}
                               </div>
                           </div>
                           {/* 黑白唱片与倾斜拍立得：刻意留白，不占满桌面 */}
                           <div className="relative mx-auto w-full max-w-[300px] h-[clamp(130px,21vh,180px)] mt-1 mb-2" aria-label="黑胶唱片与拍立得照片">
-                              <div className="absolute left-[9%] top-[8%] w-[46%] aspect-square rounded-full shadow-[0_7px_16px_rgba(0,0,0,.17)] border-[5px] border-[#222] bg-[repeating-radial-gradient(circle_at_center,#202020_0px,#202020_5px,#373737_6px,#161616_8px)] flex items-center justify-center">
-                                  <div className="w-[34%] aspect-square rounded-full bg-[#e6e6e6] border border-[#888] flex items-center justify-center"><span className="w-2 h-2 rounded-full bg-[#333]" /></div>
+                              <div className="absolute left-[9%] top-[8%] w-[46%] aspect-square rounded-full shadow-[0_7px_16px_rgba(0, 0, 0,.17)] border-[5px] border-[#222222] bg-[repeating-radial-gradient(circle_at_center,#202020_0px,#202020_5px,#373737_6px,#161616_8px)] flex items-center justify-center">
+                                  <div className="w-[34%] aspect-square rounded-full bg-[#e6e6e6] border border-[#888888] flex items-center justify-center"><span className="w-2 h-2 rounded-full bg-[#333333]" /></div>
                               </div>
-                              <button type="button" onClick={() => { if (!layoutEditing) openApp(AppID.Appearance); }} className="absolute right-[9%] top-[4%] w-[43%] aspect-[.86] bg-white p-[7px] pb-[20px] shadow-[0_7px_17px_rgba(0,0,0,.15)] rotate-[9deg] active:scale-95 transition-transform" aria-label="更换拍立得照片">
+                              <button type="button" onClick={() => { if (!layoutEditing) openApp(AppID.Appearance); }} className="absolute right-[9%] top-[4%] w-[43%] aspect-[.86] bg-white p-[7px] pb-[20px] shadow-[0_7px_17px_rgba(0, 0, 0,.15)] rotate-[9deg] active:scale-95 transition-transform" aria-label="更换拍立得照片">
                                   <div className="w-full h-full bg-[#e5e5e5] overflow-hidden flex items-center justify-center">
-                                      {theme.launcherWidgets?.['dsq'] ? <TokenImg value={theme.launcherWidgets['dsq']} className="w-full h-full object-cover grayscale" alt="拍立得照片" loading="lazy" /> : <span className="text-[#999] text-[11px] tracking-widest">ADD PHOTO</span>}
+                                      {theme.launcherWidgets?.['dsq'] ? <TokenImg value={theme.launcherWidgets['dsq']} className="w-full h-full object-cover grayscale" alt="拍立得照片" loading="lazy" /> : <span className="text-[#999999] text-[11px] tracking-widest">ADD PHOTO</span>}
                                   </div>
                               </button>
                           </div>
@@ -1221,7 +1221,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                                           transform: `translate(-50%, -50%) scale(${deco.scale}) rotate(${deco.rotation}deg)${deco.flip ? ' scaleX(-1)' : ''}`,
                                           opacity: deco.opacity,
                                           zIndex: deco.zIndex,
-                                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))',
+                                          filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0,0.15))',
                                         }}
                                       />
                                     ))}
@@ -1269,18 +1269,18 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
            style={{ paddingBottom: launcherBottomInset }}
       >
            <div
-             className={`rounded-[1.75rem] px-4 py-3 flex gap-3 sm:gap-6 items-center mx-auto max-w-full justify-between overflow-x-auto no-scrollbar transform-gpu ${acnh || paper ? '' : 'bg-white/30 border border-white/25 shadow-[0_8px_40px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]'}`}
+             className={`rounded-[1.75rem] px-4 py-3 flex gap-3 sm:gap-6 items-center mx-auto max-w-full justify-between overflow-x-auto no-scrollbar transform-gpu ${acnh || paper ? '' : 'bg-white/30 border border-white/25 shadow-[0_8px_40px_rgba(0, 0, 0,0.22),inset_0_1px_0_rgba(255, 255, 255,0.08)]'}`}
              style={acnh ? { background: 'transparent' } : paper ? {
-               background: 'rgba(255,255,255,0.75)',
-               border: '1px solid rgba(255,255,255,0.9)',
-               boxShadow: '0 8px 28px rgba(0,0,0,0.07)',
+               background: 'rgba(255, 255, 255,0.75)',
+               border: '1px solid rgba(255, 255, 255,0.9)',
+               boxShadow: '0 8px 28px rgba(0, 0, 0,0.07)',
              } : undefined}
            >
                {dockAppsConfig.map(app => (
                    <div key={app.id} data-launcher-item={app.id} data-launcher-kind="dock" className={`relative ${layoutEditing ? 'launcher-edit-item' : ''}`}>
                         <AppIcon app={app} onClick={() => { if (!layoutEditing) openApp(app.id); }} variant="dock" size="md" />
                         {app.id === 'chat' && totalUnread > 0 && (
-                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center border-2 border-white/20 shadow-sm font-bold pointer-events-none animate-pop-in">
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-neutral-500 rounded-full text-white text-[9px] flex items-center justify-center border-2 border-white/20 shadow-sm font-bold pointer-events-none animate-pop-in">
                                 {totalUnread > 9 ? '9+' : totalUnread}
                             </div>
                         )}

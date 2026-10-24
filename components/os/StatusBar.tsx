@@ -104,7 +104,7 @@ const StatusBar: React.FC = () => {
             <span>{batteryLevel}%</span>
             <div className="w-5 h-2.5 border border-current rounded-[3px] p-[1px] relative opacity-80 flex items-center">
               <div
-                  className={`h-full rounded-[1px] ${isCharging ? 'bg-green-400' : acnh ? 'bg-[#7cba4c]' : 'bg-current'}`}
+                  className={`h-full rounded-[1px] ${isCharging ? 'bg-neutral-400' : acnh ? 'bg-[#a5a5a5]' : 'bg-current'}`}
                   style={{ width: `${batteryLevel}%` }}
               ></div>
               {isCharging && (
@@ -124,7 +124,7 @@ const StatusBar: React.FC = () => {
       {hasError && (
           <button 
               onClick={() => setShowLogModal(true)} 
-              className="fixed left-1/2 -translate-x-1/2 z-[60] bg-red-500/90 text-white rounded-full px-4 py-1.5 text-[10px] font-bold shadow-lg animate-pulse flex items-center gap-1.5 backdrop-blur-md border border-white/20 pointer-events-auto"
+              className="fixed left-1/2 -translate-x-1/2 z-[60] bg-neutral-500/90 text-white rounded-full px-4 py-1.5 text-[10px] font-bold shadow-lg animate-pulse flex items-center gap-1.5 backdrop-blur-md border border-white/20 pointer-events-auto"
               style={{ top: 'calc(var(--chrome-top) + 1rem)' }}
           >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
@@ -141,18 +141,18 @@ const StatusBar: React.FC = () => {
           footer={
               <div className="flex gap-2 w-full">
                   <button onClick={() => { navigator.clipboard.writeText(JSON.stringify(systemLogs, null, 2)); }} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl text-slate-600">复制 JSON</button>
-                  <button onClick={clearLogs} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-200">清空日志</button>
+                  <button onClick={clearLogs} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-xl shadow-lg shadow-neutral-200">清空日志</button>
               </div>
           }
       >
           {hasIndexedDbBackingStoreError && (
-              <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+              <div className="mb-3 rounded-xl border border-neutral-300 bg-neutral-50 p-3 text-xs leading-relaxed text-neutral-900">
                   <div className="font-bold mb-1">检测到浏览器存储无法打开</div>
                   <div>请先不要清除浏览器数据、格式化或重置 SullyOS·糯米机。彻底关闭浏览器后重启设备，并确认仍从原来的网址进入；若恢复打开，请立即完整导出备份。此错误通常来自浏览器/WebView 的站点存储，而不是应用主动删除数据。</div>
               </div>
           )}
           {hasNetworkFailure && (
-              <details className="mb-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-900">
+              <details className="mb-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-xs leading-relaxed text-neutral-900">
                   <summary className="font-bold cursor-pointer select-none">网络连接失败？按这个顺序自查</summary>
                   <ol className="mt-2 list-decimal pl-4 space-y-1">
                       {NETWORK_SELF_CHECK_STEPS.map(step => <li key={step}>{step}</li>)}
@@ -168,7 +168,7 @@ const StatusBar: React.FC = () => {
                       <div key={log.id} className="border-b border-white/10 pb-2 mb-2 last:border-0 last:mb-0 last:pb-0">
                           <div className="flex justify-between items-start text-white/50 mb-1">
                               <span>[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                              <span className={`uppercase font-bold ${log.type === 'error' ? 'text-red-400' : 'text-orange-400'}`}>{log.type}</span>
+                              <span className={`uppercase font-bold ${log.type === 'error' ? 'text-neutral-400' : 'text-neutral-400'}`}>{log.type}</span>
                           </div>
                           <div className="text-white font-bold mb-1 break-words">{log.message}</div>
                           {log.detail && (

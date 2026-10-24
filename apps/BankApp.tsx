@@ -755,11 +755,11 @@ ${previousGuestbook}
     };
 
     return (
-        <div className="h-full w-full flex flex-col font-sans relative overflow-hidden" style={{ background: 'linear-gradient(180deg, #FDF6E3 0%, #FFF8E1 100%)' }}>
+        <div className="h-full w-full flex flex-col font-sans relative overflow-hidden" style={{ background: 'linear-gradient(180deg, #f6f6f6 0%, #f8f8f8 100%)' }}>
 
             {/* Premium Header */}
             <div className="pt-[calc(var(--safe-top)+1.5rem)] pb-3 px-4 sticky top-0 z-[50] shrink-0"
-                 style={{ background: 'linear-gradient(180deg, rgba(141, 110, 99, 0.95) 0%, rgba(109, 76, 65, 0.95) 100%)', backdropFilter: 'blur(10px)' }}>
+                 style={{ background: 'linear-gradient(180deg, rgba(116, 116, 116, 0.95) 0%, rgba(82, 82, 82, 0.95) 100%)', backdropFilter: 'blur(10px)' }}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <button
@@ -771,7 +771,7 @@ ${previousGuestbook}
                         <div className="flex flex-col">
                             <span className="font-bold text-[10px] text-white/60 uppercase tracking-widest">☕ Coffee Tycoon</span>
                             <div className="flex items-center gap-2">
-                                <span className="font-black text-lg text-[#FFE0B2] leading-none">{state.shop.actionPoints}</span>
+                                <span className="font-black text-lg text-[#e3e3e3] leading-none">{state.shop.actionPoints}</span>
                                 <span className="text-[10px] text-white/50 font-medium">AP</span>
                             </div>
                         </div>
@@ -786,8 +786,8 @@ ${previousGuestbook}
                         </button>
                         <button
                             onClick={() => { setShowAddTxModal(true); trackEvent('打开记一笔弹窗'); }}
-                            className="flex items-center gap-1.5 bg-gradient-to-r from-[#FF8A65] to-[#FF7043] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-lg hover:shadow-xl active:scale-95 transition-all"
-                            style={{ boxShadow: '0 4px 14px rgba(255, 112, 67, 0.4)' }}
+                            className="flex items-center gap-1.5 bg-gradient-to-r from-[#a0a0a0] to-[#8b8b8b] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-lg hover:shadow-xl active:scale-95 transition-all"
+                            style={{ boxShadow: '0 4px 14px rgba(139, 139, 139, 0.4)' }}
                         >
                             <span className="text-base">+</span>
                             <span>记账</span>
@@ -819,7 +819,7 @@ ${previousGuestbook}
                         onOpenGuestbook={() => { setShowGuestbook(true); trackEvent('打开店铺情报志'); }}
                     />
                     ) : (
-                        <div className="flex-1 flex items-center justify-center text-sm text-[#8A5A3D]">加载咖啡店中...</div>
+                        <div className="flex-1 flex items-center justify-center text-sm text-[#626262]">加载咖啡店中...</div>
                     )
                 )}
 
@@ -827,10 +827,10 @@ ${previousGuestbook}
                 {activeTab === 'manage' && (
                     <div className="flex-1 overflow-y-auto no-scrollbar p-4">
                         {/* Budget Config at Top */}
-                        <div className="bg-[#fdf6e3] p-4 rounded-xl border-2 border-[#d3cbb8] mb-4 flex justify-between items-center shadow-sm">
+                        <div className="bg-[#f6f6f6] p-4 rounded-xl border-2 border-[#cbcbcb] mb-4 flex justify-between items-center shadow-sm">
                             <div>
-                                <h3 className="text-sm font-bold text-[#586e75]">每日预算设定</h3>
-                                <p className="text-[10px] text-[#93a1a1]">省下的钱 = 明天的 AP</p>
+                                <h3 className="text-sm font-bold text-[#6a6a6a]">每日预算设定</h3>
+                                <p className="text-[10px] text-[#9e9e9e]">省下的钱 = 明天的 AP</p>
                             </div>
                             <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
                                 <span className="text-xs text-slate-400">{state.config.currencySymbol}</span>
@@ -842,7 +842,7 @@ ${previousGuestbook}
                                         if (value === '') return;
                                         handleConfigUpdate({ dailyBudget: Number(value) });
                                     }}
-                                    className="w-16 text-right bg-transparent border-none text-lg font-bold text-[#b58900] outline-none p-0"
+                                    className="w-16 text-right bg-transparent border-none text-lg font-bold text-[#888888] outline-none p-0"
                                 />
                             </div>
                         </div>
@@ -886,10 +886,10 @@ ${previousGuestbook}
 
             {/* Premium Guestbook Overlay */}
             {showGuestbook && (
-                <div className="absolute inset-0 z-[100] flex flex-col animate-slide-up" style={{ background: 'linear-gradient(180deg, #FDF6E3 0%, #FFF8E1 100%)' }}>
+                <div className="absolute inset-0 z-[100] flex flex-col animate-slide-up" style={{ background: 'linear-gradient(180deg, #f6f6f6 0%, #f8f8f8 100%)' }}>
                     {/* Header */}
                     <div className="pt-[calc(var(--safe-top)+0.75rem)] pb-3 px-4 shrink-0"
-                         style={{ background: 'linear-gradient(180deg, rgba(141, 110, 99, 0.95) 0%, rgba(109, 76, 65, 0.95) 100%)', backdropFilter: 'blur(10px)' }}>
+                         style={{ background: 'linear-gradient(180deg, rgba(116, 116, 116, 0.95) 0%, rgba(82, 82, 82, 0.95) 100%)', backdropFilter: 'blur(10px)' }}>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
@@ -913,14 +913,14 @@ ${previousGuestbook}
                     <div className="flex-1 overflow-y-auto p-4 space-y-5">
 
                         {/* Refresh Action Card */}
-                        <div className="bg-white p-5 rounded-2xl shadow-md border border-[#E8DCC8] flex items-center justify-between">
+                        <div className="bg-white p-5 rounded-2xl shadow-md border border-[#dddddd] flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-gradient-to-br from-[#FFE0B2] to-[#FFCC80] rounded-xl flex items-center justify-center text-2xl shadow-inner">
+                                <div className="w-12 h-12 bg-gradient-to-br from-[#e3e3e3] to-[#d1d1d1] rounded-xl flex items-center justify-center text-2xl shadow-inner">
                                     👂
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-[#5D4037] text-sm">打听消息</h3>
-                                    <p className="text-[10px] text-[#A1887F] mt-0.5">消耗 AP 让大家聊聊八卦</p>
+                                    <h3 className="font-bold text-[#464646] text-sm">打听消息</h3>
+                                    <p className="text-[10px] text-[#8d8d8d] mt-0.5">消耗 AP 让大家聊聊八卦</p>
                                 </div>
                             </div>
                             <button
@@ -928,8 +928,8 @@ ${previousGuestbook}
                                 disabled={isRefreshingGuestbook}
                                 className={`px-5 py-3 rounded-xl font-bold text-xs shadow-lg transition-all ${
                                     isRefreshingGuestbook
-                                        ? 'bg-[#EFEBE9] text-[#BCAAA4]'
-                                        : 'bg-gradient-to-r from-[#42A5F5] to-[#1E88E5] text-white hover:shadow-xl active:scale-95'
+                                        ? 'bg-[#ececec] text-[#adadad]'
+                                        : 'bg-gradient-to-r from-[#969696] to-[#787878] text-white hover:shadow-xl active:scale-95'
                                 }`}
                             >
                                 {isRefreshingGuestbook ? (
@@ -944,8 +944,8 @@ ${previousGuestbook}
                         {(!state.shop.guestbook || state.shop.guestbook.length === 0) ? (
                             <div className="text-center py-20">
                                 <div className="text-7xl mb-4 opacity-40">🍃</div>
-                                <p className="text-sm font-bold text-[#BCAAA4]">风中什么声音都没有...</p>
-                                <p className="text-xs text-[#D7CCC8] mt-1">点击上方按钮开始打听</p>
+                                <p className="text-sm font-bold text-[#adadad]">风中什么声音都没有...</p>
+                                <p className="text-xs text-[#cecece] mt-1">点击上方按钮开始打听</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -954,26 +954,26 @@ ${previousGuestbook}
                                         key={msg.id}
                                         className={`relative p-4 rounded-2xl group animate-fade-in transition-all hover:shadow-md ${
                                             msg.isChar
-                                                ? 'bg-white border-l-4 border-l-[#FF7043] shadow-md'
-                                                : 'bg-[#FDF6E3] border border-[#E8DCC8]'
+                                                ? 'bg-white border-l-4 border-l-[#8b8b8b] shadow-md'
+                                                : 'bg-[#f6f6f6] border border-[#dddddd]'
                                         }`}
                                     >
                                         <div className="flex justify-between items-start mb-2">
                                             <div className="flex items-center gap-2">
                                                 {msg.isChar && (
-                                                    <span className="w-5 h-5 bg-gradient-to-br from-[#FF8A65] to-[#FF7043] rounded-full flex items-center justify-center text-[10px] text-white">⭐</span>
+                                                    <span className="w-5 h-5 bg-gradient-to-br from-[#a0a0a0] to-[#8b8b8b] rounded-full flex items-center justify-center text-[10px] text-white">⭐</span>
                                                 )}
-                                                <span className={`font-bold text-sm ${msg.isChar ? 'text-[#E64A19]' : 'text-[#8D6E63]'}`}>
+                                                <span className={`font-bold text-sm ${msg.isChar ? 'text-[#686868]' : 'text-[#747474]'}`}>
                                                     {msg.authorName}
                                                 </span>
-                                                <span className="text-[9px] text-[#BCAAA4] bg-[#EFEBE9] px-2 py-0.5 rounded-full">
+                                                <span className="text-[9px] text-[#adadad] bg-[#ececec] px-2 py-0.5 rounded-full">
                                                     {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <button
                                                     onClick={() => handleDeleteGuestbookEntry(msg.id)}
-                                                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-[#E53935] text-xs font-bold px-1.5 py-0.5 rounded-lg hover:bg-[#FFEBEE]"
+                                                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-[#5d5d5d] text-xs font-bold px-1.5 py-0.5 rounded-lg hover:bg-[#efefef]"
                                                     title="删除留言"
                                                 >
                                                     ×
@@ -983,19 +983,19 @@ ${previousGuestbook}
                                                 </div>
                                             </div>
                                         </div>
-                                        <p className="text-sm text-[#5D4037] leading-relaxed whitespace-pre-wrap">
+                                        <p className="text-sm text-[#464646] leading-relaxed whitespace-pre-wrap">
                                             {msg.content}
                                         </p>
                                         {msg.isChar && (
                                             <div className="mt-3">
-                                                <span className="text-[9px] text-white bg-gradient-to-r from-[#FF8A65] to-[#FF7043] px-3 py-1 rounded-full font-bold shadow-sm">
+                                                <span className="text-[9px] text-white bg-gradient-to-r from-[#a0a0a0] to-[#8b8b8b] px-3 py-1 rounded-full font-bold shadow-sm">
                                                     ⭐ 重要人物
                                                 </span>
                                             </div>
                                         )}
                                     </div>
                                 ))}
-                                <div className="text-center py-6 text-[10px] text-[#BCAAA4]">
+                                <div className="text-center py-6 text-[10px] text-[#adadad]">
                                     ——— 已经到底了 ———
                                 </div>
                             </div>
@@ -1005,28 +1005,28 @@ ${previousGuestbook}
             )}
 
             {/* Premium Bottom Nav */}
-            <div className="shrink-0 z-30 pb-safe px-4 py-2" style={{ background: 'linear-gradient(180deg, rgba(255,248,225,0.95) 0%, rgba(253,246,227,0.98) 100%)', backdropFilter: 'blur(10px)' }}>
-                <div className="flex items-center justify-around bg-white/80 backdrop-blur-sm rounded-2xl p-1.5 shadow-lg border border-[#E8DCC8]">
+            <div className="shrink-0 z-30 pb-safe px-4 py-2" style={{ background: 'linear-gradient(180deg, rgba(248, 248, 248,0.95) 0%, rgba(246, 246, 246,0.98) 100%)', backdropFilter: 'blur(10px)' }}>
+                <div className="flex items-center justify-around bg-white/80 backdrop-blur-sm rounded-2xl p-1.5 shadow-lg border border-[#dddddd]">
                     {[
-                        { key: 'game', label: '店铺', color: '#8D6E63' },
-                        { key: 'manage', label: '经营', color: '#FF7043' },
-                        { key: 'report', label: '账本', color: '#66BB6A' }
+                        { key: 'game', label: '店铺', color: '#747474' },
+                        { key: 'manage', label: '经营', color: '#8b8b8b' },
+                        { key: 'report', label: '账本', color: '#a3a3a3' }
                     ].map(tab => (
                         <button
                             key={tab.key}
                             onClick={() => { setActiveTab(tab.key as any); trackEvent('切换记账 App 底部标签', { tab: tab.key }); }}
                             className={`flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl transition-all duration-300 ${
                                 activeTab === tab.key
-                                    ? 'bg-gradient-to-br from-[#8D6E63] to-[#6D4C41] shadow-lg scale-105'
-                                    : 'hover:bg-[#FDF6E3]'
+                                    ? 'bg-gradient-to-br from-[#747474] to-[#525252] shadow-lg scale-105'
+                                    : 'hover:bg-[#f6f6f6]'
                             }`}
                         >
                             <span className={`text-xl mb-0.5 ${activeTab === tab.key ? 'transform scale-110' : ''}`}>{tab.key === 'game' ? <Storefront size={20} weight="bold" /> : tab.key === 'manage' ? <ClipboardText size={20} weight="bold" /> : <ChartBar size={20} weight="bold" />}</span>
-                            <span className={`text-[10px] font-bold tracking-wide ${activeTab === tab.key ? 'text-white' : 'text-[#A1887F]'}`}>
+                            <span className={`text-[10px] font-bold tracking-wide ${activeTab === tab.key ? 'text-white' : 'text-[#8d8d8d]'}`}>
                                 {tab.label}
                             </span>
                             {activeTab === tab.key && (
-                                <div className="absolute -bottom-1 w-1 h-1 bg-[#FFE0B2] rounded-full"></div>
+                                <div className="absolute -bottom-1 w-1 h-1 bg-[#e3e3e3] rounded-full"></div>
                             )}
                         </button>
                     ))}
@@ -1035,30 +1035,30 @@ ${previousGuestbook}
 
             {/* Premium Modals */}
             <Modal isOpen={showAddTxModal} title="记一笔" onClose={() => setShowAddTxModal(false)} footer={
-                <button onClick={handleAddTransaction} className="w-full py-4 bg-gradient-to-r from-[#FF8A65] to-[#FF7043] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all text-base">
+                <button onClick={handleAddTransaction} className="w-full py-4 bg-gradient-to-r from-[#a0a0a0] to-[#8b8b8b] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all text-base">
                     确认入账
                 </button>
             }>
                 <div className="space-y-5">
                     <div>
-                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">金额</label>
+                        <label className="text-xs font-bold text-[#8d8d8d] uppercase tracking-wider mb-2 block">金额</label>
                         <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A1887F] text-lg font-bold">{state.config.currencySymbol}</span>
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8d8d8d] text-lg font-bold">{state.config.currencySymbol}</span>
                             <input
                                 type="number"
                                 value={txAmount}
                                 onChange={e => setTxAmount(e.target.value)}
-                                className="w-full bg-[#FDF6E3] border-2 border-[#E8DCC8] rounded-2xl pl-10 pr-4 py-4 text-2xl font-black text-[#5D4037] focus:border-[#FF7043] outline-none transition-colors"
+                                className="w-full bg-[#f6f6f6] border-2 border-[#dddddd] rounded-2xl pl-10 pr-4 py-4 text-2xl font-black text-[#464646] focus:border-[#8b8b8b] outline-none transition-colors"
                                 placeholder="0.00"
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">备注</label>
+                        <label className="text-xs font-bold text-[#8d8d8d] uppercase tracking-wider mb-2 block">备注</label>
                         <input
                             value={txNote}
                             onChange={e => setTxNote(e.target.value)}
-                            className="w-full bg-[#FDF6E3] border-2 border-[#E8DCC8] rounded-2xl px-4 py-4 text-base font-medium text-[#5D4037] focus:border-[#FF7043] outline-none transition-colors"
+                            className="w-full bg-[#f6f6f6] border-2 border-[#dddddd] rounded-2xl px-4 py-4 text-base font-medium text-[#464646] focus:border-[#8b8b8b] outline-none transition-colors"
                             placeholder="买什么了？"
                         />
                     </div>
@@ -1066,30 +1066,30 @@ ${previousGuestbook}
             </Modal>
 
             <Modal isOpen={showGoalModal} title="新目标" onClose={() => setShowGoalModal(false)} footer={
-                <button onClick={handleAddGoal} className="w-full py-4 bg-gradient-to-r from-[#66BB6A] to-[#43A047] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all text-base">
+                <button onClick={handleAddGoal} className="w-full py-4 bg-gradient-to-r from-[#a3a3a3] to-[#868686] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all text-base">
                     添加目标
                 </button>
             }>
                 <div className="space-y-5">
                     <div>
-                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">目标名称</label>
+                        <label className="text-xs font-bold text-[#8d8d8d] uppercase tracking-wider mb-2 block">目标名称</label>
                         <input
                             value={goalName}
                             onChange={e => setGoalName(e.target.value)}
                             placeholder="例如: Nintendo Switch"
-                            className="w-full bg-[#FDF6E3] border-2 border-[#E8DCC8] rounded-2xl px-4 py-4 text-base font-medium text-[#5D4037] focus:border-[#66BB6A] outline-none transition-colors"
+                            className="w-full bg-[#f6f6f6] border-2 border-[#dddddd] rounded-2xl px-4 py-4 text-base font-medium text-[#464646] focus:border-[#a3a3a3] outline-none transition-colors"
                         />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">目标金额</label>
+                        <label className="text-xs font-bold text-[#8d8d8d] uppercase tracking-wider mb-2 block">目标金额</label>
                         <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A1887F] text-lg font-bold">{state.config.currencySymbol}</span>
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8d8d8d] text-lg font-bold">{state.config.currencySymbol}</span>
                             <input
                                 type="number"
                                 value={goalTarget}
                                 onChange={e => setGoalTarget(e.target.value)}
                                 placeholder="2000"
-                                className="w-full bg-[#FDF6E3] border-2 border-[#E8DCC8] rounded-2xl pl-10 pr-4 py-4 text-2xl font-black text-[#5D4037] focus:border-[#66BB6A] outline-none transition-colors"
+                                className="w-full bg-[#f6f6f6] border-2 border-[#dddddd] rounded-2xl pl-10 pr-4 py-4 text-2xl font-black text-[#464646] focus:border-[#a3a3a3] outline-none transition-colors"
                             />
                         </div>
                     </div>
@@ -1098,7 +1098,7 @@ ${previousGuestbook}
 
             {/* Staff Edit Modal */}
             <Modal isOpen={showStaffEdit} title="员工档案" onClose={() => { setShowStaffEdit(false); setEditingStaff(null); }} footer={
-                <button onClick={handleSaveStaff} className="w-full py-4 bg-gradient-to-r from-[#42A5F5] to-[#1E88E5] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all text-base">
+                <button onClick={handleSaveStaff} className="w-full py-4 bg-gradient-to-r from-[#969696] to-[#787878] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all text-base">
                     保存修改
                 </button>
             }>
@@ -1106,7 +1106,7 @@ ${previousGuestbook}
                     <div className="space-y-5">
                         <div className="flex items-center gap-4">
                             <div
-                                className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#FFF8E1] to-[#FFE0B2] border-2 border-[#E8DCC8] flex items-center justify-center text-5xl relative overflow-hidden group cursor-pointer shadow-inner"
+                                className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#f8f8f8] to-[#e3e3e3] border-2 border-[#dddddd] flex items-center justify-center text-5xl relative overflow-hidden group cursor-pointer shadow-inner"
                                 onClick={() => staffImageInputRef.current?.click()}
                             >
                                 {/* 店员头像可能是图床直链 / base64 / blobref 令牌，三种都算图；其余当 emoji 显示。 */}
@@ -1123,20 +1123,20 @@ ${previousGuestbook}
                                 <input
                                     value={editingStaff.name}
                                     onChange={e => setEditingStaff({...editingStaff, name: e.target.value})}
-                                    className="w-full font-bold text-xl bg-transparent border-b-2 border-[#E8DCC8] focus:border-[#42A5F5] outline-none text-[#5D4037] pb-1"
+                                    className="w-full font-bold text-xl bg-transparent border-b-2 border-[#dddddd] focus:border-[#969696] outline-none text-[#464646] pb-1"
                                     placeholder="姓名"
                                 />
-                                <div className="inline-flex items-center gap-1.5 text-xs text-white bg-gradient-to-r from-[#8D6E63] to-[#6D4C41] px-3 py-1 rounded-full font-bold">
+                                <div className="inline-flex items-center gap-1.5 text-xs text-white bg-gradient-to-r from-[#747474] to-[#525252] px-3 py-1 rounded-full font-bold">
                                     {editingStaff.role === 'manager' ? '经理' : editingStaff.role === 'chef' ? '主厨' : '服务员'}
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">性格 / 备注</label>
+                            <label className="text-xs font-bold text-[#8d8d8d] uppercase tracking-wider mb-2 block">性格 / 备注</label>
                             <input
                                 value={editingStaff.personality || ''}
                                 onChange={e => setEditingStaff({...editingStaff, personality: e.target.value})}
-                                className="w-full bg-[#FDF6E3] border-2 border-[#E8DCC8] rounded-2xl px-4 py-3 text-sm text-[#5D4037] focus:border-[#42A5F5] outline-none transition-colors"
+                                className="w-full bg-[#f6f6f6] border-2 border-[#dddddd] rounded-2xl px-4 py-3 text-sm text-[#464646] focus:border-[#969696] outline-none transition-colors"
                                 placeholder="懒洋洋的，喜欢晒太阳"
                             />
                         </div>
@@ -1146,26 +1146,26 @@ ${previousGuestbook}
 
             {/* Help/Tutorial Modal */}
             <Modal isOpen={showTutorial} title="玩法说明" onClose={() => setShowTutorial(false)}>
-                <div className="space-y-5 text-[#5D4037]">
-                    <div className="flex gap-4 p-4 bg-gradient-to-r from-[#FFF8E1] to-[#FFF3E0] rounded-2xl">
-                        <div className="w-12 h-12 bg-gradient-to-br from-[#FFD54F] to-[#FFB300] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Coin size={24} weight="fill" className="text-white" /></div>
+                <div className="space-y-5 text-[#464646]">
+                    <div className="flex gap-4 p-4 bg-gradient-to-r from-[#f8f8f8] to-[#f4f4f4] rounded-2xl">
+                        <div className="w-12 h-12 bg-gradient-to-br from-[#d4d4d4] to-[#b6b6b6] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Coin size={24} weight="fill" className="text-white" /></div>
                         <div>
                             <div className="font-bold text-base mb-1">省钱 = 能量 (AP)</div>
-                            <p className="text-xs text-[#8D6E63] leading-relaxed">设定每日预算。如果这天花得比预算少，结余的钱就会变成第二天的行动点数 (AP)。</p>
+                            <p className="text-xs text-[#747474] leading-relaxed">设定每日预算。如果这天花得比预算少，结余的钱就会变成第二天的行动点数 (AP)。</p>
                         </div>
                     </div>
-                    <div className="flex gap-4 p-4 bg-gradient-to-r from-[#EFEBE9] to-[#D7CCC8] rounded-2xl">
-                        <div className="w-12 h-12 bg-gradient-to-br from-[#8D6E63] to-[#6D4C41] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Coffee size={24} weight="fill" className="text-white" /></div>
+                    <div className="flex gap-4 p-4 bg-gradient-to-r from-[#ececec] to-[#cecece] rounded-2xl">
+                        <div className="w-12 h-12 bg-gradient-to-br from-[#747474] to-[#525252] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Coffee size={24} weight="fill" className="text-white" /></div>
                         <div>
                             <div className="font-bold text-base mb-1">经营店铺</div>
-                            <p className="text-xs text-[#8D6E63] leading-relaxed">消耗 AP 来解锁食谱、雇佣员工、举办活动。店铺越高级，吸引的访客越多。</p>
+                            <p className="text-xs text-[#747474] leading-relaxed">消耗 AP 来解锁食谱、雇佣员工、举办活动。店铺越高级，吸引的访客越多。</p>
                         </div>
                     </div>
-                    <div className="flex gap-4 p-4 bg-gradient-to-r from-[#E3F2FD] to-[#BBDEFB] rounded-2xl">
-                        <div className="w-12 h-12 bg-gradient-to-br from-[#42A5F5] to-[#1E88E5] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Lightning size={24} weight="fill" className="text-white" /></div>
+                    <div className="flex gap-4 p-4 bg-gradient-to-r from-[#f0f0f0] to-[#d9d9d9] rounded-2xl">
+                        <div className="w-12 h-12 bg-gradient-to-br from-[#969696] to-[#787878] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Lightning size={24} weight="fill" className="text-white" /></div>
                         <div>
                             <div className="font-bold text-base mb-1">互动操作</div>
-                            <p className="text-xs text-[#5C6BC0] leading-relaxed">
+                            <p className="text-xs text-[#6e6e6e] leading-relaxed">
                                 • 点击情报志可查看和刷新八卦<br/>
                                 • 点击地板可以让店长走过去<br/>
                                 • 点击🛎️按钮邀请角色进店

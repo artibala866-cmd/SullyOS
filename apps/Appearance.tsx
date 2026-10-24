@@ -129,13 +129,13 @@ const CATEGORY_LABELS: Record<string, { code: string; label: string }> = {
 
 
 // --- 桌面整机风格（皮肤）---
-// 动森壁纸：NookPhone 同款奶油底（#F8F4E8），底部极淡草色透气。纯 CSS 渐变，让彩色图标平铺更跳。
-const ACNH_WALLPAPER = 'linear-gradient(180deg, #F8F4E8 0%, #F3EFDD 58%, #E6EECE 100%)';
+// 动森壁纸：NookPhone 同款奶油底（#f4f4f4），底部极淡草色透气。纯 CSS 渐变，让彩色图标平铺更跳。
+const ACNH_WALLPAPER = 'linear-gradient(180deg, #f4f4f4 0%, #efefef 58%, #eaeaea 100%)';
 // 手游主题壁纸：近白底 + 极淡薰衣草/粉光晕（照搬原创参考图，整体偏白不发紫）。
-const MOBILEGAME_WALLPAPER = 'radial-gradient(95% 55% at 85% 0%, #fdeef7 0%, transparent 50%), radial-gradient(85% 55% at 6% 10%, #f6f2fc 0%, transparent 55%), linear-gradient(180deg, #fdfbff 0%, #f9f6fd 55%, #f4f0fa 100%)';
+const MOBILEGAME_WALLPAPER = 'radial-gradient(95% 55% at 85% 0%, #f2f2f2 0%, transparent 50%), radial-gradient(85% 55% at 6% 10%, #f4f4f4 0%, transparent 55%), linear-gradient(180deg, #fcfcfc 0%, #f7f7f7 55%, #f2f2f2 100%)';
 // 电子宠物主题壁纸：薰衣草奶油（照抄参考稿——柔紫底衬奶油卡片与紫描边）。
-const TAMAGOTCHI_WALLPAPER = 'radial-gradient(85% 50% at 80% 0%, #e6dcf8 0%, transparent 55%), radial-gradient(75% 45% at 12% 10%, #f4edfb 0%, transparent 55%), linear-gradient(180deg, #ded4f4 0%, #d6cbf0 55%, #cfc3ec 100%)';
-const COMPANION_WALLPAPER = 'radial-gradient(90% 65% at 50% 5%, #6c5a91 0%, transparent 62%), radial-gradient(75% 55% at 100% 50%, #382e5b 0%, transparent 72%), linear-gradient(180deg, #211a36 0%, #100d1c 62%, #080711 100%)';
+const TAMAGOTCHI_WALLPAPER = 'radial-gradient(85% 50% at 80% 0%, #e0e0e0 0%, transparent 55%), radial-gradient(75% 45% at 12% 10%, #efefef 0%, transparent 55%), linear-gradient(180deg, #d8d8d8 0%, #d0d0d0 55%, #c9c9c9 100%)';
+const COMPANION_WALLPAPER = 'radial-gradient(90% 65% at 50% 5%, #626262 0%, transparent 62%), radial-gradient(75% 55% at 100% 50%, #333333 0%, transparent 72%), linear-gradient(180deg, #1e1e1e 0%, #0f0f0f 62%, #080808 100%)';
 
 type DesktopSkinOption = { id: string; name: string; desc: string; swatch: string; config: Partial<OSTheme> };
 
@@ -144,19 +144,19 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
     id: 'homely',
     name: '居家',
     desc: '小屋日常同步 · 面对面聊天 · 家园小手机',
-    swatch: 'linear-gradient(90deg,#ebc2a1 0%,#f4dfcc 48%,#faf3e7 48%,#fffaf2 100%)',
-    config: { skin: 'homely', wallpaper: 'linear-gradient(180deg,#faf3e7,#ebc2a1)', contentColor: '#695344' },
+    swatch: 'linear-gradient(90deg,#c8c8c8 0%,#e2e2e2 48%,#f4f4f4 48%,#fafafa 100%)',
+    config: { skin: 'homely', wallpaper: 'linear-gradient(180deg,#f4f4f4,#c8c8c8)', contentColor: '#575757' },
   },
   {
     id: 'animalcrossing',
     name: '动森风格',
     desc: 'NookPhone 彩色图标 · 草地天空 · 暖色界面',
-    swatch: 'linear-gradient(135deg,#BCE7F5 0%,#BBE38F 55%,#7CBA4C 100%)',
+    swatch: 'linear-gradient(135deg,#dfdfdf 0%,#d4d4d4 55%,#a5a5a5 100%)',
     config: {
       skin: 'animalcrossing',
       desktopVariant: 'paper',
       hue: 95, saturation: 48, lightness: 56,
-      contentColor: '#725d42',
+      contentColor: '#606060',
       wallpaper: ACNH_WALLPAPER,
       chatAvatarShape: 'rounded', chatAvatarSize: 'medium',
       chatBubbleStyle: 'modern', chatMessageSpacing: 'spacious',
@@ -169,12 +169,12 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
     id: 'mobilegame',
     name: '手游风格',
     desc: '梦幻粉紫二次元手游首页 · 星芒满屏 · 圆润可爱',
-    swatch: 'linear-gradient(135deg,#f7d9ec 0%,#d9d4f5 55%,#a8b8e8 100%)',
+    swatch: 'linear-gradient(135deg,#e1e1e1 0%,#d7d7d7 55%,#b8b8b8 100%)',
     config: {
       skin: 'mobilegame',
       desktopVariant: 'paper',
       hue: 270, saturation: 45, lightness: 70,
-      contentColor: '#6b5b95',
+      contentColor: '#636363',
       wallpaper: MOBILEGAME_WALLPAPER,
       chatAvatarShape: 'circle', chatAvatarSize: 'medium',
       chatBubbleStyle: 'modern', chatMessageSpacing: 'default',
@@ -187,12 +187,12 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
     id: 'tamagotchi',
     name: '电子宠物 · 小小窝',
     desc: '桌面就是一台养成机 · 角色住在自己的小屋里 · 薰衣草奶油',
-    swatch: 'linear-gradient(135deg,#ded4f4 0%,#fdf9f2 52%,#f2a7bb 100%)',
+    swatch: 'linear-gradient(135deg,#d8d8d8 0%,#f9f9f9 52%,#b8b8b8 100%)',
     config: {
       skin: 'tamagotchi',
       desktopVariant: 'paper',
       hue: 258, saturation: 42, lightness: 66,
-      contentColor: '#7a6cb8',
+      contentColor: '#747474',
       wallpaper: TAMAGOTCHI_WALLPAPER,
       chatAvatarShape: 'rounded', chatAvatarSize: 'medium',
       chatBubbleStyle: 'modern', chatMessageSpacing: 'default',
@@ -205,11 +205,11 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
     id: 'companion',
     name: '触感陪伴',
     desc: '角色占据桌面 · 一次生成反馈包 · 轻触后本地轮播演出',
-    swatch: 'radial-gradient(circle at 50% 25%,#a993d3 0%,#51436f 42%,#171222 100%)',
+    swatch: 'radial-gradient(circle at 50% 25%,#9c9c9c 0%,#494949 42%,#141414 100%)',
     config: {
       skin: 'companion',
       hue: 267, saturation: 46, lightness: 64,
-      contentColor: '#f6efff',
+      contentColor: '#f2f2f2',
       wallpaper: COMPANION_WALLPAPER,
     },
   },
@@ -244,9 +244,9 @@ const acnhLeafSvg = (fill: string, vein: string) => `data:image/svg+xml,${encode
   + `<path d="M50 52 Q34 49 26 59" stroke="${vein}" stroke-width="2" fill="none" opacity="0.4"/></svg>`
 )}`;
 const ACNH_LEAF_VARIANTS = [
-  acnhLeafSvg('#7CBA4C', '#4d7a2a'),
-  acnhLeafSvg('#9ED25F', '#5c8a30'),
-  acnhLeafSvg('#5FAE6E', '#356b3f'),
+  acnhLeafSvg('#a5a5a5', '#6b6b6b'),
+  acnhLeafSvg('#bfbfbf', '#7a7a7a'),
+  acnhLeafSvg('#999999', '#5c5c5c'),
 ];
 const ACNH_LEAF_LAYOUT: { x: number; y: number; scale: number; rotation: number; opacity: number; flip?: boolean }[] = [
   { x: 12, y: 14, scale: 0.8, rotation: -20, opacity: 0.9 },
@@ -294,7 +294,7 @@ const PresetPreview: React.FC<{ preset: AppearancePreset }> = ({ preset }) => {
             <div className="absolute inset-0 bg-black/10" />
             <div className="absolute bottom-1.5 left-3 flex gap-1">
                 <div className="w-4 h-4 rounded-full" style={{ backgroundColor: `hsl(${hue}, ${saturation}%, ${lightness}%)` }} />
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: contentColor || '#fff' }} />
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: contentColor || '#ffffff' }} />
             </div>
             {desktopDecorations && desktopDecorations.length > 0 && (
                 <div className="absolute bottom-1.5 right-3 text-[8px] text-white/80 bg-black/30 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
@@ -395,7 +395,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
                 <p className="text-[10px] text-slate-400 mb-3">支持 PNG 分享原图、ZIP 和旧版 JSON。系统整合备份也会包含当前外观设置，单独预设文件更适合分享。</p>
                 <input type="file" ref={importRef} className="hidden" accept=".png,.zip,.json,image/png,application/zip,application/json" onChange={handleImport} />
                 <button onClick={() => importRef.current?.click()}
-                    className="w-full py-2.5 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-500 font-bold text-xs rounded-xl border border-blue-200 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                    className="w-full py-2.5 bg-gradient-to-r from-neutral-50 to-neutral-50 text-neutral-500 font-bold text-xs rounded-xl border border-neutral-200 active:scale-95 transition-transform flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                     选择文件导入
                 </button>
@@ -448,7 +448,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
                                             应用
                                         </button>
                                         <button onClick={() => handleExport(preset.id)}
-                                            className="px-3 py-1.5 bg-green-50 text-green-600 text-[10px] font-bold rounded-lg border border-green-200 active:scale-95 transition-transform">
+                                            className="px-3 py-1.5 bg-neutral-50 text-neutral-600 text-[10px] font-bold rounded-lg border border-neutral-200 active:scale-95 transition-transform">
                                             导出
                                         </button>
                                         <button onClick={() => { setEditingId(preset.id); setEditName(preset.name); }}
@@ -458,7 +458,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
                                         {confirmDeleteId === preset.id ? (
                                             <div className="flex gap-1">
                                                 <button onClick={() => { onDelete(preset.id); setConfirmDeleteId(null); }}
-                                                    className="px-3 py-1.5 bg-red-500 text-white text-[10px] font-bold rounded-lg active:scale-95 transition-transform">
+                                                    className="px-3 py-1.5 bg-neutral-500 text-white text-[10px] font-bold rounded-lg active:scale-95 transition-transform">
                                                     确认删除
                                                 </button>
                                                 <button onClick={() => setConfirmDeleteId(null)}
@@ -468,7 +468,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
                                             </div>
                                         ) : (
                                             <button onClick={() => setConfirmDeleteId(preset.id)}
-                                                className="px-3 py-1.5 bg-red-50 text-red-400 text-[10px] font-bold rounded-lg border border-red-200 active:scale-95 transition-transform">
+                                                className="px-3 py-1.5 bg-neutral-50 text-neutral-400 text-[10px] font-bold rounded-lg border border-neutral-200 active:scale-95 transition-transform">
                                                 删除
                                             </button>
                                         )}
@@ -624,30 +624,30 @@ const Appearance: React.FC = () => {
   // Preset decoration SVGs (cute decorative elements)
   const PRESET_DECOS: { name: string; content: string; category: string }[] = [
     // Stars & Sparkles
-    { name: '闪光', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 5 L58 38 L95 50 L58 62 L50 95 L42 62 L5 50 L42 38Z" fill="#FFD700" opacity="0.9"/><path d="M50 20 L54 42 L78 50 L54 58 L50 80 L46 58 L22 50 L46 42Z" fill="#FFF8DC"/></svg>')}` },
-    { name: '星星', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 63,35 95,40 72,62 78,95 50,78 22,95 28,62 5,40 37,35" fill="#FF69B4"/><polygon points="50,20 58,38 78,42 64,55 67,78 50,68 33,78 36,55 22,42 42,38" fill="#FFB6C1" opacity="0.7"/></svg>')}` },
-    { name: '小星', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,10 61,40 95,40 68,60 78,90 50,72 22,90 32,60 5,40 39,40" fill="#B19CD9" opacity="0.85"/></svg>')}` },
+    { name: '闪光', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 5 L58 38 L95 50 L58 62 L50 95 L42 62 L5 50 L42 38Z" fill="#d0d0d0" opacity="0.9"/><path d="M50 20 L54 42 L78 50 L54 58 L50 80 L46 58 L22 50 L46 42Z" fill="#f7f7f7"/></svg>')}` },
+    { name: '星星', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 63,35 95,40 72,62 78,95 50,78 22,95 28,62 5,40 37,35" fill="#8e8e8e"/><polygon points="50,20 58,38 78,42 64,55 67,78 50,68 33,78 36,55 22,42 42,38" fill="#c6c6c6" opacity="0.7"/></svg>')}` },
+    { name: '小星', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,10 61,40 95,40 68,60 78,90 50,72 22,90 32,60 5,40 39,40" fill="#a5a5a5" opacity="0.85"/></svg>')}` },
     // Hearts
-    { name: '爱心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 88 C25 65 5 50 5 30 C5 15 17 5 30 5 C38 5 46 10 50 18 C54 10 62 5 70 5 C83 5 95 15 95 30 C95 50 75 65 50 88Z" fill="#FF6B9D"/><path d="M50 78 C30 60 15 48 15 33 C15 22 23 15 33 15 C39 15 45 18 50 25 C55 18 61 15 67 15 C77 15 85 22 85 33 C85 48 70 60 50 78Z" fill="#FF8FB1" opacity="0.6"/></svg>')}` },
-    { name: '双心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M35 70 C18 52 3 42 3 27 C3 16 12 8 22 8 C28 8 33 11 35 16 C37 11 42 8 48 8 C58 8 67 16 67 27 C67 42 52 52 35 70Z" fill="#FF69B4" opacity="0.8"/><path d="M65 80 C48 62 33 52 33 37 C33 26 42 18 52 18 C58 18 63 21 65 26 C67 21 72 18 78 18 C88 18 97 26 97 37 C97 52 82 62 65 80Z" fill="#FF1493" opacity="0.7"/></svg>')}` },
+    { name: '爱心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 88 C25 65 5 50 5 30 C5 15 17 5 30 5 C38 5 46 10 50 18 C54 10 62 5 70 5 C83 5 95 15 95 30 C95 50 75 65 50 88Z" fill="#8e8e8e"/><path d="M50 78 C30 60 15 48 15 33 C15 22 23 15 33 15 C39 15 45 18 50 25 C55 18 61 15 67 15 C77 15 85 22 85 33 C85 48 70 60 50 78Z" fill="#a9a9a9" opacity="0.6"/></svg>')}` },
+    { name: '双心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M35 70 C18 52 3 42 3 27 C3 16 12 8 22 8 C28 8 33 11 35 16 C37 11 42 8 48 8 C58 8 67 16 67 27 C67 42 52 52 35 70Z" fill="#8e8e8e" opacity="0.8"/><path d="M65 80 C48 62 33 52 33 37 C33 26 42 18 52 18 C58 18 63 21 65 26 C67 21 72 18 78 18 C88 18 97 26 97 37 C97 52 82 62 65 80Z" fill="#4f4f4f" opacity="0.7"/></svg>')}` },
     // Flowers & Nature
-    { name: '花朵', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="30" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="30" cy="50" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="70" cy="50" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="38" cy="70" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="62" cy="70" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="50" cy="50" r="12" fill="#FFE4B5"/></svg>')}` },
-    { name: '樱花', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g transform="translate(50,50)"><g fill="#FFB7C5" opacity="0.85"><ellipse rx="12" ry="22" transform="rotate(0) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(72) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(144) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(216) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(288) translate(0,-20)"/></g><circle r="8" fill="#FF69B4"/></g></svg>')}` },
-    { name: '叶子', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 Q80 30 85 60 Q85 90 50 95 Q15 90 15 60 Q20 30 50 10Z" fill="#90EE90" opacity="0.8"/><path d="M50 20 L50 85" stroke="#228B22" stroke-width="2" fill="none" opacity="0.5"/><path d="M50 40 Q65 35 70 45" stroke="#228B22" stroke-width="1.5" fill="none" opacity="0.4"/><path d="M50 55 Q35 50 30 60" stroke="#228B22" stroke-width="1.5" fill="none" opacity="0.4"/></svg>')}` },
+    { name: '花朵', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="30" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="30" cy="50" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="70" cy="50" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="38" cy="70" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="62" cy="70" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="50" cy="50" r="12" fill="#e6e6e6"/></svg>')}` },
+    { name: '樱花', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g transform="translate(50,50)"><g fill="#c7c7c7" opacity="0.85"><ellipse rx="12" ry="22" transform="rotate(0) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(72) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(144) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(216) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(288) translate(0,-20)"/></g><circle r="8" fill="#8e8e8e"/></g></svg>')}` },
+    { name: '叶子', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 Q80 30 85 60 Q85 90 50 95 Q15 90 15 60 Q20 30 50 10Z" fill="#d3d3d3" opacity="0.8"/><path d="M50 20 L50 85" stroke="#6d6d6d" stroke-width="2" fill="none" opacity="0.5"/><path d="M50 40 Q65 35 70 45" stroke="#6d6d6d" stroke-width="1.5" fill="none" opacity="0.4"/><path d="M50 55 Q35 50 30 60" stroke="#6d6d6d" stroke-width="1.5" fill="none" opacity="0.4"/></svg>')}` },
     // Ribbons & Bows
-    { name: '蝴蝶结', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 45 Q20 20 10 35 Q5 50 25 55 Q35 57 50 50Z" fill="#FF69B4"/><path d="M50 45 Q80 20 90 35 Q95 50 75 55 Q65 57 50 50Z" fill="#FF69B4"/><circle cx="50" cy="48" r="6" fill="#FF1493"/><path d="M45 54 Q42 75 38 90" stroke="#FF69B4" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M55 54 Q58 75 62 90" stroke="#FF69B4" stroke-width="4" fill="none" stroke-linecap="round"/></svg>')}` },
-    { name: '丝带', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 30 Q30 20 50 30 Q70 40 90 30 L90 50 Q70 40 50 50 Q30 60 10 50Z" fill="#DDA0DD" opacity="0.85"/><path d="M10 50 Q30 40 50 50 Q70 60 90 50 L90 70 Q70 60 50 70 Q30 80 10 70Z" fill="#BA55D3" opacity="0.7"/></svg>')}` },
+    { name: '蝴蝶结', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 45 Q20 20 10 35 Q5 50 25 55 Q35 57 50 50Z" fill="#8e8e8e"/><path d="M50 45 Q80 20 90 35 Q95 50 75 55 Q65 57 50 50Z" fill="#8e8e8e"/><circle cx="50" cy="48" r="6" fill="#4f4f4f"/><path d="M45 54 Q42 75 38 90" stroke="#8e8e8e" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M55 54 Q58 75 62 90" stroke="#8e8e8e" stroke-width="4" fill="none" stroke-linecap="round"/></svg>')}` },
+    { name: '丝带', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 30 Q30 20 50 30 Q70 40 90 30 L90 50 Q70 40 50 50 Q30 60 10 50Z" fill="#b1b1b1" opacity="0.85"/><path d="M10 50 Q30 40 50 50 Q70 60 90 50 L90 70 Q70 60 50 70 Q30 80 10 70Z" fill="#747474" opacity="0.7"/></svg>')}` },
     // Cute Animals
-    { name: '猫耳', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M15 65 L5 15 L40 45Z" fill="#333" opacity="0.9"/><path d="M85 65 L95 15 L60 45Z" fill="#333" opacity="0.9"/><path d="M18 60 L12 22 L38 46Z" fill="#FFB6C1" opacity="0.6"/><path d="M82 60 L88 22 L62 46Z" fill="#FFB6C1" opacity="0.6"/></svg>')}` },
-    { name: '猫爪', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><ellipse cx="50" cy="62" rx="22" ry="20" fill="#FFB6C1" opacity="0.85"/><circle cx="35" cy="38" r="10" fill="#FFB6C1" opacity="0.85"/><circle cx="65" cy="38" r="10" fill="#FFB6C1" opacity="0.85"/><circle cx="22" cy="50" r="9" fill="#FFB6C1" opacity="0.85"/><circle cx="78" cy="50" r="9" fill="#FFB6C1" opacity="0.85"/></svg>')}` },
+    { name: '猫耳', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M15 65 L5 15 L40 45Z" fill="#333333" opacity="0.9"/><path d="M85 65 L95 15 L60 45Z" fill="#333333" opacity="0.9"/><path d="M18 60 L12 22 L38 46Z" fill="#c6c6c6" opacity="0.6"/><path d="M82 60 L88 22 L62 46Z" fill="#c6c6c6" opacity="0.6"/></svg>')}` },
+    { name: '猫爪', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><ellipse cx="50" cy="62" rx="22" ry="20" fill="#c6c6c6" opacity="0.85"/><circle cx="35" cy="38" r="10" fill="#c6c6c6" opacity="0.85"/><circle cx="65" cy="38" r="10" fill="#c6c6c6" opacity="0.85"/><circle cx="22" cy="50" r="9" fill="#c6c6c6" opacity="0.85"/><circle cx="78" cy="50" r="9" fill="#c6c6c6" opacity="0.85"/></svg>')}` },
     // Geometric / Shapes
-    { name: '月亮', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M60 10 A40 40 0 1 0 60 90 A30 30 0 1 1 60 10Z" fill="#FFD700" opacity="0.8"/></svg>')}` },
-    { name: '钻石', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 85,35 50,95 15,35" fill="#87CEEB" opacity="0.8"/><polygon points="50,5 65,35 50,95" fill="#ADD8E6" opacity="0.5"/><polygon points="15,35 85,35 50,5" fill="#B0E0E6" opacity="0.6"/></svg>')}` },
-    { name: '泡泡', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="35" fill="none" stroke="#87CEEB" stroke-width="2" opacity="0.6"/><circle cx="50" cy="50" r="35" fill="#E0F0FF" opacity="0.2"/><ellipse cx="38" cy="38" rx="12" ry="8" fill="white" opacity="0.5" transform="rotate(-30 38 38)"/></svg>')}` },
+    { name: '月亮', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M60 10 A40 40 0 1 0 60 90 A30 30 0 1 1 60 10Z" fill="#d0d0d0" opacity="0.8"/></svg>')}` },
+    { name: '钻石', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 85,35 50,95 15,35" fill="#c1c1c1" opacity="0.8"/><polygon points="50,5 65,35 50,95" fill="#d0d0d0" opacity="0.5"/><polygon points="15,35 85,35 50,5" fill="#d6d6d6" opacity="0.6"/></svg>')}` },
+    { name: '泡泡', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="35" fill="none" stroke="#c1c1c1" stroke-width="2" opacity="0.6"/><circle cx="50" cy="50" r="35" fill="#eeeeee" opacity="0.2"/><ellipse cx="38" cy="38" rx="12" ry="8" fill="white" opacity="0.5" transform="rotate(-30 38 38)"/></svg>')}` },
     // Text Badges
-    { name: 'LOVE', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="23" fill="#FF69B4" opacity="0.85"/><text x="60" y="33" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="sans-serif">LOVE</text></svg>')}` },
-    { name: 'CUTE', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="23" fill="#DDA0DD" opacity="0.85"/><text x="60" y="33" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="sans-serif">CUTE</text></svg>')}` },
-    { name: 'MY♡', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="10" fill="none" stroke="#FF69B4" stroke-width="3" opacity="0.8"/><text x="60" y="34" text-anchor="middle" fill="#FF69B4" font-size="20" font-weight="bold" font-family="sans-serif">MY♡</text></svg>')}` },
+    { name: 'LOVE', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="23" fill="#8e8e8e" opacity="0.85"/><text x="60" y="33" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="sans-serif">LOVE</text></svg>')}` },
+    { name: 'CUTE', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="23" fill="#b1b1b1" opacity="0.85"/><text x="60" y="33" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="sans-serif">CUTE</text></svg>')}` },
+    { name: 'MY♡', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="10" fill="none" stroke="#8e8e8e" stroke-width="3" opacity="0.8"/><text x="60" y="34" text-anchor="middle" fill="#8e8e8e" font-size="20" font-weight="bold" font-family="sans-serif">MY♡</text></svg>')}` },
   ];
 
   const addDecoration = useCallback((content: string, type: 'image' | 'preset') => {
@@ -691,7 +691,7 @@ const Appearance: React.FC = () => {
 
   const THEME_PRESETS: { name: string, config: Partial<OSTheme>, color: string }[] = [
       { name: 'Indigo', config: { hue: 245, saturation: 25, lightness: 65, contentColor: '#ffffff' }, color: 'hsl(245, 25%, 65%)' },
-      { name: 'Sakura', config: { hue: 350, saturation: 70, lightness: 80, contentColor: '#334155' }, color: 'hsl(350, 70%, 80%)' },
+      { name: 'Sakura', config: { hue: 350, saturation: 70, lightness: 80, contentColor: '#3f3f3f' }, color: 'hsl(350, 70%, 80%)' },
       { name: 'Cyber', config: { hue: 170, saturation: 100, lightness: 45, contentColor: '#ffffff' }, color: 'hsl(170, 100%, 45%)' },
       { name: 'Noir', config: { hue: 0, saturation: 0, lightness: 20, contentColor: '#ffffff' }, color: 'hsl(0, 0%, 20%)' },
       { name: 'Sunset', config: { hue: 20, saturation: 90, lightness: 60, contentColor: '#ffffff' }, color: 'hsl(20, 90%, 60%)' },
@@ -996,7 +996,7 @@ const Appearance: React.FC = () => {
                 </section>
 
                 {currentDesktopSkinId === 'companion' && (
-                    <section className="overflow-hidden rounded-3xl border border-violet-100 bg-white shadow-sm" data-testid="companion-static-avatar-settings">
+                    <section className="overflow-hidden rounded-3xl border border-neutral-100 bg-white shadow-sm" data-testid="companion-static-avatar-settings">
                         <input
                             ref={companionPortraitInputRef}
                             type="file"
@@ -1009,13 +1009,13 @@ const Appearance: React.FC = () => {
                             }}
                         />
                         <div className="flex items-center gap-4 p-5">
-                            <div className="flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-b from-violet-50 to-slate-100 p-1.5 shadow-inner">
+                            <div className="flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-b from-neutral-50 to-slate-100 p-1.5 shadow-inner">
                                 <CompanionPortraitPreview value={companionPreview} alt={`${appearanceCharacter?.name || '角色'}桌面形象`} />
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
                                     <h2 className="text-sm font-bold text-slate-700">陪伴形象</h2>
-                                    <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[8px] font-bold tracking-wide text-violet-500">PNG / GIF</span>
+                                    <span className="rounded-full bg-neutral-50 px-2 py-0.5 text-[8px] font-bold tracking-wide text-neutral-500">PNG / GIF</span>
                                 </div>
                                 <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
                                     桌面与视频通话共用这里的选择。单图保持原样；见面立绘会按 AI 情绪切换同套表情。
@@ -1023,7 +1023,7 @@ const Appearance: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => companionPortraitInputRef.current?.click()}
-                                    className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-3 py-2 text-[10px] font-bold text-white active:scale-95"
+                                    className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-neutral-600 px-3 py-2 text-[10px] font-bold text-white active:scale-95"
                                 >
                                     <UploadSimple size={13} weight="bold" /> {appearanceCharacter?.companionAvatar?.imageRef ? '更换图片' : '导入 PNG / GIF'}
                                 </button>
@@ -1041,7 +1041,7 @@ const Appearance: React.FC = () => {
                                     type="button"
                                     aria-pressed={companionSource === source}
                                     onClick={() => chooseCompanionSource(source)}
-                                    className={`flex items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-semibold transition ${companionSource === source ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-400'}`}
+                                    className={`flex items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-semibold transition ${companionSource === source ? 'bg-white text-neutral-600 shadow-sm' : 'text-slate-400'}`}
                                 >
                                     {companionSource === source && <Check size={11} weight="bold" />}{label}
                                 </button>
@@ -1055,7 +1055,7 @@ const Appearance: React.FC = () => {
                                         <div className="text-[11px] font-bold text-slate-600">桌面衣橱</div>
                                         <div className="mt-0.5 text-[9px] text-slate-400">独立选择，不会改掉见面模式正在穿的衣服</div>
                                     </div>
-                                    <button type="button" onClick={() => openApp(AppID.Date)} className="text-[9px] font-semibold text-violet-500">补立绘表情 →</button>
+                                    <button type="button" onClick={() => openApp(AppID.Date)} className="text-[9px] font-semibold text-neutral-500">补立绘表情 →</button>
                                 </div>
                                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                                     {companionDateOutfits.map(outfit => {
@@ -1065,13 +1065,13 @@ const Appearance: React.FC = () => {
                                                 key={outfit.id}
                                                 type="button"
                                                 onClick={() => chooseCompanionOutfit(outfit.id)}
-                                                className={`w-20 shrink-0 rounded-2xl border p-2 text-left transition active:scale-95 ${active ? 'border-violet-400 bg-violet-50' : 'border-slate-100 bg-slate-50'}`}
+                                                className={`w-20 shrink-0 rounded-2xl border p-2 text-left transition active:scale-95 ${active ? 'border-neutral-400 bg-neutral-50' : 'border-slate-100 bg-slate-50'}`}
                                             >
                                                 <div className="flex h-16 items-center justify-center overflow-hidden rounded-xl bg-white">
                                                     <CompanionPortraitPreview value={outfit.preview} alt={outfit.name} />
                                                 </div>
                                                 <div className="mt-1.5 truncate text-[9px] font-bold text-slate-600">{outfit.name}</div>
-                                                <div className={`mt-0.5 text-[8px] ${outfit.expressionCount >= 5 ? 'text-emerald-500' : 'text-amber-500'}`}>{outfit.expressionCount}/5 表情</div>
+                                                <div className={`mt-0.5 text-[8px] ${outfit.expressionCount >= 5 ? 'text-neutral-500' : 'text-neutral-500'}`}>{outfit.expressionCount}/5 表情</div>
                                             </button>
                                         );
                                     })}
@@ -1083,7 +1083,7 @@ const Appearance: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => { void removeCompanionUpload(); }}
-                                className="flex w-full items-center justify-center gap-1.5 border-t border-slate-100 py-3 text-[9px] font-semibold text-slate-400 active:bg-rose-50 active:text-rose-500"
+                                className="flex w-full items-center justify-center gap-1.5 border-t border-slate-100 py-3 text-[9px] font-semibold text-slate-400 active:bg-neutral-50 active:text-neutral-500"
                             >
                                 <Trash size={12} /> 移除已导入图片
                             </button>
@@ -1137,9 +1137,9 @@ const Appearance: React.FC = () => {
                                     style={{ backgroundColor: '#ffffff' }}
                                 />
                                 <div 
-                                    onClick={() => updateTheme({ contentColor: '#334155' })} // Slate-700
-                                    className={`w-8 h-8 rounded-full border-2 cursor-pointer shadow-sm ${theme.contentColor === '#334155' ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200'}`} 
-                                    style={{ backgroundColor: '#334155' }}
+                                    onClick={() => updateTheme({ contentColor: '#3f3f3f' })} // Slate-700
+                                    className={`w-8 h-8 rounded-full border-2 cursor-pointer shadow-sm ${theme.contentColor === '#3f3f3f' ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200'}`} 
+                                    style={{ backgroundColor: '#3f3f3f' }}
                                 />
                                 <div className="h-6 w-px bg-slate-200 mx-1"></div>
                                 <input 
@@ -1210,14 +1210,14 @@ const Appearance: React.FC = () => {
                             </button>
                             <div className="text-[10px] text-slate-400 px-1">
                                 {theme.customFont && theme.customFont.startsWith('http') ? (
-                                    <span className="text-green-500">当前使用: {theme.customFont}</span>
+                                    <span className="text-neutral-500">当前使用: {theme.customFont}</span>
                                 ) : '提示: 请确保链接直通字体文件 (.ttf/.woff)'}
                             </div>
                         </div>
                     )}
 
                     {theme.customFont && (
-                        <button onClick={() => updateTheme({ customFont: undefined })} className="w-full py-2 text-xs font-bold text-red-400 bg-red-50 rounded-lg hover:bg-red-100 mt-2">恢复默认字体</button>
+                        <button onClick={() => updateTheme({ customFont: undefined })} className="w-full py-2 text-xs font-bold text-neutral-400 bg-neutral-50 rounded-lg hover:bg-neutral-100 mt-2">恢复默认字体</button>
                     )}
                 </section>
 
@@ -1293,7 +1293,7 @@ const Appearance: React.FC = () => {
                             className="w-full h-full"
                             style={{
                                 background: !theme.wallpaper
-                                    ? '#e2e8f0'
+                                    ? '#e7e7e7'
                                     : (theme.wallpaper.startsWith('linear-gradient') || theme.wallpaper.startsWith('radial-gradient') || theme.wallpaper.startsWith('conic-gradient'))
                                         ? theme.wallpaper
                                         : `url("${theme.wallpaper}") center/cover`,
@@ -1352,7 +1352,7 @@ const Appearance: React.FC = () => {
                             style={{
                                 background: (() => {
                                     const value = theme.lockWallpaper || theme.wallpaper;
-                                    if (!value) return '#e2e8f0';
+                                    if (!value) return '#e7e7e7';
                                     return (value.startsWith('linear-gradient') || value.startsWith('radial-gradient') || value.startsWith('conic-gradient'))
                                         ? value
                                         : `url("${value}") center/cover`;
@@ -1543,7 +1543,7 @@ const Appearance: React.FC = () => {
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                     <div className="flex items-center justify-between mb-2">
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">桌面装饰 DIY</h2>
-                        <span className="text-[10px] bg-gradient-to-r from-pink-100 to-purple-100 text-pink-500 px-2 py-0.5 rounded-full font-bold">花里胡哨模式</span>
+                        <span className="text-[10px] bg-gradient-to-r from-neutral-100 to-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full font-bold">花里胡哨模式</span>
                     </div>
                     <p className="text-[10px] text-slate-400 mb-4">自由添加装饰贴纸，调整位置/大小/旋转/透明度，打造你的专属痛机桌面！</p>
                     <input type="file" ref={decoInputRef} className="hidden" accept="image/*" onChange={(e) => { if (e.target.files?.[0]) handleDecoUpload(e.target.files[0]); e.target.value = ''; }} />
@@ -1575,7 +1575,7 @@ const Appearance: React.FC = () => {
                         {/* Render decorations in preview */}
                         {decorations.map(deco => (
                             <div key={deco.id}
-                                className={`absolute cursor-pointer transition-all duration-100 ${editingDecoId === deco.id ? 'ring-2 ring-pink-400 ring-offset-1' : ''}`}
+                                className={`absolute cursor-pointer transition-all duration-100 ${editingDecoId === deco.id ? 'ring-2 ring-neutral-400 ring-offset-1' : ''}`}
                                 style={{
                                     left: `${deco.x}%`, top: `${deco.y}%`,
                                     transform: `translate(-50%, -50%) scale(${deco.scale * 0.4}) rotate(${deco.rotation}deg)${deco.flip ? ' scaleX(-1)' : ''}`,
@@ -1598,12 +1598,12 @@ const Appearance: React.FC = () => {
                     {/* Add Decoration Buttons */}
                     <div className="flex gap-2 mb-4">
                         <button onClick={() => { setShowPresetPicker(!showPresetPicker); if (!showPresetPicker) trackEvent('打开桌面装饰贴纸库'); }}
-                            className="flex-1 py-2.5 bg-gradient-to-r from-pink-50 to-purple-50 text-pink-500 font-bold text-xs rounded-xl border border-pink-200 active:scale-95 transition-transform flex items-center justify-center gap-1.5">
+                            className="flex-1 py-2.5 bg-gradient-to-r from-neutral-50 to-neutral-50 text-neutral-500 font-bold text-xs rounded-xl border border-neutral-200 active:scale-95 transition-transform flex items-center justify-center gap-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
                             预设贴纸
                         </button>
                         <button onClick={() => decoInputRef.current?.click()}
-                            className="flex-1 py-2.5 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-500 font-bold text-xs rounded-xl border border-blue-200 active:scale-95 transition-transform flex items-center justify-center gap-1.5">
+                            className="flex-1 py-2.5 bg-gradient-to-r from-neutral-50 to-neutral-50 text-neutral-500 font-bold text-xs rounded-xl border border-neutral-200 active:scale-95 transition-transform flex items-center justify-center gap-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
                             上传自定义
                         </button>
@@ -1623,7 +1623,7 @@ const Appearance: React.FC = () => {
                                         <div className="flex gap-2 flex-wrap">
                                             {items.map(preset => (
                                                 <button key={preset.name} onClick={() => { addDecoration(preset.content, 'preset'); trackEvent('添加桌面装饰贴纸', { 贴纸: preset.name, 分类: preset.category }); }}
-                                                    className="w-14 h-14 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center gap-0.5 hover:border-pink-300 hover:shadow-sm active:scale-90 transition-all group">
+                                                    className="w-14 h-14 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center gap-0.5 hover:border-neutral-300 hover:shadow-sm active:scale-90 transition-all group">
                                                     <img src={preset.content} className="w-8 h-8 object-contain group-hover:scale-110 transition-transform" />
                                                     <span className="text-[8px] text-slate-400">{preset.name}</span>
                                                 </button>
@@ -1640,7 +1640,7 @@ const Appearance: React.FC = () => {
                         <div className="space-y-2">
                             <div className="text-[10px] text-slate-400 font-bold uppercase mb-2">已添加装饰 ({decorations.length})</div>
                             {decorations.map((deco, idx) => (
-                                <div key={deco.id} className={`bg-slate-50 rounded-xl border transition-all ${editingDecoId === deco.id ? 'border-pink-300 shadow-md' : 'border-slate-100'}`}>
+                                <div key={deco.id} className={`bg-slate-50 rounded-xl border transition-all ${editingDecoId === deco.id ? 'border-neutral-300 shadow-md' : 'border-slate-100'}`}>
                                     {/* Decoration header row */}
                                     <div className="flex items-center gap-2 p-2.5 cursor-pointer" onClick={() => setEditingDecoId(editingDecoId === deco.id ? null : deco.id)}>
                                         <div className="w-10 h-10 bg-white rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
@@ -1650,7 +1650,7 @@ const Appearance: React.FC = () => {
                                             <div className="text-xs font-bold text-slate-600">装饰 #{idx + 1}</div>
                                             <div className="text-[9px] text-slate-400">位置 ({Math.round(deco.x)}, {Math.round(deco.y)}) · {deco.scale}x · {deco.rotation}°</div>
                                         </div>
-                                        <button onClick={(e) => { e.stopPropagation(); removeDecoration(deco.id); }} className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                        <button onClick={(e) => { e.stopPropagation(); removeDecoration(deco.id); }} className="p-1.5 text-neutral-300 hover:text-neutral-500 hover:bg-neutral-50 rounded-lg transition-colors">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                                         </button>
                                         <div className={`w-5 h-5 flex items-center justify-center transition-transform ${editingDecoId === deco.id ? 'rotate-180' : ''}`}>
@@ -1667,7 +1667,7 @@ const Appearance: React.FC = () => {
                                                     <label className="text-[10px] font-bold text-slate-400 uppercase">水平位置 X</label>
                                                     <span className="text-[10px] text-slate-500 font-mono">{Math.round(deco.x)}%</span>
                                                 </div>
-                                                <input type="range" min="0" max="100" value={deco.x} onChange={(e) => updateDecoration(deco.id, { x: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-pink-400" />
+                                                <input type="range" min="0" max="100" value={deco.x} onChange={(e) => updateDecoration(deco.id, { x: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
                                             </div>
                                             {/* Position Y */}
                                             <div>
@@ -1675,7 +1675,7 @@ const Appearance: React.FC = () => {
                                                     <label className="text-[10px] font-bold text-slate-400 uppercase">垂直位置 Y</label>
                                                     <span className="text-[10px] text-slate-500 font-mono">{Math.round(deco.y)}%</span>
                                                 </div>
-                                                <input type="range" min="0" max="100" value={deco.y} onChange={(e) => updateDecoration(deco.id, { y: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-pink-400" />
+                                                <input type="range" min="0" max="100" value={deco.y} onChange={(e) => updateDecoration(deco.id, { y: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
                                             </div>
                                             {/* Scale & Rotation */}
                                             <div className="grid grid-cols-2 gap-4">
@@ -1684,14 +1684,14 @@ const Appearance: React.FC = () => {
                                                         <label className="text-[10px] font-bold text-slate-400 uppercase">缩放</label>
                                                         <span className="text-[10px] text-slate-500 font-mono">{deco.scale}x</span>
                                                     </div>
-                                                    <input type="range" min="0.2" max="3" step="0.1" value={deco.scale} onChange={(e) => updateDecoration(deco.id, { scale: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-purple-400" />
+                                                    <input type="range" min="0.2" max="3" step="0.1" value={deco.scale} onChange={(e) => updateDecoration(deco.id, { scale: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
                                                 </div>
                                                 <div>
                                                     <div className="flex justify-between mb-1.5">
                                                         <label className="text-[10px] font-bold text-slate-400 uppercase">旋转</label>
                                                         <span className="text-[10px] text-slate-500 font-mono">{deco.rotation}°</span>
                                                     </div>
-                                                    <input type="range" min="-180" max="180" value={deco.rotation} onChange={(e) => updateDecoration(deco.id, { rotation: parseInt(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-purple-400" />
+                                                    <input type="range" min="-180" max="180" value={deco.rotation} onChange={(e) => updateDecoration(deco.id, { rotation: parseInt(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
                                                 </div>
                                             </div>
                                             {/* Opacity */}
@@ -1700,12 +1700,12 @@ const Appearance: React.FC = () => {
                                                     <label className="text-[10px] font-bold text-slate-400 uppercase">透明度</label>
                                                     <span className="text-[10px] text-slate-500 font-mono">{Math.round(deco.opacity * 100)}%</span>
                                                 </div>
-                                                <input type="range" min="0.1" max="1" step="0.05" value={deco.opacity} onChange={(e) => updateDecoration(deco.id, { opacity: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-blue-400" />
+                                                <input type="range" min="0.1" max="1" step="0.05" value={deco.opacity} onChange={(e) => updateDecoration(deco.id, { opacity: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
                                             </div>
                                             {/* Quick Actions */}
                                             <div className="flex gap-2 flex-wrap">
                                                 <button onClick={() => updateDecoration(deco.id, { flip: !deco.flip })}
-                                                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all active:scale-95 ${deco.flip ? 'bg-pink-50 text-pink-500 border-pink-200' : 'bg-white text-slate-400 border-slate-200'}`}>
+                                                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all active:scale-95 ${deco.flip ? 'bg-neutral-50 text-neutral-500 border-neutral-200' : 'bg-white text-slate-400 border-slate-200'}`}>
                                                     镜像翻转
                                                 </button>
                                                 <button onClick={() => updateDecoration(deco.id, { rotation: 0, scale: 1, opacity: 1, flip: false })}
@@ -1740,7 +1740,7 @@ const Appearance: React.FC = () => {
                             ))}
                             {/* Clear all button */}
                             <button onClick={() => { updateTheme({ desktopDecorations: [] }); setEditingDecoId(null); }}
-                                className="w-full py-2 text-xs font-bold text-red-400 bg-red-50 rounded-xl hover:bg-red-100 transition-colors mt-2">
+                                className="w-full py-2 text-xs font-bold text-neutral-400 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors mt-2">
                                 清空所有装饰
                             </button>
                         </div>
@@ -1790,7 +1790,7 @@ const Appearance: React.FC = () => {
                              </div>
                              <span className="text-[10px] text-slate-500 font-medium">{app.name}</span>
                              {customUrl && (
-                                 <button onClick={() => setCustomIcon(app.id, undefined)} className="text-[10px] text-red-400">重置</button>
+                                 <button onClick={() => setCustomIcon(app.id, undefined)} className="text-[10px] text-neutral-400">重置</button>
                              )}
                         </div>
                     );

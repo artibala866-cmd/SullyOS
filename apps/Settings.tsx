@@ -111,7 +111,7 @@ const readStoredVisionModels = (): string[] => {
 const DiagRow: React.FC<{ label: string; value: string; bad?: boolean }> = ({ label, value, bad }) => (
     <div className="flex items-start justify-between gap-3">
         <span className="text-slate-500 shrink-0">{label}</span>
-        <span className={`text-right ${bad ? 'text-rose-600 font-medium' : 'text-slate-700'}`}>{value}</span>
+        <span className={`text-right ${bad ? 'text-neutral-600 font-medium' : 'text-slate-700'}`}>{value}</span>
     </div>
 );
 
@@ -155,7 +155,7 @@ const SettingsSection: React.FC<{
         return () => window.removeEventListener('sully:guide-navigate', reveal);
     }, [guideStep, title]);
     return (
-        <section {...sectionProps} ref={sectionRef} className="bg-[#fffefe] rounded-3xl p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] border border-slate-200/80">
+        <section {...sectionProps} ref={sectionRef} className="bg-[#fefefe] rounded-3xl p-5 shadow-[0_8px_24px_rgba(23, 23, 23,0.05)] border border-slate-200/80">
             <div className={`flex items-center justify-between gap-2 ${open ? 'mb-4' : ''}`}>
                 <button type="button" onClick={() => setOpen(v => !v)} className="flex items-center gap-2 flex-1 min-w-0 text-left">
                     {icon}
@@ -271,24 +271,24 @@ const McpServersCard: React.FC<{
     };
 
     return (
-        <div className="bg-violet-50/60 p-4 rounded-2xl space-y-3">
+        <div className="bg-neutral-50/60 p-4 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <PlugsConnected size={20} weight="fill" className="text-violet-600" />
-                    <span className="text-sm font-bold text-violet-700">MCP 工具服务器</span>
-                    <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">通用</span>
+                    <PlugsConnected size={20} weight="fill" className="text-neutral-600" />
+                    <span className="text-sm font-bold text-neutral-700">MCP 工具服务器</span>
+                    <span className="text-[9px] bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded-full">通用</span>
                 </div>
-                <button onClick={addServer} className="text-[11px] font-bold text-violet-600 bg-violet-100 px-2.5 py-1 rounded-lg active:scale-95 transition-transform">+ 添加</button>
+                <button onClick={addServer} className="text-[11px] font-bold text-neutral-600 bg-neutral-100 px-2.5 py-1 rounded-lg active:scale-95 transition-transform">+ 添加</button>
             </div>
-            <p className="text-[10px] text-violet-700/70 leading-relaxed">
+            <p className="text-[10px] text-neutral-700/70 leading-relaxed">
                 接入任意标准 MCP 服务器（Streamable HTTP）：填 URL → 测试连接 → 打开开关，角色就能在聊天里调用这些工具。
-                被浏览器 CORS 拦住时配「代理 URL」：本地跑 <code className="bg-violet-100/80 px-1 rounded">node scripts/mcp-proxy.mjs</code>，或把 <code className="bg-violet-100/80 px-1 rounded">worker/mcp-proxy</code> 部署到你自己的 Cloudflare 账号。配置只存本机，详见 docs/mcp-client.md。
+                被浏览器 CORS 拦住时配「代理 URL」：本地跑 <code className="bg-neutral-100/80 px-1 rounded">node scripts/mcp-proxy.mjs</code>，或把 <code className="bg-neutral-100/80 px-1 rounded">worker/mcp-proxy</code> 部署到你自己的 Cloudflare 账号。配置只存本机，详见 docs/mcp-client.md。
             </p>
-            <div className="flex items-center justify-between gap-3 bg-white/70 border border-violet-100 rounded-xl px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3 bg-white/70 border border-neutral-100 rounded-xl px-3 py-2.5">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
                         <div className="text-xs font-bold text-slate-700">原生 tools 工具调用</div>
-                        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[8px] font-bold text-emerald-700">推荐</span>
+                        <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[8px] font-bold text-neutral-700">推荐</span>
                     </div>
                     <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
                         开启后发送标准 tools，调用更稳定、参数更可靠。只有模型或中转明确不支持 function calling 时才关闭，退回文字兼容模式。
@@ -302,19 +302,19 @@ const McpServersCard: React.FC<{
                         onMcpConfigChanged?.();
                         trackEvent('切换原生工具调用', { state: next ? 'on' : 'off' });
                     }} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-500"></div>
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                 </label>
             </div>
-            <div className="border-l-2 border-violet-300 pl-3 text-[10px] leading-relaxed text-violet-700/80">
+            <div className="border-l-2 border-neutral-300 pl-3 text-[10px] leading-relaxed text-neutral-700/80">
                 <p>
                     <b>简单说：</b>tools / function calling 是聊天模型的一项能力，让角色用标准格式告诉 API“要调用哪个工具、传什么参数”，系统才能真正执行；不支持时，模型可能只会把工具调用写成普通聊天文字。
                 </p>
-                <p className="mt-1.5 text-violet-600/75">
+                <p className="mt-1.5 text-neutral-600/75">
                     不知道自己的模型或中转是否支持？请询问你所使用的 API 负责人或售卖方，确认是否支持 <b>tools / function calling（函数调用）</b>。拿不准时保持开启；只有对方明确说不支持，或请求出现 tools / function calling 报错时再关闭。
                 </p>
             </div>
             {servers.map(server => (
-                <div key={server.id} className="bg-white/70 border border-violet-100 rounded-xl p-3 space-y-2">
+                <div key={server.id} className="bg-white/70 border border-neutral-100 rounded-xl p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                         <button className="flex-1 text-left min-w-0" onClick={() => setExpandedId(expandedId === server.id ? null : server.id)}>
                             <div className="text-xs font-bold text-slate-700 truncate">{server.name || '(未命名)'}</div>
@@ -331,22 +331,22 @@ const McpServersCard: React.FC<{
                                 }
                                 update(server.id, { enabled: e.target.checked });
                             }} className="sr-only peer" />
-                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-500"></div>
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                         </label>
                     </div>
                     {expandedId === server.id && (
                         <div className="space-y-2 pt-1">
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">名称</label>
-                                <input type="text" value={server.name} onChange={e => update(server.id, { name: e.target.value })} className="w-full bg-white/80 border border-violet-200 rounded-xl px-3 py-2 text-sm" placeholder="例如：Notion" />
+                                <input type="text" value={server.name} onChange={e => update(server.id, { name: e.target.value })} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm" placeholder="例如：Notion" />
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">服务器 URL</label>
-                                <input type="text" value={server.url} onChange={e => update(server.id, { url: e.target.value.trim() })} className="w-full bg-white/80 border border-violet-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="https://mcp.example.com/mcp" />
+                                <input type="text" value={server.url} onChange={e => update(server.id, { url: e.target.value.trim() })} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="https://mcp.example.com/mcp" />
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Bearer Token（可选）</label>
-                                <input type="password" value={server.token || ''} onChange={e => update(server.id, { token: e.target.value.trim() })} className="w-full bg-white/80 border border-violet-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="服务器要求鉴权时填" />
+                                <input type="password" value={server.token || ''} onChange={e => update(server.id, { token: e.target.value.trim() })} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="服务器要求鉴权时填" />
                             </div>
                             <div>
                                 <div className="flex items-center justify-between gap-2 mb-1">
@@ -354,7 +354,7 @@ const McpServersCard: React.FC<{
                                     <button
                                         type="button"
                                         onClick={() => update(server.id, { customHeaders: [...(server.customHeaders || []), { name: '', value: '' }] })}
-                                        className="text-[10px] font-bold text-violet-600"
+                                        className="text-[10px] font-bold text-neutral-600"
                                     >+ 添加请求头</button>
                                 </div>
                                 {(server.customHeaders || []).map((header, index) => (
@@ -363,7 +363,7 @@ const McpServersCard: React.FC<{
                                             type="text"
                                             value={header.name}
                                             onChange={e => update(server.id, { customHeaders: (server.customHeaders || []).map((item, i) => i === index ? { ...item, name: e.target.value } : item) })}
-                                            className="min-w-0 flex-[0.9] bg-white/80 border border-violet-200 rounded-xl px-2.5 py-2 text-xs font-mono"
+                                            className="min-w-0 flex-[0.9] bg-white/80 border border-neutral-200 rounded-xl px-2.5 py-2 text-xs font-mono"
                                             placeholder="XBY-APIKEY"
                                             aria-label={`自定义请求头 ${index + 1} 名称`}
                                         />
@@ -371,14 +371,14 @@ const McpServersCard: React.FC<{
                                             type="password"
                                             value={header.value}
                                             onChange={e => update(server.id, { customHeaders: (server.customHeaders || []).map((item, i) => i === index ? { ...item, value: e.target.value } : item) })}
-                                            className="min-w-0 flex-1 bg-white/80 border border-violet-200 rounded-xl px-2.5 py-2 text-xs font-mono"
+                                            className="min-w-0 flex-1 bg-white/80 border border-neutral-200 rounded-xl px-2.5 py-2 text-xs font-mono"
                                             placeholder="请求头的值"
                                             aria-label={`自定义请求头 ${index + 1} 值`}
                                         />
                                         <button
                                             type="button"
                                             onClick={() => update(server.id, { customHeaders: (server.customHeaders || []).filter((_, i) => i !== index) })}
-                                            className="w-9 shrink-0 rounded-xl bg-red-50 text-red-500 text-base"
+                                            className="w-9 shrink-0 rounded-xl bg-neutral-50 text-neutral-500 text-base"
                                             aria-label={`删除自定义请求头 ${index + 1}`}
                                         >×</button>
                                     </div>
@@ -389,12 +389,12 @@ const McpServersCard: React.FC<{
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">代理 URL（可选，留空 = 直连）</label>
-                                <input type="text" value={server.proxyUrl || ''} onChange={e => update(server.id, { proxyUrl: e.target.value.trim() })} className="w-full bg-white/80 border border-violet-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="http://localhost:18061 或你的 Worker 地址" />
+                                <input type="text" value={server.proxyUrl || ''} onChange={e => update(server.id, { proxyUrl: e.target.value.trim() })} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="http://localhost:18061 或你的 Worker 地址" />
                             </div>
                             {(server.proxyUrl || '').trim() && (
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">代理密钥（可选，自部署 Worker 的 PROXY_KEY）</label>
-                                    <input type="password" value={server.proxyKey || ''} onChange={e => update(server.id, { proxyKey: e.target.value.trim() })} className="w-full bg-white/80 border border-violet-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="没设就留空" />
+                                    <input type="password" value={server.proxyKey || ''} onChange={e => update(server.id, { proxyKey: e.target.value.trim() })} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="没设就留空" />
                                 </div>
                             )}
                             <div>
@@ -403,7 +403,7 @@ const McpServersCard: React.FC<{
                                     <button
                                         type="button"
                                         onClick={() => update(server.id, { charIds: [] })}
-                                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${!server.charIds?.length ? 'bg-violet-500 text-white' : 'bg-white/80 border border-violet-200 text-slate-500'}`}
+                                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${!server.charIds?.length ? 'bg-neutral-500 text-white' : 'bg-white/80 border border-neutral-200 text-slate-500'}`}
                                     >通用（所有私聊和群聊）</button>
                                 </div>
                                 {characters.length > 0 && <div className="text-[10px] text-slate-400 mt-2 mb-1">角色</div>}
@@ -418,7 +418,7 @@ const McpServersCard: React.FC<{
                                                     const cur = server.charIds || [];
                                                     update(server.id, { charIds: bound ? cur.filter(id => id !== c.id) : [...cur, c.id] });
                                                 }}
-                                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${bound ? 'bg-violet-500 text-white' : 'bg-white/80 border border-violet-200 text-slate-500'}`}
+                                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${bound ? 'bg-neutral-500 text-white' : 'bg-white/80 border border-neutral-200 text-slate-500'}`}
                                             >{c.name}</button>
                                         );
                                     })}
@@ -435,7 +435,7 @@ const McpServersCard: React.FC<{
                                                     const cur = server.charIds || [];
                                                     update(server.id, { charIds: bound ? cur.filter(id => id !== group.id) : [...cur, group.id] });
                                                 }}
-                                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${bound ? 'bg-violet-500 text-white' : 'bg-white/80 border border-violet-200 text-slate-500'}`}
+                                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${bound ? 'bg-neutral-500 text-white' : 'bg-white/80 border border-neutral-200 text-slate-500'}`}
                                             >{group.name}</button>
                                         );
                                     })}
@@ -444,19 +444,19 @@ const McpServersCard: React.FC<{
                                     通用 = 所有私聊和群聊都能用；绑定后只有选中的角色或群聊能看到这批工具。
                                 </p>
                                 {!!server.charIds?.length && server.charIds.some(id => !characters.some(c => c.id === id) && !groups.some(g => g.id === id)) && (
-                                    <p className="text-[10px] text-amber-600 mt-1">
+                                    <p className="text-[10px] text-neutral-600 mt-1">
                                         ⚠️ 绑定里有已删除的角色或群聊，对应绑定不再生效，可重新点选清理。
                                     </p>
                                 )}
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => discover(server)} disabled={testingId === server.id} className="flex-1 py-2 bg-violet-100 text-violet-700 text-xs font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-60">
+                                <button onClick={() => discover(server)} disabled={testingId === server.id} className="flex-1 py-2 bg-neutral-100 text-neutral-700 text-xs font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-60">
                                     {testingId === server.id ? '测试中…' : '测试连接'}
                                 </button>
-                                <button onClick={() => removeServer(server.id)} className="px-4 py-2 bg-red-50 text-red-500 text-xs font-bold rounded-xl active:scale-95 transition-transform">删除</button>
+                                <button onClick={() => removeServer(server.id)} className="px-4 py-2 bg-neutral-50 text-neutral-500 text-xs font-bold rounded-xl active:scale-95 transition-transform">删除</button>
                             </div>
                             {testStatus[server.id] && (
-                                <div className={`p-2 rounded-lg text-[11px] whitespace-pre-line leading-relaxed ${testStatus[server.id].startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                <div className={`p-2 rounded-lg text-[11px] whitespace-pre-line leading-relaxed ${testStatus[server.id].startsWith('✅') ? 'bg-neutral-50 text-neutral-700' : 'bg-neutral-50 text-neutral-600'}`}>
                                     {testStatus[server.id]}
                                 </div>
                             )}
@@ -469,7 +469,7 @@ const McpServersCard: React.FC<{
                     )}
                 </div>
             ))}
-            <p className="text-[10px] text-violet-700/60 leading-relaxed bg-violet-100/40 rounded-lg px-2 py-1.5">
+            <p className="text-[10px] text-neutral-700/60 leading-relaxed bg-neutral-100/40 rounded-lg px-2 py-1.5">
                 开启 MCP 工具后，聊天会改用本地工具请求，本轮思考链会让位给工具调用；发布、下单、删除等操作仍会先征得你的确认。Token、自定义请求头与配置保存在本机；若配置了代理，请求会按你的设置经该代理转发。
             </p>
         </div>
@@ -723,7 +723,7 @@ const Settings: React.FC = () => {
   const [rtTestStatuses, setRtTestStatuses] = useState<Record<string, string>>({});
   const renderRtTestStatus = (key: string) => {
       const status = rtTestStatuses[key];
-      return status ? <div role="status" aria-live="polite" className={`p-3 rounded-xl text-xs font-medium whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${status.includes('成功') ? 'bg-emerald-100 text-emerald-700' : status.includes('失败') || status.includes('错误') ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>{status}</div> : null;
+      return status ? <div role="status" aria-live="polite" className={`p-3 rounded-xl text-xs font-medium whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${status.includes('成功') ? 'bg-neutral-100 text-neutral-700' : status.includes('失败') || status.includes('错误') ? 'bg-neutral-100 text-neutral-600' : 'bg-slate-100 text-slate-600'}`}>{status}</div> : null;
   };
 
   // 麦当劳 MCP (token / 启用态都直接存 localStorage, 不进 realtimeConfig)
@@ -2025,7 +2025,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="h-full w-full bg-[#f3f4f8] flex flex-col font-light relative isolate">
+    <div className="h-full w-full bg-[#f4f4f4] flex flex-col font-light relative isolate">
 
       {/* GLOBAL PROGRESS OVERLAY */}
       {sysOperation.status === 'processing' && (
@@ -2043,7 +2043,7 @@ const Settings: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="bg-[#fffefe] border-b border-slate-200 shrink-0 z-10 sticky top-0" style={{ paddingTop: 'var(--safe-top)' }}>
+      <div className="bg-[#fefefe] border-b border-slate-200 shrink-0 z-10 sticky top-0" style={{ paddingTop: 'var(--safe-top)' }}>
         <div className="flex items-center px-4 py-3">
         <div className="flex items-center gap-2 w-full">
             <button onClick={closeApp} className="p-2 -ml-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
@@ -2063,10 +2063,10 @@ const Settings: React.FC = () => {
         <SettingsSection
             title="外观急救"
             badge={hasJournalAppearanceOverride
-                ? <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold shrink-0">日记美化已启用</span>
+                ? <span className="text-[9px] bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded-full font-bold shrink-0">日记美化已启用</span>
                 : undefined}
             icon={
-                <div className="p-2 bg-amber-100/70 rounded-xl text-amber-700">
+                <div className="p-2 bg-neutral-100/70 rounded-xl text-neutral-700">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21a2.12 2.12 0 0 0 3-3l-5.84-5.84M11.42 15.17l2.83-2.83M11.42 15.17l-4.68 4.68a2.121 2.121 0 0 1-3-3l6.59-6.59m4.08 1.9 2.83-2.83m0 0 1.5-1.5a2.121 2.121 0 0 0-3-3l-1.5 1.5m3 3-3-3m-3.91 3.91-4.95-4.95a2.121 2.121 0 0 0-3 3l4.95 4.95" /></svg>
                 </div>
             }
@@ -2078,7 +2078,7 @@ const Settings: React.FC = () => {
                 type="button"
                 disabled={!hasJournalAppearanceOverride}
                 onClick={handleJournalAppearanceEmergencyReset}
-                className="mt-3 w-full rounded-xl bg-amber-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition active:scale-[.98] disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
+                className="mt-3 w-full rounded-xl bg-neutral-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition active:scale-[.98] disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
             >
                 {hasJournalAppearanceOverride ? '重置交换日记美化' : '交换日记当前为原版'}
             </button>
@@ -2086,13 +2086,13 @@ const Settings: React.FC = () => {
                 <p className="text-xs text-slate-500 leading-relaxed">聊天白框 CSS 导致界面异常、无法进入角色设置时，还原全局及全部角色的白框美化，其他聊天外观设置不受影响。</p>
                 <button type="button"
                     onClick={() => { if (window.confirm('确定还原全部聊天白框美化？将清空「全局」以及「每个角色」的自定义 CSS（其它聊天外观设置不受影响）。')) resetAllChromeCss(); }}
-                    className="mt-3 w-full rounded-xl bg-amber-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition active:scale-[.98]">
+                    className="mt-3 w-full rounded-xl bg-neutral-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition active:scale-[.98]">
                     一键还原全部聊天白框美化（救援）
                 </button>
             </div>
             <div className="mt-4 border-t border-slate-100 pt-4">
                 <div className="flex items-center gap-2 mb-2">
-                    <h2 className="text-sm font-bold text-rose-500 uppercase tracking-widest">一键还原外观</h2>
+                    <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-widest">一键还原外观</h2>
                 </div>
                 <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
                     把主题色、壁纸、字体、应用图标、桌面小组件、装饰贴纸全部还原成最初始状态。在不同版本之间反复导入预设导致图标错乱时使用。<br/>
@@ -2100,14 +2100,14 @@ const Settings: React.FC = () => {
                 </p>
                 {!confirmAppearanceReset ? (
                     <button onClick={() => setConfirmAppearanceReset(true)}
-                        className="w-full py-2.5 bg-white text-rose-500 font-bold text-xs rounded-xl border border-rose-200 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                        className="w-full py-2.5 bg-white text-neutral-500 font-bold text-xs rounded-xl border border-neutral-200 active:scale-95 transition-transform flex items-center justify-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
                         还原为初始外观
                     </button>
                 ) : (
                     <div className="flex gap-2">
                         <button onClick={handleAppearanceEmergencyReset} disabled={resettingAppearance}
-                            className="flex-1 py-2.5 bg-rose-500 text-white font-bold text-xs rounded-xl shadow-sm active:scale-95 transition-transform disabled:opacity-50">
+                            className="flex-1 py-2.5 bg-neutral-500 text-white font-bold text-xs rounded-xl shadow-sm active:scale-95 transition-transform disabled:opacity-50">
                             {resettingAppearance ? '正在还原...' : '确认还原'}
                         </button>
                         <button onClick={() => setConfirmAppearanceReset(false)} disabled={resettingAppearance}
@@ -2124,7 +2124,7 @@ const Settings: React.FC = () => {
         <SettingsSection
             title="备份与恢复 (ZIP)"
             icon={
-                <div className="p-2 bg-blue-100 rounded-xl text-blue-600">
+                <div className="p-2 bg-neutral-100 rounded-xl text-neutral-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
                 </div>
             }
@@ -2143,14 +2143,14 @@ const Settings: React.FC = () => {
                     <span className="font-bold">包含主动消息 2.0 的后端连接</span>
                     <span className="block text-slate-400">
                         换设备恢复时勾上，Worker 地址和密钥会一起带走。
-                        <span className="font-bold text-rose-500">勾着导出的备份不要分享给别人</span>
+                        <span className="font-bold text-neutral-500">勾着导出的备份不要分享给别人</span>
                         ——拿到文件的人能连上你那台 Worker，也能解开里面的聊天记录。
                     </span>
                 </span>
             </label>
 
             <div className="mb-3">
-                <button onClick={() => handleExport('full')} className="w-full py-4 bg-gradient-to-r from-violet-500 to-purple-600 border border-violet-300 rounded-xl text-xs font-bold text-white shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 relative overflow-hidden mb-3">
+                <button onClick={() => handleExport('full')} className="w-full py-4 bg-gradient-to-r from-neutral-500 to-neutral-600 border border-neutral-300 rounded-xl text-xs font-bold text-white shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 relative overflow-hidden mb-3">
                     <div className="absolute top-0 right-0 px-1.5 py-0.5 bg-white/20 text-[9px] text-white rounded-bl-lg font-bold">完整</div>
                     <div className="p-2 bg-white/20 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg></div>
                     <span>整合导出 (文字+媒体)</span>
@@ -2161,18 +2161,18 @@ const Settings: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3 mb-3">
                 <button onClick={() => handleExport('text_only')} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 relative overflow-hidden">
-                    <div className="p-2 bg-blue-50 rounded-full text-blue-500"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg></div>
+                    <div className="p-2 bg-neutral-50 rounded-full text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg></div>
                     <span>纯文字备份</span>
                 </button>
                  <button onClick={() => handleExport('media_only')} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2">
-                    <div className="p-2 bg-pink-50 rounded-full text-pink-500"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg></div>
+                    <div className="p-2 bg-neutral-50 rounded-full text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg></div>
                     <span>媒体与美化素材</span>
                 </button>
             </div>
 
             <div className="grid grid-cols-1 gap-3 mb-4">
-                 <div onClick={() => importInputRef.current?.click()} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 cursor-pointer hover:bg-emerald-50 hover:border-emerald-200">
-                    <div className="p-2 bg-emerald-100 rounded-full text-emerald-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg></div>
+                 <div onClick={() => importInputRef.current?.click()} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 cursor-pointer hover:bg-neutral-50 hover:border-neutral-200">
+                    <div className="p-2 bg-neutral-100 rounded-full text-neutral-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg></div>
                     <span>导入备份 (.zip / .json)</span>
                 </div>
                 <input type="file" ref={importInputRef} className="hidden" accept=".json,.zip" onChange={handleImport} />
@@ -2188,13 +2188,13 @@ const Settings: React.FC = () => {
                 • 兼容旧版 JSON 备份文件的导入。
             </p>
 
-            <div data-testid="avatar-model-backup-section" className="mb-5 border-y border-violet-100 py-4">
+            <div data-testid="avatar-model-backup-section" className="mb-5 border-y border-neutral-100 py-4">
                 <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
                         <h3 className="text-xs font-bold text-slate-700">视频模型 · 单独备份</h3>
                         <p className="mt-0.5 text-[10px] text-slate-400">VRM / Live2D 不再混进普通数据包</p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-600">
+                    <span className="shrink-0 rounded-full bg-neutral-50 px-2.5 py-1 text-[10px] font-bold text-neutral-600">
                         {avatarModelInventory
                             ? `${avatarModelInventory.availableCount} 个 · ${formatBackupBytes(avatarModelInventory.totalBytes)}`
                             : '正在扫描…'}
@@ -2209,7 +2209,7 @@ const Settings: React.FC = () => {
                                     <p className="truncate text-[11px] font-semibold text-slate-600">{model.characterName}</p>
                                     <p className="truncate text-[9px] uppercase tracking-wide text-slate-400">{model.format} · {model.fileName}</p>
                                 </div>
-                                <span className={`shrink-0 text-[10px] font-medium ${model.available ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                <span className={`shrink-0 text-[10px] font-medium ${model.available ? 'text-neutral-500' : 'text-neutral-500'}`}>
                                     {model.available ? formatBackupBytes(model.byteLength) : '文件缺失'}
                                 </span>
                             </div>
@@ -2222,7 +2222,7 @@ const Settings: React.FC = () => {
                         type="button"
                         onClick={handleAvatarModelExport}
                         disabled={avatarModelBackupBusy || !avatarModelInventory?.availableCount}
-                        className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 text-xs font-bold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-neutral-600 px-3 text-xs font-bold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V3.75m0 0 4.5 4.5M12 3.75l-4.5 4.5M3.75 15v4.125c0 .621.504 1.125 1.125 1.125h14.25c.621 0 1.125-.504 1.125-1.125V15" /></svg>
                         导出模型包
@@ -2231,7 +2231,7 @@ const Settings: React.FC = () => {
                         type="button"
                         onClick={() => avatarModelBackupInputRef.current?.click()}
                         disabled={avatarModelBackupBusy}
-                        className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-violet-200 bg-white px-3 text-xs font-bold text-violet-600 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold text-neutral-600 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5v12m0 0 4.5-4.5M12 19.5 7.5 15M3.75 9V4.875c0-.621.504-1.125 1.125-1.125h14.25c.621 0 1.125.504 1.125 1.125V9" /></svg>
                         顺序导入
@@ -2248,15 +2248,15 @@ const Settings: React.FC = () => {
 
                 {avatarModelBackupProgress && (
                     <div className="mt-3" aria-live="polite">
-                        <div className="mb-1.5 flex items-center justify-between gap-3 text-[10px] text-violet-600">
+                        <div className="mb-1.5 flex items-center justify-between gap-3 text-[10px] text-neutral-600">
                             <span className="truncate">{avatarModelBackupProgress.label}</span>
                             <span className="shrink-0 font-bold">
                                 {Math.min(100, Math.round((avatarModelBackupProgress.done / Math.max(1, avatarModelBackupProgress.total)) * 100))}%
                             </span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-violet-100">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-neutral-100">
                             <div
-                                className="h-full rounded-full bg-violet-500 transition-[width] duration-200"
+                                className="h-full rounded-full bg-neutral-500 transition-[width] duration-200"
                                 style={{ width: `${Math.min(100, Math.round((avatarModelBackupProgress.done / Math.max(1, avatarModelBackupProgress.total)) * 100))}%` }}
                             />
                         </div>
@@ -2267,16 +2267,16 @@ const Settings: React.FC = () => {
                     一个 ZIP 可以包含多个角色模型。恢复时请先导入上方普通数据，再导入模型包；系统会逐个读取、逐个写入。一次选择多个模型包时，也会按选择顺序处理。
                 </p>
                 {avatarModelInventory && avatarModelInventory.missingCount > 0 && (
-                    <p className="mt-2 text-[10px] leading-relaxed text-rose-500">
+                    <p className="mt-2 text-[10px] leading-relaxed text-neutral-500">
                         有 {avatarModelInventory.missingCount} 个角色只剩模型索引，本地二进制已经丢失，无法导出。
                     </p>
                 )}
             </div>
             {/* 备份提醒频率：糯米机数据只在本机，隔 N 天没导出会弹一次提醒 */}
-            <div className="mb-4 p-3.5 bg-gradient-to-br from-rose-50 to-orange-50 border border-rose-100 rounded-xl">
+            <div className="mb-4 p-3.5 bg-gradient-to-br from-neutral-50 to-neutral-50 border border-neutral-100 rounded-xl">
                 <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-slate-600">备份提醒频率</span>
-                    <span className="text-xs font-bold text-rose-500">每 {backupReminderDays} 天</span>
+                    <span className="text-xs font-bold text-neutral-500">每 {backupReminderDays} 天</span>
                 </div>
                 <input
                     type="range"
@@ -2289,7 +2289,7 @@ const Settings: React.FC = () => {
                         setBackupReminderDays(v);
                         setBackupReminderIntervalDays(v);
                     }}
-                    className="w-full h-2 bg-rose-100 rounded-full appearance-none accent-rose-500"
+                    className="w-full h-2 bg-neutral-100 rounded-full appearance-none accent-neutral-500"
                 />
                 <div className="flex justify-between text-[9px] text-slate-400 mt-1 px-0.5">
                     <span>{BACKUP_REMINDER_MIN_DAYS} 天</span>
@@ -2303,14 +2303,14 @@ const Settings: React.FC = () => {
                 </p>
             </div>
 
-            <button onClick={handleCleanupResidue} disabled={isCleaningResidue} className="w-full py-3 mb-2 bg-amber-50 border border-amber-100 text-amber-600 rounded-xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50">
+            <button onClick={handleCleanupResidue} disabled={isCleaningResidue} className="w-full py-3 mb-2 bg-neutral-50 border border-neutral-100 text-neutral-600 rounded-xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50">
                 {isCleaningResidue ? '正在扫描…' : '一键清理表情包残留'}
             </button>
             <p className="text-[10px] text-slate-400 px-1 mb-4 leading-relaxed">
                 清理已删除角色遗留的「幽灵表情包」：专属分类的角色没了之后，单聊表情面板看不到它、群聊面板却还冒出来。先扫描列出结果，确认后才会删除。
             </p>
 
-            <button onClick={() => setShowResetConfirm(true)} className="w-full py-3 bg-red-50 border border-red-100 text-red-500 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
+            <button onClick={() => setShowResetConfirm(true)} className="w-full py-3 bg-neutral-50 border border-neutral-100 text-neutral-500 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
                 格式化系统 (出厂设置)
             </button>
         </SettingsSection>
@@ -2319,7 +2319,7 @@ const Settings: React.FC = () => {
         <SettingsSection
             title="云端备份"
             icon={
-                <div className="p-2 bg-sky-100 rounded-xl text-sky-600">
+                <div className="p-2 bg-neutral-100 rounded-xl text-neutral-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" /></svg>
                 </div>
             }
@@ -2335,26 +2335,26 @@ const Settings: React.FC = () => {
                             onClick={() => { trackEvent('连接云端备份服务商', { provider: 'github' }); setShowGithubModal(true); }}
                             className="py-3 px-2 bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all flex flex-col items-center gap-1.5 relative"
                         >
-                            <span className="absolute top-1 right-1.5 text-[8px] bg-amber-300 text-slate-800 px-1.5 py-0.5 rounded-full font-bold">推荐</span>
+                            <span className="absolute top-1 right-1.5 text-[8px] bg-neutral-300 text-slate-800 px-1.5 py-0.5 rounded-full font-bold">推荐</span>
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.017C22 6.484 17.522 2 12 2z" /></svg>
                             <span>GitHub</span>
                             <span className="text-[9px] text-slate-300 font-normal">大文件自动分片</span>
                         </button>
                         <button
                             onClick={() => { trackEvent('连接云端备份服务商', { provider: 'webdav' }); setShowCloudModal(true); }}
-                            className="py-3 px-2 bg-gradient-to-br from-sky-500 to-blue-600 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all flex flex-col items-center gap-1.5"
+                            className="py-3 px-2 bg-gradient-to-br from-neutral-500 to-neutral-600 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all flex flex-col items-center gap-1.5"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" /></svg>
                             <span>WebDAV</span>
-                            <span className="text-[9px] text-sky-100 font-normal">日本/NAS · 需梯子</span>
+                            <span className="text-[9px] text-neutral-100 font-normal">日本/NAS · 需梯子</span>
                         </button>
                     </div>
                 </div>
             ) : (
                 <div className="space-y-3">
-                    <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${cloudBackupConfig.provider === 'github' ? 'bg-slate-100' : 'bg-sky-50'}`}>
+                    <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${cloudBackupConfig.provider === 'github' ? 'bg-slate-100' : 'bg-neutral-50'}`}>
                         <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                            <div className="w-2 h-2 bg-neutral-400 rounded-full animate-pulse" />
                             <span className="text-[11px] text-slate-600 font-medium">
                                 已连接 · {cloudBackupConfig.provider === 'github'
                                     ? `GitHub${cloudBackupConfig.githubOwner ? ` (@${cloudBackupConfig.githubOwner})` : ''}`
@@ -2363,7 +2363,7 @@ const Settings: React.FC = () => {
                         </div>
                         <button
                             onClick={() => cloudBackupConfig.provider === 'github' ? setShowGithubModal(true) : setShowCloudModal(true)}
-                            className={`text-[10px] font-medium ${cloudBackupConfig.provider === 'github' ? 'text-slate-600' : 'text-sky-500'}`}
+                            className={`text-[10px] font-medium ${cloudBackupConfig.provider === 'github' ? 'text-slate-600' : 'text-neutral-500'}`}
                         >
                             修改配置
                         </button>
@@ -2403,7 +2403,7 @@ const Settings: React.FC = () => {
                     ) : (
                         <button
                             onClick={switchToWebDAV}
-                            className="w-full py-1.5 text-[10px] text-slate-400 hover:text-sky-500 transition-colors"
+                            className="w-full py-1.5 text-[10px] text-slate-400 hover:text-neutral-500 transition-colors"
                         >
                             {cloudBackupConfig.webdavUrl ? '切换回 WebDAV →' : '改用 WebDAV 备份 →'}
                         </button>
@@ -2420,7 +2420,7 @@ const Settings: React.FC = () => {
                             onClick={() => handleCloudBackup('text_only')}
                             className="py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-1"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-sky-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-neutral-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
                             <span>备份到云端</span>
                             <span className="text-[9px] text-slate-400">(纯文字)</span>
                         </button>
@@ -2428,7 +2428,7 @@ const Settings: React.FC = () => {
                             onClick={() => handleCloudBackup('full')}
                             className="py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-1"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-violet-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-neutral-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
                             <span>备份到云端</span>
                             <span className="text-[9px] text-slate-400">(完整)</span>
                         </button>
@@ -2438,7 +2438,7 @@ const Settings: React.FC = () => {
                         onClick={handleOpenCloudRestore}
                         className="w-full py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-emerald-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75v6.75m0 0l-3-3m3 3l3-3m-8.25 6a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-neutral-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75v6.75m0 0l-3-3m3 3l3-3m-8.25 6a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
                         从云端恢复
                     </button>
                 </div>
@@ -2455,7 +2455,7 @@ const Settings: React.FC = () => {
             title="API 配置"
             sectionProps={{ 'data-guide': 'api' }}
             icon={
-                <div className="p-2 bg-emerald-100/50 rounded-xl text-emerald-600">
+                <div className="p-2 bg-neutral-100/50 rounded-xl text-neutral-600">
                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
                     </svg>
@@ -2505,8 +2505,8 @@ const Settings: React.FC = () => {
                                     onContextMenu={(event) => event.preventDefault()}
                                     className={`p-1 rounded-full transition-colors select-none touch-none ${
                                         holdingDeletePresetId === preset.id
-                                            ? 'bg-red-100 text-red-500 scale-110'
-                                            : 'text-slate-300 hover:bg-red-50 hover:text-red-400'
+                                            ? 'bg-neutral-100 text-neutral-500 scale-110'
+                                            : 'text-slate-300 hover:bg-neutral-50 hover:text-neutral-400'
                                     }`}>
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
                                 </button>
@@ -2583,7 +2583,7 @@ const Settings: React.FC = () => {
 
                 {testApiResult && (
                     <div className={`mt-2 text-xs px-3 py-2 rounded-xl ${
-                        testApiResult.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                        testApiResult.startsWith('✅') ? 'bg-neutral-50 text-neutral-700' : 'bg-neutral-50 text-neutral-600'
                     }`}>
                         {testApiResult}
                     </div>
@@ -2597,14 +2597,14 @@ const Settings: React.FC = () => {
             badge={
                 <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${
                     apiConfig.visionApi?.enabled
-                        ? 'bg-violet-100 text-violet-600'
+                        ? 'bg-neutral-100 text-neutral-600'
                         : 'bg-slate-100 text-slate-400'
                 }`}>
                     {apiConfig.visionApi?.enabled ? '已接入' : '未接入'}
                 </span>
             }
             icon={
-                <div className="p-2 bg-violet-100/60 rounded-xl text-violet-600">
+                <div className="p-2 bg-neutral-100/60 rounded-xl text-neutral-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -2613,7 +2613,7 @@ const Settings: React.FC = () => {
             }
         >
             <div className="space-y-4">
-                <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-3.5">
+                <div className="rounded-2xl border border-neutral-100 bg-neutral-50/60 p-3.5">
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <div className="text-xs font-bold text-slate-600">接入独立识图 API</div>
@@ -2626,7 +2626,7 @@ const Settings: React.FC = () => {
                             role="switch"
                             aria-checked={localVisionEnabled}
                             onClick={handleToggleVisionApi}
-                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${localVisionEnabled ? 'bg-violet-500' : 'bg-slate-200'}`}
+                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${localVisionEnabled ? 'bg-neutral-500' : 'bg-slate-200'}`}
                         >
                             <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${localVisionEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                         </button>
@@ -2635,13 +2635,13 @@ const Settings: React.FC = () => {
 
                 <p className="text-[10px] text-slate-400 leading-relaxed px-1">
                     开启后，每张聊天图片只会先交给这里的视觉模型识别一次，并把结果写成
-                    <span className="font-semibold text-violet-600"> [图片：模型看到的内容] </span>
+                    <span className="font-semibold text-neutral-600"> [图片：模型看到的内容] </span>
                     再发给主 API；之后聊天和重 roll 都直接复用，不会重复识图扣费。关闭时完全沿用原来的图片发送逻辑。
                 </p>
 
-                <div className="rounded-2xl border border-violet-100 bg-white/70 p-3">
+                <div className="rounded-2xl border border-neutral-100 bg-white/70 p-3">
                     <div className="flex items-center justify-between gap-2 mb-2">
-                        <label className="text-[10px] font-bold text-violet-500 uppercase tracking-widest">从模型预设载入</label>
+                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">从模型预设载入</label>
                         <span className="text-[9px] text-slate-300">不会切换主 API</span>
                     </div>
                     {apiPresets.length > 0 ? (
@@ -2653,8 +2653,8 @@ const Settings: React.FC = () => {
                                     onClick={() => loadVisionApiPreset(preset)}
                                     className={`max-w-full px-3 py-1.5 rounded-lg border text-[11px] font-medium truncate transition-colors ${
                                         selectedVisionPresetId === preset.id
-                                            ? 'bg-violet-100 border-violet-200 text-violet-700'
-                                            : 'bg-white border-slate-200 text-slate-500 hover:border-violet-200'
+                                            ? 'bg-neutral-100 border-neutral-200 text-neutral-700'
+                                            : 'bg-white border-slate-200 text-slate-500 hover:border-neutral-200'
                                     }`}
                                     title={`${preset.name} · ${preset.config.model || '未配置模型'}`}
                                 >
@@ -2697,7 +2697,7 @@ const Settings: React.FC = () => {
                                 type="button"
                                 onClick={fetchVisionModels}
                                 disabled={!localVisionEnabled || isLoadingVisionModels}
-                                className="text-[10px] text-violet-600 font-bold disabled:text-slate-300"
+                                className="text-[10px] text-neutral-600 font-bold disabled:text-slate-300"
                             >
                                 {isLoadingVisionModels ? 'Fetching...' : '刷新模型列表'}
                             </button>
@@ -2722,7 +2722,7 @@ const Settings: React.FC = () => {
                         type="button"
                         onClick={handleTestVisionApi}
                         disabled={testingVisionApi || !localVisionEnabled || !localVisionUrl.trim() || !localVisionKey.trim() || !localVisionModel.trim()}
-                        className="py-3 rounded-2xl font-bold text-violet-600 border border-violet-200 bg-violet-50 active:scale-95 transition-all disabled:opacity-40"
+                        className="py-3 rounded-2xl font-bold text-neutral-600 border border-neutral-200 bg-neutral-50 active:scale-95 transition-all disabled:opacity-40"
                     >
                         {testingVisionApi ? '识图测试中…' : '🧪 测试识图'}
                     </button>
@@ -2730,18 +2730,18 @@ const Settings: React.FC = () => {
                         type="button"
                         onClick={() => handleSaveVisionApi()}
                         disabled={isLoadingVisionModels || testingVisionApi}
-                        className="py-3 rounded-2xl font-bold text-white shadow-lg shadow-violet-500/20 bg-violet-500 active:scale-95 transition-all disabled:opacity-50"
+                        className="py-3 rounded-2xl font-bold text-white shadow-lg shadow-neutral-500/20 bg-neutral-500 active:scale-95 transition-all disabled:opacity-50"
                     >
                         保存识图 API
                     </button>
                 </div>
                 {visionStatusMsg && (
-                    <div className="text-[11px] text-center text-violet-600 bg-violet-50 px-3 py-2 rounded-xl">{visionStatusMsg}</div>
+                    <div className="text-[11px] text-center text-neutral-600 bg-neutral-50 px-3 py-2 rounded-xl">{visionStatusMsg}</div>
                 )}
                 <p className="text-[9px] text-slate-300 px-1">测试会发送一张内置紫色圆点图，确认该模型真的能看图，并消耗一次极小请求。</p>
                 {visionTestResult && (
                     <div className={`text-xs px-3 py-2 rounded-xl leading-relaxed ${
-                        visionTestResult.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                        visionTestResult.startsWith('✅') ? 'bg-neutral-50 text-neutral-700' : 'bg-neutral-50 text-neutral-600'
                     }`}>
                         {visionTestResult}
                     </div>
@@ -2755,7 +2755,7 @@ const Settings: React.FC = () => {
             onClick={() => setShowApiCallLog(true)}
             className="w-full bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
         >
-            <div className="p-2 bg-sky-100/60 rounded-xl text-sky-600 shrink-0">
+            <div className="p-2 bg-neutral-100/60 rounded-xl text-neutral-600 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
                 </svg>
@@ -2773,7 +2773,7 @@ const Settings: React.FC = () => {
         <SettingsSection
             title="语音 API"
             icon={
-                <div className="p-2 bg-amber-100/50 rounded-xl text-amber-600">
+                <div className="p-2 bg-neutral-100/50 rounded-xl text-neutral-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
                     </svg>
@@ -2830,7 +2830,7 @@ const Settings: React.FC = () => {
                 <div className="group">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">鱼声 Fish Audio Key</label>
                     <input type="password" name="fish-api-key" autoComplete="new-password" spellCheck={false} value={localFishKey} onChange={(e) => setLocalFishKey(e.target.value)} placeholder="Fish Audio API Key（fish.audio 控制台签发）" className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all" />
-                    <p className="text-[11px] text-slate-400 mt-1 pl-1">在 <a href="https://fish.audio/zh-CN/developers/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">fish.audio 开发者页</a> 拿 Key（<span className="text-amber-600 font-medium">需梯子</span>）。角色音色在「角色 → 语音」里填 reference_id。静态网页环境会在合成时通过网络 Worker 转发 Key 与待合成文字，项目不主动留存。</p>
+                    <p className="text-[11px] text-slate-400 mt-1 pl-1">在 <a href="https://fish.audio/zh-CN/developers/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">fish.audio 开发者页</a> 拿 Key（<span className="text-neutral-600 font-medium">需梯子</span>）。角色音色在「角色 → 语音」里填 reference_id。静态网页环境会在合成时通过网络 Worker 转发 Key 与待合成文字，项目不主动留存。</p>
 
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3 mb-1.5 block pl-1">鱼声模型</label>
                     <select
@@ -2963,7 +2963,7 @@ const Settings: React.FC = () => {
 
                     {showVoicePrompts && (
                         <div className="mt-3 space-y-4">
-                            <p className="text-[11px] text-amber-600 leading-relaxed pl-0.5">
+                            <p className="text-[11px] text-neutral-600 leading-relaxed pl-0.5">
                                 ⚠️ 这是给模型的格式说明（停顿标记 / 情绪标签 / 动作词等），不是角色人设。改坏了可能导致语音标记解析失败——拿不准就点「清空」回到默认。改完记得点下面的「保存」。
                             </p>
 
@@ -3009,7 +3009,7 @@ const Settings: React.FC = () => {
                                                     type="button"
                                                     onClick={() => setValue('')}
                                                     disabled={usingDefault}
-                                                    className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                                                    className="text-[11px] font-semibold text-neutral-500 hover:text-neutral-600 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
                                                 >
                                                     清空（恢复默认）
                                                 </button>
@@ -3028,7 +3028,7 @@ const Settings: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => setShowAceStepGuide(v => !v)}
-                            className="text-[10px] font-semibold text-rose-500 hover:text-rose-600 active:scale-95 transition-all flex items-center gap-1"
+                            className="text-[10px] font-semibold text-neutral-500 hover:text-neutral-600 active:scale-95 transition-all flex items-center gap-1"
                         >
                             {showAceStepGuide ? '收起' : '怎么拿？'}
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-3 h-3 transition-transform ${showAceStepGuide ? 'rotate-180' : ''}`}>
@@ -3040,9 +3040,9 @@ const Settings: React.FC = () => {
                     <p className="text-[11px] text-slate-400 mt-1 pl-1">填了之后，写歌 App 的歌词页可以一键调用 ACE-Step 生成真人声整首歌（约 ¥0.1/首）。生成时 Token、歌词与风格参数会通过网络 Worker 转发给 Replicate，项目不主动留存。</p>
 
                     {showAceStepGuide && (
-                        <div className="mt-3 rounded-2xl overflow-hidden border border-rose-200/60 bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50 shadow-sm animate-slide-down">
-                            <div className="px-4 pt-3.5 pb-2 flex items-center gap-2 border-b border-rose-200/40">
-                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 text-white flex items-center justify-center text-base shadow-sm shadow-rose-500/30">🎤</div>
+                        <div className="mt-3 rounded-2xl overflow-hidden border border-neutral-200/60 bg-gradient-to-br from-neutral-50 via-neutral-50 to-neutral-50 shadow-sm animate-slide-down">
+                            <div className="px-4 pt-3.5 pb-2 flex items-center gap-2 border-b border-neutral-200/40">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-neutral-500 to-neutral-500 text-white flex items-center justify-center text-base shadow-sm shadow-neutral-500/30">🎤</div>
                                 <div className="flex-1">
                                     <div className="text-[12px] font-bold text-stone-700">3 步搞定 Replicate Token</div>
                                     <div className="text-[10px] text-stone-500">让 ACE-Step 帮你把歌唱出来</div>
@@ -3050,7 +3050,7 @@ const Settings: React.FC = () => {
                             </div>
                             <div className="px-4 py-3 space-y-2.5">
                                 <div className="flex gap-2.5">
-                                    <span className="shrink-0 w-5 h-5 rounded-full bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">1</span>
+                                    <span className="shrink-0 w-5 h-5 rounded-full bg-neutral-500 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">1</span>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-[12px] text-stone-700 font-medium">注册 Replicate 账号</div>
                                         <p className="text-[11px] text-stone-500 leading-relaxed mt-0.5">用 GitHub 一键登录最快。无需邮箱验证。</p>
@@ -3058,36 +3058,36 @@ const Settings: React.FC = () => {
                                             href="https://replicate.com/signin"
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-rose-600 hover:text-rose-700 active:scale-95 transition-all px-2 py-1 rounded-lg bg-white/70 border border-rose-200/50"
+                                            className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-neutral-600 hover:text-neutral-700 active:scale-95 transition-all px-2 py-1 rounded-lg bg-white/70 border border-neutral-200/50"
                                         >
                                             打开注册页
                                         </a>
                                     </div>
                                 </div>
                                 <div className="flex gap-2.5">
-                                    <span className="shrink-0 w-5 h-5 rounded-full bg-orange-500 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">2</span>
+                                    <span className="shrink-0 w-5 h-5 rounded-full bg-neutral-500 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">2</span>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-[12px] text-stone-700 font-medium">复制 API Token</div>
-                                        <p className="text-[11px] text-stone-500 leading-relaxed mt-0.5">登录后访问 Account → API Tokens，复制以 <span className="font-mono text-rose-600">r8_</span> 开头的那一串。</p>
+                                        <p className="text-[11px] text-stone-500 leading-relaxed mt-0.5">登录后访问 Account → API Tokens，复制以 <span className="font-mono text-neutral-600">r8_</span> 开头的那一串。</p>
                                         <a
                                             href="https://replicate.com/account/api-tokens"
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-orange-600 hover:text-orange-700 active:scale-95 transition-all px-2 py-1 rounded-lg bg-white/70 border border-orange-200/50"
+                                            className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-neutral-600 hover:text-neutral-700 active:scale-95 transition-all px-2 py-1 rounded-lg bg-white/70 border border-neutral-200/50"
                                         >
                                             打开 Token 页
                                         </a>
                                     </div>
                                 </div>
                                 <div className="flex gap-2.5">
-                                    <span className="shrink-0 w-5 h-5 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">3</span>
+                                    <span className="shrink-0 w-5 h-5 rounded-full bg-neutral-500 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">3</span>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-[12px] text-stone-700 font-medium">绑卡充值（必须）</div>
-                                        <p className="text-[11px] text-stone-500 leading-relaxed mt-0.5">Replicate 没有免费试用额度，需先绑信用卡。<span className="text-rose-600 font-semibold">国内卡基本不行</span>，建议 Visa / MC 美区卡。最低充 $1（约 ¥7.3）≈ 50-100 首歌。</p>
+                                        <p className="text-[11px] text-stone-500 leading-relaxed mt-0.5">Replicate 没有免费试用额度，需先绑信用卡。<span className="text-neutral-600 font-semibold">国内卡基本不行</span>，建议 Visa / MC 美区卡。最低充 $1（约 ¥7.3）≈ 50-100 首歌。</p>
                                     </div>
                                 </div>
-                                <div className="mt-2 pt-2.5 border-t border-rose-200/40 flex gap-2 items-start">
-                                    <span className="text-rose-500 text-sm leading-none mt-0.5">💡</span>
+                                <div className="mt-2 pt-2.5 border-t border-neutral-200/40 flex gap-2 items-start">
+                                    <span className="text-neutral-500 text-sm leading-none mt-0.5">💡</span>
                                     <p className="text-[11px] text-stone-500 leading-relaxed">
                                         粘贴到上面输入框 → 点保存配置 → 进写歌 App 打开任意一首歌的预览页 → 底部「AI 出歌」即可。
                                     </p>
@@ -3097,7 +3097,7 @@ const Settings: React.FC = () => {
                     )}
                 </div>
 
-                <button onClick={handleSaveOtherApis} className="w-full py-3 rounded-2xl font-bold text-white shadow-lg shadow-amber-500/20 bg-amber-500 active:scale-95 transition-all mt-2">
+                <button onClick={handleSaveOtherApis} className="w-full py-3 rounded-2xl font-bold text-white shadow-lg shadow-neutral-500/20 bg-neutral-500 active:scale-95 transition-all mt-2">
                     {otherStatusMsg || '保存语音 API'}
                 </button>
             </div>
@@ -3109,14 +3109,14 @@ const Settings: React.FC = () => {
         <SettingsSection
             title="实时感知"
             icon={
-                <div className="p-2 bg-violet-100/50 rounded-xl text-violet-600">
+                <div className="p-2 bg-neutral-100/50 rounded-xl text-neutral-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
                     </svg>
                 </div>
             }
             actions={
-                <button onClick={() => { trackEvent('打开实时感知配置'); setShowRealtimeModal(true); }} className="text-[10px] bg-violet-100 text-violet-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform">
+                <button onClick={() => { trackEvent('打开实时感知配置'); setShowRealtimeModal(true); }} className="text-[10px] bg-neutral-100 text-neutral-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform">
                     配置
                 </button>
             }
@@ -3126,23 +3126,23 @@ const Settings: React.FC = () => {
             </p>
 
             <div className="grid grid-cols-5 gap-2 text-center">
-                <div className={`py-3 rounded-xl text-xs font-bold ${rtWeatherEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>
+                <div className={`py-3 rounded-xl text-xs font-bold ${rtWeatherEnabled ? 'bg-neutral-50 text-neutral-600' : 'bg-slate-50 text-slate-400'}`}>
                     <div className="text-lg mb-1">{rtWeatherEnabled ? <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/2600.png" className="w-5 h-5 inline" alt="" /> : <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f32b.png" className="w-5 h-5 inline" alt="" />}</div>
                     天气
                 </div>
-                <div className={`py-3 rounded-xl text-xs font-bold ${rtNewsEnabled ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-400'}`}>
+                <div className={`py-3 rounded-xl text-xs font-bold ${rtNewsEnabled ? 'bg-neutral-50 text-neutral-600' : 'bg-slate-50 text-slate-400'}`}>
                     <div className="text-lg mb-1">{rtNewsEnabled ? <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4f0.png" className="w-5 h-5 inline" alt="" /> : <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4c4.png" className="w-5 h-5 inline" alt="" />}</div>
                     新闻
                 </div>
-                <div className={`py-3 rounded-xl text-xs font-bold ${rtNotionEnabled ? 'bg-orange-50 text-orange-600' : 'bg-slate-50 text-slate-400'}`}>
+                <div className={`py-3 rounded-xl text-xs font-bold ${rtNotionEnabled ? 'bg-neutral-50 text-neutral-600' : 'bg-slate-50 text-slate-400'}`}>
                     <div className="text-lg mb-1">{rtNotionEnabled ? <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4dd.png" className="w-5 h-5 inline" alt="" /> : <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4cb.png" className="w-5 h-5 inline" alt="" />}</div>
                     Notion
                 </div>
-                <div className={`py-3 rounded-xl text-xs font-bold ${rtFeishuEnabled ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
+                <div className={`py-3 rounded-xl text-xs font-bold ${rtFeishuEnabled ? 'bg-neutral-50 text-neutral-600' : 'bg-slate-50 text-slate-400'}`}>
                     <div className="text-lg mb-1">{rtFeishuEnabled ? <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4d2.png" className="w-5 h-5 inline" alt="" /> : <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4cb.png" className="w-5 h-5 inline" alt="" />}</div>
                     飞书
                 </div>
-                <div className={`py-3 rounded-xl text-xs font-bold ${rtXhsEnabled ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-400'}`}>
+                <div className={`py-3 rounded-xl text-xs font-bold ${rtXhsEnabled ? 'bg-neutral-50 text-neutral-600' : 'bg-slate-50 text-slate-400'}`}>
                     <div className="text-lg mb-1">{rtXhsEnabled ? <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4d5.png" className="w-5 h-5 inline" alt="" /> : <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4cb.png" className="w-5 h-5 inline" alt="" />}</div>
                     小红书
                 </div>
@@ -3152,9 +3152,9 @@ const Settings: React.FC = () => {
         {/* 通用 MCP，独立于实时感知 */}
         <SettingsSection
             title="MCP"
-            badge={<span className="text-[9px] bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full font-bold shrink-0">本机配置</span>}
+            badge={<span className="text-[9px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded-full font-bold shrink-0">本机配置</span>}
             icon={
-                <div className="p-2 bg-violet-100/60 rounded-xl text-violet-600">
+                <div className="p-2 bg-neutral-100/60 rounded-xl text-neutral-600">
                     <PlugsConnected size={16} weight="fill" />
                 </div>
             }
@@ -3165,7 +3165,7 @@ const Settings: React.FC = () => {
                         aria-label="MCP 是什么？"
                         className="w-7 h-7 rounded-full border border-slate-200 bg-white text-[12px] font-bold text-slate-400 active:scale-90 transition-all"
                     >?</button>
-                    <button onClick={() => { trackEvent('打开MCP工具服务器配置'); setShowMcpModal(true); }} className="text-[10px] bg-violet-100 text-violet-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform">
+                    <button onClick={() => { trackEvent('打开MCP工具服务器配置'); setShowMcpModal(true); }} className="text-[10px] bg-neutral-100 text-neutral-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform">
                         管理
                     </button>
                 </>
@@ -3174,7 +3174,7 @@ const Settings: React.FC = () => {
             <p className="text-xs text-slate-500 leading-relaxed">
                 连接标准 MCP 服务器，让聊天可以调用资料库、搜索、笔记或智能家居等工具。
             </p>
-            <p className="text-[10px] text-slate-400 mt-2 leading-relaxed border-l-2 border-violet-200 pl-2">
+            <p className="text-[10px] text-slate-400 mt-2 leading-relaxed border-l-2 border-neutral-200 pl-2">
                 需要自行准备 Streamable HTTP 服务；不配置不会影响内置 Sully、记忆或普通聊天。
             </p>
             {(() => {
@@ -3197,14 +3197,14 @@ const Settings: React.FC = () => {
             title="推送凭据 (VAPID)"
             sectionProps={{ 'data-vapid-tick': vapidReadyTick }}
             icon={
-                <div className="p-2 bg-violet-100/60 rounded-xl text-violet-600">
+                <div className="p-2 bg-neutral-100/60 rounded-xl text-neutral-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
                     </svg>
                 </div>
             }
             actions={
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isPushVapidReady() ? 'bg-violet-100 text-violet-600' : 'bg-rose-100 text-rose-600'}`}>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isPushVapidReady() ? 'bg-neutral-100 text-neutral-600' : 'bg-neutral-100 text-neutral-600'}`}>
                     {isPushVapidReady() ? '已配置' : '未配置'}
                 </span>
             }
@@ -3215,7 +3215,7 @@ const Settings: React.FC = () => {
             <button
                 type="button"
                 onClick={() => setShowVapidModal(true)}
-                className={`w-full py-2.5 rounded-xl text-xs font-bold ${isPushVapidReady() ? 'bg-white text-violet-700 border border-violet-200 hover:bg-violet-50' : 'bg-violet-500 text-white hover:bg-violet-600 shadow-md shadow-violet-200'}`}
+                className={`w-full py-2.5 rounded-xl text-xs font-bold ${isPushVapidReady() ? 'bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50' : 'bg-neutral-500 text-white hover:bg-neutral-600 shadow-md shadow-neutral-200'}`}
             >
                 {isPushVapidReady() ? '查看 / 重新生成' : '生成 VAPID 密钥对 →'}
             </button>
@@ -3225,7 +3225,7 @@ const Settings: React.FC = () => {
         <SettingsSection
             title="推送订阅状态"
             icon={
-                <div className="p-2 bg-sky-100/60 rounded-xl text-sky-600">
+                <div className="p-2 bg-neutral-100/60 rounded-xl text-neutral-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
                     </svg>
@@ -3240,14 +3240,14 @@ const Settings: React.FC = () => {
         <SettingsSection
             title="主动消息 Push 加速"
             icon={
-                <div className="p-2 bg-teal-100/60 rounded-xl text-teal-600">
+                <div className="p-2 bg-neutral-100/60 rounded-xl text-neutral-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
                     </svg>
                 </div>
             }
             actions={
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ppEnabled ? 'bg-teal-100 text-teal-600' : 'bg-slate-100 text-slate-400'}`}>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ppEnabled ? 'bg-neutral-100 text-neutral-600' : 'bg-slate-100 text-slate-400'}`}>
                     {ppEnabled ? '已启用' : '未启用'}
                 </span>
             }
@@ -3259,7 +3259,7 @@ const Settings: React.FC = () => {
             </p>
 
             {ppStatus && (
-                <div className={`mb-3 p-3 rounded-xl text-xs font-medium text-center ${ppStatus.includes('成功') || ppStatus.includes('已启用') || ppStatus.includes('OK') ? 'bg-emerald-100 text-emerald-700' : ppStatus.includes('失败') || ppStatus.includes('错误') || ppStatus.includes('拒绝') ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
+                <div className={`mb-3 p-3 rounded-xl text-xs font-medium text-center ${ppStatus.includes('成功') || ppStatus.includes('已启用') || ppStatus.includes('OK') ? 'bg-neutral-100 text-neutral-700' : ppStatus.includes('失败') || ppStatus.includes('错误') || ppStatus.includes('拒绝') ? 'bg-neutral-100 text-neutral-600' : 'bg-slate-100 text-slate-600'}`}>
                     {ppStatus}
                 </div>
             )}
@@ -3280,7 +3280,7 @@ const Settings: React.FC = () => {
                             setShowPpConfirm(true);
                         }
                     }}
-                    className={`w-10 h-5 rounded-full transition-colors ${ppEnabled ? 'bg-teal-500' : 'bg-slate-300'} ${ppBusy ? 'opacity-60' : ''}`}
+                    className={`w-10 h-5 rounded-full transition-colors ${ppEnabled ? 'bg-neutral-500' : 'bg-slate-300'} ${ppBusy ? 'opacity-60' : ''}`}
                 >
                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${ppEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
@@ -3357,11 +3357,11 @@ const Settings: React.FC = () => {
                         {ppDiag.endpoint && (
                             <div className="pt-2 mt-2 border-t border-slate-200">
                                 <p className="text-[10px] text-slate-400 mb-1">订阅端点（前 60 字符）</p>
-                                <p className={`text-[10px] font-mono break-all leading-relaxed ${ppDiag.endpointDead ? 'text-rose-600' : 'text-slate-500'}`}>{ppDiag.endpoint.slice(0, 60)}…</p>
+                                <p className={`text-[10px] font-mono break-all leading-relaxed ${ppDiag.endpointDead ? 'text-neutral-600' : 'text-slate-500'}`}>{ppDiag.endpoint.slice(0, 60)}…</p>
                             </div>
                         )}
                         {ppDiag.endpointDead && (
-                            <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 leading-relaxed">
+                            <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                                 订阅地址是 <code className="font-mono">permanently-removed.invalid</code>——浏览器已经把这个订阅吊销了
                                 （常见原因：长期不访问、通知权限切换过、浏览器清理过站点数据）。<br/>
                                 这个域名是 RFC 保留 TLD，全球永远不会解析；Worker 试图把 push 投递过去就会回 HTTP 530。<br/>
@@ -3369,13 +3369,13 @@ const Settings: React.FC = () => {
                             </div>
                         )}
                         {ppDiag.iosNeedsPwa && (
-                            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 leading-relaxed">
+                            <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                                 检测到 iOS Safari，但当前不是已添加到主屏幕的 PWA。<br/>
                                 iOS 的 Web Push 必须先把网站"添加到主屏幕"启动后才能用。
                             </div>
                         )}
                         {ppDiag.capacitorNative && (
-                            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 leading-relaxed">
+                            <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[10px] text-neutral-700 leading-relaxed">
                                 你现在是在<b>打包好的 App</b>里运行（不是浏览器网页）。<br/>
                                 这个"Push 加速器"只对网页版生效——App 里没有网页推送通道，但<b>不影响你正常用</b>：
                                 主动消息会通过 App 的本地通知发出，App 在后台/锁屏也能收到。<br/>
@@ -3398,14 +3398,14 @@ const Settings: React.FC = () => {
                             <button
                                 disabled={ppTestBusy || resetBusy || !ppDiag?.endpoint || ppDiag?.endpointDead || ppDiag?.capacitorNative}
                                 onClick={() => void doSendTestPush()}
-                                className={`py-2 rounded-xl text-xs font-bold ${ppTestBusy || resetBusy || !ppDiag?.endpoint || ppDiag?.endpointDead || ppDiag?.capacitorNative ? 'bg-slate-200 text-slate-400' : 'bg-teal-500 text-white hover:bg-teal-600'}`}
+                                className={`py-2 rounded-xl text-xs font-bold ${ppTestBusy || resetBusy || !ppDiag?.endpoint || ppDiag?.endpointDead || ppDiag?.capacitorNative ? 'bg-slate-200 text-slate-400' : 'bg-neutral-500 text-white hover:bg-neutral-600'}`}
                             >
                                 {ppTestBusy ? '测试中…' : '发一条测试推送'}
                             </button>
                             <button
                                 disabled={resetBusy || ppTestBusy || ppDiag?.capacitorNative}
                                 onClick={() => inDeepMode ? void doDeepResetSubscription() : void doResetSubscription()}
-                                className={`py-2 rounded-xl text-xs font-bold border ${resetBusy || ppTestBusy || ppDiag?.capacitorNative ? 'bg-slate-100 text-slate-400 border-slate-200' : inDeepMode || ppDiag?.endpointDead ? 'bg-rose-500 text-white border-rose-500 hover:bg-rose-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                                className={`py-2 rounded-xl text-xs font-bold border ${resetBusy || ppTestBusy || ppDiag?.capacitorNative ? 'bg-slate-100 text-slate-400 border-slate-200' : inDeepMode || ppDiag?.endpointDead ? 'bg-neutral-500 text-white border-neutral-500 hover:bg-neutral-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                             >
                                 {resetLabel}
                             </button>
@@ -3425,7 +3425,7 @@ const Settings: React.FC = () => {
         <section className="bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50">
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                    <div className="p-2 bg-violet-100/60 rounded-xl text-violet-600">
+                    <div className="p-2 bg-neutral-100/60 rounded-xl text-neutral-600">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
@@ -3434,7 +3434,7 @@ const Settings: React.FC = () => {
                 </div>
                 <button
                     onClick={() => { trackEvent('打开主动消息2.0配置'); setShowAmsg2Modal(true); }}
-                    className="text-[10px] bg-violet-100 text-violet-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform"
+                    className="text-[10px] bg-neutral-100 text-neutral-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform"
                 >
                     配置
                 </button>
@@ -3442,7 +3442,7 @@ const Settings: React.FC = () => {
             <p className="text-xs text-slate-500 leading-relaxed">
                 角色到点自动给你发消息，App 关着也能收。需要你自己部署一个 Cloudflare Worker（自带 D1 数据库 + 定时触发），在配置里填地址即可。聊天上云（即时对话）与定时主动消息都由它承担。
             </p>
-            <button type="button" onClick={() => setShowAmsgCloudData(true)} className="mt-3 w-full rounded-2xl border border-violet-100 bg-violet-50/60 px-4 py-3 text-left text-xs text-violet-700">
+            <button type="button" onClick={() => setShowAmsgCloudData(true)} className="mt-3 w-full rounded-2xl border border-neutral-100 bg-neutral-50/60 px-4 py-3 text-left text-xs text-neutral-700">
                 <span className="block font-semibold">云端数据管理</span>
                 <span className="mt-1 block text-[11px] text-slate-500">查看 Worker 实际保存的数据，按项清理或彻底移除角色。</span>
             </button>
@@ -3470,7 +3470,7 @@ const Settings: React.FC = () => {
                     如果你部署了自己的 <b>worker/index.js</b>，可以在这里换成自己的实例。
                 </div>
 
-                <div className="mb-3 rounded-xl border border-sky-100 bg-sky-50/80 px-3 py-2.5 text-[10px] leading-relaxed text-sky-900">
+                <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/80 px-3 py-2.5 text-[10px] leading-relaxed text-neutral-900">
                     <p className="mb-1.5 font-bold">部署自己的 Worker</p>
                     <ol className="space-y-1">
                         <li><b>1.</b> 在 Cloudflare 控制台进入 Workers &amp; Pages，新建一个 Worker。</li>
@@ -3579,7 +3579,7 @@ const Settings: React.FC = () => {
                           setShowPpConfirm(false);
                           void doEnablePushAccelerator();
                       }}
-                      className="flex-1 py-3 bg-teal-500 text-white font-bold rounded-2xl shadow-lg shadow-teal-200"
+                      className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200"
                   >
                       我知道了，启用
                   </button>
@@ -3587,18 +3587,18 @@ const Settings: React.FC = () => {
           }
       >
           <div className="space-y-3 text-[12px] leading-relaxed text-slate-600">
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                  <p className="font-bold text-amber-800 mb-1">启用后会做三件事</p>
-                  <ol className="list-decimal pl-4 space-y-1 text-amber-900">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                  <p className="font-bold text-neutral-800 mb-1">启用后会做三件事</p>
+                  <ol className="list-decimal pl-4 space-y-1 text-neutral-900">
                       <li>浏览器会弹 <b>"允许发送通知？"</b> 的系统对话框——请点"允许"，不然没法在后台唤醒</li>
                       <li>浏览器生成一个 <b>推送订阅凭证</b>（只是一个"门铃地址"，不含任何聊天内容），上传到 Cloudflare</li>
                       <li>开着本应用的标签页时，每 2 分钟给 Cloudflare 发一次心跳；关掉 5 分钟 Cloudflare 自动停止喊你</li>
                   </ol>
               </div>
 
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-                  <p className="font-bold text-emerald-800 mb-1">谁能看到什么</p>
-                  <div className="space-y-1.5 text-emerald-900">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                  <p className="font-bold text-neutral-800 mb-1">谁能看到什么</p>
+                  <div className="space-y-1.5 text-neutral-900">
                       <p><b>Cloudflare 能看到：</b>推送订阅凭证 + 角色 ID（一串随机字符串）+ 间隔分钟数。<b>看不到</b>聊天内容、角色人设、AI 回复、API Key、你是谁。</p>
                       <p><b>浏览器厂商的推送服务（Google / Mozilla / Apple）：</b>知道你某时刻收到一条 push，内容是加密的，他们读不到。</p>
                       <p><b>你的 AI 接口供应商：</b>和平时聊天一样，到点时浏览器在<b>本地</b>直接调你在"API 配置"里填的那个接口，走你自己的 key。Cloudflare 完全不碰这一步。</p>
@@ -3610,9 +3610,9 @@ const Settings: React.FC = () => {
                   <p className="text-slate-700">聊天记录和 AI 请求只在你自己和 AI 提供商之间，和现在没开 Push 加速时完全一样。Cloudflare 只是一个"到点按门铃"的闹钟。</p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-                  <p className="font-bold text-blue-800 mb-1">不会主动弹通知打扰你</p>
-                  <p className="text-blue-900">浏览器后台标签 → 静默触发，进 app 就看到。浏览器整个关掉 → 下次打开 app 自动补跑，开 app 即有。中间不弹"有人想找你"那种窗口扰你。</p>
+              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                  <p className="font-bold text-neutral-800 mb-1">不会主动弹通知打扰你</p>
+                  <p className="text-neutral-900">浏览器后台标签 → 静默触发，进 app 就看到。浏览器整个关掉 → 下次打开 app 自动补跑，开 app 即有。中间不弹"有人想找你"那种窗口扰你。</p>
               </div>
           </div>
       </Modal>
@@ -3620,57 +3620,57 @@ const Settings: React.FC = () => {
       {/* Cloud Config Modal */}
       <Modal isOpen={showCloudModal} title="云端备份配置" onClose={() => setShowCloudModal(false)}>
           <div className="space-y-4 p-1">
-              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3">
-                  <p className="text-[10px] text-rose-700 leading-relaxed">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                  <p className="text-[10px] text-neutral-700 leading-relaxed">
                       <b>🪜 需要梯子</b><br/>
                       InfiniCloud 是日本的服务，国内直连通常打不开注册页、也无法同步备份。<b>注册和之后每次同步都需要保持梯子开启</b>，否则会连接失败或超时。
                   </p>
               </div>
-              <div className="bg-sky-50 rounded-xl p-3">
-                  <p className="text-[10px] text-sky-700 leading-relaxed">
+              <div className="bg-neutral-50 rounded-xl p-3">
+                  <p className="text-[10px] text-neutral-700 leading-relaxed">
                       <b>快速上手 (InfiniCloud, 免费 20GB):</b><br/>
-                      1. 注册 <a href="https://infini-cloud.net/" target="_blank" rel="noopener noreferrer" className="text-sky-600 underline font-bold hover:text-sky-800">infini-cloud.net ↗</a>（邮箱验证）<br/>
+                      1. 注册 <a href="https://infini-cloud.net/" target="_blank" rel="noopener noreferrer" className="text-neutral-600 underline font-bold hover:text-neutral-800">infini-cloud.net ↗</a>（邮箱验证）<br/>
                       2. 登录后 <b>My Page</b> 最底 → 勾选 <b>Turn on Apps Connection</b><br/>
                       3. 顶栏 <b>Apps</b> → 复制 <b>WebDAV URL</b> / <b>Connection ID</b> / <b>Apps Password</b><br/>
                       4. 用户名填 <b>Connection ID</b>（不是邮箱），密码填 <b>Apps Password</b>
                   </p>
               </div>
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                  <p className="text-[10px] text-amber-800 leading-relaxed">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                  <p className="text-[10px] text-neutral-800 leading-relaxed">
                       <b>⚠️ Apps Password ≠ 登录密码</b><br/>
                       <b>Apps Password</b> 是 <b>Apps</b> 页面里显示在 <b>WebDAV URL</b>、<b>Connection ID</b> <b>下方</b>的一串<b>可复制</b>的应用专用密码，往下滚就能看到。直接把它复制粘贴到上面的"密码"框即可，用账号登录密码会 401。
                   </p>
               </div>
               <div>
                   <label className="text-[11px] text-slate-500 font-medium mb-1 block">WebDAV 地址</label>
-                  <input type="url" value={cbUrl} onChange={(e) => setCbUrl(e.target.value)} placeholder="https://xxx.infini-cloud.net/dav/" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:border-sky-400 focus:ring-1 focus:ring-sky-200 outline-none" />
+                  <input type="url" value={cbUrl} onChange={(e) => setCbUrl(e.target.value)} placeholder="https://xxx.infini-cloud.net/dav/" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-200 outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                   <div>
                       <label className="text-[11px] text-slate-500 font-medium mb-1 block">用户名</label>
-                      <input type="text" value={cbUsername} onChange={(e) => setCbUsername(e.target.value)} placeholder="邮箱或用户名" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:border-sky-400 focus:ring-1 focus:ring-sky-200 outline-none" />
+                      <input type="text" value={cbUsername} onChange={(e) => setCbUsername(e.target.value)} placeholder="邮箱或用户名" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-200 outline-none" />
                   </div>
                   <div>
                       <label className="text-[11px] text-slate-500 font-medium mb-1 block">密码</label>
-                      <input type="password" value={cbPassword} onChange={(e) => setCbPassword(e.target.value)} placeholder="应用专用密码" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:border-sky-400 focus:ring-1 focus:ring-sky-200 outline-none" />
+                      <input type="password" value={cbPassword} onChange={(e) => setCbPassword(e.target.value)} placeholder="应用专用密码" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-200 outline-none" />
                   </div>
               </div>
               <div>
                   <label className="text-[11px] text-slate-500 font-medium mb-1 block">备份目录</label>
-                  <input type="text" value={cbPath} onChange={(e) => setCbPath(e.target.value)} placeholder="/SullyBackup/" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:border-sky-400 focus:ring-1 focus:ring-sky-200 outline-none" />
+                  <input type="text" value={cbPath} onChange={(e) => setCbPath(e.target.value)} placeholder="/SullyBackup/" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-200 outline-none" />
               </div>
               <button onClick={handleTestCloudConnection} disabled={cloudTesting || !cbUrl || !cbUsername || !cbPassword} className="w-full py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 disabled:opacity-40">
                   {cloudTesting ? '测试中...' : '测试连接'}
               </button>
               {cloudTestResult && (
-                  <p className={`text-[11px] text-center font-medium ${cloudTestResult.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>{cloudTestResult}</p>
+                  <p className={`text-[11px] text-center font-medium ${cloudTestResult.startsWith('✓') ? 'text-neutral-600' : 'text-neutral-500'}`}>{cloudTestResult}</p>
               )}
               <div className="grid grid-cols-2 gap-3 pt-2">
                   <button onClick={() => setShowCloudModal(false)} className="py-2.5 bg-slate-100 rounded-xl text-xs font-bold text-slate-500">取消</button>
-                  <button onClick={handleSaveCloudConfig} disabled={!cbUrl || !cbUsername || !cbPassword} className="py-2.5 bg-sky-500 rounded-xl text-xs font-bold text-white disabled:opacity-40">保存配置</button>
+                  <button onClick={handleSaveCloudConfig} disabled={!cbUrl || !cbUsername || !cbPassword} className="py-2.5 bg-neutral-500 rounded-xl text-xs font-bold text-white disabled:opacity-40">保存配置</button>
               </div>
               {cloudBackupConfig.enabled && (
-                  <button onClick={() => { trackEvent('关闭云端备份', { provider: cloudBackupConfig.provider === 'github' ? 'github' : 'webdav' }); updateCloudBackupConfig({ enabled: false }); setShowCloudModal(false); addToast('云端备份已关闭', 'info'); }} className="w-full py-2 text-[11px] text-red-400 font-medium">关闭云端备份</button>
+                  <button onClick={() => { trackEvent('关闭云端备份', { provider: cloudBackupConfig.provider === 'github' ? 'github' : 'webdav' }); updateCloudBackupConfig({ enabled: false }); setShowCloudModal(false); addToast('云端备份已关闭', 'info'); }} className="w-full py-2 text-[11px] text-neutral-400 font-medium">关闭云端备份</button>
               )}
           </div>
       </Modal>
@@ -3695,8 +3695,8 @@ const Settings: React.FC = () => {
                   </p>
               </div>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                  <p className="text-[10px] text-amber-800 leading-relaxed">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                  <p className="text-[10px] text-neutral-800 leading-relaxed">
                       <b>⚠️ 在 GitHub 那一页只改一处:</b><br/>
                       把 <b>Expiration</b>(有效期)下拉框 <b>从 90天 改成 No expiration</b>（永不过期）。
                       不改的话 90 天后 token 过期，备份会突然 401。<br/>
@@ -3732,28 +3732,28 @@ const Settings: React.FC = () => {
               <button
                   onClick={handleTestGithub}
                   disabled={ghTesting || !ghToken.trim()}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all disabled:opacity-40"
+                  className="w-full py-3 bg-gradient-to-r from-neutral-500 to-neutral-600 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all disabled:opacity-40"
               >
                   {ghTesting ? '连接中...' : '③ 测试并连接'}
               </button>
               {ghTestResult && (
-                  <p className={`text-[11px] text-center font-medium ${ghTestResult.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
+                  <p className={`text-[11px] text-center font-medium ${ghTestResult.startsWith('✓') ? 'text-neutral-600' : 'text-neutral-500'}`}>
                       {ghTestResult}
                   </p>
               )}
               {ghTestResult.startsWith('✓') && cloudBackupConfig.githubOwner && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-1.5">
-                      <p className="text-[11px] text-emerald-800 font-medium">
+                  <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 space-y-1.5">
+                      <p className="text-[11px] text-neutral-800 font-medium">
                           🎉 备份会上传到这里:
                       </p>
                       <a
                           href={`https://github.com/${cloudBackupConfig.githubOwner}/${cloudBackupConfig.githubRepo || 'sully-backup'}/releases`}
                           target="_blank" rel="noopener noreferrer"
-                          className="block text-[10px] text-emerald-700 font-mono break-all underline hover:text-emerald-900"
+                          className="block text-[10px] text-neutral-700 font-mono break-all underline hover:text-neutral-900"
                       >
                           github.com/{cloudBackupConfig.githubOwner}/{cloudBackupConfig.githubRepo || 'sully-backup'}/releases ↗
                       </a>
-                      <p className="text-[10px] text-emerald-700 leading-relaxed">
+                      <p className="text-[10px] text-neutral-700 leading-relaxed">
                           每次备份会创建一个新的 release（带时间戳）。想看 / 删除旧备份就去这个网址。
                       </p>
                   </div>
@@ -3802,7 +3802,7 @@ const Settings: React.FC = () => {
               <div className="grid grid-cols-2 gap-3 pt-2">
                   <button onClick={() => setShowGithubModal(false)} className="py-2.5 bg-slate-100 rounded-xl text-xs font-bold text-slate-500">关闭</button>
                   {cloudBackupConfig.enabled && cloudBackupConfig.provider === 'github' ? (
-                      <button onClick={handleDisableCloud} className="py-2.5 bg-red-50 text-red-500 rounded-xl text-xs font-bold">断开 GitHub</button>
+                      <button onClick={handleDisableCloud} className="py-2.5 bg-neutral-50 text-neutral-500 rounded-xl text-xs font-bold">断开 GitHub</button>
                   ) : (
                       <button
                           onClick={() => setShowGithubModal(false)}
@@ -3823,7 +3823,7 @@ const Settings: React.FC = () => {
                   <div className="text-center py-8"><p className="text-[11px] text-slate-400">正在加载云端备份列表...</p></div>
               ) : cloudBackupListState === 'error' ? (
                   <div className="text-center py-7 px-3 space-y-3">
-                      <p className="text-[11px] text-red-500 leading-relaxed">{cloudBackupListError || '获取云端备份列表失败'}</p>
+                      <p className="text-[11px] text-neutral-500 leading-relaxed">{cloudBackupListError || '获取云端备份列表失败'}</p>
                       <button onClick={handleOpenCloudRestore} className="px-4 py-2 rounded-xl bg-slate-800 text-white text-[11px] font-bold">重新加载</button>
                   </div>
               ) : cloudBackupListState === 'ready' && cloudBackupFiles.length === 0 ? (
@@ -3833,12 +3833,12 @@ const Settings: React.FC = () => {
                       <p className="text-[10px] text-slate-400 mb-2">选择要恢复的备份文件:</p>
                       <div className="max-h-[50vh] overflow-y-auto space-y-2">
                           {cloudBackupFiles.map((file, i) => file.status === 'incomplete' ? (
-                              <div key={file.href || i} className="w-full p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-left">
+                              <div key={file.href || i} className="w-full p-3 bg-neutral-50/70 border border-neutral-200 rounded-xl text-left">
                                   <div className="flex items-start justify-between gap-2">
                                       <p className="text-[11px] text-slate-700 font-medium truncate">{file.name}</p>
-                                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold">上传未完成</span>
+                                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 text-[9px] font-bold">上传未完成</span>
                                   </div>
-                                  <p className="text-[10px] text-amber-700 mt-1 leading-relaxed">{file.statusMessage || '附件不完整，不能恢复'}</p>
+                                  <p className="text-[10px] text-neutral-700 mt-1 leading-relaxed">{file.statusMessage || '附件不完整，不能恢复'}</p>
                                   <div className="flex items-center justify-between gap-3 mt-2">
                                       <span className="text-[10px] text-slate-400">{file.lastModified ? new Date(file.lastModified).toLocaleString('zh-CN') : '未知时间'}</span>
                                       {cloudBackupConfig.provider === 'github' && cloudBackupConfig.githubOwner && (
@@ -3846,13 +3846,13 @@ const Settings: React.FC = () => {
                                               href={`https://github.com/${cloudBackupConfig.githubOwner}/${cloudBackupConfig.githubRepo || 'sully-backup'}/releases`}
                                               target="_blank"
                                               rel="noopener noreferrer"
-                                              className="text-[10px] text-amber-700 font-semibold hover:underline"
+                                              className="text-[10px] text-neutral-700 font-semibold hover:underline"
                                           >去 GitHub 查看 ↗</a>
                                       )}
                                   </div>
                               </div>
                           ) : (
-                              <button key={file.href || i} onClick={() => handleCloudRestore(file)} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-left hover:bg-sky-50 hover:border-sky-200 transition-colors active:scale-[0.98]">
+                              <button key={file.href || i} onClick={() => handleCloudRestore(file)} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-left hover:bg-neutral-50 hover:border-neutral-200 transition-colors active:scale-[0.98]">
                                   <p className="text-[11px] text-slate-700 font-medium truncate">{file.name}</p>
                                   <div className="flex items-center gap-3 mt-1">
                                       <span className="text-[10px] text-slate-400">{file.lastModified ? new Date(file.lastModified).toLocaleString('zh-CN') : '未知时间'}</span>
@@ -3891,7 +3891,7 @@ const Settings: React.FC = () => {
                         />
                         <button
                             onClick={() => setShowVisionModelModal(false)}
-                            className="px-4 py-2.5 bg-violet-500 text-white text-sm font-bold rounded-xl active:scale-95 transition-all"
+                            className="px-4 py-2.5 bg-neutral-500 text-white text-sm font-bold rounded-xl active:scale-95 transition-all"
                         >
                             确定
                         </button>
@@ -3934,15 +3934,15 @@ const Settings: React.FC = () => {
                                         setShowVisionModelModal(false);
                                     }}
                                     title={model}
-                                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-mono flex justify-between items-start gap-2 ${selected ? 'bg-violet-100 text-violet-700 font-bold ring-1 ring-violet-200' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+                                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-mono flex justify-between items-start gap-2 ${selected ? 'bg-neutral-100 text-neutral-700 font-bold ring-1 ring-neutral-200' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
                                 >
                                     <span className="break-all min-w-0 flex-1 leading-relaxed">
                                         {commonPrefix && suffix !== model && (
-                                            <span className={selected ? 'text-violet-400 font-normal' : 'text-slate-400 font-normal'}>{commonPrefix}</span>
+                                            <span className={selected ? 'text-neutral-400 font-normal' : 'text-slate-400 font-normal'}>{commonPrefix}</span>
                                         )}
                                         <span>{suffix}</span>
                                     </span>
-                                    {selected && <div className="w-2 h-2 rounded-full bg-violet-500 mt-1.5 shrink-0" />}
+                                    {selected && <div className="w-2 h-2 rounded-full bg-neutral-500 mt-1.5 shrink-0" />}
                                 </button>
                             );
                         }) : (
@@ -4084,7 +4084,7 @@ const Settings: React.FC = () => {
           </div>
       }>
           <div className="space-y-4 text-center py-4">
-              <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-2">
+              <div className="w-16 h-16 bg-neutral-100 text-neutral-500 rounded-full flex items-center justify-center mx-auto mb-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
               </div>
               <p className="text-sm font-bold text-slate-700">备份文件已生成！</p>
@@ -4098,53 +4098,53 @@ const Settings: React.FC = () => {
           isOpen={showRealtimeModal}
           title="实时感知配置"
           onClose={() => { setShowRealtimeModal(false); flushMcpToolConfigSync(); }}
-          footer={<button onClick={handleSaveRealtimeConfig} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg">保存配置</button>}
+          footer={<button onClick={handleSaveRealtimeConfig} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg">保存配置</button>}
       >
           <div className="space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
               <UserHolidaySettings value={rtUserHolidays} onChange={setRtUserHolidays} />
               {/* 天气配置 */}
-              <div className="bg-emerald-50/50 p-4 rounded-2xl space-y-3">
+              <div className="bg-neutral-50/50 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                           <Sun size={20} weight="fill" />
-                          <span className="text-sm font-bold text-emerald-700">天气感知</span>
+                          <span className="text-sm font-bold text-neutral-700">天气感知</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked={rtWeatherEnabled} onChange={e => setRtWeatherEnabled(e.target.checked)} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
                   {rtWeatherEnabled && (
                       <div className="space-y-2">
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">OpenWeatherMap API Key（可选）</label>
-                              <input type="password" value={rtWeatherKey} onChange={e => setRtWeatherKey(e.target.value)} className="w-full bg-white/80 border border-emerald-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="留空则用免费的 Open-Meteo，无需注册" />
+                              <input type="password" value={rtWeatherKey} onChange={e => setRtWeatherKey(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="留空则用免费的 Open-Meteo，无需注册" />
                           </div>
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">城市</label>
-                              <input type="text" value={rtWeatherCity} onChange={e => setRtWeatherCity(e.target.value)} className="w-full bg-white/80 border border-emerald-200 rounded-xl px-3 py-2 text-sm" placeholder="北京 / Beijing / Shanghai" />
+                              <input type="text" value={rtWeatherCity} onChange={e => setRtWeatherCity(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm" placeholder="北京 / Beijing / Shanghai" />
                           </div>
-<button onClick={testWeatherApi} className="w-full py-2 bg-emerald-100 text-emerald-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试天气API</button>
+<button onClick={testWeatherApi} className="w-full py-2 bg-neutral-100 text-neutral-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试天气API</button>
                           {renderRtTestStatus('weather')}
                       </div>
                   )}
               </div>
 
               {/* 新闻配置 */}
-              <div className="bg-blue-50/50 p-4 rounded-2xl space-y-3">
+              <div className="bg-neutral-50/50 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                           <Newspaper size={20} weight="fill" />
-                          <span className="text-sm font-bold text-blue-700">新闻热点</span>
+                          <span className="text-sm font-bold text-neutral-700">新闻热点</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked={rtNewsEnabled} onChange={e => setRtNewsEnabled(e.target.checked)} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
                   {rtNewsEnabled && (
                       <div className="space-y-2">
-                          <p className="text-xs text-blue-600/70">默认主源：中文多平台热榜（免鉴权，聊天时角色会自动捕捉热点）。选择要关注的平台：</p>
+                          <p className="text-xs text-neutral-600/70">默认主源：中文多平台热榜（免鉴权，聊天时角色会自动捕捉热点）。选择要关注的平台：</p>
                           <div className="flex flex-wrap gap-1.5">
                               {HOTNEWS_PLATFORM_OPTIONS.map(p => {
                                   const active = rtNewsPlatforms.includes(p.key);
@@ -4153,7 +4153,7 @@ const Settings: React.FC = () => {
                                           key={p.key}
                                           type="button"
                                           onClick={() => setRtNewsPlatforms(prev => prev.includes(p.key) ? prev.filter(k => k !== p.key) : [...prev, p.key])}
-                                          className={`text-[11px] px-2.5 py-1 rounded-full font-bold transition-colors active:scale-95 ${active ? 'bg-blue-500 text-white shadow-sm' : 'bg-white/80 text-slate-500 border border-blue-200'}`}
+                                          className={`text-[11px] px-2.5 py-1 rounded-full font-bold transition-colors active:scale-95 ${active ? 'bg-neutral-500 text-white shadow-sm' : 'bg-white/80 text-slate-500 border border-neutral-200'}`}
                                       >
                                           {p.label}
                                       </button>
@@ -4161,12 +4161,12 @@ const Settings: React.FC = () => {
                               })}
                           </div>
                           {rtNewsPlatforms.length === 0 && (
-                              <p className="text-[10px] text-rose-500/80">未选任何平台时会回落到 Brave / Hacker News。</p>
+                              <p className="text-[10px] text-neutral-500/80">未选任何平台时会回落到 Brave / Hacker News。</p>
                           )}
-                          <details className="border-t border-blue-200/50 pt-2 mt-1 group">
+                          <details className="border-t border-neutral-200/50 pt-2 mt-1 group">
                               <summary className="text-[10px] font-bold text-slate-400 uppercase cursor-pointer select-none list-none flex items-center gap-1.5">
                                   <span className="transition-transform group-open:rotate-90">›</span>
-                                  Brave Search（回落源 · <span className="text-rose-400">不建议配置</span>）
+                                  Brave Search（回落源 · <span className="text-neutral-400">不建议配置</span>）
                               </summary>
                               <div className="mt-2 space-y-1.5">
                                   <p className="text-[10px] text-slate-400/90 leading-relaxed">
@@ -4183,31 +4183,31 @@ const Settings: React.FC = () => {
 
               {/* Firecrawl 网页读取：方舟计划默认隐藏，代码与降级能力保留。 */}
               {SHOW_FIRECRAWL_ARK_UI && (
-              <div className="bg-amber-50/60 p-4 rounded-2xl space-y-3">
+              <div className="bg-neutral-50/60 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 min-w-0">
-                          <PlugsConnected size={20} weight="fill" className="text-amber-600 shrink-0" />
+                          <PlugsConnected size={20} weight="fill" className="text-neutral-600 shrink-0" />
                           <div className="min-w-0">
-                              <span className="text-sm font-bold text-amber-800">Firecrawl 网页读取</span>
-                              <p className="text-[10px] text-amber-700/60">网页分享抓取增强 · 可选</p>
+                              <span className="text-sm font-bold text-neutral-800">Firecrawl 网页读取</span>
+                              <p className="text-[10px] text-neutral-700/60">网页分享抓取增强 · 可选</p>
                           </div>
                       </div>
                       <a
                           href={FIRECRAWL_API_KEYS_URL}
                           target="_blank"
                           rel="noreferrer"
-                          className="shrink-0 text-[10px] bg-white border border-amber-200 text-amber-700 px-2.5 py-1.5 rounded-full font-bold"
+                          className="shrink-0 text-[10px] bg-white border border-neutral-200 text-neutral-700 px-2.5 py-1.5 rounded-full font-bold"
                       >
                           前往免费注册 ↗
                       </a>
                   </div>
 
-                  <p className="text-[10px] text-amber-800/70 leading-relaxed">
+                  <p className="text-[10px] text-neutral-800/70 leading-relaxed">
                       聊天里粘贴普通网页时，原有提取失败后会自动用 Firecrawl 读取动态页面；再失败仍会回落 Jina 与 Worker，不会因额度耗尽让分享失效。免费计划目前每月约 1,000 页。
                   </p>
 
                   {!firecrawlKeyInput.trim() && (
-                      <ol className="rounded-xl border border-amber-200/80 bg-white/70 px-3 py-2 text-[10px] text-amber-900/75 leading-relaxed space-y-1">
+                      <ol className="rounded-xl border border-neutral-200/80 bg-white/70 px-3 py-2 text-[10px] text-neutral-900/75 leading-relaxed space-y-1">
                           <li><b>1.</b> 点击“前往免费注册”，在 Firecrawl 注册或登录。</li>
                           <li><b>2.</b> 进入 API Keys，创建并复制一个以 <b>fc-</b> 开头的 Key。</li>
                           <li><b>3.</b> 回到这里粘贴，点击“保存并检查额度”。</li>
@@ -4222,7 +4222,7 @@ const Settings: React.FC = () => {
                           setFirecrawlCheckResult(null);
                           setFirecrawlUsage(null);
                       }}
-                      className="w-full bg-white/90 border border-amber-200 rounded-xl px-3 py-2 text-sm font-mono"
+                      className="w-full bg-white/90 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono"
                       placeholder="fc-..."
                       autoCapitalize="none"
                       autoCorrect="off"
@@ -4234,7 +4234,7 @@ const Settings: React.FC = () => {
                           type="button"
                           onClick={handleClearFirecrawl}
                           disabled={firecrawlChecking || !firecrawlKeyInput}
-                          className="py-2 bg-white/80 border border-amber-200 text-amber-700 text-xs font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-transform"
+                          className="py-2 bg-white/80 border border-neutral-200 text-neutral-700 text-xs font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-transform"
                       >
                           清除
                       </button>
@@ -4242,14 +4242,14 @@ const Settings: React.FC = () => {
                           type="button"
                           onClick={() => void handleCheckFirecrawl()}
                           disabled={firecrawlChecking}
-                          className="py-2 bg-amber-500 text-white text-xs font-bold rounded-xl disabled:opacity-50 active:scale-95 transition-transform"
+                          className="py-2 bg-neutral-500 text-white text-xs font-bold rounded-xl disabled:opacity-50 active:scale-95 transition-transform"
                       >
                           {firecrawlChecking ? '检查中…' : '保存并检查额度'}
                       </button>
                   </div>
 
                   {firecrawlUsage && (
-                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] text-emerald-800 leading-relaxed">
+                      <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-[10px] text-neutral-800 leading-relaxed">
                           <b>剩余 {firecrawlUsage.remainingCredits.toLocaleString()} / {firecrawlUsage.planCredits.toLocaleString()} credits</b>
                           {firecrawlUsage.billingPeriodEnd && (
                               <span> · {new Date(firecrawlUsage.billingPeriodEnd).toLocaleDateString('zh-CN')} 刷新</span>
@@ -4257,7 +4257,7 @@ const Settings: React.FC = () => {
                       </div>
                   )}
                   {firecrawlCheckResult && !firecrawlUsage && (
-                      <p className={`text-[10px] leading-relaxed ${firecrawlCheckResult.ok ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      <p className={`text-[10px] leading-relaxed ${firecrawlCheckResult.ok ? 'text-neutral-600' : 'text-neutral-600'}`}>
                           {firecrawlCheckResult.ok ? '✓ ' : '✗ '}{firecrawlCheckResult.text}
                       </p>
                   )}
@@ -4269,37 +4269,37 @@ const Settings: React.FC = () => {
               )}
 
               {/* Notion 配置 */}
-              <div className="bg-orange-50/50 p-4 rounded-2xl space-y-3">
+              <div className="bg-neutral-50/50 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                           <NotePencil size={20} weight="fill" />
-                          <span className="text-sm font-bold text-orange-700">Notion 日记</span>
+                          <span className="text-sm font-bold text-neutral-700">Notion 日记</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked={rtNotionEnabled} onChange={e => setRtNotionEnabled(e.target.checked)} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
                   {rtNotionEnabled && (
                       <div className="space-y-2">
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Notion Integration Token</label>
-                              <input type="password" value={rtNotionKey} onChange={e => setRtNotionKey(e.target.value)} className="w-full bg-white/80 border border-orange-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="ntn_... 或 secret_..." />
+                              <input type="password" value={rtNotionKey} onChange={e => setRtNotionKey(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="ntn_... 或 secret_..." />
                           </div>
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Database ID</label>
-                              <input type="text" value={rtNotionDbId} onChange={e => setRtNotionDbId(e.target.value)} className="w-full bg-white/80 border border-orange-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="从数据库URL复制" />
+                              <input type="text" value={rtNotionDbId} onChange={e => setRtNotionDbId(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="从数据库URL复制" />
                           </div>
-                          <button onClick={testNotionApi} className="w-full py-2 bg-orange-100 text-orange-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试Notion连接</button>
+                          <button onClick={testNotionApi} className="w-full py-2 bg-neutral-100 text-neutral-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试Notion连接</button>
                           {renderRtTestStatus('notion')}
-                          <div className="border-t border-orange-200/50 pt-2 mt-2">
+                          <div className="border-t border-neutral-200/50 pt-2 mt-2">
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">笔记数据库 ID（可选）</label>
-                              <input type="text" value={rtNotionNotesDbId} onChange={e => setRtNotionNotesDbId(e.target.value)} className="w-full bg-white/80 border border-orange-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="用户日常笔记的数据库ID" />
-                              <p className="text-[10px] text-orange-500/60 leading-relaxed mt-1">
+                              <input type="text" value={rtNotionNotesDbId} onChange={e => setRtNotionNotesDbId(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="用户日常笔记的数据库ID" />
+                              <p className="text-[10px] text-neutral-500/60 leading-relaxed mt-1">
                                   填写后角色可以偶尔看到你的笔记标题，温馨地提起你写的内容。留空则不启用。
                               </p>
                           </div>
-                          <p className="text-[10px] text-orange-500/70 leading-relaxed">
+                          <p className="text-[10px] text-neutral-500/70 leading-relaxed">
                                1. 在 <a href="https://www.notion.so/my-integrations" target="_blank" className="underline">Notion开发者</a> 创建Integration（新版 Token 以 ntn_ 开头，老版以 secret_ 开头，都能用）<br/>
                                2. 创建一个日记数据库，添加"Name"(标题)和"Date"(日期)属性<br/>
                                3. 在数据库右上角菜单中 Connect 你的 Integration<br/>
@@ -4310,45 +4310,45 @@ const Settings: React.FC = () => {
               </div>
 
               {/* 飞书配置 (中国区替代) */}
-              <div className="bg-indigo-50/50 p-4 rounded-2xl space-y-3">
+              <div className="bg-neutral-50/50 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                           <Notebook size={20} weight="fill" />
-                          <span className="text-sm font-bold text-indigo-700">飞书日记</span>
-                          <span className="text-[9px] bg-indigo-100 text-indigo-500 px-1.5 py-0.5 rounded-full">中国区</span>
+                          <span className="text-sm font-bold text-neutral-700">飞书日记</span>
+                          <span className="text-[9px] bg-neutral-100 text-neutral-500 px-1.5 py-0.5 rounded-full">中国区</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked={rtFeishuEnabled} onChange={e => setRtFeishuEnabled(e.target.checked)} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
-                  <p className="text-[10px] text-indigo-500/70 leading-relaxed">
+                  <p className="text-[10px] text-neutral-500/70 leading-relaxed">
                       Notion 的中国区替代方案，无需翻墙。使用飞书多维表格存储日记。
                   </p>
                   {rtFeishuEnabled && (
                       <div className="space-y-2">
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">飞书 App ID</label>
-                              <input type="text" value={rtFeishuAppId} onChange={e => setRtFeishuAppId(e.target.value)} className="w-full bg-white/80 border border-indigo-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="cli_xxxxxxxx" />
+                              <input type="text" value={rtFeishuAppId} onChange={e => setRtFeishuAppId(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="cli_xxxxxxxx" />
                           </div>
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">飞书 App Secret</label>
-                              <input type="password" value={rtFeishuAppSecret} onChange={e => setRtFeishuAppSecret(e.target.value)} className="w-full bg-white/80 border border-indigo-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="xxxxxxxxxxxxxxxx" />
+                              <input type="password" value={rtFeishuAppSecret} onChange={e => setRtFeishuAppSecret(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="xxxxxxxxxxxxxxxx" />
                           </div>
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">多维表格 App Token</label>
-                              <input type="text" value={rtFeishuBaseId} onChange={e => setRtFeishuBaseId(e.target.value)} className="w-full bg-white/80 border border-indigo-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="从多维表格URL中获取" />
+                              <input type="text" value={rtFeishuBaseId} onChange={e => setRtFeishuBaseId(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="从多维表格URL中获取" />
                           </div>
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">数据表 Table ID</label>
-                              <input type="text" value={rtFeishuTableId} onChange={e => setRtFeishuTableId(e.target.value)} className="w-full bg-white/80 border border-indigo-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="tblxxxxxxxx" />
+                              <input type="text" value={rtFeishuTableId} onChange={e => setRtFeishuTableId(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="tblxxxxxxxx" />
                           </div>
-                           <button onClick={testFeishuApi} className="w-full py-2 bg-indigo-100 text-indigo-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试读取连接</button>
+                           <button onClick={testFeishuApi} className="w-full py-2 bg-neutral-100 text-neutral-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试读取连接</button>
                           {renderRtTestStatus('feishu')}
-                           <p className="rounded-xl bg-amber-50 px-3 py-2 text-[10px] leading-relaxed text-amber-700">
+                           <p className="rounded-xl bg-neutral-50 px-3 py-2 text-[10px] leading-relaxed text-neutral-700">
                                测试不会新增记录，只验证凭据、读取权限和 Table ID。读取成功但写入提示 Forbidden，说明还缺新增记录权限。
                            </p>
-                           <p className="text-[10px] text-indigo-500/70 leading-relaxed">
+                           <p className="text-[10px] text-neutral-500/70 leading-relaxed">
                                 1. 在 <a href="https://open.feishu.cn/app" target="_blank" className="underline">飞书开放平台</a> 创建企业自建应用，获取 App ID 和 Secret<br/>
                                 2. 开通「查看、评论、编辑和管理多维表格」权限，创建并发布新版本，完成管理员审批<br/>
                                 3. 在目标多维表格的「添加文档应用」中加入该应用，并授予可编辑权限（开了高级权限时也要允许新增记录）<br/>
@@ -4361,40 +4361,40 @@ const Settings: React.FC = () => {
               </div>
 
               {/* 小红书自动化 */}
-              <div className="bg-red-50/50 p-4 rounded-2xl space-y-3">
+              <div className="bg-neutral-50/50 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                           <Book size={20} weight="fill" />
-                          <span className="text-sm font-bold text-red-700">小红书 · 本地</span>
-                          <span className="text-[9px] bg-red-100 text-red-500 px-1.5 py-0.5 rounded-full">MCP 兼容 / Skills</span>
+                          <span className="text-sm font-bold text-neutral-700">小红书 · 本地</span>
+                          <span className="text-[9px] bg-neutral-100 text-neutral-500 px-1.5 py-0.5 rounded-full">MCP 兼容 / Skills</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked={rtXhsMcpEnabled && rtXhsMode === 'local'} onChange={e => { if (e.target.checked) { setRtXhsMcpEnabled(true); setRtXhsEnabled(true); setRtXhsMode('local'); } else { setRtXhsMcpEnabled(false); setRtXhsEnabled(false); } }} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
-                  <p className="text-[10px] text-red-500/70 leading-relaxed">
+                  <p className="text-[10px] text-neutral-500/70 leading-relaxed">
                       本地模式继续可用：xiaohongshu-mcp 走 MCP 协议，xhs-bridge / Skills 走本地 /api。MCP 保留兼容，但不再承诺随其上游版本持续适配；新配置建议使用下方持续维护的 Lite。
                   </p>
                   {rtXhsMcpEnabled && rtXhsMode === 'local' && (
                       <div className="space-y-2">
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">服务器 URL</label>
-                              <input value={rtXhsLocalUrl} onChange={e => setRtXhsLocalUrl(e.target.value)} className="w-full bg-white/80 border border-red-200 rounded-xl px-3 py-2 text-[11px] font-mono" placeholder="http://localhost:18060/mcp" />
+                              <input value={rtXhsLocalUrl} onChange={e => setRtXhsLocalUrl(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-[11px] font-mono" placeholder="http://localhost:18060/mcp" />
                           </div>
-                          <button onClick={testXhsMcp} className="w-full py-2 bg-red-100 text-red-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试连接</button>
+                          <button onClick={testXhsMcp} className="w-full py-2 bg-neutral-100 text-neutral-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试连接</button>
                           {renderRtTestStatus('xhs-local')}
                           <div className="grid grid-cols-2 gap-2">
                               <div>
                                   <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">小红书昵称</label>
-                                  <input value={rtXhsNickname} onChange={e => setRtXhsNickname(e.target.value)} className="w-full bg-white/80 border border-red-200 rounded-xl px-3 py-2 text-[11px]" placeholder="手动填写" />
+                                  <input value={rtXhsNickname} onChange={e => setRtXhsNickname(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-[11px]" placeholder="手动填写" />
                               </div>
                               <div>
                                   <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">用户 ID</label>
-                                  <input value={rtXhsUserId} onChange={e => setRtXhsUserId(e.target.value)} className="w-full bg-white/80 border border-red-200 rounded-xl px-3 py-2 text-[11px] font-mono" placeholder="可选，用于查看主页" />
+                                  <input value={rtXhsUserId} onChange={e => setRtXhsUserId(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-[11px] font-mono" placeholder="可选，用于查看主页" />
                               </div>
                           </div>
-                          <p className="text-[10px] text-red-500/70 leading-relaxed">
+                          <p className="text-[10px] text-neutral-500/70 leading-relaxed">
                               <b>MCP 模式:</b> 下载 xiaohongshu-mcp + 运行脚本，URL 填 http://localhost:18060/mcp（代理则 18061/mcp）<br/>
                               <b>Skills 模式:</b> URL 填 http://localhost:18061/api（需 Python + xhs-bridge.mjs，额外支持视频/长文）<br/>
                               系统按 URL 结尾自动判断（/mcp 或 /api）。
@@ -4404,46 +4404,46 @@ const Settings: React.FC = () => {
               </div>
 
               {/* 小红书 Lite (云端) */}
-              <div className="bg-rose-50/60 p-4 rounded-2xl space-y-3">
+              <div className="bg-neutral-50/60 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                           <Book size={20} weight="fill" />
-                          <span className="text-sm font-bold text-rose-700">小红书 Lite</span>
-                          <span className="text-[9px] bg-rose-100 text-rose-500 px-1.5 py-0.5 rounded-full">持续维护</span>
+                          <span className="text-sm font-bold text-neutral-700">小红书 Lite</span>
+                          <span className="text-[9px] bg-neutral-100 text-neutral-500 px-1.5 py-0.5 rounded-full">持续维护</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked={rtXhsMcpEnabled && rtXhsMode === 'lite'} onChange={e => { if (e.target.checked) { if (!window.confirm(XHS_RISK_TEXT + '\n\n确定要开启吗？')) return; setRtXhsMcpEnabled(true); setRtXhsEnabled(true); setRtXhsMode('lite'); } else { setRtXhsMcpEnabled(false); setRtXhsEnabled(false); } }} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500"></div>
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
-                  <p className="text-[10px] text-rose-500/70 leading-relaxed">
+                  <p className="text-[10px] text-neutral-500/70 leading-relaxed">
                       免电脑、免扫码：粘贴一次小红书 / RedNote cookie，即可搜索、浏览、看详情及互动；国内小红书还支持发帖(带图)。地址已内置，无需填写。
                   </p>
-                  <p className="text-[10px] text-amber-700 leading-relaxed bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">{XHS_RISK_TEXT}</p>
+                  <p className="text-[10px] text-neutral-700 leading-relaxed bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1.5">{XHS_RISK_TEXT}</p>
                   {rtXhsMcpEnabled && rtXhsMode === 'lite' && (
                       <div className="space-y-2">
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">小红书 Cookie</label>
-                              <textarea value={rtXhsCookie} onChange={e => { setRtXhsCookie(e.target.value); setRtXhsPlatform(undefined); }} rows={2} className="w-full bg-white/80 border border-rose-200 rounded-xl px-3 py-2 text-[10px] font-mono resize-y" placeholder="a1=...; web_session=...; （从浏览器登录后复制完整 cookie）" />
+                              <textarea value={rtXhsCookie} onChange={e => { setRtXhsCookie(e.target.value); setRtXhsPlatform(undefined); }} rows={2} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-[10px] font-mono resize-y" placeholder="a1=...; web_session=...; （从浏览器登录后复制完整 cookie）" />
                           </div>
-                          <button onClick={testXhsMcp} className="w-full py-2 bg-rose-100 text-rose-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试连接</button>
+                          <button onClick={testXhsMcp} className="w-full py-2 bg-neutral-100 text-neutral-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试连接</button>
                           {renderRtTestStatus('xhs-lite')}
                           <div className="grid grid-cols-2 gap-2">
                               <div>
                                   <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">小红书昵称</label>
-                                  <input value={rtXhsNickname} onChange={e => setRtXhsNickname(e.target.value)} className="w-full bg-white/80 border border-rose-200 rounded-xl px-3 py-2 text-[11px]" placeholder="测试连接后自动获取" />
+                                  <input value={rtXhsNickname} onChange={e => setRtXhsNickname(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-[11px]" placeholder="测试连接后自动获取" />
                               </div>
                               <div>
                                   <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">用户 ID</label>
-                                  <input value={rtXhsUserId} onChange={e => setRtXhsUserId(e.target.value)} className="w-full bg-white/80 border border-rose-200 rounded-xl px-3 py-2 text-[11px] font-mono" placeholder="自动获取" />
+                                  <input value={rtXhsUserId} onChange={e => setRtXhsUserId(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-[11px] font-mono" placeholder="自动获取" />
                               </div>
                           </div>
                           <div>
-                              <button type="button" onClick={() => { if (!rtXhsGuideOpen) trackEvent('展开获取 cookie 教程'); setRtXhsGuideOpen(v => !v); }} className="text-[11px] font-bold text-rose-600 underline">📖 点击获取 cookie 教程 {rtXhsGuideOpen ? '▲' : '▼'}</button>
+                              <button type="button" onClick={() => { if (!rtXhsGuideOpen) trackEvent('展开获取 cookie 教程'); setRtXhsGuideOpen(v => !v); }} className="text-[11px] font-bold text-neutral-600 underline">📖 点击获取 cookie 教程 {rtXhsGuideOpen ? '▲' : '▼'}</button>
                               {rtXhsGuideOpen && (
                                   <div className="mt-1 bg-white/70 rounded-lg p-2 space-y-1.5">
                                       <pre className="text-[10px] text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{XHS_COOKIE_GUIDE}</pre>
-                                      <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(XHS_COOKIE_GUIDE); trackEvent('复制 cookie 教程文本', { result: 'copied' }); addToast('教程已复制，可粘贴去问别的 AI', 'success'); } catch { trackEvent('复制 cookie 教程文本', { result: 'clipboard-failed' }); addToast('复制失败，请长按手动选择', 'error'); } }} className="w-full py-1.5 bg-rose-100 text-rose-600 text-[11px] font-bold rounded-lg active:scale-95 transition-transform">复制教程</button>
+                                      <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(XHS_COOKIE_GUIDE); trackEvent('复制 cookie 教程文本', { result: 'copied' }); addToast('教程已复制，可粘贴去问别的 AI', 'success'); } catch { trackEvent('复制 cookie 教程文本', { result: 'clipboard-failed' }); addToast('复制失败，请长按手动选择', 'error'); } }} className="w-full py-1.5 bg-neutral-100 text-neutral-600 text-[11px] font-bold rounded-lg active:scale-95 transition-transform">复制教程</button>
                                   </div>
                               )}
                           </div>
@@ -4460,36 +4460,36 @@ const Settings: React.FC = () => {
               }} />
 
               {/* 麦当劳 MCP */}
-              <div className="bg-yellow-50/60 p-4 rounded-2xl space-y-3">
+              <div className="bg-neutral-50/60 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                          <ForkKnife size={20} weight="fill" className="text-yellow-600" />
-                          <span className="text-sm font-bold text-yellow-700">麦当劳</span>
-                          <span className="text-[9px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">官方 MCP</span>
+                          <ForkKnife size={20} weight="fill" className="text-neutral-600" />
+                          <span className="text-sm font-bold text-neutral-700">麦当劳</span>
+                          <span className="text-[9px] bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded-full">官方 MCP</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked={mcdEnabled} onChange={e => handleMcdEnabledChange(e.target.checked)} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
-                  <p className="text-[10px] text-yellow-700/70 leading-relaxed">
+                  <p className="text-[10px] text-neutral-700/70 leading-relaxed">
                       启用后，在聊天里点 + 号 → 第二页 → 麦当劳，发送"麦请求"激活，角色就能为你查菜单、查门店、点麦乐送/到店取餐/团餐、积分兑券、查活动。
                   </p>
                   {mcdEnabled && (
                       <div className="space-y-2">
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">MCP Token (个人)</label>
-                              <input type="password" value={mcdToken} onChange={e => handleMcdTokenChange(e.target.value)} className="w-full bg-white/80 border border-yellow-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="去 open.mcd.cn/mcp 申请" />
+                              <input type="password" value={mcdToken} onChange={e => handleMcdTokenChange(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="去 open.mcd.cn/mcp 申请" />
                           </div>
-                          <button onClick={testMcdApi} disabled={mcdTesting} className="w-full py-2 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-60">
+                          <button onClick={testMcdApi} disabled={mcdTesting} className="w-full py-2 bg-neutral-100 text-neutral-700 text-xs font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-60">
                               {mcdTesting ? '测试中…' : '测试连接'}
                           </button>
                           {mcdTestStatus && (
-                              <div className={`p-2 rounded-lg text-[11px] whitespace-pre-line leading-relaxed ${mcdTestStatus.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : mcdTestStatus.startsWith('❌') ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-600'}`}>
+                              <div className={`p-2 rounded-lg text-[11px] whitespace-pre-line leading-relaxed ${mcdTestStatus.startsWith('✅') ? 'bg-neutral-50 text-neutral-700' : mcdTestStatus.startsWith('❌') ? 'bg-neutral-50 text-neutral-600' : 'bg-slate-50 text-slate-600'}`}>
                                   {mcdTestStatus}
                               </div>
                           )}
-                          <p className="text-[10px] text-yellow-700/70 leading-relaxed">
+                          <p className="text-[10px] text-neutral-700/70 leading-relaxed">
                               1. 访问 <a href="https://open.mcd.cn/mcp" target="_blank" className="underline">open.mcd.cn/mcp</a> 用麦当劳账号登录申请 Token<br/>
                               2. Token 保存在本机配置中；使用点单功能时会随 MCP 请求由网络 Worker 转发，项目不主动留存<br/>
                               3. 下单类操作涉及真实支付，角色会先复述清单等你确认再下单<br/>
@@ -4500,36 +4500,36 @@ const Settings: React.FC = () => {
               </div>
 
               {/* 瑞幸 MCP */}
-              <div className="bg-blue-50/60 p-4 rounded-2xl space-y-3">
+              <div className="bg-neutral-50/60 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                          <Coffee size={20} weight="fill" className="text-blue-600" />
-                          <span className="text-sm font-bold text-blue-700">瑞幸咖啡</span>
-                          <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">官方 MCP</span>
+                          <Coffee size={20} weight="fill" className="text-neutral-600" />
+                          <span className="text-sm font-bold text-neutral-700">瑞幸咖啡</span>
+                          <span className="text-[9px] bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded-full">官方 MCP</span>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked={luckinEnabled} onChange={e => handleLuckinEnabledChange(e.target.checked)} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
-                  <p className="text-[10px] text-blue-700/70 leading-relaxed">
+                  <p className="text-[10px] text-neutral-700/70 leading-relaxed">
                       启用后，在聊天里点 + 号 → 第二页 → 瑞一杯，发送"瑞一杯"激活，角色就能为你查门店、搜咖啡、选规格、下单到店自提、查取餐码。
                   </p>
                   {luckinEnabled && (
                       <div className="space-y-2">
                           <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">MCP Token (个人)</label>
-                              <input type="password" value={luckinToken} onChange={e => handleLuckinTokenChange(e.target.value)} className="w-full bg-white/80 border border-blue-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="去 open.lkcoffee.com 登录后复制" />
+                              <input type="password" value={luckinToken} onChange={e => handleLuckinTokenChange(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="去 open.lkcoffee.com 登录后复制" />
                           </div>
-                          <button onClick={testLuckinApi} disabled={luckinTesting} className="w-full py-2 bg-blue-100 text-blue-700 text-xs font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-60">
+                          <button onClick={testLuckinApi} disabled={luckinTesting} className="w-full py-2 bg-neutral-100 text-neutral-700 text-xs font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-60">
                               {luckinTesting ? '测试中…' : '测试连接'}
                           </button>
                           {luckinTestStatus && (
-                              <div className={`p-2 rounded-lg text-[11px] whitespace-pre-line leading-relaxed ${luckinTestStatus.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : luckinTestStatus.startsWith('❌') ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-600'}`}>
+                              <div className={`p-2 rounded-lg text-[11px] whitespace-pre-line leading-relaxed ${luckinTestStatus.startsWith('✅') ? 'bg-neutral-50 text-neutral-700' : luckinTestStatus.startsWith('❌') ? 'bg-neutral-50 text-neutral-600' : 'bg-slate-50 text-slate-600'}`}>
                                   {luckinTestStatus}
                               </div>
                           )}
-                          <p className="text-[10px] text-blue-700/70 leading-relaxed">
+                          <p className="text-[10px] text-neutral-700/70 leading-relaxed">
                               1. 访问 <a href="https://open.lkcoffee.com" target="_blank" className="underline">open.lkcoffee.com</a> 用瑞幸账号登录，复制 Token（有效期约 1 个月）<br/>
                               2. Token 保存在本机配置中；使用点单功能时会随 MCP 请求由网络 Worker 转发，项目不主动留存<br/>
                               3. 下单类操作涉及真实支付，角色会先复述清单等你确认再下单<br/>
@@ -4559,15 +4559,15 @@ const Settings: React.FC = () => {
       {/* MCP 帮助 Modal —— 面向完全不懂 MCP 的用户，讲清用途与部署方式 */}
       <Modal isOpen={showMcpHelp} title="MCP 是什么？" onClose={() => setShowMcpHelp(false)}>
           <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
-              <div className="bg-violet-50/60 rounded-xl p-3 space-y-1.5">
-                  <p className="font-bold text-violet-700">MCP 工具服务器</p>
+              <div className="bg-neutral-50/60 rounded-xl p-3 space-y-1.5">
+                  <p className="font-bold text-neutral-700">MCP 工具服务器</p>
                   <p>
                       MCP（Model Context Protocol）是一套开放协议。接上资料库、联网搜索、笔记或智能家居后，
                       Sully 可以在聊天中调用它们。MCP 配置不会覆盖角色设定、关系或记忆。
                   </p>
               </div>
-              <div className="bg-sky-50/60 rounded-xl p-3 space-y-1.5">
-                  <p className="font-bold text-sky-700">🏠 为什么服务器要自己准备？</p>
+              <div className="bg-neutral-50/60 rounded-xl p-3 space-y-1.5">
+                  <p className="font-bold text-neutral-700">🏠 为什么服务器要自己准备？</p>
                   <p>
                       SullyOS·糯米机 的核心前端可以静态部署，也没有强制所有 MCP 流量经过项目方的中央代理。
                       URL 和凭据默认留在本机，工具服务器需要你自己准备，三选一：
@@ -4579,8 +4579,8 @@ const Settings: React.FC = () => {
                       🚀 <b>自己部署到云上</b>：VPS / Cloudflare / Zeabur 等，任何设备随时可用。
                   </p>
               </div>
-              <div className="bg-amber-50/60 rounded-xl p-3 space-y-1.5">
-                  <p className="font-bold text-amber-700">🚧 测试连接报「Failed to fetch」？</p>
+              <div className="bg-neutral-50/60 rounded-xl p-3 space-y-1.5">
+                  <p className="font-bold text-neutral-700">🚧 测试连接报「Failed to fetch」？</p>
                   <p>
                       八成是浏览器的 CORS 跨域拦截（静态网页的另一个代价）。能改服务器就在服务器端配好 CORS；
                       改不了就在配置里填「代理 URL」——本地跑一个小代理，或把仓库里的 Worker 代理部署到你自己的
@@ -4593,7 +4593,7 @@ const Settings: React.FC = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => trackEvent('跳转 MCP 完整教程')}
-                      className="block w-full py-2.5 bg-violet-500 text-white text-center text-xs font-bold rounded-xl active:scale-95 transition-transform"
+                      className="block w-full py-2.5 bg-neutral-500 text-white text-center text-xs font-bold rounded-xl active:scale-95 transition-transform"
                   >📖 打开完整教程（含部署示例）</a>
                   <button
                       type="button"
@@ -4602,7 +4602,7 @@ const Settings: React.FC = () => {
                           try { await navigator.clipboard.writeText(text); trackEvent('复制 MCP 部署指引给 AI', { result: 'copied' }); addToast('已复制，去粘贴给你的 AI 吧', 'success'); }
                           catch { trackEvent('复制 MCP 部署指引给 AI', { result: 'clipboard-failed' }); addToast('复制失败，请手动复制教程链接', 'error'); }
                       }}
-                      className="w-full py-2.5 bg-violet-100 text-violet-700 text-xs font-bold rounded-xl active:scale-95 transition-transform"
+                      className="w-full py-2.5 bg-neutral-100 text-neutral-700 text-xs font-bold rounded-xl active:scale-95 transition-transform"
                   >🤖 复制链接给你的 AI，让它带你部署</button>
                   <p className="text-[10px] text-slate-400 text-center">教程是自包含的，任何 AI 助手读完都能带你走完全程。</p>
               </div>
@@ -4617,14 +4617,14 @@ const Settings: React.FC = () => {
           footer={
               <div className="flex gap-2 w-full">
                   <button onClick={() => setShowResetConfirm(false)} disabled={resetting} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl disabled:opacity-50">取消</button>
-                  <button onClick={confirmReset} disabled={resetting} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-60">{resetting ? '清理中…' : '确认格式化'}</button>
+                  <button onClick={confirmReset} disabled={resetting} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200 disabled:opacity-60">{resetting ? '清理中…' : '确认格式化'}</button>
               </div>
           }
       >
           <div className="flex flex-col items-center gap-3 py-2">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-red-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-neutral-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
               <p className="text-center text-sm text-slate-600 font-medium">
-                  这将<span className="text-red-500 font-bold">永久删除</span>所有角色、聊天记录和设置，且无法恢复！
+                  这将<span className="text-neutral-500 font-bold">永久删除</span>所有角色、聊天记录和设置，且无法恢复！
               </p>
               <p className="text-center text-xs text-slate-400">
                   主动消息 2.0 在云端存的定时任务、角色上下文和 API 凭据也会一起清掉。
@@ -4640,7 +4640,7 @@ const Settings: React.FC = () => {
           footer={
               <div className="flex gap-2 w-full">
                   <button onClick={() => setResetCloudFailure(null)} disabled={resetting} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl disabled:opacity-50">先不重置</button>
-                  <button onClick={confirmResetAnyway} disabled={resetting} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-60">{resetting ? '清理中…' : '仍然重置'}</button>
+                  <button onClick={confirmResetAnyway} disabled={resetting} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200 disabled:opacity-60">{resetting ? '清理中…' : '仍然重置'}</button>
               </div>
           }
       >
@@ -4649,7 +4649,7 @@ const Settings: React.FC = () => {
               <p className="text-xs text-slate-400 break-all">
                   Worker 地址：{resetCloudFailure?.workerUrl}
               </p>
-              <p className="text-xs text-rose-500">
+              <p className="text-xs text-neutral-500">
                   仍然重置的话，本地会归零，而云端那些没清掉的定时任务还会到点运行、消耗你的 API 额度。重置之后本地不再保存连接信息，只能去 Cloudflare 后台手动删掉那个 D1 数据库。
               </p>
           </div>
