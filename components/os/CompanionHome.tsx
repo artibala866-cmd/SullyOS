@@ -3743,7 +3743,7 @@ const CompanionHome: React.FC = () => {
                         <span className="flex items-center justify-between text-[9px] text-white/58"><span>{compositionFramingMode === 'face' ? '特写大小' : '角色大小'}</span><b className="font-mono text-white/82">{compositionFramingDraft.scale.toFixed(2)}×</b></span>
                         <span className="mt-1.5 flex items-center gap-2">
                           <button onClick={() => setCompositionFramingDraft(current => ({ ...current, scale: Math.max(framingScaleMin, current.scale - .1) }))} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[.04] active:scale-90"><Minus size={11} /></button>
-                          <input type="range" min={framingScaleMin} max={framingScaleMax} step="0.01" value={compositionFramingDraft.scale} onChange={event => setCompositionFramingDraft(current => ({ ...current, scale: Number(event.target.value) }))} className="h-1.5 min-w-0 flex-1 cursor-pointer accent-neutral-400" data-testid={compositionFramingMode === 'face' ? 'companion-face-framing-scale' : 'companion-framing-scale'} />
+                          <input type="range" min={framingScaleMin} max={framingScaleMax} step="0.01" value={compositionFramingDraft.scale} onChange={event => setCompositionFramingDraft(current => ({ ...current, scale: Number(event.target.value) }))} className="h-1.5 min-w-0 flex-1 cursor-pointer accent-fuchsia-300" data-testid={compositionFramingMode === 'face' ? 'companion-face-framing-scale' : 'companion-framing-scale'} />
                           <button onClick={() => setCompositionFramingDraft(current => ({ ...current, scale: Math.min(framingScaleMax, current.scale + .1) }))} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[.04] active:scale-90"><Plus size={11} /></button>
                         </span>
                       </label>
@@ -3754,7 +3754,7 @@ const CompanionHome: React.FC = () => {
                       ] as const).map(([key, label, limit]) => (
                         <label key={key} className="mt-2.5 block">
                           <span className="flex items-center justify-between text-[9px] text-white/58"><span>{label}</span><b className="font-mono text-white/82">{Math.round(compositionFramingDraft[key] * 100)}%</b></span>
-                          <input type="range" min={-limit} max={limit} step="0.01" value={compositionFramingDraft[key]} onChange={event => setCompositionFramingDraft(current => ({ ...current, [key]: Number(event.target.value) }))} className="mt-1.5 h-1.5 w-full cursor-pointer accent-neutral-400" data-testid={`companion-${compositionFramingMode === 'face' ? 'face-' : ''}framing-${key}`} />
+                          <input type="range" min={-limit} max={limit} step="0.01" value={compositionFramingDraft[key]} onChange={event => setCompositionFramingDraft(current => ({ ...current, [key]: Number(event.target.value) }))} className="mt-1.5 h-1.5 w-full cursor-pointer accent-fuchsia-300" data-testid={`companion-${compositionFramingMode === 'face' ? 'face-' : ''}framing-${key}`} />
                         </label>
                       ))}
                       <div className="mt-2 flex gap-2">
@@ -3780,7 +3780,7 @@ const CompanionHome: React.FC = () => {
                           ] as const).map(([edge, label]) => (
                             <label key={edge} className="block">
                               <span className="flex justify-between text-[8px] text-white/52"><span>{label}</span><b className="font-mono text-white/75">{Math.round(cropDraft[edge] * 100)}%</b></span>
-                              <input type="range" min="0" max="0.42" step="0.005" value={cropDraft[edge]} onChange={event => setCropDraft(current => clampStageCrop({ ...current, [edge]: Number(event.target.value) }))} className="mt-1 h-1.5 w-full cursor-pointer accent-neutral-400" data-testid={`companion-crop-${edge}`} />
+                              <input type="range" min="0" max="0.42" step="0.005" value={cropDraft[edge]} onChange={event => setCropDraft(current => clampStageCrop({ ...current, [edge]: Number(event.target.value) }))} className="mt-1 h-1.5 w-full cursor-pointer accent-pink-300" data-testid={`companion-crop-${edge}`} />
                             </label>
                           ))}
                         </div>
