@@ -1081,9 +1081,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         };
         window.addEventListener('music-listen-invite-created', refreshMusicInvite);
         window.addEventListener('music-listen-invite-resolved', refreshMusicInvite);
+        window.addEventListener('music-listen-session-ended', refreshMusicInvite);
         return () => {
             window.removeEventListener('music-listen-invite-created', refreshMusicInvite);
             window.removeEventListener('music-listen-invite-resolved', refreshMusicInvite);
+            window.removeEventListener('music-listen-session-ended', refreshMusicInvite);
         };
     }, [reloadMessages]);
 
