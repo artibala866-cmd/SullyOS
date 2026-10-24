@@ -320,10 +320,10 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
   // 没本地专辑 → 直接进登录面板（保持原来体验）。
   // ⚠️ 所有 hooks 必须在这个 early-return **之前** 声明完。
   if (!cfg.cookie || !profile) {
-    if (localAlbumSongs.length === 0 || showNeteaseLogin) {
+    if (showNeteaseLogin) {
       return (
         <NeteaseLoginPanel
-          onBack={localAlbumSongs.length > 0 ? () => setShowNeteaseLogin(false) : onBack}
+          onBack={() => setShowNeteaseLogin(false)}
           onLoggedIn={async (cookie) => {
             setCfg({ ...cfgRef.current, cookie });
             await new Promise(r => setTimeout(r, 300));
@@ -365,7 +365,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
             </div>
             <div className="flex-1 text-left">
               <div className="text-sm" style={{ color: C.text }}>登录网易云</div>
-              <div className="text-[10.5px]" style={{ color: C.muted }}>解锁海量曲库 · 自己的歌单 · 一起听</div>
+              <div className="text-[10.5px]" style={{ color: C.muted }}>可选：同步你的网易云歌单</div>
             </div>
             <span className="text-[12px]" style={{ color: C.accent }}>→</span>
           </button>
