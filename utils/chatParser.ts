@@ -41,10 +41,10 @@ export interface MusicActionHooks {
     /** 返回 user 此刻正在听的歌快照（chatParser 自己不去碰 MusicContext） */
     getListeningSnapshot: () => MusicActionSnapshot | null;
     /** 将 charId 加入"一起听"名单（chatParser 不维护状态，只通知） */
-    joinListeningTogether: (charId: string) => void;
+    joinListeningTogether: (charId: string) => void | Promise<void>;
     /** 角色可以主动结束伴听，不影响用户的音乐播放。 */
     stopListeningTogether?: (charId: string) => void;
-    rejectListeningInvite?: (charId: string) => void;
+    rejectListeningInvite?: (charId: string) => void | Promise<void>;
     inviteUserListening?: (charId: string) => Promise<void>;
     /** 角色在伴听时切到播放队列中的歌曲。 */
     playListeningTrack?: (charId: string, query: string) => Promise<boolean> | boolean;
@@ -315,11 +315,11 @@ export const ChatParser = {
             if (verb === 'favorite_track' && args[0]) await replyStep(async () => musicHooks.favoriteListeningTrack?.(charId, args[0]));
             if (verb === 'invite') await replyStep(async () => musicHooks.inviteUserListening?.(charId));
             if (verb === 'stop') musicHooks.stopListeningTogether?.(charId);
-            if (verb === 'reject') musicHooks.rejectListeningInvite?.(charId);
+            if (verb === 'reject') await replyStep(async () => musicHooks.rejectListeningInvite?.(charId));
             if (verb === 'play' && args[0]) await replyStep(async () => musicHooks.playListeningTrack?.(charId, args[0]));
             const wantsJoin = verb === 'join' || verb === 'join_and_add' || verb === 'join_and_add_new';
             // 邀请接受不要求用户此刻已经开始播放；否则无歌时会一直停留在待回应。
-            if (wantsJoin) musicHooks.joinListeningTogether(charId);
+            if (wantsJoin) await replyStep(async () => musicHooks.joinListeningTogether(charId));
             const wantsAdd = verb !== 'join' && verb !== 'favorite_current' && verb !== 'favorite_track' && verb !== 'invite' && verb !== 'stop' && verb !== 'reject' && verb !== 'play';
 
             let target: AddSongTarget | undefined;
