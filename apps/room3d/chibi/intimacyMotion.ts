@@ -47,9 +47,17 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
     taller.rig!.bones[side+'_shin'].quaternion.multiply(rotation(bend*3.1));
     taller.rig!.bones[side+'_foot'].quaternion.multiply(rotation(-bend*1.3));
    }
-   shorter.translatePose(new T.Vector3(0,rise,0));
-   taller.rig!.bones.spine.quaternion.multiply(rotation(bend*.65));
-   taller.rig!.bones.chest.quaternion.multiply(rotation(bend*.75));
+   // Pivot the shorter body around its planted toe tips instead of lifting
+   // the whole model. The ankle extension creates the visible tiptoe pose.
+   shorter.root.updateWorldMatrix(true,true);
+   const toes=['L_toe','R_toe'].map(n=>shorter.rig!.bones[n].getWorldPosition(new T.Vector3()));
+   const ground=Math.min(...toes.map(p=>p.y));
+   // Keep toe contact with the original ground plane; cap compensation so
+   // an exaggerated height difference cannot pull the resident into the air.
+   const lift=T.MathUtils.clamp(rise*.35,0,.055);
+   shorter.translatePose(new T.Vector3(0,Math.min(lift,Math.max(0,.035-ground)),0));
+   taller.rig!.bones.spine.quaternion.multiply(rotation(bend*.9));
+   taller.rig!.bones.chest.quaternion.multiply(rotation(bend*1.05));
    taller.rig!.bones.neck.quaternion.multiply(rotation(bend*.45));
    a.root.updateWorldMatrix(true,true);
    b.root.updateWorldMatrix(true,true);
