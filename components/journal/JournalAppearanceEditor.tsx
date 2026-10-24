@@ -53,7 +53,7 @@ const CSS_SNIPPETS = [
 ];
 
 const normalizeAppearance = (appearance?: JournalAppearance): JournalAppearance => ({
-    preset: appearance?.preset === 'original' ? 'original' : 'original',
+    preset: 'original',
     customCss: appearance?.customCss || '',
 });
 

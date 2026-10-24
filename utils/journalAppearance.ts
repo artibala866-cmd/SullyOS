@@ -207,7 +207,8 @@ export const resolveJournalPreset = (preset?: JournalAppearancePresetId) =>
 export const resolveJournalAppearanceCss = (appearance?: JournalAppearance) => {
     const presetCss = resolveJournalPreset(appearance?.preset).css;
     const customCss = appearance?.customCss?.trim() || '';
-    return [presetCss, customCss].filter(Boolean).join('\n');
+    // A flattened export already contains the base theme: avoid injecting it twice.
+    return customCss.startsWith(presetCss) ? customCss : [presetCss, customCss].filter(Boolean).join('\n');
 };
 
 /** 将“内置主题 + 用户覆盖”拍平成一份不依赖主题 ID 的独立 CSS。 */
