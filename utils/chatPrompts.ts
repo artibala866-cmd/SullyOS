@@ -1196,7 +1196,11 @@ ${voiceActingGuide()}`;
                 
                 // TODO(记录形态): 戳一戳 / 时间间隔提示等其他系统事件, 等转账的 [[记录:TRANSFER]]
                 // 观察一段时间后再迁 (transferFormat.ts 头注) —— 防线已按整个记录命名空间就位。
-                if (m.type === 'interaction') content = `${timeStr} [系统: 用户戳了你一下]`;
+                if (m.type === 'interaction') {
+                    const suffix = typeof m.metadata?.pokeSuffix === 'string'
+                        ? m.metadata.pokeSuffix.trim().replace(/[\r\n<>{}]/g,'').slice(0,48) : '';
+                    content = `${timeStr} [系统: 用户戳了你一下${suffix ? '；你当前设置的戳一戳后缀是「' + suffix + '」' : ''}]`;
+                }
                 else if (m.type === 'collaboration_file') {
                     const fileName = String(m.metadata?.fileName || m.content || '未命名文件');
                     content = `${timeStr} [你在聊天界面向用户交付了协同文件：《${fileName}》]`;
