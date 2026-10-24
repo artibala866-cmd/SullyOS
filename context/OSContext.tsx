@@ -2429,7 +2429,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let disposed = false;
       let running = false;
       let cursor = 0;
-      const momentTimers = new Map<string, ReturnType<typeof setTimeout>>();
+      const momentTimers = new Map<string, number>();
       const tick = async () => {
           if (disposed || running || document.visibilityState !== 'visible') return;
           const all = charactersRef.current.filter(c => !!c.id);
@@ -2456,7 +2456,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const charId = (event as CustomEvent<{characterId?:string}>).detail?.characterId;
           if (!charId || disposed || document.visibilityState !== 'visible') return;
           const pending = momentTimers.get(charId);
-          if (pending) clearTimeout(pending);
+          if (pending) window.clearTimeout(pending);
           momentTimers.set(charId, window.setTimeout(() => {
               momentTimers.delete(charId);
               if (disposed || running || document.visibilityState !== 'visible') return;
@@ -2477,7 +2477,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           window.clearInterval(interval);
           document.removeEventListener('visibilitychange', onVisible);
           window.removeEventListener(CHARACTER_MOMENTS_CHANGED, onMomentsChanged);
-          for (const timer of momentTimers.values()) clearTimeout(timer);
+          for (const timer of momentTimers.values()) window.clearTimeout(timer);
           momentTimers.clear();
       };
   }, [isDataLoaded]);
