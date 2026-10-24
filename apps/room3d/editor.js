@@ -11,7 +11,7 @@ import {socialWheelLayout} from './socialWheelLayout';
 import './socialWheel.css';
 import './petWheel.css';
 import {withResidents,residentBlocksStep} from './residentNavigation.js';
-import {residentSeparationStep} from './residentSeparation.js';
+import {residentSeparationStep,chooseResidentToYield} from './residentSeparation.js';
 import {petHomeRecord} from '../../utils/homePetRecords';
 import {homeDisposalReason} from '../../utils/homeAssetCancellation';
 import {socialPostureAllowed,SEATED_TARGET_ACTIONS} from './socialPosture';
@@ -367,14 +367,14 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const firstPosture=getResidentPosture(primary.id),secondPosture=getResidentPosture(other.id);
    const firstFree=firstPosture==='standing'&&!visitorActivity&&!visitorPlant&&!kitchenTask;
    const secondFree=secondPosture==='standing'&&!other.parkedActivity?.activity;
-   if(!firstFree&&!secondFree)continue;
-   // Prefer the character over the user. Seated/rising people never move.
-   const mover=firstFree&&primary.id===primaryResidentId?primary:
-    secondFree&&other.id===primaryResidentId?other:
-    firstFree&&secondPosture!=='standing'?primary:
-    secondFree&&firstPosture!=='standing'?other:
-    secondFree?other:firstFree?primary:null;
-   if(!mover)continue;
+   // Sofa / rise roots stay anchored; the standing character yields first.
+   const side=chooseResidentToYield(
+    {id:primary.id,canMove:firstFree},
+    {id:other.id,canMove:secondFree},
+    primaryResidentId
+   );
+   if(!side)continue;
+   const mover=side==='first'?primary:other;
    const anchor=mover===primary?other:primary;
    if(!residentShellMap||residentShellRoom!==room.id||elapsed-residentShellMapAt>1){
     residentShellMap=navMap();residentShellRoom=room.id;residentShellMapAt=elapsed;
