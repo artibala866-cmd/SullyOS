@@ -1968,10 +1968,12 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function dispose(){homelyForeground?.dispose();homelyForeground=null;parkedMealEffects?.dispose();parkedMealEffects=null;userSpeech=null;cancelCompanionAction();petSystem?.dispose();petSystem=null;interiorBackdrop.dispose();clearTimeout(tapTimer);lampGlow.dispose();walkFeedback.dispose();clearTimeout(faceTimer);faceTimer=0;clearTimeout(lightTimer);lightTimer=0;if(destroyed&&!kit)return;stopSocial();for(const e of [...socialEntries])removeSocialResident(e.id);gamingEffects.clear();clearComparison();visitor?.dispose();visitor=null;watering.dispose();mat.geometry.dispose();mat.material.dispose();kitchenEffects.dispose();kitchenWork.dispose();bathroomEffects.dispose();finishes.dispose();windowDaylight.dispose();resident.clear();destroyed=true;abort.abort(homeDisposalReason());observer.disconnect();cancelAnimationFrame(frame);controls.dispose();clearContent();for(const m of materialCache.values())m.dispose();materialCache.clear();kit?.scene.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material]){for(const value of Object.values(m))if(value?.isTexture)value.dispose();m.dispose()}}});distantGeometry.dispose();for(const m of distantMaterials.values())m.dispose();distantMaterials.clear();key.shadow.dispose();grid.geometry.dispose();grid.material.dispose();footprint.geometry.dispose();footprint.material.dispose();for(const material of outlineMaterials)material.dispose();ground.geometry.dispose();ground.material.dispose();selection.geometry.dispose();selection.material.dispose();furnitureHalo.dispose();roomFinish.dispose();renderer.dispose();host.innerHTML='';host.classList.remove('home3d');}
  signal?.addEventListener('abort',dispose,{once:true});
  try{
-  host.querySelector('.h3-loading').textContent='正在加载家园基础模型…';
+  const loadStartedAt=performance.now();
+  const loadStage=label=>{const el=host.querySelector('.h3-loading');if(el)el.textContent=label;console.info('[Home3D]',label,Math.round(performance.now()-loadStartedAt)+'ms');};
+  loadStage('正在加载家园基础模型…');
    [catalog,kit]=await Promise.all([fetch(new URL('catalog.json',assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('家具目录加载失败');return r.json()}),fetch(new URL('kit.glb',assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('家具模型加载失败');return r.arrayBuffer()}).then(data=>new GLTFLoader().parseAsync(data,assetBase))]);
   if(destroyed){dispose();return {dispose}}
-  host.querySelector('.h3-loading').textContent='正在准备房间入口…';
+  loadStage('正在准备房间入口…');
    const doorData=await fetch(new URL('showroom-door.glb',assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('蝴蝶结门加载失败');return r.arrayBuffer()});
   ribbonDoorTemplate=(await new GLTFLoader().parseAsync(doorData,assetBase)).scene;kit.scene.add(ribbonDoorTemplate);
   catalog.push(...BUILDING_ASSETS);for(const a of catalog)assetIndex.set(a.id,a);
@@ -1984,7 +1986,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   state=incoming?validateHome(incoming,catalog):(onMenu?createStarterHome(catalog):createHome(catalog));residentRoom=state.rooms.some(r=>r.id===state.residentRoomId)?state.residentRoomId:state.activeRoomId;if(onMenu)state.activeRoomId=residentRoom;journal=readHomeRecords(state);state.records=journal;
   // Load only the visible room before the first frame; pet-only assets are deferred.
    const initialFurniture=neededAssets();
-   host.querySelector('.h3-loading').textContent='正在加载当前房间的家具…';
+   loadStage('正在加载当前房间的家具…');
    // Show the actual bottleneck instead of leaving the generic loading label.
    // Keep the asset queue bounded and report each completed model.
    let furnitureLoaded=0;
@@ -1999,7 +2001,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(!petAssetIds.length)mountPets();
    else setTimeout(()=>{if(destroyed)return;Promise.all(petAssetIds.map(ensureAsset)).then(()=>{if(!destroyed)mountPets();}).catch(e=>{if(!destroyed)console.warn('宠物资源延迟加载失败',e);});},1200);
    if(!incoming||JSON.stringify(incoming)!==JSON.stringify(state))persist();
-  host.querySelector('.h3-loading').remove();rebuild();renderUI();tick();
+  loadStage('正在生成房间画面…');host.querySelector('.h3-loading').remove();rebuild();renderUI();tick();console.info('[Home3D] scene ready',Math.round(performance.now()-loadStartedAt)+'ms');
   if(thumbnailExport){
   await Promise.all(catalog.filter(a=>a.url&&!templates.has(a.id)).map(a=>ensureAsset(a.id)));
   // Offline export only: never render the entire catalogue on a user device.
