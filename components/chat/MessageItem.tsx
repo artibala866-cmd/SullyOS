@@ -1521,6 +1521,8 @@ const MessageItem = React.memo(({
                         <span className="font-medium opacity-80">{isUser ? '你' : charName}</span>
                         <span className="opacity-60">戳了戳</span>
                         <span className="font-medium opacity-80">{isUser ? charName : '你'}</span>
+                        {typeof m.metadata?.pokeSuffix === 'string' && !!m.metadata.pokeSuffix.trim() &&
+                          <span className="max-w-40 break-words opacity-70">{m.metadata.pokeSuffix.trim().slice(0,48)}</span>}
                     </div>
                 </div>
             </div>
