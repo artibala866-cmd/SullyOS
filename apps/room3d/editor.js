@@ -11,6 +11,7 @@ import {socialWheelLayout} from './socialWheelLayout';
 import './socialWheel.css';
 import './petWheel.css';
 import {withResidents,residentBlocksStep} from './residentNavigation.js';
+import {residentSeparationStep} from './residentSeparation.js';
 import {petHomeRecord} from '../../utils/homePetRecords';
 import {homeDisposalReason} from '../../utils/homeAssetCancellation';
 import {socialPostureAllowed,SEATED_TARGET_ACTIONS} from './socialPosture';
@@ -348,6 +349,45 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   for(const e of comparisonEntries)if(e.id!==activeComparisonId&&e.group.visible){const [x,,z]=e.group.position.toArray(),half=e.width/2;map.obstacles.push([x+r.x*ROOM_STEP.x-half,.18,z+r.z*ROOM_STEP.z-half,x+r.x*ROOM_STEP.x+half,3,z+r.z*ROOM_STEP.z+half]);}
   return map;
  };
+ // Horizontal body shells run only outside paired interactions.
+ // After a seated hug the free resident yields when the other person rises.
+ function separateResidentBodies(deltaSeconds){
+  if(!visitor||!resident.visible||firstPerson||edit||overview||socialRuntime?.active||photoSession)return false;
+  const others=socialEntries.filter(e=>e.group.visible&&e.room===current().id&&e!==furnitureUser);
+  if(!others.length)return false;
+  const room=current(),offsetX=room.x*ROOM_STEP.x,offsetZ=room.z*ROOM_STEP.z;
+  const primary={id:activeResidentId(),group:resident};
+  let map=null,moved=false;
+  for(const other of others){
+   const minimum=THREE.MathUtils.clamp((headWidth+(other.width||1.5))*.34,.82,1.15);
+   if(Math.hypot(primary.group.position.x-other.group.position.x,primary.group.position.z-other.group.position.z)>=minimum-.005)continue;
+   const firstPosture=getResidentPosture(primary.id),secondPosture=getResidentPosture(other.id);
+   const firstFree=firstPosture==='standing'&&!visitorActivity&&!visitorPlant&&!kitchenTask;
+   const secondFree=secondPosture==='standing'&&!other.parkedActivity?.activity;
+   if(!firstFree&&!secondFree)continue;
+   // Prefer the character over the user. Seated/rising people never move.
+   const mover=firstFree&&primary.id===primaryResidentId?primary:
+    secondFree&&other.id===primaryResidentId?other:
+    firstFree&&secondPosture!=='standing'?primary:
+    secondFree&&firstPosture!=='standing'?other:
+    secondFree?other:firstFree?primary:null;
+   if(!mover)continue;
+   const anchor=mover===primary?other:primary;
+   map??=navMap();
+   const next=residentSeparationStep(
+    [mover.group.position.x,mover.group.position.z],
+    [anchor.group.position.x,anchor.group.position.z],
+    {minimum,maxStep:THREE.MathUtils.clamp(deltaSeconds*2,.025,.11),
+     free:(x,z)=>map.free(x+offsetX,z+offsetZ)}
+   );
+   if(!next)continue;
+   mover.group.position.x=next[0];mover.group.position.z=next[1];
+   if(mover===primary&&!visitorSeat&&!seatChange)visitorLocation={x:next[0]+offsetX,z:next[1]+offsetZ,level:room.level};
+   else if(mover!==primary)other.settledRoom=room.id;
+   moved=true;
+  }
+  return moved;
+ }
  function stopWalking(keepKitchen=false,keepFeedback=false){
   if(!keepFeedback)walkFeedback.clear();
   stopSocial();
@@ -1970,7 +2010,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(breathing)for(const a of animated)a.o.position.y=a.y+Math.sin(elapsed*a.speed+a.phase)*a.amplitude;
    const acting=visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil));
    if(acting&&!companionRise&&!(companionTravel&&!furnitureUser))animateVisitor(elapsed-visitorStart);
-   animateIdleResidents();animateParkedCharacter();if(furnitureUser)animateConversation();animateCompanionIdle();animateCompanionPhone();animateUserSpeech();faceNearbyResidents();faceConversationPartner();
+   animateIdleResidents();animateParkedCharacter();if(furnitureUser)animateConversation();animateCompanionIdle();animateCompanionPhone();animateUserSpeech();if(separateResidentBodies(dt))dirty=true;faceNearbyResidents();faceConversationPartner();
    settling=controls.update();if(dirty||homelyAttention||homelyMusic.playing&&!reducedMotion||homelyPoke||breathing||acting||hasIdleResidents()||drag||walkFeedback.active){renderScene();renderedFrames++;dirty=false;lastDraw=now}
   }
   inTick=false;if(homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil)))wake();
