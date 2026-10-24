@@ -42,7 +42,7 @@ const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, o
                         </div>
                         <button
                             onClick={() => { commitPrompt(); onClose(); }}
-                            className="text-[12px] font-bold text-indigo-500 active:scale-95 transition"
+                            className="text-[12px] font-bold text-neutral-500 active:scale-95 transition"
                         >
                             完成
                         </button>
@@ -51,8 +51,8 @@ const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, o
 
                 <div className="p-5 space-y-6">
                     {/* 0. 这是什么 / 看不见怎么办 */}
-                    <section className="rounded-2xl bg-amber-50/70 border border-amber-200/70 px-3.5 py-3 text-[11px] leading-[1.7] text-slate-600">
-                        <div className="font-bold text-amber-700 mb-1 text-[11.5px]">⚠ 先看这里：「心象」到底是什么</div>
+                    <section className="rounded-2xl bg-neutral-50/70 border border-neutral-200/70 px-3.5 py-3 text-[11px] leading-[1.7] text-slate-600">
+                        <div className="font-bold text-neutral-700 mb-1 text-[11.5px]">⚠ 先看这里：「心象」到底是什么</div>
                         <p>
                             这是 AI 模型**自己原生输出的思考链**——模型自带的思考过程。
                         </p>
@@ -66,16 +66,16 @@ const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, o
                             如果你看到思考链觉得跳戏 / 影响沉浸感 / 觉得太"AI"——直接关掉就好，不会有任何损失，角色回复本身完全不受影响。
                         </p>
                         <p className="mt-2 text-slate-500">看不太懂上面在说啥？去问给你 API 的人，他/她会比这里讲得清楚。</p>
-                        <div className="mt-2.5 pt-2.5 border-t border-amber-200/60">
-                            <div className="font-bold text-amber-700 mb-1 text-[11.5px]">开了但没看到「心象」卡片？</div>
+                        <div className="mt-2.5 pt-2.5 border-t border-neutral-200/60">
+                            <div className="font-bold text-neutral-700 mb-1 text-[11.5px]">开了但没看到「心象」卡片？</div>
                             <ul className="list-disc pl-4 space-y-0.5">
                                 <li><b>你的模型不带思考链</b> → 请问你 API 提供者哪些模型支持 thinking，或自己查找</li>
                                 <li><b>这一轮模型没思考</b>（短回复 / 模型自己判断不需要） → 正常现象，下一轮可能就有</li>
                                 <li><b>代理拒绝转发 thinking 字段</b> → 跟 API 提供方确认对应模型是否启用了 extended thinking</li>
                             </ul>
                         </div>
-                        <div className="mt-2.5 pt-2.5 border-t border-amber-200/60">
-                            <div className="font-bold text-amber-700 mb-1 text-[11.5px]">思考链一直是英文怎么办？</div>
+                        <div className="mt-2.5 pt-2.5 border-t border-neutral-200/60">
+                            <div className="font-bold text-neutral-700 mb-1 text-[11.5px]">思考链一直是英文怎么办？</div>
                             <p>
                                 这通常**不是模型本身的问题**——同一个模型走官方渠道（Anthropic / OpenAI / 智谱直连等）能正常保持中文，是中转 API 把 system prompt 截短或改写造成的。可以试：
                             </p>
@@ -94,7 +94,7 @@ const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, o
                                 <div className="text-[13px] font-bold text-slate-700">显示思考过程</div>
                                 <div className="text-[10.5px] text-slate-400 mt-0.5">关闭后角色回复不再带「心象」卡片，已存的旧消息保留。</div>
                             </div>
-                            <div className={`shrink-0 ml-3 w-10 h-6 rounded-full p-1 transition-colors flex items-center ${value.enabled ? 'bg-indigo-500' : 'bg-slate-200'}`}>
+                            <div className={`shrink-0 ml-3 w-10 h-6 rounded-full p-1 transition-colors flex items-center ${value.enabled ? 'bg-neutral-500' : 'bg-slate-200'}`}>
                                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${value.enabled ? 'translate-x-4' : ''}`} />
                             </div>
                         </div>
@@ -111,7 +111,7 @@ const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, o
                             onChange={e => setDraftPrompt(e.target.value)}
                             onBlur={commitPrompt}
                             placeholder="比如：思考时偶尔切到日语 / 多写一些感官细节 / 想到用户时用昵称…"
-                            className="w-full h-28 bg-slate-50 rounded-xl p-3 text-[12px] resize-none border border-slate-200 focus:outline-none focus:border-indigo-300"
+                            className="w-full h-28 bg-slate-50 rounded-xl p-3 text-[12px] resize-none border border-slate-200 focus:outline-none focus:border-neutral-300"
                         />
                         <div className="text-[9.5px] text-slate-400 mt-1">留空 = 仅使用原生提示词。</div>
                     </section>
