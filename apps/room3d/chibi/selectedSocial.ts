@@ -9,7 +9,7 @@ import {isIntimacy,isPrincessCarry,poseIntimacy} from './intimacyMotion';
 import {splitMotionHeading} from './motionHeading';
 export {motionCategories} from './selectedMotions';
 export type SocialAction=string;
-export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.duration+1.2}]));
+export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-kiss'?9.6:e.duration+1.2}]));
 export interface SocialResident {id:string;visitor:ChibiVisitor}
 const yAxis=new T.Vector3(0,1,0),smooth=T.MathUtils.smootherstep;
 /** Both roles share a clock and capture transform. Observers stay independent. */
@@ -85,14 +85,13 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
     if(total>.01){const q=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(to.x-from.x,to.z-from.z));v.root.quaternion.copy(s.turns[i]).slerp(q,smooth(s.time,0,.2));v.animate(s.time,'walk');}else v.animate(s.time,'idle');
    });finish();return;
   }
-  const actionTime=s.time-s.approach,sourceTime=T.MathUtils.clamp(actionTime-.6,0,s.clip.duration),weight=smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
+  const actionTime=s.time-s.approach,kissAction=s.action==='home-kiss',sourceTime=T.MathUtils.clamp(kissAction?Math.max(0,actionTime-.15)+1.5:actionTime-.6,0,s.clip.duration),weight=kissAction?smooth(actionTime,0,.25):smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
   const both=s.ids.map(id=>states.get(id)!),frames=s.clip.actors.map(a=>sampleSelected(a,sourceTime)),points=locations(s,sourceTime);
-  // 亲亲：站位寻路已在 approach 阶段完成。把捕捉动画开头连续的
-  // 3.5 秒碎步平移整理成一次有起步、落脚、停稳的靠近，终点仍与原片一致。
-  if(s.action==='home-kiss'&&!pinned&&sourceTime<3.5){
-   const start=locations(s,0),end=locations(s,3.5);
-   const step=smooth(sourceTime,.35,2.45);
-   points.forEach((p,i)=>p.copy(start[i]).lerp(end[i],step));
+  // One short correction step, then hold the same spot through the kiss.
+  if(kissAction&&!pinned){
+   const from=locations(s,0),to=locations(s,3.5);
+   const step=smooth(actionTime,.05,.85);
+   points.forEach((p,i)=>p.copy(from[i]).lerp(to[i],step));
   }
   for(const r of states.values())if(!s.ids.includes(r.id))r.visitor.animate(s.time,'idle');
   both.forEach((r,i)=>{
@@ -114,12 +113,12 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
     r.visitor.root.quaternion.copy(turn).slerp(toward,smooth(actionTime,0,.6));
     // 与拥抱一样先完成站位，再迈近一步；仅在实际移动时播放短促步态。
     // 2.45 秒前完成落脚，剩余时间停稳后再进入亲吻。
-    if(s.action==='home-kiss'&&sourceTime>=.35&&sourceTime<2.45){
+    if(kissAction&&actionTime>=.05&&actionTime<.85){
      const previous=locations(s,0)[i],destination=locations(s,3.5)[i];
      const direction=destination.clone().sub(previous);direction.y=0;
      if(direction.lengthSq()>.0001){
       r.visitor.root.quaternion.copy(new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(direction.x,direction.z)));
-      r.visitor.animate((sourceTime-.35)*.65,'walk');
+      r.visitor.animate((actionTime-.05)*1.2,'walk');
      }else r.visitor.animate(sourceTime,'idle');
     }else r.visitor.animate(sourceTime,'idle');
    }else{
@@ -155,7 +154,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
    const delta=h1.clone().sub(h0),horizontal=new T.Vector3(delta.x,0,delta.z);
    const gap=horizontal.length(),targetGap=.66;
    if(gap>.001){
-    const contact=smooth(sourceTime,3.4,5.1)*(1-smooth(sourceTime,9.2,11.5));
+    const contact=smooth(sourceTime,3.4,5.1);
     const shift=T.MathUtils.clamp(gap-targetGap,-.14,.24)*contact*.5;
     const direction=horizontal.normalize().multiplyScalar(shift);
     v0.root.position.add(direction);v1.root.position.sub(direction);
