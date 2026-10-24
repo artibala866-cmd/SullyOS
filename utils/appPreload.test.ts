@@ -14,7 +14,7 @@ describe('preloadApp', () => {
     expect(phoneShell).toContain('await next.preload()');
     expect(phoneShell).toContain("window.addEventListener('pointerdown', stopForInteraction");
     expect(phoneShell).toContain('IDLE_PRELOAD_START_MS = 4000');
-    const idleOrder = phoneShell.match(/const APP_IDLE_PRELOAD_ORDER:[\\s\\S]+?\\];/)?.[0] || '';
+    const idleOrder = phoneShell.match(/const APP_IDLE_PRELOAD_ORDER:[\s\S]+?\];/)?.[0] || '';
     expect(idleOrder).toContain('Chat, Character, Settings, Appearance, GroupChat,');
     expect(idleOrder).not.toContain('RoomApp'); // Keep heavy apps on demand.
   });
