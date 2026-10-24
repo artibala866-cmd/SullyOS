@@ -1,6 +1,7 @@
 import type { CharacterProfile } from '../types';
 import { readNpcProfiles } from './characterPhoneNpcs';
 import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
+import { canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
 import {
   readCharacterMoments, addMomentComment, setMomentLike,
   type CharacterMoment,
@@ -63,7 +64,7 @@ export async function runCharacterMomentInteractionAutonomy(input: {
   if (!char?.id || !api?.apiKey || !api.baseUrl || !api.model ||
     typeof document === 'undefined' || document.visibilityState !== 'visible' ||
     !isCharacterPhoneAutonomyEnabled(char.id)) return 'unavailable';
-  if (locks.has(char.id)) return 'skipped';
+  if (locks.has(char.id) || !canUsePhoneApiBudget(char.id)) return 'skipped';
   locks.add(char.id);
   const now = Date.now();
   try {
@@ -96,14 +97,16 @@ export async function runCharacterMomentInteractionAutonomy(input: {
     ].slice(0, 12);
     if (!actors.length) return 'skipped';
     const publicComments = (post.comments || []).filter(c => !c.deletedAt).slice(-12);
+    if (!reservePhoneApiBudget(char.id)) return 'skipped';
     const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+      signal: AbortSignal.timeout(60_000),
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
       body: JSON.stringify({ model: api.model, stream: false, temperature: 0.75, messages: [
         { role: 'system', content: `你为虚构角色手机中的微信朋友圈做一轮自然互动决策。
 这里的帖子与评论已经真实保存在角色手机中，不要凭空增添 User 发言，不要杜撰私人聊天作为公开评论。
 发帖作者：${post.authorId === char.id ? char.name : contacts.find(p => p.id === post.authorId)?.name || '好友'}；正文：${post.text.slice(0, 1400)}
-评论区（含唯一 ID）：${JSON.stringify(publicComments.map(c => ({ id: c.id, authorId: c.authorId, text: c.text, replyToId: c.replyToId }))).slice(0, 3500)}
-可以参与的人（唯一ID，不是昵称）：${JSON.stringify(actors).slice(0, 6000)}
+评论区（含唯一 ID）：${JSON.stringify(publicComments.map(c => ({ id: c.id, authorId: c.authorId, text: c.text, replyToId: c.replyToId }))).slice(0, 2400)}
+可以参与的人（唯一ID，不是昵称）：${JSON.stringify(actors).slice(0, 3500)}
 这是一轮一两个自然动作，不是写整场戏；允许没人有反应。
 NPC 只有真实在主人通讯录的人可以参与。关系冷淡的人可以不留言，不能每人轮流表扬。
 允许点赞、直接评论帖子、回复已经存在且未删除的评论；发帖作者只能回复已经存在的别人的评论，不可给自己点赞或发自言自语的顶层评论。
