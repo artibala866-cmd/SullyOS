@@ -2204,7 +2204,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         setIsScheduleGenerating(true);
         try {
             const result = await generateDailyScheduleForChar(updatedChar, userProfile, apiConfig, true);
-            if (result) setScheduleData(result);
+            if (result) {
+                setScheduleData(result);
+                // Style changes regenerate the actual day plan after the profile
+                // update; re-sync now so Worker does not retain the old schedule.
+                markAmsgStateDirty({ char: updatedChar, userProfile, groups, realtimeConfig });
+            }
         } catch (e) {
             console.error('[Schedule] Regeneration after style change failed:', e);
         } finally {
