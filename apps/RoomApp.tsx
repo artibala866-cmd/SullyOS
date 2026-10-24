@@ -54,7 +54,7 @@ const RoomApp:React.FC=()=>{
     </button>)}
    </div>
   </div>}
-  <style>{`.room-dream-shell:has(.home-life-overlay) .room-dream-entry,.room-dream-shell:has([role="dialog"]) .room-dream-entry,.room-dream-shell:has(.home-social-panel) .room-dream-entry{display:none}`}</style>
+  <style>{`.room-dream-shell:has(.home-life-overlay) .room-dream-entry,.room-dream-shell:has([role="dialog"]) .room-dream-entry,.room-dream-shell:has(.home-social .home-social-wheel) .room-dream-entry,.room-dream-shell:has(.home-social section) .room-dream-entry,.room-dream-shell:has(.home-social[aria-expanded="true"]) .room-dream-entry{display:none}`}</style>
   {char&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 top-[236px] z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0,0,0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation"}}><MoonStars size={23} weight="thin"/></button>}
   {dreamOpen&&dreamChar&&<div className="absolute inset-0 z-50"><DreamTheater char={dreamChar} onExit={()=>{setDreamOpen(false);setDreamOwner(null);}}/></div>}
  </div>;
