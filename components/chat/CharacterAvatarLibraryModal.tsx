@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { VisionApiConfig } from '../../types';
 import { describeImageWithVisionApi, isVisionApiReady } from '../../utils/visionApi';
+import { reserveAvatarVisionBackfill } from '../../utils/characterAvatarVisionBudget';
 import { processImage } from '../../utils/file';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
 import { addCharacterAvatar, activateCharacterAvatar, readCharacterAvatarLibrary, removeCharacterAvatar, setAutonomousAvatarEnabled, notifyCharacterAvatarChanged, saveCharacterAvatarDescription } from '../../utils/characterAvatarLibrary';
@@ -31,13 +32,17 @@ export default function CharacterAvatarLibraryModal({
     let cancelled = false;
     const run = async () => {
       const pending = readCharacterAvatarLibrary(characterId).entries
-        .filter(e => !e.visionDescription).slice(0, 12);
+        .filter(e => !e.visionDescription).slice(0, 2);
       if (!pending.length) return;
       setRecognizing(true);
       setRecognitionNotice('正在为旧头像补存识图描述…');
       let completed = 0;
       for (const entry of pending) {
         if (cancelled) break;
+        if (!reserveAvatarVisionBackfill(characterId)) {
+          if (!cancelled) setRecognitionNotice('今天的旧头像自动识图额度已用完，每位 Char 每日最多 3 张');
+          break;
+        }
         try {
           const description = await describeImageWithVisionApi(entry.image,visionApiConfig);
           if (cancelled) break;
@@ -51,7 +56,7 @@ export default function CharacterAvatarLibraryModal({
       }
       if (!cancelled) {
         setRecognizing(false);
-        if (completed === pending.length) setRecognitionNotice('已保存 ' + completed + ' 张旧头像的识图描述');
+        if (completed === pending.length) setRecognitionNotice('已保存 ' + completed + ' 张旧头像的识图描述；其余旧图后续分批补充');
       }
     };
     void run();
@@ -88,7 +93,7 @@ export default function CharacterAvatarLibraryModal({
   return <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/45 p-5" role="dialog" aria-modal="true" aria-label="角色头像库">
     <div className="w-full max-w-md rounded-2xl bg-neutral-50 p-5 text-neutral-900 shadow-xl">
       <div className="flex items-center justify-between"><h2 className="font-semibold">角色头像库</h2><button onClick={onClose} aria-label="关闭头像库">关闭</button></div>
-      <p className="my-3 text-xs text-neutral-500">与私聊共用同一个头像库。新头像先识图、保存描述，再允许加入；旧头像打开时补识图。</p>
+      <p className="my-3 text-xs text-neutral-500">与私聊共用同一个头像库。新头像先识图、保存描述，再允许加入；旧头像每天最多自动补识图 3 张，每次打开最多 2 张，避免连续扣费。</p>
       {!isVisionApiReady(visionApiConfig) && <p className="my-2 text-xs text-neutral-600">识图 API 尚未配置，暂不能入库新图；已保存的旧头像仍可使用。</p>}
       {(recognizing || recognitionNotice) && <p role="status" className="my-2 text-xs text-neutral-500">{recognitionNotice}{recognizing ? '（识图中）' : ''}</p>}
       <label className="inline-block cursor-pointer rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm">添加图片<input type="file" accept="image/*" className="hidden" disabled={busy || recognizing || !isVisionApiReady(visionApiConfig)} onChange={upload}/></label>
