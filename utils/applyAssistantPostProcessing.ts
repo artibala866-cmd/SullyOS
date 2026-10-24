@@ -466,7 +466,7 @@ export interface PostProcessMusicHooks {
         duration: number;
         fee: number;
     } | null;
-    joinListeningTogether: (charId: string) => void;
+    joinListeningTogether: (charId: string) => void | Promise<void>;
     addSongToCharPlaylist: (
         charId: string,
         song: any,
