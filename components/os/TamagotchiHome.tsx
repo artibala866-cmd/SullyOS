@@ -175,13 +175,6 @@ const FALLBACK_DEFAULT: RoomItem[] = [
     { id: 'desk', name: '书桌', type: 'furniture', image: FURNITURE_ICONS.sofa, x: 20, y: 55, scale: 1.2, rotation: 0, isInteractive: true },
     { id: 'plant', name: '盆栽', type: 'decor', image: FURNITURE_ICONS.plant, x: 85, y: 40, scale: 0.8, rotation: 0, isInteractive: true },
 ];
-const FALLBACK_SULLY: RoomItem[] = [
-    { id: 'item-1768927221380', name: 'Sully床', type: 'furniture', image: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/BED.png', x: 78.46, y: 97.39, scale: 2.4, rotation: 0, isInteractive: true },
-    { id: 'item-1768927255102', name: 'Sully电脑桌', type: 'furniture', image: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/DNZ.png', x: 28.85, y: 69.94, scale: 2.4, rotation: 0, isInteractive: true },
-    { id: 'item-1768927271632', name: 'Sully垃圾桶', type: 'furniture', image: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/LJT.png', x: 10.28, y: 80.5, scale: 0.9, rotation: 0, isInteractive: true },
-    { id: 'item-1768927286526', name: 'Sully洞洞板', type: 'furniture', image: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/DDB.png', x: 32.61, y: 48.72, scale: 2.6, rotation: 0, isInteractive: true },
-    { id: 'item-1768927303472', name: 'Sully书柜', type: 'furniture', image: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/SG.png', x: 79.84, y: 68.94, scale: 2, rotation: 0, isInteractive: true },
-];
 const FALLBACK_WALL = 'radial-gradient(circle at 50% 50%, #fdfbf7 0%, #e2e8f0 100%)';
 const FALLBACK_FLOOR = 'repeating-linear-gradient(90deg, #e7e5e4 0px, #e7e5e4 20px, #d6d3d1 21px)';
 
@@ -950,7 +943,7 @@ const TamagotchiHome: React.FC = () => {
     const items = useMemo<RoomItem[]>(() => {
         const saved = char?.roomConfig?.items;
         if (saved && saved.length > 0) return saved;
-        return isSully ? FALLBACK_SULLY : FALLBACK_DEFAULT;
+        return FALLBACK_DEFAULT;
     }, [char?.roomConfig?.items, isSully]);
 
     // blobref 令牌 → 可渲染 url（hook 需无条件顶层调用）
@@ -1015,7 +1008,7 @@ const TamagotchiHome: React.FC = () => {
     const openRoom = useCallback(() => openApp(AppID.Room), [openApp]);
     const openChat = useCallback(() => openApp(AppID.Chat), [openApp]);
     // 世界化入口：带意图打开小屋 App（RoomApp 挂载时消费，落到对应分区 / 开梦境）
-    const openHomeland = useCallback(() => { roomLaunch.request({ tab: 'worldHome' }); openApp(AppID.Room); }, [openApp]);
+    const openHomeland = useCallback(() => { roomLaunch.request({ tab: 'home3D' }); openApp(AppID.Room); }, [openApp]);
     const openKanata = useCallback(() => openApp(AppID.VRWorld), [openApp]);
     const openDream = useCallback(() => { if (char) { roomLaunch.request({ charId: char.id, openDream: true }); openApp(AppID.Room); } }, [char, openApp]);
     const switchChar = useCallback(() => {
