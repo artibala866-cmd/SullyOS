@@ -63,7 +63,7 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
   createVisitor(currentParts,residentHair).then(visitor=>{if(cancelled)visitor.dispose();else {const previous=previousAppearance.current;editor.setVisitor?.(visitor,{preservePose:previous?.parts===currentParts&&previous.style===signature});previousAppearance.current={parts:currentParts,style:signature};setResidentError('');setMainReady(true);}}).catch(e=>{if(!cancelled)setResidentError(String(e));});
   return()=>{cancelled=true};
  },[editor,previewParts,parts,residentHair,suspended]);
- useEffect(()=>{editor?.setSuspended?.(suspended);if(suspended)editor?.setVisitor?.(null);},[editor,suspended]);
+ useEffect(()=>{editor?.setSuspended?.(suspended);},[editor,suspended]);
  useEffect(()=>()=>{editor?.setVisitor?.(null);},[editor]);
  useEffect(()=>{if(homely||!editor||!mainReady||suspended)return;const timer=setTimeout(()=>editor.greetOwner?.(),600);return()=>clearTimeout(timer);},[editor,mainReady,suspended]);
  const [error,setError]=useState('');save.current=onChange;back.current=onBack;
