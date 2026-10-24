@@ -124,38 +124,6 @@ const McpConnectionConsole: React.FC<{
         trackEvent('添加 MCP 服务器');
     };
 
-    // 电影/剧集 MCP 使用公开只读端点。只添加配置，不自动启用；用户测试通过后再启用。
-    const addMovieServer = () => {
-        const url = 'https://orca-mcp.mmdju.workers.dev/mcp';
-        const existing = servers.find(server => server.url.replace(/\/+$/, '') === url);
-        if (existing) {
-            setExpandedId(existing.id);
-            addToast('电影 MCP 已在列表中，请测试连接后启用', 'info');
-            return;
-        }
-        const next = createMcpServer('电影与剧集 · Orca', url);
-        persist([...servers, next]);
-        setExpandedId(next.id);
-        addToast('已添加电影 MCP，请测试连接并启用', 'success');
-        trackEvent('添加电影 MCP 预设');
-    };
-
-    const addBilibiliServer = (kind: 'search' | 'subtitles') => {
-        const name = kind === 'search' ? 'B站 · 视频搜索' : 'B站 · 字幕与评论';
-        const existing = servers.find(server => server.name === name);
-        if (existing) {
-            setExpandedId(existing.id);
-            addToast('该 B站 MCP 已在列表中', 'info');
-            return;
-        }
-        // 两个开源项目均需自行运行；不能将 GitHub 源码地址冒充 MCP 端点。
-        const next = createMcpServer(name, '');
-        persist([...servers, next]);
-        setExpandedId(next.id);
-        addToast('已创建配置，请填入部署后的 /mcp 地址', 'info');
-        trackEvent('添加 B站 MCP 预设', { kind });
-    };
-
     const removeServer = (server: McpServerConfig) => {
         if (!window.confirm(`删除「${server.name || '未命名服务器'}」？\n\n本机保存的 URL、凭据和工具清单会一并删除。`)) return;
         resetMcpSession(server.id);
@@ -238,49 +206,6 @@ const McpConnectionConsole: React.FC<{
                     <span className="ml-auto">配置保存在本机</span>
                 </div>
             </header>
-
-            <section className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                        <p className="text-[11px] font-bold text-slate-800">电影与剧集 · Orca MCP</p>
-                        <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-                            公开只读服务，可查询影视资料、评分和片单。无需填写密钥；服务由第三方运营。
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={addMovieServer}
-                        className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-[10px] font-bold text-slate-700 active:scale-95"
-                    >
-                        添加电影 MCP
-                    </button>
-                </div>
-                <p className="mt-2 text-[9px] leading-relaxed text-slate-400">
-                    添加后默认关闭；请先「测试并读取工具」，确认连接成功后手动启用。若浏览器提示 CORS，可配置自己的 MCP 代理。
-                </p>
-            </section>
-
-            <section className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[11px] font-bold text-slate-800">B站 MCP · 开源服务</p>
-                <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-                    分别接入视频搜索和字幕/弹幕/评论工具。两项均需先部署服务，不提供现成公网端点。
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => addBilibiliServer('search')}
-                        className="rounded-lg border border-slate-300 bg-white px-2 py-2.5 text-[10px] font-bold text-slate-700">
-                        添加 B站搜索
-                    </button>
-                    <button type="button" onClick={() => addBilibiliServer('subtitles')}
-                        className="rounded-lg border border-slate-300 bg-white px-2 py-2.5 text-[10px] font-bold text-slate-700">
-                        添加 B站字幕
-                    </button>
-                </div>
-                <div className="mt-2 space-y-1 text-[9px] leading-relaxed text-slate-500">
-                    <p>搜索源码：<a className="underline" href="https://github.com/masx200/bilibili-mcp-server" target="_blank" rel="noopener noreferrer">bilibili-mcp-server</a></p>
-                    <p>字幕源码：<a className="underline" href="https://github.com/masx200/bilibili-video-info-mcp" target="_blank" rel="noopener noreferrer">bilibili-video-info-mcp</a></p>
-                    <p>部署时启用 Streamable HTTP，将 HTTPS 服务地址填入对应配置；字幕可能需要 B站 SESSDATA。测试连接成功后再启用。</p>
-                </div>
-            </section>
 
             <section className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div className="min-w-0">
@@ -365,26 +290,7 @@ const McpConnectionConsole: React.FC<{
                                             <div>
                                                 <FieldLabel>Streamable HTTP 端点</FieldLabel>
                                                 <input className={`${inputClass} font-mono`} value={server.url} onChange={event => update(server.id, { url: event.target.value.trim() })} placeholder="https://example.com/mcp" />
-                                                {(server.name === 'B站 · 视频搜索' || server.name === 'B站 · 字幕与评论') && (
-                                                    <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] leading-relaxed text-slate-600">
-                                                        <a
-                                                            href={server.name === 'B站 · 视频搜索'
-                                                                ? 'https://github.com/masx200/bilibili-mcp-server'
-                                                                : 'https://github.com/masx200/bilibili-video-info-mcp'}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="font-semibold text-slate-800 underline underline-offset-2"
-                                                        >
-                                                            查看原项目源码及部署说明 ↗
-                                                        </a>
-                                                        <p className="mt-1 text-slate-500">
-                                                            此项目需自行部署 MCP 服务；GitHub 不提供可直接领取的 MCP Key。
-                                                            {server.name === 'B站 · 字幕与评论'
-                                                                ? ' 部分字幕/评论接口可能需要 B站登录凭据，请按项目文档配置。'
-                                                                : ' 如自行设置服务鉴权，请将部署时生成的 Token 填入下方。'}
-                                                        </p>
-                                                    </div>
-                                                )}
+
                                             </div>
                                         </div>
 
