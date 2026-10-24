@@ -2,7 +2,7 @@
  * An event records an action that actually happened; reading never invents activity.
  * Shared by the phone UI and future real-mode / AMSG 2.0 producers.
  */
-export type CharacterLifeEventKind = 'npc-chat' | 'contact-added' | 'moment-post' | 'moment-comment' | 'market-purchase' | 'proactive-message' | 'activity';
+export type CharacterLifeEventKind = 'npc-chat' | 'contact-added' | 'moment-post' | 'moment-comment' | 'market-purchase' | 'proactive-message' | 'activity' | 'browser-search';
 export interface CharacterLifeEvent {
   id: string;
   characterId: string;
