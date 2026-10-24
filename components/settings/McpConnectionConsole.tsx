@@ -86,8 +86,16 @@ const McpConnectionConsole: React.FC<{
     const [testStates, setTestStates] = useState<Record<string, TestState>>({});
     const [useNativeTools, setUseNativeToolsState] = useState(() => getMcpUseNativeTools());
 
+    // Built-in realtime perception services are configured in that section, not here.
+    // Include legacy name/URL matching for configurations created before presetId existed.
+    const isRealtimePreset = (server: McpServerConfig): boolean =>
+        !!server.presetId?.startsWith('realtime.') ||
+        ['电影与剧集 · Orca', 'B站 · 视频搜索', 'B站 · 字幕与评论'].includes(server.name) ||
+        server.url.replace(/\\/+$/, '') === 'https://orca-mcp.mmdju.workers.dev/mcp';
+    const customServers = servers.filter(server => !isRealtimePreset(server));
+
     const summary = useMemo(() => {
-        const live = servers.filter(server => server.enabled && (server.tools?.length || 0) > 0);
+        const live = customServers.filter(server => server.enabled && (server.tools?.length || 0) > 0);
         return {
             live: live.length,
             tools: live.reduce((count, server) => count + (server.tools?.length || 0), 0),
@@ -118,7 +126,7 @@ const McpConnectionConsole: React.FC<{
     };
 
     const addServer = () => {
-        const next = createMcpServer(`MCP 服务器 ${servers.length + 1}`, '');
+        const next = createMcpServer(`MCP 服务器 ${customServers.length + 1}`, '');
         persist([...servers, next]);
         setExpandedId(next.id);
         trackEvent('添加 MCP 服务器');
@@ -230,7 +238,7 @@ const McpConnectionConsole: React.FC<{
             </section>
 
             <div>
-                {!servers.length && (
+                {!customServers.length && (
                     <div className="px-6 py-10 text-center">
                         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-violet-50 text-violet-500">
                             <Plus size={20} />
@@ -240,7 +248,7 @@ const McpConnectionConsole: React.FC<{
                     </div>
                 )}
 
-                {servers.map(server => {
+                {customServers.map(server => {
                     const expanded = expandedId === server.id;
                     const ready = (server.tools?.length || 0) > 0;
                     const live = server.enabled && ready;
