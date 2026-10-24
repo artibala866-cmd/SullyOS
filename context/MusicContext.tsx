@@ -706,6 +706,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const invitingCharIds = useRef(new Set<string>());
+  const settlingUserInvites = useRef(new Set<string>());
   const inviteListeningPartner = useCallback((charId: string) => {
     if (!charId || invitingCharIds.current.has(charId) || listeningTogetherRef.current.includes(charId)) return;
     invitingCharIds.current.add(charId);
@@ -730,6 +731,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       .finally(() => invitingCharIds.current.delete(charId));
   }, []);
   const cancelListeningInvite = useCallback((charId: string, messageId?: number) => {
+    if (settlingUserInvites.current.has(charId)) return;
+    settlingUserInvites.current.add(charId);
     void (async () => {
       const messages = await DB.getMessagesByCharId(charId, true);
       const pending = findPendingMusicInvite(messages, 'user', messageId);
@@ -747,7 +750,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
         detail: { charId, messageId: pending.id, accepted: false, cancelled: true },
       }));
-    })().catch(err => console.warn('[MusicTogether] 撤回邀请失败', err));
+    })().catch(err => console.warn('[MusicTogether] 撤回邀请失败', err))
+      .finally(() => settlingUserInvites.current.delete(charId));
   }, []);
   useEffect(() => {
     const onCancel = (event: Event) => {
@@ -768,7 +772,6 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (accepted) addListeningPartner(charId);
   }, [addListeningPartner]);
   // Char 接受/拒绝来自用户的邀请只走这一个持久化入口，防止两套动作重复写回应。
-  const settlingUserInvites = useRef(new Set<string>());
   const settleUserListeningInvite = useCallback(async (charId: string, accepted: boolean) => {
     if (settlingUserInvites.current.has(charId)) return;
     settlingUserInvites.current.add(charId);
