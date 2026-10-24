@@ -1616,6 +1616,27 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             console.error("Failed to load assets from DB", e);
         }
 
+        // Users may still have a deleted desktop selected in an older backup.
+        // Migrate only that obsolete skin, preserving characters, chats, other skins and custom assets.
+        if (loadedTheme.skin === ('animalcrossing' as string) || loadedTheme.skin === ('tamagotchi' as string)) {
+            const backupMarker = localStorage.getItem('acnh_wallpaper_backup');
+            const restoredWallpaper = backupMarker === '__asset__'
+                ? await DB.getAsset('wallpaper_user_backup')
+                : backupMarker;
+            loadedTheme = {
+                ...loadedTheme,
+                ...DEFAULT_PAPER_APPEARANCE,
+                skin: 'default',
+                desktopDecorations: (loadedTheme.desktopDecorations || []).filter(d => !d.id.startsWith('acnh-leaf-')),
+                wallpaper: await resolveWallpaperStoredValue(restoredWallpaper || DEFAULT_WALLPAPER),
+            };
+            // The retired theme must not reappear after a reload.
+            localStorage.setItem('os_theme', JSON.stringify({
+                ...loadedTheme,
+                wallpaper: restoredWallpaper || DEFAULT_WALLPAPER,
+            }));
+        }
+
         setTheme(loadedTheme);
         // Apply font
         applyCustomFont(loadedTheme.customFont);
@@ -2806,6 +2827,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
     if ('lockWallpaper' in updates) {
         newTheme.lockWallpaper = await resolveLockWallpaperStoredValue(lockWallpaper);
+    }
+    // Reject retired styles that can still arrive from imported historical presets.
+    if ((newTheme.skin as string) === 'animalcrossing' || (newTheme.skin as string) === 'tamagotchi') {
+        Object.assign(newTheme, DEFAULT_PAPER_APPEARANCE, { skin: 'default' });
+        newTheme.wallpaper = await resolveWallpaperStoredValue(DEFAULT_WALLPAPER);
     }
     setTheme(newTheme);
 
