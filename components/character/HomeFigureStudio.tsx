@@ -17,13 +17,12 @@ export default function HomeFigureStudio({charId, onClose, startEditing = false}
     if (charId && !char) return null;
     const owner = char ?? userProfile, name = owner.name || '你';
     const figure = owner.chibiStudio?.home3D;
-    const baseState = char ? char.chibiStudio?.room?.state ?? char.chibiStudio?.vr?.state ?? char.vrState?.chibi?.state : userProfile.vrState?.chibi?.state;
+    const baseState = char ? char.chibiStudio?.room?.state : userProfile.chibiStudio?.userChibi?.state;
     const record = char?.specialMomentRecords?.[LIKE520_RECORD_KEY]?.customData?.charChibi as {state?: unknown; dataUrl?: string} | undefined;
     const choices = char ? [
         {id: 'room', label: '小小窝', state: char.chibiStudio?.room?.state, img: char.sprites?.chibi},
-        {id: 'vr', label: '彼方', state: char.chibiStudio?.vr?.state ?? char.vrState?.chibi?.state, img: char.vrState?.chibi?.img},
         {id: 'like520', label: '特别时光', state: char.chibiStudio?.like520?.state ?? record?.state, img: char.chibiStudio?.like520?.img ?? record?.dataUrl},
-    ] : [{id: 'chibi', label: '我的 Chibi', state: userProfile.vrState?.chibi?.state, img: userProfile.vrState?.chibi?.img}];
+    ] : [{id: 'chibi', label: '我的 Chibi', state: userProfile.chibiStudio?.userChibi?.state, img: userProfile.chibiStudio?.userChibi?.img}];
     const chooseSource = (state?: unknown, value?: HomeFigureSlot) => {
         setSource({state, value, draftKey: `home_figure_${charId ?? 'user'}_${createLocalId()}`});
         setEditing('home');
@@ -34,7 +33,7 @@ export default function HomeFigureStudio({charId, onClose, startEditing = false}
         if(startEditing)onClose();else setEditing(null);
     };
     const saveChibi = (value: ChibiResult) => {
-        updateUserProfile(prev => ({vrState: {...prev.vrState, enabled: prev.vrState?.enabled ?? false, chibi: {...prev.vrState?.chibi, img: value.transparentDataUrl, state: value.state}}}));
+        updateUserProfile(prev => ({chibiStudio: {...prev.chibiStudio, userChibi: { img: value.transparentDataUrl, state: value.state }}}));
         setEditing(null);
     };
     if (editing === 'source') return <div className="home-figure-studio fixed inset-0 z-[80] flex flex-col bg-[#f4f5ef] text-[#26372c]" style={{...homelyPaletteStyle(theme?.homelyPalette), paddingTop: 'var(--chrome-top)', paddingBottom: 'var(--safe-bottom)'}}>
@@ -50,7 +49,7 @@ export default function HomeFigureStudio({charId, onClose, startEditing = false}
         </div>
     </div>;
     if (editing === 'home') return <React.Suspense fallback={<div className="fixed inset-0 z-[80] bg-[#f4f5ef] p-8" style={{paddingTop: 'calc(var(--chrome-top) + 32px)'}}>正在打开 3D 捏人器…<button className="block mt-5" onClick={() => setEditing(null)}>返回</button></div>}><HomeFigureEditor paletteId={theme?.homelyPalette} name={name} ownerId={charId ?? 'user'} value={source.value} seedState={source.state} draftKey={source.draftKey} onSave={saveHome} onClose={() => setEditing('source')} /></React.Suspense>;
-    if (editing === 'chibi') return <div className="fixed inset-0 z-[80] flex flex-col bg-white" style={{...homelyPaletteStyle(theme?.homelyPalette), paddingTop: 'var(--chrome-top)', paddingBottom: 'var(--safe-bottom)'}}><button className="min-h-[48px] text-left px-5" onClick={() => setEditing(null)}>返回手办柜</button><div className="flex-1 min-h-0"><CreatorIframe mode="user" savedState={userProfile.vrState?.chibi?.state ?? figure?.state} draftKey="studio_user_chibi" title="你的 Chibi 形象" subtitle="FIGURE STUDIO" onConfirm={saveChibi} /></div></div>;
+    if (editing === 'chibi') return <div className="fixed inset-0 z-[80] flex flex-col bg-white" style={{...homelyPaletteStyle(theme?.homelyPalette), paddingTop: 'var(--chrome-top)', paddingBottom: 'var(--safe-bottom)'}}><button className="min-h-[48px] text-left px-5" onClick={() => setEditing(null)}>返回手办柜</button><div className="flex-1 min-h-0"><CreatorIframe mode="user" savedState={userProfile.chibiStudio?.userChibi?.state ?? figure?.state} draftKey="studio_user_chibi" title="你的 Chibi 形象" subtitle="FIGURE STUDIO" onConfirm={saveChibi} /></div></div>;
     return <div className="home-figure-studio fixed inset-0 z-[75] flex flex-col bg-[#f4f5ef] text-[#26372c]" style={{...homelyPaletteStyle(theme?.homelyPalette), paddingTop: 'var(--chrome-top)', paddingBottom: 'var(--safe-bottom)'}}>
         <header className="flex items-center gap-4 p-4"><button className="min-h-[44px]" onClick={onClose}>返回</button><h2 className="text-lg font-semibold">{name}的手办柜</h2></header>
         <div className="flex-1 overflow-auto px-5 pb-8 max-w-xl w-full mx-auto">
@@ -60,8 +59,8 @@ export default function HomeFigureStudio({charId, onClose, startEditing = false}
                     <span className="font-semibold">家园形象</span><span className="text-xs text-[#627062]">{figure?.state?'点击换装':'＋ 捏一个 3D 形象'}</span>
                 </button>
                 {!char&&<button className="rounded-2xl bg-white border border-[#d7dfd1] p-4 flex flex-col items-center gap-3" onClick={()=>setEditing('chibi')} aria-label="编辑 Chibi 形象">
-                    {userProfile.vrState?.chibi?.img?<TokenImg value={userProfile.vrState.chibi.img} className="w-full h-44 object-contain"/>:<Plus size={64} className="h-44 text-[#a5b99a]"/>}
-                    <span className="font-semibold">Chibi 形象</span><span className="text-xs text-[#627062]">{userProfile.vrState?.chibi?.state?'点击换装':'＋ 捏一个 Chibi'}</span>
+                    {userProfile.chibiStudio?.userChibi?.img?<TokenImg value={userProfile.chibiStudio?.userChibi?.img} className="w-full h-44 object-contain"/>:<Plus size={64} className="h-44 text-[#a5b99a]"/>}
+                    <span className="font-semibold">Chibi 形象</span><span className="text-xs text-[#627062]">{userProfile.chibiStudio?.userChibi?.state?'点击换装':'＋ 捏一个 Chibi'}</span>
                 </button>}
             </div>
             <p className="mt-4 text-xs text-[#627062]">点击手办开始编辑，两个形象分别保存。</p>
