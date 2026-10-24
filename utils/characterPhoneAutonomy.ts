@@ -113,7 +113,7 @@ origin为known时必须能从原设或世界书找到证据，evidence取worldbo
       evidence: hasExplicitSeed && ['worldbook', 'character'].includes(raw.evidence)
         ? raw.evidence : 'suggested',
     };
-    const result = registerDiscoveredNpc(char.id, item);
+    const result = registerDiscoveredNpc(char.id, item, { blockedNames: [char.name, user.name] });
     if (result.status === 'added' || result.status === 'pending') created = true;
     if (result.status === 'added' && result.profile) recordCharacterLifeEvent({
       id: 'contact:' + result.profile.id, characterId: char.id, kind: 'contact-added',
