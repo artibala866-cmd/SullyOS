@@ -4,6 +4,10 @@ export type CharacterAvatarEntry = {
   image: string;
   createdAt: number;
   source: 'upload' | 'chat' | 'generated';
+  /** Persisted vision description lets text-only AI choose an appropriate photo. */
+  visionDescription?: string;
+  visionRecognizedAt?: number;
+  visionModel?: string;
 };
 export type CharacterAvatarLibrary = {
   entries: CharacterAvatarEntry[];
@@ -19,7 +23,13 @@ export function readCharacterAvatarLibrary(characterId: string): CharacterAvatar
     const raw = JSON.parse(localStorage.getItem(key(characterId)) || 'null');
     if (!raw || !Array.isArray(raw.entries)) return empty();
     return {
-      entries: raw.entries.filter((e: any) => typeof e?.id === 'string' && typeof e?.image === 'string'),
+      entries: raw.entries.filter((e: any) => typeof e?.id === 'string' && typeof e?.image === 'string')
+        .map((e: any) => ({
+          ...e,
+          visionDescription: typeof e.visionDescription === 'string' ? e.visionDescription.slice(0, 2500) : undefined,
+          visionRecognizedAt: Number.isFinite(e.visionRecognizedAt) ? e.visionRecognizedAt : undefined,
+          visionModel: typeof e.visionModel === 'string' ? e.visionModel.slice(0, 120) : undefined,
+        })),
       activeId: typeof raw.activeId === 'string' ? raw.activeId : undefined,
       lastChangedAt: Number.isFinite(raw.lastChangedAt) ? raw.lastChangedAt : undefined,
       autonomousEnabled: raw.autonomousEnabled === true,
@@ -30,20 +40,48 @@ export function saveCharacterAvatarLibrary(characterId: string, data: CharacterA
   if (!characterId) throw new Error('Missing character id');
   localStorage.setItem(key(characterId), JSON.stringify(data));
 }
-export function addCharacterAvatar(characterId: string, image: string, source: CharacterAvatarEntry['source'] = 'upload'): CharacterAvatarEntry {
+export function addCharacterAvatar(
+  characterId: string, image: string, source: CharacterAvatarEntry['source'] = 'upload',
+  vision?: { description: string; model: string },
+): CharacterAvatarEntry {
   if (!image || !/^(https?:\/\/|data:image\/|blobref:|blob-ref:|blob:|asset:|\/assets\/)/i.test(image)) {
     throw new Error('Unsupported avatar image reference');
   }
   const lib = readCharacterAvatarLibrary(characterId);
   const existing = lib.entries.find(e => e.image === image);
-  if (existing) return existing;
+  if (existing) {
+    if (vision?.description.trim() && !existing.visionDescription) {
+      saveCharacterAvatarDescription(characterId, existing.id, vision.description, vision.model);
+      return readCharacterAvatarLibrary(characterId).entries.find(e => e.id === existing.id) || existing;
+    }
+    return existing;
+  }
   const entry: CharacterAvatarEntry = {
     id: globalThis.crypto?.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2),
     image, source, createdAt: Date.now(),
+    ...(vision?.description.trim() ? {
+      visionDescription: vision.description.trim().slice(0, 2500),
+      visionRecognizedAt: Date.now(), visionModel: vision.model.slice(0, 120),
+    } : {}),
   };
   saveCharacterAvatarLibrary(characterId, { ...lib, entries: [...lib.entries, entry] });
   return entry;
 }
+/** Save recognition text without replacing another concurrent avatar change. */
+export function saveCharacterAvatarDescription(characterId: string, avatarId: string, description: string, model: string): boolean {
+  if (!description.trim()) return false;
+  const lib = readCharacterAvatarLibrary(characterId);
+  if (!lib.entries.some(e => e.id === avatarId)) return false;
+  saveCharacterAvatarLibrary(characterId, {
+    ...lib, entries: lib.entries.map(e => e.id === avatarId ? {
+      ...e, visionDescription: description.trim().slice(0, 2500),
+      visionRecognizedAt: Date.now(), visionModel: model.trim().slice(0, 120),
+    } : e),
+  });
+  notifyCharacterAvatarChanged(characterId);
+  return true;
+}
+
 export function removeCharacterAvatar(characterId: string, avatarId: string): void {
   const lib = readCharacterAvatarLibrary(characterId);
   saveCharacterAvatarLibrary(characterId, {
