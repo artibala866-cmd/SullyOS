@@ -98,6 +98,24 @@ function twirlHandPair(clip:SelectedClip):readonly [HandSide,HandSide]{
     return;
    }
   }
+  // Low-five then walk away: align palms only during the brief contact
+  // phase, leaving the departure motion free. Hand pairing is cached.
+  if(session?.action==='cmu-20_12'){
+   const [a,b]=both;
+   if(a?.visitor.rig&&b?.visitor.rig&&a.solver&&b.solver){
+    const [sa,sb]=twirlHandPair(session.clip);
+    const elapsed=session.time-session.approach;
+    const contact= smooth(elapsed,.10,.35)*(1-smooth(elapsed,.65,1.10));
+    if(contact>0){
+     const target=sharedPalmTarget(palm(a.visitor,sa),palm(b.visitor,sb));
+     for(const [resident,side] of [[a,sa],[b,sb]] as const){
+      const q=resident.visitor.rig!.bones[side+'_hand'].getWorldQuaternion(new T.Quaternion());
+      resident.solver({side,point:target.clone(),direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(q),normal:new T.Vector3(0,1,0).applyQuaternion(q),curl:.12},weight*contact);
+     }
+    }
+    return;
+   }
+  }
   // Arm wrestling must keep one hand pair throughout the contest.
   // Generic nearest-hand detection can switch partners as the wrists rotate.
   if(session?.action==='cmu-22_17'){
