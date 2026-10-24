@@ -33,7 +33,7 @@ const MusicApp: React.FC = () => {
     lyric, tlyric, activeLyricIdx,
     profile, playSong, togglePlay, nextSong, prevSong, seek,
     liked, toggleLike, setToastHandler,
-    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, respondListeningInvite, removeListeningPartner,
+    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, respondListeningInvite, removeListeningPartner,
     addLocalSong, removeLocalSong, localAlbumSongs,
     playMode, setPlayMode,
     regeneratingId, regeneratingStatus,
@@ -285,8 +285,8 @@ const MusicApp: React.FC = () => {
                   : status === 'pending' ? `${c.name} · 等待回应`
                   : status === 'rejected' ? `${c.name} · 已拒绝`
                   : c.name}
-                <button className="ml-2 underline disabled:opacity-50" disabled={status === 'pending' && !active} onClick={() => active ? removeListeningPartner(c.id) : inviteListeningPartner(c.id)}>
-                  {active ? '结束' : status === 'pending' ? '等待中' : '邀请'}
+                <button className="ml-2 underline" onClick={() => active ? removeListeningPartner(c.id) : status === 'pending' ? cancelListeningInvite(c.id) : inviteListeningPartner(c.id)}>
+                  {active ? '结束' : status === 'pending' ? '撤回' : '邀请'}
                 </button>
               </span>
             );
