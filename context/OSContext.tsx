@@ -38,7 +38,9 @@ import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/
 import { considerCharacterMemo } from '../utils/characterMemoAutonomy';
 import { readCharacterLifeEvents } from '../utils/characterLifeEvents';
 import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
-import { runCharacterPhoneAutonomy } from '../utils/characterPhoneAutonomy';
+import { runCharacterPhoneAutonomy, isCharacterPhoneAutonomyEnabled } from '../utils/characterPhoneAutonomy';
+import { runCharacterPhoneBrowserAutonomy } from '../utils/characterPhoneBrowserAutonomy';
+import { runCharacterPhoneSelfAutonomy } from '../utils/characterPhoneSelfProfile';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments } from '../utils/characterPhoneMoments';
 import { considerAutonomousNpcMoments } from '../utils/refreshNpcMoments';
@@ -2445,6 +2447,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               });
               if (!disposed) await runCharacterMomentInteractionAutonomy({char, api});
               if (!disposed) await considerAutonomousNpcMoments(char.id, api);
+              // Same foreground scheduler and Char API. No independent
+              // background timers or User-message automation is introduced.
+              if (!disposed && isCharacterPhoneAutonomyEnabled(char.id)) {
+                  await runCharacterPhoneBrowserAutonomy({
+                      char, user:userProfileRef.current!, groups:groupsRef.current,
+                      realtimeConfig:realtimeConfigRef.current, api,
+                  });
+                  if (!disposed) await runCharacterPhoneSelfAutonomy(char, api,
+                      async image => { await updateCharacter(char.id, {avatar:image}); });
+              }
           } catch (error) {
               console.warn('[CharacterPhone] autonomous foreground tick skipped', error);
           } finally { running = false; }
