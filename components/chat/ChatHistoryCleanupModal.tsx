@@ -105,7 +105,7 @@ export default function ChatHistoryCleanupModal({ character, onClose, onDeleted 
         if (mounted.current) setPhase('done');
     };
 
-    const summary = plan && <div className='rounded-2xl border border-red-200 bg-red-50 p-4 space-y-2 text-xs text-red-900'>
+    const summary = plan && <div className='rounded-2xl border border-neutral-200 bg-neutral-50 p-4 space-y-2 text-xs text-neutral-900'>
         <p className='font-bold text-sm'>角色：{character.name} · 永久删除 {plan.ids.length.toLocaleString()} 条</p>
         <p>起点：{formatRangeTimestamp(plan.firstTimestamp)} · #{plan.ids[0]}</p>
         <p>终点：{formatRangeTimestamp(plan.lastTimestamp)} · #{plan.ids.at(-1)}</p>
@@ -117,7 +117,7 @@ export default function ChatHistoryCleanupModal({ character, onClose, onDeleted 
     return <>
         <Modal isOpen={phase === 'select'} title='清理指定范围的聊天记录' onClose={close} footer={<>
             <button type='button' onClick={close} className='rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600'>取消</button>
-            <button type='button' disabled={preparing || loading || (mode === 'range' ? !start || !end : !Number.isSafeInteger(Number(keep)) || Number(keep) < 1)} onClick={() => void preview()} className='flex-1 rounded-2xl bg-red-50 px-3 py-3 text-sm font-bold text-red-700 disabled:opacity-40'>{preparing ? '正在统计选区…' : '预览清理范围'}</button>
+            <button type='button' disabled={preparing || loading || (mode === 'range' ? !start || !end : !Number.isSafeInteger(Number(keep)) || Number(keep) < 1)} onClick={() => void preview()} className='flex-1 rounded-2xl bg-neutral-50 px-3 py-3 text-sm font-bold text-neutral-700 disabled:opacity-40'>{preparing ? '正在统计选区…' : '预览清理范围'}</button>
         </>}>
             <div className='space-y-4 text-xs text-slate-600'>
                 <p><b>{character.name}</b> 的聊天、见面、通话及剧情陪伴记录。清理会永久删除原文和对应聊天语音缓存；已存入的记忆、收藏及剧情正文保留。</p>
@@ -132,7 +132,7 @@ export default function ChatHistoryCleanupModal({ character, onClose, onDeleted 
                     <div className='rounded-xl border border-slate-200 p-3 space-y-2'>
                         <p>起点：{start ? `${formatRangeTimestamp(start.timestamp)} · #${start.id}` : '未选择'}</p>
                         <p>终点：{end ? `${formatRangeTimestamp(end.timestamp)} · #${end.id}` : '未选择'}</p>
-                        <div className='flex flex-wrap gap-3 text-violet-700'>
+                        <div className='flex flex-wrap gap-3 text-neutral-700'>
                             <button type='button' disabled={preparing || loading} onClick={() => void selectEdge('start')}>从最早一条开始</button>
                             <button type='button' disabled={preparing || loading} onClick={() => void selectEdge('end')}>选到最新一条</button>
                             <button type='button' disabled={preparing} onClick={() => { setStart(null); setEnd(null); }}>重选</button>
@@ -145,30 +145,30 @@ export default function ChatHistoryCleanupModal({ character, onClose, onDeleted 
                         <span>{loading ? '读取中…' : `本页 ${rows.length} 条`}</span>
                         <button type='button' disabled={preparing || loading || !hasNewer || !rows.length} onClick={() => setCursor({ afterId: rows.at(-1)!.id })} className='rounded-lg border px-3 py-2 disabled:opacity-30'>更新</button>
                     </div>
-                    {!loading && rows.map(message => <div key={message.id} className={`rounded-xl border p-3 space-y-2 ${start && end && message.id >= Math.min(start.id, end.id) && message.id <= Math.max(start.id, end.id) ? 'border-red-200 bg-red-50' : 'border-slate-200'}`}>
+                    {!loading && rows.map(message => <div key={message.id} className={`rounded-xl border p-3 space-y-2 ${start && end && message.id >= Math.min(start.id, end.id) && message.id <= Math.max(start.id, end.id) ? 'border-neutral-200 bg-neutral-50' : 'border-slate-200'}`}>
                         <div className='text-[10px] text-slate-400'>{message.role === 'user' ? '你' : message.role === 'assistant' ? character.name : '系统'} · {sourceLabel(message)} · {formatRangeTimestamp(message.timestamp)} · #{message.id}</div>
                         {message.type === 'secret_note' ? <SecretNote text={message.content}/> : <p className='whitespace-pre-wrap break-all leading-relaxed'>{message.content}</p>}
-                        <div className='flex gap-4 text-violet-700'>
+                        <div className='flex gap-4 text-neutral-700'>
                             <button type='button' disabled={preparing} onClick={() => setStart(message)}>{start?.id === message.id ? '已设为起点' : '设为起点'}</button>
                             <button type='button' disabled={preparing} onClick={() => setEnd(message)}>{end?.id === message.id ? '已设为终点' : '设为终点'}</button>
                         </div>
                     </div>)}
                     {!loading && !rows.length && <p className='text-center py-4'>{query ? '没有匹配的记录' : '没有聊天记录'}</p>}
                 </>}
-                {error && <p role='alert' className='rounded-xl bg-red-50 p-3 text-red-700'>{error}</p>}
+                {error && <p role='alert' className='rounded-xl bg-neutral-50 p-3 text-neutral-700'>{error}</p>}
             </div>
         </Modal>
 
         <Modal isOpen={phase === 'review'} title='第一次确认：检查删除范围' onClose={backToSelection} footer={<>
-            {cancelButton}<button type='button' onClick={() => { setReviewed(true); setConfirmation(''); setPhase('confirm'); }} className='flex-1 rounded-2xl bg-red-100 p-3 text-sm font-bold text-red-700'>继续第二次确认</button>
+            {cancelButton}<button type='button' onClick={() => { setReviewed(true); setConfirmation(''); setPhase('confirm'); }} className='flex-1 rounded-2xl bg-neutral-100 p-3 text-sm font-bold text-neutral-700'>继续第二次确认</button>
         </>}>
-            <div className='space-y-4'>{summary}<p className='text-sm font-bold text-red-700'>这是永久删除，无法撤销。请先确认已备份需要保留的内容。</p><p className='text-xs text-slate-500'>此步不会删除任何记录，下一步还需输入指定文字。</p></div>
+            <div className='space-y-4'>{summary}<p className='text-sm font-bold text-neutral-700'>这是永久删除，无法撤销。请先确认已备份需要保留的内容。</p><p className='text-xs text-slate-500'>此步不会删除任何记录，下一步还需输入指定文字。</p></div>
         </Modal>
 
         <Modal isOpen={phase === 'confirm' || phase === 'deleting'} title='第二次确认：永久删除' onClose={() => { if (!deleting.current) backToSelection(); }} footer={<>
-            {!deleting.current && cancelButton}<button type='button' disabled={phase === 'deleting' || !reviewed || confirmation !== CHAT_CLEANUP_CONFIRMATION} onClick={() => void remove()} className='flex-1 rounded-2xl bg-red-600 p-3 text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400'>{phase === 'deleting' ? '正在永久删除…' : `永久删除 ${plan?.ids.length.toLocaleString() || 0} 条`}</button>
+            {!deleting.current && cancelButton}<button type='button' disabled={phase === 'deleting' || !reviewed || confirmation !== CHAT_CLEANUP_CONFIRMATION} onClick={() => void remove()} className='flex-1 rounded-2xl bg-neutral-600 p-3 text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400'>{phase === 'deleting' ? '正在永久删除…' : `永久删除 ${plan?.ids.length.toLocaleString() || 0} 条`}</button>
         </>}>
-            <div className='space-y-4'>{summary}<p className='text-sm font-bold text-red-700'>删除后无法恢复。请完整输入以下文字：</p><p className='select-text rounded-xl bg-slate-100 p-3 text-sm font-bold text-slate-800'>{CHAT_CLEANUP_CONFIRMATION}</p><input aria-label='永久删除确认文字' autoComplete='off' value={confirmation} disabled={phase === 'deleting'} onChange={event => setConfirmation(event.target.value)} placeholder='在这里输入确认文字' className='w-full rounded-xl border border-red-200 p-3 text-sm' /></div>
+            <div className='space-y-4'>{summary}<p className='text-sm font-bold text-neutral-700'>删除后无法恢复。请完整输入以下文字：</p><p className='select-text rounded-xl bg-slate-100 p-3 text-sm font-bold text-slate-800'>{CHAT_CLEANUP_CONFIRMATION}</p><input aria-label='永久删除确认文字' autoComplete='off' value={confirmation} disabled={phase === 'deleting'} onChange={event => setConfirmation(event.target.value)} placeholder='在这里输入确认文字' className='w-full rounded-xl border border-neutral-200 p-3 text-sm' /></div>
         </Modal>
 
         <Modal isOpen={phase === 'done'} title='清理完成' onClose={close}><p className='text-sm text-slate-700'>已永久删除 {plan?.ids.length.toLocaleString()} 条选中记录，其余记录保留。</p></Modal>
