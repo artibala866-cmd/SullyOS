@@ -53,8 +53,11 @@ export function appendCharacterPhoneMessages(input: {
   let result: { thread: CharacterPhoneChat; added: PhoneMessage[] } | null = null;
   updateCharacterPhoneChats(input.characterId, old => {
     const previous = old.find(r => r.contactId === input.contactId);
-    const recent = new Set((previous?.messages || []).slice(-24).map(m =>
-      m.speaker.role + '|' + m.text.trim()));
+    // Repeated short human phrases are legitimate hours later. Reject only
+    // immediate duplicated deliveries/retries, not every historical "嗯".
+    const recent = new Set((previous?.messages || []).slice(-12)
+      .filter(m => at - (m.createdAt || previous?.time || 0) < 10 * 60_000)
+      .map(m => m.speaker.role + '|' + m.text.trim()));
     const added = input.messages.filter(m => {
       if (!m.text?.trim() || m.speaker.role === 'user') return false;
       const key = m.speaker.role + '|' + m.text.trim();
