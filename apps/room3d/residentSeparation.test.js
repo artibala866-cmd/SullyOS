@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {residentSeparationStep} from './residentSeparation.js';
+import {residentSeparationStep,chooseResidentToYield} from './residentSeparation.js';
 
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 describe('resident body shells',()=>{
@@ -46,5 +46,21 @@ describe('resident body shells',()=>{
  it('rejects malformed or unbounded corrections',()=>{
   expect(residentSeparationStep([NaN,0],[0,0])).toBeNull();
   expect(residentSeparationStep([0,0],[0,0],{maxStep:0})).toBeNull();
+ });
+});
+
+describe('who yields to whom',()=>{
+ const char='resident',user='user';
+ it('keeps a rising user anchored and moves the standing char',()=>{
+  expect(chooseResidentToYield({id:user,canMove:false},{id:char,canMove:true},char)).toBe('second');
+ });
+ it('also works when furniture control swaps the character into the active slot',()=>{
+  expect(chooseResidentToYield({id:char,canMove:true},{id:user,canMove:false},char)).toBe('first');
+ });
+ it('prefers the char if both are freely standing',()=>{
+  expect(chooseResidentToYield({id:user,canMove:true},{id:char,canMove:true},char)).toBe('second');
+ });
+ it('cannot push two anchored actors or a seated person',()=>{
+  expect(chooseResidentToYield({id:user,canMove:false},{id:char,canMove:false},char)).toBeNull();
  });
 });
