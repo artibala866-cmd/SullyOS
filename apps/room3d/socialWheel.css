@@ -40,4 +40,4 @@
 .home-social .social-wheel-footer p[data-notice=true]::before{content:'✧';font-size:25px;color:#707070;flex:none}
 @media(max-height:560px){.social-wheel-footer{bottom:8px}.social-wheel-footer>div{padding:3px 8px}.home-social .social-wheel-footer button{min-height:42px;gap:2px;font-size:10px}.social-wheel-footer svg{width:20px;height:20px}.home-social .social-wheel-footer p[data-notice=true]{padding:6px 12px;margin-bottom:4px!important}}
 
-.social-petal[data-affection=true] .social-petal-icon{color:#dc7f99}.social-petal[data-affection=true] .social-petal-icon svg{fill:currentColor}
+.social-petal[data-affection=true] .social-petal-icon{color:#959595}.social-petal[data-affection=true] .social-petal-icon svg{fill:currentColor}
