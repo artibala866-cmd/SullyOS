@@ -4,6 +4,7 @@ import type {ChibiVisitor} from './visitor';
 import type {contactSolver} from './socialContact';
 import {poseHug} from './hugMotion';
 import {settleLegContact} from './legContactIK';
+import {lipWorld,aimLipContact} from './headContactIK';
 
 type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
@@ -92,24 +93,21 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    a.root.updateWorldMatrix(true,true);
    b.root.updateWorldMatrix(true,true);
   }
-  // Recompute the faces after height correction. The head-local +Z axis is
-  // the face's forward direction in the home rig; pitch is opposite for
-  // partners at different heights, so neither character blindly nods down.
-  const faces=both.map(r=>{
-   const v=r.visitor;
-   v.root.updateWorldMatrix(true,true);
-   return v.rig!.bones.head.localToWorld(new T.Vector3(0,.59,.17));
-  });
-  both.forEach((owner,i)=>{
-   const v=owner.visitor,other=faces[1-i],here=faces[i];
-   const delta=other.clone().sub(here);
-   const horizontal=Math.max(.35,Math.hypot(delta.x,delta.z));
-   const pitch=T.MathUtils.clamp(Math.atan2(delta.y,horizontal),-.26,.26);
-   const tilt=(i===0?-.055:.055)*kiss;
-   v.rig!.bones.neck.quaternion.multiply(rotation(-pitch*gaze*.48,0,tilt*.35));
-   v.rig!.bones.head.quaternion.multiply(rotation(-pitch*gaze*.52,0,tilt));
-   v.root.updateWorldMatrix(true,true);
-  });
+  // Re-evaluate approximate lip anchors after the height correction.
+  // A shared midpoint is a target, not a forced head translation.
+  const lipA=lipWorld(a),lipB=lipWorld(b);
+  const shared=lipA.clone().add(lipB).multiplyScalar(.5);
+  const lipGap=lipA.distanceTo(lipB);
+  const contactWeight=gaze*T.MathUtils.clamp((.9-lipGap)/.5,0,1);
+  if(contactWeight>0){
+   aimLipContact(a,shared,contactWeight);
+   aimLipContact(b,shared,contactWeight);
+  }
+  // Preserve the small opposite head tilts from the original kiss pose.
+  a.rig.bones.head.quaternion.multiply(rotation(0,0,-.055*kiss));
+  b.rig.bones.head.quaternion.multiply(rotation(0,0,.055*kiss));
+  a.root.updateWorldMatrix(true,true);
+  b.root.updateWorldMatrix(true,true);
   // Solve a shared hand contact after both heads have settled.
   const sides=['R','L'] as const;
   const handA=a.rig.bones.R_hand.getWorldPosition(new T.Vector3());
