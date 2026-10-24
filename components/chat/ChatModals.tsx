@@ -324,7 +324,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
         return (
             <span className={baseClass}>
                 {text.slice(0, idx)}
-                <mark className="bg-yellow-200 text-slate-800 rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>
+                <mark className="bg-neutral-200 text-slate-800 rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>
                 {text.slice(idx + q.length)}
             </span>
         );
@@ -358,7 +358,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
         <>
             <Modal 
                 isOpen={modalType === 'transfer'} title="Credits 转账" onClose={() => setModalType('none')}
-                footer={<><button onClick={() => setModalType('none')} className="flex-1 py-3 bg-slate-100 rounded-2xl">取消</button><button onClick={onTransfer} className="flex-1 py-3 bg-orange-500 text-white rounded-2xl">确认</button></>}
+                footer={<><button onClick={() => setModalType('none')} className="flex-1 py-3 bg-slate-100 rounded-2xl">取消</button><button onClick={onTransfer} className="flex-1 py-3 bg-neutral-500 text-white rounded-2xl">确认</button></>}
             >
                 <input type="number" value={transferAmt} onChange={e => setTransferAmt(e.target.value)} placeholder="金额" className="w-full bg-slate-100 rounded-2xl px-5 py-4 text-lg font-bold" autoFocus />
                 <input type="text" value={transferNote} onChange={e => setTransferNote(e.target.value)} maxLength={30} placeholder="添加转账留言（选填）" className="w-full bg-slate-100 rounded-2xl px-5 py-3 text-sm mt-3" />
@@ -410,14 +410,14 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         </div>
                     </ChatSettingsSection>
                     <ChatSettingsSection title="上下文与记忆" summary="智能语境、原文范围与记忆整理">
-                        <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3.5">
+                        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3.5">
                             <div className="flex items-center gap-3">
                                 <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-bold text-violet-700">智能语境</div>
-                                    <p className="mt-1 text-[10px] leading-relaxed text-violet-600/90">
+                                    <div className="text-xs font-bold text-neutral-700">智能语境</div>
+                                    <p className="mt-1 text-[10px] leading-relaxed text-neutral-600/90">
                                         更准确地承接上下文、跟随交流节奏，并持续关注正在展开的事情。对所有私聊生效，本地完成，不增加 API 调用。
                                     </p>
-                                    <p className="mt-1.5 text-[10px] font-bold text-violet-600">
+                                    <p className="mt-1.5 text-[10px] font-bold text-neutral-600">
                                         {contextSuiteAllEnabled
                                             ? '已开启'
                                             : contextSuiteAnyEnabled
@@ -430,8 +430,8 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                     onClick={onToggleContextSuite}
                                     aria-pressed={contextSuiteAnyEnabled}
                                     className={`shrink-0 rounded-full px-3.5 py-2 text-[11px] font-extrabold transition-colors ${contextSuiteAnyEnabled
-                                        ? 'bg-white text-violet-700 ring-1 ring-violet-200'
-                                        : 'bg-violet-600 text-white'}`}
+                                        ? 'bg-white text-neutral-700 ring-1 ring-neutral-200'
+                                        : 'bg-neutral-600 text-white'}`}
                                 >
                                     {contextSuiteAnyEnabled ? '关闭' : '开启'}
                                 </button>
@@ -440,13 +440,13 @@ const ChatModals: React.FC<ChatModalsProps> = ({
 
                         <div>
                             {(activeCharacter.autoArchiveEnabled || activeCharacter.contextFollowsMemoryPalaceHwm) && settingsContextRangeMode === 'adaptive' ? (
-                                <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3.5">
+                                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3.5">
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
-                                            <div className="text-xs font-bold text-violet-700">
+                                            <div className="text-xs font-bold text-neutral-700">
                                                 {activeCharacter.autoArchiveEnabled ? '自适应全自动记忆中' : '原文范围跟随记忆水位线'}
                                             </div>
-                                            <p className="text-[10px] text-violet-600/80 mt-1 leading-relaxed">
+                                            <p className="text-[10px] text-neutral-600/80 mt-1 leading-relaxed">
                                                 已处理原文不再重复注入，更早内容通过向量记忆召回。非特殊需求请勿调整。
                                             </p>
                                             {activeCharacter.contextUserStartMessageId && (
@@ -459,7 +459,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                             <button
                                                 type="button"
                                                 onClick={() => setSettingsContextRangeMode('manual')}
-                                                className="px-3 py-1.5 rounded-xl bg-white border border-violet-200 text-[11px] font-bold text-violet-700"
+                                                className="px-3 py-1.5 rounded-xl bg-white border border-neutral-200 text-[11px] font-bold text-neutral-700"
                                             >
                                                 自定义范围
                                             </button>
@@ -467,7 +467,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                                 <button
                                                     type="button"
                                                     onClick={onRestoreAdaptiveContext}
-                                                    className="px-3 py-1.5 rounded-xl bg-violet-600 text-[11px] font-bold text-white"
+                                                    className="px-3 py-1.5 rounded-xl bg-neutral-600 text-[11px] font-bold text-white"
                                                 >
                                                     一键还原
                                                 </button>
@@ -483,7 +483,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                             <button
                                                 type="button"
                                                 onClick={onRestoreAdaptiveContext}
-                                                className="text-[10px] font-bold text-violet-600 bg-violet-50 border border-violet-100 rounded-full px-2.5 py-1"
+                                                className="text-[10px] font-bold text-neutral-600 bg-neutral-50 border border-neutral-100 rounded-full px-2.5 py-1"
                                             >
                                                 {activeCharacter.autoArchiveEnabled ? '一键恢复自适应' : '恢复水位跟随'}
                                             </button>
@@ -503,7 +503,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                     />
                                     <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>10 (省流)</span><span>5000 (最大范围)</span></div>
                                     {(activeCharacter.autoArchiveEnabled || activeCharacter.contextFollowsMemoryPalaceHwm) && (
-                                        <p className="text-[10px] text-amber-600 mt-2 leading-relaxed">
+                                        <p className="text-[10px] text-neutral-600 mt-2 leading-relaxed">
                                             自定义只改变 AI 可直接读取的原文范围，不会回退记忆宫殿水位线，也不会让旧消息重新向量化。
                                         </p>
                                     )}
@@ -521,7 +521,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         </div>
 
                         {/* 记忆宫殿：一键向量化所有聊天记录 */}
-                        {isMemoryPalaceEnabled && <p className="mt-3 rounded-xl bg-violet-50 p-3 text-xs leading-relaxed text-violet-700">
+                        {isMemoryPalaceEnabled && <p className="mt-3 rounded-xl bg-neutral-50 p-3 text-xs leading-relaxed text-neutral-700">
                             全自动记忆用户大部分时候无需操作下方的一键向量化等手动工具。日常聊天会按条件自动整理；这些不是常规必点按钮，仅在明确了解用途与影响时使用。查看和修改记忆可前往「神经链接」中的角色记忆页。
                         </p>}
                         {isMemoryPalaceEnabled && onForceVectorize && (
@@ -529,10 +529,10 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 <button
                                     type="button"
                                     onClick={() => setRetainRecentForVectorize?.(!retainRecentForVectorize)}
-                                    className={`w-full mb-2.5 rounded-2xl border p-3 text-left transition-colors ${retainRecentForVectorize ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}
+                                    className={`w-full mb-2.5 rounded-2xl border p-3 text-left transition-colors ${retainRecentForVectorize ? 'bg-neutral-50 border-neutral-200' : 'bg-slate-50 border-slate-200'}`}
                                 >
                                     <span className="flex items-center gap-2.5">
-                                        <span className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${retainRecentForVectorize ? 'bg-amber-500 border-amber-500' : 'bg-white border-slate-300'}`}>
+                                        <span className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${retainRecentForVectorize ? 'bg-neutral-500 border-neutral-500' : 'bg-white border-slate-300'}`}>
                                             {retainRecentForVectorize && <span className="text-white text-[11px] font-bold">✓</span>}
                                         </span>
                                         <span>
@@ -544,7 +544,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 <button
                                     onClick={() => { setModalType('memory-vectorize-confirm'); trackEvent('一键把聊天存进记忆宫殿'); }}
                                     disabled={isVectorizing}
-                                    className="w-full py-3 bg-emerald-50 text-emerald-600 font-bold rounded-2xl border border-emerald-200 active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-70"
+                                    className="w-full py-3 bg-neutral-50 text-neutral-600 font-bold rounded-2xl border border-neutral-200 active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-70"
                                 >
                                     {(vectorizePendingCount != null && vectorizePendingCount > 0)
                                         ? `🏰 一键存进记忆宫殿 · 待处理 ${vectorizePendingCount} 条`
@@ -611,7 +611,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         <div className="pt-2 border-t border-slate-100">
                             <div className="flex justify-between items-center cursor-pointer" onClick={onToggleChatVoice}>
                                 <label className="text-xs font-bold text-slate-400 uppercase pointer-events-none">语音消息</label>
-                                <div className={`w-10 h-6 rounded-full p-1 transition-colors flex items-center ${chatVoiceEnabled ? 'bg-emerald-400' : 'bg-slate-200'}`}>
+                                <div className={`w-10 h-6 rounded-full p-1 transition-colors flex items-center ${chatVoiceEnabled ? 'bg-neutral-400' : 'bg-slate-200'}`}>
                                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${chatVoiceEnabled ? 'translate-x-4' : ''}`}></div>
                                 </div>
                             </div>
@@ -622,7 +622,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 <div className="mt-3 pt-3 border-t border-slate-100">
                                     <div className="flex justify-between items-center cursor-pointer" onClick={onToggleChatVoiceAutoPlay}>
                                         <label className="text-[10px] font-bold text-slate-400 uppercase pointer-events-none">收到就自动播放</label>
-                                        <div className={`w-9 h-5 rounded-full p-1 transition-colors flex items-center ${chatVoiceAutoPlay ? 'bg-emerald-400' : 'bg-slate-200'}`}>
+                                        <div className={`w-9 h-5 rounded-full p-1 transition-colors flex items-center ${chatVoiceAutoPlay ? 'bg-neutral-400' : 'bg-slate-200'}`}>
                                             <div className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${chatVoiceAutoPlay ? 'translate-x-4' : ''}`}></div>
                                         </div>
                                     </div>
@@ -637,13 +637,13 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                     <div className="flex flex-wrap gap-1.5">
                                         {VOICE_LANGUAGE_OPTIONS.map(opt => (
                                             <button key={opt.value} onClick={() => onSetChatVoiceLang?.(opt.value)}
-                                                className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${chatVoiceLang === opt.value ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                                className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${chatVoiceLang === opt.value ? 'bg-neutral-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
                                                 {opt.label}
                                             </button>
                                         ))}
                                     </div>
-                                    {chatVoiceLang === 'yue' && <p className="text-[10px] text-amber-600/80 mt-1.5">{CANTONESE_VOICE_SUPPORT_NOTE}</p>}
-                                    {chatVoiceLang && <p className="text-[10px] text-emerald-600/70 mt-1.5">选择非默认语种时，AI 台词会先翻译再生成语音。</p>}
+                                    {chatVoiceLang === 'yue' && <p className="text-[10px] text-neutral-600/80 mt-1.5">{CANTONESE_VOICE_SUPPORT_NOTE}</p>}
+                                    {chatVoiceLang && <p className="text-[10px] text-neutral-600/70 mt-1.5">选择非默认语种时，AI 台词会先翻译再生成语音。</p>}
                                 </div>
                             )}
                         </div>
@@ -653,7 +653,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         <div className="pt-2 border-t border-slate-100">
                             <div className="flex justify-between items-center cursor-pointer" onClick={onToggleXhs}>
                                 <label className="text-xs font-bold text-slate-400 uppercase pointer-events-none">小红书</label>
-                                <div className={`w-10 h-6 rounded-full p-1 transition-colors flex items-center ${xhsEnabled ? 'bg-red-400' : 'bg-slate-200'}`}>
+                                <div className={`w-10 h-6 rounded-full p-1 transition-colors flex items-center ${xhsEnabled ? 'bg-neutral-400' : 'bg-slate-200'}`}>
                                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${xhsEnabled ? 'translate-x-4' : ''}`}></div>
                                 </div>
                             </div>
@@ -666,7 +666,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         <div className="pt-2 border-t border-slate-100">
                             <div className="flex justify-between items-center cursor-pointer" onClick={onToggleHtmlMode}>
                                 <label className="text-xs font-bold text-slate-400 uppercase pointer-events-none">HTML 模块模式</label>
-                                <div className={`w-10 h-6 rounded-full p-1 transition-colors flex items-center ${htmlModeEnabled ? 'bg-fuchsia-500' : 'bg-slate-200'}`}>
+                                <div className={`w-10 h-6 rounded-full p-1 transition-colors flex items-center ${htmlModeEnabled ? 'bg-neutral-500' : 'bg-slate-200'}`}>
                                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${htmlModeEnabled ? 'translate-x-4' : ''}`}></div>
                                 </div>
                             </div>
@@ -680,7 +680,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                         value={htmlModeCustomPrompt || ''}
                                         onChange={e => setHtmlModeCustomPrompt?.(e.target.value)}
                                         placeholder="比如：偏好暖色调 / 默认风格走 minimal 杂志感 / 票据类必须含二维码占位…"
-                                        className="w-full h-28 bg-slate-50 rounded-2xl p-3 text-[12px] resize-none border border-slate-200 focus:outline-none focus:border-fuchsia-300"
+                                        className="w-full h-28 bg-slate-50 rounded-2xl p-3 text-[12px] resize-none border border-slate-200 focus:outline-none focus:border-neutral-300"
                                     />
                                     <p className="text-[10px] text-slate-400 mt-1">留空则只使用内置提示词。</p>
                                 </div>
@@ -689,7 +689,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                     </ChatSettingsSection>
                     <ChatSettingsSection title="聊天记录" summary="按范围清理或保留最近消息">
                         {onOpenHistoryCleanup && <div>
-                            <button type="button" onClick={onOpenHistoryCleanup} className="w-full rounded-2xl border border-red-100 bg-red-50 py-3 text-sm font-bold text-red-600">清理指定范围 / 保留最近 N 条</button>
+                            <button type="button" onClick={onOpenHistoryCleanup} className="w-full rounded-2xl border border-neutral-100 bg-neutral-50 py-3 text-sm font-bold text-neutral-600">清理指定范围 / 保留最近 N 条</button>
                             <p className="mt-2 text-center text-[10px] text-slate-400">按页选择记录，永久删除前需要两次确认。</p>
                         </div>}
                     </ChatSettingsSection>
@@ -701,25 +701,25 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 title="确认存进记忆宫殿"
                 onClose={() => { if (!isVectorizing) setModalType('chat-settings'); }}
                 footer={isVectorizing ? (
-                    <div className="w-full py-3 rounded-2xl bg-emerald-50 text-emerald-700 text-center text-sm font-bold flex items-center justify-center gap-2">
-                        <span className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-full py-3 rounded-2xl bg-neutral-50 text-neutral-700 text-center text-sm font-bold flex items-center justify-center gap-2">
+                        <span className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
                         {vectorizeProgress || '正在处理...'}
                     </div>
                 ) : (
                     <div className="w-full flex gap-2">
                         <button type="button" onClick={() => setModalType('chat-settings')} className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-600 font-bold">取消</button>
-                        <button type="button" onClick={onForceVectorize} className="flex-1 py-3 rounded-2xl bg-emerald-500 text-white font-bold">确认开始</button>
+                        <button type="button" onClick={onForceVectorize} className="flex-1 py-3 rounded-2xl bg-neutral-500 text-white font-bold">确认开始</button>
                     </div>
                 )}
             >
                 <div className="space-y-3 text-sm text-slate-600 leading-relaxed">
-                    <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
-                        <p className="font-bold text-emerald-800 mb-2">按下确认后：</p>
-                        <ul className="space-y-1.5 text-xs text-emerald-900/80 list-disc pl-4">
+                    <div className="rounded-2xl bg-neutral-50 border border-neutral-100 p-4">
+                        <p className="font-bold text-neutral-800 mb-2">按下确认后：</p>
+                        <ul className="space-y-1.5 text-xs text-neutral-900/80 list-disc pl-4">
                             <li>当前可处理的聊天内容会全部完成记忆整理。</li>
                             <li>{retainRecentForVectorize ? '最近 10 条原文继续注入聊天上下文。' : '已处理原文不再直接注入聊天上下文。'}</li>
                             <li>紫色水位线与橙色原文范围会同步，待处理统计从新水位重新开始。</li>
-                            <li className="font-bold text-red-600">该功能非常规使用功能，全自动模式下记忆宫殿会自己处理，如您确认确实需要使用该功能，请点击“确认开始”</li>
+                            <li className="font-bold text-neutral-600">该功能非常规使用功能，全自动模式下记忆宫殿会自己处理，如您确认确实需要使用该功能，请点击“确认开始”</li>
                         </ul>
                     </div>
                     <p className="text-[11px] text-slate-400">处理期间请保持应用打开，不要清空聊天。任何一批失败都不会移动水位线，可安全重试。</p>
@@ -730,13 +730,13 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 isOpen={modalType === 'memory-vectorize-result'}
                 title="记忆处理完成"
                 onClose={() => { setModalType('none'); }}
-                footer={<button type="button" onClick={() => setModalType('none')} className="w-full py-3 rounded-2xl bg-emerald-500 text-white font-bold">知道了</button>}
+                footer={<button type="button" onClick={() => setModalType('none')} className="w-full py-3 rounded-2xl bg-neutral-500 text-white font-bold">知道了</button>}
             >
                 <div className="space-y-3">
-                    <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-center">
+                    <div className="rounded-2xl bg-neutral-50 border border-neutral-100 p-4 text-center">
                         <div className="text-2xl mb-1">✓</div>
-                        <p className="text-sm font-bold text-emerald-800">当前聊天的记忆处理边界已同步</p>
-                        <p className="text-[11px] text-emerald-700/70 mt-1">
+                        <p className="text-sm font-bold text-neutral-800">当前聊天的记忆处理边界已同步</p>
+                        <p className="text-[11px] text-neutral-700/70 mt-1">
                             处理 {vectorizeResult?.processedMessages || 0} 条内容 · 新增 {vectorizeResult?.storedMemories || 0} 条长期记忆
                         </p>
                     </div>
@@ -747,7 +747,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                     </div>
                     <p className="text-[11px] text-slate-400 text-center">向量化待处理统计已经从新的水位线重新开始。</p>
                     {vectorizeResult?.waterlineAlreadyAhead && (
-                        <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-2.5 leading-relaxed">
+                        <p className="text-[10px] text-neutral-700 bg-neutral-50 border border-neutral-100 rounded-xl p-2.5 leading-relaxed">
                             最近 10 条此前已经处理过。为避免重复向量化，水位线没有回退，但这 10 条原文仍已按你的选择保留在上下文中。
                         </p>
                     )}
@@ -766,8 +766,8 @@ const ChatModals: React.FC<ChatModalsProps> = ({
 
             <Modal isOpen={modalType === 'archive-settings'} title="记忆归档设置" onClose={() => { if (!isSummarizing) setModalType('none'); }} footer={
                 isSummarizing ?
-                <div className="w-full py-3 bg-slate-100 text-indigo-600 font-bold rounded-2xl text-center flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>{archiveProgress || '归档中...'}</div> :
-                <button onClick={onArchive} disabled={isSummarizing} className="w-full py-3 bg-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200">开始归档</button>
+                <div className="w-full py-3 bg-slate-100 text-neutral-600 font-bold rounded-2xl text-center flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin"></div>{archiveProgress || '归档中...'}</div> :
+                <button onClick={onArchive} disabled={isSummarizing} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200">开始归档</button>
             }>
                 <div className="space-y-4">
                     {(() => {
@@ -777,7 +777,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         const activeName = activePrompt?.name || '理性精炼 (Rational)';
                         if (palaceOn && autoOn) {
                             return (
-                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-[11px] text-emerald-800 leading-relaxed">
+                                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 text-[11px] text-neutral-800 leading-relaxed">
                                     ✅ <b>自动归档已开启</b>。palace 处理后系统会按日期自动把聊天归档到"本月日度总结"。<br/>
                                     自动归档走的是 <b>记忆宫殿内置风格</b>（保证向量检索质量稳定），
                                     下方模板<b>只对这里的"开始归档"按钮生效</b>——你在这换风格不会影响自动归档。
@@ -786,7 +786,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         }
                         if (palaceOn && !autoOn) {
                             return (
-                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed">
+                                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 text-[11px] text-neutral-900 leading-relaxed">
                                     ⚠️ 记忆宫殿已开，但<b>自动归档没开</b>——记忆宫殿只在后台默默建记忆，不会写进月度总结。<br/>
                                     想让它自动写 → 神经链接 → 角色 → 记忆宫殿开关下面的 <b>"📚 自动归档"</b>；
                                     或者继续用下方按钮手动按当前选中的 <b>「{activeName}」</b> 风格跑。
@@ -801,27 +801,27 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             </div>
                         );
                     })()}
-                    <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                        <label className="text-[10px] font-bold text-indigo-400 uppercase mb-2 block">选择提示词模板</label>
+                    <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-100">
+                        <label className="text-[10px] font-bold text-neutral-400 uppercase mb-2 block">选择提示词模板</label>
                         <div className="flex flex-col gap-2">
                             {archivePrompts.map(p => {
                                 const isSelected = selectedPromptId === p.id;
                                 return (
-                                <div key={p.id} onClick={() => setSelectedPromptId(p.id)} className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between ${isSelected ? 'bg-white border-indigo-500 shadow-sm ring-1 ring-indigo-500' : 'bg-white/50 border-indigo-200 hover:bg-white'}`}>
+                                <div key={p.id} onClick={() => setSelectedPromptId(p.id)} className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between ${isSelected ? 'bg-white border-neutral-500 shadow-sm ring-1 ring-neutral-500' : 'bg-white/50 border-neutral-200 hover:bg-white'}`}>
                                     <div className="flex items-center gap-2 min-w-0">
-                                        <span className={`text-xs font-bold ${isSelected ? 'text-indigo-700' : 'text-slate-600'}`}>{p.name}</span>
+                                        <span className={`text-xs font-bold ${isSelected ? 'text-neutral-700' : 'text-slate-600'}`}>{p.name}</span>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); setSelectedPromptId(p.id); onEditPrompt(); }} className="text-[10px] text-slate-400 hover:text-indigo-500 px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50">编辑/查看</button>
+                                        <button onClick={(e) => { e.stopPropagation(); setSelectedPromptId(p.id); onEditPrompt(); }} className="text-[10px] text-slate-400 hover:text-neutral-500 px-2 py-1 rounded bg-slate-100 hover:bg-neutral-50">编辑/查看</button>
                                         {!p.id.startsWith('preset_') && (
-                                            <button onClick={(e) => { e.stopPropagation(); onDeletePrompt(p.id); }} className="text-[10px] text-red-300 hover:text-red-500 px-2 py-1 rounded hover:bg-red-50">×</button>
+                                            <button onClick={(e) => { e.stopPropagation(); onDeletePrompt(p.id); }} className="text-[10px] text-neutral-300 hover:text-neutral-500 px-2 py-1 rounded hover:bg-neutral-50">×</button>
                                         )}
                                     </div>
                                 </div>
                                 );
                             })}
                         </div>
-                        <button onClick={onCreatePrompt} className="mt-3 w-full py-2 text-xs font-bold text-indigo-500 border border-dashed border-indigo-300 rounded-lg hover:bg-indigo-100">+ 新建自定义提示词</button>
+                        <button onClick={onCreatePrompt} className="mt-3 w-full py-2 text-xs font-bold text-neutral-500 border border-dashed border-neutral-300 rounded-lg hover:bg-neutral-100">+ 新建自定义提示词</button>
                     </div>
                     <div className="text-[10px] text-slate-400 bg-slate-50 p-3 rounded-xl leading-relaxed">
                         • <b>理性精炼</b>: 适合生成条理清晰的事件日志，便于 AI 长期记忆检索。<br/>
@@ -857,10 +857,10 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto no-scrollbar p-1">
                     <p className="text-xs text-slate-400 text-center mb-2"><b>短按</b>记录 = 设置用户断点（只能缩小范围） · <b>长按</b>普通消息 = 跳转查看原文。秘密小纸条在此查看，每张占一条上下文。</p>
                     <div className="grid gap-2 mb-2">
-                        <div className="bg-violet-50 border border-violet-200 rounded-xl p-2.5 text-[11px] text-violet-800 leading-relaxed">
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-[11px] text-neutral-800 leading-relaxed">
                             <b>紫色 · 记忆宫殿水位线</b>：此前消息已经处理，不会因调整上下文再次向量化。
                         </div>
-                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-2.5 text-[11px] text-orange-800 leading-relaxed">
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-[11px] text-neutral-800 leading-relaxed">
                             <b>橙色 · 最大范围起点</b>：由{contextRangeSnapshot?.mode === 'adaptive' ? (activeCharacter.contextFollowsMemoryPalaceHwm ? '记忆水位线' : '全自动记忆') : `拉杆 ${settingsContextLimit} 条`}决定，用户断点不能越过它读取更早内容。
                             {contextRangeSnapshot?.mode === 'adaptive' && !contextRangeSnapshot.maxRangeStartMessageId && ' 当前水位线后为 0 条，因此列表中没有额外橙色起点。'}
                         </div>
@@ -927,9 +927,9 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 const cls = isUserStart
                                     ? 'bg-sky-50 border-sky-300 ring-1 ring-sky-300'
                                     : isMaxStart
-                                        ? 'bg-orange-50 border-orange-300 ring-1 ring-orange-300'
+                                        ? 'bg-neutral-50 border-neutral-300 ring-1 ring-neutral-300'
                                         : isWatermark
-                                            ? 'bg-violet-50 border-violet-300 ring-1 ring-violet-300'
+                                            ? 'bg-neutral-50 border-neutral-300 ring-1 ring-neutral-300'
                                             : isHidden
                                                 ? 'bg-slate-50 border-slate-100 opacity-55'
                                                 : 'bg-white border-slate-100 hover:bg-slate-50';
@@ -952,11 +952,11 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                             {m.type === 'secret_note' ? <SecretNote text={m.content}/> : <div className="truncate">{renderHighlighted(m.content || '', query, contentClass)}</div>}
                                         </div>
                                         <div className="flex flex-wrap justify-end gap-1 max-w-[42%]">
-                                            {isWatermark && <span className="text-violet-600 font-bold text-[9px] bg-white px-1.5 rounded-full border border-violet-200">水位线</span>}
-                                            {isMaxStart && <span className="text-orange-600 font-bold text-[9px] bg-white px-1.5 rounded-full border border-orange-200">最大范围</span>}
+                                            {isWatermark && <span className="text-neutral-600 font-bold text-[9px] bg-white px-1.5 rounded-full border border-neutral-200">水位线</span>}
+                                            {isMaxStart && <span className="text-neutral-600 font-bold text-[9px] bg-white px-1.5 rounded-full border border-neutral-200">最大范围</span>}
                                             {isUserStart && <span className="text-sky-600 font-bold text-[9px] bg-white px-1.5 rounded-full border border-sky-200">用户断点</span>}
                                             {!isWatermark && !isMaxStart && !isUserStart && isHidden && <span className="text-slate-400 font-bold text-[9px] bg-white px-1.5 rounded-full border border-slate-200">AI 不读原文</span>}
-                                            {!isWatermark && !isMaxStart && !isUserStart && isVectorized && !isHidden && <span className="text-violet-400 font-bold text-[9px] bg-white px-1.5 rounded-full border border-violet-100">已向量化</span>}
+                                            {!isWatermark && !isMaxStart && !isUserStart && isVectorized && !isHidden && <span className="text-neutral-400 font-bold text-[9px] bg-white px-1.5 rounded-full border border-neutral-100">已向量化</span>}
                                         </div>
                                     </div>
                                 );
@@ -972,7 +972,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
             </Modal>
 
             <Modal isOpen={modalType === 'message-options'} title="消息操作" onClose={() => setModalType('none')}>
-                <div className="space-y-3">{compactHome?<button className="w-full py-3 rounded-2xl bg-amber-50 text-amber-800" onClick={()=>{onToggleMessageFavorite?.();setModalType('none');}}>{messageFavorited?'取消收藏':'收藏这条消息'}</button>:<>
+                <div className="space-y-3">{compactHome?<button className="w-full py-3 rounded-2xl bg-neutral-50 text-neutral-800" onClick={()=>{onToggleMessageFavorite?.();setModalType('none');}}>{messageFavorited?'取消收藏':'收藏这条消息'}</button>:<>
                     <button onClick={onEnterSelectionMode} className="w-full py-3 bg-slate-50 text-slate-700 font-medium rounded-2xl active:bg-slate-100 transition-colors flex items-center justify-center gap-2">
                         多选 / 批量删除
                     </button>
@@ -990,7 +990,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         </button>
                     )}
                     {selectedMessage && onToggleMessageFavorite && (
-                        <button onClick={() => { onToggleMessageFavorite(); setModalType('none'); }} className={`w-full py-3 font-medium rounded-2xl transition-colors flex items-center justify-center gap-2 ${messageFavorited ? 'bg-violet-100 text-violet-700 active:bg-violet-200' : 'bg-violet-50 text-violet-600 active:bg-violet-100'}`}>
+                        <button onClick={() => { onToggleMessageFavorite(); setModalType('none'); }} className={`w-full py-3 font-medium rounded-2xl transition-colors flex items-center justify-center gap-2 ${messageFavorited ? 'bg-neutral-100 text-neutral-700 active:bg-neutral-200' : 'bg-neutral-50 text-neutral-600 active:bg-neutral-100'}`}>
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={messageFavorited ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5} className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m11.48 3.499-2.13 4.316-4.763.692c-.963.14-1.348 1.323-.651 2.002l3.447 3.36-.814 4.744c-.165.96.842 1.691 1.703 1.238L12.532 17.6l4.26 2.24c.862.453 1.869-.278 1.704-1.238l-.814-4.744 3.447-3.36c.697-.679.312-1.862-.651-2.002l-4.763-.692-2.13-4.316c-.43-.873-1.675-.873-2.105.011Z" /></svg>
                             {messageFavorited
                                 ? (selectedMessage.type === 'image' ? '取消收藏图片' : '取消收藏聊天消息')
@@ -998,7 +998,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         </button>
                     )}
                     {voiceAvailable && selectedMessage?.role === 'assistant' && selectedMessage?.type === 'text' && onGenerateVoice && (
-                        <button onClick={() => { onGenerateVoice(); setModalType('none'); }} className="w-full py-3 bg-emerald-50 text-emerald-600 font-medium rounded-2xl active:bg-emerald-100 transition-colors flex items-center justify-center gap-2">
+                        <button onClick={() => { onGenerateVoice(); setModalType('none'); }} className="w-full py-3 bg-neutral-50 text-neutral-600 font-medium rounded-2xl active:bg-neutral-100 transition-colors flex items-center justify-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /></svg>
                             转换语音
                         </button>
@@ -1010,12 +1010,12 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         </button>
                     )}
                     {voiceCollectable && selectedMessage?.role === 'assistant' && onToggleVoiceFavorite && (
-                        <button onClick={() => { onToggleVoiceFavorite(); setModalType('none'); }} className={`w-full py-3 font-medium rounded-2xl transition-colors flex items-center justify-center gap-2 ${voiceFavorited ? 'bg-amber-100 text-amber-700 active:bg-amber-200' : 'bg-amber-50 text-amber-600 active:bg-amber-100'}`}>
+                        <button onClick={() => { onToggleVoiceFavorite(); setModalType('none'); }} className={`w-full py-3 font-medium rounded-2xl transition-colors flex items-center justify-center gap-2 ${voiceFavorited ? 'bg-neutral-100 text-neutral-700 active:bg-neutral-200' : 'bg-neutral-50 text-neutral-600 active:bg-neutral-100'}`}>
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={voiceFavorited ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5} className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m11.48 3.499-2.13 4.316-4.763.692c-.963.14-1.348 1.323-.651 2.002l3.447 3.36-.814 4.744c-.165.96.842 1.691 1.703 1.238L12.532 17.6l4.26 2.24c.862.453 1.869-.278 1.704-1.238l-.814-4.744 3.447-3.36c.697-.679.312-1.862-.651-2.002l-4.763-.692-2.13-4.316c-.43-.873-1.675-.873-2.105.011Z" /></svg>
                             {voiceFavorited ? '取消收藏语音' : '收藏语音'}
                         </button>
                     )}
-                    <button onClick={onDeleteMessage} className="w-full py-3 bg-red-50 text-red-500 font-medium rounded-2xl active:bg-red-100 transition-colors flex items-center justify-center gap-2">
+                    <button onClick={onDeleteMessage} className="w-full py-3 bg-neutral-50 text-neutral-500 font-medium rounded-2xl active:bg-neutral-100 transition-colors flex items-center justify-center gap-2">
                         删除消息
                     </button>
                 </>}</div>
@@ -1023,7 +1023,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
             
              <Modal
                 isOpen={modalType === 'delete-emoji'} title="删除表情包" onClose={() => setModalType('none')}
-                footer={<><button onClick={() => setModalType('none')} className="flex-1 py-3 bg-slate-100 rounded-2xl">取消</button><button onClick={onDeleteEmoji} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl">删除</button></>}
+                footer={<><button onClick={() => setModalType('none')} className="flex-1 py-3 bg-slate-100 rounded-2xl">取消</button><button onClick={onDeleteEmoji} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl">删除</button></>}
             >
                 <div className="flex flex-col items-center gap-4 py-2">
                     {Array.isArray(selectedEmoji) ? (
@@ -1062,7 +1062,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         </button>
                         <button
                             onClick={() => setModalType('delete-emoji')}
-                            className="w-full py-3 bg-red-50 text-red-500 font-medium rounded-2xl active:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                            className="w-full py-3 bg-neutral-50 text-neutral-500 font-medium rounded-2xl active:bg-neutral-100 transition-colors flex items-center justify-center gap-2"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
@@ -1090,11 +1090,11 @@ const ChatModals: React.FC<ChatModalsProps> = ({
             {/* Delete Category Modal */}
             <Modal
                 isOpen={modalType === 'delete-category'} title="删除分类" onClose={() => setModalType('none')}
-                footer={<><button onClick={() => setModalType('none')} className="flex-1 py-3 bg-slate-100 rounded-2xl">取消</button><button onClick={onDeleteCategory} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl">删除</button></>}
+                footer={<><button onClick={() => setModalType('none')} className="flex-1 py-3 bg-slate-100 rounded-2xl">取消</button><button onClick={onDeleteCategory} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl">删除</button></>}
             >
                 <div className="py-4 text-center">
                     <p className="text-sm text-slate-600">确定要删除分类 <br/><span className="font-bold">"{selectedCategory?.name}"</span> 吗？</p>
-                    <p className="text-[10px] text-red-400 mt-2">注意：分类下的所有表情也将被删除！</p>
+                    <p className="text-[10px] text-neutral-400 mt-2">注意：分类下的所有表情也将被删除！</p>
                 </div>
             </Modal>
 
@@ -1115,7 +1115,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         设置可见角色
                     </button>
                     {selectedCategory && !selectedCategory.isSystem && selectedCategory.id !== 'default' && (
-                        <button onClick={() => setModalType('delete-category')} className="w-full py-3 bg-red-50 text-red-500 font-medium rounded-2xl active:bg-red-100 transition-colors flex items-center justify-center gap-2">
+                        <button onClick={() => setModalType('delete-category')} className="w-full py-3 bg-neutral-50 text-neutral-500 font-medium rounded-2xl active:bg-neutral-100 transition-colors flex items-center justify-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                             </svg>
@@ -1205,9 +1205,9 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             {onScheduleStyleChange && (
                                 <div className="mb-4">
                                     {!activeCharacter?.scheduleStyle && (
-                                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-3">
-                                            <p className="text-xs text-amber-700 font-bold mb-1">请选择日程风格</p>
-                                            <p className="text-[11px] text-amber-600 leading-relaxed">
+                                        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 mb-3">
+                                            <p className="text-xs text-neutral-700 font-bold mb-1">请选择日程风格</p>
+                                            <p className="text-[11px] text-neutral-600 leading-relaxed">
                                                 不同风格会影响角色的内心独白生成方式。选择后会自动重新生成今日日程。
                                             </p>
                                         </div>
@@ -1218,7 +1218,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                             disabled={isScheduleGenerating}
                                             className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
                                                 (activeCharacter?.scheduleStyle || 'lifestyle') === 'lifestyle'
-                                                    ? 'bg-violet-100 border-violet-300 text-violet-700'
+                                                    ? 'bg-neutral-100 border-neutral-300 text-neutral-700'
                                                     : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
                                             }`}
                                         >
@@ -1230,7 +1230,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                             disabled={isScheduleGenerating}
                                             className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
                                                 activeCharacter?.scheduleStyle === 'mindful'
-                                                    ? 'bg-teal-100 border-teal-300 text-teal-700'
+                                                    ? 'bg-neutral-100 border-neutral-300 text-neutral-700'
                                                     : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
                                             }`}
                                         >
