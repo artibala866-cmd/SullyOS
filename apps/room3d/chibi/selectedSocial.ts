@@ -9,6 +9,7 @@ import {isIntimacy,isPrincessCarry,poseIntimacy} from './intimacyMotion';
 import {splitMotionHeading} from './motionHeading';
 import {motionContactProfile} from './motionContactProfiles';
 import {applyPairedHandContact} from './pairedHandContact';
+import {createMotionConstraintPipeline} from './motionConstraintPipeline';
 export {motionCategories} from './selectedMotions';
 export type SocialAction=string;
 export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-kiss'?9.6:e.duration+1.2}]));
@@ -112,6 +113,71 @@ function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weig
    handled.add(i+from);
   }
  }
+
+ /**
+  * These two existing corrections are kept byte-for-byte in their body logic:
+  * only their invocation is routed through the optional Stage 2 schedule.
+  * For un-migrated actions they still run in the original order.
+  */
+ function correctPairedBodies(both:ReturnType<typeof states.get>[]){
+  const s=session;
+  if(!s)return;
+  // Lightweight paired torso/pelvis collision proxies; no mesh scan.
+  // Preserve close-contact intimacy and pinned poses for their own solvers.
+  if(!pinned&&both.length===2&&both.every(r=>!!r.visitor.rig)&&!isIntimacy(s.action)){
+   const a=both[0].visitor,b=both[1].visitor;
+   let penetration=0;
+   const direction=new T.Vector3();
+   for(const [bone,radius] of [['hips',.32],['chest',.38]] as const){
+    const pa=a.rig!.bones[bone].getWorldPosition(new T.Vector3());
+    const pb=b.rig!.bones[bone].getWorldPosition(new T.Vector3());
+    const delta=pb.sub(pa),vertical=Math.abs(delta.y);
+    if(vertical>=radius*2)continue;
+    delta.y=0;
+    const gap=delta.length(),minimum=Math.sqrt(Math.max(0,(radius*2)**2-vertical**2));
+    if(gap<minimum&&minimum-gap>penetration){
+     penetration=minimum-gap;
+     if(gap>.0001)direction.copy(delta).divideScalar(gap);
+    }
+   }
+   if(penetration>.0001){
+    if(direction.lengthSq()<.5){direction.copy(b.root.position).sub(a.root.position).setY(0);if(direction.lengthSq()<.0001)direction.set(1,0,0);direction.normalize();}
+    direction.multiplyScalar(Math.min(penetration,.10)*.5);
+    a.root.position.sub(direction);b.root.position.add(direction);
+    a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
+   }
+  }
+ }
+ function correctHeadClearance(both:ReturnType<typeof states.get>[],points:T.Vector3[]){
+  const s=session;
+  if(!s)return;
+  // The head has very different proportions from the source human. Separate
+  // the actual posed head centres before solving hands, including height gaps.
+  if(!pinned&&both.length===2&&both[0].visitor.rig&&!isIntimacy(s.action)){
+   const heads=both.map(r=>r.visitor.rig!.bones.head.localToWorld(new T.Vector3(0,.72,0))),delta=heads[1].clone().sub(heads[0]),vertical=delta.y;delta.y=0;
+   const needed=Math.sqrt(Math.max(0,.74**2-vertical**2)),gap=delta.length();
+   if(gap<needed){if(gap<.001)delta.copy(points[1]).sub(points[0]);delta.normalize().multiplyScalar((needed-gap)/2);both[0].visitor.root.position.sub(delta);both[1].visitor.root.position.add(delta);both.forEach(r=>r.visitor.root.updateWorldMatrix(true,true));}
+  }
+ }
+ function presentPostPose(both:ReturnType<typeof states.get>[],sourceTime:number,actionTime:number,weight:number){
+  const s=session!;
+  prop?.update(sourceTime,s.clip.duration,weight);for(const r of both)r.visitor.setActionExpression(actionTime<s.clip.duration? actionExpression(s.action,socialActions[s.action].category,socialActions[s.action].label):'neutral',sourceTime);finish();
+ }
+ // One stable set of callbacks per scene; frame data reuses this object.
+ // No scheduler allocations, phase sorting or IK re-creation per frame.
+ const constraintFrame={
+  both:[] as ReturnType<typeof states.get>[],
+  frames:[] as MotionFrame[],
+  points:[] as T.Vector3[],
+  weight:0,sourceTime:0,actionTime:0,
+ };
+ const constraintPipeline=createMotionConstraintPipeline({
+  bodyPlacement:()=>correctPairedBodies(constraintFrame.both),
+  clearance:()=>correctHeadClearance(constraintFrame.both,constraintFrame.points),
+  contactIK:()=>contacts(constraintFrame.both,constraintFrame.frames,constraintFrame.weight),
+  presentation:()=>presentPostPose(constraintFrame.both,constraintFrame.sourceTime,constraintFrame.actionTime,constraintFrame.weight),
+ });
+
  function draw(){
   if(!session){for(const r of states.values())if(r.id!==pinned?.id)r.visitor.animate(0,'idle');holdPinned();finish();return;}
   const s=session;
@@ -162,38 +228,19 @@ function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weig
    }
    r.visitor.root.updateWorldMatrix(true,true);
   });
-  // Lightweight paired torso/pelvis collision proxies; no mesh scan.
-  // Preserve close-contact intimacy and pinned poses for their own solvers.
-  if(!pinned&&both.length===2&&both.every(r=>!!r.visitor.rig)&&!isIntimacy(s.action)){
-   const a=both[0].visitor,b=both[1].visitor;
-   let penetration=0;
-   const direction=new T.Vector3();
-   for(const [bone,radius] of [['hips',.32],['chest',.38]] as const){
-    const pa=a.rig!.bones[bone].getWorldPosition(new T.Vector3());
-    const pb=b.rig!.bones[bone].getWorldPosition(new T.Vector3());
-    const delta=pb.sub(pa),vertical=Math.abs(delta.y);
-    if(vertical>=radius*2)continue;
-    delta.y=0;
-    const gap=delta.length(),minimum=Math.sqrt(Math.max(0,(radius*2)**2-vertical**2));
-    if(gap<minimum&&minimum-gap>penetration){
-     penetration=minimum-gap;
-     if(gap>.0001)direction.copy(delta).divideScalar(gap);
-    }
-   }
-   if(penetration>.0001){
-    if(direction.lengthSq()<.5){direction.copy(b.root.position).sub(a.root.position).setY(0);if(direction.lengthSq()<.0001)direction.set(1,0,0);direction.normalize();}
-    direction.multiplyScalar(Math.min(penetration,.10)*.5);
-    a.root.position.sub(direction);b.root.position.add(direction);
-    a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
-   }
-  }
-  // The head has very different proportions from the source human. Separate
-  // the actual posed head centres before solving hands, including height gaps.
-  if(!pinned&&both.length===2&&both[0].visitor.rig&&!isIntimacy(s.action)){
-   const heads=both.map(r=>r.visitor.rig!.bones.head.localToWorld(new T.Vector3(0,.72,0))),delta=heads[1].clone().sub(heads[0]),vertical=delta.y;delta.y=0;
-   const needed=Math.sqrt(Math.max(0,.74**2-vertical**2)),gap=delta.length();
-   if(gap<needed){if(gap<.001)delta.copy(points[1]).sub(points[0]);delta.normalize().multiplyScalar((needed-gap)/2);both[0].visitor.root.position.sub(delta);both[1].visitor.root.position.add(delta);both.forEach(r=>r.visitor.root.updateWorldMatrix(true,true));}
-  }
+  // One action verifies the configured order; every other motion retains the
+  // original body/head correction, intimacy and contact sequencing.
+  if(s.action==='cmu-20_10'){
+   constraintFrame.both=both;
+   constraintFrame.frames=frames;
+   constraintFrame.points=points;
+   constraintFrame.weight=weight;
+   constraintFrame.sourceTime=sourceTime;
+   constraintFrame.actionTime=actionTime;
+   constraintPipeline.run();
+  }else{
+   correctPairedBodies(both);
+   correctHeadClearance(both,points);
   if(s.action==='home-kiss'&&!pinned&&both.length===2&&both.every(r=>!!r.visitor.rig)){
    // Align the actual heads, not the two navigation roots. Preserve a small
    // face gap so the large chibi heads cannot pass through one another.
@@ -209,9 +256,11 @@ function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weig
     v0.root.updateWorldMatrix(true,true);v1.root.updateWorldMatrix(true,true);
    }
   }
-  if(isIntimacy(s.action)&&both[0].visitor.rig)poseIntimacy(s.action,both,sourceTime,pinned?s.ids.indexOf(pinned.id):undefined);else contacts(both,frames,weight);prop?.update(sourceTime,s.clip.duration,weight);for(const r of both)r.visitor.setActionExpression(actionTime<s.clip.duration? actionExpression(s.action,socialActions[s.action].category,socialActions[s.action].label):'neutral',sourceTime);finish();
+   if(isIntimacy(s.action)&&both[0].visitor.rig)poseIntimacy(s.action,both,sourceTime,pinned?s.ids.indexOf(pinned.id):undefined);else contacts(both,frames,weight);
+   presentPostPose(both,sourceTime,actionTime,weight);
+  }
  }
- const restore=()=>{prop?.dispose();prop=null;session=null;draw();};
+ const restore=()=>{constraintPipeline.reset();prop?.dispose();prop=null;session=null;draw();};
  return {
   get active(){return !!session;},
   async start(action:SocialAction,a:string,b?:string){
@@ -247,7 +296,7 @@ function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weig
      return !options.canPlace||options.canPlace(moving((action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,clip.duration)).map(p=>[p])));};
     let valid=fits();if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned)for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
     if(!valid)throw Error(action==='cmu-22_09'?'坐着的人身后没有可站立的位置，请先给椅背后留出空地':'这段动作需要更大的空地，先移动居民或挪开家具');
-    session=candidate;prop=createSocialProp(action,both);draw();return true;
+    session=candidate;constraintPipeline.activate(action);prop=createSocialProp(action,both);draw();return true;
    }finally{if(token===generation)loading=false;}
   },
   advance(seconds:number){if(!Number.isFinite(seconds)||seconds<0)return;if(session){session.time=Math.min(session.time+seconds,socialActions[session.action].duration+session.approach);draw();if(session.time>=socialActions[session.action].duration+session.approach){if(session.action==='home-kiss'){for(const id of session.ids){const resident=states.get(id);if(resident){resident.home.copy(resident.visitor.root.position);resident.rotation.copy(resident.visitor.root.quaternion);}}}restore();options.onComplete?.();}}},
