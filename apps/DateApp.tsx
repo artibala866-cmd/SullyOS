@@ -759,21 +759,21 @@ const DateApp: React.FC = () => {
         // 浅色主题（参考「小屋 · 小小窝」房间）：薰衣草浅背景 + 柔星点 + 衬线标题 + 罗盘环角色卡
         const th = {
             pageBg: 'linear-gradient(180deg,#f3f3f3 0%,#eeeeee 45%,#e9e9e9 100%)',
-            stars: 'radial-gradient(1.5px 1.5px at 14% 16%,rgba(171,171,171,.45),transparent),radial-gradient(1px 1px at 80% 12%,rgba(200,200,200,.5),transparent),radial-gradient(1.5px 1.5px at 42% 28%,rgba(199,199,199,.4),transparent),radial-gradient(1px 1px at 86% 42%,rgba(184,184,184,.4),transparent),radial-gradient(1px 1px at 22% 66%,rgba(194,194,194,.35),transparent),radial-gradient(1px 1px at 66% 80%,rgba(210,210,210,.35),transparent)',
-            title: '#292929', titleShadow: 'rgba(159,159,159,.4)', line: 'rgba(131,131,131,.5)',
-            cardBorder: 'rgba(151,151,151,.3)', cardShadow: '0 8px 22px rgba(132,132,132,.18)',
-            inner: 'rgba(151,151,151,.22)', gem: 'rgba(171,171,171,.85)',
-            tick: 'rgba(151,151,151,.16)', halo: 'rgba(185,185,185,.3)',
-            ring1: 'rgba(161,161,161,.5)', ring2: 'rgba(161,161,161,.25)', avGlow: 'rgba(172,172,172,.4)',
+            stars: 'radial-gradient(1.5px 1.5px at 14% 16%,rgba(171, 171, 171,.45),transparent),radial-gradient(1px 1px at 80% 12%,rgba(200, 200, 200,.5),transparent),radial-gradient(1.5px 1.5px at 42% 28%,rgba(199, 199, 199,.4),transparent),radial-gradient(1px 1px at 86% 42%,rgba(184, 184, 184,.4),transparent),radial-gradient(1px 1px at 22% 66%,rgba(194, 194, 194,.35),transparent),radial-gradient(1px 1px at 66% 80%,rgba(210, 210, 210,.35),transparent)',
+            title: '#292929', titleShadow: 'rgba(159, 159, 159,.4)', line: 'rgba(131, 131, 131,.5)',
+            cardBorder: 'rgba(151, 151, 151,.3)', cardShadow: '0 8px 22px rgba(132, 132, 132,.18)',
+            inner: 'rgba(151, 151, 151,.22)', gem: 'rgba(171, 171, 171,.85)',
+            tick: 'rgba(151, 151, 151,.16)', halo: 'rgba(185, 185, 185,.3)',
+            ring1: 'rgba(161, 161, 161,.5)', ring2: 'rgba(161, 161, 161,.25)', avGlow: 'rgba(172, 172, 172,.4)',
         };
         // 每张卡片按序循环的柔色底——粉/薰衣草/浅蓝渐变（同小小窝浅色卡）
         const CARD_TINTS = [
-            'linear-gradient(180deg,rgba(221,221,221,.85),rgba(232,232,232,.8))',
-            'linear-gradient(180deg,rgba(230,230,230,.85),rgba(240,240,240,.8))',
-            'linear-gradient(180deg,rgba(220,220,220,.85),rgba(233,233,233,.8))',
-            'linear-gradient(180deg,rgba(227,227,227,.85),rgba(239,239,239,.8))',
-            'linear-gradient(180deg,rgba(217,217,217,.85),rgba(232,232,232,.8))',
-            'linear-gradient(180deg,rgba(234,231,242,.88),rgba(242,240,247,.82))',
+            'linear-gradient(180deg,rgba(221, 221, 221,.85),rgba(232, 232, 232,.8))',
+            'linear-gradient(180deg,rgba(230, 230, 230,.85),rgba(240, 240, 240,.8))',
+            'linear-gradient(180deg,rgba(220, 220, 220,.85),rgba(233, 233, 233,.8))',
+            'linear-gradient(180deg,rgba(227, 227, 227,.85),rgba(239, 239, 239,.8))',
+            'linear-gradient(180deg,rgba(217, 217, 217,.85),rgba(232, 232, 232,.8))',
+            'linear-gradient(180deg,rgba(232, 232, 232,.88),rgba(241, 241, 241,.82))',
         ];
         return (
             <div className="h-full w-full relative overflow-hidden flex flex-col font-light" style={{ background: th.pageBg }}>
@@ -785,14 +785,14 @@ const DateApp: React.FC = () => {
                     <div className="relative flex items-center justify-center px-5 pt-2">
                         <button onClick={() => { if (cameFromChat) { returnToChat(); } else { closeApp(); } }}
                                 className="absolute left-4 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all"
-                                style={{ color: '#777777', background: 'rgba(255,255,255,0.6)', boxShadow: '0 2px 8px rgba(132,132,132,0.15)' }}>
+                                style={{ color: '#777777', background: 'rgba(255, 255, 255,0.6)', boxShadow: '0 2px 8px rgba(132, 132, 132,0.15)' }}>
                             <CaretLeft size={19} weight="bold" />
                         </button>
                         <div className="text-center">
                             <h1 className="text-[26px] tracking-[0.14em]" style={{ fontFamily: `'Noto Serif SC',serif`, color: th.title, textShadow: `0 2px 18px ${th.titleShadow}` }}>选择见面对象</h1>
                             <div className="flex items-center justify-center gap-2 mt-1.5">
                                 <span className="h-px w-10" style={{ background: `linear-gradient(90deg,transparent,${th.line})` }} />
-                                <span className="text-[9px] tracking-[0.4em] font-bold" style={{ color: 'rgba(131,131,131,0.75)' }}>✦ CHOOSE CHARACTER ✦</span>
+                                <span className="text-[9px] tracking-[0.4em] font-bold" style={{ color: 'rgba(131, 131, 131,0.75)' }}>✦ CHOOSE CHARACTER ✦</span>
                                 <span className="h-px w-10" style={{ background: `linear-gradient(270deg,transparent,${th.line})` }} />
                             </div>
                         </div>
@@ -810,7 +810,7 @@ const DateApp: React.FC = () => {
 
                 {/* 分页卡片区 */}
                 {selectChars.length === 0 ? (
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-3" style={{ color: 'rgba(131,131,131,0.7)' }}>
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-3" style={{ color: 'rgba(131, 131, 131,0.7)' }}>
                         <Sparkle size={40} weight="light" />
                         <span className="text-xs tracking-wider">{characters.length ? '该分组下没有角色' : '还没有可见面的角色'}</span>
                     </div>
@@ -835,7 +835,7 @@ const DateApp: React.FC = () => {
                                             <span className="absolute bottom-[10px] right-[10px] w-1.5 h-1.5 rotate-45" style={{ background: th.gem }} />
                                             {/* 在线徽标 */}
                                             <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full z-10"
-                                                 style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(180,180,180,0.4)', boxShadow: '0 1px 4px rgba(102,102,102,0.12)' }}>
+                                                 style={{ background: 'rgba(255, 255, 255,0.8)', border: '1px solid rgba(180, 180, 180,0.4)', boxShadow: '0 1px 4px rgba(102, 102, 102,0.12)' }}>
                                                 <span className="relative flex h-1.5 w-1.5">
                                                     <span className="absolute inline-flex h-full w-full rounded-full bg-neutral-400 opacity-60 animate-ping" />
                                                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-neutral-500" />
@@ -846,18 +846,18 @@ const DateApp: React.FC = () => {
                                             <div className="absolute top-2 right-2 flex flex-col gap-1 z-20">
                                                 <button onClick={(e) => { e.stopPropagation(); openSettings(c); }} title="布置场景 / 设定立绘 / 观测"
                                                         className="w-7 h-7 rounded-lg text-neutral-500 flex items-center justify-center active:scale-90 transition-all"
-                                                        style={{ background: 'rgba(255,255,255,0.78)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', boxShadow: '0 1px 5px rgba(102,102,102,0.2)' }}>
+                                                        style={{ background: 'rgba(255, 255, 255,0.78)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', boxShadow: '0 1px 5px rgba(102, 102, 102,0.2)' }}>
                                                     <GearSix size={15} weight="fill" />
                                                 </button>
                                                 <button onClick={(e) => { e.stopPropagation(); openHistory(c); }} title="见面记录"
                                                         className="w-7 h-7 rounded-lg text-neutral-500 flex items-center justify-center active:scale-90 transition-all"
-                                                        style={{ background: 'rgba(255,255,255,0.88)', boxShadow: '0 1px 5px rgba(102,102,102,0.2)' }}>
+                                                        style={{ background: 'rgba(255, 255, 255,0.88)', boxShadow: '0 1px 5px rgba(102, 102, 102,0.2)' }}>
                                                     <BookOpen size={15} weight="fill" />
                                                 </button>
                                             </div>
                                             {/* 头像 + 罗盘环 + 双层环 + 光晕 */}
                                             <div className="relative w-[92px] h-[92px] flex items-center justify-center mt-1">
-                                                <div className="absolute w-[124px] h-[124px] rounded-full" style={{ background: `repeating-conic-gradient(from 0deg, ${th.tick} 0deg 2.4deg, transparent 2.4deg 9deg)`, WebkitMaskImage: 'radial-gradient(circle, transparent 40%, #000 44%, #000 50%, transparent 55%)', maskImage: 'radial-gradient(circle, transparent 40%, #000 44%, #000 50%, transparent 55%)' }} />
+                                                <div className="absolute w-[124px] h-[124px] rounded-full" style={{ background: `repeating-conic-gradient(from 0deg, ${th.tick} 0deg 2.4deg, transparent 2.4deg 9deg)`, WebkitMaskImage: 'radial-gradient(circle, transparent 40%, #000000 44%, #000000 50%, transparent 55%)', maskImage: 'radial-gradient(circle, transparent 40%, #000000 44%, #000000 50%, transparent 55%)' }} />
                                                 <div className="absolute w-[110px] h-[110px] rounded-full" style={{ background: `radial-gradient(circle, ${th.halo}, transparent 62%)` }} />
                                                 <div className="absolute inset-[8px] rounded-full" style={{ border: `1px solid ${th.ring1}` }} />
                                                 <div className="absolute inset-[12px] rounded-full" style={{ border: `1px solid ${th.ring2}` }} />
@@ -867,7 +867,7 @@ const DateApp: React.FC = () => {
                                             </div>
                                             {/* 名字 + 简介 */}
                                             <span className="mt-3 text-[14px] font-semibold tracking-wide truncate max-w-full" style={{ color: '#404040', fontFamily: `'Noto Serif SC',serif` }}>{c.name}</span>
-                                            <span className="mt-0.5 text-[10px] truncate max-w-full" style={{ color: c.description ? 'rgba(105,105,105,0.78)' : 'rgba(138,138,138,0.6)' }}>{c.description || '走过去见 ta'}</span>
+                                            <span className="mt-0.5 text-[10px] truncate max-w-full" style={{ color: c.description ? 'rgba(105, 105, 105,0.78)' : 'rgba(138, 138, 138,0.6)' }}>{c.description || '走过去见 ta'}</span>
                                         </div>
                                         );
                                     })}
@@ -883,7 +883,7 @@ const DateApp: React.FC = () => {
                         {pages.map((_, pi) => (
                             <button key={pi} onClick={() => goSelectPage(pi)} aria-label={`第 ${pi + 1} 页`}
                                     className="h-2 rounded-full transition-all"
-                                    style={{ width: pi === selectPage ? 24 : 8, background: pi === selectPage ? '#999999' : 'rgba(151,151,151,0.35)' }} />
+                                    style={{ width: pi === selectPage ? 24 : 8, background: pi === selectPage ? '#999999' : 'rgba(151, 151, 151,0.35)' }} />
                         ))}
                     </div>
                 )}
@@ -1079,7 +1079,7 @@ const DateApp: React.FC = () => {
                         <div className="shrink-0 flex flex-col items-center gap-6">
                              <div className="w-full flex gap-3">
                                  {/* 修改这里：调用 handleEnterSession 确保开场白被保存 */}
-                                 <button onClick={handleEnterSession} className="flex-1 h-14 bg-white text-black rounded-full font-bold tracking-[0.1em] text-sm shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-95 transition-transform hover:bg-neutral-200">{openingMode === 'invite' ? '见到他' : '走过去'}</button>
+                                 <button onClick={handleEnterSession} className="flex-1 h-14 bg-white text-black rounded-full font-bold tracking-[0.1em] text-sm shadow-[0_0_20px_rgba(255, 255, 255,0.1)] active:scale-95 transition-transform hover:bg-neutral-200">{openingMode === 'invite' ? '见到他' : '走过去'}</button>
                                  <button onClick={() => { trackEvent('重新感知一次角色状态'); startPeek(char); }} className="w-14 h-14 bg-neutral-800 text-white rounded-full flex items-center justify-center border border-neutral-700 shadow-lg active:scale-90 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
                              </div>
                              <div className="flex flex-col items-center gap-3 text-[10px] text-neutral-600 font-medium tracking-wider"><button onClick={() => { setPreviousMode('peek'); setMode('settings'); trackEvent('打开见面设置面板', { from: 'peek' }); }} className="hover:text-neutral-400 transition-colors">布置场景 / 设定立绘</button><button onClick={handleBack} className="hover:text-neutral-400 transition-colors">悄悄离开</button></div>
@@ -1134,10 +1134,10 @@ const DateApp: React.FC = () => {
                         <div
                             className="flex items-center gap-2.5 pl-2.5 pr-3.5 py-2 max-w-[18rem]"
                             style={{
-                                background: 'rgba(255,255,255,0.88)',
+                                background: 'rgba(255, 255, 255,0.88)',
                                 borderRadius: 999,
-                                border: '1px solid rgba(111,111,111,0.18)',
-                                boxShadow: '0 6px 18px -6px rgba(23,23,23,0.22)',
+                                border: '1px solid rgba(111, 111, 111,0.18)',
+                                boxShadow: '0 6px 18px -6px rgba(23, 23, 23,0.22)',
                             }}
                         >
                             <span
@@ -1156,16 +1156,16 @@ const DateApp: React.FC = () => {
                 {memoryPalaceResult && (
                     <div
                         className="absolute inset-0 z-[200] flex items-center justify-center p-4 animate-fade-in"
-                        style={{ pointerEvents: 'all', background: 'rgba(23,23,23,0.55)' }}
+                        style={{ pointerEvents: 'all', background: 'rgba(23, 23, 23,0.55)' }}
                         onClick={() => setMemoryPalaceResult(null)}
                     >
                         <div
                             className="w-full max-w-sm max-h-[82vh] overflow-hidden flex flex-col relative"
                             style={{
-                                background: 'linear-gradient(160deg, #ffffff 0%, #f8fafc 100%)',
+                                background: 'linear-gradient(160deg, #ffffff 0%, #fafafa 100%)',
                                 borderRadius: 28,
-                                border: '1px solid rgba(161,161,161,0.18)',
-                                boxShadow: '0 20px 50px -20px rgba(23,23,23,0.35)',
+                                border: '1px solid rgba(161, 161, 161,0.18)',
+                                boxShadow: '0 20px 50px -20px rgba(23, 23, 23,0.35)',
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -1177,8 +1177,8 @@ const DateApp: React.FC = () => {
                                 <div
                                     className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-3"
                                     style={{
-                                        background: 'linear-gradient(135deg, rgba(111,111,111,0.12), rgba(145,145,145,0.06))',
-                                        border: '1px solid rgba(111,111,111,0.15)',
+                                        background: 'linear-gradient(135deg, rgba(111, 111, 111,0.12), rgba(145, 145, 145,0.06))',
+                                        border: '1px solid rgba(111, 111, 111,0.15)',
                                     }}
                                 >
                                     <span style={{ fontSize: 26 }}>🗂️</span>
@@ -1213,9 +1213,9 @@ const DateApp: React.FC = () => {
                                             key={i}
                                             className="p-3 rounded-2xl"
                                             style={{
-                                                background: 'rgba(255,255,255,0.75)',
+                                                background: 'rgba(255, 255, 255,0.75)',
                                                 border: `1px solid ${meta.color}22`,
-                                                boxShadow: `0 2px 8px ${meta.color}14, inset 0 1px 0 rgba(255,255,255,0.8)`,
+                                                boxShadow: `0 2px 8px ${meta.color}14, inset 0 1px 0 rgba(255, 255, 255,0.8)`,
                                             }}
                                         >
                                             <div className="flex items-center gap-2 mb-1.5">
@@ -1232,7 +1232,7 @@ const DateApp: React.FC = () => {
                                                 <div className="flex gap-1 mt-2 flex-wrap">
                                                     {m.tags.map((t, j) => (
                                                         <span key={j} className="text-[9px] px-1.5 py-0.5 rounded-full"
-                                                            style={{ background: 'rgba(161,161,161,0.15)', color: '#737373' }}
+                                                            style={{ background: 'rgba(161, 161, 161,0.15)', color: '#737373' }}
                                                         >{t}</span>
                                                     ))}
                                                 </div>
@@ -1250,7 +1250,7 @@ const DateApp: React.FC = () => {
                                     className="w-full py-3 text-white text-[13px] font-bold rounded-2xl active:scale-[0.98] transition-transform"
                                     style={{
                                         background: 'linear-gradient(135deg, #777777, #555555)',
-                                        boxShadow: '0 6px 18px -6px rgba(83,83,83,0.5)',
+                                        boxShadow: '0 6px 18px -6px rgba(83, 83, 83,0.5)',
                                     }}
                                 >
                                     确认

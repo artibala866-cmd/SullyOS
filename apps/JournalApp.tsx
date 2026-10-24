@@ -25,9 +25,9 @@ const INTRO_SEEN_KEY = 'journal_app_intro_seen_v4';
 
 const PAPER_STYLES = [
     { id: 'plain', name: '白纸', css: 'bg-white', text: 'text-slate-700' },
-    { id: 'grid', name: '网格', css: 'bg-white', text: 'text-slate-700', style: { backgroundImage: 'linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px' } },
-    { id: 'dot', name: '点阵', css: 'bg-[#fafafa]', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#d1d5db 1px, transparent 1px)', backgroundSize: '20px 20px' } },
-    { id: 'lined', name: '横线', css: 'bg-[#f5f5f5]', text: 'text-slate-700', style: { backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, #e5e7eb 23px, #e5e7eb 24px)' } },
+    { id: 'grid', name: '网格', css: 'bg-white', text: 'text-slate-700', style: { backgroundImage: 'linear-gradient(#e7e7e7 1px, transparent 1px), linear-gradient(90deg, #e7e7e7 1px, transparent 1px)', backgroundSize: '20px 20px' } },
+    { id: 'dot', name: '点阵', css: 'bg-[#fafafa]', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#d5d5d5 1px, transparent 1px)', backgroundSize: '20px 20px' } },
+    { id: 'lined', name: '横线', css: 'bg-[#f5f5f5]', text: 'text-slate-700', style: { backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, #e7e7e7 23px, #e7e7e7 24px)' } },
     { id: 'dark', name: '夜空', css: 'bg-slate-800', text: 'text-white/90' },
     { id: 'pink', name: '少女', css: 'bg-neutral-100', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#b3b3b3 2px, transparent 2px)', backgroundSize: '30px 30px' } },
 ];
@@ -832,7 +832,7 @@ ${charPart}
                     <p className="text-sm">写完日记后，点击下方按钮<br/>邀请 {selectedChar?.name} 交换日记。</p>
                     <button
                         onClick={handleExchange}
-                        className="px-6 py-3 bg-neutral-500 hover:bg-neutral-400 text-white text-sm font-bold rounded-full shadow-[0_0_20px_rgba(40,40,40,0.2)] active:scale-95 transition-all mt-2"
+                        className="px-6 py-3 bg-neutral-500 hover:bg-neutral-400 text-white text-sm font-bold rounded-full shadow-[0_0_20px_rgba(40, 40, 40,0.2)] active:scale-95 transition-all mt-2"
                     >
                         查看 TA 的今日
                     </button>
@@ -1001,7 +1001,7 @@ ${charPart}
                     value={journalGroupId} onChange={setJournalGroupId} className="sully-journal-group-filter px-6 pt-4 shrink-0" />
                 <div className="sully-journal-notebook-grid p-6 grid grid-cols-2 gap-5 overflow-y-auto pb-20 no-scrollbar">
                     {filterCharactersByGroup(characters, characterGroups, journalGroupId).map(c => (
-                        <div key={c.id} onClick={() => handleCharSelect(c)} className="sully-journal-notebook aspect-[3/4] bg-white rounded-r-2xl rounded-l-md border-l-4 border-l-amber-800 shadow-[2px_4px_12px_rgba(0,0,0,0.08)] p-4 flex flex-col items-center justify-center gap-3 cursor-pointer active:scale-95 transition-all relative overflow-hidden group">
+                        <div key={c.id} onClick={() => handleCharSelect(c)} className="sully-journal-notebook aspect-[3/4] bg-white rounded-r-2xl rounded-l-md border-l-4 border-l-amber-800 shadow-[2px_4px_12px_rgba(0, 0, 0,0.08)] p-4 flex flex-col items-center justify-center gap-3 cursor-pointer active:scale-95 transition-all relative overflow-hidden group">
                             <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/10 to-transparent"></div>
                             <div className="sully-journal-notebook-avatar w-16 h-16 rounded-full p-[2px] border border-neutral-100 bg-neutral-50">
                                 <TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" />
@@ -1199,7 +1199,7 @@ ${charPart}
             </div>
 
             {/* Bottom Controls */}
-            <div className="sully-journal-bottom-controls shrink-0 bg-[#222] border-t border-white/5 pb-safe pt-2 z-30">
+            <div className="sully-journal-bottom-controls shrink-0 bg-[#222222] border-t border-white/5 pb-safe pt-2 z-30">
                 <div className="sully-journal-tabs flex justify-center gap-4 mb-4 px-4">
                     <button 
                         onClick={() => { setActiveTab('user'); setSelectedStickerId(null); trackEvent('切换日记页标签', { page: 'user' }); }}
@@ -1217,7 +1217,7 @@ ${charPart}
                 </div>
 
                 <div className="flex items-center justify-between px-6 pb-4">
-                    <div className="sully-journal-paper-picker flex gap-3 bg-[#111] p-1.5 rounded-full border border-white/10">
+                    <div className="sully-journal-paper-picker flex gap-3 bg-[#111111] p-1.5 rounded-full border border-white/10">
                         {PAPER_STYLES.slice(0, 4).map(s => (
                             <button 
                                 key={s.id} 

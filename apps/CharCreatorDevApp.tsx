@@ -158,10 +158,10 @@ const CharCreatorDevApp: React.FC = () => {
     }, [parts]);
 
     return (
-        <div className="h-full w-full flex flex-col text-white" style={{ background: 'linear-gradient(180deg,#1a1f2e 0%,#10131c 100%)' }}>
+        <div className="h-full w-full flex flex-col text-white" style={{ background: 'linear-gradient(180deg,#1f1f1f 0%,#131313 100%)' }}>
             <div className="flex items-center gap-2 px-4 pb-2 shrink-0" style={{ paddingTop: 'max(0.75rem, var(--safe-top))' }}>
                 <button onClick={closeApp} className="p-1.5 -ml-1.5 rounded-full active:bg-white/10"><ArrowLeft size={22} weight="bold" /></button>
-                <Wrench size={18} weight="fill" className="text-amber-300" />
+                <Wrench size={18} weight="fill" className="text-neutral-300" />
                 <span className="text-lg font-bold">捏脸部件 · 开发</span>
                 <span className="ml-auto text-[10px] text-white/40">{parts.length} 个自定义</span>
             </div>
@@ -169,22 +169,22 @@ const CharCreatorDevApp: React.FC = () => {
             {/* CharCreatorDev 在 SELF_SAFE_AREA_APPS 名单里（外壳不兜底），底部自己让位 home 条 */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4" style={{ paddingBottom: 'calc(0.75rem + var(--safe-bottom, 0px))' }}>
                 {/* 提示 */}
-                <div className="rounded-xl p-3 border border-amber-400/30 bg-amber-400/10 flex gap-2">
-                    <Warning size={16} weight="fill" className="text-amber-300 mt-0.5 shrink-0" />
-                    <div className="text-[10.5px] text-amber-100/90 leading-relaxed">
+                <div className="rounded-xl p-3 border border-neutral-400/30 bg-neutral-400/10 flex gap-2">
+                    <Warning size={16} weight="fill" className="text-neutral-300 mt-0.5 shrink-0" />
+                    <div className="text-[10.5px] text-neutral-100/90 leading-relaxed">
                         部件须是<b>透明背景 PNG</b>，且与捏人器画布<b>同尺寸、同锚点</b>（整幅图按位置叠层），否则会错位。
                         新部件会注入到「特别时光」和「彼方」的捏人器里——<b>下次打开捏人器</b>时生效。
                     </div>
                 </div>
 
                 {/* PSD 整批导入 */}
-                <div className="rounded-xl p-3 border border-white/10 space-y-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                <div className="rounded-xl p-3 border border-white/10 space-y-2.5" style={{ background: 'rgba(255, 255, 255,0.04)' }}>
                     <div className="text-[12px] font-bold text-white/90 flex items-center gap-1.5">
-                        <FileArrowUp size={14} weight="bold" className="text-amber-300" />
+                        <FileArrowUp size={14} weight="bold" className="text-neutral-300" />
                         PSD 整批导入
                     </div>
                     <button onClick={() => setShowRules(v => !v)}
-                        className="text-[10.5px] font-bold text-amber-200/90 flex items-center gap-1 active:opacity-70">
+                        className="text-[10.5px] font-bold text-neutral-200/90 flex items-center gap-1 active:opacity-70">
                         {showRules ? '▾' : '▸'} PSD 命名规则（给创作者看）
                     </button>
                     {showRules && (
@@ -216,12 +216,12 @@ const CharCreatorDevApp: React.FC = () => {
                         {psdParsing ? '解析中…' : '选择 .psd 文件'}
                     </button>
                     {psdWarnings.map((w, i) => (
-                        <div key={i} className="text-[10px] text-amber-200/80 flex gap-1"><Warning size={12} className="shrink-0 mt-0.5" />{w}</div>
+                        <div key={i} className="text-[10px] text-neutral-200/80 flex gap-1"><Warning size={12} className="shrink-0 mt-0.5" />{w}</div>
                     ))}
                     {psdParts.length > 0 && (
                         <div className="space-y-2">
                             {psdParts.map((p, idx) => (
-                                <div key={idx} className="rounded-lg border border-white/10 p-2 flex gap-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                <div key={idx} className="rounded-lg border border-white/10 p-2 flex gap-2" style={{ background: 'rgba(255, 255, 255,0.03)' }}>
                                     <div className="w-16 h-16 shrink-0 relative rounded overflow-hidden"
                                         style={{ background: 'repeating-conic-gradient(#ffffff10 0% 25%, transparent 0% 50%) 50% / 12px 12px' }}>
                                         {p.shadowSrc && <img src={p.shadowSrc} alt="" className="absolute inset-0 w-full h-full object-contain" />}
@@ -230,7 +230,7 @@ const CharCreatorDevApp: React.FC = () => {
                                     <div className="flex-1 min-w-0 space-y-1">
                                         <div className="flex gap-1.5">
                                             <select value={p.categoryKey || ''} onChange={e => updatePsdPart(idx, { categoryKey: e.target.value || null })}
-                                                className={`text-[10.5px] rounded px-1.5 py-1 bg-white/10 outline-none ${p.categoryKey ? 'text-white' : 'text-red-300 border border-red-400/50'}`}>
+                                                className={`text-[10.5px] rounded px-1.5 py-1 bg-white/10 outline-none ${p.categoryKey ? 'text-white' : 'text-neutral-300 border border-neutral-400/50'}`}>
                                                 <option value="">类目?</option>
                                                 {CC_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                                             </select>
@@ -239,18 +239,18 @@ const CharCreatorDevApp: React.FC = () => {
                                         </div>
                                         <div className="flex items-center gap-2.5 text-[10px] text-white/70">
                                             <label className="flex items-center gap-1">
-                                                <input type="checkbox" checked={p.tintable} onChange={e => updatePsdPart(idx, { tintable: e.target.checked })} className="accent-amber-400 w-3 h-3" />
+                                                <input type="checkbox" checked={p.tintable} onChange={e => updatePsdPart(idx, { tintable: e.target.checked })} className="accent-neutral-400 w-3 h-3" />
                                                 可换色
                                             </label>
-                                            {p.shadowSrc && <span className="flex items-center gap-0.5 text-indigo-300"><MoonStars size={11} weight="fill" />投影</span>}
-                                            <button onClick={() => setPsdParts(prev => prev.filter((_, i) => i !== idx))} className="ml-auto text-red-300/80 active:text-red-300">移除</button>
+                                            {p.shadowSrc && <span className="flex items-center gap-0.5 text-neutral-300"><MoonStars size={11} weight="fill" />投影</span>}
+                                            <button onClick={() => setPsdParts(prev => prev.filter((_, i) => i !== idx))} className="ml-auto text-neutral-300/80 active:text-neutral-300">移除</button>
                                         </div>
-                                        {p.warnings.map((w, i) => <div key={i} className="text-[9.5px] text-amber-200/70">{w}</div>)}
+                                        {p.warnings.map((w, i) => <div key={i} className="text-[9.5px] text-neutral-200/70">{w}</div>)}
                                     </div>
                                 </div>
                             ))}
                             <button onClick={() => void savePsdParts()}
-                                className="w-full rounded-xl py-2.5 text-[13px] font-bold text-black" style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
+                                className="w-full rounded-xl py-2.5 text-[13px] font-bold text-black" style={{ background: 'linear-gradient(135deg,#c1c1c1,#a6a6a6)' }}>
                                 全部加入捏人器（{psdParts.length}）
                             </button>
                             {/* 管理员：把这批 PSD 部件导出成「内置素材包」（PNG 文件 + 清单），可提交进仓库当全员内置 */}
@@ -263,7 +263,7 @@ const CharCreatorDevApp: React.FC = () => {
                 </div>
 
                 {/* 新增表单 */}
-                <div className="rounded-xl p-3 border border-white/10 space-y-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                <div className="rounded-xl p-3 border border-white/10 space-y-2.5" style={{ background: 'rgba(255, 255, 255,0.04)' }}>
                     <div className="text-[12px] font-bold text-white/90">追加部件</div>
                     {/* 类目 */}
                     <div>
@@ -271,7 +271,7 @@ const CharCreatorDevApp: React.FC = () => {
                         <div className="flex flex-wrap gap-1.5">
                             {CC_CATEGORIES.map(c => (
                                 <button key={c.key} onClick={() => setCategoryKey(c.key)}
-                                    className={`text-[11px] rounded-full px-2.5 py-1 font-semibold ${categoryKey === c.key ? 'bg-amber-400 text-black' : 'bg-white/10 text-white/70'}`}>
+                                    className={`text-[11px] rounded-full px-2.5 py-1 font-semibold ${categoryKey === c.key ? 'bg-neutral-400 text-black' : 'bg-white/10 text-white/70'}`}>
                                     {c.label}
                                 </button>
                             ))}
@@ -291,11 +291,11 @@ const CharCreatorDevApp: React.FC = () => {
                     <input value={name} onChange={e => setName(e.target.value)} placeholder={`名称（默认「自定义${labelOf(categoryKey)}」）`}
                         className="w-full rounded-lg bg-white/8 px-3 py-2 text-[13px] text-white placeholder-white/40 outline-none" />
                     <label className="flex items-center gap-2 text-[12px] text-white/80">
-                        <input type="checkbox" checked={tintable} onChange={e => setTintable(e.target.checked)} className="accent-amber-400 w-4 h-4" />
+                        <input type="checkbox" checked={tintable} onChange={e => setTintable(e.target.checked)} className="accent-neutral-400 w-4 h-4" />
                         可换色（tintable）—— 仅当这张图是单色线稿/可着色层时勾选
                     </label>
                     <button onClick={save} disabled={!src}
-                        className="w-full rounded-xl py-2.5 text-[13px] font-bold text-black disabled:opacity-40" style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
+                        className="w-full rounded-xl py-2.5 text-[13px] font-bold text-black disabled:opacity-40" style={{ background: 'linear-gradient(135deg,#c1c1c1,#a6a6a6)' }}>
                         加入捏人器
                     </button>
                 </div>
@@ -320,7 +320,7 @@ const CharCreatorDevApp: React.FC = () => {
                                             style={{ background: 'repeating-conic-gradient(#ffffff10 0% 25%, transparent 0% 50%) 50% / 14px 14px' }}>
                                             <img src={p.src} alt={p.name} className="max-h-full max-w-full object-contain" />
                                             <span className="absolute bottom-0 inset-x-0 bg-black/60 text-[8.5px] text-white/90 px-1 py-0.5 truncate">{p.name}{p.tintable ? ' ·色' : ''}{p.shadowSrc ? ' ·影' : ''}</span>
-                                            <button onClick={() => remove(p.id)} className="absolute top-1 right-1 bg-red-500/90 rounded-full p-1 active:scale-90"><Trash size={11} weight="bold" /></button>
+                                            <button onClick={() => remove(p.id)} className="absolute top-1 right-1 bg-neutral-500/90 rounded-full p-1 active:scale-90"><Trash size={11} weight="bold" /></button>
                                         </div>
                                     ))}
                                 </div>

@@ -57,7 +57,7 @@ const MusicC = {
     bg: '#fafafa', bgDeep: '#f2f2f2', bgTint: '#e9e9e9',
     primary: '#303030', accent: '#525252', soft: '#ededed',
     glow: '#d4d4d4', sakura: '#a3a3a3', lavender: '#737373',
-    surface: 'rgba(255,255,255,0.92)', glass: 'rgba(255,255,255,0.72)',
+    surface: 'rgba(255, 255, 255,0.92)', glass: 'rgba(255, 255, 255,0.72)',
     text: '#202020', muted: '#737373', faint: '#b3b3b3',
     vip: '#525252', danger: '#525252',
 } as const;
@@ -148,14 +148,14 @@ type PaperTheme = {
 };
 
 const PAPER_THEMES: Record<string, PaperTheme> = {
-    'kraft-paper': { background: '#f3f3f3', ink: '#262626', muted: '#737373', rule: 'rgba(86,86,86,.18)', accent: '#525252', sheet: 'rgba(248,248,248,.72)' },
-    'old-photo':   { background: '#ededed', ink: '#262626', muted: '#737373', rule: 'rgba(79,79,79,.16)', accent: '#525252', sheet: 'rgba(252,252,252,.74)' },
-    'ink-wash':    { background: '#e5e5e5', ink: '#262626', muted: '#737373', rule: 'rgba(51,51,51,.14)', accent: '#525252', sheet: 'rgba(252,252,252,.72)' },
-    'dried-rose':  { background: '#efefef', ink: '#262626', muted: '#737373', rule: 'rgba(75,75,75,.14)', accent: '#737373', sheet: 'rgba(249,249,249,.72)' },
-    'midnight':    { background: '#202020', ink: '#fafafa', muted: '#b3b3b3', rule: 'rgba(255,255,255,.12)', accent: '#a3a3a3', sheet: 'rgba(37,37,37,.82)' },
-    'linen':       { background: '#f5f5f5', ink: '#262626', muted: '#737373', rule: 'rgba(73,73,73,.13)', accent: '#737373', sheet: 'rgba(255,255,255,.75)' },
-    'tea-stain':   { background: '#ebebeb', ink: '#262626', muted: '#737373', rule: 'rgba(86,86,86,.15)', accent: '#525252', sheet: 'rgba(249,249,249,.72)' },
-    'forest':      { background: '#e1e1e1', ink: '#262626', muted: '#737373', rule: 'rgba(67,67,67,.14)', accent: '#525252', sheet: 'rgba(252,252,252,.72)' },
+    'kraft-paper': { background: '#f3f3f3', ink: '#262626', muted: '#737373', rule: 'rgba(86, 86, 86,.18)', accent: '#525252', sheet: 'rgba(248, 248, 248,.72)' },
+    'old-photo':   { background: '#ededed', ink: '#262626', muted: '#737373', rule: 'rgba(79, 79, 79,.16)', accent: '#525252', sheet: 'rgba(252, 252, 252,.74)' },
+    'ink-wash':    { background: '#e5e5e5', ink: '#262626', muted: '#737373', rule: 'rgba(51, 51, 51,.14)', accent: '#525252', sheet: 'rgba(252, 252, 252,.72)' },
+    'dried-rose':  { background: '#efefef', ink: '#262626', muted: '#737373', rule: 'rgba(75, 75, 75,.14)', accent: '#737373', sheet: 'rgba(249, 249, 249,.72)' },
+    'midnight':    { background: '#202020', ink: '#fafafa', muted: '#b3b3b3', rule: 'rgba(255, 255, 255,.12)', accent: '#a3a3a3', sheet: 'rgba(37, 37, 37,.82)' },
+    'linen':       { background: '#f5f5f5', ink: '#262626', muted: '#737373', rule: 'rgba(73, 73, 73,.13)', accent: '#737373', sheet: 'rgba(255, 255, 255,.75)' },
+    'tea-stain':   { background: '#ebebeb', ink: '#262626', muted: '#737373', rule: 'rgba(86, 86, 86,.15)', accent: '#525252', sheet: 'rgba(249, 249, 249,.72)' },
+    'forest':      { background: '#e1e1e1', ink: '#262626', muted: '#737373', rule: 'rgba(67, 67, 67,.14)', accent: '#525252', sheet: 'rgba(252, 252, 252,.72)' },
 };
 
 const getPaperTheme = (styleId: string): PaperTheme => {
@@ -176,10 +176,10 @@ const getPaperTheme = (styleId: string): PaperTheme => {
     return {
         background: `linear-gradient(145deg, ${gray(from)} 0%, ${gray(via)} 52%, ${gray(to)} 100%)`,
         ink: '#262626',
-        muted: 'rgba(44,44,44,.62)',
-        rule: 'rgba(44,44,44,.13)',
+        muted: 'rgba(44, 44, 44,.62)',
+        rule: 'rgba(44, 44, 44,.13)',
         accent: '#525252',
-        sheet: 'rgba(255,255,255,.68)',
+        sheet: 'rgba(255, 255, 255,.68)',
     };
 };
 
@@ -1495,7 +1495,7 @@ const SongwritingApp: React.FC = () => {
                 ctx.restore();
                 // 描边
                 ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                ctx.strokeStyle = 'rgba(255, 255, 255,0.85)';
                 ctx.lineWidth = 5;
                 ctx.stroke();
             };
@@ -1509,7 +1509,7 @@ const SongwritingApp: React.FC = () => {
             if (charImg) drawCircle(charImg, SIZE * 0.68, SIZE * 0.55, SIZE * 0.22);
 
             // 顶部小标题
-            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.fillStyle = 'rgba(255, 255, 255,0.95)';
             ctx.font = 'bold 22px Georgia, "Noto Serif SC", serif';
             ctx.textAlign = 'center';
             ctx.fillText('一起写的歌', SIZE / 2, SIZE * 0.18);
@@ -1933,7 +1933,7 @@ const SongwritingApp: React.FC = () => {
                                             border: '1px solid transparent',
                                             fontFamily: `'Noto Serif SC', Georgia, serif`,
                                         } : {
-                                            background: 'rgba(255,255,255,0.7)',
+                                            background: 'rgba(255, 255, 255,0.7)',
                                             color: MusicC.primary,
                                             border: `1px solid ${MusicC.faint}50`,
                                             fontFamily: `'Noto Serif SC', Georgia, serif`,
@@ -1959,7 +1959,7 @@ const SongwritingApp: React.FC = () => {
                         </p>
                         <div
                             className="grid grid-cols-4 p-1 rounded-xl gap-1"
-                            style={{ background: 'rgba(255,255,255,.52)', border: `1px solid ${MusicC.faint}35` }}
+                            style={{ background: 'rgba(255, 255, 255,.52)', border: `1px solid ${MusicC.faint}35` }}
                         >
                             {LYRIC_STYLE_CATEGORIES.map(category => {
                                 const active = tempLyricStyleCategory === category.id;
@@ -1994,7 +1994,7 @@ const SongwritingApp: React.FC = () => {
                                             boxShadow: `0 3px 12px ${MusicC.sakura}45`,
                                             border: '1px solid transparent',
                                         } : {
-                                            background: 'rgba(255,255,255,0.7)',
+                                            background: 'rgba(255, 255, 255,0.7)',
                                             color: MusicC.primary,
                                             border: `1px solid ${MusicC.faint}50`,
                                         }}
@@ -2009,7 +2009,7 @@ const SongwritingApp: React.FC = () => {
                             className="rounded-xl px-3 py-2.5 text-[10px] leading-relaxed"
                             style={{
                                 color: MusicC.muted,
-                                background: `linear-gradient(135deg, ${MusicC.glow}16, rgba(255,255,255,.55))`,
+                                background: `linear-gradient(135deg, ${MusicC.glow}16, rgba(255, 255, 255,.55))`,
                                 border: `1px solid ${MusicC.faint}40`,
                             }}
                         >
@@ -2044,7 +2044,7 @@ const SongwritingApp: React.FC = () => {
                                             border: '1px solid transparent',
                                             fontFamily: `'Noto Serif SC', Georgia, serif`,
                                         } : {
-                                            background: 'rgba(255,255,255,0.7)',
+                                            background: 'rgba(255, 255, 255,0.7)',
                                             color: MusicC.primary,
                                             border: `1px solid ${MusicC.faint}50`,
                                             fontFamily: `'Noto Serif SC', Georgia, serif`,
@@ -2080,7 +2080,7 @@ const SongwritingApp: React.FC = () => {
                                             border: `1.5px solid ${MusicC.accent}80`,
                                             boxShadow: `0 3px 14px ${MusicC.glow}30`,
                                         } : {
-                                            background: 'rgba(255,255,255,0.7)',
+                                            background: 'rgba(255, 255, 255,0.7)',
                                             border: `1px solid ${MusicC.faint}40`,
                                         }}
                                     >
@@ -2107,7 +2107,7 @@ const SongwritingApp: React.FC = () => {
                                     border: `1.5px solid ${MusicC.accent}80`,
                                     boxShadow: `0 3px 14px ${MusicC.glow}30`,
                                 } : {
-                                    background: 'rgba(255,255,255,0.7)',
+                                    background: 'rgba(255, 255, 255,0.7)',
                                     border: `1px solid ${MusicC.faint}40`,
                                 }}
                             >
@@ -2126,7 +2126,7 @@ const SongwritingApp: React.FC = () => {
                         {tempTemplate === 'custom' && (
                             <div
                                 className="mt-3 rounded-2xl px-3 py-3 space-y-2"
-                                style={{ background: 'rgba(255,255,255,.58)', border: `1px solid ${MusicC.faint}45` }}
+                                style={{ background: 'rgba(255, 255, 255,.58)', border: `1px solid ${MusicC.faint}45` }}
                             >
                                 {tempCustomSections.map((section, index) => (
                                     <div key={`${section.section}-${index}`} className="grid grid-cols-[1fr_64px_76px_28px] gap-2 items-center">
@@ -2195,19 +2195,19 @@ const SongwritingApp: React.FC = () => {
                         className="relative w-full rounded-[28px] py-4 font-bold tracking-[0.15em] text-white active:scale-[0.98] transition-transform overflow-hidden"
                         style={{
                             background: `linear-gradient(135deg, ${MusicC.sakura} 0%, ${MusicC.lavender} 100%)`,
-                            boxShadow: `0 8px 28px ${MusicC.sakura}55, 0 0 60px ${MusicC.sakura}25, inset 0 1px 0 rgba(255,255,255,0.4)`,
+                            boxShadow: `0 8px 28px ${MusicC.sakura}55, 0 0 60px ${MusicC.sakura}25, inset 0 1px 0 rgba(255, 255, 255,0.4)`,
                             fontFamily: 'Georgia, "Noto Serif SC", serif',
                         }}
                     >
                         {/* 装饰星星 */}
-                        <Sparkle size={8}  color="#fff" delay={0}   className="absolute top-2 left-6  opacity-80" />
-                        <Sparkle size={6}  color="#fff" delay={0.7} className="absolute bottom-3 left-12 opacity-70" />
-                        <Sparkle size={7}  color="#fff" delay={1.4} className="absolute top-3 right-14 opacity-80" />
-                        <CrossStar size={9} color="#fff" delay={0.5} className="absolute bottom-2 right-6" solid={false} />
+                        <Sparkle size={8}  color="#ffffff" delay={0}   className="absolute top-2 left-6  opacity-80" />
+                        <Sparkle size={6}  color="#ffffff" delay={0.7} className="absolute bottom-3 left-12 opacity-70" />
+                        <Sparkle size={7}  color="#ffffff" delay={1.4} className="absolute top-3 right-14 opacity-80" />
+                        <CrossStar size={9} color="#ffffff" delay={0.5} className="absolute bottom-2 right-6" solid={false} />
                         {/* 移动高光 */}
                         <span className="absolute inset-0 pointer-events-none"
                             style={{
-                                background: `linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%)`,
+                                background: `linear-gradient(105deg, transparent 30%, rgba(255, 255, 255,0.28) 50%, transparent 70%)`,
                                 backgroundSize: '200% 100%',
                                 animation: 'shizuku-shimmer 4s ease-in-out infinite',
                             }} />
@@ -2278,7 +2278,7 @@ const SongwritingApp: React.FC = () => {
                                         border: `1.5px solid ${MusicC.accent}90`,
                                         boxShadow: `0 4px 16px ${MusicC.glow}35`,
                                     } : {
-                                        background: 'rgba(255,255,255,0.75)',
+                                        background: 'rgba(255, 255, 255,0.75)',
                                         border: `1px solid ${MusicC.faint}40`,
                                     }}
                                 >
@@ -2300,13 +2300,13 @@ const SongwritingApp: React.FC = () => {
                             );
                         })}
                         {characters.length === 0 && (
-                            <div className="rounded-2xl p-5 text-center" style={{ background: 'rgba(255,255,255,0.6)', border: `1px dashed ${MusicC.faint}80` }}>
+                            <div className="rounded-2xl p-5 text-center" style={{ background: 'rgba(255, 255, 255,0.6)', border: `1px dashed ${MusicC.faint}80` }}>
                                 <p className="text-[12px]" style={{ color: MusicC.muted }}>还没有可选角色 — 先去创建一个</p>
                             </div>
                         )}
                         {/* 有角色但当前分组筛后为空 */}
                         {characters.length > 0 && partnerChars.length === 0 && (
-                            <div className="rounded-2xl p-5 text-center" style={{ background: 'rgba(255,255,255,0.6)', border: `1px dashed ${MusicC.faint}80` }}>
+                            <div className="rounded-2xl p-5 text-center" style={{ background: 'rgba(255, 255, 255,0.6)', border: `1px dashed ${MusicC.faint}80` }}>
                                 <p className="text-[12px]" style={{ color: MusicC.muted }}>该分组下没有角色</p>
                             </div>
                         )}
@@ -2374,7 +2374,7 @@ const SongwritingApp: React.FC = () => {
                                 ] as const).map(item => (
                                     <label key={item.label} className="space-y-1.5">
                                         <span className="block text-[10px]" style={{ color: MusicC.muted }}>{item.label}</span>
-                                        <div className="rounded-lg overflow-hidden" style={{ height: 28, background: item.color, border: `1px solid ${MusicC.faint}40`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.2)` }}>
+                                        <div className="rounded-lg overflow-hidden" style={{ height: 28, background: item.color, border: `1px solid ${MusicC.faint}40`, boxShadow: `inset 0 1px 0 rgba(255, 255, 255,0.2)` }}>
                                             <input
                                                 type="color"
                                                 value={item.color}
@@ -2402,17 +2402,17 @@ const SongwritingApp: React.FC = () => {
                         className="relative w-full rounded-[28px] py-4 font-bold tracking-[0.15em] text-white active:scale-[0.98] transition-transform overflow-hidden disabled:opacity-50"
                         style={{
                             background: `linear-gradient(135deg, ${MusicC.primary} 0%, ${MusicC.accent} 55%, ${MusicC.lavender} 100%)`,
-                            boxShadow: `0 8px 28px ${MusicC.glow}70, 0 0 70px ${MusicC.lavender}30, inset 0 1px 0 rgba(255,255,255,0.4)`,
+                            boxShadow: `0 8px 28px ${MusicC.glow}70, 0 0 70px ${MusicC.lavender}30, inset 0 1px 0 rgba(255, 255, 255,0.4)`,
                             fontFamily: 'Georgia, "Noto Serif SC", serif',
                         }}
                     >
-                        <Sparkle size={8}  color="#fff" delay={0}   className="absolute top-2 left-7  opacity-80" />
-                        <Sparkle size={6}  color="#fff" delay={0.7} className="absolute bottom-3 left-14 opacity-70" />
-                        <CrossStar size={9} color="#fff" delay={0.4} className="absolute top-2 right-7" solid={false} />
-                        <Sparkle size={7}  color="#fff" delay={1.4} className="absolute bottom-2 right-12 opacity-80" />
+                        <Sparkle size={8}  color="#ffffff" delay={0}   className="absolute top-2 left-7  opacity-80" />
+                        <Sparkle size={6}  color="#ffffff" delay={0.7} className="absolute bottom-3 left-14 opacity-70" />
+                        <CrossStar size={9} color="#ffffff" delay={0.4} className="absolute top-2 right-7" solid={false} />
+                        <Sparkle size={7}  color="#ffffff" delay={1.4} className="absolute bottom-2 right-12 opacity-80" />
                         <span className="absolute inset-0 pointer-events-none"
                             style={{
-                                background: `linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%)`,
+                                background: `linear-gradient(105deg, transparent 30%, rgba(255, 255, 255,0.28) 50%, transparent 70%)`,
                                 backgroundSize: '200% 100%',
                                 animation: 'shizuku-shimmer 4s ease-in-out infinite',
                             }} />
@@ -2532,19 +2532,19 @@ const SongwritingApp: React.FC = () => {
                                     className="relative w-12 h-12 rounded-full shrink-0 flex items-center justify-center overflow-hidden"
                                     style={{
                                         background: `radial-gradient(circle at 35% 35%, ${MusicC.accent}, ${MusicC.primary})`,
-                                        boxShadow: `0 4px 18px ${MusicC.glow}40, inset 0 1px 0 rgba(255,255,255,0.3)`,
+                                        boxShadow: `0 4px 18px ${MusicC.glow}40, inset 0 1px 0 rgba(255, 255, 255,0.3)`,
                                         animation: isPlaying ? 'shizuku-vinyl 6s linear infinite' : 'none',
                                     }}
                                 >
                                     <div
                                         className="absolute inset-1 rounded-full pointer-events-none"
-                                        style={{ background: `repeating-radial-gradient(circle at center, transparent 0px, transparent 2px, rgba(255,255,255,0.08) 3px, transparent 4px)` }}
+                                        style={{ background: `repeating-radial-gradient(circle at center, transparent 0px, transparent 2px, rgba(255, 255, 255,0.08) 3px, transparent 4px)` }}
                                     />
                                     <div
                                         className="w-4 h-4 rounded-full"
                                         style={{
                                             background: `radial-gradient(circle at 30% 30%, white, ${MusicC.soft})`,
-                                            boxShadow: `inset 0 1px 2px rgba(0,0,0,0.15)`,
+                                            boxShadow: `inset 0 1px 2px rgba(0, 0, 0,0.15)`,
                                         }}
                                     />
                                 </div>
@@ -2620,7 +2620,7 @@ const SongwritingApp: React.FC = () => {
                                     )}
                                     <div
                                         className="absolute inset-[-3px] rounded-full pointer-events-none"
-                                        style={{ border: `1px solid rgba(255,255,255,0.25)` }}
+                                        style={{ border: `1px solid rgba(255, 255, 255,0.25)` }}
                                     />
                                 </button>
                             </div>
@@ -2709,7 +2709,7 @@ const SongwritingApp: React.FC = () => {
                                         <div
                                             className="absolute inset-0 pointer-events-none"
                                             style={{
-                                                background: `linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%)`,
+                                                background: `linear-gradient(90deg, transparent 30%, rgba(255, 255, 255,0.25) 50%, transparent 70%)`,
                                                 backgroundSize: '200% 100%',
                                                 animation: 'shizuku-shimmer 3.5s ease-in-out infinite',
                                             }}
@@ -2769,7 +2769,7 @@ const SongwritingApp: React.FC = () => {
                             <div
                                 className="relative w-44 h-44 rounded-2xl overflow-hidden"
                                 style={{
-                                    boxShadow: `0 8px 32px ${MusicC.glow}50, inset 0 1px 0 rgba(255,255,255,0.5)`,
+                                    boxShadow: `0 8px 32px ${MusicC.glow}50, inset 0 1px 0 rgba(255, 255, 255,0.5)`,
                                     border: `1px solid ${MusicC.glow}40`,
                                 }}
                             >
@@ -2810,7 +2810,7 @@ const SongwritingApp: React.FC = () => {
                                 )}
                                 {/* 黑胶反光 */}
                                 <div className="absolute inset-0 pointer-events-none"
-                                    style={{ background: 'linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%)' }} />
+                                    style={{ background: 'linear-gradient(45deg, transparent 40%, rgba(255, 255, 255,0.18) 50%, transparent 60%)' }} />
                             </div>
                         </div>
 
@@ -2853,14 +2853,14 @@ const SongwritingApp: React.FC = () => {
                                             borderColor: 'transparent',
                                             boxShadow: `0 3px 14px ${MusicC.glow}50`,
                                         } : {
-                                            background: 'rgba(255,255,255,0.7)',
+                                            background: 'rgba(255, 255, 255,0.7)',
                                             color: MusicC.text,
                                             borderColor: `${MusicC.faint}50`,
                                         }}
                                     >
                                         <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0"
                                             style={{
-                                                border: `1.5px solid ${active ? 'rgba(255,255,255,0.6)' : `${MusicC.faint}50`}`,
+                                                border: `1.5px solid ${active ? 'rgba(255, 255, 255,0.6)' : `${MusicC.faint}50`}`,
                                             }}>
                                             {opt.src ? (
                                                 <TokenImg value={opt.src} alt="" className="w-full h-full object-cover" />
@@ -2909,7 +2909,7 @@ const SongwritingApp: React.FC = () => {
                                 onClick={() => setShowCoverConfirm(false)}
                                 className="flex-1 py-3 rounded-xl text-[11px] font-medium tracking-wider transition-all active:scale-[0.98]"
                                 style={{
-                                    background: 'rgba(255,255,255,0.7)',
+                                    background: 'rgba(255, 255, 255,0.7)',
                                     color: MusicC.muted,
                                     border: `1px solid ${MusicC.faint}50`,
                                 }}
@@ -2921,7 +2921,7 @@ const SongwritingApp: React.FC = () => {
                                     onClick={handleRemoveFromAlbum}
                                     className="flex-1 py-3 rounded-xl text-[11px] font-medium tracking-wider transition-all active:scale-[0.98]"
                                     style={{
-                                        background: 'rgba(255,255,255,0.7)',
+                                        background: 'rgba(255, 255, 255,0.7)',
                                         color: MusicC.danger,
                                         border: `1px solid ${MusicC.danger}40`,
                                     }}
@@ -2957,7 +2957,7 @@ const SongwritingApp: React.FC = () => {
                                 onClick={() => setShowCustomPrompt(false)}
                                 className="flex-1 py-3 rounded-xl text-[12px] font-medium tracking-wider transition-all active:scale-[0.98]"
                                 style={{
-                                    background: 'rgba(255,255,255,0.7)',
+                                    background: 'rgba(255, 255, 255,0.7)',
                                     color: MusicC.muted,
                                     border: `1px solid ${MusicC.faint}50`,
                                 }}
@@ -2975,7 +2975,7 @@ const SongwritingApp: React.FC = () => {
                                     color: 'white',
                                     boxShadow: cooldownSecsLeft > 0
                                         ? 'none'
-                                        : `0 6px 22px ${MusicC.glow}70, 0 0 60px ${MusicC.lavender}30, inset 0 1px 0 rgba(255,255,255,0.35)`,
+                                        : `0 6px 22px ${MusicC.glow}70, 0 0 60px ${MusicC.lavender}30, inset 0 1px 0 rgba(255, 255, 255,0.35)`,
                                     fontFamily: 'Georgia, "Noto Serif SC", serif',
                                 }}
                             >
@@ -2983,7 +2983,7 @@ const SongwritingApp: React.FC = () => {
                                 {cooldownSecsLeft === 0 && (
                                     <span className="absolute inset-0 pointer-events-none"
                                         style={{
-                                            background: `linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%)`,
+                                            background: `linear-gradient(105deg, transparent 30%, rgba(255, 255, 255,0.28) 50%, transparent 70%)`,
                                             backgroundSize: '200% 100%',
                                             animation: 'shizuku-shimmer 4s ease-in-out infinite',
                                         }} />
@@ -3033,11 +3033,11 @@ const SongwritingApp: React.FC = () => {
                                                         borderColor: 'transparent',
                                                         boxShadow: `0 3px 14px ${MusicC.glow}50`,
                                                     } : opt.available ? {
-                                                        background: 'rgba(255,255,255,0.7)',
+                                                        background: 'rgba(255, 255, 255,0.7)',
                                                         color: MusicC.text,
                                                         borderColor: `${MusicC.faint}50`,
                                                     } : {
-                                                        background: 'rgba(0,0,0,0.03)',
+                                                        background: 'rgba(0, 0, 0,0.03)',
                                                         color: MusicC.faint,
                                                         borderColor: `${MusicC.faint}30`,
                                                         opacity: 0.55,
@@ -3089,7 +3089,7 @@ const SongwritingApp: React.FC = () => {
                                                 borderColor: 'transparent',
                                                 boxShadow: `0 3px 14px ${MusicC.glow}50`,
                                             } : {
-                                                background: 'rgba(255,255,255,0.7)',
+                                                background: 'rgba(255, 255, 255,0.7)',
                                                 color: MusicC.primary,
                                                 borderColor: `${MusicC.faint}50`,
                                             }}
@@ -3177,7 +3177,7 @@ const SongwritingApp: React.FC = () => {
                                 rows={3}
                                 className="w-full rounded-xl px-3 py-2 text-[12px] font-mono focus:outline-none transition-colors resize-none"
                                 style={{
-                                    background: '#0d1418',
+                                    background: '#131313',
                                     color: '#555555',
                                     border: `1px solid ${MusicC.primary}40`,
                                 }}
@@ -3265,7 +3265,7 @@ const SongwritingApp: React.FC = () => {
         const discussionPlaceholder = `可以和 ${collaborator?.name || 'C'} 聊：${
             discussionSuggestions[(filledCount + activeSong.comments.length) % discussionSuggestions.length]
         }……`;
-        const paperBackground = `radial-gradient(circle at 14% 10%, rgba(255,255,255,.24) 0 1px, transparent 1.5px), radial-gradient(circle at 80% 35%, rgba(70,55,45,.05) 0 1px, transparent 1.5px), ${paper.background}`;
+        const paperBackground = `radial-gradient(circle at 14% 10%, rgba(255, 255, 255,.24) 0 1px, transparent 1.5px), radial-gradient(circle at 80% 35%, rgba(57, 57, 57,.05) 0 1px, transparent 1.5px), ${paper.background}`;
 
         return (
             <div
@@ -3357,13 +3357,13 @@ const SongwritingApp: React.FC = () => {
                     <div className="px-4 pb-3">
                         <div
                             className="grid grid-cols-2 p-1 rounded-2xl"
-                            style={{ background: 'rgba(0,0,0,.055)' }}
+                            style={{ background: 'rgba(0, 0, 0,.055)' }}
                         >
                             <button
                                 onClick={() => setWorkMode('notebook')}
                                 className="flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-semibold transition-all duration-300"
                                 style={workMode === 'notebook'
-                                    ? { background: paper.sheet, color: paper.ink, boxShadow: '0 2px 10px rgba(0,0,0,.08)' }
+                                    ? { background: paper.sheet, color: paper.ink, boxShadow: '0 2px 10px rgba(0, 0, 0,.08)' }
                                     : { color: paper.muted }}
                             >
                                 <BookOpenText size={14} weight={workMode === 'notebook' ? 'fill' : 'regular'} />
@@ -3373,7 +3373,7 @@ const SongwritingApp: React.FC = () => {
                                 onClick={() => setWorkMode('chat')}
                                 className="flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-semibold transition-all duration-300"
                                 style={workMode === 'chat'
-                                    ? { background: paper.sheet, color: paper.ink, boxShadow: '0 2px 10px rgba(0,0,0,.08)' }
+                                    ? { background: paper.sheet, color: paper.ink, boxShadow: '0 2px 10px rgba(0, 0, 0,.08)' }
                                     : { color: paper.muted }}
                             >
                                 <ChatCircleDots size={14} weight={workMode === 'chat' ? 'fill' : 'regular'} />
@@ -3398,7 +3398,7 @@ const SongwritingApp: React.FC = () => {
                                         onClick={() => setLyricStyleCategory(category.id)}
                                         className="shrink-0 px-2.5 py-1 rounded-full text-[9px] font-semibold transition-all"
                                         style={active
-                                            ? { color: '#fff', background: paper.ink }
+                                            ? { color: '#ffffff', background: paper.ink }
                                             : { color: paper.muted }}
                                     >
                                         {category.shortLabel}
@@ -3417,7 +3417,7 @@ const SongwritingApp: React.FC = () => {
                                         onClick={() => updateActiveLyricStyle(style.id)}
                                         className="shrink-0 px-3 py-1.5 rounded-full text-[9px] transition-all"
                                         style={active
-                                            ? { color: '#fff', background: paper.accent, border: '1px solid transparent' }
+                                            ? { color: '#ffffff', background: paper.accent, border: '1px solid transparent' }
                                             : { color: paper.muted, border: `1px solid ${paper.rule}` }}
                                     >
                                         {style.shortLabel}
@@ -3467,7 +3467,7 @@ const SongwritingApp: React.FC = () => {
                                         onClick={() => setCurrentSection(toSectionKind(key))}
                                         className="shrink-0 px-2.5 py-1 rounded-full text-[9px] transition-all"
                                         style={currentSection === key
-                                            ? { color: '#fff', background: paper.accent }
+                                            ? { color: '#ffffff', background: paper.accent }
                                             : { color: paper.muted, border: `1px solid ${paper.rule}` }}
                                     >
                                         下一句 · {info.label}
@@ -3480,7 +3480,7 @@ const SongwritingApp: React.FC = () => {
                             className="relative max-w-2xl mx-auto rounded-[24px] overflow-hidden"
                             style={{
                                 background: paper.sheet,
-                                boxShadow: '0 18px 50px rgba(54,43,37,.13), inset 0 1px 0 rgba(255,255,255,.45)',
+                                boxShadow: '0 18px 50px rgba(45, 45, 45,.13), inset 0 1px 0 rgba(255, 255, 255,.45)',
                                 border: `1px solid ${paper.rule}`,
                             }}
                         >
@@ -3548,7 +3548,7 @@ const SongwritingApp: React.FC = () => {
                                                     onClick={() => handleGenerateNotebookLine(slot)}
                                                     disabled={generatingSlotIndex !== null}
                                                     className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all disabled:opacity-45"
-                                                    style={{ color: paper.ink, border: `1px solid ${paper.rule}`, background: 'rgba(255,255,255,.24)' }}
+                                                    style={{ color: paper.ink, border: `1px solid ${paper.rule}`, background: 'rgba(255, 255, 255,.24)' }}
                                                     title={line ? `让 ${collaborator?.name || 'C'} 重写第 ${slot.index + 1} 句` : `让 ${collaborator?.name || 'C'} 生成第 ${slot.index + 1} 句`}
                                                     aria-label={line ? '刷新这一句' : '生成这一句'}
                                                 >
@@ -3594,7 +3594,7 @@ const SongwritingApp: React.FC = () => {
                                                 <div
                                                     className={`px-4 py-3 text-[13px] leading-6 ${isUserMessage ? 'rounded-[18px_18px_5px_18px]' : 'rounded-[18px_18px_18px_5px]'}`}
                                                     style={isUserMessage
-                                                        ? { background: paper.accent, color: '#fff' }
+                                                        ? { background: paper.accent, color: '#ffffff' }
                                                         : { background: paper.sheet, color: paper.ink, border: `1px solid ${paper.rule}` }}
                                                 >
                                                     <p className="whitespace-pre-wrap">{lead.content}</p>
@@ -3652,7 +3652,7 @@ const SongwritingApp: React.FC = () => {
                                     onClick={handleDiscuss}
                                     disabled={isTyping || !inputText.trim()}
                                     className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform disabled:opacity-35"
-                                    style={{ background: paper.accent, color: '#fff' }}
+                                    style={{ background: paper.accent, color: '#ffffff' }}
                                     aria-label="发送讨论"
                                 >
                                     <ChatCircleDots size={17} weight="fill" />
