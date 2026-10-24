@@ -389,7 +389,7 @@ const McpConnectionConsole: React.FC<{
                                     </div>
 
                                     {state && (
-                                        <div className={`mt-3 flex items-start gap-2 rounded-lg px-3 py-2 text-[9px] leading-relaxed ${state.tone === 'ok' ? 'bg-neutral-50 text-neutral-700' : state.tone === 'running' ? 'bg-neutral-100 text-neutral-700' : state.tone === 'stale' ? 'bg-neutral-50 text-neutral-700' : 'bg-neutral-50 text-neutral-600'}`}>
+                                        <div className={`mt-3 flex items-start gap-2 rounded-lg px-3 py-2 text-[9px] leading-relaxed ${state.tone === 'ok' ? 'bg-neutral-50 text-neutral-700' : state.tone === 'running' ? 'bg-sky-50 text-sky-700' : state.tone === 'stale' ? 'bg-neutral-50 text-neutral-700' : 'bg-neutral-50 text-neutral-600'}`}>
                                             {state.tone === 'ok' ? <CheckCircle size={13} className="mt-0.5 shrink-0" /> : state.tone === 'running' ? <SpinnerGap size={13} className="mt-0.5 shrink-0 animate-spin" /> : <WarningCircle size={13} className="mt-0.5 shrink-0" />}
                                             <span>{state.message}</span>
                                         </div>
