@@ -57,6 +57,9 @@ export const isChunkLoadError = (err: unknown): boolean => {
  * 返回 true = 已发起刷新 (页面即将消失); false = 冷却期内/存储不可用, 调用方应展示手动刷新按钮。
  */
 export const tryAutoReloadForChunkError = (): boolean => {
+    // A reload cannot download missing code while offline; keep the usable page and offer retry.
+    // Do not consume the cooldown while offline so a later online retry can recover.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
     let allowed = false;
     try {
         const last = parseInt(sessionStorage.getItem(RELOAD_MARK_KEY) || '0', 10) || 0;
