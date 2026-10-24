@@ -24,17 +24,31 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
  if(!a.rig||!b.rig)return;
  if(action==='home-hug'){if(seatedIndex===0||seatedIndex===1)poseSeatedHug(both,time,seatedIndex);else poseHug(both,time);return;}
  if(action==='home-kiss'){
-  const hold=smooth(time,.8,2.2)*(1-smooth(time,6.6,8));
-  const kiss=smooth(time,3.1,4)*(1-smooth(time,5.4,6.3));
+  // First meet eyes, then slowly align heads; maintain the kiss before easing away.
+  const hands=smooth(time,1.65,3.1)*(1-smooth(time,10.5,12));
+  const gaze=smooth(time,2.1,3.5)*(1-smooth(time,10.4,12));
+  const kiss=smooth(time,4.2,5.4)*(1-smooth(time,9,10.7));
+  const heads=both.map(r=>r.visitor.getHeadWorldPosition());
   both.forEach((owner,i)=>{
    const v=owner.visitor,partner=both[1-i].visitor;
-   v.rig!.bones.neck.quaternion.multiply(rotation(.05*kiss,0,(i===0?-.06:.06)*kiss));
-   v.rig!.bones.head.quaternion.multiply(rotation(.08*kiss,0,(i===0?-.07:.07)*kiss));
+   const delta=heads[1-i].clone().sub(heads[i]);
+   // Aim at the other character's actual head height. Share the height
+   // difference between both necks instead of forcing a fixed downward nod.
+   const distance=Math.max(.5,Math.hypot(delta.x,delta.z));
+   const pitch=T.MathUtils.clamp(Math.atan2(delta.y,distance)*.55,-.20,.20);
+   const roll=(i===0?-.075:.075)*kiss;
+   v.rig!.bones.neck.quaternion.multiply(rotation(pitch*gaze*.55,0,roll*.4));
+   v.rig!.bones.head.quaternion.multiply(rotation(pitch*gaze*.45+.035*kiss,0,roll));
    v.root.updateWorldMatrix(true,true);partner.root.updateWorldMatrix(true,true);
-   const side=i===0?'R':'L',otherSide=i===0?'L':'R';
-   const target=v.rig!.bones[side+'_hand'].getWorldPosition(new T.Vector3())
-    .lerp(partner.rig!.bones[otherSide+'_hand'].getWorldPosition(new T.Vector3()),.5);
-   owner.solver?.({side,point:target,direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(v.root.quaternion),normal:new T.Vector3(0,1,0),curl:.2},hold);
+  });
+  // Solve a shared hand contact after both heads have settled.
+  const sides=['R','L'] as const;
+  const handA=a.rig.bones.R_hand.getWorldPosition(new T.Vector3());
+  const handB=b.rig.bones.L_hand.getWorldPosition(new T.Vector3());
+  const target=handA.add(handB).multiplyScalar(.5);
+  both.forEach((owner,i)=>{
+   const side=sides[i],v=owner.visitor;
+   owner.solver?.({side,point:target,direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(v.root.quaternion),normal:new T.Vector3(0,1,0),curl:.2},hands);
   });
   return;
  }
