@@ -904,7 +904,7 @@ export const useChatAI = ({
                 onPreparationStage:event=>{if(event.status==='end')perfStages['payload.'+event.stage]=event.ms;},
             })));
             const avatarLibrary = readCharacterAvatarLibrary(char.id);
-            const avatarCandidates = avatarLibrary.autonomousEnabled ? avatarLibrary.entries.slice(0, 24) : [];
+            const avatarCandidates = avatarLibrary.autonomousEnabled ? avatarLibrary.entries.filter(e => !!e.visionDescription).slice(0, 24) : [];
             // Puff-style: only images in the current user's consecutive turn are numbered.
             // Do not scan older conversation photos or auto-add images to the library.
             const currentTurnImages: string[] = [];
@@ -917,8 +917,9 @@ export const useChatAI = ({
                 + (currentTurnImages.length ? '本轮用户图片按顺序编号为1至' + currentTurnImages.length + '。' : '本轮没有新图片，不要指定图片。')
                 + '使用本轮图片时输出 {"t":"set_avatar","n":1}（n为图片序号）；使用用户当前头像时输出 {"t":"set_avatar","src":"user_avatar"}。普通图片不是换头像指令。\n';
             const avatarInstruction = avatarLibrary.autonomousEnabled && avatarCandidates.length
-                ? '\n[头像库]可以自主从已收藏头像中选择：' + avatarCandidates.map(e => e.id).join(', ')
-                    + '。选择时输出 <char_avatar_choice id="头像ID"/>。不要与 set_avatar 同时输出。\n'
+                ? '\n[头像库·已识图]你可以结合自己的当前心情与对话语境自主选择真正合适的一张收藏头像。'
+                    + avatarCandidates.map(e => e.id + '（' + e.visionDescription!.slice(0, 260) + '）').join('；')
+                    + '。如果没有适合的，不要换。选择时输出 <char_avatar_choice id="头像ID"/>。不要与 set_avatar 同时输出。未识图图片不可选。\n'
                 : '';
             payload.fullMessages.unshift({ role: 'system', content: puffAvatarInstruction + avatarInstruction } as any);
             const systemPrompt = payload.systemPrompt + puffAvatarInstruction + avatarInstruction;
