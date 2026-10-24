@@ -88,7 +88,6 @@ function contacts(both:ReturnType<typeof states.get>[],frames:MotionFrame[],weig
    const passing=session!.action==='cmu-22_13';
    if(passing)continue; // The cup owns the two opposed grip targets during handover.
    const bodyProfile=profile?.kind==='bodyTouch'?profile:null;
-   const shoulders=!!bodyProfile;
    const choices=(passing?[i===0?'R_hand':'L_hand']:bodyProfile?bodyProfile.targetBones:['L_hand','R_hand']).map(n=>({n,d:a.distanceTo(frames[j].points[n])})).sort((a,b)=>a.d-b.d),nearest=choices[0];
    const near=bodyProfile?.near??(passing?.5:.20),far=bodyProfile?.far??(passing?.6:.36);
    if(nearest.d>far||handled.has(i+from))continue;
