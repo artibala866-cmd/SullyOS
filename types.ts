@@ -2316,7 +2316,7 @@ export interface SpecialMomentRecord {
 // --- QQ捏人工坊（神经链接） ---
 
 /** 工坊槽位：room=小小窝房间立绘 / vr=彼方 chibi / like520=特别时光 520 大头贴 */
-export type ChibiStudioSlotId = 'room' | 'vr' | 'like520';
+export type ChibiStudioSlotId = 'room' | 'like520';
 
 export interface ChibiStudioSlot {
     /** 捏人器导出的完整 state（选件+换色+翻转…），再编辑时经 init.savedState 整套还原 */
