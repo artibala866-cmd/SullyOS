@@ -51,3 +51,13 @@ export function residentSeparationStep(mover,anchor,{
  }
  return null;
 }
+
+/** Choose who yields when two body shells intersect. Never displace a seated
+ * or rising resident, and prefer the character over the user whenever free. */
+export function chooseResidentToYield(first,second,preferredId){
+ if(first.canMove&&first.id===preferredId)return 'first';
+ if(second.canMove&&second.id===preferredId)return 'second';
+ if(first.canMove&&!second.canMove)return 'first';
+ if(second.canMove)return 'second';
+ return first.canMove?'first':null;
+}
