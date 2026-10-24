@@ -863,7 +863,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function nearbyResidents(){const r=current();return socialEntries.filter(e=>e.group.visible).map(e=>[e.group.position.x+r.x*ROOM_STEP.x,e.group.position.z+r.z*ROOM_STEP.z]);}
  function residentWalkMap(start){return withResidents(navMap(),nearbyResidents(),start);}
  function updateWalk(){
-  if(!walking)return;let remaining=Math.max(0,elapsed-walking.last)*(visitor?.walkSpeed??(visitor?.rig?1.05:1.45));walking.last=elapsed;
+  if(!walking)return;let remaining=Math.max(0,elapsed-walking.last)*(visitor?.walkSpeed??(visitor?.rig?1.05:1.45))*.82;walking.last=elapsed;
   while(walking&&walking.index<walking.path.length){const p=walking.path[walking.index],dx=p[0]-visitorLocation.x,dz=p[1]-visitorLocation.z,length=Math.hypot(dx,dz);
    // A moving neighbour may enter a route after it was planned. Stop the walker,
    // never move the neighbour or respawn either resident.
@@ -983,7 +983,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const workPose=workHands&&kitchenTask.stage!=='approach'?{kind:kitchenTask.kind,hands:workHands,carrying:kitchenTask.stage!=='work',...(kitchenTask.stage==='sip'?{clip:'coffee-drink',clipTime:elapsed-kitchenTask.phaseStart}:{})}:null;
   const petPose=petSystem?.contactPose();
   if(petPose&&petPose.actorId===activeResidentId())visitor.animate(petPose.time,walking?'walk':'idle','standing',petPose.activity);
-  else visitor?.animate(reducedMotion&&visitorMotion==='rhythm'?1:poseTime,bathPose&&bathPose.bathPhase!=='work'&&bathPose.posture!=='seated'?'walk':visitorMotion,visitorActivity?.posture||(visitorSeat?.bed?'lying':visitorSeat?'seated':'standing'),seatPose||bathPose||workPose||(hug?{...currentSeatPose(),kind:'hug',hands:hug.hands}:visitorMotion==='walk'?null:visitorActivity?{...currentSeatPose(),...visitorActivity}:currentSeatPose()));
+  else visitor?.animate(reducedMotion&&visitorMotion==='rhythm'?1:visitorMotion==='walk'?poseTime*.82:poseTime,bathPose&&bathPose.bathPhase!=='work'&&bathPose.posture!=='seated'?'walk':visitorMotion,visitorActivity?.posture||(visitorSeat?.bed?'lying':visitorSeat?'seated':'standing'),seatPose||bathPose||workPose||(hug?{...currentSeatPose(),kind:'hug',hands:hug.hands}:visitorMotion==='walk'?null:visitorActivity?{...currentSeatPose(),...visitorActivity}:currentSeatPose()));
   petSystem?.placeHeld();
   kitchenWork.update(kitchenTask,reducedMotion?1:elapsed-(kitchenTask?.phaseStart||0),workHands?(visitor?.rig&&kitchenTask?.kind==='coffee'?kitchenHandPositions(workHands).reverse():kitchenHandPositions(workHands)):[],visitor?.rig&&kitchenTask?.kind==='coffee'?coffeeGrip(resident,visitor.rig):null);
   gamingEffects.update(objects,visitorActivity,time);kitchenEffects.updateMeal(visitorActivity,time,visitor?.rig&&visitorActivity?.kind==='eat'?diningGrip(resident,visitor.rig):null);
