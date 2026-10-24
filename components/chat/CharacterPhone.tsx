@@ -325,11 +325,14 @@ ${scheduleContext}
       if (messages.length < 8 || !messages.some(m => m.speaker.role === 'owner') || !messages.some(m => m.speaker.role === 'contact')) throw new Error('生成不足8条有效消息或缺少一方发言，请重试（本次未保存）');
       const npc = profile.name;
       if (!npc) throw new Error('NPC 名称为空');
-      const existing = target;
+      // Rebase on current storage *after* the API call; an autonomous NPC
+      // message may have arrived while the user's manual generation ran.
+      const stored = readCharacterPhoneChats(characterId);
+      const existing = stored.find(r => r.contactId === profile.id);
       const next: ChatRecord = { id: existing?.id || crypto.randomUUID(), contactId: profile.id, name: npc, preview: messages[messages.length - 1].text, time: Date.now(), messages: [...(existing?.messages || []), ...messages.map((m,i)=>({...m,createdAt:Date.now()-(messages.length-1-i)*25000}))] };
-      try { localStorage.setItem(storageKey, JSON.stringify([next, ...records.filter(r => r.id !== existing?.id)])); }
+      try { updateCharacterPhoneChats(characterId, () => [next, ...stored.filter(r => r.id !== existing?.id)]); }
       catch { setError('聊天记录保存失败，本次不记录生活事件'); return; }
-      setRecords([next, ...records.filter(r => r.id !== existing?.id)]); notifyCharacterPhoneChatsChanged(characterId);
+      setRecords(readCharacterPhoneChats(characterId));
       noteNpcInteraction(characterId, profile.id, next.time);
       setTab('chats');
       recordCharacterLifeEvent({ id: 'npc-chat:' + next.id + ':' + next.time, characterId, kind: 'npc-chat', occurredAt: next.time, source: 'phone', summary: '已保存的微信对话：' + messages.slice(-12).map(m => (m.speaker.role === 'owner' ? name : npc) + '：' + m.text.trim()).join('；').slice(0, 1200), contactId: profile.id });
