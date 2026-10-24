@@ -3,6 +3,7 @@ import {
   CHARACTER_PHONE_CONTACT_CHANGED, type NpcProfile,
 } from './characterPhoneNpcs';
 import { queuePendingContact, readPendingContacts } from './characterPhoneRequests';
+import type { PhoneMessage } from './characterPhoneIdentity';
 
 /** Character-owned social identity resolver.
  * User, phone owner and NPC identities are never matched by display name alone.
@@ -120,12 +121,28 @@ export function registerDiscoveredNpc(
 }
 
 /** Relationship continuity after a *saved* phone exchange; never edits character cards. */
-export function noteNpcInteraction(characterId: string, contactId: string, at = Date.now()): void {
+export function noteNpcInteraction(
+  characterId: string, contactId: string, at = Date.now(), savedMessages: PhoneMessage[] = [],
+): void {
   const old = readNpcProfiles(characterId);
   const p = old.find(row => row.id === contactId);
   if (!p || !Number.isFinite(at) || at <= (p.lastInteractedAt || 0)) return;
+  // Only retain unresolved-topic hints actually present in saved chat messages.
+  // "We discussed tomorrow" is evidence of discussion, not proof that the
+  // future meeting occurred. No extra LLM call or invented relationship state.
+  const meaningful = savedMessages.filter(m =>
+    typeof m.text === 'string' && m.text.trim().length >= 10 &&
+    /明天|后天|下周|约|见面|吵|生气|道歉|考试|项目|工作|借|还|搬|旅行|医院|电话|重要|秘密|承诺|安排|计划|改天|下次|周末/.test(m.text)
+  ).slice(-2);
+  const addedNotes = meaningful.map(m =>
+    '[' + new Date(at).toLocaleDateString('zh-CN') + '微信提及] ' +
+    (m.speaker.role === 'owner' ? 'Char：' : 'NPC：') + m.text.trim().slice(0, 125));
+  const oldNotes = (p.relationshipNotes || '').split('\n').filter(Boolean);
+  const nextNotes = [...oldNotes, ...addedNotes.filter(note => !oldNotes.includes(note))]
+    .slice(-6).join('\n').slice(-1000);
   const next: NpcProfile = {
     ...p, lastInteractedAt: at, interactionCount: Math.min(10000, (p.interactionCount || 0) + 1),
+    ...(nextNotes ? { relationshipNotes: nextNotes } : {}),
   };
   try {
     saveNpcProfiles(characterId, old.map(row => row.id === contactId ? next : row));
