@@ -14,6 +14,7 @@ const CHUNK_ERROR_TITLE = '\u8d44\u6e90\u52a0\u8f7d\u5931\u8d25';
 const CHUNK_ERROR_HINT = '页面组件未能加载或解析，可能与网络中断或版本更新有关。可以刷新重试；如果仍然报错，请复制报错信息反馈。';
 const CHUNK_ERROR_RELOADING = '\u6b63\u5728\u81ea\u52a8\u5237\u65b0\u6062\u590d\u2026';
 const CHUNK_ERROR_RELOAD_LABEL = '\u5237\u65b0\u91cd\u8bd5';
+const CHUNK_ERROR_RECOVERY_LABEL = '检查更新并修复';
 
 type AppErrorBoundaryProps = {
     children: React.ReactNode;
@@ -185,6 +186,7 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
                     <h2 className="text-lg font-bold">{CHUNK_ERROR_TITLE}</h2>
                     <p className="text-xs text-slate-300 max-w-xs leading-relaxed">
                         {CHUNK_ERROR_HINT}
+                        {import.meta.env.MODE !== 'capacitor' && ' 刷新无效时，可以检查更新并修复。'}
                     </p>
                     <p className="text-xs text-slate-300 font-mono bg-black/30 p-3 rounded-2xl max-w-full overflow-auto max-h-40 select-text break-all whitespace-pre-wrap">
                         {this.state.error?.message || 'Unknown Error'}
@@ -200,6 +202,14 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
                             >
                                 {CHUNK_ERROR_RELOAD_LABEL}
                             </button>
+                            {import.meta.env.MODE !== 'capacitor' && (
+                                <a
+                                    href={`${import.meta.env.BASE_URL}recover.html`}
+                                    className="w-full px-4 py-2 bg-slate-700 rounded-full text-xs font-bold active:scale-95 transition-transform"
+                                >
+                                    {CHUNK_ERROR_RECOVERY_LABEL}
+                                </a>
+                            )}
                             <button
                                 type="button"
                                 onClick={this.handleCopy}
