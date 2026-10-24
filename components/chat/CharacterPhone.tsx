@@ -106,13 +106,16 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
     return () => { live = false; window.clearInterval(timer); };
   }, [char.id, char.customTimezone, char.customTimezoneEnabled]);
   const [busy, setBusy] = useState(false);
-  const autoAttempted = useRef(false);
+  const autoAttempted = useRef('');
   const [error, setError] = useState('');
   const storageKey = 'sully_character_phone_wechat_v1:' + characterId;
   const [records, setRecords] = useState<ChatRecord[]>(() => {
     try { const value = JSON.parse(localStorage.getItem(storageKey) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; }
   });
-  const persistProfiles = (next: NpcProfile[]) => { try { saveNpcProfiles(characterId, next); setProfiles(next); } catch { setError('联系人档案保存失败'); } };
+  const persistProfiles = (next: NpcProfile[]): boolean => {
+    try { saveNpcProfiles(characterId, next); setProfiles(next); return true; }
+    catch { setError('联系人档案保存失败'); return false; }
+  };
   const persist = (next: ChatRecord[]) => { setRecords(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { setError('存储空间不足，记录未能保存'); } };
   const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'memo' || screen === 'gallery' || screen === 'calls' || screen === 'sms' || screen === 'browser') setScreen('home'); else if (screen === 'thread' || screen === 'moments' || screen === 'wallet' || screen === 'settings') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
   const fullPersona = [persona, char.worldview || '', ...(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content)].filter(Boolean).join('\n\n').slice(0, 24000);
@@ -141,20 +144,22 @@ export default function CharacterPhone({ name, characterId, persona, api, onClos
       const valid = candidates.filter((v): v is Record<string,string> => !!v && typeof v === 'object' && ['name','identity','personality','relationship','background'].every(k=>typeof (v as Record<string,unknown>)[k] === 'string' && !!(v as Record<string,string>)[k].trim())).slice(0,batchCount);
       if (!valid.length) throw new Error('没有生成有效联系人档案，本次未保存');
       const nextProfiles: NpcProfile[] = valid.map(v=>({ id: crypto.randomUUID(), name:v.name.trim().slice(0,40), identity:v.identity.slice(0,240), personality:v.personality.slice(0,700), relationship:v.relationship.slice(0,400), background:v.background.slice(0,900), source:'generated' as const, createdAt:Date.now() }));
-      persistProfiles([...profiles,...nextProfiles]);
+      if (!persistProfiles([...profiles,...nextProfiles])) return;
       for (const profile of nextProfiles) recordCharacterLifeEvent({id:'contact:'+profile.id,characterId,kind:'contact-added',occurredAt:profile.createdAt,source:'phone',summary:'新增联系人：'+profile.name,contactId:profile.id});
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); setRefreshingContacts(false); }
   };
   const acceptRequest = (request: PendingPhoneContact) => {
-    if (!profiles.some(p=>p.id===request.id)) persistProfiles([...profiles,{id:request.id,name:request.nickname,nickname:request.nickname,realName:request.realName,identity:request.identity,personality:request.personality,relationship:request.relationship,background:request.background,source:request.source,createdAt:request.createdAt,linkedCharacterId:request.linkedCharacterId}]);
+    if (!profiles.some(p=>p.id===request.id) &&
+        !persistProfiles([...profiles,{id:request.id,name:request.nickname,nickname:request.nickname,realName:request.realName,identity:request.identity,personality:request.personality,relationship:request.relationship,background:request.background,source:request.source,createdAt:request.createdAt,linkedCharacterId:request.linkedCharacterId}])) return;
     const next = pendingContacts.filter(p=>p.id!==request.id);
-    writePendingContacts(characterId,next);setPendingContacts(next);
+    try { writePendingContacts(characterId,next); setPendingContacts(next); }
+    catch { setError('联系人请求保存失败'); }
   };
   const dismissRequest = (id: string) => {const next=pendingContacts.filter(p=>p.id!==id);writePendingContacts(characterId,next);setPendingContacts(next);};
   const addManualContact = () => {
     if (!draft.name.trim() || !draft.identity.trim() || !draft.personality.trim() || !draft.relationship.trim()) { setError('请填写姓名、身份、性格及关系'); return; }
     const profile: NpcProfile = { id: crypto.randomUUID(), name: draft.name.trim(), nickname: draft.name.trim(), realName: realNameDraft.trim(), identity: draft.identity.trim(), personality: draft.personality.trim(), relationship: draft.relationship.trim(), background: draft.background.trim(), source: 'generated', createdAt: Date.now() };
-    persistProfiles([...profiles, profile]);
+    if (!persistProfiles([...profiles, profile])) return;
     recordCharacterLifeEvent({ id: 'contact:' + profile.id, characterId, kind: 'contact-added', occurredAt: profile.createdAt, source: 'phone', summary: '添加联系人：' + profile.name, contactId: profile.id });
     setAddingContact(false); setError(''); openContact(profile);
   };
@@ -195,11 +200,14 @@ ${scheduleContext}
         const id=linked?.id || previous?.contactId || (typeof item.contactId==='string' && item.contactId.startsWith('generated:') ? item.contactId : 'generated:'+crypto.randomUUID());
         const messages=parseGeneratedPhoneMessages(item.messages,id);
         if(!messages.length) continue;
-        const existingRecord=previous || records.find(r=>r.contactId===id);
-        const seen=new Set((existingRecord?.messages||[]).map(m=>m.speaker?.role+'|'+m.text.trim()));
+        const alreadyIncoming=incoming.find(r=>r.contactId===id);
+        const existingRecord=alreadyIncoming || previous || records.find(r=>r.contactId===id);
+        const seen=new Set((existingRecord?.messages||[]).slice(-24).map(m=>m.speaker?.role+'|'+m.text.trim()));
         const fresh=messages.filter(m=>{const k=m.speaker?.role+'|'+m.text.trim();if(seen.has(k))return false;seen.add(k);return true;});
         if(!fresh.length)continue;
-        incoming.push({id:existingRecord?.id||crypto.randomUUID(),contactId:id,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),preview:fresh[fresh.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...fresh]});
+        const updatedThread: ChatRecord = {id:existingRecord?.id||crypto.randomUUID(),contactId:id,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),preview:fresh[fresh.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...fresh]};
+        if (alreadyIncoming) incoming[incoming.indexOf(alreadyIncoming)] = updatedThread;
+        else incoming.push(updatedThread);
         if(!linked && item.kind==='npc' && !nextPending.some(p=>p.id===id)){
           nextPending.push({id,nickname:item.nickname.trim().slice(0,40),realName:typeof item.realName==='string'?item.realName:'',identity:String(item.identity||'普通联系人'),personality:String(item.personality||'尚不清楚'),relationship:String(item.relationship||'普通认识'),background:String(item.background||''),createdAt:now,source:'chat'});
         }
@@ -207,24 +215,36 @@ ${scheduleContext}
       if(!incoming.length) throw new Error('本次未生成有效微信会话，未保存');
       const replaced=new Set(incoming.map(x=>x.id));
       const updatedRecords = [...incoming,...records.filter(r=>!replaced.has(r.id))];
-      try { localStorage.setItem(storageKey, JSON.stringify(updatedRecords)); }
-      catch { setError('微信消息保存失败，本次不记录生活事件'); return; }
+      // Both the inbox and new-contact requests must persist before publishing
+      // life events. On a quota failure, restore the previous inbox snapshot.
+      const previousInbox = localStorage.getItem(storageKey);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updatedRecords));
+        if (nextPending.length !== pending.length) writePendingContacts(characterId,nextPending);
+      } catch {
+        try {
+          if (previousInbox === null) localStorage.removeItem(storageKey);
+          else localStorage.setItem(storageKey,previousInbox);
+        } catch { /* storage unavailable: no life event is emitted */ }
+        setError('微信记录或联系人请求保存失败，本次不记录生活事件');
+        return;
+      }
       setRecords(updatedRecords);
-      // Record only messages that were actually generated and persisted, not an
-      // imagined completion of the current schedule. Existing event consumers
-      // handle active-message synchronization and selective palace extraction.
+      if (nextPending.length !== pending.length) setPendingContacts(nextPending);
+      try { localStorage.setItem('sully_phone_inbox_auto_at:'+characterId,String(Date.now())); } catch { /* auto-refresh can retry */ }
+      // Record only the messages that were actually saved, never treat a
+      // scheduled activity as already completed.
       for (const thread of incoming) {
         const oldThread = records.find(r=>r.id===thread.id);
         const newMessages = thread.messages.slice(oldThread?.messages.length || 0);
-        if (!newMessages.length || !newMessages.some(m=>m.speaker.role==='owner')) continue;
+        if (!newMessages.length) continue;
         recordCharacterLifeEvent({
           id:'npc-chat:inbox:'+thread.id+':'+now,
           characterId, kind:'npc-chat', occurredAt:now, source:'phone',
           contactId:thread.contactId,
-          summary:'已保存的微信对话：'+newMessages.slice(-12).map(m=>(m.speaker.role==='owner'?name:thread.name)+'：'+m.text.trim()).join('；').slice(0,1200)
+          summary:(newMessages.some(m=>m.speaker.role==='owner') ? '已保存的微信对话：' : '已收到但尚未回复的微信消息：')+newMessages.slice(-12).map(m=>(m.speaker.role==='owner'?name:thread.name)+'：'+m.text.trim()).join('；').slice(0,1200)
         });
       }
-      if(nextPending.length!==pending.length){writePendingContacts(characterId,nextPending);setPendingContacts(nextPending);}
       setTab('chats');
     } catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{setBusy(false);}
@@ -232,13 +252,12 @@ ${scheduleContext}
   // Opening WeChat refreshes the simulated inbox at most once per 12 hours per character.
   // Real User messages are mirrored separately; no NPC profile is required.
   useEffect(() => {
-    if(screen!=='wechat' || tab!=='chats' || autoAttempted.current || busy || !api.apiKey || !api.model || !api.baseUrl) return;
-    autoAttempted.current=true;
-    const key='sully_phone_inbox_auto_at:'+characterId;
+    if(screen!=='wechat' || tab!=='chats') { autoAttempted.current=''; return; }
+    if(autoAttempted.current===characterId || busy || !api.apiKey || !api.model || !api.baseUrl) return;
+    autoAttempted.current=characterId;
     try {
-      const last=Number(localStorage.getItem(key)||'0');
+      const last=Number(localStorage.getItem('sully_phone_inbox_auto_at:'+characterId)||'0');
       if(Date.now()-last<12*60*60*1000) return;
-      localStorage.setItem(key,String(Date.now()));
     } catch { return; }
     void generateInbox();
   },[screen,tab,characterId,api.apiKey,api.model,api.baseUrl]);
