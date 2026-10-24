@@ -80,7 +80,7 @@ export function applyHeadPatMotion(
   const w=strength*blend;
   if(w<=.001)return;
   const sideSign=side==='L'?-1:1;
-  const wiggle=other?p.rubX*.065:0;
+  const wiggle=other?p.rubX*.065*sideSign:0;
   const along=other?p.rubZ*.033:0;
   // Never press the palm goal under the measured hair bounding surface.
   // On each pat, move down close to the hair then back up.
@@ -94,7 +94,7 @@ export function applyHeadPatMotion(
   }else actor.classicContact(side,target,w);
  };
  // Resolve crown once, use the same target frame for both hands; no IK chase.
- paint(recipe.patSide,p.single,false);
+ paint(recipe.patSide,p.single,p.rub>.001);
  paint(altSide,p.double,true);
  return true;
 }

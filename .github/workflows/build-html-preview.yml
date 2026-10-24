@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test reusable 3D motion templates and navigation
-        run: pnpm exec vitest run apps/room3d/chibi/motionTemplates.test.ts apps/room3d/chibi/motionContactProfiles.test.ts apps/room3d/chibi/motionConstraintPipeline.test.ts apps/room3d/chibi/faceContactProfiles.test.ts apps/room3d/chibi/templateFaceContact.test.ts apps/room3d/chibi/socialPropsTemplate.test.ts apps/room3d/navigation.test.js apps/room3d/socialSpace.test.js
+        run: pnpm exec vitest run apps/room3d/chibi/motionTemplates.test.ts apps/room3d/chibi/headPatMotion.test.ts apps/room3d/chibi/motionContactProfiles.test.ts apps/room3d/chibi/motionConstraintPipeline.test.ts apps/room3d/chibi/faceContactProfiles.test.ts apps/room3d/chibi/templateFaceContact.test.ts apps/room3d/chibi/socialPropsTemplate.test.ts apps/room3d/navigation.test.js apps/room3d/socialSpace.test.js
       - name: Build original SullyOS for GitHub Pages
         env:
           GITHUB_PAGES: '1'
