@@ -24,7 +24,19 @@ export const npcStorageKey = (characterId: string) => 'sully_character_phone_npc
 export function readNpcProfiles(characterId: string): NpcProfile[] {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(npcStorageKey(characterId)) || '[]');
-    return Array.isArray(value) ? value.filter((p): p is NpcProfile => !!p && typeof p.id === 'string' && typeof p.name === 'string' && typeof p.relationship === 'string') : [];
+    return Array.isArray(value) ? value
+      .filter((p): p is NpcProfile => !!p && typeof p.id === 'string' &&
+        typeof p.name === 'string' && !!p.id && !!p.name.trim() &&
+        typeof p.relationship === 'string')
+      .map(p => ({
+        ...p,
+        identity: typeof p.identity === 'string' ? p.identity : '生活圈联系人',
+        personality: typeof p.personality === 'string' ? p.personality : '尚不了解',
+        background: typeof p.background === 'string' ? p.background : '',
+        relationshipNotes: typeof p.relationshipNotes === 'string' ? p.relationshipNotes : '',
+        speechStyle: typeof p.speechStyle === 'string' ? p.speechStyle : '',
+        boundary: typeof p.boundary === 'string' ? p.boundary : '',
+      })) : [];
   } catch { return []; }
 }
 export function saveNpcProfiles(characterId: string, profiles: NpcProfile[]) {
