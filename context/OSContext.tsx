@@ -41,6 +41,7 @@ import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
 import { runCharacterPhoneAutonomy, isCharacterPhoneAutonomyEnabled } from '../utils/characterPhoneAutonomy';
 import { runCharacterPhoneBrowserAutonomy } from '../utils/characterPhoneBrowserAutonomy';
 import { runCharacterPhoneSelfAutonomy } from '../utils/characterPhoneSelfProfile';
+import { canUsePhoneApiBudget, readPhoneApiBudget } from '../utils/characterPhoneApiBudget';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments } from '../utils/characterPhoneMoments';
 import { considerAutonomousNpcMoments } from '../utils/refreshNpcMoments';
@@ -2431,6 +2432,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let disposed = false;
       let running = false;
       let cursor = 0;
+      const phoneFeatureCursor = new Map<string, number>();
       const momentTimers = new Map<string, number>();
       const tick = async () => {
           if (disposed || running || document.visibilityState !== 'visible') return;
@@ -2439,23 +2441,42 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const char = all[cursor++ % all.length];
           const api = resolveDialogueApi(apiConfigRef.current, char);
           if (!api.baseUrl || !api.apiKey || !api.model) return;
+          // A single Char-wide LLM call per eligible tick. Rotating feature
+          // order prevents NPC WeChat from consuming the entire daily quota
+          // while the browser and profile never get a turn.
+          if (!canUsePhoneApiBudget(char.id)) return;
           running = true;
           try {
-              await runCharacterPhoneAutonomy({
-                  char, user: userProfileRef.current,
-                  groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current, api,
-              });
-              if (!disposed) await runCharacterMomentInteractionAutonomy({char, api});
-              if (!disposed) await considerAutonomousNpcMoments(char.id, api);
-              // Same foreground scheduler and Char API. No independent
-              // background timers or User-message automation is introduced.
-              if (!disposed && isCharacterPhoneAutonomyEnabled(char.id)) {
-                  await runCharacterPhoneBrowserAutonomy({
-                      char, user:userProfileRef.current!, groups:groupsRef.current,
-                      realtimeConfig:realtimeConfigRef.current, api,
-                  });
-                  if (!disposed) await runCharacterPhoneSelfAutonomy(char, api,
-                      async image => { await updateCharacter(char.id, {avatar:image}); });
+              const featureOrder = ['wechat', 'comments', 'browser', 'profile', 'npc-moments'] as const;
+              const index = phoneFeatureCursor.get(char.id) || 0;
+              const order = [...featureOrder.slice(index), ...featureOrder.slice(0, index)];
+              for (const feature of order) {
+                  if (disposed || document.visibilityState !== 'visible') break;
+                  if (!canUsePhoneApiBudget(char.id)) break;
+                  const before = readPhoneApiBudget(char.id).requests;
+                  if (feature === 'wechat') {
+                      await runCharacterPhoneAutonomy({
+                          char, user:userProfileRef.current!, groups:groupsRef.current,
+                          realtimeConfig:realtimeConfigRef.current, api,
+                      });
+                  } else if (feature === 'comments') {
+                      await runCharacterMomentInteractionAutonomy({char, api});
+                  } else if (feature === 'browser') {
+                      await runCharacterPhoneBrowserAutonomy({
+                          char, user:userProfileRef.current!, groups:groupsRef.current,
+                          realtimeConfig:realtimeConfigRef.current, api,
+                      });
+                  } else if (feature === 'profile') {
+                      await runCharacterPhoneSelfAutonomy(char, api,
+                          async image => { updateCharacter(char.id, {avatar:image}); });
+                  } else {
+                      await considerAutonomousNpcMoments(char.id, api);
+                  }
+                  const after = readPhoneApiBudget(char.id).requests;
+                  if (after > before) {
+                      phoneFeatureCursor.set(char.id, (featureOrder.indexOf(feature) + 1) % featureOrder.length);
+                      break;
+                  }
               }
           } catch (error) {
               console.warn('[CharacterPhone] autonomous foreground tick skipped', error);
