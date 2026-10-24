@@ -8,7 +8,7 @@ type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
 const rotation=(x=0,y=0,z=0)=>new T.Quaternion().setFromEuler(new T.Euler(x,y,z));
 export const isPrincessCarry=(id:string)=>id==='home-princess-carry'||id==='home-princess-carried';
-export const isIntimacy=(id:string)=>id==='home-hug'||isPrincessCarry(id);
+export const isIntimacy=(id:string)=>id==='home-hug'||id==='home-kiss'||isPrincessCarry(id);
 /** Reference-video phases, in elapsed seconds; neither role owns a separate clock. */
 export function intimacyPhase(action:string,time:number){
  const carry=isPrincessCarry(action);
@@ -23,6 +23,27 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
  const [a,b]=both.map(r=>r.visitor),p=intimacyPhase(action,time);
  if(!a.rig||!b.rig)return;
  if(action==='home-hug'){if(seatedIndex===0||seatedIndex===1)poseSeatedHug(both,time,seatedIndex);else poseHug(both,time);return;}
+ if(action==='home-kiss'){
+  // Approach and hand-holding precede a brief, restrained head tilt.
+  // Keep the pelvis and feet in the standing pose to avoid flying limbs.
+  const hands=smooth(time,.8,2)*(1-smooth(time,6.8,8.2));
+  const kiss=smooth(time,3.1,4.1)*(1-smooth(time,5.4,6.4));
+  both.forEach((owner,i)=>{
+   const v=owner.visitor,other=both[1-i].visitor;
+   const tilt=(i===0?1:-1)*.10*kiss;
+   v.rig!.bones.neck.quaternion.multiply(rotation(.08*kiss,0,tilt*.5));
+   v.rig!.bones.head.quaternion.multiply(rotation(.10*kiss,0,tilt));
+   v.root.updateWorldMatrix(true,true);other.root.updateWorldMatrix(true,true);
+   const side=i===0?'R':'L';
+   const otherSide=i===0?'L':'R';
+   const ownHand=v.rig!.bones[side+'_hand'].getWorldPosition(new T.Vector3());
+   const partnerHand=other.rig!.bones[otherSide+'_hand'].getWorldPosition(new T.Vector3());
+   const target=ownHand.lerp(partnerHand,.5);
+   owner.solver?.({side,point:target,direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(v.root.quaternion),normal:new T.Vector3(0,1,0),curl:.25},hands);
+  });
+  return;
+ }
+
  const turn=(v:ChibiVisitor,n:string,q:T.Quaternion,w:number)=>v.rig!.bones[n].quaternion.slerp(q,w);
  const point=(v:ChibiVisitor,n:string,offset=[0,0,0])=>v.rig!.bones[n].localToWorld(new T.Vector3(...offset));
  const contact=(index:number,side:'L'|'R',target:T.Vector3,curl=.18)=>{
