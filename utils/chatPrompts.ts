@@ -588,6 +588,15 @@ ${groupLogStr}\n`;
             if (invitation === 'pending') {
                 volatileState += '\n### 【一起听邀请】\n对方刚刚邀请你一起听音乐，邀请正在等待你回应。根据你的人设、日程和当前对话，自主决定接受或拒绝。接受时在回复中输出一次 [[MUSIC_ACTION:join]]；拒绝时输出一次 [[MUSIC_ACTION:reject]]。不要假装已经加入，也不要重复发出邀请。\n';
             }
+            // 以前只有用户正在播放歌曲时才给模型音乐工具说明，导致没播放时
+            // Char 无法主动邀请，也无法在恢复的空播放器会话中主动结束。
+            if (!forFirePack && !userListeningContext && invitation !== 'pending') {
+                if (isListeningTogether) {
+                    volatileState += '\n### 【一起听状态】\n你和对方已经建立一起听会话，目前播放器没有正在播放的歌曲。无需重复加入；如果你确实想退出，可以输出一次 [[MUSIC_ACTION:stop]]，不会停止对方的播放器。\n';
+                } else {
+                    volatileState += '\n### 【音乐邀请】\n如果你根据当前对话和人设真想主动邀请对方一起听歌，可以输出一次 [[MUSIC_ACTION:invite]]，它会发送需要用户回应的邀请，而不是立即加入。不要频繁邀请。\n';
+                }
+            }
             if (musicBlock) {
                 volatileState += `\n${musicBlock}\n`;
                 if (userListeningContext && promptOptions?.appRules === undefined) {
