@@ -278,8 +278,24 @@ export const musicApi = {
     const item = await res.json();
     return { data: [{ url: typeof item?.url === 'string' ? item.url : null }] };
   },
-  lyric(cfg: MusicCfg, id: number) {
-    return musicApi.call(cfg, '/lyric', { id });
+  async lyric(cfg: MusicCfg, id: number) {
+    // 优先使用原有 Worker；无歌词或接口失败时，尝试免登录歌词服务。
+    try {
+      const result = await musicApi.call(cfg, '/lyric', { id });
+      if (typeof result?.lrc?.lyric === 'string' && result.lrc.lyric.trim()) return result;
+    } catch { /* guest fallback */ }
+    const u = new URL('https://music-api.gdstudio.xyz/api.php');
+    u.searchParams.set('types', 'lyric');
+    u.searchParams.set('source', 'netease');
+    u.searchParams.set('id', String(id));
+    const res = await fetch(u.toString());
+    if (!res.ok) throw new Error('免登录歌词服务暂不可用');
+    const data = await res.json();
+    if (!data || typeof data !== 'object') throw new Error('免登录歌词数据异常');
+    return {
+      lrc: { lyric: typeof data.lyric === 'string' ? data.lyric : '' },
+      tlyric: { lyric: typeof data.tlyric === 'string' ? data.tlyric : '' },
+    };
   },
   loginStatus(cfg: MusicCfg) {
     return musicApi.call(cfg, '/login/status', {});
