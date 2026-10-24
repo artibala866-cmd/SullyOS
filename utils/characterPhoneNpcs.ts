@@ -16,6 +16,8 @@ export type NpcProfile = {
   lastInteractedAt?: number;
   interactionCount?: number;
   originEvidence?: 'worldbook' | 'character' | 'social' | 'suggested';
+  /** Explicitly known shared contacts, not inferred from all of Char's friends. */
+  mutualContactIds?: string[];
   source: 'generated' | 'chat' | 'xiaohongshu' | 'character';
   linkedCharacterId?: string;
   createdAt: number;
@@ -36,6 +38,8 @@ export function readNpcProfiles(characterId: string): NpcProfile[] {
         relationshipNotes: typeof p.relationshipNotes === 'string' ? p.relationshipNotes : '',
         speechStyle: typeof p.speechStyle === 'string' ? p.speechStyle : '',
         boundary: typeof p.boundary === 'string' ? p.boundary : '',
+        mutualContactIds: Array.isArray(p.mutualContactIds)
+          ? p.mutualContactIds.filter((id): id is string => typeof id === 'string' && !!id).slice(0, 50) : [],
       })) : [];
   } catch { return []; }
 }
