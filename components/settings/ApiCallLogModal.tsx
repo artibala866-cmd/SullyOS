@@ -171,7 +171,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                         想判断有没有被偷偷换模型，要几个信号<span className="font-semibold">一起看</span>：token 数是否突然对不上（比如平时 4 万这次 1.5 万）、速度是否突变、角色是否突然变笨/掉格式。只有一个信号异常时，先观望，多攒几轮再说。
                     </p>
                     <div className="pt-2 border-t border-neutral-200/60 space-y-2">
-                        <p className="font-bold text-neutral-700">带「☁️ 云端」的那些是什么</p>
+                        <p className="font-bold text-sky-700">带「☁️ 云端」的那些是什么</p>
                         <p>
                             开了<span className="font-semibold">即时对话</span>之后，聊天不再由这个页面发出去，而是交给你自己那台 Worker 在云端发——发完就能关页面，回复照样回得来。这类调用一样记在这里，只是有几处看不到：
                         </p>
@@ -253,7 +253,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                                         {/* 这条不是浏览器自己发的，是云端那台 Worker 发的。不标出来的话，
                                             同一条记录里「没有耗时、没有实际后端、Token 偏小」全都没法解释 */}
                                         {e.route && (
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700">
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-600">
                                                 ☁️ 云端
                                             </span>
                                         )}
@@ -354,7 +354,7 @@ const CAPTURE_KIND_LABEL: Record<ApiRequestCaptureSectionKind, string> = {
 
 const CAPTURE_KIND_STYLE: Record<ApiRequestCaptureSectionKind, string> = {
     request: 'bg-slate-100 text-slate-500',
-    tools: 'bg-neutral-50 text-neutral-700',
+    tools: 'bg-sky-50 text-sky-600',
     system: 'bg-neutral-50 text-neutral-600',
     memory: 'bg-neutral-50 text-neutral-700',
     worldbook: 'bg-neutral-50 text-neutral-700',
