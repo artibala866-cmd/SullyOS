@@ -3887,7 +3887,7 @@ const Settings: React.FC = () => {
                                 setVisionTestResult(null);
                             }}
                             placeholder="手动输入视觉模型名称..."
-                            className="flex-1 min-w-0 bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-violet-500 focus:bg-white transition-all"
+                            className="flex-1 min-w-0 bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-neutral-500 focus:bg-white transition-all"
                         />
                         <button
                             onClick={() => setShowVisionModelModal(false)}
@@ -3903,7 +3903,7 @@ const Settings: React.FC = () => {
                                 value={visionModelFilter}
                                 onChange={(event) => setVisionModelFilter(event.target.value)}
                                 placeholder={`🔍 搜索 ${availableVisionModels.length} 个识图模型...`}
-                                className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-4 py-2 text-xs focus:outline-violet-500 focus:bg-white transition-all"
+                                className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-4 py-2 text-xs focus:outline-neutral-500 focus:bg-white transition-all"
                             />
                             {visionModelFilter && (
                                 <button
