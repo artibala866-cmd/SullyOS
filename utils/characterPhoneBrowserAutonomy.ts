@@ -10,6 +10,7 @@ import {
 } from './characterPhoneBrowser';
 import { extractContent, safeResponseJson } from './safeApi';
 import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
+import { readPhoneAutonomyPreferences, canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
 
 type Api = { baseUrl: string; apiKey: string; model: string };
 type Input = {
@@ -57,15 +58,16 @@ export async function runCharacterPhoneBrowserAutonomy(
   if (!char?.id || !api?.baseUrl || !api?.apiKey || !api?.model ||
       typeof localStorage==='undefined') return {status:'skipped',count:0,reason:'API 未配置'};
   if (mode==='background' && (typeof document==='undefined' ||
-      document.visibilityState!=='visible' || !isCharacterPhoneAutonomyEnabled(char.id)))
+      document.visibilityState!=='visible' || !isCharacterPhoneAutonomyEnabled(char.id) ||
+      !readPhoneAutonomyPreferences(char.id).browserAutoEnabled || !canUsePhoneApiBudget(char.id)))
     return {status:'skipped',count:0};
   if (locks.has(char.id)) return {status:'skipped',count:0,reason:'正在生成'};
   locks.add(char.id);
   const now=Date.now();
   try {
     const state=readState(char.id,now);
-    if (state.generated >= 4 || state.attempts >= 6 ||
-        now-state.lastAttemptAt < (mode==='background'?6*3600_000:90_000))
+    if (state.generated >= (mode==='background'?2:4) || state.attempts >= (mode==='background'?3:6) ||
+        now-state.lastAttemptAt < (mode==='background'?12*3600_000:90_000))
       return {status:'skipped',count:0,reason:'搜索冷却中或达到今日上限'};
     const life=await getCharacterLifeScheduleContext(char,new Date(now));
     const lifeStatus=classifyLifeActivity(char.scheduleFeatureEnabled===false?'':(life.plannedActivity||''));
@@ -80,6 +82,8 @@ export async function runCharacterPhoneBrowserAutonomy(
     const context=await buildCharacterPhoneContext(char,user,groups,realtimeConfig);
     // Reserve network budget before request: a failing provider must not run
     // forever in the background or be triggered by every page remount.
+    if (mode==='background' && !reservePhoneApiBudget(char.id))
+      return {status:'skipped',count:0,reason:'自主调用预算已用完'};
     state.lastAttemptAt=now;state.attempts++;
     store(char.id,state);
     const response=await fetch(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
@@ -88,11 +92,11 @@ export async function runCharacterPhoneBrowserAutonomy(
       body:JSON.stringify({model:api.model,stream:false,temperature:0.75,messages:[
         {role:'system',content:`这是虚构角色 ${char.name} 自己的手机浏览器，你只决定 TA 会查什么，不是 User 在搜索。
 一切行为以 Char 自身的人设、生活任务、偏好与心境为理由；不围绕 User 机械转动。
-原设、世界书、真实私聊上下文：${context.systemPrompt.slice(0,16500)}
+原设、世界书、真实私聊上下文：${context.systemPrompt.slice(0,9500)}
 当前日程（只是计划，不代表已发生）：${life.plannedActivity||'无'}；${life.plannedDescription||''}
 最近一次角色内心状态（可能不是最新）：${innerState||'无'}
-已保存生活经历：${JSON.stringify(confirmed).slice(0,3000)}
-已有浏览记录，避免重复：${JSON.stringify(recent).slice(0,1900)}
+已保存生活经历：${JSON.stringify(confirmed).slice(0,2000)}
+已有浏览记录，避免重复：${JSON.stringify(recent).slice(0,1200)}
 若角色没理由使用手机，可以返回 search:false。否则输出1至2条具体百度搜索词。
 每条必须包含 title（简短主题）、query（具体搜索短语，不要只有「电影/音乐/吃饭」等大词）、reason（Char 当时为什么要查、心里在想什么）、note（TA 准备找哪类信息，而非已经看到的网页结论）、mood（当时心情），以及sourceEventIds（最多2个确切对应的已保存生活事件ID；可空）。
 搜索行为可受到现实情绪影响，也可以由自己的工作、爱好、好奇、与NPC的未了话题触发。
