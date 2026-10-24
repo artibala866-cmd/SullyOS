@@ -542,7 +542,7 @@ ${scheduleContext}
         {screen === 'gallery' && <Gallery lockedCharacterId={characterId} onExit={()=>setScreen('home')}/>}
         {screen === 'calls' && <p className="p-8 text-center text-sm text-[#888]">电话记录与拨号功能待接入</p>}
         {screen === 'sms' && <p className="p-8 text-center text-sm text-[#888]">短信收发功能待接入</p>}
-        {screen === 'browser' && <CharacterPhoneBrowser characterId={characterId}/>}
+        {screen === 'browser' && <CharacterPhoneBrowser characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={api}/>}
         {screen === 'wallet' && <CharacterPhoneWallet characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={api}/>}
         {screen === 'settings' && <div className="space-y-3 p-4"><label className="flex items-center justify-between rounded-xl bg-white px-4 py-4 text-sm"><span className="space-y-1"><span className="block font-semibold text-[#222]">NPC自主生活</span><span className="block text-xs text-[#777]">角色与联系人自主续聊、朋友圈评论和回复</span></span><input type="checkbox" className="h-5 w-5 accent-[#444]" checked={npcAutonomyEnabled} onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/></label><p className="px-2 text-xs leading-5 text-[#777]">使用角色当前聊天 API。后台活动受日程、每日次数与冷却约束；网页关闭后本地调度不会持续运行。主动消息 2.0 仍按原设置工作。</p></div>}
       </main>
