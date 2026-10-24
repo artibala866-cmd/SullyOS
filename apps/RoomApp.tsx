@@ -22,7 +22,7 @@ const RoomApp:React.FC=()=>{
  const [group,setGroup]=useState(GROUP_FILTER_ALL);
  const dream=useDreamSim();
  const shellRef=useRef<HTMLDivElement>(null);
- const [dreamTop,setDreamTop]=useState<number|null>(null);
+ const [dreamTop,setDreamTop]=useState(236);
  useLayoutEffect(()=>{
   if(!charForRail(selected,characters))return;
   const shell=shellRef.current;
@@ -30,12 +30,12 @@ const RoomApp:React.FC=()=>{
   let frame=0;
   const update=()=>{
    const rail=shell.querySelector<HTMLElement>('.h3-resident-rail');
-   if(!rail||rail.hidden||!rail.getClientRects().length){setDreamTop(null);return;}
+   if(!rail||rail.hidden||!rail.getClientRects().length){setDreamTop(236);return;}
    const buttons=[...rail.querySelectorAll<HTMLElement>('button[data-resident]')];
-   if(!buttons.length){setDreamTop(null);return;}
+   if(!buttons.length){setDreamTop(236);return;}
    const last=buttons[buttons.length-1];
    const rect=last.getBoundingClientRect(),parent=shell.getBoundingClientRect();
-   setDreamTop(Math.max(0,rect.bottom-parent.top+18));
+   setDreamTop(Math.min(Math.max(0,rect.bottom-parent.top+18),Math.max(0,parent.height-64)));
   };
   const schedule=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(update);};
   const observer=new ResizeObserver(schedule);
@@ -81,7 +81,7 @@ const RoomApp:React.FC=()=>{
    </div>
   </div>}
   <style>{`.room-dream-shell:has(.home-life-overlay) .room-dream-entry,.room-dream-shell:has([role="dialog"]) .room-dream-entry,.room-dream-shell:has(.home-social .home-social-wheel) .room-dream-entry,.room-dream-shell:has(.home-social section) .room-dream-entry,.room-dream-shell:has(.home-social[aria-expanded="true"]) .room-dream-entry{display:none}`}</style>
-  {char&&!dreamOpen&&dreamTop!==null&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0,0,0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation",top:dreamTop}}><MoonStars size={23} weight="thin"/></button>}
+  {char&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0,0,0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation",top:dreamTop}}><MoonStars size={23} weight="thin"/></button>}
   {dreamOpen&&dreamChar&&<div className="absolute inset-0 z-50"><DreamTheater char={dreamChar} onExit={()=>{setDreamOpen(false);setDreamOwner(null);}}/></div>}
  </div>;
 };
