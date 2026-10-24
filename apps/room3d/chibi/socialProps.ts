@@ -38,7 +38,7 @@ export function createSocialProp(id:string,visitors:ChibiVisitor[],template?:Mot
   root.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(right,up,screen));
   root.scale.setScalar(BLANK_SCALE/2.8);
  }
- const grip=drink?waterGrip(visitors,root):null;
+ const grip=drink?waterGrip(visitors,root,{handoffAt,sip:id==='cmu-22_13'}):null;
  return {
   update(time:number,duration:number,weight:number){
    // Reviewed 22_13: A holds in the left hand; B receives with the right.

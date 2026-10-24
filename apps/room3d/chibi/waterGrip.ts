@@ -7,10 +7,12 @@ import {contactSolver} from './socialContact';
 // The cylinder runs across the fingers, with the thumb on the rim side.
 const cupInHand=new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),Math.PI/2);
 const offset=(side:'L'|'R')=>new T.Vector3(side==='L'?.010:-.010,-.018,.010).multiplyScalar(BLANK_SCALE);
-export function waterGrip(visitors:ChibiVisitor[],cup:T.Group){
+export function waterGrip(visitors:ChibiVisitor[],cup:T.Group,{handoffAt=2.262,sip=true}={}){
+ // Maintain the approved original transfer timing by default. A future cup
+ // action can shift its handoff using one template value and omit the sip.
  const solvers=visitors.map(contactSolver);
  return (time:number,weight:number)=>{
-  const transfer=T.MathUtils.smootherstep(time,2.04,2.48);
+  const transfer=T.MathUtils.smootherstep(time,handoffAt-.222,handoffAt+.218);
   const poses=visitors.slice(0,2).map((visitor,i)=>{
    const side=i===0?'L':'R',hand=visitor.rig?.bones[side+'_hand'];
    if(!hand)return null;
@@ -29,20 +31,20 @@ export function waterGrip(visitors:ChibiVisitor[],cup:T.Group){
   const center=giver.center.clone().lerp(receiver.center,transfer);
   const owner=transfer<.5?giver:receiver;
   // A sip approaches the lower face with the rim, then tips about that rim.
-  const sip=T.MathUtils.smootherstep(time,4.0,5.15)*(1-T.MathUtils.smootherstep(time,6.65,7.45));
-  if(sip>0){
+  const sipWeight=sip?T.MathUtils.smootherstep(time,handoffAt+1.738,handoffAt+2.888)*(1-T.MathUtils.smootherstep(time,handoffAt+4.388,handoffAt+5.188)):0;
+  if(sipWeight>0){
    const rig=receiver.visitor.rig!;
    const mouth=rig.bones.head.localToWorld(new T.Vector3(.035,.005,.185).multiplyScalar(BLANK_SCALE*(rig.mesh.geometry.userData.headSize??1.04)));
    const toward=mouth.clone().sub(receiver.center);toward.y=0;toward.normalize();
-   receiver.axis.set(0,1,0).addScaledVector(toward,.65*sip).normalize();
+   receiver.axis.set(0,1,0).addScaledVector(toward,.65*sipWeight).normalize();
    const x=new T.Vector3().crossVectors(receiver.normal,receiver.axis).normalize();
    receiver.direction.copy(x).negate();
    receiver.normal.crossVectors(receiver.axis,x).normalize();
    receiver.rotation.copy(furnitureHandRotation('R',receiver.direction.toArray(),receiver.normal.toArray()));
-   center.lerp(mouth.addScaledVector(receiver.axis,-.115),sip);
+   center.lerp(mouth.addScaledVector(receiver.axis,-.115),sipWeight);
   }
   for(const [i,p] of [giver,receiver].entries()){
-   const grip=i===0?1-T.MathUtils.smootherstep(time,2.35,2.7):T.MathUtils.smootherstep(time,1.85,2.15);
+   const grip=i===0?1-T.MathUtils.smootherstep(time,handoffAt+.088,handoffAt+.438):T.MathUtils.smootherstep(time,handoffAt-.412,handoffAt-.112);
    if(grip<=0)continue;
    const target=center.clone().sub(offset(p.side).multiplyScalar(p.scale).applyQuaternion(p.rotation));
    solvers[i]?.({side:p.side,point:target,direction:p.direction,normal:p.normal,curl:.87},weight*grip);
