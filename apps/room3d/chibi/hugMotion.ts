@@ -1,6 +1,6 @@
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
-import type {contactSolver} from './socialContact';
+import {contactFromRecipe,type contactSolver} from './socialContact';
 import {hugHandContact,poseHugFingers} from './hugHands';
 
 type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
@@ -45,7 +45,8 @@ export function poseHug(both:Resident[],time:number,seatedIndex?:number){
    turn(v,side+'_forearm',rotation(0,-sign*.42,-sign*.24),p.arms);
    v.root.updateWorldMatrix(true,true);
    const ready=point(v,'chest',[sign*.86,-.18,.40]);
-   const back=point(partner,'chest',[-sign*.30,i===0?-.14:-.30,-.36]);
+   const recipe={side,targetBone:'chest',offset:[-sign*.30,i===0?-.14:-.30,-.36] as [number,number,number],direction:[sign,0,0] as [number,number,number],normal:[0,1,0] as [number,number,number]};
+   const back=contactFromRecipe(partner,recipe)?.point??point(partner,'chest',recipe.offset);
    // Travel around the flank, not straight through the torso. Reverse this arc
    // while releasing, before lowering the arms beside the body.
    const target=ready.lerp(back,p.wrap).add(new T.Vector3(sign*.27,.07,0).applyQuaternion(ownerQ).multiplyScalar(Math.sin(Math.PI*p.wrap)));
