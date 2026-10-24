@@ -94,17 +94,10 @@ export const getSARModuleRuntimePlan = (
     char: CharacterProfile,
     user: UserProfile,
 ): SARModuleRuntimePlan => {
-    const character = char.vrState?.sarModule;
-    const userModule = user.vrState?.sarModule;
-    const hasActiveEffect = character?.phase === 'active' || userModule?.phase === 'active';
-    const hasAfterglow = character?.phase === 'afterglow' || userModule?.phase === 'afterglow';
-    return {
-        character,
-        user: userModule,
-        hasActiveEffect,
-        hasAfterglow,
-        requiresEnvelope: hasActiveEffect,
-    };
+    // Retired 彼方 module effects must never enter chat, date, home or ActiveMsg 2.0.
+    // Keep the old data readable until migration is confirmed; nothing is activated.
+    void char; void user;
+    return { hasActiveEffect: false, hasAfterglow: false, requiresEnvelope: false };
 };
 
 const eventMoment = (state: SARModuleRuntimeState): SARModuleEventMeta['moment'] => {
