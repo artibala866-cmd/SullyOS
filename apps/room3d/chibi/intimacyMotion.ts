@@ -41,6 +41,29 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    v.rig!.bones.head.quaternion.multiply(rotation(pitch*gaze*.45+.035*kiss,0,roll));
    v.root.updateWorldMatrix(true,true);partner.root.updateWorldMatrix(true,true);
   });
+  // Adjust the kiss pose using the partners' actual head heights.
+  // The shorter resident rises on their toes; the taller resident bends
+  // slightly at the knees and waist. Both movements ease in and out.
+  const heightBlend=smooth(time,3.45,5.15)*(1-smooth(time,9.1,11.25));
+  if(heightBlend>0){
+   const shorter=heads[0].y<=heads[1].y?a:b;
+   const taller=shorter===a?b:a;
+   const gap=Math.abs(heads[0].y-heads[1].y);
+   const rise=T.MathUtils.clamp(gap*.32,0,.18)*heightBlend;
+   const bend=T.MathUtils.clamp((gap-rise)*.55,0,.25)*heightBlend;
+   for(const side of ['L','R'] as const){
+    shorter.rig!.bones[side+'_foot'].quaternion.multiply(rotation(-rise*1.3));
+    taller.rig!.bones[side+'_thigh'].quaternion.multiply(rotation(-bend*1.8));
+    taller.rig!.bones[side+'_shin'].quaternion.multiply(rotation(bend*3.1));
+    taller.rig!.bones[side+'_foot'].quaternion.multiply(rotation(-bend*1.3));
+   }
+   shorter.translatePose(new T.Vector3(0,rise,0));
+   taller.rig!.bones.spine.quaternion.multiply(rotation(bend*.65));
+   taller.rig!.bones.chest.quaternion.multiply(rotation(bend*.75));
+   taller.rig!.bones.neck.quaternion.multiply(rotation(bend*.45));
+   a.root.updateWorldMatrix(true,true);
+   b.root.updateWorldMatrix(true,true);
+  }
   // Solve a shared hand contact after both heads have settled.
   const sides=['R','L'] as const;
   const handA=a.rig.bones.R_hand.getWorldPosition(new T.Vector3());
