@@ -12,6 +12,8 @@ export function keepHugArmOutside(owner:ChibiVisitor,recipient:ChibiVisitor,side
  const upper=owner.rig.bones[side+'_upperArm'];
  const elbow=owner.rig.bones[side+'_forearm'];
  const wrist=owner.rig.bones[side+'_hand'];
+ owner.root.updateWorldMatrix(true,true);
+ recipient.root.updateWorldMatrix(true,true);
  const inv=chest.matrixWorld.clone().invert();
  // Torso proxy includes a small sleeve clearance. The forearm midpoint is
  // checked too: a clear wrist alone does not mean the arm clears the ribs.
