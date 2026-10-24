@@ -54,15 +54,10 @@ const QQBridge = lazyApp(() => import('../apps/QQBridge'));
 const HotNewsApp = lazyApp(() => import('../apps/HotNewsApp'));
 const CharCreatorDevApp = lazyApp(() => import('../apps/CharCreatorDevApp'));
 
-// 仅供「桌面稳定后的空闲串行预热」。严格 await 前一个再取下一个，且任何用户操作都会停止队列。
-// 高频 App 在前；低端设备/省流量/2G 由 shouldUseIdleAppPreload 整体跳过。
+// 只预热最常用的 5 个 App。原先的长队列会持续下载、解析二十多个模块，
+// 增加手机内存与流量压力；其他 App 仍按原有方式在点击时懒加载。
 const APP_IDLE_PRELOAD_ORDER: PreloadableLazy[] = [
-  Chat, Character, Settings, Appearance, GroupChat, RoomApp,
-  JournalApp, ScheduleApp, SocialApp, MusicApp, CallApp, Gallery, DateApp, UserApp,
-  StudyApp, WorldbookApp, MemoryPalaceApp, HandbookApp,
- GuidebookApp, HotNewsApp,
-  XhsStockApp, XhsFreeRoamApp, BrowserApp, VoiceDesignerApp, ThemeMaker, QQBridge,
-  CharCreatorDevApp,
+  Chat, Character, Settings, Appearance, GroupChat,
 ];
 
 const IDLE_PRELOAD_START_MS = 4000;
