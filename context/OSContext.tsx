@@ -2031,8 +2031,21 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let awayActiveMsgCount = 0;
 
       const handler = (e: Event) => {
-          const { charId, charName, body } = (e as CustomEvent).detail as { charId: string; charName: string; body?: string };
+          const { charId, charName, body, messageId, source, sentAt } = (e as CustomEvent).detail as {
+              charId: string; charName: string; body?: string; messageId?: string;
+              source?: string; sentAt?: number;
+          };
           setLastMsgTimestamp(Date.now());
+          // This event is fired only after a scheduled AMSG message has landed
+          // in private-chat storage. Instant replies are not proactive life events.
+          if (source === 'scheduled' && charId && messageId && typeof body === 'string' && body.trim()) {
+              recordCharacterLifeEvent({
+                  id: 'amsg2:' + messageId, characterId: charId, kind: 'proactive-message',
+                  occurredAt: Number.isFinite(sentAt) && (sentAt as number) <= Date.now() ? sentAt as number : Date.now(),
+                  source: 'amsg2', relatedMessageId: messageId,
+                  summary: (charName || '角色') + ' 已主动给 User 发消息：' + body.slice(0, 400),
+              });
+          }
 
           const isChattingWithThisChar = (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId) || isEmbeddedChatVisible(charId);
           if (!isChattingWithThisChar) {
