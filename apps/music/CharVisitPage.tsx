@@ -161,7 +161,15 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
     setInitializing(true);
     try {
       const newProfile = await CharMusicPersona.initialize(char, userProfile, apiConfig);
-      updateCharacter(char.id, { musicProfile: newProfile });
+      // 角色在生成音乐人格前，可能已经通过一起听收藏过歌曲；初始化不应覆盖它们。
+      const savedPlaylists = (char.musicProfile?.playlists || []).filter(p => p.songs.length > 0);
+      const mergedProfile = savedPlaylists.length
+        ? { ...newProfile, playlists: [
+            ...newProfile.playlists,
+            ...savedPlaylists.filter(saved => !newProfile.playlists.some(p => p.title === saved.title)),
+          ] }
+        : newProfile;
+      updateCharacter(char.id, { musicProfile: mergedProfile });
       addToast(`${char.name} 的音乐角落已开启`, 'success');
       trackEvent('生成角色的音乐人格');
     } catch (e: any) {
