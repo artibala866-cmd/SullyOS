@@ -1510,6 +1510,7 @@ export async function ingestDiaryToPalace(
     lightLLMConfig: LightLLMConfig | null | undefined,
     userName: string,
     minimumImportance = 0,
+    phoneSource?: { id: string; occurredAt: number; kind: 'npc-chat' | 'moment-post' },
 ): Promise<DiaryIngestResult> {
     if (!char.memoryPalaceEnabled) return { status: 'palace_disabled' };
     if (!lightLLMConfig?.baseUrl || !lightLLMConfig?.apiKey) {
@@ -1530,7 +1531,11 @@ export async function ingestDiaryToPalace(
         if (!isNaN(d.getTime())) createdAt = d.getTime();
     }
 
-    // 把日记伪装成两条 Message 喂给 extractMemoriesFromBuffer（id 给负数，不入库不冲突）
+    // Phone source retains the real event time; diary still uses the chosen calendar date.
+    if (phoneSource && Number.isFinite(phoneSource.occurredAt) && phoneSource.occurredAt > 0
+        && phoneSource.occurredAt <= Date.now()) createdAt = phoneSource.occurredAt;
+
+    // Build transient messages for extraction only; never insert them into chat history.
     const fakeMessages: Message[] = [];
     if (userDiaryText?.trim()) {
         fakeMessages.push({
@@ -1548,7 +1553,9 @@ export async function ingestDiaryToPalace(
             charId: char.id,
             role: 'assistant',
             type: 'text',
-            content: `【交换日记 ${dateStr}】我（${char.name}）的回复日记：\n${charDiaryText.trim()}`,
+            content: phoneSource
+                ? `【已保存的角色手机事件 ${phoneSource.kind}，事件ID:${phoneSource.id}】\n${charDiaryText.trim()}`
+                : `【交换日记 ${dateStr}】我（${char.name}）的回复日记：\n${charDiaryText.trim()}`,
             timestamp: createdAt + 1000,
         } as Message);
     }
@@ -1557,7 +1564,7 @@ export async function ingestDiaryToPalace(
     // 角色 / 用户档案给 LLM 当上下文
     let charContext = `[角色档案]\n名字: ${char.name}\n核心设定:\n${char.systemPrompt || '无'}\n`;
     if (char.worldview?.trim()) charContext += `世界观: ${char.worldview}\n`;
-    charContext += `\n[用户档案]\n名字: ${userName || '用户'}\n\n[来源说明]\n${minimumImportance > 0 ? '这是角色手机中已保存的生活内容，只提取明确发生、值得长期记住的角色经历；聊天里的计划、传闻、猜测不可当成已发生事实。' : '这是来自【交换日记】app 的一次归档，不是普通聊天，是一篇双方各写一页的正式日记。'}\n`;
+    charContext += `\n[用户档案]\n名字: ${userName || '用户'}\n\n[来源说明]\n${phoneSource ? '这是角色手机中实际保存的事件，不是交换日记；只提取已经发生且值得长期记住的内容。日程计划、对话中谈及的未来行动、猜测或第三方说法不能视为实际发生。禁止推断未提及的结果。' : '这是来自【交换日记】app 的一次归档，不是普通聊天，是一篇双方各写一页的正式日记。'}\n`;
 
     const extracted = await extractMemoriesFromBuffer(
         fakeMessages,
@@ -1602,6 +1609,22 @@ export async function ingestDiaryToPalace(
             tags: n.tags,
         })),
     };
+}
+
+/** Phone events reuse the Palace's extraction/vector de-duplication without
+ * masquerading as exchanged diaries or modifying chat high-water marks.
+ */
+export function ingestPhoneEventToPalace(
+    char: { id: string; name: string; memoryPalaceEnabled?: boolean; embeddingConfig?: any; systemPrompt?: string; worldview?: string },
+    event: { id: string; kind: 'npc-chat' | 'moment-post'; occurredAt: number; summary: string },
+    lightLLMConfig: LightLLMConfig | null | undefined,
+    userName: string,
+): Promise<DiaryIngestResult> {
+    if (!event.id || !event.summary.trim() || !Number.isFinite(event.occurredAt)
+        || event.occurredAt <= 0 || event.occurredAt > Date.now())
+        return Promise.resolve({ status: 'empty_input' });
+    const dateStr = new Date(event.occurredAt).toISOString().slice(0, 10);
+    return ingestDiaryToPalace(char, dateStr, '', event.summary, lightLLMConfig, userName, 7, event);
 }
 
 // ─── 输入管线（AI 回复后，后台） ──────────────────────
