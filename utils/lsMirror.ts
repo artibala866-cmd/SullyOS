@@ -18,6 +18,7 @@
 
 import { DB } from './db';
 import { HOME3D_LOCAL_KEYS } from './home3DBackup';
+import { healAllMemoryPalaceHighWaterMarks } from './memoryPalace/highWaterMark';
 
 /**
  * 参与镜像的键。收录标准：用户手动配置或长期积累、丢了没法凭空再生、体积是小段
@@ -45,6 +46,13 @@ export const MIRRORED_KEYS: readonly string[] = [
     'character_refine_prompts',
     'character_active_refine_prompt_id',
     'os_last_active_char_id',
+    'os_available_models',
+    'check_phone_api',
+    'sully_music_cfg_v1',
+    'sully_music_state_v1',
+    'sully_music_local_album_v1',
+    'aetheros.mcp.servers',
+    'aetheros.mcp.useNativeTools',
 ];
 
 const MIRROR_ASSET_ID = 'ls_mirror_v1';
@@ -105,7 +113,7 @@ let listenersAttached = false;
  * 返回回填的键名，调用方可据此提示用户"本地设置曾丢失，已自动恢复"。
  */
 export async function initLocalStorageMirror(): Promise<string[]> {
-    const restored = await healLocalStorageMirror();
+    const [restored, restoredHwms] = await Promise.all([healLocalStorageMirror(), healAllMemoryPalaceHighWaterMarks()]);
     await snapshotLocalStorageMirror();
 
     if (!listenersAttached && typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -117,5 +125,5 @@ export async function initLocalStorageMirror(): Promise<string[]> {
         window.addEventListener('pagehide', snap);
         setInterval(snap, SNAPSHOT_INTERVAL_MS);
     }
-    return restored;
+    return [...restored, ...restoredHwms];
 }
