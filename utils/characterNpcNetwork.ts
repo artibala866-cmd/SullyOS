@@ -91,7 +91,12 @@ export function registerDiscoveredNpc(
   const isKnown = raw.origin === 'known' && (raw.evidence === 'worldbook' || raw.evidence === 'character');
   const isEstablished = options.conversationEstablished && raw.origin !== 'stranger';
   const hasKnownRelationship = knownRoles.test(relationship);
-  const shouldAdd = isKnown || !!isEstablished || (raw.origin === 'introduced' && hasKnownRelationship);
+  // New acquaintances may be proposed, but a model-generated "relative" or
+  // "partner" must never silently become established family/romance.
+  const highTrustRole = /父|母|爸|妈|家人|兄|弟|姐|妹|亲属|恋人|伴侣|丈夫|妻子|爱人|配偶|男友|女友/;
+  const shouldAdd = isKnown ||
+    (!!isEstablished && !highTrustRole.test(relationship)) ||
+    (raw.origin === 'introduced' && hasKnownRelationship && !highTrustRole.test(relationship));
 
   if (!shouldAdd) {
     queuePendingContact(characterId, {
