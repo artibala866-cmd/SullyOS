@@ -8,6 +8,7 @@ import { registerDiscoveredNpc, noteNpcInteraction, type NpcDiscovery } from './
 import { appendCharacterPhoneMessages, readCharacterPhoneChats, type CharacterPhoneChat } from './characterPhoneChats';
 import { buildCharacterPhoneContext } from './characterPhoneContext';
 import { safeResponseJson, extractContent } from './safeApi';
+import { isCharacterPhoneRefreshing } from './characterPhoneRefreshTracker';
 
 /** NPC phone autonomy shares the existing schedule/phone/event/AMSG pipeline.
  * This scheduler ONLY writes the character-owned phone, never sends User a message
@@ -55,6 +56,7 @@ function readState(charId: string, now: number): RunState {
 function writeState(id: string, state: RunState) { localStorage.setItem(PREFIX + id, JSON.stringify(state)); }
 async function queryJson(api: Api, messages: { role: 'system' | 'user'; content: string }[]): Promise<any> {
   const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+    signal: AbortSignal.timeout(60_000),
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
     body: JSON.stringify({ model: api.model, stream: false, temperature: 0.8, messages }),
   });
@@ -167,6 +169,9 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
   if (!char?.id || !api?.apiKey || !api.baseUrl || !api.model ||
       typeof document === 'undefined' || document.visibilityState !== 'visible' ||
       !isCharacterPhoneAutonomyEnabled(char.id)) return 'unavailable';
+  // User-triggered refresh/continuation owns the inbox while its LLM call is
+  // in flight. Never start a competing background write in the same window.
+  if (isCharacterPhoneRefreshing(char.id)) return 'skipped';
   if (locks.has(char.id)) return 'skipped';
   locks.add(char.id);
   const now = Date.now();
