@@ -1126,7 +1126,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  let roomLoading=false,loadRevision=0;
  function registerTemplate(root){const id=root.userData.assetId;if(!id)return;templates.set(id,root);const mats=[];root.traverse(o=>{if(o.isMesh)mats.push(...(Array.isArray(o.material)?o.material:[o.material]))});const names=furniturePaintMaterials(asset(id),mats.map(m=>m.name));paintTargets.set(id,names);defaultPaintColors.set(id,'#'+(mats.find(m=>names.includes(m.name))?.color.getHexString()||'b2a2cd'));const a=asset(id);if(a&&(a.daylight||id==='wooden_window')&&!a.wallOpening)a.wallOpening=inferWindowAperture(root);}
  const ensureAsset=createAssetQueue(async id=>{if(destroyed)throw Error('Room disposed');if(templates.has(id))return;const a=asset(id);if(!a?.url)throw Error('缺少家具模型：'+id);
-   const data=await fetch(new URL(a.url+(a.revision?'?v='+encodeURIComponent(a.revision):''),assetBase),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('家具模型加载失败：'+a.name);return r.arrayBuffer()});
+   const url=new URL(a.url+(a.revision?'?v='+encodeURIComponent(a.revision):''),assetBase);
+   const requestController=new AbortController();
+   const onAbort=()=>requestController.abort();
+   abort.signal.addEventListener('abort',onAbort,{once:true});
+   const timer=setTimeout(()=>requestController.abort(),20000);
+   let data;
+   try{data=await fetch(url,{signal:requestController.signal}).then(r=>{if(!r.ok)throw Error('家具模型加载失败：'+a.name);return r.arrayBuffer()});}
+   catch(e){if(requestController.signal.aborted&&!abort.signal.aborted)throw Error('家具模型加载超时：'+a.name);throw e;}
+   finally{clearTimeout(timer);abort.signal.removeEventListener('abort',onAbort);}
    const loaded=await new GLTFLoader().parseAsync(data,assetBase),root=new THREE.Group();root.userData.assetId=a.id;
    if(destroyed){loaded.scene.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material]){for(const value of Object.values(m))if(value?.isTexture)value.dispose();m.dispose();}}});return;}
    const model=loaded.scene,bounds=new THREE.Box3().setFromObject(model),scale=a.size[0]/bounds.getSize(new THREE.Vector3()).x;
@@ -1977,7 +1985,13 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   // Load only the visible room before the first frame; pet-only assets are deferred.
    const initialFurniture=neededAssets();
    host.querySelector('.h3-loading').textContent='正在加载当前房间的家具…';
-   await Promise.all(initialFurniture.map(ensureAsset));
+   // Show the actual bottleneck instead of leaving the generic loading label.
+   // Keep the asset queue bounded and report each completed model.
+   let furnitureLoaded=0;
+   await Promise.all(initialFurniture.map(id=>ensureAsset(id).then(()=>{
+    furnitureLoaded++;
+    if(!destroyed){const overlay=host.querySelector('.h3-loading');if(overlay)overlay.textContent='正在加载当前房间的家具… '+furnitureLoaded+'/'+initialFurniture.length;}
+   })));
    if(destroyed)return {dispose};
    for(const a of catalog)thumbs.set(a.id,new URL('thumbnails/'+a.id+'.png'+(a.revision?'?v='+encodeURIComponent(a.revision):''),assetBase).href);
    const petAssetIds=[...new Set(catalog.filter(a=>a.petSpecies).map(a=>a.id))].filter(id=>!templates.has(id));
