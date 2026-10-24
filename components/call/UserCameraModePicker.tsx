@@ -58,7 +58,7 @@ const UserCameraModePicker: React.FC<UserCameraModePickerProps> = ({
         aria-modal="true"
         aria-labelledby="user-camera-mode-title"
         tabIndex={-1}
-        className={`relative w-full overflow-hidden rounded-t-[2rem] border-t outline-none ${lightTheme ? 'border-[#4d4760]/12 bg-[#f7f4fc] text-[#2d2838]' : 'border-white/12 bg-[#100b1c] text-white'}`}
+        className={`relative w-full overflow-hidden rounded-t-[2rem] border-t outline-none ${lightTheme ? 'border-[#4a4a4a]/12 bg-[#f7f4fc] text-[#2a2a2a]' : 'border-white/12 bg-[#0d0d0d] text-white'}`}
         style={{ paddingBottom: 'max(1rem, var(--safe-bottom))' }}
         onClick={event => event.stopPropagation()}
       >
@@ -110,7 +110,7 @@ const UserCameraModePicker: React.FC<UserCameraModePickerProps> = ({
         {hasFakeImage && (
           <div className="flex items-center justify-end gap-4 px-5 pt-3 text-[10px]">
             <button type="button" onClick={onChooseFakeImage} className="opacity-55 transition active:opacity-35">更换静态图片</button>
-            <button type="button" onClick={onRemoveFakeImage} className="text-rose-400/75 transition active:opacity-45">移除图片</button>
+            <button type="button" onClick={onRemoveFakeImage} className="text-neutral-400/75 transition active:opacity-45">移除图片</button>
           </div>
         )}
       </div>
