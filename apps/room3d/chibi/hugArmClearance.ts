@@ -1,12 +1,13 @@
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
+import {furniturePalm} from './furnitureMotion';
 
 type Side='L'|'R';
 /** Cheap, reusable post-IK hug clearance. A torso ellipsoid is measured in
  * the recipient's chest frame, so turning/leaning does not invalidate it.
  * Only the hugging arm is adjusted; the recipient and navigation roots stay put.
  * No motion-clip sampling, allocations of physics bodies, or loading work. */
-export function keepHugArmOutside(owner:ChibiVisitor,recipient:ChibiVisitor,side:Side,weight:number){
+export function keepHugArmOutside(owner:ChibiVisitor,recipient:ChibiVisitor,side:Side,weight:number,palmGoal?:T.Vector3){
  if(!owner.rig||!recipient.rig||weight<=.001)return;
  const chest=recipient.rig.bones.chest;
  const upper=owner.rig.bones[side+'_upperArm'];
@@ -18,6 +19,7 @@ export function keepHugArmOutside(owner:ChibiVisitor,recipient:ChibiVisitor,side
  // Torso proxy includes a small sleeve clearance. The forearm midpoint is
  // checked too: a clear wrist alone does not mean the arm clears the ribs.
  const radii=new T.Vector3(.54,.73,.43);
+ const palmRadius=new T.Vector3(.57,.76,.47);
  const penetration=()=>{
   owner.root.updateWorldMatrix(true,true);
   recipient.root.updateWorldMatrix(true,true);
@@ -28,19 +30,27 @@ export function keepHugArmOutside(owner:ChibiVisitor,recipient:ChibiVisitor,side
    const depth=1-Math.sqrt((p.x/radii.x)**2+(p.y/radii.y)**2+(p.z/radii.z)**2);
    worst=Math.max(worst,depth);
   }
+  const palm=wrist.localToWorld(furniturePalm(side)).applyMatrix4(inv);
+  worst=Math.max(worst,1-Math.sqrt((palm.x/palmRadius.x)**2+(palm.y/palmRadius.y)**2+(palm.z/palmRadius.z)**2));
   return worst;
  };
  const before=penetration();
  if(before<=.01)return;
- const original=upper.quaternion.clone();
- let best=before,bestQ=original;
+ const original=upper.quaternion.clone(),originalForearm=elbow.quaternion.clone();
+ const palmPosition=()=>wrist.localToWorld(furniturePalm(side));
+ const baselineError=palmGoal?palmPosition().distanceTo(palmGoal):0;
+ let best=before+baselineError*.6,bestUpper=original.clone(),bestForearm=originalForearm.clone();
  // Try small shoulder-out rotations; retain only an improvement. This
  // avoids forcing the wrist through the torso with a second blind IK solve.
- for(const sign of [side==='L'?1:-1,side==='L'?-1:1]){
+ for(const sign of [side==='L'?1:-1,side==='L'?-1:1])for(const bend of [-.28,-.14,.14,.28]){
   upper.quaternion.copy(original).multiply(new T.Quaternion().setFromEuler(new T.Euler(0,sign*.16*weight,sign*.12*weight)));
+  elbow.quaternion.copy(originalForearm).multiply(new T.Quaternion().setFromEuler(new T.Euler(bend*weight,0,sign*.08*weight)));
   const depth=penetration();
-  if(depth<best){best=depth;bestQ=upper.quaternion.clone();}
+  const error=palmGoal?palmPosition().distanceTo(palmGoal):0;
+  const score=depth+error*.6;
+  if(score<best){best=score;bestUpper.copy(upper.quaternion);bestForearm.copy(elbow.quaternion);}
  }
- upper.quaternion.copy(bestQ);
+ upper.quaternion.copy(bestUpper);
+ elbow.quaternion.copy(bestForearm);
  owner.root.updateWorldMatrix(true,true);
 }
