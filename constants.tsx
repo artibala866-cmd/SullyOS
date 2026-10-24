@@ -33,7 +33,6 @@ import {
   Notebook,
   Plugs,
   Newspaper,
-  Planet,
   Wrench,
   HouseLine,
 } from '@phosphor-icons/react';
@@ -73,7 +72,6 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   Handbook: ({ className }) => <Notebook className={className} weight="regular" />,
   QQBridge: ({ className }) => <Plugs className={className} weight="regular" />,
   HotNews: ({ className }) => <Newspaper className={className} weight="regular" />,
-  VRWorld: ({ className }) => <Planet className={className} weight="regular" />,
   CharCreatorDev: ({ className }) => <Wrench className={className} weight="regular" />,
   WorldHome: ({ className }) => <HouseLine className={className} weight="regular" />,
 };
