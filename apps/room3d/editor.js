@@ -125,7 +125,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  const lightUniforms=createRoomLightUniforms();
  let quality='clear';try{const saved=localStorage.getItem('sully-home3d-quality');if(qualities[saved])quality=saved}catch{}
  let detailBudget=qualities[quality].details,frameInterval=1000/qualities[quality].fps,orbitMode=false,inTick=false;
- function wake(){if(!destroyed&&!suspended&&!document.hidden&&!frame&&!inTick&&state)frame=requestAnimationFrame(tick)}
+ function wake(){if(!destroyed&&!suspended&&!document.hidden&&!gpuContextLost&&!frame&&!inTick&&state)frame=requestAnimationFrame(tick)}
  const materialCache=new Map(),usedMaterials=new Set(),paintTargets=new Map(),defaultPaintColors=new Map();
  let furnitureOutlineEnabled=true;try{furnitureOutlineEnabled=localStorage.getItem('sully-home3d-furniture-outline')!=='off';}catch{}
  let furnitureStyle='retro';try{if(localStorage.getItem('sully-home3d-furniture-style')==='original')furnitureStyle='original';}catch{}
@@ -1904,9 +1904,16 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  for(const [name,fn] of [['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up]])renderer.domElement.addEventListener(name,fn,{signal:abort.signal,capture:true});
  function keydown(e){if(photoSession)return;if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement||e.target.isContentEditable)return;if(e.key==='Escape'){stopSocial();closeInteraction();if(rotationPreview){cancelRotation();return;}panel=null;selected=null;updateSelection();renderUI()}if(e.key==='f'){if(document.fullscreenElement)document.exitFullscreen();else host.requestFullscreen?.()}if((e.ctrlKey||e.metaKey)&&['z','y'].includes(e.key.toLowerCase())){e.preventDefault();ui.querySelector('[data-action="'+(e.shiftKey||e.key.toLowerCase()==='y'?'redo':'undo')+'"]')?.click()}if(edit&&item()){const deltas={ArrowLeft:[-.2,0],ArrowRight:[.2,0],ArrowUp:[0,-.2],ArrowDown:[0,.2]};if(deltas[e.key]){e.preventDefault();const [x,z]=deltas[e.key],a=asset(item().assetId);changeItem({x:item().x+(a.surface==='left'?0:x),z:item().z+(a.surface==='back'?0:z)})}}}
  host.tabIndex=0;host.addEventListener('keydown',keydown,{signal:abort.signal});
+ // Mobile browsers may discard the GPU context when the tab is backgrounded.
+ // Do not recreate the editor here: its furniture and resident state must survive.
+ let gpuContextLost=false;
+ const onContextLost=e=>{e.preventDefault();gpuContextLost=true;cancelAnimationFrame(frame);frame=0;};
+ const onContextRestored=()=>{gpuContextLost=false;renderer.resetState();resize();dirty=true;lastTick=performance.now();wake();};
+ renderer.domElement.addEventListener('webglcontextlost',onContextLost,{signal:abort.signal});
+ renderer.domElement.addEventListener('webglcontextrestored',onContextRestored,{signal:abort.signal});
  const observer=new ResizeObserver(()=>resize());observer.observe(stage);
  function tick(now=performance.now()){
-  frame=0;if(destroyed||suspended||document.hidden||roomLoading)return;if(photoSession){lastTick=now;if(dirty){renderScene();dirty=false;}return;}inTick=true;const dt=Math.min(.05,(now-lastTick)/1000);lastTick=now;
+  frame=0;if(destroyed||suspended||document.hidden||gpuContextLost||roomLoading)return;if(photoSession){lastTick=now;if(dirty){renderScene();dirty=false;}return;}inTick=true;const dt=Math.min(.05,(now-lastTick)/1000);lastTick=now;
   if(greeting&&elapsed>=greeting.until){setResidentExpression(primaryResidentId,greeting.old||{});const restoreWide=greeting.restoreWide;greeting=null;visitorMotion='idle';if(restoreWide){const from={position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom};resize(true,true);cameraArrival={from,to:{position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom},start:elapsed};}}
   updateCompanion();
   if(cameraArrival){const t=THREE.MathUtils.smootherstep(elapsed-cameraArrival.start,0,reducedMotion?.01:1.1),{from,to}=cameraArrival;camera.position.copy(from.position).lerp(to.position,t);controls.target.copy(from.target).lerp(to.target,t);camera.zoom=THREE.MathUtils.lerp(from.zoom,to.zoom,t);camera.updateProjectionMatrix();dirty=true;if(t>=1)cameraArrival=null;}
