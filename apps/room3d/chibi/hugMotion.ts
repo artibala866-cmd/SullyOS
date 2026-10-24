@@ -1,8 +1,8 @@
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
-import {contactFromRecipe,type contactSolver} from './socialContact';
+import type {contactSolver} from './socialContact';
 import {hugHandContact,poseHugFingers} from './hugHands';
-import {keepHugArmOutside} from './hugArmClearance';
+import {hugBackSurface,hugOutsideTarget,keepHugArmOutside} from './hugArmClearance';
 
 type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
@@ -35,6 +35,23 @@ export function poseHug(both:Resident[],time:number,seatedIndex?:number){
   turn(v,'head',rotation(.10, i===0?-.08:.08,-.13),p.settle);
   if(i!==seatedIndex)v.translatePose(new T.Vector3((i===0?1:-1)*.09,0,(i===0?1:-1)*.06).applyQuaternion(axis).multiplyScalar(p.settle));
  });
+ // Root navigation remains unchanged. Lean the posed bodies into actual arm
+ // reach while keeping their torso surfaces separated (no walk/teleport).
+ const first=both[0].visitor,second=both[1].visitor;
+ first.root.updateWorldMatrix(true,true);
+ second.root.updateWorldMatrix(true,true);
+ const aChest=first.rig!.bones.chest,bChest=second.rig!.bones.chest;
+ const aCenter=aChest.getWorldPosition(new T.Vector3());
+ const delta=bChest.getWorldPosition(new T.Vector3()).sub(aCenter).setY(0);
+ const gap=delta.length();
+ const safeGap=.40*aChest.getWorldScale(new T.Vector3()).x+.40*bChest.getWorldScale(new T.Vector3()).x+.04;
+ if(gap>safeGap&&gap<1&&gap>1e-6){
+  const approach=smooth(time,.95,2.75)*(1-smooth(time,7.5,9.25));
+  const distance=Math.min((gap-safeGap)*.5,.14)*approach;
+  const step=delta.multiplyScalar(distance/gap);
+  first.translatePose(step);
+  second.translatePose(step.clone().negate());
+ }
  both.forEach(({visitor:v,solver},i)=>{
   const partner=both[1-i].visitor,ownerQ=v.root.getWorldQuaternion(new T.Quaternion());
   const backQ=partner.rig!.bones.chest.getWorldQuaternion(new T.Quaternion());
@@ -46,41 +63,23 @@ export function poseHug(both:Resident[],time:number,seatedIndex?:number){
    turn(v,side+'_forearm',rotation(0,-sign*.42,-sign*.24),p.arms);
    v.root.updateWorldMatrix(true,true);
    const ready=point(v,'chest',[sign*.86,-.18,.40]);
-   const recipe={side,targetBone:'chest',offset:[-sign*.53,i===0?-.14:-.30,-.17] as [number,number,number],direction:[sign,0,0] as [number,number,number],normal:[0,1,0] as [number,number,number]};
-   const back=contactFromRecipe(partner,recipe)?.point??point(partner,'chest',recipe.offset);
-   // Keep the palm on the outer rear surface of the partner rather than
-   // allowing a straight-line interpolation through their torso.
-   const partnerCenter=partner.rig!.bones.chest.getWorldPosition(new T.Vector3());
-   const away=back.clone().sub(partnerCenter);
-   away.y=0;
-   if(away.lengthSq()>.0001)back.add(away.normalize().multiplyScalar(.12));
-   // Travel around the flank, not straight through the torso. Reverse this arc
-   // while releasing, before lowering the arms beside the body.
-   const target=ready.lerp(back,p.wrap).add(new T.Vector3(sign*.36,.07,0).applyQuaternion(ownerQ).multiplyScalar(Math.sin(Math.PI*p.wrap)));
-   // During the wrap, push the trajectory outside the partner's torso.
-   const centre=partner.rig!.bones.chest.getWorldPosition(new T.Vector3());
-   const radial=target.clone().sub(centre);radial.y=0;
-   const radius=.54;
-   if(p.wrap>.08&&radial.lengthSq()>1e-8&&radial.length()<radius){
-    const clearance=smooth(p.wrap,.08,.38);
-    target.add(radial.normalize().multiplyScalar((radius-radial.length())*clearance));
-   }
-   target.add(new T.Vector3(0,.04,-.24).applyQuaternion(backQ).multiplyScalar(p.pat));
-   // Keep the elbow outside the receiver's ribcage as the hand wraps.
-   // The forearm IK cannot avoid a torso by moving its wrist alone.
-   const elbow=v.rig!.bones[side+'_forearm'].getWorldPosition(new T.Vector3());
-   const outward=new T.Vector3(sign,0,0).applyQuaternion(ownerQ);
-   const chestCentre=partner.rig!.bones.chest.getWorldPosition(new T.Vector3());
-   const elbowRadial=elbow.clone().sub(chestCentre);elbowRadial.y=0;
-   if(p.wrap>.1&&elbowRadial.length()<.48){
-    const correction=smooth(p.wrap,.1,.55);
-    v.rig!.bones[side+'_clavicle'].quaternion.multiply(rotation(0,0,sign*.12*correction));
-    v.rig!.bones[side+'_upperArm'].quaternion.multiply(rotation(0,-sign*.12*correction,-sign*.12*correction));
-    v.root.updateWorldMatrix(true,true);
-   }
+   // The back anchor follows the recipient's posed chest every frame and
+   // lies on its outer surface, rather than at an arbitrary interior bone offset.
+   const back=hugBackSurface(partner,side,i);
+   // Keep the authored curved wrap, but prevent its intermediate targets
+   // from cutting through the very same torso proxy used by the elbow solver.
+   const target=ready.lerp(back,p.wrap)
+    .add(new T.Vector3(sign*.36,.07,0).applyQuaternion(ownerQ).multiplyScalar(Math.sin(Math.PI*p.wrap)));
+   // Pat against the back, not through it or 24 cm beyond it.
+   const scale=partner.rig!.bones.chest.getWorldScale(new T.Vector3()).x;
+   target.add(new T.Vector3(0,.03,-.05).applyQuaternion(backQ).multiplyScalar(scale*p.pat));
+   if(p.wrap>.03)hugOutsideTarget(partner,target);
    const {direction,normal}=hugHandContact(side,i,p.wrap,p.pat,ownerQ,backQ);
-   solver?.({side,point:target,direction,normal},p.reach);
-   keepHugArmOutside(v,partner,side,p.reach*p.wrap);
+   const contact={side,point:target,direction,normal};
+   // The shared hand IK owns palm tracking; the hug-only pole correction
+   // preserves its wrist target while keeping the bent elbow outside.
+   solver?.(contact,p.reach);
+   if(solver)keepHugArmOutside(v,partner,contact,p.reach*p.wrap);
    poseHugFingers(v.rig!,side,time,i,p.arms,p.wrap,p.pat);
    v.root.updateWorldMatrix(true,true);
   }
