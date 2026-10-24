@@ -990,7 +990,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                 addToast(next ? '观测已开启 · 下条回复生效' : '观测已关闭', 'info');
                                 setShowMenu(false); setShowVoiceLangPicker(false);
                             }}
-                            className={`h-9 px-3.5 rounded-full flex items-center gap-2 text-xs font-bold border shadow-lg active:scale-95 transition-all backdrop-blur-md ${observeEnabled ? 'bg-neutral-600/20 border-neutral-400/40 text-neutral-50' : 'bg-black/40 border-white/15 text-white/60 hover:bg-white/20'}`}>
+                            className={`h-9 px-3.5 rounded-full flex items-center gap-2 text-xs font-bold border shadow-lg active:scale-95 transition-all backdrop-blur-md ${observeEnabled ? 'bg-cyan-400/20 border-cyan-300/40 text-cyan-50' : 'bg-black/40 border-white/15 text-white/60 hover:bg-white/20'}`}>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
                             观测{observeEnabled ? ' · 开' : ' · 关'}
                         </button>
@@ -1164,7 +1164,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                                                 title="播放；长按可收藏"
                                                                 className={`shrink-0 mt-2 w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-90 select-none ${
                                                                     novelPlayingId === lineKey
-                                                                        ? (lightReading ? 'bg-neutral-100 text-neutral-700' : 'bg-neutral-700/20 text-neutral-300')
+                                                                        ? (lightReading ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-300')
                                                                         : (lightReading ? 'bg-stone-100 text-stone-400 hover:bg-stone-200' : 'bg-white/5 text-white/40 hover:bg-white/10')
                                                                 }`}
                                                             >
