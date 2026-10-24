@@ -7,7 +7,7 @@ import type {HomeEditor} from './editor.js';
 import {selectedMotions} from './chibi/selectedMotions';
 import {socialWheelLayout} from './socialWheelLayout';
 import './socialWheel.css';
-const categories=[['greet','招呼',HandWaving],['talk','聊天',ChatCircle],['care','关心',Flower],['close','亲密',Heart],['play','玩闹',Smiley],['self','小动作',Sparkle],['conflict','闹别扭',CloudLightning]] as const;
+const categories=[['greet','招呼',HandWaving],['talk','聊天',ChatCircle],['care','关心',Flower],['close','亲密',Heart],['kiss','亲亲',Heart],['play','玩闹',Smiley],['self','小动作',Sparkle],['conflict','闹别扭',CloudLightning]] as const;
 function motionIcon(label:string,fallback:typeof Sparkle){
  if(/鼓掌|击掌/.test(label))return HandsClapping;
  if(/招手|挥手/.test(label))return HandWaving;
