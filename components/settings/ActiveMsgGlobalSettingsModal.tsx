@@ -159,9 +159,9 @@ let instantChatGateReported = false;
 
 /** 体检每一行的配色与那一列小字。unknown 用灰：查不出结论时别拿颜色暗示好坏。 */
 const DIAGNOSTIC_STYLES: Record<AmsgDiagnosticLevel, { dot: string; text: string; word: string }> = {
-  ok: { dot: 'bg-emerald-500', text: 'text-emerald-600', word: '正常' },
-  warn: { dot: 'bg-amber-500', text: 'text-amber-600', word: '注意' },
-  bad: { dot: 'bg-rose-500', text: 'text-rose-600', word: '有问题' },
+  ok: { dot: 'bg-neutral-500', text: 'text-neutral-600', word: '正常' },
+  warn: { dot: 'bg-neutral-500', text: 'text-neutral-600', word: '注意' },
+  bad: { dot: 'bg-neutral-500', text: 'text-neutral-600', word: '有问题' },
   unknown: { dot: 'bg-slate-300', text: 'text-slate-400', word: '查不到' },
 };
 
@@ -900,7 +900,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
       <div className="space-y-4 text-sm text-slate-600">
         {/* 后台任务暂停着的时候常驻这一条：下面的按钮在折叠区里，不然一眼看不出角色为什么都不响。 */}
         {cronState?.kind === 'known' && !cronState.enabled ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-xs leading-relaxed text-amber-700">
+          <div className="bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-xs leading-relaxed text-neutral-700">
             后台任务已暂停，到点的消息先攒着，恢复后一起补发。
           </div>
         ) : null}
@@ -992,7 +992,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="font-bold text-slate-700">一键部署（推荐）</span>
-            <span className="shrink-0 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+            <span className="shrink-0 text-[10px] font-bold text-neutral-600 bg-neutral-50 px-2 py-0.5 rounded-full">
               只要一枚 Token
             </span>
           </div>
@@ -1014,7 +1014,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
               target="_blank"
               rel="noreferrer"
               onClick={() => trackEvent('打开 2.0 部署外链', { target: 'CF面板' })}
-              className="inline-block mt-1 text-[11px] font-bold text-violet-600"
+              className="inline-block mt-1 text-[11px] font-bold text-neutral-600"
             >
               ↗ 去 Cloudflare 建 Token
             </a>
@@ -1026,7 +1026,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
             onChange={(e) => setCfToken(e.target.value)}
             placeholder="粘贴 Cloudflare API Token"
             autoComplete="off"
-            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-violet-400"
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-neutral-400"
           />
 
           {provisionAccounts?.length ? (
@@ -1055,7 +1055,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 onChange={(e) => setDesiredSubdomain(e.target.value)}
                 placeholder="例如 my-name（全 Cloudflare 唯一）"
                 autoComplete="off"
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-violet-400"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-neutral-400"
               />
               <p className="text-[11px] leading-relaxed text-slate-400">
                 后端地址会长这样：<code className="font-mono">sullyos-amsg.你填的.workers.dev</code>。
@@ -1068,13 +1068,13 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
             type="button"
             disabled={provisioning || !cfToken.trim()}
             onClick={() => void handleOneClickDeploy()}
-            className="w-full py-3 rounded-xl text-sm font-bold bg-violet-500 text-white active:scale-95 transition-transform disabled:opacity-50"
+            className="w-full py-3 rounded-xl text-sm font-bold bg-neutral-500 text-white active:scale-95 transition-transform disabled:opacity-50"
           >
             {provisioning ? provisionStep || '部署中…' : '开始部署'}
           </button>
 
           {provisionError ? (
-            <p className="text-[11px] leading-relaxed text-rose-600 whitespace-pre-line">{provisionError}</p>
+            <p className="text-[11px] leading-relaxed text-neutral-600 whitespace-pre-line">{provisionError}</p>
           ) : null}
 
           <p className="text-[10px] leading-relaxed text-slate-400">
@@ -1144,7 +1144,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => trackEvent('打开 2.0 部署外链', { target: 'fork仓库' })}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-violet-500 text-white text-center active:scale-95 transition-transform"
+                  className="py-2.5 rounded-xl text-xs font-bold bg-neutral-500 text-white text-center active:scale-95 transition-transform"
                 >
                   ↗ Fork 仓库
                 </a>
@@ -1274,13 +1274,13 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <span className="font-bold text-slate-700">当前状态</span>
-            <span className={`text-xs font-bold ${isConnected ? 'text-emerald-600' : 'text-amber-600'}`}>
+            <span className={`text-xs font-bold ${isConnected ? 'text-neutral-600' : 'text-neutral-600'}`}>
               {isConnected ? '已连接' : '未连接'}
             </span>
           </div>
 
           {workerOutdated ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-xs leading-relaxed text-amber-700">
+            <div className="bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-xs leading-relaxed text-neutral-700">
               Worker 上跑的还是旧版代码，缺少新特性（大上下文云端存储、服务端工具循环等）。
               回你 fork 的 <code className="font-mono">sullyos-workers</code> 仓库点一下
               <strong> Sync fork</strong>，CF 会自动重新部署（当初是手动粘贴部署的话，
@@ -1423,7 +1423,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 disabled={loading}
                 className={`w-full py-2.5 font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50 ${
                   workerVersion?.state === 'outdated'
-                    ? 'bg-emerald-600 text-white border border-emerald-600'
+                    ? 'bg-neutral-600 text-white border border-neutral-600'
                     : 'bg-white border border-slate-300 text-slate-700'
                 }`}
               >
@@ -1434,7 +1434,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     : '重新检查并更新 Worker'}
               </button>
               {workerVersion?.state === 'outdated' ? (
-                <p className="text-xs leading-relaxed text-emerald-700">
+                <p className="text-xs leading-relaxed text-neutral-700">
                   你这台 Worker 上跑的是
                   {workerVersion.deployed ? <code className="font-mono"> {workerVersion.deployed} </code> : '更早的版本'}
                   ，更新后即时对话才走得上新的生成通道。
@@ -1449,7 +1449,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 没钥匙的沿用原来那段说明。文案出自 describeAmsgSelfUpdate，跟 worker 记的状态同源。
               */}
               {autoUpdateText ? (
-                <p className={`text-xs leading-relaxed ${workerVersion?.autoUpdate?.state?.lastOutcome === 'failed' ? 'text-amber-700' : 'text-slate-500'}`}>
+                <p className={`text-xs leading-relaxed ${workerVersion?.autoUpdate?.state?.lastOutcome === 'failed' ? 'text-neutral-700' : 'text-slate-500'}`}>
                   {autoUpdateText}
                 </p>
               ) : null}
@@ -1460,7 +1460,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                   : '用一键部署装的可以直接点，装完以后后端还会自己定期更新；老办法装的第一次点会提示补一把钥匙，就在下面补，补完同样自动更新。'}
               </p>
               {selfUpdateHash ? (
-                <p className="text-xs leading-relaxed text-emerald-600">
+                <p className="text-xs leading-relaxed text-neutral-600">
                   当前后端代码指纹：<code className="font-mono">{selfUpdateHash}</code>
                 </p>
               ) : null}
@@ -1473,7 +1473,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     disabled={loading}
                     className={`w-full py-2.5 font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50 ${
                       cronState.kind === 'known' && !cronState.enabled
-                        ? 'bg-amber-500 text-white border border-amber-500'
+                        ? 'bg-neutral-500 text-white border border-neutral-500'
                         : 'bg-white border border-slate-300 text-slate-700'
                     }`}
                   >
@@ -1502,7 +1502,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     target="_blank"
                     rel="noreferrer"
                     onClick={() => trackEvent('打开 2.0 部署外链', { target: 'CF面板' })}
-                    className="inline-block text-[11px] font-bold text-violet-600"
+                    className="inline-block text-[11px] font-bold text-neutral-600"
                   >
                     ↗ 去 Cloudflare 建 Token
                   </a>
@@ -1512,7 +1512,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     onChange={(e) => setAttachToken(e.target.value)}
                     placeholder="粘贴 Cloudflare API Token"
                     autoComplete="off"
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-violet-400"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-neutral-400"
                   />
 
                   {attachNeedsScriptName ? (
@@ -1522,7 +1522,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                       onChange={(e) => setAttachScriptName(e.target.value)}
                       placeholder="这台 Worker 在 Cloudflare 上的名字"
                       autoComplete="off"
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-violet-400"
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-neutral-400"
                     />
                   ) : null}
 
@@ -1547,13 +1547,13 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     type="button"
                     disabled={attaching || !attachToken.trim()}
                     onClick={() => void handleAttachUpdateKey()}
-                    className="w-full py-2.5 rounded-xl text-xs font-bold bg-violet-500 text-white active:scale-95 transition-transform disabled:opacity-50"
+                    className="w-full py-2.5 rounded-xl text-xs font-bold bg-neutral-500 text-white active:scale-95 transition-transform disabled:opacity-50"
                   >
                     {attaching ? '装钥匙中…' : '装上钥匙'}
                   </button>
 
                   {attachError ? (
-                    <p className="text-[11px] leading-relaxed text-rose-600 whitespace-pre-line">{attachError}</p>
+                    <p className="text-[11px] leading-relaxed text-neutral-600 whitespace-pre-line">{attachError}</p>
                   ) : null}
 
                   <p className="text-[10px] leading-relaxed text-slate-400">
@@ -1571,7 +1571,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
             <span className="font-bold text-slate-700">
               {pushStatus?.transport === 'unified-push' ? 'UnifiedPush 通知' : '通知权限'}
             </span>
-            <span className={`text-xs font-bold ${pushStatus?.hasSubscription ? 'text-emerald-600' : 'text-amber-600'}`}>
+            <span className={`text-xs font-bold ${pushStatus?.hasSubscription ? 'text-neutral-600' : 'text-neutral-600'}`}>
               {pushStatus?.hasSubscription ? '已开启' : '未开启'}
             </span>
           </div>
@@ -1594,18 +1594,18 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
               href="https://docs.ntfy.sh/subscribe/phone/"
               target="_blank"
               rel="noreferrer"
-              className="block text-xs font-bold text-violet-600 underline"
+              className="block text-xs font-bold text-neutral-600 underline"
             >
               安装并打开 ntfy（选择无 Firebase 版本）
             </a>
           ) : null}
           {pushStatus?.detail ? (
-            <p className="text-xs leading-relaxed text-amber-600">{pushStatus.detail}</p>
+            <p className="text-xs leading-relaxed text-neutral-600">{pushStatus.detail}</p>
           ) : null}
           <button
             onClick={handleCreateSubscription}
             disabled={loading}
-            className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50"
+            className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50"
           >
             {loading ? '处理中...' : pushStatus?.transport === 'unified-push' ? '连接 ntfy 并开启通知' : '开启通知与推送'}
           </button>
@@ -1620,7 +1620,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 标成绿色的「已开启」就是在骗人：用户以为聊天在云端跑，实际一直在本地。 */}
             <span className={`text-xs font-bold ${
               !config.instantChatEnabled ? 'text-slate-400'
-                : instantChatBlockedReason ? 'text-amber-600' : 'text-emerald-600'
+                : instantChatBlockedReason ? 'text-neutral-600' : 'text-neutral-600'
             }`}>
               {!config.instantChatEnabled ? '未开启'
                 : instantChatBlockedReason ? '已开启 · 暂不生效' : '已开启'}
@@ -1631,7 +1631,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
             发完就能切后台、关掉应用，回来时消息已经在那儿了。关掉则回到本地直连生成。
           </p>
           {instantChatBlockedReason ? (
-            <p className="text-xs leading-relaxed text-amber-600">{instantChatBlockedReason}</p>
+            <p className="text-xs leading-relaxed text-neutral-600">{instantChatBlockedReason}</p>
           ) : (
             <p className="text-[11px] leading-relaxed text-slate-400">
               没有逐字吐出，生成期间显示「正在输入…」；云端明确报错才会提示重发，
@@ -1650,8 +1650,8 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
           </button>
         </div>
 
-        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-xs leading-relaxed text-amber-700 space-y-2">
-          <div className="font-bold text-amber-800">风险说明</div>
+        <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 text-xs leading-relaxed text-neutral-700 space-y-2">
+          <div className="font-bold text-neutral-800">风险说明</div>
           <p>开了 2.0 以后，主动消息内容、提示词、相关配置，都会进入你自己部署的 Worker 及其 D1 数据库。</p>
           <p>这是你自己的 Worker、你自己的库，项目不会额外接一个中心服务器。但只要数据进库，能碰到这台 Worker / 数据库的人（也就是你自己）就能看到这些内容。</p>
           <p>如果你不接受把私密提示词、API Key 放进自己部署的服务，就不要开 2.0。</p>
@@ -1669,10 +1669,10 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
 
           {advancedOpen ? (
             <div className="space-y-3 text-xs">
-              <div className="bg-violet-50 border border-violet-100 rounded-2xl p-3 space-y-2">
+              <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-3 space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold text-slate-700">X-User-Id</span>
-                  <span className="font-mono text-violet-600">{maskActiveMsgUserId(config.userId)}</span>
+                  <span className="font-mono text-neutral-600">{maskActiveMsgUserId(config.userId)}</span>
                 </div>
               </div>
               <p className="text-[11px] leading-relaxed text-slate-500">
