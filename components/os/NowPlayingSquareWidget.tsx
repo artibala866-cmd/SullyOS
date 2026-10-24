@@ -31,7 +31,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string; monochrome?: bool
   const title = current?.name || '抽一张来听';
   const artists = current?.artists || '— 轻触，进入';
   const statusText = !hasSong ? 'Standby' : (playing ? 'Now Playing' : 'Paused');
-  const dotColor = paper ? (!hasSong ? '#a66f52' : '#788369') : (!hasSong ? '#fbbf24' : (playing ? '#4ade80' : '#fbbf24'));
+  const dotColor = paper ? (!hasSong ? '#797979' : '#7f7f7f') : (!hasSong ? '#c1c1c1' : (playing ? '#b8b8b8' : '#c1c1c1'));
 
   const stopProp = (e: React.MouseEvent) => { e.stopPropagation(); };
   const handlePlay = (e: React.MouseEvent) => { e.stopPropagation(); if (hasSong) togglePlay(); else openApp(AppID.Music); };
@@ -44,51 +44,51 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string; monochrome?: bool
       <div
         onClick={() => openApp(AppID.Music)}
         className="relative w-full h-full rounded-[1.75rem] overflow-hidden cursor-pointer animate-fade-in transition-transform active:scale-[0.98] flex flex-col items-center justify-between p-3"
-        style={{ background: 'rgb(247,243,223)', border: '2px solid #e8e2d6', boxShadow: '0 6px 18px rgba(61,52,40,0.12)', color: '#725d42' }}
+        style={{ background: 'rgb(247,243,223)', border: '2px solid #e2e2e2', boxShadow: '0 6px 18px rgba(61,52,40,0.12)', color: '#606060' }}
       >
         {/* 唱片 + 唱臂 */}
         <div className="relative mt-0.5" style={{ width: '54%', aspectRatio: '1 / 1' }}>
           <div className="absolute inset-0 rounded-full"
             style={{
-              background: 'repeating-radial-gradient(circle at 50% 50%, #2b231d 0 2px, #3a2e26 2px 3.5px)',
-              boxShadow: 'inset 0 0 0 2px #1f1813, 0 4px 10px rgba(61,52,40,0.28)',
+              background: 'repeating-radial-gradient(circle at 50% 50%, #242424 0 2px, #303030 2px 3.5px)',
+              boxShadow: 'inset 0 0 0 2px #191919, 0 4px 10px rgba(61,52,40,0.28)',
               animation: playing ? 'spin 6s linear infinite' : 'none',
             }}>
             <div className="absolute inset-[34%] rounded-full overflow-hidden flex items-center justify-center"
-              style={{ background: '#F7CD67', boxShadow: '0 0 0 2px #e0b84a' }}>
+              style={{ background: '#cfcfcf', boxShadow: '0 0 0 2px #b9b9b9' }}>
               {albumPic
                 ? <img src={albumPic} alt="" className="w-full h-full object-cover" />
-                : <span className="text-[11px] font-black text-[#7a5c1e]">♪</span>}
+                : <span className="text-[11px] font-black text-[#5e5e5e]">♪</span>}
             </div>
-            <div className="absolute left-1/2 top-1/2 w-1.5 h-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: '#1f1813' }} />
+            <div className="absolute left-1/2 top-1/2 w-1.5 h-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: '#191919' }} />
           </div>
           {/* 唱臂 */}
-          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full z-10" style={{ background: '#cdbfa0', boxShadow: '0 1px 2px rgba(61,52,40,0.3)' }} />
+          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full z-10" style={{ background: '#c0c0c0', boxShadow: '0 1px 2px rgba(61,52,40,0.3)' }} />
           <div className="absolute top-0 right-0 w-[3px] rounded-full z-10 origin-top-right transition-transform duration-500"
-            style={{ height: '62%', background: '#b8a988', transform: playing ? 'rotate(22deg)' : 'rotate(42deg)', boxShadow: '0 1px 2px rgba(61,52,40,0.25)' }} />
+            style={{ height: '62%', background: '#aaaaaa', transform: playing ? 'rotate(22deg)' : 'rotate(42deg)', boxShadow: '0 1px 2px rgba(61,52,40,0.25)' }} />
         </div>
 
         {/* 曲名 */}
         <div className="text-center min-w-0 w-full px-1">
           <div className="text-[11px] font-bold truncate leading-tight">{title}</div>
-          <div className="text-[9px] truncate leading-tight" style={{ color: '#9f927d' }}>{artists}</div>
+          <div className="text-[9px] truncate leading-tight" style={{ color: '#939393' }}>{artists}</div>
         </div>
 
         {/* 控件：圆形 AC 按钮 */}
         <div className="flex items-center justify-center gap-3">
           <button aria-label="Previous" onClick={handlePrev} onMouseDown={stopProp} disabled={!hasSong}
             className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition disabled:opacity-30"
-            style={{ background: '#fff', border: '2px solid #e0d6c0', color: '#725d42' }}>
+            style={{ background: '#fff', border: '2px solid #d7d7d7', color: '#606060' }}>
             <SkipBack size={12} weight="fill" />
           </button>
           <button aria-label={playing ? 'Pause' : 'Play'} onClick={handlePlay} onMouseDown={stopProp}
             className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition"
-            style={{ background: '#19c8b9', color: '#fff', boxShadow: '0 3px 0 0 #12a89b' }}>
+            style={{ background: '#a2a2a2', color: '#fff', boxShadow: '0 3px 0 0 #878787' }}>
             {playing ? <Pause size={15} weight="fill" /> : <Play size={15} weight="fill" />}
           </button>
           <button aria-label="Next" onClick={handleNext} onMouseDown={stopProp} disabled={!hasSong}
             className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition disabled:opacity-30"
-            style={{ background: '#fff', border: '2px solid #e0d6c0', color: '#725d42' }}>
+            style={{ background: '#fff', border: '2px solid #d7d7d7', color: '#606060' }}>
             <SkipForward size={12} weight="fill" />
           </button>
         </div>
@@ -139,7 +139,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string; monochrome?: bool
   const light = !!theme.nowPlayingWidgetLight;
   const palette = paper
     ? {
-        textColor: '#4b4136',
+        textColor: '#424242',
         cardBg: 'rgba(224,221,215,0.38)',
         cardBorder: '1px solid rgba(91,72,51,0.07)',
         cardShadow: '0 5px 16px rgba(91,72,51,0.055)',
@@ -150,11 +150,11 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string; monochrome?: bool
         thumbBg: 'rgba(120,131,105,0.08)',
         thumbBorder: '1px solid rgba(91,72,51,0.12)',
         trackBg: 'rgba(91,72,51,0.12)',
-        playBg: '#5f684f',
+        playBg: '#646464',
         playColor: '#fffdf8',
       }
     : light ? {
-        textColor: '#46415c',
+        textColor: '#444444',
         cardBg: 'rgba(255,255,255,0.74)',
         cardBorder: '1px solid rgba(120,110,150,0.18)',
         cardShadow: '0 8px 24px rgba(80,70,120,0.16), inset 0 1px 0 rgba(255,255,255,0.7)',
@@ -165,7 +165,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string; monochrome?: bool
         thumbBg: 'rgba(120,110,150,0.1)',
         thumbBorder: '1px solid rgba(120,110,150,0.22)',
         trackBg: 'rgba(70,65,92,0.14)',
-        playBg: '#6b5fa8',
+        playBg: '#676767',
         playColor: '#ffffff',
       }
     : {
@@ -274,7 +274,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string; monochrome?: bool
             <div className="h-full rounded-full transition-[width] duration-150"
               style={{
                 width: `${pct}%`,
-                background: acnh ? 'linear-gradient(90deg, #82D5BB, #6fba2c)' : paper ? 'linear-gradient(90deg, #a66f52, #788369)' : 'linear-gradient(90deg, #60a5fa, #c084fc)',
+                background: acnh ? 'linear-gradient(90deg, #c1c1c1, #a0a0a0)' : paper ? 'linear-gradient(90deg, #797979, #7f7f7f)' : 'linear-gradient(90deg, #9c9c9c, #999999)',
                 boxShadow: acnh || paper ? 'none' : '0 0 6px rgba(192,132,252,0.55)',
               }} />
           </div>
