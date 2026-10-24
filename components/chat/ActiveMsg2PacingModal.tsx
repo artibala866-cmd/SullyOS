@@ -52,14 +52,14 @@ const Field: React.FC<{ label: string; hint: string; children: React.ReactNode; 
     <div className="font-bold text-slate-700 text-sm mb-1.5 pl-1">{label}</div>
     {children}
     <p className="text-xs text-slate-400 mt-1.5 pl-1 leading-relaxed">{hint}</p>
-    {warning ? <p className="text-xs text-amber-600 mt-1 pl-1 leading-relaxed">{warning}</p> : null}
+    {warning ? <p className="text-xs text-neutral-600 mt-1 pl-1 leading-relaxed">{warning}</p> : null}
   </div>
 );
 
 const Toggle: React.FC<{ on: boolean; onClick: () => void }> = ({ on, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${on ? 'bg-fuchsia-500' : 'bg-slate-200'}`}
+    className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${on ? 'bg-neutral-500' : 'bg-slate-200'}`}
   >
     <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${on ? 'translate-x-5' : 'translate-x-0'}`} />
   </button>
@@ -125,7 +125,7 @@ const ActiveMsg2PacingModal: React.FC<ActiveMsg2PacingModalProps> = ({
           <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">
             取消
           </button>
-          <button onClick={() => void handleSave()} disabled={saving} className="flex-1 py-3 bg-fuchsia-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
+          <button onClick={() => void handleSave()} disabled={saving} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
             {saving ? '保存中...' : '保存'}
           </button>
         </>
@@ -202,7 +202,7 @@ const ActiveMsg2PacingModal: React.FC<ActiveMsg2PacingModalProps> = ({
               <div className="font-bold text-slate-700">可以排每天、每周重复的消息</div>
               <div className="text-xs text-slate-400 mt-1 leading-relaxed">关着时 TA 只能排一次性的。</div>
               {willCancelRecurring ? (
-                <div className="text-xs text-amber-600 mt-1 leading-relaxed">
+                <div className="text-xs text-neutral-600 mt-1 leading-relaxed">
                   TA 排过 {selfRecurringTaskCount} 次重复消息，保存后会一起取消。
                 </div>
               ) : null}
