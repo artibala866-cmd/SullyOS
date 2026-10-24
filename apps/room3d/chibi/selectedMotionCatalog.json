@@ -11,6 +11,17 @@
     "hashes": []
   },
   {
+    "id": "home-head-pat",
+    "label": "摸头",
+    "category": "close",
+    "source": "SullyOS original procedural pose + shared hand IK",
+    "sourceUrl": "",
+    "duration": 7.8,
+    "participants": 2,
+    "file": "home-head-pat.json",
+    "hashes": []
+  },
+  {
     "id": "home-kiss",
     "label": "站立亲亲",
     "category": "kiss",

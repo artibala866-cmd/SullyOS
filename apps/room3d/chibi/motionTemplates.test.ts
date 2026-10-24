@@ -9,15 +9,27 @@ const metadata=[{id:'new-pair',participants:2},{id:'new-solo',participants:1},{i
 const pair=()=>motionTemplatePresets.pairedHands({pairing:'sampledClosest',enter:[.6,1.1],exit:[1.7,2.2],curl:.3});
 describe('Stage 5 motion authoring contract',()=>{
  it('preserves all 43 motions and eight visible categories without extra motions or clips',()=>{
-  expect(selectedMotions).toHaveLength(43);
+  expect(selectedMotions).toHaveLength(44);
   expect(motionCapabilityKeys).toHaveLength(10);
-  expect(Object.keys(authoredMotionTemplates)).toHaveLength(0);
-  expect(Object.keys(motionTemplates).sort()).toEqual(Object.keys(motionContactProfiles).sort());
+  expect(Object.keys(authoredMotionTemplates)).toEqual(['home-head-pat']);
+  expect(Object.keys(motionTemplates).sort()).toEqual([...Object.keys(motionContactProfiles),'home-head-pat'].sort());
   for(const [id,c] of Object.entries(motionContactProfiles))expect(motionTemplateContact(id)).toBe(c);
   expect(motionTemplateFor('home-hug')).toBeUndefined();
   expect(motionTemplateFor('home-kiss')).toBeUndefined();
   expect(motionTemplateFor('home-princess-carry')).toBeUndefined();
-  expect(Object.keys(motionTemplateConstraintPlans)).toEqual(['cmu-20_10']);
+  expect(Object.keys(motionTemplateConstraintPlans).sort()).toEqual(['cmu-20_10','home-head-pat'].sort());
+ });
+ it('registers the only new playful hair pat in the existing close category',()=>{
+  const entry=selectedMotions.find(e=>e.id==='home-head-pat');
+  const spec=motionTemplateFor('home-head-pat');
+  expect(entry?.category).toBe('close');
+  expect(entry?.participants).toBe(2);
+  expect(spec?.headTouch).toEqual({kind:'patThenRuffle',patSide:'R',patStrokes:2,ruffleStrokes:2});
+  expect(spec?.capabilities).toEqual(['pairedSync','residentNavigation','handContact']);
+ });
+ it('rejects impossible new head-touch configurations at startup',()=>{
+  expect(()=>compileMotionTemplates(metadata,{'new-pair':motionTemplatePresets.headPat({patStrokes:0})})).toThrow(/head touch/);
+  expect(()=>compileMotionTemplates(metadata,{'new-solo':{...motionTemplatePresets.headPat(),participants:1}})).toThrow(/head touch/);
  });
  it('allows a new paired-hand action via one static spec and a matching catalog entry',()=>{
   const compiled=compileMotionTemplates(metadata,{'new-pair':pair()});

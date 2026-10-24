@@ -9,12 +9,14 @@ import {selectedMotions} from './selectedMotions';
 export type MotionPropTemplate=
  | Readonly<{kind:'phone';hand:'L'|'R'}>
  | Readonly<{kind:'cup';handoffAt:number}>;
+export type HeadTouchRecipe=Readonly<{kind:'patThenRuffle';patSide:'L'|'R';patStrokes:number;ruffleStrokes:number}>;
 export type MotionPosture='standing'|'seatedTarget'|'seatedActor'|'any';
 export type MotionTemplateDraft=Readonly<{
  participants:1|2;
  capabilities:readonly MotionCapability[];
  contact?:MotionContactProfile;
  face?:keyof typeof faceContactRecipes;
+ headTouch?:HeadTouchRecipe;
  prop?:MotionPropTemplate;
  posture?:MotionPosture;
  phases?:MotionConstraintPlan;
@@ -44,6 +46,12 @@ export const motionTemplatePresets={
   return {participants:2,capabilities:['pairedSync','residentNavigation','faceContact'],
    posture:'standing',face:recipe,phases:standardPhases};
  },
+ headPat(config:Partial<Omit<HeadTouchRecipe,'kind'>>={}):MotionTemplateDraft{
+  return {participants:2,capabilities:['pairedSync','residentNavigation','handContact'],
+   posture:'standing',headTouch:{kind:'patThenRuffle',patSide:config.patSide??'R',
+    patStrokes:config.patStrokes??2,ruffleStrokes:config.ruffleStrokes??2},
+   phases:standardPhases};
+ },
  phone(hand:'L'|'R'):MotionTemplateDraft{
   return {participants:1,capabilities:['singlePose','propInteraction'],
    posture:'standing',prop:{kind:'phone',hand},phases:['bodyPlacement','presentation']};
@@ -65,7 +73,11 @@ export const motionTemplatePresets={
  * Complex hugs/carries/seat transitions need an explicitly reviewed adapter.
  * Their current legacy handlers must never be silently overridden by a preset.
  */
-export const authoredMotionTemplates:Readonly<Record<string,MotionTemplateDraft>>=Object.freeze({});
+export const authoredMotionTemplates:Readonly<Record<string,MotionTemplateDraft>>=Object.freeze({
+ // Chibi two-person playful pet; shares the existing path planner, contactSolver,
+ // stage scheduler, expression renderer and on-demand procedural clip.
+ 'home-head-pat':motionTemplatePresets.headPat(),
+});
 
 export function compileMotionTemplates(
  entries:readonly ActionDefinition[],
@@ -103,6 +115,12 @@ export function compileMotionTemplates(
   }
   if(draft.face&&(!has('faceContact')||draft.participants!==2||!(draft.face in faceContactRecipes)))
    throw Error('Invalid face contact recipe: '+id);
+  if(draft.headTouch&&(draft.headTouch.kind!=='patThenRuffle'||draft.participants!==2||!has('handContact')||
+    !['L','R'].includes(draft.headTouch.patSide)||!Number.isInteger(draft.headTouch.patStrokes)||
+    draft.headTouch.patStrokes<1||draft.headTouch.patStrokes>4||
+    !Number.isInteger(draft.headTouch.ruffleStrokes)||draft.headTouch.ruffleStrokes<1||
+    draft.headTouch.ruffleStrokes>4||draft.contact||draft.face))
+   throw Error('Invalid head touch template: '+id);
   if(draft.prop&&(!has('propInteraction')||
     draft.prop.kind==='cup'&&(draft.participants!==2||!Number.isFinite(draft.prop.handoffAt)||draft.prop.handoffAt<0)||
     draft.prop.kind==='phone'&&!['L','R'].includes(draft.prop.hand)))
@@ -119,7 +137,7 @@ export function compileMotionTemplates(
    const plan=draft.phases;
    if(!plan.length||plan[0]!=='bodyPlacement'||plan.at(-1)!=='presentation'||
      new Set(plan).size!==plan.length||plan.some(p=>!phases.has(p))||
-     (draft.contact||draft.face)&&!plan.includes('contactIK'))
+     (draft.contact||draft.face||draft.headTouch)&&!plan.includes('contactIK'))
     throw Error('Invalid motion constraint stage plan: '+id);
   }
   templates[id]=Object.freeze({...draft,id,capabilities:Object.freeze([...draft.capabilities]),
