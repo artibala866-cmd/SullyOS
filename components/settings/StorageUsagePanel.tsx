@@ -184,9 +184,9 @@ const StorageUsagePanel: React.FC = () => {
         ? Math.min(100, (usage / quota) * 100)
         : null;
     const barColor = percent == null ? 'bg-slate-300'
-        : percent >= 90 ? 'bg-gradient-to-r from-rose-400 to-red-500'
-        : percent >= 70 ? 'bg-gradient-to-r from-amber-400 to-orange-500'
-        : 'bg-gradient-to-r from-violet-400 to-purple-500';
+        : percent >= 90 ? 'bg-gradient-to-r from-neutral-400 to-neutral-500'
+        : percent >= 70 ? 'bg-gradient-to-r from-neutral-400 to-neutral-500'
+        : 'bg-gradient-to-r from-neutral-400 to-neutral-500';
 
     // estimate() 的总量还包含 Cache Storage（离线缓存的 JS / 图片）这类我们碰不到的东西，
     // 所以分类合计天然会少一截。差得多的时候单独列一行，省得用户以为数字对不上。
@@ -228,11 +228,11 @@ const StorageUsagePanel: React.FC = () => {
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            persisted === true ? 'bg-emerald-500' : persisted === false ? 'bg-amber-500' : 'bg-slate-300'
+                            persisted === true ? 'bg-neutral-500' : persisted === false ? 'bg-neutral-500' : 'bg-slate-300'
                         }`} />
                         <span className="text-[11px] font-bold text-slate-600">持久化许可</span>
                         <span className={`text-[11px] font-bold ${
-                            persisted === true ? 'text-emerald-600' : persisted === false ? 'text-amber-600' : 'text-slate-400'
+                            persisted === true ? 'text-neutral-600' : persisted === false ? 'text-neutral-600' : 'text-slate-400'
                         }`}>
                             {persisted === true ? '已获得' : persisted === false ? '未获得' : '无法查询'}
                         </span>
@@ -270,7 +270,7 @@ const StorageUsagePanel: React.FC = () => {
                         {optimizing ? '优化中…' : '一键优化'}
                     </button>
                 </div>
-                <p className={`mt-1.5 text-[10px] leading-relaxed ${optimizeError ? 'text-rose-500' : 'text-slate-400'}`}>
+                <p className={`mt-1.5 text-[10px] leading-relaxed ${optimizeError ? 'text-neutral-500' : 'text-slate-400'}`}>
                     {optimizing
                         ? (optimizeProgress
                             ? `正在处理：${optimizeProgress.label}（${optimizeProgress.done}/${optimizeProgress.total}）…`
@@ -322,7 +322,7 @@ const StorageUsagePanel: React.FC = () => {
                         </div>
                     ) : breakdownError ? (
                         <div className="px-1 py-3">
-                            <p className="text-[10px] text-rose-500 mb-2">读不出各项占用（数据库可能正被其他标签页占用）。</p>
+                            <p className="text-[10px] text-neutral-500 mb-2">读不出各项占用（数据库可能正被其他标签页占用）。</p>
                             <button type="button" onClick={() => void runBreakdown()} className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-500 active:scale-95 transition-all">
                                 重试
                             </button>
