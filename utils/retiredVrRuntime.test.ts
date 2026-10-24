@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -33,6 +33,21 @@ describe('retired 彼方 isolation', () => {
     ]) {
       expect(source(path), path).not.toMatch(/\b(?:Icons|AppID)\.VRWorld\b/);
     }
+  });
+
+  it('keeps removed desktop themes unavailable while preserving 3D Dream', () => {
+    expect(existsSync(resolve(process.cwd(), 'components/os/TamagotchiHome.tsx'))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'components/os/acnhIcons.tsx'))).toBe(false);
+    for (const path of ['apps/Launcher.tsx', 'apps/Appearance.tsx', 'apps/Chat.tsx',
+      'components/PhoneShell.tsx', 'components/chat/ChatInputArea.tsx', 'components/os/AppIcon.tsx']) {
+      const code = source(path);
+      expect(code, path).not.toContain('AcnhActionTile');
+      expect(code, path).not.toContain('TamagotchiHome');
+    }
+    expect(source('apps/Appearance.tsx')).not.toContain("id: 'animalcrossing'");
+    expect(source('apps/Appearance.tsx')).not.toContain("id: 'tamagotchi'");
+    expect(source('apps/RoomApp.tsx')).toContain('homeReadyCharId===char.id');
+    expect(source('apps/room3d/Home3DView.tsx')).toContain('onReadyChange?.(!!editor&&mainReady&&!suspended)');
   });
 
   it('never submits or reactivates legacy worker module effects', () => {
