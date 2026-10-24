@@ -37,13 +37,13 @@ function sectionRange(section: string): [number, number] {
 
 // --- Section accent colors for dark theme ---
 const SECTION_ACCENTS: Record<string, { border: string; bg: string; text: string; glow: string }> = {
-    'intro':      { border: 'border-l-purple-400', bg: 'bg-purple-400/10', text: 'text-purple-300', glow: 'shadow-purple-500/20' },
-    'verse':      { border: 'border-l-blue-400',   bg: 'bg-blue-400/10',   text: 'text-blue-300',   glow: 'shadow-blue-500/20' },
-    'pre-chorus': { border: 'border-l-cyan-400',   bg: 'bg-cyan-400/10',   text: 'text-cyan-300',   glow: 'shadow-cyan-500/20' },
-    'chorus':     { border: 'border-l-rose-400',   bg: 'bg-rose-400/10',   text: 'text-rose-300',   glow: 'shadow-rose-500/20' },
-    'bridge':     { border: 'border-l-amber-400',  bg: 'bg-amber-400/10',  text: 'text-amber-300',  glow: 'shadow-amber-500/20' },
+    'intro':      { border: 'border-l-purple-400', bg: 'bg-neutral-400/10', text: 'text-neutral-300', glow: 'shadow-neutral-500/20' },
+    'verse':      { border: 'border-l-blue-400',   bg: 'bg-neutral-400/10',   text: 'text-neutral-300',   glow: 'shadow-neutral-500/20' },
+    'pre-chorus': { border: 'border-l-cyan-400',   bg: 'bg-neutral-400/10',   text: 'text-neutral-300',   glow: 'shadow-neutral-500/20' },
+    'chorus':     { border: 'border-l-rose-400',   bg: 'bg-neutral-400/10',   text: 'text-neutral-300',   glow: 'shadow-neutral-500/20' },
+    'bridge':     { border: 'border-l-amber-400',  bg: 'bg-neutral-400/10',  text: 'text-neutral-300',  glow: 'shadow-neutral-500/20' },
     'outro':      { border: 'border-l-slate-400',  bg: 'bg-slate-400/10',  text: 'text-slate-300',  glow: 'shadow-slate-500/20' },
-    'free':       { border: 'border-l-emerald-400', bg: 'bg-emerald-400/10', text: 'text-emerald-300', glow: 'shadow-emerald-500/20' },
+    'free':       { border: 'border-l-emerald-400', bg: 'bg-neutral-400/10', text: 'text-neutral-300', glow: 'shadow-neutral-500/20' },
 };
 
 const DEFAULT_ACCENT = { border: 'border-l-slate-500', bg: 'bg-slate-500/10', text: 'text-slate-400', glow: 'shadow-slate-500/20' };
@@ -58,21 +58,21 @@ const MiniPianoRoll: React.FC<{ notes: MelodyNote[]; accentColor: string; isActi
     const totalBeats = notes.reduce((sum, n) => sum + n.duration, 0);
 
     const fillMap: Record<string, string> = {
-        'text-purple-300': isActive ? '#c084fc' : '#a78bfa80',
-        'text-blue-300':   isActive ? '#93c5fd' : '#93c5fd80',
-        'text-cyan-300':   isActive ? '#67e8f9' : '#67e8f980',
-        'text-rose-300':   isActive ? '#fda4af' : '#fda4af80',
-        'text-amber-300':  isActive ? '#fcd34d' : '#fcd34d80',
-        'text-slate-300':  isActive ? '#cbd5e1' : '#cbd5e180',
-        'text-emerald-300': isActive ? '#6ee7b7' : '#6ee7b780',
+        'text-neutral-300': isActive ? '#999999' : '#a78bfa80',
+        'text-neutral-300':   isActive ? '#bebebe' : '#93c5fd80',
+        'text-neutral-300':   isActive ? '#cecece' : '#67e8f980',
+        'text-neutral-300':   isActive ? '#b8b8b8' : '#fda4af80',
+        'text-neutral-300':  isActive ? '#d2d2d2' : '#fcd34d80',
+        'text-slate-300':  isActive ? '#d4d4d4' : '#cbd5e180',
+        'text-neutral-300': isActive ? '#cacaca' : '#6ee7b780',
     };
-    const fill = fillMap[accentColor] || (isActive ? '#67e8f9' : '#67e8f980');
+    const fill = fillMap[accentColor] || (isActive ? '#cecece' : '#67e8f980');
 
     let beatOffset = 0;
     return (
         <svg className="w-full h-full" viewBox={`0 0 ${totalBeats * 20} ${range * 4 + 8}`} preserveAspectRatio="none">
             {Array.from({ length: Math.ceil(totalBeats) }, (_, i) => (
-                <line key={`g${i}`} x1={i * 20} y1={0} x2={i * 20} y2={range * 4 + 8} stroke="#334155" strokeWidth={0.5} />
+                <line key={`g${i}`} x1={i * 20} y1={0} x2={i * 20} y2={range * 4 + 8} stroke="#3f3f3f" strokeWidth={0.5} />
             ))}
             {notes.map((note, i) => {
                 const x = beatOffset * 20;
@@ -174,15 +174,15 @@ const PianoRollEditor: React.FC<PianoRollEditorProps> = ({ melody, sectionName, 
 
     // Color for filled cells based on accent
     const cellColorMap: Record<string, string> = {
-        'text-purple-300': 'bg-purple-400',
-        'text-blue-300':   'bg-blue-400',
-        'text-cyan-300':   'bg-cyan-400',
-        'text-rose-300':   'bg-rose-400',
-        'text-amber-300':  'bg-amber-400',
+        'text-neutral-300': 'bg-neutral-400',
+        'text-neutral-300':   'bg-neutral-400',
+        'text-neutral-300':   'bg-neutral-400',
+        'text-neutral-300':   'bg-neutral-400',
+        'text-neutral-300':  'bg-neutral-400',
         'text-slate-300':  'bg-slate-400',
-        'text-emerald-300': 'bg-emerald-400',
+        'text-neutral-300': 'bg-neutral-400',
     };
-    const cellColor = cellColorMap[accentColor] || 'bg-cyan-400';
+    const cellColor = cellColorMap[accentColor] || 'bg-neutral-400';
 
     return (
         <div className="bg-slate-900 border border-slate-700 rounded-lg mx-2 mb-2 overflow-hidden">
@@ -193,7 +193,7 @@ const PianoRollEditor: React.FC<PianoRollEditorProps> = ({ melody, sectionName, 
                     <button onClick={handleClear} className="text-[8px] font-bold px-2 py-0.5 rounded bg-slate-700 text-slate-400 hover:text-white active:scale-95 transition-all">
                         CLEAR
                     </button>
-                    <button onClick={handleSave} className="text-[8px] font-bold px-2 py-0.5 rounded bg-cyan-600 text-white active:scale-95 transition-all">
+                    <button onClick={handleSave} className="text-[8px] font-bold px-2 py-0.5 rounded bg-neutral-600 text-white active:scale-95 transition-all">
                         SAVE
                     </button>
                     <button onClick={onClose} className="text-[8px] font-bold px-2 py-0.5 rounded bg-slate-700 text-slate-400 hover:text-white active:scale-95 transition-all">
@@ -223,7 +223,7 @@ const PianoRollEditor: React.FC<PianoRollEditorProps> = ({ melody, sectionName, 
                         <div key={midi} className={`flex items-stretch ${isC ? 'border-t border-slate-600' : ''}`}>
                             {/* Pitch label */}
                             <div className={`w-10 shrink-0 flex items-center justify-end pr-1.5 text-[8px] tabular-nums ${
-                                isRoot ? 'text-cyan-400 font-bold' : isC ? 'text-slate-300' : 'text-slate-600'
+                                isRoot ? 'text-neutral-400 font-bold' : isC ? 'text-slate-300' : 'text-slate-600'
                             }`}>
                                 {name}
                             </div>
@@ -256,8 +256,8 @@ const PianoRollEditor: React.FC<PianoRollEditorProps> = ({ melody, sectionName, 
 };
 
 // --- LED indicator ---
-const LedIndicator: React.FC<{ active: boolean; color?: string }> = ({ active, color = 'bg-emerald-400' }) => (
-    <div className={`w-1.5 h-1.5 rounded-full transition-all ${active ? `${color} shadow-sm shadow-emerald-400/50` : 'bg-slate-600'}`} />
+const LedIndicator: React.FC<{ active: boolean; color?: string }> = ({ active, color = 'bg-neutral-400' }) => (
+    <div className={`w-1.5 h-1.5 rounded-full transition-all ${active ? `${color} shadow-sm shadow-neutral-400/50` : 'bg-slate-600'}`} />
 );
 
 const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArrangement, onRequestAIArrange, isAILoading, onClose }) => {
@@ -412,14 +412,14 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
     };
 
     const instrumentConfig: { key: 'piano' | 'bass' | 'drums' | 'melody'; label: string; color: string; activeColor: string }[] = [
-        { key: 'melody', label: 'LEAD',  color: 'bg-emerald-400', activeColor: 'text-emerald-400' },
-        { key: 'piano',  label: 'KEYS',  color: 'bg-cyan-400',    activeColor: 'text-cyan-400' },
-        { key: 'bass',   label: 'BASS',  color: 'bg-amber-400',   activeColor: 'text-amber-400' },
-        { key: 'drums',  label: 'DRUMS', color: 'bg-rose-400',    activeColor: 'text-rose-400' },
+        { key: 'melody', label: 'LEAD',  color: 'bg-neutral-400', activeColor: 'text-neutral-400' },
+        { key: 'piano',  label: 'KEYS',  color: 'bg-neutral-400',    activeColor: 'text-neutral-400' },
+        { key: 'bass',   label: 'BASS',  color: 'bg-neutral-400',   activeColor: 'text-neutral-400' },
+        { key: 'drums',  label: 'DRUMS', color: 'bg-neutral-400',    activeColor: 'text-neutral-400' },
     ];
 
     return (
-        <div className="h-full w-full bg-slate-950 flex flex-col font-mono selection:bg-cyan-500/30">
+        <div className="h-full w-full bg-slate-950 flex flex-col font-mono selection:bg-neutral-500/30">
             {/* ═══ Header Bar ═══ */}
             <div className="bg-slate-900 border-b border-slate-700/50 shrink-0">
                 <div className="h-11 flex items-center justify-between px-3">
@@ -435,14 +435,14 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
 
                     <div className="flex items-center gap-1.5">
                         {arrangement && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700">
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-neutral-400 border border-slate-700">
                                 {arrangement.rootNote}{arrangement.scale === 'minor' ? 'm' : ''}
                             </span>
                         )}
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
                             4/4
                         </span>
-                        <button onClick={handleGenerate} className="p-1.5 rounded-md text-slate-400 hover:text-cyan-400 hover:bg-slate-700/50 active:scale-95 transition-all" title="Regenerate">
+                        <button onClick={handleGenerate} className="p-1.5 rounded-md text-slate-400 hover:text-neutral-400 hover:bg-slate-700/50 active:scale-95 transition-all" title="Regenerate">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>
                         </button>
                     </div>
@@ -464,7 +464,7 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                             disabled={!arrangement || song.lines.length === 0}
                             className={`w-8 h-7 rounded border flex items-center justify-center active:scale-95 transition-all disabled:opacity-30 ${
                                 playbackState.isPlaying
-                                    ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
+                                    ? 'bg-neutral-500/20 border-neutral-500/50 text-neutral-400'
                                     : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white hover:border-slate-600'
                             }`}
                         >
@@ -477,7 +477,7 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                     </div>
 
                     <div className="flex items-center gap-1 min-w-[72px]">
-                        <span className={`text-sm font-bold tabular-nums ${playbackState.isPlaying ? 'text-cyan-400' : 'text-slate-300'}`}>
+                        <span className={`text-sm font-bold tabular-nums ${playbackState.isPlaying ? 'text-neutral-400' : 'text-slate-300'}`}>
                             {currentTime}
                         </span>
                         <span className="text-[9px] text-slate-600">/</span>
@@ -487,7 +487,7 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                     <div className="flex-1 group cursor-pointer">
                         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
                             <div
-                                className={`h-full rounded-full transition-all duration-100 ${playbackState.isPlaying ? 'bg-gradient-to-r from-cyan-500 to-cyan-400' : 'bg-slate-600'}`}
+                                className={`h-full rounded-full transition-all duration-100 ${playbackState.isPlaying ? 'bg-gradient-to-r from-neutral-500 to-neutral-400' : 'bg-slate-600'}`}
                                 style={{ width: `${playbackState.progress * 100}%` }}
                             />
                         </div>
@@ -496,7 +496,7 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                     <div className="flex items-center gap-0">
                         <button onClick={() => changeBpm(-5)} className="w-5 h-6 rounded-l bg-slate-800 border border-slate-700 text-slate-400 hover:text-white text-[10px] font-bold flex items-center justify-center active:scale-95">-</button>
                         <div className="h-6 px-2 bg-slate-850 border-y border-slate-700 flex items-center">
-                            <span className="text-[10px] font-bold text-amber-400 tabular-nums">{arrangement?.bpm || '--'}</span>
+                            <span className="text-[10px] font-bold text-neutral-400 tabular-nums">{arrangement?.bpm || '--'}</span>
                             <span className="text-[8px] text-slate-500 ml-0.5">BPM</span>
                         </div>
                         <button onClick={() => changeBpm(5)} className="w-5 h-6 rounded-r bg-slate-800 border border-slate-700 text-slate-400 hover:text-white text-[10px] font-bold flex items-center justify-center active:scale-95">+</button>
@@ -534,7 +534,7 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                             className="flex items-center gap-1.5 px-2 py-1 rounded border border-slate-700 bg-slate-800/50 text-slate-300 hover:border-slate-600 active:scale-95 transition-all"
                         >
                             <span className="text-[8px] text-slate-500 tracking-wider">PTN</span>
-                            <span className="text-[9px] font-bold text-amber-400 tracking-wider">{drumPatternLabels[arrangement.drumPattern]?.short || 'BSC'}</span>
+                            <span className="text-[9px] font-bold text-neutral-400 tracking-wider">{drumPatternLabels[arrangement.drumPattern]?.short || 'BSC'}</span>
                         </button>
 
                         <div className="flex-1" />
@@ -611,8 +611,8 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                                                 }}
                                                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-all ${
                                                     isActive
-                                                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                                                        : 'text-cyan-500/70 hover:text-cyan-400 hover:bg-slate-800'
+                                                        ? 'bg-neutral-500/20 text-neutral-300 border border-neutral-500/30'
+                                                        : 'text-neutral-500/70 hover:text-neutral-400 hover:bg-slate-800'
                                                 }`}
                                             >
                                                 {item.chord.display}
@@ -630,13 +630,13 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                                     >
                                         {item.melody && item.melody.length > 0 ? (
                                             <div className={`w-full h-5 rounded-sm bg-slate-800/60 overflow-hidden border transition-all ${
-                                                isEditingThisMelody ? 'border-emerald-500/60 shadow-sm shadow-emerald-500/20' : 'border-slate-700/30 hover:border-slate-600/50'
+                                                isEditingThisMelody ? 'border-neutral-500/60 shadow-sm shadow-neutral-500/20' : 'border-slate-700/30 hover:border-slate-600/50'
                                             }`}>
                                                 <MiniPianoRoll notes={item.melody} accentColor={accent.text} isActive={isActive} />
                                             </div>
                                         ) : (
                                             <div className={`w-full h-5 rounded-sm border flex items-center justify-center transition-all ${
-                                                isEditingThisMelody ? 'bg-slate-800/60 border-emerald-500/60' : 'bg-slate-800/30 border-slate-800/50 hover:border-slate-700/50'
+                                                isEditingThisMelody ? 'bg-slate-800/60 border-neutral-500/60' : 'bg-slate-800/30 border-slate-800/50 hover:border-slate-700/50'
                                             }`}>
                                                 <span className="text-[7px] text-slate-600">+ EDIT</span>
                                             </div>
@@ -666,8 +666,8 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                                                         onClick={() => replaceChord(item.sectionIdx, item.lineIdx, alt)}
                                                         className={`px-1.5 py-0.5 rounded text-[8px] font-bold transition-all ${
                                                             alt.display === item.chord?.display
-                                                                ? 'bg-cyan-500 text-slate-950'
-                                                                : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-cyan-400 border border-slate-700/50'
+                                                                ? 'bg-neutral-500 text-slate-950'
+                                                                : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-neutral-400 border border-slate-700/50'
                                                         }`}
                                                     >
                                                         {alt.display}
@@ -712,7 +712,7 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                                 <button
                                     onClick={onRequestAIArrange}
                                     disabled={isAILoading || song.lines.length === 0}
-                                    className="px-3 py-1.5 rounded text-[9px] font-bold tracking-wider bg-gradient-to-r from-violet-600 to-blue-600 text-white/90 active:scale-95 transition-transform disabled:opacity-30 border border-violet-500/30"
+                                    className="px-3 py-1.5 rounded text-[9px] font-bold tracking-wider bg-gradient-to-r from-neutral-600 to-neutral-600 text-white/90 active:scale-95 transition-transform disabled:opacity-30 border border-neutral-500/30"
                                 >
                                     {isAILoading ? 'AI...' : 'AI ARRANGE'}
                                 </button>
@@ -728,8 +728,8 @@ const ArrangementPanel: React.FC<ArrangementPanelProps> = ({ song, onUpdateArran
                                 disabled={song.lines.length === 0}
                                 className={`px-4 py-1.5 rounded text-[9px] font-bold tracking-wider active:scale-95 transition-all disabled:opacity-30 ${
                                     playbackState.isPlaying
-                                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
-                                        : 'bg-cyan-600 text-white border border-cyan-500/50'
+                                        ? 'bg-neutral-500/20 text-neutral-400 border border-neutral-500/40'
+                                        : 'bg-neutral-600 text-white border border-neutral-500/50'
                                 }`}
                             >
                                 {playbackState.isPlaying ? 'STOP' : 'PLAY'}
