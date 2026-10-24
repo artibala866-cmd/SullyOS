@@ -36,5 +36,18 @@ export function residentSeparationStep(mover,anchor,{
   // Prefer a full safe step. Tiny motions are only a last resort.
   if(best)break;
  }
- return best;
+ if(best)return best;
+ // After an authored close interaction, a character can start inside a
+ // furniture-clearance buffer even though the outward exit is open floor.
+ // Permit ONLY a short outward escape step if that exit is demonstrably free.
+ // This does not allow an invalid endpoint or jumping through a wall.
+ if(free(mover[0],mover[1]))return null;
+ const exitDistance=Math.max(.12,minimum-distance+.08);
+ for(const angle of angles){
+  const ux=Math.cos(heading+angle),uz=Math.sin(heading+angle);
+  const exitX=mover[0]+ux*exitDistance,exitZ=mover[1]+uz*exitDistance;
+  if(Math.hypot(exitX-anchor[0],exitZ-anchor[1])<minimum||!free(exitX,exitZ))continue;
+  return [mover[0]+ux*travel,mover[1]+uz*travel];
+ }
+ return null;
 }
