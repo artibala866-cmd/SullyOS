@@ -778,9 +778,15 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 每次切歌递增序号，阻止慢请求覆盖后一次点播。
+  const playRequestSeq = useRef(0);
   // 播放单曲
   const playSong = useCallback(async (song: Song, opts: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number } = {}) => {
     const { alsoSetQueue = true, replaceQueue, startIdx } = opts;
+    const requestId = ++playRequestSeq.current;
+    const aBeforeLoad = audioRef.current;
+    if (aBeforeLoad) { aBeforeLoad.pause(); aBeforeLoad.removeAttribute('src'); aBeforeLoad.load(); }
+    currentSongRef.current = song;
 
     if (replaceQueue) {
       setQueueState(replaceQueue);
@@ -805,6 +811,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           | { blob?: Blob; mimeType?: string }
           | Blob
           | null;
+        if (requestId !== playRequestSeq.current) return;
         const blob: Blob | null = entry instanceof Blob ? entry : (entry?.blob instanceof Blob ? entry.blob : null);
         if (!blob) {
           toast('本地歌曲文件丢失', 'error');
@@ -822,6 +829,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // 实现「跟着歌词滚动」的网易云播放器体验。
         if (song.localLyrics) {
           const distribute = () => {
+            if (requestId !== playRequestSeq.current) return;
             const dur = a.duration;
             if (!isFinite(dur) || dur <= 0) return;
             const lines = song.localLyrics!
@@ -879,10 +887,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
 
-      const [urlRes, lyricRes] = await Promise.all([
-        musicApi.songUrl(cfgRef.current, song.id),
-        musicApi.lyric(cfgRef.current, song.id).catch(() => null),
-      ]);
+      // 歌词请求不阻塞音频开始播放；慢歌词只能更新对应的那一首歌。
+      void musicApi.lyric(cfgRef.current, song.id).then(lyricRes => {
+        if (requestId !== playRequestSeq.current) return;
+        setLyric(parseLyric(lyricRes?.lrc?.lyric || ''));
+        setTlyric(parseLyric(lyricRes?.tlyric?.lyric || ''));
+      }).catch(() => {});
+      const urlRes = await musicApi.songUrl(cfgRef.current, song.id);
+      if (requestId !== playRequestSeq.current) return;
       const url: string | null = urlRes?.data?.[0]?.url || null;
       if (!url) {
         toast(urlRes?.data?.[0]?.fee && !cfgRef.current.cookie ? '需要会员 cookie' : '暂无播放地址', 'error');
@@ -891,11 +903,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       const a = audioRef.current!;
       a.src = url.replace(/^http:\/\//i, 'https://');
-      a.play().catch(() => {});
-      if (lyricRes) {
-        setLyric(parseLyric(lyricRes?.lrc?.lyric || ''));
-        setTlyric(parseLyric(lyricRes?.tlyric?.lyric || ''));
-      }
+      a.play().catch((err) => {
+        if (requestId !== playRequestSeq.current || err?.name === 'AbortError') return;
+        console.warn('[Music] 音频开始播放失败', err);
+        toast('音源已获取，但播放未能开始，请重新点击播放或切换歌曲', 'error');
+      });
       // 媒体会话（锁屏 / 通知栏）
       if ('mediaSession' in navigator) {
         try {
@@ -915,9 +927,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } catch {}
       }
     } catch (e: any) {
-      toast(`播放失败：${e.message}`, 'error');
+      if (requestId === playRequestSeq.current) toast(`播放失败：${e?.message || '未知错误'}`, 'error');
     } finally {
-      setLoadingSong(false);
+      if (requestId === playRequestSeq.current) setLoadingSong(false);
     }
   }, [toast]);
 
