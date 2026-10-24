@@ -22,9 +22,18 @@ export type CharacterPhoneAutonomyInput = {
   api: Api;
 };
 export type PhoneAutonomyOutcome = 'skipped' | 'generated-contacts' | 'messaged' | 'unavailable' | 'failed';
-type RunState = { day: string; turnsToday: number; lastAttemptAt: number; bootstrapAt: number; contactAt: Record<string, number> };
+type RunState = { day: string; turnsToday: number; attemptsToday: number; lastAttemptAt: number; bootstrapAt: number; contactAt: Record<string, number> };
 const PREFIX = 'sully_character_phone_autonomy_v1:';
 const locks = new Set<string>();
+export const isCharacterPhoneAutonomyEnabled = (charId: string): boolean => {
+  try { return localStorage.getItem('sully_phone_autonomy_disabled_v1:' + charId) !== '1'; }
+  catch { return false; }
+};
+export function setCharacterPhoneAutonomyEnabled(charId: string, enabled: boolean): void {
+  if (enabled) localStorage.removeItem('sully_phone_autonomy_disabled_v1:' + charId);
+  else localStorage.setItem('sully_phone_autonomy_disabled_v1:' + charId, '1');
+  window.dispatchEvent(new CustomEvent('sully:character-phone-autonomy-changed', { detail: { characterId: charId, enabled } }));
+}
 const SIX_HOURS = 6 * 3600000;
 const DAY = 24 * 3600000;
 const idHash = (value: string) => [...value].reduce((hash, c) => ((hash * 33) ^ c.charCodeAt(0)) >>> 0, 5381);
@@ -36,11 +45,12 @@ function readState(charId: string, now: number): RunState {
     return {
       day,
       turnsToday: row.day === day && Number.isFinite(row.turnsToday) ? row.turnsToday : 0,
+      attemptsToday: row.day === day && Number.isFinite(row.attemptsToday) ? row.attemptsToday : 0,
       lastAttemptAt: Number.isFinite(row.lastAttemptAt) ? row.lastAttemptAt : 0,
       bootstrapAt: Number.isFinite(row.bootstrapAt) ? row.bootstrapAt : 0,
       contactAt: row.contactAt && typeof row.contactAt === 'object' ? row.contactAt : {},
     };
-  } catch { return { day, turnsToday: 0, lastAttemptAt: 0, bootstrapAt: 0, contactAt: {} }; }
+  } catch { return { day, turnsToday: 0, attemptsToday: 0, lastAttemptAt: 0, bootstrapAt: 0, contactAt: {} }; }
 }
 function writeState(id: string, state: RunState) { localStorage.setItem(PREFIX + id, JSON.stringify(state)); }
 async function queryJson(api: Api, messages: { role: 'system' | 'user'; content: string }[]): Promise<any> {
@@ -97,6 +107,11 @@ origin为known时必须能从原设或世界书找到证据，evidence取worldbo
     };
     const result = registerDiscoveredNpc(char.id, item);
     if (result.status === 'added' || result.status === 'pending') created = true;
+    if (result.status === 'added' && result.profile) recordCharacterLifeEvent({
+      id: 'contact:' + result.profile.id, characterId: char.id, kind: 'contact-added',
+      occurredAt: result.profile.createdAt, source: 'phone', contactId: result.profile.id,
+      summary: '角色生活圈新增联系人：' + result.profile.name,
+    });
   }
   return created;
 }
@@ -144,19 +159,21 @@ function chooseAction(charId: string, contacts: NpcProfile[], threads: Character
 export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInput): Promise<PhoneAutonomyOutcome> {
   const { char, api } = input;
   if (!char?.id || !api?.apiKey || !api.baseUrl || !api.model ||
-      typeof document === 'undefined' || document.visibilityState !== 'visible') return 'unavailable';
+      typeof document === 'undefined' || document.visibilityState !== 'visible' ||
+      !isCharacterPhoneAutonomyEnabled(char.id)) return 'unavailable';
   if (locks.has(char.id)) return 'skipped';
   locks.add(char.id);
   const now = Date.now();
   try {
     const state = readState(char.id, now);
-    if (state.turnsToday >= 9 || now - state.lastAttemptAt < 18 * 60_000) return 'skipped';
+    if (state.turnsToday >= 9 || state.attemptsToday >= 12 || now - state.lastAttemptAt < 18 * 60_000) return 'skipped';
     // Reserve the attempt BEFORE the network request. The app may be reopened or
     // multiple phone surfaces may ask for updates in the same time window.
     state.lastAttemptAt = now;
+    state.attemptsToday++;
     writeState(char.id, state);
     let contacts = readNpcProfiles(char.id);
-    if (contacts.length < 2 && now - state.bootstrapAt > DAY) {
+    if (contacts.length < 4 && now - state.bootstrapAt > DAY) {
       state.bootstrapAt = now;
       writeState(char.id, state);
       try {
@@ -166,7 +183,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     }
     if (!contacts.length) return 'skipped';
     const life = await getCharacterLifeScheduleContext(char, new Date(now));
-    const busyStatus = classifyLifeActivity(life.plannedActivity || '');
+    const busyStatus = classifyLifeActivity(char.scheduleFeatureEnabled === false ? '' : (life.plannedActivity || ''));
     if (busyStatus === 'sleep') return 'skipped';
     const threads = readCharacterPhoneChats(char.id);
     const decision = chooseAction(char.id, contacts, threads, state, now, busyStatus === 'busy');
@@ -184,6 +201,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       { role: 'system', content: `你模拟一台虚构角色自己的微信手机，不能扮演User。
 本轮只能由${speakerName}说话，发给${actor === 'owner' ? contact.name : char.name}，禁止替另一方同时回复。
 Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).join('\n').slice(0, 6000)}
+角色相关世界书：${(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content).join('\n').slice(0, 4200)}
 联系人固定档案：${JSON.stringify(contact).slice(0, 3500)}
 当前日程计划（不是已发生事件）：${life.plannedActivity || '无'}，${life.plannedDescription || ''}。
 已经保存的生活经历：${JSON.stringify(events).slice(0, 2100)}
