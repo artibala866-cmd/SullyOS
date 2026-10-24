@@ -454,6 +454,10 @@ export interface AmsgFirePack {
   scene: AmsgFireScene | null;
   /** Last client-synced actual phone events; never treated as live cloud data. */
   phoneEvents?: Array<{ occurredAt: number; summary: string }>;
+  /** Small, privacy-bounded NPC relationship snapshot. No raw private chats. */
+  phoneSocialContacts?: Array<{
+    id: string; name: string; relationship: string; trait?: string; continuity?: string;
+  }>;
 
   /**
    * 即时对话用的对话消息（见 AmsgFirePackChat）。只有开了即时对话的角色才带，
@@ -945,8 +949,19 @@ export const renderFirePack = (
   ).slice(0, 12);
   if (events.length) {
     out += '\n【上次同步的手机经历（可能不是最新状态）】\n'
-      + events.map(e => '- ' + new Date(e.occurredAt).toISOString() + ' ' + e.summary.slice(0, 160)).join('\n')
+      + events.map(e => '- ' + new Date(e.occurredAt).toISOString() + ' ' + e.summary.slice(0, 200)).join('\n')
       + '\n这些是上次同步前已发生的事；不得假定同步后没有新变化，也不必逐条汇报。\n';
+  }
+  const social = (pack.phoneSocialContacts ?? []).filter(p =>
+    !!p && typeof p.name === 'string' && typeof p.relationship === 'string'
+  ).slice(0, 8);
+  if (social.length) {
+    out += '\n【角色手机中已认识的熟人（上次同步快照）】\n'
+      + social.map(p => '- ' + p.name.slice(0, 40) + '：' + p.relationship.slice(0, 100)
+        + (p.trait ? '；口吻/性格：' + p.trait.slice(0, 130) : '')
+        + (p.continuity ? '；之前聊天提及：' + p.continuity.slice(-170) : '')
+      ).join('\n')
+      + '\n这是人物关系背景，不代表这些人现在正在聊天；不得凭空补造新的互动或事情。\n';
   }
 
   out = fillSlot(out, AMSG_SLOT_SELF_LOG, renderSelfLogBlock(
