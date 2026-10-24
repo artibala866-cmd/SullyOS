@@ -7,18 +7,21 @@ import {
 
 const PRESETS = [
     {
+        id: 'realtime.orca',
         name: '电影与剧集 · Orca',
         url: 'https://orca-mcp.mmdju.workers.dev/mcp',
         source: 'https://github.com/mmdju/orca-mcp',
         hint: '公开影视资料服务；无需申请 Key。第三方端点可用性需实际测试。',
     },
     {
+        id: 'realtime.bilibili.search',
         name: 'B站 · 视频搜索',
         url: '',
         source: 'https://github.com/masx200/bilibili-mcp-server',
         hint: '需要按源码部署 Streamable HTTP 服务；没有现成可领取的 Key。',
     },
     {
+        id: 'realtime.bilibili.subtitles',
         name: 'B站 · 字幕与评论',
         url: '',
         source: 'https://github.com/masx200/bilibili-video-info-mcp',
@@ -30,32 +33,55 @@ const RealtimeMcpPresets: React.FC<{ onConfigChanged: () => void }> = ({ onConfi
     const [servers, setServers] = useState<McpServerConfig[]>(loadMcpServers);
     const [testing, setTesting] = useState<string | null>(null);
     const [statuses, setStatuses] = useState<Record<string, string>>({});
+    type Preset = typeof PRESETS[number];
+    const match = (server: McpServerConfig, preset: Preset) =>
+        server.presetId === preset.id ||
+        (!server.presetId && (server.name === preset.name || (!!preset.url && server.url === preset.url)));
+
+    // Always read the latest persisted configuration; async discovery must not overwrite edits
+    // made while a request was in flight.
     const persist = (next: McpServerConfig[]) => {
         saveMcpServers(next);
         setServers(next);
         onConfigChanged();
     };
-    const add = (preset: typeof PRESETS[number]) => {
-        const found = servers.find(s => s.name === preset.name || (!!preset.url && s.url === preset.url));
+    const add = (preset: Preset) => {
+        const current = loadMcpServers();
+        const found = current.find(server => match(server, preset));
         if (found) {
+            setServers(current);
             setStatuses(old => ({ ...old, [preset.name]: '已有配置，无需重复添加。' }));
             return;
         }
-        persist([...servers, createMcpServer(preset.name, preset.url)]);
+        const next = createMcpServer(preset.name, preset.url);
+        next.presetId = preset.id;
+        persist([...current, next]);
     };
     const update = (server: McpServerConfig, patch: Partial<McpServerConfig>, retest = false) => {
         if (retest) resetMcpSession(server.id);
-        persist(servers.map(s => s.id === server.id
-            ? { ...s, ...patch, ...(retest ? { enabled: false, tools: undefined, lastConnection: undefined } : {}), updatedAt: Date.now() }
-            : s));
+        const next = loadMcpServers().map(item => item.id === server.id
+            ? {
+                ...item, ...patch,
+                ...(retest ? { enabled: false, tools: undefined, lastConnection: undefined } : {}),
+                updatedAt: Date.now(),
+            }
+            : item);
+        persist(next);
     };
     const test = async (server: McpServerConfig) => {
+        const snapshot = JSON.stringify([server.url, server.token, server.customHeaders, server.proxyUrl, server.proxyKey]);
         setTesting(server.id);
         setStatuses(old => ({ ...old, [server.name]: '正在测试连接并读取工具…' }));
         try {
             const result = await testMcpConnection(server);
+            const current = loadMcpServers().find(item => item.id === server.id);
+            const currentSnapshot = current && JSON.stringify([current.url, current.token, current.customHeaders, current.proxyUrl, current.proxyKey]);
+            if (!current || snapshot !== currentSnapshot) {
+                setStatuses(old => ({ ...old, [server.name]: '配置已变化，本次测试结果已丢弃，请重新测试。' }));
+                return;
+            }
             if (result.ok && result.tools && result.connection) {
-                update(server, { tools: result.tools, lastConnection: result.connection });
+                update(current, { tools: result.tools, lastConnection: result.connection });
                 setStatuses(old => ({ ...old, [server.name]: result.message }));
             } else {
                 setStatuses(old => ({ ...old, [server.name]: result.message || '连接失败' }));
@@ -70,7 +96,7 @@ const RealtimeMcpPresets: React.FC<{ onConfigChanged: () => void }> = ({ onConfi
     return (
         <div className="space-y-4">
             {PRESETS.map((preset, index) => {
-                const server = servers.find(s => s.name === preset.name || (!!preset.url && s.url === preset.url));
+                const server = servers.find(s => match(s, preset));
                 const ready = !!server?.tools?.length;
                 const Icon = icons[index];
                 return (
@@ -121,6 +147,26 @@ const RealtimeMcpPresets: React.FC<{ onConfigChanged: () => void }> = ({ onConfi
                                             onChange={event => update(server, { url: event.target.value.trim() }, true)}
                                             placeholder="填写部署后的 https://…/mcp"
                                             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-700" />
+                                        <input aria-label={`${preset.name} Bearer Token`} type="password"
+                                            value={server.token || ''}
+                                            onChange={event => update(server, { token: event.target.value.trim() }, true)}
+                                            placeholder="Bearer Token（可选）"
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-700" />
+                                        {(server.customHeaders || []).map((header, headerIndex) => (
+                                            <div key={headerIndex} className="flex gap-2">
+                                                <input aria-label="请求头名称" value={header.name}
+                                                    onChange={event => update(server, { customHeaders: (server.customHeaders || []).map((h, i) => i === headerIndex ? { ...h, name: event.target.value } : h) }, true)}
+                                                    placeholder="请求头名称" className="min-w-0 w-2/5 rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs" />
+                                                <input aria-label="请求头密钥" type="password" value={header.value}
+                                                    onChange={event => update(server, { customHeaders: (server.customHeaders || []).map((h, i) => i === headerIndex ? { ...h, value: event.target.value } : h) }, true)}
+                                                    placeholder="请求头值" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs" />
+                                                <button type="button" aria-label="删除请求头"
+                                                    onClick={() => update(server, { customHeaders: (server.customHeaders || []).filter((_, i) => i !== headerIndex) }, true)}
+                                                    className="px-2 text-xs text-slate-500">删除</button>
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={() => update(server, { customHeaders: [...(server.customHeaders || []), { name: '', value: '' }] }, true)}
+                                            className="text-[10px] text-slate-600 underline">添加自定义请求头</button>
                                         <div className="flex items-center gap-2">
                                             <button type="button" disabled={!server.url || testing === server.id}
                                                 onClick={() => test(server)}
