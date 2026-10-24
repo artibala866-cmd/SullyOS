@@ -141,3 +141,5 @@ pnpm run build
 
 - 新 ID 配置 `cup(handoffAt)` 时，普通双手接触 IK 自动跳过水杯握持阶段，由 `waterGrip` 单独控制交接，避免两个求解器同时争夺手掌。
 - `adapter:'legacy'` 不能让未知 ID 伪装成已实现的拥抱/托举动作。编译器只认可真正已绑定的既有专用动作，其他 ID 会明确报错。未来新增复杂动作，先完成并验证对应专用适配，再扩充允许列表。
+
+**两种动作时间务必分清**：`pairedHands.enter/exit` 和 `faceContact` 的渐入/渐出使用接近结束后的 **actionTime**；而 `cup(handoffAt)` 控制 `socialProps.update(sourceTime,...)`，参数是素材 **sourceTime**。播放器普通动作有 0.6 秒的源帧延迟；水杯交接要按素材中的实际握手帧设定，不能直接把 actionTime 填给 `cup`。
