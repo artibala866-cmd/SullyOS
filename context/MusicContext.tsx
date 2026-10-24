@@ -1138,8 +1138,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const all = await DB.getAllCharacters();
           const targetChar = all.find(c => c.id === cid);
           if (!targetChar) return null;
-          const profile = targetChar.musicProfile;
-          if (!profile) return null;
+          // 尚未生成音乐人格，也应允许 Char 收藏真实歌曲；只建一个未初始化的收藏容器，
+          // 不假装 AI 已生成音乐品味。日后初始化时会保留这些收藏。
+          const profile = targetChar.musicProfile || {
+            bio: '', genreTags: [], signatureArtists: [], playlists: [],
+            likedSongIds: [], recentPlays: [], updatedAt: Date.now(),
+          };
 
           const now = Date.now();
           let playlists = profile.playlists.slice();
