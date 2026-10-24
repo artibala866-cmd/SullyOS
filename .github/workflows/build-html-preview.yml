@@ -33,7 +33,7 @@ jobs:
       - name: Test music guest fallback and lyrics
         run: pnpm exec vitest run utils/musicTogether.test.ts utils/musicInviteStatus.test.ts utils/musicWorkerUrl.test.ts utils/chatMessageVisibility.test.ts
       - name: Test web update and resource caching
-        run: pnpm exec vitest run utils/webUpdateSession.test.ts utils/chunkLoadRecovery.test.ts worker/staticCache.test.ts worker/staticCacheLifecycle.test.ts scripts/static-cache-build.test.ts
+        run: pnpm exec vitest run utils/appPreload.test.ts utils/webUpdateSession.test.ts utils/chunkLoadRecovery.test.ts worker/staticCache.test.ts worker/staticCacheLifecycle.test.ts scripts/static-cache-build.test.ts
       - name: Build original SullyOS for GitHub Pages
         env:
           GITHUB_PAGES: '1'
