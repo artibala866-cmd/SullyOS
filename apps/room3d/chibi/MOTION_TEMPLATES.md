@@ -1,6 +1,6 @@
 # SullyOS 3D 家园：第五阶段动作模板开发手册
 
-> **这是内部复用系统，不是新增菜单。** 目前的 43 个既有动作和八个可见分类必须保持不变。后续新动作应采用配置驱动，且不要额外引进一套 Three.js 动画播放器、动态物理引擎或每帧扫描全部动画资源的脚本。
+> **这是内部复用系统，不是新增菜单。** 原有 43 个动作及八个可见分类必须保持不变（目前另新增摸头、背后搂抱，共 45 个动作）。后续新动作应采用配置驱动，且不要额外引进一套 Three.js 动画播放器、动态物理引擎或每帧扫描全部动画资源的脚本。
 
 ## 总体结构与唯一入口
 
@@ -110,7 +110,7 @@ selectedMotionCatalog.json            用户能看见的动作元数据（ID、�
 
 ## 减少网页/手机负担的硬性约束
 
-- 素材仍由 `loadSelectedMotion` 按需 fetch 和 Promise 缓存，不启动时拉取全部 43 条 JSON，更不能因为声明了 10 类而预建 10 套 IK。
+- 素材仍由 `loadSelectedMotion` 按需 fetch 和 Promise 缓存，不启动时拉取全部 45 条 JSON，更不能因为声明了 10 类而预建 10 套 IK。
 - `motionTemplates.ts` 只含轻量静态参数，注册表一次构建、结果冻结。新动作启动时查表，不在每帧寻找模板、生成闭包或解析 JSON。
 - `motionConstraintPipeline` 只执行预配置四个阶段；只有明确配置 `phases` 的动作才走新路径。其余动作完全保留旧路径。
 - 配对手掌继续用 `pairedHandContact.ts` 的 WeakMap 缓存源 clip 对应的手对。人体求解器继续每位居民创建一次，不因每帧接触重复创建。
@@ -120,7 +120,7 @@ selectedMotionCatalog.json            用户能看见的动作元数据（ID、�
 
 ## 开发自检与验收
 
-CI 构建将对本模块运行定向 Vitest：模板注册、参数错误、43 动作回归、资源生命周期、接触时间曲线、额头锚点、道具清理、窄路寻路和动作站位。新增动作必须至少增加“动作配置验证 + 动作后清理 + 接触时间窗 + 障碍/角色占位”测试。
+CI 构建将对本模块运行定向 Vitest：模板注册、参数错误、原有动作回归、资源生命周期、接触时间曲线、额头锚点、道具清理、窄路寻路和动作站位。新增动作必须至少增加“动作配置验证 + 动作后清理 + 接触时间窗 + 障碍/角色占位”测试。
 
 ```bash
 pnpm exec vitest run apps/room3d/chibi/motionTemplates.test.ts apps/room3d/chibi/motionContactProfiles.test.ts apps/room3d/chibi/motionConstraintPipeline.test.ts apps/room3d/chibi/templateFaceContact.test.ts apps/room3d/chibi/socialPropsTemplate.test.ts
@@ -146,7 +146,7 @@ pnpm run build
 
 ## 实例：摸头（新增亲密动作）
 
-- ID `home-head-pat`；名称「摸头」，`close` 分类，原 43 个动作不变，总数 44。
+- ID `home-head-pat`；名称「摸头」，`close` 分类，原 43 个动作不变；连同背后搂抱，目前总数 45。
 - 使用 `motionTemplatePresets.headPat({patSide:'R',patStrokes:2,ruffleStrokes:2})`；以后同类动作只需配置手和次数，不需要新建播放器。
 - `public/room3d/motions/selected/home-head-pat.json` 是双人站位与时间轴的轻量静态 clip，`headPatMotion.ts` 调用现有 idle 姿态、头顶锚点与 contactSolver，所有接近与复位仍由 `selectedSocial.ts` 管理。
 - 依次是单手摸两下（约 1.10–3.10s）、双手揉两下（约 3.70–6.28s）、收手复位（约 7.18s）。两只手各自在头部左右上侧揉动、不越过头顶中央，接触位置随当前头部实时更新。
