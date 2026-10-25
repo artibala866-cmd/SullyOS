@@ -26,8 +26,6 @@ import { getVoiceFavorite, makeVoiceFavoriteId, removeVoiceFavorite, saveVoiceFa
 import { MEETING_CONTINUE_DISPLAY_TEXT } from '../../utils/meetingContinue';
 import { VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguageLabel, voiceLanguagePromptLabel } from '../../utils/voiceLanguage';
 import { trackEvent } from '../../utils/analytics';
-import { SARSpeechSwitch } from '../sar/SARSpeechSwitch';
-import { resolveSARDateSpeech } from '../../utils/sarDatePresentation';
 
 // 语音情绪标记 [v:xxx]：跟立绘情绪 [emotion] 分开的独立通道。立绘的 happy 是
 // 夸张的表情、语音的 happy 是音色情绪，两者强度/语义差异大，不能一概而论。
@@ -110,11 +108,6 @@ const parseDialogue = (fullText: string, initialEmotion: string = 'normal'): Dia
         }
     }
     return results;
-};
-
-const getSARSurface = (message: Message): string | undefined => {
-    const value = message.metadata?.sarModuleSurface?.surface;
-    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 };
 
 interface DateSessionProps {
@@ -234,18 +227,8 @@ const DateSession: React.FC<DateSessionProps> = ({
     const [isShowingOpening, setIsShowingOpening] = useState(!!peekStatus && !initialState); // True until first user interaction
     // API 失败时本地记住本轮输入，不依赖父组件的 DB 刷新是否已经完成；用户可直接点重试。
     const [pendingRetryText, setPendingRetryText] = useState('');
-    const [sarTruthMessageIds, setSarTruthMessageIds] = useState<Set<number>>(new Set());
-    const [sarVisualTruth, setSarVisualTruth] = useState(false);
-
-    const currentSarPair = React.useMemo(() => {
-        const speech = messages.filter(message => message.role === 'assistant' && getSARSurface(message)).map(message => {
-            const parse = (text: string) => parseDialogue(extractObservation(text, { lenient: observeEnabled, custom: char.dateObserve?.custom }).rest);
-            return { id: message.id, moduleTitle: message.metadata?.sarModuleSurface?.moduleTitle || '临时模块',
-                surface: parse(getSARSurface(message)!), canonical: parse(message.content || '') };
-        });
-        return resolveSARDateSpeech(speech, dialogueBatch, dialogueQueue.length, currentText);
-    }, [messages, dialogueBatch, dialogueQueue.length, currentText, observeEnabled, char.dateObserve?.custom]);
-    const galShownText = currentSarPair ? (sarVisualTruth ? currentSarPair.canonical : currentSarPair.surface) : currentText;
+    // The meeting's visible and spoken text now always comes from its own dialogue.
+    const galShownText = currentText;
 
     useEffect(() => {
         if (!getPendingReplyText(messages)) setPendingRetryText('');
@@ -704,7 +687,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     // 位置），isTyping 时也跳过（新回复交给 handleSend / handleRerollClick 处理，避免重复解析）。
     const lastAssistantContent = React.useMemo(() => {
         for (let i = messages.length - 1; i >= 0; i--) {
-            if (messages[i]?.role === 'assistant') return getSARSurface(messages[i]) || messages[i].content || '';
+            if (messages[i]?.role === 'assistant') return messages[i].content || '';
         }
         return '';
     }, [messages]);
@@ -1086,9 +1069,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                         </div>
                                     )}
                                     {msg.role === 'user' ? (() => {
-                                        const sarSurface = getSARSurface(msg);
-                                        const sarRevealed = sarTruthMessageIds.has(msg.id);
-                                        const shown = sarSurface && !sarRevealed ? sarSurface : msg.content;
+                                        const shown = msg.content;
                                         return (
                                         <div className="flex min-w-0 items-start justify-end gap-3">
                                             <p
@@ -1104,9 +1085,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                         </div>
                                         ); })() : (() => {
                                         // 观测协议：从这条回复里剥出观测块，正文上方渲染独立卡片，正文本身不显示块文本
-                                        const sarSurface = getSARSurface(msg);
-                                        const sarRevealed = sarTruthMessageIds.has(msg.id);
-                                        const shown = sarSurface && !sarRevealed ? sarSurface : msg.content;
+                                        const shown = msg.content;
                                         const { observation: msgObs, rest: msgBody } = extractObservation(shown || '', { lenient: observeEnabled, custom: char.dateObserve?.custom });
                                         return (
                                         <div className="flex min-w-0 items-start gap-3">
@@ -1183,16 +1162,6 @@ const DateSession: React.FC<DateSessionProps> = ({
                                             </div>
                                         </div>
                                         ); })()}
-                                    {getSARSurface(msg) && (
-                                        <div className="sar-date-speech-control" style={{ color: lightReading ? '#57534e' : '#cbd5e1' }}>
-                                            <SARSpeechSwitch truth={sarTruthMessageIds.has(msg.id)} moduleTitle={msg.metadata?.sarModuleSurface?.moduleTitle}
-                                                onToggle={() => setSarTruthMessageIds(previous => {
-                                                    const next = new Set(previous);
-                                                    if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id);
-                                                    return next;
-                                                })} />
-                                        </div>
-                                    )}
                                 </div>
                             ))}
                         </div>
@@ -1242,15 +1211,9 @@ const DateSession: React.FC<DateSessionProps> = ({
                                         </button>
                                     )}
                                 </div>
-                                {currentSarPair && (
-                                    <div className="sar-date-gal-speech-control">
-                                        <SARSpeechSwitch truth={sarVisualTruth} moduleTitle={currentSarPair.moduleTitle}
-                                            onToggle={() => setSarVisualTruth(value => !value)} />
-                                    </div>
-                                )}
-                                <p className="text-white/90 text-[16px] leading-relaxed font-light tracking-wide drop-shadow-md mt-2 whitespace-pre-wrap" data-sar-gal-text>
-                                    {galShownText === currentText ? displayedText : galShownText}
-                                    {isTextAnimating && galShownText === currentText && <span className="inline-block w-2 h-4 bg-white/70 ml-1 animate-pulse align-middle"></span>}
+                                <p className="text-white/90 text-[16px] leading-relaxed font-light tracking-wide drop-shadow-md mt-2 whitespace-pre-wrap" data-date-dialogue-text>
+                                    {displayedText}
+                                    {isTextAnimating && <span className="inline-block w-2 h-4 bg-white/70 ml-1 animate-pulse align-middle"></span>}
                                 </p>
                                 {!isTextAnimating && dialogueQueue.length > 0 && <div className="absolute bottom-3 right-4 animate-bounce opacity-70"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white"><path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" /></svg></div>}
                                 {!isTextAnimating && dialogueQueue.length === 0 && dialogueBatch.length > 0 && <div className="absolute bottom-3 right-4 opacity-50 text-[10px] text-white flex items-center gap-1 animate-pulse"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Loop</div>}
