@@ -12,7 +12,7 @@ describe('Stage 5 motion authoring contract',()=>{
   expect(selectedMotions).toHaveLength(47);
   expect(motionCapabilityKeys).toHaveLength(10);
   expect(Object.keys(authoredMotionTemplates).sort()).toEqual(['home-hand-hold-plead','home-head-pat','home-rear-hug','home-sofa-lap-pillow']);
-  expect(Object.keys(motionTemplates).sort()).toEqual([...Object.keys(motionContactProfiles),'home-hand-hold-plead','home-head-pat','home-rear-hug'].sort());
+  expect(Object.keys(motionTemplates).sort()).toEqual([...Object.keys(motionContactProfiles),'home-hand-hold-plead','home-head-pat','home-rear-hug','home-sofa-lap-pillow'].sort());
   for(const [id,c] of Object.entries(motionContactProfiles))expect(motionTemplateContact(id)).toBe(c);
   expect(motionTemplateFor('home-hug')).toBeUndefined();
   expect(motionTemplateFor('home-hand-hold-plead')?.capabilities).toEqual(['pairedSync','residentNavigation','handContact']);
