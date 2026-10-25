@@ -18,7 +18,7 @@ const PRESETS:Record<PhoneAppearance['preset'],string>={
   paper:'radial-gradient(circle at 72% 20%,#fff 0%,transparent 53%),repeating-linear-gradient(30deg,transparent 0px,transparent 33px,#e7e7e7 34px,transparent 35px),linear-gradient(155deg,#f8f8f8,#e9e9e9)',
   graphite:'radial-gradient(ellipse at 38% 12%,#eeeeee 0%,transparent 55%),linear-gradient(155deg,#e0e0e0,#bbb 65%,#eeeeee)',
 };
-function useAppearance(id:string){
+export function useAppearance(id:string){
   const [value,setValue]=useState(()=>readPhoneAppearance(id));
   useEffect(()=>{
     setValue(readPhoneAppearance(id));
@@ -81,26 +81,29 @@ export function CharacterPhoneLockScreen({characterId,name,avatar,onUnlock,onClo
   characterId:string;name:string;avatar?:string;onUnlock:()=>void;onClose:()=>void;
 }){
   const appearance=useAppearance(characterId);
-  return <Wallpaper appearance={appearance} className="min-h-0 flex-1 overflow-y-auto">
-    <div className="flex items-center justify-between px-5 py-3 text-xs text-[#777]">
-      <button onClick={onClose} type="button" className="flex items-center gap-1 rounded-full border border-white/80 bg-white/70 px-3 py-2"><ArrowLeft size={16}/>返回</button>
-      <span className="tracking-[.24em]">PRIVATE PHONE</span>
+  return <Wallpaper appearance={appearance} className="cp-lock-wallpaper">
+    <div className="cp-lock-topbar">
+      <button onClick={onClose} type="button" className="flex items-center gap-1 rounded-full border border-white/80 bg-white/70 px-3 py-2 text-[11px] text-[#777]">
+        <ArrowLeft size={16}/>返回
+      </button>
+      <span className="truncate pl-2 text-[10px] tracking-[.19em] text-[#777]">PRIVATE PHONE</span>
     </div>
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-5 pb-6 pt-4">
-      <div className={PAPER+' flex w-full max-w-[315px] flex-col items-center px-6 pb-7 pt-9'}>
-        <div className="rounded-full border-[5px] border-white/80 p-1 shadow-[0_10px_25px_rgba(0,0,0,.12)]">
-          <PhoneAvatar src={avatar} name={name} className="h-[95px] w-[95px] rounded-full text-3xl"/>
+    <div className="cp-lock-content">
+      <section className={PAPER+' cp-lock-card'}>
+        <div className="cp-lock-avatar-ring">
+          <PhoneAvatar src={avatar} name={name} className="cp-lock-avatar rounded-full text-xl"/>
         </div>
-        <span className="mt-4 max-w-full truncate text-sm tracking-wider text-[#777]">{name}</span>
-        <h2 className="mt-5 text-center font-serif text-[21px] font-semibold leading-8 text-[#444]">准备进入{name}的手机</h2>
-        <p className="mt-2 text-center text-xs leading-6 text-[#888]">点按进入后，才加载查手机桌面与角色的应用清单</p>
-        <div className="my-5 h-px w-full bg-white/95"/>
-        <div className="h-[155px] w-full max-w-[176px]"><Polaroids left={appearance.polaroidLeft||avatar} right={appearance.polaroidRight||avatar} name={name} userName={name}/></div>
-      </div>
-      <button onClick={onUnlock} type="button"
-        className="flex w-full max-w-[275px] items-center justify-center gap-4 rounded-full border border-white/90 bg-white/80 px-6 py-4 text-[15px] font-medium text-[#555] shadow-[0_8px_24px_rgba(0,0,0,.1)] backdrop-blur-xl">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ededed] text-lg">♡</span>
-        点按进入 <CaretRight size={18}/>
+        <span className="cp-lock-name truncate text-[#777]">{name}</span>
+        <h2 className="cp-lock-title text-center font-serif font-semibold text-[#444]">准备进入{name}的手机</h2>
+        <p className="cp-lock-subtitle text-center leading-5 text-[#888]">轻触解锁，进入 Char 的私人手机</p>
+        <div aria-hidden="true" className="cp-lock-divider"/>
+        <div className="cp-lock-photo-area">
+          <Polaroids left={appearance.polaroidLeft||avatar} right={appearance.polaroidRight||avatar} name={name} userName={name}/>
+        </div>
+      </section>
+      <button onClick={onUnlock} type="button" className="cp-lock-unlock">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ededed] text-lg">♡</span>
+        <span className="min-w-0 truncate">点按进入</span><CaretRight size={18}/>
       </button>
     </div>
   </Wallpaper>;
@@ -223,6 +226,18 @@ export function CharacterPhoneBeautify({characterId,onBack}:{characterId:string;
       <strong className="flex-1 text-center text-[16px]">桌面美化</strong><PaintBrush size={21}/>
     </header>
     <div className="space-y-4 p-4">
+      <section className="rounded-[22px] bg-white p-4 shadow-sm">
+        <h3 className="text-sm font-medium">查手机显示模式</h3>
+        <p className="mt-2 text-xs leading-5 text-[#888]">默认使用窄版安卓比例的虚拟手机框。打开全屏后隐藏手机边框，桌面、锁屏和内部 App 都使用当前设备的可用屏幕空间，不会放大挤压原布局。</p>
+        <label className="mt-4 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[#ececec] bg-[#fafafa] px-4 py-3">
+          <span className="min-w-0">
+            <strong className="block text-[13px] font-medium text-[#444]">查手机界面全屏</strong>
+            <span className="mt-1 block text-[11px] text-[#999]">{appearance.fullscreen?'已开启 · 无手机外框':'已关闭 · 窄版虚拟手机框'}</span>
+          </span>
+          <input type="checkbox" aria-label="查手机界面全屏" checked={appearance.fullscreen}
+            onChange={e=>patch({fullscreen:e.target.checked})} className="h-5 w-5 shrink-0 accent-[#444]"/>
+        </label>
+      </section>
       <section className="rounded-[22px] bg-white p-4 shadow-sm">
         <h3 className="text-sm font-medium">桌面壁纸</h3>
         <p className="mb-4 mt-2 text-xs leading-5 text-[#888]">仅修改这个 Char 的查手机外观，不触发生图或 AI。</p>
