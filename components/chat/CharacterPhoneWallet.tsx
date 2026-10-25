@@ -10,6 +10,7 @@ import {
 } from '../../utils/characterPhoneWallet';
 import { CHARACTER_MEMOS_CHANGED } from '../../utils/characterPhoneMemos';
 import { PHONE_PAY_RECEIPTS_CHANGED, readPhonePayReceipts } from '../../utils/characterPhonePayments';
+import {syncConfirmedPrivatePhoneTransfers} from '../../utils/characterPhonePaymentSync';
 
 type Api = { baseUrl: string; apiKey: string; model: string };
 const money = (cents: number) => '¥ ' + (cents / 100).toLocaleString('zh-CN', {
@@ -45,6 +46,12 @@ export default function CharacterPhoneWallet({
       setReceipts(readPhonePayReceipts(characterId));
     };
     refresh();
+    // Actual private transfer cards are the only authoritative User-to-Char money source.
+    // This read is local DB data, not an extra language model call.
+    void syncConfirmedPrivatePhoneTransfers(characterId).then(()=>{
+      syncCharacterPhoneWalletPayments(characterId);
+      refresh();
+    }).catch(()=>{});
     const onWallet = (event: Event) => {
       if ((event as CustomEvent<{characterId:string}>).detail?.characterId === characterId)
         setWallet(readCharacterPhoneWallet(characterId));
@@ -81,11 +88,13 @@ export default function CharacterPhoneWallet({
     if (running) return;
     setRunning(true);setError('');setNotice('');
     try {
+      await syncConfirmedPrivatePhoneTransfers(characterId);
+      setReceipts(readPhonePayReceipts(characterId));
       if (!wallet) {
         const created = await initializeCharacterPhoneWallet({
           char, user:userProfile, groups, realtimeConfig, api,
         });
-        setWallet(created);
+        setWallet(syncCharacterPhoneWalletPayments(characterId)||created);
         setNotice('已建立角色自己的虚构资产档案');
       } else {
         syncCharacterPhoneWalletMemos(characterId);
