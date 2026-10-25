@@ -15,6 +15,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
+import {HOME_HISTORY_COMMITTED} from '../utils/secretNote';
 import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
 import { chatCharacterDisplayName } from '../utils/characterRemark';
 import { AppID, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot } from '../types';
@@ -1076,6 +1077,19 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             } catch { /* give up silently */ }
         }
     }, [activeCharacterId]);
+
+    // A home-history reset removes DB messages shared with ordinary private
+    // chat and Check Phone's User/Char mirror. Refresh an already mounted Chat
+    // window immediately so it cannot keep rendering deleted test messages.
+    useEffect(() => {
+        const onHomeClear = (event: Event) => {
+            const detail = (event as CustomEvent<{charId?:string;cleared?:boolean}>).detail;
+            if(!detail?.cleared || detail.charId!==activeCharIdRef.current)return;
+            void reloadMessages(visibleCountRef.current);
+        };
+        window.addEventListener(HOME_HISTORY_COMMITTED,onHomeClear);
+        return()=>window.removeEventListener(HOME_HISTORY_COMMITTED,onHomeClear);
+    },[reloadMessages]);
 
     // 邀请创建或回应后，立即重新读取真实聊天记录；避免切页后才显示。
     useEffect(() => {
