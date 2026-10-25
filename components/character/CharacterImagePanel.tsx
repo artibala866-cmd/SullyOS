@@ -18,6 +18,8 @@ const CharacterImagePanel: React.FC<{ characterId: string }> = ({ characterId })
   const [busy, setBusy] = useState(false);
   const [generated, setGenerated] = useState('');
   const controllerRef = useRef<AbortController | null>(null);
+  const characterRef = useRef(characterId);
+  characterRef.current = characterId;
 
   useEffect(() => {
     let active = true;
@@ -70,8 +72,13 @@ const CharacterImagePanel: React.FC<{ characterId: string }> = ({ characterId })
       return;
     }
     try {
+      const targetId = characterId;
       const ref = await putImageBlob(file);
-      const previous = readCharacterImageProfile(characterId);
+      if (targetId !== characterRef.current) {
+        await deleteBlobRef(ref);
+        return;
+      }
+      const previous = readCharacterImageProfile(targetId);
       if (!save({ ...previous, reference: ref })) {
         await deleteBlobRef(ref);
         return;
@@ -116,7 +123,9 @@ const CharacterImagePanel: React.FC<{ characterId: string }> = ({ characterId })
         setStatus('生成成功，已自动保存到该角色相册');
       }
     } catch (error) {
-      setStatus(controller.signal.aborted ? '已取消生图' : '生成失败：' + (error instanceof Error ? error.message : String(error)));
+      if (controllerRef.current === controller) {
+        setStatus(controller.signal.aborted ? '已取消生图' : '生成失败：' + (error instanceof Error ? error.message : String(error)));
+      }
     } finally {
       if (controllerRef.current === controller) {
         controllerRef.current = null;
