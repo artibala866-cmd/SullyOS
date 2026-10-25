@@ -3,7 +3,8 @@ import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext'
 import {
   activateCharacterAvatar, readCharacterAvatarLibrary,
 } from './characterAvatarLibrary';
-import { extractContent, safeResponseJson } from './safeApi';
+import { extractContent } from './safeApi';
+import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
 import { readPhoneAutonomyPreferences, canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
@@ -54,6 +55,7 @@ export async function runCharacterPhoneSelfAutonomy(
   if(!char.id || !api.baseUrl || !api.apiKey || !api.model || typeof localStorage==='undefined')
     return 'skipped';
   if(lock.has(char.id))return 'skipped';
+  if(!force && !canRunAutomaticPhoneAi(char.id,api.baseUrl.replace(/\/+$/,'')+'/chat/completions'))return 'skipped';
   if(!force && (!readPhoneAutonomyPreferences(char.id).selfProfileAutoEnabled || !canUsePhoneApiBudget(char.id)))return 'skipped';
   const now=Date.now();
   try {
@@ -72,9 +74,8 @@ export async function runCharacterPhoneSelfAutonomy(
     // Update a single social profile + image together without extra API calls.
     if(!force && !reservePhoneApiBudget(char.id))return 'skipped';
     localStorage.setItem(cooldownKey(char.id),String(now));
-    const response=await fetch(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
-      method:'POST',signal:AbortSignal.timeout(60_000),
-      headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
+    const { response, json } = await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
+      method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
       body:JSON.stringify({model:api.model,stream:false,temperature:0.7,messages:[
         {role:'system',content:`你为角色 ${char.name} 自己的微信“我”的个人资料作自然调整。
 你不能改变角色设定或扮演 User。当前角色人设：${[char.systemPrompt,char.description,char.worldview].filter(Boolean).join('\n').slice(0,4500)}
@@ -89,8 +90,7 @@ export async function runCharacterPhoneSelfAutonomy(
 如果没有值得换的头像，avatarId为空；严禁选未经识图的图片。`},
         {role:'user',content:'由 Char 自己决定资料状态和戳一戳后缀，头像只能从实际识图过的收藏里挑选。'},
       ]}),
-    });
-    const json=await safeResponseJson(response);
+    }, { charId: char.id, purpose: '角色微信资料自主更新', automatic: !force });
     if(!response.ok)throw new Error(json?.error?.message||'头像偏好 AI 请求失败');
     const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
     const data=JSON.parse(raw);
