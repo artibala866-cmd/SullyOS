@@ -36,6 +36,7 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
  const hair=inputHair??character?.chibiStudio?.home3D?.hair;
  const host=useRef<HTMLDivElement>(null),save=useRef(onChange),back=useRef(onBack),initial=useRef(value);
  const [editor,setEditor]=useState<HomeEditor>(),[parts,setParts]=useState<Parts>(),[residentError,setResidentError]=useState('');
+ const [userResidentReady,setUserResidentReady]=useState(false);
  const userAvatar=useBlobRefUrl(user?.avatar),characterAvatar=useBlobRefUrl(character?.avatar);
  useEffect(()=>{editor?.setResidentPortraits([{id:character?.id??'resident',label:character?.name??'小人',avatar:characterAvatar},...residents.map(r=>({id:r.id,label:r.label,avatar:r.id==='user'?userAvatar:r.avatar}))]);},[editor,character?.id,character?.name,characterAvatar,userAvatar,residents]);
  useEffect(()=>{if(editor&&!suspended&&!entryTracked.current){entryTracked.current=true;trackHomeEntry(presentation);}},[editor,suspended,presentation]);
@@ -63,12 +64,24 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
  useEffect(()=>{let cancelled=false;if(!savedState)return;loadCreatorPartsForRender().then(items=>{if(!cancelled)setExtraItems(items.map(p=>({...p,categoryKey:p.categoryKey})));}).catch(()=>{if(!cancelled)setResidentError('自定义素材读取失败，请退出小屋重试。');});return()=>{cancelled=true};},[savedState]);
  useEffect(()=>{let cancelled=false;if(!editor||suspended||!(previewParts||parts))return;
   setMainReady(false);const currentParts=(previewParts||parts)!,{headSize,bodyHeight,...style}=residentHair,signature=JSON.stringify(style);
-  createVisitor(currentParts,residentHair).then(visitor=>{if(cancelled)visitor.dispose();else {const previous=previousAppearance.current;editor.setVisitor?.(visitor,{preservePose:previous?.parts===currentParts&&previous.style===signature});previousAppearance.current={parts:currentParts,style:signature};setResidentError('');setMainReady(true);}}).catch(e=>{if(!cancelled)setResidentError(String(e));});
+  createVisitor(currentParts,residentHair).then(visitor=>{if(cancelled)visitor.dispose();else {const previous=previousAppearance.current;editor.setVisitor?.(visitor,{preservePose:previous?.parts===currentParts&&previous.style===signature});previousAppearance.current={parts:currentParts,style:signature};setResidentError('');void Promise.resolve(editor.warmResidentShaders?.()).then(()=>{if(!cancelled)setMainReady(true);});}}).catch(e=>{if(!cancelled)setResidentError(String(e));});
   return()=>{cancelled=true};
  },[editor,previewParts,parts,residentHair,suspended]);
  useEffect(()=>{editor?.setSuspended?.(suspended);},[editor,suspended]);
  useEffect(()=>()=>{editor?.setVisitor?.(null);},[editor]);
- useEffect(()=>{if(homely||!editor||!mainReady||suspended)return;const timer=setTimeout(()=>editor.greetOwner?.(),600);return()=>clearTimeout(timer);},[editor,mainReady,suspended]);
+ const userResidentExpected=!homely&&residents.some(entry=>entry.id==='user');
+ // Do not overlap the first greeting animation with the second character's
+ // expensive model/skin upload. Yield two paint frames after both are ready.
+ useEffect(()=>{if(homely||!editor||!mainReady||suspended)return;
+  let cancelled=false,raf1=0,raf2=0,timer=0;
+  const greet=()=>{raf1=requestAnimationFrame(()=>{raf2=requestAnimationFrame(()=>{
+   if(!cancelled)timer=window.setTimeout(()=>{if(!cancelled)editor.greetOwner?.();},160);
+  });});};
+  // If a user's avatar cannot be built, the primary resident can still greet.
+  if(!userResidentExpected||userResidentReady)greet();
+  else timer=window.setTimeout(greet,9000);
+  return()=>{cancelled=true;cancelAnimationFrame(raf1);cancelAnimationFrame(raf2);clearTimeout(timer);};
+ },[editor,mainReady,suspended,homely,userResidentExpected,userResidentReady]);
  const [error,setError]=useState('');save.current=onChange;back.current=onBack;
  useEffect(()=>{
   let cancelled=false;const controller=new AbortController();
@@ -83,7 +96,7 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
    {editor&&!homely&&<HomeQualityTip editor={editor} active={!suspended&&!lifePanel&&!phoneOpen&&!photoActive}/>}
    {editor&&!suspended&&<>{(!homely||lifePanel!=='chat')&&<HomeSpeechBubble editor={editor}/>}<HomePresenceBubbles editor={editor} character={character} enabled={mainReady&&!lifePanel&&!phoneOpen} canInvite={!!api&&!!user} onInitiative={setInitiative}/></>}
    {away&&!editor?.getHomeScene().present&&<p className="home-away-note" role="status">{character?.name}现在不在家哦……</p>}
-   {editor&&!suspended&&!homely&&<><HomeSocialPanel targetId={interactionTarget} externalOpen={lifePanel==='interact'} onClose={()=>setLifePanel(null)} editor={editor} primary={{id:character?.id??'resident',label:character?.name??'小人'}} options={residents.filter(r=>r.id!==character?.id)} body={residentHair.bodyShape??'classic'} onBody={value=>{setMainReady(false);setBodyOverride(value);}} mainReady={mainReady} hair={residentHair}/></>}
+   {editor&&!suspended&&!homely&&<><HomeSocialPanel targetId={interactionTarget} externalOpen={lifePanel==='interact'} onClose={()=>setLifePanel(null)} editor={editor} primary={{id:character?.id??'resident',label:character?.name??'小人'}} options={residents.filter(r=>r.id!==character?.id)} body={residentHair.bodyShape??'classic'} onBody={value=>{setMainReady(false);setUserResidentReady(false);setBodyOverride(value);}} mainReady={mainReady} hair={residentHair} onEntranceResidentReady={id=>{if(id==='user')setUserResidentReady(true);}}/></>}
    {editor&&<HomeLifePanel presentation={homely?'homely':'home'} onBusyChange={setHomeBusy} active={!suspended&&!photoActive} initiative={initiative} editor={editor} character={character} user={user} api={api} conversationContext={conversationContext} panel={suspended||homely&&phoneOpen?null:lifePanel} onPanel={openLifePanel} onDefinition={onDefinition} onFigures={openFigures}/>}
    {editor&&character&&!suspended&&<HomePhone onPhotoChange={setPhotoActive} editor={editor} characterId={character.id} onBusyChange={setPhoneBusy} onOpenChange={setPhoneOpen}/>}
    {character&&<HomeSecretsReveal key={character.id} charId={character.id} active={!suspended} ready={mainReady&&!phoneOpen}/>}
