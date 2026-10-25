@@ -16,6 +16,7 @@ import {clearSocialObservers} from './socialSpace.js';
 import {petHomeRecord} from '../../utils/homePetRecords';
 import {homeDisposalReason} from '../../utils/homeAssetCancellation';
 import {socialPostureAllowed,SEATED_TARGET_ACTIONS} from './socialPosture';
+import {sofaLapPillowSeatPair,SOFA_LAP_PILLOW_ID} from './sofaLapPillowSeats';
 import {BED_LEISURE,isBedLeisure} from './chibi/bedLeisure';
 import {createSocialProp} from './chibi/socialProps';
 import {isDevDebugAvailable} from '../../utils/devDebug';
@@ -311,7 +312,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  }
  async function playSocial(action,a,b,source='user',replyTo){
   const seatedHug=action==='home-hug'&&(getResidentPosture(a)==='seated'||getResidentPosture(b)==='seated');
-  const seatedTarget=SEATED_TARGET_ACTIONS.has(action)||seatedHug,pinnedId=seatedHug&&getResidentPosture(a)==='seated'?a:b;
+  const sofaPillow=action===SOFA_LAP_PILLOW_ID;
+  const selectedSeat=id=>id===activeResidentId()?visitorSeat:socialEntries.find(e=>e.id===id)?.parkedSeat;
+  const sofaPair=sofaPillow?sofaLapPillowSeatPair(current(),catalog,selectedSeat(a),selectedSeat(b)):null;
+  if(sofaPillow&&!sofaPair)throw Error('沙发膝枕需要两个人坐在同一张双人沙发的不同座位上');
+  const seatedTarget=sofaPillow||SEATED_TARGET_ACTIONS.has(action)||seatedHug,pinnedId=seatedHug&&getResidentPosture(a)==='seated'?a:b;
   if(!socialPostureAllowed(action,getResidentPosture(a),getResidentPosture(b),socialActions[action]?.participants))throw Error('当前姿势不支持这个动作');
   if(action==='vrma-ad2a5118837bfa67'){
    if(getResidentPosture(a)!=='seated')throw Error('这个动作需要先坐下');
@@ -334,7 +339,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const observers=entries.filter(e=>e.id!==a&&(socialActions[action].participants!==2||e.id!==b)).map(e=>e.visitor.root.position);
   const clearOfOthers=paths=>clearSocialObservers(paths,observers);
 
-  socialRuntime=createSocialScene(entries,{facingTarget:socialActions[action].participants===1?entries.find(e=>e.id===(a==='user'?primaryResidentId:'user'))?.visitor.root.position.clone():undefined,pinned:seatedTarget?{id:pinnedId,pose:pinnedId===activeResidentId()?currentSeatPose()||{}:socialEntries.find(e=>e.id===pinnedId)?.parkedPose||{}}:undefined,onComplete:()=>{if(action==='cmu-22_01')queueMicrotask(()=>standResident(b));},findPath:(from,to)=>{const path=findWalkPath(map,[from.x+room.x*ROOM_STEP.x,from.z+room.z*ROOM_STEP.z],[to.x+room.x*ROOM_STEP.x,to.z+room.z*ROOM_STEP.z]);return path?[from.clone(),...path.map(p=>new THREE.Vector3(p[0]-room.x*ROOM_STEP.x,.18,p[1]-room.z*ROOM_STEP.z)),to.clone()]:null;},origins:Array.from({length:17},(_,i)=>(i-8)*.45).flatMap(z=>Array.from({length:21},(_,i)=>new THREE.Vector3((i-10)*.45,.18,z))).filter(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)).sort((p,q)=>p.distanceToSquared(resident.position)-q.distanceToSquared(resident.position)),canPerform:paths=>clearOfOthers(paths)&&paths.every(path=>path.every(p=>motionMap.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z))),canPlace:paths=>paths.every(path=>path.every(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)&&clearSocialObservers([[p]],observers)))});
+  const sofaSeatPoses=sofaPair?Object.fromEntries([[a,sofaPair.seatA],[b,sofaPair.seatB]].map(([id,pose])=>{
+   const v=entries.find(e=>e.id===id)?.visitor;
+   return [id,{kind:'seat-rest',hands:[],seatPose:pose.pose,seatHeight:pose.height/(v?.seatScale??1)}];
+  })) : undefined;
+  socialRuntime=createSocialScene(entries,{sofaSeatPoses,facingTarget:socialActions[action].participants===1?entries.find(e=>e.id===(a==='user'?primaryResidentId:'user'))?.visitor.root.position.clone():undefined,pinned:seatedTarget?{id:pinnedId,pose:pinnedId===activeResidentId()?currentSeatPose()||{}:socialEntries.find(e=>e.id===pinnedId)?.parkedPose||{}}:undefined,onComplete:()=>{if(action==='cmu-22_01')queueMicrotask(()=>standResident(b));},findPath:(from,to)=>{const path=findWalkPath(map,[from.x+room.x*ROOM_STEP.x,from.z+room.z*ROOM_STEP.z],[to.x+room.x*ROOM_STEP.x,to.z+room.z*ROOM_STEP.z]);return path?[from.clone(),...path.map(p=>new THREE.Vector3(p[0]-room.x*ROOM_STEP.x,.18,p[1]-room.z*ROOM_STEP.z)),to.clone()]:null;},origins:Array.from({length:17},(_,i)=>(i-8)*.45).flatMap(z=>Array.from({length:21},(_,i)=>new THREE.Vector3((i-10)*.45,.18,z))).filter(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)).sort((p,q)=>p.distanceToSquared(resident.position)-q.distanceToSquared(resident.position)),canPerform:paths=>clearOfOthers(paths)&&paths.every(path=>path.every(p=>motionMap.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z))),canPlace:paths=>paths.every(path=>path.every(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)&&clearSocialObservers([[p]],observers)))});
   socialRoom=room.id;const runtime=socialRuntime;const started=await runtime.start(action,a,b);if(!started||runtime!==socialRuntime)return false;
   const person=id=>id===primaryResidentId?ownerName:socialEntries.find(e=>e.id===id)?.label||'你';
   const label=socialActions[action].label.replace(/\s*[AB]→[AB]/g,'').replace(/\s*·\s*双人/g,'');
@@ -780,7 +789,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   for(const [id,action] of Object.entries(socialActions)){
    if(firstPerson&&action.participants===2)continue;
    if(action.participants===2&&!companionActors().user?.group.visible)continue;
-   const prerequisite=id==='vrma-ad2a5118837bfa67'?'自己先坐下':SEATED_TARGET_ACTIONS.has(id)?'自己先起身；对方先坐下':action.participants===2&&id!=='home-hug'?'双方先起身':id==='home-hug'?'双方坐或站，至少一方站着':'自己先起身';
+   if(id===SOFA_LAP_PILLOW_ID){
+    const selectedSeat=who=>who===activeResidentId()?visitorSeat:socialEntries.find(e=>e.id===who)?.parkedSeat;
+    if(!sofaLapPillowSeatPair(room,catalog,selectedSeat(primaryResidentId),selectedSeat('user')))continue;
+   }
+   const prerequisite=id===SOFA_LAP_PILLOW_ID?'两个人先坐在同一张双人沙发':id==='vrma-ad2a5118837bfa67'?'自己先坐下':SEATED_TARGET_ACTIONS.has(id)?'自己先起身；对方先坐下':action.participants===2&&id!=='home-hug'?'双方先起身':id==='home-hug'?'双方坐或站，至少一方站着':'自己先起身';
    options.push({kind:'social',label:action.label,prerequisite,target:action.participants===2?'用户':'自己',data:{action:'home-model-social',id,kind:'social'}});
   }
   return options.map(a=>({...a,actor:'character',target:a.target||asset(room.items.find(i=>i.id===a.data.id)?.assetId)?.name||'当前家具',roomId:room.id,id:JSON.stringify([room.id,a.data.action,a.data.id,a.kind,a.data.station||a.data.seat||''])}));
