@@ -433,6 +433,32 @@ ${scheduleContext}
         return;
       }
       setRecords(updatedRecords);
+      if (prefs.paymentNotices && Array.isArray(data.payments)) {
+        try {
+          const receipts=appendSimulatedPhonePayments(characterId,data.payments,now);
+          if(receipts.length){
+            const serviceId='service:微信支付';
+            const receiptMessages=receipts.map(row=>({
+              speaker:{role:'contact' as const,contactId:serviceId},
+              text:'微信支付通知：'+row.title+' · '+(row.amountCents<0?'支出':'收入')+
+                ' ¥'+(Math.abs(row.amountCents)/100).toFixed(2)+'；'+row.detail,
+              createdAt:row.occurredAt,
+            }));
+            updateCharacterPhoneChats(characterId,old=>{
+              const previousPay=old.find(v=>v.contactId===serviceId);
+              const updated:ChatRecord={
+                id:previousPay?.id||crypto.randomUUID(),contactId:serviceId,kind:'service',
+                name:'微信支付',time:now,preview:receiptMessages[receiptMessages.length-1].text,
+                messages:[...(previousPay?.messages||[]),...receiptMessages],
+              };
+              return [updated,...old.filter(v=>v.id!==updated.id)];
+            });
+            syncCharacterPhoneWalletPayments(characterId);
+            setRecords(readCharacterPhoneChats(characterId));
+          }
+        }catch(error){console.warn('[CharacterPhone] receipt sync skipped',error);
+          setError('微信消息已保存，但支付账单同步失败');}
+      }
       // Contacts are created *after* real phone messages have been saved.
       // Established acquaintances enter the address book; strangers/request
       // only enter the existing pending contacts lane.
@@ -672,6 +698,18 @@ ${scheduleContext}
         {screen === 'browser' && <CharacterPhoneBrowser characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'wallet' && <CharacterPhoneWallet characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'settings' && <div className="space-y-3 p-4">
+          <section className="space-y-3 rounded-2xl bg-white p-4">
+            <h3 className="text-sm font-semibold">微信消息生成</h3>
+            <p className="text-xs leading-5 text-[#888]">手动刷新采用一次批量请求，按 Char 的设定生成不同会话；不会为每条公众号通知单独调用 API。</p>
+            <label className="flex items-center justify-between gap-3 text-xs"><span>允许公众号／服务号推送</span>
+              <input type="checkbox" checked={inboxPrefs.officialAccounts} onChange={e=>updateInboxPrefs({officialAccounts:e.target.checked})} className="h-5 w-5 accent-[#444]"/></label>
+            <label className="flex items-center justify-between gap-3 text-xs"><span>允许虚构微信支付账单</span>
+              <input type="checkbox" checked={inboxPrefs.paymentNotices} onChange={e=>updateInboxPrefs({paymentNotices:e.target.checked})} className="h-5 w-5 accent-[#444]"/></label>
+            <div className="grid grid-cols-3 gap-2">
+              {([{id:'compact',label:'精简'},{id:'normal',label:'正常'},{id:'rich',label:'丰富'}] as const).map(x=><button type="button" key={x.id}
+                onClick={()=>updateInboxPrefs({chatDensity:x.id})} className={'rounded-xl border px-1 py-2.5 text-[11px] '+(inboxPrefs.chatDensity===x.id?'border-[#333] bg-[#333] text-white':'border-[#ddd] bg-[#f7f7f7]')}>{x.label}</button>)}
+            </div>
+          </section>
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <h3 className="text-sm font-semibold">Char 的可选应用安装</h3>
             <p className="text-xs leading-5 text-[#888]">首次进入只根据 Char 性格分析一次；基础软件永远保留。以后可以手动安装、卸载九款可选应用。</p>
