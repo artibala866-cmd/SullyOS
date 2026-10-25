@@ -7,7 +7,7 @@ import {socialActions} from './selectedSocial';
 import {isIntimacy} from './intimacyMotion';
 import {
  handHoldPleadPhase,pleadHandSwingOffset,pleadHandSides,pleadStandingPoint,pleadContactTarget,
- pleadPalmContact,
+ pleadPalmContact,poseHandHoldPlead,
 } from './handHoldPleadMotion';
 import clip from '../../../public/room3d/motions/selected/home-hand-hold-plead.json';
 
@@ -106,6 +106,52 @@ describe('6.7-second two-person hand-hold pleading',()=>{
   expect(unreachable.deficit).toBeGreaterThan(1);
   expect(unreachable.point.y).toBeGreaterThan(0);
   expect(unreachable.point.y).toBeLessThan(2);
+ });
+ it('sends BOTH IK solvers the same clearly moving clasp, with fixed character roots',()=>{
+  function pair(){
+   const logs:{side:string;point:T.Vector3;normal:T.Vector3}[][]=[[],[]];
+   const make=(z:number,yaw:number,index:0|1)=>{
+    const root=new T.Group();root.position.z=z;root.rotation.y=yaw;
+    const bones:Record<string,T.Bone>={};
+    const add=(name:string,parent:T.Object3D,pos:[number,number,number])=>{
+     const b=new T.Bone();b.position.set(...pos);parent.add(b);bones[name]=b;return b;
+    };
+    const spine=add('spine',root,[0,1,0]),chest=add('chest',spine,[0,.19,0]);
+    add('head',chest,[0,.35,0]);
+    for(const side of ['L','R'] as const){
+     const s=side==='L'?1:-1;
+     const clav=add(side+'_clavicle',chest,[s*.09,.08,0]);
+     const upper=add(side+'_upperArm',clav,[s*.15,0,0]);
+     const fore=add(side+'_forearm',upper,[s*.39,0,0]);
+     add(side+'_hand',fore,[s*.39,0,0]);
+    }
+    root.updateWorldMatrix(true,true);
+    const visitor={root,rig:{bones},getHeadWorldPosition:()=>
+     bones.head.getWorldPosition(new T.Vector3())} as unknown as ChibiVisitor;
+    return {visitor,solver:(contact:{side:string;point:T.Vector3;normal:T.Vector3})=>{
+     logs[index].push({side:contact.side,point:contact.point.clone(),normal:contact.normal.clone()});
+    }};
+   };
+   return {actors:[make(.76,Math.PI,0),make(0,0,1)] as const,logs};
+  }
+  const snapshots=[1.48,1.93,2.27,2.59,2.99,5.12].map(t=>{
+   const {actors,logs}=pair();
+   const roots=actors.map(a=>a.visitor.root.position.clone());
+   expect(poseHandHoldPlead(actors,t,1)).toBe(true);
+   expect(actors.map(a=>a.visitor.root.position)).toEqual(roots);
+   expect(logs[0]).toHaveLength(1);
+   expect(logs[1]).toHaveLength(1);
+   expect(logs[0][0].side).toBe('R');
+   expect(logs[1][0].side).toBe('L');
+   expect(logs[0][0].point.distanceTo(logs[1][0].point)).toBeLessThan(1e-6);
+   expect(logs[0][0].normal.dot(logs[1][0].normal)).toBeLessThan(-.999);
+   return logs[0][0].point.clone();
+  });
+  expect(snapshots[0].distanceTo(snapshots[1])).toBeGreaterThan(.10);
+  expect(snapshots[1].distanceTo(snapshots[2])).toBeGreaterThan(.10);
+  expect(snapshots[2].distanceTo(snapshots[3])).toBeGreaterThan(.075);
+  expect(snapshots[3].distanceTo(snapshots[4])).toBeGreaterThan(.075);
+  expect(snapshots[4].distanceTo(snapshots[5])).toBeGreaterThan(.07);
  });
  it('faces actual palms towards each other on either side, through all yaw angles',()=>{
   for(const yaw of [0,.8,-1.5])for(const sign of [1,-1] as const){
