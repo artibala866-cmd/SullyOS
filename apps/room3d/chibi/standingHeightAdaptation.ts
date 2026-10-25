@@ -1,5 +1,6 @@
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
+import {settleLegContact} from './legContactIK';
 
 /**
  * Shared standing-pair height adapter. No distinction between User / Char or
@@ -101,6 +102,10 @@ export function applyStandingHeightAdaptation(
  const rig=tall.rig!,bones=rig.bones;
  const floorBefore=footFloor(tall);
  const knee=plan.crouch*w;
+ // Capture each original planted toe before knee articulation. Large bends
+ // must not cause horizontal shoe skating; reuse the already shipped foot CCD.
+ const toeTargets=options.mode==='headReach'&&knee>.22?
+  (['L','R'] as const).map(side=>bones[side+'_toe'].getWorldPosition(vec())):null;
  if(knee>.0001){
   // The rig's seated/carry motions use the same thigh-shin counter-rotation.
   // Both knees share the correction; feet remain under their original roots.
@@ -115,6 +120,17 @@ export function applyStandingHeightAdaptation(
   if(floorBefore!==null&&floorAfter!==null){
    const shift=clamp(floorBefore-floorAfter,-.82,.82);
    if(Math.abs(shift)>.00001)tall.translatePose(new T.Vector3(0,shift,0));
+  }
+  if(toeTargets){
+   for(const [i,side] of (['L','R'] as const).entries()){
+    settleLegContact(tall,side,toeTargets[i],w);
+   }
+   // The toe IK adjusts thigh and shin slightly. Recheck ground after solve.
+   const corrected=footFloor(tall);
+   if(corrected!==null&&floorBefore!==null){
+    const delta=clamp(floorBefore-corrected,-.14,.14);
+    if(Math.abs(delta)>.00001)tall.translatePose(new T.Vector3(0,delta,0));
+   }
   }
  }
  // Upper-body bow shifts the taller actor's face/shoulders forward and lower.
