@@ -19,12 +19,12 @@ export function sofaLapPillowPhase(t:number){
  // A cannot tip sideways as a rigid doll. They first plant a palm, ease
  // their hips onto the cushion, progressively incline the back, and only then
  // transfer the head's weight to B's thigh. Rising reverses this causal order.
- const brace=fade(time,.16,.68,2.65,3.18)+fade(time,6.93,7.34,8.72,9.15);
- const scoot=fade(time,.42,1.85,8.06,9.22);
- const turn=fade(time,.55,1.97,8.10,9.17);
- const lower=fade(time,.76,2.65,7.63,8.72);
- const settle=fade(time,2.13,3.00,7.34,8.13);
- const headLift=smooth(time,7.50,8.18);
+ const brace=fade(time,.08,1.30,2.07,3.42)+fade(time,6.60,7.87,8.00,9.30);
+ const scoot=fade(time,.42,1.85,8.10,9.30);
+ const turn=fade(time,.55,1.97,8.14,9.30);
+ const lower=fade(time,.76,2.65,7.85,9.20);
+ const settle=fade(time,1.86,3.06,7.00,8.32);
+ const headLift=smooth(time,7.55,8.38);
  const support=fade(time,.84,1.62,2.67,3.25);
  const stroke=fade(time,2.98,3.27,6.74,7.24);
  const first=fade(time,3.26,4.16,4.16,4.78);
