@@ -57,6 +57,7 @@ import ChatAppearanceWardrobe from '../components/chat/ChatAppearanceWardrobe';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import { readImageSettings } from '../components/settings/ImageApiSettingsPanel';
 import { generateCharacterImage } from '../utils/imageGeneration';
+import { describesUserInPhoto } from '../utils/userImageIdentity';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
@@ -1775,9 +1776,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if (useUserReference && (!userProfile.imageLockEnabled || !userProfile.imageReference)) {
             throw new Error('user 锁脸参考图未启用或已移除，请到「个人档案 → user 身份 · 生图锁脸」设置');
         }
-        // Image identity is a visual aid only; do not reuse the chat avatar.
+        // Echoes separates the person's textual appearance from the reference
+        // photo. Even without a reference, use the user's appearance for a user
+        // selfie; avoid injecting the user into unrelated scenery.
+        const depictsUser = useUserReference || describesUserInPhoto(prompt);
         const photoProfile = {
-            appearance: useUserReference
+            appearance: depictsUser
                 ? [userProfile.imageAppearance?.trim(), prompt].filter(Boolean).join(', ')
                 : prompt,
             reference: useUserReference ? userProfile.imageReference! : '',
