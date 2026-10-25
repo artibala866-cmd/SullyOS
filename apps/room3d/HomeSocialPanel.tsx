@@ -1,5 +1,6 @@
 import {HomeSocialWheel} from './HomeSocialWheel';
 import {defaultResidentExpression,type ResidentExpression} from './chibi/residentExpression';
+import {warmHomeResidentForEntry} from './entryWarmup';
 import React,{useEffect,useRef,useState} from 'react';
 import type {HomeEditor} from './editor.js';
 import {CreatorRollBridge,type RollResult} from './chibi/CreatorRollBridge';
@@ -17,7 +18,7 @@ function Resident({entry,editor,body,height,onReady,onError}:{entry:HomeResident
   if(dead.current||token!==revision.current)return;
   const visitor=await createVisitor(parts,{...entry.hair,layers:entry.hair?.layers??{},extras:entry.hair?.extras??[],assets:selectedHairAssets(result.state),bodyShape:body,bodyHeight:(entry.hair?.bodyHeight??1)*height});if(dead.current||token!==revision.current){visitor.dispose();return;}editor.setSocialResident(entry.id,visitor,entry.label);
   // Prewarm new shaders with a bounded wait; a slow driver must never block admission.
-  await Promise.race([editor.warmResidentShaders?.()??Promise.resolve(),new Promise<void>(resolve=>setTimeout(resolve,1800))]);
+  await warmHomeResidentForEntry(editor);
   if(!dead.current&&token===revision.current)callbacks.current.onReady();}catch(e){if(!dead.current)callbacks.current.onError(String(e));}};
  return <CreatorRollBridge request={ready&&items?1:0} savedState={entry.state} extraItems={items} onReady={()=>setReady(true)} onResult={r=>void result(r)} onError={e=>callbacks.current.onError(e)}/>;
 }
