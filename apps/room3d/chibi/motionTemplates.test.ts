@@ -11,10 +11,13 @@ describe('Stage 5 motion authoring contract',()=>{
  it('preserves original motion templates and eight visible categories as the catalog grows',()=>{
   expect(selectedMotions).toHaveLength(45);
   expect(motionCapabilityKeys).toHaveLength(10);
-  expect(Object.keys(authoredMotionTemplates)).toEqual(['home-head-pat']);
-  expect(Object.keys(motionTemplates).sort()).toEqual([...Object.keys(motionContactProfiles),'home-head-pat'].sort());
+  expect(Object.keys(authoredMotionTemplates).sort()).toEqual(['home-head-pat','home-rear-hug']);
+  expect(Object.keys(motionTemplates).sort()).toEqual([...Object.keys(motionContactProfiles),'home-head-pat','home-rear-hug'].sort());
   for(const [id,c] of Object.entries(motionContactProfiles))expect(motionTemplateContact(id)).toBe(c);
   expect(motionTemplateFor('home-hug')).toBeUndefined();
+  expect(motionTemplateFor('home-rear-hug')?.adapter).toBe('legacy');
+  expect(motionTemplateFor('home-rear-hug')?.capabilities).toContain('armWrap');
+  expect(motionTemplateFor('home-rear-hug')?.phases).toBeUndefined();
   expect(motionTemplateFor('home-kiss')).toBeUndefined();
   expect(motionTemplateFor('home-princess-carry')).toBeUndefined();
   expect(Object.keys(motionTemplateConstraintPlans).sort()).toEqual(['cmu-20_10','home-head-pat'].sort());
