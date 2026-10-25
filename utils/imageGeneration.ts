@@ -111,7 +111,7 @@ const normalizedSize = (config: ImageApiSettings): string => {
   // Older GPT image models accept only these three preset sizes, while newer
   // GPT image 2.x models and third-party relays can accept flexible dimensions.
   const model = config.model.trim();
-  if (/(?:^|[/])(?:gpt-image-1(?:\.|-|$)|chatgpt-image-latest$)/i.test(model)) {
+  if (/(?:^|[/])(?:gpt-image-[12](?:\.|-|$)|chatgpt-image-latest$)/i.test(model)) {
     return width === height ? '1024x1024' : width > height ? '1536x1024' : '1024x1536';
   }
   if (/(?:^|[/])dall-e-3$/i.test(model)) {
