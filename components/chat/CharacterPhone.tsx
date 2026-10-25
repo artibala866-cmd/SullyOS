@@ -589,7 +589,8 @@ ${scheduleContext}
           </div>
         </div>}
         {isCharacterPhoneSocialAppId(screen) && <CharacterPhoneSocialApps key={screen}
-          appId={screen} ownerName={name} ownerAvatar={phoneAvatar} onBack={()=>setScreen('home')}/>}
+          appId={screen} ownerName={name} ownerAvatar={phoneAvatar} onBack={()=>setScreen('home')}
+          char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'wechat' && tab === 'chats' && <div>
           {!hiddenPrivate && privateThread && <div className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(privateThread.id);setTouchX(null);}}>
             <button type="button" onClick={()=>{setThread(privateThread.id);setScreen('thread');}} className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#eee] px-4 py-3 text-left"><PhoneAvatar src={userProfile.perCharAvatars?.[characterId] || userProfile.avatar} name={userProfile.name} className="h-12 w-12 rounded-lg text-base"/><span className="min-w-0 flex-1"><span className="block truncate text-base">{userProfile.name} <small className="text-[#888]">真实私聊</small></span><span className="block truncate text-xs text-[#999]">{privatePreview?.text || '暂无私聊消息'}</span></span></button>{swipedId===privateThread.id&&<button type="button" onClick={()=>deleteChat(privateThread.id)} className="bg-red-500 px-4 text-white">删除</button>}
