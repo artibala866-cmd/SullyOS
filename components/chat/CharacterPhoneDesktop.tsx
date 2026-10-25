@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {ArrowLeft,ChatCircleDots,NotePencil,Globe,PaintBrush,Phone,ChatText,Images,
-  GearSix,Wallet,User,MapPin,Heart,CalendarBlank,CaretRight,SpinnerGap,BookOpen,
+  MapPin,Heart,CalendarBlank,CaretRight,SpinnerGap,BookOpen,
   DotsThree,ImageSquare,Camera,Check,ArrowCounterClockwise} from '@phosphor-icons/react';
 import PhoneAvatar from './PhoneAvatar';
 import {CharacterPhoneSocialIcon} from './CharacterPhoneSocialApps';
