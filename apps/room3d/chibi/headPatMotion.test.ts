@@ -4,6 +4,7 @@ import type {ChibiVisitor} from './visitor';
 import {motionTemplateFor} from './motionTemplates';
 import {headPatTimeline,headPatHandGoal,headPatScalpSize,applyHeadPatMotion,applyHeadPatExpressions,HEAD_PAT_TIMING} from './headPatMotion';
 import {furnitureHandRotation} from './furnitureMotion';
+import {contactSolver} from './socialContact';
 import {sampleSelected} from './selectedMotions';
 import clip from '../../../public/room3d/motions/selected/home-head-pat.json';
 
@@ -151,6 +152,46 @@ describe('head pet and playful hair ruffle',()=>{
    const actualLeft=L.getWorldPosition(new T.Vector3()).sub(R.getWorldPosition(new T.Vector3())).normalize();
    expect(left.scalpPoint.clone().sub(crown).dot(actualLeft)).toBeGreaterThan(.24);
    expect(right.scalpPoint.clone().sub(crown).dot(actualLeft)).toBeLessThan(-.24);
+  }
+ });
+ it('keeps the actual CCD-solved wrists on their own sides of the scalp',()=>{
+  for(const facing of [0,Math.PI]){
+   const giver=resident(0),receiver=resident(0),root=giver.visitor.root;
+   root.position.set(0,0,facing===0?-.35:.35);
+   root.rotation.y=facing;
+   receiver.visitor.root.position.set(0,0,facing===0?.35:-.35);
+   const base=new T.Bone();root.add(base);
+   const bones:Record<string,T.Bone>={};
+   const rigBones=[base];
+   for(const side of ['L','R'] as const){
+    const sign=side==='L'?1:-1;
+    const upper=new T.Bone(),lower=new T.Bone(),hand=new T.Bone();
+    upper.position.set(sign*.23,1.22,0);base.add(upper);
+    lower.position.set(sign*.5,0,0);upper.add(lower);
+    hand.position.set(sign*.49,0,0);lower.add(hand);
+    bones[side+'_upperArm']=upper;
+    bones[side+'_forearm']=lower;
+    bones[side+'_hand']=hand;
+    rigBones.push(upper,lower,hand);
+   }
+   (giver.visitor as any).rig={bones,skeleton:new T.Skeleton(rigBones),setHandCurl:()=>{}};
+   const head=new T.Bone(),mesh=new T.Mesh(new T.BoxGeometry(),new T.MeshBasicMaterial());
+   head.position.y=1.40;head.scale.setScalar(.72);
+   receiver.visitor.root.add(head,mesh);
+   mesh.geometry.userData.headSize=1;
+   (receiver.visitor as any).rig={bones:{head},mesh};
+   (receiver.visitor as any).getHeadTopWorldPosition=()=>
+    receiver.visitor.root.localToWorld(new T.Vector3(0,1.76,0));
+   const scalp=receiver.visitor.getHeadTopWorldPosition();
+   const lateral=bones.L_upperArm.getWorldPosition(new T.Vector3())
+    .sub(bones.R_upperArm.getWorldPosition(new T.Vector3())).normalize();
+   const worker=contactSolver(giver.visitor);
+   expect(worker).not.toBeNull();
+   applyHeadPatMotion(recipe,[{visitor:giver.visitor,solver:worker},{visitor:receiver.visitor,solver:null}],4.5,1);
+   const lHand=bones.L_hand.getWorldPosition(new T.Vector3()),rHand=bones.R_hand.getWorldPosition(new T.Vector3());
+   expect(lHand.clone().sub(scalp).dot(lateral)).toBeGreaterThan(.05);
+   expect(rHand.clone().sub(scalp).dot(lateral)).toBeLessThan(-.05);
+   expect(lHand.distanceTo(rHand)).toBeGreaterThan(.20);
   }
  });
  it('limits unreachable wrist goals without pulling forearms through the other head',()=>{
