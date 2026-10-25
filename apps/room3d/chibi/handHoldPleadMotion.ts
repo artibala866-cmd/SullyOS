@@ -167,11 +167,12 @@ export function poseHandHoldPlead(both:readonly [Participant,Participant],time:n
  bv.root.updateWorldMatrix(true,true);
  const armA=length(av,handA),armB=length(bv,handB);
  const horizontal=bv.root.position.clone().sub(av.root.position).setY(0).normalize();
- // Both recipients' hands track the SAME contact anchor and wave.
- const sideAxis=new T.Vector3(1,0,0).applyQuaternion(bv.root.getWorldQuaternion(new T.Quaternion())).setY(0).normalize();
+ // Compute the joined hands' wide opening/closing arc in B's local frame.
+ // A and B solve the SAME animated anchor, not independent wrist shivers.
  const scale=Math.min(av.root.getWorldScale(new T.Vector3()).x,bv.root.getWorldScale(new T.Vector3()).x);
- const lateral=sideAxis.multiplyScalar((.064*p.swing-.034*p.tug)*scale*strength);
- const goal=pleadContactTarget(armA.shoulder,armA.max,armB.shoulder,armB.max,lateral);
+ const worldArc=pleadHandSwingOffset(time,sign,scale*strength)
+  .applyQuaternion(bv.root.getWorldQuaternion(new T.Quaternion()));
+ const goal=pleadContactTarget(armA.shoulder,armA.max,armB.shoulder,armB.max,worldArc);
  // A tiny initial finger touch; then bring the two entire palms to one point.
  // Grip weight is reduced only for genuinely unreachable height differences.
  const reachWeight=clamp(1-goal.deficit/.30,.35,1);
