@@ -98,7 +98,7 @@ export default function CharacterAvatarLibraryModal({
       {(recognizing || recognitionNotice) && <p role="status" className="my-2 text-xs text-neutral-500">{recognitionNotice}{recognizing ? '（识图中）' : ''}</p>}
       <label className="inline-block cursor-pointer rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm">添加图片<input type="file" accept="image/*" className="hidden" disabled={busy || recognizing || !isVisionApiReady(visionApiConfig)} onChange={upload}/></label>
       <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={library.autonomousEnabled} onChange={e=>{setAutonomousAvatarEnabled(characterId,e.target.checked);refresh();}}/>允许 Char 自主从头像库换头像</label>
-      <p className="mt-1 text-xs text-neutral-500">开启后根据角色心情和图片识图描述选图；未识图头像不会参与 AI 自动选择。普通聊天图片不会入库。</p>
+      <p className="mt-1 text-xs text-neutral-500">开启后，Char 可按个人审美与头像识图描述选图；情绪关键词自动切换暂时停用。未识图头像不会参与 AI 自动选择，普通聊天图片不会入库。</p>
       <div className="mt-4 grid max-h-72 grid-cols-3 gap-3 overflow-y-auto">
         {library.entries.map(entry=><div key={entry.id} className="rounded-xl border border-neutral-200 bg-white p-1">
           <TokenImg value={entry.image} className="aspect-square w-full rounded-lg object-cover" alt="收藏头像"/>
