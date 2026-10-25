@@ -41,8 +41,7 @@ import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
 import { runCharacterPhoneAutonomy, isCharacterPhoneAutonomyEnabled } from '../utils/characterPhoneAutonomy';
 import { runCharacterPhoneBrowserAutonomy } from '../utils/characterPhoneBrowserAutonomy';
 import { runCharacterPhoneSelfAutonomy } from '../utils/characterPhoneSelfProfile';
-import { chooseAvatarFromSavedMood } from '../utils/characterAvatarMood';
-import { getLastInnerState } from '../utils/emotionState';
+import { resolveCharacterPhoneApi } from '../utils/characterPhoneApiConfig';
 import { canUsePhoneApiBudget, readPhoneApiBudget } from '../utils/characterPhoneApiBudget';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments } from '../utils/characterPhoneMoments';
@@ -2427,7 +2426,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           if (!shouldDispatchLifeEvent(recordedEvent, charId)) return;
           const consumers = getLifeEventConsumers(recordedEvent.kind);
-          const api = resolveDialogueApi(apiConfigRef.current, char);
+          const baseApi = resolveDialogueApi(apiConfigRef.current, char);
+          const api = recordedEvent.source === 'phone'
+              ? resolveCharacterPhoneApi(charId, baseApi) : baseApi;
           if (consumers.includes('moments')) void considerAutonomousMoment({
               char, user: userProfileRef.current, groups: groupsRef.current,
               realtimeConfig: realtimeConfigRef.current, api,
@@ -2465,7 +2466,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const all = charactersRef.current.filter(c => !!c.id);
           if (!all.length || !userProfileRef.current) return;
           const char = all[cursor++ % all.length];
-          const api = resolveDialogueApi(apiConfigRef.current, char);
+          const api = resolveCharacterPhoneApi(char.id,resolveDialogueApi(apiConfigRef.current, char));
           if (!api.baseUrl || !api.apiKey || !api.model) return;
           // A single Char-wide LLM call per eligible tick. Rotating feature
           // order prevents NPC WeChat from consuming the entire daily quota
@@ -2532,7 +2533,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (disposed || running || document.visibilityState !== 'visible') return;
               const char = charactersRef.current.find(c => c.id === charId);
               if (!char) return;
-              const api = resolveDialogueApi(apiConfigRef.current, char);
+              const api = resolveCharacterPhoneApi(charId,resolveDialogueApi(apiConfigRef.current, char));
               void runCharacterMomentInteractionAutonomy({char, api});
           }, 15_000));
       };
@@ -2551,42 +2552,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           momentTimers.clear();
       };
   }, [isDataLoaded]);
-
-  // Zero additional model calls: a freshly persisted emotion + saved vision
-  // caption can choose an appropriate existing avatar immediately. Unclear
-  // matches are left for the rate-limited AI profile decision.
-  useEffect(() => {
-      if (!isDataLoaded) return;
-      let disposed = false;
-      const applyMood = (charId:string, mood:string) => {
-          if (disposed || document.visibilityState !== 'visible') return;
-          const char = charactersRef.current.find(c => c.id === charId);
-          if (!char || !mood.trim()) return;
-          void chooseAvatarFromSavedMood(charId,mood,async image => {
-              if (disposed) return;
-              updateCharacter(charId,{avatar:image});
-          }).catch(error=>console.warn('[CharacterAvatarMood] selection skipped',error));
-      };
-      const onMood = (event:Event) => {
-          const detail=(event as CustomEvent<{charId?:string;innerState?:string}>).detail;
-          if (!detail?.charId) return;
-          applyMood(detail.charId,typeof detail.innerState==='string'
-              ? detail.innerState : getLastInnerState(detail.charId));
-      };
-      const onVisible = () => {
-          if (document.visibilityState !== 'visible') return;
-          for (const char of charactersRef.current) {
-              applyMood(char.id,getLastInnerState(char.id));
-          }
-      };
-      window.addEventListener('emotion-innerstate-updated',onMood);
-      document.addEventListener('visibilitychange',onVisible);
-      return () => {
-          disposed=true;
-          window.removeEventListener('emotion-innerstate-updated',onMood);
-          document.removeEventListener('visibilitychange',onVisible);
-      };
-  },[isDataLoaded]);
 
   const memoryPalaceConfigRef = useRef(memoryPalaceConfig);
   memoryPalaceConfigRef.current = memoryPalaceConfig;
