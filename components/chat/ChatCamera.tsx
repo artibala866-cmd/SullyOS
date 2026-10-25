@@ -15,21 +15,25 @@ import { CAMERA_FRAMES as FRAMES, cameraFrameLayout, drawCameraFrame } from '../
 import { CameraStickerGesture, type StickerTransform } from '../../utils/cameraStickerGesture';
 import { cameraCaptureLayout, cameraIsPortrait } from '../../utils/cameraCapture';
 import { createCameraPreview } from '../../utils/cameraPreview';
+import { describesUserInPhoto } from '../../utils/userImageIdentity';
 
 const Live2DAvatarCanvas = lazy(() => import('../call/Live2DAvatarCanvas'));
 
 type Sticker = { id: number; text: string; x: number; y: number; size: number; angle: number; image?: HTMLCanvasElement; light?: boolean; lightStrength?: number; rim?: number; softness?: number; skinWarmth?: number; opacity?: number; glow?: boolean };
 
-export default function ChatCamera({ onClose, onGallery, onCapture, onAIGenerate, character }: {
+export default function ChatCamera({ onClose, onGallery, onCapture, onAIGenerate, userFaceReferenceAvailable = false, character }: {
     onClose: () => void; onGallery: () => void; onCapture: (file: File) => void;
     /** User-origin AI photo; present only in private chat. The existing local photo choices stay untouched. */
-    onAIGenerate?: (description: string, signal: AbortSignal) => Promise<void>;
+    onAIGenerate?: (description: string, useUserReference: boolean, signal: AbortSignal) => Promise<void>;
+    userFaceReferenceAvailable?: boolean;
     character?: CharacterProfile;
 }) {
     const [mode, setMode] = useState<'choose' | 'camera' | 'ai'>('choose');
     const [aiDescription, setAiDescription] = useState('');
     const [aiBusy, setAiBusy] = useState(false);
     const [aiError, setAiError] = useState('');
+    const [aiFaceOverride, setAiFaceOverride] = useState<boolean | null>(null);
+    const lockUserFace = userFaceReferenceAvailable && (aiFaceOverride ?? describesUserInPhoto(aiDescription));
     const aiController = useRef<AbortController | null>(null);
     const closeCamera = () => { aiController.current?.abort(); onClose(); };
     const sendAIPhoto = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -41,7 +45,7 @@ export default function ChatCamera({ onClose, onGallery, onCapture, onAIGenerate
         setAiBusy(true);
         setAiError('');
         try {
-            await onAIGenerate(prompt, controller.signal);
+            await onAIGenerate(prompt, lockUserFace, controller.signal);
             if (!controller.signal.aborted) onClose();
         } catch (error) {
             if (!controller.signal.aborted) setAiError(error instanceof Error ? error.message : String(error));
@@ -369,6 +373,11 @@ export default function ChatCamera({ onClose, onGallery, onCapture, onAIGenerate
                 <textarea id="chat-ai-photo-prompt" value={aiDescription} onChange={e => setAiDescription(e.target.value)}
                     maxLength={4000} rows={4} autoFocus disabled={aiBusy}
                     placeholder="例如：我站在雨夜街头，手拿透明雨伞，霓虹灯映在身后，像随手拍的照片" />
+                {userFaceReferenceAvailable && <label className="chat-camera-ai-face-toggle">
+                    <input type="checkbox" checked={lockUserFace} disabled={aiBusy}
+                        onChange={event => setAiFaceOverride(event.target.checked)} />
+                    <span>使用档案里的 user 锁脸参考图</span>
+                </label>}
                 <p>使用「设置 → 生图 API」中的 OpenAI / FoxAPI 配置。生成成功后，以你发送的图片消息进入当前私聊。</p>
                 {aiError && <p role="alert" className="chat-camera-ai-error">{aiError}</p>}
                 <div className="chat-camera-ai-actions">

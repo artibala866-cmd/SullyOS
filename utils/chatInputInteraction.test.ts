@@ -274,4 +274,26 @@ describe('private chat input controls', () => {
         expect(props.onImageSelect).not.toHaveBeenCalled();
     });
 
+
+    it('offers a user face reference without replacing the private-chat camera/gallery', () => {
+        renderInput({
+            showPanel: 'actions',
+            userFaceReferenceAvailable: true,
+            onAIGenerate: vi.fn().mockResolvedValue(undefined),
+        });
+        const album = Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === '相册')!;
+        act(() => (album as HTMLButtonElement).click());
+        const chooser = document.body.querySelector('[role="dialog"][aria-label="选择图片来源"]')!;
+        expect(chooser.textContent).toContain('拍照');
+        expect(chooser.textContent).toContain('从相册选择');
+        const ai = Array.from(chooser.querySelectorAll('button')).find(button => button.textContent?.trim() === 'AI 生图发送')!;
+        act(() => (ai as HTMLButtonElement).click());
+        const checkbox = document.body.querySelector<HTMLInputElement>('.chat-camera-ai-face-toggle input')!;
+        expect(checkbox).toBeTruthy();
+        expect(checkbox.checked).toBe(false);
+        act(() => checkbox.click());
+        expect(checkbox.checked).toBe(true);
+        expect(props.onImageSelect).not.toHaveBeenCalled();
+    });
+
 });

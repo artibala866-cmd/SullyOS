@@ -57,7 +57,8 @@ interface ChatInputAreaProps {
     onPanelAction: (type: string, payload?: any) => void;
     onImageSelect: (file: File) => void;
     /** Optional only for private chat; adds AI photo to the original photo chooser. */
-    onAIGenerate?: (description: string, signal: AbortSignal) => Promise<void>;
+    onAIGenerate?: (description: string, useUserReference: boolean, signal: AbortSignal) => Promise<void>;
+    userFaceReferenceAvailable?: boolean;
     isSummarizing: boolean;
     // Categories Support
     categories?: EmojiCategory[];
@@ -95,7 +96,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     customThemes = [], onUpdateTheme = () => {}, onRemoveTheme = () => {}, activeThemeId = '',
     actionsContent,
     previewActionsPage=0,
-    onPanelAction, onImageSelect, onAIGenerate, isSummarizing,
+    onPanelAction, onImageSelect, onAIGenerate, userFaceReferenceAvailable = false, isSummarizing,
     categories = [], activeCategory = 'default',
     onReroll, canReroll,
     isProactiveActive,
@@ -656,7 +657,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             <div className={`fixed inset-0 z-[-1] ${isPixelStyle ? 'bg-[#e0e0e0]/70 backdrop-blur-[2px]' : isDiscordStyle ? 'bg-slate-950/70 backdrop-blur-[2px]' : 'bg-white/60 backdrop-blur-[2px]'}`} />
         )}
         {exportEmojis && <EmojiExportDialog emojis={exportEmojis} onClose={() => setExportEmojis(null)} />}
-        {cameraOpen && <ChatCamera character={characters.find(c => c.id === activeCharacterId)} onClose={() => setCameraOpen(false)} onCapture={onImageSelect} onAIGenerate={onAIGenerate} onGallery={() => { chatImageInputRef.current?.click(); setCameraOpen(false); }} />}
+        {cameraOpen && <ChatCamera character={characters.find(c => c.id === activeCharacterId)} onClose={() => setCameraOpen(false)} onCapture={onImageSelect} onAIGenerate={onAIGenerate} userFaceReferenceAvailable={userFaceReferenceAvailable} onGallery={() => { chatImageInputRef.current?.click(); setCameraOpen(false); }} />}
         {/* 辅助提示保持在输入栏外，避免改变社区 CSS 的 > div:first-child / nth-child 目标。 */}
             {suggestedEmojis.length > 0 && (
                 <div ref={suggestionsRef} role="region" aria-label="表情包联想"
