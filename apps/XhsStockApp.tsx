@@ -37,6 +37,7 @@ const XhsStockApp: React.FC = () => {
         const url = newUrl.trim();
         if (!url) { addToast('请填写图片URL', 'error'); return; }
         if (!/^https?:\/\//i.test(url)) { addToast('URL必须以 http(s):// 开头', 'error'); return; }
+        if (previewOk !== true) { addToast('请先确认图片预览加载成功', 'error'); return; }
 
         const tags = newTags.split(/[,，\s#]+/).map(t => t.trim()).filter(Boolean);
         if (tags.length === 0) { addToast('至少填一个标签', 'error'); return; }
@@ -91,6 +92,7 @@ const XhsStockApp: React.FC = () => {
             {newUrl && /^https?:\/\//i.test(newUrl) && (
                 <div className="rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative" style={{ maxHeight: 200 }}>
                     <img
+                        key={newUrl}
                         src={newUrl}
                         className="w-full h-full object-contain"
                         style={{ maxHeight: 200 }}
@@ -128,7 +130,7 @@ const XhsStockApp: React.FC = () => {
             {/* Submit */}
             <button
                 onClick={handleAdd}
-                disabled={!newUrl || previewOk === false}
+                disabled={!newUrl || previewOk !== true}
                 className="w-full py-3.5 bg-gradient-to-r from-red-400 to-rose-500 text-white font-bold rounded-2xl shadow-lg active:scale-[0.98] transition-transform disabled:opacity-40 disabled:pointer-events-none text-sm"
             >
                 添加到图库
