@@ -175,8 +175,7 @@ describe('6.7-second two-person hand-hold pleading',()=>{
      add(side+'_hand',fore,sign*.39,0,0);
     }
     const rig={bones,skeleton:new T.Skeleton(all),setHandCurl:()=>{}};
-    const visitor=({root,rig,getHeadWorldPosition:()=>bones.head.getWorldPosition(new T.Vector3())}
-     as unknown) as ChibiVisitor;
+    const visitor:ChibiVisitor={root,rig,getHeadWorldPosition:()=>bones.head.getWorldPosition(new T.Vector3())} as any;
     root.updateWorldMatrix(true,true);
     return {visitor,solver:contactSolver(visitor)};
    };
