@@ -363,10 +363,13 @@ export default function CharacterPhone({
           {role:'system',content:`以下是私聊真实的角色系统上下文（包括世界书、性格、生活状态）：${context.systemPrompt.slice(0,36000)}。
 你只负责补充手机主人Char（ID:${characterId}）的微信收件箱；不要代替User说话，也不要生成User聊天框，它从真实私聊数据库同步。
 ${scheduleContext}
+微信生成偏好：${JSON.stringify(prefs)}。
 已有会话：${JSON.stringify(existing).slice(0,6500)}
 已确认联系人：${JSON.stringify(profiles.map(p=>({id:p.id,nickname:p.nickname||p.name,realName:p.realName,identity:p.identity,relationship:p.relationship,personality:p.personality}))).slice(0,6500)}
-这是增量更新，不是初始化或重建。优先挑选已有会话延续对话，每个已有会话只输出1至5条真正的新消息；只有生活情境需要时才新增少量联系人或通知。不得重述、改写或重新生成已有消息，不得复制历史聊天气泡。涵盖真实生活中合适的亲友、学校/工作、普通事务、群通知或服务通知，不强制每类出现。不是所有人都热情友善；允许简短、冷淡、忙碌、无回复，禁止无意义互夸和装乖。仅模拟手机内容，不将模拟内容冒充真人感已经发生的事件。
-严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","speechStyle":"惯用口气","boundary":"交往边界","relationship":"与Char的关系","background":"背景","origin":"known|introduced|stranger","kind":"npc|group|service","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}]}。已认识的人用known；新认识但已互相交流用introduced；陌生人用stranger。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
+这是增量更新，不是初始化或重建。优先挑选已有会话延续对话，根据偏好 chatDensity 设置消息数量：compact 每条会话1-3条、normal 2-5条、rich 4-9条。手动生成可适量包含更多类型的会话，背景刷新要节制。只有生活情境需要时才新增联系人或通知。不得重述、改写或重新生成已有消息，不得复制历史聊天气泡。涵盖真实生活中合适的亲友、学校/工作、普通事务、群通知、公众号和服务通知，不强制每类出现。不是所有人都热情友善；允许简短、冷淡、忙碌、无回复，禁止无意义互夸和装乖。仅模拟手机内容，不将模拟内容冒充真人感已经发生的事件。
+当 officialAccounts=true 时，允许1~3条贴合人物的公众号、服务号、物流、工作学校、微信支付等官方信息；使用kind=service，服务号不属于Char的NPC朋友圈，不许捏造真实新闻内容。officialAccounts=false时不生成服务号。
+当 paymentNotices=true 时，可新增0~3笔符合角色生活和经济状况的【虚构】微信支付消费。paymentNotices=false则payments为空数组。不能编造User实际转账或收款，不得从日程计划推断已付款，不得造重大金额。退款暂不生成。payments字段每笔 {"title":"商家/消费","kind":"expense","amount":12.5,"category":"日常","detail":"Char自己的消费"}，amount必须为0到5000的人民币正数。系统会自动将它记入微信支付通知及虚构账单，千万不要再在threads里重复写相同消费通知。
+严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","speechStyle":"惯用口气","boundary":"交往边界","relationship":"与Char的关系","background":"背景","origin":"known|introduced|stranger","kind":"npc|group|service","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}]} ,"payments":[{"title":"商家/消费","kind":"expense","amount":12.5,"category":"日常","detail":"具体消费"}]}。已认识的人用known；新认识但已互相交流用introduced；陌生人用stranger。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
           {role:'user',content:'根据手机主人自己的生活和已有上下文，增量更新现有微信收件箱：优先续写已有联系人对话，适量补充新通知或新联系人。不得重复已有聊天。'}
         ]})
       });
@@ -385,19 +388,22 @@ ${scheduleContext}
       const currentRecords = readCharacterPhoneChats(characterId);
       const currentProfiles = readNpcProfiles(characterId);
       const now=Date.now();
-      for(const item of data.threads.slice(0,8)){
+      for(const item of data.threads.slice(0,prefs.chatDensity==='rich'?12:9)){
         if(!item || typeof item.nickname!=='string' || !item.nickname.trim() || !Array.isArray(item.messages)) continue;
         if(!['npc','group','service'].includes(item.kind)) continue;
-        const linked=findKnownNpc(currentProfiles, {
+        const linked=item.kind==='npc'?findKnownNpc(currentProfiles, {
           contactId: item.contactId, name: item.nickname,
           realName: item.realName, identity: item.identity, relationship: item.relationship,
-        });
+        }):undefined;
         const previous=currentRecords.find(r=>r.contactId===item.contactId && item.contactId);
         const nicknameKey = (String(item.realName || item.nickname)).normalize('NFKC').trim().toLowerCase();
         const socialKey = item.kind === 'npc'
           ? nicknameKey + '|' + String(item.relationship || '').normalize('NFKC').trim().toLowerCase()
           : '';
-        const id=linked?.id || previous?.contactId || (socialKey && batchNpcIds.get(socialKey)) ||
+        const normalizedName=String(item.nickname).normalize('NFKC').trim().toLowerCase().slice(0,55);
+        const officialId=item.kind==='service'?'service:'+normalizedName:
+          item.kind==='group'?'group:'+normalizedName:'';
+        const id=officialId || linked?.id || previous?.contactId || (socialKey && batchNpcIds.get(socialKey)) ||
           (typeof item.contactId==='string' && item.contactId.startsWith('generated:') ? item.contactId : 'generated:'+crypto.randomUUID());
         if (socialKey && !batchNpcIds.has(socialKey)) batchNpcIds.set(socialKey,id);
         const messages=parseGeneratedPhoneMessages(item.messages,id);
@@ -407,7 +413,9 @@ ${scheduleContext}
         const seen=new Set((existingRecord?.messages||[]).slice(-24).map(m=>m.speaker?.role+'|'+m.text.trim()));
         const fresh=messages.filter(m=>{const k=m.speaker?.role+'|'+m.text.trim();if(seen.has(k))return false;seen.add(k);return true;});
         if(!fresh.length)continue;
-        const updatedThread: ChatRecord = {id:existingRecord?.id||crypto.randomUUID(),contactId:id,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),preview:fresh[fresh.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...fresh]};
+        const updatedThread: ChatRecord = {id:existingRecord?.id||crypto.randomUUID(),contactId:id,
+          kind:item.kind,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),
+          preview:fresh[fresh.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...fresh]};
         if (alreadyIncoming) incoming[incoming.indexOf(alreadyIncoming)] = updatedThread;
         else incoming.push(updatedThread);
         if(!linked && item.kind==='npc' && !newContacts.some(contact=>contact.id===id)) newContacts.push({
@@ -454,7 +462,8 @@ ${scheduleContext}
         const oldThread = currentRecords.find(r=>r.id===thread.id);
         const newMessages = thread.messages.slice(oldThread?.messages.length || 0);
         if (!newMessages.length) continue;
-        if (thread.contactId) noteNpcInteraction(characterId,thread.contactId,now,newMessages);
+        if (thread.contactId && thread.kind==='npc') noteNpcInteraction(characterId,thread.contactId,now,newMessages);
+        if(thread.kind==='service')continue; // notifications are not confirmed real-world transactions
         recordCharacterLifeEvent({
           id:'npc-chat:inbox:'+thread.id+':'+now,
           characterId, kind:'npc-chat', occurredAt:now, source:'phone',
