@@ -124,6 +124,21 @@ export default function CharacterPhone({
   }, [characterId, char.avatar, avatarRevision]);
   const [screen, setScreen] = useState<Screen>('home');
   const [phoneUnlocked,setPhoneUnlocked] = useState(false);
+  // Fit the HOME PAGE to the physical preview on compact Android screens.
+  // Chats themselves retain their own internal scroll rather than scrolling the whole phone.
+  const [homeZoom,setHomeZoom]=useState(()=>{
+    if(typeof window==='undefined')return 1;
+    const available=Math.min(window.innerHeight*.84,720)-54;
+    return Math.min(1,Math.max(.68,available/605));
+  });
+  useEffect(()=>{
+    const recalc=()=>{
+      const available=Math.min(window.innerHeight*.84,720)-54;
+      setHomeZoom(Math.min(1,Math.max(.68,available/605)));
+    };
+    window.addEventListener('resize',recalc);
+    return()=>window.removeEventListener('resize',recalc);
+  },[]);
   const settingsOrigin=useRef<'home'|'wechat'>('wechat');
   const profileOrigin=useRef<'home'|'wechat'>('wechat');
   useEffect(()=>{setPhoneUnlocked(false);setScreen('home');},[characterId]);
@@ -618,10 +633,14 @@ ${scheduleContext}
         </header>}
       <main className={'min-h-0 flex-1 '+(screen==='home'?'overflow-hidden':'overflow-y-auto')}>
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
-        {screen === 'home' && <CharacterPhoneHome characterId={characterId} name={name} avatar={phoneAvatar}
-          userAvatar={userProfile.perCharAvatars?.[characterId]||userProfile.avatar} userName={userProfile.name}
-          installPlan={installPlan} installBusy={installBusy} installNotice={installNotice}
-          onOpen={openHomeApp} onRetryInstall={()=>void runPhoneInstall()} onClose={onClose}/>}
+        {screen === 'home' && <div className="h-full w-full overflow-hidden">
+          <div className="overflow-hidden" style={{zoom:homeZoom,width:(100/homeZoom)+'%',height:(100/homeZoom)+'%'}}>
+            <CharacterPhoneHome characterId={characterId} name={name} avatar={phoneAvatar}
+              userAvatar={userProfile.perCharAvatars?.[characterId]||userProfile.avatar} userName={userProfile.name}
+              installPlan={installPlan} installBusy={installBusy} installNotice={installNotice}
+              onOpen={openHomeApp} onRetryInstall={()=>void runPhoneInstall()} onClose={onClose}/>
+          </div>
+        </div>}
         {screen === 'beautify' && <CharacterPhoneBeautify characterId={characterId} onBack={()=>setScreen('home')}/>}
         {isCharacterPhoneSocialAppId(screen) && <CharacterPhoneSocialApps key={screen}
           appId={screen} ownerName={name} ownerAvatar={phoneAvatar} onBack={()=>setScreen('home')}
