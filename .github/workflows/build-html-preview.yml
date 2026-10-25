@@ -41,7 +41,7 @@ jobs:
       - name: Test Char AI browser motives and avatar vision personalization
         run: pnpm exec vitest run utils/characterPhoneBrowserAutonomy.test.ts utils/characterPhoneSelfProfile.test.ts
       - name: Test shared Char API quota and avatar vision backfill
-        run: pnpm exec vitest run utils/characterPhoneApiBudget.test.ts utils/characterAvatarVisionBudget.test.ts utils/characterAvatarMood.test.ts utils/characterPhoneAppInstall.test.ts utils/characterPhoneApiConfig.test.ts
+        run: pnpm exec vitest run utils/characterPhoneApiBudget.test.ts utils/characterAvatarVisionBudget.test.ts utils/characterAvatarMood.test.ts utils/characterPhoneAppInstall.test.ts utils/characterPhoneApiConfig.test.ts utils/characterPhoneSocialContent.test.ts
       - name: Audit remaining retired VR dependencies
         run: node scripts/audit-retired-vr-dependencies.mjs
       - name: Test legacy figure migration and runtime isolation
