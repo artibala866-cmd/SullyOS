@@ -3271,6 +3271,12 @@ export interface UserProfile {
     name: string;
     avatar: string;
     bio: string;
+    /** 仅生图使用的 user 外貌描述，不作为 AI 聊天人设。 */
+    imageAppearance?: string;
+    /** user 生图锁脸参考图：BlobRef token；与聊天头像完全独立。 */
+    imageReference?: string;
+    /** user 发图时允许使用身份参考图，不影响普通本地图片发送。 */
+    imageLockEnabled?: boolean;
     /** 分角色聊天头像（档案 App 设置）：charId → 头像（http(s) URL 或 data:image）。
      *  私聊里「你」的头像取 perCharAvatars[charId] || avatar（上面的整体头像作宏观默认）；
      *  群聊/其他场合仍用整体头像。删角色留下的孤儿键无害，读取端永远按当前 charId 取。 */
