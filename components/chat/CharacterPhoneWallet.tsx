@@ -4,11 +4,12 @@ import type { CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from
 import {
   CHARACTER_PHONE_WALLET_CHANGED,
   calculatePhoneNetAssets, clearCharacterPhoneWallet, initializeCharacterPhoneWallet,
-  readCharacterPhoneWallet, syncCharacterPhoneWalletMemos,
+  readCharacterPhoneWallet, syncCharacterPhoneWalletMemos, syncCharacterPhoneWalletPayments,
   type CharacterPhoneWallet as WalletState,
   type PhoneWalletAccount, type PhoneWalletTransaction,
 } from '../../utils/characterPhoneWallet';
 import { CHARACTER_MEMOS_CHANGED } from '../../utils/characterPhoneMemos';
+import { PHONE_PAY_RECEIPTS_CHANGED, readPhonePayReceipts } from '../../utils/characterPhonePayments';
 
 type Api = { baseUrl: string; apiKey: string; model: string };
 const money = (cents: number) => '¥ ' + (cents / 100).toLocaleString('zh-CN', {
@@ -31,14 +32,18 @@ export default function CharacterPhoneWallet({
 }) {
   const [wallet, setWallet] = useState<WalletState | null>(() => readCharacterPhoneWallet(characterId));
   const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [receipts,setReceipts]=useState(()=>readPhonePayReceipts(characterId));
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
   useEffect(() => {
-    const refresh = () => setWallet(syncCharacterPhoneWalletMemos(characterId) ||
-      readCharacterPhoneWallet(characterId));
+    const refresh = () => {
+      syncCharacterPhoneWalletMemos(characterId);
+      setWallet(syncCharacterPhoneWalletPayments(characterId) || readCharacterPhoneWallet(characterId));
+      setReceipts(readPhonePayReceipts(characterId));
+    };
     refresh();
     const onWallet = (event: Event) => {
       if ((event as CustomEvent<{characterId:string}>).detail?.characterId === characterId)
@@ -50,9 +55,11 @@ export default function CharacterPhoneWallet({
     };
     window.addEventListener(CHARACTER_PHONE_WALLET_CHANGED,onWallet);
     window.addEventListener(CHARACTER_MEMOS_CHANGED,onMemo);
+    window.addEventListener(PHONE_PAY_RECEIPTS_CHANGED,refresh);
     return () => {
       window.removeEventListener(CHARACTER_PHONE_WALLET_CHANGED,onWallet);
       window.removeEventListener(CHARACTER_MEMOS_CHANGED,onMemo);
+      window.removeEventListener(PHONE_PAY_RECEIPTS_CHANGED,refresh);
     };
   }, [characterId]);
 
@@ -81,11 +88,12 @@ export default function CharacterPhoneWallet({
         setWallet(created);
         setNotice('已建立角色自己的虚构资产档案');
       } else {
-        const updated = syncCharacterPhoneWalletMemos(characterId) || wallet;
+        syncCharacterPhoneWalletMemos(characterId);
+        const updated = syncCharacterPhoneWalletPayments(characterId) || readCharacterPhoneWallet(characterId) || wallet;
         setWallet(updated);
         setNotice(updated.transactions.length> wallet.transactions.length
           ? '已同步新保存的角色记账记录'
-          : '已核对账目，没有新增的明确金额记录');
+          : '已核对账目，没有新增的角色记账或微信支付记录');
       }
     } catch (e) {setError(e instanceof Error?e.message:String(e));}
     finally {setRunning(false);}
@@ -107,6 +115,16 @@ export default function CharacterPhoneWallet({
     </div>
     {error && <div role="alert" className="mx-4 mb-3 rounded-xl bg-white p-3 text-sm text-[#444]">{error}</div>}
     {notice && <p role="status" className="mx-5 mb-3 text-xs text-[#777]">{notice}</p>}
+    <section className="mx-4 mb-4 rounded-[20px] border border-[#e7e7e7] bg-white px-4 py-4 shadow-sm">
+      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">微信支付 · 账单</h3><span className="text-[11px] text-[#999]">{receipts.length} 笔</span></div>
+      <p className="mt-1 text-[11px] leading-5 text-[#999]">Char 的手机模拟交易。确认的转账须有独立来源，不能凭空生成 User 向 Char 转账。</p>
+      {!receipts.length&&<p className="py-5 text-center text-xs text-[#aaa]">还没有支付流水；刷新微信消息时可能出现符合角色生活的虚构消费。</p>}
+      {receipts.slice(0,20).map(receipt=><div key={receipt.id} className="flex items-center gap-3 border-t border-[#f0f0f0] py-3 text-xs first:mt-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eee] text-[15px]">{receipt.amountCents<0?'−':'+'}</span>
+        <div className="min-w-0 flex-1"><strong className="block truncate text-[#444]">{receipt.title}</strong><span className="mt-1 block text-[10px] text-[#aaa]">{formattedTime(receipt.occurredAt)} · {receipt.category}</span></div>
+        <span className="shrink-0 font-medium tabular-nums">{signed(receipt.amountCents)}</span>
+      </div>)}
+    </section>
     {!wallet && <section className="mx-4 space-y-4 rounded-2xl bg-white px-6 py-12 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eee]"><CreditCard size={29}/></div>
       <h3 className="text-lg font-semibold">{char.name}的资产</h3>
@@ -172,7 +190,7 @@ export default function CharacterPhoneWallet({
           <span className="text-sm font-medium tabular-nums">{signed(t.amountCents)}</span>
         </button>)}
       </div>
-      <p className="mx-5 mt-5 text-xs leading-5 text-[#999]">这是 {char.name} 的虚构手机资产，不关联真实支付。初始流水属于角色快照；后续仅同步已保存、注明人民币金额的角色记账内容，不会仅凭日程推定付款。</p>
+      <p className="mx-5 mt-5 text-xs leading-5 text-[#999]">这是 {char.name} 的虚构手机资产，不关联真实支付。初始流水属于角色快照；后续同步已保存的角色记账和微信模拟交易，未来仅在有明确来源记录时接入真实私聊转账或集市订单；不会仅凭日程推定付款。</p>
     </>}
     {activeTransaction && <div className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/40 p-2" role="dialog" aria-modal="true" aria-label="交易详情" onClick={()=>setSelectedTransactionId(null)}>
       <div className="w-full max-w-[420px] space-y-5 rounded-3xl bg-white p-6 pb-10" onClick={e=>e.stopPropagation()}>
@@ -182,7 +200,7 @@ export default function CharacterPhoneWallet({
         <div className="space-y-3 border-t border-[#eee] pt-4 text-sm">
           <div className="flex justify-between gap-3"><span className="text-[#999]">交易时间</span><span>{formattedTime(activeTransaction.occurredAt)}</span></div>
           <div className="flex justify-between gap-3"><span className="text-[#999]">所属账户</span><span>{accounts.find(a=>a.id===activeTransaction.accountId)?.title}</span></div>
-          <div className="flex justify-between gap-3"><span className="text-[#999]">记录来源</span><span>{activeTransaction.origin==='memo'?'已保存的角色记账':'初始角色资产快照'}</span></div>
+          <div className="flex justify-between gap-3"><span className="text-[#999]">记录来源</span><span>{activeTransaction.origin==='memo'?'已保存的角色记账':activeTransaction.origin==='opening-snapshot'?'初始角色资产快照':activeTransaction.origin==='wechat-simulated'?'微信模拟交易':activeTransaction.origin==='private-confirmed'?'已确认私聊转账':'已确认集市交易'}</span></div>
           <p className="break-words border-t border-[#eee] pt-4 leading-6">{activeTransaction.detail}</p>
         </div>
         <button type="button" className="w-full rounded-xl bg-[#eee] py-3" onClick={()=>setSelectedTransactionId(null)}>返回</button>
