@@ -182,3 +182,11 @@ pnpm run build
 ```bash
 pnpm exec vitest run apps/room3d/chibi/standingHeightAdaptation.test.ts apps/room3d/chibi/headPatMotion.test.ts apps/room3d/chibi/motionTemplates.test.ts
 ```
+
+### 摸头手掌反转、交叉与穿模修复
+
+- **接近距离**：仅将 `home-head-pat.json` 的双人站位从素材 Z 方向 ±0.50 改为 ±0.36；移动仍需通过现有寻路和碰撞检查，不能瞬移，不改其他动作。
+- **手掌坐标**：`headPatHandGoal` 使用摸头者到被摸者的朝向计算「摸头者的左／右」两条手臂通道，而不是以面对他的被摸者头部局部 X 当成左右，避免面对面时左右交叉。
+- **掌心朝下**：现有 `furnitureHandRotation` 将传入 normal 作为骨骼局部 +Y，但本素体掌心面朝局部 -Y。为了掌心贴头皮，摸头时使用近似世界向上的 normal，让手掌实际 -Y 指向下方。保留原有 solver，不更改其他动作的手掌朝向。
+- **避免穿模与反关节**：目标在头顶实际顶面上方，并偏向摸头者的近侧；左右手始终留出间距。根据各自肩→肘→腕的实际世界长度限制不可达目标，超出时降低接触 IK 权重，避免硬拉穿过头/胸。过大身高差仍由公共身高差组件先安排高个弯腰屈膝。
+- 自动测试涵盖 User／Char 互换等价场景、矮摸高／高摸矮／等高、双手不交叉、掌心方向、头顶安全距离和不可达目标限幅；实机最终触摸效果仍需逐角度校准。

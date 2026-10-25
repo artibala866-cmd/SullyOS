@@ -63,7 +63,7 @@ export function headPatHandGoal(
  const sign=side==='L'?1:-1;
  // Never cross the central scalp line. Left and right touch targets retain
  // separation even at the furthest point of each ruffling stroke.
- const sideDistance=ruffle?span*.96+.026*sign*time.rubX:span*.55;
+ const sideDistance=ruffle?span*.96+.026*time.rubX:span*.55;
  const nearDistance=ruffle?.055+.028*time.rubZ:.066;
  const lift=ruffle?.038:.025+.075*(1-time.patPulse);
  const scalpUp=headUp.clone().normalize().lerp(up,.70).normalize();
@@ -76,9 +76,9 @@ export function headPatHandGoal(
  // palm, not its back, faces DOWN onto the hair.
  const normal=up.clone().lerp(scalpUp,.32).normalize();
  const direction=lateral.clone().multiplyScalar(sign).addScaledVector(forward,.24).normalize();
- const shoulder=actor.rig?.bones[side+'_upperArm']?.getWorldPosition(new T.Vector3());
- const elbow=actor.rig?.bones[side+'_forearm']?.getWorldPosition(new T.Vector3());
- const wrist=actor.rig?.bones[side+'_hand']?.getWorldPosition(new T.Vector3());
+ const shoulder=actor.rig?.bones?.[side+'_upperArm']?.getWorldPosition(new T.Vector3());
+ const elbow=actor.rig?.bones?.[side+'_forearm']?.getWorldPosition(new T.Vector3());
+ const wrist=actor.rig?.bones?.[side+'_hand']?.getWorldPosition(new T.Vector3());
  let deficit=0;
  if(shoulder&&elbow&&wrist){
   const length=shoulder.distanceTo(elbow)+elbow.distanceTo(wrist);
