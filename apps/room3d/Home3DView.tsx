@@ -7,6 +7,7 @@ import '../../components/os/homelyHome.css';
 import {homeDisposalReason} from '../../utils/homeAssetCancellation';
 import {useBlobRefUrl} from '../../utils/blobRef';
 import {HomeSocialPanel,type HomeResidentOption} from './HomeSocialPanel';
+import {warmHomeResidentForEntry} from './entryWarmup';
 import React, {useEffect,useRef,useState,useMemo} from 'react';
 import HomeSecretsReveal from './HomeSecretsReveal';
 import {mountHomeEditor} from './editor.js';
@@ -64,7 +65,7 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
  useEffect(()=>{let cancelled=false;if(!savedState)return;loadCreatorPartsForRender().then(items=>{if(!cancelled)setExtraItems(items.map(p=>({...p,categoryKey:p.categoryKey})));}).catch(()=>{if(!cancelled)setResidentError('自定义素材读取失败，请退出小屋重试。');});return()=>{cancelled=true};},[savedState]);
  useEffect(()=>{let cancelled=false;if(!editor||suspended||!(previewParts||parts))return;
   setMainReady(false);const currentParts=(previewParts||parts)!,{headSize,bodyHeight,...style}=residentHair,signature=JSON.stringify(style);
-  createVisitor(currentParts,residentHair).then(visitor=>{if(cancelled)visitor.dispose();else {const previous=previousAppearance.current;editor.setVisitor?.(visitor,{preservePose:previous?.parts===currentParts&&previous.style===signature});previousAppearance.current={parts:currentParts,style:signature};setResidentError('');void Promise.resolve(editor.warmResidentShaders?.()).then(()=>{if(!cancelled)setMainReady(true);});}}).catch(e=>{if(!cancelled)setResidentError(String(e));});
+  createVisitor(currentParts,residentHair).then(visitor=>{if(cancelled)visitor.dispose();else {const previous=previousAppearance.current;editor.setVisitor?.(visitor,{preservePose:previous?.parts===currentParts&&previous.style===signature});previousAppearance.current={parts:currentParts,style:signature};setResidentError('');void warmHomeResidentForEntry(editor).then(()=>{if(!cancelled)setMainReady(true);});}}).catch(e=>{if(!cancelled)setResidentError(String(e));});
   return()=>{cancelled=true};
  },[editor,previewParts,parts,residentHair,suspended]);
  useEffect(()=>{editor?.setSuspended?.(suspended);},[editor,suspended]);
