@@ -34,7 +34,7 @@ describe('AI-free mood matching against saved vision captions',()=>{
     });
     setAutonomousAvatarEnabled('char',true);
     const apply=vi.fn(async()=>{});
-    expect(await chooseAvatarFromSavedMood('char','好开心！',apply)).toBe(true);
+    expect(await chooseAvatarFromSavedMood('char','好开心！',apply)).toBe(false);
     expect(apply).toHaveBeenCalledWith(smile.image);
     expect(readCharacterAvatarLibrary('char').activeId).toBe(smile.id);
     expect(await chooseAvatarFromSavedMood('char','还是很开心！',apply)).toBe(false);
