@@ -1,3 +1,4 @@
+import {useOS} from '../../context/OSContext';
 import PhoneMemo from './PhoneMemo';
 import CharacterAvatarLibraryModal from './CharacterAvatarLibraryModal';
 import CharacterPhoneSocialApps, {CharacterPhoneSocialIcon} from './CharacterPhoneSocialApps';
@@ -82,6 +83,7 @@ export default function CharacterPhone({
   onApplyAvatar:(image:string)=>Promise<void>;
   onPoke:(suffix:string)=>void;
 }) {
+  const {apiPresets} = useOS();
   const [phoneApiSettings,setPhoneApiSettings] = useState(()=>readCharacterPhoneApiSettings(characterId));
   useEffect(()=>{setPhoneApiSettings(readCharacterPhoneApiSettings(characterId));},[characterId]);
   const phoneApi=resolveCharacterPhoneApi(characterId,api);
@@ -830,6 +832,16 @@ ${scheduleContext}
                 onChange={e=>changePhoneApiSettings({enabled:e.target.checked})}/>
             </label>
             {phoneApiSettings.enabled && <div className="space-y-3 text-sm">
+              <label className="block space-y-1"><span>从全局 API 预设套用</span>
+                <select value="" aria-label="从全局 API 预设套用" onChange={event=>{
+                  const selected=apiPresets.find(p=>p.id===event.target.value);
+                  if(selected?.config)changePhoneApiSettings({enabled:true,baseUrl:selected.config.baseUrl,apiKey:selected.config.apiKey,model:selected.config.model});
+                }} className="w-full rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-2.5 outline-none focus:border-[#666]">
+                  <option value="">选择现有预设…</option>
+                  {apiPresets.map(p=><option key={p.id} value={p.id}>{p.group?`${p.group} / `:''}{p.name}</option>)}
+                </select>
+                <span className="block text-[11px] leading-5 text-[#888]">复制预设的地址、Key、模型到当前 Char 的查手机；不改全局预设，可继续单独编辑。</span>
+              </label>
               <label className="block space-y-1"><span>API 地址</span>
                 <input type="url" autoComplete="off" placeholder="https://.../v1" value={phoneApiSettings.baseUrl}
                   onChange={e=>changePhoneApiSettings({baseUrl:e.target.value})}
