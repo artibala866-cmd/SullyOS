@@ -145,6 +145,64 @@ export function CharacterPhoneLockScreen({characterId,name,avatar,onUnlock,onClo
     </div>
   </Wallpaper>;
 }
+type HomeEditKind='photos'|'text'|'location'|'anniversary';
+function PhoneHomeWidgetEditor({kind,appearance,characterId,onClose}:{
+  kind:HomeEditKind;appearance:PhoneAppearance;characterId:string;onClose:()=>void;
+}){
+  const [notice,setNotice]=useState('');
+  const save=(patch:Partial<PhoneAppearance>)=>{
+    try{savePhoneAppearance(characterId,patch);setNotice('已保存到 Char 的桌面');}
+    catch{setNotice('无法保存，请检查本地存储空间');}
+  };
+  const choosePhoto=async(field:'polaroidLeft'|'polaroidRight',file?:File)=>{
+    if(!file)return;
+    setNotice('正在保存照片…');
+    try{save({[field]:await compressPhoneAppearanceImage(file)});}
+    catch(err){setNotice(err instanceof Error?err.message:'照片读取失败');}
+  };
+  const field=(key:'location'|'caption'|'quote',label:string)=> <label className="block text-xs text-[#777]">
+    <span className="mb-1.5 block">{label}</span>
+    <textarea rows={key==='quote'?3:1} value={appearance[key]}
+      maxLength={key==='quote'?120:key==='caption'?72:36}
+      onChange={e=>save({[key]:e.target.value})}
+      className="block w-full resize-none rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm text-[#444] outline-none focus:border-[#999]"/>
+  </label>;
+  return <div className="cp-home-editor-backdrop" onClick={onClose}>
+    <section role="dialog" aria-modal="true" aria-label="编辑查手机主页组件"
+      className="cp-home-editor-panel" onClick={e=>e.stopPropagation()}>
+      <div className="mb-3 flex items-center justify-between">
+        <strong className="text-sm text-[#444]">{kind==='photos'?'拍立得照片':kind==='text'?'文案条文字':kind==='location'?'头像卡片': '情侣纪念组件'}</strong>
+        <button type="button" onClick={onClose} className="rounded-full bg-[#ededed] px-3 py-1.5 text-xs text-[#666]">完成</button>
+      </div>
+      <div className="max-h-[min(48cqh,310px)] space-y-3 overflow-y-auto">
+        {kind==='photos'&&(['polaroidLeft','polaroidRight'] as const).map((key,i)=><div key={key}
+          className="flex items-center gap-3 rounded-xl border border-[#eaeaea] bg-[#fafafa] p-2">
+          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#ddd] bg-[#ededed]">
+            {appearance[key]?<img src={appearance[key]} alt={i===0?'左照片':'右照片'} className="h-full w-full object-cover"/>:
+              <ImageSquare size={27} className="m-auto mt-3 text-[#999]"/>}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1.5 text-xs text-[#777]">{i===0?'左边照片':'右边照片'}</div>
+            <label className="inline-block cursor-pointer rounded-full border border-[#ddd] bg-white px-3 py-2 text-xs">
+              从本地选择<input type="file" accept="image/*" className="hidden"
+                onChange={e=>{void choosePhoto(key,e.target.files?.[0]);e.target.value='';}}/>
+            </label>
+            {appearance[key]&&<button type="button" className="ml-2 text-xs text-[#888]" onClick={()=>save({[key]:''})}>恢复</button>}
+          </div>
+        </div>)}
+        {kind==='location'&&field('location','头像卡片地点')}
+        {kind==='text'&&<>{field('caption','副标题')}{field('quote','文案条正文')}</>}
+        {kind==='anniversary'&&<label className="block text-xs text-[#777]">
+          <span className="mb-2 block">纪念日（不设置则不显示天数）</span>
+          <input type="date" value={appearance.anniversary} onChange={e=>save({anniversary:e.target.value})}
+            className="w-full rounded-xl border border-[#ddd] bg-[#fafafa] p-3 text-sm"/>
+        </label>}
+        <p className="text-[11px] leading-5 text-[#999]">Char 头像继续使用角色头像库；这里不会替换 Char 的全局头像，也不会调用 AI 生图。</p>
+        {notice&&<p role="status" className="text-xs text-[#666]">{notice}</p>}
+      </div>
+    </section>
+  </div>;
+}
 export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,installPlan,installBusy,installNotice,onOpen,onRetryInstall,onClose}:{
   characterId:string;name:string;avatar?:string;userAvatar?:string;userName:string;
   installPlan:CharacterPhoneInstallPlan|null;installBusy:boolean;installNotice:string;
@@ -152,15 +210,16 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
 }){
   const appearance=useAppearance(characterId);
   const [page,setPage]=useState(0);
+  const [editingWidget,setEditingWidget]=useState<HomeEditKind|null>(null);
   const startX=useRef<number|null>(null);
   const startY=useRef<number|null>(null);
-  useEffect(()=>setPage(0),[characterId]);
+  useEffect(()=>{setPage(0);setEditingWidget(null);},[characterId]);
   const dateText=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   return <Wallpaper appearance={appearance} className="cp-home-wallpaper">
     <div className="cp-home-topbar">
       <button type="button" aria-label="退出查手机" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/75 bg-white/65 text-[#555]"><ArrowLeft size={18}/></button>
       <span className="min-w-0 truncate px-2 text-[11px] tracking-[.12em] text-[#777]">{name} · PHONE</span>
-      <button type="button" aria-label="查手机美化" onClick={()=>onOpen('beautify')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/75 bg-white/65 text-[#555]"><PaintBrush size={17}/></button>
+      <span aria-hidden="true" className="h-8 w-8 shrink-0"/>
     </div>
     <div className="cp-home-body"
       onTouchStart={e=>{startX.current=e.touches[0].clientX;startY.current=e.touches[0].clientY;}}
@@ -174,16 +233,19 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
       <div className="cp-home-slide-track" data-page={page}>
         <div className="cp-home-first-page">
         <div className="cp-home-topwidgets">
-          <section className={PAPER+' cp-home-owner'}>
+          <button type="button" aria-label="编辑头像卡片地点" onClick={()=>setEditingWidget('location')} className={PAPER+' cp-home-owner'}>
             <PhoneAvatar src={avatar} name={name} className="cp-home-owner-avatar rounded-full border-[3px] border-white/85 text-xl shadow-md"/>
             <strong className="max-w-full truncate px-1 text-[13px] font-medium tracking-wider text-[#555]">{name}</strong>
             <div className="cp-home-location rounded-full border border-white/90 bg-white/65 text-[10px] text-[#777]">
               <MapPin size={13} className="shrink-0"/><span className="truncate">{appearance.location||'未设置地点'}</span>
             </div>
-          </section>
+          </button>
+          <button type="button" className="cp-home-photo-edit" aria-label="编辑双拍立得照片"
+            onClick={()=>setEditingWidget('photos')}>
           <Polaroids left={appearance.polaroidLeft||avatar} right={appearance.polaroidRight||userAvatar||avatar} name={name} userName={userName}/>
+          </button>
         </div>
-        <section className={PAPER+' cp-home-quote'}>
+        <button type="button" aria-label="编辑文案条" onClick={()=>setEditingWidget('text')} className={PAPER+' cp-home-quote'}>
           <div className="cp-home-quote-header">
             <PhoneAvatar src={avatar} name={name} className="cp-home-quote-avatar rounded-full text-sm"/>
             <div className="min-w-0 flex-1">
@@ -194,7 +256,7 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
           </div>
           <p className="cp-home-quote-text">{appearance.quote||'总有一些细碎的日常，值得被好好收藏。'}</p>
           <div className="cp-home-date rounded-full border border-white/90 bg-white/50 text-[10px] text-[#777]">{dateText}</div>
-        </section>
+        </button>
         <div className="cp-home-middle">
           <div className="cp-home-apps">
             <Shortcut label="微信" Icon={ChatCircleDots} onClick={()=>onOpen('wechat')}/>
@@ -202,7 +264,10 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
             <Shortcut label="浏览器" Icon={Globe} onClick={()=>onOpen('browser')}/>
             <Shortcut label="美化" Icon={PaintBrush} onClick={()=>onOpen('beautify')}/>
           </div>
-          <Couple name={name} userName={userName} owner={avatar} user={userAvatar||avatar} anniversary={appearance.anniversary}/>
+          <button type="button" className="cp-home-couple-edit" aria-label="编辑情侣纪念日"
+            onClick={()=>setEditingWidget('anniversary')}>
+            <Couple name={name} userName={userName} owner={avatar} user={userAvatar||avatar} anniversary={appearance.anniversary}/>
+          </button>
         </div>
         <div aria-hidden="true" className="cp-home-decoration">
           <span>有些心事，留在这里。</span><span>A little closer to you.</span>
@@ -238,6 +303,8 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
       <Shortcut label="短信" Icon={ChatText} onClick={()=>onOpen('sms')}/>
       <Shortcut label="相册" Icon={Images} onClick={()=>onOpen('gallery')}/>
     </nav>
+    {editingWidget&&<PhoneHomeWidgetEditor kind={editingWidget} appearance={appearance}
+      characterId={characterId} onClose={()=>setEditingWidget(null)}/>}
   </Wallpaper>;
 }
 export function CharacterPhoneBeautify({characterId,onBack}:{characterId:string;onBack:()=>void}){
@@ -287,8 +354,17 @@ export function CharacterPhoneBeautify({characterId,onBack}:{characterId:string;
         </label>
       </section>
       <section className="rounded-[22px] bg-white p-4 shadow-sm">
+        <h3 className="text-sm font-medium">电量显示</h3>
+        <label className="mt-3 flex items-center justify-between gap-3 text-xs text-[#666]">
+          <span>在查手机顶部状态栏显示电量和充电状态</span>
+          <input type="checkbox" checked={appearance.showBattery}
+            onChange={e=>patch({showBattery:e.target.checked})} aria-label="开启电量显示"
+            className="h-5 w-5 shrink-0 accent-[#444]"/>
+        </label>
+      </section>
+      <section className="rounded-[22px] bg-white p-4 shadow-sm">
         <h3 className="text-sm font-medium">桌面壁纸</h3>
-        <p className="mb-4 mt-2 text-xs leading-5 text-[#888]">仅修改这个 Char 的查手机外观，不触发生图或 AI。</p>
+        <p className="mb-4 mt-2 text-xs leading-5 text-[#888]">更换壁纸只影响当前 Char，不触发生图或 AI。照片、文案和纪念日可直接点按主页对应组件编辑。</p>
         {photoField('整页背景壁纸','wallpaper')}
         <div className="mt-4 grid grid-cols-3 gap-2">
           {(['mist','paper','graphite'] as const).map((preset,i)=><button type="button" key={preset} onClick={()=>patch({preset})}
@@ -297,29 +373,6 @@ export function CharacterPhoneBeautify({characterId,onBack}:{characterId:string;
             {['雾灰','浅纸','石墨'][i]} {appearance.preset===preset?'✓':''}
           </button>)}
         </div>
-      </section>
-      <section className="space-y-3 rounded-[22px] bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-medium">上方双拍立得</h3>
-        <p className="text-xs text-[#888]">默认显示 Char 与 User 的已有头像，也可以各自换成本地照片。</p>
-        {photoField('左边照片','polaroidLeft')}
-        {photoField('右边照片','polaroidRight')}
-      </section>
-      <section className="space-y-3 rounded-[22px] bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-medium">文案与纪念组件</h3>
-        {([
-          {key:'location',label:'头像卡片地点',placeholder:'例如：首尔'},
-          {key:'caption',label:'副标题',placeholder:'记录生活里不经意的小事'},
-          {key:'quote',label:'文案条正文',placeholder:'总有一些细碎的日常，值得被好好收藏。'},
-        ] as const).map(({key,label,placeholder})=><label key={key} className="block text-xs text-[#777]">
-          <span className="mb-2 block">{label}</span>
-          <input value={appearance[key]} placeholder={placeholder} onChange={e=>patch({[key]:e.target.value})}
-            className="w-full rounded-xl border border-[#e6e6e6] bg-[#f8f8f8] px-3 py-3 text-[13px] text-[#444] outline-none focus:border-[#aaa]"/>
-        </label>)}
-        <label className="block text-xs text-[#777]"><span className="mb-2 block">纪念日（不设置则不显示天数）</span>
-          <input type="date" value={appearance.anniversary} onChange={e=>patch({anniversary:e.target.value})}
-            className="w-full rounded-xl border border-[#e6e6e6] bg-[#f8f8f8] px-3 py-3 text-[13px] text-[#444]"/>
-        </label>
-        <p className="text-xs leading-5 text-[#999]">两侧情侣头像始终读取 Char 和 User 的现有头像；纪念日仅由你手动填写，不会推测关系。</p>
       </section>
       {notice&&<div role="status" className="rounded-xl bg-white px-4 py-3 text-xs text-[#666]">{notice}</div>}
     </div>
