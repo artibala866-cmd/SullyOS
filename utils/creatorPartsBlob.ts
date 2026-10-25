@@ -24,7 +24,7 @@ export async function creatorPartToBlobRefs(part: CustomCreatorPart): Promise<Cu
  * 读取供渲染 / 注入 iframe：返回 src / shadowSrc 已解析成 base64 的部件列表。
  * 顺手把仍是 base64 的存量部件惰性迁移成 Blob 令牌落库（存量省配额，只跑一次）。
  */
-export async function loadCreatorPartsForRender(): Promise<CustomCreatorPart[]> {
+async function loadCreatorPartsForRenderUncached(): Promise<CustomCreatorPart[]> {
     const parts = await DB.getCustomCreatorParts();
     const out: CustomCreatorPart[] = [];
     for (const p of parts) {
@@ -51,4 +51,17 @@ export async function loadCreatorPartsForRender(): Promise<CustomCreatorPart[]> 
         });
     }
     return out;
+}
+
+// Char and User may mount two creator bridges in the same home-entry frame.
+// Share only the in-flight DB read/migration; do not retain stale custom parts
+// after the read settles (the user can edit them in the figure studio).
+let pendingRenderParts: Promise<CustomCreatorPart[]> | undefined;
+export function loadCreatorPartsForRender(): Promise<CustomCreatorPart[]> {
+    if (!pendingRenderParts) {
+        pendingRenderParts = loadCreatorPartsForRenderUncached().finally(() => {
+            pendingRenderParts = undefined;
+        });
+    }
+    return pendingRenderParts;
 }
