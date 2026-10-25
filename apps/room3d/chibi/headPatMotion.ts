@@ -2,6 +2,7 @@ import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
 import type {contactSolver} from './socialContact';
 import type {HeadTouchRecipe} from './motionTemplates';
+import {BLANK_SCALE,BLANK_HEAD_SCALE} from './blankBody';
 
 /**
  * One reusable, deterministic pattern. Source JSON contains only two static
@@ -44,10 +45,32 @@ type Resident={
  solver:ReturnType<typeof contactSolver>;
 };
 
-/** Plan both hands in the GIVER's left/right lanes, not in the opposing
- * receiver head bone's X axis. This prevents hand crossing when characters
- * face one another and when the head turns during the playful reaction.
- * Both arms use the same measured scalp surface and one owner->target axis.
+/**
+ * Hair/scalp breadth is large on the chibi (the head is NOT human sized).
+ * Before this fix the target span was just .085-.20 world units, leaving
+ * both palms nearly at crown center (actual half-width often > .4).
+ *
+ * Derive a lightweight ellipsoid from the already-loaded head geometry and
+ * world scale. Do not traverse the whole hair mesh each animation frame.
+ */
+export function headPatScalpSize(recipient:ChibiVisitor){
+ const rig=recipient.rig;
+ if(!rig?.mesh||!rig.bones?.head)return {radius:.36,depth:.32,height:.38};
+ const worldScale=rig.bones.head.getWorldScale(new T.Vector3());
+ const headSize=(rig.mesh.geometry.userData.headSize as number|undefined)??1;
+ const scale=Math.max(Math.abs(worldScale.x),Math.abs(worldScale.z));
+ const radius=T.MathUtils.clamp(.198*BLANK_SCALE*BLANK_HEAD_SCALE.x*headSize*scale+.025,.24,.90);
+ return {radius,depth:radius*.87,height:radius*.86};
+}
+
+/**
+ * Dual-head-side contact. Align left and right scalp targets with the
+ * GIVER'S actual shoulders (not the recipient's mirrored local X).
+ *
+ * The hand belongs on the UPPER OUTER SIDE of the head, not on its crown:
+ * project a point onto an ellipsoidal cap, allowing short rub strokes that
+ * never come near the middle parting. Each goal carries its outward scalp
+ * surface normal, used to face the palm INTO the hair.
  */
 export function headPatHandGoal(
  actor:ChibiVisitor,recipient:ChibiVisitor,side:'L'|'R',
@@ -55,43 +78,77 @@ export function headPatHandGoal(
  time:ReturnType<typeof headPatTimeline>,ruffle:boolean
 ){
  actor.root.updateWorldMatrix(true,true);
- const up=new T.Vector3(0,1,0);
- const forward=crown.clone().sub(actor.root.getWorldPosition(new T.Vector3())).setY(0);
- if(forward.lengthSq()<1e-6)forward.set(0,0,1).applyQuaternion(actor.root.getWorldQuaternion(new T.Quaternion())).setY(0);
- forward.normalize();
- const lateral=new T.Vector3().crossVectors(up,forward).normalize();
+ const worldUp=new T.Vector3(0,1,0);
+ const scalpUp=headUp.clone().normalize();
+ if(scalpUp.lengthSq()<.5)scalpUp.copy(worldUp);
+ const shoulders=actor.rig?.bones;
+ const lShoulder=shoulders?.L_upperArm?.getWorldPosition(new T.Vector3());
+ const rShoulder=shoulders?.R_upperArm?.getWorldPosition(new T.Vector3());
+ const shoulderMid=lShoulder&&rShoulder?lShoulder.clone().add(rShoulder).multiplyScalar(.5):
+  actor.root.getWorldPosition(new T.Vector3());
+ // Project all head-side offsets into the receiving scalp's tangent plane.
+ const facing=crown.clone().sub(shoulderMid).addScaledVector(scalpUp,
+  -crown.clone().sub(shoulderMid).dot(scalpUp));
+ if(facing.lengthSq()<1e-7)facing.set(0,0,1).applyQuaternion(actor.root.getWorldQuaternion(new T.Quaternion()));
+ facing.normalize();
+ const lateral=lShoulder&&rShoulder?lShoulder.clone().sub(rShoulder):
+  new T.Vector3().crossVectors(worldUp,facing);
+ lateral.addScaledVector(scalpUp,-lateral.dot(scalpUp));
+ if(lateral.lengthSq()<1e-7)lateral.crossVectors(scalpUp,facing);
+ lateral.normalize();
+ // Keep the axes orthogonal, avoiding accidental inward offsets during yaw.
+ const toward=facing.clone().addScaledVector(lateral,-facing.dot(lateral)).normalize();
+ if(toward.lengthSq()<1e-7)toward.crossVectors(lateral,scalpUp).normalize();
  const sign=side==='L'?1:-1;
- // Never cross the central scalp line. Left and right touch targets retain
- // separation even at the furthest point of each ruffling stroke.
- const sideDistance=ruffle?span*.96+.026*time.rubX:span*.55;
- const nearDistance=ruffle?.055+.028*time.rubZ:.066;
- const lift=ruffle?.038:.025+.075*(1-time.patPulse);
- const scalpUp=headUp.clone().normalize().lerp(up,.70).normalize();
- const goal=crown.clone()
-  .addScaledVector(lateral,sideDistance*sign)
-  .addScaledVector(forward,-nearDistance)
-  .addScaledVector(scalpUp,lift);
- // Existing furnitureHandRotation interprets 'normal' as bone +Y.
- // On this rig the *palm face* is local -Y: +Y must point upward so the
- // palm, not its back, faces DOWN onto the hair.
- const normal=up.clone().lerp(scalpUp,.32).normalize();
- const direction=lateral.clone().multiplyScalar(sign).addScaledVector(forward,.24).normalize();
- const shoulder=actor.rig?.bones?.[side+'_upperArm']?.getWorldPosition(new T.Vector3());
- const elbow=actor.rig?.bones?.[side+'_forearm']?.getWorldPosition(new T.Vector3());
- const wrist=actor.rig?.bones?.[side+'_hand']?.getWorldPosition(new T.Vector3());
+ const radius=Math.max(.18,span);
+ const depth=radius*.87;
+ const height=radius*.86;
+ // 72%-83% of head half width, so hands always occupy separate side panels.
+ // Rubbing has two short opposite-direction strokes, never a lane swap.
+ const sideways=radius*(ruffle?.77:.75)+(ruffle?.022*time.rubX:0);
+ const near=radius*(ruffle?.17:.14)+(ruffle?.018*time.rubZ:0);
+ const x=Math.min(sideways,radius*.85),z=T.MathUtils.clamp(near,0,depth*.27);
+ const normalized=Math.min(.96,(x/radius)**2+(z/depth)**2);
+ const cap=Math.sqrt(1-normalized);
+ const floating=ruffle?.036:.035+.055*(1-time.patPulse);
+ const y=-height*(1-cap)+floating;
+ const scalpPoint=crown.clone()
+  .addScaledVector(lateral,sign*x)
+  .addScaledVector(toward,-z)
+  .addScaledVector(scalpUp,y);
+ // The outward normal is NOT world-up on the side of a giant chibi head.
+ // The -Y hand face must point inward/downward along this surface normal.
+ const normal=lateral.clone().multiplyScalar(sign*x/(radius*radius))
+  .addScaledVector(toward,-z/(depth*depth))
+  .addScaledVector(scalpUp,cap/height).normalize();
+ const direction=lateral.clone().multiplyScalar(sign)
+  .addScaledVector(toward,.13).normalize();
+ const shoulder=shoulders?.[side+'_upperArm']?.getWorldPosition(new T.Vector3());
+ const elbow=shoulders?.[side+'_forearm']?.getWorldPosition(new T.Vector3());
+ const wrist=shoulders?.[side+'_hand']?.getWorldPosition(new T.Vector3());
+ const point=scalpPoint.clone();
  let deficit=0;
  if(shoulder&&elbow&&wrist){
   const length=shoulder.distanceTo(elbow)+elbow.distanceTo(wrist);
-  const distance=shoulder.distanceTo(goal);
+  const distance=shoulder.distanceTo(scalpPoint);
   const allowed=Math.max(.02,length*.95);
   deficit=Math.max(0,distance-allowed);
   if(distance>allowed){
-   // A CCD chain cannot grow; cap the goal on its near-side reachable arc
-   // instead of forcing an elbow flip or pulling the hand through the skull.
-   goal.copy(shoulder).lerp(goal,allowed/distance);
+   // Restrict the unreachable goal to the approaching arm's reach, without
+   // putting it into the other side's lane or through the hair.
+   point.copy(shoulder).lerp(scalpPoint,allowed/distance);
+   // An extremely short actor may still be too far away. Don't command
+   // opposite-lane IK in that case: let the tall partner crouch first.
+   const sideValue=point.clone().sub(crown).dot(lateral)*sign;
+   if(sideValue<radius*.40){
+    point.copy(shoulder);
+    const original=shoulder.distanceTo(scalpPoint);
+    const partial=Math.min(.65,allowed/Math.max(original,.001));
+    point.lerp(scalpPoint,partial);
+   }
   }
  }
- return {side,point:goal,direction,normal,deficit};
+ return {side,point,direction,normal,deficit,scalpPoint,scalpRadius:radius};
 }
 
 /**
@@ -124,8 +181,7 @@ export function applyHeadPatMotion(
  const crown=targetV.getHeadTopWorldPosition();
  const headQ=targetV.rig?.bones.head?.getWorldQuaternion(new T.Quaternion())??targetV.root.getWorldQuaternion(new T.Quaternion());
  const scalpUp=new T.Vector3(0,1,0).applyQuaternion(headQ);
- const scale=targetV.rig?.mesh.getWorldScale(new T.Vector3()).x??1;
- const span=T.MathUtils.clamp(.14*scale,.085,.20);
+ const span=headPatScalpSize(targetV).radius;
  const altSide=recipe.patSide==='R'?'L':'R';
  const paint=(side:'L'|'R',blend:number,other:boolean)=>{
   const w=strength*blend;
@@ -135,7 +191,7 @@ export function applyHeadPatMotion(
    // Do not make a deeply unreachable arm fold across the body. Most of the
    // reach is recovered by standingHeightAdaptation (taller bends first);
    // the remaining shortfall is a gentle approach, not a fake contact.
-   const reachFactor=T.MathUtils.clamp(1-contact.deficit/.42,.28,1);
+   const reachFactor=T.MathUtils.clamp(1-contact.deficit/.36,.18,1);
    giver.solver({side,point:contact.point,direction:contact.direction,
     normal:contact.normal,curl:other?.20:.06},w*reachFactor);
   }else actor.classicContact(side,contact.point,w);
