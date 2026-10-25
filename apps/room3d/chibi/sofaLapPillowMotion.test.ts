@@ -74,7 +74,8 @@ describe('sofa-only 9.3-second intimate lap pillow',()=>{
   for(const side of ['L','R'] as const){
    const sign=side==='L'?1:-1;
    add(side+'_thigh',hips,[sign*.20,-.20,.24]);
-   add(side+'_shin',bones[side+'_thigh'],[0,-.12,.33]);
+   const shin=add(side+'_shin',bones[side+'_thigh'],[0,-.12,.33]);
+   add(side+'_foot',shin,[0,-.19,.05]);
    add(side+'_hand',chest,[sign*.36,0,.10]);
   }
   root.updateWorldMatrix(true,true);
