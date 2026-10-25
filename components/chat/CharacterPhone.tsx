@@ -919,14 +919,21 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/>
           </label>
           </PhoneSettingsGroup>}
-          {settingsMatch("朋友圈 评论 互动 回复 点赞 频率 档位 时间 限流 去重") && <PhoneSettingsGroup title="朋友圈 NPC 互动" searching={!!settingsQuery}>
+          {settingsMatch("朋友圈 评论 互动 回复 点赞 频率 档位 时间 限流 去重") && <PhoneSettingsGroup title="朋友圈 NPC 生成与互动" searching={!!settingsQuery}>
           <section className="space-y-4 rounded-2xl bg-white p-4 text-xs">
             <label className="flex items-center justify-between gap-3">
               <span><strong className="block text-[13px]">允许 NPC 自主评论／回复／点赞</strong>
                 <span className="block mt-1 text-[#888]">只允许真实保存的熟人关系参与；不会冒充 User 留言。</span></span>
               <input type="checkbox" checked={momentPrefs.enabled} onChange={e=>changeMomentPrefs({enabled:e.target.checked})} className="h-5 w-5 accent-[#444]"/>
             </label>
-            {momentPrefs.enabled&&<>
+            <label className="flex items-center justify-between gap-3">
+              <span><strong className="block text-[13px]">允许 NPC 自主发布朋友圈</strong>
+                <span className="block mt-1 text-[#888]">生成新动态的同一次 API 可以附带熟人评论与作者回复；不强制发帖。</span></span>
+              <input type="checkbox" checked={momentPrefs.npcPostingEnabled}
+                onChange={e=>changeMomentPrefs({npcPostingEnabled:e.target.checked})}
+                className="h-5 w-5 accent-[#444]"/>
+            </label>
+            {(momentPrefs.enabled||momentPrefs.npcPostingEnabled)&&<>
               <div className="grid grid-cols-3 gap-2">
                 {([{id:'quiet',label:'安静'},{id:'balanced',label:'正常'},{id:'lively',label:'热闹'}] as const).map(x=><button key={x.id} type="button"
                   onClick={()=>changeMomentPrefs({pace:x.id})} aria-pressed={momentPrefs.pace===x.id}
@@ -937,7 +944,12 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
                   onChange={e=>{if(e.target.value!=='')changeMomentPrefs({intervalMinutes:Number(e.target.value)});}}
                   className="w-24 rounded-lg border border-[#ddd] px-2 py-2 text-right"/>
               </label>
-              <p className="text-[11px] leading-5 text-[#888]">安静／正常／热闹分别限制每天最多 4／8／12 次互动、每条动态最多 4／8／12 条评论。每个 NPC 每条动态最多一条主评论与一次回复；作者可回应熟人，但禁止回复接龙、相同内容重复。仍受查手机共享 API 总预算保护。</p>
+              <label className="flex items-center justify-between gap-2"><span>NPC 新动态最短生成间隔（分钟）</span>
+                <input type="number" min={60} max={1440} step={30} value={momentPrefs.npcPostIntervalMinutes}
+                  onChange={e=>{if(e.target.value!=='')changeMomentPrefs({npcPostIntervalMinutes:Number(e.target.value)});}}
+                  className="w-24 rounded-lg border border-[#ddd] px-2 py-2 text-right"/>
+              </label>
+              <p className="text-[11px] leading-5 text-[#888]">安静／正常／热闹：NPC 每天最多尝试新动态 1／2／3 次；每日互动最多 4／8／12 次、每条动态最多 4／8／12 条评论。熟人互认才可以互评，同一个人一条主评论及至多一次回复；禁止接龙和重复台词。自主生成仍受全局调用预算与总开关保护。</p>
             </>}
           </section>
           </PhoneSettingsGroup>}
