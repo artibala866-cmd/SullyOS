@@ -92,6 +92,12 @@ describe('sofa-only 9.3-second intimate lap pillow',()=>{
    expect(goal.x).toBeGreaterThan(Math.min(left,right)-.5);
    expect(goal.x).toBeLessThan(Math.max(left,right)+.5);
    expect(Number.isFinite(goal.y)).toBe(true);
+   const occiput=lapPillowHeadContact(b,a,'L',0,1);
+   const headQ=a.rig!.bones.head.getWorldQuaternion(new T.Quaternion());
+   const back=new T.Vector3(0,0,-1).applyQuaternion(headQ);
+   expect(occiput.normal.dot(back)).toBeGreaterThan(.85);
+   const handRotation=furnitureHandRotation('L',occiput.direction.toArray(),occiput.normal.toArray());
+   expect(new T.Vector3(0,-1,0).applyQuaternion(handRotation).dot(occiput.normal)).toBeLessThan(-.999);
    const contact=lapPillowHeadContact(b,a,'L',.5);
    const rotation=furnitureHandRotation('L',contact.direction.toArray(),contact.normal.toArray());
    // Hand bone local +Y is the BACK, so local -Y faces INTO the scalp.
