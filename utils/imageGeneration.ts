@@ -42,13 +42,14 @@ const readImageResult = async (response: Response, signal?: AbortSignal): Promis
     throw new Error(String(data?.error?.message || data?.message || '接口没有返回图片，请检查模型和中转站生图协议'));
   }
   if (/^data:image\//i.test(value)) return asImageBlob(dataUrlToBlob(value));
-  if (/^https:\/\//i.test(value)) {
-    // Some relays return short-lived URLs. Fetch the actual bytes before they expire.
+  if (/^https?:\/\//i.test(value)) {
+    // A relay may return a short-lived image URL rather than base64. Do not
+    // forward the relay API key, cookies, or referrer to a third-party CDN.
     let downloaded: Response;
     try {
-      downloaded = await fetch(value, { signal });
+      downloaded = await fetch(value, { signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
     } catch {
-      throw new Error('图片已生成，但返回链接不允许浏览器下载（CORS/网络错误）；请检查中转站图片链接');
+      throw new Error('图片已生成，但图片下载被浏览器拦截（CORS、混合内容或网络错误）。请让中转站返回 Base64 或开放图片跨域访问');
     }
     if (!downloaded.ok) throw new Error('图片链接下载失败：HTTP ' + downloaded.status);
     return asImageBlob(await downloaded.blob());
@@ -108,16 +109,57 @@ const normalizedSize = (config: ImageApiSettings): string => {
   }
   // Older GPT image models accept only these three preset sizes, while newer
   // GPT image 2.x models and third-party relays can accept flexible dimensions.
-  if (/^(gpt-image-1(?:\.|-|$)|chatgpt-image-latest$)/i.test(config.model.trim())) {
+  const model = config.model.trim();
+  if (/^(?:gpt-image-1(?:\.|-|$)|chatgpt-image-latest$)/i.test(model)) {
     return width === height ? '1024x1024' : width > height ? '1536x1024' : '1024x1536';
   }
+  if (/^dall-e-3$/i.test(model)) {
+    return width === height ? '1024x1024' : width > height ? '1792x1024' : '1024x1792';
+  }
+  if (/^dall-e-2$/i.test(model)) return '1024x1024';
   return width + 'x' + height;
 };
 
-const endpointFor = (base: string, hasReference: boolean): string => {
-  const normalized = base.replace(/\/images\/(generations|edits)$/i, '');
-  return normalized + '/images/' + (hasReference ? 'edits' : 'generations');
+/**
+ * Respect user-supplied intermediary paths instead of assuming every relay is
+ * hosted at /v1. Host-only URLs follow Echoes and the OpenAI standard (/v1).
+ * Full generations/edits, models, and chat-completions URLs are also accepted.
+ * NEVER guess alternative routes after a failed POST: that can double-charge.
+ */
+export const normalizeImageApiBaseUrl = (raw: string): string => {
+  const input = stripSlash(raw);
+  let url: URL;
+  try { url = new URL(input); } catch { throw new Error('请填写有效的 HTTPS 生图 API 地址'); }
+  if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) {
+    throw new Error('生图中转地址必须为 HTTPS URL，且不能在地址里包含用户名或密码');
+  }
+  if (url.search || url.hash) throw new Error('生图中转 URL 请只填写 API 地址，不要带查询参数或锚点');
+  let path = url.pathname.replace(/\/+$/, '');
+  path = path.replace(/\/images\/(?:generations|edits)$/i, '')
+             .replace(/\/(?:chat\/completions|responses|models)$/i, '');
+  if (path === '/images') path = '';
+  if (!path || path === '/') path = '/v1';
+  return url.origin + path;
 };
+
+export const imageApiModelsEndpoint = (base: string): string =>
+  normalizeImageApiBaseUrl(base) + '/models';
+
+const endpointFor = (base: string, hasReference: boolean): string =>
+  normalizeImageApiBaseUrl(base) + '/images/' + (hasReference ? 'edits' : 'generations');
+
+const gpt15Family = (model: string): boolean => /(?:^|[/])gpt-image-1\.5(?:$|[-_])/i.test(model);
+
+/** Reference image is an identity guide, not a request to copy the photograph. */
+const identityReferencePrompt = (prompt: string): string => [
+  'Generate a new image of the SAME character as the uploaded identity reference.',
+  'Preserve stable facial identity: face shape, facial features, age range, eye and hair color, and distinctive marks.',
+  'Treat the uploaded photograph as an identity sheet, NOT as a composition to recreate.',
+  'Do not copy the reference pose, gaze, expression, framing, lighting, background or clothing unless the scene prompt asks for them.',
+  'Follow the requested scene, outfit and camera view. Do not swap, blend, or redesign the identity.',
+  prompt,
+].join(' ');
+
 
 export async function generateCharacterImage(
   config: ImageApiSettings,
@@ -125,7 +167,10 @@ export async function generateCharacterImage(
   signal?: AbortSignal,
 ): Promise<Blob> {
   if (!config.apiKey?.trim() || !config.model?.trim()) throw new Error('请先在设置中保存生图 API Key 和模型');
-  const prompt = [config.positive?.trim(), profile.appearance?.trim()].filter(Boolean).join(', ');
+  const promptParts = [config.positive?.trim(), profile.appearance?.trim()].filter(Boolean);
+  const prompt = promptParts.join(', ') + (config.provider === 'openai' && config.negative?.trim()
+    ? '\n\nAvoid: ' + config.negative.trim()
+    : '');
   if (!prompt) throw new Error('请先填写角色外貌描述或全局正面提示词');
   const base = stripSlash(config.baseUrl || (config.provider === 'nai' ? 'https://image.novelai.net' : ''));
   if (!/^https:\/\/[^/]+/i.test(base)) throw new Error('请填写有效的 HTTPS 生图 API 地址');
@@ -196,10 +241,26 @@ export async function generateCharacterImage(
     const format = reference.type === 'image/jpeg' ? 'jpg' : reference.type === 'image/webp' ? 'webp' : 'png';
     const body = new FormData();
     body.append('image', reference, 'reference.' + format);
-    body.append('prompt', prompt);
+    body.append('prompt', identityReferencePrompt(prompt));
     body.append('model', config.model.trim());
     body.append('size', size);
+    body.append('n', '1');
+    // GPT Image 1.5 supports this OpenAI API parameter specifically for facial
+    // resemblance. Newer GPT Image models do not accept it, so omit for them.
+    const fidelitySent = gpt15Family(config.model.trim());
+    if (fidelitySent) body.append('input_fidelity', 'high');
     response = await fetch(url, { method: 'POST', headers: auth, body, signal });
+    if (!response.ok && fidelitySent && [400, 422].includes(response.status)) {
+      const error = await readError(response);
+      // Only retry when the relay explicitly rejects this optional field.
+      // Never retry image editing as text-only generations.
+      if (/input_fidelity/i.test(error) && /(unknown|unsupported|unrecognized|invalid|not support|不支持|未知|无效)/i.test(error)) {
+        body.delete('input_fidelity');
+        response = await fetch(url, { method: 'POST', headers: auth, body, signal });
+      } else {
+        throw new Error('生图锁脸请求失败（HTTP ' + response.status + '）：' + error);
+      }
+    }
   } else {
     // response_format=b64_json is unsupported on current GPT Image models.
     // Accept b64_json and URL results from compatible third-party relays.
@@ -208,6 +269,12 @@ export async function generateCharacterImage(
       body: JSON.stringify({ model: config.model.trim(), prompt, size, n: 1 }), signal,
     });
   }
-  if (!response.ok) throw new Error('生图接口 HTTP ' + response.status + '：' + await readError(response));
+  if (!response.ok) {
+    const error = await readError(response);
+    if (hasReference && [404, 405, 415, 422, 501].includes(response.status)) {
+      throw new Error('中转站的 /images/edits 参考图接口不可用（HTTP ' + response.status + '）：' + error + '。未改用普通文生图，避免丢失锁脸');
+    }
+    throw new Error('生图接口 HTTP ' + response.status + '：' + error);
+  }
   return readImageResult(response, signal);
 }
