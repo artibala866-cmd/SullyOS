@@ -90,6 +90,10 @@ export const authoredMotionTemplates:Readonly<Record<string,MotionTemplateDraft>
  'home-hand-hold-plead':{
   participants:2,capabilities:['pairedSync','residentNavigation','handContact'],posture:'standing',
  },
+ // Two already-seated residents sharing one sofa; no standing navigation.
+ 'home-sofa-lap-pillow':{
+  participants:2,capabilities:['pairedSync','seatTransition','handContact','bodyContact'],posture:'any',adapter:'legacy',
+ },
 });
 
 export function compileMotionTemplates(
@@ -145,7 +149,7 @@ export function compileMotionTemplates(
    // Declaring a legacy adapter is NOT sufficient. The original specialized
    // action must actually exist in selectedSocial/intimacyMotion/seat state.
    // Future IDs are rejected until a real tested adapter has been installed.
-   const supported=new Set(['home-hug','home-rear-hug','home-kiss','home-princess-carry','home-princess-carried']);
+   const supported=new Set(['home-hug','home-rear-hug','home-kiss','home-princess-carry','home-princess-carried','home-sofa-lap-pillow']);
    if(draft.adapter!=='legacy'||!supported.has(id))
     throw Error('Specialized motion requires reviewed adapter: '+id);
   }
