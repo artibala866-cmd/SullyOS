@@ -2,10 +2,12 @@ import React, {useEffect,useState} from 'react';
 import {
   ArrowLeft, House, MagnifyingGlass, Bell, User, Compass, Heart,
   ChatCircleDots, Images, Play, BookmarkSimple, GridFour, ClockCounterClockwise,
-  UsersThree, DotsThree, VideoCamera,
+  UsersThree, DotsThree, VideoCamera, BookOpen, EnvelopeSimple, Books, MusicNotes,
 } from '@phosphor-icons/react';
 import PhoneAvatar from './PhoneAvatar';
 import CharacterPhoneSocialContentPage from './CharacterPhoneSocialContentPage';
+import CharacterPhoneMoreApps from './CharacterPhoneMoreApps';
+import CharacterPhoneNetease from './CharacterPhoneNetease';
 import type {CharacterProfile,UserProfile,GroupProfile,RealtimeConfig} from '../../types';
 import {
   CHARACTER_PHONE_SOCIAL_APP_INFO,
@@ -32,7 +34,7 @@ const IG_TABS:Tab[]=[
   {id:'reels',label:'Reels',Icon:VideoCamera},{id:'likes',label:'动态',Icon:Heart},
   {id:'profile',label:'主页',Icon:User},
 ];
-const ALL_TABS:Record<CharacterPhoneSocialAppId,Tab[]>={
+const ALL_TABS:Partial<Record<CharacterPhoneSocialAppId,Tab[]>>={
   x:X_TABS,bilibili:BILI_TABS,weibo:WEIBO_TABS,instagram:IG_TABS,
 };
 function SocialLogo({appId,size='large'}:{appId:CharacterPhoneSocialAppId;size?:'small'|'large'}) {
@@ -43,6 +45,12 @@ function SocialLogo({appId,size='large'}:{appId:CharacterPhoneSocialAppId;size?:
   </span>;
 }
 export function CharacterPhoneSocialIcon({appId}:{appId:CharacterPhoneSocialAppId}) {
+  if(appId==='douban'||appId==='douyin'||appId==='email'||appId==='jinjiang'||appId==='netease'){
+    const Icon={douban:BookOpen,douyin:VideoCamera,email:EnvelopeSimple,jinjiang:Books,netease:MusicNotes}[appId];
+    return <div className="flex h-14 w-14 items-center justify-center rounded-[17px] border border-white/90 bg-gradient-to-br from-white via-[#f9f9f9] to-[#e6e6e6] text-[#454545] shadow-[0_5px_14px_rgba(0,0,0,.09),inset_0_1px_2px_white]">
+      <Icon size={30} weight="regular"/>
+    </div>;
+  }
   return <div className={'flex h-14 w-14 items-center justify-center rounded-[17px] border shadow-sm '+
     (appId==='x'?'border-[#252525] bg-[#111] text-white':
      appId==='bilibili'?'border-[#dedee1] bg-[#f8f8fa] text-[#24242a]':
@@ -142,9 +150,13 @@ export default function CharacterPhoneSocialApps({
   char:CharacterProfile;userProfile:UserProfile;groups:GroupProfile[];
   realtimeConfig?:RealtimeConfig;api:{baseUrl:string;apiKey:string;model:string};
 }) {
-  const tabs=ALL_TABS[appId];
+  const tabs=ALL_TABS[appId]||X_TABS;
   const [tabId,setTabId]=useState(tabs[0].id);
-  useEffect(()=>{setTabId(ALL_TABS[appId][0].id);},[appId]);
+  useEffect(()=>{setTabId((ALL_TABS[appId]||X_TABS)[0].id);},[appId]);
+  if(appId==='netease')return <CharacterPhoneNetease characterId={char.id} onBack={onBack}/>;
+  if(appId==='douban'||appId==='douyin'||appId==='email'||appId==='jinjiang'){
+    return <CharacterPhoneMoreApps appId={appId} ownerName={ownerName} ownerAvatar={ownerAvatar} onBack={onBack}/>;
+  }
   // These two optional apps have independent content, cache and AI buttons.
   if(appId==='weibo'||appId==='instagram'){
     return <CharacterPhoneSocialContentPage appId={appId} char={char} userProfile={userProfile}
