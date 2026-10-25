@@ -1,7 +1,7 @@
 import PhoneMemo from './PhoneMemo';
 import CharacterAvatarLibraryModal from './CharacterAvatarLibraryModal';
 import CharacterPhoneSocialApps, {CharacterPhoneSocialIcon} from './CharacterPhoneSocialApps';
-import {CharacterPhoneHome,CharacterPhoneLockScreen,CharacterPhoneBeautify,type PhoneHomeTarget} from './CharacterPhoneDesktop';
+import {CharacterPhoneHome,CharacterPhoneLockScreen,CharacterPhoneBeautify,useAppearance,type PhoneHomeTarget} from './CharacterPhoneDesktop';
 import {CHARACTER_PHONE_INSTALL_CHANGED, CHARACTER_PHONE_SOCIAL_APPS, CHARACTER_PHONE_SOCIAL_APP_INFO,
   readCharacterPhoneInstallPlan, generateCharacterPhoneInstallPlan, setCharacterPhoneSocialAppInstalled,
   isCharacterPhoneSocialAppId, type CharacterPhoneInstallPlan, type CharacterPhoneSocialAppId,
@@ -124,6 +124,7 @@ export default function CharacterPhone({
   }, [characterId, char.avatar, avatarRevision]);
   const [screen, setScreen] = useState<Screen>('home');
   const [phoneUnlocked,setPhoneUnlocked] = useState(false);
+  const phoneAppearance=useAppearance(characterId);
   const settingsOrigin=useRef<'home'|'wechat'>('wechat');
   const profileOrigin=useRef<'home'|'wechat'>('wechat');
   useEffect(()=>{setPhoneUnlocked(false);setScreen('home');},[characterId]);
@@ -613,8 +614,17 @@ ${scheduleContext}
     setEditing(false);
   };
   const row = (label: string, icon: React.ReactNode, click: () => void) => <button type="button" onClick={click} className="flex w-full items-center gap-4 border-b border-[#e9e9e9] bg-white px-5 py-4 text-left text-[16px] text-[#222]"><span className="text-[#21ad68]">{icon}</span><span className="flex-1">{label}</span><span className="text-[#bbb]">›</span></button>;
-  return <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-2" role="dialog" aria-modal="true" aria-label={name + '的手机'}>
-    <div className="flex h-[min(84dvh,720px)] w-[min(92vw,370px)] max-w-[370px] flex-col overflow-hidden rounded-[27px] border-[4px] border-[#252525] bg-[#ededed] shadow-2xl">
+  return <div className={phoneAppearance.fullscreen
+    ? 'fixed inset-0 z-[1000] flex items-center justify-center bg-[#ededed] p-0'
+    : 'fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-2'}
+    role="dialog" aria-modal="true" aria-label={name + '的手机'}>
+    <div className={phoneAppearance.fullscreen
+      ? 'flex h-[100dvh] w-full min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-[#ededed]'
+      : 'flex h-[min(91dvh,780px)] w-[min(88vw,344px)] min-h-0 max-w-[344px] flex-col overflow-hidden rounded-[25px] border-[4px] border-[#252525] bg-[#ededed] shadow-2xl'}
+      style={phoneAppearance.fullscreen?{
+        paddingTop:'env(safe-area-inset-top, 0px)',
+        paddingBottom:'env(safe-area-inset-bottom, 0px)',
+      }:undefined}>
       <PhoneStatusBar characterId={characterId}/>
       {!phoneUnlocked ? <CharacterPhoneLockScreen characterId={characterId} name={name} avatar={phoneAvatar}
         onUnlock={unlockPhone} onClose={onClose}/> : <>
