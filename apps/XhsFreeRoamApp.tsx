@@ -79,12 +79,14 @@ const XhsFreeRoamApp: React.FC = () => {
     } | null>(null);
 
     const scrollRef = useRef<HTMLDivElement>(null);
+    const activityLoadSeqRef = useRef(0);
 
     const mcpUrl = realtimeConfig?.xhsMcpConfig?.serverUrl || '';
     const mcpEnabled = realtimeConfig?.xhsMcpConfig?.enabled || false;
 
     // Load history for selected character
     const loadActivities = useCallback(async () => {
+        const requestId = ++activityLoadSeqRef.current;
         if (!char) { setActivities([]); setOwnedPosts([]); return; }
         const [allActivities, storedPosts] = await Promise.all([
             DB.getXhsActivities(char.id),
@@ -96,11 +98,16 @@ const XhsFreeRoamApp: React.FC = () => {
         if (migrated.length > 0) {
             await Promise.all(migrated.map(post => DB.saveXhsOwnedPost(post)));
         }
+        // A previous character's slow IndexedDB read must not overwrite the new selection.
+        if (requestId !== activityLoadSeqRef.current) return;
         setActivities(allActivities.slice(0, 50));
         setOwnedPosts([...storedPosts, ...migrated].sort((a, b) => b.publishedAt - a.publishedAt));
-    }, [char]);
+    }, [char?.id]);
 
-    useEffect(() => { loadActivities(); }, [loadActivities]);
+    useEffect(() => {
+        void loadActivities();
+        return () => { activityLoadSeqRef.current++; };
+    }, [loadActivities]);
 
     // Auto-scroll during activity
     useEffect(() => {
