@@ -14,6 +14,8 @@ export type PhoneAutonomyPreferences = {
   selfProfileAutoEnabled: boolean;
   /** Master switch for separately billed autonomous phone LLM calls. */
   backgroundApiEnabled: boolean;
+  /** Attach optional phone events to an existing User-facing reply; no second request. */
+  chatPiggybackEnabled: boolean;
 };
 export type PhoneApiBudgetState = {
   day: string;
@@ -51,6 +53,7 @@ const defaults = ():PhoneAutonomyPreferences => ({
   browserAutoEnabled:true,
   selfProfileAutoEnabled:true,
   backgroundApiEnabled:true,
+  chatPiggybackEnabled:false,
 });
 function boundedInteger(value:unknown,fallback:number,min:number,max:number):number {
   return typeof value==='number' && Number.isFinite(value)
@@ -75,6 +78,7 @@ export function readPhoneAutonomyPreferences(characterId:string):PhoneAutonomyPr
       browserAutoEnabled:raw?.browserAutoEnabled!==false,
       selfProfileAutoEnabled:raw?.selfProfileAutoEnabled!==false,
       backgroundApiEnabled:raw?.backgroundApiEnabled!==false,
+      chatPiggybackEnabled:raw?.chatPiggybackEnabled===true,
     };
   } catch {return defaults();}
 }
@@ -88,6 +92,7 @@ export function writePhoneAutonomyPreferences(characterId:string, updates:Partia
     browserAutoEnabled:typeof updates.browserAutoEnabled==='boolean'?updates.browserAutoEnabled:old.browserAutoEnabled,
     selfProfileAutoEnabled:typeof updates.selfProfileAutoEnabled==='boolean'?updates.selfProfileAutoEnabled:old.selfProfileAutoEnabled,
     backgroundApiEnabled:typeof updates.backgroundApiEnabled==='boolean'?updates.backgroundApiEnabled:old.backgroundApiEnabled,
+    chatPiggybackEnabled:typeof updates.chatPiggybackEnabled==='boolean'?updates.chatPiggybackEnabled:old.chatPiggybackEnabled,
   };
   localStorage.setItem(SETTINGS_PREFIX+characterId,JSON.stringify(next));
   if (typeof window!=='undefined') window.dispatchEvent(new CustomEvent(CHARACTER_PHONE_API_SETTINGS_CHANGED,{
