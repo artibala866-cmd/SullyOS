@@ -153,7 +153,7 @@ const gpt15Family = (model: string): boolean => /(?:^|[/])gpt-image-1\.5(?:$|[-_
 
 /** Reference image is an identity guide, not a request to copy the photograph. */
 const identityReferencePrompt = (prompt: string): string => [
-  'Generate a new image of the SAME character as the uploaded identity reference.',
+  'Generate a new image of the SAME person or character depicted in the uploaded identity reference.',
   'Preserve stable facial identity: face shape, facial features, age range, eye and hair color, and distinctive marks.',
   'Treat the uploaded photograph as an identity sheet, NOT as a composition to recreate.',
   'Do not copy the reference pose, gaze, expression, framing, lighting, background or clothing unless the scene prompt asks for them.',
