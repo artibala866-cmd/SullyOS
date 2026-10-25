@@ -1,13 +1,13 @@
 {
   "version": 1,
   "id": "home-rear-hug",
-  "duration": 5,
+  "duration": 7.5,
   "actors": [
     {
-      "duration": 5,
+      "duration": 7.5,
       "times": [
         0,
-        5
+        7.5
       ],
       "positions": [
         0,
@@ -33,10 +33,10 @@
       "hipHeight": 1
     },
     {
-      "duration": 5,
+      "duration": 7.5,
       "times": [
         0,
-        5
+        7.5
       ],
       "positions": [
         0,
