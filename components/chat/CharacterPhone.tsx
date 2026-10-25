@@ -210,6 +210,7 @@ export default function CharacterPhone({
   };
   const [tab, setTab] = useState<Tab>('chats');
   const [wechatSearchOpen,setWechatSearchOpen]=useState(false);
+  const [wechatNotice,setWechatNotice]=useState('');
   const [wechatQuery,setWechatQuery]=useState('');
   const [thread, setThread] = useState('');
   const [privateThread, setPrivateThread] = useState<PhoneThreadV2 | null>(null);
@@ -364,11 +365,15 @@ export default function CharacterPhone({
   // Inbox generation is independent of the contacts list. A single call yields several threads.
   const generateInbox = async (automatic = false) => {
     const prefs=readPhoneInboxPreferences(characterId);
+    if (!automatic && (!phoneApi.apiKey||!phoneApi.baseUrl||!phoneApi.model)){
+      setError('微信生成需要聊天 API，请先在微信 → 我 → 设置中检查查手机独立 API 或默认聊天 API');
+      return;
+    }
     if (busy || !phoneApi.apiKey || !phoneApi.baseUrl || !phoneApi.model ||
         (automatic && (!isCharacterPhoneAutonomyEnabled(characterId) ||
             !canUsePhoneApiBudget(characterId))) ||
         !beginCharacterPhoneRefresh(characterId)) return;
-    setBusy(true); setError('');
+    setBusy(true); setError('');setWechatNotice('');
     try {
       const context = await loadRealContext();
       const existing = records.map(r => ({ id:r.contactId || r.id, name:r.name, recent:r.messages.slice(-6).map(m=>({role:m.speaker?.role,text:m.text})) }));
@@ -517,6 +522,7 @@ ${scheduleContext}
         });
       }
       setTab('chats');
+      if(!automatic)setWechatNotice('本次新增或续写了 '+incoming.length+' 条会话；官方通知和支付账单按设置独立保存。');
     } catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{finishCharacterPhoneRefresh(characterId);setBusy(false);}
   };
@@ -648,6 +654,7 @@ ${scheduleContext}
           appId={screen} ownerName={name} ownerAvatar={phoneAvatar} onBack={()=>setScreen('home')}
           char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'wechat' && tab === 'chats' && <div>
+          {wechatNotice&&<div role="status" className="flex items-center justify-between gap-2 border-b border-[#ececec] bg-[#f7f7f7] px-4 py-2 text-[11px] text-[#777]"><span>{wechatNotice}</span><button type="button" onClick={()=>setWechatNotice('')} className="shrink-0 underline">关闭</button></div>}
           {wechatSearchOpen&&<div className="border-b border-[#eee] bg-white px-4 py-3">
             <input aria-label="搜索微信聊天" placeholder="搜索联系人、公众号或消息预览"
               value={wechatQuery} onChange={e=>setWechatQuery(e.target.value)} autoFocus
