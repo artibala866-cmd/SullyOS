@@ -12,12 +12,13 @@ import {createMotionTemplateScope} from './motionTemplateScope';
 import {applyTemplateFaceContact} from './templateFaceContact';
 import {applyHeadPatMotion,applyHeadPatExpressions} from './headPatMotion';
 import {planRearHugApproach} from './rearHugMotion';
+import {pleadStandingPoint} from './handHoldPleadMotion';
 import {applyStandingHeightAdaptation} from './standingHeightAdaptation';
 import {applyPairedHandContact} from './pairedHandContact';
 import {createMotionConstraintPipeline} from './motionConstraintPipeline';
 export {motionCategories} from './selectedMotions';
 export type SocialAction=string;
-export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-kiss'?9.6:e.id==='home-rear-hug'?7.5:e.duration+1.2}]));
+export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-kiss'?9.6:e.id==='home-rear-hug'?7.5:e.id==='home-hand-hold-plead'?6.7:e.duration+1.2}]));
 export interface SocialResident {id:string;visitor:ChibiVisitor}
 const yAxis=new T.Vector3(0,1,0),smooth=T.MathUtils.smootherstep;
 /** Both roles share a clock and capture transform. Observers stay independent. */
@@ -25,7 +26,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
  if(new Set(residents.map(r=>r.id)).size!==residents.length)throw Error('Duplicate resident ID');
  if(residents.some(r=>!!r.visitor.rig!==!!residents[0]?.visitor.rig))throw Error('A home must use one body type');
  const states=new Map(residents.map(r=>[r.id,{...r,solver:contactSolver(r.visitor),home:r.visitor.root.position.clone(),rotation:r.visitor.root.quaternion.clone()}]));
- type Session={action:string;ids:string[];time:number;clip:SelectedClip;origin:T.Vector3;sourceOrigin:T.Vector3;rotation:T.Quaternion;scale:number;starts:T.Vector3[];turns:T.Quaternion[];paths:T.Vector3[][];approach:number};
+ type Session={action:string;ids:string[];time:number;clip:SelectedClip;origin:T.Vector3;sourceOrigin:T.Vector3;rotation:T.Quaternion;scale:number;starts:T.Vector3[];turns:T.Quaternion[];paths:T.Vector3[][];approach:number;handSign:1|-1};
  let session:Session|null=null,generation=0,loading=false;
  const pinned=options.pinned, pinnedState=pinned?states.get(pinned.id):undefined;
  const pinnedPosition=pinnedState?.home.clone(),pinnedRotation=pinnedState?.rotation.clone();
@@ -35,12 +36,18 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
  const finish=()=>{for(const r of states.values())r.visitor.finishPose();};
  function locations(s:Session,time:number){
   const points=s.clip.actors.map(a=>{const elapsed=T.MathUtils.clamp(pinned?0:time,0,a.duration);let i=0;while(i<a.times.length-2&&a.times[i+1]<elapsed)i++;const j=Math.min(i+1,a.times.length-1),f=i+(elapsed-a.times[i])/(a.times[j]-a.times[i]||1);return new T.Vector3().fromArray(a.positions,i*3).lerp(new T.Vector3().fromArray(a.positions,j*3),f-i).sub(s.sourceOrigin).setY(0).multiplyScalar(s.scale).applyQuaternion(s.rotation).add(s.origin);});
-  if(points.length===2&&s.action!=='home-rear-hug'){const delta=points[1].clone().sub(points[0]),gap=delta.length(),minimum=residents[0].visitor.rig?.66:1.38;if(gap<minimum){if(gap<.001)delta.set(1,0,0);delta.normalize().multiplyScalar((minimum-gap)/2);points[0].sub(delta);points[1].add(delta);}}
+  if(points.length===2&&s.action!=='home-rear-hug'&&s.action!=='home-hand-hold-plead'){const delta=points[1].clone().sub(points[0]),gap=delta.length(),minimum=residents[0].visitor.rig?.66:1.38;if(gap<minimum){if(gap<.001)delta.set(1,0,0);delta.normalize().multiplyScalar((minimum-gap)/2);points[0].sub(delta);points[1].add(delta);}}
    if(s.action==='home-rear-hug'&&points.length===2){
     // B holds their current location; A arrives at a compact waist-contact distance.
     const distance=.57;
     points[0].copy(points[1]).add(new T.Vector3(0,0,-distance).applyQuaternion(s.rotation));
    }
+  if(s.action==='home-hand-hold-plead'&&points.length===2){
+   // B remains where they were; only A walks to a short-arm side contact.
+   points[0].copy(pleadStandingPoint(points[1],s.rotation,s.handSign));
+   points[0].y=s.starts[0].y;
+   points[1].y=s.starts[1].y;
+  }
   if(pinned){const index=s.ids.indexOf(pinned.id);if(index>=0){const offset=pinnedPosition!.clone().sub(points[index]);points.forEach((p,i)=>{p.add(offset);if(i!==index)p.y=s.starts[i].y;});}}
   if(pinned&&(s.action==='cmu-22_09'||s.action==='home-hug')){
    const seated=s.ids.indexOf(pinned.id),standing=1-seated;
@@ -230,7 +237,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     if(total>.01){const q=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(to.x-from.x,to.z-from.z));v.root.quaternion.copy(s.turns[i]).slerp(q,smooth(s.time,0,.2));v.animate(s.time,'walk');}else v.animate(s.time,'idle');
    });finish();return;
   }
-  const actionTime=s.time-s.approach,kissAction=s.action==='home-kiss',rearHug=s.action==='home-rear-hug',sourceTime=T.MathUtils.clamp(kissAction?Math.max(0,actionTime-.15)+1.5:rearHug?actionTime:actionTime-.6,0,s.clip.duration),weight=kissAction?smooth(actionTime,0,.25):rearHug?1:smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
+  const actionTime=s.time-s.approach,kissAction=s.action==='home-kiss',rearHug=s.action==='home-rear-hug',handPlead=s.action==='home-hand-hold-plead',sourceTime=T.MathUtils.clamp(kissAction?Math.max(0,actionTime-.15)+1.5:rearHug||handPlead?actionTime:actionTime-.6,0,s.clip.duration),weight=kissAction?smooth(actionTime,0,.25):rearHug||handPlead?1:smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
   const both=s.ids.map(id=>states.get(id)!),frames=s.clip.actors.map(a=>sampleSelected(a,sourceTime)),points=kissAction&&!pinned?locations(s,3.5):locations(s,sourceTime);
   // Kiss has one destination: approach reaches it, then the roots remain fixed.
   for(const r of states.values())if(!s.ids.includes(r.id))r.visitor.animate(s.time,'idle');
@@ -299,7 +306,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     v0.root.updateWorldMatrix(true,true);v1.root.updateWorldMatrix(true,true);
    }
   }
-   if(isIntimacy(s.action)&&both[0].visitor.rig)poseIntimacy(s.action,both,sourceTime,pinned?s.ids.indexOf(pinned.id):undefined);else contacts(both,frames,weight);
+   if(isIntimacy(s.action)&&both[0].visitor.rig)poseIntimacy(s.action,both,sourceTime,pinned?s.ids.indexOf(pinned.id):undefined,s.handSign);else contacts(both,frames,weight);
    presentPostPose(both,sourceTime,actionTime,weight);
   }
  }
@@ -323,7 +330,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     const rotation=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(axis.x,axis.z)-Math.atan2(sourceAxis.x,sourceAxis.z));
     if(ids.length===1&&options.facingTarget){const direction=options.facingTarget.clone().sub(starts[0]);if(direction.lengthSq()>.0001)rotation.setFromAxisAngle(yAxis,Math.atan2(direction.x,direction.z));}
     if(pinned){const i=ids.indexOf(pinned.id),sourceHeading=splitMotionHeading(sampleSelected(clip.actors[i],0).rotations.hips).heading;rotation.copy(pinnedRotation!).multiply(sourceHeading.invert());}
-    const candidate={action,ids,time:0,clip,origin,sourceOrigin,rotation,scale,starts,turns,paths:[] as T.Vector3[][],approach:0};
+    const candidate={action,ids,time:0,clip,origin,sourceOrigin,rotation,scale,starts,turns,paths:[] as T.Vector3[][],approach:0,handSign:1 as 1|-1};
     if(action==='home-rear-hug'){
      // The receiver retains their standing position and orientation.
      // The initiator travels around the receiver, not through them.
@@ -331,10 +338,19 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      const bSource=new T.Vector3().fromArray(clip.actors[1].positions).sub(sourceOrigin).setY(0);
      candidate.origin.copy(starts[1]).sub(bSource.multiplyScalar(scale).applyQuaternion(candidate.rotation));
     }
+    if(action==='home-hand-hold-plead'){
+     // Try the nearest B-side first; use the opposite side when the existing
+     // room path or clearance predicate rejects the first position.
+     candidate.rotation.copy(turns[1]);
+     const right=new T.Vector3(1,0,0).applyQuaternion(candidate.rotation);
+     candidate.handSign=starts[0].clone().sub(starts[1]).dot(right)<0?-1:1;
+     const bSource=new T.Vector3().fromArray(clip.actors[1].positions).sub(sourceOrigin).setY(0);
+     candidate.origin.copy(starts[1]).sub(bSource.multiplyScalar(scale).applyQuaternion(candidate.rotation));
+    }
     const fits=()=>{
      const first=locations(candidate,0);
      const target=action==='home-kiss'&&!pinned?locations(candidate,3.5):first;
-     const moving=(paths:T.Vector3[][])=>paths.filter((_,i)=>ids[i]!==pinned?.id&&(action!=='home-rear-hug'||i===0));
+     const moving=(paths:T.Vector3[][])=>paths.filter((_,i)=>ids[i]!==pinned?.id&&(!['home-rear-hug','home-hand-hold-plead'].includes(action)||i===0));
      // The existing tests are unchanged, but reject impossible action space
      // BEFORE expensive pathfinding for any of the alternate positions.
      const motion=both.map(()=>[] as T.Vector3[]);
@@ -344,7 +360,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      // The final roots must remain on valid standing floor.
      if(options.canPlace&&!options.canPlace(moving((action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,clip.duration)).map(p=>[p]))))return false;
      const paths=both.map(()=>[] as T.Vector3[]);
-     const routes=starts.map((p,i)=>ids[i]===pinned?.id||action==='home-rear-hug'&&i===1?[p.clone(),p.clone()]:
+     const routes=starts.map((p,i)=>ids[i]===pinned?.id||['home-rear-hug','home-hand-hold-plead'].includes(action)&&i===1?[p.clone(),p.clone()]:
      action==='home-rear-hug'&&i===0?planRearHugApproach(p,target[i],target[1],candidate.rotation,
       (from,to)=>options.findPath?options.findPath(from,to):[from.clone(),to.clone()]):
      options.findPath?options.findPath(p,target[i]):[p.clone(),target[i].clone()]);
@@ -357,10 +373,15 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      }
      // A may already be standing very close to furniture: existing start positions
      // are valid by occupancy, and the nav planner owns the route from there.
-     if(action==='home-rear-hug'&&paths[0].length>1)paths[0].shift();
+     if(['home-rear-hug','home-hand-hold-plead'].includes(action)&&paths[0].length>1)paths[0].shift();
      return !options.canPlace||options.canPlace(moving(paths));
     };
-    let valid=fits();if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned&&action!=='home-rear-hug')for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
+    let valid=fits();
+    if(!valid&&action==='home-hand-hold-plead'){
+     candidate.handSign=candidate.handSign===1?-1:1;
+     valid=fits();
+    }
+    if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned&&action!=='home-rear-hug'&&action!=='home-hand-hold-plead')for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
     if(!valid)throw Error(action==='cmu-22_09'?'坐着的人身后没有可站立的位置，请先给椅背后留出空地':'这段动作需要更大的空地，先移动居民或挪开家具');
     session=candidate;motionScope.begin(action);constraintPipeline.activate(action);
      prop=motionScope.own(createSocialProp(action,both,motionTemplateFor(action)?.prop));
