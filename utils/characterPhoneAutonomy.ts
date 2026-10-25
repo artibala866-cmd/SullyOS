@@ -10,6 +10,7 @@ import { buildCharacterPhoneContext } from './characterPhoneContext';
 import { safeResponseJson, extractContent } from './safeApi';
 import { isCharacterPhoneRefreshing } from './characterPhoneRefreshTracker';
 import { canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
+import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
 /** NPC phone autonomy shares the existing schedule/phone/event/AMSG pipeline.
  * This scheduler ONLY writes the character-owned phone, never sends User a message
@@ -78,7 +79,8 @@ function knownContactSnapshot(rows: NpcProfile[]): unknown {
  * when the character is established as knowing them; strangers get requests.
  */
 async function bootstrapSocialCircle(input: CharacterPhoneAutonomyInput): Promise<boolean> {
-  const { char, user, groups, realtimeConfig, api } = input;
+  const { char, user, groups, realtimeConfig } = input;
+  const api = resolveCharacterPhoneApi(char.id,input.api);
   const context = await buildCharacterPhoneContext(char, user, groups, realtimeConfig);
   const existing = readNpcProfiles(char.id);
   const pending = readPendingContacts(char.id);
@@ -166,7 +168,8 @@ function chooseAction(charId: string, contacts: NpcProfile[], threads: Character
 }
 
 export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInput): Promise<PhoneAutonomyOutcome> {
-  const { char, api } = input;
+  const { char } = input;
+  const api = char?.id ? resolveCharacterPhoneApi(char.id,input.api) : input.api;
   if (!char?.id || !api?.apiKey || !api.baseUrl || !api.model ||
       typeof document === 'undefined' || document.visibilityState !== 'visible' ||
       !isCharacterPhoneAutonomyEnabled(char.id)) return 'unavailable';
