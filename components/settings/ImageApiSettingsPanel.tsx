@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { imageApiModelsEndpoint } from '../../utils/imageGeneration';
 
 export type ImageProvider = 'openai' | 'nai';
 export type ImageApiSettings = { provider: ImageProvider; baseUrl: string; apiKey: string; model: string; positive: string; negative: string; width: number; height: number; steps?: number; scale?: number; sampler?: string; referenceStrength?: number };
@@ -22,7 +23,7 @@ export const ImageApiSettingsPanel: React.FC = () => {
   const fetchModels = async () => {
     setLoading(true); setStatus('正在拉取模型...');
     try {
-      const url = form.baseUrl.trim().replace(/[/]+$/, '') + '/models';
+      const url = imageApiModelsEndpoint(form.baseUrl);
       const response = await fetch(url, { headers: { Authorization: 'Bearer ' + form.apiKey } });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const json = await response.json();
