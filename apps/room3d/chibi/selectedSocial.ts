@@ -11,6 +11,7 @@ import {motionTemplateFor,motionTemplateContact,motionTemplateConstraintPlans} f
 import {createMotionTemplateScope} from './motionTemplateScope';
 import {applyTemplateFaceContact} from './templateFaceContact';
 import {applyHeadPatMotion,applyHeadPatExpressions} from './headPatMotion';
+import {planRearHugApproach} from './rearHugMotion';
 import {applyStandingHeightAdaptation} from './standingHeightAdaptation';
 import {applyPairedHandContact} from './pairedHandContact';
 import {createMotionConstraintPipeline} from './motionConstraintPipeline';
@@ -343,7 +344,10 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      // The final roots must remain on valid standing floor.
      if(options.canPlace&&!options.canPlace(moving((action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,clip.duration)).map(p=>[p]))))return false;
      const paths=both.map(()=>[] as T.Vector3[]);
-     const routes=starts.map((p,i)=>ids[i]===pinned?.id?[p.clone(),p.clone()]:options.findPath?options.findPath(p,target[i]):[p.clone(),target[i].clone()]);
+     const routes=starts.map((p,i)=>ids[i]===pinned?.id?[p.clone(),p.clone()]:
+     action==='home-rear-hug'&&i===0?planRearHugApproach(p,target[i],target[1],candidate.rotation,
+      (from,to)=>options.findPath?options.findPath(from,to):[from.clone(),to.clone()]):
+     options.findPath?options.findPath(p,target[i]):[p.clone(),target[i].clone()]);
      if(routes.some(p=>!p?.length))return false;
      candidate.paths=routes as T.Vector3[][];
      candidate.approach=Math.max(...candidate.paths.map((path,i)=>path.slice(1).reduce((n,p,j)=>n+p.distanceTo(path[j]),0)/((both[i].walkSpeed??1.05)*(action==='home-kiss'?1.65:1))));
