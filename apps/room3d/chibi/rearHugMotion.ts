@@ -25,6 +25,7 @@ export function rearHugPhase(time:number,shortActor:boolean){
   head:smooth(t,1.54,1.95)*(1-smooth(t,4.04,4.68)),
   reply:smooth(t,1.83,2.32)*(1-smooth(t,4.24,4.93)),
   cover:smooth(t,2.05,2.46)*(1-smooth(t,4.28,4.98)),
+  farewell:smooth(t,4.43,4.67)*(1-smooth(t,4.86,5)),
   release:smooth(t,4.20,5),
  };
 }
@@ -130,7 +131,7 @@ export function poseRearHug(both:readonly [Resident,Resident],time:number,weight
  aBones.head.quaternion.multiply(quat((shortActor?-.11:.12)*p.head*strength,
   (-.14*p.head-.03*p.second)*strength,(cheek*p.head+.045*p.second)*strength));
  bBones.head.quaternion.multiply(quat(.045*p.reply*strength,
-  .20*p.reply*strength,-.045*p.reply*strength));
+  (.20*p.reply+.21*p.farewell)*strength,-.045*p.reply*strength));
  actor.root.updateWorldMatrix(true,true);
  receiver.root.updateWorldMatrix(true,true);
 
