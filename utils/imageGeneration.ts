@@ -150,6 +150,7 @@ export async function generateCharacterImage(
     if (/^nai-diffusion-4/i.test(config.model.trim())) {
       Object.assign(parameters, {
         params_version: 3,
+        qualityToggle: false,
         ucPreset: /nai-diffusion-4-5-full|nai-diffusion-4\.5-full/i.test(config.model) ? 3 : 0,
         negative_prompt: config.negative || '',
         autoSmea: false,
