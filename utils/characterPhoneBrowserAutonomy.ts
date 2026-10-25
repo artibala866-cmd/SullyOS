@@ -11,6 +11,7 @@ import {
 import { extractContent, safeResponseJson } from './safeApi';
 import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import { readPhoneAutonomyPreferences, canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
+import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
 type Api = { baseUrl: string; apiKey: string; model: string };
 type Input = {
@@ -54,7 +55,8 @@ export async function runCharacterPhoneBrowserAutonomy(
   input:Input,
   mode:'background'|'manual'='background',
 ):Promise<BrowserAutonomyResult> {
-  const {char,user,groups,realtimeConfig,api}=input;
+  const {char,user,groups,realtimeConfig}=input;
+  const api=char?.id?resolveCharacterPhoneApi(char.id,input.api):input.api;
   if (!char?.id || !api?.baseUrl || !api?.apiKey || !api?.model ||
       typeof localStorage==='undefined') return {status:'skipped',count:0,reason:'API 未配置'};
   if (mode==='background' && (typeof document==='undefined' ||
