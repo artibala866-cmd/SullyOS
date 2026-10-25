@@ -1,7 +1,6 @@
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
 import type {contactSolver,Contact} from './socialContact';
-import {furniturePalm} from './furnitureMotion';
 import {applyStandingHeightAdaptation} from './standingHeightAdaptation';
 import {settleLegContact} from './legContactIK';
 
