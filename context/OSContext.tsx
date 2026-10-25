@@ -2491,9 +2491,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // WeChat contacts/messages and the existing Char/NPC Moments systems.
               // No second polling timer, no extra unbudgeted LLM route.
               const autoSuite = readPhoneInboxPreferences(char.id).autoFullWeChat;
-              const featureOrder = autoSuite
-                ? (['wechat','npc-moments','moments-post'] as const)
-                : (['wechat', 'comments', 'browser', 'profile', 'npc-moments', 'moments-post', 'memo'] as const);
+              const featureOrder: ReadonlyArray<'wechat'|'comments'|'browser'|'profile'|'npc-moments'|'moments-post'|'memo'> = autoSuite
+                ? ['wechat','npc-moments','moments-post']
+                : ['wechat', 'comments', 'browser', 'profile', 'npc-moments', 'moments-post', 'memo'];
               const index = (phoneFeatureCursor.get(char.id) || 0) % featureOrder.length;
               const order = [...featureOrder.slice(index), ...featureOrder.slice(0, index)];
               for (const feature of order) {
