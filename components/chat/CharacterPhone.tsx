@@ -60,6 +60,18 @@ type ChatRecord = CharacterPhoneChat;
 type Api = { baseUrl: string; apiKey: string; model: string; visionApi?: VisionApiConfig };
 
 const timeLabel = (time: number) => new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+function PhoneSettingsGroup({title,searching,children}:{
+  title:string;searching:boolean;children:React.ReactNode;
+}){
+  return <details open={searching||undefined}
+    className="group overflow-hidden rounded-2xl border border-[#e9e9e9] bg-white">
+    <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[#333] [&::-webkit-details-marker]:hidden">
+      <span>{title}</span>
+      <span aria-hidden="true" className="text-lg font-normal text-[#888] transition-transform duration-200 group-open:rotate-180">⌄</span>
+    </summary>
+    <div className="border-t border-[#eee] p-3">{children}</div>
+  </details>;
+}
 export default function CharacterPhone({
   name, characterId, persona, api, onClose, char, userProfile, groups, realtimeConfig, onApplyAvatar, onPoke,
 }: {
@@ -194,6 +206,9 @@ export default function CharacterPhone({
       setBudgetInfo(readPhoneApiBudget(characterId));
     }catch{setError('自主生活设置保存失败');}
   };
+  const [settingsQuery,setSettingsQuery]=useState('');
+  const settingsMatch=(names:string)=>!settingsQuery.trim()||
+    names.toLocaleLowerCase().includes(settingsQuery.trim().toLocaleLowerCase());
   const [tab, setTab] = useState<Tab>('chats');
   const [wechatSearchOpen,setWechatSearchOpen]=useState(false);
   const [wechatNotice,setWechatNotice]=useState('');
@@ -677,7 +692,7 @@ ${scheduleContext}
                <span className="mt-1 block truncate text-xs text-[#999]">{selfProfile.pokeSuffix ? '戳一戳'+selfProfile.pokeSuffix : '查看我的资料与头像库'}</span>
              </span><span className="text-[#aaa]">›</span>
            </button>
-           <div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>{settingsOrigin.current='wechat';setScreen('settings');})}</div>
+           <div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('搜索设置',<MagnifyingGlass size={23}/>,()=>{settingsOrigin.current='wechat';setScreen('settings');})}{row('设置',<GearSix size={23}/>,()=>{settingsOrigin.current='wechat';setScreen('settings');})}</div>
          </div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex items-start gap-2.5 '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><PhoneAvatar src={m.speakerId.startsWith('owner:') ? phoneAvatar : (userProfile.perCharAvatars?.[characterId] || userProfile.avatar)} name={m.speakerId.startsWith('owner:') ? name : userProfile.name} className="h-10 w-10 rounded-lg text-sm"/><div className={'relative max-w-[78%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}><span className={'absolute top-3 h-2.5 w-2.5 rotate-45 '+(m.speakerId.startsWith('owner:')?'-right-1 bg-[#95ec69]':'-left-1 bg-white')}/><span className="relative">{m.text}</span></div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
@@ -718,8 +733,16 @@ ${scheduleContext}
         {screen === 'browser' && <CharacterPhoneBrowser characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'wallet' && <CharacterPhoneWallet characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'settings' && <div className="space-y-3 p-4">
+          <label className="flex items-center gap-3 rounded-2xl border border-[#e9e9e9] bg-white px-4 py-3">
+            <MagnifyingGlass size={20} color="#888"/>
+            <input type="search" value={settingsQuery} onChange={e=>setSettingsQuery(e.target.value)}
+              placeholder="搜索微信设置功能…" aria-label="搜索微信设置功能"
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#333] outline-none"/>
+            {settingsQuery&&<button type="button" className="text-xs text-[#888]" onClick={()=>setSettingsQuery('')}>清除</button>}
+          </label>
+          {settingsMatch("微信 消息 生成 推送 公众号 服务号 微信支付 支付 账单 聊天 丰富 精简 密度") && <PhoneSettingsGroup title="微信消息生成" searching={!!settingsQuery}>
           <section className="space-y-3 rounded-2xl bg-white p-4">
-            <h3 className="text-sm font-semibold">微信消息生成</h3>
+            <h3 className="sr-only">微信消息生成</h3>
             <p className="text-xs leading-5 text-[#888]">手动刷新采用一次批量请求，按 Char 的设定生成不同会话；不会为每条公众号通知单独调用 API。</p>
             <label className="flex items-center justify-between gap-3 text-xs"><span>允许公众号／服务号推送</span>
               <input type="checkbox" checked={inboxPrefs.officialAccounts} onChange={e=>updateInboxPrefs({officialAccounts:e.target.checked})} className="h-5 w-5 accent-[#444]"/></label>
@@ -730,8 +753,10 @@ ${scheduleContext}
                 onClick={()=>updateInboxPrefs({chatDensity:x.id})} className={'rounded-xl border px-1 py-2.5 text-[11px] '+(inboxPrefs.chatDensity===x.id?'border-[#333] bg-[#333] text-white':'border-[#ddd] bg-[#f7f7f7]')}>{x.label}</button>)}
             </div>
           </section>
+          </PhoneSettingsGroup>}
+          {settingsMatch("应用 安装 卸载 社交 微博 Ins Instagram X 哔哩哔哩 B站 豆瓣 抖音 邮箱 晋江 网易云") && <PhoneSettingsGroup title="可选应用安装" searching={!!settingsQuery}>
           <section className="space-y-3 rounded-2xl bg-white p-4">
-            <h3 className="text-sm font-semibold">Char 的可选应用安装</h3>
+            <h3 className="sr-only">Char 的可选应用安装</h3>
             <p className="text-xs leading-5 text-[#888]">首次进入只根据 Char 性格分析一次；基础软件永远保留。以后可以手动安装、卸载九款可选应用。</p>
             <div className="divide-y divide-[#eee]">
               {CHARACTER_PHONE_SOCIAL_APPS.map(appId=><label key={appId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
@@ -754,6 +779,8 @@ ${scheduleContext}
               {installBusy?'正在分析安装…':'重新分析（会覆盖当前的安装选择）'}
             </button>
           </section>
+          </PhoneSettingsGroup>}
+          {settingsMatch("API 模型 Key 地址 独立 查手机 接口") && <PhoneSettingsGroup title="查手机独立 API" searching={!!settingsQuery}>
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <label className="flex items-center justify-between gap-3 text-sm">
               <span><span className="block font-semibold">查手机独立 API</span>
@@ -784,14 +811,18 @@ ${scheduleContext}
               </p>
             </div>}
           </section>
+          </PhoneSettingsGroup>}
+          {settingsMatch("自主 真人感 生活 NPC 自动 总开关") && <PhoneSettingsGroup title="Char 手机自主生活" searching={!!settingsQuery}>
           <label className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-4 text-sm">
             <span className="space-y-1"><span className="block font-semibold text-[#222]">Char 手机自主生活</span>
               <span className="block text-xs leading-5 text-[#777]">NPC 微信续聊、朋友圈、浏览器与个人资料的总开关</span></span>
             <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={npcAutonomyEnabled}
               onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/>
           </label>
+          </PhoneSettingsGroup>}
+          {settingsMatch("AI 频率 额度 预算 高 中 低 省额度 均衡 活跃 自定义 间隔") && <PhoneSettingsGroup title="AI 自主调用频率" searching={!!settingsQuery}>
           <section className="space-y-4 rounded-2xl bg-white p-4">
-            <div><h3 className="text-sm font-semibold">AI 自主调用频率</h3>
+            <div><h3 className="sr-only">AI 自主调用频率</h3>
               <p className="mt-1 text-xs leading-5 text-[#888]">此角色的所有查手机自主功能共用额度，手动生成不占用该预算。</p>
             </div>
             <div className="grid grid-cols-4 gap-1.5 text-xs">
@@ -825,6 +856,8 @@ ${scheduleContext}
               {budgetInfo.remaining===0&&<p>今日已达到上限，按设备当地日期自动重置。</p>}
             </div>
           </section>
+          </PhoneSettingsGroup>}
+          {settingsMatch("百度 搜索 浏览器 头像 个人资料 戳一戳 后缀") && <PhoneSettingsGroup title="其他自主功能" searching={!!settingsQuery}>
           <section className="divide-y divide-[#eee] rounded-2xl bg-white px-4">
             <label className="flex items-center justify-between gap-3 py-4 text-sm">
               <span><span className="block font-medium">Char 自主搜百度</span>
@@ -839,7 +872,8 @@ ${scheduleContext}
                 onChange={e=>changePhonePrefs({selfProfileAutoEnabled:e.target.checked})}/>
             </label>
           </section>
-          <CharacterPhoneClearManager characterId={characterId} disabled={busy||sharedWechatRefreshing||npcMomentLoading}/>
+          </PhoneSettingsGroup>}
+          {settingsMatch('清除 管理 删除 数据 清理 备忘录 钱包 账号 浏览')&&<CharacterPhoneClearManager characterId={characterId} disabled={busy||sharedWechatRefreshing||npcMomentLoading}/>}
           <p className="px-2 text-xs leading-5 text-[#888]">
             默认省额度。自定义仅调整共享 API 预算；微信、浏览器和个人资料仍有独立冷却，避免空转刷请求。只有应用在前台且 Char 的日程允许时才检查；不会在网页关闭后持续请求。
             手动刷新和显式点击的生成按钮仍可使用聊天 API。主动消息 2.0 使用原来独立的机制，不受这里的预算影响。
