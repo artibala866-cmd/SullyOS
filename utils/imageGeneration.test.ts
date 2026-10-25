@@ -169,3 +169,22 @@ describe('legacy relay response compatibility', () => {
     expect(fetchMock.mock.calls[0][1].body.get('input_fidelity')).toBe('high');
   });
 });
+
+describe('FoxAPI GPT Image 2 photo sending compatibility', () => {
+  it('converts the original 832x1216 defaults to a FoxAPI-supported GPT Image 2 output size', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const image = await generateCharacterImage({
+      ...config, provider: 'openai', baseUrl: 'https://foxapi.chat',
+      model: 'gpt-image-2', width: 832, height: 1216,
+    }, { appearance: 'street photo on a rainy evening', reference: '' });
+    expect(image.size).toBe(5);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://foxapi.chat/v1/images/generations');
+    const params = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(params.size).toBe('1024x1536');
+    expect(params.model).toBe('gpt-image-2');
+    expect(params.prompt).toContain('street photo');
+  });
+});
