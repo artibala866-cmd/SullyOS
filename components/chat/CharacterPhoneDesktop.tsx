@@ -11,8 +11,8 @@ import {
 } from '../../utils/characterPhoneAppearance';
 
 export type PhoneHomeTarget='wechat'|'memo'|'browser'|'beautify'|'calls'|'sms'|'gallery'|'settings'|'wallet'|'profile'|CharacterPhoneSocialAppId;
-const PAPER='rounded-[26px] border border-white/80 bg-white/65 shadow-[0_10px_34px_rgba(58,58,58,0.08),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-lg';
-const ICON='flex h-[59px] w-[59px] items-center justify-center rounded-[19px] border border-white/90 bg-gradient-to-br from-white via-[#f8f8f8] to-[#e9e9e9] text-[#444] shadow-[0_5px_13px_rgba(0,0,0,.09),inset_0_1px_2px_white]';
+const PAPER='rounded-[23px] border border-white/80 bg-white/65 shadow-[0_10px_34px_rgba(58,58,58,0.08),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-lg';
+const ICON='flex h-[52px] w-[52px] items-center justify-center rounded-[17px] border border-white/90 bg-gradient-to-br from-white via-[#f8f8f8] to-[#e9e9e9] text-[#444] shadow-[0_5px_13px_rgba(0,0,0,.09),inset_0_1px_2px_white]';
 const PRESETS:Record<PhoneAppearance['preset'],string>={
   mist:'radial-gradient(ellipse at 12% 12%,#fff 0%,transparent 46%),radial-gradient(ellipse at 95% 75%,#fff 0%,transparent 56%),repeating-linear-gradient(121deg,transparent 0px,transparent 20px,#d3d3d3 21px,transparent 22px),linear-gradient(145deg,#f1f1f1,#dddddd 50%,#f5f5f5)',
   paper:'radial-gradient(circle at 72% 20%,#fff 0%,transparent 53%),repeating-linear-gradient(30deg,transparent 0px,transparent 33px,#e7e7e7 34px,transparent 35px),linear-gradient(155deg,#f8f8f8,#e9e9e9)',
@@ -37,11 +37,11 @@ function Wallpaper({appearance,children,className=''}:{appearance:PhoneAppearanc
   return <div className={'relative isolate overflow-hidden '+className} style={{backgroundImage,backgroundSize:'cover',backgroundPosition:'center'}}>
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-30"
       style={{backgroundImage:'radial-gradient(#fff 1px,transparent 1px)',backgroundSize:'19px 19px'}}/>
-    <div className="relative z-[1] flex min-h-full flex-col">{children}</div>
+    <div className="relative z-[1] flex h-full min-h-0 flex-col">{children}</div>
   </div>;
 }
 function Polaroids({left,right,name,userName}:{left?:string;right?:string;name:string;userName:string}){
-  return <div className="relative mx-auto h-[175px] w-full max-w-[190px]" aria-label="双照片拍立得组件">
+  return <div className="relative mx-auto h-[145px] w-full max-w-[171px]" aria-label="双照片拍立得组件">
     <div className="absolute left-[3%] top-[17px] w-[66%] -rotate-[9deg] rounded-sm border border-[#eee] bg-white p-[7px] pb-[27px] shadow-[0_8px_16px_rgba(40,40,40,.17)]">
       <PhoneAvatar src={left} name={name} className="aspect-[.9] w-full bg-[#d9d9d9] text-xl"/>
       <div className="pt-1 text-center font-serif text-[9px] italic text-[#999]">a little story</div>
@@ -72,7 +72,7 @@ function Couple({name,userName,owner,user,anniversary}:{name:string;userName:str
         <PhoneAvatar src={user} name={userName} className="h-[49px] w-[49px] rounded-full text-sm"/>
       </div>
     </div>
-    <span className="mt-4 whitespace-nowrap text-[11px] tracking-wider text-[#777]">我们已经相爱</span>
+    <span className="mt-4 whitespace-nowrap text-[10px] tracking-wider text-[#777]">我们已经相爱</span>
     <strong className="mt-1 font-serif text-[32px] font-semibold leading-none tabular-nums text-[#454545]">{days??'—'}</strong>
     <span className="mt-1 text-[10px] font-medium tracking-[.22em] text-[#929292]">{days===null?'设置纪念日':'DAYS'}</span>
     <span aria-hidden="true" className="mt-1 text-[12px] text-[#aaa]">♡</span>
@@ -116,35 +116,35 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
   const startX=useRef<number|null>(null);
   useEffect(()=>setPage(0),[characterId]);
   const dateText=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
-  return <Wallpaper appearance={appearance} className="min-h-full">
+  return <Wallpaper appearance={appearance} className="h-full">
     <div className="flex items-center justify-between px-4 pb-2 pt-3">
       <button type="button" aria-label="退出查手机" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/75 bg-white/65 text-[#555]"><ArrowLeft size={18}/></button>
       <span className="truncate px-2 text-[11px] tracking-[.15em] text-[#777]">{name} · PHONE</span>
       <button type="button" aria-label="查手机美化" onClick={()=>onOpen('beautify')} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/75 bg-white/65 text-[#555]"><PaintBrush size={17}/></button>
     </div>
-    <div className="flex-1 px-4 pb-3" onTouchStart={e=>{startX.current=e.touches[0].clientX;}}
+    <div className="min-h-0 flex-1 overflow-hidden px-3 pb-1" onTouchStart={e=>{startX.current=e.touches[0].clientX;}}
       onTouchEnd={e=>{if(startX.current===null)return;const dx=e.changedTouches[0].clientX-startX.current;startX.current=null;if(Math.abs(dx)>75)setPage(dx<0?1:0);}}>
-      {page===0?<div className="space-y-3.5">
+      {page===0?<div className="space-y-2">
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-3">
-          <section className={PAPER+' flex min-h-[166px] min-w-0 flex-col items-center justify-center gap-2 px-2 py-3'}>
-            <PhoneAvatar src={avatar} name={name} className="h-[83px] w-[83px] rounded-full border-[3px] border-white/85 text-2xl shadow-md"/>
+          <section className={PAPER+' flex min-h-[140px] min-w-0 flex-col items-center justify-center gap-2 px-2 py-3'}>
+            <PhoneAvatar src={avatar} name={name} className="h-[70px] w-[70px] rounded-full border-[3px] border-white/85 text-2xl shadow-md"/>
             <strong className="max-w-full truncate px-1 text-[13px] font-medium tracking-wider text-[#555]">{name}</strong>
             <div className="flex w-[90%] items-center justify-center gap-1.5 rounded-full border border-white/90 bg-white/65 px-2 py-1.5 text-[11px] text-[#777]"><MapPin size={13}/><span className="max-w-[88px] truncate">{appearance.location||'未设置地点'}</span></div>
           </section>
           <Polaroids left={appearance.polaroidLeft||avatar} right={appearance.polaroidRight||userAvatar||avatar} name={name} userName={userName}/>
         </div>
-        <section className={PAPER+' p-4'}>
+        <section className={PAPER+' p-3'}>
           <div className="flex items-center gap-3">
             <PhoneAvatar src={avatar} name={name} className="h-10 w-10 rounded-full text-sm"/>
             <div className="min-w-0 flex-1"><strong className="block truncate text-[13px] font-medium text-[#555]">{name}</strong>
               <p className="mt-0.5 truncate text-[11px] text-[#888]">{appearance.caption||'记录生活里不经意的小事'}</p></div>
             <span aria-hidden="true" className="text-lg text-[#aaa]">···</span>
           </div>
-          <p className="my-4 text-center text-[13px] leading-6 tracking-[.06em] text-[#5c5c5c]">{appearance.quote||'总有一些细碎的日常，值得被好好收藏。'}</p>
+          <p className="my-2 text-center text-[12px] leading-5 tracking-[.06em] text-[#5c5c5c]">{appearance.quote||'总有一些细碎的日常，值得被好好收藏。'}</p>
           <div className="rounded-full border border-white/90 bg-white/50 px-3 py-2 text-center text-[11px] text-[#777]">{dateText}</div>
         </section>
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 pt-2">
-          <div className="grid grid-cols-2 gap-x-1 gap-y-5">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-2 pt-1">
+          <div className="grid grid-cols-2 gap-x-1 gap-y-3">
             <Shortcut label="微信" Icon={ChatCircleDots} onClick={()=>onOpen('wechat')}/>
             <Shortcut label="备忘录" Icon={NotePencil} onClick={()=>onOpen('memo')}/>
             <Shortcut label="浏览器" Icon={Globe} onClick={()=>onOpen('browser')}/>
@@ -152,7 +152,7 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
           </div>
           <Couple name={name} userName={userName} owner={avatar} user={userAvatar||avatar} anniversary={appearance.anniversary}/>
         </div>
-        <div aria-hidden="true" className="flex items-center justify-between gap-2 px-2 pt-4">
+        <div aria-hidden="true" className="flex items-center justify-between gap-2 px-2 pt-1">
           <div className="max-w-[48%] rounded-[18px] rounded-bl-sm border border-white/80 bg-white/60 px-3 py-2 text-[10px] text-[#777]">有些心事，留在这里。</div>
           <div className="max-w-[48%] rounded-[18px] rounded-br-sm border border-white/80 bg-white/70 px-3 py-2 text-[10px] text-[#777]">A little closer to you.</div>
         </div>
@@ -176,11 +176,11 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
         {installPlan?.reason&&<p className="px-3 text-xs leading-5 text-[#777]">安装偏好：{installPlan.reason}</p>}
       </div>}
     </div>
-    <div className="mb-3 mt-1 flex items-center justify-center gap-2" aria-label="查手机桌面页码">
+    <div className="mb-2 mt-0 flex items-center justify-center gap-2" aria-label="查手机桌面页码">
       {[0,1].map(i=><button type="button" key={i} onClick={()=>setPage(i)} aria-label={'打开第'+(i+1)+'页'}
         aria-current={page===i?'page':undefined} className={'h-2 rounded-full transition-all '+(page===i?'w-5 bg-[#555]':'w-2 bg-[#bdbdbd]')}/>)}
     </div>
-    <nav aria-label="电话短信相册快捷栏" className={PAPER+' mx-4 mb-4 grid shrink-0 grid-cols-3 items-center gap-2 px-4 py-3'}>
+    <nav aria-label="电话短信相册快捷栏" className={PAPER+' mx-3 mb-2 grid shrink-0 grid-cols-3 items-center gap-2 px-4 py-2'}>
       <Shortcut label="电话" Icon={Phone} onClick={()=>onOpen('calls')}/>
       <Shortcut label="短信" Icon={ChatText} onClick={()=>onOpen('sms')}/>
       <Shortcut label="相册" Icon={Images} onClick={()=>onOpen('gallery')}/>
