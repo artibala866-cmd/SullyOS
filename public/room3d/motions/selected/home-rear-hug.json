@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "id": "home-rear-hug",
+  "duration": 5,
+  "actors": [
+    {
+      "duration": 5,
+      "times": [
+        0,
+        5
+      ],
+      "positions": [
+        0,
+        1,
+        -0.36,
+        0,
+        1,
+        -0.36
+      ],
+      "tracks": {
+        "hips": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "points": {},
+      "hipHeight": 1
+    },
+    {
+      "duration": 5,
+      "times": [
+        0,
+        5
+      ],
+      "positions": [
+        0,
+        1,
+        0.36,
+        0,
+        1,
+        0.36
+      ],
+      "tracks": {
+        "hips": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "points": {},
+      "hipHeight": 1
+    }
+  ]
+}
