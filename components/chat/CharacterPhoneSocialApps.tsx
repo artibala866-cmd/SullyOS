@@ -5,6 +5,8 @@ import {
   UsersThree, DotsThree, VideoCamera,
 } from '@phosphor-icons/react';
 import PhoneAvatar from './PhoneAvatar';
+import CharacterPhoneSocialContentPage from './CharacterPhoneSocialContentPage';
+import type {CharacterProfile,UserProfile,GroupProfile,RealtimeConfig} from '../../types';
 import {
   CHARACTER_PHONE_SOCIAL_APP_INFO,
   type CharacterPhoneSocialAppId,
@@ -134,13 +136,21 @@ function SocialBody({appId,tabId,name,avatar}:{appId:CharacterPhoneSocialAppId;t
 }
 /** Shell only. No fake posts, API requests, or autonomous effects are created here. */
 export default function CharacterPhoneSocialApps({
-  appId,ownerName,ownerAvatar,onBack,
+  appId,ownerName,ownerAvatar,onBack,char,userProfile,groups,realtimeConfig,api,
 }:{
   appId:CharacterPhoneSocialAppId;ownerName:string;ownerAvatar?:string;onBack:()=>void;
+  char:CharacterProfile;userProfile:UserProfile;groups:GroupProfile[];
+  realtimeConfig?:RealtimeConfig;api:{baseUrl:string;apiKey:string;model:string};
 }) {
   const tabs=ALL_TABS[appId];
   const [tabId,setTabId]=useState(tabs[0].id);
   useEffect(()=>{setTabId(ALL_TABS[appId][0].id);},[appId]);
+  // These two optional apps have independent content, cache and AI buttons.
+  if(appId==='weibo'||appId==='instagram'){
+    return <CharacterPhoneSocialContentPage appId={appId} char={char} userProfile={userProfile}
+      groups={groups} realtimeConfig={realtimeConfig} api={api}
+      ownerAvatar={ownerAvatar} onBack={onBack}/>;
+  }
   return <section className="flex min-h-full flex-col bg-white text-[#262626]">
     <header className="sticky top-0 z-10 flex min-h-[56px] items-center justify-between border-b border-[#ededed] bg-white/95 px-4 backdrop-blur-md">
       <button type="button" onClick={onBack} aria-label="返回查手机桌面" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#f2f2f2]"><ArrowLeft size={21}/></button>
