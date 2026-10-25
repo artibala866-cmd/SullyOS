@@ -2,7 +2,9 @@
 // left those displays rendering the same number of pixels as Balanced.
 export function roomPixelRatio(quality,deviceRatio,coarse=false){
  const dpr=Number.isFinite(deviceRatio)&&deviceRatio>0?deviceRatio:1;
- if(coarse)return Math.min(dpr,quality==='clear'?3:quality==='balanced'?2:1.5);
+ // On a 3x-density phone the old Clear mode shaded 9x as many pixels as 1x.
+ // Cap the drawing buffer without changing the user's chosen lighting/geometry tier.
+ if(coarse)return Math.min(dpr,quality==='clear'?1.8:quality==='balanced'?1.35:1);
  if(quality==='clear')return 1.5;
  return Math.min(dpr,quality==='balanced'?1:.75);
 }
