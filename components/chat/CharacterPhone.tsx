@@ -244,6 +244,8 @@ export default function CharacterPhone({
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
   const [moments, setMoments] = useState<CharacterMoment[]>(() => readCharacterMoments(characterId));
   const [momentBusy, setMomentBusy] = useState(false);
+  const [wechatSuiteBusy,setWechatSuiteBusy]=useState(false);
+  const [wechatSuiteNotice,setWechatSuiteNotice]=useState('');
   const [memoBusy,setMemoBusy]=useState(false);
   const [chatComposer,setChatComposer]=useState('');
   const [npcMomentLoading,setNpcMomentLoading]=useState(false);
@@ -597,7 +599,23 @@ ${scheduleContext}
     }catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{setMomentBusy(false);}
   };
-  const loadNpcMoments=async()=>{if(npcMomentLoading||sharedMomentsRefreshing||isCharacterPhoneRefreshing(characterId,'moments'))return;setNpcMomentLoading(true);setError('');try{await refreshNpcMoments(characterId,profiles,phoneApi);}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setNpcMomentLoading(false);}};
+  const loadNpcMoments=async()=>{if(npcMomentLoading||sharedMomentsRefreshing||isCharacterPhoneRefreshing(characterId,'moments'))return;setNpcMomentLoading(true);setError('');try{await refreshNpcMoments(characterId,readNpcProfiles(characterId),phoneApi);}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setNpcMomentLoading(false);}};
+  const generateFullWechatManually=async()=>{
+    if(wechatSuiteBusy||busy||sharedWechatRefreshing||npcMomentLoading||momentBusy)return;
+    if(!phoneApi.baseUrl||!phoneApi.model||!phoneApi.apiKey){
+      setError('请先在查手机设置中配置可用的 API');return;
+    }
+    setWechatSuiteBusy(true);setWechatSuiteNotice('');
+    try{
+      // One explicit user action; reuse all three existing generation entrypoints.
+      // Each part saves its own results; a failed part cannot erase old content.
+      await generateInbox(false);
+      if(readNpcProfiles(characterId).length>0)await loadNpcMoments();
+      await letCharDecideMoment();
+      setWechatSuiteNotice('本次已完成微信会话、联系人识别与朋友圈的依次更新；Char 是否发动态由其人设决定。');
+    }catch(err){setWechatSuiteNotice(err instanceof Error?err.message:'本次批量生成未全部完成，可再试一次');}
+    finally{setWechatSuiteBusy(false);}
+  };
   const isPrivateThread = thread === 'private:' + characterId;
   const active = records.find(r => r.id === thread);
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
@@ -744,6 +762,31 @@ ${scheduleContext}
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <h3 className="sr-only">微信消息生成</h3>
             <p className="text-xs leading-5 text-[#888]">手动刷新采用一次批量请求，按 Char 的设定生成不同会话；不会为每条公众号通知单独调用 API。</p>
+            <div className="rounded-xl border border-[#e7e7e7] bg-[#fafafa] p-3">
+              <h4 className="text-[13px] font-semibold text-[#444]">一键生成微信内容</h4>
+              <p className="mt-1 text-xs leading-5 text-[#888]">手动：依次更新微信消息与联系人、NPC 朋友圈，再让 Char 决定是否发朋友圈。第一次建立内容，之后依据人设、日程和已保存聊天续写。原有的单项生成按钮保留。</p>
+              <button type="button" disabled={wechatSuiteBusy||busy||sharedWechatRefreshing||npcMomentLoading||momentBusy}
+                onClick={()=>void generateFullWechatManually()}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#343434] px-3 py-3 text-xs text-white disabled:opacity-40">
+                {wechatSuiteBusy&&<SpinnerGap size={16} className="animate-spin"/>}
+                {wechatSuiteBusy?'正在依次生成…':'手动一键生成微信全套'}
+              </button>
+              {wechatSuiteNotice&&<p role="status" className="mt-2 text-[11px] leading-5 text-[#666]">{wechatSuiteNotice}</p>}
+            </div>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ececec] bg-[#fafafa] px-3 py-3 text-xs">
+              <span className="min-w-0">
+                <strong className="block text-[13px] font-semibold text-[#444]">自动维护微信与朋友圈</strong>
+                <span className="mt-1 block leading-5 text-[#888]">开启后复用查手机自主生活的前台调度，按下方省额度／均衡／活跃频率轮流更新 NPC 微信、联系人与朋友圈。不会在打开微信瞬间生成，也不会在网页关闭后后台运行。</span>
+              </span>
+              <input type="checkbox" checked={inboxPrefs.autoFullWeChat}
+                onChange={e=>{
+                  updateInboxPrefs({autoFullWeChat:e.target.checked});
+                  if(e.target.checked&&!npcAutonomyEnabled){
+                    try{setCharacterPhoneAutonomyEnabled(characterId,true);setNpcAutonomyEnabled(true);}
+                    catch{setError('自主生活总开关保存失败，请在下方手动开启');}
+                  }
+                }} className="h-5 w-5 shrink-0 accent-[#444]"/>
+            </label>
             <label className="flex items-center justify-between gap-3 text-xs"><span>允许公众号／服务号推送</span>
               <input type="checkbox" checked={inboxPrefs.officialAccounts} onChange={e=>updateInboxPrefs({officialAccounts:e.target.checked})} className="h-5 w-5 accent-[#444]"/></label>
             <label className="flex items-center justify-between gap-3 text-xs"><span>允许虚构微信支付账单</span>
