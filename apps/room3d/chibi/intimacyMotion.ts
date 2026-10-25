@@ -3,6 +3,7 @@ import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
 import type {contactSolver} from './socialContact';
 import {poseHug} from './hugMotion';
+import {poseRearHug} from './rearHugMotion';
 import {settleLegContact} from './legContactIK';
 import {lipWorld,aimLipContact} from './headContactIK';
 
@@ -10,7 +11,7 @@ type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
 const rotation=(x=0,y=0,z=0)=>new T.Quaternion().setFromEuler(new T.Euler(x,y,z));
 export const isPrincessCarry=(id:string)=>id==='home-princess-carry'||id==='home-princess-carried';
-export const isIntimacy=(id:string)=>id==='home-hug'||id==='home-kiss'||isPrincessCarry(id);
+export const isIntimacy=(id:string)=>id==='home-hug'||id==='home-rear-hug'||id==='home-kiss'||isPrincessCarry(id);
 /** Reference-video phases, in elapsed seconds; neither role owns a separate clock. */
 export function intimacyPhase(action:string,time:number){
  const carry=isPrincessCarry(action);
@@ -25,6 +26,12 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
  const [a,b]=both.map(r=>r.visitor),p=intimacyPhase(action,time);
  if(!a.rig||!b.rig)return;
  if(action==='home-hug'){if(seatedIndex===0||seatedIndex===1)poseSeatedHug(both,time,seatedIndex);else poseHug(both,time);return;}
+ if(action==='home-rear-hug'){
+  // Separate reviewed adapter: original facing hug is not suitable from behind.
+  const fade=smooth(time,0,.35)*(1-smooth(time,4.45,5.0));
+  poseRearHug(both as [Resident,Resident],time,fade);
+  return;
+ }
  if(action==='home-kiss'){
   // First meet eyes, then slowly align heads; maintain the kiss before easing away.
   const hands=smooth(time,1.65,3.1)*(1-smooth(time,10.5,12));
