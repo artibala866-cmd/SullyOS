@@ -576,7 +576,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       }
       setTab('chats');
       if(!automatic)setWechatNotice('本次新增或续写了 '+incoming.length+' 条会话；官方通知和支付账单按设置独立保存。');
-    } catch(e){setError(e instanceof Error?e.message:String(e));}
+    } catch(e){if(fullSuite)throw e;setError(e instanceof Error?e.message:String(e));}
     finally{finishCharacterPhoneRefresh(characterId);setBusy(false);}
   };
   // Opening WeChat is read-only. No model requests simply for entering a tab.
