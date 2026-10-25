@@ -121,8 +121,11 @@ export function headPatHandGoal(
  const normal=lateral.clone().multiplyScalar(sign*x/(radius*radius))
   .addScaledVector(toward,-z/(depth*depth))
   .addScaledVector(scalpUp,cap/height).normalize();
- const direction=lateral.clone().multiplyScalar(sign)
-  .addScaledVector(toward,.13).normalize();
+ // A fingertip direction must lie in the scalp's tangent plane. Using
+ // the outward side vector for both normal AND finger direction made the
+ // rotation basis degenerate and turned the palm sideways/upward.
+ const direction=toward.clone().negate().addScaledVector(scalpUp,.24);
+ direction.addScaledVector(normal,-direction.dot(normal)).normalize();
  const shoulder=shoulders?.[side+'_upperArm']?.getWorldPosition(new T.Vector3());
  const elbow=shoulders?.[side+'_forearm']?.getWorldPosition(new T.Vector3());
  const wrist=shoulders?.[side+'_hand']?.getWorldPosition(new T.Vector3());
