@@ -145,6 +145,30 @@ export async function generateCharacterImage(
       sampler: config.sampler?.trim() || 'k_euler_ancestral',
       n_samples: 1, uc: config.negative || '', qualityToggle: true,
     };
+    // NovelAI V4/4.5 models require V4 caption envelopes in addition to the
+    // top-level prompt. Do not send the V4 fields to legacy NAI V3 models.
+    if (/^nai-diffusion-4/i.test(config.model.trim())) {
+      Object.assign(parameters, {
+        params_version: 3,
+        ucPreset: /nai-diffusion-4-5-full|nai-diffusion-4\\.5-full/i.test(config.model) ? 3 : 0,
+        negative_prompt: config.negative || '',
+        autoSmea: false,
+        dynamic_thresholding: false,
+        cfg_rescale: 0,
+        characterPrompts: [],
+        use_coords: false,
+        legacy_uc: false,
+        v4_prompt: {
+          caption: { base_caption: prompt, char_captions: [] },
+          use_coords: false,
+          use_order: true,
+        },
+        v4_negative_prompt: {
+          caption: { base_caption: config.negative || '', char_captions: [] },
+          legacy_uc: false,
+        },
+      });
+    }
     if (hasReference) {
       const reference = await readReference(profile.reference);
       if (!reference.type.startsWith('image/')) throw new Error('锁脸参考图不是有效图片');
