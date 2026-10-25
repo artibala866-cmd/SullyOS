@@ -41,8 +41,8 @@ export function saveCharacterPhoneSelfProfile(profile:PhoneSelfProfile):boolean 
   } catch {return false;}
 }
 
-/** Reuses Char's existing avatar library and emotion cache, not a second
- * mood system. Chooses only vision-described IDs. Updates the canonical
+/** Reuses Char's existing avatar library without a second mood system.
+ * Chooses only vision-described IDs. Updates the canonical
  * CharacterProfile.avatar through caller's existing updateCharacter pipeline.
  */
 export async function runCharacterPhoneSelfAutonomy(
@@ -69,8 +69,7 @@ export async function runCharacterPhoneSelfAutonomy(
     const life=await getCharacterLifeScheduleContext(char,new Date(now));
     if(!force && /睡觉|入睡|就寝|休息/.test(life.plannedActivity||''))
       return 'skipped';
-    // Update a single social profile + image together instead of two API
-    // requests fighting over the same character mood.
+    // Update a single social profile + image together without extra API calls.
     if(!force && !reservePhoneApiBudget(char.id))return 'skipped';
     localStorage.setItem(cooldownKey(char.id),String(now));
     const response=await fetch(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
