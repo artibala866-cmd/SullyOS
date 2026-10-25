@@ -33,6 +33,17 @@
     "hashes": []
   },
   {
+    "id": "home-sofa-lap-pillow",
+    "label": "沙发膝枕",
+    "category": "close",
+    "source": "SullyOS original paired seated lap pillow",
+    "sourceUrl": "",
+    "duration": 9.3,
+    "participants": 2,
+    "file": "home-sofa-lap-pillow.json",
+    "hashes": []
+  },
+  {
     "id": "home-head-pat",
     "label": "摸头",
     "category": "close",
