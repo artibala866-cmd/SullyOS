@@ -2,6 +2,7 @@
 import {beforeEach,describe,expect,it} from 'vitest';
 import {clearSelectedPhoneData,PHONE_CLEAR_GROUPS} from './characterPhoneClear';
 import {readCharacterPhoneChats} from './characterPhoneChats';
+import {recordCharacterLifeEvent,readCharacterLifeEvents} from './characterLifeEvents';
 beforeEach(()=>localStorage.clear());
 describe('selective Char phone cleanup',()=>{
  it('deletes only selected categories for one Char, retaining real DB and music keys',()=>{
@@ -45,7 +46,21 @@ describe('selective Char phone cleanup',()=>{
   expect(localStorage.getItem('sully_music_state_v1')).toBe('global music');
   expect(localStorage.getItem('sully_character_phone_social_snapshot_v1:owner:weibo')).toBe('old posts');
  });
- it('requires explicit groups; never has an automatic all-data erase',()=>{
+ it('drops only selected phone-origin events from short-term context',()=>{
+  const now=Date.now();
+  const life=(id:string,kind:'npc-chat'|'browser-search'|'moment-post'|'market-purchase',source:'phone'|'xiaohongshu'='phone')=>
+    recordCharacterLifeEvent({id,characterId:'owner',kind,source,occurredAt:now,summary:'saved event'});
+  life('phone-inbox','npc-chat');life('phone-search','browser-search');
+  life('phone-moment','moment-post');life('external-market','market-purchase','xiaohongshu');
+  recordCharacterLifeEvent({id:'other-char',characterId:'other',kind:'npc-chat',source:'phone',occurredAt:now,summary:'keep'});
+  const changed:unknown[]=[];
+  window.addEventListener('sully:character-life-events-changed',event=>changed.push((event as CustomEvent).detail),{once:true});
+  clearSelectedPhoneData('owner',['chats','browser']);
+  expect(readCharacterLifeEvents('owner').map(x=>x.id)).toEqual(['phone-moment','external-market']);
+  expect(readCharacterLifeEvents('other').map(x=>x.id)).toEqual(['other-char']);
+  expect(changed).toEqual([{characterId:'owner',pruned:true}]);
+ });
+  it('requires explicit groups; never has an automatic all-data erase',()=>{
   expect(clearSelectedPhoneData('owner',[])).toEqual([]);
   expect(PHONE_CLEAR_GROUPS.some(x=>x.id==='all')).toBe(false);
  });
