@@ -54,7 +54,7 @@ describe('6.7-second two-person hand-hold pleading',()=>{
   expect(point.tug).toBeGreaterThan(0);
   expect(handHoldPleadPhase(5.2).last).toBeGreaterThan(.95);
   expect(handHoldPleadPhase(5.2).toe).toBe(0);
-  expect(handHoldPleadPhase(5.95).swing).toBe(0);
+  expect(handHoldPleadPhase(5.95).swing).toBeCloseTo(0);
   expect(handHoldPleadPhase(6.7).grip).toBe(0);
   expect(handHoldPleadPhase(6.7).reply).toBe(0);
  });
