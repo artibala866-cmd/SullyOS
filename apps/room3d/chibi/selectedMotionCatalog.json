@@ -22,6 +22,17 @@
     "hashes": []
   },
   {
+    "id": "home-hand-hold-plead",
+    "label": "牵手撒娇",
+    "category": "close",
+    "source": "SullyOS original paired palm IK and grounded chibi pleading pose",
+    "sourceUrl": "",
+    "duration": 6.7,
+    "participants": 2,
+    "file": "home-hand-hold-plead.json",
+    "hashes": []
+  },
+  {
     "id": "home-head-pat",
     "label": "摸头",
     "category": "close",
