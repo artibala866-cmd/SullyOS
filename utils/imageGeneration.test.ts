@@ -144,3 +144,28 @@ describe('OpenAI relay URL and reference compatibility', () => {
     expect(fetchMock.mock.calls[1][1].referrerPolicy).toBe('no-referrer');
   });
 });
+
+describe('legacy relay response compatibility', () => {
+  it('requests base64 from DALL-E relays while respecting DALL-E output dimensions', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    await generateCharacterImage({ ...config, model: 'dall-e-3' }, profile);
+    const payload = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(payload.size).toBe('1024x1792');
+    expect(payload.response_format).toBe('b64_json');
+  });
+
+  it('supports relay-prefixed GPT 1.5 aliases for size and fidelity', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    await generateCharacterImage({ ...config, model: 'vendor/gpt-image-1.5' }, {
+      ...profile, reference: 'data:image/png;base64,' + png,
+    });
+    expect(fetchMock.mock.calls[0][1].body.get('size')).toBe('1024x1536');
+    expect(fetchMock.mock.calls[0][1].body.get('input_fidelity')).toBe('high');
+  });
+});
