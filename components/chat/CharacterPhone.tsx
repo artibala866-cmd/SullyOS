@@ -21,7 +21,7 @@ import PhoneAvatar from './PhoneAvatar';
 import PullToRefresh from './PullToRefresh';
 import PhoneChatBubbles from './PhoneChatBubbles';
 import { MomentsTimeline } from './MomentsTimeline';
-import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment, deleteCharacterMoment, type CharacterMoment } from '../../utils/characterPhoneMoments';
+import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment, deleteCharacterMoment, addMomentComment, type CharacterMoment } from '../../utils/characterPhoneMoments';
 import { PENDING_PHONE_CONTACTS_CHANGED, readPendingContacts, writePendingContacts, type PendingPhoneContact } from '../../utils/characterPhoneRequests';
 import { DB } from '../../utils/db';
 import { mirrorPrivateChat } from '../../utils/characterPhonePrivateSync';
@@ -52,6 +52,7 @@ import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from '../../utils/cha
 import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 import {readPhoneInboxPreferences,writePhoneInboxPreferences} from '../../utils/characterPhoneInboxPrefs';
+import {allowMomentComment} from '../../utils/momentInteractionPreferences';
 import {readMomentInteractionPreferences,writeMomentInteractionPreferences} from '../../utils/momentInteractionPreferences';
 import {appendSimulatedPhonePayments} from '../../utils/characterPhonePayments';
 import {syncCharacterPhoneWalletPayments} from '../../utils/characterPhoneWallet';
@@ -375,7 +376,7 @@ export default function CharacterPhone({
     setAddingContact(false); setError(''); openContact(profile);
   };
   // Inbox generation is independent of the contacts list. A single call yields several threads.
-  const generateInbox = async (automatic = false) => {
+  const generateInbox = async (automatic = false, fullSuite = false) => {
     const prefs=readPhoneInboxPreferences(characterId);
     if (!automatic && (!phoneApi.apiKey||!phoneApi.baseUrl||!phoneApi.model)){
       setError('微信生成需要聊天 API，请先在微信 → 我 → 设置中检查查手机独立 API 或默认聊天 API');
@@ -405,8 +406,9 @@ ${scheduleContext}
 这是增量更新，不是初始化或重建。优先挑选已有会话延续对话，根据偏好 chatDensity 设置消息数量：compact 每条会话1-3条、normal 2-5条、rich 4-9条。手动生成可适量包含更多类型的会话，背景刷新要节制。只有生活情境需要时才新增联系人或通知。不得重述、改写或重新生成已有消息，不得复制历史聊天气泡。涵盖真实生活中合适的亲友、学校/工作、普通事务、群通知、公众号和服务通知，不强制每类出现。不是所有人都热情友善；允许简短、冷淡、忙碌、无回复，禁止无意义互夸和装乖。仅模拟手机内容，不将模拟内容冒充真人感已经发生的事件。
 当 officialAccounts=true 时，允许1~3条贴合人物的公众号、服务号、物流、工作学校、微信支付等官方信息；使用kind=service，服务号不属于Char的NPC朋友圈，不许捏造真实新闻内容。officialAccounts=false时不生成服务号。
 当 paymentNotices=true 时，可新增0~3笔符合角色生活和经济状况的【虚构】微信支付消费。paymentNotices=false则payments为空数组。不能编造User实际转账或收款，不得从日程计划推断已付款，不得造重大金额。退款暂不生成。payments字段每笔 {"title":"商家/消费","kind":"expense","amount":12.5,"category":"日常","detail":"Char自己的消费"}，amount必须为0到5000的人民币正数。系统会自动将它记入微信支付通知及虚构账单，千万不要再在threads里重复写相同消费通知。
+${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶层 moments:{"npcPosts":[{"authorId":"已知联系人稳定ID","text":"新动态","comments":[{"authorId":"与作者确实认识的现有联系人ID或CharID","text":"独立评论"}]}],"charPost":{"publish":false,"text":""}}。只可让现有 NPC 和 Char 根据性格、已发生事件决定发不发；不能写 User 帖子。最多3条NPC贴、每条2条评论，Char可以不发。最近已有动态避免重复：${JSON.stringify(readCharacterMoments(characterId).slice(0,10).map(p=>({authorId:p.authorId,text:p.text.slice(0,120)}))).slice(0,1800)}。同一JSON内附上 moments，不可拆成多个响应；不新增单独 API 调用。` : ''}
 严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","speechStyle":"惯用口气","boundary":"交往边界","relationship":"与Char的关系","background":"背景","origin":"known|introduced|stranger","kind":"npc|group|service","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}],"payments":[{"title":"商家/消费","kind":"expense","amount":12.5,"category":"日常","detail":"具体消费"}]}。已认识的人用known；新认识但已互相交流用introduced；陌生人用stranger。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
-          {role:'user',content:'根据手机主人自己的生活和已有上下文，增量更新现有微信收件箱：优先续写已有联系人对话，适量补充新通知或新联系人。不得重复已有聊天。'}
+          {role:'user',content:'根据手机主人自己的生活和已有上下文，增量更新现有微信收件箱：优先续写已有联系人对话，适量补充新通知或新联系人。不得重复已有聊天。'+(fullSuite?' 同一轮顺便根据现有熟人关系生成可选朋友圈 moments；不强求发帖。':'')}
         ]})
       }, { charId: characterId, purpose: '微信收件箱批量更新', automatic: automatic });
       if(!response.ok) throw new Error(json?.error?.message || 'HTTP '+response.status);
@@ -533,6 +535,45 @@ ${scheduleContext}
           summary:(newMessages.some(m=>m.speaker.role==='owner') ? '已保存的微信对话：' : '已收到但尚未回复的微信消息：')+newMessages.slice(-12).map(m=>(m.speaker.role==='owner'?name:thread.name)+'：'+m.text.trim()).join('；').slice(0,1200)
         });
       }
+      // The manual full-suite response includes its own Moments without an
+      // additional paid request. No posts are generated for User or unknown IDs.
+      if(fullSuite&&data.moments&&typeof data.moments==='object'){
+        try{
+          const known=readNpcProfiles(characterId);
+          const listed=readCharacterMoments(characterId);
+          const posts=Array.isArray(data.moments.npcPosts)?data.moments.npcPosts.slice(0,3):[];
+          for(const item of posts){
+            if(!item||typeof item.text!=='string'||!item.text.trim())continue;
+            const author=known.find(person=>person.id===item.authorId);
+            if(!author)continue;
+            const text=item.text.trim().slice(0,1200);
+            if(listed.some(old=>old.authorId===author.id&&old.text.trim()===text))continue;
+            const post=publishCharacterMoment({characterId,authorId:author.id,origin:'npc',text,imageUrls:[],visibility:'all'});
+            if(!post)continue;
+            const comments=Array.isArray(item.comments)?item.comments.slice(0,2):[];
+            for(const c of comments){
+              const actorId=typeof c?.authorId==='string'?c.authorId:'';
+              if(!actorId||actorId===author.id||typeof c?.text!=='string')continue;
+              const actor=known.find(x=>x.id===actorId);
+              if(actorId!==characterId&&(!actor||!author.mutualContactIds?.includes(actorId)||!actor.mutualContactIds?.includes(author.id)))continue;
+              const body=c.text.trim().slice(0,200),live=readCharacterMoments(characterId).find(p=>p.id===post.id);
+              if(!allowMomentComment(live?.comments||[],actorId,body))continue;
+              addMomentComment(characterId,post.id,{id:crypto.randomUUID(),authorId:actorId,text:body,createdAt:Date.now()});
+            }
+          }
+          const own=data.moments.charPost;
+          if(own?.publish===true&&typeof own.text==='string'&&own.text.trim()){
+            const text=own.text.trim().slice(0,1200);
+            const old=readCharacterMoments(characterId);
+            if(!old.some(post=>post.authorId===characterId&&!post.deletedAt&&
+              (post.text.trim()===text||Date.now()-post.createdAt<12*3600_000))){
+              const post=publishCharacterMoment({characterId,origin:'char',text,imageUrls:[],visibility:'all'});
+              if(post)recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',
+                occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+text.slice(0,100)});
+            }
+          }
+        }catch(error){console.warn('[CharacterPhone] suite moment partial save',error);}
+      }
       setTab('chats');
       if(!automatic)setWechatNotice('本次新增或续写了 '+incoming.length+' 条会话；官方通知和支付账单按设置独立保存。');
     } catch(e){setError(e instanceof Error?e.message:String(e));}
@@ -616,10 +657,8 @@ ${scheduleContext}
     try{
       // One explicit user action; reuse all three existing generation entrypoints.
       // Each part saves its own results; a failed part cannot erase old content.
-      await generateInbox(false);
-      if(readNpcProfiles(characterId).length>0)await loadNpcMoments();
-      await letCharDecideMoment();
-      setWechatSuiteNotice('已依次尝试刷新微信会话、联系人与朋友圈。部分角色可能选择不发动态，请在对应页面核对结果。');
+      await generateInbox(false,true);
+      setWechatSuiteNotice('本次只调用一次 API：同时生成微信会话、联系人及可选 NPC/Char 朋友圈；不强制发帖。');
     }catch(err){setWechatSuiteNotice(err instanceof Error?err.message:'本次批量生成未全部完成，可再试一次');}
     finally{setWechatSuiteBusy(false);}
   };
@@ -771,12 +810,12 @@ ${scheduleContext}
             <p className="text-xs leading-5 text-[#888]">手动刷新采用一次批量请求，按 Char 的设定生成不同会话；不会为每条公众号通知单独调用 API。</p>
             <div className="rounded-xl border border-[#e7e7e7] bg-[#fafafa] p-3">
               <h4 className="text-[13px] font-semibold text-[#444]">一键生成微信内容</h4>
-              <p className="mt-1 text-xs leading-5 text-[#888]">手动：依次更新微信消息与联系人、NPC 朋友圈，再让 Char 决定是否发朋友圈。第一次建立内容，之后依据人设、日程和已保存聊天续写。原有的单项生成按钮保留。</p>
+              <p className="mt-1 text-xs leading-5 text-[#888]">手动：只用一次 API 生成微信消息、联系人、NPC 朋友圈及 Char 的可选动态。第一次建立内容，之后依据人设、日程和已保存聊天续写。原有的单项生成按钮保留。</p>
               <button type="button" disabled={wechatSuiteBusy||busy||sharedWechatRefreshing||npcMomentLoading||momentBusy}
                 onClick={()=>void generateFullWechatManually()}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#343434] px-3 py-3 text-xs text-white disabled:opacity-40">
                 {wechatSuiteBusy&&<SpinnerGap size={16} className="animate-spin"/>}
-                {wechatSuiteBusy?'正在依次生成…':'手动一键生成微信全套'}
+                {wechatSuiteBusy?'正在一次生成…':'手动一键生成微信全套（1 次 API）'}
               </button>
               {wechatSuiteNotice&&<p role="status" className="mt-2 text-[11px] leading-5 text-[#666]">{wechatSuiteNotice}</p>}
             </div>
