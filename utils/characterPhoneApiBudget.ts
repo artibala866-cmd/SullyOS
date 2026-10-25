@@ -12,6 +12,8 @@ export type PhoneAutonomyPreferences = {
   customIntervalMinutes: number;
   browserAutoEnabled: boolean;
   selfProfileAutoEnabled: boolean;
+  /** Master switch for separately billed autonomous phone LLM calls. */
+  backgroundApiEnabled: boolean;
 };
 export type PhoneApiBudgetState = {
   day: string;
@@ -48,6 +50,7 @@ const defaults = ():PhoneAutonomyPreferences => ({
   customIntervalMinutes:35,
   browserAutoEnabled:true,
   selfProfileAutoEnabled:true,
+  backgroundApiEnabled:true,
 });
 function boundedInteger(value:unknown,fallback:number,min:number,max:number):number {
   return typeof value==='number' && Number.isFinite(value)
@@ -71,6 +74,7 @@ export function readPhoneAutonomyPreferences(characterId:string):PhoneAutonomyPr
       customIntervalMinutes:boundedInteger(raw?.customIntervalMinutes,35,5,180),
       browserAutoEnabled:raw?.browserAutoEnabled!==false,
       selfProfileAutoEnabled:raw?.selfProfileAutoEnabled!==false,
+      backgroundApiEnabled:raw?.backgroundApiEnabled!==false,
     };
   } catch {return defaults();}
 }
@@ -83,6 +87,7 @@ export function writePhoneAutonomyPreferences(characterId:string, updates:Partia
     customIntervalMinutes:boundedInteger(updates.customIntervalMinutes,old.customIntervalMinutes,5,180),
     browserAutoEnabled:typeof updates.browserAutoEnabled==='boolean'?updates.browserAutoEnabled:old.browserAutoEnabled,
     selfProfileAutoEnabled:typeof updates.selfProfileAutoEnabled==='boolean'?updates.selfProfileAutoEnabled:old.selfProfileAutoEnabled,
+    backgroundApiEnabled:typeof updates.backgroundApiEnabled==='boolean'?updates.backgroundApiEnabled:old.backgroundApiEnabled,
   };
   localStorage.setItem(SETTINGS_PREFIX+characterId,JSON.stringify(next));
   if (typeof window!=='undefined') window.dispatchEvent(new CustomEvent(CHARACTER_PHONE_API_SETTINGS_CHANGED,{
@@ -115,7 +120,7 @@ export function readPhoneApiBudget(characterId:string, now=Date.now()):PhoneApiB
   };
 }
 export function canUsePhoneApiBudget(characterId:string,now=Date.now()):boolean {
-  if (!characterId || typeof localStorage==='undefined') return false;
+  if (!characterId || typeof localStorage==='undefined' || !readPhoneAutonomyPreferences(characterId).backgroundApiEnabled) return false;
   const budget=readPhoneApiBudget(characterId,now);
   return budget.remaining>0 && now>=budget.nextAllowedAt;
 }
