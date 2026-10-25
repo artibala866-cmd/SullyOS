@@ -1,5 +1,10 @@
 import PhoneMemo from './PhoneMemo';
 import CharacterAvatarLibraryModal from './CharacterAvatarLibraryModal';
+import CharacterPhoneSocialApps, {CharacterPhoneSocialIcon} from './CharacterPhoneSocialApps';
+import {CHARACTER_PHONE_INSTALL_CHANGED, CHARACTER_PHONE_SOCIAL_APPS, CHARACTER_PHONE_SOCIAL_APP_INFO,
+  readCharacterPhoneInstallPlan, generateCharacterPhoneInstallPlan, setCharacterPhoneSocialAppInstalled,
+  isCharacterPhoneSocialAppId, type CharacterPhoneInstallPlan, type CharacterPhoneSocialAppId,
+} from '../../utils/characterPhoneAppInstall';
 import { createPortal } from 'react-dom';
 import { readCharacterAvatarLibrary } from '../../utils/characterAvatarLibrary';
 import { readCharacterPhoneApiSettings, writeCharacterPhoneApiSettings, resolveCharacterPhoneApi } from '../../utils/characterPhoneApiConfig';
@@ -45,7 +50,7 @@ import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacter
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
-type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser' | 'profile';
+type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser' | 'profile' | CharacterPhoneSocialAppId;
 type ChatRecord = CharacterPhoneChat;
 type Api = { baseUrl: string; apiKey: string; model: string; visionApi?: VisionApiConfig };
 const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots, color:'bg-[#18c45b]' },{id:'memo' as const,label:'备忘录',Icon:NotePencil,color:'bg-[#e7a941]'},{id:'gallery' as const,label:'相册',Icon:Images,color:'bg-[#e58a69]'}];
@@ -65,6 +70,40 @@ export default function CharacterPhone({
   const changePhoneApiSettings=(updates:Partial<typeof phoneApiSettings>)=>{
     try {setPhoneApiSettings(writeCharacterPhoneApiSettings(characterId,updates));}
     catch {setError('查手机独立 API 保存失败');}
+  };
+
+  // Optional apps are chosen once per Char, never synthesized on every open.
+  const [installPlan,setInstallPlan] = useState<CharacterPhoneInstallPlan|null>(()=>readCharacterPhoneInstallPlan(characterId));
+  const [installBusy,setInstallBusy]=useState(false);
+  const [installNotice,setInstallNotice]=useState('');
+  const attemptedInstall=useRef('');
+  const runPhoneInstall=async(force=false)=>{
+    if(installBusy)return;
+    setInstallBusy(true);setInstallNotice('');
+    try{
+      const next=await generateCharacterPhoneInstallPlan({
+        char,user:userProfile,groups,realtimeConfig,api:phoneApi,
+      },force);
+      setInstallPlan(next);
+    }catch(e){setInstallNotice(e instanceof Error?e.message:'角色安装分析失败');}
+    finally{setInstallBusy(false);}
+  };
+  useEffect(()=>{
+    setInstallPlan(readCharacterPhoneInstallPlan(characterId));
+    const onChange=(event:Event)=>{
+      if((event as CustomEvent<{characterId:string}>).detail?.characterId===characterId)
+        setInstallPlan(readCharacterPhoneInstallPlan(characterId));
+    };
+    window.addEventListener(CHARACTER_PHONE_INSTALL_CHANGED,onChange);
+    if(attemptedInstall.current!==characterId){
+      attemptedInstall.current=characterId;
+      if(!readCharacterPhoneInstallPlan(characterId))void runPhoneInstall();
+    }
+    return()=>window.removeEventListener(CHARACTER_PHONE_INSTALL_CHANGED,onChange);
+  },[characterId]);
+  const changeSocialAppInstalled=(appId:CharacterPhoneSocialAppId,installed:boolean)=>{
+    try{setInstallPlan(setCharacterPhoneSocialAppInstalled(characterId,appId,installed));}
+    catch{setError('安装清单保存失败');}
   };
   const [avatarRevision, setAvatarRevision] = useState(0);
   useEffect(() => {
@@ -507,7 +546,7 @@ ${scheduleContext}
   return <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-2" role="dialog" aria-modal="true" aria-label={name + '的手机'}>
     <div className="flex h-[min(96dvh,850px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[28px] border-[5px] border-[#252525] bg-[#ededed] shadow-2xl">
       <PhoneStatusBar characterId={characterId}/>
-      {screen === 'home' ? <header className="flex items-center gap-3 px-4 py-3"><button onClick={onClose} aria-label="关闭"><ArrowLeft size={23}/></button><strong className="flex-1 text-center">{name}的手机</strong><span className="w-6"/></header> :
+      {screen === 'home' ? <header className="flex items-center gap-3 px-4 py-3"><button onClick={onClose} aria-label="关闭"><ArrowLeft size={23}/></button><strong className="flex-1 text-center">{name}的手机</strong><span className="w-6"/></header> : isCharacterPhoneSocialAppId(screen) ? null :
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器',profile:'个人资料' } as Record<string,string>)[screen]}</h2>
@@ -516,6 +555,8 @@ ${scheduleContext}
       <main className="min-h-0 flex-1 overflow-y-auto">
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
         {screen === 'home' && <div className="grid grid-cols-4 gap-4 p-6">{apps.map(({id,label,Icon,color:appColor})=><button key={id} onClick={()=>{setScreen(id);setTab('chats');}} className="flex flex-col items-center gap-2 text-xs"><span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${appColor} text-white`}><Icon size={31} weight="fill"/></span>{label}</button>)}</div>}
+        {isCharacterPhoneSocialAppId(screen) && <CharacterPhoneSocialApps key={screen}
+          appId={screen} ownerName={name} ownerAvatar={phoneAvatar} onBack={()=>setScreen('home')}/>}
         {screen === 'wechat' && tab === 'chats' && <div>
           {!hiddenPrivate && privateThread && <div className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(privateThread.id);setTouchX(null);}}>
             <button type="button" onClick={()=>{setThread(privateThread.id);setScreen('thread');}} className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#eee] px-4 py-3 text-left"><PhoneAvatar src={userProfile.perCharAvatars?.[characterId] || userProfile.avatar} name={userProfile.name} className="h-12 w-12 rounded-lg text-base"/><span className="min-w-0 flex-1"><span className="block truncate text-base">{userProfile.name} <small className="text-[#888]">真实私聊</small></span><span className="block truncate text-xs text-[#999]">{privatePreview?.text || '暂无私聊消息'}</span></span></button>{swipedId===privateThread.id&&<button type="button" onClick={()=>deleteChat(privateThread.id)} className="bg-red-500 px-4 text-white">删除</button>}
@@ -684,7 +725,7 @@ ${scheduleContext}
       {screen === 'thread' && active && !isPrivateThread && <form className="flex shrink-0 items-center gap-2 border-t border-[#ddd] bg-[#f8f8f8] px-3 py-3" onSubmit={e=>{e.preventDefault();const guidance=chatComposer;setChatComposer('');void generate(active.contactId||active.name,guidance);}}><input aria-label="聊天续写方向" placeholder="输入聊天方向（可留空）" value={chatComposer} onChange={e=>setChatComposer(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-sm outline-none"/><button type="submit" disabled={busy} className="shrink-0 rounded-lg bg-[#07b75b] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busy?'续写中…':'发送'}</button></form>}
       {screen === 'home' && <nav className="mx-4 mb-4 grid shrink-0 grid-cols-3 gap-4 rounded-3xl bg-white/70 px-5 py-4">{([{id:'calls',label:'电话',Icon:Phone,color:'bg-[#36bd61]'},{id:'sms',label:'短信',Icon:ChatText,color:'bg-[#4bc77d]'},{id:'browser',label:'浏览器',Icon:Globe,color:'bg-[#5598df]'}] as const).map(({id,label,Icon,color})=><button key={id} onClick={()=>setScreen(id)} className="flex flex-col items-center gap-1 text-xs"><span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-white ${color}`}><Icon size={27} weight="fill"/></span>{label}</button>)}</nav>}
       {screen === 'wechat' && <nav className="grid shrink-0 grid-cols-4 border-t border-[#ddd] bg-[#f8f8f8] py-2">{([{id:'chats',label:'微信',Icon:ChatCircleDots},{id:'contacts',label:'通讯录',Icon:UsersThree},{id:'discover',label:'发现',Icon:Compass},{id:'me',label:'我',Icon:User}] as const).map(({id,label,Icon})=><button key={id} onClick={()=>setTab(id)} className={`flex flex-col items-center gap-1 text-xs ${tab===id?'text-[#07b75b]':'text-[#222]'}`}><Icon size={26} weight={tab===id?'fill':'regular'}/>{label}</button>)}</nav>}
-      {screen !== 'wechat' && <footer className="flex shrink-0 justify-center border-t border-[#ddd] bg-[#fafafa] py-2"><button type="button" onClick={()=>setScreen('home')} aria-label="返回手机桌面"><House size={21}/></button></footer>}
+      {screen !== 'wechat' && !isCharacterPhoneSocialAppId(screen) && <footer className="flex shrink-0 justify-center border-t border-[#ddd] bg-[#fafafa] py-2"><button type="button" onClick={()=>setScreen('home')} aria-label="返回手机桌面"><House size={21}/></button></footer>}
     </div>
     {avatarLibraryOpen && createPortal(
       <CharacterAvatarLibraryModal characterId={characterId} defaultAvatar={char.avatar}
