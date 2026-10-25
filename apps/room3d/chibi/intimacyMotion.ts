@@ -28,7 +28,7 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
  if(action==='home-hug'){if(seatedIndex===0||seatedIndex===1)poseSeatedHug(both,time,seatedIndex);else poseHug(both,time);return;}
  if(action==='home-rear-hug'){
   // Separate reviewed adapter: original facing hug is not suitable from behind.
-  const fade=smooth(time,0,.35)*(1-smooth(time,4.45,5.0));
+  const fade=smooth(time,0,.35)*(1-smooth(time,6.95,7.5));
   poseRearHug(both as [Resident,Resident],time,fade);
   return;
  }
