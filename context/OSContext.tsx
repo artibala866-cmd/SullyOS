@@ -1883,9 +1883,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
       const root = document.documentElement;
       // Default fallback values match index.html
-      // UI highlights always remain neutral, including saved colorful theme preferences.
-      const h = 0;
-      const s = 0;
+      // Honor the saved appearance palette. The grayscale desktop remains grayscale
+      // through its own 0-saturation preset; other skins and manual dyes stay colored.
+      const h = Number.isFinite(theme.hue) ? theme.hue : 0;
+      const s = Number.isFinite(theme.saturation) ? theme.saturation : 0;
       const l = theme.lightness ?? 38;
       
       root.style.setProperty('--primary-hue', String(h));
