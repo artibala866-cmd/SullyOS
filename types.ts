@@ -122,7 +122,7 @@ export interface OSTheme {
   /** App 代码块加载较慢时是否显示加载柔光动画。默认开启；超时恢复页不受影响。 */
   appLoadingAnimationEnabled?: boolean;
   /** 桌面整体皮肤。已退役的动森与电子宠物旧值启动时迁移为 default。 */
-  skin?: 'default' | 'mobilegame' | 'companion' | 'homely';
+  skin?: 'default' | 'companion' | 'homely';
   /** 居家桌面配色；旧存档默认奶油杏橙，随主题保存。 */
   homelyPalette?: 'apricot' | 'blue' | 'rose' | 'lilac' | 'oat';
   /** 锁定居家陪伴对象；不跟随其他 App 的当前聊天角色切换。 */
