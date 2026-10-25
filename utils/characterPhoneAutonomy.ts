@@ -182,6 +182,11 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
   try {
     const state = readState(char.id, now);
     if (state.turnsToday >= 9 || state.attemptsToday >= 12 || now - state.lastAttemptAt < 18 * 60_000) return 'skipped';
+    // Check the character's own schedule BEFORE bootstrap or reserving any
+    // API call. The prior order could create new NPCs while Char was asleep.
+    const life = await getCharacterLifeScheduleContext(char, new Date(now));
+    const busyStatus = classifyLifeActivity(char.scheduleFeatureEnabled === false ? '' : (life.plannedActivity || ''));
+    if (busyStatus === 'sleep') return 'skipped';
     // Reserve the attempt BEFORE the network request. The app may be reopened or
     // multiple phone surfaces may ask for updates in the same time window.
     state.lastAttemptAt = now;
@@ -198,9 +203,6 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       contacts = readNpcProfiles(char.id);
     }
     if (!contacts.length) return 'skipped';
-    const life = await getCharacterLifeScheduleContext(char, new Date(now));
-    const busyStatus = classifyLifeActivity(char.scheduleFeatureEnabled === false ? '' : (life.plannedActivity || ''));
-    if (busyStatus === 'sleep') return 'skipped';
     const threads = readCharacterPhoneChats(char.id);
     const decision = chooseAction(char.id, contacts, threads, state, now, busyStatus === 'busy');
     if (!decision) return 'skipped';
