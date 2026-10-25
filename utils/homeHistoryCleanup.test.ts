@@ -46,9 +46,9 @@ it('removes messages, actions and legacy activity from home, private prompt and 
 });
 it('keeps the journal and its private-chat projection together if deletion transaction fails',async()=>{
  const char=owner([entry('should-stay')]);await DB.saveCharacter(char);
- const old=IDBObjectStore.prototype.delete;
- const restore=vi.spyOn(IDBObjectStore.prototype,'delete').mockImplementation(function(this:IDBObjectStore,...args:any[]){
-  if(this.name==='messages'){this.transaction.abort();return {} as IDBRequest;}
+ const old=IDBObjectStore.prototype.put;
+ const restore=vi.spyOn(IDBObjectStore.prototype,'put').mockImplementation(function(this:IDBObjectStore,...args:any[]){
+  if(this.name==='characters'){this.transaction.abort();return {} as IDBRequest;}
   return old.apply(this,args as any);
  });
  await expect(clearHomeHistory(char.id)).rejects.toThrow();
