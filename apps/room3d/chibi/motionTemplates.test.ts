@@ -9,12 +9,13 @@ const metadata=[{id:'new-pair',participants:2},{id:'new-solo',participants:1},{i
 const pair=()=>motionTemplatePresets.pairedHands({pairing:'sampledClosest',enter:[.6,1.1],exit:[1.7,2.2],curl:.3});
 describe('Stage 5 motion authoring contract',()=>{
  it('preserves original motion templates and eight visible categories as the catalog grows',()=>{
-  expect(selectedMotions).toHaveLength(45);
+  expect(selectedMotions).toHaveLength(46);
   expect(motionCapabilityKeys).toHaveLength(10);
-  expect(Object.keys(authoredMotionTemplates).sort()).toEqual(['home-head-pat','home-rear-hug']);
-  expect(Object.keys(motionTemplates).sort()).toEqual([...Object.keys(motionContactProfiles),'home-head-pat','home-rear-hug'].sort());
+  expect(Object.keys(authoredMotionTemplates).sort()).toEqual(['home-hand-hold-plead','home-head-pat','home-rear-hug']);
+  expect(Object.keys(motionTemplates).sort()).toEqual([...Object.keys(motionContactProfiles),'home-hand-hold-plead','home-head-pat','home-rear-hug'].sort());
   for(const [id,c] of Object.entries(motionContactProfiles))expect(motionTemplateContact(id)).toBe(c);
   expect(motionTemplateFor('home-hug')).toBeUndefined();
+  expect(motionTemplateFor('home-hand-hold-plead')?.capabilities).toEqual(['pairedSync','residentNavigation','handContact']);
   expect(motionTemplateFor('home-rear-hug')?.adapter).toBe('legacy');
   expect(motionTemplateFor('home-rear-hug')?.capabilities).toContain('armWrap');
   expect(motionTemplateFor('home-rear-hug')?.phases).toBeUndefined();
