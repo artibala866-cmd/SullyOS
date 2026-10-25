@@ -1,6 +1,7 @@
 import PhoneMemo from './PhoneMemo';
 import CharacterAvatarLibraryModal from './CharacterAvatarLibraryModal';
 import CharacterPhoneSocialApps, {CharacterPhoneSocialIcon} from './CharacterPhoneSocialApps';
+import {CharacterPhoneHome,CharacterPhoneLockScreen,CharacterPhoneBeautify,type PhoneHomeTarget} from './CharacterPhoneDesktop';
 import {CHARACTER_PHONE_INSTALL_CHANGED, CHARACTER_PHONE_SOCIAL_APPS, CHARACTER_PHONE_SOCIAL_APP_INFO,
   readCharacterPhoneInstallPlan, generateCharacterPhoneInstallPlan, setCharacterPhoneSocialAppInstalled,
   isCharacterPhoneSocialAppId, type CharacterPhoneInstallPlan, type CharacterPhoneSocialAppId,
@@ -50,10 +51,10 @@ import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacter
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
-type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser' | 'profile' | CharacterPhoneSocialAppId;
+type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser' | 'profile' | 'beautify' | CharacterPhoneSocialAppId;
 type ChatRecord = CharacterPhoneChat;
 type Api = { baseUrl: string; apiKey: string; model: string; visionApi?: VisionApiConfig };
-const apps = [{ id: 'wechat' as const, label: '微信', Icon: ChatCircleDots, color:'bg-[#18c45b]' },{id:'memo' as const,label:'备忘录',Icon:NotePencil,color:'bg-[#e7a941]'},{id:'gallery' as const,label:'相册',Icon:Images,color:'bg-[#e58a69]'}];
+
 const timeLabel = (time: number) => new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 export default function CharacterPhone({
   name, characterId, persona, api, onClose, char, userProfile, groups, realtimeConfig, onApplyAvatar, onPoke,
@@ -97,7 +98,7 @@ export default function CharacterPhone({
     window.addEventListener(CHARACTER_PHONE_INSTALL_CHANGED,onChange);
     if(attemptedInstall.current!==characterId){
       attemptedInstall.current=characterId;
-      if(!readCharacterPhoneInstallPlan(characterId))void runPhoneInstall();
+      // AI app-install analysis is deliberately deferred until lockscreen entry.
     }
     return()=>window.removeEventListener(CHARACTER_PHONE_INSTALL_CHANGED,onChange);
   },[characterId]);
@@ -118,6 +119,20 @@ export default function CharacterPhone({
     return lib.entries.find(entry => entry.id === lib.activeId)?.image || char.avatar;
   }, [characterId, char.avatar, avatarRevision]);
   const [screen, setScreen] = useState<Screen>('home');
+  const [phoneUnlocked,setPhoneUnlocked] = useState(false);
+  const settingsOrigin=useRef<'home'|'wechat'>('wechat');
+  const profileOrigin=useRef<'home'|'wechat'>('wechat');
+  useEffect(()=>{setPhoneUnlocked(false);setScreen('home');},[characterId]);
+  const unlockPhone=()=>{
+    setPhoneUnlocked(true);
+    if(!readCharacterPhoneInstallPlan(characterId))void runPhoneInstall();
+  };
+  const openHomeApp=(id:PhoneHomeTarget)=>{
+    if(id==='settings')settingsOrigin.current='home';
+    if(id==='profile')profileOrigin.current='home';
+    setScreen(id);
+    if(id==='wechat')setTab('chats');
+  };
   const [avatarLibraryOpen,setAvatarLibraryOpen] = useState(false);
   const [selfAutoBusy,setSelfAutoBusy] = useState(false);
   const [selfAutoNotice,setSelfAutoNotice] = useState('');
@@ -273,7 +288,7 @@ export default function CharacterPhone({
     try { updateCharacterPhoneChats(characterId, () => next); setRecords(next); return true; }
     catch { setError('存储空间不足，记录未能保存'); return false; }
   };
-  const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'memo' || screen === 'gallery' || screen === 'calls' || screen === 'sms' || screen === 'browser') setScreen('home'); else if(screen==='profile'){setScreen('wechat');setTab('me');} else if (screen === 'thread' || screen === 'moments' || screen === 'wallet' || screen === 'settings') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
+  const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'memo' || screen === 'gallery' || screen === 'calls' || screen === 'sms' || screen === 'browser' || screen === 'beautify') setScreen('home'); else if(screen==='profile'){setScreen(profileOrigin.current==='home'?'home':'wechat');setTab('me');} else if(screen==='settings'){setScreen(settingsOrigin.current==='home'?'home':'wechat');} else if (screen === 'thread' || screen === 'moments' || screen === 'wallet') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
   const fullPersona = [persona, char.worldview || '', ...(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content)].filter(Boolean).join('\n\n').slice(0, 24000);
   const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
   const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前生活状态，不等于必然在玩手机；不可凭空断言已发生社交行为。` : '目前没有可用的角色当日日程，不得编造当前行程。';
@@ -546,7 +561,9 @@ ${scheduleContext}
   return <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-2" role="dialog" aria-modal="true" aria-label={name + '的手机'}>
     <div className="flex h-[min(96dvh,850px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[28px] border-[5px] border-[#252525] bg-[#ededed] shadow-2xl">
       <PhoneStatusBar characterId={characterId}/>
-      {screen === 'home' ? <header className="flex items-center gap-3 px-4 py-3"><button onClick={onClose} aria-label="关闭"><ArrowLeft size={23}/></button><strong className="flex-1 text-center">{name}的手机</strong><span className="w-6"/></header> : isCharacterPhoneSocialAppId(screen) ? null :
+      {!phoneUnlocked ? <CharacterPhoneLockScreen characterId={characterId} name={name} avatar={phoneAvatar}
+        onUnlock={unlockPhone} onClose={onClose}/> : <>
+      {screen === 'home'||screen === 'beautify'||isCharacterPhoneSocialAppId(screen) ? null :
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器',profile:'个人资料' } as Record<string,string>)[screen]}</h2>
@@ -554,40 +571,11 @@ ${scheduleContext}
         </header>}
       <main className="min-h-0 flex-1 overflow-y-auto">
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
-        {screen === 'home' && <div>
-          {(installBusy || installNotice || (!installPlan && !installBusy)) && <section role="status" className="mx-5 mt-4 rounded-2xl border border-[#ddd] bg-white/90 p-4 text-sm text-[#333]">
-            <div className="flex items-center gap-3">
-              {installBusy?<SpinnerGap size={24} className="shrink-0 animate-spin"/>:<Plus size={24} className="shrink-0 text-[#777]"/>}
-              <div className="min-w-0 flex-1">
-                <strong className="block">{installBusy?'正在分析 Char 的安装偏好':'角色社交应用尚未安装'}</strong>
-                <span className="mt-1 block text-xs leading-5 text-[#888]">
-                  {installBusy?'根据角色人设与私聊经历选择适合的社交软件。':installNotice||'基础软件不受影响，可配置 API 后再完成首次安装。'}
-                </span>
-              </div>
-            </div>
-            {!installBusy&&!installPlan&&<button type="button" onClick={()=>void runPhoneInstall()}
-              className="mt-3 rounded-xl bg-[#333] px-4 py-2 text-xs text-white">重试首次分析</button>}
-          </section>}
-          {installPlan && <div className="mx-5 mt-4 rounded-2xl border border-white/70 bg-white/60 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <strong className="text-xs text-[#444]">Char 的私人应用</strong>
-              <span className="text-[11px] text-[#999]">{installPlan.installedAppIds.length} 款已安装</span>
-            </div>
-            {installPlan.reason&&<p className="mt-1 text-xs leading-5 text-[#777]">{installPlan.reason}</p>}
-          </div>}
-          <div className="grid grid-cols-4 gap-x-3 gap-y-5 px-5 py-6">
-            {apps.map(({id,label,Icon,color:appColor})=><button key={id} type="button" onClick={()=>{setScreen(id);setTab('chats');}}
-              className="flex min-w-0 flex-col items-center gap-2 text-xs text-[#333]">
-              <span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${appColor} text-white`}><Icon size={31} weight="fill"/></span>
-              <span className="truncate">{label}</span>
-            </button>)}
-            {(installPlan?.installedAppIds||[]).map(appId=><button key={appId} type="button" onClick={()=>setScreen(appId)}
-              className="flex min-w-0 flex-col items-center gap-2 text-xs text-[#333]">
-              <CharacterPhoneSocialIcon appId={appId}/>
-              <span className="w-full truncate text-center">{CHARACTER_PHONE_SOCIAL_APP_INFO[appId].label}</span>
-            </button>)}
-          </div>
-        </div>}
+        {screen === 'home' && <CharacterPhoneHome characterId={characterId} name={name} avatar={phoneAvatar}
+          userAvatar={userProfile.perCharAvatars?.[characterId]||userProfile.avatar} userName={userProfile.name}
+          installPlan={installPlan} installBusy={installBusy} installNotice={installNotice}
+          onOpen={openHomeApp} onRetryInstall={()=>void runPhoneInstall()} onClose={onClose}/>}
+        {screen === 'beautify' && <CharacterPhoneBeautify characterId={characterId} onBack={()=>setScreen('home')}/>}
         {isCharacterPhoneSocialAppId(screen) && <CharacterPhoneSocialApps key={screen}
           appId={screen} ownerName={name} ownerAvatar={phoneAvatar} onBack={()=>setScreen('home')}
           char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
@@ -618,13 +606,13 @@ ${scheduleContext}
         </div>}
         {screen === 'wechat' && tab === 'discover' && row('朋友圈',<Images size={23}/>,()=>setScreen('moments'))}
         {screen === 'wechat' && tab === 'me' && <div className="pt-4">
-           <button type="button" onClick={()=>setScreen('profile')} className="flex w-full items-center gap-4 bg-white px-5 py-5 text-left">
+           <button type="button" onClick={()=>{profileOrigin.current='wechat';setScreen('profile');}} className="flex w-full items-center gap-4 bg-white px-5 py-5 text-left">
              <PhoneAvatar src={phoneAvatar} name={name} className="h-16 w-16 rounded-xl text-xl"/>
              <span className="min-w-0 flex-1"><strong className="block truncate text-xl">{name}</strong>
                <span className="mt-1 block truncate text-xs text-[#999]">{selfProfile.pokeSuffix ? '戳一戳'+selfProfile.pokeSuffix : '查看我的资料与头像库'}</span>
              </span><span className="text-[#aaa]">›</span>
            </button>
-           <div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>setScreen('settings'))}</div>
+           <div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>{settingsOrigin.current='wechat';setScreen('settings');})}</div>
          </div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex items-start gap-2.5 '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><PhoneAvatar src={m.speakerId.startsWith('owner:') ? phoneAvatar : (userProfile.perCharAvatars?.[characterId] || userProfile.avatar)} name={m.speakerId.startsWith('owner:') ? name : userProfile.name} className="h-10 w-10 rounded-lg text-sm"/><div className={'relative max-w-[78%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}><span className={'absolute top-3 h-2.5 w-2.5 rotate-45 '+(m.speakerId.startsWith('owner:')?'-right-1 bg-[#95ec69]':'-left-1 bg-white')}/><span className="relative">{m.text}</span></div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
@@ -781,9 +769,9 @@ ${scheduleContext}
         </div>}
       </main>
       {screen === 'thread' && active && !isPrivateThread && <form className="flex shrink-0 items-center gap-2 border-t border-[#ddd] bg-[#f8f8f8] px-3 py-3" onSubmit={e=>{e.preventDefault();const guidance=chatComposer;setChatComposer('');void generate(active.contactId||active.name,guidance);}}><input aria-label="聊天续写方向" placeholder="输入聊天方向（可留空）" value={chatComposer} onChange={e=>setChatComposer(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-sm outline-none"/><button type="submit" disabled={busy} className="shrink-0 rounded-lg bg-[#07b75b] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busy?'续写中…':'发送'}</button></form>}
-      {screen === 'home' && <nav className="mx-4 mb-4 grid shrink-0 grid-cols-3 gap-4 rounded-3xl bg-white/70 px-5 py-4">{([{id:'calls',label:'电话',Icon:Phone,color:'bg-[#36bd61]'},{id:'sms',label:'短信',Icon:ChatText,color:'bg-[#4bc77d]'},{id:'browser',label:'浏览器',Icon:Globe,color:'bg-[#5598df]'}] as const).map(({id,label,Icon,color})=><button key={id} onClick={()=>setScreen(id)} className="flex flex-col items-center gap-1 text-xs"><span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-white ${color}`}><Icon size={27} weight="fill"/></span>{label}</button>)}</nav>}
       {screen === 'wechat' && <nav className="grid shrink-0 grid-cols-4 border-t border-[#ddd] bg-[#f8f8f8] py-2">{([{id:'chats',label:'微信',Icon:ChatCircleDots},{id:'contacts',label:'通讯录',Icon:UsersThree},{id:'discover',label:'发现',Icon:Compass},{id:'me',label:'我',Icon:User}] as const).map(({id,label,Icon})=><button key={id} onClick={()=>setTab(id)} className={`flex flex-col items-center gap-1 text-xs ${tab===id?'text-[#07b75b]':'text-[#222]'}`}><Icon size={26} weight={tab===id?'fill':'regular'}/>{label}</button>)}</nav>}
-      {screen !== 'wechat' && !isCharacterPhoneSocialAppId(screen) && <footer className="flex shrink-0 justify-center border-t border-[#ddd] bg-[#fafafa] py-2"><button type="button" onClick={()=>setScreen('home')} aria-label="返回手机桌面"><House size={21}/></button></footer>}
+      {screen !== 'wechat' && screen !== 'home' && screen !== 'beautify' && !isCharacterPhoneSocialAppId(screen) && <footer className="flex shrink-0 justify-center border-t border-[#ddd] bg-[#fafafa] py-2"><button type="button" onClick={()=>setScreen('home')} aria-label="返回手机桌面"><House size={21}/></button></footer>}
+      </>}
     </div>
     {avatarLibraryOpen && createPortal(
       <CharacterAvatarLibraryModal characterId={characterId} defaultAvatar={char.avatar}
