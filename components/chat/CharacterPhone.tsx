@@ -298,7 +298,7 @@ export default function CharacterPhone({
     window.addEventListener(CHARACTER_PHONE_REFRESH_CHANGED, handler);
     return () => window.removeEventListener(CHARACTER_PHONE_REFRESH_CHANGED, handler);
   }, [characterId]);
-  const autoAttempted = useRef('');
+
   const [error, setError] = useState('');
   const storageKey = 'sully_character_phone_wechat_v1:' + characterId;
   const [records, setRecords] = useState<ChatRecord[]>(() => readCharacterPhoneChats(characterId));
@@ -380,7 +380,7 @@ export default function CharacterPhone({
     try {
       const context = await loadRealContext();
       const existing = records.map(r => ({ id:r.contactId || r.id, name:r.name, recent:r.messages.slice(-6).map(m=>({role:m.speaker?.role,text:m.text})) }));
-      // Unlike an explicit tap, opening WeChat is a background decision;
+      // Only an explicit manual action or a budgeted scheduled runner may call this generator;
       // reserve one shared API token immediately before the provider call.
       if (automatic && !reservePhoneApiBudget(characterId)) return;
       const response = await fetch(phoneApi.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
@@ -612,7 +612,7 @@ ${scheduleContext}
       await generateInbox(false);
       if(readNpcProfiles(characterId).length>0)await loadNpcMoments();
       await letCharDecideMoment();
-      setWechatSuiteNotice('本次已完成微信会话、联系人识别与朋友圈的依次更新；Char 是否发动态由其人设决定。');
+      setWechatSuiteNotice('已依次尝试刷新微信会话、联系人与朋友圈。部分角色可能选择不发动态，请在对应页面核对结果。');
     }catch(err){setWechatSuiteNotice(err instanceof Error?err.message:'本次批量生成未全部完成，可再试一次');}
     finally{setWechatSuiteBusy(false);}
   };
