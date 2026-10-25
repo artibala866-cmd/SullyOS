@@ -28,17 +28,18 @@ describe('AI-free mood matching against saved vision captions',()=>{
     expect(findAvatarForMood(images,undefined,'开心但是很困倦')).toBeUndefined();
     expect(findAvatarForMood([images[2]],undefined,'开心')).toBeUndefined();
   });
-  it('only swaps opt-in saved avatars; repeated mood does not call APIs or thrash avatar',async()=>{
+  it('does not auto-swap while mood selection is paused; saved images remain untouched',async()=>{
     const smile=addCharacterAvatar('char','https://example.invalid/smile.jpg','upload',{
       description:'笑得很开心，阳光灿烂',model:'vision',
     });
     setAutonomousAvatarEnabled('char',true);
     const apply=vi.fn(async()=>{});
     expect(await chooseAvatarFromSavedMood('char','好开心！',apply)).toBe(false);
-    expect(apply).toHaveBeenCalledWith(smile.image);
-    expect(readCharacterAvatarLibrary('char').activeId).toBe(smile.id);
+    expect(apply).not.toHaveBeenCalled();
+    expect(readCharacterAvatarLibrary('char').entries.find(e=>e.id===smile.id)?.image).toBe(smile.image);
+    expect(readCharacterAvatarLibrary('char').activeId).toBeUndefined();
     expect(await chooseAvatarFromSavedMood('char','还是很开心！',apply)).toBe(false);
-    expect(apply).toHaveBeenCalledTimes(1);
+    expect(apply).not.toHaveBeenCalled();
     expect(await chooseAvatarFromSavedMood('another','开心',apply)).toBe(false);
   });
 });
