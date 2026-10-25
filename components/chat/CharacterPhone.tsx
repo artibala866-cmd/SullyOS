@@ -25,6 +25,7 @@ import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment
 import { PENDING_PHONE_CONTACTS_CHANGED, readPendingContacts, writePendingContacts, type PendingPhoneContact } from '../../utils/characterPhoneRequests';
 import { DB } from '../../utils/db';
 import { mirrorPrivateChat } from '../../utils/characterPhonePrivateSync';
+import {HOME_HISTORY_COMMITTED} from '../../utils/secretNote';
 import type { PhoneThreadV2 } from '../../utils/characterPhoneModel';
 import { buildCharacterPhoneContext } from '../../utils/characterPhoneContext';
 import type { UserProfile, GroupProfile, RealtimeConfig, VisionApiConfig } from '../../types';
@@ -233,8 +234,13 @@ export default function CharacterPhone({
     let active = true;
     const refresh = async () => { try { const messages = await DB.getMessagesByCharId(characterId, true); if(active) setPrivateThread(mirrorPrivateChat(characterId, messages)); } catch { /* private chat stays authoritative; never synthesize it */ } };
     void refresh();
+    const onHomeClear=(event:Event)=>{
+      const detail=(event as CustomEvent<{charId?:string;cleared?:boolean}>).detail;
+      if(detail?.cleared&&detail.charId===characterId)void refresh();
+    };
+    window.addEventListener(HOME_HISTORY_COMMITTED,onHomeClear);
     const timer = window.setInterval(refresh, 30_000);
-    return () => { active=false;window.clearInterval(timer); };
+    return () => { active=false;window.clearInterval(timer);window.removeEventListener(HOME_HISTORY_COMMITTED,onHomeClear); };
   }, [characterId, char, userProfile, groups, realtimeConfig]);
   useEffect(() => { try {setHiddenPrivate(localStorage.getItem('sully_phone_hide_private:'+characterId)==='1');} catch {} },[characterId]);
   const [contactId, setContactId] = useState('');
