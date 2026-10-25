@@ -1,7 +1,8 @@
 import {describe,expect,it} from 'vitest';
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
-import {furnitureHandRotation} from './furnitureMotion';
+import {furnitureHandRotation,furniturePalm} from './furnitureMotion';
+import {contactSolver} from './socialContact';
 import {selectedMotions,sampleSelected} from './selectedMotions';
 import {socialActions} from './selectedSocial';
 import {isIntimacy} from './intimacyMotion';
@@ -152,6 +153,47 @@ describe('6.7-second two-person hand-hold pleading',()=>{
   expect(snapshots[2].distanceTo(snapshots[3])).toBeGreaterThan(.075);
   expect(snapshots[3].distanceTo(snapshots[4])).toBeGreaterThan(.075);
   expect(snapshots[4].distanceTo(snapshots[5])).toBeGreaterThan(.07);
+ });
+ it('moves the actual two CCD-solved hands together instead of only shoulder bones',()=>{
+  function sample(t:number){
+   const make=(z:number,yaw:number)=>{
+    const root=new T.Group();root.position.z=z;root.rotation.y=yaw;
+    const base=new T.Bone();root.add(base);
+    const all=[base],bones:Record<string,T.Bone>={};
+    const add=(name:string,parent:T.Object3D,x:number,y:number,z:number)=>{
+     const bone=new T.Bone();bone.position.set(x,y,z);parent.add(bone);
+     bones[name]=bone;all.push(bone);return bone;
+    };
+    const spine=add('spine',base,0,1,0);
+    const chest=add('chest',spine,0,.19,0);
+    add('head',chest,0,.35,0);
+    for(const side of ['L','R'] as const){
+     const sign=side==='L'?1:-1;
+     const clav=add(side+'_clavicle',chest,sign*.09,.08,0);
+     const upper=add(side+'_upperArm',clav,sign*.15,0,0);
+     const fore=add(side+'_forearm',upper,sign*.39,0,0);
+     add(side+'_hand',fore,sign*.39,0,0);
+    }
+    const rig={bones,skeleton:new T.Skeleton(all),setHandCurl:()=>{}};
+    const visitor={root,rig,getHeadWorldPosition:()=>bones.head.getWorldPosition(new T.Vector3())}
+     as unknown as ChibiVisitor;
+    root.updateWorldMatrix(true,true);
+    return {visitor,solver:contactSolver(visitor)};
+   };
+   const a=make(.76,Math.PI),b=make(0,0);
+   expect(poseHandHoldPlead([a,b],t,1)).toBe(true);
+   const palm=(v:ChibiVisitor,side:'L'|'R')=>{
+    v.root.updateWorldMatrix(true,true);
+    return v.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side));
+   };
+   return {a:palm(a.visitor,'R'),b:palm(b.visitor,'L')};
+  }
+  const closed=sample(2.27),open=sample(2.59),closedAgain=sample(2.99);
+  expect(open.a.distanceTo(closed.a)).toBeGreaterThan(.06);
+  expect(open.b.distanceTo(closed.b)).toBeGreaterThan(.06);
+  expect(open.a.distanceTo(open.b)).toBeLessThan(.20);
+  expect(closedAgain.a.distanceTo(closed.a)).toBeLessThan(open.a.distanceTo(closed.a));
+  expect(closedAgain.b.distanceTo(closed.b)).toBeLessThan(open.b.distanceTo(closed.b));
  });
  it('faces actual palms towards each other on either side, through all yaw angles',()=>{
   for(const yaw of [0,.8,-1.5])for(const sign of [1,-1] as const){
