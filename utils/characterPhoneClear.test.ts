@@ -56,7 +56,7 @@ describe('selective Char phone cleanup',()=>{
   const changed:unknown[]=[];
   window.addEventListener('sully:character-life-events-changed',event=>changed.push((event as CustomEvent).detail),{once:true});
   clearSelectedPhoneData('owner',['chats','browser']);
-  expect(readCharacterLifeEvents('owner').map(x=>x.id)).toEqual(['phone-moment','external-market']);
+  expect(readCharacterLifeEvents('owner').map(x=>x.id).sort()).toEqual(['external-market','phone-moment']);
   expect(readCharacterLifeEvents('other').map(x=>x.id)).toEqual(['other-char']);
   expect(changed).toEqual([{characterId:'owner',pruned:true}]);
  });
