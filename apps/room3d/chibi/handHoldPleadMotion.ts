@@ -66,11 +66,32 @@ export function pleadContactTarget(
  const along=distance<1e-6?.5:clamp((distance+a-b)/(2*distance),.02,.98);
  const point=shoulderA.clone().lerp(shoulderB,along);
  const reachable=distance<=a+b;
- // The small downward hand placement is bounded by *both* remaining reaches.
  const room=Math.max(0,Math.min(a-shoulderA.distanceTo(point),b-shoulderB.distanceTo(point)));
- point.y-=Math.min(room*.6,.065);
- point.add(wave);
- return {point,reachable,deficit:Math.max(0,distance-a-b)};
+ point.y-=Math.min(room*.6,.045);
+ // Keep the moving joined palms in the intersection of both arm-reach spheres.
+ // Scale only the OUTWARD swing when one short arm approaches its limit.
+ const inside=(p:T.Vector3)=>p.distanceTo(shoulderA)<=a+1e-6&&p.distanceTo(shoulderB)<=b+1e-6;
+ let applied=1;
+ if(reachable&&wave.lengthSq()>1e-9&&!inside(point.clone().add(wave))){
+  let low=0,high=1;
+  for(let i=0;i<14;i++){
+   const mid=(low+high)*.5;
+   if(inside(point.clone().addScaledVector(wave,mid)))low=mid;
+   else high=mid;
+  }
+  applied=low;
+ }
+ point.addScaledVector(wave,applied);
+ return {point,reachable,deficit:Math.max(0,distance-a-b),appliedWave:applied};
+}
+
+/** A shared, clearly visible arc: the held hands open towards B's outer
+ * flank, then return together. Both actors solve the same moving goal.
+ */
+export function pleadHandSwingOffset(time:number,sign:1|-1,scale=1){
+ const p=handHoldPleadPhase(time);
+ return new T.Vector3(sign*.215*p.open,.024*p.open,-.034*p.open-.058*p.tug)
+  .multiplyScalar(scale);
 }
 
 /** Pair geometry: the local -Y side is the palm; +Y is the back. Opposing
