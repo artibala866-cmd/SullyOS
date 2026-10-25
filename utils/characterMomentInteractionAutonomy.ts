@@ -8,6 +8,8 @@ import {
 } from './characterPhoneMoments';
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { safeResponseJson, extractContent } from './safeApi';
+import { readMomentInteractionPreferences, MOMENT_INTERACTION_LIMITS, allowMomentComment } from './momentInteractionPreferences';
+import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
 
 /** Relationship-grounded social reactions for the character's existing Moments.
  * No fabricated User comments and no free-form anonymous participants.
@@ -16,7 +18,6 @@ import { safeResponseJson, extractContent } from './safeApi';
 type Api = { baseUrl: string; apiKey: string; model: string };
 const key = (charId: string) => 'sully_moments_interactions_v1:' + charId;
 const locks = new Set<string>();
-const MAX_POST_COMMENTS = 12;
 type State = { day: string; actions: number; attempts: number; lastAttempt: number; lastByPost: Record<string, number> };
 function stateFor(charId: string, now: number): State {
   const day = new Date(now).toLocaleDateString('en-CA');
@@ -34,14 +35,14 @@ function storeState(charId: string, state: State) {
   localStorage.setItem(key(charId), JSON.stringify(state));
 }
 function selectPost(
-  posts: CharacterMoment[], state: State, now: number, known: Set<string>,
+  posts: CharacterMoment[], state: State, now: number, known: Set<string>, maxComments:number, intervalMs:number,
 ): CharacterMoment | undefined {
   const eligible = posts.filter(post =>
     !post.deletedAt && post.visibility === 'all' &&
     now - post.createdAt <= 3 * 86400000 && post.createdAt <= now &&
     known.has(post.authorId) &&
-    (post.comments || []).filter(c => !c.deletedAt).length < MAX_POST_COMMENTS &&
-    now - (state.lastByPost[post.id] || 0) >= 2 * 3600000
+    (post.comments || []).filter(c => !c.deletedAt).length < maxComments &&
+    now - (state.lastByPost[post.id] || 0) >= intervalMs
   );
   // A recent real User comment (or a new NPC reply to Char) is a stronger
   // reason to revisit an existing discussion than another generic fresh post.
@@ -64,16 +65,19 @@ export async function runCharacterMomentInteractionAutonomy(input: {
   if (!char?.id || !api?.apiKey || !api.baseUrl || !api.model ||
     typeof document === 'undefined' || document.visibilityState !== 'visible' ||
     !isCharacterPhoneAutonomyEnabled(char.id)) return 'unavailable';
-  if (locks.has(char.id) || !canUsePhoneApiBudget(char.id)) return 'skipped';
+  const preferences=readMomentInteractionPreferences(char.id);
+  if (!preferences.enabled || locks.has(char.id) || !canUsePhoneApiBudget(char.id) ||
+      !canRunAutomaticPhoneAi(char.id,api.baseUrl.replace(/\/+$/,'')+'/chat/completions')) return 'skipped';
+  const limits=MOMENT_INTERACTION_LIMITS[preferences.pace];
   locks.add(char.id);
   const now = Date.now();
   try {
     const state = stateFor(char.id, now);
-    if (state.actions >= 10 || state.attempts >= 12 || now - state.lastAttempt < 20 * 60_000) return 'skipped';
+    if (state.actions >= limits.dailyActions || state.attempts >= limits.dailyAttempts || now - state.lastAttempt < preferences.intervalMinutes * 60_000) return 'skipped';
     const contacts = readNpcProfiles(char.id);
     if (!contacts.length) return 'skipped';
     const known = new Set([char.id, ...contacts.map(p => p.id)]);
-    const post = selectPost(readCharacterMoments(char.id), state, now, known);
+    const post = selectPost(readCharacterMoments(char.id), state, now, known,limits.maxPostComments,preferences.intervalMinutes*60_000);
     if (!post) return 'skipped';
     state.lastAttempt = now;
     state.attempts++;
@@ -98,8 +102,7 @@ export async function runCharacterMomentInteractionAutonomy(input: {
     if (!actors.length) return 'skipped';
     const publicComments = (post.comments || []).filter(c => !c.deletedAt).slice(-12);
     if (!reservePhoneApiBudget(char.id)) return 'skipped';
-    const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-      signal: AbortSignal.timeout(60_000),
+    const {response,json} = await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
       body: JSON.stringify({ model: api.model, stream: false, temperature: 0.75, messages: [
         { role: 'system', content: `你为虚构角色手机中的微信朋友圈做一轮自然互动决策。
@@ -113,23 +116,22 @@ NPC 只有真实在主人通讯录的人可以参与。关系冷淡的人可以�
 回复时 replyToId 必须精确复制已有评论ID，不能引用本轮尚未生成的评论。
 要符合角色关系和说话习惯；不能制造冲突人设的新事实或替User发消息。
 只能返回JSON：{"actions":[{"actorId":"参与人ID","type":"like|comment","text":"评论文字，点赞留空","replyToId":"回复已有评论ID，可留空"}]}。
-每轮最多2个动作；如果没必要互动，返回空数组。` },
+每轮最多${limits.maxActionsPerCall}个动作；允许不发言。相同文字不得再次出现；每人每条动态最多一次顶层留言和一次回复，回复不得再接龙。NPC可以在熟人或发帖人的留言下回复，但不要频繁围着同一帖子聊。` },
         { role: 'user', content: '根据帖子、已存在评论和熟人关系，决定这一轮自然发生的互动。' },
       ] }),
-    });
-    const json = await safeResponseJson(response);
+    },{charId:char.id,purpose:'朋友圈熟人互动',automatic:true});
     if (!response.ok) throw new Error(json?.error?.message || 'HTTP ' + response.status);
     const raw = extractContent(json).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed?.actions)) return 'skipped';
     let changed = 0;
     // Recheck live post after the request: the user might have deleted it.
-    for (const action of parsed.actions.slice(0, 2)) {
+    for (const action of parsed.actions.slice(0, limits.maxActionsPerCall)) {
       if (!action || typeof action.actorId !== 'string' ||
         !actors.some(a => a.id === action.actorId) || action.actorId === 'user') continue;
       const live = readCharacterMoments(char.id).find(p => p.id === post.id && !p.deletedAt);
       if (!live || live.visibility !== 'all' ||
-        (live.comments || []).filter(c => !c.deletedAt).length >= MAX_POST_COMMENTS) break;
+        (live.comments || []).filter(c => !c.deletedAt).length >= limits.maxPostComments) break;
       const actor = actors.find(a => a.id === action.actorId)!;
       // Authors may answer *existing* comments on their own post, but may not
       // like their own post or fabricate a top-level self-comment.
@@ -147,7 +149,7 @@ NPC 只有真实在主人通讯录的人可以参与。关系冷淡的人可以�
       // A reply to a removed or nonexistent public comment is invalid.
       if (replyToId && (!target || !(live.comments || []).some(c => c.id === replyToId && !c.deletedAt))) continue;
       if (target?.authorId === actor.id) continue; // no automatic self-conversations
-      if ((live.comments || []).some(c => c.authorId === actor.id && c.text.trim() === text)) continue;
+      if (!allowMomentComment(live.comments||[],actor.id,text,replyToId||undefined)) continue;
       const commentId = crypto.randomUUID();
       if (addMomentComment(char.id, post.id, {
         id: commentId, authorId: actor.id, text, createdAt: Date.now(),
