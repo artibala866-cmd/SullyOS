@@ -35,3 +35,21 @@ export function recordCharacterLifeEvent(event: CharacterLifeEvent): boolean {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHARACTER_LIFE_EVENTS_CHANGED, { detail: { characterId: event.characterId, eventId: event.id } }));
   return true;
 }
+
+/** Only remove temporary phone-event context for categories the user explicitly cleared.
+ * Do NOT erase other real-mode/XHS events or previously archived Memory Palace data.
+ */
+export function pruneCharacterPhoneLifeEvents(
+  characterId:string,
+  kinds:readonly CharacterLifeEventKind[],
+):number {
+  if(!characterId||!kinds.length||typeof localStorage==='undefined')return 0;
+  const allowed=new Set(kinds);
+  const old=readCharacterLifeEvents(characterId);
+  const remaining=old.filter(e=>!(e.source==='phone'&&allowed.has(e.kind)));
+  if(remaining.length===old.length)return 0;
+  localStorage.setItem(lifeEventStorageKey(characterId),JSON.stringify(remaining));
+  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(
+    CHARACTER_LIFE_EVENTS_CHANGED,{detail:{characterId,pruned:true}}));
+  return old.length-remaining.length;
+}
