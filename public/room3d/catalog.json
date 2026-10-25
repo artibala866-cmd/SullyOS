@@ -310,6 +310,28 @@
       "Lavender gingham fabric",
       "lavender",
       "blush"
+    ],
+    "seats": [
+      {
+        "id": "left",
+        "label": "左边",
+        "position": [
+          -0.6,
+          0.6,
+          0.4
+        ],
+        "rotation": 0
+      },
+      {
+        "id": "right",
+        "label": "右边",
+        "position": [
+          0.6,
+          0.6,
+          0.4
+        ],
+        "rotation": 0
+      }
     ]
   },
   {
