@@ -118,6 +118,9 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const touch=matchMedia('(pointer:coarse)').matches;
  const phone=isPhoneBrowser({userAgent:navigator.userAgent,mobile:navigator.userAgentData?.mobile,coarse:touch,width:screen.width,height:screen.height});
+ // Preload the default greeting clip alongside scene assets rather than fetching it
+ // just when the camera starts moving. The shared motion cache prevents duplicate work.
+ if(!firstPerson&&!reducedMotion)void loadSelectedMotion('vrma-8bd33d84e90c0243').catch(()=>{});
  const qualities={eco:{label:'省电',ratio:.75,fps:30,shadows:false,motion:false,details:1},balanced:{label:'均衡',ratio:1,fps:30,shadows:true,motion:true,details:2},clear:{label:'清晰',ratio:1.5,fps:touch||phone?30:60,shadows:true,motion:true,details:touch?2:4}};
  let viewMode='free';try{if(!onMenu&&localStorage.getItem('sully-home3d-view-mode')==='flat')viewMode='flat';}catch{}
  let showroomPalette='';
@@ -2107,7 +2110,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(!petAssetIds.length)mountPets();
    else setTimeout(()=>{if(destroyed)return;Promise.all(petAssetIds.map(ensureAsset)).then(()=>{if(!destroyed)mountPets();}).catch(e=>{if(!destroyed)console.warn('宠物资源延迟加载失败',e);});},1200);
    if(!incoming||JSON.stringify(incoming)!==JSON.stringify(state))persist();
-  loadStage('正在生成房间画面…');host.querySelector('.h3-loading').remove();rebuild();renderUI();tick();console.info('[Home3D] scene ready',Math.round(performance.now()-loadStartedAt)+'ms');
+  loadStage('正在生成房间画面…');rebuild();renderUI();tick();host.querySelector('.h3-loading')?.remove();console.info('[Home3D] scene ready',Math.round(performance.now()-loadStartedAt)+'ms');
   if(thumbnailExport){
   await Promise.all(catalog.filter(a=>a.url&&!templates.has(a.id)).map(a=>ensureAsset(a.id)));
   // Offline export only: never render the entire catalogue on a user device.
