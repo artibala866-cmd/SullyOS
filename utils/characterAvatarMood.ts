@@ -64,6 +64,10 @@ export async function chooseAvatarFromSavedMood(
   apply:(image:string)=>Promise<void>,
   now=Date.now(),
 ):Promise<boolean> {
+  // Paused until the avatar mood system is redesigned. Manual selection
+  // and the avatar library remain available; retain old metadata intact.
+  return false;
+  /*
   if(!charId || !currentInnerState.trim() ||
       !isCharacterPhoneAutonomyEnabled(charId) ||
       !readPhoneAutonomyPreferences(charId).selfProfileAutoEnabled ||
@@ -83,4 +87,5 @@ export async function chooseAvatarFromSavedMood(
     console.warn('[CharacterAvatarMood] mood selection skipped',error);
     return false;
   }finally{locks.delete(charId);}
+  */
 }
