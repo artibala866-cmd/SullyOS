@@ -42,6 +42,19 @@ describe('Shared per-Char phone AI quota', () => {
       browserAutoEnabled:false, selfProfileAutoEnabled:false,
     });
   });
+  it('supports active and bounded custom quotas without clearing counters', () => {
+    writePhoneAutonomyPreferences('a',{pace:'active'});
+    expect(readPhoneApiBudget('a',start).limit).toBe(24);
+    expect(readPhoneApiBudget('a',start).minIntervalMinutes).toBe(15);
+    expect(reservePhoneApiBudget('a',start)).toBe(true);
+    writePhoneAutonomyPreferences('a',{pace:'custom',customDailyLimit:33,customIntervalMinutes:8});
+    expect(readPhoneApiBudget('a',start).requests).toBe(1);
+    expect(readPhoneApiBudget('a',start).limit).toBe(33);
+    expect(canUsePhoneApiBudget('a',start+7*60_000)).toBe(false);
+    expect(canUsePhoneApiBudget('a',start+8*60_000)).toBe(true);
+    writePhoneAutonomyPreferences('a',{customDailyLimit:500,customIntervalMinutes:1});
+    expect(readPhoneAutonomyPreferences('a')).toMatchObject({customDailyLimit:100,customIntervalMinutes:5});
+  });
   it('fails closed rather than spending unlimited retries when local storage is unavailable', () => {
     expect(reservePhoneApiBudget('', start)).toBe(false);
     expect(readPhoneApiBudget('a', start).requests).toBe(0);
