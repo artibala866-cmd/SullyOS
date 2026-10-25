@@ -13,3 +13,9 @@
 @media(min-width:900px){.home-life-overlay{justify-content:flex-end;align-items:center;padding:24px}.home-life-sheet{width:420px;max-height:88%}}
 @media(max-width:600px){.home-life-overlay{padding:8px 8px calc(var(--safe-bottom,0px) + 8px)}.home-life-sheet{max-height:82%;border-radius:24px}.home-record-list{scrollbar-width:none}.home-life-sheet header{padding:14px 18px 8px}.home-life-sheet h2{font-size:18px}.home-menu-grid>button{min-height:94px;padding:14px 8px}.home-life-hint{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.home-life-overlay,.home-life-sheet,.home-life-hint,.home-typing span{animation:none}.home-record-list{scroll-behavior:auto}}
+
+/* The chat-only delete affordance shares the existing compact header buttons. */
+.home-life-header-actions{display:flex;align-items:center;gap:2px;flex-shrink:0}
+.home-clear-history{color:#8e7070}
+.home-clear-history:hover:not(:disabled){background:#fbeeee;color:#a43d3d}
+@media(max-width:600px){.home-life-header-actions .home-icon{min-width:38px;min-height:38px}}
