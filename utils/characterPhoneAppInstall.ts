@@ -1,7 +1,7 @@
 /**
  * Character-owned optional social app installation plan.
  * Modelled after momo.float.phone's fixed-app / optional-app manifest, but
- * deliberately limited to four new shell-only apps in this phase.
+ * supports a Char-selected set of optional shell apps in this phase.
  * Basic phone apps remain visible even without a provider.
  */
 import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from '../types';
@@ -9,7 +9,7 @@ import { buildCharacterPhoneContext } from './characterPhoneContext';
 import { safeResponseJson, extractContent } from './safeApi';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
-export const CHARACTER_PHONE_SOCIAL_APPS = ['x','bilibili','weibo','instagram'] as const;
+export const CHARACTER_PHONE_SOCIAL_APPS = ['x','bilibili','weibo','instagram','douban','douyin','email','jinjiang','netease'] as const;
 export type CharacterPhoneSocialAppId = typeof CHARACTER_PHONE_SOCIAL_APPS[number];
 export const CHARACTER_PHONE_INSTALL_CHANGED = 'sully:character-phone-install-changed';
 export const CHARACTER_PHONE_SOCIAL_APP_INFO: Record<CharacterPhoneSocialAppId,{label:string;subtitle:string}> = {
@@ -17,6 +17,11 @@ export const CHARACTER_PHONE_SOCIAL_APP_INFO: Record<CharacterPhoneSocialAppId,{
   bilibili:{label:'B站',subtitle:'视频、兴趣和创作'},
   weibo:{label:'微博',subtitle:'话题、动态与热搜'},
   instagram:{label:'Instagram',subtitle:'照片、视觉生活与创作'},
+  douban:{label:'豆瓣',subtitle:'书影音、评论与小组'},
+  douyin:{label:'抖音',subtitle:'短视频与浏览记录'},
+  email:{label:'邮箱',subtitle:'邮件与信件往来'},
+  jinjiang:{label:'晋江',subtitle:'小说书架与阅读'},
+  netease:{label:'网易云',subtitle:'音乐人格与音乐角落'},
 };
 export type CharacterPhoneInstallPlan = {
   characterId:string;
@@ -96,13 +101,13 @@ export async function generateCharacterPhoneInstallPlan(
       body:JSON.stringify({model:api.model,stream:false,temperature:0.4,messages:[
         {role:'system',content:`你正在为虚构角色「${char.name}」配置角色自己的手机桌面，不是替 User 选软件。
 微信、备忘录、相册、电话、短信、浏览器、钱包与设置是固定基础软件，永远保留，不需要生成。
-本次只能从四个候选软件里选择适合角色真实长期喜好、文化习惯、职业兴趣的软件：
-x（X/Twitter：文字观点、国际讨论）；bilibili（B站：视频、兴趣圈、二创）；weibo（微博：中文话题、动态、热搜）；instagram（Instagram：照片、创作、视觉社交）。
-依据角色的稳定人设、世界书、已有私聊及生活习惯，选择1-4个合理 App；不用机械全选，也不要因为User喜欢就替角色安装。
+本次仅能从九个候选软件里选择符合角色真实长期喜好、文化习惯、职业兴趣的软件：
+x（X/Twitter：文字观点、国际讨论）；bilibili（B站：视频、兴趣圈、二创）；weibo（微博：中文话题、动态、热搜）；instagram（Instagram：照片、创作、视觉社交）；douban（豆瓣：书影音评论、小组）；douyin（抖音：短视频）；email（邮箱：邮件往来）；jinjiang（晋江：小说阅读、书架）；netease（网易云：听歌品味、音乐角落）。
+依据角色的稳定人设、世界书、已有私聊及生活习惯，选择1-6个合理 App；不用机械全选，也不要因为User喜欢就替角色安装。
 原设与真实私聊上下文：${context.systemPrompt.slice(0,8000)}
 近期聊天摘要片段：${context.privateMessages.slice(-8).map(m=>String(m.content||'').slice(0,180)).join(' / ').slice(0,1500)}
-返回严格 JSON：{"installedAppIds":["bilibili","x"],"reason":"一句话解释安装倾向"}。
-数组只允许 x、bilibili、weibo、instagram，无重复；不生成帖子、账号或任何平台内容。`},
+返回严格 JSON：{"installedAppIds":["bilibili","netease"],"reason":"一句话解释安装倾向"}。
+数组只允许 x、bilibili、weibo、instagram、douban、douyin、email、jinjiang、netease，无重复；不生成帖子、账号或任何平台内容。`},
         {role:'user',content:'请根据这位 Char 自己的性格与生活偏好决定首次手机安装清单。'},
       ]}),
     });
