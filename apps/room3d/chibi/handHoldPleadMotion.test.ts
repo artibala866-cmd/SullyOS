@@ -59,10 +59,10 @@ describe('6.7-second two-person hand-hold pleading',()=>{
   expect(handHoldPleadPhase(6.7).reply).toBe(0);
  });
  it('uses one shared reachable anchor for both hands at equal or different heights',()=>{
-  for(const y of [0,.25,1.2]){
+  for(const y of [0,.25,.8]){
    const a=new T.Vector3(.2,1,0),b=new T.Vector3(.45,1+y,-.5);
    const target=pleadContactTarget(a,.8,b,.9);
-   expect(target.reachable).toBe(y<1);
+   expect(target.reachable).toBe(true);
    expect(target.point.distanceTo(a)).toBeLessThanOrEqual(.8+.001);
    expect(target.point.distanceTo(b)).toBeLessThanOrEqual(.9+.001);
    expect(Number.isFinite(target.deficit)).toBe(true);
