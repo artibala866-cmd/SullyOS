@@ -83,6 +83,7 @@ const XhsFreeRoamApp: React.FC = () => {
 
     const mcpUrl = realtimeConfig?.xhsMcpConfig?.serverUrl || '';
     const mcpEnabled = realtimeConfig?.xhsMcpConfig?.enabled || false;
+    const mcpCookie = realtimeConfig?.xhsMcpConfig?.cookie;
 
     // Load history for selected character
     const loadActivities = useCallback(async () => {
@@ -119,10 +120,12 @@ const XhsFreeRoamApp: React.FC = () => {
     // Test MCP connection on mount
     useEffect(() => {
         if (!mcpEnabled || !mcpUrl) { setMcpStatus('unknown'); return; }
-        XhsMcpClient.testConnection(mcpUrl).then(r => {
-            setMcpStatus(r.connected ? 'connected' : 'error');
-        }).catch(() => setMcpStatus('error'));
-    }, [mcpEnabled, mcpUrl]);
+        let cancelled = false;
+        XhsMcpClient.testConnection(mcpUrl, mcpCookie).then(r => {
+            if (!cancelled) setMcpStatus(r.connected ? 'connected' : 'error');
+        }).catch(() => { if (!cancelled) setMcpStatus('error'); });
+        return () => { cancelled = true; };
+    }, [mcpEnabled, mcpUrl, mcpCookie]);
 
     // Start free roam
     const handleStart = async () => {
