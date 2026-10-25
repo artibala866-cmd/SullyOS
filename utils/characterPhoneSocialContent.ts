@@ -46,7 +46,7 @@ export function readSocialSnapshot(charId:string,appId:SocialContentApp):SocialS
   if(!charId||typeof localStorage==='undefined')return null;
   try{
     const v=obj(JSON.parse(localStorage.getItem(storeKey(charId,appId))||'null'));
-    if(v.characterId!==charId||v.appId!==appId||!Array.isArray(v.posts)||!Array.isArray(v.viewed)||!Number.isFinite(v.generatedAt))return null;
+    if(v.characterId!==charId||v.appId!==appId||!Array.isArray(v.posts)||!Array.isArray(v.viewed)||typeof v.generatedAt!=='number'||!Number.isFinite(v.generatedAt))return null;
     return v as unknown as SocialSnapshot;
   }catch{return null;}
 }
