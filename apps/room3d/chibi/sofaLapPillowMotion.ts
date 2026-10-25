@@ -56,7 +56,7 @@ export function lapPillowHeadTarget(a:ChibiVisitor,b:ChibiVisitor):T.Vector3{
  * inward against the scalp. Use a tangent to prevent a folded wrist.
  */
 export function lapPillowHeadContact(
- b:ChibiVisitor,a:ChibiVisitor,side:'L'|'R',towardForehead:number
+ b:ChibiVisitor,a:ChibiVisitor,side:'L'|'R',towardForehead:number,supporting=0
 ):Contact{
  const head=a.rig!.bones.head,rotation=head.getWorldQuaternion(new T.Quaternion());
  const up=new T.Vector3(0,1,0).applyQuaternion(rotation);
@@ -64,9 +64,18 @@ export function lapPillowHeadContact(
  const size=headPatScalpSize(a);
  const normal=up.clone().multiplyScalar(1.15).addScaledVector(front,towardForehead*.42).normalize();
  const center=a.getHeadWorldPosition();
- const point=center.addScaledVector(up,size.height*.78)
+ const point=center.clone().addScaledVector(up,size.height*.78)
   .addScaledVector(front,towardForehead*size.depth*.18);
- const direction=front.clone().addScaledVector(normal,-front.dot(normal));
+ // During descent B's palm supports the OCCIPUT, not the forehead/crown.
+ // Blend smoothly to the scalp stroke as the head settles on the leg.
+ const handBack=front.clone().negate();
+ const backContact=center.addScaledVector(handBack,size.depth*.78).addScaledVector(up,size.height*.10);
+ const backNormal=handBack.multiplyScalar(1.15).addScaledVector(up,.15).normalize();
+ const hold=clamp(supporting,0,1);
+ point.lerp(backContact,hold);
+ normal.lerp(backNormal,hold).normalize();
+ const tangent=front.clone().lerp(up,hold);
+ const direction=tangent.addScaledVector(normal,-tangent.dot(normal));
  if(direction.lengthSq()<1e-7)direction.crossVectors(normal,new T.Vector3(1,0,0));
  direction.normalize();
  return {side,point,direction,normal,curl:.18};
@@ -102,7 +111,7 @@ export function poseSofaLapPillow(both:readonly [Resident,Resident],time:number)
   a.translatePose(slide.multiplyScalar(p.lower));
   a.root.updateWorldMatrix(true,true);
  }
- const sideA=sign>0?'L':'R';
+ const sideA=sign>0?'R':'L';
  const sideB=lapPillowSide(b,a)>0?'L':'R';
  // A pushes on the near cushion before lying down and again when sitting up.
  if(p.brace>.001&&aResident.solver){
@@ -120,7 +129,7 @@ export function poseSofaLapPillow(both:readonly [Resident,Resident],time:number)
  // Each stroke travels from crown to temple and softly returns, with zero
  // hand velocity at both endpoints. Do not snap back between repetitions.
  const forehead=clamp(p.first*.95+p.second*.76,0,1);
- const contact=lapPillowHeadContact(b,a,sideB,forehead);
+ const contact=lapPillowHeadContact(b,a,sideB,forehead,p.support*(1-smooth(time,2.70,3.14)));
  const touch=Math.max(p.support,p.stroke);
  if(touch>.001) bResident.solver?.(contact,touch*.92);
  // B's other palm relaxes by the cushion; no repeated opposite-shoulder twitch.
