@@ -167,9 +167,7 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
             <div className="scale-[1.04]"><CharacterPhoneSocialIcon appId={id}/></div>
             <span className="w-full truncate text-center text-[11px] text-[#555]">{CHARACTER_PHONE_SOCIAL_APP_INFO[id].label}</span>
           </button>)}
-          <Shortcut label="钱包" Icon={Wallet} onClick={()=>onOpen('wallet')}/>
-          <Shortcut label="个人资料" Icon={User} onClick={()=>onOpen('profile')}/>
-          <Shortcut label="设置" Icon={GearSix} onClick={()=>onOpen('settings')}/>
+          {/* Wallet, profile and settings intentionally remain inside WeChat > Me. */}
         </div>
         {(installBusy||installNotice||!installPlan)&&<div role="status" className={PAPER+' mx-1 px-4 py-3 text-xs leading-5 text-[#777]'}>
           {installBusy?<span className="flex items-center gap-2"><SpinnerGap size={17} className="animate-spin"/>正在为 Char 分析安装软件…</span>:installNotice||'尚未生成可选应用清单'}
