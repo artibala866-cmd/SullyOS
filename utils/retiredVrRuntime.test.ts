@@ -16,10 +16,9 @@ describe('retired 彼方 isolation', () => {
   it('does not require the retired module for chat, TTS, meeting or 3D resident rendering', () => {
     for (const path of ['hooks/useChatAI.ts', 'apps/Chat.tsx', 'apps/DateApp.tsx',
       'apps/RoomApp.tsx', 'apps/room3d/Home3DSetupEntry.tsx', 'components/character/HomeFigureStudio.tsx',
-      'components/character/ChibiStudio.tsx', 'components/os/MobileGameHome.tsx']) {
+      'components/character/ChibiStudio.tsx']) {
       expect(source(path), path).not.toMatch(/(?:from|import\s*\()\s*['"`][^'"`]*vrWorld\//);
     }
-    expect(source('components/os/MobileGameHome.tsx')).not.toContain('AppID.VRWorld');
     expect(source('components/character/ChibiStudio.tsx')).not.toContain("id: 'vr'");
     expect(source('apps/RoomApp.tsx')).not.toContain('userProfile.vrState');
   });
@@ -27,7 +26,6 @@ describe('retired 彼方 isolation', () => {
   it('keeps every desktop theme free of the removed VRWorld icon and launcher entry', () => {
     for (const path of [
       'apps/Launcher.tsx',
-      'components/os/MobileGameHome.tsx',
       'components/os/HomelyHome.tsx',
       'components/os/CompanionHome.tsx',
     ]) {
@@ -38,6 +36,9 @@ describe('retired 彼方 isolation', () => {
   it('keeps removed desktop themes unavailable while preserving 3D Dream', () => {
     expect(existsSync(resolve(process.cwd(), 'components/os/TamagotchiHome.tsx'))).toBe(false);
     expect(existsSync(resolve(process.cwd(), 'components/os/acnhIcons.tsx'))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'components/os/MobileGameHome.tsx'))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'components/os/mobilegameArt.tsx'))).toBe(false);
+    expect(source('apps/Launcher.tsx')).not.toContain("theme.skin === 'mobilegame'");
     for (const path of ['apps/Launcher.tsx', 'apps/Appearance.tsx', 'apps/Chat.tsx',
       'components/PhoneShell.tsx', 'components/chat/ChatInputArea.tsx', 'components/os/AppIcon.tsx']) {
       const code = source(path);
