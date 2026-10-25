@@ -11,6 +11,7 @@ import {motionTemplateFor,motionTemplateContact,motionTemplateConstraintPlans} f
 import {createMotionTemplateScope} from './motionTemplateScope';
 import {applyTemplateFaceContact} from './templateFaceContact';
 import {applyHeadPatMotion,applyHeadPatExpressions} from './headPatMotion';
+import {applyStandingHeightAdaptation} from './standingHeightAdaptation';
 import {applyPairedHandContact} from './pairedHandContact';
 import {createMotionConstraintPipeline} from './motionConstraintPipeline';
 export {motionCategories} from './selectedMotions';
@@ -176,7 +177,21 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   weight:0,sourceTime:0,actionTime:0,
  };
  const constraintPipeline=createMotionConstraintPipeline({
-  bodyPlacement:()=>correctPairedBodies(constraintFrame.both),
+  bodyPlacement:()=>{
+   correctPairedBodies(constraintFrame.both);
+   const template=motionTemplateFor(session!.action),mode=template?.standingHeight;
+   if(!pinned&&mode&&mode!=='none'&&constraintFrame.both.length===2){
+    const actionTime=constraintFrame.actionTime;
+    const headPat=!!template?.headTouch;
+    // Start after approach; smoothly stand up again as the head pat releases.
+    const fade=headPat?T.MathUtils.smootherstep(actionTime,.18,.98)*
+     (1-T.MathUtils.smootherstep(actionTime,6.65,7.65)):1;
+    applyStandingHeightAdaptation(
+     [constraintFrame.both[0].visitor,constraintFrame.both[1].visitor],
+     {mode,actorIndex:headPat?0:undefined,weight:constraintFrame.weight*fade}
+    );
+   }
+  },
   clearance:()=>correctHeadClearance(constraintFrame.both,constraintFrame.points),
   contactIK:()=>{
    const template=motionTemplateFor(session!.action);

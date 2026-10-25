@@ -1,4 +1,5 @@
 import type {MotionCapability} from './motionCapabilities';
+import type {HeightAdaptationMode} from './standingHeightAdaptation';
 import {motionCapabilities} from './motionCapabilities';
 import {motionContactProfiles,type MotionContactProfile,type PairedHandProfile,type BodyTouchProfile} from './motionContactProfiles';
 import {motionConstraintPlans,type MotionConstraintPlan,type MotionConstraintPhase} from './motionConstraintPipeline';
@@ -17,6 +18,8 @@ export type MotionTemplateDraft=Readonly<{
  contact?:MotionContactProfile;
  face?:keyof typeof faceContactRecipes;
  headTouch?:HeadTouchRecipe;
+ /** Symmetric, world-scaled standing height correction before contact IK. */
+ standingHeight?:HeightAdaptationMode;
  prop?:MotionPropTemplate;
  posture?:MotionPosture;
  phases?:MotionConstraintPlan;
@@ -36,19 +39,19 @@ export const motionTemplatePresets={
  },
  pairedHands(profile:Omit<PairedHandProfile,'kind'|'capabilities'>):MotionTemplateDraft{
   return {participants:2,capabilities:['pairedSync','residentNavigation','handContact'],
-   posture:'standing',contact:{kind:'pairedHands',capabilities:['handContact','pairedSync'],...profile},phases:standardPhases};
+   posture:'standing',standingHeight:'contact',contact:{kind:'pairedHands',capabilities:['handContact','pairedSync'],...profile},phases:standardPhases};
  },
  bodyTouch(profile:Omit<BodyTouchProfile,'kind'|'capabilities'>):MotionTemplateDraft{
   return {participants:2,capabilities:['pairedSync','residentNavigation','bodyContact'],
-   posture:'standing',contact:{kind:'bodyTouch',capabilities:['bodyContact'],...profile},phases:standardPhases};
+   posture:'standing',standingHeight:'contact',contact:{kind:'bodyTouch',capabilities:['bodyContact'],...profile},phases:standardPhases};
  },
  faceContact(recipe:keyof typeof faceContactRecipes):MotionTemplateDraft{
   return {participants:2,capabilities:['pairedSync','residentNavigation','faceContact'],
-   posture:'standing',face:recipe,phases:standardPhases};
+   posture:'standing',standingHeight:'gaze',face:recipe,phases:standardPhases};
  },
  headPat(config:Partial<Omit<HeadTouchRecipe,'kind'>>={}):MotionTemplateDraft{
   return {participants:2,capabilities:['pairedSync','residentNavigation','handContact'],
-   posture:'standing',headTouch:{kind:'patThenRuffle',patSide:config.patSide??'R',
+   posture:'standing',standingHeight:'headReach',headTouch:{kind:'patThenRuffle',patSide:config.patSide??'R',
     patStrokes:config.patStrokes??2,ruffleStrokes:config.ruffleStrokes??2},
    phases:standardPhases};
  },
@@ -100,6 +103,9 @@ export function compileMotionTemplates(
     draft.capabilities.some(c=>!(c in motionCapabilities)))throw Error('Motion template capability invalid: '+id);
   const has=(cap:MotionCapability)=>draft.capabilities.includes(cap);
   if(draft.participants===2&&!has('pairedSync'))throw Error('Paired motion must share one clock: '+id);
+  if(draft.standingHeight!==undefined&&(!['none','gaze','contact','headReach'].includes(draft.standingHeight)||
+   draft.participants!==2||draft.posture!=='standing'))
+   throw Error('Standing height adaptation requires two standing actors: '+id);
   if(draft.contact){
    const c=draft.contact;
    if(draft.participants!==2||c.kind==='pairedHands'&&!has('handContact')||
