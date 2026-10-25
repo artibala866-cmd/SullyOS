@@ -4,6 +4,7 @@ import type { PhoneMessage } from './characterPhoneIdentity';
 export type CharacterPhoneChat = {
   id: string;
   contactId?: string;
+  kind?: 'npc'|'group'|'service';
   name: string;
   preview: string;
   time: number;
