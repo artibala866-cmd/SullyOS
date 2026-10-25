@@ -12,7 +12,11 @@ export default function UserImageIdentitySection() {
     const { userProfile, updateUserProfile, addToast } = useOS();
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState('');
+    const [appearanceDraft, setAppearanceDraft] = useState(userProfile.imageAppearance || '');
     const uploadRevision = useRef(0);
+    // Avoid saving the whole global user profile and invalidating all AI context
+    // for every keystroke; persist once when the user finishes editing.
+    useEffect(() => setAppearanceDraft(userProfile.imageAppearance || ''), [userProfile.imageAppearance]);
     useEffect(() => () => { uploadRevision.current += 1; }, []);
 
     const reference = userProfile.imageReference || '';
@@ -63,8 +67,13 @@ export default function UserImageIdentitySection() {
             </p>
             <label className="block space-y-2">
                 <span className="text-[11px] font-bold text-slate-500">生图外貌描述</span>
-                <textarea rows={3} value={userProfile.imageAppearance || ''}
-                    onChange={e => updateUserProfile({ imageAppearance: e.target.value })}
+                <textarea rows={3} value={appearanceDraft}
+                    onChange={e => setAppearanceDraft(e.target.value)}
+                    onBlur={() => {
+                        if (appearanceDraft !== (userProfile.imageAppearance || '')) {
+                            updateUserProfile({ imageAppearance: appearanceDraft });
+                        }
+                    }}
                     placeholder="例如：黑色长发、棕色眼睛、脸型与五官特征。不要写固定服装和背景。"
                     className="w-full bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-2xl px-4 py-3 text-sm text-slate-700 leading-relaxed resize-y outline-none placeholder:text-slate-300" />
             </label>
