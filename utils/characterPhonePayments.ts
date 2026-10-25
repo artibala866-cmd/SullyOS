@@ -31,10 +31,12 @@ export function appendSimulatedPhonePayments(charId:string,payload:unknown,now=D
     if(!row||typeof row!=='object')continue;
     const obj=row as Record<string,unknown>;
     const title=safe(obj.title,70);
-    const kind=obj.kind==='refund'?'refund':obj.kind==='expense'?'expense':null;
+    // A refund is income and needs proof of the original payment; an AI batch
+    // has none, so never mint speculative positive balances.
+    const kind=obj.kind==='expense'?'expense':null;
     const amount=Number(obj.amount);
     if(!title||!kind||!Number.isFinite(amount)||amount<=0||amount>5000)continue;
-    const amountCents=(kind==='refund'?1:-1)*Math.round(amount*100);
+    const amountCents=-Math.round(amount*100);
     if(!amountCents)continue;
     const category=safe(obj.category,32)||'微信支付';
     const detail=safe(obj.detail,220)||'角色微信支付的虚构账单';
