@@ -5,6 +5,7 @@ import { processImage } from '../utils/file';
 import { migrateDataUrlToRef } from '../utils/blobRef';
 import LifeRecordPanel from '../components/lifeRecord/LifeRecordPanel';
 import PerCharAvatarPicker from '../components/user/PerCharAvatarPicker';
+import UserImageIdentitySection from '../components/user/UserImageIdentitySection';
 import TokenImg from '../components/os/TokenImg';
 import HomeFigureStudio from '../components/character/HomeFigureStudio';
 import { trackEvent } from '../utils/analytics';
@@ -107,6 +108,9 @@ const UserApp: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* User image identity is separate from avatar and chat persona, matching the archive's existing card styling. */}
+                <UserImageIdentitySection />
 
                 {/* 分角色聊天头像：上面的整体头像是宏观默认，这里可给每个角色的私聊单独换「你」的头像 */}
                 <PerCharAvatarPicker />
