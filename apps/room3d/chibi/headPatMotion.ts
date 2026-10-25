@@ -57,7 +57,7 @@ export function headPatScalpSize(recipient:ChibiVisitor){
  const rig=recipient.rig;
  if(!rig?.mesh||!rig.bones?.head)return {radius:.36,depth:.32,height:.38};
  const worldScale=rig.bones.head.getWorldScale(new T.Vector3());
- const headSize=(rig.mesh.geometry.userData.headSize as number|undefined)??1;
+ const headSize=(rig.mesh.geometry?.userData?.headSize as number|undefined)??1;
  const scale=Math.max(Math.abs(worldScale.x),Math.abs(worldScale.z));
  const radius=T.MathUtils.clamp(.198*BLANK_SCALE*BLANK_HEAD_SCALE.x*headSize*scale+.025,.24,.90);
  return {radius,depth:radius*.87,height:radius*.86};
@@ -127,7 +127,7 @@ export function headPatHandGoal(
  const elbow=shoulders?.[side+'_forearm']?.getWorldPosition(new T.Vector3());
  const wrist=shoulders?.[side+'_hand']?.getWorldPosition(new T.Vector3());
  const point=scalpPoint.clone();
- let deficit=0;
+ let deficit=0,crossLane=false;
  if(shoulder&&elbow&&wrist){
   const length=shoulder.distanceTo(elbow)+elbow.distanceTo(wrist);
   const distance=shoulder.distanceTo(scalpPoint);
@@ -140,15 +140,11 @@ export function headPatHandGoal(
    // An extremely short actor may still be too far away. Don't command
    // opposite-lane IK in that case: let the tall partner crouch first.
    const sideValue=point.clone().sub(crown).dot(lateral)*sign;
-   if(sideValue<radius*.40){
-    point.copy(shoulder);
-    const original=shoulder.distanceTo(scalpPoint);
-    const partial=Math.min(.65,allowed/Math.max(original,.001));
-    point.lerp(scalpPoint,partial);
-   }
+   if(sideValue<radius*.40)crossLane=true;
+  
   }
  }
- return {side,point,direction,normal,deficit,scalpPoint,scalpRadius:radius};
+ return {side,point,direction,normal,deficit,crossLane,scalpPoint,scalpRadius:radius};
 }
 
 /**
@@ -187,6 +183,9 @@ export function applyHeadPatMotion(
   const w=strength*blend;
   if(w<=.001)return;
   const contact=headPatHandGoal(actor,targetV,side,crown,scalpUp,span,p,other);
+  // Suppress an IK command whose only reachable goal would cut through the
+  // head's center. Let the existing taller-person bow/crouch reduce the gap.
+  if(contact.crossLane)return;
   if(giver.solver&&actor.rig){
    // Do not make a deeply unreachable arm fold across the body. Most of the
    // reach is recovered by standingHeightAdaptation (taller bends first);
