@@ -110,11 +110,11 @@
 - `selectedSocial.ts`：按模板执行可选约束阶段、共用接触系统及临时资源生命周期；不额外建立动画播放器。
 - `motionTemplateScope.ts`：动作切换、取消或自然完成时统一清理临时对象和道具。
 - `socialProps.ts` 与 `waterGrip.ts`：新水杯、手机按配置创建，不重复建设道具系统；交接动作避免两个 IK 同时控制手掌。
-- `vitest.config.ts` 与 `.github/workflows/build-html-preview.yml`：3D 家园模板回归测试已纳入自动构建。旧 43 动作及八个 UI 类别未修改。
+- `vitest.config.ts` 与 `.github/workflows/build-html-preview.yml`：3D 家园模板回归测试已纳入自动构建。原 43 个既有动作及八个 UI 类别未修改。
 - 复杂拥抱、坐姿与托举仍须先完成真正的适配器；声明 `adapter:'legacy'` 不代表已有对应实现。
 - 完整开发手册、示例代码、性能约束和实机验收见 [`MOTION_TEMPLATES.md`](./MOTION_TEMPLATES.md)。
 
-新动作实例：通过第五阶段模板加入「摸头」（亲密），详见 [`MOTION_TEMPLATES.md`](./MOTION_TEMPLATES.md)。保留原 43 个动作，目录现为 44 个。
+新动作实例：通过第五阶段模板加入「摸头」（亲密），详见 [`MOTION_TEMPLATES.md`](./MOTION_TEMPLATES.md)。保留原 43 个动作，增加摸头与背后搂抱，目录现为 45 个。
 
 ## 新增：背后搂抱（站立限定）
 
