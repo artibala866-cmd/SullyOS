@@ -944,6 +944,13 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           {settingsMatch("AI 频率 额度 预算 高 中 低 省额度 均衡 活跃 自定义 间隔") && <PhoneSettingsGroup title="AI 自主调用频率" searching={!!settingsQuery}>
           <section className="space-y-4 rounded-2xl bg-white p-4">
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
+              <span><strong className="block text-[13px]">私聊同轮生成 NPC 微信／朋友圈</strong>
+                <span className="block mt-1 leading-5 text-[#888]">使用 Char 给 User 的同一次模型回复，只有自然触发时才附带已认识 NPC 的聊天、NPC 回信或 Char 动态。没有额外 API 请求，但会增加该次输出 token；可和“关闭独立后台请求”搭配使用。</span></span>
+              <input type="checkbox" checked={phonePrefs.chatPiggybackEnabled}
+                onChange={e=>changePhonePrefs({chatPiggybackEnabled:e.target.checked})}
+                className="h-5 w-5 shrink-0 accent-[#444]"/>
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">允许独立后台 AI 请求</strong>
                 <span className="block mt-1 leading-5 text-[#888]">关闭后所有查手机自主任务不再单独调 API；手动点击生成和 User 私聊不受影响。开启时仍遵守下方每日预算。</span></span>
               <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#444]" checked={phonePrefs.backgroundApiEnabled}
