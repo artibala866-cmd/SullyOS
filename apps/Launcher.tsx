@@ -10,7 +10,6 @@ import { isChatPreviewMessage, chatPreviewText } from '../utils/chatMessageVisib
 import { CharacterProfile, Anniversary, AppID, DailySchedule } from '../types';
 import { ScheduleHomeWidget, ScheduleFullscreenViewer } from '../components/schedule/ScheduleHomeWidget';
 import NowPlayingSquareWidget from '../components/os/NowPlayingSquareWidget';
-import MobileGameHome from '../components/os/MobileGameHome';
 import { getDailyScheduleForChar } from '../utils/dailySchedule';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../utils/timezone';
@@ -27,7 +26,7 @@ const DesktopClock = React.memo(() => {
     const contentColor = theme.contentColor || '#ffffff';
     const clockStyle = theme.desktopClockStyle || (theme.desktopVariant === 'nostalgia' ? 'bold' : 'serif');
     const serifClock = clockStyle === 'serif';
-    const paper = theme.skin !== 'mobilegame' && isPaperWallpaper(theme.wallpaper);
+    const paper = isPaperWallpaper(theme.wallpaper);
 
     const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -239,7 +238,7 @@ const DesktopSquareImage = React.memo(({ image, contentColor, onClick }: {
     onClick: () => void,
 }) => {
     const { theme } = useOS();
-    const paper = theme.skin !== 'mobilegame' && isPaperWallpaper(theme.wallpaper);
+    const paper = isPaperWallpaper(theme.wallpaper);
     return (
         <div
             onClick={onClick}
@@ -884,9 +883,6 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   const widgetUnread = widgetChar && unreadMessages[widgetChar.id] ? unreadMessages[widgetChar.id] : 0;
 
   // 手游主题：整页换成二次元手游首页布局（独立组件自渲染），不走下面的默认/动森启动器。
-  if (theme.skin === 'mobilegame') {
-    return <MobileGameHome />;
-  }
 
   // 电子宠物主题：桌面即养成机——角色真实小屋做舞台 + 四颗糖果实体键（独立组件自渲染）。
   if (theme.skin === 'homely') {
