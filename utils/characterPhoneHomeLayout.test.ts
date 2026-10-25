@@ -39,7 +39,7 @@ describe('Char phone P1 responsive desktop layout regression',()=>{
   expect(desktop).toContain('patch({fullscreen:e.target.checked})');
  });
  it('fits the lock screen in either phone viewport without its own scrollbar',()=>{
-  const lock=desktop.split('export function CharacterPhoneLockScreen')[1].split('export function CharacterPhoneHome')[0];
+  const lock=desktop.split('export function CharacterPhoneLockScreen')[1].split('type HomeEditKind')[0];
   expect(lock).toContain('className="cp-lock-wallpaper"');
   expect(lock).toContain('cp-lock-content');
   expect(lock).toContain('cp-lock-card');
