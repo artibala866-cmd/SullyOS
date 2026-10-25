@@ -253,4 +253,25 @@ describe('private chat input controls', () => {
         act(() => header.click());
         expect(box.checked).toBe(true);
     });
+    it('keeps local camera and gallery sending while adding AI photo under the same private-chat entry', () => {
+        const onAIGenerate = vi.fn().mockResolvedValue(undefined);
+        renderInput({ showPanel: 'actions', onAIGenerate });
+        const album = Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === '相册')!;
+        expect(album).toBeTruthy();
+        act(() => album.click());
+
+        const chooser = document.body.querySelector('[role="dialog"][aria-label="选择图片来源"]')!;
+        expect(chooser).toBeTruthy();
+        const choices = Array.from(chooser.querySelectorAll('button')).map(button => button.textContent?.trim());
+        expect(choices).toContain('拍照');
+        expect(choices).toContain('从相册选择');
+        expect(choices).toContain('AI 生图发送');
+        expect(onAIGenerate).not.toHaveBeenCalled();
+
+        const ai = Array.from(chooser.querySelectorAll('button')).find(button => button.textContent?.trim() === 'AI 生图发送')!;
+        act(() => (ai as HTMLButtonElement).click());
+        expect(document.body.querySelector('[role="dialog"][aria-label="AI 生图发送"] textarea#chat-ai-photo-prompt')).toBeTruthy();
+        expect(props.onImageSelect).not.toHaveBeenCalled();
+    });
+
 });
