@@ -55,6 +55,7 @@ import { markAmsgStateDirty } from './amsgStateSync';
 import { announceScheduleChanges, applyAssistantScheduleChanges } from './scheduleChange';
 import { isBlobRef } from './blobRef';
 import { stripLeakedSourceTags } from './sanitize';
+import {extractChatPhoneEvents,applyChatPhoneEvents} from './phoneChatPiggyback';
 
 // ─── 模块内辅助 ──────────────────────────────────────────────────────────────
 
@@ -758,7 +759,8 @@ export async function applyAssistantPostProcessing(
     };
 
     // ─── Step 1: 初次粗洗 ───
-    let aiContent = replayedTagPrefix ? `${replayedTagPrefix}${rawAiContent}` : rawAiContent;
+    const piggyback=extractChatPhoneEvents(rawAiContent);
+    let aiContent = replayedTagPrefix ? `${replayedTagPrefix}${piggyback.cleaned}` : piggyback.cleaned;
     aiContent = normalizeAiContent(aiContent);
     // 先于 lead-in / 二轮渲染消费：否则控制标签会作为普通气泡短暂闪给用户看。
     aiContent = await replyStep(async () => consumeScheduleChanges(aiContent, utteranceAt));
@@ -2348,5 +2350,11 @@ export async function applyAssistantPostProcessing(
         } else {
             setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
         }
+    }
+    // Additional Char/NPC events are part of this SAME AI response; never
+    // interrupt or duplicate the User's persisted dialogue if they fail.
+    if(piggyback.data){
+        try{applyChatPhoneEvents(char.id,piggyback.data,messageTimestamp??Date.now());}
+        catch(e){console.warn('[PhonePiggyback] optional phone write skipped',e);}
     }
 }
