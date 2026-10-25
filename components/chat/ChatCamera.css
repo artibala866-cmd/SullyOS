@@ -30,3 +30,16 @@
 
 .chat-camera fieldset.chat-camera-editor{border:0;border-top:1px solid var(--camera-line);margin:0;min-width:0}
 .chat-camera-gesture-hint{margin:6px 0;color:#73737e;font-size:11px;text-align:center}
+
+/* AI photo send lives inside the original private-chat photo chooser.
+   Keep the existing camera/gallery positions; AI is an additional bottom row. */
+.chat-camera-sources-ai button:last-child{grid-column:1/-1;flex-direction:row;padding:12px 8px}
+.chat-camera-ai-form{display:flex;flex-direction:column;gap:12px;padding:18px 20px 20px;min-width:0}
+.chat-camera-ai-form label{font-size:13px;font-weight:650;color:#4c4c55}
+.chat-camera-ai-form textarea{width:100%;resize:vertical;min-height:110px;max-height:40dvh;padding:12px;border:1px solid var(--camera-line);border-radius:6px;color:#36363d;background:#fff;font:inherit;line-height:1.5;outline:none}
+.chat-camera-ai-form textarea:focus{border-color:var(--camera-accent)}
+.chat-camera-ai-form p{margin:0;font-size:11px;line-height:1.6;color:#73737e}
+.chat-camera-ai-form .chat-camera-ai-error{color:#b42318}
+.chat-camera-ai-actions{display:flex;gap:10px;justify-content:flex-end}
+.chat-camera-ai-actions button{padding:9px 16px;border:1px solid var(--camera-line);min-height:40px}
+.chat-camera-ai-actions button[type=submit]{background:var(--camera-soft);font-weight:650;color:#36363d}

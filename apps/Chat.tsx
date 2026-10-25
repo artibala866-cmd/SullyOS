@@ -34,7 +34,7 @@ import { XhsMcpClient, extractNotesFromMcpData, normalizeXhsLiteDetail } from '.
 import { extractWebpageContent, detectFirstUrl, detectXhsShortUrl, extractXhsShareTitle, isXhsUrl, extractXhsNoteLink, expandShortUrl, type ExtractedWebpage } from '../utils/webpageExtractor';
 import { isVideoShareUrl, parseVideoShareUrl } from '../utils/videoParser';
 import { isDevDebugAvailable } from '../utils/devDebug';
-import { isImageValue, migrateDataUrlToRef, putImageBlob, putImageBlobDeduped, useBlobRefUrl } from '../utils/blobRef';
+import { deleteBlobRefIfUnreferenced, isImageValue, migrateDataUrlToRef, putImageBlob, putImageBlobDeduped, useBlobRefUrl } from '../utils/blobRef';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
 import { resolveLifeRecordCard } from '../utils/lifeRecords';
 import { isMcdConfigured } from '../utils/mcdMcpClient';
@@ -55,6 +55,8 @@ import {resolveDecorationTheme} from '../utils/chatDecoration';
 import {DecorationTab} from '../components/chat/ChatDecorationPanel';
 import ChatAppearanceWardrobe from '../components/chat/ChatAppearanceWardrobe';
 import ChatInputArea from '../components/chat/ChatInputArea';
+import { readImageSettings } from '../components/settings/ImageApiSettingsPanel';
+import { generateCharacterImage } from '../utils/imageGeneration';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
@@ -1755,6 +1757,40 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         } finally {
             // 是否真正发出由 handleSendText 标记；这里仅解除图片处理期间的暂停。
             finishImage(false);
+        }
+    };
+
+    /**
+     * Echoes-style user photo generation, inside the existing private-chat photo
+     * chooser. This is NOT an assistant image: reuse the normal image send path
+     * so DB, sender role, gallery, auto-reply, and conversation context behave
+     * exactly as they do for a local gallery photo.
+     */
+    const handleSendAIPhoto = async (description: string, signal: AbortSignal): Promise<void> => {
+        const targetId = char?.id;
+        if (!targetId) throw new Error('请先进入角色私聊');
+        const prompt = description.trim();
+        if (!prompt) throw new Error('请先填写照片内容');
+        const settings = readImageSettings();
+        const blob = await generateCharacterImage(settings, { appearance: prompt, reference: '' }, signal);
+        // When the user closes the photo chooser or switches characters, never
+        // send an old generated photo into the wrong conversation.
+        if (signal.aborted || activeCharIdRef.current !== targetId) {
+            throw new Error('本次生图已取消或已切换会话，未发送图片');
+        }
+        const token = await putImageBlob(blob);
+        try {
+            if (signal.aborted || activeCharIdRef.current !== targetId) {
+                throw new Error('本次生图已取消或已切换会话，未发送图片');
+            }
+            await handleSendText(token, 'image', {
+                source: 'user-ai-photo',
+                aiPhotoPrompt: prompt,
+            });
+        } catch (error) {
+            // Do not delete a token if a partially completed send referenced it.
+            await deleteBlobRefIfUnreferenced(token).catch(() => {});
+            throw error;
         }
     };
 
@@ -4396,6 +4432,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onRemoveTheme={removeCustomTheme} activeThemeId={currentThemeId}
                     onPanelAction={handlePanelAction}
                     onImageSelect={handleImageSelect}
+                    onAIGenerate={handleSendAIPhoto}
                     isSummarizing={isSummarizing}
                     categories={visibleCategories}
                     activeCategory={activeCategory}
