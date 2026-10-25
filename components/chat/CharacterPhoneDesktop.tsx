@@ -81,6 +81,22 @@ export function CharacterPhoneLockScreen({characterId,name,avatar,onUnlock,onClo
   characterId:string;name:string;avatar?:string;onUnlock:()=>void;onClose:()=>void;
 }){
   const appearance=useAppearance(characterId);
+  const [slideX,setSlideX]=useState(0);
+  const slideValue=useRef(0);
+  const dragging=useRef(false);
+  const swipeStart=useRef(0);
+  const swipeDistance=useRef(0);
+  useEffect(()=>{slideValue.current=0;setSlideX(0);dragging.current=false;},[characterId]);
+  const updateSlide=(value:number)=>{
+    const next=Math.min(swipeDistance.current,Math.max(0,value));
+    slideValue.current=next;setSlideX(next);
+  };
+  const finishSlide=()=>{
+    if(!dragging.current)return;
+    dragging.current=false;
+    if(swipeDistance.current>0 && slideValue.current>=swipeDistance.current*0.79)onUnlock();
+    else updateSlide(0);
+  };
   return <Wallpaper appearance={appearance} className="cp-lock-wallpaper">
     <div className="cp-lock-topbar">
       <button onClick={onClose} type="button" className="flex items-center gap-1 rounded-full border border-white/80 bg-white/70 px-3 py-2 text-[11px] text-[#777]">
@@ -101,10 +117,31 @@ export function CharacterPhoneLockScreen({characterId,name,avatar,onUnlock,onClo
           <Polaroids left={appearance.polaroidLeft||avatar} right={appearance.polaroidRight||avatar} name={name} userName={name}/>
         </div>
       </section>
-      <button onClick={onUnlock} type="button" className="cp-lock-unlock">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ededed] text-lg">♡</span>
-        <span className="min-w-0 truncate">点按进入</span><CaretRight size={18}/>
-      </button>
+      <div className="cp-lock-unlock" role="slider" tabIndex={0}
+        aria-label="向右滑动解锁" aria-valuemin={0} aria-valuemax={100}
+        aria-valuenow={swipeDistance.current?Math.round(100*slideX/swipeDistance.current):0}
+        onPointerDown={e=>{
+          if(e.button!==0||dragging.current)return;
+          const rect=e.currentTarget.getBoundingClientRect();
+          swipeStart.current=e.clientX;
+          swipeDistance.current=Math.max(1,rect.width-54);
+          dragging.current=true;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          updateSlide(0);
+        }}
+        onPointerMove={e=>{if(dragging.current)updateSlide(e.clientX-swipeStart.current);}}
+        onPointerUp={finishSlide}
+        onPointerCancel={()=>{dragging.current=false;updateSlide(0);}}
+        onKeyDown={e=>{
+          if(e.key==='End'||e.key==='Enter'||e.key===' '){e.preventDefault();onUnlock();}
+          else if(e.key==='ArrowRight'){e.preventDefault();onUnlock();}
+        }}>
+        <span className="cp-lock-unlock-handle" style={{transform:'translate3d('+slideX+'px, -50%, 0)',transition:dragging.current?'none':undefined}}>
+          <CaretRight size={22}/>
+        </span>
+        <span className="cp-lock-unlock-label">向右滑动解锁</span>
+        <CaretRight className="cp-lock-unlock-end" size={19}/>
+      </div>
     </div>
   </Wallpaper>;
 }
@@ -116,6 +153,7 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
   const appearance=useAppearance(characterId);
   const [page,setPage]=useState(0);
   const startX=useRef<number|null>(null);
+  const startY=useRef<number|null>(null);
   useEffect(()=>setPage(0),[characterId]);
   const dateText=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   return <Wallpaper appearance={appearance} className="cp-home-wallpaper">
@@ -124,9 +162,17 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
       <span className="min-w-0 truncate px-2 text-[11px] tracking-[.12em] text-[#777]">{name} · PHONE</span>
       <button type="button" aria-label="查手机美化" onClick={()=>onOpen('beautify')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/75 bg-white/65 text-[#555]"><PaintBrush size={17}/></button>
     </div>
-    <div className="cp-home-body" onTouchStart={e=>{startX.current=e.touches[0].clientX;}}
-      onTouchEnd={e=>{if(startX.current===null)return;const dx=e.changedTouches[0].clientX-startX.current;startX.current=null;if(Math.abs(dx)>75)setPage(dx<0?1:0);}}>
-      {page===0?<>
+    <div className="cp-home-body"
+      onTouchStart={e=>{startX.current=e.touches[0].clientX;startY.current=e.touches[0].clientY;}}
+      onTouchEnd={e=>{
+        if(startX.current===null||startY.current===null)return;
+        const dx=e.changedTouches[0].clientX-startX.current;
+        const dy=e.changedTouches[0].clientY-startY.current;
+        startX.current=null;startY.current=null;
+        if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.2)setPage(dx<0?1:0);
+      }}>
+      <div className="cp-home-slide-track" data-page={page}>
+        <div className="cp-home-first-page">
         <div className="cp-home-topwidgets">
           <section className={PAPER+' cp-home-owner'}>
             <PhoneAvatar src={avatar} name={name} className="cp-home-owner-avatar rounded-full border-[3px] border-white/85 text-xl shadow-md"/>
@@ -161,7 +207,8 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
         <div aria-hidden="true" className="cp-home-decoration">
           <span>有些心事，留在这里。</span><span>A little closer to you.</span>
         </div>
-      </>:<div className="cp-home-page-two" style={{gridRow:'1 / -1'}}>
+        </div>
+        <div className="cp-home-page-two">
         <section className={PAPER+' cp-home-page-two-heading'}>
           <p className="text-[10px] tracking-[.22em] text-[#999]">SECOND PAGE</p>
           <h3 className="mt-1 text-[16px] font-medium text-[#4b4b4b]">更多应用</h3>
@@ -179,7 +226,8 @@ export function CharacterPhoneHome({characterId,name,avatar,userAvatar,userName,
           {!installBusy&&!installPlan&&<button type="button" onClick={onRetryInstall} className="mt-2 block rounded-full bg-[#444] px-4 py-2 text-white">重新分析安装</button>}
         </div>}
         {installPlan?.reason&&<p className="px-2 text-[10px] leading-4 text-[#777]">安装偏好：{installPlan.reason}</p>}
-      </div>}
+        </div>
+      </div>
     </div>
     <div className="cp-home-pages" aria-label="查手机桌面页码">
       {[0,1].map(i=><button type="button" key={i} onClick={()=>setPage(i)} aria-label={'打开第'+(i+1)+'页'}
