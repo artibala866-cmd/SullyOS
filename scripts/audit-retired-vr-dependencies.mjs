@@ -18,7 +18,7 @@ function visit(path) {
     const lines = readFileSync(next, 'utf8').split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (/\b(?:from|import\s*\(|require\s*\()\s*['"`][^'"`]*vrWorld\//.test(line)) imports.push(`${next}:${i + 1} ${line.trim().slice(0, 160)}`);
+      if (/\b(?:from|import\s*\(|require\s*\()\s*['"`][^'"`]*(?:vrWorld|\/sar)\//.test(line)) imports.push(`${next}:${i + 1} ${line.trim().slice(0, 160)}`);
       if (/\b(?:vrState|vr_card|sarLocalState|amsgSar|VRWorld)\b/.test(line)) states.push(`${next}:${i + 1}`);
     }
   }

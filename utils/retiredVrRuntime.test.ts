@@ -21,6 +21,9 @@ describe('retired 彼方 isolation', () => {
     }
     expect(source('components/character/ChibiStudio.tsx')).not.toContain("id: 'vr'");
     expect(source('apps/RoomApp.tsx')).not.toContain('userProfile.vrState');
+    expect(source('components/chat/MessageItem.tsx')).not.toContain('SARSpeechSwitch');
+    expect(source('components/date/DateSession.tsx')).not.toContain('SARSpeechSwitch');
+    expect(source('components/chat/MessageItem.tsx')).toContain("if (m.type === 'vr_card') return null;");
   });
 
   it('keeps every desktop theme free of the removed VRWorld icon and launcher entry', () => {
