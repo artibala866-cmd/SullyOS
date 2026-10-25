@@ -82,6 +82,17 @@ describe('character-owned autonomous phone behavior', () => {
     expect(chat?.messages.map(m => m.speaker.role)).toEqual(['contact', 'owner']);
   });
 
+  it('does not bootstrap new NPC contacts or spend tokens when the Char is sleeping', async () => {
+    // Empty address book used to trigger bootstrap before the sleep check.
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'sleep-bootstrap',observedAt:Date.now(),
+      plannedActivity:'睡觉',plannedDescription:'夜间休息',confirmedEvents:[],
+    });
+    const api=mockApi();
+    expect(await runCharacterPhoneAutonomy(input('sleep-bootstrap'))).toBe('skipped');
+    expect(api).not.toHaveBeenCalled();
+    expect(readCharacterPhoneChats('sleep-bootstrap')).toHaveLength(0);
+  });
   it('does not use sleeping schedules as completed activities or auto-create messages', async () => {
     saveNpcProfiles('sleep', contacts());
     vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
