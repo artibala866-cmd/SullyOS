@@ -52,6 +52,7 @@ import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type
 import {readPhoneInboxPreferences,writePhoneInboxPreferences} from '../../utils/characterPhoneInboxPrefs';
 import {appendSimulatedPhonePayments} from '../../utils/characterPhonePayments';
 import {syncCharacterPhoneWalletPayments} from '../../utils/characterPhoneWallet';
+import CharacterPhoneClearManager from './CharacterPhoneClearManager';
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
 type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser' | 'profile' | 'beautify' | CharacterPhoneSocialAppId;
@@ -391,6 +392,7 @@ ${scheduleContext}
       for(const item of data.threads.slice(0,prefs.chatDensity==='rich'?12:9)){
         if(!item || typeof item.nickname!=='string' || !item.nickname.trim() || !Array.isArray(item.messages)) continue;
         if(!['npc','group','service'].includes(item.kind)) continue;
+        if(item.kind==='service'&&!prefs.officialAccounts)continue;
         const linked=item.kind==='npc'?findKnownNpc(currentProfiles, {
           contactId: item.contactId, name: item.nickname,
           realName: item.realName, identity: item.identity, relationship: item.relationship,
@@ -604,7 +606,7 @@ ${scheduleContext}
   };
   const row = (label: string, icon: React.ReactNode, click: () => void) => <button type="button" onClick={click} className="flex w-full items-center gap-4 border-b border-[#e9e9e9] bg-white px-5 py-4 text-left text-[16px] text-[#222]"><span className="text-[#21ad68]">{icon}</span><span className="flex-1">{label}</span><span className="text-[#bbb]">›</span></button>;
   return <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-2" role="dialog" aria-modal="true" aria-label={name + '的手机'}>
-    <div className="flex h-[min(96dvh,850px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[28px] border-[5px] border-[#252525] bg-[#ededed] shadow-2xl">
+    <div className="flex h-[min(84dvh,720px)] w-[min(92vw,370px)] max-w-[370px] flex-col overflow-hidden rounded-[27px] border-[4px] border-[#252525] bg-[#ededed] shadow-2xl">
       <PhoneStatusBar characterId={characterId}/>
       {!phoneUnlocked ? <CharacterPhoneLockScreen characterId={characterId} name={name} avatar={phoneAvatar}
         onUnlock={unlockPhone} onClose={onClose}/> : <>
@@ -614,7 +616,7 @@ ${scheduleContext}
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器',profile:'个人资料' } as Record<string,string>)[screen]}</h2>
           {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy || sharedWechatRefreshing} onClick={() => void generateInbox()}>{busy || sharedWechatRefreshing ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
         </header>}
-      <main className="min-h-0 flex-1 overflow-y-auto">
+      <main className={'min-h-0 flex-1 '+(screen==='home'?'overflow-hidden':'overflow-y-auto')}>
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
         {screen === 'home' && <CharacterPhoneHome characterId={characterId} name={name} avatar={phoneAvatar}
           userAvatar={userProfile.perCharAvatars?.[characterId]||userProfile.avatar} userName={userProfile.name}
@@ -819,6 +821,7 @@ ${scheduleContext}
                 onChange={e=>changePhonePrefs({selfProfileAutoEnabled:e.target.checked})}/>
             </label>
           </section>
+          <CharacterPhoneClearManager characterId={characterId} disabled={busy||sharedWechatRefreshing||npcMomentLoading}/>
           <p className="px-2 text-xs leading-5 text-[#888]">
             默认省额度。自定义仅调整共享 API 预算；微信、浏览器和个人资料仍有独立冷却，避免空转刷请求。只有应用在前台且 Char 的日程允许时才检查；不会在网页关闭后持续请求。
             手动刷新和显式点击的生成按钮仍可使用聊天 API。主动消息 2.0 使用原来独立的机制，不受这里的预算影响。
