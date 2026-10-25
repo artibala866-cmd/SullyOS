@@ -28,7 +28,7 @@ import type { PhoneThreadV2 } from '../../utils/characterPhoneModel';
 import { buildCharacterPhoneContext } from '../../utils/characterPhoneContext';
 import type { UserProfile, GroupProfile, RealtimeConfig, VisionApiConfig } from '../../types';
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, Phone, NotePencil, ChatText, Globe, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap } from '@phosphor-icons/react';
+import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, Phone, NotePencil, ChatText, Globe, House, MagnifyingGlass, Plus, Compass, User, ChatsCircle, SpinnerGap, CreditCard, Megaphone, BookOpen } from '@phosphor-icons/react';
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
 import {
   CHARACTER_PHONE_CHATS_CHANGED, readCharacterPhoneChats,
@@ -209,6 +209,8 @@ export default function CharacterPhone({
     }catch{setError('自主生活设置保存失败');}
   };
   const [tab, setTab] = useState<Tab>('chats');
+  const [wechatSearchOpen,setWechatSearchOpen]=useState(false);
+  const [wechatQuery,setWechatQuery]=useState('');
   const [thread, setThread] = useState('');
   const [privateThread, setPrivateThread] = useState<PhoneThreadV2 | null>(null);
   const [swipedId, setSwipedId] = useState('');
@@ -629,7 +631,7 @@ ${scheduleContext}
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器',profile:'个人资料' } as Record<string,string>)[screen]}</h2>
-          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => setError('搜索功能后续接入')}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy || sharedWechatRefreshing} onClick={() => void generateInbox()}>{busy || sharedWechatRefreshing ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
+          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => {setWechatSearchOpen(v=>!v);setWechatQuery('');}}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy || sharedWechatRefreshing} onClick={() => void generateInbox()}>{busy || sharedWechatRefreshing ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
         </header>}
       <main className={'min-h-0 flex-1 '+(screen==='home'?'overflow-hidden':'overflow-y-auto')}>
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
@@ -646,11 +648,22 @@ ${scheduleContext}
           appId={screen} ownerName={name} ownerAvatar={phoneAvatar} onBack={()=>setScreen('home')}
           char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'wechat' && tab === 'chats' && <div>
+          {wechatSearchOpen&&<div className="border-b border-[#eee] bg-white px-4 py-3">
+            <input aria-label="搜索微信聊天" placeholder="搜索联系人、公众号或消息预览"
+              value={wechatQuery} onChange={e=>setWechatQuery(e.target.value)} autoFocus
+              className="w-full rounded-xl bg-[#f1f1f1] px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-[#aaa]"/>
+          </div>}
           {!hiddenPrivate && privateThread && <div className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(privateThread.id);setTouchX(null);}}>
             <button type="button" onClick={()=>{setThread(privateThread.id);setScreen('thread');}} className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#eee] px-4 py-3 text-left"><PhoneAvatar src={userProfile.perCharAvatars?.[characterId] || userProfile.avatar} name={userProfile.name} className="h-12 w-12 rounded-lg text-base"/><span className="min-w-0 flex-1"><span className="block truncate text-base">{userProfile.name} <small className="text-[#888]">真实私聊</small></span><span className="block truncate text-xs text-[#999]">{privatePreview?.text || '暂无私聊消息'}</span></span></button>{swipedId===privateThread.id&&<button type="button" onClick={()=>deleteChat(privateThread.id)} className="bg-red-500 px-4 text-white">删除</button>}
           </div>}
-          {records.map(r=><div key={r.id} className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(r.id);setTouchX(null);}}>
-            <button type="button" onClick={()=>{setThread(r.id);setScreen('thread');}} className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#eee] px-4 py-3 text-left"><PhoneAvatar src={profiles.find(p=>p.id===r.contactId)?.avatar} name={r.name} className="h-12 w-12 rounded-lg text-xl"/><span className="min-w-0 flex-1"><span className="block truncate text-[17px]">{r.name}</span><span className="block truncate pt-1 text-[13px] text-[#999]">{r.preview}</span></span><span className="text-xs text-[#aaa]">{timeLabel(r.time)}</span></button>{swipedId===r.id&&<button type="button" onClick={()=>deleteChat(r.id)} className="bg-red-500 px-4 text-white">删除</button>}
+          {records.filter(r=>(r.name+' '+r.preview).toLocaleLowerCase().includes(wechatQuery.trim().toLocaleLowerCase())).map(r=><div key={r.id} className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(r.id);setTouchX(null);}}>
+            <button type="button" onClick={()=>{setThread(r.id);setScreen('thread');}} className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#eee] px-4 py-3 text-left">{r.kind==='service'||r.contactId?.startsWith('service:')?
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#ddd] bg-gradient-to-br from-[#eee] to-white text-[#555]">
+                {r.name.includes('支付')?<CreditCard size={28}/>:r.name.includes('公众号')?<BookOpen size={27}/>:<Megaphone size={27}/>}
+              </span>:
+              r.kind==='group'||r.contactId?.startsWith('group:')?
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#dedede] text-[#555]"><UsersThree size={26}/></span>:
+              <PhoneAvatar src={profiles.find(p=>p.id===r.contactId)?.avatar} name={r.name} className="h-12 w-12 rounded-lg text-xl"/>}<span className="min-w-0 flex-1"><span className="block truncate text-[17px]">{r.name}</span><span className="block truncate pt-1 text-[13px] text-[#999]">{r.preview}</span></span><span className="text-xs text-[#aaa]">{timeLabel(r.time)}</span></button>{swipedId===r.id&&<button type="button" onClick={()=>deleteChat(r.id)} className="bg-red-500 px-4 text-white">删除</button>}
           </div>)}
           {!records.length && (!privateThread || hiddenPrivate) && <p className="p-8 text-center text-sm text-[#999]">暂无微信消息</p>}
         </div>}
