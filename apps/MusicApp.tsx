@@ -12,7 +12,6 @@ import {
   MetaChip, SubActions,
 } from './music/MusicUI';
 import NeteaseProfilePage from './music/NeteaseProfilePage';
-import CharVisitPage from './music/CharVisitPage';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 
 // ------------------------- 工具 -------------------------
@@ -23,7 +22,7 @@ const fmtTime = (s: number) => {
   return `${m}:${ss.toString().padStart(2, '0')}`;
 };
 
-type View = 'search' | 'settings' | 'player' | 'profile' | 'visit_char';
+type View = 'search' | 'settings' | 'player' | 'profile';
 
 // ========================= 主组件 =========================
 const MusicApp: React.FC = () => {
@@ -128,10 +127,11 @@ const MusicApp: React.FC = () => {
   // ── 手动对轴 modal state ──
   const [showLyricSync, setShowLyricSync] = useState(false);
   const [syncDraft, setSyncDraft] = useState<number[]>([]);
-  const [visitCharId, setVisitCharId] = useState<string | null>(null);
   useAppShortcut(ShortcutAppID.Music, intent => {
-    setVisitCharId(intent.characterId || null);
-    setView(intent.entryId === 'visit_char' ? (intent.characterId ? 'visit_char' : 'profile') : (intent.entryId || 'profile') as View);
+    // The character's music persona now lives in their optional phone Netease app.
+    // Legacy music shortcuts resolve safely to the Music profile rather than a removed view.
+    const target=intent.entryId==='visit_char'?'profile':(intent.entryId||'profile');
+    setView(target as View);
   });
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<Song[]>([]);
@@ -622,7 +622,6 @@ const MusicApp: React.FC = () => {
           onOpenPlayer={() => setView('player')}
           onOpenSearch={() => setView('search')}
           onOpenSettings={() => setView('settings')}
-          onVisitChar={id => { setVisitCharId(id); setView('visit_char'); trackEvent('进入角色音乐角落'); }}
         />
       )}
       {/* 手动对轴 modal — 全屏覆盖，不开新 view */}
@@ -791,13 +790,6 @@ const MusicApp: React.FC = () => {
         );
       })()}
 
-      {view === 'visit_char' && visitCharId && (
-        <CharVisitPage
-          charId={visitCharId}
-          onBack={() => { setView('profile'); setVisitCharId(null); }}
-          onOpenPlayer={() => setView('player')}
-        />
-      )}
     </div>
   );
 };
