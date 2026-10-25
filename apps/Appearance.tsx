@@ -129,8 +129,6 @@ const CATEGORY_LABELS: Record<string, { code: string; label: string }> = {
 
 
 // --- 桌面整机风格（皮肤）---
-// 手游主题壁纸：近白底 + 极淡薰衣草/粉光晕（照搬原创参考图，整体偏白不发紫）。
-const MOBILEGAME_WALLPAPER = 'radial-gradient(95% 55% at 85% 0%, #f2f2f2 0%, transparent 50%), radial-gradient(85% 55% at 6% 10%, #f4f4f4 0%, transparent 55%), linear-gradient(180deg, #fcfcfc 0%, #f7f7f7 55%, #f2f2f2 100%)';
 const COMPANION_WALLPAPER = 'radial-gradient(90% 65% at 50% 5%, #626262 0%, transparent 62%), radial-gradient(75% 55% at 100% 50%, #333333 0%, transparent 72%), linear-gradient(180deg, #1e1e1e 0%, #0f0f0f 62%, #080808 100%)';
 
 type DesktopSkinOption = { id: string; name: string; desc: string; swatch: string; config: Partial<OSTheme> };
@@ -142,24 +140,6 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
     desc: '小屋日常同步 · 面对面聊天 · 家园小手机',
     swatch: 'linear-gradient(90deg,#c8c8c8 0%,#e2e2e2 48%,#f4f4f4 48%,#fafafa 100%)',
     config: { skin: 'homely', wallpaper: 'linear-gradient(180deg,#f4f4f4,#c8c8c8)', contentColor: '#575757' },
-  },
-  {
-    id: 'mobilegame',
-    name: '手游风格',
-    desc: '梦幻粉紫二次元手游首页 · 星芒满屏 · 圆润可爱',
-    swatch: 'linear-gradient(135deg,#e1e1e1 0%,#d7d7d7 55%,#b8b8b8 100%)',
-    config: {
-      skin: 'mobilegame',
-      desktopVariant: 'paper',
-      hue: 270, saturation: 45, lightness: 70,
-      contentColor: '#636363',
-      wallpaper: MOBILEGAME_WALLPAPER,
-      chatAvatarShape: 'circle', chatAvatarSize: 'medium',
-      chatBubbleStyle: 'modern', chatMessageSpacing: 'default',
-      chatHeaderStyle: 'gradient', chatInputStyle: 'rounded',
-      chatChromeStyle: 'soft', chatBackgroundStyle: 'paper',
-      chatShowTimestamp: 'always',
-    },
   },
   {
     id: 'companion',
@@ -620,11 +600,11 @@ const Appearance: React.FC = () => {
   };
 
   const THEME_PRESETS: { name: string, config: Partial<OSTheme>, color: string }[] = [
-      { name: 'Indigo', config: { hue: 245, saturation: 25, lightness: 65, contentColor: '#ffffff' }, color: 'hsl(0, 0%, 65%)' },
-      { name: 'Sakura', config: { hue: 350, saturation: 70, lightness: 80, contentColor: '#3f3f3f' }, color: 'hsl(0, 0%, 80%)' },
-      { name: 'Cyber', config: { hue: 170, saturation: 100, lightness: 45, contentColor: '#ffffff' }, color: 'hsl(0, 0%, 45%)' },
+      { name: 'Indigo', config: { hue: 245, saturation: 25, lightness: 65, contentColor: '#ffffff' }, color: 'hsl(245, 25%, 65%)' },
+      { name: 'Sakura', config: { hue: 350, saturation: 70, lightness: 80, contentColor: '#3f3f3f' }, color: 'hsl(350, 70%, 80%)' },
+      { name: 'Cyber', config: { hue: 170, saturation: 100, lightness: 45, contentColor: '#ffffff' }, color: 'hsl(170, 100%, 45%)' },
       { name: 'Noir', config: { hue: 0, saturation: 0, lightness: 20, contentColor: '#ffffff' }, color: 'hsl(0, 0%, 20%)' },
-      { name: 'Sunset', config: { hue: 20, saturation: 90, lightness: 60, contentColor: '#ffffff' }, color: 'hsl(0, 0%, 60%)' },
+      { name: 'Sunset', config: { hue: 20, saturation: 90, lightness: 60, contentColor: '#ffffff' }, color: 'hsl(20, 90%, 60%)' },
   ];
 
   const handleWallpaperUpload = async (file: File) => {
@@ -1026,7 +1006,7 @@ const Appearance: React.FC = () => {
                                 <span>Hue</span><span>{theme.hue}°</span>
                             </div>
                             <input type="range" min="0" max="360" value={theme.hue} onChange={(e) => updateTheme({ hue: parseInt(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary" />
-                            <div className="h-2 w-full rounded-full mt-3 opacity-50" style={{ background: `linear-gradient(to right, hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%), hsl(0, 0%, 80%))`}}></div>
+                            <div className="h-2 w-full rounded-full mt-3 opacity-50" style={{ background: `linear-gradient(to right, hsl(0, 80%, 65%), hsl(60, 80%, 65%), hsl(120, 80%, 65%), hsl(180, 80%, 65%), hsl(240, 80%, 65%), hsl(300, 80%, 65%), hsl(360, 80%, 65%))`}}></div>
                         </div>
                         <div>
                             <div className="flex justify-between text-xs text-slate-500 mb-2 font-medium">
