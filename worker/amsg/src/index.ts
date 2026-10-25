@@ -166,13 +166,6 @@ import {
   type FireSessionState,
 } from './agentic';
 import {
-  amsgSarSnapshotKey,
-  amsgSarSurfaceKey,
-  amsgSarUserSurfaceKey,
-  readSarSnapshot,
-  stripSarSnapshot,
-} from './sarEnvelope';
-import {
   amsgEmotionUpdateKey,
   EMOTION_EVAL_RIDE_ALONG_MS,
   resolveEmotionEvalApi,
@@ -634,25 +627,15 @@ interface OffloadBaton {
   refField: string;
   /**
    * client_state 里的存储键（每任务一份，下次触发覆盖）。第二个参数是这条 push 在本轮里的
-   * 段序号（0 起）：只有每条 push 各挂一份的字段（SAR 外显）要用它编键，别的棒忽略。
+   * 段序号（0 起），留给未来每条 push 独立保存数据的扩展。
    */
   key: (clientTaskId: string, segmentIndex: number) => string;
   /** 日志前缀，`wrangler tail` 上一眼看出是哪一棒挪的。 */
   log: string;
 }
 
-/**
- * 挪的顺序：思考链 → 情绪评估结果 → SAR 快照 → SAR 用户外显 → 本段 SAR 外显 → XHS 会话数据。
- *
- * 前两样都是整段模型输出（几百到几千字），超限时多半是它俩撑爆的，而且客户端拿它们
- * 只是渲染卡片 / 落 buff，晚一步取回来不影响这条消息本身。
- *
- * SAR 三样（见 ./sarEnvelope）：快照是客户端收尾写事件、推进回合用的，晚一步不影响气泡；
- * 用户外显（USER_SURFACE 原文，用户这轮写得长它就长）只影响用户自己那条气泡的展示；
- * 本段外显是这条气泡默认显示的那一版，取回之前界面会先露出真意，所以在三样里排最后。
- * 本段外显每条 push 各有一份，键里带段序号，同一轮几条互不覆盖。
- *
- * XHS 那份关系到这条消息里的卡片能不能出来，所以排最后，挪完还是装不下才动它。
+/** 思考链、情绪评估结果、XHS 会话数据按顺序旁路存储。
+ * 旧彼方/SAR 不再进入推送协议。
  */
 const OFFLOAD_BATONS: OffloadBaton[] = [
   {
@@ -666,24 +649,6 @@ const OFFLOAD_BATONS: OffloadBaton[] = [
     refField: 'amsgEmotionRef',
     key: amsgEmotionUpdateKey,
     log: '[amsg:emotion] 评估结果旁路存储',
-  },
-  {
-    field: 'amsgSar',
-    refField: 'amsgSarRef',
-    key: amsgSarSnapshotKey,
-    log: '[amsg:sar] 模块快照旁路存储',
-  },
-  {
-    field: 'amsgSarUserSurface',
-    refField: 'amsgSarUserSurfaceRef',
-    key: amsgSarUserSurfaceKey,
-    log: '[amsg:sar] 用户外显旁路存储',
-  },
-  {
-    field: 'amsgSarSurface',
-    refField: 'amsgSarSurfaceRef',
-    key: amsgSarSurfaceKey,
-    log: '[amsg:sar] 本段外显旁路存储',
   },
   {
     field: 'xhsSession',
@@ -2472,10 +2437,7 @@ export const amsgHooks = {
       messageType,
       // 摘掉评估配置再交出去：它里头是用户副 API 的 apiKey，而 metadata 会被整个
       // 摊进每条 push 的 payload（见 agentic 的 buildScheduledPush）。见 stripEmotionEvalSpec。
-      // SAR 快照同样摘掉，单独经 sar 传入：它只随最后一条 push 原样回去一次。
-      metadata: stripSarSnapshot(stripEmotionEvalSpec(ctx.metadata)),
-      // SAR 临时模块快照（形状不对就当没有）。要求信封时 processLLMRound 在分段前拆信封。
-      sar: readSarSnapshot(ctx.metadata),
+      metadata: stripEmotionEvalSpec(ctx.metadata),
       occurrenceMs: stash.occurrenceMs,
       // round 1 XHS 工具抓到的笔记 / xsecToken 快照：finish 时按 directive 引用
       // 挑选后随最后一条 push 带回客户端（客户端离线跑不了 round 1，缺这份
