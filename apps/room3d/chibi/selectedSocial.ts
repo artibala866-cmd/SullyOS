@@ -315,7 +315,21 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    presentPostPose(both,sourceTime,actionTime,weight);
   }
  }
- const restore=()=>{constraintPipeline.reset();motionScope.stop();prop=null;session=null;draw();};
+ const restore=()=>{
+  const last=session;
+  constraintPipeline.reset();motionScope.stop();prop=null;session=null;
+  if(last?.action==='home-sofa-lap-pillow'){
+   // At the very last frame keep BOTH seated; ordinary restore's idle-standing
+   // would make the lap-pillow end with a one-frame pop off the cushion.
+   last.ids.forEach((id,i)=>{
+    const resident=states.get(id)!;
+    resident.visitor.root.position.copy(last.starts[i]);
+    resident.visitor.root.quaternion.copy(last.turns[i]);
+    resident.visitor.animate(0,'idle','seated',options.sofaSeatPoses?.[id]);
+   });
+   finish();
+  }else draw();
+ };
  return {
   get active(){return !!session;},
   async start(action:SocialAction,a:string,b?:string){
