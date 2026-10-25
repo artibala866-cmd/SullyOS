@@ -72,10 +72,22 @@ export function lapPillowHeadContact(
  const up=new T.Vector3(0,1,0).applyQuaternion(rotation);
  const front=new T.Vector3(0,0,1).applyQuaternion(rotation);
  const size=headPatScalpSize(a);
- const normal=up.clone().multiplyScalar(1.15).addScaledVector(front,towardForehead*.42).normalize();
+ // A real crown-to-side-forehead pass. Previous .18*depth travel was only
+ // a few centimetres, essentially a stationary hand. Project the stroke on
+ // the chibi's curved hair cap, and align the near-side with B's shoulder.
+ const across=new T.Vector3(1,0,0).applyQuaternion(rotation);
+ const wrist=b.rig!.bones[side+'_upperArm']?.getWorldPosition(new T.Vector3());
+ const sideSign=wrist&&wrist.clone().sub(a.getHeadWorldPosition()).dot(across)<0?-1:1;
+ const travel=clamp(towardForehead,0,1);
+ const x=sideSign*size.radius*(.13+.28*travel);
+ const z=size.depth*(.07+.40*travel);
+ const y=size.height*Math.sqrt(Math.max(.20,1-(x/size.radius)**2-(z/size.depth)**2));
+ const normal=across.clone().multiplyScalar(x/(size.radius*size.radius))
+  .addScaledVector(front,z/(size.depth*size.depth))
+  .addScaledVector(up,y/(size.height*size.height)).normalize();
  const center=a.getHeadWorldPosition();
- const point=center.clone().addScaledVector(up,size.height*.78)
-  .addScaledVector(front,towardForehead*size.depth*.18);
+ const point=center.clone().addScaledVector(up,y)
+  .addScaledVector(front,z).addScaledVector(across,x);
  // During descent B's palm supports the OCCIPUT, not the forehead/crown.
  // Blend smoothly to the scalp stroke as the head settles on the leg.
  const handBack=front.clone().negate();
