@@ -1,6 +1,7 @@
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
 import type {contactSolver,Contact} from './socialContact';
+import {furniturePalm,furnitureHandRotation} from './furnitureMotion';
 import {headPatScalpSize} from './headPatMotion';
 
 type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
@@ -16,25 +17,23 @@ const fade=(t:number,on:number,full:number,off:number,end:number)=>
 export const SOFA_LAP_PILLOW_SECONDS=9.3;
 export function sofaLapPillowPhase(t:number){
  const time=clamp(t,0,SOFA_LAP_PILLOW_SECONDS);
- // A cannot tip sideways as a rigid doll. They first plant a palm, ease
- // their hips onto the cushion, progressively incline the back, and only then
- // transfer the head's weight to B's thigh. Rising reverses this causal order.
- const brace=fade(time,.08,1.30,2.07,3.42)+fade(time,6.60,7.87,8.00,9.30);
- const scoot=fade(time,.42,1.85,7.90,9.30);
- const turn=fade(time,.55,1.97,8.00,9.30);
- const lower=fade(time,.76,2.65,7.55,9.30);
- const settle=fade(time,1.86,3.06,7.00,8.32);
- const headLift=smooth(time,7.55,8.38);
- const support=fade(time,.84,1.62,2.67,3.25);
- const stroke=fade(time,2.98,3.27,6.74,7.24);
- const first=fade(time,3.26,4.16,4.16,4.78);
- const second=fade(time,4.88,6.10,6.10,6.78);
- const rise=smooth(time,7.34,9.18);
+ // Move the seat contact BEFORE loading the arms. Only then lower the torso.
+ const brace=fade(time,.25,1.40,3.05,3.65)+fade(time,6.35,7.10,8.35,9.30);
+ const scoot=fade(time,.12,1.35,8.30,9.30);
+ const turn=fade(time,1.05,2.00,8.05,8.85);
+ const lower=fade(time,1.45,3.15,7.35,8.45);
+ const settle=fade(time,2.30,3.45,7.05,7.75);
+ const headLift=smooth(time,7.05,7.75);
+ const support=fade(time,1.50,2.65,3.35,3.85);
+ const stroke=fade(time,3.35,3.85,6.35,6.85);
+ const first=fade(time,3.85,4.45,4.45,5.00);
+ const second=fade(time,5.10,5.85,5.85,6.40);
+ const rise=smooth(time,7.05,9.30);
  return {
   lower,brace:clamp(brace,0,1),scoot,turn,settle,headLift,
   support,stroke,first,second,rise,
   cheek:fade(time,4.66,5.07,5.20,5.70),
-  eye:fade(time,1.30,2.78,8.63,9.28)
+  eye:fade(time,1.30,2.78,8.35,9.28)
  };
 }
 
@@ -44,7 +43,8 @@ export function lapPillowSide(a:ChibiVisitor,b:ChibiVisitor):1|-1{
 }
 
 /** Anchor is measured from the actual B thigh, not a fixed standing head Y.
- * The head radius (including hair/large head) is kept ABOVE the leg surface.
+ * The rotated scalp proxy stays above the scaled thigh surface.
+ * Clothing and individual hairstyles still require visual clearance checks.
  */
 export function lapPillowHeadTarget(a:ChibiVisitor,b:ChibiVisitor):T.Vector3{
  const side=lapPillowSide(b,a);
@@ -55,10 +55,14 @@ export function lapPillowHeadTarget(a:ChibiVisitor,b:ChibiVisitor):T.Vector3{
  const top=thigh.getWorldPosition(new T.Vector3());
  const knee=shin.getWorldPosition(new T.Vector3());
  const point=top.lerp(knee,.27);
- const radius=headPatScalpSize(a).radius;
+ const size=headPatScalpSize(a);
+ // Support the rotated ellipsoid, not an upright radius times a magic fraction.
+ const rotation=a.rig!.bones.head.getWorldQuaternion(new T.Quaternion());
+ const vertical=new T.Vector3(0,1,0).applyQuaternion(rotation.invert());
+ const radius=Math.hypot(vertical.x*size.radius,vertical.y*size.height,vertical.z*size.depth);
  const up=new T.Vector3(0,1,0);
  // The thigh is an upper-leg anchor, not a scalp support plane.
- point.addScaledVector(up,radius*.78+.085);
+ point.addScaledVector(up,radius+.16*b.rig!.bones.hips.getWorldScale(new T.Vector3()).y);
  return point;
 }
 
@@ -76,8 +80,9 @@ export function lapPillowHeadContact(
  // a few centimetres, essentially a stationary hand. Project the stroke on
  // the chibi's curved hair cap, and align the near-side with B's shoulder.
  const across=new T.Vector3(1,0,0).applyQuaternion(rotation);
- const wrist=b.rig!.bones[side+'_upperArm']?.getWorldPosition(new T.Vector3());
- const sideSign=wrist&&wrist.clone().sub(a.getHeadWorldPosition()).dot(across)<0?-1:1;
+ // Use the fixed sofa side. A shoulder projection crosses the head's local
+ // X plane during descent and used to switch both contact and wrist by 180°.
+ const sideSign=lapPillowSide(a,b);
  const travel=clamp(towardForehead,0,1);
  const x=sideSign*size.radius*(.13+.28*travel);
  const z=size.depth*(.07+.40*travel);
@@ -96,96 +101,121 @@ export function lapPillowHeadContact(
  const hold=clamp(supporting,0,1);
  point.lerp(backContact,hold);
  normal.lerp(backNormal,hold).normalize();
- const tangent=front.clone().lerp(up,hold);
+ // Across the skull stays transverse to both the occiput and crown normal.
+ // Blending front/up became parallel to the normal halfway through transfer
+ // and flipped the wrist tangent by 180 degrees.
+ const tangent=across.clone().multiplyScalar(-sideSign);
  const direction=tangent.addScaledVector(normal,-tangent.dot(normal));
  if(direction.lengthSq()<1e-7)direction.crossVectors(normal,new T.Vector3(1,0,0));
  direction.normalize();
  return {side,point,direction,normal,curl:.18};
 }
 
-/** Direct seated pose: the sofa keeps both hips grounded. A's torso rolls
- * towards B while B's free shoulder remains relaxed. Large-head corrections
- * are bounded on the existing motion body (not the navigation roots).
+/** Blend the PALM in world space, then solve at full weight. Blending arm
+ * joints and wrist orientation independently made the releasing hand snap
+ * through a different wrist rotation while the elbow was still reaching.
+ */
+function solveLapHand(resident:Resident,contact:Contact,weight:number){
+ if(!resident.solver||weight<=0)return;
+ const hand=resident.visitor.rig!.bones[contact.side+'_hand'];
+ resident.visitor.root.updateWorldMatrix(true,true);
+ const rotation=hand.getWorldQuaternion(new T.Quaternion()).slerp(
+  furnitureHandRotation(contact.side,contact.direction.toArray(),contact.normal.toArray()),weight);
+ const point=hand.localToWorld(furniturePalm(contact.side)).lerp(contact.point,weight);
+ resident.solver({...contact,point,
+  direction:new T.Vector3(contact.side==='L'?1:-1,0,0).applyQuaternion(rotation),
+  normal:new T.Vector3(0,1,0).applyQuaternion(rotation),
+ },1);
+}
+
+type LapPlan={partner:ChibiVisitor;angle:number;slide:T.Vector3;seatY:number};
+const plans=new WeakMap<ChibiVisitor,LapPlan>();
+
+/** Work out the lying endpoint from the actual seated skeleton BEFORE moving.
+ * Restore every trial rotation; neither navigation roots nor bone lengths move.
+ * Vertical contact is achieved by reclining, never by dragging hips downwards.
+ */
+function planLap(a:ChibiVisitor,b:ChibiVisitor,sign:number):LapPlan{
+ const bones=a.rig!.bones;
+ const saved=['hips','spine','chest'].map(n=>bones[n].quaternion.clone());
+ const trial=(angle:number)=>{
+  bones.hips.quaternion.copy(saved[0]).multiply(q(0,sign*.28,-sign*.20));
+  bones.spine.quaternion.copy(saved[1]).multiply(q(.06,sign*.10,-sign*angle*.60));
+  bones.chest.quaternion.copy(saved[2]).multiply(q(-.06,-sign*.06,-sign*angle*.40));
+  a.root.updateWorldMatrix(true,true);
+  return a.getHeadWorldPosition().y-lapPillowHeadTarget(a,b).y;
+ };
+ let lo=0,hi=1.65;
+ for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(trial(mid)>0)lo=mid;else hi=mid;}
+ const angle=(lo+hi)/2;trial(angle);
+ const slide=lapPillowHeadTarget(a,b).sub(a.getHeadWorldPosition());slide.y=0;
+ ['hips','spine','chest'].forEach((n,i)=>bones[n].quaternion.copy(saved[i]));
+ a.root.updateWorldMatrix(true,true);
+ return {partner:b,angle,slide,seatY:a.root.getWorldPosition(new T.Vector3()).y+a.seatOffset};
+}
+
+/** Seated scoot -> lifted hands -> supported waist turn -> head transfer.
+ * Endpoint planning replaces the old late, clamped whole-body head chase.
  */
 export function poseSofaLapPillow(both:readonly [Resident,Resident],time:number){
  const [aResident,bResident]=both;
  const a=aResident?.visitor,b=bResident?.visitor;
  if(!a?.rig||!b?.rig)return false;
- const p=sofaLapPillowPhase(time);
- const sign=lapPillowSide(a,b);
+ const p=sofaLapPillowPhase(time),sign=lapPillowSide(a,b);
  const ar=a.rig.bones,br=b.rig.bones;
- // 1) A braces and redistributes seat weight. Rotate the PELVIS barely at
- // all, so both folded legs and the seat contact stay anchored.
- ar.hips.quaternion.multiply(q(0,sign*.10*p.turn,-sign*.105*p.turn));
- // 2) With hips stable, the short spine and chest side-fold in sequence.
- // Their total lean reads as a sideways recline, not one stiff vertical rod.
- ar.spine.quaternion.multiply(q(-.085*p.lower,sign*.075*p.turn,-sign*.79*p.lower));
- ar.chest.quaternion.multiply(q(-.062*p.lower,0,-sign*.39*smooth(time,1.13,2.72)*(1-smooth(time,7.55,9.30))));
- ar.neck.quaternion.multiply(q(0,0,-sign*.055*p.lower));
- // A turns the face toward B while the skull comes down; cheek nestle is a
- // single small voluntary motion, not a second fast oscillation.
- ar.head.quaternion.multiply(q(.052*p.eye,sign*(.10*p.eye+.047*p.cheek),sign*(.085*p.lower+.055*p.cheek)));
- // B notices A early, leans a little forward and lowers their gaze before
- // reaching, without the shoulders pulsing independently.
- br.spine.quaternion.multiply(q(.055*p.support+.045*p.stroke,0,sign*.024*p.stroke));
- br.chest.quaternion.multiply(q(.040*p.support+.045*p.stroke,0,-sign*.023*p.eye));
- br.head.quaternion.multiply(q(.105*p.eye,0,-sign*.065*p.eye));
- a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
- // Relax the knees a little into the cushion instead of leaving both
- // legs in the exact rigid chair-rest angles while the upper body lies down.
- const legs=smooth(time,1.25,2.85)*(1-smooth(time,7.65,9.25));
- for(const side of ['L','R'] as const){
-  ar[side+'_thigh'].quaternion.multiply(q(.18*legs,0,(side==='L'?-1:1)*.035*legs));
-  ar[side+'_shin'].quaternion.multiply(q(-.21*legs));
-  ar[side+'_foot'].quaternion.multiply(q(.035*legs));
- }
- // 3) Gentle cushion scoot is an authored, smoothly easing seat adjustment.
- // Root and sofa stay fixed; do not force the WHOLE body to chase the head at
- // every frame. Allow a smaller final settling adjustment only near the lap.
- const scale=Math.min(a.root.getWorldScale(new T.Vector3()).x,b.root.getWorldScale(new T.Vector3()).x);
+ let plan=plans.get(a);
+ if(!plan||plan.partner!==b||time===0){plan=planLap(a,b,sign);plans.set(a,plan);}
+ const scale=ar.hips.getWorldScale(new T.Vector3()).y;
  const right=new T.Vector3(1,0,0).applyQuaternion(a.root.getWorldQuaternion(new T.Quaternion()));
  const forward=new T.Vector3(0,0,1).applyQuaternion(a.root.getWorldQuaternion(new T.Quaternion()));
- if(p.scoot>.001){
-  const slide=right.multiplyScalar(sign*.36*scale*p.scoot)
-   .addScaledVector(forward,.055*scale*p.scoot);
-  a.translatePose(slide);
+ const initialHip=ar.hips.getWorldPosition(new T.Vector3());
+ // The planned shift may be AWAY from B on narrow seats: make room for the
+ // large head and short torso rather than always pushing .36 toward B.
+ a.translatePose(plan.slide.clone().multiplyScalar(p.scoot));
+ ar.hips.quaternion.multiply(q(0,sign*.28*p.turn,-sign*.20*p.turn));
+ ar.spine.quaternion.multiply(q(.06*p.lower,sign*.10*p.turn,-sign*plan.angle*.60*p.lower));
+ ar.chest.quaternion.multiply(q(-.06*p.settle,-sign*.06*p.turn,-sign*plan.angle*.40*p.settle));
+ // A slight cheek turn around the head's own up axis does not lift the skull
+ // off the thigh; avoid separately rolling/pitching the large head at contact.
+ ar.head.quaternion.multiply(q(0,sign*.035*p.cheek,0));
+ const legs=fade(time,1.15,2.80,7.80,8.65);
+ for(const side of ['L','R'] as const){
+  ar[side+'_thigh'].quaternion.multiply(q(.12*legs,0,(side==='L'?-1:1)*.035*legs));
+  ar[side+'_shin'].quaternion.multiply(q(-.14*legs));
  }
- if(p.settle>.001){
-  a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
-  const miss=lapPillowHeadTarget(a,b).sub(a.getHeadWorldPosition());
-  // Only settle the last short gap after the torso has already reclined;
-  // avoid large vertical hip excursions and leg/cushion penetration.
-  const available=scale;
-  const correction=new T.Vector3(
-   clamp(miss.x,-.34*available,.34*available),
-   clamp(miss.y,-.11*available,.11*available),
-   clamp(miss.z,-.14*available,.14*available)
-  );
-  a.translatePose(correction.multiplyScalar(p.settle));
- }
+ br.head.quaternion.multiply(q(.105*p.eye,0,-sign*.065*p.eye));
+ // Keep B's pelvis/thigh fixed while looking down; hand targets then share a
+ // stable support plane throughout the transfer and the two hair strokes.
  a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
- const sideA=sign>0?'R':'L';
- const sideB=lapPillowSide(b,a)>0?'L':'R';
- // A pushes on the near cushion before lying down and again when sitting up.
- if(p.brace>.001&&aResident.solver){
-  const hip=ar.hips.getWorldPosition(new T.Vector3());
-  const right=new T.Vector3(1,0,0).applyQuaternion(a.root.getWorldQuaternion(new T.Quaternion()));
-  const forward=new T.Vector3(0,0,1).applyQuaternion(a.root.getWorldQuaternion(new T.Quaternion()));
-  const pad=hip.addScaledVector(right,-sign*.28).addScaledVector(forward,.19);
-  pad.y=ar.hips.getWorldPosition(new T.Vector3()).y-.055*a.root.getWorldScale(new T.Vector3()).y;
-  aResident.solver({
-   side:sideA,point:pad,direction:forward,normal:new T.Vector3(0,1,0),curl:.08,
-  },p.brace*.65);
+ for(const side of ['L','R'] as const){
+  const sideSign=side==='L'?1:-1;
+  const shoulder=ar[side+'_upperArm'];
+  if(!shoulder||!aResident.solver)continue;
+  const hand=ar[side+'_hand'];
+  const start=hand.localToWorld(furniturePalm(side));
+  // Lift out of the resting pose first, then plant ahead of the hips. The
+  // contact plane comes from the sofa seat, NEVER from the moving pelvis.
+  const pad=initialHip.clone().addScaledVector(plan.slide,p.scoot).addScaledVector(right,sideSign*.32*scale)
+   .addScaledVector(forward,.48*scale);
+  pad.y=plan.seatY+.025*scale;
+  const reach=sideSign===sign?smooth(time,.20,1.15):smooth(time,.40,1.40);
+  const lift=Math.sin(Math.PI*reach)*.32*scale*(1-smooth(time,1.40,1.80));
+  const target=start.clone().lerp(pad,reach);target.y=Math.max(target.y,pad.y)+lift;
+  // On the lap both forearms rest in front of the torso, above the cushion.
+  const rest=ar.chest.getWorldPosition(new T.Vector3()).addScaledVector(forward,.30*scale)
+   .addScaledVector(right,sideSign*.12*scale);
+  rest.y=Math.max(rest.y,plan.seatY+.16*scale);
+  const restWeight=fade(time,3.05,3.65,6.35,7.10);
+  target.lerp(rest,restWeight);
+  target.y+=.22*scale*fade(time,8.10,8.45,8.85,9.30);
+  const active=fade(time,.08,.65,8.30,9.30);
+  solveLapHand(aResident,{side,point:target,direction:forward,normal:new T.Vector3(0,1,0),curl:.12-.02*active},active);
  }
- // B catches the back of the head; after the transfer the same hand performs
- // two distinct, slower-than-shoulder strokes across the scalp.
- // Each stroke travels from crown to temple and softly returns, with zero
- // hand velocity at both endpoints. Do not snap back between repetitions.
+ const sideB=lapPillowSide(b,a)>0?'L':'R';
  const forehead=clamp(p.first*.95+p.second*.76,0,1);
- const contact=lapPillowHeadContact(b,a,sideB,forehead,p.support*(1-smooth(time,2.70,3.14)));
- const touch=Math.max(p.support,p.stroke);
- if(touch>.001) bResident.solver?.(contact,touch*.92);
- // B's other palm relaxes by the cushion; no repeated opposite-shoulder twitch.
- b.rig.setHandCurl(sideB,.14);
+ const contact=lapPillowHeadContact(b,a,sideB,forehead,1-smooth(time,3.05,3.65));
+ const touch=fade(time,1.50,2.65,6.35,7.15);
+ solveLapHand(bResident,contact,touch);
+ b.rig.setHandCurl(sideB,.12+.02*touch);
  return true;
 }

@@ -230,7 +230,10 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
  },motionTemplateConstraintPlans);
 
  function draw(){
-  if(!session){for(const r of states.values())if(r.id!==pinned?.id)r.visitor.animate(0,'idle');holdPinned();finish();return;}
+  if(!session){for(const r of states.values())if(r.id!==pinned?.id){
+   const seat=options.sofaSeatPoses?.[r.id];
+   r.visitor.animate(0,'idle',seat?'seated':'standing',seat);
+  }holdPinned();finish();return;}
   const s=session;
   if(s.time<s.approach){
    s.ids.forEach((id,i)=>{if(id===pinned?.id){holdPinned();return;}const v=states.get(id)!.visitor,path=s.paths[i],lengths=path.slice(1).map((p,j)=>p.distanceTo(path[j])),total=lengths.reduce((a,b)=>a+b,0);let distance=total*s.time/s.approach,index=0;while(index<lengths.length-1&&distance>lengths[index])distance-=lengths[index++];const from=path[index],to=path[index+1]??from;
@@ -259,7 +262,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    if(sofaPillow){
     // No standing idle/walk overlay: both roots stay on their real sofa seats.
     r.visitor.root.quaternion.copy(s.turns[i]);
-    r.visitor.animate(sourceTime,'idle','seated',options.sofaSeatPoses?.[r.id]);
+    r.visitor.animate(0,'idle','seated',options.sofaSeatPoses?.[r.id]);
    }else if(isIntimacy(s.action)||motionTemplateFor(s.action)?.headTouch){
     const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));
     r.visitor.root.quaternion.copy(turn).slerp(rearHug?s.rotation:toward,smooth(actionTime,0,.6));

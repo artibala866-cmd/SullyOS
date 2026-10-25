@@ -1,7 +1,6 @@
-import {describe,expect,it} from 'vitest';
+import {describe,expect,it,vi} from 'vitest';
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
-import {furnitureHandRotation} from './furnitureMotion';
 import {selectedMotions,sampleSelected} from './selectedMotions';
 import {socialActions,createSocialScene} from './selectedSocial';
 import {isIntimacy} from './intimacyMotion';
@@ -46,145 +45,109 @@ describe('sofa-only 9.3-second intimate lap pillow',()=>{
   const state={id:'living',items:[{id:'small',assetId:'sofa',x:0,y:0,z:0,rotation:0,stored:false}]};
   expect(sofaLapPillowSeatPair(state,catalog as any[],seat('small','left'),seat('small','right'))?.distance).toBeCloseTo(1.2);
  });
- it('lowers slowly, holds the head on the thigh for two distinct long strokes, then rises without popping',()=>{
-  expect(sofaLapPillowPhase(0).lower).toBe(0);
-  expect(sofaLapPillowPhase(1.2).brace).toBeGreaterThan(0);
-  expect(sofaLapPillowPhase(2.85).lower).toBe(1);
-  expect(sofaLapPillowPhase(3.7).support).toBe(0);
-  expect(sofaLapPillowPhase(4.22).first).toBeGreaterThan(.9);
-  expect(sofaLapPillowPhase(4.22).second).toBe(0);
-  expect(sofaLapPillowPhase(6.18).first).toBe(0);
-  expect(sofaLapPillowPhase(6.18).second).toBeGreaterThan(.9);
-  expect(sofaLapPillowPhase(7.25).lower).toBeGreaterThan(.90);
-  expect(sofaLapPillowPhase(7.25).brace).toBeGreaterThan(0);
-  expect(sofaLapPillowPhase(9.3).lower).toBe(0);
-  expect(sofaLapPillowPhase(9.3).stroke).toBe(0);
-  expect(sofaLapPillowPhase(9.3).brace).toBe(0);
  });
- function fakeVisitor(x:number,scale=1):ChibiVisitor{
-  const root=new T.Group();root.position.set(x,.18,0);root.scale.setScalar(scale);
-  const bones:Record<string,T.Bone>={};
-  const add=(name:string,parent:T.Object3D,pos:[number,number,number])=>{
-   const bone=new T.Bone();bone.position.set(...pos);parent.add(bone);bones[name]=bone;return bone;
-  };
-  const hips=add('hips',root,[0,.8,0]);
-  const spine=add('spine',hips,[0,.25,0]),chest=add('chest',spine,[0,.22,0]);
-  const neck=add('neck',chest,[0,.07,0]);
-  add('head',neck,[0,.28,0]);
-  for(const side of ['L','R'] as const){
-   const sign=side==='L'?1:-1;
-   add(side+'_thigh',hips,[sign*.20,-.20,.24]);
-   const shin=add(side+'_shin',bones[side+'_thigh'],[0,-.12,.33]);
-   add(side+'_foot',shin,[0,-.19,.05]);
-   add(side+'_hand',chest,[sign*.36,0,.10]);
+
+// Real production skeleton, seated pose and CCD palm solver. These numerical
+// checks do not replace visual review of skin, clothing, hair or sofa meshes.
+import {createBlankBody,BLANK_SCALE} from './blankBody';
+import {bindBlankBody} from './blankRig';
+import {createBlankMotion} from './blankMotion';
+import {contactSolver} from './socialContact';
+import {furniturePalm} from './furnitureMotion';
+
+function resident(x:number,height:number,yaw:number,headSize=1){
+ const root=new T.Group(),scaled=new T.Group(),body=new T.Group();
+ root.position.set(0,.65,0);root.rotation.y=yaw;
+ root.position.add(new T.Vector3(x,0,0).applyQuaternion(root.quaternion));
+ root.add(scaled);scaled.scale.setScalar(2.8/BLANK_SCALE);scaled.add(body);
+ const mesh=new T.Mesh(createBlankBody('skin',{bodyHeight:height,headSize}),new T.MeshBasicMaterial());
+ body.add(mesh);const rig=bindBlankBody(mesh,new T.Group(),true);
+ const animate=createBlankMotion(rig,body);
+ const visitor={root,rig,seatOffset:0,
+  getHeadWorldPosition:()=>rig.bones.head.localToWorld(new T.Vector3(0,.72,0)),
+  translatePose:(delta:T.Vector3)=>{const parent=body.parent!;parent.updateWorldMatrix(true,false);
+   body.position.add(parent.worldToLocal(delta.clone()).sub(parent.worldToLocal(new T.Vector3())));
+   root.updateWorldMatrix(true,true);},
+ } as ChibiVisitor;
+ const reset=()=>{animate(0,'idle','seated',{kind:'social',hands:[],seatHeight:.65});root.updateWorldMatrix(true,true);};
+ reset();return {visitor,solver:contactSolver(visitor),reset,body};
+}
+
+describe('lap pillow with the production seated skeleton and palm IK',()=>{
+ it('finishes the scoot and plants support before reclining, then rises before returning hips',()=>{
+  expect(sofaLapPillowPhase(1.4).scoot).toBe(1);
+  expect(sofaLapPillowPhase(1.4).brace).toBe(1);
+  expect(sofaLapPillowPhase(1.4).lower).toBe(0);
+  expect(sofaLapPillowPhase(7.1).brace).toBe(1);
+  expect(sofaLapPillowPhase(7.1).lower).toBe(1);
+  expect(sofaLapPillowPhase(8.3).scoot).toBe(1);
+  for(const key of ['brace','lower','scoot','turn','settle','stroke'] as const)
+   expect(sofaLapPillowPhase(9.3)[key]).toBe(0);
+ });
+ for(const [distance,ah,bh,yaw,sign,headSize] of [
+  [1.2,1,1,0,1,1],[1.88,.8,1.2,Math.PI/2,1,1],[2.05,1.2,.8,-.7,-1,1],
+  [1.2,1,1,Math.PI,-1,1.2],[1.88,1.2,.8,.9,-1,1.2],[2.05,.8,1.2,-1.3,1,.85],
+ ])it(`maintains contact and continuous motion: ${[distance,ah,bh,yaw,sign]}`,()=>{
+  const a=resident(-sign*distance/2,ah,yaw,headSize),b=resident(sign*distance/2,bh,yaw);
+  const startHip=a.visitor.rig!.bones.hips.getWorldPosition(new T.Vector3());
+  const startHead=a.visitor.getHeadWorldPosition();
+  const starts=[a.visitor.root.position.clone(),b.visitor.root.position.clone()];
+  let previous:T.Vector3[]|undefined,maxHeadStep=0,maxHandStep=0,minPalm=Infinity,maxGap=0,maxHipY=0,worstHandTime=0,minPalmTime=0,maxBError=0,maxHandAngle=0;
+  let previousRotations:T.Quaternion[]|undefined;
+  const bonePositions=Object.values(a.visitor.rig!.bones).map(b=>b.position.clone());
+  for(let frame=0;frame<=279;frame++){
+   const time=frame/30;a.reset();b.reset();poseSofaLapPillow([a,b],time);
+   const head=a.visitor.getHeadWorldPosition();
+   const hands=['L','R'].map(side=>a.visitor.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side)));
+   const sideB=lapPillowSide(b.visitor,a.visitor)>0?'L':'R';
+   const bp=b.visitor.rig!.bones[sideB+'_hand'].localToWorld(furniturePalm(sideB));
+   if(time>=3.85&&time<=6.35){const p=sofaLapPillowPhase(time);
+    const target=lapPillowHeadContact(b.visitor,a.visitor,sideB,p.first*.95+p.second*.76);
+    maxBError=Math.max(maxBError,bp.distanceTo(target.point));}
+   const points=[head,...hands,bp];
+   const rotations=[...['L','R'].map(side=>a.visitor.rig!.bones[side+'_hand'].getWorldQuaternion(new T.Quaternion())),b.visitor.rig!.bones[sideB+'_hand'].getWorldQuaternion(new T.Quaternion())];
+   if(previousRotations)maxHandAngle=Math.max(maxHandAngle,...rotations.map((q,i)=>q.angleTo(previousRotations![i])));
+   previousRotations=rotations;
+   if(previous){maxHeadStep=Math.max(maxHeadStep,head.distanceTo(previous[0]));
+    const step=Math.max(...[...hands,bp].map((h,i)=>h.distanceTo(previous![i+1])));if(step>maxHandStep){maxHandStep=step;worstHandTime=time;}}
+   previous=points;
+   if(time>=1.4&&time<=8.65){const height=Math.min(...hands.map(h=>h.y-.65));if(height<minPalm){minPalm=height;minPalmTime=time;}}
+   if(time>=3.85&&time<=6.35)maxGap=Math.max(maxGap,head.distanceTo(lapPillowHeadTarget(a.visitor,b.visitor)));
+   maxHipY=Math.max(maxHipY,Math.abs(a.visitor.rig!.bones.hips.getWorldPosition(new T.Vector3()).y-startHip.y));
+   expect(points.every(p=>p.toArray().every(Number.isFinite))).toBe(true);
+   expect(a.visitor.root.position).toEqual(starts[0]);expect(b.visitor.root.position).toEqual(starts[1]);
   }
-  root.updateWorldMatrix(true,true);
-  return {
-   root,rig:{bones,setHandCurl:()=>{}},
-   getHeadWorldPosition:()=>bones.head.localToWorld(new T.Vector3(0,.72,0)),
-   translatePose:(offset:T.Vector3)=>{hips.position.add(offset);root.updateWorldMatrix(true,true);},
-  } as any;
- }
- it('orients head/leg support for either side and across height differences',()=>{
-  for(const [left,right] of [[-1,1],[1,-1],[-.7,.7]]){
-   const a=fakeVisitor(left,.8),b=fakeVisitor(right,1.2);
-   const sign=lapPillowSide(a,b);
-   expect(sign).toBe(right>left?1:-1);
-   const goal=lapPillowHeadTarget(a,b);
-   expect(goal.x).toBeGreaterThan(Math.min(left,right)-.5);
-   expect(goal.x).toBeLessThan(Math.max(left,right)+.5);
-   expect(Number.isFinite(goal.y)).toBe(true);
-   const occiput=lapPillowHeadContact(b,a,'L',0,1);
-   const headQ=a.rig!.bones.head.getWorldQuaternion(new T.Quaternion());
-   const back=new T.Vector3(0,0,-1).applyQuaternion(headQ);
-   expect(occiput.normal.dot(back)).toBeGreaterThan(.85);
-   const handRotation=furnitureHandRotation('L',occiput.direction.toArray(),occiput.normal.toArray());
-   expect(new T.Vector3(0,-1,0).applyQuaternion(handRotation).dot(occiput.normal)).toBeLessThan(-.999);
-   const contact=lapPillowHeadContact(b,a,'L',.5);
-   const rotation=furnitureHandRotation('L',contact.direction.toArray(),contact.normal.toArray());
-   // Hand bone local +Y is the BACK, so local -Y faces INTO the scalp.
-   expect(new T.Vector3(0,-1,0).applyQuaternion(rotation).dot(contact.normal)).toBeLessThan(-.999);
-  }
+
+  expect(maxGap).toBeLessThan(.035);
+  expect(minPalm,`palm below seat at ${minPalmTime}`).toBeGreaterThan(0);
+  expect(maxBError).toBeLessThan(.08);
+  expect(maxHandAngle).toBeLessThan(.4);
+  Object.values(a.visitor.rig!.bones).forEach((b,i)=>expect(b.position).toEqual(bonePositions[i]));
+  expect(maxHipY).toBeLessThan(.001);
+  expect(maxHeadStep).toBeLessThan(.09);
+  expect(maxHandStep,`hand jump at ${worstHandTime}`).toBeLessThan(.10);
+  expect(a.visitor.getHeadWorldPosition().distanceTo(startHead)).toBeLessThan(.001);
+  expect(a.visitor.rig!.bones.hips.getWorldPosition(new T.Vector3()).distanceTo(startHip)).toBeLessThan(.001);
+ },20000);
+});
+
+it('keeps both actors seated while loading, playing, completing, cancelling and resetting',async()=>{
+ const a=resident(-.6,1,0),b=resident(.6,1,0),postures:string[]=[];
+ for(const r of [a,b])Object.assign(r.visitor,{
+  motionScale:1,
+  animate:(_t:number,_m:string,posture='standing')=>{postures.push(posture);r.reset();},
+  finishPose:()=>{},setActionExpression:()=>{},
  });
- it('follows the original brief in causal order: brace, scoot, back, head, reverse',()=>{
-  const values=[0,.4,.8,1.2,1.8,2.4,2.9,3.5,6.9,7.4,7.9,8.4,8.9,9.3]
-   .map(t=>({t,p:sofaLapPillowPhase(t)}));
-  const at=(t:number)=>values.find(v=>v.t===t)!.p;
-  expect(at(.4).brace).toBeGreaterThan(0);
-  expect(at(.4).lower).toBe(0);
-  expect(at(.8).scoot).toBeGreaterThan(0);
-  expect(at(.8).lower).toBeGreaterThan(0);
-  expect(at(1.8).settle).toBe(0);
-  expect(at(2.9).settle).toBeGreaterThan(.9);
-  expect(at(3.5).lower).toBe(1);
-  expect(at(6.9).stroke).toBeGreaterThan(0);
-  expect(at(7.4).brace).toBeGreaterThan(0);
-  expect(at(7.4).lower).toBe(1);
-  expect(at(7.9).headLift).toBeGreaterThan(0);
-  expect(at(7.9).scoot).toBe(1);
-  expect(at(8.9).scoot).toBeGreaterThan(0);
-  expect(at(9.3).scoot).toBe(0);
-  expect(at(9.3).lower).toBe(0);
-  expect(at(9.3).brace).toBe(0);
-  const all=Array.from({length:94},(_,i)=>sofaLapPillowPhase(i*.1));
-  for(const key of ['scoot','lower','settle','brace'] as const){
-   const jumps=all.slice(1).map((p,i)=>Math.abs(p[key]-all[i][key]));
-   expect(Math.max(...jumps)).toBeLessThan(.16);
-  }
- });
- it('never tips the seated pelvis as one rigid doll and keeps all frame positions finite',()=>{
-  const read=(t:number)=>{
-   const a=fakeVisitor(-.60),b=fakeVisitor(.60);
-   const roots=[a.root.position.clone(),b.root.position.clone()];
-   poseSofaLapPillow([{visitor:a,solver:()=>{}},{visitor:b,solver:()=>{}}],t);
-   a.root.updateWorldMatrix(true,true);
-   expect(a.root.position).toEqual(roots[0]);
-   expect(b.root.position).toEqual(roots[1]);
-   return {
-    pelvis:a.rig!.bones.hips.quaternion.angleTo(new T.Quaternion()),
-    back:a.rig!.bones.spine.quaternion.angleTo(new T.Quaternion()),
-    chest:a.rig!.bones.chest.quaternion.angleTo(new T.Quaternion()),
-    head:a.getHeadWorldPosition()
-   };
-  };
-  const early=read(.45),middle=read(1.7),lying=read(3.4),sitting=read(9.3);
-  expect(early.back).toBeLessThan(.04);
-  expect(middle.back).toBeGreaterThan(early.back);
-  expect(lying.back).toBeGreaterThan(.7);
-  expect(lying.chest).toBeGreaterThan(.32);
-  expect(lying.pelvis).toBeLessThan(.20);
-  expect(sitting.back).toBeLessThan(.03);
-  expect(sitting.pelvis).toBeLessThan(.03);
-  const poses=Array.from({length:94},(_,i)=>read(i*.1).head);
-  for(const point of poses)expect(point.toArray().every(Number.isFinite)).toBe(true);
-  const changes=poses.slice(1).map((p,i)=>p.distanceTo(poses[i]));
-  const worst=Math.max(...changes);const at=changes.indexOf(worst)*.1;
-  expect(worst,`Head motion too abrupt at ${at.toFixed(1)}-${(at+.1).toFixed(1)} seconds`).toBeLessThan(.22);
- });
- it('gives B two visible, returning crown-to-temple strokes, not an immobile hand',()=>{
-  const a=fakeVisitor(-.60),b=fakeVisitor(.60);
-  const crown=lapPillowHeadContact(b,a,'R',0);
-  const temple=lapPillowHeadContact(b,a,'R',.95);
-  expect(crown.point.distanceTo(temple.point)).toBeGreaterThan(.12);
-  expect(crown.normal.dot(temple.normal)).toBeLessThan(.98);
-  expect(sofaLapPillowPhase(4.16).first).toBeGreaterThan(.99);
-  expect(sofaLapPillowPhase(4.78).first).toBe(0);
-  expect(sofaLapPillowPhase(6.10).second).toBeGreaterThan(.99);
-  expect(sofaLapPillowPhase(6.78).second).toBe(0);
- });
- it('keeps both sofa roots still and actually moves the lying head while the giver reaches the hair',()=>{
-  const a=fakeVisitor(-.60),b=fakeVisitor(.60);
-  const recorded:any[]=[];
-  const both=[{visitor:a,solver:(c:any,w:number)=>recorded.push({from:'A',c,w})},
-   {visitor:b,solver:(c:any,w:number)=>recorded.push({from:'B',c,w})}] as const;
-  const roots=[a.root.position.clone(),b.root.position.clone()];
-  expect(poseSofaLapPillow(both,4.22)).toBe(true);
-  expect(a.root.position).toEqual(roots[0]);
-  expect(b.root.position).toEqual(roots[1]);
-  expect(recorded.some(x=>x.from==='B'&&x.w>.4)).toBe(true);
-  expect(recorded.some(x=>x.from==='B'&&x.c.normal.length()>.99)).toBe(true);
-  expect(a.rig!.bones.hips.quaternion.angleTo(new T.Quaternion())).toBeLessThan(.20);
-  expect(a.rig!.bones.spine.quaternion.angleTo(new T.Quaternion())).toBeGreaterThan(.70);
-  expect(a.rig!.bones.chest.quaternion.angleTo(new T.Quaternion())).toBeGreaterThan(.32);
- });
+ const fetchMock=vi.spyOn(globalThis,'fetch').mockResolvedValue({ok:true,json:async()=>clip} as Response);
+ try{
+  const scene=createSocialScene([{id:'a',visitor:a.visitor},{id:'b',visitor:b.visitor}],
+   {sofaSeatPoses:{a:{kind:'social',hands:[]},b:{kind:'social',hands:[]}}});
+  const loading=scene.start('home-sofa-lap-pillow','a','b');
+  expect(postures).toEqual(['seated','seated']);
+  await loading;
+  for(let i=0;i<94;i++)scene.advance(.1);
+  expect(scene.active).toBe(false);
+  await scene.start('home-sofa-lap-pillow','a','b');scene.advance(2);scene.cancel();scene.reset();
+  expect(new Set(postures)).toEqual(new Set(['seated']));
+ }finally{fetchMock.mockRestore();}
 });
