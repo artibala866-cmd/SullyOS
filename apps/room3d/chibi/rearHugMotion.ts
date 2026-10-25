@@ -128,7 +128,7 @@ export function poseRearHug(both:readonly [Resident,Resident],time:number,weight
  // Large, almost neckless heads: only gentle nod/yaw, never a 180-degree turn.
  const cheek=shortActor?.16:.11;
  aBones.head.quaternion.multiply(quat((shortActor?-.11:.12)*p.head*strength,
-  -.14*p.head*strength,cheek*p.head*strength));
+  (-.14*p.head-.03*p.second)*strength,(cheek*p.head+.045*p.second)*strength));
  bBones.head.quaternion.multiply(quat(.045*p.reply*strength,
   .20*p.reply*strength,-.045*p.reply*strength));
  actor.root.updateWorldMatrix(true,true);
@@ -140,7 +140,7 @@ export function poseRearHug(both:readonly [Resident,Resident],time:number,weight
   const sign=side==='L'?1:-1;
   aBones[side+'_clavicle'].quaternion.multiply(quat(0,0,-sign*.05*p.enter*strength));
   const upper=aBones[side+'_upperArm'];
-  upper.quaternion.multiply(quat(-.10*p.enter*strength,-sign*.10*p.enter*strength,0));
+  upper.quaternion.multiply(quat((-.10*p.enter-.04*p.second)*strength,-sign*.10*p.enter*strength,-sign*.07*p.second*strength));
   actor.root.updateWorldMatrix(true,true);
   const reach=armReach(actor,side);
   let goal=rearHugPalmTarget(receiver,side,side==='L');
@@ -151,6 +151,16 @@ export function poseRearHug(both:readonly [Resident,Resident],time:number,weight
     new T.Vector3(sign*.64,side==='L'?-.30:-.21,-.035));
    hugOutsideTarget(receiver,flank);
    if(reach.shoulder.distanceTo(flank)<distance)goal=flank;
+  }
+  if(p.second>.001){
+   // Short A's second affectionate squeeze moves each palm a tiny distance
+   // inward on the outside surface, never directly through the belly.
+   const chest=bBones.chest;
+   const local=chest.worldToLocal(goal.clone());
+   local.x-=sign*.045*p.second;
+   local.z+=.025*p.second;
+   goal=chest.localToWorld(local);
+   hugOutsideTarget(receiver,goal);
   }
   const deficit=Math.max(0,reach.shoulder.distanceTo(goal)-reach.length*.97);
   const reachWeight=clamp(1-deficit/.34,.10,1);
