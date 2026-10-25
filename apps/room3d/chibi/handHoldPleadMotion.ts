@@ -25,16 +25,18 @@ export function handHoldPleadPhase(time:number){
  const t=clamp(Number.isFinite(time)?time:0,0,6.7);
  const envelope=(start:number,up:number,down:number,end:number)=>
   smooth(t,start,up)*(1-smooth(t,down,end));
- const first=envelope(1.48,1.68,2.76,3);
- const last=envelope(4.80,4.95,5.52,5.83);
- const f=clamp((t-1.5)/1.5,0,1),g=clamp((t-4.8)/1.03,0,1);
+ const firstA=envelope(1.53,1.93,1.93,2.27);
+ const firstB=envelope(2.28,2.59,2.59,2.99);
+ const lastA=envelope(4.82,5.12,5.12,5.40);
+ const lastB=envelope(5.41,5.65,5.65,5.93);
+ const first=Math.max(firstA,firstB),last=Math.max(lastA,lastB);
+ const open=firstA*.98+firstB*.78+lastA*.72+lastB*.53;
  return {
   reach:smooth(t,.12,.86),
   grip:smooth(t,.78,1.48)*(1-smooth(t,6.05,6.65)),
   reply:smooth(t,1.01,1.66)*(1-smooth(t,6.24,6.70)),
-  first, last,
-  swing:first*Math.sin(f*Math.PI*4)*(.78-.18*f)+
-   last*Math.sin(g*Math.PI*4)*(.65-.31*g),
+  first,last,open,
+  swing:open,
   foot:envelope(3.0,3.43,4.28,4.75),
   toe:envelope(3.25,3.72,4.14,4.65),
   tug:envelope(3.38,3.67,3.88,4.32),
