@@ -2370,6 +2370,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   queue.delete(queueId);
                   const char = charactersRef.current.find(c => c.id === event.characterId);
                   if (!char?.memoryPalaceEnabled || !isPalaceCandidate(event) ||
+                      !readCharacterLifeEvents(event.characterId).some(e=>e.id===event.id) ||
                       alreadyProcessed(event.characterId, event.id) ||
                       (retryAfter.get(queueId) || 0) > Date.now()) continue;
                   const config = memoryPalaceConfigRef.current;
@@ -2413,13 +2414,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
       };
       const onLifeEvent = (event: Event) => {
-          const detail = (event as CustomEvent<{ characterId?: string; eventId?: string }>).detail;
+          const detail = (event as CustomEvent<{ characterId?: string; eventId?: string; pruned?: boolean }>).detail;
           const charId = detail?.characterId;
-          if (!charId || !detail?.eventId || !userProfileRef.current) return;
-          const recordedEvent = readCharacterLifeEvents(charId).find(e => e.id === detail.eventId);
-          if (!recordedEvent) return;
+          if (!charId || !userProfileRef.current) return;
           const char = charactersRef.current.find(c => c.id === charId);
           if (!char) return;
+          if (detail.pruned) {
+              const retained = new Set(readCharacterLifeEvents(charId).map(e => e.id));
+              for (const [queueId, entry] of queue) {
+                  if (entry.characterId === charId && !retained.has(entry.id)) queue.delete(queueId);
+              }
+              // Remove stale phone context from future AMSG snapshots without
+              // deleting any previously archived Palace memories.
+              markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
+              return;
+          }
+          if (!detail.eventId) return;
+          const recordedEvent = readCharacterLifeEvents(charId).find(e => e.id === detail.eventId);
+          if (!recordedEvent) return;
           if (recordedEvent.source === 'phone') {
               markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
               enqueuePhoneMemory(recordedEvent);
