@@ -4,8 +4,9 @@ import {createRoot} from 'react-dom/client';
 import {afterEach,it,expect,vi} from 'vitest';
 import HomeLifePanel from '../apps/room3d/HomeLifePanel';
 import type {HomeRecord} from '../apps/room3d/types';
-const mocks=vi.hoisted(()=>({reply:vi.fn()}));
+const mocks=vi.hoisted(()=>({reply:vi.fn(),clear:vi.fn()}));
 vi.mock('./homeConversation',()=>({generateHomeReply:mocks.reply}));
+vi.mock('./homeHistoryCleanup',()=>({clearHomeHistory:mocks.clear}));
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
 const host=document.createElement('div');document.body.append(host);let root:ReturnType<typeof createRoot>;
 let records:HomeRecord[]=[];let manualRevision=0;
@@ -139,4 +140,32 @@ it('stop unlocks retry even if a shared preparation promise never settles',async
  mocks.reply.mockReturnValue(new Promise(()=>{}));await render();await input('你好');await click('发送');await click('停止');
  expect(host.textContent).toContain('用户点击停止家园回复');expect([...host.querySelectorAll('button')].find(b=>b.textContent==='重试')?.disabled).toBe(false);
  mocks.reply.mockResolvedValue({text:'重试成功'});await click('重试');expect(records.at(-1)?.text).toBe('重试成功');
+});
+
+it('offers a compact top-right trash icon only in chat and clears both journal and private projection after confirmation',async()=>{
+ records=[{id:'m',at:1,kind:'message',source:'user',actor:'user',text:'test message',roomId:'r',roomName:'客厅'},
+ {id:'a',at:2,kind:'action',source:'user',actor:'character',text:'test action',roomId:'r',roomName:'客厅'}];
+ mocks.clear.mockResolvedValue({records:2,messages:2});
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ await render('chat');
+ await click('一键清空家园聊天和动作记录');
+ expect(confirm).toHaveBeenCalledOnce();
+ expect(mocks.clear).not.toHaveBeenCalled();
+ expect(records).toHaveLength(2);
+ confirm.mockReturnValue(true);
+ await click('一键清空家园聊天和动作记录');
+ expect(mocks.clear).toHaveBeenCalledOnce();
+ expect(mocks.clear).toHaveBeenCalledWith('c');
+ expect(records).toEqual([]);
+ expect(host.querySelectorAll('.home-record')).toHaveLength(0);
+});
+
+it('does not clear the editor on a failed DB transaction',async()=>{
+ records=[{id:'m',at:1,kind:'message',source:'user',actor:'user',text:'keep me',roomId:'r',roomName:'客厅'}];
+ vi.spyOn(window,'confirm').mockReturnValue(true);
+ mocks.clear.mockRejectedValue(Error('数据库清理失败'));
+ await render('chat');
+ await click('一键清空家园聊天和动作记录');
+ expect(records).toHaveLength(1);
+ expect(host.textContent).toContain('数据库清理失败');
 });
