@@ -28,7 +28,7 @@ selectedMotionCatalog.json            用户能看见的动作元数据（ID、�
 | `singlePose` | `motionTemplatePresets.singlePose()`、原有采样器 | **即用**：单人姿态、表情走统一时间轴 |
 | `handContact` | `pairedHands({pairing,enter,exit,curl})`、`applyPairedHandContact` | **即用**：两个角色共享接触目标，首次 clip 采样手掌配对并缓存 |
 | `bodyContact` | `bodyTouch({targetBones,near,far})`、原 `contacts` | **即用**：上臂/肩部目标，不保证肩/背的任意接触面都精确贴合 |
-| `armWrap` | 原有 `hugMotion.ts`、`hugArmClearance.ts` | **专用适配器**：保护现有拥抱，不能直接套普通手掌 IK |
+| `armWrap` | 原有 `hugMotion.ts`、`hugArmClearance.ts`、`rearHugMotion.ts` | **专用适配器**：保护现有拥抱，不能直接套普通手掌 IK |
 | `faceContact` | `faceContact('foreheadKiss')`、`templateFaceContact.ts` | **轻量方向调节**：额头、鼻尖、脸颊、唇部锚点；不保证绝对吻到皮肤，不替换原亲吻 IK |
 | `seatTransition` | `seatEntry`、`seatChangePose`、`getResidentPosture` | **专用适配器**：坐/站/床姿必须通过既有家具状态机，不能直接改 root |
 | `residentNavigation` | `findWalkPath`、`residentWalkMap`、角色占位 | **自动复用**：共享路径、避让、移动占位；被挡优先按需重规划 |
@@ -192,3 +192,13 @@ pnpm exec vitest run apps/room3d/chibi/standingHeightAdaptation.test.ts apps/roo
 - 自动测试涵盖 User／Char 互换等价场景、矮摸高／高摸矮／等高、双手不交叉、掌心方向、头顶安全距离和不可达目标限幅；实机最终触摸效果仍需逐角度校准。
 
 - 测试新增真实 `contactSolver` CCD 求解后的左右腕骨检查，以及两侧位置、头皮法线方向、矮摸高／高摸矮和大头缩放情形；这些测试不等于 Android 实机视觉验收。
+
+## 实例：背后搂抱
+
+- `home-rear-hug`：双人站立，新增「亲密」动作，5.0 秒是接近到位后的动作段。
+- 使用现有 clip 懒加载/场景播放器，靠 `intimacyMotion.ts` 分派专用 `poseRearHug()`；不新增动画循环，不把复杂拥抱伪装为普通 `pairedHands` 模板。
+- 运行时复用原有手部 IK、胸廓外表面约束、肘部保护、手指姿态和高方弯膝着地；保持 B 朝向并让 A 通过侧面绕到后方。
+- A 的双手以被抱者实际腰部骨骼作为相对锚点，各自保留外侧通道；短手无法交叠时接近腰侧表面，不允许穿胸。
+- A 高时小幅屈膝形成包裹感；A 矮时不强迫 B 弯腰，A 二次轻收紧并靠向背部，B 延迟侧头与覆手回应。
+- 相关测试：`rearHugMotion.test.ts`，覆盖注册、相位、缩放/朝向、两侧接触点、人物绕路。仍需 Android Chrome 测试穿模、发型、身高差和脚步。
+
