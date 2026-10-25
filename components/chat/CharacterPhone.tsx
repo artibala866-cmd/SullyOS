@@ -49,6 +49,9 @@ import { parseGeneratedPhoneMessages, type PhoneMessage } from '../../utils/char
 import { safeResponseJson, extractContent } from '../../utils/safeApi';
 import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
+import {readPhoneInboxPreferences,writePhoneInboxPreferences} from '../../utils/characterPhoneInboxPrefs';
+import {appendSimulatedPhonePayments} from '../../utils/characterPhonePayments';
+import {syncCharacterPhoneWalletPayments} from '../../utils/characterPhoneWallet';
 
 type Tab = 'chats' | 'contacts' | 'discover' | 'me';
 type Screen = 'home' | 'wechat' | 'thread' | 'contact-detail' | 'moments' | 'wallet' | 'settings' | 'memo' | 'gallery' | 'calls' | 'sms' | 'browser' | 'profile' | 'beautify' | CharacterPhoneSocialAppId;
@@ -159,6 +162,12 @@ export default function CharacterPhone({
   const [npcAutonomyEnabled, setNpcAutonomyEnabled] = useState(() => isCharacterPhoneAutonomyEnabled(characterId));
   useEffect(() => setNpcAutonomyEnabled(isCharacterPhoneAutonomyEnabled(characterId)), [characterId]);
   const [phonePrefs,setPhonePrefs]=useState(()=>readPhoneAutonomyPreferences(characterId));
+  const [inboxPrefs,setInboxPrefs]=useState(()=>readPhoneInboxPreferences(characterId));
+  useEffect(()=>setInboxPrefs(readPhoneInboxPreferences(characterId)),[characterId]);
+  const updateInboxPrefs=(patch:Partial<typeof inboxPrefs>)=>{
+    try{setInboxPrefs(writePhoneInboxPreferences(characterId,patch));}
+    catch{setError('微信生成设置保存失败');}
+  };
   const [budgetInfo,setBudgetInfo]=useState(()=>readPhoneApiBudget(characterId));
   useEffect(()=>{
     const refresh=()=>{
@@ -336,6 +345,7 @@ export default function CharacterPhone({
   };
   // Inbox generation is independent of the contacts list. A single call yields several threads.
   const generateInbox = async (automatic = false) => {
+    const prefs=readPhoneInboxPreferences(characterId);
     if (busy || !phoneApi.apiKey || !phoneApi.baseUrl || !phoneApi.model ||
         (automatic && (!isCharacterPhoneAutonomyEnabled(characterId) ||
             !canUsePhoneApiBudget(characterId))) ||
