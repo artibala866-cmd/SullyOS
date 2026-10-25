@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, ImageSquare, X, ArrowsClockwise, ArrowCounterClockwise, PaperPlaneTilt, Trash, Sticker as StickerIcon, FrameCorners, SlidersHorizontal, Eye } from '@phosphor-icons/react';
+import { Camera, ImageSquare, Sparkle, X, ArrowsClockwise, ArrowCounterClockwise, PaperPlaneTilt, Trash, Sticker as StickerIcon, FrameCorners, SlidersHorizontal, Eye } from '@phosphor-icons/react';
 import './ChatCamera.css';
 import { createCameraAnalytics } from '../../utils/cameraAnalytics';
 import type { CharacterProfile } from '../../types';
@@ -20,10 +20,36 @@ const Live2DAvatarCanvas = lazy(() => import('../call/Live2DAvatarCanvas'));
 
 type Sticker = { id: number; text: string; x: number; y: number; size: number; angle: number; image?: HTMLCanvasElement; light?: boolean; lightStrength?: number; rim?: number; softness?: number; skinWarmth?: number; opacity?: number; glow?: boolean };
 
-export default function ChatCamera({ onClose, onGallery, onCapture, character }: {
-    onClose: () => void; onGallery: () => void; onCapture: (file: File) => void; character?: CharacterProfile;
+export default function ChatCamera({ onClose, onGallery, onCapture, onAIGenerate, character }: {
+    onClose: () => void; onGallery: () => void; onCapture: (file: File) => void;
+    /** User-origin AI photo; present only in private chat. The existing local photo choices stay untouched. */
+    onAIGenerate?: (description: string, signal: AbortSignal) => Promise<void>;
+    character?: CharacterProfile;
 }) {
-    const [mode, setMode] = useState<'choose' | 'camera'>('choose');
+    const [mode, setMode] = useState<'choose' | 'camera' | 'ai'>('choose');
+    const [aiDescription, setAiDescription] = useState('');
+    const [aiBusy, setAiBusy] = useState(false);
+    const [aiError, setAiError] = useState('');
+    const aiController = useRef<AbortController | null>(null);
+    const closeCamera = () => { aiController.current?.abort(); onClose(); };
+    const sendAIPhoto = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const prompt = aiDescription.trim();
+        if (!prompt || !onAIGenerate || aiBusy) return;
+        const controller = new AbortController();
+        aiController.current = controller;
+        setAiBusy(true);
+        setAiError('');
+        try {
+            await onAIGenerate(prompt, controller.signal);
+            if (!controller.signal.aborted) onClose();
+        } catch (error) {
+            if (!controller.signal.aborted) setAiError(error instanceof Error ? error.message : String(error));
+        } finally {
+            if (aiController.current === controller) aiController.current = null;
+            setAiBusy(false);
+        }
+    };
     const [trackCamera] = useState(createCameraAnalytics);
     const openGallery = () => { trackCamera('gallery'); onGallery(); };
     const [facing, setFacing] = useState<'user' | 'environment'>('environment');
@@ -135,6 +161,7 @@ export default function ChatCamera({ onClose, onGallery, onCapture, character }:
     }, [photo]);
 
     useEffect(() => () => {
+        aiController.current?.abort();
         if (dragFrame.current !== null) cancelAnimationFrame(dragFrame.current);
     }, []);
 
@@ -322,7 +349,7 @@ export default function ChatCamera({ onClose, onGallery, onCapture, character }:
         return { x: ((e.clientX - bounds.left) / bounds.width * layout.width - layout.x) / layout.photoWidth * photo!.width, y: ((e.clientY - bounds.top) / bounds.height * layout.height - layout.y) / layout.photoHeight * photo!.height };
     };
     const keyboard = (e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
+        if (e.key === 'Escape') { e.stopPropagation(); closeCamera(); }
         if (e.key === 'Tab') {
             const controls = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]') || []).filter(el => el.getClientRects().length > 0);
             const first = controls[0], last = controls[controls.length - 1];
@@ -330,13 +357,27 @@ export default function ChatCamera({ onClose, onGallery, onCapture, character }:
             else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
         }
     };
-    return createPortal(<div className="chat-camera-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className={`chat-camera ${mode === 'choose' ? 'chat-camera-chooser' : ''}`} ref={dialog} role="dialog" aria-modal="true" aria-label={mode === 'choose' ? '选择图片来源' : '拍照'} tabIndex={-1} onKeyDown={keyboard}>
-            <header><strong><Camera size={20} weight="duotone" />{mode === 'choose' ? '分享照片' : photo ? '装饰照片' : '相机'}</strong><div>{photo && <button type="button" title="按住查看原图" aria-label="按住查看原图" onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setCompareOriginal(true); }} onPointerUp={() => setCompareOriginal(false)} onPointerCancel={() => setCompareOriginal(false)} onBlur={() => setCompareOriginal(false)} onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setCompareOriginal(true); } }} onKeyUp={() => setCompareOriginal(false)}><Eye size={22} /></button>}<button type="button" aria-label="关闭相机" title="关闭" onClick={onClose}><X size={22} /></button></div></header>
+    return createPortal(<div className="chat-camera-backdrop" onClick={e => { if (e.target === e.currentTarget) closeCamera(); }}>
+        <div className={`chat-camera ${mode !== 'camera' ? 'chat-camera-chooser' : ''}`} ref={dialog} role="dialog" aria-modal="true" aria-label={mode === 'choose' ? '选择图片来源' : mode === 'ai' ? 'AI 生图发送' : '拍照'} tabIndex={-1} onKeyDown={keyboard}>
+            <header><strong><Camera size={20} weight="duotone" />{mode === 'choose' ? '分享照片' : mode === 'ai' ? 'AI 生图发送' : photo ? '装饰照片' : '相机'}</strong><div>{photo && <button type="button" title="按住查看原图" aria-label="按住查看原图" onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setCompareOriginal(true); }} onPointerUp={() => setCompareOriginal(false)} onPointerCancel={() => setCompareOriginal(false)} onBlur={() => setCompareOriginal(false)} onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setCompareOriginal(true); } }} onKeyUp={() => setCompareOriginal(false)}><Eye size={22} /></button>}<button type="button" aria-label="关闭相机" title="关闭" onClick={closeCamera}><X size={22} /></button></div></header>
             {mode === 'choose' ? <div className="chat-camera-sources">
                 <button type="button" onClick={() => { trackCamera('camera'); setMode('camera'); }}><Camera size={28} /><span>拍照</span></button>
                 <button type="button" onClick={openGallery}><ImageSquare size={28} /><span>从相册选择</span></button>
-            </div> : <>
+                {onAIGenerate && <button type="button" onClick={() => setMode('ai')}><Sparkle size={28} /><span>AI 生图发送</span></button>}
+            </div> : mode === 'ai' ? <form className="chat-camera-ai-form" onSubmit={sendAIPhoto}>
+                <label htmlFor="chat-ai-photo-prompt">描述你想发给角色的照片</label>
+                <textarea id="chat-ai-photo-prompt" value={aiDescription} onChange={e => setAiDescription(e.target.value)}
+                    maxLength={4000} rows={4} autoFocus disabled={aiBusy}
+                    placeholder="例如：我站在雨夜街头，手拿透明雨伞，霓虹灯映在身后，像随手拍的照片" />
+                <p>使用「设置 → 生图 API」中的 OpenAI / FoxAPI 配置。生成成功后，以你发送的图片消息进入当前私聊。</p>
+                {aiError && <p role="alert" className="chat-camera-ai-error">{aiError}</p>}
+                <div className="chat-camera-ai-actions">
+                    <button type="button" disabled={aiBusy} onClick={() => { setAiError(''); setMode('choose'); }}>返回</button>
+                    <button type="submit" disabled={!aiDescription.trim() || aiBusy}>
+                        <Sparkle size={18} />{aiBusy ? '生成中，请稍候…' : '生成并发送'}
+                    </button>
+                </div>
+            </form> : <>
                 <div className="chat-camera-view" ref={view}>
                     {photo ? <canvas ref={canvas} style={{width:viewfinder.width,height:viewfinder.height}} aria-label="照片预览" onPointerDown={e => {
                         if (compareOriginal || busy || (e.pointerType === 'mouse' && e.button !== 0)) return;
