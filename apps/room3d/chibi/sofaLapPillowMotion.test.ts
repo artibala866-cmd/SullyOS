@@ -51,10 +51,10 @@ describe('sofa-only 9.3-second intimate lap pillow',()=>{
   expect(sofaLapPillowPhase(1.2).brace).toBeGreaterThan(0);
   expect(sofaLapPillowPhase(2.85).lower).toBe(1);
   expect(sofaLapPillowPhase(3.7).support).toBe(0);
-  expect(sofaLapPillowPhase(4.22).first).toBe(1);
+  expect(sofaLapPillowPhase(4.22).first).toBeGreaterThan(.9);
   expect(sofaLapPillowPhase(4.22).second).toBe(0);
   expect(sofaLapPillowPhase(6.18).first).toBe(0);
-  expect(sofaLapPillowPhase(6.18).second).toBe(1);
+  expect(sofaLapPillowPhase(6.18).second).toBeGreaterThan(.9);
   expect(sofaLapPillowPhase(7.25).lower).toBeGreaterThan(.90);
   expect(sofaLapPillowPhase(7.25).brace).toBeGreaterThan(0);
   expect(sofaLapPillowPhase(9.3).lower).toBe(0);
@@ -69,7 +69,8 @@ describe('sofa-only 9.3-second intimate lap pillow',()=>{
   };
   const hips=add('hips',root,[0,.8,0]);
   const spine=add('spine',hips,[0,.25,0]),chest=add('chest',spine,[0,.22,0]);
-  add('head',chest,[0,.35,0]);
+  const neck=add('neck',chest,[0,.07,0]);
+  add('head',neck,[0,.28,0]);
   for(const side of ['L','R'] as const){
    const sign=side==='L'?1:-1;
    add(side+'_thigh',hips,[sign*.20,-.20,.24]);
@@ -104,6 +105,71 @@ describe('sofa-only 9.3-second intimate lap pillow',()=>{
    expect(new T.Vector3(0,-1,0).applyQuaternion(rotation).dot(contact.normal)).toBeLessThan(-.999);
   }
  });
+ it('follows the original brief in causal order: brace, scoot, back, head, reverse',()=>{
+  const values=[0,.4,.8,1.2,1.8,2.4,2.9,3.5,6.9,7.4,7.9,8.4,8.9,9.3]
+   .map(t=>({t,p:sofaLapPillowPhase(t)}));
+  const at=(t:number)=>values.find(v=>v.t===t)!.p;
+  expect(at(.4).brace).toBeGreaterThan(0);
+  expect(at(.4).lower).toBe(0);
+  expect(at(.8).scoot).toBeGreaterThan(0);
+  expect(at(.8).lower).toBeGreaterThan(0);
+  expect(at(1.8).settle).toBe(0);
+  expect(at(2.9).settle).toBeGreaterThan(.9);
+  expect(at(3.5).lower).toBe(1);
+  expect(at(6.9).stroke).toBeGreaterThan(0);
+  expect(at(7.4).brace).toBeGreaterThan(0);
+  expect(at(7.4).lower).toBe(1);
+  expect(at(7.9).headLift).toBeGreaterThan(0);
+  expect(at(7.9).scoot).toBe(1);
+  expect(at(8.9).scoot).toBeGreaterThan(0);
+  expect(at(9.3).scoot).toBe(0);
+  expect(at(9.3).lower).toBe(0);
+  expect(at(9.3).brace).toBe(0);
+  const all=Array.from({length:94},(_,i)=>sofaLapPillowPhase(i*.1));
+  for(const key of ['scoot','lower','settle','brace'] as const){
+   const jumps=all.slice(1).map((p,i)=>Math.abs(p[key]-all[i][key]));
+   expect(Math.max(...jumps)).toBeLessThan(.16);
+  }
+ });
+ it('never tips the seated pelvis as one rigid doll and keeps all frame positions finite',()=>{
+  const read=(t:number)=>{
+   const a=fakeVisitor(-.60),b=fakeVisitor(.60);
+   const roots=[a.root.position.clone(),b.root.position.clone()];
+   poseSofaLapPillow([{visitor:a,solver:()=>{}},{visitor:b,solver:()=>{}}],t);
+   a.root.updateWorldMatrix(true,true);
+   expect(a.root.position).toEqual(roots[0]);
+   expect(b.root.position).toEqual(roots[1]);
+   return {
+    pelvis:a.rig!.bones.hips.quaternion.angleTo(new T.Quaternion()),
+    back:a.rig!.bones.spine.quaternion.angleTo(new T.Quaternion()),
+    chest:a.rig!.bones.chest.quaternion.angleTo(new T.Quaternion()),
+    head:a.getHeadWorldPosition()
+   };
+  };
+  const early=read(.45),middle=read(1.7),lying=read(3.4),sitting=read(9.3);
+  expect(early.back).toBeLessThan(.04);
+  expect(middle.back).toBeGreaterThan(early.back);
+  expect(lying.back).toBeGreaterThan(.7);
+  expect(lying.chest).toBeGreaterThan(.32);
+  expect(lying.pelvis).toBeLessThan(.20);
+  expect(sitting.back).toBeLessThan(.03);
+  expect(sitting.pelvis).toBeLessThan(.03);
+  const poses=Array.from({length:94},(_,i)=>read(i*.1).head);
+  for(const point of poses)expect(point.toArray().every(Number.isFinite)).toBe(true);
+  const changes=poses.slice(1).map((p,i)=>p.distanceTo(poses[i]));
+  expect(Math.max(...changes)).toBeLessThan(.22);
+ });
+ it('gives B two visible, returning crown-to-temple strokes, not an immobile hand',()=>{
+  const a=fakeVisitor(-.60),b=fakeVisitor(.60);
+  const crown=lapPillowHeadContact(b,a,'R',0);
+  const temple=lapPillowHeadContact(b,a,'R',.95);
+  expect(crown.point.distanceTo(temple.point)).toBeGreaterThan(.12);
+  expect(crown.normal.dot(temple.normal)).toBeLessThan(.98);
+  expect(sofaLapPillowPhase(4.16).first).toBeGreaterThan(.99);
+  expect(sofaLapPillowPhase(4.78).first).toBe(0);
+  expect(sofaLapPillowPhase(6.10).second).toBeGreaterThan(.99);
+  expect(sofaLapPillowPhase(6.78).second).toBe(0);
+ });
  it('keeps both sofa roots still and actually moves the lying head while the giver reaches the hair',()=>{
   const a=fakeVisitor(-.60),b=fakeVisitor(.60);
   const recorded:any[]=[];
@@ -115,6 +181,8 @@ describe('sofa-only 9.3-second intimate lap pillow',()=>{
   expect(b.root.position).toEqual(roots[1]);
   expect(recorded.some(x=>x.from==='B'&&x.w>.4)).toBe(true);
   expect(recorded.some(x=>x.from==='B'&&x.c.normal.length()>.99)).toBe(true);
-  expect(a.rig!.bones.hips.quaternion.angleTo(new T.Quaternion())).toBeGreaterThan(.6);
+  expect(a.rig!.bones.hips.quaternion.angleTo(new T.Quaternion())).toBeLessThan(.20);
+  expect(a.rig!.bones.spine.quaternion.angleTo(new T.Quaternion())).toBeGreaterThan(.70);
+  expect(a.rig!.bones.chest.quaternion.angleTo(new T.Quaternion())).toBeGreaterThan(.32);
  });
 });
