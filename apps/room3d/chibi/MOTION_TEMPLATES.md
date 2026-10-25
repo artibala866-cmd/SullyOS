@@ -1,6 +1,6 @@
 # SullyOS 3D 家园：第五阶段动作模板开发手册
 
-> **这是内部复用系统，不是新增菜单。** 原有 43 个动作及八个可见分类必须保持不变（目前另新增摸头、背后搂抱，共 45 个动作）。后续新动作应采用配置驱动，且不要额外引进一套 Three.js 动画播放器、动态物理引擎或每帧扫描全部动画资源的脚本。
+> **这是内部复用系统，不是新增菜单。** 原有 43 个动作及八个可见分类必须保持不变（目前另新增摸头、背后搂抱和牵手撒娇，共 46 个动作）。后续新动作应采用配置驱动，且不要额外引进一套 Three.js 动画播放器、动态物理引擎或每帧扫描全部动画资源的脚本。
 
 ## 总体结构与唯一入口
 
@@ -110,7 +110,7 @@ selectedMotionCatalog.json            用户能看见的动作元数据（ID、�
 
 ## 减少网页/手机负担的硬性约束
 
-- 素材仍由 `loadSelectedMotion` 按需 fetch 和 Promise 缓存，不启动时拉取全部 45 条 JSON，更不能因为声明了 10 类而预建 10 套 IK。
+- 素材仍由 `loadSelectedMotion` 按需 fetch 和 Promise 缓存，不启动时拉取全部 46 条 JSON，更不能因为声明了 10 类而预建 10 套 IK。
 - `motionTemplates.ts` 只含轻量静态参数，注册表一次构建、结果冻结。新动作启动时查表，不在每帧寻找模板、生成闭包或解析 JSON。
 - `motionConstraintPipeline` 只执行预配置四个阶段；只有明确配置 `phases` 的动作才走新路径。其余动作完全保留旧路径。
 - 配对手掌继续用 `pairedHandContact.ts` 的 WeakMap 缓存源 clip 对应的手对。人体求解器继续每位居民创建一次，不因每帧接触重复创建。
@@ -146,7 +146,7 @@ pnpm run build
 
 ## 实例：摸头（新增亲密动作）
 
-- ID `home-head-pat`；名称「摸头」，`close` 分类，原 43 个动作不变；连同背后搂抱，目前总数 45。
+- ID `home-head-pat`；名称「摸头」，`close` 分类，原 43 个动作不变；连同背后搂抱、牵手撒娇，目前总数 46。
 - 使用 `motionTemplatePresets.headPat({patSide:'R',patStrokes:2,ruffleStrokes:2})`；以后同类动作只需配置手和次数，不需要新建播放器。
 - `public/room3d/motions/selected/home-head-pat.json` 是双人站位与时间轴的轻量静态 clip，`headPatMotion.ts` 调用现有 idle 姿态、头顶锚点与 contactSolver，所有接近与复位仍由 `selectedSocial.ts` 管理。
 - 依次是单手摸两下（约 1.10–3.10s）、双手揉两下（约 3.70–6.28s）、收手复位（约 7.18s）。两只手各自在头部左右上侧揉动、不越过头顶中央，接触位置随当前头部实时更新。
@@ -205,3 +205,9 @@ pnpm exec vitest run apps/room3d/chibi/standingHeightAdaptation.test.ts apps/roo
 
 - 复测修复：删除背后搂抱收尾的专属退步/走路帧；普通家园寻路先行，仅当路线真的穿过 B 身体时才尝试局部绕行。B 原地不走、不参与额外路线/站位空间检查。
 - 手部 IK 仍使用全局 `contactSolver`，修正的仅是背后搂抱的接触参数：手背的局部 +Y 指向腰部表面向外法线，手心的 -Y 才指向腰；不再以固定世界 +Z 让腰侧或背后目标翻掌。近距离继续使用动态骨骼表面与可达性回退。
+
+## 实例：牵手撒娇
+
+- `home-hand-hold-plead`：双人站立，`close`，6.7 秒。`motionTemplates.ts` 中声明双人同步、现有居民寻路与手掌接触能力，专属表现代码见 `handHoldPleadMotion.ts`，不重建求解器。
+- 与采样握手不同：单帧确定左右手，并在求解双臂前计算共同接触点，使用反向掌心法线，避免交换手或手背相贴；A 的轻晃带动同一个目标，B 的肩/手反馈延迟约 0.1–0.2 秒。
+- 摇晃停脚尖后踮期间保持房间导航根与支撑脚不动，后脚尖使用现有腿部 IK 微调。身高明显不同时只给高方少量屈膝与上身让位，不强迫矮方抬高双脚。
