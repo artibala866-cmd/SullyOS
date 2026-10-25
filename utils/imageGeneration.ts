@@ -110,13 +110,13 @@ const normalizedSize = (config: ImageApiSettings): string => {
   // Older GPT image models accept only these three preset sizes, while newer
   // GPT image 2.x models and third-party relays can accept flexible dimensions.
   const model = config.model.trim();
-  if (/^(?:gpt-image-1(?:\.|-|$)|chatgpt-image-latest$)/i.test(model)) {
+  if (/(?:^|[/])(?:gpt-image-1(?:\.|-|$)|chatgpt-image-latest$)/i.test(model)) {
     return width === height ? '1024x1024' : width > height ? '1536x1024' : '1024x1536';
   }
-  if (/^dall-e-3$/i.test(model)) {
+  if (/(?:^|[/])dall-e-3$/i.test(model)) {
     return width === height ? '1024x1024' : width > height ? '1792x1024' : '1024x1792';
   }
-  if (/^dall-e-2$/i.test(model)) return '1024x1024';
+  if (/(?:^|[/])dall-e-2$/i.test(model)) return '1024x1024';
   return width + 'x' + height;
 };
 
@@ -266,7 +266,13 @@ export async function generateCharacterImage(
     // Accept b64_json and URL results from compatible third-party relays.
     response = await fetch(url, {
       method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: config.model.trim(), prompt, size, n: 1 }), signal,
+      body: JSON.stringify({
+        model: config.model.trim(), prompt, size, n: 1,
+        // Legacy DALL-E-compatible relays can return image URLs by default.
+        // Explicit b64_json avoids downstream CDN CORS for these known models;
+        // modern GPT Image models reject response_format, so omit for them.
+        ...(/(?:^|[/])dall-e-[23]$/i.test(config.model.trim()) ? { response_format: 'b64_json' } : {}),
+      }), signal,
     });
   }
   if (!response.ok) {
