@@ -26,7 +26,7 @@ export type CharacterPhoneInstallPlan = {
   source:'ai' | 'manual';
 };
 const PREFIX='sully_character_phone_install_plan_v1:';
-const inFlight=new Set<string>();
+const inFlight=new Map<string,Promise<CharacterPhoneInstallPlan>>();
 export function isCharacterPhoneSocialAppId(id:unknown):id is CharacterPhoneSocialAppId {
   return typeof id==='string' && (CHARACTER_PHONE_SOCIAL_APPS as readonly string[]).includes(id);
 }
@@ -82,11 +82,11 @@ export async function generateCharacterPhoneInstallPlan(
   if(!char?.id)throw new Error('尚未选择手机主人');
   const existing=readCharacterPhoneInstallPlan(char.id);
   if(existing&&!force)return existing;
-  if(inFlight.has(char.id))throw new Error('正在分析这个角色的安装偏好');
+  const running=inFlight.get(char.id);
+  if(running)return running;
   const api=resolveCharacterPhoneApi(char.id,input.api);
   if(!api.baseUrl||!api.apiKey||!api.model)throw new Error('请先配置聊天 API 或查手机独立 API');
-  inFlight.add(char.id);
-  try {
+  const task=(async ():Promise<CharacterPhoneInstallPlan> => {
     const context=await buildCharacterPhoneContext(char,input.user,input.groups,input.realtimeConfig);
     // Use canonical private-chat context. Do not invent preferences based on
     // names alone or store another AI personality. One request, no retry loop.
@@ -126,5 +126,7 @@ x（X/Twitter：文字观点、国际讨论）；bilibili（B站：视频、兴�
       if(latest)return latest;
     }
     return saveCharacterPhoneInstallPlan(plan);
-  }finally{inFlight.delete(char.id);}
+  })();
+  inFlight.set(char.id,task);
+  try{return await task;}finally{if(inFlight.get(char.id)===task)inFlight.delete(char.id);}
 }
