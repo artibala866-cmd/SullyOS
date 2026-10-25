@@ -103,9 +103,6 @@ export function compileMotionTemplates(
     draft.capabilities.some(c=>!(c in motionCapabilities)))throw Error('Motion template capability invalid: '+id);
   const has=(cap:MotionCapability)=>draft.capabilities.includes(cap);
   if(draft.participants===2&&!has('pairedSync'))throw Error('Paired motion must share one clock: '+id);
-  if(draft.standingHeight!==undefined&&(!['none','gaze','contact','headReach'].includes(draft.standingHeight)||
-   draft.participants!==2||draft.posture!=='standing'))
-   throw Error('Standing height adaptation requires two standing actors: '+id);
   if(draft.contact){
    const c=draft.contact;
    if(draft.participants!==2||c.kind==='pairedHands'&&!has('handContact')||
@@ -127,6 +124,9 @@ export function compileMotionTemplates(
     !Number.isInteger(draft.headTouch.ruffleStrokes)||draft.headTouch.ruffleStrokes<1||
     draft.headTouch.ruffleStrokes>4||draft.contact||draft.face))
    throw Error('Invalid head touch template: '+id);
+  if(draft.standingHeight!==undefined&&(!['none','gaze','contact','headReach'].includes(draft.standingHeight)||
+   draft.participants!==2||draft.posture!=='standing'))
+   throw Error('Standing height adaptation requires two standing actors: '+id);
   if(draft.prop&&(!has('propInteraction')||
     draft.prop.kind==='cup'&&(draft.participants!==2||!Number.isFinite(draft.prop.handoffAt)||draft.prop.handoffAt<0)||
     draft.prop.kind==='phone'&&!['L','R'].includes(draft.prop.hand)))
