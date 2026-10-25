@@ -499,3 +499,47 @@
 @media (prefers-reduced-motion: reduce) {
   .cp-home-slide-track,.cp-lock-unlock-handle {transition-duration:0.01ms;}
 }
+
+/* On-desktop edit affordances have zero extra footprint; image and text widgets
+ * occupy exactly their original grid cells. */
+.cp-home-photo-edit,.cp-home-couple-edit {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: block;
+  padding: 0;
+  text-align: inherit;
+}
+.cp-home-editor-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #33333366;
+  backdrop-filter: blur(5px);
+  padding: 12px;
+  touch-action: pan-y;
+}
+.cp-home-editor-panel {
+  width: min(100%,390px);
+  max-height: 85%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #fff;
+  border-radius: 22px;
+  background: #fff;
+  padding: clamp(13px,3cqw,20px);
+  box-shadow: 0 14px 40px #1111112b;
+}
+.cp-home-owner,.cp-home-quote,.cp-home-photo-edit,.cp-home-couple-edit {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cp-home-owner:focus-visible,.cp-home-quote:focus-visible,
+.cp-home-photo-edit:focus-visible,.cp-home-couple-edit:focus-visible {
+  outline: 2px solid #777;
+  outline-offset: 2px;
+}
