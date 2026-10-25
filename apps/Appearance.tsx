@@ -129,7 +129,7 @@ const CATEGORY_LABELS: Record<string, { code: string; label: string }> = {
 
 
 // --- 桌面整机风格（皮肤）---
-const COMPANION_WALLPAPER = 'radial-gradient(90% 65% at 50% 5%, #626262 0%, transparent 62%), radial-gradient(75% 55% at 100% 50%, #333333 0%, transparent 72%), linear-gradient(180deg, #1e1e1e 0%, #0f0f0f 62%, #080808 100%)';
+const COMPANION_WALLPAPER = 'radial-gradient(90% 65% at 50% 5%, #6c5a91 0%, transparent 62%), radial-gradient(75% 55% at 100% 50%, #382e5b 0%, transparent 72%), linear-gradient(180deg, #211a36 0%, #100d1c 62%, #080711 100%)';
 
 type DesktopSkinOption = { id: string; name: string; desc: string; swatch: string; config: Partial<OSTheme> };
 
@@ -138,18 +138,18 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
     id: 'homely',
     name: '居家',
     desc: '小屋日常同步 · 面对面聊天 · 家园小手机',
-    swatch: 'linear-gradient(90deg,#c8c8c8 0%,#e2e2e2 48%,#f4f4f4 48%,#fafafa 100%)',
-    config: { skin: 'homely', wallpaper: 'linear-gradient(180deg,#f4f4f4,#c8c8c8)', contentColor: '#575757' },
+    swatch: 'linear-gradient(90deg,#ebc2a1 0%,#f4dfcc 48%,#faf3e7 48%,#fffaf2 100%)',
+    config: { skin: 'homely', wallpaper: 'linear-gradient(180deg,#faf3e7,#ebc2a1)', contentColor: '#695344' },
   },
   {
     id: 'companion',
     name: '触感陪伴',
     desc: '角色占据桌面 · 一次生成反馈包 · 轻触后本地轮播演出',
-    swatch: 'radial-gradient(circle at 50% 25%,#9c9c9c 0%,#494949 42%,#141414 100%)',
+    swatch: 'radial-gradient(circle at 50% 25%,#a993d3 0%,#51436f 42%,#171222 100%)',
     config: {
       skin: 'companion',
       hue: 267, saturation: 46, lightness: 64,
-      contentColor: '#f2f2f2',
+      contentColor: '#f6efff',
       wallpaper: COMPANION_WALLPAPER,
     },
   },
