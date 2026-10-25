@@ -20,9 +20,9 @@ export function sofaLapPillowPhase(t:number){
  // their hips onto the cushion, progressively incline the back, and only then
  // transfer the head's weight to B's thigh. Rising reverses this causal order.
  const brace=fade(time,.08,1.30,2.07,3.42)+fade(time,6.60,7.87,8.00,9.30);
- const scoot=fade(time,.42,1.85,8.10,9.30);
- const turn=fade(time,.55,1.97,8.14,9.30);
- const lower=fade(time,.76,2.65,7.85,9.20);
+ const scoot=fade(time,.42,1.85,7.90,9.30);
+ const turn=fade(time,.55,1.97,8.00,9.30);
+ const lower=fade(time,.76,2.65,7.55,9.30);
  const settle=fade(time,1.86,3.06,7.00,8.32);
  const headLift=smooth(time,7.55,8.38);
  const support=fade(time,.84,1.62,2.67,3.25);
@@ -120,7 +120,7 @@ export function poseSofaLapPillow(both:readonly [Resident,Resident],time:number)
  // 2) With hips stable, the short spine and chest side-fold in sequence.
  // Their total lean reads as a sideways recline, not one stiff vertical rod.
  ar.spine.quaternion.multiply(q(-.085*p.lower,sign*.075*p.turn,-sign*.79*p.lower));
- ar.chest.quaternion.multiply(q(-.062*p.lower,0,-sign*.39*smooth(time,1.13,2.72)*(1-smooth(time,7.66,8.78))));
+ ar.chest.quaternion.multiply(q(-.062*p.lower,0,-sign*.39*smooth(time,1.13,2.72)*(1-smooth(time,7.55,9.30))));
  ar.neck.quaternion.multiply(q(0,0,-sign*.055*p.lower));
  // A turns the face toward B while the skull comes down; cheek nestle is a
  // single small voluntary motion, not a second fast oscillation.
@@ -131,6 +131,14 @@ export function poseSofaLapPillow(both:readonly [Resident,Resident],time:number)
  br.chest.quaternion.multiply(q(.040*p.support+.045*p.stroke,0,-sign*.023*p.eye));
  br.head.quaternion.multiply(q(.105*p.eye,0,-sign*.065*p.eye));
  a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
+ // Relax the knees a little into the cushion instead of leaving both
+ // legs in the exact rigid chair-rest angles while the upper body lies down.
+ const legs=smooth(time,1.25,2.85)*(1-smooth(time,7.65,9.25));
+ for(const side of ['L','R'] as const){
+  ar[side+'_thigh'].quaternion.multiply(q(.18*legs,0,(side==='L'?-1:1)*.035*legs));
+  ar[side+'_shin'].quaternion.multiply(q(-.21*legs));
+  ar[side+'_foot'].quaternion.multiply(q(.035*legs));
+ }
  // 3) Gentle cushion scoot is an authored, smoothly easing seat adjustment.
  // Root and sofa stay fixed; do not force the WHOLE body to chase the head at
  // every frame. Allow a smaller final settling adjustment only near the lap.
@@ -164,7 +172,7 @@ export function poseSofaLapPillow(both:readonly [Resident,Resident],time:number)
   const right=new T.Vector3(1,0,0).applyQuaternion(a.root.getWorldQuaternion(new T.Quaternion()));
   const forward=new T.Vector3(0,0,1).applyQuaternion(a.root.getWorldQuaternion(new T.Quaternion()));
   const pad=hip.addScaledVector(right,-sign*.28).addScaledVector(forward,.19);
-  pad.y=a.root.position.y+.56*a.root.getWorldScale(new T.Vector3()).y;
+  pad.y=ar.hips.getWorldPosition(new T.Vector3()).y-.055*a.root.getWorldScale(new T.Vector3()).y;
   aResident.solver({
    side:sideA,point:pad,direction:forward,normal:new T.Vector3(0,1,0),curl:.08,
   },p.brace*.65);
