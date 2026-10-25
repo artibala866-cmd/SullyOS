@@ -512,20 +512,8 @@ ${scheduleContext}
     } catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{finishCharacterPhoneRefresh(characterId);setBusy(false);}
   };
-  // Opening WeChat refreshes the simulated inbox at most once per 12 hours per character.
-  // Real User messages are mirrored separately; no NPC profile is required.
-  useEffect(() => {
-    if(screen!=='wechat' || tab!=='chats') { autoAttempted.current=''; return; }
-    if(autoAttempted.current===characterId || busy || sharedWechatRefreshing ||
-        !isCharacterPhoneAutonomyEnabled(characterId) || !canUsePhoneApiBudget(characterId) ||
-        !phoneApi.apiKey || !phoneApi.model || !phoneApi.baseUrl) return;
-    autoAttempted.current=characterId;
-    try {
-      const last=Number(localStorage.getItem('sully_phone_inbox_auto_at:'+characterId)||'0');
-      if(Date.now()-last<12*60*60*1000) return;
-    } catch { return; }
-    void generateInbox(true);
-  },[screen,tab,characterId,phoneApi.apiKey,phoneApi.model,phoneApi.baseUrl]);
+  // Opening WeChat is read-only. No model requests simply for entering a tab.
+  // The existing explicit + / per-thread generation controls stay available.
   const generate = async (npcName = '', guidance = '') => {
     if (busy || sharedWechatRefreshing) return;
     if (!phoneApi.apiKey || !phoneApi.baseUrl || !phoneApi.model) { setError('请先在 SullyOS 设置中配置聊天 API'); return; }
@@ -625,7 +613,7 @@ ${scheduleContext}
         paddingTop:'env(safe-area-inset-top, 0px)',
         paddingBottom:'env(safe-area-inset-bottom, 0px)',
       }:undefined}>
-      <PhoneStatusBar characterId={characterId}/>
+      <PhoneStatusBar characterId={characterId} showBattery={phoneAppearance.showBattery}/>
       {!phoneUnlocked ? <CharacterPhoneLockScreen characterId={characterId} name={name} avatar={phoneAvatar}
         onUnlock={unlockPhone} onClose={onClose}/> : <>
       {screen === 'home'||screen === 'beautify'||isCharacterPhoneSocialAppId(screen) ? null :
