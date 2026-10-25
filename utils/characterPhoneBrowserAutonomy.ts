@@ -8,7 +8,8 @@ import {
   getBaiduSearchUrl, readCharacterPhoneBrowserHistory,
   recordPhoneBrowserNavigation, type PhoneBrowserVisit,
 } from './characterPhoneBrowser';
-import { extractContent, safeResponseJson } from './safeApi';
+import { extractContent } from './safeApi';
+import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
 import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import { readPhoneAutonomyPreferences, canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
@@ -63,6 +64,8 @@ export async function runCharacterPhoneBrowserAutonomy(
       document.visibilityState!=='visible' || !isCharacterPhoneAutonomyEnabled(char.id) ||
       !readPhoneAutonomyPreferences(char.id).browserAutoEnabled || !canUsePhoneApiBudget(char.id)))
     return {status:'skipped',count:0};
+  if (mode === 'background' && !canRunAutomaticPhoneAi(char.id, api.baseUrl.replace(/\/+$/, '') + '/chat/completions'))
+    return {status:'skipped',count:0,reason:'上游暂时不可用，后台已暂停'};
   if (locks.has(char.id)) return {status:'skipped',count:0,reason:'正在生成'};
   locks.add(char.id);
   const now=Date.now();
@@ -88,9 +91,8 @@ export async function runCharacterPhoneBrowserAutonomy(
       return {status:'skipped',count:0,reason:'自主调用预算已用完'};
     state.lastAttemptAt=now;state.attempts++;
     store(char.id,state);
-    const response=await fetch(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
-      method:'POST',signal:AbortSignal.timeout(60_000),
-      headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
+    const { response, json } = await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
+      method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
       body:JSON.stringify({model:api.model,stream:false,temperature:0.75,messages:[
         {role:'system',content:`这是虚构角色 ${char.name} 自己的手机浏览器，你只决定 TA 会查什么，不是 User 在搜索。
 一切行为以 Char 自身的人设、生活任务、偏好与心境为理由；不围绕 User 机械转动。
@@ -107,8 +109,7 @@ export async function runCharacterPhoneBrowserAutonomy(
 内容务必符合真实角色自己的身份，不要为了填记录强行搜索。`},
         {role:'user',content:'由角色独立决定是否打开百度搜索，留下搜索动机和想法；没有自然动机就不搜索。'},
       ]}),
-    });
-    const json=await safeResponseJson(response);
+    }, { charId: char.id, purpose: '浏览器自主搜索动机', automatic: mode === 'background' });
     if(!response.ok) throw new Error(json?.error?.message||'浏览器 AI 请求失败');
     const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
     const data=JSON.parse(raw);
