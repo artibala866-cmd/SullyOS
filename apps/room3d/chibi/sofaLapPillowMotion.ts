@@ -104,7 +104,6 @@ export function poseSofaLapPillow(both:readonly [Resident,Resident],time:number)
  }
  const sideA=sign>0?'L':'R';
  const sideB=lapPillowSide(b,a)>0?'L':'R';
- const bFacing=b.root.getWorldQuaternion(new T.Quaternion());
  // A pushes on the near cushion before lying down and again when sitting up.
  if(p.brace>.001&&aResident.solver){
   const hip=ar.hips.getWorldPosition(new T.Vector3());
@@ -118,8 +117,9 @@ export function poseSofaLapPillow(both:readonly [Resident,Resident],time:number)
  }
  // B catches the back of the head; after the transfer the same hand performs
  // two distinct, slower-than-shoulder strokes across the scalp.
- const strokeProgress=p.first>0? smooth(time,3.20,4.22):p.second>0?smooth(time,4.86,6.18):0;
- const forehead=clamp(strokeProgress,0,1);
+ // Each stroke travels from crown to temple and softly returns, with zero
+ // hand velocity at both endpoints. Do not snap back between repetitions.
+ const forehead=clamp(p.first*.95+p.second*.76,0,1);
  const contact=lapPillowHeadContact(b,a,sideB,forehead);
  const touch=Math.max(p.support,p.stroke);
  if(touch>.001) bResident.solver?.(contact,touch*.92);
