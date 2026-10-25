@@ -1,16 +1,17 @@
 /** Per-Char manual WeChat generation preferences; defaults preserve old NPC chat behaviour. */
-export type PhoneInboxPreferences={officialAccounts:boolean;paymentNotices:boolean;chatDensity:'compact'|'normal'|'rich'};
+export type PhoneInboxPreferences={officialAccounts:boolean;paymentNotices:boolean;chatDensity:'compact'|'normal'|'rich';autoFullWeChat:boolean};
 export const PHONE_INBOX_PREFS_CHANGED='sully:phone-inbox-prefs-changed';
 const key=(id:string)=>'sully_character_phone_inbox_prefs_v1:'+id;
 export function readPhoneInboxPreferences(id:string):PhoneInboxPreferences{
   try{
     const p=JSON.parse(localStorage.getItem(key(id))||'null');
     return {
+      autoFullWeChat:p?.autoFullWeChat===true,
       officialAccounts:p?.officialAccounts!==false,
       paymentNotices:p?.paymentNotices!==false,
       chatDensity:p?.chatDensity==='compact'||p?.chatDensity==='rich'?p.chatDensity:'normal',
     };
-  }catch{return {officialAccounts:true,paymentNotices:true,chatDensity:'normal'};}
+  }catch{return {autoFullWeChat:false,officialAccounts:true,paymentNotices:true,chatDensity:'normal'};}
 }
 export function writePhoneInboxPreferences(id:string,patch:Partial<PhoneInboxPreferences>):PhoneInboxPreferences{
   const v={...readPhoneInboxPreferences(id),...patch};
