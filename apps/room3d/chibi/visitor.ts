@@ -26,8 +26,9 @@ export async function decodeParts(result:RollResult,hair?:HairSettings):Promise<
 export async function createVisitor(parts:Parts,hair?:HairSettings){
  const source=await loadBody();
  let body:ReturnType<typeof buildBody>;
- try{body=buildBody(source,parts,'outfit',hair);try{await body.setFaceSettings(hair?.face);}catch(e){body.resources.forEach(r=>r.dispose());throw e;}}
- finally{source.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();}});}
+ // The FBX source is immutable and shared; only this visitor's cloned resources are disposed.
+ body=buildBody(source,parts,'outfit',hair);
+ try{await body.setFaceSettings(hair?.face);}catch(e){body.resources.forEach(r=>r.dispose());throw e;}
  let updateOutfitPose:(()=>void)|undefined;
  const root=new THREE.Group();root.name='little-world-chibi';root.add(body.root);
  if(body.rig){try{if(hair?.wardrobe!==undefined){const outfit=await dressApprovedWardrobe(body.rig,hair.wardrobe,hair.wardrobeFits,hair.wardrobeColors,hair.wardrobeLayering);body.resources.push(outfit);let nextFit=0;updateOutfitPose=()=>{const start=performance.now();if(start<nextFit)return;outfit.updatePose?.();const end=performance.now(),cost=end-start;nextFit=end+(cost>12?Math.min(500,Math.max(100,cost*4)):0);};}else{const outfit=dressHoodie(body.rig);body.resources.push(...outfit.resources);}}catch(e){body.resources.forEach(r=>r.dispose());throw e;}}
