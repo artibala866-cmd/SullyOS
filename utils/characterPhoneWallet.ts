@@ -1,4 +1,5 @@
 import { readCharacterMemos } from './characterPhoneMemos';
+import { readPhonePayReceipts } from './characterPhonePayments';
 import { buildCharacterPhoneContext } from './characterPhoneContext';
 import type { CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
 import { extractContent, safeResponseJson } from './safeApi';
@@ -22,7 +23,7 @@ export type PhoneWalletTransaction = {
   detail: string;
   amountCents: number;
   occurredAt: number;
-  origin: 'opening-snapshot' | 'memo';
+  origin: 'opening-snapshot' | 'memo' | 'wechat-simulated' | 'private-confirmed' | 'market-confirmed';
   sourceId?: string;
 };
 export type CharacterPhoneWallet = {
@@ -34,6 +35,7 @@ export type CharacterPhoneWallet = {
   accounts: PhoneWalletAccount[];
   transactions: PhoneWalletTransaction[];
   appliedMemoIds: string[];
+  appliedPaymentIds?: string[];
 };
 
 export const CHARACTER_PHONE_WALLET_CHANGED = 'sully:character-phone-wallet-changed';
@@ -70,7 +72,8 @@ export function readCharacterPhoneWallet(characterId: string): CharacterPhoneWal
       finiteCents(t.amountCents) && Number.isFinite(t.occurredAt));
     if (transactions.length !== raw.transactions.length) return null;
     return { ...raw, accounts, transactions,
-      appliedMemoIds: raw.appliedMemoIds.filter((id: unknown): id is string => typeof id === 'string').slice(-500) };
+      appliedMemoIds: raw.appliedMemoIds.filter((id: unknown): id is string => typeof id === 'string').slice(-500),
+      appliedPaymentIds: Array.isArray(raw.appliedPaymentIds) ? raw.appliedPaymentIds.filter((id:unknown):id is string=>typeof id==='string').slice(-500):[], };
   } catch { return null; }
 }
 
@@ -136,6 +139,31 @@ export function syncCharacterPhoneWalletMemos(characterId: string): CharacterPho
   });
 }
 
+/** Synchronize known receipt records once. Receipts remain viewable even without a wallet account. */
+export function syncCharacterPhoneWalletPayments(characterId:string):CharacterPhoneWallet|null{
+  const wallet=readCharacterPhoneWallet(characterId);
+  if(!wallet)return null;
+  const cash=wallet.accounts.find(a=>a.kind==='cash')||
+    wallet.accounts.find(a=>a.kind==='savings');
+  if(!cash)return wallet;
+  const applied=new Set(wallet.appliedPaymentIds||[]);
+  // Backward-compatible idempotence: older snapshots had no payment applied IDs.
+  for(const tx of wallet.transactions)if(tx.sourceId&&tx.origin!=='memo')applied.add(tx.sourceId);
+  const fresh=readPhonePayReceipts(characterId).slice().reverse().filter(p=>!applied.has(p.id));
+  if(!fresh.length)return wallet;
+  const amount=fresh.reduce((n,p)=>n+p.amountCents,0);
+  return persist({
+    ...wallet,updatedAt:Date.now(),
+    accounts:wallet.accounts.map(a=>a.id===cash.id?{...a,balanceCents:a.balanceCents+amount}:a),
+    transactions:[...fresh.map(p=>({
+      id:'receipt:'+p.id,sourceId:p.id,accountId:cash.id,title:p.title,
+      category:p.category,detail:p.detail,amountCents:p.amountCents,
+      occurredAt:p.occurredAt,origin:p.origin,
+    })),...wallet.transactions].sort((a,b)=>b.occurredAt-a.occurredAt).slice(0,300),
+    appliedPaymentIds:[...(wallet.appliedPaymentIds||[]),...fresh.map(p=>p.id)].slice(-500),
+  });
+}
+
 type Api = { baseUrl: string; apiKey: string; model: string };
 export async function initializeCharacterPhoneWallet(input: {
   char: CharacterProfile;
@@ -147,7 +175,7 @@ export async function initializeCharacterPhoneWallet(input: {
   const {char, user, groups, realtimeConfig, api} = input;
   if (!char.id || !api.baseUrl || !api.apiKey || !api.model) throw new Error('请先配置角色聊天 API');
   const existing = readCharacterPhoneWallet(char.id);
-  if (existing) return syncCharacterPhoneWalletMemos(char.id) || existing;
+  if (existing) {syncCharacterPhoneWalletMemos(char.id);return syncCharacterPhoneWalletPayments(char.id)||readCharacterPhoneWallet(char.id)||existing;}
   if (requestLocks.has(char.id)) throw new Error('资产正在生成，请稍后查看');
   requestLocks.add(char.id);
   try {
@@ -214,6 +242,7 @@ export async function initializeCharacterPhoneWallet(input: {
       accounts, transactions:transactions.sort((a,b)=>b.occurredAt-a.occurredAt),
       appliedMemoIds:[],
     });
-    return syncCharacterPhoneWalletMemos(char.id) || wallet;
+    syncCharacterPhoneWalletMemos(char.id);
+    return syncCharacterPhoneWalletPayments(char.id) || readCharacterPhoneWallet(char.id) || wallet;
   } finally { requestLocks.delete(char.id); }
 }
