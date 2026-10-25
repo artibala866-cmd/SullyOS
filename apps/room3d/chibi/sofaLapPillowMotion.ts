@@ -16,16 +16,26 @@ const fade=(t:number,on:number,full:number,off:number,end:number)=>
 export const SOFA_LAP_PILLOW_SECONDS=9.3;
 export function sofaLapPillowPhase(t:number){
  const time=clamp(t,0,SOFA_LAP_PILLOW_SECONDS);
- const lower=fade(time,.35,2.85,7.10,8.86);
- const brace=fade(time,.25,.74,1.90,2.70)+fade(time,7.0,7.40,8.40,9.06);
- const support=fade(time,1.00,1.80,2.67,3.12);
- const stroke=fade(time,2.90,3.18,6.78,7.30);
- const first=fade(time,3.20,4.22,4.22,4.70);
- const second=fade(time,4.86,6.18,6.18,6.74);
- const rise=smooth(time,7.25,8.92);
- return {lower,brace:clamp(brace,0,1),support,stroke,first,second,
-  rise,cheek:fade(time,4.70,5.04,5.16,5.59),
-  eye:fade(time,2.2,2.95,8.15,9.20)};
+ // A cannot tip sideways as a rigid doll. They first plant a palm, ease
+ // their hips onto the cushion, progressively incline the back, and only then
+ // transfer the head's weight to B's thigh. Rising reverses this causal order.
+ const brace=fade(time,.16,.68,2.65,3.18)+fade(time,6.93,7.34,8.72,9.15);
+ const scoot=fade(time,.42,1.85,8.06,9.22);
+ const turn=fade(time,.55,1.97,8.10,9.17);
+ const lower=fade(time,.76,2.65,7.63,8.72);
+ const settle=fade(time,2.13,3.00,7.34,8.13);
+ const headLift=smooth(time,7.50,8.18);
+ const support=fade(time,.84,1.62,2.67,3.25);
+ const stroke=fade(time,2.98,3.27,6.74,7.24);
+ const first=fade(time,3.26,4.16,4.16,4.78);
+ const second=fade(time,4.88,6.10,6.10,6.78);
+ const rise=smooth(time,7.34,9.18);
+ return {
+  lower,brace:clamp(brace,0,1),scoot,turn,settle,headLift,
+  support,stroke,first,second,rise,
+  cheek:fade(time,4.66,5.07,5.20,5.70),
+  eye:fade(time,1.30,2.78,8.63,9.28)
+ };
 }
 
 export function lapPillowSide(a:ChibiVisitor,b:ChibiVisitor):1|-1{
@@ -92,25 +102,48 @@ export function poseSofaLapPillow(both:readonly [Resident,Resident],time:number)
  const p=sofaLapPillowPhase(time);
  const sign=lapPillowSide(a,b);
  const ar=a.rig.bones,br=b.rig.bones;
- // Move the upper body as a chain; never twist a non-existent long neck.
- ar.hips.quaternion.multiply(q(0,0,-sign*1.12*p.lower));
- ar.spine.quaternion.multiply(q(-.065*p.lower,0,-sign*.20*p.lower));
- ar.chest.quaternion.multiply(q(-.055*p.lower,0,-sign*.09*p.lower));
- ar.head.quaternion.multiply(q(.035*p.eye,sign*.055*p.eye,sign*.05*p.cheek));
- br.spine.quaternion.multiply(q(.08*p.stroke+.06*p.support,0,sign*.025*p.stroke));
- br.chest.quaternion.multiply(q(.055*p.stroke,0,-sign*.022*p.eye));
- br.head.quaternion.multiply(q(.11*p.eye,0,-sign*.065*p.eye));
- // Short chibi legs retain their established seated folds. No upright reset.
+ // 1) A braces and redistributes seat weight. Rotate the PELVIS barely at
+ // all, so both folded legs and the seat contact stay anchored.
+ ar.hips.quaternion.multiply(q(0,sign*.10*p.turn,-sign*.105*p.turn));
+ // 2) With hips stable, the short spine and chest side-fold in sequence.
+ // Their total lean reads as a sideways recline, not one stiff vertical rod.
+ ar.spine.quaternion.multiply(q(-.085*p.lower,sign*.075*p.turn,-sign*.79*p.lower));
+ ar.chest.quaternion.multiply(q(-.062*p.lower,0,-sign*.39*smooth(time,1.13,2.72)*(1-smooth(time,7.66,8.78))));
+ ar.neck.quaternion.multiply(q(0,0,-sign*.055*p.lower));
+ // A turns the face toward B while the skull comes down; cheek nestle is a
+ // single small voluntary motion, not a second fast oscillation.
+ ar.head.quaternion.multiply(q(.052*p.eye,sign*(.10*p.eye+.047*p.cheek),sign*(.085*p.lower+.055*p.cheek)));
+ // B notices A early, leans a little forward and lowers their gaze before
+ // reaching, without the shoulders pulsing independently.
+ br.spine.quaternion.multiply(q(.055*p.support+.045*p.stroke,0,sign*.024*p.stroke));
+ br.chest.quaternion.multiply(q(.040*p.support+.045*p.stroke,0,-sign*.023*p.eye));
+ br.head.quaternion.multiply(q(.105*p.eye,0,-sign*.065*p.eye));
  a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
- if(p.lower>.001){
-  const target=lapPillowHeadTarget(a,b);
-  const head=a.getHeadWorldPosition();
-  const miss=target.sub(head);
-  // Keep A's pelvis on the cushion: avoid a full-body teleport to fix the head.
-  const slide=new T.Vector3(clamp(miss.x,-.55,.55),clamp(miss.y,-.52,.52),clamp(miss.z,-.30,.30));
-  a.translatePose(slide.multiplyScalar(p.lower));
-  a.root.updateWorldMatrix(true,true);
+ // 3) Gentle cushion scoot is an authored, smoothly easing seat adjustment.
+ // Root and sofa stay fixed; do not force the WHOLE body to chase the head at
+ // every frame. Allow a smaller final settling adjustment only near the lap.
+ const scale=Math.min(a.root.getWorldScale(new T.Vector3()).x,b.root.getWorldScale(new T.Vector3()).x);
+ const right=new T.Vector3(1,0,0).applyQuaternion(a.root.getWorldQuaternion(new T.Quaternion()));
+ const forward=new T.Vector3(0,0,1).applyQuaternion(a.root.getWorldQuaternion(new T.Quaternion()));
+ if(p.scoot>.001){
+  const slide=right.multiplyScalar(sign*.36*scale*p.scoot)
+   .addScaledVector(forward,.055*scale*p.scoot);
+  a.translatePose(slide);
  }
+ if(p.settle>.001){
+  a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
+  const miss=lapPillowHeadTarget(a,b).sub(a.getHeadWorldPosition());
+  // Only settle the last short gap after the torso has already reclined;
+  // avoid large vertical hip excursions and leg/cushion penetration.
+  const available=scale;
+  const correction=new T.Vector3(
+   clamp(miss.x,-.34*available,.34*available),
+   clamp(miss.y,-.11*available,.11*available),
+   clamp(miss.z,-.14*available,.14*available)
+  );
+  a.translatePose(correction.multiplyScalar(p.settle));
+ }
+ a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
  const sideA=sign>0?'R':'L';
  const sideB=lapPillowSide(b,a)>0?'L':'R';
  // A pushes on the near cushion before lying down and again when sitting up.
