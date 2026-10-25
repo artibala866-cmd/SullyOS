@@ -6,7 +6,7 @@ import {selectedMotions,sampleSelected} from './selectedMotions';
 import {socialActions} from './selectedSocial';
 import {isIntimacy} from './intimacyMotion';
 import {
- handHoldPleadPhase,pleadHandSides,pleadStandingPoint,pleadContactTarget,
+ handHoldPleadPhase,pleadHandSwingOffset,pleadHandSides,pleadStandingPoint,pleadContactTarget,
  pleadPalmContact,
 } from './handHoldPleadMotion';
 import clip from '../../../public/room3d/motions/selected/home-hand-hold-plead.json';
@@ -48,15 +48,48 @@ describe('6.7-second two-person hand-hold pleading',()=>{
   expect(early.reply).toBe(0);
   expect(reply.reply).toBeLessThan(1);
   expect(lead.grip).toBeGreaterThan(reply.reply);
-  expect(handHoldPleadPhase(2.05).first).toBeGreaterThan(.95);
-  expect(handHoldPleadPhase(2.05).last).toBe(0);
+  expect(handHoldPleadPhase(1.93).first).toBeGreaterThan(.95);
+  expect(handHoldPleadPhase(1.93).last).toBe(0);
   expect(point.toe).toBeGreaterThan(.95);
   expect(point.tug).toBeGreaterThan(0);
-  expect(handHoldPleadPhase(5.2).last).toBeGreaterThan(.95);
-  expect(handHoldPleadPhase(5.2).toe).toBe(0);
+  expect(handHoldPleadPhase(5.12).last).toBeGreaterThan(.95);
+  expect(handHoldPleadPhase(5.12).toe).toBe(0);
   expect(handHoldPleadPhase(5.95).swing).toBeCloseTo(0);
   expect(handHoldPleadPhase(6.7).grip).toBe(0);
   expect(handHoldPleadPhase(6.7).reply).toBe(0);
+ });
+ it('actually sweeps the paired palms wide and back twice, not stationary wrists',()=>{
+  for(const sign of [1,-1] as const)for(const scale of [.65,1,1.6]){
+   const rest=pleadHandSwingOffset(1.48,sign,scale);
+   const first=pleadHandSwingOffset(1.93,sign,scale);
+   const close=pleadHandSwingOffset(2.27,sign,scale);
+   const again=pleadHandSwingOffset(2.59,sign,scale);
+   const final=pleadHandSwingOffset(5.12,sign,scale);
+   expect(rest.length()).toBeLessThan(.001);
+   expect(Math.abs(first.x)).toBeGreaterThan(.18*scale);
+   expect(Math.abs(again.x)).toBeGreaterThan(.14*scale);
+   expect(Math.abs(final.x)).toBeGreaterThan(.13*scale);
+   expect(Math.abs(close.x)).toBeLessThan(.001);
+   expect(first.x*sign).toBeGreaterThan(0);
+   // Movement is fluid: small differences at the start/end of each excursion.
+   const x0=pleadHandSwingOffset(1.53,sign,scale).x;
+   const x1=pleadHandSwingOffset(1.54,sign,scale).x;
+   const x2=pleadHandSwingOffset(1.92,sign,scale).x;
+   expect(Math.abs(x1-x0)).toBeLessThan(.001);
+   expect(Math.abs(first.x-x2)).toBeLessThan(.001);
+  }
+ });
+ it('respects both arm lengths without making the grasp stop at the first sweep',()=>{
+  const shoulderA=new T.Vector3(-.45,1.2,0),shoulderB=new T.Vector3(.45,1.2,0);
+  const stationary=pleadContactTarget(shoulderA,.9,shoulderB,.9);
+  const opened=pleadContactTarget(shoulderA,.9,shoulderB,.9,new T.Vector3(0,0,.20));
+  expect(opened.point.distanceTo(stationary.point)).toBeGreaterThan(.12);
+  expect(opened.point.distanceTo(shoulderA)).toBeLessThan(.9);
+  expect(opened.point.distanceTo(shoulderB)).toBeLessThan(.9);
+  const limited=pleadContactTarget(shoulderA,.55,shoulderB,.55,new T.Vector3(0,0,1));
+  expect(limited.appliedWave).toBeLessThan(.5);
+  expect(limited.point.distanceTo(shoulderA)).toBeLessThanOrEqual(.55*.93+.001);
+  expect(limited.point.distanceTo(shoulderB)).toBeLessThanOrEqual(.55*.93+.001);
  });
  it('uses one shared reachable anchor for both hands at equal or different heights',()=>{
   for(const y of [0,.25,.8]){
