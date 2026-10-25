@@ -9,10 +9,12 @@ import {
 beforeEach(()=>localStorage.clear());
 
 describe('per-Char optional app installation manifest',()=>{
-  it('has exactly four optional shells; never treats fixed apps as optional',()=>{
-    expect(CHARACTER_PHONE_SOCIAL_APPS).toEqual(['x','bilibili','weibo','instagram']);
+  it('has nine optional apps while fixed and WeChat-internal apps remain fixed',()=>{
+    expect(CHARACTER_PHONE_SOCIAL_APPS).toEqual(['x','bilibili','weibo','instagram','douban','douyin','email','jinjiang','netease']);
     expect(isCharacterPhoneSocialAppId('wechat')).toBe(false);
     expect(isCharacterPhoneSocialAppId('wallet')).toBe(false);
+    expect(isCharacterPhoneSocialAppId('profile')).toBe(false);
+    expect(isCharacterPhoneSocialAppId('settings')).toBe(false);
   });
   it('persists independently for each Char and removes duplicate/unknown ids',()=>{
     saveCharacterPhoneInstallPlan({
@@ -35,6 +37,17 @@ describe('per-Char optional app installation manifest',()=>{
       installedAppIds:['instagram'],source:'manual',generatedAt:1000,
     });
     expect(localStorage.getItem('sully_character_phone_wechat_v1:alice')).toBeNull();
+  });
+  it('reads legacy four-app plans unchanged and supports new optional installs without touching them',()=>{
+    saveCharacterPhoneInstallPlan({
+      characterId:'alice',installedAppIds:['x','instagram'],
+      reason:'原有四款中的选择',generatedAt:1000,source:'ai',
+    });
+    setCharacterPhoneSocialAppInstalled('alice','netease',true);
+    setCharacterPhoneSocialAppInstalled('alice','jinjiang',true);
+    expect(readCharacterPhoneInstallPlan('alice')?.installedAppIds).toEqual(['x','instagram','netease','jinjiang']);
+    expect(readCharacterPhoneInstallPlan('alice')?.reason).toBe('原有四款中的选择');
+    expect(readCharacterPhoneInstallPlan('bob')).toBeNull();
   });
   it('does not invent installed apps when stored JSON is corrupt',()=>{
     localStorage.setItem('sully_character_phone_install_plan_v1:alice','not-json');
