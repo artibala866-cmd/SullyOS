@@ -11,6 +11,17 @@
     "hashes": []
   },
   {
+    "id": "home-rear-hug",
+    "label": "背后搂抱",
+    "category": "close",
+    "source": "SullyOS original procedural standing rear embrace",
+    "sourceUrl": "",
+    "duration": 5,
+    "participants": 2,
+    "file": "home-rear-hug.json",
+    "hashes": []
+  },
+  {
     "id": "home-head-pat",
     "label": "摸头",
     "category": "close",
