@@ -52,6 +52,7 @@ import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from '../../utils/cha
 import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 import {readPhoneInboxPreferences,writePhoneInboxPreferences} from '../../utils/characterPhoneInboxPrefs';
+import {readMomentInteractionPreferences,writeMomentInteractionPreferences} from '../../utils/momentInteractionPreferences';
 import {appendSimulatedPhonePayments} from '../../utils/characterPhonePayments';
 import {syncCharacterPhoneWalletPayments} from '../../utils/characterPhoneWallet';
 import CharacterPhoneClearManager from './CharacterPhoneClearManager';
@@ -179,6 +180,12 @@ export default function CharacterPhone({
   const [npcAutonomyEnabled, setNpcAutonomyEnabled] = useState(() => isCharacterPhoneAutonomyEnabled(characterId));
   useEffect(() => setNpcAutonomyEnabled(isCharacterPhoneAutonomyEnabled(characterId)), [characterId]);
   const [phonePrefs,setPhonePrefs]=useState(()=>readPhoneAutonomyPreferences(characterId));
+  const [momentPrefs,setMomentPrefs]=useState(()=>readMomentInteractionPreferences(characterId));
+  useEffect(()=>setMomentPrefs(readMomentInteractionPreferences(characterId)),[characterId]);
+  const changeMomentPrefs=(updates:Partial<typeof momentPrefs>)=>{
+    try{setMomentPrefs(writeMomentInteractionPreferences(characterId,updates));}
+    catch{setError('朋友圈评论设置保存失败');}
+  };
   const [inboxPrefs,setInboxPrefs]=useState(()=>readPhoneInboxPreferences(characterId));
   useEffect(()=>setInboxPrefs(readPhoneInboxPreferences(characterId)),[characterId]);
   const updateInboxPrefs=(patch:Partial<typeof inboxPrefs>)=>{
@@ -873,8 +880,36 @@ ${scheduleContext}
               onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/>
           </label>
           </PhoneSettingsGroup>}
+          {settingsMatch("朋友圈 评论 互动 回复 点赞 频率 档位 时间 限流 去重") && <PhoneSettingsGroup title="朋友圈 NPC 互动" searching={!!settingsQuery}>
+          <section className="space-y-4 rounded-2xl bg-white p-4 text-xs">
+            <label className="flex items-center justify-between gap-3">
+              <span><strong className="block text-[13px]">允许 NPC 自主评论／回复／点赞</strong>
+                <span className="block mt-1 text-[#888]">只允许真实保存的熟人关系参与；不会冒充 User 留言。</span></span>
+              <input type="checkbox" checked={momentPrefs.enabled} onChange={e=>changeMomentPrefs({enabled:e.target.checked})} className="h-5 w-5 accent-[#444]"/>
+            </label>
+            {momentPrefs.enabled&&<>
+              <div className="grid grid-cols-3 gap-2">
+                {([{id:'quiet',label:'安静'},{id:'balanced',label:'正常'},{id:'lively',label:'热闹'}] as const).map(x=><button key={x.id} type="button"
+                  onClick={()=>changeMomentPrefs({pace:x.id})} aria-pressed={momentPrefs.pace===x.id}
+                  className={'rounded-xl border px-1 py-2.5 '+(momentPrefs.pace===x.id?'border-[#333] bg-[#333] text-white':'border-[#ddd] bg-[#f7f7f7]')}>{x.label}</button>)}
+              </div>
+              <label className="flex items-center justify-between gap-2"><span>两轮评论检查最短间隔（分钟）</span>
+                <input type="number" min={15} max={1440} step={15} value={momentPrefs.intervalMinutes}
+                  onChange={e=>{if(e.target.value!=='')changeMomentPrefs({intervalMinutes:Number(e.target.value)});}}
+                  className="w-24 rounded-lg border border-[#ddd] px-2 py-2 text-right"/>
+              </label>
+              <p className="text-[11px] leading-5 text-[#888]">安静／正常／热闹分别限制每天最多 4／8／12 次互动、每条动态最多 4／8／12 条评论。每个 NPC 每条动态最多一条主评论与一次回复；作者可回应熟人，但禁止回复接龙、相同内容重复。仍受查手机共享 API 总预算保护。</p>
+            </>}
+          </section>
+          </PhoneSettingsGroup>}
           {settingsMatch("AI 频率 额度 预算 高 中 低 省额度 均衡 活跃 自定义 间隔") && <PhoneSettingsGroup title="AI 自主调用频率" searching={!!settingsQuery}>
           <section className="space-y-4 rounded-2xl bg-white p-4">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
+              <span><strong className="block text-[13px]">允许独立后台 AI 请求</strong>
+                <span className="block mt-1 leading-5 text-[#888]">关闭后所有查手机自主任务不再单独调 API；手动点击生成和 User 私聊不受影响。开启时仍遵守下方每日预算。</span></span>
+              <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#444]" checked={phonePrefs.backgroundApiEnabled}
+                onChange={e=>changePhonePrefs({backgroundApiEnabled:e.target.checked})}/>
+            </label>
             <div><h3 className="sr-only">AI 自主调用频率</h3>
               <p className="mt-1 text-xs leading-5 text-[#888]">此角色的所有查手机自主功能共用额度，手动生成不占用该预算。</p>
             </div>
