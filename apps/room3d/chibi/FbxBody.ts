@@ -22,7 +22,18 @@ import {cleanFace,loadFaceImages,composeFace,type FaceSettings} from './faceAppe
 const contourCache=new WeakMap<PartSurface,ReturnType<typeof hairContours>>();
 const hairColorCache=new WeakMap<PartSurface,WeakMap<PartSurface,(x:number,y:number)=>T.Color>>();
 
-export async function loadBody() { return new FBXLoader().loadAsync(referenceUrl); }
+// FBX parsing is expensive on mobile. Share the immutable source across residents;
+// buildBody clones every geometry before modifying it. Retry a failed load.
+let bodyTemplatePromise: Promise<T.Group> | undefined;
+export function loadBody(): Promise<T.Group> {
+    if (!bodyTemplatePromise) {
+        bodyTemplatePromise = new FBXLoader().loadAsync(referenceUrl).catch(error => {
+            bodyTemplatePromise = undefined;
+            throw error;
+        });
+    }
+    return bodyTemplatePromise;
+}
 
 export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin' | 'hair' | 'outfit', hair?:HairSettings) {
     const parts:Record<string,PartSurface>={...sourceParts};
