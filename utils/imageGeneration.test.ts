@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import JSZip from 'jszip';
 import type { ImageApiSettings } from '../components/settings/ImageApiSettingsPanel';
-import { generateCharacterImage } from './imageGeneration';
+import { generateCharacterImage, imageApiModelsEndpoint, normalizeImageApiBaseUrl } from './imageGeneration';
 
 const config: ImageApiSettings = {
   provider: 'openai', baseUrl: 'https://relay.example/v1', apiKey: 'local-test-key',
@@ -67,5 +67,80 @@ describe('existing character image generation adapter', () => {
     expect(sent.parameters.sampler).toBe('k_euler');
     expect(sent.parameters.v4_prompt.caption.base_caption).toContain('black hair');
     expect(sent.parameters.v4_negative_prompt.caption.base_caption).toBe('blur');
+  });
+});
+
+describe('OpenAI relay URL and reference compatibility', () => {
+  it('normalizes common relay URLs without duplicating version or endpoint', () => {
+    expect(normalizeImageApiBaseUrl('https://relay.example')).toBe('https://relay.example/v1');
+    expect(normalizeImageApiBaseUrl('https://relay.example/v1/')).toBe('https://relay.example/v1');
+    expect(normalizeImageApiBaseUrl('https://relay.example/v1/images/generations')).toBe('https://relay.example/v1');
+    expect(normalizeImageApiBaseUrl('https://relay.example/v1/images/edits')).toBe('https://relay.example/v1');
+    expect(normalizeImageApiBaseUrl('https://relay.example/proxy/openai/v1')).toBe('https://relay.example/proxy/openai/v1');
+    expect(normalizeImageApiBaseUrl('https://relay.example/v1/chat/completions')).toBe('https://relay.example/v1');
+    expect(imageApiModelsEndpoint('https://relay.example/v1/images/generations')).toBe('https://relay.example/v1/models');
+    expect(() => normalizeImageApiBaseUrl('http://relay.example/v1')).toThrow('HTTPS');
+  });
+
+  it('includes an identity-preservation prompt and high fidelity only for GPT Image 1.5 edits', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    await generateCharacterImage({ ...config, baseUrl: 'https://relay.example', negative: 'wrong identity' }, {
+      appearance: 'black hair, blue eyes', reference: 'data:image/png;base64,' + png,
+    });
+    const [url, request] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://relay.example/v1/images/edits');
+    expect(request.body).toBeInstanceOf(FormData);
+    expect(request.body.get('input_fidelity')).toBe('high');
+    expect(request.body.get('image')).toBeInstanceOf(Blob);
+    expect(request.body.get('prompt')).toContain('Preserve stable facial identity');
+    expect(request.body.get('prompt')).toContain('Avoid: wrong identity');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send 1.5-only input_fidelity with newer GPT Image models', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    await generateCharacterImage({ ...config, model: 'gpt-image-2' }, {
+      ...profile, reference: 'data:image/png;base64,' + png,
+    });
+    expect(fetchMock.mock.calls[0][1].body.has('input_fidelity')).toBe(false);
+  });
+
+  it('retries identical reference edit once only when the relay rejects input_fidelity', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: 'unsupported input_fidelity' } }), {
+        status: 400, headers: { 'content-type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ b64_json: png }] }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+    await generateCharacterImage(config, { ...profile, reference: 'data:image/png;base64,' + png });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://relay.example/v1/images/edits');
+    expect(fetchMock.mock.calls[1][0]).toBe('https://relay.example/v1/images/edits');
+    expect(fetchMock.mock.calls[1][1].body.get('image')).toBeInstanceOf(Blob);
+    expect(fetchMock.mock.calls[1][1].body.has('input_fidelity')).toBe(false);
+  });
+
+  it('parses relay HTTPS URL image results without forwarding cookies or referrer', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ url: 'https://image-cdn.example/a.png' }] }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' }), {
+        status: 200, headers: { 'content-type': 'image/png' },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await generateCharacterImage(config, profile);
+    expect(result.type).toBe('image/png');
+    expect(fetchMock.mock.calls[1][0]).toBe('https://image-cdn.example/a.png');
+    expect(fetchMock.mock.calls[1][1].credentials).toBe('omit');
+    expect(fetchMock.mock.calls[1][1].referrerPolicy).toBe('no-referrer');
   });
 });
