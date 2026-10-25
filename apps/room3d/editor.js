@@ -21,7 +21,7 @@ import {createSocialProp} from './chibi/socialProps';
 import {isDevDebugAvailable} from '../../utils/devDebug';
 
 import {mountPetSystem} from './petSystem.js';
-import {automaticWallVisible} from './automaticWalls.js';
+import {automaticWallVisible,automaticWallDirectionKey} from './automaticWalls.js';
 import {createInteriorBackdrop} from './interiorBackdrop.js';
 import {furnitureSearch} from './furnitureSearch';
 import {setResidentHeading} from './residentFacing';
@@ -1348,7 +1348,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function syncAutomaticWalls(){
   if(overview)return;
   const dx=camera.position.x-controls.target.x,dz=camera.position.z-controls.target.z;
-  const cameraKey=[dx,dz,wallView,edit].join(':');if(cameraKey===lastWallCamera)return;lastWallCamera=cameraKey;
+  const cameraKey=automaticWallDirectionKey(dx,dz)+':'+wallView+':'+edit;if(cameraKey===lastWallCamera)return;lastWallCamera=cameraKey;
   let changed=false;
   for(const root of [content,interiorBackdrop.root])root.traverse(o=>{const edge=o.userData.boundaryEdge;if(!edge)return;const visible=wallView==='cutaway'&&!edit?automaticWallVisible(edge,dx,dz,o.visible):wallVisible(effectiveWallView(),edge);if(o.visible!==visible){o.visible=visible;changed=true;}});
   if(changed)invalidateRoomShadows();
