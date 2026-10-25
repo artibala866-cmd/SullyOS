@@ -2,6 +2,7 @@ import PhoneMemo from './PhoneMemo';
 import CharacterAvatarLibraryModal from './CharacterAvatarLibraryModal';
 import { createPortal } from 'react-dom';
 import { readCharacterAvatarLibrary } from '../../utils/characterAvatarLibrary';
+import { readCharacterPhoneApiSettings, writeCharacterPhoneApiSettings, resolveCharacterPhoneApi } from '../../utils/characterPhoneApiConfig';
 import { CHARACTER_PHONE_SELF_CHANGED, readCharacterPhoneSelfProfile, runCharacterPhoneSelfAutonomy } from '../../utils/characterPhoneSelfProfile';
 import {considerCharacterMemo} from '../../utils/characterMemoAutonomy';
 import Gallery from '../../apps/Gallery';
@@ -58,6 +59,13 @@ export default function CharacterPhone({
   onApplyAvatar:(image:string)=>Promise<void>;
   onPoke:(suffix:string)=>void;
 }) {
+  const [phoneApiSettings,setPhoneApiSettings] = useState(()=>readCharacterPhoneApiSettings(characterId));
+  useEffect(()=>{setPhoneApiSettings(readCharacterPhoneApiSettings(characterId));},[characterId]);
+  const phoneApi=resolveCharacterPhoneApi(characterId,api);
+  const changePhoneApiSettings=(updates:Partial<typeof phoneApiSettings>)=>{
+    try {setPhoneApiSettings(writeCharacterPhoneApiSettings(characterId,updates));}
+    catch {setError('查手机独立 API 保存失败');}
+  };
   const [avatarRevision, setAvatarRevision] = useState(0);
   useEffect(() => {
     const refresh = (event: Event) => {
@@ -88,7 +96,7 @@ export default function CharacterPhone({
     if(selfAutoBusy)return;
     setSelfAutoBusy(true);setSelfAutoNotice('');
     try {
-      const status=await runCharacterPhoneSelfAutonomy(char,api,onApplyAvatar,true);
+      const status=await runCharacterPhoneSelfAutonomy(char,phoneApi,onApplyAvatar,true);
       setSelfAutoNotice(status==='changed'?'Char 已根据自己的状态更新个人资料':
         status==='skipped'?'Char 觉得现在不用改变资料':'本次调整失败，请检查聊天 API');
     } catch(e) {setSelfAutoNotice(e instanceof Error?e.message:'本次调整失败');}
@@ -230,17 +238,17 @@ export default function CharacterPhone({
   const fullPersona = [persona, char.worldview || '', ...(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content)].filter(Boolean).join('\n\n').slice(0, 24000);
   const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
   const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前生活状态，不等于必然在玩手机；不可凭空断言已发生社交行为。` : '目前没有可用的角色当日日程，不得编造当前行程。';
-  const generateMemo=async()=>{if(memoBusy)return;setMemoBusy(true);setError('');try{if(!api.apiKey||!api.baseUrl||!api.model)throw new Error('请先配置聊天 API');const context=await loadRealContext();await considerCharacterMemo({characterId,name,chatContext:context.systemPrompt,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n'),userName:userProfile.name,api,events:readCharacterLifeEvents(characterId),manual:true});}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setMemoBusy(false);}};
+  const generateMemo=async()=>{if(memoBusy)return;setMemoBusy(true);setError('');try{if(!phoneApi.apiKey||!phoneApi.baseUrl||!phoneApi.model)throw new Error('请先配置聊天 API');const context=await loadRealContext();await considerCharacterMemo({characterId,name,chatContext:context.systemPrompt,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n'),userName:userProfile.name,api:phoneApi,events:readCharacterLifeEvents(characterId),manual:true});}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setMemoBusy(false);}};
   const loadRealContext = () => buildCharacterPhoneContext(char, userProfile, groups, realtimeConfig);
   const createProfile = async () => {
     if (busy) return;
-    if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先配置聊天 API'); return; }
+    if (!phoneApi.apiKey || !phoneApi.baseUrl || !phoneApi.model) { setError('请先配置聊天 API'); return; }
     setBusy(true); setRefreshingContacts(true); setError('');
     try {
       const realContext = await loadRealContext();
-      const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
-        body: JSON.stringify({ model: api.model, stream: false, messages: [
+      const response = await fetch(phoneApi.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + phoneApi.apiKey },
+        body: JSON.stringify({ model: phoneApi.model, stream: false, messages: [
           { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt.slice(0, 14000)}。现在生成手机联系人资料，不要直接回复User。手机主人Char的唯一ID是${characterId}，显示名${name}。角色人设：${fullPersona}。${scheduleContext}优先从角色设定与世界书里提到的人物创建联系人；如果没有明确姓名，可以根据世界观、身份、地点和生活圈生成合理的新NPC，但绝不编造与原设定冲突的亲密关系。不得把User或手机主人当成NPC。已有联系人（不要重复身份）：${profiles.map(p => p.name+'('+p.relationship+')').join('、')}。User与Char与NPC身份不同；同名或水仙不能视为同一人。一次生成${batchCount}个不同生活领域的联系人，允许亲友、同事、同学、普通熟人、事务性联系人，不能全是亲密朋友。只返回JSON对象：{"contacts":[{"name":"","identity":"","personality":"","relationship":"","background":""}]}。` },
           { role: 'user', content: '综合角色设定和世界书批量生成${batchCount}份不同且具体的联系人档案。优先已有设定人物；无明确人物时可以创建符合生活圈的普通NPC。不要生成聊天消息。' }
         ] })
@@ -274,7 +282,7 @@ export default function CharacterPhone({
   };
   // Inbox generation is independent of the contacts list. A single call yields several threads.
   const generateInbox = async (automatic = false) => {
-    if (busy || !api.apiKey || !api.baseUrl || !api.model ||
+    if (busy || !phoneApi.apiKey || !phoneApi.baseUrl || !phoneApi.model ||
         (automatic && (!isCharacterPhoneAutonomyEnabled(characterId) ||
             !canUsePhoneApiBudget(characterId))) ||
         !beginCharacterPhoneRefresh(characterId)) return;
@@ -285,9 +293,9 @@ export default function CharacterPhone({
       // Unlike an explicit tap, opening WeChat is a background decision;
       // reserve one shared API token immediately before the provider call.
       if (automatic && !reservePhoneApiBudget(characterId)) return;
-      const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-        method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+api.apiKey},
-        body:JSON.stringify({model:api.model,stream:false,temperature:0.8,messages:[
+      const response = await fetch(phoneApi.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+        method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+phoneApi.apiKey},
+        body:JSON.stringify({model:phoneApi.model,stream:false,temperature:0.8,messages:[
           {role:'system',content:`以下是私聊真实的角色系统上下文（包括世界书、性格、生活状态）：${context.systemPrompt.slice(0,36000)}。
 你只负责补充手机主人Char（ID:${characterId}）的微信收件箱；不要代替User说话，也不要生成User聊天框，它从真实私聊数据库同步。
 ${scheduleContext}
@@ -400,17 +408,17 @@ ${scheduleContext}
     if(screen!=='wechat' || tab!=='chats') { autoAttempted.current=''; return; }
     if(autoAttempted.current===characterId || busy || sharedWechatRefreshing ||
         !isCharacterPhoneAutonomyEnabled(characterId) || !canUsePhoneApiBudget(characterId) ||
-        !api.apiKey || !api.model || !api.baseUrl) return;
+        !phoneApi.apiKey || !phoneApi.model || !phoneApi.baseUrl) return;
     autoAttempted.current=characterId;
     try {
       const last=Number(localStorage.getItem('sully_phone_inbox_auto_at:'+characterId)||'0');
       if(Date.now()-last<12*60*60*1000) return;
     } catch { return; }
     void generateInbox(true);
-  },[screen,tab,characterId,api.apiKey,api.model,api.baseUrl]);
+  },[screen,tab,characterId,phoneApi.apiKey,phoneApi.model,phoneApi.baseUrl]);
   const generate = async (npcName = '', guidance = '') => {
     if (busy || sharedWechatRefreshing) return;
-    if (!api.apiKey || !api.baseUrl || !api.model) { setError('请先在 SullyOS 设置中配置聊天 API'); return; }
+    if (!phoneApi.apiKey || !phoneApi.baseUrl || !phoneApi.model) { setError('请先在 SullyOS 设置中配置聊天 API'); return; }
     const profile = profiles.find(p => p.id === npcName) || (!npcName && profiles.length === 1 ? profiles[0] : undefined);
     if (!profile) { setError('请先到通讯录生成 NPC 档案'); setTab('contacts'); return; }
     npcName = profile.name;
@@ -420,9 +428,9 @@ ${scheduleContext}
       const realContext = await loadRealContext();
       const target = records.find(r => r.contactId === profile.id);
       const context = records.slice(0, 6).map(r => r.name + '：' + r.messages.slice(-8).map(m => (m.speaker?.role === 'owner' ? '[手机主人]' : m.speaker?.role === 'contact' ? '[联系人]' : '[旧消息身份未验证]') + '：' + m.text).join(' / ')).join('\n');
-      const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
-        body: JSON.stringify({ model: api.model, stream: false, temperature: 0.85, messages: [
+      const response = await fetch(phoneApi.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + phoneApi.apiKey },
+        body: JSON.stringify({ model: phoneApi.model, stream: false, temperature: 0.85, messages: [
           { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt.slice(0, 14000)}。现在生成角色「${name}」手机里的微信消息，不要直接回复User。手机主人Char的ID是${characterId}。${scheduleContext}固定NPC档案：姓名${profile.name}，身份${profile.identity}，性格${profile.personality}，与角色关系${profile.relationship}，背景${profile.background}。必须严格遵守该档案，不得更名、改身份或改关系。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => (m.speaker?.role === 'owner' ? '[手机主人]' : m.speaker?.role === 'contact' ? '[联系人]' : '[旧消息身份未验证]') + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"${profile.name}","messages":[{"speaker":"contact","text":"短消息"},{"speaker":"owner","text":"短消息"}]}。speaker只能为owner或contact，owner是手机主人Char，contact是当前联系人；即使双方同名或是水仙，也绝对不能根据名字推断发言者。User不是NPC，不能混入。必须生成8到14条独立的微信消息，双方都要有发言，每条一条气泡，禁止把整段对话塞入单条text。至少8条，否则视为失败。不要markdown。已有记录：${context}` },
           { role: 'user', content: '生成一段符合角色设定、像真实朋友微信聊天一样的日常对话。'+(guidance.trim()?'参考方向（不是User发送的消息）：'+guidance.trim().slice(0,300):'') }
         ] })
@@ -451,15 +459,15 @@ ${scheduleContext}
   };
   const letCharDecideMoment = async () => {
     if(momentBusy) return;
-    if(!api.apiKey || !api.baseUrl || !api.model){setError('请先配置聊天 API，Char 才能自主决定是否发朋友圈');return;}
+    if(!phoneApi.apiKey || !phoneApi.baseUrl || !phoneApi.model){setError('请先配置聊天 API，Char 才能自主决定是否发朋友圈');return;}
     setMomentBusy(true);setError('');
     try {
       const context=await loadRealContext();
       const events=readCharacterLifeEvents(characterId).filter(e=>e.kind!=='moment-post' && e.kind!=='moment-comment').slice(0,18);
       const recent=readCharacterMoments(characterId).slice(0,8).map(p=>({text:p.text,time:p.createdAt,deleted:!!p.deletedAt}));
-      const response=await fetch(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
-        method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
-        body:JSON.stringify({model:api.model,stream:false,temperature:0.85,messages:[
+      const response=await fetch(phoneApi.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
+        method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+phoneApi.apiKey},
+        body:JSON.stringify({model:phoneApi.model,stream:false,temperature:0.85,messages:[
           {role:'system',content:`你是角色${name}的朋友圈自主决策器。根据真实私聊上下文、角色人设、世界书、日程及已发生的生活事件判断角色现在是否愿意发朋友圈。角色可以自恋、炫耀、冷淡、毒舌、琐碎，也可以完全不发；不要讨好User。不要把想法、猜测、日程计划当成已经发生的事实。绝不能伪造聊天截图、现实照片或未发生的事件。当前日程：${scheduleContext}。私聊真实上下文：${context.systemPrompt.slice(0,30000)}。已记录的生活事件：${JSON.stringify(events).slice(0,7500)}。近期朋友圈：${JSON.stringify(recent).slice(0,3500)}。只返回JSON：{"publish":true或false,"text":"符合角色口吻的朋友圈文字","eventIds":["引用的真实事件ID"]}。如果没有想发的内容，publish为false。首阶段只发纯文字，图片由后续独立生图系统提供。`},
           {role:'user',content:'由Char自己决定此刻要不要发布一条朋友圈。'}
         ]})
@@ -476,7 +484,7 @@ ${scheduleContext}
     }catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{setMomentBusy(false);}
   };
-  const loadNpcMoments=async()=>{if(npcMomentLoading||sharedMomentsRefreshing||isCharacterPhoneRefreshing(characterId,'moments'))return;setNpcMomentLoading(true);setError('');try{await refreshNpcMoments(characterId,profiles,api);}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setNpcMomentLoading(false);}};
+  const loadNpcMoments=async()=>{if(npcMomentLoading||sharedMomentsRefreshing||isCharacterPhoneRefreshing(characterId,'moments'))return;setNpcMomentLoading(true);setError('');try{await refreshNpcMoments(characterId,profiles,phoneApi);}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setNpcMomentLoading(false);}};
   const isPrivateThread = thread === 'private:' + characterId;
   const active = records.find(r => r.id === thread);
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
@@ -554,7 +562,7 @@ ${scheduleContext}
                </button>
                <div className="min-w-0 flex-1"><h3 className="truncate text-xl font-semibold">{name}</h3>
                  <p className="mt-1 text-xs text-[#999]">此手机主人 · Char</p>
-                 {selfProfile.mood && <p className="mt-2 text-xs text-[#777]">最近心情：{selfProfile.mood}</p>}
+                 
                </div>
              </div>
            </section>
@@ -573,15 +581,45 @@ ${scheduleContext}
              </div>
              {selfAutoNotice && <p role="status" className="mt-3 text-xs leading-5 text-[#777]">{selfAutoNotice}</p>}
            </section>
-           <p className="px-5 text-xs leading-5 text-[#999]">与私聊共用头像库和戳一戳功能。头像先识图后保存，开启自主换头像后，Char 会依据已有心情和图片描述选择。</p>
+           <p className="px-5 text-xs leading-5 text-[#999]">与私聊共用头像库和戳一戳功能。头像先识图后保存；情绪选头像暂时停用，已存图片不受影响。</p>
          </div>}
          {screen === 'memo' && <PhoneMemo characterId={characterId} onGenerate={generateMemo} generating={memoBusy}/>}
         {screen === 'gallery' && <Gallery lockedCharacterId={characterId} onExit={()=>setScreen('home')}/>}
         {screen === 'calls' && <p className="p-8 text-center text-sm text-[#888]">电话记录与拨号功能待接入</p>}
         {screen === 'sms' && <p className="p-8 text-center text-sm text-[#888]">短信收发功能待接入</p>}
-        {screen === 'browser' && <CharacterPhoneBrowser characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={api}/>}
-        {screen === 'wallet' && <CharacterPhoneWallet characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={api}/>}
+        {screen === 'browser' && <CharacterPhoneBrowser characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
+        {screen === 'wallet' && <CharacterPhoneWallet characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'settings' && <div className="space-y-3 p-4">
+          <section className="space-y-3 rounded-2xl bg-white p-4">
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span><span className="block font-semibold">查手机独立 API</span>
+                <span className="mt-1 block text-xs leading-5 text-[#888]">只供当前 Char 的微信、朋友圈、浏览器、备忘录和钱包 AI 使用，不改私聊和主动消息</span></span>
+              <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={phoneApiSettings.enabled}
+                onChange={e=>changePhoneApiSettings({enabled:e.target.checked})}/>
+            </label>
+            {phoneApiSettings.enabled && <div className="space-y-3 text-sm">
+              <label className="block space-y-1"><span>API 地址</span>
+                <input type="url" autoComplete="off" placeholder="https://.../v1" value={phoneApiSettings.baseUrl}
+                  onChange={e=>changePhoneApiSettings({baseUrl:e.target.value})}
+                  className="w-full rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-2.5 outline-none focus:border-[#666]"/>
+              </label>
+              <label className="block space-y-1"><span>API Key</span>
+                <input type="password" autoComplete="off" placeholder="仅保存在此设备" value={phoneApiSettings.apiKey}
+                  onChange={e=>changePhoneApiSettings({apiKey:e.target.value})}
+                  className="w-full rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-2.5 outline-none focus:border-[#666]"/>
+              </label>
+              <label className="block space-y-1"><span>模型名称</span>
+                <input type="text" autoComplete="off" placeholder="输入模型 ID" value={phoneApiSettings.model}
+                  onChange={e=>changePhoneApiSettings({model:e.target.value})}
+                  className="w-full rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-2.5 outline-none focus:border-[#666]"/>
+              </label>
+              <p className="text-xs leading-5 text-[#777]">
+                {/^https?:\/\//i.test(phoneApiSettings.baseUrl)&&phoneApiSettings.apiKey&&phoneApiSettings.model
+                  ? '独立 API 已启用；关闭开关即可恢复使用原聊天 API。'
+                  : '请填完整的地址、Key 和模型；未填完整时暂用原聊天 API。'}
+              </p>
+            </div>}
+          </section>
           <label className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-4 text-sm">
             <span className="space-y-1"><span className="block font-semibold text-[#222]">Char 手机自主生活</span>
               <span className="block text-xs leading-5 text-[#777]">NPC 微信续聊、朋友圈、浏览器与个人资料的总开关</span></span>
@@ -592,19 +630,32 @@ ${scheduleContext}
             <div><h3 className="text-sm font-semibold">AI 自主调用频率</h3>
               <p className="mt-1 text-xs leading-5 text-[#888]">此角色的所有查手机自主功能共用额度，手动生成不占用该预算。</p>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <button type="button" aria-pressed={phonePrefs.pace==='economy'}
-                onClick={()=>changePhonePrefs({pace:'economy'})}
-                className={'rounded-xl border px-2 py-3 '+(phonePrefs.pace==='economy'
-                  ? 'border-[#333] bg-[#353535] text-white':'border-[#ddd] bg-[#f5f5f5]')}>省额度</button>
-              <button type="button" aria-pressed={phonePrefs.pace==='balanced'}
-                onClick={()=>changePhonePrefs({pace:'balanced'})}
-                className={'rounded-xl border px-2 py-3 '+(phonePrefs.pace==='balanced'
-                  ? 'border-[#333] bg-[#353535] text-white':'border-[#ddd] bg-[#f5f5f5]')}>均衡</button>
+            <div className="grid grid-cols-4 gap-1.5 text-xs">
+              {([{id:'economy',label:'省额度'},{id:'balanced',label:'均衡'},
+                 {id:'active',label:'活跃'},{id:'custom',label:'自定义'}] as const).map(option=>
+                <button key={option.id} type="button" aria-pressed={phonePrefs.pace===option.id}
+                  onClick={()=>changePhonePrefs({pace:option.id})}
+                  className={'rounded-xl border px-1 py-3 '+(phonePrefs.pace===option.id
+                    ? 'border-[#333] bg-[#353535] text-white':'border-[#ddd] bg-[#f5f5f5]')}>
+                  {option.label}</button>)}
             </div>
+            {phonePrefs.pace==='custom' && <div className="grid grid-cols-2 gap-3 text-xs">
+              <label className="space-y-1"><span className="block">每日自主调用上限（1—100）</span>
+                <input type="number" min={1} max={100} step={1}
+                  value={phonePrefs.customDailyLimit} onChange={e=>{
+                    if(e.target.value!=='') changePhonePrefs({customDailyLimit:Number(e.target.value)});
+                  }} className="w-full rounded-lg border border-[#ddd] p-2.5"/>
+              </label>
+              <label className="space-y-1"><span className="block">最短调用间隔（5—180 分钟）</span>
+                <input type="number" min={5} max={180} step={1}
+                  value={phonePrefs.customIntervalMinutes} onChange={e=>{
+                    if(e.target.value!=='') changePhonePrefs({customIntervalMinutes:Number(e.target.value)});
+                  }} className="w-full rounded-lg border border-[#ddd] p-2.5"/>
+              </label>
+            </div>}
             <div className="rounded-xl bg-[#f4f4f4] px-4 py-3 text-xs leading-6 text-[#666]">
               <p>今日自主 API 调用：{budgetInfo.requests} / {budgetInfo.limit} 次</p>
-              <p>剩余：{budgetInfo.remaining} 次 · {phonePrefs.pace==='economy'?'至少间隔 65 分钟':'至少间隔 35 分钟'}</p>
+              <p>剩余：{budgetInfo.remaining} 次 · 至少间隔 {budgetInfo.minIntervalMinutes} 分钟</p>
               {budgetInfo.remaining>0 && budgetInfo.nextAllowedAt>Date.now() &&
                 <p>下一次允许：{new Date(budgetInfo.nextAllowedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</p>}
               {budgetInfo.remaining===0&&<p>今日已达到上限，按设备当地日期自动重置。</p>}
@@ -618,14 +669,14 @@ ${scheduleContext}
                 onChange={e=>changePhonePrefs({browserAutoEnabled:e.target.checked})}/>
             </label>
             <label className="flex items-center justify-between gap-3 py-4 text-sm">
-              <span><span className="block font-medium">心情头像／戳一戳后缀</span>
-                <span className="mt-1 block text-xs text-[#888]">每天最多自动评估一次；头像需先识图并开启头像自主切换</span></span>
+              <span><span className="block font-medium">个人资料／戳一戳后缀</span>
+                <span className="mt-1 block text-xs text-[#888]">每天最多自动评估一次；基于情绪的自动换头像已暂停</span></span>
               <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={phonePrefs.selfProfileAutoEnabled}
                 onChange={e=>changePhonePrefs({selfProfileAutoEnabled:e.target.checked})}/>
             </label>
           </section>
           <p className="px-2 text-xs leading-5 text-[#888]">
-            默认省额度。只有应用在前台且 Char 的日程允许时才检查；不会在网页关闭后持续请求。
+            默认省额度。自定义仅调整共享 API 预算；微信、浏览器和个人资料仍有独立冷却，避免空转刷请求。只有应用在前台且 Char 的日程允许时才检查；不会在网页关闭后持续请求。
             手动刷新和显式点击的生成按钮仍可使用聊天 API。主动消息 2.0 使用原来独立的机制，不受这里的预算影响。
           </p>
         </div>}
@@ -637,7 +688,7 @@ ${scheduleContext}
     </div>
     {avatarLibraryOpen && createPortal(
       <CharacterAvatarLibraryModal characterId={characterId} defaultAvatar={char.avatar}
-        visionApiConfig={api.visionApi} onClose={()=>setAvatarLibraryOpen(false)}
+        visionApiConfig={phoneApi.visionApi} onClose={()=>setAvatarLibraryOpen(false)}
         onApply={onApplyAvatar}/>,
       document.body
     )}
