@@ -23,6 +23,8 @@ const BLOCK_RULES: Array<{ open: RegExp; close: RegExp }> = [
     { open: /\[\[(?:FS_)?DIARY_START/i, close: /\[\[(?:FS_)?DIARY_END\]\]/i },
     // HTML 卡片块
     { open: /\[html\]/i, close: /\[\/html\]/i },
+    // Internal phone data is not a chat bubble, including partial streaming JSON.
+    { open: /<sully_phone_events>/i, close: /<\/sully_phone_events>/i },
     // 思考链（content 内嵌形态；reasoning_content 通道根本不进正文）
     { open: /<(?:think|thinking|thought)>/i, close: /<\/(?:think|thinking|thought)>/i },
     // 语音 / 字幕 / 双语翻译标签 —— 由最终管线成对解析渲染，预览一律不碰
@@ -37,7 +39,7 @@ function isLinePreviewable(line: string): boolean {
     if (line.includes('[[')) return false;                    // SEND_EMOJI / QUOTE / ACTION / RECALL / XHS_* …
     if (/^\[schedule_message\s*\|/i.test(line)) return false; // 定时消息指令
     if (/%%BILINGUAL%%|%%TRANS%%/i.test(line)) return false;
-    if (/<\/?(?:[语語]音|字幕|翻译|原文|译文|think|thinking|thought)\b/i.test(line)) return false;
+    if (/<\/?(?:[语語]音|字幕|翻译|原文|译文|think|thinking|thought|sully_phone_events)\b/i.test(line)) return false;
     return true;
 }
 
