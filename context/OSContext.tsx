@@ -42,6 +42,7 @@ import { runCharacterPhoneAutonomy, isCharacterPhoneAutonomyEnabled } from '../u
 import { runCharacterPhoneBrowserAutonomy } from '../utils/characterPhoneBrowserAutonomy';
 import { runCharacterPhoneSelfAutonomy } from '../utils/characterPhoneSelfProfile';
 import { resolveCharacterPhoneApi } from '../utils/characterPhoneApiConfig';
+import { readPhoneInboxPreferences } from '../utils/characterPhoneInboxPrefs';
 import { canUsePhoneApiBudget, readPhoneApiBudget } from '../utils/characterPhoneApiBudget';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments } from '../utils/characterPhoneMoments';
@@ -2486,8 +2487,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!canUsePhoneApiBudget(char.id)) return;
           running = true;
           try {
-              const featureOrder = ['wechat', 'comments', 'browser', 'profile', 'npc-moments', 'moments-post', 'memo'] as const;
-              const index = phoneFeatureCursor.get(char.id) || 0;
+              // When explicitly enabled, the daily shared quota prioritizes
+              // WeChat contacts/messages and the existing Char/NPC Moments systems.
+              // No second polling timer, no extra unbudgeted LLM route.
+              const autoSuite = readPhoneInboxPreferences(char.id).autoFullWeChat;
+              const featureOrder = autoSuite
+                ? (['wechat','npc-moments','moments-post'] as const)
+                : (['wechat', 'comments', 'browser', 'profile', 'npc-moments', 'moments-post', 'memo'] as const);
+              const index = (phoneFeatureCursor.get(char.id) || 0) % featureOrder.length;
               const order = [...featureOrder.slice(index), ...featureOrder.slice(0, index)];
               for (const feature of order) {
                   if (disposed || document.visibilityState !== 'visible') break;
