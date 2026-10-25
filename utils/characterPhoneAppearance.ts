@@ -8,10 +8,11 @@ export type PhoneAppearance = {
   caption:string;
   location:string;
   anniversary:string;
+  fullscreen:boolean;
 };
 export const PHONE_APPEARANCE_CHANGED='sully:character-phone-appearance-changed';
 const PREFIX='sully_character_phone_appearance_v1:';
-const defaults=():PhoneAppearance=>({preset:'mist',wallpaper:'',polaroidLeft:'',polaroidRight:'',quote:'',caption:'',location:'',anniversary:''});
+const defaults=():PhoneAppearance=>({preset:'mist',wallpaper:'',polaroidLeft:'',polaroidRight:'',quote:'',caption:'',location:'',anniversary:'',fullscreen:false});
 const isLocalImage=(src:unknown):src is string =>
   typeof src==='string' && /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(src) && src.length<900000;
 const sanitizeImage=(src:unknown):string=>isLocalImage(src)?src:'';
@@ -28,6 +29,7 @@ export function readPhoneAppearance(characterId:string):PhoneAppearance {
       caption:typeof raw?.caption==='string'?raw.caption.slice(0,72):'',
       location:typeof raw?.location==='string'?raw.location.slice(0,36):'',
       anniversary:typeof raw?.anniversary==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(raw.anniversary)?raw.anniversary:'',
+      fullscreen:raw?.fullscreen===true,
     };
   }catch{return defaults();}
 }
@@ -43,6 +45,7 @@ export function savePhoneAppearance(characterId:string,updates:Partial<PhoneAppe
     caption:String(candidate.caption||'').slice(0,72),
     location:String(candidate.location||'').slice(0,36),
     anniversary:/^\d{4}-\d{2}-\d{2}$/.test(candidate.anniversary||'')?candidate.anniversary:'',
+    fullscreen:candidate.fullscreen===true,
   };
   localStorage.setItem(PREFIX+characterId,JSON.stringify(sanitized));
   if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(PHONE_APPEARANCE_CHANGED,{detail:{characterId}}));
