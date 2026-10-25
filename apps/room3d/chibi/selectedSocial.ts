@@ -17,7 +17,7 @@ import {applyPairedHandContact} from './pairedHandContact';
 import {createMotionConstraintPipeline} from './motionConstraintPipeline';
 export {motionCategories} from './selectedMotions';
 export type SocialAction=string;
-export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-kiss'?9.6:e.id==='home-rear-hug'?5:e.duration+1.2}]));
+export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-kiss'?9.6:e.id==='home-rear-hug'?7.5:e.duration+1.2}]));
 export interface SocialResident {id:string;visitor:ChibiVisitor}
 const yAxis=new T.Vector3(0,1,0),smooth=T.MathUtils.smootherstep;
 /** Both roles share a clock and capture transform. Observers stay independent. */
@@ -37,8 +37,8 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
   const points=s.clip.actors.map(a=>{const elapsed=T.MathUtils.clamp(pinned?0:time,0,a.duration);let i=0;while(i<a.times.length-2&&a.times[i+1]<elapsed)i++;const j=Math.min(i+1,a.times.length-1),f=i+(elapsed-a.times[i])/(a.times[j]-a.times[i]||1);return new T.Vector3().fromArray(a.positions,i*3).lerp(new T.Vector3().fromArray(a.positions,j*3),f-i).sub(s.sourceOrigin).setY(0).multiplyScalar(s.scale).applyQuaternion(s.rotation).add(s.origin);});
   if(points.length===2&&s.action!=='home-rear-hug'){const delta=points[1].clone().sub(points[0]),gap=delta.length(),minimum=residents[0].visitor.rig?.66:1.38;if(gap<minimum){if(gap<.001)delta.set(1,0,0);delta.normalize().multiplyScalar((minimum-gap)/2);points[0].sub(delta);points[1].add(delta);}}
    if(s.action==='home-rear-hug'&&points.length===2){
-    // Use B's yaw for both actors; A is behind, and later takes a small step back.
-    const distance=.69+.13*smooth(time,4.58,5);
+    // B holds their current location; A arrives at a compact waist-contact distance.
+    const distance=.57;
     points[0].copy(points[1]).add(new T.Vector3(0,0,-distance).applyQuaternion(s.rotation));
    }
   if(pinned){const index=s.ids.indexOf(pinned.id);if(index>=0){const offset=pinnedPosition!.clone().sub(points[index]);points.forEach((p,i)=>{p.add(offset);if(i!==index)p.y=s.starts[i].y;});}}
@@ -251,8 +251,8 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    if(isIntimacy(s.action)||motionTemplateFor(s.action)?.headTouch){
     const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));
     r.visitor.root.quaternion.copy(turn).slerp(rearHug?s.rotation:toward,smooth(actionTime,0,.6));
-    // A's tiny release retreat reuses the existing walk gait; B stays planted.
-    r.visitor.animate(sourceTime,rearHug&&i===0&&actionTime>=4.58?'walk':'idle');
+    // No custom walking or late retreat once B is reached.
+    r.visitor.animate(sourceTime,'idle');
    }else{
     const {heading,lean}=splitMotionHeading(frames[i].rotations.hips);
     // The sampled pelvis already contains this actor's capture heading. Put it
@@ -334,7 +334,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     const fits=()=>{
      const first=locations(candidate,0);
      const target=action==='home-kiss'&&!pinned?locations(candidate,3.5):first;
-     const moving=(paths:T.Vector3[][])=>paths.filter((_,i)=>ids[i]!==pinned?.id);
+     const moving=(paths:T.Vector3[][])=>paths.filter((_,i)=>ids[i]!==pinned?.id&&(action!=='home-rear-hug'||i===0));
      // The existing tests are unchanged, but reject impossible action space
      // BEFORE expensive pathfinding for any of the alternate positions.
      const motion=both.map(()=>[] as T.Vector3[]);
@@ -344,7 +344,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      // The final roots must remain on valid standing floor.
      if(options.canPlace&&!options.canPlace(moving((action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,clip.duration)).map(p=>[p]))))return false;
      const paths=both.map(()=>[] as T.Vector3[]);
-     const routes=starts.map((p,i)=>ids[i]===pinned?.id?[p.clone(),p.clone()]:
+     const routes=starts.map((p,i)=>ids[i]===pinned?.id||action==='home-rear-hug'&&i===1?[p.clone(),p.clone()]:
      action==='home-rear-hug'&&i===0?planRearHugApproach(p,target[i],target[1],candidate.rotation,
       (from,to)=>options.findPath?options.findPath(from,to):[from.clone(),to.clone()]):
      options.findPath?options.findPath(p,target[i]):[p.clone(),target[i].clone()]);
@@ -355,6 +355,9 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
       const from=routes[i]![j-1],to=routes[i]![j],steps=Math.max(1,Math.ceil(from.distanceTo(to)/.08));
       for(let step=0;step<=steps;step++)paths[i].push(from.clone().lerp(to,step/steps));
      }
+     // A may already be standing very close to furniture: existing start positions
+     // are valid by occupancy, and the nav planner owns the route from there.
+     if(action==='home-rear-hug'&&paths[0].length>1)paths[0].shift();
      return !options.canPlace||options.canPlace(moving(paths));
     };
     let valid=fits();if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned&&action!=='home-rear-hug')for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
