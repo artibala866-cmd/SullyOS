@@ -9,7 +9,7 @@
 | `singlePose` | 单人动作、表情、姿态 | `selectedMotions.ts` / `visitor.ts` |
 | `handContact` | 手掌对齐、双人接触 | `socialContact.ts` / `pairedHandContact.ts` |
 | `bodyContact` | 肩部、身体接触锚点 | `socialContact.ts` / `motionContactProfiles.ts` |
-| `armWrap` | 拥抱、手臂环绕、体表避让 | `hugMotion.ts` / `hugArmClearance.ts` |
+| `armWrap` | 拥抱、手臂环绕、体表避让 | `hugMotion.ts` / `hugArmClearance.ts` / `rearHugMotion.ts` |
 | `faceContact` | 嘴唇和头颈定位 | `headContactIK.ts` |
 | `seatTransition` | 坐下、起身、坐姿切换 | `../seatChange.js` |
 | `residentNavigation` | 行走、路径避让 | `../residentNavigation.js` |
@@ -115,3 +115,12 @@
 - 完整开发手册、示例代码、性能约束和实机验收见 [`MOTION_TEMPLATES.md`](./MOTION_TEMPLATES.md)。
 
 新动作实例：通过第五阶段模板加入「摸头」（亲密），详见 [`MOTION_TEMPLATES.md`](./MOTION_TEMPLATES.md)。保留原 43 个动作，目录现为 44 个。
+
+## 新增：背后搂抱（站立限定）
+
+- `home-rear-hug`：归入现有「亲密 close」，B 保持原朝向，A 从身后接近；动作段 5.0 秒，走近时间另计。
+- 直接复用：`selectedSocial.ts` 共用时间轴和寻路、`socialContact.ts` 手掌 IK、`hugArmClearance.ts` 躯干外表面与肘部避让、`hugHands.ts` 手指曲线、`standingHeightAdaptation.ts` 身高差弯膝。
+- `rearHugMotion.ts` 仅实现背后姿态及腰侧目标：高 A 适当下蹲，矮 A 不强求双手交叉；B 延时覆手回应。手臂不够长时退为腰侧可达点并减小 IK，不能通过躯干硬拉。
+- 在动作开始时才检查 A 的接近路线是否穿过 B；必要时选左/右侧绕路，均无路则拒绝启动。不修改原始寻路器或已有拥抱。
+- 骨骼接触/旋转/脚步在 Android Chrome 尚需实机验收；静态测试不能代替画面测试。
+
