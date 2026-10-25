@@ -654,8 +654,8 @@ ${scheduleContext}
         {screen === 'wallet' && <CharacterPhoneWallet characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'settings' && <div className="space-y-3 p-4">
           <section className="space-y-3 rounded-2xl bg-white p-4">
-            <h3 className="text-sm font-semibold">角色的社交应用安装</h3>
-            <p className="text-xs leading-5 text-[#888]">首次进入只根据 Char 性格分析一次；基础软件永远保留。以后可以手动安装、卸载这四款应用。</p>
+            <h3 className="text-sm font-semibold">Char 的可选应用安装</h3>
+            <p className="text-xs leading-5 text-[#888]">首次进入只根据 Char 性格分析一次；基础软件永远保留。以后可以手动安装、卸载九款可选应用。</p>
             <div className="divide-y divide-[#eee]">
               {CHARACTER_PHONE_SOCIAL_APPS.map(appId=><label key={appId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                 <span className="flex min-w-0 items-center gap-2">
