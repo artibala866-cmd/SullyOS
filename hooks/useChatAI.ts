@@ -35,6 +35,7 @@ import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
 import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContinuation';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
+import {chatPhonePiggybackPrompt} from '../utils/phoneChatPiggyback';
 import {
     computeStreamPreviewBubbles,
     extractStreamingEmbeddedThinking,
@@ -932,6 +933,10 @@ export const useChatAI = ({
                     // 生成前收进来的主动消息落在用户刚发的那句之后：该回的是用户那句。
                     unansweredUserTurn: hasUnansweredUserTurn(currentMsgs, contextMsgs),
                 });
+            // Optional phone side effects share this exact User-facing completion.
+            // No detached or second LLM request is made here.
+            const phoneEventsInstruction=chatPhonePiggybackPrompt(char.id);
+            if(phoneEventsInstruction)fullMessages.unshift({role:'system',content:phoneEventsInstruction} as any);
             const promptBuildSkipped = payload.flags.promptBuildSkipped;
             if (payload.flags.mcdActive) {
                 console.log(`🍔 [MCD-MiniApp] 注入协同点餐上下文 step=${mcdMiniSnap?.step} cartItems=${mcdMiniSnap?.cart?.length || 0} menuItems=${mcdMiniSnap?.menuMeals ? Object.keys(mcdMiniSnap.menuMeals).length : 0} nutrition=${mcdMiniSnap?.nutritionData ? mcdMiniSnap.nutritionData.length : 0}字`);
