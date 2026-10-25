@@ -7,7 +7,8 @@ import { readPendingContacts } from './characterPhoneRequests';
 import { registerDiscoveredNpc, noteNpcInteraction, type NpcDiscovery } from './characterNpcNetwork';
 import { appendCharacterPhoneMessages, readCharacterPhoneChats, type CharacterPhoneChat } from './characterPhoneChats';
 import { buildCharacterPhoneContext } from './characterPhoneContext';
-import { safeResponseJson, extractContent } from './safeApi';
+import { extractContent } from './safeApi';
+import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
 import { isCharacterPhoneRefreshing } from './characterPhoneRefreshTracker';
 import { canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
@@ -56,13 +57,11 @@ function readState(charId: string, now: number): RunState {
   } catch { return { day, turnsToday: 0, attemptsToday: 0, lastAttemptAt: 0, bootstrapAt: 0, contactAt: {} }; }
 }
 function writeState(id: string, state: RunState) { localStorage.setItem(PREFIX + id, JSON.stringify(state)); }
-async function queryJson(api: Api, messages: { role: 'system' | 'user'; content: string }[]): Promise<any> {
-  const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-    signal: AbortSignal.timeout(60_000),
+async function queryJson(api: Api, messages: { role: 'system' | 'user'; content: string }[], charId: string, purpose: string): Promise<any> {
+  const { response, json } = await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
     body: JSON.stringify({ model: api.model, stream: false, temperature: 0.8, messages }),
-  });
-  const json = await safeResponseJson(response);
+  }, { charId, purpose, automatic: true });
   if (!response.ok) throw new Error(json?.error?.message || 'HTTP ' + response.status);
   const raw = extractContent(json).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   return JSON.parse(raw);
@@ -97,7 +96,7 @@ origin为known时必须能从原设或世界书找到证据，evidence取worldbo
 说话习惯要有差异：允许冷淡、简短、较真、慢回、私人边界，避免人人热情讨好。
 仅返回JSON：{"contacts":[{"name":"","nickname":"","realName":"","identity":"","personality":"","relationship":"","background":"","speechStyle":"","boundary":"","origin":"known|introduced|stranger","evidence":"worldbook|character|suggested"}]}。` },
     { role: 'user', content: '建立角色自己的基本生活圈，不用用户手工编人设。新角色必须服从已有设定；没有必要不要造人。' },
-  ]);
+  ], char.id, '自动整理通讯录');
   if (!Array.isArray(response?.contacts)) return false;
   let created = false;
   for (const raw of response.contacts.slice(0, 4)) {
@@ -175,7 +174,8 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       !isCharacterPhoneAutonomyEnabled(char.id)) return 'unavailable';
   // User-triggered refresh/continuation owns the inbox while its LLM call is
   // in flight. Never start a competing background write in the same window.
-  if (isCharacterPhoneRefreshing(char.id) || !canUsePhoneApiBudget(char.id)) return 'skipped';
+  if (isCharacterPhoneRefreshing(char.id) || !canUsePhoneApiBudget(char.id) ||
+      !canRunAutomaticPhoneAi(char.id, api.baseUrl.replace(/\/+$/, '') + '/chat/completions')) return 'skipped';
   if (locks.has(char.id)) return 'skipped';
   locks.add(char.id);
   const now = Date.now();
@@ -233,7 +233,7 @@ Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).jo
 最多发送1至3条短微信气泡，若不想说话选择send:false。不可写User发言。
 仅输出JSON：{"send":true,"messages":["消息1","消息2"]}或{"send":false,"messages":[]}。不得生成双方完整对话。 ` },
       { role: 'user', content: '由这位角色自主决定是否给对方发微信。' },
-    ]);
+    ], char.id, '后台微信自然对话');
     const textMessages = Array.isArray(result?.messages)
       ? result.messages.filter((m: unknown): m is string => typeof m === 'string' && !!m.trim()).slice(0, 3)
       : [];
