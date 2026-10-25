@@ -36,6 +36,7 @@ import {bathroomEntryCandidates,createBathroomJourney,bathroomJourneyFrame} from
 import {createBathroomEffects} from './bathroomEffects.js';
 import {interactionIcon,actionIcon} from './interactionIcons.js';
 import {roomPixelRatio,roomLightBudget} from './renderQuality.js';
+import {createRoomFrameBudget} from './frameBudget.js';
 import {fitFlatView} from './flatView.js';
 import {homelyTouchPose,homelyTouchText} from './homelyTouch';
 import {homelyFrame} from './homelyView';
@@ -127,6 +128,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  const lightUniforms=createRoomLightUniforms();
  let quality='clear';try{const saved=localStorage.getItem('sully-home3d-quality');if(qualities[saved])quality=saved}catch{}
  let detailBudget=qualities[quality].details,frameInterval=1000/qualities[quality].fps,orbitMode=false,inTick=false;
+ const resolutionBudget=createRoomFrameBudget({enabled:phone||touch});
  let gpuContextLost=false;
  function wake(){if(!destroyed&&!suspended&&!document.hidden&&!gpuContextLost&&!frame&&!inTick&&state)frame=requestAnimationFrame(tick)}
  const materialCache=new Map(),usedMaterials=new Set(),paintTargets=new Map(),defaultPaintColors=new Map();
@@ -1753,7 +1755,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(d.action==='furniture-style'){furnitureStyle=d.value==='original'?'original':'retro';try{localStorage.setItem('sully-home3d-furniture-style',furnitureStyle)}catch{}rebuild();renderUI();return}
   if(d.action==='light-finish'){finishEnabled=!finishEnabled;try{localStorage.setItem('sully-home3d-light-finish',finishEnabled?'on':'off')}catch{}dirty=true;wake();renderUI();return;}
   if(d.action==='lighting-mode'){setLightingMode(d.value);return;}
-  if(d.action==='quality'){quality=d.value;if(!qualities[quality])quality='clear';const q=qualities[quality];detailBudget=q.details;frameInterval=1000/q.fps;renderer.setPixelRatio(roomPixelRatio(quality,devicePixelRatio,touch||phone));try{localStorage.setItem('sully-home3d-quality',quality)}catch{}rebuild();renderUI();return}
+  if(d.action==='quality'){quality=d.value;if(!qualities[quality])quality='clear';const q=qualities[quality];detailBudget=q.details;frameInterval=1000/q.fps;resolutionBudget.reset();renderer.setPixelRatio(roomPixelRatio(quality,devicePixelRatio,touch||phone));try{localStorage.setItem('sully-home3d-quality',quality)}catch{}rebuild();renderUI();return}
   if(d.action==='full-living'){commit(()=>{const room=current(),replacement=createStarterHome(catalog,state.homePalette||'sage').rooms[0];state.livingTemplateBackup=clone(room);Object.assign(room,replacement,{id:room.id,name:room.name,x:room.x,z:room.z,level:room.level});visitorLocation=null;visitorSeat=null;visitorActivity=null;panel=null;selected=null;message='已恢复完整客厅样板，原布置已备份';},{templateUpgrade:true});return;}
   if(d.action==='restore-living'&&state.livingTemplateBackup){commit(()=>{const previous=state.livingTemplateBackup,room=state.rooms.find(r=>r.id===previous.id);if(room)Object.assign(room,clone(previous));delete state.livingTemplateBackup;visitorLocation=null;visitorSeat=null;visitorActivity=null;panel=null;selected=null;},{templateUpgrade:true});return;}
   if(d.action==='upgrade-starter'){commit(()=>{const backup=clone(state);delete backup.starterBackup;state={...state,...createStarterHome(catalog,state.homePalette||'sage'),starterBackup:backup};visitorLocation=null;visitorSeat=null;visitorActivity=null;residentRoom=undefined;panel=null;selected=null;edit=false;overview=false;message='六间样板房已布置好，原小屋已备份';});return;}
@@ -2050,6 +2052,8 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   let settling=false;if(!manual&&!document.hidden)elapsed+=dt;
   const petMoving=petSystem?.update(manual?0:dt);if(petMoving)dirty=true;
   if(!document.hidden&&now-lastDraw>=frameInterval-.5){
+    const frameSpacing=lastDraw?now-lastDraw:0;
+    const workStart=performance.now();
    if(petSystem?.consumeShadowChange())invalidateRoomShadows();
    const applianceChanged=kitchenEffects.updateDoors(manual?0:dt,reducedMotion);if(applianceChanged){dirty=true;invalidateRoomShadows();}
    const breathing=animated.length&&!overview&&!reducedMotion&&qualities[quality].motion;
@@ -2057,7 +2061,12 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const acting=visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil));
    if(acting&&!companionRise&&!(companionTravel&&!furnitureUser))animateVisitor(elapsed-visitorStart);
    animateIdleResidents();animateParkedCharacter();if(furnitureUser)animateConversation();animateCompanionIdle();animateCompanionPhone();animateUserSpeech();if(separateResidentBodies(dt))dirty=true;faceNearbyResidents();faceConversationPartner();
-   settling=controls.update();if(dirty||homelyAttention||homelyMusic.playing&&!reducedMotion||homelyPoke||breathing||acting||hasIdleResidents()||drag||walkFeedback.active){renderScene();renderedFrames++;dirty=false;lastDraw=now}
+   settling=controls.update();if(dirty||homelyAttention||homelyMusic.playing&&!reducedMotion||homelyPoke||breathing||acting||hasIdleResidents()||drag||walkFeedback.active){
+     renderScene();renderedFrames++;dirty=false;lastDraw=now;
+     // Do not alter rigs or action clips. Only ease the mobile GPU framebuffer.
+     const scale=resolutionBudget.observe({now,frameMs:Math.max(frameSpacing,performance.now()-workStart),active:!!(greeting||cameraArrival||acting||hasIdleResidents()||homelyAttention||breathing||socialRuntime?.active)});
+     if(scale!==null&&!photoSession){renderer.setPixelRatio(roomPixelRatio(quality,devicePixelRatio,touch||phone)*scale);dirty=true;}
+    }
   }
   inTick=false;if(homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil)))wake();
  }
