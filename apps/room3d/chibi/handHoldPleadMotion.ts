@@ -128,16 +128,22 @@ export function poseHandHoldPlead(both:readonly [Participant,Participant],time:n
  if(Math.abs(diff)>.32&&p.grip>.01)applyStandingHeightAdaptation([av,bv],{
   mode:'contact',weight:strength*p.grip*.36,
  });
- const sway=p.swing*strength;
- ar.spine.quaternion.multiply(q(.035*p.tug+.025*p.glance,0,
-  (sign*.065*sway+sign*.025*p.foot)*strength));
- ar.chest.quaternion.multiply(q(.042*p.tug,0,(sign*.047*sway)*strength));
- // Stagger shoulders instead of moving them in perfect mechanical sync.
- const delayed=handHoldPleadPhase(Math.max(0,time-.11));
- ar[handA+'_clavicle'].quaternion.multiply(q(0,0,sign*(.055*p.shrug+.022*delayed.swing)*strength));
- ar[(handA==='L'?'R':'L')+'_clavicle'].quaternion.multiply(q(0,0,-sign*.025*p.shrug*strength));
- br[handB+'_clavicle'].quaternion.multiply(q(0,0,-sign*.024*handHoldPleadPhase(Math.max(0,time-.16)).swing*strength));
- br.chest.quaternion.multiply(q(.016*p.reply*strength,0,-sign*.015*p.reply*strength));
+ // Lead from the clasped hands. The torso/shoulders FOLLOW each outward
+ // excursion smoothly instead of vibrating at a separate sine frequency.
+ const aFollow=handHoldPleadPhase(Math.max(0,time-.10));
+ const bFollow=handHoldPleadPhase(Math.max(0,time-.19));
+ ar.spine.quaternion.multiply(q((.020*p.tug+.019*p.glance)*strength,0,
+  sign*(.036*aFollow.open+.020*p.foot)*strength));
+ ar.chest.quaternion.multiply(q(.028*p.tug*strength,0,
+  sign*.024*aFollow.open*strength));
+ ar[handA+'_clavicle'].quaternion.multiply(q(0,0,
+  sign*(.030*p.shrug+.015*aFollow.open)*strength));
+ ar[(handA==='L'?'R':'L')+'_clavicle'].quaternion.multiply(q(0,0,
+  -sign*.011*p.shrug*strength));
+ br[handB+'_clavicle'].quaternion.multiply(q(0,0,
+  -sign*.012*bFollow.open*strength));
+ br.chest.quaternion.multiply(q(.013*p.reply*strength,0,
+  -sign*.016*bFollow.open*strength));
  const shortPitch=clamp(Math.abs(diff)*.22,0,.23);
  ar.head.quaternion.multiply(q((diff>0?-shortPitch:shortPitch)*p.glance*strength,0,
   (-sign*(.16*p.glance+.055*p.toe))*strength));
