@@ -116,6 +116,10 @@ describe('head pet and playful hair ruffle',()=>{
    (recipient.visitor as any).getHeadTopWorldPosition=()=>new T.Vector3(-actorX,receiverHeight,0);
    const size=headPatScalpSize(recipient.visitor);
    expect(size.radius).toBeGreaterThan(.35);
+   // Very tall/large Char heads must not be reduced to an old fixed 0.9 cap.
+   rigHead.scale.setScalar(1.65);
+   expect(headPatScalpSize(recipient.visitor).radius).toBeGreaterThan(.9);
+   rigHead.scale.setScalar(.7);
    const crown=recipient.visitor.getHeadTopWorldPosition();
    const lateral=new T.Vector3().crossVectors(
     new T.Vector3(0,1,0),crown.clone().sub(giver.visitor.root.position).setY(0).normalize());

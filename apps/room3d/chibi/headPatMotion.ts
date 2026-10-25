@@ -59,7 +59,7 @@ export function headPatScalpSize(recipient:ChibiVisitor){
  const worldScale=rig.bones.head.getWorldScale(new T.Vector3());
  const headSize=(rig.mesh.geometry?.userData?.headSize as number|undefined)??1;
  const scale=Math.max(Math.abs(worldScale.x),Math.abs(worldScale.z));
- const radius=T.MathUtils.clamp(.198*BLANK_SCALE*BLANK_HEAD_SCALE.x*headSize*scale+.025,.24,.90);
+ const radius=T.MathUtils.clamp(.198*BLANK_SCALE*BLANK_HEAD_SCALE.x*headSize*scale+.025,.24,2.20);
  return {radius,depth:radius*.87,height:radius*.86};
 }
 
