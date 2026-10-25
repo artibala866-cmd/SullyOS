@@ -3,7 +3,7 @@ import React,{useEffect,useState} from 'react';
 import {
   ArrowLeft,House,User,BookOpen,Books,FilmSlate,ChatDots,VideoCamera,
   MagnifyingGlass,Heart,BookmarkSimple,EnvelopeSimple,PaperPlaneTilt,
-  ArchiveBox,Star,Notebook,ClockCounterClockwise,Compass,GridFour,PenNib,
+  Archive,Star,Notebook,ClockCounterClockwise,Compass,GridFour,PenNib,
   Newspaper,At,Play,MusicNotes,
 } from '@phosphor-icons/react';
 import PhoneAvatar from './PhoneAvatar';
@@ -21,7 +21,7 @@ const appData={
  ]},
  email:{title:'邮箱',hint:'收件箱 · 已发送 · 草稿',tabs:[
    {id:'inbox',label:'收件箱',Icon:EnvelopeSimple},{id:'sent',label:'已发送',Icon:PaperPlaneTilt},
-   {id:'drafts',label:'草稿',Icon:Notebook},{id:'archive',label:'归档',Icon:ArchiveBox},
+   {id:'drafts',label:'草稿',Icon:Notebook},{id:'archive',label:'归档',Icon:Archive},
  ]},
  jinjiang:{title:'晋江文学城',hint:'作品 · 书架 · 阅读记录',tabs:[
    {id:'home',label:'书城',Icon:House},{id:'library',label:'书架',Icon:Books},
