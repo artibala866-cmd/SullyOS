@@ -34,7 +34,8 @@ const readImageResult = async (response: Response, signal?: AbortSignal): Promis
   const data = await response.json().catch(() => {
     throw new Error('生图接口返回了非 JSON 数据，请检查生图端点');
   });
-  const first = data?.data?.[0] ?? data?.images?.[0] ?? data?.output?.[0] ?? data?.image;
+  const first = (Array.isArray(data?.data) ? data.data[0] : data?.data)
+    ?? data?.images?.[0] ?? data?.output?.[0] ?? data?.image;
   const value = typeof first === 'string'
     ? first
     : first?.b64_json || first?.base64 || first?.url || first?.image_url || first?.image;
@@ -168,6 +169,7 @@ export async function generateCharacterImage(
 ): Promise<Blob> {
   if (!config.apiKey?.trim() || !config.model?.trim()) throw new Error('请先在设置中保存生图 API Key 和模型');
   const promptParts = [config.positive?.trim(), profile.appearance?.trim()].filter(Boolean);
+  if (!promptParts.length) throw new Error('请先填写角色外貌描述或全局正面提示词');
   const prompt = promptParts.join(', ') + (config.provider === 'openai' && config.negative?.trim()
     ? '\n\nAvoid: ' + config.negative.trim()
     : '');
