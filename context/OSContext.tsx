@@ -1618,7 +1618,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
         // Users may still have a deleted desktop selected in an older backup.
         // Migrate only that obsolete skin, preserving characters, chats, other skins and custom assets.
-        if (loadedTheme.skin === ('animalcrossing' as string) || loadedTheme.skin === ('tamagotchi' as string)) {
+        if (loadedTheme.skin === ('animalcrossing' as string) || loadedTheme.skin === ('tamagotchi' as string) || loadedTheme.skin === ('mobilegame' as string)) {
             const backupMarker = localStorage.getItem('acnh_wallpaper_backup');
             const restoredWallpaper = backupMarker === '__asset__'
                 ? await DB.getAsset('wallpaper_user_backup')
