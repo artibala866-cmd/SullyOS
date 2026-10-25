@@ -523,6 +523,7 @@ export const XhsFreeRoamEngine = {
 
                 // Try to get images from XHS stock
                 let images: string[] = [];
+                let selectedStockImageId = '';
                 try {
                     const stockImgs = await DB.getXhsStockImages();
                     if (stockImgs.length > 0) {
@@ -533,7 +534,7 @@ export const XhsFreeRoamEngine = {
                         })).sort((a, b) => b.score - a.score);
                         if (scored[0]?.img.url) {
                             images = [scored[0].img.url];
-                            DB.updateXhsStockImageUsage(scored[0].img.id).catch(() => {});
+                            selectedStockImageId = scored[0].img.id;
                         }
                     }
                 } catch { /* ignore stock failures */ }
@@ -544,6 +545,12 @@ export const XhsFreeRoamEngine = {
                     images: images.length > 0 ? images : undefined,
                     tags: decision.tags,
                 });
+                // Only count a stock image as used after the remote publish actually succeeds.
+                if (postResult.success && selectedStockImageId) {
+                    await DB.updateXhsStockImageUsage(selectedStockImageId).catch(error => {
+                        console.warn('[FreeRoam] 更新囤图使用次数失败:', error);
+                    });
+                }
                 const publishedNoteId = postResult.success ? extractPublishedNoteId(postResult) : '';
                 if (publishedNoteId) {
                     const now = Date.now();
