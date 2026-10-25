@@ -13,6 +13,7 @@ import type {APIConfig,CharacterProfile,UserProfile} from '../../types';
 import type {HomeEditor} from './editor.js';
 import type {HomeRecord} from './types';
 import {homeRecords,makeHomeRecord,editHomeRecord} from '../../utils/homeRecords';
+import {clearHomeHistory} from '../../utils/homeHistoryCleanup';
 import {generateHomeReply} from '../../utils/homeConversation';
 import './homeLife.css';
 import {isScheduleFeatureOn} from '../../utils/scheduleFeature';
@@ -22,7 +23,7 @@ import type {SecretNoteOrigin} from '../../utils/secretNote';
 
 export default function HomeLifePanel({editor,character,user,api,conversationContext,panel,onPanel,onDefinition,onFigures,initiative,active=true,onBusyChange,presentation='home'}:{presentation?:'home'|'homely';onBusyChange?:(busy:boolean)=>void;active?:boolean;initiative?:HomeInitiativeRequest;editor:HomeEditor;character?:CharacterProfile;user?:UserProfile;api?:APIConfig;conversationContext?:HomeConversationContext;panel:string|null;onPanel:(name:string|null)=>void;onDefinition?:()=>void;onFigures?:()=>void}){
  useEffect(()=>()=>onBusyChange?.(false),[onBusyChange]);
- const [draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[filter,setFilter]=useState('all'),[limit,setLimit]=useState(40),[revision,refresh]=useState(0);
+ const [draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[clearing,setClearing]=useState(false),[error,setError]=useState(''),[filter,setFilter]=useState('all'),[limit,setLimit]=useState(40),[revision,refresh]=useState(0);
  useEffect(()=>{onBusyChange?.(busy);},[busy,onBusyChange]);
  const [editing,setEditing]=useState<string>(),[editText,setEditText]=useState(''),[removed,setRemoved]=useState<{record:HomeRecord;index:number}>();
  const controller=useRef<AbortController>(),alive=useRef(true),list=useRef<HTMLDivElement>(null),sheet=useRef<HTMLElement>(null);
@@ -104,13 +105,40 @@ export default function HomeLifePanel({editor,character,user,api,conversationCon
  };
  const remove=(record:HomeRecord)=>{controller.current?.abort(new DOMException('家园记录已修改，取消旧回复','AbortError'));const all=current();setRemoved({record,index:all.findIndex(e=>e.id===record.id)});update(all.filter(e=>e.id!==record.id));};
  const restore=()=>{if(!removed)return;const all=current();all.splice(Math.min(removed.index,all.length),0,removed.record);update(all);setRemoved(undefined);};
+ /** Clear *all* home conversation/action/presence records and the matching
+  * private/Check Phone projections; ordinary private and NPC chats stay.
+  * A user must confirm an irreversible multi-store deletion.
+  */
+ const clearAll=async()=>{
+  if(clearing||!character?.id)return;
+  if(!window.confirm('确定永久清空当前角色的全部 3D 家园聊天和动作记录吗？包括同步到私聊及查手机 User/Char 私聊的家园记录。普通私聊和其他角色数据不会删除，无法撤销。'))return;
+  setClearing(true);
+  setError('');
+  controller.current?.abort(new DOMException('家园记录已清空，取消旧回复','AbortError'));
+  conversationEnd.current?.(0);conversationEnd.current=undefined;
+  setRetry(undefined);
+  try{
+   await clearHomeHistory(character.id);
+   // The editor keeps an in-memory journal and writes via the owning OS state.
+   // Clear it only AFTER DB commit, so transaction failure leaves UI untouched.
+   editor.updateRecords([]);
+   setRemoved(undefined);
+   setEditing(undefined);
+   setEditText('');
+   setDraft('');
+   scrollPosition.current.count=0;
+   refresh(n=>n+1);
+  }catch(e){
+   setError(e instanceof Error?e.message:'清空未完成，原记录仍保留');
+  }finally{setClearing(false);}
+ };
  const sourceName={user:'手动',local:'自主',model:'模型'};
  const title=panel==='chat'?`和${character?.name||'TA'}聊聊`:panel==='journal'?'家里的日常':'我的家';
  if(!panel||panel==='interact')return null;
  const docked=presentation==='homely'&&panel==='chat';
  return <div className={`home-life-overlay ${docked?'homely-chat':''}`} onPointerDown={e=>{if(!docked&&e.target===e.currentTarget)onPanel(null);}}>
   <section ref={sheet} className={`home-life-sheet home-life-${panel}`} aria-label={title} role="dialog" aria-modal={docked?undefined:true} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onPanel(null);}if(e.key==='Tab'&&!docked){const items=[...e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),textarea:not(:disabled),input:not(:disabled),summary')].filter(el=>el.getClientRects().length);const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}}}>
-   <header><div><small>{scene.roomName}</small><h2>{title}</h2></div><button className="home-icon" aria-label={docked?'收起家园聊天':'关闭面板'} onClick={()=>onPanel(null)}>{docked?<span className="homely-chat-collapse" aria-hidden="true">⌄</span>:<X size={22}/>}</button></header>
+   <header><div><small>{scene.roomName}</small><h2>{title}</h2></div><div className="home-life-header-actions">{panel==='chat'&&<button type="button" className="home-icon home-clear-history" aria-label="一键清空家园聊天和动作记录" title="清空家园聊天、动作及私聊里的家园记录" disabled={clearing||!character} onClick={()=>void clearAll()}><Trash size={19}/></button>}<button className="home-icon" aria-label={docked?'收起家园聊天':'关闭面板'} onClick={()=>onPanel(null)}>{docked?<span className="homely-chat-collapse" aria-hidden="true">⌄</span>:<X size={22}/>}</button></div></header>
    {panel==='more'?<div className="home-menu-grid island-menu-grid">
     {[
      {label:'宠物',tone:'mint',note:'照顾伙伴、装扮与小记',Icon:PawPrint,run:()=>{onPanel(null);trackHomeFeature('pets');editor.openPets();}},
