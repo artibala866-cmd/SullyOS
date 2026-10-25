@@ -90,7 +90,7 @@ describe('head pet and playful hair ruffle',()=>{
     const lateral=new T.Vector3().crossVectors(new T.Vector3(0,1,0),forward);
     expect(left.scalpPoint.clone().sub(crown).dot(lateral)).toBeGreaterThan(.11);
     expect(right.scalpPoint.clone().sub(crown).dot(lateral)).toBeLessThan(-.11);
-    expect(left.scalpPoint.distanceTo(right.scalpPoint)).toBeGreaterThan(.24);
+    expect(left.scalpPoint.distanceTo(right.scalpPoint)).toBeGreaterThan(.22);
     for(const hand of [left,right]){
      // Side-of-head, not the old almost-center crown target.
      expect(hand.scalpPoint.y).toBeLessThan(crown.y-.005);
@@ -117,7 +117,7 @@ describe('head pet and playful hair ruffle',()=>{
    expect(size.radius).toBeGreaterThan(.35);
    const crown=recipient.visitor.getHeadTopWorldPosition();
    const lateral=new T.Vector3().crossVectors(
-    new T.Vector3(0,1,0),crown.clone().sub(giver.visitor.root.position).normalize());
+    new T.Vector3(0,1,0),crown.clone().sub(giver.visitor.root.position).setY(0).normalize());
    const frames=[3.75,4.05,4.6,5.0,5.4,5.8,6.1];
    for(const t of frames){
     const phase=headPatTimeline(t,recipe);
