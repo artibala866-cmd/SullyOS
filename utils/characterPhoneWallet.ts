@@ -2,7 +2,8 @@ import { readCharacterMemos } from './characterPhoneMemos';
 import { readPhonePayReceipts } from './characterPhonePayments';
 import { buildCharacterPhoneContext } from './characterPhoneContext';
 import type { CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
-import { extractContent, safeResponseJson } from './safeApi';
+import { extractContent } from './safeApi';
+import { fetchCharacterPhoneJson } from './characterPhoneAiRequest';
 
 export type PhoneAccountKind = 'cash' | 'savings' | 'investment' | 'credit';
 export type PhoneWalletAccount = {
@@ -180,9 +181,8 @@ export async function initializeCharacterPhoneWallet(input: {
   requestLocks.add(char.id);
   try {
     const context = await buildCharacterPhoneContext(char, user, groups, realtimeConfig);
-    const response = await fetch(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-      method: 'POST', signal: AbortSignal.timeout(60_000),
-      headers: {'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
+    const { response, json } = await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+      method: 'POST', headers: {'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
       body: JSON.stringify({ model:api.model, stream:false, temperature:0.5, messages:[
         { role:'system', content:`你负责建立虚构角色 ${char.name} 自己手机中【微信-我-钱包-资产】的首次资产快照。
 这是角色扮演中的虚构账本，不是真实银行数据，不得用 User 的财产/银行账户代替 Char。
@@ -195,8 +195,7 @@ export async function initializeCharacterPhoneWallet(input: {
 只返回JSON：{"accounts":[{"id":"cash","kind":"cash","title":"零钱","bankLabel":"微信支付","maskedNumber":"1234","balance":128.5,"note":"常用支付"}],"activities":[{"accountId":"cash","title":"便利店","category":"生活","amount":-12.5,"createdAt":${Date.now()-3600000},"detail":"买饮料"}]}。` },
         {role:'user',content:'为 Char 建立符合原设的稳定虚构资产快照；不读取或使用 User 的真实钱包。'},
       ] }),
-    });
-    const json = await safeResponseJson(response);
+    }, { charId: char.id, purpose: '微信资产初始化', automatic: false });
     if (!response.ok) throw new Error(json?.error?.message || '资产 API 请求失败');
     const raw = extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
     const parsed = JSON.parse(raw);
