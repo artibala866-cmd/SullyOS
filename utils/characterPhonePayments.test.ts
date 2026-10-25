@@ -18,6 +18,7 @@ describe('Character WeChat Pay and confirmed transfers',()=>{
    {title:'便利店',kind:'expense',amount:12.5,category:'日常',detail:'买水'},
    {title:'便利店',kind:'expense',amount:12.5,category:'日常',detail:'重复账单'},
    {title:'User 的转账',kind:'transfer',amount:520},
+   {title:'没有原支付的退款',kind:'refund',amount:100},
    {title:'天价账单',kind:'expense',amount:999999},
   ]);
   expect(entries).toHaveLength(1);
