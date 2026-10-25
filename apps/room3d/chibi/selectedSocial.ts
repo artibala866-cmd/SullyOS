@@ -35,7 +35,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
  const finish=()=>{for(const r of states.values())r.visitor.finishPose();};
  function locations(s:Session,time:number){
   const points=s.clip.actors.map(a=>{const elapsed=T.MathUtils.clamp(pinned?0:time,0,a.duration);let i=0;while(i<a.times.length-2&&a.times[i+1]<elapsed)i++;const j=Math.min(i+1,a.times.length-1),f=i+(elapsed-a.times[i])/(a.times[j]-a.times[i]||1);return new T.Vector3().fromArray(a.positions,i*3).lerp(new T.Vector3().fromArray(a.positions,j*3),f-i).sub(s.sourceOrigin).setY(0).multiplyScalar(s.scale).applyQuaternion(s.rotation).add(s.origin);});
-  if(points.length===2){const delta=points[1].clone().sub(points[0]),gap=delta.length(),minimum=residents[0].visitor.rig?.66:1.38;if(gap<minimum){if(gap<.001)delta.set(1,0,0);delta.normalize().multiplyScalar((minimum-gap)/2);points[0].sub(delta);points[1].add(delta);}}
+  if(points.length===2&&s.action!=='home-rear-hug'){const delta=points[1].clone().sub(points[0]),gap=delta.length(),minimum=residents[0].visitor.rig?.66:1.38;if(gap<minimum){if(gap<.001)delta.set(1,0,0);delta.normalize().multiplyScalar((minimum-gap)/2);points[0].sub(delta);points[1].add(delta);}}
    if(s.action==='home-rear-hug'&&points.length===2){
     // Use B's yaw for both actors; A is behind, and later takes a small step back.
     const distance=.69+.13*smooth(time,4.58,5);
@@ -357,7 +357,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      }
      return !options.canPlace||options.canPlace(moving(paths));
     };
-    let valid=fits();if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned)for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
+    let valid=fits();if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned&&action!=='home-rear-hug')for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
     if(!valid)throw Error(action==='cmu-22_09'?'坐着的人身后没有可站立的位置，请先给椅背后留出空地':'这段动作需要更大的空地，先移动居民或挪开家具');
     session=candidate;motionScope.begin(action);constraintPipeline.activate(action);
      prop=motionScope.own(createSocialProp(action,both,motionTemplateFor(action)?.prop));
