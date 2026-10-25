@@ -85,6 +85,11 @@ export const authoredMotionTemplates:Readonly<Record<string,MotionTemplateDraft>
   participants:2,capabilities:['pairedSync','residentNavigation','armWrap','handContact','bodyContact'],
   posture:'standing',adapter:'legacy',
  },
+ // The shared clock and contactSolver drive a reviewed two-palm procedural pose.
+ // Generic sampled pairedHands cannot preserve this hand pair and wave anchor.
+ 'home-hand-hold-plead':{
+  participants:2,capabilities:['pairedSync','residentNavigation','handContact'],posture:'standing',
+ },
 });
 
 export function compileMotionTemplates(
