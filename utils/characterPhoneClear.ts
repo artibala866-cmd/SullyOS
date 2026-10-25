@@ -13,6 +13,7 @@ import {PHONE_APPEARANCE_CHANGED} from './characterPhoneAppearance';
 import {SOCIAL_SNAPSHOT_CHANGED} from './characterPhoneSocialContent';
 import {CHARACTER_PHONE_SELF_CHANGED} from './characterPhoneSelfProfile';
 import {PENDING_PHONE_CONTACTS_CHANGED} from './characterPhoneRequests';
+import {pruneCharacterPhoneLifeEvents,type CharacterLifeEventKind} from './characterLifeEvents';
 export const PHONE_CLEAR_GROUPS=[
   {id:'service',label:'仅公众号／服务号会话',description:'删除微信官方通知，不删除普通 NPC 聊天'},
   {id:'chats',label:'微信 NPC 与群聊记录',description:'不删除 User 的真实私聊数据库'},
@@ -87,5 +88,17 @@ export function clearSelectedPhoneData(charId:string,ids:readonly PhoneClearGrou
         break;
     }
   }
+  // A cleared phone source must no longer be recited as an active short-term
+  // fact in chats/AMSG or retried by the Palace ingester. Existing Palace
+  // memories remain intact and are not implicitly deleted.
+  const eventKinds=new Set<CharacterLifeEventKind>();
+  if(selected.includes('chats'))eventKinds.add('npc-chat');
+  if(selected.includes('contacts'))eventKinds.add('contact-added');
+  if(selected.includes('moments')){
+    eventKinds.add('moment-post');
+    eventKinds.add('moment-comment');
+  }
+  if(selected.includes('browser'))eventKinds.add('browser-search');
+  if(eventKinds.size)pruneCharacterPhoneLifeEvents(charId,[...eventKinds]);
   return selected;
 }
