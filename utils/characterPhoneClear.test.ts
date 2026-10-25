@@ -17,7 +17,8 @@ describe('selective Char phone cleanup',()=>{
   const result=clearSelectedPhoneData(id,['memos','browser']);
   expect(result).toEqual(['memos','browser']);
   expect(localStorage.getItem('sully_character_memo_entries_v1:'+id)).toBeNull();
-  expect(localStorage.getItem('sully_character_phone_browser_v1:'+id)).toBeNull();
+  // Browser's canonical clear writes an empty [] and dispatches its change event.
+  expect(localStorage.getItem('sully_character_phone_browser_v1:'+id)).toBe('[]');
   expect(localStorage.getItem('sully_character_phone_wechat_v1:'+id)).toBe('[]');
   expect(localStorage.getItem('sully_character_phone_wallet_v1:'+id)).toBe('wallet');
   expect(localStorage.getItem('sully_character_memo_entries_v1:other')).toBe('[]');
