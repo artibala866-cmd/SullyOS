@@ -54,6 +54,52 @@ function contactFor(v:ChibiVisitor,side:Side,point:T.Vector3,curl:number):Contac
   normal:new T.Vector3(0,0,1).applyQuaternion(q),curl};
 }
 
+/** Plan only once at action start. The regular furniture planner does not treat
+ * the receiving character as a wall, so a frontal giver needs a side detour.
+ */
+export function planRearHugApproach(
+ start:T.Vector3,goal:T.Vector3,recipient:T.Vector3,orientation:T.Quaternion,
+ find:(from:T.Vector3,to:T.Vector3)=>T.Vector3[]|null
+):T.Vector3[]|null{
+ const radius=.54;
+ const safe=(path:T.Vector3[]|null)=>{
+  if(!path||path.length<2)return false;
+  for(let i=1;i<path.length;i++){
+   const p=path[i-1],q=path[i];
+   const dx=q.x-p.x,dz=q.z-p.z,den=dx*dx+dz*dz;
+   const t=den<1e-9?0:clamp(((recipient.x-p.x)*dx+(recipient.z-p.z)*dz)/den,0,1);
+   if(Math.hypot(p.x+dx*t-recipient.x,p.z+dz*t-recipient.z)<radius)return false;
+  }
+  return true;
+ };
+ const direct=find(start,goal);
+ if(safe(direct))return direct;
+ const right=new T.Vector3(1,0,0).applyQuaternion(orientation).setY(0).normalize();
+ const forward=new T.Vector3(0,0,1).applyQuaternion(orientation).setY(0).normalize();
+ const candidates:T.Vector3[][]=[];
+ for(const sign of [-1,1]){
+  const flank=recipient.clone().addScaledVector(right,sign*.98);
+  const checkpoints=[
+   flank.clone().addScaledVector(forward,.78),
+   flank,
+   flank.clone().addScaledVector(forward,-.78),
+   goal,
+  ];
+  let from=start,path:T.Vector3[]=[start.clone()],ok=true;
+  for(const point of checkpoints){
+   const section=find(from,point);
+   if(!safe(section)){ok=false;break;}
+   path.push(...section!.slice(1));
+   from=point;
+  }
+  if(ok)candidates.push(path);
+ }
+ if(!candidates.length)return null;
+ const length=(path:T.Vector3[])=>path.slice(1).reduce((n,p,i)=>n+p.distanceTo(path[i]),0);
+ candidates.sort((a,b)=>length(a)-length(b));
+ return candidates[0];
+}
+
 /** Only operates on the currently playing pair; keeps both feet/nav roots untouched. */
 export function poseRearHug(both:readonly [Resident,Resident],time:number,weight=1){
  const [a,b]=both;
@@ -127,8 +173,8 @@ export function poseRearHug(both:readonly [Resident,Resident],time:number,weight
   const handContact:Contact={side:'R',point:from,
    direction:new T.Vector3(1,0,0).applyQuaternion(q),
    normal:new T.Vector3(0,0,1).applyQuaternion(q),curl:.13};
-  if(palmContactReport(actor,contactFor(receiver,'R',rearHugPalmTarget(receiver,'R'),.12))?.error!<.27)
-   b.solver(handContact,strength*p.cover);
+  const contactReport=palmContactReport(actor,contactFor(receiver,'R',rearHugPalmTarget(receiver,'R'),.12));
+  if(contactReport&&contactReport.error<.27)b.solver(handContact,strength*p.cover);
  }
  actor.root.updateWorldMatrix(true,true);
  receiver.root.updateWorldMatrix(true,true);
