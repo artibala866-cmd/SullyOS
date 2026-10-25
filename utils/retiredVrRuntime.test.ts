@@ -53,7 +53,15 @@ describe('retired 彼方 isolation', () => {
 
   it('never submits or reactivates legacy worker module effects', () => {
     expect(source('utils/activeMsgClient.ts')).not.toContain('...(params.sarModule ?');
-    expect(source('utils/vrWorld/sarEnvelopeCore.ts')).toContain('void snapshot;');
-    expect(source('utils/vrWorld/sarModuleRuntime.ts')).toContain('hasActiveEffect: false');
+    for (const retired of [
+      'utils/vrWorld',
+      'components/sar',
+      'assets/sar',
+      'worker/amsg/src/sarEnvelope.ts',
+      'worker/amsg/src/sarEnvelope.test.ts',
+    ]) expect(existsSync(resolve(process.cwd(), retired)), retired).toBe(false);
+    expect(source('worker/amsg/src/agentic.ts')).not.toContain('planFromSARModuleSnapshot');
+    expect(source('worker/amsg/src/index.ts')).not.toContain('readSarSnapshot');
+    expect(source('worker/amsg/src/index.ts')).not.toContain("field: 'amsgSar'");
   });
 });
