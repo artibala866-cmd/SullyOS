@@ -520,7 +520,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             <span className="text-xs font-bold">相册</span>
         </button>,
         <button key="settings" onClick={() => onPanelAction('settings')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-[#737373] border-white/10' : 'bg-slate-50 text-[#737373] border-slate-100'}`}>
+            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-[#737373] border-white/10' : 'bg-slate-50 text-[#737373] border-slate-100')}`}>
                 <GearSix className="w-6 h-6" weight="bold" /></div>}
             <span className="text-xs font-bold">设置</span>
         </button>,
