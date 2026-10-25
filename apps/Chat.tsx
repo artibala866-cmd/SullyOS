@@ -1766,13 +1766,23 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
      * so DB, sender role, gallery, auto-reply, and conversation context behave
      * exactly as they do for a local gallery photo.
      */
-    const handleSendAIPhoto = async (description: string, signal: AbortSignal): Promise<void> => {
+    const handleSendAIPhoto = async (description: string, useUserReference: boolean, signal: AbortSignal): Promise<void> => {
         const targetId = char?.id;
         if (!targetId) throw new Error('请先进入角色私聊');
         const prompt = description.trim();
         if (!prompt) throw new Error('请先填写照片内容');
         const settings = readImageSettings();
-        const blob = await generateCharacterImage(settings, { appearance: prompt, reference: '' }, signal);
+        if (useUserReference && (!userProfile.imageLockEnabled || !userProfile.imageReference)) {
+            throw new Error('user 锁脸参考图未启用或已移除，请到「个人档案 → user 身份 · 生图锁脸」设置');
+        }
+        // Image identity is a visual aid only; do not reuse the chat avatar.
+        const photoProfile = {
+            appearance: useUserReference
+                ? [userProfile.imageAppearance?.trim(), prompt].filter(Boolean).join(', ')
+                : prompt,
+            reference: useUserReference ? userProfile.imageReference! : '',
+        };
+        const blob = await generateCharacterImage(settings, photoProfile, signal);
         // When the user closes the photo chooser or switches characters, never
         // send an old generated photo into the wrong conversation.
         if (signal.aborted || activeCharIdRef.current !== targetId) {
@@ -1786,6 +1796,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             await handleSendText(token, 'image', {
                 source: 'user-ai-photo',
                 aiPhotoPrompt: prompt,
+                aiUserFaceLocked: useUserReference,
             });
         } catch (error) {
             // Do not delete a token if a partially completed send referenced it.
@@ -4433,6 +4444,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onPanelAction={handlePanelAction}
                     onImageSelect={handleImageSelect}
                     onAIGenerate={handleSendAIPhoto}
+                    userFaceReferenceAvailable={!!userProfile.imageLockEnabled && !!userProfile.imageReference}
                     isSummarizing={isSummarizing}
                     categories={visibleCategories}
                     activeCategory={activeCategory}
