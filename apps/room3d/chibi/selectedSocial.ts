@@ -16,7 +16,7 @@ import {applyPairedHandContact} from './pairedHandContact';
 import {createMotionConstraintPipeline} from './motionConstraintPipeline';
 export {motionCategories} from './selectedMotions';
 export type SocialAction=string;
-export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-kiss'?9.6:e.duration+1.2}]));
+export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-kiss'?9.6:e.id==='home-rear-hug'?5:e.duration+1.2}]));
 export interface SocialResident {id:string;visitor:ChibiVisitor}
 const yAxis=new T.Vector3(0,1,0),smooth=T.MathUtils.smootherstep;
 /** Both roles share a clock and capture transform. Observers stay independent. */
@@ -35,6 +35,11 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
  function locations(s:Session,time:number){
   const points=s.clip.actors.map(a=>{const elapsed=T.MathUtils.clamp(pinned?0:time,0,a.duration);let i=0;while(i<a.times.length-2&&a.times[i+1]<elapsed)i++;const j=Math.min(i+1,a.times.length-1),f=i+(elapsed-a.times[i])/(a.times[j]-a.times[i]||1);return new T.Vector3().fromArray(a.positions,i*3).lerp(new T.Vector3().fromArray(a.positions,j*3),f-i).sub(s.sourceOrigin).setY(0).multiplyScalar(s.scale).applyQuaternion(s.rotation).add(s.origin);});
   if(points.length===2){const delta=points[1].clone().sub(points[0]),gap=delta.length(),minimum=residents[0].visitor.rig?.66:1.38;if(gap<minimum){if(gap<.001)delta.set(1,0,0);delta.normalize().multiplyScalar((minimum-gap)/2);points[0].sub(delta);points[1].add(delta);}}
+   if(s.action==='home-rear-hug'&&points.length===2){
+    // Use B's yaw for both actors; A is behind, and later takes a small step back.
+    const distance=.69+.13*smooth(time,4.58,5);
+    points[0].copy(points[1]).add(new T.Vector3(0,0,-distance).applyQuaternion(s.rotation));
+   }
   if(pinned){const index=s.ids.indexOf(pinned.id);if(index>=0){const offset=pinnedPosition!.clone().sub(points[index]);points.forEach((p,i)=>{p.add(offset);if(i!==index)p.y=s.starts[i].y;});}}
   if(pinned&&(s.action==='cmu-22_09'||s.action==='home-hug')){
    const seated=s.ids.indexOf(pinned.id),standing=1-seated;
@@ -224,7 +229,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     if(total>.01){const q=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(to.x-from.x,to.z-from.z));v.root.quaternion.copy(s.turns[i]).slerp(q,smooth(s.time,0,.2));v.animate(s.time,'walk');}else v.animate(s.time,'idle');
    });finish();return;
   }
-  const actionTime=s.time-s.approach,kissAction=s.action==='home-kiss',sourceTime=T.MathUtils.clamp(kissAction?Math.max(0,actionTime-.15)+1.5:actionTime-.6,0,s.clip.duration),weight=kissAction?smooth(actionTime,0,.25):smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
+  const actionTime=s.time-s.approach,kissAction=s.action==='home-kiss',rearHug=s.action==='home-rear-hug',sourceTime=T.MathUtils.clamp(kissAction?Math.max(0,actionTime-.15)+1.5:rearHug?actionTime:actionTime-.6,0,s.clip.duration),weight=kissAction?smooth(actionTime,0,.25):rearHug?1:smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
   const both=s.ids.map(id=>states.get(id)!),frames=s.clip.actors.map(a=>sampleSelected(a,sourceTime)),points=kissAction&&!pinned?locations(s,3.5):locations(s,sourceTime);
   // Kiss has one destination: approach reaches it, then the roots remain fixed.
   for(const r of states.values())if(!s.ids.includes(r.id))r.visitor.animate(s.time,'idle');
@@ -244,9 +249,9 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    }
    if(isIntimacy(s.action)||motionTemplateFor(s.action)?.headTouch){
     const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));
-    r.visitor.root.quaternion.copy(turn).slerp(toward,smooth(actionTime,0,.6));
-    // Approach already reached the contact point; no second walking animation.
-    r.visitor.animate(sourceTime,'idle');
+    r.visitor.root.quaternion.copy(turn).slerp(rearHug?s.rotation:toward,smooth(actionTime,0,.6));
+    // A's tiny release retreat reuses the existing walk gait; B stays planted.
+    r.visitor.animate(sourceTime,rearHug&&i===0&&actionTime>=4.58?'walk':'idle');
    }else{
     const {heading,lean}=splitMotionHeading(frames[i].rotations.hips);
     // The sampled pelvis already contains this actor's capture heading. Put it
@@ -304,6 +309,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    const entry=socialActions[action];if(!entry)throw Error('这个动作没有被选中');
    if(!states.has(a)||entry.participants===2&&(!b||!states.has(b)||a===b))throw Error('请选择两位不同的居民');
    if(isPrincessCarry(action)&&!states.get(a)!.visitor.rig)throw Error('公主抱需要二号素体');
+   if(action==='home-rear-hug'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('背后搂抱需要 Q 版骨骼素体');
    const token=++generation;restore();loading=true;
    try{const sourceClip=await loadSelectedMotion(action);if(token!==generation)return false;
     // This capture stores the seated recipient first and the crouching comforter second.
@@ -317,6 +323,13 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     if(ids.length===1&&options.facingTarget){const direction=options.facingTarget.clone().sub(starts[0]);if(direction.lengthSq()>.0001)rotation.setFromAxisAngle(yAxis,Math.atan2(direction.x,direction.z));}
     if(pinned){const i=ids.indexOf(pinned.id),sourceHeading=splitMotionHeading(sampleSelected(clip.actors[i],0).rotations.hips).heading;rotation.copy(pinnedRotation!).multiply(sourceHeading.invert());}
     const candidate={action,ids,time:0,clip,origin,sourceOrigin,rotation,scale,starts,turns,paths:[] as T.Vector3[][],approach:0};
+    if(action==='home-rear-hug'){
+     // The receiver retains their standing position and orientation.
+     // The initiator travels around the receiver, not through them.
+     candidate.rotation.copy(turns[1]);
+     const bSource=new T.Vector3().fromArray(clip.actors[1].positions).sub(sourceOrigin).setY(0);
+     candidate.origin.copy(starts[1]).sub(bSource.multiplyScalar(scale).applyQuaternion(candidate.rotation));
+    }
     const fits=()=>{
      const first=locations(candidate,0);
      const target=action==='home-kiss'&&!pinned?locations(candidate,3.5):first;
