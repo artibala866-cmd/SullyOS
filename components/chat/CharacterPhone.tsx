@@ -554,7 +554,40 @@ ${scheduleContext}
         </header>}
       <main className="min-h-0 flex-1 overflow-y-auto">
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
-        {screen === 'home' && <div className="grid grid-cols-4 gap-4 p-6">{apps.map(({id,label,Icon,color:appColor})=><button key={id} onClick={()=>{setScreen(id);setTab('chats');}} className="flex flex-col items-center gap-2 text-xs"><span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${appColor} text-white`}><Icon size={31} weight="fill"/></span>{label}</button>)}</div>}
+        {screen === 'home' && <div>
+          {(installBusy || installNotice || (!installPlan && !installBusy)) && <section role="status" className="mx-5 mt-4 rounded-2xl border border-[#ddd] bg-white/90 p-4 text-sm text-[#333]">
+            <div className="flex items-center gap-3">
+              {installBusy?<SpinnerGap size={24} className="shrink-0 animate-spin"/>:<Plus size={24} className="shrink-0 text-[#777]"/>}
+              <div className="min-w-0 flex-1">
+                <strong className="block">{installBusy?'正在分析 Char 的安装偏好':'角色社交应用尚未安装'}</strong>
+                <span className="mt-1 block text-xs leading-5 text-[#888]">
+                  {installBusy?'根据角色人设与私聊经历选择适合的社交软件。':installNotice||'基础软件不受影响，可配置 API 后再完成首次安装。'}
+                </span>
+              </div>
+            </div>
+            {!installBusy&&!installPlan&&<button type="button" onClick={()=>void runPhoneInstall()}
+              className="mt-3 rounded-xl bg-[#333] px-4 py-2 text-xs text-white">重试首次分析</button>}
+          </section>}
+          {installPlan && <div className="mx-5 mt-4 rounded-2xl border border-white/70 bg-white/60 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <strong className="text-xs text-[#444]">Char 的私人应用</strong>
+              <span className="text-[11px] text-[#999]">{installPlan.installedAppIds.length} 款已安装</span>
+            </div>
+            {installPlan.reason&&<p className="mt-1 text-xs leading-5 text-[#777]">{installPlan.reason}</p>}
+          </div>}
+          <div className="grid grid-cols-4 gap-x-3 gap-y-5 px-5 py-6">
+            {apps.map(({id,label,Icon,color:appColor})=><button key={id} type="button" onClick={()=>{setScreen(id);setTab('chats');}}
+              className="flex min-w-0 flex-col items-center gap-2 text-xs text-[#333]">
+              <span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${appColor} text-white`}><Icon size={31} weight="fill"/></span>
+              <span className="truncate">{label}</span>
+            </button>)}
+            {(installPlan?.installedAppIds||[]).map(appId=><button key={appId} type="button" onClick={()=>setScreen(appId)}
+              className="flex min-w-0 flex-col items-center gap-2 text-xs text-[#333]">
+              <CharacterPhoneSocialIcon appId={appId}/>
+              <span className="w-full truncate text-center">{CHARACTER_PHONE_SOCIAL_APP_INFO[appId].label}</span>
+            </button>)}
+          </div>
+        </div>}
         {isCharacterPhoneSocialAppId(screen) && <CharacterPhoneSocialApps key={screen}
           appId={screen} ownerName={name} ownerAvatar={phoneAvatar} onBack={()=>setScreen('home')}/>}
         {screen === 'wechat' && tab === 'chats' && <div>
@@ -631,6 +664,30 @@ ${scheduleContext}
         {screen === 'browser' && <CharacterPhoneBrowser characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'wallet' && <CharacterPhoneWallet characterId={characterId} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} api={phoneApi}/>}
         {screen === 'settings' && <div className="space-y-3 p-4">
+          <section className="space-y-3 rounded-2xl bg-white p-4">
+            <h3 className="text-sm font-semibold">角色的社交应用安装</h3>
+            <p className="text-xs leading-5 text-[#888]">首次进入只根据 Char 性格分析一次；基础软件永远保留。以后可以手动安装、卸载这四款应用。</p>
+            <div className="divide-y divide-[#eee]">
+              {CHARACTER_PHONE_SOCIAL_APPS.map(appId=><label key={appId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="scale-[.68]"><CharacterPhoneSocialIcon appId={appId}/></span>
+                  <span className="min-w-0">
+                    <strong className="block truncate font-medium">{CHARACTER_PHONE_SOCIAL_APP_INFO[appId].label}</strong>
+                    <span className="block truncate text-[11px] text-[#999]">{CHARACTER_PHONE_SOCIAL_APP_INFO[appId].subtitle}</span>
+                  </span>
+                </span>
+                <input type="checkbox" className="h-5 w-5 accent-[#444]"
+                  checked={!!installPlan?.installedAppIds.includes(appId)}
+                  onChange={e=>changeSocialAppInstalled(appId,e.target.checked)}/>
+              </label>)}
+            </div>
+            {installPlan?.reason&&<p className="text-xs leading-5 text-[#888]">{installPlan.reason}</p>}
+            {installNotice&&<p role="alert" className="text-xs text-[#666]">{installNotice}</p>}
+            <button type="button" disabled={installBusy} onClick={()=>void runPhoneInstall(true)}
+              className="w-full rounded-xl border border-[#ccc] bg-[#f6f6f6] px-3 py-3 text-xs disabled:opacity-50">
+              {installBusy?'正在分析安装…':'重新分析（会覆盖当前的安装选择）'}
+            </button>
+          </section>
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <label className="flex items-center justify-between gap-3 text-sm">
               <span><span className="block font-semibold">查手机独立 API</span>
