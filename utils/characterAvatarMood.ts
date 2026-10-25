@@ -1,9 +1,6 @@
 import {
-  activateCharacterAvatar, readCharacterAvatarLibrary,
   type CharacterAvatarEntry,
 } from './characterAvatarLibrary';
-import { readPhoneAutonomyPreferences } from './characterPhoneApiBudget';
-import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 
 type AvatarMood = 'bright' | 'quiet' | 'melancholy' | 'serious' | 'tired' | 'focused';
 const moods: Record<AvatarMood,{ context:RegExp; image:RegExp }> = {
@@ -32,13 +29,11 @@ const moods: Record<AvatarMood,{ context:RegExp; image:RegExp }> = {
     image:/专注|集中|认真|学习|办公|看书|阅读|工作|写字|思考|沉思/,
   },
 };
-const locks=new Set<string>();
-const COOLDOWN=2*3600_000;
 
 /** Zero-extra-token preference based on TWO saved AI outputs:
  * real inner-state emotion + actual vision descriptions of saved avatars.
- * Unclear mood/caption means no change. The periodic LLM selector remains
- * available for nuanced choices, but most reactions need no network calls.
+ * Matching is retained only for potential future redesign; automatic mood
+ * switching is currently disabled.
  */
 export function findAvatarForMood(
   entries:CharacterAvatarEntry[],currentId:string|undefined,moodText:string,
@@ -58,34 +53,14 @@ export function findAvatarForMood(
   return candidates[0];
 }
 
+/** Intentionally disabled until the new avatar-emotion design ships.
+ * Does not delete recognition metadata, selections or stored images.
+ */
 export async function chooseAvatarFromSavedMood(
-  charId:string,
-  currentInnerState:string,
-  apply:(image:string)=>Promise<void>,
-  now=Date.now(),
+  _charId:string,
+  _currentInnerState:string,
+  _apply:(image:string)=>Promise<void>,
+  _now=Date.now(),
 ):Promise<boolean> {
-  // Paused until the avatar mood system is redesigned. Manual selection
-  // and the avatar library remain available; retain old metadata intact.
   return false;
-  /*
-  if(!charId || !currentInnerState.trim() ||
-      !isCharacterPhoneAutonomyEnabled(charId) ||
-      !readPhoneAutonomyPreferences(charId).selfProfileAutoEnabled ||
-      locks.has(charId))return false;
-  const library=readCharacterAvatarLibrary(charId);
-  if(!library.autonomousEnabled ||
-      (library.lastChangedAt && now-library.lastChangedAt<COOLDOWN))return false;
-  const candidate=findAvatarForMood(library.entries,library.activeId,currentInnerState);
-  if(!candidate)return false;
-  locks.add(charId);
-  try {
-    // Apply the canonical CharacterProfile avatar first. Never set library
-    // activeId on a failed profile update.
-    await apply(candidate.image);
-    return !!activateCharacterAvatar(charId,candidate.id,true);
-  }catch(error) {
-    console.warn('[CharacterAvatarMood] mood selection skipped',error);
-    return false;
-  }finally{locks.delete(charId);}
-  */
 }
