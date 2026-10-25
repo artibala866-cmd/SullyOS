@@ -46,6 +46,7 @@ describe('5-second rear embrace without a second motion player',()=>{
   expect(low.second).toBeGreaterThan(0);
   expect(rearHugPhase(5,true).wrap).toBe(0);
   expect(rearHugPhase(5,true).cover).toBe(0);
+  expect(rearHugPhase(4.75,false).farewell).toBeGreaterThan(.8);
   expect(rearHugPhase(5,false).release).toBe(1);
  });
  it('targets separate outer front flank surfaces regardless of height scale and facing',()=>{
