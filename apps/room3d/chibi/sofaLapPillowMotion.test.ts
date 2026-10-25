@@ -157,7 +157,8 @@ describe('sofa-only 9.3-second intimate lap pillow',()=>{
   const poses=Array.from({length:94},(_,i)=>read(i*.1).head);
   for(const point of poses)expect(point.toArray().every(Number.isFinite)).toBe(true);
   const changes=poses.slice(1).map((p,i)=>p.distanceTo(poses[i]));
-  expect(Math.max(...changes)).toBeLessThan(.22);
+  const worst=Math.max(...changes);const at=changes.indexOf(worst)*.1;
+  expect(worst,`Head motion too abrupt at ${at.toFixed(1)}-${(at+.1).toFixed(1)} seconds`).toBeLessThan(.22);
  });
  it('gives B two visible, returning crown-to-temple strokes, not an immobile hand',()=>{
   const a=fakeVisitor(-.60),b=fakeVisitor(.60);
