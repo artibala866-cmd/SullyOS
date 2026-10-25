@@ -82,6 +82,12 @@ describe('symmetric standing interaction height adaptation',()=>{
    short.visitor.getHeadTopWorldPosition().y,
    tall.visitor.getHeadTopWorldPosition().y,
   ],'headReach',down);
+  const startDeficit=down;
+  applyStandingHeightAdaptation([short.visitor,tall.visitor],{mode:'headReach',actorIndex:0,weight:1});
+  const adjustedDeficit=headReachDeficit([short.visitor,tall.visitor],0);
+  // The point is reachable movement, not a cosmetic bow that leaves the
+  // contact goal as far outside the short partner's arm reach as before.
+  expect(adjustedDeficit).toBeLessThan(startDeficit-.05);
   expect(plan.neededDrop).toBeGreaterThan(.2);
   expect(plan.tallIndex).toBe(1);
   const reversed=standingHeightPlan([2.9,1.4],'headReach',.2);
