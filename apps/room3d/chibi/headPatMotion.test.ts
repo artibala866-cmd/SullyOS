@@ -2,7 +2,7 @@ import {describe,expect,it,vi} from 'vitest';
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
 import {motionTemplateFor} from './motionTemplates';
-import {headPatTimeline,headPatHandGoal,applyHeadPatMotion,applyHeadPatExpressions,HEAD_PAT_TIMING} from './headPatMotion';
+import {headPatTimeline,headPatHandGoal,headPatScalpSize,applyHeadPatMotion,applyHeadPatExpressions,HEAD_PAT_TIMING} from './headPatMotion';
 import {furnitureHandRotation} from './furnitureMotion';
 import {sampleSelected} from './selectedMotions';
 import clip from '../../../public/room3d/motions/selected/home-head-pat.json';
@@ -88,17 +88,69 @@ describe('head pet and playful hair ruffle',()=>{
     const right=headPatHandGoal(actor.visitor,receiver.visitor,'R',crown,new T.Vector3(0,1,0),.14,p,true);
     const forward=crown.clone().sub(actor.visitor.root.position).setY(0).normalize();
     const lateral=new T.Vector3().crossVectors(new T.Vector3(0,1,0),forward);
-    expect(left.point.clone().sub(crown).dot(lateral)).toBeGreaterThan(.045);
-    expect(right.point.clone().sub(crown).dot(lateral)).toBeLessThan(-.045);
-    expect(left.point.distanceTo(right.point)).toBeGreaterThan(.12);
+    expect(left.scalpPoint.clone().sub(crown).dot(lateral)).toBeGreaterThan(.11);
+    expect(right.scalpPoint.clone().sub(crown).dot(lateral)).toBeLessThan(-.11);
+    expect(left.scalpPoint.distanceTo(right.scalpPoint)).toBeGreaterThan(.24);
     for(const hand of [left,right]){
-     expect(hand.point.y).toBeGreaterThan(crown.y);
+     // Side-of-head, not the old almost-center crown target.
+     expect(hand.scalpPoint.y).toBeLessThan(crown.y-.005);
      const q=furnitureHandRotation(hand.side,hand.direction.toArray(),hand.normal.toArray());
-     const palmDown=new T.Vector3(0,-1,0).applyQuaternion(q);
-     expect(palmDown.y).toBeLessThan(-.90);
+     const palmFacingHair=new T.Vector3(0,-1,0).applyQuaternion(q);
+     expect(palmFacingHair.dot(hand.normal)).toBeLessThan(-.98);
+     expect(palmFacingHair.y).toBeLessThan(-.48);
      expect(Number.isFinite(hand.point.x+hand.point.y+hand.point.z)).toBe(true);
     }
    }
+  }
+ });
+ it('measures true chibi head breadth and keeps full both-hand ruffles on opposite side panels',()=>{
+  for(const actorX of [-.4,.4])for(const [giverHeight,receiverHeight] of [[1.15,2.6],[2.6,1.15],[1.9,1.9]]){
+   const giver=resident(actorX),recipient=resident(-actorX);
+   const rigHead=new T.Bone(),mesh=new T.Mesh(new T.BoxGeometry(1,1,1),new T.MeshBasicMaterial());
+   rigHead.position.y=receiverHeight-.4;
+   recipient.visitor.root.add(rigHead,mesh);
+   mesh.geometry.userData.headSize=1.1;
+   rigHead.scale.setScalar(.7);
+   (recipient.visitor as any).rig={bones:{head:rigHead},mesh};
+   (recipient.visitor as any).getHeadTopWorldPosition=()=>new T.Vector3(-actorX,receiverHeight,0);
+   const size=headPatScalpSize(recipient.visitor);
+   expect(size.radius).toBeGreaterThan(.35);
+   const crown=recipient.visitor.getHeadTopWorldPosition();
+   const lateral=new T.Vector3().crossVectors(
+    new T.Vector3(0,1,0),crown.clone().sub(giver.visitor.root.position).normalize());
+   const frames=[3.75,4.05,4.6,5.0,5.4,5.8,6.1];
+   for(const t of frames){
+    const phase=headPatTimeline(t,recipe);
+    const left=headPatHandGoal(giver.visitor,recipient.visitor,'L',
+     crown,new T.Vector3(0,1,0),size.radius,phase,true);
+    const right=headPatHandGoal(giver.visitor,recipient.visitor,'R',
+     crown,new T.Vector3(0,1,0),size.radius,phase,true);
+    expect(left.scalpPoint.clone().sub(crown).dot(lateral)).toBeGreaterThan(size.radius*.68);
+    expect(right.scalpPoint.clone().sub(crown).dot(lateral)).toBeLessThan(-size.radius*.68);
+    expect(left.scalpPoint.distanceTo(right.scalpPoint)).toBeGreaterThan(size.radius*1.35);
+    expect(left.scalpPoint.y).toBeLessThan(crown.y);
+    expect(right.scalpPoint.y).toBeLessThan(crown.y);
+    expect(left.normal.dot(new T.Vector3(0,1,0))).toBeGreaterThan(.45);
+    expect(right.normal.dot(new T.Vector3(0,1,0))).toBeGreaterThan(.45);
+   }
+  }
+ });
+ it('uses actual anatomical shoulders when head is turned and the actor faces from either side',()=>{
+  for(const yaw of [-Math.PI/2,Math.PI/2]){
+   const giver=resident(-.3),receiver=resident(.3),crown=new T.Vector3(.3,1.7,0);
+   giver.visitor.root.rotation.y=yaw;
+   const L=new T.Bone(),R=new T.Bone();
+   L.position.set(.24,1.05,0);R.position.set(-.24,1.05,0);
+   giver.visitor.root.add(L,R);
+   (giver.visitor as any).rig={bones:{L_upperArm:L,R_upperArm:R}};
+   const phase=headPatTimeline(5,recipe);
+   const left=headPatHandGoal(giver.visitor,receiver.visitor,'L',crown,
+    new T.Vector3(.17,.95,0),.42,phase,true);
+   const right=headPatHandGoal(giver.visitor,receiver.visitor,'R',crown,
+    new T.Vector3(.17,.95,0),.42,phase,true);
+   const actualLeft=L.getWorldPosition(new T.Vector3()).sub(R.getWorldPosition(new T.Vector3())).normalize();
+   expect(left.scalpPoint.clone().sub(crown).dot(actualLeft)).toBeGreaterThan(.24);
+   expect(right.scalpPoint.clone().sub(crown).dot(actualLeft)).toBeLessThan(-.24);
   }
  });
  it('limits unreachable wrist goals without pulling forearms through the other head',()=>{
