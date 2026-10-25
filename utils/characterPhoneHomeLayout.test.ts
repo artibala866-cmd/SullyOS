@@ -19,8 +19,12 @@ describe('Char phone P1 responsive desktop layout regression',()=>{
   const ordered=['cp-home-topwidgets','cp-home-quote','cp-home-middle','cp-home-decoration','cp-home-pages','cp-home-dock'];
   expect(ordered.map(mark=>homepage.indexOf(mark)).every((n,i,list)=>n>=0&&(i===0||n>list[i-1]))).toBe(true);
   for(const app of ['微信','备忘录','浏览器','美化','电话','短信','相册'])expect(homepage).toContain('label="'+app+'"');
-  expect(homepage).toContain('page===0?');
-  expect(homepage).toContain("gridRow:'1 / -1'");
+  expect(homepage).toContain('cp-home-slide-track');
+  expect(homepage).toContain('data-page={page}');
+  expect(homepage).toContain('cp-home-first-page');
+  expect(homepage).toContain('cp-home-page-two');
+  expect(css).toContain('.cp-home-slide-track[data-page="1"]');
+  expect(css).toContain('cubic-bezier(.22, 1, .36, 1)');
  });
  it('uses a narrow Android framed view or true edge-to-edge mode without zoom',()=>{
   expect(phone).toContain("w-[min(88vw,344px)]");
