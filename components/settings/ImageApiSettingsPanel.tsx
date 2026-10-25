@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 
 export type ImageProvider = 'openai' | 'nai';
-export type ImageApiSettings = { provider: ImageProvider; baseUrl: string; apiKey: string; model: string; positive: string; negative: string; width: number; height: number };
+export type ImageApiSettings = { provider: ImageProvider; baseUrl: string; apiKey: string; model: string; positive: string; negative: string; width: number; height: number; steps?: number; scale?: number; sampler?: string; referenceStrength?: number };
 const KEY = 'sully_image_api_v1';
 const PRESETS = 'sully_image_presets_v1';
 export const readImageSettings = (): ImageApiSettings => {
-  const fallback: ImageApiSettings = { provider: 'openai', baseUrl: '', apiKey: '', model: '', positive: '', negative: '', width: 832, height: 1216 };
+  const fallback: ImageApiSettings = { provider: 'openai', baseUrl: '', apiKey: '', model: '', positive: '', negative: '', width: 832, height: 1216, steps: 28, scale: 5, sampler: 'k_euler_ancestral', referenceStrength: 0.45 };
   try { return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return fallback; }
 };
 export const saveImageSettings = (settings: ImageApiSettings) => localStorage.setItem(KEY, JSON.stringify(settings));
@@ -43,6 +43,26 @@ export const ImageApiSettingsPanel: React.FC = () => {
     <label className="block text-xs text-slate-500 space-y-2">全局正面提示词<textarea className={inputStyle} rows={3} value={form.positive} onChange={e => patch({ positive: e.target.value })} placeholder="画风、光影、画质等" /></label>
     <label className="block text-xs text-slate-500 space-y-2">全局负面提示词<textarea className={inputStyle} rows={3} value={form.negative} onChange={e => patch({ negative: e.target.value })} placeholder="不希望出现的元素" /></label>
     <div className="grid grid-cols-2 gap-3">{(['width','height'] as const).map(key => <label key={key} className="text-xs text-slate-500 space-y-2">{key === 'width' ? '宽度' : '高度'}<input className={inputStyle} type="number" min={64} max={2048} step={64} value={form[key]} onChange={e => patch({ [key]: Number(e.target.value) })} /></label>)}</div>
+    {form.provider === 'nai' && <div className="border-t border-slate-100 pt-3 space-y-3">
+      <p className="text-xs font-semibold text-slate-600">NovelAI 高级生图参数</p>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="text-xs text-slate-500 space-y-2">采样步数（1～50）<input className={inputStyle} type="number" min={1} max={50} step={1} value={form.steps ?? 28} onChange={e => patch({ steps: Number(e.target.value) })} /></label>
+        <label className="text-xs text-slate-500 space-y-2">引导系数（1～20）<input className={inputStyle} type="number" min={1} max={20} step={0.5} value={form.scale ?? 5} onChange={e => patch({ scale: Number(e.target.value) })} /></label>
+      </div>
+      <label className="block text-xs text-slate-500 space-y-2">采样器
+        <select className={inputStyle} value={form.sampler || 'k_euler_ancestral'} onChange={e => patch({ sampler: e.target.value })}>
+          <option value="k_euler_ancestral">k_euler_ancestral</option>
+          <option value="k_euler">k_euler</option>
+          <option value="k_dpmpp_2m">k_dpmpp_2m</option>
+          <option value="k_dpmpp_sde">k_dpmpp_sde</option>
+          <option value="ddim_v3">ddim_v3</option>
+        </select>
+      </label>
+      <label className="block text-xs text-slate-500 space-y-2">参考图变化强度（0.1～0.95）
+        <input className={inputStyle} type="number" min={0.1} max={0.95} step={0.05} value={form.referenceStrength ?? 0.45} onChange={e => patch({ referenceStrength: Number(e.target.value) })} />
+      </label>
+      <p className="text-xs text-slate-400">只在神经链接已上传参考图时使用变化强度；数值越小越贴近原图，但不能保证严格锁脸。</p>
+    </div>}
     <button className="w-full py-3 rounded-xl bg-slate-700 text-white text-sm" onClick={() => { try { saveImageSettings(form); setStatus('生图配置已保存到当前设备'); } catch { setStatus('保存失败，请检查浏览器存储权限'); } }}>保存生图 API</button>
     {status && <p role="status" className="text-xs text-slate-500">{status}</p>}
     <div className="border-t border-slate-100 pt-3 space-y-2"><h3 className="text-sm font-semibold">API 预设</h3><div className="flex gap-2"><input className={inputStyle} placeholder="预设名称" value={presetName} onChange={e => setPresetName(e.target.value)} /><button type="button" className="rounded-2xl bg-[#242424] text-white px-4 text-xs shrink-0" onClick={() => { if (!presetName.trim()) return; persist([...presets, { name: presetName.trim(), config: { ...form } }]); setPresetName(''); }}>保存预设</button></div>{presets.map((p,i) => <div key={i} className="flex gap-3 items-center text-xs"><span className="flex-1 truncate">{p.name}</span><button type="button" className="underline" onClick={() => { setForm(p.config); saveImageSettings(p.config); setStatus('已切换预设'); }}>使用</button><button type="button" className="text-neutral-500 underline" onClick={() => persist(presets.filter((_,j) => j !== i))}>删除</button></div>)}</div>
