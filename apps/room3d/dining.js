@@ -1,15 +1,25 @@
 import {gamingPoint,clearance} from './gaming.js';
-import {seatTransform} from './seating.js';
-import {dockSlots} from './furnitureDock.js';
+import {seatTransform,roomSeats} from './seating.js';
+import {dockSlots,isDockTable} from './furnitureDock.js';
 import {placementError,uid,boxes} from './model.js';
 import {boundaryBoxes,insideFloors} from './topology.js';
 import {ROOM_HALF} from './dimensions.js';
 const overlap=(a,b)=>a[0]<b[3]-.015&&a[3]>b[0]+.015&&a[1]<b[4]-.015&&a[4]>b[1]+.015&&a[2]<b[5]-.015&&a[5]>b[2]+.015;
+// A physically supported, standard-height table can reuse existing eating IK.
+export function canUseAsDiningSurface(asset){
+ if(!isDockTable(asset)||!asset?.support)return false;
+ const s=asset.support,top=s.height,width=s.shape==='circle'?s.radius*2:s.width,depth=s.shape==='circle'?s.radius*2:s.depth;
+ return [top,width,depth].every(Number.isFinite)&&top>=.85&&top<=1.18&&width>=.7&&depth>=.54;
+}
 export function diningActivities(room,catalog,{headWidth=1.5}={}){
  const results=[];
  for(const chair of room.items.filter(i=>!i.stored&&i.dockId)){
-  const table=room.items.find(i=>i.id===chair.dockId&&!i.stored),a=catalog.find(a=>a.id===table?.assetId),c=catalog.find(a=>a.id===chair.assetId);if(!a?.dining||!c?.seats?.length)continue;
-  const seat={roomId:room.id,itemId:chair.id,seatId:c.seats[0].id},pose=seatTransform(room,catalog,seat),t=table.rotation*Math.PI/180,dx=pose.position[0]-table.x,dz=pose.position[2]-table.z;
+  const table=room.items.find(i=>i.id===chair.dockId&&!i.stored),a=catalog.find(a=>a.id===table?.assetId);
+  if(!canUseAsDiningSurface(a))continue;
+  const seat=roomSeats(room,catalog).find(s=>s.itemId===chair.id);
+  if(!seat)continue;const pose=seatTransform(room,catalog,seat);
+  if(!pose)continue;
+  const t=table.rotation*Math.PI/180,dx=pose.position[0]-table.x,dz=pose.position[2]-table.z;
   const local=[Math.cos(t)*dx-Math.sin(t)*dz,0,Math.sin(t)*dx+Math.cos(t)*dz],clamp=(v,h)=>Math.max(-h,Math.min(h,v));
   const meal=gamingPoint(table,[clamp(local[0],a.size[0]/2-.105),a.support.height+.06,clamp(local[2],a.size[2]/2-.105)]),cos=Math.cos(pose.rotation),sin=Math.sin(pose.rotation),mx=meal[0]-pose.position[0],mz=meal[2]-pose.position[2];
   const center=[(cos*mx-sin*mz)/.7,(meal[1]-pose.position[1])/.7,(sin*mx+cos*mz)/.7],hands=[[-.26,center[1],center[2]],[.26,center[1],center[2]]];
