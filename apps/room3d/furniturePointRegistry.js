@@ -17,7 +17,7 @@ export function furniturePointIssue(asset,point,kind){
  if(![width,height,depth].every(n=>Number.isFinite(n)&&n>0))return '家具尺寸不合法';
  // Only a broad sanity bound: never substitute this for mesh-surface validation.
  if(Math.abs(x)>width/2+.08||y<-.02||y>height+.10||Math.abs(z)>depth/2+.08)return '点位超出家具局部范围';
- if(kind==='beds'&&y>1.85)return '高架或上铺缺少验证过的连续攀爬和下床路径';
+ if(kind==='beds'&&(y>1.85||asset.id==='bedroom_bunk'))return '该床位尚无通过验证的床沿进出或攀爬路径';
  return '';
 }
 export function usableFurniturePoints(asset,kind){
