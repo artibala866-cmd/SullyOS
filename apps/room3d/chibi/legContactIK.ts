@@ -88,8 +88,9 @@ export function createWorldFootLock(){
    side=candidate;locked.copy(toes[side]);return;
   }
   // Don't drag the planted foot through a teleport or impossible stride.
-  const reach=(v.rig.bones[side+'_forearm']?.position.length()??.2)+
-   v.rig.bones[side+'_shin'].position.length();
+  const reach=(v.rig.bones[side+'_thigh'].position.length()+
+   v.rig.bones[side+'_shin'].position.length())*
+   v.rig.bones[side+'_thigh'].getWorldScale(new T.Vector3()).x;
   if(locked.distanceTo(toes[side])>Math.max(.18,reach*.6)){locked.copy(toes[side]);return;}
   settleLegContact(v,side,locked,.95);
  }};
