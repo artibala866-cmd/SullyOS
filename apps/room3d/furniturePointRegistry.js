@@ -42,8 +42,7 @@ export function furniturePointAudit(catalog){
   return {id:asset.id,name:asset.name,surface:asset.surface,url:asset.url||'kit.glb',status,
    configured:{seats:seats.length,beds:beds.length},
    currentlyExposed:{seats:safeSeats.length,beds:safeBeds.length},
-   otherCapabilities:{activity:asset.activity?.kind||null,dining:!!asset.dining,kitchen:asset.id.startsWith('kitchen_')?'待核对动作映射':null,
-    bath:asset.id.startsWith('bath_')?'待核对动作映射':null,holdable:!!asset.holdable,waterable:!!asset.waterable,appliance:asset.appliance||null},
+   otherCapabilities:{activity:asset.activity?.kind||null,dining:!!asset.dining,holdable:!!asset.holdable,waterable:!!asset.waterable,appliance:asset.appliance||null},
    notes:issues.length?issues:['无证据证明额外互动点已校准；需要实模和 3D 运行核验']};
  });
 }
