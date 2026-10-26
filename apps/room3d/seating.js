@@ -1,3 +1,5 @@
+import {usableFurniturePoints} from './furniturePointRegistry.js';
+
 // Reviewed body-2 poses. Keep them separate from the generated asset catalog;
 // low height alone does not make a stool suitable for a floor-rest pose.
 const body2SeatProfiles={bedroom_ref_flower_pouf:{pose:'floor',forward:.20}};
@@ -15,7 +17,7 @@ export function seatTransform(room,catalog,selection,body2=false){
  if(!selection||selection.roomId!==room.id)return null;
  const item=room.items.find(i=>i.id===selection.itemId&&!i.stored);
  const a=catalog.find(a=>a.id===item?.assetId);
- const seat=(selection.bed?a?.beds:a?.seats)?.find(s=>s.id===selection.seatId);
+ const seat=usableFurniturePoints(a,selection.bed?'beds':'seats').find(s=>s.id===selection.seatId);
  if(!item||!seat)return null;
  const angle=item.rotation*Math.PI/180,[x,y,z]=seat.position,rotation=angle+(seat.rotation??0)*Math.PI/180;
  const bedPlacement=selection.bed&&a.id==='show_bed'?{across:.70,forward:.35}:null;
@@ -28,12 +30,12 @@ export function seatTransform(room,catalog,selection,body2=false){
 export function roomBeds(room,catalog){
  return room.items.filter(i=>!i.stored).flatMap(item=>{
   const a=catalog.find(a=>a.id===item.assetId);
-  return (a?.beds??[]).map(b=>({roomId:room.id,itemId:item.id,seatId:b.id,bed:true,label:a.name+' · '+b.label}));
+  return usableFurniturePoints(a,'beds').map(b=>({roomId:room.id,itemId:item.id,seatId:b.id,bed:true,label:a.name+' · '+b.label}));
  });
 }
 export function roomSeats(room,catalog){
  return room.items.filter(i=>!i.stored).flatMap(item=>{
   const asset=catalog.find(a=>a.id===item.assetId);
-  return (asset?.seats??[]).map(seat=>({roomId:room.id,itemId:item.id,seatId:seat.id,label:asset.name+(asset.seats.length>1?' · '+seat.label:'')}));
+  return usableFurniturePoints(asset,'seats').map(seat=>({roomId:room.id,itemId:item.id,seatId:seat.id,label:asset.name+(asset.seats.length>1?' · '+seat.label:'')}));
  });
 }
