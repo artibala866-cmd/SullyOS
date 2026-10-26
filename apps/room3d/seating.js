@@ -33,9 +33,25 @@ export function roomBeds(room,catalog){
   return usableFurniturePoints(a,'beds').map(b=>({roomId:room.id,itemId:item.id,seatId:b.id,bed:true,label:a.name+' · '+b.label}));
  });
 }
+// An object supported ON a seat's top surface can physically occupy its pelvis
+// and thigh area. Check furniture-local footprints, including prop rotation.
+function seatBlockedBySupportedProp(room,catalog,parent,seat){
+ const angle=parent.rotation*Math.PI/180,c=Math.cos(angle),sn=Math.sin(angle);
+ return room.items.some(item=>{
+  if(item.stored||item.supportId!==parent.id)return false;
+  const child=catalog.find(a=>a.id===item.assetId);
+  if(!child||item.y<parent.y+seat.position[1]-.04)return false;
+  const dx=item.x-parent.x,dz=item.z-parent.z,x=c*dx-sn*dz,z=sn*dx+c*dz,
+   turn=(item.rotation-parent.rotation)*Math.PI/180,
+   hx=(Math.abs(Math.cos(turn))*child.size[0]+Math.abs(Math.sin(turn))*child.size[2])/2,
+   hz=(Math.abs(Math.sin(turn))*child.size[0]+Math.abs(Math.cos(turn))*child.size[2])/2;
+  // Torso/hips need some extra lateral clearance beyond the authored anchor.
+  return Math.abs(x-seat.position[0])<hx+.32&&Math.abs(z-seat.position[2])<hz+.20;
+ });
+}
 export function roomSeats(room,catalog){
  return room.items.filter(i=>!i.stored).flatMap(item=>{
   const asset=catalog.find(a=>a.id===item.assetId);
-  return usableFurniturePoints(asset,'seats').map(seat=>({roomId:room.id,itemId:item.id,seatId:seat.id,label:asset.name+(asset.seats.length>1?' · '+seat.label:'')}));
+  return usableFurniturePoints(asset,'seats').filter(seat=>!seatBlockedBySupportedProp(room,catalog,item,seat)).map(seat=>({roomId:room.id,itemId:item.id,seatId:seat.id,label:asset.name+(asset.seats.length>1?' · '+seat.label:'')}));
  });
 }
