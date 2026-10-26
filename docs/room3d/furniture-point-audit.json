@@ -1,13 +1,13 @@
 {
   "title": "SullyOS 家园全家具互动点位逐件元数据审计",
   "baseBranch": "remove-checkphone-vrworld-lifesim",
-  "catalogSha": "7318ca9852287a13cd482fce3601bbda9b15867d",
+  "catalogSha": "cbd2dd90e69d4ee167bb7f127600da6292221129",
   "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。",
   "counts": {
     "assets": 248,
-    "registeredSeatAssets": 19,
+    "registeredSeatAssets": 21,
     "registeredBedAssets": 5,
-    "seats": 27,
+    "seats": 29,
     "beds": 8,
     "exposedBeds": 5,
     "visualPassed": 0
@@ -109,17 +109,21 @@
         1.08,
         0.561
       ],
-      "registered": [],
-      "seatPoints": [],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "center"
+      ],
       "bedPoints": [],
       "exposedBedPoints": [],
-      "status": "需要补齐或修复",
+      "status": "已配置但尚未完成画面验证",
       "screenValidated": false,
       "needsModelReview": true,
       "issues": [
-        "kit.glb 木椅座板尚未定位"
+        "座点基于 art/jellyfish-home/build.py 实际椅面/花瓣建模数据推导，尚未用 kit.glb 顶点取样与 3D 骨骼验收"
       ],
-      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+      "notes": "椅面顶高 .715、脚底基准 .17，局部接触高 .545；靠背在 Blender -Y 侧，坐姿朝向旋转 180°。"
     },
     {
       "id": "bookcase",
@@ -266,17 +270,21 @@
         0.4,
         0.873
       ],
-      "registered": [],
-      "seatPoints": [],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "center"
+      ],
       "bedPoints": [],
       "exposedBedPoints": [],
-      "status": "需要补齐或修复",
+      "status": "已配置但尚未完成画面验证",
       "screenValidated": false,
       "needsModelReview": true,
       "issues": [
-        "kit.glb 坐墩顶面需要取实际接触面"
+        "座点基于 art/jellyfish-home/build.py 实际椅面/花瓣建模数据推导，尚未用 kit.glb 顶点取样与 3D 骨骼验收"
       ],
-      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+      "notes": "花心顶部 .55 与花瓣最高 .56、花瓣底部 .16，花心局部接触高 .39；人体与花瓣边缘仍需视觉验收。"
     },
     {
       "id": "tank",
