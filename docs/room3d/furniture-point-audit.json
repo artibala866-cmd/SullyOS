@@ -1,0 +1,5536 @@
+{
+  "title": "SullyOS 家园全家具互动点位逐件元数据审计",
+  "baseBranch": "remove-checkphone-vrworld-lifesim",
+  "catalogSha": "cac94f8bf160adf92d7c596711d02850ac96cf9d",
+  "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。",
+  "counts": {
+    "assets": 248,
+    "registeredSeatAssets": 17,
+    "registeredBedAssets": 5,
+    "seats": 23,
+    "beds": 8,
+    "exposedBeds": 5,
+    "visualPassed": 0
+  },
+  "items": [
+    {
+      "id": "shell",
+      "name": "奶油小房间",
+      "model": "kit.glb",
+      "surface": "shell",
+      "size": [
+        6.54,
+        5.255,
+        5.61
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "不适用该互动能力",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "loft",
+      "name": "鲸鱼阁楼床",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        2.875,
+        3.076,
+        4.085
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "缺床点和安全攀爬路线"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "desk",
+      "name": "水母工作桌套组",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        1.87,
+        1.401,
+        0.708
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "worktable",
+      "name": "空白小书桌",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        1.87,
+        0.945,
+        0.708
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "chair",
+      "name": "小木椅",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        0.56,
+        1.08,
+        0.561
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "kit.glb 木椅座板尚未定位"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bookcase",
+      "name": "三格书柜",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        0.61,
+        1.435,
+        0.43
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "aquarium",
+      "name": "水母观景窗",
+      "model": "kit.glb",
+      "surface": "back",
+      "size": [
+        3.03,
+        2.965,
+        0.774
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "porthole",
+      "name": "圆形水母窗",
+      "model": "kit.glb",
+      "surface": "left",
+      "size": [
+        0.307,
+        1.35,
+        1.35
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "sofa",
+      "name": "软软双人沙发",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        2.49,
+        1.31,
+        1.265
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "left",
+        "right"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "table",
+      "name": "阅读茶几",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        1.38,
+        0.573,
+        1.38
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "rug",
+      "name": "云朵地毯",
+      "model": "kit.glb",
+      "surface": "rug",
+      "size": [
+        2.864,
+        0.04,
+        2.078
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pouf",
+      "name": "花瓣坐墩",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        0.94,
+        0.4,
+        0.873
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "kit.glb 坐墩顶面需要取实际接触面"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "tank",
+      "name": "水母缸底柜",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        0.8,
+        1.228,
+        1.165
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "nightstand",
+      "name": "玻璃夜灯柜",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        0.61,
+        1.267,
+        0.615
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pendant",
+      "name": "水母吊灯",
+      "model": "kit.glb",
+      "surface": "ceiling",
+      "size": [
+        0.559,
+        1.018,
+        0.559
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedside",
+      "name": "床边灯架",
+      "model": "kit.glb",
+      "surface": "back",
+      "size": [
+        0.61,
+        0.554,
+        0.6
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "high_shelf",
+      "name": "书与垂叶层板",
+      "model": "kit.glb",
+      "surface": "back",
+      "size": [
+        2.46,
+        1.497,
+        0.54
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "corner_plant",
+      "name": "床边植物层板",
+      "model": "kit.glb",
+      "surface": "back",
+      "size": [
+        0.71,
+        0.687,
+        0.59
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "wall_plant",
+      "name": "绿植壁架",
+      "model": "kit.glb",
+      "surface": "back",
+      "size": [
+        0.645,
+        0.739,
+        0.557
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "plant",
+      "name": "落地绿植",
+      "model": "kit.glb",
+      "surface": "floor",
+      "size": [
+        0.684,
+        0.829,
+        0.636
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "small_plant",
+      "name": "小盆栽",
+      "model": "kit.glb",
+      "surface": "tabletop",
+      "size": [
+        0.409,
+        0.479,
+        0.389
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "trailing_plant",
+      "name": "垂叶小盆栽",
+      "model": "kit.glb",
+      "surface": "tabletop",
+      "size": [
+        0.57,
+        1.314,
+        0.39
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "open_book",
+      "name": "打开的海洋书",
+      "model": "kit.glb",
+      "surface": "tabletop",
+      "size": [
+        0.576,
+        0.049,
+        0.36
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "tea_mug",
+      "name": "小茶杯",
+      "model": "kit.glb",
+      "surface": "tabletop",
+      "size": [
+        0.229,
+        0.127,
+        0.17
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "jelly_lamp",
+      "name": "迷你水母夜灯",
+      "model": "kit.glb",
+      "surface": "tabletop",
+      "size": [
+        0.17,
+        0.234,
+        0.17
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "left_gallery",
+      "name": "海洋小画组",
+      "model": "kit.glb",
+      "surface": "left",
+      "size": [
+        0.152,
+        0.885,
+        1.03
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "back_gallery",
+      "name": "海洋照片墙",
+      "model": "kit.glb",
+      "surface": "back",
+      "size": [
+        2.572,
+        1.256,
+        0.152
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "left_shelf",
+      "name": "小书层板",
+      "model": "kit.glb",
+      "surface": "left",
+      "size": [
+        0.42,
+        0.242,
+        0.73
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "petal_sofa",
+      "name": "花瓣双人沙发",
+      "model": "petal-sofa.glb",
+      "surface": "floor",
+      "size": [
+        3.7,
+        1.377,
+        1.406
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "left",
+        "right"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "petal_armchair",
+      "name": "花瓣单人沙发",
+      "model": "petal-armchair.glb",
+      "surface": "floor",
+      "size": [
+        1.92,
+        1.377,
+        1.401
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "center"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "monstera",
+      "name": "龟背竹",
+      "model": "monstera.glb",
+      "surface": "floor",
+      "size": [
+        1.08,
+        1.226075885811973,
+        0.9866085605427719
+      ],
+      "registered": [
+        "water"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "daisy_table",
+      "name": "雏菊小桌",
+      "model": "daisy_table.glb",
+      "surface": "floor",
+      "size": [
+        2.15,
+        0.673457077018898,
+        1.961890992254571
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "daisy_vase",
+      "name": "雏菊花瓶",
+      "model": "daisy_vase.glb",
+      "surface": "tabletop",
+      "size": [
+        0.4,
+        0.539898035520643,
+        0.2938521666579395
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "daisy_books",
+      "name": "小叠书",
+      "model": "daisy_books.glb",
+      "surface": "tabletop",
+      "size": [
+        0.48,
+        0.1637800400997513,
+        0.3662533564273019
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "daisy_mug",
+      "name": "花边茶杯",
+      "model": "daisy_mug.glb",
+      "surface": "tabletop",
+      "size": [
+        0.28,
+        0.18247181824370248,
+        0.20682377916663533
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "daisy_cookies",
+      "name": "花朵点心碟",
+      "model": "daisy_cookies.glb",
+      "surface": "tabletop",
+      "size": [
+        0.42,
+        0.08887338755701588,
+        0.31291196651861225
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "wooden_window",
+      "name": "原木四格窗",
+      "model": "wooden_window.glb",
+      "surface": "wall",
+      "size": [
+        1.75,
+        1.6645492166280746,
+        0.3366684876382351
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "media_cabinet",
+      "name": "原木电视柜",
+      "model": "media_cabinet.glb",
+      "surface": "floor",
+      "size": [
+        3.4,
+        0.9235232017175841,
+        1.1011734276133287
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "small_television",
+      "name": "小电视",
+      "model": "small_television.glb",
+      "surface": "tabletop",
+      "size": [
+        2.55,
+        1.4899880835021773,
+        0.4799895818641101
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "little_console",
+      "name": "奶油游戏主机",
+      "model": "little_console.glb",
+      "surface": "tabletop",
+      "size": [
+        0.48,
+        0.29113044402414534,
+        0.3026086814552266
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "little_controller",
+      "name": "四色小手柄",
+      "model": "little_controller.glb",
+      "surface": "tabletop",
+      "size": [
+        0.4,
+        0.13316159669762132,
+        0.1786253604267118
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_desk",
+      "name": "双层电竞桌",
+      "model": "gaming_desk.glb",
+      "surface": "floor",
+      "size": [
+        2.8333333333333335,
+        1.28197265625,
+        1.6712239583333333
+      ],
+      "registered": [
+        "computer-workstation"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_monitors",
+      "name": "三屏显示器",
+      "model": "gaming_monitors.glb",
+      "surface": "tabletop",
+      "size": [
+        1.9333333333333333,
+        0.8319010411699612,
+        1.0384114583333335
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_keyboard",
+      "name": "奶油机械键盘",
+      "model": "gaming_keyboard.glb",
+      "surface": "tabletop",
+      "size": [
+        0.7916666666666667,
+        0.04751639357914373,
+        0.5722150259067358
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_mouse",
+      "name": "鼠标与桌垫",
+      "model": "gaming_mouse.glb",
+      "surface": "tabletop",
+      "size": [
+        0.4999999999999999,
+        0.10207612456747404,
+        0.5942906574394463
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_speaker",
+      "name": "桌面小音箱",
+      "model": "gaming_speaker.glb",
+      "surface": "tabletop",
+      "size": [
+        0.35,
+        0.4500000249062262,
+        0.33999999840344697
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_display",
+      "name": "游戏收藏展示柜",
+      "model": "gaming_display.glb",
+      "surface": "floor",
+      "size": [
+        1.35,
+        2.668725868725869,
+        0.8678571428571429
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_drawers",
+      "name": "滚轮三层抽屉柜",
+      "model": "gaming_drawers.glb",
+      "surface": "floor",
+      "size": [
+        1.05,
+        1.0905921852428,
+        0.9326815596881689
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_lamp",
+      "name": "折臂桌灯",
+      "model": "gaming_lamp.glb",
+      "surface": "tabletop",
+      "size": [
+        0.55,
+        0.8483977900552486,
+        0.9188950276243094
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_notepad",
+      "name": "桌面便签本",
+      "model": "gaming_notepad.glb",
+      "surface": "tabletop",
+      "size": [
+        0.29,
+        0.02281967213114754,
+        0.36321311475409834
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_phone_stand",
+      "name": "手机支架",
+      "model": "gaming_phone_stand.glb",
+      "surface": "tabletop",
+      "size": [
+        0.3,
+        0.1356687898089172,
+        0.3726114649681529
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_organizer",
+      "name": "游戏配件展示架",
+      "model": "gaming_organizer.glb",
+      "surface": "floor",
+      "size": [
+        1.65,
+        1.7747899159663865,
+        0.5788865546218487
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_racing",
+      "name": "赛车屏幕与方向盘架",
+      "model": "gaming_racing.glb",
+      "surface": "floor",
+      "size": [
+        1.6,
+        2.575,
+        1.35
+      ],
+      "registered": [
+        "gaming:race"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_microphone",
+      "name": "悬臂麦克风",
+      "model": "gaming_microphone.glb",
+      "surface": "tabletop",
+      "size": [
+        0.6333333333333334,
+        0.6969210174029452,
+        0.20856760374832667
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_headphones",
+      "name": "耳机与支架",
+      "model": "gaming_headphones.glb",
+      "surface": "tabletop",
+      "size": [
+        0.48,
+        0.7053061224489796,
+        0.5149854227405248
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_webcam",
+      "name": "桌面摄像头",
+      "model": "gaming_webcam.glb",
+      "surface": "tabletop",
+      "size": [
+        0.24166666666666667,
+        0.27096774193548384,
+        0.23440860215053766
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_controller_dock",
+      "name": "双手柄充电座",
+      "model": "gaming_controller_dock.glb",
+      "surface": "tabletop",
+      "size": [
+        0.64,
+        0.2518518518518518,
+        0.4192592592592592
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_pc",
+      "name": "猫耳游戏机箱",
+      "model": "gaming_pc.glb",
+      "surface": "floor",
+      "size": [
+        1.02,
+        1.1255172413793104,
+        0.4671335536035998
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_light",
+      "name": "分段氛围立灯",
+      "model": "gaming_light.glb",
+      "surface": "floor",
+      "size": [
+        0.78,
+        2.288598089816463,
+        0.7017780012043525
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_chair",
+      "name": "猫耳电竞椅",
+      "model": "gaming_chair.glb",
+      "surface": "floor",
+      "size": [
+        1.25,
+        1.9404682274247496,
+        1.2750836120401339
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "center"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "gaming_maimai",
+      "name": "双屏圆环音游机",
+      "model": "gaming_maimai.glb",
+      "surface": "floor",
+      "size": [
+        3.1,
+        3.1,
+        1.489453910291195
+      ],
+      "registered": [
+        "gaming:rhythm"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_bowls",
+      "name": "猫耳宠物双碗",
+      "model": "pet_bowls.glb",
+      "surface": "floor",
+      "size": [
+        1.1,
+        0.40283203125000006,
+        0.5414062500000001
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_bin",
+      "name": "猫耳脚踏垃圾桶",
+      "model": "kitchen_bin.glb",
+      "surface": "floor",
+      "size": [
+        0.52,
+        1.088916155419223,
+        0.5550920245398774
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "dining_table",
+      "name": "奶油原木餐桌",
+      "model": "dining_table.glb",
+      "surface": "floor",
+      "size": [
+        2.3,
+        1.03,
+        2.3958334582857814
+      ],
+      "registered": [
+        "dining"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "dining_chair",
+      "name": "猫耳软垫餐椅",
+      "model": "dining_chair.glb",
+      "surface": "floor",
+      "size": [
+        1.2,
+        1.43,
+        1.442616547383992
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "center"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "dining_vase",
+      "name": "餐桌小花瓶",
+      "model": "dining_vase.glb",
+      "surface": "tabletop",
+      "size": [
+        0.34,
+        0.47360079370000624,
+        0.285374837229491
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "dining_napkins",
+      "name": "餐桌纸巾架",
+      "model": "dining_napkins.glb",
+      "surface": "tabletop",
+      "size": [
+        0.32,
+        0.26627243928194294,
+        0.36899683210137274
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_cart",
+      "name": "三层厨房推车",
+      "model": "kitchen_cart.glb",
+      "surface": "floor",
+      "size": [
+        1.12,
+        1.7482926829268295,
+        0.7546341463414635
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_sink",
+      "name": "猫耳水槽橱柜",
+      "model": "kitchen_sink.glb",
+      "surface": "floor",
+      "size": [
+        1.95,
+        3.4909090909090907,
+        1.1488636363636362
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_spice_shelf",
+      "name": "调料与挂杯架",
+      "model": "kitchen_spice_shelf.glb",
+      "surface": "wall",
+      "size": [
+        1.5,
+        1.855072463768116,
+        0.3976449275362319
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_appliance_shelf",
+      "name": "厨房电器收纳架",
+      "model": "kitchen_appliance_shelf.glb",
+      "surface": "floor",
+      "size": [
+        1.35,
+        2.6482758620689655,
+        0.7629310344827586
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_range",
+      "name": "猫耳灶台与烟机",
+      "model": "kitchen_range.glb",
+      "surface": "floor",
+      "size": [
+        1.9500000000000002,
+        3.1695238095238096,
+        1.1854761904761906
+      ],
+      "registered": [
+        "kitchen:cook"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_fridge",
+      "name": "猫耳双门冰箱",
+      "model": "kitchen_fridge.glb",
+      "surface": "floor",
+      "size": [
+        1.42,
+        2.5959781051541455,
+        0.9215722381609863
+      ],
+      "registered": [
+        "fridge"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_island",
+      "name": "原木厨房中岛",
+      "model": "kitchen_island.glb",
+      "surface": "floor",
+      "size": [
+        2.24,
+        1.22,
+        1.4542500400543215
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_fruit_bowl",
+      "name": "一碗小水果",
+      "model": "kitchen_fruit_bowl.glb",
+      "surface": "tabletop",
+      "size": [
+        0.44999999999999996,
+        0.26405867970660146,
+        0.4191931540342298
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_cat_jar",
+      "name": "猫耳点心罐",
+      "model": "kitchen_cat_jar.glb",
+      "surface": "tabletop",
+      "size": [
+        0.32,
+        0.2742857142857143,
+        0.29551020408163264
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_vanity",
+      "name": "猫耳洗手台与镜柜",
+      "model": "bath_vanity.glb",
+      "surface": "floor",
+      "size": [
+        1.8,
+        3.35,
+        1.0774193548387097
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_cart",
+      "name": "三层洗浴收纳推车",
+      "model": "bath_cart.glb",
+      "surface": "floor",
+      "size": [
+        0.94,
+        1.85,
+        0.9578707224334599
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_stool",
+      "name": "圆角沐浴小凳",
+      "model": "bath_stool.glb",
+      "surface": "floor",
+      "size": [
+        1.1,
+        0.73,
+        0.9556561616228567
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "center"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_mat",
+      "name": "小云朵浴室地垫",
+      "model": "bath_mat.glb",
+      "surface": "rug",
+      "size": [
+        1.2999999999999998,
+        0.035,
+        1.2632562485400607
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_hamper",
+      "name": "猫耳布艺洗衣篮",
+      "model": "bath_hamper.glb",
+      "surface": "floor",
+      "size": [
+        0.88,
+        1.42,
+        0.591044776119403
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_shower",
+      "name": "猫耳磨砂淋浴间",
+      "model": "bath_shower.glb",
+      "surface": "floor",
+      "size": [
+        1.8499999999999999,
+        3.15,
+        1.7532679738562091
+      ],
+      "registered": [
+        "bath:bath-shower"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_towel_rack",
+      "name": "原木毛巾梯架",
+      "model": "bath_towel_rack.glb",
+      "surface": "floor",
+      "size": [
+        1.1,
+        2.25,
+        0.5243727598566309
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_linen_cabinet",
+      "name": "猫耳毛巾收纳柜",
+      "model": "bath_linen_cabinet.glb",
+      "surface": "floor",
+      "size": [
+        1.12,
+        2.65,
+        0.6163934426229509
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_washer",
+      "name": "奶油滚筒洗衣机",
+      "model": "bath_washer.glb",
+      "surface": "floor",
+      "size": [
+        1.34,
+        1.55,
+        1.060470778484078
+      ],
+      "registered": [
+        "bath:bath-laundry"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_folded_towels",
+      "name": "叠好的浴巾",
+      "model": "bath_folded_towels.glb",
+      "surface": "tabletop",
+      "size": [
+        0.58,
+        0.12868037901548415,
+        0.6423295585856251
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_detergent",
+      "name": "小瓶洗衣液",
+      "model": "bath_detergent.glb",
+      "surface": "tabletop",
+      "size": [
+        0.2800000000000001,
+        0.4264768683274022,
+        0.274270462633452
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_tub",
+      "name": "猫耳独立浴缸",
+      "model": "bath_tub.glb",
+      "surface": "floor",
+      "size": [
+        2.9,
+        1.9427734374999999,
+        1.5916015625
+      ],
+      "registered": [
+        "bath:bath-soak"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_tray",
+      "name": "原木浴缸置物板",
+      "model": "bath_tray.glb",
+      "surface": "tabletop",
+      "size": [
+        0.35,
+        0.07754065040650406,
+        1.519512195121951
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_soap",
+      "name": "香皂与洗浴小瓶",
+      "model": "bath_soap.glb",
+      "surface": "tabletop",
+      "size": [
+        0.3,
+        0.2464285714285714,
+        0.5738095238095238
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bath_toilet",
+      "name": "猫耳陶瓷马桶",
+      "model": "bath_toilet.glb",
+      "surface": "floor",
+      "size": [
+        0.9499999999999998,
+        1.65,
+        1.5068965517241377
+      ],
+      "registered": [
+        "bath:bath-toilet"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_vanity",
+      "name": "猫耳梳妆台",
+      "model": "bedroom_vanity.glb",
+      "surface": "floor",
+      "size": [
+        2.55,
+        2.9,
+        1.1574810606060606
+      ],
+      "registered": [
+        "mirror"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_stool",
+      "name": "梳妆圆凳",
+      "model": "bedroom_stool.glb",
+      "surface": "floor",
+      "size": [
+        0.8,
+        0.6400000000000001,
+        0.8142372881355933
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "center"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_brushes",
+      "name": "梳妆刷收纳盒",
+      "model": "bedroom_brushes.glb",
+      "surface": "tabletop",
+      "size": [
+        0.34,
+        0.32631355932203393,
+        0.3104661016949153
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_perfume",
+      "name": "蝴蝶结香水瓶",
+      "model": "bedroom_perfume.glb",
+      "surface": "tabletop",
+      "size": [
+        0.25,
+        0.45658735795454547,
+        0.234375
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_brush_cup",
+      "name": "小梳妆杯",
+      "model": "bedroom_brush_cup.glb",
+      "surface": "tabletop",
+      "size": [
+        0.3,
+        0.13917785234899327,
+        0.31812080536912746
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_bench",
+      "name": "猫耳软垫床尾凳",
+      "model": "bedroom_bench.glb",
+      "surface": "floor",
+      "size": [
+        3.7,
+        1.15,
+        1.7560546875
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "left",
+        "right"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_floor_lamp",
+      "name": "猫耳落地灯",
+      "model": "bedroom_floor_lamp.glb",
+      "surface": "floor",
+      "size": [
+        0.63,
+        2.1,
+        0.6445588235294117
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_rabbit",
+      "name": "软绵鲨鱼玩偶",
+      "model": "bedroom_rabbit.glb",
+      "surface": "floor",
+      "size": [
+        0.72,
+        0.63,
+        0.78
+      ],
+      "registered": [
+        "hold"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_jelly",
+      "name": "小水母玩偶",
+      "model": "bedroom_jelly.glb",
+      "surface": "floor",
+      "size": [
+        0.74,
+        0.7391805094130676,
+        0.7096788482834995
+      ],
+      "registered": [
+        "hold"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_turtle",
+      "name": "小海龟玩偶",
+      "model": "bedroom_turtle.glb",
+      "surface": "floor",
+      "size": [
+        0.7,
+        0.4153846153846154,
+        0.84
+      ],
+      "registered": [
+        "hold"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_wardrobe",
+      "name": "猫耳双门衣柜",
+      "model": "bedroom_wardrobe.glb",
+      "surface": "floor",
+      "size": [
+        2,
+        3.15,
+        1.1469816272965878
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_bunk",
+      "name": "猫耳上下铺",
+      "model": "bedroom_bunk.glb",
+      "surface": "floor",
+      "size": [
+        4,
+        3.8,
+        2.15
+      ],
+      "registered": [
+        "bed"
+      ],
+      "seatPoints": [],
+      "bedPoints": [
+        "lower",
+        "upper"
+      ],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "床点存在，但安全上下床动画及路径尚未验证：lower,upper"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_loft",
+      "name": "猫耳书桌高架床",
+      "model": "bedroom_loft.glb",
+      "surface": "floor",
+      "size": [
+        4.2,
+        4.2,
+        2.2
+      ],
+      "registered": [
+        "bed"
+      ],
+      "seatPoints": [],
+      "bedPoints": [
+        "upper"
+      ],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "床点存在，但安全上下床动画及路径尚未验证：upper"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_desk_chair",
+      "name": "原木书桌椅",
+      "model": "bedroom_desk_chair.glb",
+      "surface": "floor",
+      "size": [
+        0.9,
+        1.25,
+        1.0480558325024925
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "center"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_stationery",
+      "name": "笔筒与桌边文具",
+      "model": "bedroom_stationery.glb",
+      "surface": "tabletop",
+      "size": [
+        0.58,
+        0.14188364624505928,
+        0.20990612648221343
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_single_bed",
+      "name": "猫耳单人床",
+      "model": "bedroom_single_bed.glb",
+      "surface": "floor",
+      "size": [
+        2.1,
+        1.8500000000000003,
+        3.45
+      ],
+      "registered": [
+        "bed"
+      ],
+      "seatPoints": [],
+      "bedPoints": [
+        "center"
+      ],
+      "exposedBedPoints": [
+        "center"
+      ],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_pillow_plush",
+      "name": "软绵抱枕玩偶",
+      "model": "bedroom_pillow_plush.glb",
+      "surface": "floor",
+      "size": [
+        0.66,
+        0.45531645569620255,
+        0.3675949367088608
+      ],
+      "registered": [
+        "hold"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_double_bed",
+      "name": "猫耳双人床",
+      "model": "bedroom_double_bed.glb",
+      "surface": "floor",
+      "size": [
+        3.65,
+        2.02,
+        3.65
+      ],
+      "registered": [
+        "bed"
+      ],
+      "seatPoints": [],
+      "bedPoints": [
+        "left",
+        "right"
+      ],
+      "exposedBedPoints": [
+        "left",
+        "right"
+      ],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_nightstand",
+      "name": "猫耳双抽床头柜",
+      "model": "bedroom_nightstand.glb",
+      "surface": "floor",
+      "size": [
+        1,
+        1.08,
+        0.677115987460815
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_table_lamp",
+      "name": "猫耳床头灯",
+      "model": "bedroom_table_lamp.glb",
+      "surface": "tabletop",
+      "size": [
+        0.39,
+        0.6453222883769092,
+        0.3796013461040642
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_alarm",
+      "name": "奶油双铃闹钟",
+      "model": "bedroom_alarm.glb",
+      "surface": "tabletop",
+      "size": [
+        0.3,
+        0.2927835051546392,
+        0.19793814432989693
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_dresser",
+      "name": "猫耳六抽斗柜",
+      "model": "bedroom_dresser.glb",
+      "surface": "floor",
+      "size": [
+        2.1,
+        1.6500000000000001,
+        0.7136718750000001
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_mirror",
+      "name": "猫耳台式镜",
+      "model": "bedroom_mirror.glb",
+      "surface": "tabletop",
+      "size": [
+        0.44,
+        0.45002973240832506,
+        0.20517343904856292
+      ],
+      "registered": [
+        "mirror"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_jewelry_box",
+      "name": "小小首饰盒",
+      "model": "bedroom_jewelry_box.glb",
+      "surface": "tabletop",
+      "size": [
+        0.38,
+        0.20921348314606744,
+        0.20521067415730337
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_scent",
+      "name": "桌边香氛瓶",
+      "model": "bedroom_scent.glb",
+      "surface": "tabletop",
+      "size": [
+        0.24999999999999997,
+        0.35514018691588783,
+        0.24445093457943923
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_spa_pool",
+      "name": "原石温泉浴池",
+      "model": "show_spa_pool.glb",
+      "surface": "floor",
+      "size": [
+        3.799999952316284,
+        0.7600000500679016,
+        2.3499999046325684
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_spa_stool",
+      "name": "原木洗浴矮凳",
+      "model": "show_spa_stool.glb",
+      "surface": "floor",
+      "size": [
+        0.800000011920929,
+        0.550000011920929,
+        0.6499999761581421
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "0"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_spa_bucket",
+      "name": "木箍洗浴桶",
+      "model": "show_spa_bucket.glb",
+      "surface": "floor",
+      "size": [
+        0.6499999761581421,
+        0.5799999833106995,
+        0.6245244145393372
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_spa_chest",
+      "name": "温泉毛巾木箱",
+      "model": "show_spa_chest.glb",
+      "surface": "floor",
+      "size": [
+        1,
+        0.6200000047683716,
+        0.8251613974571228
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_spa_lantern",
+      "name": "日式地灯",
+      "model": "show_spa_lantern.glb",
+      "surface": "floor",
+      "size": [
+        0.550000011920929,
+        0.8500000238418579,
+        0.6489654183387756
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_study_shelf",
+      "name": "整排矮书柜",
+      "model": "show_study_shelf.glb",
+      "surface": "floor",
+      "size": [
+        2.5500001907348633,
+        1.100000023841858,
+        0.6499999761581421
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_study_tower",
+      "name": "通顶开放书架",
+      "model": "show_study_tower.glb",
+      "surface": "floor",
+      "size": [
+        1.25,
+        3.25,
+        0.699999988079071
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_study_desk",
+      "name": "原木一字书桌",
+      "model": "show_study_desk.glb",
+      "surface": "floor",
+      "size": [
+        3.5,
+        1.1199999928474424,
+        1.399999976158142
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_study_tea_table",
+      "name": "方形阅读茶几",
+      "model": "show_study_tea_table.glb",
+      "surface": "floor",
+      "size": [
+        1.5999999046325684,
+        0.6799999952316282,
+        0.949999988079071
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_study_pouf",
+      "name": "方形软坐墩",
+      "model": "show_study_pouf.glb",
+      "surface": "floor",
+      "size": [
+        0.8199999928474426,
+        0.46000000834465027,
+        0.8199999928474426
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "0"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_kitchen_counter",
+      "name": "整排水槽橱柜",
+      "model": "show_kitchen_counter.glb",
+      "surface": "floor",
+      "size": [
+        4.799999713897705,
+        1.4181228876113892,
+        0.8999999761581421
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_kitchen_range",
+      "name": "原木灶台柜组",
+      "model": "show_kitchen_range.glb",
+      "surface": "floor",
+      "size": [
+        1.75,
+        1.180999994277954,
+        0.8999999761581421
+      ],
+      "registered": [
+        "kitchen:cook"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_kitchen_island",
+      "name": "原木备餐中岛",
+      "model": "show_kitchen_island.glb",
+      "surface": "floor",
+      "size": [
+        2.4000000953674316,
+        1.149999964237213,
+        1.3725000023841858
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_kitchen_bench",
+      "name": "餐边长坐凳",
+      "model": "show_kitchen_bench.glb",
+      "surface": "floor",
+      "size": [
+        2.8,
+        0.550000011920929,
+        0.6499999761581421
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "0",
+        "1"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_living_sofa",
+      "name": "软毯双人沙发",
+      "model": "show_living_sofa.glb",
+      "surface": "floor",
+      "size": [
+        3.700000286102295,
+        1.2000000476837158,
+        1.350000023841858
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "0",
+        "1"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_living_table",
+      "name": "圆角客厅茶几",
+      "model": "show_living_table.glb",
+      "surface": "floor",
+      "size": [
+        1.899999976158142,
+        0.649999964237213,
+        1.0500000715255737
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_living_console",
+      "name": "整排开放电视柜",
+      "model": "show_living_console.glb",
+      "surface": "floor",
+      "size": [
+        3.4000000953674316,
+        0.8600000143051147,
+        0.6499999761581421
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_living_pouf",
+      "name": "客厅软垫脚凳",
+      "model": "show_living_pouf.glb",
+      "surface": "floor",
+      "size": [
+        0.8199999928474426,
+        0.4399999976158142,
+        0.8199999928474426
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "0"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_cat_tree",
+      "name": "三层猫爬架",
+      "model": "show_cat_tree.glb",
+      "surface": "floor",
+      "size": [
+        1.100000023841858,
+        1.899999976158142,
+        0.8500000238418579
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_bed",
+      "name": "软毯与抱枕双人床",
+      "model": "show_bed.glb",
+      "surface": "floor",
+      "size": [
+        3.6500000953674316,
+        1.3200000524520874,
+        3.6500000953674316
+      ],
+      "registered": [
+        "bed"
+      ],
+      "seatPoints": [],
+      "bedPoints": [
+        "0",
+        "1"
+      ],
+      "exposedBedPoints": [
+        "0",
+        "1"
+      ],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_wardrobe",
+      "name": "加宽双门衣柜",
+      "model": "show_wardrobe.glb",
+      "surface": "floor",
+      "size": [
+        2.200000047683716,
+        2.799999952316284,
+        0.8999999761581421
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_bedroom_low_shelf",
+      "name": "床边连排矮柜",
+      "model": "show_bedroom_low_shelf.glb",
+      "surface": "floor",
+      "size": [
+        3.200000047683716,
+        0.8199999928474426,
+        0.699999988079071
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_bedroom_dresser",
+      "name": "原木宽抽屉斗柜",
+      "model": "show_bedroom_dresser.glb",
+      "surface": "floor",
+      "size": [
+        2.799999952316284,
+        1.1799999475479126,
+        0.699999988079071
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_bedroom_bench",
+      "name": "床尾开放收纳凳",
+      "model": "show_bedroom_bench.glb",
+      "surface": "floor",
+      "size": [
+        2.3999998569488525,
+        0.5799999833106995,
+        0.6499999761581421
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "实际开口收纳凳能否坐及摆件阻挡待查"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "show_bedroom_pouf",
+      "name": "卧室软坐墩",
+      "model": "show_bedroom_pouf.glb",
+      "surface": "floor",
+      "size": [
+        0.8600000143051147,
+        0.47999998927116394,
+        0.8600000143051147
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "0"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_window_spa",
+      "name": "温泉木格横窗",
+      "model": "suite_window_spa.glb",
+      "surface": "wall",
+      "size": [
+        2.809999942779541,
+        1.559999942779541,
+        0.3100000023841858
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_window_study",
+      "name": "奶油卷帘窗",
+      "model": "suite_window_study.glb",
+      "surface": "wall",
+      "size": [
+        2.4600000381469727,
+        1.7450000047683716,
+        0.3100000023841858
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_window_kitchen",
+      "name": "黑框厨房窗",
+      "model": "suite_window_kitchen.glb",
+      "surface": "wall",
+      "size": [
+        2.359999895095825,
+        1.559999942779541,
+        0.3100000023841858
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_window_living",
+      "name": "深木百叶长窗",
+      "model": "suite_window_living.glb",
+      "surface": "wall",
+      "size": [
+        2.359999895095825,
+        2.359999895095825,
+        0.3100000023841858
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_window_bedroom",
+      "name": "暖木布帘窗",
+      "model": "suite_window_bedroom.glb",
+      "surface": "wall",
+      "size": [
+        3.549999952316284,
+        2.309999942779541,
+        0.3199999928474426
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_art_moon",
+      "name": "月相木框画",
+      "model": "suite_art_moon.glb",
+      "surface": "wall",
+      "size": [
+        0.9449999928474426,
+        1.125,
+        0.11650000512599945
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_art_botanical",
+      "name": "灰绿叶片装饰画",
+      "model": "suite_art_botanical.glb",
+      "surface": "wall",
+      "size": [
+        0.9449999928474426,
+        1.125,
+        0.11249999701976776
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_art_abstract",
+      "name": "奶油几何装饰画",
+      "model": "suite_art_abstract.glb",
+      "surface": "wall",
+      "size": [
+        0.9449999928474426,
+        1.125,
+        0.12049999833106995
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_wall_shelf",
+      "name": "小绿植与相框壁架",
+      "model": "suite_wall_shelf.glb",
+      "surface": "wall",
+      "size": [
+        1.1200000047683716,
+        0.4424999952316284,
+        0.34930506348609924
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_tea_tray",
+      "name": "双杯木托盘",
+      "model": "suite_tea_tray.glb",
+      "surface": "tabletop",
+      "size": [
+        0.699999988079071,
+        0.18453557789325714,
+        0.4000000059604645
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_books_plant",
+      "name": "书本与小盆栽",
+      "model": "suite_books_plant.glb",
+      "surface": "tabletop",
+      "size": [
+        0.6582431793212891,
+        0.29014822840690613,
+        0.30564194917678833
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_rug_grid",
+      "name": "奶油细格地毯",
+      "model": "suite_rug_grid.glb",
+      "surface": "rug",
+      "size": [
+        5.400000095367432,
+        0.029000001028180122,
+        4.199999809265137
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_rug_border",
+      "name": "暖白包边地毯",
+      "model": "suite_rug_border.glb",
+      "surface": "rug",
+      "size": [
+        5.400000095367432,
+        0.029000001028180122,
+        4.199999809265137
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_plant_large",
+      "name": "奶油盆大叶绿植",
+      "model": "suite_plant_large.glb",
+      "surface": "floor",
+      "size": [
+        1.0662246942520142,
+        1.9499999284744263,
+        1.1355366706848145
+      ],
+      "registered": [
+        "water"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_plant_small",
+      "name": "奶油盆小绿植",
+      "model": "suite_plant_small.glb",
+      "surface": "tabletop",
+      "size": [
+        0.6822289824485779,
+        0.5600000023841858,
+        0.7509414553642273
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_dressing_mirror",
+      "name": "暖木椭圆梳妆镜",
+      "model": "suite_dressing_mirror.glb",
+      "surface": "tabletop",
+      "size": [
+        0.9150400161743164,
+        1.2345600128173828,
+        0.3100000023841858
+      ],
+      "registered": [
+        "mirror"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "suite_floor_mirror",
+      "name": "暖木拱顶穿衣镜",
+      "model": "suite_floor_mirror.glb",
+      "surface": "floor",
+      "size": [
+        1.3200000524520874,
+        2.542665719985962,
+        0.48250001668930054
+      ],
+      "registered": [
+        "mirror"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_sideboard",
+      "name": "暖木格栅书柜",
+      "model": "bedroom_ref_sideboard.glb",
+      "surface": "floor",
+      "size": [
+        3.1500000953674316,
+        0.8825000524520874,
+        0.690500020980835
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_dresser",
+      "name": "奶油开放梳妆柜",
+      "model": "bedroom_ref_dresser.glb",
+      "surface": "floor",
+      "size": [
+        2.8499999046325684,
+        0.9925000071525574,
+        0.699999988079071
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_bench",
+      "name": "书本与收纳盒床尾凳",
+      "model": "bedroom_ref_bench.glb",
+      "surface": "floor",
+      "size": [
+        2.450000047683716,
+        0.5325000286102295,
+        0.6800000071525574
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "书本收纳盒是否遮挡座位需模型检查"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_wardrobe",
+      "name": "相片双门高衣柜",
+      "model": "bedroom_ref_wardrobe.glb",
+      "surface": "floor",
+      "size": [
+        2.240000009536743,
+        2.904042959213257,
+        1.173011302947998
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_wardrobe_top",
+      "name": "衣柜收纳盒与绿植",
+      "model": "bedroom_ref_wardrobe_top.glb",
+      "surface": "tabletop",
+      "size": [
+        1.8507288694381714,
+        0.4155886769294739,
+        0.6449999809265137
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_sideboard_top",
+      "name": "球灯绿植与书香摆件",
+      "model": "bedroom_ref_sideboard_top.glb",
+      "surface": "tabletop",
+      "size": [
+        2.276850700378418,
+        0.6728578805923462,
+        0.34153079986572266
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_dresser_top",
+      "name": "椭圆镜与梳妆小物",
+      "model": "bedroom_ref_dresser_top.glb",
+      "surface": "tabletop",
+      "size": [
+        2.5993599891662598,
+        1.3035600185394287,
+        0.44999998807907104
+      ],
+      "registered": [
+        "mirror"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_sleeping_cat",
+      "name": "蜷睡黑白猫摆件",
+      "model": "bedroom_ref_sleeping_cat.glb",
+      "surface": "tabletop",
+      "size": [
+        0.7840868234634399,
+        0.41566744446754456,
+        0.4493483304977417
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_flower_pouf",
+      "name": "鼠尾草花瓣坐墩",
+      "model": "bedroom_ref_flower_pouf.glb",
+      "surface": "floor",
+      "size": [
+        1.1684346199035645,
+        0.4780000150203705,
+        1.1935704946517944
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "center"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_tea_table",
+      "name": "床边圆木小茶几",
+      "model": "bedroom_ref_tea_table.glb",
+      "surface": "floor",
+      "size": [
+        0.8600000143051147,
+        0.6482706069946289,
+        0.8600000143051147
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_tea",
+      "name": "书本与一杯热茶",
+      "model": "bedroom_ref_tea.glb",
+      "surface": "tabletop",
+      "size": [
+        0.38999998569488525,
+        0.21050000190734863,
+        0.27000001072883606
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_nightstand",
+      "name": "两抽床头柜",
+      "model": "bedroom_ref_nightstand.glb",
+      "surface": "floor",
+      "size": [
+        0.8100000023841858,
+        0.6924999952316284,
+        0.7599999904632568
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_bedside_top",
+      "name": "暖光褶皱床头灯与香氛",
+      "model": "bedroom_ref_bedside_top.glb",
+      "surface": "tabletop",
+      "size": [
+        0.6698507070541382,
+        0.5514000058174133,
+        0.5064560174942017
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_floor_lamp",
+      "name": "奶油褶皱落地灯",
+      "model": "bedroom_ref_floor_lamp.glb",
+      "surface": "floor",
+      "size": [
+        0.5711885094642639,
+        2.3513998985290527,
+        0.5799999833106995
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_wall_rack",
+      "name": "书与黑猫的双层墙架",
+      "model": "bedroom_ref_wall_rack.glb",
+      "surface": "wall",
+      "size": [
+        1.694612979888916,
+        1.778249979019165,
+        0.49686387181282043
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_moon_art",
+      "name": "月色云朵浮雕画",
+      "model": "bedroom_ref_moon_art.glb",
+      "surface": "wall",
+      "size": [
+        1.0199999809265137,
+        1.2999999299645424,
+        0.08205951005220413
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_photo_string",
+      "name": "夹子相片小墙饰",
+      "model": "bedroom_ref_photo_string.glb",
+      "surface": "wall",
+      "size": [
+        0.8700000047683716,
+        0.5450000166893005,
+        0.030000001192092896
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_window",
+      "name": "系带布帘与宽窗台",
+      "model": "bedroom_ref_window.glb",
+      "surface": "wall",
+      "size": [
+        4.150000095367432,
+        2.203000068664551,
+        0.47999995946884155
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_sill_garden",
+      "name": "窗台小猫与绿植",
+      "model": "bedroom_ref_sill_garden.glb",
+      "surface": "tabletop",
+      "size": [
+        2.4365715980529785,
+        0.6230880618095398,
+        0.33234861493110657
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_rug",
+      "name": "暖白织边大地毯",
+      "model": "bedroom_ref_rug.glb",
+      "surface": "rug",
+      "size": [
+        5.699999809265137,
+        0.039000000804662704,
+        5.539999961853027
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_bin",
+      "name": "奶油圆纸篓",
+      "model": "bedroom_ref_bin.glb",
+      "surface": "floor",
+      "size": [
+        0.3400000035762787,
+        0.4580000042915344,
+        0.3400000035762787
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bedroom_ref_entry_mat",
+      "name": "猫咪门垫与软拖鞋",
+      "model": "bedroom_ref_entry_mat.glb",
+      "surface": "rug",
+      "size": [
+        1.3200000524520874,
+        0.13500000536441803,
+        0.7300000190734863
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_towel_shelf",
+      "name": "原木毛巾双层壁架",
+      "model": "bathroom_ref_towel_shelf.glb",
+      "surface": "wall",
+      "size": [
+        1.75,
+        1.075461506843567,
+        0.41999998688697815
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_toilet_shelf",
+      "name": "如厕区洗护壁架",
+      "model": "bathroom_ref_toilet_shelf.glb",
+      "surface": "wall",
+      "size": [
+        1.0499999523162842,
+        0.4857395589351654,
+        0.36000001430511475
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_botanical",
+      "name": "鼠尾草植物装饰画",
+      "model": "bathroom_ref_botanical.glb",
+      "surface": "wall",
+      "size": [
+        0.6499999761581421,
+        0.8600000143051147,
+        0.07988288998603821
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_window",
+      "name": "暖白横向采光窗",
+      "model": "bathroom_ref_window.glb",
+      "surface": "wall",
+      "size": [
+        2.049999952316284,
+        0.7799999713897705,
+        0.3400000035762787
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_hanging_plant",
+      "name": "角落垂吊绿萝",
+      "model": "bathroom_ref_hanging_plant.glb",
+      "surface": "wall",
+      "size": [
+        0.5580013394355774,
+        1.7233527898788452,
+        0.4142303168773651
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_trailing_plant",
+      "name": "柜边垂藤盆栽",
+      "model": "bathroom_ref_trailing_plant.glb",
+      "surface": "wall",
+      "size": [
+        0.6350919604301453,
+        1.3501018285751343,
+        0.26896899938583374
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_towel_hooks",
+      "name": "沐浴毛巾挂钩",
+      "model": "bathroom_ref_towel_hooks.glb",
+      "surface": "wall",
+      "size": [
+        0.9900000095367432,
+        0.6200000047683716,
+        0.20220433175563812
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_robe",
+      "name": "暖白浴袍壁挂",
+      "model": "bathroom_ref_robe.glb",
+      "surface": "wall",
+      "size": [
+        0.887499988079071,
+        1.631821520626545,
+        0.12000000476837158
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_shower_mat",
+      "name": "鼠尾草防滑条板垫",
+      "model": "bathroom_ref_shower_mat.glb",
+      "surface": "rug",
+      "size": [
+        1.100000023841858,
+        0.06350000202655792,
+        0.7699999809265137
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_bath_mat",
+      "name": "奶油绿边长浴垫",
+      "model": "bathroom_ref_bath_mat.glb",
+      "surface": "rug",
+      "size": [
+        1.7999999523162842,
+        0.05350000038743019,
+        0.8399999737739563
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_flower_mat",
+      "name": "奶油花朵如厕地垫",
+      "model": "bathroom_ref_flower_mat.glb",
+      "surface": "rug",
+      "size": [
+        1.2200000286102295,
+        0.06549999862909317,
+        1.1945494413375854
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_slippers",
+      "name": "暖白浴室拖鞋",
+      "model": "bathroom_ref_slippers.glb",
+      "surface": "rug",
+      "size": [
+        0.5760000348091125,
+        0.15700000524520874,
+        0.41846486926078796
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_basket",
+      "name": "原木编织小篓",
+      "model": "bathroom_ref_basket.glb",
+      "surface": "floor",
+      "size": [
+        0.5103266835212708,
+        0.6945000290870667,
+        0.5179204344749451
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_laundry_top",
+      "name": "洗衣台洗护与盆栽",
+      "model": "bathroom_ref_laundry_top.glb",
+      "surface": "tabletop",
+      "size": [
+        0.9268087148666382,
+        0.4752395451068878,
+        0.44999998807907104
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_cabinet_top",
+      "name": "柜顶洗浴瓶罐",
+      "model": "bathroom_ref_cabinet_top.glb",
+      "surface": "tabletop",
+      "size": [
+        0.6641267538070679,
+        0.2162500023841858,
+        0.1237500011920929
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "bathroom_ref_shower_plant",
+      "name": "淋浴顶角绿植",
+      "model": "bathroom_ref_shower_plant.glb",
+      "surface": "wall",
+      "size": [
+        0.5400000214576721,
+        0.7567572593688965,
+        0.33553579449653625
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_window",
+      "name": "书房绿植卷帘大窗",
+      "model": "study_ref_window.glb",
+      "surface": "wall",
+      "size": [
+        2.880000114440918,
+        1.9550000429153442,
+        0.4030154049396515
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_printer_set",
+      "name": "打印机与球灯绿植",
+      "model": "study_ref_printer_set.glb",
+      "surface": "tabletop",
+      "size": [
+        1.7293999195098877,
+        0.5228164196014404,
+        0.6649999618530273
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_cabinet_plants",
+      "name": "书柜顶部双盆绿植",
+      "model": "study_ref_cabinet_plants.glb",
+      "surface": "tabletop",
+      "size": [
+        1.1706173419952393,
+        0.7297645807266235,
+        0.36317503452301025
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_memo",
+      "name": "绿植留言板与便笺",
+      "model": "study_ref_memo.glb",
+      "surface": "wall",
+      "size": [
+        1.2775660753250122,
+        1.7901403903961182,
+        0.43243834376335144
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_wall_shelves",
+      "name": "书房双层书本绿植壁架",
+      "model": "study_ref_wall_shelves.glb",
+      "surface": "wall",
+      "size": [
+        1.5070130825042725,
+        1.199424386024475,
+        0.3658457398414612
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_headphone_board",
+      "name": "耳机与相片挂板",
+      "model": "study_ref_headphone_board.glb",
+      "surface": "wall",
+      "size": [
+        1.0499999523162842,
+        0.6000000238418579,
+        0.1875
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_floor_light",
+      "name": "书房暖白格栅落地灯",
+      "model": "study_ref_floor_light.glb",
+      "surface": "floor",
+      "size": [
+        0.33000001311302185,
+        1.8174998760223389,
+        0.3199999928474426
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_cart",
+      "name": "书房带轮文件收纳车",
+      "model": "study_ref_cart.glb",
+      "surface": "floor",
+      "size": [
+        0.8100000023841858,
+        1.828896403312683,
+        0.5099999904632568
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_rug",
+      "name": "书房奶油双边绿地毯",
+      "model": "study_ref_rug.glb",
+      "surface": "rug",
+      "size": [
+        4.199999809265137,
+        0.03100000135600567,
+        3.25
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_entry_mat",
+      "name": "书房奶油迎宾垫",
+      "model": "study_ref_entry_mat.glb",
+      "surface": "rug",
+      "size": [
+        1.6200000047683716,
+        0.030500000342726707,
+        0.7200000286102295
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "study_ref_task_lamp",
+      "name": "鼠尾草折臂工作灯",
+      "model": "study_ref_task_lamp.glb",
+      "surface": "tabletop",
+      "size": [
+        0.2800000011920929,
+        0.7599999904632568,
+        0.3799999952316284
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_window",
+      "name": "鼠尾草双帘落地采光窗",
+      "model": "living_ref_window.glb",
+      "surface": "wall",
+      "size": [
+        5.659999847412109,
+        3.990000009536743,
+        0.36500000953674316
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_console",
+      "name": "原木格栅电视柜",
+      "model": "living_ref_console.glb",
+      "surface": "floor",
+      "size": [
+        3.4000000953674316,
+        0.8650000095367432,
+        0.7574999928474426
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_bookcase",
+      "name": "原木矮书架",
+      "model": "living_ref_bookcase.glb",
+      "surface": "floor",
+      "size": [
+        1.0499999523162842,
+        0.8349999785423279,
+        0.47999998927116394
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_record_cabinet",
+      "name": "原木唱片柜与唱机",
+      "model": "living_ref_record_cabinet.glb",
+      "surface": "floor",
+      "size": [
+        1.0499999523162842,
+        1.1583682298660278,
+        0.47999998927116394
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_bookcase_top",
+      "name": "边柜相框与球灯",
+      "model": "living_ref_bookcase_top.glb",
+      "surface": "tabletop",
+      "size": [
+        0.7098000049591064,
+        0.35359999537467957,
+        0.24959999322891235
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_console_plant",
+      "name": "电视柜小盆栽",
+      "model": "living_ref_console_plant.glb",
+      "surface": "tabletop",
+      "size": [
+        0.30008664727211,
+        0.3812203109264374,
+        0.18038378655910492
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_wall_shelf",
+      "name": "原木双层相框绿植壁架",
+      "model": "living_ref_wall_shelf.glb",
+      "surface": "wall",
+      "size": [
+        1.6205888986587524,
+        1.0663963556289673,
+        0.4332924485206604
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_clock",
+      "name": "暖木圆形挂钟",
+      "model": "living_ref_clock.glb",
+      "surface": "wall",
+      "size": [
+        0.5400000214576721,
+        0.5400000214576721,
+        0.08699999749660492
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_tree",
+      "name": "奶油方盆枝叶树",
+      "model": "living_ref_tree.glb",
+      "surface": "floor",
+      "size": [
+        1.116983413696289,
+        2.785696268081665,
+        0.8523851633071899
+      ],
+      "registered": [
+        "water"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_tea_tray",
+      "name": "茶几绿植双杯托盘",
+      "model": "living_ref_tea_tray.glb",
+      "surface": "tabletop",
+      "size": [
+        1.2000000476837158,
+        0.5024643540382385,
+        0.5299999713897705
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_books",
+      "name": "茶几书本与香薰",
+      "model": "living_ref_books.glb",
+      "surface": "tabletop",
+      "size": [
+        0.49000000953674316,
+        0.6112126708030701,
+        0.36000001430511475
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_rug",
+      "name": "奶油绿线大格地毯",
+      "model": "living_ref_rug.glb",
+      "surface": "rug",
+      "size": [
+        5.599999904632568,
+        0.032499998807907104,
+        4.599999904632568
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_sofa",
+      "name": "奶油沙发与鼠尾草搭毯",
+      "model": "living_ref_sofa.glb",
+      "surface": "floor",
+      "size": [
+        3.700000286102295,
+        1.2000000476837158,
+        1.350000023841858
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "0",
+        "1"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_television",
+      "name": "深灰窄边电视",
+      "model": "living_ref_television.glb",
+      "surface": "tabletop",
+      "size": [
+        2.619999885559082,
+        1.624500036239624,
+        0.3400000035762787
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "living_ref_cat_tree",
+      "name": "鼠尾草软垫猫爬架",
+      "model": "living_ref_cat_tree.glb",
+      "surface": "floor",
+      "size": [
+        1.3385158777236938,
+        2.1500000953674316,
+        1.4930775165557861
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchenware_pot",
+      "name": "黑白双耳汤锅",
+      "model": "kitchenware_pot.glb",
+      "surface": "tabletop",
+      "size": [
+        0.6200000047683716,
+        0.3682233393192291,
+        0.48781725764274597
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchenware_board",
+      "name": "砧板与切片面包",
+      "model": "kitchenware_board.glb",
+      "surface": "tabletop",
+      "size": [
+        0.5799999833106995,
+        0.2047058790922165,
+        0.6080968976020813
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchenware_tools",
+      "name": "黑陶厨具筒",
+      "model": "kitchenware_tools.glb",
+      "surface": "tabletop",
+      "size": [
+        0.3199999928474426,
+        0.4420338571071625,
+        0.2793220281600952
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchenware_spices",
+      "name": "黑白调料罐组",
+      "model": "kitchenware_spices.glb",
+      "surface": "tabletop",
+      "size": [
+        0.699999988079071,
+        0.23700787127017975,
+        0.19475063681602478
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchenware_plates",
+      "name": "白瓷叠盘",
+      "model": "kitchenware_plates.glb",
+      "surface": "tabletop",
+      "size": [
+        0.41999998688697815,
+        0.26608696579933167,
+        0.417391300201416
+      ],
+      "registered": [
+        "kitchen:wash"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchenware_rail",
+      "name": "金属挂杆与锅铲",
+      "model": "kitchenware_rail.glb",
+      "surface": "wall",
+      "size": [
+        1.0499999523162842,
+        0.679411768913269,
+        0.23058819770812988
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchenware_settings",
+      "name": "双人白瓷杯盘",
+      "model": "kitchenware_settings.glb",
+      "surface": "tabletop",
+      "size": [
+        1.0199999809265137,
+        0.1872340440750122,
+        0.6176318228244781
+      ],
+      "registered": [
+        "kitchen:wash"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchenware_coffee",
+      "name": "咖啡机与杯碟",
+      "model": "kitchenware_coffee.glb",
+      "surface": "tabletop",
+      "size": [
+        1.4300000071525574,
+        0.3824358880519867,
+        0.5091025829315186
+      ],
+      "registered": [
+        "kitchen:coffee"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_ref_prep",
+      "name": "砧板厨具与沥水盘架",
+      "model": "kitchen_ref_prep.glb",
+      "surface": "tabletop",
+      "size": [
+        1.5550000071525574,
+        0.42529872097074983,
+        0.5725951790809631
+      ],
+      "registered": [
+        "kitchen:wash"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_ref_hood",
+      "name": "黑色烟机与厨具挂杆",
+      "model": "kitchen_ref_hood.glb",
+      "surface": "wall",
+      "size": [
+        3.0700000524520874,
+        2.065000057220459,
+        0.8710000216960907
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_ref_shelves",
+      "name": "双层绿植调料壁架",
+      "model": "kitchen_ref_shelves.glb",
+      "surface": "wall",
+      "size": [
+        2.119999885559082,
+        1.9271461814641953,
+        0.5077583193778992
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_ref_breakfast",
+      "name": "早餐花果与杯盘托盘",
+      "model": "kitchen_ref_breakfast.glb",
+      "surface": "tabletop",
+      "size": [
+        1.7010831236839294,
+        0.560000002682209,
+        0.7023754715919495
+      ],
+      "registered": [
+        "kitchen:wash"
+      ],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_ref_window",
+      "name": "绿植罐饰黑框厨房窗",
+      "model": "kitchen_ref_window.glb",
+      "surface": "wall",
+      "size": [
+        2.359999895095825,
+        1.5600000619888306,
+        0.4550977349281311
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_ref_rack",
+      "name": "黑框四层餐厨收纳架",
+      "model": "kitchen_ref_rack.glb",
+      "surface": "floor",
+      "size": [
+        1.3200000524520874,
+        2.3738548994064335,
+        0.5899999737739563
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_ref_trolley",
+      "name": "三层备餐带轮推车",
+      "model": "kitchen_ref_trolley.glb",
+      "surface": "floor",
+      "size": [
+        0.9549999833106995,
+        1.619450081139803,
+        0.6800000071525574
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_ref_runner",
+      "name": "黑白格备餐长毯",
+      "model": "kitchen_ref_runner.glb",
+      "surface": "rug",
+      "size": [
+        3.7,
+        0.026,
+        0.82
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "kitchen_ref_mat",
+      "name": "猫咪迎宾小地毯",
+      "model": "kitchen_ref_mat.glb",
+      "surface": "rug",
+      "size": [
+        1.7,
+        0.026,
+        0.9
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_bird",
+      "name": "团团小鸟",
+      "model": "pets/bird.glb",
+      "surface": "floor",
+      "size": [
+        0.7200000286102295,
+        0.6221893429756165,
+        0.7439316511154175
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_snake",
+      "name": "盘盘小蛇",
+      "model": "pets/snake.glb",
+      "surface": "floor",
+      "size": [
+        0.7199999690055847,
+        0.6596815586090088,
+        0.7440763711929321
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_slime",
+      "name": "软软史莱姆",
+      "model": "pets/slime.glb",
+      "surface": "floor",
+      "size": [
+        0.7599999308586121,
+        0.5250566005706787,
+        0.7453250885009766
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_cat",
+      "name": "团子猫",
+      "model": "pets/cat.glb",
+      "surface": "floor",
+      "size": [
+        0.8199999928474426,
+        0.813016414642334,
+        1.1847444772720337
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_dog",
+      "name": "卷尾小狗",
+      "model": "pets/dog.glb",
+      "surface": "floor",
+      "size": [
+        0.8399999737739563,
+        0.5489053130149841,
+        1.10028874874115
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_turtle",
+      "name": "圆壳小龟",
+      "model": "pets/turtle.glb",
+      "surface": "floor",
+      "size": [
+        0.7200000882148743,
+        0.6329339742660522,
+        1.1230984926223755
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_toy_ball",
+      "name": "宠物小球",
+      "model": "pets/toy.glb",
+      "surface": "floor",
+      "size": [
+        0.3400000035762787,
+        0.3400000035762787,
+        0.3400000035762787
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_rest_mat",
+      "name": "宠物休息垫",
+      "model": "pets/mat.glb",
+      "surface": "rug",
+      "size": [
+        1.440000057220459,
+        0.04500000178813934,
+        1.440000057220459
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_shark",
+      "name": "抱抱小鲨鱼",
+      "model": "pets/shark.glb",
+      "surface": "floor",
+      "size": [
+        0.9200000762939453,
+        0.5942491888999939,
+        1.0111526250839233
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    }
+  ]
+}
