@@ -1,3 +1,4 @@
+import {usableFurniturePoints} from './furniturePointRegistry.js';
 import {KITCHEN_CAPABILITIES,KITCHEN_LABELS} from './kitchenActivities.js';
 import {BATH_ACTIONS} from './bathroom.js';
 // Browsing taxonomy is separate from placement surfaces and interaction contracts.
@@ -33,7 +34,7 @@ export function furnitureActions(a){
  const actions=[];const kitchen=KITCHEN_CAPABILITIES[a.id];if(KITCHEN_LABELS[kitchen])actions.push(KITCHEN_LABELS[kitchen]);
  if(BATH_ACTIONS[a.id])actions.push(BATH_ACTIONS[a.id].label);
  if(isMirror(a))actions.push('臭美','穿搭（同房间需衣柜）');
- if(a.seats?.length)actions.push('坐坐');if(a.beds?.length)actions.push('躺下休息');if(a.holdable)actions.push('抱抱');
+ if(usableFurniturePoints(a,'seats').length)actions.push('坐坐');if(usableFurniturePoints(a,'beds').length)actions.push('躺下休息');if(a.holdable)actions.push('抱抱');
  if(a.surface==='floor'&&a.waterable===true)actions.push('浇水');if(a.appliance==='fridge')actions.push('开关冰箱');
  const kind={race:'玩赛车（需配座椅）',rhythm:'玩圆环音游',computer:'玩电脑',stream:'直播'}[a.activity?.kind];if(kind)actions.push(kind);
  if(a.id==='gaming_desk')actions.push('玩电脑 / 直播（需配设备和座椅）');
