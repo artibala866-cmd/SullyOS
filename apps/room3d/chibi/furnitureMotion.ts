@@ -20,8 +20,24 @@ export function racingHands(hands:number[][],time:number,wheel?:ActivityPose['wh
 // Authored palm/grip centres, relative to the hand bone; the wrist is behind contact.
 export function furniturePalm(side:string,race=false){return new T.Vector3((side==='L'?1:-1)*(race?.045:.035),race?-.019:-.008,0).multiplyScalar(BLANK_SCALE);}
 export function furnitureHandRotation(side:string,direction:number[],normal:number[]){
- const x=new T.Vector3(...direction).multiplyScalar(side==='L'?1:-1).normalize(),y=new T.Vector3(...normal).normalize(),z=new T.Vector3().crossVectors(x,y).normalize();
- y.crossVectors(z,x).normalize();return new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,z));
+ // The authored finger axis and surface normal can be parallel (or nearly
+ // parallel) for some furniture and social grips. Never build a zero basis.
+ const x=new T.Vector3(...direction).multiplyScalar(side==='L'?1:-1);
+ if(!Number.isFinite(x.lengthSq())||x.lengthSq()<1e-10)x.set(side==='L'?1:-1,0,0);
+ x.normalize();
+ const y=new T.Vector3(...normal);
+ if(!Number.isFinite(y.lengthSq())||y.lengthSq()<1e-10)y.set(0,1,0);
+ // Gram-Schmidt with a deterministic fallback keeps the quaternion finite
+ // and continuous around the collinear case without changing hand scale.
+ y.addScaledVector(x,-y.dot(x));
+ if(y.lengthSq()<1e-6){
+  y.set(0,Math.abs(x.y)<.85?1:0,Math.abs(x.y)<.85?0:1);
+  y.addScaledVector(x,-y.dot(x));
+ }
+ y.normalize();
+ const z=new T.Vector3().crossVectors(x,y).normalize();
+ y.crossVectors(z,x).normalize();
+ return new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,z)).normalize();
 }
 
 /** Furniture goals live in the resident frame. Virtual IK targets never alter the skin or bone lengths. */
