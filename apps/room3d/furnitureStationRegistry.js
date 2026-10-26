@@ -29,6 +29,24 @@ export function occupiedFurnitureChange(before,after,catalog,occupiedSeats=[]){
  }
  return '';
 }
+
+// Preserve active appliance/mirror/watering contact against layout mutations.
+// Ignore colors and unrelated decoration: only physical identity, attachment,
+// placement and orientation invalidate a running action.
+export function activeFurnitureDependencyChange(before,after,actions=[]){
+ for(const action of actions.filter(Boolean)){
+  const ids=[action.itemId,action.seat?.itemId,action.parentId,...(action.dependencies||[])].filter(Boolean);
+  for(const id of new Set(ids)){
+   const room=before?.rooms?.find(r=>r.items.some(i=>i.id===id&&!i.stored));
+   if(!room)continue;
+   const oldItem=room.items.find(i=>i.id===id),nextItem=after?.rooms?.find(r=>r.id===room.id)?.items.find(i=>i.id===id);
+   const physical=i=>i&&[i.assetId,i.x,i.y,i.z,i.rotation,!!i.stored,i.supportId||'',i.dockId||''].join('|');
+   if(!nextItem||physical(oldItem)!==physical(nextItem))
+    return '人物正在使用关联家具，请先结束互动，再移动、旋转或收纳设备';
+  }
+ }
+ return '';
+}
 export function furnitureStationIssue(room,catalog,station){
  if(!station||typeof station.itemId!=='string'||typeof station.kind!=='string')return '家具互动能力或目标不存在';
  const item=room?.items?.find(i=>i.id===station.itemId&&!i.stored);
