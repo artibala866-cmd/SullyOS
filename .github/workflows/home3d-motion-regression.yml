@@ -42,5 +42,7 @@ jobs:
           apps/room3d/chibi/standingHeightAdaptation.test.ts
           apps/room3d/chibi/motionContactProfiles.test.ts
           apps/room3d/chibi/hugArmClearance.test.ts
-      - name: Check TypeScript errors in modified Home3D files
+      - name: Fetch baseline for incremental TypeScript comparison
+        run: git fetch --no-tags --depth=1 origin feat/amaama-unity-retarget-probe:refs/remotes/origin/feat/amaama-unity-retarget-probe
+      - name: Check new TypeScript errors in modified Home3D files
         run: node --max-old-space-size=4096 scripts/home3d-motion-typecheck.mjs
