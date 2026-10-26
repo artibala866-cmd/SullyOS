@@ -36,6 +36,7 @@ jobs:
           utils/chibiRoomWalk.test.ts
           utils/chibiFurnitureMotion.test.ts
           utils/chibiMotionRecovery.test.ts
+          utils/chibiAllSelectedMotionAssets.test.ts
           utils/chibiIntimacy.test.ts
           apps/room3d/chibi/motionTemplates.test.ts
           apps/room3d/chibi/motionConstraintPipeline.test.ts
