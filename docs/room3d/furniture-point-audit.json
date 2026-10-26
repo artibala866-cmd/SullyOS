@@ -1,13 +1,13 @@
 {
   "title": "SullyOS 家园全家具互动点位逐件元数据审计",
   "baseBranch": "remove-checkphone-vrworld-lifesim",
-  "catalogSha": "cac94f8bf160adf92d7c596711d02850ac96cf9d",
+  "catalogSha": "7318ca9852287a13cd482fce3601bbda9b15867d",
   "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。",
   "counts": {
     "assets": 248,
-    "registeredSeatAssets": 17,
+    "registeredSeatAssets": 19,
     "registeredBedAssets": 5,
-    "seats": 23,
+    "seats": 27,
     "beds": 8,
     "exposedBeds": 5,
     "visualPassed": 0
@@ -3138,16 +3138,19 @@
         0.6499999761581421
       ],
       "registered": [],
-      "seatPoints": [],
+      "seatPoints": [
+        "left",
+        "right"
+      ],
       "bedPoints": [],
       "exposedBedPoints": [],
-      "status": "需要补齐或修复",
+      "status": "已配置但尚未完成画面验证",
       "screenValidated": false,
       "needsModelReview": true,
       "issues": [
-        "实际开口收纳凳能否坐及摆件阻挡待查"
+        "实际 GLB 三角面检查：局部 x=±0.70、z=0 与邻域有连续顶部平面；未通过骨骼坐姿、进出路线与 3D 画面检查"
       ],
-      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+      "notes": "网格采样提供顶面高度证据，仍需人物接触、邻近布局和目视回归，不能标记为画面验证通过。"
     },
     {
       "id": "show_bedroom_pouf",
@@ -3602,16 +3605,19 @@
         0.6800000071525574
       ],
       "registered": [],
-      "seatPoints": [],
+      "seatPoints": [
+        "left",
+        "right"
+      ],
       "bedPoints": [],
       "exposedBedPoints": [],
-      "status": "需要补齐或修复",
+      "status": "已配置但尚未完成画面验证",
       "screenValidated": false,
       "needsModelReview": true,
       "issues": [
-        "书本收纳盒是否遮挡座位需模型检查"
+        "实际 GLB 三角面检查：局部 x=±0.70、z=0 与邻域有连续顶部平面；未通过骨骼坐姿、进出路线与 3D 画面检查"
       ],
-      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+      "notes": "网格采样提供顶面高度证据，仍需人物接触、邻近布局和目视回归，不能标记为画面验证通过。"
     },
     {
       "id": "bedroom_ref_wardrobe",
