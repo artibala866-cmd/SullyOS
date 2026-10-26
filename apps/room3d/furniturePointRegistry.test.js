@@ -13,7 +13,7 @@ describe('home3d furniture point coverage (metadata only, not visual QA)',()=>{
  });
  it('rejects invalid, duplicate and raised bed anchors without silently inventing a point',()=>{
   const bed=catalog.find(a=>a.id==='bedroom_bunk');
-  expect(usableFurniturePoints(bed,'beds').map(p=>p.id)).toEqual(['lower']);
+  expect(usableFurniturePoints(bed,'beds')).toEqual([]);
   const loft=catalog.find(a=>a.id==='bedroom_loft');
   expect(usableFurniturePoints(loft,'beds')).toEqual([]);
   const invalid={id:'wrong',position:[Infinity,1,0]};
