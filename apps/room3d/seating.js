@@ -18,7 +18,7 @@ export function seatTransform(room,catalog,selection,body2=false){
  const item=room.items.find(i=>i.id===selection.itemId&&!i.stored);
  const a=catalog.find(a=>a.id===item?.assetId);
  const seat=usableFurniturePoints(a,selection.bed?'beds':'seats').find(s=>s.id===selection.seatId);
- if(!item||!seat)return null;
+ if(!item||!seat||!selection.bed&&seatBlockedBySupportedProp(room,catalog,item,seat))return null;
  const angle=item.rotation*Math.PI/180,[x,y,z]=seat.position,rotation=angle+(seat.rotation??0)*Math.PI/180;
  const bedPlacement=selection.bed&&a.id==='show_bed'?{across:.70,forward:.35}:null;
  const profile=body2&&!selection.bed?body2SeatProfiles[a.id]:null,forward=bedPlacement?.forward??(selection.dining&&a.id==='show_kitchen_bench'?.15:profile?.forward??0);
