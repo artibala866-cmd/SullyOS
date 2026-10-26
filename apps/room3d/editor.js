@@ -44,6 +44,7 @@ import {homelyFrame} from './homelyView';
 import {homelyMusicPose} from './homelyPresence';
 import {createHomelyForeground} from './homelyForeground.js';
 import {furnitureInteractions,interactionArcLayout} from './furnitureInteractions.js';
+import {validatedFurnitureStations} from './furnitureStationRegistry.js';
 import {mirrorActivities,isMirrorAction} from './mirror.js';
 import {createMirrorJourney,mirrorJourneyFrame} from './mirrorJourney.js';
 import {SHOWROOMS,addShowroom,applyShowroomStyle} from './showrooms.js';
@@ -355,7 +356,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  const bathroomEffects=createBathroomEffects(),gamingEffects=createGamingEffects(),kitchenEffects=createKitchenEffects(resident),kitchenWork=createKitchenWorkEffects(resident);
  const activities=()=>{
   const map=navMap(),r=current(),canStand=p=>map.free(p[0]+r.x*ROOM_STEP.x,p[2]+r.z*ROOM_STEP.z);
-  return [...gamingActivities(placementRoom(),catalog,{headWidth,body2:!!visitor?.rig,...visitor?.gamingReach}),...diningActivities(placementRoom(),catalog,{headWidth}),...mirrorActivities(placementRoom(),catalog,{...visitorClearance(),headWidth,canStand,body2:!!visitor?.rig}),...bathroomActivities(placementRoom(),catalog,{headWidth,body2:!!visitor?.rig})].map(a=>a.seat&&furnitureUser?.parkedSeat?.itemId===a.seat.itemId&&furnitureUser.parkedSeat.seatId===a.seat.seatId?{...a,reason:'这个位置已经有人坐着啦'}:a);
+  return validatedFurnitureStations(placementRoom(),catalog,[...gamingActivities(placementRoom(),catalog,{headWidth,body2:!!visitor?.rig,...visitor?.gamingReach}),...diningActivities(placementRoom(),catalog,{headWidth}),...mirrorActivities(placementRoom(),catalog,{...visitorClearance(),headWidth,canStand,body2:!!visitor?.rig}),...bathroomActivities(placementRoom(),catalog,{headWidth,body2:!!visitor?.rig})],otherFurnitureOccupants());
  };
  function stopMirror(){if(!isMirrorAction(visitorActivity?.kind)&&!isBathAction(visitorActivity?.kind))return;if(visitorActivity?.bathJourney)finishBathroom();visitorActivity=null;visitorMotion='idle';visitorUntil=0;gamingEffects.clear();visitor?.animate(0,'idle');message='镜前动作结束啦';dirty=true;wake();}
  let kitchenTask=null,seatChange=null;
