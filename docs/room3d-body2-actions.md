@@ -122,6 +122,7 @@
 - `furnitureHandRotation` 对近乎平行、零长度方向/法线建立有限且归一的正交基；家具与社交接触共同受益。
 - 八个原有 `motionContactProfiles` 配置接入同一四阶段 `motionConstraintPipeline`，统一站立身高适配；删除重复叠加的四类关怀动作独立屈膝分支，固定座位仍绕开站立身高纠正。
 - 公主抱移除固定目标 `[.25,.58,.86]`，使用肩宽、胸/骨盆和手臂可达范围迭代定位被抱方；不额外修改导航根节点、骨长或存档。
-- 在 `utils/chibiRoomWalk.test.ts` 和 `utils/chibiFurnitureMotion.test.ts` 增加步态时钟与手掌退化朝向测试。
+- 在 `utils/chibiRoomWalk.test.ts`、`utils/chibiFurnitureMotion.test.ts` 和 `utils/chibiMotionRecovery.test.ts` 增加步态时钟、手掌退化朝向、八个接触配置的回归测试（尚未在 CI 执行）。
+- `hugMotion.ts` 增加沿背面切线的拍背位移，尝试修复前一轮约 .02066 小于 > .04 的失败断言；**这仅是代码调整，未宣称该断言已通过**。
 
 **尚未验证/未声称解决**：当前执行环境无法克隆仓库及运行项目 Vitest/TypeScript、浏览器视觉验收；先前记录的拍背断言失败仍需核对。完整 49 动作与全体型/家具穿模矩阵、布料自碰撞、完整重心惯性和第三人动态干涉不在此次已证实修复范围内。必须在 CI 和浏览器复验后再合入稳定分支。
