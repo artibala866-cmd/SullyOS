@@ -595,7 +595,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   }
   if(action==='stand'){
    if(!snapshot.canRise){companionLastResult='尚在休息或正在交谈';return false;}
-   const seat=characterSeatState(),transform=seatTransform(current(),catalog,seat.seat,!!person.visitor.rig),front=transform&&seatEntry(transform,navMap(),[current().x*ROOM_STEP.x,current().z*ROOM_STEP.z]);
+   const seat=characterSeatState(),transform=seatTransform(current(),catalog,seat.seat,!!person.visitor.rig),front=transform&&seatEntry(transform,navMap(),[current().x*ROOM_STEP.x,current().z*ROOM_STEP.z],{allowSides:true});
    if(!front){companionLastResult='座位前没有安全起身位置';return false;}
    if(Math.hypot(front[0]-user.group.position.x,front[2]-user.group.position.z)<.55){
     if(firstPerson||!user.visitor||getResidentPosture('user')!=='standing'||companionYield){companionLastResult='座位前没有安全起身位置';return false;}
@@ -649,7 +649,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const seat=nearbyCompanionSeat(user);if(!seat){companionLastResult='附近没有可用空座';return false;}
    const option=homeActionOptions().find(a=>a.kind==='sit'&&a.data.id===seat.itemId&&a.data.seat===seat.seatId);
    if(!option)return false;
-   const room=current(),offset=[room.x*ROOM_STEP.x,room.z*ROOM_STEP.z],map=navMap(),pose=seatTransform(room,catalog,seat,true),front=pose&&seatEntry(pose,map,offset);
+   const room=current(),offset=[room.x*ROOM_STEP.x,room.z*ROOM_STEP.z],map=residentWalkMap([resident.position.x+offset[0],resident.position.z+offset[1]]),pose=seatTransform(room,catalog,seat,true),chair=room.items.find(i=>i.id===seat.itemId),front=pose&&seatEntry(pose,map,offset,{allowSides:!!chair?.dockId,sideFirst:!!chair?.dockId});
    if(!front){companionLastResult='座位入口被挡住';return false;}
    const path=findWalkPath(map,[resident.position.x+offset[0],resident.position.z+offset[1]],[front[0]+offset[0],front[2]+offset[1]]);
    if(!path||path.some(p=>Math.hypot(p[0]-offset[0]-user.group.position.x,p[1]-offset[1]-user.group.position.z)<Math.max(.5,headWidth*.5))){companionLastResult='座位路线不可达或会撞到用户';return false;}
@@ -844,7 +844,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const option=(selected?[selected]:seats).filter(a=>a.kind==='sit').map(a=>({a,pose:seatTransform(placementRoom(),catalog,{roomId:current().id,itemId:a.data.id,seatId:a.data.seat},true)})).filter(v=>v.pose).sort((a,b)=>Math.hypot(a.pose.position[0]-resident.position.x,a.pose.position[2]-resident.position.z)-Math.hypot(b.pose.position[0]-resident.position.x,b.pose.position[2]-resident.position.z))[0];
    if(!option)return false;
    const offset=[current().x*ROOM_STEP.x,current().z*ROOM_STEP.z],start=[resident.position.x+offset[0],resident.position.z+offset[1]],map=residentWalkMap(start);
-   const front=seatEntry(option.pose,{free:(x,z)=>map.free(x,z)&&!!findWalkPath(map,start,[x,z])},offset);
+   const chair=current().items.find(i=>i.id===option.a.data.id),front=seatEntry(option.pose,{free:(x,z)=>map.free(x,z)&&!!findWalkPath(map,start,[x,z])},offset,{allowSides:!!chair?.dockId,sideFirst:!!chair?.dockId});
    if(!front||!walkTo([front[0]+current().x*ROOM_STEP.x,front[2]+current().z*ROOM_STEP.z]))return false;
    const walkSession=walking;if(!await wait(()=>!walking)||walkSession?.failed)return false;
    runAction({...option.a.data,recordSource:'model'});
