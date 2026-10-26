@@ -6,7 +6,7 @@ import {bedChangePose} from './bedMotion.js';
 // Candidate access points belong to a seat POSE, never to an asset ID.
 // Front is the normal route. A workstation may block that direction, so
 // supported chair actions can approach from either flank instead.
-export function seatEntryCandidates(transform,{allowSides=false}={}){
+export function seatEntryCandidates(transform,{allowSides=false,sideFirst=false}={}){
  if(!transform?.position||!Number.isFinite(transform.rotation))return [];
  const [x,,z]=transform.position,angle=transform.rotation,points=[];
  for(let d=.45;d<=1.25+.001;d+=.05){
@@ -16,7 +16,7 @@ export function seatEntryCandidates(transform,{allowSides=false}={}){
   const a=angle+side*Math.PI*(.5+diagonal);
   points.push([x+Math.sin(a)*distance,.18,z+Math.cos(a)*distance]);
  }
- return points;
+ return allowSides&&sideFirst?[...points.slice(17),...points.slice(0,17)]:points;
 }
 export function seatEntry(transform,map,offset=[0,0],{allowSides=false,preferred=null}={}){
  const valid=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite)&&map.free(p[0]+offset[0],p[2]+offset[1]);
