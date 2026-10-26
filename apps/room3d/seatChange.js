@@ -12,11 +12,12 @@ export function seatEntryCandidates(transform,{allowSides=false,sideFirst=false}
  for(let d=.45;d<=1.25+.001;d+=.05){
   points.push([x+Math.sin(angle)*d,.18,z+Math.cos(angle)*d]);
  }
- if(allowSides)for(const side of [-1,1])for(const diagonal of [0,.20])for(const distance of [.9,1.1,1.3,1.5,1.8,2]){
+ const frontCount=points.length;
+ if(allowSides)for(const side of [-1,1]for(const diagonal of [0,.20])for(const distance of [.9,1.1,1.3,1.5,1.8,2]){
   const a=angle+side*Math.PI*(.5+diagonal);
   points.push([x+Math.sin(a)*distance,.18,z+Math.cos(a)*distance]);
  }
- return allowSides&&sideFirst?[...points.slice(17),...points.slice(0,17)]:points;
+ return allowSides&&sideFirst?[...points.slice(frontCount),...points.slice(0,frontCount)]:points;
 }
 export function seatEntry(transform,map,offset=[0,0],{allowSides=false,preferred=null}={}){
  const valid=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite)&&map.free(p[0]+offset[0],p[2]+offset[1]);
