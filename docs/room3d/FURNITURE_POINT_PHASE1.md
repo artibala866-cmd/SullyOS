@@ -5,7 +5,7 @@
 
 ## 本批真实检查范围
 
-读取 \`public/room3d/catalog.json\` 的 248 条资源，包括 shell；17 件家具登记了 23 个座位、5 件登记了 8 个床位。
+读取 \`public/room3d/catalog.json\` 的 248 条资源，包括 shell；最初 17 件家具登记了 23 个座位、5 件登记了 8 个床位。本批检查了两款床尾凳的实际 GLB 顶部三角面，在局部 x=±0.70、z=0 的二维邻域核对得到顶部高度分别为 0.58 与 0.5325，新增两件家具共 4 个候选坐点；现在共有 19 件带 27 个坐点，均未完成画面验收。
 追查了 \`furnitureCatalog.js\` → \`furnitureInteractions.js\` → \`seating.js\` → \`editor.js\`，以及 \`gaming.js\`、\`dining.js\`、\`kitchenActivities.js\`、\`bathroom.js\`、\`mirror.js\`、\`mirrorJourney.js\`、\`bedMotion.js\`、\`seatChange.js\` 现存动作入口与路径。
 逐条元数据审计结果存于 [furniture-point-audit.json](./furniture-point-audit.json)，包括所有 ID、现有点位、登记能力、阻碍原因以及画面验证状态。
 
@@ -18,18 +18,18 @@
 - \`seating.js\`、\`furnitureCatalog.js\`、\`furnitureInteractions.js\`：同一套经过基本验证的点位数据既用于预览标签、菜单，也用于动作定位；其他居民已有占位的槽位不继续提供给当前角色。
 - \`editor.js\`：普通坐姿先取得座位入口、检查整段通路、走到入口；抵达时重新核验家具朝向/位置、占位和座位是否存在；二号骨骼角色调用原有坐下过渡，无安全入口时拒绝。床铺已有二号骨骼角色的安全入口规则不再通过失败后直接贴到床面规避。
 - \`mirrorJourney.js\`：衣柜与镜子两点之间任何一段缺路就取消此次穿搭行程，不再静默瞬移。
-- 三组回归测试：元数据全部覆盖、局部坐标旋转、占位菜单、高架床拦截、镜前行程。
+- 四组回归测试：元数据全部覆盖、局部坐标旋转、占位菜单、高架床拦截、镜前行程，以及两款床尾凳 GLB 三角面射线采样。
 
 ## 明确没有完成的事项（不得跳过）
 
-1. **模型表面校准**：\`chair\`、\`pouf\` 缺座位；\`loft\` 缺可使用床面；\`show_bedroom_bench\`、\`bedroom_ref_bench\` 仍需实模检查是否被书本/收纳物遮住可承重座面。
+1. **模型表面校准**：\`chair\`、\`pouf\` 缺座位；\`loft\` 缺可使用床面；\`show_bedroom_bench\`、\`bedroom_ref_bench\` 仅完成三角网格面支撑取样，人物坐姿和视觉验收仍未完成。
 2. **全目录其他点位**：剩余只有尺寸和功能字段的家具，需要继续逐个检查模型以及游戏当前控制器，再补实际可用的手接触、站位、进入/退出点，修复组合家具动态适配。
 3. **攀爬与上下铺**：\`bedroom_bunk\` 的 2 个床点与 \`bedroom_loft\` 的 1 个床点因没有连续进出方案暂不提供。没有删除其存档或原始目录记录。\`loft\` 另缺床点。
 4. **尚有兼容路径**：本批主要修复二号骨骼角色；非骨骼旧人物的部分家具姿态仍使用原来的直接就位，未达到“完全不瞬移”标准。也没有解决所有厨房、卫浴、设备及双人家具组合的路径与 IK 问题。
 5. **运行验证**：需在具备完整依赖和 WebGL/3D 场景的环境运行以下命令，并实际测试每件家具，不应把编写单元测试当作测试通过：
 
 \`\`\`bash
-pnpm exec vitest run apps/room3d/furniturePointRegistry.test.js apps/room3d/furnitureCapabilityRegistry.test.js apps/room3d/mirrorJourney.test.js
+pnpm exec vitest run apps/room3d/furniturePointRegistry.test.js apps/room3d/furnitureCapabilityRegistry.test.js apps/room3d/mirrorJourney.test.js apps/room3d/furnitureMeshSeat.test.js
 pnpm build
 \`\`\`
 
