@@ -5,8 +5,6 @@ const PENDING_REVIEW={
  chair:'基础木椅缺坐面骨骼接触点；需核对 kit.glb 中真实座板',
  pouf:'花瓣坐墩缺坐点；需核对 kit.glb 坐垫表面和可用脚部空间',
  loft:'鲸鱼阁楼床缺床垫点与安全上床路径；不能直接传送到上铺',
- show_bedroom_bench:'床尾开放收纳凳：须核对实模顶面是否可承重、是否被摆件遮挡',
- bedroom_ref_bench:'书本收纳盒床尾凳：须核对实模哪一段座面未被物品占用',
 };
 export const FURNITURE_POINT_REVIEW=Object.freeze(PENDING_REVIEW);
 
