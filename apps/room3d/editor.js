@@ -422,6 +422,9 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(visitorPlant){visitorPlant=null;watering.root.visible=false;visitorMotion='idle';visitor?.animate(0,'idle');}
   if(visitorMotion==='walk')visitorMotion='idle';
  }
+ // Residents parked in another actor's slot count as occupying that point.
+ function otherFurnitureOccupants(){return [...socialEntries.map(e=>e.parkedSeat),furnitureUser?.parkedSeat].filter(Boolean);}
+ function slotOccupiedByOther(slot){return otherFurnitureOccupants().some(s=>s.itemId===slot.itemId&&s.seatId===slot.seatId);}
  function resolvedVisitorSeat(){
   const seat=seatTransform(placementRoom(),catalog,visitorSeat,!!visitor?.rig);
   return visitor?.rig?body2BedTransform(seat,visitor.bedHeadToHip,visitor.bedHipHeight):seat;
@@ -433,7 +436,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   return seat?{kind:'seat-rest',hands:[],seatPose:seat.pose,seatHeight:seat.height/(visitor.seatScale??1),...(visitorSeat.alternate&&seat.pose==='floor'?{clip:'sit-alternate',clipTime:Math.max(0,elapsed-visitorStart-seatChangeDuration('floor')),clipWeight:seatChange?0:1}:{})}:null;
  }
  function beginSeatChange(rising,entry){
-  if(!visitor?.rig||reducedMotion||!visitorSeat)return false;
+  if(!visitor?.rig||!visitorSeat)return false;
   const transform=resolvedVisitorSeat();if(!transform||visitorSeat.bed&&transform.pose!=='bed'||transform.bed?.entry===false)return false;
   let front=entry||(transform.pose==='bed'?bedEntry:seatEntry)(transform,navMap(),[current().x*ROOM_STEP.x,current().z*ROOM_STEP.z]);
   if(!front&&current().items.find(i=>i.id===visitorSeat.itemId)?.assetId==='gaming_chair'){const map=navMap();for(const side of [-1,1])for(const diagonal of [0,.20])for(const distance of [.9,1.1,1.3,1.5,1.8,2]){const a=transform.rotation+side*Math.PI*(.5+diagonal),p=[transform.position[0]+Math.sin(a)*distance,.18,transform.position[2]+Math.cos(a)*distance];if(!front&&map.free(p[0]+current().x*ROOM_STEP.x,p[2]+current().z*ROOM_STEP.z))front=p;}}
@@ -775,8 +778,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  }
  function homeActionOptions(){
   if(!visitor||!(furnitureUser?furnitureUser.group.visible:resident.visible)||edit||overview)return [];
-  const otherSeat=furnitureUser?visitorSeat:socialEntries.find(e=>e.id==='user')?.parkedSeat;
-  const available=s=>!otherSeat||s.itemId!==otherSeat.itemId||s.seatId!==otherSeat.seatId;
+  const available=s=>!slotOccupiedByOther(s);
   const room=current(),options=activities().filter(a=>!a.reason&&a.roomId===room.id).map(a=>({kind:a.kind,label:a.label,data:{action:isBathAction(a.kind)?'chibi-bath':isMirrorAction(a.kind)?'chibi-mirror':'chibi-game',id:a.itemId,kind:a.kind,station:a.stationId||''}}));
   for(const item of room.items)for(const action of kitchenActions(room,catalog,item.id).filter(a=>!a.reason))options.push({kind:action.kind,label:action.label,data:{action:'chibi-kitchen',id:item.id,kind:action.kind}});
   for(const seat of roomSeats(room,catalog).filter(available))options.push({kind:'sit',label:'坐下休息',data:{action:'chibi-sit',id:seat.itemId,seat:seat.seatId}});
@@ -831,8 +833,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const sit=async(selected,actor='character')=>{
    if(!activate(actor))return false;
    if(visitorSeat&&!visitorSeat.bed&&(!selected||visitorSeat.itemId===selected.data.id&&visitorSeat.seatId===selected.data.seat))return true;if(!await rise(actor))return false;
-   const occupied=(furnitureUser||socialEntries.find(e=>e.id==='user'))?.parkedSeat;
-   const seats=roomSeats(current(),catalog).filter(seat=>!occupied||seat.itemId!==occupied.itemId||seat.seatId!==occupied.seatId).map(seat=>({kind:'sit',data:{action:'chibi-sit',id:seat.itemId,seat:seat.seatId}}));
+   const seats=roomSeats(current(),catalog).filter(seat=>!slotOccupiedByOther(seat)).map(seat=>({kind:'sit',data:{action:'chibi-sit',id:seat.itemId,seat:seat.seatId}}));
    const option=(selected?[selected]:seats).filter(a=>a.kind==='sit').map(a=>({a,pose:seatTransform(placementRoom(),catalog,{roomId:current().id,itemId:a.data.id,seatId:a.data.seat},true)})).filter(v=>v.pose).sort((a,b)=>Math.hypot(a.pose.position[0]-resident.position.x,a.pose.position[2]-resident.position.z)-Math.hypot(b.pose.position[0]-resident.position.x,b.pose.position[2]-resident.position.z))[0];
    if(!option)return false;
    const offset=[current().x*ROOM_STEP.x,current().z*ROOM_STEP.z],start=[resident.position.x+offset[0],resident.position.z+offset[1]],map=residentWalkMap(start);
@@ -938,11 +939,35 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    visitorSeat=null;visitorLocation=null;visitorMotion=next.kind;visitorStart=elapsed;visitorUntil=elapsed+currentActivity.duration+8;message='准备'+next.label;
   };message='走过去'+next.label;
  }
+ function approachSeat(seat,source='user',alternate=false){
+  if(visitorSeat||seatChange){notify('请先正常起身，再换另一个座位',true);return false;}
+  const room=current(),pose=seatTransform(placementRoom(),catalog,seat,!!visitor?.rig),offset=[room.x*ROOM_STEP.x,room.z*ROOM_STEP.z];
+  if(!pose||slotOccupiedByOther(seat)){notify('这个座位已经被占用，或点位尚未校准',true);return false;}
+  const start=[resident.position.x+offset[0],resident.position.z+offset[1]],map=residentWalkMap(start);
+  const front=seatEntry(pose,{free:(x,z)=>map.free(x,z)&&!!findWalkPath(map,start,[x,z])},offset);
+  if(!front){notify('座位前方没有可到达的安全站位',true);return false;}
+  if(!walkTo([front[0]+offset[0],front[2]+offset[1]]))return false;
+  walking.arrived=()=>{
+   const valid=room.id===current().id&&!slotOccupiedByOther(seat)&&roomSeats(current(),catalog).some(s=>s.itemId===seat.itemId&&s.seatId===seat.seatId);
+   const latest=valid&&seatTransform(placementRoom(),catalog,seat,!!visitor?.rig);
+   // An anchor may move while walking. Never snap to an obsolete world position.
+   if(!latest||Math.hypot(latest.position[0]-pose.position[0],latest.position[2]-pose.position[2])>.04||Math.abs(latest.rotation-pose.rotation)>.01){
+    notify('座位被占用或家具已移动，请重新选择',true);return;
+   }
+   visitorSeat={...seat,alternate:alternate&&!!visitor?.rig};
+   if(visitor?.rig&&!beginSeatChange(false,front)){visitorSeat=null;notify('座位进出空间不足，请先挪开障碍物',true);return;}
+   visitorMotion='idle';visitorStart=elapsed;visitorUntil=elapsed+4.4;
+   animateVisitor(0);recordHomeActivity('坐下休息',source);notify('走到座位旁，慢慢坐下');dirty=true;wake();renderUI();
+  };
+  return true;
+ }
  function approachBed(bed,source='user'){
+  if(visitorSeat||seatChange){notify('请先正常起身，再换床位',true);return;}
   stopWalking();
   gamingEffects.clear();kitchenEffects.updateMeal(null,0);
-  if(visitorSeat||visitorActivity||visitorPlant){visitorSeat=null;visitorActivity=null;visitorPlant=null;visitorLocation=null;visitorMotion='idle';placeVisitor();}
+  if(visitorActivity||visitorPlant){visitorActivity=null;visitorPlant=null;visitorLocation=null;visitorMotion='idle';placeVisitor();}
   const transform=body2BedTransform(seatTransform(placementRoom(),catalog,bed,true),visitor.bedHeadToHip,visitor.bedHipHeight),r=current(),offset=[r.x*ROOM_STEP.x,r.z*ROOM_STEP.z];
+  if(!transform?.bed||transform.bed.entry===false){notify('该床位尚未有安全进出路径，不能直接传送到床上',true);return;}
   const start=[resident.position.x+offset[0],resident.position.z+offset[1]];
   // A free endpoint alone is not enough: its side of the bed must be reachable.
   const map=residentWalkMap(start);
@@ -952,7 +977,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   walking.bed=true;
   walking.arrived=()=>{
    if(current().id!==bed.roomId||!roomBeds(current(),catalog).some(s=>s.itemId===bed.itemId&&s.seatId===bed.seatId))return;
-   visitorLocation=null;visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';beginSeatChange(false,front);recordHomeActivity(BED_LEISURE.find(([id])=>id===bed.bedMode)?.[1]||'上床休息',source);message='坐稳床沿，再慢慢躺下';
+   visitorLocation=null;visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';if(!beginSeatChange(false,front)){visitorSeat=null;notify('床沿进出空间不足，不能直接传送上床',true);return;}recordHomeActivity(BED_LEISURE.find(([id])=>id===bed.bedMode)?.[1]||'上床休息',source);message='坐稳床沿，再慢慢躺下';
   };
   notify('走到床边，准备休息');
  }
@@ -1734,25 +1759,24 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    edit=false;overview=false;selected=null;panel=null;placeVisitor();animateVisitor(reducedMotion?1:0);dirty=true;wake();recordHomeActivity('给植物浇水',d.recordSource);notify('找到空位啦，给绿植浇一点水');return;
   }
   if(d.action==='chibi-bed'&&visitor){
-   const occupied=(furnitureUser||socialEntries.find(e=>e.id==='user'))?.parkedSeat;if(occupied?.itemId===d.id&&occupied.seatId===d.seat){notify('这个床位已经有人躺着啦');return;}
+   if(slotOccupiedByOther({itemId:d.id,seatId:d.seat})){notify('这个床位已经有人躺着啦');return;}
    const found=roomBeds(current(),catalog).find(s=>s.itemId===d.id&&s.seatId===d.seat);if(!found)return;
    if(isBedLeisure(d.mode)&&(!visitor.rig||!visitorSeat?.bed||visitorSeat.itemId!==found.itemId||visitorSeat.seatId!==found.seatId||seatChange||walking))return;
    const bed={...found,...(visitor.rig&&isBedLeisure(d.mode)?{bedMode:d.mode,modeStart:elapsed}:{})};
    if(visitorSeat?.bed&&visitorSeat.itemId===bed.itemId&&visitorSeat.seatId===bed.seatId&&!seatChange){bed.bedFrom=visitorSeat.bedMode;bed.bedFromTime=elapsed-(visitorSeat.modeStart??elapsed);visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';visitorStart=elapsed;animateVisitor(0);recordHomeActivity(BED_LEISURE.find(([id])=>id===bed.bedMode)?.[1]||'睡一会儿',d.recordSource);dirty=true;wake();renderUI();return;}
    const bedProfile=visitor.rig&&seatTransform(placementRoom(),catalog,bed,true)?.bed;
-   if(bedProfile&&!reducedMotion&&bedProfile.entry!==false){approachBed(bed,d.recordSource);return;}
+   if(visitor.rig){if(!bedProfile||bedProfile.entry===false){notify('尚无安全的床位进出路径，不能直接传送',true);return;}approachBed(bed,d.recordSource);return;}
    stopWalking();visitorLocation=null;visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);visitorPlant=null;visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';visitorStart=elapsed;visitorUntil=elapsed+4.4;beginSeatChange(false);
    edit=false;overview=false;selected=null;panel=null;placeVisitor();animateVisitor(0);updateSelection();renderer.shadowMap.needsUpdate=true;recordHomeActivity(BED_LEISURE.find(([id])=>id===bed.bedMode)?.[1]||'上床休息',d.recordSource);notify(bed.bedMode?'躺好啦':'躺好啦，睡个好觉');return;
   }
-  if(d.action==='chibi-sit'&&visitor){stopWalking();visitorLocation=null;visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);
+  if(d.action==='chibi-sit'&&visitor){
    const seat=roomSeats(current(),catalog).find(s=>s.itemId===d.id&&s.seatId===d.seat);
-   if(!seat)return;visitorPlant=null;visitorSeat={...seat,alternate:d.alternate==='true'&&!!visitor.rig};visitorMotion='idle';visitorStart=elapsed;visitorUntil=elapsed+4.4;
-   beginSeatChange(false);
-   animateVisitor(0);edit=false;overview=false;selected=null;panel=null;placeVisitor();updateSelection();renderer.shadowMap.needsUpdate=true;
-   recordHomeActivity('坐下休息',d.recordSource);notify(currentSeatPose()?.seatPose==='floor'?'双脚放好，在软垫上歇一会儿':'坐好啦，小脚晃不到地面');return;
+   if(!seat)return;
+   approachSeat(seat,d.recordSource,d.alternate==='true');
+   return;
   }
   if(d.action==='chibi-bed-mode'&&visitor?.rig&&visitorSeat?.bed&&!seatChange){visitorSeat.bedFrom=visitorSeat.bedMode;visitorSeat.bedFromTime=elapsed-(visitorSeat.modeStart??elapsed);visitorSeat.bedMode=isBedLeisure(d.value)?d.value:undefined;visitorSeat.modeStart=elapsed;visitorMotion=visitorSeat.bedMode?'idle':'sleep';visitorStart=elapsed;animateVisitor(0);recordHomeActivity(BED_LEISURE.find(([id])=>id===d.value)?.[1]||'睡一会儿',d.recordSource);dirty=true;wake();renderUI();return;}
-  if(d.action==='chibi-stand'&&visitor){visitorPlant=null;visitorMotion='idle';if(!beginSeatChange(true)){visitorSeat=null;visitorStart=elapsed;visitorUntil=0;}placeVisitor();animateVisitor(0);dirty=true;wake();renderUI();return}
+  if(d.action==='chibi-stand'&&visitor){visitorPlant=null;visitorMotion='idle';if(visitorSeat&&visitor.rig&&!beginSeatChange(true)){notify('出口被挡住，先给家具旁边留出安全起身的位置',true);return;}if(visitorSeat&&!visitor.rig){visitorSeat=null;visitorStart=elapsed;visitorUntil=0;}placeVisitor();animateVisitor(0);dirty=true;wake();renderUI();return}
   if(d.action==='chibi-motion'&&visitor){
    if(visitorSeat?.bed&&d.value==='sleep'){visitorSeat.bedFrom=visitorSeat.bedMode;visitorSeat.bedFromTime=elapsed-(visitorSeat.modeStart??elapsed);visitorSeat.bedMode=undefined;visitorSeat.modeStart=elapsed;}
    if(['yoga','wave-alternate-1','wave-alternate-2'].includes(d.value)&&!visitor.rig){notify('这组动作适用于二号素体',true);return;}
@@ -1852,7 +1876,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  actionOrbit.addEventListener('click',action,{signal:abort.signal});
  ui.addEventListener('change',e=>{const input=e.target;if(input.matches?.('[data-showroom-palette]')){showroomPalette=input.value;return;}if(input.matches?.('[data-material-color]')){const i=item(),name=input.dataset.materialColor;if(i&&i.materialColors?.[name]!==input.value&&validFurnitureColor(input.value)&&asset(i.assetId).colorParts?.some(p=>p.material===name)){const color=input.value;commit(()=>{const target=selectedOwner().items.find(v=>v.id===selected);target.materialColors={...target.materialColors,[name]:color};});}return;}if(input.matches?.('[data-catalog-category]')){if(input.value==='all'||input.value in USE_CATEGORIES){category=input.value;renderUI();}return;}if(!input.matches?.('[data-furniture-color]')||!validFurnitureColor(input.value)||!item())return;const color=input.value;commit(()=>{setFurniturePrimaryColor(selectedOwner().items.find(v=>v.id===selected),asset(item().assetId),color);});},{signal:abort.signal});
  function closeInteraction(){interaction=null;actionOrbit.hidden=true;actionOrbit.replaceChildren();}
- function interactionOptions(id){return furnitureInteractions(current(),catalog,id,{activities:activities(),seat:visitorSeat,held:heldPlush,active:visitorActivity||kitchenTask,fridgeOpen:kitchenEffects.isOpen(id),clearance:visitorClearance(),body2:!!visitor?.rig,transitioning:!!seatChange||!!walking});}
+ function interactionOptions(id){return furnitureInteractions(current(),catalog,id,{activities:activities(),seat:visitorSeat,held:heldPlush,active:visitorActivity||kitchenTask,fridgeOpen:kitchenEffects.isOpen(id),clearance:visitorClearance(),body2:!!visitor?.rig,transitioning:!!seatChange||!!walking,occupiedSeats:otherFurnitureOccupants()});}
  function openInteraction(id){
   if(interaction?.itemId===id){closeInteraction();return;}
   closeInteraction();const owner=state.rooms.find(r=>r.items.some(i=>i.id===id&&!i.stored));if(!owner)return;
