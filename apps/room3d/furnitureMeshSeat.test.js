@@ -1,6 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
 import catalog from '../../public/room3d/catalog.json';
+import {roomSeats} from './seating.js';
 
 // Geometry evidence for authored anchors, NOT a runtime pelvis/foot IK or exit test.
 // These two GLBs use untransformed mesh primitives in catalog-local coordinates.
@@ -51,5 +52,18 @@ describe('actual GLB surfaces under bedroom bench seat anchors',()=>{
    expect(y).not.toBeNull();
    expect(y).toBeCloseTo(point.position[1],2);
   }
+ });
+});
+
+// The reference bedroom's sleeping cat is a separate supported tabletop item;
+// it must block the overlapping seat rather than make the resident clip through it.
+describe('bench seats with real supported decoration',()=>{
+ it('keeps the free slot and removes the one overlapped by the sleeping cat',()=>{
+  const bench={id:'bench',assetId:'bedroom_ref_bench',x:.55,y:.15,z:.21,rotation:0,stored:false};
+  const cat={id:'cat',assetId:'bedroom_ref_sleeping_cat',x:.85,y:.15+.5325,z:.21,rotation:0,stored:false,supportId:'bench'};
+  const room={id:'r',items:[bench,cat]};
+  expect(roomSeats(room,catalog).map(s=>s.seatId)).toEqual(['left']);
+  room.items=[bench];
+  expect(roomSeats(room,catalog).map(s=>s.seatId)).toEqual(['left','right']);
  });
 });
