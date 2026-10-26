@@ -57,6 +57,12 @@ it('world-space planted toe IK reduces real moving-rig drift at rotated headings
   root.scale.setScalar(2.8/BLANK_SCALE);root.rotation.y=angle;root.add(body);body.add(mesh,hair);
   const rig=bindBlankBody(mesh,hair,true),animate=createBlankMotion(rig,body,{walk:approvedRoomWalk});
   const clock=createDistanceWalkClock(),lock=createWorldFootLock();
+  const translatePose=(delta:T.Vector3)=>{
+   const from=root.worldToLocal(new T.Vector3());
+   const to=root.worldToLocal(delta.clone());
+   body.position.add(to.sub(from));
+   root.updateWorldMatrix(true,true);
+  };
   const speed=roomWalkSpeed(approvedRoomWalk,rig.bones)*root.scale.y;
   const initialLengths=rig.skeleton.bones.map(b=>b.position.length());
   let raw=0,corrected=0,tracked=0,relocks=0;
@@ -68,7 +74,7 @@ it('world-space planted toe IK reduces real moving-rig drift at rotated headings
    root.updateWorldMatrix(true,true);
    const side=lock.supportSide,target=lock.targetWorld;
    const before=side&&target?rig.bones[side+'_toe'].getWorldPosition(new T.Vector3()).distanceTo(target):0;
-   lock.apply({root,rig},time,speed);
+   lock.apply({root,rig,translatePose},time,speed);
    const stillSameTarget=side!==null&&side===lock.supportSide&&target!==null&&
     lock.targetWorld!.distanceTo(target)<1e-9;
    if(stillSameTarget&&before>.004){
