@@ -40,7 +40,7 @@ for(const file of checked){
  try{
   oldFiles.set(path.resolve(file),execFileSync('git',['show',`${baselineRef}:${file}`],{cwd,encoding:'utf8'}));
  }catch(e){
-  if(file!=='utils/chibiMotionRecovery.test.ts')throw Error('Baseline source unavailable for '+file+' ('+String(e).slice(0,80)+')');
+  if(!['utils/chibiMotionRecovery.test.ts','utils/chibiAllSelectedMotionAssets.test.ts'].includes(file))throw Error('Baseline source unavailable for '+file+' ('+String(e).slice(0,80)+')');
  }
 }
 const paths=new Set(checked.map(file=>path.resolve(file)));
