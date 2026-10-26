@@ -1,6 +1,7 @@
 import {it,expect} from 'vitest';
 import * as T from 'three';
 import {sampleSocialApproach} from '../apps/room3d/chibi/selectedSocial';
+import {boundArmWristReach} from '../apps/room3d/chibi/socialContact';
 import {motionContactProfiles} from '../apps/room3d/chibi/motionContactProfiles';
 import {motionTemplateConstraintPlans,motionTemplateFor} from '../apps/room3d/chibi/motionTemplates';
 import {createMotionConstraintPipeline} from '../apps/room3d/chibi/motionConstraintPipeline';
@@ -68,4 +69,21 @@ it('social approach has deterministic acceleration, deceleration and continuous 
  const stationary=sampleSocialApproach([path[0],path[0]],2,duration);
  expect(stationary.speed).toBe(0);
  expect(stationary.heading).toBeNull();
+});
+
+it('clamps unreachable arm contacts to real segment reach without moving the person',()=>{
+ const shoulder=new T.Vector3(.4,1.5,-.2),elbow=new T.Vector3(.72,1.5,-.2),wrist=new T.Vector3(1.01,1.5,-.2);
+ const unreachable=new T.Vector3(4,2.6,-.6),copy=unreachable.clone(),original=shoulder.clone();
+ const result=boundArmWristReach(shoulder,elbow,wrist,unreachable);
+ expect(result.clamped).toBe(true);
+ const maximum=(shoulder.distanceTo(elbow)+elbow.distanceTo(wrist))*.985;
+ expect(result.target.distanceTo(shoulder)).toBeCloseTo(maximum,7);
+ expect(result.target.clone().sub(shoulder).normalize().dot(unreachable.clone().sub(shoulder).normalize())).toBeCloseTo(1,7);
+ expect(shoulder).toEqual(original);
+ expect(unreachable).toEqual(copy);
+ const reachable=new T.Vector3(.8,1.5,-.2);
+ const normal=boundArmWristReach(shoulder,elbow,wrist,reachable);
+ expect(normal.clamped).toBe(false);
+ expect(normal.target).toEqual(reachable);
+ expect(normal.target).not.toBe(reachable);
 });
