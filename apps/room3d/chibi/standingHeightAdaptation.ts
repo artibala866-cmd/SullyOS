@@ -30,14 +30,8 @@ export type StandingHeightPlan=Readonly<{
 }>;
 const clamp=T.MathUtils.clamp;
 const smooth=T.MathUtils.smootherstep;
-const FLOOR_BONES=['L_foot','R_foot','L_toe','R_toe'] as const;
 const vec=()=>new T.Vector3();
 function crown(v:ChibiVisitor){return v.getHeadTopWorldPosition();}
-function footFloor(v:ChibiVisitor):number|null{
- if(!v.rig)return null;
- v.root.updateWorldMatrix(true,true);
- return Math.min(...FLOOR_BONES.map(n=>v.rig!.bones[n].getWorldPosition(vec()).y));
-}
 function shoulder(v:ChibiVisitor,side:'L'|'R'){
  return v.rig?.bones[side+'_upperArm']?.getWorldPosition(vec())??null;
 }
