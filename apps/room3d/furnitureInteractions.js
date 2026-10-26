@@ -8,9 +8,9 @@ import {mirrorActivities,isMirrorAction} from './mirror.js';
 import {validatedFurnitureStations} from './furnitureStationRegistry.js';
 
 // Describe real, existing actions. No name-based guesses and no saved UI state.
-export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,transitioning=false,occupiedSeats=[]}={}){
+export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,transitioning=false,occupiedSeats=[],kitchenPlanner=null}={}){
  const item=room.items.find(i=>i.id===itemId&&!i.stored),a=catalog.find(a=>a.id===item?.assetId);if(!a)return [];
- const result=kitchenActions(room,catalog,itemId),add=(action,label,extra={},reason='')=>result.push({action,label,id:itemId,...extra,reason});
+ const result=kitchenActions(room,catalog,itemId).map(action=>{const planned=!action.reason&&kitchenPlanner?kitchenPlanner(itemId):null;return planned?.reason?{...action,reason:planned.reason}:action;}),add=(action,label,extra={},reason='')=>result.push({action,label,id:itemId,...extra,reason});
  const free=slot=>!occupiedSeats.some(s=>s?.itemId===slot.itemId&&s.seatId===slot.seatId);
  for(const b of roomBeds(room,catalog).filter(b=>b.itemId===itemId&&free(b))){
   const label=a.beds.find(s=>s.id===b.seatId)?.label||'';
