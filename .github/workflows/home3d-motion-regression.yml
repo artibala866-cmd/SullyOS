@@ -42,6 +42,15 @@ jobs:
           apps/room3d/chibi/standingHeightAdaptation.test.ts
           apps/room3d/chibi/motionContactProfiles.test.ts
           apps/room3d/chibi/hugArmClearance.test.ts
+          apps/room3d/chibi/headPatMotion.test.ts
+          apps/room3d/chibi/rearHugMotion.test.ts
+          apps/room3d/chibi/handHoldPleadMotion.test.ts
+          apps/room3d/chibi/sofaLapPillowMotion.test.ts
+          apps/room3d/chibi/templateFaceContact.test.ts
+          apps/room3d/chibi/faceContactProfiles.test.ts
+          apps/room3d/chibi/socialPropsTemplate.test.ts
+          apps/room3d/navigation.test.js
+          apps/room3d/socialSpace.test.js
       - name: Fetch baseline for incremental TypeScript comparison
         run: git fetch --no-tags --depth=1 origin feat/amaama-unity-retarget-probe:refs/remotes/origin/feat/amaama-unity-retarget-probe
       - name: Check new TypeScript errors in modified Home3D files
