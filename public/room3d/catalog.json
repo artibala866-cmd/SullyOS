@@ -213,6 +213,18 @@
     ],
     "paintMaterials": [
       "blush"
+    ],
+    "seats": [
+      {
+        "id": "center",
+        "label": "椅面",
+        "position": [
+          0,
+          0.545,
+          -0.03
+        ],
+        "rotation": 180
+      }
     ]
   },
   {
@@ -413,6 +425,18 @@
     "paintMaterials": [
       "blush",
       "lavender"
+    ],
+    "seats": [
+      {
+        "id": "center",
+        "label": "花心坐位",
+        "position": [
+          0,
+          0.39,
+          0
+        ],
+        "rotation": 0
+      }
     ]
   },
   {
