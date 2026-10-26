@@ -5,6 +5,7 @@ import {bindBlankBody} from '../apps/room3d/chibi/blankRig';
 import {createBlankMotion} from '../apps/room3d/chibi/blankMotion';
 import {bodyHeightY} from '../apps/room3d/chibi/bodyHeight';
 import {createDistanceWalkClock,createRoomWalkSampler,roomWalkSpeed} from '../apps/room3d/chibi/roomWalk';
+import {createWorldFootLock} from '../apps/room3d/chibi/legContactIK';
 import {approvedRoomWalk} from '../apps/room3d/chibi/approvedRoomWalk';
 
 it('plays the selected Meshy walk on the real rig with fixed bone lengths and grounded lower ankle, then restores idle',()=>{
@@ -47,4 +48,40 @@ it('distance clock agrees at 30/60/120 Hz and resets discontinuities',()=>{
  point.x=100;expect(clock.sample(point,.5,1)).toBeCloseTo(.25,8);
  expect(clock.sample(point,-1,1)).toBe(0);
  clock.reset();expect(clock.sample(point,0,1)).toBe(0);
+});
+
+it('world-space planted toe IK reduces real moving-rig drift at rotated headings',()=>{
+ for(const bodyHeight of [.8,1,1.25])for(const angle of [0,Math.PI/2]){
+  const root=new T.Group(),body=new T.Group(),hair=new T.Group();
+  const mesh=new T.Mesh(createBlankBody('skin',{bodyHeight}),new T.MeshBasicMaterial());
+  root.scale.setScalar(2.8/BLANK_SCALE);root.rotation.y=angle;root.add(body);body.add(mesh,hair);
+  const rig=bindBlankBody(mesh,hair,true),animate=createBlankMotion(rig,body,{walk:approvedRoomWalk});
+  const clock=createDistanceWalkClock(),lock=createWorldFootLock();
+  const speed=roomWalkSpeed(approvedRoomWalk,rig.bones)*root.scale.y;
+  const initialLengths=rig.skeleton.bones.map(b=>b.position.length());
+  let anchor:T.Vector3|null=null,side:'L'|'R'|null=null,raw=0,corrected=0,tracked=0;
+  for(let i=0;i<=90;i++){
+   const time=i/60;
+   root.position.set(Math.sin(angle)*time*speed,0,Math.cos(angle)*time*speed);
+   root.updateWorldMatrix(true,true);
+   animate(clock.sample(root.getWorldPosition(new T.Vector3()),time,speed),'walk','standing');
+   root.updateWorldMatrix(true,true);
+   if(side&&anchor){
+    const now=rig.bones[side+'_toe'].getWorldPosition(new T.Vector3());
+    const rawDistance=now.distanceTo(anchor);
+    lock.apply({root,rig},time,speed);
+    if(lock.supportSide===side&&rawDistance>.004){
+     const after=rig.bones[side+'_toe'].getWorldPosition(new T.Vector3()).distanceTo(anchor);
+     raw+=rawDistance;corrected+=after;tracked++;
+    }
+   }else lock.apply({root,rig},time,speed);
+   if(side!==lock.supportSide){side=lock.supportSide;anchor=side?rig.bones[side+'_toe'].getWorldPosition(new T.Vector3()):null;}
+   expect(rig.skeleton.bones.map(b=>b.position.length())).toEqual(initialLengths);
+  }
+  expect(tracked).toBeGreaterThan(5);
+  expect(corrected).toBeLessThan(raw*.5);
+  lock.reset();
+  expect(lock.supportSide).toBeNull();
+  mesh.geometry.dispose();mesh.material.dispose();rig.skeleton.dispose();
+ }
 });
