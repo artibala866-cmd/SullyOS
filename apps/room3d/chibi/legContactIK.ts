@@ -75,7 +75,7 @@ export function createWorldFootLock(){
  let previousTime:number|null=null;
  const reset=()=>{side=null;previousTime=null;};
  return {reset,get supportSide(){return side;},get targetWorld(){return side?locked.clone():null;},apply(
-  v:Pick<ChibiVisitor,'root'|'rig'>,time:number,speed:number,walking=true
+  v:Pick<ChibiVisitor,'root'|'rig'> & {translatePose?:(delta:T.Vector3)=>void},time:number,speed:number,walking=true
  ){
   if(!walking||!v.rig||!Number.isFinite(time)||!Number.isFinite(speed)||speed<=0){reset();return;}
   v.root.updateWorldMatrix(true,true);
@@ -101,5 +101,17 @@ export function createWorldFootLock(){
   // Walking needs stronger convergence than one-shot head/seat adjustments.
   // Fixed bone lengths; only the existing thigh and shin rotate.
   settleLegContact(v,side,locked,.95,{iterations:6,maxAngle:.12});
+  // IK cannot correct an unreachable toe by bending knees alone. A bounded
+  // pelvis-layer counter-shift carries the remaining stance error without
+  // moving the navigation root or stretching any bone. The authored base pose
+  // is restored on each animation sample; this correction has no stored drift.
+  if(v.translatePose){
+   const actual=v.rig.bones[side+'_toe'].getWorldPosition(new T.Vector3());
+   const residual=locked.clone().sub(actual);
+   if(residual.lengthSq()>.000025){
+    const hipStep=residual.multiplyScalar(.72).clampLength(0,.045);
+    v.translatePose(hipStep);
+   }
+  }
  }};
 }
