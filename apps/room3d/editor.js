@@ -84,7 +84,7 @@ import {roomSeats,roomBeds,seatTransform} from './seating.js';
 import {wallFaces,mountOnFace,wallPlacementError} from './wallMount.js';
 import {wateringSpot,roomPlants} from './watering.js';
 import {createWateringEffect} from './wateringEffect.js';
-import {seatEntry,seatChangePose} from './seatChange.js';
+import {seatEntry,seatEntryCandidates,seatChangePose} from './seatChange.js';
 import {body2BedTransform,bedEntry,bedEdge} from './bedMotion.js';
 import {seatChangeDuration} from './chibi/roomMotionFrame.ts';
 import {meshyMotions} from './chibi/meshyMotions';
@@ -359,7 +359,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   return validatedFurnitureStations(placementRoom(),catalog,[...gamingActivities(placementRoom(),catalog,{headWidth,body2:!!visitor?.rig,...visitor?.gamingReach}),...diningActivities(placementRoom(),catalog,{headWidth}),...mirrorActivities(placementRoom(),catalog,{...visitorClearance(),headWidth,canStand,body2:!!visitor?.rig}),...bathroomActivities(placementRoom(),catalog,{headWidth,body2:!!visitor?.rig})],otherFurnitureOccupants());
  };
  function stopMirror(){if(!isMirrorAction(visitorActivity?.kind)&&!isBathAction(visitorActivity?.kind))return;if(visitorActivity?.bathJourney)finishBathroom();visitorActivity=null;visitorMotion='idle';visitorUntil=0;gamingEffects.clear();visitor?.animate(0,'idle');message='镜前动作结束啦';dirty=true;wake();}
- let kitchenTask=null,seatChange=null;
+ let kitchenTask=null,seatChange=null,seatAccess=null;
  function cancelKitchen(){if(kitchenTask){visitorMotion='idle';visitorUntil=0;resident.position.y=.18;}kitchenTask=null;kitchenWork.clear();}
  const visitorClearance=()=>visitor?.navigation?{...visitor.navigation,headWidth}:undefined;
  const navMap=()=>{
@@ -439,9 +439,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function beginSeatChange(rising,entry){
   if(!visitor?.rig||!visitorSeat)return false;
   const transform=resolvedVisitorSeat();if(!transform||visitorSeat.bed&&transform.pose!=='bed'||transform.bed?.entry===false)return false;
-  let front=entry||(transform.pose==='bed'?bedEntry:seatEntry)(transform,navMap(),[current().x*ROOM_STEP.x,current().z*ROOM_STEP.z]);
-  if(!front&&current().items.find(i=>i.id===visitorSeat.itemId)?.assetId==='gaming_chair'){const map=navMap();for(const side of [-1,1])for(const diagonal of [0,.20])for(const distance of [.9,1.1,1.3,1.5,1.8,2]){const a=transform.rotation+side*Math.PI*(.5+diagonal),p=[transform.position[0]+Math.sin(a)*distance,.18,transform.position[2]+Math.cos(a)*distance];if(!front&&map.free(p[0]+current().x*ROOM_STEP.x,p[2]+current().z*ROOM_STEP.z))front=p;}}
+  const r=current(),offset=[r.x*ROOM_STEP.x,r.z*ROOM_STEP.z],selected=visitorSeat,access=seatAccess;
+  const remembered=rising&&access?.roomId===r.id&&access.itemId===selected.itemId&&access.seatId===selected.seatId&&sameStationPose(access.pose,transform)?access.front:null;
+  const map=residentWalkMap([resident.position.x+offset[0],resident.position.z+offset[1]]);
+  // A remembered access position is used only while still clear of furniture and neighbours.
+  const front=entry?(map.free(entry[0]+offset[0],entry[2]+offset[1])?entry:null)
+   :transform.pose==='bed'?bedEntry(transform,map,offset)
+   :seatEntry(transform,map,offset,{allowSides:true,preferred:remembered});
   if(!front)return false;
+  if(!rising)seatAccess={roomId:r.id,itemId:selected.itemId,seatId:selected.seatId,pose:transform,front:[...front]};
   const edge=transform.pose==='bed'?bedEdge(transform,front):null;
   seatChange={rising,bedFrom:rising?visitorSeat.bedMode:undefined,bedFromTime:elapsed-(visitorSeat.modeStart??elapsed),front,sleepStart:transform.sleepStart,seat:transform.position,rotation:transform.rotation,edge,startRotation:rising?edge?.rotation:resident.rotation.y,pose:transform.pose,start:elapsed};
   visitorStart=elapsed;visitorUntil=elapsed+seatChangeDuration(transform.pose)+.2;return true;
@@ -908,10 +914,10 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!transform){notify('座位点位已经失效，请重新选择',true);return;}
   const start=[resident.position.x+offset[0],resident.position.z+offset[1]],candidates=[];
   // Approach from either side: the front of a computer chair is occupied by its desk.
-  for(const side of [-1,1])for(const diagonal of [0,.20])for(const distance of [.9,1.1,1.3,1.5,1.8,2]){
-   const a=transform.rotation+side*Math.PI*(.5+diagonal),p=[transform.position[0]+Math.sin(a)*distance,.18,transform.position[2]+Math.cos(a)*distance];
+  for(const p of seatEntryCandidates(transform,{allowSides:true,sideFirst:true})){
    if(!map.free(p[0]+offset[0],p[2]+offset[1]))continue;
-   const path=findWalkPath(map,start,[p[0]+offset[0],p[2]+offset[1]]);if(path)candidates.push({p,length:path.reduce((sum,v,i)=>sum+(i?Math.hypot(v[0]-path[i-1][0],v[1]-path[i-1][1]):0),0)});
+   const path=findWalkPath(map,start,[p[0]+offset[0],p[2]+offset[1]]);
+   if(path)candidates.push({p,length:path.reduce((sum,v,i)=>sum+(i?Math.hypot(v[0]-path[i-1][0],v[1]-path[i-1][1]):0),0)});
   }
   candidates.sort((a,b)=>a.length-b.length);const front=candidates[0]?.p;
   if(!front){notify('椅子旁没有能走到的空位，先留一点坐下的空间',true);return;}
@@ -949,7 +955,8 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const room=current(),pose=seatTransform(placementRoom(),catalog,seat,!!visitor?.rig),offset=[room.x*ROOM_STEP.x,room.z*ROOM_STEP.z];
   if(!pose||slotOccupiedByOther(seat)){notify('这个座位已经被占用，或点位尚未校准',true);return false;}
   const start=[resident.position.x+offset[0],resident.position.z+offset[1]],map=residentWalkMap(start);
-  const front=seatEntry(pose,{free:(x,z)=>map.free(x,z)&&!!findWalkPath(map,start,[x,z])},offset);
+  const chair=room.items.find(i=>i.id===seat.itemId);
+  const front=seatEntry(pose,{free:(x,z)=>map.free(x,z)&&!!findWalkPath(map,start,[x,z])},offset,{allowSides:!!chair?.dockId});
   if(!front){notify('座位前方没有可到达的安全站位',true);return false;}
   if(!walkTo([front[0]+offset[0],front[2]+offset[1]]))return false;
   walking.arrived=()=>{
@@ -1118,7 +1125,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    seatPose=seatChange.pose==='bed'?{kind:'bed-change',hands:[],bedFrom:seatChange.bedFrom,bedFromTime:seatChange.bedFromTime,bedTime:elapsed-seatChange.start,bedWeight:f.weight,bedRecline:f.recline,bedLegLift:f.legLift,bedStep:f.stepping,...(f.clipBlend>0?{clip:'sleep',clipTime:f.recline*meshyMotions.sleep.duration,clipWeight:f.clipBlend}:{})}:{...currentSeatPose(),kind:'seat-change',hands:[],seatWeight:f.weight,seatLean:f.lean,seatFold:f.fold,seatSupport:f.support};
    renderer.shadowMap.needsUpdate=true;
    if(f.done){
-    if(seatChange.rising){visitorSeat=null;visitorLocation={x:resident.position.x+current().x*ROOM_STEP.x,z:resident.position.z+current().z*ROOM_STEP.z,level:current().level};}
+    if(seatChange.rising){visitorSeat=null;seatAccess=null;visitorLocation={x:resident.position.x+current().x*ROOM_STEP.x,z:resident.position.z+current().z*ROOM_STEP.z,level:current().level};}
     const pendingActivity=seatChange.pendingActivity;visitorMotion=seatChange.pose==='bed'&&!seatChange.rising&&!visitorSeat?.bedMode?'sleep':'idle';if(visitorSeat?.bed)visitorSeat.modeStart=elapsed;seatChange=null;
     if(pendingActivity){startDeskActivity(pendingActivity);seatPose=null;time=0;}renderUI();
    }
