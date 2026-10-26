@@ -159,11 +159,20 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
   both[index].solver?.({side,point:target,direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(facing),normal:new T.Vector3(0,1,0).applyQuaternion(facing),curl},p.contact);
  };
  const carrierSupport=captureLegSupport(a);
+ // Maintain a small grounded load response throughout the lift and hold.
+ // Scale its amount by actual torso lengths, not by an assumed avatar height.
+ // This is a bounded kinematic counterbalance, NOT a simulated mass system.
+ const carrierTorso=point(a,'chest').distanceTo(point(a,'hips'));
+ const recipientTorso=point(b,'chest').distanceTo(point(b,'hips'));
+ const sizeRatio=T.MathUtils.clamp(recipientTorso/Math.max(.01,carrierTorso),.7,1.35);
+ const loadedKnee=p.lift*.085*sizeRatio,flex=p.crouch+loadedKnee;
  for(const side of ['L','R'] as const){
-  turn(a,side+'_thigh',rotation(-p.crouch,0,(side==='L'?-.05:.05)*p.contact),1);
-  turn(a,side+'_shin',rotation(p.crouch*2),1);
-  turn(a,side+'_foot',rotation(-p.crouch),1);
+  turn(a,side+'_thigh',rotation(-flex,0,(side==='L'?-.05:.05)*p.contact),1);
+  turn(a,side+'_shin',rotation(flex*2),1);
+  turn(a,side+'_foot',rotation(-flex),1);
  }
+ a.rig.bones.spine.quaternion.multiply(rotation(-loadedKnee*.7));
+ a.rig.bones.chest.quaternion.multiply(rotation(loadedKnee*.42));
  a.root.updateWorldMatrix(true,true);restoreLegSupport(a,carrierSupport);
  // The recipient turns across the carrier, folds both knees, then rises into the arms.
  turn(b,'hips',rotation(0,Math.PI/2,0).multiply(rotation(-.45)),p.lift);
