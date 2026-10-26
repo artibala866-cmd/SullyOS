@@ -41,7 +41,7 @@ export function captureLegSupport(v:ChibiVisitor){
 }
 /** Reconcile planted toes and original sole direction after a skeletal pose.
  * Keep the new bending of knees, but avoid sliding or rolling planted feet. */
-export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captureLegSupport>,preserveFootDirection=true){
+export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captureLegSupport>,preserveFootDirection=true,maxCorrection=.16){
  if(!v.rig||!support)return 0;
  v.root.updateWorldMatrix(true,true);
  for(const [i,side] of (['L','R'] as const).entries()){
@@ -56,7 +56,7 @@ export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captu
   v.rig!.bones[side+'_toe'].getWorldPosition(new T.Vector3()).y,
   v.rig!.bones[side+'_foot'].getWorldPosition(new T.Vector3()).y,
  ]));
- const correction=T.MathUtils.clamp(support.ground-ground,-.16,.16);
+ const correction=T.MathUtils.clamp(support.ground-ground,-maxCorrection,maxCorrection);
  if(Math.abs(correction)>1e-5)v.translatePose(new T.Vector3(0,correction,0));
  v.root.updateWorldMatrix(true,true);
  return correction;
