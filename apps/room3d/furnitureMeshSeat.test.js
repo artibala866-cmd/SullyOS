@@ -43,6 +43,31 @@ function highestSurfaceAt(triangles,x,z){
  }
  return height;
 }
+// Raised mattresses are vertically layered. The highest ray hit is often the
+// upper bunk even when auditing the lower bunk; compare all mesh intersections.
+function surfaceLevelsAt(triangles,x,z){
+ const levels=[];
+ for(const [a,b,c] of triangles){
+  const det=(b[2]-c[2])*(a[0]-c[0])+(c[0]-b[0])*(a[2]-c[2]);
+  if(Math.abs(det)<1e-7)continue;
+  const u=((b[2]-c[2])*(x-c[0])+(c[0]-b[0])*(z-c[2]))/det,
+   v=((c[2]-a[2])*(x-c[0])+(a[0]-c[0])*(z-c[2]))/det,w=1-u-v;
+  if(u<-.00001||v<-.00001||w<-.00001)continue;
+  levels.push(u*a[1]+v*b[1]+w*c[1]);
+ }
+ return levels;
+}
+describe('real bunk and loft bed anchors (geometry only, climbing not approved)',()=>{
+ for(const id of ['bedroom_bunk','bedroom_loft'])it(id+' authored mattress points intersect actual layered mesh',()=>{
+  const asset=catalog.find(a=>a.id===id),triangles=geometry(asset);
+  expect(triangles.length).toBeGreaterThan(1000);
+  for(const point of asset.beds){
+   const levels=surfaceLevelsAt(triangles,point.position[0],point.position[2]);
+   expect(levels.length).toBeGreaterThan(0);
+   expect(Math.min(...levels.map(y=>Math.abs(y-point.position[1])))).toBeLessThan(.15);
+  }
+ });
+});
 describe('actual GLB surfaces under bedroom bench seat anchors',()=>{
  for(const id of ['show_bedroom_bench','bedroom_ref_bench'])it(id+' seats land on highest continuous top surface',()=>{
   const asset=catalog.find(a=>a.id===id),triangles=geometry(asset);
