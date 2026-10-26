@@ -44,7 +44,7 @@ import {homelyFrame} from './homelyView';
 import {homelyMusicPose} from './homelyPresence';
 import {createHomelyForeground} from './homelyForeground.js';
 import {furnitureInteractions,interactionArcLayout} from './furnitureInteractions.js';
-import {validatedFurnitureStations} from './furnitureStationRegistry.js';
+import {validatedFurnitureStations,sameStationPose} from './furnitureStationRegistry.js';
 import {mirrorActivities,isMirrorAction} from './mirror.js';
 import {createMirrorJourney,mirrorJourneyFrame} from './mirrorJourney.js';
 import {SHOWROOMS,addShowroom,applyShowroomStyle} from './showrooms.js';
@@ -905,6 +905,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function approachDeskActivity(next){
   if(visitorSeat?.itemId===next.seat.itemId&&visitorSeat?.seatId===next.seat.seatId&&!seatChange){stopWalking();startDeskActivity(next);return;}
   const transform=seatTransform(placementRoom(),catalog,next.seat,true),r=current(),offset=[r.x*ROOM_STEP.x,r.z*ROOM_STEP.z],map=navMap();
+  if(!transform){notify('座位点位已经失效，请重新选择',true);return;}
   const start=[resident.position.x+offset[0],resident.position.z+offset[1]],candidates=[];
   // Approach from either side: the front of a computer chair is occupied by its desk.
   for(const side of [-1,1])for(const diagonal of [0,.20])for(const distance of [.9,1.1,1.3,1.5,1.8,2]){
@@ -916,10 +917,12 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!front){notify('椅子旁没有能走到的空位，先留一点坐下的空间',true);return;}
   if(!walkTo([front[0]+offset[0],front[2]+offset[1]]))return;
   walking.arrived=()=>{
-   const currentActivity=activities().find(a=>a.itemId===next.itemId&&a.kind===next.kind&&a.stationId===next.stationId&&!a.reason);if(!currentActivity)return;currentActivity.recordSource=next.recordSource;
-   visitorLocation=null;visitorSeat=currentActivity.seat;visitorMotion='idle';
-   if(beginSeatChange(false,front)){seatChange.pendingActivity=currentActivity;message='先坐好，再'+currentActivity.label;}
-   else startDeskActivity(currentActivity);
+   const currentActivity=activities().find(a=>a.itemId===next.itemId&&a.kind===next.kind&&a.stationId===next.stationId&&!a.reason);
+   const latest=currentActivity?.seat&&seatTransform(placementRoom(),catalog,currentActivity.seat,true);
+   if(!currentActivity||!sameStationPose(next,currentActivity)||!sameStationPose(transform,latest)){notify('设备或座椅位置已经变化，请重新操作',true);return;}
+   currentActivity.recordSource=next.recordSource;visitorLocation=null;visitorSeat=currentActivity.seat;visitorMotion='idle';
+   if(!beginSeatChange(false,front)){visitorSeat=null;notify('座椅入口不安全，不能直接跳到椅子上',true);return;}
+   seatChange.pendingActivity=currentActivity;message='先坐好，再'+currentActivity.label;
   };
   notify('走到座椅旁');
  }
@@ -935,7 +938,8 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!front){notify('家具前没有能走到的空位，先留一点进出的空间',true);return;}
   if(!walkTo([front[0]+ox,front[2]+oz]))return;
   walking.arrived=()=>{
-   const currentActivity=activities().find(a=>a.itemId===next.itemId&&a.kind===next.kind&&a.stationId===next.stationId&&!a.reason);if(!currentActivity)return;
+   const currentActivity=activities().find(a=>a.itemId===next.itemId&&a.kind===next.kind&&a.stationId===next.stationId&&!a.reason);
+   if(!currentActivity||!sameStationPose(next,currentActivity)){notify('卫浴家具已移动，请重新寻找入口',true);return;}
    visitorActivity={...currentActivity,recordSource:next.recordSource,bathJourney:createBathroomJourney(currentActivity,front,resident.rotation.y)};recordHomeActivity(currentActivity.label,next.recordSource);
    visitorSeat=null;visitorLocation=null;visitorMotion=next.kind;visitorStart=elapsed;visitorUntil=elapsed+currentActivity.duration+8;message='准备'+next.label;
   };message='走过去'+next.label;
@@ -952,7 +956,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const valid=room.id===current().id&&!slotOccupiedByOther(seat)&&roomSeats(current(),catalog).some(s=>s.itemId===seat.itemId&&s.seatId===seat.seatId);
    const latest=valid&&seatTransform(placementRoom(),catalog,seat,!!visitor?.rig);
    // An anchor may move while walking. Never snap to an obsolete world position.
-   if(!latest||Math.hypot(latest.position[0]-pose.position[0],latest.position[2]-pose.position[2])>.04||Math.abs(latest.rotation-pose.rotation)>.01){
+   if(!sameStationPose(pose,latest)){
     notify('座位被占用或家具已移动，请重新选择',true);return;
    }
    visitorSeat={...seat,alternate:alternate&&!!visitor?.rig};
@@ -977,7 +981,9 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!walkTo([front[0]+offset[0],front[2]+offset[1]]))return;
   walking.bed=true;
   walking.arrived=()=>{
-   if(current().id!==bed.roomId||!roomBeds(current(),catalog).some(s=>s.itemId===bed.itemId&&s.seatId===bed.seatId))return;
+   if(current().id!==bed.roomId||!roomBeds(current(),catalog).some(s=>s.itemId===bed.itemId&&s.seatId===bed.seatId)||slotOccupiedByOther(bed))return;
+   const latest=body2BedTransform(seatTransform(placementRoom(),catalog,bed,true),visitor.bedHeadToHip,visitor.bedHipHeight);
+   if(!sameStationPose(transform,latest)){notify('床位已移动或旋转，请重新从床边进入',true);return;}
    visitorLocation=null;visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';if(!beginSeatChange(false,front)){visitorSeat=null;notify('床沿进出空间不足，不能直接传送上床',true);return;}recordHomeActivity(BED_LEISURE.find(([id])=>id===bed.bedMode)?.[1]||'上床休息',source);message='坐稳床沿，再慢慢躺下';
   };
   notify('走到床边，准备休息');
