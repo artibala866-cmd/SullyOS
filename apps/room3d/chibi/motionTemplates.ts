@@ -80,6 +80,11 @@ export const authoredMotionTemplates:Readonly<Record<string,MotionTemplateDraft>
  // Chibi two-person playful pet; shares the existing path planner, contactSolver,
  // stage scheduler, expression renderer and on-demand procedural clip.
  'home-head-pat':motionTemplatePresets.headPat(),
+ // Asymmetric cheek contact: only A prepares; B reacts after contact.
+ 'home-sneak-kiss':{
+  participants:2,capabilities:['pairedSync','residentNavigation','faceContact'],
+  posture:'standing',adapter:'legacy',
+ },
  // Reviewed specialized handler; still uses the one shared social scene.
  'home-rear-hug':{
   participants:2,capabilities:['pairedSync','residentNavigation','armWrap','handContact','bodyContact'],
