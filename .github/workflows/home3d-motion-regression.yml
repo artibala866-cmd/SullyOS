@@ -42,3 +42,5 @@ jobs:
           apps/room3d/chibi/standingHeightAdaptation.test.ts
           apps/room3d/chibi/motionContactProfiles.test.ts
           apps/room3d/chibi/hugArmClearance.test.ts
+      - name: Check TypeScript errors in modified Home3D files
+        run: node --max-old-space-size=4096 scripts/home3d-motion-typecheck.mjs
