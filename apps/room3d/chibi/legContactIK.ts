@@ -28,3 +28,36 @@ export function settleLegContact(v:ChibiVisitor,side:'L'|'R',target:T.Vector3,st
  }
  v.root.updateWorldMatrix(true,true);
 }
+
+/** World-space stance snapshot for crouch/height interactions. Navigation is
+ * deliberately untouched: all corrections stay on the temporary pose layer. */
+export function captureLegSupport(v:ChibiVisitor){
+ if(!v.rig)return null;
+ v.root.updateWorldMatrix(true,true);
+ const toes=(['L','R'] as const).map(side=>v.rig!.bones[side+'_toe'].getWorldPosition(new T.Vector3()));
+ const soles=(['L','R'] as const).map(side=>v.rig!.bones[side+'_foot'].getWorldPosition(new T.Vector3()));
+ const rotations=(['L','R'] as const).map(side=>v.rig!.bones[side+'_foot'].getWorldQuaternion(new T.Quaternion()));
+ return {toes,rotations,ground:Math.min(...toes.map(p=>p.y),...soles.map(p=>p.y))};
+}
+/** Reconcile planted toes and original sole direction after a skeletal pose.
+ * Keep the new bending of knees, but avoid sliding or rolling planted feet. */
+export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captureLegSupport>,preserveFootDirection=true){
+ if(!v.rig||!support)return 0;
+ v.root.updateWorldMatrix(true,true);
+ for(const [i,side] of (['L','R'] as const).entries()){
+  if(preserveFootDirection){
+   const foot=v.rig.bones[side+'_foot'],parent=foot.parent;
+   if(parent)foot.quaternion.copy(parent.getWorldQuaternion(new T.Quaternion()).invert().multiply(support.rotations[i]));
+  }
+  settleLegContact(v,side,support.toes[i],1);
+ }
+ v.root.updateWorldMatrix(true,true);
+ const ground=Math.min(...(['L','R'] as const).flatMap(side=>[
+  v.rig!.bones[side+'_toe'].getWorldPosition(new T.Vector3()).y,
+  v.rig!.bones[side+'_foot'].getWorldPosition(new T.Vector3()).y,
+ ]));
+ const correction=T.MathUtils.clamp(support.ground-ground,-.16,.16);
+ if(Math.abs(correction)>1e-5)v.translatePose(new T.Vector3(0,correction,0));
+ v.root.updateWorldMatrix(true,true);
+ return correction;
+}
