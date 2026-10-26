@@ -77,6 +77,17 @@
     "hashes": []
   },
   {
+    "id": "home-passion-kiss",
+    "label": "热吻",
+    "category": "kiss",
+    "source": "SullyOS original grounded mutual kiss",
+    "sourceUrl": "",
+    "duration": 12,
+    "participants": 2,
+    "file": "home-passion-kiss.json",
+    "hashes": []
+  },
+  {
     "id": "home-princess-carry",
     "label": "公主抱",
     "category": "close",

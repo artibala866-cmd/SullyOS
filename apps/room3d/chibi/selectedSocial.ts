@@ -1,3 +1,4 @@
+import {planPassionKiss,posePassionKiss,passionKissPhase,type PassionKissPlan} from './passionKissMotion';
 import {planSneakKiss,planSneakKissApproach,poseSneakKiss,sneakKissPhase,sneakKissExpression,type SneakKissPlan} from './sneakKissMotion';
 import {actionExpression} from './actionExpression';
 import * as T from 'three';
@@ -19,7 +20,7 @@ import {applyPairedHandContact} from './pairedHandContact';
 import {createMotionConstraintPipeline} from './motionConstraintPipeline';
 export {motionCategories} from './selectedMotions';
 export type SocialAction=string;
-export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-sneak-kiss'?5:e.id==='home-kiss'?9.6:e.id==='home-rear-hug'?7.5:e.id==='home-hand-hold-plead'?6.7:e.id==='home-sofa-lap-pillow'?9.3:e.duration+1.2}]));
+export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-passion-kiss'?12:e.id==='home-sneak-kiss'?5:e.id==='home-kiss'?9.6:e.id==='home-rear-hug'?7.5:e.id==='home-hand-hold-plead'?6.7:e.id==='home-sofa-lap-pillow'?9.3:e.duration+1.2}]));
 export interface SocialResident {id:string;visitor:ChibiVisitor}
 const yAxis=new T.Vector3(0,1,0),smooth=T.MathUtils.smootherstep;
 /** Both roles share a clock and capture transform. Observers stay independent. */
@@ -27,7 +28,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
  if(new Set(residents.map(r=>r.id)).size!==residents.length)throw Error('Duplicate resident ID');
  if(residents.some(r=>!!r.visitor.rig!==!!residents[0]?.visitor.rig))throw Error('A home must use one body type');
  const states=new Map(residents.map(r=>[r.id,{...r,solver:contactSolver(r.visitor),home:r.visitor.root.position.clone(),rotation:r.visitor.root.quaternion.clone()}]));
- type Session={action:string;ids:string[];time:number;clip:SelectedClip;origin:T.Vector3;sourceOrigin:T.Vector3;rotation:T.Quaternion;scale:number;starts:T.Vector3[];turns:T.Quaternion[];paths:T.Vector3[][];approach:number;handSign:1|-1;sneakPlan?:SneakKissPlan};
+ type Session={action:string;ids:string[];time:number;clip:SelectedClip;origin:T.Vector3;sourceOrigin:T.Vector3;rotation:T.Quaternion;scale:number;starts:T.Vector3[];turns:T.Quaternion[];paths:T.Vector3[][];approach:number;handSign:1|-1;passionPlan?:PassionKissPlan;sneakPlan?:SneakKissPlan};
  let session:Session|null=null,generation=0,loading=false;
  const pinned=options.pinned, pinnedState=pinned?states.get(pinned.id):undefined;
  const pinnedPosition=pinnedState?.home.clone(),pinnedRotation=pinnedState?.rotation.clone();
@@ -37,6 +38,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
  const finish=()=>{for(const r of states.values())r.visitor.finishPose();};
  function locations(s:Session,time:number){
   if(s.action==='home-sofa-lap-pillow')return s.starts.map(p=>p.clone());
+  if(s.passionPlan)return s.passionPlan.roots.map((p,i)=>p.clone().addScaledVector(s.passionPlan!.retreat,i===0?1-passionKissPhase(time).step:0));
   if(s.sneakPlan)return [s.sneakPlan.stance.clone().addScaledVector(s.sneakPlan.step,sneakKissPhase(time).step),s.starts[1].clone()];
   const points=s.clip.actors.map(a=>{const elapsed=T.MathUtils.clamp(pinned?0:time,0,a.duration);let i=0;while(i<a.times.length-2&&a.times[i+1]<elapsed)i++;const j=Math.min(i+1,a.times.length-1),f=i+(elapsed-a.times[i])/(a.times[j]-a.times[i]||1);return new T.Vector3().fromArray(a.positions,i*3).lerp(new T.Vector3().fromArray(a.positions,j*3),f-i).sub(s.sourceOrigin).setY(0).multiplyScalar(s.scale).applyQuaternion(s.rotation).add(s.origin);});
   if(points.length===2&&s.action!=='home-rear-hug'&&s.action!=='home-hand-hold-plead'){const delta=points[1].clone().sub(points[0]),gap=delta.length(),minimum=residents[0].visitor.rig?.66:1.38;if(gap<minimum){if(gap<.001)delta.set(1,0,0);delta.normalize().multiplyScalar((minimum-gap)/2);points[0].sub(delta);points[1].add(delta);}}
@@ -182,7 +184,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
  }
  function presentPostPose(both:NonNullable<ReturnType<typeof states.get>>[],sourceTime:number,actionTime:number,weight:number){
   const s=session!;
-  prop?.update(sourceTime,s.clip.duration,weight);for(const [index,r] of both.entries())r.visitor.setActionExpression(s.sneakPlan?sneakKissExpression(index as 0|1,sourceTime):actionTime<s.clip.duration? actionExpression(s.action,socialActions[s.action].category,socialActions[s.action].label):'neutral',sourceTime);finish();
+  prop?.update(sourceTime,s.clip.duration,weight);for(const [index,r] of both.entries())r.visitor.setActionExpression(s.passionPlan?(sourceTime<11.5?'smiling':'neutral'):s.sneakPlan?sneakKissExpression(index as 0|1,sourceTime):actionTime<s.clip.duration? actionExpression(s.action,socialActions[s.action].category,socialActions[s.action].label):'neutral',sourceTime);finish();
  }
  // One stable set of callbacks per scene; frame data reuses this object.
  // No scheduler allocations, phase sorting or IK re-creation per frame.
@@ -243,7 +245,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     if(total>.01){const q=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(to.x-from.x,to.z-from.z));v.root.quaternion.copy(s.turns[i]).slerp(q,smooth(s.time,0,.2));v.animate(s.time,'walk');}else v.animate(s.time,'idle');
    });finish();return;
   }
-  const actionTime=s.time-s.approach,kissAction=s.action==='home-kiss',rearHug=s.action==='home-rear-hug',handPlead=s.action==='home-hand-hold-plead',sofaPillow=s.action==='home-sofa-lap-pillow',sneak=!!s.sneakPlan,sourceTime=T.MathUtils.clamp(kissAction?Math.max(0,actionTime-.15)+1.5:rearHug||handPlead||sofaPillow||sneak?actionTime:actionTime-.6,0,s.clip.duration),weight=kissAction?smooth(actionTime,0,.25):rearHug||handPlead||sofaPillow||sneak?1:smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
+  const actionTime=s.time-s.approach,kissAction=s.action==='home-kiss',rearHug=s.action==='home-rear-hug',handPlead=s.action==='home-hand-hold-plead',sofaPillow=s.action==='home-sofa-lap-pillow',sneak=!!s.sneakPlan,sourceTime=T.MathUtils.clamp(kissAction?Math.max(0,actionTime-.15)+1.5:rearHug||handPlead||sofaPillow||sneak||!!s.passionPlan?actionTime:actionTime-.6,0,s.clip.duration),weight=kissAction?smooth(actionTime,0,.25):rearHug||handPlead||sofaPillow||sneak||!!s.passionPlan?1:smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
   const both=s.ids.map(id=>states.get(id)!),frames=s.clip.actors.map(a=>sampleSelected(a,sourceTime)),points=kissAction&&!pinned?locations(s,3.5):locations(s,sourceTime);
   // Kiss has one destination: approach reaches it, then the roots remain fixed.
   for(const r of states.values())if(!s.ids.includes(r.id))r.visitor.animate(s.time,'idle');
@@ -261,7 +263,10 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     const bend=T.MathUtils.clamp((difference-.15)*2.5,0,.78);
     if(bend){for(const side of ['L','R'])for(const [joint,angle] of [['thigh',-bend],['shin',bend*2],['foot',-bend]] as const)frames[i].rotations[`${side}_${joint}`].multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),angle));frames[i].position.y-=1-Math.cos(bend);}
    }
-   if(s.sneakPlan){
+   if(s.passionPlan){
+    r.visitor.root.quaternion.copy(turn).slerp(s.passionPlan.headings[i],smooth(actionTime,0,.65));
+    r.visitor.animate(0,'idle');
+   }else if(s.sneakPlan){
     r.visitor.root.quaternion.copy(i===1?s.turns[1]:turn).slerp(i===1?s.turns[1]:s.sneakPlan.heading,smooth(actionTime,0,1.25));
     r.visitor.animate(0,'idle');
    }else if(sofaPillow){
@@ -319,7 +324,8 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     v0.root.updateWorldMatrix(true,true);v1.root.updateWorldMatrix(true,true);
    }
   }
-   if(s.sneakPlan)poseSneakKiss(both[0].visitor,both[1].visitor,sourceTime,s.sneakPlan);
+   if(s.passionPlan)posePassionKiss(both,sourceTime,s.passionPlan);
+   else if(s.sneakPlan)poseSneakKiss(both[0].visitor,both[1].visitor,sourceTime,s.sneakPlan);
    else if(isIntimacy(s.action)&&both[0].visitor.rig)poseIntimacy(s.action,both,sourceTime,pinned?s.ids.indexOf(pinned.id):undefined,s.handSign);else contacts(both,frames,weight);
    presentPostPose(both,sourceTime,actionTime,weight);
   }
@@ -346,7 +352,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    if(!states.has(a)||entry.participants===2&&(!b||!states.has(b)||a===b))throw Error('请选择两位不同的居民');
    if(isPrincessCarry(action)&&!states.get(a)!.visitor.rig)throw Error('公主抱需要二号素体');
    if(action==='home-rear-hug'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('背后搂抱需要 Q 版骨骼素体');
-   if(action==='home-sneak-kiss'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('偷亲需要 Q 版骨骼素体');
+   if(['home-sneak-kiss','home-passion-kiss'].includes(action)&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error(entry.label+'需要 Q 版骨骼素体');
    if(action==='home-sofa-lap-pillow'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('沙发膝枕需要 Q 版骨骼素体');
    const token=++generation;restore();loading=true;
    try{const sourceClip=await loadSelectedMotion(action);if(token!==generation)return false;
@@ -360,7 +366,8 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     const rotation=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(axis.x,axis.z)-Math.atan2(sourceAxis.x,sourceAxis.z));
     if(ids.length===1&&options.facingTarget){const direction=options.facingTarget.clone().sub(starts[0]);if(direction.lengthSq()>.0001)rotation.setFromAxisAngle(yAxis,Math.atan2(direction.x,direction.z));}
     if(pinned){const i=ids.indexOf(pinned.id),sourceHeading=splitMotionHeading(sampleSelected(clip.actors[i],0).rotations.hips).heading;rotation.copy(pinnedRotation!).multiply(sourceHeading.invert());}
-    const candidate={action,ids,time:0,clip,origin,sourceOrigin,rotation,scale,starts,turns,paths:[] as T.Vector3[][],approach:0,handSign:1 as 1|-1,sneakPlan:undefined as SneakKissPlan|undefined};
+    const candidate={action,ids,time:0,clip,origin,sourceOrigin,rotation,scale,starts,turns,paths:[] as T.Vector3[][],approach:0,handSign:1 as 1|-1,passionPlan:undefined as PassionKissPlan|undefined,sneakPlan:undefined as SneakKissPlan|undefined};
+    if(action==='home-passion-kiss')candidate.passionPlan=planPassionKiss(both[0],both[1]);
     if(action==='home-sneak-kiss'){
      const right=new T.Vector3(1,0,0).applyQuaternion(turns[1]);
      candidate.handSign=starts[0].clone().sub(starts[1]).dot(right)>=0?1:-1;
@@ -392,7 +399,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     const fits=()=>{
      const first=locations(candidate,0);
      const target=action==='home-kiss'&&!pinned?locations(candidate,3.5):first;
-     const moving=(paths:T.Vector3[][])=>paths.filter((_,i)=>ids[i]!==pinned?.id&&(!['home-rear-hug','home-hand-hold-plead','home-sneak-kiss'].includes(action)||i===0));
+     const moving=(paths:T.Vector3[][])=>paths.filter((_,i)=>ids[i]!==pinned?.id&&(!['home-rear-hug','home-hand-hold-plead','home-sneak-kiss','home-passion-kiss'].includes(action)||i===0));
      // The existing tests are unchanged, but reject impossible action space
      // BEFORE expensive pathfinding for any of the alternate positions.
      const motion=both.map(()=>[] as T.Vector3[]);
@@ -402,8 +409,8 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      // The final roots must remain on valid standing floor.
      if(options.canPlace&&!options.canPlace(moving((action==='home-kiss'&&!pinned?locations(candidate,3.5):locations(candidate,clip.duration)).map(p=>[p]))))return false;
      const paths=both.map(()=>[] as T.Vector3[]);
-     const routes=starts.map((p,i)=>ids[i]===pinned?.id||['home-rear-hug','home-hand-hold-plead','home-sneak-kiss'].includes(action)&&i===1?[p.clone(),p.clone()]:
-     action==='home-sneak-kiss'&&i===0?planSneakKissApproach(p,target[i],both[1],both[0],
+     const routes=starts.map((p,i)=>ids[i]===pinned?.id||['home-rear-hug','home-hand-hold-plead','home-sneak-kiss','home-passion-kiss'].includes(action)&&i===1?[p.clone(),p.clone()]:
+     ['home-sneak-kiss','home-passion-kiss'].includes(action)&&i===0?planSneakKissApproach(p,target[i],both[1],both[0],
       (from,to)=>options.findPath?options.findPath(from,to):[from.clone(),to.clone()]):
      action==='home-rear-hug'&&i===0?planRearHugApproach(p,target[i],target[1],candidate.rotation,
       (from,to)=>options.findPath?options.findPath(from,to):[from.clone(),to.clone()]):
@@ -417,7 +424,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      }
      // A may already be standing very close to furniture: existing start positions
      // are valid by occupancy, and the nav planner owns the route from there.
-     if(['home-rear-hug','home-hand-hold-plead','home-sneak-kiss'].includes(action)&&paths[0].length>1)paths[0].shift();
+     if(['home-rear-hug','home-hand-hold-plead','home-sneak-kiss','home-passion-kiss'].includes(action)&&paths[0].length>1)paths[0].shift();
      return !options.canPlace||options.canPlace(moving(paths));
     };
     let valid=fits();
@@ -430,7 +437,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      candidate.handSign=candidate.handSign===1?-1:1;
      valid=fits();
     }
-    if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned&&action!=='home-rear-hug'&&action!=='home-hand-hold-plead'&&action!=='home-sneak-kiss')for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
+    if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned&&action!=='home-rear-hug'&&action!=='home-hand-hold-plead'&&action!=='home-sneak-kiss'&&action!=='home-passion-kiss')for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
     if(!valid)throw Error(action==='cmu-22_09'?'坐着的人身后没有可站立的位置，请先给椅背后留出空地':'这段动作需要更大的空地，先移动居民或挪开家具');
     session=candidate;motionScope.begin(action);constraintPipeline.activate(action);
      prop=motionScope.own(createSocialProp(action,both,motionTemplateFor(action)?.prop));

@@ -13,7 +13,7 @@ type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
 const rotation=(x=0,y=0,z=0)=>new T.Quaternion().setFromEuler(new T.Euler(x,y,z));
 export const isPrincessCarry=(id:string)=>id==='home-princess-carry'||id==='home-princess-carried';
-export const isIntimacy=(id:string)=>id==='home-hug'||id==='home-rear-hug'||id==='home-hand-hold-plead'||id==='home-sofa-lap-pillow'||id==='home-kiss'||id==='home-sneak-kiss'||isPrincessCarry(id);
+export const isIntimacy=(id:string)=>id==='home-hug'||id==='home-rear-hug'||id==='home-hand-hold-plead'||id==='home-sofa-lap-pillow'||id==='home-kiss'||id==='home-sneak-kiss'||id==='home-passion-kiss'||isPrincessCarry(id);
 /** Reference-video phases, in elapsed seconds; neither role owns a separate clock. */
 export function intimacyPhase(action:string,time:number){
  const carry=isPrincessCarry(action);

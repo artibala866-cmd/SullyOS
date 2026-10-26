@@ -52,3 +52,13 @@ export function aimLipContact(v:ChibiVisitor,target:T.Vector3,weight:number){
  }
  v.root.updateWorldMatrix(true,true);
 }
+
+/** Project the anatomical mouth onto the actual skin once, before navigation. */
+export function surfaceLipLocal(v:ChibiVisitor){
+ const seed=lipWorld(v),head=v.rig!.bones.head;
+ const forward=new T.Vector3(0,0,1).applyQuaternion(head.getWorldQuaternion(new T.Quaternion()));
+ v.root.updateMatrixWorld(true);v.rig!.skeleton.update();
+ v.rig!.mesh.boundingSphere=null;v.rig!.mesh.boundingBox=null;
+ const hit=new T.Raycaster(seed.clone().add(forward),forward.clone().negate(),0,2).intersectObject(v.rig!.mesh,false)[0];
+ return head.worldToLocal(hit?.point.clone()??seed);
+}

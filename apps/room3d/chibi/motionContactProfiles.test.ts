@@ -11,7 +11,7 @@ describe('reusable motion classification',()=>{
   expect(motionCapabilities.armWrap).toBeDefined();
  });
  it('preserves all established contact profiles as the motion menu grows',()=>{
-  expect(selectedMotions).toHaveLength(48);
+  expect(selectedMotions).toHaveLength(49);
   const actions=new Set(selectedMotions.map(x=>x.id));
   for(const id of Object.keys(motionContactProfiles))expect(actions.has(id)).toBe(true);
   expect(motionContactProfile('home-hug')).toBeUndefined();

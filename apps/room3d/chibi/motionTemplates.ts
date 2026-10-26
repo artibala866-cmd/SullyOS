@@ -81,6 +81,10 @@ export const authoredMotionTemplates:Readonly<Record<string,MotionTemplateDraft>
  // stage scheduler, expression renderer and on-demand procedural clip.
  'home-head-pat':motionTemplatePresets.headPat(),
  // Asymmetric cheek contact: only A prepares; B reacts after contact.
+ 'home-passion-kiss':{
+  participants:2,capabilities:['pairedSync','residentNavigation','faceContact','handContact','armWrap'],
+  posture:'standing',adapter:'legacy',
+ },
  'home-sneak-kiss':{
   participants:2,capabilities:['pairedSync','residentNavigation','faceContact'],
   posture:'standing',adapter:'legacy',
@@ -154,7 +158,7 @@ export function compileMotionTemplates(
    // Declaring a legacy adapter is NOT sufficient. The original specialized
    // action must actually exist in selectedSocial/intimacyMotion/seat state.
    // Future IDs are rejected until a real tested adapter has been installed.
-   const supported=new Set(['home-hug','home-rear-hug','home-kiss','home-princess-carry','home-princess-carried','home-sofa-lap-pillow']);
+   const supported=new Set(['home-passion-kiss','home-hug','home-rear-hug','home-kiss','home-princess-carry','home-princess-carried','home-sofa-lap-pillow']);
    if(draft.adapter!=='legacy'||!supported.has(id))
     throw Error('Specialized motion requires reviewed adapter: '+id);
   }
