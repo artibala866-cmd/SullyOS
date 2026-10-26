@@ -914,7 +914,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!transform){notify('座位点位已经失效，请重新选择',true);return;}
   const start=[resident.position.x+offset[0],resident.position.z+offset[1]],candidates=[];
   // Approach from either side: the front of a computer chair is occupied by its desk.
-  for(const p of seatEntryCandidates(transform,{allowSides:true,sideFirst:true})){
+  for(const p of seatEntryCandidates(transform,{allowSides:true,allowFront:false})){
    if(!map.free(p[0]+offset[0],p[2]+offset[1]))continue;
    const path=findWalkPath(map,start,[p[0]+offset[0],p[2]+offset[1]]);
    if(path)candidates.push({p,length:path.reduce((sum,v,i)=>sum+(i?Math.hypot(v[0]-path[i-1][0],v[1]-path[i-1][1]):0),0)});
@@ -956,7 +956,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!pose||slotOccupiedByOther(seat)){notify('这个座位已经被占用，或点位尚未校准',true);return false;}
   const start=[resident.position.x+offset[0],resident.position.z+offset[1]],map=residentWalkMap(start);
   const chair=room.items.find(i=>i.id===seat.itemId);
-  const front=seatEntry(pose,{free:(x,z)=>map.free(x,z)&&!!findWalkPath(map,start,[x,z])},offset,{allowSides:!!chair?.dockId});
+  const front=seatEntry(pose,{free:(x,z)=>map.free(x,z)&&!!findWalkPath(map,start,[x,z])},offset,{allowSides:!!chair?.dockId,sideFirst:!!chair?.dockId});
   if(!front){notify('座位前方没有可到达的安全站位',true);return false;}
   if(!walkTo([front[0]+offset[0],front[2]+offset[1]]))return false;
   walking.arrived=()=>{
