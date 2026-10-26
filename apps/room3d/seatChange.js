@@ -6,10 +6,10 @@ import {bedChangePose} from './bedMotion.js';
 // Candidate access points belong to a seat POSE, never to an asset ID.
 // Front is the normal route. A workstation may block that direction, so
 // supported chair actions can approach from either flank instead.
-export function seatEntryCandidates(transform,{allowSides=false,sideFirst=false}={}){
+export function seatEntryCandidates(transform,{allowSides=false,sideFirst=false,allowFront=true}={}){
  if(!transform?.position||!Number.isFinite(transform.rotation))return [];
  const [x,,z]=transform.position,angle=transform.rotation,points=[];
- for(let d=.45;d<=1.25+.001;d+=.05){
+ if(allowFront)for(let d=.45;d<=1.25+.001;d+=.05){
   points.push([x+Math.sin(angle)*d,.18,z+Math.cos(angle)*d]);
  }
  const frontCount=points.length;
@@ -19,10 +19,10 @@ export function seatEntryCandidates(transform,{allowSides=false,sideFirst=false}
  }
  return allowSides&&sideFirst?[...points.slice(frontCount),...points.slice(0,frontCount)]:points;
 }
-export function seatEntry(transform,map,offset=[0,0],{allowSides=false,preferred=null}={}){
+export function seatEntry(transform,map,offset=[0,0],{allowSides=false,sideFirst=false,preferred=null}={}){
  const valid=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite)&&map.free(p[0]+offset[0],p[2]+offset[1]);
  if(preferred&&valid(preferred))return [...preferred];
- return seatEntryCandidates(transform,{allowSides}).find(valid)??null;
+ return seatEntryCandidates(transform,{allowSides,sideFirst}).find(valid)??null;
 }
 export function seatChangePose(change,time){
  if(change.pose==='bed')return bedChangePose(change,time);
