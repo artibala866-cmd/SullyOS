@@ -2,8 +2,6 @@
 // Dimensions can reject impossible anchors; they cannot certify a seat cushion,
 // mattress, ladder or hand target without inspecting the actual mesh and rig.
 const PENDING_REVIEW={
- chair:'基础木椅缺坐面骨骼接触点；需核对 kit.glb 中真实座板',
- pouf:'花瓣坐墩缺坐点；需核对 kit.glb 坐垫表面和可用脚部空间',
  loft:'鲸鱼阁楼床缺床垫点与安全上床路径；不能直接传送到上铺',
 };
 export const FURNITURE_POINT_REVIEW=Object.freeze(PENDING_REVIEW);
