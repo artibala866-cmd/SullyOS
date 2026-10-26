@@ -5,7 +5,7 @@ import {seatTransform,roomSeats} from './seating.js';
 
 describe('device interactions reuse compatible seat geometry',()=>{
  it('uses a physically aligned dining chair for computer and stream without changing the animation',()=>{
-  const items=gamingPreset('computer',catalog),room={id:'r',items};
+  const items=gamingPreset('stream',catalog),room={id:'r',items};
   const original=items.find(i=>i.assetId==='gaming_chair');
   const first=roomSeats(room,catalog).find(s=>s.itemId===original.id);
   const firstPose=seatTransform(room,catalog,first);
