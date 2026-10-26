@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Offline structure/rotation validation for Unity-exported SullyOS clips.
 import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 
 const required=['hips','spine','head','L_upperArm','R_upperArm',
@@ -80,7 +82,7 @@ function selftest(){
   assert.throws(()=>validateMotion(empty),/essential bone/);
   console.log('4 validator self-tests passed');
 }
-if(process.argv[1]&&import.meta.url===new URL('file://'+process.argv[1]).href){
+if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1])){
   if(process.argv[2]==='--selftest')selftest();
   else {
     if(!process.argv[2])throw Error('Provide exported .json path (or --selftest)');
