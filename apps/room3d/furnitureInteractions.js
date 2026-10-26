@@ -7,16 +7,17 @@ import {kitchenActions} from './kitchenActivities.js';
 import {mirrorActivities,isMirrorAction} from './mirror.js';
 
 // Describe real, existing actions. No name-based guesses and no saved UI state.
-export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,transitioning=false}={}){
+export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,transitioning=false,occupiedSeats=[]}={}){
  const item=room.items.find(i=>i.id===itemId&&!i.stored),a=catalog.find(a=>a.id===item?.assetId);if(!a)return [];
  const result=kitchenActions(room,catalog,itemId),add=(action,label,extra={},reason='')=>result.push({action,label,id:itemId,...extra,reason});
- for(const b of roomBeds(room,catalog).filter(b=>b.itemId===itemId)){
+ const free=slot=>!occupiedSeats.some(s=>s?.itemId===slot.itemId&&s.seatId===slot.seatId);
+ for(const b of roomBeds(room,catalog).filter(b=>b.itemId===itemId&&free(b))){
   const label=a.beds.find(s=>s.id===b.seatId)?.label||'';
   add('chibi-bed',a.beds.length===1?'躺下':/左|右/.test(label)?'睡'+label.replace('床位','').replace('侧','边'):label+'躺下',{seat:b.seatId});
   if(body2&&!transitioning&&seat?.bed&&seat.itemId===b.itemId&&seat.seatId===b.seatId)for(const [mode,title]of BED_LEISURE)add('chibi-bed',title+(a.beds.length>1?' · '+label:''),{seat:b.seatId,mode});
  }
- for(const s of roomSeats(room,catalog).filter(s=>s.itemId===itemId))add('chibi-sit',a.seats.length===1?'坐下':(a.seats.find(v=>v.id===s.seatId)?.label||'这里')+'坐下',{seat:s.seatId});
- if(body2)for(const s of roomSeats(room,catalog).filter(s=>s.itemId===itemId&&seatTransform(room,catalog,s,true)?.pose==='floor'))add('chibi-sit','04 盘腿坐',{seat:s.seatId,alternate:'true'});
+ for(const s of roomSeats(room,catalog).filter(s=>s.itemId===itemId&&free(s)))add('chibi-sit',a.seats.length===1?'坐下':(a.seats.find(v=>v.id===s.seatId)?.label||'这里')+'坐下',{seat:s.seatId});
+ if(body2)for(const s of roomSeats(room,catalog).filter(s=>s.itemId===itemId&&free(s)&&seatTransform(room,catalog,s,true)?.pose==='floor'))add('chibi-sit','04 盘腿坐',{seat:s.seatId,alternate:'true'});
  const plant=roomPlants(room,catalog,clearance).find(p=>p.itemId===itemId);if(plant)add('chibi-water','浇水',{},plant.spot?'':'周围太挤啦，先留一点空位');
  if(roomPlush(room,catalog).some(p=>p.itemId===itemId))add(held?.itemId===itemId?'plush-put-back':'chibi-hug',held?.itemId===itemId?'放回原位':'抱抱');
  const allActivities=[...activities,...[...mirrorActivities(room,catalog,clearance),...bathroomActivities(room,catalog)].filter(v=>!activities.some(a=>a.itemId===v.itemId&&a.kind===v.kind))];
