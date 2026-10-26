@@ -59,27 +59,31 @@ it('world-space planted toe IK reduces real moving-rig drift at rotated headings
   const clock=createDistanceWalkClock(),lock=createWorldFootLock();
   const speed=roomWalkSpeed(approvedRoomWalk,rig.bones)*root.scale.y;
   const initialLengths=rig.skeleton.bones.map(b=>b.position.length());
-  let anchor:T.Vector3|null=null,side:'L'|'R'|null=null,raw=0,corrected=0,tracked=0;
+  let raw=0,corrected=0,tracked=0,relocks=0;
   for(let i=0;i<=90;i++){
    const time=i/60;
    root.position.set(Math.sin(angle)*time*speed,0,Math.cos(angle)*time*speed);
    root.updateWorldMatrix(true,true);
    animate(clock.sample(root.getWorldPosition(new T.Vector3()),time,speed),'walk','standing');
    root.updateWorldMatrix(true,true);
-   if(side&&anchor){
-    const now=rig.bones[side+'_toe'].getWorldPosition(new T.Vector3());
-    const rawDistance=now.distanceTo(anchor);
-    lock.apply({root,rig},time,speed);
-    if(lock.supportSide===side&&rawDistance>.004){
-     const after=rig.bones[side+'_toe'].getWorldPosition(new T.Vector3()).distanceTo(anchor);
-     raw+=rawDistance;corrected+=after;tracked++;
-    }
-   }else lock.apply({root,rig},time,speed);
-   if(side!==lock.supportSide){side=lock.supportSide;anchor=side?rig.bones[side+'_toe'].getWorldPosition(new T.Vector3()):null;}
+   const side=lock.supportSide,target=lock.targetWorld;
+   const before=side&&target?rig.bones[side+'_toe'].getWorldPosition(new T.Vector3()).distanceTo(target):0;
+   lock.apply({root,rig},time,speed);
+   const stillSameTarget=side!==null&&side===lock.supportSide&&target!==null&&
+    lock.targetWorld!.distanceTo(target)<1e-9;
+   if(stillSameTarget&&before>.004){
+    raw+=before;
+    corrected+=rig.bones[side+'_toe'].getWorldPosition(new T.Vector3()).distanceTo(target);
+    tracked++;
+   }else if(side!==null&&side===lock.supportSide&&!stillSameTarget)relocks++;
    expect(rig.skeleton.bones.map(b=>b.position.length())).toEqual(initialLengths);
   }
   expect(tracked).toBeGreaterThan(5);
-  expect(corrected).toBeLessThan(raw*.5);
+  // Only compare frames against the SAME physical world anchor. A reset or
+  // stance transfer creates a new target; measuring against the old one
+  // incorrectly counts a legitimate step as foot sliding.
+  expect(corrected, `height ${bodyHeight} angle ${angle} relocks ${relocks}`).toBeLessThan(raw*.5);
+  expect(relocks).toBeLessThan(6);
   lock.reset();
   expect(lock.supportSide).toBeNull();
   mesh.geometry.dispose();mesh.material.dispose();rig.skeleton.dispose();
