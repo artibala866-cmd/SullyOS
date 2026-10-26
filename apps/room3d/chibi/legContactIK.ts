@@ -4,13 +4,19 @@ import type {ChibiVisitor} from './visitor';
 /** Reusable two-joint CCD correction for a planted toe or other leg-contact target.
  * Operates in world space, converts each correction to joint-local rotation,
  * and clamps each iteration to avoid knee flips on stylized rigs. */
-export function settleLegContact(v:Pick<ChibiVisitor,'root'|'rig'>,side:'L'|'R',target:T.Vector3,strength:number){
+export function settleLegContact(
+ v:Pick<ChibiVisitor,'root'|'rig'>,side:'L'|'R',target:T.Vector3,strength:number,
+ options:{iterations?:number;maxAngle?:number}={}
+){
  const bones=v.rig!.bones,toe=bones[side+'_toe'];
- for(let iteration=0;iteration<2;iteration++){
+ const iterations=Math.max(1,Math.min(10,options.iterations??2));
+ const maxAngle=T.MathUtils.clamp(options.maxAngle??.075,.01,.18);
+ for(let iteration=0;iteration<iterations;iteration++){
   for(const jointName of [side+'_shin',side+'_thigh']){
    const joint=bones[jointName],parent=joint.parent;
    if(!parent)continue;
    v.root.updateWorldMatrix(true,true);
+   if(toe.getWorldPosition(new T.Vector3()).distanceTo(target)<.003)break;
    const pivot=joint.getWorldPosition(new T.Vector3());
    const current=toe.getWorldPosition(new T.Vector3()).sub(pivot);
    const desired=target.clone().sub(pivot);
@@ -23,7 +29,7 @@ export function settleLegContact(v:Pick<ChibiVisitor,'root'|'rig'>,side:'L'|'R',
    axis.normalize();
    const parentWorld=parent.getWorldQuaternion(new T.Quaternion());
    axis.applyQuaternion(parentWorld.invert()).normalize();
-   joint.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(axis,Math.min(angle,.075)*strength));
+   joint.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(axis,Math.min(angle,maxAngle)*T.MathUtils.clamp(strength,0,1)));
   }
  }
  v.root.updateWorldMatrix(true,true);
@@ -92,6 +98,8 @@ export function createWorldFootLock(){
    v.rig.bones[side+'_shin'].position.length())*
    v.rig.bones[side+'_thigh'].getWorldScale(new T.Vector3()).x;
   if(locked.distanceTo(toes[side])>Math.max(.18,reach*.6)){locked.copy(toes[side]);return;}
-  settleLegContact(v,side,locked,.95);
+  // Walking needs stronger convergence than one-shot head/seat adjustments.
+  // Fixed bone lengths; only the existing thigh and shin rotate.
+  settleLegContact(v,side,locked,.95,{iterations:6,maxAngle:.12});
  }};
 }
