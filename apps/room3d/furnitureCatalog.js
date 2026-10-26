@@ -1,8 +1,5 @@
-import {usableFurniturePoints} from './furniturePointRegistry.js';
-import {KITCHEN_CAPABILITIES,KITCHEN_LABELS} from './kitchenActivities.js';
-import {BATH_ACTIONS} from './bathroom.js';
+import {registeredFurnitureCapabilities} from './furnitureCapabilityRegistry.js';
 // Browsing taxonomy is separate from placement surfaces and interaction contracts.
-import {isMirror} from './mirror.js';
 export const ROOM_CATEGORIES={living:'客厅',gaming:'电竞',kitchen:'厨房',bathroom:'浴室',bedroom:'卧室'};
 export const USE_CATEGORIES={seating:'桌椅沙发',bedding:'床铺寝具',storage:'柜子收纳',kitchen:'厨房用品',bathroom:'卫浴用品',appliances:'家用电器',gaming:'电脑娱乐',lighting:'灯具照明',decor:'装饰摆件',plants:'花草绿植',textiles:'地毯布艺',pets:'宠物用品',outdoor:'户外庭院',special:'特殊设施'};
 const groups={
@@ -28,17 +25,19 @@ const gamingIds=new Set(['desk','worktable','chair']);
 export function furnitureRoom(a){return ROOM_CATEGORIES[a.collection]?a.collection:bedroomIds.has(a.id)?'bedroom':gamingIds.has(a.id)?'gaming':'living';}
 export function furnitureUse(a){return USE_BY_ID[a.id]||(a.beds?.length?'bedding':a.seats?.length?'seating':a.holdable?'decor':a.waterable?'plants':'decor');}
 export function matchesFurniture(a,mode,category){return a.id!=='shell'&&!a.building&&(category==='all'||(mode==='room'?furnitureRoom(a):furnitureUse(a))===category);}
-// Only advertised capabilities already wired to real actions. Combo requirements
-// are explicit; an old model resembling a chair/bed doesn't acquire a preset.
+// An advertised label requires an actual registered action. No category guesses.
 export function furnitureActions(a){
- const actions=[];const kitchen=KITCHEN_CAPABILITIES[a.id];if(KITCHEN_LABELS[kitchen])actions.push(KITCHEN_LABELS[kitchen]);
- if(BATH_ACTIONS[a.id])actions.push(BATH_ACTIONS[a.id].label);
- if(isMirror(a))actions.push('臭美','穿搭（同房间需衣柜）');
- if(usableFurniturePoints(a,'seats').length)actions.push('坐坐');if(usableFurniturePoints(a,'beds').length)actions.push('躺下休息');if(a.holdable)actions.push('抱抱');
- if(a.surface==='floor'&&a.waterable===true)actions.push('浇水');if(a.appliance==='fridge')actions.push('开关冰箱');
- const kind={race:'玩赛车（需配座椅）',rhythm:'玩圆环音游',computer:'玩电脑',stream:'直播'}[a.activity?.kind];if(kind)actions.push(kind);
- if(a.id==='gaming_desk')actions.push('玩电脑 / 直播（需配设备和座椅）');
- if(a.dining)actions.push('吃饭（需配餐椅）');
+ const capabilities=registeredFurnitureCapabilities(a),has=kind=>capabilities.some(c=>c.kind===kind);
+ const actions=[];
+ const kitchen=capabilities.find(c=>c.kind==='kitchen');if(kitchen)actions.push(kitchen.label);
+ const bath=capabilities.find(c=>c.kind==='bath');if(bath)actions.push(bath.label);
+ if(has('mirror'))actions.push('臭美','穿搭（同房间需衣柜）');
+ if(has('sit'))actions.push('坐坐');if(has('bed'))actions.push('躺下休息');
+ if(has('hold'))actions.push('抱抱');if(has('water'))actions.push('浇水');if(has('fridge'))actions.push('开关冰箱');
+ const kind={race:'玩赛车（需配座椅）',rhythm:'玩圆环音游',computer:'玩电脑',stream:'直播'}[capabilities.find(c=>c.kind==='gaming')?.action];
+ if(kind)actions.push(kind);
+ if(has('computer-workstation'))actions.push('玩电脑 / 直播（需配设备和座椅）');
+ if(has('dining'))actions.push('吃饭（需配餐椅）');
  if(['show_kitchen_island','show_kitchen_bench','kitchen_ref_breakfast'].includes(a.id))actions.push('吃饭（中岛、长凳与早餐托盘组合）');
  return actions;
 }
