@@ -327,7 +327,12 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
  }
  const restore=()=>{
   const last=session;
-  constraintPipeline.reset();motionScope.stop();prop=null;session=null;
+  constraintPipeline.reset();
+  // A disposed temporary prop can throw, but must never block session reset.
+  // The scope always attempts all disposals; preserve any error for diagnostics.
+  const releaseError=motionScope.stopSafely();
+  prop=null;session=null;
+  if(releaseError)console.warn('[Home3D] temporary motion resource release failed',releaseError);
   if(last?.action==='home-sofa-lap-pillow'){
    // At the very last frame keep BOTH seated; ordinary restore's idle-standing
    // would make the lap-pillow end with a one-frame pop off the cushion.
