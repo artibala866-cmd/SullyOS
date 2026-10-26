@@ -22,7 +22,11 @@ describe('Stage 5 motion authoring contract',()=>{
   expect(motionTemplateFor('home-rear-hug')?.phases).toBeUndefined();
   expect(motionTemplateFor('home-kiss')).toBeUndefined();
   expect(motionTemplateFor('home-princess-carry')).toBeUndefined();
-  expect(Object.keys(motionTemplateConstraintPlans).sort()).toEqual(['cmu-20_10','home-head-pat'].sort());
+  expect(Object.keys(motionTemplateConstraintPlans).sort()).toEqual([...Object.keys(motionContactProfiles),'home-head-pat'].sort());
+  for(const id of Object.keys(motionContactProfiles)){
+   expect(motionTemplateFor(id)?.standingHeight).toBe('contact');
+   expect(motionTemplateFor(id)?.phases).toEqual(['bodyPlacement','clearance','contactIK','presentation']);
+  }
  });
  it('registers the only new playful hair pat in the existing close category',()=>{
   const entry=selectedMotions.find(e=>e.id==='home-head-pat');
