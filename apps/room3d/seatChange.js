@@ -13,7 +13,7 @@ export function seatEntryCandidates(transform,{allowSides=false,sideFirst=false,
   points.push([x+Math.sin(angle)*d,.18,z+Math.cos(angle)*d]);
  }
  const frontCount=points.length;
- if(allowSides)for(const side of [-1,1]for(const diagonal of [0,.20])for(const distance of [.9,1.1,1.3,1.5,1.8,2]){
+ if(allowSides)for(const side of [-1,1])for(const diagonal of [0,.20])for(const distance of [.9,1.1,1.3,1.5,1.8,2]){
   const a=angle+side*Math.PI*(.5+diagonal);
   points.push([x+Math.sin(a)*distance,.18,z+Math.cos(a)*distance]);
  }
