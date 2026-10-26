@@ -23,7 +23,8 @@ describe('home3d furniture capability registry',()=>{
   }
   expect(kinds('sofa')).toContain('sit');
   expect(kinds('kitchen_sink')).not.toContain('sit');
-  expect(kinds('chair')).not.toContain('sit'); // Missing point: cannot advertise a usable seat yet.
+  expect(kinds('chair')).toContain('sit');
+  expect(kinds('pouf')).toContain('sit'); // Source-derived candidate, screen QA pending.
   expect(kinds('bedroom_loft')).not.toContain('bed'); // Upper berth has no safe access yet.
   expect(kinds('bath_shower')).toContain('bath');
   expect(kinds('suite_floor_mirror')).toContain('mirror');
