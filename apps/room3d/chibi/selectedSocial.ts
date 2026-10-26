@@ -365,7 +365,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
      const right=new T.Vector3(1,0,0).applyQuaternion(turns[1]);
      candidate.handSign=starts[0].clone().sub(starts[1]).dot(right)>=0?1:-1;
      candidate.sneakPlan=planSneakKiss(both[0],both[1],candidate.handSign);
-     if(candidate.sneakPlan.error>.045)throw Error('当前身高差下，屈膝或踮脚仍无法自然碰到脸颊，请调整身高后再试');
+     if(!candidate.sneakPlan.surfaceValid)throw Error('模型脸部接触点读取失败，请重新加载人物后再试');
     }
     if(action==='home-sofa-lap-pillow'){
      if(!ids.every(id=>options.sofaSeatPoses?.[id]))throw Error('请先让两个人坐在同一张双人沙发的不同座位上');
@@ -424,7 +424,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     if(!valid&&action==='home-sneak-kiss'){
      candidate.handSign=candidate.handSign===1?-1:1;
      candidate.sneakPlan=planSneakKiss(both[0],both[1],candidate.handSign);
-     valid=candidate.sneakPlan.error<=.045&&fits();
+     valid=candidate.sneakPlan.surfaceValid&&fits();
     }
     if(!valid&&action==='home-hand-hold-plead'){
      candidate.handSign=candidate.handSign===1?-1:1;

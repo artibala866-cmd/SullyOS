@@ -50,9 +50,9 @@ describe('five-second surprise cheek kiss',()=>{
   expect(sneakKissExpression(1,2)).toBe('neutral');expect(sneakKissExpression(1,2.4)).toBe('surprised');
   expect(sneakKissExpression(1,3)).toBe('smiling');expect(sneakKissPhase(5).kiss).toBe(0);
  });
- for(const [ah,bh,size,side,yaw] of [[1,1,1,1,0],[1.15,.85,1,-1,1.2],[.95,1.05,1.15,1,-.8],[1,1,1.2,-1,Math.PI],[1,1,1.4,1,2.1],[1,1,.75,-1,.6]]){
+ for(const [ah,bh,size,side,yaw,receiverSize=1] of [[1,1,1,1,0],[1.15,.85,1,-1,1.2],[.95,1.05,1.15,1,-.8],[1,1,1.2,-1,Math.PI],[1,1,1.4,1,2.1],[1,1,.75,-1,.6],[.8,1.25,.75,1,1.1,1.4],[1.25,.8,1.4,-1,-.4,.75],[.9,1.1,1.04,-1,.7,1.04]]){
   it(`grounds feet and contacts a cheek without skull overlap: ${[ah,bh,size,side,yaw]}`,()=>{
-   const a=resident(ah,size),b=resident(bh);b.root.rotation.y=yaw;b.animate(0,'idle');
+   const a=resident(ah,size),b=resident(bh,receiverSize);b.root.rotation.y=yaw;b.animate(0,'idle');
    a.root.position.x=-2;
    const before=b.rig!.bones.head.quaternion.clone(),positions=Object.values(a.rig!.bones).map(b=>b.position.clone());
    const plan=planSneakKiss(a,b,side as 1|-1);expect(b.rig!.bones.head.quaternion.angleTo(before)).toBeLessThan(1e-6);
@@ -64,9 +64,11 @@ describe('five-second surprise cheek kiss',()=>{
     a.root.position.copy(plan.stance).addScaledVector(plan.step,p.step);a.root.quaternion.copy(plan.heading);
     a.animate(0,'idle');b.animate(0,'idle');
     const floor=a.rig!.bones.L_toe.getWorldPosition(new T.Vector3()).y;
+    const bFloor=b.rig!.bones.L_toe.getWorldPosition(new T.Vector3()).y;
     poseSneakKiss(a,b,t,plan);
     const mouth=a.rig!.bones.head.localToWorld(plan.mouth.clone()),target=b.rig!.bones.head.localToWorld(plan.cheek.clone());
-    const points=[a.getHeadWorldPosition(),...['L_toe','R_toe','R_hand'].map(n=>a.rig!.bones[n].getWorldPosition(new T.Vector3()))];
+    const points=[a.getHeadWorldPosition(),...['L_toe','R_toe','R_hand'].map(n=>a.rig!.bones[n].getWorldPosition(new T.Vector3())),b.getHeadWorldPosition()];
+    for(const side of ['L','R'])expect(b.rig!.bones[side+'_toe'].getWorldPosition(new T.Vector3()).y).toBeCloseTo(bFloor,4);
     if(previous)maxStep=Math.max(maxStep,...points.map((p,i)=>p.distanceTo(previous![i])));previous=points;
     if(t>=1.85&&t<=2.15){maxGap=Math.max(maxGap,mouth.distanceTo(target));maxFloor=Math.max(maxFloor,...points.slice(1,3).map(p=>Math.abs(p.y-floor)));}
     maxSupportLift=Math.max(maxSupportLift,Math.abs(Math.min(points[1].y,points[2].y)-floor));
@@ -80,15 +82,17 @@ describe('five-second surprise cheek kiss',()=>{
    Object.values(a.rig!.bones).forEach((b,i)=>expect(b.position).toEqual(positions[i]));
   },20000);
  }
- it('detects an unreachable height rather than floating the shorter actor or anticipating with B',()=>{
+ it('adapts a short initiator to a tall recipient without changing either stature',()=>{
   const a=resident(.8),b=resident(1.2);const bPose=b.rig!.bones.head.quaternion.clone();
-  const plan=planSneakKiss(a,b,1);expect(plan.error).toBeGreaterThan(.045);
+  const plan=planSneakKiss(a,b,1);expect(plan.error).toBeLessThan(.005);
+  expect(plan.receiverKnee).toBeGreaterThan(0);
   expect(b.rig!.bones.head.quaternion.angleTo(bPose)).toBeLessThan(1e-6);
  });
 });
 
-it('plays the real navigation/turn/pose/expression chain without moving or warning B early',async()=>{
- const a=resident(),b=resident();a.root.position.set(0,.18,-2);
+for(const [actorHeight,receiverHeight] of [[1,1],[.8,1.25],[1.25,.8]])
+it(`plays navigation, height adaptation and delayed reactions: ${actorHeight}/${receiverHeight}`,async()=>{
+ const a=resident(actorHeight),b=resident(receiverHeight);a.root.position.set(0,.18,-2);
  const bStart=b.root.position.clone(),expressions:Array<[number,string]>=[];
  let actionTime=-10;
  b.setActionExpression=(expression)=>{expressions.push([actionTime,expression]);};
@@ -115,16 +119,44 @@ it('plays the real navigation/turn/pose/expression chain without moving or warni
  }finally{fetchMock.mockRestore();}
 },20000);
 
-it('refuses unreachable height and blocked approaches without teleporting either actor',async()=>{
+it('refuses only blocked approaches without teleporting either actor',async()=>{
  const fetchMock=vi.spyOn(globalThis,'fetch').mockResolvedValue({ok:true,json:async()=>clip} as Response);
  try{
-  for(const unreachable of [true,false]){
-   const a=resident(unreachable?.8:1),b=resident(unreachable?1.2:1);a.root.position.x=-2;
+  for(const differentHeights of [true,false]){
+   const a=resident(differentHeights?.8:1),b=resident(differentHeights?1.2:1);a.root.position.x=-2;
    const starts=[a.root.position.clone(),b.root.position.clone()],turns=[a.root.quaternion.clone(),b.root.quaternion.clone()];
    const scene=createSocialScene([{id:'a',visitor:a},{id:'b',visitor:b}],{findPath:()=>null});
-   await expect(scene.start(clip.id,'a','b')).rejects.toThrow(unreachable?/身高差/:/空地/);
+   await expect(scene.start(clip.id,'a','b')).rejects.toThrow(/空地/);
    expect(scene.active).toBe(false);
    for(const [i,v] of [a,b].entries()){expect(v.root.position).toEqual(starts[i]);expect(v.root.quaternion.angleTo(turns[i])).toBeLessThan(1e-6);}
   }
  }finally{fetchMock.mockRestore();}
 });
+
+it('fits the full character-editor height range with unequal head sizes, without changing settings or bone lengths',()=>{
+ const residents=new Map<string,ChibiVisitor>();
+ const get=(height:number,size:number,role:string)=>{
+  const key=`${height}:${size}:${role}`;
+  if(!residents.has(key))residents.set(key,resident(height,size));
+  const v=residents.get(key)!;v.root.position.set(role==='A'?-2:0,.18,0);v.root.quaternion.identity();v.animate(0,'idle');return v;
+ };
+ for(const ah of [.8,.9,1,1.1,1.25])for(const bh of [.8,.9,1,1.1,1.25])for(const [as,bs] of [[.75,1.4],[1.04,1.04],[1.4,.75]]){
+  const a=get(ah,as,'A'),b=get(bh,bs,'B');
+  const snapshots=[a,b].map(v=>({height:v.rig!.bodyHeight,size:v.rig!.mesh.geometry.userData.headSize,
+   scale:v.rig!.bones.head.getWorldScale(new T.Vector3()),positions:Object.values(v.rig!.bones).map(b=>b.position.clone())}));
+  const plan=planSneakKiss(a,b,1),label=`A ${ah}/${as}, B ${bh}/${bs}`;
+  expect(plan.surfaceValid,label).toBe(true);expect(plan.error,label).toBeLessThan(.005);
+  a.root.position.copy(plan.stance).add(plan.step);a.root.quaternion.copy(plan.heading);
+  a.animate(0,'idle');b.animate(0,'idle');
+  const floors=[a,b].map(v=>v.rig!.bones.L_toe.getWorldPosition(new T.Vector3()).y);
+  poseSneakKiss(a,b,2,plan);
+  const gap=a.rig!.bones.head.localToWorld(plan.mouth.clone()).distanceTo(b.rig!.bones.head.localToWorld(plan.cheek.clone()));
+  expect(gap,label).toBeLessThan(.025);
+  [a,b].forEach((v,i)=>{
+   expect(v.rig!.bodyHeight).toBe(snapshots[i].height);expect(v.rig!.mesh.geometry.userData.headSize).toBe(snapshots[i].size);
+   expect(v.rig!.bones.head.getWorldScale(new T.Vector3()).distanceTo(snapshots[i].scale)).toBeLessThan(1e-6);
+   Object.values(v.rig!.bones).forEach((bone,j)=>expect(bone.position).toEqual(snapshots[i].positions[j]));
+   for(const side of ['L','R'])expect(v.rig!.bones[side+'_toe'].getWorldPosition(new T.Vector3()).y,floors[i].toString()).toBeCloseTo(floors[i],4);
+  });
+ }
+},30000);

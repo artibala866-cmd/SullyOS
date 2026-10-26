@@ -17,6 +17,7 @@ export function sneakKissPhase(time:number){
  return {
   step:(lead+trail)/2,lead,trail,
   prepare:fade(t,.45,1.80,2.15,2.95),
+  receiverAdjust:fade(t,0,1.40,2.45,4.20),
   kiss:fade(t,1.45,1.85,2.15,2.45),
   away:fade(t,0,.55,2.35,2.85),
   reaction:fade(t,2.35,2.90,4.45,5),
@@ -31,15 +32,16 @@ export function sneakKissExpression(actor:0|1,time:number):ActionExpression{
 }
 export type SneakKissPlan={
  side:1|-1;heading:T.Quaternion;stance:T.Vector3;step:T.Vector3;
- knee:number;toe:number;pitch:number;error:number;cheek:T.Vector3;mouth:T.Vector3;
+ knee:number;toe:number;pitch:number;receiverKnee:number;receiverBow:number;
+ error:number;surfaceValid:boolean;cheek:T.Vector3;mouth:T.Vector3;
 };
 const toes=(v:ChibiVisitor)=>['L','R'].map(s=>v.rig!.bones[s+'_toe'].getWorldPosition(new T.Vector3()));
 
-/** A alone adjusts height. B must not crouch or turn in anticipation.
+/** Temporary articulated height adjustment, shared by either participant.
  * Ankle/toe articulation raises the heels; vertical translation is only the
  * measured correction needed to keep the original toe contacts on the floor.
  */
-function actorPose(a:ChibiVisitor,knee:number,toe:number,pitch:number,prepare:number,kiss:number){
+function groundedPose(a:ChibiVisitor,knee:number,toe:number,pitch:number,prepare:number,kiss:number,bow=.16){
  const bones=a.rig!.bones;
  a.root.updateWorldMatrix(true,true);const planted=toes(a);
  for(const side of ['L','R']){
@@ -47,8 +49,8 @@ function actorPose(a:ChibiVisitor,knee:number,toe:number,pitch:number,prepare:nu
   bones[side+'_shin'].quaternion.multiply(q(2*knee*prepare));
   bones[side+'_foot'].quaternion.multiply(q((-knee+toe)*prepare));
  }
- bones.spine.quaternion.multiply(q(.10*kiss));
- bones.chest.quaternion.multiply(q(.06*kiss));
+ bones.spine.quaternion.multiply(q(bow*.625*kiss));
+ bones.chest.quaternion.multiply(q(bow*.375*kiss));
  bones.head.quaternion.multiply(q(pitch*prepare));
  a.root.updateWorldMatrix(true,true);
  const posed=toes(a);
@@ -83,36 +85,55 @@ export function planSneakKiss(a:ChibiVisitor,b:ChibiVisitor,side:1|-1):SneakKiss
  const hit=ray.intersectObject(b.rig!.mesh,false)[0];
  if(hit)target.copy(hit.point);
  const cheek=b.rig!.bones.head.worldToLocal(target.clone());
- target.addScaledVector(normal,.012);
- const heading=new T.Quaternion().setFromAxisAngle(up,Math.atan2(-normal.x,-normal.z));
- a.root.quaternion.copy(heading);
- const trial=(knee:number,toe:number,pitch:number)=>{
-  a.animate(0,'idle');actorPose(a,knee,toe,pitch,1,1);
+ // Solve the pair's contact height, not whether a fixed A-only clip fits.
+ // A uses a modest toe/upper-body reach. When B is much taller, B lowers
+ // through knees and a small forward bow while still looking elsewhere.
+ // This is pose articulation only: no stature, scale or bind-position changes.
+ let heading=new T.Quaternion();
+ const trial=(knee:number,toe:number,pitch:number,receiverKnee=0)=>{
+  b.animate(0,'idle');
+  groundedPose(b,receiverKnee,0,0,1,1,receiverKnee*.28);
+  b.rig!.bones.head.quaternion.multiply(q(0,-side*.18));
+  b.root.updateWorldMatrix(true,true);
+  normal.set(side*.73,0,.68).applyQuaternion(b.rig!.bones.head.getWorldQuaternion(new T.Quaternion())).normalize();
+  target.copy(b.rig!.bones.head.localToWorld(cheek.clone())).addScaledVector(normal,.012);
+  heading.setFromAxisAngle(up,Math.atan2(-normal.x,-normal.z));
+  a.root.quaternion.copy(heading);
+  a.animate(0,'idle');groundedPose(a,knee,toe,pitch,1,1);
   return a.rig!.bones.head.localToWorld(mouthLocal.clone());
  };
- let knee=0,toe=0,pitch=-.18;
+ let knee=0,toe=0,pitch=-.18,receiverKnee=0;
  const initial=trial(0,0,pitch).y-target.y;
  if(initial>0){
-  let lo=0,hi=1.12;
-  for(let i=0;i<16;i++){const mid=(lo+hi)/2;if(trial(mid,0,pitch).y>target.y)lo=mid;else hi=mid;}
+  let lo=0,hi=1.45;
+  for(let i=0;i<18;i++){const mid=(lo+hi)/2;if(trial(mid,0,pitch).y>target.y)lo=mid;else hi=mid;}
   knee=(lo+hi)/2;
  }else{
+  // Keep the short actor's chin/ankles comfortable instead of exhausting
+  // their range, then rejecting even ordinary differences in character height.
   let lo=0,hi=1;
-  for(let i=0;i<16;i++){const mid=(lo+hi)/2;if(trial(0,.62*mid,-.18-.47*mid).y<target.y)lo=mid;else hi=mid;}
-  const amount=(lo+hi)/2;toe=.62*amount;pitch=-.18-.47*amount;
+  for(let i=0;i<18;i++){const mid=(lo+hi)/2;if(trial(0,.38*mid,-.18-.16*mid).y<target.y)lo=mid;else hi=mid;}
+  const amount=(lo+hi)/2;toe=.38*amount;pitch=-.18-.16*amount;
+  if(trial(0,toe,pitch).y<target.y){
+   lo=0;hi=1.45;
+   for(let i=0;i<18;i++){const mid=(lo+hi)/2;if(trial(0,toe,pitch,mid).y<target.y)lo=mid;else hi=mid;}
+   receiverKnee=(lo+hi)/2;
+  }
  }
- const mouth=trial(knee,toe,pitch),error=mouthHit&&hit?Math.abs(mouth.y-target.y):Infinity;
+ const mouth=trial(knee,toe,pitch,receiverKnee),error=Math.abs(mouth.y-target.y);
  const contactRoot=a.root.position.clone().add(target.clone().sub(mouth).setY(0));
  const step=normal.clone().setY(0).normalize().multiplyScalar(-.20);
  const stance=contactRoot.sub(step);
  a.root.quaternion.copy(oldQ);a.animate(0,'idle');b.animate(0,'idle');
- return {side,heading,stance,step,knee,toe,pitch,error,cheek,mouth:mouthLocal};
+ return {side,heading,stance,step,knee,toe,pitch,receiverKnee,receiverBow:receiverKnee*.28,
+  error,surfaceValid:!!mouthHit&&!!hit,cheek,mouth:mouthLocal};
 }
 
 export function poseSneakKiss(a:ChibiVisitor,b:ChibiVisitor,time:number,plan:SneakKissPlan){
  if(!a.rig||!b.rig)return;
  const p=sneakKissPhase(time),ar=a.rig.bones,br=b.rig.bones;
- actorPose(a,plan.knee,plan.toe,plan.pitch,p.prepare,p.kiss);
+ groundedPose(b,plan.receiverKnee,0,0,p.receiverAdjust,p.receiverAdjust,plan.receiverBow);
+ groundedPose(a,plan.knee,plan.toe,plan.pitch,p.prepare,p.kiss);
  // The small approach is two alternating foot placements, not sliding a
  // standing skeleton over the floor. Both feet settle before the quick kiss.
  const current=toes(a);
