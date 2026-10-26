@@ -5,6 +5,7 @@ import {roomPlants} from './watering.js';
 import {roomPlush} from './plush.js';
 import {kitchenActions} from './kitchenActivities.js';
 import {mirrorActivities,isMirrorAction} from './mirror.js';
+import {validatedFurnitureStations} from './furnitureStationRegistry.js';
 
 // Describe real, existing actions. No name-based guesses and no saved UI state.
 export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,transitioning=false,occupiedSeats=[]}={}){
@@ -20,7 +21,7 @@ export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=nu
  if(body2)for(const s of roomSeats(room,catalog).filter(s=>s.itemId===itemId&&free(s)&&seatTransform(room,catalog,s,true)?.pose==='floor'))add('chibi-sit','04 盘腿坐',{seat:s.seatId,alternate:'true'});
  const plant=roomPlants(room,catalog,clearance).find(p=>p.itemId===itemId);if(plant)add('chibi-water','浇水',{},plant.spot?'':'周围太挤啦，先留一点空位');
  if(roomPlush(room,catalog).some(p=>p.itemId===itemId))add(held?.itemId===itemId?'plush-put-back':'chibi-hug',held?.itemId===itemId?'放回原位':'抱抱');
- const allActivities=[...activities,...[...mirrorActivities(room,catalog,clearance),...bathroomActivities(room,catalog)].filter(v=>!activities.some(a=>a.itemId===v.itemId&&a.kind===v.kind))];
+ const allActivities=validatedFurnitureStations(room,catalog,[...activities,...[...mirrorActivities(room,catalog,clearance),...bathroomActivities(room,catalog)].filter(v=>!activities.some(a=>a.itemId===v.itemId&&a.kind===v.kind))],occupiedSeats);
  const matched=allActivities.filter(v=>v.itemId===itemId||!isMirrorAction(v.kind)&&(v.seat?.itemId===itemId||v.dependencies?.includes(itemId)));
  for(const v of matched){
   const chair=room.items.find(i=>i.id===v.seat?.itemId),side={left:'左边',right:'右边',front:'前边',back:'后边'}[chair?.dockSlot];
