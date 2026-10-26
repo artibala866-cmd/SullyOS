@@ -24,6 +24,40 @@ export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e
 export interface SocialResident {id:string;visitor:ChibiVisitor}
 const yAxis=new T.Vector3(0,1,0),smooth=T.MathUtils.smootherstep;
 /** Both roles share a clock and capture transform. Observers stay independent. */
+/** Smooth travel on an existing planned path. Start and finish at rest,
+* and sample neighbouring positions for continuous heading through bends.
+* Pure in time/path: pause, seek, 30/60/120 Hz cannot accumulate drift.
+* Does not create paths or move an actor outside the navigation waypoints. */
+export function sampleSocialApproach(path:readonly T.Vector3[],time:number,duration:number){
+ const start=path[0]?.clone()??new T.Vector3(),last=path.at(-1)??start;
+ if(path.length<2||!Number.isFinite(duration)||duration<=0)return {position:last.clone(),heading:null as number|null,progress:1,speed:0};
+ const lengths=path.slice(1).map((v,i)=>v.distanceTo(path[i]));
+ const total=lengths.reduce((a,b)=>a+b,0);
+ if(total<1e-8)return {position:last.clone(),heading:null as number|null,progress:1,speed:0};
+ const t=T.MathUtils.clamp(Number.isFinite(time)?time:0,0,duration);
+ const ramp=Math.min(.18,duration*.22),denom=duration-ramp;
+ let traveled:number,speed:number;
+ if(t<ramp){traveled=total*(t*t/(2*ramp))/denom;speed=total*t/(ramp*denom);}
+ else if(t>duration-ramp){
+  const left=duration-t;
+  traveled=total*(1-left*left/(2*ramp*denom));
+  speed=total*left/(ramp*denom);
+ }else{traveled=total*(t-ramp*.5)/denom;speed=total/denom;}
+ const positionAt=(distance:number)=>{
+  let d=T.MathUtils.clamp(distance,0,total);
+  for(let i=0;i<lengths.length;i++){
+   if(d<=lengths[i]||i===lengths.length-1)return path[i].clone().lerp(path[i+1],lengths[i]>1e-8?T.MathUtils.clamp(d/lengths[i],0,1):0);
+   d-=lengths[i];
+  }
+  return last.clone();
+ };
+ const position=positionAt(traveled),look=Math.min(.12,total*.2);
+ const startPoint=positionAt(Math.max(0,traveled-look)),endPoint=positionAt(Math.min(total,traveled+look));
+ const headingVector=endPoint.sub(startPoint);
+ const heading=headingVector.lengthSq()>1e-8?Math.atan2(headingVector.x,headingVector.z):null;
+ return {position,heading,progress:traveled/total,speed};
+}
+
 export function createSocialScene(residents:SocialResident[],options:{facingTarget?:T.Vector3;pinned?:{id:string;pose:any};onComplete?:()=>void;canPlace?:(paths:T.Vector3[][])=>boolean;canPerform?:(paths:T.Vector3[][])=>boolean;origins?:T.Vector3[];findPath?:(from:T.Vector3,to:T.Vector3)=>T.Vector3[]|null;sofaSeatPoses?:Record<string,any>}={}){
  if(new Set(residents.map(r=>r.id)).size!==residents.length)throw Error('Duplicate resident ID');
  if(residents.some(r=>!!r.visitor.rig!==!!residents[0]?.visitor.rig))throw Error('A home must use one body type');
@@ -233,39 +267,6 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   },
  },motionTemplateConstraintPlans);
 
- /** Smooth travel on an existing planned path. Start and finish at rest,
- * and sample neighbouring positions for continuous heading through bends.
- * Pure in time/path: pause, seek, 30/60/120 Hz cannot accumulate drift.
- * Does not create paths or move an actor outside the navigation waypoints. */
- export function sampleSocialApproach(path:readonly T.Vector3[],time:number,duration:number){
-  const start=path[0]?.clone()??new T.Vector3(),last=path.at(-1)??start;
-  if(path.length<2||!Number.isFinite(duration)||duration<=0)return {position:last.clone(),heading:null as number|null,progress:1,speed:0};
-  const lengths=path.slice(1).map((v,i)=>v.distanceTo(path[i]));
-  const total=lengths.reduce((a,b)=>a+b,0);
-  if(total<1e-8)return {position:last.clone(),heading:null as number|null,progress:1,speed:0};
-  const t=T.MathUtils.clamp(Number.isFinite(time)?time:0,0,duration);
-  const ramp=Math.min(.18,duration*.22),denom=duration-ramp;
-  let traveled:number,speed:number;
-  if(t<ramp){traveled=total*(t*t/(2*ramp))/denom;speed=total*t/(ramp*denom);}
-  else if(t>duration-ramp){
-   const left=duration-t;
-   traveled=total*(1-left*left/(2*ramp*denom));
-   speed=total*left/(ramp*denom);
-  }else{traveled=total*(t-ramp*.5)/denom;speed=total/denom;}
-  const positionAt=(distance:number)=>{
-   let d=T.MathUtils.clamp(distance,0,total);
-   for(let i=0;i<lengths.length;i++){
-    if(d<=lengths[i]||i===lengths.length-1)return path[i].clone().lerp(path[i+1],lengths[i]>1e-8?T.MathUtils.clamp(d/lengths[i],0,1):0);
-    d-=lengths[i];
-   }
-   return last.clone();
-  };
-  const position=positionAt(traveled),look=Math.min(.12,total*.2);
-  const startPoint=positionAt(Math.max(0,traveled-look)),endPoint=positionAt(Math.min(total,traveled+look));
-  const headingVector=endPoint.sub(startPoint);
-  const heading=headingVector.lengthSq()>1e-8?Math.atan2(headingVector.x,headingVector.z):null;
-  return {position,heading,progress:traveled/total,speed};
- }
  function draw(){
   if(!session){for(const r of states.values())if(r.id!==pinned?.id){
    const seat=options.sofaSeatPoses?.[r.id];
