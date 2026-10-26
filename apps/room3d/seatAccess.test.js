@@ -26,6 +26,14 @@ describe('reusable seat approach and safe get-up route',()=>{
   const preferred=[1.1,.18,.12];
   expect(seatEntry(seat,{free},[0,0],{allowSides:true,preferred})).toEqual(preferred);
  });
+ it('keeps workstation entrances beside the chair instead of across its desk',()=>{
+  const points=seatEntryCandidates(seat,{allowSides:true,allowFront:false});
+  expect(points).toHaveLength(24);
+  expect(points.every(p=>Math.abs(p[0])>.01)).toBe(true);
+  const docked=seatEntry(seat,{free:(x,z)=>Math.abs(x)>.5&&Math.abs(z)<2},[0,0],{allowSides:true,sideFirst:true});
+  expect(docked).not.toBeNull();
+  expect(Math.abs(docked[0])).toBeGreaterThan(.5);
+ });
  it('is invariant to a rotated seat model and does not assume a named gaming chair',()=>{
   const transform={position:[1,.65,2],rotation:Math.PI/2};
   const p=seatEntryCandidates(transform,{allowSides:true,sideFirst:true});
