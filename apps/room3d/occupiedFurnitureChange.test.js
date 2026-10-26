@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import catalog from '../../public/room3d/catalog.json';
-import {occupiedFurnitureChange} from './furnitureStationRegistry.js';
+import {occupiedFurnitureChange,activeFurnitureDependencyChange} from './furnitureStationRegistry.js';
 import {seatTransform,roomSeats} from './seating.js';
 
 const room={id:'r',items:[
@@ -36,5 +36,26 @@ describe('occupied furniture and supported decoration layout safety',()=>{
   const occupied={roomId:'r',itemId:'b',seatId:'center',bed:true};
   const moved=structuredClone(before);moved.rooms[0].items[0].rotation=90;
   expect(occupiedFurnitureChange(before,moved,catalog,[occupied])).toContain('先让人物');
+ });
+});
+
+describe('ongoing furniture tasks remain on physically unchanged equipment',()=>{
+ const before={rooms:[{id:'kitchen',items:[
+  {id:'hob',assetId:'kitchen_range',x:0,y:.15,z:0,rotation:0,stored:false},
+  {id:'sink',assetId:'kitchen_sink',x:2,y:.15,z:0,rotation:0,stored:false},
+  {id:'plant',assetId:'monstera',x:-2,y:.15,z:0,rotation:0,stored:false},
+ ]}]};
+ const task={itemId:'hob',dependencies:['hob','sink']},plant={itemId:'plant'};
+ const change=fn=>{const h=structuredClone(before);fn(h.rooms[0].items);return h;};
+ it('blocks a relocated or removed kitchen dependency, including for multi-leg washing',()=>{
+  expect(activeFurnitureDependencyChange(before,change(i=>i[1].x+=.4),[task])).toContain('先结束');
+  expect(activeFurnitureDependencyChange(before,change(i=>i[0].stored=true),[task])).toContain('先结束');
+ });
+ it('allows unrelated furniture edits and material-only changes',()=>{
+  expect(activeFurnitureDependencyChange(before,change(i=>i[2].x+=.3),[task])).toBe('');
+  expect(activeFurnitureDependencyChange(before,change(i=>i[0].color='#ffffff'),[task])).toBe('');
+ });
+ it('prevents moving a target plant while it is being watered',()=>{
+  expect(activeFurnitureDependencyChange(before,change(i=>i[2].rotation=90),[plant])).toContain('先结束');
  });
 });
