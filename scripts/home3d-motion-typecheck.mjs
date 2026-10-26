@@ -24,6 +24,7 @@ const checked=[
  'utils/chibiFurnitureMotion.test.ts',
  'utils/chibiRoomWalk.test.ts',
  'utils/chibiMotionRecovery.test.ts',
+ 'utils/chibiAllSelectedMotionAssets.test.ts',
 ];
 const baselineRef='refs/remotes/origin/feat/amaama-unity-retarget-probe';
 const cwd=process.cwd();
