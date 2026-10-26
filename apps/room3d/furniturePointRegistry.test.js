@@ -8,8 +8,8 @@ describe('home3d furniture point coverage (metadata only, not visual QA)',()=>{
   expect(entries).toHaveLength(catalog.length);
   expect(new Set(entries.map(a=>a.id)).size).toBe(catalog.length);
   expect(entries.every(a=>a.status!=='可用且验证通过')).toBe(true);
-  expect(entries.some(a=>a.id==='chair'&&a.status==='需要补齐或修复')).toBe(true);
-  expect(entries.some(a=>a.id==='pouf'&&a.status==='需要补齐或修复')).toBe(true);
+  expect(entries.some(a=>a.id==='chair'&&a.status==='已配置但尚未完成画面验证')).toBe(true);
+  expect(entries.some(a=>a.id==='pouf'&&a.status==='已配置但尚未完成画面验证')).toBe(true);
  });
  it('rejects invalid, duplicate and raised bed anchors without silently inventing a point',()=>{
   const bed=catalog.find(a=>a.id==='bedroom_bunk');
