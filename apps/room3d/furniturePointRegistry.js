@@ -11,10 +11,15 @@ export const FURNITURE_POINT_REVIEW=Object.freeze(PENDING_REVIEW);
 const finiteTriple=p=>Array.isArray(p)&&p.length===3&&p.every(n=>typeof n==='number'&&Number.isFinite(n));
 export function furniturePointIssue(asset,point,kind){
  if(!asset||!point||typeof point.id!=='string'||!point.id||!finiteTriple(point.position)||point.rotation!=null&&!Number.isFinite(point.rotation))return '点位结构或坐标不合法';
- const [x,y,z]=point.position,[width,height,depth]=asset.size||[];
- if(![width,height,depth].every(n=>Number.isFinite(n)&&n>0))return '家具尺寸不合法';
- // Only a broad sanity bound: never substitute this for mesh-surface validation.
- if(Math.abs(x)>width/2+.08||y<-.02||y>height+.10||Math.abs(z)>depth/2+.08)return '点位超出家具局部范围';
+ const [x,y,z]=point.position;
+ // Legacy/test miniature catalogs may provide authored points without a size.
+ // Full shipped catalog entries always include size; reject invalid supplied dimensions.
+ if(asset.size!=null){
+  const [width,height,depth]=asset.size;
+  if(!Array.isArray(asset.size)||![width,height,depth].every(n=>Number.isFinite(n)&&n>0))return '家具尺寸不合法';
+  // A numeric sanity bound never substitutes for mesh-surface inspection.
+  if(Math.abs(x)>width/2+.08||y<-.02||y>height+.10||Math.abs(z)>depth/2+.08)return '点位超出家具局部范围';
+ }
  if(kind==='beds'&&(y>1.85||asset.id==='bedroom_bunk'))return '该床位尚无通过验证的床沿进出或攀爬路径';
  return '';
 }
