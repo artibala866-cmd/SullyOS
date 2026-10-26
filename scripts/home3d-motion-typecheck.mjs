@@ -16,6 +16,7 @@ const checked=[
  'apps/room3d/chibi/motionTemplateScope.ts',
  'apps/room3d/chibi/roomWalk.ts',
  'apps/room3d/chibi/selectedSocial.ts',
+ 'apps/room3d/chibi/socialContact.ts',
  'apps/room3d/chibi/standingHeightAdaptation.ts',
  'apps/room3d/chibi/visitor.ts',
  'apps/room3d/chibi/motionTemplates.test.ts',
