@@ -58,6 +58,22 @@ export function applyContactRecipe(
  if(contact&&solve&&weight>0)solve(contact,weight);
  return contact;
 }
+/** Clamp an unreachable contact target to the existing two-bone arm reach.
+ * A constraint must not stretch the skeleton or pull either navigation root.
+ * Keep the requested target for reporting: a clamped arm is not a fulfilled
+ * contact, and the caller can still detect an unreachable interaction. */
+export function boundArmWristReach(
+ shoulder:T.Vector3,elbow:T.Vector3,wrist:T.Vector3,desired:T.Vector3
+):{target:T.Vector3;clamped:boolean}{
+ const upper=shoulder.distanceTo(elbow),lower=elbow.distanceTo(wrist);
+ const reach=(upper+lower)*.985,relative=desired.clone().sub(shoulder);
+ const distance=relative.length();
+ if(!Number.isFinite(reach)||reach<1e-6||!Number.isFinite(distance)||
+    distance<=reach)return {target:desired.clone(),clamped:false};
+ // Never invent a direction for coincident joints or a degenerate wrist.
+ return {target:shoulder.clone().addScaledVector(relative,reach/distance),clamped:true};
+}
+
 export function contactSolver(visitor:ChibiVisitor){
  const rig=visitor.rig;if(!rig)return null;
  const goals=[new T.Bone(),new T.Bone()],bones=[...rig.skeleton.bones,...goals];
@@ -74,7 +90,12 @@ export function contactSolver(visitor:ChibiVisitor){
   const rotation=furnitureHandRotation(contact.side,contact.direction.toArray(),contact.normal.toArray());
   const scale=hand.getWorldScale(new T.Vector3()).y;
   const wrist=contact.point.clone().sub(furniturePalm(contact.side).multiplyScalar(scale).applyQuaternion(rotation));
-  goals[i].matrixWorld.makeTranslation(wrist.x,wrist.y,wrist.z);solver.updateOne(chains[i],strength);
+  const shoulder=rig.bones[contact.side+'_upperArm'].getWorldPosition(new T.Vector3());
+  const elbow=rig.bones[contact.side+'_forearm'].getWorldPosition(new T.Vector3());
+  const current=hand.getWorldPosition(new T.Vector3());
+  const constrained=boundArmWristReach(shoulder,elbow,current,wrist).target;
+  goals[i].matrixWorld.makeTranslation(constrained.x,constrained.y,constrained.z);
+  solver.updateOne(chains[i],strength);
   const local=hand.parent!.getWorldQuaternion(new T.Quaternion()).invert().multiply(rotation);
   hand.quaternion.slerp(local,strength);
   // A caller with individually authored fingers owns its own hand shape.
