@@ -1,4 +1,4 @@
-import {roomSeats,roomBeds} from './seating.js';
+import {roomSeats,roomBeds,seatTransform} from './seating.js';
 
 // All existing activity controllers keep their own IK/path solver.
 // This common gate guarantees that their advertised station contracts refer
@@ -10,6 +10,24 @@ export function sameStationPose(a,b,positionTolerance=.04,rotationTolerance=.02)
  const distance=Math.hypot(...a.position.map((v,i)=>v-b.position[i]));
  const angle=Math.atan2(Math.sin(a.rotation-b.rotation),Math.cos(a.rotation-b.rotation));
  return distance<=positionTolerance&&Math.abs(angle)<=rotationTolerance;
+}
+
+// Furniture saves must not teleport a seated resident to a moved model or
+// let a newly supported decoration intersect an occupied cushion.
+// This is only a commit-time guard: it never edits a saved seat or room layout.
+export function occupiedFurnitureChange(before,after,catalog,occupiedSeats=[]){
+ for(const occupied of occupiedSeats.filter(Boolean)){
+  const original=before?.rooms?.find(r=>r.id===occupied.roomId&&r.items.some(i=>i.id===occupied.itemId&&!i.stored));
+  if(!original)continue;
+  const changed=after?.rooms?.find(r=>r.id===occupied.roomId&&r.items.some(i=>i.id===occupied.itemId&&!i.stored));
+  const fromItem=original.items.find(i=>i.id===occupied.itemId);
+  const toItem=changed?.items.find(i=>i.id===occupied.itemId);
+  const from=seatTransform(original,catalog,occupied,true);
+  const to=changed&&seatTransform(changed,catalog,occupied,true);
+  if(!changed||fromItem.assetId!==toItem?.assetId||!from||!sameStationPose(from,to))
+   return '座位或床位正在使用，请先让人物正常起身，再移动、收纳或遮挡这件家具';
+ }
+ return '';
 }
 export function furnitureStationIssue(room,catalog,station){
  if(!station||typeof station.itemId!=='string'||typeof station.kind!=='string')return '家具互动能力或目标不存在';
