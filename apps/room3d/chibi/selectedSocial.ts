@@ -233,6 +233,39 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   },
  },motionTemplateConstraintPlans);
 
+ /** Smooth travel on an existing planned path. Start and finish at rest,
+ * and sample neighbouring positions for continuous heading through bends.
+ * Pure in time/path: pause, seek, 30/60/120 Hz cannot accumulate drift.
+ * Does not create paths or move an actor outside the navigation waypoints. */
+ export function sampleSocialApproach(path:readonly T.Vector3[],time:number,duration:number){
+  const start=path[0]?.clone()??new T.Vector3(),last=path.at(-1)??start;
+  if(path.length<2||!Number.isFinite(duration)||duration<=0)return {position:last.clone(),heading:null as number|null,progress:1,speed:0};
+  const lengths=path.slice(1).map((v,i)=>v.distanceTo(path[i]));
+  const total=lengths.reduce((a,b)=>a+b,0);
+  if(total<1e-8)return {position:last.clone(),heading:null as number|null,progress:1,speed:0};
+  const t=T.MathUtils.clamp(Number.isFinite(time)?time:0,0,duration);
+  const ramp=Math.min(.18,duration*.22),denom=duration-ramp;
+  let traveled:number,speed:number;
+  if(t<ramp){traveled=total*(t*t/(2*ramp))/denom;speed=total*t/(ramp*denom);}
+  else if(t>duration-ramp){
+   const left=duration-t;
+   traveled=total*(1-left*left/(2*ramp*denom));
+   speed=total*left/(ramp*denom);
+  }else{traveled=total*(t-ramp*.5)/denom;speed=total/denom;}
+  const positionAt=(distance:number)=>{
+   let d=T.MathUtils.clamp(distance,0,total);
+   for(let i=0;i<lengths.length;i++){
+    if(d<=lengths[i]||i===lengths.length-1)return path[i].clone().lerp(path[i+1],lengths[i]>1e-8?T.MathUtils.clamp(d/lengths[i],0,1):0);
+    d-=lengths[i];
+   }
+   return last.clone();
+  };
+  const position=positionAt(traveled),look=Math.min(.12,total*.2);
+  const startPoint=positionAt(Math.max(0,traveled-look)),endPoint=positionAt(Math.min(total,traveled+look));
+  const headingVector=endPoint.sub(startPoint);
+  const heading=headingVector.lengthSq()>1e-8?Math.atan2(headingVector.x,headingVector.z):null;
+  return {position,heading,progress:traveled/total,speed};
+ }
  function draw(){
   if(!session){for(const r of states.values())if(r.id!==pinned?.id){
    const seat=options.sofaSeatPoses?.[r.id];
@@ -240,9 +273,16 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   }holdPinned();finish();return;}
   const s=session;
   if(s.time<s.approach){
-   s.ids.forEach((id,i)=>{if(id===pinned?.id){holdPinned();return;}const v=states.get(id)!.visitor,path=s.paths[i],lengths=path.slice(1).map((p,j)=>p.distanceTo(path[j])),total=lengths.reduce((a,b)=>a+b,0);let distance=total*s.time/s.approach,index=0;while(index<lengths.length-1&&distance>lengths[index])distance-=lengths[index++];const from=path[index],to=path[index+1]??from;
-    v.root.position.copy(from).lerp(to,lengths[index]?distance/lengths[index]:0);
-    if(total>.01){const q=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(to.x-from.x,to.z-from.z));v.root.quaternion.copy(s.turns[i]).slerp(q,smooth(s.time,0,.2));v.animate(s.time,'walk');}else v.animate(s.time,'idle');
+   s.ids.forEach((id,i)=>{
+    if(id===pinned?.id){holdPinned();return;}
+    const v=states.get(id)!.visitor,approach=sampleSocialApproach(s.paths[i],s.time,s.approach);
+    v.root.position.copy(approach.position);
+    if(approach.heading!==null){
+     const q=new T.Quaternion().setFromAxisAngle(yAxis,approach.heading);
+     v.root.quaternion.copy(s.turns[i]).slerp(q,smooth(s.time,0,Math.min(.3,s.approach*.3)));
+     // The gait clock uses actual world displacement, including acceleration.
+     v.animate(s.time,'walk');
+    }else v.animate(s.time,'idle');
    });finish();return;
   }
   const actionTime=s.time-s.approach,kissAction=s.action==='home-kiss',rearHug=s.action==='home-rear-hug',handPlead=s.action==='home-hand-hold-plead',sofaPillow=s.action==='home-sofa-lap-pillow',sneak=!!s.sneakPlan,sourceTime=T.MathUtils.clamp(kissAction?Math.max(0,actionTime-.15)+1.5:rearHug||handPlead||sofaPillow||sneak||!!s.passionPlan?actionTime:actionTime-.6,0,s.clip.duration),weight=kissAction?smooth(actionTime,0,.25):rearHug||handPlead||sofaPillow||sneak||!!s.passionPlan?1:smooth(actionTime,0,.6)*(1-smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));
