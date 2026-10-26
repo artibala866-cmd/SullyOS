@@ -74,7 +74,7 @@ export function createWorldFootLock(){
  let side:'L'|'R'|null=null,locked=new T.Vector3(),previousRoot=new T.Vector3();
  let previousTime:number|null=null;
  const reset=()=>{side=null;previousTime=null;};
- return {reset,get supportSide(){return side;},apply(
+ return {reset,get supportSide(){return side;},get targetWorld(){return side?locked.clone():null;},apply(
   v:Pick<ChibiVisitor,'root'|'rig'>,time:number,speed:number,walking=true
  ){
   if(!walking||!v.rig||!Number.isFinite(time)||!Number.isFinite(speed)||speed<=0){reset();return;}
