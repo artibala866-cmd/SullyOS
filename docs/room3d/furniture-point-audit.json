@@ -2,7 +2,7 @@
   "title": "SullyOS 家园全家具互动点位逐件元数据审计",
   "baseBranch": "remove-checkphone-vrworld-lifesim",
   "catalogSha": "cbd2dd90e69d4ee167bb7f127600da6292221129",
-  "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。",
+  "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。 本次更新还执行了 248 条资源 GLB 网格合法性、坐点源建模核对及活动能力调用链的自动化检查；没有用户视角的 WebGL/人体触面逐件目视验收。",
   "counts": {
     "assets": 248,
     "registeredSeatAssets": 21,
@@ -10,7 +10,12 @@
     "seats": 29,
     "beds": 8,
     "exposedBeds": 5,
-    "visualPassed": 0
+    "visualPassed": 0,
+    "modelGLBsInspected": 248,
+    "modelSources": {
+      "kit": 28,
+      "external": 220
+    }
   },
   "items": [
     {
