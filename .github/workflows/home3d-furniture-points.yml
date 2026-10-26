@@ -1,0 +1,34 @@
+name: Home3D furniture interaction regression
+
+on:
+  pull_request:
+    branches:
+      - remove-checkphone-vrworld-lifesim
+    paths:
+      - 'apps/room3d/**'
+      - 'public/room3d/catalog.json'
+      - 'docs/room3d/**'
+      - '.github/workflows/home3d-furniture-points.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  furniture-points:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify catalog, point transforms and interaction routes
+        run: pnpm exec vitest run apps/room3d/furniturePointRegistry.test.js apps/room3d/furnitureCapabilityRegistry.test.js apps/room3d/mirrorJourney.test.js
+      - name: Build
+        run: pnpm build
