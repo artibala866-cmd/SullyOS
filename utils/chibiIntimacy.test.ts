@@ -36,6 +36,28 @@ it('paired intimacy preserves all 48 bones, grounds the carrier, lifts then rele
   both.forEach(r=>{r.reset();expect(r.body.position.length()).toBe(0);r.visitor.rig!.mesh.geometry.dispose();});
  }
 });
+it('carrier sustains load-scaled knee and torso counterbalance until the carried person is set down',()=>{
+ for(const [carrierHeight,recipientHeight] of [[1,1],[.8,1.25],[1.25,.8]]){
+  const a=actor(carrierHeight,-.4,0),b=actor(recipientHeight,.4,Math.PI);
+  const foot=()=>a.visitor.rig!.bones.L_foot.getWorldPosition(new T.Vector3()).y;
+  a.reset();b.reset();
+  const floor=foot();
+  poseIntimacy('home-princess-carry',[a,b],0);
+  const spineAtStart=a.visitor.rig!.bones.spine.rotation.x;
+  a.reset();b.reset();
+  poseIntimacy('home-princess-carry',[a,b],5);
+  const spineAtHold=a.visitor.rig!.bones.spine.rotation.x;
+  const thighAtHold=a.visitor.rig!.bones.L_thigh.rotation.x;
+  expect(spineAtHold, `load ratio ${carrierHeight}/${recipientHeight}`).toBeLessThan(spineAtStart-.015);
+  expect(thighAtHold).toBeLessThan(-.04);
+  expect(Math.abs(foot()-floor)).toBeLessThan(.012);
+  a.reset();b.reset();
+  poseIntimacy('home-princess-carry',[a,b],10);
+  expect(a.visitor.rig!.bones.spine.rotation.x).toBeCloseTo(spineAtStart,3);
+  expect(b.body.position.length()).toBeLessThan(.0001);
+ }
+});
+
 it('raises hands before contact, pats with one hand while the other supports, and returns smoothly when seeking',()=>{
  const both=[actor(1,-.33,0),actor(1.15,.33,Math.PI)];
  const sample=(time:number)=>{both.forEach(r=>r.reset());poseIntimacy('home-hug',both,time);return both.map(r=>Object.fromEntries(['L','R'].map(side=>[side,r.visitor.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side))])));};
