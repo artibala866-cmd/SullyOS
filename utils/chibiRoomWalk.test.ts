@@ -4,7 +4,7 @@ import {createBlankBody,BLANK_SCALE} from '../apps/room3d/chibi/blankBody';
 import {bindBlankBody} from '../apps/room3d/chibi/blankRig';
 import {createBlankMotion} from '../apps/room3d/chibi/blankMotion';
 import {bodyHeightY} from '../apps/room3d/chibi/bodyHeight';
-import {createRoomWalkSampler,roomWalkSpeed} from '../apps/room3d/chibi/roomWalk';
+import {createDistanceWalkClock,createRoomWalkSampler,roomWalkSpeed} from '../apps/room3d/chibi/roomWalk';
 import {approvedRoomWalk} from '../apps/room3d/chibi/approvedRoomWalk';
 
 it('plays the selected Meshy walk on the real rig with fixed bone lengths and grounded lower ankle, then restores idle',()=>{
@@ -31,4 +31,20 @@ it('loops the daily walk with normalized rotations',()=>{
   sample(.25,pose);const before=pose.L_thigh.clone();sample(.25+clip.duration,pose);expect(before.angleTo(pose.L_thigh)).toBeLessThan(1e-6);
   expect(Object.values(pose).every(q=>Math.abs(q.length()-1)<1e-5)).toBe(true);
  }
+});
+
+it('distance clock agrees at 30/60/120 Hz and resets discontinuities',()=>{
+ const run=(hz:number)=>{
+  const clock=createDistanceWalkClock(),position=new T.Vector3(),speed=1.2;
+  let phase=0;
+  for(let i=0;i<=hz*3;i++){position.x=i*speed/hz;phase=clock.sample(position,i/hz,speed);}
+  return phase;
+ };
+ for(const hz of [30,60,120])expect(run(hz)).toBeCloseTo(3,5);
+ const clock=createDistanceWalkClock(),point=new T.Vector3();
+ expect(clock.sample(point,0,1)).toBe(0);
+ point.x=.25;expect(clock.sample(point,.25,1)).toBeCloseTo(.25,8);
+ point.x=100;expect(clock.sample(point,.5,1)).toBeCloseTo(.25,8);
+ expect(clock.sample(point,-1,1)).toBe(0);
+ clock.reset();expect(clock.sample(point,0,1)).toBe(0);
 });
