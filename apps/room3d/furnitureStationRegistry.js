@@ -4,6 +4,13 @@ import {roomSeats,roomBeds} from './seating.js';
 // This common gate guarantees that their advertised station contracts refer
 // to real, currently placed objects and finite local-space contact targets.
 const finiteVector=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite);
+// An accepted route is no longer valid if the contact anchor moves or turns.
+export function sameStationPose(a,b,positionTolerance=.04,rotationTolerance=.02){
+ if(!a||!b||!finiteVector(a.position)||!finiteVector(b.position)||!Number.isFinite(a.rotation)||!Number.isFinite(b.rotation))return false;
+ const distance=Math.hypot(...a.position.map((v,i)=>v-b.position[i]));
+ const angle=Math.atan2(Math.sin(a.rotation-b.rotation),Math.cos(a.rotation-b.rotation));
+ return distance<=positionTolerance&&Math.abs(angle)<=rotationTolerance;
+}
 export function furnitureStationIssue(room,catalog,station){
  if(!station||typeof station.itemId!=='string'||typeof station.kind!=='string')return '家具互动能力或目标不存在';
  const item=room?.items?.find(i=>i.id===station.itemId&&!i.stored);
