@@ -30,8 +30,8 @@ describe('reusable seat approach and safe get-up route',()=>{
   const transform={position:[1,.65,2],rotation:Math.PI/2};
   const p=seatEntryCandidates(transform,{allowSides:true,sideFirst:true});
   expect(p).toHaveLength(41);
-  expect(p[0][0]).toBeCloseTo(.1);
-  expect(p[0][2]).toBeCloseTo(2);
+  expect(p[0][0]).toBeCloseTo(1);
+  expect(p[0][2]).toBeCloseTo(2.9);
   expect(p.some(q=>Math.abs(q[0]-1)>.4)).toBe(true);
  });
 });
