@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import catalog from '../../public/room3d/catalog.json';
-import {furnitureStationIssue,validatedFurnitureStations} from './furnitureStationRegistry.js';
+import {furnitureStationIssue,validatedFurnitureStations,sameStationPose} from './furnitureStationRegistry.js';
 
 const room={id:'r',items:[
  {id:'t',assetId:'worktable',x:0,y:.15,z:0,rotation:0,stored:false},
@@ -21,6 +21,14 @@ describe('shared furniture interaction station validation',()=>{
   expect(furnitureStationIssue(room,catalog,{...station,seat:{...station.seat,seatId:'missing'}})).toContain('座位');
   const stored={...room,items:room.items.map(i=>i.id==='c'?{...i,stored:true}:i)};
   expect(furnitureStationIssue(stored,catalog,station)).toContain('缺失');
+ });
+ it('rejects stale furniture position, height or rotation while accepting wraparound angles',()=>{
+  const a={position:[0,.7,0],rotation:Math.PI};
+  expect(sameStationPose(a,{position:[.01,.72,0],rotation:-Math.PI})).toBe(true);
+  expect(sameStationPose(a,{position:[.15,.7,0],rotation:Math.PI})).toBe(false);
+  expect(sameStationPose(a,{position:[0,.9,0],rotation:Math.PI})).toBe(false);
+  expect(sameStationPose(a,{position:[0,.7,0],rotation:0})).toBe(false);
+  expect(sameStationPose(a,null)).toBe(false);
  });
  it('reserves a seat across the action wheel and AI planner without losing the blocked reason',()=>{
   const [blocked]=validatedFurnitureStations(room,catalog,[station],[{itemId:'c',seatId:'center'}]);
