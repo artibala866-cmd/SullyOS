@@ -13,6 +13,7 @@ const checked=[
  'apps/room3d/chibi/legContactIK.ts',
  'apps/room3d/chibi/motionConstraintPipeline.ts',
  'apps/room3d/chibi/motionTemplates.ts',
+ 'apps/room3d/chibi/motionTemplateScope.ts',
  'apps/room3d/chibi/roomWalk.ts',
  'apps/room3d/chibi/selectedSocial.ts',
  'apps/room3d/chibi/standingHeightAdaptation.ts',
