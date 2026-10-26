@@ -256,13 +256,8 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     const q=frames[i].rotations[n],e=new T.Euler().setFromQuaternion(q,'YXZ'),limit=n==='head'?.08:n==='neck'?.06:n==='hips'?.04:.05;
     e.x=T.MathUtils.clamp(e.x,-limit,limit);e.z=T.MathUtils.clamp(e.z,-limit,limit);q.setFromEuler(e);
    }
-   if(r.visitor.rig&&both.length===2&&['cmu-22_07','cmu-22_05','cmu-22_04','cmu-22_09'].includes(s.action)){
-    const difference=r.visitor.rig.bodyHeight-both[1-i].visitor.rig!.bodyHeight;
-    // The taller resident bends their knees to bring the shoulder into reach.
-    // Keep segment lengths unchanged; sole grounding is applied by the visitor.
-    const bend=T.MathUtils.clamp((difference-.15)*2.5,0,.78);
-    if(bend){for(const side of ['L','R'])for(const [joint,angle] of [['thigh',-bend],['shin',bend*2],['foot',-bend]] as const)frames[i].rotations[`${side}_${joint}`].multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),angle));frames[i].position.y-=1-Math.cos(bend);}
-   }
+   // Shared height adaptation is applied after the sampled pose in the
+   // bodyPlacement phase; do not add another independent knee bend here.
    if(s.passionPlan){
     r.visitor.root.quaternion.copy(turn).slerp(s.passionPlan.headings[i],smooth(actionTime,0,.65));
     r.visitor.animate(0,'idle');
@@ -296,8 +291,8 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    }
    r.visitor.root.updateWorldMatrix(true,true);
   });
-  // One action verifies the configured order; every other motion retains the
-  // original body/head correction, intimacy and contact sequencing.
+  // Opted-in contact profiles share the same ordered constraints. Intimate
+  // actions and specialized seated adapters keep their reviewed legacy route.
   if(constraintPipeline.phases){
    constraintFrame.both=both;
    constraintFrame.frames=frames;
