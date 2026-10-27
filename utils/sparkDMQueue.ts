@@ -70,10 +70,13 @@ export function takeSparkDMJobBatch<T extends SparkQueuedDMJob>(
     if (!queued.length) return { jobs: [], remaining: queued };
     const first = queued[0];
     const countLimit = Math.max(1, Math.min(6, Math.floor(maxSize) || 1));
-    const key = first.accountId || first.key;
     let count = 0;
     for (const item of queued) {
-        if (count >= countLimit || (item.accountId || item.key) !== key) break;
+        // Even one stable account can have a not-yet-migrated legacy name thread.
+        // Do not bill one batch if its messages live under different storage keys:
+        // the later user bubble would otherwise remain pending forever.
+        if (count >= countLimit || item.accountId !== first.accountId ||
+            item.key !== first.key) break;
         count++;
     }
     return { jobs: queued.slice(0, count), remaining: queued.slice(count) };
