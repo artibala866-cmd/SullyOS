@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import catalog from '../../public/room3d/catalog.json';
 import {roomBeds,seatTransform} from './seating.js';
 import {legacyBedTransform,bedEntry,bedEdge,bedChangePose} from './bedMotion.js';
+import {legacyBedFrame} from './chibi/legacyBedMotion.ts';
 import {seatChangeDuration} from './chibi/roomMotionFrame.ts';
 
 const room={id:'bedroom',items:[
@@ -47,6 +48,26 @@ describe('shared bed access for legacy and skeletal residents',()=>{
   expect(rise.position[0]).toBeCloseTo(change.seat[0]);
   expect(stand.position[0]).toBeCloseTo(front[0]);
   expect(stand.position[1]).toBeCloseTo(front[1]);
+ });
+ it('blends the legacy body from standing to seated to lying and back without a posture snap',()=>{
+  const approach=legacyBedFrame(0,{kind:'bed-change',bedWeight:0,bedRecline:0});
+  const seated=legacyBedFrame(2,{kind:'bed-change',bedWeight:1,bedRecline:0});
+  const reclining=legacyBedFrame(5,{kind:'bed-change',bedWeight:1,bedRecline:.5});
+  const lying=legacyBedFrame(9,{kind:'bed-change',bedWeight:1,bedRecline:1});
+  const standing=legacyBedFrame(9,{kind:'bed-change',bedWeight:0,bedRecline:0});
+  expect(approach?.sitting).toBe(false);
+  expect(approach?.floatingLimbs).toBe(false);
+  expect(approach?.rotationX).toBeCloseTo(0);
+  expect(seated?.sitting).toBe(true);
+  expect(seated?.rotationX).toBeCloseTo(0);
+  expect(reclining?.rotationX).toBeCloseTo(-Math.PI/4);
+  expect(lying?.sitting).toBe(false);
+  expect(lying?.rotationX).toBeCloseTo(-Math.PI/2);
+  expect(standing?.sitting).toBe(false);
+  expect(standing?.rotationX).toBeCloseTo(0);
+  const source=readFileSync(new URL('./chibi/FbxBody.ts',import.meta.url),'utf8');
+  expect(source).toContain('const bedFrame=legacyBedFrame(time,activity);');
+  expect(source).toContain('if(bedFrame){body.position.set(0,bedFrame.positionY,0);body.rotation.set(bedFrame.rotationX,0,0);}');
  });
  it('keeps the non-skeletal action on the checked walk-in path, not the old direct snap',()=>{
   const source=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
