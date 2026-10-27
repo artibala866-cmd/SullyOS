@@ -23,7 +23,9 @@
     "webglControllerSeatSlotsTested": 29,
     "webglControllerSeatAssetsTested": 21,
     "webglControllerBedSlotsTested": 5,
-    "webglControllerBedAssetsTested": 3
+    "webglControllerBedAssetsTested": 3,
+    "webglControllerPlushAssetsTested": 1,
+    "webglControllerBathroomCancelAssetsTested": 1
   },
   "items": [
     {
