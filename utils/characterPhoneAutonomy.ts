@@ -13,7 +13,7 @@ import { resolveCharTimeZone } from './timezone';
 import { extractContent } from './safeApi';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
 import { isCharacterPhoneRefreshing } from './characterPhoneRefreshTracker';
-import { canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
+import { canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyPreferences } from './characterPhoneApiBudget';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
 /** NPC phone autonomy shares the existing schedule/phone/event/AMSG pipeline.
@@ -297,6 +297,22 @@ Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).jo
       ? result.messages.filter((m: unknown): m is string => typeof m === 'string' && !!m.trim()).slice(0, 3)
       : [];
     if (result?.send !== true || !textMessages.length) return 'skipped';
+    // A slow completion is not authority to overwrite changes made while it
+    // was in flight. User may have disabled autonomy, cleared the inbox,
+    // removed the contact, or manually replied in this same conversation.
+    if (!isCharacterPhoneAutonomyEnabled(char.id) ||
+        !readPhoneAutonomyPreferences(char.id).backgroundApiEnabled ||
+        isCharacterPhoneRefreshing(char.id) ||
+        !readNpcProfiles(char.id).some(p => p.id === contact.id)) return 'skipped';
+    const latestThread = readCharacterPhoneChats(char.id).find(r => r.contactId === contact.id);
+    const baselineLength = thread?.messages.length || 0;
+    const baselineLast = thread?.messages[baselineLength - 1];
+    const latestLast = latestThread?.messages[(latestThread.messages.length || 1) - 1];
+    if ((latestThread?.messages.length || 0) !== baselineLength ||
+        (!!thread && latestThread?.id !== thread.id) ||
+        (baselineLast?.createdAt || 0) !== (latestLast?.createdAt || 0) ||
+        (baselineLast?.speaker.role || '') !== (latestLast?.speaker.role || '') ||
+        (baselineLast?.text || '') !== (latestLast?.text || '')) return 'skipped';
     // A single actor per autonomous window. Char and NPC never continuously
     // trigger one another in the same run.
     const speaker = actor === 'owner' ? { role: 'owner' as const } : { role: 'contact' as const, contactId: contact.id };
