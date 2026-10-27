@@ -53,7 +53,7 @@ const RoomApp:React.FC=()=>{
    const top=findDreamEntryTop({shell:shellRect,rail:railRect,blockedRects,buttonHeight:48,gap:12,safeTop:72,safeBottom:16});
    setDreamPlacement(previous=>{
     if(top===null)return null;
-    if(previous?.charId===charId&&previous.top===top)return previous;
+    if(previous&&previous.charId===charId&&previous.top===top)return previous;
     return {charId,top};
    });
   };
