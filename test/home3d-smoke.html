@@ -115,6 +115,37 @@ function texture(color){
   editor.performHomeAction(standSecond.id,'model');editor.advancePets(3);
   report.skeletalExit=!editor.inspect().chibiSeat&&!editor.inspect().seatChange;
   if(!report.skeletalExit)throw Error('Skeletal character could not safely exit chair');
+  // Independent real WebGL bedroom: the regular bed must still have a
+  // reachable bed edge, continuous entry and an unblocked standing exit.
+  editor.dispose();
+  const bedroom=createHome(catalog);
+  bedroom.rooms[0].items=[{id:'smoke-single-bed',assetId:'bedroom_single_bed',
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+  set('mount single-bed WebGL fixture');
+  editor=await mountHomeEditor(document.getElementById('host'),{
+   assetBase:new URL('/room3d/',location.href).href,initialState:bedroom,
+   onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+  });
+  const bedPerson=await createVisitor(parts,{bodyShape:'blank',layers:{}});
+  editor.setVisitor(bedPerson);
+  const sleeps=editor.getHomeScene().actions.filter(a=>a.kind==='sleep');
+  report.bedOptions=sleeps.length;
+  if(!sleeps.length)throw Error('A supported single bed has no accessible sleep option');
+  report.bedRequest=editor.performHomeAction(sleeps[0].id,'model');
+  if(report.bedRequest==='unavailable')throw Error('Bed option was advertised but could not start');
+  editor.advancePets(22);
+  const rested=editor.inspect();
+  report.bedRest=!!rested.chibiSeat?.bed&&!rested.seatChange;
+  report.bedRestPosition=rested.residentPositions?.[0]?.position;
+  if(!report.bedRest)throw Error('Skeletal resident never settled onto the supported single bed');
+  const standBed=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+  if(!standBed)throw Error('Lying resident cannot request bed exit');
+  report.bedExitRequest=editor.performHomeAction(standBed.id,'model');
+  editor.advancePets(12);
+  const awake=editor.inspect();
+  report.bedExit=!awake.chibiSeat&&!awake.seatChange;
+  report.bedExitPosition=awake.residentPositions?.[0]?.position;
+  if(!report.bedExit)throw Error('Skeletal resident could not exit bed without teleport');
   const scene=editor.inspect();
   report.posture=scene.chibiPosture;
   report.position=scene.residentPositions?.[0]?.position?.map(n=>Math.round(n*100)/100);
