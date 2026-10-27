@@ -15,7 +15,9 @@
     "modelSources": {
       "kit": 28,
       "external": 220
-    }
+    },
+    "meshBedAnchorCheckedAssets": 2,
+    "meshBedAnchorCheckedPoints": 3
   },
   "items": [
     {
@@ -2312,7 +2314,9 @@
       "issues": [
         "床点存在，但安全上下床动画及路径尚未验证：lower,upper"
       ],
-      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收",
+      "meshBedAnchorChecked": true,
+      "meshBedAnchorEvidence": "本轮从原始 GLB 的三角面逐层采样已有床点，局部床面存在且点位高度距候选真实面 <0.15m；未检查人物可安全连续攀爬、转身、下床，也未做渲染画面验收。"
     },
     {
       "id": "bedroom_loft",
@@ -2338,7 +2342,9 @@
       "issues": [
         "床点存在，但安全上下床动画及路径尚未验证：upper"
       ],
-      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+      "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收",
+      "meshBedAnchorChecked": true,
+      "meshBedAnchorEvidence": "本轮从原始 GLB 的三角面逐层采样已有床点，局部床面存在且点位高度距候选真实面 <0.15m；未检查人物可安全连续攀爬、转身、下床，也未做渲染画面验收。"
     },
     {
       "id": "bedroom_desk_chair",
