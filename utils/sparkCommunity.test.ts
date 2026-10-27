@@ -236,3 +236,18 @@ describe('Spark topic interests', () => {
         expect(second.state.events.map(event => event.type)).toEqual(['interest_followed', 'interest_unfollowed']);
     });
 });
+
+describe('legacy character handle identity migration', () => {
+    it('does not collapse two historical aliases into the main handle', async () => {
+        const { resolveSparkCharacterHandleId } = await import('./sparkCommunity');
+        expect(resolveSparkCharacterHandleId('char-1', undefined, '主号', [])).toBe('legacy-主号');
+        expect(resolveSparkCharacterHandleId('char-1', undefined, '马甲', [])).toBe('legacy-马甲');
+        expect(resolveSparkCharacterHandleId('char-1', undefined, '马甲', [{id:'default',handle:'主号'},{id:'alt-2',handle:'马甲'}])).toBe('alt-2');
+    });
+
+    it('retains saved handle IDs after a display name change', async () => {
+        const { resolveSparkCharacterHandleId } = await import('./sparkCommunity');
+        expect(resolveSparkCharacterHandleId('char-1', 'character:char-1:handle:alt-2', '新名字', [{id:'default',handle:'主号'}])).toBe('alt-2');
+        expect(resolveSparkCharacterHandleId(undefined, undefined, '路人', [])).toBeUndefined();
+    });
+});
