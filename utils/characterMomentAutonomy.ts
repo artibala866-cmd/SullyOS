@@ -68,8 +68,8 @@ export async function considerAutonomousMoment(input: {
   if (old.some(p => now - p.createdAt >= 0 && now - p.createdAt < MIN_POST_GAP)) return 'cooldown';
   locks.add(id);
   try {
-    if (input.budgeted && !reservePhoneApiBudget(id)) return 'cooldown';
-    // Reserve this opportunity before network calls. Failures still obey a cooldown.
+    // Keep the decision gap, but don't consume a paid request token merely
+    // because context or the schedule could not be prepared.
     if (!writeState(id, { ...state, lastDecisionAt: now })) return 'unavailable';
     const context = await buildCharacterPhoneContext(char, user, groups, realtimeConfig);
     const life = await getCharacterLifeScheduleContext(char, new Date(now));
@@ -77,6 +77,8 @@ export async function considerAutonomousMoment(input: {
       ? `当前计划：${life.plannedActivity}${life.plannedDescription ? '（' + life.plannedDescription + '）' : ''}。这只是计划，不能当作已发生事实。`
       : '当前没有可用的日程计划。';
     const recent = old.slice(0, 6).map(p => ({ text: p.text.slice(0, 160), deleted: !!p.deletedAt }));
+    // Reserve immediately before the actual model call, after free local preflight.
+    if (input.budgeted && !reservePhoneApiBudget(id)) return 'cooldown';
     const { response, json } = await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
