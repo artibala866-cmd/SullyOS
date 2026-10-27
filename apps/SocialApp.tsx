@@ -1932,6 +1932,45 @@ ${buildSparkCommentHistory(post)}
             {/* --- Modals (Settings, Share) --- */}
             <Modal isOpen={showSettings} title="Spark 设置" onClose={() => setShowSettings(false)}>
                 <div className="space-y-4 py-2 text-sm">
+                    <div className="rounded-xl border border-slate-200 p-3 space-y-3">
+                        <label className="flex items-start gap-3 justify-between">
+                            <span className="min-w-0">
+                                <strong className="block text-sm text-slate-800">社区自主活动（自愿开启）</strong>
+                                <span className="block text-xs text-slate-500 mt-1">默认关闭。开启后，角色和稳定网友可能继续真实话题、发帖或评论，也可能保持安静；不会让你等待。</span>
+                            </span>
+                            <input type="checkbox" aria-label="开启社区自主活动" className="mt-1" checked={communityState.autonomy.enabled}
+                                onChange={event => {
+                                    const enabled = event.target.checked;
+                                    writeCommunity({ ...communityRef.current, autonomy: { ...communityRef.current.autonomy, enabled } });
+                                    if (!enabled) { autonomyRequestRef.current?.abort(); autonomyRequestRef.current = null; setIsAutonomyBusy(false); }
+                                    else if (!apiConfig.apiKey) addToast('已开启；配置 API Key 后才会开始自动请求', 'info');
+                                }} />
+                        </label>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                            <label>最短调用间隔
+                                <select value={communityState.autonomy.minIntervalHours}
+                                    onChange={event => writeCommunity({ ...communityRef.current, autonomy: { ...communityRef.current.autonomy, minIntervalHours: Number(event.target.value) } })}
+                                    className="block w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg p-2">
+                                    {[1, 3, 6, 12, 24, 48].map(hours => <option key={hours} value={hours}>{hours} 小时</option>)}
+                                </select>
+                            </label>
+                            <label>每日 API 次数上限
+                                <select value={communityState.autonomy.maxCallsPerDay}
+                                    onChange={event => {
+                                        const maxCallsPerDay = Number(event.target.value);
+                                        writeCommunity({ ...communityRef.current, autonomy: {
+                                            ...communityRef.current.autonomy, maxCallsPerDay,
+                                            callsToday: Math.min(communityRef.current.autonomy.callsToday, maxCallsPerDay),
+                                        } });
+                                    }}
+                                    className="block w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg p-2">
+                                    {[0, 1, 2, 3].map(calls => <option key={calls} value={calls}>{calls === 0 ? '暂停调用' : calls + ' 次'}</option>)}
+                                </select>
+                            </label>
+                        </div>
+                        <p className="text-xs text-slate-400">仅在 Spark 打开时每 5 分钟检查，实际请求受间隔和额度约束。今日已使用：{communityState.autonomy.lastRunDay === getSparkTrafficLocalDay() ? communityState.autonomy.callsToday : 0}/{communityState.autonomy.maxCallsPerDay} 次。超时和失败请求也占用额度。</p>
+                        {isAutonomyBusy && <p className="text-xs text-slate-500">正在生成社区动态，可继续正常操作。</p>}
+                    </div>
                     <p className="text-xs text-slate-500">选择参与 Spark 的 Char。大号与马甲由 AI 依据人设自行决定，不再由 User 手动创建或指定。</p>
                     <div className="grid grid-cols-4 gap-3 max-h-60 overflow-y-auto">
                         {characters.map(c => <button type="button" key={c.id} onClick={() => setPostingCharIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1">
@@ -1951,7 +1990,7 @@ ${buildSparkCommentHistory(post)}
                     </div>
                     {hiddenPostIds.length > 0 && <button type="button" onClick={() => { setHiddenPostIds([]); localStorage.removeItem('spark_hidden_posts'); addToast('已恢复隐藏的笔记', 'success'); }} className="w-full border rounded-xl py-2 text-xs">恢复已隐藏的 {hiddenPostIds.length} 篇笔记</button>}
                     <button type="button" onClick={() => { if (window.confirm('确定清空 Spark 推荐流中的全部帖子和评论吗？此操作无法撤销。')) handleClearFeed(); }} className="w-full border border-neutral-200 text-neutral-500 rounded-xl py-2 text-xs">清除推荐流</button>
-                    <p className="text-xs text-slate-400">主动发帖时间：定时功能尚未接通，目前不会自动发帖。</p>
+                    <p className="text-xs text-slate-400">自动活动仅在本页面开放期间执行；不会后台消耗额度。</p>
                     <button type="button" disabled={isCharPosting || !postingCharIds.length} onClick={() => { setShowSettings(false); void handleCharPost(); }} className="w-full bg-[#555555] text-white rounded-xl py-3 font-bold disabled:opacity-40">{isCharPosting ? '发布中…' : '让选中的 Char 现在发帖'}</button>
                     <button type="button" onClick={() => setShowSettings(false)} className="w-full border rounded-xl py-2">完成</button>
                 </div>
