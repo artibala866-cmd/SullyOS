@@ -27,6 +27,9 @@ jobs:
         run: pnpm exec vitest run utils/characterPhoneAutonomy.test.ts utils/phoneChatPiggyback.test.ts utils/relationshipChat.test.ts
       - name: Home scene and overlay layout tests
         run: pnpm exec vitest run apps/room3d/dreamEntryLayout.test.js utils/homePresenceBubbles.test.ts utils/homeChatPipelineParity.test.ts apps/room3d/renderQuality.test.js
+      - name: TypeScript type check (report legacy errors separately)
+        continue-on-error: true
+        run: pnpm exec tsc --noEmit
       - name: Full app production build
         env:
           GITHUB_PAGES: '1'
