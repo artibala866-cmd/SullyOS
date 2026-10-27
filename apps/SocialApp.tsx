@@ -748,8 +748,13 @@ const SocialApp: React.FC = () => {
                 try {
                     const legacy = JSON.parse(localStorage.getItem('spark_followed_handles') || '[]');
                     if (Array.isArray(legacy)) for (const handle of legacy) {
-                        const account = migrated.accounts.find(a => a.displayName === handle || a.aliases.includes(handle));
-                        if (account && !migrated.follows.some(item => item.followerId === 'user' && item.followedId === account.id)) {
+                        if (typeof handle !== 'string') continue;
+                        const candidates = migrated.accounts.filter(a => a.type !== 'user' &&
+                            (a.displayName === handle || a.aliases.includes(handle)));
+                        // Never attribute an old name-only follow to the first of two same-name accounts.
+                        if (candidates.length !== 1) continue;
+                        const account = candidates[0];
+                        if (!migrated.follows.some(item => item.followerId === 'user' && item.followedId === account.id)) {
                             migrated = toggleSparkFollow(migrated, 'user', account.id, Date.now(), 'migrate-follow-' + account.id).state;
                         }
                     }
@@ -1068,9 +1073,10 @@ const SocialApp: React.FC = () => {
 
     const isFollowing = (handle: string, id?: string): boolean => {
         const account = resolveSparkDMAccount(communityState.accounts, handle, id);
-        return account
-            ? communityState.follows.some(follow => follow.followerId === 'user' && follow.followedId === account.id)
-            : followedHandles.includes(handle);
+        if (account) return communityState.follows.some(follow => follow.followerId === 'user' && follow.followedId === account.id);
+        const sameNames = communityState.accounts.filter(candidate => candidate.type !== 'user' &&
+            (candidate.displayName === handle || candidate.aliases.includes(handle)));
+        return sameNames.length === 0 && followedHandles.includes(handle);
     };
     const toggleFollow = (handle: string, id?: string) => {
         const post = feedRef.current.find(item => id ? item.authorId === id : item.authorName === handle);
