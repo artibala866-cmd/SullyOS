@@ -1,5 +1,6 @@
 import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSparkTrafficLocalDay, type SparkTraffic } from '../utils/sparkTraffic';
 import { chooseSparkStock } from '../utils/sparkStock';
+import { appendSparkDMUser, setSparkDMDelivery, recoverSparkInterruptedDMs, sparkDMHistoryThrough, appendSparkDMAnswer, type SparkDMThreads, type SparkPrivateMessage } from '../utils/sparkDMQueue';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -315,10 +316,19 @@ const SocialApp: React.FC = () => {
             content: kind === 'likes' ? '赞了你的笔记《' + post.title + '》' : '关注了你',
             postId: kind === 'likes' ? post.id : undefined, time: Date.now(), read: false }]);
     };
-    type SparkDM = { role: 'user' | 'assistant'; content: string; time: number };
-    const [dmThreads, setDmThreads] = useState<Record<string, SparkDM[]>>(() => {
-        try { return JSON.parse(localStorage.getItem('spark_dm_threads') || '{}'); } catch { return {}; }
+    type SparkDM = SparkPrivateMessage;
+    const [dmThreads, setDmThreads] = useState<SparkDMThreads>(() => {
+        try { return recoverSparkInterruptedDMs(JSON.parse(localStorage.getItem('spark_dm_threads') || '{}')); }
+        catch { return {}; }
     });
+    const dmThreadsRef = useRef<SparkDMThreads>(dmThreads);
+    const saveDMThreads = (next: SparkDMThreads) => {
+        if (next === dmThreadsRef.current) return;
+        dmThreadsRef.current = next;
+        setDmThreads(next);
+        try { localStorage.setItem('spark_dm_threads', JSON.stringify(next)); }
+        catch (error) { console.warn('Spark DM persistence failed', error); }
+    };
     const [npcPersonas, setNpcPersonas] = useState<Record<string, string>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_npc_personas') || '{}'); } catch { return {}; }
     });
@@ -331,7 +341,10 @@ const SocialApp: React.FC = () => {
         const accounts = communityState.accounts;
         setDmThreads(prev => {
             const migrated = migrateSparkDMKeys(prev, accounts);
-            if (migrated !== prev) localStorage.setItem('spark_dm_threads', JSON.stringify(migrated));
+            if (migrated !== prev) {
+                dmThreadsRef.current = migrated;
+                localStorage.setItem('spark_dm_threads', JSON.stringify(migrated));
+            }
             return migrated;
         });
         setNpcPersonas(prev => {
@@ -348,7 +361,7 @@ const SocialApp: React.FC = () => {
     const [dmFilter, setDmFilter] = useState<'all' | 'following' | 'strangers'>('all');
     type SparkDMTarget = { handle: string; avatar: string; accountId?: string };
     const dmKey = (account: SparkDMTarget) =>
-        getSparkDMThreadKey(account.accountId, account.handle, dmThreads, communityRef.current.accounts);
+        getSparkDMThreadKey(account.accountId, account.handle, dmThreadsRef.current, communityRef.current.accounts);
     const openSparkDM = (account: SparkDMTarget) => {
         const registered = resolveSparkDMAccount(communityRef.current.accounts, account.handle, account.accountId);
         const target = { ...account, accountId: registered?.id || account.accountId };
@@ -368,65 +381,122 @@ const SocialApp: React.FC = () => {
     const [dmTarget, setDmTarget] = useState<SparkDMTarget | null>(null);
     const [dmInput, setDmInput] = useState('');
     const [dmBusy, setDmBusy] = useState(false);
-    const sendSparkDM = async () => {
-        if (!dmTarget || !dmInput.trim() || dmBusy) return;
-        if (isSparkMuted(dmTarget.accountId)) { addToast('已屏蔽此账号', 'info'); return; }
-        const target = dmTarget;
-        const targetKey = dmKey(target);
-        const text = dmInput.trim();
-        const history = [...(dmThreads[targetKey] || []), { role: 'user' as const, content: text, time: Date.now() }];
-        setDmInput('');
-        setDmThreads(prev => {
-            const next = { ...prev, [targetKey]: history };
-            localStorage.setItem('spark_dm_threads', JSON.stringify(next));
-            return next;
-        });
-        if (target.accountId) sparkEvent('dm_sent', 'user', { targetAccountId: target.accountId });
-        if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
+    type SparkDMJob = { target: SparkDMTarget; key: string; id: string };
+    const dmQueueRef = useRef<SparkDMJob[]>([]);
+    const dmProcessingRef = useRef(false);
+    const dmRequestRef = useRef<AbortController | null>(null);
+    const dmActiveAccountRef = useRef<string | undefined>(undefined);
+    const processSparkDMQueue = async () => {
+        if (dmProcessingRef.current) return;
+        dmProcessingRef.current = true;
         setDmBusy(true);
         try {
-            if (isSparkMuted(target.accountId)) throw new Error('此账号已屏蔽');
-            const authorPosts = feedRef.current.filter(post =>
-                target.accountId ? post.authorId === target.accountId : post.authorName === target.handle,
-            ).sort((a, b) => a.timestamp - b.timestamp);
-            const firstPost = authorPosts[0];
-            const candidates = characters.filter(char => (characterHandles[char.id] || []).some(account => account.handle === target.handle));
-            const registered = communityRef.current.accounts.filter(account =>
-                target.accountId ? account.id === target.accountId
-                    : account.displayName === target.handle || account.aliases.includes(target.handle));
-            const knownOwnerIds = [...new Set(registered.map(account => account.ownerCharId).filter(Boolean))];
-            // Never arbitrarily select the first role when different characters share one public handle.
-            if ((!target.accountId && candidates.length > 1) || knownOwnerIds.length > 1 || registered.length > 1) {
-                throw new Error('多个角色使用相同网名，无法确定私信对象。请先区分账号昵称');
+            while (dmQueueRef.current.length && mountedRef.current) {
+                const job = dmQueueRef.current.shift()!;
+                const target = job.target;
+                const key = getSparkDMThreadKey(target.accountId, target.handle,
+                    dmThreadsRef.current, communityRef.current.accounts);
+                if (!(dmThreadsRef.current[key] || []).some(m => m.id === job.id && m.delivery === 'pending')) continue;
+                const controller = new AbortController();
+                dmRequestRef.current = controller;
+                dmActiveAccountRef.current = target.accountId;
+                const timeout = window.setTimeout(() => controller.abort(), 30000);
+                try {
+                    if (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId)) {
+                        throw new Error('此账号已屏蔽');
+                    }
+                    if (!apiConfig.apiKey) throw new Error('请先配置 API Key');
+                    const posts = feedRef.current.filter(p =>
+                        target.accountId ? p.authorId === target.accountId : p.authorName === target.handle,
+                    ).sort((a, b) => a.timestamp - b.timestamp);
+                    const registered = communityRef.current.accounts.filter(a =>
+                        target.accountId ? a.id === target.accountId :
+                        a.displayName === target.handle || a.aliases.includes(target.handle));
+                    const candidates = characters.filter(ch => (characterHandles[ch.id] || [])
+                        .some(a => a.handle === target.handle));
+                    const owners = [...new Set(registered.map(a => a.ownerCharId).filter(Boolean))];
+                    if ((!target.accountId && candidates.length > 1) || registered.length > 1 || owners.length > 1) {
+                        throw new Error('同名账号归属不明，无法安全生成私信');
+                    }
+                    const owner = owners.length === 1 ? characters.find(ch => ch.id === owners[0]) :
+                        target.accountId ? undefined : candidates[0];
+                    if (target.accountId && registered.length === 0) throw new Error('私信账号不存在');
+                    const identity = owner ? await buildGenerationContext([owner]) :
+                        '你是 Spark 虚拟社区中的独立普通网友。稳定人设：' +
+                        (npcPersonas[key] || npcPersonas[target.handle] || '依据自己已有公开帖子形成性格和兴趣') +
+                        '。只能知道自己的公开经历，不能知道别人的私聊或匿名身份。';
+                    if (controller.signal.aborted) throw new Error('私信请求超时（30 秒），可点原消息重试');
+                    const history = sparkDMHistoryThrough(dmThreadsRef.current, key, job.id);
+                    if (!history.length) throw new Error('原消息已不存在');
+                    const first = posts[0];
+                    const prompt = identity + '\n当前聊天账号：' + target.handle +
+                        '\n该账号最早的公开帖子：' + (first ? first.title + '\n' + first.content : '暂无公开帖子') +
+                        '\n只扮演此账号本人，回复最后一条用户私信；语气自然简短，不泄露隐私。';
+                    const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
+                        body: JSON.stringify({ model: apiConfig.model,
+                            messages: [{ role: 'system', content: prompt },
+                                ...history.map(item => ({ role: item.role, content: item.content }))], temperature: 0.9 }),
+                        signal: controller.signal,
+                        __sullyMeta: { appId: 'social', appName: 'Spark', purpose: 'Spark 私信' },
+                    } as RequestInit);
+                    if (!response.ok) throw new Error(await apiErrorMessage(response));
+                    const answer = extractContent(await safeResponseJson(response)).trim();
+                    if (!answer) throw new Error('模型返回空回复');
+                    if (controller.signal.aborted || !mountedRef.current ||
+                        (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId))) {
+                        throw new Error('请求已中止');
+                    }
+                    const currentKey = getSparkDMThreadKey(target.accountId, target.handle,
+                        dmThreadsRef.current, communityRef.current.accounts);
+                    saveDMThreads(appendSparkDMAnswer(dmThreadsRef.current, currentKey, job.id, answer, Date.now()));
+                } catch (error: any) {
+                    if (mountedRef.current) {
+                        const currentKey = getSparkDMThreadKey(target.accountId, target.handle,
+                            dmThreadsRef.current, communityRef.current.accounts);
+                        saveDMThreads(setSparkDMDelivery(dmThreadsRef.current, currentKey, job.id, 'failed'));
+                        addToast('私信未完成，点击原消息可重试：' +
+                            (error?.name === 'AbortError' ? '请求超时或中止' : error?.message || '网络错误'), 'error');
+                    }
+                } finally {
+                    window.clearTimeout(timeout);
+                    if (dmRequestRef.current === controller) dmRequestRef.current = null;
+                    dmActiveAccountRef.current = undefined;
+                }
             }
-            const owner = knownOwnerIds.length === 1
-                ? characters.find(char => char.id === knownOwnerIds[0])
-                : candidates[0];
-            if (!target.accountId && owner && candidates.length === 1 && candidates[0].id !== owner.id) {
-                throw new Error('私信账号归属不一致，已阻止角色串台');
-            }
-            const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。你的稳定人物设定：' + (npcPersonas[targetKey] || npcPersonas[target.handle] || '根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场') + '。不要变成客服，也不要知道其他人的私聊或隐藏身份。';
-            const prompt = identity + '\n当前聊天账号：' + target.handle + '\n这个账号最早的帖子（性格与经历线索）：' + (firstPost ? firstPost.title + '\n' + firstPost.content : '暂无公开帖子') + '\n只扮演此账号本人，回复最后一条私信；简短自然，不要解释设定，不要总以句号结尾。';
-            const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiConfig.apiKey },
-                body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'system', content: prompt }, ...history.slice(-20).map(item => ({ role: item.role, content: item.content }))], temperature: 0.9 }),
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: 'Spark 私信' },
-            } as RequestInit);
-            if (!response.ok) throw new Error(await apiErrorMessage(response));
-            const data = await safeResponseJson(response);
-            const answer = extractContent(data).trim();
-            if (!answer) throw new Error('空回复');
-            if (!mountedRef.current || isSparkMuted(target.accountId)) return;
-            setDmThreads(prev => {
-                // The legacy thread might have migrated while the network request was in flight.
-                const replyKey = target.accountId && prev[target.accountId] ? target.accountId : targetKey;
-                const next = { ...prev, [replyKey]: [...(prev[replyKey] || history), { role: 'assistant' as const, content: answer, time: Date.now() }] };
-                localStorage.setItem('spark_dm_threads', JSON.stringify(next));
-                return next;
-            });
-        } catch (error: any) { addToast('私信回复失败：' + (error?.message || '未知错误'), 'error'); }
-        finally { setDmBusy(false); }
+        } finally {
+            dmProcessingRef.current = false;
+            if (mountedRef.current) setDmBusy(false);
+        }
+    };
+    const queueSparkDM = (target: SparkDMTarget, key: string, id: string) => {
+        if (dmQueueRef.current.some(item => item.id === id)) return;
+        dmQueueRef.current.push({ target, key, id });
+        void processSparkDMQueue();
+    };
+    const sendSparkDM = () => {
+        if (!dmTarget || !dmInput.trim()) return;
+        if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
+        if (dmTarget.accountId && communityRef.current.mutedAccountIds.includes(dmTarget.accountId)) {
+            addToast('该账号已屏蔽，无法发送私信', 'info');
+            return;
+        }
+        const target = dmTarget;
+        const key = dmKey(target);
+        const id = 'dm-user-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+        saveDMThreads(appendSparkDMUser(dmThreadsRef.current, key, dmInput.trim(), id, Date.now()));
+        setDmInput('');
+        if (target.accountId) sparkEvent('dm_sent', 'user', { targetAccountId: target.accountId });
+        queueSparkDM(target, key, id);
+    };
+    const retrySparkDM = (target: SparkDMTarget, id?: string) => {
+        if (!id || !apiConfig.apiKey) return;
+        if (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId)) return;
+        const key = dmKey(target);
+        if (!(dmThreadsRef.current[key] || []).some(m => m.id === id && m.delivery === 'failed')) return;
+        saveDMThreads(setSparkDMDelivery(dmThreadsRef.current, key, id, 'pending'));
+        queueSparkDM(target, key, id); // Reuses the same bubble, never sends a duplicate user message.
     };
     const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
@@ -769,6 +839,9 @@ const SocialApp: React.FC = () => {
             commentRequestRef.current = null;
             replyRequestRef.current = null;
             replyQueueRef.current = [];
+            dmRequestRef.current?.abort();
+            dmRequestRef.current = null;
+            dmQueueRef.current = [];
         };
     }, []);
 
@@ -2171,14 +2244,19 @@ ${buildSparkCommentHistory(post)}
                     <strong className="truncate text-sm">{dmTarget.handle}</strong>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-                    {(dmThreads[dmKey(dmTarget)] || []).map((message, index) => <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#555555] text-white' : 'bg-white text-slate-800'}`}>{message.content}</div>
+                    {(dmThreads[dmKey(dmTarget)] || []).map((message, index) => <div key={message.id || index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#555555] text-white' : 'bg-white text-slate-800'}`}>
+                            {message.content}
+                            {message.role === 'user' && message.delivery === 'pending' && <span className="block text-[10px] opacity-75 mt-1">排队发送中…</span>}
+                            {message.role === 'user' && message.delivery === 'failed' && <button type="button" onClick={() => retrySparkDM(dmTarget, message.id)}
+                                className="block text-[11px] underline mt-1" aria-label="重试这条私信">发送失败 · 点击重试</button>}
+                        </div>
                     </div>)}
                     {dmBusy && <p className="text-xs text-slate-400">对方正在输入…</p>}
                 </div>
                 <div className="flex items-center gap-2 p-3 border-t border-slate-100" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}>
-                    <input value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void sendSparkDM(); }} placeholder="发送私信…" className="flex-1 min-w-0 rounded-full bg-slate-100 px-4 py-2 text-sm" />
-                    <button type="button" disabled={dmBusy || !dmInput.trim()} onClick={() => void sendSparkDM()} className="text-[#555555] font-bold disabled:opacity-40">发送</button>
+                    <input value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); sendSparkDM(); } }} placeholder="发送私信…" className="flex-1 min-w-0 rounded-full bg-slate-100 px-4 py-2 text-sm" />
+                    <button type="button" disabled={!dmInput.trim()} onClick={() => sendSparkDM()} className="text-[#555555] font-bold disabled:opacity-40">发送</button>
                 </div>
             </div>}
             {viewedAccount && (() => {
