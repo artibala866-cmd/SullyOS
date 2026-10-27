@@ -580,6 +580,94 @@ const SocialApp: React.FC = () => {
         }
     };
 
+    const accountCandidateFor = (
+        authorName: string,
+        authorAvatar?: string,
+        authorType?: SocialPost['authorType'] | SocialComment['authorType'],
+        authorCharId?: string,
+        authorId?: string,
+    ) => {
+        const normalizedName = normalizeSparkName(authorName || '');
+        const matchesUser = normalizedName === normalizeSparkName(socialProfile.name) ||
+            normalizedName === normalizeSparkName(userProfile.name);
+        const matchedChar = (authorCharId ? characters.find(char => char.id === authorCharId) : undefined) ||
+            characters.find(char => getSparkHandles(char, characterHandles).some(handle =>
+                normalizeSparkName(handle.handle) === normalizedName
+            ));
+        if (authorType === 'user' || (!authorType && matchesUser)) {
+            return { id: 'user', type: 'user' as const, displayName: authorName, avatar: authorAvatar };
+        }
+        if (authorType === 'character' || authorCharId || (!authorType && matchedChar)) {
+            const ownerCharId = authorCharId || matchedChar?.id;
+            if (ownerCharId) {
+                const handle = matchedChar
+                    ? getSparkHandles(matchedChar, characterHandles).find(item => normalizeSparkName(item.handle) === normalizedName)
+                    : undefined;
+                const parsedHandleId = authorId && authorId.includes(':handle:')
+                    ? authorId.split(':handle:').slice(1).join(':')
+                    : undefined;
+                return {
+                    id: authorId,
+                    type: 'character' as const,
+                    ownerCharId,
+                    handleId: handle?.id || parsedHandleId || ('legacy-' + normalizedName),
+                    displayName: authorName,
+                    avatar: authorAvatar,
+                };
+            }
+        }
+        return { id: authorId, type: 'stranger' as const, displayName: authorName, avatar: authorAvatar };
+    };
+
+    const normalizeAndRegisterPost = (post: SocialPost, state: SparkCommunityState) => {
+        const normalized = normalizeSparkPost(post, [socialProfile.name, userProfile.name]);
+        const authorCandidate = accountCandidateFor(
+            normalized.authorName, normalized.authorAvatar, post.authorType, normalized.authorCharId, normalized.authorId,
+        );
+        const authorResult = ensureSparkAccount(state, authorCandidate, () => createSparkId('account'), normalized.timestamp || Date.now());
+        let nextState = authorResult.state;
+        const comments = normalized.comments.map(comment => {
+            const candidate = accountCandidateFor(
+                comment.authorName, comment.authorAvatar, comment.authorType, comment.authorCharId, comment.authorId,
+            );
+            const result = ensureSparkAccount(nextState, candidate, () => createSparkId('account'), comment.timestamp || normalized.timestamp || Date.now());
+            nextState = result.state;
+            return {
+                ...comment,
+                authorType: result.account.type,
+                authorId: result.account.id,
+                ...(result.account.ownerCharId ? { authorCharId: result.account.ownerCharId } : {}),
+            };
+        });
+        return {
+            post: {
+                ...normalized,
+                authorType: authorResult.account.type,
+                authorId: authorResult.account.id,
+                ...(authorResult.account.ownerCharId ? { authorCharId: authorResult.account.ownerCharId } : {}),
+                comments,
+            } as SocialPost,
+            state: nextState,
+        };
+    };
+
+    const registerSparkComments = (comments: SocialComment[]): SocialComment[] => {
+        let nextState = communityStateRef.current;
+        const registered = comments.map(comment => {
+            const candidate = accountCandidateFor(comment.authorName, comment.authorAvatar, comment.authorType, comment.authorCharId, comment.authorId);
+            const result = ensureSparkAccount(nextState, candidate, () => createSparkId('account'), comment.timestamp || Date.now());
+            nextState = result.state;
+            return {
+                ...comment,
+                authorType: result.account.type,
+                authorId: result.account.id,
+                ...(result.account.ownerCharId ? { authorCharId: result.account.ownerCharId } : {}),
+            };
+        });
+        if (nextState !== communityStateRef.current) updateCommunityState(nextState);
+        return registered;
+    };
+
     const handleCommentInputChange = (value: string) => {
         setCommentInput(value);
         if (!selectedPost) return;
