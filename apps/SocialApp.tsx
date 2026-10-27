@@ -2434,8 +2434,19 @@ ${buildSparkCommentHistory(post)}
                                     {noticeCategory === 'follows' && <p className="text-xs text-slate-500 mb-2">最近关注你的人 · {unique.length} 位</p>}
                                     <div className="flex flex-wrap gap-3">
                                         {shown.map(n => <button key={n.id} type="button" onClick={() => {
-                                            const accountPost = feed.find(p => p.authorName === n.actor);
-                                            if (accountPost) setViewedAccount({ handle: n.actor, avatar: n.avatar || accountPost.authorAvatar, accountId: accountPost.authorId });
+                                            const account = resolveSparkDMAccount(communityState.accounts, n.actor);
+                                            const matches = communityState.accounts.filter(candidate => candidate.type !== 'user' &&
+                                                (candidate.displayName === n.actor || candidate.aliases.includes(n.actor)));
+                                            if (!account && matches.length > 1) {
+                                                addToast('存在同名账号，无法确定这条旧通知的作者', 'info');
+                                                return;
+                                            }
+                                            const accountPost = feed.find(p => account ? p.authorId === account.id : p.authorName === n.actor);
+                                            if (accountPost || account) setViewedAccount({
+                                                handle: account?.displayName || n.actor,
+                                                avatar: n.avatar || accountPost?.authorAvatar || account?.avatar || '',
+                                                accountId: account?.id || accountPost?.authorId,
+                                            });
                                             else openSparkDM({ handle: n.actor, avatar: n.avatar || '' });
                                         }} className="flex items-center gap-1.5 max-w-[45%] min-w-0 text-left">
                                             <span className="w-8 h-8 shrink-0 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">{n.avatar ? <TokenImg value={n.avatar} className="w-full h-full object-cover" /> : '✦'}</span>
