@@ -42,7 +42,7 @@ export type SparkEventType =
     | 'comment_liked' | 'comment_unliked'
     | 'post_collected' | 'post_uncollected'
     | 'followed' | 'unfollowed'
-    | 'post_hidden' | 'post_unhidden'
+    | 'post_hidden' | 'post_unhidden' | 'post_deleted'
     | 'account_muted' | 'account_unmuted'
     | 'interest_followed' | 'interest_unfollowed';
 
@@ -182,7 +182,7 @@ export function normalizeSparkCommunityState(raw: unknown): SparkCommunityState 
 
     const eventTypes: SparkEventType[] = [
         'post_created', 'comment_created', 'post_liked', 'post_unliked', 'comment_liked', 'comment_unliked',
-        'post_collected', 'post_uncollected', 'followed', 'unfollowed', 'post_hidden', 'post_unhidden',
+        'post_collected', 'post_uncollected', 'followed', 'unfollowed', 'post_hidden', 'post_unhidden', 'post_deleted',
         'account_muted', 'account_unmuted', 'interest_followed', 'interest_unfollowed',
     ];
     const events: SparkCommunityEvent[] = Array.isArray(value.events)
