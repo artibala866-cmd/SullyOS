@@ -1526,15 +1526,22 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    notify('先完成坐床或卫浴进出动作，再修改房间布置',true);return false;
   }
   const before=clone(state),selectionBefore=selected,panelBefore=panel,rotationBefore=rotationPreview;
+  // Layout/template mutators are allowed to reset the resident AFTER commit.
+  // Their temporary resets cannot erase the original occupied seat or work
+  // dependency before the safety checks, and failures must restore them.
+  const actorBefore={visitorSeat,seatAccess,visitorActivity,visitorPlant,visitorLocation,
+   visitorMotion,visitorStart,visitorUntil,kitchenTask,heldPlush,residentRoom};
+  const occupiedBefore=[actorBefore.visitorSeat,...otherFurnitureOccupants()];
+  const activeBefore=[actorBefore.visitorActivity,actorBefore.visitorPlant,actorBefore.kitchenTask];
   const standing=!visitorSeat&&resident.visible?{
    roomId:current().id,x:resident.position.x,z:resident.position.z,width:headWidth
   }:null;
   message='';error=false;
   try{
    mutator();
-   const occupiedError=occupiedFurnitureChange(before,state,catalog,[visitorSeat,...otherFurnitureOccupants()]);
+   const occupiedError=occupiedFurnitureChange(before,state,catalog,occupiedBefore);
    if(occupiedError)throw Error(occupiedError);
-   const runningError=activeFurnitureDependencyChange(before,state,[visitorActivity,visitorPlant,kitchenTask]);
+   const runningError=activeFurnitureDependencyChange(before,state,activeBefore);
    if(runningError)throw Error(runningError);
    const standingError=standingFurnitureChange(before,state,catalog,standing);
    if(standingError)throw Error(standingError);
@@ -1543,7 +1550,20 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    // Reject unsafe layouts BEFORE stopping an ongoing action. A failed
    // furniture edit must never silently cancel a kitchen or watering task.
    stopWalking();
-   let unmounted=0;for(const r of state.rooms)for(const i of r.items){const a=asset(i.assetId);if(a?.surface==='wall'&&!i.stored&&wallPlacementError(i,a,r,catalog)){i.stored=true;unmounted++;}}if(unmounted)message='墙面变化，失去承托的挂墙物件已收纳，可撤销';if(restoreLife){restoreSavedLife();restoredLifeSnapshots.add(before);}undo.push(before);if(undo.length>40)undo.shift();redo=[];persist();rebuild();renderUI();return true;}catch(e){state=before;if(restoreLife&&restoredLifeSnapshots.has(before))restoreSavedLife();selected=selectionBefore;panel=panelBefore;rotationPreview=rotationBefore;rebuild();notify(e.message,true);return false;}
+   let unmounted=0;for(const r of state.rooms)for(const i of r.items){const a=asset(i.assetId);if(a?.surface==='wall'&&!i.stored&&wallPlacementError(i,a,r,catalog)){i.stored=true;unmounted++;}}if(unmounted)message='墙面变化，失去承托的挂墙物件已收纳，可撤销';if(restoreLife){restoreSavedLife();restoredLifeSnapshots.add(before);}undo.push(before);if(undo.length>40)undo.shift();redo=[];persist();rebuild();renderUI();return true;}catch(e){
+   state=before;
+   if(restoreLife&&restoredLifeSnapshots.has(before))restoreSavedLife();
+   else Object.assign({},{})&&(
+    visitorSeat=actorBefore.visitorSeat,seatAccess=actorBefore.seatAccess,
+    visitorActivity=actorBefore.visitorActivity,visitorPlant=actorBefore.visitorPlant,
+    visitorLocation=actorBefore.visitorLocation,visitorMotion=actorBefore.visitorMotion,
+    visitorStart=actorBefore.visitorStart,visitorUntil=actorBefore.visitorUntil,
+    kitchenTask=actorBefore.kitchenTask,heldPlush=actorBefore.heldPlush,
+    residentRoom=actorBefore.residentRoom
+   );
+   selected=selectionBefore;panel=panelBefore;rotationPreview=rotationBefore;
+   rebuild();notify(e.message,true);return false;
+  }
  }
  function applyColor(root,color,wall=false,id='',materialColors={}){
   root.traverse(o=>{if(!o.isMesh)return;const mats=Array.isArray(o.material)?o.material:[o.material];
