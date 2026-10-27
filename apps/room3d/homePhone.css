@@ -15,4 +15,3 @@
 @keyframes home-phone-buzz{0%,100%{transform:rotate(0)}15%,45%,75%{transform:translateX(-2px) rotate(-1deg)}30%,60%,90%{transform:translateX(2px) rotate(1deg)}}@media(prefers-reduced-motion:reduce){.home-phone.is-buzzing,.home-phone-launch.is-buzzing{animation:home-phone-notice .6s ease-out}}@keyframes home-phone-notice{50%{filter:brightness(1.12)}}
 
 .home-phone.is-buzzing,.home-phone-launch.is-buzzing{animation:home-phone-unread 2.4s ease-in-out infinite}@keyframes home-phone-unread{0%,24%,100%{transform:none}4%,12%,20%{transform:translateX(-2px) rotate(-1deg)}8%,16%{transform:translateX(2px) rotate(1deg)}}@media(prefers-reduced-motion:reduce){.home-phone.is-buzzing,.home-phone-launch.is-buzzing{animation:home-phone-notice 2.4s ease-in-out infinite}}
-.home-phone-launch.is-rail-avoiding{left:18px;right:auto}
