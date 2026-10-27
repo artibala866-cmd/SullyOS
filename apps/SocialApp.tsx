@@ -1084,6 +1084,9 @@ const SocialApp: React.FC = () => {
 
     const buildGenerationMessages = (members: CharacterProfile[], context: string, prompt: string) => {
         const history = [{ role: 'user', content: prompt }];
+        // The group worldbook assembler embeds every member's private books into
+        // one model request. Never use it for public multi-character generations.
+        if (members.length > 1) return [{ role: 'system', content: context }, ...history];
         return ContextBuilder.buildGroupWorldbookRequest({ members, user: userProfile, history,
             render: (slots, turns) => [{ role: 'system', content: slots.before + context + slots.after }, ...turns],
         });
