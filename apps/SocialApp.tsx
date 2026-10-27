@@ -1261,6 +1261,42 @@ const SocialApp: React.FC = () => {
         });
     };
 
+    // Share one validated post-persistence path across characters in a low-cost batch.
+    const persistBatchedCharacterPost = (char: CharacterProfile, result: any): boolean => {
+        if (!result || typeof result.content !== 'string' || !result.content.trim()) return false;
+        if (publicTextLeaksPrivateChat(String(result.title || '') + result.content)) return false;
+        const accounts = characterHandles[char.id] || [];
+        const requestedName = String(result.authorName || '').trim().slice(0, 30);
+        const main = accounts.find(a => a.id === 'default' || a.note === '主账号');
+        const matching = accounts.find(a => a.handle === requestedName);
+        const isAlt = result.accountType === 'alt';
+        const name = matching?.handle || (!isAlt ? (main?.handle || char.socialProfile?.handle || char.name)
+            : (requestedName || char.name + '的日常'));
+        if (!name || name === socialProfile.name || name === userProfile.name) return false;
+        if (characters.some(other => other.id !== char.id &&
+            (characterHandles[other.id] || []).some(handle => handle.handle === name))) return false;
+        const id = matching?.id || (!isAlt ? main?.id || 'default' :
+            'ai-alt-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+        if (isAlt && !matching) setCharacterHandles(prev => {
+            const existing = prev[char.id] || [];
+            if (existing.some(h => h.handle === name)) return prev;
+            return { ...prev, [char.id]: [...existing, { id, handle: name, note: 'AI 自建马甲' }] };
+        });
+        const post: SocialPost = {
+            id: 'char-post-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+            authorName: name, authorAvatar: getSparkAuthorAvatar(char, name, characterHandles, id),
+            title: String(result.title || '随手记录').slice(0, 100),
+            content: result.content.trim().slice(0, 2500),
+            images: [pickStock(String(result.title || ''), result.content) || '✨'],
+            likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(),
+            tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
+            authorId: 'character:' + char.id + ':handle:' + id, source: 'ai',
+        };
+        prependPostsToFeed([post]);
+        remember(char.id, post, '自己发布了笔记：' + post.content);
+        return true;
+    };
+
     const handleCharPost = async () => {
         const selected = characters.filter(c => postingCharIds.includes(c.id));
         if (!selected.length) { addToast('请先选择角色', 'error'); return; }
@@ -1269,6 +1305,56 @@ const SocialApp: React.FC = () => {
         setIsCharPosting(true);
         const generation = feedLoadGenerationRef.current;
         try {
+            if (selected.length > 1) {
+                // Up to eight characters per provider request, versus one call per character.
+                // Use PUBLIC profiles and posts; never co-locate multiple private personas.
+                let created = 0;
+                for (let offset = 0; offset < selected.length; offset += 8) {
+                    if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
+                    const group = selected.slice(offset, offset + 8);
+                    const profiles = group.map(char => ({
+                        charId: char.id,
+                        name: char.name,
+                        handles: (characterHandles[char.id] || []).map(a => a.handle),
+                        publicBio: char.socialProfile?.bio || '',
+                        publicWriting: feedRef.current.filter(p => p.authorCharId === char.id).slice(0, 2)
+                            .map(p => ({ account: p.authorName, example: p.content.slice(0, 120) })),
+                    }));
+                    const context = '公开资料，用于一次生成多个相互独立的虚拟社交作者。任何私聊、私有世界书及隐藏真实身份不可见：\n'
+                        + JSON.stringify(profiles);
+                    const prompt = '为上列已选择的 ' + group.length + ' 个 charId 各生成至多一条 Spark 笔记。'
+                        + '可以保持沉默，但不能冒用其他 charId、用户账号或别人的网名。'
+                        + '作者的网名优先复用自己的公开账号，也可以在合理动机下使用新的匿名马甲。'
+                        + '帖子内容自然有个性，严格按各人公开资料与近期公开作品风格，不造假人气，不泄露私密信息。'
+                        + '只输出一个 JSON 数组：[{"charId":"上方真实ID","accountType":"main或alt",'
+                        + '"authorName":"自己的公开网名","title":"标题","content":"正文"}]。';
+                    const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
+                        body: JSON.stringify({ model: apiConfig.model,
+                            messages: buildGenerationMessages(group, context, prompt),
+                            temperature: 0.85, max_tokens: Math.min(5800, 550 + group.length * 510) }),
+                        __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '一次生成多角色帖子' },
+                    } as RequestInit);
+                    if (!response.ok) throw new Error(await apiErrorMessage(response));
+                    const results = safeParseJSON(extractContent(await safeResponseJson(response)));
+                    if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
+                    if (!Array.isArray(results)) throw new Error('批量发帖返回内容不是 JSON 数组');
+                    const seen = new Set<string>();
+                    for (const entry of results) {
+                        if (!entry || typeof entry.charId !== 'string' || seen.has(entry.charId)) continue;
+                        const char = group.find(item => item.id === entry.charId);
+                        if (!char) continue;
+                        seen.add(char.id);
+                        if (persistBatchedCharacterPost(char, entry)) created++;
+                    }
+                }
+                setShowCharPosting(false);
+                setActiveTab('home');
+                addToast(created ? '一次生成了 ' + created + ' 位角色的动态' :
+                    '本次没有有效角色帖子，不自动重复收费请求', created ? 'success' : 'info');
+                return;
+            }
             for (const char of selected) {
             if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
             const accounts = characterHandles[char.id] || [];
@@ -1281,7 +1367,7 @@ const SocialApp: React.FC = () => {
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.85 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.85, max_tokens: 1100 }),
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '指定角色自由发帖' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
