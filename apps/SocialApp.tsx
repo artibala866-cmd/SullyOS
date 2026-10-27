@@ -558,21 +558,38 @@ const SocialApp: React.FC = () => {
     const [isAutonomyBusy, setIsAutonomyBusy] = useState(false);
     const feedScrollRef = useRef<HTMLDivElement>(null);
     const pullStartY = useRef<number | null>(null);
+    const pullStartX = useRef<number | null>(null);
     const [pullDistance, setPullDistance] = useState(0);
     const pullDistanceRef = useRef(0);
     const onFeedTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-        if (activeTab !== 'home' || isRefreshing || (feedScrollRef.current?.scrollTop || 0) > 0) { pullStartY.current = null; return; }
+        if (activeTab !== 'home' || isRefreshing || (feedScrollRef.current?.scrollTop || 0) > 0) {
+            pullStartY.current = null;
+            pullStartX.current = null;
+            return;
+        }
         pullStartY.current = e.touches[0]?.clientY ?? null;
+        pullStartX.current = e.touches[0]?.clientX ?? null;
     };
     const onFeedTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
         if (pullStartY.current === null || activeTab !== 'home' || (feedScrollRef.current?.scrollTop || 0) > 0) return;
-        const delta = Math.max(0, Math.min(100, ((e.touches[0]?.clientY ?? pullStartY.current) - pullStartY.current) * 0.45));
+        const deltaX = Math.abs((e.touches[0]?.clientX ?? pullStartX.current ?? 0) - (pullStartX.current ?? 0));
+        const deltaY = (e.touches[0]?.clientY ?? pullStartY.current) - pullStartY.current;
+        // Horizontal image/carousel swipes must not trigger a paid feed refresh.
+        if (deltaX > 12 && deltaX > Math.abs(deltaY)) {
+            pullStartY.current = null;
+            pullStartX.current = null;
+            pullDistanceRef.current = 0;
+            setPullDistance(0);
+            return;
+        }
+        const delta = Math.max(0, Math.min(100, deltaY * 0.45));
         pullDistanceRef.current = delta;
         setPullDistance(delta);
     };
     const onFeedTouchEnd = () => {
         const shouldRefresh = pullStartY.current !== null && pullDistanceRef.current >= 65;
         pullStartY.current = null;
+        pullStartX.current = null;
         pullDistanceRef.current = 0;
         setPullDistance(0);
         if (shouldRefresh && !isRefreshing) void handleRefresh();
