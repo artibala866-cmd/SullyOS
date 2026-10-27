@@ -5,6 +5,7 @@ import {
     createEmptySparkCommunityState,
     deriveSparkProfileStats,
     ensureSparkAccount,
+    mergeSparkCommunityStates,
     markSparkNotificationsRead,
     normalizeSparkCommunityState,
     normalizeSparkPost,
@@ -12,6 +13,7 @@ import {
     setSparkAccountMuted,
     setSparkPostHidden,
     toggleSparkFollow,
+    toggleSparkInterest,
 } from './sparkCommunity';
 
 const post = (id: string, overrides: Partial<SocialPost> = {}): SocialPost => ({
@@ -99,6 +101,46 @@ describe('Spark persistent community state', () => {
         expect(actual.likes).toBe(2);
         expect(actual.comments).toEqual([]);
         expect(actual.collectedByAccountIds).toEqual(['stranger:1']);
+    });
+
+    it('migrates legacy collection flags into the canonical actor list', () => {
+        const legacyCollected = normalizeSparkPost(post('legacy-collected', {
+            authorType: 'user',
+            isCollected: true,
+        }));
+        expect(legacyCollected.isCollected).toBe(true);
+        expect(legacyCollected.collectedByAccountIds).toEqual(['user']);
+
+        const actorListCollected = normalizeSparkPost(post('actor-list-collected', {
+            authorType: 'user',
+            isCollected: false,
+            collectedByAccountIds: ['user'],
+        }));
+        expect(actorListCollected.isCollected).toBe(true);
+    });
+
+    it('preserves un-follow, unhide, unmute and topic-unfollow actions during state merge', () => {
+        const empty = createEmptySparkCommunityState();
+        const followed = toggleSparkFollow(empty, 'user', 'stranger:1', 10, 'follow-on').state;
+        const hidden = setSparkPostHidden(followed, 'post-1', 'user', true, 11, 'hide-on');
+        const muted = setSparkAccountMuted(hidden, 'stranger:1', 'user', true, 12, 'mute-on');
+        const interested = toggleSparkInterest(muted, 'art', 13, 'interest-on').state;
+
+        const unfollowed = toggleSparkFollow(interested, 'user', 'stranger:1', 20, 'follow-off').state;
+        const unhidden = setSparkPostHidden(unfollowed, 'post-1', 'user', false, 21, 'hide-off');
+        const unmuted = setSparkAccountMuted(unhidden, 'stranger:1', 'user', false, 22, 'mute-off');
+        const noInterest = toggleSparkInterest(unmuted, 'art', 23, 'interest-off').state;
+        const live = {
+            ...noInterest,
+            autonomy: { ...noInterest.autonomy, enabled: true, lastRunAt: 23, lastRunDay: '2026-10-27', callsToday: 1 },
+        };
+
+        const merged = mergeSparkCommunityStates(interested, live, true);
+        expect(merged.follows).toEqual([]);
+        expect(merged.hiddenPostIds).not.toContain('post-1');
+        expect(merged.mutedAccountIds).not.toContain('stranger:1');
+        expect(merged.interests).not.toContain('art');
+        expect(merged.autonomy).toMatchObject({ enabled: true, callsToday: 1 });
     });
 
     it('records follow and unfollow as real relationship events and derives profile counts', () => {
