@@ -2445,8 +2445,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               !readPhoneAutonomyPreferences(charId).backgroundApiEnabled) return;
           const consumers = getLifeEventConsumers(recordedEvent.kind);
           const baseApi = resolveDialogueApi(apiConfigRef.current, char);
-          const api = recordedEvent.source === 'phone'
-              ? resolveCharacterPhoneApi(charId, baseApi) : baseApi;
+          // This is always a Char-PHONE autonomous consumer, regardless of
+          // whether its trigger came from phone, real-mode, or AMSG.
+          // Keep the phone's configured API choice without changing AMSG delivery.
+          const api = resolveCharacterPhoneApi(charId, baseApi);
           if (consumers.includes('moments')) void considerAutonomousMoment({
               char, user: userProfileRef.current, groups: groupsRef.current,
               realtimeConfig: realtimeConfigRef.current, api,
