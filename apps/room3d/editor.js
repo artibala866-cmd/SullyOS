@@ -1501,7 +1501,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    notify('请先安全完成坐床或卫浴进出，再撤销或重做',true);return;
   }
   const previousRoom=current(),standing=!visitorSeat&&resident.visible?{
-   roomId:previousRoom.id,x:resident.position.x,z:resident.position.z,width:headWidth
+   roomId:previousRoom.id,x:resident.position.x,z:resident.position.z,width:headWidth,headBottom:visitor?.navigation?.headBottom,headTop:visitor?.navigation?.headTop
   }:null;
   const target=from.at(-1),occupants=[visitorSeat,...otherFurnitureOccupants()];
   const reason=occupiedFurnitureChange(state,target,catalog,occupants)||
@@ -1534,7 +1534,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const occupiedBefore=[actorBefore.visitorSeat,...otherFurnitureOccupants()];
   const activeBefore=[actorBefore.visitorActivity,actorBefore.visitorPlant,actorBefore.kitchenTask];
   const standing=!visitorSeat&&resident.visible?{
-   roomId:current().id,x:resident.position.x,z:resident.position.z,width:headWidth
+   roomId:current().id,x:resident.position.x,z:resident.position.z,width:headWidth,headBottom:visitor?.navigation?.headBottom,headTop:visitor?.navigation?.headTop
   }:null;
   message='';error=false;
   try{
