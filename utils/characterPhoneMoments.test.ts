@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { addMomentComment, deleteCharacterMoment, deleteMomentComment, publishCharacterMoment, readCharacterMoments, setMomentLike } from './characterPhoneMoments';
+import { addMomentComment, deleteCharacterMoment, deleteMomentComment, publishCharacterMoment, readCharacterMoments, setMomentLike, isMomentReactionOpportunity, type CharacterMomentChangeDetail } from './characterPhoneMoments';
 
 const store = new Map<string,string>();
 beforeEach(() => {
@@ -37,6 +37,28 @@ describe('Char Moments persistence and interactions', () => {
     expect(setMomentLike('char-a',post.id,'npc-1',true)).toBe(false);
     expect(addMomentComment('char-a',post.id,{id:'c',authorId:'npc-1',text:'hi',createdAt:1})).toBe(false);
   });
+  it('only meaningful new posts or User comments can request autonomous social reactions', () => {
+    const signals: CharacterMomentChangeDetail[] = [];
+    vi.stubGlobal('window', { dispatchEvent: (event: {init:{detail:CharacterMomentChangeDetail}}) => {
+      signals.push(event.init.detail);
+      return true;
+    }});
+    const post = publish()!;
+    expect(isMomentReactionOpportunity(signals.at(-1))).toBe(true);
+    expect(setMomentLike('char-a', post.id, 'user', true)).toBe(true);
+    expect(isMomentReactionOpportunity(signals.at(-1))).toBe(false);
+    expect(addMomentComment('char-a',post.id, {id:'ai-reply',authorId:'npc-1',text:'哦',createdAt:5})).toBe(true);
+    expect(isMomentReactionOpportunity(signals.at(-1))).toBe(false);
+    expect(addMomentComment('char-a',post.id, {id:'user-reply',authorId:'user',text:'怎么了？',createdAt:6})).toBe(true);
+    expect(isMomentReactionOpportunity(signals.at(-1))).toBe(true);
+    expect(deleteMomentComment('char-a',post.id,'user-reply','user')).toBe(true);
+    expect(isMomentReactionOpportunity(signals.at(-1))).toBe(false);
+    expect(deleteCharacterMoment('char-a',post.id,'user')).toBe(true);
+    expect(isMomentReactionOpportunity(signals.at(-1))).toBe(false);
+    expect(isMomentReactionOpportunity({characterId:'char-a'})).toBe(false);
+    expect(isMomentReactionOpportunity(undefined)).toBe(false);
+  });
+
   it('rejects empty selected audience and over nine images', () => {
     expect(publishCharacterMoment({characterId:'char-a',origin:'char',text:'hi',imageUrls:[],visibility:'selected'})).toBeNull();
     expect(publishCharacterMoment({characterId:'char-a',origin:'char',text:'hi',imageUrls:Array(10).fill('image'),visibility:'all'})).toBeNull();
