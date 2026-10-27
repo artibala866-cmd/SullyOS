@@ -58,6 +58,24 @@ it('carrier sustains load-scaled knee and torso counterbalance until the carried
  }
 });
 
+it('princess lift and set-down remain continuous across approach and release phase boundaries',()=>{
+ for(const heights of [[1,1],[.8,1.25],[1.25,.8]]){
+  const a=actor(heights[0],-.4,0),b=actor(heights[1],.4,Math.PI);
+  const sample=(time:number)=>{
+   a.reset();b.reset();poseIntimacy('home-princess-carry',[a,b],time);
+   return [a,b].flatMap(actor=>['hips','chest','L_hand','R_hand','L_foot','R_foot'].map(n=>
+    actor.visitor.rig!.bones[n].getWorldPosition(new T.Vector3())));
+  };
+  for(const boundary of [.5,1.7,2,2.4,3.8,6.7,7.7,8.8,9.5]){
+   const before=sample(boundary-.008),after=sample(boundary+.008);
+   for(let i=0;i<before.length;i++)expect(
+    before[i].distanceTo(after[i]),
+    `height pair ${heights} boundary ${boundary}, anchor ${i}`
+   ).toBeLessThan(.12);
+  }
+ }
+});
+
 it('raises hands before contact, pats with one hand while the other supports, and returns smoothly when seeking',()=>{
  const both=[actor(1,-.33,0),actor(1.15,.33,Math.PI)];
  const sample=(time:number)=>{both.forEach(r=>r.reset());poseIntimacy('home-hug',both,time);return both.map(r=>Object.fromEntries(['L','R'].map(side=>[side,r.visitor.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side))])));};
