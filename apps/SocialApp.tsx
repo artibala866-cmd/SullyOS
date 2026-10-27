@@ -1862,6 +1862,12 @@ ${inboxCount > 0 ? '若还要生成来信，最终只输出一个带 comments、
 只输出一个 JSON 对象，形状：{"comments":[按上方格式的评论],"incomingDMs":[{"name":"不同且不冒充用户或角色的网名","persona":"稳定公开性格和说话风格","message":"针对该帖的自然私信"}]}。
 所有信息均须来自帖子公开内容，不能引用任何私聊、世界书或后台马甲身份。
 ` : prompt;
+            // Reserve this specific post's initial paid comment attempt before calling
+            // the provider. A timeout/error may still be charged upstream, so reopening
+            // the post must not silently retry it.
+            if (controller.signal.aborted || !updatePostInFeed(post.id, current => ({
+                ...current, sparkInitialCommentsHandled: true,
+            }))) return;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
@@ -1879,11 +1885,6 @@ ${inboxCount > 0 ? '若还要生成来信，最终只输出一个带 comments、
             if (inboxCount > 0 && combinedResult.incomingDMs.length) {
                 acceptGeneratedIncomingDMs(post, combinedResult.incomingDMs, inboxCount, feedLoadGenerationRef.current);
             }
-            // A completed paid attempt is final even when the model returns no valid
-            // commenters: reopening the same post must never silently bill again.
-            if (!controller.signal.aborted) updatePostInFeed(post.id, current => ({
-                ...current, sparkInitialCommentsHandled: true,
-            }));
             if (commentsJson.length) {
                 const comments: SocialComment[] = commentsJson
                     .flatMap((c: any) => {
