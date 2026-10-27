@@ -21,11 +21,15 @@ describe('shared bed access for legacy and skeletal residents',()=>{
   expect(pose?.bed?.entry).not.toBe(false);
   expect(Math.abs(bedEdge(pose,[1.6,.18,-.08625]).position[1]-pose.position[1])).toBeLessThan(.02);
  });
- it('tries the opposite mattress side if the preferred side is blocked',()=>{
+ it('rejects the wrong side instead of sliding a resident across the mattress',()=>{
   const pose=legacy();
-  const front=bedEntry(pose,{free:(x)=>x<-.5},[0,0]);
+  const rightSide=Math.sign(pose.bed.side);
+  const wrong={free:(x,z)=>x*rightSide<-.5};
+  expect(bedEntry(pose,wrong,[0,0])).toBeNull();
+  const same={free:(x,z)=>x*rightSide>.5};
+  const front=bedEntry(pose,same,[0,0]);
   expect(front).not.toBeNull();
-  expect(front[0]).toBeLessThan(-1);
+  expect(front[0]*rightSide).toBeGreaterThan(.5);
  });
  it('reuses the exact entry point for rising and fails closed if that exit becomes blocked',()=>{
   const pose=legacy(),remembered=[1.6,.18,-.08625];
