@@ -425,8 +425,12 @@ export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin
         const bedFrame=legacyBedFrame(time,activity);
         const cute=motion==='wave-cute',calm=motion==='wave-calm'||motion==='wave';
         const mirror=motion==='mirror-admire'||motion==='mirror-outfit'?mirrorFrame(motion,time):null;
-        const sleeping=motion==='sleep',angry=motion==='angry',sitting=posture==='seated'||motion==='sit'||!!bedFrame?.sitting;
-        const floatingLimbs=sitting||!!(activity&&(!bedFrame||bedFrame.floatingLimbs))||['wave','wave-cute','wave-calm','angry','dance','water'].includes(motion);
+        const sleeping=motion==='sleep',angry=motion==='angry';
+        // The old chibi also travels through the seat-change root path now.
+        // Do not fold its limbs into a fully seated pose on the first frame.
+        const seatTransition=activity?.kind==='seat-change';
+        const sitting=seatTransition?(activity?.seatWeight??0)>=.65:posture==='seated'||motion==='sit'||!!bedFrame?.sitting;
+        const floatingLimbs=sitting||!!(activity&&(seatTransition?false:!bedFrame||bedFrame.floatingLimbs))||['wave','wave-cute','wave-calm','angry','dance','water'].includes(motion);
         const rhythm=motion==='rhythm'&&!sitting?rhythmFrame(activity,time):null;
         const enter=smooth(0,.35,time);
         const beat=time%2.2;
