@@ -43,7 +43,7 @@ import { runCharacterPhoneBrowserAutonomy } from '../utils/characterPhoneBrowser
 import { runCharacterPhoneSelfAutonomy } from '../utils/characterPhoneSelfProfile';
 import { resolveCharacterPhoneApi } from '../utils/characterPhoneApiConfig';
 import { readPhoneInboxPreferences } from '../utils/characterPhoneInboxPrefs';
-import { canUsePhoneApiBudget, readPhoneApiBudget } from '../utils/characterPhoneApiBudget';
+import { canUsePhoneApiBudget, readPhoneApiBudget, readPhoneAutonomyPreferences } from '../utils/characterPhoneApiBudget';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments } from '../utils/characterPhoneMoments';
 import { considerAutonomousNpcMoments } from '../utils/refreshNpcMoments';
@@ -2438,7 +2438,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
               enqueuePhoneMemory(recordedEvent);
           }
-          if (!shouldDispatchLifeEvent(recordedEvent, charId)) return;
+          // Keep the confirmed event/AMSG/Palace effects above, but do not let
+          // phone auto-writing bypass either of the existing background switches.
+          if (!shouldDispatchLifeEvent(recordedEvent, charId) ||
+              !isCharacterPhoneAutonomyEnabled(charId) ||
+              !readPhoneAutonomyPreferences(charId).backgroundApiEnabled) return;
           const consumers = getLifeEventConsumers(recordedEvent.kind);
           const baseApi = resolveDialogueApi(apiConfigRef.current, char);
           const api = recordedEvent.source === 'phone'
@@ -2446,10 +2450,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (consumers.includes('moments')) void considerAutonomousMoment({
               char, user: userProfileRef.current, groups: groupsRef.current,
               realtimeConfig: realtimeConfigRef.current, api,
-              budgeted: recordedEvent.source === 'phone',
+              budgeted: true,
           });
           if (consumers.includes('memo')) void considerCharacterMemo({characterId:charId,name:char.name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,6000),api,events:readCharacterLifeEvents(charId),char,
-              budgeted: recordedEvent.source === 'phone',
+              budgeted: true,
           }).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
       };
       const onVisible = () => { if (document.visibilityState === 'visible') recoverPhoneMemories(); };
@@ -2485,7 +2489,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // A single Char-wide LLM call per eligible tick. Rotating feature
           // order prevents NPC WeChat from consuming the entire daily quota
           // while the browser and profile never get a turn.
-          if (!canUsePhoneApiBudget(char.id)) return;
+          if (!isCharacterPhoneAutonomyEnabled(char.id) || !canUsePhoneApiBudget(char.id)) return;
           running = true;
           try {
               // When explicitly enabled, the daily shared quota prioritizes
@@ -2545,14 +2549,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // The per-character social cooldown/limits still prevent comment loops.
       const onMomentsChanged = (event: Event) => {
           const charId = (event as CustomEvent<{characterId?:string}>).detail?.characterId;
-          if (!charId || disposed || document.visibilityState !== 'visible') return;
+          if (!charId || disposed || document.visibilityState !== 'visible' ||
+              !isCharacterPhoneAutonomyEnabled(charId) || !canUsePhoneApiBudget(charId)) return;
           const pending = momentTimers.get(charId);
           if (pending) window.clearTimeout(pending);
           momentTimers.set(charId, window.setTimeout(() => {
               momentTimers.delete(charId);
               if (disposed || running || document.visibilityState !== 'visible') return;
               const char = charactersRef.current.find(c => c.id === charId);
-              if (!char) return;
+              if (!char || !isCharacterPhoneAutonomyEnabled(charId) || !canUsePhoneApiBudget(charId)) return;
               const api = resolveCharacterPhoneApi(charId,resolveDialogueApi(apiConfigRef.current, char));
               void runCharacterMomentInteractionAutonomy({char, api});
           }, 15_000));
