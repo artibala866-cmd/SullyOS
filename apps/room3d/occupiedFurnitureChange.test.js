@@ -30,6 +30,17 @@ describe('occupied furniture and supported decoration layout safety',()=>{
   expect(seatTransform(next.rooms[0],catalog,seat,true)).toBeNull();
   expect(issue(next)).toContain('先让人物');
  });
+ it('rejects a NEW nearby furniture collider even if the occupied sofa is unchanged',()=>{
+  const pose=seatTransform(room,catalog,seat,true);
+  const blocked={id:'new-close',assetId:'bookcase',x:pose.position[0],y:.18,
+   z:pose.position[2]+.25,rotation:0,stored:false};
+  const next=changed(items=>items.push(blocked));
+  expect(issue(next)).toContain('碰到正在使用座位的人物');
+  // A nearby rug is non-colliding decoration and must not lock editing.
+  const rug={id:'new-rug',assetId:'rug',x:pose.position[0],y:.18,
+   z:pose.position[2],rotation:0,stored:false};
+  expect(issue(changed(items=>items.push(rug)))).toBe('');
+ });
  it('locks occupied bed anchors too without hiding unrelated decoration',()=>{
   const bed={id:'b',assetId:'bedroom_single_bed',x:0,y:.18,z:0,rotation:0,stored:false};
   const before={rooms:[{id:'r',items:[bed]}]};
