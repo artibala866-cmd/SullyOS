@@ -104,7 +104,7 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
    {editor&&homely&&!suspended&&!phoneOpen&&<HomelyHud editor={editor} name={character?.name||'TA'} schedule={currentSchedule} ready={mainReady} panel={lifePanel} onPanel={openLifePanel} onFigures={openFigures} music={<HomelyMusic editor={editor} active={!photoActive&&!homeBusy&&!phoneBusy}/>}/>}
    {editor&&!suspended&&(!homely||lifePanel!=='chat')&&(homeBusy||phoneBusy)&&<div className="home-life-hint" role="status">{character?.name||'角色'}正在回应…</div>}
    {savedState&&<CreatorRollBridge request={creatorReady&&extraItems?1:0} savedState={savedState} extraItems={extraItems} onReady={()=>setCreatorReady(true)} onResult={result=>{setResidentAssets(selectedHairAssets(result.state));decodeParts(result,residentHair).then(setParts).catch(e=>setResidentError(String(e)));}} onError={setResidentError}/>}
-   {(residentError||character&&!savedState)&&<p role="status" style={{position:'absolute',top:100,left:18,right:18,fontSize:12,pointerEvents:'none',color:'#665274'}}>{residentError||'先在手办柜捏好小小窝或彼方形象，小人就能住进来。'}</p>}
+   {(residentError||character&&!savedState)&&<p role="status" style={{position:'absolute',top:100,left:18,right:18,fontSize:12,pointerEvents:'none',color:'#665274'}}>{residentError||'先在手办柜配置家园角色形象，小人就能住进来。'}</p>}
    {error&&<div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#e8dde7] p-8 text-center text-sm text-purple-900"><p>{error}</p><button className="rounded-full bg-white px-5 py-3" onClick={onBack}>返回</button></div>}
  </div>;
 }
