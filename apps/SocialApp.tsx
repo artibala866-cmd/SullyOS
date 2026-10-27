@@ -588,7 +588,19 @@ const SocialApp: React.FC = () => {
     useEffect(() => {
         DB.getSocialPosts().then(posts => {
             if (posts.length > 0) {
-                const sorted = posts.sort((a,b) => b.timestamp - a.timestamp);
+                const sorted = registerSparkPosts([...posts].sort((a,b) => b.timestamp - a.timestamp));
+                // Preserve prior follows stored by handle while migrating to account IDs.
+                let migrated = communityRef.current;
+                try {
+                    const legacy = JSON.parse(localStorage.getItem('spark_followed_handles') || '[]');
+                    if (Array.isArray(legacy)) for (const handle of legacy) {
+                        const account = migrated.accounts.find(a => a.displayName === handle || a.aliases.includes(handle));
+                        if (account && !migrated.follows.some(item => item.followerId === 'user' && item.followedId === account.id)) {
+                            migrated = toggleSparkFollow(migrated, 'user', account.id, Date.now(), 'migrate-follow-' + account.id).state;
+                        }
+                    }
+                } catch { /* Invalid legacy follow list is safely ignored. */ }
+                if (migrated !== communityRef.current) writeCommunity(migrated);
                 // IndexedDB can be slow on mobile. If the user already created
                 // something while this read was pending, keep that live version.
                 const liveIds = new Set(feedRef.current.map(post => post.id));
@@ -797,13 +809,14 @@ const SocialApp: React.FC = () => {
     };
 
     const prependPostsToFeed = (newPosts: SocialPost[]) => {
-        const next = prependUniqueSocialPosts(feedRef.current, newPosts);
+        const registered = registerSparkPosts(newPosts);
+        const next = prependUniqueSocialPosts(feedRef.current, registered);
         feedRef.current = next;
         setFeed(next);
-        applyTraffic(newPosts);
+        applyTraffic(registered);
         // Only persist the new batch. Re-saving the request's stale feed snapshot
         // could erase comments or user posts that arrived while it was running.
-        Promise.all(newPosts.map(p => DB.saveSocialPost(p))).catch(console.error);
+        Promise.all(registered.map(p => DB.saveSocialPost(p))).catch(error => addToast('Spark 笔记保存失败，请勿关闭应用：' + (error?.message || error), 'error'));
     };
 
     const updatePostInFeed = (postId: string, updater: (post: SocialPost) => SocialPost): SocialPost | undefined => {
@@ -839,9 +852,26 @@ const SocialApp: React.FC = () => {
         });
     };
 
+    const isFollowing = (handle: string): boolean => {
+        const account = communityState.accounts.find(item => item.displayName === handle || item.aliases.includes(handle));
+        return account
+            ? communityState.follows.some(follow => follow.followerId === 'user' && follow.followedId === account.id)
+            : followedHandles.includes(handle);
+    };
     const toggleFollow = (handle: string) => {
+        const post = feedRef.current.find(item => item.authorName === handle);
+        const existing = communityRef.current.accounts.find(item => item.displayName === handle || item.aliases.includes(handle));
+        const candidateType: SparkAccountType = existing?.type || post?.authorType || 'stranger';
+        const result = ensureSparkAccount(communityRef.current, {
+            type: candidateType, id: existing?.id || post?.authorId, displayName: handle,
+            ownerCharId: existing?.ownerCharId || post?.authorCharId,
+            handleId: existing?.handleId, avatar: existing?.avatar || post?.authorAvatar,
+        }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+        if (result.account.id === 'user') return;
+        const follow = toggleSparkFollow(result.state, 'user', result.account.id, Date.now(), 'follow-' + Date.now() + '-' + Math.random());
+        writeCommunity(follow.state);
         setFollowedHandles(prev => {
-            const next = prev.includes(handle) ? prev.filter(h => h !== handle) : [...prev, handle];
+            const next = follow.action === 'follow' ? [...new Set([...prev, handle])] : prev.filter(h => h !== handle);
             localStorage.setItem('spark_followed_handles', JSON.stringify(next));
             return next;
         });
@@ -1416,7 +1446,10 @@ ${buildSparkCommentHistory(post)}
     // --- Renderers ---
 
     // 1. Feed Item (Glassmorphism)
-    const accountPosts = (handle: string) => feed.filter(p => p.authorName === handle);
+    const accountPosts = (handle: string) => {
+        const account = communityState.accounts.find(item => item.displayName === handle || item.aliases.includes(handle));
+        return feed.filter(post => account ? post.authorId === account.id || (!post.authorId && post.authorName === handle) : post.authorName === handle);
+    };
     const accountFollowerCount = (handle: string, isMain: boolean) => {
         const seed = Array.from(handle).reduce((sum, c) => (sum * 31 + c.charCodeAt(0)) >>> 0, 7);
         return isMain ? 120 + seed % 18000 : 3 + seed % 1800;
@@ -1811,7 +1844,7 @@ ${buildSparkCommentHistory(post)}
                             </div>}
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
                             <div className="columns-2 gap-2 pb-24">
-                                {feed.filter(post => !hiddenPostIds.includes(post.id) && (feedTab === 'discover' || followedHandles.includes(post.authorName)) && searchMatches(post)).map(post => renderFeedItem(post))}
+                                {visibleFeed.filter(post => !hiddenPostIds.includes(post.id)).map(post => renderFeedItem(post))}
                             </div>
                         </div>
                     )}
