@@ -19,6 +19,16 @@ import {applyStandingHeightAdaptation} from './standingHeightAdaptation';
 import {applyPairedHandContact} from './pairedHandContact';
 import {createMotionConstraintPipeline} from './motionConstraintPipeline';
 export {motionCategories} from './selectedMotions';
+/** Horizontal collision proxies based on the posed world shoulder span,
+ * rather than a fixed distance for every chibi scale. These are conservative
+ * broadphase radii, not mesh/costume collision or a replacement for close
+ * contact and full-body IK. */
+export function socialBodyCollisionRadii(shoulderSpan:number,headSize=1){
+ const span=Number.isFinite(shoulderSpan)&&shoulderSpan>0?shoulderSpan:.76;
+ const size=Number.isFinite(headSize)&&headSize>0?headSize:1;
+ return {hips:Math.max(.08,span*.43),chest:Math.max(.10,span*.50),head:Math.max(.10,span*.49*size)};
+}
+
 export type SocialAction=string;
 export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-passion-kiss'?12:e.id==='home-sneak-kiss'?5:e.id==='home-kiss'?9.6:e.id==='home-rear-hug'?7.5:e.id==='home-hand-hold-plead'?6.7:e.id==='home-sofa-lap-pillow'?9.3:e.duration+1.2}]));
 export interface SocialResident {id:string;visitor:ChibiVisitor}
@@ -183,15 +193,21 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   // Preserve close-contact intimacy and pinned poses for their own solvers.
   if(!pinned&&both.length===2&&both.every(r=>!!r.visitor.rig)&&!isIntimacy(s.action)){
    const a=both[0].visitor,b=both[1].visitor;
+   const sizes=[a,b].map(v=>{
+    const shoulders=v.rig!.bones.L_upperArm.getWorldPosition(new T.Vector3())
+     .distanceTo(v.rig!.bones.R_upperArm.getWorldPosition(new T.Vector3()));
+    return socialBodyCollisionRadii(shoulders);
+   });
    let penetration=0;
    const direction=new T.Vector3();
-   for(const [bone,radius] of [['hips',.32],['chest',.38]] as const){
+   for(const bone of ['hips','chest'] as const){
     const pa=a.rig!.bones[bone].getWorldPosition(new T.Vector3());
     const pb=b.rig!.bones[bone].getWorldPosition(new T.Vector3());
     const delta=pb.sub(pa),vertical=Math.abs(delta.y);
-    if(vertical>=radius*2)continue;
+    const combined=sizes[0][bone]+sizes[1][bone];
+    if(vertical>=combined)continue;
     delta.y=0;
-    const gap=delta.length(),minimum=Math.sqrt(Math.max(0,(radius*2)**2-vertical**2));
+    const gap=delta.length(),minimum=Math.sqrt(Math.max(0,combined*combined-vertical**2));
     if(gap<minimum&&minimum-gap>penetration){
      penetration=minimum-gap;
      if(gap>.0001)direction.copy(delta).divideScalar(gap);
@@ -212,7 +228,13 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   // the actual posed head centres before solving hands, including height gaps.
   if(!pinned&&both.length===2&&both[0].visitor.rig&&!isIntimacy(s.action)){
    const heads=both.map(r=>r.visitor.rig!.bones.head.localToWorld(new T.Vector3(0,.72,0))),delta=heads[1].clone().sub(heads[0]),vertical=delta.y;delta.y=0;
-   const needed=Math.sqrt(Math.max(0,.74**2-vertical**2)),gap=delta.length();
+   const headRadii=both.map(r=>{
+    const rig=r.visitor.rig!,span=rig.bones.L_upperArm.getWorldPosition(new T.Vector3())
+     .distanceTo(rig.bones.R_upperArm.getWorldPosition(new T.Vector3()));
+    return socialBodyCollisionRadii(span,rig.mesh.geometry.userData.headSize??1).head;
+   });
+   const combined=headRadii[0]+headRadii[1];
+   const needed=Math.sqrt(Math.max(0,combined*combined-vertical**2)),gap=delta.length();
    if(gap<needed){if(gap<.001)delta.copy(points[1]).sub(points[0]);delta.normalize().multiplyScalar((needed-gap)/2);both[0].visitor.root.position.sub(delta);both[1].visitor.root.position.add(delta);both.forEach(r=>r.visitor.root.updateWorldMatrix(true,true));}
   }
  }
