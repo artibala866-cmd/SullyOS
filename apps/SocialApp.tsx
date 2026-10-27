@@ -825,32 +825,75 @@ const SocialApp: React.FC = () => {
 
     const prependPostsToFeed = (newPosts: SocialPost[]) => {
         const registered = registerSparkPosts(newPosts);
-        const next = prependUniqueSocialPosts(feedRef.current, registered);
+        const existingIds = new Set(feedRef.current.map(post => post.id));
+        const fresh = registered.filter(post => !existingIds.has(post.id));
+        const next = prependUniqueSocialPosts(feedRef.current, fresh);
         feedRef.current = next;
         setFeed(next);
-        applyTraffic(registered);
-        // Only persist the new batch. Re-saving the request's stale feed snapshot
-        // could erase comments or user posts that arrived while it was running.
-        Promise.all(registered.map(p => DB.saveSocialPost(p))).catch(error => addToast('Spark 笔记保存失败，请勿关闭应用：' + (error?.message || error), 'error'));
+        applyTraffic(fresh);
+        if (fresh.length) {
+            let community = communityRef.current;
+            for (const post of fresh) {
+                community = appendSparkEvent(community, {
+                    id: 'post-created:' + post.id, type: 'post_created',
+                    actorAccountId: post.authorId || 'user', postId: post.id, createdAt: post.timestamp,
+                });
+            }
+            writeCommunity(community);
+        }
+        Promise.all(fresh.map(p => DB.saveSocialPost(p))).catch(error => addToast('Spark 笔记保存失败，请勿关闭应用：' + (error?.message || error), 'error'));
     };
 
     const updatePostInFeed = (postId: string, updater: (post: SocialPost) => SocialPost): SocialPost | undefined => {
+        const before = feedRef.current.find(post => post.id === postId);
         const result = updateSocialPost(feedRef.current, postId, updater);
         if (!result.post) return undefined;
-        feedRef.current = result.feed;
-        setFeed(result.feed);
-        setSelectedPost(current => (current?.id === postId ? result.post! : current));
-        DB.saveSocialPost(result.post).catch(console.error);
-        applyTraffic([result.post]);
-        return result.post;
+        const updated = registerSparkPosts([result.post])[0];
+        const next = result.feed.map(post => post.id === postId ? updated : post);
+        feedRef.current = next;
+        setFeed(next);
+        setSelectedPost(current => current?.id === postId ? updated : current);
+        DB.saveSocialPost(updated).catch(error => addToast('Spark 修改保存失败，请重试：' + (error?.message || error), 'error'));
+        applyTraffic([updated]);
+        if (before) {
+            let community = communityRef.current;
+            const oldIds = new Set((before.comments || []).map(comment => comment.id));
+            for (const comment of updated.comments.filter(comment => !oldIds.has(comment.id))) {
+                community = appendSparkEvent(community, {
+                    id: 'comment-created:' + comment.id, type: 'comment_created',
+                    actorAccountId: comment.authorId || 'user', targetAccountId: updated.authorId,
+                    postId, commentId: comment.id, createdAt: comment.timestamp || Date.now(),
+                });
+            }
+            if (before.isLiked !== updated.isLiked) {
+                community = appendSparkEvent(community, {
+                    id: 'post-like:' + postId + ':' + Date.now(), type: updated.isLiked ? 'post_liked' : 'post_unliked',
+                    actorAccountId: 'user', targetAccountId: updated.authorId, postId, createdAt: Date.now(),
+                });
+            }
+            if (before.isCollected !== updated.isCollected) {
+                community = appendSparkEvent(community, {
+                    id: 'post-save:' + postId + ':' + Date.now(), type: updated.isCollected ? 'post_collected' : 'post_uncollected',
+                    actorAccountId: 'user', targetAccountId: updated.authorId, postId, createdAt: Date.now(),
+                });
+            }
+            if (community !== communityRef.current) writeCommunity(community);
+        }
+        return updated;
     };
 
     const removePostFromFeed = (postId: string) => {
         const next = feedRef.current.filter(p => p.id !== postId);
         feedRef.current = next;
         setFeed(next);
-        DB.deleteSocialPost(postId);
-        setSelectedPost(current => (current?.id === postId ? null : current));
+        DB.deleteSocialPost(postId).catch(error => addToast('帖子删除保存失败：' + (error?.message || error), 'error'));
+        setSelectedPost(current => current?.id === postId ? null : current);
+        setNotices(prev => {
+            const nextNotices = prev.filter(item => item.postId !== postId);
+            localStorage.setItem('spark_notifications', JSON.stringify(nextNotices));
+            return nextNotices;
+        });
+        sparkEvent('post_deleted', 'user', { postId });
     };
 
     // --- AI Logic (Updated for Multi-Handle) ---
