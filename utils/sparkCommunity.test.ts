@@ -293,3 +293,27 @@ describe('Spark private-message identity migration', () => {
         expect(resolveSparkDMAccount(second.state.accounts, '重名', second.account.id)?.id).toBe(second.account.id);
     });
 });
+
+describe('Spark legacy notification migration', () => {
+    it('copies known event notices exactly once and preserves already-read state', async () => {
+        const { syncSparkLegacyNotices } = await import('./sparkCommunity');
+        const empty = createEmptySparkCommunityState();
+        const legacy = [{ id: 'comment:c1', kind: 'comments' as const, actor: '网友A', content: '你画得很细', postId: 'p1', time: 120, read: false }];
+        const first = syncSparkLegacyNotices(empty, legacy);
+        expect(first.notifications).toHaveLength(1);
+        expect(first.notifications[0]).toMatchObject({ id: 'comment:c1', type: 'comment', postId: 'p1', targetAccountId: 'user' });
+        expect(syncSparkLegacyNotices(first, legacy)).toBe(first);
+        const read = syncSparkLegacyNotices(first, [{ ...legacy[0], read: true }]);
+        expect(read.notifications).toHaveLength(1);
+        expect(read.notifications[0].readAt).toBeDefined();
+        expect(syncSparkLegacyNotices(read, [{ ...legacy[0], read: true }])).toBe(read);
+    });
+
+    it('does not invent a follower account from an ambiguous legacy nickname', async () => {
+        const { syncSparkLegacyNotices } = await import('./sparkCommunity');
+        const notice = [{ id: 'follows:abc', kind: 'follows' as const, actor: '同名', content: '关注了你', time: 5, read: false }];
+        const result = syncSparkLegacyNotices(createEmptySparkCommunityState(), notice);
+        expect(result.follows).toHaveLength(0);
+        expect(result.notifications[0].actorAccountId).toContain('legacy-handle:');
+    });
+});
