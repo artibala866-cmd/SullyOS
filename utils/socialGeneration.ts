@@ -105,6 +105,23 @@ export function resolveSparkAuthor(
     return { name };
 }
 
+/** A conservative final check against copying long stretches of private chat into public AI content. */
+export function containsSparkPrivateQuote(publicText: string, privateTexts: string[]): boolean {
+    const normalize = (s: string) => s.normalize('NFKC').replace(/\s+/g, '').toLocaleLowerCase();
+    const publicNormalized = normalize(publicText);
+    const chunkSize = 28;
+    if (publicNormalized.length < chunkSize) return false;
+    for (const privateText of privateTexts) {
+        const source = normalize(privateText);
+        if (source.length < chunkSize) continue;
+        for (let offset = 0; offset <= source.length - chunkSize; offset += 12) {
+            if (publicNormalized.includes(source.slice(offset, offset + chunkSize))) return true;
+        }
+        if (publicNormalized.includes(source.slice(-chunkSize))) return true;
+    }
+    return false;
+}
+
 export function buildSparkCommentHistory(post: SocialPost): string {
     return (post.comments || []).slice(-12).map(c => JSON.stringify({
         author: c.authorName, charId: c.authorCharId || null, authorType: c.authorType,
