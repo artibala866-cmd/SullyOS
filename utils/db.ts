@@ -1187,22 +1187,39 @@ export const DB = {
       });
   },
 
+  // These Spark writes must only resolve when the transaction actually commits.
+  // A successful put()/delete()/clear() call does not guarantee durable data.
   saveSocialPost: async (post: SocialPost): Promise<void> => {
       const db = await openDB();
-      const transaction = db.transaction(STORE_SOCIAL_POSTS, 'readwrite');
-      transaction.objectStore(STORE_SOCIAL_POSTS).put(post);
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_SOCIAL_POSTS, 'readwrite');
+          transaction.objectStore(STORE_SOCIAL_POSTS).put(post);
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error || new Error('Spark post save failed'));
+          transaction.onabort = () => reject(transaction.error || new Error('Spark post save aborted'));
+      });
   },
 
   deleteSocialPost: async (id: string): Promise<void> => {
       const db = await openDB();
-      const transaction = db.transaction(STORE_SOCIAL_POSTS, 'readwrite');
-      transaction.objectStore(STORE_SOCIAL_POSTS).delete(id);
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_SOCIAL_POSTS, 'readwrite');
+          transaction.objectStore(STORE_SOCIAL_POSTS).delete(id);
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error || new Error('Spark post deletion failed'));
+          transaction.onabort = () => reject(transaction.error || new Error('Spark post deletion aborted'));
+      });
   },
 
   clearSocialPosts: async (): Promise<void> => {
       const db = await openDB();
-      const transaction = db.transaction(STORE_SOCIAL_POSTS, 'readwrite');
-      transaction.objectStore(STORE_SOCIAL_POSTS).clear();
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_SOCIAL_POSTS, 'readwrite');
+          transaction.objectStore(STORE_SOCIAL_POSTS).clear();
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error || new Error('Spark posts clear failed'));
+          transaction.onabort = () => reject(transaction.error || new Error('Spark posts clear aborted'));
+      });
   },
 
   getEmojis: async (): Promise<Emoji[]> => {
