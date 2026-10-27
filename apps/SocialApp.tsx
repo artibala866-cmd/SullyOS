@@ -370,6 +370,7 @@ const SocialApp: React.FC = () => {
             return;
         }
         setDmTarget(target);
+        setDmVisibleLimit(80);
         const key = target.accountId && (dmUnread[target.accountId] !== undefined || dmThreads[target.accountId])
             ? target.accountId : dmKey(target);
         setDmUnread(prev => {
@@ -380,6 +381,21 @@ const SocialApp: React.FC = () => {
     };
     const [dmTarget, setDmTarget] = useState<SparkDMTarget | null>(null);
     const [dmInput, setDmInput] = useState('');
+    const [dmVisibleLimit, setDmVisibleLimit] = useState(80);
+    const dmScrollRef = useRef<HTMLDivElement>(null);
+    const dmInputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (!dmTarget) return;
+        const viewport = window.visualViewport;
+        const alignInput = () => {
+            // On Android WebView the visual viewport changes as the keyboard appears.
+            if (document.activeElement === dmInputRef.current && dmScrollRef.current) {
+                dmScrollRef.current.scrollTop = dmScrollRef.current.scrollHeight;
+            }
+        };
+        viewport?.addEventListener('resize', alignInput);
+        return () => viewport?.removeEventListener('resize', alignInput);
+    }, [dmTarget?.accountId, dmTarget?.handle]);
     const [dmBusy, setDmBusy] = useState(false);
     type SparkDMJob = { target: SparkDMTarget; key: string; id: string };
     const dmQueueRef = useRef<SparkDMJob[]>([]);
@@ -682,6 +698,7 @@ const SocialApp: React.FC = () => {
         if (shouldRefresh && !isRefreshing) void handleRefresh();
     };
     const [loadingComments, setLoadingComments] = useState(false);
+    const [commentVisibleLimit, setCommentVisibleLimit] = useState(80);
     
     // Post Creation State
     const readDraft = (): Record<string, string> => {
@@ -1872,6 +1889,7 @@ ${buildSparkCommentHistory(post)}
                         next[item.key] = [{ role: 'assistant' as const, content: item.content, time: Date.now() }];
                     }
                 }
+                dmThreadsRef.current = next;
                 localStorage.setItem('spark_dm_threads', JSON.stringify(next));
                 return next;
             });
@@ -1999,6 +2017,7 @@ ${buildSparkCommentHistory(post)}
         const livePost = feedRef.current.find(item => item.id === post.id) || post;
         setSelectedPost(livePost);
         setReplyTarget(null);
+        setCommentVisibleLimit(80);
         // Feed ranking already accounts for seen IDs; make that signal real and persistent.
         const updatedCommunity = markSparkPostSeen(communityRef.current, livePost.id);
         if (updatedCommunity !== communityRef.current) writeCommunity(updatedCommunity);
@@ -2170,7 +2189,9 @@ ${buildSparkCommentHistory(post)}
                             
                             <div className="space-y-6">
                                 {selectedPost.comments.length === 0 && !loadingComments && <div className="text-center text-slate-300 text-xs py-10">快来抢沙发...</div>}
-                                {selectedPost.comments.map(c => (
+                                {selectedPost.comments.length > commentVisibleLimit && <button type="button" onClick={() => setCommentVisibleLimit(n => n + 80)}
+                                    className="block mx-auto mb-4 rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-500">查看更早的评论</button>}
+                                {selectedPost.comments.slice(-commentVisibleLimit).map(c => (
                                     <div key={c.id} className={`flex gap-3 animate-fade-in group ${c.parentCommentId ? 'ml-6 border-l-2 border-slate-100 pl-3' : ''}`}>
                                         <TokenImg value={c.authorAvatar} className="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-100" />
                                         <div className="flex-1">
@@ -2208,7 +2229,7 @@ ${buildSparkCommentHistory(post)}
                                 <input 
                                     value={commentInput}
                                     onChange={(e) => setCommentInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
+                                    onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); handleSendComment(); } }}
                                     
                                     placeholder={replyTarget ? "回复 @" + replyTarget.authorName : "说点什么..."}
                                     className="bg-transparent text-sm w-full outline-none text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
@@ -2237,14 +2258,15 @@ ${buildSparkCommentHistory(post)}
         // Main Container with Premium Gradient Background
         <div className="h-full w-full bg-gradient-to-br from-neutral-50 via-slate-50 to-neutral-50 flex flex-col font-sans relative text-slate-900 overflow-hidden">
             
-            {dmTarget && <div className="absolute inset-0 z-[90] bg-white flex flex-col" style={{ paddingTop: 'var(--safe-top)' }}>
+            {dmTarget && <div className="absolute inset-0 z-[90] bg-white flex min-h-0 flex-col" style={{ paddingTop: 'var(--safe-top)', maxHeight: 'var(--visual-viewport-height, 100dvh)' }}>
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
                     <button type="button" onClick={() => setDmTarget(null)} className="text-xl">‹</button>
                     <TokenImg value={dmTarget.avatar} className="w-9 h-9 rounded-full object-cover" />
                     <strong className="truncate text-sm">{dmTarget.handle}</strong>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-                    {(dmThreads[dmKey(dmTarget)] || []).map((message, index) => <div key={message.id || index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div ref={dmScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3 bg-slate-50">
+                    {(dmThreads[dmKey(dmTarget)] || []).length > dmVisibleLimit && <button type="button" className="block mx-auto text-xs text-slate-500 px-4 py-2 border rounded-full" onClick={() => setDmVisibleLimit(limit => limit + 80)}>查看更早的私信</button>}
+                    {(dmThreads[dmKey(dmTarget)] || []).slice(-dmVisibleLimit).map((message, index) => <div key={message.id || index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#555555] text-white' : 'bg-white text-slate-800'}`}>
                             {message.content}
                             {message.role === 'user' && message.delivery === 'pending' && <span className="block text-[10px] opacity-75 mt-1">排队发送中…</span>}
@@ -2254,8 +2276,8 @@ ${buildSparkCommentHistory(post)}
                     </div>)}
                     {dmBusy && <p className="text-xs text-slate-400">对方正在输入…</p>}
                 </div>
-                <div className="flex items-center gap-2 p-3 border-t border-slate-100" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}>
-                    <input value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); sendSparkDM(); } }} placeholder="发送私信…" className="flex-1 min-w-0 rounded-full bg-slate-100 px-4 py-2 text-sm" />
+                <div className="flex items-center gap-2 p-3 shrink-0 border-t border-slate-100" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}>
+                    <input ref={dmInputRef} onFocus={() => { if (dmScrollRef.current) dmScrollRef.current.scrollTop = dmScrollRef.current.scrollHeight; }} value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); sendSparkDM(); } }} placeholder="发送私信…" className="flex-1 min-w-0 rounded-full bg-slate-100 px-4 py-2 text-sm" />
                     <button type="button" disabled={!dmInput.trim()} onClick={() => sendSparkDM()} className="text-[#555555] font-bold disabled:opacity-40">发送</button>
                 </div>
             </div>}
