@@ -266,3 +266,30 @@ describe('Spark historic account registration does not re-write unchanged state'
         expect(replay.account.lastActiveAt).toBe(200);
     });
 });
+
+describe('Spark private-message identity migration', () => {
+    it('preserves each private chat while upgrading uniquely attributable old handles', async () => {
+        const { migrateSparkDMKeys } = await import('./sparkCommunity');
+        const state = createEmptySparkCommunityState();
+        const first = ensureSparkAccount(state, { type: 'character', ownerCharId: 'c1', handleId: 'main', displayName: '原昵称' }, () => 'unused');
+        const second = ensureSparkAccount(first.state, { type: 'stranger', displayName: '网友' }, () => 'n2');
+        const records = { '原昵称': [{ role: 'user', content: '私聊A' }], '网友': [{ role: 'assistant', content: '私聊B' }], '未知用户': [{ role: 'user', content: '旧历史' }] };
+        const migrated = migrateSparkDMKeys(records, second.state.accounts);
+        expect(migrated[first.account.id]).toEqual(records['原昵称']);
+        expect(migrated[second.account.id]).toEqual(records['网友']);
+        expect(migrated['未知用户']).toEqual(records['未知用户']);
+        expect(migrateSparkDMKeys(migrated, second.state.accounts)).toEqual(migrated);
+    });
+
+    it('never merges two owners of a handle or replaces an existing ID thread', async () => {
+        const { migrateSparkDMKeys, resolveSparkDMAccount } = await import('./sparkCommunity');
+        const state = createEmptySparkCommunityState();
+        const first = ensureSparkAccount(state, { type: 'character', ownerCharId: 'c1', handleId: 'main', displayName: '重名' }, () => 'unused');
+        const second = ensureSparkAccount(first.state, { type: 'character', ownerCharId: 'c2', handleId: 'main', displayName: '重名' }, () => 'unused');
+        const input = { '重名': ['无法归属'], [first.account.id]: ['主号已有会话'] };
+        const migrated = migrateSparkDMKeys(input, second.state.accounts);
+        expect(migrated).toEqual(input);
+        expect(resolveSparkDMAccount(second.state.accounts, '重名')).toBeUndefined();
+        expect(resolveSparkDMAccount(second.state.accounts, '重名', second.account.id)?.id).toBe(second.account.id);
+    });
+});
