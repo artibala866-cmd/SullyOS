@@ -20,7 +20,7 @@ export async function buildSparkGenerationContext(participants: CharacterProfile
         // private chats, system prompts or worldbooks into a shared public task.
         if (multipleCharacters) {
             return `<<< 角色档案 charId=${JSON.stringify(char.id)} >>>
-角色公开账号: ${JSON.stringify(getSparkHandles(char, handles).map(h => ({ authorName: h.handle, note: h.note })))}
+角色公开账号: ${JSON.stringify(getSparkHandles(char, handles).map(h => ({ authorName: h.handle })))}
 公开社区简介: ${char.socialProfile?.bio || '(暂无公开简介)'}
 只以此账号的公开身份和帖子内容为依据。其他私聊、人设秘密与后台归属均不可知。
 <<< 角色档案结束 charId=${JSON.stringify(char.id)} >>>`;
