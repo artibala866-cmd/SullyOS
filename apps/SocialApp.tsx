@@ -863,6 +863,8 @@ const SocialApp: React.FC = () => {
     const refreshRequestRef = useRef<AbortController | null>(null);
     const autonomyRequestRef = useRef<AbortController | null>(null);
     const commentRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
+    const commentOpenTimerRef = useRef<number | null>(null);
+    const lastOpenedPostIdRef = useRef<string | null>(null);
     const replyRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyQueueRef = useRef<{ post: SocialPost; content: string; parentCommentId: string }[]>([]);
     const replyBatchTimerRef = useRef<number | null>(null);
@@ -886,6 +888,9 @@ const SocialApp: React.FC = () => {
             refreshRequestRef.current?.abort();
             autonomyRequestRef.current?.abort();
             commentRequestRef.current?.controller.abort();
+            if (commentOpenTimerRef.current !== null) window.clearTimeout(commentOpenTimerRef.current);
+            commentOpenTimerRef.current = null;
+            lastOpenedPostIdRef.current = null;
             replyRequestRef.current?.controller.abort();
             refreshRequestRef.current = null;
             commentRequestRef.current = null;
@@ -2222,14 +2227,26 @@ ${buildSparkCommentHistory(post)}
         setSelectedPost(livePost);
         setReplyTarget(null);
         setCommentVisibleLimit(80);
+        lastOpenedPostIdRef.current = livePost.id;
+        if (commentOpenTimerRef.current !== null) window.clearTimeout(commentOpenTimerRef.current);
+        commentOpenTimerRef.current = null;
         // Feed ranking already accounts for seen IDs; make that signal real and persistent.
         const updatedCommunity = markSparkPostSeen(communityRef.current, livePost.id);
         if (updatedCommunity !== communityRef.current) writeCommunity(updatedCommunity);
         learnInterest(livePost, 0.3);
-        void generateComments(livePost);
+        // Quick accidental opens should not incur an API bill.
+        if (!livePost.comments.some(comment => comment.authorType !== 'user' && comment.authorId !== 'user')) {
+            commentOpenTimerRef.current = window.setTimeout(() => {
+                commentOpenTimerRef.current = null;
+                if (mountedRef.current && lastOpenedPostIdRef.current === livePost.id) void generateComments(livePost);
+            }, 900);
+        }
     };
 
     const handleClosePost = () => {
+        lastOpenedPostIdRef.current = null;
+        if (commentOpenTimerRef.current !== null) window.clearTimeout(commentOpenTimerRef.current);
+        commentOpenTimerRef.current = null;
         commentRequestRef.current?.controller.abort();
         commentRequestRef.current = null;
         setLoadingComments(false);
