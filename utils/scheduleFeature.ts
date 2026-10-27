@@ -4,7 +4,7 @@ import type { CharacterProfile } from '../types';
  * 日程独立开关判定，与情绪 Buff 无关。
  * - 显式为 true / false 时直接使用。
  * - undefined 时走向后兼容：老用户若已选了 scheduleStyle，视为开启；否则默认关闭。
- * 任何副 API 调用、情绪评估、日程注入之前都应先过此闸门。
+ * 仅日程生成与日程注入使用此判断；情绪评估使用独立开关。
  */
 export function isScheduleFeatureOn(
     char: Pick<CharacterProfile, 'scheduleFeatureEnabled' | 'scheduleStyle'> | null | undefined,

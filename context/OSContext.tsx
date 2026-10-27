@@ -3048,9 +3048,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const savePresets = (presets: ApiPreset[]) => { const normalized = presets.map(normalizeApiPreset); setApiPresets(normalized); localStorage.setItem('os_api_presets', JSON.stringify(normalized)); };
   const addCharacter = async () => {
     const name = 'New Character';
-    // 默认开启 emotionConfig.enabled，让"开日程 = 开情绪"这条隐含约定对新角色也成立。
-    // 真正的闸门是 (isScheduleFeatureOn && emotionConfig.enabled)，schedule 没开
-    // 时副 API 不会触发，所以这里默认 true 安全。
+    // 情绪 Buff 已与日程分离：新角色必须由用户在私聊设置主动开启，避免额外 API 调用。
     // 注意：memoryPalaceEnabled 不在这里默认开 —— 那是用户在记忆宫殿 App 显式 opt-in
     // 的功能，自动开会替用户决策。
     const newChar: CharacterProfile = {
@@ -3063,7 +3061,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       contextLimit: DEFAULT_MANUAL_CONTEXT_LIMIT,
       contextRangeMode: 'manual',
       contextRangePolicyVersion: CONTEXT_RANGE_POLICY_VERSION,
-      emotionConfig: { enabled: true },
+      emotionConfig: { enabled: false },
     };
     setCharacters(prev => [...prev, newChar]);
     setActiveCharacterId(newChar.id);

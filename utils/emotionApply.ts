@@ -1,4 +1,5 @@
 import { DB } from './db';
+import { isEmotionBuffEnabled } from './emotionFeature';
 import {parseHomeEmotion} from './homeEmotion';
 import type { CharacterProfile, CharacterBuff } from '../types';
 import { CHAT_GEN_EVENTS } from './chatGenEvents';
@@ -383,6 +384,10 @@ export async function applyEmotionEvalRaw(
     secretOrigin?: SecretNoteOrigin,
 ): Promise<string | null> {
     try {
+        // Cloud/local evaluations may finish after the user switches Buff off.
+        // Consult the latest saved preference instead of applying a stale result.
+        const currentChar = await DB.getCharacter(charData.id);
+        if (!isEmotionBuffEnabled(currentChar)) return null;
         const result = parseEmotionEvalOutput(rawText || '');
         if (!result) {
             const requestId = secretRequestId || homeSecretEvalRequestId(rawText);
