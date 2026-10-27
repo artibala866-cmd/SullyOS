@@ -350,6 +350,18 @@ const SocialApp: React.FC = () => {
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
+    const [hiddenPostIds, setHiddenPostIds] = useState<string[]>(() => {
+        try { const saved = JSON.parse(localStorage.getItem('spark_hidden_posts') || '[]'); return Array.isArray(saved) ? saved.filter((v): v is string => typeof v === 'string') : []; } catch { return []; }
+    });
+    const hidePost = (postId: string) => {
+        setHiddenPostIds(prev => {
+            const next = prev.includes(postId) ? prev : [...prev, postId];
+            localStorage.setItem('spark_hidden_posts', JSON.stringify(next));
+            return next;
+        });
+        setSelectedPost(current => current?.id === postId ? null : current);
+        addToast('已隐藏这篇笔记，可在设置中恢复', 'info');
+    };
     const [followedHandles, setFollowedHandles] = useState<string[]>(() => {
         try {
             const saved = JSON.parse(localStorage.getItem('spark_followed_handles') || '[]');
@@ -1241,7 +1253,14 @@ ${buildSparkCommentHistory(post)}
         if (apiConfig.apiKey) { void generateComments(post); void generateIncomingDMs(post); }
     };
 
-    const handleDeletePost = (postId: string) => { removePostFromFeed(postId); addToast('帖子已删除', 'success'); trackEvent('删除一条帖子'); };
+    const handleDeletePost = (postId: string) => {
+        const post = feedRef.current.find(item => item.id === postId);
+        if (!post || !canDeleteSocialPost(post, socialProfile.name)) { addToast('只能删除自己的笔记', 'error'); return; }
+        if (!window.confirm('删除自己的这篇笔记？此操作无法撤销。')) return;
+        removePostFromFeed(postId);
+        addToast('帖子已删除', 'success');
+        trackEvent('删除一条帖子');
+    };
     const handleLike = (e: any, post: SocialPost) => {
         e.stopPropagation();
         if (post.authorType === 'character') remember(post.authorCharId, post, post.isLiked ? '自己的笔记少了一个赞' : '自己的笔记收到点赞');
@@ -1345,7 +1364,9 @@ ${buildSparkCommentHistory(post)}
                     </div>
                 </div>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }} className="absolute top-2 right-2 z-20 w-6 h-6 bg-black/20 text-white rounded-full flex items-center justify-center text-xs backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-500/80">×</button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); canDeleteSocialPost(post, socialProfile.name) ? handleDeletePost(post.id) : hidePost(post.id); }}
+                aria-label={canDeleteSocialPost(post, socialProfile.name) ? '删除自己的笔记' : '不感兴趣，隐藏笔记'}
+                className="absolute top-2 right-2 z-20 min-w-8 h-8 px-1 rounded-lg bg-black/35 text-white text-xs backdrop-blur-md">{canDeleteSocialPost(post, socialProfile.name) ? '删除' : '隐藏'}</button>
         </div>
     );
 
@@ -1584,6 +1605,7 @@ ${buildSparkCommentHistory(post)}
                             {!worldbooks.some(wb => !wb.disable) && <p className="text-xs text-slate-400">暂无可用世界书</p>}
                         </div>
                     </div>
+                    {hiddenPostIds.length > 0 && <button type="button" onClick={() => { setHiddenPostIds([]); localStorage.removeItem('spark_hidden_posts'); addToast('已恢复隐藏的笔记', 'success'); }} className="w-full border rounded-xl py-2 text-xs">恢复已隐藏的 {hiddenPostIds.length} 篇笔记</button>}
                     <button type="button" onClick={() => { if (window.confirm('确定清空 Spark 推荐流中的全部帖子和评论吗？此操作无法撤销。')) handleClearFeed(); }} className="w-full border border-neutral-200 text-neutral-500 rounded-xl py-2 text-xs">清除推荐流</button>
                     <p className="text-xs text-slate-400">主动发帖时间：定时功能尚未接通，目前不会自动发帖。</p>
                     <button type="button" disabled={isCharPosting || !postingCharIds.length} onClick={() => { setShowSettings(false); void handleCharPost(); }} className="w-full bg-[#555555] text-white rounded-xl py-3 font-bold disabled:opacity-40">{isCharPosting ? '发布中…' : '让选中的 Char 现在发帖'}</button>
@@ -1713,7 +1735,7 @@ ${buildSparkCommentHistory(post)}
                             </div>}
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
                             <div className="columns-2 gap-2 pb-24">
-                                {feed.filter(post => (feedTab === 'discover' || followedHandles.includes(post.authorName)) && searchMatches(post)).map(post => renderFeedItem(post))}
+                                {feed.filter(post => !hiddenPostIds.includes(post.id) && (feedTab === 'discover' || followedHandles.includes(post.authorName)) && searchMatches(post)).map(post => renderFeedItem(post))}
                             </div>
                         </div>
                     )}
@@ -1860,9 +1882,9 @@ ${buildSparkCommentHistory(post)}
                                 </div>
                                 {fanChanges.user !== undefined && <p className="text-xs text-center text-slate-500">最近发帖粉丝变化：{fanChanges.user > 0 ? '+' : ''}{fanChanges.user}</p>}
                                 <div className="flex gap-6 mt-5 bg-white/40 p-4 rounded-2xl border border-white/50 shadow-sm">
-                                    <div className="text-center"><span className="block font-bold text-slate-800">142</span><span className="text-[10px] text-slate-400">关注</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{followedHandles.length}</span><span className="text-[10px] text-slate-400">关注</span></div>
                                     <div className="text-center"><span className="block font-bold text-slate-800">{fanCounts.user ?? 0}</span><span className="text-[10px] text-slate-400">粉丝</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">8902</span><span className="text-[10px] text-slate-400">获赞与收藏</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{feed.filter(post => post.authorType === 'user').reduce((sum, post) => sum + post.likes, 0)}</span><span className="text-[10px] text-slate-400">笔记获赞</span></div>
                                 </div>
                             </div>
 
