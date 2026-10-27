@@ -451,6 +451,8 @@ const SocialApp: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'home' | 'me' | 'messages'>('home');
     useAppShortcut(ShortcutAppID.Social, intent => { setSelectedPost(null); setIsCreateOpen(false); setShowSettings(false); setActiveTab(intent.entryId === 'me' ? 'me' : 'home'); });
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
+    const publishingRef = useRef(false);
     const [showUtilityShelf, setShowUtilityShelf] = useState(false);
     const [showCharPosting, setShowCharPosting] = useState(false);
     const [postingCharIds, setPostingCharIds] = useState<string[]>([]);
@@ -846,7 +848,7 @@ const SocialApp: React.FC = () => {
         addToast('主页资料已保存 (仅在 Spark 生效)', 'success');
     };
 
-    const prependPostsToFeed = (newPosts: SocialPost[]) => {
+    const prependPostsToFeed = (newPosts: SocialPost[], persist = true) => {
         const registered = registerSparkPosts(newPosts);
         const existingIds = new Set(feedRef.current.map(post => post.id));
         const fresh = registered.filter(post => !existingIds.has(post.id));
@@ -864,8 +866,10 @@ const SocialApp: React.FC = () => {
             }
             writeCommunity(community);
         }
-        void Promise.all(fresh.map(p => persistPostMutation(() => DB.saveSocialPost(p))))
-            .catch(error => addToast('Spark 笔记保存失败，请勿关闭应用：' + (error?.message || error), 'error'));
+        if (persist) {
+            void Promise.all(fresh.map(p => persistPostMutation(() => DB.saveSocialPost(p))))
+                .catch(error => addToast('Spark 笔记保存失败，请勿关闭应用：' + (error?.message || error), 'error'));
+        }
     };
 
     const updatePostInFeed = (postId: string, updater: (post: SocialPost) => SocialPost): SocialPost | undefined => {
@@ -1414,8 +1418,11 @@ ${buildSparkCommentHistory(post)}
         } catch (error) { console.warn('Spark incoming DM generation failed', error); }
     };
 
-    const handleCreatePost = () => {
-        if (!newPostContent.trim()) return;
+    const handleCreatePost = async () => {
+        if (!newPostContent.trim() || publishingRef.current) return;
+        publishingRef.current = true;
+        setIsPublishing(true);
+        try {
         const post: SocialPost = {
             id: `user-post-${Date.now()}`,
             authorName: socialProfile.name, // Use Local Identity
@@ -1434,14 +1441,23 @@ ${buildSparkCommentHistory(post)}
             bgStyle: getRandomStyle().bg,
             authorType: 'user', source: 'user',
         };
-        prependPostsToFeed([post]);
-        learnInterest(post, 4);
+        // Do not discard the draft until IndexedDB confirms the original post exists.
+        const saved = registerSparkPosts([post])[0];
+        await persistPostMutation(() => DB.saveSocialPost(saved));
+        prependPostsToFeed([saved], false);
+        learnInterest(saved, 4);
         setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); setLocalPostImage('');
         localStorage.removeItem('spark_post_draft');
-        setIsCreateOpen(false); // Close Modal
-        setActiveTab('home'); 
-        addToast('发布成功，正在等待互动…', 'success');
-        if (apiConfig.apiKey) { void generateComments(post); void generateIncomingDMs(post); }
+        setIsCreateOpen(false);
+        setActiveTab('home');
+        addToast('笔记已保存并发布', 'success');
+        if (apiConfig.apiKey) { void generateComments(saved); void generateIncomingDMs(saved); }
+        } catch (error: any) {
+            addToast('发布未完成，草稿仍在，可直接重试：' + (error?.message || error), 'error');
+        } finally {
+            publishingRef.current = false;
+            if (mountedRef.current) setIsPublishing(false);
+        }
     };
 
     const handleDeletePost = (postId: string) => {
@@ -1830,10 +1846,10 @@ ${buildSparkCommentHistory(post)}
                             <span className="text-sm font-bold text-slate-800">发布笔记</span>
                             <button
                                 onClick={handleCreatePost}
-                                disabled={!newPostContent.trim()}
+                                disabled={!newPostContent.trim() || isPublishing}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold text-white transition-all ${newPostContent.trim() ? 'bg-[#555555] shadow-md shadow-neutral-200' : 'bg-slate-200 text-slate-400'}`}
                             >
-                                发布
+                                {isPublishing ? '保存中…' : '发布'}
                             </button>
                         </div>
                     </div>
