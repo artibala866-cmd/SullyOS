@@ -75,6 +75,15 @@ describe('Spark API-saving private-message batching', () => {
         expect(first.jobs.map(x => x.id)).toEqual(['a']);
         expect(takeSparkDMJobBatch(first.remaining).jobs.map(x => x.id)).toEqual(['b','c']);
     });
+    it('does not lose a pending message when the same account still has two legacy thread keys', async () => {
+        const { takeSparkDMJobBatch } = await import('./sparkDMQueue');
+        const jobs = [
+            { key: '昵称旧记录', accountId: 'character:c1:main', id: 'm1' },
+            { key: 'character:c1:main', accountId: 'character:c1:main', id: 'm2' },
+        ];
+        expect(takeSparkDMJobBatch(jobs).jobs.map(j => j.id)).toEqual(['m1']);
+        expect(takeSparkDMJobBatch(jobs).remaining.map(j => j.id)).toEqual(['m2']);
+    });
     it('never batches more than six queued messages into a provider call', async () => {
         const { takeSparkDMJobBatch } = await import('./sparkDMQueue');
         const queued = Array.from({ length: 8 }, (_, i) => ({ key: 'friend', accountId: 'stranger:1', id: 'm' + i }));
