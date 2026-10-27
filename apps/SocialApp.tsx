@@ -400,6 +400,7 @@ const SocialApp: React.FC = () => {
     const [searchOpen, setSearchOpen] = useState(false);
     const [activeTopic, setActiveTopic] = useState<string | null>(null);
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
+    const [visibleLimit, setVisibleLimit] = useState(40);
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
     const [hiddenPostIds, setHiddenPostIds] = useState<string[]>(() => {
@@ -1841,8 +1842,10 @@ ${buildSparkCommentHistory(post)}
                             </div>}
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
                             <div className="columns-2 gap-2 pb-24">
-                                {visibleFeed.filter(post => !hiddenPostIds.includes(post.id)).map(post => renderFeedItem(post))}
+                                {visibleFeed.filter(post => !hiddenPostIds.includes(post.id)).slice(0, visibleLimit).map(post => renderFeedItem(post))}
                             </div>
+                            {visibleFeed.length > visibleLimit && <button type="button" onClick={() => setVisibleLimit(limit => limit + 40)} className="block mx-auto mt-2 mb-20 rounded-full border border-slate-200 bg-white px-6 py-2 text-sm text-slate-600">加载更多笔记</button>}
+                            {visibleFeed.length === 0 && <p className="text-center text-xs text-slate-400 py-16">{searchQuery || activeTopic ? '没有找到相关笔记，试试别的关键词' : feedTab === 'following' ? '关注的账号暂时没有笔记' : '社区里还没有笔记，下拉刷新看看'}</p>}
                         </div>
                     )}
 
