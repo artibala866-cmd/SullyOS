@@ -89,6 +89,9 @@ describe('home3d furniture capability registry',()=>{
  it('does not surface unsafe high beds even if their raw catalog has anchors',()=>{
   const room={id:'r',items:[{id:'b1',assetId:'bedroom_bunk',x:0,y:.18,z:0,rotation:0,stored:false}]};
   expect(roomBeds(room,catalog)).toEqual([]);
-  expect(furnitureInteractions(room,catalog,'b1').filter(x=>x.action==='chibi-bed')).toEqual([]);
+  const restricted=furnitureInteractions(room,catalog,'b1').filter(x=>x.action==='chibi-bed');
+  expect(restricted).toHaveLength(2);
+  expect(restricted.every(x=>x.reason&&/安全|路径|攀爬/.test(x.reason))).toBe(true);
+  expect(restricted.some(x=>!x.reason)).toBe(false);
  });
 });
