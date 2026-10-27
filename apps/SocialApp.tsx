@@ -1295,7 +1295,6 @@ const SocialApp: React.FC = () => {
                         content,
                         metadata: { source: 'spark-autonomous-dm', sparkAccountId: actor.id, sparkHandle: author.name },
                     });
-                    if (controller.signal.aborted || !mountedRef.current) return;
                     recordCommunityEvent('dm_sent', actor.id, { targetAccountId: 'user', metadata: { characterId: charId, sparkAccountId: actor.id } });
                     notifyUser('message', actor.id, '@' + author.name + ' 给你发来一条私信', undefined, undefined, { charId });
                     applied += 1;
@@ -2013,10 +2012,61 @@ ${post.content || '(楼主没写正文)'}
             {/* --- Modals (Settings, Share) --- */}
             <Modal isOpen={showSettings} title="身份管理" onClose={() => setShowSettings(false)}>
                 <div className="space-y-6">
-                    <div className="max-h-[50vh] overflow-y-auto no-scrollbar space-y-6 px-1">
+                    <div className="max-h-[60vh] overflow-y-auto no-scrollbar space-y-6 px-1">
                         <p className="text-xs text-slate-400 bg-slate-50 p-2 rounded-lg">
                             为角色添加“马甲”(Sub-Accounts)。AI 发帖时会根据内容选择合适的身份。
                         </p>
+                        <div className="rounded-xl border border-slate-100 bg-white p-3 space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <h3 className="text-sm font-bold text-slate-800">社区自主活动</h3>
+                                    <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">默认关闭。开启后，角色与稳定路人可按社区上下文自主发帖、评论、点赞、关注；角色也可能给你发私信。</p>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={communityState.autonomy.enabled}
+                                    aria-label="开启 Spark 社区自主活动"
+                                    onChange={e => {
+                                        const enabled = e.target.checked;
+                                        updateCommunityState(state => ({ ...state, autonomy: { ...state.autonomy, enabled } }));
+                                        if (!enabled) {
+                                            autonomyRequestRef.current?.abort();
+                                            autonomyRequestRef.current = null;
+                                            setIsAutonomousActivityRunning(false);
+                                        } else if (!apiConfig.apiKey) {
+                                            addToast('已开启社区自主活动；配置 API Key 后才会开始请求。', 'info');
+                                        }
+                                    }}
+                                    className="mt-1 h-4 w-4 accent-[#ff2442] shrink-0"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <label className="text-[11px] text-slate-500 space-y-1">
+                                    <span className="block">最短调用间隔</span>
+                                    <select
+                                        value={communityState.autonomy.minIntervalHours}
+                                        onChange={e => updateCommunityState(state => ({ ...state, autonomy: { ...state.autonomy, minIntervalHours: Number(e.target.value) } }))}
+                                        className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700"
+                                    >
+                                        {[1, 3, 6, 12, 24, 48].map(hours => <option key={hours} value={hours}>{hours} 小时</option>)}
+                                    </select>
+                                </label>
+                                <label className="text-[11px] text-slate-500 space-y-1">
+                                    <span className="block">每日调用上限</span>
+                                    <select
+                                        value={communityState.autonomy.maxCallsPerDay}
+                                        onChange={e => updateCommunityState(state => ({ ...state, autonomy: { ...state.autonomy, maxCallsPerDay: Number(e.target.value), callsToday: Math.min(state.autonomy.callsToday, Number(e.target.value)) } }))}
+                                        className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700"
+                                    >
+                                        {[0, 1, 2, 3].map(count => <option key={count} value={count}>{count === 0 ? '0（暂停调用）' : count + ' 次'}</option>)}
+                                    </select>
+                                </label>
+                            </div>
+                            <p className="text-[10px] text-slate-400 leading-relaxed">
+                                仅在 Spark 页面打开期间每 5 分钟检查一次是否到期；实际请求还受最短间隔与每日上限约束。今日已预留 {communityState.autonomy.lastRunDay === getSparkTrafficLocalDay(Date.now()) ? communityState.autonomy.callsToday : 0}/{communityState.autonomy.maxCallsPerDay} 次。失败请求也会计入上限，避免反复消耗额度。
+                            </p>
+                            {isAutonomousActivityRunning && <p className="text-[11px] text-[#ff2442]">社区正在整理新互动；你仍然可以正常浏览和操作。</p>}
+                        </div>
                         {/* 分组筛选（没建分组时不渲染） */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups} value={identityGroupId} onChange={setIdentityGroupId} className="!mt-3 -mx-1 px-1" />
                         {filterCharactersByGroup(characters, characterGroups, identityGroupId).map(c => (
