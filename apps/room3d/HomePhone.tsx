@@ -55,7 +55,7 @@ export default function HomePhone({editor,characterId,onOpenChange,onBusyChange,
   mutation.observe(container,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
   window.addEventListener('resize',schedule);
   window.visualViewport?.addEventListener('resize',schedule);
-  schedule();
+  measure();
   return()=>{
    if(raf)cancelAnimationFrame(raf);
    mutation.disconnect();observer.disconnect();
