@@ -1,5 +1,6 @@
 import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSparkTrafficLocalDay, type SparkTraffic } from '../utils/sparkTraffic';
 import { chooseSparkStock } from '../utils/sparkStock';
+import { useLocalBackHandler } from '../hooks/useLocalBackHandler';
 import { appendSparkDMUser, setSparkDMDelivery, recoverSparkInterruptedDMs, sparkDMHistoryThrough, appendSparkDMAnswer, type SparkDMThreads, type SparkPrivateMessage } from '../utils/sparkDMQueue';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
@@ -2048,8 +2049,26 @@ ${buildSparkCommentHistory(post)}
         setSelectedPost(null);
     };
 
-    // Escape/physical keyboard Back dismisses the top-most Spark overlay, not the entire OS.
-    // Android WebView hardware-back integration still requires testing in the actual wrapper.
+    const hasSparkOverlay = showSettings || showShareModal || showCharPosting ||
+        showUtilityShelf || isCreateOpen || !!dmTarget || !!viewedAccount ||
+        showCommentStickers || !!selectedPost || !!noticeCategory || searchOpen;
+    const dismissTopSparkOverlay = (): boolean => {
+        if (showSettings) setShowSettings(false);
+        else if (showShareModal) setShowShareModal(false);
+        else if (showCharPosting) setShowCharPosting(false);
+        else if (showUtilityShelf) setShowUtilityShelf(false);
+        else if (isCreateOpen) closeCreatePost();
+        else if (dmTarget) setDmTarget(null);
+        else if (viewedAccount) setViewedAccount(null);
+        else if (showCommentStickers) setShowCommentStickers(false);
+        else if (selectedPost) handleClosePost();
+        else if (noticeCategory) setNoticeCategory(null);
+        else if (searchOpen) setSearchOpen(false);
+        else return false;
+        return true;
+    };
+    // Follow SullyOS's native/local back stack rather than intercepting browser history.
+    useLocalBackHandler(dismissTopSparkOverlay, 80, hasSparkOverlay);
     useEffect(() => {
         const onEscape = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
@@ -2059,25 +2078,15 @@ ${buildSparkCommentHistory(post)}
                 event.preventDefault();
                 return;
             }
-            if (showSettings) setShowSettings(false);
-            else if (showShareModal) setShowShareModal(false);
-            else if (showCharPosting) setShowCharPosting(false);
-            else if (showUtilityShelf) setShowUtilityShelf(false);
-            else if (isCreateOpen) closeCreatePost();
-            else if (dmTarget) setDmTarget(null);
-            else if (viewedAccount) setViewedAccount(null);
-            else if (showCommentStickers) setShowCommentStickers(false);
-            else if (selectedPost) handleClosePost();
-            else if (noticeCategory) setNoticeCategory(null);
-            else if (searchOpen) setSearchOpen(false);
-            else return;
-            event.preventDefault();
-            event.stopPropagation();
+            if (dismissTopSparkOverlay()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
         };
         window.addEventListener('keydown', onEscape);
         return () => window.removeEventListener('keydown', onEscape);
-    }, [showSettings, showShareModal, showCharPosting, showUtilityShelf, isCreateOpen,
-        dmTarget, viewedAccount, showCommentStickers, selectedPost, noticeCategory, searchOpen]);
+    }, [hasSparkOverlay, showSettings, showShareModal, showCharPosting, showUtilityShelf,
+        isCreateOpen, dmTarget, viewedAccount, showCommentStickers, selectedPost, noticeCategory, searchOpen]);
 
     const handleClearFeed = async () => {
         if (clearingFeedRef.current) return;
