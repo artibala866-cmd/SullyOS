@@ -15,7 +15,7 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost } from '../utils/socialFeedMerge';
-import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId } from '../utils/sparkCommunity';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
@@ -311,37 +311,69 @@ const SocialApp: React.FC = () => {
     const [dmUnread, setDmUnread] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_dm_unread') || '{}'); } catch { return {}; }
     });
-    const [dmFilter, setDmFilter] = useState<'all' | 'following' | 'strangers'>('all');
-    const openSparkDM = (account: { handle: string; avatar: string }) => {
-        setDmTarget(account);
+    // Legacy DM maps are keyed by mutable public names. Copy only unambiguous
+    // entries to immutable IDs, preserving unknown and conflicting conversations.
+    useEffect(() => {
+        const accounts = communityState.accounts;
+        setDmThreads(prev => {
+            const migrated = migrateSparkDMKeys(prev, accounts);
+            if (migrated !== prev) localStorage.setItem('spark_dm_threads', JSON.stringify(migrated));
+            return migrated;
+        });
+        setNpcPersonas(prev => {
+            const migrated = migrateSparkDMKeys(prev, accounts);
+            if (migrated !== prev) localStorage.setItem('spark_npc_personas', JSON.stringify(migrated));
+            return migrated;
+        });
         setDmUnread(prev => {
-            const next = { ...prev, [account.handle]: 0 };
+            const migrated = migrateSparkDMKeys(prev, accounts);
+            if (migrated !== prev) localStorage.setItem('spark_dm_unread', JSON.stringify(migrated));
+            return migrated;
+        });
+    }, [communityState.accounts]);
+    const [dmFilter, setDmFilter] = useState<'all' | 'following' | 'strangers'>('all');
+    type SparkDMTarget = { handle: string; avatar: string; accountId?: string };
+    const dmKey = (account: SparkDMTarget) =>
+        account.accountId && (dmThreads[account.accountId] || !dmThreads[account.handle])
+            ? account.accountId : account.handle;
+    const openSparkDM = (account: SparkDMTarget) => {
+        const registered = resolveSparkDMAccount(communityRef.current.accounts, account.handle, account.accountId);
+        const target = { ...account, accountId: registered?.id || account.accountId };
+        setDmTarget(target);
+        const key = target.accountId && (dmUnread[target.accountId] !== undefined || dmThreads[target.accountId])
+            ? target.accountId : dmKey(target);
+        setDmUnread(prev => {
+            const next = { ...prev, [key]: 0 };
             localStorage.setItem('spark_dm_unread', JSON.stringify(next));
             return next;
         });
     };
-    const [dmTarget, setDmTarget] = useState<{ handle: string; avatar: string } | null>(null);
+    const [dmTarget, setDmTarget] = useState<SparkDMTarget | null>(null);
     const [dmInput, setDmInput] = useState('');
     const [dmBusy, setDmBusy] = useState(false);
     const sendSparkDM = async () => {
         if (!dmTarget || !dmInput.trim() || dmBusy) return;
         const target = dmTarget;
+        const targetKey = dmKey(target);
         const text = dmInput.trim();
-        const history = [...(dmThreads[target.handle] || []), { role: 'user' as const, content: text, time: Date.now() }];
+        const history = [...(dmThreads[targetKey] || []), { role: 'user' as const, content: text, time: Date.now() }];
         setDmInput('');
         setDmThreads(prev => {
-            const next = { ...prev, [target.handle]: history };
+            const next = { ...prev, [targetKey]: history };
             localStorage.setItem('spark_dm_threads', JSON.stringify(next));
             return next;
         });
         if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
         setDmBusy(true);
         try {
-            const authorPosts = feedRef.current.filter(post => post.authorName === target.handle).sort((a, b) => a.timestamp - b.timestamp);
+            const authorPosts = feedRef.current.filter(post =>
+                target.accountId ? post.authorId === target.accountId : post.authorName === target.handle,
+            ).sort((a, b) => a.timestamp - b.timestamp);
             const firstPost = authorPosts[0];
             const candidates = characters.filter(char => (characterHandles[char.id] || []).some(account => account.handle === target.handle));
             const registered = communityRef.current.accounts.filter(account =>
-                account.displayName === target.handle || account.aliases.includes(target.handle));
+                target.accountId ? account.id === target.accountId
+                    : account.displayName === target.handle || account.aliases.includes(target.handle));
             const knownOwnerIds = [...new Set(registered.map(account => account.ownerCharId).filter(Boolean))];
             // Never arbitrarily select the first role when different characters share one public handle.
             if (candidates.length > 1 || knownOwnerIds.length > 1 || registered.length > 1) {
@@ -353,7 +385,7 @@ const SocialApp: React.FC = () => {
             if (owner && candidates.length === 1 && candidates[0].id !== owner.id) {
                 throw new Error('私信账号归属不一致，已阻止角色串台');
             }
-            const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。你的稳定人物设定：' + (npcPersonas[target.handle] || '根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场') + '。不要变成客服，也不要知道其他人的私聊或隐藏身份。';
+            const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。你的稳定人物设定：' + (npcPersonas[targetKey] || npcPersonas[target.handle] || '根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场') + '。不要变成客服，也不要知道其他人的私聊或隐藏身份。';
             const prompt = identity + '\n当前聊天账号：' + target.handle + '\n这个账号最早的帖子（性格与经历线索）：' + (firstPost ? firstPost.title + '\n' + firstPost.content : '暂无公开帖子') + '\n只扮演此账号本人，回复最后一条私信；简短自然，不要解释设定，不要总以句号结尾。';
             const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
                 method: 'POST',
@@ -366,7 +398,9 @@ const SocialApp: React.FC = () => {
             const answer = extractContent(data).trim();
             if (!answer) throw new Error('空回复');
             setDmThreads(prev => {
-                const next = { ...prev, [target.handle]: [...(prev[target.handle] || history), { role: 'assistant' as const, content: answer, time: Date.now() }] };
+                // The legacy thread might have migrated while the network request was in flight.
+                const replyKey = target.accountId && prev[target.accountId] ? target.accountId : targetKey;
+                const next = { ...prev, [replyKey]: [...(prev[replyKey] || history), { role: 'assistant' as const, content: answer, time: Date.now() }] };
                 localStorage.setItem('spark_dm_threads', JSON.stringify(next));
                 return next;
             });
@@ -1971,7 +2005,7 @@ ${buildSparkCommentHistory(post)}
                     <strong className="truncate text-sm">{dmTarget.handle}</strong>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-                    {(dmThreads[dmTarget.handle] || []).map((message, index) => <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {(dmThreads[dmKey(dmTarget)] || []).map((message, index) => <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#555555] text-white' : 'bg-white text-slate-800'}`}>{message.content}</div>
                     </div>)}
                     {dmBusy && <p className="text-xs text-slate-400">对方正在输入…</p>}
@@ -2273,11 +2307,13 @@ ${buildSparkCommentHistory(post)}
                             <div className="flex gap-2 px-5 pb-3">
                                 {([{ id: 'all', label: '全部' }, { id: 'following', label: '已关注' }, { id: 'strangers', label: '陌生人' }] as const).map(tab => <button key={tab.id} type="button" onClick={() => setDmFilter(tab.id)} className={`rounded-full px-3 py-1 text-xs ${dmFilter === tab.id ? 'bg-[#555555] text-white' : 'bg-slate-100 text-slate-600'}`}>{tab.label}</button>)}
                             </div>
-                            {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 && (dmFilter === 'all' || (dmFilter === 'following' ? isFollowing(handle) : !isFollowing(handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
-                                const accountPost = feed.find(post => post.authorName === handle);
-                                return <button key={handle} type="button" onClick={() => openSparkDM({ handle, avatar: accountPost?.authorAvatar || '' })} className="w-full flex gap-3 items-center px-5 py-3 border-b border-slate-50 text-left">
+                            {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 && (dmFilter === 'all' || (dmFilter === 'following' ? isFollowing(communityState.accounts.find(a => a.id === handle)?.displayName || handle) : !isFollowing(communityState.accounts.find(a => a.id === handle)?.displayName || handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
+                                const account = communityState.accounts.find(item => item.id === handle);
+                                const displayHandle = account?.displayName || handle;
+                                const accountPost = feed.find(post => account ? post.authorId === account.id : post.authorName === handle);
+                                return <button key={handle} type="button" onClick={() => openSparkDM({ handle: displayHandle, avatar: accountPost?.authorAvatar || account?.avatar || '', accountId: account?.id })} className="w-full flex gap-3 items-center px-5 py-3 border-b border-slate-50 text-left">
                                     <span className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden">{accountPost?.authorAvatar ? <TokenImg value={accountPost.authorAvatar} className="w-full h-full object-cover" /> : '✦'}</span>
-                                    <span className="min-w-0 flex-1"><strong className="block text-sm truncate">{handle}</strong><span className="block text-xs text-slate-400 truncate">{messages[messages.length - 1]?.content}</span></span>{(dmUnread[handle] || 0) > 0 && <span className="shrink-0 rounded-full bg-[#555555] text-white text-[10px] px-1.5 py-0.5">{dmUnread[handle] > 99 ? "99+" : dmUnread[handle]}</span>}
+                                    <span className="min-w-0 flex-1"><strong className="block text-sm truncate">{displayHandle}</strong><span className="block text-xs text-slate-400 truncate">{messages[messages.length - 1]?.content}</span></span>{(dmUnread[handle] || 0) > 0 && <span className="shrink-0 rounded-full bg-[#555555] text-white text-[10px] px-1.5 py-0.5">{dmUnread[handle] > 99 ? "99+" : dmUnread[handle]}</span>}
                                 </button>;
                             })}
                             {!Object.values(dmThreads).some(messages => messages.length > 0) && <p className="px-5 py-6 text-xs text-slate-400">还没有私信，进入网友主页可以发起聊天</p>}
