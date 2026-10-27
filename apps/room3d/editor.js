@@ -1553,14 +1553,14 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    let unmounted=0;for(const r of state.rooms)for(const i of r.items){const a=asset(i.assetId);if(a?.surface==='wall'&&!i.stored&&wallPlacementError(i,a,r,catalog)){i.stored=true;unmounted++;}}if(unmounted)message='墙面变化，失去承托的挂墙物件已收纳，可撤销';if(restoreLife){restoreSavedLife();restoredLifeSnapshots.add(before);}undo.push(before);if(undo.length>40)undo.shift();redo=[];persist();rebuild();renderUI();return true;}catch(e){
    state=before;
    if(restoreLife&&restoredLifeSnapshots.has(before))restoreSavedLife();
-   else Object.assign({},{})&&(
-    visitorSeat=actorBefore.visitorSeat,seatAccess=actorBefore.seatAccess,
-    visitorActivity=actorBefore.visitorActivity,visitorPlant=actorBefore.visitorPlant,
-    visitorLocation=actorBefore.visitorLocation,visitorMotion=actorBefore.visitorMotion,
-    visitorStart=actorBefore.visitorStart,visitorUntil=actorBefore.visitorUntil,
-    kitchenTask=actorBefore.kitchenTask,heldPlush=actorBefore.heldPlush,
-    residentRoom=actorBefore.residentRoom
-   );
+   else{
+    visitorSeat=actorBefore.visitorSeat;seatAccess=actorBefore.seatAccess;
+    visitorActivity=actorBefore.visitorActivity;visitorPlant=actorBefore.visitorPlant;
+    visitorLocation=actorBefore.visitorLocation;visitorMotion=actorBefore.visitorMotion;
+    visitorStart=actorBefore.visitorStart;visitorUntil=actorBefore.visitorUntil;
+    kitchenTask=actorBefore.kitchenTask;heldPlush=actorBefore.heldPlush;
+    residentRoom=actorBefore.residentRoom;
+   }
    selected=selectionBefore;panel=panelBefore;rotationPreview=rotationBefore;
    rebuild();notify(e.message,true);return false;
   }
