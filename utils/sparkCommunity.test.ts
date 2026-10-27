@@ -338,3 +338,19 @@ describe('Spark explicit private-message account ID selection', () => {
         expect(getSparkDMThreadKey(first.account.id, '老朋友', { [first.account.id]: ['你好'] }, first.state.accounts)).toBe(first.account.id);
     });
 });
+
+describe('Spark renamed account history', () => {
+    it('prefers configured current handle for an old post and comment', async () => {
+        const { getSparkCanonicalAccountName } = await import('./sparkCommunity');
+        const old = '马甲旧名', handleId = 'alt';
+        const configured = [{ id: 'alt', handle: '马甲新名' }];
+        expect(getSparkCanonicalAccountName(old, 'character:c1:handle:alt', handleId, configured, [])).toBe('马甲新名');
+        expect(getSparkCanonicalAccountName(old, undefined, handleId, [], [])).toBe(old);
+    });
+    it('preserves a renamed stranger using the same account ID', async () => {
+        const { getSparkCanonicalAccountName } = await import('./sparkCommunity');
+        const account = ensureSparkAccount(createEmptySparkCommunityState(),
+            { type: 'stranger', displayName: '新名字' }, () => 'id-1').account;
+        expect(getSparkCanonicalAccountName('旧名字', account.id, undefined, [], [account])).toBe('新名字');
+    });
+});
