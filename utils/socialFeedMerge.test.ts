@@ -61,3 +61,23 @@ describe('Spark publish topic normalization', () => {
         expect(parseSparkPublishTags('a b c d e f g')).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
     });
 });
+
+describe('Spark reply-request batching cost and routing', () => {
+    it('combines nearby comments on the same post into one request', async () => {
+        const { takeSparkCommentReplyBatch } = await import('./socialFeedMerge');
+        const queued = [
+            { post: { id: 'postA' }, content: '先问1', parentCommentId: 'c1' },
+            { post: { id: 'postA' }, content: '补充2', parentCommentId: 'c2' },
+            { post: { id: 'postB' }, content: '另一个帖子', parentCommentId: 'c3' },
+        ];
+        const batch = takeSparkCommentReplyBatch(queued);
+        expect(batch.jobs.map(x => x.parentCommentId)).toEqual(['c1','c2']);
+        expect(batch.remaining.map(x => x.parentCommentId)).toEqual(['c3']);
+    });
+    it('caps a burst to four comments to limit response tokens', async () => {
+        const { takeSparkCommentReplyBatch } = await import('./socialFeedMerge');
+        const queued = Array.from({ length: 9 }, (_, i) => ({ post: { id: 'same' }, parentCommentId: String(i) }));
+        expect(takeSparkCommentReplyBatch(queued).jobs).toHaveLength(4);
+        expect(takeSparkCommentReplyBatch(queued).remaining).toHaveLength(5);
+    });
+});
