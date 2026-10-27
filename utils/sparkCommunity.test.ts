@@ -178,6 +178,33 @@ describe('Spark persistent community state', () => {
         expect(markSparkNotificationsRead(read, 300)).toBe(read);
     });
 
+    it('preserves a character-chat target on autonomous private-message notifications', () => {
+        const state = createEmptySparkCommunityState();
+        const message = {
+            id: 'dm-notification',
+            type: 'message' as const,
+            actorAccountId: 'character:c1:handle:main',
+            targetAccountId: 'user',
+            message: '@阿青 给你发来一条私信',
+            createdAt: 200,
+            metadata: { charId: 'c1' },
+        };
+        const normalized = normalizeSparkCommunityState({
+            ...state,
+            notifications: [message],
+            events: [{
+                id: 'dm-event',
+                type: 'dm_sent',
+                actorAccountId: 'character:c1:handle:main',
+                targetAccountId: 'user',
+                createdAt: 200,
+                metadata: { characterId: 'c1' },
+            }],
+        });
+        expect(normalized.notifications[0]).toMatchObject({ type: 'message', metadata: { charId: 'c1' } });
+        expect(normalized.events[0]).toMatchObject({ type: 'dm_sent', metadata: { characterId: 'c1' } });
+    });
+
     it('keeps following, search, topic, hidden-post and muted-account filters distinct', () => {
         const now = 100_000_000;
         const state = createEmptySparkCommunityState();
