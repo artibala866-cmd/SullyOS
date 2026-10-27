@@ -8,7 +8,7 @@ import {mirrorActivities,isMirrorAction} from './mirror.js';
 import {validatedFurnitureStations} from './furnitureStationRegistry.js';
 
 // Describe real, existing actions. No name-based guesses and no saved UI state.
-export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,transitioning=false,occupiedSeats=[],kitchenPlanner=null,slotPlanner=null}={}){
+export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,transitioning=false,occupiedSeats=[],kitchenPlanner=null,slotPlanner=null,fridgePlanner=null}={}){
  const item=room.items.find(i=>i.id===itemId&&!i.stored),a=catalog.find(a=>a.id===item?.assetId);if(!a)return [];
  const result=kitchenActions(room,catalog,itemId).map(action=>{const planned=!action.reason&&kitchenPlanner?kitchenPlanner(itemId):null;return planned?.reason?{...action,reason:planned.reason}:action;}),add=(action,label,extra={},reason='')=>result.push({action,label,id:itemId,...extra,reason});
  const free=slot=>!occupiedSeats.some(s=>s?.itemId===slot.itemId&&s.seatId===slot.seatId);
@@ -28,7 +28,7 @@ export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=nu
   const label=v.kind==='eat'?(side?side+'吃饭':'吃饭 · '+(activities.filter(a=>a.kind==='eat'&&a.itemId===v.itemId).indexOf(v)+1)+'号位'):v.label;
   add(isBathAction(v.kind)?'chibi-bath':isMirrorAction(v.kind)?'chibi-mirror':'chibi-game',label,{id:v.itemId,kind:v.kind,station:v.stationId||''},v.reason||'');
  }
- if(a.appliance==='fridge')add('fridge-toggle',fridgeOpen?'关上冰箱':'打开冰箱');
+ if(a.appliance==='fridge')add('fridge-toggle',fridgeOpen?'关上冰箱':'打开冰箱',{},fridgePlanner?.(itemId)||'');
  if(active&&!isMirrorAction(active.kind)&&(active.itemId===itemId||active.seat?.itemId===itemId||active.dependencies?.includes(itemId)))add('chibi-game-stop',isBathAction(active.kind)?'结束':'休息一下');
  if(seat?.itemId===itemId)add('chibi-stand','起身');
  return result;
