@@ -1804,6 +1804,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function select(id){closeInteraction();if(rotationPreview&&id!==selected&&!changeItem(rotationPreview))return;selected=id;const owner=selectedOwner();if(owner&&owner.id!==current().id){activateRoom(owner);persist();rebuild();}panel='selected';edit=true;overview=false;controls.enabled=true;updateSelection();renderUI()}
  function action(e){const b=e.target.closest('[data-action]');if(!b||b.disabled)return;if(b.dataset.action.startsWith('chibi-')&&!useFurnitureUser())return;if(b.dataset.action.startsWith('chibi-')&&!furnitureUser||b.dataset.action==='edit'){manualUntil=Date.now()+6000;manualRevision++;}runAction(b.dataset);}
  function runAction(d){
+  // Changing rooms or opening decoration cannot cut a resident off midway
+  // through a sit/stand transfer or an occupied bath lip.
+  const layoutNavigation=['edit','overview','back','room','floor','building-room',
+   'room-scope','full-living','restore-living','upgrade-starter','restore-starter',
+   'room-layout-apply','showroom','expand'].includes(d.action)||
+   d.action==='panel'&&['furniture','storage','building','room-style'].includes(d.panel);
+  if(layoutNavigation&&(seatChange||visitorActivity?.bathJourney)){
+   notify(seatChange?'请先完成坐下或起身，再修改房间':'请先安全离开卫浴设备，再修改房间',true);return;
+  }
   if(/^(camera-|wall-|view-mode$|living-view$|room-view$|zoom$|turn-view$)/.test(d.action||'')){cameraArrival=null;if(greeting)greeting.restoreWide=false;}
   if(d.action==='control-self'){setManualResident('user');return;}
   if(d.action==='map-toggle'){mapCollapsed=!mapCollapsed;renderUI();return;}
