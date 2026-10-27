@@ -1,7 +1,7 @@
 import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSparkTrafficLocalDay, type SparkTraffic } from '../utils/sparkTraffic';
 import { chooseSparkStock } from '../utils/sparkStock';
 import { useLocalBackHandler } from '../hooks/useLocalBackHandler';
-import { appendSparkDMUser, setSparkDMDelivery, recoverSparkInterruptedDMs, sparkDMHistoryThrough, appendSparkDMAnswer, type SparkDMThreads, type SparkPrivateMessage } from '../utils/sparkDMQueue';
+import { appendSparkDMUser, setSparkDMDelivery, recoverSparkInterruptedDMs, sparkDMHistoryThrough, appendSparkDMAnswer, takeSparkDMJobBatch, appendSparkDMBatchAnswer, sparkDMBatchHistory, type SparkDMThreads, type SparkPrivateMessage } from '../utils/sparkDMQueue';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -400,34 +400,39 @@ const SocialApp: React.FC = () => {
         return () => viewport?.removeEventListener('resize', alignInput);
     }, [dmTarget?.accountId, dmTarget?.handle]);
     const [dmBusy, setDmBusy] = useState(false);
-    type SparkDMJob = { target: SparkDMTarget; key: string; id: string };
+    type SparkDMJob = { target: SparkDMTarget; key: string; id: string; accountId?: string };
     const dmQueueRef = useRef<SparkDMJob[]>([]);
+    const dmBatchTimerRef = useRef<number | null>(null);
     const dmProcessingRef = useRef(false);
     const dmRequestRef = useRef<AbortController | null>(null);
-    const dmActiveAccountRef = useRef<string | undefined>(undefined);
     const processSparkDMQueue = async () => {
-        if (dmProcessingRef.current) return;
+        if (dmProcessingRef.current || !mountedRef.current) return;
+        if (dmBatchTimerRef.current !== null) {
+            window.clearTimeout(dmBatchTimerRef.current);
+            dmBatchTimerRef.current = null;
+        }
         dmProcessingRef.current = true;
         setDmBusy(true);
         try {
             while (dmQueueRef.current.length && mountedRef.current) {
-                const job = dmQueueRef.current.shift()!;
-                const target = job.target;
+                // A short user burst to the same receiver costs ONE AI call.
+                // Never mix separate characters/identities into a private prompt.
+                const batch = takeSparkDMJobBatch(dmQueueRef.current);
+                dmQueueRef.current = batch.remaining;
+                const target = batch.jobs[0].target;
                 const key = getSparkDMThreadKey(target.accountId, target.handle,
                     dmThreadsRef.current, communityRef.current.accounts);
-                if (!(dmThreadsRef.current[key] || []).some(m => m.id === job.id && m.delivery === 'pending')) continue;
+                const ids = batch.jobs.map(item => item.id).filter(id =>
+                    (dmThreadsRef.current[key] || []).some(m => m.id === id && m.delivery === 'pending'));
+                if (!ids.length) continue;
                 const controller = new AbortController();
                 dmRequestRef.current = controller;
-                dmActiveAccountRef.current = target.accountId;
                 const timeout = window.setTimeout(() => controller.abort(), 30000);
                 try {
                     if (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId)) {
                         throw new Error('此账号已屏蔽');
                     }
                     if (!apiConfig.apiKey) throw new Error('请先配置 API Key');
-                    const posts = feedRef.current.filter(p =>
-                        target.accountId ? p.authorId === target.accountId : p.authorName === target.handle,
-                    ).sort((a, b) => a.timestamp - b.timestamp);
                     const registered = communityRef.current.accounts.filter(a =>
                         target.accountId ? a.id === target.accountId :
                         a.displayName === target.handle || a.aliases.includes(target.handle));
@@ -445,20 +450,23 @@ const SocialApp: React.FC = () => {
                         (npcPersonas[key] || npcPersonas[target.handle] || '依据自己已有公开帖子形成性格和兴趣') +
                         '。只能知道自己的公开经历，不能知道别人的私聊或匿名身份。';
                     if (controller.signal.aborted) throw new Error('私信请求超时（30 秒），可点原消息重试');
-                    const history = sparkDMHistoryThrough(dmThreadsRef.current, key, job.id);
+                    const history = sparkDMBatchHistory(dmThreadsRef.current, key, ids);
                     if (!history.length) throw new Error('原消息已不存在');
-                    const first = posts[0];
+                    const first = feedRef.current.filter(post =>
+                        target.accountId ? post.authorId === target.accountId : post.authorName === target.handle,
+                    ).sort((a, b) => a.timestamp - b.timestamp)[0];
                     const prompt = identity + '\n当前聊天账号：' + target.handle +
                         '\n该账号最早的公开帖子：' + (first ? first.title + '\n' + first.content : '暂无公开帖子') +
-                        '\n只扮演此账号本人，回复最后一条用户私信；语气自然简短，不泄露隐私。';
+                        '\n只扮演此账号本人。用户接连发送的几条消息属于一次完整发言，请一起理解后自然回应一次，不要逐条机械重复回复。不得泄露其他人的隐私。';
                     const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
                         body: JSON.stringify({ model: apiConfig.model,
                             messages: [{ role: 'system', content: prompt },
-                                ...history.map(item => ({ role: item.role, content: item.content }))], temperature: 0.9 }),
+                                ...history.map(item => ({ role: item.role, content: item.content }))],
+                            temperature: 0.9, max_tokens: 650 }),
                         signal: controller.signal,
-                        __sullyMeta: { appId: 'social', appName: 'Spark', purpose: 'Spark 私信' },
+                        __sullyMeta: { appId: 'social', appName: 'Spark', purpose: 'Spark 合并私信回复' },
                     } as RequestInit);
                     if (!response.ok) throw new Error(await apiErrorMessage(response));
                     const answer = extractContent(await safeResponseJson(response)).trim();
@@ -469,19 +477,20 @@ const SocialApp: React.FC = () => {
                     }
                     const currentKey = getSparkDMThreadKey(target.accountId, target.handle,
                         dmThreadsRef.current, communityRef.current.accounts);
-                    saveDMThreads(appendSparkDMAnswer(dmThreadsRef.current, currentKey, job.id, answer, Date.now()));
+                    saveDMThreads(appendSparkDMBatchAnswer(dmThreadsRef.current, currentKey, ids, answer, Date.now()));
                 } catch (error: any) {
                     if (mountedRef.current) {
                         const currentKey = getSparkDMThreadKey(target.accountId, target.handle,
                             dmThreadsRef.current, communityRef.current.accounts);
-                        saveDMThreads(setSparkDMDelivery(dmThreadsRef.current, currentKey, job.id, 'failed'));
+                        let next = dmThreadsRef.current;
+                        for (const id of ids) next = setSparkDMDelivery(next, currentKey, id, 'failed');
+                        saveDMThreads(next);
                         addToast('私信未完成，点击原消息可重试：' +
                             (error?.name === 'AbortError' ? '请求超时或中止' : error?.message || '网络错误'), 'error');
                     }
                 } finally {
                     window.clearTimeout(timeout);
                     if (dmRequestRef.current === controller) dmRequestRef.current = null;
-                    dmActiveAccountRef.current = undefined;
                 }
             }
         } finally {
@@ -491,8 +500,16 @@ const SocialApp: React.FC = () => {
     };
     const queueSparkDM = (target: SparkDMTarget, key: string, id: string) => {
         if (dmQueueRef.current.some(item => item.id === id)) return;
-        dmQueueRef.current.push({ target, key, id });
-        void processSparkDMQueue();
+        dmQueueRef.current.push({ target, key, id, accountId: target.accountId });
+        // Hold a short burst before billing an API call; never wait indefinitely.
+        if (!dmProcessingRef.current) {
+            if (dmBatchTimerRef.current !== null) window.clearTimeout(dmBatchTimerRef.current);
+            if (dmQueueRef.current.length >= 6) void processSparkDMQueue();
+            else dmBatchTimerRef.current = window.setTimeout(() => {
+                dmBatchTimerRef.current = null;
+                void processSparkDMQueue();
+            }, 1200);
+        }
     };
     const sendSparkDM = () => {
         if (!dmTarget || !dmInput.trim()) return;
@@ -515,7 +532,7 @@ const SocialApp: React.FC = () => {
         const key = dmKey(target);
         if (!(dmThreadsRef.current[key] || []).some(m => m.id === id && m.delivery === 'failed')) return;
         saveDMThreads(setSparkDMDelivery(dmThreadsRef.current, key, id, 'pending'));
-        queueSparkDM(target, key, id); // Reuses the same bubble, never sends a duplicate user message.
+        queueSparkDM(target, key, id);
     };
     const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
@@ -874,6 +891,8 @@ const SocialApp: React.FC = () => {
             replyQueueRef.current = [];
             dmRequestRef.current?.abort();
             dmRequestRef.current = null;
+            if (dmBatchTimerRef.current !== null) window.clearTimeout(dmBatchTimerRef.current);
+            dmBatchTimerRef.current = null;
             dmQueueRef.current = [];
         };
     }, []);
