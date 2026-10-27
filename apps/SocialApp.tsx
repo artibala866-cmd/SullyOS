@@ -1282,13 +1282,28 @@ const SocialApp: React.FC = () => {
             if (existing.some(h => h.handle === name)) return prev;
             return { ...prev, [char.id]: [...existing, { id, handle: name, note: 'AI 自建马甲' }] };
         });
+        const preparedComments: SocialComment[] = (Array.isArray(result.comments) ? result.comments : [])
+            .slice(0, 2).flatMap((draft: any): SocialComment[] => {
+                if (!draft || typeof draft.content !== 'string' || !draft.content.trim()) return [];
+                const stranger = resolveSparkAuthor({
+                    authorName: draft.authorName, charId: null, isCharacter: false,
+                }, [], characters, characterHandles, [socialProfile.name, userProfile.name]);
+                if (!stranger || stranger.character || publicTextLeaksPrivateChat(draft.content)) return [];
+                return [{
+                    id: 'char-prefilled-comment-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                    authorName: stranger.name,
+                    authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(stranger.name),
+                    content: draft.content.trim().slice(0, 400),
+                    likes: 0, authorType: 'stranger', isCharacter: false, timestamp: Date.now(),
+                }];
+            });
         const post: SocialPost = {
             id: 'char-post-' + Date.now() + '-' + Math.random().toString(36).slice(2),
             authorName: name, authorAvatar: getSparkAuthorAvatar(char, name, characterHandles, id),
             title: String(result.title || '随手记录').slice(0, 100),
             content: result.content.trim().slice(0, 2500),
             images: [pickStock(String(result.title || ''), result.content) || '✨'],
-            likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(),
+            likes: 0, isCollected: false, isLiked: false, comments: uniqueGeneratedSocialComments([], preparedComments), timestamp: Date.now(),
             tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
             authorId: 'character:' + char.id + ':handle:' + id, source: 'ai',
         };
@@ -1326,8 +1341,10 @@ const SocialApp: React.FC = () => {
                         + '可以保持沉默，但不能冒用其他 charId、用户账号或别人的网名。'
                         + '作者的网名优先复用自己的公开账号，也可以在合理动机下使用新的匿名马甲。'
                         + '帖子内容自然有个性，严格按各人公开资料与近期公开作品风格，不造假人气，不泄露私密信息。'
+                        + '每篇帖子可以附带 0-2 位虚拟陌生网友的简短真实评论，不能冒充角色或用户，不必强行制造互动。'
                         + '只输出一个 JSON 数组：[{"charId":"上方真实ID","accountType":"main或alt",'
-                        + '"authorName":"自己的公开网名","title":"标题","content":"正文"}]。';
+                        + '"authorName":"自己的公开网名","title":"标题","content":"正文",'
+                        + '"comments":[{"authorName":"不冒充角色的网友昵称","content":"与正文相关的自然评论"}]}]。';
                     const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
