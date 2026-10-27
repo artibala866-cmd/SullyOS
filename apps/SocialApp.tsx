@@ -1915,8 +1915,10 @@ ${buildSparkCommentHistory(post)}
             const incoming: Array<{ key: string; name: string; content: string; persona: string }> = [];
             let nextCommunity = communityRef.current;
             const used = new Set<string>();
-            for (const entry of parsed.slice(0, count)) {
-                const name = String(entry?.name || '').trim().slice(0, 32);
+            for (const raw of parsed.slice(0, count)) {
+                if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+                const entry = raw as Record<string, unknown>;
+                const name = String(entry.name || '').trim().slice(0, 32);
                 const known = resolveSparkDMAccount(nextCommunity.accounts, name);
                 if (known && isSparkMuted(known.id)) continue;
                 const content = String(entry?.message || '').trim().slice(0, 500);
