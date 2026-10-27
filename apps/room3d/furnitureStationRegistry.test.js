@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import catalog from '../../public/room3d/catalog.json';
-import {furnitureStationIssue,validatedFurnitureStations,sameStationPose} from './furnitureStationRegistry.js';
+import {furnitureStationIssue,validatedFurnitureStations,sameStationPose,occupiedFurnitureSlotIssue} from './furnitureStationRegistry.js';
 
 const room={id:'r',items:[
  {id:'t',assetId:'worktable',x:0,y:.15,z:0,rotation:0,stored:false},
@@ -34,5 +34,22 @@ describe('shared furniture interaction station validation',()=>{
   const [blocked]=validatedFurnitureStations(room,catalog,[station],[{itemId:'c',seatId:'center'}]);
   expect(blocked.reason).toContain('已经有人');
   expect(validatedFurnitureStations(room,catalog,[{...station,reason:'设备坏了'}],[{itemId:'c',seatId:'center'}])[0].reason).toBe('设备坏了');
+ });
+ it('keeps ordinary two-seat sofa use while protecting very large neighboring residents',()=>{
+  const room={id:'sofa-room',items:[{id:'couch',assetId:'sofa',x:0,y:.18,z:0,rotation:0,stored:false}]};
+  const slot={roomId:room.id,itemId:'couch',seatId:'right'},
+   occupied=[{roomId:room.id,itemId:'couch',seatId:'left',width:1.5}];
+  expect(occupiedFurnitureSlotIssue(room,catalog,slot,occupied,1.5)).toBe('');
+  expect(occupiedFurnitureSlotIssue(room,catalog,slot,occupied,2.3)).toContain('相邻');
+  expect(occupiedFurnitureSlotIssue(room,catalog,slot,[{...occupied[0],roomId:'other'}],2.3)).toBe('');
+  expect(occupiedFurnitureSlotIssue(room,catalog,{...slot,seatId:'left'},occupied,1.5)).toContain('已经有人');
+ });
+ it('uses the same measured clearance for occupied workstation and dining activity stations',()=>{
+  const layout={id:'room',items:[{id:'couch',assetId:'sofa',x:0,y:.18,z:0,rotation:0,stored:false}]};
+  const active={itemId:'couch',kind:'eat',position:[.6,.8,.4],rotation:0,
+   seat:{roomId:'room',itemId:'couch',seatId:'right'}};
+  const reserved=[{roomId:'room',itemId:'couch',seatId:'left',width:2.4}];
+  expect(validatedFurnitureStations(layout,catalog,[active],reserved,1.5)[0].reason).toContain('相邻');
+  expect(validatedFurnitureStations(layout,catalog,[active],reserved.map(s=>({...s,width:1.5})),1.5)[0].reason).toBeUndefined();
  });
 });
