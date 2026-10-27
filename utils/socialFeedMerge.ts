@@ -66,3 +66,18 @@ export function parseSparkPublishTags(input: string): string[] {
     const unique = [...new Set(tags)];
     return unique.length ? unique.slice(0, 6) : ['日常'];
 }
+
+/** Collapse adjacent quick user comments on one post into a single reply-generation request. */
+export function takeSparkCommentReplyBatch<T extends { post: { id: string } }>(
+    queue: T[], max = 4,
+): { jobs: T[]; remaining: T[] } {
+    if (!queue.length) return { jobs: [], remaining: queue };
+    const id = queue[0].post.id;
+    const limit = Math.max(1, Math.min(4, Math.floor(max) || 1));
+    let n = 0;
+    for (const item of queue) {
+        if (n >= limit || item.post.id !== id) break;
+        n++;
+    }
+    return { jobs: queue.slice(0, n), remaining: queue.slice(n) };
+}
