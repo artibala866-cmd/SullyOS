@@ -15,7 +15,7 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost } from '../utils/socialFeedMerge';
-import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, normalizeSparkName } from '../utils/sparkCommunity';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
@@ -187,12 +187,7 @@ const SocialApp: React.FC = () => {
             const type: SparkAccountType = post.authorType || (post.authorCharId ? 'character' : post.id.startsWith('user-post-') ? 'user' : 'stranger');
             const handles = post.authorCharId
                 ? (characterHandles[post.authorCharId] || []) : [];
-            const ownerPrefix = post.authorCharId ? 'character:' + post.authorCharId + ':handle:' : '';
-            // Persisted IDs win over edited handles; unknown legacy aliases must not collapse into "default".
-            const handleId = ownerPrefix && post.authorId?.startsWith(ownerPrefix)
-                ? post.authorId.slice(ownerPrefix.length)
-                : handles.find(handle => handle.handle === post.authorName)?.id ||
-                  (post.authorCharId ? 'legacy-' + normalizeSparkName(post.authorName) : undefined);
+            const handleId = resolveSparkCharacterHandleId(post.authorCharId, post.authorId, post.authorName, handles);
             const result = ensureSparkAccount(state, {
                 type, id: post.authorId,
                 ownerCharId: type === 'character' ? post.authorCharId : undefined,
@@ -202,11 +197,7 @@ const SocialApp: React.FC = () => {
             const comments = (post.comments || []).map(comment => {
                 const commentType: SparkAccountType = comment.authorType || (comment.authorCharId ? 'character' : comment.id.startsWith('cmt-user-') ? 'user' : 'stranger');
                 const commentHandles = comment.authorCharId ? (characterHandles[comment.authorCharId] || []) : [];
-                const commentPrefix = comment.authorCharId ? 'character:' + comment.authorCharId + ':handle:' : '';
-                const commentHandleId = commentPrefix && comment.authorId?.startsWith(commentPrefix)
-                    ? comment.authorId.slice(commentPrefix.length)
-                    : commentHandles.find(handle => handle.handle === comment.authorName)?.id ||
-                      (comment.authorCharId ? 'legacy-' + normalizeSparkName(comment.authorName) : undefined);
+                const commentHandleId = resolveSparkCharacterHandleId(comment.authorCharId, comment.authorId, comment.authorName, commentHandles);
                 const registeredComment = ensureSparkAccount(state, {
                     type: commentType, id: comment.authorId,
                     ownerCharId: commentType === 'character' ? comment.authorCharId : undefined,
