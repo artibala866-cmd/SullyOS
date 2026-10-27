@@ -16,7 +16,7 @@ describe('Spark API call reduction without unsafe identity mixing', () => {
             {charId:'unknown', content:'冒名'},
             {charId:null, content:'缺身份'},
         ];
-        expect(selectSparkBatchCharacterResults(['c1','c2'],output).map(x=>x.content)).toEqual(['有效1','有效2']);
+        expect(selectSparkBatchCharacterResults<{charId:string; content:string}>(['c1','c2'],output).map(x=>x.content)).toEqual(['有效1','有效2']);
         expect(selectSparkBatchCharacterResults(['c1'],{oops:'not array'})).toEqual([]);
     });
     it('reads both public comments and optional incoming inbox messages from one JSON result', () => {
