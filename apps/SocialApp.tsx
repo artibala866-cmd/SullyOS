@@ -263,7 +263,9 @@ const SocialApp: React.FC = () => {
     });
     const [expandedNoticeGroups, setExpandedNoticeGroups] = useState<string[]>([]);
     const noticeGroups = (kind: SparkNotice['kind']) => {
-        const items = notices.filter(n => n.kind === kind).sort((a, b) => b.time - a.time);
+        const items = notices.filter(n => n.kind === kind &&
+            !communityState.mutedAccountIds.includes(resolveSparkDMAccount(communityState.accounts, n.actor)?.id || '')
+        ).sort((a, b) => b.time - a.time);
         const grouped = new Map<string, SparkNotice[]>();
         for (const item of items) {
             const key = kind === 'follows' ? 'new-followers' : kind === 'likes' ? 'post:' + (item.postId || item.id) : item.id;
@@ -608,6 +610,15 @@ const SocialApp: React.FC = () => {
     const [accountVisibleLimit, setAccountVisibleLimit] = useState(60);
     useEffect(() => { setAccountVisibleLimit(60); }, [viewedAccount?.accountId, viewedAccount?.handle]);
     const isSparkMuted = (accountId?: string) => !!accountId && communityRef.current.mutedAccountIds.includes(accountId);
+    const getSparkPublicAuthorId = (name: string, charId?: string): string | undefined => {
+        if (charId) {
+            const handle = (characterHandles[charId] || []).find(item => item.handle === name);
+            if (handle) return 'character:' + charId + ':handle:' + handle.id;
+            return communityRef.current.accounts.find(a => a.ownerCharId === charId &&
+                (a.displayName === name || a.aliases.includes(name)))?.id;
+        }
+        return resolveSparkDMAccount(communityRef.current.accounts, name)?.id;
+    };
     const toggleMuteSparkAccount = (handle: string, id?: string) => {
         const account = resolveSparkDMAccount(communityRef.current.accounts, handle, id);
         if (!account || account.type === 'user') { addToast('账号身份无法确定，不能屏蔽', 'error'); return; }
@@ -1483,8 +1494,8 @@ const SocialApp: React.FC = () => {
                 if (needsContent && (!content || publicTextLeaksPrivateChat(content + (typeof item.title === 'string' ? item.title : '')))) continue;
                 const author = resolveSparkAuthor(item, participants, characters, characterHandles, [socialProfile.name, userProfile.name]);
                 if (!author) continue;
-                const knownActor = resolveSparkDMAccount(communityRef.current.accounts, author.name);
-                if (knownActor && isSparkMuted(knownActor.id)) continue;
+                const actorId = getSparkPublicAuthorId(author.name, author.character?.id);
+                if (isSparkMuted(actorId)) continue;
                 const avatar = author.character ? getSparkAuthorAvatar(author.character, author.name, characterHandles) : 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(author.name);
                 const authorType = author.character ? 'character' as const : 'stranger' as const;
                 if (item.kind === 'like' || item.kind === 'follow' || item.kind === 'unfollow') {
@@ -1550,7 +1561,7 @@ const SocialApp: React.FC = () => {
                     created++;
                 } else {
                     const post = feedRef.current.find(saved => saved.id === item.postId);
-                    if (!post) continue;
+                    if (!post || isSparkMuted(post.authorId)) continue;
                     const comment: SocialComment = {
                         id: 'autonomy-comment-' + Date.now() + '-' + Math.random().toString(36).slice(2),
                         authorName: author.name, authorAvatar: avatar, authorType, authorCharId: author.character?.id,
