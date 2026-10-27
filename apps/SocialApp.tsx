@@ -1309,7 +1309,8 @@ const SocialApp: React.FC = () => {
             title: String(result.title || '随手记录').slice(0, 100),
             content: result.content.trim().slice(0, 2500),
             images: [pickStock(String(result.title || ''), result.content) || '✨'],
-            likes: 0, isCollected: false, isLiked: false, comments: uniqueGeneratedSocialComments([], preparedComments), timestamp: Date.now(),
+            likes: 0, isCollected: false, isLiked: false, comments: uniqueGeneratedSocialComments([], preparedComments),
+            sparkInitialCommentsHandled: true, timestamp: Date.now(),
             tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
             authorId: 'character:' + char.id + ':handle:' + id, source: 'ai',
         };
@@ -1550,6 +1551,7 @@ const SocialApp: React.FC = () => {
                     isCollected: false,
                     isLiked: false,
                     comments: uniqueGeneratedSocialComments([], prefilled),
+                    sparkInitialCommentsHandled: true,
                     timestamp: Date.now(),
                     tags: ['Life', 'Vlog'],
                     bgStyle: getRandomStyle().bg,
@@ -1776,7 +1778,8 @@ const SocialApp: React.FC = () => {
 
         if (!post || !apiConfig.apiKey) return;
         const livePost = feedRef.current.find(item => item.id === post.id);
-        if (!livePost || livePost.comments.some(comment => comment.authorType !== 'user' && comment.authorId !== 'user')) return;
+        if (!livePost || livePost.sparkInitialCommentsHandled ||
+            livePost.comments.some(comment => comment.authorType !== 'user' && comment.authorId !== 'user')) return;
         if (commentRequestRef.current?.postId === post.id) return;
         commentRequestRef.current?.controller.abort();
         const controller = new AbortController();
@@ -1849,6 +1852,11 @@ ${post.content || '(楼主没写正文)'}
             if (inboxCount > 0 && combinedResult.incomingDMs.length) {
                 acceptGeneratedIncomingDMs(post, combinedResult.incomingDMs, inboxCount, feedLoadGenerationRef.current);
             }
+            // A completed paid attempt is final even when the model returns no valid
+            // commenters: reopening the same post must never silently bill again.
+            if (!controller.signal.aborted) updatePostInFeed(post.id, current => ({
+                ...current, sparkInitialCommentsHandled: true,
+            }));
             if (commentsJson.length) {
                 const comments: SocialComment[] = commentsJson
                     .flatMap((c: any) => {
@@ -2235,7 +2243,8 @@ ${buildSparkCommentHistory(post)}
         if (updatedCommunity !== communityRef.current) writeCommunity(updatedCommunity);
         learnInterest(livePost, 0.3);
         // Quick accidental opens should not incur an API bill.
-        if (!livePost.comments.some(comment => comment.authorType !== 'user' && comment.authorId !== 'user')) {
+        if (!livePost.sparkInitialCommentsHandled &&
+            !livePost.comments.some(comment => comment.authorType !== 'user' && comment.authorId !== 'user')) {
             commentOpenTimerRef.current = window.setTimeout(() => {
                 commentOpenTimerRef.current = null;
                 if (mountedRef.current && lastOpenedPostIdRef.current === livePost.id) void generateComments(livePost);
