@@ -205,6 +205,9 @@ const SocialApp: React.FC = () => {
                 handleId, displayName: post.authorName, avatar: post.authorAvatar,
             }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2), post.timestamp);
             state = result.state;
+            const owner = type === 'character' ? characters.find(char => char.id === post.authorCharId) : undefined;
+            const safeAvatar = owner && handleId ? getSparkAuthorAvatar(owner, post.authorName, characterHandles, handleId) : undefined;
+            const authorAvatar = safeAvatar && owner && post.authorAvatar === owner.avatar ? safeAvatar : post.authorAvatar;
             const comments = (post.comments || []).map(comment => {
                 const commentType: SparkAccountType = comment.authorType || (comment.authorCharId ? 'character' : comment.id.startsWith('cmt-user-') ? 'user' : 'stranger');
                 const commentHandles = comment.authorCharId ? (characterHandles[comment.authorCharId] || []) : [];
@@ -215,9 +218,12 @@ const SocialApp: React.FC = () => {
                     handleId: commentHandleId, displayName: comment.authorName, avatar: comment.authorAvatar,
                 }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2), comment.timestamp || post.timestamp);
                 state = registeredComment.state;
-                return { ...comment, authorId: registeredComment.account.id, authorType: registeredComment.account.type };
+                const commentOwner = commentType === 'character' ? characters.find(char => char.id === comment.authorCharId) : undefined;
+                const safeCommentAvatar = commentOwner && commentHandleId ? getSparkAuthorAvatar(commentOwner, comment.authorName, characterHandles, commentHandleId) : undefined;
+                const commentAvatar = safeCommentAvatar && commentOwner && comment.authorAvatar === commentOwner.avatar ? safeCommentAvatar : comment.authorAvatar;
+                return { ...comment, authorId: registeredComment.account.id, authorType: registeredComment.account.type, authorAvatar: commentAvatar };
             });
-            return { ...post, authorId: result.account.id, authorType: result.account.type, comments,
+            return { ...post, authorId: result.account.id, authorType: result.account.type, authorAvatar, comments,
                 source: post.source || (result.account.type === 'user' ? 'user' : 'legacy') } as SocialPost;
         });
         if (state !== communityRef.current) writeCommunity(state);
