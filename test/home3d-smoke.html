@@ -199,6 +199,30 @@ function texture(color){
    }
    report.lowBeds[assetId]=checked;
   }
+  // Exercise the real delegated UI commands, not a fabricated state restore:
+  // decorative commits followed by undo/redo MUST retain the reached floor
+  // position after bed exit instead of respawning at the room entrance.
+  const command=(name,params={})=>{
+   const button=document.createElement('button');
+   button.dataset.action=name;
+   for(const [k,v]of Object.entries(params))button.dataset[k]=String(v);
+   document.querySelector('.h3-ui').appendChild(button);
+   button.click();button.remove();
+  };
+  const ground=editor.inspect().residentPositions?.[0]?.position;
+  if(!ground)throw Error('Standing position unavailable for undo/redo fixture');
+  command('house-theme',{value:'0'});
+  const afterEdit=editor.inspect().residentPositions?.[0]?.position;
+  command('undo');
+  const afterUndo=editor.inspect().residentPositions?.[0]?.position;
+  command('redo');
+  const afterRedo=editor.inspect().residentPositions?.[0]?.position;
+  const delta=(a,b)=>a&&b?Math.hypot(...a.map((v,i)=>v-b[i])):Infinity;
+  report.layoutHistory={
+   initial:ground,afterEdit,afterUndo,afterRedo,
+   preserved:delta(ground,afterEdit)<.05&&delta(ground,afterUndo)<.05&&delta(ground,afterRedo)<.05
+  };
+  if(!report.layoutHistory.preserved)throw Error('Decorative undo/redo displaced the standing resident from their reached bed exit');
   const scene=editor.inspect();
   report.posture=scene.chibiPosture;
   report.position=scene.residentPositions?.[0]?.position?.map(n=>Math.round(n*100)/100);
