@@ -107,8 +107,8 @@ describe('Spark alt profile privacy', () => {
 describe('Spark public request worldbook isolation', () => {
     it('never injects private worldbook content into a shared public generation request', async () => {
         const { buildSparkGenerationRequestMessages } = await import('./socialGeneration');
-        const privateA = { ...a, mountedWorldbooks: [{ id: 'secret-a', title: '私人世界书A', entries: [{ content: '甲角色不公开的秘密内容' }] }] };
-        const privateB = { ...b, mountedWorldbooks: [{ id: 'secret-b', title: '私人世界书B', entries: [{ content: '乙角色不公开的秘密内容' }] }] };
+        const privateA = { ...a, mountedWorldbooks: [{ id: 'secret-a', title: '私人世界书A', entries: [{ content: '甲角色不公开的秘密内容' }] }] } as unknown as CharacterProfile;
+        const privateB = { ...b, mountedWorldbooks: [{ id: 'secret-b', title: '私人世界书B', entries: [{ content: '乙角色不公开的秘密内容' }] }] } as unknown as CharacterProfile;
         const messages = buildSparkGenerationRequestMessages([privateA, privateB], user, '仅公开资料', '写两条公开帖子');
         expect(messages).toEqual([
             { role: 'system', content: '仅公开资料' },
