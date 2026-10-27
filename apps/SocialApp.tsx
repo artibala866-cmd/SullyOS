@@ -1842,7 +1842,9 @@ ${post.content || '(楼主没写正文)'}
 - **绝对禁止** 生成 \`author\` 等于或近似 "${socialProfile.name}" (用户) 的评论。
 - 路人评论的 \`author\` 必须是全新的网名，绝对不能与上方【角色身份库】中列出的任何马甲网名重合。
 
-### 输出格式 (JSON Array)
+### 输出格式
+${inboxCount > 0 ? '若还要生成来信，最终只输出一个带 comments、incomingDMs 两字段的 JSON 对象。' : '只输出一个 JSON 评论数组。'}
+评论数组项的格式如下：
 [
   { "author": "网名 (Handle) 或 路人昵称", "charId": "角色ID或null", "content": "评论内容..." }
 ]`;
