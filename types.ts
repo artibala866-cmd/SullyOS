@@ -3722,6 +3722,10 @@ export interface SocialComment {
     content: string;
     likes: number;
     isCharacter?: boolean;
+    /** Whether the local user has liked this specific comment. */
+    isLiked?: boolean;
+    /** Optional parent comment, keeping public reply chains distinct from private messages. */
+    replyToId?: string;
     authorType?: 'user' | 'character' | 'stranger';
     authorCharId?: string;
 }
