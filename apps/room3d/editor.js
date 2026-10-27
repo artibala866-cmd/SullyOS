@@ -1850,7 +1850,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(visitorActivity?.bathJourney&&['chibi-hug','chibi-kitchen','chibi-game','chibi-mirror','chibi-bath','fridge-toggle','chibi-water','chibi-sit','chibi-bed'].includes(d.action)){
    notify('先完成卫浴的安全退出过程，再操作其它家具',true);return;
   }
-  if(seatChange&&['chibi-hug','chibi-kitchen','chibi-game','chibi-mirror','chibi-bath','chibi-game-stop','fridge-toggle'].includes(d.action)){
+  if(seatChange&&['chibi-water','chibi-sit','chibi-stand','chibi-motion','chibi-bed','chibi-hug','chibi-kitchen','chibi-game','chibi-mirror','chibi-bath','chibi-game-stop','fridge-toggle'].includes(d.action)){
    notify('人物正在坐下或起身，请先完成当前动作',true);return;
   }
   if(!['zoom','turn-view'].includes(d.action))closeInteraction();
