@@ -76,6 +76,17 @@ function texture(color){
    report.seat=!!state.chibiSeat&&!state.seatChange;
   }
   if(!report.seat)throw Error('Character failed seat transition even under 20Hz controlled simulation');
+  // Regression for template mutators that clear visitorSeat before editing:
+  // a failed whole-room replacement must leave the same actor in the same
+  // original chair, and the draft scene must NOT be committed.
+  const blockedTemplate=document.createElement('button');
+  blockedTemplate.dataset.action='full-living';
+  document.querySelector('.h3-ui').appendChild(blockedTemplate);
+  blockedTemplate.click();blockedTemplate.remove();
+  const postTemplate=editor.inspect(),furnitureAfter=editor.getHomeScene().furniture;
+  report.occupiedTemplateRejected=postTemplate.chibiSeat?.itemId==='smoke-chair'&&
+   furnitureAfter.some(x=>x.id==='smoke-chair');
+  if(!report.occupiedTemplateRejected)throw Error('Blocked template replacement displaced occupied chair or changed layout');
   // A seat is not completed until the same actor can rise, reclaim its floor
   // access and sit down again without a stale occupied slot.
   const stand=editor.getHomeScene().actions.find(a=>a.kind==='stand');
