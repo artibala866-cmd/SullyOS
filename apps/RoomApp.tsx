@@ -27,15 +27,16 @@ const RoomApp:React.FC=()=>{
  const [homeReadyCharId,setHomeReadyCharId]=useState<string|null>(null);
  const handleHomeReady=useCallback((ready:boolean)=>setHomeReadyCharId(ready?selected:null),[selected]);
  useLayoutEffect(()=>{
+  const charId=selected;
   setDreamPlacement(null);
-  if(!charForRail(selected,characters)||homeReadyCharId!==selected)return;
+  if(!charId||!charForRail(charId,characters)||homeReadyCharId!==charId)return;
   const shell=shellRef.current;
   if(!shell)return;
   let frame=0,observedRail:HTMLElement|null=null;
   let railMutation:MutationObserver|undefined;
   const update=()=>{
    frame=0;
-   if(!charForRail(selected,characters)||homeReadyCharId!==selected){setDreamPlacement(null);return;}
+   if(!charForRail(charId,characters)||homeReadyCharId!==charId){setDreamPlacement(null);return;}
    const rail=shell.querySelector<HTMLElement>('.h3-resident-rail');
    if(!rail||rail.hidden||!rail.getClientRects().length){setDreamPlacement(null);return;}
    const shellRect=shell.getBoundingClientRect(),railRect=rail.getBoundingClientRect();
@@ -52,8 +53,8 @@ const RoomApp:React.FC=()=>{
    const top=findDreamEntryTop({shell:shellRect,rail:railRect,blockedRects,buttonHeight:48,gap:12,safeTop:72,safeBottom:16});
    setDreamPlacement(previous=>{
     if(top===null)return null;
-    if(previous?.charId===selected&&previous.top===top)return previous;
-    return {charId:selected,top};
+    if(previous?.charId===charId&&previous.top===top)return previous;
+    return {charId,top};
    });
   };
   const schedule=()=>{if(frame)cancelAnimationFrame(frame);frame=requestAnimationFrame(update);};
