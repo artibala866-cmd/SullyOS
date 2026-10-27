@@ -1242,7 +1242,10 @@ const SocialApp: React.FC = () => {
             }));
             const publicAccounts = communityRef.current.accounts.filter(account => account.type === 'stranger')
                 .slice(-15).map(account => ({ id: account.id, handle: account.displayName, interests: account.interests }));
-            const previousEvents = communityRef.current.events.slice(-12)
+            const visiblePostIds = new Set(feedRef.current.map(item => item.id));
+            const previousEvents = communityRef.current.events
+                .filter(event => !event.postId || visiblePostIds.has(event.postId))
+                .slice(-12)
                 .map(event => ({ kind: event.type, postId: event.postId, createdAt: event.createdAt }));
             const prompt = [
                 '你安排 SullyOS 内 Spark 虚拟社区的少量自主活动；绝不能访问或控制真实小红书。',
@@ -1762,6 +1765,19 @@ ${buildSparkCommentHistory(post)}
             feedRef.current = [];
             setFeed([]);
             setSelectedPost(null);
+            const currentCommunity = communityRef.current;
+            writeCommunity({
+                ...currentCommunity,
+                seenPostIds: [],
+                hiddenPostIds: [],
+                notifications: currentCommunity.notifications.filter(item => !item.postId),
+                events: currentCommunity.events.filter(item => !item.postId),
+            });
+            setHiddenPostIds([]);
+            try { localStorage.removeItem('spark_hidden_posts'); } catch { /* local cache is optional */ }
+            setPostTraffic({});
+            trafficRef.current = {};
+            try { localStorage.removeItem('spark_post_traffic'); } catch { /* local cache is optional */ }
             setNotices(prev => {
                 const next = prev.filter(item => !item.postId);
                 localStorage.setItem('spark_notifications', JSON.stringify(next));
