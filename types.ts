@@ -3758,6 +3758,9 @@ export interface SocialPost {
     topicIds?: string[];
     likedByAccountIds?: string[];
     collectedByAccountIds?: string[];
+    /** This post has already had its initial AI comments generated or included in a paid batch.
+     * Even an empty result must not cause another automatic API call on every open. */
+    sparkInitialCommentsHandled?: boolean;
 }
 
 export interface SubAccount {
