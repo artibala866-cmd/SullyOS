@@ -25,7 +25,10 @@ export function bedEntry(seat,map,offset=[0,0],{preferred=null,allowAlternate=tr
  const dz=seat.position?Math.sin(spec.itemRotation)*(seat.position[0]-spec.center[0])+Math.cos(spec.itemRotation)*(seat.position[2]-spec.center[2])+(seat.sleepStart?.[2]??0):.7;
  // Do not enter from the opposite side and slide a seated resident across the
  // whole mattress to the selected sleeping slot.
- for(const side of [spec.side,-spec.side])for(const z of [dz,.7,1.1,-.2].filter(z=>Math.abs(z-dz)<=.45))for(const gap of [.55,.8,1.05]){
+ // Reject opposite-side entry: it would carry the pelvis through the entire
+ // mattress to a slot authored for the other side. Keep the correct side and
+ // vary only reachable distances along it.
+ for(const side of [spec.side])for(const z of [dz,.7,1.1,-.2].filter(z=>Math.abs(z-dz)<=.45))for(const gap of [.55,.8,1.05]){
   const x=side*(spec.halfWidth+gap),p=[spec.center[0]+c*x+s*z,.18,spec.center[2]-s*x+c*z];
   if(map.free(p[0]+offset[0],p[2]+offset[1]))return p;
  }
