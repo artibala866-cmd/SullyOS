@@ -78,8 +78,12 @@ export function standingFurnitureChange(before,after,catalog,actor){
  const next=after?.rooms?.find(r=>r.id===actor.roomId);
  if(!old||!next)return '';
  const half=Math.max(.28,actor.width/2),x=actor.x,z=actor.z;
- const body=[x-.27,.18,z-.27,x+.27,1.15,z+.27],
-  head=[x-half,.72,z-half,x+half,1.95,z+half];
+ // Derive vertical collision from the ACTIVE rig's walking clearance. A low
+ // resident must not be blocked by an object high above its actual head.
+ const headBottom=Number.isFinite(actor.headBottom)?Math.max(.45,actor.headBottom):.72,
+  headTop=Number.isFinite(actor.headTop)?Math.max(headBottom+.05,actor.headTop):1.95;
+ const body=[x-.27,.18,z-.27,x+.27,headBottom,z+.27],
+  head=[x-half,headBottom,z-half,x+half,headTop,z+half];
  const overlaps=(a,b)=>a[0]<b[3]&&a[3]>b[0]&&a[1]<b[4]&&a[4]>b[1]&&a[2]<b[5]&&a[5]>b[2];
  for(const candidate of next.items.filter(i=>!i.stored)){
   const original=old.items.find(i=>i.id===candidate.id);
