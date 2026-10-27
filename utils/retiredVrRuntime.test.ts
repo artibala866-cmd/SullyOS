@@ -5,6 +5,12 @@ import { describe, expect, it } from 'vitest';
 const source = (path: string): string => readFileSync(resolve(process.cwd(), path), 'utf8');
 
 describe('retired 彼方 isolation', () => {
+  it('does not forward removed Animal Crossing appearance props to group chat', () => {
+    const code = source('apps/GroupChat.tsx');
+    expect(code).not.toContain('acnhChatSync');
+    expect(code).not.toContain("skin === 'animalcrossing'");
+    expect(code).not.toContain('acnh={');
+  });
   it('never injects the old VR game in normal AI prompts or returns legacy VR cards', () => {
     const code = source('utils/chatPrompts.ts');
     expect(code).not.toContain('### 关于《彼方》');
