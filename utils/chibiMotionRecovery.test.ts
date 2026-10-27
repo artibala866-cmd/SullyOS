@@ -1,6 +1,6 @@
 import {it,expect} from 'vitest';
 import * as T from 'three';
-import {sampleSocialApproach} from '../apps/room3d/chibi/selectedSocial';
+import {sampleSocialApproach,socialBodyCollisionRadii} from '../apps/room3d/chibi/selectedSocial';
 import {boundArmWristReach} from '../apps/room3d/chibi/socialContact';
 import {motionContactProfiles} from '../apps/room3d/chibi/motionContactProfiles';
 import {motionTemplateConstraintPlans,motionTemplateFor} from '../apps/room3d/chibi/motionTemplates';
@@ -86,4 +86,17 @@ it('clamps unreachable arm contacts to real segment reach without moving the per
  expect(normal.clamped).toBe(false);
  expect(normal.target).toEqual(reachable);
  expect(normal.target).not.toBe(reachable);
+});
+it('generic torso and head contact proxy radii follow actual world-scale shoulders',()=>{
+ const small=socialBodyCollisionRadii(.45),normal=socialBodyCollisionRadii(.8),tall=socialBodyCollisionRadii(1.2);
+ for(const region of ['hips','chest','head'] as const){
+  expect(small[region]).toBeLessThan(normal[region]);
+  expect(normal[region]).toBeLessThan(tall[region]);
+  expect(Number.isFinite(tall[region])).toBe(true);
+  expect(socialBodyCollisionRadii(.8)[region]).toBeCloseTo(normal[region],9);
+ }
+ expect(socialBodyCollisionRadii(.8,1.25).head).toBeGreaterThan(normal.head);
+ expect(socialBodyCollisionRadii(.8,1.25).chest).toBe(normal.chest);
+ expect(socialBodyCollisionRadii(0).chest).toBeGreaterThan(0);
+ expect(socialBodyCollisionRadii(Number.NaN).head).toBeGreaterThan(0);
 });
