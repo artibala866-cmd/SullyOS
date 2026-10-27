@@ -53,7 +53,7 @@ describe('social feed race-safe merging', () => {
 
 describe('Spark ownership and comment reactions', () => {
     it('only allows deleting user-authored posts, with a legacy ownership fallback', () => {
-        expect(canDeleteSocialPost(post('user-post') as SocialPost & { authorType: 'user' } as SocialPost, '雨的账号')).toBe(false);
+        expect(canDeleteSocialPost(post('not-owned'), '雨的账号')).toBe(false);
         const own = { ...post('own'), authorName: '雨的账号', authorType: 'user' as const };
         const legacyOwn = { ...post('legacy-own'), authorName: '雨的账号' };
         const characterPost = { ...post('character'), authorName: '角色马甲', authorType: 'character' as const };
