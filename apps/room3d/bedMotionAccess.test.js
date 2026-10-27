@@ -74,7 +74,9 @@ describe('shared bed access for legacy and skeletal residents',()=>{
   expect(source).toContain("const bedProfile=seatTransform(placementRoom(),catalog,bed,!!visitor?.rig)?.bed;");
   expect(source).toContain("approachBed(bed,d.recordSource);return;");
   expect(source).not.toContain("visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';visitorStart=elapsed;visitorUntil=elapsed+4.4;beginSeatChange(false);");
-  expect(source).toContain("if(visitorSeat&&(visitor?.rig||visitorSeat.bed)&&!beginSeatChange(true))");
+  expect(source).toContain("if(visitorSeat&&!beginSeatChange(true))");
+  expect(source).not.toContain("if(visitorSeat&&!visitor?.rig&&!visitorSeat.bed){visitorSeat=null;");
+  expect(source).toContain("if(!beginSeatChange(false,front)){visitorSeat=null;");
   expect(source).toContain('parkedSeatAccess:seatAccess');
   expect(source).toContain('seatAccess=snapshot?.parkedSeatAccess||null');
   expect(source).toContain('visitorSeat=null;seatAccess=null;visitorPlant=null');
