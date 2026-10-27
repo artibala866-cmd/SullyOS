@@ -319,7 +319,7 @@ const SocialApp: React.FC = () => {
                 account.displayName === target.handle || account.aliases.includes(target.handle));
             const knownOwnerIds = [...new Set(registered.map(account => account.ownerCharId).filter(Boolean))];
             // Never arbitrarily select the first role when different characters share one public handle.
-            if (candidates.length > 1 || knownOwnerIds.length > 1) {
+            if (candidates.length > 1 || knownOwnerIds.length > 1 || registered.length > 1) {
                 throw new Error('多个角色使用相同网名，无法确定私信对象。请先区分账号昵称');
             }
             const owner = knownOwnerIds.length === 1
