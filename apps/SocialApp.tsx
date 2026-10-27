@@ -14,7 +14,7 @@ import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
-import { mergeSocialComments, prependUniqueSocialPosts, updateSocialPost } from '../utils/socialFeedMerge';
+import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost } from '../utils/socialFeedMerge';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
 
@@ -482,6 +482,7 @@ const SocialApp: React.FC = () => {
     const refreshRequestRef = useRef<AbortController | null>(null);
     const commentRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
+    const replyQueueRef = useRef<{ post: SocialPost; content: string }[]>([]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -493,6 +494,7 @@ const SocialApp: React.FC = () => {
             refreshRequestRef.current = null;
             commentRequestRef.current = null;
             replyRequestRef.current = null;
+            replyQueueRef.current = [];
         };
     }, []);
 
@@ -904,8 +906,7 @@ const SocialApp: React.FC = () => {
                 if (matchedChar) avatar = matchedChar.avatar;
                 const isCharacterPost = !!matchedChar;
                 if (!isCharacterPost) {
-                    const seeds = ['micah', 'avataaars', 'bottts', 'notionists'];
-                    avatar = stockAvatar?.url || `https://api.dicebear.com/7.x/${seeds[Math.floor(Math.random() * seeds.length)]}/svg?seed=${item.authorName + Math.random()}`;
+                    avatar = stockAvatar?.url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(item.authorName)}`;
                 }
                 // Normalize emoji content. AI usually returns real emoji chars; fall back to a ✨ char (not codepoint) for safety.
                 const rawEmojis = Array.isArray(item.emojis) && item.emojis.length > 0 ? item.emojis : ['✨'];
@@ -917,7 +918,7 @@ const SocialApp: React.FC = () => {
                     title: typeof item.title === 'string' ? item.title : '无标题',
                     content: item.content || '...',
                     images,
-                    likes: item.likes || 0,
+                    likes: 0,
                     isCollected: false,
                     isLiked: false,
                     comments: [],
@@ -1021,37 +1022,19 @@ ${post.content || '(楼主没写正文)'}
                             authorName: authorName,
                             authorAvatar: avatar,
                             content: c.content || '...',
-                            likes: Math.floor(Math.random() * 100),
+                            likes: 0,
                             isCharacter: !!char,
                             authorType: char ? 'character' : 'stranger',
                             authorCharId: char?.id,
                         } as SocialComment];
                     });
-                // One public comment per character per post, including across different aliases.
-                const seenCharacters = new Set((feedRef.current.find(item => item.id === post.id)?.comments || []).map(item => item.authorCharId).filter(Boolean));
-                const seenStrangers = new Set((feedRef.current.find(item => item.id === post.id)?.comments || []).map(item => item.authorName));
-                const uniqueComments = uniqueComments.filter(comment => {
-                    if (comment.authorCharId) {
-                        if (seenCharacters.has(comment.authorCharId)) return false;
-                        seenCharacters.add(comment.authorCharId);
-                    } else {
-                        if (seenStrangers.has(comment.authorName)) return false;
-                        seenStrangers.add(comment.authorName);
-                    }
-                    return true;
-                });
+                // Repeat speakers are allowed; only replayed text is deduplicated.
+                const uniqueComments = uniqueGeneratedSocialComments(feedRef.current.find(item => item.id === post.id)?.comments || [], comments);
                 if (!uniqueComments.length) return;
                 updatePostInFeed(post.id, current => ({
                     ...current,
                     comments: mergeSocialComments(current.comments || [], uniqueComments),
                 }));
-                if (post.authorType === 'user') {
-                    // A named commenter may also like the post; this is a separate simulated action.
-                    uniqueComments.filter(comment => comment.authorType !== 'user').forEach(comment => {
-                        if (Math.random() < 0.45) registerSimulatedInteraction({ id: comment.authorCharId || 'npc:' + comment.authorName, name: comment.authorName, avatar: comment.authorAvatar }, post, 'likes');
-                        if (Math.random() < 0.12) registerSimulatedInteraction({ id: comment.authorCharId || 'npc:' + comment.authorName, name: comment.authorName, avatar: comment.authorAvatar }, post, 'follows');
-                    });
-                }
                 if (post.authorType === 'user') addNotices(uniqueComments.filter(comment => comment.authorType !== 'user').map(comment => ({
                     id: 'comment:' + comment.id, kind: 'comments' as const, actor: comment.authorName,
                     avatar: comment.authorAvatar, content: comment.content, postId: post.id, time: Date.now(), read: false,
@@ -1070,7 +1053,7 @@ ${post.content || '(楼主没写正文)'}
     const generateRepliesToUser = async (post: SocialPost, userContent: string) => {
 
         if (!apiConfig.apiKey) return;
-        if (replyRequestRef.current) return;
+        if (replyRequestRef.current) { replyQueueRef.current.push({ post, content: userContent }); return; }
         const controller = new AbortController();
         replyRequestRef.current = { postId: post.id, controller };
         post = feedRef.current.find(item => item.id === post.id) || post;
@@ -1137,20 +1120,13 @@ ${buildSparkCommentHistory(post)}
                             authorName: authorName,
                             authorAvatar: avatar,
                             content: `回复 @${socialProfile.name}: ${c.content}`,
-                            likes: Math.floor(Math.random() * 10),
+                            likes: 0,
                             isCharacter: !!char,
                             authorType: char ? 'character' : 'stranger',
                             authorCharId: char?.id,
                         } as SocialComment];
                     });
-                // A character gets at most one public reply on this post; use DMs for further conversation.
-                const existingCharIds = new Set((feedRef.current.find(item => item.id === post.id)?.comments || []).map(item => item.authorCharId).filter(Boolean));
-                const publicReplies = newReplies.filter(reply => {
-                    if (!reply.authorCharId) return true;
-                    if (existingCharIds.has(reply.authorCharId)) return false;
-                    existingCharIds.add(reply.authorCharId);
-                    return true;
-                });
+                const publicReplies = uniqueGeneratedSocialComments(feedRef.current.find(item => item.id === post.id)?.comments || [], newReplies);
                 if (!publicReplies.length) return;
                 if (publicReplies.length > 0) {
                     updatePostInFeed(post.id, current => ({
@@ -1174,6 +1150,8 @@ ${buildSparkCommentHistory(post)}
             if (replyRequestRef.current?.controller === controller) {
                 replyRequestRef.current = null;
                 if (mountedRef.current) setIsReplyingToUser(false);
+                const next = replyQueueRef.current.shift();
+                if (next && mountedRef.current) void generateRepliesToUser(next.post, next.content);
             }
         }
     };
@@ -1278,7 +1256,6 @@ ${buildSparkCommentHistory(post)}
     
     const handleSendComment = async () => { 
         if (!selectedPost || !commentInput.trim()) return; 
-        if (commentRequestRef.current?.postId === selectedPost.id || replyRequestRef.current) return;
 
         const userComment: SocialComment = {
                 id: `cmt-user-${Date.now()}`,
@@ -1298,7 +1275,7 @@ ${buildSparkCommentHistory(post)}
         if (selectedPost.authorType === 'character') remember(selectedPost.authorCharId, selectedPost, '自己的公开笔记收到评论：' + userComment.content);
         const contentToSend = commentInput; 
         setCommentInput(''); 
-        await generateRepliesToUser(updatedPost, contentToSend); 
+        void generateRepliesToUser(updatedPost, contentToSend); 
     };
 
     const handleOpenPost = (post: SocialPost) => {
@@ -1322,6 +1299,7 @@ ${buildSparkCommentHistory(post)}
         refreshRequestRef.current = null;
         commentRequestRef.current = null;
         replyRequestRef.current = null;
+        replyQueueRef.current = [];
         setIsRefreshing(false);
         setLoadingComments(false);
         setIsReplyingToUser(false);
@@ -1448,8 +1426,8 @@ ${buildSparkCommentHistory(post)}
                                             <div className="flex justify-between items-start">
                                                 <span className={`text-xs font-bold ${c.isCharacter ? 'text-slate-800' : 'text-slate-500'}`}>{c.authorName}</span>
                                                 <div className="flex items-center gap-1 text-slate-400 cursor-pointer hover:text-[#555555]">
-                                                    <button type="button" aria-label="点赞评论" onClick={() => updatePostInFeed(selectedPost.id, current => ({ ...current, comments: current.comments.map(item => item.id === c.id ? { ...item, likes: item.likes + 1 } : item) }))}>
-                                        <Icons.Heart filled={false} className="w-3.5 h-3.5" />
+                                                    <button type="button" aria-label={c.isLiked ? '取消点赞评论' : '点赞评论'} onClick={() => updatePostInFeed(selectedPost.id, current => ({ ...current, comments: current.comments.map(item => item.id === c.id ? toggleSocialCommentLike(item) : item) }))}>
+                                        <Icons.Heart filled={!!c.isLiked} className="w-3.5 h-3.5" />
                                     </button>
                                                     <span className="text-[10px]">{c.likes}</span>
                                                 </div>
@@ -1475,11 +1453,11 @@ ${buildSparkCommentHistory(post)}
                                     value={commentInput}
                                     onChange={(e) => setCommentInput(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
-                                    disabled={loadingComments || isReplyingToUser}
+                                    
                                     placeholder="说点什么..."
                                     className="bg-transparent text-sm w-full outline-none text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
                                 />
-                                {commentInput.trim() && <button disabled={loadingComments || isReplyingToUser} onClick={handleSendComment} className="text-[#555555] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
+                                {commentInput.trim() && <button  onClick={handleSendComment} className="text-[#555555] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
                             </div>
                             <button type="button" onClick={() => setShowCommentStickers(v => !v)} className="text-xs text-neutral-500 shrink-0">表情包</button>
                             <div className="flex gap-5 text-slate-600 shrink-0 items-center">
