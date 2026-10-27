@@ -1,5 +1,5 @@
 import { ContextBuilder } from '../utils/context';
-import { evaluateSparkTraffic, sparkTrafficKey, type SparkTraffic } from '../utils/sparkTraffic';
+import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSparkTrafficLocalDay, type SparkTraffic } from '../utils/sparkTraffic';
 import { chooseSparkStock } from '../utils/sparkStock';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
@@ -462,6 +462,7 @@ const SocialApp: React.FC = () => {
     
     const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isAutonomyBusy, setIsAutonomyBusy] = useState(false);
     const feedScrollRef = useRef<HTMLDivElement>(null);
     const pullStartY = useRef<number | null>(null);
     const [pullDistance, setPullDistance] = useState(0);
@@ -597,11 +598,13 @@ const SocialApp: React.FC = () => {
     const feedRef = useRef<SocialPost[]>([]);
     const mountedRef = useRef(true);
     const refreshRequestRef = useRef<AbortController | null>(null);
+    const autonomyRequestRef = useRef<AbortController | null>(null);
     const commentRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyQueueRef = useRef<{ post: SocialPost; content: string }[]>([]);
     const feedLoadGenerationRef = useRef(0);
     const postPersistenceRef = useRef<Promise<void>>(Promise.resolve());
+    const autonomyTickRef = useRef<() => Promise<void>>(async () => {});
     const persistPostMutation = (write: () => Promise<unknown>): Promise<void> => {
         const running = postPersistenceRef.current.then(async () => { await write(); });
         // An individual write can fail, but must not permanently block later edits.
@@ -614,6 +617,7 @@ const SocialApp: React.FC = () => {
         return () => {
             mountedRef.current = false;
             refreshRequestRef.current?.abort();
+            autonomyRequestRef.current?.abort();
             commentRequestRef.current?.controller.abort();
             replyRequestRef.current?.controller.abort();
             refreshRequestRef.current = null;
@@ -1520,6 +1524,8 @@ ${buildSparkCommentHistory(post)}
 
     const handleClearFeed = () => {
         refreshRequestRef.current?.abort();
+        autonomyRequestRef.current?.abort();
+        autonomyRequestRef.current = null;
         commentRequestRef.current?.controller.abort();
         replyRequestRef.current?.controller.abort();
         refreshRequestRef.current = null;
