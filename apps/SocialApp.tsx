@@ -380,13 +380,31 @@ const SocialApp: React.FC = () => {
         DB.getSocialPosts().then(posts => {
             if (!mountedRef.current || feedLoadGenerationRef.current !== loadGeneration) return;
             if (posts.length > 0) {
-                const sorted = posts.sort((a,b) => b.timestamp - a.timestamp);
-                // IndexedDB can be slow on mobile. If the user already created
-                // something while this read was pending, keep that live version.
-                const liveIds = new Set(feedRef.current.map(post => post.id));
-                const next = [...feedRef.current, ...sorted.filter(post => !liveIds.has(post.id))];
+                let nextCommunity = communityStateRef.current;
+                const normalizedLive = feedRef.current.map(post => {
+                    const result = normalizeAndRegisterPost(post, nextCommunity);
+                    nextCommunity = result.state;
+                    return result.post;
+                });
+                const sorted = [...posts].sort((a, b) => b.timestamp - a.timestamp);
+                const normalizedSaved = sorted.map(post => {
+                    const result = normalizeAndRegisterPost(post, nextCommunity);
+                    nextCommunity = result.state;
+                    return result.post;
+                });
+                // Keep live versions of posts changed while the IndexedDB read was pending.
+                const liveIds = new Set(normalizedLive.map(post => post.id));
+                const next = [...normalizedLive, ...normalizedSaved.filter(post => !liveIds.has(post.id))];
                 feedRef.current = next;
                 setFeed(next);
+                if (nextCommunity !== communityStateRef.current) updateCommunityState(nextCommunity);
+                const originalById = new Map(posts.map(post => [post.id, post]));
+                normalizedSaved.forEach(post => {
+                    const original = originalById.get(post.id);
+                    if (original && JSON.stringify(original) !== JSON.stringify(post)) {
+                        void enqueueSocialPersistence(() => DB.saveSocialPost(post)).catch(error => console.error(error));
+                    }
+                });
             }
         }).catch(error => {
             if (mountedRef.current) addToast('读取 Spark 帖子失败：' + (error?.message || error), 'error');
