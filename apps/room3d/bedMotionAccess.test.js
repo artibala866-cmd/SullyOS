@@ -83,7 +83,8 @@ describe('shared bed access for legacy and skeletal residents',()=>{
   expect(restore.indexOf('finishSeatChangeForHandoff()')).toBeLessThan(restore.indexOf('snapshotFurniture()'));
   const handoff=source.slice(source.indexOf('function useFurnitureUser(){'),source.indexOf('function stopSocial()'));
   expect(handoff.indexOf('finishSeatChangeForHandoff()')).toBeLessThan(handoff.indexOf('snapshotFurniture()'));
-  const stand=source.slice(source.indexOf("if(d.action==='chibi-stand'"),source.indexOf("if(d.action==='chibi-motion'",source.indexOf("if(d.action==='chibi-stand'")));
+  const standStart=source.lastIndexOf("if(d.action==='chibi-stand'"),source.indexOf("function interactionOptions("));
+  const stand=source.slice(standStart,source.indexOf("if(d.action==='chibi-motion'",standStart));
   expect(stand.indexOf('!beginSeatChange(true)')).toBeLessThan(stand.indexOf("visitorMotion='idle'"));
  });
 });
