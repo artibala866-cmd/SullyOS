@@ -204,9 +204,9 @@ export function normalizeSparkCommunityState(raw: unknown): SparkCommunityState 
         })
         : [];
 
-    const autonomy = value.autonomy && typeof value.autonomy === 'object' ? value.autonomy : {};
-    const maxCalls = Number.isFinite(autonomy.maxCallsPerDay) ? Math.max(0, Math.min(3, autonomy.maxCallsPerDay)) : 3;
-    const interval = Number.isFinite(autonomy.minIntervalHours) ? Math.max(1, Math.min(48, autonomy.minIntervalHours)) : 6;
+    const autonomy: Partial<SparkAutonomySettings> = value.autonomy && typeof value.autonomy === 'object' ? value.autonomy : {};
+    const maxCalls = Number.isFinite(autonomy.maxCallsPerDay) ? Math.max(0, Math.min(3, Number(autonomy.maxCallsPerDay))) : 3;
+    const interval = Number.isFinite(autonomy.minIntervalHours) ? Math.max(1, Math.min(48, Number(autonomy.minIntervalHours))) : 6;
     return {
         version: 1,
         accounts,
@@ -221,9 +221,9 @@ export function normalizeSparkCommunityState(raw: unknown): SparkCommunityState 
             enabled: autonomy.enabled === true,
             minIntervalHours: interval,
             maxCallsPerDay: maxCalls,
-            ...(Number.isFinite(autonomy.lastRunAt) ? { lastRunAt: autonomy.lastRunAt } : {}),
+            ...(Number.isFinite(autonomy.lastRunAt) ? { lastRunAt: Number(autonomy.lastRunAt) } : {}),
             ...(typeof autonomy.lastRunDay === 'string' ? { lastRunDay: autonomy.lastRunDay } : {}),
-            callsToday: Number.isFinite(autonomy.callsToday) ? Math.max(0, Math.min(maxCalls, autonomy.callsToday)) : 0,
+            callsToday: Number.isFinite(autonomy.callsToday) ? Math.max(0, Math.min(maxCalls, Number(autonomy.callsToday))) : 0,
         },
     };
 }
