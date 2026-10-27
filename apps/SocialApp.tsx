@@ -1297,8 +1297,8 @@ const SocialApp: React.FC = () => {
     const generateComments = async (post: SocialPost) => {
 
         if (!post || !apiConfig.apiKey) return;
-        const livePost = feedRef.current.find(item => item.id === post.id) || post;
-        if (livePost.comments.length > 0) return;
+        const livePost = feedRef.current.find(item => item.id === post.id);
+        if (!livePost || livePost.comments.some(comment => comment.authorType !== 'user' && comment.authorId !== 'user')) return;
         if (commentRequestRef.current?.postId === post.id) return;
         commentRequestRef.current?.controller.abort();
         const controller = new AbortController();
@@ -1382,10 +1382,11 @@ ${post.content || '(楼主没写正文)'}
                 // Repeat speakers are allowed; only replayed text is deduplicated.
                 const uniqueComments = uniqueGeneratedSocialComments(feedRef.current.find(item => item.id === post.id)?.comments || [], comments);
                 if (!uniqueComments.length) return;
-                updatePostInFeed(post.id, current => ({
+                const updated = updatePostInFeed(post.id, current => ({
                     ...current,
                     comments: mergeSocialComments(current.comments || [], uniqueComments),
                 }));
+                if (!updated) return; // The user may have deleted or cleared the post meanwhile.
                 if (post.authorType === 'user') addNotices(uniqueComments.filter(comment => comment.authorType !== 'user').map(comment => ({
                     id: 'comment:' + comment.id, kind: 'comments' as const, actor: comment.authorName,
                     avatar: comment.authorAvatar, content: comment.content, postId: post.id, time: Date.now(), read: false,
@@ -1483,10 +1484,11 @@ ${buildSparkCommentHistory(post)}
                 const publicReplies = uniqueGeneratedSocialComments(feedRef.current.find(item => item.id === post.id)?.comments || [], newReplies);
                 if (!publicReplies.length) return;
                 if (publicReplies.length > 0) {
-                    updatePostInFeed(post.id, current => ({
+                    const updated = updatePostInFeed(post.id, current => ({
                         ...current,
                         comments: mergeSocialComments(current.comments || [], publicReplies),
                     }));
+                    if (!updated) return;
                     addNotices(publicReplies.map(reply => ({
                         id: 'reply:' + reply.id, kind: 'comments' as const, actor: reply.authorName,
                         avatar: reply.authorAvatar, content: reply.content, postId: post.id, time: Date.now(), read: false,
@@ -1523,6 +1525,7 @@ ${buildSparkCommentHistory(post)}
 
     const generateIncomingDMs = async (post: SocialPost) => {
         if (!apiConfig.apiKey) return;
+        const generation = feedLoadGenerationRef.current;
         const followers = Math.max(0, fanCountsRef.current.user || 0);
         // A small account can still receive a DM; larger accounts receive more, but capped per post.
         const chance = Math.min(0.88, 0.18 + Math.log10(followers + 1) * 0.14);
@@ -1543,7 +1546,9 @@ ${buildSparkCommentHistory(post)}
             if (!response.ok) throw new Error(await apiErrorMessage(response));
             const data = await safeResponseJson(response);
             const parsed = safeParseJSON(extractContent(data));
-            if (!Array.isArray(parsed)) return;
+            if (!Array.isArray(parsed) || !mountedRef.current ||
+                feedLoadGenerationRef.current !== generation ||
+                !feedRef.current.some(item => item.id === post.id)) return;
             const newPersonas: Record<string, string> = {};
             const newUnread: Record<string, number> = {};
             setDmThreads(prev => {
@@ -1568,6 +1573,7 @@ ${buildSparkCommentHistory(post)}
 
     const handleCreatePost = async () => {
         if (!newPostContent.trim() || publishingRef.current) return;
+        const generation = feedLoadGenerationRef.current;
         publishingRef.current = true;
         setIsPublishing(true);
         try {
@@ -1592,6 +1598,7 @@ ${buildSparkCommentHistory(post)}
         // Do not discard the draft until IndexedDB confirms the original post exists.
         const saved = registerSparkPosts([post])[0];
         await persistPostMutation(() => DB.saveSocialPost(saved));
+        if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
         prependPostsToFeed([saved], false);
         learnInterest(saved, 4);
         setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); setLocalPostImage('');
@@ -1694,6 +1701,7 @@ ${buildSparkCommentHistory(post)}
         setIsRefreshing(false);
         setLoadingComments(false);
         setIsReplyingToUser(false);
+        setIsAutonomyBusy(false);
         feedRef.current = [];
         setFeed([]);
         setSelectedPost(null);
