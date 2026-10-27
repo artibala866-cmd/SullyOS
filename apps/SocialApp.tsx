@@ -1153,6 +1153,134 @@ const SocialApp: React.FC = () => {
         }
     };
 
+
+    // Opt-in and strictly metered: runs only while Spark is mounted, never in the background.
+    const runSparkAutonomyTick = async () => {
+        if (!mountedRef.current || !communityRef.current.autonomy.enabled || !apiConfig.apiKey) return;
+        if (autonomyRequestRef.current || refreshRequestRef.current || commentRequestRef.current || replyRequestRef.current) return;
+        const reservation = reserveSparkTrafficRun(communityRef.current, Date.now());
+        if (!reservation.allowed) return;
+        // Reserve before the API call: even a timeout can consume the provider's quota.
+        writeCommunity(reservation.state);
+        const controller = new AbortController();
+        autonomyRequestRef.current = controller;
+        const generation = feedLoadGenerationRef.current;
+        setIsAutonomyBusy(true);
+        try {
+            const recentlyActive = new Set(feedRef.current.slice(0, 15).map(post => post.authorCharId).filter(Boolean));
+            const activeChars = characters.filter(char => recentlyActive.has(char.id));
+            const participants = [...activeChars, ...characters.filter(char => !recentlyActive.has(char.id))].slice(0, 2);
+            const context = participants.length ? await buildGenerationContext(participants) : '当前只有稳定的虚拟陌生网友参与 Spark 社区。';
+            if (controller.signal.aborted || !mountedRef.current || generation !== feedLoadGenerationRef.current) return;
+            const publicPosts = feedRef.current.slice(0, 12).map(post => ({
+                id: post.id, title: post.title, content: post.content.slice(0, 280),
+                authorName: post.authorName, tags: post.tags,
+                comments: post.comments.slice(-3).map(comment => ({ id: comment.id, author: comment.authorName, content: comment.content.slice(0, 120) })),
+            }));
+            const publicAccounts = communityRef.current.accounts.filter(account => account.type === 'stranger')
+                .slice(-15).map(account => ({ id: account.id, handle: account.displayName, interests: account.interests }));
+            const previousEvents = communityRef.current.events.slice(-12)
+                .map(event => ({ kind: event.type, postId: event.postId, createdAt: event.createdAt }));
+            const prompt = [
+                '你安排 SullyOS 内 Spark 虚拟社区的少量自主活动；绝不能访问或控制真实小红书。',
+                '本轮可返回 0 至 2 个自然事件，返回 [] 代表无人活动，允许保持沉默。只允许 kind=post 或 kind=comment。',
+                'post: {kind:"post",authorName:"公开网名",charId:"角色ID或null",title:"标题",content:"正文",tags:["话题"]}',
+                'comment: {kind:"comment",postId:"真实帖子ID",authorName:"公开网名",charId:"角色ID或null",content:"评论"}',
+                '角色必须使用已配置的网名与角色 ID；普通网友可复用有历史的账号，不必围绕用户发言。',
+                '继续已有话题时请引用已有真实帖子 ID；没有因果线索则分享独立日常，不凭空捏造过去的社交事件。',
+                '绝不代替用户发言，不公开任何私聊内容、世界书秘密、后台账号归属或马甲真身；角色之间记忆不得串台。',
+                '只有包含 JSON 数组的回复才有效；不要虚构点赞数、粉丝数、浏览数。',
+                '当前真实帖子: ' + JSON.stringify(publicPosts),
+                '已知稳定网友: ' + JSON.stringify(publicAccounts),
+                '最近社区事件: ' + JSON.stringify(previousEvents),
+            ].join('\n');
+            const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
+                body: JSON.stringify({
+                    model: apiConfig.model,
+                    messages: buildGenerationMessages(participants, context, prompt),
+                    temperature: 0.75,
+                }),
+                signal: controller.signal,
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '用户开启的社区自主活动' },
+            } as RequestInit);
+            if (!response.ok) throw new Error(await apiErrorMessage(response));
+            const result = safeParseJSON(extractContent(await safeResponseJson(response)));
+            if (!Array.isArray(result)) throw new Error('社区活动返回格式无效');
+            let created = 0;
+            for (const item of result.slice(0, 2)) {
+                if (controller.signal.aborted || !mountedRef.current || generation !== feedLoadGenerationRef.current || !communityRef.current.autonomy.enabled) return;
+                if (!item || (item.kind !== 'post' && item.kind !== 'comment') || typeof item.content !== 'string') continue;
+                const content = item.content.trim().slice(0, 1000);
+                if (!content) continue;
+                const author = resolveSparkAuthor(item, participants, characters, characterHandles, [socialProfile.name, userProfile.name]);
+                if (!author) continue;
+                const avatar = author.character?.avatar || 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(author.name);
+                const authorType = author.character ? 'character' as const : 'stranger' as const;
+                if (item.kind === 'post') {
+                    const title = typeof item.title === 'string' ? item.title.trim().slice(0, 100) : '';
+                    if (!title) continue;
+                    const tags = Array.isArray(item.tags)
+                        ? item.tags.filter((tag: unknown): tag is string => typeof tag === 'string')
+                            .map((tag: string) => tag.trim().slice(0, 24)).filter(Boolean).slice(0, 3) : [];
+                    const post: SocialPost = {
+                        id: 'autonomy-post-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                        authorName: author.name, authorAvatar: avatar, authorType, authorCharId: author.character?.id,
+                        title, content, tags: tags.length ? tags : ['日常'], images: [pickStock(title, content) || '✨'],
+                        likes: 0, comments: [], isLiked: false, isCollected: false, timestamp: Date.now(),
+                        bgStyle: getRandomStyle().bg, source: 'ai',
+                    };
+                    prependPostsToFeed([post]);
+                    remember(author.character?.id, post, '自己在 Spark 发布了笔记：' + content);
+                    created++;
+                } else {
+                    const post = feedRef.current.find(saved => saved.id === item.postId);
+                    if (!post) continue;
+                    const comment: SocialComment = {
+                        id: 'autonomy-comment-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                        authorName: author.name, authorAvatar: avatar, authorType, authorCharId: author.character?.id,
+                        isCharacter: !!author.character, content, likes: 0, timestamp: Date.now(),
+                    };
+                    if (!uniqueGeneratedSocialComments(post.comments || [], [comment]).length) continue;
+                    const changed = updatePostInFeed(post.id, current => ({
+                        ...current, comments: mergeSocialComments(current.comments || [], [comment]),
+                    }));
+                    if (!changed) continue;
+                    remember(author.character?.id, post, '自己在 Spark 评论了《' + post.title + '》：' + content);
+                    if (post.authorType === 'user') addNotices([{
+                        id: 'autonomy-notice:' + comment.id, kind: 'comments', actor: author.name,
+                        avatar, content, postId: post.id, time: Date.now(), read: false,
+                    }]);
+                    created++;
+                }
+            }
+            if (created) addToast('Spark 社区有 ' + created + ' 条新动态', 'info');
+        } catch (error: any) {
+            if (error?.name !== 'AbortError' && mountedRef.current) addToast('社区自主活动失败：' + (error?.message || error), 'error');
+        } finally {
+            if (autonomyRequestRef.current === controller) {
+                autonomyRequestRef.current = null;
+                if (mountedRef.current) setIsAutonomyBusy(false);
+            }
+        }
+    };
+    autonomyTickRef.current = runSparkAutonomyTick;
+
+    useEffect(() => {
+        if (!communityState.autonomy.enabled || !apiConfig.apiKey) return;
+        let active = true;
+        const tick = () => { if (active) void autonomyTickRef.current(); };
+        tick();
+        const interval = window.setInterval(tick, 5 * 60 * 1000);
+        return () => {
+            active = false;
+            window.clearInterval(interval);
+            autonomyRequestRef.current?.abort();
+        };
+    }, [communityState.autonomy.enabled, communityState.autonomy.maxCallsPerDay,
+        communityState.autonomy.minIntervalHours, apiConfig.apiKey, apiConfig.model, apiConfig.baseUrl]);
+
     const generateComments = async (post: SocialPost) => {
 
         if (!post || !apiConfig.apiKey) return;
