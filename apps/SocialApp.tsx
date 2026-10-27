@@ -405,12 +405,33 @@ const SocialApp: React.FC = () => {
     const [loadingComments, setLoadingComments] = useState(false);
     
     // Post Creation State
-    const [newPostTitle, setNewPostTitle] = useState('');
-    const [newPostContent, setNewPostContent] = useState('');
-    const [newPostEmoji, setNewPostEmoji] = useState('2728');
+    const readDraft = (): Record<string, string> => {
+        try {
+            const raw = JSON.parse(localStorage.getItem('spark_post_draft') || '{}');
+            return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        } catch { return {}; }
+    };
+    const [newPostTitle, setNewPostTitle] = useState(() => readDraft().title || '');
+    const [newPostContent, setNewPostContent] = useState(() => readDraft().content || '');
+    const [newPostEmoji, setNewPostEmoji] = useState(() => readDraft().emoji || '2728');
     const [stockImages, setStockImages] = useState<XhsStockImage[]>([]);
-    const [selectedStockUrl, setSelectedStockUrl] = useState('');
-    const [localPostImage, setLocalPostImage] = useState('');
+    const [selectedStockUrl, setSelectedStockUrl] = useState(() => readDraft().stockUrl || '');
+    const [localPostImage, setLocalPostImage] = useState(() => readDraft().localImage || '');
+    useEffect(() => {
+        try {
+            if (newPostTitle || newPostContent || selectedStockUrl || localPostImage) {
+                localStorage.setItem('spark_post_draft', JSON.stringify({
+                    title: newPostTitle, content: newPostContent, emoji: newPostEmoji,
+                    stockUrl: selectedStockUrl, localImage: localPostImage,
+                }));
+            } else localStorage.removeItem('spark_post_draft');
+        } catch (error) { console.warn('Spark draft backup failed', error); }
+    }, [newPostTitle, newPostContent, newPostEmoji, selectedStockUrl, localPostImage]);
+    const closeCreatePost = () => {
+        if ((newPostTitle.trim() || newPostContent.trim() || selectedStockUrl || localPostImage) &&
+            !window.confirm('保存当前草稿并退出发布？下次打开可以继续编辑。')) return;
+        setIsCreateOpen(false);
+    };
     const [showCommentStickers, setShowCommentStickers] = useState(false);
     const handleLocalPostPhoto = async (file?: File) => {
         if (!file) return;
@@ -1246,7 +1267,8 @@ ${buildSparkCommentHistory(post)}
         };
         prependPostsToFeed([post]);
         learnInterest(post, 4);
-        setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); setLocalPostImage(''); 
+        setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); setLocalPostImage('');
+        localStorage.removeItem('spark_post_draft');
         setIsCreateOpen(false); // Close Modal
         setActiveTab('home'); 
         addToast('发布成功，正在等待互动…', 'success');
@@ -1632,7 +1654,7 @@ ${buildSparkCommentHistory(post)}
                     {/* Create Header —— 自理安全区：外层扛 safe-top + 背景，内层保持 h-14 内容栏（同主栏，避开 border-box 吃 padding） */}
                     <div className="sticky top-0 z-20 bg-white border-b border-slate-50" style={{ paddingTop: 'var(--safe-top)' }}>
                         <div className="h-14 flex items-center justify-between px-4">
-                            <button onClick={() => setIsCreateOpen(false)} className="text-slate-600 text-sm font-bold px-2 py-1">取消</button>
+                            <button onClick={closeCreatePost} className="text-slate-600 text-sm font-bold px-2 py-1">取消</button>
                             <span className="text-sm font-bold text-slate-800">发布笔记</span>
                             <button
                                 onClick={handleCreatePost}
