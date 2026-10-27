@@ -44,7 +44,7 @@ import {homelyFrame} from './homelyView';
 import {homelyMusicPose} from './homelyPresence';
 import {createHomelyForeground} from './homelyForeground.js';
 import {furnitureInteractions,interactionArcLayout} from './furnitureInteractions.js';
-import {validatedFurnitureStations,sameStationPose,occupiedFurnitureChange,activeFurnitureDependencyChange,occupiedFurnitureSlotIssue} from './furnitureStationRegistry.js';
+import {validatedFurnitureStations,sameStationPose,occupiedFurnitureChange,activeFurnitureDependencyChange,occupiedFurnitureSlotIssue,standingFurnitureChange} from './furnitureStationRegistry.js';
 import {mirrorActivities,isMirrorAction} from './mirror.js';
 import {createMirrorJourney,mirrorJourneyFrame} from './mirrorJourney.js';
 import {SHOWROOMS,addShowroom,applyShowroomStyle} from './showrooms.js';
@@ -1497,13 +1497,27 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  }
  function travelHistory(from,to){
   if(!from.length)return;
-  if(seatChange){notify('人物正在坐下或起身，请完成动作后再撤销或重做',true);return;}
+  if(seatChange||visitorActivity?.bathJourney){
+   notify('请先安全完成坐床或卫浴进出，再撤销或重做',true);return;
+  }
+  const previousRoom=current(),standing=!visitorSeat&&resident.visible?{
+   roomId:previousRoom.id,x:resident.position.x,z:resident.position.z,width:headWidth
+  }:null;
   const target=from.at(-1),occupants=[visitorSeat,...otherFurnitureOccupants()];
-  const reason=occupiedFurnitureChange(state,target,catalog,occupants)||activeFurnitureDependencyChange(state,target,[visitorActivity,visitorPlant,kitchenTask]);
+  const reason=occupiedFurnitureChange(state,target,catalog,occupants)||
+   activeFurnitureDependencyChange(state,target,[visitorActivity,visitorPlant,kitchenTask])||
+   standingFurnitureChange(state,target,catalog,standing);
   if(reason){notify(reason,true);return;}
   from.pop();const before=clone(state),restoreLife=restoredLifeSnapshots.has(target);
   if(restoreLife)restoredLifeSnapshots.add(before);
-  to.push(before);state=target;stopWalking();visitorLocation=null;selected=null;panel=null;
+  to.push(before);stopWalking();
+  // Undo/redo of unrelated decoration should not respawn a walker at the
+  // default entrance. Capture standing world coordinates BEFORE swapping rooms.
+  if(standing&&!restoreLife)visitorLocation={
+   x:resident.position.x+previousRoom.x*ROOM_STEP.x,
+   z:resident.position.z+previousRoom.z*ROOM_STEP.z,level:previousRoom.level
+  };
+  state=target;if(restoreLife)visitorLocation=null;selected=null;panel=null;
   if(restoreLife)restoreSavedLife();
   persist();rebuild();renderUI();
  }
@@ -1511,13 +1525,19 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(seatChange||visitorActivity?.bathJourney){
    notify('先完成坐床或卫浴进出动作，再修改房间布置',true);return false;
   }
-  const before=clone(state),selectionBefore=selected,panelBefore=panel,rotationBefore=rotationPreview;message='';error=false;
+  const before=clone(state),selectionBefore=selected,panelBefore=panel,rotationBefore=rotationPreview;
+  const standing=!visitorSeat&&resident.visible?{
+   roomId:current().id,x:resident.position.x,z:resident.position.z,width:headWidth
+  }:null;
+  message='';error=false;
   try{
    mutator();
    const occupiedError=occupiedFurnitureChange(before,state,catalog,[visitorSeat,...otherFurnitureOccupants()]);
    if(occupiedError)throw Error(occupiedError);
    const runningError=activeFurnitureDependencyChange(before,state,[visitorActivity,visitorPlant,kitchenTask]);
    if(runningError)throw Error(runningError);
+   const standingError=standingFurnitureChange(before,state,catalog,standing);
+   if(standingError)throw Error(standingError);
    const budgetError=phone&&!templateUpgrade&&phoneBudgetError(before,state,catalog);
    if(budgetError)throw Error(budgetError);
    // Reject unsafe layouts BEFORE stopping an ongoing action. A failed
