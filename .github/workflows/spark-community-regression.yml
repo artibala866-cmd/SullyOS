@@ -40,3 +40,5 @@ jobs:
           fi
           echo "Spark target files have no TypeScript diagnostics."
       - run: pnpm exec vitest run utils/socialFeedMerge.test.ts utils/socialGeneration.test.ts utils/sparkCommunity.test.ts utils/sparkTraffic.test.ts
+      - name: Verify production application bundles
+        run: pnpm run build
