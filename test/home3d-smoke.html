@@ -210,6 +210,40 @@ function texture(color){
    }
    report.lowBeds[assetId]=checked;
   }
+  // Previously only one chair was exercised in WebGL; check BOTH authored
+  // halves of each sofa and bench through the real action controller, without
+  // converting deep benches into imaginary snap-to-seat points.
+  report.doubleSeats={};
+  for(const assetId of ['sofa','bedroom_bench','show_bedroom_bench','bedroom_ref_bench']){
+   editor.dispose();set('seat matrix '+assetId);
+   const house=createHome(catalog);
+   house.rooms[0].items=[{id:'smoke-two-seat',assetId,
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+   editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:house,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+   });
+   editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+   const possibilities=editor.getHomeScene().actions.filter(a=>a.kind==='sit');
+   if(possibilities.length!==2)throw Error(assetId+' only exposes '+possibilities.length+' of 2 seat points');
+   const sampled=[];
+   for(let index=0;index<2;index++){
+    const choice=editor.getHomeScene().actions.filter(a=>a.kind==='sit')[index];
+    if(!choice)throw Error(assetId+' lost seat option '+index);
+    const request=editor.performHomeAction(choice.id,'model');
+    if(request==='unavailable')throw Error(assetId+' advertised a seat but rejected '+index);
+    editor.advancePets(15);
+    const sitting=editor.inspect(),taken=sitting.chibiSeat;
+    if(!taken||sitting.seatChange)throw Error(assetId+' could not enter seat '+index);
+    const exit=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+    if(!exit)throw Error(assetId+' has no safe stand action on '+index);
+    editor.performHomeAction(exit.id,'model');editor.advancePets(4);
+    const standing=editor.inspect();
+    if(standing.chibiSeat||standing.seatChange)throw Error(assetId+' could not leave seat '+index);
+    sampled.push({slot:taken.seatId,entered:true,exited:true});
+   }
+   report.doubleSeats[assetId]=sampled;
+  }
   // Exercise the real delegated UI commands, not a fabricated state restore:
   // decorative commits followed by undo/redo MUST retain the reached floor
   // position after bed exit instead of respawning at the room entrance.
