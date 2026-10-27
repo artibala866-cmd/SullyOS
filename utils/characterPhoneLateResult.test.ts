@@ -145,6 +145,29 @@ describe('late autonomous phone completion safety', () => {
     expect(readCharacterMemos(id)).toHaveLength(0);
   });
 
+
+  it('still clears safely when storage is full and the reset marker cannot be persisted', async () => {
+    const id = 'memo-quota';
+    activity(id);
+    const network = delayedReply();
+    const pending = considerCharacterMemo({
+      characterId: id, name: '若川', persona: '独立', api,
+      events: readCharacterLifeEvents(id), char: { id }, budgeted: true,
+    });
+    await vi.waitFor(() => expect(network.fetchMock).toHaveBeenCalledTimes(1));
+    const original = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
+      if (key.startsWith('sully_phone_content_clear_revision_v1:')) throw new DOMException('Full', 'QuotaExceededError');
+      return original.call(this, key, value);
+    });
+    try {
+      expect(clearSelectedPhoneData(id, ['memos'])).toEqual(['memos']);
+    } finally { spy.mockRestore(); }
+    network.finish({ action: 'create', category: 'thought', body: '清空期间过期的自动内容' });
+    expect(await pending).toBe(false);
+    expect(readCharacterMemos(id)).toEqual([]);
+  });
+
   it('keeps the existing explicit manual memo generation working when background autonomy is off', async () => {
     const id = 'memo-manual';
     setCharacterPhoneAutonomyEnabled(id, false);
