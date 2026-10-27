@@ -442,7 +442,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   return seat?{kind:'seat-rest',hands:[],seatPose:seat.pose,seatHeight:seat.height/(visitor.seatScale??1),...(visitorSeat.alternate&&seat.pose==='floor'?{clip:'sit-alternate',clipTime:Math.max(0,elapsed-visitorStart-seatChangeDuration('floor')),clipWeight:seatChange?0:1}:{})}:null;
  }
  function beginSeatChange(rising,entry){
-  if(!visitor||!visitorSeat)return false;
+  if(!visitor||!visitorSeat||(!visitor.rig&&!visitorSeat.bed))return false;
   const transform=resolvedVisitorSeat();if(!transform||visitorSeat.bed&&transform.pose!=='bed'||transform.bed?.entry===false)return false;
   const r=current(),offset=[r.x*ROOM_STEP.x,r.z*ROOM_STEP.z],selected=visitorSeat,access=seatAccess;
   const remembered=rising&&access?.roomId===r.id&&access.itemId===selected.itemId&&access.seatId===selected.seatId&&sameStationPose(access.pose,transform)?access.front:null;
