@@ -1818,6 +1818,12 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(d.action==='interaction-close'){closeInteraction();host.focus({preventScroll:true});return;}
   if(d.action==='interaction-more'){if(interaction){interaction.page++;renderInteraction();}return;}
   if(d.action==='interaction-back'){if(interaction?.page){interaction.page--;renderInteraction();}else{closeInteraction();host.focus({preventScroll:true});}return;}
+  if(visitorSeat&&['chibi-hug','chibi-kitchen','chibi-mirror','chibi-bath','fridge-toggle'].includes(d.action)){
+   notify('请先正常起身，再使用其他家具',true);return;
+  }
+  if(visitorActivity&&!visitorActivity.bathJourney&&['chibi-hug','chibi-kitchen','chibi-mirror','chibi-bath','fridge-toggle'].includes(d.action)){
+   notify('请先结束正在进行的家具互动',true);return;
+  }
   if(seatChange&&['chibi-hug','chibi-kitchen','chibi-game','chibi-mirror','chibi-bath','chibi-game-stop','fridge-toggle'].includes(d.action)){
    notify('人物正在坐下或起身，请先完成当前动作',true);return;
   }
@@ -1839,7 +1845,20 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    next.journey=createMirrorJourney(next,resident.position.toArray(),(a,b)=>findWalkPath(map,[a[0]+ox,a[2]+oz],[b[0]+ox,b[2]+oz])?.map(p=>[p[0]-ox,.18,p[1]-oz]),{speed:visitor?.rig?visitor.walkSpeed??1.05:1.7});
     if(!next.journey){visitorActivity=null;visitorSeat=null;visitorMotion='idle';visitorUntil=0;notify('衣柜或镜子之间没有安全可走的通路，请挪开障碍物',true);return;}
   }if(viewMode==='free'&&next.kind==='rhythm'&&camera.zoom>1.8){const offset=camera.position.clone().sub(controls.target);controls.target.fromArray(next.position).add(new THREE.Vector3(0,1.6,0));camera.position.copy(controls.target).add(offset);camera.zoom=1.8;camera.updateProjectionMatrix();controls.update();}visitorStart=elapsed;visitorUntil=elapsed+(next.journey?.duration||furnitureActivitySeconds(next.kind,next.duration||12));edit=false;overview=false;selected=null;panel=null;placeVisitor();animateVisitor(reducedMotion?1:0);recordHomeActivity(next.label,next.recordSource);message=next.label+((isMirrorAction(next.kind)||isBathAction(next.kind))?'中':'中 · 在小人面板可随时休息');dirty=true;wake();renderUI();return;}
-  if(d.action==='chibi-game-stop'){stopWalking();const bathing=isBathAction(visitorActivity?.kind);rememberStandingLocation();visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);visitorMotion='idle';visitorUntil=0;if(bathing){bathroomEffects.clear();placeVisitor();}animateVisitor(0);dirty=true;wake();renderUI();return;}
+  if(d.action==='chibi-game-stop'){
+   if(visitorActivity?.bathJourney){
+    const j=visitorActivity.bathJourney;
+    if(!Number.isFinite(j.cancelElapsed)){
+     j.cancelElapsed=Math.max(0,elapsed-visitorStart);
+     const t=j.cancelElapsed;
+     const progress=t<j.enter?t:t<j.enter+j.hold?j.enter:Math.max(0,2*j.enter+j.hold-t);
+     visitorUntil=elapsed+progress+.2;message='正在安全离开卫浴家具';dirty=true;wake();renderUI();
+    }
+    return;
+   }
+   stopWalking();rememberStandingLocation();visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);
+   visitorMotion='idle';visitorUntil=0;animateVisitor(0);dirty=true;wake();renderUI();return;
+  }
   // Never interrupt a half-completed seat/bed transfer by clearing its root path.
   // Explicit resident handoff resolves the endpoint through finishSeatChangeForHandoff.
   if(seatChange&&['chibi-water','chibi-sit','chibi-stand','chibi-motion'].includes(d.action)){
