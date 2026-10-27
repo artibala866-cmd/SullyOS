@@ -1383,11 +1383,13 @@ const SocialApp: React.FC = () => {
                     if (communityRef.current.mutedAccountIds.includes(targetId)) continue;
                     const savedHandles = author.character ? characterHandles[author.character.id] || [] : [];
                     const selectedHandle = savedHandles.find(h => h.handle === author.name);
-                    const account = ensureSparkAccount(communityRef.current, {
+                    const accountResult = ensureSparkAccount(communityRef.current, {
                         type: authorType, ownerCharId: author.character?.id, handleId: selectedHandle?.id,
                         displayName: author.name, avatar,
-                    }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2)).account;
+                    }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+                    const account = accountResult.account;
                     if (communityRef.current.mutedAccountIds.includes(account.id) || account.id === targetId) continue;
+                    if (accountResult.state !== communityRef.current) writeCommunity(accountResult.state);
                     if (item.kind === 'like' && targetPost) {
                         let effect = applySparkNpcLike(communityRef.current, targetPost, account.id, Date.now());
                         if (!effect.changed) continue;
