@@ -1,5 +1,7 @@
 import {describe,it,expect} from 'vitest';
-import {seatEntry,seatEntryCandidates} from './seatChange.js';
+import {seatEntry,seatEntryCandidates,seatChangePose} from './seatChange.js';
+import {seatChangeDuration} from './chibi/roomMotionFrame.ts';
+import {readFileSync} from 'node:fs';
 
 const seat={position:[0,.78,0],rotation:0};
 const free=(x,z)=>Math.abs(x)<2.5&&Math.abs(z)<2.5;
@@ -41,5 +43,31 @@ describe('reusable seat approach and safe get-up route',()=>{
   expect(p[0][0]).toBeCloseTo(1);
   expect(p[0][2]).toBeCloseTo(2.9);
   expect(p.some(q=>Math.abs(q[0]-1)>.4)).toBe(true);
+ });
+});
+
+// The root transition is shared by the skeletal and former directly-snapping
+// legacy chibi. Source assertions only prove wiring, never 3D contact quality.
+describe('legacy seated motion follows the shared physical entry/exit',()=>{
+ it('moves continuously between the reached standing socket and cushion anchor',()=>{
+  const front=[0,.18,.7],chair={pose:'chair',front,seat:[0,.68,0],rotation:0,startRotation:0};
+  const duration=seatChangeDuration('chair');
+  for(const rising of [false,true]){
+   const change={...chair,rising};
+   const samples=Array.from({length:21},(_,i)=>seatChangePose(change,duration*i/20).position);
+   const first=samples[0],last=samples.at(-1);
+   expect(first[2]).toBeCloseTo(rising?chair.seat[2]:front[2]);
+   expect(last[2]).toBeCloseTo(rising?front[2]:chair.seat[2]);
+   expect(samples.every(p=>p.every(Number.isFinite))).toBe(true);
+   for(let i=1;i<samples.length;i++)expect(Math.hypot(...samples[i].map((v,j)=>v-samples[i-1][j]))).toBeLessThan(.14);
+  }
+ });
+ it('wires both body styles into the existing transition instead of a snap',()=>{
+  const source=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
+  expect(source).toContain('if(!visitor||!visitorSeat)return false;');
+  expect(source).toContain('if(!beginSeatChange(false,front)){visitorSeat=null;');
+  expect(source).toContain('if(visitorSeat&&!beginSeatChange(true))');
+  expect(source).not.toContain('if(!visitor||!visitorSeat||(!visitor.rig&&!visitorSeat.bed))return false;');
+  expect(source).not.toContain('if(visitor?.rig&&!beginSeatChange(false,front))');
  });
 });
