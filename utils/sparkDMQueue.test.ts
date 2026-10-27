@@ -47,3 +47,49 @@ describe('Spark queued private messages', () => {
         expect(sparkDMHistoryThrough(state, 'key', 'm2').map(m => m.content)).toEqual(['新消息']);
     });
 });
+
+describe('Spark API-saving private-message batching', () => {
+    it('one request acknowledges multiple rapid messages to the same account with just one reply', async () => {
+        const { takeSparkDMJobBatch, appendSparkDMBatchAnswer, sparkDMBatchHistory } = await import('./sparkDMQueue');
+        let state = appendSparkDMUser({}, 'c1', '上午有空吗', 'first', 1);
+        state = appendSparkDMUser(state, 'c1', '我想一起去公园', 'second', 2);
+        const batch = takeSparkDMJobBatch([
+            { key: 'c1', accountId: 'character:1', id: 'first' },
+            { key: 'c1', accountId: 'character:1', id: 'second' },
+        ]);
+        expect(batch.jobs.map(j => j.id)).toEqual(['first','second']);
+        expect(sparkDMBatchHistory(state, 'c1', ['first','second']).map(m => m.content)).toEqual(['上午有空吗','我想一起去公园']);
+        state = appendSparkDMBatchAnswer(state, 'c1', ['first','second'], '可以，一起去吧', 3);
+        expect(state['c1'].map(m => m.content)).toEqual(['上午有空吗','我想一起去公园','可以，一起去吧']);
+        expect(state['c1'].filter(m => m.role === 'user').every(m => m.delivery === 'sent')).toBe(true);
+        expect(appendSparkDMBatchAnswer(state, 'c1', ['first','second'], '重复回复', 4)).toBe(state);
+    });
+    it('never mixes private requests for different character identities', async () => {
+        const { takeSparkDMJobBatch } = await import('./sparkDMQueue');
+        const queued = [
+            { key: 'same-visible-name', accountId: 'character:one', id: 'a' },
+            { key: 'same-visible-name', accountId: 'character:two', id: 'b' },
+            { key: 'same-visible-name', accountId: 'character:two', id: 'c' },
+        ];
+        const first = takeSparkDMJobBatch(queued);
+        expect(first.jobs.map(x => x.id)).toEqual(['a']);
+        expect(takeSparkDMJobBatch(first.remaining).jobs.map(x => x.id)).toEqual(['b','c']);
+    });
+    it('never batches more than six queued messages into a provider call', async () => {
+        const { takeSparkDMJobBatch } = await import('./sparkDMQueue');
+        const queued = Array.from({ length: 8 }, (_, i) => ({ key: 'friend', accountId: 'stranger:1', id: 'm' + i }));
+        const batch = takeSparkDMJobBatch(queued);
+        expect(batch.jobs).toHaveLength(6);
+        expect(batch.remaining).toHaveLength(2);
+    });
+    it('retains failed bubbles for each input rather than deleting the entire batch', async () => {
+        const { appendSparkDMBatchAnswer } = await import('./sparkDMQueue');
+        let state = appendSparkDMUser({}, 'friend', '一', 'm1', 1);
+        state = appendSparkDMUser(state, 'friend', '二', 'm2', 2);
+        state = setSparkDMDelivery(state, 'friend', 'm1', 'failed');
+        state = appendSparkDMBatchAnswer(state, 'friend', ['m1','m2'], '收到', 3);
+        expect(state['friend'][0].delivery).toBe('failed');
+        expect(state['friend'][1].delivery).toBe('sent');
+        expect(state['friend'].filter(m => m.role === 'assistant')).toHaveLength(1);
+    });
+});
