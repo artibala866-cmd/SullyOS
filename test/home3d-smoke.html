@@ -50,10 +50,17 @@ function texture(color){
   if(!target)throw Error('No feasible sit action in smoke room');
   set('begin sit action');
   report.request=editor.performHomeAction(target.id,'model');
+  report.visibility=document.visibilityState;report.samples=[];
   if(report.request==='unavailable')throw Error('Sit action was unavailable despite menu availability');
   for(let i=0;i<160;i++){
    await sleep(100);
    const state=editor.inspect();
+   if(i%20===0)report.samples.push({
+    step:i,walking:state.walking,seatChange:state.seatChange,
+    chibiSeat:state.chibiSeat,visitorLocation:state.visitorLocation,
+    position:state.residentPositions?.[0]?.position,sceneBusy:editor.getHomeScene().busy,
+    canvas:document.querySelector('.h3-stage canvas')?.width
+   });
    if(state.chibiSeat&&!state.seatChange){report.seat=true;break;}
   }
   if(!report.seat)throw Error('Character did not reach seated state via real home controller');
