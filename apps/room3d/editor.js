@@ -2138,14 +2138,13 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(acting&&!companionRise&&!(companionTravel&&!furnitureUser))animateVisitor(elapsed-visitorStart);
    animateIdleResidents();animateParkedCharacter();if(furnitureUser)animateConversation();animateCompanionIdle();animateCompanionPhone();animateUserSpeech();if(separateResidentBodies(dt))dirty=true;faceNearbyResidents();faceConversationPartner();
    settling=controls.update();if(dirty||homelyAttention||homelyMusic.playing&&!reducedMotion||homelyPoke||breathing||acting||hasIdleResidents()||drag||walkFeedback.active){
-     renderScene();renderedFrames++;dirty=false;lastDraw=now;
+     renderScene();frameErrorStreak=0;renderedFrames++;dirty=false;lastDraw=now;
      // Do not alter rigs or action clips. Only ease the mobile GPU framebuffer.
      const scale=resolutionBudget.observe({now,frameMs:Math.max(frameSpacing,performance.now()-workStart),active:!!(greeting||cameraArrival||acting||hasIdleResidents()||homelyAttention||breathing||socialRuntime?.active)});
      if(scale!==null&&!photoSession){renderer.setPixelRatio(roomPixelRatio(quality,devicePixelRatio,touch||phone)*scale);dirty=true;}
     }
   }
    shouldContinue=homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil));
-   frameErrorStreak=0;
   }catch(error){
    shouldContinue=recoverFrameFailure(error);
   }finally{
