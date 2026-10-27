@@ -25,6 +25,12 @@ describe('shared bed access for legacy and skeletal residents',()=>{
   expect(front).not.toBeNull();
   expect(front[0]).toBeLessThan(-1);
  });
+ it('reuses the exact entry point for rising and fails closed if that exit becomes blocked',()=>{
+  const pose=legacy(),remembered=[1.6,.18,-.08625];
+  expect(bedEntry(pose,{free:(x)=>x>0},[0,0],{preferred:remembered,allowAlternate:false})).toEqual(remembered);
+  // The opposite side is open, but crossing the mattress to it is not a safe fallback.
+  expect(bedEntry(pose,{free:(x)=>x<0},[0,0],{preferred:remembered,allowAlternate:false})).toBeNull();
+ });
  it('uses a finite, continuous root path for lying down and standing up',()=>{
   const pose=legacy(),front=bedEntry(pose,{free:(x)=>x>.5},[0,0]);
   expect(front).not.toBeNull();
