@@ -2418,6 +2418,8 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(cameraArrival){const t=THREE.MathUtils.smootherstep(elapsed-cameraArrival.start,0,reducedMotion?.01:1.1),{from,to}=cameraArrival;camera.position.copy(from.position).lerp(to.position,t);controls.target.copy(from.target).lerp(to.target,t);camera.zoom=THREE.MathUtils.lerp(from.zoom,to.zoom,t);camera.updateProjectionMatrix();dirty=true;if(t>=1)cameraArrival=null;}
   let settling=false;if(!manual&&!document.hidden)elapsed+=activityDt;
   const petMoving=petSystem?.update(manual?0:dt);if(petMoving)dirty=true;
+   // Finite furniture transitions must finish even when visual motion is reduced.
+   const furnitureLifecycleActive=!!(seatChange||visitorPlant||visitorActivity||kitchenTask);
   if(!document.hidden&&now-lastDraw>=frameInterval-.5){
     const frameSpacing=lastDraw?now-lastDraw:0;
     const workStart=performance.now();
@@ -2425,7 +2427,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const applianceChanged=kitchenEffects.updateDoors(manual?0:dt,reducedMotion);if(applianceChanged){dirty=true;invalidateRoomShadows();}
    const breathing=animated.length&&!overview&&!reducedMotion&&qualities[quality].motion;
    if(breathing)for(const a of animated)a.o.position.y=a.y+Math.sin(elapsed*a.speed+a.phase)*a.amplitude;
-   const acting=visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil));
+   const acting=visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||furnitureLifecycleActive||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil));
    if(acting&&!companionRise&&!(companionTravel&&!furnitureUser))animateVisitor(elapsed-visitorStart);
    animateIdleResidents();animateParkedCharacter();if(furnitureUser)animateConversation();animateCompanionIdle();animateCompanionPhone();animateUserSpeech();if(separateResidentBodies(dt))dirty=true;faceNearbyResidents();faceConversationPartner();
    settling=controls.update();if(dirty||homelyAttention||homelyMusic.playing&&!reducedMotion||homelyPoke||breathing||acting||hasIdleResidents()||drag||walkFeedback.active){
@@ -2435,7 +2437,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
      if(scale!==null&&!photoSession){renderer.setPixelRatio(roomPixelRatio(quality,devicePixelRatio,touch||phone)*scale);dirty=true;}
     }
   }
-  shouldContinue=homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil));
+  shouldContinue=homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||furnitureLifecycleActive||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil));
   }catch(error){
    shouldContinue=recoverFrameFailure(error);
   }finally{
