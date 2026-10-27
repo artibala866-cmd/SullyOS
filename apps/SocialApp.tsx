@@ -1,6 +1,6 @@
 import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSparkTrafficLocalDay, type SparkTraffic } from '../utils/sparkTraffic';
 import { chooseSparkStock } from '../utils/sparkStock';
-import { planSparkCharacterBatches, selectSparkBatchCharacterResults, parseSparkPostPublishBatch } from '../utils/sparkApiBatch';
+import { planSparkCharacterBatches, selectSparkBatchCharacterResults, parseSparkPostPublishBatch, needsSparkInitialCommentCall } from '../utils/sparkApiBatch';
 import { useLocalBackHandler } from '../hooks/useLocalBackHandler';
 import { appendSparkDMUser, setSparkDMDelivery, recoverSparkInterruptedDMs, sparkDMHistoryThrough, appendSparkDMAnswer, takeSparkDMJobBatch, appendSparkDMBatchAnswer, sparkDMBatchHistory, type SparkDMThreads, type SparkPrivateMessage } from '../utils/sparkDMQueue';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
@@ -1796,8 +1796,7 @@ const SocialApp: React.FC = () => {
 
         if (!post || !apiConfig.apiKey) return;
         const livePost = feedRef.current.find(item => item.id === post.id);
-        if (!livePost || livePost.sparkInitialCommentsHandled ||
-            livePost.comments.some(comment => comment.authorType !== 'user' && comment.authorId !== 'user')) return;
+        if (!livePost || !needsSparkInitialCommentCall(livePost)) return;
         if (commentRequestRef.current?.postId === post.id) return;
         commentRequestRef.current?.controller.abort();
         const controller = new AbortController();
@@ -2261,8 +2260,7 @@ ${buildSparkCommentHistory(post)}
         if (updatedCommunity !== communityRef.current) writeCommunity(updatedCommunity);
         learnInterest(livePost, 0.3);
         // Quick accidental opens should not incur an API bill.
-        if (!livePost.sparkInitialCommentsHandled &&
-            !livePost.comments.some(comment => comment.authorType !== 'user' && comment.authorId !== 'user')) {
+        if (needsSparkInitialCommentCall(livePost)) {
             commentOpenTimerRef.current = window.setTimeout(() => {
                 commentOpenTimerRef.current = null;
                 if (mountedRef.current && lastOpenedPostIdRef.current === livePost.id) void generateComments(livePost);
