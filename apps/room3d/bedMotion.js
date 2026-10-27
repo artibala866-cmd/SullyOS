@@ -9,8 +9,11 @@ export function body2BedTransform(seat,headToHip,hipHeight=0){
  const sleepStart=[0,(root[1]-root.at(-2))*hipHeight,(root[2]-root.at(-1))*hipHeight];
  return {...seat,pose:'bed',sleepStart,position:[seat.position[0]+Math.sin(seat.rotation)*forward,seat.position[1],seat.position[2]+Math.cos(seat.rotation)*forward]};
 }
-export function bedEntry(seat,map,offset=[0,0]){
+export function bedEntry(seat,map,offset=[0,0],{preferred=null,allowAlternate=true}={}){
  const spec=seat.bed;if(!spec)return null;
+ const valid=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite)&&map.free(p[0]+offset[0],p[2]+offset[1]);
+ if(preferred&&valid(preferred))return [...preferred];
+ if(!allowAlternate)return null;
  const c=Math.cos(spec.itemRotation),s=Math.sin(spec.itemRotation);
  // Align along the bed with the imported clip's first seated pelvis, not its
  // final lying anchor. This removes the long sideways slide after sitting.
