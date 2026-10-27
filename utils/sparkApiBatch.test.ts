@@ -27,3 +27,17 @@ describe('Spark API call reduction without unsafe identity mixing', () => {
         expect(parseSparkPostPublishBatch({comments:'not-array',incomingDMs:'wrong'})).toEqual({comments:[],incomingDMs:[]});
     });
 });
+
+describe('Spark avoiding hidden repeat AI costs when opening posts', () => {
+    it('never rebills a generated post just because its batch returned no comments', async () => {
+        const { needsSparkInitialCommentCall } = await import('./sparkApiBatch');
+        expect(needsSparkInitialCommentCall({ sparkInitialCommentsHandled: true, comments: [] })).toBe(false);
+        expect(needsSparkInitialCommentCall({ sparkInitialCommentsHandled: true, comments: [{ authorType: 'user', authorId: 'user' }] })).toBe(false);
+        expect(needsSparkInitialCommentCall({ comments: [] })).toBe(true);
+    });
+    it('does not regenerate initial comments for a post with existing NPC comments', async () => {
+        const { needsSparkInitialCommentCall } = await import('./sparkApiBatch');
+        expect(needsSparkInitialCommentCall({ comments: [{ authorType: 'stranger', authorId: 'npc-1' }] })).toBe(false);
+        expect(needsSparkInitialCommentCall({ comments: [{ authorType: 'user', authorId: 'user' }] })).toBe(true);
+    });
+});
