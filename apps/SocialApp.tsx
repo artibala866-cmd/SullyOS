@@ -599,7 +599,7 @@ const SocialApp: React.FC = () => {
     "authorName": "必须填身份表中定义的【网名】",
     "title": "简短吸睛的标题",
     "content": "正文内容...",
-    "emojis": ["🎈", "✨"],
+    "emojis": ["🎈", "✨"]
   },
   ...
 ]`;
@@ -648,7 +648,7 @@ const SocialApp: React.FC = () => {
                     bgStyle: getRandomStyle().bg,
                     authorType: isCharacterPost ? 'character' as const : 'stranger' as const,
                     authorCharId: matchedChar?.id,
-                    authorId: matchedChar ? ('character:' + matchedChar.id + ':handle:' + author.name.normalize('NFKC').trim().toLowerCase()) : ('stranger:' + author.name.normalize('NFKC').trim().toLowerCase()),
+                    authorId: author.accountId,
                     source: 'ai',
                 }];
             });
@@ -748,7 +748,7 @@ ${post.content || '(楼主没写正文)'}
                             isCharacter: !!char,
                             authorType: char ? 'character' : 'stranger',
                             authorCharId: char?.id,
-                            authorId: char ? ('character:' + char.id + ':handle:' + authorName.normalize('NFKC').trim().toLowerCase()) : ('stranger:' + authorName.normalize('NFKC').trim().toLowerCase()),
+                            authorId: author.accountId,
                             timestamp: Date.now(),
                         } as SocialComment];
                     });
@@ -773,8 +773,8 @@ ${post.content || '(楼主没写正文)'}
             addToast('请先配置 API Key；你的评论已保存，之后可以继续互动。', 'error');
             return;
         }
-        const post = feedRef.current.find(item => item.id === postId);
-        const userComment = post?.comments.find(comment => comment.id === userCommentId);
+        let post = feedRef.current.find(item => item.id === postId);
+        let userComment = post?.comments.find(comment => comment.id === userCommentId);
         if (!post || !userComment) return;
         const controller = new AbortController();
         replyRequestRef.current = { postId, controller };
@@ -782,6 +782,12 @@ ${post.content || '(楼主没写正文)'}
             const selectedChars = selectSparkParticipants(post, [...characters].sort(() => 0.5 - Math.random()), characterHandles);
             const context = await buildGenerationContext(selectedChars);
             if (controller.signal.aborted) return;
+            const latestPost = feedRef.current.find(item => item.id === postId);
+            if (!latestPost) return;
+            post = latestPost;
+            const latestUserComment = post.comments.find(comment => comment.id === userCommentId);
+            if (!latestUserComment) return;
+            userComment = latestUserComment;
 
             const parentComment = userComment.parentCommentId
                 ? post.comments.find(comment => comment.id === userComment.parentCommentId)
@@ -829,7 +835,7 @@ ${post.content || '(楼主没写正文)'}
                             isCharacter: !!char,
                             authorType: char ? 'character' as const : 'stranger' as const,
                             authorCharId: char?.id,
-                            authorId: char ? ('character:' + char.id + ':handle:' + authorName.normalize('NFKC').trim().toLowerCase()) : ('stranger:' + authorName.normalize('NFKC').trim().toLowerCase()),
+                            authorId: author.accountId,
                             timestamp: Date.now() + index,
                             parentCommentId: userCommentId,
                             replyToAuthorName: socialProfile.name,
