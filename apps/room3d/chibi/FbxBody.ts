@@ -7,6 +7,7 @@ import {mirrorFrame} from '../mirrorMotion.js';
 import {createBlankBody,BLANK_HAIR_Y_SCALE,BLANK_HAIR_PIVOT,BLANK_HAIR_Z_SCALE,BLANK_HEAD_SCALE,fitBlankHeadY} from './blankBody';
 import {eatingHand} from '../diningMotion.js';
 import {rhythmFrame} from '../rhythm.js';
+import {legacyBedFrame} from './legacyBedMotion';
 import type {ActivityPose} from './types';
 import * as T from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -421,10 +422,11 @@ export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin
             if(sleeping)front.map=asleepMap;else if(faceSettings?.enabled)updateFace(time);else front.map=motion==='wave-cute'?cuteMap:awakeMap;
             return;
         }
+        const bedFrame=legacyBedFrame(time,activity);
         const cute=motion==='wave-cute',calm=motion==='wave-calm'||motion==='wave';
         const mirror=motion==='mirror-admire'||motion==='mirror-outfit'?mirrorFrame(motion,time):null;
-        const sleeping=motion==='sleep',angry=motion==='angry',sitting=posture==='seated'||motion==='sit';
-        const floatingLimbs=sitting||!!activity||['wave','wave-cute','wave-calm','angry','dance','water'].includes(motion);
+        const sleeping=motion==='sleep',angry=motion==='angry',sitting=posture==='seated'||motion==='sit'||!!bedFrame?.sitting;
+        const floatingLimbs=sitting||!!(activity&&(!bedFrame||bedFrame.floatingLimbs))||['wave','wave-cute','wave-calm','angry','dance','water'].includes(motion);
         const rhythm=motion==='rhythm'&&!sitting?rhythmFrame(activity,time):null;
         const enter=smooth(0,.35,time);
         const beat=time%2.2;
@@ -432,11 +434,12 @@ export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin
         const jump=cute&&!sitting?Math.max(0,Math.sin(Math.min(1,Math.max(0,(beat-.18)/.75))*Math.PI))*.24:0;
         const crouch=cute&&!sitting&&beat<.18?Math.sin(beat/.18*Math.PI)*.045:0;
         const headTilt=activity?.socialHead?.[2]??(cute?(-.10+Math.sin(time*3)*.035)*enter:sleeping?.055:angry?Math.sin(time*15)*.022:motion==='dance'?Math.sin(time*3)*.055:Math.sin(time*1.8)*.008);
-        const inBed=posture==='lying',lying=sleeping&&!sitting&&!inBed;
+        const inBed=posture==='lying'&&!bedFrame,lying=sleeping&&!sitting&&!inBed&&!bedFrame;
         body.position.set(lying?.94:0,lying?.98+Math.sin(time*1.8)*.012:jump-crouch,0);
         if(rhythm)body.position.fromArray(rhythm.offset);
         body.rotation.set(inBed?-Math.PI/2:0,0,inBed||sitting?0:lying?Math.PI/2-.10:angry?Math.sin(time*14)*.025:motion==='dance'?Math.sin(time*3)*.045:0);
         if(inBed)body.position.set(0,Math.sin(time*1.8)*.009,0);
+        if(bedFrame){body.position.set(0,bedFrame.positionY,0);body.rotation.set(bedFrame.rotationX,0,0);}
         body.scale.set(1,lying?1+Math.sin(time*1.8)*.012:1,1);
         const headNod=activity?.socialHead?.[0]??(sitting&&sleeping?.10+Math.sin(time*1.6)*.025:motion==='stream'?.025*Math.sin(time*3):motion==='eat'?.018+.018*Math.sin(time*4):0);
         hairPivot.rotation.z=headTilt;
