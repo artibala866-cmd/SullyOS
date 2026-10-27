@@ -226,7 +226,11 @@ export function normalizeSparkCommunityState(raw: unknown): SparkCommunityState 
     };
 }
 
-export function mergeSparkCommunityStates(base: SparkCommunityState, live: SparkCommunityState): SparkCommunityState {
+export function mergeSparkCommunityStates(
+    base: SparkCommunityState,
+    live: SparkCommunityState,
+    preferLiveAutonomy = false,
+): SparkCommunityState {
     const accounts = new Map<string, SparkAccount>();
     [...base.accounts, ...live.accounts].forEach(account => {
         const previous = accounts.get(account.id);
@@ -239,26 +243,68 @@ export function mergeSparkCommunityStates(base: SparkCommunityState, live: Spark
             lastActiveAt: Math.max(previous.lastActiveAt, account.lastActiveAt),
         } : account);
     });
-    const follows = new Map<string, SparkFollow>();
-    [...base.follows, ...live.follows].forEach(follow => follows.set(follow.followerId + '\u0000' + follow.followedId, follow));
+
     const notifications = new Map<string, SparkNotification>();
     [...base.notifications, ...live.notifications].forEach(item => notifications.set(item.id, item));
-    const events = new Map<string, SparkCommunityEvent>();
-    [...base.events, ...live.events].forEach(item => events.set(item.id, item));
+    const eventsById = new Map<string, SparkCommunityEvent>();
+    [...base.events, ...live.events].forEach(item => eventsById.set(item.id, item));
+    const events = [...eventsById.values()]
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .slice(-MAX_EVENTS);
+
+    // Start with both snapshots, then replay explicit relationship changes. A plain
+    // union loses unfollows/unhides/unmutes when a user acts while IndexedDB is loading.
+    const follows = new Map<string, SparkFollow>();
+    [...base.follows, ...live.follows].forEach(follow => {
+        follows.set(follow.followerId + '\\u0000' + follow.followedId, follow);
+    });
+    const hiddenPostIds = new Set(uniqueStrings([...base.hiddenPostIds, ...live.hiddenPostIds]));
+    const mutedAccountIds = new Set(uniqueStrings([...base.mutedAccountIds, ...live.mutedAccountIds]));
+    const interests = new Map<string, string>();
+    [...base.interests, ...live.interests].forEach(topic => interests.set(normalizeSparkName(topic), topic));
+
+    events.forEach(event => {
+        if (event.targetAccountId) {
+            const key = event.actorAccountId + '\\u0000' + event.targetAccountId;
+            if (event.type === 'followed') {
+                follows.set(key, {
+                    followerId: event.actorAccountId,
+                    followedId: event.targetAccountId,
+                    createdAt: event.createdAt,
+                });
+            } else if (event.type === 'unfollowed') {
+                follows.delete(key);
+            }
+        }
+
+        if (event.postId && event.type === 'post_hidden') hiddenPostIds.add(event.postId);
+        else if (event.postId && event.type === 'post_unhidden') hiddenPostIds.delete(event.postId);
+
+        if (event.targetAccountId && event.type === 'account_muted') mutedAccountIds.add(event.targetAccountId);
+        else if (event.targetAccountId && event.type === 'account_unmuted') mutedAccountIds.delete(event.targetAccountId);
+
+        if (event.type === 'interest_followed' || event.type === 'interest_unfollowed') {
+            const topic = typeof event.metadata?.topic === 'string' ? event.metadata.topic.trim() : '';
+            const key = normalizeSparkName(topic);
+            if (!key) return;
+            if (event.type === 'interest_followed') interests.set(key, topic);
+            else interests.delete(key);
+        }
+    });
+
     return normalizeSparkCommunityState({
         version: 1,
         accounts: [...accounts.values()],
         follows: [...follows.values()],
-        hiddenPostIds: uniqueStrings([...base.hiddenPostIds, ...live.hiddenPostIds]),
-        mutedAccountIds: uniqueStrings([...base.mutedAccountIds, ...live.mutedAccountIds]),
+        hiddenPostIds: [...hiddenPostIds],
+        mutedAccountIds: [...mutedAccountIds],
         seenPostIds: uniqueStrings([...base.seenPostIds, ...live.seenPostIds]),
-        interests: uniqueStrings([...base.interests, ...live.interests]),
+        interests: [...interests.values()],
         notifications: [...notifications.values()],
-        events: [...events.values()],
-        autonomy: base.autonomy,
+        events,
+        autonomy: preferLiveAutonomy ? live.autonomy : base.autonomy,
     });
 }
-
 export function ensureSparkAccount(
     state: SparkCommunityState,
     candidate: {
@@ -326,6 +372,7 @@ export function normalizeSparkPost(post: SocialPost, userDisplayNames: string[] 
     const likedByAccountIds = uniqueStrings(Array.isArray(post.likedByAccountIds) ? post.likedByAccountIds : []);
     if (post.isLiked && !likedByAccountIds.includes('user')) likedByAccountIds.push('user');
     const collectedByAccountIds = uniqueStrings(Array.isArray(post.collectedByAccountIds) ? post.collectedByAccountIds : []);
+    if (post.isCollected && !collectedByAccountIds.includes('user')) collectedByAccountIds.push('user');
     const comments: SocialComment[] = (Array.isArray(post.comments) ? post.comments : []).map((comment: any) => {
         const commentType = comment.authorType || (
             userNames.has(normalizeSparkName(String(comment.authorName || ''))) ? 'user' : comment.authorCharId ? 'character' : 'stranger'
@@ -354,7 +401,7 @@ export function normalizeSparkPost(post: SocialPost, userDisplayNames: string[] 
         isLiked: likedByAccountIds.includes('user'),
         likedByAccountIds,
         collectedByAccountIds,
-        isCollected: post.isCollected === true,
+        isCollected: collectedByAccountIds.includes('user'),
     };
 }
 
