@@ -59,3 +59,10 @@ export function uniqueGeneratedSocialComments(current: SocialComment[], incoming
         return true;
     });
 }
+
+/** Normalize an editor's topic tags; keep valid unique tags and a sensible empty fallback. */
+export function parseSparkPublishTags(input: string): string[] {
+    const tags = input.split(/[#,，\s]+/g).map(value => value.trim().slice(0, 24)).filter(Boolean);
+    const unique = [...new Set(tags)];
+    return unique.length ? unique.slice(0, 6) : ['日常'];
+}
