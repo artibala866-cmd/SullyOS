@@ -12,6 +12,15 @@ export const PHONE_AUTO_FAILURE_COOLDOWN_MS = 20 * 60_000;
 const STORAGE_PREFIX = 'sully_phone_ai_auto_failure_until_v1:';
 const fallbackCooldowns = new Map<string, number>();
 
+/** Client-side result only; a timed-out request may still be running upstream. */
+export type PhoneRequestFailureKind = 'wait-expired' | 'cancelled' | 'network';
+export class PhoneRequestFailure extends Error {
+  constructor(public readonly kind: PhoneRequestFailureKind, message: string) {
+    super(message);
+    this.name = 'PhoneRequestFailure';
+  }
+}
+
 type PhoneRequestOptions = {
   charId: string;
   purpose: string;
@@ -94,6 +103,20 @@ export async function fetchCharacterPhoneJson(
   } catch (error) {
     if (options.automatic && isTransientFailure(error)) {
       setCooldown(key, Date.now() + PHONE_AUTO_FAILURE_COOLDOWN_MS);
+    }
+    // A browser deadline is not proof that the provider stopped generating.
+    // Never silently retry: the upstream request may already have been billed.
+    if (deadline.aborted && !init.signal?.aborted) {
+      throw new PhoneRequestFailure('wait-expired',
+        '查手机已达到本次请求的客户端等待上限，但无法确认 AI 服务端是否仍在生成。本次没有自动重试，以免重复计费；请先检查手机中是否有新记录，再决定是否手动重试。');
+    }
+    if (init.signal?.aborted) {
+      throw new PhoneRequestFailure('cancelled',
+        '本次查手机请求已取消，服务端是否继续处理仍不确定；不会自动重新发送。');
+    }
+    if (error instanceof TypeError && /failed to fetch|networkerror|load failed|network request failed/i.test(error.message)) {
+      throw new PhoneRequestFailure('network',
+        '查手机网络连接中断，无法确认服务端是否收到请求；为避免重复计费，本次不会自动重试。');
     }
     throw error;
   } finally {
