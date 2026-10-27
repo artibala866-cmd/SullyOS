@@ -14,7 +14,7 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags } from '../utils/socialFeedMerge';
-import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen, applySparkNpcLike, applySparkNpcFollow } from '../utils/sparkCommunity';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen, applySparkNpcLike, applySparkNpcFollow, setSparkAccountMuted } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
@@ -352,6 +352,10 @@ const SocialApp: React.FC = () => {
     const openSparkDM = (account: SparkDMTarget) => {
         const registered = resolveSparkDMAccount(communityRef.current.accounts, account.handle, account.accountId);
         const target = { ...account, accountId: registered?.id || account.accountId };
+        if (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId)) {
+            addToast('该账号已屏蔽，解除屏蔽后才能私信', 'info');
+            return;
+        }
         setDmTarget(target);
         const key = target.accountId && (dmUnread[target.accountId] !== undefined || dmThreads[target.accountId])
             ? target.accountId : dmKey(target);
@@ -366,6 +370,7 @@ const SocialApp: React.FC = () => {
     const [dmBusy, setDmBusy] = useState(false);
     const sendSparkDM = async () => {
         if (!dmTarget || !dmInput.trim() || dmBusy) return;
+        if (isSparkMuted(dmTarget.accountId)) { addToast('已屏蔽此账号', 'info'); return; }
         const target = dmTarget;
         const targetKey = dmKey(target);
         const text = dmInput.trim();
@@ -380,6 +385,7 @@ const SocialApp: React.FC = () => {
         if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
         setDmBusy(true);
         try {
+            if (isSparkMuted(target.accountId)) throw new Error('此账号已屏蔽');
             const authorPosts = feedRef.current.filter(post =>
                 target.accountId ? post.authorId === target.accountId : post.authorName === target.handle,
             ).sort((a, b) => a.timestamp - b.timestamp);
@@ -411,6 +417,7 @@ const SocialApp: React.FC = () => {
             const data = await safeResponseJson(response);
             const answer = extractContent(data).trim();
             if (!answer) throw new Error('空回复');
+            if (!mountedRef.current || isSparkMuted(target.accountId)) return;
             setDmThreads(prev => {
                 // The legacy thread might have migrated while the network request was in flight.
                 const replyKey = target.accountId && prev[target.accountId] ? target.accountId : targetKey;
@@ -500,7 +507,7 @@ const SocialApp: React.FC = () => {
         const term = searchQuery.trim().toLocaleLowerCase();
         if (!term) return [];
         return communityState.accounts
-            .filter(account => account.id !== 'user' &&
+            .filter(account => account.id !== 'user' && !communityState.mutedAccountIds.includes(account.id) &&
                 [account.displayName, ...(account.aliases || [])].some(name => name.toLocaleLowerCase().includes(term)))
             .slice(0, 8);
     }, [searchQuery, communityState.accounts]);
@@ -512,6 +519,16 @@ const SocialApp: React.FC = () => {
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [visibleLimit, setVisibleLimit] = useState(40);
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string; accountId?: string } | null>(null);
+    const isSparkMuted = (accountId?: string) => !!accountId && communityRef.current.mutedAccountIds.includes(accountId);
+    const toggleMuteSparkAccount = (handle: string, id?: string) => {
+        const account = resolveSparkDMAccount(communityRef.current.accounts, handle, id);
+        if (!account || account.type === 'user') { addToast('账号身份无法确定，不能屏蔽', 'error'); return; }
+        const muted = !isSparkMuted(account.id);
+        writeCommunity(setSparkAccountMuted(communityRef.current, account.id, 'user', muted, Date.now(),
+            'mute:' + account.id + ':' + Date.now()));
+        if (muted && dmTarget?.accountId === account.id) setDmTarget(null);
+        addToast(muted ? '已屏蔽账号，历史私信仍保留' : '已解除屏蔽', 'info');
+    };
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
     const [hiddenPostIds, setHiddenPostIds] = useState<string[]>(() => {
         try { const saved = JSON.parse(localStorage.getItem('spark_hidden_posts') || '[]'); return Array.isArray(saved) ? saved.filter((v): v is string => typeof v === 'string') : []; } catch { return []; }
@@ -1317,7 +1334,7 @@ const SocialApp: React.FC = () => {
             const participants = [...activeChars, ...allowedChars.filter(char => !recentlyActive.has(char.id))].slice(0, 2);
             const context = participants.length ? await buildGenerationContext(participants) : '当前只有稳定的虚拟陌生网友参与 Spark 社区。';
             if (controller.signal.aborted || !mountedRef.current || generation !== feedLoadGenerationRef.current) return;
-            const publicPosts = feedRef.current.slice(0, 12).map(post => ({
+            const publicPosts = feedRef.current.filter(post => !communityRef.current.mutedAccountIds.includes(post.authorId || '')).slice(0, 12).map(post => ({
                 id: post.id, title: post.title, content: post.content.slice(0, 280),
                 authorName: post.authorName, tags: post.tags,
                 comments: post.comments.slice(-3).map(comment => ({ id: comment.id, author: comment.authorName, content: comment.content.slice(0, 120) })),
@@ -1372,6 +1389,8 @@ const SocialApp: React.FC = () => {
                 if (needsContent && (!content || publicTextLeaksPrivateChat(content + (typeof item.title === 'string' ? item.title : '')))) continue;
                 const author = resolveSparkAuthor(item, participants, characters, characterHandles, [socialProfile.name, userProfile.name]);
                 if (!author) continue;
+                const knownActor = resolveSparkDMAccount(communityRef.current.accounts, author.name);
+                if (knownActor && isSparkMuted(knownActor.id)) continue;
                 const avatar = author.character ? getSparkAuthorAvatar(author.character, author.name, characterHandles) : 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(author.name);
                 const authorType = author.character ? 'character' as const : 'stranger' as const;
                 if (item.kind === 'like' || item.kind === 'follow' || item.kind === 'unfollow') {
@@ -1744,6 +1763,8 @@ ${buildSparkCommentHistory(post)}
             const used = new Set<string>();
             for (const entry of parsed.slice(0, count)) {
                 const name = String(entry?.name || '').trim().slice(0, 32);
+                const known = resolveSparkDMAccount(nextCommunity.accounts, name);
+                if (known && isSparkMuted(known.id)) continue;
                 const content = String(entry?.message || '').trim().slice(0, 500);
                 if (!name || !content || used.has(name)) continue;
                 const author = resolveSparkAuthor({ author: name, charId: null, isCharacter: false },
@@ -1754,7 +1775,7 @@ ${buildSparkCommentHistory(post)}
                 }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2));
                 nextCommunity = resolved.state;
                 const key = resolved.account.id;
-                if (dmThreads[key]?.length || dmThreads[name]?.length || incoming.some(item => item.key === key)) continue;
+                if (isSparkMuted(key) || dmThreads[key]?.length || dmThreads[name]?.length || incoming.some(item => item.key === key)) continue;
                 used.add(name);
                 incoming.push({
                     key, name,
@@ -2182,6 +2203,8 @@ ${buildSparkCommentHistory(post)}
                         </div>
 
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => { openSparkDM(viewedAccount); setViewedAccount(null); }} className="w-full rounded-full border border-[#555555] text-[#555555] font-bold py-2 mb-2">私信</button>}
+                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleMuteSparkAccount(viewedAccount.handle, viewedAccount.accountId)}
+                            className="w-full rounded-full border border-slate-300 text-slate-600 font-bold py-2 mb-2">{isSparkMuted(viewedAccount.accountId) ? '解除屏蔽' : '屏蔽此账号'}</button>}
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle, viewedAccount.accountId)} className="w-full rounded-full bg-[#555555] text-white font-bold py-2 mb-5">
                             {isFollowing(viewedAccount.handle, viewedAccount.accountId) ? '已关注 ✓ · 点击取消' : '+ 关注'}
                         </button>}
@@ -2285,6 +2308,16 @@ ${buildSparkCommentHistory(post)}
                             {!worldbooks.some(wb => !wb.disable) && <p className="text-xs text-slate-400">暂无可用世界书</p>}
                         </div>
                     </div>
+                    {communityState.mutedAccountIds.length > 0 && <div className="space-y-2 border-t border-slate-100 pt-3">
+                        <p className="font-semibold text-slate-700">已屏蔽账号（历史私信不会删除）</p>
+                        {communityState.mutedAccountIds.map(id => {
+                            const account = communityState.accounts.find(a => a.id === id);
+                            return <button key={id} type="button" onClick={() => account && toggleMuteSparkAccount(account.displayName, id)}
+                                className="flex w-full justify-between gap-2 rounded-xl border border-slate-200 p-2 text-xs">
+                                <span className="truncate">{account?.displayName || '旧账号'}</span><span>解除屏蔽</span>
+                            </button>;
+                        })}
+                    </div>}
                     {hiddenPostIds.length > 0 && <button type="button" onClick={() => { setHiddenPostIds([]); localStorage.removeItem('spark_hidden_posts'); addToast('已恢复隐藏的笔记', 'success'); }} className="w-full border rounded-xl py-2 text-xs">恢复已隐藏的 {hiddenPostIds.length} 篇笔记</button>}
                     <button type="button" onClick={() => { if (window.confirm('确定清空 Spark 推荐流中的全部帖子和评论吗？此操作无法撤销。')) handleClearFeed(); }} className="w-full border border-neutral-200 text-neutral-500 rounded-xl py-2 text-xs">清除推荐流</button>
                     <p className="text-xs text-slate-400">自动活动仅在本页面开放期间执行；不会后台消耗额度。</p>
@@ -2458,7 +2491,9 @@ ${buildSparkCommentHistory(post)}
                             <div className="flex gap-2 px-5 pb-3">
                                 {([{ id: 'all', label: '全部' }, { id: 'following', label: '已关注' }, { id: 'strangers', label: '陌生人' }] as const).map(tab => <button key={tab.id} type="button" onClick={() => setDmFilter(tab.id)} className={`rounded-full px-3 py-1 text-xs ${dmFilter === tab.id ? 'bg-[#555555] text-white' : 'bg-slate-100 text-slate-600'}`}>{tab.label}</button>)}
                             </div>
-                            {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 && (dmFilter === 'all' || (dmFilter === 'following' ? isFollowing(communityState.accounts.find(a => a.id === handle)?.displayName || handle) : !isFollowing(communityState.accounts.find(a => a.id === handle)?.displayName || handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
+                            {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 &&
+                                !communityState.mutedAccountIds.includes(communityState.accounts.find(a => a.id === handle)?.id ||
+                                    resolveSparkDMAccount(communityState.accounts, handle)?.id || '') && (dmFilter === 'all' || (dmFilter === 'following' ? isFollowing(communityState.accounts.find(a => a.id === handle)?.displayName || handle) : !isFollowing(communityState.accounts.find(a => a.id === handle)?.displayName || handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
                                 const account = communityState.accounts.find(item => item.id === handle);
                                 const displayHandle = account?.displayName || handle;
                                 const accountPost = feed.find(post => account ? post.authorId === account.id : post.authorName === handle);
