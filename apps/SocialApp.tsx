@@ -317,7 +317,7 @@ const SocialApp: React.FC = () => {
             const answer = extractContent(data).trim();
             if (!answer) throw new Error('空回复');
             setDmThreads(prev => {
-                const next = { ...prev, [target.handle]: [...(prev[target.handle] || history), { role: 'assistant', content: answer, time: Date.now() }] };
+                const next = { ...prev, [target.handle]: [...(prev[target.handle] || history), { role: 'assistant' as const, content: answer, time: Date.now() }] };
                 localStorage.setItem('spark_dm_threads', JSON.stringify(next));
                 return next;
             });
