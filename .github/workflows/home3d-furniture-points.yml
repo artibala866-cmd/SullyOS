@@ -35,3 +35,18 @@ jobs:
         run: pnpm exec vitest run utils/room3d
       - name: Build
         run: pnpm build
+      - name: Chromium WebGL scene and seat-action smoke
+        timeout-minutes: 5
+        run: |
+          pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/home3d-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill "$VITE_PID" 2>/dev/null || true' EXIT
+          node scripts/home3d-webgl-smoke.mjs
+      - name: Preserve browser screenshot and debug result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home3d-webgl-smoke
+          path: home3d-webgl-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
