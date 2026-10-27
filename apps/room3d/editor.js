@@ -1031,7 +1031,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const begin=()=>{
    if(current().id!==room.id||visitorSeat||seatChange)return;
    // Recheck after walking rather than using an obsolete target.
-   const latest=wateringSpot(current(),catalog,itemId,visitorClearance());
+   const latest=wateringSpot(current(),catalog,itemId,{...visitorClearance(),canReach:p=>sameStationPose(spot,p)});
    if(!sameStationPose(spot,latest)){notify('浇水点已改变或被占用，请重新选择',true);return;}
    visitorLocation=null;visitorPlant={roomId:room.id,itemId,spot:latest};
    visitorMotion='water';visitorStart=elapsed;visitorUntil=elapsed+4.5;
@@ -1243,7 +1243,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(visitorLocation&&visitorLocation.level===current().level&&!visitorSeat&&!visitorPlant){const map=navMap(),{x,z}=visitorLocation;if(map.areas.some(a=>visibleRoomIds.has(a.roomId)&&x>=a.rect[0]&&x<=a.rect[2]&&z>=a.rect[1]&&z<=a.rect[3])){resident.position.set(x-current().x*ROOM_STEP.x,.18,z-current().z*ROOM_STEP.z);return;}}
   visitorLocation=null;
   if(visitorPlant){
-   const spot=visitorPlant.roomId===current().id?wateringSpot(current(),catalog,visitorPlant.itemId,visitorClearance()):null;
+   const spot=visitorPlant.roomId===current().id?wateringSpot(current(),catalog,visitorPlant.itemId,{...visitorClearance(),canReach:p=>sameStationPose(visitorPlant.spot,p)}):null;
    // A running action cannot silently relocate to a different side of the plant.
    if(sameStationPose(visitorPlant.spot,spot)){resident.position.fromArray(spot.position);setResidentHeading(resident,spot.rotation);watering.update(elapsed-visitorStart,spot,visitor?.rig?kitchenHandPositions([]):null);return;}
    visitorPlant=null;visitorMotion='idle';visitor.animate(0,'idle');
