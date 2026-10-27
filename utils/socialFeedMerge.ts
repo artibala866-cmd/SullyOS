@@ -35,3 +35,27 @@ export function mergeSocialComments(current: SocialComment[], incoming: SocialCo
     const fresh = incoming.filter(comment => !existingIds.has(comment.id));
     return fresh.length > 0 ? [...current, ...fresh] : current;
 }
+
+/** Visibility and destructive permissions must be evaluated from the persisted author type. */
+export function canDeleteSocialPost(post: SocialPost, userHandle: string): boolean {
+    return post.authorType === 'user' || (!post.authorType && post.authorName === userHandle);
+}
+
+/** A comment can only receive one local like, and a second tap reverses it. */
+export function toggleSocialCommentLike(comment: SocialComment): SocialComment {
+    const wasLiked = !!comment.isLiked;
+    return { ...comment, isLiked: !wasLiked, likes: Math.max(0, comment.likes + (wasLiked ? -1 : 1)) };
+}
+
+/** Remove replayed AI messages, not repeated speakers: public conversations may continue. */
+export function uniqueGeneratedSocialComments(current: SocialComment[], incoming: SocialComment[]): SocialComment[] {
+    const identity = (comment: SocialComment) =>
+        (comment.authorCharId || comment.authorName.trim().toLocaleLowerCase()) + '\u0000' + comment.content.trim();
+    const seen = new Set(current.map(identity));
+    return incoming.filter(comment => {
+        const key = identity(comment);
+        if (!comment.content.trim() || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
