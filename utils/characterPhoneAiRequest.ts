@@ -8,6 +8,9 @@ import { safeResponseJson } from './safeApi';
  * upstream may still charge after a timeout.
  */
 export const CHARACTER_PHONE_AI_TIMEOUT_MS = 150_000;
+// Explicit multi-task/manual generations may legitimately take longer than
+// the short background checks; neither limit asserts an upstream failure.
+export const CHARACTER_PHONE_MANUAL_AI_TIMEOUT_MS = 420_000;
 export const PHONE_AUTO_FAILURE_COOLDOWN_MS = 20 * 60_000;
 const STORAGE_PREFIX = 'sully_phone_ai_auto_failure_until_v1:';
 const fallbackCooldowns = new Map<string, number>();
@@ -70,7 +73,8 @@ function shouldPauseForStatus(status: number): boolean {
 
 /**
  * Fetch + read the full response while the SW/update protection is active.
- * The 150s deadline covers both headers and the response body. Do not retry
+ * Background checks wait 150s; explicit user-triggered work can wait 420s.
+ * Both deadlines cover headers and the full response body. Do not retry
  * or silently switch provider/model. Existing callers validate their JSON.
  */
 export async function fetchCharacterPhoneJson(
@@ -82,7 +86,8 @@ export async function fetchCharacterPhoneJson(
   if (options.automatic && !canRunAutomaticPhoneAi(options.charId, url)) {
     throw new Error('查手机后台 API 暂时冷却中');
   }
-  const deadline = AbortSignal.timeout(CHARACTER_PHONE_AI_TIMEOUT_MS);
+  const deadline = AbortSignal.timeout(options.automatic
+    ? CHARACTER_PHONE_AI_TIMEOUT_MS : CHARACTER_PHONE_MANUAL_AI_TIMEOUT_MS);
   const signal = init.signal
     ? (typeof AbortSignal.any === 'function' ? AbortSignal.any([init.signal, deadline]) : deadline)
     : deadline;
