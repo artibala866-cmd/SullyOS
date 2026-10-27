@@ -907,15 +907,14 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ececec] bg-[#fafafa] px-3 py-3 text-xs">
               <span className="min-w-0">
                 <strong className="block text-[13px] font-semibold text-[#444]">自动更新优先处理微信与朋友圈</strong>
-                <span className="mt-1 block leading-5 text-[#888]">开启后，遇到有依据的手机活动机会时优先处理 NPC 微信与朋友圈；关闭后允许其他已开启的手机自主功能参与，不代表关闭 NPC 微信续聊。没有待回复消息或已发生的生活事件时不会仅因定时检查而生成。要暂停独立自主生成，可关闭“Char 手机自主生活”或“允许独立后台 AI 请求”。</span>
+                <span className="mt-1 block leading-5 text-[#888]">开启后，遇到有依据的手机活动机会时优先处理 NPC 微信与朋友圈；关闭后允许其他已开启的手机自主功能参与，不代表关闭 NPC 微信续聊。没有待回复消息或已发生的生活事件时不会仅因定时检查而生成。这个优先项不会修改“Char 手机自主生活”总开关；总开关关闭时，优先项保持设置但不会触发自动生成。要暂停独立自主生成，可关闭“Char 手机自主生活”或“允许独立后台 AI 请求”。</span>
               </span>
               <input type="checkbox" checked={inboxPrefs.autoFullWeChat}
                 onChange={e=>{
+                  // This preference only chooses which existing phone
+                  // features get priority. It must never silently re-enable
+                  // the separate Char autonomy master switch.
                   updateInboxPrefs({autoFullWeChat:e.target.checked});
-                  if(e.target.checked&&!npcAutonomyEnabled){
-                    try{setCharacterPhoneAutonomyEnabled(characterId,true);setNpcAutonomyEnabled(true);}
-                    catch{setError('自主生活总开关保存失败，请在下方手动开启');}
-                  }
                 }} className="h-5 w-5 shrink-0 accent-[#444]"/>
             </label>
             <label className="flex items-center justify-between gap-3 text-xs"><span>允许公众号／服务号推送</span>
