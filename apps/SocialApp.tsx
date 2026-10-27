@@ -1574,7 +1574,11 @@ const SocialApp: React.FC = () => {
     // Opt-in and strictly metered: runs only while Spark is mounted, never in the background.
     const runSparkAutonomyTick = async () => {
         if (!mountedRef.current || !communityRef.current.autonomy.enabled || !apiConfig.apiKey) return;
-        if (autonomyRequestRef.current || refreshRequestRef.current || commentRequestRef.current || replyRequestRef.current) return;
+        // Never spend an autonomous call while an explicitly requested AI task is
+        // queued or running; the next eligible tick can batch community actions.
+        if (autonomyRequestRef.current || refreshRequestRef.current || commentRequestRef.current ||
+            replyRequestRef.current || dmProcessingRef.current || dmQueueRef.current.length ||
+            publishingRef.current || isCharPosting) return;
         const reservation = reserveSparkTrafficRun(communityRef.current, Date.now());
         if (!reservation.allowed) return;
         // Reserve before the API call: even a timeout can consume the provider's quota.
@@ -2058,7 +2062,8 @@ ${buildSparkCommentHistory(post)}
                 }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2));
                 nextCommunity = resolved.state;
                 const key = resolved.account.id;
-                if (isSparkMuted(key) || dmThreads[key]?.length || dmThreads[name]?.length || incoming.some(item => item.key === key)) continue;
+                if (isSparkMuted(key) || dmThreadsRef.current[key]?.length ||
+                    dmThreadsRef.current[name]?.length || incoming.some(item => item.key === key)) continue;
                 used.add(name);
                 incoming.push({
                     key, name,
@@ -2629,6 +2634,7 @@ ${buildSparkCommentHistory(post)}
                                 </select>
                             </label>
                         </div>
+                        <p className="text-xs text-slate-500">省 API 模式：同一次发帖同时处理评论和可选来信；同一账号连发私信与同帖连续评论会短时合批；多 Char 发帖最多 8 位一组。批量节省调用次数，但仍按服务商的实际 Token 量计费。</p>
                         <p className="text-xs text-slate-400">仅在 Spark 打开时每 5 分钟检查，实际请求受间隔和额度约束。今日已使用：{communityState.autonomy.lastRunDay === getSparkTrafficLocalDay() ? communityState.autonomy.callsToday : 0}/{communityState.autonomy.maxCallsPerDay} 次。超时和失败请求也占用额度。</p>
                         {isAutonomyBusy && <p className="text-xs text-slate-500">正在生成社区动态，可继续正常操作。</p>}
                     </div>
