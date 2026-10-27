@@ -612,7 +612,7 @@ const SocialApp: React.FC = () => {
     const [localPostImage, setLocalPostImage] = useState(() => readDraft().localImage || '');
     useEffect(() => {
         try {
-            if (newPostTitle || newPostContent || selectedStockUrl || localPostImage) {
+            if (newPostTitle || newPostContent || newPostTags || selectedStockUrl || localPostImage) {
                 localStorage.setItem('spark_post_draft', JSON.stringify({
                     title: newPostTitle, content: newPostContent, tags: newPostTags, emoji: newPostEmoji,
                     stockUrl: selectedStockUrl, localImage: localPostImage,
