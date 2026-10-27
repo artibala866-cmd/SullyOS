@@ -497,7 +497,7 @@ const SocialApp: React.FC = () => {
     }, [searchQuery, feed]);
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [visibleLimit, setVisibleLimit] = useState(40);
-    const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
+    const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string; accountId?: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
     const [hiddenPostIds, setHiddenPostIds] = useState<string[]>(() => {
         try { const saved = JSON.parse(localStorage.getItem('spark_hidden_posts') || '[]'); return Array.isArray(saved) ? saved.filter((v): v is string => typeof v === 'string') : []; } catch { return []; }
@@ -1045,15 +1045,20 @@ const SocialApp: React.FC = () => {
         });
     };
 
-    const isFollowing = (handle: string): boolean => {
-        const account = communityState.accounts.find(item => item.displayName === handle || item.aliases.includes(handle));
+    const isFollowing = (handle: string, id?: string): boolean => {
+        const account = resolveSparkDMAccount(communityState.accounts, handle, id);
         return account
             ? communityState.follows.some(follow => follow.followerId === 'user' && follow.followedId === account.id)
             : followedHandles.includes(handle);
     };
-    const toggleFollow = (handle: string) => {
-        const post = feedRef.current.find(item => item.authorName === handle);
-        const existing = communityRef.current.accounts.find(item => item.displayName === handle || item.aliases.includes(handle));
+    const toggleFollow = (handle: string, id?: string) => {
+        const post = feedRef.current.find(item => id ? item.authorId === id : item.authorName === handle);
+        const existing = resolveSparkDMAccount(communityRef.current.accounts, handle, id);
+        if (!existing && communityRef.current.accounts.filter(account =>
+            account.type !== 'user' && (account.displayName === handle || account.aliases.includes(handle))).length > 1) {
+            addToast('有同名账号，请从对应笔记打开作者主页', 'error');
+            return;
+        }
         const candidateType: SparkAccountType = existing?.type || post?.authorType || 'stranger';
         const result = ensureSparkAccount(communityRef.current, {
             type: candidateType, id: existing?.id || post?.authorId, displayName: handle,
@@ -1830,8 +1835,8 @@ ${buildSparkCommentHistory(post)}
     // --- Renderers ---
 
     // 1. Feed Item (Glassmorphism)
-    const accountPosts = (handle: string) => {
-        const account = communityState.accounts.find(item => item.displayName === handle || item.aliases.includes(handle));
+    const accountPosts = (handle: string, id?: string) => {
+        const account = resolveSparkDMAccount(communityState.accounts, handle, id);
         return feed.filter(post => account ? post.authorId === account.id || (!post.authorId && post.authorName === handle) : post.authorName === handle);
     };
 
@@ -1879,14 +1884,14 @@ ${buildSparkCommentHistory(post)}
                     <div className="flex items-center justify-between px-4 bg-white/60 backdrop-blur-xl border-b border-white/20 shrink-0 relative z-20" style={{ paddingTop: 'max(12px, var(--safe-top))', paddingBottom: '12px' }}>
                         <button onClick={handleClosePost} className="p-2 -m-2 active:opacity-60"><Icons.Back /></button>
                         <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar })} aria-label="查看作者主页">
+                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar, accountId: selectedPost.authorId })} aria-label="查看作者主页">
                                 <TokenImg value={selectedPost.authorAvatar} className="w-8 h-8 rounded-full object-cover border border-white/50" />
                             </button>
-                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar })} className="text-sm font-bold text-slate-800">{selectedPost.authorName}</button>
+                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar, accountId: selectedPost.authorId })} className="text-sm font-bold text-slate-800">{selectedPost.authorName}</button>
                             {selectedPost.authorType !== 'user' && (
-                                <button type="button" onClick={() => toggleFollow(selectedPost.authorName)}
+                                <button type="button" onClick={() => toggleFollow(selectedPost.authorName, selectedPost.authorId)}
                                     className="ml-auto rounded-full border border-[#555555]/30 px-3 py-1 text-xs font-bold text-[#555555]">
-                                    {isFollowing(selectedPost.authorName) ? '已关注 ✓' : '+ 关注'}
+                                    {isFollowing(selectedPost.authorName, selectedPost.authorId) ? '已关注 ✓' : '+ 关注'}
                                 </button>
                             )}
                         </div>
@@ -2016,7 +2021,7 @@ ${buildSparkCommentHistory(post)}
                 </div>
             </div>}
             {viewedAccount && (() => {
-                const posts = accountPosts(viewedAccount.handle);
+                const posts = accountPosts(viewedAccount.handle, viewedAccount.accountId);
                 const owner = characters.find(c => (characterHandles[c.id] || []).some(a => a.handle === viewedAccount.handle));
                 const account = owner && (characterHandles[owner.id] || []).find(a => a.handle === viewedAccount.handle);
                 const isMain = account?.id === 'default' || account?.note === '主账号';
@@ -2033,12 +2038,12 @@ ${buildSparkCommentHistory(post)}
                         </div>
                         <div className="flex gap-7 text-xs text-slate-500 my-5">
                             <span><strong className="text-slate-800">{posts.length}</strong> 笔记</span>
-                            <span><strong className="text-slate-800">{fanCounts[owner ? 'char:' + owner.id + ':' + viewedAccount.handle : 'public:' + viewedAccount.handle] ?? 0}</strong> 粉丝</span>
+                            <span><strong className="text-slate-800">{communityState.follows.filter(follow => follow.followedId === viewedAccount.accountId).length}</strong> 粉丝</span>
                         </div>
 
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => { openSparkDM(viewedAccount); setViewedAccount(null); }} className="w-full rounded-full border border-[#555555] text-[#555555] font-bold py-2 mb-2">私信</button>}
-                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#555555] text-white font-bold py-2 mb-5">
-                            {isFollowing(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
+                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle, viewedAccount.accountId)} className="w-full rounded-full bg-[#555555] text-white font-bold py-2 mb-5">
+                            {isFollowing(viewedAccount.handle, viewedAccount.accountId) ? '已关注 ✓ · 点击取消' : '+ 关注'}
                         </button>}
                         <p className="font-bold text-sm border-b pb-3 mb-3">TA 的笔记</p>
                         <div className="grid grid-cols-2 gap-3">
@@ -2262,7 +2267,7 @@ ${buildSparkCommentHistory(post)}
                     </div>
                     {searchQuery.trim() && (matchingSparkAccounts.length > 0 || matchingSparkTopics.length > 0) && <div className="px-3 pb-2 max-h-36 overflow-y-auto space-y-1">
                         {matchingSparkAccounts.map(account => <button type="button" key={account.id}
-                            onClick={() => { setViewedAccount({ handle: account.displayName, avatar: account.avatar || '' }); setSearchOpen(false); }}
+                            onClick={() => { setViewedAccount({ handle: account.displayName, avatar: account.avatar || '', accountId: account.id }); setSearchOpen(false); }}
                             className="block w-full py-1 text-xs text-left text-slate-700">用户 · @{account.displayName}</button>)}
                         {matchingSparkTopics.map(topic => <button type="button" key={topic}
                             onClick={() => { setActiveTopic(topic); setSearchQuery(''); setSearchOpen(false); }}
@@ -2342,7 +2347,7 @@ ${buildSparkCommentHistory(post)}
                                     <div className="flex flex-wrap gap-3">
                                         {shown.map(n => <button key={n.id} type="button" onClick={() => {
                                             const accountPost = feed.find(p => p.authorName === n.actor);
-                                            if (accountPost) setViewedAccount({ handle: n.actor, avatar: n.avatar || accountPost.authorAvatar });
+                                            if (accountPost) setViewedAccount({ handle: n.actor, avatar: n.avatar || accountPost.authorAvatar, accountId: accountPost.authorId });
                                             else openSparkDM({ handle: n.actor, avatar: n.avatar || '' });
                                         }} className="flex items-center gap-1.5 max-w-[45%] min-w-0 text-left">
                                             <span className="w-8 h-8 shrink-0 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">{n.avatar ? <TokenImg value={n.avatar} className="w-full h-full object-cover" /> : '✦'}</span>
