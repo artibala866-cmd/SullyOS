@@ -30,7 +30,8 @@ export default function HomePhone({editor,characterId,onOpenChange,onBusyChange,
   const launch=trigger.current;
   const container=launch?.closest<HTMLElement>('.home-island');
   if(!launch||!container)return;
-  let raf=0;
+  let raf=0,observedRail:HTMLElement|null=null;
+  let railMutation:MutationObserver|undefined;
   const measure=()=>{
    raf=0;
    const current=trigger.current;
@@ -46,19 +47,30 @@ export default function HomePhone({editor,characterId,onOpenChange,onBusyChange,
   observer.observe(container);observer.observe(launch);
   const observeRail=()=>{
    const rail=container.querySelector<HTMLElement>('.h3-resident-rail');
+   if(rail===observedRail)return;
+   if(observedRail){
+    observer.unobserve(observedRail);
+    observedRail.removeEventListener('scroll',schedule);
+    railMutation?.disconnect();
+   }
+   observedRail=rail;
    if(!rail)return;
    observer.observe(rail);
-   rail.querySelectorAll<HTMLElement>('button[data-resident]').forEach(button=>observer.observe(button));
+   rail.addEventListener('scroll',schedule,{passive:true});
+   railMutation=new MutationObserver(schedule);
+   railMutation.observe(rail,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
   };
-  const mutation=new MutationObserver(()=>{observeRail();schedule();});
+  const containerMutation=new MutationObserver(()=>{observeRail();schedule();});
+  containerMutation.observe(container,{childList:true,subtree:true});
   observeRail();
-  mutation.observe(container,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
   window.addEventListener('resize',schedule);
   window.visualViewport?.addEventListener('resize',schedule);
   measure();
   return()=>{
    if(raf)cancelAnimationFrame(raf);
-   mutation.disconnect();observer.disconnect();
+   containerMutation.disconnect();railMutation?.disconnect();
+   if(observedRail)observedRail.removeEventListener('scroll',schedule);
+   observer.disconnect();
    window.removeEventListener('resize',schedule);
    window.visualViewport?.removeEventListener('resize',schedule);
   };
