@@ -3,7 +3,7 @@ import { evaluateSparkTraffic, sparkTrafficKey, type SparkTraffic } from '../uti
 import { chooseSparkStock } from '../utils/sparkStock';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { AppID, CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile, XhsStockImage } from '../types';
@@ -15,6 +15,8 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost } from '../utils/socialFeedMerge';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent } from '../utils/sparkCommunity';
+import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
 
@@ -159,6 +161,55 @@ const Icons = {
 const SocialApp: React.FC = () => {
     const { closeApp, openApp, characters, worldbooks, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
     const [feed, setFeed] = useState<SocialPost[]>([]);
+    const [communityState, setCommunityState] = useState<SparkCommunityState>(() => {
+        try { return normalizeSparkCommunityState(JSON.parse(localStorage.getItem('spark_community_state') || 'null')); }
+        catch { return createEmptySparkCommunityState(); }
+    });
+    const communityRef = useRef(communityState);
+    const communityWriteRef = useRef<Promise<void>>(Promise.resolve());
+    const writeCommunity = (next: SparkCommunityState) => {
+        communityRef.current = next;
+        setCommunityState(next);
+        try { localStorage.setItem('spark_community_state', JSON.stringify(next)); } catch (error) { console.warn('Spark local community cache failed', error); }
+        const payload = JSON.stringify(next);
+        const write = communityWriteRef.current.then(() => DB.saveAsset('spark_community_state', payload));
+        communityWriteRef.current = write.catch(error => console.warn('Spark community save failed', error));
+    };
+    const sparkEvent = (type: SparkCommunityEvent['type'], actorAccountId: string, fields: Partial<Pick<SparkCommunityEvent, 'postId' | 'commentId' | 'targetAccountId'>> = {}) => {
+        writeCommunity(appendSparkEvent(communityRef.current, {
+            id: 'event-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+            type, actorAccountId, createdAt: Date.now(), ...fields,
+        }));
+    };
+    const registerSparkPosts = (posts: SocialPost[]): SocialPost[] => {
+        let state = communityRef.current;
+        const registered = posts.map(post => {
+            const type: SparkAccountType = post.authorType || (post.authorCharId ? 'character' : post.id.startsWith('user-post-') ? 'user' : 'stranger');
+            const handles = post.authorCharId
+                ? (characterHandles[post.authorCharId] || []) : [];
+            const handleId = handles.find(handle => handle.handle === post.authorName)?.id
+                || (post.authorId?.startsWith('character:') ? post.authorId.split(':handle:')[1] : undefined);
+            const result = ensureSparkAccount(state, {
+                type, id: post.authorId,
+                ownerCharId: type === 'character' ? post.authorCharId : undefined,
+                handleId, displayName: post.authorName, avatar: post.authorAvatar,
+            }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2), post.timestamp);
+            state = result.state;
+            return { ...post, authorId: result.account.id, authorType: result.account.type,
+                source: post.source || (result.account.type === 'user' ? 'user' : 'legacy') } as SocialPost;
+        });
+        if (state !== communityRef.current) writeCommunity(state);
+        return registered;
+    };
+    useEffect(() => {
+        let active = true;
+        void DB.getAsset('spark_community_state').then(raw => {
+            if (!active || !raw) return;
+            try { writeCommunity(mergeSparkCommunityStates(normalizeSparkCommunityState(JSON.parse(raw)), communityRef.current, true)); }
+            catch (error) { console.warn('Spark community recovery failed', error); }
+        }).catch(error => console.warn('Spark community restore failed', error));
+        return () => { active = false; };
+    }, []);
     type SparkNotice = { id: string; kind: 'likes' | 'follows' | 'comments'; actor: string; avatar?: string; content: string; postId?: string; time: number; read: boolean };
     const [notices, setNotices] = useState<SparkNotice[]>(() => {
         try { const saved = JSON.parse(localStorage.getItem('spark_notifications') || '[]'); return Array.isArray(saved) ? saved : []; } catch { return []; }
@@ -346,7 +397,10 @@ const SocialApp: React.FC = () => {
     };
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
-    const searchMatches = (post: SocialPost) => !searchQuery.trim() || [post.title, post.content, post.authorName, ...(post.tags || [])].some(value => String(value || '').toLowerCase().includes(searchQuery.trim().toLowerCase()));
+    const [activeTopic, setActiveTopic] = useState<string | null>(null);
+    const visibleFeed = useMemo(() => rankSparkFeed(feed, communityState, {
+        mode: feedTab, query: searchQuery, topic: activeTopic, userDisplayName: socialProfile.name,
+    }), [feed, communityState, feedTab, searchQuery, activeTopic, socialProfile.name]);
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
