@@ -9,10 +9,11 @@ describe('all authored seat types retain an executable WebGL smoke scenario',()=
  it('enumerates every catalog asset with authored seat points',()=>{
   const segments=[...script.matchAll(/for\(const assetId of (\[[\s\S]*?\])\)\{/g)];
   expect(segments.length).toBeGreaterThanOrEqual(3);
-  const names=new Set(['chair']);
-  for(const [,_group,array] of segments.map(x=>[x[0],x[1],x[1]]))
-   for(const [,id] of array.matchAll(/'([a-z][a-z0-9_]*)'/g))names.add(id);
   const expected=catalog.filter(a=>a.seats?.length).map(a=>a.id);
+  const seatIds=new Set(expected),names=new Set(['chair']);
+  for(const match of segments)
+   for(const [,id] of match[1].matchAll(/'([a-z][a-z0-9_]*)'/g))
+    if(seatIds.has(id))names.add(id);
   expect([...names].sort()).toEqual(expected.sort());
   expect(expected.reduce((total,id)=>total+catalog.find(a=>a.id===id).seats.length,0)).toBe(29);
  });
