@@ -5,7 +5,8 @@ import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext'
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { extractContent } from './safeApi';
 import { fetchCharacterPhoneJson } from './characterPhoneAiRequest';
-import { canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
+import { canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyPreferences } from './characterPhoneApiBudget';
+import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from '../types';
 
 type DialogueApi = { baseUrl: string; apiKey: string; model: string };
@@ -57,6 +58,7 @@ export async function considerAutonomousMoment(input: {
   const id = char.id;
   const now = input.now ?? Date.now();
   if (!id || locks.has(id)) return 'cooldown';
+  if (!isCharacterPhoneAutonomyEnabled(id) || !readPhoneAutonomyPreferences(id).backgroundApiEnabled) return 'unavailable';
   if (!api.baseUrl || !api.apiKey || !api.model) return 'unavailable';
   if (input.budgeted && !canUsePhoneApiBudget(id)) return 'cooldown';
   const events = getMomentAutonomyCandidates(id, now);
@@ -68,16 +70,22 @@ export async function considerAutonomousMoment(input: {
   if (old.some(p => now - p.createdAt >= 0 && now - p.createdAt < MIN_POST_GAP)) return 'cooldown';
   locks.add(id);
   try {
-    // Keep the decision gap, but don't consume a paid request token merely
-    // because context or the schedule could not be prepared.
-    if (!writeState(id, { ...state, lastDecisionAt: now })) return 'unavailable';
+    // A failed local context preparation must not occupy six hours of
+    // decisions or spend a paid quota. Hold the in-memory lock meanwhile.
     const context = await buildCharacterPhoneContext(char, user, groups, realtimeConfig);
     const life = await getCharacterLifeScheduleContext(char, new Date(now));
     const scheduleHint = life.plannedActivity
       ? `当前计划：${life.plannedActivity}${life.plannedDescription ? '（' + life.plannedDescription + '）' : ''}。这只是计划，不能当作已发生事实。`
       : '当前没有可用的日程计划。';
     const recent = old.slice(0, 6).map(p => ({ text: p.text.slice(0, 160), deleted: !!p.deletedAt }));
-    // Reserve immediately before the actual model call, after free local preflight.
+    // Settings and evidence can change while the context is being assembled.
+    // Never make a stale paid decision after the user has switched autonomy off
+    // or cleared the event which would have justified the post.
+    if (!isCharacterPhoneAutonomyEnabled(id) ||
+        !readPhoneAutonomyPreferences(id).backgroundApiEnabled) return 'unavailable';
+    const currentEventIds = new Set(getMomentAutonomyCandidates(id, Date.now()).map(e => e.id));
+    if (!events.some(e => currentEventIds.has(e.id))) return 'skipped';
+    if (!writeState(id, { ...readState(id), lastDecisionAt: now })) return 'unavailable';
     if (input.budgeted && !reservePhoneApiBudget(id)) return 'cooldown';
     const { response, json } = await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
@@ -91,8 +99,16 @@ export async function considerAutonomousMoment(input: {
     const raw = extractContent(json).trim().replace(/^`{3}(?:json)?\s*/i, '').replace(/\s*`{3}$/, '');
     const data: unknown = JSON.parse(raw);
     const parsed = data as { publish?: unknown; text?: unknown; eventIds?: unknown };
+    // The model may finish after a setting change, phone cleanup or an
+    // independently saved post. Never resurrect cleared facts or publish late.
+    if (!isCharacterPhoneAutonomyEnabled(id) ||
+        !readPhoneAutonomyPreferences(id).backgroundApiEnabled) return 'skipped';
+    const freshCandidates = new Set(getMomentAutonomyCandidates(id, Date.now()).map(e => e.id));
+    if (!events.some(e => freshCandidates.has(e.id))) return 'skipped';
+    if (readCharacterMoments(id).some(p => !p.deletedAt && Date.now() - p.createdAt >= 0 &&
+        Date.now() - p.createdAt < MIN_POST_GAP)) return 'skipped';
     const ids = Array.isArray(parsed.eventIds)
-      ? [...new Set(parsed.eventIds.filter((v): v is string => typeof v === 'string' && events.some(e => e.id === v)))]
+      ? [...new Set(parsed.eventIds.filter((v): v is string => typeof v === 'string' && events.some(e => e.id === v) && freshCandidates.has(v)))]
       : [];
     // Whatever the answer, this set of events received its own decision.
     writeState(id, { ...readState(id), seenEventIds: [...new Set([...readState(id).seenEventIds, ...events.map(e => e.id)])].slice(-300) });
