@@ -19,8 +19,11 @@ export function selectSparkBatchCharacterResults<T extends { charId?: unknown }>
     const seen = new Set<string>();
     return output.filter((item: unknown): item is T => {
         if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-        const charId = (item as { charId?: unknown }).charId;
-        if (typeof charId !== 'string' || !allowed.has(charId) || seen.has(charId)) return false;
+        const { charId, content } = item as { charId?: unknown; content?: unknown };
+        // A malformed first row should not consume this character's single slot.
+        // Keep the later valid row without requesting another paid generation.
+        if (typeof charId !== 'string' || !allowed.has(charId) || seen.has(charId) ||
+            typeof content !== 'string' || !content.trim()) return false;
         seen.add(charId);
         return true;
     });
