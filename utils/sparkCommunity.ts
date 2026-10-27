@@ -91,6 +91,24 @@ const uniqueStrings = (values: unknown[]): string[] =>
 export const normalizeSparkName = (value: string): string =>
     value.normalize('NFKC').trim().toLocaleLowerCase();
 
+/** Keep each historical character handle separate before the UI handle list finishes loading. */
+export function resolveSparkCharacterHandleId(
+    ownerCharId: string | undefined,
+    authorId: string | undefined,
+    authorName: string,
+    handles: Array<{ id: string; handle: string }>,
+): string | undefined {
+    if (!ownerCharId) return undefined;
+    const prefix = 'character:' + ownerCharId + ':handle:';
+    if (authorId?.startsWith(prefix)) {
+        const persisted = authorId.slice(prefix.length);
+        if (persisted) return persisted;
+    }
+    return handles.find(item => item.handle === authorName)?.id ||
+        'legacy-' + normalizeSparkName(authorName);
+}
+
+
 export function createEmptySparkCommunityState(): SparkCommunityState {
     return {
         version: 1,
