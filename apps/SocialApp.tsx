@@ -1382,6 +1382,63 @@ ${post.content || '(楼主没写正文)'}
         trackEvent('清空 Spark 推荐流');
     };
 
+    const handleToggleFollowPost = (post: SocialPost) => {
+        if (post.authorId === 'user' || post.authorType === 'user') return;
+        if (!post.authorId) {
+            const registered = normalizeAndRegisterPost(post, communityStateRef.current);
+            updateCommunityState(registered.state);
+            updatePostInFeed(post.id, () => registered.post);
+            toggleFollowAccount(registered.post.authorId || '', post.authorName);
+            return;
+        }
+        toggleFollowAccount(post.authorId, post.authorName);
+    };
+
+    const handleHidePost = (post: SocialPost) => {
+        const next = setSparkPostHidden(
+            communityStateRef.current, post.id, 'user', true, Date.now(), createSparkId('event'),
+        );
+        updateCommunityState(next);
+        if (selectedPost?.id === post.id) setSelectedPost(null);
+        addToast('已减少这类内容的推荐；帖子没有被删除。', 'success');
+    };
+
+    const handleMutePostAuthor = (post: SocialPost) => {
+        const accountId = post.authorId;
+        if (!accountId || accountId === 'user' || post.authorType === 'user') return;
+        const muted = communityStateRef.current.mutedAccountIds.includes(accountId);
+        const next = setSparkAccountMuted(
+            communityStateRef.current, accountId, 'user', !muted, Date.now(), createSparkId('event'),
+        );
+        updateCommunityState(next);
+        if (!muted && selectedPost?.id === post.id) setSelectedPost(null);
+        addToast(muted ? '已取消屏蔽 @' + post.authorName : '已屏蔽 @' + post.authorName, 'success');
+    };
+
+    const handleOpenNotification = (notification: SparkCommunityState['notifications'][number]) => {
+        updateCommunityState(state => markSparkNotificationsRead(state, Date.now(), notification.id));
+        setShowNotifications(false);
+        if (!notification.postId) {
+            addToast(notification.message, 'info');
+            return;
+        }
+        const target = feedRef.current.find(post => post.id === notification.postId);
+        if (!target) {
+            addToast('这条通知关联的帖子已不存在。', 'info');
+            return;
+        }
+        setActiveTab('home');
+        setFeedMode('discover');
+        setSearchQuery('');
+        setSelectedAccountId(null);
+        setActiveTopic(null);
+        handleOpenPost(target);
+    };
+
+    const handleMarkAllNotificationsRead = () => {
+        updateCommunityState(state => markSparkNotificationsRead(state));
+    };
+
     // --- Renderers ---    // --- Renderers ---
 
     // 1. Feed Item (Glassmorphism)
