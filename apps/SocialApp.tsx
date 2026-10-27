@@ -13,7 +13,7 @@ import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
-import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost } from '../utils/socialFeedMerge';
+import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags } from '../utils/socialFeedMerge';
 import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
@@ -605,6 +605,7 @@ const SocialApp: React.FC = () => {
     };
     const [newPostTitle, setNewPostTitle] = useState(() => readDraft().title || '');
     const [newPostContent, setNewPostContent] = useState(() => readDraft().content || '');
+    const [newPostTags, setNewPostTags] = useState(() => readDraft().tags || '');
     const [newPostEmoji, setNewPostEmoji] = useState(() => readDraft().emoji || '2728');
     const [stockImages, setStockImages] = useState<XhsStockImage[]>([]);
     const [selectedStockUrl, setSelectedStockUrl] = useState(() => readDraft().stockUrl || '');
@@ -613,14 +614,14 @@ const SocialApp: React.FC = () => {
         try {
             if (newPostTitle || newPostContent || selectedStockUrl || localPostImage) {
                 localStorage.setItem('spark_post_draft', JSON.stringify({
-                    title: newPostTitle, content: newPostContent, emoji: newPostEmoji,
+                    title: newPostTitle, content: newPostContent, tags: newPostTags, emoji: newPostEmoji,
                     stockUrl: selectedStockUrl, localImage: localPostImage,
                 }));
             } else localStorage.removeItem('spark_post_draft');
         } catch (error) { console.warn('Spark draft backup failed', error); }
-    }, [newPostTitle, newPostContent, newPostEmoji, selectedStockUrl, localPostImage]);
+    }, [newPostTitle, newPostContent, newPostTags, newPostEmoji, selectedStockUrl, localPostImage]);
     const closeCreatePost = () => {
-        if ((newPostTitle.trim() || newPostContent.trim() || selectedStockUrl || localPostImage) &&
+        if ((newPostTitle.trim() || newPostContent.trim() || newPostTags.trim() || selectedStockUrl || localPostImage) &&
             !window.confirm('保存当前草稿并退出发布？下次打开可以继续编辑。')) return;
         setIsCreateOpen(false);
     };
@@ -1766,7 +1767,7 @@ ${buildSparkCommentHistory(post)}
             isLiked: false,
             comments: [],
             timestamp: Date.now(),
-            tags: ['User'],
+            tags: parseSparkPublishTags(newPostTags),
             bgStyle: getRandomStyle().bg,
             authorType: 'user', source: 'user',
         };
@@ -1776,7 +1777,7 @@ ${buildSparkCommentHistory(post)}
         if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
         prependPostsToFeed([saved], false);
         learnInterest(saved, 4);
-        setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); setLocalPostImage('');
+        setNewPostContent(''); setNewPostTitle(''); setNewPostTags(''); setSelectedStockUrl(''); setLocalPostImage('');
         localStorage.removeItem('spark_post_draft');
         setIsCreateOpen(false);
         setActiveTab('home');
@@ -2285,6 +2286,12 @@ ${buildSparkCommentHistory(post)}
                             className="w-full h-auto min-h-[200px] resize-none outline-none text-base leading-relaxed placeholder:text-slate-300 font-medium" 
                         />
                         
+                        <label className="block mt-3 mb-2 text-xs font-bold text-slate-500">
+                            话题标签（最多 6 个，用空格或逗号分隔）
+                            <input type="text" value={newPostTags} onChange={e => setNewPostTags(e.target.value)}
+                                placeholder="绘画 插画 日常"
+                                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal outline-none" />
+                        </label>
                         <div className="mt-4 pt-4 border-t border-slate-50">
                             <div className="flex justify-between items-center mb-2">
                                 <p className="text-xs font-bold text-slate-500">从小红书图库选配图（URL，不存图片本体）</p>
