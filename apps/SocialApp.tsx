@@ -852,7 +852,7 @@ const SocialApp: React.FC = () => {
         setSelectedPost(current => (current?.id === postId ? null : current));
     };
 
-    // --- AI Logic (Updated for Multi-Handle) ---    // --- AI Logic (Updated for Multi-Handle) ---
+    // --- AI Logic (Updated for Multi-Handle) ---
     const buildGenerationContext = async (participants: CharacterProfile[]) => {
         const recent = await Promise.all(participants.map(async char =>
             [char.id, await loadCharacterContextMessages(char)] as const));
@@ -1193,7 +1193,7 @@ ${post.content || '(楼主没写正文)'}
         void processReplyQueue();
     };
 
-    const handleShare = async (targetId: string, isGroup: boolean) => {    const handleShare = async (targetId: string, isGroup: boolean) => {
+    const handleShare = async (targetId: string, isGroup: boolean) => {
         if (!selectedPost) return;
         try {
             await DB.saveMessage({ charId: isGroup ? 'user' : targetId, groupId: isGroup ? targetId : undefined, role: 'user', type: 'social_card', content: '[分享帖子]', metadata: { post: selectedPost } });
@@ -1439,7 +1439,7 @@ ${post.content || '(楼主没写正文)'}
         updateCommunityState(state => markSparkNotificationsRead(state));
     };
 
-    // --- Renderers ---    // --- Renderers ---
+    // --- Renderers ---
 
     // 1. Feed Item (Glassmorphism)
     const renderFeedItem = (post: SocialPost) => (
