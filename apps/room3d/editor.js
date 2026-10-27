@@ -133,8 +133,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  let quality='clear';try{const saved=localStorage.getItem('sully-home3d-quality');if(qualities[saved])quality=saved}catch{}
  let detailBudget=qualities[quality].details,frameInterval=1000/qualities[quality].fps,orbitMode=false,inTick=false;
  const resolutionBudget=createRoomFrameBudget({enabled:phone||touch});
- let gpuContextLost=false;
+ let gpuContextLost=false,renderRecoveryTimer=0,consecutiveTickErrors=0,lastTickErrorAt=0;
  function wake(){if(!destroyed&&!suspended&&!document.hidden&&!gpuContextLost&&!frame&&!inTick&&state)frame=requestAnimationFrame(tick)}
+ function scheduleTickRecovery(error){
+  dirty=true;consecutiveTickErrors=Math.min(consecutiveTickErrors+1,6);
+  const now=performance.now();if(now-lastTickErrorAt>5000){console.error('[Home3D] animation frame failed; retrying render loop',error);lastTickErrorAt=now;}
+  if(destroyed||suspended||document.hidden||gpuContextLost||renderRecoveryTimer)return;
+  const delay=Math.min(2000,150*Math.pow(2,consecutiveTickErrors-1));
+  renderRecoveryTimer=window.setTimeout(()=>{renderRecoveryTimer=0;if(destroyed||suspended||document.hidden||gpuContextLost)return;try{renderer?.resetState();}catch{}wake();},delay);
+ }
  const materialCache=new Map(),usedMaterials=new Set(),paintTargets=new Map(),defaultPaintColors=new Map();
  let furnitureOutlineEnabled=true;try{furnitureOutlineEnabled=localStorage.getItem('sully-home3d-furniture-outline')!=='off';}catch{}
  let furnitureStyle='retro';try{if(localStorage.getItem('sully-home3d-furniture-style')==='original')furnitureStyle='original';}catch{}
@@ -2066,8 +2073,8 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  host.tabIndex=0;host.addEventListener('keydown',keydown,{signal:abort.signal});
  // Mobile browsers may discard the GPU context when the tab is backgrounded.
  // Do not recreate the editor here: its furniture and resident state must survive.
- const onContextLost=e=>{e.preventDefault();gpuContextLost=true;cancelAnimationFrame(frame);frame=0;};
- const onContextRestored=()=>{gpuContextLost=false;renderer.resetState();resize();dirty=true;lastTick=performance.now();wake();};
+ const onContextLost=e=>{e.preventDefault();gpuContextLost=true;clearTimeout(renderRecoveryTimer);renderRecoveryTimer=0;cancelAnimationFrame(frame);frame=0;};
+ const onContextRestored=()=>{clearTimeout(renderRecoveryTimer);renderRecoveryTimer=0;consecutiveTickErrors=0;gpuContextLost=false;renderer.resetState();resize();dirty=true;lastTick=performance.now();wake();};
  renderer.domElement.addEventListener('webglcontextlost',onContextLost,{signal:abort.signal});
  renderer.domElement.addEventListener('webglcontextrestored',onContextRestored,{signal:abort.signal});
  const observer=new ResizeObserver(()=>resize());observer.observe(stage);
@@ -2078,7 +2085,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   window.addEventListener('resize',viewportResize,{signal:abort.signal});
   window.visualViewport?.addEventListener('resize',viewportResize,{signal:abort.signal});
  function tick(now=performance.now()){
-  frame=0;if(destroyed||suspended||document.hidden||gpuContextLost||roomLoading)return;if(photoSession){lastTick=now;if(dirty){renderScene();dirty=false;}return;}inTick=true;const dt=Math.min(.05,(now-lastTick)/1000);lastTick=now;
+  frame=0;if(destroyed||suspended||document.hidden||gpuContextLost||roomLoading)return;
+  inTick=true;let shouldContinue=false;
+  try{
+  if(photoSession){lastTick=now;if(dirty){renderScene();dirty=false;}return;}
+  const dt=Math.min(.05,(now-lastTick)/1000);lastTick=now;
   if(greeting&&elapsed>=greeting.until){setResidentExpression(primaryResidentId,greeting.old||{});const restoreWide=greeting.restoreWide;greeting=null;visitorMotion='idle';if(restoreWide){const from={position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom};resize(true,true);cameraArrival={from,to:{position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom},start:elapsed};}}
   updateCompanion();
   if(cameraArrival){const t=THREE.MathUtils.smootherstep(elapsed-cameraArrival.start,0,reducedMotion?.01:1.1),{from,to}=cameraArrival;camera.position.copy(from.position).lerp(to.position,t);controls.target.copy(from.target).lerp(to.target,t);camera.zoom=THREE.MathUtils.lerp(from.zoom,to.zoom,t);camera.updateProjectionMatrix();dirty=true;if(t>=1)cameraArrival=null;}
@@ -2101,10 +2112,14 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
      if(scale!==null&&!photoSession){renderer.setPixelRatio(roomPixelRatio(quality,devicePixelRatio,touch||phone)*scale);dirty=true;}
     }
   }
-  inTick=false;if(homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil)))wake();
+  consecutiveTickErrors=0;
+  shouldContinue=!!(homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil)));
+  }catch(error){scheduleTickRecovery(error);}
+  finally{inTick=false;}
+  if(shouldContinue)wake();
  }
  document.addEventListener('visibilitychange',()=>{if(document.hidden){petSystem?.life.save();clearTimeout(faceTimer);faceTimer=0;cancelAnimationFrame(frame);frame=0}else{if(refreshRoomLighting())renderUI();dirty=true;lastTick=performance.now();wake()}scheduleRoomLighting();},{signal:abort.signal});
- function dispose(){homelyForeground?.dispose();homelyForeground=null;parkedMealEffects?.dispose();parkedMealEffects=null;userSpeech=null;cancelCompanionAction();petSystem?.dispose();petSystem=null;interiorBackdrop.dispose();clearTimeout(tapTimer);lampGlow.dispose();walkFeedback.dispose();clearTimeout(faceTimer);faceTimer=0;clearTimeout(lightTimer);lightTimer=0;if(destroyed&&!kit)return;stopSocial();for(const e of [...socialEntries])removeSocialResident(e.id);gamingEffects.clear();clearComparison();visitor?.dispose();visitor=null;watering.dispose();mat.geometry.dispose();mat.material.dispose();kitchenEffects.dispose();kitchenWork.dispose();bathroomEffects.dispose();finishes.dispose();windowDaylight.dispose();resident.clear();destroyed=true;abort.abort(homeDisposalReason());observer.disconnect();cancelAnimationFrame(frame);controls.dispose();clearContent();for(const m of materialCache.values())m.dispose();materialCache.clear();kit?.scene.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material]){for(const value of Object.values(m))if(value?.isTexture)value.dispose();m.dispose()}}});distantGeometry.dispose();for(const m of distantMaterials.values())m.dispose();distantMaterials.clear();key.shadow.dispose();grid.geometry.dispose();grid.material.dispose();footprint.geometry.dispose();footprint.material.dispose();for(const material of outlineMaterials)material.dispose();ground.geometry.dispose();ground.material.dispose();selection.geometry.dispose();selection.material.dispose();furnitureHalo.dispose();roomFinish.dispose();renderer.dispose();host.innerHTML='';host.classList.remove('home3d');}
+ function dispose(){clearTimeout(renderRecoveryTimer);renderRecoveryTimer=0;homelyForeground?.dispose();homelyForeground=null;parkedMealEffects?.dispose();parkedMealEffects=null;userSpeech=null;cancelCompanionAction();petSystem?.dispose();petSystem=null;interiorBackdrop.dispose();clearTimeout(tapTimer);lampGlow.dispose();walkFeedback.dispose();clearTimeout(faceTimer);faceTimer=0;clearTimeout(lightTimer);lightTimer=0;if(destroyed&&!kit)return;stopSocial();for(const e of [...socialEntries])removeSocialResident(e.id);gamingEffects.clear();clearComparison();visitor?.dispose();visitor=null;watering.dispose();mat.geometry.dispose();mat.material.dispose();kitchenEffects.dispose();kitchenWork.dispose();bathroomEffects.dispose();finishes.dispose();windowDaylight.dispose();resident.clear();destroyed=true;abort.abort(homeDisposalReason());observer.disconnect();cancelAnimationFrame(frame);controls.dispose();clearContent();for(const m of materialCache.values())m.dispose();materialCache.clear();kit?.scene.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material]){for(const value of Object.values(m))if(value?.isTexture)value.dispose();m.dispose()}}});distantGeometry.dispose();for(const m of distantMaterials.values())m.dispose();distantMaterials.clear();key.shadow.dispose();grid.geometry.dispose();grid.material.dispose();footprint.geometry.dispose();footprint.material.dispose();for(const material of outlineMaterials)material.dispose();ground.geometry.dispose();ground.material.dispose();selection.geometry.dispose();selection.material.dispose();furnitureHalo.dispose();roomFinish.dispose();renderer.dispose();host.innerHTML='';host.classList.remove('home3d');}
  signal?.addEventListener('abort',dispose,{once:true});
  try{
   const loadStartedAt=performance.now();
