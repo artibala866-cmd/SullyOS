@@ -243,7 +243,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  let parkedMealEffects=null;
  let furnitureUser=null,manualControl='user',mapCollapsed=false,seatedReaction=null,reactionGeneration=0;
  const activeResidentId=()=>furnitureUser?'user':primaryResidentId;
- function resetFurnitureMotion(){stopWalking();putPlushBack();visitorSeat=null;visitorPlant=null;visitorActivity=null;seatChange=null;visitorMotion='idle';visitorUntil=0;visitorLocation=null;gamingEffects.clear();bathroomEffects.clear();kitchenEffects.updateMeal(null,0);visitor?.animate(0,'idle');}
+ function resetFurnitureMotion(){stopWalking();putPlushBack();visitorSeat=null;seatAccess=null;visitorPlant=null;visitorActivity=null;seatChange=null;visitorMotion='idle';visitorUntil=0;visitorLocation=null;gamingEffects.clear();bathroomEffects.clear();kitchenEffects.updateMeal(null,0);visitor?.animate(0,'idle');}
  function exchangeFurnitureVisitor(entry){
   socialPlacementMap=null;
   const next=entry.visitor,old=visitor,position=resident.position.clone(),rotation=resident.quaternion.clone(),visible=resident.visible;
@@ -254,8 +254,8 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   for(const task of [companionTravel,companionIdle,companionGesture,companionRise])if(task?.person){if(task.person.visitor===old)task.person.group=entry.group;else if(task.person.visitor===next)task.person.group=resident;}
   if(companionFacing)companionFacing.root=companionFacing.root===resident?entry.group:resident;
  }
- function snapshotFurniture(){return {parkedSeat:visitorSeat,parkedPose:currentSeatPose(),parkedActivity:{activity:visitorActivity,motion:visitorMotion,start:visitorStart,until:visitorUntil}};}
- function resumeFurniture(snapshot){visitorSeat=snapshot?.parkedSeat||null;const p=snapshot?.parkedActivity;visitorActivity=p?.activity||null;visitorMotion=p?.motion||'idle';visitorStart=p?.start??elapsed;visitorUntil=p?.until||0;if(visitorSeat)visitor.animate(elapsed-visitorStart,visitorMotion,visitorSeat.bed?'lying':'seated',currentSeatPose());}
+ function snapshotFurniture(){return {parkedSeat:visitorSeat,parkedPose:currentSeatPose(),parkedSeatAccess:seatAccess,parkedActivity:{activity:visitorActivity,motion:visitorMotion,start:visitorStart,until:visitorUntil}};}
+ function resumeFurniture(snapshot){visitorSeat=snapshot?.parkedSeat||null;seatAccess=snapshot?.parkedSeatAccess||null;const p=snapshot?.parkedActivity;visitorActivity=p?.activity||null;visitorMotion=p?.motion||'idle';visitorStart=p?.start??elapsed;visitorUntil=p?.until||0;if(visitorSeat)visitor.animate(elapsed-visitorStart,visitorMotion,visitorSeat.bed?'lying':'seated',currentSeatPose());}
  function restoreFurnitureCharacter(){
   petSystem?.contact.cancel();
   if(!furnitureUser)return;parkedMealEffects?.dispose();parkedMealEffects=null;
