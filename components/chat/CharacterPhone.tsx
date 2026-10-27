@@ -863,8 +863,8 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             </div>
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ececec] bg-[#fafafa] px-3 py-3 text-xs">
               <span className="min-w-0">
-                <strong className="block text-[13px] font-semibold text-[#444]">自动维护微信与朋友圈</strong>
-                <span className="mt-1 block leading-5 text-[#888]">开启后复用查手机自主生活的前台调度，按下方省额度／均衡／活跃频率轮流更新 NPC 微信、联系人与朋友圈。不会在打开微信瞬间生成，也不会在网页关闭后后台运行。</span>
+                <strong className="block text-[13px] font-semibold text-[#444]">自动更新优先处理微信与朋友圈</strong>
+                <span className="mt-1 block leading-5 text-[#888]">开启后优先轮换 NPC 微信和朋友圈；关闭后恢复包含其他自主功能的默认轮换，并不代表关闭微信自动更新。要暂停独立自主生成，请关闭下方“Char 手机自主生活”或“允许独立后台 AI 请求”。仅网页在前台时检查，不会因打开微信立即生成。</span>
               </span>
               <input type="checkbox" checked={inboxPrefs.autoFullWeChat}
                 onChange={e=>{
@@ -956,7 +956,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           {settingsMatch("自主 真人感 生活 NPC 自动 总开关") && <PhoneSettingsGroup title="Char 手机自主生活" searching={!!settingsQuery}>
           <label className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-4 text-sm">
             <span className="space-y-1"><span className="block font-semibold text-[#222]">Char 手机自主生活</span>
-              <span className="block text-xs leading-5 text-[#777]">NPC 微信续聊、朋友圈、浏览器与个人资料的总开关</span></span>
+              <span className="block text-xs leading-5 text-[#777]">控制独立前台自主任务（NPC 微信、朋友圈、浏览器和个人资料）；关闭后手动生成和私聊同轮生成选项不受影响</span></span>
             <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={npcAutonomyEnabled}
               onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/>
           </label>
@@ -1006,7 +1006,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             </label>
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">允许独立后台 AI 请求</strong>
-                <span className="block mt-1 leading-5 text-[#888]">关闭后所有查手机自主任务不再单独调 API；手动点击生成和 User 私聊不受影响。开启时仍遵守下方每日预算。</span></span>
+                <span className="block mt-1 leading-5 text-[#888]">关闭后，手机的独立自主 AI 任务不会再调用接口；原有手动生成、User 私聊，以及另行开启的“私聊同轮生成”不受影响。开启后仍遵守下方共享预算。</span></span>
               <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#444]" checked={phonePrefs.backgroundApiEnabled}
                 onChange={e=>changePhonePrefs({backgroundApiEnabled:e.target.checked})}/>
             </label>
