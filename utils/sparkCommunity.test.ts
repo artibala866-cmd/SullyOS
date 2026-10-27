@@ -153,3 +153,17 @@ describe('Spark persistent community state', () => {
         expect(rankSparkFeed(posts, muted, { topic: 'art', now }).map(item => item.id)).toEqual(['followed-new', 'unfollowed']);
     });
 });
+
+
+describe('Spark topic interests', () => {
+    it('toggles a topic interest idempotently by normalized topic name', async () => {
+        const { toggleSparkInterest } = await import('./sparkCommunity');
+        const first = toggleSparkInterest(createEmptySparkCommunityState(), 'Watercolor', 10, 'interest-1');
+        const second = toggleSparkInterest(first.state, ' watercolor ', 20, 'interest-2');
+        expect(first.action).toBe('follow');
+        expect(first.state.interests).toEqual(['Watercolor']);
+        expect(second.action).toBe('unfollow');
+        expect(second.state.interests).toEqual([]);
+        expect(second.state.events.map(event => event.type)).toEqual(['interest_followed', 'interest_unfollowed']);
+    });
+});
