@@ -27,6 +27,8 @@ export type CharacterPhoneAutonomyInput = {
   groups: GroupProfile[];
   realtimeConfig?: RealtimeConfig;
   api: Api;
+  /** Answer an already saved NPC message without creating contacts or unrelated chats. */
+  replyOnly?: boolean;
 };
 export type PhoneAutonomyOutcome = 'skipped' | 'generated-contacts' | 'messaged' | 'unavailable' | 'failed';
 type RunState = { day: string; turnsToday: number; attemptsToday: number; lastAttemptAt: number; bootstrapAt: number; contactAt: Record<string, number> };
@@ -218,7 +220,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     state.lastAttemptAt = now;
     writeState(char.id, state);
     let contacts = readNpcProfiles(char.id);
-    if (contacts.length < 4 && now - state.bootstrapAt > DAY) {
+    if (!input.replyOnly && contacts.length < 4 && now - state.bootstrapAt > DAY) {
       if (!reservePhoneApiBudget(char.id)) return 'skipped';
       state.bootstrapAt = now;
       state.attemptsToday++;
@@ -231,7 +233,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     if (!contacts.length) return 'skipped';
     const threads = readCharacterPhoneChats(char.id);
     const decision = chooseAction(char.id, contacts, threads, state, now, busyStatus === 'busy');
-    if (!decision) return 'skipped';
+    if (!decision || (input.replyOnly && decision.why !== 'unanswered')) return 'skipped';
     const { contact, thread, actor, why } = decision;
     const charTimeZone = resolveCharTimeZone(char);
     const timeAwarenessOn = char.timeAwarenessEnabled !== false;
