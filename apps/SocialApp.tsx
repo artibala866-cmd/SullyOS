@@ -5,15 +5,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile } from '../types';
-import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants } from '../utils/socialGeneration';
+import { buildSparkCommentHistory, buildSparkGenerationContext, getSparkHandles, resolveSparkAuthor, selectSparkParticipants } from '../utils/socialGeneration';
 import { processImageToBlob } from '../utils/file';
 import { putImageBlob } from '../utils/blobRef';
 import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
-import { House, User, Package, Warning } from '@phosphor-icons/react';
+import { House, User, Package, Warning, Bell, MagnifyingGlass } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, updateSocialPost } from '../utils/socialFeedMerge';
 import { trackEvent } from '../utils/analytics';
+import {
+    SparkCommunityState, createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates,
+    ensureSparkAccount, normalizeSparkPost, normalizeSparkName, toggleSparkFollow, toggleSparkInterest,
+    addSparkNotification, markSparkNotificationsRead, appendSparkEvent, setSparkPostHidden,
+    setSparkAccountMuted, markSparkPostSeen, rankSparkFeed, deriveSparkProfileStats,
+} from '../utils/sparkCommunity';
 import TokenImg from '../components/os/TokenImg';
 
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
@@ -151,6 +157,27 @@ const readSparkCommentDrafts = (): Record<string, SparkCommentDraft> => {
     }
 };
 
+const hasSparkCommunityCache = (): boolean => {
+    try {
+        return typeof localStorage !== 'undefined' && !!localStorage.getItem('spark_community_state');
+    } catch {
+        return false;
+    }
+};
+
+const readSparkCommunityCache = (): SparkCommunityState => {
+    try {
+        if (typeof localStorage === 'undefined') return createEmptySparkCommunityState();
+        const raw = localStorage.getItem('spark_community_state');
+        return raw ? normalizeSparkCommunityState(JSON.parse(raw)) : createEmptySparkCommunityState();
+    } catch {
+        return createEmptySparkCommunityState();
+    }
+};
+
+const createSparkId = (prefix = 'id'): string =>
+    prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+
 // --- Icons ---
 
 const Icons = {
@@ -197,6 +224,18 @@ const Icons = {
 const SocialApp: React.FC = () => {
     const { closeApp, characters, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
     const [feed, setFeed] = useState<SocialPost[]>([]);
+    const [hasInitialCommunityCache] = useState<boolean>(hasSparkCommunityCache);
+    const [communityState, setCommunityState] = useState<SparkCommunityState>(readSparkCommunityCache);
+    const [communityLoaded, setCommunityLoaded] = useState<boolean>(hasInitialCommunityCache);
+    const communityStateRef = useRef(communityState);
+    const communityCachePresentRef = useRef(hasInitialCommunityCache);
+    const communityMutationVersionRef = useRef(0);
+    const communityPersistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const [feedMode, setFeedMode] = useState<'discover' | 'following'>('discover');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeTopic, setActiveTopic] = useState<string | null>(null);
+    const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+    const [showNotifications, setShowNotifications] = useState(false);
     // Modes: 'home' (Feed) | 'me' (Profile) | 'create' (Modal Overlay)
     const [activeTab, setActiveTab] = useState<'home' | 'me'>('home');
     useAppShortcut(ShortcutAppID.Social, intent => { setSelectedPost(null); setIsCreateOpen(false); setShowSettings(false); setActiveTab(intent.entryId === 'me' ? 'me' : 'home'); });
@@ -258,6 +297,57 @@ const SocialApp: React.FC = () => {
     const feedLoadGenerationRef = useRef(0);
     const socialPersistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
     const commentDraftsRef = useRef<Record<string, SparkCommentDraft>>(readSparkCommentDrafts());
+
+    const updateCommunityState = (updater: SparkCommunityState | ((current: SparkCommunityState) => SparkCommunityState)) => {
+        const next = typeof updater === 'function' ? updater(communityStateRef.current) : updater;
+        communityStateRef.current = next;
+        communityMutationVersionRef.current += 1;
+        setCommunityState(next);
+        const serialized = JSON.stringify(next);
+        try {
+            localStorage.setItem('spark_community_state', serialized);
+        } catch (error) {
+            console.warn('Spark community cache could not be saved locally', error);
+        }
+        const write = communityPersistenceQueueRef.current.then(
+            () => DB.saveAsset('spark_community_state', serialized),
+            () => DB.saveAsset('spark_community_state', serialized),
+        );
+        communityPersistenceQueueRef.current = write.catch(error => console.error('Spark community persistence failed', error));
+        return next;
+    };
+
+    useEffect(() => {
+        if (communityCachePresentRef.current) {
+            setCommunityLoaded(true);
+            const serialized = JSON.stringify(communityStateRef.current);
+            void DB.saveAsset('spark_community_state', serialized).catch(error => console.error(error));
+            return;
+        }
+        let active = true;
+        const versionAtStart = communityMutationVersionRef.current;
+        DB.getAsset('spark_community_state').then(raw => {
+            if (!active || !raw) return;
+            let persisted: SparkCommunityState;
+            try {
+                persisted = normalizeSparkCommunityState(JSON.parse(raw));
+            } catch {
+                persisted = createEmptySparkCommunityState();
+            }
+            if (communityMutationVersionRef.current === versionAtStart) {
+                communityStateRef.current = persisted;
+                setCommunityState(persisted);
+                try { localStorage.setItem('spark_community_state', JSON.stringify(persisted)); } catch { /* cache is optional */ }
+            } else {
+                updateCommunityState(mergeSparkCommunityStates(persisted, communityStateRef.current));
+            }
+        }).catch(error => {
+            console.warn('Spark community state could not be loaded', error);
+        }).finally(() => {
+            if (active) setCommunityLoaded(true);
+        });
+        return () => { active = false; };
+    }, []);
 
     useEffect(() => {
         mountedRef.current = true;
