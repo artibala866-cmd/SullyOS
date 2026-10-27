@@ -70,7 +70,7 @@ import {createRoomFinishPass} from './roomFinishPass.js';
 import {ROOM_LIGHT_PHASES,resolveRoomLightPhase,createRoomLightUniforms,updateRoomLightUniforms} from './roomLighting.js';
 import {isPhoneBrowser,PHONE_BUDGET,furnishingCounts,phoneBudgetError} from './deviceBudget.js';
 import {ROOM_HALF,ROOM_SCALE,MAX_BUILDING_LENGTH} from './dimensions.js';
-import {gamingActivities,placeGamingPreset,GAMING_ACTIONS} from './gaming.js';
+import {gamingActivities,gamingPoint,placeGamingPreset,GAMING_ACTIONS} from './gaming.js';
 import {diningActivities,placeDiningPreset,fridgeOpenError} from './dining.js';
 import {createKitchenEffects} from './kitchenEffects.js';
 import {kitchenActions,planKitchenAction,kitchenFingerprint,kitchenHands} from './kitchenActivities.js';
@@ -1801,7 +1801,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    heldPlush={roomId:current().id,itemId:d.id};visitorMotion='hug';visitorStart=elapsed;visitorUntil=elapsed+4.4;edit=false;overview=false;selected=null;panel=null;syncPlush();animateVisitor(0);updateSelection();invalidateRoomShadows();recordHomeActivity('抱玩偶',d.recordSource);notify('抱住啦！在小人面板可以放回原位');return;
   }
   if(d.action==='dining-preset'){commit(()=>{const items=placeDiningPreset(placementRoom(),catalog);if(current().items.length+items.length>100)throw Error('每间房最多保存 100 件家具');current().items.push(...items);panel=null;selected=null;message='餐桌椅摆好啦，点餐桌或餐椅就能吃饭';});return;}
-  if(d.action==='fridge-toggle'){const i=d.id?placementRoom().items.find(i=>i.id===d.id):item(),obj=objects.find(o=>o.userData.itemId===i?.id);if(!obj||asset(i.assetId)?.appliance!=='fridge')return;const why=kitchenEffects.isOpen(i.id)?'':fridgeOpenError(i,placementRoom(),catalog,resident.visible?resident.position.toArray():null);if(why){notify(why,true);return;}kitchenEffects.toggle(obj);dirty=true;wake();renderUI();return;}
+  if(d.action==='fridge-toggle'){if(d.id)approachFridge(d.id);return;}
   if(d.action==='gaming-preset'){commit(()=>{const items=placeGamingPreset(d.kind,placementRoom(),catalog);if(current().items.length+items.length>100)throw Error('每间房最多保存 100 件家具');current().items.push(...items);panel=null;selected=null;message='设备和座位摆好啦，点设备就能开始玩啦';});return;}
   if(d.action==='chibi-kitchen'&&visitor){
    stopWalking();putPlushBack();visitorActivity=null;visitorPlant=null;visitorSeat=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);placeVisitor();
@@ -1969,6 +1969,56 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function closeInteraction(){interaction=null;actionOrbit.hidden=true;actionOrbit.replaceChildren();}
  // One navigation/occupancy verdict for the clicked menu and AI action candidates.
  // The actual executor still repeats its checks after walking to the socket.
+ // An open fridge still has a model-sized door sweep. Stand outside that sweep
+ // at a reachable point derived from its true width, depth and the actor width.
+ function fridgeAccess(itemId){
+  const room=current(),item=room.items.find(i=>i.id===itemId&&!i.stored),
+   model=asset(item?.assetId);
+  if(!item||model?.appliance!=='fridge')return {reason:'冰箱不存在或已收纳'};
+  const doorOpen=kitchenEffects.isOpen(itemId);
+  if(!doorOpen){
+   const blocked=fridgeOpenError(item,placementRoom(),catalog,null);
+   if(blocked)return {reason:blocked};
+  }
+  const [width,,depth]=model.size,roomOffset=[room.x*ROOM_STEP.x,room.z*ROOM_STEP.z],
+   start=[resident.position.x+roomOffset[0],resident.position.z+roomOffset[1]],map=residentWalkMap(start);
+  const options=[
+   [0,0,depth+width/2+Math.max(.58,headWidth/2+.18)],
+   ...[-1,1].flatMap(side=>[
+    [side*(width/2+headWidth/2+.18),0,depth/2+.48],
+    [side*(width/2+headWidth/2+.35),0,depth/2+.72],
+   ]),
+  ];
+  for(const local of options){
+   const p=gamingPoint(item,local),target=[p[0]+roomOffset[0],p[2]+roomOffset[1]];
+   if(!map.free(...target)||!findWalkPath(map,start,target))continue;
+   if(!doorOpen&&fridgeOpenError(item,placementRoom(),catalog,[p[0],.18,p[2]]))continue;
+   return {position:[p[0],.18,p[2]],item,model,rotation:item.rotation*Math.PI/180,reason:''};
+  }
+  return {reason:'冰箱门旁没有可到达的安全站位'};
+ }
+ function approachFridge(itemId){
+  if(visitorSeat||seatChange){notify('请先正常起身，再使用冰箱',true);return false;}
+  const start=fridgeAccess(itemId);if(start.reason){notify(start.reason,true);return false;}
+  const {item,position}=start,room=current(),pose={position:[item.x,item.y,item.z],rotation:item.rotation*Math.PI/180};
+  const finish=()=>{
+   if(current().id!==room.id||visitorSeat||seatChange)return;
+   const candidate=current().items.find(i=>i.id===itemId&&!i.stored);
+   if(!candidate||!sameStationPose(pose,{position:[candidate.x,candidate.y,candidate.z],rotation:candidate.rotation*Math.PI/180})){
+    notify('冰箱位置已经改变，请重新操作',true);return;
+   }
+   const again=fridgeAccess(itemId);
+   const actual=again.reason?'':fridgeOpenError(candidate,placementRoom(),catalog,kitchenEffects.isOpen(itemId)?null:resident.position.toArray());
+   if(again.reason||actual){notify(again.reason||actual,true);return;}
+   const obj=objects.find(o=>o.userData.itemId===itemId);
+   if(!obj){notify('冰箱模型暂未加载完成',true);return;}
+   kitchenEffects.toggle(obj);dirty=true;wake();renderUI();
+  };
+  const offset=[room.x*ROOM_STEP.x,room.z*ROOM_STEP.z],target=[position[0]+offset[0],position[2]+offset[1]];
+  if(Math.hypot(resident.position.x-position[0],resident.position.z-position[2])<.10){finish();return true;}
+  if(!walkTo(target))return false;
+  walking.arrived=finish;notify('走到冰箱旁再开门');return true;
+ }
  function furnitureSlotIssue(slot){
   if(seatChange||walking)return '先完成当前行走或姿态切换';
   if(visitorSeat)return '请先正常起身，再选择其它座位或床位';
@@ -1982,7 +2032,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const chair=room.items.find(i=>i.id===slot.itemId);
   return seatEntry(pose,checking,offset,{allowSides:!!chair?.dockId,sideFirst:!!chair?.dockId})?'':'座位入口无法安全到达';
  }
- function interactionOptions(id){const a=asset(current().items.find(i=>i.id===id)?.assetId);return furnitureInteractions(current(),catalog,id,{activities:activities(),seat:visitorSeat,held:heldPlush,active:visitorActivity||kitchenTask,fridgeOpen:kitchenEffects.isOpen(id),clearance:a?.waterable?reachableWaterClearance():visitorClearance(),body2:!!visitor?.rig,transitioning:!!seatChange||!!walking,occupiedSeats:otherFurnitureOccupants(),slotPlanner:furnitureSlotIssue,kitchenPlanner:target=>{const r=current(),start=[resident.position.x+r.x*ROOM_STEP.x,resident.position.z+r.z*ROOM_STEP.z];return planKitchenAction(state,r,catalog,target,start,headWidth,navMap());}});}
+ function interactionOptions(id){const a=asset(current().items.find(i=>i.id===id)?.assetId);return furnitureInteractions(current(),catalog,id,{activities:activities(),seat:visitorSeat,held:heldPlush,active:visitorActivity||kitchenTask,fridgeOpen:kitchenEffects.isOpen(id),clearance:a?.waterable?reachableWaterClearance():visitorClearance(),body2:!!visitor?.rig,transitioning:!!seatChange||!!walking,occupiedSeats:otherFurnitureOccupants(),slotPlanner:furnitureSlotIssue,fridgePlanner:id=>fridgeAccess(id).reason,kitchenPlanner:target=>{const r=current(),start=[resident.position.x+r.x*ROOM_STEP.x,resident.position.z+r.z*ROOM_STEP.z];return planKitchenAction(state,r,catalog,target,start,headWidth,navMap());}});}
  function openInteraction(id){
   if(interaction?.itemId===id){closeInteraction();return;}
   closeInteraction();const owner=state.rooms.find(r=>r.items.some(i=>i.id===id&&!i.stored));if(!owner)return;
