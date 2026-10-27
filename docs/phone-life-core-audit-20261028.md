@@ -44,6 +44,17 @@
 7. **更深的调度协作仍未完成**：
    现有前台手机 tick 与 AMSG 云端任务相互独立。以后只能在实测证据支持时复用现有任务/时间上下文，不能直接合并收件人渠道或改变云端任务。
 
+## 2026-10-28 续修记录（PR #15）
+
+- **事件来源不应改变手机 API 的配置**：`context/OSContext.tsx` 中 Char 手机自主消费事件时统一使用 `resolveCharacterPhoneApi(charId, baseApi)`；`amsg2` 和其他生活事件只是触发依据，不代表可以绕开手机独立 API。AMSG 本身的发送渠道没有改动。
+- **朋友圈决策的无效预算占用**：`utils/characterMomentAutonomy.ts` 将 `reservePhoneApiBudget` 移至现有上下文、日程读取之后且实际请求之前。避免在本地准备失败时提前占用可付费调用预算；仍保留既有决定间隔。
+- **手动“微信全套”局部失败恢复**：`components/chat/CharacterPhone.tsx` 对 fullSuite 容忍缺失的 threads 数组，只尝试保存已经能验证的其他子结果；如果微信存储失败，不再假称会话已写入，也不记录虚假的新增联系人或聊天生活事件。其他可用的朋友圈/支付结果继续按既有存储方法写入。非 fullSuite 的旧逻辑不改。
+- **设置降低理解门槛**：在搜索框下方展示已存在开关对应的“当前使用方式”，不增加开关，也不改用户存储的设置值。
+- **明确新增回归测试**：`utils/characterPhoneAutonomy.test.ts` 增加两个“手机自主生活关停 / 独立后台 API 关停”测试，用已有存储及 mock API 验证不消耗请求额度。
+- **无部署的 PR 验证**：`.github/workflows/phone-life-pr-regression.yml` 对目标开发分支的 PR 使用 Node 22 / pnpm 9，运行既有核心电话、生活事件等 Vitest 用例及完整 `pnpm run build`；不会部署、不会碰云端 Worker 或 master。**只有工作流真实完成才能填写通过或失败结论**。
+
+这轮的剩余主要风险：多次异步手机保存之间的恢复与重复计费仍要模拟慢响应、存储失败、重载和角色切换。真实设备操作体验仍未验收；如 GitHub CI 失败，须留在 Draft PR 修复，不准合并。
+
 ## 保护的行为
 
 - 未修改 User 私聊发送、AMSG 2.0 云端收件、记忆宫殿存档接口、联系人数据结构或日程计划数据库。
