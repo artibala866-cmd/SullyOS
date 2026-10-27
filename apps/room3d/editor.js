@@ -831,7 +831,16 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!visitor||!(furnitureUser?furnitureUser.group.visible:resident.visible)||edit||overview)return [];
   const available=s=>!slotOccupiedByOther(s);
   const room=current(),options=activities().filter(a=>!a.reason&&a.roomId===room.id).map(a=>({kind:a.kind,label:a.label,data:{action:isBathAction(a.kind)?'chibi-bath':isMirrorAction(a.kind)?'chibi-mirror':'chibi-game',id:a.itemId,kind:a.kind,station:a.stationId||''}}));
-  for(const item of room.items)for(const action of kitchenActions(room,catalog,item.id).filter(a=>!a.reason))options.push({kind:action.kind,label:action.label,data:{action:'chibi-kitchen',id:item.id,kind:action.kind}});
+  // AI, manual wheel and execution must agree about sink dependencies and a
+   // physically reachable workstation. Do not offer an AI-only invalid kitchen action.
+   if(!visitorSeat&&!seatChange&&!visitorActivity&&!kitchenTask&&!visitorPlant){
+    const from=[resident.position.x+room.x*ROOM_STEP.x,resident.position.z+room.z*ROOM_STEP.z],
+     map=residentWalkMap(from);
+    for(const item of room.items)for(const action of kitchenActions(room,catalog,item.id).filter(a=>!a.reason)){
+     const plan=planKitchenAction(state,room,catalog,item.id,from,headWidth,map);
+     if(!plan.reason)options.push({kind:action.kind,label:action.label,data:{action:'chibi-kitchen',id:item.id,kind:action.kind}});
+    }
+   }
   for(const seat of roomSeats(room,catalog).filter(s=>available(s)&&!furnitureSlotIssue(s)))options.push({kind:'sit',label:'坐下休息',data:{action:'chibi-sit',id:seat.itemId,seat:seat.seatId}});
   for(const plant of roomPlants(room,catalog,reachableWaterClearance()).filter(p=>p.spot))options.push({kind:'water',label:'给植物浇水',data:{action:'chibi-water',id:plant.itemId}});
   options.push({kind:'stand',label:'起身',target:'自己',data:{action:'chibi-stand'}});
