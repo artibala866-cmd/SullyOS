@@ -456,10 +456,14 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       if(!response.ok) throw new Error(json?.error?.message || 'HTTP '+response.status);
       const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
       const data=JSON.parse(raw);
-      if(!Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
-      // A manual full-suite response can contain useful Moments/payments even
-      // when the AI correctly decides there are no new WeChat messages.
+      if(!data || typeof data!=='object' || Array.isArray(data)) throw new Error('微信收件箱返回格式错误');
+      // An optional full-suite subtask may be absent or malformed; save other
+      // independently valid results instead of silently discarding the batch.
+      const generatedThreads = Array.isArray(data.threads) ? data.threads : [];
+      if(!fullSuite && !Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
       let savedNonChatItems=0;
+      let savedThreads=0;
+      let chatSaveFailed=false;
       const incoming: ChatRecord[]=[];
       const newContacts: Array<{id:string;item:any;established:boolean}> = [];
       // One LLM batch may mention the same new friend under different IDs.
@@ -470,7 +474,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       const currentRecords = readCharacterPhoneChats(characterId);
       const currentProfiles = readNpcProfiles(characterId);
       const now=Date.now();
-      for(const item of data.threads.slice(0,prefs.chatDensity==='rich'?12:9)){
+      for(const item of generatedThreads.slice(0,prefs.chatDensity==='rich'?12:9)){
         if(!item || typeof item.nickname!=='string' || !item.nickname.trim() || !Array.isArray(item.messages)) continue;
         if(!['npc','group','service'].includes(item.kind)) continue;
         if(item.kind==='service'&&!prefs.officialAccounts)continue;
@@ -512,11 +516,13 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
         const updatedRecords = [...incoming,...currentRecords.filter(r=>!replaced.has(r.id))];
         try {
           updateCharacterPhoneChats(characterId, () => updatedRecords);
+          savedThreads=incoming.length;
         } catch {
-          setError('微信记录保存失败，本次不记录生活事件');
-          return;
+          chatSaveFailed=true;
+          setError('本轮微信会话保存失败；已保留旧记录，正在尝试保存其他有效内容');
+          if(!fullSuite) return;
         }
-        setRecords(updatedRecords);
+        if(savedThreads) setRecords(updatedRecords);
       }
       if (prefs.paymentNotices && Array.isArray(data.payments)) {
         try {
@@ -548,7 +554,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       // Contacts are created *after* real phone messages have been saved.
       // Established acquaintances enter the address book; strangers/request
       // only enter the existing pending contacts lane.
-      for (const {id,item,established} of newContacts) {
+      for (const {id,item,established} of (savedThreads ? newContacts : [])) {
         try {
           const result = registerDiscoveredNpc(characterId, {
             contactId: id, name: item.nickname,
@@ -570,7 +576,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       try { localStorage.setItem('sully_phone_inbox_auto_at:'+characterId,String(Date.now())); } catch { /* auto-refresh can retry */ }
       // Record only the messages that were actually saved, never treat a
       // scheduled activity as already completed.
-      for (const thread of incoming) {
+      for (const thread of (savedThreads ? incoming : [])) {
         const oldThread = currentRecords.find(r=>r.id===thread.id);
         const newMessages = thread.messages.slice(oldThread?.messages.length || 0);
         if (!newMessages.length) continue;
@@ -626,10 +632,13 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           }
         }catch(error){console.warn('[CharacterPhone] suite moment partial save',error);}
       }
-      if(!incoming.length && !savedNonChatItems) throw new Error('本次 AI 没有返回可保存的新内容，原有手机记录未被更改。');
+      if(!savedThreads && !savedNonChatItems) throw new Error(chatSaveFailed
+        ? '本次微信会话保存失败，其他内容也未能保存；旧记录未删除，请检查可用存储空间。'
+        : '本次 AI 没有返回可保存的新内容，原有手机记录未被更改。');
       setTab('chats');
-      if(!automatic)setWechatNotice('本次新增或续写 '+incoming.length+' 条会话，另保存 '+savedNonChatItems+' 项内容；原有记录已保留。');
-      return { threads:incoming.length, other:savedNonChatItems };
+      if(!automatic)setWechatNotice('本次新增或续写 '+savedThreads+' 条会话，另保存 '+savedNonChatItems+
+        ' 项内容；'+(chatSaveFailed?'微信会话保存失败，其他内容已保留。':'原有记录已保留。'));
+      return { threads:savedThreads, other:savedNonChatItems, partial:chatSaveFailed };
     } catch(e){if(fullSuite)throw e;setError(e instanceof Error?e.message:String(e));}
     finally{finishCharacterPhoneRefresh(characterId);setBusy(false);}
   };
@@ -713,7 +722,8 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       // Each part saves its own results; a failed part cannot erase old content.
       const result=await generateInbox(false,true);
       if(!result){setWechatSuiteNotice('手机已有生成任务正在进行，本次没有发起新的请求。');return;}
-      setWechatSuiteNotice('本次调用一次 API，保存了 '+result.threads+' 条微信会话和 '+result.other+' 项其他内容；无新内容的任务已跳过，旧记录保留。');
+      setWechatSuiteNotice('本次调用一次 API，保存了 '+result.threads+' 条微信会话和 '+result.other+
+        ' 项其他内容；'+(result.partial?'微信会话保存失败，其他有效结果已保留。':'旧记录保留。'));
     }catch(err){setWechatSuiteNotice(err instanceof Error?err.message:'本次批量生成未全部完成，可再试一次');}
     finally{setWechatSuiteBusy(false);}
   };
