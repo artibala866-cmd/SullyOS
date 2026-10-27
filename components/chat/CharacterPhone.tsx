@@ -869,6 +869,16 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               className="min-w-0 flex-1 bg-transparent text-sm text-[#333] outline-none"/>
             {settingsQuery&&<button type="button" className="text-xs text-[#888]" onClick={()=>setSettingsQuery('')}>清除</button>}
           </label>
+          {!settingsQuery && <section className="rounded-2xl bg-[#f5f5f5] px-4 py-3 text-xs leading-5 text-[#666]" aria-label="当前手机运行方式">
+            <strong className="block text-[13px] text-[#333]">当前使用方式</strong>
+            <p>{npcAutonomyEnabled && phonePrefs.backgroundApiEnabled
+              ? '允许 Char 在网页前台、条件合适时自主更新手机'
+              : '独立自主生成已暂停；查看已有内容、手动生成仍可使用'}</p>
+            <p>{phonePrefs.chatPiggybackEnabled
+              ? '私聊同轮附带手机内容：已开启（不会另发一轮 API）'
+              : '私聊同轮附带手机内容：未开启'}</p>
+            <p>每个应用仍遵守原来的手动／自动选择；无需为普通浏览调整下面的高级参数。</p>
+          </section>}
           {settingsMatch("微信 消息 生成 推送 公众号 服务号 微信支付 支付 账单 聊天 丰富 精简 密度") && <PhoneSettingsGroup title="微信消息生成" searching={!!settingsQuery}>
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <h3 className="sr-only">微信消息生成</h3>
