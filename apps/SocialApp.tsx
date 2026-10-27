@@ -892,12 +892,22 @@ const SocialApp: React.FC = () => {
         if (before) {
             let community = communityRef.current;
             const oldIds = new Set((before.comments || []).map(comment => comment.id));
-            for (const comment of updated.comments.filter(comment => !oldIds.has(comment.id))) {
-                community = appendSparkEvent(community, {
-                    id: 'comment-created:' + comment.id, type: 'comment_created',
-                    actorAccountId: comment.authorId || 'user', targetAccountId: updated.authorId,
-                    postId, commentId: comment.id, createdAt: comment.timestamp || Date.now(),
-                });
+            const priorComments = new Map((before.comments || []).map(comment => [comment.id, comment]));
+            for (const comment of updated.comments) {
+                if (!oldIds.has(comment.id)) {
+                    community = appendSparkEvent(community, {
+                        id: 'comment-created:' + comment.id, type: 'comment_created',
+                        actorAccountId: comment.authorId || 'user', targetAccountId: updated.authorId,
+                        postId, commentId: comment.id, createdAt: comment.timestamp || Date.now(),
+                    });
+                } else if (!!priorComments.get(comment.id)?.isLiked !== !!comment.isLiked) {
+                    community = appendSparkEvent(community, {
+                        id: 'comment-like:' + comment.id + ':' + Date.now() + ':' + Math.random(),
+                        type: comment.isLiked ? 'comment_liked' : 'comment_unliked',
+                        actorAccountId: 'user', targetAccountId: comment.authorId,
+                        postId, commentId: comment.id, createdAt: Date.now(),
+                    });
+                }
             }
             if (before.isLiked !== updated.isLiked) {
                 community = appendSparkEvent(community, {
@@ -1776,12 +1786,12 @@ ${buildSparkCommentHistory(post)}
                             </div>
                             <div className="text-xs text-slate-400 font-medium border-b border-slate-100/50 pb-6">{new Date(selectedPost.timestamp).toLocaleDateString()}</div>
                             {selectedPost.authorType === 'user' && postTraffic[selectedPost.id] && <div className="grid grid-cols-3 gap-2 rounded-xl bg-neutral-50/70 p-3 text-center text-xs text-slate-600">
-                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].impressions.toLocaleString()}</strong>曝光</div>
-                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].reads.toLocaleString()}</strong>阅读</div>
-                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].score}</strong>内容表现</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].impressions.toLocaleString()}</strong>模拟曝光</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].reads.toLocaleString()}</strong>模拟阅读</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].score}</strong>内容评分估算</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].likes}</strong>点赞</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].comments}</strong>评论</div>
-                                <div><strong className="block text-base text-neutral-500">{postTraffic[selectedPost.id].followersDelta > 0 ? '+' : ''}{postTraffic[selectedPost.id].followersDelta}</strong>带来粉丝</div>
+                                <div><strong className="block text-base text-neutral-500">{communityState.follows.filter(follow => follow.followedId === 'user').length}</strong>可追踪粉丝总数</div>
                             </div>}
                         </div>
 
@@ -2184,8 +2194,9 @@ ${buildSparkCommentHistory(post)}
                             <h3 className="px-4 pb-3 text-sm font-bold">{noticeCategory === 'likes' ? '赞和收藏' : noticeCategory === 'follows' ? '新增关注' : '评论和@'}</h3>
                             {noticeCategory === 'follows' && <div className="mx-4 mb-3 rounded-xl bg-neutral-50 p-4">
                                 <p className="text-xs text-slate-500">主页粉丝总数</p>
-                                <p className="text-2xl font-bold text-[#555555]">{fanCounts.user ?? 0}</p>
-                                <p className="text-xs text-slate-500 mt-2">帖子带来的新增粉丝：{followerHistory.reduce((sum, item) => sum + item.count, 0)} 人（记录启用后的变化）</p>
+                                <p className="text-2xl font-bold text-[#555555]">{communityState.follows.filter(follow => follow.followedId === 'user').length}</p>
+                                <p className="text-xs text-slate-500 mt-2">按有明确账号身份的站内关注关系统计。</p>
+                                {followerHistory.length > 0 && <p className="text-xs text-slate-400 mt-1">旧版模拟粉丝变动记录：{followerHistory.reduce((sum, item) => sum + item.count, 0)}（未计入真实粉丝）</p>}
                                 <p className="text-xs text-slate-400 mt-1">下方列出有明确账号的关注者；其余增长只显示人数，不虚构昵称。</p>
                             </div>}
                             {noticeCategory === 'follows' && followerHistory.map(item => <div key={item.id} className="px-4 py-3 border-b border-slate-50 flex justify-between text-sm">
@@ -2289,15 +2300,15 @@ ${buildSparkCommentHistory(post)}
                                 )}
 
                                 <div className="flex items-center gap-2 px-4">
-                                    <button type="button" onClick={() => { setFanInput(String(fanCounts.user ?? 0)); setEditingFans(v => !v); }} className="text-xs text-neutral-500">后台设置粉丝数</button>
+                                    <button type="button" onClick={() => { setFanInput(String(fanCounts.user ?? 0)); setEditingFans(v => !v); }} className="text-xs text-neutral-500">旧版模拟粉丝展示值</button>
                                     {editingFans && <><input type="number" min="0" max="100000000" value={fanInput} onChange={e => setFanInput(e.target.value)} className="w-24 border rounded px-2 py-1 text-xs" />
                                     <button type="button" onClick={() => { const value = Number(fanInput); if (!Number.isFinite(value) || value < 0 || value > 100000000) return; setFanCounts(prev => { const next = { ...prev, user: Math.round(value) }; localStorage.setItem('spark_fan_counts', JSON.stringify(next)); return next; }); setEditingFans(false); }} className="text-xs font-bold text-neutral-500">保存</button></>}
                                 </div>
-                                {fanChanges.user !== undefined && <p className="text-xs text-center text-slate-500">最近发帖粉丝变化：{fanChanges.user > 0 ? '+' : ''}{fanChanges.user}</p>}
+                                {fanChanges.user !== undefined && <p className="text-xs text-center text-slate-500">旧版模拟粉丝变化（不计入真实粉丝）：{fanChanges.user > 0 ? '+' : ''}{fanChanges.user}</p>}
                                 <div className="flex gap-6 mt-5 bg-white/40 p-4 rounded-2xl border border-white/50 shadow-sm">
-                                    <div className="text-center"><span className="block font-bold text-slate-800">{followedHandles.length}</span><span className="text-[10px] text-slate-400">关注</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">{fanCounts.user ?? 0}</span><span className="text-[10px] text-slate-400">粉丝</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">{feed.filter(post => post.authorType === 'user').reduce((sum, post) => sum + post.likes, 0)}</span><span className="text-[10px] text-slate-400">笔记获赞</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{communityState.follows.filter(follow => follow.followerId === 'user').length}</span><span className="text-[10px] text-slate-400">关注</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{communityState.follows.filter(follow => follow.followedId === 'user').length}</span><span className="text-[10px] text-slate-400">粉丝</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{feed.filter(post => post.authorType === 'user').reduce((sum, post) => sum + post.likes, 0)}</span><span className="text-[10px] text-slate-400">已记录点赞</span></div>
                                 </div>
                             </div>
 
