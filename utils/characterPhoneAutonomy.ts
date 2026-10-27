@@ -228,7 +228,9 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       try {
         if (await bootstrapSocialCircle(input)) return 'generated-contacts';
       } catch (error) { console.warn('[PhoneAutonomy] NPC bootstrap skipped', error); }
-      contacts = readNpcProfiles(char.id);
+      // Even a skipped/failed bootstrap was an API attempt. Never fall through
+      // into a second, separately billed NPC turn during the same opportunity.
+      return 'skipped';
     }
     if (!contacts.length) return 'skipped';
     const threads = readCharacterPhoneChats(char.id);
