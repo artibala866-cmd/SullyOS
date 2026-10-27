@@ -412,6 +412,20 @@ export function resolveSparkDMAccount(
     return matches.length === 1 ? matches[0] : undefined;
 }
 
+/** An ambiguous old handle must never be treated as the private thread of a selected ID. */
+export function getSparkDMThreadKey<T>(
+    accountId: string | undefined, handle: string, threads: Record<string, T>,
+    accounts: SparkAccount[],
+): string {
+    if (!accountId) return handle;
+    const owners = accounts.filter(account => account.type !== 'user' &&
+        [account.displayName, ...account.aliases].some(name => normalizeSparkName(name) === normalizeSparkName(handle)));
+    if (owners.length === 1 && owners[0].id === accountId &&
+        !Object.prototype.hasOwnProperty.call(threads, accountId) &&
+        Object.prototype.hasOwnProperty.call(threads, handle)) return handle;
+    return accountId;
+}
+
 export function getSparkPostAccountId(post: SocialPost, userDisplayName?: string): string | undefined {
     if (post.authorId) return post.authorId;
     if (post.authorType === 'user' || (!!userDisplayName && post.authorName === userDisplayName)) return 'user';
