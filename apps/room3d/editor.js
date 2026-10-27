@@ -1809,7 +1809,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    return;
   }
   if(d.action==='chibi-bed-mode'&&visitor?.rig&&visitorSeat?.bed&&!seatChange){visitorSeat.bedFrom=visitorSeat.bedMode;visitorSeat.bedFromTime=elapsed-(visitorSeat.modeStart??elapsed);visitorSeat.bedMode=isBedLeisure(d.value)?d.value:undefined;visitorSeat.modeStart=elapsed;visitorMotion=visitorSeat.bedMode?'idle':'sleep';visitorStart=elapsed;animateVisitor(0);recordHomeActivity(BED_LEISURE.find(([id])=>id===d.value)?.[1]||'睡一会儿',d.recordSource);dirty=true;wake();renderUI();return;}
-  if(d.action==='chibi-stand'&&visitor){visitorPlant=null;visitorMotion='idle';if(visitorSeat&&(visitor?.rig||visitorSeat.bed)&&!beginSeatChange(true)){notify('出口被挡住，先给家具旁边留出安全起身的位置',true);return;}if(visitorSeat&&!visitor?.rig&&!visitorSeat.bed){visitorSeat=null;visitorStart=elapsed;visitorUntil=0;}placeVisitor();animateVisitor(0);dirty=true;wake();renderUI();return}
+  if(d.action==='chibi-stand'&&visitor){visitorPlant=null;if(visitorSeat&&(visitor?.rig||visitorSeat.bed)&&!beginSeatChange(true)){notify('出口被挡住，先给家具旁边留出安全起身的位置',true);return;}visitorMotion='idle';if(visitorSeat&&!visitor?.rig&&!visitorSeat.bed){visitorSeat=null;visitorStart=elapsed;visitorUntil=0;}placeVisitor();animateVisitor(0);dirty=true;wake();renderUI();return}
   if(d.action==='chibi-motion'&&visitor){
    if(visitorSeat?.bed&&d.value==='sleep'){visitorSeat.bedFrom=visitorSeat.bedMode;visitorSeat.bedFromTime=elapsed-(visitorSeat.modeStart??elapsed);visitorSeat.bedMode=undefined;visitorSeat.modeStart=elapsed;}
    if(['yoga','wave-alternate-1','wave-alternate-2'].includes(d.value)&&!visitor.rig){notify('这组动作适用于二号素体',true);return;}
