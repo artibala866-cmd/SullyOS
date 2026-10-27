@@ -22,7 +22,7 @@ export interface SparkFollow {
     createdAt: number;
 }
 
-export type SparkNotificationType = 'like' | 'comment' | 'reply' | 'follow';
+export type SparkNotificationType = 'like' | 'comment' | 'reply' | 'follow' | 'message';
 
 export interface SparkNotification {
     id: string;
@@ -34,6 +34,7 @@ export interface SparkNotification {
     message: string;
     createdAt: number;
     readAt?: number;
+    metadata?: Record<string, string | number | boolean | null>;
 }
 
 export type SparkEventType =
@@ -44,7 +45,7 @@ export type SparkEventType =
     | 'followed' | 'unfollowed'
     | 'post_hidden' | 'post_unhidden' | 'post_deleted'
     | 'account_muted' | 'account_unmuted'
-    | 'interest_followed' | 'interest_unfollowed';
+    | 'interest_followed' | 'interest_unfollowed' | 'dm_sent';
 
 export interface SparkCommunityEvent {
     id: string;
@@ -161,7 +162,7 @@ export function normalizeSparkCommunityState(raw: unknown): SparkCommunityState 
         });
     }
 
-    const notificationTypes: SparkNotificationType[] = ['like', 'comment', 'reply', 'follow'];
+    const notificationTypes: SparkNotificationType[] = ['like', 'comment', 'reply', 'follow', 'message'];
     const notifications: SparkNotification[] = Array.isArray(value.notifications)
         ? value.notifications.flatMap((item: any) => {
             if (!item || typeof item.id !== 'string' || !notificationTypes.includes(item.type)) return [];
@@ -176,6 +177,7 @@ export function normalizeSparkCommunityState(raw: unknown): SparkCommunityState 
                 message: typeof item.message === 'string' ? item.message : '',
                 createdAt: Number.isFinite(item.createdAt) ? item.createdAt : 0,
                 ...(Number.isFinite(item.readAt) ? { readAt: item.readAt } : {}),
+                ...(item.metadata && typeof item.metadata === 'object' && !Array.isArray(item.metadata) ? { metadata: item.metadata } : {}),
             }];
         })
         : [];
@@ -183,7 +185,7 @@ export function normalizeSparkCommunityState(raw: unknown): SparkCommunityState 
     const eventTypes: SparkEventType[] = [
         'post_created', 'comment_created', 'post_liked', 'post_unliked', 'comment_liked', 'comment_unliked',
         'post_collected', 'post_uncollected', 'followed', 'unfollowed', 'post_hidden', 'post_unhidden', 'post_deleted',
-        'account_muted', 'account_unmuted', 'interest_followed', 'interest_unfollowed',
+        'account_muted', 'account_unmuted', 'interest_followed', 'interest_unfollowed', 'dm_sent',
     ];
     const events: SparkCommunityEvent[] = Array.isArray(value.events)
         ? value.events.flatMap((item: any) => {
