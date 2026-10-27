@@ -81,12 +81,10 @@ export function furnitureStationIssue(room,catalog,station){
   return '互动座位被占用、遮挡或已失效';
  return '';
 }
-export function validatedFurnitureStations(room,catalog,stations,occupiedSlots=[]){
+export function validatedFurnitureStations(room,catalog,stations,occupiedSlots=[],actorWidth=1.5){
  return (stations||[]).map(station=>{
-  const reason=furnitureStationIssue(room,catalog,station)||(
-   station.seat&&occupiedSlots.some(s=>s?.itemId===station.seat.itemId&&s.seatId===station.seat.seatId)
-    ?'这个互动点已经有人使用':''
-  );
+  const reason=furnitureStationIssue(room,catalog,station)||
+   (station.seat?occupiedFurnitureSlotIssue(room,catalog,station.seat,occupiedSlots,actorWidth):'');
   return reason?{...station,reason:station.reason||reason}:station;
  });
 }
