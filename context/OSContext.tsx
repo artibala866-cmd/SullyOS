@@ -43,9 +43,12 @@ import { runCharacterPhoneBrowserAutonomy } from '../utils/characterPhoneBrowser
 import { runCharacterPhoneSelfAutonomy } from '../utils/characterPhoneSelfProfile';
 import { resolveCharacterPhoneApi } from '../utils/characterPhoneApiConfig';
 import { readPhoneInboxPreferences } from '../utils/characterPhoneInboxPrefs';
-import { canUsePhoneApiBudget, readPhoneApiBudget } from '../utils/characterPhoneApiBudget';
+import { findPhoneAutonomyOpportunity, markPhoneAutonomyOpportunityAttempt } from '../utils/characterPhoneOpportunity';
+import { getCharacterLifeScheduleContext } from '../utils/characterLifeScheduleContext';
+import { classifyLifeActivity } from '../utils/sullyLifeClock';
+import { canUsePhoneApiBudget, readPhoneApiBudget, readPhoneAutonomyPreferences } from '../utils/characterPhoneApiBudget';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
-import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments } from '../utils/characterPhoneMoments';
+import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, isMomentReactionOpportunity, type CharacterMomentChangeDetail } from '../utils/characterPhoneMoments';
 import { considerAutonomousNpcMoments } from '../utils/refreshNpcMoments';
 import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
 import { getLifeEventConsumers, shouldDispatchLifeEvent } from '../utils/characterLifeEventRouting';
@@ -2438,18 +2441,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
               enqueuePhoneMemory(recordedEvent);
           }
-          if (!shouldDispatchLifeEvent(recordedEvent, charId)) return;
+          // Keep the confirmed event/AMSG/Palace effects above, but do not let
+          // phone auto-writing bypass either of the existing background switches.
+          if (!shouldDispatchLifeEvent(recordedEvent, charId) ||
+              !isCharacterPhoneAutonomyEnabled(charId) ||
+              !readPhoneAutonomyPreferences(charId).backgroundApiEnabled) return;
           const consumers = getLifeEventConsumers(recordedEvent.kind);
           const baseApi = resolveDialogueApi(apiConfigRef.current, char);
-          const api = recordedEvent.source === 'phone'
-              ? resolveCharacterPhoneApi(charId, baseApi) : baseApi;
+          // This is always a Char-PHONE autonomous consumer, regardless of
+          // whether its trigger came from phone, real-mode, or AMSG.
+          // Keep the phone's configured API choice without changing AMSG delivery.
+          const api = resolveCharacterPhoneApi(charId, baseApi);
           if (consumers.includes('moments')) void considerAutonomousMoment({
               char, user: userProfileRef.current, groups: groupsRef.current,
               realtimeConfig: realtimeConfigRef.current, api,
-              budgeted: recordedEvent.source === 'phone',
+              budgeted: true,
           });
           if (consumers.includes('memo')) void considerCharacterMemo({characterId:charId,name:char.name,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,6000),api,events:readCharacterLifeEvents(charId),char,
-              budgeted: recordedEvent.source === 'phone',
+              budgeted: true,
           }).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
       };
       const onVisible = () => { if (document.visibilityState === 'visible') recoverPhoneMemories(); };
@@ -2473,41 +2482,45 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let disposed = false;
       let running = false;
       let cursor = 0;
-      const phoneFeatureCursor = new Map<string, number>();
       const momentTimers = new Map<string, number>();
       const tick = async () => {
           if (disposed || running || document.visibilityState !== 'visible') return;
           const all = charactersRef.current.filter(c => !!c.id);
           if (!all.length || !userProfileRef.current) return;
           const char = all[cursor++ % all.length];
-          const api = resolveCharacterPhoneApi(char.id,resolveDialogueApi(apiConfigRef.current, char));
+          if (!isCharacterPhoneAutonomyEnabled(char.id) || !canUsePhoneApiBudget(char.id)) return;
+          // The polling clock is never a social motive. Require a saved life
+          // event (including AMSG) or an actual unanswered NPC message.
+          const opportunity = findPhoneAutonomyOpportunity(char.id);
+          if (!opportunity) return;
+          const api = resolveCharacterPhoneApi(char.id, resolveDialogueApi(apiConfigRef.current, char));
           if (!api.baseUrl || !api.apiKey || !api.model) return;
-          // A single Char-wide LLM call per eligible tick. Rotating feature
-          // order prevents NPC WeChat from consuming the entire daily quota
-          // while the browser and profile never get a turn.
-          if (!canUsePhoneApiBudget(char.id)) return;
           running = true;
           try {
-              // When explicitly enabled, the daily shared quota prioritizes
-              // WeChat contacts/messages and the existing Char/NPC Moments systems.
-              // No second polling timer, no extra unbudgeted LLM route.
+              // Existing schedule: planned sleep blocks autonomous phone use.
+              // A scheduled activity is not evidence of a completed event.
+              if (char.scheduleFeatureEnabled !== false) {
+                  const life = await getCharacterLifeScheduleContext(char, new Date());
+                  if (classifyLifeActivity(life.plannedActivity || '') === 'sleep') return;
+              }
               const autoSuite = readPhoneInboxPreferences(char.id).autoFullWeChat;
-              const featureOrder: ReadonlyArray<'wechat'|'comments'|'browser'|'profile'|'npc-moments'|'moments-post'|'memo'> = autoSuite
-                ? ['wechat','npc-moments','moments-post']
-                : ['wechat', 'comments', 'browser', 'profile', 'npc-moments', 'moments-post', 'memo'];
-              const index = (phoneFeatureCursor.get(char.id) || 0) % featureOrder.length;
-              const order = [...featureOrder.slice(index), ...featureOrder.slice(0, index)];
+              // Pending speech needs only the existing NPC reply controller.
+              // Moments, memos and comments already react to saved events;
+              // don't run them again simply because the clock advanced.
+              const order: ReadonlyArray<'wechat'|'browser'|'profile'|'npc-moments'> =
+                  opportunity.kind === 'unanswered-npc' ? ['wechat']
+                  : autoSuite ? ['wechat', 'npc-moments']
+                  : ['wechat', 'browser', 'profile', 'npc-moments'];
               for (const feature of order) {
-                  if (disposed || document.visibilityState !== 'visible') break;
-                  if (!canUsePhoneApiBudget(char.id)) break;
+                  if (disposed || document.visibilityState !== 'visible' ||
+                      !isCharacterPhoneAutonomyEnabled(char.id) || !canUsePhoneApiBudget(char.id)) break;
                   const before = readPhoneApiBudget(char.id).requests;
                   if (feature === 'wechat') {
                       await runCharacterPhoneAutonomy({
                           char, user:userProfileRef.current!, groups:groupsRef.current,
                           realtimeConfig:realtimeConfigRef.current, api,
+                          replyOnly: opportunity.kind === 'unanswered-npc',
                       });
-                  } else if (feature === 'comments') {
-                      await runCharacterMomentInteractionAutonomy({char, api});
                   } else if (feature === 'browser') {
                       await runCharacterPhoneBrowserAutonomy({
                           char, user:userProfileRef.current!, groups:groupsRef.current,
@@ -2516,43 +2529,39 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   } else if (feature === 'profile') {
                       await runCharacterPhoneSelfAutonomy(char, api,
                           async image => { updateCharacter(char.id, {avatar:image}); });
-                  } else if (feature === 'npc-moments') {
-                      await considerAutonomousNpcMoments(char.id, api);
-                  } else if (feature === 'moments-post') {
-                      await considerAutonomousMoment({
-                          char, user:userProfileRef.current!, groups:groupsRef.current,
-                          realtimeConfig:realtimeConfigRef.current, api, budgeted:true,
-                      });
                   } else {
-                      await considerCharacterMemo({
-                          characterId:char.id, name:char.name,
-                          persona:[char.description,char.systemPrompt].filter(Boolean).join('\n').slice(0,4200),
-                          api,events:readCharacterLifeEvents(char.id),char,budgeted:true,
-                      });
+                      await considerAutonomousNpcMoments(char.id, api);
                   }
-                  const after = readPhoneApiBudget(char.id).requests;
-                  if (after > before) {
-                      phoneFeatureCursor.set(char.id, (featureOrder.indexOf(feature) + 1) % featureOrder.length);
+                  // Tiers cap resources rather than determining when to act.
+                  // Count a billed attempt even if upstream state is unknown,
+                  // so the same cue is never bought again every three minutes.
+                  if (readPhoneApiBudget(char.id).requests > before) {
+                      markPhoneAutonomyOpportunityAttempt(char.id, opportunity.key);
                       break;
                   }
               }
           } catch (error) {
-              console.warn('[CharacterPhone] autonomous foreground tick skipped', error);
+              console.warn('[CharacterPhone] grounded autonomous tick skipped', error);
           } finally { running = false; }
       };
       // Newly published posts and new User comments receive a foreground
       // reaction opportunity without waiting for the next 3-minute OS tick.
       // The per-character social cooldown/limits still prevent comment loops.
       const onMomentsChanged = (event: Event) => {
-          const charId = (event as CustomEvent<{characterId?:string}>).detail?.characterId;
-          if (!charId || disposed || document.visibilityState !== 'visible') return;
+          const detail = (event as CustomEvent<CharacterMomentChangeDetail>).detail;
+          const charId = detail?.characterId;
+          // Likes, deletions, data cleanup and AI-generated comments merely
+          // refresh the view; they must not buy another autonomous API turn.
+          if (!isMomentReactionOpportunity(detail)) return;
+          if (!charId || disposed || document.visibilityState !== 'visible' ||
+              !isCharacterPhoneAutonomyEnabled(charId) || !canUsePhoneApiBudget(charId)) return;
           const pending = momentTimers.get(charId);
           if (pending) window.clearTimeout(pending);
           momentTimers.set(charId, window.setTimeout(() => {
               momentTimers.delete(charId);
               if (disposed || running || document.visibilityState !== 'visible') return;
               const char = charactersRef.current.find(c => c.id === charId);
-              if (!char) return;
+              if (!char || !isCharacterPhoneAutonomyEnabled(charId) || !canUsePhoneApiBudget(charId)) return;
               const api = resolveCharacterPhoneApi(charId,resolveDialogueApi(apiConfigRef.current, char));
               void runCharacterMomentInteractionAutonomy({char, api});
           }, 15_000));

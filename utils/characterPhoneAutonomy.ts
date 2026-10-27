@@ -13,7 +13,7 @@ import { resolveCharTimeZone } from './timezone';
 import { extractContent } from './safeApi';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
 import { isCharacterPhoneRefreshing } from './characterPhoneRefreshTracker';
-import { canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
+import { canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyPreferences } from './characterPhoneApiBudget';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
 /** NPC phone autonomy shares the existing schedule/phone/event/AMSG pipeline.
@@ -27,6 +27,8 @@ export type CharacterPhoneAutonomyInput = {
   groups: GroupProfile[];
   realtimeConfig?: RealtimeConfig;
   api: Api;
+  /** Answer an already saved NPC message without creating contacts or unrelated chats. */
+  replyOnly?: boolean;
 };
 export type PhoneAutonomyOutcome = 'skipped' | 'generated-contacts' | 'messaged' | 'unavailable' | 'failed';
 type RunState = { day: string; turnsToday: number; attemptsToday: number; lastAttemptAt: number; bootstrapAt: number; contactAt: Record<string, number> };
@@ -218,7 +220,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     state.lastAttemptAt = now;
     writeState(char.id, state);
     let contacts = readNpcProfiles(char.id);
-    if (contacts.length < 4 && now - state.bootstrapAt > DAY) {
+    if (!input.replyOnly && contacts.length < 4 && now - state.bootstrapAt > DAY) {
       if (!reservePhoneApiBudget(char.id)) return 'skipped';
       state.bootstrapAt = now;
       state.attemptsToday++;
@@ -226,12 +228,14 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       try {
         if (await bootstrapSocialCircle(input)) return 'generated-contacts';
       } catch (error) { console.warn('[PhoneAutonomy] NPC bootstrap skipped', error); }
-      contacts = readNpcProfiles(char.id);
+      // Even a skipped/failed bootstrap was an API attempt. Never fall through
+      // into a second, separately billed NPC turn during the same opportunity.
+      return 'skipped';
     }
     if (!contacts.length) return 'skipped';
     const threads = readCharacterPhoneChats(char.id);
     const decision = chooseAction(char.id, contacts, threads, state, now, busyStatus === 'busy');
-    if (!decision) return 'skipped';
+    if (!decision || (input.replyOnly && decision.why !== 'unanswered')) return 'skipped';
     const { contact, thread, actor, why } = decision;
     const charTimeZone = resolveCharTimeZone(char);
     const timeAwarenessOn = char.timeAwarenessEnabled !== false;
@@ -295,6 +299,22 @@ Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).jo
       ? result.messages.filter((m: unknown): m is string => typeof m === 'string' && !!m.trim()).slice(0, 3)
       : [];
     if (result?.send !== true || !textMessages.length) return 'skipped';
+    // A slow completion is not authority to overwrite changes made while it
+    // was in flight. User may have disabled autonomy, cleared the inbox,
+    // removed the contact, or manually replied in this same conversation.
+    if (!isCharacterPhoneAutonomyEnabled(char.id) ||
+        !readPhoneAutonomyPreferences(char.id).backgroundApiEnabled ||
+        isCharacterPhoneRefreshing(char.id) ||
+        !readNpcProfiles(char.id).some(p => p.id === contact.id)) return 'skipped';
+    const latestThread = readCharacterPhoneChats(char.id).find(r => r.contactId === contact.id);
+    const baselineLength = thread?.messages.length || 0;
+    const baselineLast = thread?.messages[baselineLength - 1];
+    const latestLast = latestThread?.messages[(latestThread.messages.length || 1) - 1];
+    if ((latestThread?.messages.length || 0) !== baselineLength ||
+        (!!thread && latestThread?.id !== thread.id) ||
+        (baselineLast?.createdAt || 0) !== (latestLast?.createdAt || 0) ||
+        (baselineLast?.speaker.role || '') !== (latestLast?.speaker.role || '') ||
+        (baselineLast?.text || '') !== (latestLast?.text || '')) return 'skipped';
     // A single actor per autonomous window. Char and NPC never continuously
     // trigger one another in the same run.
     const speaker = actor === 'owner' ? { role: 'owner' as const } : { role: 'contact' as const, contactId: contact.id };

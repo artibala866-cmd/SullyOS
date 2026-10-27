@@ -8,9 +8,21 @@ import { safeResponseJson } from './safeApi';
  * upstream may still charge after a timeout.
  */
 export const CHARACTER_PHONE_AI_TIMEOUT_MS = 150_000;
+// Explicit multi-task/manual generations may legitimately take longer than
+// the short background checks; neither limit asserts an upstream failure.
+export const CHARACTER_PHONE_MANUAL_AI_TIMEOUT_MS = 420_000;
 export const PHONE_AUTO_FAILURE_COOLDOWN_MS = 20 * 60_000;
 const STORAGE_PREFIX = 'sully_phone_ai_auto_failure_until_v1:';
 const fallbackCooldowns = new Map<string, number>();
+
+/** Client-side result only; a timed-out request may still be running upstream. */
+export type PhoneRequestFailureKind = 'wait-expired' | 'cancelled' | 'network';
+export class PhoneRequestFailure extends Error {
+  constructor(public readonly kind: PhoneRequestFailureKind, message: string) {
+    super(message);
+    this.name = 'PhoneRequestFailure';
+  }
+}
 
 type PhoneRequestOptions = {
   charId: string;
@@ -61,7 +73,8 @@ function shouldPauseForStatus(status: number): boolean {
 
 /**
  * Fetch + read the full response while the SW/update protection is active.
- * The 150s deadline covers both headers and the response body. Do not retry
+ * Background checks wait 150s; explicit user-triggered work can wait 420s.
+ * Both deadlines cover headers and the full response body. Do not retry
  * or silently switch provider/model. Existing callers validate their JSON.
  */
 export async function fetchCharacterPhoneJson(
@@ -73,7 +86,8 @@ export async function fetchCharacterPhoneJson(
   if (options.automatic && !canRunAutomaticPhoneAi(options.charId, url)) {
     throw new Error('查手机后台 API 暂时冷却中');
   }
-  const deadline = AbortSignal.timeout(CHARACTER_PHONE_AI_TIMEOUT_MS);
+  const deadline = AbortSignal.timeout(options.automatic
+    ? CHARACTER_PHONE_AI_TIMEOUT_MS : CHARACTER_PHONE_MANUAL_AI_TIMEOUT_MS);
   const signal = init.signal
     ? (typeof AbortSignal.any === 'function' ? AbortSignal.any([init.signal, deadline]) : deadline)
     : deadline;
@@ -94,6 +108,20 @@ export async function fetchCharacterPhoneJson(
   } catch (error) {
     if (options.automatic && isTransientFailure(error)) {
       setCooldown(key, Date.now() + PHONE_AUTO_FAILURE_COOLDOWN_MS);
+    }
+    // A browser deadline is not proof that the provider stopped generating.
+    // Never silently retry: the upstream request may already have been billed.
+    if (deadline.aborted && !init.signal?.aborted) {
+      throw new PhoneRequestFailure('wait-expired',
+        '查手机已达到本次请求的客户端等待上限，但无法确认 AI 服务端是否仍在生成。本次没有自动重试，以免重复计费；请先检查手机中是否有新记录，再决定是否手动重试。');
+    }
+    if (init.signal?.aborted) {
+      throw new PhoneRequestFailure('cancelled',
+        '本次查手机请求已取消，服务端是否继续处理仍不确定；不会自动重新发送。');
+    }
+    if (error instanceof TypeError && /failed to fetch|networkerror|load failed|network request failed/i.test(error.message)) {
+      throw new PhoneRequestFailure('network',
+        '查手机网络连接中断，无法确认服务端是否收到请求；为避免重复计费，本次不会自动重试。');
     }
     throw error;
   } finally {

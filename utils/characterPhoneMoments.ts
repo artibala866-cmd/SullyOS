@@ -24,6 +24,17 @@ export interface CharacterMoment {
   deletedBy?: 'char' | 'user';
 }
 export const CHARACTER_MOMENTS_CHANGED = 'sully:character-moments-changed';
+export type CharacterMomentChange = 'published' | 'commented' | 'liked' | 'deleted' | 'comment-deleted';
+export type CharacterMomentChangeDetail = {
+  characterId: string;
+  changeKind?: CharacterMomentChange;
+  actorId?: string;
+};
+/** A data refresh is not proof of a social occasion worth an AI call. */
+export function isMomentReactionOpportunity(detail?: CharacterMomentChangeDetail): boolean {
+  return detail?.changeKind === 'published' ||
+    (detail?.changeKind === 'commented' && detail.actorId === 'user');
+}
 const key = (characterId: string) => 'sully_character_moments_v1:' + characterId;
 export function readCharacterMoments(characterId: string): CharacterMoment[] {
   if (!characterId || typeof localStorage === 'undefined') return [];
@@ -36,10 +47,10 @@ export function readCharacterMoments(characterId: string): CharacterMoment[] {
     ).sort((a,b)=>b.createdAt-a.createdAt) : [];
   } catch { return []; }
 }
-function save(characterId: string, posts: CharacterMoment[]): boolean {
+function save(characterId: string, posts: CharacterMoment[], changeKind: CharacterMomentChange, actorId?: string): boolean {
   try {
     localStorage.setItem(key(characterId), JSON.stringify(posts));
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHARACTER_MOMENTS_CHANGED,{detail:{characterId}}));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHARACTER_MOMENTS_CHANGED,{detail:{characterId,changeKind,actorId} satisfies CharacterMomentChangeDetail}));
     return true;
   } catch { return false; }
 }
@@ -54,13 +65,13 @@ export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'created
   // Enforce this at persistence level so concurrent decision paths cannot simply rely on UI guards.
   const eventIds = post.provenance?.eventIds || [];
   if (eventIds.length && old.some(p => p.provenance?.eventIds?.some(id => eventIds.includes(id)))) return null;
-  return save(input.characterId,[post,...old]) ? post : null;
+  return save(input.characterId,[post,...old], 'published', post.authorId) ? post : null;
 }
 export function deleteCharacterMoment(characterId: string, postId: string, actor: 'char'|'user'): boolean {
   const posts=readCharacterMoments(characterId);
   const target=posts.find(p=>p.id===postId);
   if(!target || target.deletedAt || target.authorId !== characterId) return false;
-  return save(characterId,posts.map(p=>p.id===postId?{...p,deletedAt:Date.now(),deletedBy:actor}:p));
+  return save(characterId,posts.map(p=>p.id===postId?{...p,deletedAt:Date.now(),deletedBy:actor}:p), 'deleted', actor);
 }
 
 /** Interactions use stable identity IDs, never nicknames. */
@@ -71,7 +82,7 @@ export function setMomentLike(characterId: string, postId: string, actorId: stri
   if (!target) return false;
   const current = target.likes || [];
   const likes = liked ? (current.some(l => l.actorId === actorId) ? current : [...current, {actorId,createdAt:Date.now()}]) : current.filter(l => l.actorId !== actorId);
-  return save(characterId,posts.map(p=>p.id===postId?{...p,likes}:p));
+  return save(characterId,posts.map(p=>p.id===postId?{...p,likes}:p), 'liked', actorId);
 }
 export function addMomentComment(characterId: string, postId: string, comment: MomentComment): boolean {
   if (!comment.id || !comment.authorId || !comment.text.trim() || !Number.isFinite(comment.createdAt)) return false;
@@ -79,12 +90,12 @@ export function addMomentComment(characterId: string, postId: string, comment: M
   const target = posts.find(p => p.id === postId && !p.deletedAt);
   if (!target || (target.comments||[]).some(c=>c.id===comment.id)) return false;
   if (comment.replyToId && !(target.comments||[]).some(c=>c.id===comment.replyToId && !c.deletedAt)) return false;
-  return save(characterId,posts.map(p=>p.id===postId?{...p,comments:[...(p.comments||[]),comment]}:p));
+  return save(characterId,posts.map(p=>p.id===postId?{...p,comments:[...(p.comments||[]),comment]}:p), 'commented', comment.authorId);
 }
 export function deleteMomentComment(characterId: string, postId: string, commentId: string, actorId: string): boolean {
   const posts=readCharacterMoments(characterId);
   const target=posts.find(p=>p.id===postId && !p.deletedAt);
   const comment=target?.comments?.find(c=>c.id===commentId && !c.deletedAt);
   if(!comment || comment.authorId!==actorId) return false;
-  return save(characterId,posts.map(p=>p.id===postId?{...p,comments:(p.comments||[]).map(c=>c.id===commentId?{...c,deletedAt:Date.now()}:c)}:p));
+  return save(characterId,posts.map(p=>p.id===postId?{...p,comments:(p.comments||[]).map(c=>c.id===commentId?{...c,deletedAt:Date.now()}:c)}:p), 'comment-deleted', actorId);
 }

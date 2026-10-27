@@ -222,6 +222,9 @@ export default function CharacterPhone({
     }catch{setError('自主生活设置保存失败');}
   };
   const [settingsQuery,setSettingsQuery]=useState('');
+  const [settingsView,setSettingsView]=useState<'common'|'advanced'>('common');
+  const showPhoneSettings=(category:'common'|'advanced',names:string)=>
+    (!!settingsQuery.trim() || settingsView===category) && settingsMatch(names);
   const settingsMatch=(names:string)=>!settingsQuery.trim()||
     names.toLocaleLowerCase().includes(settingsQuery.trim().toLocaleLowerCase());
   const [tab, setTab] = useState<Tab>('chats');
@@ -456,7 +459,14 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       if(!response.ok) throw new Error(json?.error?.message || 'HTTP '+response.status);
       const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
       const data=JSON.parse(raw);
-      if(!Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
+      if(!data || typeof data!=='object' || Array.isArray(data)) throw new Error('微信收件箱返回格式错误');
+      // An optional full-suite subtask may be absent or malformed; save other
+      // independently valid results instead of silently discarding the batch.
+      const generatedThreads = Array.isArray(data.threads) ? data.threads : [];
+      if(!fullSuite && !Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
+      let savedNonChatItems=0;
+      let savedThreads=0;
+      let chatSaveFailed=false;
       const incoming: ChatRecord[]=[];
       const newContacts: Array<{id:string;item:any;established:boolean}> = [];
       // One LLM batch may mention the same new friend under different IDs.
@@ -467,7 +477,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       const currentRecords = readCharacterPhoneChats(characterId);
       const currentProfiles = readNpcProfiles(characterId);
       const now=Date.now();
-      for(const item of data.threads.slice(0,prefs.chatDensity==='rich'?12:9)){
+      for(const item of generatedThreads.slice(0,prefs.chatDensity==='rich'?12:9)){
         if(!item || typeof item.nickname!=='string' || !item.nickname.trim() || !Array.isArray(item.messages)) continue;
         if(!['npc','group','service'].includes(item.kind)) continue;
         if(item.kind==='service'&&!prefs.officialAccounts)continue;
@@ -503,20 +513,25 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             fresh.some(m=>m.speaker.role==='contact'),
         });
       }
-      if(!incoming.length) throw new Error('本次未生成有效微信会话，未保存');
-      const replaced=new Set(incoming.map(x=>x.id));
-      const updatedRecords = [...incoming,...currentRecords.filter(r=>!replaced.has(r.id))];
-      try {
-        updateCharacterPhoneChats(characterId, () => updatedRecords);
-      } catch {
-        setError('微信记录保存失败，本次不记录生活事件');
-        return;
+      if(!incoming.length && !fullSuite) throw new Error('本次未生成有效微信会话，未保存');
+      if(incoming.length){
+        const replaced=new Set(incoming.map(x=>x.id));
+        const updatedRecords = [...incoming,...currentRecords.filter(r=>!replaced.has(r.id))];
+        try {
+          updateCharacterPhoneChats(characterId, () => updatedRecords);
+          savedThreads=incoming.length;
+        } catch {
+          chatSaveFailed=true;
+          setError('本轮微信会话保存失败；已保留旧记录，正在尝试保存其他有效内容');
+          if(!fullSuite) return;
+        }
+        if(savedThreads) setRecords(updatedRecords);
       }
-      setRecords(updatedRecords);
       if (prefs.paymentNotices && Array.isArray(data.payments)) {
         try {
           const receipts=appendSimulatedPhonePayments(characterId,data.payments,now);
           if(receipts.length){
+            savedNonChatItems+=receipts.length;
             const serviceId='service:微信支付';
             const receiptMessages=receipts.map(row=>({
               speaker:{role:'contact' as const,contactId:serviceId},
@@ -542,7 +557,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       // Contacts are created *after* real phone messages have been saved.
       // Established acquaintances enter the address book; strangers/request
       // only enter the existing pending contacts lane.
-      for (const {id,item,established} of newContacts) {
+      for (const {id,item,established} of (savedThreads ? newContacts : [])) {
         try {
           const result = registerDiscoveredNpc(characterId, {
             contactId: id, name: item.nickname,
@@ -564,7 +579,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       try { localStorage.setItem('sully_phone_inbox_auto_at:'+characterId,String(Date.now())); } catch { /* auto-refresh can retry */ }
       // Record only the messages that were actually saved, never treat a
       // scheduled activity as already completed.
-      for (const thread of incoming) {
+      for (const thread of (savedThreads ? incoming : [])) {
         const oldThread = currentRecords.find(r=>r.id===thread.id);
         const newMessages = thread.messages.slice(oldThread?.messages.length || 0);
         if (!newMessages.length) continue;
@@ -592,6 +607,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             if(listed.some(old=>old.authorId===author.id&&old.text.trim()===text))continue;
             const post=publishCharacterMoment({characterId,authorId:author.id,origin:'npc',text,imageUrls:[],visibility:'all'});
             if(!post)continue;
+            savedNonChatItems++;
             const comments=Array.isArray(item.comments)?item.comments.slice(0,2):[];
             for(const c of comments){
               const actorId=typeof c?.authorId==='string'?c.authorId:'';
@@ -600,7 +616,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               if(actorId!==characterId&&(!actor||!author.mutualContactIds?.includes(actorId)||!actor.mutualContactIds?.includes(author.id)))continue;
               const body=c.text.trim().slice(0,200),live=readCharacterMoments(characterId).find(p=>p.id===post.id);
               if(!allowMomentComment(live?.comments||[],actorId,body))continue;
-              addMomentComment(characterId,post.id,{id:crypto.randomUUID(),authorId:actorId,text:body,createdAt:Date.now()});
+              if(addMomentComment(characterId,post.id,{id:crypto.randomUUID(),authorId:actorId,text:body,createdAt:Date.now()})) savedNonChatItems++;
             }
           }
           const own=data.moments.charPost;
@@ -610,14 +626,22 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             if(!old.some(post=>post.authorId===characterId&&!post.deletedAt&&
               (post.text.trim()===text||Date.now()-post.createdAt<12*3600_000))){
               const post=publishCharacterMoment({characterId,origin:'char',text,imageUrls:[],visibility:'all'});
-              if(post)recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',
-                occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+text.slice(0,100)});
+              if(post){
+                savedNonChatItems++;
+                recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',
+                  occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+text.slice(0,100)});
+              }
             }
           }
         }catch(error){console.warn('[CharacterPhone] suite moment partial save',error);}
       }
+      if(!savedThreads && !savedNonChatItems) throw new Error(chatSaveFailed
+        ? '本次微信会话保存失败，其他内容也未能保存；旧记录未删除，请检查可用存储空间。'
+        : '本次 AI 没有返回可保存的新内容，原有手机记录未被更改。');
       setTab('chats');
-      if(!automatic)setWechatNotice('本次新增或续写了 '+incoming.length+' 条会话；官方通知和支付账单按设置独立保存。');
+      if(!automatic)setWechatNotice('本次新增或续写 '+savedThreads+' 条会话，另保存 '+savedNonChatItems+
+        ' 项内容；'+(chatSaveFailed?'微信会话保存失败，其他内容已保留。':'原有记录已保留。'));
+      return { threads:savedThreads, other:savedNonChatItems, partial:chatSaveFailed };
     } catch(e){if(fullSuite)throw e;setError(e instanceof Error?e.message:String(e));}
     finally{finishCharacterPhoneRefresh(characterId);setBusy(false);}
   };
@@ -699,8 +723,10 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
     try{
       // One explicit user action; reuse all three existing generation entrypoints.
       // Each part saves its own results; a failed part cannot erase old content.
-      await generateInbox(false,true);
-      setWechatSuiteNotice('本次只调用一次 API：同时生成微信会话、联系人及可选 NPC/Char 朋友圈；不强制发帖。');
+      const result=await generateInbox(false,true);
+      if(!result){setWechatSuiteNotice('手机已有生成任务正在进行，本次没有发起新的请求。');return;}
+      setWechatSuiteNotice('本次调用一次 API，保存了 '+result.threads+' 条微信会话和 '+result.other+
+        ' 项其他内容；'+(result.partial?'微信会话保存失败，其他有效结果已保留。':'旧记录保留。'));
     }catch(err){setWechatSuiteNotice(err instanceof Error?err.message:'本次批量生成未全部完成，可再试一次');}
     finally{setWechatSuiteBusy(false);}
   };
@@ -846,7 +872,24 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               className="min-w-0 flex-1 bg-transparent text-sm text-[#333] outline-none"/>
             {settingsQuery&&<button type="button" className="text-xs text-[#888]" onClick={()=>setSettingsQuery('')}>清除</button>}
           </label>
-          {settingsMatch("微信 消息 生成 推送 公众号 服务号 微信支付 支付 账单 聊天 丰富 精简 密度") && <PhoneSettingsGroup title="微信消息生成" searching={!!settingsQuery}>
+          {!settingsQuery && <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#f4f4f4] p-1" role="group" aria-label="手机设置范围">
+            {([{id:'common',label:'常用设置'},{id:'advanced',label:'更多设置'}] as const).map(v=>
+              <button key={v.id} type="button" aria-pressed={settingsView===v.id}
+                onClick={()=>setSettingsView(v.id)}
+                className={'rounded-xl px-3 py-3 text-sm '+(settingsView===v.id?'bg-white font-semibold shadow-sm text-[#222]':'text-[#777]')}>
+                {v.label}</button>)}
+          </div>}
+          {!settingsQuery && settingsView==='common' && <section className="rounded-2xl bg-[#f5f5f5] px-4 py-3 text-xs leading-5 text-[#666]" aria-label="当前手机运行方式">
+            <strong className="block text-[13px] text-[#333]">当前使用方式</strong>
+            <p>{npcAutonomyEnabled && phonePrefs.backgroundApiEnabled
+              ? '允许 Char 在网页前台、遇到已有生活事件或需要回复的 NPC 时自主处理手机'
+              : '独立自主生成已暂停；查看已有内容、手动生成仍可使用'}</p>
+            <p>{phonePrefs.chatPiggybackEnabled
+              ? '私聊同轮附带手机内容：已开启（不会另发一轮 API）'
+              : '私聊同轮附带手机内容：未开启'}</p>
+            <p>每个应用仍遵守原来的手动／自动选择；无需为普通浏览调整下面的高级参数。</p>
+          </section>}
+          {showPhoneSettings('common',"微信 消息 生成 推送 公众号 服务号 微信支付 支付 账单 聊天 丰富 精简 密度") && <PhoneSettingsGroup title="微信消息生成" searching={!!settingsQuery}>
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <h3 className="sr-only">微信消息生成</h3>
             <p className="text-xs leading-5 text-[#888]">手动刷新采用一次批量请求，按 Char 的设定生成不同会话；不会为每条公众号通知单独调用 API。</p>
@@ -863,16 +906,15 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             </div>
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ececec] bg-[#fafafa] px-3 py-3 text-xs">
               <span className="min-w-0">
-                <strong className="block text-[13px] font-semibold text-[#444]">自动维护微信与朋友圈</strong>
-                <span className="mt-1 block leading-5 text-[#888]">开启后复用查手机自主生活的前台调度，按下方省额度／均衡／活跃频率轮流更新 NPC 微信、联系人与朋友圈。不会在打开微信瞬间生成，也不会在网页关闭后后台运行。</span>
+                <strong className="block text-[13px] font-semibold text-[#444]">自动更新优先处理微信与朋友圈</strong>
+                <span className="mt-1 block leading-5 text-[#888]">开启后，遇到有依据的手机活动机会时优先处理 NPC 微信与朋友圈；关闭后允许其他已开启的手机自主功能参与，不代表关闭 NPC 微信续聊。没有待回复消息或已发生的生活事件时不会仅因定时检查而生成。这个优先项不会修改“Char 手机自主生活”总开关；总开关关闭时，优先项保持设置但不会触发自动生成。要暂停独立自主生成，可关闭“Char 手机自主生活”或“允许独立后台 AI 请求”。</span>
               </span>
               <input type="checkbox" checked={inboxPrefs.autoFullWeChat}
                 onChange={e=>{
+                  // This preference only chooses which existing phone
+                  // features get priority. It must never silently re-enable
+                  // the separate Char autonomy master switch.
                   updateInboxPrefs({autoFullWeChat:e.target.checked});
-                  if(e.target.checked&&!npcAutonomyEnabled){
-                    try{setCharacterPhoneAutonomyEnabled(characterId,true);setNpcAutonomyEnabled(true);}
-                    catch{setError('自主生活总开关保存失败，请在下方手动开启');}
-                  }
                 }} className="h-5 w-5 shrink-0 accent-[#444]"/>
             </label>
             <label className="flex items-center justify-between gap-3 text-xs"><span>允许公众号／服务号推送</span>
@@ -885,7 +927,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             </div>
           </section>
           </PhoneSettingsGroup>}
-          {settingsMatch("应用 安装 卸载 社交 微博 Ins Instagram X 哔哩哔哩 B站 豆瓣 抖音 邮箱 晋江 网易云") && <PhoneSettingsGroup title="可选应用安装" searching={!!settingsQuery}>
+          {showPhoneSettings('advanced',"应用 安装 卸载 社交 微博 Ins Instagram X 哔哩哔哩 B站 豆瓣 抖音 邮箱 晋江 网易云") && <PhoneSettingsGroup title="可选应用安装" searching={!!settingsQuery}>
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <h3 className="sr-only">Char 的可选应用安装</h3>
             <p className="text-xs leading-5 text-[#888]">首次进入只根据 Char 性格分析一次；基础软件永远保留。以后可以手动安装、卸载九款可选应用。</p>
@@ -911,7 +953,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             </button>
           </section>
           </PhoneSettingsGroup>}
-          {settingsMatch("API 模型 Key 地址 独立 查手机 接口") && <PhoneSettingsGroup title="查手机独立 API" searching={!!settingsQuery}>
+          {showPhoneSettings('common',"API 模型 Key 地址 独立 查手机 接口") && <PhoneSettingsGroup title="查手机独立 API" searching={!!settingsQuery}>
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <label className="flex items-center justify-between gap-3 text-sm">
               <span><span className="block font-semibold">查手机独立 API</span>
@@ -953,15 +995,15 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             </div>}
           </section>
           </PhoneSettingsGroup>}
-          {settingsMatch("自主 真人感 生活 NPC 自动 总开关") && <PhoneSettingsGroup title="Char 手机自主生活" searching={!!settingsQuery}>
+          {showPhoneSettings('common',"自主 真人感 生活 NPC 自动 总开关") && <PhoneSettingsGroup title="Char 手机自主生活" searching={!!settingsQuery}>
           <label className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-4 text-sm">
             <span className="space-y-1"><span className="block font-semibold text-[#222]">Char 手机自主生活</span>
-              <span className="block text-xs leading-5 text-[#777]">NPC 微信续聊、朋友圈、浏览器与个人资料的总开关</span></span>
+              <span className="block text-xs leading-5 text-[#777]">控制独立前台自主任务（NPC 微信、朋友圈、浏览器和个人资料）；关闭后手动生成和私聊同轮生成选项不受影响</span></span>
             <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={npcAutonomyEnabled}
               onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/>
           </label>
           </PhoneSettingsGroup>}
-          {settingsMatch("朋友圈 评论 互动 回复 点赞 频率 档位 时间 限流 去重") && <PhoneSettingsGroup title="朋友圈 NPC 生成与互动" searching={!!settingsQuery}>
+          {showPhoneSettings('advanced',"朋友圈 评论 互动 回复 点赞 频率 档位 时间 限流 去重") && <PhoneSettingsGroup title="朋友圈 NPC 生成与互动" searching={!!settingsQuery}>
           <section className="space-y-4 rounded-2xl bg-white p-4 text-xs">
             <label className="flex items-center justify-between gap-3">
               <span><strong className="block text-[13px]">允许 NPC 自主评论／回复／点赞</strong>
@@ -995,7 +1037,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             </>}
           </section>
           </PhoneSettingsGroup>}
-          {settingsMatch("AI 频率 额度 预算 高 中 低 省额度 均衡 活跃 自定义 间隔") && <PhoneSettingsGroup title="AI 自主调用频率" searching={!!settingsQuery}>
+          {showPhoneSettings('common',"AI 频率 额度 预算 高 中 低 省额度 均衡 活跃 自定义 间隔") && <PhoneSettingsGroup title="AI 自主调用频率" searching={!!settingsQuery}>
           <section className="space-y-4 rounded-2xl bg-white p-4">
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">私聊同轮生成 NPC 微信／朋友圈</strong>
@@ -1006,12 +1048,12 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             </label>
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">允许独立后台 AI 请求</strong>
-                <span className="block mt-1 leading-5 text-[#888]">关闭后所有查手机自主任务不再单独调 API；手动点击生成和 User 私聊不受影响。开启时仍遵守下方每日预算。</span></span>
+                <span className="block mt-1 leading-5 text-[#888]">关闭后，手机的独立自主 AI 任务不会再调用接口；原有手动生成、User 私聊，以及另行开启的“私聊同轮生成”不受影响。开启后仍遵守下方共享预算。</span></span>
               <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#444]" checked={phonePrefs.backgroundApiEnabled}
                 onChange={e=>changePhonePrefs({backgroundApiEnabled:e.target.checked})}/>
             </label>
             <div><h3 className="sr-only">AI 自主调用频率</h3>
-              <p className="mt-1 text-xs leading-5 text-[#888]">此角色的所有查手机自主功能共用额度，手动生成不占用该预算。</p>
+              <p className="mt-1 text-xs leading-5 text-[#888]">档位只限制自主 API 的每日使用上限与请求间隔，不是自动发送时间表。只有出现已保存的生活事件、未回复的 NPC 消息等真实契机，系统才会考虑后台请求。手动生成不占用该预算。</p>
             </div>
             <div className="grid grid-cols-4 gap-1.5 text-xs">
               {([{id:'economy',label:'省额度'},{id:'balanced',label:'均衡'},
@@ -1040,12 +1082,12 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               <p>今日自主 API 调用：{budgetInfo.requests} / {budgetInfo.limit} 次</p>
               <p>剩余：{budgetInfo.remaining} 次 · 至少间隔 {budgetInfo.minIntervalMinutes} 分钟</p>
               {budgetInfo.remaining>0 && budgetInfo.nextAllowedAt>Date.now() &&
-                <p>下一次允许：{new Date(budgetInfo.nextAllowedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</p>}
+                <p>最早允许再调用：{new Date(budgetInfo.nextAllowedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}（不是计划发消息时间）</p>}
               {budgetInfo.remaining===0&&<p>今日已达到上限，按设备当地日期自动重置。</p>}
             </div>
           </section>
           </PhoneSettingsGroup>}
-          {settingsMatch("百度 搜索 浏览器 头像 个人资料 戳一戳 后缀") && <PhoneSettingsGroup title="其他自主功能" searching={!!settingsQuery}>
+          {showPhoneSettings('advanced',"百度 搜索 浏览器 头像 个人资料 戳一戳 后缀") && <PhoneSettingsGroup title="其他自主功能" searching={!!settingsQuery}>
           <section className="divide-y divide-[#eee] rounded-2xl bg-white px-4">
             <label className="flex items-center justify-between gap-3 py-4 text-sm">
               <span><span className="block font-medium">Char 自主搜百度</span>
@@ -1061,9 +1103,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             </label>
           </section>
           </PhoneSettingsGroup>}
-          {settingsMatch('清除 管理 删除 数据 清理 备忘录 钱包 账号 浏览')&&<CharacterPhoneClearManager characterId={characterId} disabled={busy||sharedWechatRefreshing||npcMomentLoading}/>}
+          {showPhoneSettings('advanced','清除 管理 删除 数据 清理 备忘录 钱包 账号 浏览')&&<CharacterPhoneClearManager characterId={characterId} disabled={busy||sharedWechatRefreshing||npcMomentLoading}/>}
           <p className="px-2 text-xs leading-5 text-[#888]">
-            默认省额度。自定义仅调整共享 API 预算；微信、浏览器和个人资料仍有独立冷却，避免空转刷请求。只有应用在前台且 Char 的日程允许时才检查；不会在网页关闭后持续请求。
+            默认省额度。自定义仅调整共享 API 预算；微信、浏览器和个人资料仍有独立冷却，避免空转刷请求。档位到时间不会自动触发角色行为；仅在有已保存的经历或未回复的 NPC 消息、且日程允许时才考虑调用。不会在网页关闭后持续请求。
             手动刷新和显式点击的生成按钮仍可使用聊天 API。主动消息 2.0 使用原来独立的机制，不受这里的预算影响。
           </p>
         </div>}

@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { saveNpcProfiles, type NpcProfile } from './characterPhoneNpcs';
+import { saveNpcProfiles, readNpcProfiles, type NpcProfile } from './characterPhoneNpcs';
 import { appendCharacterPhoneMessages, readCharacterPhoneChats } from './characterPhoneChats';
 import { readCharacterLifeEvents } from './characterLifeEvents';
-import { runCharacterPhoneAutonomy } from './characterPhoneAutonomy';
+import { runCharacterPhoneAutonomy, setCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
+import { readPhoneApiBudget, writePhoneAutonomyPreferences } from './characterPhoneApiBudget';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 import type { CharacterProfile, UserProfile } from '../types';
 
@@ -45,6 +46,28 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('character-owned autonomous phone behavior', () => {
+  it('honors the existing Char autonomy master switch without starting a phone task', async () => {
+    saveNpcProfiles('master-off', contacts());
+    setCharacterPhoneAutonomyEnabled('master-off', false);
+    const request = mockApi();
+    expect(await runCharacterPhoneAutonomy(input('master-off'))).toBe('unavailable');
+    expect(getCharacterLifeScheduleContext).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(readPhoneApiBudget('master-off').requests).toBe(0);
+  });
+
+  it('stops separately billed phone generation while keeping saved NPC records', async () => {
+    saveNpcProfiles('api-off', contacts());
+    writePhoneAutonomyPreferences('api-off', { backgroundApiEnabled:false });
+    const request = mockApi();
+    expect(await runCharacterPhoneAutonomy(input('api-off'))).toBe('skipped');
+    expect(request).not.toHaveBeenCalled();
+    expect(getCharacterLifeScheduleContext).not.toHaveBeenCalled();
+    expect(readPhoneApiBudget('api-off').requests).toBe(0);
+    expect(readCharacterPhoneChats('api-off')).toEqual([]);
+  });
+
+
   it('lets an NPC send a message while Char is busy, without fabricating Char speech', async () => {
     saveNpcProfiles('busy', contacts());
     vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
@@ -84,6 +107,116 @@ describe('character-owned autonomous phone behavior', () => {
     expect(await runCharacterPhoneAutonomy(input('reply'))).toBe('messaged');
     const chat = readCharacterPhoneChats('reply').find(r => r.contactId === 'npc0');
     expect(chat?.messages.map(m => m.speaker.role)).toEqual(['contact', 'owner']);
+  });
+
+  it('replies to a waiting NPC even if the address book is small, without spending on bootstrap', async () => {
+    saveNpcProfiles('small-book', contacts().slice(0, 2));
+    const at = Date.now() - 20 * 60_000;
+    appendCharacterPhoneMessages({
+      characterId: 'small-book', contactId: 'npc0', contactName: '阿林', at,
+      messages: [{ speaker: { role: 'contact', contactId: 'npc0' }, text: '你明天有时间吗？', createdAt: at }],
+    });
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId: 'small-book', observedAt: Date.now(),
+      plannedActivity: null, plannedDescription: null, confirmedEvents: [],
+    });
+    const api = mockApi();
+    expect(await runCharacterPhoneAutonomy({ ...input('small-book'), replyOnly: true })).toBe('messaged');
+    expect(api).toHaveBeenCalledTimes(1);
+    expect(readNpcProfiles('small-book')).toHaveLength(2);
+    expect(readPhoneApiBudget('small-book').requests).toBe(1);
+    expect(readCharacterPhoneChats('small-book')[0].messages.map(m => m.speaker.role))
+      .toEqual(['contact', 'owner']);
+  });
+
+  it('does not create contacts or start new topics for reply-only opportunities without waiting messages', async () => {
+    saveNpcProfiles('no-reply', contacts().slice(0, 2));
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId: 'no-reply', observedAt: Date.now(),
+      plannedActivity: null, plannedDescription: null, confirmedEvents: [],
+    });
+    const api = mockApi();
+    expect(await runCharacterPhoneAutonomy({ ...input('no-reply'), replyOnly: true })).toBe('skipped');
+    expect(api).not.toHaveBeenCalled();
+    expect(readPhoneApiBudget('no-reply').requests).toBe(0);
+    expect(readNpcProfiles('no-reply')).toHaveLength(2);
+  });
+
+  it('does not save a late autonomous reply after the user disables autonomy', async () => {
+    saveNpcProfiles('disabled-midflight', contacts().slice(0, 2));
+    const at = Date.now() - 20 * 60_000;
+    appendCharacterPhoneMessages({
+      characterId:'disabled-midflight',contactId:'npc0',contactName:'阿林',at,
+      messages:[{speaker:{role:'contact',contactId:'npc0'},text:'你在吗？',createdAt:at}],
+    });
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'disabled-midflight', observedAt:Date.now(),
+      plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    let complete!: (response: unknown) => void;
+    const fetchMock = vi.fn().mockImplementation(() => new Promise(resolve => { complete = resolve; }));
+    vi.stubGlobal('fetch', fetchMock);
+    const pending = runCharacterPhoneAutonomy({ ...input('disabled-midflight'), replyOnly:true });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    setCharacterPhoneAutonomyEnabled('disabled-midflight', false);
+    complete({
+      ok:true,status:200,headers:{get:()=> 'application/json'},
+      text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({
+        send:true,messages:['我在。'],
+      })}}]}),
+    });
+    expect(await pending).toBe('skipped');
+    expect(readCharacterPhoneChats('disabled-midflight')[0].messages.map(m => m.speaker.role))
+      .toEqual(['contact']);
+    expect(readPhoneApiBudget('disabled-midflight').requests).toBe(1);
+  });
+
+  it('does not append a stale AI reply over a manual reply sent while API was running', async () => {
+    saveNpcProfiles('manual-midflight', contacts().slice(0, 2));
+    const at = Date.now() - 20 * 60_000;
+    appendCharacterPhoneMessages({
+      characterId:'manual-midflight',contactId:'npc0',contactName:'阿林',at,
+      messages:[{speaker:{role:'contact',contactId:'npc0'},text:'今天忙不忙？',createdAt:at}],
+    });
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'manual-midflight', observedAt:Date.now(),
+      plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    let complete!: (response: unknown) => void;
+    const fetchMock = vi.fn().mockImplementation(() => new Promise(resolve => { complete = resolve; }));
+    vi.stubGlobal('fetch',fetchMock);
+    const pending = runCharacterPhoneAutonomy({ ...input('manual-midflight'), replyOnly:true });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    appendCharacterPhoneMessages({
+      characterId:'manual-midflight',contactId:'npc0',contactName:'阿林',
+      messages:[{speaker:{role:'owner'},text:'我刚回过你了。',createdAt:Date.now()}],
+    });
+    complete({
+      ok:true,status:200,headers:{get:()=> 'application/json'},
+      text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({
+        send:true,messages:['这条回复不该保存'],
+      })}}]}),
+    });
+    expect(await pending).toBe('skipped');
+    expect(readCharacterPhoneChats('manual-midflight')[0].messages.map(m => m.text))
+      .toEqual(['今天忙不忙？','我刚回过你了。']);
+  });
+
+  it('does not bill two automatic calls when contact bootstrap returns no additions', async () => {
+    saveNpcProfiles('bootstrap-noop', contacts().slice(0, 2));
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'bootstrap-noop',observedAt:Date.now(),
+      plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    const request = vi.fn().mockResolvedValue({
+      ok:true,status:200,headers:{get:()=> 'application/json'},
+      text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({contacts:[]})}}]}),
+    });
+    vi.stubGlobal('fetch',request);
+    expect(await runCharacterPhoneAutonomy(input('bootstrap-noop'))).toBe('skipped');
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(readPhoneApiBudget('bootstrap-noop').requests).toBe(1);
+    expect(readCharacterPhoneChats('bootstrap-noop')).toEqual([]);
   });
 
   it('does not bootstrap new NPC contacts or spend tokens when the Char is sleeping', async () => {
