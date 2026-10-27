@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import catalog from '../../public/room3d/catalog.json';
-import {occupiedFurnitureChange,activeFurnitureDependencyChange} from './furnitureStationRegistry.js';
+import {occupiedFurnitureChange,activeFurnitureDependencyChange,standingFurnitureChange} from './furnitureStationRegistry.js';
 import {seatTransform,roomSeats} from './seating.js';
 import {readFileSync} from 'node:fs';
 
@@ -48,6 +48,37 @@ describe('occupied furniture and supported decoration layout safety',()=>{
   const occupied={roomId:'r',itemId:'b',seatId:'center',bed:true};
   const moved=structuredClone(before);moved.rooms[0].items[0].rotation=90;
   expect(occupiedFurnitureChange(before,moved,catalog,[occupied])).toContain('先让人物');
+ });
+});
+
+describe('undo/redo restores layout without relocating a standing resident',()=>{
+ const original={rooms:[{id:'room',items:[{id:'stool',assetId:'pouf',x:2.4,y:.18,z:1.2,rotation:0,stored:false}]}]},
+  actor={roomId:'room',x:0,z:0,width:1.5};
+ const edit=fn=>{const v=structuredClone(original);fn(v.rooms[0].items);return v;};
+ it('allows distant changes, repainting and non-solid rug under feet',()=>{
+  expect(standingFurnitureChange(original,edit(items=>{items[0].x=3;}),catalog,actor)).toBe('');
+  expect(standingFurnitureChange(original,edit(items=>{items[0].color='#aabbcc';}),catalog,actor)).toBe('');
+  expect(standingFurnitureChange(original,edit(items=>items.push({id:'rug',assetId:'rug',x:0,y:.18,z:0,rotation:0,stored:false})),catalog,actor)).toBe('');
+ });
+ it('blocks inserting, moving or undoing a solid item across occupied floor',()=>{
+  const block={id:'shelf',assetId:'bookcase',x:0,y:.18,z:0,rotation:0,stored:false};
+  const inserted=edit(items=>items.push(block));
+  expect(standingFurnitureChange(original,inserted,catalog,actor)).toContain('站立的人物');
+  expect(standingFurnitureChange(inserted,original,catalog,actor)).toBe('');
+  const moved=edit(items=>{items[0].x=0;items[0].z=0;});
+  expect(standingFurnitureChange(original,moved,catalog,actor)).toContain('站立的人物');
+  expect(standingFurnitureChange(original,moved,catalog,{...actor,width:2.2})).toContain('站立的人物');
+  expect(standingFurnitureChange(original,moved,catalog,{...actor,roomId:'other'})).toBe('');
+ });
+ it('orders standing collision checks before cancelling work, and preserves position on history',()=>{
+  const source=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
+  const commit=source.slice(source.indexOf('function commit(mutator,'),source.indexOf('function applyColor('));
+  const history=source.slice(source.indexOf('function travelHistory('),source.indexOf('function commit(mutator,'));
+  expect(commit.indexOf('const standingError=standingFurnitureChange')).toBeLessThan(commit.indexOf('stopWalking();'));
+  expect(history.indexOf('standingFurnitureChange(state,target,catalog,standing)')).toBeLessThan(history.indexOf('from.pop();'));
+  expect(history).toContain('if(standing&&!restoreLife)visitorLocation={');
+  expect(history).not.toContain('state=target;stopWalking();visitorLocation=null;');
+  expect(history).toContain('seatChange||visitorActivity?.bathJourney');
  });
 });
 
