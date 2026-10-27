@@ -43,7 +43,8 @@ export type SparkEventType =
     | 'post_collected' | 'post_uncollected'
     | 'followed' | 'unfollowed'
     | 'post_hidden' | 'post_unhidden'
-    | 'account_muted' | 'account_unmuted';
+    | 'account_muted' | 'account_unmuted'
+    | 'interest_followed' | 'interest_unfollowed';
 
 export interface SparkCommunityEvent {
     id: string;
@@ -182,7 +183,7 @@ export function normalizeSparkCommunityState(raw: unknown): SparkCommunityState 
     const eventTypes: SparkEventType[] = [
         'post_created', 'comment_created', 'post_liked', 'post_unliked', 'comment_liked', 'comment_unliked',
         'post_collected', 'post_uncollected', 'followed', 'unfollowed', 'post_hidden', 'post_unhidden',
-        'account_muted', 'account_unmuted',
+        'account_muted', 'account_unmuted', 'interest_followed', 'interest_unfollowed',
     ];
     const events: SparkCommunityEvent[] = Array.isArray(value.events)
         ? value.events.flatMap((item: any) => {
@@ -527,4 +528,28 @@ export function deriveSparkProfileStats(posts: SocialPost[], state: SparkCommuni
         followers: state.follows.filter(follow => follow.followedId === 'user').length,
         likesAndCollections,
     };
+}
+
+
+export function toggleSparkInterest(
+    state: SparkCommunityState,
+    topic: string,
+    now: number,
+    eventId: string,
+): { state: SparkCommunityState; action: 'follow' | 'unfollow' | 'noop' } {
+    const value = topic.trim();
+    const normalized = normalizeSparkName(value);
+    if (!normalized) return { state, action: 'noop' };
+    const existing = state.interests.find(item => normalizeSparkName(item) === normalized);
+    const interests = existing
+        ? state.interests.filter(item => normalizeSparkName(item) !== normalized)
+        : [...state.interests, value];
+    const next = appendSparkEvent({ ...state, interests }, {
+        id: eventId,
+        type: existing ? 'interest_unfollowed' : 'interest_followed',
+        actorAccountId: 'user',
+        createdAt: now,
+        metadata: { topic: value },
+    });
+    return { state: next, action: existing ? 'unfollow' : 'follow' };
 }
