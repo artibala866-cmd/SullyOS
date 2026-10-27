@@ -57,7 +57,7 @@ try{
  });
  await send('Page.enable');
  await send('Runtime.enable');
- const until=Date.now()+120000;
+ const until=Date.now()+180000; // 29 actual seat entry/exit cases plus five beds in software WebGL
  while(Date.now()<until){
   const result=await send('Runtime.evaluate',{expression:'JSON.stringify(window.__home3dSmoke ?? {status:"starting",stage:"waiting for module"})',returnByValue:true});
   const value=result?.result?.value;
