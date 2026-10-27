@@ -24,3 +24,11 @@ export function createRoomFrameBudget({enabled=false}={}){
   },
  };
 }
+
+// Separate real-time character/action progression from short collision/physics
+// steps. At 15 FPS a fixed 0.05s clock would slow a 1s sit animation to 1.33s.
+// Limit catch-up to 0.2s after stalls rather than respawning or teleporting.
+export function roomFrameDeltas(milliseconds){
+ const seconds=Number.isFinite(milliseconds)?Math.max(0,milliseconds)/1000:0;
+ return {simulation:Math.min(.05,seconds),activity:Math.min(.2,seconds)};
+}
