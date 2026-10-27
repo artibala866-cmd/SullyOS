@@ -18,7 +18,7 @@ export function getSparkAuthorAvatar(
     const account = (handleId && saved.find(item => item.id === handleId)) ||
         saved.find(item => normalizeName(item.handle) === normalizeName(authorName));
     const id = handleId || account?.id;
-    const isMain = id === 'default' || (!handleId && account?.note === '主账号');
+    const isMain = id === 'default' || account?.note === '主账号';
     if (!id || isMain) return character.avatar;
     // Stable across nickname changes; do not expose the main profile picture on an alt.
     return 'https://api.dicebear.com/7.x/notionists/svg?seed=' +
