@@ -950,6 +950,30 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   };
   notify('走到座椅旁');
  }
+ // Mirror admiration and rhythm use their existing playback/IK. The station
+ // itself must first be reachable on foot, with the pose revalidated on arrival.
+ function approachStandingActivity(next){
+  if(visitorSeat||seatChange){notify('请先正常起身，再使用这件家具',true);return false;}
+  const r=current(),offset=[r.x*ROOM_STEP.x,r.z*ROOM_STEP.z],
+    start=[resident.position.x+offset[0],resident.position.z+offset[1]],
+    target=[next.position[0]+offset[0],next.position[2]+offset[1]],map=residentWalkMap(start);
+  const valid=map.free(...target)&&!!findWalkPath(map,start,target);
+  if(!valid||Math.abs(next.position[1]-.18)>.26){notify('设备前没有能走到的安全站位',true);return false;}
+  const begin=()=>{
+   if(current().id!==r.id||visitorSeat||seatChange)return;
+   const currentActivity=activities().find(a=>a.itemId===next.itemId&&a.kind===next.kind&&a.stationId===next.stationId&&!a.reason);
+   if(!currentActivity||!sameStationPose(next,currentActivity)){notify('家具站位已经失效，请重新选择',true);return;}
+   visitorLocation=null;visitorActivity=currentActivity;visitorSeat=null;visitorMotion=currentActivity.kind;visitorStart=elapsed;
+   visitorUntil=elapsed+furnitureActivitySeconds(currentActivity.kind,currentActivity.duration||12);
+   currentActivity.recordSource=next.recordSource;
+   edit=false;overview=false;selected=null;panel=null;placeVisitor();animateVisitor(0);
+   recordHomeActivity(currentActivity.label,currentActivity.recordSource);
+   message=currentActivity.label+'中';dirty=true;wake();renderUI();
+  };
+  if(Math.hypot(target[0]-start[0],target[1]-start[1])<.10){begin();return true;}
+  if(!walkTo(target))return false;
+  walking.arrived=begin;notify('走到操作站位');return true;
+ }
  function finishBathroom(){
   const front=visitorActivity?.bathJourney?.front;if(!front)return;
   resident.position.fromArray(front);visitorLocation={x:front[0]+current().x*ROOM_STEP.x,z:front[2]+current().z*ROOM_STEP.z,level:current().level};
@@ -1786,7 +1810,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(task.reason){notify(task.reason,true);return;}
    edit=false;overview=false;selected=null;panel=null;task.recordSource=d.recordSource||'user';kitchenTask=task;kitchenLeg(task,task.source,'approach');message='这就去'+({coffee:'做咖啡',wash:'取盘子洗碗',cook:'煮饭'}[task.kind]);updateSelection();renderUI();return;
   }
-  if(['chibi-game','chibi-mirror','chibi-bath'].includes(d.action)&&visitor){const next=activities().find(a=>a.itemId===d.id&&a.kind===d.kind&&(a.stationId||'')===(d.station||''));if(!next||next.reason){notify(next?.reason||'家具或搭配条件已经变了',true);return;}next.recordSource=d.recordSource||'user';if(visitor?.rig&&isBathAction(next.kind)){approachBathroom(next);return;}if(visitor?.rig&&next.seat&&['computer','stream','race','eat'].includes(next.kind)){approachDeskActivity(next);return;}stopWalking();visitorLocation=null;visitorPlant=null;visitorActivity=next;visitorSeat=next.seat;visitorMotion=next.kind;if(next.kind==='mirror-outfit'){
+  if(['chibi-game','chibi-mirror','chibi-bath'].includes(d.action)&&visitor){const next=activities().find(a=>a.itemId===d.id&&a.kind===d.kind&&(a.stationId||'')===(d.station||''));if(!next||next.reason){notify(next?.reason||'家具或搭配条件已经变了',true);return;}next.recordSource=d.recordSource||'user';if(isBathAction(next.kind)){approachBathroom(next);return;}if(next.seat&&['computer','stream','race','eat'].includes(next.kind)){approachDeskActivity(next);return;}if(['rhythm','mirror-admire'].includes(next.kind)){approachStandingActivity(next);return;}stopWalking();visitorLocation=null;visitorPlant=null;visitorActivity=next;visitorSeat=next.seat;visitorMotion=next.kind;if(next.kind==='mirror-outfit'){
    const map=navMap(),ox=current().x*ROOM_STEP.x,oz=current().z*ROOM_STEP.z;
    next.journey=createMirrorJourney(next,resident.position.toArray(),(a,b)=>findWalkPath(map,[a[0]+ox,a[2]+oz],[b[0]+ox,b[2]+oz])?.map(p=>[p[0]-ox,.18,p[1]-oz]),{speed:visitor?.rig?visitor.walkSpeed??1.05:1.7});
     if(!next.journey){visitorActivity=null;visitorSeat=null;visitorMotion='idle';visitorUntil=0;notify('衣柜或镜子之间没有安全可走的通路，请挪开障碍物',true);return;}
