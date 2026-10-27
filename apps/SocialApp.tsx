@@ -346,7 +346,8 @@ const SocialApp: React.FC = () => {
             const old = previous[post.id];
             const now = evaluateSparkTraffic(post, counts[key] || 0, old);
             if (old && old.evaluatedLikes === now.evaluatedLikes && old.evaluatedComments === now.evaluatedComments && old.evaluatedSaves === now.evaluatedSaves) continue;
-            const difference = now.followersDelta - (old?.followersDelta || 0);
+            // Traffic estimates are informational; follower relations only change after named follow events.
+            const difference = 0;
             counts[key] = Math.max(0, (counts[key] || 0) + difference);
             changes[key] = (changes[key] || 0) + difference;
             next[post.id] = now;
@@ -420,7 +421,7 @@ const SocialApp: React.FC = () => {
         } catch { return []; }
     });
     // Modes: 'home' (Feed) | 'me' (Profile) | 'create' (Modal Overlay)
-    const [activeTab, setActiveTab] = useState<'home' | 'me' | 'market' | 'messages'>('home');
+    const [activeTab, setActiveTab] = useState<'home' | 'me' | 'messages'>('home');
     useAppShortcut(ShortcutAppID.Social, intent => { setSelectedPost(null); setIsCreateOpen(false); setShowSettings(false); setActiveTab(intent.entryId === 'me' ? 'me' : 'home'); });
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [showUtilityShelf, setShowUtilityShelf] = useState(false);
@@ -1450,10 +1451,6 @@ ${buildSparkCommentHistory(post)}
         const account = communityState.accounts.find(item => item.displayName === handle || item.aliases.includes(handle));
         return feed.filter(post => account ? post.authorId === account.id || (!post.authorId && post.authorName === handle) : post.authorName === handle);
     };
-    const accountFollowerCount = (handle: string, isMain: boolean) => {
-        const seed = Array.from(handle).reduce((sum, c) => (sum * 31 + c.charCodeAt(0)) >>> 0, 7);
-        return isMain ? 120 + seed % 18000 : 3 + seed % 1800;
-    };
 
     const renderFeedItem = (post: SocialPost) => (
         <div key={post.id} onClick={() => handleOpenPost(post)} className="break-inside-avoid mb-3 min-w-0 bg-white rounded-xl overflow-hidden shadow-sm cursor-pointer active:scale-[0.98] relative group">
@@ -1506,7 +1503,7 @@ ${buildSparkCommentHistory(post)}
                             {selectedPost.authorType !== 'user' && (
                                 <button type="button" onClick={() => toggleFollow(selectedPost.authorName)}
                                     className="ml-auto rounded-full border border-[#555555]/30 px-3 py-1 text-xs font-bold text-[#555555]">
-                                    {followedHandles.includes(selectedPost.authorName) ? '已关注 ✓' : '+ 关注'}
+                                    {isFollowing(selectedPost.authorName) ? '已关注 ✓' : '+ 关注'}
                                 </button>
                             )}
                         </div>
@@ -1651,7 +1648,7 @@ ${buildSparkCommentHistory(post)}
 
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => { openSparkDM(viewedAccount); setViewedAccount(null); }} className="w-full rounded-full border border-[#555555] text-[#555555] font-bold py-2 mb-2">私信</button>}
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#555555] text-white font-bold py-2 mb-5">
-                            {followedHandles.includes(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
+                            {isFollowing(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
                         </button>}
                         <p className="font-bold text-sm border-b pb-3 mb-3">TA 的笔记</p>
                         <div className="grid grid-cols-2 gap-3">
@@ -1816,7 +1813,7 @@ ${buildSparkCommentHistory(post)}
                         <button onClick={closeApp} className="p-1"><Icons.Back onClick={closeApp} /></button>
                         <div className="flex items-center gap-4 text-sm font-bold min-w-0">
                             <button type="button" onClick={() => { setActiveTab('home'); setFeedTab('following'); }} className={`flex items-center gap-1 ${activeTab === 'home' && feedTab === 'following' ? 'text-slate-900' : 'text-slate-400'}`}>
-                                {(() => { const latest = feed.find(p => p.authorType === 'character' && followedHandles.includes(p.authorName)); return latest ? <TokenImg value={latest.authorAvatar} className="w-6 h-6 rounded-full object-cover" /> : null; })()}
+                                {(() => { const latest = feed.find(p => p.authorType === 'character' && isFollowing(p.authorName)); return latest ? <TokenImg value={latest.authorAvatar} className="w-6 h-6 rounded-full object-cover" /> : null; })()}
                                 关注
                             </button>
                             <button type="button" onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`relative ${activeTab === 'home' && feedTab === 'discover' ? 'text-slate-900' : 'text-slate-400'}`}>发现{activeTab === 'home' && feedTab === 'discover' && <span className="absolute -bottom-2 left-1 right-1 h-0.5 bg-[#555555] rounded-full" />}</button>
@@ -1849,7 +1846,6 @@ ${buildSparkCommentHistory(post)}
                         </div>
                     )}
 
-                    {activeTab === 'market' && <div className="min-h-full flex items-center justify-center text-sm text-slate-400">集市 · 待完善</div>}
                     {activeTab === 'messages' && <div className="min-h-full bg-white pb-24">
                         <h2 className="text-center text-lg font-bold py-5">消息</h2>
                         {!noticeCategory ? <>
@@ -1866,7 +1862,7 @@ ${buildSparkCommentHistory(post)}
                             <div className="flex gap-2 px-5 pb-3">
                                 {([{ id: 'all', label: '全部' }, { id: 'following', label: '已关注' }, { id: 'strangers', label: '陌生人' }] as const).map(tab => <button key={tab.id} type="button" onClick={() => setDmFilter(tab.id)} className={`rounded-full px-3 py-1 text-xs ${dmFilter === tab.id ? 'bg-[#555555] text-white' : 'bg-slate-100 text-slate-600'}`}>{tab.label}</button>)}
                             </div>
-                            {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 && (dmFilter === 'all' || (dmFilter === 'following' ? followedHandles.includes(handle) : !followedHandles.includes(handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
+                            {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 && (dmFilter === 'all' || (dmFilter === 'following' ? isFollowing(handle) : !isFollowing(handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
                                 const accountPost = feed.find(post => post.authorName === handle);
                                 return <button key={handle} type="button" onClick={() => openSparkDM({ handle, avatar: accountPost?.authorAvatar || '' })} className="w-full flex gap-3 items-center px-5 py-3 border-b border-slate-50 text-left">
                                     <span className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden">{accountPost?.authorAvatar ? <TokenImg value={accountPost.authorAvatar} className="w-full h-full object-cover" /> : '✦'}</span>
@@ -2031,7 +2027,6 @@ ${buildSparkCommentHistory(post)}
 
                 <div className="absolute bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-100 flex items-center justify-around h-16" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                     <button onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`text-sm ${activeTab === 'home' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>首页</button>
-                    <button onClick={() => setActiveTab('market')} className={`text-sm ${activeTab === 'market' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>集市</button>
                     <button onClick={() => setIsCreateOpen(true)} aria-label="发布笔记" className="w-14 h-12 bg-[#555555] rounded-xl text-white text-4xl leading-none">+</button>
                     <button onClick={() => setActiveTab('messages')} className={`text-sm ${activeTab === 'messages' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>消息</button>
                     <button onClick={() => setActiveTab('me')} className={`text-sm ${activeTab === 'me' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>我</button>
