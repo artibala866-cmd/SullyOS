@@ -195,7 +195,20 @@ const SocialApp: React.FC = () => {
                 handleId, displayName: post.authorName, avatar: post.authorAvatar,
             }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2), post.timestamp);
             state = result.state;
-            return { ...post, authorId: result.account.id, authorType: result.account.type,
+            const comments = (post.comments || []).map(comment => {
+                const commentType: SparkAccountType = comment.authorType || (comment.authorCharId ? 'character' : comment.id.startsWith('cmt-user-') ? 'user' : 'stranger');
+                const commentHandles = comment.authorCharId ? (characterHandles[comment.authorCharId] || []) : [];
+                const commentHandleId = commentHandles.find(handle => handle.handle === comment.authorName)?.id
+                    || (comment.authorId?.startsWith('character:') ? comment.authorId.split(':handle:')[1] : undefined);
+                const registeredComment = ensureSparkAccount(state, {
+                    type: commentType, id: comment.authorId,
+                    ownerCharId: commentType === 'character' ? comment.authorCharId : undefined,
+                    handleId: commentHandleId, displayName: comment.authorName, avatar: comment.authorAvatar,
+                }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2), comment.timestamp || post.timestamp);
+                state = registeredComment.state;
+                return { ...comment, authorId: registeredComment.account.id, authorType: registeredComment.account.type };
+            });
+            return { ...post, authorId: result.account.id, authorType: result.account.type, comments,
                 source: post.source || (result.account.type === 'user' ? 'user' : 'legacy') } as SocialPost;
         });
         if (state !== communityRef.current) writeCommunity(state);
@@ -924,7 +937,7 @@ const SocialApp: React.FC = () => {
                 content: result.content,
                 images: [pickStock(String(result.title || ''), result.content) || '✨'],
                 likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(),
-                tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
+                tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id, source: 'ai',
             };
             if (fanCountsRef.current[fanKey(post)] === undefined && Number.isFinite(Number(result.initialFollowers))) {
                 const key = fanKey(post);
@@ -1046,6 +1059,7 @@ const SocialApp: React.FC = () => {
                     bgStyle: getRandomStyle().bg,
                     authorType: isCharacterPost ? 'character' as const : 'stranger' as const,
                     authorCharId: matchedChar?.id,
+                    source: 'ai' as const,
                 }];
             });
             if (!newPosts.length) throw new Error('模型返回的作者身份不匹配，未添加帖子');
@@ -1349,7 +1363,7 @@ ${buildSparkCommentHistory(post)}
             timestamp: Date.now(),
             tags: ['User'],
             bgStyle: getRandomStyle().bg,
-            authorType: 'user',
+            authorType: 'user', source: 'user',
         };
         prependPostsToFeed([post]);
         learnInterest(post, 4);
