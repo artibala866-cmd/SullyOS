@@ -14,7 +14,7 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags } from '../utils/socialFeedMerge';
-import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen } from '../utils/sparkCommunity';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen, applySparkNpcLike, applySparkNpcFollow } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
@@ -1322,8 +1322,10 @@ const SocialApp: React.FC = () => {
                 authorName: post.authorName, tags: post.tags,
                 comments: post.comments.slice(-3).map(comment => ({ id: comment.id, author: comment.authorName, content: comment.content.slice(0, 120) })),
             }));
-            const publicAccounts = communityRef.current.accounts.filter(account => account.type === 'stranger')
+            const publicAccounts = communityRef.current.accounts.filter(account => account.id !== 'user' &&
+                !communityRef.current.mutedAccountIds.includes(account.id))
                 .slice(-15).map(account => ({ id: account.id, handle: account.displayName, interests: account.interests }));
+            const existingFollows = communityRef.current.follows.slice(-20).map(f => ({ from: f.followerId, to: f.followedId }));
             const visiblePostIds = new Set(feedRef.current.map(item => item.id));
             const previousEvents = communityRef.current.events
                 .filter(event => !event.postId || visiblePostIds.has(event.postId))
@@ -1331,15 +1333,19 @@ const SocialApp: React.FC = () => {
                 .map(event => ({ kind: event.type, postId: event.postId, createdAt: event.createdAt }));
             const prompt = [
                 '你安排 SullyOS 内 Spark 虚拟社区的少量自主活动；绝不能访问或控制真实小红书。',
-                '本轮可返回 0 至 2 个自然事件，返回 [] 代表无人活动，允许保持沉默。只允许 kind=post 或 kind=comment。',
+                '本轮最多返回 2 个有因果的社区事件，返回 [] 表示无人活动，可以沉默。kind 仅限 post、comment、like、follow、unfollow。',
                 'post: {kind:"post",authorName:"公开网名",charId:"角色ID或null",title:"标题",content:"正文",tags:["话题"]}',
-                'comment: {kind:"comment",postId:"真实帖子ID",authorName:"公开网名",charId:"角色ID或null",content:"评论"}',
+                'comment: {kind:"comment",postId:"已存在帖子ID",authorName:"公开网名",charId:"角色ID或null",content:"评论"}',
+                'like: {kind:"like",postId:"已存在帖子ID",authorName:"公开网名",charId:"角色ID或null"}',
+                'follow/unfollow: {kind:"follow",targetAccountId:"user或已列出的账号ID",authorName:"公开网名",charId:"角色ID或null"}，取关时 kind=unfollow；必须先有关注才能取关。',
+                '绝不虚构点赞、关注或活动目标；请结合公开帖子与角色喜好判断，不能每次都关注用户。',
                 '角色必须使用已配置的网名与角色 ID；普通网友可复用有历史的账号，不必围绕用户发言。',
                 '继续已有话题时请引用已有真实帖子 ID；没有因果线索则分享独立日常，不凭空捏造过去的社交事件。',
                 '绝不代替用户发言，不公开任何私聊内容、世界书秘密、后台账号归属或马甲真身；角色之间记忆不得串台。',
                 '只有包含 JSON 数组的回复才有效；不要虚构点赞数、粉丝数、浏览数。',
                 '当前真实帖子: ' + JSON.stringify(publicPosts),
-                '已知稳定网友: ' + JSON.stringify(publicAccounts),
+                '已知稳定账号: ' + JSON.stringify(publicAccounts),
+                '当前真实关注关系: ' + JSON.stringify(existingFollows),
                 '最近社区事件: ' + JSON.stringify(previousEvents),
             ].join('\n');
             const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
@@ -1359,13 +1365,58 @@ const SocialApp: React.FC = () => {
             let created = 0;
             for (const item of result.slice(0, 2)) {
                 if (controller.signal.aborted || !mountedRef.current || generation !== feedLoadGenerationRef.current || !communityRef.current.autonomy.enabled) return;
-                if (!item || (item.kind !== 'post' && item.kind !== 'comment') || typeof item.content !== 'string') continue;
-                const content = item.content.trim().slice(0, 1000);
-                if (!content || publicTextLeaksPrivateChat(content + (typeof item.title === 'string' ? item.title : ''))) continue;
+                if (!item || !['post', 'comment', 'like', 'follow', 'unfollow'].includes(item.kind)) continue;
+                const needsContent = item.kind === 'post' || item.kind === 'comment';
+                if (needsContent && typeof item.content !== 'string') continue;
+                const content = typeof item.content === 'string' ? item.content.trim().slice(0, 1000) : '';
+                if (needsContent && (!content || publicTextLeaksPrivateChat(content + (typeof item.title === 'string' ? item.title : '')))) continue;
                 const author = resolveSparkAuthor(item, participants, characters, characterHandles, [socialProfile.name, userProfile.name]);
                 if (!author) continue;
                 const avatar = author.character ? getSparkAuthorAvatar(author.character, author.name, characterHandles) : 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(author.name);
                 const authorType = author.character ? 'character' as const : 'stranger' as const;
+                if (item.kind === 'like' || item.kind === 'follow' || item.kind === 'unfollow') {
+                    const targetPost = item.kind === 'like' ? feedRef.current.find(p => p.id === item.postId) : undefined;
+                    if (item.kind === 'like' && !targetPost) continue;
+                    const targetId = item.kind === 'like' ? targetPost?.authorId : item.targetAccountId;
+                    if (!targetId || typeof targetId !== 'string') continue;
+                    if (item.kind !== 'like' && !communityRef.current.accounts.some(a => a.id === targetId)) continue;
+                    if (communityRef.current.mutedAccountIds.includes(targetId)) continue;
+                    const savedHandles = author.character ? characterHandles[author.character.id] || [] : [];
+                    const selectedHandle = savedHandles.find(h => h.handle === author.name);
+                    const account = ensureSparkAccount(communityRef.current, {
+                        type: authorType, ownerCharId: author.character?.id, handleId: selectedHandle?.id,
+                        displayName: author.name, avatar,
+                    }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2)).account;
+                    if (communityRef.current.mutedAccountIds.includes(account.id) || account.id === targetId) continue;
+                    if (item.kind === 'like' && targetPost) {
+                        let effect = applySparkNpcLike(communityRef.current, targetPost, account.id, Date.now());
+                        if (!effect.changed) continue;
+                        const updated = updatePostInFeed(targetPost.id, current => {
+                            effect = applySparkNpcLike(communityRef.current, current, account.id, Date.now());
+                            return effect.changed ? effect.post : current;
+                        });
+                        if (!updated || !effect.changed) continue;
+                        writeCommunity(effect.state);
+                        if (targetPost.authorId === 'user') addNotices([{
+                            id: 'npc-like:' + targetPost.id + ':' + account.id,
+                            kind: 'likes', actor: author.name, avatar,
+                            content: '赞了你的笔记《' + targetPost.title + '》',
+                            postId: targetPost.id, time: Date.now(), read: false,
+                        }]);
+                    } else {
+                        const action = item.kind === 'unfollow' ? 'unfollow' : 'follow';
+                        const changed = applySparkNpcFollow(communityRef.current, account.id, targetId, action, Date.now());
+                        if (!changed.changed) continue;
+                        writeCommunity(changed.state);
+                        if (action === 'follow' && targetId === 'user') addNotices([{
+                            id: 'npc-follow:' + account.id + ':user', kind: 'follows',
+                            actor: author.name, avatar, content: '关注了你',
+                            time: Date.now(), read: false,
+                        }]);
+                    }
+                    created++;
+                    continue;
+                }
                 if (item.kind === 'post') {
                     const title = typeof item.title === 'string' ? item.title.trim().slice(0, 100) : '';
                     if (!title) continue;
