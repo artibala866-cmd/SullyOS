@@ -371,7 +371,13 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const map=navMap(),r=current(),canStand=p=>map.free(p[0]+r.x*ROOM_STEP.x,p[2]+r.z*ROOM_STEP.z);
   return validatedFurnitureStations(placementRoom(),catalog,[...gamingActivities(placementRoom(),catalog,{headWidth,body2:!!visitor?.rig,...visitor?.gamingReach}),...diningActivities(placementRoom(),catalog,{headWidth}),...mirrorActivities(placementRoom(),catalog,{...visitorClearance(),headWidth,canStand,body2:!!visitor?.rig}),...bathroomActivities(placementRoom(),catalog,{headWidth,body2:!!visitor?.rig})],otherFurnitureOccupants());
  };
- function stopMirror(){if(!isMirrorAction(visitorActivity?.kind)&&!isBathAction(visitorActivity?.kind))return;if(visitorActivity?.bathJourney)finishBathroom();visitorActivity=null;visitorMotion='idle';visitorUntil=0;gamingEffects.clear();visitor?.animate(0,'idle');message='镜前动作结束啦';dirty=true;wake();}
+ function rememberStandingLocation(){
+  if(!visitorSeat&&resident.visible){
+   const r=current();
+   visitorLocation={x:resident.position.x+r.x*ROOM_STEP.x,z:resident.position.z+r.z*ROOM_STEP.z,level:r.level};
+  }
+ }
+ function stopMirror(){if(!isMirrorAction(visitorActivity?.kind)&&!isBathAction(visitorActivity?.kind))return;if(visitorActivity?.bathJourney)finishBathroom();else rememberStandingLocation();visitorActivity=null;visitorMotion='idle';visitorUntil=0;gamingEffects.clear();visitor?.animate(0,'idle');message='镜前动作结束啦';dirty=true;wake();}
  let kitchenTask=null,seatChange=null,seatAccess=null;
  function cancelKitchen(){if(kitchenTask){visitorMotion='idle';visitorUntil=0;resident.position.y=.18;}kitchenTask=null;kitchenWork.clear();}
  const visitorClearance=()=>visitor?.navigation?{...visitor.navigation,headWidth}:undefined;
@@ -1217,10 +1223,10 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    visitorMotion=f.motion;poseTime=f.time;renderer.shadowMap.needsUpdate=true;
    const stage=f.destination+f.round;
    if(visitorActivity.journeyStage!==stage){visitorActivity.journeyStage=stage;message=f.destination==='wardrobe'?(f.teleported?'通路不够，瞬移到衣柜挑衣服':'去衣柜挑一套衣服'):'回镜子前看看搭配';renderUI();}
-   if(f.done){visitorActivity=null;visitorMotion='idle';visitorUntil=0;message='搭配好啦！';renderUI();}
+   if(f.done){rememberStandingLocation();visitorActivity=null;visitorMotion='idle';visitorUntil=0;message='搭配好啦！';renderUI();}
   }
   if(visitorPlant&&time>=4.4){visitorPlant=null;visitorMotion='idle';const r=current();visitorLocation={x:resident.position.x+r.x*ROOM_STEP.x,z:resident.position.z+r.z*ROOM_STEP.z,level:r.level};renderUI();}
-  if(visitorActivity&&!isSustainedFurnitureActivity(visitorActivity.kind)&&!visitorActivity.bathJourney&&!journey&&time>=furnitureActivitySeconds(visitorActivity.kind,visitorActivity.duration||12)){const bathing=isBathAction(visitorActivity.kind);if(bathing){bathroomEffects.clear();visitorActivity=null;visitorSeat=null;visitorMotion='idle';visitorUntil=0;placeVisitor();message='好啦，清清爽爽！';renderUI();}else{message=visitorActivity.kind==='eat'?'吃好啦，坐着歇一会儿':visitorActivity.kind==='mirror-admire'?'今天也很可爱呢':visitorActivity.kind==='mirror-outfit'?'搭配好啦，满意地转个身':'这一局结束啦';visitorActivity=null;visitorMotion='idle';visitorUntil=0;renderUI();}}
+  if(visitorActivity&&!isSustainedFurnitureActivity(visitorActivity.kind)&&!visitorActivity.bathJourney&&!journey&&time>=furnitureActivitySeconds(visitorActivity.kind,visitorActivity.duration||12)){const bathing=isBathAction(visitorActivity.kind);if(bathing){bathroomEffects.clear();visitorActivity=null;visitorSeat=null;visitorMotion='idle';visitorUntil=0;placeVisitor();message='好啦，清清爽爽！';renderUI();}else{rememberStandingLocation();message=visitorActivity.kind==='eat'?'吃好啦，坐着歇一会儿':visitorActivity.kind==='mirror-admire'?'今天也很可爱呢':visitorActivity.kind==='mirror-outfit'?'搭配好啦，满意地转个身':'这一局结束啦';visitorActivity=null;visitorMotion='idle';visitorUntil=0;renderUI();}}
   if(heldPlush&&visitorMotion!=='hug')putPlushBack();
   const heldAsset=heldPlush&&asset(current().items.find(i=>i.id===heldPlush.itemId)?.assetId),hug=heldAsset&&(visitor?.rig?body2PlushPose(heldAsset,time,resident.worldToLocal(visitor.rig.bones.chest.getWorldPosition(new THREE.Vector3())).y):plushPose(heldAsset,time));
   if(hug&&heldMesh)heldMesh.position.fromArray(hug.position);
@@ -1815,7 +1821,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    next.journey=createMirrorJourney(next,resident.position.toArray(),(a,b)=>findWalkPath(map,[a[0]+ox,a[2]+oz],[b[0]+ox,b[2]+oz])?.map(p=>[p[0]-ox,.18,p[1]-oz]),{speed:visitor?.rig?visitor.walkSpeed??1.05:1.7});
     if(!next.journey){visitorActivity=null;visitorSeat=null;visitorMotion='idle';visitorUntil=0;notify('衣柜或镜子之间没有安全可走的通路，请挪开障碍物',true);return;}
   }if(viewMode==='free'&&next.kind==='rhythm'&&camera.zoom>1.8){const offset=camera.position.clone().sub(controls.target);controls.target.fromArray(next.position).add(new THREE.Vector3(0,1.6,0));camera.position.copy(controls.target).add(offset);camera.zoom=1.8;camera.updateProjectionMatrix();controls.update();}visitorStart=elapsed;visitorUntil=elapsed+(next.journey?.duration||furnitureActivitySeconds(next.kind,next.duration||12));edit=false;overview=false;selected=null;panel=null;placeVisitor();animateVisitor(reducedMotion?1:0);recordHomeActivity(next.label,next.recordSource);message=next.label+((isMirrorAction(next.kind)||isBathAction(next.kind))?'中':'中 · 在小人面板可随时休息');dirty=true;wake();renderUI();return;}
-  if(d.action==='chibi-game-stop'){stopWalking();const bathing=isBathAction(visitorActivity?.kind);visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);visitorMotion='idle';visitorUntil=0;if(bathing){bathroomEffects.clear();placeVisitor();}animateVisitor(0);dirty=true;wake();renderUI();return;}
+  if(d.action==='chibi-game-stop'){stopWalking();const bathing=isBathAction(visitorActivity?.kind);rememberStandingLocation();visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);visitorMotion='idle';visitorUntil=0;if(bathing){bathroomEffects.clear();placeVisitor();}animateVisitor(0);dirty=true;wake();renderUI();return;}
   if(['chibi-water','chibi-sit','chibi-stand','chibi-motion'].includes(d.action)){stopWalking();visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);}
   if(d.action==='camera-menu'){cameraMenu=!cameraMenu;renderUI();return;}
   if(d.action==='camera-default'){cameraArrival=null;if(greeting)greeting.restoreWide=false;viewMode='free';wallView='cutaway';roomWide=true;overview=false;cameraMenu=false;panel=null;syncCameraControls();try{localStorage.setItem('sully-home3d-view-mode','free');localStorage.setItem('sully-home3d-wall-view','cutaway');}catch{}resize(true,true);renderUI();return;}
