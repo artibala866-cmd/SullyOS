@@ -449,7 +449,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const map=residentWalkMap([resident.position.x+offset[0],resident.position.z+offset[1]]);
   // A remembered access position is used only while still clear of furniture and neighbours.
   const front=entry?(map.free(entry[0]+offset[0],entry[2]+offset[1])?entry:null)
-   :transform.pose==='bed'?bedEntry(transform,map,offset)
+   :transform.pose==='bed'?bedEntry(transform,map,offset,{preferred:remembered,allowAlternate:!rising})
    :seatEntry(transform,map,offset,{allowSides:true,preferred:remembered});
   if(!front)return false;
   if(!rising)seatAccess={roomId:r.id,itemId:selected.itemId,seatId:selected.seatId,pose:transform,front:[...front]};
