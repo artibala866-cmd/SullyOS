@@ -15,11 +15,12 @@ import { House, User, Package, Warning, Bell, MagnifyingGlass } from '@phosphor-
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, updateSocialPost } from '../utils/socialFeedMerge';
 import { trackEvent } from '../utils/analytics';
 import {
-    SparkCommunityState, createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates,
+    createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates,
     ensureSparkAccount, normalizeSparkPost, normalizeSparkName, toggleSparkFollow, toggleSparkInterest,
     addSparkNotification, markSparkNotificationsRead, appendSparkEvent, setSparkPostHidden,
     setSparkAccountMuted, markSparkPostSeen, rankSparkFeed, deriveSparkProfileStats,
 } from '../utils/sparkCommunity';
+import type { SparkCommunityState, SparkEventType, SparkNotificationType } from '../utils/sparkCommunity';
 import TokenImg from '../components/os/TokenImg';
 
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
@@ -684,6 +685,69 @@ const SocialApp: React.FC = () => {
         });
         if (nextState !== communityStateRef.current) updateCommunityState(nextState);
         return registered;
+    };
+
+    useEffect(() => {
+        if (!communityLoaded) return;
+        const result = ensureSparkAccount(communityStateRef.current, {
+            id: 'user',
+            type: 'user',
+            displayName: socialProfile.name,
+            avatar: socialProfile.avatar,
+            bio: socialProfile.bio,
+        }, () => createSparkId('account'), Date.now());
+        if (JSON.stringify(result.state.accounts) !== JSON.stringify(communityStateRef.current.accounts)) {
+            updateCommunityState(result.state);
+        }
+    }, [communityLoaded, socialProfile.name, socialProfile.avatar, socialProfile.bio]);
+
+    const recordCommunityEvent = (
+        type: SparkEventType,
+        actorAccountId: string,
+        fields: { targetAccountId?: string; postId?: string; commentId?: string; metadata?: Record<string, string | number | boolean | null> } = {},
+    ) => {
+        updateCommunityState(state => appendSparkEvent(state, {
+            ...fields,
+            id: createSparkId('event'),
+            type,
+            actorAccountId,
+            createdAt: Date.now(),
+        }));
+    };
+
+    const notifyUser = (
+        type: SparkNotificationType,
+        actorAccountId: string,
+        message: string,
+        postId?: string,
+        commentId?: string,
+    ) => {
+        updateCommunityState(state => addSparkNotification(state, {
+            id: createSparkId('notification'),
+            type,
+            actorAccountId,
+            targetAccountId: 'user',
+            message,
+            createdAt: Date.now(),
+            ...(postId ? { postId } : {}),
+            ...(commentId ? { commentId } : {}),
+        }));
+    };
+
+    const toggleFollowAccount = (accountId: string, displayName: string) => {
+        if (!communityLoaded || !accountId || accountId === 'user') return;
+        const result = toggleSparkFollow(communityStateRef.current, 'user', accountId, Date.now(), createSparkId('event'));
+        if (result.action === 'noop') return;
+        updateCommunityState(result.state);
+        addToast(result.action === 'follow' ? '已关注 @' + displayName : '已取消关注 @' + displayName, 'success');
+        trackEvent('Spark 关注关系变化', { action: result.action, accountId });
+    };
+
+    const handleToggleTopicInterest = (topic: string) => {
+        const result = toggleSparkInterest(communityStateRef.current, topic, Date.now(), createSparkId('event'));
+        if (result.action === 'noop') return;
+        updateCommunityState(result.state);
+        addToast(result.action === 'follow' ? '已关注话题 #' + topic : '已取消关注话题 #' + topic, 'success');
     };
 
     const handleCommentInputChange = (value: string) => {
