@@ -20,5 +20,9 @@ describe('Home3D clocks under slow rasterization',()=>{
   const code=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
   expect(code).toContain('const {simulation:dt,activity:activityDt}=roomFrameDeltas(now-lastTick);');
   expect(code).toContain('if(!manual&&!document.hidden)elapsed+=activityDt;');
+  expect(code).toContain('const furnitureLifecycleActive=!!(seatChange||visitorPlant||visitorActivity||kitchenTask);');
+  // Both the rendering-frame eligibility and the scheduling continuation must
+  // honor the lifecycle, independent of the reduce-motion system preference.
+  expect(code.split('||furnitureLifecycleActive||!reducedMotion').length-1).toBe(2);
  });
 });
