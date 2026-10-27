@@ -6,6 +6,7 @@ import {roomPlush} from './plush.js';
 import {kitchenActions} from './kitchenActivities.js';
 import {mirrorActivities,isMirrorAction} from './mirror.js';
 import {validatedFurnitureStations} from './furnitureStationRegistry.js';
+import {furniturePointIssue,FURNITURE_POINT_REVIEW} from './furniturePointRegistry.js';
 
 // Describe real, existing actions. No name-based guesses and no saved UI state.
 export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,bodyWidth=1.5,transitioning=false,occupiedSeats=[],kitchenPlanner=null,slotPlanner=null,fridgePlanner=null,plushPlanner=null}={}){
@@ -17,6 +18,17 @@ export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=nu
   if(!(seat?.bed&&seat.itemId===b.itemId&&seat.seatId===b.seatId))add('chibi-bed',a.beds.length===1?'躺下':/左|右/.test(label)?'睡'+label.replace('床位','').replace('侧','边'):label+'躺下',{seat:b.seatId},slotPlanner?.(b)||'');
   if(body2&&!transitioning&&seat?.bed&&seat.itemId===b.itemId&&seat.seatId===b.seatId)for(const [mode,title]of BED_LEISURE)add('chibi-bed',title+(a.beds.length>1?' · '+label:''),{seat:b.seatId,mode});
  }
+ // Explain why authored high beds are locked, rather than silently
+ // pretending the model is a noninteractive decoration. These are DISABLED
+ // actions; no bed point is created and runAction cannot bypass the reason.
+ const exposed=new Set(roomBeds(room,catalog).filter(s=>s.itemId===itemId).map(s=>s.seatId));
+ for(const raw of a.beds||[]){
+  if(exposed.has(raw.id))continue;
+  add('chibi-bed',(raw.label||'床位')+' · 暂不可使用',{seat:raw.id},
+   furniturePointIssue(a,raw,'beds')||'该床位尚未有验证通过的安全进出动作');
+ }
+ if(!a.beds?.length&&FURNITURE_POINT_REVIEW[a.id])
+  add('chibi-bed','床位尚未开放',{},FURNITURE_POINT_REVIEW[a.id]);
  for(const s of roomSeats(room,catalog).filter(s=>s.itemId===itemId&&free(s)&&!(seat?.itemId===s.itemId&&seat.seatId===s.seatId)))add('chibi-sit',a.seats.length===1?'坐下':(a.seats.find(v=>v.id===s.seatId)?.label||'这里')+'坐下',{seat:s.seatId},slotPlanner?.(s)||'');
  if(body2)for(const s of roomSeats(room,catalog).filter(s=>s.itemId===itemId&&free(s)&&!(seat?.itemId===s.itemId&&seat.seatId===s.seatId)&&seatTransform(room,catalog,s,true)?.pose==='floor'))add('chibi-sit','04 盘腿坐',{seat:s.seatId,alternate:'true'},slotPlanner?.(s)||'');
  const plant=roomPlants(room,catalog,clearance).find(p=>p.itemId===itemId);if(plant)add('chibi-water','浇水',{},plant.spot?'':'周围太挤啦，先留一点空位');
