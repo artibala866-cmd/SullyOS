@@ -1508,9 +1508,22 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   persist();rebuild();renderUI();
  }
  function commit(mutator,{templateUpgrade=false,restoreLife=false}={}){
-  if(seatChange){notify('人物正在坐下或起身，请完成动作后再调整家具',true);return false;}
-  const before=clone(state),selectionBefore=selected,panelBefore=panel,rotationBefore=rotationPreview;stopWalking();message='';error=false;
-  try{mutator();const occupiedError=occupiedFurnitureChange(before,state,catalog,[visitorSeat,...otherFurnitureOccupants()]);if(occupiedError)throw Error(occupiedError);const runningError=activeFurnitureDependencyChange(before,state,[visitorActivity,visitorPlant,kitchenTask]);if(runningError)throw Error(runningError);const budgetError=phone&&!templateUpgrade&&phoneBudgetError(before,state,catalog);if(budgetError)throw Error(budgetError);let unmounted=0;for(const r of state.rooms)for(const i of r.items){const a=asset(i.assetId);if(a?.surface==='wall'&&!i.stored&&wallPlacementError(i,a,r,catalog)){i.stored=true;unmounted++;}}if(unmounted)message='墙面变化，失去承托的挂墙物件已收纳，可撤销';if(restoreLife){restoreSavedLife();restoredLifeSnapshots.add(before);}undo.push(before);if(undo.length>40)undo.shift();redo=[];persist();rebuild();renderUI();return true;}catch(e){state=before;if(restoreLife&&restoredLifeSnapshots.has(before))restoreSavedLife();selected=selectionBefore;panel=panelBefore;rotationPreview=rotationBefore;rebuild();notify(e.message,true);return false;}
+  if(seatChange||visitorActivity?.bathJourney){
+   notify('先完成坐床或卫浴进出动作，再修改房间布置',true);return false;
+  }
+  const before=clone(state),selectionBefore=selected,panelBefore=panel,rotationBefore=rotationPreview;message='';error=false;
+  try{
+   mutator();
+   const occupiedError=occupiedFurnitureChange(before,state,catalog,[visitorSeat,...otherFurnitureOccupants()]);
+   if(occupiedError)throw Error(occupiedError);
+   const runningError=activeFurnitureDependencyChange(before,state,[visitorActivity,visitorPlant,kitchenTask]);
+   if(runningError)throw Error(runningError);
+   const budgetError=phone&&!templateUpgrade&&phoneBudgetError(before,state,catalog);
+   if(budgetError)throw Error(budgetError);
+   // Reject unsafe layouts BEFORE stopping an ongoing action. A failed
+   // furniture edit must never silently cancel a kitchen or watering task.
+   stopWalking();
+   let unmounted=0;for(const r of state.rooms)for(const i of r.items){const a=asset(i.assetId);if(a?.surface==='wall'&&!i.stored&&wallPlacementError(i,a,r,catalog)){i.stored=true;unmounted++;}}if(unmounted)message='墙面变化，失去承托的挂墙物件已收纳，可撤销';if(restoreLife){restoreSavedLife();restoredLifeSnapshots.add(before);}undo.push(before);if(undo.length>40)undo.shift();redo=[];persist();rebuild();renderUI();return true;}catch(e){state=before;if(restoreLife&&restoredLifeSnapshots.has(before))restoreSavedLife();selected=selectionBefore;panel=panelBefore;rotationPreview=rotationBefore;rebuild();notify(e.message,true);return false;}
  }
  function applyColor(root,color,wall=false,id='',materialColors={}){
   root.traverse(o=>{if(!o.isMesh)return;const mats=Array.isArray(o.material)?o.material:[o.material];
