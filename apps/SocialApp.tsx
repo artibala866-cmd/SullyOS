@@ -7,7 +7,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { AppID, CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile, XhsStockImage } from '../types';
-import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants } from '../utils/socialGeneration';
+import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants, containsSparkPrivateQuote } from '../utils/socialGeneration';
 import { processImageToBlob } from '../utils/file';
 import { putImageBlob } from '../utils/blobRef';
 import Modal from '../components/os/Modal';
@@ -1039,9 +1039,16 @@ const SocialApp: React.FC = () => {
     };
 
     // --- AI Logic (Updated for Multi-Handle) ---
+    const privateChatSnippetsRef = useRef<string[]>([]);
+    const publicTextLeaksPrivateChat = (text: string) =>
+        containsSparkPrivateQuote(text, privateChatSnippetsRef.current);
     const buildGenerationContext = async (participants: CharacterProfile[]) => {
         const recent = await Promise.all(participants.map(async char =>
             [char.id, await loadCharacterContextMessages(char)] as const));
+        const fragments = recent.flatMap(([, messages]) => messages
+            .map(message => typeof message.content === 'string' ? message.content.slice(0, 1600) : '')
+            .filter(Boolean));
+        privateChatSnippetsRef.current = [...new Set([...privateChatSnippetsRef.current, ...fragments])].slice(-300);
         return buildSparkGenerationContext(participants.map(char => ({ ...char, mountedWorldbooks: worldbooks.filter(wb => sparkWorldbookIds.includes(wb.id) && !wb.disable).map(wb => ({ ...wb })) })), userProfile, socialProfile, characterHandles, Object.fromEntries(recent), sparkMemoriesRef.current);
     };
 
@@ -1110,6 +1117,7 @@ const SocialApp: React.FC = () => {
             if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
             const result = JSON.parse(raw);
             if (!result || typeof result.content !== 'string' || !result.content.trim()) throw new Error('AI 未返回有效帖子');
+            if (publicTextLeaksPrivateChat(String(result.title || '') + result.content)) throw new Error('AI 文字疑似包含私聊原文，已停止公开发布');
             const chosenType = result.accountType === 'alt' ? 'alt' : 'main';
             const proposedName = String(result.authorName || '').trim().slice(0, 30);
             const defaultName = char.socialProfile?.handle || char.name;
@@ -1214,7 +1222,8 @@ const SocialApp: React.FC = () => {
             const newPosts: SocialPost[] = json
                 .flatMap((item: any) => {
                 const author = resolveSparkAuthor(item, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
-                if (!author || typeof item.content !== 'string' || !item.content.trim()) return [];
+                if (!author || typeof item.content !== 'string' || !item.content.trim() ||
+                    publicTextLeaksPrivateChat(String(item.title || '') + item.content)) return [];
                 item = { ...item, authorName: author.name };
                 let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${item.authorName}`;
                 const matchedChar = author.character;
@@ -1325,7 +1334,7 @@ const SocialApp: React.FC = () => {
                 if (controller.signal.aborted || !mountedRef.current || generation !== feedLoadGenerationRef.current || !communityRef.current.autonomy.enabled) return;
                 if (!item || (item.kind !== 'post' && item.kind !== 'comment') || typeof item.content !== 'string') continue;
                 const content = item.content.trim().slice(0, 1000);
-                if (!content) continue;
+                if (!content || publicTextLeaksPrivateChat(content + (typeof item.title === 'string' ? item.title : ''))) continue;
                 const author = resolveSparkAuthor(item, participants, characters, characterHandles, [socialProfile.name, userProfile.name]);
                 if (!author) continue;
                 const avatar = author.character?.avatar || 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(author.name);
@@ -1462,7 +1471,8 @@ ${post.content || '(楼主没写正文)'}
                 const comments: SocialComment[] = json
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
-                        if (!author || typeof c.content !== 'string' || !c.content.trim()) return [];
+                        if (!author || typeof c.content !== 'string' || !c.content.trim() ||
+                            publicTextLeaksPrivateChat(c.content)) return [];
                         const authorName = author.name;
                         let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorName}`;
                         const char = author.character;
@@ -1561,7 +1571,8 @@ ${buildSparkCommentHistory(post)}
                 const newReplies: SocialComment[] = json
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
-                        if (!author || typeof c.content !== 'string' || !c.content.trim()) return [];
+                        if (!author || typeof c.content !== 'string' || !c.content.trim() ||
+                            publicTextLeaksPrivateChat(c.content)) return [];
                         const authorName = author.name;
                         let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorName}`;
                         const char = author.character;
