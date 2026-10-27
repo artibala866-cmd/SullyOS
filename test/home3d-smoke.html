@@ -336,6 +336,71 @@ function texture(color){
    preserved:delta(ground,afterEdit)<.05&&delta(ground,afterUndo)<.05&&delta(ground,afterRedo)<.05
   };
   if(!report.layoutHistory.preserved)throw Error('Decorative undo/redo displaced the standing resident from their reached bed exit');
+  // The original plush is a single saved furniture instance. The real UI
+  // must walk to it, pick it up, return it, and allow a second pickup.
+  editor.dispose();set('plush walking and return');
+  const toyHome=createHome(catalog);
+  toyHome.rooms[0].items=[{id:'smoke-holdable',assetId:'bedroom_rabbit',
+    x:0,y:.18,z:-.5,rotation:0,color:null,stored:false}];
+  editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:toyHome,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+  });
+  editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+  command('chibi-hug',{id:'smoke-holdable'});
+  let held=null;
+  for(let i=0;i<80;i++){
+   editor.advancePets(.25);
+   held=editor.inspect().chibiHeldPlush;
+   if(held)break;
+  }
+  if(held?.itemId!=='smoke-holdable')throw Error('Toy pickup did not finish an actual walk to the toy');
+  const nearToy=editor.inspect().chibiPosition;
+  report.plushFirstPickup={position:nearToy,held:!!held};
+  if(Math.hypot(nearToy[0],nearToy[2]+.5)>2.3)
+    throw Error('Toy was grabbed remotely without reaching the toy area');
+  command('plush-put-back');
+  if(editor.inspect().chibiHeldPlush)throw Error('Toy return did not release held instance');
+  if(!editor.getHomeScene().furniture.some(x=>x.id==='smoke-holdable'))
+    throw Error('Returned toy was removed from saved room');
+  command('chibi-hug',{id:'smoke-holdable'});
+  for(let i=0;i<48&&!editor.inspect().chibiHeldPlush;i++)editor.advancePets(.25);
+  report.plushSecondPickup=!!editor.inspect().chibiHeldPlush;
+  if(!report.plushSecondPickup)throw Error('Returned toy could not be picked up a second time');
+  command('plush-put-back');
+  if(editor.inspect().chibiHeldPlush)throw Error('Second return left a ghost held prop');
+
+  // A bath cancellation must reverse the actual entered part of the path.
+  editor.dispose();set('bathroom tub entry and cancellation');
+  const bathHome=createHome(catalog);
+  bathHome.rooms[0].items=[{id:'smoke-tub',assetId:'bath_tub',
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+  editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:bathHome,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+  });
+  editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+  command('chibi-bath',{id:'smoke-tub',kind:'bath-soak',station:''});
+  let bathroom=null;
+  for(let i=0;i<100;i++){
+   editor.advancePets(.25);
+   bathroom=editor.inspect().chibiActivity?.bathJourney;
+   if(bathroom)break;
+  }
+  if(!bathroom)throw Error('Bathtub never reached a safe physical entry station');
+  editor.advancePets(1.8);
+  if(!editor.inspect().chibiActivity?.bathJourney)
+   throw Error('Bath entry stopped unexpectedly before cancellation');
+  const returnPoint=[...bathroom.front];
+  command('chibi-game-stop');
+  if(!Number.isFinite(editor.inspect().chibiActivity?.bathJourney?.cancelElapsed))
+   throw Error('Bath stop snapped or cleared the active journey without reversing');
+  editor.advancePets(6);
+  const bathroomDone=editor.inspect();
+  report.bathCancel={activityCleared:!bathroomDone.chibiActivity,
+    entry:returnPoint,exit:bathroomDone.chibiPosition};
+  if(!report.bathCancel.activityCleared||Math.hypot(...bathroomDone.chibiPosition.map((v,i)=>v-returnPoint[i]))>.04)
+   throw Error('Bath cancellation did not return character to its original safe entrance');
   const scene=editor.inspect();
   report.posture=scene.chibiPosture;
   report.position=scene.residentPositions?.[0]?.position?.map(n=>Math.round(n*100)/100);
