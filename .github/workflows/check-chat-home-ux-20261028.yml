@@ -1,0 +1,33 @@
+name: Review chat and Home3D UX regressions
+on:
+  push:
+    branches:
+      - fix/chat-home-experience-regressions-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test photo capture and 3D lifecycle
+        run: pnpm exec vitest run apps/room3d/HomePhotoMode.test.tsx utils/homeEditorLifecycle.test.ts utils/homePhotoSession.test.ts apps/room3d/dreamEntryLayout.test.js
+      - name: Test private chat pipeline and removed-module isolation
+        run: pnpm exec vitest run utils/chatPrompts.test.ts utils/timeAwarenessRequests.test.ts utils/homeChatPipelineParity.test.ts utils/retiredVrRuntime.test.ts
+      - name: Strict TypeScript check
+        run: pnpm exec tsc --noEmit
+      - name: Production build
+        env:
+          GITHUB_PAGES: '1'
+        run: pnpm run build
