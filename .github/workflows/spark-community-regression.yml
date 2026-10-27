@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/spark-tsc.log 2>&1 || true
-          grep -E '^(apps/SocialApp.tsx|utils/sparkCommunity.ts|utils/socialFeedMerge.ts|utils/socialGeneration.ts|utils/sparkTraffic.ts|utils/sparkCommunity.test.ts|utils/socialFeedMerge.test.ts|types.ts)\\(' /tmp/spark-tsc.log > /tmp/spark-errors.log || true
+          grep -E '^(apps/SocialApp.tsx|utils/sparkCommunity.ts|utils/socialFeedMerge.ts|utils/socialGeneration.ts|utils/sparkTraffic.ts|utils/sparkCommunity.test.ts|utils/socialFeedMerge.test.ts|types.ts)[(]' /tmp/spark-tsc.log > /tmp/spark-errors.log || true
           if [ -s /tmp/spark-errors.log ]; then
             cat /tmp/spark-errors.log
             exit 1
