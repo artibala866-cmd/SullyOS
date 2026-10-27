@@ -76,6 +76,33 @@ it('princess lift and set-down remain continuous across approach and release pha
  }
 });
 
+it('cancels an ongoing standing pair cleanly if a new observer blocks the occupied area',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async(url:string)=>({ok:true,json:async()=>JSON.parse(readFileSync('public/'+url.replace(/^\//,''),'utf8'))})));
+ try{
+  const a=actor(1,-.4,0),b=actor(1,.4,Math.PI);
+  let clear=true,checks=0;
+  const runtime=createSocialScene([{id:'a',visitor:a.visitor},{id:'b',visitor:b.visitor}],{
+   canPlace:()=>true,canPerform:()=>{checks++;return clear;},
+  });
+  expect(await runtime.start('home-hug','a','b')).toBe(true);
+  const start=runtime.inspect().session!;
+  expect(start).not.toBeNull();
+  const approach=start.duration-10;
+  runtime.advance(approach+1);
+  expect(runtime.active).toBe(true);
+  clear=false;
+  runtime.advance(.30);
+  expect(runtime.active).toBe(false);
+  expect(runtime.inspect().session).toBeNull();
+  expect(checks).toBeGreaterThan(1);
+  expect(a.body.position.length()).toBe(0);
+  expect(b.body.position.length()).toBe(0);
+  clear=true;
+  expect(await runtime.start('home-hug','a','b')).toBe(true);
+  runtime.cancel();
+ }finally{vi.unstubAllGlobals();}
+});
+
 it('raises hands before contact, pats with one hand while the other supports, and returns smoothly when seeking',()=>{
  const both=[actor(1,-.33,0),actor(1.15,.33,Math.PI)];
  const sample=(time:number)=>{both.forEach(r=>r.reset());poseIntimacy('home-hug',both,time);return both.map(r=>Object.fromEntries(['L','R'].map(side=>[side,r.visitor.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side))])));};
