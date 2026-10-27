@@ -85,7 +85,7 @@ import {wallFaces,mountOnFace,wallPlacementError} from './wallMount.js';
 import {wateringSpot,roomPlants} from './watering.js';
 import {createWateringEffect} from './wateringEffect.js';
 import {seatEntry,seatEntryCandidates,seatChangePose} from './seatChange.js';
-import {body2BedTransform,bedEntry,bedEdge} from './bedMotion.js';
+import {body2BedTransform,legacyBedTransform,bedEntry,bedEdge} from './bedMotion.js';
 import {seatChangeDuration} from './chibi/roomMotionFrame.ts';
 import {meshyMotions} from './chibi/meshyMotions';
 import {BUILDING_ASSETS,BUILDING_LENGTH,buildingScale,ROOM_EDGES,buildingEdge,placeBuildingOnEdge,snapBuildingToEdge} from './building.js';
@@ -431,7 +431,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(body2)return body2BedTransform(seat,visitor.bedHeadToHip,visitor.bedHipHeight);
   // Keep the legacy model's established bed-root offset while sharing the
   // checked bed-edge transition with the skeletal character.
-  if(selection?.bed&&seat?.pose==='bed')return {...seat,position:[seat.position[0],seat.position[1]+.34,seat.position[2]]};
+  if(selection?.bed&&seat?.pose==='bed')return legacyBedTransform(seat);
   return seat;
  }
  function resolvedVisitorSeat(){return transformVisitorSeat(visitorSeat);}
