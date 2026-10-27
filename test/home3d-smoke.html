@@ -248,7 +248,10 @@ function texture(color){
   // bench and a mixed decorative sofa. Use actual registry count per asset,
   // not guessed labels, to detect missing or unreachable authored slots.
   report.additionalSeats={};
-  for(const assetId of ['pouf','petal_sofa','show_kitchen_bench','living_ref_sofa','bedroom_ref_flower_pouf']){
+  for(const assetId of ['pouf','petal_sofa','show_kitchen_bench','living_ref_sofa','bedroom_ref_flower_pouf',
+   'petal_armchair','gaming_chair','dining_chair','bath_stool','bedroom_stool',
+   'bedroom_desk_chair','show_spa_stool','show_study_pouf','show_living_sofa',
+   'show_living_pouf','show_bedroom_pouf']){
    editor.dispose();set('additional seat '+assetId);
    const house=createHome(catalog);
    house.rooms[0].items=[{id:'smoke-extra-seat',assetId,
