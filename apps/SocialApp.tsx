@@ -1435,7 +1435,7 @@ const SocialApp: React.FC = () => {
             const interests = Object.entries(aged).filter(([, score]) => score > 0.5).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([topic, score]) => topic + '(' + Math.round(score) + ')').join('、');
             const prompt = `### 任务: 模拟社交APP "Spark" 的推荐流
 【隐形兴趣推荐】根据用户近期发帖、点赞、评论和点开阅读积累的兴趣权重，适当提高相关内容比例：${interests || '暂无明显偏好'}。例如经常看绘画就多推荐绘画，常互动帅哥内容就多推荐相关话题；保留约三分之一探索内容，不要所有帖子都同一主题，也不要向用户或角色揭露兴趣画像。
-你需要生成 6-8 条新的社交媒体帖子。
+你需要一次生成 6-8 条新的社交媒体帖子，并为每条附带 0-2 条自然评论。评论属于同一次请求的返回结果，不允许另外请求评论；可以没人评论，不能机械凑数。
 
 ### 🎭 内容构成 (混合模式)
 1. **角色发帖 (30%)**: 
@@ -1460,14 +1460,17 @@ const SocialApp: React.FC = () => {
     "authorName": "必须填身份表中定义的【网名】",
     "title": "简短吸睛的标题",
     "content": "正文内容...",
-    "emojis": ["🎈", "✨"]
+    "emojis": ["🎈", "✨"],
+    "comments": [
+      {"author": "仅真实网友或已授权角色的公开网名", "charId": "对应角色ID或null", "content": "与正文有关的简短评论"}
+    ]
   },
   ...
 ]`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8, max_tokens: 8000 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8, max_tokens: 4800 }),
                 signal: controller.signal,
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '刷新推荐流' },
             } as RequestInit);
@@ -1494,6 +1497,27 @@ const SocialApp: React.FC = () => {
                     avatar = stockAvatar?.url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(item.authorName)}`;
                 }
                 // Normalize emoji content. AI usually returns real emoji chars; fall back to a ✨ char (not codepoint) for safety.
+                // These comments come from the SAME refresh call. Seed them on
+                // the post now, so opening each note does not bill another AI call.
+                const prefilled = (Array.isArray(item.comments) ? item.comments : []).slice(0, 2)
+                    .flatMap((draft: any): SocialComment[] => {
+                        const speaker = resolveSparkAuthor(draft, selectedChars, characters,
+                            characterHandles, [socialProfile.name, userProfile.name]);
+                        if (!speaker || typeof draft.content !== 'string' || !draft.content.trim() ||
+                            publicTextLeaksPrivateChat(draft.content) ||
+                            isSparkMuted(getSparkPublicAuthorId(speaker.name, speaker.character?.id)) ||
+                            (speaker.character && matchedChar && speaker.character.id === matchedChar.id)) return [];
+                        return [{
+                            id: 'prefilled-comment-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                            authorName: speaker.name,
+                            authorAvatar: speaker.character
+                                ? getSparkAuthorAvatar(speaker.character, speaker.name, characterHandles)
+                                : 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(speaker.name),
+                            content: draft.content.trim().slice(0, 400),
+                            likes: 0, timestamp: Date.now(), authorType: speaker.character ? 'character' : 'stranger',
+                            isCharacter: !!speaker.character, authorCharId: speaker.character?.id,
+                        }];
+                    });
                 const rawEmojis = Array.isArray(item.emojis) && item.emojis.length > 0 ? item.emojis : ['✨'];
                 const images = [pickStock(String(item.title || ''), String(item.content || '')) || '✨'];
                 return [{
@@ -1506,7 +1530,7 @@ const SocialApp: React.FC = () => {
                     likes: 0,
                     isCollected: false,
                     isLiked: false,
-                    comments: [],
+                    comments: uniqueGeneratedSocialComments([], prefilled),
                     timestamp: Date.now(),
                     tags: ['Life', 'Vlog'],
                     bgStyle: getRandomStyle().bg,
