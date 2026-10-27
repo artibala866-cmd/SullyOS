@@ -10,18 +10,18 @@ export interface HomeInitiativeRequest {id:string;roomId:string;reason:string;au
 export function HomePresenceBubbles({editor,character,enabled,canInvite=false,onInitiative}:{editor:HomeEditor;character?:CharacterProfile;enabled:boolean;canInvite?:boolean;onInitiative:(request:HomeInitiativeRequest)=>void}){
  const latest=useRef({character,enabled,canInvite,onInitiative});latest.current={character,enabled,canInvite,onInitiative};
  const pending=useRef<{key:string;reason:string}>();
- const clock=useRef({entered:Date.now(),offered:0,consumed:'',active:false});
+ const clock=useRef({entered:Date.now(),thoughtEntered:0,offered:0,consumed:'',active:false,thoughtActive:false});
  const [view,setView]=useState<{x:number;y:number;emoji?:string;code?:string;petName?:string;petPortrait?:string;offer?:{key:string;reason:string};roomId:string}>();
- useEffect(()=>{pending.current=undefined;clock.current={entered:Date.now(),offered:0,consumed:'',active:false};const tick=()=>{
+ useEffect(()=>{pending.current=undefined;clock.current={entered:Date.now(),thoughtEntered:0,offered:0,consumed:'',active:false,thoughtActive:false};const tick=()=>{
   const {character:char,enabled}=latest.current;
-  if(!char||document.hidden){setView(undefined);clock.current.active=false;return;}
-  if(!enabled&&!pending.current){setView(undefined);clock.current.active=false;return;}
+  if(!char||document.hidden){setView(undefined);clock.current.active=false;clock.current.thoughtActive=false;return;}
+  if(!enabled&&!pending.current){setView(undefined);clock.current.active=false;clock.current.thoughtActive=false;return;}
   const home=editor.getState(),scene=editor.getHomeScene(),snapshot=editor.getCompanionSnapshot?.(),now=Date.now(),anchor=editor.getResidentAnchor?.(char.id);
-  if(!scene.present||!anchor||anchor.x<0||anchor.x>anchor.width||anchor.y<0||anchor.y>anchor.height){setView(undefined);clock.current.active=false;return;}
-  if(!pending.current&&(scene.busy||!(home.directSpeech?(snapshot?.speechReady??snapshot?.ready):snapshot?.ready))){setView(undefined);return;}
-  // Start the thought cycle only after the resident and the actual room are ready.
-  // A long model-loading or hidden period must not make a thought appear on entry.
-  if(!pending.current&&!clock.current.active){clock.current.entered=now;clock.current.offered=0;clock.current.active=true;setView(undefined);return;}
+  if(!scene.present||!anchor||anchor.x<0||anchor.x>anchor.width||anchor.y<0||anchor.y>anchor.height){setView(undefined);clock.current.active=false;clock.current.thoughtActive=false;return;}
+  // Keep the initiative clock anchored to room entry even while the character is busy.
+  // Thought display has its own clock so waiting for readiness cannot make it appear instantly.
+  if(!clock.current.active){if(!pending.current){clock.current.entered=now;clock.current.offered=0;}clock.current.active=true;}
+  if(!pending.current&&(scene.busy||!(home.directSpeech?(snapshot?.speechReady??snapshot?.ready):snapshot?.ready))){setView(undefined);clock.current.thoughtActive=false;return;}
   const candidate=latest.current.canInvite?homeInitiative(homeRecords(home),scene.roomId,now,clock.current.entered,clock.current.offered):null;
   if(!pending.current&&candidate&&candidate.key!==clock.current.consumed)pending.current=candidate;
   const offer=pending.current;
@@ -29,10 +29,11 @@ export function HomePresenceBubbles({editor,character,enabled,canInvite=false,on
    clock.current.offered=now;clock.current.consumed=offer.key;pending.current=undefined;setView(undefined);
    latest.current.onInitiative({id:createLocalId(),roomId:scene.roomId,reason:offer.reason,automatic:true});return;
   }
-  const phase=(now-clock.current.entered)%16000;
-  const speech=editor.getHomeBubble?.();if(!offer&&speech&&now-speech.at<12000){setView(undefined);return;}
+  const speech=editor.getHomeBubble?.();if(!offer&&speech&&now-speech.at<12000){setView(undefined);clock.current.thoughtActive=false;return;}
+  if(!offer&&!clock.current.thoughtActive){clock.current.thoughtEntered=now;clock.current.thoughtActive=true;setView(undefined);return;}
+  const phase=(now-clock.current.thoughtEntered)%16000;
   if(!offer&&phase<10000){setView(undefined);return;}
-  const buffs=isScheduleFeatureOn(char)&&char.emotionConfig?.enabled?(char.activeBuffs||[]).filter(b=>b.emoji):[],cycle=Math.floor((now-clock.current.entered)/16000),buff=buffs[cycle%Math.max(1,buffs.length)];
+  const buffs=isScheduleFeatureOn(char)&&char.emotionConfig?.enabled?(char.activeBuffs||[]).filter(b=>b.emoji):[],cycle=Math.floor((now-clock.current.thoughtEntered)/16000),buff=buffs[cycle%Math.max(1,buffs.length)];
   const pets=home.petLife?.pets||[],pet=pets.length&&cycle%3===1?pets[Math.floor(cycle/3)%pets.length]:undefined;
   const everyday=['🤔','🎵','☕','✨','🌷','📚','🍰','🌤️','💭','🎮','🍀','🫧'];const emoji=buff?.emoji?.slice(0,16)||everyday[cycle%everyday.length];
   const position=homeBubblePosition(anchor,'thought');
