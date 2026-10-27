@@ -29,13 +29,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test reusable 3D motion templates and navigation
-        run: pnpm exec vitest run apps/room3d/entryWarmup.test.ts apps/room3d/automaticWalls.test.js apps/room3d/renderQuality.test.js apps/room3d/chibi/motionTemplates.test.ts apps/room3d/chibi/headPatMotion.test.ts apps/room3d/chibi/rearHugMotion.test.ts apps/room3d/chibi/handHoldPleadMotion.test.ts apps/room3d/chibi/sofaLapPillowMotion.test.ts apps/room3d/chibi/standingHeightAdaptation.test.ts apps/room3d/chibi/motionContactProfiles.test.ts apps/room3d/chibi/motionConstraintPipeline.test.ts apps/room3d/chibi/faceContactProfiles.test.ts apps/room3d/chibi/templateFaceContact.test.ts apps/room3d/chibi/socialPropsTemplate.test.ts apps/room3d/navigation.test.js apps/room3d/socialSpace.test.js
+        run: pnpm exec vitest run apps/room3d/dreamEntryLayout.test.js apps/room3d/entryWarmup.test.ts apps/room3d/automaticWalls.test.js apps/room3d/renderQuality.test.js apps/room3d/chibi/motionTemplates.test.ts apps/room3d/chibi/headPatMotion.test.ts apps/room3d/chibi/rearHugMotion.test.ts apps/room3d/chibi/handHoldPleadMotion.test.ts apps/room3d/chibi/sofaLapPillowMotion.test.ts apps/room3d/chibi/standingHeightAdaptation.test.ts apps/room3d/chibi/motionContactProfiles.test.ts apps/room3d/chibi/motionConstraintPipeline.test.ts apps/room3d/chibi/faceContactProfiles.test.ts apps/room3d/chibi/templateFaceContact.test.ts apps/room3d/chibi/socialPropsTemplate.test.ts apps/room3d/navigation.test.js apps/room3d/socialSpace.test.js
+      - name: Test 3D home thought-bubble entry timing and avatar spacing
+        run: pnpm exec vitest run utils/homePresenceBubbles.test.ts
       - name: Test music guest fallback and lyrics
         run: pnpm exec vitest run utils/musicTogether.test.ts utils/musicInviteStatus.test.ts utils/musicWorkerUrl.test.ts utils/chatMessageVisibility.test.ts utils/homeHistoryCleanup.test.ts utils/homeHistoryButton.test.ts
       - name: Test web update and resource caching
         run: pnpm exec vitest run utils/appPreload.test.ts utils/webUpdateSession.test.ts utils/chunkLoadRecovery.test.ts worker/staticCache.test.ts worker/staticCacheLifecycle.test.ts scripts/static-cache-build.test.ts
       - name: Test character phone NPC autonomy and social loop
         run: pnpm exec vitest run utils/refreshNpcMoments.test.ts utils/phoneChatPiggyback.test.ts utils/characterPhoneAiRequest.test.ts utils/characterPhoneAutonomy.test.ts utils/characterNpcSocial.test.ts utils/characterLifeLoop.test.ts
+      - name: Test private-chat time awareness and NPC continuity
+        run: pnpm exec vitest run utils/chatPrompts.test.ts utils/timeAwarenessRequests.test.ts utils/relationshipChat.test.ts
       - name: Test Char wallet assets and real Baidu browser
         run: pnpm exec vitest run utils/characterPhoneWallet.test.ts utils/characterPhoneBrowser.test.ts
       - name: Test Char AI browser motives and avatar vision personalization

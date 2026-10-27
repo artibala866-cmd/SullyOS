@@ -29,3 +29,15 @@ it('thinks of an actual household pet without requesting speech',()=>{
  vi.useFakeTimers();vi.setSystemTime(1000000);const host=document.createElement('div'),root=createRoot(host),request=vi.fn();const editor={getState:()=>({records:[],petLife:{pets:[{id:'pet',name:'团子'}]}}),getHomeScene:()=>({roomId:'r',present:true,busy:false}),getCompanionSnapshot:()=>({ready:true}),getResidentAnchor:()=>({x:190,y:330,width:390,height:844}),getPetPortrait:()=>'/pet-portrait.png'};
  try{act(()=>root.render(React.createElement(HomePresenceBubbles,{editor:editor as any,character:{id:'c'} as any,enabled:true,onInitiative:request})));act(()=>vi.advanceTimersByTime(27000));expect(host.querySelector('img')?.alt).toBe('团子');expect(host.querySelector('img')?.getAttribute('src')).toBe('/pet-portrait.png');expect(request).not.toHaveBeenCalled();}finally{act(()=>root.unmount());vi.useRealTimers();}
 });
+
+it('starts the thought timer only after the room is enabled and keeps the bubble clear of the right portrait rail',()=>{
+ vi.useFakeTimers();vi.setSystemTime(1000000);const host=document.createElement('div'),root=createRoot(host),request=vi.fn();let enabled=false;
+ const editor={getState:()=>({records:[],autonomy:true}),getHomeScene:()=>({roomId:'r',present:true,busy:false}),getCompanionSnapshot:()=>({ready:true}),getResidentAnchor:()=>({x:360,y:180,width:390,height:844})};
+ const render=()=>root.render(React.createElement(HomePresenceBubbles,{editor:editor as any,character:{id:'c',name:'Sully'} as any,enabled,onInitiative:request}));
+ try{
+  act(render);act(()=>vi.advanceTimersByTime(12000));expect(host.querySelector('.home-presence-bubble')).toBeNull();
+  enabled=true;act(render);act(()=>vi.advanceTimersByTime(500));expect(host.querySelector('.home-presence-bubble')).toBeNull();
+  act(()=>vi.advanceTimersByTime(9500));expect(host.querySelector('.home-presence-bubble')).toBeNull();
+  act(()=>vi.advanceTimersByTime(1000));const bubble=host.querySelector<HTMLElement>('.home-presence-bubble');expect(bubble).toBeTruthy();expect(Number.parseFloat(bubble!.style.left)).toBeLessThanOrEqual(390-112);expect(request).not.toHaveBeenCalled();
+ }finally{act(()=>root.unmount());host.remove();vi.useRealTimers();}
+});

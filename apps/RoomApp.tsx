@@ -7,6 +7,7 @@ import DreamTheater from './DreamTheater';
 import {CharacterGroupFilterBar,filterCharactersByGroup,GROUP_FILTER_ALL} from '../components/character/CharacterGroupFilter';
 import TokenImg from '../components/os/TokenImg';
 import {MoonStars,ArrowLeft} from '@phosphor-icons/react';
+import {findDreamEntryTop} from './room3d/dreamEntryLayout.js';
 
 const charForRail=(id:string|null,chars:{id:string}[])=>!!id&&chars.some(c=>c.id===id);
 const Home3DView=React.lazy(()=>import('./room3d/Home3DSetupEntry'));
@@ -22,32 +23,75 @@ const RoomApp:React.FC=()=>{
  const [group,setGroup]=useState(GROUP_FILTER_ALL);
  const dream=useDreamSim();
  const shellRef=useRef<HTMLDivElement>(null);
- const [dreamTop,setDreamTop]=useState(236);
+ const [dreamPlacement,setDreamPlacement]=useState<{charId:string;top:number}|null>(null);
  const [homeReadyCharId,setHomeReadyCharId]=useState<string|null>(null);
  const handleHomeReady=useCallback((ready:boolean)=>setHomeReadyCharId(ready?selected:null),[selected]);
  useLayoutEffect(()=>{
-  if(!charForRail(selected,characters))return;
+  const charId=selected;
+  setDreamPlacement(null);
+  if(!charId||!charForRail(charId,characters)||homeReadyCharId!==charId)return;
   const shell=shellRef.current;
   if(!shell)return;
-  let frame=0;
+  let frame=0,observedRail:HTMLElement|null=null;
+  let railMutation:MutationObserver|undefined;
   const update=()=>{
+   frame=0;
+   if(!charForRail(charId,characters)||homeReadyCharId!==charId){setDreamPlacement(null);return;}
    const rail=shell.querySelector<HTMLElement>('.h3-resident-rail');
-   if(!rail||rail.hidden||!rail.getClientRects().length){setDreamTop(236);return;}
-   const buttons=[...rail.querySelectorAll<HTMLElement>('button[data-resident]')];
-   if(!buttons.length){setDreamTop(236);return;}
-   const last=buttons[buttons.length-1];
-   const rect=last.getBoundingClientRect(),parent=shell.getBoundingClientRect();
-   setDreamTop(Math.min(Math.max(0,rect.bottom-parent.top+18),Math.max(0,parent.height-64)));
+   if(!rail||rail.hidden||!rail.getClientRects().length){setDreamPlacement(null);return;}
+   const shellRect=shell.getBoundingClientRect(),railRect=rail.getBoundingClientRect();
+   const buttons=[...rail.querySelectorAll<HTMLElement>('button[data-resident]')]
+    .filter(button=>button.getClientRects().length)
+    .map(button=>button.getBoundingClientRect())
+    .filter(rect=>rect.bottom>railRect.top&&rect.top<railRect.bottom);
+   if(!buttons.length){setDreamPlacement(null);return;}
+   const blockedRects=[...buttons];
+   for(const selector of ['.h3-top','.h3-dock','.home-phone-launch']){
+    const element=shell.querySelector<HTMLElement>(selector);
+    if(element&&element.getClientRects().length)blockedRects.push(element.getBoundingClientRect());
+   }
+   const top=findDreamEntryTop({shell:shellRect,rail:railRect,blockedRects,buttonHeight:48,gap:12,safeTop:72,safeBottom:16});
+   setDreamPlacement(previous=>{
+    if(top===null)return null;
+    if(previous&&previous.charId===charId&&previous.top===top)return previous;
+    return {charId,top};
+   });
   };
-  const schedule=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(update);};
+  const schedule=()=>{if(frame)cancelAnimationFrame(frame);frame=requestAnimationFrame(update);};
   const observer=new ResizeObserver(schedule);
   observer.observe(shell);
-  const mutation=new MutationObserver(()=>{const rail=shell.querySelector('.h3-resident-rail');if(rail)observer.observe(rail);schedule();});
-  mutation.observe(shell,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
+  const observedControls=new Set<HTMLElement>();
+  const observeControls=()=>{
+   const current=new Set(['.h3-top','.h3-dock','.home-phone-launch'].map(selector=>shell.querySelector<HTMLElement>(selector)).filter((element):element is HTMLElement=>!!element));
+   for(const element of observedControls)if(!current.has(element)){observer.unobserve(element);observedControls.delete(element);}
+   for(const element of current)if(!observedControls.has(element)){observer.observe(element);observedControls.add(element);}
+  };
+  const observeRail=()=>{
+   const rail=shell.querySelector<HTMLElement>('.h3-resident-rail');
+   if(rail===observedRail)return;
+   if(observedRail){observer.unobserve(observedRail);observedRail.removeEventListener('scroll',schedule);railMutation?.disconnect();}
+   observedRail=rail;
+   if(!rail)return;
+   observer.observe(rail);
+   rail.addEventListener('scroll',schedule,{passive:true});
+   railMutation=new MutationObserver(schedule);
+   railMutation.observe(rail,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
+  };
+  const containerMutation=new MutationObserver(()=>{observeRail();observeControls();schedule();});
+  containerMutation.observe(shell,{childList:true,subtree:true});
+  observeRail();observeControls();
   window.addEventListener('resize',schedule);
-  schedule();
-  return()=>{cancelAnimationFrame(frame);observer.disconnect();mutation.disconnect();window.removeEventListener('resize',schedule);};
- },[selected,characters.length]);
+  window.visualViewport?.addEventListener('resize',schedule);
+  update();
+  return()=>{
+   if(frame)cancelAnimationFrame(frame);
+   containerMutation.disconnect();railMutation?.disconnect();
+   if(observedRail)observedRail.removeEventListener('scroll',schedule);
+   observer.disconnect();
+   window.removeEventListener('resize',schedule);
+   window.visualViewport?.removeEventListener('resize',schedule);
+  };
+ },[selected,characters.length,homeReadyCharId]);
  useEffect(()=>{
   const apply=()=>{
    const next=roomLaunch.consume();
@@ -83,7 +127,7 @@ const RoomApp:React.FC=()=>{
    </div>
   </div>}
   <style>{`.room-dream-shell:has(.home-life-overlay) .room-dream-entry,.room-dream-shell:has([role="dialog"]) .room-dream-entry,.room-dream-shell:has(.home-social .home-social-wheel) .room-dream-entry,.room-dream-shell:has(.home-social section) .room-dream-entry,.room-dream-shell:has(.home-social[aria-expanded="true"]) .room-dream-entry{display:none}`}</style>
-  {char&&homeReadyCharId===char.id&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0, 0, 0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation",top:dreamTop}}><MoonStars size={23} weight="thin"/></button>}
+  {char&&homeReadyCharId===char.id&&dreamPlacement?.charId===char.id&&!dreamOpen&&<button type="button" onClick={()=>{setDreamOwner(char.id);setDreamOpen(true);}} aria-label="查看梦境" title="梦境" className="room-dream-entry absolute right-4 z-[2] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/80 text-neutral-700 shadow-[0_4px_18px_rgba(0, 0, 0,0.10)] backdrop-blur-xl transition-transform active:scale-95" style={{touchAction:"manipulation",top:dreamPlacement.top}}><MoonStars size={23} weight="thin"/></button>}
   {dreamOpen&&dreamChar&&<div className="absolute inset-0 z-50"><DreamTheater char={dreamChar} onExit={()=>{setDreamOpen(false);setDreamOwner(null);}}/></div>}
  </div>;
 };

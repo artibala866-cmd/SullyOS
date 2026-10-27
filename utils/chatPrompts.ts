@@ -1091,6 +1091,8 @@ ${voiceActingGuide()}`;
             contextHighWaterMark?: number;
             /** 默认使用聊天时间感知；见面入口传线下开关，控制时间戳与互动间隔。 */
             timeAwarenessEnabled?: boolean;
+            /** 本轮触发回复的用户消息 ID；避免主动消息追加在后面时丢失互动间隔提示。 */
+            currentUserMessageId?: number;
         },
     ) => {
         // Filter Logic
@@ -1107,11 +1109,28 @@ ${voiceActingGuide()}`;
         const timeAwarenessOn = options?.timeAwarenessEnabled ?? (char.timeAwarenessEnabled !== false);
 
         let timeGapHint = "";
-        if (historySlice.length >= 2) {
-            const currentMsg = historySlice[historySlice.length - 1];
-            // Skip proactive hint messages when computing time gap — find last REAL message
+        let timeGapTargetIndex = historySlice.length - 1;
+        if (typeof options?.currentUserMessageId === 'number') {
+            const explicitIndex = historySlice.findIndex(
+                m => m.id === options.currentUserMessageId && m.role === 'user',
+            );
+            if (explicitIndex >= 0) {
+                timeGapTargetIndex = explicitIndex;
+            } else {
+                // 若当前消息被上下文裁窗，至少回退到最近一条用户消息；不要把提示错挂到角色消息上。
+                for (let i = historySlice.length - 1; i >= 0; i--) {
+                    if (historySlice[i].role === 'user') {
+                        timeGapTargetIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+        const currentMsg = historySlice[timeGapTargetIndex];
+        if (timeGapTargetIndex > 0 && currentMsg?.role === 'user') {
+            // 从本轮用户消息之前寻找上一条真实互动；忽略主动消息的系统提示尾巴。
             let lastRealMsg: Message | undefined;
-            for (let i = historySlice.length - 2; i >= 0; i--) {
+            for (let i = timeGapTargetIndex - 1; i >= 0; i--) {
                 const m = historySlice[i];
                 if (!m.metadata?.proactiveHint && !(m.role === 'assistant' && i > 0 && historySlice[i - 1]?.metadata?.proactiveHint)) {
                     lastRealMsg = m;
@@ -1119,7 +1138,9 @@ ${voiceActingGuide()}`;
                 }
             }
             // 时间感知关闭时，互动间隔与现实消息时间戳一起遮住。
-            if (lastRealMsg && currentMsg && timeAwarenessOn) timeGapHint = ChatPrompts.getTimeGapHint(lastRealMsg, currentMsg.timestamp, charTz);
+            if (lastRealMsg && timeAwarenessOn) {
+                timeGapHint = ChatPrompts.getTimeGapHint(lastRealMsg, currentMsg.timestamp, charTz);
+            }
         }
 
         return {
@@ -1172,7 +1193,7 @@ ${voiceActingGuide()}`;
                          : '';
                      if (visionDescription) {
                          let textPart = `${timeStr} [图片：${visionDescription}]`;
-                         if (index === historySlice.length - 1 && timeGapHint && m.role === 'user') textPart += `\n\n${timeGapHint}`;
+                         if (index === timeGapTargetIndex && timeGapHint && m.role === 'user') textPart += `\n\n${timeGapHint}`;
                          return { role: m.role, content: textPart.trimStart() };
                      }
                      // 向下兼容：如果图片数据缺失（例如只导入了文字备份），不要把空 URL 发给 API，否则会报错无法回应
@@ -1185,14 +1206,14 @@ ${voiceActingGuide()}`;
                      let textPart = hasImageData
                          ? `${timeStr} [User sent an image]`
                          : `${timeStr} [User sent an image, but the image data is no longer available]`;
-                     if (index === historySlice.length - 1 && timeGapHint && m.role === 'user') textPart += `\n\n${timeGapHint}`;
+                     if (index === timeGapTargetIndex && timeGapHint && m.role === 'user') textPart += `\n\n${timeGapHint}`;
                      if (!hasImageData) {
                          return { role: m.role, content: textPart.trimStart() };
                      }
                      return { role: m.role, content: [{ type: "text", text: textPart.trimStart() }, { type: "image_url", image_url: { url: m.content } }] };
                 }
                 
-                if (index === historySlice.length - 1 && timeGapHint && m.role === 'user') content = `${content}\n\n${timeGapHint}`; 
+                if (index === timeGapTargetIndex && timeGapHint && m.role === 'user') content = `${content}\n\n${timeGapHint}`; 
                 
                 // TODO(记录形态): 戳一戳 / 时间间隔提示等其他系统事件, 等转账的 [[记录:TRANSFER]]
                 // 观察一段时间后再迁 (transferFormat.ts 头注) —— 防线已按整个记录命名空间就位。
