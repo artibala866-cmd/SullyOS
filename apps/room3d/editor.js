@@ -44,7 +44,7 @@ import {homelyFrame} from './homelyView';
 import {homelyMusicPose} from './homelyPresence';
 import {createHomelyForeground} from './homelyForeground.js';
 import {furnitureInteractions,interactionArcLayout} from './furnitureInteractions.js';
-import {validatedFurnitureStations,sameStationPose,occupiedFurnitureChange,activeFurnitureDependencyChange} from './furnitureStationRegistry.js';
+import {validatedFurnitureStations,sameStationPose,occupiedFurnitureChange,activeFurnitureDependencyChange,occupiedFurnitureSlotIssue} from './furnitureStationRegistry.js';
 import {mirrorActivities,isMirrorAction} from './mirror.js';
 import {createMirrorJourney,mirrorJourneyFrame} from './mirrorJourney.js';
 import {SHOWROOMS,addShowroom,applyShowroomStyle} from './showrooms.js';
@@ -463,8 +463,9 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(visitorMotion==='walk')visitorMotion='idle';
  }
  // Residents parked in another actor's slot count as occupying that point.
- function otherFurnitureOccupants(){return [...socialEntries.map(e=>e.parkedSeat),furnitureUser?.parkedSeat].filter(Boolean);}
- function slotOccupiedByOther(slot){return otherFurnitureOccupants().some(s=>s.itemId===slot.itemId&&s.seatId===slot.seatId);}
+ function otherFurnitureOccupants(){return [...socialEntries.map(e=>e.parkedSeat&&{...e.parkedSeat,width:e.width}),furnitureUser?.parkedSeat&&{...furnitureUser.parkedSeat,width:furnitureUser.width}].filter(Boolean);}
+ function slotOccupationIssue(slot){return occupiedFurnitureSlotIssue(current(),catalog,slot,otherFurnitureOccupants(),headWidth);}
+ function slotOccupiedByOther(slot){return !!slotOccupationIssue(slot);}
  function transformVisitorSeat(selection){
   const body2=!!visitor?.rig,seat=seatTransform(placementRoom(),catalog,selection,body2);
   if(body2)return body2BedTransform(seat,visitor.bedHeadToHip,visitor.bedHipHeight);
@@ -2143,7 +2144,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function furnitureSlotIssue(slot){
   if(seatChange||walking)return '先完成当前行走或姿态切换';
   if(visitorSeat)return '请先正常起身，再选择其它座位或床位';
-  if(slotOccupiedByOther(slot))return '这个互动点已经有人使用';
+  const occupied=slotOccupationIssue(slot);if(occupied)return occupied;
   const room=current(),offset=[room.x*ROOM_STEP.x,room.z*ROOM_STEP.z],
    start=[resident.position.x+offset[0],resident.position.z+offset[1]],map=residentWalkMap(start);
   const checking={free:(x,z)=>map.free(x,z)&&!!findWalkPath(map,start,[x,z])};
