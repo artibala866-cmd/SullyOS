@@ -132,10 +132,30 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  try{const mode=localStorage.getItem('sully-home3d-light-mode');if(mode==='auto'||Object.hasOwn(ROOM_LIGHT_PHASES,mode))lightMode=mode;}catch{}
  const lightUniforms=createRoomLightUniforms();
  let quality='clear';try{const saved=localStorage.getItem('sully-home3d-quality');if(qualities[saved])quality=saved}catch{}
- let detailBudget=qualities[quality].details,frameInterval=1000/qualities[quality].fps,orbitMode=false,inTick=false;
+ let detailBudget=qualities[quality].details,frameInterval=1000/qualities[quality].fps,orbitMode=false,inTick=false,frameErrorStreak=0,frameRetryTimer=0,contextRecoveryTimer=0,contextRecoveryUiTimer=0;
  const resolutionBudget=createRoomFrameBudget({enabled:phone||touch});
  let gpuContextLost=false;
  function wake(){if(!destroyed&&!suspended&&!document.hidden&&!gpuContextLost&&!frame&&!inTick&&state)frame=requestAnimationFrame(tick)}
+ function recoverFrameFailure(error){
+  frameErrorStreak++;dirty=true;
+  if(frameErrorStreak===1||frameErrorStreak>=3)console.error('[Home3D] frame failed; attempting recovery',error);
+  if(frameErrorStreak<3)return true;
+  frameErrorStreak=0;
+  showContextRecovery();
+  if(!frameRetryTimer)frameRetryTimer=window.setTimeout(()=>{
+   frameRetryTimer=0;
+   if(destroyed||suspended||document.hidden||gpuContextLost)return;
+   try{
+    const gl=renderer.getContext?.();
+    if(gl?.isContextLost?.()){renderer.forceContextRestore?.();return;}
+    renderer.resetState();resize();lastTick=performance.now();dirty=true;wake();
+   }catch(retryError){
+    console.warn('[Home3D] automatic frame recovery failed',retryError);
+    showContextRecovery();
+   }
+  },600);
+  return false;
+ }
  const materialCache=new Map(),usedMaterials=new Set(),paintTargets=new Map(),defaultPaintColors=new Map();
  let furnitureOutlineEnabled=true;try{furnitureOutlineEnabled=localStorage.getItem('sully-home3d-furniture-outline')!=='off';}catch{}
  let furnitureStyle='retro';try{if(localStorage.getItem('sully-home3d-furniture-style')==='original')furnitureStyle='original';}catch{}
@@ -2252,8 +2272,37 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  host.tabIndex=0;host.addEventListener('keydown',keydown,{signal:abort.signal});
  // Mobile browsers may discard the GPU context when the tab is backgrounded.
  // Do not recreate the editor here: its furniture and resident state must survive.
- const onContextLost=e=>{e.preventDefault();gpuContextLost=true;cancelAnimationFrame(frame);frame=0;};
- const onContextRestored=()=>{gpuContextLost=false;renderer.resetState();resize();dirty=true;lastTick=performance.now();wake();};
+ const showContextRecovery=()=>{
+  let overlay=host.querySelector('.h3-context-recovery');
+  if(!overlay){
+   overlay=document.createElement('div');overlay.className='h3-context-recovery';overlay.setAttribute('role','status');
+   overlay.innerHTML='<p>3D 画面暂时异常，正在尝试恢复…</p><button type="button">重新尝试</button>';
+   overlay.querySelector('button').addEventListener('click',()=>{
+    clearTimeout(frameRetryTimer);frameRetryTimer=0;
+    try{
+     const gl=renderer.getContext?.();
+     if(gpuContextLost||gl?.isContextLost?.()){renderer.forceContextRestore?.();return;}
+     renderer.resetState();resize();frameErrorStreak=0;lastTick=performance.now();dirty=true;hideContextRecovery();wake();
+    }catch(error){console.warn('[Home3D] manual frame recovery attempt failed',error);}
+   });
+   host.append(overlay);
+  }
+  overlay.hidden=false;
+ };
+ const hideContextRecovery=()=>{const overlay=host.querySelector('.h3-context-recovery');if(overlay)overlay.hidden=true;};
+ const onContextLost=e=>{
+  e.preventDefault();gpuContextLost=true;cancelAnimationFrame(frame);frame=0;
+  clearTimeout(frameRetryTimer);frameRetryTimer=0;clearTimeout(contextRecoveryTimer);
+  contextRecoveryTimer=window.setTimeout(()=>{contextRecoveryTimer=0;if(destroyed||!gpuContextLost)return;try{renderer.forceContextRestore?.();}catch(error){console.warn('[Home3D] automatic WebGL restore attempt failed',error);}},1200);
+  clearTimeout(contextRecoveryUiTimer);
+  contextRecoveryUiTimer=window.setTimeout(()=>{contextRecoveryUiTimer=0;if(!destroyed&&gpuContextLost)showContextRecovery();},3500);
+ };
+ const onContextRestored=()=>{
+  clearTimeout(contextRecoveryTimer);contextRecoveryTimer=0;clearTimeout(contextRecoveryUiTimer);contextRecoveryUiTimer=0;
+  gpuContextLost=false;hideContextRecovery();
+  try{renderer.resetState();resize();dirty=true;lastTick=performance.now();wake();}
+  catch(error){if(recoverFrameFailure(error))wake();}
+ };
  renderer.domElement.addEventListener('webglcontextlost',onContextLost,{signal:abort.signal});
  renderer.domElement.addEventListener('webglcontextrestored',onContextRestored,{signal:abort.signal});
  const observer=new ResizeObserver(()=>resize());observer.observe(stage);
@@ -2264,7 +2313,20 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   window.addEventListener('resize',viewportResize,{signal:abort.signal});
   window.visualViewport?.addEventListener('resize',viewportResize,{signal:abort.signal});
  function tick(now=performance.now()){
-  frame=0;if(destroyed||suspended||document.hidden||gpuContextLost||roomLoading)return;if(photoSession){lastTick=now;if(dirty){renderScene();dirty=false;}return;}inTick=true;const dt=Math.min(.05,(now-lastTick)/1000);lastTick=now;
+  frame=0;
+  if(destroyed||suspended||document.hidden||gpuContextLost||roomLoading)return;
+  if(photoSession){
+   lastTick=now;
+   if(dirty){
+    try{renderScene();dirty=false;frameErrorStreak=0;hideContextRecovery();}
+    catch(error){if(recoverFrameFailure(error))wake();}
+   }
+   return;
+  }
+  inTick=true;
+  let shouldContinue=false;
+  try{
+   const dt=Math.min(.05,(now-lastTick)/1000);lastTick=now;
   if(greeting&&elapsed>=greeting.until){setResidentExpression(primaryResidentId,greeting.old||{});const restoreWide=greeting.restoreWide;greeting=null;visitorMotion='idle';if(restoreWide){const from={position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom};resize(true,true);cameraArrival={from,to:{position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom},start:elapsed};}}
   updateCompanion();
   if(cameraArrival){const t=THREE.MathUtils.smootherstep(elapsed-cameraArrival.start,0,reducedMotion?.01:1.1),{from,to}=cameraArrival;camera.position.copy(from.position).lerp(to.position,t);controls.target.copy(from.target).lerp(to.target,t);camera.zoom=THREE.MathUtils.lerp(from.zoom,to.zoom,t);camera.updateProjectionMatrix();dirty=true;if(t>=1)cameraArrival=null;}
@@ -2281,16 +2343,22 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(acting&&!companionRise&&!(companionTravel&&!furnitureUser))animateVisitor(elapsed-visitorStart);
    animateIdleResidents();animateParkedCharacter();if(furnitureUser)animateConversation();animateCompanionIdle();animateCompanionPhone();animateUserSpeech();if(separateResidentBodies(dt))dirty=true;faceNearbyResidents();faceConversationPartner();
    settling=controls.update();if(dirty||homelyAttention||homelyMusic.playing&&!reducedMotion||homelyPoke||breathing||acting||hasIdleResidents()||drag||walkFeedback.active){
-     renderScene();renderedFrames++;dirty=false;lastDraw=now;
+     renderScene();frameErrorStreak=0;hideContextRecovery();renderedFrames++;dirty=false;lastDraw=now;
      // Do not alter rigs or action clips. Only ease the mobile GPU framebuffer.
      const scale=resolutionBudget.observe({now,frameMs:Math.max(frameSpacing,performance.now()-workStart),active:!!(greeting||cameraArrival||acting||hasIdleResidents()||homelyAttention||breathing||socialRuntime?.active)});
      if(scale!==null&&!photoSession){renderer.setPixelRatio(roomPixelRatio(quality,devicePixelRatio,touch||phone)*scale);dirty=true;}
     }
   }
-  inTick=false;if(homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil)))wake();
+  shouldContinue=homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil));
+  }catch(error){
+   shouldContinue=recoverFrameFailure(error);
+  }finally{
+   inTick=false;
+  }
+  if(shouldContinue)wake();
  }
  document.addEventListener('visibilitychange',()=>{if(document.hidden){petSystem?.life.save();clearTimeout(faceTimer);faceTimer=0;cancelAnimationFrame(frame);frame=0}else{if(refreshRoomLighting())renderUI();dirty=true;lastTick=performance.now();wake()}scheduleRoomLighting();},{signal:abort.signal});
- function dispose(){homelyForeground?.dispose();homelyForeground=null;parkedMealEffects?.dispose();parkedMealEffects=null;userSpeech=null;cancelCompanionAction();petSystem?.dispose();petSystem=null;interiorBackdrop.dispose();clearTimeout(tapTimer);lampGlow.dispose();walkFeedback.dispose();clearTimeout(faceTimer);faceTimer=0;clearTimeout(lightTimer);lightTimer=0;if(destroyed&&!kit)return;stopSocial();for(const e of [...socialEntries])removeSocialResident(e.id);gamingEffects.clear();clearComparison();visitor?.dispose();visitor=null;watering.dispose();mat.geometry.dispose();mat.material.dispose();kitchenEffects.dispose();kitchenWork.dispose();bathroomEffects.dispose();finishes.dispose();windowDaylight.dispose();resident.clear();destroyed=true;abort.abort(homeDisposalReason());observer.disconnect();cancelAnimationFrame(frame);controls.dispose();clearContent();for(const m of materialCache.values())m.dispose();materialCache.clear();kit?.scene.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material]){for(const value of Object.values(m))if(value?.isTexture)value.dispose();m.dispose()}}});distantGeometry.dispose();for(const m of distantMaterials.values())m.dispose();distantMaterials.clear();key.shadow.dispose();grid.geometry.dispose();grid.material.dispose();footprint.geometry.dispose();footprint.material.dispose();for(const material of outlineMaterials)material.dispose();ground.geometry.dispose();ground.material.dispose();selection.geometry.dispose();selection.material.dispose();furnitureHalo.dispose();roomFinish.dispose();renderer.dispose();host.innerHTML='';host.classList.remove('home3d');}
+ function dispose(){clearTimeout(frameRetryTimer);frameRetryTimer=0;clearTimeout(contextRecoveryTimer);contextRecoveryTimer=0;clearTimeout(contextRecoveryUiTimer);contextRecoveryUiTimer=0;homelyForeground?.dispose();homelyForeground=null;parkedMealEffects?.dispose();parkedMealEffects=null;userSpeech=null;cancelCompanionAction();petSystem?.dispose();petSystem=null;interiorBackdrop.dispose();clearTimeout(tapTimer);lampGlow.dispose();walkFeedback.dispose();clearTimeout(faceTimer);faceTimer=0;clearTimeout(lightTimer);lightTimer=0;if(destroyed&&!kit)return;stopSocial();for(const e of [...socialEntries])removeSocialResident(e.id);gamingEffects.clear();clearComparison();visitor?.dispose();visitor=null;watering.dispose();mat.geometry.dispose();mat.material.dispose();kitchenEffects.dispose();kitchenWork.dispose();bathroomEffects.dispose();finishes.dispose();windowDaylight.dispose();resident.clear();destroyed=true;abort.abort(homeDisposalReason());observer.disconnect();cancelAnimationFrame(frame);controls.dispose();clearContent();for(const m of materialCache.values())m.dispose();materialCache.clear();kit?.scene.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material]){for(const value of Object.values(m))if(value?.isTexture)value.dispose();m.dispose()}}});distantGeometry.dispose();for(const m of distantMaterials.values())m.dispose();distantMaterials.clear();key.shadow.dispose();grid.geometry.dispose();grid.material.dispose();footprint.geometry.dispose();footprint.material.dispose();for(const material of outlineMaterials)material.dispose();ground.geometry.dispose();ground.material.dispose();selection.geometry.dispose();selection.material.dispose();furnitureHalo.dispose();roomFinish.dispose();renderer.dispose();host.innerHTML='';host.classList.remove('home3d');}
  signal?.addEventListener('abort',dispose,{once:true});
  try{
   const loadStartedAt=performance.now();
