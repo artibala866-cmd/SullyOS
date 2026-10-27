@@ -1636,7 +1636,7 @@ const SocialApp: React.FC = () => {
     }, [communityState.autonomy.enabled, communityState.autonomy.maxCallsPerDay,
         communityState.autonomy.minIntervalHours, apiConfig.apiKey, apiConfig.model, apiConfig.baseUrl]);
 
-    const generateComments = async (post: SocialPost) => {
+    const generateComments = async (post: SocialPost, inboxCount = 0) => {
 
         if (!post || !apiConfig.apiKey) return;
         const livePost = feedRef.current.find(item => item.id === post.id);
@@ -1690,19 +1690,30 @@ ${post.content || '(楼主没写正文)'}
 [
   { "author": "网名 (Handle) 或 路人昵称", "charId": "角色ID或null", "content": "评论内容..." }
 ]`;
+            const combinedPrompt = inboxCount > 0 ? prompt + `
+### 追加同一次请求中的第二个任务：首次陌生人私信
+仅根据用户公开帖子内容，生成至多 ${inboxCount} 位虚拟陌生网友可能主动发来的第一句话；人数不足可返回 []，禁止强制凑数。
+只输出一个 JSON 对象，形状：{"comments":[按上方格式的评论],"incomingDMs":[{"name":"不同且不冒充用户或角色的网名","persona":"稳定公开性格和说话风格","message":"针对该帖的自然私信"}]}。
+所有信息均须来自帖子公开内容，不能引用任何私聊、世界书或后台马甲身份。
+` : prompt;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, combinedPrompt), temperature: 0.8, max_tokens: 2200 }),
                 signal: controller.signal,
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '生成帖子评论' },
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: inboxCount ? '发帖后一次生成评论和首批私信' : '生成帖子评论' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
             const data = await safeResponseJson(response);
             if (controller.signal.aborted) return;
             const json = safeParseJSON(extractContent(data));
-            if (Array.isArray(json)) {
-                const comments: SocialComment[] = json
+            const commentsJson = Array.isArray(json) ? json : json?.comments;
+            // Saving one AI result into multiple local workflows must not trigger another call.
+            if (inboxCount > 0 && Array.isArray(json?.incomingDMs)) {
+                acceptGeneratedIncomingDMs(post, json.incomingDMs, inboxCount, feedLoadGenerationRef.current);
+            }
+            if (Array.isArray(commentsJson)) {
+                const comments: SocialComment[] = commentsJson
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
                         if (!author || typeof c.content !== 'string' || !c.content.trim() ||
@@ -1869,32 +1880,13 @@ ${buildSparkCommentHistory(post)}
         } catch (e) { addToast('分享失败', 'error'); }
     };
 
-    const generateIncomingDMs = async (post: SocialPost) => {
-        if (!apiConfig.apiKey) return;
-        const generation = feedLoadGenerationRef.current;
-        const followers = communityRef.current.follows.filter(follow => follow.followedId === 'user').length;
-        // A small account can still receive a DM; larger accounts receive more, but capped per post.
-        const chance = Math.min(0.88, 0.18 + Math.log10(followers + 1) * 0.14);
-        if (Math.random() >= chance) return;
-        const count = Math.min(5, 1 + Math.floor(Math.log10(followers + 1) / 1.6) + (Math.random() < 0.2 ? 1 : 0));
+    // A post-publish request already generated BOTH comments and first incoming DMs.
+    // Process the inbox section locally: never charge for a separate API call.
+    const acceptGeneratedIncomingDMs = (post: SocialPost, parsed: unknown[], count: number, generation: number) => {
+        if (!Array.isArray(parsed) || !mountedRef.current ||
+            feedLoadGenerationRef.current !== generation ||
+            !feedRef.current.some(item => item.id === post.id)) return;
         try {
-            const prompt = `你在模拟 Spark 小红书式社交平台。用户刚发了一条公开笔记：
-标题：${post.title}
-内容：${post.content}
-当前粉丝数约：${followers}。
-请生成 ${count} 位不同的陌生网友主动发来的第一条私信，真实中文互联网口吻。类型多样：正常交流、求教程、交朋友、合作邀约、好奇、社恐试探、莫名其妙的搭话、误会、阴阳怪气、无厘头怪事等。粉丝多时允许出现更多奇怪的邀约和冒失搭话，但不要每个人都奇怪；要根据帖子内容决定具体说什么。每个网友要有不同性格，消息长短不一，不要机械句号、套话或重复。禁止假冒现实机构、索要隐私或诱导转账。只输出 JSON 数组，每项格式 {"name":"独特网名","persona":"固定性格、兴趣、说话风格与搭话动机","message":"私信内容"}。网名不能与 ${socialProfile.name} 相同。`;
-            const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
-                body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.95 }),
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '发帖后陌生人主动私信' },
-            } as RequestInit);
-            if (!response.ok) throw new Error(await apiErrorMessage(response));
-            const data = await safeResponseJson(response);
-            const parsed = safeParseJSON(extractContent(data));
-            if (!Array.isArray(parsed) || !mountedRef.current ||
-                feedLoadGenerationRef.current !== generation ||
-                !feedRef.current.some(item => item.id === post.id)) return;
             const incoming: Array<{ key: string; name: string; content: string; persona: string }> = [];
             let nextCommunity = communityRef.current;
             const used = new Set<string>();
@@ -1956,7 +1948,7 @@ ${buildSparkCommentHistory(post)}
                 localStorage.setItem('spark_dm_unread', JSON.stringify(next));
                 return next;
             });
-        } catch (error) { console.warn('Spark incoming DM generation failed', error); }
+        } catch (error) { console.warn('Spark incoming DM processing failed', error); }
     };
 
     const handleCreatePost = async () => {
@@ -1994,7 +1986,15 @@ ${buildSparkCommentHistory(post)}
         setIsCreateOpen(false);
         setActiveTab('home');
         addToast('笔记已保存并发布', 'success');
-        if (apiConfig.apiKey) { void generateComments(saved); void generateIncomingDMs(saved); }
+        if (apiConfig.apiKey) {
+            // Fold possible new inbox conversations into the SAME comment-generation request.
+            const followers = communityRef.current.follows.filter(follow => follow.followedId === 'user').length;
+            const chance = Math.min(0.88, 0.18 + Math.log10(followers + 1) * 0.14);
+            const inboxCount = Math.random() < chance
+                ? Math.min(5, 1 + Math.floor(Math.log10(followers + 1) / 1.6) + (Math.random() < 0.2 ? 1 : 0))
+                : 0;
+            void generateComments(saved, inboxCount);
+        }
         } catch (error: any) {
             addToast('发布未完成，草稿仍在，可直接重试：' + (error?.message || error), 'error');
         } finally {
