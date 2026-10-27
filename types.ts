@@ -3729,6 +3729,8 @@ export interface SocialComment {
     replyToAuthorName?: string;
     /** Whether the local user has liked this comment. */
     isLiked?: boolean;
+    /** Account IDs that have liked this comment; used to prevent duplicate counts. */
+    likedByAccountIds?: string[];
 }
 
 export interface SocialPost {
@@ -3753,6 +3755,9 @@ export interface SocialPost {
     source?: 'user' | 'ai' | 'legacy';
     /** Normalized topic IDs used for discovery and ranking. */
     topicIds?: string[];
+    /** Account IDs behind the aggregate counters; empty means no recorded likes/collections. */
+    likedByAccountIds?: string[];
+    collectedByAccountIds?: string[];
 }
 
 export interface SubAccount {
