@@ -43,6 +43,9 @@ export function islandDiningActivities(room,catalog,{headWidth=1.5}={}){
    const c=catalog.find(a=>a.id===chair.assetId);
    for(const slot of c.seats){
    const seat={roomId:room.id,itemId:chair.id,seatId:slot.id,dining:true},pose=seatTransform(room,catalog,seat);
+   // Supported tabletop objects may invalidate a seat after the catalog is loaded.
+   // Never read pose.rotation for a blocked/missing point.
+   if(!pose)continue;
    const t=table.rotation*Math.PI/180,dx=chair.x-table.x,dz=chair.z-table.z,x=Math.cos(t)*dx-Math.sin(t)*dz,z=Math.sin(t)*dx+Math.cos(t)*dz;
    if(Math.abs(x)>.35||z<1.1||z>1.8||Math.cos(pose.rotation-t)>-.98)continue;
    const seatX=Math.cos(t)*(pose.position[0]-table.x)-Math.sin(t)*(pose.position[2]-table.z);
