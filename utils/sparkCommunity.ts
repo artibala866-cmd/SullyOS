@@ -473,6 +473,52 @@ export function addSparkNotification(state: SparkCommunityState, notification: S
     return { ...state, notifications: [...state.notifications, notification].sort((a, b) => a.createdAt - b.createdAt).slice(-MAX_NOTIFICATIONS) };
 }
 
+
+export interface SparkLegacyNotice {
+    id: string;
+    kind: 'likes' | 'comments' | 'follows';
+    actor: string;
+    content: string;
+    postId?: string;
+    time: number;
+    read: boolean;
+}
+
+/** Migrate existing local notifications without inventing actors, likes or follows. */
+export function syncSparkLegacyNotices(state: SparkCommunityState, notices: SparkLegacyNotice[]): SparkCommunityState {
+    if (!notices.length) return state;
+    const previous = new Map(state.notifications.map(item => [item.id, item]));
+    let changed = false;
+    for (const notice of notices) {
+        if (!notice?.id || !notice.actor || !['likes', 'comments', 'follows'].includes(notice.kind)) continue;
+        const existing = previous.get(notice.id);
+        if (existing) {
+            if (notice.read && !existing.readAt) {
+                previous.set(notice.id, { ...existing, readAt: notice.time || Date.now() });
+                changed = true;
+            }
+            continue;
+        }
+        const matching = state.accounts.filter(account => account.type !== 'user' &&
+            [account.displayName, ...account.aliases].some(name => normalizeSparkName(name) === normalizeSparkName(notice.actor)));
+        const actorAccountId = matching.length === 1 ? matching[0].id : 'legacy-handle:' + normalizeSparkName(notice.actor);
+        previous.set(notice.id, {
+            id: notice.id,
+            type: notice.kind === 'likes' ? 'like' : notice.kind === 'follows' ? 'follow' :
+                notice.id.startsWith('reply:') ? 'reply' : 'comment',
+            actorAccountId,
+            targetAccountId: 'user',
+            ...(notice.postId ? { postId: notice.postId } : {}),
+            message: notice.content,
+            createdAt: notice.time,
+            ...(notice.read ? { readAt: notice.time || Date.now() } : {}),
+        });
+        changed = true;
+    }
+    return changed ? { ...state, notifications: [...previous.values()]
+        .sort((a, b) => a.createdAt - b.createdAt).slice(-MAX_NOTIFICATIONS) } : state;
+}
+
 export function markSparkNotificationsRead(state: SparkCommunityState, now = Date.now(), notificationId?: string): SparkCommunityState {
     let changed = false;
     const notifications = state.notifications.map(item => {
