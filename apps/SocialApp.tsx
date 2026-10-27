@@ -750,6 +750,37 @@ const SocialApp: React.FC = () => {
         addToast(result.action === 'follow' ? '已关注话题 #' + topic : '已取消关注话题 #' + topic, 'success');
     };
 
+    const recordGeneratedComments = (post: SocialPost, comments: SocialComment[], isReply = false) => {
+        let nextState = communityStateRef.current;
+        const createdAt = Date.now();
+        comments.forEach(comment => {
+            nextState = appendSparkEvent(nextState, {
+                id: createSparkId('event'),
+                type: 'comment_created',
+                actorAccountId: comment.authorId || 'unknown',
+                targetAccountId: post.authorId,
+                postId: post.id,
+                commentId: comment.id,
+                createdAt,
+            });
+            if (isReply || post.authorId === 'user' || post.authorType === 'user') {
+                nextState = addSparkNotification(nextState, {
+                    id: createSparkId('notification'),
+                    type: isReply ? 'reply' : 'comment',
+                    actorAccountId: comment.authorId || 'unknown',
+                    targetAccountId: 'user',
+                    postId: post.id,
+                    commentId: comment.id,
+                    message: isReply
+                        ? '@' + comment.authorName + ' 回复了你的评论'
+                        : '@' + comment.authorName + ' 评论了你的帖子',
+                    createdAt,
+                });
+            }
+        });
+        if (nextState !== communityStateRef.current) updateCommunityState(nextState);
+    };
+
     const handleCommentInputChange = (value: string) => {
         setCommentInput(value);
         if (!selectedPost) return;
@@ -1030,10 +1061,12 @@ ${post.content || '(楼主没写正文)'}
                         } as SocialComment];
                     });
                 if (!comments.length) throw new Error('模型返回的评论身份不匹配，未添加评论');
-                updatePostInFeed(post.id, current => ({
+                const registeredComments = registerSparkComments(comments);
+                const updatedPost = updatePostInFeed(post.id, current => ({
                     ...current,
-                    comments: mergeSocialComments(current.comments || [], comments),
+                    comments: mergeSocialComments(current.comments || [], registeredComments),
                 }));
+                if (updatedPost) recordGeneratedComments(updatedPost, registeredComments);
             }
         } catch (e: any) {
             if (e?.name !== 'AbortError') addToast(`评论加载失败: ${e?.message || e}`, 'error');
@@ -1119,11 +1152,13 @@ ${post.content || '(楼主没写正文)'}
                         } as SocialComment];
                     });
                 if (!newReplies.length) throw new Error('模型返回的回复身份不匹配，未添加回复');
-                updatePostInFeed(postId, current => ({
+                const registeredReplies = registerSparkComments(newReplies);
+                const updatedPost = updatePostInFeed(postId, current => ({
                     ...current,
-                    comments: mergeSocialComments(current.comments || [], newReplies),
+                    comments: mergeSocialComments(current.comments || [], registeredReplies),
                 }));
-                addToast('收到 ' + newReplies.length + ' 条新回复', 'info');
+                if (updatedPost) recordGeneratedComments(updatedPost, registeredReplies, true);
+                addToast('收到 ' + registeredReplies.length + ' 条新回复', 'info');
             }
         } catch (error: any) {
             if (error?.name !== 'AbortError') addToast('回复生成失败：' + (error?.message || error), 'error');
