@@ -202,6 +202,23 @@ describe('character-owned autonomous phone behavior', () => {
       .toEqual(['今天忙不忙？','我刚回过你了。']);
   });
 
+  it('does not bill two automatic calls when contact bootstrap returns no additions', async () => {
+    saveNpcProfiles('bootstrap-noop', contacts().slice(0, 2));
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'bootstrap-noop',observedAt:Date.now(),
+      plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    const request = vi.fn().mockResolvedValue({
+      ok:true,status:200,headers:{get:()=> 'application/json'},
+      text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({contacts:[]})}}]}),
+    });
+    vi.stubGlobal('fetch',request);
+    expect(await runCharacterPhoneAutonomy(input('bootstrap-noop'))).toBe('skipped');
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(readPhoneApiBudget('bootstrap-noop').requests).toBe(1);
+    expect(readCharacterPhoneChats('bootstrap-noop')).toEqual([]);
+  });
+
   it('does not bootstrap new NPC contacts or spend tokens when the Char is sleeping', async () => {
     // Empty address book used to trigger bootstrap before the sleep check.
     vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
