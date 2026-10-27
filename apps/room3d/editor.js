@@ -456,10 +456,10 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function stopWalking(keepKitchen=false,keepFeedback=false){
   if(!keepFeedback)walkFeedback.clear();
   stopSocial();
-  walking=null;if(!keepKitchen){cancelKitchen();if(visitorActivity?.bathJourney)finishBathroom();}
+  walking=null;if(!keepKitchen){if(kitchenTask)rememberStandingLocation();cancelKitchen();if(visitorActivity?.bathJourney)finishBathroom();}
   if(visitorMotion==='yoga'){mat.visible=false;visitorMotion='idle';visitorUntil=0;visitor?.animate(0,'idle');}
   if(seatChange){seatChange=null;visitorMotion=visitorSeat?.bed?'sleep':'idle';placeVisitor();visitor?.animate(0,visitorMotion,visitorSeat?.bed?'lying':visitorSeat?'seated':'standing',currentSeatPose());}
-  if(visitorPlant){visitorPlant=null;watering.root.visible=false;visitorMotion='idle';visitor?.animate(0,'idle');}
+  if(visitorPlant){rememberStandingLocation();visitorPlant=null;watering.root.visible=false;visitorMotion='idle';visitor?.animate(0,'idle');}
   if(visitorMotion==='walk')visitorMotion='idle';
  }
  // Residents parked in another actor's slot count as occupying that point.
@@ -1838,6 +1838,12 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(d.action==='interaction-close'){closeInteraction();host.focus({preventScroll:true});return;}
   if(d.action==='interaction-more'){if(interaction){interaction.page++;renderInteraction();}return;}
   if(d.action==='interaction-back'){if(interaction?.page){interaction.page--;renderInteraction();}else{closeInteraction();host.focus({preventScroll:true});}return;}
+  if(visitorPlant&&['chibi-water','chibi-sit','chibi-bed','chibi-hug','chibi-kitchen','chibi-game','chibi-mirror','chibi-bath','fridge-toggle'].includes(d.action)){
+   notify('请先结束浇水，再开始其它家具互动',true);return;
+  }
+  if(kitchenTask&&['chibi-water','chibi-sit','chibi-bed','chibi-hug','chibi-kitchen','chibi-game','chibi-mirror','chibi-bath','fridge-toggle'].includes(d.action)){
+   notify('请先结束当前厨房工作，再开始其它家具互动',true);return;
+  }
   if(visitorSeat&&['chibi-hug','chibi-kitchen','chibi-mirror','chibi-bath','fridge-toggle'].includes(d.action)){
    notify('请先正常起身，再使用其他家具',true);return;
   }
