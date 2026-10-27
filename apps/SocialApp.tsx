@@ -663,6 +663,8 @@ const SocialApp: React.FC = () => {
     const replyQueueRef = useRef<{ post: SocialPost; content: string; parentCommentId?: string }[]>([]);
     const lastCommentSubmitRef = useRef<{ postId: string; content: string; at: number } | null>(null);
     const feedLoadGenerationRef = useRef(0);
+    const clearingFeedRef = useRef(false);
+    const deletedPostIdsRef = useRef<Set<string>>(new Set());
     const postPersistenceRef = useRef<Promise<void>>(Promise.resolve());
     const autonomyTickRef = useRef<() => Promise<void>>(async () => {});
     const persistPostMutation = (write: () => Promise<unknown>): Promise<void> => {
@@ -708,7 +710,7 @@ const SocialApp: React.FC = () => {
                 // IndexedDB can be slow on mobile. If the user already created
                 // something while this read was pending, keep that live version.
                 const liveIds = new Set(feedRef.current.map(post => post.id));
-                const next = [...feedRef.current, ...sorted.filter(post => !liveIds.has(post.id))];
+                const next = [...feedRef.current, ...sorted.filter(post => !liveIds.has(post.id) && !deletedPostIdsRef.current.has(post.id))];
                 feedRef.current = next;
                 setFeed(next);
             }
@@ -982,6 +984,7 @@ const SocialApp: React.FC = () => {
     const removePostFromFeed = async (postId: string): Promise<void> => {
         // Only remove UI and notices after persistence succeeds, so a failed delete is recoverable.
         await persistPostMutation(() => DB.deleteSocialPost(postId));
+        deletedPostIdsRef.current.add(postId);
         const next = feedRef.current.filter(p => p.id !== postId);
         feedRef.current = next;
         setFeed(next);
@@ -1735,7 +1738,9 @@ ${buildSparkCommentHistory(post)}
         setSelectedPost(null);
     };
 
-    const handleClearFeed = () => {
+    const handleClearFeed = async () => {
+        if (clearingFeedRef.current) return;
+        clearingFeedRef.current = true;
         refreshRequestRef.current?.abort();
         autonomyRequestRef.current?.abort();
         autonomyRequestRef.current = null;
@@ -1749,21 +1754,27 @@ ${buildSparkCommentHistory(post)}
         setLoadingComments(false);
         setIsReplyingToUser(false);
         setIsAutonomyBusy(false);
-        feedRef.current = [];
-        setFeed([]);
-        setSelectedPost(null);
-        // Keep the inbox consistent: cleared posts cannot be opened from old notices.
-        setNotices(prev => {
-            const next = prev.filter(item => !item.postId);
-            localStorage.setItem('spark_notifications', JSON.stringify(next));
-            return next;
-        });
         feedLoadGenerationRef.current += 1;
-        void persistPostMutation(() => DB.clearSocialPosts())
-            .catch(error => addToast('清空 Spark 帖子失败，请重试：' + (error?.message || error), 'error'));
-        setShowSettings(false);
-        addToast('推荐流已清空', 'success');
-        trackEvent('清空 Spark 推荐流');
+        try {
+            // Clear is destructive: only report success and remove live data after DB confirms it.
+            await persistPostMutation(() => DB.clearSocialPosts());
+            if (!mountedRef.current) return;
+            feedRef.current = [];
+            setFeed([]);
+            setSelectedPost(null);
+            setNotices(prev => {
+                const next = prev.filter(item => !item.postId);
+                localStorage.setItem('spark_notifications', JSON.stringify(next));
+                return next;
+            });
+            setShowSettings(false);
+            addToast('推荐流已清空', 'success');
+            trackEvent('清空 Spark 推荐流');
+        } catch (error: any) {
+            addToast('清空失败，已有帖子仍保留：' + (error?.message || error), 'error');
+        } finally {
+            clearingFeedRef.current = false;
+        }
     };
 
     // --- Renderers ---
