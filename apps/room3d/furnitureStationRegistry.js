@@ -1,4 +1,5 @@
 import {roomSeats,roomBeds,seatTransform} from './seating.js';
+import {boxes} from './model.js';
 
 // All existing activity controllers keep their own IK/path solver.
 // This common gate guarantees that their advertised station contracts refer
@@ -48,6 +49,22 @@ export function occupiedFurnitureChange(before,after,catalog,occupiedSeats=[]){
   const to=changed&&seatTransform(changed,catalog,occupied,true);
   if(!changed||fromItem.assetId!==toItem?.assetId||!from||!sameStationPose(from,to))
    return '座位或床位正在使用，请先让人物正常起身，再移动、收纳或遮挡这件家具';
+  // A newly added or moved object can strike a seated actor even when the
+  // seat itself hasn't moved. Check the NEW geometry, not an old nearby prop,
+  // so recoloring or unrelated furniture editing stays possible.
+  const hip=[from.position[0]-.38,Math.max(.18,from.position[1]-.28),from.position[2]-.38,
+   from.position[0]+.38,from.position[1]+.38,from.position[2]+.38];
+  const head=[from.position[0]-.54,from.position[1]+.38,from.position[2]-.54,
+   from.position[0]+.54,from.position[1]+1.28,from.position[2]+.54];
+  const intersects=(a,b)=>a[0]<b[3]&&a[3]>b[0]&&a[1]<b[4]&&a[4]>b[1]&&a[2]<b[5]&&a[5]>b[2];
+  for(const incoming of changed.items.filter(i=>!i.stored&&i.id!==occupied.itemId)){
+   const beforeItem=original.items.find(i=>i.id===incoming.id);
+   if(beforeItem&&!beforeItem.stored&&['assetId','x','y','z','rotation','supportId'].every(k=>beforeItem[k]===incoming[k]))continue;
+   const asset=catalog.find(a=>a.id===incoming.assetId);
+   if(!asset||['rug','ceiling'].includes(asset.surface))continue;
+   if(boxes(incoming,asset).some(bounds=>intersects(bounds,hip)||intersects(bounds,head)))
+    return '新放置或移动的家具会碰到正在使用座位的人物，请先让人物起身';
+  }
  }
  return '';
 }
