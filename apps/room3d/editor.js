@@ -807,7 +807,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const room=current(),options=activities().filter(a=>!a.reason&&a.roomId===room.id).map(a=>({kind:a.kind,label:a.label,data:{action:isBathAction(a.kind)?'chibi-bath':isMirrorAction(a.kind)?'chibi-mirror':'chibi-game',id:a.itemId,kind:a.kind,station:a.stationId||''}}));
   for(const item of room.items)for(const action of kitchenActions(room,catalog,item.id).filter(a=>!a.reason))options.push({kind:action.kind,label:action.label,data:{action:'chibi-kitchen',id:item.id,kind:action.kind}});
   for(const seat of roomSeats(room,catalog).filter(available))options.push({kind:'sit',label:'坐下休息',data:{action:'chibi-sit',id:seat.itemId,seat:seat.seatId}});
-  for(const plant of roomPlants(room,catalog,visitorClearance()).filter(p=>p.spot))options.push({kind:'water',label:'给植物浇水',data:{action:'chibi-water',id:plant.itemId}});
+  for(const plant of roomPlants(room,catalog,reachableWaterClearance()).filter(p=>p.spot))options.push({kind:'water',label:'给植物浇水',data:{action:'chibi-water',id:plant.itemId}});
   options.push({kind:'stand',label:'起身',target:'自己',data:{action:'chibi-stand'}});
   for(const bed of roomBeds(room,catalog).filter(available)){
    options.push({kind:'sleep',label:'上床休息',data:{action:'chibi-bed',id:bed.itemId,seat:bed.seatId}});
@@ -1195,7 +1195,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(visitorActivity.journeyStage!==stage){visitorActivity.journeyStage=stage;message=f.destination==='wardrobe'?(f.teleported?'通路不够，瞬移到衣柜挑衣服':'去衣柜挑一套衣服'):'回镜子前看看搭配';renderUI();}
    if(f.done){visitorActivity=null;visitorMotion='idle';visitorUntil=0;message='搭配好啦！';renderUI();}
   }
-  if(visitorPlant&&time>=4.4){visitorPlant=null;visitorMotion='idle';renderUI();}
+  if(visitorPlant&&time>=4.4){visitorPlant=null;visitorMotion='idle';const r=current();visitorLocation={x:resident.position.x+r.x*ROOM_STEP.x,z:resident.position.z+r.z*ROOM_STEP.z,level:r.level};renderUI();}
   if(visitorActivity&&!isSustainedFurnitureActivity(visitorActivity.kind)&&!visitorActivity.bathJourney&&!journey&&time>=furnitureActivitySeconds(visitorActivity.kind,visitorActivity.duration||12)){const bathing=isBathAction(visitorActivity.kind);if(bathing){bathroomEffects.clear();visitorActivity=null;visitorSeat=null;visitorMotion='idle';visitorUntil=0;placeVisitor();message='好啦，清清爽爽！';renderUI();}else{message=visitorActivity.kind==='eat'?'吃好啦，坐着歇一会儿':visitorActivity.kind==='mirror-admire'?'今天也很可爱呢':visitorActivity.kind==='mirror-outfit'?'搭配好啦，满意地转个身':'这一局结束啦';visitorActivity=null;visitorMotion='idle';visitorUntil=0;renderUI();}}
   if(heldPlush&&visitorMotion!=='hug')putPlushBack();
   const heldAsset=heldPlush&&asset(current().items.find(i=>i.id===heldPlush.itemId)?.assetId),hug=heldAsset&&(visitor?.rig?body2PlushPose(heldAsset,time,resident.worldToLocal(visitor.rig.bones.chest.getWorldPosition(new THREE.Vector3())).y):plushPose(heldAsset,time));
@@ -1247,6 +1247,9 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    // A running action cannot silently relocate to a different side of the plant.
    if(sameStationPose(visitorPlant.spot,spot)){resident.position.fromArray(spot.position);setResidentHeading(resident,spot.rotation);watering.update(elapsed-visitorStart,spot,visitor?.rig?kitchenHandPositions([]):null);return;}
    visitorPlant=null;visitorMotion='idle';visitor.animate(0,'idle');
+   // Keep the character at its last known standing position after cancellation.
+   const r=current();visitorLocation={x:resident.position.x+r.x*ROOM_STEP.x,z:resident.position.z+r.z*ROOM_STEP.z,level:r.level};
+   watering.root.visible=false;return;
   }
   watering.root.visible=false;
   const seat=resolvedVisitorSeat();
