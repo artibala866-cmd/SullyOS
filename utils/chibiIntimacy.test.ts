@@ -103,6 +103,21 @@ it('cancels an ongoing standing pair cleanly if a new observer blocks the occupi
  }finally{vi.unstubAllGlobals();}
 });
 
+it('carrier keeps both support palms near the actual recipient back and leg anchors across sizes',()=>{
+ for(const heights of [[1,1],[.8,1.25],[1.25,.8]]){
+  const a=actor(heights[0],-.4,0),b=actor(heights[1],.4,Math.PI);
+  a.reset();b.reset();poseIntimacy('home-princess-carry',[a,b],5);
+  const anchors=[
+   b.visitor.rig!.bones.spine.localToWorld(new T.Vector3(0,.10,-.16)),
+   b.visitor.rig!.bones.R_shin.localToWorld(new T.Vector3(0,.08,-.10)),
+  ];
+  for(const [i,side] of (['L','R'] as const).entries()){
+   const palm=a.visitor.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side));
+   expect(palm.distanceTo(anchors[i]),`carry hand ${side} heights ${heights}`).toBeLessThan(.12);
+  }
+ }
+});
+
 it('raises hands before contact, pats with one hand while the other supports, and returns smoothly when seeking',()=>{
  const both=[actor(1,-.33,0),actor(1.15,.33,Math.PI)];
  const sample=(time:number)=>{both.forEach(r=>r.reset());poseIntimacy('home-hug',both,time);return both.map(r=>Object.fromEntries(['L','R'].map(side=>[side,r.visitor.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side))])));};
