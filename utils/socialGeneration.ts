@@ -10,6 +10,21 @@ export function getSparkHandles(char: CharacterProfile, handles: Handles): SubAc
     return configured.length ? configured : [{ id: 'default', handle: char.socialProfile?.handle || char.name, note: '主账号' }];
 }
 
+/** Keep a character's publicly anonymous handles visually distinct from their main account. */
+export function getSparkAuthorAvatar(
+    character: CharacterProfile, authorName: string, handles: Handles, handleId?: string,
+): string {
+    const saved = getSparkHandles(character, handles);
+    const account = (handleId && saved.find(item => item.id === handleId)) ||
+        saved.find(item => normalizeName(item.handle) === normalizeName(authorName));
+    const id = handleId || account?.id;
+    const isMain = id === 'default' || (!handleId && account?.note === '主账号');
+    if (!id || isMain) return character.avatar;
+    // Stable across nickname changes; do not expose the main profile picture on an alt.
+    return 'https://api.dicebear.com/7.x/notionists/svg?seed=' +
+        encodeURIComponent('spark-alt:' + character.id + ':' + id);
+}
+
 /** All three generation paths share the same identity and persona contract. */
 export async function buildSparkGenerationContext(participants: CharacterProfile[], user: UserProfile, social: SocialAppProfile, handles: Handles,
     recentMessages: Record<string, Message[]> = {}, sparkMemories: Record<string, string[]> = {},
