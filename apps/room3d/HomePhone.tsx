@@ -5,7 +5,8 @@ import {CHAT_GEN_EVENTS,registerEmbeddedChatView} from '../../utils/chatGenEvent
 import {shareOrDownloadBlob} from '../../utils/shareExport';
 import {useOS} from '../../context/OSContext';
 import type {HomePhoneChatProps} from '../Chat';
-import React,{lazy,Suspense,useEffect,useRef,useState} from 'react';
+import React,{lazy,Suspense,useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {shouldMoveHomePhoneLauncherLeft} from './homePhoneLayout.js';
 import {Camera,ChatCircleDots,ArrowLeft,X,DownloadSimple} from '@phosphor-icons/react';
 import type {HomeEditor} from './editor';
 import './homePhone.css';
@@ -16,11 +17,64 @@ function PhoneArt(){return <svg viewBox="0 0 64 80" aria-hidden="true"><g transf
 
 export default function HomePhone({editor,characterId,onOpenChange,onBusyChange,onPhotoChange}:{onPhotoChange?:(active:boolean)=>void;onBusyChange?:(busy:boolean)=>void;editor:HomeEditor;characterId:string;onOpenChange:(open:boolean)=>void}){
  const [page,setPage]=useState<'closed'|'home'|'chat'|'photo'|'camera'>('closed'),[photo,setPhoto]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
- const [unread,setUnread]=useState(false),[visible,setVisible]=useState(!document.hidden);
+ const [unread,setUnread]=useState(false),[visible,setVisible]=useState(!document.hidden),[avoidResidentRail,setAvoidResidentRail]=useState(false);
  useEffect(()=>()=>onPhotoChange?.(false),[onPhotoChange]);
  useEffect(()=>{if(page==='chat')return registerEmbeddedChatView(characterId);},[page,characterId]);
  const pageRef=useRef(page);pageRef.current=page;
  const photoBlob=useRef<Blob>(),photoRef=useRef(''),alive=useRef(true),captureVersion=useRef(0),trigger=useRef<HTMLButtonElement>(null);
+ // Keep the floating phone launcher away from the actual resident portraits.
+ // Measure the preferred right-side slot, not the current slot, so the
+ // left-side fallback cannot oscillate back and forth.
+ useLayoutEffect(()=>{
+  if(page!=='closed')return;
+  const launch=trigger.current;
+  const container=launch?.closest<HTMLElement>('.home-island');
+  if(!launch||!container)return;
+  let raf=0,observedRail:HTMLElement|null=null;
+  let railMutation:MutationObserver|undefined;
+  const measure=()=>{
+   raf=0;
+   const current=trigger.current;
+   if(!current)return;
+   const rail=container.querySelector<HTMLElement>('.h3-resident-rail');
+   const residentRects=rail?[...rail.querySelectorAll<HTMLElement>('button[data-resident]')].filter(el=>el.getClientRects().length).map(el=>el.getBoundingClientRect()):[];
+   const bounds=container.getBoundingClientRect(),size=current.getBoundingClientRect();
+   const next=shouldMoveHomePhoneLauncherLeft({container:bounds,launcher:{width:size.width,height:size.height},residentRects});
+   setAvoidResidentRail(previous=>previous===next?previous:next);
+  };
+  const schedule=()=>{if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(measure);};
+  const observer=new ResizeObserver(schedule);
+  observer.observe(container);observer.observe(launch);
+  const observeRail=()=>{
+   const rail=container.querySelector<HTMLElement>('.h3-resident-rail');
+   if(rail===observedRail)return;
+   if(observedRail){
+    observer.unobserve(observedRail);
+    observedRail.removeEventListener('scroll',schedule);
+    railMutation?.disconnect();
+   }
+   observedRail=rail;
+   if(!rail)return;
+   observer.observe(rail);
+   rail.addEventListener('scroll',schedule,{passive:true});
+   railMutation=new MutationObserver(schedule);
+   railMutation.observe(rail,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
+  };
+  const containerMutation=new MutationObserver(()=>{observeRail();schedule();});
+  containerMutation.observe(container,{childList:true,subtree:true});
+  observeRail();
+  window.addEventListener('resize',schedule);
+  window.visualViewport?.addEventListener('resize',schedule);
+  measure();
+  return()=>{
+   if(raf)cancelAnimationFrame(raf);
+   containerMutation.disconnect();railMutation?.disconnect();
+   if(observedRail)observedRail.removeEventListener('scroll',schedule);
+   observer.disconnect();
+   window.removeEventListener('resize',schedule);
+   window.visualViewport?.removeEventListener('resize',schedule);
+  };
+ },[page,characterId]);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;captureVersion.current++;if(photoRef.current)URL.revokeObjectURL(photoRef.current);};},[]);
  const change=(next:typeof page)=>{if(next!==page){if(next==='home'&&page==='closed')trackHomeFeature('phone');else if(next==='chat')trackHomeFeature('phone-chat');else if(next==='camera')trackHomeFeature('camera');}captureVersion.current++;setPage(next);if(next==='chat'&&!document.hidden)setUnread(false);onOpenChange(next!=='closed');onPhotoChange?.(next==='camera');if(next==='closed')trigger.current?.focus();};
  useEffect(()=>{if(page==='closed'||page==='camera')return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape'){e.stopPropagation();change('closed');}};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[page]);
@@ -47,7 +101,7 @@ export default function HomePhone({editor,characterId,onOpenChange,onBusyChange,
  const shoot=async()=>{const version=++captureVersion.current;setBusy(true);setError('');try{const blob=await editor.capturePhoto();if(!alive.current||version!==captureVersion.current)return;if(photoRef.current)URL.revokeObjectURL(photoRef.current);photoBlob.current=blob;photoRef.current=URL.createObjectURL(blob);setPhoto(photoRef.current);setPage('photo');onOpenChange(true);}catch{if(alive.current)setError('没拍好，再试一次吧');}finally{if(alive.current)setBusy(false);}};
  if(page==='camera')return <HomePhotoMode editor={editor} onClose={()=>change('home')}/>;
  return <>
-  {page==='closed'&&<button ref={trigger} className={`home-phone-launch${unread&&visible?' is-buzzing':''}`} aria-label="打开小手机" onClick={()=>change('home')}><PhoneArt/>{unread&&<i className="home-phone-unread" aria-label="有新消息"/>}<span>小手机</span></button>}
+  {page==='closed'&&<button ref={trigger} className={`home-phone-launch${unread&&visible?' is-buzzing':''}${avoidResidentRail?' is-rail-avoiding':''}`} aria-label="打开小手机" onClick={()=>change('home')}><PhoneArt/>{unread&&<i className="home-phone-unread" aria-label="有新消息"/>}<span>小手机</span></button>}
   {page!=='closed'&&<section className={`home-phone${unread&&visible?' is-buzzing':''}`} role="dialog" aria-label="家园小手机">
    <div className="home-phone-top"><button aria-label="返回手机首页" onClick={()=>change('home')} disabled={page==='home'}><ArrowLeft size={17}/></button><span className="home-phone-speaker"/><button aria-label="收起小手机" onClick={()=>change('closed')}><X size={18}/></button></div>
    <div className="home-phone-screen">
