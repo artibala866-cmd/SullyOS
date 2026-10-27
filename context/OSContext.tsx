@@ -74,6 +74,7 @@ import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
 import { CHAT_GEN_EVENTS, setChatViewSnapshot, isEmbeddedChatVisible } from '../utils/chatGenEvents';
 import { buildChatRequestPayload } from '../utils/chatRequestPayload';
+import { isEmotionBuffEnabled } from '../utils/emotionFeature';
 import { ChatPrompts } from '../utils/chatPrompts';
 import { extractHtmlBlocks } from '../utils/htmlPrompt';
 import { mergePalaceFragmentsIntoMemories } from '../utils/memoryPalace/pipeline';
@@ -2492,7 +2493,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
               // 3c. 情绪评估 fire-and-forget — 与主 API 并行，沿用 useChatAI 的 API 选择逻辑：
               //     角色专属情绪 API > 主 apiConfig（与记忆宫殿副 API 完全独立）
-              if (!payload.flags.promptBuildSkipped && !isEmotionEvalSkipped() && isScheduleFeatureOn(char) && char.emotionConfig?.enabled) {
+              if (!payload.flags.promptBuildSkipped && !isEmotionEvalSkipped() && isEmotionBuffEnabled(char)) {
                   const emotionApi = (char.emotionConfig.api?.baseUrl)
                       ? char.emotionConfig.api
                       : { baseUrl: apiConfigRef.current.baseUrl, apiKey: apiConfigRef.current.apiKey, model: apiConfigRef.current.model };
@@ -3360,9 +3361,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const savePresets = (presets: ApiPreset[]) => { const normalized = presets.map(normalizeApiPreset); setApiPresets(normalized); localStorage.setItem('os_api_presets', JSON.stringify(normalized)); };
   const addCharacter = async () => {
     const name = 'New Character';
-    // 默认开启 emotionConfig.enabled，让"开日程 = 开情绪"这条隐含约定对新角色也成立。
-    // 真正的闸门是 (isScheduleFeatureOn && emotionConfig.enabled)，schedule 没开
-    // 时副 API 不会触发，所以这里默认 true 安全。
+    // 新角色情绪 Buff 默认关闭，由用户自行开启，避免额外 API 消耗。
     // 注意：memoryPalaceEnabled 不在这里默认开 —— 那是用户在记忆宫殿 App 显式 opt-in
     // 的功能，自动开会替用户决策。
     const newChar: CharacterProfile = {
@@ -3375,7 +3374,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       contextLimit: DEFAULT_MANUAL_CONTEXT_LIMIT,
       contextRangeMode: 'manual',
       contextRangePolicyVersion: CONTEXT_RANGE_POLICY_VERSION,
-      emotionConfig: { enabled: true },
+      emotionBuffEnabled: false,
+      emotionConfig: { enabled: false },
     };
     setCharacters(prev => [...prev, newChar]);
     setActiveCharacterId(newChar.id);

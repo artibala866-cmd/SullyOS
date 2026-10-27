@@ -3075,6 +3075,8 @@ export interface CharacterProfile {
     intervalMinutes: number; // 30, 60, 120, 240, etc.
   };
 
+  // 情绪 Buff 独立配置；旧 emotionConfig.enabled 不能视为用户主动开启。
+  emotionBuffEnabled?: boolean;
   // 情绪Buff系统
   activeMsg2Config?: ActiveMsg2CharacterConfig;
   activeBuffs?: CharacterBuff[];
@@ -3132,9 +3134,7 @@ export interface CharacterProfile {
   scheduleStyle?: 'lifestyle' | 'mindful';
 
   /**
-   * 日程 / 情绪 Buff 总开关。
-   * - true：启用日程生成、意识流、情绪 buff 评估与注入（消耗副 API）。
-   * - false：完全关闭，不调副 API，不注入情绪，不生成日程。
+   * 独立日程开关，控制日程生成与日程注入，不改变情绪 Buff。
    * - undefined：向后兼容——若 scheduleStyle 已设（老用户已隐式选风格）视为开启；否则默认关闭。
    */
   scheduleFeatureEnabled?: boolean;

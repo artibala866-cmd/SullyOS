@@ -28,6 +28,7 @@ import {HomePresenceBubbles,type HomeInitiativeRequest} from './HomePresenceBubb
 import HomeLifePanel from './HomeLifePanel';
 import HomeQualityTip from './HomeQualityTip';
 import {useHomeCompanion} from './useHomeCompanion';
+import {isEmotionBuffEnabled} from '../../utils/emotionFeature';
 import {HomeSpeechBubble} from './HomeSpeechBubble';
 
 export default function Home3DView({value,onChange,onBack,character,user,api,conversationContext,onDefinition,onFigures,parts:previewParts,hair:inputHair,suspended=false,residents=[],onEditor,presentation='home'}:{presentation?:'home'|'homely';value?:Home3DState;onChange:(value:Home3DState)=>void;onBack:()=>void;character?:CharacterProfile;user?:UserProfile;api?:APIConfig;conversationContext?:HomeConversationContext;onDefinition?:()=>void;onFigures?:()=>void;parts?:Parts;hair?:HairSettings;suspended?:boolean;residents?:HomeResidentOption[];onEditor?:(editor:HomeEditor)=>void}){
@@ -37,7 +38,7 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
  const host=useRef<HTMLDivElement>(null),save=useRef(onChange),back=useRef(onBack),initial=useRef(value);
  const [editor,setEditor]=useState<HomeEditor>(),[parts,setParts]=useState<Parts>(),[residentError,setResidentError]=useState('');
  const userAvatar=useBlobRefUrl(user?.avatar),characterAvatar=useBlobRefUrl(character?.avatar);
- useEffect(()=>{editor?.setResidentPortraits([{id:character?.id??'resident',label:character?.name??'小人',avatar:characterAvatar},...residents.map(r=>({id:r.id,label:r.label,avatar:r.id==='user'?userAvatar:r.avatar}))]);},[editor,character?.id,character?.name,characterAvatar,userAvatar,residents]);
+ useEffect(()=>{editor?.setResidentPortraits([{id:character?.id??'resident',label:character?.name??'小人',avatar:characterAvatar,buffs:isEmotionBuffEnabled(character)?(character?.activeBuffs||[]).map(b=>({emoji:b.emoji,label:b.label,intensity:b.intensity})):[]},...residents.map(r=>({id:r.id,label:r.label,avatar:r.id==='user'?userAvatar:r.avatar}))]);},[editor,character?.id,character?.name,character?.emotionBuffEnabled,character?.activeBuffs,characterAvatar,userAvatar,residents]);
  useEffect(()=>{if(editor&&!suspended&&!entryTracked.current){entryTracked.current=true;trackHomeEntry(presentation);}},[editor,suspended,presentation]);
  const [bodyOverride,setBodyOverride]=useState<'blank'|'classic'>(),[mainReady,setMainReady]=useState(false);
  const {away,currentSchedule}=useHomeSchedule(editor,character,mainReady,suspended);

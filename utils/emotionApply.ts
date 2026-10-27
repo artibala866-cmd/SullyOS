@@ -1,4 +1,5 @@
 import { DB } from './db';
+import { isEmotionBuffEnabled } from './emotionFeature';
 import {parseHomeEmotion} from './homeEmotion';
 import type { CharacterProfile, CharacterBuff } from '../types';
 import { CHAT_GEN_EVENTS } from './chatGenEvents';
@@ -383,6 +384,9 @@ export async function applyEmotionEvalRaw(
     secretOrigin?: SecretNoteOrigin,
 ): Promise<string | null> {
     try {
+        // An old cloud/local evaluation may return after the switch is turned off.
+        const latest = await DB.getCharacter(charData.id);
+        if (!isEmotionBuffEnabled(latest)) return null;
         const result = parseEmotionEvalOutput(rawText || '');
         if (!result) {
             const requestId = secretRequestId || homeSecretEvalRequestId(rawText);
@@ -436,6 +440,7 @@ export async function applyEmotionEvalRaw(
         // buffs 缺失但 injection 在场 (抢救场景) → 保留旧 buffs, 只换 injection.
         const sanitizedBuffs = hasBuffArray ? sanitizeBuffs(result.buffs) : (charData.activeBuffs || []);
         const buffInjection = hasInjection ? result.injection! : (hasBuffArray ? '' : (charData.buffInjection || ''));
+        if (!isEmotionBuffEnabled(await DB.getCharacter(charData.id))) return null;
         await DB.saveCharacterEmotion(charData.id, sanitizedBuffs, buffInjection);
 
         // detail 直接带上 buffs + buffInjection: 监听方 (Chat) 可直接落 OSContext, 不必重读 DB

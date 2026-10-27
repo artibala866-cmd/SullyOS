@@ -1,10 +1,10 @@
 import type { CharacterProfile } from '../types';
 
 /**
- * 日程 / 情绪 buff 总开关判定。
+ * 日程功能开关判定，独立于情绪 Buff。
  * - 显式为 true / false 时直接使用。
  * - undefined 时走向后兼容：老用户若已选了 scheduleStyle，视为开启；否则默认关闭。
- * 任何副 API 调用、情绪评估、日程注入之前都应先过此闸门。
+ * 此判断只用于日程逻辑；情绪评估由 isEmotionBuffEnabled 控制。
  */
 export function isScheduleFeatureOn(
     char: Pick<CharacterProfile, 'scheduleFeatureEnabled' | 'scheduleStyle'> | null | undefined,

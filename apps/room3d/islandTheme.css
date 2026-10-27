@@ -167,3 +167,7 @@
 .home-island .h3-home-map .h3-room-star svg{width:100%;height:100%;display:block}
 
 .home-island .h3-resident-rail .h3-summon-all{border-radius:16px;font-size:10px;line-height:1.35;height:48px}.home-island .h3-resident-rail>button>svg{width:26px;height:26px;margin:auto}.home-island .h3-top .h3-title .h3-schedule-label{display:block!important;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}.home-island .h3-top .h3-title .h3-schedule-label:empty{display:none!important}
+
+/* Current Char emotion Buff; the portrait retains its camera-centering click behavior. */
+.home-island .h3-resident-buff{position:absolute;right:0;bottom:-2px;display:flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 2px;border:1px solid var(--animal-border-color);border-radius:12px;background:var(--animal-bg-color);box-shadow:0 2px 5px #0002;font-size:13px;line-height:1;pointer-events:none}
+.home-island .h3-resident-buff small{font-size:8px;margin-left:1px}

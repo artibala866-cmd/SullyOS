@@ -156,11 +156,12 @@ interface ChatModalsProps {
         waterlineAlreadyAhead: boolean;
     } | null;
     onForceVectorize?: () => void;
-    // Emotion (embedded under schedule modal, synced on/off with scheduleStyle)
+    // Per-character independent emotion Buff setting
     apiPresets?: ApiPreset[];
     onAddApiPreset?: (name: string, config: APIConfig) => void;
     onSaveEmotion?: (config: NonNullable<CharacterProfile['emotionConfig']>) => void;
     onClearBuffs?: () => void;
+    onToggleEmotion?: (enabled: boolean) => void;
 }
 
 interface TranslationLanguagePickerProps {
@@ -274,7 +275,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     isScheduleFeatureEnabled, onToggleScheduleFeature,
     isMemoryPalaceEnabled, isVectorizing, vectorizePendingCount, vectorizeProgress,
     retainRecentForVectorize, setRetainRecentForVectorize, vectorizeResult, onForceVectorize,
-    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs,
+    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs, onToggleEmotion,
 }) => {
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
     const [historyPage, setHistoryPage] = useState(0);
@@ -649,6 +650,13 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             )}
                         </div>
                     </ChatSettingsSection>
+                    {onToggleEmotion && onSaveEmotion && onClearBuffs && onAddApiPreset && (
+                        <ChatSettingsSection title="情绪 Buff" summary="独立开关、副 API 与当前情绪">
+                            <EmotionSettingsPanel char={activeCharacter} apiPresets={apiPresets || []}
+                                addApiPreset={onAddApiPreset} onSave={onSaveEmotion}
+                                onToggle={onToggleEmotion} onClearBuffs={onClearBuffs} />
+                        </ChatSettingsSection>
+                    )}
                     <ChatSettingsSection title="扩展功能" summary="小红书与 HTML 卡片">
                         {/* XHS Toggle */}
                         <div className="pt-2 border-t border-slate-100">
@@ -1257,16 +1265,6 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 点击日程项可编辑 · 长按可删除
                             </p>
 
-                            {/* 情绪 / 意识流 API — 与日程强制同步 */}
-                            {activeCharacter && apiPresets && onAddApiPreset && onSaveEmotion && onClearBuffs && (
-                                <EmotionSettingsPanel
-                                    char={activeCharacter}
-                                    apiPresets={apiPresets}
-                                    addApiPreset={onAddApiPreset}
-                                    onSave={onSaveEmotion}
-                                    onClearBuffs={onClearBuffs}
-                                />
-                            )}
                         </>
                     )}
                 </div>
