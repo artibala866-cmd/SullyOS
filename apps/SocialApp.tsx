@@ -15,7 +15,7 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost } from '../utils/socialFeedMerge';
-import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey } from '../utils/sparkCommunity';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
@@ -199,10 +199,11 @@ const SocialApp: React.FC = () => {
             const handles = post.authorCharId
                 ? (characterHandles[post.authorCharId] || []) : [];
             const handleId = resolveSparkCharacterHandleId(post.authorCharId, post.authorId, post.authorName, handles);
+            const currentName = getSparkCanonicalAccountName(post.authorName, post.authorId, handleId, handles, state.accounts);
             const result = ensureSparkAccount(state, {
                 type, id: post.authorId,
                 ownerCharId: type === 'character' ? post.authorCharId : undefined,
-                handleId, displayName: post.authorName, avatar: post.authorAvatar,
+                handleId, displayName: currentName, avatar: post.authorAvatar,
             }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2), post.timestamp);
             state = result.state;
             const owner = type === 'character' ? characters.find(char => char.id === post.authorCharId) : undefined;
@@ -212,18 +213,19 @@ const SocialApp: React.FC = () => {
                 const commentType: SparkAccountType = comment.authorType || (comment.authorCharId ? 'character' : comment.id.startsWith('cmt-user-') ? 'user' : 'stranger');
                 const commentHandles = comment.authorCharId ? (characterHandles[comment.authorCharId] || []) : [];
                 const commentHandleId = resolveSparkCharacterHandleId(comment.authorCharId, comment.authorId, comment.authorName, commentHandles);
+                const currentCommentName = getSparkCanonicalAccountName(comment.authorName, comment.authorId, commentHandleId, commentHandles, state.accounts);
                 const registeredComment = ensureSparkAccount(state, {
                     type: commentType, id: comment.authorId,
                     ownerCharId: commentType === 'character' ? comment.authorCharId : undefined,
-                    handleId: commentHandleId, displayName: comment.authorName, avatar: comment.authorAvatar,
+                    handleId: commentHandleId, displayName: currentCommentName, avatar: comment.authorAvatar,
                 }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2), comment.timestamp || post.timestamp);
                 state = registeredComment.state;
                 const commentOwner = commentType === 'character' ? characters.find(char => char.id === comment.authorCharId) : undefined;
                 const safeCommentAvatar = commentOwner && commentHandleId ? getSparkAuthorAvatar(commentOwner, comment.authorName, characterHandles, commentHandleId) : undefined;
                 const commentAvatar = safeCommentAvatar && commentOwner && comment.authorAvatar === commentOwner.avatar ? safeCommentAvatar : comment.authorAvatar;
-                return { ...comment, authorId: registeredComment.account.id, authorType: registeredComment.account.type, authorAvatar: commentAvatar };
+                return { ...comment, authorId: registeredComment.account.id, authorType: registeredComment.account.type, authorName: currentCommentName, authorAvatar: commentAvatar };
             });
-            return { ...post, authorId: result.account.id, authorType: result.account.type, authorAvatar, comments,
+            return { ...post, authorId: result.account.id, authorType: result.account.type, authorName: currentName, authorAvatar, comments,
                 source: post.source || (result.account.type === 'user' ? 'user' : 'legacy') } as SocialPost;
         });
         if (state !== communityRef.current) writeCommunity(state);
