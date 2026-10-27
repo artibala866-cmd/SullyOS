@@ -69,7 +69,6 @@ import {
   loadCharacterContextRange,
   migrateCharacterContextRange,
 } from '../utils/chatContextRange';
-import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
 import { CHAT_GEN_EVENTS, setChatViewSnapshot, isEmbeddedChatVisible } from '../utils/chatGenEvents';
