@@ -24,6 +24,9 @@ import { MomentsTimeline } from './MomentsTimeline';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment, deleteCharacterMoment, addMomentComment, type CharacterMoment } from '../../utils/characterPhoneMoments';
 import { PENDING_PHONE_CONTACTS_CHANGED, readPendingContacts, writePendingContacts, type PendingPhoneContact } from '../../utils/characterPhoneRequests';
 import { DB } from '../../utils/db';
+import { ChatPrompts } from '../../utils/chatPrompts';
+import { ContextBuilder } from '../../utils/context';
+import { resolveCharTimeZone } from '../../utils/timezone';
 import { mirrorPrivateChat } from '../../utils/characterPhonePrivateSync';
 import {HOME_HISTORY_COMMITTED} from '../../utils/secretNote';
 import type { PhoneThreadV2 } from '../../utils/characterPhoneModel';
@@ -396,16 +399,49 @@ export default function CharacterPhone({
     setBusy(true); setError('');setWechatNotice('');
     try {
       const context = await loadRealContext();
-      const existing = records.map(r => ({ id:r.contactId || r.id, name:r.name, recent:r.messages.slice(-6).map(m=>({role:m.speaker?.role,text:m.text})) }));
+      const phoneTimeAwarenessOn = char.timeAwarenessEnabled !== false;
+      const phoneTimeZone = resolveCharTimeZone(char);
+      // The shared prompt places its volatile clock after the stable persona/worldbook prefix.
+      // Preserve that clock explicitly when the long prompt is shortened for the phone API.
+      const timeBlockMatch = context.systemPrompt.match(/### 当前时间 \(Now\)\n[\s\S]*?(?=\n\n|$)/);
+      const phoneTimeBlock = phoneTimeAwarenessOn
+        ? ContextBuilder.buildTimeAwarenessBlock(char).trim()
+        : '';
+      const contextWithoutTime = timeBlockMatch
+        ? context.systemPrompt.replace(timeBlockMatch[0], '')
+        : context.systemPrompt;
+      const systemContext = contextWithoutTime.length > 36000
+        ? `${contextWithoutTime.slice(0, 30000)}\n[中间上下文因长度限制省略]\n${contextWithoutTime.slice(-6000)}`
+        : contextWithoutTime;
+      const formatPhoneTimestamp = (value: unknown) =>
+        phoneTimeAwarenessOn && typeof value === 'number' && Number.isFinite(value)
+          ? ChatPrompts.formatDate(value, phoneTimeZone)
+          : undefined;
+      const existing = readCharacterPhoneChats(characterId).map(r => {
+        const lastMessageAt = formatPhoneTimestamp(r.time);
+        return {
+          id: r.contactId || r.id,
+          name: r.name,
+          ...(lastMessageAt ? { lastMessageAt } : {}),
+          recent: r.messages.slice(-6).map(m => {
+            const at = formatPhoneTimestamp(m.createdAt);
+            return { ...(at ? { at } : {}), role: m.speaker?.role, text: m.text };
+          }),
+        };
+      });
+      const phoneTimeGuidance = phoneTimeAwarenessOn
+        ? `【本次手机生成的角色本地时钟】\n${phoneTimeBlock || '角色本地当前时间不可用，不要猜测具体日期或时刻。'}\n以这里的日期、星期、时刻和时区为准。生成前先结合已有消息时间、日程计划和已发生的生活经历选择话题；优先延续未完对话，不要按固定循环随机换联系人/话题、重复寒暄或编造刚发生的事。日程只是计划，不能写成已经发生的事实；没有自然契机时可以少生成或返回空列表。`
+        : '【时间感知已关闭】不要声称知道当前具体日期或时刻；仍需依据已有对话自然延续，不要随机换话题或把日程计划当作事实。';
       // Only an explicit manual action or a budgeted scheduled runner may call this generator;
       // reserve one shared API token immediately before the provider call.
       if (automatic && !reservePhoneApiBudget(characterId)) return;
       const { response, json } = await fetchCharacterPhoneJson(phoneApi.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+phoneApi.apiKey},
         body:JSON.stringify({model:phoneApi.model,stream:false,temperature:0.8,messages:[
-          {role:'system',content:`以下是私聊真实的角色系统上下文（包括世界书、性格、生活状态）：${context.systemPrompt.slice(0,36000)}。
+          {role:'system',content:`以下是私聊真实的角色系统上下文（包括世界书、性格、生活状态）：${systemContext}。
 你只负责补充手机主人Char（ID:${characterId}）的微信收件箱；不要代替User说话，也不要生成User聊天框，它从真实私聊数据库同步。
 ${scheduleContext}
+${phoneTimeGuidance}
 微信生成偏好：${JSON.stringify(prefs)}。
 已有会话：${JSON.stringify(existing).slice(0,6500)}
 已确认联系人：${JSON.stringify(profiles.map(p=>({id:p.id,nickname:p.nickname||p.name,realName:p.realName,identity:p.identity,relationship:p.relationship,personality:p.personality}))).slice(0,6500)}

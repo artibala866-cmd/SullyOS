@@ -140,7 +140,19 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(frameErrorStreak===1||frameErrorStreak>=3)console.error('[Home3D] frame failed; attempting recovery',error);
   if(frameErrorStreak<3)return true;
   frameErrorStreak=0;
-  if(!frameRetryTimer)frameRetryTimer=window.setTimeout(()=>{frameRetryTimer=0;if(!destroyed&&!suspended&&!document.hidden&&!gpuContextLost){lastTick=performance.now();dirty=true;wake();}},600);
+  showContextRecovery();
+  if(!frameRetryTimer)frameRetryTimer=window.setTimeout(()=>{
+   frameRetryTimer=0;
+   if(destroyed||suspended||document.hidden||gpuContextLost)return;
+   try{
+    const gl=renderer.getContext?.();
+    if(gl?.isContextLost?.()){renderer.forceContextRestore?.();return;}
+    renderer.resetState();resize();lastTick=performance.now();dirty=true;wake();
+   }catch(retryError){
+    console.warn('[Home3D] automatic frame recovery failed',retryError);
+    showContextRecovery();
+   }
+  },600);
   return false;
  }
  const materialCache=new Map(),usedMaterials=new Set(),paintTargets=new Map(),defaultPaintColors=new Map();
@@ -2078,8 +2090,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   let overlay=host.querySelector('.h3-context-recovery');
   if(!overlay){
    overlay=document.createElement('div');overlay.className='h3-context-recovery';overlay.setAttribute('role','status');
-   overlay.innerHTML='<p>3D 画面暂时中断，正在尝试恢复…</p><button type="button">再试一次</button>';
-   overlay.querySelector('button').addEventListener('click',()=>{try{renderer.forceContextRestore?.();}catch(error){console.warn('[Home3D] manual WebGL restore attempt failed',error);}});
+   overlay.innerHTML='<p>3D 画面暂时异常，正在尝试恢复…</p><button type="button">重新尝试</button>';
+   overlay.querySelector('button').addEventListener('click',()=>{
+    clearTimeout(frameRetryTimer);frameRetryTimer=0;
+    try{
+     const gl=renderer.getContext?.();
+     if(gpuContextLost||gl?.isContextLost?.()){renderer.forceContextRestore?.();return;}
+     renderer.resetState();resize();frameErrorStreak=0;lastTick=performance.now();dirty=true;hideContextRecovery();wake();
+    }catch(error){console.warn('[Home3D] manual frame recovery attempt failed',error);}
+   });
    host.append(overlay);
   }
   overlay.hidden=false;
@@ -2113,7 +2132,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(photoSession){
    lastTick=now;
    if(dirty){
-    try{renderScene();dirty=false;frameErrorStreak=0;}
+    try{renderScene();dirty=false;frameErrorStreak=0;hideContextRecovery();}
     catch(error){if(recoverFrameFailure(error))wake();}
    }
    return;
@@ -2138,7 +2157,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(acting&&!companionRise&&!(companionTravel&&!furnitureUser))animateVisitor(elapsed-visitorStart);
    animateIdleResidents();animateParkedCharacter();if(furnitureUser)animateConversation();animateCompanionIdle();animateCompanionPhone();animateUserSpeech();if(separateResidentBodies(dt))dirty=true;faceNearbyResidents();faceConversationPartner();
    settling=controls.update();if(dirty||homelyAttention||homelyMusic.playing&&!reducedMotion||homelyPoke||breathing||acting||hasIdleResidents()||drag||walkFeedback.active){
-     renderScene();frameErrorStreak=0;renderedFrames++;dirty=false;lastDraw=now;
+     renderScene();frameErrorStreak=0;hideContextRecovery();renderedFrames++;dirty=false;lastDraw=now;
      // Do not alter rigs or action clips. Only ease the mobile GPU framebuffer.
      const scale=resolutionBudget.observe({now,frameMs:Math.max(frameSpacing,performance.now()-workStart),active:!!(greeting||cameraArrival||acting||hasIdleResidents()||homelyAttention||breathing||socialRuntime?.active)});
      if(scale!==null&&!photoSession){renderer.setPixelRatio(roomPixelRatio(quality,devicePixelRatio,touch||phone)*scale);dirty=true;}

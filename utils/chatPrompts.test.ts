@@ -147,3 +147,24 @@ describe('score_card 兜底：没被认领的卡片', () => {
         expect(payload).not.toContain('AAAA');
     });
 });
+
+
+describe('私聊时间间隔提示定位', () => {
+    it('主动消息追加在本轮用户消息之后时，仍把间隔提示附加到本轮用户消息', () => {
+        const now = Date.now();
+        const day = 24 * 60 * 60 * 1000;
+        const history = [
+            { id: 201, charId: 'c1', role: 'assistant', type: 'text', content: '上次我们聊到旅行。', timestamp: now - 4 * day },
+            { id: 202, charId: 'c1', role: 'user', type: 'text', content: '你在吗？', timestamp: now },
+            { id: 203, charId: 'c1', role: 'assistant', type: 'text', content: '我刚收到你的消息。', timestamp: now + 1000, metadata: { proactiveHint: true } },
+        ] as any[];
+        const { apiMessages } = ChatPrompts.buildMessageHistory(
+            history, 10, { ...char, timeAwarenessEnabled: true }, userProfile, [], undefined,
+            { currentUserMessageId: 202 },
+        );
+        const userMessage = apiMessages.find(m => typeof m.content === 'string' && m.content.includes('你在吗？'));
+        const trailingAssistant = apiMessages.find(m => typeof m.content === 'string' && m.content.includes('我刚收到你的消息。'));
+        expect(userMessage?.content).toContain('距离上一条消息: 4 天');
+        expect(trailingAssistant?.content).not.toContain('距离上一条消息:');
+    });
+});

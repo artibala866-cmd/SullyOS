@@ -110,17 +110,17 @@ it('home includes the same live task list and receipts as ChatApp, and acknowled
  await expect(generateHomeReply(args)).rejects.toThrow('503');expect(mark).not.toHaveBeenCalled();
 });
 
-it('home retains SAR module state while using its own JSON output protocol',async()=>{
- const {installSARModuleOnCharacter,installSARModuleOnUser}=await import('./vrWorld/sarModuleRuntime');
- const {SAR_MODULE_CATALOG}=await import('./vrWorld/sarModuleShop');
- const char:any={id:'home-sar',name:'C',vrState:{enabled:true,sarModule:installSARModuleOnCharacter(SAR_MODULE_CATALOG[0],1)}};
- const sarUser:any={...user,vrState:{enabled:true,sarModule:installSARModuleOnUser(SAR_MODULE_CATALOG[1],char,1)}};
+it('home ignores retired SAR module state in legacy profiles without losing the home response protocol',async()=>{
+ const char:any={id:'home-sar-retired',name:'C',vrState:{enabled:true,sarModule:{name:'legacy-sar-injected-marker'}}};
+ const sarUser:any={...user,vrState:{enabled:true,sarModule:{name:'legacy-sar-injected-marker'}}};
  const records:any[]=[{id:'input',at:Date.now(),actor:'user',kind:'message',source:'user',text:'你在做什么',roomId:'r',roomName:'客厅'}];
  const home=await buildHomeConversationPayload({char,user:sarUser,scene,records,api:{} as any,signal:new AbortController().signal});
- const state=ContextBuilder.buildSARModuleContext(char,sarUser,'home');
- expect(state).toContain('SAR 临时模块');
- expect(ContextBuilder.buildSARModuleContext(char,sarUser,'chat')).toContain(state.trim());
- expect(JSON.stringify(home)).toContain('SAR 临时模块');expect(JSON.stringify(home)).not.toContain('<SAR_MODULE_OUTPUT>');
+ expect(ContextBuilder.buildSARModuleContext(char,sarUser,'home')).toBe('');
+ expect(ContextBuilder.buildSARModuleContext(char,sarUser,'chat')).toBe('');
+ const text=JSON.stringify(home);
+ expect(text).not.toContain('legacy-sar-injected-marker');
+ expect(text).not.toContain('<SAR_MODULE_OUTPUT>');
+ expect(home.at(-1)?.content).toContain(buildHomeScenePrompt(sarUser,scene));
 });
 
 it.each([-1,0])('retains ChatApp music context when the active lyric index is %s',async activeLyricIdx=>{
