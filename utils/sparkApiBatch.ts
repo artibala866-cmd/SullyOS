@@ -36,3 +36,13 @@ export function parseSparkPostPublishBatch(value: unknown): { comments: unknown[
         incomingDMs: Array.isArray(parsed.incomingDMs) ? parsed.incomingDMs : [],
     };
 }
+
+/** An already-paid initial batch counts as attempted even when no valid comments returned. */
+export function needsSparkInitialCommentCall(post: {
+    sparkInitialCommentsHandled?: boolean;
+    comments?: Array<{ authorType?: string; authorId?: string }>;
+}): boolean {
+    if (post.sparkInitialCommentsHandled) return false;
+    return !(post.comments || []).some(comment =>
+        comment.authorType !== 'user' && comment.authorId !== 'user');
+}
