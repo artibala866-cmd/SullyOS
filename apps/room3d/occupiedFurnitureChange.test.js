@@ -70,6 +70,12 @@ describe('undo/redo restores layout without relocating a standing resident',()=>
   expect(standingFurnitureChange(original,moved,catalog,{...actor,width:2.2})).toContain('站立的人物');
   expect(standingFurnitureChange(original,moved,catalog,{...actor,roomId:'other'})).toBe('');
  });
+ it('sizes vertical collision clearance to the actual actor rather than a fixed height',()=>{
+  const highShelf={id:'high-shelf',assetId:'bookcase',x:0,y:1.5,z:0,rotation:0,stored:false};
+  const next=edit(items=>items.push(highShelf));
+  expect(standingFurnitureChange(original,next,catalog,{...actor,headBottom:.5,headTop:1.2})).toBe('');
+  expect(standingFurnitureChange(original,next,catalog,{...actor,headBottom:.9,headTop:2.3})).toContain('站立的人物');
+ });
  it('orders standing collision checks before cancelling work, and preserves position on history',()=>{
   const source=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
   const commit=source.slice(source.indexOf('function commit(mutator,'),source.indexOf('function applyColor('));
