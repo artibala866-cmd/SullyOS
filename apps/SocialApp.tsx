@@ -781,7 +781,7 @@ const SocialApp: React.FC = () => {
     };
 
     const toggleFollowAccount = (accountId: string, displayName: string) => {
-        if (!communityLoaded || !accountId || accountId === 'user') return;
+        if (!accountId || accountId === 'user') return;
         const result = toggleSparkFollow(communityStateRef.current, 'user', accountId, Date.now(), createSparkId('event'));
         if (result.action === 'noop') return;
         updateCommunityState(result.state);
@@ -953,7 +953,8 @@ const SocialApp: React.FC = () => {
     "authorName": "必须填身份表中定义的【网名】",
     "title": "简短吸睛的标题",
     "content": "正文内容...",
-    "emojis": ["🎈", "✨"]
+    "emojis": ["🎈", "✨"],
+    "tags": ["与正文相关的话题1", "与正文相关的话题2"]
   },
   ...
 ]`;
@@ -986,6 +987,9 @@ const SocialApp: React.FC = () => {
                 // Normalize emoji content. AI usually returns real emoji chars; fall back to a ✨ char (not codepoint) for safety.
                 const rawEmojis = Array.isArray(item.emojis) && item.emojis.length > 0 ? item.emojis : ['✨'];
                 const images = rawEmojis.map((e: any) => codepointToEmoji(String(e ?? '✨')));
+                const tags = Array.isArray(item.tags)
+                    ? [...new Set(item.tags.filter((tag: any) => typeof tag === 'string').map((tag: string) => tag.trim().replace(/^#/, '').slice(0, 20)).filter(Boolean))].slice(0, 4)
+                    : [];
                 return [{
                     id: `post-${Date.now()}-${Math.random()}`,
                     authorName: item.authorName || 'Unknown',
@@ -998,7 +1002,7 @@ const SocialApp: React.FC = () => {
                     isLiked: false,
                     comments: [],
                     timestamp: Date.now(),
-                    tags: ['Life', 'Vlog'],
+                    tags: tags.length ? tags : ['日常'],
                     bgStyle: getRandomStyle().bg,
                     authorType: isCharacterPost ? 'character' as const : 'stranger' as const,
                     authorCharId: matchedChar?.id,
