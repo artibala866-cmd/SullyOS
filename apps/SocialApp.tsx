@@ -15,7 +15,7 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost } from '../utils/socialFeedMerge';
-import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount } from '../utils/sparkCommunity';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
@@ -278,6 +278,13 @@ const SocialApp: React.FC = () => {
         localStorage.setItem('spark_notifications', JSON.stringify(next));
         return next;
     });
+    // Continue to render legacy notices, but mirror their precise IDs/read-state
+    // into the existing community store for consistent later account/event reads.
+    useEffect(() => {
+        const next = syncSparkLegacyNotices(communityRef.current, notices);
+        if (next !== communityRef.current) writeCommunity(next);
+    }, [notices, communityState.accounts]);
+
 
     // Notifications represent named simulated interactions, never anonymous aggregate traffic.
     const [simulatedFollows, setSimulatedFollows] = useState<string[]>(() => {
