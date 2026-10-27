@@ -76,6 +76,22 @@ function texture(color){
    report.seat=!!state.chibiSeat&&!state.seatChange;
   }
   if(!report.seat)throw Error('Character failed seat transition even under 20Hz controlled simulation');
+  // A seat is not completed until the same actor can rise, reclaim its floor
+  // access and sit down again without a stale occupied slot.
+  const stand=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+  if(!stand)throw Error('No stand action after seating');
+  report.standRequest=editor.performHomeAction(stand.id,'model');
+  editor.advancePets(3);
+  let post=editor.inspect();
+  report.exit=!post.chibiSeat&&!post.seatChange;
+  if(!report.exit)throw Error('Seated character could not exit via existing stand controller');
+  const repeat=editor.getHomeScene().actions.find(a=>a.kind==='sit');
+  if(!repeat)throw Error('Seat remained unavailable after standing');
+  report.repeatRequest=editor.performHomeAction(repeat.id,'model');
+  editor.advancePets(12);
+  post=editor.inspect();
+  report.repeat=!!post.chibiSeat&&!post.seatChange;
+  if(!report.repeat)throw Error('Seat could not be reused after exit');
   const scene=editor.inspect();
   report.posture=scene.chibiPosture;
   report.position=scene.residentPositions?.[0]?.position?.map(n=>Math.round(n*100)/100);
