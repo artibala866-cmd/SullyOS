@@ -366,8 +366,12 @@ export function ensureSparkAccount(
         ...(candidate.bio ? { bio: candidate.bio } : existing?.bio ? { bio: existing.bio } : {}),
         interests: uniqueStrings([...(existing?.interests || []), ...(candidate.interests || [])]),
         createdAt: existing?.createdAt ?? now,
-        lastActiveAt: now,
+        // Reading an older saved note is not a new activity; do not roll the account clock back.
+        lastActiveAt: Math.max(existing?.lastActiveAt || 0, now),
     };
+    if (existing && JSON.stringify(existing) === JSON.stringify(account)) {
+        return { state, account: existing };
+    }
     const accounts = existing
         ? state.accounts.map(item => item.id === existing.id || item.id === id ? account : item)
         : [...state.accounts, account];
