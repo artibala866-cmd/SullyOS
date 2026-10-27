@@ -2,6 +2,7 @@ import {describe,it,expect} from 'vitest';
 import {furniturePointIssue,usableFurniturePoints,furniturePointAudit} from './furniturePointRegistry.js';
 import catalog from '../../public/room3d/catalog.json';
 import {furnitureInteractions} from './furnitureInteractions.js';
+import {readFileSync} from 'node:fs';
 
 describe('home3d furniture point coverage (metadata only, not visual QA)',()=>{
  it('accounts for every catalog entry and does not report mesh review as completed',()=>{
@@ -33,6 +34,9 @@ describe('home3d furniture point coverage (metadata only, not visual QA)',()=>{
   const room={id:'r',items:[{id:'single',assetId:'bedroom_single_bed',
    x:0,y:.18,z:0,rotation:0,stored:false}]};
   expect(furnitureInteractions(room,catalog,'single').some(a=>a.action==='chibi-bed'&&!a.reason)).toBe(true);
+  const source=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
+  expect(source).toContain("restrictedBed?'床位暂未开放'");
+  expect(source).toContain("restrictedBed?'缺少安全进出动作，点下方查看原因'");
  });
 
 });
