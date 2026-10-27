@@ -1,4 +1,3 @@
-import { ContextBuilder } from '../utils/context';
 import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSparkTrafficLocalDay, type SparkTraffic } from '../utils/sparkTraffic';
 import { chooseSparkStock } from '../utils/sparkStock';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
@@ -7,7 +6,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { AppID, CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile, XhsStockImage } from '../types';
-import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants, containsSparkPrivateQuote, getSparkAuthorAvatar } from '../utils/socialGeneration';
+import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants, containsSparkPrivateQuote, getSparkAuthorAvatar, buildSparkGenerationRequestMessages } from '../utils/socialGeneration';
 import { processImageToBlob } from '../utils/file';
 import { putImageBlob } from '../utils/blobRef';
 import Modal from '../components/os/Modal';
@@ -1082,15 +1081,8 @@ const SocialApp: React.FC = () => {
         return buildSparkGenerationContext(participants.map(char => ({ ...char, mountedWorldbooks: worldbooks.filter(wb => sparkWorldbookIds.includes(wb.id) && !wb.disable).map(wb => ({ ...wb })) })), userProfile, socialProfile, characterHandles, Object.fromEntries(recent), sparkMemoriesRef.current);
     };
 
-    const buildGenerationMessages = (members: CharacterProfile[], context: string, prompt: string) => {
-        const history = [{ role: 'user', content: prompt }];
-        // The group worldbook assembler embeds every member's private books into
-        // one model request. Never use it for public multi-character generations.
-        if (members.length > 1) return [{ role: 'system', content: context }, ...history];
-        return ContextBuilder.buildGroupWorldbookRequest({ members, user: userProfile, history,
-            render: (slots, turns) => [{ role: 'system', content: slots.before + context + slots.after }, ...turns],
-        });
-    };
+    const buildGenerationMessages = (members: CharacterProfile[], context: string, prompt: string) =>
+        buildSparkGenerationRequestMessages(members, userProfile, context, prompt);
 
     const isFollowing = (handle: string, id?: string): boolean => {
         const account = resolveSparkDMAccount(communityState.accounts, handle, id);
