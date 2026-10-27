@@ -364,3 +364,43 @@ describe('Spark read-post recommendation consistency', () => {
         expect(markSparkPostSeen(first, 'post-2').seenPostIds).toEqual(['post-1', 'post-2']);
     });
 });
+
+describe('Spark NPC autonomous engagement bookkeeping', () => {
+    it('increments likes only once for a stable actor, retaining the existing total', async () => {
+        const { applySparkNpcLike } = await import('./sparkCommunity');
+        const actor = ensureSparkAccount(createEmptySparkCommunityState(),
+            { type: 'stranger', displayName: '真实网友' }, () => 'npc1');
+        const note = post('user-note', { authorType: 'user', authorId: 'user', likes: 12, likedByAccountIds: [] });
+        const once = applySparkNpcLike(actor.state, note, actor.account.id, 101);
+        expect(once.changed).toBe(true);
+        expect(once.post.likes).toBe(13);
+        expect(once.post.likedByAccountIds).toEqual([actor.account.id]);
+        expect(once.state.events.filter(e => e.type === 'post_liked')).toHaveLength(1);
+        const repeated = applySparkNpcLike(once.state, once.post, actor.account.id, 102);
+        expect(repeated.changed).toBe(false);
+        expect(repeated.post.likes).toBe(13);
+    });
+    it('follows and unfollows precisely once, without inventing follower identities', async () => {
+        const { applySparkNpcFollow } = await import('./sparkCommunity');
+        const actor = ensureSparkAccount(createEmptySparkCommunityState(),
+            { type: 'stranger', displayName: '真实网友' }, () => 'npc2');
+        const follow = applySparkNpcFollow(actor.state, actor.account.id, 'user', 'follow', 100);
+        expect(follow.changed).toBe(true);
+        expect(follow.state.follows).toMatchObject([{ followerId: actor.account.id, followedId: 'user' }]);
+        expect(applySparkNpcFollow(follow.state, actor.account.id, 'user', 'follow', 101).changed).toBe(false);
+        const leave = applySparkNpcFollow(follow.state, actor.account.id, 'user', 'unfollow', 102);
+        expect(leave.changed).toBe(true);
+        expect(leave.state.follows).toHaveLength(0);
+        expect(applySparkNpcFollow(leave.state, actor.account.id, 'user', 'unfollow', 103).changed).toBe(false);
+    });
+    it('rejects non-existent actors, self likes and muted actors', async () => {
+        const { applySparkNpcLike, applySparkNpcFollow } = await import('./sparkCommunity');
+        const actor = ensureSparkAccount(createEmptySparkCommunityState(),
+            { type: 'stranger', displayName: '路人' }, () => 'npc3');
+        const note = post('public', { authorId: actor.account.id, likes: 4 });
+        expect(applySparkNpcLike(actor.state, note, actor.account.id, 42).changed).toBe(false);
+        expect(applySparkNpcLike(actor.state, note, 'nonexistent', 42).changed).toBe(false);
+        const muted = { ...actor.state, mutedAccountIds: [actor.account.id] };
+        expect(applySparkNpcFollow(muted, actor.account.id, 'user', 'follow', 42).changed).toBe(false);
+    });
+});
