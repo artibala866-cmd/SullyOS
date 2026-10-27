@@ -709,9 +709,16 @@ const SocialApp: React.FC = () => {
     };
 
     const prependPostsToFeed = (newPosts: SocialPost[]) => {
+        let nextCommunity = communityStateRef.current;
+        const normalizedPosts = newPosts.map(post => {
+            const result = normalizeAndRegisterPost(post, nextCommunity);
+            nextCommunity = result.state;
+            return result.post;
+        });
+        if (nextCommunity !== communityStateRef.current) updateCommunityState(nextCommunity);
         const existingIds = new Set(feedRef.current.map(post => post.id));
-        const next = prependUniqueSocialPosts(feedRef.current, newPosts);
-        const fresh = newPosts.filter(post => !existingIds.has(post.id));
+        const next = prependUniqueSocialPosts(feedRef.current, normalizedPosts);
+        const fresh = normalizedPosts.filter(post => !existingIds.has(post.id));
         feedRef.current = next;
         setFeed(next);
         // Serialize writes so a late save cannot resurrect a post after Clear Feed.
