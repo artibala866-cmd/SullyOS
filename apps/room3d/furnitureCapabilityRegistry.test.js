@@ -53,6 +53,13 @@ describe('home3d furniture capability registry',()=>{
   expect(onSeat.some(a=>a.action==='chibi-sit'&&a.seat===slots[0].seatId)).toBe(false);
   expect(onSeat.some(a=>a.action==='chibi-stand')).toBe(true);
  });
+ it('keeps remote fridge buttons blocked until their door and walking station are safe',()=>{
+  const room={id:'r',items:[{id:'fridge',assetId:'kitchen_fridge',x:0,y:.18,z:0,rotation:0,stored:false}]};
+  const blocked=furnitureInteractions(room,catalog,'fridge',{fridgePlanner:()=> '冰箱旁没有安全通路'});
+  expect(blocked).toMatchObject([{action:'fridge-toggle',reason:'冰箱旁没有安全通路'}]);
+  const available=furnitureInteractions(room,catalog,'fridge',{fridgePlanner:()=>''});
+  expect(available).toMatchObject([{action:'fridge-toggle',reason:''}]);
+ });
  it('does not surface unsafe high beds even if their raw catalog has anchors',()=>{
   const room={id:'r',items:[{id:'b1',assetId:'bedroom_bunk',x:0,y:.18,z:0,rotation:0,stored:false}]};
   expect(roomBeds(room,catalog)).toEqual([]);
