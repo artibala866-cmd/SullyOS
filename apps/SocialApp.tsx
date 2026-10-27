@@ -1,7 +1,7 @@
 import { ContextBuilder } from '../utils/context';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile } from '../types';
@@ -237,6 +237,7 @@ const SocialApp: React.FC = () => {
     const [activeTopic, setActiveTopic] = useState<string | null>(null);
     const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [activePostMenuId, setActivePostMenuId] = useState<string | null>(null);
     // Modes: 'home' (Feed) | 'me' (Profile) | 'create' (Modal Overlay)
     const [activeTab, setActiveTab] = useState<'home' | 'me'>('home');
     useAppShortcut(ShortcutAppID.Social, intent => { setSelectedPost(null); setIsCreateOpen(false); setShowSettings(false); setActiveTab(intent.entryId === 'me' ? 'me' : 'home'); });
@@ -278,6 +279,51 @@ const SocialApp: React.FC = () => {
     const [userSparkId, setUserSparkId] = useState('95279527');
     const [userBgImage, setUserBgImage] = useState('');
     const [isEditingId, setIsEditingId] = useState(false);
+    const visibleFeed = useMemo(() => rankSparkFeed(feed, communityState, {
+        mode: feedMode,
+        query: searchQuery,
+        topic: activeTopic,
+        accountId: selectedAccountId,
+        userDisplayName: socialProfile.name,
+    }), [feed, communityState, feedMode, searchQuery, activeTopic, selectedAccountId, socialProfile.name]);
+
+    const profileStats = useMemo(
+        () => deriveSparkProfileStats(feed, communityState, socialProfile.name),
+        [feed, communityState, socialProfile.name],
+    );
+
+    const unreadNotifications = useMemo(
+        () => communityState.notifications
+            .filter(notification => notification.targetAccountId === 'user' && !notification.readAt)
+            .sort((a, b) => b.createdAt - a.createdAt),
+        [communityState.notifications],
+    );
+
+    const matchingAccounts = useMemo(() => {
+        const query = normalizeSparkName(searchQuery);
+        if (!query) return [];
+        return communityState.accounts
+            .filter(account => account.id !== 'user' &&
+                [account.displayName, ...account.aliases].some(name => normalizeSparkName(name).includes(query)))
+            .slice(0, 5);
+    }, [communityState.accounts, searchQuery]);
+
+    const availableTopics = useMemo(() => {
+        const topics = new Map<string, string>();
+        feed.forEach(post => [...(post.tags || []), ...(post.topicIds || [])].forEach(rawTopic => {
+            const topic = String(rawTopic || '').trim();
+            const normalized = normalizeSparkName(topic);
+            if (topic && !['user', 'life', 'vlog'].includes(normalized) && !topics.has(normalized)) {
+                topics.set(normalized, topic);
+            }
+        }));
+        return [...topics.values()];
+    }, [feed]);
+
+    const matchingTopics = useMemo(() => {
+        const query = normalizeSparkName(searchQuery);
+        return query ? availableTopics.filter(topic => normalizeSparkName(topic).includes(query)).slice(0, 6) : [];
+    }, [availableTopics, searchQuery]);
     
     const userBgInputRef = useRef<HTMLInputElement>(null);
     const socialAvatarInputRef = useRef<HTMLInputElement>(null);
@@ -340,7 +386,7 @@ const SocialApp: React.FC = () => {
                 setCommunityState(persisted);
                 try { localStorage.setItem('spark_community_state', JSON.stringify(persisted)); } catch { /* cache is optional */ }
             } else {
-                updateCommunityState(mergeSparkCommunityStates(persisted, communityStateRef.current));
+                updateCommunityState(mergeSparkCommunityStates(persisted, communityStateRef.current, true));
             }
         }).catch(error => {
             console.warn('Spark community state could not be loaded', error);
@@ -1274,7 +1320,7 @@ ${post.content || '(楼主没写正文)'}
             const wasCollected = current.isCollected === true || collectedBy.has('user');
             if (wasCollected) collectedBy.delete('user');
             else collectedBy.add('user');
-            return { ...current, isCollected: !wasCollected, collectedByAccountIds: [...collectedBy] };
+            return { ...current, isCollected: collectedBy.has('user'), collectedByAccountIds: [...collectedBy] };
         });
         if (updated) {
             recordCommunityEvent(updated.isCollected ? 'post_collected' : 'post_uncollected', 'user', { targetAccountId: updated.authorId, postId: updated.id });
@@ -1333,6 +1379,7 @@ ${post.content || '(楼主没写正文)'}
     };
 
     const handleOpenPost = (post: SocialPost) => {
+        setActivePostMenuId(null);
         const livePost = feedRef.current.find(item => item.id === post.id) || post;
         const draft = commentDraftsRef.current[livePost.id];
         setCommentInput(draft?.content || '');
@@ -1348,6 +1395,7 @@ ${post.content || '(楼主没写正文)'}
 
     const handleClosePost = () => {
         commentRequestRef.current?.controller.abort();
+        setActivePostMenuId(null);
         commentRequestRef.current = null;
         setLoadingComments(false);
         setCommentInput('');
@@ -1466,8 +1514,26 @@ ${post.content || '(楼主没写正文)'}
                     </div>
                 </div>
             </div>
+            <button
+                onClick={(e) => { e.stopPropagation(); setActivePostMenuId(current => current === post.id ? null : post.id); }}
+                aria-label="帖子操作"
+                className="absolute top-2 right-2 z-20 w-7 h-7 bg-black/25 text-white rounded-full flex items-center justify-center text-base backdrop-blur-md"
+            >···</button>
+            {activePostMenuId === post.id && (
+                <div onClick={e => e.stopPropagation()} className="absolute top-10 right-2 z-30 min-w-32 bg-white rounded-xl shadow-xl border border-slate-100 p-1.5 flex flex-col gap-0.5">
+                    {post.authorId !== 'user' && post.authorType !== 'user' && (
+                        <button onClick={() => { handleToggleFollowPost(post); setActivePostMenuId(null); }} className="text-left px-3 py-2 text-xs text-slate-700 rounded-lg hover:bg-slate-50">
+                            {communityState.follows.some(follow => follow.followerId === 'user' && follow.followedId === post.authorId) ? '取消关注' : '关注作者'}
+                        </button>
+                    )}
+                    <button onClick={() => { handleHidePost(post); setActivePostMenuId(null); }} className="text-left px-3 py-2 text-xs text-slate-700 rounded-lg hover:bg-slate-50">不感兴趣</button>
+                    {post.authorId !== 'user' && post.authorType !== 'user' && (
+                        <button onClick={() => { handleMutePostAuthor(post); setActivePostMenuId(null); }} className="text-left px-3 py-2 text-xs text-slate-700 rounded-lg hover:bg-slate-50">屏蔽作者</button>
+                    )}
+                </div>
+            )}
             {canDeleteSocialPost(post, socialProfile.name) && (
-                <button onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }} aria-label="删除自己的帖子" className="absolute top-2 right-2 z-20 w-6 h-6 bg-black/20 text-white rounded-full flex items-center justify-center text-xs backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80">×</button>
+                <button onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }} aria-label="删除自己的帖子" className="absolute top-2 right-10 z-20 w-6 h-6 bg-black/20 text-white rounded-full flex items-center justify-center text-xs backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80">×</button>
             )}
         </div>
     );
@@ -1544,7 +1610,7 @@ ${post.content || '(楼主没写正文)'}
                             <p className="text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap font-light">{selectedPost.content}</p>
                             
                             <div className="flex gap-2 flex-wrap pt-2">
-                                {selectedPost.tags.map(t => <span key={t} className="text-xs font-bold text-blue-600 bg-blue-50/50 backdrop-blur-sm border border-blue-100 px-2.5 py-1 rounded-full">#{t}</span>)}
+                                {selectedPost.tags.map(t => <button key={t} onClick={() => { setActiveTopic(t); setSearchQuery(''); setSelectedAccountId(null); setFeedMode('discover'); setSelectedPost(null); }} className="text-xs font-bold text-blue-600 bg-blue-50/50 backdrop-blur-sm border border-blue-100 px-2.5 py-1 rounded-full">#{t}</button>)}
                             </div>
                             <div className="text-xs text-slate-400 font-medium border-b border-slate-100/50 pb-6">{new Date(selectedPost.timestamp).toLocaleDateString()}</div>
                         </div>
@@ -1591,10 +1657,7 @@ ${post.content || '(楼主没写正文)'}
                                         <span className="text-[10px] font-medium">{selectedPost.likes}</span>
                                     </div>
                                     <div className="flex flex-col items-center gap-0.5">
-                                        <Icons.Star filled={selectedPost.isCollected} onClick={() => {
-                                            const updated = updatePostInFeed(selectedPost.id, current => ({ ...current, isCollected: !current.isCollected }));
-                                            if (updated) trackEvent('收藏一条帖子', { action: updated.isCollected ? 'collect' : 'uncollect' });
-                                        }} className="w-6 h-6" />
+                                        <Icons.Star filled={selectedPost.isCollected} onClick={() => handleToggleCollection(selectedPost.id)} className="w-6 h-6" />
                                         <span className="text-[10px] font-medium">{selectedPost.isCollected ? '已收藏' : '收藏'}</span>
                                     </div>
                                 </div>
@@ -1665,9 +1728,72 @@ ${post.content || '(楼主没写正文)'}
                             </div>
                         ))}
                     </div>
+                    {communityState.mutedAccountIds.length > 0 && (
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-2">
+                            <h3 className="text-xs font-bold text-slate-700">已屏蔽账号</h3>
+                            {communityState.mutedAccountIds.map(accountId => {
+                                const account = communityState.accounts.find(item => item.id === accountId);
+                                return (
+                                    <div key={accountId} className="flex items-center gap-2 text-xs">
+                                        <span className="flex-1 truncate text-slate-600">{account?.displayName || accountId}</span>
+                                        <button onClick={() => {
+                                            updateCommunityState(state => setSparkAccountMuted(state, accountId, 'user', false, Date.now(), createSparkId('event')));
+                                            addToast('已取消屏蔽', 'success');
+                                        }} className="text-[#ff2442] font-bold">取消屏蔽</button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                    {communityState.hiddenPostIds.length > 0 && (
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-2">
+                            <h3 className="text-xs font-bold text-slate-700">已隐藏帖子</h3>
+                            {communityState.hiddenPostIds.map(postId => {
+                                const post = feed.find(item => item.id === postId);
+                                if (!post) return null;
+                                return (
+                                    <div key={postId} className="flex items-center gap-2 text-xs">
+                                        <span className="flex-1 truncate text-slate-600">{post.title}</span>
+                                        <button onClick={() => {
+                                            updateCommunityState(state => setSparkPostHidden(state, postId, 'user', false, Date.now(), createSparkId('event')));
+                                            addToast('已恢复推荐', 'success');
+                                        }} className="text-[#ff2442] font-bold">恢复推荐</button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                     <div className="flex gap-3 pt-2">
                         <button onClick={handleClearFeed} className="flex-1 py-3 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl text-xs active:bg-slate-50">清空推荐流</button>
                         <button onClick={() => setShowSettings(false)} className="flex-1 py-3 bg-[#ff2442] text-white font-bold rounded-xl text-xs shadow-lg shadow-red-200 active:scale-95 transition-transform">完成</button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal isOpen={showNotifications} title="消息通知" onClose={() => setShowNotifications(false)}>
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-slate-400">评论、回复和关注等站内事件</span>
+                        <button onClick={handleMarkAllNotificationsRead} disabled={unreadNotifications.length === 0} className="text-xs font-bold text-[#ff2442] disabled:text-slate-300">全部已读</button>
+                    </div>
+                    <div className="max-h-[60vh] overflow-y-auto space-y-2">
+                        {[...communityState.notifications]
+                            .filter(notification => notification.targetAccountId === 'user')
+                            .sort((a, b) => b.createdAt - a.createdAt)
+                            .map(notification => (
+                                <button key={notification.id} onClick={() => handleOpenNotification(notification)} className={`w-full text-left p-3 rounded-xl border transition-colors ${notification.readAt ? 'bg-white border-slate-100' : 'bg-rose-50 border-rose-100'}`}>
+                                    <div className="flex items-start gap-2">
+                                        <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${notification.readAt ? 'bg-slate-200' : 'bg-[#ff2442]'}`} />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm text-slate-700">{notification.message}</p>
+                                            <p className="text-[10px] text-slate-400 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        {communityState.notifications.filter(notification => notification.targetAccountId === 'user').length === 0 && (
+                            <div className="py-12 text-center text-slate-400 text-sm">暂时没有通知</div>
+                        )}
                     </div>
                 </div>
             </Modal>
@@ -1750,7 +1876,13 @@ ${post.content || '(楼主没写正文)'}
                             <button className={`${activeTab === 'home' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('home'); trackEvent('切换 Spark 主标签', { tab: 'home' }); }}>发现</button>
                             <button className={`${activeTab === 'me' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('me'); trackEvent('切换 Spark 主标签', { tab: 'me' }); }}>我的</button>
                         </div>
-                        <button onClick={() => { setShowSettings(true); trackEvent('打开身份管理面板'); }} className="text-slate-800 font-bold text-sm">管理</button>
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setShowNotifications(true)} aria-label="打开消息通知" className="relative text-slate-700 p-1">
+                                <Bell size={19} />
+                                {unreadNotifications.length > 0 && <span className="absolute -top-0.5 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#ff2442] text-white text-[9px] flex items-center justify-center">{unreadNotifications.length > 99 ? '99+' : unreadNotifications.length}</span>}
+                            </button>
+                            <button onClick={() => { setShowSettings(true); trackEvent('打开身份管理面板'); }} className="text-slate-800 font-bold text-sm">管理</button>
+                        </div>
                     </div>
                 </div>
 
@@ -1759,6 +1891,56 @@ ${post.content || '(楼主没写正文)'}
                     
                     {activeTab === 'home' && (
                         <div className="p-2 min-h-full">
+                            <div className="flex items-center justify-between gap-2 px-1 py-2">
+                                <div className="flex items-center gap-1 bg-white/70 border border-white rounded-full p-1 shadow-sm">
+                                    <button onClick={() => { setFeedMode('discover'); setSelectedAccountId(null); }} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${feedMode === 'discover' ? 'bg-[#ff2442] text-white shadow-sm' : 'text-slate-500'}`}>发现</button>
+                                    <button onClick={() => { setFeedMode('following'); setSelectedAccountId(null); }} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${feedMode === 'following' ? 'bg-[#ff2442] text-white shadow-sm' : 'text-slate-500'}`}>关注</button>
+                                </div>
+                                <button onClick={() => setShowNotifications(true)} className="flex items-center gap-1 text-xs font-bold text-slate-500 px-3 py-2 bg-white/70 rounded-full border border-white">
+                                    <Bell size={15} /> 消息{unreadNotifications.length > 0 ? ' · ' + unreadNotifications.length : ''}
+                                </button>
+                            </div>
+                            <div className="relative px-1 mb-2">
+                                <MagnifyingGlass size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSelectedAccountId(null); setActiveTopic(null); }} placeholder="搜索帖子、账号或话题" className="w-full rounded-xl bg-white/80 border border-white shadow-sm py-2.5 pl-9 pr-9 text-sm outline-none focus:ring-1 focus:ring-rose-200" />
+                                {searchQuery && <button onClick={() => setSearchQuery('')} aria-label="清除搜索" className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 px-1">×</button>}
+                            </div>
+                            {selectedAccountId && (
+                                <div className="flex items-center gap-2 px-2 py-1.5 mb-2 bg-white/70 rounded-lg text-xs">
+                                    <span className="text-slate-500">账号动态：{communityState.accounts.find(account => account.id === selectedAccountId)?.displayName || '已选账号'}</span>
+                                    <button onClick={() => setSelectedAccountId(null)} className="ml-auto text-[#ff2442]">清除</button>
+                                </div>
+                            )}
+                            {activeTopic && (
+                                <div className="flex items-center gap-2 px-2 py-1.5 mb-2 bg-blue-50 rounded-lg text-xs text-blue-700">
+                                    <span>话题：#{activeTopic}</span>
+                                    <button onClick={() => setActiveTopic(null)} className="ml-auto">清除</button>
+                                </div>
+                            )}
+                            {searchQuery.trim() && (matchingAccounts.length > 0 || matchingTopics.length > 0) && (
+                                <div className="mx-1 mb-2 bg-white/80 rounded-xl border border-white p-2 space-y-1">
+                                    {matchingAccounts.map(account => (
+                                        <button key={account.id} onClick={() => { setSelectedAccountId(account.id); setSearchQuery(''); setActiveTopic(null); setFeedMode('discover'); }} className="w-full text-left px-2 py-2 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs">
+                                            <span><span className="text-slate-400 mr-2">账号</span>{account.displayName}</span><span className="text-slate-400">查看动态 ›</span>
+                                        </button>
+                                    ))}
+                                    {matchingTopics.map(topic => (
+                                        <button key={topic} onClick={() => { setActiveTopic(topic); setSearchQuery(''); setSelectedAccountId(null); setFeedMode('discover'); }} className="w-full text-left px-2 py-2 rounded-lg hover:bg-slate-50 text-xs text-blue-700">话题 #{topic}</button>
+                                    ))}
+                                </div>
+                            )}
+                            {!searchQuery.trim() && !activeTopic && availableTopics.length > 0 && (
+                                <div className="flex gap-2 overflow-x-auto no-scrollbar px-1 pb-2">
+                                    {availableTopics.slice(0, 8).map(topic => (
+                                        <div key={topic} className="shrink-0 flex items-center bg-white/70 border border-white rounded-full text-xs">
+                                            <button onClick={() => { setActiveTopic(topic); setSelectedAccountId(null); setFeedMode('discover'); }} className="px-3 py-1.5 text-slate-600">#{topic}</button>
+                                            <button onClick={() => handleToggleTopicInterest(topic)} aria-label={communityState.interests.some(item => normalizeSparkName(item) === normalizeSparkName(topic)) ? '取消关注话题' : '关注话题'} className="px-2 py-1.5 border-l border-slate-100 text-[#ff2442]">
+                                                {communityState.interests.some(item => normalizeSparkName(item) === normalizeSparkName(topic)) ? '★' : '＋'}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                             {/* Refresh Button - Above Posts */}
                             <div className="flex items-center justify-center py-3">
                                 {isRefreshing ? (
@@ -1773,8 +1955,16 @@ ${post.content || '(楼主没写正文)'}
                             </div>
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
                             <div className="grid grid-cols-2 items-start gap-x-2 gap-y-3 pb-24">
-                                {feed.map(post => renderFeedItem(post))}
+                                {visibleFeed.map(post => renderFeedItem(post))}
                             </div>
+                            {visibleFeed.length === 0 && (
+                                <div className="mx-2 my-8 rounded-2xl bg-white/70 border border-white p-6 text-center text-slate-400">
+                                    <Package size={34} className="mx-auto mb-2 opacity-40" />
+                                    <p className="text-sm font-bold text-slate-600">{searchQuery.trim() ? '没有找到匹配的内容' : activeTopic ? '这个话题暂时没有帖子' : feedMode === 'following' ? '关注的账号还没有发布动态' : '暂时没有可展示的动态'}</p>
+                                    <p className="text-xs mt-1">{feedMode === 'following' && !searchQuery.trim() ? '去发现页关注喜欢的账号，后续动态会出现在这里。' : '可以调整搜索条件，或刷新推荐流。'}</p>
+                                    {feedMode === 'following' && <button onClick={() => setFeedMode('discover')} className="mt-3 text-xs font-bold text-[#ff2442]">去发现页</button>}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1850,9 +2040,9 @@ ${post.content || '(楼主没写正文)'}
                                 )}
 
                                 <div className="flex gap-6 mt-5 bg-white/40 p-4 rounded-2xl border border-white/50 shadow-sm">
-                                    <div className="text-center"><span className="block font-bold text-slate-800">142</span><span className="text-[10px] text-slate-400">关注</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">12.5k</span><span className="text-[10px] text-slate-400">粉丝</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">8902</span><span className="text-[10px] text-slate-400">获赞与收藏</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{profileStats.following.toLocaleString()}</span><span className="text-[10px] text-slate-400">关注</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{profileStats.followers.toLocaleString()}</span><span className="text-[10px] text-slate-400">粉丝</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{profileStats.likesAndCollections.toLocaleString()}</span><span className="text-[10px] text-slate-400">获赞与收藏</span></div>
                                 </div>
                             </div>
 
