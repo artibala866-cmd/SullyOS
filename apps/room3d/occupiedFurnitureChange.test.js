@@ -2,6 +2,7 @@ import {describe,it,expect} from 'vitest';
 import catalog from '../../public/room3d/catalog.json';
 import {occupiedFurnitureChange,activeFurnitureDependencyChange} from './furnitureStationRegistry.js';
 import {seatTransform,roomSeats} from './seating.js';
+import {readFileSync} from 'node:fs';
 
 const room={id:'r',items:[
  {id:'seat',assetId:'sofa',x:0,y:.18,z:0,rotation:0,stored:false},
@@ -69,4 +70,14 @@ describe('ongoing furniture tasks remain on physically unchanged equipment',()=>
  it('prevents moving a target plant while it is being watered',()=>{
   expect(activeFurnitureDependencyChange(before,change(i=>i[2].rotation=90),[plant])).toContain('先结束');
  });
+ it('never stops a kitchen or bath activity BEFORE validating the proposed edit',()=>{
+  const code=readFileSync(new URL('./editor.js',import.meta.url),'utf8'),
+   start=code.indexOf('function commit(mutator,'),end=code.indexOf('function applyColor(',start);
+  const body=code.slice(start,end);
+  expect(body).toContain('seatChange||visitorActivity?.bathJourney');
+  expect(body.indexOf('const occupiedError=occupiedFurnitureChange')).toBeLessThan(body.indexOf('stopWalking();'));
+  expect(body.indexOf('const runningError=activeFurnitureDependencyChange')).toBeLessThan(body.indexOf('stopWalking();'));
+  expect(body.indexOf('const budgetError=phone')).toBeLessThan(body.indexOf('stopWalking();'));
+ });
+
 });
