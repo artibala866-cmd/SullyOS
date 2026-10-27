@@ -2,7 +2,7 @@
   "title": "SullyOS 家园全家具互动点位逐件元数据审计",
   "baseBranch": "remove-checkphone-vrworld-lifesim",
   "catalogSha": "cbd2dd90e69d4ee167bb7f127600da6292221129",
-  "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。 本次更新还执行了 248 条资源 GLB 网格合法性、坐点源建模核对及活动能力调用链的自动化检查；没有用户视角的 WebGL/人体触面逐件目视验收。 此次另补 chair/pouf 两件的实际合并 kit.glb 三角面支撑验证，并在 Chromium 中完成小木椅两类人物的进出/重复入座控制器测试，但该浏览器测试也不属于逐件目视验收。",
+  "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。 本次更新还执行了 248 条资源 GLB 网格合法性、坐点源建模核对及活动能力调用链的自动化检查；没有用户视角的 WebGL/人体触面逐件目视验收。 此次另补 chair/pouf 两件的实际合并 kit.glb 三角面支撑验证，并在 Chromium 中完成小木椅两类人物的进出/重复入座控制器测试，但该浏览器测试也不属于逐件目视验收。 后续浏览器追加验证：bedroom_single_bed、bedroom_double_bed 左右两位、show_bed 两位，五个开放床位均在现有 WebGL 控制器通过进入与起身（固定时间步进）；未开放高架床的上铺。",
   "counts": {
     "assets": 248,
     "registeredSeatAssets": 21,
@@ -19,7 +19,10 @@
     "meshBedAnchorCheckedAssets": 2,
     "meshBedAnchorCheckedPoints": 3,
     "meshKitSeatAnchorCheckedAssets": 2,
-    "meshKitSeatAnchorCheckedPoints": 2
+    "meshKitSeatAnchorCheckedPoints": 2,
+    "webglControllerSeatSlotsTested": 1,
+    "webglControllerBedSlotsTested": 5,
+    "webglControllerBedAssetsTested": 3
   },
   "items": [
     {
