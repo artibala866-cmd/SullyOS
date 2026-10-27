@@ -15,7 +15,7 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost } from '../utils/socialFeedMerge';
-import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices } from '../utils/sparkCommunity';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
@@ -341,8 +341,7 @@ const SocialApp: React.FC = () => {
     const [dmFilter, setDmFilter] = useState<'all' | 'following' | 'strangers'>('all');
     type SparkDMTarget = { handle: string; avatar: string; accountId?: string };
     const dmKey = (account: SparkDMTarget) =>
-        account.accountId && (dmThreads[account.accountId] || !dmThreads[account.handle])
-            ? account.accountId : account.handle;
+        getSparkDMThreadKey(account.accountId, account.handle, dmThreads, communityRef.current.accounts);
     const openSparkDM = (account: SparkDMTarget) => {
         const registered = resolveSparkDMAccount(communityRef.current.accounts, account.handle, account.accountId);
         const target = { ...account, accountId: registered?.id || account.accountId };
@@ -383,13 +382,13 @@ const SocialApp: React.FC = () => {
                     : account.displayName === target.handle || account.aliases.includes(target.handle));
             const knownOwnerIds = [...new Set(registered.map(account => account.ownerCharId).filter(Boolean))];
             // Never arbitrarily select the first role when different characters share one public handle.
-            if (candidates.length > 1 || knownOwnerIds.length > 1 || registered.length > 1) {
+            if ((!target.accountId && candidates.length > 1) || knownOwnerIds.length > 1 || registered.length > 1) {
                 throw new Error('多个角色使用相同网名，无法确定私信对象。请先区分账号昵称');
             }
             const owner = knownOwnerIds.length === 1
                 ? characters.find(char => char.id === knownOwnerIds[0])
                 : candidates[0];
-            if (owner && candidates.length === 1 && candidates[0].id !== owner.id) {
+            if (!target.accountId && owner && candidates.length === 1 && candidates[0].id !== owner.id) {
                 throw new Error('私信账号归属不一致，已阻止角色串台');
             }
             const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。你的稳定人物设定：' + (npcPersonas[targetKey] || npcPersonas[target.handle] || '根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场') + '。不要变成客服，也不要知道其他人的私聊或隐藏身份。';
