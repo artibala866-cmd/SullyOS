@@ -50,12 +50,15 @@ export function toggleSocialCommentLike(post: SocialPost, commentId: string): So
     const comments = (post.comments || []).map(comment => {
         if (comment.id !== commentId) return comment;
         changed = true;
-        const wasLiked = comment.isLiked === true;
-        const currentLikes = Number.isFinite(comment.likes) ? Math.max(0, comment.likes) : 0;
+        const likedBy = new Set(comment.likedByAccountIds || []);
+        const wasLiked = comment.isLiked === true || likedBy.has('user');
+        if (wasLiked) likedBy.delete('user');
+        else likedBy.add('user');
         return {
             ...comment,
             isLiked: !wasLiked,
-            likes: Math.max(0, currentLikes + (wasLiked ? -1 : 1)),
+            likedByAccountIds: [...likedBy],
+            likes: likedBy.size,
         };
     });
     return changed ? { ...post, comments } : post;
