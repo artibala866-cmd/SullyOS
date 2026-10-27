@@ -1225,6 +1225,12 @@ const SocialApp: React.FC = () => {
     const publicTextLeaksPrivateChat = (text: string) =>
         containsSparkPrivateQuote(text, privateChatSnippetsRef.current);
     const buildGenerationContext = async (participants: CharacterProfile[]) => {
+        if (participants.length > 1) {
+            // The shared public request cannot use private chats/worldbooks anyway.
+            // Avoid loading or retaining other characters' private data for the batch.
+            return buildSparkGenerationContext(participants, userProfile, socialProfile,
+                characterHandles, {}, {});
+        }
         const recent = await Promise.all(participants.map(async char =>
             [char.id, await loadCharacterContextMessages(char)] as const));
         const fragments = recent.flatMap(([, messages]) => messages
