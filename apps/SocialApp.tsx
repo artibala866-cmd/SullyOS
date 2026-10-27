@@ -491,7 +491,16 @@ const SocialApp: React.FC = () => {
     const publishingRef = useRef(false);
     const [showUtilityShelf, setShowUtilityShelf] = useState(false);
     const [showCharPosting, setShowCharPosting] = useState(false);
-    const [postingCharIds, setPostingCharIds] = useState<string[]>([]);
+    const [postingCharIds, setPostingCharIds] = useState<string[]>(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('spark_posting_char_ids') || '[]');
+            return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : [];
+        } catch { return []; }
+    });
+    useEffect(() => {
+        try { localStorage.setItem('spark_posting_char_ids', JSON.stringify(postingCharIds)); }
+        catch (error) { console.warn('Spark participating characters could not be saved', error); }
+    }, [postingCharIds]);
     const [autoIdentity, setAutoIdentity] = useState(true);
     const [naturalComments, setNaturalComments] = useState(true);
     const [isCharPosting, setIsCharPosting] = useState(false); 
@@ -1136,8 +1145,7 @@ const SocialApp: React.FC = () => {
     "authorName": "必须填身份表中定义的【网名】",
     "title": "简短吸睛的标题",
     "content": "正文内容...",
-    "emojis": ["🎈", "✨"],
-    "likes": 随机数 (0 - 10000)
+    "emojis": ["🎈", "✨"]
   },
   ...
 ]`;
@@ -1219,8 +1227,9 @@ const SocialApp: React.FC = () => {
         setIsAutonomyBusy(true);
         try {
             const recentlyActive = new Set(feedRef.current.slice(0, 15).map(post => post.authorCharId).filter(Boolean));
-            const activeChars = characters.filter(char => recentlyActive.has(char.id));
-            const participants = [...activeChars, ...characters.filter(char => !recentlyActive.has(char.id))].slice(0, 2);
+            const allowedChars = characters.filter(char => postingCharIds.includes(char.id));
+            const activeChars = allowedChars.filter(char => recentlyActive.has(char.id));
+            const participants = [...activeChars, ...allowedChars.filter(char => !recentlyActive.has(char.id))].slice(0, 2);
             const context = participants.length ? await buildGenerationContext(participants) : '当前只有稳定的虚拟陌生网友参与 Spark 社区。';
             if (controller.signal.aborted || !mountedRef.current || generation !== feedLoadGenerationRef.current) return;
             const publicPosts = feedRef.current.slice(0, 12).map(post => ({
@@ -1564,7 +1573,7 @@ ${buildSparkCommentHistory(post)}
     const generateIncomingDMs = async (post: SocialPost) => {
         if (!apiConfig.apiKey) return;
         const generation = feedLoadGenerationRef.current;
-        const followers = Math.max(0, fanCountsRef.current.user || 0);
+        const followers = communityRef.current.follows.filter(follow => follow.followedId === 'user').length;
         // A small account can still receive a DM; larger accounts receive more, but capped per post.
         const chance = Math.min(0.88, 0.18 + Math.log10(followers + 1) * 0.14);
         if (Math.random() >= chance) return;
