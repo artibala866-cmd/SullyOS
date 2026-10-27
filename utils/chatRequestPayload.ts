@@ -66,6 +66,8 @@ export interface BuildChatPayloadInput {
     categories: EmojiCategory[];
     /** 给 buildMessageHistory 用的完整历史（≤ contextLimit） */
     historyMsgs: Message[];
+    /** 本轮触发回复的用户消息 ID；定位互动间隔提示时优先使用。 */
+    currentUserMessageId?: number;
     /**
      * 旧入口可提供较短近窗；私聊和 3D 家园始终使用完整可见范围，
      * 防止 UI 隐藏的跨应用记录或超过 200 条的原文从召回/世界书扫描中消失。
@@ -294,7 +296,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
             userProfile,
             emojis,
             undefined,
-            { useVisionDescriptions, contextHighWaterMark },
+            { useVisionDescriptions, contextHighWaterMark, currentUserMessageId: input.currentUserMessageId },
         );
         const cleanedApiMessages = cleanApiMessages(input.stripImages ? flattenImageContentParts(apiMessages) : apiMessages);
         console.warn('[DevDebug] Prompt Build skipped: sending chat history without system prompt injection.');
@@ -360,7 +362,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         userProfile,
         emojis,
         undefined,
-        { useVisionDescriptions, contextHighWaterMark },
+        { useVisionDescriptions, contextHighWaterMark, currentUserMessageId: input.currentUserMessageId },
     );
 
     // ── 8. 剥离历史里旧的双语标签（stripImages 时先压平 image_url → 纯文本占位） ──

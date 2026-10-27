@@ -887,6 +887,7 @@ export const useChatAI = ({
                 char: charForGen, userProfile, groups, emojis, categories,
                 homePhoneContext:homePhoneContext?.(),
                 historyMsgs: contextMsgs,
+                currentUserMessageId: [...currentMsgs].reverse().find(m => m.role === 'user')?.id,
                 recentMsgsHint: currentMsgs,
                 contextLimit: limit,
                 contextHighWaterMark: contextRange?.hwm,

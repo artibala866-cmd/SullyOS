@@ -55,6 +55,10 @@ describe('character-owned autonomous phone behavior', () => {
     const request = mockApi();
     expect(await runCharacterPhoneAutonomy(input('busy'))).toBe('messaged');
     expect(request).toHaveBeenCalledTimes(1);
+    const requestBody = JSON.parse(String((request.mock.calls[0]?.[1] as any)?.body || '{}'));
+    expect(requestBody.messages?.[0]?.content).toContain('角色当前时间与时间感知');
+    expect(requestBody.messages?.[0]?.content).toContain('不要按固定循环随机换联系人/话题');
+    expect(requestBody.messages?.[0]?.content).toContain('现在是');
     const chats = readCharacterPhoneChats('busy');
     expect(chats).toHaveLength(1);
     expect(chats[0].messages).toHaveLength(1);
@@ -104,4 +108,18 @@ describe('character-owned autonomous phone behavior', () => {
     expect(request).not.toHaveBeenCalled();
     expect(readCharacterPhoneChats('sleep')).toHaveLength(0);
   });
+  it('does not start arbitrary chats with stale contacts when there is no recent thread or reason', async () => {
+    saveNpcProfiles('stale', contacts().map(contact => ({
+      ...contact, createdAt: Date.now() - 10 * 24 * 60 * 60_000,
+    })));
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId: 'stale', observedAt: Date.now(),
+      plannedActivity: null, plannedDescription: null, confirmedEvents: [],
+    });
+    const request = mockApi();
+    expect(await runCharacterPhoneAutonomy(input('stale'))).toBe('skipped');
+    expect(request).not.toHaveBeenCalled();
+    expect(readCharacterPhoneChats('stale')).toHaveLength(0);
+  });
+
 });
