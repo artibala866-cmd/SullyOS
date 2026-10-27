@@ -2,7 +2,7 @@
   "title": "SullyOS 家园全家具互动点位逐件元数据审计",
   "baseBranch": "remove-checkphone-vrworld-lifesim",
   "catalogSha": "cbd2dd90e69d4ee167bb7f127600da6292221129",
-  "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。 本次更新还执行了 248 条资源 GLB 网格合法性、坐点源建模核对及活动能力调用链的自动化检查；没有用户视角的 WebGL/人体触面逐件目视验收。",
+  "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。 本次更新还执行了 248 条资源 GLB 网格合法性、坐点源建模核对及活动能力调用链的自动化检查；没有用户视角的 WebGL/人体触面逐件目视验收。 此次另补 chair/pouf 两件的实际合并 kit.glb 三角面支撑验证，并在 Chromium 中完成小木椅两类人物的进出/重复入座控制器测试，但该浏览器测试也不属于逐件目视验收。",
   "counts": {
     "assets": 248,
     "registeredSeatAssets": 21,
@@ -17,7 +17,9 @@
       "external": 220
     },
     "meshBedAnchorCheckedAssets": 2,
-    "meshBedAnchorCheckedPoints": 3
+    "meshBedAnchorCheckedPoints": 3,
+    "meshKitSeatAnchorCheckedAssets": 2,
+    "meshKitSeatAnchorCheckedPoints": 2
   },
   "items": [
     {
@@ -128,7 +130,7 @@
       "screenValidated": false,
       "needsModelReview": true,
       "issues": [
-        "座点基于 art/jellyfish-home/build.py 实际椅面/花瓣建模数据推导，尚未用 kit.glb 顶点取样与 3D 骨骼验收"
+        "座点已由实际导出的 kit.glb 节点矩阵、三角面射线与邻域支撑采样复核；仍未通过角色骨骼/臀部/脚掌姿态与 3D 人工目视验收"
       ],
       "notes": "椅面顶高 .715、脚底基准 .17，局部接触高 .545；靠背在 Blender -Y 侧，坐姿朝向旋转 180°。"
     },
@@ -289,7 +291,7 @@
       "screenValidated": false,
       "needsModelReview": true,
       "issues": [
-        "座点基于 art/jellyfish-home/build.py 实际椅面/花瓣建模数据推导，尚未用 kit.glb 顶点取样与 3D 骨骼验收"
+        "座点已由实际导出的 kit.glb 节点矩阵、三角面射线与邻域支撑采样复核；仍未通过角色骨骼/臀部/脚掌姿态与 3D 人工目视验收"
       ],
       "notes": "花心顶部 .55 与花瓣最高 .56、花瓣底部 .16，花心局部接触高 .39；人体与花瓣边缘仍需视觉验收。"
     },
