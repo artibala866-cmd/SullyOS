@@ -457,6 +457,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
       const data=JSON.parse(raw);
       if(!Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
+      // A manual full-suite response can contain useful Moments/payments even
+      // when the AI correctly decides there are no new WeChat messages.
+      let savedNonChatItems=0;
       const incoming: ChatRecord[]=[];
       const newContacts: Array<{id:string;item:any;established:boolean}> = [];
       // One LLM batch may mention the same new friend under different IDs.
@@ -503,20 +506,23 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             fresh.some(m=>m.speaker.role==='contact'),
         });
       }
-      if(!incoming.length) throw new Error('本次未生成有效微信会话，未保存');
-      const replaced=new Set(incoming.map(x=>x.id));
-      const updatedRecords = [...incoming,...currentRecords.filter(r=>!replaced.has(r.id))];
-      try {
-        updateCharacterPhoneChats(characterId, () => updatedRecords);
-      } catch {
-        setError('微信记录保存失败，本次不记录生活事件');
-        return;
+      if(!incoming.length && !fullSuite) throw new Error('本次未生成有效微信会话，未保存');
+      if(incoming.length){
+        const replaced=new Set(incoming.map(x=>x.id));
+        const updatedRecords = [...incoming,...currentRecords.filter(r=>!replaced.has(r.id))];
+        try {
+          updateCharacterPhoneChats(characterId, () => updatedRecords);
+        } catch {
+          setError('微信记录保存失败，本次不记录生活事件');
+          return;
+        }
+        setRecords(updatedRecords);
       }
-      setRecords(updatedRecords);
       if (prefs.paymentNotices && Array.isArray(data.payments)) {
         try {
           const receipts=appendSimulatedPhonePayments(characterId,data.payments,now);
           if(receipts.length){
+            savedNonChatItems+=receipts.length;
             const serviceId='service:微信支付';
             const receiptMessages=receipts.map(row=>({
               speaker:{role:'contact' as const,contactId:serviceId},
@@ -592,6 +598,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             if(listed.some(old=>old.authorId===author.id&&old.text.trim()===text))continue;
             const post=publishCharacterMoment({characterId,authorId:author.id,origin:'npc',text,imageUrls:[],visibility:'all'});
             if(!post)continue;
+            savedNonChatItems++;
             const comments=Array.isArray(item.comments)?item.comments.slice(0,2):[];
             for(const c of comments){
               const actorId=typeof c?.authorId==='string'?c.authorId:'';
@@ -600,7 +607,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               if(actorId!==characterId&&(!actor||!author.mutualContactIds?.includes(actorId)||!actor.mutualContactIds?.includes(author.id)))continue;
               const body=c.text.trim().slice(0,200),live=readCharacterMoments(characterId).find(p=>p.id===post.id);
               if(!allowMomentComment(live?.comments||[],actorId,body))continue;
-              addMomentComment(characterId,post.id,{id:crypto.randomUUID(),authorId:actorId,text:body,createdAt:Date.now()});
+              if(addMomentComment(characterId,post.id,{id:crypto.randomUUID(),authorId:actorId,text:body,createdAt:Date.now()})) savedNonChatItems++;
             }
           }
           const own=data.moments.charPost;
@@ -610,14 +617,19 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             if(!old.some(post=>post.authorId===characterId&&!post.deletedAt&&
               (post.text.trim()===text||Date.now()-post.createdAt<12*3600_000))){
               const post=publishCharacterMoment({characterId,origin:'char',text,imageUrls:[],visibility:'all'});
-              if(post)recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',
-                occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+text.slice(0,100)});
+              if(post){
+                savedNonChatItems++;
+                recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',
+                  occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+text.slice(0,100)});
+              }
             }
           }
         }catch(error){console.warn('[CharacterPhone] suite moment partial save',error);}
       }
+      if(!incoming.length && !savedNonChatItems) throw new Error('本次 AI 没有返回可保存的新内容，原有手机记录未被更改。');
       setTab('chats');
-      if(!automatic)setWechatNotice('本次新增或续写了 '+incoming.length+' 条会话；官方通知和支付账单按设置独立保存。');
+      if(!automatic)setWechatNotice('本次新增或续写 '+incoming.length+' 条会话，另保存 '+savedNonChatItems+' 项内容；原有记录已保留。');
+      return { threads:incoming.length, other:savedNonChatItems };
     } catch(e){if(fullSuite)throw e;setError(e instanceof Error?e.message:String(e));}
     finally{finishCharacterPhoneRefresh(characterId);setBusy(false);}
   };
@@ -699,8 +711,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
     try{
       // One explicit user action; reuse all three existing generation entrypoints.
       // Each part saves its own results; a failed part cannot erase old content.
-      await generateInbox(false,true);
-      setWechatSuiteNotice('本次只调用一次 API：同时生成微信会话、联系人及可选 NPC/Char 朋友圈；不强制发帖。');
+      const result=await generateInbox(false,true);
+      if(!result){setWechatSuiteNotice('手机已有生成任务正在进行，本次没有发起新的请求。');return;}
+      setWechatSuiteNotice('本次调用一次 API，保存了 '+result.threads+' 条微信会话和 '+result.other+' 项其他内容；无新内容的任务已跳过，旧记录保留。');
     }catch(err){setWechatSuiteNotice(err instanceof Error?err.message:'本次批量生成未全部完成，可再试一次');}
     finally{setWechatSuiteBusy(false);}
   };
