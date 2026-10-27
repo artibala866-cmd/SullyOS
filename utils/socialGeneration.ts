@@ -64,7 +64,7 @@ export function selectSparkParticipants(post: SocialPost, candidates: CharacterP
     return selected.slice(0, 3);
 }
 
-export type SparkAuthor = { name: string; character?: CharacterProfile };
+export type SparkAuthor = { name: string; character?: CharacterProfile; accountId?: string };
 
 /** Reject conflicting or out-of-scope identities instead of relabelling them as strangers. */
 export function resolveSparkAuthor(
@@ -81,7 +81,8 @@ export function resolveSparkAuthor(
     const char = hasId ? owners.find(c => c.id === item.charId) : owners.length === 1 ? owners[0] : undefined;
     if (char) {
         if (item.isCharacter === false || !participants.some(c => c.id === char.id)) return null;
-        return { character: char, name: getSparkHandles(char, handles).find(h => normalizeName(h.handle) === normalized)!.handle };
+        const handle = getSparkHandles(char, handles).find(h => normalizeName(h.handle) === normalized)!;
+        return { character: char, name: handle.handle, accountId: 'character:' + char.id + ':handle:' + handle.id };
     }
     if (hasId || owners.length || item.isCharacter === true) return null;
     return { name };
