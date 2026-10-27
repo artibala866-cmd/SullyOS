@@ -41,6 +41,18 @@ describe('home3d furniture capability registry',()=>{
   const options=furnitureInteractions(room,catalog,'s1',{occupiedSeats:[points[0]]});
   expect(options.filter(x=>x.action==='chibi-sit').map(x=>x.seat)).toEqual([points[1].seatId]);
  });
+ it('uses the same runtime slot feasibility for menu actions and rejects repeated sit commands',()=>{
+  const room={id:'r',items:[{id:'s',assetId:'sofa',x:0,y:.18,z:0,rotation:0,stored:false}]};
+  const slots=roomSeats(room,catalog),calls=[];
+  const slotPlanner=s=>{calls.push(s.seatId);return s.seatId===slots[0].seatId?'入口被挡住':'';};
+  const actions=furnitureInteractions(room,catalog,'s',{slotPlanner});
+  expect(calls).toHaveLength(2);
+  expect(actions.find(a=>a.seat===slots[0].seatId)?.reason).toBe('入口被挡住');
+  expect(actions.find(a=>a.seat===slots[1].seatId)?.reason).toBe('');
+  const onSeat=furnitureInteractions(room,catalog,'s',{seat:slots[0],slotPlanner});
+  expect(onSeat.some(a=>a.action==='chibi-sit'&&a.seat===slots[0].seatId)).toBe(false);
+  expect(onSeat.some(a=>a.action==='chibi-stand')).toBe(true);
+ });
  it('does not surface unsafe high beds even if their raw catalog has anchors',()=>{
   const room={id:'r',items:[{id:'b1',assetId:'bedroom_bunk',x:0,y:.18,z:0,rotation:0,stored:false}]};
   expect(roomBeds(room,catalog)).toEqual([]);
