@@ -72,4 +72,15 @@ describe('legacy seated motion follows the shared physical entry/exit',()=>{
   expect(source).toContain("if(seatChange&&['chibi-water','chibi-sit','chibi-stand','chibi-motion','chibi-bed'");
   expect(source).toContain('人物正在坐下或起身，请先完成当前动作');
  });
+ it('blocks edits and room changes until the seat transfer has finished',()=>{
+  const src=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
+  const start=src.indexOf('function runAction(d){'),finish=src.indexOf("if(d.action==='control-self')",start);
+  const guard=src.slice(start,finish);
+  expect(guard).toContain('layoutNavigation');
+  expect(guard).toContain('room-layout-apply');
+  expect(guard).toContain('room-scope');
+  expect(guard).toContain('seatChange||visitorActivity?.bathJourney');
+  expect(guard).toContain('请先完成坐下或起身，再修改房间');
+ });
+
 });
