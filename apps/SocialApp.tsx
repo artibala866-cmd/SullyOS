@@ -12,7 +12,7 @@ import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
-import { mergeSocialComments, prependUniqueSocialPosts, updateSocialPost } from '../utils/socialFeedMerge';
+import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, updateSocialPost } from '../utils/socialFeedMerge';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
 
@@ -111,6 +111,46 @@ const safeParseJSON = (input: string) => {
     }
 };
 
+type SparkPostDraft = { title: string; content: string; emoji: string };
+type SparkCommentDraft = { content: string; replyToCommentId?: string };
+
+const readSparkPostDraft = (): SparkPostDraft => {
+    const empty = { title: '', content: '', emoji: '2728' };
+    try {
+        if (typeof localStorage === 'undefined') return empty;
+        const raw = localStorage.getItem('spark_post_draft');
+        if (!raw) return empty;
+        const value = JSON.parse(raw);
+        return {
+            title: typeof value?.title === 'string' ? value.title : '',
+            content: typeof value?.content === 'string' ? value.content : '',
+            emoji: typeof value?.emoji === 'string' ? value.emoji : '2728',
+        };
+    } catch {
+        return empty;
+    }
+};
+
+const readSparkCommentDrafts = (): Record<string, SparkCommentDraft> => {
+    try {
+        if (typeof localStorage === 'undefined') return {};
+        const value = JSON.parse(localStorage.getItem('spark_comment_drafts') || '{}');
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+        const drafts: Record<string, SparkCommentDraft> = {};
+        Object.entries(value).forEach(([id, draft]: [string, any]) => {
+            if (draft && typeof draft.content === 'string') {
+                drafts[id] = {
+                    content: draft.content,
+                    ...(typeof draft.replyToCommentId === 'string' ? { replyToCommentId: draft.replyToCommentId } : {}),
+                };
+            }
+        });
+        return drafts;
+    } catch {
+        return {};
+    }
+};
+
 // --- Icons ---
 
 const Icons = {
@@ -166,13 +206,15 @@ const SocialApp: React.FC = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [loadingComments, setLoadingComments] = useState(false);
     
-    // Post Creation State
-    const [newPostTitle, setNewPostTitle] = useState('');
-    const [newPostContent, setNewPostContent] = useState('');
-    const [newPostEmoji, setNewPostEmoji] = useState('2728');
+    // Post Creation State — restore the last local draft before the first render.
+    const [initialDraft] = useState<SparkPostDraft>(readSparkPostDraft);
+    const [newPostTitle, setNewPostTitle] = useState(initialDraft.title);
+    const [newPostContent, setNewPostContent] = useState(initialDraft.content);
+    const [newPostEmoji, setNewPostEmoji] = useState(initialDraft.emoji);
 
     // Comment Input State
     const [commentInput, setCommentInput] = useState('');
+    const [replyTarget, setReplyTarget] = useState<SocialComment | null>(null);
     const [isReplyingToUser, setIsReplyingToUser] = useState(false);
 
     // Settings / Handle Management
@@ -209,6 +251,13 @@ const SocialApp: React.FC = () => {
     const refreshRequestRef = useRef<AbortController | null>(null);
     const commentRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
+    const replyQueueRef = useRef<Array<{ postId: string; commentId: string; content: string }>>([]);
+    const replyWorkerRunningRef = useRef(false);
+    const commentSubmitLockRef = useRef(false);
+    const createPostLockRef = useRef(false);
+    const feedLoadGenerationRef = useRef(0);
+    const socialPersistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const commentDraftsRef = useRef<Record<string, SparkCommentDraft>>(readSparkCommentDrafts());
 
     useEffect(() => {
         mountedRef.current = true;
@@ -220,11 +269,26 @@ const SocialApp: React.FC = () => {
             refreshRequestRef.current = null;
             commentRequestRef.current = null;
             replyRequestRef.current = null;
+            replyQueueRef.current = [];
         };
     }, []);
 
     useEffect(() => {
+        try {
+            if (newPostTitle.trim() || newPostContent.trim()) {
+                localStorage.setItem('spark_post_draft', JSON.stringify({ title: newPostTitle, content: newPostContent, emoji: newPostEmoji, updatedAt: Date.now() }));
+            } else {
+                localStorage.removeItem('spark_post_draft');
+            }
+        } catch (error) {
+            console.warn('Spark draft could not be saved locally', error);
+        }
+    }, [newPostTitle, newPostContent, newPostEmoji]);
+
+    useEffect(() => {
+        const loadGeneration = feedLoadGenerationRef.current;
         DB.getSocialPosts().then(posts => {
+            if (!mountedRef.current || feedLoadGenerationRef.current !== loadGeneration) return;
             if (posts.length > 0) {
                 const sorted = posts.sort((a,b) => b.timestamp - a.timestamp);
                 // IndexedDB can be slow on mobile. If the user already created
@@ -234,6 +298,8 @@ const SocialApp: React.FC = () => {
                 feedRef.current = next;
                 setFeed(next);
             }
+        }).catch(error => {
+            if (mountedRef.current) addToast('读取 Spark 帖子失败：' + (error?.message || error), 'error');
         });
         
         // Load User Config & Social Profile from DB assets and LocalStorage (hybrid migration)
@@ -404,13 +470,58 @@ const SocialApp: React.FC = () => {
         addToast('主页资料已保存 (仅在 Spark 生效)', 'success');
     };
 
+    const enqueueSocialPersistence = (operation: () => Promise<void>): Promise<void> => {
+        const next = socialPersistenceQueueRef.current.then(operation, operation);
+        socialPersistenceQueueRef.current = next.catch(error => {
+            console.error('Spark persistence failed', error);
+        });
+        return next;
+    };
+
+    const persistCommentDrafts = () => {
+        try {
+            const saved = Object.fromEntries(Object.entries(commentDraftsRef.current).filter(([, draft]) =>
+                draft.content.trim() || draft.replyToCommentId
+            ));
+            if (Object.keys(saved).length) localStorage.setItem('spark_comment_drafts', JSON.stringify(saved));
+            else localStorage.removeItem('spark_comment_drafts');
+        } catch (error) {
+            console.warn('Spark comment draft could not be saved locally', error);
+        }
+    };
+
+    const handleCommentInputChange = (value: string) => {
+        setCommentInput(value);
+        if (!selectedPost) return;
+        const current = commentDraftsRef.current[selectedPost.id] || { content: '' };
+        commentDraftsRef.current = {
+            ...commentDraftsRef.current,
+            [selectedPost.id]: { ...current, content: value, ...(replyTarget ? { replyToCommentId: replyTarget.id } : {}) },
+        };
+        persistCommentDrafts();
+    };
+
+    const handleSetReplyTarget = (comment: SocialComment | null) => {
+        setReplyTarget(comment);
+        if (!selectedPost) return;
+        const current = commentDraftsRef.current[selectedPost.id] || { content: commentInput };
+        const next: SparkCommentDraft = { ...current };
+        if (comment) next.replyToCommentId = comment.id;
+        else delete next.replyToCommentId;
+        commentDraftsRef.current = { ...commentDraftsRef.current, [selectedPost.id]: next };
+        persistCommentDrafts();
+    };
+
     const prependPostsToFeed = (newPosts: SocialPost[]) => {
+        const existingIds = new Set(feedRef.current.map(post => post.id));
         const next = prependUniqueSocialPosts(feedRef.current, newPosts);
+        const fresh = newPosts.filter(post => !existingIds.has(post.id));
         feedRef.current = next;
         setFeed(next);
-        // Only persist the new batch. Re-saving the request's stale feed snapshot
-        // could erase comments or user posts that arrived while it was running.
-        Promise.all(newPosts.map(p => DB.saveSocialPost(p))).catch(console.error);
+        // Serialize writes so a late save cannot resurrect a post after Clear Feed.
+        fresh.forEach(post => {
+            void enqueueSocialPersistence(() => DB.saveSocialPost(post)).catch(error => console.error(error));
+        });
     };
 
     const updatePostInFeed = (postId: string, updater: (post: SocialPost) => SocialPost): SocialPost | undefined => {
@@ -419,7 +530,7 @@ const SocialApp: React.FC = () => {
         feedRef.current = result.feed;
         setFeed(result.feed);
         setSelectedPost(current => (current?.id === postId ? result.post! : current));
-        DB.saveSocialPost(result.post).catch(console.error);
+        void enqueueSocialPersistence(() => DB.saveSocialPost(result.post!)).catch(error => console.error(error));
         return result.post;
     };
 
@@ -427,11 +538,13 @@ const SocialApp: React.FC = () => {
         const next = feedRef.current.filter(p => p.id !== postId);
         feedRef.current = next;
         setFeed(next);
-        DB.deleteSocialPost(postId);
+        void enqueueSocialPersistence(() => DB.deleteSocialPost(postId)).catch(error => {
+            addToast('删除帖子失败：' + (error?.message || error), 'error');
+        });
         setSelectedPost(current => (current?.id === postId ? null : current));
     };
 
-    // --- AI Logic (Updated for Multi-Handle) ---
+    // --- AI Logic (Updated for Multi-Handle) ---    // --- AI Logic (Updated for Multi-Handle) ---
     const buildGenerationContext = async (participants: CharacterProfile[]) => {
         const recent = await Promise.all(participants.map(async char =>
             [char.id, await loadCharacterContextMessages(char)] as const));
@@ -487,7 +600,6 @@ const SocialApp: React.FC = () => {
     "title": "简短吸睛的标题",
     "content": "正文内容...",
     "emojis": ["🎈", "✨"],
-    "likes": 随机数 (0 - 10000)
   },
   ...
 ]`;
@@ -527,7 +639,7 @@ const SocialApp: React.FC = () => {
                     title: typeof item.title === 'string' ? item.title : '无标题',
                     content: item.content || '...',
                     images,
-                    likes: item.likes || 0,
+                    likes: 0,
                     isCollected: false,
                     isLiked: false,
                     comments: [],
@@ -536,6 +648,8 @@ const SocialApp: React.FC = () => {
                     bgStyle: getRandomStyle().bg,
                     authorType: isCharacterPost ? 'character' as const : 'stranger' as const,
                     authorCharId: matchedChar?.id,
+                    authorId: matchedChar ? ('character:' + matchedChar.id + ':handle:' + author.name.normalize('NFKC').trim().toLowerCase()) : ('stranger:' + author.name.normalize('NFKC').trim().toLowerCase()),
+                    source: 'ai',
                 }];
             });
             if (!newPosts.length) throw new Error('模型返回的作者身份不匹配，未添加帖子');
@@ -626,14 +740,16 @@ ${post.content || '(楼主没写正文)'}
                         const char = author.character;
                         if (char) avatar = char.avatar;
                         return [{
-                            id: `cmt-${Math.random()}`,
+                            id: 'cmt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
                             authorName: authorName,
                             authorAvatar: avatar,
                             content: c.content || '...',
-                            likes: Math.floor(Math.random() * 100),
+                            likes: 0,
                             isCharacter: !!char,
                             authorType: char ? 'character' : 'stranger',
                             authorCharId: char?.id,
+                            authorId: char ? ('character:' + char.id + ':handle:' + authorName.normalize('NFKC').trim().toLowerCase()) : ('stranger:' + authorName.normalize('NFKC').trim().toLowerCase()),
+                            timestamp: Date.now(),
                         } as SocialComment];
                     });
                 if (!comments.length) throw new Error('模型返回的评论身份不匹配，未添加评论');
@@ -652,54 +768,42 @@ ${post.content || '(楼主没写正文)'}
         }
     };
 
-    const generateRepliesToUser = async (post: SocialPost, userContent: string) => {
-
-        if (!apiConfig.apiKey) return;
-        if (replyRequestRef.current) return;
+    const generateRepliesToUser = async (postId: string, userCommentId: string, userContent: string) => {
+        if (!apiConfig.apiKey) {
+            addToast('请先配置 API Key；你的评论已保存，之后可以继续互动。', 'error');
+            return;
+        }
+        const post = feedRef.current.find(item => item.id === postId);
+        const userComment = post?.comments.find(comment => comment.id === userCommentId);
+        if (!post || !userComment) return;
         const controller = new AbortController();
-        replyRequestRef.current = { postId: post.id, controller };
-        post = feedRef.current.find(item => item.id === post.id) || post;
-        setIsReplyingToUser(true);
+        replyRequestRef.current = { postId, controller };
         try {
             const selectedChars = selectSparkParticipants(post, [...characters].sort(() => 0.5 - Math.random()), characterHandles);
             const context = await buildGenerationContext(selectedChars);
             if (controller.signal.aborted) return;
 
-            // Tell the model who actually wrote the post — if it's the user themselves, replies
-            // need to make sense as people responding to the user's own note (not strangers).
-            let postAuthorInfo = `"${post.authorName}"`;
-            if (post.authorType === 'user') postAuthorInfo += ' (用户本人)';
-            else if (post.authorType === 'character' && post.authorCharId) {
-                const c = characters.find(ch => ch.id === post.authorCharId);
-                if (c) postAuthorInfo += ` (角色 ${c.name} 的马甲)`;
-            } else if (post.authorName === socialProfile.name) {
-                postAuthorInfo += ' (用户本人)';
-            }
+            const parentComment = userComment.parentCommentId
+                ? post.comments.find(comment => comment.id === userComment.parentCommentId)
+                : undefined;
+            const prompt = [
+                '### 任务：在 Spark 评论区继续真实、连贯的对话',
+                '帖子楼主：' + post.authorName + '（' + (post.authorType || 'legacy') + '）',
+                '帖子标题：' + post.title,
+                '帖子正文：' + (post.content || '（无正文）'),
+                parentComment ? '用户正在回复 @' + parentComment.authorName + ' 的评论：' + parentComment.content : '用户正在发表顶层评论。',
+                '用户刚发表的评论 ID：' + userCommentId,
+                '用户评论内容：' + userContent,
+                '已有评论与回复历史（必须结合上下文，不要复述已有回复）：',
+                buildSparkCommentHistory(post),
+                '请生成 1-3 条真正回应这条新评论的回复。可以由楼主或此前参与对话的角色继续回复；同一个角色可以在不同轮次继续发言，但不得重复回答同一条评论。',
+                '每条回复必须属于本次角色档案中的正确身份，不能冒充用户，不能把私聊内容公开，也不能编造没有记录的共同经历。',
+                '输出 JSON 数组，每项包含 author、charId（路人填 null）、content。不要生成 likes、粉丝数或其他虚构互动计数。',
+            ].join('\n');
 
-            const prompt = `### 任务: 回复用户的评论
-**帖子楼主**: ${postAuthorInfo}
-**帖子标题**: "${post.title}"
-**帖子正文**:
-"""
-${post.content || '(楼主没写正文)'}
-"""
-**用户 "${socialProfile.name}" 刚在帖子下发的评论**: "${userContent}"
-**已有评论对话（最后一条可能就是上述新评论，不要重复回复旧内容）**:
-${buildSparkCommentHistory(post)}
-
-请基于楼主帖子的【标题 + 正文】+ 用户的评论上下文，生成 1-3 条对用户这条评论的回复，要扣题，不能脱离正文凭空发挥。
-优先由楼主或正在对话的角色回复；只能使用本次角色档案中的身份。
-
-### 禁令
-- **绝对禁止** \`author\` 等于或近似 "${socialProfile.name}" (用户自己)。回复必须来自其他人。
-
-### 输出格式 (JSON Array)
-[
-  { "author": "网名 (Handle)", "charId": "角色ID或null", "content": "回复内容..." }
-]`;
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiConfig.apiKey },
                 body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8 }),
                 signal: controller.signal,
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '回复用户评论' },
@@ -710,44 +814,68 @@ ${buildSparkCommentHistory(post)}
             const json = safeParseJSON(extractContent(data));
             if (Array.isArray(json)) {
                 const newReplies: SocialComment[] = json
-                    .flatMap((c: any) => {
+                    .flatMap((c: any, index: number) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
                         if (!author || typeof c.content !== 'string' || !c.content.trim()) return [];
                         const authorName = author.name;
-                        let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorName}`;
                         const char = author.character;
-                        if (char) avatar = char.avatar;
+                        const avatar = char ? char.avatar : 'https://api.dicebear.com/7.x/notionists/svg?seed=' + authorName;
                         return [{
-                            id: `cmt-reply-${Date.now()}-${Math.random()}`,
-                            authorName: authorName,
+                            id: 'cmt-reply-' + userCommentId + '-' + (index + 1),
+                            authorName,
                             authorAvatar: avatar,
-                            content: `回复 @${socialProfile.name}: ${c.content}`,
-                            likes: Math.floor(Math.random() * 10),
+                            content: c.content.trim(),
+                            likes: 0,
                             isCharacter: !!char,
-                            authorType: char ? 'character' : 'stranger',
+                            authorType: char ? 'character' as const : 'stranger' as const,
                             authorCharId: char?.id,
+                            authorId: char ? ('character:' + char.id + ':handle:' + authorName.normalize('NFKC').trim().toLowerCase()) : ('stranger:' + authorName.normalize('NFKC').trim().toLowerCase()),
+                            timestamp: Date.now() + index,
+                            parentCommentId: userCommentId,
+                            replyToAuthorName: socialProfile.name,
                         } as SocialComment];
                     });
                 if (!newReplies.length) throw new Error('模型返回的回复身份不匹配，未添加回复');
-                if (newReplies.length > 0) {
-                    updatePostInFeed(post.id, current => ({
-                        ...current,
-                        comments: mergeSocialComments(current.comments || [], newReplies),
-                    }));
-                    addToast(`收到 ${newReplies.length} 条新回复`, 'info');
-                }
+                updatePostInFeed(postId, current => ({
+                    ...current,
+                    comments: mergeSocialComments(current.comments || [], newReplies),
+                }));
+                addToast('收到 ' + newReplies.length + ' 条新回复', 'info');
             }
-        } catch (e: any) {
-            if (e?.name !== 'AbortError') addToast(`回复生成失败: ${e?.message || e}`, 'error');
+        } catch (error: any) {
+            if (error?.name !== 'AbortError') addToast('回复生成失败：' + (error?.message || error), 'error');
         } finally {
-            if (replyRequestRef.current?.controller === controller) {
-                replyRequestRef.current = null;
-                if (mountedRef.current) setIsReplyingToUser(false);
-            }
+            if (replyRequestRef.current?.controller === controller) replyRequestRef.current = null;
         }
     };
 
-    const handleShare = async (targetId: string, isGroup: boolean) => {
+    const processReplyQueue = async () => {
+        if (replyWorkerRunningRef.current) return;
+        replyWorkerRunningRef.current = true;
+        if (mountedRef.current) setIsReplyingToUser(true);
+        try {
+            while (replyQueueRef.current.length && mountedRef.current) {
+                const item = replyQueueRef.current.shift();
+                if (!item) continue;
+                const post = feedRef.current.find(candidate => candidate.id === item.postId);
+                if (!post) continue;
+                // Idempotency guard: a retried queue item must not answer the same comment twice.
+                if (post.comments.some(comment => comment.parentCommentId === item.commentId && comment.authorType !== 'user')) continue;
+                await generateRepliesToUser(item.postId, item.commentId, item.content);
+            }
+        } finally {
+            replyWorkerRunningRef.current = false;
+            if (mountedRef.current) setIsReplyingToUser(false);
+            if (replyQueueRef.current.length && mountedRef.current) void processReplyQueue();
+        }
+    };
+
+    const enqueueReplyRequest = (item: { postId: string; commentId: string; content: string }) => {
+        replyQueueRef.current.push(item);
+        void processReplyQueue();
+    };
+
+    const handleShare = async (targetId: string, isGroup: boolean) => {    const handleShare = async (targetId: string, isGroup: boolean) => {
         if (!selectedPost) return;
         try {
             await DB.saveMessage({ charId: isGroup ? 'user' : targetId, groupId: isGroup ? targetId : undefined, role: 'user', type: 'social_card', content: '[分享帖子]', metadata: { post: selectedPost } });
@@ -758,68 +886,108 @@ ${buildSparkCommentHistory(post)}
     };
 
     const handleCreatePost = () => {
-        if (!newPostContent.trim()) return;
-        const post: SocialPost = {
-            id: `user-post-${Date.now()}`,
-            authorName: socialProfile.name, // Use Local Identity
-            authorAvatar: socialProfile.avatar, // Use Local Identity
-            title: newPostTitle || '无标题',
-            content: newPostContent,
-            // Sticker selector stores twemoji codepoints (eg "2728"); convert to the real emoji char
-            // so that the feed/detail views render an emoji instead of the raw codepoint text.
-            images: [codepointToEmoji(newPostEmoji)],
-            likes: 0,
-            isCollected: false,
-            isLiked: false,
-            comments: [],
-            timestamp: Date.now(),
-            tags: ['User'],
-            bgStyle: getRandomStyle().bg,
-            authorType: 'user',
-        };
-        prependPostsToFeed([post]);
-        setNewPostContent(''); setNewPostTitle(''); 
-        setIsCreateOpen(false); // Close Modal
-        setActiveTab('home'); 
-        addToast('发布成功', 'success');
+        if (createPostLockRef.current || !newPostContent.trim()) return;
+        createPostLockRef.current = true;
+        try {
+            const post: SocialPost = {
+                id: 'user-post-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+                authorName: socialProfile.name,
+                authorAvatar: socialProfile.avatar,
+                title: newPostTitle.trim() || '无标题',
+                content: newPostContent.trim(),
+                images: [codepointToEmoji(newPostEmoji)],
+                likes: 0,
+                isCollected: false,
+                isLiked: false,
+                comments: [],
+                timestamp: Date.now(),
+                tags: ['User'],
+                bgStyle: getRandomStyle().bg,
+                authorType: 'user',
+                authorId: 'user',
+                source: 'user',
+            };
+            prependPostsToFeed([post]);
+            setNewPostContent('');
+            setNewPostTitle('');
+            setIsCreateOpen(false);
+            setActiveTab('home');
+            addToast('发布成功', 'success');
+        } finally {
+            createPostLockRef.current = false;
+        }
     };
 
-    const handleDeletePost = (postId: string) => { removePostFromFeed(postId); addToast('帖子已删除', 'success'); trackEvent('删除一条帖子'); };
+    const handleDeletePost = (postId: string) => {
+        const post = feedRef.current.find(item => item.id === postId);
+        if (!post || !canDeleteSocialPost(post, socialProfile.name)) {
+            addToast('只能删除自己发布的帖子', 'error');
+            return;
+        }
+        removePostFromFeed(postId);
+        addToast('帖子已删除', 'success');
+        trackEvent('删除一条帖子');
+    };
+
     const handleLike = (e: any, post: SocialPost) => {
         e.stopPropagation();
-        updatePostInFeed(post.id, current => ({
+        const updated = updatePostInFeed(post.id, current => ({
             ...current,
             isLiked: !current.isLiked,
-            likes: current.isLiked ? current.likes - 1 : current.likes + 1,
+            likes: current.isLiked ? Math.max(0, current.likes - 1) : current.likes + 1,
         }));
-        trackEvent('点赞一条帖子', { action: post.isLiked ? 'unlike' : 'like' });
+        if (updated) trackEvent('点赞一条帖子', { action: updated.isLiked ? 'like' : 'unlike' });
     };
-    
-    const handleSendComment = async () => { 
-        if (!selectedPost || !commentInput.trim()) return; 
-        if (commentRequestRef.current?.postId === selectedPost.id || replyRequestRef.current) return;
 
-        const userComment: SocialComment = {
-                id: `cmt-user-${Date.now()}`,
-                authorName: socialProfile.name, // Use Local Identity
-                authorAvatar: socialProfile.avatar, // Use Local Identity
-                content: commentInput.trim(),
+    const handleCommentLike = (e: any, postId: string, commentId: string) => {
+        e.stopPropagation();
+        const updated = updatePostInFeed(postId, current => toggleSocialCommentLike(current, commentId));
+        const comment = updated?.comments.find(item => item.id === commentId);
+        if (comment) trackEvent('点赞一条 Spark 评论', { action: comment.isLiked ? 'like' : 'unlike' });
+    };
+
+    const handleSendComment = () => {
+        if (!selectedPost || !commentInput.trim() || commentSubmitLockRef.current) return;
+        commentSubmitLockRef.current = true;
+        try {
+            const postId = selectedPost.id;
+            const contentToSend = commentInput.trim();
+            const target = replyTarget;
+            const userComment: SocialComment = {
+                id: 'cmt-user-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+                authorName: socialProfile.name,
+                authorAvatar: socialProfile.avatar,
+                content: contentToSend,
                 likes: 0,
                 isCharacter: false,
-                authorType: 'user' as const,
-        };
-        const updatedPost = updatePostInFeed(selectedPost.id, current => ({
-            ...current,
-            comments: mergeSocialComments(current.comments || [], [userComment]),
-        }));
-        if (!updatedPost) return;
-        const contentToSend = commentInput; 
-        setCommentInput(''); 
-        await generateRepliesToUser(updatedPost, contentToSend); 
+                authorType: 'user',
+                authorId: 'user',
+                timestamp: Date.now(),
+                ...(target ? { parentCommentId: target.id, replyToAuthorName: target.authorName } : {}),
+            };
+            const updatedPost = updatePostInFeed(postId, current => ({
+                ...current,
+                comments: mergeSocialComments(current.comments || [], [userComment]),
+            }));
+            if (!updatedPost) return;
+            setCommentInput('');
+            setReplyTarget(null);
+            commentDraftsRef.current = { ...commentDraftsRef.current, [postId]: { content: '' } };
+            persistCommentDrafts();
+            // Save the comment immediately; AI replies are queued separately and never block typing/sending.
+            enqueueReplyRequest({ postId, commentId: userComment.id, content: contentToSend });
+        } finally {
+            commentSubmitLockRef.current = false;
+        }
     };
 
     const handleOpenPost = (post: SocialPost) => {
         const livePost = feedRef.current.find(item => item.id === post.id) || post;
+        const draft = commentDraftsRef.current[livePost.id];
+        setCommentInput(draft?.content || '');
+        setReplyTarget(draft?.replyToCommentId
+            ? livePost.comments.find(comment => comment.id === draft.replyToCommentId) || null
+            : null);
         setSelectedPost(livePost);
         generateComments(livePost);
     };
@@ -828,29 +996,39 @@ ${buildSparkCommentHistory(post)}
         commentRequestRef.current?.controller.abort();
         commentRequestRef.current = null;
         setLoadingComments(false);
+        setCommentInput('');
+        setReplyTarget(null);
         setSelectedPost(null);
     };
 
     const handleClearFeed = () => {
+        feedLoadGenerationRef.current += 1;
         refreshRequestRef.current?.abort();
         commentRequestRef.current?.controller.abort();
         replyRequestRef.current?.controller.abort();
         refreshRequestRef.current = null;
         commentRequestRef.current = null;
         replyRequestRef.current = null;
+        replyQueueRef.current = [];
         setIsRefreshing(false);
         setLoadingComments(false);
         setIsReplyingToUser(false);
         feedRef.current = [];
         setFeed([]);
         setSelectedPost(null);
-        DB.clearSocialPosts();
+        setCommentInput('');
+        setReplyTarget(null);
+        commentDraftsRef.current = {};
+        persistCommentDrafts();
+        void enqueueSocialPersistence(() => DB.clearSocialPosts()).catch(error => {
+            addToast('清空 Spark 数据失败：' + (error?.message || error), 'error');
+        });
         setShowSettings(false);
         addToast('推荐流已清空', 'success');
         trackEvent('清空 Spark 推荐流');
     };
 
-    // --- Renderers ---
+    // --- Renderers ---    // --- Renderers ---
 
     // 1. Feed Item (Glassmorphism)
     const renderFeedItem = (post: SocialPost) => (
@@ -877,7 +1055,9 @@ ${buildSparkCommentHistory(post)}
                     </div>
                 </div>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }} className="absolute top-2 right-2 z-20 w-6 h-6 bg-black/20 text-white rounded-full flex items-center justify-center text-xs backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80">×</button>
+            {canDeleteSocialPost(post, socialProfile.name) && (
+                <button onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }} aria-label="删除自己的帖子" className="absolute top-2 right-2 z-20 w-6 h-6 bg-black/20 text-white rounded-full flex items-center justify-center text-xs backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80">×</button>
+            )}
         </div>
     );
 
@@ -887,6 +1067,38 @@ ${buildSparkCommentHistory(post)}
     // SEPARATED scrollable container from animation wrapper.
     const renderDetail = () => {
         if (!selectedPost) return null;
+        const allComments = selectedPost.comments || [];
+        const renderedCommentIds = new Set<string>();
+        const renderCommentTree = (comment: SocialComment, depth = 0): React.ReactNode => {
+            if (renderedCommentIds.has(comment.id)) return null;
+            renderedCommentIds.add(comment.id);
+            const children = allComments.filter(candidate => candidate.parentCommentId === comment.id);
+            return (
+                <React.Fragment key={comment.id}>
+                    <div className={'flex gap-3 animate-fade-in group ' + (depth > 0 ? 'ml-3 pl-3 border-l border-slate-100' : '')}>
+                        <TokenImg value={comment.authorAvatar} className="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-100" />
+                        <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start gap-2">
+                                <span className={'text-xs font-bold ' + (comment.isCharacter ? 'text-slate-800' : 'text-slate-500')}>{comment.authorName}</span>
+                                <div className="flex items-center gap-1 text-slate-400">
+                                    <button onClick={(e) => handleCommentLike(e, selectedPost.id, comment.id)} aria-label={comment.isLiked ? '取消评论点赞' : '点赞评论'} className="flex items-center gap-1 hover:text-[#ff2442]">
+                                        <Icons.Heart filled={comment.isLiked === true} className="w-3.5 h-3.5" />
+                                        <span className="text-[10px]">{comment.likes}</span>
+                                    </button>
+                                </div>
+                            </div>
+                            {comment.replyToAuthorName && <div className="text-[10px] text-slate-400 mt-0.5">回复 @{comment.replyToAuthorName}</div>}
+                            <p className="text-[13px] text-slate-700 mt-0.5 leading-normal font-light whitespace-pre-wrap">{comment.content}</p>
+                            <button onClick={() => handleSetReplyTarget(comment)} className="mt-1 text-[10px] text-slate-400 hover:text-[#ff2442]">回复</button>
+                        </div>
+                    </div>
+                    {children.map(child => renderCommentTree(child, depth + 1))}
+                </React.Fragment>
+            );
+        };
+        const commentRoots = allComments.filter(comment =>
+            !comment.parentCommentId || !allComments.some(candidate => candidate.id === comment.parentCommentId)
+        );
         return (
             <div 
                 className="absolute inset-0 z-[60] h-full w-full bg-white/90 backdrop-blur-xl flex flex-col"
@@ -933,23 +1145,10 @@ ${buildSparkCommentHistory(post)}
                                 {(loadingComments || isReplyingToUser) && <div className="w-3 h-3 border-2 border-slate-300 border-t-[#ff2442] rounded-full animate-spin"></div>}
                             </div>
                             
-                            <div className="space-y-6">
-                                {selectedPost.comments.length === 0 && !loadingComments && <div className="text-center text-slate-300 text-xs py-10">快来抢沙发...</div>}
-                                {selectedPost.comments.map(c => (
-                                    <div key={c.id} className="flex gap-3 animate-fade-in group">
-                                        <TokenImg value={c.authorAvatar} className="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-100" />
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-start">
-                                                <span className={`text-xs font-bold ${c.isCharacter ? 'text-slate-800' : 'text-slate-500'}`}>{c.authorName}</span>
-                                                <div className="flex items-center gap-1 text-slate-400 cursor-pointer hover:text-[#ff2442]">
-                                                    <Icons.Heart filled={false} className="w-3.5 h-3.5" />
-                                                    <span className="text-[10px]">{c.likes}</span>
-                                                </div>
-                                            </div>
-                                            <p className="text-[13px] text-slate-700 mt-0.5 leading-normal font-light">{c.content}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                            <div className="space-y-4">
+                                {allComments.length === 0 && !loadingComments && <div className="text-center text-slate-300 text-xs py-10">快来抢沙发...</div>}
+                                {commentRoots.map(comment => renderCommentTree(comment))}
+                                {allComments.filter(comment => !renderedCommentIds.has(comment.id)).map(comment => renderCommentTree(comment))}
                                 <div ref={commentsEndRef} />
                             </div>
                         </div>
@@ -957,26 +1156,36 @@ ${buildSparkCommentHistory(post)}
 
                     {/* Bottom Input Bar - Absolute to sit on top of scroll area at bottom */}
                     <div className="absolute bottom-0 w-full pb-[var(--safe-bottom,0px)] z-30 pointer-events-none">
-                         <div className="pointer-events-auto h-16 bg-white/80 backdrop-blur-xl border-t border-white/40 px-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
-                            <div className="flex-1 bg-slate-100/50 rounded-full px-5 py-2.5 flex items-center gap-2 focus-within:bg-white focus-within:ring-1 focus-within:ring-slate-200 transition-all border border-transparent focus-within:border-slate-200">
-                                <input 
-                                    value={commentInput}
-                                    onChange={(e) => setCommentInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
-                                    disabled={loadingComments || isReplyingToUser}
-                                    placeholder="说点什么..."
-                                    className="bg-transparent text-sm w-full outline-none text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
-                                />
-                                {commentInput.trim() && <button disabled={loadingComments || isReplyingToUser} onClick={handleSendComment} className="text-[#ff2442] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
-                            </div>
-                            <div className="flex gap-5 text-slate-600 shrink-0 items-center">
-                                <div className="flex flex-col items-center gap-0.5">
-                                    <Icons.Heart filled={selectedPost.isLiked} onClick={(e) => handleLike(e, selectedPost)} className="w-6 h-6" />
-                                    <span className="text-[10px] font-medium">{selectedPost.likes}</span>
+                        <div className="pointer-events-auto bg-white/90 backdrop-blur-xl border-t border-white/40 px-4 py-2 flex flex-col gap-2 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+                            {replyTarget && (
+                                <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                                    <span className="truncate">回复 @{replyTarget.authorName}</span>
+                                    <button onClick={() => handleSetReplyTarget(null)} className="shrink-0 text-slate-400">取消</button>
                                 </div>
-                                <div className="flex flex-col items-center gap-0.5">
-                                    <Icons.Star filled={selectedPost.isCollected} onClick={() => { updatePostInFeed(selectedPost.id, current => ({ ...current, isCollected: !current.isCollected })); trackEvent('收藏一条帖子', { action: selectedPost.isCollected ? 'uncollect' : 'collect' }); }} className="w-6 h-6" />
-                                    <span className="text-[10px] font-medium">{selectedPost.isCollected ? '已收藏' : '收藏'}</span>
+                            )}
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex-1 bg-slate-100/70 rounded-full px-4 py-2.5 flex items-center gap-2 focus-within:bg-white focus-within:ring-1 focus-within:ring-slate-200 transition-all border border-transparent focus-within:border-slate-200">
+                                    <input
+                                        value={commentInput}
+                                        onChange={(e) => handleCommentInputChange(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendComment()}
+                                        placeholder="说点什么..."
+                                        className="bg-transparent text-sm w-full outline-none text-slate-800 placeholder:text-slate-400"
+                                    />
+                                    {commentInput.trim() && <button onClick={handleSendComment} className="text-[#ff2442] font-bold text-sm animate-fade-in">发送</button>}
+                                </div>
+                                <div className="flex gap-5 text-slate-600 shrink-0 items-center">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <Icons.Heart filled={selectedPost.isLiked} onClick={(e) => handleLike(e, selectedPost)} className="w-6 h-6" />
+                                        <span className="text-[10px] font-medium">{selectedPost.likes}</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <Icons.Star filled={selectedPost.isCollected} onClick={() => {
+                                            const updated = updatePostInFeed(selectedPost.id, current => ({ ...current, isCollected: !current.isCollected }));
+                                            if (updated) trackEvent('收藏一条帖子', { action: updated.isCollected ? 'collect' : 'uncollect' });
+                                        }} className="w-6 h-6" />
+                                        <span className="text-[10px] font-medium">{selectedPost.isCollected ? '已收藏' : '收藏'}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
