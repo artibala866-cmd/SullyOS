@@ -103,3 +103,18 @@ describe('Spark alt profile privacy', () => {
         expect(hidden).toBe(getSparkAuthorAvatar(char, '改名后的树洞', configured, 'alt-1'));
     });
 });
+
+describe('Spark public request worldbook isolation', () => {
+    it('never injects private worldbook content into a shared public generation request', async () => {
+        const { buildSparkGenerationRequestMessages } = await import('./socialGeneration');
+        const privateA = { ...a, mountedWorldbooks: [{ id: 'secret-a', title: '私人世界书A', entries: [{ content: '甲角色不公开的秘密内容' }] }] };
+        const privateB = { ...b, mountedWorldbooks: [{ id: 'secret-b', title: '私人世界书B', entries: [{ content: '乙角色不公开的秘密内容' }] }] };
+        const messages = buildSparkGenerationRequestMessages([privateA, privateB], user, '仅公开资料', '写两条公开帖子');
+        expect(messages).toEqual([
+            { role: 'system', content: '仅公开资料' },
+            { role: 'user', content: '写两条公开帖子' },
+        ]);
+        expect(JSON.stringify(messages)).not.toContain('甲角色不公开的秘密内容');
+        expect(JSON.stringify(messages)).not.toContain('乙角色不公开的秘密内容');
+    });
+});
