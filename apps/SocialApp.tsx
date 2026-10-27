@@ -15,7 +15,7 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost } from '../utils/socialFeedMerge';
-import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent } from '../utils/sparkCommunity';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, normalizeSparkName } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
@@ -187,8 +187,12 @@ const SocialApp: React.FC = () => {
             const type: SparkAccountType = post.authorType || (post.authorCharId ? 'character' : post.id.startsWith('user-post-') ? 'user' : 'stranger');
             const handles = post.authorCharId
                 ? (characterHandles[post.authorCharId] || []) : [];
-            const handleId = handles.find(handle => handle.handle === post.authorName)?.id
-                || (post.authorId?.startsWith('character:') ? post.authorId.split(':handle:')[1] : undefined);
+            const ownerPrefix = post.authorCharId ? 'character:' + post.authorCharId + ':handle:' : '';
+            // Persisted IDs win over edited handles; unknown legacy aliases must not collapse into "default".
+            const handleId = ownerPrefix && post.authorId?.startsWith(ownerPrefix)
+                ? post.authorId.slice(ownerPrefix.length)
+                : handles.find(handle => handle.handle === post.authorName)?.id ||
+                  (post.authorCharId ? 'legacy-' + normalizeSparkName(post.authorName) : undefined);
             const result = ensureSparkAccount(state, {
                 type, id: post.authorId,
                 ownerCharId: type === 'character' ? post.authorCharId : undefined,
@@ -198,8 +202,11 @@ const SocialApp: React.FC = () => {
             const comments = (post.comments || []).map(comment => {
                 const commentType: SparkAccountType = comment.authorType || (comment.authorCharId ? 'character' : comment.id.startsWith('cmt-user-') ? 'user' : 'stranger');
                 const commentHandles = comment.authorCharId ? (characterHandles[comment.authorCharId] || []) : [];
-                const commentHandleId = commentHandles.find(handle => handle.handle === comment.authorName)?.id
-                    || (comment.authorId?.startsWith('character:') ? comment.authorId.split(':handle:')[1] : undefined);
+                const commentPrefix = comment.authorCharId ? 'character:' + comment.authorCharId + ':handle:' : '';
+                const commentHandleId = commentPrefix && comment.authorId?.startsWith(commentPrefix)
+                    ? comment.authorId.slice(commentPrefix.length)
+                    : commentHandles.find(handle => handle.handle === comment.authorName)?.id ||
+                      (comment.authorCharId ? 'legacy-' + normalizeSparkName(comment.authorName) : undefined);
                 const registeredComment = ensureSparkAccount(state, {
                     type: commentType, id: comment.authorId,
                     ownerCharId: commentType === 'character' ? comment.authorCharId : undefined,
@@ -566,7 +573,20 @@ const SocialApp: React.FC = () => {
         localStorage.setItem('spark_worldbook_ids', JSON.stringify(next));
         return next;
     });
-    const [characterHandles, setCharacterHandles] = useState<Record<string, SubAccount[]>>({});
+    const [characterHandles, setCharacterHandles] = useState<Record<string, SubAccount[]>>(() => {
+        let saved: Record<string, SubAccount[]> = {};
+        try {
+            const raw = JSON.parse(localStorage.getItem('spark_char_handles') || '{}');
+            if (raw && typeof raw === 'object' && !Array.isArray(raw)) saved = raw;
+        } catch { /* Preserve generated defaults if legacy storage is malformed. */ }
+        const normalized = { ...saved };
+        for (const char of characters) {
+            if (!Array.isArray(normalized[char.id]) || normalized[char.id].length === 0) {
+                normalized[char.id] = [{ id: 'default', handle: char.socialProfile?.handle || char.name, note: '主账号' }];
+            }
+        }
+        return normalized;
+    });
     const [identityGroupId, setIdentityGroupId] = useState(GROUP_FILTER_ALL); // 身份管理弹窗的角色分组筛选
 
     // Sharing State
@@ -702,24 +722,18 @@ const SocialApp: React.FC = () => {
         };
         loadAssets();
 
-        // Load Handles
-        const savedHandles = localStorage.getItem('spark_char_handles');
-        let initialHandles: Record<string, SubAccount[]> = {};
-        if (savedHandles) {
-            try { initialHandles = JSON.parse(savedHandles); } catch(e) {}
-        }
-        
-        // Ensure every character has at least one default handle
-        characters.forEach(c => {
-            if (!initialHandles[c.id] || initialHandles[c.id].length === 0) {
-                initialHandles[c.id] = [{ 
-                    id: 'default', 
-                    handle: c.socialProfile?.handle || c.name, 
-                    note: '主账号' 
-                }];
+        // Add defaults for newly loaded characters, never overwrite live edits or newly generated alts.
+        setCharacterHandles(current => {
+            const updated = { ...current };
+            let changed = false;
+            for (const char of characters) {
+                if (!Array.isArray(updated[char.id]) || updated[char.id].length === 0) {
+                    updated[char.id] = [{ id: 'default', handle: char.socialProfile?.handle || char.name, note: '主账号' }];
+                    changed = true;
+                }
             }
+            return changed ? updated : current;
         });
-        setCharacterHandles(initialHandles);
 
     }, [characters.length]);
 
