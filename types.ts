@@ -3726,6 +3726,12 @@ export interface SocialComment {
     isLiked?: boolean;
     /** Optional parent comment, keeping public reply chains distinct from private messages. */
     replyToId?: string;
+    /** Stable community account ID; not a mutable display name. */
+    authorId?: string;
+    timestamp?: number;
+    parentCommentId?: string;
+    replyToAuthorName?: string;
+    likedByAccountIds?: string[];
     authorType?: 'user' | 'character' | 'stranger';
     authorCharId?: string;
 }
@@ -3746,6 +3752,12 @@ export interface SocialPost {
     bgStyle?: string;
     authorType?: 'user' | 'character' | 'stranger';
     authorCharId?: string;
+    /** The author's stable internal community ID. */
+    authorId?: string;
+    source?: 'user' | 'ai' | 'legacy';
+    topicIds?: string[];
+    likedByAccountIds?: string[];
+    collectedByAccountIds?: string[];
 }
 
 export interface SubAccount {
