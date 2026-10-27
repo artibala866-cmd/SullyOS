@@ -119,3 +119,5 @@
 ### 清空动作本身的失效标记（补充）
 
 只比较笔记或朋友圈快照不够：空列表清空前后仍然是空列表，异步 AI 可能把已经主动清空的内容写回来。已沿用原有 `clearSelectedPhoneData`，为 `moments/memos` 清空增加每 Char 每分类的小型持久化版本号（`utils/characterPhoneContentClearRevision.ts`），自主管理写入分别在发请求前与收结果后核对。版本号只表示 **User 亲自清空过这个分类**，不存任何 AI 内容、不引入新 API 或后台调度，不清空真实私聊和记忆宫殿。新增两个原列表为空的清空竞态测试；结果以 GitHub Actions 最终状态为准。
+
+- **容量满时仍能清空**：清空版本号写入 localStorage 可能遭遇 QuotaExceededError，不能因此禁止 User 删除手机内容。该极小版本号有仅本会话的内存兜底，清空优先成功；新增存储配额写入失败下的自动结果作废测试。
