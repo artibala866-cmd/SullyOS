@@ -377,6 +377,7 @@ const SocialApp: React.FC = () => {
             localStorage.setItem('spark_dm_threads', JSON.stringify(next));
             return next;
         });
+        if (target.accountId) sparkEvent('dm_sent', 'user', { targetAccountId: target.accountId });
         if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
         setDmBusy(true);
         try {
@@ -1713,6 +1714,13 @@ ${buildSparkCommentHistory(post)}
                 });
             }
             if (!incoming.length) return;
+            for (const item of incoming) {
+                nextCommunity = appendSparkEvent(nextCommunity, {
+                    id: 'dm-incoming:' + item.key + ':' + Date.now() + ':' + Math.random().toString(36).slice(2),
+                    type: 'dm_sent', actorAccountId: item.key, targetAccountId: 'user', createdAt: Date.now(),
+                    metadata: { source: 'spark-post-incoming', postId: post.id },
+                });
+            }
             if (nextCommunity !== communityRef.current) writeCommunity(nextCommunity);
             setDmThreads(prev => {
                 const next = { ...prev };
