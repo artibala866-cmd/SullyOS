@@ -195,6 +195,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         } catch { return 0; }
     }, []);
     const [messages, setMessages] = useState<Message[]>([]);
+    const [historyLoadError, setHistoryLoadError] = useState(false);
     // 即时对话：这一轮已经交给云端、还没等到回复。它跟 isTyping 不一样——生成不在这台
     // 设备上跑，所以要扛得住关页面重开（记录落在 localStorage，见 amsgInstantChat）。
     const [instantChatPending, setInstantChatPending] = useState(false);
@@ -1058,6 +1059,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             const exhausted = recent.length < fetchLimit;
             setTotalMsgCount(exhausted ? chatScopeMsgs.length : totalCount);
             setMessages(chatScopeMsgs.slice(-requestedVisibleCount));
+            setHistoryLoadError(false);
         };
         try {
             const { messages: recent, totalCount } = await DB.getRecentMessagesWithCount(activeCharacterId, fetchLimit, accept);
@@ -1074,7 +1076,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 const { messages: recent, totalCount } = await DB.getRecentMessagesWithCount(activeCharacterId, fetchLimit, accept);
                 if (activeCharIdRef.current !== charIdAtStart) return;
                 applyResult(recent, totalCount);
-            } catch { /* give up silently */ }
+            } catch (retryError) {
+                if (activeCharIdRef.current !== charIdAtStart) return;
+                console.warn('[Chat] Failed to load message history after retry', retryError);
+                setHistoryLoadError(true);
+            }
         }
     }, [activeCharacterId]);
 
@@ -1154,6 +1160,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             } catch { setTranslationExpanded(false); }
             setVisibleCount(30);
             visibleCountRef.current = 30;
+            setHistoryLoadError(false);
             lastMsgIdRef.current = null;
             scrollThrottleRef.current = 0;
             setLastTokenUsage(null);
@@ -4163,6 +4170,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" /></svg>
                             回到当前聊天
                         </button>
+                    </div>
+                )}
+                {historyLoadError && (
+                    <div role="alert" className="mx-auto mb-4 flex max-w-sm flex-wrap items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs text-amber-900">
+                        <span>聊天记录读取失败，当前显示的内容可能不是最新的。</span>
+                        <button type="button" className="rounded-full border border-amber-300 bg-white px-3 py-1 font-semibold" onClick={() => { void reloadMessages(visibleCountRef.current); }}>重新读取</button>
                     </div>
                 )}
                 {collapsedCount > 0 && windowedFocusMsgId === null && (
