@@ -426,10 +426,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  // Residents parked in another actor's slot count as occupying that point.
  function otherFurnitureOccupants(){return [...socialEntries.map(e=>e.parkedSeat),furnitureUser?.parkedSeat].filter(Boolean);}
  function slotOccupiedByOther(slot){return otherFurnitureOccupants().some(s=>s.itemId===slot.itemId&&s.seatId===slot.seatId);}
- function resolvedVisitorSeat(){
-  const seat=seatTransform(placementRoom(),catalog,visitorSeat,!!visitor?.rig);
-  return visitor?.rig?body2BedTransform(seat,visitor.bedHeadToHip,visitor.bedHipHeight):seat;
+ function transformVisitorSeat(selection){
+  const body2=!!visitor?.rig,seat=seatTransform(placementRoom(),catalog,selection,body2);
+  if(body2)return body2BedTransform(seat,visitor.bedHeadToHip,visitor.bedHipHeight);
+  // Keep the legacy model's established bed-root offset while sharing the
+  // checked bed-edge transition with the skeletal character.
+  if(selection?.bed&&seat?.pose==='bed')return {...seat,position:[seat.position[0],seat.position[1]+.34,seat.position[2]]};
+  return seat;
  }
+ function resolvedVisitorSeat(){return transformVisitorSeat(visitorSeat);}
  function currentSeatPose(){
   if(!visitor?.rig||!visitorSeat)return null;
   const seat=resolvedVisitorSeat();
@@ -437,7 +442,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   return seat?{kind:'seat-rest',hands:[],seatPose:seat.pose,seatHeight:seat.height/(visitor.seatScale??1),...(visitorSeat.alternate&&seat.pose==='floor'?{clip:'sit-alternate',clipTime:Math.max(0,elapsed-visitorStart-seatChangeDuration('floor')),clipWeight:seatChange?0:1}:{})}:null;
  }
  function beginSeatChange(rising,entry){
-  if(!visitor?.rig||!visitorSeat)return false;
+  if(!visitor||!visitorSeat)return false;
   const transform=resolvedVisitorSeat();if(!transform||visitorSeat.bed&&transform.pose!=='bed'||transform.bed?.entry===false)return false;
   const r=current(),offset=[r.x*ROOM_STEP.x,r.z*ROOM_STEP.z],selected=visitorSeat,access=seatAccess;
   const remembered=rising&&access?.roomId===r.id&&access.itemId===selected.itemId&&access.seatId===selected.seatId&&sameStationPose(access.pose,transform)?access.front:null;
@@ -978,7 +983,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   stopWalking();
   gamingEffects.clear();kitchenEffects.updateMeal(null,0);
   if(visitorActivity||visitorPlant){visitorActivity=null;visitorPlant=null;visitorLocation=null;visitorMotion='idle';placeVisitor();}
-  const transform=body2BedTransform(seatTransform(placementRoom(),catalog,bed,true),visitor.bedHeadToHip,visitor.bedHipHeight),r=current(),offset=[r.x*ROOM_STEP.x,r.z*ROOM_STEP.z];
+  const transform=transformVisitorSeat(bed),r=current(),offset=[r.x*ROOM_STEP.x,r.z*ROOM_STEP.z];
   if(!transform?.bed||transform.bed.entry===false){notify('该床位尚未有安全进出路径，不能直接传送到床上',true);return;}
   const start=[resident.position.x+offset[0],resident.position.z+offset[1]];
   // A free endpoint alone is not enough: its side of the bed must be reachable.
@@ -989,7 +994,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   walking.bed=true;
   walking.arrived=()=>{
    if(current().id!==bed.roomId||!roomBeds(current(),catalog).some(s=>s.itemId===bed.itemId&&s.seatId===bed.seatId)||slotOccupiedByOther(bed))return;
-   const latest=body2BedTransform(seatTransform(placementRoom(),catalog,bed,true),visitor.bedHeadToHip,visitor.bedHipHeight);
+   const latest=transformVisitorSeat(bed);
    if(!sameStationPose(transform,latest)){notify('床位已移动或旋转，请重新从床边进入',true);return;}
    visitorLocation=null;visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';if(!beginSeatChange(false,front)){visitorSeat=null;notify('床沿进出空间不足，不能直接传送上床',true);return;}recordHomeActivity(BED_LEISURE.find(([id])=>id===bed.bedMode)?.[1]||'上床休息',source);message='坐稳床沿，再慢慢躺下';
   };
@@ -1780,10 +1785,9 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    if(isBedLeisure(d.mode)&&(!visitor.rig||!visitorSeat?.bed||visitorSeat.itemId!==found.itemId||visitorSeat.seatId!==found.seatId||seatChange||walking))return;
    const bed={...found,...(visitor.rig&&isBedLeisure(d.mode)?{bedMode:d.mode,modeStart:elapsed}:{})};
    if(visitorSeat?.bed&&visitorSeat.itemId===bed.itemId&&visitorSeat.seatId===bed.seatId&&!seatChange){bed.bedFrom=visitorSeat.bedMode;bed.bedFromTime=elapsed-(visitorSeat.modeStart??elapsed);visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';visitorStart=elapsed;animateVisitor(0);recordHomeActivity(BED_LEISURE.find(([id])=>id===bed.bedMode)?.[1]||'睡一会儿',d.recordSource);dirty=true;wake();renderUI();return;}
-   const bedProfile=visitor.rig&&seatTransform(placementRoom(),catalog,bed,true)?.bed;
-   if(visitor.rig){if(!bedProfile||bedProfile.entry===false){notify('尚无安全的床位进出路径，不能直接传送',true);return;}approachBed(bed,d.recordSource);return;}
-   stopWalking();visitorLocation=null;visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);visitorPlant=null;visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';visitorStart=elapsed;visitorUntil=elapsed+4.4;beginSeatChange(false);
-   edit=false;overview=false;selected=null;panel=null;placeVisitor();animateVisitor(0);updateSelection();renderer.shadowMap.needsUpdate=true;recordHomeActivity(BED_LEISURE.find(([id])=>id===bed.bedMode)?.[1]||'上床休息',d.recordSource);notify(bed.bedMode?'躺好啦':'躺好啦，睡个好觉');return;
+   const bedProfile=seatTransform(placementRoom(),catalog,bed,!!visitor?.rig)?.bed;
+   if(!bedProfile||bedProfile.entry===false){notify('尚无安全的床位进出路径，不能直接传送',true);return;}
+   approachBed(bed,d.recordSource);return;
   }
   if(d.action==='chibi-sit'&&visitor){
    const seat=roomSeats(current(),catalog).find(s=>s.itemId===d.id&&s.seatId===d.seat);
@@ -1792,7 +1796,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    return;
   }
   if(d.action==='chibi-bed-mode'&&visitor?.rig&&visitorSeat?.bed&&!seatChange){visitorSeat.bedFrom=visitorSeat.bedMode;visitorSeat.bedFromTime=elapsed-(visitorSeat.modeStart??elapsed);visitorSeat.bedMode=isBedLeisure(d.value)?d.value:undefined;visitorSeat.modeStart=elapsed;visitorMotion=visitorSeat.bedMode?'idle':'sleep';visitorStart=elapsed;animateVisitor(0);recordHomeActivity(BED_LEISURE.find(([id])=>id===d.value)?.[1]||'睡一会儿',d.recordSource);dirty=true;wake();renderUI();return;}
-  if(d.action==='chibi-stand'&&visitor){visitorPlant=null;visitorMotion='idle';if(visitorSeat&&visitor.rig&&!beginSeatChange(true)){notify('出口被挡住，先给家具旁边留出安全起身的位置',true);return;}if(visitorSeat&&!visitor.rig){visitorSeat=null;visitorStart=elapsed;visitorUntil=0;}placeVisitor();animateVisitor(0);dirty=true;wake();renderUI();return}
+  if(d.action==='chibi-stand'&&visitor){visitorPlant=null;visitorMotion='idle';if(visitorSeat&&(visitor?.rig||visitorSeat.bed)&&!beginSeatChange(true)){notify('出口被挡住，先给家具旁边留出安全起身的位置',true);return;}if(visitorSeat&&!visitor?.rig&&!visitorSeat.bed){visitorSeat=null;visitorStart=elapsed;visitorUntil=0;}placeVisitor();animateVisitor(0);dirty=true;wake();renderUI();return}
   if(d.action==='chibi-motion'&&visitor){
    if(visitorSeat?.bed&&d.value==='sleep'){visitorSeat.bedFrom=visitorSeat.bedMode;visitorSeat.bedFromTime=elapsed-(visitorSeat.modeStart??elapsed);visitorSeat.bedMode=undefined;visitorSeat.modeStart=elapsed;}
    if(['yoga','wave-alternate-1','wave-alternate-2'].includes(d.value)&&!visitor.rig){notify('这组动作适用于二号素体',true);return;}
