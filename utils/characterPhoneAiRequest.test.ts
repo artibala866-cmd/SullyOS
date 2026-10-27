@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeepAlive } from './keepAlive';
 import {
-  canRunAutomaticPhoneAi, CHARACTER_PHONE_AI_TIMEOUT_MS,
+  canRunAutomaticPhoneAi, CHARACTER_PHONE_AI_TIMEOUT_MS, CHARACTER_PHONE_MANUAL_AI_TIMEOUT_MS,
   fetchCharacterPhoneJson,
 } from './characterPhoneAiRequest';
 
@@ -21,6 +21,22 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('character phone AI request lifecycle', () => {
+  it('uses a longer bounded wait for explicit manual batches without affecting background tiers', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok:true,status:200,headers:{get:()=> 'application/json'},
+      text:async()=> JSON.stringify({choices:[]}),
+    }));
+    try {
+      await fetchCharacterPhoneJson(URL,options,{...meta,automatic:false});
+      expect(timeoutSpy).toHaveBeenLastCalledWith(CHARACTER_PHONE_MANUAL_AI_TIMEOUT_MS);
+      await fetchCharacterPhoneJson(URL,options,meta);
+      expect(timeoutSpy).toHaveBeenLastCalledWith(CHARACTER_PHONE_AI_TIMEOUT_MS);
+      expect(CHARACTER_PHONE_MANUAL_AI_TIMEOUT_MS).toBeGreaterThan(CHARACTER_PHONE_AI_TIMEOUT_MS);
+    } finally { timeoutSpy.mockRestore(); }
+  });
+
+
   it('keeps update protection through response-body consumption, preserving original JSON', async () => {
     let completeBody!: (text: string) => void;
     const body = new Promise<string>(resolve => { completeBody = resolve; });
