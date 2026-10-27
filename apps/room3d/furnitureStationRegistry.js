@@ -12,6 +12,28 @@ export function sameStationPose(a,b,positionTolerance=.04,rotationTolerance=.02)
  return distance<=positionTolerance&&Math.abs(angle)<=rotationTolerance;
 }
 
+// Same-slot reservations alone do not protect wide-headed residents seated
+// on nearby authored points (e.g. two bench positions or adjacent chairs).
+// Preserve ordinary dual-sofa use; only measured extra width expands clearance.
+// An excluded point remains in the catalog; we never invent or move a seat.
+export function occupiedFurnitureSlotIssue(room,catalog,slot,occupiedSlots=[],actorWidth=1.5){
+ if(!slot||!room||!Array.isArray(occupiedSlots))return '';
+ const actor=seatTransform(room,catalog,slot,true),w=Math.max(1.5,Number.isFinite(actorWidth)?actorWidth:1.5);
+ for(const taken of occupiedSlots.filter(Boolean)){
+  if(taken.roomId&&taken.roomId!==room.id)continue;
+  if(taken.itemId===slot.itemId&&taken.seatId===slot.seatId)return '这个互动点已经有人使用';
+  if(!actor)continue;
+  const other=seatTransform(room,catalog,{...taken,roomId:room.id},true);
+  if(!other)continue;
+  const measured=Number.isFinite(taken.width)?taken.width:1.5,
+   distance=Math.hypot(actor.position[0]-other.position[0],actor.position[2]-other.position[2]),
+   clearance=Math.max(1.15,(w+Math.max(1.5,measured))/2-.35);
+  if(Math.abs(actor.position[1]-other.position[1])<1.1&&distance<clearance)
+   return '相邻互动位有人使用，角色体型可能互相穿模';
+ }
+ return '';
+}
+
 // Furniture saves must not teleport a seated resident to a moved model or
 // let a newly supported decoration intersect an occupied cushion.
 // This is only a commit-time guard: it never edits a saved seat or room layout.
