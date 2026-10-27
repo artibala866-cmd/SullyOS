@@ -3,7 +3,8 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { saveNpcProfiles, type NpcProfile } from './characterPhoneNpcs';
 import { appendCharacterPhoneMessages, readCharacterPhoneChats } from './characterPhoneChats';
 import { readCharacterLifeEvents } from './characterLifeEvents';
-import { runCharacterPhoneAutonomy } from './characterPhoneAutonomy';
+import { runCharacterPhoneAutonomy, setCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
+import { readPhoneApiBudget, writePhoneAutonomyPreferences } from './characterPhoneApiBudget';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 import type { CharacterProfile, UserProfile } from '../types';
 
@@ -45,6 +46,28 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('character-owned autonomous phone behavior', () => {
+  it('honors the existing Char autonomy master switch without starting a phone task', async () => {
+    saveNpcProfiles('master-off', contacts());
+    setCharacterPhoneAutonomyEnabled('master-off', false);
+    const request = mockApi();
+    expect(await runCharacterPhoneAutonomy(input('master-off'))).toBe('unavailable');
+    expect(getCharacterLifeScheduleContext).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(readPhoneApiBudget('master-off').requests).toBe(0);
+  });
+
+  it('stops separately billed phone generation while keeping saved NPC records', async () => {
+    saveNpcProfiles('api-off', contacts());
+    writePhoneAutonomyPreferences('api-off', { backgroundApiEnabled:false });
+    const request = mockApi();
+    expect(await runCharacterPhoneAutonomy(input('api-off'))).toBe('skipped');
+    expect(request).not.toHaveBeenCalled();
+    expect(getCharacterLifeScheduleContext).not.toHaveBeenCalled();
+    expect(readPhoneApiBudget('api-off').requests).toBe(0);
+    expect(readCharacterPhoneChats('api-off')).toEqual([]);
+  });
+
+
   it('lets an NPC send a message while Char is busy, without fabricating Char speech', async () => {
     saveNpcProfiles('busy', contacts());
     vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
