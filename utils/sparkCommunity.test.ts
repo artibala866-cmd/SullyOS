@@ -251,3 +251,18 @@ describe('legacy character handle identity migration', () => {
         expect(resolveSparkCharacterHandleId(undefined, undefined, '路人', [])).toBeUndefined();
     });
 });
+
+describe('Spark historic account registration does not re-write unchanged state', () => {
+    it('keeps the highest last-active time and returns the same state on replay', async () => {
+        const { ensureSparkAccount } = await import('./sparkCommunity');
+        const base = createEmptySparkCommunityState();
+        const first = ensureSparkAccount(base, {
+            type: 'character', ownerCharId: 'role', handleId: 'alt', displayName: 'alias'
+        }, () => 'unused', 200);
+        const replay = ensureSparkAccount(first.state, {
+            type: 'character', ownerCharId: 'role', handleId: 'alt', displayName: 'alias'
+        }, () => 'unused', 100);
+        expect(replay.state).toBe(first.state);
+        expect(replay.account.lastActiveAt).toBe(200);
+    });
+});
