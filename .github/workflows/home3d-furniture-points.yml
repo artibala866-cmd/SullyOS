@@ -1,9 +1,17 @@
 name: Home3D furniture interaction regression
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - 'apps/room3d/**'
+      - 'test/home3d-smoke.html'
+      - 'scripts/home3d-webgl-smoke.mjs'
+      - 'public/room3d/catalog.json'
+      - 'art/jellyfish-home/**'
+      - '.github/workflows/home3d-furniture-points.yml'
   pull_request:
-    branches:
-      - remove-checkphone-vrworld-lifesim
+    branches: [master, remove-checkphone-vrworld-lifesim]
     paths:
       - 'apps/room3d/**'
       - 'test/home3d-smoke.html'
