@@ -8,6 +8,7 @@ import {registeredFurnitureCapabilities} from './furnitureCapabilityRegistry.js'
 // it is NOT a rendered mesh, animation, collision or character-scale QA result.
 const source=readFileSync(new URL('../../art/jellyfish-home/build.py',import.meta.url),'utf8');
 const asset=id=>catalog.find(a=>a.id===id);
+const kitExporter=readFileSync(new URL('../../art/jellyfish-home/export_kit.py',import.meta.url),'utf8');
 describe('legacy kit source geometry and contact candidates',()=>{
  it('keeps the wood-chair seat at the actual top face with its back behind the character',()=>{
   expect(source).toContain("box('Chair soft seat',(-1.17,.87,.64),(.56,.50,.15)");
@@ -25,6 +26,11 @@ describe('legacy kit source geometry and contact candidates',()=>{
   // Centre top .40+.15=.55, petal bottom .36-.20=.16.
   expect(seat.position[1]).toBeCloseTo(.55-.16,3);
   expect(seat.position.slice(0,1).concat(seat.position.slice(2))).toEqual([0,0]);
+ });
+ it('does not erase authored kit furniture seat points when Blender rebuilds the merged file',()=>{
+  expect(kitExporter).toContain("authored_kit={a['id']:a for a in old_catalog if not a.get('url')}");
+  expect(kitExporter).toContain("if field in previous:entry[field]=previous[field]");
+  for(const id of ['chair','pouf','sofa'])expect(asset(id).seats.length).toBeGreaterThan(0);
  });
  it('does not claim the whale loft has a safe bed entry while stairs and railing remain unvalidated',()=>{
   expect(source).toContain("box('Plump cream mattress'");
