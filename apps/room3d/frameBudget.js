@@ -1,3 +1,16 @@
+import {isSustainedFurnitureActivity} from './furnitureActivityLifetime';
+
+// Reduced-motion mode should complete every finite physical furniture
+// transition, but should not re-render an indefinitely seated computer
+// or streaming activity once its pose is settled. Ordinary mode still
+// renders animation through the separate quality/motion frame gate.
+export function furnitureNeedsActiveFrames({seatChange,visitorPlant,visitorActivity,kitchenTask}={}){
+ return !!(seatChange||visitorPlant||kitchenTask||visitorActivity&&(
+  !!visitorActivity.bathJourney||!!visitorActivity.journey||
+  !isSustainedFurnitureActivity(visitorActivity.kind)
+ ));
+}
+
 // Small feedback controller for the room renderer. Only changes raster
 // resolution, never resident rigs, motion clips, scene geometry or saved quality.
 // Values use *rendered-frame spacing*, not rAF ticks (30 FPS intentionally skips ticks).
