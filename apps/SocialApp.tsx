@@ -1719,9 +1719,7 @@ ${post.content || '(楼主没写正文)'}
                 const comments: SocialComment[] = commentsJson
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
-                        const linkedId = typeof c.replyToCommentId === 'string' && tasks.some(job => job.parentCommentId === c.replyToCommentId)
-                            ? c.replyToCommentId : tasks.length === 1 ? tasks[0].parentCommentId : undefined;
-                        if (!linkedId || !author || typeof c.content !== 'string' || !c.content.trim() ||
+                        if (!author || typeof c.content !== 'string' || !c.content.trim() ||
                             isSparkMuted(getSparkPublicAuthorId(author.name, author.character?.id)) ||
                             publicTextLeaksPrivateChat(c.content)) return [];
                         const authorName = author.name;
@@ -1843,7 +1841,9 @@ ${buildSparkCommentHistory(post)}
                 const newReplies: SocialComment[] = json
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
-                        if (!author || typeof c.content !== 'string' || !c.content.trim() ||
+                        const linkedId = typeof c.replyToCommentId === 'string' && tasks.some(job => job.parentCommentId === c.replyToCommentId)
+                            ? c.replyToCommentId : tasks.length === 1 ? tasks[0].parentCommentId : undefined;
+                        if (!linkedId || !author || typeof c.content !== 'string' || !c.content.trim() ||
                             isSparkMuted(getSparkPublicAuthorId(author.name, author.character?.id)) ||
                             publicTextLeaksPrivateChat(c.content)) return [];
                         const authorName = author.name;
