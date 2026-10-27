@@ -7,6 +7,7 @@ import {fetchCharacterPhoneJson} from './characterPhoneAiRequest';
 import { canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyPreferences } from './characterPhoneApiBudget';
 import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import { readCharacterLifeEvents } from './characterLifeEvents';
+import { readPhoneContentClearRevision } from './characterPhoneContentClearRevision';
 type Api={baseUrl:string;apiKey:string;model:string};
 const categories:MemoCategory[]=['thought','daily','expense','idea','about-user','unsent'];
 const locks=new Set<string>();
@@ -14,6 +15,7 @@ const attempts=new Map<string,number>();
 export async function considerCharacterMemo(input:{characterId:string;name:string;persona:string;api:Api;events:CharacterLifeEvent[];manual?:boolean;budgeted?:boolean;userName?:string;chatContext?:string;char?:Pick<CharacterProfile,'id'|'customTimezoneEnabled'|'customTimezone'>}):Promise<boolean>{
   const {characterId,name,persona,api}=input;
   const manual=!!input.manual;
+  const clearRevision=readPhoneContentClearRevision(characterId,'memos');
   const automaticAllowed=()=>isCharacterPhoneAutonomyEnabled(characterId)&&readPhoneAutonomyPreferences(characterId).backgroundApiEnabled;
   if(!manual&&!automaticAllowed())return false;
   if(locks.has(characterId)||(!manual&&Date.now()-(attempts.get(characterId)||0)<60*60*1000))return false;
@@ -31,7 +33,7 @@ export async function considerCharacterMemo(input:{characterId:string;name:strin
   const life=input.char?.id===characterId ? await getCharacterLifeScheduleContext(input.char, new Date(), input.events) : null;
   // Context work can outlive a disabled switch or deletion of its source.
   // Preserve User edits and never launch an already-obsolete request.
-  if(!manual&&(!automaticAllowed()||events.some(e=>
+  if(!manual&&(!automaticAllowed()||readPhoneContentClearRevision(characterId,'memos')!==clearRevision||events.some(e=>
     !readCharacterLifeEvents(characterId).some(saved=>saved.id===e.id))||
     JSON.stringify(readCharacterMemos(characterId))!==historySnapshot))return false;
   if(!manual&&input.budgeted&&!reservePhoneApiBudget(characterId))return false;
@@ -43,7 +45,7 @@ export async function considerCharacterMemo(input:{characterId:string;name:strin
   const data=JSON.parse(raw);
   // A delayed autonomous completion is not allowed to restore a note after
   // a reset, overwrite User edits, or attach a removed life event.
-  if(!manual&&(!automaticAllowed()||events.some(e=>
+  if(!manual&&(!automaticAllowed()||readPhoneContentClearRevision(characterId,'memos')!==clearRevision||events.some(e=>
     !readCharacterLifeEvents(characterId).some(saved=>saved.id===e.id))||
     JSON.stringify(readCharacterMemos(characterId))!==historySnapshot))return false;
   if(manual&&!history.length&&Array.isArray(data.entries)){
