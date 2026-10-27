@@ -48,7 +48,7 @@ import { getCharacterLifeScheduleContext } from '../utils/characterLifeScheduleC
 import { classifyLifeActivity } from '../utils/sullyLifeClock';
 import { canUsePhoneApiBudget, readPhoneApiBudget, readPhoneAutonomyPreferences } from '../utils/characterPhoneApiBudget';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
-import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments } from '../utils/characterPhoneMoments';
+import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, isMomentReactionOpportunity, type CharacterMomentChangeDetail } from '../utils/characterPhoneMoments';
 import { considerAutonomousNpcMoments } from '../utils/refreshNpcMoments';
 import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
 import { getLifeEventConsumers, shouldDispatchLifeEvent } from '../utils/characterLifeEventRouting';
@@ -2548,7 +2548,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // reaction opportunity without waiting for the next 3-minute OS tick.
       // The per-character social cooldown/limits still prevent comment loops.
       const onMomentsChanged = (event: Event) => {
-          const charId = (event as CustomEvent<{characterId?:string}>).detail?.characterId;
+          const detail = (event as CustomEvent<CharacterMomentChangeDetail>).detail;
+          const charId = detail?.characterId;
+          // Likes, deletions, data cleanup and AI-generated comments merely
+          // refresh the view; they must not buy another autonomous API turn.
+          if (!isMomentReactionOpportunity(detail)) return;
           if (!charId || disposed || document.visibilityState !== 'visible' ||
               !isCharacterPhoneAutonomyEnabled(charId) || !canUsePhoneApiBudget(charId)) return;
           const pending = momentTimers.get(charId);
