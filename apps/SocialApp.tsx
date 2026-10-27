@@ -553,6 +553,7 @@ const SocialApp: React.FC = () => {
     };
         // Comment Input State
     const [commentInput, setCommentInput] = useState('');
+    const [replyTarget, setReplyTarget] = useState<SocialComment | null>(null);
     const [isReplyingToUser, setIsReplyingToUser] = useState(false);
 
     // Settings / Handle Management
@@ -601,7 +602,7 @@ const SocialApp: React.FC = () => {
     const autonomyRequestRef = useRef<AbortController | null>(null);
     const commentRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
-    const replyQueueRef = useRef<{ post: SocialPost; content: string }[]>([]);
+    const replyQueueRef = useRef<{ post: SocialPost; content: string; parentCommentId?: string }[]>([]);
     const feedLoadGenerationRef = useRef(0);
     const postPersistenceRef = useRef<Promise<void>>(Promise.resolve());
     const autonomyTickRef = useRef<() => Promise<void>>(async () => {});
@@ -1388,10 +1389,10 @@ ${post.content || '(楼主没写正文)'}
         }
     };
 
-    const generateRepliesToUser = async (post: SocialPost, userContent: string) => {
+    const generateRepliesToUser = async (post: SocialPost, userContent: string, parentCommentId?: string) => {
 
         if (!apiConfig.apiKey) return;
-        if (replyRequestRef.current) { replyQueueRef.current.push({ post, content: userContent }); return; }
+        if (replyRequestRef.current) { replyQueueRef.current.push({ post, content: userContent, parentCommentId }); return; }
         const controller = new AbortController();
         replyRequestRef.current = { postId: post.id, controller };
         post = feedRef.current.find(item => item.id === post.id) || post;
@@ -1457,7 +1458,10 @@ ${buildSparkCommentHistory(post)}
                             id: `cmt-reply-${Date.now()}-${Math.random()}`,
                             authorName: authorName,
                             authorAvatar: avatar,
-                            content: `回复 @${socialProfile.name}: ${c.content}`,
+                            content: c.content.trim(),
+                            parentCommentId,
+                            replyToAuthorName: socialProfile.name,
+                            timestamp: Date.now(),
                             likes: 0,
                             isCharacter: !!char,
                             authorType: char ? 'character' : 'stranger',
@@ -1489,7 +1493,7 @@ ${buildSparkCommentHistory(post)}
                 replyRequestRef.current = null;
                 if (mountedRef.current) setIsReplyingToUser(false);
                 const next = replyQueueRef.current.shift();
-                if (next && mountedRef.current) void generateRepliesToUser(next.post, next.content);
+                if (next && mountedRef.current) void generateRepliesToUser(next.post, next.content, next.parentCommentId);
             }
         }
     };
@@ -1623,6 +1627,9 @@ ${buildSparkCommentHistory(post)}
                 likes: 0,
                 isCharacter: false,
                 authorType: 'user' as const,
+                authorId: 'user',
+                timestamp: Date.now(),
+                ...(replyTarget ? { parentCommentId: replyTarget.id, replyToAuthorName: replyTarget.authorName } : {}),
         };
         const updatedPost = updatePostInFeed(selectedPost.id, current => ({
             ...current,
@@ -1633,12 +1640,14 @@ ${buildSparkCommentHistory(post)}
         if (selectedPost.authorType === 'character') remember(selectedPost.authorCharId, selectedPost, '自己的公开笔记收到评论：' + userComment.content);
         const contentToSend = commentInput; 
         setCommentInput(''); 
-        void generateRepliesToUser(updatedPost, contentToSend); 
+        setReplyTarget(null);
+        void generateRepliesToUser(updatedPost, contentToSend, userComment.id); 
     };
 
     const handleOpenPost = (post: SocialPost) => {
         const livePost = feedRef.current.find(item => item.id === post.id) || post;
         setSelectedPost(livePost);
+        setReplyTarget(null);
         learnInterest(livePost, 0.3);
         generateComments(livePost);
     };
@@ -1647,6 +1656,7 @@ ${buildSparkCommentHistory(post)}
         commentRequestRef.current?.controller.abort();
         commentRequestRef.current = null;
         setLoadingComments(false);
+        setReplyTarget(null);
         setSelectedPost(null);
     };
 
@@ -1785,7 +1795,7 @@ ${buildSparkCommentHistory(post)}
                             <div className="space-y-6">
                                 {selectedPost.comments.length === 0 && !loadingComments && <div className="text-center text-slate-300 text-xs py-10">快来抢沙发...</div>}
                                 {selectedPost.comments.map(c => (
-                                    <div key={c.id} className="flex gap-3 animate-fade-in group">
+                                    <div key={c.id} className={`flex gap-3 animate-fade-in group ${c.parentCommentId ? 'ml-6 border-l-2 border-slate-100 pl-3' : ''}`}>
                                         <TokenImg value={c.authorAvatar} className="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-100" />
                                         <div className="flex-1">
                                             <div className="flex justify-between items-start">
@@ -1797,7 +1807,9 @@ ${buildSparkCommentHistory(post)}
                                                     <span className="text-[10px]">{c.likes}</span>
                                                 </div>
                                             </div>
+                                            {c.parentCommentId && <p className="text-[11px] text-slate-400 mt-1">↳ 回复 @{c.replyToAuthorName || selectedPost.comments.find(parent => parent.id === c.parentCommentId)?.authorName || '楼中楼'}</p>}
                                             <div className="text-[13px] text-slate-700 mt-0.5 leading-normal font-light whitespace-pre-wrap">{c.content.split(/(\[表情包\]\(https?:\/\/[^\s)]+\))/g).map((part, i) => { const match = part.match(/^\[表情包\]\((https?:\/\/[^\s)]+)\)$/); return match ? <img key={i} src={match[1]} alt="表情包" className="max-w-32 max-h-32 object-contain rounded-lg my-1" /> : <React.Fragment key={i}>{part}</React.Fragment>; })}</div>
+                                            <button type="button" onClick={() => setReplyTarget(c)} className="mt-2 text-xs text-slate-400 hover:text-slate-700">回复</button>
                                         </div>
                                     </div>
                                 ))}
@@ -1812,6 +1824,9 @@ ${buildSparkCommentHistory(post)}
                     </div>}
                     {/* Bottom Input Bar - Absolute to sit on top of scroll area at bottom */}
                     <div className="absolute bottom-0 w-full pb-[var(--safe-bottom,0px)] z-30 pointer-events-none">
+                         {replyTarget && <div className="pointer-events-auto flex justify-between items-center px-4 py-2 bg-white border-t border-slate-100 text-xs text-slate-500">
+                             <span>回复 @{replyTarget.authorName}</span><button type="button" onClick={() => setReplyTarget(null)}>取消回复 ×</button>
+                         </div>}
                          <div className="pointer-events-auto h-16 bg-white/80 backdrop-blur-xl border-t border-white/40 px-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgba(0, 0, 0,0.03)]">
                             <div className="flex-1 bg-slate-100/50 rounded-full px-5 py-2.5 flex items-center gap-2 focus-within:bg-white focus-within:ring-1 focus-within:ring-slate-200 transition-all border border-transparent focus-within:border-slate-200">
                                 <input 
@@ -1819,7 +1834,7 @@ ${buildSparkCommentHistory(post)}
                                     onChange={(e) => setCommentInput(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
                                     
-                                    placeholder="说点什么..."
+                                    placeholder={replyTarget ? "回复 @" + replyTarget.authorName : "说点什么..."}
                                     className="bg-transparent text-sm w-full outline-none text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
                                 />
                                 {commentInput.trim() && <button  onClick={handleSendComment} className="text-[#555555] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
