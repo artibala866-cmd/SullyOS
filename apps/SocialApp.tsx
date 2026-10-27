@@ -398,9 +398,6 @@ const SocialApp: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
     const [activeTopic, setActiveTopic] = useState<string | null>(null);
-    const visibleFeed = useMemo(() => rankSparkFeed(feed, communityState, {
-        mode: feedTab, query: searchQuery, topic: activeTopic, userDisplayName: socialProfile.name,
-    }), [feed, communityState, feedTab, searchQuery, activeTopic, socialProfile.name]);
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
@@ -553,6 +550,9 @@ const SocialApp: React.FC = () => {
         avatar: userProfile.avatar,
         bio: '这个人很懒，什么都没写。'
     });
+    const visibleFeed = useMemo(() => rankSparkFeed(feed, communityState, {
+        mode: feedTab, query: searchQuery, topic: activeTopic, userDisplayName: socialProfile.name,
+    }), [feed, communityState, feedTab, searchQuery, activeTopic, socialProfile.name]);
     const [userSparkId, setUserSparkId] = useState('95279527');
     const [userBgImage, setUserBgImage] = useState('');
     const [isEditingId, setIsEditingId] = useState(false);
