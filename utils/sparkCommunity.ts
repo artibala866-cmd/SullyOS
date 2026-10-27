@@ -426,6 +426,17 @@ export function getSparkDMThreadKey<T>(
     return accountId;
 }
 
+/** Prefer the currently configured public handle over a stale old-post nickname. */
+export function getSparkCanonicalAccountName(
+    savedName: string, authorId: string | undefined, handleId: string | undefined,
+    handles: Array<{ id: string; handle: string }>, accounts: SparkAccount[],
+): string {
+    const configured = handleId ? handles.find(item => item.id === handleId) : undefined;
+    if (configured?.handle.trim()) return configured.handle.trim();
+    const existing = authorId ? accounts.find(account => account.id === authorId) : undefined;
+    return existing?.displayName || savedName;
+}
+
 export function getSparkPostAccountId(post: SocialPost, userDisplayName?: string): string | undefined {
     if (post.authorId) return post.authorId;
     if (post.authorType === 'user' || (!!userDisplayName && post.authorName === userDisplayName)) return 'user';
