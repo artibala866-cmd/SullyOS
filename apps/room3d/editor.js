@@ -137,10 +137,10 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function wake(){if(!destroyed&&!suspended&&!document.hidden&&!gpuContextLost&&!frame&&!inTick&&state)frame=requestAnimationFrame(tick)}
  function scheduleTickRecovery(error){
   dirty=true;consecutiveTickErrors=Math.min(consecutiveTickErrors+1,6);
-  const now=performance.now();if(now-lastTickErrorAt>5000){console.error('[Home3D] animation frame failed; retrying render loop',error);lastTickErrorAt=now;}
+  const now=performance.now();if(!lastTickErrorAt||now-lastTickErrorAt>5000){console.error('[Home3D] animation frame failed; retrying render loop',error);lastTickErrorAt=now;}
   if(destroyed||suspended||document.hidden||gpuContextLost||renderRecoveryTimer)return;
   const delay=Math.min(2000,150*Math.pow(2,consecutiveTickErrors-1));
-  renderRecoveryTimer=window.setTimeout(()=>{renderRecoveryTimer=0;if(destroyed||suspended||document.hidden||gpuContextLost)return;try{renderer?.resetState();}catch{}wake();},delay);
+  renderRecoveryTimer=window.setTimeout(()=>{renderRecoveryTimer=0;if(destroyed||suspended||document.hidden||gpuContextLost)return;try{renderer?.resetState();renderer?.setRenderTarget(null);}catch{}wake();},delay);
  }
  const materialCache=new Map(),usedMaterials=new Set(),paintTargets=new Map(),defaultPaintColors=new Map();
  let furnitureOutlineEnabled=true;try{furnitureOutlineEnabled=localStorage.getItem('sully-home3d-furniture-outline')!=='off';}catch{}
@@ -2074,7 +2074,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  // Mobile browsers may discard the GPU context when the tab is backgrounded.
  // Do not recreate the editor here: its furniture and resident state must survive.
  const onContextLost=e=>{e.preventDefault();gpuContextLost=true;clearTimeout(renderRecoveryTimer);renderRecoveryTimer=0;cancelAnimationFrame(frame);frame=0;};
- const onContextRestored=()=>{clearTimeout(renderRecoveryTimer);renderRecoveryTimer=0;consecutiveTickErrors=0;gpuContextLost=false;renderer.resetState();resize();dirty=true;lastTick=performance.now();wake();};
+ const onContextRestored=()=>{clearTimeout(renderRecoveryTimer);renderRecoveryTimer=0;consecutiveTickErrors=0;gpuContextLost=false;try{renderer.resetState();renderer.setRenderTarget(null);resize();dirty=true;lastTick=performance.now();wake();}catch(error){scheduleTickRecovery(error);}};
  renderer.domElement.addEventListener('webglcontextlost',onContextLost,{signal:abort.signal});
  renderer.domElement.addEventListener('webglcontextrestored',onContextRestored,{signal:abort.signal});
  const observer=new ResizeObserver(()=>resize());observer.observe(stage);
@@ -2112,6 +2112,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
      if(scale!==null&&!photoSession){renderer.setPixelRatio(roomPixelRatio(quality,devicePixelRatio,touch||phone)*scale);dirty=true;}
     }
   }
+  if(renderRecoveryTimer){clearTimeout(renderRecoveryTimer);renderRecoveryTimer=0;}
   consecutiveTickErrors=0;
   shouldContinue=!!(homelyAttention||homelyMusic.playing&&!reducedMotion&&qualities[quality].motion||homelyMusic.weight>.001||homelyPoke||hasIdleResidents()||companionGesture||companionPhone||companionRise||companionIdle||companionTravel||companionFacing||companionSmile||petMoving||cameraArrival||settling||dirty||drag||walkFeedback.active||kitchenEffects.moving||animated.length&&!overview&&!reducedMotion&&qualities[quality].motion||visitor&&resident.visible&&!edit&&(!!socialRuntime?.active||!!walking||!!petSystem?.contactBusy||!!kitchenTask||!reducedMotion&&(qualities[quality].motion||!!conversation||elapsed<visitorUntil)));
   }catch(error){scheduleTickRecovery(error);}
