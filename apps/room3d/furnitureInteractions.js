@@ -8,7 +8,7 @@ import {mirrorActivities,isMirrorAction} from './mirror.js';
 import {validatedFurnitureStations} from './furnitureStationRegistry.js';
 
 // Describe real, existing actions. No name-based guesses and no saved UI state.
-export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,transitioning=false,occupiedSeats=[],kitchenPlanner=null,slotPlanner=null,fridgePlanner=null,plushPlanner=null}={}){
+export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=null,held=null,active=null,fridgeOpen=false,clearance,body2=false,bodyWidth=1.5,transitioning=false,occupiedSeats=[],kitchenPlanner=null,slotPlanner=null,fridgePlanner=null,plushPlanner=null}={}){
  const item=room.items.find(i=>i.id===itemId&&!i.stored),a=catalog.find(a=>a.id===item?.assetId);if(!a)return [];
  const result=kitchenActions(room,catalog,itemId).map(action=>{const planned=!action.reason&&kitchenPlanner?kitchenPlanner(itemId):null;return planned?.reason?{...action,reason:planned.reason}:action;}),add=(action,label,extra={},reason='')=>result.push({action,label,id:itemId,...extra,reason});
  const free=slot=>!occupiedSeats.some(s=>s?.itemId===slot.itemId&&s.seatId===slot.seatId);
@@ -21,7 +21,7 @@ export function furnitureInteractions(room,catalog,itemId,{activities=[],seat=nu
  if(body2)for(const s of roomSeats(room,catalog).filter(s=>s.itemId===itemId&&free(s)&&!(seat?.itemId===s.itemId&&seat.seatId===s.seatId)&&seatTransform(room,catalog,s,true)?.pose==='floor'))add('chibi-sit','04 盘腿坐',{seat:s.seatId,alternate:'true'},slotPlanner?.(s)||'');
  const plant=roomPlants(room,catalog,clearance).find(p=>p.itemId===itemId);if(plant)add('chibi-water','浇水',{},plant.spot?'':'周围太挤啦，先留一点空位');
  if(roomPlush(room,catalog).some(p=>p.itemId===itemId)){const returning=held?.itemId===itemId;add(returning?'plush-put-back':'chibi-hug',returning?'放回原位':'抱抱',{},returning?'':plushPlanner?.(itemId)||'');}
- const allActivities=validatedFurnitureStations(room,catalog,[...activities,...[...mirrorActivities(room,catalog,clearance),...bathroomActivities(room,catalog)].filter(v=>!activities.some(a=>a.itemId===v.itemId&&a.kind===v.kind))],occupiedSeats);
+ const allActivities=validatedFurnitureStations(room,catalog,[...activities,...[...mirrorActivities(room,catalog,clearance),...bathroomActivities(room,catalog)].filter(v=>!activities.some(a=>a.itemId===v.itemId&&a.kind===v.kind))],occupiedSeats,bodyWidth);
  const matched=allActivities.filter(v=>v.itemId===itemId||!isMirrorAction(v.kind)&&(v.seat?.itemId===itemId||v.dependencies?.includes(itemId)));
  for(const v of matched){
   const chair=room.items.find(i=>i.id===v.seat?.itemId),side={left:'左边',right:'右边',front:'前边',back:'后边'}[chair?.dockSlot];
