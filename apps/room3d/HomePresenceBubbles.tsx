@@ -4,7 +4,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import type {HomeEditor} from './editor.js';
 import type {CharacterProfile} from '../../types';
 import {homeInitiative} from '../../utils/homeInitiative';
-import {isScheduleFeatureOn} from '../../utils/scheduleFeature';
+import {isEmotionBuffEnabled} from '../../utils/emotionFeature';
 import {homeRecords} from '../../utils/homeRecords';
 export interface HomeInitiativeRequest {id:string;roomId:string;reason:string;automatic?:boolean}
 export function HomePresenceBubbles({editor,character,enabled,canInvite=false,onInitiative}:{editor:HomeEditor;character?:CharacterProfile;enabled:boolean;canInvite?:boolean;onInitiative:(request:HomeInitiativeRequest)=>void}){
@@ -35,7 +35,7 @@ export function HomePresenceBubbles({editor,character,enabled,canInvite=false,on
   if(!offer&&!clock.current.thoughtActive){clock.current.thoughtEntered=now;clock.current.thoughtActive=true;setView(undefined);return;}
   const phase=(now-clock.current.thoughtEntered)%16000;
   if(!offer&&phase<10000){setView(undefined);return;}
-  const buffs=isScheduleFeatureOn(char)&&char.emotionConfig?.enabled?(char.activeBuffs||[]).filter(b=>b.emoji):[],cycle=Math.floor((now-clock.current.thoughtEntered)/16000),buff=buffs[cycle%Math.max(1,buffs.length)];
+  const buffs=isEmotionBuffEnabled(char)?(char.activeBuffs||[]).filter(b=>b.emoji):[],cycle=Math.floor((now-clock.current.thoughtEntered)/16000),buff=buffs[cycle%Math.max(1,buffs.length)];
   const pets=home.petLife?.pets||[],pet=pets.length&&cycle%3===1?pets[Math.floor(cycle/3)%pets.length]:undefined;
   const everyday=['🤔','🎵','☕','✨','🌷','📚','🍰','🌤️','💭','🎮','🍀','🫧'];const emoji=buff?.emoji?.slice(0,16)||everyday[cycle%everyday.length];
   const position=homeBubblePosition(anchor,'thought');

@@ -3988,6 +3988,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                         },
                     });
                 }}
+                onToggleEmotion={(enabled) => {
+                    updateCharacter(char.id, { emotionConfig: { ...char.emotionConfig, enabled } });
+                    addToast(enabled ? '情绪 Buff 已开启' : '情绪 Buff 已关闭', 'info');
+                }}
                 onClearBuffs={() => {
                     updateCharacter(char.id, { activeBuffs: [], buffInjection: '' });
                     addToast('情绪状态已清除', 'info');

@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CaretLeft, Lightning, Stop } from '@phosphor-icons/react';
 import { CharacterBuff, CharacterProfile } from '../../types';
+import { isEmotionBuffEnabled } from '../../utils/emotionFeature';
 import TokenImg from '../os/TokenImg';
 import { chatCharacterDisplayName } from '../../utils/characterRemark';
 
 /** header 实际只用到这些字段——放宽类型让群聊传合成对象（群名/群头像）复用本组件 */
-type HeaderCharacter = Pick<CharacterProfile, 'id' | 'name' | 'avatar'> & Partial<Pick<CharacterProfile, 'description' | 'chatShowRemark'>> & { activeBuffs?: CharacterBuff[] };
+type HeaderCharacter = Pick<CharacterProfile, 'id' | 'name' | 'avatar'> & Partial<Pick<CharacterProfile, 'description' | 'chatShowRemark'>> & { activeBuffs?: CharacterBuff[]; emotionConfig?: CharacterProfile['emotionConfig'] };
 
 interface TokenBreakdown {
     prompt: number;
@@ -92,7 +93,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
     statusStyle = 'subtle',
     chromeStyle = 'soft',
 }) => {
-    const buffs: CharacterBuff[] = hideBuffs ? [] : (activeCharacter.activeBuffs || []);
+    const buffs: CharacterBuff[] = hideBuffs || !isEmotionBuffEnabled(activeCharacter) ? [] : (activeCharacter.activeBuffs || []);
     const [openBuff, setOpenBuff] = useState<CharacterBuff | null>(null);
     const [isBuffListExpanded, setIsBuffListExpanded] = useState(false);
     const [confirmDeleteBuff, setConfirmDeleteBuff] = useState<CharacterBuff | null>(null);
