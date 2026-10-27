@@ -213,6 +213,18 @@
     ],
     "paintMaterials": [
       "blush"
+    ],
+    "seats": [
+      {
+        "id": "center",
+        "label": "椅面",
+        "position": [
+          0,
+          0.545,
+          -0.03
+        ],
+        "rotation": 180
+      }
     ]
   },
   {
@@ -310,6 +322,28 @@
       "Lavender gingham fabric",
       "lavender",
       "blush"
+    ],
+    "seats": [
+      {
+        "id": "left",
+        "label": "左边",
+        "position": [
+          -0.6,
+          0.6,
+          0.4
+        ],
+        "rotation": 0
+      },
+      {
+        "id": "right",
+        "label": "右边",
+        "position": [
+          0.6,
+          0.6,
+          0.4
+        ],
+        "rotation": 0
+      }
     ]
   },
   {
@@ -391,6 +425,18 @@
     "paintMaterials": [
       "blush",
       "lavender"
+    ],
+    "seats": [
+      {
+        "id": "center",
+        "label": "花心坐位",
+        "position": [
+          0,
+          0.39,
+          0
+        ],
+        "rotation": 0
+      }
     ]
   },
   {
@@ -10008,6 +10054,28 @@
         "label": "木质主体",
         "color": "#eacba8"
       }
+    ],
+    "seats": [
+      {
+        "id": "left",
+        "label": "左边",
+        "position": [
+          -0.7,
+          0.58,
+          0
+        ],
+        "rotation": 0
+      },
+      {
+        "id": "right",
+        "label": "右边",
+        "position": [
+          0.7,
+          0.58,
+          0
+        ],
+        "rotation": 0
+      }
     ]
   },
   {
@@ -11133,6 +11201,28 @@
         "material": "gold",
         "label": "绳柱与金属",
         "color": "#bea477"
+      }
+    ],
+    "seats": [
+      {
+        "id": "left",
+        "label": "左边",
+        "position": [
+          -0.7,
+          0.5325,
+          0
+        ],
+        "rotation": 0
+      },
+      {
+        "id": "right",
+        "label": "右边",
+        "position": [
+          0.7,
+          0.5325,
+          0
+        ],
+        "rotation": 0
       }
     ]
   },

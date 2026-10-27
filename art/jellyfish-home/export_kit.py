@@ -72,8 +72,13 @@ for source in list(scene.objects):
         copy=source.copy();copy.data=source.data.copy();copy.parent=None;copy.matrix_world=source.matrix_world.copy();scene.collection.objects.link(copy);sets['worktable'].append(copy)
 catalog_path=os.path.join(PUBLIC,'catalog.json')
 external_assets=[]
+authored_kit={}
 if os.path.exists(catalog_path):
-    with open(catalog_path,encoding='utf8') as f:external_assets=[a for a in json.load(f) if a.get('url')]
+    with open(catalog_path,encoding='utf8') as f:old_catalog=json.load(f)
+    external_assets=[a for a in old_catalog if a.get('url')]
+    # Geometry exporter must not wipe authored seat/bed/capability data for
+    # kit assets. Re-exported geometry still needs separate contact-point QA.
+    authored_kit={a['id']:a for a in old_catalog if not a.get('url')}
 manifest=[]
 for k,objects in sets.items():
     if not objects:continue
@@ -102,6 +107,13 @@ for k,objects in sets.items():
     elif entry['surface'] in {'floor','tabletop'}:entry['boxes']=[[-dims[0]/2,0,-dims[2]/2,dims[0]/2,dims[1],dims[2]/2]]
     if k=='table':entry['support']={'shape':'circle','radius':.65,'height':round(.77-center.z,4)}
     if k=='worktable':entry['support']={'shape':'rect','width':1.75,'depth':.56,'height':round(1.115-center.z,4)}
+    # Persist all reviewed local points through a Blender rebuild. It used to
+    # silently erase the sofa and original chair/pouf interactions from catalog.
+    for field in ('seats','beds','chairSlots','activity','appliance','holdable','waterable','paintMaterials'):
+        previous=authored_kit.get(k,{})
+        if field in previous:entry[field]=previous[field]
+    if 'seats' in entry or 'beds' in entry:
+        print('CONTACT_REVIEW_REQUIRED_AFTER_MESH_REBUILD',k,flush=True)
     manifest.append(entry)
     # Convert, then batch by material inside an asset; moving water remains separate.
     for o in objects:

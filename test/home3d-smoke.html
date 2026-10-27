@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Home3D furniture WebGL smoke</title>
+<style>html,body{margin:0;width:100%;height:100%;background:#f2e7ee}#host{height:100vh;width:100vw}#result{position:fixed;left:0;bottom:0;z-index:9999;background:rgba(255,255,255,.86);padding:5px;font:11px monospace}</style></head>
+<body><div id="host"></div><output id="result" data-status="starting">Home3D loading…</output>
+<script type="module">
+import '../apps/room3d/editor.css';
+import {createHome} from '../apps/room3d/model.js';
+import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
+import {mountHomeEditor} from '../apps/room3d/editor.js';
+const report={status:'starting',stage:'boot',errors:[],actions:[],seat:false,canvas:false,webgl:false,virtualAdvance:false};
+window.__home3dSmoke=report;
+const set=(stage,status)=>{report.stage=stage;if(status)report.status=status;const out=document.getElementById('result');out.dataset.status=report.status;out.textContent=JSON.stringify(report);};
+window.addEventListener('error',e=>{report.errors.push(e.message||String(e.error));set('browser error');});
+window.addEventListener('unhandledrejection',e=>{report.errors.push(String(e.reason));set('unhandled rejection');});
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function texture(color){
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=472;
+ const ctx=canvas.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,472,472);return canvas;
+}
+(async()=>{
+ let editor=null;
+ try{
+  set('catalog');
+  const catalog=await fetch('/room3d/catalog.json').then(r=>{if(!r.ok)throw Error('catalog '+r.status);return r.json();});
+  const home=createHome(catalog),room=home.rooms[0];
+  room.items=[
+   {id:'smoke-chair',assetId:'chair',x:0,y:.18,z:0,rotation:0,color:null,stored:false},
+   {id:'smoke-plush',assetId:'bedroom_rabbit',x:2.1,y:.18,z:-.5,rotation:0,color:null,stored:false}
+  ];
+  // SwiftShader can render only a few frames/second; preserve actual gameplay speed in this CI fixture.
+  localStorage.setItem('sully-home3d-quality','eco');
+  set('mount editor');
+  editor=await mountHomeEditor(document.getElementById('host'),{
+   assetBase:new URL('/room3d/',location.href).href,initialState:home,
+   onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+  });
+  const canvas=document.querySelector('.h3-stage canvas');
+  report.canvas=!!canvas&&canvas.width>0&&canvas.height>0;
+  const gl=canvas?.getContext('webgl2');
+  report.webgl=!!gl&&!gl.isContextLost();
+  if(!report.canvas||!report.webgl)throw Error('WebGL drawing buffer was not created');
+  set('build classic visitor');
+  const keys=['skin','eyes','mouth','fronthair','earhair','back1','back2','outfit','outer','decor','facemark'];
+  const parts=Object.fromEntries(keys.map((k,i)=>[k,texture(i<2?'#dfac91':i<6?'#7e636e':'#8a9db4')]));
+  const person=await createVisitor(parts,{bodyShape:'classic',layers:{}});
+  editor.setVisitor(person);
+  await sleep(800);
+  const actions=editor.getHomeScene().actions;
+  report.actions=actions.filter(a=>['sit','stand','sleep','water'].includes(a.kind)).map(a=>a.kind);
+  const target=actions.find(a=>a.kind==='sit');
+  if(!target)throw Error('No feasible sit action in smoke room');
+  set('begin sit action');
+  report.request=editor.performHomeAction(target.id,'model');
+  report.visibility=document.visibilityState;report.samples=[];
+  if(report.request==='unavailable')throw Error('Sit action was unavailable despite menu availability');
+  // Observe several actual frames, then step the same controller at 20Hz to
+  // avoid treating the CI machine's software GPU frame rate as action failure.
+  for(let i=0;i<35;i++){
+   await sleep(100);
+   const state=editor.inspect();
+   if(i%10===0)report.samples.push({
+    step:i,walking:state.walking,seatChange:state.seatChange,
+    chibiSeat:state.chibiSeat,visitorLocation:state.visitorLocation,
+    position:state.residentPositions?.[0]?.position,sceneBusy:editor.getHomeScene().busy,
+    canvas:document.querySelector('.h3-stage canvas')?.width
+   });
+   if(state.chibiSeat&&!state.seatChange){report.seat=true;break;}
+  }
+  if(!report.seat){
+   report.virtualAdvance=true;
+   editor.advancePets(12);
+   const state=editor.inspect();
+   report.virtualState={walking:state.walking,seatChange:state.seatChange,
+     seat:state.chibiSeat,position:state.residentPositions?.[0]?.position};
+   report.seat=!!state.chibiSeat&&!state.seatChange;
+  }
+  if(!report.seat)throw Error('Character failed seat transition even under 20Hz controlled simulation');
+  // Regression for template mutators that clear visitorSeat before editing:
+  // a failed whole-room replacement must leave the same actor in the same
+  // original chair, and the draft scene must NOT be committed.
+  const blockedTemplate=document.createElement('button');
+  blockedTemplate.dataset.action='full-living';
+  document.querySelector('.h3-ui').appendChild(blockedTemplate);
+  blockedTemplate.click();blockedTemplate.remove();
+  const postTemplate=editor.inspect(),furnitureAfter=editor.getHomeScene().furniture;
+  report.occupiedTemplateRejected=postTemplate.chibiSeat?.itemId==='smoke-chair'&&
+   furnitureAfter.some(x=>x.id==='smoke-chair');
+  if(!report.occupiedTemplateRejected)throw Error('Blocked template replacement displaced occupied chair or changed layout');
+  // A seat is not completed until the same actor can rise, reclaim its floor
+  // access and sit down again without a stale occupied slot.
+  const stand=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+  if(!stand)throw Error('No stand action after seating');
+  report.standRequest=editor.performHomeAction(stand.id,'model');
+  editor.advancePets(3);
+  let post=editor.inspect();
+  report.exit=!post.chibiSeat&&!post.seatChange;
+  if(!report.exit)throw Error('Seated character could not exit via existing stand controller');
+  const repeat=editor.getHomeScene().actions.find(a=>a.kind==='sit');
+  if(!repeat)throw Error('Seat remained unavailable after standing');
+  report.repeatRequest=editor.performHomeAction(repeat.id,'model');
+  editor.advancePets(12);
+  post=editor.inspect();
+  report.repeat=!!post.chibiSeat&&!post.seatChange;
+  if(!report.repeat)throw Error('Seat could not be reused after exit');
+  // Repeat the complete seat contract with the second (skeletal) character.
+  const lastStand=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+  if(!lastStand)throw Error('No exit before changing character rig');
+  editor.performHomeAction(lastStand.id,'model');editor.advancePets(3);
+  if(editor.inspect().chibiSeat)throw Error('Legacy visitor still occupies seat after rising');
+  set('build skeletal visitor');
+  const skeletal=await createVisitor(parts,{bodyShape:'blank',layers:{}});
+  report.skeletalRig=!!skeletal.rig;
+  if(!report.skeletalRig)throw Error('Second body has no skeleton');
+  editor.setVisitor(skeletal);
+  const second=editor.getHomeScene().actions.find(a=>a.kind==='sit');
+  if(!second)throw Error('Skeletal resident lacks a feasible chair action');
+  report.skeletalRequest=editor.performHomeAction(second.id,'model');
+  if(report.skeletalRequest==='unavailable')throw Error('Skeletal chair action unavailable');
+  editor.advancePets(12);
+  const secondState=editor.inspect();
+  report.skeletalSeat=!!secondState.chibiSeat&&!secondState.seatChange;
+  if(!report.skeletalSeat)throw Error('Skeletal character could not finish chair entry');
+  const standSecond=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+  if(!standSecond)throw Error('Skeletal seated actor cannot request exit');
+  editor.performHomeAction(standSecond.id,'model');editor.advancePets(3);
+  report.skeletalExit=!editor.inspect().chibiSeat&&!editor.inspect().seatChange;
+  if(!report.skeletalExit)throw Error('Skeletal character could not safely exit chair');
+  // Independent real WebGL bedroom: the regular bed must still have a
+  // reachable bed edge, continuous entry and an unblocked standing exit.
+  editor.dispose();
+  const bedroom=createHome(catalog);
+  bedroom.rooms[0].items=[{id:'smoke-single-bed',assetId:'bedroom_single_bed',
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+  set('mount single-bed WebGL fixture');
+  editor=await mountHomeEditor(document.getElementById('host'),{
+   assetBase:new URL('/room3d/',location.href).href,initialState:bedroom,
+   onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+  });
+  const bedPerson=await createVisitor(parts,{bodyShape:'blank',layers:{}});
+  editor.setVisitor(bedPerson);
+  const sleeps=editor.getHomeScene().actions.filter(a=>a.kind==='sleep');
+  report.bedOptions=sleeps.length;
+  if(!sleeps.length)throw Error('A supported single bed has no accessible sleep option');
+  report.bedRequest=editor.performHomeAction(sleeps[0].id,'model');
+  if(report.bedRequest==='unavailable')throw Error('Bed option was advertised but could not start');
+  editor.advancePets(22);
+  const rested=editor.inspect();
+  report.bedRest=!!rested.chibiSeat?.bed&&!rested.seatChange;
+  report.bedRestPosition=rested.residentPositions?.[0]?.position;
+  if(!report.bedRest)throw Error('Skeletal resident never settled onto the supported single bed');
+  const standBed=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+  if(!standBed)throw Error('Lying resident cannot request bed exit');
+  report.bedExitRequest=editor.performHomeAction(standBed.id,'model');
+  editor.advancePets(12);
+  const awake=editor.inspect();
+  report.bedExit=!awake.chibiSeat&&!awake.seatChange;
+  report.bedExitPosition=awake.residentPositions?.[0]?.position;
+  if(!report.bedExit)throw Error('Skeletal resident could not exit bed without teleport');
+  // Repeat with the original non-skeletal body; the shared bed edge must
+  // remain accessible, and classic's authored root offset must stay finite.
+  set('classic single-bed passage');
+  const classicBed=await createVisitor(parts,{bodyShape:'classic',layers:{}});
+  editor.setVisitor(classicBed);
+  const legacySleep=editor.getHomeScene().actions.find(a=>a.kind==='sleep');
+  if(!legacySleep)throw Error('Classic resident has no feasible single-bed entry');
+  report.classicBedRequest=editor.performHomeAction(legacySleep.id,'model');
+  if(report.classicBedRequest==='unavailable')throw Error('Classic bed action refused unexpectedly');
+  editor.advancePets(22);
+  report.classicBedRest=!!editor.inspect().chibiSeat?.bed&&!editor.inspect().seatChange;
+  if(!report.classicBedRest)throw Error('Classic body did not finish entry to bed');
+  const classicStand=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+  if(!classicStand)throw Error('Classic sleeping actor cannot request exit');
+  editor.performHomeAction(classicStand.id,'model');editor.advancePets(12);
+  const classicAwake=editor.inspect();
+  report.classicBedExit=!classicAwake.chibiSeat&&!classicAwake.seatChange;
+  report.classicBedExitPosition=classicAwake.residentPositions?.[0]?.position;
+  if(!report.classicBedExit)throw Error('Classic body did not complete safe bed exit');
+  // Both independently authored halves of the other LOW beds must be
+  // reachable without crossing from the wrong side of their mattress.
+  report.lowBeds={};
+  for(const assetId of ['bedroom_double_bed','show_bed']){
+   editor.dispose();
+   set('bed matrix '+assetId);
+   const house=createHome(catalog);
+   house.rooms[0].items=[{id:'smoke-pair-bed',assetId,
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+   editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:house,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+   });
+   editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+   const count=editor.getHomeScene().actions.filter(a=>a.kind==='sleep').length;
+   if(count!==2)throw Error(assetId+' did not expose its two independent low bed points');
+   const checked=[];
+   for(let index=0;index<count;index++){
+    const action=editor.getHomeScene().actions.filter(a=>a.kind==='sleep')[index];
+    if(!action)throw Error(assetId+' has no path to slot '+index);
+    const request=editor.performHomeAction(action.id,'model');
+    if(request==='unavailable')throw Error(assetId+' rejected its advertised low bed slot '+index);
+    editor.advancePets(25);
+    const resting=editor.inspect(),selected=resting.chibiSeat;
+    if(!selected?.bed||resting.seatChange)throw Error(assetId+' slot '+index+' failed safe bed entry');
+    const stand=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+    if(!stand)throw Error(assetId+' cannot exit slot '+index);
+    editor.performHomeAction(stand.id,'model');editor.advancePets(12);
+    const exited=editor.inspect();
+    if(exited.chibiSeat||exited.seatChange)throw Error(assetId+' slot '+index+' failed bed exit');
+    checked.push({seatId:selected.seatId,entered:true,exited:true});
+   }
+   report.lowBeds[assetId]=checked;
+  }
+  // Previously only one chair was exercised in WebGL; check BOTH authored
+  // halves of each sofa and bench through the real action controller, without
+  // converting deep benches into imaginary snap-to-seat points.
+  report.doubleSeats={};
+  for(const assetId of ['sofa','bedroom_bench','show_bedroom_bench','bedroom_ref_bench']){
+   editor.dispose();set('seat matrix '+assetId);
+   const house=createHome(catalog);
+   house.rooms[0].items=[{id:'smoke-two-seat',assetId,
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+   editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:house,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+   });
+   editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+   const possibilities=editor.getHomeScene().actions.filter(a=>a.kind==='sit');
+   if(possibilities.length!==2)throw Error(assetId+' only exposes '+possibilities.length+' of 2 seat points');
+   const sampled=[];
+   for(let index=0;index<2;index++){
+    const choice=editor.getHomeScene().actions.filter(a=>a.kind==='sit')[index];
+    if(!choice)throw Error(assetId+' lost seat option '+index);
+    const request=editor.performHomeAction(choice.id,'model');
+    if(request==='unavailable')throw Error(assetId+' advertised a seat but rejected '+index);
+    editor.advancePets(15);
+    const sitting=editor.inspect(),taken=sitting.chibiSeat;
+    if(!taken||sitting.seatChange)throw Error(assetId+' could not enter seat '+index);
+    const exit=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+    if(!exit)throw Error(assetId+' has no safe stand action on '+index);
+    editor.performHomeAction(exit.id,'model');editor.advancePets(4);
+    const standing=editor.inspect();
+    if(standing.chibiSeat||standing.seatChange)throw Error(assetId+' could not leave seat '+index);
+    sampled.push({slot:taken.seatId,entered:true,exited:true});
+   }
+   report.doubleSeats[assetId]=sampled;
+  }
+  // Expand to previously untested seat shapes: pouf, petal sofa, kitchen
+  // bench and a mixed decorative sofa. Use actual registry count per asset,
+  // not guessed labels, to detect missing or unreachable authored slots.
+  report.additionalSeats={};
+  for(const assetId of ['pouf','petal_sofa','show_kitchen_bench','living_ref_sofa','bedroom_ref_flower_pouf',
+   'petal_armchair','gaming_chair','dining_chair','bath_stool','bedroom_stool',
+   'bedroom_desk_chair','show_spa_stool','show_study_pouf','show_living_sofa',
+   'show_living_pouf','show_bedroom_pouf']){
+   editor.dispose();set('additional seat '+assetId);
+   const house=createHome(catalog);
+   house.rooms[0].items=[{id:'smoke-extra-seat',assetId,
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+   editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:house,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+   });
+   editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+   const expected=catalog.find(a=>a.id===assetId)?.seats.length;
+   const visible=editor.getHomeScene().actions.filter(a=>a.kind==='sit');
+   if(!expected||visible.length!==expected)
+    throw Error(assetId+': '+visible.length+'/'+expected+' seats offered in live controller');
+   const done=[];
+   for(let i=0;i<expected;i++){
+    const option=editor.getHomeScene().actions.filter(a=>a.kind==='sit')[i];
+    if(!option||editor.performHomeAction(option.id,'model')==='unavailable')
+     throw Error(assetId+' cannot start slot '+i);
+    editor.advancePets(18);
+    const pose=editor.inspect(),seat=pose.chibiSeat;
+    if(!seat||pose.seatChange)throw Error(assetId+' cannot finish seating at '+i);
+    const stand=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+    if(!stand)throw Error(assetId+' missing get-up at '+i);
+    editor.performHomeAction(stand.id,'model');editor.advancePets(5);
+    if(editor.inspect().chibiSeat||editor.inspect().seatChange)
+     throw Error(assetId+' cannot get up from '+i);
+    done.push({seatId:seat.seatId,entered:true,exited:true});
+   }
+   report.additionalSeats[assetId]=done;
+  }
+  // Real height variants share the existing skeleton and authored seat point.
+  // They must either walk and finish the action safely or fail closed, never
+  // remain frozen halfway into furniture after a size change.
+  report.heightVariants={};
+  for(const scale of [.7,1.3]){
+   editor.dispose();set('height variant '+scale);
+   const house=createHome(catalog);
+   house.rooms[0].items=[{id:'smoke-scaled-chair',assetId:'chair',
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+   editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:house,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+   });
+   const resized=await createVisitor(parts,{bodyShape:'blank',layers:{}});
+   resized.setScaleMultiplier(scale);
+   editor.setVisitor(resized);
+   const sit=editor.getHomeScene().actions.find(a=>a.kind==='sit');
+   if(!sit)throw Error('Chair unavailable at body scale '+scale);
+   const started=editor.performHomeAction(sit.id,'model');
+   if(started==='unavailable')throw Error('Scaled chair action not accepted '+scale);
+   editor.advancePets(16);
+   const seated=editor.inspect();
+   if(!seated.chibiSeat||seated.seatChange)throw Error('Scaled character failed seat action '+scale);
+   const rise=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+   if(!rise)throw Error('Scaled character cannot get up '+scale);
+   editor.performHomeAction(rise.id,'model');editor.advancePets(5);
+   const exited=editor.inspect();
+   if(exited.chibiSeat||exited.seatChange)throw Error('Scaled character failed safe exit '+scale);
+   report.heightVariants[scale]={entered:true,exited:true,headBottom:resized.navigation?.headBottom,headTop:resized.navigation?.headTop};
+  }
+  // Exercise the real delegated UI commands, not a fabricated state restore:
+  // decorative commits followed by undo/redo MUST retain the reached floor
+  // position after bed exit instead of respawning at the room entrance.
+  const command=(name,params={})=>{
+   const button=document.createElement('button');
+   button.dataset.action=name;
+   for(const [k,v]of Object.entries(params))button.dataset[k]=String(v);
+   document.querySelector('.h3-ui').appendChild(button);
+   button.click();button.remove();
+  };
+  const ground=editor.inspect().residentPositions?.[0]?.position;
+  if(!ground)throw Error('Standing position unavailable for undo/redo fixture');
+  command('house-theme',{value:'0'});
+  const afterEdit=editor.inspect().residentPositions?.[0]?.position;
+  command('undo');
+  const afterUndo=editor.inspect().residentPositions?.[0]?.position;
+  command('redo');
+  const afterRedo=editor.inspect().residentPositions?.[0]?.position;
+  const delta=(a,b)=>a&&b?Math.hypot(...a.map((v,i)=>v-b[i])):Infinity;
+  report.layoutHistory={
+   initial:ground,afterEdit,afterUndo,afterRedo,
+   preserved:delta(ground,afterEdit)<.05&&delta(ground,afterUndo)<.05&&delta(ground,afterRedo)<.05
+  };
+  if(!report.layoutHistory.preserved)throw Error('Decorative undo/redo displaced the standing resident from their reached bed exit');
+  // The original plush is a single saved furniture instance. The real UI
+  // must walk to it, pick it up, return it, and allow a second pickup.
+  editor.dispose();set('plush walking and return');
+  const toyHome=createHome(catalog);
+  toyHome.rooms[0].items=[{id:'smoke-holdable',assetId:'bedroom_rabbit',
+    x:0,y:.18,z:-.5,rotation:0,color:null,stored:false}];
+  editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:toyHome,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+  });
+  editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+  command('chibi-hug',{id:'smoke-holdable'});
+  let held=null;
+  for(let i=0;i<80;i++){
+   editor.advancePets(.25);
+   held=editor.inspect().chibiHeldPlush;
+   if(held)break;
+  }
+  if(held?.itemId!=='smoke-holdable')throw Error('Toy pickup did not finish an actual walk to the toy');
+  const nearToy=editor.inspect().chibiPosition;
+  report.plushFirstPickup={position:nearToy,held:!!held};
+  if(Math.hypot(nearToy[0],nearToy[2]+.5)>2.3)
+    throw Error('Toy was grabbed remotely without reaching the toy area');
+  command('plush-put-back');
+  if(editor.inspect().chibiHeldPlush)throw Error('Toy return did not release held instance');
+  if(!editor.getHomeScene().furniture.some(x=>x.id==='smoke-holdable'))
+    throw Error('Returned toy was removed from saved room');
+  command('chibi-hug',{id:'smoke-holdable'});
+  for(let i=0;i<48&&!editor.inspect().chibiHeldPlush;i++)editor.advancePets(.25);
+  report.plushSecondPickup=!!editor.inspect().chibiHeldPlush;
+  if(!report.plushSecondPickup)throw Error('Returned toy could not be picked up a second time');
+  command('plush-put-back');
+  if(editor.inspect().chibiHeldPlush)throw Error('Second return left a ghost held prop');
+
+  // A bath cancellation must reverse the actual entered part of the path.
+  editor.dispose();set('bathroom tub entry and cancellation');
+  const bathHome=createHome(catalog);
+  bathHome.rooms[0].items=[{id:'smoke-tub',assetId:'bath_tub',
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+  editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:bathHome,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+  });
+  editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+  command('chibi-bath',{id:'smoke-tub',kind:'bath-soak',station:''});
+  let bathroom=null;
+  for(let i=0;i<100;i++){
+   editor.advancePets(.25);
+   bathroom=editor.inspect().chibiActivity?.bathJourney;
+   if(bathroom)break;
+  }
+  if(!bathroom)throw Error('Bathtub never reached a safe physical entry station');
+  editor.advancePets(1.8);
+  if(!editor.inspect().chibiActivity?.bathJourney)
+   throw Error('Bath entry stopped unexpectedly before cancellation');
+  const returnPoint=[...bathroom.front];
+  command('chibi-game-stop');
+  if(!Number.isFinite(editor.inspect().chibiActivity?.bathJourney?.cancelElapsed))
+   throw Error('Bath stop snapped or cleared the active journey without reversing');
+  editor.advancePets(6);
+  const bathroomDone=editor.inspect();
+  report.bathCancel={activityCleared:!bathroomDone.chibiActivity,
+    entry:returnPoint,exit:bathroomDone.chibiPosition};
+  if(!report.bathCancel.activityCleared||Math.hypot(...bathroomDone.chibiPosition.map((v,i)=>v-returnPoint[i]))>.04)
+   throw Error('Bath cancellation did not return character to its original safe entrance');
+  const scene=editor.inspect();
+  report.posture=scene.chibiPosture;
+  report.position=scene.residentPositions?.[0]?.position?.map(n=>Math.round(n*100)/100);
+  report.status='pass';set('rendered and seated','pass');
+ }catch(error){report.errors.push(String(error?.stack||error));set('failed','fail');}
+})();
+</script></body></html>

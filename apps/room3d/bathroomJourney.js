@@ -13,8 +13,15 @@ export function createBathroomJourney(activity,front,startRotation){
 }
 /** Separate approach, rim sit / leg turn, and settled loop; exit reverses entry. */
 export function bathroomJourneyFrame(j,time){
- const duration=j.enter*2+j.hold,t=M.clamp(time,0,duration),phase=t<j.enter?'enter':t<j.enter+j.hold?'work':'exit';
- const p=phase==='enter'?t:phase==='work'?j.enter:duration-t;
+ const duration=j.enter*2+j.hold,t=M.clamp(time,0,duration),
+  cancelled=Number.isFinite(j.cancelElapsed)&&t>=j.cancelElapsed;
+ // A mid-action cancellation MUST play the entered portion in reverse, even
+ // during the initial step or while turning into a tub. Do not teleport out.
+ const entryProgress=j.cancelElapsed<j.enter?j.cancelElapsed
+  :j.cancelElapsed<j.enter+j.hold?j.enter:Math.max(0,duration-j.cancelElapsed);
+ const progress=cancelled?Math.max(0,entryProgress-(t-j.cancelElapsed)):undefined;
+ const phase=cancelled?'exit':t<j.enter?'enter':t<j.enter+j.hold?'work':'exit';
+ const p=cancelled?progress:phase==='enter'?t:phase==='work'?j.enter:duration-t;
  let position,rotation,seatWeight=0,legLift=0;
  if(j.tub){
   const sit=M.smootherstep(p,0,1.2),swing=M.smootherstep(p,1.2,2.5),lower=M.smootherstep(p,2.5,3.6);
@@ -24,5 +31,5 @@ export function bathroomJourneyFrame(j,time){
  }else{
   const f=M.smootherstep(p,0,j.enter);position=mix(j.front,j.position,f);rotation=turn(j.startRotation,j.rotation,f);seatWeight=j.seated?f:0;
  }
- return {position,rotation,seatWeight,legLift,phase,time:phase==='work'?t-j.enter:p,done:t>=duration};
+ return {position,rotation,seatWeight,legLift,phase,time:phase==='work'?t-j.enter:p,done:cancelled?t-j.cancelElapsed>=entryProgress:t>=duration};
 }

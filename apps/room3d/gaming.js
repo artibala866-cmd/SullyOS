@@ -31,9 +31,15 @@ export function gamingActivities(room,catalog,{headWidth=1.5,body2=false,shoulde
    }
   }else if(a?.activity){const d=a.activity;specs=(d.stations||[d]).map(st=>({kind:d.kind,stationId:st.id,label:st.label,position:gamingPoint(item,st.position),rotation:(item.rotation+st.rotation)*Math.PI/180,hands:st.hands.map(p=>gamingPoint(item,p)),beats:st.beats?.map(b=>({...b,position:gamingPoint(item,b.position),targets:b.targets.map(p=>gamingPoint(item,p))})),needsChair:d.kind==='race',dependencies:[]}));}
   for(const spec of specs){let reason=spec.missing?(spec.kind==='stream'?'桌上需要键盘、麦克风和摄像头':'桌上需要键盘和显示器'):'',seat=null;
-   if(spec.needsChair){const candidates=roomSeats(room,catalog).filter(s=>asset(catalog,room.items.find(i=>i.id===s.itemId)?.assetId)?.id==='gaming_chair').map(s=>({s,t:seatTransform(room,catalog,s)}));
+   if(spec.needsChair){
+    // Shared seat capability: a valid device pose is not tied to one chair model.
+    const referenceHeight=asset(catalog,'gaming_chair')?.seats?.[0]?.position?.[1]??.65;
+    const candidates=roomSeats(room,catalog).map(s=>{
+     const placed=room.items.find(i=>i.id===s.itemId),t=seatTransform(room,catalog,s);
+     return {s,t,localSeatHeight:t&&placed?t.position[1]-placed.y:NaN};
+    }).filter(({t,localSeatHeight})=>t&&Math.abs(localSeatHeight-referenceHeight)<=.18);
     const match=candidates.find(({t})=>Math.hypot(t.position[0]-spec.position[0],t.position[2]-spec.position[2])<.18&&Math.cos(t.rotation-spec.rotation)>.98);
-    if(match){seat=match.s;spec.position=match.t.position;spec.rotation=match.t.rotation;}else reason||='需要把电脑椅朝向设备摆好';
+    if(match){seat=match.s;spec.position=match.t.position;spec.rotation=match.t.rotation;}else reason||='需要把合适高度的座椅朝向设备摆好';
    }
    // The taller rig plays from one standing spot, slightly nearer the panel.
    if(body2&&spec.kind==='rhythm'){const closer=.18+Math.max(0,shoulderHeight-1.65)*.30;spec.position[0]+=Math.sin(spec.rotation)*closer;spec.position[2]+=Math.cos(spec.rotation)*closer;}
