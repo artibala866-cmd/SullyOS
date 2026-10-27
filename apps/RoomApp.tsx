@@ -50,11 +50,21 @@ const RoomApp:React.FC=()=>{
     if(element&&element.getClientRects().length)blockedRects.push(element.getBoundingClientRect());
    }
    const top=findDreamEntryTop({shell:shellRect,rail:railRect,blockedRects,buttonHeight:48,gap:12,safeTop:72,safeBottom:16});
-   setDreamPlacement(previous=>top===null?null:previous?.charId===selected&&previous.top===top?previous:{charId:selected,top});
+   setDreamPlacement(previous=>{
+    if(top===null)return null;
+    if(previous?.charId===selected&&previous.top===top)return previous;
+    return {charId:selected,top};
+   });
   };
   const schedule=()=>{if(frame)cancelAnimationFrame(frame);frame=requestAnimationFrame(update);};
   const observer=new ResizeObserver(schedule);
   observer.observe(shell);
+  const observedControls=new Set<HTMLElement>();
+  const observeControls=()=>{
+   const current=new Set(['.h3-top','.h3-dock','.home-phone-launch'].map(selector=>shell.querySelector<HTMLElement>(selector)).filter((element):element is HTMLElement=>!!element));
+   for(const element of observedControls)if(!current.has(element)){observer.unobserve(element);observedControls.delete(element);}
+   for(const element of current)if(!observedControls.has(element)){observer.observe(element);observedControls.add(element);}
+  };
   const observeRail=()=>{
    const rail=shell.querySelector<HTMLElement>('.h3-resident-rail');
    if(rail===observedRail)return;
@@ -66,9 +76,9 @@ const RoomApp:React.FC=()=>{
    railMutation=new MutationObserver(schedule);
    railMutation.observe(rail,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','style','class']});
   };
-  const containerMutation=new MutationObserver(()=>{observeRail();schedule();});
+  const containerMutation=new MutationObserver(()=>{observeRail();observeControls();schedule();});
   containerMutation.observe(shell,{childList:true,subtree:true});
-  observeRail();
+  observeRail();observeControls();
   window.addEventListener('resize',schedule);
   window.visualViewport?.addEventListener('resize',schedule);
   update();
