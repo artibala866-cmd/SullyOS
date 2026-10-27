@@ -101,6 +101,22 @@ describe('ongoing furniture tasks remain on physically unchanged equipment',()=>
  it('prevents moving a target plant while it is being watered',()=>{
   expect(activeFurnitureDependencyChange(before,change(i=>i[2].rotation=90),[plant])).toContain('先结束');
  });
+ it('uses PRE-mutation occupants and restores transient state if a layout replacement fails',()=>{
+  const source=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
+  const commit=source.slice(source.indexOf('function commit(mutator,'),source.indexOf('function applyColor('));
+  expect(commit.indexOf('const actorBefore=')).toBeLessThan(commit.indexOf('mutator();'));
+  expect(commit).toContain('const occupiedBefore=[actorBefore.visitorSeat,...otherFurnitureOccupants()]');
+  expect(commit).toContain('const activeBefore=[actorBefore.visitorActivity,actorBefore.visitorPlant,actorBefore.kitchenTask]');
+  expect(commit).toContain('occupiedFurnitureChange(before,state,catalog,occupiedBefore)');
+  expect(commit).toContain('activeFurnitureDependencyChange(before,state,activeBefore)');
+  expect(commit).toContain('visitorSeat=actorBefore.visitorSeat');
+  expect(commit).toContain('visitorLocation=actorBefore.visitorLocation');
+  expect(commit).toContain('kitchenTask=actorBefore.kitchenTask');
+  const full=source.slice(source.indexOf("if(d.action==='full-living')"),source.indexOf("if(d.action==='upgrade-starter')"));
+  expect(full).toContain('visitorSeat=null');
+  // A template mutator that clears visitorSeat before checks is exactly why
+  // the preceding snapshot is mandatory.
+ });
  it('never stops a kitchen or bath activity BEFORE validating the proposed edit',()=>{
   const code=readFileSync(new URL('./editor.js',import.meta.url),'utf8'),
    start=code.indexOf('function commit(mutator,'),end=code.indexOf('function applyColor(',start);
