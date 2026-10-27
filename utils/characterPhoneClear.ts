@@ -14,6 +14,7 @@ import {SOCIAL_SNAPSHOT_CHANGED} from './characterPhoneSocialContent';
 import {CHARACTER_PHONE_SELF_CHANGED} from './characterPhoneSelfProfile';
 import {PENDING_PHONE_CONTACTS_CHANGED} from './characterPhoneRequests';
 import {pruneCharacterPhoneLifeEvents,type CharacterLifeEventKind} from './characterLifeEvents';
+import {advancePhoneContentClearRevision} from './characterPhoneContentClearRevision';
 export const PHONE_CLEAR_GROUPS=[
   {id:'service',label:'仅公众号／服务号会话',description:'删除微信官方通知，不删除普通 NPC 聊天'},
   {id:'chats',label:'微信 NPC 与群聊记录',description:'不删除 User 的真实私聊数据库'},
@@ -52,10 +53,12 @@ export function clearSelectedPhoneData(charId:string,ids:readonly PhoneClearGrou
         emit(PENDING_PHONE_CONTACTS_CHANGED,charId);
         break;
       case 'moments':
+        advancePhoneContentClearRevision(charId, 'moments');
         localStorage.removeItem('sully_character_moments_v1:'+charId);
         emit(CHARACTER_MOMENTS_CHANGED,charId);
         break;
       case 'memos':
+        advancePhoneContentClearRevision(charId, 'memos');
         localStorage.removeItem('sully_character_memo_entries_v1:'+charId);
         emit(CHARACTER_MEMOS_CHANGED,charId);
         break;
