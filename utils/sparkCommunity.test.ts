@@ -317,3 +317,24 @@ describe('Spark legacy notification migration', () => {
         expect(result.notifications[0].actorAccountId).toContain('legacy-handle:');
     });
 });
+
+describe('Spark explicit private-message account ID selection', () => {
+    it('never shows ambiguous shared-name history as either account\'s private thread', async () => {
+        const { getSparkDMThreadKey } = await import('./sparkCommunity');
+        const empty = createEmptySparkCommunityState();
+        const a = ensureSparkAccount(empty, { type: 'character', ownerCharId: 'c1', handleId: 'main', displayName: '同名' }, () => 'x');
+        const b = ensureSparkAccount(a.state, { type: 'character', ownerCharId: 'c2', handleId: 'main', displayName: '同名' }, () => 'x');
+        const old = { '同名': ['无法明确归属的历史私信'] };
+        expect(getSparkDMThreadKey(a.account.id, '同名', old, b.state.accounts)).toBe(a.account.id);
+        expect(getSparkDMThreadKey(b.account.id, '同名', old, b.state.accounts)).toBe(b.account.id);
+        expect(old['同名']).toHaveLength(1);
+    });
+
+    it('continues a uniquely owned legacy conversation before migration finishes', async () => {
+        const { getSparkDMThreadKey } = await import('./sparkCommunity');
+        const first = ensureSparkAccount(createEmptySparkCommunityState(),
+            { type: 'stranger', displayName: '老朋友' }, () => 'npc1');
+        expect(getSparkDMThreadKey(first.account.id, '老朋友', { '老朋友': ['你好'] }, first.state.accounts)).toBe('老朋友');
+        expect(getSparkDMThreadKey(first.account.id, '老朋友', { [first.account.id]: ['你好'] }, first.state.accounts)).toBe(first.account.id);
+    });
+});
