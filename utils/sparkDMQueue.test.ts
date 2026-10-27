@@ -13,6 +13,16 @@ describe('Spark queued private messages', () => {
         state = appendSparkDMAnswer(state, 'stranger:1', 'm2', '第二条回复', 4);
         expect(state['stranger:1'].map(m => m.content)).toEqual(['第一条', '第二条', '第一条回复', '第二条回复']);
     });
+    it('sees the previous AI reply while excluding future user sends', () => {
+        let threads = appendSparkDMUser({}, 'friend', '先问一件事', 'm1', 1);
+        threads = appendSparkDMUser(threads, 'friend', '再补充一句', 'm2', 2);
+        threads = appendSparkDMUser(threads, 'friend', '未来才发出的消息', 'm3', 3);
+        threads = appendSparkDMAnswer(threads, 'friend', 'm1', '第一条的回复', 4);
+        expect(sparkDMHistoryThrough(threads, 'friend', 'm2').map(m => m.content))
+            .toEqual(['先问一件事', '再补充一句', '第一条的回复']);
+        expect(sparkDMHistoryThrough(threads, 'friend', 'm1').map(m => m.content))
+            .toEqual(['先问一件事', '第一条的回复']);
+    });
     it('retries an existing failed bubble in place without duplicating the user message', () => {
         let state = appendSparkDMUser({}, 'character:1', '你好', 'fixed-id', 1);
         state = setSparkDMDelivery(state, 'character:1', 'fixed-id', 'failed');
