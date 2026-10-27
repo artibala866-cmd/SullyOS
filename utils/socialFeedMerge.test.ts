@@ -52,3 +52,12 @@ describe('social feed race-safe merging', () => {
         expect(canDeleteSocialPost({ ...post('legacy'), authorName: 'Me' }, 'Me')).toBe(true);
     });
 });
+
+describe('Spark publish topic normalization', () => {
+    it('keeps up to six unique tags and never falls back to a fake user tag', async () => {
+        const { parseSparkPublishTags } = await import('./socialFeedMerge');
+        expect(parseSparkPublishTags(' #插画,绘画 插画，画师 ')).toEqual(['插画', '绘画', '画师']);
+        expect(parseSparkPublishTags('')).toEqual(['日常']);
+        expect(parseSparkPublishTags('a b c d e f g')).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
+    });
+});
