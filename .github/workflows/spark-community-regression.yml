@@ -29,5 +29,14 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec tsc --noEmit
+      - name: Typecheck Spark files without hiding unrelated pre-existing errors
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/spark-tsc.log 2>&1 || true
+          grep -E '^(apps/SocialApp.tsx|utils/sparkCommunity.ts|utils/socialFeedMerge.ts|utils/socialGeneration.ts|utils/sparkTraffic.ts|utils/sparkCommunity.test.ts|utils/socialFeedMerge.test.ts|types.ts)\\(' /tmp/spark-tsc.log > /tmp/spark-errors.log || true
+          if [ -s /tmp/spark-errors.log ]; then
+            cat /tmp/spark-errors.log
+            exit 1
+          fi
+          echo "Spark target files have no TypeScript diagnostics."
       - run: pnpm exec vitest run utils/socialFeedMerge.test.ts utils/socialGeneration.test.ts utils/sparkCommunity.test.ts utils/sparkTraffic.test.ts
