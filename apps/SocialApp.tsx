@@ -412,6 +412,19 @@ const SocialApp: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
     const [activeTopic, setActiveTopic] = useState<string | null>(null);
+    const matchingSparkAccounts = useMemo(() => {
+        const term = searchQuery.trim().toLocaleLowerCase();
+        if (!term) return [];
+        return communityState.accounts
+            .filter(account => account.id !== 'user' &&
+                [account.displayName, ...(account.aliases || [])].some(name => name.toLocaleLowerCase().includes(term)))
+            .slice(0, 8);
+    }, [searchQuery, communityState.accounts]);
+    const matchingSparkTopics = useMemo(() => {
+        const term = searchQuery.trim().toLocaleLowerCase();
+        if (!term) return [];
+        return [...new Set(feed.flatMap(post => post.tags || []).filter(tag => tag && tag.toLocaleLowerCase().includes(term)))].slice(0, 8);
+    }, [searchQuery, feed]);
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [visibleLimit, setVisibleLimit] = useState(40);
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
@@ -1582,7 +1595,9 @@ ${buildSparkCommentHistory(post)}
                             <p className="text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap font-light">{selectedPost.content}</p>
                             
                             <div className="flex gap-2 flex-wrap pt-2">
-                                {selectedPost.tags.map(t => <span key={t} className="text-xs font-bold text-neutral-600 bg-neutral-50/50 backdrop-blur-sm border border-neutral-100 px-2.5 py-1 rounded-full">#{t}</span>)}
+                                {selectedPost.tags.map(t => <button type="button" key={t}
+                                onClick={() => { setActiveTopic(t); setSearchQuery(''); setSearchOpen(false); setFeedTab('discover'); setActiveTab('home'); setSelectedPost(null); setViewedAccount(null); }}
+                                className="text-xs font-bold text-neutral-600 bg-neutral-50/50 backdrop-blur-sm border border-neutral-100 px-2.5 py-1 rounded-full">#{t}</button>)}
                             </div>
                             <div className="text-xs text-slate-400 font-medium border-b border-slate-100/50 pb-6">{new Date(selectedPost.timestamp).toLocaleDateString()}</div>
                             {selectedPost.authorType === 'user' && postTraffic[selectedPost.id] && <div className="grid grid-cols-3 gap-2 rounded-xl bg-neutral-50/70 p-3 text-center text-xs text-slate-600">
@@ -1884,9 +1899,23 @@ ${buildSparkCommentHistory(post)}
                     </div>
                 </div>
 
-                {searchOpen && <div className="flex items-center gap-2 px-3 py-2 bg-white/90 border-b border-slate-100">
-                    <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="搜索笔记、话题、用户" className="flex-1 min-w-0 rounded-full bg-slate-100 px-3 py-2 text-sm outline-none" />
-                    <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="text-slate-400 text-xs">取消</button>
+                {searchOpen && <div className="bg-white/90 border-b border-slate-100">
+                    <div className="flex items-center gap-2 px-3 py-2">
+                        <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setActiveTopic(null); }} placeholder="搜索笔记、话题、用户" className="flex-1 min-w-0 rounded-full bg-slate-100 px-3 py-2 text-sm outline-none" />
+                        <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="text-slate-400 text-xs">取消</button>
+                    </div>
+                    {searchQuery.trim() && (matchingSparkAccounts.length > 0 || matchingSparkTopics.length > 0) && <div className="px-3 pb-2 max-h-36 overflow-y-auto space-y-1">
+                        {matchingSparkAccounts.map(account => <button type="button" key={account.id}
+                            onClick={() => { setViewedAccount({ handle: account.displayName, avatar: account.avatar || '' }); setSearchOpen(false); }}
+                            className="block w-full py-1 text-xs text-left text-slate-700">用户 · @{account.displayName}</button>)}
+                        {matchingSparkTopics.map(topic => <button type="button" key={topic}
+                            onClick={() => { setActiveTopic(topic); setSearchQuery(''); setSearchOpen(false); }}
+                            className="block w-full py-1 text-xs text-left text-slate-700">话题 · #{topic}</button>)}
+                    </div>}
+                </div>}
+                {activeTopic && activeTab === 'home' && <div className="flex items-center justify-between px-4 py-2 text-xs bg-white/85 border-b border-slate-100">
+                    <span className="font-bold text-slate-600">#{activeTopic} 的相关笔记</span>
+                    <button type="button" onClick={() => setActiveTopic(null)} className="text-slate-500">显示全部 ×</button>
                 </div>}
                 {/* Content Area */}
                 <div ref={feedScrollRef} onTouchStart={onFeedTouchStart} onTouchMove={onFeedTouchMove} onTouchEnd={onFeedTouchEnd} onTouchCancel={onFeedTouchEnd} className="flex-1 overflow-y-auto no-scrollbar overscroll-y-contain">
@@ -2063,7 +2092,7 @@ ${buildSparkCommentHistory(post)}
                                 <div className="columns-2 gap-2 space-y-2">
                                     {feed.filter(p => profileTab === 'notes' ? (p.authorType === 'user' || (!p.authorType && p.authorName === socialProfile.name)) : p.isCollected).map(post => (
                                         <div key={post.id} onClick={() => handleOpenPost(post)} className="break-inside-avoid bg-white rounded-xl overflow-hidden shadow-sm border border-slate-100 cursor-pointer">
-                                            <div className="aspect-[4/5] flex items-center justify-center text-4xl" style={{ background: post.bgStyle }}>{codepointToEmoji(post.images[0])}</div>
+                                            <div className="aspect-[4/5] flex items-center justify-center text-4xl" style={{ background: post.bgStyle }}>{postVisual(post.images[0], 'w-full h-full')}</div>
                                             <div className="p-3">
                                                 <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-tight">{post.title}</h4>
                                                 <div className="flex justify-between items-center mt-2">
