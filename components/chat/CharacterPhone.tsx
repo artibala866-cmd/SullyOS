@@ -907,7 +907,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ececec] bg-[#fafafa] px-3 py-3 text-xs">
               <span className="min-w-0">
                 <strong className="block text-[13px] font-semibold text-[#444]">自动更新优先处理微信与朋友圈</strong>
-                <span className="mt-1 block leading-5 text-[#888]">开启后优先轮换 NPC 微信和朋友圈；关闭后恢复包含其他自主功能的默认轮换，并不代表关闭微信自动更新。要暂停独立自主生成，请关闭下方“Char 手机自主生活”或“允许独立后台 AI 请求”。仅网页在前台时检查，不会因打开微信立即生成。</span>
+                <span className="mt-1 block leading-5 text-[#888]">开启后，遇到有依据的手机活动机会时优先处理 NPC 微信与朋友圈；关闭后允许其他已开启的手机自主功能参与，不代表关闭 NPC 微信续聊。没有待回复消息或已发生的生活事件时不会仅因定时检查而生成。要暂停独立自主生成，可关闭“Char 手机自主生活”或“允许独立后台 AI 请求”。</span>
               </span>
               <input type="checkbox" checked={inboxPrefs.autoFullWeChat}
                 onChange={e=>{
