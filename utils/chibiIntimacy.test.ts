@@ -7,7 +7,7 @@ import {createBlankMotion} from '../apps/room3d/chibi/blankMotion';
 import {contactSolver} from '../apps/room3d/chibi/socialContact';
 import {poseIntimacy} from '../apps/room3d/chibi/intimacyMotion';
 import type {ChibiVisitor} from '../apps/room3d/chibi/visitor';
-import {createSocialScene} from '../apps/room3d/chibi/selectedSocial';
+import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial';
 import {furniturePalm} from '../apps/room3d/chibi/furnitureMotion';
 import {BLANK_FINGERS} from '../apps/room3d/chibi/blankFingers';
 
@@ -87,7 +87,7 @@ it('cancels an ongoing standing pair cleanly if a new observer blocks the occupi
   expect(await runtime.start('home-hug','a','b')).toBe(true);
   const start=runtime.inspect().session!;
   expect(start).not.toBeNull();
-  const approach=start.duration-10;
+  const approach=start.duration-socialActions['home-hug'].duration;
   runtime.advance(approach+1);
   expect(runtime.active).toBe(true);
   clear=false;
