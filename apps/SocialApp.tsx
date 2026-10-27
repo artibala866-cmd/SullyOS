@@ -1,5 +1,6 @@
 import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSparkTrafficLocalDay, type SparkTraffic } from '../utils/sparkTraffic';
 import { chooseSparkStock } from '../utils/sparkStock';
+import { planSparkCharacterBatches, selectSparkBatchCharacterResults, parseSparkPostPublishBatch } from '../utils/sparkApiBatch';
 import { useLocalBackHandler } from '../hooks/useLocalBackHandler';
 import { appendSparkDMUser, setSparkDMDelivery, recoverSparkInterruptedDMs, sparkDMHistoryThrough, appendSparkDMAnswer, takeSparkDMJobBatch, appendSparkDMBatchAnswer, sparkDMBatchHistory, type SparkDMThreads, type SparkPrivateMessage } from '../utils/sparkDMQueue';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
@@ -1324,9 +1325,8 @@ const SocialApp: React.FC = () => {
                 // Up to eight characters per provider request, versus one call per character.
                 // Use PUBLIC profiles and posts; never co-locate multiple private personas.
                 let created = 0;
-                for (let offset = 0; offset < selected.length; offset += 8) {
+                for (const group of planSparkCharacterBatches(selected)) {
                     if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
-                    const group = selected.slice(offset, offset + 8);
                     const profiles = group.map(char => ({
                         charId: char.id,
                         name: char.name,
@@ -1357,13 +1357,10 @@ const SocialApp: React.FC = () => {
                     const results = safeParseJSON(extractContent(await safeResponseJson(response)));
                     if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
                     if (!Array.isArray(results)) throw new Error('批量发帖返回内容不是 JSON 数组');
-                    const seen = new Set<string>();
-                    for (const entry of results) {
-                        if (!entry || typeof entry.charId !== 'string' || seen.has(entry.charId)) continue;
+                    for (const entry of selectSparkBatchCharacterResults<{charId: string; [key: string]: unknown}>(
+                        group.map(item => item.id), results)) {
                         const char = group.find(item => item.id === entry.charId);
-                        if (!char) continue;
-                        seen.add(char.id);
-                        if (persistBatchedCharacterPost(char, entry)) created++;
+                        if (char && persistBatchedCharacterPost(char, entry)) created++;
                     }
                 }
                 setShowCharPosting(false);
@@ -1841,12 +1838,13 @@ ${post.content || '(楼主没写正文)'}
             const data = await safeResponseJson(response);
             if (controller.signal.aborted) return;
             const json = safeParseJSON(extractContent(data));
-            const commentsJson = Array.isArray(json) ? json : json?.comments;
+            const combinedResult = parseSparkPostPublishBatch(json);
+            const commentsJson = combinedResult.comments;
             // Saving one AI result into multiple local workflows must not trigger another call.
-            if (inboxCount > 0 && Array.isArray(json?.incomingDMs)) {
-                acceptGeneratedIncomingDMs(post, json.incomingDMs, inboxCount, feedLoadGenerationRef.current);
+            if (inboxCount > 0 && combinedResult.incomingDMs.length) {
+                acceptGeneratedIncomingDMs(post, combinedResult.incomingDMs, inboxCount, feedLoadGenerationRef.current);
             }
-            if (Array.isArray(commentsJson)) {
+            if (commentsJson.length) {
                 const comments: SocialComment[] = commentsJson
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
