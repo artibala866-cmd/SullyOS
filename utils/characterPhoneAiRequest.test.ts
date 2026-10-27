@@ -65,6 +65,30 @@ describe('character phone AI request lifecycle', () => {
     expect(KeepAlive.stop).toHaveBeenCalledTimes(2);
   });
 
+  it('distinguishes explicit cancellation without blocking later intentional actions', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockImplementation((_url, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const pending = fetchCharacterPhoneJson(URL, { ...options, signal: controller.signal }, meta);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: 'PhoneRequestFailure', kind: 'cancelled' });
+    expect(canRunAutomaticPhoneAi(meta.charId, URL)).toBe(true);
+    expect(KeepAlive.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('identifies a network break, keeps its upstream status uncertain and never retries', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(fetchCharacterPhoneJson(URL, options, meta)).rejects.toMatchObject({
+      name: 'PhoneRequestFailure', kind: 'network',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(canRunAutomaticPhoneAi(meta.charId, URL)).toBe(false);
+  });
+
   it('pauses on an upstream 503 without retrying, and never pauses a different character', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false, status: 503, headers: { get: () => 'application/json' },
