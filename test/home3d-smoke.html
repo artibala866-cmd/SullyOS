@@ -146,6 +146,25 @@ function texture(color){
   report.bedExit=!awake.chibiSeat&&!awake.seatChange;
   report.bedExitPosition=awake.residentPositions?.[0]?.position;
   if(!report.bedExit)throw Error('Skeletal resident could not exit bed without teleport');
+  // Repeat with the original non-skeletal body; the shared bed edge must
+  // remain accessible, and classic's authored root offset must stay finite.
+  set('classic single-bed passage');
+  const classicBed=await createVisitor(parts,{bodyShape:'classic',layers:{}});
+  editor.setVisitor(classicBed);
+  const legacySleep=editor.getHomeScene().actions.find(a=>a.kind==='sleep');
+  if(!legacySleep)throw Error('Classic resident has no feasible single-bed entry');
+  report.classicBedRequest=editor.performHomeAction(legacySleep.id,'model');
+  if(report.classicBedRequest==='unavailable')throw Error('Classic bed action refused unexpectedly');
+  editor.advancePets(22);
+  report.classicBedRest=!!editor.inspect().chibiSeat?.bed&&!editor.inspect().seatChange;
+  if(!report.classicBedRest)throw Error('Classic body did not finish entry to bed');
+  const classicStand=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+  if(!classicStand)throw Error('Classic sleeping actor cannot request exit');
+  editor.performHomeAction(classicStand.id,'model');editor.advancePets(12);
+  const classicAwake=editor.inspect();
+  report.classicBedExit=!classicAwake.chibiSeat&&!classicAwake.seatChange;
+  report.classicBedExitPosition=classicAwake.residentPositions?.[0]?.position;
+  if(!report.classicBedExit)throw Error('Classic body did not complete safe bed exit');
   const scene=editor.inspect();
   report.posture=scene.chibiPosture;
   report.position=scene.residentPositions?.[0]?.position?.map(n=>Math.round(n*100)/100);
