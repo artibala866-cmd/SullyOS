@@ -60,7 +60,7 @@ describe('Spark author attribution', () => {
         expect(resolve({ author: '小花园', isCharacter: false })).toBeNull();
     });
     it('accepts unambiguous legacy handle-only output and preserves canonical names', () => {
-        expect(resolve({ author: ' sullydev ' })).toEqual({ name: 'SullyDev', character: b });
+        expect(resolve({ author: ' sullydev ' })).toEqual({ name: 'SullyDev', character: b, accountId: 'character:b-id:handle:b' });
         expect(resolve({ author: '新来的路人', charId: null })).toEqual({ name: '新来的路人' });
     });
     it('requires the matching ID when two roles share a handle', () => {
