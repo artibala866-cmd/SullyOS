@@ -623,6 +623,7 @@ const SocialApp: React.FC = () => {
     const commentRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyQueueRef = useRef<{ post: SocialPost; content: string; parentCommentId?: string }[]>([]);
+    const lastCommentSubmitRef = useRef<{ postId: string; content: string; at: number } | null>(null);
     const feedLoadGenerationRef = useRef(0);
     const postPersistenceRef = useRef<Promise<void>>(Promise.resolve());
     const autonomyTickRef = useRef<() => Promise<void>>(async () => {});
@@ -940,17 +941,17 @@ const SocialApp: React.FC = () => {
         return updated;
     };
 
-    const removePostFromFeed = (postId: string) => {
+    const removePostFromFeed = async (postId: string): Promise<void> => {
+        // Only remove UI and notices after persistence succeeds, so a failed delete is recoverable.
+        await persistPostMutation(() => DB.deleteSocialPost(postId));
         const next = feedRef.current.filter(p => p.id !== postId);
         feedRef.current = next;
         setFeed(next);
-        void persistPostMutation(() => DB.deleteSocialPost(postId))
-            .catch(error => addToast('帖子删除保存失败：' + (error?.message || error), 'error'));
         setSelectedPost(current => current?.id === postId ? null : current);
         setNotices(prev => {
-            const nextNotices = prev.filter(item => item.postId !== postId);
-            localStorage.setItem('spark_notifications', JSON.stringify(nextNotices));
-            return nextNotices;
+            const remaining = prev.filter(item => item.postId !== postId);
+            localStorage.setItem('spark_notifications', JSON.stringify(remaining));
+            return remaining;
         });
         sparkEvent('post_deleted', 'user', { postId });
     };
@@ -1616,13 +1617,17 @@ ${buildSparkCommentHistory(post)}
         }
     };
 
-    const handleDeletePost = (postId: string) => {
+    const handleDeletePost = async (postId: string) => {
         const post = feedRef.current.find(item => item.id === postId);
         if (!post || !canDeleteSocialPost(post, socialProfile.name)) { addToast('只能删除自己的笔记', 'error'); return; }
         if (!window.confirm('删除自己的这篇笔记？此操作无法撤销。')) return;
-        removePostFromFeed(postId);
-        addToast('帖子已删除', 'success');
-        trackEvent('删除一条帖子');
+        try {
+            await removePostFromFeed(postId);
+            addToast('帖子已删除', 'success');
+            trackEvent('删除一条帖子');
+        } catch (error: any) {
+            addToast('删除失败，笔记仍已保留：' + (error?.message || error), 'error');
+        }
     };
     const handleLike = (e: any, post: SocialPost) => {
         e.stopPropagation();
@@ -1636,11 +1641,16 @@ ${buildSparkCommentHistory(post)}
         trackEvent('点赞一条帖子', { action: post.isLiked ? 'unlike' : 'like' });
     };
     
-    const handleSendComment = async () => { 
-        if (!selectedPost || !commentInput.trim()) return; 
+    const handleSendComment = () => {
+        if (!selectedPost || !commentInput.trim()) return;
+        const text = commentInput.trim();
+        const now = Date.now();
+        const recent = lastCommentSubmitRef.current;
+        if (recent && recent.postId === selectedPost.id && recent.content === text && now - recent.at < 650) return;
+        lastCommentSubmitRef.current = { postId: selectedPost.id, content: text, at: now };
 
         const userComment: SocialComment = {
-                id: `cmt-user-${Date.now()}`,
+                id: `cmt-user-${now}-${Math.random().toString(36).slice(2, 9)}`,
                 authorName: socialProfile.name, // Use Local Identity
                 authorAvatar: socialProfile.avatar, // Use Local Identity
                 content: commentInput.trim(),
@@ -1655,7 +1665,7 @@ ${buildSparkCommentHistory(post)}
             ...current,
             comments: mergeSocialComments(current.comments || [], [userComment]),
         }));
-        if (!updatedPost) return;
+        if (!updatedPost) { lastCommentSubmitRef.current = null; return; }
         learnInterest(selectedPost, 3);
         if (selectedPost.authorType === 'character') remember(selectedPost.authorCharId, selectedPost, '自己的公开笔记收到评论：' + userComment.content);
         const contentToSend = commentInput; 
