@@ -3720,6 +3720,15 @@ export interface SocialComment {
     isCharacter?: boolean;
     authorType?: 'user' | 'character' | 'stranger';
     authorCharId?: string;
+    /** Stable internal identity; display names and handles may change. */
+    authorId?: string;
+    /** Timestamp for ordering replies and rebuilding a thread. */
+    timestamp?: number;
+    /** Parent comment ID for nested replies; absent means a top-level comment. */
+    parentCommentId?: string;
+    replyToAuthorName?: string;
+    /** Whether the local user has liked this comment. */
+    isLiked?: boolean;
 }
 
 export interface SocialPost {
@@ -3738,6 +3747,12 @@ export interface SocialPost {
     bgStyle?: string;
     authorType?: 'user' | 'character' | 'stranger';
     authorCharId?: string;
+    /** Stable internal identity; optional for compatibility with existing saved posts. */
+    authorId?: string;
+    /** Provenance of this post; legacy records remain readable without this field. */
+    source?: 'user' | 'ai' | 'legacy';
+    /** Normalized topic IDs used for discovery and ranking. */
+    topicIds?: string[];
 }
 
 export interface SubAccount {
