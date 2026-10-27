@@ -37,7 +37,7 @@ import {bathroomEntryCandidates,createBathroomJourney,bathroomJourneyFrame} from
 import {createBathroomEffects} from './bathroomEffects.js';
 import {interactionIcon,actionIcon} from './interactionIcons.js';
 import {roomPixelRatio,roomLightBudget} from './renderQuality.js';
-import {createRoomFrameBudget} from './frameBudget.js';
+import {createRoomFrameBudget,roomFrameDeltas} from './frameBudget.js';
 import {fitFlatView} from './flatView.js';
 import {homelyTouchPose,homelyTouchText} from './homelyTouch';
 import {homelyFrame} from './homelyView';
@@ -2412,11 +2412,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   inTick=true;
   let shouldContinue=false;
   try{
-   const dt=Math.min(.05,(now-lastTick)/1000);lastTick=now;
+   const {simulation:dt,activity:activityDt}=roomFrameDeltas(now-lastTick);lastTick=now;
   if(greeting&&elapsed>=greeting.until){setResidentExpression(primaryResidentId,greeting.old||{});const restoreWide=greeting.restoreWide;greeting=null;visitorMotion='idle';if(restoreWide){const from={position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom};resize(true,true);cameraArrival={from,to:{position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom},start:elapsed};}}
   updateCompanion();
   if(cameraArrival){const t=THREE.MathUtils.smootherstep(elapsed-cameraArrival.start,0,reducedMotion?.01:1.1),{from,to}=cameraArrival;camera.position.copy(from.position).lerp(to.position,t);controls.target.copy(from.target).lerp(to.target,t);camera.zoom=THREE.MathUtils.lerp(from.zoom,to.zoom,t);camera.updateProjectionMatrix();dirty=true;if(t>=1)cameraArrival=null;}
-  let settling=false;if(!manual&&!document.hidden)elapsed+=dt;
+  let settling=false;if(!manual&&!document.hidden)elapsed+=activityDt;
   const petMoving=petSystem?.update(manual?0:dt);if(petMoving)dirty=true;
   if(!document.hidden&&now-lastDraw>=frameInterval-.5){
     const frameSpacing=lastDraw?now-lastDraw:0;
