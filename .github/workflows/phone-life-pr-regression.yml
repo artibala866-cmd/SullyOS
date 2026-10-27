@@ -1,0 +1,48 @@
+name: Phone life core regression (no deployment)
+on:
+  pull_request:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'components/chat/CharacterPhone.tsx'
+      - 'context/OSContext.tsx'
+      - 'utils/characterPhone*.ts'
+      - 'utils/characterMoment*.ts'
+      - 'utils/characterMemo*.ts'
+      - 'utils/characterLife*.ts'
+      - 'utils/phoneChatPiggyback*.ts'
+      - '.github/workflows/phone-life-pr-regression.yml'
+permissions:
+  contents: read
+concurrency:
+  group: phone-life-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  phone-life:
+    name: Phone life unit tests and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Targeted life and phone regression
+        run: >-
+          pnpm exec vitest run
+          utils/characterPhoneAiRequest.test.ts
+          utils/characterPhoneApiBudget.test.ts
+          utils/characterPhoneAutonomy.test.ts
+          utils/characterLifeLoop.test.ts
+          utils/characterLifeEventRouting.test.ts
+          utils/characterLifeScheduleContext.test.ts
+          utils/phoneChatPiggyback.test.ts
+          utils/characterPhoneMoments.test.ts
+          utils/characterPhonePayments.test.ts
+          utils/refreshNpcMoments.test.ts
+      - name: Compile and build SullyOS (never deploy)
+        run: pnpm run build
