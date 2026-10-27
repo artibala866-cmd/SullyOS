@@ -314,7 +314,20 @@ const SocialApp: React.FC = () => {
         try {
             const authorPosts = feedRef.current.filter(post => post.authorName === target.handle).sort((a, b) => a.timestamp - b.timestamp);
             const firstPost = authorPosts[0];
-            const owner = characters.find(char => (characterHandles[char.id] || []).some(account => account.handle === target.handle));
+            const candidates = characters.filter(char => (characterHandles[char.id] || []).some(account => account.handle === target.handle));
+            const registered = communityRef.current.accounts.filter(account =>
+                account.displayName === target.handle || account.aliases.includes(target.handle));
+            const knownOwnerIds = [...new Set(registered.map(account => account.ownerCharId).filter(Boolean))];
+            // Never arbitrarily select the first role when different characters share one public handle.
+            if (candidates.length > 1 || knownOwnerIds.length > 1) {
+                throw new Error('多个角色使用相同网名，无法确定私信对象。请先区分账号昵称');
+            }
+            const owner = knownOwnerIds.length === 1
+                ? characters.find(char => char.id === knownOwnerIds[0])
+                : candidates[0];
+            if (owner && candidates.length === 1 && candidates[0].id !== owner.id) {
+                throw new Error('私信账号归属不一致，已阻止角色串台');
+            }
             const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。你的稳定人物设定：' + (npcPersonas[target.handle] || '根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场') + '。不要变成客服，也不要知道其他人的私聊或隐藏身份。';
             const prompt = identity + '\n当前聊天账号：' + target.handle + '\n这个账号最早的帖子（性格与经历线索）：' + (firstPost ? firstPost.title + '\n' + firstPost.content : '暂无公开帖子') + '\n只扮演此账号本人，回复最后一条私信；简短自然，不要解释设定，不要总以句号结尾。';
             const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
