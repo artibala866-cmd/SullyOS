@@ -10,7 +10,7 @@ function scene(options={}){const visitors=[actor(),actor(),actor()];visitors.for
 function mockFetch(){vi.stubGlobal('fetch',vi.fn(async(url:string)=>({ok:true,json:async()=>clips[url.split('/').pop()!.replace('.json','')]})));}
 afterEach(()=>vi.unstubAllGlobals());
 it('ships exactly the confirmed motions, with finite normalized rotations and clamped paired timelines',()=>{
- expect(selectedMotions).toHaveLength(42);expect(selectedMotions.filter(e=>e.participants===2)).toHaveLength(21);
+ expect(selectedMotions).toHaveLength(49);expect(selectedMotions.filter(e=>e.participants===2)).toHaveLength(28);
  for(const e of selectedMotions){const clip=clips[e.id];expect(clip.actors).toHaveLength(e.participants);for(const track of clip.actors){for(const t of [0,e.duration*.25,e.duration*.5,e.duration*.75,e.duration]){const frame=sampleSelected(track,t);expect(frame.position.toArray().every(Number.isFinite)).toBe(true);for(const q of Object.values(frame.rotations) as T.Quaternion[])expect(q.length()).toBeCloseTo(1,3);}expect(sampleSelected(track,1e6).position.toArray()).toEqual(sampleSelected(track,track.duration).position.toArray());}}
 });
 it('assigns two roles while leaving an observer stationary, and releases at completion',async()=>{
@@ -94,8 +94,38 @@ it('keeps shoulder rub behind its seated recipient and mixed hugs in front, acro
 
 it('separates walking and final standing clearance from the temporary action sweep',async()=>{
  mockFetch();const phases:number[]=[];const {runtime}=scene({canPlace:(paths:T.Vector3[][])=>{phases.push(paths[0].length);return true;},canPerform:vi.fn(()=>true)});
- await runtime.start('cmu-22_07','0','1');expect(phases).toHaveLength(2);expect(phases[0]).toBeGreaterThan(1);expect(phases[1]).toBe(1);
+ await runtime.start('cmu-22_07','0','1');expect(phases).toHaveLength(2);expect(phases[0]).toBe(1);expect(phases[1]).toBeGreaterThan(1);
 });
 it('relaxed animation never bypasses a blocked route, final footprint or room boundary',async()=>{
  mockFetch();for(const blocked of ['route','finish','motion']){let n=0;const {runtime}=scene({canPlace:()=>{n++;return blocked==='route'?false:blocked==='finish'?n!==2:true;},canPerform:()=>blocked!=='motion'});await expect(runtime.start('cmu-22_07','0','1')).rejects.toThrow('空地');}
+});
+
+
+it('cleans up activation failures and permits immediate restart',async()=>{
+ mockFetch();const {visitors,runtime}=scene();
+ (visitors[0].applySelectedFrame as any).mockImplementationOnce(()=>{throw Error('pose failed');});
+ await expect(runtime.start('cmu-13_17','0')).rejects.toThrow('pose failed');
+ expect(runtime.active).toBe(false);expect(runtime.inspect().loading).toBe(false);
+ expect(await runtime.start('cmu-13_17','0')).toBe(true);
+ runtime.cancel();expect(runtime.active).toBe(false);
+});
+it('cleans up a playback failure and does not leave either role locked',async()=>{
+ mockFetch();const {visitors,runtime}=scene();
+ await runtime.start('cmu-22_07','0','1');
+ (visitors[0].applySelectedFrame as any).mockImplementationOnce(()=>{throw Error('frame failed');});
+ expect(()=>runtime.advance(100)).toThrow('frame failed');
+ expect(runtime.active).toBe(false);
+ expect(await runtime.start('cmu-22_07','1','0')).toBe(true);
+ runtime.cancel();
+});
+it.each([30,60,120])('rejects a newly blocked swept step before exposing it at %i Hz, then restarts',async hz=>{
+ mockFetch();let blocked=false;const checks:T.Vector3[][][]=[];
+ const {visitors,runtime}=scene({canPerform:(paths:T.Vector3[][])=>{checks.push(paths);return !blocked;}});
+ await runtime.start('cmu-22_07','0','1');runtime.advance(1/hz);
+ const before=visitors.map(v=>v.root.position.clone());
+ blocked=true;runtime.advance(1/hz);
+ expect(runtime.active).toBe(false);
+ visitors.forEach((v,i)=>expect(v.root.position.distanceTo(before[i])).toBeLessThan(1e-9));
+ expect(checks.at(-1)!.every(path=>path.length===2)).toBe(true);
+ blocked=false;expect(await runtime.start('cmu-22_07','1','0')).toBe(true);runtime.cancel();
 });

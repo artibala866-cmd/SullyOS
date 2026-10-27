@@ -6,9 +6,9 @@ import type {ChibiVisitor} from './visitor';
  * and clamps each iteration to avoid knee flips on stylized rigs. */
 export function settleLegContact(
  v:Pick<ChibiVisitor,'root'|'rig'>,side:'L'|'R',target:T.Vector3,strength:number,
- options:{iterations?:number;maxAngle?:number}={}
+ options:{iterations?:number;maxAngle?:number;effector?:'toe'|'foot'}={}
 ){
- const bones=v.rig!.bones,toe=bones[side+'_toe'];
+ const bones=v.rig!.bones,toe=bones[side+'_'+(options.effector??'toe')];
  const iterations=Math.max(1,Math.min(10,options.iterations??2));
  const maxAngle=T.MathUtils.clamp(options.maxAngle??.075,.01,.18);
  for(let iteration=0;iteration<iterations;iteration++){
@@ -43,7 +43,7 @@ export function captureLegSupport(v:ChibiVisitor){
  const toes=(['L','R'] as const).map(side=>v.rig!.bones[side+'_toe'].getWorldPosition(new T.Vector3()));
  const soles=(['L','R'] as const).map(side=>v.rig!.bones[side+'_foot'].getWorldPosition(new T.Vector3()));
  const rotations=(['L','R'] as const).map(side=>v.rig!.bones[side+'_foot'].getWorldQuaternion(new T.Quaternion()));
- return {toes,rotations,ground:Math.min(...toes.map(p=>p.y),...soles.map(p=>p.y))};
+ return {toes,soles,rotations,ground:Math.min(...toes.map(p=>p.y),...soles.map(p=>p.y))};
 }
 /** Reconcile planted toes and original sole direction after a skeletal pose.
  * Keep the new bending of knees, but avoid sliding or rolling planted feet. */
@@ -51,11 +51,14 @@ export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captu
  if(!v.rig||!support)return 0;
  v.root.updateWorldMatrix(true,true);
  for(const [i,side] of (['L','R'] as const).entries()){
+  // Solve the ankle first: a fixed sole orientation determines its toe
+  // offset. Solving the toe and then rotating its ancestors breaks that
+  // orientation; restoring it afterwards would move the toe off target.
+  settleLegContact(v,side,preserveFootDirection?support.soles[i]:support.toes[i],1,{effector:preserveFootDirection?'foot':'toe'});
   if(preserveFootDirection){
    const foot=v.rig.bones[side+'_foot'],parent=foot.parent;
    if(parent)foot.quaternion.copy(parent.getWorldQuaternion(new T.Quaternion()).invert().multiply(support.rotations[i]));
   }
-  settleLegContact(v,side,support.toes[i],1);
  }
  v.root.updateWorldMatrix(true,true);
  const ground=Math.min(...(['L','R'] as const).flatMap(side=>[
@@ -94,9 +97,12 @@ export function createWorldFootLock(){
    side=candidate;locked.copy(toes[side]);return;
   }
   // Don't drag the planted foot through a teleport or impossible stride.
-  const reach=(v.rig.bones[side+'_thigh'].position.length()+
-   v.rig.bones[side+'_shin'].position.length())*
-   v.rig.bones[side+'_thigh'].getWorldScale(new T.Vector3()).x;
+  // Joint origins measure actual upper/lower leg lengths even with scaled
+  // parents; thigh.position is a pelvis offset, not the femur length.
+  const hip=v.rig.bones[side+'_thigh'].getWorldPosition(new T.Vector3());
+  const knee=v.rig.bones[side+'_shin'].getWorldPosition(new T.Vector3());
+  const ankle=v.rig.bones[side+'_foot'].getWorldPosition(new T.Vector3());
+  const reach=hip.distanceTo(knee)+knee.distanceTo(ankle);
   if(locked.distanceTo(toes[side])>Math.max(.18,reach*.6)){locked.copy(toes[side]);return;}
   // Walking needs stronger convergence than one-shot head/seat adjustments.
   // Fixed bone lengths; only the existing thigh and shin rotate.

@@ -23,6 +23,7 @@ const checked=[
  'apps/room3d/chibi/motionConstraintPipeline.test.ts',
  'utils/chibiFurnitureMotion.test.ts',
  'utils/chibiRoomWalk.test.ts',
+ 'utils/chibiSocial.test.ts',
  'utils/chibiMotionRecovery.test.ts',
  'utils/chibiIntimacy.test.ts',
  'utils/chibiAllSelectedMotionAssets.test.ts',

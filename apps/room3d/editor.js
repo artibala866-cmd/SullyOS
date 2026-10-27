@@ -12,7 +12,7 @@ import './socialWheel.css';
 import './petWheel.css';
 import {withResidents,residentBlocksStep} from './residentNavigation.js';
 import {residentSeparationStep,chooseResidentToYield} from './residentSeparation.js';
-import {clearSocialObservers} from './socialSpace.js';
+import {clearSocialObservers,createSocialSpaceCheck} from './socialSpace.js';
 import {petHomeRecord} from '../../utils/homePetRecords';
 import {homeDisposalReason} from '../../utils/homeAssetCancellation';
 import {socialPostureAllowed,SEATED_TARGET_ACTIONS} from './socialPosture';
@@ -334,16 +334,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const entries=[...(resident.visible?[{id:activeResidentId(),visitor:{...visitor,root:resident}}]:[]),...socialEntries.filter(e=>e.group.visible).map(e=>({id:e.id,visitor:{...e.visitor,root:e.group}}))];
   // Social trajectories start at the same valid walking positions as the resident.
   const room=current(),map=navMap();
-  const motionMap=walkingMap({...state,rooms:state.rooms.map(r=>({...r,items:r.items.filter(i=>asset(i.assetId)?.building)}))},room.level,catalog,{headWidth,...visitor?.navigation,walkClearance:true});
+  const canPerform=createSocialSpaceCheck({getMap:()=>walkingMap(state,room.level,catalog,{headWidth,...visitor?.navigation,walkClearance:true}),getRevision:()=>comparisonRevision,getObservers:()=>entries.filter(e=>e.visitor.root.visible&&e.id!==a&&(socialActions[action].participants!==2||e.id!==b)).map(e=>e.visitor.root.position),offset:{x:room.x*ROOM_STEP.x,z:room.z*ROOM_STEP.z}});
   // Only uninvolved actors reserve ordinary .60 core-body space.
   const observers=entries.filter(e=>e.id!==a&&(socialActions[action].participants!==2||e.id!==b)).map(e=>e.visitor.root.position);
-  const clearOfOthers=paths=>clearSocialObservers(paths,observers);
 
   const sofaSeatPoses=sofaPair?Object.fromEntries([[a,sofaPair.seatA],[b,sofaPair.seatB]].map(([id,pose])=>{
    const v=entries.find(e=>e.id===id)?.visitor;
    return [id,{kind:'seat-rest',hands:[],seatPose:pose.pose,seatHeight:pose.height/(v?.seatScale??1)}];
   })) : undefined;
-  socialRuntime=createSocialScene(entries,{sofaSeatPoses,facingTarget:socialActions[action].participants===1?entries.find(e=>e.id===(a==='user'?primaryResidentId:'user'))?.visitor.root.position.clone():undefined,pinned:seatedTarget&&!sofaPillow?{id:pinnedId,pose:pinnedId===activeResidentId()?currentSeatPose()||{}:socialEntries.find(e=>e.id===pinnedId)?.parkedPose||{}}:undefined,onComplete:()=>{if(action==='cmu-22_01')queueMicrotask(()=>standResident(b));},findPath:(from,to)=>{const path=findWalkPath(map,[from.x+room.x*ROOM_STEP.x,from.z+room.z*ROOM_STEP.z],[to.x+room.x*ROOM_STEP.x,to.z+room.z*ROOM_STEP.z]);return path?[from.clone(),...path.map(p=>new THREE.Vector3(p[0]-room.x*ROOM_STEP.x,.18,p[1]-room.z*ROOM_STEP.z)),to.clone()]:null;},origins:Array.from({length:17},(_,i)=>(i-8)*.45).flatMap(z=>Array.from({length:21},(_,i)=>new THREE.Vector3((i-10)*.45,.18,z))).filter(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)).sort((p,q)=>p.distanceToSquared(resident.position)-q.distanceToSquared(resident.position)),canPerform:paths=>clearOfOthers(paths)&&paths.every(path=>path.every(p=>motionMap.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z))),canPlace:paths=>paths.every(path=>path.every(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)&&clearSocialObservers([[p]],observers)))});
+  socialRuntime=createSocialScene(entries,{sofaSeatPoses,facingTarget:socialActions[action].participants===1?entries.find(e=>e.id===(a==='user'?primaryResidentId:'user'))?.visitor.root.position.clone():undefined,pinned:seatedTarget&&!sofaPillow?{id:pinnedId,pose:pinnedId===activeResidentId()?currentSeatPose()||{}:socialEntries.find(e=>e.id===pinnedId)?.parkedPose||{}}:undefined,onComplete:()=>{if(action==='cmu-22_01')queueMicrotask(()=>standResident(b));},findPath:(from,to)=>{const path=findWalkPath(map,[from.x+room.x*ROOM_STEP.x,from.z+room.z*ROOM_STEP.z],[to.x+room.x*ROOM_STEP.x,to.z+room.z*ROOM_STEP.z]);return path?[from.clone(),...path.map(p=>new THREE.Vector3(p[0]-room.x*ROOM_STEP.x,.18,p[1]-room.z*ROOM_STEP.z)),to.clone()]:null;},origins:Array.from({length:17},(_,i)=>(i-8)*.45).flatMap(z=>Array.from({length:21},(_,i)=>new THREE.Vector3((i-10)*.45,.18,z))).filter(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)).sort((p,q)=>p.distanceToSquared(resident.position)-q.distanceToSquared(resident.position)),canPerform,canPlace:paths=>paths.every(path=>path.every(p=>map.free(p.x+room.x*ROOM_STEP.x,p.z+room.z*ROOM_STEP.z)&&clearSocialObservers([[p]],observers)))});
   socialRoom=room.id;const runtime=socialRuntime;const started=await runtime.start(action,a,b);if(!started||runtime!==socialRuntime)return false;
   const person=id=>id===primaryResidentId?ownerName:socialEntries.find(e=>e.id===id)?.label||'你';
   const label=socialActions[action].label.replace(/\s*[AB]→[AB]/g,'').replace(/\s*·\s*双人/g,'');
@@ -1377,10 +1376,10 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  }
  let lastViewKey='';
  function rebuild(){
+  comparisonRevision++;
   const missing=neededAssets();if(missing.length){loadRoomAssets(missing);return;}
   socialPlacementMap=null;lastWallCamera='';
   petSystem?.reconcile();
-  comparisonRevision++;
   closeInteraction();
   finishes.begin();
   const shadowSize=quality==='eco'||phone||touch?512:lightBudget().shadowSize;

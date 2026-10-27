@@ -5,7 +5,7 @@ import {bindBlankBody} from '../apps/room3d/chibi/blankRig';
 import {createBlankMotion} from '../apps/room3d/chibi/blankMotion';
 import {bodyHeightY} from '../apps/room3d/chibi/bodyHeight';
 import {createDistanceWalkClock,createRoomWalkSampler,roomWalkSpeed} from '../apps/room3d/chibi/roomWalk';
-import {createWorldFootLock} from '../apps/room3d/chibi/legContactIK';
+import {createWorldFootLock,captureLegSupport,restoreLegSupport} from '../apps/room3d/chibi/legContactIK';
 import {approvedRoomWalk} from '../apps/room3d/chibi/approvedRoomWalk';
 
 it('plays the selected Meshy walk on the real rig with fixed bone lengths and grounded lower ankle, then restores idle',()=>{
@@ -92,6 +92,27 @@ it('world-space planted toe IK reduces real moving-rig drift at rotated headings
   expect(relocks).toBeLessThan(6);
   lock.reset();
   expect(lock.supportSide).toBeNull();
+  mesh.geometry.dispose();mesh.material.dispose();rig.skeleton.dispose();
+ }
+});
+
+
+it('restores planted sole orientation after knee IK under a rotated scaled parent',()=>{
+ for(const height of [.8,1,1.25]){
+  const root=new T.Group(),body=new T.Group(),hair=new T.Group();
+  root.scale.setScalar(.8);root.rotation.y=1.1;root.add(body);
+  const mesh=new T.Mesh(createBlankBody('skin',{bodyHeight:height}),new T.MeshBasicMaterial());body.add(mesh,hair);
+  const rig=bindBlankBody(mesh,hair,true),animate=createBlankMotion(rig,body);
+  const visitor={root,rig,translatePose:(delta:T.Vector3)=>{body.position.add(root.worldToLocal(delta.clone()).sub(root.worldToLocal(new T.Vector3())));}} as any;
+  animate(0,'idle','standing');root.updateWorldMatrix(true,true);
+  const support=captureLegSupport(visitor)!;
+  const lengths=rig.skeleton.bones.map(b=>b.position.length());
+  for(const side of ['L','R']){rig.bones[side+'_thigh'].rotation.x-=.25;rig.bones[side+'_shin'].rotation.x+=.5;}
+  restoreLegSupport(visitor,support);
+  for(const [i,side] of ['L','R'].entries()){
+   expect(rig.bones[side+'_foot'].getWorldQuaternion(new T.Quaternion()).angleTo(support.rotations[i])).toBeLessThan(1e-6);
+  }
+  expect(rig.skeleton.bones.map(b=>b.position.length())).toEqual(lengths);
   mesh.geometry.dispose();mesh.material.dispose();rig.skeleton.dispose();
  }
 });

@@ -73,7 +73,7 @@ export function createSocialScene(residents:SocialResident[],options:{facingTarg
  if(residents.some(r=>!!r.visitor.rig!==!!residents[0]?.visitor.rig))throw Error('A home must use one body type');
  const states=new Map(residents.map(r=>[r.id,{...r,solver:contactSolver(r.visitor),home:r.visitor.root.position.clone(),rotation:r.visitor.root.quaternion.clone()}]));
  type Session={action:string;ids:string[];time:number;clip:SelectedClip;origin:T.Vector3;sourceOrigin:T.Vector3;rotation:T.Quaternion;scale:number;starts:T.Vector3[];turns:T.Quaternion[];paths:T.Vector3[][];approach:number;handSign:1|-1;passionPlan?:PassionKissPlan;sneakPlan?:SneakKissPlan};
- let session:Session|null=null,generation=0,loading=false,nextDynamicClearanceCheck=0;
+ let session:Session|null=null,generation=0,loading=false;
  const pinned=options.pinned, pinnedState=pinned?states.get(pinned.id):undefined;
  const pinnedPosition=pinnedState?.home.clone(),pinnedRotation=pinnedState?.rotation.clone();
  const holdPinned=()=>{if(pinnedState&&pinned){pinnedState.visitor.root.position.copy(pinnedPosition!);pinnedState.visitor.root.quaternion.copy(pinnedRotation!);pinnedState.visitor.animate(0,'idle','seated',pinned.pose);}};
@@ -390,7 +390,6 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
  }
  const restore=()=>{
   const last=session;
-  nextDynamicClearanceCheck=0;
   constraintPipeline.reset();
   // A disposed temporary prop can throw, but must never block session reset.
   // The scope always attempts all disposals; preserve any error for diagnostics.
@@ -506,22 +505,29 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     session=candidate;motionScope.begin(action);constraintPipeline.activate(action);
      prop=motionScope.own(createSocialProp(action,both,motionTemplateFor(action)?.prop));
      draw();return true;
+   }catch(error){
+    // A synchronous pose/prop failure after activation must not leave a live
+    // half-created session. A stale load must never clear a newer session.
+    if(token===generation)restore();
+    throw error;
    }finally{if(token===generation)loading=false;}
   },
   advance(seconds:number){if(!Number.isFinite(seconds)||seconds<0)return;if(session){
+   const before=session.ids.map(id=>{const root=states.get(id)!.visitor.root;return {position:root.position.clone(),rotation:root.quaternion.clone()};});
    session.time=Math.min(session.time+seconds,socialActions[session.action].duration+session.approach);
-   draw();
-   // Obstacle/observer occupancy can change while the synced clip plays.
-   // Recheck at a bounded cadence using the room's existing collision
-   // callback. Never rebuild the map or run a full sweep every render tick.
-   // Pinned seated interactions have their own seat ownership constraints.
-   if(session&&options.canPerform&&!pinned&&!options.sofaSeatPoses&&session.time>=nextDynamicClearanceCheck){
-    nextDynamicClearanceCheck=session.time+.25;
-    const current=session.ids.map(id=>[states.get(id)!.visitor.root.position.clone()]);
-    if(!options.canPerform(current)){restore();return;}
+   try{draw();}catch(error){restore();throw error;}
+   // Check the swept root path BEFORE the renderer sees this frame. The room
+   // caches geometry by layout revision; no path search runs here. Seat-owned
+   // interactions retain their dedicated occupancy rules.
+   if(session&&options.canPerform&&!pinned&&!options.sofaSeatPoses){
+    const current=session.ids.map((id,i)=>[before[i].position,states.get(id)!.visitor.root.position.clone()]);
+    if(!options.canPerform(current)){
+     session.ids.forEach((id,i)=>{const root=states.get(id)!.visitor.root;root.position.copy(before[i].position);root.quaternion.copy(before[i].rotation);});
+     restore();return;
+    }
    }
    if(session&&session.time>=socialActions[session.action].duration+session.approach){if(session.action==='home-kiss'){for(const id of session.ids){const resident=states.get(id);if(resident){resident.home.copy(resident.visitor.root.position);resident.rotation.copy(resident.visitor.root.quaternion);}}}restore();options.onComplete?.();}}},
-  seek(seconds:number){if(session&&Number.isFinite(seconds)){session.time=T.MathUtils.clamp(seconds,0,socialActions[session.action].duration+session.approach);draw();}},
+  seek(seconds:number){if(session&&Number.isFinite(seconds)){session.time=T.MathUtils.clamp(seconds,0,socialActions[session.action].duration+session.approach);try{draw();}catch(error){restore();throw error;}}},
   cancel(){generation++;loading=false;restore();},
   reset(){generation++;loading=false;restore();for(const r of states.values()){r.visitor.root.position.copy(r.home);r.visitor.root.quaternion.copy(r.rotation);}draw();},
   inspect(){return {loading,session:session&&{action:session.action,participants:session.ids,time:session.time,duration:socialActions[session.action].duration+session.approach,phase:session.time<session.approach?'approach':session.time<session.approach+.6?'enter':session.time>session.approach+session.clip.duration+.6?'release':'perform'},residents:residents.map(r=>({id:r.id,body:r.visitor.rig?'blank':'classic',position:r.visitor.root.position.toArray(),role:session?.ids[0]===r.id?'initiator':session?.ids[1]===r.id?'recipient':'observer'}))};},
