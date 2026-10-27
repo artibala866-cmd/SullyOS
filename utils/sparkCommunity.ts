@@ -576,6 +576,43 @@ export function toggleSparkFollow(
     return { state: appendSparkEvent({ ...state, follows }, event), action: exists ? 'unfollow' : 'follow' };
 }
 
+/**
+ * AI/NPC likes belong to a stable actor, not a generated popularity counter.
+ * Replaying the same action does nothing; original legacy like totals survive.
+ */
+export function applySparkNpcLike(state: SparkCommunityState, post: SocialPost, actorId: string, now: number):
+    { state: SparkCommunityState; post: SocialPost; changed: boolean } {
+    if (!actorId || actorId === 'user' || state.mutedAccountIds.includes(actorId) ||
+        !state.accounts.some(a => a.id === actorId && a.type !== 'user') ||
+        post.authorId === actorId || !post.id) return { state, post, changed: false };
+    const liked = new Set(post.likedByAccountIds || []);
+    if (liked.has(actorId)) return { state, post, changed: false };
+    liked.add(actorId);
+    const updated = { ...post, likedByAccountIds: [...liked], likes: Math.max(0, post.likes || 0) + 1 };
+    const event = {
+        id: 'npc-like:' + post.id + ':' + actorId, type: 'post_liked' as const,
+        actorAccountId: actorId, targetAccountId: post.authorId,
+        postId: post.id, createdAt: now,
+    };
+    return { state: appendSparkEvent(state, event), post: updated, changed: true };
+}
+
+/** NPC follow and unfollow are idempotent and drive actual follower counts. */
+export function applySparkNpcFollow(
+    state: SparkCommunityState, actorId: string, targetId: string,
+    action: 'follow' | 'unfollow', now: number,
+): { state: SparkCommunityState; changed: boolean } {
+    if (!actorId || actorId === targetId || actorId === 'user' ||
+        state.mutedAccountIds.includes(actorId) || state.mutedAccountIds.includes(targetId) ||
+        !state.accounts.some(account => account.id === actorId && account.type !== 'user') ||
+        !state.accounts.some(account => account.id === targetId)) return { state, changed: false };
+    const exists = state.follows.some(f => f.followerId === actorId && f.followedId === targetId);
+    if ((action === 'follow') === exists) return { state, changed: false };
+    const result = toggleSparkFollow(state, actorId, targetId, now,
+        'npc-follow:' + actorId + ':' + targetId + ':' + now + ':' + action);
+    return { state: result.state, changed: result.action !== 'noop' };
+}
+
 export function setSparkPostHidden(
     state: SparkCommunityState,
     postId: string,
