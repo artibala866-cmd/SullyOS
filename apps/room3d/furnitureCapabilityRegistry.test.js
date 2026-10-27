@@ -5,6 +5,8 @@ import {registeredFurnitureCapabilities} from './furnitureCapabilityRegistry.js'
 import {usableFurniturePoints} from './furniturePointRegistry.js';
 import {roomSeats,roomBeds,seatTransform} from './seating.js';
 import {furnitureInteractions} from './furnitureInteractions.js';
+import {plushApproachCandidates} from './plush.js';
+import {readFileSync} from 'node:fs';
 
 const asset=id=>catalog.find(a=>a.id===id);
 const kinds=id=>registeredFurnitureCapabilities(asset(id)).map(c=>c.kind);
@@ -59,6 +61,30 @@ describe('home3d furniture capability registry',()=>{
   expect(blocked).toMatchObject([{action:'fridge-toggle',reason:'冰箱旁没有安全通路'}]);
   const available=furnitureInteractions(room,catalog,'fridge',{fridgePlanner:()=>''});
   expect(available).toMatchObject([{action:'fridge-toggle',reason:''}]);
+ });
+ it('rotates plush approach sockets with 90-degree furniture placement and actor width',()=>{
+  const room={id:'r',items:[{id:'toy',assetId:'bedroom_rabbit',x:1,y:.18,z:-1,rotation:0,stored:false}]};
+  const initial=plushApproachCandidates(room,catalog,'toy',1.5);
+  expect(initial).toHaveLength(20);
+  expect(initial[0].position[0]).toBeCloseTo(1);
+  expect(initial[0].position[2]).toBeGreaterThan(-1);
+  room.items[0].rotation=90;
+  const rotated=plushApproachCandidates(room,catalog,'toy',1.5);
+  expect(rotated[0].position[0]).toBeGreaterThan(1);
+  expect(rotated[0].position[2]).toBeCloseTo(-1);
+  room.items[0].stored=true;
+  expect(plushApproachCandidates(room,catalog,'toy')).toEqual([]);
+ });
+ it('refuses remote plush pickup and displays a concrete unavailable reason',()=>{
+  const room={id:'r',items:[{id:'toy',assetId:'bedroom_rabbit',x:0,y:.18,z:0,rotation:0,stored:false}]};
+  const blocked=furnitureInteractions(room,catalog,'toy',{plushPlanner:()=> '走不到玩偶身边'});
+  expect(blocked).toMatchObject([{action:'chibi-hug',reason:'走不到玩偶身边'}]);
+  const held=furnitureInteractions(room,catalog,'toy',{held:{itemId:'toy'},plushPlanner:()=> '走不到玩偶身边'});
+  expect(held).toMatchObject([{action:'plush-put-back',reason:''}]);
+  const source=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
+  expect(source).toContain("if(d.action==='chibi-hug'&&visitor){approachPlush(");
+  expect(source).toContain('walking.arrived=begin;');
+  expect(source).not.toContain("heldPlush={roomId:current().id,itemId:d.id};visitorMotion='hug'");
  });
  it('does not surface unsafe high beds even if their raw catalog has anchors',()=>{
   const room={id:'r',items:[{id:'b1',assetId:'bedroom_bunk',x:0,y:.18,z:0,rotation:0,stored:false}]};
