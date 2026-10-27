@@ -167,10 +167,21 @@ const SocialApp: React.FC = () => {
     });
     const communityRef = useRef(communityState);
     const communityWriteRef = useRef<Promise<void>>(Promise.resolve());
+    const communityHydratedRef = useRef(false);
+    const cachedCommunityAtStartRef = useRef<boolean>((() => {
+        try { return localStorage.getItem('spark_community_state') !== null; }
+        catch { return false; }
+    })());
+    const localAutonomyChangedRef = useRef(false);
     const writeCommunity = (next: SparkCommunityState) => {
+        if (JSON.stringify(next.autonomy) !== JSON.stringify(communityRef.current.autonomy)) {
+            localAutonomyChangedRef.current = true;
+        }
         communityRef.current = next;
         setCommunityState(next);
         try { localStorage.setItem('spark_community_state', JSON.stringify(next)); } catch (error) { console.warn('Spark local community cache failed', error); }
+        // Do not overwrite durable relationships until the initial DB community read finishes.
+        if (!communityHydratedRef.current) return;
         const payload = JSON.stringify(next);
         const write = communityWriteRef.current.then(() => DB.saveAsset('spark_community_state', payload));
         communityWriteRef.current = write.catch(error => console.warn('Spark community save failed', error));
@@ -215,10 +226,24 @@ const SocialApp: React.FC = () => {
     useEffect(() => {
         let active = true;
         void DB.getAsset('spark_community_state').then(raw => {
-            if (!active || !raw) return;
-            try { writeCommunity(mergeSparkCommunityStates(normalizeSparkCommunityState(JSON.parse(raw)), communityRef.current, true)); }
-            catch (error) { console.warn('Spark community recovery failed', error); }
-        }).catch(error => console.warn('Spark community restore failed', error));
+            if (!active) return;
+            let restored: SparkCommunityState = communityRef.current;
+            if (raw) {
+                try {
+                    restored = mergeSparkCommunityStates(
+                        normalizeSparkCommunityState(JSON.parse(raw)), communityRef.current,
+                        cachedCommunityAtStartRef.current || localAutonomyChangedRef.current,
+                    );
+                } catch (error) {
+                    console.warn('Spark community recovery failed', error);
+                }
+            }
+            communityHydratedRef.current = true;
+            writeCommunity(restored);
+        }).catch(error => {
+            // Preserve the local cache and never overwrite an unreadable DB community snapshot.
+            console.warn('Spark community restore failed; retaining local cache', error);
+        });
         return () => { active = false; };
     }, []);
     type SparkNotice = { id: string; kind: 'likes' | 'follows' | 'comments'; actor: string; avatar?: string; content: string; postId?: string; time: number; read: boolean };
