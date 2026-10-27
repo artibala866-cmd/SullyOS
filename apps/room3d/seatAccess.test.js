@@ -69,5 +69,7 @@ describe('legacy seated motion follows the shared physical entry/exit',()=>{
   expect(source).toContain('if(visitorSeat&&!beginSeatChange(true))');
   expect(source).not.toContain('if(!visitor||!visitorSeat||(!visitor.rig&&!visitorSeat.bed))return false;');
   expect(source).not.toContain('if(visitor?.rig&&!beginSeatChange(false,front))');
+  expect(source).toContain("if(seatChange&&['chibi-water','chibi-sit','chibi-stand','chibi-motion'].includes(d.action))");
+  expect(source).toContain('人物正在坐下或起身，请先完成当前动作');
  });
 });
