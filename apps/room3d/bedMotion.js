@@ -2,6 +2,11 @@ import {MathUtils} from 'three';
 import {seatChangeDuration} from './chibi/roomMotionFrame.ts';
 import {meshyMotions} from './chibi/meshyMotions.ts';
 
+export function legacyBedTransform(seat,rootOffset=.34){
+ if(!seat?.bed||seat.pose!=='bed')return seat;
+ const edgeY=Number.isFinite(seat.bed.edgeY)?seat.bed.edgeY+rootOffset:seat.bed.edgeY;
+ return {...seat,position:[seat.position[0],seat.position[1]+rootOffset,seat.position[2]],bed:{...seat.bed,edgeY}};
+}
 export function body2BedTransform(seat,headToHip,hipHeight=0){
  if(!seat?.bed)return seat;
  const forward=seat.bed.headEnd+headToHip-seat.bed.anchorZ;
