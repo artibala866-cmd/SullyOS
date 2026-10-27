@@ -1648,25 +1648,57 @@ ${buildSparkCommentHistory(post)}
             if (!Array.isArray(parsed) || !mountedRef.current ||
                 feedLoadGenerationRef.current !== generation ||
                 !feedRef.current.some(item => item.id === post.id)) return;
-            const newPersonas: Record<string, string> = {};
-            const newUnread: Record<string, number> = {};
+            const incoming: Array<{ key: string; name: string; content: string; persona: string }> = [];
+            let nextCommunity = communityRef.current;
+            const used = new Set<string>();
+            for (const entry of parsed.slice(0, count)) {
+                const name = String(entry?.name || '').trim().slice(0, 32);
+                const content = String(entry?.message || '').trim().slice(0, 500);
+                if (!name || !content || used.has(name)) continue;
+                const author = resolveSparkAuthor({ author: name, charId: null, isCharacter: false },
+                    [], characters, characterHandles, [socialProfile.name, userProfile.name]);
+                if (!author || author.character) continue;
+                const resolved = ensureSparkAccount(nextCommunity, {
+                    type: 'stranger', displayName: author.name,
+                }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+                nextCommunity = resolved.state;
+                const key = resolved.account.id;
+                if (dmThreads[key]?.length || dmThreads[name]?.length || incoming.some(item => item.key === key)) continue;
+                used.add(name);
+                incoming.push({
+                    key, name,
+                    content,
+                    persona: String(entry?.persona || '因看到用户的笔记《' + post.title + '》主动搭话，言谈风格：' + content).slice(0, 500),
+                });
+            }
+            if (!incoming.length) return;
+            if (nextCommunity !== communityRef.current) writeCommunity(nextCommunity);
             setDmThreads(prev => {
                 const next = { ...prev };
-                const used = new Set(Object.keys(next));
-                for (const entry of parsed.slice(0, count)) {
-                    const name = String(entry?.name || '').trim().slice(0, 32);
-                    const message = String(entry?.message || '').trim().slice(0, 500);
-                    if (!name || !message || name === socialProfile.name || used.has(name)) continue;
-                    used.add(name);
-                    next[name] = [{ role: 'assistant', content: message, time: Date.now() }];
-                    newPersonas[name] = String(entry?.persona || '因看到用户的笔记《' + post.title + '》主动搭话，言谈风格：' + message).slice(0, 500);
-                    newUnread[name] = 1;
+                for (const item of incoming) {
+                    if (!next[item.key]?.length && !next[item.name]?.length) {
+                        next[item.key] = [{ role: 'assistant' as const, content: item.content, time: Date.now() }];
+                    }
                 }
                 localStorage.setItem('spark_dm_threads', JSON.stringify(next));
                 return next;
             });
-            setNpcPersonas(prev => { const next = { ...prev, ...newPersonas }; localStorage.setItem('spark_npc_personas', JSON.stringify(next)); return next; });
-            setDmUnread(prev => { const next = { ...prev, ...newUnread }; localStorage.setItem('spark_dm_unread', JSON.stringify(next)); return next; });
+            setNpcPersonas(prev => {
+                const next = { ...prev };
+                for (const item of incoming) {
+                    if (!next[item.key]) next[item.key] = item.persona;
+                }
+                localStorage.setItem('spark_npc_personas', JSON.stringify(next));
+                return next;
+            });
+            setDmUnread(prev => {
+                const next = { ...prev };
+                for (const item of incoming) {
+                    if (next[item.key] === undefined) next[item.key] = 1;
+                }
+                localStorage.setItem('spark_dm_unread', JSON.stringify(next));
+                return next;
+            });
         } catch (error) { console.warn('Spark incoming DM generation failed', error); }
     };
 
