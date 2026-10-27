@@ -69,6 +69,30 @@ export function occupiedFurnitureChange(before,after,catalog,occupiedSeats=[]){
  return '';
 }
 
+// Undo/redo and layout commits must not place newly moved geometry through
+// a STANDING resident either. Only compare changed/new physical items; unchanged
+// neighbours and paint-only edits must never become new blockers.
+export function standingFurnitureChange(before,after,catalog,actor){
+ if(!actor||!Number.isFinite(actor.x)||!Number.isFinite(actor.z)||!Number.isFinite(actor.width)||actor.width<=0)return '';
+ const old=before?.rooms?.find(r=>r.id===actor.roomId);
+ const next=after?.rooms?.find(r=>r.id===actor.roomId);
+ if(!old||!next)return '';
+ const half=Math.max(.28,actor.width/2),x=actor.x,z=actor.z;
+ const body=[x-.27,.18,z-.27,x+.27,1.15,z+.27],
+  head=[x-half,.72,z-half,x+half,1.95,z+half];
+ const overlaps=(a,b)=>a[0]<b[3]&&a[3]>b[0]&&a[1]<b[4]&&a[4]>b[1]&&a[2]<b[5]&&a[5]>b[2];
+ for(const candidate of next.items.filter(i=>!i.stored)){
+  const original=old.items.find(i=>i.id===candidate.id);
+  if(original&&!original.stored&&['assetId','x','y','z','rotation','length','supportId','dockId']
+   .every(k=>original[k]===candidate[k]))continue;
+  const asset=catalog.find(a=>a.id===candidate.assetId);
+  if(!asset||asset.surface==='rug'||asset.surface==='ceiling')continue;
+  if(boxes(candidate,asset).some(box=>overlaps(body,box)||overlaps(head,box)))
+   return '这个改动会让家具穿过站立的人物，请先让人物走开';
+ }
+ return '';
+}
+
 // Preserve active appliance/mirror/watering contact against layout mutations.
 // Ignore colors and unrelated decoration: only physical identity, attachment,
 // placement and orientation invalidate a running action.
