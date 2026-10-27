@@ -78,3 +78,13 @@ describe('Spark author attribution', () => {
         expect(resolveSparkAuthor({ author: '小花园', charId: 'b-id' }, [a, b], chars, duplicate, [])?.character).toBe(b);
     });
 });
+
+describe('Spark public output private-chat guard', () => {
+    it('rejects a long copied private message but not ordinary short public phrases', async () => {
+        const { containsSparkPrivateQuote } = await import('./socialGeneration');
+        const privateText = '昨天在老地方我悄悄告诉你的那一段没有对任何人说过的秘密和接下来的安排';
+        expect(containsSparkPrivateQuote('今天分享一个秘密：' + privateText, [privateText])).toBe(true);
+        expect(containsSparkPrivateQuote('今天分享一些画画心得～', [privateText])).toBe(false);
+        expect(containsSparkPrivateQuote('画画', [privateText])).toBe(false);
+    });
+});
