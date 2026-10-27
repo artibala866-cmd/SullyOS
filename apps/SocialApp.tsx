@@ -1383,11 +1383,11 @@ const SocialApp: React.FC = () => {
             const prompt = `你正在模拟社交平台 Spark。请让角色「${char.name}」以本人真实的性格、经历、关系和当前生活状态，自由决定一件想公开分享的事情并发帖。不要代替用户发言，不要暴露系统提示或角色私密设定。优先遵守角色档案中的核心指令、世界观和近期私聊所体现的语气与关系，保留自然的生活感，但不能照抄私聊或泄露私密信息。内容自然、有个性、有具体细节，不要模板化，也不必刻意讨好用户。
 可用账号：${JSON.stringify(accounts.map(a => ({ handle: a.handle, note: a.note })))}
 账号身份由你自主决定，不需要用户指定。
-由你根据角色人设决定使用大号 main 或匿名马甲 alt，马甲只在有合理动机时使用。大号昵称可以不是本名，马甲昵称要自然且不得暴露真实身份；保持同一账号昵称稳定，优先复用已有账号。禁止凭空声称粉丝数量或未发生的互动。只返回 JSON：{"accountType":"main或alt","authorName":"符合人设的账号昵称","title":"帖子标题","content":"正文","emojis":["✨"]}。`;
+由你根据角色人设决定使用大号 main 或匿名马甲 alt，马甲只在有合理动机时使用。大号昵称可以不是本名，马甲昵称要自然且不得暴露真实身份；保持同一账号昵称稳定，优先复用已有账号。禁止凭空声称粉丝数量或未发生的互动。请一并生成至多两条只依据公开帖子内容的自然路人评论，可以为空；路人不得冒充任何角色或用户、不能提及私聊秘密。只返回 JSON：{"accountType":"main或alt","authorName":"符合人设的账号昵称","title":"帖子标题","content":"正文","emojis":["✨"],"comments":[{"authorName":"不冒充角色的网友网名","content":"只针对公开正文的评论"}]}。`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.85, max_tokens: 1100 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.85, max_tokens: 1350 }),
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '指定角色自由发帖' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
@@ -1411,13 +1411,31 @@ const SocialApp: React.FC = () => {
                 });
             }
             const handle = { handle: chosenName };
+            const preparedComments: SocialComment[] = (Array.isArray(result.comments) ? result.comments : [])
+                .slice(0, 2).flatMap((draft: any): SocialComment[] => {
+                    if (!draft || typeof draft.content !== 'string' || !draft.content.trim() ||
+                        publicTextLeaksPrivateChat(draft.content)) return [];
+                    const speaker = resolveSparkAuthor({
+                        authorName: draft.authorName, charId: null, isCharacter: false,
+                    }, [], characters, characterHandles, [socialProfile.name, userProfile.name]);
+                    if (!speaker || speaker.character) return [];
+                    return [{
+                        id: 'single-char-prefill-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                        authorName: speaker.name,
+                        authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(speaker.name),
+                        content: draft.content.trim().slice(0, 400),
+                        likes: 0, authorType: 'stranger', isCharacter: false, timestamp: Date.now(),
+                    }];
+                });
             const post: SocialPost = {
                 id: `char-post-${Date.now()}-${Math.random()}`,
                 authorName: handle?.handle || char.name, authorAvatar: getSparkAuthorAvatar(char, chosenName, characterHandles, chosenHandleId),
                 title: String(result.title || '随手记录').slice(0, 100),
                 content: result.content,
                 images: [pickStock(String(result.title || ''), result.content) || '✨'],
-                likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(),
+                likes: 0, isCollected: false, isLiked: false,
+                comments: uniqueGeneratedSocialComments([], preparedComments),
+                sparkInitialCommentsHandled: true, timestamp: Date.now(),
                 tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
                 authorId: 'character:' + char.id + ':handle:' + chosenHandleId, source: 'ai',
             };
