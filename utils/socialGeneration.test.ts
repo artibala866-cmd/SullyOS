@@ -88,3 +88,18 @@ describe('Spark public output private-chat guard', () => {
         expect(containsSparkPrivateQuote('画画', [privateText])).toBe(false);
     });
 });
+
+describe('Spark alt profile privacy', () => {
+    it('keeps anonymous avatars stable and different from the character main photo', async () => {
+        const { getSparkAuthorAvatar } = await import('./socialGeneration');
+        const char = { ...a, avatar: 'blobref:private-main-photo' };
+        const configured = { 'a-id': [
+            { id: 'default', handle: '主号', note: '主账号' },
+            { id: 'alt-1', handle: '画画树洞', note: '匿名吐槽' },
+        ] };
+        expect(getSparkAuthorAvatar(char, '主号', configured)).toBe(char.avatar);
+        const hidden = getSparkAuthorAvatar(char, '画画树洞', configured);
+        expect(hidden).not.toBe(char.avatar);
+        expect(hidden).toBe(getSparkAuthorAvatar(char, '改名后的树洞', configured, 'alt-1'));
+    });
+});
