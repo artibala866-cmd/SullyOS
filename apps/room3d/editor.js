@@ -37,7 +37,7 @@ import {bathroomEntryCandidates,createBathroomJourney,bathroomJourneyFrame} from
 import {createBathroomEffects} from './bathroomEffects.js';
 import {interactionIcon,actionIcon} from './interactionIcons.js';
 import {roomPixelRatio,roomLightBudget} from './renderQuality.js';
-import {createRoomFrameBudget,roomFrameDeltas} from './frameBudget.js';
+import {createRoomFrameBudget,roomFrameDeltas,furnitureNeedsActiveFrames} from './frameBudget.js';
 import {fitFlatView} from './flatView.js';
 import {homelyTouchPose,homelyTouchText} from './homelyTouch';
 import {homelyFrame} from './homelyView';
@@ -2486,7 +2486,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   let settling=false;if(!manual&&!document.hidden)elapsed+=activityDt;
   const petMoving=petSystem?.update(manual?0:dt);if(petMoving)dirty=true;
    // Finite furniture transitions must finish even when visual motion is reduced.
-   const furnitureLifecycleActive=!!(seatChange||visitorPlant||visitorActivity||kitchenTask);
+   const furnitureLifecycleActive=furnitureNeedsActiveFrames({seatChange,visitorPlant,visitorActivity,kitchenTask});
   if(!document.hidden&&now-lastDraw>=frameInterval-.5){
     const frameSpacing=lastDraw?now-lastDraw:0;
     const workStart=performance.now();
