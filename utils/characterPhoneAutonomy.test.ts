@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { saveNpcProfiles, type NpcProfile } from './characterPhoneNpcs';
+import { saveNpcProfiles, readNpcProfiles, type NpcProfile } from './characterPhoneNpcs';
 import { appendCharacterPhoneMessages, readCharacterPhoneChats } from './characterPhoneChats';
 import { readCharacterLifeEvents } from './characterLifeEvents';
 import { runCharacterPhoneAutonomy, setCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
@@ -107,6 +107,39 @@ describe('character-owned autonomous phone behavior', () => {
     expect(await runCharacterPhoneAutonomy(input('reply'))).toBe('messaged');
     const chat = readCharacterPhoneChats('reply').find(r => r.contactId === 'npc0');
     expect(chat?.messages.map(m => m.speaker.role)).toEqual(['contact', 'owner']);
+  });
+
+  it('replies to a waiting NPC even if the address book is small, without spending on bootstrap', async () => {
+    saveNpcProfiles('small-book', contacts().slice(0, 2));
+    const at = Date.now() - 20 * 60_000;
+    appendCharacterPhoneMessages({
+      characterId: 'small-book', contactId: 'npc0', contactName: '阿林', at,
+      messages: [{ speaker: { role: 'contact', contactId: 'npc0' }, text: '你明天有时间吗？', createdAt: at }],
+    });
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId: 'small-book', observedAt: Date.now(),
+      plannedActivity: null, plannedDescription: null, confirmedEvents: [],
+    });
+    const api = mockApi();
+    expect(await runCharacterPhoneAutonomy({ ...input('small-book'), replyOnly: true })).toBe('messaged');
+    expect(api).toHaveBeenCalledTimes(1);
+    expect(readNpcProfiles('small-book')).toHaveLength(2);
+    expect(readPhoneApiBudget('small-book').requests).toBe(1);
+    expect(readCharacterPhoneChats('small-book')[0].messages.map(m => m.speaker.role))
+      .toEqual(['contact', 'owner']);
+  });
+
+  it('does not create contacts or start new topics for reply-only opportunities without waiting messages', async () => {
+    saveNpcProfiles('no-reply', contacts().slice(0, 2));
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId: 'no-reply', observedAt: Date.now(),
+      plannedActivity: null, plannedDescription: null, confirmedEvents: [],
+    });
+    const api = mockApi();
+    expect(await runCharacterPhoneAutonomy({ ...input('no-reply'), replyOnly: true })).toBe('skipped');
+    expect(api).not.toHaveBeenCalled();
+    expect(readPhoneApiBudget('no-reply').requests).toBe(0);
+    expect(readNpcProfiles('no-reply')).toHaveLength(2);
   });
 
   it('does not bootstrap new NPC contacts or spend tokens when the Char is sleeping', async () => {
