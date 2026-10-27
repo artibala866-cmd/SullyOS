@@ -773,16 +773,26 @@ const SocialApp: React.FC = () => {
     };
 
     const prependPostsToFeed = (newPosts: SocialPost[]) => {
+        const existingIds = new Set(feedRef.current.map(post => post.id));
         let nextCommunity = communityStateRef.current;
         const normalizedPosts = newPosts.map(post => {
             const result = normalizeAndRegisterPost(post, nextCommunity);
             nextCommunity = result.state;
             return result.post;
         });
-        if (nextCommunity !== communityStateRef.current) updateCommunityState(nextCommunity);
-        const existingIds = new Set(feedRef.current.map(post => post.id));
-        const next = prependUniqueSocialPosts(feedRef.current, normalizedPosts);
         const fresh = normalizedPosts.filter(post => !existingIds.has(post.id));
+        const eventTime = Date.now();
+        fresh.forEach(post => {
+            nextCommunity = appendSparkEvent(nextCommunity, {
+                id: createSparkId('event'),
+                type: 'post_created',
+                actorAccountId: post.authorId || 'unknown',
+                postId: post.id,
+                createdAt: eventTime,
+            });
+        });
+        if (nextCommunity !== communityStateRef.current) updateCommunityState(nextCommunity);
+        const next = prependUniqueSocialPosts(feedRef.current, normalizedPosts);
         feedRef.current = next;
         setFeed(next);
         // Serialize writes so a late save cannot resurrect a post after Clear Feed.
