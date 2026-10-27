@@ -6,6 +6,7 @@ export interface SparkPrivateMessage {
     time: number;
     id?: string;
     delivery?: SparkDMDelivery;
+    replyToId?: string;
 }
 export type SparkDMThreads = Record<string, SparkPrivateMessage[]>;
 
@@ -39,11 +40,17 @@ export function sparkDMHistoryThrough(threads: SparkDMThreads, key: string, id: 
     const messages = threads[key] || [];
     const end = messages.findIndex(message => message.id === id);
     if (end < 0) return [];
-    return messages.slice(0, end + 1).filter(message => message.role === 'assistant' || message.delivery !== 'failed').slice(-20);
+    // Assistant replies can arrive after later queued user messages. Include only
+    // replies to messages up to this queue position, never any later user text.
+    const priorIds = new Set(messages.slice(0, end + 1).map(item => item.id).filter(Boolean));
+    return messages.filter((message, index) =>
+        (index <= end && (message.role === 'assistant' || message.delivery !== 'failed')) ||
+        (index > end && message.role === 'assistant' && !!message.replyToId && priorIds.has(message.replyToId))
+    ).slice(-20);
 }
 
 export function appendSparkDMAnswer(threads: SparkDMThreads, key: string, id: string, content: string, now: number): SparkDMThreads {
     const sent = setSparkDMDelivery(threads, key, id, 'sent');
     if (sent === threads || !content.trim()) return threads;
-    return { ...sent, [key]: [...sent[key], { role: 'assistant', content: content.trim(), time: now }] };
+    return { ...sent, [key]: [...sent[key], { role: 'assistant', content: content.trim(), time: now, replyToId: id }] };
 }
