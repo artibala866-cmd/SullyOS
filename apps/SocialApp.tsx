@@ -598,6 +598,14 @@ const SocialApp: React.FC = () => {
     const commentRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyQueueRef = useRef<{ post: SocialPost; content: string }[]>([]);
+    const feedLoadGenerationRef = useRef(0);
+    const postPersistenceRef = useRef<Promise<void>>(Promise.resolve());
+    const persistPostMutation = (write: () => Promise<unknown>): Promise<void> => {
+        const running = postPersistenceRef.current.then(async () => { await write(); });
+        // An individual write can fail, but must not permanently block later edits.
+        postPersistenceRef.current = running.catch(error => console.error('Spark post persistence failed', error));
+        return running;
+    };
 
     useEffect(() => {
         mountedRef.current = true;
@@ -614,7 +622,9 @@ const SocialApp: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        const generation = feedLoadGenerationRef.current;
         DB.getSocialPosts().then(posts => {
+            if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
             if (posts.length > 0) {
                 const sorted = registerSparkPosts([...posts].sort((a,b) => b.timestamp - a.timestamp));
                 // Preserve prior follows stored by handle while migrating to account IDs.
@@ -636,7 +646,7 @@ const SocialApp: React.FC = () => {
                 feedRef.current = next;
                 setFeed(next);
             }
-        });
+        }).catch(error => { if (mountedRef.current) addToast('读取 Spark 历史帖子失败：' + (error?.message || error), 'error'); });
         
         // Load User Config & Social Profile from DB assets and LocalStorage (hybrid migration)
         const loadAssets = async () => {
@@ -854,7 +864,8 @@ const SocialApp: React.FC = () => {
             }
             writeCommunity(community);
         }
-        Promise.all(fresh.map(p => DB.saveSocialPost(p))).catch(error => addToast('Spark 笔记保存失败，请勿关闭应用：' + (error?.message || error), 'error'));
+        void Promise.all(fresh.map(p => persistPostMutation(() => DB.saveSocialPost(p))))
+            .catch(error => addToast('Spark 笔记保存失败，请勿关闭应用：' + (error?.message || error), 'error'));
     };
 
     const updatePostInFeed = (postId: string, updater: (post: SocialPost) => SocialPost): SocialPost | undefined => {
@@ -866,7 +877,8 @@ const SocialApp: React.FC = () => {
         feedRef.current = next;
         setFeed(next);
         setSelectedPost(current => current?.id === postId ? updated : current);
-        DB.saveSocialPost(updated).catch(error => addToast('Spark 修改保存失败，请重试：' + (error?.message || error), 'error'));
+        void persistPostMutation(() => DB.saveSocialPost(updated))
+            .catch(error => addToast('Spark 修改保存失败，请重试：' + (error?.message || error), 'error'));
         applyTraffic([updated]);
         if (before) {
             let community = communityRef.current;
@@ -899,7 +911,8 @@ const SocialApp: React.FC = () => {
         const next = feedRef.current.filter(p => p.id !== postId);
         feedRef.current = next;
         setFeed(next);
-        DB.deleteSocialPost(postId).catch(error => addToast('帖子删除保存失败：' + (error?.message || error), 'error'));
+        void persistPostMutation(() => DB.deleteSocialPost(postId))
+            .catch(error => addToast('帖子删除保存失败：' + (error?.message || error), 'error'));
         setSelectedPost(current => current?.id === postId ? null : current);
         setNotices(prev => {
             const nextNotices = prev.filter(item => item.postId !== postId);
@@ -1509,7 +1522,9 @@ ${buildSparkCommentHistory(post)}
             localStorage.setItem('spark_notifications', JSON.stringify(next));
             return next;
         });
-        DB.clearSocialPosts();
+        feedLoadGenerationRef.current += 1;
+        void persistPostMutation(() => DB.clearSocialPosts())
+            .catch(error => addToast('清空 Spark 帖子失败，请重试：' + (error?.message || error), 'error'));
         setShowSettings(false);
         addToast('推荐流已清空', 'success');
         trackEvent('清空 Spark 推荐流');
