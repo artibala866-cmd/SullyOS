@@ -354,3 +354,13 @@ describe('Spark renamed account history', () => {
         expect(getSparkCanonicalAccountName('旧名字', account.id, undefined, [], [account])).toBe('新名字');
     });
 });
+
+describe('Spark read-post recommendation consistency', () => {
+    it('persists a seen post only once without overwriting other account state', async () => {
+        const { markSparkPostSeen } = await import('./sparkCommunity');
+        const first = markSparkPostSeen(createEmptySparkCommunityState(), 'post-1');
+        expect(first.seenPostIds).toEqual(['post-1']);
+        expect(markSparkPostSeen(first, 'post-1')).toBe(first);
+        expect(markSparkPostSeen(first, 'post-2').seenPostIds).toEqual(['post-1', 'post-2']);
+    });
+});
