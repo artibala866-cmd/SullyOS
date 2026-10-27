@@ -7,7 +7,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { AppID, CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile, XhsStockImage } from '../types';
-import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants, containsSparkPrivateQuote } from '../utils/socialGeneration';
+import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants, containsSparkPrivateQuote, getSparkAuthorAvatar } from '../utils/socialGeneration';
 import { processImageToBlob } from '../utils/file';
 import { putImageBlob } from '../utils/blobRef';
 import Modal from '../components/os/Modal';
@@ -1134,7 +1134,7 @@ const SocialApp: React.FC = () => {
             const handle = { handle: chosenName };
             const post: SocialPost = {
                 id: `char-post-${Date.now()}-${Math.random()}`,
-                authorName: handle?.handle || char.name, authorAvatar: char.avatar,
+                authorName: handle?.handle || char.name, authorAvatar: getSparkAuthorAvatar(char, chosenName, characterHandles, chosenHandleId),
                 title: String(result.title || '随手记录').slice(0, 100),
                 content: result.content,
                 images: [pickStock(String(result.title || ''), result.content) || '✨'],
@@ -1228,7 +1228,7 @@ const SocialApp: React.FC = () => {
                 const matchedChar = author.character;
                 const avatarPool = stockImages.filter(img => img.category === 'avatar');
                 const stockAvatar = avatarPool.length ? avatarPool[Array.from(String(item.authorName)).reduce((n, c) => n + c.charCodeAt(0), 0) % avatarPool.length] : undefined;
-                if (matchedChar) avatar = matchedChar.avatar;
+                if (matchedChar) avatar = getSparkAuthorAvatar(matchedChar, item.authorName, characterHandles);
                 const isCharacterPost = !!matchedChar;
                 if (!isCharacterPost) {
                     avatar = stockAvatar?.url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(item.authorName)}`;
@@ -1336,7 +1336,7 @@ const SocialApp: React.FC = () => {
                 if (!content || publicTextLeaksPrivateChat(content + (typeof item.title === 'string' ? item.title : ''))) continue;
                 const author = resolveSparkAuthor(item, participants, characters, characterHandles, [socialProfile.name, userProfile.name]);
                 if (!author) continue;
-                const avatar = author.character?.avatar || 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(author.name);
+                const avatar = author.character ? getSparkAuthorAvatar(author.character, author.name, characterHandles) : 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(author.name);
                 const authorType = author.character ? 'character' as const : 'stranger' as const;
                 if (item.kind === 'post') {
                     const title = typeof item.title === 'string' ? item.title.trim().slice(0, 100) : '';
@@ -1475,7 +1475,7 @@ ${post.content || '(楼主没写正文)'}
                         const authorName = author.name;
                         let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorName}`;
                         const char = author.character;
-                        if (char) avatar = char.avatar;
+                        if (char) avatar = getSparkAuthorAvatar(char, authorName, characterHandles);
                         return [{
                             id: `cmt-${Math.random()}`,
                             authorName: authorName,
@@ -1575,7 +1575,7 @@ ${buildSparkCommentHistory(post)}
                         const authorName = author.name;
                         let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorName}`;
                         const char = author.character;
-                        if (char) avatar = char.avatar;
+                        if (char) avatar = getSparkAuthorAvatar(char, authorName, characterHandles);
                         return [{
                             id: `cmt-reply-${Date.now()}-${Math.random()}`,
                             authorName: authorName,
