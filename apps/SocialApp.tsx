@@ -15,7 +15,7 @@ import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
-import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags } from '../utils/socialFeedMerge';
+import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch } from '../utils/socialFeedMerge';
 import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen, applySparkNpcLike, applySparkNpcFollow, setSparkAccountMuted } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
@@ -863,7 +863,8 @@ const SocialApp: React.FC = () => {
     const autonomyRequestRef = useRef<AbortController | null>(null);
     const commentRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
     const replyRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
-    const replyQueueRef = useRef<{ post: SocialPost; content: string; parentCommentId?: string }[]>([]);
+    const replyQueueRef = useRef<{ post: SocialPost; content: string; parentCommentId: string }[]>([]);
+    const replyBatchTimerRef = useRef<number | null>(null);
     const lastCommentSubmitRef = useRef<{ postId: string; content: string; at: number } | null>(null);
     const feedLoadGenerationRef = useRef(0);
     const clearingFeedRef = useRef(false);
@@ -889,6 +890,8 @@ const SocialApp: React.FC = () => {
             commentRequestRef.current = null;
             replyRequestRef.current = null;
             replyQueueRef.current = [];
+            if (replyBatchTimerRef.current !== null) window.clearTimeout(replyBatchTimerRef.current);
+            replyBatchTimerRef.current = null;
             dmRequestRef.current?.abort();
             dmRequestRef.current = null;
             if (dmBatchTimerRef.current !== null) window.clearTimeout(dmBatchTimerRef.current);
@@ -1716,7 +1719,9 @@ ${post.content || '(楼主没写正文)'}
                 const comments: SocialComment[] = commentsJson
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
-                        if (!author || typeof c.content !== 'string' || !c.content.trim() ||
+                        const linkedId = typeof c.replyToCommentId === 'string' && tasks.some(job => job.parentCommentId === c.replyToCommentId)
+                            ? c.replyToCommentId : tasks.length === 1 ? tasks[0].parentCommentId : undefined;
+                        if (!linkedId || !author || typeof c.content !== 'string' || !c.content.trim() ||
                             isSparkMuted(getSparkPublicAuthorId(author.name, author.character?.id)) ||
                             publicTextLeaksPrivateChat(c.content)) return [];
                         const authorName = author.name;
@@ -1757,13 +1762,33 @@ ${post.content || '(楼主没写正文)'}
         }
     };
 
-    const generateRepliesToUser = async (post: SocialPost, userContent: string, parentCommentId?: string) => {
-
-        if (!apiConfig.apiKey) return;
-        if (replyRequestRef.current) { replyQueueRef.current.push({ post, content: userContent, parentCommentId }); return; }
+    const generateRepliesToUser = (post: SocialPost, userContent: string, parentCommentId?: string) => {
+        if (!apiConfig.apiKey || !parentCommentId || !mountedRef.current) return;
+        replyQueueRef.current.push({ post, content: userContent, parentCommentId });
+        if (replyRequestRef.current) return;
+        if (replyBatchTimerRef.current !== null) window.clearTimeout(replyBatchTimerRef.current);
+        replyBatchTimerRef.current = window.setTimeout(() => {
+            replyBatchTimerRef.current = null;
+            void runSparkReplyBatch();
+        }, 1100);
+    };
+    const runSparkReplyBatch = async () => {
+        if (!apiConfig.apiKey || replyRequestRef.current || !replyQueueRef.current.length || !mountedRef.current) return;
+        const batch = takeSparkCommentReplyBatch(replyQueueRef.current);
+        replyQueueRef.current = batch.remaining;
+        const postId = batch.jobs[0].post.id;
+        const post = feedRef.current.find(item => item.id === postId);
+        if (!post) {
+            if (replyQueueRef.current.length) void runSparkReplyBatch();
+            return;
+        }
+        const tasks = batch.jobs.filter(job => post.comments.some(c => c.id === job.parentCommentId && c.authorType === 'user'));
+        if (!tasks.length) {
+            if (replyQueueRef.current.length) void runSparkReplyBatch();
+            return;
+        }
         const controller = new AbortController();
         replyRequestRef.current = { postId: post.id, controller };
-        post = feedRef.current.find(item => item.id === post.id) || post;
         setIsReplyingToUser(true);
         try {
             const selectedChars = selectSparkParticipants(post, [...characters].sort(() => 0.5 - Math.random()), characterHandles);
@@ -1788,11 +1813,12 @@ ${post.content || '(楼主没写正文)'}
 """
 ${post.content || '(楼主没写正文)'}
 """
-**用户 "${socialProfile.name}" 刚在帖子下发的评论**: "${userContent}"
+**用户 "${socialProfile.name}" 本轮连续发出的评论（只回复以下真实评论 ID）**:
+${JSON.stringify(tasks.map(task => ({ commentId: task.parentCommentId, content: task.content })))}
 **已有评论对话（最后一条可能就是上述新评论，不要重复回复旧内容）**:
 ${buildSparkCommentHistory(post)}
 
-请基于楼主帖子的【标题 + 正文】+ 用户的评论上下文，生成 1-3 条对用户这条评论的回复，要扣题，不能脱离正文凭空发挥。
+请基于楼主帖子的【标题 + 正文】和本轮真实用户评论，一次生成少量自然回复，最多 ${Math.min(6, tasks.length * 2)} 条；可以不回应部分内容，不必逐条机械重复。每条都关联上方真实 commentId，禁止编造 ID。
 优先由楼主或正在对话的角色回复；只能使用本次角色档案中的身份。
 
 ### 禁令
@@ -1800,14 +1826,14 @@ ${buildSparkCommentHistory(post)}
 
 ### 输出格式 (JSON Array)
 [
-  { "author": "网名 (Handle)", "charId": "角色ID或null", "content": "回复内容..." }
+  { "author": "网名 (Handle)", "charId": "角色ID或null", "replyToCommentId": "上方真实 commentId", "content": "回复内容..." }
 ]`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8, max_tokens: 1500 }),
                 signal: controller.signal,
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '回复用户评论' },
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '合并回复用户评论' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
             const data = await safeResponseJson(response);
@@ -1829,7 +1855,7 @@ ${buildSparkCommentHistory(post)}
                             authorName: authorName,
                             authorAvatar: avatar,
                             content: c.content.trim(),
-                            parentCommentId,
+                            parentCommentId: linkedId,
                             replyToAuthorName: socialProfile.name,
                             timestamp: Date.now(),
                             likes: 0,
@@ -1863,8 +1889,7 @@ ${buildSparkCommentHistory(post)}
             if (replyRequestRef.current?.controller === controller) {
                 replyRequestRef.current = null;
                 if (mountedRef.current) setIsReplyingToUser(false);
-                const next = replyQueueRef.current.shift();
-                if (next && mountedRef.current) void generateRepliesToUser(next.post, next.content, next.parentCommentId);
+                if (replyQueueRef.current.length && mountedRef.current) void runSparkReplyBatch();
             }
         }
     };
