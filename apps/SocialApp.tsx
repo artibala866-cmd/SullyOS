@@ -605,6 +605,8 @@ const SocialApp: React.FC = () => {
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
     const [visibleLimit, setVisibleLimit] = useState(40);
     const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string; accountId?: string } | null>(null);
+    const [accountVisibleLimit, setAccountVisibleLimit] = useState(60);
+    useEffect(() => { setAccountVisibleLimit(60); }, [viewedAccount?.accountId, viewedAccount?.handle]);
     const isSparkMuted = (accountId?: string) => !!accountId && communityRef.current.mutedAccountIds.includes(accountId);
     const toggleMuteSparkAccount = (handle: string, id?: string) => {
         const account = resolveSparkDMAccount(communityRef.current.accounts, handle, id);
@@ -803,6 +805,8 @@ const SocialApp: React.FC = () => {
 
     // Profile Sub-tab
     const [profileTab, setProfileTab] = useState<'notes' | 'collects'>('notes');
+    const [profileVisibleLimit, setProfileVisibleLimit] = useState(60);
+    useEffect(() => { setProfileVisibleLimit(60); }, [profileTab]);
 
     // User Custom Profile State (Local - Decoupled from Global UserProfile)
     const [socialProfile, setSocialProfile] = useState<SocialAppProfile>({
@@ -2033,6 +2037,37 @@ ${buildSparkCommentHistory(post)}
         setSelectedPost(null);
     };
 
+    // Escape/physical keyboard Back dismisses the top-most Spark overlay, not the entire OS.
+    // Android WebView hardware-back integration still requires testing in the actual wrapper.
+    useEffect(() => {
+        const onEscape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            const focused = document.activeElement as HTMLElement | null;
+            if (focused && ['INPUT', 'TEXTAREA'].includes(focused.tagName)) {
+                focused.blur();
+                event.preventDefault();
+                return;
+            }
+            if (showSettings) setShowSettings(false);
+            else if (showShareModal) setShowShareModal(false);
+            else if (showCharPosting) setShowCharPosting(false);
+            else if (showUtilityShelf) setShowUtilityShelf(false);
+            else if (isCreateOpen) closeCreatePost();
+            else if (dmTarget) setDmTarget(null);
+            else if (viewedAccount) setViewedAccount(null);
+            else if (showCommentStickers) setShowCommentStickers(false);
+            else if (selectedPost) handleClosePost();
+            else if (noticeCategory) setNoticeCategory(null);
+            else if (searchOpen) setSearchOpen(false);
+            else return;
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        window.addEventListener('keydown', onEscape);
+        return () => window.removeEventListener('keydown', onEscape);
+    }, [showSettings, showShareModal, showCharPosting, showUtilityShelf, isCreateOpen,
+        dmTarget, viewedAccount, showCommentStickers, selectedPost, noticeCategory, searchOpen]);
+
     const handleClearFeed = async () => {
         if (clearingFeedRef.current) return;
         clearingFeedRef.current = true;
@@ -2310,11 +2345,12 @@ ${buildSparkCommentHistory(post)}
                         </button>}
                         <p className="font-bold text-sm border-b pb-3 mb-3">TA 的笔记</p>
                         <div className="grid grid-cols-2 gap-3">
-                            {posts.map(post => <button type="button" key={post.id} onClick={() => { setViewedAccount(null); handleOpenPost(post); }} className="text-left rounded-xl border border-slate-100 overflow-hidden">
+                            {posts.slice(0, accountVisibleLimit).map(post => <button type="button" key={post.id} onClick={() => { setViewedAccount(null); handleOpenPost(post); }} className="text-left rounded-xl border border-slate-100 overflow-hidden">
                                 <div className="aspect-[4/5] flex items-center justify-center text-5xl" style={{ background: post.bgStyle }}>{postVisual(post.images[0], 'w-full h-full')}</div>
                                 <div className="p-2 text-xs font-bold line-clamp-2">{post.title}</div>
                             </button>)}
                         </div>
+                        {posts.length > accountVisibleLimit && <button type="button" onClick={() => setAccountVisibleLimit(count => count + 60)} className="w-full mt-3 py-3 rounded-xl border border-slate-200 text-xs text-slate-600">加载更早的笔记</button>}
                         {!posts.length && <p className="text-center text-xs text-slate-400 py-12">这个账号还没有发布笔记</p>}
                     </div>
                 </div>;
@@ -2746,7 +2782,7 @@ ${buildSparkCommentHistory(post)}
 
                             <div className="p-2 min-h-[300px] bg-slate-50/50 pb-24">
                                 <div className="columns-2 gap-2 space-y-2">
-                                    {feed.filter(p => profileTab === 'notes' ? (p.authorType === 'user' || (!p.authorType && p.authorName === socialProfile.name)) : p.isCollected).map(post => (
+                                    {feed.filter(p => profileTab === 'notes' ? (p.authorType === 'user' || (!p.authorType && p.authorName === socialProfile.name)) : p.isCollected).slice(0, profileVisibleLimit).map(post => (
                                         <div key={post.id} onClick={() => handleOpenPost(post)} className="break-inside-avoid bg-white rounded-xl overflow-hidden shadow-sm border border-slate-100 cursor-pointer">
                                             <div className="aspect-[4/5] flex items-center justify-center text-4xl" style={{ background: post.bgStyle }}>{postVisual(post.images[0], 'w-full h-full')}</div>
                                             <div className="p-3">
@@ -2759,6 +2795,7 @@ ${buildSparkCommentHistory(post)}
                                         </div>
                                     ))}
                                 </div>
+                                {feed.filter(p => profileTab === 'notes' ? (p.authorType === 'user' || (!p.authorType && p.authorName === socialProfile.name)) : p.isCollected).length > profileVisibleLimit && <button type="button" onClick={() => setProfileVisibleLimit(n => n + 60)} className="block mx-auto mt-4 rounded-full border border-slate-200 px-5 py-2 text-xs text-slate-600">加载更早的笔记</button>}
                                 {feed.filter(p => profileTab === 'notes' ? (p.authorType === 'user' || (!p.authorType && p.authorName === socialProfile.name)) : p.isCollected).length === 0 && (
                                     <div className="flex flex-col items-center justify-center py-20 text-slate-300 gap-2">
                                         <Package size={48} className="text-slate-300 opacity-30" />
