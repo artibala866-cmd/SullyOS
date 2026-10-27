@@ -8,6 +8,7 @@ import { appendCharacterMemo, readCharacterMemos } from './characterPhoneMemos';
 import { readCharacterLifeEvents, recordCharacterLifeEvent, pruneCharacterPhoneLifeEvents } from './characterLifeEvents';
 import { setCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import { writePhoneAutonomyPreferences, readPhoneApiBudget } from './characterPhoneApiBudget';
+import { clearSelectedPhoneData } from './characterPhoneClear';
 
 vi.mock('./keepAlive', () => ({ KeepAlive: { start: vi.fn(async () => {}), stop: vi.fn() } }));
 vi.mock('./characterPhoneContext', () => ({
@@ -110,6 +111,38 @@ describe('late autonomous phone completion safety', () => {
     network.finish({ action: 'create', category: 'thought', body: '已被清空的对话' });
     expect(await pending).toBe(false);
     expect(readCharacterMemos(id)).toEqual([]);
+  });
+
+
+  it('does not restore a Moment after explicitly clearing even an originally empty Moments list', async () => {
+    const id = 'moments-empty-reset', event = activity(id);
+    const network = delayedReply();
+    const pending = considerAutonomousMoment({ char: char(id), user, groups: [], api, budgeted: true });
+    await vi.waitFor(() => expect(network.fetchMock).toHaveBeenCalledTimes(1));
+    expect(readCharacterMoments(id)).toEqual([]);
+    expect(clearSelectedPhoneData(id, ['moments'])).toEqual(['moments']);
+    // This source is a real-mode event: a phone-only clear does not erase it.
+    expect(readCharacterLifeEvents(id)).toHaveLength(1);
+    network.finish({ publish: true, text: '不能在清空后恢复', eventIds: [event.id] });
+    expect(await pending).toBe('skipped');
+    expect(readCharacterMoments(id)).toHaveLength(0);
+  });
+
+  it('does not refill an initially empty memo list after the explicit clear button was used', async () => {
+    const id = 'memo-empty-reset';
+    activity(id);
+    const network = delayedReply();
+    const pending = considerCharacterMemo({
+      characterId: id, name: '若川', persona: '独立', api,
+      events: readCharacterLifeEvents(id), char: { id }, budgeted: true,
+    });
+    await vi.waitFor(() => expect(network.fetchMock).toHaveBeenCalledTimes(1));
+    expect(readCharacterMemos(id)).toEqual([]);
+    expect(clearSelectedPhoneData(id, ['memos'])).toEqual(['memos']);
+    expect(readCharacterLifeEvents(id)).toHaveLength(1);
+    network.finish({ action: 'create', category: 'thought', body: '清空之前的迟到结果' });
+    expect(await pending).toBe(false);
+    expect(readCharacterMemos(id)).toHaveLength(0);
   });
 
   it('keeps the existing explicit manual memo generation working when background autonomy is off', async () => {
