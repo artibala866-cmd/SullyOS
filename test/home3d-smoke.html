@@ -282,6 +282,36 @@ function texture(color){
    }
    report.additionalSeats[assetId]=done;
   }
+  // Real height variants share the existing skeleton and authored seat point.
+  // They must either walk and finish the action safely or fail closed, never
+  // remain frozen halfway into furniture after a size change.
+  report.heightVariants={};
+  for(const scale of [.7,1.3]){
+   editor.dispose();set('height variant '+scale);
+   const house=createHome(catalog);
+   house.rooms[0].items=[{id:'smoke-scaled-chair',assetId:'chair',
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+   editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:house,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+   });
+   const resized=await createVisitor(parts,{bodyShape:'blank',layers:{}});
+   resized.setScaleMultiplier(scale);
+   editor.setVisitor(resized);
+   const sit=editor.getHomeScene().actions.find(a=>a.kind==='sit');
+   if(!sit)throw Error('Chair unavailable at body scale '+scale);
+   const started=editor.performHomeAction(sit.id,'model');
+   if(started==='unavailable')throw Error('Scaled chair action not accepted '+scale);
+   editor.advancePets(16);
+   const seated=editor.inspect();
+   if(!seated.chibiSeat||seated.seatChange)throw Error('Scaled character failed seat action '+scale);
+   const rise=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+   if(!rise)throw Error('Scaled character cannot get up '+scale);
+   editor.performHomeAction(rise.id,'model');editor.advancePets(5);
+   const exited=editor.inspect();
+   if(exited.chibiSeat||exited.seatChange)throw Error('Scaled character failed safe exit '+scale);
+   report.heightVariants[scale]={entered:true,exited:true,headBottom:resized.navigation?.headBottom,headTop:resized.navigation?.headTop};
+  }
   // Exercise the real delegated UI commands, not a fabricated state restore:
   // decorative commits followed by undo/redo MUST retain the reached floor
   // position after bed exit instead of respawning at the room entrance.
