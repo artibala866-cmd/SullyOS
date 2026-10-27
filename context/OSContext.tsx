@@ -2519,6 +2519,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       await runCharacterPhoneAutonomy({
                           char, user:userProfileRef.current!, groups:groupsRef.current,
                           realtimeConfig:realtimeConfigRef.current, api,
+                          replyOnly: opportunity.kind === 'unanswered-npc',
                       });
                   } else if (feature === 'browser') {
                       await runCharacterPhoneBrowserAutonomy({
