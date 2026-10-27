@@ -80,13 +80,14 @@ describe('character phone AI request lifecycle', () => {
   });
 
   it('identifies a network break, keeps its upstream status uncertain and never retries', async () => {
+    const networkMeta = { ...meta, charId: 'char-network-case' };
     const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
     vi.stubGlobal('fetch', fetchMock);
-    await expect(fetchCharacterPhoneJson(URL, options, meta)).rejects.toMatchObject({
+    await expect(fetchCharacterPhoneJson(URL, options, networkMeta)).rejects.toMatchObject({
       name: 'PhoneRequestFailure', kind: 'network',
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(canRunAutomaticPhoneAi(meta.charId, URL)).toBe(false);
+    expect(canRunAutomaticPhoneAi(networkMeta.charId, URL)).toBe(false);
   });
 
   it('pauses on an upstream 503 without retrying, and never pauses a different character', async () => {
