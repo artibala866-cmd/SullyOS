@@ -78,5 +78,10 @@ describe('shared bed access for legacy and skeletal residents',()=>{
   expect(source).toContain('parkedSeatAccess:seatAccess');
   expect(source).toContain('seatAccess=snapshot?.parkedSeatAccess||null');
   expect(source).toContain('visitorSeat=null;seatAccess=null;visitorPlant=null');
+  expect(source).toContain('function finishSeatChangeForHandoff(){');
+  const restore=source.slice(source.indexOf('function restoreFurnitureCharacter(){'),source.indexOf('function setManualResident(id){'));
+  expect(restore.indexOf('finishSeatChangeForHandoff()')).toBeLessThan(restore.indexOf('snapshotFurniture()'));
+  const handoff=source.slice(source.indexOf('function useFurnitureUser(){'),source.indexOf('function stopSocial()'));
+  expect(handoff.indexOf('finishSeatChangeForHandoff()')).toBeLessThan(handoff.indexOf('snapshotFurniture()'));
  });
 });
