@@ -1373,6 +1373,7 @@ const SocialApp: React.FC = () => {
                 .flatMap((item: any) => {
                 const author = resolveSparkAuthor(item, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
                 if (!author || typeof item.content !== 'string' || !item.content.trim() ||
+                    isSparkMuted(getSparkPublicAuthorId(author.name, author.character?.id)) ||
                     publicTextLeaksPrivateChat(String(item.title || '') + item.content)) return [];
                 item = { ...item, authorName: author.name };
                 let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${item.authorName}`;
@@ -1440,7 +1441,11 @@ const SocialApp: React.FC = () => {
             const participants = [...activeChars, ...allowedChars.filter(char => !recentlyActive.has(char.id))].slice(0, 2);
             const context = participants.length ? await buildGenerationContext(participants) : '当前只有稳定的虚拟陌生网友参与 Spark 社区。';
             if (controller.signal.aborted || !mountedRef.current || generation !== feedLoadGenerationRef.current) return;
-            const publicPosts = feedRef.current.filter(post => !communityRef.current.mutedAccountIds.includes(post.authorId || '')).slice(0, 12).map(post => ({
+            const publicPosts = feedRef.current.filter(post =>
+                !communityRef.current.mutedAccountIds.includes(post.authorId || '') &&
+                !communityRef.current.hiddenPostIds.includes(post.id) &&
+                !hiddenPostIds.includes(post.id)
+            ).slice(0, 12).map(post => ({
                 id: post.id, title: post.title, content: post.content.slice(0, 280),
                 authorName: post.authorName, tags: post.tags,
                 comments: post.comments.slice(-3).map(comment => ({ id: comment.id, author: comment.authorName, content: comment.content.slice(0, 120) })),
@@ -1453,7 +1458,12 @@ const SocialApp: React.FC = () => {
             const previousEvents = communityRef.current.events
                 .filter(event => !event.postId || visiblePostIds.has(event.postId))
                 .slice(-12)
-                .map(event => ({ kind: event.type, postId: event.postId, createdAt: event.createdAt }));
+                .map(event => ({
+                    kind: event.type,
+                    actor: communityRef.current.accounts.find(a => a.id === event.actorAccountId)?.displayName || '未知网友',
+                    target: communityRef.current.accounts.find(a => a.id === event.targetAccountId)?.displayName || undefined,
+                    postId: event.postId, createdAt: event.createdAt,
+                }));
             const prompt = [
                 '你安排 SullyOS 内 Spark 虚拟社区的少量自主活动；绝不能访问或控制真实小红书。',
                 '本轮最多返回 2 个有因果的社区事件，返回 [] 表示无人活动，可以沉默。kind 仅限 post、comment、like、follow、unfollow。',
@@ -1536,7 +1546,7 @@ const SocialApp: React.FC = () => {
                         if (!changed.changed) continue;
                         writeCommunity(changed.state);
                         if (action === 'follow' && targetId === 'user') addNotices([{
-                            id: 'npc-follow:' + account.id + ':user', kind: 'follows',
+                            id: 'npc-follow:' + account.id + ':user:' + Date.now(), kind: 'follows',
                             actor: author.name, avatar, content: '关注了你',
                             time: Date.now(), read: false,
                         }]);
@@ -1677,6 +1687,7 @@ ${post.content || '(楼主没写正文)'}
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
                         if (!author || typeof c.content !== 'string' || !c.content.trim() ||
+                            isSparkMuted(getSparkPublicAuthorId(author.name, author.character?.id)) ||
                             publicTextLeaksPrivateChat(c.content)) return [];
                         const authorName = author.name;
                         let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorName}`;
@@ -1777,6 +1788,7 @@ ${buildSparkCommentHistory(post)}
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
                         if (!author || typeof c.content !== 'string' || !c.content.trim() ||
+                            isSparkMuted(getSparkPublicAuthorId(author.name, author.character?.id)) ||
                             publicTextLeaksPrivateChat(c.content)) return [];
                         const authorName = author.name;
                         let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorName}`;
@@ -2238,15 +2250,15 @@ ${buildSparkCommentHistory(post)}
                         {/* Comments Section */}
                         <div className="px-6 pb-6">
                             <div className="text-sm font-bold text-slate-800 mb-6 flex items-center gap-2">
-                                <span>共 {selectedPost.comments.length} 条评论</span>
+                                <span>共 {selectedPost.comments.filter(comment => !isSparkMuted(comment.authorId || getSparkPublicAuthorId(comment.authorName, comment.authorCharId))).length} 条评论</span>
                                 {(loadingComments || isReplyingToUser) && <div className="w-3 h-3 border-2 border-slate-300 border-t-[#555555] rounded-full animate-spin"></div>}
                             </div>
                             
                             <div className="space-y-6">
                                 {selectedPost.comments.length === 0 && !loadingComments && <div className="text-center text-slate-300 text-xs py-10">快来抢沙发...</div>}
-                                {selectedPost.comments.length > commentVisibleLimit && <button type="button" onClick={() => setCommentVisibleLimit(n => n + 80)}
+                                {selectedPost.comments.filter(comment => !isSparkMuted(comment.authorId || getSparkPublicAuthorId(comment.authorName, comment.authorCharId))).length > commentVisibleLimit && <button type="button" onClick={() => setCommentVisibleLimit(n => n + 80)}
                                     className="block mx-auto mb-4 rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-500">查看更早的评论</button>}
-                                {selectedPost.comments.slice(-commentVisibleLimit).map(c => (
+                                {selectedPost.comments.filter(comment => !isSparkMuted(comment.authorId || getSparkPublicAuthorId(comment.authorName, comment.authorCharId))).slice(-commentVisibleLimit).map(c => (
                                     <div key={c.id} className={`flex gap-3 animate-fade-in group ${c.parentCommentId ? 'ml-6 border-l-2 border-slate-100 pl-3' : ''}`}>
                                         <TokenImg value={c.authorAvatar} className="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-100" />
                                         <div className="flex-1">
