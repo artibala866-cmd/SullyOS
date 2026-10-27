@@ -1207,6 +1207,7 @@ ${post.content || '(楼主没写正文)'}
             addToast('只能删除自己发布的帖子', 'error');
             return;
         }
+        recordCommunityEvent('post_deleted', 'user', { targetAccountId: post.authorId, postId });
         removePostFromFeed(postId);
         addToast('帖子已删除', 'success');
         trackEvent('删除一条帖子');
@@ -1214,19 +1215,48 @@ ${post.content || '(楼主没写正文)'}
 
     const handleLike = (e: any, post: SocialPost) => {
         e.stopPropagation();
-        const updated = updatePostInFeed(post.id, current => ({
-            ...current,
-            isLiked: !current.isLiked,
-            likes: current.isLiked ? Math.max(0, current.likes - 1) : current.likes + 1,
-        }));
-        if (updated) trackEvent('点赞一条帖子', { action: updated.isLiked ? 'like' : 'unlike' });
+        const updated = updatePostInFeed(post.id, current => {
+            const likedBy = new Set(current.likedByAccountIds || []);
+            const wasLiked = current.isLiked === true || likedBy.has('user');
+            if (wasLiked) likedBy.delete('user');
+            else likedBy.add('user');
+            return {
+                ...current,
+                isLiked: !wasLiked,
+                likedByAccountIds: [...likedBy],
+                likes: likedBy.size,
+            };
+        });
+        if (updated) {
+            recordCommunityEvent(updated.isLiked ? 'post_liked' : 'post_unliked', 'user', { targetAccountId: updated.authorId, postId: updated.id });
+            trackEvent('点赞一条帖子', { action: updated.isLiked ? 'like' : 'unlike' });
+        }
+    };
+
+    const handleToggleCollection = (postId: string) => {
+        const updated = updatePostInFeed(postId, current => {
+            const collectedBy = new Set(current.collectedByAccountIds || []);
+            const wasCollected = current.isCollected === true || collectedBy.has('user');
+            if (wasCollected) collectedBy.delete('user');
+            else collectedBy.add('user');
+            return { ...current, isCollected: !wasCollected, collectedByAccountIds: [...collectedBy] };
+        });
+        if (updated) {
+            recordCommunityEvent(updated.isCollected ? 'post_collected' : 'post_uncollected', 'user', { targetAccountId: updated.authorId, postId: updated.id });
+            trackEvent('收藏一条帖子', { action: updated.isCollected ? 'collect' : 'uncollect' });
+        }
     };
 
     const handleCommentLike = (e: any, postId: string, commentId: string) => {
         e.stopPropagation();
         const updated = updatePostInFeed(postId, current => toggleSocialCommentLike(current, commentId));
         const comment = updated?.comments.find(item => item.id === commentId);
-        if (comment) trackEvent('点赞一条 Spark 评论', { action: comment.isLiked ? 'like' : 'unlike' });
+        if (comment) {
+            recordCommunityEvent(comment.isLiked ? 'comment_liked' : 'comment_unliked', 'user', {
+                targetAccountId: comment.authorId, postId, commentId,
+            });
+            trackEvent('点赞一条 Spark 评论', { action: comment.isLiked ? 'like' : 'unlike' });
+        }
     };
 
     const handleSendComment = () => {
@@ -1253,6 +1283,9 @@ ${post.content || '(楼主没写正文)'}
                 comments: mergeSocialComments(current.comments || [], [userComment]),
             }));
             if (!updatedPost) return;
+            recordCommunityEvent('comment_created', 'user', {
+                targetAccountId: updatedPost.authorId, postId, commentId: userComment.id,
+            });
             setCommentInput('');
             setReplyTarget(null);
             commentDraftsRef.current = { ...commentDraftsRef.current, [postId]: { content: '' } };
@@ -1271,6 +1304,9 @@ ${post.content || '(楼主没写正文)'}
         setReplyTarget(draft?.replyToCommentId
             ? livePost.comments.find(comment => comment.id === draft.replyToCommentId) || null
             : null);
+        if (!communityStateRef.current.seenPostIds.includes(livePost.id)) {
+            updateCommunityState(state => markSparkPostSeen(state, livePost.id));
+        }
         setSelectedPost(livePost);
         generateComments(livePost);
     };
