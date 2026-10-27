@@ -15,33 +15,29 @@ const social = { name: '雨的账号', bio: '画画日记', avatar: '' };
 const resolve = (item: any, participants = [a, b]) => resolveSparkAuthor(item, participants, chars, handles, [user.name, social.name]);
 
 describe('Spark persona and conversation context', () => {
-    it('includes scoped personas, user identity mapping and only each participant’s recent messages', async () => {
-        const context = (await buildSparkGenerationContext([a, b], user, social, handles, {
+    it('keeps multi-character public requests separate from any role private chats and system prompts', async () => {
+        const context = await buildSparkGenerationContext([a, b], user, social, handles, {
             'a-id': [{ role: 'user', content: '明天去看花展' } as Message],
+            'b-id': [{ role: 'user', content: '私人密码只告诉Sully' } as Message],
             'c-id': [{ role: 'user', content: '第三人的秘密' } as Message],
-        }));
-        for (const text of [a.systemPrompt, b.systemPrompt, user.name, user.bio, social.name, '明天去看花展', 'a-id', 'b-id', '小花园', 'SullyDev']) {
-            expect(context).toContain(text);
-        }
-        expect(context).not.toContain(c.systemPrompt);
-        expect(context).not.toContain('第三人的秘密');
-        expect(context).not.toContain('[System: Roleplay Configuration]');
-        const aBlock = context.slice(context.indexOf('<<< 角色档案 charId="a-id"'), context.indexOf('<<< 角色档案结束 charId="a-id"'));
-        expect(aBlock).toContain(a.systemPrompt);
-        expect(aBlock).not.toContain(b.systemPrompt);
+        }, { 'a-id': ['只供阿青记忆的隐私'], 'b-id': ['只供Sully记忆的隐私'] });
+        for (const shown of [user.name, social.name, 'a-id', 'b-id', '小花园', 'SullyDev']) expect(context).toContain(shown);
+        for (const privatePart of [a.systemPrompt, b.systemPrompt, c.systemPrompt,
+            '明天去看花展', '私人密码只告诉Sully', '第三人的秘密',
+            '只供阿青记忆的隐私', '只供Sully记忆的隐私']) expect(context).not.toContain(privatePart);
     });
 
-    it('keeps Spark interaction memories inside the matching character profile', async () => {
-        const context = await buildSparkGenerationContext([a, b], user, social, handles, {}, {
-            'a-id': ['阿青只记得自己的笔记收到一条评论'],
-            'b-id': ['Sully只记得自己分享过一篇笔记'],
-        });
-        const aBlock = context.slice(context.indexOf('<<< 角色档案 charId="a-id"'), context.indexOf('<<< 角色档案结束 charId="a-id"'));
-        const bBlock = context.slice(context.indexOf('<<< 角色档案 charId="b-id"'), context.indexOf('<<< 角色档案结束 charId="b-id"'));
-        expect(aBlock).toContain('阿青只记得自己的笔记收到一条评论');
-        expect(aBlock).not.toContain('Sully只记得自己分享过一篇笔记');
-        expect(bBlock).toContain('Sully只记得自己分享过一篇笔记');
-        expect(bBlock).not.toContain('阿青只记得自己的笔记收到一条评论');
+    it('retains the appropriate full persona and own private continuity for a single character', async () => {
+        const context = await buildSparkGenerationContext([a], user, social, handles, {
+            'a-id': [{ role: 'user', content: '明天去看花展' } as Message],
+            'b-id': [{ role: 'user', content: '私人密码只告诉Sully' } as Message],
+        }, { 'a-id': ['阿青只记得自己的笔记收到一条评论'], 'b-id': ['Sully只记得自己分享过一篇笔记'] });
+        expect(context).toContain(a.systemPrompt);
+        expect(context).toContain('明天去看花展');
+        expect(context).toContain('阿青只记得自己的笔记收到一条评论');
+        expect(context).not.toContain(b.systemPrompt);
+        expect(context).not.toContain('私人密码只告诉Sully');
+        expect(context).not.toContain('Sully只记得自己分享过一篇笔记');
     });
 
     it('keeps the post author and recent interlocutors ahead of random candidates', () => {
