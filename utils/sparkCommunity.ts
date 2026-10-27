@@ -378,6 +378,40 @@ export function ensureSparkAccount(
     return { state: { ...state, accounts }, account };
 }
 
+
+/**
+ * Only migrate legacy DM records keyed by handle when exactly one known account
+ * owns that handle (including historical aliases). Never merge ambiguous
+ * conversations or overwrite a stable-ID record.
+ */
+export function migrateSparkDMKeys<T>(
+    saved: Record<string, T>,
+    accounts: SparkAccount[],
+): Record<string, T> {
+    let next = saved;
+    for (const [oldKey, value] of Object.entries(saved)) {
+        if (accounts.some(account => account.id === oldKey)) continue;
+        const matches = accounts.filter(account => account.type !== 'user' &&
+            [account.displayName, ...account.aliases].some(name => normalizeSparkName(name) === normalizeSparkName(oldKey)));
+        if (matches.length !== 1 || Object.prototype.hasOwnProperty.call(next, matches[0].id)) continue;
+        if (next === saved) next = { ...saved };
+        next[matches[0].id] = value;
+        delete next[oldKey];
+    }
+    return next;
+}
+
+export function resolveSparkDMAccount(
+    accounts: SparkAccount[],
+    handle: string,
+    id?: string,
+): SparkAccount | undefined {
+    if (id) return accounts.find(account => account.id === id && account.type !== 'user');
+    const matches = accounts.filter(account => account.type !== 'user' &&
+        [account.displayName, ...account.aliases].some(name => normalizeSparkName(name) === normalizeSparkName(handle)));
+    return matches.length === 1 ? matches[0] : undefined;
+}
+
 export function getSparkPostAccountId(post: SocialPost, userDisplayName?: string): string | undefined {
     if (post.authorId) return post.authorId;
     if (post.authorType === 'user' || (!!userDisplayName && post.authorName === userDisplayName)) return 'user';
