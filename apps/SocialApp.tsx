@@ -1041,7 +1041,8 @@ const SocialApp: React.FC = () => {
             const prompt = `请严格根据角色核心人设、社会身份、爱好和公开形象，给角色「${char.name}」设计真实社交平台网名。大号不一定是本名；小号要体现不同使用目的，但不能泄露私密身份。已有账号：${JSON.stringify(accounts)}。只输出 JSON 数组，每项 {"id":"已有账号id","handle":"独特网名"}，每个账号一项，不能重复、不能与用户网名相同。`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.8 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt),
+                    temperature: 0.8, max_tokens: Math.min(1000, 200 + accounts.length * 115) }),
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '角色自拟账号昵称' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
@@ -1663,6 +1664,7 @@ const SocialApp: React.FC = () => {
                     model: apiConfig.model,
                     messages: buildGenerationMessages(participants, context, prompt),
                     temperature: 0.75,
+                    max_tokens: 1900, // At most two small activity events; never allow unbounded output.
                 }),
                 signal: controller.signal,
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '用户开启的社区自主活动' },
