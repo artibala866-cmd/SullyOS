@@ -244,6 +244,41 @@ function texture(color){
    }
    report.doubleSeats[assetId]=sampled;
   }
+  // Expand to previously untested seat shapes: pouf, petal sofa, kitchen
+  // bench and a mixed decorative sofa. Use actual registry count per asset,
+  // not guessed labels, to detect missing or unreachable authored slots.
+  report.additionalSeats={};
+  for(const assetId of ['pouf','petal_sofa','show_kitchen_bench','living_ref_sofa','bedroom_ref_flower_pouf']){
+   editor.dispose();set('additional seat '+assetId);
+   const house=createHome(catalog);
+   house.rooms[0].items=[{id:'smoke-extra-seat',assetId,
+    x:0,y:.18,z:0,rotation:0,color:null,stored:false}];
+   editor=await mountHomeEditor(document.getElementById('host'),{
+    assetBase:new URL('/room3d/',location.href).href,initialState:house,
+    onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
+   });
+   editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+   const expected=catalog.find(a=>a.id===assetId)?.seats.length;
+   const visible=editor.getHomeScene().actions.filter(a=>a.kind==='sit');
+   if(!expected||visible.length!==expected)
+    throw Error(assetId+': '+visible.length+'/'+expected+' seats offered in live controller');
+   const done=[];
+   for(let i=0;i<expected;i++){
+    const option=editor.getHomeScene().actions.filter(a=>a.kind==='sit')[i];
+    if(!option||editor.performHomeAction(option.id,'model')==='unavailable')
+     throw Error(assetId+' cannot start slot '+i);
+    editor.advancePets(18);
+    const pose=editor.inspect(),seat=pose.chibiSeat;
+    if(!seat||pose.seatChange)throw Error(assetId+' cannot finish seating at '+i);
+    const stand=editor.getHomeScene().actions.find(a=>a.kind==='stand');
+    if(!stand)throw Error(assetId+' missing get-up at '+i);
+    editor.performHomeAction(stand.id,'model');editor.advancePets(5);
+    if(editor.inspect().chibiSeat||editor.inspect().seatChange)
+     throw Error(assetId+' cannot get up from '+i);
+    done.push({seatId:seat.seatId,entered:true,exited:true});
+   }
+   report.additionalSeats[assetId]=done;
+  }
   // Exercise the real delegated UI commands, not a fabricated state restore:
   // decorative commits followed by undo/redo MUST retain the reached floor
   // position after bed exit instead of respawning at the room entrance.
