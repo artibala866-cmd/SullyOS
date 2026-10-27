@@ -7,6 +7,7 @@ import { extractContent } from './safeApi';
 import { fetchCharacterPhoneJson } from './characterPhoneAiRequest';
 import { canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyPreferences } from './characterPhoneApiBudget';
 import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
+import { readPhoneContentClearRevision } from './characterPhoneContentClearRevision';
 import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from '../types';
 
 type DialogueApi = { baseUrl: string; apiKey: string; model: string };
@@ -57,6 +58,7 @@ export async function considerAutonomousMoment(input: {
   const { char, user, groups, api, realtimeConfig } = input;
   const id = char.id;
   const now = input.now ?? Date.now();
+  const clearRevision = readPhoneContentClearRevision(id, 'moments');
   if (!id || locks.has(id)) return 'cooldown';
   if (!isCharacterPhoneAutonomyEnabled(id) || !readPhoneAutonomyPreferences(id).backgroundApiEnabled) return 'unavailable';
   if (!api.baseUrl || !api.apiKey || !api.model) return 'unavailable';
@@ -82,7 +84,8 @@ export async function considerAutonomousMoment(input: {
     // Never make a stale paid decision after the user has switched autonomy off
     // or cleared the event which would have justified the post.
     if (!isCharacterPhoneAutonomyEnabled(id) ||
-        !readPhoneAutonomyPreferences(id).backgroundApiEnabled) return 'unavailable';
+        !readPhoneAutonomyPreferences(id).backgroundApiEnabled ||
+        readPhoneContentClearRevision(id, 'moments') !== clearRevision) return 'unavailable';
     const currentEventIds = new Set(getMomentAutonomyCandidates(id, Date.now()).map(e => e.id));
     if (!events.some(e => currentEventIds.has(e.id))) return 'skipped';
     if (!writeState(id, { ...readState(id), lastDecisionAt: now })) return 'unavailable';
@@ -102,7 +105,8 @@ export async function considerAutonomousMoment(input: {
     // The model may finish after a setting change, phone cleanup or an
     // independently saved post. Never resurrect cleared facts or publish late.
     if (!isCharacterPhoneAutonomyEnabled(id) ||
-        !readPhoneAutonomyPreferences(id).backgroundApiEnabled) return 'skipped';
+        !readPhoneAutonomyPreferences(id).backgroundApiEnabled ||
+        readPhoneContentClearRevision(id, 'moments') !== clearRevision) return 'skipped';
     const freshCandidates = new Set(getMomentAutonomyCandidates(id, Date.now()).map(e => e.id));
     if (!events.some(e => freshCandidates.has(e.id))) return 'skipped';
     if (readCharacterMoments(id).some(p => !p.deletedAt && Date.now() - p.createdAt >= 0 &&
