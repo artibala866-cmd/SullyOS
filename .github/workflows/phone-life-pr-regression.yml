@@ -36,6 +36,7 @@ jobs:
           pnpm exec vitest run
           utils/characterPhoneAiRequest.test.ts
           utils/characterPhoneApiBudget.test.ts
+          utils/characterPhoneOpportunity.test.ts
           utils/characterPhoneAutonomy.test.ts
           utils/characterLifeLoop.test.ts
           utils/characterLifeEventRouting.test.ts
