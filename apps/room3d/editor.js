@@ -243,6 +243,19 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  let parkedMealEffects=null;
  let furnitureUser=null,manualControl='user',mapCollapsed=false,seatedReaction=null,reactionGeneration=0;
  const activeResidentId=()=>furnitureUser?'user':primaryResidentId;
+ // Character handoffs must never leave a resident frozen halfway through a
+ // sit/stand animation. Resolve the same transition endpoint before snapshotting.
+ function finishSeatChangeForHandoff(){
+  const change=seatChange;if(!change)return;
+  const duration=seatChangeDuration(change.pose),frame=change.pose==='bed'?bedChangePose(change,duration):seatChangePose(change,duration);
+  resident.position.fromArray(frame.position);setResidentHeading(resident,frame.rotation??change.rotation);
+  const pendingActivity=change.pendingActivity;
+  if(change.rising){visitorSeat=null;seatAccess=null;visitorLocation={x:resident.position.x+current().x*ROOM_STEP.x,z:resident.position.z+current().z*ROOM_STEP.z,level:current().level};}
+  else if(visitorSeat?.bed)visitorSeat.modeStart=elapsed;
+  seatChange=null;visitorMotion=change.pose==='bed'&&!change.rising&&!visitorSeat?.bedMode?'sleep':'idle';visitorStart=elapsed;visitorUntil=elapsed;
+  if(pendingActivity&&!change.rising){startDeskActivity(pendingActivity);return;}
+  visitor?.animate(0,visitorMotion,visitorSeat?.bed?'lying':visitorSeat?'seated':'standing',currentSeatPose());
+ }
  function resetFurnitureMotion(){stopWalking();putPlushBack();visitorSeat=null;seatAccess=null;visitorPlant=null;visitorActivity=null;seatChange=null;visitorMotion='idle';visitorUntil=0;visitorLocation=null;gamingEffects.clear();bathroomEffects.clear();kitchenEffects.updateMeal(null,0);visitor?.animate(0,'idle');}
  function exchangeFurnitureVisitor(entry){
   socialPlacementMap=null;
@@ -258,7 +271,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function resumeFurniture(snapshot){visitorSeat=snapshot?.parkedSeat||null;seatAccess=snapshot?.parkedSeatAccess||null;const p=snapshot?.parkedActivity;visitorActivity=p?.activity||null;visitorMotion=p?.motion||'idle';visitorStart=p?.start??elapsed;visitorUntil=p?.until||0;if(visitorSeat)visitor.animate(elapsed-visitorStart,visitorMotion,visitorSeat.bed?'lying':'seated',currentSeatPose());}
  function restoreFurnitureCharacter(){
   petSystem?.contact.cancel();
-  if(!furnitureUser)return;parkedMealEffects?.dispose();parkedMealEffects=null;
+  if(!furnitureUser)return;finishSeatChangeForHandoff();parkedMealEffects?.dispose();parkedMealEffects=null;
   const outgoing=snapshotFurniture(),entry=furnitureUser,incoming={...entry};resetFurnitureMotion();exchangeFurnitureVisitor(entry);entry.id='user';furnitureUser=null;resumeFurniture(incoming);Object.assign(entry,outgoing);
   visitorLocation={x:resident.position.x+current().x*ROOM_STEP.x,z:resident.position.z+current().z*ROOM_STEP.z,level:current().level};dirty=true;wake();
  }
@@ -273,7 +286,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!onMenu||manualControl===primaryResidentId||furnitureUser)return true;
   const entry=socialEntries.find(e=>e.id==='user');
   if(!entry?.visitor||!entry.group.visible){notify('先在成员中邀请你的小人，等形象准备好再使用家具',true);return false;}
-  const outgoing=snapshotFurniture(),incoming={...entry};resetFurnitureMotion();if(outgoing.parkedSeat)visitor.animate(0,outgoing.parkedActivity.motion,outgoing.parkedSeat.bed?'lying':'seated',outgoing.parkedPose);exchangeFurnitureVisitor(entry);entry.id=primaryResidentId;furnitureUser=entry;resumeFurniture(incoming);Object.assign(entry,outgoing);
+  finishSeatChangeForHandoff();const outgoing=snapshotFurniture(),incoming={...entry};resetFurnitureMotion();if(outgoing.parkedSeat)visitor.animate(0,outgoing.parkedActivity.motion,outgoing.parkedSeat.bed?'lying':'seated',outgoing.parkedPose);exchangeFurnitureVisitor(entry);entry.id=primaryResidentId;furnitureUser=entry;resumeFurniture(incoming);Object.assign(entry,outgoing);
   visitorLocation={x:resident.position.x+current().x*ROOM_STEP.x,z:resident.position.z+current().z*ROOM_STEP.z,level:current().level};dirty=true;wake();return true;
  }
  function stopSocial(){reactionGeneration++;seatedReaction=null;if(socialRuntime){socialRuntime.cancel();socialRuntime=null;for(const e of socialEntries)e.settledRoom=current().id;visitorLocation={x:resident.position.x+current().x*ROOM_STEP.x,z:resident.position.z+current().z*ROOM_STEP.z,level:current().level};dirty=true;}socialRoom=null;}
