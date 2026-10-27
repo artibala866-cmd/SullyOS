@@ -1000,6 +1000,17 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!walkTo(target))return false;
   walking.arrived=begin;notify('走到操作站位');return true;
  }
+ function requestBathroomExit(){
+  const j=visitorActivity?.bathJourney;
+  if(!j)return false;
+  if(!Number.isFinite(j.cancelElapsed)){
+   j.cancelElapsed=Math.max(0,elapsed-visitorStart);
+   const t=j.cancelElapsed;
+   const progress=t<j.enter?t:t<j.enter+j.hold?j.enter:Math.max(0,2*j.enter+j.hold-t);
+   visitorUntil=elapsed+progress+.2;message='正在安全离开卫浴家具';dirty=true;wake();renderUI();
+  }
+  return true;
+ }
  function finishBathroom(){
   const front=visitorActivity?.bathJourney?.front;if(!front)return;
   resident.position.fromArray(front);visitorLocation={x:front[0]+current().x*ROOM_STEP.x,z:front[2]+current().z*ROOM_STEP.z,level:current().level};
@@ -1824,6 +1835,12 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(visitorActivity&&!visitorActivity.bathJourney&&['chibi-hug','chibi-kitchen','chibi-mirror','chibi-bath','fridge-toggle'].includes(d.action)){
    notify('请先结束正在进行的家具互动',true);return;
   }
+  if(visitorActivity?.bathJourney&&['chibi-game-stop','chibi-stand','chibi-motion'].includes(d.action)){
+   requestBathroomExit();return;
+  }
+  if(visitorActivity?.bathJourney&&['chibi-hug','chibi-kitchen','chibi-game','chibi-mirror','chibi-bath','fridge-toggle','chibi-water','chibi-sit','chibi-bed'].includes(d.action)){
+   notify('先完成卫浴的安全退出过程，再操作其它家具',true);return;
+  }
   if(seatChange&&['chibi-hug','chibi-kitchen','chibi-game','chibi-mirror','chibi-bath','chibi-game-stop','fridge-toggle'].includes(d.action)){
    notify('人物正在坐下或起身，请先完成当前动作',true);return;
   }
@@ -1846,23 +1863,9 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
     if(!next.journey){visitorActivity=null;visitorSeat=null;visitorMotion='idle';visitorUntil=0;notify('衣柜或镜子之间没有安全可走的通路，请挪开障碍物',true);return;}
   }if(viewMode==='free'&&next.kind==='rhythm'&&camera.zoom>1.8){const offset=camera.position.clone().sub(controls.target);controls.target.fromArray(next.position).add(new THREE.Vector3(0,1.6,0));camera.position.copy(controls.target).add(offset);camera.zoom=1.8;camera.updateProjectionMatrix();controls.update();}visitorStart=elapsed;visitorUntil=elapsed+(next.journey?.duration||furnitureActivitySeconds(next.kind,next.duration||12));edit=false;overview=false;selected=null;panel=null;placeVisitor();animateVisitor(reducedMotion?1:0);recordHomeActivity(next.label,next.recordSource);message=next.label+((isMirrorAction(next.kind)||isBathAction(next.kind))?'中':'中 · 在小人面板可随时休息');dirty=true;wake();renderUI();return;}
   if(d.action==='chibi-game-stop'){
-   if(visitorActivity?.bathJourney){
-    const j=visitorActivity.bathJourney;
-    if(!Number.isFinite(j.cancelElapsed)){
-     j.cancelElapsed=Math.max(0,elapsed-visitorStart);
-     const t=j.cancelElapsed;
-     const progress=t<j.enter?t:t<j.enter+j.hold?j.enter:Math.max(0,2*j.enter+j.hold-t);
-     visitorUntil=elapsed+progress+.2;message='正在安全离开卫浴家具';dirty=true;wake();renderUI();
-    }
-    return;
-   }
+   if(requestBathroomExit())return;
    stopWalking();rememberStandingLocation();visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);
    visitorMotion='idle';visitorUntil=0;animateVisitor(0);dirty=true;wake();renderUI();return;
-  }
-  // Never interrupt a half-completed seat/bed transfer by clearing its root path.
-  // Explicit resident handoff resolves the endpoint through finishSeatChangeForHandoff.
-  if(seatChange&&['chibi-water','chibi-sit','chibi-stand','chibi-motion'].includes(d.action)){
-   notify('人物正在坐下或起身，请先完成当前动作',true);return;
   }
   if(['chibi-water','chibi-sit','chibi-stand','chibi-motion'].includes(d.action)){stopWalking();visitorActivity=null;gamingEffects.clear();kitchenEffects.updateMeal(null,0);}
   if(d.action==='camera-menu'){cameraMenu=!cameraMenu;renderUI();return;}
