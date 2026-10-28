@@ -287,3 +287,14 @@
 - 根因经现有源码交叉验证：`apps/room3d/seating.js` 使用 `usableFurniturePoints`，`apps/room3d/furniturePointRegistry.js` 明确封锁缺安全进出路径的高床（`bedroom_bunk`、`bedroom_loft`）。`furniturePointRegistry.test.js` 已要求这些床位不暴露可执行动作；失败来自另一份旧测试把所有 catalog beds 当作都可用。
 - 已在目标分支把旧断言改为：安全可用床位必须保持四种旋转下的头部方向计算；未审核可达性床位**必须返回 null**。没有修改床位运行时、安全过滤器、家具数据或取消回归覆盖。修复提交 `de5d2ee139203a0b356eedf3b156743e65fd2bb5`，尚待新一轮 CI 结果确认。
 - 该事件证明之前只凭 Pages 绿灯推断整个 Home3D 动作正常是不充分的；PR #8 仍保留开放草稿状态，视觉与真实设备行为仍未验收。
+
+## master 独有功能的择取移植与缺陷复核（2026-10-28）
+
+- **以二改为主，不做 master 合并**：指定分支仍是 `remove-checkphone-vrworld-lifesim`，不修改 `master`、不恢复查手机/VRWorld/LifeSim 已撤功能、不开独立分支。原台账的提交标题分类只是候选发现，不等于逐项完成。
+- **Spark 私信持久性**：择取 `utils/sparkDMQueue.ts` 的历史合并、草稿备份和发送前存储确认逻辑，接入现有 `apps/SocialApp.tsx`，并移植原版相应测试；保证付费发送前至少一处存储成功。保留角色身份及二改 UI。
+- **Spark 帖子数据保护**：引入评论/点赞收藏一致性、删除栅栏、失败写入快照与手动恢复；用 `selectSparkRecoverablePost` 禁止旧缓存自动重建不存在的帖子。本轮再次补齐了遗漏的发布草稿竞态保护、用户资料只首次异步回填、资料写盘失败提示。新 `canClearSparkPublishedEditorDraft` 同时检查当前编辑器和持久化草稿是否还是被发布的那份，已增加失败/变化测试。
+- **可选 STT**：三家官方 MiniMax/Fish Audio/ElevenLabs 路由、接口和选择 UI 均已接入；未选择时仍免费浏览器/系统识别，不从 TTS 已配置 Key 自动选收费 STT。二次审计把官方 MiniMax URL 收紧到已知 HTTPS API host，杜绝非官方 URL 因宽松字符串匹配误用会话 Key；录音初始化失败释放流及 AudioContext，加入测试。
+- **ElevenLabs v4**：择取 v4 / v4 Turbo 的模型感知提示词、清理、音频请求参数和字幕处理，保留二改版 Flash v2.5 缺省模型及原有调用界面；加入新增模型回归。
+- **新补历史角色手机备份**：从 master 择取 `utils/phoneLegacyBackup.ts` 及其纯函数测试，`FullBackupData.characterPhoneLegacyLocal` 仅在 full/text_only 导出，对已经持久化的角色 ID 收集已知本地键；导入时只恢复**缺失**的同 ID 存储项，不迁移/合并现有 contacts 或 phoneState，不覆盖已有明示删除、隐私状态和用户编辑。媒体备份不带这部分历史记录。加入专门类型检查及回归测试。
+- **前一次整体绿灯基线**：在 `5e5833093da400cca59dfd1df118062f7100532c` 上 Pages #1278、Spark #376、Home3D #107 均成功（分别为 [Pages](https://github.com/artibala866-cmd/SullyOS/actions/runs/40673430168)、[Spark](https://github.com/artibala866-cmd/SullyOS/actions/runs/40673430136)、[Home3D](https://github.com/artibala866-cmd/SullyOS/actions/runs/40673430132)）。**本轮缺陷修复和角色手机备份集成必须以最终新 SHA 的 CI 实际结果重新判定**。
+- **未解决/不得擅自承诺**：master 其余独有流式语音、批量备份流化、资源缓存、隐私与 UI 修复尚未全逐项验证；不能盲目复制 `OSContext`、整个 `CallApp` 或 `lsMirror`，这些文件与二改存在明显架构和已撤键差异。Cloudflare Worker 只是源码含 STT 路由，本次未执行实际独立线上 Worker 部署；真实麦克风/付费服务、浏览器端大数据导入导出仍未做真机端到端验证。历史 master 默认分支与 draft PR #8 保留。
