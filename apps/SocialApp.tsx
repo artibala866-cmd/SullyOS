@@ -1,20 +1,24 @@
-import { ContextBuilder } from '../utils/context';
-import { evaluateSparkTraffic, sparkTrafficKey, type SparkTraffic } from '../utils/sparkTraffic';
+import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSparkTrafficLocalDay, type SparkTraffic } from '../utils/sparkTraffic';
 import { chooseSparkStock } from '../utils/sparkStock';
+import { planSparkCharacterBatches, selectSparkBatchCharacterResults, parseSparkPostPublishBatch, needsSparkInitialCommentCall } from '../utils/sparkApiBatch';
+import { useLocalBackHandler } from '../hooks/useLocalBackHandler';
+import { appendSparkDMUser, setSparkDMDelivery, recoverSparkInterruptedDMs, sparkDMHistoryThrough, appendSparkDMAnswer, takeSparkDMJobBatch, appendSparkDMBatchAnswer, sparkDMBatchHistory, type SparkDMThreads, type SparkPrivateMessage } from '../utils/sparkDMQueue';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { AppID, CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile, XhsStockImage } from '../types';
-import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants } from '../utils/socialGeneration';
+import { buildSparkCommentHistory, buildSparkGenerationContext, resolveSparkAuthor, selectSparkParticipants, containsSparkPrivateQuote, getSparkAuthorAvatar, buildSparkGenerationRequestMessages } from '../utils/socialGeneration';
 import { processImageToBlob } from '../utils/file';
 import { putImageBlob } from '../utils/blobRef';
 import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
-import { mergeSocialComments, prependUniqueSocialPosts, updateSocialPost } from '../utils/socialFeedMerge';
+import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch } from '../utils/socialFeedMerge';
+import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen, applySparkNpcLike, applySparkNpcFollow, setSparkAccountMuted } from '../utils/sparkCommunity';
+import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
 
@@ -159,6 +163,99 @@ const Icons = {
 const SocialApp: React.FC = () => {
     const { closeApp, openApp, characters, worldbooks, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
     const [feed, setFeed] = useState<SocialPost[]>([]);
+    const [communityState, setCommunityState] = useState<SparkCommunityState>(() => {
+        try { return normalizeSparkCommunityState(JSON.parse(localStorage.getItem('spark_community_state') || 'null')); }
+        catch { return createEmptySparkCommunityState(); }
+    });
+    const communityRef = useRef(communityState);
+    const communityWriteRef = useRef<Promise<void>>(Promise.resolve());
+    const communityHydratedRef = useRef(false);
+    const cachedCommunityAtStartRef = useRef<boolean>((() => {
+        try { return localStorage.getItem('spark_community_state') !== null; }
+        catch { return false; }
+    })());
+    const localAutonomyChangedRef = useRef(false);
+    const writeCommunity = (next: SparkCommunityState) => {
+        if (JSON.stringify(next.autonomy) !== JSON.stringify(communityRef.current.autonomy)) {
+            localAutonomyChangedRef.current = true;
+        }
+        communityRef.current = next;
+        setCommunityState(next);
+        try { localStorage.setItem('spark_community_state', JSON.stringify(next)); } catch (error) { console.warn('Spark local community cache failed', error); }
+        // Do not overwrite durable relationships until the initial DB community read finishes.
+        if (!communityHydratedRef.current) return;
+        const payload = JSON.stringify(next);
+        const write = communityWriteRef.current.then(() => DB.saveAsset('spark_community_state', payload));
+        communityWriteRef.current = write.catch(error => console.warn('Spark community save failed', error));
+    };
+    const sparkEvent = (type: SparkCommunityEvent['type'], actorAccountId: string, fields: Partial<Pick<SparkCommunityEvent, 'postId' | 'commentId' | 'targetAccountId'>> = {}) => {
+        writeCommunity(appendSparkEvent(communityRef.current, {
+            id: 'event-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+            type, actorAccountId, createdAt: Date.now(), ...fields,
+        }));
+    };
+    const registerSparkPosts = (posts: SocialPost[]): SocialPost[] => {
+        let state = communityRef.current;
+        const registered = posts.map(post => {
+            const type: SparkAccountType = post.authorType || (post.authorCharId ? 'character' : post.id.startsWith('user-post-') ? 'user' : 'stranger');
+            const handles = post.authorCharId
+                ? (characterHandles[post.authorCharId] || []) : [];
+            const handleId = resolveSparkCharacterHandleId(post.authorCharId, post.authorId, post.authorName, handles);
+            const currentName = getSparkCanonicalAccountName(post.authorName, post.authorId, handleId, handles, state.accounts);
+            const result = ensureSparkAccount(state, {
+                type, id: post.authorId,
+                ownerCharId: type === 'character' ? post.authorCharId : undefined,
+                handleId, displayName: currentName, avatar: post.authorAvatar,
+            }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2), post.timestamp);
+            state = result.state;
+            const owner = type === 'character' ? characters.find(char => char.id === post.authorCharId) : undefined;
+            const safeAvatar = owner && handleId ? getSparkAuthorAvatar(owner, post.authorName, characterHandles, handleId) : undefined;
+            const authorAvatar = safeAvatar && owner && post.authorAvatar === owner.avatar ? safeAvatar : post.authorAvatar;
+            const comments = (post.comments || []).map(comment => {
+                const commentType: SparkAccountType = comment.authorType || (comment.authorCharId ? 'character' : comment.id.startsWith('cmt-user-') ? 'user' : 'stranger');
+                const commentHandles = comment.authorCharId ? (characterHandles[comment.authorCharId] || []) : [];
+                const commentHandleId = resolveSparkCharacterHandleId(comment.authorCharId, comment.authorId, comment.authorName, commentHandles);
+                const currentCommentName = getSparkCanonicalAccountName(comment.authorName, comment.authorId, commentHandleId, commentHandles, state.accounts);
+                const registeredComment = ensureSparkAccount(state, {
+                    type: commentType, id: comment.authorId,
+                    ownerCharId: commentType === 'character' ? comment.authorCharId : undefined,
+                    handleId: commentHandleId, displayName: currentCommentName, avatar: comment.authorAvatar,
+                }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2), comment.timestamp || post.timestamp);
+                state = registeredComment.state;
+                const commentOwner = commentType === 'character' ? characters.find(char => char.id === comment.authorCharId) : undefined;
+                const safeCommentAvatar = commentOwner && commentHandleId ? getSparkAuthorAvatar(commentOwner, comment.authorName, characterHandles, commentHandleId) : undefined;
+                const commentAvatar = safeCommentAvatar && commentOwner && comment.authorAvatar === commentOwner.avatar ? safeCommentAvatar : comment.authorAvatar;
+                return { ...comment, authorId: registeredComment.account.id, authorType: registeredComment.account.type, authorName: currentCommentName, authorAvatar: commentAvatar };
+            });
+            return { ...post, authorId: result.account.id, authorType: result.account.type, authorName: currentName, authorAvatar, comments,
+                source: post.source || (result.account.type === 'user' ? 'user' : 'legacy') } as SocialPost;
+        });
+        if (state !== communityRef.current) writeCommunity(state);
+        return registered;
+    };
+    useEffect(() => {
+        let active = true;
+        void DB.getAsset('spark_community_state').then(raw => {
+            if (!active) return;
+            let restored: SparkCommunityState = communityRef.current;
+            if (raw) {
+                try {
+                    restored = mergeSparkCommunityStates(
+                        normalizeSparkCommunityState(JSON.parse(raw)), communityRef.current,
+                        cachedCommunityAtStartRef.current || localAutonomyChangedRef.current,
+                    );
+                } catch (error) {
+                    console.warn('Spark community recovery failed', error);
+                }
+            }
+            communityHydratedRef.current = true;
+            writeCommunity(restored);
+        }).catch(error => {
+            // Preserve the local cache and never overwrite an unreadable DB community snapshot.
+            console.warn('Spark community restore failed; retaining local cache', error);
+        });
+        return () => { active = false; };
+    }, []);
     type SparkNotice = { id: string; kind: 'likes' | 'follows' | 'comments'; actor: string; avatar?: string; content: string; postId?: string; time: number; read: boolean };
     const [notices, setNotices] = useState<SparkNotice[]>(() => {
         try { const saved = JSON.parse(localStorage.getItem('spark_notifications') || '[]'); return Array.isArray(saved) ? saved : []; } catch { return []; }
@@ -168,7 +265,9 @@ const SocialApp: React.FC = () => {
     });
     const [expandedNoticeGroups, setExpandedNoticeGroups] = useState<string[]>([]);
     const noticeGroups = (kind: SparkNotice['kind']) => {
-        const items = notices.filter(n => n.kind === kind).sort((a, b) => b.time - a.time);
+        const items = notices.filter(n => n.kind === kind &&
+            !communityState.mutedAccountIds.includes(resolveSparkDMAccount(communityState.accounts, n.actor)?.id || '')
+        ).sort((a, b) => b.time - a.time);
         const grouped = new Map<string, SparkNotice[]>();
         for (const item of items) {
             const key = kind === 'follows' ? 'new-followers' : kind === 'likes' ? 'post:' + (item.postId || item.id) : item.id;
@@ -191,6 +290,13 @@ const SocialApp: React.FC = () => {
         localStorage.setItem('spark_notifications', JSON.stringify(next));
         return next;
     });
+    // Continue to render legacy notices, but mirror their precise IDs/read-state
+    // into the existing community store for consistent later account/event reads.
+    useEffect(() => {
+        const next = syncSparkLegacyNotices(communityRef.current, notices);
+        if (next !== communityRef.current) writeCommunity(next);
+    }, [notices, communityState.accounts]);
+
 
     // Notifications represent named simulated interactions, never anonymous aggregate traffic.
     const [simulatedFollows, setSimulatedFollows] = useState<string[]>(() => {
@@ -214,64 +320,220 @@ const SocialApp: React.FC = () => {
             content: kind === 'likes' ? '赞了你的笔记《' + post.title + '》' : '关注了你',
             postId: kind === 'likes' ? post.id : undefined, time: Date.now(), read: false }]);
     };
-    type SparkDM = { role: 'user' | 'assistant'; content: string; time: number };
-    const [dmThreads, setDmThreads] = useState<Record<string, SparkDM[]>>(() => {
-        try { return JSON.parse(localStorage.getItem('spark_dm_threads') || '{}'); } catch { return {}; }
+    type SparkDM = SparkPrivateMessage;
+    const [dmThreads, setDmThreads] = useState<SparkDMThreads>(() => {
+        try { return recoverSparkInterruptedDMs(JSON.parse(localStorage.getItem('spark_dm_threads') || '{}')); }
+        catch { return {}; }
     });
+    const dmThreadsRef = useRef<SparkDMThreads>(dmThreads);
+    const saveDMThreads = (next: SparkDMThreads) => {
+        if (next === dmThreadsRef.current) return;
+        dmThreadsRef.current = next;
+        setDmThreads(next);
+        try { localStorage.setItem('spark_dm_threads', JSON.stringify(next)); }
+        catch (error) { console.warn('Spark DM persistence failed', error); }
+    };
     const [npcPersonas, setNpcPersonas] = useState<Record<string, string>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_npc_personas') || '{}'); } catch { return {}; }
     });
     const [dmUnread, setDmUnread] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_dm_unread') || '{}'); } catch { return {}; }
     });
-    const [dmFilter, setDmFilter] = useState<'all' | 'following' | 'strangers'>('all');
-    const openSparkDM = (account: { handle: string; avatar: string }) => {
-        setDmTarget(account);
+    // Legacy DM maps are keyed by mutable public names. Copy only unambiguous
+    // entries to immutable IDs, preserving unknown and conflicting conversations.
+    useEffect(() => {
+        const accounts = communityState.accounts;
+        setDmThreads(prev => {
+            const migrated = migrateSparkDMKeys(prev, accounts);
+            if (migrated !== prev) {
+                dmThreadsRef.current = migrated;
+                localStorage.setItem('spark_dm_threads', JSON.stringify(migrated));
+            }
+            return migrated;
+        });
+        setNpcPersonas(prev => {
+            const migrated = migrateSparkDMKeys(prev, accounts);
+            if (migrated !== prev) localStorage.setItem('spark_npc_personas', JSON.stringify(migrated));
+            return migrated;
+        });
         setDmUnread(prev => {
-            const next = { ...prev, [account.handle]: 0 };
+            const migrated = migrateSparkDMKeys(prev, accounts);
+            if (migrated !== prev) localStorage.setItem('spark_dm_unread', JSON.stringify(migrated));
+            return migrated;
+        });
+    }, [communityState.accounts]);
+    const [dmFilter, setDmFilter] = useState<'all' | 'following' | 'strangers'>('all');
+    type SparkDMTarget = { handle: string; avatar: string; accountId?: string };
+    const dmKey = (account: SparkDMTarget) =>
+        getSparkDMThreadKey(account.accountId, account.handle, dmThreadsRef.current, communityRef.current.accounts);
+    const openSparkDM = (account: SparkDMTarget) => {
+        const registered = resolveSparkDMAccount(communityRef.current.accounts, account.handle, account.accountId);
+        const target = { ...account, accountId: registered?.id || account.accountId };
+        if (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId)) {
+            addToast('该账号已屏蔽，解除屏蔽后才能私信', 'info');
+            return;
+        }
+        setDmTarget(target);
+        setDmVisibleLimit(80);
+        const key = target.accountId && (dmUnread[target.accountId] !== undefined || dmThreads[target.accountId])
+            ? target.accountId : dmKey(target);
+        setDmUnread(prev => {
+            const next = { ...prev, [key]: 0 };
             localStorage.setItem('spark_dm_unread', JSON.stringify(next));
             return next;
         });
     };
-    const [dmTarget, setDmTarget] = useState<{ handle: string; avatar: string } | null>(null);
+    const [dmTarget, setDmTarget] = useState<SparkDMTarget | null>(null);
     const [dmInput, setDmInput] = useState('');
+    const [dmVisibleLimit, setDmVisibleLimit] = useState(80);
+    const dmScrollRef = useRef<HTMLDivElement>(null);
+    const dmInputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (!dmTarget) return;
+        const viewport = window.visualViewport;
+        const alignInput = () => {
+            // On Android WebView the visual viewport changes as the keyboard appears.
+            if (document.activeElement === dmInputRef.current && dmScrollRef.current) {
+                dmScrollRef.current.scrollTop = dmScrollRef.current.scrollHeight;
+            }
+        };
+        viewport?.addEventListener('resize', alignInput);
+        return () => viewport?.removeEventListener('resize', alignInput);
+    }, [dmTarget?.accountId, dmTarget?.handle]);
     const [dmBusy, setDmBusy] = useState(false);
-    const sendSparkDM = async () => {
-        if (!dmTarget || !dmInput.trim() || dmBusy) return;
-        const target = dmTarget;
-        const text = dmInput.trim();
-        const history = [...(dmThreads[target.handle] || []), { role: 'user' as const, content: text, time: Date.now() }];
-        setDmInput('');
-        setDmThreads(prev => {
-            const next = { ...prev, [target.handle]: history };
-            localStorage.setItem('spark_dm_threads', JSON.stringify(next));
-            return next;
-        });
-        if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
+    type SparkDMJob = { target: SparkDMTarget; key: string; id: string; accountId?: string };
+    const dmQueueRef = useRef<SparkDMJob[]>([]);
+    const dmBatchTimerRef = useRef<number | null>(null);
+    const dmProcessingRef = useRef(false);
+    const dmRequestRef = useRef<AbortController | null>(null);
+    const processSparkDMQueue = async () => {
+        if (dmProcessingRef.current || !mountedRef.current) return;
+        if (dmBatchTimerRef.current !== null) {
+            window.clearTimeout(dmBatchTimerRef.current);
+            dmBatchTimerRef.current = null;
+        }
+        dmProcessingRef.current = true;
         setDmBusy(true);
         try {
-            const authorPosts = feedRef.current.filter(post => post.authorName === target.handle).sort((a, b) => a.timestamp - b.timestamp);
-            const firstPost = authorPosts[0];
-            const owner = characters.find(char => (characterHandles[char.id] || []).some(account => account.handle === target.handle));
-            const identity = owner ? await buildGenerationContext([owner]) : '你是 Spark 社交平台上一名独立的普通网友。你的稳定人物设定：' + (npcPersonas[target.handle] || '根据自己最早发布的帖子自然形成稳定的性格、兴趣、说话方式和立场') + '。不要变成客服，也不要知道其他人的私聊或隐藏身份。';
-            const prompt = identity + '\n当前聊天账号：' + target.handle + '\n这个账号最早的帖子（性格与经历线索）：' + (firstPost ? firstPost.title + '\n' + firstPost.content : '暂无公开帖子') + '\n只扮演此账号本人，回复最后一条私信；简短自然，不要解释设定，不要总以句号结尾。';
-            const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiConfig.apiKey },
-                body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'system', content: prompt }, ...history.slice(-20).map(item => ({ role: item.role, content: item.content }))], temperature: 0.9 }),
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: 'Spark 私信' },
-            } as RequestInit);
-            if (!response.ok) throw new Error(await apiErrorMessage(response));
-            const data = await safeResponseJson(response);
-            const answer = extractContent(data).trim();
-            if (!answer) throw new Error('空回复');
-            setDmThreads(prev => {
-                const next = { ...prev, [target.handle]: [...(prev[target.handle] || history), { role: 'assistant', content: answer, time: Date.now() }] };
-                localStorage.setItem('spark_dm_threads', JSON.stringify(next));
-                return next;
-            });
-        } catch (error: any) { addToast('私信回复失败：' + (error?.message || '未知错误'), 'error'); }
-        finally { setDmBusy(false); }
+            while (dmQueueRef.current.length && mountedRef.current) {
+                // A short user burst to the same receiver costs ONE AI call.
+                // Never mix separate characters/identities into a private prompt.
+                const batch = takeSparkDMJobBatch(dmQueueRef.current);
+                dmQueueRef.current = batch.remaining;
+                const target = batch.jobs[0].target;
+                const key = getSparkDMThreadKey(target.accountId, target.handle,
+                    dmThreadsRef.current, communityRef.current.accounts);
+                const ids = batch.jobs.map(item => item.id).filter(id =>
+                    (dmThreadsRef.current[key] || []).some(m => m.id === id && m.delivery === 'pending'));
+                if (!ids.length) continue;
+                const controller = new AbortController();
+                dmRequestRef.current = controller;
+                const timeout = window.setTimeout(() => controller.abort(), 30000);
+                try {
+                    if (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId)) {
+                        throw new Error('此账号已屏蔽');
+                    }
+                    if (!apiConfig.apiKey) throw new Error('请先配置 API Key');
+                    const registered = communityRef.current.accounts.filter(a =>
+                        target.accountId ? a.id === target.accountId :
+                        a.displayName === target.handle || a.aliases.includes(target.handle));
+                    const candidates = characters.filter(ch => (characterHandles[ch.id] || [])
+                        .some(a => a.handle === target.handle));
+                    const owners = [...new Set(registered.map(a => a.ownerCharId).filter(Boolean))];
+                    if ((!target.accountId && candidates.length > 1) || registered.length > 1 || owners.length > 1) {
+                        throw new Error('同名账号归属不明，无法安全生成私信');
+                    }
+                    const owner = owners.length === 1 ? characters.find(ch => ch.id === owners[0]) :
+                        target.accountId ? undefined : candidates[0];
+                    if (target.accountId && registered.length === 0) throw new Error('私信账号不存在');
+                    const identity = owner ? await buildGenerationContext([owner]) :
+                        '你是 Spark 虚拟社区中的独立普通网友。稳定人设：' +
+                        (npcPersonas[key] || npcPersonas[target.handle] || '依据自己已有公开帖子形成性格和兴趣') +
+                        '。只能知道自己的公开经历，不能知道别人的私聊或匿名身份。';
+                    if (controller.signal.aborted) throw new Error('私信请求超时（30 秒），可点原消息重试');
+                    const history = sparkDMBatchHistory(dmThreadsRef.current, key, ids);
+                    if (!history.length) throw new Error('原消息已不存在');
+                    const first = feedRef.current.filter(post =>
+                        target.accountId ? post.authorId === target.accountId : post.authorName === target.handle,
+                    ).sort((a, b) => a.timestamp - b.timestamp)[0];
+                    const prompt = identity + '\n当前聊天账号：' + target.handle +
+                        '\n该账号最早的公开帖子：' + (first ? first.title + '\n' + first.content : '暂无公开帖子') +
+                        '\n只扮演此账号本人。用户接连发送的几条消息属于一次完整发言，请一起理解后自然回应一次，不要逐条机械重复回复。不得泄露其他人的隐私。';
+                    const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
+                        body: JSON.stringify({ model: apiConfig.model,
+                            messages: [{ role: 'system', content: prompt },
+                                ...history.map(item => ({ role: item.role, content: item.content }))],
+                            temperature: 0.9, max_tokens: 650 }),
+                        signal: controller.signal,
+                        __sullyMeta: { appId: 'social', appName: 'Spark', purpose: 'Spark 合并私信回复' },
+                    } as RequestInit);
+                    if (!response.ok) throw new Error(await apiErrorMessage(response));
+                    const answer = extractContent(await safeResponseJson(response)).trim();
+                    if (!answer) throw new Error('模型返回空回复');
+                    if (controller.signal.aborted || !mountedRef.current ||
+                        (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId))) {
+                        throw new Error('请求已中止');
+                    }
+                    const currentKey = getSparkDMThreadKey(target.accountId, target.handle,
+                        dmThreadsRef.current, communityRef.current.accounts);
+                    saveDMThreads(appendSparkDMBatchAnswer(dmThreadsRef.current, currentKey, ids, answer, Date.now()));
+                } catch (error: any) {
+                    if (mountedRef.current) {
+                        const currentKey = getSparkDMThreadKey(target.accountId, target.handle,
+                            dmThreadsRef.current, communityRef.current.accounts);
+                        let next = dmThreadsRef.current;
+                        for (const id of ids) next = setSparkDMDelivery(next, currentKey, id, 'failed');
+                        saveDMThreads(next);
+                        addToast('私信未完成，点击原消息可重试：' +
+                            (error?.name === 'AbortError' ? '请求超时或中止' : error?.message || '网络错误'), 'error');
+                    }
+                } finally {
+                    window.clearTimeout(timeout);
+                    if (dmRequestRef.current === controller) dmRequestRef.current = null;
+                }
+            }
+        } finally {
+            dmProcessingRef.current = false;
+            if (mountedRef.current) setDmBusy(false);
+        }
+    };
+    const queueSparkDM = (target: SparkDMTarget, key: string, id: string) => {
+        if (dmQueueRef.current.some(item => item.id === id)) return;
+        dmQueueRef.current.push({ target, key, id, accountId: target.accountId });
+        // Hold a short burst before billing an API call; never wait indefinitely.
+        if (!dmProcessingRef.current) {
+            if (dmBatchTimerRef.current !== null) window.clearTimeout(dmBatchTimerRef.current);
+            if (dmQueueRef.current.length >= 6) void processSparkDMQueue();
+            else dmBatchTimerRef.current = window.setTimeout(() => {
+                dmBatchTimerRef.current = null;
+                void processSparkDMQueue();
+            }, 1200);
+        }
+    };
+    const sendSparkDM = () => {
+        if (!dmTarget || !dmInput.trim()) return;
+        if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
+        if (dmTarget.accountId && communityRef.current.mutedAccountIds.includes(dmTarget.accountId)) {
+            addToast('该账号已屏蔽，无法发送私信', 'info');
+            return;
+        }
+        const target = dmTarget;
+        const key = dmKey(target);
+        const id = 'dm-user-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+        saveDMThreads(appendSparkDMUser(dmThreadsRef.current, key, dmInput.trim(), id, Date.now()));
+        setDmInput('');
+        if (target.accountId) sparkEvent('dm_sent', 'user', { targetAccountId: target.accountId });
+        queueSparkDM(target, key, id);
+    };
+    const retrySparkDM = (target: SparkDMTarget, id?: string) => {
+        if (!id || !apiConfig.apiKey) return;
+        if (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId)) return;
+        const key = dmKey(target);
+        if (!(dmThreadsRef.current[key] || []).some(m => m.id === id && m.delivery === 'failed')) return;
+        saveDMThreads(setSparkDMDelivery(dmThreadsRef.current, key, id, 'pending'));
+        queueSparkDM(target, key, id);
     };
     const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
@@ -295,7 +557,8 @@ const SocialApp: React.FC = () => {
             const old = previous[post.id];
             const now = evaluateSparkTraffic(post, counts[key] || 0, old);
             if (old && old.evaluatedLikes === now.evaluatedLikes && old.evaluatedComments === now.evaluatedComments && old.evaluatedSaves === now.evaluatedSaves) continue;
-            const difference = now.followersDelta - (old?.followersDelta || 0);
+            // Traffic estimates are informational; follower relations only change after named follow events.
+            const difference = 0;
             counts[key] = Math.max(0, (counts[key] || 0) + difference);
             changes[key] = (changes[key] || 0) + difference;
             next[post.id] = now;
@@ -346,10 +609,57 @@ const SocialApp: React.FC = () => {
     };
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
-    const searchMatches = (post: SocialPost) => !searchQuery.trim() || [post.title, post.content, post.authorName, ...(post.tags || [])].some(value => String(value || '').toLowerCase().includes(searchQuery.trim().toLowerCase()));
+    const [activeTopic, setActiveTopic] = useState<string | null>(null);
+    const matchingSparkAccounts = useMemo(() => {
+        const term = searchQuery.trim().toLocaleLowerCase();
+        if (!term) return [];
+        return communityState.accounts
+            .filter(account => account.id !== 'user' && !communityState.mutedAccountIds.includes(account.id) &&
+                [account.displayName, ...(account.aliases || [])].some(name => name.toLocaleLowerCase().includes(term)))
+            .slice(0, 8);
+    }, [searchQuery, communityState.accounts]);
+    const matchingSparkTopics = useMemo(() => {
+        const term = searchQuery.trim().toLocaleLowerCase();
+        if (!term) return [];
+        return [...new Set(feed.flatMap(post => post.tags || []).filter(tag => tag && tag.toLocaleLowerCase().includes(term)))].slice(0, 8);
+    }, [searchQuery, feed]);
     const [feedTab, setFeedTab] = useState<'discover' | 'following'>('discover');
-    const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string } | null>(null);
+    const [visibleLimit, setVisibleLimit] = useState(40);
+    const [viewedAccount, setViewedAccount] = useState<{ handle: string; avatar: string; accountId?: string } | null>(null);
+    const [accountVisibleLimit, setAccountVisibleLimit] = useState(60);
+    useEffect(() => { setAccountVisibleLimit(60); }, [viewedAccount?.accountId, viewedAccount?.handle]);
+    const isSparkMuted = (accountId?: string) => !!accountId && communityRef.current.mutedAccountIds.includes(accountId);
+    const getSparkPublicAuthorId = (name: string, charId?: string): string | undefined => {
+        if (charId) {
+            const handle = (characterHandles[charId] || []).find(item => item.handle === name);
+            if (handle) return 'character:' + charId + ':handle:' + handle.id;
+            return communityRef.current.accounts.find(a => a.ownerCharId === charId &&
+                (a.displayName === name || a.aliases.includes(name)))?.id;
+        }
+        return resolveSparkDMAccount(communityRef.current.accounts, name)?.id;
+    };
+    const toggleMuteSparkAccount = (handle: string, id?: string) => {
+        const account = resolveSparkDMAccount(communityRef.current.accounts, handle, id);
+        if (!account || account.type === 'user') { addToast('账号身份无法确定，不能屏蔽', 'error'); return; }
+        const muted = !isSparkMuted(account.id);
+        writeCommunity(setSparkAccountMuted(communityRef.current, account.id, 'user', muted, Date.now(),
+            'mute:' + account.id + ':' + Date.now()));
+        if (muted && dmTarget?.accountId === account.id) setDmTarget(null);
+        addToast(muted ? '已屏蔽账号，历史私信仍保留' : '已解除屏蔽', 'info');
+    };
     const [namingCharId, setNamingCharId] = useState<string | null>(null);
+    const [hiddenPostIds, setHiddenPostIds] = useState<string[]>(() => {
+        try { const saved = JSON.parse(localStorage.getItem('spark_hidden_posts') || '[]'); return Array.isArray(saved) ? saved.filter((v): v is string => typeof v === 'string') : []; } catch { return []; }
+    });
+    const hidePost = (postId: string) => {
+        setHiddenPostIds(prev => {
+            const next = prev.includes(postId) ? prev : [...prev, postId];
+            localStorage.setItem('spark_hidden_posts', JSON.stringify(next));
+            return next;
+        });
+        setSelectedPost(current => current?.id === postId ? null : current);
+        addToast('已隐藏这篇笔记，可在设置中恢复', 'info');
+    };
     const [followedHandles, setFollowedHandles] = useState<string[]>(() => {
         try {
             const saved = JSON.parse(localStorage.getItem('spark_followed_handles') || '[]');
@@ -357,48 +667,100 @@ const SocialApp: React.FC = () => {
         } catch { return []; }
     });
     // Modes: 'home' (Feed) | 'me' (Profile) | 'create' (Modal Overlay)
-    const [activeTab, setActiveTab] = useState<'home' | 'me' | 'market' | 'messages'>('home');
+    const [activeTab, setActiveTab] = useState<'home' | 'me' | 'messages'>('home');
     useAppShortcut(ShortcutAppID.Social, intent => { setSelectedPost(null); setIsCreateOpen(false); setShowSettings(false); setActiveTab(intent.entryId === 'me' ? 'me' : 'home'); });
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
+    const publishingRef = useRef(false);
     const [showUtilityShelf, setShowUtilityShelf] = useState(false);
     const [showCharPosting, setShowCharPosting] = useState(false);
-    const [postingCharIds, setPostingCharIds] = useState<string[]>([]);
+    const [postingCharIds, setPostingCharIds] = useState<string[]>(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('spark_posting_char_ids') || '[]');
+            return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : [];
+        } catch { return []; }
+    });
+    useEffect(() => {
+        try { localStorage.setItem('spark_posting_char_ids', JSON.stringify(postingCharIds)); }
+        catch (error) { console.warn('Spark participating characters could not be saved', error); }
+    }, [postingCharIds]);
     const [autoIdentity, setAutoIdentity] = useState(true);
     const [naturalComments, setNaturalComments] = useState(true);
     const [isCharPosting, setIsCharPosting] = useState(false); 
     
     const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isAutonomyBusy, setIsAutonomyBusy] = useState(false);
     const feedScrollRef = useRef<HTMLDivElement>(null);
     const pullStartY = useRef<number | null>(null);
+    const pullStartX = useRef<number | null>(null);
     const [pullDistance, setPullDistance] = useState(0);
     const pullDistanceRef = useRef(0);
     const onFeedTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-        if (activeTab !== 'home' || isRefreshing || (feedScrollRef.current?.scrollTop || 0) > 0) { pullStartY.current = null; return; }
+        if (activeTab !== 'home' || isRefreshing || (feedScrollRef.current?.scrollTop || 0) > 0) {
+            pullStartY.current = null;
+            pullStartX.current = null;
+            return;
+        }
         pullStartY.current = e.touches[0]?.clientY ?? null;
+        pullStartX.current = e.touches[0]?.clientX ?? null;
     };
     const onFeedTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
         if (pullStartY.current === null || activeTab !== 'home' || (feedScrollRef.current?.scrollTop || 0) > 0) return;
-        const delta = Math.max(0, Math.min(100, ((e.touches[0]?.clientY ?? pullStartY.current) - pullStartY.current) * 0.45));
+        const deltaX = Math.abs((e.touches[0]?.clientX ?? pullStartX.current ?? 0) - (pullStartX.current ?? 0));
+        const deltaY = (e.touches[0]?.clientY ?? pullStartY.current) - pullStartY.current;
+        // Horizontal image/carousel swipes must not trigger a paid feed refresh.
+        if (deltaX > 12 && deltaX > Math.abs(deltaY)) {
+            pullStartY.current = null;
+            pullStartX.current = null;
+            pullDistanceRef.current = 0;
+            setPullDistance(0);
+            return;
+        }
+        const delta = Math.max(0, Math.min(100, deltaY * 0.45));
         pullDistanceRef.current = delta;
         setPullDistance(delta);
     };
     const onFeedTouchEnd = () => {
         const shouldRefresh = pullStartY.current !== null && pullDistanceRef.current >= 65;
         pullStartY.current = null;
+        pullStartX.current = null;
         pullDistanceRef.current = 0;
         setPullDistance(0);
         if (shouldRefresh && !isRefreshing) void handleRefresh();
     };
     const [loadingComments, setLoadingComments] = useState(false);
+    const [commentVisibleLimit, setCommentVisibleLimit] = useState(80);
     
     // Post Creation State
-    const [newPostTitle, setNewPostTitle] = useState('');
-    const [newPostContent, setNewPostContent] = useState('');
-    const [newPostEmoji, setNewPostEmoji] = useState('2728');
+    const readDraft = (): Record<string, string> => {
+        try {
+            const raw = JSON.parse(localStorage.getItem('spark_post_draft') || '{}');
+            return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        } catch { return {}; }
+    };
+    const [newPostTitle, setNewPostTitle] = useState(() => readDraft().title || '');
+    const [newPostContent, setNewPostContent] = useState(() => readDraft().content || '');
+    const [newPostTags, setNewPostTags] = useState(() => readDraft().tags || '');
+    const [newPostEmoji, setNewPostEmoji] = useState(() => readDraft().emoji || '2728');
     const [stockImages, setStockImages] = useState<XhsStockImage[]>([]);
-    const [selectedStockUrl, setSelectedStockUrl] = useState('');
-    const [localPostImage, setLocalPostImage] = useState('');
+    const [selectedStockUrl, setSelectedStockUrl] = useState(() => readDraft().stockUrl || '');
+    const [localPostImage, setLocalPostImage] = useState(() => readDraft().localImage || '');
+    useEffect(() => {
+        try {
+            if (newPostTitle || newPostContent || newPostTags || selectedStockUrl || localPostImage) {
+                localStorage.setItem('spark_post_draft', JSON.stringify({
+                    title: newPostTitle, content: newPostContent, tags: newPostTags, emoji: newPostEmoji,
+                    stockUrl: selectedStockUrl, localImage: localPostImage,
+                }));
+            } else localStorage.removeItem('spark_post_draft');
+        } catch (error) { console.warn('Spark draft backup failed', error); }
+    }, [newPostTitle, newPostContent, newPostTags, newPostEmoji, selectedStockUrl, localPostImage]);
+    const closeCreatePost = () => {
+        if ((newPostTitle.trim() || newPostContent.trim() || newPostTags.trim() || selectedStockUrl || localPostImage) &&
+            !window.confirm('保存当前草稿并退出发布？下次打开可以继续编辑。')) return;
+        setIsCreateOpen(false);
+    };
     const [showCommentStickers, setShowCommentStickers] = useState(false);
     const handleLocalPostPhoto = async (file?: File) => {
         if (!file) return;
@@ -438,6 +800,7 @@ const SocialApp: React.FC = () => {
     };
         // Comment Input State
     const [commentInput, setCommentInput] = useState('');
+    const [replyTarget, setReplyTarget] = useState<SocialComment | null>(null);
     const [isReplyingToUser, setIsReplyingToUser] = useState(false);
 
     // Settings / Handle Management
@@ -450,7 +813,20 @@ const SocialApp: React.FC = () => {
         localStorage.setItem('spark_worldbook_ids', JSON.stringify(next));
         return next;
     });
-    const [characterHandles, setCharacterHandles] = useState<Record<string, SubAccount[]>>({});
+    const [characterHandles, setCharacterHandles] = useState<Record<string, SubAccount[]>>(() => {
+        let saved: Record<string, SubAccount[]> = {};
+        try {
+            const raw = JSON.parse(localStorage.getItem('spark_char_handles') || '{}');
+            if (raw && typeof raw === 'object' && !Array.isArray(raw)) saved = raw;
+        } catch { /* Preserve generated defaults if legacy storage is malformed. */ }
+        const normalized = { ...saved };
+        for (const char of characters) {
+            if (!Array.isArray(normalized[char.id]) || normalized[char.id].length === 0) {
+                normalized[char.id] = [{ id: 'default', handle: char.socialProfile?.handle || char.name, note: '主账号' }];
+            }
+        }
+        return normalized;
+    });
     const [identityGroupId, setIdentityGroupId] = useState(GROUP_FILTER_ALL); // 身份管理弹窗的角色分组筛选
 
     // Sharing State
@@ -459,6 +835,8 @@ const SocialApp: React.FC = () => {
 
     // Profile Sub-tab
     const [profileTab, setProfileTab] = useState<'notes' | 'collects'>('notes');
+    const [profileVisibleLimit, setProfileVisibleLimit] = useState(60);
+    useEffect(() => { setProfileVisibleLimit(60); }, [profileTab]);
 
     // User Custom Profile State (Local - Decoupled from Global UserProfile)
     const [socialProfile, setSocialProfile] = useState<SocialAppProfile>({
@@ -466,6 +844,9 @@ const SocialApp: React.FC = () => {
         avatar: userProfile.avatar,
         bio: '这个人很懒，什么都没写。'
     });
+    const visibleFeed = useMemo(() => rankSparkFeed(feed, communityState, {
+        mode: feedTab, query: searchQuery, topic: activeTopic, userDisplayName: socialProfile.name,
+    }), [feed, communityState, feedTab, searchQuery, activeTopic, socialProfile.name]);
     const [userSparkId, setUserSparkId] = useState('95279527');
     const [userBgImage, setUserBgImage] = useState('');
     const [isEditingId, setIsEditingId] = useState(false);
@@ -480,34 +861,82 @@ const SocialApp: React.FC = () => {
     const feedRef = useRef<SocialPost[]>([]);
     const mountedRef = useRef(true);
     const refreshRequestRef = useRef<AbortController | null>(null);
+    const autonomyRequestRef = useRef<AbortController | null>(null);
     const commentRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
+    const commentOpenTimerRef = useRef<number | null>(null);
+    const lastOpenedPostIdRef = useRef<string | null>(null);
     const replyRequestRef = useRef<{ postId: string; controller: AbortController } | null>(null);
+    const replyQueueRef = useRef<{ post: SocialPost; content: string; parentCommentId: string }[]>([]);
+    const replyBatchTimerRef = useRef<number | null>(null);
+    const lastCommentSubmitRef = useRef<{ postId: string; content: string; at: number } | null>(null);
+    const feedLoadGenerationRef = useRef(0);
+    const clearingFeedRef = useRef(false);
+    const deletedPostIdsRef = useRef<Set<string>>(new Set());
+    const postPersistenceRef = useRef<Promise<void>>(Promise.resolve());
+    const autonomyTickRef = useRef<() => Promise<void>>(async () => {});
+    const persistPostMutation = (write: () => Promise<unknown>): Promise<void> => {
+        const running = postPersistenceRef.current.then(async () => { await write(); });
+        // An individual write can fail, but must not permanently block later edits.
+        postPersistenceRef.current = running.catch(error => console.error('Spark post persistence failed', error));
+        return running;
+    };
 
     useEffect(() => {
         mountedRef.current = true;
         return () => {
             mountedRef.current = false;
             refreshRequestRef.current?.abort();
+            autonomyRequestRef.current?.abort();
             commentRequestRef.current?.controller.abort();
+            if (commentOpenTimerRef.current !== null) window.clearTimeout(commentOpenTimerRef.current);
+            commentOpenTimerRef.current = null;
+            lastOpenedPostIdRef.current = null;
             replyRequestRef.current?.controller.abort();
             refreshRequestRef.current = null;
             commentRequestRef.current = null;
             replyRequestRef.current = null;
+            replyQueueRef.current = [];
+            if (replyBatchTimerRef.current !== null) window.clearTimeout(replyBatchTimerRef.current);
+            replyBatchTimerRef.current = null;
+            dmRequestRef.current?.abort();
+            dmRequestRef.current = null;
+            if (dmBatchTimerRef.current !== null) window.clearTimeout(dmBatchTimerRef.current);
+            dmBatchTimerRef.current = null;
+            dmQueueRef.current = [];
         };
     }, []);
 
     useEffect(() => {
+        const generation = feedLoadGenerationRef.current;
         DB.getSocialPosts().then(posts => {
+            if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
             if (posts.length > 0) {
-                const sorted = posts.sort((a,b) => b.timestamp - a.timestamp);
+                const sorted = registerSparkPosts([...posts].sort((a,b) => b.timestamp - a.timestamp));
+                // Preserve prior follows stored by handle while migrating to account IDs.
+                let migrated = communityRef.current;
+                try {
+                    const legacy = JSON.parse(localStorage.getItem('spark_followed_handles') || '[]');
+                    if (Array.isArray(legacy)) for (const handle of legacy) {
+                        if (typeof handle !== 'string') continue;
+                        const candidates = migrated.accounts.filter(a => a.type !== 'user' &&
+                            (a.displayName === handle || a.aliases.includes(handle)));
+                        // Never attribute an old name-only follow to the first of two same-name accounts.
+                        if (candidates.length !== 1) continue;
+                        const account = candidates[0];
+                        if (!migrated.follows.some(item => item.followerId === 'user' && item.followedId === account.id)) {
+                            migrated = toggleSparkFollow(migrated, 'user', account.id, Date.now(), 'migrate-follow-' + account.id).state;
+                        }
+                    }
+                } catch { /* Invalid legacy follow list is safely ignored. */ }
+                if (migrated !== communityRef.current) writeCommunity(migrated);
                 // IndexedDB can be slow on mobile. If the user already created
                 // something while this read was pending, keep that live version.
                 const liveIds = new Set(feedRef.current.map(post => post.id));
-                const next = [...feedRef.current, ...sorted.filter(post => !liveIds.has(post.id))];
+                const next = [...feedRef.current, ...sorted.filter(post => !liveIds.has(post.id) && !deletedPostIdsRef.current.has(post.id))];
                 feedRef.current = next;
                 setFeed(next);
             }
-        });
+        }).catch(error => { if (mountedRef.current) addToast('读取 Spark 历史帖子失败：' + (error?.message || error), 'error'); });
         
         // Load User Config & Social Profile from DB assets and LocalStorage (hybrid migration)
         const loadAssets = async () => {
@@ -556,24 +985,18 @@ const SocialApp: React.FC = () => {
         };
         loadAssets();
 
-        // Load Handles
-        const savedHandles = localStorage.getItem('spark_char_handles');
-        let initialHandles: Record<string, SubAccount[]> = {};
-        if (savedHandles) {
-            try { initialHandles = JSON.parse(savedHandles); } catch(e) {}
-        }
-        
-        // Ensure every character has at least one default handle
-        characters.forEach(c => {
-            if (!initialHandles[c.id] || initialHandles[c.id].length === 0) {
-                initialHandles[c.id] = [{ 
-                    id: 'default', 
-                    handle: c.socialProfile?.handle || c.name, 
-                    note: '主账号' 
-                }];
+        // Add defaults for newly loaded characters, never overwrite live edits or newly generated alts.
+        setCharacterHandles(current => {
+            const updated = { ...current };
+            let changed = false;
+            for (const char of characters) {
+                if (!Array.isArray(updated[char.id]) || updated[char.id].length === 0) {
+                    updated[char.id] = [{ id: 'default', handle: char.socialProfile?.handle || char.name, note: '主账号' }];
+                    changed = true;
+                }
             }
+            return changed ? updated : current;
         });
-        setCharacterHandles(initialHandles);
 
     }, [characters.length]);
 
@@ -618,7 +1041,8 @@ const SocialApp: React.FC = () => {
             const prompt = `请严格根据角色核心人设、社会身份、爱好和公开形象，给角色「${char.name}」设计真实社交平台网名。大号不一定是本名；小号要体现不同使用目的，但不能泄露私密身份。已有账号：${JSON.stringify(accounts)}。只输出 JSON 数组，每项 {"id":"已有账号id","handle":"独特网名"}，每个账号一项，不能重复、不能与用户网名相同。`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.8 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt),
+                    temperature: 0.8, max_tokens: Math.min(1000, 200 + accounts.length * 115) }),
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '角色自拟账号昵称' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
@@ -707,55 +1131,199 @@ const SocialApp: React.FC = () => {
         addToast('主页资料已保存 (仅在 Spark 生效)', 'success');
     };
 
-    const prependPostsToFeed = (newPosts: SocialPost[]) => {
-        const next = prependUniqueSocialPosts(feedRef.current, newPosts);
+    const prependPostsToFeed = (newPosts: SocialPost[], persist = true) => {
+        const registered = registerSparkPosts(newPosts);
+        const existingIds = new Set(feedRef.current.map(post => post.id));
+        const fresh = registered.filter(post => !existingIds.has(post.id));
+        const next = prependUniqueSocialPosts(feedRef.current, fresh);
         feedRef.current = next;
         setFeed(next);
-        applyTraffic(newPosts);
-        // Only persist the new batch. Re-saving the request's stale feed snapshot
-        // could erase comments or user posts that arrived while it was running.
-        Promise.all(newPosts.map(p => DB.saveSocialPost(p))).catch(console.error);
+        applyTraffic(fresh);
+        if (fresh.length) {
+            let community = communityRef.current;
+            for (const post of fresh) {
+                community = appendSparkEvent(community, {
+                    id: 'post-created:' + post.id, type: 'post_created',
+                    actorAccountId: post.authorId || 'user', postId: post.id, createdAt: post.timestamp,
+                });
+            }
+            writeCommunity(community);
+        }
+        if (persist) {
+            void Promise.all(fresh.map(p => persistPostMutation(() => DB.saveSocialPost(p))))
+                .catch(error => addToast('Spark 笔记保存失败，请勿关闭应用：' + (error?.message || error), 'error'));
+        }
     };
 
     const updatePostInFeed = (postId: string, updater: (post: SocialPost) => SocialPost): SocialPost | undefined => {
+        const before = feedRef.current.find(post => post.id === postId);
         const result = updateSocialPost(feedRef.current, postId, updater);
         if (!result.post) return undefined;
-        feedRef.current = result.feed;
-        setFeed(result.feed);
-        setSelectedPost(current => (current?.id === postId ? result.post! : current));
-        DB.saveSocialPost(result.post).catch(console.error);
-        applyTraffic([result.post]);
-        return result.post;
+        const updated = registerSparkPosts([result.post])[0];
+        const next = result.feed.map(post => post.id === postId ? updated : post);
+        feedRef.current = next;
+        setFeed(next);
+        setSelectedPost(current => current?.id === postId ? updated : current);
+        void persistPostMutation(() => DB.saveSocialPost(updated))
+            .catch(error => addToast('Spark 修改保存失败，请重试：' + (error?.message || error), 'error'));
+        applyTraffic([updated]);
+        if (before) {
+            let community = communityRef.current;
+            const oldIds = new Set((before.comments || []).map(comment => comment.id));
+            const priorComments = new Map((before.comments || []).map(comment => [comment.id, comment]));
+            for (const comment of updated.comments) {
+                if (!oldIds.has(comment.id)) {
+                    community = appendSparkEvent(community, {
+                        id: 'comment-created:' + comment.id, type: 'comment_created',
+                        actorAccountId: comment.authorId || 'user', targetAccountId: updated.authorId,
+                        postId, commentId: comment.id, createdAt: comment.timestamp || Date.now(),
+                    });
+                } else if (!!priorComments.get(comment.id)?.isLiked !== !!comment.isLiked) {
+                    community = appendSparkEvent(community, {
+                        id: 'comment-like:' + comment.id + ':' + Date.now() + ':' + Math.random(),
+                        type: comment.isLiked ? 'comment_liked' : 'comment_unliked',
+                        actorAccountId: 'user', targetAccountId: comment.authorId,
+                        postId, commentId: comment.id, createdAt: Date.now(),
+                    });
+                }
+            }
+            if (before.isLiked !== updated.isLiked) {
+                community = appendSparkEvent(community, {
+                    id: 'post-like:' + postId + ':' + Date.now(), type: updated.isLiked ? 'post_liked' : 'post_unliked',
+                    actorAccountId: 'user', targetAccountId: updated.authorId, postId, createdAt: Date.now(),
+                });
+            }
+            if (before.isCollected !== updated.isCollected) {
+                community = appendSparkEvent(community, {
+                    id: 'post-save:' + postId + ':' + Date.now(), type: updated.isCollected ? 'post_collected' : 'post_uncollected',
+                    actorAccountId: 'user', targetAccountId: updated.authorId, postId, createdAt: Date.now(),
+                });
+            }
+            if (community !== communityRef.current) writeCommunity(community);
+        }
+        return updated;
     };
 
-    const removePostFromFeed = (postId: string) => {
+    const removePostFromFeed = async (postId: string): Promise<void> => {
+        // Only remove UI and notices after persistence succeeds, so a failed delete is recoverable.
+        await persistPostMutation(() => DB.deleteSocialPost(postId));
+        deletedPostIdsRef.current.add(postId);
         const next = feedRef.current.filter(p => p.id !== postId);
         feedRef.current = next;
         setFeed(next);
-        DB.deleteSocialPost(postId);
-        setSelectedPost(current => (current?.id === postId ? null : current));
+        setSelectedPost(current => current?.id === postId ? null : current);
+        setNotices(prev => {
+            const remaining = prev.filter(item => item.postId !== postId);
+            localStorage.setItem('spark_notifications', JSON.stringify(remaining));
+            return remaining;
+        });
+        sparkEvent('post_deleted', 'user', { postId });
     };
 
     // --- AI Logic (Updated for Multi-Handle) ---
+    const privateChatSnippetsRef = useRef<string[]>([]);
+    const publicTextLeaksPrivateChat = (text: string) =>
+        containsSparkPrivateQuote(text, privateChatSnippetsRef.current);
     const buildGenerationContext = async (participants: CharacterProfile[]) => {
+        if (participants.length > 1) {
+            // The shared public request cannot use private chats/worldbooks anyway.
+            // Avoid loading or retaining other characters' private data for the batch.
+            return buildSparkGenerationContext(participants, userProfile, socialProfile,
+                characterHandles, {}, {});
+        }
         const recent = await Promise.all(participants.map(async char =>
             [char.id, await loadCharacterContextMessages(char)] as const));
+        const fragments = recent.flatMap(([, messages]) => messages
+            .map(message => typeof message.content === 'string' ? message.content.slice(0, 1600) : '')
+            .filter(Boolean));
+        privateChatSnippetsRef.current = [...new Set([...privateChatSnippetsRef.current, ...fragments])].slice(-300);
         return buildSparkGenerationContext(participants.map(char => ({ ...char, mountedWorldbooks: worldbooks.filter(wb => sparkWorldbookIds.includes(wb.id) && !wb.disable).map(wb => ({ ...wb })) })), userProfile, socialProfile, characterHandles, Object.fromEntries(recent), sparkMemoriesRef.current);
     };
 
-    const buildGenerationMessages = (members: CharacterProfile[], context: string, prompt: string) => {
-        const history = [{ role: 'user', content: prompt }];
-        return ContextBuilder.buildGroupWorldbookRequest({ members, user: userProfile, history,
-            render: (slots, turns) => [{ role: 'system', content: slots.before + context + slots.after }, ...turns],
-        });
-    };
+    const buildGenerationMessages = (members: CharacterProfile[], context: string, prompt: string) =>
+        buildSparkGenerationRequestMessages(members, userProfile, context, prompt);
 
-    const toggleFollow = (handle: string) => {
+    const isFollowing = (handle: string, id?: string): boolean => {
+        const account = resolveSparkDMAccount(communityState.accounts, handle, id);
+        if (account) return communityState.follows.some(follow => follow.followerId === 'user' && follow.followedId === account.id);
+        const sameNames = communityState.accounts.filter(candidate => candidate.type !== 'user' &&
+            (candidate.displayName === handle || candidate.aliases.includes(handle)));
+        return sameNames.length === 0 && followedHandles.includes(handle);
+    };
+    const toggleFollow = (handle: string, id?: string) => {
+        const post = feedRef.current.find(item => id ? item.authorId === id : item.authorName === handle);
+        const existing = resolveSparkDMAccount(communityRef.current.accounts, handle, id);
+        if (!existing && communityRef.current.accounts.filter(account =>
+            account.type !== 'user' && (account.displayName === handle || account.aliases.includes(handle))).length > 1) {
+            addToast('有同名账号，请从对应笔记打开作者主页', 'error');
+            return;
+        }
+        const candidateType: SparkAccountType = existing?.type || post?.authorType || 'stranger';
+        const result = ensureSparkAccount(communityRef.current, {
+            type: candidateType, id: existing?.id || post?.authorId, displayName: handle,
+            ownerCharId: existing?.ownerCharId || post?.authorCharId,
+            handleId: existing?.handleId, avatar: existing?.avatar || post?.authorAvatar,
+        }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+        if (result.account.id === 'user') return;
+        const follow = toggleSparkFollow(result.state, 'user', result.account.id, Date.now(), 'follow-' + Date.now() + '-' + Math.random());
+        writeCommunity(follow.state);
         setFollowedHandles(prev => {
-            const next = prev.includes(handle) ? prev.filter(h => h !== handle) : [...prev, handle];
+            const next = follow.action === 'follow' ? [...new Set([...prev, handle])] : prev.filter(h => h !== handle);
             localStorage.setItem('spark_followed_handles', JSON.stringify(next));
             return next;
         });
+    };
+
+    // Share one validated post-persistence path across characters in a low-cost batch.
+    const persistBatchedCharacterPost = (char: CharacterProfile, result: any): boolean => {
+        if (!result || typeof result.content !== 'string' || !result.content.trim()) return false;
+        if (publicTextLeaksPrivateChat(String(result.title || '') + result.content)) return false;
+        const accounts = characterHandles[char.id] || [];
+        const requestedName = String(result.authorName || '').trim().slice(0, 30);
+        const main = accounts.find(a => a.id === 'default' || a.note === '主账号');
+        const matching = accounts.find(a => a.handle === requestedName);
+        const isAlt = result.accountType === 'alt';
+        const name = matching?.handle || (!isAlt ? (main?.handle || char.socialProfile?.handle || char.name)
+            : (requestedName || char.name + '的日常'));
+        if (!name || name === socialProfile.name || name === userProfile.name) return false;
+        if (characters.some(other => other.id !== char.id &&
+            (characterHandles[other.id] || []).some(handle => handle.handle === name))) return false;
+        const id = matching?.id || (!isAlt ? main?.id || 'default' :
+            'ai-alt-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+        if (isAlt && !matching) setCharacterHandles(prev => {
+            const existing = prev[char.id] || [];
+            if (existing.some(h => h.handle === name)) return prev;
+            return { ...prev, [char.id]: [...existing, { id, handle: name, note: 'AI 自建马甲' }] };
+        });
+        const preparedComments: SocialComment[] = (Array.isArray(result.comments) ? result.comments : [])
+            .slice(0, 2).flatMap((draft: any): SocialComment[] => {
+                if (!draft || typeof draft.content !== 'string' || !draft.content.trim()) return [];
+                const stranger = resolveSparkAuthor({
+                    authorName: draft.authorName, charId: null, isCharacter: false,
+                }, [], characters, characterHandles, [socialProfile.name, userProfile.name]);
+                if (!stranger || stranger.character || publicTextLeaksPrivateChat(draft.content)) return [];
+                return [{
+                    id: 'char-prefilled-comment-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                    authorName: stranger.name,
+                    authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(stranger.name),
+                    content: draft.content.trim().slice(0, 400),
+                    likes: 0, authorType: 'stranger', isCharacter: false, timestamp: Date.now(),
+                }];
+            });
+        const post: SocialPost = {
+            id: 'char-post-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+            authorName: name, authorAvatar: getSparkAuthorAvatar(char, name, characterHandles, id),
+            title: String(result.title || '随手记录').slice(0, 100),
+            content: result.content.trim().slice(0, 2500),
+            images: [pickStock(String(result.title || ''), result.content) || '✨'],
+            likes: 0, isCollected: false, isLiked: false, comments: uniqueGeneratedSocialComments([], preparedComments),
+            sparkInitialCommentsHandled: true, timestamp: Date.now(),
+            tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
+            authorId: 'character:' + char.id + ':handle:' + id, source: 'ai',
+        };
+        prependPostsToFeed([post]);
+        remember(char.id, post, '自己发布了笔记：' + post.content);
+        return true;
     };
 
     const handleCharPost = async () => {
@@ -764,57 +1332,120 @@ const SocialApp: React.FC = () => {
         if (!apiConfig.apiKey) { addToast('请配置 API Key', 'error'); return; }
         if (isCharPosting) return;
         setIsCharPosting(true);
+        const generation = feedLoadGenerationRef.current;
         try {
+            if (selected.length > 1) {
+                // Up to eight characters per provider request, versus one call per character.
+                // Use PUBLIC profiles and posts; never co-locate multiple private personas.
+                let created = 0;
+                for (const group of planSparkCharacterBatches(selected)) {
+                    if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
+                    const profiles = group.map(char => ({
+                        charId: char.id,
+                        name: char.name,
+                        handles: (characterHandles[char.id] || []).map(a => a.handle),
+                        publicBio: char.socialProfile?.bio || '',
+                        publicWriting: feedRef.current.filter(p => p.authorCharId === char.id).slice(0, 2)
+                            .map(p => ({ account: p.authorName, example: p.content.slice(0, 120) })),
+                    }));
+                    const context = '公开资料，用于一次生成多个相互独立的虚拟社交作者。任何私聊、私有世界书及隐藏真实身份不可见：\n'
+                        + JSON.stringify(profiles);
+                    const prompt = '为上列已选择的 ' + group.length + ' 个 charId 各生成至多一条 Spark 笔记。'
+                        + '可以保持沉默，但不能冒用其他 charId、用户账号或别人的网名。'
+                        + '作者的网名优先复用自己的公开账号，也可以在合理动机下使用新的匿名马甲。'
+                        + '帖子内容自然有个性，严格按各人公开资料与近期公开作品风格，不造假人气，不泄露私密信息。'
+                        + '每篇帖子可以附带 0-2 位虚拟陌生网友的简短真实评论，不能冒充角色或用户，不必强行制造互动。'
+                        + '只输出一个 JSON 数组：[{"charId":"上方真实ID","accountType":"main或alt",'
+                        + '"authorName":"自己的公开网名","title":"标题","content":"正文",'
+                        + '"comments":[{"authorName":"不冒充角色的网友昵称","content":"与正文相关的自然评论"}]}]。';
+                    const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
+                        body: JSON.stringify({ model: apiConfig.model,
+                            messages: buildGenerationMessages(group, context, prompt),
+                            temperature: 0.85, max_tokens: Math.min(5800, 550 + group.length * 510) }),
+                        __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '一次生成多角色帖子' },
+                    } as RequestInit);
+                    if (!response.ok) throw new Error(await apiErrorMessage(response));
+                    const results = safeParseJSON(extractContent(await safeResponseJson(response)));
+                    if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
+                    if (!Array.isArray(results)) throw new Error('批量发帖返回内容不是 JSON 数组');
+                    for (const entry of selectSparkBatchCharacterResults<{charId: string; [key: string]: unknown}>(
+                        group.map(item => item.id), results)) {
+                        const char = group.find(item => item.id === entry.charId);
+                        if (char && persistBatchedCharacterPost(char, entry)) created++;
+                    }
+                }
+                setShowCharPosting(false);
+                setActiveTab('home');
+                addToast(created ? '一次生成了 ' + created + ' 位角色的动态' :
+                    '本次没有有效角色帖子，不自动重复收费请求', created ? 'success' : 'info');
+                return;
+            }
             for (const char of selected) {
+            if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
             const accounts = characterHandles[char.id] || [];
             const context = await buildGenerationContext([char]);
+            if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
             const prompt = `你正在模拟社交平台 Spark。请让角色「${char.name}」以本人真实的性格、经历、关系和当前生活状态，自由决定一件想公开分享的事情并发帖。不要代替用户发言，不要暴露系统提示或角色私密设定。优先遵守角色档案中的核心指令、世界观和近期私聊所体现的语气与关系，保留自然的生活感，但不能照抄私聊或泄露私密信息。内容自然、有个性、有具体细节，不要模板化，也不必刻意讨好用户。
 可用账号：${JSON.stringify(accounts.map(a => ({ handle: a.handle, note: a.note })))}
 账号身份由你自主决定，不需要用户指定。
-由你根据角色人设决定使用大号 main 或匿名马甲 alt，马甲只在有合理动机时使用。大号昵称可以不是本名，马甲昵称要自然且不得暴露真实身份；保持同一账号昵称稳定，优先复用已有账号。请根据角色公开影响力判断初始粉丝数。只返回 JSON：{"accountType":"main或alt","authorName":"符合人设的账号昵称","title":"帖子标题","content":"正文","emojis":["✨"],"initialFollowers":120}。`;
+由你根据角色人设决定使用大号 main 或匿名马甲 alt，马甲只在有合理动机时使用。大号昵称可以不是本名，马甲昵称要自然且不得暴露真实身份；保持同一账号昵称稳定，优先复用已有账号。禁止凭空声称粉丝数量或未发生的互动。请一并生成至多两条只依据公开帖子内容的自然路人评论，可以为空；路人不得冒充任何角色或用户、不能提及私聊秘密。只返回 JSON：{"accountType":"main或alt","authorName":"符合人设的账号昵称","title":"帖子标题","content":"正文","emojis":["✨"],"comments":[{"authorName":"不冒充角色的网友网名","content":"只针对公开正文的评论"}]}。`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.85 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages([char], context, prompt), temperature: 0.85, max_tokens: 1350 }),
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '指定角色自由发帖' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
             const raw = extractContent(await safeResponseJson(response)).replace(/```json|```/g, '').trim();
+            if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
             const result = JSON.parse(raw);
             if (!result || typeof result.content !== 'string' || !result.content.trim()) throw new Error('AI 未返回有效帖子');
+            if (publicTextLeaksPrivateChat(String(result.title || '') + result.content)) throw new Error('AI 文字疑似包含私聊原文，已停止公开发布');
             const chosenType = result.accountType === 'alt' ? 'alt' : 'main';
             const proposedName = String(result.authorName || '').trim().slice(0, 30);
             const defaultName = char.socialProfile?.handle || char.name;
             const existing = accounts.find(a => a.handle === proposedName);
             const main = accounts.find(a => a.id === 'default' || a.note === '主账号');
             const chosenName = existing?.handle || (chosenType === 'main' ? (main?.handle || proposedName || defaultName) : (proposedName || char.name + '的日常'));
-            if (!existing && proposedName) {
+            const chosenHandleId = existing?.id || (chosenType === 'main' ? (main?.id || 'default') : 'ai-alt-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+            if (!existing && chosenType === 'alt') {
                 setCharacterHandles(prev => {
                     const current = prev[char.id] || [];
                     if (current.some(a => a.handle === chosenName)) return prev;
-                    return { ...prev, [char.id]: [...current, { id: chosenType === 'main' ? 'default' : 'ai-alt-' + Date.now(), handle: chosenName, note: chosenType === 'main' ? '主账号' : 'AI 自建马甲' }] };
+                    return { ...prev, [char.id]: [...current, { id: chosenHandleId, handle: chosenName, note: 'AI 自建马甲' }] };
                 });
             }
             const handle = { handle: chosenName };
+            const preparedComments: SocialComment[] = (Array.isArray(result.comments) ? result.comments : [])
+                .slice(0, 2).flatMap((draft: any): SocialComment[] => {
+                    if (!draft || typeof draft.content !== 'string' || !draft.content.trim() ||
+                        publicTextLeaksPrivateChat(draft.content)) return [];
+                    const speaker = resolveSparkAuthor({
+                        authorName: draft.authorName, charId: null, isCharacter: false,
+                    }, [], characters, characterHandles, [socialProfile.name, userProfile.name]);
+                    if (!speaker || speaker.character) return [];
+                    return [{
+                        id: 'single-char-prefill-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                        authorName: speaker.name,
+                        authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(speaker.name),
+                        content: draft.content.trim().slice(0, 400),
+                        likes: 0, authorType: 'stranger', isCharacter: false, timestamp: Date.now(),
+                    }];
+                });
             const post: SocialPost = {
                 id: `char-post-${Date.now()}-${Math.random()}`,
-                authorName: handle?.handle || char.name, authorAvatar: char.avatar,
+                authorName: handle?.handle || char.name, authorAvatar: getSparkAuthorAvatar(char, chosenName, characterHandles, chosenHandleId),
                 title: String(result.title || '随手记录').slice(0, 100),
                 content: result.content,
                 images: [pickStock(String(result.title || ''), result.content) || '✨'],
-                likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(),
+                likes: 0, isCollected: false, isLiked: false,
+                comments: uniqueGeneratedSocialComments([], preparedComments),
+                sparkInitialCommentsHandled: true, timestamp: Date.now(),
                 tags: ['日常'], bgStyle: getRandomStyle().bg, authorType: 'character', authorCharId: char.id,
+                authorId: 'character:' + char.id + ':handle:' + chosenHandleId, source: 'ai',
             };
-            if (fanCountsRef.current[fanKey(post)] === undefined && Number.isFinite(Number(result.initialFollowers))) {
-                const key = fanKey(post);
-                setFanCounts(prev => {
-                    if (prev[key] !== undefined) return prev;
-                    const next = { ...prev, [key]: Math.max(0, Math.min(100000000, Math.round(Number(result.initialFollowers)))) };
-                    localStorage.setItem('spark_fan_counts', JSON.stringify(next));
-                    fanCountsRef.current = next;
-                    return next;
-                });
-            }
             prependPostsToFeed([post]);
             remember(char.id, post, '自己发布了笔记：' + post.content);
             }
@@ -849,7 +1480,7 @@ const SocialApp: React.FC = () => {
             const interests = Object.entries(aged).filter(([, score]) => score > 0.5).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([topic, score]) => topic + '(' + Math.round(score) + ')').join('、');
             const prompt = `### 任务: 模拟社交APP "Spark" 的推荐流
 【隐形兴趣推荐】根据用户近期发帖、点赞、评论和点开阅读积累的兴趣权重，适当提高相关内容比例：${interests || '暂无明显偏好'}。例如经常看绘画就多推荐绘画，常互动帅哥内容就多推荐相关话题；保留约三分之一探索内容，不要所有帖子都同一主题，也不要向用户或角色揭露兴趣画像。
-你需要生成 6-8 条新的社交媒体帖子。
+你需要一次生成 6-8 条新的社交媒体帖子，并为每条附带 0-2 条自然评论。评论属于同一次请求的返回结果，不允许另外请求评论；可以没人评论，不能机械凑数。
 
 ### 🎭 内容构成 (混合模式)
 1. **角色发帖 (30%)**: 
@@ -875,14 +1506,16 @@ const SocialApp: React.FC = () => {
     "title": "简短吸睛的标题",
     "content": "正文内容...",
     "emojis": ["🎈", "✨"],
-    "likes": 随机数 (0 - 10000)
+    "comments": [
+      {"author": "仅真实网友或已授权角色的公开网名", "charId": "对应角色ID或null", "content": "与正文有关的简短评论"}
+    ]
   },
   ...
 ]`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8, max_tokens: 8000 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8, max_tokens: 4800 }),
                 signal: controller.signal,
                 __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '刷新推荐流' },
             } as RequestInit);
@@ -895,19 +1528,41 @@ const SocialApp: React.FC = () => {
             const newPosts: SocialPost[] = json
                 .flatMap((item: any) => {
                 const author = resolveSparkAuthor(item, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
-                if (!author || typeof item.content !== 'string' || !item.content.trim()) return [];
+                if (!author || typeof item.content !== 'string' || !item.content.trim() ||
+                    isSparkMuted(getSparkPublicAuthorId(author.name, author.character?.id)) ||
+                    publicTextLeaksPrivateChat(String(item.title || '') + item.content)) return [];
                 item = { ...item, authorName: author.name };
                 let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${item.authorName}`;
                 const matchedChar = author.character;
                 const avatarPool = stockImages.filter(img => img.category === 'avatar');
                 const stockAvatar = avatarPool.length ? avatarPool[Array.from(String(item.authorName)).reduce((n, c) => n + c.charCodeAt(0), 0) % avatarPool.length] : undefined;
-                if (matchedChar) avatar = matchedChar.avatar;
+                if (matchedChar) avatar = getSparkAuthorAvatar(matchedChar, item.authorName, characterHandles);
                 const isCharacterPost = !!matchedChar;
                 if (!isCharacterPost) {
-                    const seeds = ['micah', 'avataaars', 'bottts', 'notionists'];
-                    avatar = stockAvatar?.url || `https://api.dicebear.com/7.x/${seeds[Math.floor(Math.random() * seeds.length)]}/svg?seed=${item.authorName + Math.random()}`;
+                    avatar = stockAvatar?.url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(item.authorName)}`;
                 }
                 // Normalize emoji content. AI usually returns real emoji chars; fall back to a ✨ char (not codepoint) for safety.
+                // These comments come from the SAME refresh call. Seed them on
+                // the post now, so opening each note does not bill another AI call.
+                const prefilled = (Array.isArray(item.comments) ? item.comments : []).slice(0, 2)
+                    .flatMap((draft: any): SocialComment[] => {
+                        const speaker = resolveSparkAuthor(draft, selectedChars, characters,
+                            characterHandles, [socialProfile.name, userProfile.name]);
+                        if (!speaker || typeof draft.content !== 'string' || !draft.content.trim() ||
+                            publicTextLeaksPrivateChat(draft.content) ||
+                            isSparkMuted(getSparkPublicAuthorId(speaker.name, speaker.character?.id)) ||
+                            (speaker.character && matchedChar && speaker.character.id === matchedChar.id)) return [];
+                        return [{
+                            id: 'prefilled-comment-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                            authorName: speaker.name,
+                            authorAvatar: speaker.character
+                                ? getSparkAuthorAvatar(speaker.character, speaker.name, characterHandles)
+                                : 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(speaker.name),
+                            content: draft.content.trim().slice(0, 400),
+                            likes: 0, timestamp: Date.now(), authorType: speaker.character ? 'character' : 'stranger',
+                            isCharacter: !!speaker.character, authorCharId: speaker.character?.id,
+                        }];
+                    });
                 const rawEmojis = Array.isArray(item.emojis) && item.emojis.length > 0 ? item.emojis : ['✨'];
                 const images = [pickStock(String(item.title || ''), String(item.content || '')) || '✨'];
                 return [{
@@ -917,15 +1572,17 @@ const SocialApp: React.FC = () => {
                     title: typeof item.title === 'string' ? item.title : '无标题',
                     content: item.content || '...',
                     images,
-                    likes: item.likes || 0,
+                    likes: 0,
                     isCollected: false,
                     isLiked: false,
-                    comments: [],
+                    comments: uniqueGeneratedSocialComments([], prefilled),
+                    sparkInitialCommentsHandled: true,
                     timestamp: Date.now(),
                     tags: ['Life', 'Vlog'],
                     bgStyle: getRandomStyle().bg,
                     authorType: isCharacterPost ? 'character' as const : 'stranger' as const,
                     authorCharId: matchedChar?.id,
+                    source: 'ai' as const,
                 }];
             });
             if (!newPosts.length) throw new Error('模型返回的作者身份不匹配，未添加帖子');
@@ -942,11 +1599,212 @@ const SocialApp: React.FC = () => {
         }
     };
 
-    const generateComments = async (post: SocialPost) => {
+
+    // Opt-in and strictly metered: runs only while Spark is mounted, never in the background.
+    const runSparkAutonomyTick = async () => {
+        if (!mountedRef.current || !communityRef.current.autonomy.enabled || !apiConfig.apiKey) return;
+        // Never spend an autonomous call while an explicitly requested AI task is
+        // queued or running; the next eligible tick can batch community actions.
+        if (autonomyRequestRef.current || refreshRequestRef.current || commentRequestRef.current ||
+            replyRequestRef.current || dmProcessingRef.current || dmQueueRef.current.length ||
+            publishingRef.current || isCharPosting) return;
+        const reservation = reserveSparkTrafficRun(communityRef.current, Date.now());
+        if (!reservation.allowed) return;
+        // Reserve before the API call: even a timeout can consume the provider's quota.
+        writeCommunity(reservation.state);
+        const controller = new AbortController();
+        autonomyRequestRef.current = controller;
+        const generation = feedLoadGenerationRef.current;
+        setIsAutonomyBusy(true);
+        try {
+            const recentlyActive = new Set(feedRef.current.slice(0, 15).map(post => post.authorCharId).filter(Boolean));
+            const allowedChars = characters.filter(char => postingCharIds.includes(char.id));
+            const activeChars = allowedChars.filter(char => recentlyActive.has(char.id));
+            const participants = [...activeChars, ...allowedChars.filter(char => !recentlyActive.has(char.id))].slice(0, 2);
+            const context = participants.length ? await buildGenerationContext(participants) : '当前只有稳定的虚拟陌生网友参与 Spark 社区。';
+            if (controller.signal.aborted || !mountedRef.current || generation !== feedLoadGenerationRef.current) return;
+            const publicPosts = feedRef.current.filter(post =>
+                !communityRef.current.mutedAccountIds.includes(post.authorId || '') &&
+                !communityRef.current.hiddenPostIds.includes(post.id) &&
+                !hiddenPostIds.includes(post.id)
+            ).slice(0, 12).map(post => ({
+                id: post.id, title: post.title, content: post.content.slice(0, 280),
+                authorName: post.authorName, tags: post.tags,
+                comments: post.comments.slice(-3).map(comment => ({ id: comment.id, author: comment.authorName, content: comment.content.slice(0, 120) })),
+            }));
+            const publicAccounts = communityRef.current.accounts.filter(account => account.id !== 'user' &&
+                !communityRef.current.mutedAccountIds.includes(account.id))
+                .slice(-15).map(account => ({ id: account.id, handle: account.displayName, interests: account.interests }));
+            const existingFollows = communityRef.current.follows.slice(-20).map(f => ({ from: f.followerId, to: f.followedId }));
+            const visiblePostIds = new Set(feedRef.current.map(item => item.id));
+            const previousEvents = communityRef.current.events
+                .filter(event => !event.postId || visiblePostIds.has(event.postId))
+                .slice(-12)
+                .map(event => ({
+                    kind: event.type,
+                    actor: communityRef.current.accounts.find(a => a.id === event.actorAccountId)?.displayName || '未知网友',
+                    target: communityRef.current.accounts.find(a => a.id === event.targetAccountId)?.displayName || undefined,
+                    postId: event.postId, createdAt: event.createdAt,
+                }));
+            const prompt = [
+                '你安排 SullyOS 内 Spark 虚拟社区的少量自主活动；绝不能访问或控制真实小红书。',
+                '本轮最多返回 2 个有因果的社区事件，返回 [] 表示无人活动，可以沉默。kind 仅限 post、comment、like、follow、unfollow。',
+                'post: {kind:"post",authorName:"公开网名",charId:"角色ID或null",title:"标题",content:"正文",tags:["话题"]}',
+                'comment: {kind:"comment",postId:"已存在帖子ID",authorName:"公开网名",charId:"角色ID或null",content:"评论"}',
+                'like: {kind:"like",postId:"已存在帖子ID",authorName:"公开网名",charId:"角色ID或null"}',
+                'follow/unfollow: {kind:"follow",targetAccountId:"user或已列出的账号ID",authorName:"公开网名",charId:"角色ID或null"}，取关时 kind=unfollow；必须先有关注才能取关。',
+                '绝不虚构点赞、关注或活动目标；请结合公开帖子与角色喜好判断，不能每次都关注用户。',
+                '角色必须使用已配置的网名与角色 ID；普通网友可复用有历史的账号，不必围绕用户发言。',
+                '继续已有话题时请引用已有真实帖子 ID；没有因果线索则分享独立日常，不凭空捏造过去的社交事件。',
+                '绝不代替用户发言，不公开任何私聊内容、世界书秘密、后台账号归属或马甲真身；角色之间记忆不得串台。',
+                '只有包含 JSON 数组的回复才有效；不要虚构点赞数、粉丝数、浏览数。',
+                '当前真实帖子: ' + JSON.stringify(publicPosts),
+                '已知稳定账号: ' + JSON.stringify(publicAccounts),
+                '当前真实关注关系: ' + JSON.stringify(existingFollows),
+                '最近社区事件: ' + JSON.stringify(previousEvents),
+            ].join('\n');
+            const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
+                body: JSON.stringify({
+                    model: apiConfig.model,
+                    messages: buildGenerationMessages(participants, context, prompt),
+                    temperature: 0.75,
+                    max_tokens: 1900, // At most two small activity events; never allow unbounded output.
+                }),
+                signal: controller.signal,
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '用户开启的社区自主活动' },
+            } as RequestInit);
+            if (!response.ok) throw new Error(await apiErrorMessage(response));
+            const result = safeParseJSON(extractContent(await safeResponseJson(response)));
+            if (!Array.isArray(result)) throw new Error('社区活动返回格式无效');
+            let created = 0;
+            for (const item of result.slice(0, 2)) {
+                if (controller.signal.aborted || !mountedRef.current || generation !== feedLoadGenerationRef.current || !communityRef.current.autonomy.enabled) return;
+                if (!item || !['post', 'comment', 'like', 'follow', 'unfollow'].includes(item.kind)) continue;
+                const needsContent = item.kind === 'post' || item.kind === 'comment';
+                if (needsContent && typeof item.content !== 'string') continue;
+                const content = typeof item.content === 'string' ? item.content.trim().slice(0, 1000) : '';
+                if (needsContent && (!content || publicTextLeaksPrivateChat(content + (typeof item.title === 'string' ? item.title : '')))) continue;
+                const author = resolveSparkAuthor(item, participants, characters, characterHandles, [socialProfile.name, userProfile.name]);
+                if (!author) continue;
+                const actorId = getSparkPublicAuthorId(author.name, author.character?.id);
+                if (isSparkMuted(actorId)) continue;
+                const avatar = author.character ? getSparkAuthorAvatar(author.character, author.name, characterHandles) : 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(author.name);
+                const authorType = author.character ? 'character' as const : 'stranger' as const;
+                if (item.kind === 'like' || item.kind === 'follow' || item.kind === 'unfollow') {
+                    const targetPost = item.kind === 'like' ? feedRef.current.find(p => p.id === item.postId) : undefined;
+                    if (item.kind === 'like' && !targetPost) continue;
+                    const targetId = item.kind === 'like' ? targetPost?.authorId : item.targetAccountId;
+                    if (!targetId || typeof targetId !== 'string') continue;
+                    if (item.kind !== 'like' && !communityRef.current.accounts.some(a => a.id === targetId)) continue;
+                    if (communityRef.current.mutedAccountIds.includes(targetId)) continue;
+                    const savedHandles = author.character ? characterHandles[author.character.id] || [] : [];
+                    const selectedHandle = savedHandles.find(h => h.handle === author.name);
+                    const accountResult = ensureSparkAccount(communityRef.current, {
+                        type: authorType, ownerCharId: author.character?.id, handleId: selectedHandle?.id,
+                        displayName: author.name, avatar,
+                    }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+                    const account = accountResult.account;
+                    if (communityRef.current.mutedAccountIds.includes(account.id) || account.id === targetId) continue;
+                    if (accountResult.state !== communityRef.current) writeCommunity(accountResult.state);
+                    if (item.kind === 'like' && targetPost) {
+                        let effect = applySparkNpcLike(communityRef.current, targetPost, account.id, Date.now());
+                        if (!effect.changed) continue;
+                        const updated = updatePostInFeed(targetPost.id, current => {
+                            effect = applySparkNpcLike(communityRef.current, current, account.id, Date.now());
+                            return effect.changed ? effect.post : current;
+                        });
+                        if (!updated || !effect.changed) continue;
+                        writeCommunity(effect.state);
+                        if (targetPost.authorId === 'user') addNotices([{
+                            id: 'npc-like:' + targetPost.id + ':' + account.id,
+                            kind: 'likes', actor: author.name, avatar,
+                            content: '赞了你的笔记《' + targetPost.title + '》',
+                            postId: targetPost.id, time: Date.now(), read: false,
+                        }]);
+                    } else {
+                        const action = item.kind === 'unfollow' ? 'unfollow' : 'follow';
+                        const changed = applySparkNpcFollow(communityRef.current, account.id, targetId, action, Date.now());
+                        if (!changed.changed) continue;
+                        writeCommunity(changed.state);
+                        if (action === 'follow' && targetId === 'user') addNotices([{
+                            id: 'npc-follow:' + account.id + ':user:' + Date.now(), kind: 'follows',
+                            actor: author.name, avatar, content: '关注了你',
+                            time: Date.now(), read: false,
+                        }]);
+                    }
+                    created++;
+                    continue;
+                }
+                if (item.kind === 'post') {
+                    const title = typeof item.title === 'string' ? item.title.trim().slice(0, 100) : '';
+                    if (!title) continue;
+                    const tags = Array.isArray(item.tags)
+                        ? item.tags.filter((tag: unknown): tag is string => typeof tag === 'string')
+                            .map((tag: string) => tag.trim().slice(0, 24)).filter(Boolean).slice(0, 3) : [];
+                    const post: SocialPost = {
+                        id: 'autonomy-post-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                        authorName: author.name, authorAvatar: avatar, authorType, authorCharId: author.character?.id,
+                        title, content, tags: tags.length ? tags : ['日常'], images: [pickStock(title, content) || '✨'],
+                        likes: 0, comments: [], isLiked: false, isCollected: false, timestamp: Date.now(),
+                        bgStyle: getRandomStyle().bg, source: 'ai',
+                    };
+                    prependPostsToFeed([post]);
+                    remember(author.character?.id, post, '自己在 Spark 发布了笔记：' + content);
+                    created++;
+                } else {
+                    const post = feedRef.current.find(saved => saved.id === item.postId);
+                    if (!post || isSparkMuted(post.authorId)) continue;
+                    const comment: SocialComment = {
+                        id: 'autonomy-comment-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                        authorName: author.name, authorAvatar: avatar, authorType, authorCharId: author.character?.id,
+                        isCharacter: !!author.character, content, likes: 0, timestamp: Date.now(),
+                    };
+                    if (!uniqueGeneratedSocialComments(post.comments || [], [comment]).length) continue;
+                    const changed = updatePostInFeed(post.id, current => ({
+                        ...current, comments: mergeSocialComments(current.comments || [], [comment]),
+                    }));
+                    if (!changed) continue;
+                    remember(author.character?.id, post, '自己在 Spark 评论了《' + post.title + '》：' + content);
+                    if (post.authorType === 'user') addNotices([{
+                        id: 'autonomy-notice:' + comment.id, kind: 'comments', actor: author.name,
+                        avatar, content, postId: post.id, time: Date.now(), read: false,
+                    }]);
+                    created++;
+                }
+            }
+            if (created) addToast('Spark 社区有 ' + created + ' 条新动态', 'info');
+        } catch (error: any) {
+            if (error?.name !== 'AbortError' && mountedRef.current) addToast('社区自主活动失败：' + (error?.message || error), 'error');
+        } finally {
+            if (autonomyRequestRef.current === controller) {
+                autonomyRequestRef.current = null;
+                if (mountedRef.current) setIsAutonomyBusy(false);
+            }
+        }
+    };
+    autonomyTickRef.current = runSparkAutonomyTick;
+
+    useEffect(() => {
+        if (!communityState.autonomy.enabled || !apiConfig.apiKey) return;
+        let active = true;
+        const tick = () => { if (active) void autonomyTickRef.current(); };
+        tick();
+        const interval = window.setInterval(tick, 5 * 60 * 1000);
+        return () => {
+            active = false;
+            window.clearInterval(interval);
+            autonomyRequestRef.current?.abort();
+        };
+    }, [communityState.autonomy.enabled, communityState.autonomy.maxCallsPerDay,
+        communityState.autonomy.minIntervalHours, apiConfig.apiKey, apiConfig.model, apiConfig.baseUrl]);
+
+    const generateComments = async (post: SocialPost, inboxCount = 0) => {
 
         if (!post || !apiConfig.apiKey) return;
-        const livePost = feedRef.current.find(item => item.id === post.id) || post;
-        if (livePost.comments.length > 0) return;
+        const livePost = feedRef.current.find(item => item.id === post.id);
+        if (!livePost || !needsSparkInitialCommentCall(livePost)) return;
         if (commentRequestRef.current?.postId === post.id) return;
         commentRequestRef.current?.controller.abort();
         const controller = new AbortController();
@@ -992,66 +1850,71 @@ ${post.content || '(楼主没写正文)'}
 - **绝对禁止** 生成 \`author\` 等于或近似 "${socialProfile.name}" (用户) 的评论。
 - 路人评论的 \`author\` 必须是全新的网名，绝对不能与上方【角色身份库】中列出的任何马甲网名重合。
 
-### 输出格式 (JSON Array)
+### 输出格式
+${inboxCount > 0 ? '若还要生成来信，最终只输出一个带 comments、incomingDMs 两字段的 JSON 对象。' : '只输出一个 JSON 评论数组。'}
+评论数组项的格式如下：
 [
   { "author": "网名 (Handle) 或 路人昵称", "charId": "角色ID或null", "content": "评论内容..." }
 ]`;
+            const combinedPrompt = inboxCount > 0 ? prompt + `
+### 追加同一次请求中的第二个任务：首次陌生人私信
+仅根据用户公开帖子内容，生成至多 ${inboxCount} 位虚拟陌生网友可能主动发来的第一句话；人数不足可返回 []，禁止强制凑数。
+只输出一个 JSON 对象，形状：{"comments":[按上方格式的评论],"incomingDMs":[{"name":"不同且不冒充用户或角色的网名","persona":"稳定公开性格和说话风格","message":"针对该帖的自然私信"}]}。
+所有信息均须来自帖子公开内容，不能引用任何私聊、世界书或后台马甲身份。
+` : prompt;
+            // Reserve this specific post's initial paid comment attempt before calling
+            // the provider. A timeout/error may still be charged upstream, so reopening
+            // the post must not silently retry it.
+            if (controller.signal.aborted || !updatePostInFeed(post.id, current => ({
+                ...current, sparkInitialCommentsHandled: true,
+            }))) return;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, combinedPrompt), temperature: 0.8, max_tokens: 2200 }),
                 signal: controller.signal,
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '生成帖子评论' },
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: inboxCount ? '发帖后一次生成评论和首批私信' : '生成帖子评论' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
             const data = await safeResponseJson(response);
             if (controller.signal.aborted) return;
             const json = safeParseJSON(extractContent(data));
-            if (Array.isArray(json)) {
-                const comments: SocialComment[] = json
+            const combinedResult = parseSparkPostPublishBatch(json);
+            const commentsJson = combinedResult.comments;
+            // Saving one AI result into multiple local workflows must not trigger another call.
+            if (inboxCount > 0 && combinedResult.incomingDMs.length) {
+                acceptGeneratedIncomingDMs(post, combinedResult.incomingDMs, inboxCount, feedLoadGenerationRef.current);
+            }
+            if (commentsJson.length) {
+                const comments: SocialComment[] = commentsJson
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
-                        if (!author || typeof c.content !== 'string' || !c.content.trim()) return [];
+                        if (!author || typeof c.content !== 'string' || !c.content.trim() ||
+                            isSparkMuted(getSparkPublicAuthorId(author.name, author.character?.id)) ||
+                            publicTextLeaksPrivateChat(c.content)) return [];
                         const authorName = author.name;
                         let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorName}`;
                         const char = author.character;
-                        if (char) avatar = char.avatar;
+                        if (char) avatar = getSparkAuthorAvatar(char, authorName, characterHandles);
                         return [{
                             id: `cmt-${Math.random()}`,
                             authorName: authorName,
                             authorAvatar: avatar,
                             content: c.content || '...',
-                            likes: Math.floor(Math.random() * 100),
+                            likes: 0,
                             isCharacter: !!char,
                             authorType: char ? 'character' : 'stranger',
                             authorCharId: char?.id,
                         } as SocialComment];
                     });
-                // One public comment per character per post, including across different aliases.
-                const seenCharacters = new Set((feedRef.current.find(item => item.id === post.id)?.comments || []).map(item => item.authorCharId).filter(Boolean));
-                const seenStrangers = new Set((feedRef.current.find(item => item.id === post.id)?.comments || []).map(item => item.authorName));
-                const uniqueComments = uniqueComments.filter(comment => {
-                    if (comment.authorCharId) {
-                        if (seenCharacters.has(comment.authorCharId)) return false;
-                        seenCharacters.add(comment.authorCharId);
-                    } else {
-                        if (seenStrangers.has(comment.authorName)) return false;
-                        seenStrangers.add(comment.authorName);
-                    }
-                    return true;
-                });
+                // Repeat speakers are allowed; only replayed text is deduplicated.
+                const uniqueComments = uniqueGeneratedSocialComments(feedRef.current.find(item => item.id === post.id)?.comments || [], comments);
                 if (!uniqueComments.length) return;
-                updatePostInFeed(post.id, current => ({
+                const updated = updatePostInFeed(post.id, current => ({
                     ...current,
                     comments: mergeSocialComments(current.comments || [], uniqueComments),
                 }));
-                if (post.authorType === 'user') {
-                    // A named commenter may also like the post; this is a separate simulated action.
-                    uniqueComments.filter(comment => comment.authorType !== 'user').forEach(comment => {
-                        if (Math.random() < 0.45) registerSimulatedInteraction({ id: comment.authorCharId || 'npc:' + comment.authorName, name: comment.authorName, avatar: comment.authorAvatar }, post, 'likes');
-                        if (Math.random() < 0.12) registerSimulatedInteraction({ id: comment.authorCharId || 'npc:' + comment.authorName, name: comment.authorName, avatar: comment.authorAvatar }, post, 'follows');
-                    });
-                }
+                if (!updated) return; // The user may have deleted or cleared the post meanwhile.
                 if (post.authorType === 'user') addNotices(uniqueComments.filter(comment => comment.authorType !== 'user').map(comment => ({
                     id: 'comment:' + comment.id, kind: 'comments' as const, actor: comment.authorName,
                     avatar: comment.authorAvatar, content: comment.content, postId: post.id, time: Date.now(), read: false,
@@ -1067,13 +1930,33 @@ ${post.content || '(楼主没写正文)'}
         }
     };
 
-    const generateRepliesToUser = async (post: SocialPost, userContent: string) => {
-
-        if (!apiConfig.apiKey) return;
+    const generateRepliesToUser = (post: SocialPost, userContent: string, parentCommentId?: string) => {
+        if (!apiConfig.apiKey || !parentCommentId || !mountedRef.current) return;
+        replyQueueRef.current.push({ post, content: userContent, parentCommentId });
         if (replyRequestRef.current) return;
+        if (replyBatchTimerRef.current !== null) window.clearTimeout(replyBatchTimerRef.current);
+        replyBatchTimerRef.current = window.setTimeout(() => {
+            replyBatchTimerRef.current = null;
+            void runSparkReplyBatch();
+        }, 1100);
+    };
+    const runSparkReplyBatch = async () => {
+        if (!apiConfig.apiKey || replyRequestRef.current || !replyQueueRef.current.length || !mountedRef.current) return;
+        const batch = takeSparkCommentReplyBatch(replyQueueRef.current);
+        replyQueueRef.current = batch.remaining;
+        const postId = batch.jobs[0].post.id;
+        const post = feedRef.current.find(item => item.id === postId);
+        if (!post) {
+            if (replyQueueRef.current.length) void runSparkReplyBatch();
+            return;
+        }
+        const tasks = batch.jobs.filter(job => post.comments.some(c => c.id === job.parentCommentId && c.authorType === 'user'));
+        if (!tasks.length) {
+            if (replyQueueRef.current.length) void runSparkReplyBatch();
+            return;
+        }
         const controller = new AbortController();
         replyRequestRef.current = { postId: post.id, controller };
-        post = feedRef.current.find(item => item.id === post.id) || post;
         setIsReplyingToUser(true);
         try {
             const selectedChars = selectSparkParticipants(post, [...characters].sort(() => 0.5 - Math.random()), characterHandles);
@@ -1098,11 +1981,12 @@ ${post.content || '(楼主没写正文)'}
 """
 ${post.content || '(楼主没写正文)'}
 """
-**用户 "${socialProfile.name}" 刚在帖子下发的评论**: "${userContent}"
+**用户 "${socialProfile.name}" 本轮连续发出的评论（只回复以下真实评论 ID）**:
+${JSON.stringify(tasks.map(task => ({ commentId: task.parentCommentId, content: task.content })))}
 **已有评论对话（最后一条可能就是上述新评论，不要重复回复旧内容）**:
 ${buildSparkCommentHistory(post)}
 
-请基于楼主帖子的【标题 + 正文】+ 用户的评论上下文，生成 1-3 条对用户这条评论的回复，要扣题，不能脱离正文凭空发挥。
+请基于楼主帖子的【标题 + 正文】和本轮真实用户评论，一次生成少量自然回复，最多 ${Math.min(6, tasks.length * 2)} 条；可以不回应部分内容，不必逐条机械重复。每条都关联上方真实 commentId，禁止编造 ID。
 优先由楼主或正在对话的角色回复；只能使用本次角色档案中的身份。
 
 ### 禁令
@@ -1110,14 +1994,14 @@ ${buildSparkCommentHistory(post)}
 
 ### 输出格式 (JSON Array)
 [
-  { "author": "网名 (Handle)", "charId": "角色ID或null", "content": "回复内容..." }
+  { "author": "网名 (Handle)", "charId": "角色ID或null", "replyToCommentId": "上方真实 commentId", "content": "回复内容..." }
 ]`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8 }),
+                body: JSON.stringify({ model: apiConfig.model, messages: buildGenerationMessages(selectedChars, context, prompt), temperature: 0.8, max_tokens: 1500 }),
                 signal: controller.signal,
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '回复用户评论' },
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '合并回复用户评论' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
             const data = await safeResponseJson(response);
@@ -1127,36 +2011,37 @@ ${buildSparkCommentHistory(post)}
                 const newReplies: SocialComment[] = json
                     .flatMap((c: any) => {
                         const author = resolveSparkAuthor(c, selectedChars, characters, characterHandles, [socialProfile.name, userProfile.name]);
-                        if (!author || typeof c.content !== 'string' || !c.content.trim()) return [];
+                        const linkedId = typeof c.replyToCommentId === 'string' && tasks.some(job => job.parentCommentId === c.replyToCommentId)
+                            ? c.replyToCommentId : tasks.length === 1 ? tasks[0].parentCommentId : undefined;
+                        if (!linkedId || !author || typeof c.content !== 'string' || !c.content.trim() ||
+                            isSparkMuted(getSparkPublicAuthorId(author.name, author.character?.id)) ||
+                            publicTextLeaksPrivateChat(c.content)) return [];
                         const authorName = author.name;
                         let avatar = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorName}`;
                         const char = author.character;
-                        if (char) avatar = char.avatar;
+                        if (char) avatar = getSparkAuthorAvatar(char, authorName, characterHandles);
                         return [{
                             id: `cmt-reply-${Date.now()}-${Math.random()}`,
                             authorName: authorName,
                             authorAvatar: avatar,
-                            content: `回复 @${socialProfile.name}: ${c.content}`,
-                            likes: Math.floor(Math.random() * 10),
+                            content: c.content.trim(),
+                            parentCommentId: linkedId,
+                            replyToAuthorName: socialProfile.name,
+                            timestamp: Date.now(),
+                            likes: 0,
                             isCharacter: !!char,
                             authorType: char ? 'character' : 'stranger',
                             authorCharId: char?.id,
                         } as SocialComment];
                     });
-                // A character gets at most one public reply on this post; use DMs for further conversation.
-                const existingCharIds = new Set((feedRef.current.find(item => item.id === post.id)?.comments || []).map(item => item.authorCharId).filter(Boolean));
-                const publicReplies = newReplies.filter(reply => {
-                    if (!reply.authorCharId) return true;
-                    if (existingCharIds.has(reply.authorCharId)) return false;
-                    existingCharIds.add(reply.authorCharId);
-                    return true;
-                });
+                const publicReplies = uniqueGeneratedSocialComments(feedRef.current.find(item => item.id === post.id)?.comments || [], newReplies);
                 if (!publicReplies.length) return;
                 if (publicReplies.length > 0) {
-                    updatePostInFeed(post.id, current => ({
+                    const updated = updatePostInFeed(post.id, current => ({
                         ...current,
                         comments: mergeSocialComments(current.comments || [], publicReplies),
                     }));
+                    if (!updated) return;
                     addNotices(publicReplies.map(reply => ({
                         id: 'reply:' + reply.id, kind: 'comments' as const, actor: reply.authorName,
                         avatar: reply.authorAvatar, content: reply.content, postId: post.id, time: Date.now(), read: false,
@@ -1174,6 +2059,7 @@ ${buildSparkCommentHistory(post)}
             if (replyRequestRef.current?.controller === controller) {
                 replyRequestRef.current = null;
                 if (mountedRef.current) setIsReplyingToUser(false);
+                if (replyQueueRef.current.length && mountedRef.current) void runSparkReplyBatch();
             }
         }
     };
@@ -1189,53 +2075,86 @@ ${buildSparkCommentHistory(post)}
         } catch (e) { addToast('分享失败', 'error'); }
     };
 
-    const generateIncomingDMs = async (post: SocialPost) => {
-        if (!apiConfig.apiKey) return;
-        const followers = Math.max(0, fanCountsRef.current.user || 0);
-        // A small account can still receive a DM; larger accounts receive more, but capped per post.
-        const chance = Math.min(0.88, 0.18 + Math.log10(followers + 1) * 0.14);
-        if (Math.random() >= chance) return;
-        const count = Math.min(5, 1 + Math.floor(Math.log10(followers + 1) / 1.6) + (Math.random() < 0.2 ? 1 : 0));
+    // A post-publish request already generated BOTH comments and first incoming DMs.
+    // Process the inbox section locally: never charge for a separate API call.
+    const acceptGeneratedIncomingDMs = (post: SocialPost, parsed: unknown[], count: number, generation: number) => {
+        if (!Array.isArray(parsed) || !mountedRef.current ||
+            feedLoadGenerationRef.current !== generation ||
+            !feedRef.current.some(item => item.id === post.id)) return;
         try {
-            const prompt = `你在模拟 Spark 小红书式社交平台。用户刚发了一条公开笔记：
-标题：${post.title}
-内容：${post.content}
-当前粉丝数约：${followers}。
-请生成 ${count} 位不同的陌生网友主动发来的第一条私信，真实中文互联网口吻。类型多样：正常交流、求教程、交朋友、合作邀约、好奇、社恐试探、莫名其妙的搭话、误会、阴阳怪气、无厘头怪事等。粉丝多时允许出现更多奇怪的邀约和冒失搭话，但不要每个人都奇怪；要根据帖子内容决定具体说什么。每个网友要有不同性格，消息长短不一，不要机械句号、套话或重复。禁止假冒现实机构、索要隐私或诱导转账。只输出 JSON 数组，每项格式 {"name":"独特网名","persona":"固定性格、兴趣、说话风格与搭话动机","message":"私信内容"}。网名不能与 ${socialProfile.name} 相同。`;
-            const response = await fetch(apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
-                body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.95 }),
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '发帖后陌生人主动私信' },
-            } as RequestInit);
-            if (!response.ok) throw new Error(await apiErrorMessage(response));
-            const data = await safeResponseJson(response);
-            const parsed = safeParseJSON(extractContent(data));
-            if (!Array.isArray(parsed)) return;
-            const newPersonas: Record<string, string> = {};
-            const newUnread: Record<string, number> = {};
+            const incoming: Array<{ key: string; name: string; content: string; persona: string }> = [];
+            let nextCommunity = communityRef.current;
+            const used = new Set<string>();
+            for (const raw of parsed.slice(0, count)) {
+                if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+                const entry = raw as Record<string, unknown>;
+                const name = String(entry.name || '').trim().slice(0, 32);
+                const known = resolveSparkDMAccount(nextCommunity.accounts, name);
+                if (known && isSparkMuted(known.id)) continue;
+                const content = String(entry?.message || '').trim().slice(0, 500);
+                if (!name || !content || used.has(name)) continue;
+                const author = resolveSparkAuthor({ author: name, charId: null, isCharacter: false },
+                    [], characters, characterHandles, [socialProfile.name, userProfile.name]);
+                if (!author || author.character) continue;
+                const resolved = ensureSparkAccount(nextCommunity, {
+                    type: 'stranger', displayName: author.name,
+                }, () => 'npc-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+                nextCommunity = resolved.state;
+                const key = resolved.account.id;
+                if (isSparkMuted(key) || dmThreadsRef.current[key]?.length ||
+                    dmThreadsRef.current[name]?.length || incoming.some(item => item.key === key)) continue;
+                used.add(name);
+                incoming.push({
+                    key, name,
+                    content,
+                    persona: String(entry?.persona || '因看到用户的笔记《' + post.title + '》主动搭话，言谈风格：' + content).slice(0, 500),
+                });
+            }
+            if (!incoming.length) return;
+            for (const item of incoming) {
+                nextCommunity = appendSparkEvent(nextCommunity, {
+                    id: 'dm-incoming:' + item.key + ':' + Date.now() + ':' + Math.random().toString(36).slice(2),
+                    type: 'dm_sent', actorAccountId: item.key, targetAccountId: 'user', createdAt: Date.now(),
+                    metadata: { source: 'spark-post-incoming', postId: post.id },
+                });
+            }
+            if (nextCommunity !== communityRef.current) writeCommunity(nextCommunity);
             setDmThreads(prev => {
                 const next = { ...prev };
-                const used = new Set(Object.keys(next));
-                for (const entry of parsed.slice(0, count)) {
-                    const name = String(entry?.name || '').trim().slice(0, 32);
-                    const message = String(entry?.message || '').trim().slice(0, 500);
-                    if (!name || !message || name === socialProfile.name || used.has(name)) continue;
-                    used.add(name);
-                    next[name] = [{ role: 'assistant', content: message, time: Date.now() }];
-                    newPersonas[name] = String(entry?.persona || '因看到用户的笔记《' + post.title + '》主动搭话，言谈风格：' + message).slice(0, 500);
-                    newUnread[name] = 1;
+                for (const item of incoming) {
+                    if (!next[item.key]?.length && !next[item.name]?.length) {
+                        next[item.key] = [{ role: 'assistant' as const, content: item.content, time: Date.now() }];
+                    }
                 }
+                dmThreadsRef.current = next;
                 localStorage.setItem('spark_dm_threads', JSON.stringify(next));
                 return next;
             });
-            setNpcPersonas(prev => { const next = { ...prev, ...newPersonas }; localStorage.setItem('spark_npc_personas', JSON.stringify(next)); return next; });
-            setDmUnread(prev => { const next = { ...prev, ...newUnread }; localStorage.setItem('spark_dm_unread', JSON.stringify(next)); return next; });
-        } catch (error) { console.warn('Spark incoming DM generation failed', error); }
+            setNpcPersonas(prev => {
+                const next = { ...prev };
+                for (const item of incoming) {
+                    if (!next[item.key]) next[item.key] = item.persona;
+                }
+                localStorage.setItem('spark_npc_personas', JSON.stringify(next));
+                return next;
+            });
+            setDmUnread(prev => {
+                const next = { ...prev };
+                for (const item of incoming) {
+                    if (next[item.key] === undefined) next[item.key] = 1;
+                }
+                localStorage.setItem('spark_dm_unread', JSON.stringify(next));
+                return next;
+            });
+        } catch (error) { console.warn('Spark incoming DM processing failed', error); }
     };
 
-    const handleCreatePost = () => {
-        if (!newPostContent.trim()) return;
+    const handleCreatePost = async () => {
+        if (!newPostContent.trim() || publishingRef.current) return;
+        const generation = feedLoadGenerationRef.current;
+        publishingRef.current = true;
+        setIsPublishing(true);
+        try {
         const post: SocialPost = {
             id: `user-post-${Date.now()}`,
             authorName: socialProfile.name, // Use Local Identity
@@ -1250,20 +2169,50 @@ ${buildSparkCommentHistory(post)}
             isLiked: false,
             comments: [],
             timestamp: Date.now(),
-            tags: ['User'],
+            tags: parseSparkPublishTags(newPostTags),
             bgStyle: getRandomStyle().bg,
-            authorType: 'user',
+            authorType: 'user', source: 'user',
         };
-        prependPostsToFeed([post]);
-        learnInterest(post, 4);
-        setNewPostContent(''); setNewPostTitle(''); setSelectedStockUrl(''); setLocalPostImage(''); 
-        setIsCreateOpen(false); // Close Modal
-        setActiveTab('home'); 
-        addToast('发布成功，正在等待互动…', 'success');
-        if (apiConfig.apiKey) { void generateComments(post); void generateIncomingDMs(post); }
+        // Do not discard the draft until IndexedDB confirms the original post exists.
+        const saved = registerSparkPosts([post])[0];
+        await persistPostMutation(() => DB.saveSocialPost(saved));
+        if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
+        prependPostsToFeed([saved], false);
+        learnInterest(saved, 4);
+        setNewPostContent(''); setNewPostTitle(''); setNewPostTags(''); setSelectedStockUrl(''); setLocalPostImage('');
+        localStorage.removeItem('spark_post_draft');
+        setIsCreateOpen(false);
+        setActiveTab('home');
+        addToast('笔记已保存并发布', 'success');
+        if (apiConfig.apiKey) {
+            // Fold possible new inbox conversations into the SAME comment-generation request.
+            const followers = communityRef.current.follows.filter(follow => follow.followedId === 'user').length;
+            const chance = Math.min(0.88, 0.18 + Math.log10(followers + 1) * 0.14);
+            const inboxCount = Math.random() < chance
+                ? Math.min(5, 1 + Math.floor(Math.log10(followers + 1) / 1.6) + (Math.random() < 0.2 ? 1 : 0))
+                : 0;
+            void generateComments(saved, inboxCount);
+        }
+        } catch (error: any) {
+            addToast('发布未完成，草稿仍在，可直接重试：' + (error?.message || error), 'error');
+        } finally {
+            publishingRef.current = false;
+            if (mountedRef.current) setIsPublishing(false);
+        }
     };
 
-    const handleDeletePost = (postId: string) => { removePostFromFeed(postId); addToast('帖子已删除', 'success'); trackEvent('删除一条帖子'); };
+    const handleDeletePost = async (postId: string) => {
+        const post = feedRef.current.find(item => item.id === postId);
+        if (!post || !canDeleteSocialPost(post, socialProfile.name)) { addToast('只能删除自己的笔记', 'error'); return; }
+        if (!window.confirm('删除自己的这篇笔记？此操作无法撤销。')) return;
+        try {
+            await removePostFromFeed(postId);
+            addToast('帖子已删除', 'success');
+            trackEvent('删除一条帖子');
+        } catch (error: any) {
+            addToast('删除失败，笔记仍已保留：' + (error?.message || error), 'error');
+        }
+    };
     const handleLike = (e: any, post: SocialPost) => {
         e.stopPropagation();
         if (post.authorType === 'character') remember(post.authorCharId, post, post.isLiked ? '自己的笔记少了一个赞' : '自己的笔记收到点赞');
@@ -1276,77 +2225,168 @@ ${buildSparkCommentHistory(post)}
         trackEvent('点赞一条帖子', { action: post.isLiked ? 'unlike' : 'like' });
     };
     
-    const handleSendComment = async () => { 
-        if (!selectedPost || !commentInput.trim()) return; 
-        if (commentRequestRef.current?.postId === selectedPost.id || replyRequestRef.current) return;
+    const handleSendComment = () => {
+        if (!selectedPost || !commentInput.trim()) return;
+        const text = commentInput.trim();
+        const now = Date.now();
+        const recent = lastCommentSubmitRef.current;
+        if (recent && recent.postId === selectedPost.id && recent.content === text && now - recent.at < 650) return;
+        lastCommentSubmitRef.current = { postId: selectedPost.id, content: text, at: now };
 
         const userComment: SocialComment = {
-                id: `cmt-user-${Date.now()}`,
+                id: `cmt-user-${now}-${Math.random().toString(36).slice(2, 9)}`,
                 authorName: socialProfile.name, // Use Local Identity
                 authorAvatar: socialProfile.avatar, // Use Local Identity
                 content: commentInput.trim(),
                 likes: 0,
                 isCharacter: false,
                 authorType: 'user' as const,
+                authorId: 'user',
+                timestamp: Date.now(),
+                ...(replyTarget ? { parentCommentId: replyTarget.id, replyToAuthorName: replyTarget.authorName } : {}),
         };
         const updatedPost = updatePostInFeed(selectedPost.id, current => ({
             ...current,
             comments: mergeSocialComments(current.comments || [], [userComment]),
         }));
-        if (!updatedPost) return;
+        if (!updatedPost) { lastCommentSubmitRef.current = null; return; }
         learnInterest(selectedPost, 3);
         if (selectedPost.authorType === 'character') remember(selectedPost.authorCharId, selectedPost, '自己的公开笔记收到评论：' + userComment.content);
         const contentToSend = commentInput; 
         setCommentInput(''); 
-        await generateRepliesToUser(updatedPost, contentToSend); 
+        setReplyTarget(null);
+        void generateRepliesToUser(updatedPost, contentToSend, userComment.id); 
     };
 
     const handleOpenPost = (post: SocialPost) => {
         const livePost = feedRef.current.find(item => item.id === post.id) || post;
         setSelectedPost(livePost);
+        setReplyTarget(null);
+        setCommentVisibleLimit(80);
+        lastOpenedPostIdRef.current = livePost.id;
+        if (commentOpenTimerRef.current !== null) window.clearTimeout(commentOpenTimerRef.current);
+        commentOpenTimerRef.current = null;
+        // Feed ranking already accounts for seen IDs; make that signal real and persistent.
+        const updatedCommunity = markSparkPostSeen(communityRef.current, livePost.id);
+        if (updatedCommunity !== communityRef.current) writeCommunity(updatedCommunity);
         learnInterest(livePost, 0.3);
-        generateComments(livePost);
+        // Quick accidental opens should not incur an API bill.
+        if (needsSparkInitialCommentCall(livePost)) {
+            commentOpenTimerRef.current = window.setTimeout(() => {
+                commentOpenTimerRef.current = null;
+                if (mountedRef.current && lastOpenedPostIdRef.current === livePost.id) void generateComments(livePost);
+            }, 900);
+        }
     };
 
     const handleClosePost = () => {
+        lastOpenedPostIdRef.current = null;
+        if (commentOpenTimerRef.current !== null) window.clearTimeout(commentOpenTimerRef.current);
+        commentOpenTimerRef.current = null;
         commentRequestRef.current?.controller.abort();
         commentRequestRef.current = null;
         setLoadingComments(false);
+        setReplyTarget(null);
         setSelectedPost(null);
     };
 
-    const handleClearFeed = () => {
+    const hasSparkOverlay = showSettings || showShareModal || showCharPosting ||
+        showUtilityShelf || isCreateOpen || !!dmTarget || !!viewedAccount ||
+        showCommentStickers || !!selectedPost || !!noticeCategory || searchOpen;
+    const dismissTopSparkOverlay = (): boolean => {
+        if (showSettings) setShowSettings(false);
+        else if (showShareModal) setShowShareModal(false);
+        else if (showCharPosting) setShowCharPosting(false);
+        else if (showUtilityShelf) setShowUtilityShelf(false);
+        else if (isCreateOpen) closeCreatePost();
+        else if (dmTarget) setDmTarget(null);
+        else if (viewedAccount) setViewedAccount(null);
+        else if (showCommentStickers) setShowCommentStickers(false);
+        else if (selectedPost) handleClosePost();
+        else if (noticeCategory) setNoticeCategory(null);
+        else if (searchOpen) setSearchOpen(false);
+        else return false;
+        return true;
+    };
+    // Follow SullyOS's native/local back stack rather than intercepting browser history.
+    useLocalBackHandler(dismissTopSparkOverlay, 80, hasSparkOverlay);
+    useEffect(() => {
+        const onEscape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            const focused = document.activeElement as HTMLElement | null;
+            if (focused && ['INPUT', 'TEXTAREA'].includes(focused.tagName)) {
+                focused.blur();
+                event.preventDefault();
+                return;
+            }
+            if (dismissTopSparkOverlay()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        };
+        window.addEventListener('keydown', onEscape);
+        return () => window.removeEventListener('keydown', onEscape);
+    }, [hasSparkOverlay, showSettings, showShareModal, showCharPosting, showUtilityShelf,
+        isCreateOpen, dmTarget, viewedAccount, showCommentStickers, selectedPost, noticeCategory, searchOpen]);
+
+    const handleClearFeed = async () => {
+        if (clearingFeedRef.current) return;
+        clearingFeedRef.current = true;
         refreshRequestRef.current?.abort();
+        autonomyRequestRef.current?.abort();
+        autonomyRequestRef.current = null;
         commentRequestRef.current?.controller.abort();
         replyRequestRef.current?.controller.abort();
         refreshRequestRef.current = null;
         commentRequestRef.current = null;
         replyRequestRef.current = null;
+        replyQueueRef.current = [];
         setIsRefreshing(false);
         setLoadingComments(false);
         setIsReplyingToUser(false);
-        feedRef.current = [];
-        setFeed([]);
-        setSelectedPost(null);
-        // Keep the inbox consistent: cleared posts cannot be opened from old notices.
-        setNotices(prev => {
-            const next = prev.filter(item => !item.postId);
-            localStorage.setItem('spark_notifications', JSON.stringify(next));
-            return next;
-        });
-        DB.clearSocialPosts();
-        setShowSettings(false);
-        addToast('推荐流已清空', 'success');
-        trackEvent('清空 Spark 推荐流');
+        setIsAutonomyBusy(false);
+        feedLoadGenerationRef.current += 1;
+        try {
+            // Clear is destructive: only report success and remove live data after DB confirms it.
+            await persistPostMutation(() => DB.clearSocialPosts());
+            if (!mountedRef.current) return;
+            feedRef.current = [];
+            setFeed([]);
+            setSelectedPost(null);
+            const currentCommunity = communityRef.current;
+            writeCommunity({
+                ...currentCommunity,
+                seenPostIds: [],
+                hiddenPostIds: [],
+                notifications: currentCommunity.notifications.filter(item => !item.postId),
+                events: currentCommunity.events.filter(item => !item.postId),
+            });
+            setHiddenPostIds([]);
+            try { localStorage.removeItem('spark_hidden_posts'); } catch { /* local cache is optional */ }
+            setPostTraffic({});
+            trafficRef.current = {};
+            try { localStorage.removeItem('spark_post_traffic'); } catch { /* local cache is optional */ }
+            setNotices(prev => {
+                const next = prev.filter(item => !item.postId);
+                localStorage.setItem('spark_notifications', JSON.stringify(next));
+                return next;
+            });
+            setShowSettings(false);
+            addToast('推荐流已清空', 'success');
+            trackEvent('清空 Spark 推荐流');
+        } catch (error: any) {
+            addToast('清空失败，已有帖子仍保留：' + (error?.message || error), 'error');
+        } finally {
+            clearingFeedRef.current = false;
+        }
     };
 
     // --- Renderers ---
 
     // 1. Feed Item (Glassmorphism)
-    const accountPosts = (handle: string) => feed.filter(p => p.authorName === handle);
-    const accountFollowerCount = (handle: string, isMain: boolean) => {
-        const seed = Array.from(handle).reduce((sum, c) => (sum * 31 + c.charCodeAt(0)) >>> 0, 7);
-        return isMain ? 120 + seed % 18000 : 3 + seed % 1800;
+    const accountPosts = (handle: string, id?: string) => {
+        const account = resolveSparkDMAccount(communityState.accounts, handle, id);
+        return feed.filter(post => account ? post.authorId === account.id || (!post.authorId && post.authorName === handle) : post.authorName === handle);
     };
 
     const renderFeedItem = (post: SocialPost) => (
@@ -1367,7 +2407,9 @@ ${buildSparkCommentHistory(post)}
                     </div>
                 </div>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }} className="absolute top-2 right-2 z-20 w-6 h-6 bg-black/20 text-white rounded-full flex items-center justify-center text-xs backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-500/80">×</button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); canDeleteSocialPost(post, socialProfile.name) ? handleDeletePost(post.id) : hidePost(post.id); }}
+                aria-label={canDeleteSocialPost(post, socialProfile.name) ? '删除自己的笔记' : '不感兴趣，隐藏笔记'}
+                className="absolute top-2 right-2 z-20 min-w-8 h-8 px-1 rounded-lg bg-black/35 text-white text-xs backdrop-blur-md">{canDeleteSocialPost(post, socialProfile.name) ? '删除' : '隐藏'}</button>
         </div>
     );
 
@@ -1391,14 +2433,14 @@ ${buildSparkCommentHistory(post)}
                     <div className="flex items-center justify-between px-4 bg-white/60 backdrop-blur-xl border-b border-white/20 shrink-0 relative z-20" style={{ paddingTop: 'max(12px, var(--safe-top))', paddingBottom: '12px' }}>
                         <button onClick={handleClosePost} className="p-2 -m-2 active:opacity-60"><Icons.Back /></button>
                         <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar })} aria-label="查看作者主页">
+                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar, accountId: selectedPost.authorId })} aria-label="查看作者主页">
                                 <TokenImg value={selectedPost.authorAvatar} className="w-8 h-8 rounded-full object-cover border border-white/50" />
                             </button>
-                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar })} className="text-sm font-bold text-slate-800">{selectedPost.authorName}</button>
+                            <button type="button" onClick={() => setViewedAccount({ handle: selectedPost.authorName, avatar: selectedPost.authorAvatar, accountId: selectedPost.authorId })} className="text-sm font-bold text-slate-800">{selectedPost.authorName}</button>
                             {selectedPost.authorType !== 'user' && (
-                                <button type="button" onClick={() => toggleFollow(selectedPost.authorName)}
+                                <button type="button" onClick={() => toggleFollow(selectedPost.authorName, selectedPost.authorId)}
                                     className="ml-auto rounded-full border border-[#555555]/30 px-3 py-1 text-xs font-bold text-[#555555]">
-                                    {followedHandles.includes(selectedPost.authorName) ? '已关注 ✓' : '+ 关注'}
+                                    {isFollowing(selectedPost.authorName, selectedPost.authorId) ? '已关注 ✓' : '+ 关注'}
                                 </button>
                             )}
                         </div>
@@ -1419,42 +2461,48 @@ ${buildSparkCommentHistory(post)}
                             <p className="text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap font-light">{selectedPost.content}</p>
                             
                             <div className="flex gap-2 flex-wrap pt-2">
-                                {selectedPost.tags.map(t => <span key={t} className="text-xs font-bold text-neutral-600 bg-neutral-50/50 backdrop-blur-sm border border-neutral-100 px-2.5 py-1 rounded-full">#{t}</span>)}
+                                {selectedPost.tags.map(t => <button type="button" key={t}
+                                onClick={() => { setActiveTopic(t); setSearchQuery(''); setSearchOpen(false); setFeedTab('discover'); setActiveTab('home'); setSelectedPost(null); setViewedAccount(null); }}
+                                className="text-xs font-bold text-neutral-600 bg-neutral-50/50 backdrop-blur-sm border border-neutral-100 px-2.5 py-1 rounded-full">#{t}</button>)}
                             </div>
                             <div className="text-xs text-slate-400 font-medium border-b border-slate-100/50 pb-6">{new Date(selectedPost.timestamp).toLocaleDateString()}</div>
                             {selectedPost.authorType === 'user' && postTraffic[selectedPost.id] && <div className="grid grid-cols-3 gap-2 rounded-xl bg-neutral-50/70 p-3 text-center text-xs text-slate-600">
-                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].impressions.toLocaleString()}</strong>曝光</div>
-                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].reads.toLocaleString()}</strong>阅读</div>
-                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].score}</strong>内容表现</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].impressions.toLocaleString()}</strong>模拟曝光</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].reads.toLocaleString()}</strong>模拟阅读</div>
+                                <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].score}</strong>内容评分估算</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].likes}</strong>点赞</div>
                                 <div><strong className="block text-base text-slate-800">{postTraffic[selectedPost.id].comments}</strong>评论</div>
-                                <div><strong className="block text-base text-neutral-500">{postTraffic[selectedPost.id].followersDelta > 0 ? '+' : ''}{postTraffic[selectedPost.id].followersDelta}</strong>带来粉丝</div>
+                                <div><strong className="block text-base text-neutral-500">{communityState.follows.filter(follow => follow.followedId === 'user').length}</strong>可追踪粉丝总数</div>
                             </div>}
                         </div>
 
                         {/* Comments Section */}
                         <div className="px-6 pb-6">
                             <div className="text-sm font-bold text-slate-800 mb-6 flex items-center gap-2">
-                                <span>共 {selectedPost.comments.length} 条评论</span>
+                                <span>共 {selectedPost.comments.filter(comment => !isSparkMuted(comment.authorId || getSparkPublicAuthorId(comment.authorName, comment.authorCharId))).length} 条评论</span>
                                 {(loadingComments || isReplyingToUser) && <div className="w-3 h-3 border-2 border-slate-300 border-t-[#555555] rounded-full animate-spin"></div>}
                             </div>
                             
                             <div className="space-y-6">
                                 {selectedPost.comments.length === 0 && !loadingComments && <div className="text-center text-slate-300 text-xs py-10">快来抢沙发...</div>}
-                                {selectedPost.comments.map(c => (
-                                    <div key={c.id} className="flex gap-3 animate-fade-in group">
+                                {selectedPost.comments.filter(comment => !isSparkMuted(comment.authorId || getSparkPublicAuthorId(comment.authorName, comment.authorCharId))).length > commentVisibleLimit && <button type="button" onClick={() => setCommentVisibleLimit(n => n + 80)}
+                                    className="block mx-auto mb-4 rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-500">查看更早的评论</button>}
+                                {selectedPost.comments.filter(comment => !isSparkMuted(comment.authorId || getSparkPublicAuthorId(comment.authorName, comment.authorCharId))).slice(-commentVisibleLimit).map(c => (
+                                    <div key={c.id} className={`flex gap-3 animate-fade-in group ${c.parentCommentId ? 'ml-6 border-l-2 border-slate-100 pl-3' : ''}`}>
                                         <TokenImg value={c.authorAvatar} className="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-100" />
                                         <div className="flex-1">
                                             <div className="flex justify-between items-start">
                                                 <span className={`text-xs font-bold ${c.isCharacter ? 'text-slate-800' : 'text-slate-500'}`}>{c.authorName}</span>
                                                 <div className="flex items-center gap-1 text-slate-400 cursor-pointer hover:text-[#555555]">
-                                                    <button type="button" aria-label="点赞评论" onClick={() => updatePostInFeed(selectedPost.id, current => ({ ...current, comments: current.comments.map(item => item.id === c.id ? { ...item, likes: item.likes + 1 } : item) }))}>
-                                        <Icons.Heart filled={false} className="w-3.5 h-3.5" />
+                                                    <button type="button" aria-label={c.isLiked ? '取消点赞评论' : '点赞评论'} onClick={() => updatePostInFeed(selectedPost.id, current => ({ ...current, comments: current.comments.map(item => item.id === c.id ? toggleSocialCommentLike(item) : item) }))}>
+                                        <Icons.Heart filled={!!c.isLiked} className="w-3.5 h-3.5" />
                                     </button>
                                                     <span className="text-[10px]">{c.likes}</span>
                                                 </div>
                                             </div>
+                                            {c.parentCommentId && <p className="text-[11px] text-slate-400 mt-1">↳ 回复 @{c.replyToAuthorName || selectedPost.comments.find(parent => parent.id === c.parentCommentId)?.authorName || '楼中楼'}</p>}
                                             <div className="text-[13px] text-slate-700 mt-0.5 leading-normal font-light whitespace-pre-wrap">{c.content.split(/(\[表情包\]\(https?:\/\/[^\s)]+\))/g).map((part, i) => { const match = part.match(/^\[表情包\]\((https?:\/\/[^\s)]+)\)$/); return match ? <img key={i} src={match[1]} alt="表情包" className="max-w-32 max-h-32 object-contain rounded-lg my-1" /> : <React.Fragment key={i}>{part}</React.Fragment>; })}</div>
+                                            <button type="button" onClick={() => setReplyTarget(c)} className="mt-2 text-xs text-slate-400 hover:text-slate-700">回复</button>
                                         </div>
                                     </div>
                                 ))}
@@ -1469,17 +2517,20 @@ ${buildSparkCommentHistory(post)}
                     </div>}
                     {/* Bottom Input Bar - Absolute to sit on top of scroll area at bottom */}
                     <div className="absolute bottom-0 w-full pb-[var(--safe-bottom,0px)] z-30 pointer-events-none">
+                         {replyTarget && <div className="pointer-events-auto flex justify-between items-center px-4 py-2 bg-white border-t border-slate-100 text-xs text-slate-500">
+                             <span>回复 @{replyTarget.authorName}</span><button type="button" onClick={() => setReplyTarget(null)}>取消回复 ×</button>
+                         </div>}
                          <div className="pointer-events-auto h-16 bg-white/80 backdrop-blur-xl border-t border-white/40 px-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgba(0, 0, 0,0.03)]">
                             <div className="flex-1 bg-slate-100/50 rounded-full px-5 py-2.5 flex items-center gap-2 focus-within:bg-white focus-within:ring-1 focus-within:ring-slate-200 transition-all border border-transparent focus-within:border-slate-200">
                                 <input 
                                     value={commentInput}
                                     onChange={(e) => setCommentInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
-                                    disabled={loadingComments || isReplyingToUser}
-                                    placeholder="说点什么..."
+                                    onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); handleSendComment(); } }}
+                                    
+                                    placeholder={replyTarget ? "回复 @" + replyTarget.authorName : "说点什么..."}
                                     className="bg-transparent text-sm w-full outline-none text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
                                 />
-                                {commentInput.trim() && <button disabled={loadingComments || isReplyingToUser} onClick={handleSendComment} className="text-[#555555] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
+                                {commentInput.trim() && <button  onClick={handleSendComment} className="text-[#555555] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
                             </div>
                             <button type="button" onClick={() => setShowCommentStickers(v => !v)} className="text-xs text-neutral-500 shrink-0">表情包</button>
                             <div className="flex gap-5 text-slate-600 shrink-0 items-center">
@@ -1503,25 +2554,31 @@ ${buildSparkCommentHistory(post)}
         // Main Container with Premium Gradient Background
         <div className="h-full w-full bg-gradient-to-br from-neutral-50 via-slate-50 to-neutral-50 flex flex-col font-sans relative text-slate-900 overflow-hidden">
             
-            {dmTarget && <div className="absolute inset-0 z-[90] bg-white flex flex-col" style={{ paddingTop: 'var(--safe-top)' }}>
+            {dmTarget && <div className="absolute inset-0 z-[90] bg-white flex min-h-0 flex-col" style={{ paddingTop: 'var(--safe-top)', maxHeight: 'var(--visual-viewport-height, 100dvh)' }}>
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
                     <button type="button" onClick={() => setDmTarget(null)} className="text-xl">‹</button>
                     <TokenImg value={dmTarget.avatar} className="w-9 h-9 rounded-full object-cover" />
                     <strong className="truncate text-sm">{dmTarget.handle}</strong>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-                    {(dmThreads[dmTarget.handle] || []).map((message, index) => <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#555555] text-white' : 'bg-white text-slate-800'}`}>{message.content}</div>
+                <div ref={dmScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3 bg-slate-50">
+                    {(dmThreads[dmKey(dmTarget)] || []).length > dmVisibleLimit && <button type="button" className="block mx-auto text-xs text-slate-500 px-4 py-2 border rounded-full" onClick={() => setDmVisibleLimit(limit => limit + 80)}>查看更早的私信</button>}
+                    {(dmThreads[dmKey(dmTarget)] || []).slice(-dmVisibleLimit).map((message, index) => <div key={message.id || index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#555555] text-white' : 'bg-white text-slate-800'}`}>
+                            {message.content}
+                            {message.role === 'user' && message.delivery === 'pending' && <span className="block text-[10px] opacity-75 mt-1">排队发送中…</span>}
+                            {message.role === 'user' && message.delivery === 'failed' && <button type="button" onClick={() => retrySparkDM(dmTarget, message.id)}
+                                className="block text-[11px] underline mt-1" aria-label="重试这条私信">发送失败 · 点击重试</button>}
+                        </div>
                     </div>)}
                     {dmBusy && <p className="text-xs text-slate-400">对方正在输入…</p>}
                 </div>
-                <div className="flex items-center gap-2 p-3 border-t border-slate-100" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}>
-                    <input value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void sendSparkDM(); }} placeholder="发送私信…" className="flex-1 min-w-0 rounded-full bg-slate-100 px-4 py-2 text-sm" />
-                    <button type="button" disabled={dmBusy || !dmInput.trim()} onClick={() => void sendSparkDM()} className="text-[#555555] font-bold disabled:opacity-40">发送</button>
+                <div className="flex items-center gap-2 p-3 shrink-0 border-t border-slate-100" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}>
+                    <input ref={dmInputRef} onFocus={() => { if (dmScrollRef.current) dmScrollRef.current.scrollTop = dmScrollRef.current.scrollHeight; }} value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); sendSparkDM(); } }} placeholder="发送私信…" className="flex-1 min-w-0 rounded-full bg-slate-100 px-4 py-2 text-sm" />
+                    <button type="button" disabled={!dmInput.trim()} onClick={() => sendSparkDM()} className="text-[#555555] font-bold disabled:opacity-40">发送</button>
                 </div>
             </div>}
             {viewedAccount && (() => {
-                const posts = accountPosts(viewedAccount.handle);
+                const posts = accountPosts(viewedAccount.handle, viewedAccount.accountId);
                 const owner = characters.find(c => (characterHandles[c.id] || []).some(a => a.handle === viewedAccount.handle));
                 const account = owner && (characterHandles[owner.id] || []).find(a => a.handle === viewedAccount.handle);
                 const isMain = account?.id === 'default' || account?.note === '主账号';
@@ -1538,20 +2595,23 @@ ${buildSparkCommentHistory(post)}
                         </div>
                         <div className="flex gap-7 text-xs text-slate-500 my-5">
                             <span><strong className="text-slate-800">{posts.length}</strong> 笔记</span>
-                            <span><strong className="text-slate-800">{fanCounts[owner ? 'char:' + owner.id + ':' + viewedAccount.handle : 'public:' + viewedAccount.handle] ?? 0}</strong> 粉丝</span>
+                            <span><strong className="text-slate-800">{communityState.follows.filter(follow => follow.followedId === viewedAccount.accountId).length}</strong> 粉丝</span>
                         </div>
 
                         {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => { openSparkDM(viewedAccount); setViewedAccount(null); }} className="w-full rounded-full border border-[#555555] text-[#555555] font-bold py-2 mb-2">私信</button>}
-                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle)} className="w-full rounded-full bg-[#555555] text-white font-bold py-2 mb-5">
-                            {followedHandles.includes(viewedAccount.handle) ? '已关注 ✓ · 点击取消' : '+ 关注'}
+                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleMuteSparkAccount(viewedAccount.handle, viewedAccount.accountId)}
+                            className="w-full rounded-full border border-slate-300 text-slate-600 font-bold py-2 mb-2">{isSparkMuted(viewedAccount.accountId) ? '解除屏蔽' : '屏蔽此账号'}</button>}
+                        {viewedAccount.handle !== socialProfile.name && <button type="button" onClick={() => toggleFollow(viewedAccount.handle, viewedAccount.accountId)} className="w-full rounded-full bg-[#555555] text-white font-bold py-2 mb-5">
+                            {isFollowing(viewedAccount.handle, viewedAccount.accountId) ? '已关注 ✓ · 点击取消' : '+ 关注'}
                         </button>}
                         <p className="font-bold text-sm border-b pb-3 mb-3">TA 的笔记</p>
                         <div className="grid grid-cols-2 gap-3">
-                            {posts.map(post => <button type="button" key={post.id} onClick={() => { setViewedAccount(null); handleOpenPost(post); }} className="text-left rounded-xl border border-slate-100 overflow-hidden">
+                            {posts.slice(0, accountVisibleLimit).map(post => <button type="button" key={post.id} onClick={() => { setViewedAccount(null); handleOpenPost(post); }} className="text-left rounded-xl border border-slate-100 overflow-hidden">
                                 <div className="aspect-[4/5] flex items-center justify-center text-5xl" style={{ background: post.bgStyle }}>{postVisual(post.images[0], 'w-full h-full')}</div>
                                 <div className="p-2 text-xs font-bold line-clamp-2">{post.title}</div>
                             </button>)}
                         </div>
+                        {posts.length > accountVisibleLimit && <button type="button" onClick={() => setAccountVisibleLimit(count => count + 60)} className="w-full mt-3 py-3 rounded-xl border border-slate-200 text-xs text-slate-600">加载更早的笔记</button>}
                         {!posts.length && <p className="text-center text-xs text-slate-400 py-12">这个账号还没有发布笔记</p>}
                     </div>
                 </div>;
@@ -1589,6 +2649,46 @@ ${buildSparkCommentHistory(post)}
             {/* --- Modals (Settings, Share) --- */}
             <Modal isOpen={showSettings} title="Spark 设置" onClose={() => setShowSettings(false)}>
                 <div className="space-y-4 py-2 text-sm">
+                    <div className="rounded-xl border border-slate-200 p-3 space-y-3">
+                        <label className="flex items-start gap-3 justify-between">
+                            <span className="min-w-0">
+                                <strong className="block text-sm text-slate-800">社区自主活动（自愿开启）</strong>
+                                <span className="block text-xs text-slate-500 mt-1">默认关闭。开启后，角色和稳定网友可能继续真实话题、发帖或评论，也可能保持安静；不会让你等待。</span>
+                            </span>
+                            <input type="checkbox" aria-label="开启社区自主活动" className="mt-1" checked={communityState.autonomy.enabled}
+                                onChange={event => {
+                                    const enabled = event.target.checked;
+                                    writeCommunity({ ...communityRef.current, autonomy: { ...communityRef.current.autonomy, enabled } });
+                                    if (!enabled) { autonomyRequestRef.current?.abort(); autonomyRequestRef.current = null; setIsAutonomyBusy(false); }
+                                    else if (!apiConfig.apiKey) addToast('已开启；配置 API Key 后才会开始自动请求', 'info');
+                                }} />
+                        </label>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                            <label>最短调用间隔
+                                <select value={communityState.autonomy.minIntervalHours}
+                                    onChange={event => writeCommunity({ ...communityRef.current, autonomy: { ...communityRef.current.autonomy, minIntervalHours: Number(event.target.value) } })}
+                                    className="block w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg p-2">
+                                    {[1, 3, 6, 12, 24, 48].map(hours => <option key={hours} value={hours}>{hours} 小时</option>)}
+                                </select>
+                            </label>
+                            <label>每日 API 次数上限
+                                <select value={communityState.autonomy.maxCallsPerDay}
+                                    onChange={event => {
+                                        const maxCallsPerDay = Number(event.target.value);
+                                        writeCommunity({ ...communityRef.current, autonomy: {
+                                            ...communityRef.current.autonomy, maxCallsPerDay,
+                                            callsToday: Math.min(communityRef.current.autonomy.callsToday, maxCallsPerDay),
+                                        } });
+                                    }}
+                                    className="block w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg p-2">
+                                    {[0, 1, 2, 3].map(calls => <option key={calls} value={calls}>{calls === 0 ? '暂停调用' : calls + ' 次'}</option>)}
+                                </select>
+                            </label>
+                        </div>
+                        <p className="text-xs text-slate-500">省 API 模式：同一次发帖同时处理评论和可选来信；同一账号连发私信与同帖连续评论会短时合批；多 Char 发帖最多 8 位一组。批量节省调用次数，但仍按服务商的实际 Token 量计费。</p>
+                        <p className="text-xs text-slate-400">仅在 Spark 打开时每 5 分钟检查，实际请求受间隔和额度约束。今日已使用：{communityState.autonomy.lastRunDay === getSparkTrafficLocalDay() ? communityState.autonomy.callsToday : 0}/{communityState.autonomy.maxCallsPerDay} 次。超时和失败请求也占用额度。</p>
+                        {isAutonomyBusy && <p className="text-xs text-slate-500">正在生成社区动态，可继续正常操作。</p>}
+                    </div>
                     <p className="text-xs text-slate-500">选择参与 Spark 的 Char。大号与马甲由 AI 依据人设自行决定，不再由 User 手动创建或指定。</p>
                     <div className="grid grid-cols-4 gap-3 max-h-60 overflow-y-auto">
                         {characters.map(c => <button type="button" key={c.id} onClick={() => setPostingCharIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1">
@@ -1606,8 +2706,19 @@ ${buildSparkCommentHistory(post)}
                             {!worldbooks.some(wb => !wb.disable) && <p className="text-xs text-slate-400">暂无可用世界书</p>}
                         </div>
                     </div>
+                    {communityState.mutedAccountIds.length > 0 && <div className="space-y-2 border-t border-slate-100 pt-3">
+                        <p className="font-semibold text-slate-700">已屏蔽账号（历史私信不会删除）</p>
+                        {communityState.mutedAccountIds.map(id => {
+                            const account = communityState.accounts.find(a => a.id === id);
+                            return <button key={id} type="button" onClick={() => account && toggleMuteSparkAccount(account.displayName, id)}
+                                className="flex w-full justify-between gap-2 rounded-xl border border-slate-200 p-2 text-xs">
+                                <span className="truncate">{account?.displayName || '旧账号'}</span><span>解除屏蔽</span>
+                            </button>;
+                        })}
+                    </div>}
+                    {hiddenPostIds.length > 0 && <button type="button" onClick={() => { setHiddenPostIds([]); localStorage.removeItem('spark_hidden_posts'); addToast('已恢复隐藏的笔记', 'success'); }} className="w-full border rounded-xl py-2 text-xs">恢复已隐藏的 {hiddenPostIds.length} 篇笔记</button>}
                     <button type="button" onClick={() => { if (window.confirm('确定清空 Spark 推荐流中的全部帖子和评论吗？此操作无法撤销。')) handleClearFeed(); }} className="w-full border border-neutral-200 text-neutral-500 rounded-xl py-2 text-xs">清除推荐流</button>
-                    <p className="text-xs text-slate-400">主动发帖时间：定时功能尚未接通，目前不会自动发帖。</p>
+                    <p className="text-xs text-slate-400">自动活动仅在本页面开放期间执行；不会后台消耗额度。</p>
                     <button type="button" disabled={isCharPosting || !postingCharIds.length} onClick={() => { setShowSettings(false); void handleCharPost(); }} className="w-full bg-[#555555] text-white rounded-xl py-3 font-bold disabled:opacity-40">{isCharPosting ? '发布中…' : '让选中的 Char 现在发帖'}</button>
                     <button type="button" onClick={() => setShowSettings(false)} className="w-full border rounded-xl py-2">完成</button>
                 </div>
@@ -1632,14 +2743,14 @@ ${buildSparkCommentHistory(post)}
                     {/* Create Header —— 自理安全区：外层扛 safe-top + 背景，内层保持 h-14 内容栏（同主栏，避开 border-box 吃 padding） */}
                     <div className="sticky top-0 z-20 bg-white border-b border-slate-50" style={{ paddingTop: 'var(--safe-top)' }}>
                         <div className="h-14 flex items-center justify-between px-4">
-                            <button onClick={() => setIsCreateOpen(false)} className="text-slate-600 text-sm font-bold px-2 py-1">取消</button>
+                            <button onClick={closeCreatePost} className="text-slate-600 text-sm font-bold px-2 py-1">取消</button>
                             <span className="text-sm font-bold text-slate-800">发布笔记</span>
                             <button
                                 onClick={handleCreatePost}
-                                disabled={!newPostContent.trim()}
+                                disabled={!newPostContent.trim() || isPublishing}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold text-white transition-all ${newPostContent.trim() ? 'bg-[#555555] shadow-md shadow-neutral-200' : 'bg-slate-200 text-slate-400'}`}
                             >
-                                发布
+                                {isPublishing ? '保存中…' : '发布'}
                             </button>
                         </div>
                     </div>
@@ -1659,6 +2770,12 @@ ${buildSparkCommentHistory(post)}
                             className="w-full h-auto min-h-[200px] resize-none outline-none text-base leading-relaxed placeholder:text-slate-300 font-medium" 
                         />
                         
+                        <label className="block mt-3 mb-2 text-xs font-bold text-slate-500">
+                            话题标签（最多 6 个，用空格或逗号分隔）
+                            <input type="text" value={newPostTags} onChange={e => setNewPostTags(e.target.value)}
+                                placeholder="绘画 插画 日常"
+                                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal outline-none" />
+                        </label>
                         <div className="mt-4 pt-4 border-t border-slate-50">
                             <div className="flex justify-between items-center mb-2">
                                 <p className="text-xs font-bold text-slate-500">从小红书图库选配图（URL，不存图片本体）</p>
@@ -1707,7 +2824,7 @@ ${buildSparkCommentHistory(post)}
                         <button onClick={closeApp} className="p-1"><Icons.Back onClick={closeApp} /></button>
                         <div className="flex items-center gap-4 text-sm font-bold min-w-0">
                             <button type="button" onClick={() => { setActiveTab('home'); setFeedTab('following'); }} className={`flex items-center gap-1 ${activeTab === 'home' && feedTab === 'following' ? 'text-slate-900' : 'text-slate-400'}`}>
-                                {(() => { const latest = feed.find(p => p.authorType === 'character' && followedHandles.includes(p.authorName)); return latest ? <TokenImg value={latest.authorAvatar} className="w-6 h-6 rounded-full object-cover" /> : null; })()}
+                                {(() => { const latest = feed.find(p => p.authorType === 'character' && isFollowing(p.authorName)); return latest ? <TokenImg value={latest.authorAvatar} className="w-6 h-6 rounded-full object-cover" /> : null; })()}
                                 关注
                             </button>
                             <button type="button" onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`relative ${activeTab === 'home' && feedTab === 'discover' ? 'text-slate-900' : 'text-slate-400'}`}>发现{activeTab === 'home' && feedTab === 'discover' && <span className="absolute -bottom-2 left-1 right-1 h-0.5 bg-[#555555] rounded-full" />}</button>
@@ -1720,9 +2837,23 @@ ${buildSparkCommentHistory(post)}
                     </div>
                 </div>
 
-                {searchOpen && <div className="flex items-center gap-2 px-3 py-2 bg-white/90 border-b border-slate-100">
-                    <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="搜索笔记、话题、用户" className="flex-1 min-w-0 rounded-full bg-slate-100 px-3 py-2 text-sm outline-none" />
-                    <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="text-slate-400 text-xs">取消</button>
+                {searchOpen && <div className="bg-white/90 border-b border-slate-100">
+                    <div className="flex items-center gap-2 px-3 py-2">
+                        <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setActiveTopic(null); }} placeholder="搜索笔记、话题、用户" className="flex-1 min-w-0 rounded-full bg-slate-100 px-3 py-2 text-sm outline-none" />
+                        <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="text-slate-400 text-xs">取消</button>
+                    </div>
+                    {searchQuery.trim() && (matchingSparkAccounts.length > 0 || matchingSparkTopics.length > 0) && <div className="px-3 pb-2 max-h-36 overflow-y-auto space-y-1">
+                        {matchingSparkAccounts.map(account => <button type="button" key={account.id}
+                            onClick={() => { setViewedAccount({ handle: account.displayName, avatar: account.avatar || '', accountId: account.id }); setSearchOpen(false); }}
+                            className="block w-full py-1 text-xs text-left text-slate-700">用户 · @{account.displayName}</button>)}
+                        {matchingSparkTopics.map(topic => <button type="button" key={topic}
+                            onClick={() => { setActiveTopic(topic); setSearchQuery(''); setSearchOpen(false); }}
+                            className="block w-full py-1 text-xs text-left text-slate-700">话题 · #{topic}</button>)}
+                    </div>}
+                </div>}
+                {activeTopic && activeTab === 'home' && <div className="flex items-center justify-between px-4 py-2 text-xs bg-white/85 border-b border-slate-100">
+                    <span className="font-bold text-slate-600">#{activeTopic} 的相关笔记</span>
+                    <button type="button" onClick={() => setActiveTopic(null)} className="text-slate-500">显示全部 ×</button>
                 </div>}
                 {/* Content Area */}
                 <div ref={feedScrollRef} onTouchStart={onFeedTouchStart} onTouchMove={onFeedTouchMove} onTouchEnd={onFeedTouchEnd} onTouchCancel={onFeedTouchEnd} className="flex-1 overflow-y-auto no-scrollbar overscroll-y-contain">
@@ -1735,12 +2866,13 @@ ${buildSparkCommentHistory(post)}
                             </div>}
                             {/* 完整卡片占一个网格单元，避免多栏分片与 backdrop-filter/裁切组合丢失作者栏。 */}
                             <div className="columns-2 gap-2 pb-24">
-                                {feed.filter(post => (feedTab === 'discover' || followedHandles.includes(post.authorName)) && searchMatches(post)).map(post => renderFeedItem(post))}
+                                {visibleFeed.filter(post => !hiddenPostIds.includes(post.id)).slice(0, visibleLimit).map(post => renderFeedItem(post))}
                             </div>
+                            {visibleFeed.length > visibleLimit && <button type="button" onClick={() => setVisibleLimit(limit => limit + 40)} className="block mx-auto mt-2 mb-20 rounded-full border border-slate-200 bg-white px-6 py-2 text-sm text-slate-600">加载更多笔记</button>}
+                            {visibleFeed.length === 0 && <p className="text-center text-xs text-slate-400 py-16">{searchQuery || activeTopic ? '没有找到相关笔记，试试别的关键词' : feedTab === 'following' ? '关注的账号暂时没有笔记' : '社区里还没有笔记，下拉刷新看看'}</p>}
                         </div>
                     )}
 
-                    {activeTab === 'market' && <div className="min-h-full flex items-center justify-center text-sm text-slate-400">集市 · 待完善</div>}
                     {activeTab === 'messages' && <div className="min-h-full bg-white pb-24">
                         <h2 className="text-center text-lg font-bold py-5">消息</h2>
                         {!noticeCategory ? <>
@@ -1757,11 +2889,15 @@ ${buildSparkCommentHistory(post)}
                             <div className="flex gap-2 px-5 pb-3">
                                 {([{ id: 'all', label: '全部' }, { id: 'following', label: '已关注' }, { id: 'strangers', label: '陌生人' }] as const).map(tab => <button key={tab.id} type="button" onClick={() => setDmFilter(tab.id)} className={`rounded-full px-3 py-1 text-xs ${dmFilter === tab.id ? 'bg-[#555555] text-white' : 'bg-slate-100 text-slate-600'}`}>{tab.label}</button>)}
                             </div>
-                            {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 && (dmFilter === 'all' || (dmFilter === 'following' ? followedHandles.includes(handle) : !followedHandles.includes(handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
-                                const accountPost = feed.find(post => post.authorName === handle);
-                                return <button key={handle} type="button" onClick={() => openSparkDM({ handle, avatar: accountPost?.authorAvatar || '' })} className="w-full flex gap-3 items-center px-5 py-3 border-b border-slate-50 text-left">
+                            {Object.entries(dmThreads).filter(([handle, messages]) => messages.length > 0 &&
+                                !communityState.mutedAccountIds.includes(communityState.accounts.find(a => a.id === handle)?.id ||
+                                    resolveSparkDMAccount(communityState.accounts, handle)?.id || '') && (dmFilter === 'all' || (dmFilter === 'following' ? isFollowing(communityState.accounts.find(a => a.id === handle)?.displayName || handle) : !isFollowing(communityState.accounts.find(a => a.id === handle)?.displayName || handle)))).sort((a, b) => (b[1][b[1].length - 1]?.time || 0) - (a[1][a[1].length - 1]?.time || 0)).map(([handle, messages]) => {
+                                const account = communityState.accounts.find(item => item.id === handle);
+                                const displayHandle = account?.displayName || handle;
+                                const accountPost = feed.find(post => account ? post.authorId === account.id : post.authorName === handle);
+                                return <button key={handle} type="button" onClick={() => openSparkDM({ handle: displayHandle, avatar: accountPost?.authorAvatar || account?.avatar || '', accountId: account?.id })} className="w-full flex gap-3 items-center px-5 py-3 border-b border-slate-50 text-left">
                                     <span className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden">{accountPost?.authorAvatar ? <TokenImg value={accountPost.authorAvatar} className="w-full h-full object-cover" /> : '✦'}</span>
-                                    <span className="min-w-0 flex-1"><strong className="block text-sm truncate">{handle}</strong><span className="block text-xs text-slate-400 truncate">{messages[messages.length - 1]?.content}</span></span>{(dmUnread[handle] || 0) > 0 && <span className="shrink-0 rounded-full bg-[#555555] text-white text-[10px] px-1.5 py-0.5">{dmUnread[handle] > 99 ? "99+" : dmUnread[handle]}</span>}
+                                    <span className="min-w-0 flex-1"><strong className="block text-sm truncate">{displayHandle}</strong><span className="block text-xs text-slate-400 truncate">{messages[messages.length - 1]?.content}</span></span>{(dmUnread[handle] || 0) > 0 && <span className="shrink-0 rounded-full bg-[#555555] text-white text-[10px] px-1.5 py-0.5">{dmUnread[handle] > 99 ? "99+" : dmUnread[handle]}</span>}
                                 </button>;
                             })}
                             {!Object.values(dmThreads).some(messages => messages.length > 0) && <p className="px-5 py-6 text-xs text-slate-400">还没有私信，进入网友主页可以发起聊天</p>}
@@ -1771,8 +2907,9 @@ ${buildSparkCommentHistory(post)}
                             <h3 className="px-4 pb-3 text-sm font-bold">{noticeCategory === 'likes' ? '赞和收藏' : noticeCategory === 'follows' ? '新增关注' : '评论和@'}</h3>
                             {noticeCategory === 'follows' && <div className="mx-4 mb-3 rounded-xl bg-neutral-50 p-4">
                                 <p className="text-xs text-slate-500">主页粉丝总数</p>
-                                <p className="text-2xl font-bold text-[#555555]">{fanCounts.user ?? 0}</p>
-                                <p className="text-xs text-slate-500 mt-2">帖子带来的新增粉丝：{followerHistory.reduce((sum, item) => sum + item.count, 0)} 人（记录启用后的变化）</p>
+                                <p className="text-2xl font-bold text-[#555555]">{communityState.follows.filter(follow => follow.followedId === 'user').length}</p>
+                                <p className="text-xs text-slate-500 mt-2">按有明确账号身份的站内关注关系统计。</p>
+                                {followerHistory.length > 0 && <p className="text-xs text-slate-400 mt-1">旧版模拟粉丝变动记录：{followerHistory.reduce((sum, item) => sum + item.count, 0)}（未计入真实粉丝）</p>}
                                 <p className="text-xs text-slate-400 mt-1">下方列出有明确账号的关注者；其余增长只显示人数，不虚构昵称。</p>
                             </div>}
                             {noticeCategory === 'follows' && followerHistory.map(item => <div key={item.id} className="px-4 py-3 border-b border-slate-50 flex justify-between text-sm">
@@ -1788,8 +2925,19 @@ ${buildSparkCommentHistory(post)}
                                     {noticeCategory === 'follows' && <p className="text-xs text-slate-500 mb-2">最近关注你的人 · {unique.length} 位</p>}
                                     <div className="flex flex-wrap gap-3">
                                         {shown.map(n => <button key={n.id} type="button" onClick={() => {
-                                            const accountPost = feed.find(p => p.authorName === n.actor);
-                                            if (accountPost) setViewedAccount({ handle: n.actor, avatar: n.avatar || accountPost.authorAvatar });
+                                            const account = resolveSparkDMAccount(communityState.accounts, n.actor);
+                                            const matches = communityState.accounts.filter(candidate => candidate.type !== 'user' &&
+                                                (candidate.displayName === n.actor || candidate.aliases.includes(n.actor)));
+                                            if (!account && matches.length > 1) {
+                                                addToast('存在同名账号，无法确定这条旧通知的作者', 'info');
+                                                return;
+                                            }
+                                            const accountPost = feed.find(p => account ? p.authorId === account.id : p.authorName === n.actor);
+                                            if (accountPost || account) setViewedAccount({
+                                                handle: account?.displayName || n.actor,
+                                                avatar: n.avatar || accountPost?.authorAvatar || account?.avatar || '',
+                                                accountId: account?.id || accountPost?.authorId,
+                                            });
                                             else openSparkDM({ handle: n.actor, avatar: n.avatar || '' });
                                         }} className="flex items-center gap-1.5 max-w-[45%] min-w-0 text-left">
                                             <span className="w-8 h-8 shrink-0 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">{n.avatar ? <TokenImg value={n.avatar} className="w-full h-full object-cover" /> : '✦'}</span>
@@ -1876,15 +3024,15 @@ ${buildSparkCommentHistory(post)}
                                 )}
 
                                 <div className="flex items-center gap-2 px-4">
-                                    <button type="button" onClick={() => { setFanInput(String(fanCounts.user ?? 0)); setEditingFans(v => !v); }} className="text-xs text-neutral-500">后台设置粉丝数</button>
+                                    <button type="button" onClick={() => { setFanInput(String(fanCounts.user ?? 0)); setEditingFans(v => !v); }} className="text-xs text-neutral-500">旧版模拟粉丝展示值</button>
                                     {editingFans && <><input type="number" min="0" max="100000000" value={fanInput} onChange={e => setFanInput(e.target.value)} className="w-24 border rounded px-2 py-1 text-xs" />
                                     <button type="button" onClick={() => { const value = Number(fanInput); if (!Number.isFinite(value) || value < 0 || value > 100000000) return; setFanCounts(prev => { const next = { ...prev, user: Math.round(value) }; localStorage.setItem('spark_fan_counts', JSON.stringify(next)); return next; }); setEditingFans(false); }} className="text-xs font-bold text-neutral-500">保存</button></>}
                                 </div>
-                                {fanChanges.user !== undefined && <p className="text-xs text-center text-slate-500">最近发帖粉丝变化：{fanChanges.user > 0 ? '+' : ''}{fanChanges.user}</p>}
+                                {fanChanges.user !== undefined && <p className="text-xs text-center text-slate-500">旧版模拟粉丝变化（不计入真实粉丝）：{fanChanges.user > 0 ? '+' : ''}{fanChanges.user}</p>}
                                 <div className="flex gap-6 mt-5 bg-white/40 p-4 rounded-2xl border border-white/50 shadow-sm">
-                                    <div className="text-center"><span className="block font-bold text-slate-800">142</span><span className="text-[10px] text-slate-400">关注</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">{fanCounts.user ?? 0}</span><span className="text-[10px] text-slate-400">粉丝</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">8902</span><span className="text-[10px] text-slate-400">获赞与收藏</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{communityState.follows.filter(follow => follow.followerId === 'user').length}</span><span className="text-[10px] text-slate-400">关注</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{communityState.follows.filter(follow => follow.followedId === 'user').length}</span><span className="text-[10px] text-slate-400">粉丝</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">{feed.filter(post => post.authorType === 'user').reduce((sum, post) => sum + post.likes, 0)}</span><span className="text-[10px] text-slate-400">已记录点赞</span></div>
                                 </div>
                             </div>
 
@@ -1896,9 +3044,9 @@ ${buildSparkCommentHistory(post)}
 
                             <div className="p-2 min-h-[300px] bg-slate-50/50 pb-24">
                                 <div className="columns-2 gap-2 space-y-2">
-                                    {feed.filter(p => profileTab === 'notes' ? (p.authorType === 'user' || (!p.authorType && p.authorName === socialProfile.name)) : p.isCollected).map(post => (
+                                    {feed.filter(p => profileTab === 'notes' ? (p.authorType === 'user' || (!p.authorType && p.authorName === socialProfile.name)) : p.isCollected).slice(0, profileVisibleLimit).map(post => (
                                         <div key={post.id} onClick={() => handleOpenPost(post)} className="break-inside-avoid bg-white rounded-xl overflow-hidden shadow-sm border border-slate-100 cursor-pointer">
-                                            <div className="aspect-[4/5] flex items-center justify-center text-4xl" style={{ background: post.bgStyle }}>{codepointToEmoji(post.images[0])}</div>
+                                            <div className="aspect-[4/5] flex items-center justify-center text-4xl" style={{ background: post.bgStyle }}>{postVisual(post.images[0], 'w-full h-full')}</div>
                                             <div className="p-3">
                                                 <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-tight">{post.title}</h4>
                                                 <div className="flex justify-between items-center mt-2">
@@ -1909,6 +3057,7 @@ ${buildSparkCommentHistory(post)}
                                         </div>
                                     ))}
                                 </div>
+                                {feed.filter(p => profileTab === 'notes' ? (p.authorType === 'user' || (!p.authorType && p.authorName === socialProfile.name)) : p.isCollected).length > profileVisibleLimit && <button type="button" onClick={() => setProfileVisibleLimit(n => n + 60)} className="block mx-auto mt-4 rounded-full border border-slate-200 px-5 py-2 text-xs text-slate-600">加载更早的笔记</button>}
                                 {feed.filter(p => profileTab === 'notes' ? (p.authorType === 'user' || (!p.authorType && p.authorName === socialProfile.name)) : p.isCollected).length === 0 && (
                                     <div className="flex flex-col items-center justify-center py-20 text-slate-300 gap-2">
                                         <Package size={48} className="text-slate-300 opacity-30" />
@@ -1922,7 +3071,6 @@ ${buildSparkCommentHistory(post)}
 
                 <div className="absolute bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-100 flex items-center justify-around h-16" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                     <button onClick={() => { setActiveTab('home'); setFeedTab('discover'); }} className={`text-sm ${activeTab === 'home' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>首页</button>
-                    <button onClick={() => setActiveTab('market')} className={`text-sm ${activeTab === 'market' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>集市</button>
                     <button onClick={() => setIsCreateOpen(true)} aria-label="发布笔记" className="w-14 h-12 bg-[#555555] rounded-xl text-white text-4xl leading-none">+</button>
                     <button onClick={() => setActiveTab('messages')} className={`text-sm ${activeTab === 'messages' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>消息</button>
                     <button onClick={() => setActiveTab('me')} className={`text-sm ${activeTab === 'me' ? 'text-slate-900 font-bold' : 'text-slate-400'}`}>我</button>

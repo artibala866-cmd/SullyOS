@@ -1,0 +1,96 @@
+import {describe,it,expect} from 'vitest';
+import {readFileSync} from 'node:fs';
+import catalog from '../../public/room3d/catalog.json';
+import {roomBeds,seatTransform} from './seating.js';
+import {legacyBedTransform,bedEntry,bedEdge,bedChangePose} from './bedMotion.js';
+import {legacyBedFrame} from './chibi/legacyBedMotion.ts';
+import {seatChangeDuration} from './chibi/roomMotionFrame.ts';
+
+const room={id:'bedroom',items:[
+ {id:'single-bed',assetId:'bedroom_single_bed',x:0,y:.18,z:0,rotation:0,stored:false}
+]};
+const slot=roomBeds(room,catalog).find(b=>b.itemId==='single-bed'&&b.seatId==='center');
+const legacy=()=>legacyBedTransform(seatTransform(room,catalog,slot,false));
+
+describe('shared bed access for legacy and skeletal residents',()=>{
+ it('resolves a legacy bed slot to a bed pose with the reviewed edge profile',()=>{
+  const pose=legacy();
+  expect(pose?.pose).toBe('bed');
+  expect(pose?.bed?.edgeX).toBeGreaterThan(0);
+  expect(pose?.bed?.center).toEqual([0,.18,0]);
+  expect(pose?.bed?.entry).not.toBe(false);
+  expect(Math.abs(bedEdge(pose,[1.6,.18,-.08625]).position[1]-pose.position[1])).toBeLessThan(.02);
+ });
+ it('rejects the wrong side instead of sliding a resident across the mattress',()=>{
+  const pose=legacy();
+  const rightSide=Math.sign(pose.bed.side);
+  const wrong={free:(x,z)=>x*rightSide<-.5};
+  expect(bedEntry(pose,wrong,[0,0])).toBeNull();
+  const same={free:(x,z)=>x*rightSide>.5};
+  const front=bedEntry(pose,same,[0,0]);
+  expect(front).not.toBeNull();
+  expect(front[0]*rightSide).toBeGreaterThan(.5);
+ });
+ it('reuses the exact entry point for rising and fails closed if that exit becomes blocked',()=>{
+  const pose=legacy(),remembered=[1.6,.18,-.08625];
+  expect(bedEntry(pose,{free:(x)=>x>0},[0,0],{preferred:remembered,allowAlternate:false})).toEqual(remembered);
+  // The opposite side is open, but crossing the mattress to it is not a safe fallback.
+  expect(bedEntry(pose,{free:(x)=>x<0},[0,0],{preferred:remembered,allowAlternate:false})).toBeNull();
+ });
+ it('uses a finite, continuous root path for lying down and standing up',()=>{
+  const pose=legacy(),front=bedEntry(pose,{free:(x)=>x>.5},[0,0]);
+  expect(front).not.toBeNull();
+  const change={rising:false,front,edge:bedEdge(pose,front),seat:[pose.position[0],pose.position[1]+.34,pose.position[2]],rotation:pose.rotation,startRotation:0,pose:'bed'};
+  const duration=seatChangeDuration('bed'),start=bedChangePose(change,0),finish=bedChangePose(change,duration);
+  expect(start.position.every(Number.isFinite)).toBe(true);
+  expect(finish.position.every(Number.isFinite)).toBe(true);
+  expect(start.position[0]).toBeCloseTo(front[0]);
+  expect(start.position[1]).toBeCloseTo(front[1]);
+  expect(finish.position[0]).toBeCloseTo(change.seat[0]);
+  expect(finish.position[1]).toBeCloseTo(change.seat[1]);
+  const rise=bedChangePose({...change,rising:true},0),stand=bedChangePose({...change,rising:true},duration);
+  expect(rise.position[0]).toBeCloseTo(change.seat[0]);
+  expect(stand.position[0]).toBeCloseTo(front[0]);
+  expect(stand.position[1]).toBeCloseTo(front[1]);
+ });
+ it('blends the legacy body from standing to seated to lying and back without a posture snap',()=>{
+  const approach=legacyBedFrame(0,{kind:'bed-change',bedWeight:0,bedRecline:0});
+  const seated=legacyBedFrame(2,{kind:'bed-change',bedWeight:1,bedRecline:0});
+  const reclining=legacyBedFrame(5,{kind:'bed-change',bedWeight:1,bedRecline:.5});
+  const lying=legacyBedFrame(9,{kind:'bed-change',bedWeight:1,bedRecline:1});
+  const standing=legacyBedFrame(9,{kind:'bed-change',bedWeight:0,bedRecline:0});
+  expect(approach?.sitting).toBe(false);
+  expect(approach?.floatingLimbs).toBe(false);
+  expect(approach?.rotationX).toBeCloseTo(0);
+  expect(seated?.sitting).toBe(true);
+  expect(seated?.rotationX).toBeCloseTo(0);
+  expect(reclining?.rotationX).toBeCloseTo(-Math.PI/4);
+  expect(lying?.sitting).toBe(false);
+  expect(lying?.rotationX).toBeCloseTo(-Math.PI/2);
+  expect(standing?.sitting).toBe(false);
+  expect(standing?.rotationX).toBeCloseTo(0);
+  const source=readFileSync(new URL('./chibi/FbxBody.ts',import.meta.url),'utf8');
+  expect(source).toContain('const bedFrame=legacyBedFrame(time,activity);');
+  expect(source).toContain('if(bedFrame){body.position.set(0,bedFrame.positionY,0);body.rotation.set(bedFrame.rotationX,0,0);}');
+ });
+ it('keeps the non-skeletal action on the checked walk-in path, not the old direct snap',()=>{
+  const source=readFileSync(new URL('./editor.js',import.meta.url),'utf8');
+  expect(source).toContain("const bedProfile=seatTransform(placementRoom(),catalog,bed,!!visitor?.rig)?.bed;");
+  expect(source).toContain("approachBed(bed,d.recordSource);return;");
+  expect(source).not.toContain("visitorSeat=bed;visitorMotion=bed.bedMode?'idle':'sleep';visitorStart=elapsed;visitorUntil=elapsed+4.4;beginSeatChange(false);");
+  expect(source).toContain("if(visitorSeat&&!beginSeatChange(true))");
+  expect(source).not.toContain("if(visitorSeat&&!visitor?.rig&&!visitorSeat.bed){visitorSeat=null;");
+  expect(source).toContain("if(!beginSeatChange(false,front)){visitorSeat=null;");
+  expect(source).toContain('parkedSeatAccess:seatAccess');
+  expect(source).toContain('seatAccess=snapshot?.parkedSeatAccess||null');
+  expect(source).toContain('visitorSeat=null;seatAccess=null;visitorPlant=null');
+  expect(source).toContain('function finishSeatChangeForHandoff(){');
+  const restore=source.slice(source.indexOf('function restoreFurnitureCharacter(){'),source.indexOf('function setManualResident(id){'));
+  expect(restore.indexOf('finishSeatChangeForHandoff()')).toBeLessThan(restore.indexOf('snapshotFurniture()'));
+  const handoff=source.slice(source.indexOf('function useFurnitureUser(){'),source.indexOf('function stopSocial()'));
+  expect(handoff.indexOf('finishSeatChangeForHandoff()')).toBeLessThan(handoff.indexOf('snapshotFurniture()'));
+  const standStart=source.lastIndexOf("if(d.action==='chibi-stand'");
+  const stand=source.slice(standStart,source.indexOf("if(d.action==='chibi-motion'",standStart));
+  expect(stand.indexOf('!beginSeatChange(true)')).toBeLessThan(stand.indexOf("visitorMotion='idle'"));
+ });
+});

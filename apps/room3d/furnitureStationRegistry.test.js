@@ -1,0 +1,55 @@
+import {describe,it,expect} from 'vitest';
+import catalog from '../../public/room3d/catalog.json';
+import {furnitureStationIssue,validatedFurnitureStations,sameStationPose,occupiedFurnitureSlotIssue} from './furnitureStationRegistry.js';
+
+const room={id:'r',items:[
+ {id:'t',assetId:'worktable',x:0,y:.15,z:0,rotation:0,stored:false},
+ {id:'c',assetId:'chair',x:0,y:.15,z:1,rotation:180,stored:false}
+]};
+const station={itemId:'t',kind:'eat',stationId:'c',position:[0,.695,1],rotation:0,
+ hands:[[-.25,.50,.40],[.25,.50,.40]],seat:{roomId:'r',itemId:'c',seatId:'center'},dependencies:['c']};
+describe('shared furniture interaction station validation',()=>{
+ it('accepts a real target, calibrated seat and current dependencies',()=>{
+  expect(furnitureStationIssue(room,catalog,station)).toBe('');
+  expect(validatedFurnitureStations(room,catalog,[station])[0].reason).toBeUndefined();
+ });
+ it('refuses missing, stored, corrupt and dangling contact points',()=>{
+  expect(furnitureStationIssue(room,catalog,{...station,itemId:'unknown'})).toContain('家具');
+  expect(furnitureStationIssue(room,catalog,{...station,position:[NaN,.1,0]})).toContain('站位');
+  expect(furnitureStationIssue(room,catalog,{...station,hands:[[Infinity,1,0]]})).toContain('手部');
+  expect(furnitureStationIssue(room,catalog,{...station,dependencies:['missing']})).toContain('缺失');
+  expect(furnitureStationIssue(room,catalog,{...station,seat:{...station.seat,seatId:'missing'}})).toContain('座位');
+  const stored={...room,items:room.items.map(i=>i.id==='c'?{...i,stored:true}:i)};
+  expect(furnitureStationIssue(stored,catalog,station)).toContain('缺失');
+ });
+ it('rejects stale furniture position, height or rotation while accepting wraparound angles',()=>{
+  const a={position:[0,.7,0],rotation:Math.PI};
+  expect(sameStationPose(a,{position:[.01,.72,0],rotation:-Math.PI})).toBe(true);
+  expect(sameStationPose(a,{position:[.15,.7,0],rotation:Math.PI})).toBe(false);
+  expect(sameStationPose(a,{position:[0,.9,0],rotation:Math.PI})).toBe(false);
+  expect(sameStationPose(a,{position:[0,.7,0],rotation:0})).toBe(false);
+  expect(sameStationPose(a,null)).toBe(false);
+ });
+ it('reserves a seat across the action wheel and AI planner without losing the blocked reason',()=>{
+  const [blocked]=validatedFurnitureStations(room,catalog,[station],[{itemId:'c',seatId:'center'}]);
+  expect(blocked.reason).toContain('已经有人');
+  expect(validatedFurnitureStations(room,catalog,[{...station,reason:'设备坏了'}],[{itemId:'c',seatId:'center'}])[0].reason).toBe('设备坏了');
+ });
+ it('keeps ordinary two-seat sofa use while protecting very large neighboring residents',()=>{
+  const room={id:'sofa-room',items:[{id:'couch',assetId:'sofa',x:0,y:.18,z:0,rotation:0,stored:false}]};
+  const slot={roomId:room.id,itemId:'couch',seatId:'right'},
+   occupied=[{roomId:room.id,itemId:'couch',seatId:'left',width:1.5}];
+  expect(occupiedFurnitureSlotIssue(room,catalog,slot,occupied,1.5)).toBe('');
+  expect(occupiedFurnitureSlotIssue(room,catalog,slot,occupied,2.3)).toContain('相邻');
+  expect(occupiedFurnitureSlotIssue(room,catalog,slot,[{...occupied[0],roomId:'other'}],2.3)).toBe('');
+  expect(occupiedFurnitureSlotIssue(room,catalog,{...slot,seatId:'left'},occupied,1.5)).toContain('已经有人');
+ });
+ it('uses the same measured clearance for occupied workstation and dining activity stations',()=>{
+  const layout={id:'room',items:[{id:'couch',assetId:'sofa',x:0,y:.18,z:0,rotation:0,stored:false}]};
+  const active={itemId:'couch',kind:'eat',position:[.6,.8,.4],rotation:0,
+   seat:{roomId:'room',itemId:'couch',seatId:'right'}};
+  const reserved=[{roomId:'room',itemId:'couch',seatId:'left',width:2.4}];
+  expect(validatedFurnitureStations(layout,catalog,[active],reserved,1.5)[0].reason).toContain('相邻');
+  expect(validatedFurnitureStations(layout,catalog,[active],reserved.map(s=>({...s,width:1.5})),1.5)[0].reason).toBeUndefined();
+ });
+});

@@ -4,12 +4,14 @@ export function createMirrorJourney(activity,start,pathTo,{speed=1.7}={}){
  const phases=[];let position=[...start],duration=0;
  for(let round=0;round<2;round++)for(const [destination,pose,hold] of [['wardrobe',activity.wardrobePose,1.8],['mirror',activity,3.6]]){
   const path=pathTo(position,pose.position);
-  if(path)for(let i=1;i<path.length;i++){
+  // An obstructed wardrobe/mirror leg cancels the interaction; never teleport.
+  if(!path)return null;
+  for(let i=1;i<path.length;i++){
    const a=path[i-1],b=path[i],length=Math.hypot(b[0]-a[0],b[2]-a[2]);
    if(length<.001)continue;
    phases.push({start:duration,end:duration+=length/speed,from:a,to:b,rotation:Math.atan2(b[0]-a[0],b[2]-a[2]),motion:'walk',destination,round});
   }
-  phases.push({start:duration,end:duration+=hold,from:pose.position,to:pose.position,rotation:pose.rotation,motion:'mirror-outfit',destination,round,teleported:!path});
+  phases.push({start:duration,end:duration+=hold,from:pose.position,to:pose.position,rotation:pose.rotation,motion:'mirror-outfit',destination,round,teleported:false});
   position=pose.position;
  }
  return {phases,duration};

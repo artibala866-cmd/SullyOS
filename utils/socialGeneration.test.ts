@@ -15,33 +15,29 @@ const social = { name: '雨的账号', bio: '画画日记', avatar: '' };
 const resolve = (item: any, participants = [a, b]) => resolveSparkAuthor(item, participants, chars, handles, [user.name, social.name]);
 
 describe('Spark persona and conversation context', () => {
-    it('includes scoped personas, user identity mapping and only each participant’s recent messages', async () => {
-        const context = (await buildSparkGenerationContext([a, b], user, social, handles, {
+    it('keeps multi-character public requests separate from any role private chats and system prompts', async () => {
+        const context = await buildSparkGenerationContext([a, b], user, social, handles, {
             'a-id': [{ role: 'user', content: '明天去看花展' } as Message],
+            'b-id': [{ role: 'user', content: '私人密码只告诉Sully' } as Message],
             'c-id': [{ role: 'user', content: '第三人的秘密' } as Message],
-        }));
-        for (const text of [a.systemPrompt, b.systemPrompt, user.name, user.bio, social.name, '明天去看花展', 'a-id', 'b-id', '小花园', 'SullyDev']) {
-            expect(context).toContain(text);
-        }
-        expect(context).not.toContain(c.systemPrompt);
-        expect(context).not.toContain('第三人的秘密');
-        expect(context).not.toContain('[System: Roleplay Configuration]');
-        const aBlock = context.slice(context.indexOf('<<< 角色档案 charId="a-id"'), context.indexOf('<<< 角色档案结束 charId="a-id"'));
-        expect(aBlock).toContain(a.systemPrompt);
-        expect(aBlock).not.toContain(b.systemPrompt);
+        }, { 'a-id': ['只供阿青记忆的隐私'], 'b-id': ['只供Sully记忆的隐私'] });
+        for (const shown of [user.name, social.name, 'a-id', 'b-id', '小花园', 'SullyDev']) expect(context).toContain(shown);
+        for (const privatePart of [a.systemPrompt, b.systemPrompt, c.systemPrompt,
+            '明天去看花展', '私人密码只告诉Sully', '第三人的秘密',
+            '只供阿青记忆的隐私', '只供Sully记忆的隐私']) expect(context).not.toContain(privatePart);
     });
 
-    it('keeps Spark interaction memories inside the matching character profile', async () => {
-        const context = await buildSparkGenerationContext([a, b], user, social, handles, {}, {
-            'a-id': ['阿青只记得自己的笔记收到一条评论'],
-            'b-id': ['Sully只记得自己分享过一篇笔记'],
-        });
-        const aBlock = context.slice(context.indexOf('<<< 角色档案 charId="a-id"'), context.indexOf('<<< 角色档案结束 charId="a-id"'));
-        const bBlock = context.slice(context.indexOf('<<< 角色档案 charId="b-id"'), context.indexOf('<<< 角色档案结束 charId="b-id"'));
-        expect(aBlock).toContain('阿青只记得自己的笔记收到一条评论');
-        expect(aBlock).not.toContain('Sully只记得自己分享过一篇笔记');
-        expect(bBlock).toContain('Sully只记得自己分享过一篇笔记');
-        expect(bBlock).not.toContain('阿青只记得自己的笔记收到一条评论');
+    it('retains the appropriate full persona and own private continuity for a single character', async () => {
+        const context = await buildSparkGenerationContext([a], user, social, handles, {
+            'a-id': [{ role: 'user', content: '明天去看花展' } as Message],
+            'b-id': [{ role: 'user', content: '私人密码只告诉Sully' } as Message],
+        }, { 'a-id': ['阿青只记得自己的笔记收到一条评论'], 'b-id': ['Sully只记得自己分享过一篇笔记'] });
+        expect(context).toContain(a.systemPrompt);
+        expect(context).toContain('明天去看花展');
+        expect(context).toContain('阿青只记得自己的笔记收到一条评论');
+        expect(context).not.toContain(b.systemPrompt);
+        expect(context).not.toContain('私人密码只告诉Sully');
+        expect(context).not.toContain('Sully只记得自己分享过一篇笔记');
     });
 
     it('keeps the post author and recent interlocutors ahead of random candidates', () => {
@@ -80,5 +76,45 @@ describe('Spark author attribution', () => {
         const duplicate = { ...handles, 'b-id': [{ id: 'b', handle: '小花园', note: '' }] };
         expect(resolveSparkAuthor({ author: '小花园' }, [a, b], chars, duplicate, [])).toBeNull();
         expect(resolveSparkAuthor({ author: '小花园', charId: 'b-id' }, [a, b], chars, duplicate, [])?.character).toBe(b);
+    });
+});
+
+describe('Spark public output private-chat guard', () => {
+    it('rejects a long copied private message but not ordinary short public phrases', async () => {
+        const { containsSparkPrivateQuote } = await import('./socialGeneration');
+        const privateText = '昨天在老地方我悄悄告诉你的那一段没有对任何人说过的秘密和接下来的安排';
+        expect(containsSparkPrivateQuote('今天分享一个秘密：' + privateText, [privateText])).toBe(true);
+        expect(containsSparkPrivateQuote('今天分享一些画画心得～', [privateText])).toBe(false);
+        expect(containsSparkPrivateQuote('画画', [privateText])).toBe(false);
+    });
+});
+
+describe('Spark alt profile privacy', () => {
+    it('keeps anonymous avatars stable and different from the character main photo', async () => {
+        const { getSparkAuthorAvatar } = await import('./socialGeneration');
+        const char = { ...a, avatar: 'blobref:private-main-photo' };
+        const configured = { 'a-id': [
+            { id: 'default', handle: '主号', note: '主账号' },
+            { id: 'alt-1', handle: '画画树洞', note: '匿名吐槽' },
+        ] };
+        expect(getSparkAuthorAvatar(char, '主号', configured)).toBe(char.avatar);
+        const hidden = getSparkAuthorAvatar(char, '画画树洞', configured);
+        expect(hidden).not.toBe(char.avatar);
+        expect(hidden).toBe(getSparkAuthorAvatar(char, '改名后的树洞', configured, 'alt-1'));
+    });
+});
+
+describe('Spark public request worldbook isolation', () => {
+    it('never injects private worldbook content into a shared public generation request', async () => {
+        const { buildSparkGenerationRequestMessages } = await import('./socialGeneration');
+        const privateA = { ...a, mountedWorldbooks: [{ id: 'secret-a', title: '私人世界书A', entries: [{ content: '甲角色不公开的秘密内容' }] }] } as unknown as CharacterProfile;
+        const privateB = { ...b, mountedWorldbooks: [{ id: 'secret-b', title: '私人世界书B', entries: [{ content: '乙角色不公开的秘密内容' }] }] } as unknown as CharacterProfile;
+        const messages = buildSparkGenerationRequestMessages([privateA, privateB], user, '仅公开资料', '写两条公开帖子');
+        expect(messages).toEqual([
+            { role: 'system', content: '仅公开资料' },
+            { role: 'user', content: '写两条公开帖子' },
+        ]);
+        expect(JSON.stringify(messages)).not.toContain('甲角色不公开的秘密内容');
+        expect(JSON.stringify(messages)).not.toContain('乙角色不公开的秘密内容');
     });
 });

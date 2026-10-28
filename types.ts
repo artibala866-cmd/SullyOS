@@ -3722,6 +3722,16 @@ export interface SocialComment {
     content: string;
     likes: number;
     isCharacter?: boolean;
+    /** Whether the local user has liked this specific comment. */
+    isLiked?: boolean;
+    /** Optional parent comment, keeping public reply chains distinct from private messages. */
+    replyToId?: string;
+    /** Stable community account ID; not a mutable display name. */
+    authorId?: string;
+    timestamp?: number;
+    parentCommentId?: string;
+    replyToAuthorName?: string;
+    likedByAccountIds?: string[];
     authorType?: 'user' | 'character' | 'stranger';
     authorCharId?: string;
 }
@@ -3742,6 +3752,15 @@ export interface SocialPost {
     bgStyle?: string;
     authorType?: 'user' | 'character' | 'stranger';
     authorCharId?: string;
+    /** The author's stable internal community ID. */
+    authorId?: string;
+    source?: 'user' | 'ai' | 'legacy';
+    topicIds?: string[];
+    likedByAccountIds?: string[];
+    collectedByAccountIds?: string[];
+    /** This post has already had its initial AI comments generated or included in a paid batch.
+     * Even an empty result must not cause another automatic API call on every open. */
+    sparkInitialCommentsHandled?: boolean;
 }
 
 export interface SubAccount {

@@ -1,3 +1,16 @@
+import {isSustainedFurnitureActivity} from './furnitureActivityLifetime';
+
+// Reduced-motion mode should complete every finite physical furniture
+// transition, but should not re-render an indefinitely seated computer
+// or streaming activity once its pose is settled. Ordinary mode still
+// renders animation through the separate quality/motion frame gate.
+export function furnitureNeedsActiveFrames({seatChange,visitorPlant,visitorActivity,kitchenTask}={}){
+ return !!(seatChange||visitorPlant||kitchenTask||visitorActivity&&(
+  !!visitorActivity.bathJourney||!!visitorActivity.journey||
+  !isSustainedFurnitureActivity(visitorActivity.kind)
+ ));
+}
+
 // Small feedback controller for the room renderer. Only changes raster
 // resolution, never resident rigs, motion clips, scene geometry or saved quality.
 // Values use *rendered-frame spacing*, not rAF ticks (30 FPS intentionally skips ticks).
@@ -23,4 +36,12 @@ export function createRoomFrameBudget({enabled=false}={}){
    return null;
   },
  };
+}
+
+// Separate real-time character/action progression from short collision/physics
+// steps. At 15 FPS a fixed 0.05s clock would slow a 1s sit animation to 1.33s.
+// Limit catch-up to 0.2s after stalls rather than respawning or teleporting.
+export function roomFrameDeltas(milliseconds){
+ const seconds=Number.isFinite(milliseconds)?Math.max(0,milliseconds)/1000:0;
+ return {simulation:Math.min(.05,seconds),activity:Math.min(.2,seconds)};
 }

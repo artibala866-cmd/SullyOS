@@ -2,6 +2,11 @@ import {MathUtils} from 'three';
 import {seatChangeDuration} from './chibi/roomMotionFrame.ts';
 import {meshyMotions} from './chibi/meshyMotions.ts';
 
+export function legacyBedTransform(seat,rootOffset=.34){
+ if(!seat?.bed||seat.pose!=='bed')return seat;
+ const edgeY=Number.isFinite(seat.bed.edgeY)?seat.bed.edgeY+rootOffset:seat.bed.edgeY;
+ return {...seat,position:[seat.position[0],seat.position[1]+rootOffset,seat.position[2]],bed:{...seat.bed,edgeY}};
+}
 export function body2BedTransform(seat,headToHip,hipHeight=0){
  if(!seat?.bed)return seat;
  const forward=seat.bed.headEnd+headToHip-seat.bed.anchorZ;
@@ -9,14 +14,20 @@ export function body2BedTransform(seat,headToHip,hipHeight=0){
  const sleepStart=[0,(root[1]-root.at(-2))*hipHeight,(root[2]-root.at(-1))*hipHeight];
  return {...seat,pose:'bed',sleepStart,position:[seat.position[0]+Math.sin(seat.rotation)*forward,seat.position[1],seat.position[2]+Math.cos(seat.rotation)*forward]};
 }
-export function bedEntry(seat,map,offset=[0,0]){
+export function bedEntry(seat,map,offset=[0,0],{preferred=null,allowAlternate=true}={}){
  const spec=seat.bed;if(!spec)return null;
+ const valid=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite)&&map.free(p[0]+offset[0],p[2]+offset[1]);
+ if(preferred&&valid(preferred))return [...preferred];
+ if(!allowAlternate)return null;
  const c=Math.cos(spec.itemRotation),s=Math.sin(spec.itemRotation);
  // Align along the bed with the imported clip's first seated pelvis, not its
  // final lying anchor. This removes the long sideways slide after sitting.
  const dz=seat.position?Math.sin(spec.itemRotation)*(seat.position[0]-spec.center[0])+Math.cos(spec.itemRotation)*(seat.position[2]-spec.center[2])+(seat.sleepStart?.[2]??0):.7;
  // Do not enter from the opposite side and slide a seated resident across the
  // whole mattress to the selected sleeping slot.
+ // Reject opposite-side entry: it would carry the pelvis through the entire
+ // mattress to a slot authored for the other side. Keep the correct side and
+ // vary only reachable distances along it.
  for(const side of [spec.side])for(const z of [dz,.7,1.1,-.2].filter(z=>Math.abs(z-dz)<=.45))for(const gap of [.55,.8,1.05]){
   const x=side*(spec.halfWidth+gap),p=[spec.center[0]+c*x+s*z,.18,spec.center[2]-s*x+c*z];
   if(map.free(p[0]+offset[0],p[2]+offset[1]))return p;

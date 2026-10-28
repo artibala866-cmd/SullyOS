@@ -10,13 +10,11 @@ describe('outfit trips',()=>{
   expect(mirrorJourneyFrame(j,2.5).position).toEqual(activity.wardrobePose.position);
   const done=mirrorJourneyFrame(j,j.duration+100);expect(done.done).toBe(true);expect(done.position).toEqual(activity.position);
  });
- it('teleports immediately when no route exists, including blocked return paths',()=>{
-  const j=createMirrorJourney(activity,activity.position,()=>null);
-  expect(j.phases).toHaveLength(4);expect(j.phases.every(p=>p.teleported)).toBe(true);
-  expect(mirrorJourneyFrame(j,0).position).toEqual(activity.wardrobePose.position);
-  expect(mirrorJourneyFrame(j,1.8).position).toEqual(activity.position);
-  expect(mirrorJourneyFrame(j,5.4).position).toEqual(activity.wardrobePose.position);
-  expect(mirrorJourneyFrame(j,j.duration).done).toBe(true);
+ it('refuses blocked outbound or return routes instead of teleporting through furniture',()=>{
+  expect(createMirrorJourney(activity,activity.position,()=>null)).toBeNull();
+  let legs=0;
+  expect(createMirrorJourney(activity,activity.position,(a,b)=>++legs===2?null:[a,b])).toBeNull();
+  expect(legs).toBe(2);
  });
  it('follows all detour segments rather than crossing obstacles',()=>{
   const j=createMirrorJourney(activity,activity.position,(a,b)=>[a,[2,.18,a[2]],[2,.18,b[2]],b]);

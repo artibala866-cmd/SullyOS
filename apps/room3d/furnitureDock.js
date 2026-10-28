@@ -23,8 +23,10 @@ export function dockSlots(table,chair,room,catalog){
   slots=[{id:'front',position:[0,0,z],rotation:180}];
   if(['table','daisy_table'].includes(a.id))slots.push({id:'back',position:[0,0,-z],rotation:0},{id:'left',position:[-x,0,0],rotation:90},{id:'right',position:[x,0,0],rotation:270});
  }
+ // Dock the CHARACTER's facing toward the support: mesh-front may differ from
+ // pose-front (the original wooden chair is rotated 180° in its authored seat).
  const t=table.rotation*Math.PI/180,cos=Math.cos(t),sin=Math.sin(t);
- return slots.map(s=>({...chair,x:table.x+cos*s.position[0]+sin*s.position[2],y:table.y+s.position[1],z:table.z-sin*s.position[0]+cos*s.position[2],rotation:(table.rotation+s.rotation)%360,dockId:table.id,dockSlot:s.id}));
+ return slots.map(s=>({...chair,x:table.x+cos*s.position[0]+sin*s.position[2],y:table.y+s.position[1],z:table.z-sin*s.position[0]+cos*s.position[2],rotation:(table.rotation+s.rotation-(c.seats?.[0]?.rotation??0)+360)%360,dockId:table.id,dockSlot:s.id}));
 }
 export function dockCandidates(chair,room,catalog,radius=.65){
  if(chair.dockDisabled||!isDockChair(catalog.find(a=>a.id===chair.assetId)))return [];
