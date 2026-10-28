@@ -33,7 +33,7 @@ import {createSocialScene,socialActions} from './chibi/social';
 import {setCharacterRoomTint,setCharacterRoomLighting} from './chibi/illustration';
 import {comparisonSpot,visitorFootprintWidth} from './visitorComparison.js';
 import {bathroomActivities,isBathAction} from './bathroom.js';
-import {bathroomEntryCandidates,createBathroomJourney,bathroomJourneyFrame,bathroomHandTargets} from './bathroomJourney.js';
+import {bathroomEntryCandidates,createBathroomJourney,bathroomJourneyFrame,bathroomHandTargets,bathroomRimReachable} from './bathroomJourney.js';
 import {createBathroomEffects} from './bathroomEffects.js';
 import {interactionIcon,actionIcon} from './interactionIcons.js';
 import {roomPixelRatio,roomLightBudget} from './renderQuality.js';
@@ -1029,12 +1029,15 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  function approachBathroom(next){
   stopWalking();const item=current().items.find(i=>i.id===next.itemId);if(!item)return;
   const map=navMap(),ox=current().x*ROOM_STEP.x,oz=current().z*ROOM_STEP.z,start=[resident.position.x+ox,resident.position.z+oz];
-  const front=bathroomEntryCandidates(item,next.kind).find(p=>map.free(p[0]+ox,p[2]+oz)&&findWalkPath(map,start,[p[0]+ox,p[2]+oz]));
+  const entrances=bathroomEntryCandidates(item,next.kind),reach=visitor?.rig?visitor.gamingReach:null;
+   const supported=entrances.filter(p=>bathroomRimReachable(next,[p[0],resident.position.y,p[2]],reach));
+   if(!supported.length){notify('浴缸边缘没有小手能安全够到的扶边点，暂时不能跨入',true);return;}
+   const front=supported.find(p=>map.free(p[0]+ox,p[2]+oz)&&findWalkPath(map,start,[p[0]+ox,p[2]+oz]));
   if(!front){notify('家具前没有能走到的空位，先留一点进出的空间',true);return;}
   if(!walkTo([front[0]+ox,front[2]+oz]))return;
   walking.arrived=()=>{
    const currentActivity=activities().find(a=>a.itemId===next.itemId&&a.kind===next.kind&&a.stationId===next.stationId&&!a.reason);
-   if(!currentActivity||!sameStationPose(next,currentActivity)){notify('卫浴家具已移动，请重新寻找入口',true);return;}
+   if(!currentActivity||!sameStationPose(next,currentActivity)||!bathroomRimReachable(currentActivity,resident.position.toArray(),reach)){notify('卫浴家具位置或扶边接触已失效，请重新寻找入口',true);return;}
    visitorActivity={...currentActivity,recordSource:next.recordSource,bathJourney:createBathroomJourney(currentActivity,[resident.position.x,resident.position.y,resident.position.z],resident.rotation.y)};recordHomeActivity(currentActivity.label,next.recordSource);
    visitorSeat=null;visitorLocation=null;visitorMotion=next.kind;visitorStart=elapsed;visitorUntil=elapsed+currentActivity.duration+8;message='准备'+next.label;
   };message='走过去'+next.label;
