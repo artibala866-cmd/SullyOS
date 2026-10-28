@@ -1131,6 +1131,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audioRef.current = a;
 
     const onPlay = () => {
+      // Ignore queued play events after an old track was stopped or replaced.
+      if (!a.getAttribute('src') || a.paused || a.error) return;
       setPlaying(true);
       const song = currentSongRef.current;
       if (song) {
@@ -1146,9 +1148,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }
     };
-    const onPause = () => setPlaying(false);
-    const onTime = () => setProgress(a.currentTime);
-    const onMeta = () => setDuration(a.duration || 0);
+    const onPause = () => { if (a.paused) setPlaying(false); };
+    const onTime = () => { if (a.getAttribute('src') && !a.error) setProgress(a.currentTime); };
+    const onMeta = () => { if (a.getAttribute('src') && !a.error) setDuration(a.duration || 0); };
     // 播放出错只暂停播放：临时网络故障不应静默结束伴听会话。
     const onErr = () => {
       setPlaying(false);
@@ -1191,11 +1193,18 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 每次切歌递增序号，阻止慢请求覆盖后一次点播。
   const playRequestSeq = useRef(0);
   // 播放单曲
-  const playSong = useCallback(async (song: Song, opts: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number; mediaRecovery?: boolean } = {}) => {
-    const { alsoSetQueue = true, replaceQueue, startIdx, mediaRecovery = false } = opts;
+  const playSong = useCallback(async (song: Song, opts: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number; mediaRecovery?: boolean; refreshUrl?: boolean } = {}) => {
+    const { alsoSetQueue = true, replaceQueue, startIdx, mediaRecovery = false, refreshUrl = false } = opts;
     const requestId = ++playRequestSeq.current;
     resolvingTrackKeyRef.current = musicSongKey(song);
     mediaRecoveryRef.current = mediaRecovery;
+    setPlaying(false);
+    // The worker caches /song/url for 90s; a failed URL must be re-resolved.
+    if ((mediaRecovery || refreshUrl) && !song.local) _invalidateCache('/song/url', cfgRef.current.cookie);
+    // An old lock-screen title/artwork must not represent a failed new song.
+    if ('mediaSession' in navigator) {
+      try { (navigator as any).mediaSession.metadata = null; } catch {}
+    }
     const aBeforeLoad = audioRef.current;
     if (aBeforeLoad) {
       const previousUrl = aBeforeLoad.src;
@@ -1401,17 +1410,23 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [nextSong]);
 
-  const togglePlay = useCallback(() => {
+  const resumePlayback = useCallback((allowPause: boolean) => {
     const a = audioRef.current; if (!a) return;
-    // 刷新后 audio 元素是新创建的、尚未设置 src；此时按播放键应根据持久化的队列按需加载当前曲目
-    if (!a.src) {
-      const q = queueRef.current; const i = idxRef.current;
-      const cur = i >= 0 && i < q.length ? q[i] : null;
-      if (cur) playSong(cur, { alsoSetQueue: false });
+    const q = queueRef.current, i = idxRef.current;
+    const song = i >= 0 && i < q.length ? q[i] : null;
+    if (song && resolvingTrackKeyRef.current === musicSongKey(song)) return;
+    const badUrl = !!a.error;
+    if (!a.getAttribute('src') || badUrl) {
+      if (song) void playSong(song, { alsoSetQueue: false, refreshUrl: badUrl });
       return;
     }
-    if (a.paused) a.play().catch(() => {}); else a.pause();
-  }, [playSong]);
+    if (a.paused) {
+      void a.play().catch(err => {
+        if (err?.name !== 'AbortError') toast('音频暂时无法播放，请重试或切歌', 'error');
+      });
+    } else if (allowPause) a.pause();
+  }, [playSong, toast]);
+  const togglePlay = useCallback(() => resumePlayback(true), [resumePlayback]);
 
   const seek = useCallback((pct: number) => {
     const a = audioRef.current; if (!a || !duration) return;
@@ -1423,16 +1438,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!('mediaSession' in navigator)) return;
     const ms = (navigator as any).mediaSession;
     try {
-      ms.setActionHandler('play', () => {
-        const a = audioRef.current; if (!a) return;
-        if (!a.src) {
-          const q = queueRef.current; const i = idxRef.current;
-          const cur = i >= 0 && i < q.length ? q[i] : null;
-          if (cur) playSong(cur, { alsoSetQueue: false });
-          return;
-        }
-        if (a.paused) a.play().catch(() => {});
-      });
+      ms.setActionHandler('play', () => resumePlayback(false));
       ms.setActionHandler('pause', () => {
         const a = audioRef.current; if (a && !a.paused) a.pause();
       });
@@ -1443,7 +1449,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (typeof details.seekTime === 'number') a.currentTime = details.seekTime;
       });
     } catch { /* ignore */ }
-  }, [nextSong, prevSong, playSong]);
+  }, [nextSong, prevSong, resumePlayback]);
 
   // 播放状态同步到 mediaSession
   useEffect(() => {
