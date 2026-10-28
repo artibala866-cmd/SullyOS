@@ -209,3 +209,16 @@ describe('Spark delayed settings hydration', () => {
         expect(keepSparkLiveEdit('', '刚选的背景', '旧背景')).toBe('刚选的背景');
     });
 });
+
+describe('Spark publish keeps newer edits and inaccessible drafts', () => {
+    it('clears the submitted post only when both editor and local backup are unchanged', async () => {
+        const { canClearSparkPublishedEditorDraft } = await import('./socialFeedMerge');
+        const original = JSON.stringify({ title: '第一篇', content: '正文' });
+        const newer = JSON.stringify({ title: '第二篇', content: '新草稿' });
+        expect(canClearSparkPublishedEditorDraft(original, original, original, original)).toBe(true);
+        expect(canClearSparkPublishedEditorDraft(original, newer, original, original)).toBe(false);
+        expect(canClearSparkPublishedEditorDraft(original, original, original, newer)).toBe(false);
+        expect(canClearSparkPublishedEditorDraft(original, original, null, null)).toBe(false);
+        expect(canClearSparkPublishedEditorDraft(original, original, original, null)).toBe(false);
+    });
+});
