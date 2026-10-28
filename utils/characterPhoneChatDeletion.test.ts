@@ -19,7 +19,7 @@ const setup=()=>{
  localStorage.setItem('sully_character_phone_wechat_v1:char',JSON.stringify(chats));
  saveNpcProfiles('char',[
   {id:'npc-a',name:'小乔',identity:'朋友',personality:'幽默',relationship:'朋友',background:'',source:'generated',createdAt:now,
-   relationshipNotes:'[2026微信提及] Char：明天一起去玩好吗？\\n角色喜欢看星星'},
+   relationshipNotes:'[2026微信提及] Char：明天一起去玩好吗？\n角色喜欢看星星'},
   {id:'npc-b',name:'阿林',identity:'同事',personality:'直接',relationship:'同事',background:'',source:'generated',createdAt:now,
    relationshipNotes:'[2026微信提及] NPC：我在工作'},
  ] as any);
