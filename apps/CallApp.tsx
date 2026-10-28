@@ -13,6 +13,10 @@ import { normalizeVoiceTags } from '../utils/sanitize';
 import { FISH_VOICE_ACTING_GUIDE, stripFishMarkupForDisplay } from '../utils/fishAudioTts';
 import { resolveTtsProvider, getElevenLabsModel, getTtsProvider, getVoicePromptOverride } from '../utils/ttsProvider';
 import { getElevenLabsVoiceActingGuide, stripElevenLabsMarkupForDisplay } from '../utils/elevenLabsTts';
+import StreamingVoiceBar from '../components/voice/StreamingVoiceBar';
+import { useStreamingVoice } from '../hooks/useStreamingVoice';
+import { IncrementalCallSpeech } from '../utils/incrementalCallSpeech';
+import { streamElevenLabsSpeech, type StreamedVoice } from '../utils/elevenLabsStream';
 import { canSynthesizeSpeech, stripTtsMarkupForDisplay, synthesizeSpeechDetailed as synthesizeSpeechRoutedDetailed } from '../utils/ttsRouter';
 import { CANTONESE_VOICE_SUPPORT_NOTE, VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguagePromptLabel } from '../utils/voiceLanguage';
 import { startStt, isSttSupported, resolveSttProvider, isSttProviderConfigured, getSttProviderLabel, STT_PROVIDER_OPTIONS, type SttSession } from '../utils/speechToText';
@@ -552,6 +556,16 @@ const CallApp: React.FC = () => {
   const [bubbles, setBubbles] = useState<CallBubble[]>([]);
   const [callRecords, setCallRecords] = useState<CallRecord[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => `call-${Date.now()}`);
+  const streamingVoice = useStreamingVoice(`${selectedCharId}:${currentSessionId}:${viewMode}`);
+  const [incrementalVoice, setIncrementalVoice] = useState(() => {
+    try { return localStorage.getItem('sully-call-incremental-voice') !== 'off'; } catch { return true; }
+  });
+  useEffect(() => { try { localStorage.setItem('sully-call-incremental-voice', incrementalVoice ? 'on' : 'off'); } catch {} }, [incrementalVoice]);
+  const callTextAbortRef = useRef<AbortController | null>(null);
+  const streamedCallAudio = useRef(new Map<string, StreamedVoice>());
+  const streamedAutoPlayed = useRef(new Set<string>());
+  useEffect(() => () => { callTextAbortRef.current?.abort(); }, [selectedCharId, currentSessionId, viewMode]);
+  useEffect(() => () => { streamedCallAudio.current.clear(); streamedAutoPlayed.current.clear(); }, [selectedCharId, currentSessionId]);
   const [draftInput, setDraftInput] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -563,6 +577,20 @@ const CallApp: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  useEffect(() => {
+    if (!streamingVoice.state) return;
+    const playing = streamingVoice.state.status === 'playing';
+    setIsAudioPlaying(playing);
+    getAudioFeed().useStreamAnalyser(playing ? streamingVoice.analyserRef.current : null);
+    getAudioFeed().setActive(playing);
+    if (!callTextAbortRef.current) setCallState(previous => ['idle', 'ended'].includes(previous) ? previous : playing ? 'speaking' : 'listening');
+    if (playing && pendingCueScheduleRef.current) {
+      const pending = pendingCueScheduleRef.current;
+      pendingCueScheduleRef.current = null;
+      schedulePerformanceCues(pending.cues, pending.fallbackMs);
+    }
+    if (!playing) clearPerformanceCueTimers();
+  }, [streamingVoice.state?.status]);
   const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showInputPanel, setShowInputPanel] = useState(true);
@@ -1226,7 +1254,19 @@ const CallApp: React.FC = () => {
   // ── 通话语音合成统一入口：开场白 / 正常回合 / 重roll / 主动开口共用 ──
   // MiniMax：缓存命中 → 单发合成 → 失败再分段兜底；Fish / ElevenLabs：共享 router 直接合成。
   // 抛错或返回空 url 都表示没有可播放音频，由调用方降级为纯文字。
-  const synthesizeCallAudioUrl = async (rawText: string, emotion?: string): Promise<{ url: string; traceIds: string[] }> => {
+  const synthesizeCallAudioUrl = async (rawText: string, emotion?: string, playStream = false): Promise<{ url: string; traceIds: string[] }> => {
+    if (activeTtsProvider === 'elevenlabs') {
+      if (!selectedChar) throw new Error('未选择角色');
+      const script = extractVoiceTag(rawText).voiceText || rawText;
+      const options = { languageBoost: voiceLang || undefined, emotion };
+      const recording = playStream
+        ? await streamingVoice.speak('call', script, selectedChar, apiConfig, options)
+        : await streamElevenLabsSpeech(script, selectedChar, apiConfig, options);
+      const url = URL.createObjectURL(recording.blob);
+      streamedCallAudio.current.set(url, recording);
+      if (playStream) streamedAutoPlayed.current.add(url);
+      return { url, traceIds: [] };
+    }
     if (activeTtsProvider !== 'minimax') {
       if (!selectedChar) throw new Error('未选择角色');
       const { url } = await synthesizeSpeechRoutedDetailed(rawText, selectedChar, apiConfig, {
@@ -1362,6 +1402,7 @@ const CallApp: React.FC = () => {
   };
   const callAudioPrefetchKey = (rawText: string, emotion?: string) => `${emotion || ''}\u0000${rawText}`;
   const prefetchCallAudio = (rawText: string, emotion?: string) => {
+    if (activeTtsProvider === 'elevenlabs') return;
     if (!callPreferences.voiceAutoPlay || !canSpeakVoice()) return;
     const key = callAudioPrefetchKey(rawText, emotion);
     if (prefetchedCallAudioRef.current.has(key)) return;
@@ -1380,10 +1421,10 @@ const CallApp: React.FC = () => {
     void promise.catch(() => undefined);
     prefetchedCallAudioRef.current.set(key, promise);
   };
-  const takeOrSynthesizeCallAudio = (rawText: string, emotion?: string) => {
+  const takeOrSynthesizeCallAudio = (rawText: string, emotion?: string, playStream = true) => {
     const key = callAudioPrefetchKey(rawText, emotion);
     const prefetched = prefetchedCallAudioRef.current.get(key);
-    if (!prefetched) return synthesizeCallAudioUrl(rawText, emotion);
+    if (!prefetched) return synthesizeCallAudioUrl(rawText, emotion, playStream);
     prefetchedCallAudioRef.current.delete(key);
     return prefetched;
   };
@@ -1492,6 +1533,8 @@ const CallApp: React.FC = () => {
     if (showInputPanel) draftInputRef.current?.focus();
   }, [showInputPanel]);
   const stopPlayback = () => {
+    streamingVoice.stop();
+    getAudioFeed().useStreamAnalyser(null);
     clearSilentSpeechTimer();
     clearPerformanceCueTimers();
     if (!audioRef.current) return;
@@ -1579,6 +1622,8 @@ const CallApp: React.FC = () => {
     markCallTurnDirty();
   };
   const resetCurrentCall = () => {
+    callTextAbortRef.current?.abort();
+    callTextAbortRef.current = null;
     revokeSessionBlobs();
     stopPlayback();
     pendingAvatarTouchesRef.current = [];
@@ -1622,6 +1667,7 @@ const CallApp: React.FC = () => {
     trackEvent('打开通话偏好');
   };
   const primeCallAudioFromGesture = (forceManualPlayback = false) => {
+    if (activeTtsProvider === 'elevenlabs') streamingVoice.prime();
     if (!forceManualPlayback && (!callPreferences.voiceAutoPlay || !isSpeakerOn)) return;
     const audio = audioRef.current;
     if (!audio) return;
@@ -1923,6 +1969,11 @@ ${sentencePlan}`;
     includeUserCameraContext = false,
     userCameraSnapshotForTurn?: string,
   ): Promise<ParsedCallReply> => {
+    callTextAbortRef.current?.abort();
+    const textAbort = new AbortController();
+    callTextAbortRef.current = textAbort;
+    let liveSpeech: ReturnType<typeof streamingVoice.sequence> | null = null;
+    try {
     const dialogueApi = resolveDialogueApi(apiConfig, selectedChar);
     const baseUrl = dialogueApi.baseUrl?.replace(/\/+$/, '');
     if (!baseUrl) throw new Error('请先在设置里配置聊天 API URL');
@@ -1980,6 +2031,12 @@ ${sentencePlan}`;
       .join('\n\n');
     const requestMessages = characterContext?.history ?? snapshotHistory.messages;
     const textOnlyMessages = snapshotHistory.restoreTextMessages(requestMessages);
+    liveSpeech = selectedChar && !highQualityPerformance && activeTtsProvider === 'elevenlabs' && incrementalVoice && callPreferences.voiceAutoPlay && canSpeakVoice()
+      ? streamingVoice.sequence('call', selectedChar, apiConfig, { languageBoost: voiceLang || undefined }) : null;
+    const sentenceStream = liveSpeech ? new IncrementalCallSpeech(text => liveSpeech!.append(text), !!voiceLang) : null;
+    let speechError: Error | null = null;
+    let receivedTextDelta = false;
+    let lastLiveDirection = '';
     const sendChatRequest = (
       nextMessages: any[],
       nextSystemPrompt: string,
@@ -1987,6 +2044,7 @@ ${sentencePlan}`;
       purpose: string,
     ) => safeFetchJson(`${baseUrl}/chat/completions`, {
       method: 'POST',
+      signal: textAbort.signal,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${dialogueApi.apiKey || 'sk-none'}` },
       body: JSON.stringify({
         model: dialogueApi.model,
@@ -1995,9 +2053,24 @@ ${sentencePlan}`;
         // max_tokens 是 Claude 原生 API 的必填字段；缺了它，OpenAI→Claude 中转会被
         // 上游打回，包成 502 / bad_response_status_code。与私聊 (useChatAI.ts) 对齐。
         max_tokens: 8000,
-        stream: dialogueApi.stream ?? false,
+        stream: liveSpeech ? true : dialogueApi.stream ?? false,
       }),
-    }, maxRetries, 0, { appName: '电话', charId: selectedChar?.id, charName: selectedChar?.name, purpose });
+    }, maxRetries, 0, { appName: '电话', charId: selectedChar?.id, charName: selectedChar?.name, purpose }, sentenceStream ? {
+      onDelta: (_delta, fullText) => {
+        receivedTextDelta = true;
+        if (textAbort.signal.aborted || speechError) return;
+        try {
+          sentenceStream.update(fullText);
+          const partial = parseCallAssistantMessage({ content: fullText }, false);
+          const direction = partial.performanceCues?.at(-1)?.direction || partial.performance;
+          const signature = direction ? JSON.stringify(direction) : '';
+          if (callMode === 'video' && direction && signature !== lastLiveDirection) {
+            lastLiveDirection = signature;
+            applyPerformanceDirection(direction);
+          }
+        } catch (error) { speechError = error as Error; streamingVoice.stop(); }
+      },
+    } : undefined);
     let chatData: any;
     try {
       // Do not repeat a rejected base64 frame three times. Text-only calls keep
@@ -2014,16 +2087,32 @@ ${sentencePlan}`;
       addToast('当前模型不支持图片；本轮已自动改为只发文字', 'info');
       chatData = await sendChatRequest(textOnlyMessages, baseSystemPrompt, 2, '视频通话·快照降级为文字');
     }
+    if (liveSpeech && !chatData?.choices?.[0]?.message?.content) throw new Error('文字接口未返回可朗读的正文');
     const parsed = parseCallAssistantMessage(
       chatData?.choices?.[0]?.message,
       !!selectedChar?.showThinkingChain,
     );
+    if (textAbort.signal.aborted) throw new DOMException('通话已停止', 'AbortError');
+    if (liveSpeech && !receivedTextDelta) addToast('文字接口未返回流式内容，本轮在台词写完后开始播放', 'info');
     if (!parsed.text.trim()) throw new Error('文本接口返回为空，或只返回了思考内容');
     const preparedForAudio = prepareCallAssistantReply(parsed);
-    prefetchCallAudio(preparedForAudio.text, preparedForAudio.speechEmotion);
+    if (liveSpeech && sentenceStream) {
+      try { if (speechError) throw speechError; sentenceStream.finish(parsed.text); liveSpeech.finish(); }
+      catch (error) { speechError = error as Error; streamingVoice.stop(); }
+      const audioPromise = liveSpeech.result.then(recording => {
+        if (speechError) throw speechError;
+        const url = URL.createObjectURL(recording.blob);
+        trackBlobUrl(url); streamedCallAudio.current.set(url, recording); streamedAutoPlayed.current.add(url);
+        return { url, traceIds: [] as string[] };
+      });
+      void audioPromise.catch(() => {});
+      prefetchedCallAudioRef.current.set(callAudioPrefetchKey(preparedForAudio.text, preparedForAudio.speechEmotion), audioPromise);
+    } else prefetchCallAudio(preparedForAudio.text, preparedForAudio.speechEmotion);
+    if (!liveSpeech && parsed.performanceCues?.length) pendingCueScheduleRef.current = { cues: parsed.performanceCues, fallbackMs: estimateSpeechMs(parsed.text) };
     if (highQualityPerformance) {
       try {
         const cues = await requestHighQualityPerformance(parsed.text, allowedModelActions);
+        if (textAbort.signal.aborted) throw new DOMException('通话已停止', 'AbortError');
         if (cues?.length) {
           return { ...parsed, performance: cues[0].direction, performanceCues: cues };
         }
@@ -2033,7 +2122,14 @@ ${sentencePlan}`;
         console.warn('[call] high-quality performance failed; using local fallback:', error?.message || error);
       }
     }
+    if (textAbort.signal.aborted) throw new DOMException('通话已停止', 'AbortError');
     return parsed;
+    } catch (error) {
+      if (liveSpeech && callTextAbortRef.current === textAbort) streamingVoice.stop();
+      throw error;
+    } finally {
+      if (callTextAbortRef.current === textAbort) callTextAbortRef.current = null;
+    }
   };
   // ── 演出时间轴调度：多条 [[AVATAR:]] 指令按语音播放进度依次生效 ──
   const performanceCueTimersRef = useRef<number[]>([]);
@@ -2129,6 +2225,7 @@ ${sentencePlan}`;
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.muted = !isSpeakerOn;
+    streamingVoice.setMuted(!isSpeakerOn);
   }, [isSpeakerOn]);
 
   const startCallAudioElement = (audio: HTMLAudioElement, forceAudible = false): Promise<void> => {
@@ -2158,6 +2255,22 @@ ${sentencePlan}`;
       if (callMode === 'video') playSilentAvatarSpeech('', cues, estimatedDurationMs);
       return;
     }
+    if (streamedAutoPlayed.current.delete(targetUrl)) {
+      setCallState(previous => ['idle', 'ended'].includes(previous) ? previous : 'listening');
+      return;
+    }
+    const recording = streamedCallAudio.current.get(targetUrl);
+    if (recording) {
+      audioRef.current.pause();
+      if (forceAudible) streamingVoice.setMuted(false);
+      pendingCueScheduleRef.current = cues?.length ? { cues, fallbackMs: recording.duration * 1000 } : null;
+      void streamingVoice.replay('call', recording).catch(error => {
+        if (error?.name !== 'AbortError') addToast(voicePlaybackErrorMessage(error, '重播语音'), 'info');
+      });
+      return;
+    }
+    streamingVoice.stop();
+    getAudioFeed().useStreamAnalyser(null);
     clearSilentSpeechTimer();
     if (audioUrl !== targetUrl) setAudioUrl(targetUrl);
     // 时间轴在 onPlay 时用真实音频时长调度；拿不到时长再用估计值。
@@ -2291,10 +2404,16 @@ ${sentencePlan}`;
     }
   };
   const resumeAudio = () => {
+    if (streamedCallAudio.current.has(audioUrl)) { playAudio(audioUrl); return; }
     if (!audioRef.current || !audioUrl) return;
     startCallAudioElement(audioRef.current).catch(() => addToast('继续播放失败，请点击重播', 'error'));
   };
   const pauseAudio = () => {
+    streamingVoice.stop();
+    clearPerformanceCueTimers();
+    getAudioFeed().useStreamAnalyser(null);
+    getAudioFeed().setActive(false);
+    setIsAudioPlaying(false);
     if (!audioRef.current) return;
     audioRef.current.pause();
     setCallState('listening');
@@ -3041,6 +3160,8 @@ ${sentencePlan}`;
         )}
         {showCallPreferences && (
           <CallPreferencesSheet
+            incrementalVoice={activeTtsProvider === 'elevenlabs' ? incrementalVoice : undefined}
+            onIncrementalChange={activeTtsProvider === 'elevenlabs' ? setIncrementalVoice : undefined}
             preferences={callPreferences}
             apiConfig={apiConfig}
             onSttProviderChange={provider => {
@@ -3398,6 +3519,7 @@ ${sentencePlan}`;
     return (
       <div className={`h-full w-full bg-gradient-to-b text-white px-5 pb-6 flex flex-col ${lightTheme ? 'sully-call-light from-[#f4f4f4] via-[#eeeeee] to-[#eeeeee]' : 'from-[#3b3b3b] via-[#292929] to-[#292929]'}`} style={{ paddingTop: 'max(2.5rem, var(--safe-top))' }}>
         {lightTheme && <style>{CALL_LIGHT_THEME_CSS}</style>}
+        <StreamingVoiceBar state={streamingVoice.state} onStop={pauseAudio} />
         <div className="flex items-center justify-between">
           <button onClick={() => setViewMode('history')} className="text-sm text-white/45">← 返回</button>
           <div className="text-sm text-white/80 font-medium">{recordDetail.characterName}</div>
@@ -3512,6 +3634,7 @@ ${sentencePlan}`;
       data-call-video-layout={callMode === 'video' ? videoCallLayout : undefined}
     >
       {lightTheme && <style>{CALL_LIGHT_THEME_CSS}</style>}
+      <StreamingVoiceBar state={streamingVoice.state} onStop={pauseAudio} />
       <style>{`
         @keyframes sully-call-stage-in { from { opacity:0; transform:translateY(10px) scale(.985) } to { opacity:1; transform:translateY(0) scale(1) } }
         @keyframes sully-call-subtitle-in { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
