@@ -147,6 +147,7 @@ import {
   type McpSessionState,
 } from '../../../utils/mcpFireCore';
 import { dispatchAgenticTool, type AgenticToolChar, type AgenticToolCtx } from '../../../utils/agenticTools';
+import { extractVerifiedXhsActions } from '../../../utils/amsgVerifiedXhs';
 import {
   buildDuplicateToolMessage,
   buildToolResultMessage,
@@ -2715,6 +2716,13 @@ export const amsgHooks = {
         }
       }
 
+      // Structured proof only, never the model's statement or the user-facing
+      // tool trace. Bounded whitelisted names: no search text, notes or tokens.
+      if (!stash.instant && payloads.length > 0) {
+        const verified = extractVerifiedXhsActions(session.toolCalls);
+        if (verified.length) payloads = attachMetaAt(payloads, payloads.length - 1,
+          { amsgVerifiedXhsActions: verified });
+      }
       // 发之前按真实字节预算过一遍：装不下的大块数据旁路存起来，push 只留引用键。
       // clientTaskId 当存储键（每任务一份、下次触发覆盖），缺了就没法旁路——那时超限会
       // 由库抛 PUSH_PAYLOAD_TOO_LARGE，照样不会静默丢消息。缺了照样走一趟，是为了让
