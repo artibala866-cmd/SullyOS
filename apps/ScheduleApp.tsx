@@ -43,6 +43,7 @@ const ScheduleApp: React.FC = () => {
   const [exitPhrase, setExitPhrase] = useState('');
   const [exitDeadline, setExitDeadline] = useState(0);
   const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'commissions' | 'calendar' | 'study'>('timer');
+  const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantTopic, setAssistantTopic] = useState('');
   const [planRequest, setPlanRequest] = useState<CommissionPlanRequest | null>(null);
@@ -141,7 +142,17 @@ const ScheduleApp: React.FC = () => {
       addToast('专注保护已开启。请暂停或中断本轮再切换区域。', 'error');
       return;
     }
+    if (next === 'study') setStudyTargetCourseId(null);
     setTab(next);
+  };
+  const openLinkedStudyCourse=(courseId:string)=>{
+    if (!courseId) return;
+    if (focusLock && session?.mode==='focus' && session.pauseRemainingMs==null) {
+      addToast('专注保护开启中，请先暂停或中断后打开自习室','error');
+      return;
+    }
+    setStudyTargetCourseId(courseId);
+    setTab('study');
   };
   const startLinked = (kind:WorkKind, id:string, title:string) => {
     const existing = tasks.find(t=>t.source?.kind===kind && t.source.id===id);
@@ -247,7 +258,8 @@ const ScheduleApp: React.FC = () => {
   if (tab === 'study') return (
     <div className="h-full w-full overflow-hidden bg-white">
       <React.Suspense fallback={<p className="p-5">正在打开自习室…</p>}>
-        <StudyApp onExit={() => setTab('timer')} />
+        <StudyApp highlightCourseId={studyTargetCourseId || undefined}
+          onExit={() => {setTab(studyTargetCourseId ? 'calendar' : 'timer');setStudyTargetCourseId(null);}} />
       </React.Suspense>
     </div>
   );
@@ -310,8 +322,8 @@ const ScheduleApp: React.FC = () => {
           <div className="text-sm">完成任务：{tasks.filter(t => t.done).length} 项</div>
           <p className="text-xs text-[#aaaaaa]">仅统计完整结束的专注轮次；数据保存在当前浏览器。</p>
         </section>}
-        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)} selectedCharId={charId} onSelectChar={setCharId}/>}
-        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={null} onClearPlan={()=>{}} selectedCharId={charId} onSelectChar={setCharId}/>}
+        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={setCharId}/>}
+        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={null} onClearPlan={()=>{}} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={setCharId}/>}
 
       </main>
       <nav className="shrink-0 grid grid-cols-4 gap-1 px-2 py-3 border-t border-neutral-200 bg-white"

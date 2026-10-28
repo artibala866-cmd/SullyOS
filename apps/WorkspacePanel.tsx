@@ -3,6 +3,11 @@ import { useOS } from '../context/OSContext';
 import { putImageBlob } from '../utils/blobRef';
 import { recognizeCourseImage, type CourseImageDraft } from '../utils/sullyTimetableVision';
 import WorkspaceReminderControls from './WorkspaceReminderControls';
+import {
+  loadStudyCourseOptions, setClassStudyCourseLink, deleteTimetableClass,
+  orphanedClassContent, reassignOrphanContent, resolveLinkedCourse,
+  type StudyCourseOption,
+} from '../utils/studyCourseLinks';
 import { cancelItemReminders, setWorkspaceChatPermission } from '../utils/studyRoomReminders';
 import {
   isPlanPreviewStale, previewCommissionPlanRisk, projectCommissionPlan,
@@ -21,6 +26,7 @@ interface Props {
   focusTasks: FocusItem[];
   records: FocusLog[];
   onFocus: (kind: WorkKind, id: string, title: string) => void;
+  onOpenStudyCourse: (id:string) => void;
   onDiscuss: (topic: string) => void;
   onPlan: (workspace: WorkspaceData) => void;
   planPreview: CommissionPlanPreview | null;
@@ -43,7 +49,7 @@ const blankClass = () => ({
   teacher:'',location:'',note:'',
 });
 
-const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onDiscuss, onPlan, planPreview, onClearPlan, selectedCharId, onSelectChar}) => {
+const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onOpenStudyCourse, onDiscuss, onPlan, planPreview, onClearPlan, selectedCharId, onSelectChar}) => {
   const { apiConfig, addToast, characters } = useOS();
   const [data, setData] = useState<WorkspaceData>(emptyWorkspace);
   const [loaded, setLoaded] = useState(false);
@@ -55,6 +61,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [draft, setDraft] = useState(blankCommission);
   const [classDraft, setClassDraft] = useState(blankClass);
   const [selectedClassId, setSelectedClassId] = useState('');
+  const [studyCourses, setStudyCourses] = useState<StudyCourseOption[]>([]);
+  const [studyCoursesError, setStudyCoursesError] = useState('');
+  const [studyCoursesLoading, setStudyCoursesLoading] = useState(false);
+  const [studyCoursesRefresh, setStudyCoursesRefresh] = useState(0);
+  const [linkBusyId, setLinkBusyId] = useState('');
   const [homeworkTitle, setHomeworkTitle] = useState('');
   const [homeworkDue, setHomeworkDue] = useState('');
   const [noteBody, setNoteBody] = useState('');
@@ -90,6 +101,18 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   }, [data, loaded]);
 
   useEffect(() => { setPlanChecked([]); }, [planPreview]);
+  useEffect(()=>{
+    if (section!=='calendar') return;
+    let alive=true;
+    setStudyCoursesLoading(true);
+    setStudyCoursesError('');
+    void loadStudyCourseOptions().then(options=>{
+      if(alive) setStudyCourses(options);
+    }).catch(err=>{
+      if(alive) setStudyCoursesError('无法读取旧自习室课程：'+String(err));
+    }).finally(()=>{if(alive)setStudyCoursesLoading(false);});
+    return ()=>{alive=false;};
+  },[section,studyCoursesRefresh]);
   const change = (fn: (old:WorkspaceData)=>WorkspaceData) => {
     touched.current = true;
     setData(fn);
@@ -157,6 +180,47 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           homework:latest.homework,dailyAvailableMinutes:latest.dailyAvailableMinutes}));
       } catch {}
     } finally {setApplyingPlan(false);}
+  };
+  const linkStudyCourse = async (classId:string, courseId:string) => {
+    if(linkBusyId) return;
+    setLinkBusyId(classId);
+    try {
+      // Requery original StudyCourse store before accepting a link: do not trust stale UI options.
+      const options=await loadStudyCourseOptions();
+      if(courseId && !options.some(c=>c.id===courseId))
+        throw new Error('自习室课程可能已被删除，请刷新列表后重试');
+      change(current=>setClassStudyCourseLink(current,classId,courseId,options));
+      setStudyCourses(options);
+      addToast(courseId?'已关联旧自习室课程':'已解除关联；旧课程及作业笔记均保留','success');
+    } catch(e) {
+      addToast('关联失败：'+String(e),'error');
+    } finally { setLinkBusyId(''); }
+  };
+  const openStudyCourse = async (courseId:string) => {
+    try {
+      const options=await loadStudyCourseOptions();
+      setStudyCourses(options);
+      if(!options.some(c=>c.id===courseId)) {
+        addToast('原有自习室课程已不存在；请刷新关联','error');
+        return;
+      }
+      onOpenStudyCourse(courseId);
+    } catch(e){addToast('无法核验自习室课程：'+String(e),'error');}
+  };
+  const deleteClass = (id:string) => {
+    const items=data.homework.filter(h=>h.classId===id).length;
+    const notes=data.notes.filter(n=>n.classId===id).length;
+    if(!window.confirm('确定只删除这条学习室课程表记录？'+
+      (items||notes?'其下 '+items+' 条作业、'+notes+' 条笔记将保留在「未归属资料」中，可重新归类。':'')+
+      '原有自习室课程、PDF、章节与测验均不会删除。')) return;
+    change(current=>deleteTimetableClass(current,id));
+    if(selectedClassId===id)setSelectedClassId('');
+  };
+  const recoverOrphan = (kind:'homework'|'note',id:string,classId:string) => {
+    try {
+      change(current=>reassignOrphanContent(current,kind,id,classId));
+      addToast('已重新归入课程；原笔记和作业内容未改动','success');
+    } catch(e) {addToast('重新归类失败：'+String(e),'error');}
   };
   const stopItemReminders = async (kind:'commission'|'homework', id:string) => {
     try {
@@ -270,6 +334,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   };
   const risk = new Map(calculatePlanRisks(data).map(v=>[v.commissionId,v]));
   const selectedClass = data.classes.find(c=>c.id===selectedClassId);
+  const orphaned = orphanedClassContent(data);
   const planStale = !!planPreview && (isPlanPreviewStale(data, planPreview)
     || planPreview.charId !== selectedCharId);
   const projectedRisks = !planStale && planPreview && planChecked.length
@@ -466,11 +531,38 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </section>
       <section className="space-y-3">
         <h3 className="font-semibold">我的课程 · {data.classes.length}</h3>
+        <p className="text-xs text-neutral-600">原有 PDF 自习室课程单独保存；这里只关联课程 ID，不复制、删除或重置旧章节及练习册。</p>
+        {studyCoursesError && <p role="alert" className="text-sm text-red-700">{studyCoursesError}</p>}
+        <button className={mutedButton} type="button" disabled={studyCoursesLoading}
+          onClick={()=>setStudyCoursesRefresh(x=>x+1)}>
+          {studyCoursesLoading?'正在读取旧课程…':'刷新自习室课程列表'}
+        </button>
         {data.classes.map(c=><article key={c.id} className={cardClass}>
           <div className="flex justify-between gap-3">
             <div><h4 className="font-semibold">{c.name}</h4>
               <p className="text-xs text-neutral-600">{weekdayNames[c.weekday] || '待确认'} {c.start}–{c.end} · {c.location||'地点未填'}</p></div>
             <button className={mutedButton} onClick={()=>setSelectedClassId(c.id)}>查看作业</button>
+          </div>
+          <div className="space-y-2 rounded-lg border border-neutral-200 p-3">
+            <label className="text-xs block">关联原有自习室课程
+              <select className={inputClass} aria-label={'关联自习室课程 '+c.name}
+                disabled={!!linkBusyId || studyCoursesLoading || !!studyCoursesError}
+                value={c.studyCourseId||''}
+                onChange={e=>void linkStudyCourse(c.id,e.target.value)}>
+                <option value="">不关联（保留两边原数据）</option>
+                {!!c.studyCourseId && !resolveLinkedCourse(c,studyCourses) &&
+                  <option value={c.studyCourseId}>旧关联已失效 · {c.studyCourseId}</option>}
+                {studyCourses.map(old=><option key={old.id} value={old.id}>{old.title}</option>)}
+              </select>
+            </label>
+            {c.studyCourseId && resolveLinkedCourse(c,studyCourses)
+              ? <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span>旧课程进度 {resolveLinkedCourse(c,studyCourses)!.totalProgress}% · 完成章节 {resolveLinkedCourse(c,studyCourses)!.chaptersCompleted}/{resolveLinkedCourse(c,studyCourses)!.chaptersTotal}</span>
+                  <button className={mutedButton} type="button" onClick={()=>void openStudyCourse(c.studyCourseId!)}>打开关联自习室课程</button>
+                </div>
+              : c.studyCourseId && !studyCoursesLoading
+                ? <p className="text-xs text-red-700">找不到旧课程：可能已删除或备份中未包含。关联记录保留；可重新选择或解除。</p>
+                : <p className="text-xs text-neutral-600">可在已有 PDF 自习室课程中继续学习；作业和笔记仍归这门课程表课程管理。</p>}
           </div>
           <details className="text-sm"><summary className="cursor-pointer">编辑课程</summary>
             <div className="space-y-2 pt-2">
@@ -482,7 +574,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               <input className={inputClass} placeholder="老师" value={c.teacher} onChange={e=>patchClass(c.id,{teacher:e.target.value})}/>
               <input className={inputClass} placeholder="地点" value={c.location} onChange={e=>patchClass(c.id,{location:e.target.value})}/>
               <textarea className={inputClass} placeholder="调课/请假/补课" value={c.note} onChange={e=>patchClass(c.id,{note:e.target.value})}/>
-              <button className={mutedButton} onClick={() => { if (window.confirm('确定删除这门课？相关作业笔记仍会保留。')) change(v=>({...v, classes:v.classes.filter(x=>x.id!==c.id)})); }}>删除课程</button>
+              <button className={mutedButton} onClick={()=>deleteClass(c.id)}>仅删除此课程表记录</button>
             </div>
           </details>
         </article>)}
@@ -492,6 +584,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         <label className="text-sm">选择课程<select className={inputClass} value={selectedClassId} onChange={e=>setSelectedClassId(e.target.value)}>
           <option value="">请选择</option>{data.classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         {selectedClass && <>
+          {selectedClass.studyCourseId && resolveLinkedCourse(selectedClass,studyCourses) &&
+            <button type="button" className={mutedButton}
+              onClick={()=>void openStudyCourse(selectedClass.studyCourseId!)}>
+              去关联自习室课程复习（保留当前作业及笔记）
+            </button>}
           <form onSubmit={addHomework} className="space-y-2">
             <input className={inputClass} required aria-label="新增作业" placeholder="新增作业" value={homeworkTitle} onChange={e=>setHomeworkTitle(e.target.value)}/>
             <input className={inputClass} type="datetime-local" aria-label="作业截止时间" value={homeworkDue} onChange={e=>setHomeworkDue(e.target.value)}/>
@@ -524,6 +621,30 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </>}
         {!selectedClass && <p className="text-xs text-neutral-600">先选择一门课，再记录作业和笔记。</p>}
       </section>
+      {(orphaned.homework.length>0 || orphaned.notes.length>0) &&
+        <section className={cardClass} aria-label="未归属作业与笔记">
+          <h3 className="font-semibold">未归属资料 · {orphaned.homework.length} 条作业 / {orphaned.notes.length} 条笔记</h3>
+          <p className="text-xs text-neutral-600">来自已删除的学习室课程表记录或旧备份，原文保留。可以重新归类；不会修改旧自习室 PDF 或测验。</p>
+          {orphaned.homework.map(h=><div key={h.id} className="border-t pt-2 space-y-2">
+            <p className="text-sm">{h.done?'✓ ':''}作业：{h.title} · 截止 {h.dueAt||'未设置'} · 原课程 ID：{h.classId}</p>
+            <p className="text-xs whitespace-pre-wrap">{h.note}</p>
+            <button className={mutedButton} onClick={()=>onFocus('homework',h.id,h.title)}>继续为这项作业专注</button>
+            <select className={inputClass} aria-label={'重新归类作业 '+h.title} value=""
+              onChange={e=>{if(e.target.value)recoverOrphan('homework',h.id,e.target.value);}}>
+              <option value="">将作业重新归入课程…</option>
+              {data.classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>)}
+          {orphaned.notes.map(n=><div key={n.id} className="border-t pt-2 space-y-2">
+            <p className="text-sm whitespace-pre-wrap">笔记：{n.body}</p>
+            <p className="text-xs text-neutral-500">原课程 ID：{n.classId}</p>
+            <select className={inputClass} aria-label="重新归类笔记" value=""
+              onChange={e=>{if(e.target.value)recoverOrphan('note',n.id,e.target.value);}}>
+              <option value="">将笔记重新归入课程…</option>
+              {data.classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>)}
+        </section>}
       <p className="text-xs text-neutral-600">提醒仅在你逐项确认后建立，并沿用 AMSG 2.0 固定消息；不自动生成 AI 追问。远端失败会保留任务身份以便重试。</p>
     </>}
   </div>;

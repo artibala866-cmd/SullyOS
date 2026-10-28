@@ -304,10 +304,14 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
     );
 };
 
-const StudyApp: React.FC<{onExit?:()=>void}> = ({onExit}) => {
+// Only highlight a legacy course after user explicitly clicks through from timetable.
+ // Never auto-run handleTeach: opening a link must not start a paid model request.
+const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string}> = ({onExit,highlightCourseId}) => {
     const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, updateCharacter, characterGroups } = useOS();
     const [mode, setMode] = useState<'bookshelf' | 'classroom' | 'quiz' | 'quiz_review' | 'practice_book'>('bookshelf');
     const [courses, setCourses] = useState<StudyCourse[]>([]);
+    const [coursesLoaded, setCoursesLoaded] = useState(false);
+    const highlightedCardRef = useRef<HTMLDivElement | null>(null);
     const [activeCourse, setActiveCourse] = useState<StudyCourse | null>(null);
     const [selectedChar, setSelectedChar] = useState<CharacterProfile | null>(null);
     const [tutorGroupId, setTutorGroupId] = useState<string>(GROUP_FILTER_ALL); // 书架页「当前助教」的分组筛选
@@ -407,12 +411,19 @@ const StudyApp: React.FC<{onExit?:()=>void}> = ({onExit}) => {
         } catch (e) { console.error('Failed to load study settings', e); }
     }, []);
 
-    // Refresh courses when returning to bookshelf
+    // Refresh courses when returning to bookshelf.
     useEffect(() => {
         if (mode === 'bookshelf') {
-            loadCourses();
+            void loadCourses();
         }
     }, [mode]);
+    useEffect(() => {
+        if (!highlightCourseId || mode !== 'bookshelf' || !coursesLoaded) return;
+        const frame=requestAnimationFrame(() => {
+            highlightedCardRef.current?.scrollIntoView({behavior:'smooth',block:'center'});
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [highlightCourseId,mode,coursesLoaded,courses]);
 
     // Typewriter effect Logic
     useEffect(() => {
@@ -446,8 +457,14 @@ const StudyApp: React.FC<{onExit?:()=>void}> = ({onExit}) => {
     }, [currentText]);
 
     const loadCourses = async () => {
-        const list = await DB.getAllCourses();
-        setCourses(list.sort((a,b) => b.createdAt - a.createdAt));
+        try {
+            const list = await DB.getAllCourses();
+            setCourses(list.sort((a,b) => b.createdAt - a.createdAt));
+            setCoursesLoaded(true);
+        } catch(error) {
+            console.error('[StudyApp] 无法读取旧课程',error);
+            setCoursesLoaded(false);
+        }
     };
 
     const saveStudyApi = () => {
@@ -1636,6 +1653,13 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                         </div>
                     </div>
 
+                    {highlightCourseId && <p className="mb-4 text-xs text-neutral-700 rounded-lg bg-neutral-100 border border-neutral-300 p-3">
+                        {coursesLoaded
+                          ? courses.some(c=>c.id===highlightCourseId)
+                            ? '已定位学习室关联的自习室课程。点击下方高亮封面进入课堂；不会自动生成讲解。'
+                            : '关联的自习室课程不存在（可能已删除或未随备份导入）。请返回学习室解除或重新关联。'
+                          : '正在读取自习室课程…'}
+                    </p>}
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">我的课程</h3>
                     
                     <div className="grid grid-cols-2 gap-4">
@@ -1656,7 +1680,10 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                         <input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={handleFileSelect} disabled={isProcessing} />
 
                         {courses.map(course => (
-                            <div key={course.id} onClick={() => startSession(course)} className="aspect-[3/4] rounded-r-xl rounded-l-sm shadow-md relative group cursor-pointer overflow-hidden transition-transform active:scale-95" style={{ background: course.coverStyle }}>
+                            <div key={course.id} ref={course.id===highlightCourseId ? highlightedCardRef : undefined}
+                                onClick={() => startSession(course)}
+                                className={'aspect-[3/4] rounded-r-xl rounded-l-sm shadow-md relative group cursor-pointer overflow-hidden transition-transform active:scale-95 '+(course.id===highlightCourseId?'ring-4 ring-neutral-700 ring-offset-2':'')}
+                                style={{ background: course.coverStyle }}>
                                 <div className="absolute left-0 top-0 bottom-0 w-2 bg-black/10"></div> {/* Spine */}
                                 <div className="p-4 flex flex-col h-full text-white relative z-10">
                                     <div className="flex-1 font-serif font-bold text-lg leading-tight line-clamp-3 drop-shadow-md">{course.title}</div>
