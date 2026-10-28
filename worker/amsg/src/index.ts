@@ -1735,6 +1735,10 @@ export const amsgHooks = {
     if (typeof charId !== 'string' || !charId) {
       throw fireStateError('task metadata 缺 charId', { taskId: ctx.task.id });
     }
+    // The presence / recent-chat guard uses this BEFORE the expensive pack
+    // and task-level accounting. Declaring it later made every fire fail with
+    // a JavaScript temporal-dead-zone ReferenceError.
+    const nowMs = ctx.now.getTime();
     // 提前到这儿算（下面那段注释仍在原位）：fail 的留痕副作用要用它。
     const instant = isInstantChatTask((ctx.task.metadata ?? {}) as Record<string, unknown>);
 
@@ -2029,7 +2033,6 @@ export const amsgHooks = {
     // 任务归属键：self_log 的条目 id、重复任务的「连续没回」计数、以及「排程清单里排除掉
     // 自己这条」都用它。
     const clientTaskId = typeof taskMeta.amsgClientTaskId === 'string' ? taskMeta.amsgClientTaskId : '';
-    const nowMs = ctx.now.getTime();
 
     // 这类消息用户已经关掉了：角色级 2.0 关着（fire_pack 或更新得更快的 limits 那份，
     // 任一说关就是关），或者这是角色自排的重复任务、而用户没让它排重复的。
