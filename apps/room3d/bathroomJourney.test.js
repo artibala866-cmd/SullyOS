@@ -1,6 +1,9 @@
 import {describe,it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {createBathroomJourney,bathroomJourneyFrame,bathroomHandTargets,bathroomRimReachable} from './bathroomJourney.js';
+import catalog from '../../public/room3d/catalog.json';
+import {bathroomActivities} from './bathroom.js';
+import {gamingPoint} from './gaming.js';
+import {createBathroomJourney,bathroomJourneyFrame,bathroomHandTargets,bathroomRimReachable,bathroomJourneyObstacleIssue} from './bathroomJourney.js';
 
 const activity={
  kind:'bath-soak',position:[.32,.54,.12],rotation:Math.PI/2,
@@ -95,6 +98,22 @@ describe('authored tub rim contact and reversible leg crossing',()=>{
     expect(Math.abs(Math.atan2(Math.sin(angle),Math.cos(angle)))).toBeLessThan(.3);
    }
    expect(frames.at(-1).done).toBe(true);
+  });
+ }
+});
+
+describe('bathtub swept room clearance is checked before entering',()=>{
+ for(const rotation of [0,90,180,270]){
+  it('rejects an unrelated obstacle for a '+rotation+' degree bathtub without disabling the tub itself',()=>{
+   const tub={id:'tub',assetId:'bath_tub',x:0,y:.18,z:0,rotation,stored:false};
+   const room={id:'bath',items:[tub]};
+   const action=bathroomActivities(room,catalog,{body2:true,headWidth:1.2}).find(a=>a.kind==='bath-soak');
+   expect(action).toBeDefined();
+   const entry=gamingPoint(tub,[.65,0,1.35]),journey=createBathroomJourney(action,entry,rotation*Math.PI/180);
+   expect(bathroomJourneyObstacleIssue(room,catalog,action,journey,1.2)).toBe('');
+   const obstacle=gamingPoint(tub,[.65,0,1.30]);
+   room.items.push({id:'other-chair',assetId:'chair',x:obstacle[0],y:.18,z:obstacle[2],rotation,stored:false});
+   expect(bathroomJourneyObstacleIssue(room,catalog,action,journey,1.2)).toContain('路线被挡住');
   });
  }
 });
