@@ -1,6 +1,6 @@
 import type { PhoneMessage } from './characterPhoneIdentity';
 import { advancePhoneContentClearRevision } from './characterPhoneContentClearRevision';
-import { pruneDeletedPhoneChatLifeEvents } from './characterLifeEvents';
+import { pruneDeletedPhoneChatLifeEvents, CHARACTER_LIFE_EVENTS_CHANGED } from './characterLifeEvents';
 import { readNpcProfiles, saveNpcProfiles, CHARACTER_PHONE_CONTACT_CHANGED } from './characterPhoneNpcs';
 
 /** One persisted inbox for the phone UI and autonomous NPC scheduler. */
@@ -78,8 +78,13 @@ export function deleteCharacterPhoneChat(characterId:string,threadId:string):boo
   if(!thread)return false;
   advancePhoneContentClearRevision(characterId,'chats');
   updateCharacterPhoneChats(characterId,rows=>rows.filter(row=>row.id!==threadId));
-  pruneDeletedPhoneChatLifeEvents(characterId,thread);
+  const removed=pruneDeletedPhoneChatLifeEvents(characterId,thread);
   if(thread.contactId)erasePhoneWechatRelationshipNotes(characterId,[thread.contactId]);
+  // Even if a legacy thread had no matching life event, the AMSG fire_pack may
+  // still hold its contact's cached WeChat excerpts. Invalidate that snapshot.
+  if(!removed && typeof window!=='undefined')window.dispatchEvent(new CustomEvent(
+    CHARACTER_LIFE_EVENTS_CHANGED,{detail:{characterId,pruned:true,threadId}},
+  ));
   return true;
 }
 

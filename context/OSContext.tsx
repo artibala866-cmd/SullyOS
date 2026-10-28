@@ -2434,7 +2434,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
               // Remove stale phone context from future AMSG snapshots without
               // deleting any previously archived Palace memories.
-              markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
+              markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current }, 'invalidate');
               return;
           }
           if (!detail.eventId) return;

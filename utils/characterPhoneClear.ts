@@ -13,7 +13,7 @@ import {PHONE_APPEARANCE_CHANGED} from './characterPhoneAppearance';
 import {SOCIAL_SNAPSHOT_CHANGED} from './characterPhoneSocialContent';
 import {CHARACTER_PHONE_SELF_CHANGED} from './characterPhoneSelfProfile';
 import {PENDING_PHONE_CONTACTS_CHANGED} from './characterPhoneRequests';
-import {pruneCharacterPhoneLifeEvents,type CharacterLifeEventKind} from './characterLifeEvents';
+import {pruneCharacterPhoneLifeEvents,CHARACTER_LIFE_EVENTS_CHANGED,type CharacterLifeEventKind} from './characterLifeEvents';
 import {advancePhoneContentClearRevision} from './characterPhoneContentClearRevision';
 export const PHONE_CLEAR_GROUPS=[
   {id:'service',label:'仅公众号／服务号会话',description:'删除微信官方通知，不删除普通 NPC 聊天'},
@@ -105,6 +105,12 @@ export function clearSelectedPhoneData(charId:string,ids:readonly PhoneClearGrou
     eventKinds.add('moment-comment');
   }
   if(selected.includes('browser'))eventKinds.add('browser-search');
-  if(eventKinds.size)pruneCharacterPhoneLifeEvents(charId,[...eventKinds]);
+  const pruned=eventKinds.size?pruneCharacterPhoneLifeEvents(charId,[...eventKinds]):0;
+  if(selected.includes('chats')&&!pruned&&typeof window!=='undefined'){
+    // Deleted WeChat excerpts may exist only in NPC relationshipNotes,
+    // already projected to cloud even without a recorded life event.
+    window.dispatchEvent(new CustomEvent(CHARACTER_LIFE_EVENTS_CHANGED,
+      {detail:{characterId:charId,pruned:true}}));
+  }
   return selected;
 }
