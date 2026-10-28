@@ -96,11 +96,19 @@ it('eating lifts a real hand toward the lower face; hugging reaches the prop and
 });
 
 import {seatTransform} from '../apps/room3d/seating.js';
+import {usableFurniturePoints} from '../apps/room3d/furniturePointRegistry.js';
 import {body2BedTransform} from '../apps/room3d/bedMotion.js';
-it('all registered bed slots align the crown in their own facing direction, including rotated bunk beds',()=>{
+it('usable bed slots align the crown for all headings; unsafe raised beds remain inaccessible',()=>{
  for(const asset of catalog.filter(a=>a.beds))for(const slot of asset.beds!)for(const rotation of [0,90,180,270]){
  const item={id:'bed',assetId:asset.id,x:2,y:.15,z:-1,rotation},selection={roomId:'r',itemId:'bed',seatId:slot.id,bed:true};
- const raw=seatTransform({id:'r',items:[item]},catalog,selection,true),pose=body2BedTransform(raw,1.45);expect(pose.pose).toBe('bed');
+ const raw=seatTransform({id:'r',items:[item]},catalog,selection,true);
+ const usable=usableFurniturePoints(asset,'beds').some(point=>point.id===slot.id);
+ if(!usable){
+  expect(raw,`${asset.id}/${slot.id} must not expose an unverified bed entry`).toBeNull();
+  continue;
+ }
+ expect(raw,`${asset.id}/${slot.id} must keep an authored usable bed position`).not.toBeNull();
+ const pose=body2BedTransform(raw,1.45);expect(pose.pose).toBe('bed');
  const along=(pose.position[0]-item.x)*Math.sin(pose.rotation)+(pose.position[2]-item.z)*Math.cos(pose.rotation);
  expect(along-1.45).toBeCloseTo(pose.bed.headEnd);expect(pose.position[1]).toBeCloseTo(item.y+slot.position[1]);
  }
