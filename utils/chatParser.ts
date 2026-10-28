@@ -16,6 +16,11 @@ import {
 
 export interface MusicActionSnapshot {
     songId: number;
+    musicSource?: 'netease' | 'tencent';
+    platformId?: string;
+    mid?: string;
+    lyricId?: string;
+    musicLocal?: boolean;
     name: string;
     artists: string;
     album: string;
@@ -345,6 +350,11 @@ export const ChatParser = {
                     try {
                         const playlistSong: CharPlaylistSong = {
                             id: snap.songId,
+                            musicSource: snap.musicSource,
+                            platformId: snap.platformId,
+                            mid: snap.mid,
+                            lyricId: snap.lyricId,
+                            musicLocal: snap.musicLocal,
                             name: snap.name,
                             artists: snap.artists,
                             album: snap.album,

@@ -1381,6 +1381,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!current) return null;
         return {
           songId: current.id,
+          musicSource: current.source,
+          platformId: current.platformId,
+          mid: current.mid,
+          lyricId: current.lyricId,
+          musicLocal: current.local,
           name: current.name,
           artists: current.artists,
           album: current.album,
@@ -1422,27 +1427,37 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       playListeningTrack: async (cid: string, query: string) => {
         // 只有正在一起听的角色能切歌。优先使用现有队列，找不到再走同一套免登录搜索。
         if (!listeningTogetherRef.current.includes(cid)) return false;
-        const needle = query.trim().toLocaleLowerCase();
+        const chosenSource = /^(?:QQ音乐|QQ|tencent)\s*[:：]/i.test(query.trim()) ? 'tencent' : undefined;
+        const phrase = query.trim().replace(/^(?:QQ音乐|QQ|tencent)\s*[:：]\s*/i, '');
+        const needle = phrase.toLocaleLowerCase();
         if (!needle) return false;
         let match: Song | undefined = queueRef.current.find(song =>
-          song.name.toLocaleLowerCase() === needle ||
-          song.name.toLocaleLowerCase().includes(needle));
+          (!chosenSource || song.source === chosenSource) &&
+          (song.name.toLocaleLowerCase() === needle ||
+          song.name.toLocaleLowerCase().includes(needle)));
         if (!match) {
           try {
-            const results = await musicApi.search(cfgRef.current, query.trim());
-            const candidates = (results?.result?.songs || []).slice(0, 30);
-            const hit = candidates.find((song: any) => String(song.name || '').trim().toLocaleLowerCase() === needle)
-              || candidates.find((song: any) => String(song.name || '').toLocaleLowerCase().includes(needle));
-            if (hit) {
-              match = {
-                id: Number(hit.id), name: String(hit.name || ''),
-                artists: (hit.ar || hit.artists || []).map((artist: any) => artist.name).join(' / '),
-                album: hit.al?.name || hit.album?.name || '',
-                albumPic: toHttps(hit.al?.picUrl || hit.album?.picUrl || ''),
-                duration: (hit.dt || hit.duration || 0) / 1000,
-                fee: hit.fee ?? 0,
-              };
-              if (!Number.isFinite(match.id)) match = undefined;
+            if (chosenSource === 'tencent') {
+              const candidates = await musicApi.searchTencent(phrase);
+              match = candidates.find(song => song.name.trim().toLocaleLowerCase() === needle)
+                || candidates.find(song => song.name.toLocaleLowerCase().includes(needle));
+            } else {
+              const results = await musicApi.search(cfgRef.current, phrase);
+              const candidates = (results?.result?.songs || []).slice(0, 30);
+              const hit = candidates.find((song: any) => String(song.name || '').trim().toLocaleLowerCase() === needle)
+                || candidates.find((song: any) => String(song.name || '').toLocaleLowerCase().includes(needle));
+              if (hit) {
+                match = {
+                  id: Number(hit.id), source: 'netease',
+                  name: String(hit.name || ''),
+                  artists: (hit.ar || hit.artists || []).map((artist: any) => artist.name).join(' / '),
+                  album: hit.al?.name || hit.album?.name || '',
+                  albumPic: toHttps(hit.al?.picUrl || hit.album?.picUrl || ''),
+                  duration: (hit.dt || hit.duration || 0) / 1000,
+                  fee: hit.fee ?? 0,
+                };
+                if (!Number.isSafeInteger(match.id)) match = undefined;
+              }
             }
           } catch (err) {
             console.warn('[MusicTogether] 角色选歌搜索失败', err);
@@ -1451,7 +1466,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!listeningTogetherRef.current.includes(cid)) return false;
         if (!match) { toast('角色想播放的歌曲没有找到，请尝试其他歌名', 'info'); return false; }
         await playSong(match);
-        return true;
+        const audio = audioRef.current;
+        if (!audio?.src || audio.error || !currentSongRef.current ||
+          !sameMusic(currentSongRef.current, match)) {
+          toast('角色选歌未能取得播放地址', 'error');
+          return false;
+        }
+        if (audio.paused) {
+          try { await audio.play(); }
+          catch { toast('角色选歌已解析，但浏览器阻止播放，请手动点击播放', 'info'); return false; }
+        }
+        return !audio.paused;
       },
       stopListeningTogether: (cid: string) => {
         removeListeningPartner(cid);
@@ -1517,7 +1542,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
 
           const pl = playlists[chosenIdx];
-          if (pl.songs.find(s => s.id === song.id)) {
+          if (pl.songs.find(s =>
+            s.id === song.id &&
+            (s.musicSource || 'netease') === (song.musicSource || 'netease') &&
+            (s.platformId || String(s.id)) === (song.platformId || String(song.id)) &&
+            !!s.musicLocal === !!song.musicLocal)) {
             return { playlistTitle: pl.title, created: false };
           }
           const updatedPl = { ...pl, songs: [...pl.songs, song], updatedAt: now };
@@ -1544,6 +1573,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!selected) return false;
         const song: CharPlaylistSong = {
           id: selected.id,
+          musicSource: selected.source,
+          platformId: selected.platformId,
+          mid: selected.mid,
+          lyricId: selected.lyricId,
+          musicLocal: selected.local,
           name: selected.name,
           artists: selected.artists,
           album: selected.album,

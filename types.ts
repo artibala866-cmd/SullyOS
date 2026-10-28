@@ -2491,6 +2491,12 @@ export interface BankFullState {
 /** 角色本地歌单里的轻量歌曲快照 — 字段与 MusicContext 的 Song 对齐（无运行时 url） */
 export interface CharPlaylistSong {
     id: number;
+    /** Remote platform identity; absent on older entries means NetEase. */
+    musicSource?: 'netease' | 'tencent';
+    platformId?: string;
+    mid?: string;
+    lyricId?: string;
+    musicLocal?: boolean;
     name: string;
     artists: string;
     album: string;

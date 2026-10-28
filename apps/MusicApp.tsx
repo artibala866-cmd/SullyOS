@@ -118,7 +118,11 @@ const MusicApp: React.FC = () => {
     if (!current) return [];
     return characters
       .map(c => {
-        const pl = c.musicProfile?.playlists.find(p => p.songs.some(s => s.id === current.id));
+        const pl = c.musicProfile?.playlists.find(p => p.songs.some(s =>
+          s.id === current.id &&
+          (s.musicSource || 'netease') === (current.source || 'netease') &&
+          (s.platformId || String(s.id)) === (current.platformId || String(current.id)) &&
+          !!s.musicLocal === !!current.local));
         return pl ? { id: c.id, name: c.name, playlistTitle: pl.title } : null;
       })
       .filter((x): x is { id: string; name: string; playlistTitle: string } => !!x);
