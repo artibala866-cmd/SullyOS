@@ -189,11 +189,12 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
         }
         const oldMinute=minutes(old.nextSendAt||old.firstSendTime);
         const newMinute=minutes(desired.firstSendTime);
-        if(oldMinute===null||newMinute===null||
-          Math.abs(oldMinute-newMinute)<30)continue;
-        // The existing schedule belongs to an old time slot; ensure the
-        // new occurrence is safely future and do NOT generate an AI message.
+        if(oldMinute===null||newMinute===null)continue;
         const stableId=autonomyWakeUuid(g.userId,char.id,slot);
+        const moveNeeded=Math.abs(oldMinute-newMinute)>=30;
+        // Migrate legacy random UUIDs even when the clock is unchanged:
+        // otherwise existing users would never gain D1-atomic protection.
+        if(!moveNeeded&&old.taskUuid===stableId)continue;
         // Already using D1-unique identity: change the server's next_send_at
         // instead of creating a second task. Upstream rejects updates while
         // a fire lease is active, leaving the old time intact for retry.
@@ -218,7 +219,8 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
         // atomic supersede, so no two billable recurring rows coexist.
         const result=await ActiveMsgClient.scheduleCharacterTask({
           char,config:{...char.activeMsg2Config,tasks},
-          task:{mode:'auto',firstSendTime:desired.firstSendTime,
+          task:{mode:'auto',firstSendTime:moveNeeded
+            ? desired.firstSendTime : (old.nextSendAt||old.firstSendTime),
             recurrenceType:'daily',expirePolicy:'expire',autonomyWakeSlot:slot},
           replaceTaskUuid:old.taskUuid,apiConfig:args.apiConfig,
           userProfile:args.userProfile,groups:args.groups,realtimeConfig:args.realtimeConfig,
