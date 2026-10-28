@@ -158,7 +158,7 @@ describe('real-person busy and repeated nudge behavior', () => {
         send();
         advance(180_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        expect(controls.waitingReason).toContain('正在忙');
+        expect(controls.waitingReason).toContain('可能在忙');
         expect(controls.seconds).toBeNull();
     });
 
@@ -182,12 +182,12 @@ describe('real-person busy and repeated nudge behavior', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
-    it('lets two explicit poke interactions wake the busy character after a prior message', () => {
+    it('lets three explicit poke interactions wake a busy character after a prior message', () => {
         render({ naturalPacing: true, lifeActivity: 'busy' });
         send();
         act(() => controls.beginSend('a', { nudge: true })(true));
         act(() => controls.beginSend('a', { nudge: true })(true));
-        expect(controls.waitingReason).toContain('正在忙');
+        expect(controls.waitingReason).toContain('可能在忙');
         act(() => controls.beginSend('a', { nudge: true })(true));
         advance(4_500);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
@@ -201,6 +201,22 @@ describe('real-person busy and repeated nudge behavior', () => {
         send();
         advance(12_000);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('an already active conversation stays responsive despite a conflicting busy schedule', () => {
+        render({ naturalPacing: true, lifeActivity: 'busy', lastCharacterReplyAt: Date.now() - 60_000 });
+        send();
+        advance(2_999);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        advance(1);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('a reply from long ago does not claim the character is still actively chatting', () => {
+        render({ naturalPacing: true, lifeActivity: 'busy', lastCharacterReplyAt: Date.now() - 10 * 60_000 });
+        send();
+        advance(60_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
     });
 
     it('schedule becomes free and safely releases a previous busy wait', () => {

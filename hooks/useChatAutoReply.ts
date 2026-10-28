@@ -13,6 +13,8 @@ interface Options {
     onGenerate: () => void;
     naturalPacing?: boolean;
     lifeActivity?: 'sleep' | 'busy' | 'free' | null;
+    /** A real assistant reply during an active conversation outranks a schedule plan. */
+    lastCharacterReplyAt?: number;
 }
 
 const newWork = () => ({
@@ -101,12 +103,19 @@ export function useChatAutoReply(options: Options) {
         // Normal automatic reply checkbox remains the old two-second behavior.
         // Only "真人感" uses the APK-style grounded busy / repeated-nudge gate.
         const latest = current.current;
+        const now = Date.now();
+        // APK has an active-conversation exception: if the character really
+        // replied recently, today's planned work/sleep must not immediately
+        // silence an already ongoing private conversation.
+        const lastReplyAt = Number(latest.lastCharacterReplyAt || 0);
+        const activeConversation = lastReplyAt > 0 && lastReplyAt <= now
+            && now - lastReplyAt < 3 * 60_000;
         const plan = latest.naturalPacing
             ? resolveRealPersonReplyPlan({
-                activity: latest.lifeActivity ?? null,
+                activity: activeConversation ? 'free' : (latest.lifeActivity ?? null),
                 nudgeScore: work.nudgeScore,
                 firstUnansweredAt: work.firstUnansweredAt,
-                now: Date.now(),
+                now,
                 fallbackDelayMs: getNaturalReplyDelay(latest.conversationId || ''),
             })
             : { delayMs: CHAT_AUTO_REPLY_DELAY_MS, waitingReason: null };
@@ -131,7 +140,7 @@ export function useChatAutoReply(options: Options) {
         }, delay);
         return () => { window.clearInterval(tick); window.clearTimeout(timer); };
     }, [revision, visible, options.enabled, options.active, options.blocked, options.generating,
-        options.conversationId, options.lifeActivity, options.naturalPacing, cancel]);
+        options.conversationId, options.lifeActivity, options.lastCharacterReplyAt, options.naturalPacing, cancel]);
 
     return { seconds, waitingReason, beginSend, cancel };
 }

@@ -21,7 +21,7 @@ export function resolveRealPersonReplyPlan(args: {
     if (activity === 'sleep') {
         return nudges >= REAL_PERSON_SLEEP_WAKE_SCORE
             ? { delayMs: 12_000, waitingReason: null }
-            : { delayMs: null, waitingReason: 'TA 正在休息，暂时没有看消息 · 可以继续留言或戳一戳' };
+            : { delayMs: null, waitingReason: 'TA 这会儿可能在休息，暂时没有看消息 · 可以继续留言或戳一戳' };
     }
     if (activity === 'busy') {
         // Time alone cannot wake a busy character: at least four actual nudges
@@ -31,7 +31,7 @@ export function resolveRealPersonReplyPlan(args: {
         const score = nudges + Math.min(REAL_PERSON_BUSY_TIME_BONUS_CAP, Math.floor(minutes / 4));
         return score >= REAL_PERSON_BUSY_WAKE_SCORE
             ? { delayMs: 4_500, waitingReason: null }
-            : { delayMs: null, waitingReason: 'TA 正在忙，暂时没有回复 · 继续发消息或戳一戳可能唤回' };
+            : { delayMs: null, waitingReason: 'TA 这会儿可能在忙，暂时没有回复 · 继续发消息或戳一戳可能唤回' };
     }
     if (activity === 'free') return { delayMs: 3_000, waitingReason: null };
     const delay = Number.isFinite(args.fallbackDelayMs)

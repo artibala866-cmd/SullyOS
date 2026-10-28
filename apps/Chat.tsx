@@ -3605,6 +3605,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         enabled: inputPreferences.autoReply || lifePacing,
         naturalPacing: lifePacing,
         lifeActivity,
+        lastCharacterReplyAt: [...messages].reverse().find(m => m.role === 'assistant' && Number(m.timestamp) > 0)?.timestamp ?? 0,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
         blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
