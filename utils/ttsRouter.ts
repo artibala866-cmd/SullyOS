@@ -107,7 +107,7 @@ export const cleanTextForTtsProvider = (text: string, apiConfig: APIConfig): str
 export const stripTtsMarkupForDisplay = (text: string, apiConfig: APIConfig): string => {
   const provider = resolveTtsProvider(apiConfig);
   if (provider === 'fishaudio') return stripFishMarkupForDisplay(text);
-  if (provider === 'elevenlabs') return stripElevenLabsMarkupForDisplay(text);
+  if (provider === 'elevenlabs') return stripElevenLabsMarkupForDisplay(text, resolveElevenLabsModel(apiConfig));
   return cleanVoiceMarkupForDisplay(text);
 };
 
