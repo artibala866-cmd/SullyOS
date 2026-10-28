@@ -3,7 +3,7 @@
  * 防止将网易云登录意外变成播放门槛。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { musicApi, type MusicCfg } from '../context/MusicContext';
+import { musicApi, shouldRetryMusicMediaError, type MusicCfg } from '../context/MusicContext';
 
 const guestCfg: MusicCfg = { workerUrl: '', cookie: '', quality: 'standard' };
 
@@ -119,6 +119,15 @@ describe('免登录音乐回退', () => {
     expect(result.data[0].url).toBeNull();
     expect(urls).toHaveLength(2);
     expect(urls[1]).toContain('source=tencent');
+  });
+
+  it('坏掉的远程音频链接同来源最多自动重试一次', () => {
+    expect(shouldRetryMusicMediaError(2, false, false)).toBe(true);
+    expect(shouldRetryMusicMediaError(4, false, false)).toBe(true);
+    expect(shouldRetryMusicMediaError(4, false, true)).toBe(false);
+    expect(shouldRetryMusicMediaError(2, true, false)).toBe(false);
+    expect(shouldRetryMusicMediaError(3, false, false)).toBe(false);
+    expect(shouldRetryMusicMediaError(undefined, false, false)).toBe(false);
   });
 
 });

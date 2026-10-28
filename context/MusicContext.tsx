@@ -209,6 +209,17 @@ const loadState = (): { queue: Song[]; idx: number } => {
 
 // Songs from legacy backups have no source: those remote ids are NetEase ids.
 export const musicSongKey = musicKey;
+/** A remote audio URL can be re-resolved once for network/source failures. */
+export const shouldRetryMusicMediaError = (
+  code: number | undefined, local: boolean, alreadyRetried: boolean,
+): boolean => !local && !alreadyRetried && (code === 2 || code === 4);
+const musicMediaErrorMessage = (code: number | undefined, source?: Song['source']): string => {
+  const label = source === 'tencent' ? 'QQ 音乐' : '音乐';
+  if (code === 2) return `${label}网络加载失败，请重试或换歌`;
+  if (code === 3) return `${label}音频解码失败，格式可能不受支持`;
+  if (code === 4) return `${label}播放链接失效或格式不受支持，请重新播放`;
+  return `${label}播放失败，请重试或换歌`;
+};
 
 const saveState = (queue: Song[], idx: number) => {
   try { localStorage.setItem(LS_STATE_KEY, JSON.stringify({ queue, idx })); } catch {}
@@ -853,17 +864,22 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
   // Invitation resolution can happen before playSong's declaration below.
   // The ref uses the one global MusicProvider player, never a second audio instance.
-  const playSongRef = useRef<(song: Song) => Promise<void>>(async () => {});
+  const playSongRef = useRef<(song: Song, opts?: { mediaRecovery?: boolean }) => Promise<void>>(async () => {});
+  const resolvingTrackKeyRef = useRef<string | null>(null);
   const resumeInviteTrack = useCallback((raw: unknown) => {
     if (!raw || typeof raw !== 'object') return;
     const song = raw as Song;
     if (!Number.isSafeInteger(song.id) || typeof song.name !== 'string' || !song.name.trim()) return;
     const active = currentSongRef.current;
     if (active && musicSongKey(active) === musicSongKey(song)) {
+      // Already resolving: avoid a duplicate request. Identity by itself isn't an audio source.
+      if (resolvingTrackKeyRef.current === musicSongKey(song)) return;
       const audio = audioRef.current;
-      if (audio?.paused) void audio.play().catch(() =>
-        toast('邀请已接受，请点击播放器上的播放按钮开始听歌', 'info'));
-      return;
+      if (audio?.getAttribute('src') && !audio.error) {
+        if (audio.paused) void audio.play().catch(() =>
+          toast('邀请已接受，请点击播放按钮开始听歌', 'info'));
+        return;
+      }
     }
     void playSongRef.current(song).catch(() =>
       toast('邀请已接受，但歌曲播放失败，请手动点击播放', 'error'));
@@ -1058,6 +1074,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const endedHandlerRef = useRef<() => void>(() => {});
 
   const lastHistoryRef = useRef({ key: '', at: 0 });
+  const mediaRecoveryRef = useRef(false);
   // 初始化 audio（仅 Provider 生命周期创建一次）
   useEffect(() => {
     const a = new Audio();
@@ -1085,7 +1102,20 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const onTime = () => setProgress(a.currentTime);
     const onMeta = () => setDuration(a.duration || 0);
     // 播放出错只暂停播放：临时网络故障不应静默结束伴听会话。
-    const onErr = () => { setPlaying(false); toast('播放失败', 'error'); };
+    const onErr = () => {
+      setPlaying(false);
+      const song = currentSongRef.current;
+      const code = a.error?.code;
+      if (song && a.getAttribute('src') &&
+          shouldRetryMusicMediaError(code, !!song.local, mediaRecoveryRef.current)) {
+        mediaRecoveryRef.current = true;
+        toast('播放链接加载失败，正在重新解析同一来源音源', 'info');
+        void playSongRef.current(song, { mediaRecovery: true }).catch(() =>
+          toast('音源恢复失败，请点击播放或换歌', 'error'));
+        return;
+      }
+      toast(musicMediaErrorMessage(code, song?.source), 'error');
+    };
     const onEnd = () => { endedHandlerRef.current(); };
 
     a.addEventListener('play', onPlay);
@@ -1110,9 +1140,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 每次切歌递增序号，阻止慢请求覆盖后一次点播。
   const playRequestSeq = useRef(0);
   // 播放单曲
-  const playSong = useCallback(async (song: Song, opts: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number } = {}) => {
-    const { alsoSetQueue = true, replaceQueue, startIdx } = opts;
+  const playSong = useCallback(async (song: Song, opts: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number; mediaRecovery?: boolean } = {}) => {
+    const { alsoSetQueue = true, replaceQueue, startIdx, mediaRecovery = false } = opts;
     const requestId = ++playRequestSeq.current;
+    resolvingTrackKeyRef.current = musicSongKey(song);
+    mediaRecoveryRef.current = mediaRecovery;
     const aBeforeLoad = audioRef.current;
     if (aBeforeLoad) {
       const previousUrl = aBeforeLoad.src;
@@ -1158,7 +1190,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const prevSrc = a.src;
         if (prevSrc.startsWith('blob:')) URL.revokeObjectURL(prevSrc);
         a.src = URL.createObjectURL(blob);
-        a.play().catch((err) => { console.warn('[Music] 浏览器拒绝播放音源', err); toast('音源已获取，但浏览器无法开始播放，请尝试下一首或重新播放', 'error'); });
+        a.play().catch(err => {
+          if (requestId !== playRequestSeq.current || err?.name === 'AbortError') return;
+          console.warn('[Music] 本地音频播放失败', err);
+          toast('本地歌曲已加载，但未能开始播放，请点击播放按钮重试', 'error');
+        });
 
         // ── 本地歌词时间分布 ──
         // MiniMax / ACE-Step 不返回带时间戳的歌词，但我们写歌时就有原文。
@@ -1234,7 +1270,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (requestId !== playRequestSeq.current) return;
       const url: string | null = urlRes?.data?.[0]?.url || null;
       if (!url) {
-        toast(urlRes?.data?.[0]?.fee && !cfgRef.current.cookie ? '需要会员 cookie' : '暂无播放地址', 'error');
+        toast(song.source === 'tencent'
+          ? 'QQ 音乐这首歌暂无可用播放地址，可能受版权或来源服务限制'
+          : urlRes?.data?.[0]?.fee && !cfgRef.current.cookie ? '该网易云歌曲需要会员权限' : '这首歌暂无播放地址', 'error');
         setLoadingSong(false);
         return;
       }
@@ -1252,6 +1290,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // 用户自己上传的歌曲封面存的就是令牌，不解析的话锁屏上是空白（而且不报错）。
           // resolveRefToDataUrl 对非令牌原样返回，所以可以无条件走。
           const artworkSrc = song.albumPic ? await resolveRefToDataUrl(song.albumPic) : '';
+          if (requestId !== playRequestSeq.current) return;
           (navigator as any).mediaSession.metadata = new (window as any).MediaMetadata({
             title: song.name,
             artist: song.artists,
@@ -1266,10 +1305,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e: any) {
       if (requestId === playRequestSeq.current) toast(`播放失败：${e?.message || '未知错误'}`, 'error');
     } finally {
-      if (requestId === playRequestSeq.current) setLoadingSong(false);
+      if (requestId === playRequestSeq.current) {
+        resolvingTrackKeyRef.current = null;
+        setLoadingSong(false);
+      }
     }
   }, [toast]);
-  playSongRef.current = (song: Song) => playSong(song);
+  playSongRef.current = (song: Song, opts?: { mediaRecovery?: boolean }) => playSong(song, opts);
 
   // 下一首 / 上一首
   const nextSong = useCallback(() => {
