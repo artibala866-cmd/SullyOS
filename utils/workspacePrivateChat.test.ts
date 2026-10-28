@@ -53,9 +53,10 @@ describe('学习室普通私聊授权，按 Char 和分类分隔', () => {
   it('只授权排单，不传客户/价格/需求/便签或课程', () => {
     const data = base(); data.privateChatPermissions = {charA:{study:false,commissions:true}};
     const block = buildWorkspacePrivateChatBlock(data,'charA');
-    expect(block).toContain('立绘');
     expect(block).toContain('线稿');
+    expect(block).not.toContain('立绘');
     expect(block).not.toContain('数字速写');
+    // A title itself can contain client names / an invoice, so no title is shared.
     for (const secret of ['CLIENT_PRIVATE','PRICE_PRIVATE','BRIEF_PRIVATE',
       'COMMISSION_NOTE_PRIVATE','TYPE_PRIVATE','NOTE_CONTENT_PRIVATE']) {
       expect(block).not.toContain(secret);
