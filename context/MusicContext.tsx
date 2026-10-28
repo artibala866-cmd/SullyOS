@@ -1106,7 +1106,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setPlaying(false);
       const song = currentSongRef.current;
       const code = a.error?.code;
-      if (song && a.getAttribute('src') &&
+      // Switching tracks removes the previous src and may emit an aborted
+      // media event afterwards. That is not a failure of the newly chosen song.
+      if (!a.getAttribute('src') || code === 1) return;
+      if (song &&
           shouldRetryMusicMediaError(code, !!song.local, mediaRecoveryRef.current)) {
         mediaRecoveryRef.current = true;
         toast('播放链接加载失败，正在重新解析同一来源音源', 'info');
