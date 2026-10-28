@@ -268,3 +268,15 @@
 - 语音：目标存在 `apps/CallApp.tsx` 和 `api/elevenlabs/tts.ts`，但 master 独有三家 STT API、`utils/voiceStream.ts` 与配套流式语音组件；是否按当前需求继续提供这些能力尚待确认，禁止整套回填。
 - 目标 Spark 回归已在 [run #339](https://github.com/artibala866-cmd/SullyOS/actions/runs/40666892594) 和 [run #340](https://github.com/artibala866-cmd/SullyOS/actions/runs/40667197261) 成功；实际 Pages 后续最新发布结果必须待 Actions 最新运行完成后再确认。
 - 这些源码实查不是全部 183 个提交的逐项调用级验收；该后续工作仍属未完成事项。
+
+## 二次复核：分支 UI 与 Home3D 回归（2026-10-28）
+
+> 本节记录对上一轮报告的**纠错及新发现**；不能据此宣布所有 master 独有提交均已完成源码级审计。
+
+- 先对历史初始 HEAD `9169f3680572f3edf0977e3f08306edece0afed3` 至首次交付 `87548856cbf59711d72a5a2fbe94818588ba2120` 进行 GitHub compare：6 个顺序提交净涉及仅 `AGENTS.md`、`.github/workflows/spark-community-regression.yml`、本台账 3 路径；临时一次性清理工作流不在最终文件树内。最后 Pages #1245、Spark #343 通过。无新增独立分支，master 未修改。
+- **新增发现并修复（构建 UI 漏项）**：原 `vite.config.ts` 将 `main/master` 当作发布分支，遗漏当前唯一正式交付分支，导致后者默认启用 BuildBadge/DevDebugPanel。已经改为 `scripts/buildBadgeVisibility.ts` 的显式分支策略，并新增 `scripts/buildBadgeVisibility.test.ts`，纳入 Pages 部署前测试。历史 main/master 隐藏 UI 的既有规则不变；`VITE_SHOW_BUILD_BADGE=1` 仍可本地临时调试。同步修订 `README.md`、`docs/dev-debug.md`、BuildBadge 注释；未调整用户数据、API、其他部署目标。修复版 Pages [run #1252](https://github.com/artibala866-cmd/SullyOS/actions/runs/40668840468) 已包含专项测试、原有测试、构建和部署，结论 success；Spark [run #350](https://github.com/artibala866-cmd/SullyOS/actions/runs/40668840343) success。
+- **PR #8 文件级复核**：从现有 PR 文件清单取得 27 条路径；其最新 head `f1a53df2b6ee28b5e58d4f716d088c5e4213a4e3` 与目标 HEAD 比对，26 个 blob SHA 完全相同，`apps/room3d/editor.js` 经后续修改（与旧 PR 版本不同），无缺失路径。Git 祖先关系和文件一致性不代表 49 动作视觉验收；PR 继续 Draft，两个来源分支暂留。
+- **Home3D CI 触发遗漏**：目标现存 `home3d-motion-regression.yml` 有全部 23 个专项测试路径，但 push 仅监听旧 motion 分支，无法为目标分支的未来提交自动运行完整回归。本次仅增加目标分支 push 触发，保留 PR #8 旧分支触发、手工触发和旧基线比较脚本；验证 CI 是否通过后再考虑 PR 结案和老引用移除。该 test-only 工作流不部署网站。
+- **仍未移植的高优先级修复**：目标 `apps/SocialApp.tsx` 的 `saveDMThreads` 捕获 localStorage 写入错误仅记录警告，`sendSparkDM` 继续清空输入并调用付费 AI；master 有 `DB.saveAsset` IndexedDB 备份、历史恢复、付费前确认、发送失败回滚与草稿保护。此处通过代码调用关系证实存在真实差异，但尚未安全适配、缺少失败注入回归，**不能认定已整合或覆盖整个 SocialApp**。
+- **未改动的设置与风险**：GitHub 默认分支仍是 master；其历史 `AGENTS.md` 强制 master 的旧文字仍存在，只有当前目标分支和其 `CLAUDE.md` 已经使用新规则。必须显式检出目标分支；更改默认分支设置需用户新授权。Cloudflare/历史 Pages/Worker 同步流程依旧为独立部署对象，未擅自改触发。完整浏览器/真机验收仍未执行。
+- **环境限制**：GitHub 连接器可读取和提交，但当前计算容器无 GitHub 网络 DNS，不能建立本地 Git checkout；`git status`、本地 pnpm 与浏览器验证无法在此环境直接完成。CI 通过不等于真实交互全部验收。

@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - fix/home3d-motion-foundation-recovery-20261027
+      - remove-checkphone-vrworld-lifesim
   pull_request:
     branches:
       - feat/amaama-unity-retarget-probe
