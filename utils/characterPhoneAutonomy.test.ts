@@ -4,6 +4,7 @@ import { saveNpcProfiles, readNpcProfiles, type NpcProfile } from './characterPh
 import { appendCharacterPhoneMessages, readCharacterPhoneChats } from './characterPhoneChats';
 import { readCharacterLifeEvents } from './characterLifeEvents';
 import { runCharacterPhoneAutonomy, setCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
+import {touchLocalChatLease} from './amsgChatGenerationLease';
 import { readPhoneApiBudget, writePhoneAutonomyPreferences } from './characterPhoneApiBudget';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 import { clearSelectedPhoneData } from './characterPhoneClear';
@@ -55,6 +56,16 @@ describe('character-owned autonomous phone behavior', () => {
     expect(getCharacterLifeScheduleContext).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();
     expect(readPhoneApiBudget('master-off').requests).toBe(0);
+  });
+
+  it('does not start an independent phone AI call while real-person private chat is generating in another tab', async () => {
+    saveNpcProfiles('chat-busy', contacts());
+    touchLocalChatLease('chat-busy');
+    const request=mockApi();
+    expect(await runCharacterPhoneAutonomy(input('chat-busy'))).toBe('skipped');
+    expect(request).not.toHaveBeenCalled();
+    expect(readPhoneApiBudget('chat-busy').requests).toBe(0);
+    expect(getCharacterLifeScheduleContext).not.toHaveBeenCalled();
   });
 
   it('stops separately billed phone generation while keeping saved NPC records', async () => {
