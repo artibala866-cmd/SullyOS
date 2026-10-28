@@ -1,9 +1,10 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
-import { useMusic, musicApi, normalizeCookie, toHttps, Song } from '../context/MusicContext';
+import { useMusic, musicApi, musicSongKey, normalizeCookie, toHttps, Song } from '../context/MusicContext';
 import { DB } from '../utils/db';
 import { findPendingMusicInvite } from '../utils/musicInviteStatus';
+import { sameMusic } from '../utils/musicLibrary';
 import { trackEvent } from '../utils/analytics';
 import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon } from '@phosphor-icons/react';
 import {
@@ -35,10 +36,13 @@ const MusicApp: React.FC = () => {
     liked, toggleLike, setToastHandler,
     listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, respondListeningInvite, removeListeningPartner,
     addLocalSong, removeLocalSong, localAlbumSongs,
+    queue, idx, library, toggleLocalLike, createPlaylist, renamePlaylist, deletePlaylist,
+    addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
+    addToQueue, moveQueueSong, removeQueueSong, clearUpcomingQueue,
     playMode, setPlayMode,
     regeneratingId, regeneratingStatus,
   } = useMusic();
-  const [charInvites, setCharInvites] = useState<Record<string, number>>({});
+  const [charInvites, setCharInvites] = useState<Record<string, { id: number; track?: Song }>>({});
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
@@ -46,9 +50,9 @@ const MusicApp: React.FC = () => {
         // 邀请与回应可能已被记忆宫殿归档；用完整历史判断真正尚未回应的邀请。
         const messages = await DB.getMessagesByCharId(c.id, true);
         const pending = findPendingMusicInvite(messages, 'char');
-        return [c.id, pending?.id ?? 0] as const;
+        return [c.id, pending?.id ? { id: pending.id, track: pending.metadata?.musicListenTrack as Song | undefined } : null] as const;
       }));
-      if (!cancelled) setCharInvites(Object.fromEntries(entries.filter(([, id]) => id > 0)));
+      if (!cancelled) setCharInvites(Object.fromEntries(entries.filter((entry): entry is readonly [string, { id: number; track?: Song }] => !!entry[1])));
     };
     void refresh().catch(console.warn);
     const onInvite = () => { void refresh().catch(console.warn); };
@@ -61,7 +65,7 @@ const MusicApp: React.FC = () => {
     };
   }, [characters]);
   const answerCharInvite = useCallback(async (charId: string, accepted: boolean) => {
-    const messageId = charInvites[charId];
+    const messageId = charInvites[charId]?.id;
     if (!messageId) return;
     window.dispatchEvent(new CustomEvent('music-listen-invite-answer', {
       detail: { charId, messageId, accepted },
@@ -134,8 +138,13 @@ const MusicApp: React.FC = () => {
     setView(target as View);
   });
   const [keyword, setKeyword] = useState('');
+  const [searchSource, setSearchSource] = useState<'netease' | 'tencent'>('netease');
+  const [section, setSection] = useState<'results' | 'likes' | 'playlists' | 'queue' | 'history'>('results');
+  const [playlistName, setPlaylistName] = useState('');
+  const [openedPlaylist, setOpenedPlaylist] = useState<string | null>(null);
   const [results, setResults] = useState<Song[]>([]);
   const [searching, setSearching] = useState(false);
+  const searchSeqRef = useRef(0);
   const lyricBoxRef = useRef<HTMLDivElement | null>(null);
 
   // 歌词自动滚动：把 current line 对齐到滚动容器视觉中心
@@ -155,29 +164,73 @@ const MusicApp: React.FC = () => {
   // ── 搜索 ──
   const doSearch = useCallback(async () => {
     const kw = keyword.trim(); if (!kw) return;
+    const seq = ++searchSeqRef.current;
     setSearching(true);
-    trackEvent('搜索一首歌');
+    setSection('results');
+    trackEvent('搜索一首歌', { source: searchSource });
     try {
-      const r = await musicApi.search(cfg, kw);
-      const songs: Song[] = (r?.result?.songs || []).map((s: any) => ({
-        id: s.id, name: s.name,
-        artists: (s.ar || s.artists || []).map((a: any) => a.name).join(' / '),
-        album: s.al?.name || s.album?.name || '',
-        albumPic: toHttps(s.al?.picUrl || s.album?.picUrl || ''),
-        duration: (s.dt || s.duration || 0) / 1000,
-        fee: s.fee ?? 0,
-      }));
+      const songs: Song[] = searchSource === 'tencent'
+        ? await musicApi.searchTencent(kw)
+        : ((await musicApi.search(cfg, kw))?.result?.songs || []).map((song: any) => ({
+            id: Number(song.id), source: 'netease' as const,
+            name: String(song.name || ''),
+            artists: (song.ar || song.artists || []).map((a: any) => a.name).join(' / '),
+            album: song.al?.name || song.album?.name || '',
+            albumPic: toHttps(song.al?.picUrl || song.album?.picUrl || ''),
+            duration: (song.dt || song.duration || 0) / 1000,
+            fee: song.fee ?? 0,
+          })).filter((song: Song) => Number.isSafeInteger(song.id));
+      if (seq !== searchSeqRef.current) return;
       setResults(songs);
-      if (!songs.length) {
-        const hint = r?.msg || r?.message || (r?.code != null ? `code=${r.code}` : '') || '无数据';
-        addToast(`没找到: ${hint}`, 'info');
-      }
+      if (!songs.length) addToast('此来源没有找到匹配歌曲', 'info');
     } catch (e: any) {
-      addToast(`搜索失败：${e.message}`, 'error');
+      if (seq === searchSeqRef.current) addToast(`搜索失败：${e.message}`, 'error');
     } finally {
-      setSearching(false);
+      if (seq === searchSeqRef.current) setSearching(false);
     }
-  }, [keyword, cfg, addToast]);
+  }, [keyword, searchSource, cfg, addToast]);
+
+  const renderLibrarySongs = (songs: Song[], playlistId?: string) => (
+    <div className="space-y-1">
+      {songs.map((song, i) => (
+        <div key={musicSongKey(song)} className="rounded-xl shizuku-glass px-2 py-1">
+          <SongRow
+            name={song.name} artists={song.artists} album={song.album}
+            albumPic={song.albumPic} duration={fmtTime(song.duration)}
+            isVip={song.fee === 1}
+            isActive={!!current && sameMusic(current, song)}
+            onClick={() => {
+              if (playlistId) {
+                const pl = library.playlists.find(p => p.id === playlistId);
+                if (pl) void playSong(song, { replaceQueue: pl.songs, startIdx: i });
+              } else void playSong(song);
+            }}
+          />
+          <div className="flex flex-wrap gap-2 px-2 pb-1 text-[11px]" style={{ color: C.muted }}>
+            <span className="mr-auto">{song.local ? '本地生成' : song.source === 'tencent' ? 'QQ音乐' : '网易云'}</span>
+            <button onClick={() => addToQueue(song)}>加入队列</button>
+            <button onClick={() => toggleLocalLike(song)}>
+              {library.likes.some(s => sameMusic(s, song)) ? '取消本地喜欢' : '本地喜欢'}
+            </button>
+            {library.playlists.length > 0 && <select aria-label="加入本地歌单" defaultValue=""
+              className="bg-transparent max-w-28" onChange={e => {
+                if (e.target.value) addSongToPlaylist(e.target.value, song);
+                e.target.value = '';
+              }}>
+              <option value="">加入歌单…</option>
+              {library.playlists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>}
+            {playlistId && <>
+              <button disabled={i === 0} onClick={() => movePlaylistSong(playlistId, i, i - 1)}>上移</button>
+              <button disabled={i === songs.length - 1} onClick={() => movePlaylistSong(playlistId, i, i + 1)}>下移</button>
+              <button onClick={() => removeSongFromPlaylist(playlistId, musicSongKey(song))}>移除</button>
+            </>}
+          </div>
+        </div>
+      ))}
+      {songs.length === 0 && <p className="text-xs text-center py-8" style={{ color: C.muted }}>这里还没有歌曲</p>}
+    </div>
+  );
 
   // ════════════════ 搜索页 ════════════════
   const renderSearch = () => (
@@ -207,7 +260,27 @@ const MusicApp: React.FC = () => {
           </div>
         }
       />
+      <div className="flex justify-center gap-2 px-4 py-1 relative z-10 text-xs">
+        {(['netease', 'tencent'] as const).map(src => <button key={src}
+          aria-pressed={searchSource === src}
+          className="px-4 py-2 rounded-full shizuku-glass"
+          style={{ color: searchSource === src ? C.primary : C.muted, fontWeight: searchSource === src ? 700 : 400 }}
+          onClick={() => {
+            ++searchSeqRef.current;
+            setSearchSource(src); setSearching(false); setResults([]); setSection('results');
+          }}>{src === 'netease' ? '网易云音乐' : 'QQ音乐'}</button>)}
+      </div>
       <SearchBar value={keyword} onChange={setKeyword} onSearch={doSearch} searching={searching} />
+      <div className="flex gap-1 px-3 py-2 relative z-10 overflow-x-auto text-[11px]">
+        {([
+          ['results', '搜索结果'], ['likes', '本地喜欢'], ['playlists', '我的歌单'],
+          ['queue', '播放队列'], ['history', '播放历史'],
+        ] as const).map(([key, title]) =>
+          <button key={key} className="shrink-0 rounded-full px-3 py-2 shizuku-glass"
+            aria-pressed={section === key}
+            style={{ color: section === key ? C.primary : C.muted }}
+            onClick={() => setSection(key)}>{title}</button>)}
+      </div>
 
       {/* 用户状态 — 玻璃标签 */}
       {profile && (
@@ -236,33 +309,51 @@ const MusicApp: React.FC = () => {
         </div>
       )}
 
-      {/* 歌曲列表 */}
-      <div className="flex-1 overflow-y-auto px-2 pb-24 relative z-10 shizuku-scrollbar">
-        {results.length === 0 && !searching && (
-          <div className="text-center mt-16 space-y-4">
-            <div className="relative inline-block">
-              <Sparkle size={24} className="mx-auto" color={C.glow} delay={0} />
-              <Sparkle size={12} className="absolute -top-1 -right-3" color={C.sakura} delay={0.8} />
-              <Sparkle size={8} className="absolute -bottom-2 -left-2" color={C.lavender} delay={1.5} />
-            </div>
-            <div className="text-xs italic" style={{ color: C.faint, fontFamily: `'Georgia', serif` }}>
-              搜一首想听的歌吧
-            </div>
+      {/* 音乐库/结果共用现有播放控件 */}
+      <div className="flex-1 overflow-y-auto px-2 pb-8 relative z-10 shizuku-scrollbar">
+        {section === 'results' && renderLibrarySongs(results)}
+        {section === 'likes' && renderLibrarySongs(library.likes)}
+        {section === 'history' && renderLibrarySongs(library.history.map(h => h.song))}
+        {section === 'playlists' && <div className="space-y-3 px-2">
+          <div className="flex gap-2">
+            <input value={playlistName} onChange={e => setPlaylistName(e.target.value)}
+              placeholder="新歌单名称" aria-label="新歌单名称" maxLength={60}
+              className="rounded-xl p-2 min-w-0 flex-1 shizuku-glass text-xs" />
+            <button className="px-4 rounded-xl shizuku-glass text-xs"
+              onClick={() => { if (playlistName.trim()) { createPlaylist(playlistName); setPlaylistName(''); } }}>新建</button>
           </div>
-        )}
-        {results.map(s => (
-          <SongRow
-            key={s.id}
-            name={s.name}
-            artists={s.artists}
-            album={s.album}
-            albumPic={s.albumPic}
-            duration={fmtTime(s.duration)}
-            isVip={s.fee === 1}
-            isActive={current?.id === s.id}
-            onClick={() => { playSong(s); trackEvent('播放搜索结果里的一首歌'); }}
-          />
-        ))}
+          {library.playlists.map(p => <div key={p.id} className="rounded-xl shizuku-glass p-2">
+            <div className="flex gap-2 items-center text-xs">
+              <button className="font-semibold flex-1 text-left p-2"
+                onClick={() => setOpenedPlaylist(openedPlaylist === p.id ? null : p.id)}>
+                {p.name} · {p.songs.length} 首 {openedPlaylist === p.id ? '⌃' : '⌄'}
+              </button>
+              <button onClick={() => { const name = window.prompt('修改歌单名称', p.name); if (name?.trim()) renamePlaylist(p.id, name); }}>重命名</button>
+              <button onClick={() => { if (p.songs.length) void playSong(p.songs[0], { replaceQueue: p.songs, startIdx: 0 }); }}>播放</button>
+              <button onClick={() => { if (window.confirm(`删除本地歌单《${p.name}》？歌曲收藏和历史不会被删除。`)) deletePlaylist(p.id); }}>删除</button>
+            </div>
+            {openedPlaylist === p.id && renderLibrarySongs(p.songs, p.id)}
+          </div>)}
+          {!library.playlists.length && <p className="text-xs text-center py-6" style={{ color: C.muted }}>创建自己的免登录歌单吧</p>}
+        </div>}
+        {section === 'queue' && <div className="space-y-1">
+          <div className="flex justify-between items-center px-3 pb-2 text-xs">
+            <span>当前播放队列 · {queue.length} 首</span>
+            <button onClick={clearUpcomingQueue} className="underline">清空待播</button>
+          </div>
+          {queue.map((song, i) => <div key={musicSongKey(song)} className="p-2 rounded-xl shizuku-glass">
+            <div className="flex items-center gap-2 text-xs">
+              <button className="min-w-0 flex-1 text-left py-2" onClick={() => void playSong(song)}>
+                {idx === i ? '♫ ' : ''}{song.name} · {song.artists}
+                <span className="text-[9px] ml-1">{song.source === 'tencent' ? 'QQ' : song.local ? '本地' : '网易'}</span>
+              </button>
+              <button disabled={i === 0} onClick={() => moveQueueSong(i, i - 1)}>↑</button>
+              <button disabled={i === queue.length - 1} onClick={() => moveQueueSong(i, i + 1)}>↓</button>
+              <button disabled={i === idx} onClick={() => removeQueueSong(i)}>移除</button>
+            </div>
+          </div>)}
+          {!queue.length && <p className="text-center text-xs py-8">队列为空</p>}
+        </div>}
       </div>
 
       {characters.length > 0 && (
@@ -270,7 +361,7 @@ const MusicApp: React.FC = () => {
           <span className="text-xs font-semibold text-neutral-600">一起听</span>
           {characters.filter(c => !!charInvites[c.id]).map(c => (
             <span key={`char-invite-${c.id}`} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-700">
-              {c.name} 邀请你一起听
+              {c.name} 邀请你一起听{charInvites[c.id]?.track ? `《${charInvites[c.id].track?.name}》` : ''}
               <button className="ml-2 underline" onClick={() => void answerCharInvite(c.id, true)}>接受</button>
               <button className="ml-2 underline" onClick={() => void answerCharInvite(c.id, false)}>拒绝</button>
             </span>
