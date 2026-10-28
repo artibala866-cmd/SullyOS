@@ -51,6 +51,8 @@ export const MIRRORED_KEYS: readonly string[] = [
     'sully_music_cfg_v1',
     'sully_music_state_v1',
     'sully_music_local_album_v1',
+    'sully_music_guest_library_v1',      // 免登录喜欢、歌单、播放历史；镜像防局部清理丢失
+    'sully_music_guest_likes_v1',        // 仅旧客户端保留的喜欢数字 ID，迁移前也需保住
     'aetheros.mcp.servers',
     'aetheros.mcp.useNativeTools',
 ];

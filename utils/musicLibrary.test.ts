@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   musicKey, sameMusic, numericMusicId, normalizeTencentSong,
   tencentSearchRows, extractMusicUrl, loadGuestMusicLibrary, persistGuestMusicLibrary,
-  upsertLikedSong, recordMusicPlay,
+  upsertLikedSong, recordMusicPlay, validateGuestMusicLibraryBackup,
 } from './musicLibrary';
 import type { Song } from '../context/MusicContext';
 
@@ -39,4 +39,37 @@ describe('跨来源音乐身份与旧数据兼容', () => {
     expect(loadGuestMusicLibrary().likes.map(musicKey)).toEqual(['tencent:42', 'netease:42']);
     expect(loadGuestMusicLibrary().history).toHaveLength(1);
   });
+  it('备份数据校验保留 QQ 来源、歌单顺序与本地资源键', () => {
+    const a = song(42, 'netease');
+    const b = { ...song(42, 'tencent'), mid: 'QQMID42' };
+    const local = { ...song(7), local: true, localAssetKey: 'song-blob-7' };
+    const payload = {
+      likes: [a, b],
+      playlists: [{ id: 'pl-1', name: '通勤', songs: [b, local, a], createdAt: 1, updatedAt: 2 }],
+      history: [{ song: local, playedAt: 3 }],
+    };
+    expect(validateGuestMusicLibraryBackup(payload)).toEqual(payload);
+    expect(validateGuestMusicLibraryBackup(payload).playlists[0].songs.map(musicKey))
+      .toEqual(['tencent:42', 'local:7', 'netease:42']);
+  });
+  it('导入前拒绝损坏和会被截断的备份，不动原有收藏', () => {
+    expect(() => validateGuestMusicLibraryBackup({ likes: [], playlists: [] })).toThrow();
+    expect(() => validateGuestMusicLibraryBackup({
+      likes: [], playlists: [{ id: 'x', name: '太长', songs: Array(501).fill(song(1)), createdAt: 1, updatedAt: 1 }], history: [],
+    })).toThrow(/歌单/);
+    expect(() => validateGuestMusicLibraryBackup({
+      likes: [ { id: 1, name: 'bad', artists: '', album: '', albumPic: '', duration: NaN, fee: 0 } ],
+      playlists: [], history: [],
+    })).toThrow();
+  });
+  it('空间不足不能假装保存成功，旧收藏仍可读取', () => {
+    const data = new Map<string, string>([['sully_music_guest_likes_v1', '[12]']]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (_key: string, _value: string) => { throw new Error('QuotaExceededError'); },
+    });
+    expect(persistGuestMusicLibrary({ likes: [song(2)], playlists: [], history: [] })).toBe(false);
+    expect(loadGuestMusicLibrary().likes.map(musicKey)).toEqual(['netease:12']);
+  });
+
 });

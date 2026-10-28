@@ -326,7 +326,7 @@ const MusicApp: React.FC = () => {
               placeholder="新歌单名称" aria-label="新歌单名称" maxLength={60}
               className="rounded-xl p-2 min-w-0 flex-1 shizuku-glass text-xs" />
             <button className="px-4 rounded-xl shizuku-glass text-xs"
-              onClick={() => { if (playlistName.trim()) { createPlaylist(playlistName); setPlaylistName(''); } }}>新建</button>
+              onClick={() => { if (playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}>新建</button>
           </div>
           {library.playlists.map(p => <div key={p.id} className="rounded-xl shizuku-glass p-2">
             <div className="flex gap-2 items-center text-xs">

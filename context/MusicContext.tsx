@@ -497,8 +497,8 @@ interface MusicContextType {
 
   // Account-independent local music library, separate from NetEase and Char data.
   library: GuestMusicLibrary;
-  toggleLocalLike: (song: Song) => void;
-  createPlaylist: (name: string) => void;
+  toggleLocalLike: (song: Song) => boolean;
+  createPlaylist: (name: string) => boolean;
   renamePlaylist: (id: string, name: string) => void;
   deletePlaylist: (id: string) => void;
   addSongToPlaylist: (id: string, song: Song) => void;
@@ -706,32 +706,48 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // The guest library is always local, including when a NetEase user logs in.
   const [library, setLibraryState] = useState<GuestMusicLibrary>(loadGuestMusicLibrary);
-  const updateLibrary = useCallback((updater: (old: GuestMusicLibrary) => GuestMusicLibrary) => {
-    setLibraryState(old => {
-      const next = updater(old);
-      persistGuestMusicLibrary(next);
-      return next;
-    });
-  }, []);
-  const toggleLocalLike = useCallback((song: Song) => {
-    updateLibrary(old => ({
+  // Persist before committing UI state: a quota failure cannot create a fake
+  // successful favorite, and the ref serializes rapid updates within one render.
+  const libraryRef = useRef(library);
+  libraryRef.current = library;
+  const updateLibrary = useCallback((updater: (old: GuestMusicLibrary) => GuestMusicLibrary): boolean => {
+    const next = updater(libraryRef.current);
+    if (next === libraryRef.current) return false;
+    if (!persistGuestMusicLibrary(next)) {
+      toast('音乐库保存失败：存储空间不足或浏览器拒绝写入，请先备份并检查空间', 'error');
+      return false;
+    }
+    libraryRef.current = next;
+    setLibraryState(next);
+    return true;
+  }, [toast]);
+  const toggleLocalLike = useCallback((song: Song): boolean => {
+    if (!libraryRef.current.likes.some(item => sameMusic(item, song)) && libraryRef.current.likes.length >= 1000) {
+      toast('本地喜欢已达 1000 首上限，请先整理收藏', 'error');
+      return false;
+    }
+    return updateLibrary(old => ({
       ...old,
       likes: old.likes.some(item => sameMusic(item, song))
         ? old.likes.filter(item => !sameMusic(item, song))
         : upsertLikedSong(old.likes, song),
     }));
-  }, [updateLibrary]);
-  const createPlaylist = useCallback((name: string) => {
+  }, [updateLibrary, toast]);
+  const createPlaylist = useCallback((name: string): boolean => {
     const trimmed = name.trim().slice(0, 60);
-    if (!trimmed) return;
+    if (!trimmed) return false;
+    if (libraryRef.current.playlists.length >= 80) {
+      toast('本地歌单已达 80 个上限', 'error');
+      return false;
+    }
     const now = Date.now();
-    updateLibrary(old => ({
+    return updateLibrary(old => ({
       ...old, playlists: [...old.playlists, {
         id: `local-pl-${now}-${Math.random().toString(36).slice(2, 8)}`,
         name: trimmed, songs: [], createdAt: now, updatedAt: now,
-      }].slice(0, 80),
+      }],
     }));
-  }, [updateLibrary]);
+  }, [updateLibrary, toast]);
   const renamePlaylist = useCallback((id: string, name: string) => {
     const trimmed = name.trim().slice(0, 60);
     if (trimmed) updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => p.id === id ? { ...p, name: trimmed, updatedAt: Date.now() } : p) }));
@@ -740,9 +756,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateLibrary(old => ({ ...old, playlists: old.playlists.filter(p => p.id !== id) }));
   }, [updateLibrary]);
   const addSongToPlaylist = useCallback((id: string, song: Song) => {
+    const playlist = libraryRef.current.playlists.find(p => p.id === id);
+    if (playlist && playlist.songs.length >= 500 && !playlist.songs.some(s => sameMusic(s, song))) {
+      toast('这个歌单已达 500 首上限，未保存新歌曲', 'error');
+      return;
+    }
     updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => p.id === id && !p.songs.some(s => sameMusic(s, song))
       ? { ...p, songs: [...p.songs, song], updatedAt: Date.now() } : p) }));
-  }, [updateLibrary]);
+  }, [updateLibrary, toast]);
   const removeSongFromPlaylist = useCallback((id: string, key: string) => {
     updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => p.id === id
       ? { ...p, songs: p.songs.filter(s => musicKey(s) !== key), updatedAt: Date.now() } : p) }));
@@ -792,8 +813,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // ── 免登录歌曲的喜欢只保存到本地，不假装同步到网易云账号 ──
     if (!cfg.cookie || current.source === 'tencent') {
       const willLike = !library.likes.some(song => sameMusic(song, current));
-      toggleLocalLike(current);
-      toast(willLike ? '已添加到本地喜欢' : '已从本地喜欢移除', 'success');
+      if (toggleLocalLike(current)) toast(willLike ? '已添加到本地喜欢' : '已从本地喜欢移除', 'success');
       return;
     }
     // ── 登录后的网易云歌曲仍同步到账号 ──

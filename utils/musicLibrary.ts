@@ -91,6 +91,43 @@ const LIBRARY_KEY = 'sully_music_guest_library_v1';
 const LEGACY_LIKES_KEY = 'sully_music_guest_likes_v1';
 const validSong = (value: any): value is Song => value && Number.isSafeInteger(value.id) && typeof value.name === 'string';
 const emptyLibrary = (): GuestMusicLibrary => ({ likes: [], playlists: [], history: [] });
+
+/** Validate a backup *before* any primary database is replaced.
+ * A missing field means an older backup and must never erase today's library.
+ * Keep sources, playlist ordering and localAssetKey (not the audio Blob) intact.
+ */
+export const validateGuestMusicLibraryBackup = (value: unknown): GuestMusicLibrary => {
+  const record = value as Partial<GuestMusicLibrary> | null;
+  if (!record || typeof record !== 'object' || Array.isArray(record) ||
+      !Array.isArray(record.likes) || !Array.isArray(record.playlists) ||
+      !Array.isArray(record.history)) throw new Error('备份中的本地音乐库结构无效');
+  if (record.likes.length > 1000 || record.playlists.length > 80 ||
+      record.history.length > 150) throw new Error('备份中的本地音乐库条目超出容量限制');
+  const checkSong = (s: any): s is Song =>
+    validSong(s) && !!s.name.trim() && typeof s.artists === 'string' &&
+    typeof s.album === 'string' && typeof s.albumPic === 'string' &&
+    typeof s.duration === 'number' && Number.isFinite(s.duration) &&
+    typeof s.fee === 'number' &&
+    (s.source === undefined || s.source === 'netease' || s.source === 'tencent') &&
+    (s.platformId === undefined || typeof s.platformId === 'string') &&
+    (s.localAssetKey === undefined || typeof s.localAssetKey === 'string');
+  if (!record.likes.every(checkSong)) throw new Error('备份中的喜欢歌曲信息损坏');
+  if (!record.playlists.every((p: any) =>
+      p && typeof p.id === 'string' && p.id.length > 0 &&
+      typeof p.name === 'string' && Array.isArray(p.songs) &&
+      p.songs.length <= 500 && p.songs.every(checkSong) &&
+      Number.isFinite(p.createdAt) && Number.isFinite(p.updatedAt)
+  )) throw new Error('备份中的本地歌单信息损坏');
+  if (!record.history.every((h: any) =>
+      h && checkSong(h.song) && Number.isFinite(h.playedAt)
+  )) throw new Error('备份中的播放历史信息损坏');
+  return {
+    likes: record.likes,
+    playlists: record.playlists as LocalMusicPlaylist[],
+    history: record.history as PlayedMusic[],
+  };
+};
+
 export const loadGuestMusicLibrary = (): GuestMusicLibrary => {
   try {
     const saved = localStorage.getItem(LIBRARY_KEY);
@@ -112,14 +149,18 @@ export const loadGuestMusicLibrary = (): GuestMusicLibrary => {
     })) };
   } catch { return emptyLibrary(); }
 };
-export const persistGuestMusicLibrary = (library: GuestMusicLibrary): void => {
+/** Return false instead of pretending a favorite or playlist was saved.
+ * Never silently truncate user-created playlists on persistence. */
+export const persistGuestMusicLibrary = (library: GuestMusicLibrary): boolean => {
+  if (library.likes.length > 1000 || library.playlists.length > 80 ||
+      library.history.length > 150 || library.playlists.some(p => p.songs.length > 500)) return false;
   try {
-    localStorage.setItem(LIBRARY_KEY, JSON.stringify({
-      likes: library.likes.slice(0, 1000),
-      playlists: library.playlists.slice(0, 80).map(p => ({ ...p, songs: p.songs.slice(0, 500) })),
-      history: library.history.slice(0, 150),
-    }));
-  } catch { /* quota exceeded: playback must still work */ }
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+    return true;
+  } catch (err) {
+    console.warn('[MusicLibrary] 保存失败（存储空间不足或浏览器拒绝）', err);
+    return false;
+  }
 };
 export const upsertLikedSong = (songs: Song[], song: Song): Song[] =>
   [song, ...songs.filter(item => !sameMusic(item, song))].slice(0, 1000);
