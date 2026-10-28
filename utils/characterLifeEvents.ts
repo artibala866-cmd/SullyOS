@@ -65,6 +65,42 @@ export function pruneDeletedPhoneChatLifeEvents(characterId:string,thread:{
   return before.length-after.length;
 }
 
+/** Heal previously-deleted WeChat conversations from older SullyOS builds.
+ * Only explicit phone thread references (new metadata or the three stable
+ * legacy ID encodings) can be identified reliably. Do not guess from AI text.
+ * Does not affect User private chat, independent XHS actions or Palace.
+ */
+export function pruneOrphanedPhoneChatLifeEvents(
+ characterId:string,existingThreadIds:readonly string[],
+):number{
+ if(!characterId||typeof localStorage==='undefined')return 0;
+ const available=new Set(existingThreadIds);
+ const before=readCharacterLifeEvents(characterId);
+ const eventThreadId=(event:CharacterLifeEvent):string|null=>{
+   if(event.source!=='phone'||event.kind!=='npc-chat')return null;
+   if(event.phoneThreadId)return event.phoneThreadId;
+   for(const prefix of ['npc-chat:inbox:','npc-chat:auto:','npc-chat:']){
+     if(!event.id.startsWith(prefix))continue;
+     const end=event.id.lastIndexOf(':');
+     if(end<=prefix.length)return null;
+     // Only parse a legacy id if its suffix really is the timestamp
+     // created by the old writers. Arbitrary imported event IDs are untouched.
+     const timestamp=Number(event.id.slice(end+1));
+     return Number.isFinite(timestamp)?event.id.slice(prefix.length,end):null;
+   }
+   return null;
+ };
+ const after=before.filter(event=>{
+   const id=eventThreadId(event);
+   return !id||available.has(id);
+ });
+ if(after.length===before.length)return 0;
+ localStorage.setItem(lifeEventStorageKey(characterId),JSON.stringify(after));
+ if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(
+   CHARACTER_LIFE_EVENTS_CHANGED,{detail:{characterId,pruned:true,orphaned:true}}));
+ return before.length-after.length;
+}
+
 /** Only remove temporary phone-event context for categories the user explicitly cleared.
  * Do NOT erase other real-mode/XHS events or previously archived Memory Palace data.
  */

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import {beforeEach,describe,it,expect} from 'vitest';
 import {readCharacterPhoneChats,deleteCharacterPhoneChat} from './characterPhoneChats';
-import {recordCharacterLifeEvent,readCharacterLifeEvents,attachCharacterLifeGlimpse} from './characterLifeEvents';
+import {recordCharacterLifeEvent,readCharacterLifeEvents,attachCharacterLifeGlimpse,pruneOrphanedPhoneChatLifeEvents} from './characterLifeEvents';
 import {selectConfirmedLifeGlimpses} from './characterLifeGlimpses';
 import {saveNpcProfiles,readNpcProfiles} from './characterPhoneNpcs';
 import {readPhoneContentClearRevision} from './characterPhoneContentClearRevision';
@@ -57,6 +57,23 @@ describe('deleted phone conversations cannot leak into life glimpses',()=>{
   deleteCharacterPhoneChat('char','thread-a');
   expect(attachCharacterLifeGlimpse(item,'删除以后不能重新写入')).toBe(false);
   expect(readCharacterLifeEvents('else')).toHaveLength(1);
+ });
+ it('heals already-deleted legacy WeChat events when opening an old phone archive',()=>{
+  setup();
+  const now=Date.now();
+  recordCharacterLifeEvent({id:'npc-chat:inbox:missing-thread:'+now,characterId:'char',
+   kind:'npc-chat',source:'phone',occurredAt:now,summary:'旧版本删除时留下的聊天'});
+  recordCharacterLifeEvent({id:'npc-chat:thread-b:'+now,characterId:'char',
+   kind:'npc-chat',source:'phone',occurredAt:now,summary:'仍然存在的聊天'});
+  recordCharacterLifeEvent({id:'unknown-imported-id',characterId:'char',
+   kind:'npc-chat',source:'phone',occurredAt:now,summary:'关联不明确，不能猜测删除'});
+  recordCharacterLifeEvent({id:'xhs-observed',characterId:'char',
+   kind:'browser-search',source:'xiaohongshu',occurredAt:now,summary:'真实工具活动'});
+  expect(pruneOrphanedPhoneChatLifeEvents('char',['thread-a','thread-b'])).toBe(1);
+  expect(readCharacterLifeEvents('char').map(e=>e.id).sort()).toEqual([
+   'npc-chat:thread-b:'+now,'unknown-imported-id','xhs-observed',
+  ].sort());
+  expect(pruneOrphanedPhoneChatLifeEvents('char',['thread-a','thread-b'])).toBe(0);
  });
  it('bulk clear also strips relationship snippets, not non-WeChat notes or private chats',()=>{
   setup();

@@ -37,7 +37,7 @@ import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, Phone, 
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
 import {
   CHARACTER_PHONE_CHATS_CHANGED, readCharacterPhoneChats,
-  updateCharacterPhoneChats, deleteCharacterPhoneChat, notifyCharacterPhoneChatsChanged,
+  updateCharacterPhoneChats, deleteCharacterPhoneChat, erasePhoneWechatRelationshipNotes, notifyCharacterPhoneChatsChanged,
   type CharacterPhoneChat,
 } from '../../utils/characterPhoneChats';
 import { findKnownNpc, registerDiscoveredNpc, noteNpcInteraction } from '../../utils/characterNpcNetwork';
@@ -53,7 +53,7 @@ import type { CharacterProfile, DailySchedule } from '../../types';
 import { parseGeneratedPhoneMessages, type PhoneMessage } from '../../utils/characterPhoneIdentity';
 import { extractContent } from '../../utils/safeApi';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from '../../utils/characterPhoneAiRequest';
-import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
+import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, pruneOrphanedPhoneChatLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
 import { generateIndependentLifeGlimpse, isManualLifeGlimpseEnabled, setManualLifeGlimpseEnabled } from '../../utils/characterLifeGlimpseGeneration';
 import { selectConfirmedLifeGlimpses } from '../../utils/characterLifeGlimpses';
 import { readPhoneContentClearRevision } from '../../utils/characterPhoneContentClearRevision';
@@ -328,6 +328,20 @@ export default function CharacterPhone({
   const npcPullStart=useRef<number|null>(null);
   useEffect(() => {setMoments(readCharacterMoments(characterId)); const sync=(event:Event)=>{if((event as CustomEvent<{characterId:string}>).detail?.characterId===characterId)setMoments(readCharacterMoments(characterId));};window.addEventListener(CHARACTER_MOMENTS_CHANGED,sync);return ()=>window.removeEventListener(CHARACTER_MOMENTS_CHANGED,sync);},[characterId]);
   useEffect(() => {
+    // One-time legacy reconciliation on phone entry: an older build only
+    // deleted the WeChat row, leaving its derived life facts and NPC notes.
+    // Never infer an orphan from the summary text or touch real User chat.
+    const currentThreads=readCharacterPhoneChats(characterId);
+    const deletedFacts=pruneOrphanedPhoneChatLifeEvents(characterId,currentThreads.map(t=>t.id));
+    const validContactIds=new Set(currentThreads.map(t=>t.contactId).filter(Boolean));
+    const orphanContacts=readNpcProfiles(characterId)
+      .filter(n=>!validContactIds.has(n.id)&&n.relationshipNotes?.includes('微信提及]'))
+      .map(n=>n.id);
+    if(orphanContacts.length) {
+      try {erasePhoneWechatRelationshipNotes(characterId,orphanContacts);}catch { /* keep chat view available */ }
+      if(!deletedFacts)window.dispatchEvent(new CustomEvent(CHARACTER_LIFE_EVENTS_CHANGED,
+        {detail:{characterId,pruned:true,orphaned:true}}));
+    }
     setLifeEvents(readCharacterLifeEvents(characterId));
     const sync = (event: Event) => { if ((event as CustomEvent<{characterId:string}>).detail?.characterId === characterId) setLifeEvents(readCharacterLifeEvents(characterId)); };
     window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, sync);
