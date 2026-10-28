@@ -52,3 +52,11 @@
 - **隔离各 Char 的学习室监督聊天历史**：新增消息带 `charId`，新请求只载入该 Char 自己的历史。旧版本无角色 ID 的记录在本机单列查看，不会再传入任意 Char 的提示上下文。切换角色或切换讨论主题期间返回的迟到回复不再应用为当前角色的排单预览。
 - **排单跨日失效**：用户生成建议后若跨到新本地日期，必须重新生成；防止第二天套用昨天计算的计划。课程时间冲突使用重叠区间合并，避免两门同时上课重复扣时。自愿「问 Char」单稿件摘要不再默认带上私人委托备注。
 - 回归用例涵盖字段级冲突合并、角色隔离、远端创建／撤销竞争、跨日建议、重叠课程扣时、孤立作业可核查提醒。仍须在真实 Android、实际跨标签页并发、真实 AMSG Worker 上做人工验收，自动化模拟不能替代设备环境。
+
+## 第二轮审计补齐：并发事务、损坏备份、云端核查与日容量
+
+- **跨标签页原子事务：** `utils/db.ts` 新增 `updateAssetRaw`，整个同步变更回调在一个 IndexedDB `assets` readwrite 事务的 get.onsuccess 中计算并 put；直到 transaction.oncomplete 才确认成功。不同标签页使用同一个 IndexedDB store 事务队列，和原先「读完再另外开事务写」不同。学习室 `mutateWorkspace` 与 `writeWorkspace` 使用该原子接口，页面级 `workspaceEditMerge` 仍用于检测同字段冲突。不同设备/备份导入后再覆盖属于另一个同步问题，未自动处理。
+- **损坏备份保护：** `normalizeWorkspace` 仅读出可识别 ID 的正常记录，对部分缺失字段做显示默认值；`workspaceIntegrityWarnings` 检查数据集合、无效/重复 ID、缺少关键字符串。发现异常时原始 IndexedDB 数据不清理，原子写入拒绝覆盖；面板显示风险及建议恢复健康备份。此机制是 **只读安全保护** 而非自动修复所有损坏资料，未处理损坏源仍不可编辑。
+- **AMSG 主动核查：** 用户逐项点击「读取 AMSG 云端状态（不修改）」才调用旧有 `listRemoteTasksForChar`，必须以同 Char 的 UUID/客户端任务 ID 严格匹配，不发起新任务、不自动删除本地链接。没有可靠任务号时显示「无法识别」，列表未找到也不自动认定云端不存在。真实网络认证/Worker/Android 通知需人工验收；不得据列表结果自行复创建。
+- **按天容量估算：** `dailyCapacityForecast` 单独显示课程占用、作业分钟、逾期未做作业、当日可用/超额分钟。没有有效截止时间的作业显式报未安排，不虚构日期；共享 `calculatePlanRisks` 风险口径，跨 DST 使用日期键差而非 23/25 小时推算天数。仅为每日预算估算，不是精确小时级自动排程。
+- 定向测试 `workspaceIntegrity.test.ts`、`dailyCapacityForecast.test.ts`、`workspaceAtomic.wiring.test.ts`，连同已有 AMSG 及权限测试一起纳入独立 CI。

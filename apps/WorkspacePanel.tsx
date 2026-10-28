@@ -15,7 +15,8 @@ import {
   type CommissionPlanPreview,
 } from '../utils/commissionPlanProposals';
 import {
-  calculatePlanRisks, emptyWorkspace, localDate, newWorkspaceId,
+  calculatePlanRisks, dailyCapacityForecast, emptyWorkspace, localDate, newWorkspaceId,
+  readWorkspaceIntegrityWarnings,
   orderedCommissions, readWorkspace, mutateWorkspace, permissionForChar,
   type ClassHomework, type Commission, type TimetableClass, type WorkspaceData, type WorkKind, type WorkspaceShareCategory,
 } from '../utils/sullyWorkspace';
@@ -55,6 +56,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [data, setData] = useState<WorkspaceData>(emptyWorkspace);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
+  const [integrityWarnings, setIntegrityWarnings] = useState<string[]>([]);
   const [shareBusy, setShareBusy] = useState<WorkspaceShareCategory | null>(null);
   const [planChecked, setPlanChecked] = useState<string[]>([]);
   const [applyingPlan, setApplyingPlan] = useState(false);
@@ -84,8 +86,10 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
 
   useEffect(() => {
     let alive = true;
-    void readWorkspace().then(value => {
-      if (alive) { dataRef.current=value; setData(value); setLoaded(true); }
+    void Promise.all([readWorkspace(),readWorkspaceIntegrityWarnings()]).then(([value,warnings]) => {
+      if (alive) {
+        dataRef.current=value;setData(value);setIntegrityWarnings(warnings);setLoaded(true);
+      }
     }).catch(e => { if (alive) setError('无法读取本地工作空间：' + String(e)); });
     return () => { alive = false; };
   }, []);
@@ -330,6 +334,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     return records.filter(r=>ids.has(r.taskId)).reduce((sum,r)=>sum+r.minutes,0);
   };
   const risk = new Map(calculatePlanRisks(data).map(v=>[v.commissionId,v]));
+  const weekCapacity=dailyCapacityForecast(data,localDate(new Date()),7);
   const selectedClass = data.classes.find(c=>c.id===selectedClassId);
   const orphaned = orphanedClassContent(data);
   const planStale = !!planPreview && (isPlanPreviewStale(data, planPreview)
@@ -341,6 +346,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
 
   return <div className="text-neutral-900 space-y-5 pb-6">
     {error && <p role="alert" className="p-3 text-sm border border-neutral-500 rounded-lg">{error}</p>}
+    {integrityWarnings.length>0 && <section className={cardClass} role="alert">
+      <h3 className="font-semibold">本地学习室备份存在异常，已开启安全保护</h3>
+      <p className="text-xs">仅显示仍可读取的资料；原始损坏记录没有被删除。为避免覆盖可恢复数据，本机写入会被拒绝。请先通过备份管理恢复健康备份，不要清除应用数据。</p>
+      <p className="text-xs break-words">{integrityWarnings.slice(0,4).join('；')}{integrityWarnings.length>4?'；另有更多异常':''}</p>
+    </section>}
     <section className={cardClass} aria-label="普通私聊授权">
       <h3 className="font-semibold">普通私聊 · 数据授权</h3>
       <p className="text-xs text-neutral-600">每个 Char 独立授权，默认全部关闭。开启仅分享课程时间、作业状态或画稿排期的有限摘要；永不自动分享客户、价格、详细需求、笔记与 PDF 原文。关闭后只阻止后续请求，已发送消息和历史记忆不会被自动删除。</p>
@@ -376,6 +386,19 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <input className={inputClass} type="number" min="0" max="1440" value={data.dailyAvailableMinutes}
             onChange={e=>change(v=>({...v,dailyAvailableMinutes:Math.max(0,Math.min(1440,Number(e.target.value)||0))}))}/>
         </label>
+        <section className="border border-neutral-200 bg-white rounded-xl p-3 text-xs space-y-2" aria-label="未来七天可用时间">
+          <h3 className="text-sm font-semibold">未来七天 · 时间容量预估</h3>
+          <p className="text-neutral-600">同时间课程只扣一次；逾期作业按今天补做估算。仅按日汇总，并非精确到小时的自动预约。</p>
+          {weekCapacity.map(day=><div className="flex flex-wrap gap-x-2 border-t border-neutral-100 pt-1" key={day.date}>
+            <span>{day.date}</span>
+            <span>课程 {day.classMinutes} 分</span>
+            <span>作业 {day.homeworkMinutes} 分</span>
+            <strong>可用 {day.availableMinutes} 分</strong>
+            {day.overbookedMinutes>0 && <span className="text-red-700">超额 {day.overbookedMinutes} 分</span>}
+          </div>)}
+          {weekCapacity[0]?.unscheduledHomeworkCount>0 &&
+            <p role="status">另有 {weekCapacity[0].unscheduledHomeworkCount} 项未完成作业没有有效截止日期，未纳入容量估算。请手动排入计划。</p>}
+        </section>
         <button className={mutedButton} onClick={()=>void requestPlan()} disabled={!selectedCharId || applyingPlan}>让 Char 帮我排一下</button>
         <p className="text-xs text-neutral-600">点击只会打开 Char 对话；你再点发送才会将本次稿名、进度、工时、课程时段摘要交给选定的 AI。客户、价格、需求和笔记不发送。返回后必须逐项审核并确认应用。</p>
       </header>

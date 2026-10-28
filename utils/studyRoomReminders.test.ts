@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  cancelStudyReminder, createStudyReminder, permittedReminderText, setWorkspaceChatPermission,
+  cancelStudyReminder, createStudyReminder, inspectStudyReminderRemote, permittedReminderText, setWorkspaceChatPermission,
   validateReminderTime, type ReminderRemote,
 } from './studyRoomReminders';
 import { emptyWorkspace, mutateWorkspace, readWorkspace } from './sullyWorkspace';
@@ -10,6 +10,11 @@ vi.mock('./db', () => ({
   DB: {
     getAssetRaw: vi.fn(async () => stored),
     saveAssetRaw: vi.fn(async (_key: string, data: unknown) => { stored = structuredClone(data); }),
+    updateAssetRaw: vi.fn(async (_key:string,update:(value:unknown)=>unknown) => {
+      const next=update(stored);
+      stored=structuredClone(next);
+      return next;
+    }),
   },
 }));
 vi.mock('./activeMsgStore', () => ({
@@ -147,6 +152,44 @@ describe('学习室 AMSG 固定提醒', () => {
   });
 });
 
+
+describe('远端任务核查只读，不自动清除不明身份',()=>{
+  beforeEach(()=>{
+    const w=emptyWorkspace();
+    w.reminders=[
+      {id:'known',kind:'homework',itemId:'h1',charId:'char1',
+        fireAt:'2026-11-15T12:00:00Z',status:'cancel_failed',taskUuid:'uuid1'},
+      {id:'unknown',kind:'homework',itemId:'h2',charId:'char1',
+        fireAt:'2026-11-15T12:00:00Z',status:'needs_review'},
+    ];
+    stored=w;
+  });
+  it('按真实 UUID 查询且不创建/取消/删除本机提醒',async()=>{
+    const remote=setupRemote();
+    (remote.list as any).mockResolvedValueOnce([
+      {uuid:'other',status:'scheduled'},
+      {uuid:'uuid1',status:'pending',clientTaskId:'exact'},
+    ]);
+    const result=await inspectStudyReminderRemote('known',remote);
+    expect(result).toMatchObject({status:'matched',taskUuid:'uuid1',remoteStatus:'pending'});
+    expect(remote.schedule).not.toHaveBeenCalled();
+    expect(remote.cancel).not.toHaveBeenCalled();
+    expect((await readWorkspace()).reminders).toHaveLength(2);
+  });
+  it('没有远端任务号不推断任务不存在，仍保留待核查记录',async()=>{
+    const remote=setupRemote();
+    const result=await inspectStudyReminderRemote('unknown',remote);
+    expect(result.status).toBe('unidentifiable');
+    expect(result.warning).toContain('不等于未创建');
+    expect((await readWorkspace()).reminders[1].status).toBe('needs_review');
+  });
+  it('远端无法读取时不能编造已取消结论',async()=>{
+    const remote=setupRemote();
+    (remote.list as any).mockRejectedValueOnce(new Error('offline'));
+    await expect(inspectStudyReminderRemote('known',remote)).rejects.toThrow('offline');
+    expect((await readWorkspace()).reminders[0].taskUuid).toBe('uuid1');
+  });
+});
 
 describe('撤回私聊授权与远端提醒联动', () => {
   beforeEach(() => { stored = null; });

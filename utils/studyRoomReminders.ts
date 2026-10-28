@@ -192,6 +192,44 @@ export async function createStudyReminder(
   }
 }
 
+/**
+ * Explicit user-initiated remote read; never use "not found" as evidence
+ * that an unidentified task definitely never existed.
+ * This function is read-only and cannot create, cancel or delete a task.
+ */
+export interface StudyReminderRemoteInspection {
+  status: 'matched'|'not_found'|'unidentifiable';
+  taskUuid?:string;
+  remoteStatus?:string;
+  searchedTasks:number;
+  warning:string;
+}
+export async function inspectStudyReminderRemote(
+  id:string,remote:ReminderRemote=remoteDefault,
+):Promise<StudyReminderRemoteInspection> {
+  const workspace=await readWorkspace();
+  const reminder=workspace.reminders.find(r=>r.id===id);
+  if(!reminder)throw new Error('本机提醒记录已不存在');
+  const tasks=await remote.list(reminder.charId);
+  const matches=tasks.filter(task=>
+    !!reminder.taskUuid && task.uuid===reminder.taskUuid
+    || !!reminder.clientTaskId && task.clientTaskId===reminder.clientTaskId);
+  if(matches.length>1)throw new Error('远端存在重复身份，需到 AMSG 管理页人工核对');
+  if(matches.length===1){
+    return {
+      status:'matched',taskUuid:matches[0].uuid,
+      remoteStatus:matches[0].status||'未知',searchedTasks:tasks.length,
+      warning:'找到同一任务身份；不会自动覆盖本机记录或触发取消。',
+    };
+  }
+  if(!reminder.taskUuid && !reminder.clientTaskId) {
+    return {status:'unidentifiable',searchedTasks:tasks.length,
+      warning:'本机没有远端 UUID / 客户端任务号，无法准确匹配。请在 AMSG 管理页手动核对；“未找到”不等于未创建。'};
+  }
+  return {status:'not_found',searchedTasks:tasks.length,
+    warning:'远端列表暂未发现对应任务。可能已经发送、取消或尚未同步；本机记录仍保留，请人工确认。'};
+}
+
 /** Failed cancellation retains the UUID for an explicit retry. */
 export async function cancelStudyReminder(
   id: string,

@@ -109,53 +109,148 @@ export const newWorkspaceId = (): string =>
     ? crypto.randomUUID()
     : String(Date.now()) + Math.random().toString(36).slice(2);
 
-export function normalizeWorkspace(raw: unknown): WorkspaceData {
-  const fallback = emptyWorkspace();
-  if (!raw || typeof raw !== 'object') return fallback;
-  const obj = raw as Partial<WorkspaceData>;
+
+const isRow=(value:unknown):value is Record<string,unknown> =>
+  !!value && typeof value==='object' && !Array.isArray(value);
+const asText=(value:unknown,fallback=''):string=>typeof value==='string'?value:fallback;
+const asNumber=(value:unknown,fallback=0):number=>
+  typeof value==='number' && Number.isFinite(value)?value:fallback;
+function normalizedRows<T extends {id:string}>(
+  raw:unknown,clean:(row:Record<string,unknown>)=>T,
+):T[] {
+  if(!Array.isArray(raw))return [];
+  const seen=new Set<string>(),rows:T[]=[];
+  for(const item of raw) {
+    if(!isRow(item)||typeof item.id!=='string'||!item.id.trim()
+      ||seen.has(item.id))continue;
+    seen.add(item.id);rows.push(clean(item));
+  }
+  return rows;
+}
+/** Keep raw damaged records in IndexedDB; refuse any write until recovery. */
+export function workspaceIntegrityWarnings(raw:unknown):string[] {
+  if(raw==null)return [];
+  if(!isRow(raw))return ['工作空间根记录不是有效对象'];
+  const issues:string[]=[];
+  const required:Record<string,string[]>={
+    commissions:['title','status','dueDate'],classes:['name','start','end'],
+    homework:['title','classId','dueAt'],notes:['classId','body'],
+    reminders:['kind','itemId','charId','fireAt','status'],
+  };
+  for(const [field,keys] of Object.entries(required)){
+    const entries=raw[field];
+    if(entries===undefined)continue;
+    if(!Array.isArray(entries)){issues.push(field+'不是数组');continue;}
+    const seen=new Set<string>();
+    entries.forEach((item,index)=>{
+      if(!isRow(item)||typeof item.id!=='string'||!item.id.trim()
+        ||seen.has(item.id))issues.push(field+'第'+(index+1)+'条 ID 无效或重复');
+      else {
+        seen.add(item.id);
+        if(keys.some(key=>typeof item[key]!=='string')
+          || (field==='reminders' && (
+            !['commission','homework'].includes(asText(item.kind))
+            || !['creating','scheduled','cancel_failed','needs_review'].includes(asText(item.status))
+          ))
+          || (field==='commissions' && !['active','waiting','paused','delivered','cancelled','archived']
+            .includes(asText(item.status)))
+          || (field==='homework' && item.done!==undefined && typeof item.done!=='boolean'))
+          issues.push(field+'第'+(index+1)+'条缺少关键字段或状态不合法');
+      }
+    });
+  }
+  return issues;
+}
+export function normalizeWorkspace(raw:unknown):WorkspaceData {
+  const fallback=emptyWorkspace();
+  if(!isRow(raw))return fallback;
+  const permissions=raw.privateChatPermissions;
   return {
-    commissions: Array.isArray(obj.commissions) ? obj.commissions : [],
-    classes: Array.isArray(obj.classes) ? obj.classes : [],
-    homework: Array.isArray(obj.homework) ? obj.homework : [],
-    notes: Array.isArray(obj.notes) ? obj.notes : [],
-    reminders: Array.isArray(obj.reminders) ? obj.reminders : [],
-    // Legacy backup and malformed import must fail closed.
-    privateChatPermissions: obj.privateChatPermissions && typeof obj.privateChatPermissions === 'object'
-      && !Array.isArray(obj.privateChatPermissions)
-      ? Object.fromEntries(Object.entries(obj.privateChatPermissions).filter(([id]) => !!id)
-        .map(([id, value]) => [id, {
-          study: (value as WorkspaceChatPermissions | null)?.study === true,
-          commissions: (value as WorkspaceChatPermissions | null)?.commissions === true,
-        }])) : {},
-    dailyAvailableMinutes: Number.isFinite(obj.dailyAvailableMinutes)
-      ? Math.max(0, Math.min(1440, Number(obj.dailyAvailableMinutes))) : fallback.dailyAvailableMinutes,
+    commissions:normalizedRows(raw.commissions,row=>({
+      ...row,id:row.id as string,title:asText(row.title,'未命名委托'),
+      client:asText(row.client),type:asText(row.type),brief:asText(row.brief),
+      acceptedAt:asText(row.acceptedAt),dueDate:asText(row.dueDate),
+      stage:asText(row.stage,'草稿'),priority:asNumber(row.priority,2),
+      status:['active','waiting','paused','delivered','cancelled','archived']
+        .includes(asText(row.status))?row.status as WorkStatus:'paused',
+      remainingMinutes:Math.max(0,asNumber(row.remainingMinutes)),
+      bufferMinutes:Math.max(0,asNumber(row.bufferMinutes)),
+      plannedDate:asText(row.plannedDate),price:asText(row.price),
+      paid:row.paid===true,note:asText(row.note),order:asNumber(row.order),
+    })),
+    classes:normalizedRows(raw.classes,row=>({
+      ...row,id:row.id as string,name:asText(row.name,'未命名课程'),
+      weekday:asNumber(row.weekday,-1),start:asText(row.start),
+      end:asText(row.end),until:asText(row.until),teacher:asText(row.teacher),
+      location:asText(row.location),note:asText(row.note),
+      studyCourseId:asText(row.studyCourseId)||undefined,
+    })),
+    homework:normalizedRows(raw.homework,row=>({
+      ...row,id:row.id as string,classId:asText(row.classId),
+      title:asText(row.title,'未命名作业'),dueAt:asText(row.dueAt),
+      minutes:Math.max(0,asNumber(row.minutes,60)),
+      done:row.done===true,note:asText(row.note),
+    })),
+    notes:normalizedRows(raw.notes,row=>({
+      ...row,id:row.id as string,classId:asText(row.classId),
+      body:asText(row.body),createdAt:asNumber(row.createdAt),
+    })),
+    reminders:normalizedRows(raw.reminders,row=>({
+      ...row,id:row.id as string,
+      kind:row.kind==='commission'?'commission':'homework',
+      itemId:asText(row.itemId),charId:asText(row.charId),
+      fireAt:asText(row.fireAt),taskUuid:asText(row.taskUuid)||undefined,
+      clientTaskId:asText(row.clientTaskId)||undefined,
+      status:['creating','scheduled','cancel_failed','needs_review']
+        .includes(asText(row.status))?row.status as WorkspaceReminderStatus:'needs_review',
+      error:asText(row.error)||undefined,
+    })),
+    privateChatPermissions:isRow(permissions)
+      ? Object.fromEntries(Object.entries(permissions).filter(([id])=>!!id)
+        .map(([id,value])=>[id,{
+          study:isRow(value)&&value.study===true,
+          commissions:isRow(value)&&value.commissions===true,
+        }])):{},
+    dailyAvailableMinutes:typeof raw.dailyAvailableMinutes==='number' && Number.isFinite(raw.dailyAvailableMinutes)
+      ? Math.max(0,Math.min(1440,Number(raw.dailyAvailableMinutes))):fallback.dailyAvailableMinutes,
   };
 }
-// Shared across panel mounts: switching tabs must not read before a pending save lands.
-let pendingSave: Promise<void> = Promise.resolve();
-export async function readWorkspace(): Promise<WorkspaceData> {
-  await pendingSave.catch(() => {});
+// Local queue handles same-tab edit order. Atomic DB transaction protects other tabs.
+let pendingSave:Promise<void>=Promise.resolve();
+export async function readWorkspace():Promise<WorkspaceData>{
+  await pendingSave.catch(()=>{});
   return normalizeWorkspace(await DB.getAssetRaw(WORKSPACE_ASSET_ID));
 }
-export function writeWorkspace(workspace: WorkspaceData): Promise<void> {
-  pendingSave = pendingSave.catch(() => {}).then(() => DB.saveAssetRaw(WORKSPACE_ASSET_ID, workspace));
-  return pendingSave;
+export async function readWorkspaceIntegrityWarnings():Promise<string[]>{
+  await pendingSave.catch(()=>{});
+  return workspaceIntegrityWarnings(await DB.getAssetRaw(WORKSPACE_ASSET_ID));
 }
-/** Serial read-modify-write with other workspace writes, for confirmed remote task links. */
-export async function mutateWorkspace(
-  update: (prev: WorkspaceData) => WorkspaceData,
-): Promise<WorkspaceData> {
-  let saved: WorkspaceData | undefined;
-  const transaction = pendingSave.catch(() => {}).then(async () => {
-    const current = normalizeWorkspace(await DB.getAssetRaw(WORKSPACE_ASSET_ID));
-    saved = update(current);
-    await DB.saveAssetRaw(WORKSPACE_ASSET_ID, saved);
+export function writeWorkspace(workspace:WorkspaceData):Promise<void>{
+  const action=pendingSave.catch(()=>{}).then(async()=>{
+    await DB.updateAssetRaw(WORKSPACE_ASSET_ID,raw=>{
+      const warnings=workspaceIntegrityWarnings(raw);
+      if(warnings.length)throw new Error('原工作空间存在损坏记录，拒绝覆盖：'+warnings[0]);
+      return workspace;
+    });
   });
-  pendingSave = transaction;
-  await transaction;
+  pendingSave=action;return action;
+}
+/** The updater MUST be synchronous: get and put share one IndexedDB readwrite txn. */
+export async function mutateWorkspace(
+  update:(prev:WorkspaceData)=>WorkspaceData,
+):Promise<WorkspaceData>{
+  let saved:WorkspaceData|undefined;
+  const action=pendingSave.catch(()=>{}).then(async()=>{
+    saved=await DB.updateAssetRaw(WORKSPACE_ASSET_ID,raw=>{
+      const warnings=workspaceIntegrityWarnings(raw);
+      if(warnings.length)throw new Error('备份有损坏记录，拒绝自动覆盖原始数据：'+warnings[0]);
+      return update(normalizeWorkspace(raw));
+    });
+  });
+  pendingSave=action;
+  await action;
   return saved!;
 }
-
 
 /** 优先按手动队列顺序；风险统计则必须按真实截止日期排序。 */
 export function orderedCommissions(items: Commission[], includeArchived = false): Commission[] {
@@ -190,6 +285,59 @@ export function busyClassMinutesForDay(classes: readonly TimetableClass[],day: D
   return busy;
 }
 
+export interface DailyCapacity {
+  date:string;
+  classMinutes:number;
+  homeworkMinutes:number;
+  overdueHomeworkMinutes:number;
+  availableMinutes:number;
+  overbookedMinutes:number;
+  unscheduledHomeworkCount:number;
+}
+/**
+ * Daily ESTIMATE, not an hourly booking calendar. Today absorbs overdue
+ * homework once; undated homework is visibly counted but not given invented
+ * slots. Overlapping classes already use busyClassMinutesForDay.
+ */
+export function dailyCapacityForecast(
+  workspace:WorkspaceData,fromDate=localDate(new Date()),days=7,
+):DailyCapacity[] {
+  const start=new Date(fromDate+'T12:00:00');
+  if(!Number.isFinite(start.getTime()))return [];
+  const count=Math.max(0,Math.min(366,Math.floor(days)));
+  const incomplete=workspace.homework.filter(h=>h && !h.done);
+  const validDue=(value:unknown):value is string=>{
+    if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value))
+      return false;
+    const key=value.slice(0,10);
+    const d=new Date(key+'T00:00:00Z');
+    return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10)===key;
+  };
+  const unscheduledHomeworkCount=incomplete.filter(h=>!validDue(h.dueAt)).length;
+  const overdueHomeworkMinutes=incomplete.filter(h=>validDue(h.dueAt)
+    && h.dueAt.slice(0,10)<fromDate).reduce((sum,h)=>sum+Math.max(0,h.minutes||0),0);
+  const result:DailyCapacity[]=[];
+  for(let i=0;i<count;i++){
+    const date=new Date(start);
+    date.setDate(start.getDate()+i);
+    const key=localDate(date);
+    const classMinutes=busyClassMinutesForDay(workspace.classes,date);
+    const dueToday=incomplete.filter(h=>validDue(h.dueAt)&&h.dueAt.slice(0,10)===key)
+      .reduce((sum,h)=>sum+Math.max(0,h.minutes||0),0);
+    const backlog=i===0?overdueHomeworkMinutes:0;
+    const homeworkMinutes=dueToday+backlog;
+    const capacity=Math.max(0,Math.min(1440,workspace.dailyAvailableMinutes||0));
+    result.push({
+      date:key,classMinutes,homeworkMinutes,
+      overdueHomeworkMinutes:backlog,
+      availableMinutes:Math.max(0,capacity-classMinutes-homeworkMinutes),
+      overbookedMinutes:Math.max(0,classMinutes+homeworkMinutes-capacity),
+      unscheduledHomeworkCount,
+    });
+  }
+  return result;
+}
+
 /** 仅计算本地可用时间与冲突，不替用户承诺真实交期。 */
 export function calculatePlanRisks(
   workspace: WorkspaceData, fromDate: string = localDate(new Date()),
@@ -200,19 +348,17 @@ export function calculatePlanRisks(
   let required = 0;
   return open.map(c => {
     required += Math.max(0, c.remainingMinutes || 0) + Math.max(0, c.bufferMinutes || 0);
-    const start = new Date(fromDate + 'T00:00:00');
-    const end = new Date(c.dueDate + 'T00:00:00');
-    let available = 0;
-    if (Number.isFinite(end.getTime())) {
-      for (let day = new Date(start), i = 0; day <= end && i < 366; day.setDate(day.getDate() + 1), i++) {
-        const dayKey = localDate(day);
-        const busyClasses = busyClassMinutesForDay(workspace.classes,day);
-        const busyHomework = workspace.homework
-          .filter(item => !item.done && item.dueAt.slice(0, 10) === dayKey)
-          .reduce((sum, item) => sum + Math.max(0, item.minutes || 0), 0);
-        available += Math.max(0, workspace.dailyAvailableMinutes - busyClasses - busyHomework);
-      }
-    }
+    const start = new Date(fromDate + 'T12:00:00');
+    const end = new Date(c.dueDate + 'T12:00:00');
+    const utcDay=(value:string)=>{
+      const parts=value.split('-').map(Number);
+      return Date.UTC(parts[0],parts[1]-1,parts[2]);
+    };
+    const days=Number.isFinite(end.getTime()) && Number.isFinite(start.getTime())
+      ? Math.max(0,Math.min(366,Math.round((utcDay(c.dueDate)-utcDay(fromDate))/86400000)+1))
+      : 0;
+    const available=dailyCapacityForecast(workspace,fromDate,days)
+      .reduce((sum,day)=>sum+day.availableMinutes,0);
     return {
       commissionId: c.id, requiredMinutes: required,
       availableMinutes: available, shortfallMinutes: Math.max(0, required - available),

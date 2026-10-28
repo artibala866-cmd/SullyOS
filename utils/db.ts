@@ -1497,6 +1497,34 @@ export const DB = {
       });
   },
 
+  /**
+   * Atomically read and update one assets record inside a single IndexedDB
+   * readwrite transaction. The updater MUST be synchronous: IDB holds the
+   * transaction open until get's success callback issues put.
+   * Distinct tabs share the same IndexedDB serialization guarantees.
+   */
+  updateAssetRaw: async <T>(id: string, update: (current: unknown) => T): Promise<T> => {
+      const db = await openDB();
+      return new Promise<T>((resolve, reject) => {
+          const tx = db.transaction(STORE_ASSETS, 'readwrite');
+          const store = tx.objectStore(STORE_ASSETS);
+          let updated: T;
+          const req = store.get(id);
+          req.onsuccess = () => {
+              try {
+                  updated = update(req.result?.data ?? null);
+                  store.put({id,data:updated});
+              } catch (error) {
+                  tx.abort();
+                  reject(error);
+              }
+          };
+          tx.oncomplete = () => resolve(updated);
+          tx.onerror = () => reject(tx.error || new Error('Atomic asset update failed'));
+          tx.onabort = () => reject(tx.error || new Error('Atomic asset update aborted'));
+      });
+  },
+
   deleteAsset: async (id: string): Promise<void> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {

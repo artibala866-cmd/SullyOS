@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useOS } from '../context/OSContext';
-import { cancelStudyReminder, createStudyReminder, remindersFor } from '../utils/studyRoomReminders';
+import { cancelStudyReminder, createStudyReminder, inspectStudyReminderRemote, remindersFor, type StudyReminderRemoteInspection } from '../utils/studyRoomReminders';
 import type { WorkspaceData, WorkspaceReminderKind } from '../utils/sullyWorkspace';
 
 interface Props {
@@ -30,6 +30,7 @@ const WorkspaceReminderControls: React.FC<Props> = ({
   const {characters, apiConfig, userProfile, groups, realtimeConfig, addToast} = useOS();
   const [at, setAt] = useState(() => timeLocal(suggestedAt));
   const [busy, setBusy] = useState(false);
+  const [inspections, setInspections] = useState<Record<string,StudyReminderRemoteInspection>>({});
   const existing = remindersFor(data, kind, itemId);
   const isActive = kind==='commission'
     ? data.commissions.some(c=>c.id===itemId && c.status==='active')
@@ -67,6 +68,18 @@ const WorkspaceReminderControls: React.FC<Props> = ({
       addToast(error instanceof Error?error.message:String(error),'error');
     } finally { setBusy(false); }
   };
+  const inspect = async(id:string)=>{
+    if(busy)return;
+    setBusy(true);
+    try{
+      const result=await inspectStudyReminderRemote(id);
+      setInspections(prev=>({...prev,[id]:result}));
+      addToast('仅查询远端状态，未改变或新建任何提醒','info');
+    }catch(error){
+      setInspections(prev=>{const next={...prev};delete next[id];return next;});
+      addToast('远端核查失败：'+String(error),'error');
+    }finally{setBusy(false);}
+  };
   return <details className="border-t border-neutral-200 pt-3 space-y-2">
     <summary className="text-sm text-neutral-800 cursor-pointer">到点提醒（自愿开启）</summary>
     <div className="space-y-3 pt-2 text-sm">
@@ -81,10 +94,23 @@ const WorkspaceReminderControls: React.FC<Props> = ({
           {reminder.taskUuid?' · 任务 '+reminder.taskUuid.slice(0,8):''}
         </p>
         {reminder.error && <p role="alert" className="text-xs text-neutral-800">{reminder.error}</p>}
-        {reminder.status==='creating' || reminder.status==='needs_review'
-          ? <p className="text-xs text-neutral-700">创建状态不确定；请先在 AMSG 2.0 云端管理中核对，避免重复发送。</p>
-          : <button className={small} disabled={busy} onClick={()=>void cancel(reminder.id)}>
-              {busy?'处理中…':'取消远端提醒'}</button>}
+        {(reminder.status==='creating' || reminder.status==='needs_review') &&
+          <p className="text-xs text-neutral-700">创建状态不确定，切勿重复创建。请先核查 AMSG 云端任务。</p>}
+        <button className={small} disabled={busy} onClick={()=>void inspect(reminder.id)}>
+          {busy?'核查中…':'读取 AMSG 云端状态（不修改）'}
+        </button>
+        {inspections[reminder.id] && <div className="text-xs border border-neutral-300 rounded-lg p-2 space-y-1" role="status">
+          <p>核查结果：{inspections[reminder.id].status==='matched'
+            ? '匹配到云端任务'
+            : inspections[reminder.id].status==='not_found'?'未在当前列表找到':'缺少可匹配的身份'}</p>
+          {inspections[reminder.id].taskUuid && <p className="break-all">
+            云端任务 UUID：{inspections[reminder.id].taskUuid}</p>}
+          {inspections[reminder.id].remoteStatus && <p>云端状态：{inspections[reminder.id].remoteStatus}</p>}
+          <p>{inspections[reminder.id].warning}</p>
+        </div>}
+        {reminder.taskUuid && <button className={small} disabled={busy}
+          onClick={()=>void cancel(reminder.id)}>
+          {busy?'处理中…':'请求远端取消（UUID 已确认）'}</button>}
       </div>)}
       {!existing.length && <>
         <label className="block text-xs">提醒 Char
