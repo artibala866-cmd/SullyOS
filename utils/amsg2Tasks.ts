@@ -575,7 +575,11 @@ export const reconcileTasksWithRemote = (
       // 远端投影没有防穿帮策略（那是应用写在 metadata 里的语义，投影不带）。
       // 补回来的都是角色自排的，那条路径恒为 expire。
       expirePolicy: 'expire',
-      source: 'character',
+      // Cloud autonomous wakes were installed when the USER enabled 2.0,
+      // not freely self-scheduled by the character. Do not count them as
+      // character-recurring jobs when their local record is recovered.
+      source: typeof row.clientTaskId === 'string' && row.clientTaskId.startsWith('autowake:')
+        ? 'user' : 'character',
       status: 'scheduled',
       createdAt: Date.now(),
     }));

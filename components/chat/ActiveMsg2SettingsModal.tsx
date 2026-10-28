@@ -771,7 +771,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                         {enabled && !t.clientTaskId?.startsWith('autowake:') ? (
                           <button onClick={() => setEditingTaskUuid(t.taskUuid)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold">编辑</button>
                         ) : null}
-                        <button onClick={() => void handleCancelTask(t)} className="px-2.5 py-1.5 rounded-lg bg-neutral-50 text-neutral-500 font-bold">取消</button>
+                        {!t.clientTaskId?.startsWith('autowake:') ? (
+                          <button onClick={() => void handleCancelTask(t)} className="px-2.5 py-1.5 rounded-lg bg-neutral-50 text-neutral-500 font-bold">取消</button>
+                        ) : <span className="text-[10px] text-slate-400">关闭 2.0 即停止</span>}
                       </div>
                     </div>
                   </div>
