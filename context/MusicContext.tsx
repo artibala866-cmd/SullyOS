@@ -15,6 +15,7 @@ import { cachedCall as _cachedCall, invalidate as _invalidateCache, clearAll as 
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
 import { findPendingMusicInvite } from '../utils/musicInviteStatus';
+import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
 import {
   musicKey, sameMusic, normalizeTencentSong, tencentSearchRows, extractMusicUrl,
   loadGuestMusicLibrary, persistGuestMusicLibrary, recordMusicPlay, upsertLikedSong,
@@ -1213,22 +1214,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     currentSongRef.current = song;
 
-    if (replaceQueue) {
-      const preferred = startIdx !== undefined && Number.isInteger(startIdx) &&
-        startIdx >= 0 && startIdx < replaceQueue.length && sameMusic(replaceQueue[startIdx], song)
-        ? startIdx : replaceQueue.findIndex(s => sameMusic(s, song));
-      commitQueue([...replaceQueue], preferred);
-    } else if (alsoSetQueue) {
-      const qnow = queueRef.current;
-      const existing = qnow.findIndex(s => sameMusic(s, song));
-      if (existing >= 0) {
-        // Existing row: do not enqueue a duplicate.
-        idxRef.current = existing;
-        setIdx(existing);
-      } else {
-        // Atomic append & selection: never derive index from a stale render.
-        commitQueue([...qnow, song], qnow.length);
-      }
+    if (replaceQueue || alsoSetQueue) {
+      const plan = selectMusicQueueTrack(queueRef.current, song, { replaceQueue, startIdx });
+      commitQueue(plan.queue, plan.idx);
     }
 
     setLoadingSong(true); setLyric([]); setTlyric([]); setProgress(0); setDuration(0);
@@ -1416,15 +1404,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const song = i >= 0 && i < q.length ? q[i] : null;
     if (song && resolvingTrackKeyRef.current === musicSongKey(song)) return;
     const badUrl = !!a.error;
-    if (!a.getAttribute('src') || badUrl) {
+    const action = chooseMusicPlayAction({
+      srcPresent: !!a.getAttribute('src'), mediaError: badUrl,
+      paused: a.paused, resolving: false, allowPause,
+    });
+    if (action === 'resolve') {
       if (song) void playSong(song, { alsoSetQueue: false, refreshUrl: badUrl });
-      return;
-    }
-    if (a.paused) {
+    } else if (action === 'play') {
       void a.play().catch(err => {
         if (err?.name !== 'AbortError') toast('音频暂时无法播放，请重试或切歌', 'error');
       });
-    } else if (allowPause) a.pause();
+    } else if (action === 'pause') a.pause();
   }, [playSong, toast]);
   const togglePlay = useCallback(() => resumePlayback(true), [resumePlayback]);
 
