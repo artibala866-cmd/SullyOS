@@ -1284,6 +1284,23 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   const petPose=petSystem?.contactPose();
   if(petPose&&petPose.actorId===activeResidentId())visitor.animate(petPose.time,walking?'walk':'idle','standing',petPose.activity);
   else visitor?.animate(reducedMotion&&visitorMotion==='rhythm'?1:poseTime,bathPose&&bathPose.bathPhase!=='work'&&bathPose.posture!=='seated'?'walk':visitorMotion,visitorActivity?.posture||(visitorSeat?.bed?'lying':visitorSeat?'seated':'standing'),seatPose||bathPose||workPose||(hug?{...currentSeatPose(),kind:'hug',hands:hug.hands}:visitorMotion==='walk'?null:visitorActivity?{...currentSeatPose(),...visitorActivity}:currentSeatPose()));
+  // Before crossing, require an actual skeletal palm at an authored rim
+  // anchor. Failed IK exits along the reached path; it never teleports.
+  const bathGuard=visitorActivity?.bathJourney;
+  if(bathPose?.kind==='bath-soak'&&bathPose.bathPhase==='enter'&&bathPose.bathTime>=1.02&&
+     bathGuard&&!bathGuard.rimChecked&&!Number.isFinite(bathGuard.cancelElapsed)&&visitor?.rig){
+   bathGuard.rimChecked=true;
+   const parent=resident.parent;
+   const errors=(visitorActivity.bathHandWorld||[]).map((local,i)=>{
+    const goal=new THREE.Vector3(...local);
+    if(parent)parent.localToWorld(goal);
+    return visitor.rig.bones[(i===0?'L':'R')+'_hand'].getWorldPosition(new THREE.Vector3()).distanceTo(goal);
+   });
+   if(!errors.length||Math.min(...errors)>.25||errors.some(d=>!Number.isFinite(d))){
+    requestBathroomExit();
+    notify('浴缸扶边没有建立安全接触，正在退回入口',true);
+   }
+  }
   petSystem?.placeHeld();
   kitchenWork.update(kitchenTask,reducedMotion?1:elapsed-(kitchenTask?.phaseStart||0),workHands?(visitor?.rig&&kitchenTask?.kind==='coffee'?kitchenHandPositions(workHands).reverse():kitchenHandPositions(workHands)):[],visitor?.rig&&kitchenTask?.kind==='coffee'?coffeeGrip(resident,visitor.rig):null);
   gamingEffects.update(objects,visitorActivity,time);kitchenEffects.updateMeal(visitorActivity,time,visitor?.rig&&visitorActivity?.kind==='eat'?diningGrip(resident,visitor.rig):null);
