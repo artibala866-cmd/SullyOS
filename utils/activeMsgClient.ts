@@ -2552,7 +2552,7 @@ export const ActiveMsgClient = {
             '需要时可使用已经真实接通的小红书等工具，搜索或浏览后分享；未调用绝不可谎称看过。',
             '无需为了主动而主动，没话想说就只输出 [[SILENT]]，不要附加解释。',
             '不要告诉用户有定时器、任务、系统开关或后台。',
-          ].join('\\n')
+          ].join('\n')
         : buildTaskInstruction(task.mode, task.promptHint);
       // 服务端要求「completePrompt 或 messages」二选一，且 messages 必须非空、
       // content 必须非空字符串，所以这里给一条占位。到点真正发给 LLM 的 messages 由
