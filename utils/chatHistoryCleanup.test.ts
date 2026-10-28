@@ -110,6 +110,20 @@ describe('聊天记录区间永久清理', () => {
         expect(await DB.getMessageById(other)).toBeTruthy();
     });
 
+    it('云端私聊的清空预览只留下所选消息的 provider ID，供下游精准撤销手机派生事实', async () => {
+        const charId='cleanup-amsg-provenance';
+        const deleted=await DB.saveMessage({charId,role:'assistant',type:'text',
+            content:'旧的主动联系',metadata:{activeMsg2:{messageId:'provider-deleted'}}});
+        const retained=await DB.saveMessage({charId,role:'assistant',type:'text',
+            content:'仍保留的主动联系',metadata:{activeMsg2:{messageId:'provider-retained'}}});
+        const plan=await prepareChatHistoryCleanup(charId,{fromId:deleted,toId:deleted});
+        expect(plan.deletedProviderMessageIds).toEqual(['provider-deleted']);
+        expect(JSON.stringify(plan)).not.toContain('旧的主动联系');
+        await deleteChatHistoryCleanup(plan,confirmed);
+        expect(await DB.getMessageById(retained)).toBeTruthy();
+        expect(await DB.getMessageById(deleted)).toBeUndefined();
+    });
+
     it('十万条记录可保留最近 200 条，预览只保留 ID 和指纹', async () => {
         const db = await openDB();
         await new Promise<void>((resolve, reject) => {
