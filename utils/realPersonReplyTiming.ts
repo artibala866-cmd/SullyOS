@@ -4,7 +4,7 @@
  * Never invent a busy state. If schedule is absent preserve the existing clock delay.
  */
 export type RealPersonLifeActivity = 'free' | 'busy' | 'sleep' | null;
-export type RealPersonReplyPlan = { delayMs: number | null; waitingReason: string | null };
+export type RealPersonReplyPlan = { delayMs: number | null };
 export const REAL_PERSON_BUSY_WAKE_SCORE = 6;
 export const REAL_PERSON_SLEEP_WAKE_SCORE = 7;
 export const REAL_PERSON_BUSY_TIME_BONUS_CAP = 2;
@@ -20,8 +20,8 @@ export function resolveRealPersonReplyPlan(args: {
     const nudges = Number.isFinite(args.nudgeScore) ? Math.max(0, Math.trunc(args.nudgeScore)) : 0;
     if (activity === 'sleep') {
         return nudges >= REAL_PERSON_SLEEP_WAKE_SCORE
-            ? { delayMs: 12_000, waitingReason: null }
-            : { delayMs: null, waitingReason: 'TA 这会儿可能在休息，暂时没有看消息 · 可以继续留言或戳一戳' };
+            ? { delayMs: 12_000 }
+            : { delayMs: null };
     }
     if (activity === 'busy') {
         // Time alone cannot wake a busy character: at least four actual nudges
@@ -30,11 +30,11 @@ export function resolveRealPersonReplyPlan(args: {
             ? Math.max(0, (now - firstUnansweredAt) / 60_000) : 0;
         const score = nudges + Math.min(REAL_PERSON_BUSY_TIME_BONUS_CAP, Math.floor(minutes / 4));
         return score >= REAL_PERSON_BUSY_WAKE_SCORE
-            ? { delayMs: 4_500, waitingReason: null }
-            : { delayMs: null, waitingReason: 'TA 这会儿可能在忙，暂时没有回复 · 继续发消息或戳一戳可能唤回' };
+            ? { delayMs: 4_500 }
+            : { delayMs: null };
     }
-    if (activity === 'free') return { delayMs: 3_000, waitingReason: null };
+    if (activity === 'free') return { delayMs: 3_000 };
     const delay = Number.isFinite(args.fallbackDelayMs)
         ? Math.min(120_000, Math.max(2_000, Math.trunc(args.fallbackDelayMs))) : 3_000;
-    return { delayMs: delay, waitingReason: null };
+    return { delayMs: delay };
 }

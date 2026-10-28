@@ -1,5 +1,6 @@
 import { getNaturalReplyDelay } from '../utils/sullyLifeClock';
 import { resolveRealPersonReplyPlan } from '../utils/realPersonReplyTiming';
+import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 
 export const CHAT_AUTO_REPLY_DELAY_MS = 2000;
@@ -29,7 +30,6 @@ export function useChatAutoReply(options: Options) {
     const workRef = useRef(newWork());
     const [revision, refresh] = useReducer(n => n + 1, 0);
     const [seconds, setSeconds] = useState<number | null>(null);
-    const [waitingReason, setWaitingReason] = useState<string | null>(null);
     const [visible, setVisible] = useState(() => !document.hidden);
 
     const cancel = useCallback(() => {
@@ -39,14 +39,12 @@ export function useChatAutoReply(options: Options) {
         work.firstUnansweredAt = 0;
         work.cancelVersion++;
         setSeconds(null);
-        setWaitingReason(null);
         refresh();
     }, []);
 
     useLayoutEffect(() => {
         workRef.current = newWork();
         setSeconds(null);
-        setWaitingReason(null);
         refresh();
         return () => { workRef.current = newWork(); };
     }, [options.conversationId, options.enabled, options.active]);
@@ -97,8 +95,7 @@ export function useChatAutoReply(options: Options) {
         };
         if (!visible || !ready()) {
             setSeconds(null);
-            setWaitingReason(null);
-            return;
+                return;
         }
         // Normal automatic reply checkbox remains the old two-second behavior.
         // Only "真人感" uses the APK-style grounded busy / repeated-nudge gate.
@@ -107,19 +104,17 @@ export function useChatAutoReply(options: Options) {
         // APK has an active-conversation exception: if the character really
         // replied recently, today's planned work/sleep must not immediately
         // silence an already ongoing private conversation.
-        const lastReplyAt = Number(latest.lastCharacterReplyAt || 0);
-        const activeConversation = lastReplyAt > 0 && lastReplyAt <= now
-            && now - lastReplyAt < 3 * 60_000;
+        const activity = latest.lifeActivity ?? null;
+        const presence = resolveSchedulePresence(activity, latest.lastCharacterReplyAt, now);
         const plan = latest.naturalPacing
             ? resolveRealPersonReplyPlan({
-                activity: activeConversation ? 'free' : (latest.lifeActivity ?? null),
+                activity: presence === 'online' && activity !== null ? 'free' : activity,
                 nudgeScore: work.nudgeScore,
                 firstUnansweredAt: work.firstUnansweredAt,
                 now,
                 fallbackDelayMs: getNaturalReplyDelay(latest.conversationId || ''),
             })
-            : { delayMs: CHAT_AUTO_REPLY_DELAY_MS, waitingReason: null };
-        setWaitingReason(plan.waitingReason);
+            : { delayMs: CHAT_AUTO_REPLY_DELAY_MS };
         if (plan.delayMs === null) {
             setSeconds(null);
             // Keep the original successful-send anchor. Reconsider if today's
@@ -142,5 +137,5 @@ export function useChatAutoReply(options: Options) {
     }, [revision, visible, options.enabled, options.active, options.blocked, options.generating,
         options.conversationId, options.lifeActivity, options.lastCharacterReplyAt, options.naturalPacing, cancel]);
 
-    return { seconds, waitingReason, beginSend, cancel };
+    return { seconds, beginSend, cancel };
 }

@@ -26,6 +26,8 @@ interface ChatHeaderShellProps {
     isSummarizing: boolean;
     /** 覆盖状态区的 "Online" 文案（群聊传 "N 成员"）。不传 = 原行为 */
     statusText?: string;
+    /** Binary presence from an existing schedule; not AI-authored status text. */
+    presenceState?: 'online' | 'offline';
     /** 可选的附加操作，群聊用来放置“记忆规则”帮助入口。 */
     extraAction?: { label: string; icon: React.ReactNode; onClick: () => void };
     /** 触发按钮图标：生成中想显示"停止"时传 'stop'。不传 = 原行为（闪电） */
@@ -82,6 +84,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
     onShowCharsPanel,
     onDeleteBuff,
     statusText,
+    presenceState = 'online',
     extraAction,
     triggerIcon = 'lightning',
     hideTrigger = false,
@@ -241,14 +244,16 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
           ? 'text-[#fff7ed] hover:bg-[#f8f0e0]/20 rounded-[4px] border-2 border-[#8f674a] bg-[#f8f0e0]/10'
           : 'text-indigo-500 hover:bg-indigo-50 rounded-full';
 
-    // 在线状态由独立的外观设置决定，头部风格不能覆盖它。
+    // Appearance controls the form; actual schedule-derived presence controls
+    // its content and color. No AI-authored status text or status editor.
+    const offline = presenceState === 'offline';
     const onlineStatusNode = statusStyle === 'pill' ? (
-            <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${isDarkHeader ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/25' : 'bg-emerald-50 text-emerald-500 border-emerald-100'}`}>
+            <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${isDarkHeader ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/25' : offline ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-emerald-50 text-emerald-500 border-emerald-100'}`}>
                 {statusText ?? 'online'}
             </div>
         ) : statusStyle === 'dot' ? (
             <div className={`flex items-center gap-1 text-[10px] ${secondaryTextClass}`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className={`w-1.5 h-1.5 rounded-full ${offline ? 'bg-slate-400' : 'bg-emerald-400'}`} />
                 <span>{statusText ?? 'Online'}</span>
             </div>
         ) : (

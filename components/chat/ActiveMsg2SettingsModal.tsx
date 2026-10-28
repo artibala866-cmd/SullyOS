@@ -25,6 +25,8 @@ import {
 } from '../../utils/amsgLimits';
 import ActiveMsg2PacingModal from './ActiveMsg2PacingModal';
 import { isInstantChatReady } from '../../utils/amsgInstantChat';
+import { getDailyScheduleForChar } from '../../utils/dailySchedule';
+import { suggestNextFreeScheduleSendAt } from '../../utils/amsgScheduleShortcut';
 import { syncAmsgLlmCredentials } from '../../utils/amsgStateSync';
 import { disableScheduleCharPurge, purgeCharCloudState } from '../../utils/amsg2CharCleanup';
 import { buildUserCancelledNotices } from '../../utils/amsg2TaskContext';
@@ -122,6 +124,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [globalInstantChatOn, setGlobalInstantChatOn] = useState(false);
   const [mode, setMode] = useState<ActiveMsg2Mode>('auto');
   const [firstSendTime, setFirstSendTime] = useState(getDefaultActiveMsgFirstSendTime());
+  const [findingFreeSlot, setFindingFreeSlot] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<ActiveMsg2Recurrence>('none');
   const [userMessage, setUserMessage] = useState('');
   const [promptHint, setPromptHint] = useState('');
@@ -580,6 +583,28 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     }
   };
 
+  const pickScheduleTime = async () => {
+    if (findingFreeSlot) return;
+    setFindingFreeSlot(true);
+    const characterId = char.id;
+    try {
+      // Read only: no schedule generation, no hidden AMSG job, no extra API.
+      const daily = await getDailyScheduleForChar(char);
+      if (characterId !== char.id || !isOpen) return;
+      const chosen = daily ? suggestNextFreeScheduleSendAt(daily.slots, char) : null;
+      if (chosen === null) {
+        addToast('今日没有可用的下一段空闲日程，请手动选时间', 'info');
+        return;
+      }
+      setFirstSendTime(toDatetimeLocalValue(new Date(chosen).toISOString()));
+      addToast('已按角色日程填写时间；仍需点击下方按钮保存任务', 'info');
+    } catch {
+      addToast('暂时读取不到日程，请手动选时间', 'error');
+    } finally {
+      setFindingFreeSlot(false);
+    }
+  };
+
   // 「今天」按这台设备的日期（worker 记账用的也是打包设备的时区，两边对得上）。
   const todayCount = dailySends
     && dailySends.day === dayKeyInZone(now, Intl.DateTimeFormat().resolvedOptions().timeZone)
@@ -780,7 +805,13 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">首次发送时间</label>
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">首次发送时间</label>
+                <button type="button" disabled={findingFreeSlot} onClick={() => void pickScheduleTime()}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-600 disabled:opacity-50">
+                  {findingFreeSlot ? '读取日程中…' : '按日程选空闲时间'}
+                </button>
+              </div>
               <input
                 type="datetime-local"
                 value={firstSendTime}

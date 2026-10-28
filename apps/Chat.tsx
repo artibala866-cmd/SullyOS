@@ -1,4 +1,5 @@
 import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
+import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { getCurrentScheduleSlotIndex } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
@@ -3601,11 +3602,16 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // Memoize ChatInputArea callbacks
     const handleSendCallback = useCallback(() => handleSendText(), [char, input, replyTarget, inputPreferences]);
     const handleCharSelectCallback = useCallback((id: string) => { setActiveCharacterId(id); setShowPanel('none'); }, []);
+    const latestRealReplyAt = [...messages].reverse().find(m => m.role === 'assistant' && Number(m.timestamp) > 0)?.timestamp ?? 0;
+    // Same rule as the reply gate; status is a schedule-based display, NOT
+    // a character-authored status message or AI-generated short sentence.
+    const schedulePresence = resolveSchedulePresence(lifeActivity, latestRealReplyAt);
+    const showSchedulePresence = lifePacing && lifeActivity !== null;
     const autoReply = useChatAutoReply({
         enabled: inputPreferences.autoReply || lifePacing,
         naturalPacing: lifePacing,
         lifeActivity,
-        lastCharacterReplyAt: [...messages].reverse().find(m => m.role === 'assistant' && Number(m.timestamp) > 0)?.timestamp ?? 0,
+        lastCharacterReplyAt: latestRealReplyAt,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
         blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
@@ -4038,11 +4044,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 document.body,
              )}
 
-             {homePhone?<header className="home-phone-chat-header"><span className="home-phone-chat-avatar" aria-hidden="true">{char.name.slice(0,1)}</span><div><strong>{chatCharacterDisplayName(char)}</strong><small>{isTyping||instantChatPending?'正在输入…':'在家，也想给你发消息'}</small></div><button onClick={handleManualTrigger} disabled={isTyping} aria-label="让对方回复">↗</button></header>:<ChatHeader
+             {homePhone?<header className="home-phone-chat-header"><span className="home-phone-chat-avatar" aria-hidden="true">{char.name.slice(0,1)}</span><div><strong>{chatCharacterDisplayName(char)}</strong><small>{isTyping||instantChatPending?'正在输入…':showSchedulePresence?(schedulePresence === 'online' ? '在线' : '离线'):'在家，也想给你发消息'}</small></div><button onClick={handleManualTrigger} disabled={isTyping} aria-label="让对方回复">↗</button></header>:<ChatHeader
                 selectionMode={selectionMode}
                 selectedCount={selectedMsgIds.size + Array.from(selectedThinkingMsgIds).filter(id => !selectedMsgIds.has(id)).length}
                 onCancelSelection={() => { setSelectionMode(false); setSelectedMsgIds(new Set()); setSelectedThinkingMsgIds(new Set()); }}
                 activeCharacter={{...char, avatar: selectedAvatar}}
+                presenceState={showSchedulePresence ? schedulePresence : undefined}
+                statusText={showSchedulePresence ? (schedulePresence === 'online' ? '在线' : '离线') : undefined}
                 isTyping={isTyping || instantChatPending}
                 isSummarizing={isSummarizing}
                 isEmotionEvaluating={emotionStatus === 'evaluating'}
@@ -4487,7 +4495,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     enterToSend={inputPreferences.enterToSend}
                     autoReplyEnabled={inputPreferences.autoReply || lifePacing}
                     autoReplySeconds={autoReply.seconds}
-                    autoReplyWaitingReason={autoReply.waitingReason}
                     onCancelAutoReply={autoReply.cancel}
                     onInputFocusChange={setIsInputFocused}
                     onDeleteSelected={handleBatchDelete}

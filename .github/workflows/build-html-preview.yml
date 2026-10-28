@@ -29,12 +29,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test chat auto reply, keyboard dismissal and grounded life fragments
-        run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
+        run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgScheduleShortcut.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
       - name: Check real-person reply scheduler TypeScript diagnostics
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/real-person-tsc.log 2>&1 || true
-          grep -E '^(hooks/useChatAutoReply.ts|utils/realPersonReplyTiming.ts|utils/realPersonReplyTiming.test.ts|apps/Chat.tsx|components/chat/ChatInputArea.tsx)[(]' /tmp/real-person-tsc.log > /tmp/real-person-target-errors.log || true
+          grep -E '^(hooks/useChatAutoReply.ts|utils/realPersonReplyTiming.ts|utils/chatSchedulePresence.ts|utils/amsgScheduleShortcut.ts|utils/realPersonReplyTiming.test.ts|utils/chatSchedulePresence.test.ts|utils/amsgScheduleShortcut.test.ts|apps/Chat.tsx|components/chat/ChatInputArea.tsx|components/chat/ChatHeaderShell.tsx|components/chat/ActiveMsg2SettingsModal.tsx)[(]' /tmp/real-person-tsc.log > /tmp/real-person-target-errors.log || true
           if [ -s /tmp/real-person-target-errors.log ]; then
             cat /tmp/real-person-target-errors.log
             exit 1

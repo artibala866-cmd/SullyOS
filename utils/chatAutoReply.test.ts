@@ -158,8 +158,8 @@ describe('real-person busy and repeated nudge behavior', () => {
         send();
         advance(180_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        expect(controls.waitingReason).toContain('可能在忙');
         expect(controls.seconds).toBeNull();
+        expect('waitingReason' in controls).toBe(false);
     });
 
     it('wakes after six actually delivered user messages, not a random timeout', () => {
@@ -187,7 +187,6 @@ describe('real-person busy and repeated nudge behavior', () => {
         send();
         act(() => controls.beginSend('a', { nudge: true })(true));
         act(() => controls.beginSend('a', { nudge: true })(true));
-        expect(controls.waitingReason).toContain('可能在忙');
         act(() => controls.beginSend('a', { nudge: true })(true));
         advance(4_500);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
