@@ -54,6 +54,7 @@ import { parseGeneratedPhoneMessages, type PhoneMessage } from '../../utils/char
 import { extractContent } from '../../utils/safeApi';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from '../../utils/characterPhoneAiRequest';
 import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
+import { selectConfirmedLifeGlimpses } from '../../utils/characterLifeGlimpses';
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 import {readPhoneInboxPreferences,writePhoneInboxPreferences} from '../../utils/characterPhoneInboxPrefs';
 import {allowMomentComment} from '../../utils/momentInteractionPreferences';
@@ -732,6 +733,8 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
   };
   const isPrivateThread = thread === 'private:' + characterId;
   const active = records.find(r => r.id === thread);
+  // Read-only life side: recorded facts, never a chat reply or a planned schedule slot.
+  const confirmedLifeGlimpses = selectConfirmedLifeGlimpses(lifeEvents, characterId);
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
   const deleteChat = (id: string) => {
     if (id === 'private:' + characterId) { setHiddenPrivate(true); try {localStorage.setItem('sully_phone_hide_private:'+characterId,'1');} catch {} }
@@ -841,6 +844,18 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
                </div>
              </div>
            </section>
+           {confirmedLifeGlimpses.length > 0 && <details className="mx-4 overflow-hidden rounded-xl bg-white">
+             <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-[#333]">生活侧面 · 已发生的片段（{confirmedLifeGlimpses.length}）</summary>
+             <div className="border-t border-[#eee] px-4 pb-4 pt-2">
+               <p className="pb-2 text-[11px] leading-5 text-[#888]">只读取现有记录，不自动生成剧情或私聊。日程只是计划，不算已经发生的经历。</p>
+               <ol className="space-y-3">
+                 {confirmedLifeGlimpses.map(event=><li key={event.id} className="border-l-2 border-[#dedede] pl-3">
+                   <span className="block text-[11px] text-[#888]">{ChatPrompts.formatDate(event.occurredAt,resolveCharTimeZone(char))} · {event.source==='phone'?'私人手机':event.source==='amsg2'?'主动联系':event.source==='real-mode'?'生活行动':event.source==='chat'?'聊天相关记录':'其他已存记录'}</span>
+                   <span className="mt-1 block whitespace-pre-wrap break-words text-[13px] leading-5 text-[#444]">{event.summary}</span>
+                 </li>)}
+               </ol>
+             </div>
+           </details>}
            <div className="bg-white">{row('头像库',<Images size={23}/>,()=>setAvatarLibraryOpen(true))}</div>
            <section className="bg-white px-5 py-5">
              <h4 className="text-sm font-semibold">戳一戳后缀</h4>
