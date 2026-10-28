@@ -125,7 +125,7 @@ it('keeps unsupported legacy tub climbing closed without disabling standing bath
  ]};
  const legacy=bathroomActivities(room,catalog,{body2:false});
  expect(legacy.find(a=>a.kind==='bath-soak')?.reason).toContain('安全跨浴缸');
- expect(legacy.find(a=>a.kind==='bath-laundry')?.reason).not.toContain('安全跨浴缸');
+ expect(legacy.find(a=>a.kind==='bath-laundry')?.reason??'').not.toContain('安全跨浴缸');
  const skeletal=bathroomActivities(room,catalog,{body2:true});
- expect(skeletal.find(a=>a.kind==='bath-soak')?.reason).not.toContain('安全跨浴缸');
+ expect(skeletal.find(a=>a.kind==='bath-soak')?.reason??'').not.toContain('安全跨浴缸');
 });
