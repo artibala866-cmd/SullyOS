@@ -16,7 +16,7 @@ import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
-import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch, toggleSocialPostLike, toggleSocialPostCollection, deleteSparkPostWithFence, parseSparkUnsavedPostEdits, selectSparkRecoverablePost } from '../utils/socialFeedMerge';
+import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch, toggleSocialPostLike, toggleSocialPostCollection, deleteSparkPostWithFence, parseSparkUnsavedPostEdits, selectSparkRecoverablePost, canClearSparkPublishedDraft, keepSparkLiveEdit } from '../utils/socialFeedMerge';
 import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen, applySparkNpcLike, applySparkNpcFollow, setSparkAccountMuted } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
@@ -918,6 +918,10 @@ const SocialApp: React.FC = () => {
     const [stockImages, setStockImages] = useState<XhsStockImage[]>([]);
     const [selectedStockUrl, setSelectedStockUrl] = useState(() => readDraft().stockUrl || '');
     const [localPostImage, setLocalPostImage] = useState(() => readDraft().localImage || '');
+    // A browser storage effect can lag behind fast editor input.
+    const editorDraftSignature = JSON.stringify({ title: newPostTitle, content: newPostContent, tags: newPostTags, emoji: newPostEmoji, stockUrl: selectedStockUrl, localImage: localPostImage });
+    const latestEditorDraftRef = useRef(editorDraftSignature);
+    latestEditorDraftRef.current = editorDraftSignature;
     useEffect(() => {
         try {
             if (newPostTitle || newPostContent || newPostTags || selectedStockUrl || localPostImage) {
@@ -1109,6 +1113,10 @@ const SocialApp: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        let active = true;
+        const profileAtStart = socialProfile;
+        const bgAtStart = userBgImage;
+        const idAtStart = userSparkId;
         const generation = feedLoadGenerationRef.current;
         DB.getSocialPosts().then(posts => {
             if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
@@ -1151,13 +1159,14 @@ const SocialApp: React.FC = () => {
             const lsBg = localStorage.getItem('spark_user_bg');
             const lsProfileStr = localStorage.getItem('spark_social_profile');
 
-            if (savedUserId) setUserSparkId(savedUserId);
+            if (!active || !mountedRef.current) return;
+            if (savedUserId) setUserSparkId(current => keepSparkLiveEdit(idAtStart, current, savedUserId));
             
             if (dbBg) {
-                setUserBgImage(dbBg);
+                setUserBgImage(current => keepSparkLiveEdit(bgAtStart, current, dbBg));
             } else if (lsBg) {
                 // Migrate to DB
-                setUserBgImage(lsBg);
+                setUserBgImage(current => keepSparkLiveEdit(bgAtStart, current, lsBg));
                 await DB.saveAsset('spark_user_bg', lsBg);
                 localStorage.removeItem('spark_user_bg');
             }
@@ -1175,18 +1184,24 @@ const SocialApp: React.FC = () => {
             }
 
             if (loadedProfile) {
-                setSocialProfile(loadedProfile);
+                setSocialProfile(current => keepSparkLiveEdit(profileAtStart, current, loadedProfile));
             } else {
                 // Initial fallback to global user profile only once
-                setSocialProfile({
+                setSocialProfile(current => keepSparkLiveEdit(profileAtStart, current, {
                     name: '新用户',
                     avatar: userProfile.avatar,
                     bio: '这个人很懒，什么都没写。'
-                });
+                }));
             }
         };
-        loadAssets();
+        void loadAssets().catch(error => {
+            if (active && mountedRef.current) addToast('读取 Spark 资料失败，当前编辑仍保留：' + (error?.message || error), 'error');
+        });
+        return () => { active = false; };
+    }, []);
 
+    // Roster updates must not reload user profile and override live edits.
+    useEffect(() => {
         // Add defaults for newly loaded characters, never overwrite live edits or newly generated alts.
         setCharacterHandles(current => {
             const updated = { ...current };
@@ -1326,11 +1341,15 @@ const SocialApp: React.FC = () => {
     };
 
     const saveUserProfileChanges = async () => {
-        localStorage.setItem('spark_user_id', userSparkId);
-        // Save Profile to DB Assets（avatar 是 blobref 令牌，二进制在 IndexedDB）
-        await DB.saveAsset('spark_social_profile', JSON.stringify(socialProfile));
-        setIsEditingId(false);
-        addToast('主页资料已保存 (仅在 Spark 生效)', 'success');
+        try {
+            // Only announce success after the durable IndexedDB write completes.
+            await DB.saveAsset('spark_social_profile', JSON.stringify(socialProfile));
+            localStorage.setItem('spark_user_id', userSparkId);
+            setIsEditingId(false);
+            addToast('主页资料已保存 (仅在 Spark 生效)', 'success');
+        } catch (error: any) {
+            addToast('Spark 资料保存失败，请检查空间后重试：' + (error?.message || error), 'error');
+        }
     };
 
     const prependPostsToFeed = (newPosts: SocialPost[], persist = true) => {
@@ -2371,8 +2390,11 @@ ${buildSparkCommentHistory(post)}
     };
 
     const handleCreatePost = async () => {
-        if (!newPostContent.trim() || publishingRef.current) return;
+        if (!newPostContent.trim() || publishingRef.current || clearingFeedRef.current) return;
         const generation = feedLoadGenerationRef.current;
+        const submittedEditorSignature = latestEditorDraftRef.current;
+        let submittedDraft: string | null = null;
+        try { submittedDraft = localStorage.getItem('spark_post_draft'); } catch { /* storage may be blocked */ }
         publishingRef.current = true;
         setIsPublishing(true);
         try {
@@ -2400,11 +2422,23 @@ ${buildSparkCommentHistory(post)}
         if (!mountedRef.current || generation !== feedLoadGenerationRef.current) return;
         prependPostsToFeed([saved], false);
         learnInterest(saved, 4);
-        setNewPostContent(''); setNewPostTitle(''); setNewPostTags(''); setSelectedStockUrl(''); setLocalPostImage('');
-        localStorage.removeItem('spark_post_draft');
-        setIsCreateOpen(false);
-        setActiveTab('home');
-        addToast('笔记已保存并发布', 'success');
+        let clearedPublishedDraft = false;
+        try {
+            if (submittedDraft !== null &&
+                latestEditorDraftRef.current === submittedEditorSignature &&
+                canClearSparkPublishedDraft(submittedDraft, localStorage.getItem('spark_post_draft'))) {
+                localStorage.removeItem('spark_post_draft');
+                clearedPublishedDraft = true;
+            }
+        } catch (error) {
+            console.warn('Spark published draft cleanup failed; leaving editor unchanged', error);
+        }
+        if (clearedPublishedDraft) {
+            setNewPostContent(''); setNewPostTitle(''); setNewPostTags(''); setSelectedStockUrl(''); setLocalPostImage('');
+            setIsCreateOpen(false);
+            setActiveTab('home');
+        }
+        addToast(clearedPublishedDraft ? '笔记已保存并发布' : '笔记已发布，新的或无法确认的草稿已保留，请检查后再发布', 'success');
         if (apiConfig.apiKey) {
             // Fold possible new inbox conversations into the SAME comment-generation request.
             const followers = communityRef.current.follows.filter(follow => follow.followedId === 'user').length;
