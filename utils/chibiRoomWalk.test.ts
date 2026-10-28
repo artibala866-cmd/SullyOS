@@ -116,3 +116,25 @@ it('restores planted sole orientation after knee IK under a rotated scaled paren
   mesh.geometry.dispose();mesh.material.dispose();rig.skeleton.dispose();
  }
 });
+
+it('does not re-anchor an explicitly planted furniture foot on duplicate animation timestamps',()=>{
+ const root=new T.Group(),body=new T.Group(),hair=new T.Group(),mesh=new T.Mesh(createBlankBody('skin'),new T.MeshBasicMaterial());
+ root.add(body);body.add(mesh,hair);
+ const rig=bindBlankBody(mesh,hair,true),animate=createBlankMotion(rig,body),lock=createWorldFootLock();
+ const translatePose=(delta:T.Vector3)=>{body.position.add(root.worldToLocal(delta.clone()).sub(root.worldToLocal(new T.Vector3())));};
+ const actor={root,rig,translatePose};
+ animate(.5,'idle','standing');root.updateWorldMatrix(true,true);
+ lock.apply(actor,.5,1.05,true,'R');
+ const first=lock.targetWorld;
+ expect(lock.supportSide).toBe('R');expect(first).not.toBeNull();
+ root.position.z-=.08;
+ animate(.5,'idle','standing');root.updateWorldMatrix(true,true);
+ lock.apply(actor,.5,1.05,true,'R');
+ expect(lock.supportSide).toBe('R');
+ expect(lock.targetWorld!.distanceTo(first!)).toBeLessThan(1e-6);
+ animate(.65,'idle','standing');lock.apply(actor,.65,1.05,true,'R');
+ expect(lock.targetWorld!.distanceTo(first!)).toBeLessThan(1e-6);
+ lock.reset();
+ expect(lock.supportSide).toBeNull();
+ mesh.geometry.dispose();mesh.material.dispose();rig.skeleton.dispose();
+});
