@@ -1817,7 +1817,10 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
         instant: isInstantReply,
         timestamp: eventSentAt,
       });
-      if (phoneEvent) recordCharacterLifeEvent(phoneEvent);
+      // A multi-bubble AI turn is ONE real-world contact. Only the final
+      // persisted chunk enters the life ledger, preventing an extra phone
+      // autonomy opportunity for every bubble in that same message.
+      if (phoneEvent && isLastChunk(message)) recordCharacterLifeEvent(phoneEvent);
 
       // 不管走 post-processing 还是 raw fallback, 单条 inbox message 触发一次 'active-msg-received',
       // 驱动 toast / 未读 / 通知。body 用原文做预览即可。
