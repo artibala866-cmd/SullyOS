@@ -168,6 +168,28 @@ export interface PlanRisk {
   availableMinutes: number;
   shortfallMinutes: number;
 }
+/** Count overlapping lessons only once; reject malformed time ranges. */
+export function busyClassMinutesForDay(classes: readonly TimetableClass[],day: Date):number {
+  const dateKey=localDate(day);
+  const minutes=(value:string):number|null=>{
+    if(typeof value!=='string'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(value))return null;
+    const [h,m]=value.split(':').map(Number);
+    return h*60+m;
+  };
+  const spans=classes.filter(c=>c && !c.cancelled && c.weekday===day.getDay()
+      && (!c.until || dateKey<=c.until)).map(c=>({
+    start:minutes(c.start),end:minutes(c.end),
+  })).filter((span):span is {start:number;end:number}=>
+    span.start!==null && span.end!==null && span.end>span.start)
+    .sort((a,b)=>a.start-b.start);
+  let busy=0,end=0;
+  for(const span of spans){
+    busy+=Math.max(0,span.end-Math.max(end,span.start));
+    end=Math.max(end,span.end);
+  }
+  return busy;
+}
+
 /** 仅计算本地可用时间与冲突，不替用户承诺真实交期。 */
 export function calculatePlanRisks(
   workspace: WorkspaceData, fromDate: string = localDate(new Date()),
@@ -184,14 +206,7 @@ export function calculatePlanRisks(
     if (Number.isFinite(end.getTime())) {
       for (let day = new Date(start), i = 0; day <= end && i < 366; day.setDate(day.getDate() + 1), i++) {
         const dayKey = localDate(day);
-        const busyClasses = workspace.classes
-          .filter(item => !item.cancelled && item.weekday === day.getDay()
-            && (!item.until || dayKey <= item.until))
-          .reduce((sum, item) => {
-            const [sh, sm] = item.start.split(':').map(Number);
-            const [eh, em] = item.end.split(':').map(Number);
-            return sum + Math.max(0, (eh * 60 + em) - (sh * 60 + sm) || 0);
-          }, 0);
+        const busyClasses = busyClassMinutesForDay(workspace.classes,day);
         const busyHomework = workspace.homework
           .filter(item => !item.done && item.dueAt.slice(0, 10) === dayKey)
           .reduce((sum, item) => sum + Math.max(0, item.minutes || 0), 0);

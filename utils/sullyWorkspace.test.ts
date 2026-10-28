@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  calculatePlanRisks, emptyWorkspace, focusChatAllowance, normalizeWorkspace,
+  busyClassMinutesForDay, calculatePlanRisks, emptyWorkspace, focusChatAllowance, normalizeWorkspace,
   orderedCommissions, type Commission,
 } from './sullyWorkspace';
 
@@ -45,6 +45,21 @@ describe('排单基础数据', () => {
     expect(orderedCommissions([a,b,c]).map(x=>x.id)).toEqual(['b','a']);
     const workspace = { ...emptyWorkspace(), commissions: [a, {...b, status: 'waiting' as const}] };
     expect(calculatePlanRisks(workspace, '2026-10-29').length).toBe(1);
+  });
+  it('两个同时间课程不能重复扣除容量，畸形时间不能产生假欠工', () => {
+    const lesson=(id:string,start:string,end:string)=>({
+      id,name:id,weekday:4,start,end,until:'',teacher:'',location:'',note:'',
+    });
+    const date=new Date('2026-10-29T12:00:00');
+    expect(busyClassMinutesForDay([
+      lesson('a','09:00','11:00'),lesson('b','10:00','12:00'),
+      lesson('broken','23:99','25:30'),lesson('reverse','16:00','15:00'),
+    ],date)).toBe(180);
+    const w=emptyWorkspace();
+    w.dailyAvailableMinutes=300;
+    w.classes=[lesson('a','09:00','11:00'),lesson('b','10:00','12:00')];
+    w.commissions=[{...commission('a','2026-10-29',1),remainingMinutes:150,bufferMinutes:0}];
+    expect(calculatePlanRisks(w,'2026-10-29')[0].shortfallMinutes).toBe(30);
   });
   it('超载显示短缺，课程时长会扣减可用时间', () => {
     const data = emptyWorkspace();

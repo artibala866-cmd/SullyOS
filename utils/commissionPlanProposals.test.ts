@@ -91,6 +91,13 @@ describe('Char 排单建议必须经过用户逐项确认',()=>{
     }
     expect(()=>projectCommissionPlan(w,preview,['a','a'])).toThrow('重复');
   });
+  it('方案跨过本地日期后即使委托没改也不能再应用',()=>{
+    const w=workspace(),req=request(w);
+    const p=parseCommissionPlanReply(
+      '{"changes":[{"id":"a","priority":1}]}',req,w);
+    expect(()=>projectCommissionPlan(w,p,['a'],'2026-11-11')).toThrow('跨日期已过期');
+    expect(projectCommissionPlan(w,p,['a'],'2026-11-10').commissions[0].priority).toBe(1);
+  });
   it('请求绑定原 Char；无法把陌生 ID 作为候选更新',()=>{
     const w=workspace(),req=request(w);
     expect(req.charId).toBe('charA');

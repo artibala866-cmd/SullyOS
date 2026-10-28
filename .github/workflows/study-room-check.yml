@@ -11,6 +11,11 @@ on:
       - 'utils/studyCourseLinks.ts'
       - 'utils/studyCourseLinks.test.ts'
       - 'utils/studyCourseLinks.wiring.test.ts'
+      - 'utils/workspaceEditMerge.ts'
+      - 'utils/workspaceEditMerge.test.ts'
+      - 'utils/studyRoomFocusNotes.ts'
+      - 'utils/studyRoomFocusNotes.test.ts'
+      - 'utils/workspaceAudit.wiring.test.ts'
       - 'utils/sullyWorkspace.ts'
       - 'utils/sullyWorkspace.test.ts'
       - 'utils/studyRoomReminders.ts'
@@ -43,12 +48,12 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Test study room linking, permissions, planning and reminders
         run: |
-          pnpm exec vitest run utils/sullyWorkspace.test.ts utils/studyRoomReminders.test.ts utils/workspacePrivateChat.test.ts utils/workspacePrivateChat.wiring.test.ts utils/commissionPlanProposals.test.ts utils/studyCourseLinks.test.ts utils/studyCourseLinks.wiring.test.ts
+          pnpm exec vitest run utils/sullyWorkspace.test.ts utils/studyRoomReminders.test.ts utils/workspacePrivateChat.test.ts utils/workspacePrivateChat.wiring.test.ts utils/commissionPlanProposals.test.ts utils/studyCourseLinks.test.ts utils/studyCourseLinks.wiring.test.ts utils/workspaceEditMerge.test.ts utils/studyRoomFocusNotes.test.ts utils/workspaceAudit.wiring.test.ts
       - name: Check study room TypeScript diagnostics
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/sully-study-room-tsc.log 2>&1 || true
-          grep -E '^(apps/ScheduleApp.tsx|apps/StudyApp.tsx|apps/WorkspacePanel.tsx|apps/WorkspaceReminderControls.tsx|utils/sullyWorkspace.ts|utils/studyRoomReminders.ts|utils/commissionPlanProposals.ts|utils/workspacePrivateChat.ts|utils/studyCourseLinks.ts|utils/studyCourseLinks.test.ts|utils/studyCourseLinks.wiring.test.ts)[(]' /tmp/sully-study-room-tsc.log > /tmp/sully-study-room-errors.log || true
+          grep -E '^(apps/ScheduleApp.tsx|apps/StudyApp.tsx|apps/WorkspacePanel.tsx|apps/WorkspaceReminderControls.tsx|utils/sullyWorkspace.ts|utils/studyRoomReminders.ts|utils/commissionPlanProposals.ts|utils/workspacePrivateChat.ts|utils/studyCourseLinks.ts|utils/studyCourseLinks.test.ts|utils/studyCourseLinks.wiring.test.ts|utils/workspaceEditMerge.ts|utils/workspaceEditMerge.test.ts|utils/studyRoomFocusNotes.ts|utils/studyRoomFocusNotes.test.ts|utils/workspaceAudit.wiring.test.ts)[(]' /tmp/sully-study-room-tsc.log > /tmp/sully-study-room-errors.log || true
           if [ -s /tmp/sully-study-room-errors.log ]; then
             cat /tmp/sully-study-room-errors.log
             exit 1

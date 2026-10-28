@@ -154,7 +154,10 @@ export function isPlanPreviewStale(data:WorkspaceData, preview:CommissionPlanPre
 
 export function projectCommissionPlan(
   data:WorkspaceData, preview:CommissionPlanPreview, selectedIds:readonly string[],
+  today=localDate(new Date()),
 ):WorkspaceData {
+  if (today>preview.fromDate)
+    throw new Error('建议跨日期已过期，请重新生成，避免应用昨天的计划');
   if (isPlanPreviewStale(data,preview)) throw new Error('排单已变更，旧建议不可应用，请重新生成');
   const selected=new Set(selectedIds);
   if (!selected.size) throw new Error('请先勾选至少一项建议');

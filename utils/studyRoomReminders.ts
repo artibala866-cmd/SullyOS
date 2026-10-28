@@ -31,6 +31,12 @@ export const canCreateReminder = (
   data: WorkspaceData, kind: WorkspaceReminderKind, itemId: string,
 ): boolean => remindersFor(data, kind, itemId).length === 0;
 
+export const isRemindableItem = (
+  data: WorkspaceData, kind: WorkspaceReminderKind, itemId: string,
+): boolean => kind === 'commission'
+  ? data.commissions.some(c => c.id===itemId && c.status==='active')
+  : data.homework.some(h=>h.id===itemId && !h.done);
+
 export interface ReminderHostContext {
   char: CharacterProfile;
   apiConfig: APIConfig;
@@ -77,6 +83,8 @@ export async function createStudyReminder(
 ): Promise<WorkspaceData> {
   if (!isAmsg2EnabledForChar(host.char)) throw new Error('请先为选定的 Char 开启主动消息 2.0');
   const fireAt = validateReminderTime(localValue, now);
+  const initial = await readWorkspace();
+  if (!isRemindableItem(initial,kind,itemId)) throw new Error('事项不存在或已完成，不能创建提醒');
   const globalConfig = await ActiveMsgStore.getGlobalConfig();
   if (!globalConfig.workerUrl || !globalConfig.userId) throw new Error('请先在设置中配置主动消息 2.0 的 Worker 和用户身份');
 
@@ -100,6 +108,8 @@ export async function createStudyReminder(
     fireAt, status: 'creating',
   };
   await mutateWorkspace(w => {
+    if (!isRemindableItem(w,kind,itemId))
+      throw new Error('事项已完成或不存在，不能创建远端提醒');
     if (!canCreateReminder(w, kind, itemId)) throw new Error('已有提醒，请勿重复创建');
     return { ...w, reminders: [...w.reminders, pending] };
   });
@@ -116,12 +126,44 @@ export async function createStudyReminder(
       userProfile: host.userProfile, groups: host.groups,
       realtimeConfig: host.realtimeConfig, apiConfig: host.apiConfig,
     });
-    if (!confirmed.uuid || !confirmed.clientTaskId) throw new Error('远端未返回完整任务身份，无法确认提醒');
-    try {
-      return await mutateWorkspace(w => changedReminder(w, pending.id, {
-        taskUuid: confirmed!.uuid, clientTaskId: confirmed!.clientTaskId,
-        fireAt: confirmed!.firstSendAt, status: 'scheduled', error: undefined,
+    if (!confirmed.uuid || !confirmed.clientTaskId) {
+      await mutateWorkspace(w=>changedReminder(w,pending.id,{
+        status:'needs_review',error:'远端未返回完整任务身份；请到 AMSG 云端核查',
+      })).catch(()=>{});
+      throw new Error('远端未返回完整任务身份，已保留待核查记录');
+    }
+    const latest = await readWorkspace();
+    const pendingNow=latest.reminders.find(r=>r.id===pending.id);
+    if (!isRemindableItem(latest,kind,itemId) || pendingNow?.status!=='creating') {
+      // Item was completed/deleted or privacy revocation requested while the
+      // remote creation was in flight. Compensate immediately, without a new
+      // LLM call and without silently retaining an active remote reminder.
+      try {
+        await remote.cancel(confirmed.uuid);
+      } catch(error) {
+        await mutateWorkspace(w=>changedReminder(w,pending.id,{
+          taskUuid:confirmed!.uuid,clientTaskId:confirmed!.clientTaskId,
+          status:'cancel_failed',error:'事项或授权变更，远端取消未确认：'+String(error),
+        })).catch(()=>{});
+        throw new Error('事项或授权已变化，远端取消失败；任务身份已保留供核查');
+      }
+      await mutateWorkspace(w=>({
+        ...w,reminders:w.reminders.filter(entry=>entry.id!==pending.id),
       }));
+      throw new Error('事项或授权已变化，已取消刚创建的远端提醒');
+    }
+    try {
+      return await mutateWorkspace(w => {
+        // Final comparison INSIDE the serialized write: a revocation or a
+        // completion between the earlier read and this write must also win.
+        if (!isRemindableItem(w,kind,itemId)
+          || w.reminders.find(r=>r.id===pending.id)?.status!=='creating')
+          throw new Error('远端创建确认前事项或授权已变化');
+        return changedReminder(w,pending.id,{
+          taskUuid:confirmed!.uuid,clientTaskId:confirmed!.clientTaskId,
+          fireAt:confirmed!.firstSendAt,status:'scheduled',error:undefined,
+        });
+      });
     } catch (error) {
       // Do not leave a confirmed cloud task untraceable if local persistence fails.
       try {
@@ -137,7 +179,7 @@ export async function createStudyReminder(
       await mutateWorkspace(w => ({
         ...w, reminders: w.reminders.filter(r => r.id !== pending.id),
       })).catch(() => {});
-      throw new Error('本地关联保存失败，已从远端取消提醒：' + String(error));
+      throw new Error('远端新提醒已补偿取消，未写入本地：' + String(error));
     }
   } catch (error) {
     if (!confirmed) {
@@ -213,6 +255,16 @@ export async function setWorkspaceChatPermission(
   let failedCancellations = 0;
   const kind: WorkspaceReminderKind = category === 'commissions' ? 'commission' : 'homework';
   for (const entry of next.reminders.filter(r => r.kind === kind && r.charId === charId)) {
+    if (!entry.taskUuid) {
+      // If creation is still in flight, make its finalizer cancel the remote
+      // task when the UUID eventually arrives; no blind duplicate creation.
+      await mutateWorkspace(w=>changedReminder(w,entry.id,{
+        status:'needs_review',
+        error:'授权已撤回，远端创建状态不明；取得任务身份后会尝试取消，请到 AMSG 核查',
+      }));
+      failedCancellations+=1;
+      continue;
+    }
     try {
       await cancelStudyReminder(entry.id, remote);
     } catch {

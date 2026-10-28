@@ -9,6 +9,7 @@ import {
   type StudyCourseOption,
 } from '../utils/studyCourseLinks';
 import { cancelItemReminders, setWorkspaceChatPermission } from '../utils/studyRoomReminders';
+import { mergeWorkspaceLocalEdit } from '../utils/workspaceEditMerge';
 import {
   isPlanPreviewStale, previewCommissionPlanRisk, projectCommissionPlan,
   type CommissionPlanPreview,
@@ -74,31 +75,20 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [visionBusy, setVisionBusy] = useState(false);
   const [previewRows, setPreviewRows] = useState<CourseImageDraft[]>([]);
   const queue = useRef<Promise<void>>(Promise.resolve());
-  const touched = useRef(false);
+  const dataRef = useRef<WorkspaceData>(emptyWorkspace());
+  const syncData = (update: (before: WorkspaceData) => WorkspaceData) => {
+    const next = update(dataRef.current);
+    dataRef.current = next;
+    setData(next);
+  };
 
   useEffect(() => {
     let alive = true;
     void readWorkspace().then(value => {
-      if (alive) { setData(value); setLoaded(true); }
+      if (alive) { dataRef.current=value; setData(value); setLoaded(true); }
     }).catch(e => { if (alive) setError('无法读取本地工作空间：' + String(e)); });
     return () => { alive = false; };
   }, []);
-
-  useEffect(() => {
-    if (!loaded || !touched.current) return;
-    const snapshot = data;
-    // Keep cloud-confirmed reminder UUIDs and authorization records from the freshest
-    // IndexedDB value. UI snapshots must never resurrect previously revoked consent.
-    queue.current = queue.current.catch(() => {}).then(async () => {
-      await mutateWorkspace(current => ({
-        ...current,
-        commissions: snapshot.commissions, classes: snapshot.classes,
-        homework: snapshot.homework, notes: snapshot.notes,
-        dailyAvailableMinutes: snapshot.dailyAvailableMinutes,
-      }));
-    });
-    void queue.current.catch(e => setError('保存失败，请勿清理浏览器数据：' + String(e)));
-  }, [data, loaded]);
 
   useEffect(() => { setPlanChecked([]); }, [planPreview]);
   useEffect(()=>{
@@ -113,12 +103,19 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     }).finally(()=>{if(alive)setStudyCoursesLoading(false);});
     return ()=>{alive=false;};
   },[section,studyCoursesRefresh]);
-  const change = (fn: (old:WorkspaceData)=>WorkspaceData) => {
-    touched.current = true;
-    setData(fn);
+  const change = (fn: (old:WorkspaceData)=>WorkspaceData): Promise<void> => {
+    const before=dataRef.current;
+    const after=fn(before);
+    syncData(()=>after);
+    const commit=queue.current.catch(()=>{}).then(async()=>{
+      await mutateWorkspace(current=>mergeWorkspaceLocalEdit(before,after,current));
+    });
+    queue.current=commit;
+    void commit.catch(e=>setError('本地保存冲突或失败，请勿清理浏览器数据：'+String(e)));
+    return commit;
   };
   const onReminderUpdate = (reminders: WorkspaceData['reminders']) =>
-    setData(prev => ({...prev,reminders}));
+    syncData(prev => ({...prev,reminders}));
 
   const togglePrivateChat = async (category: WorkspaceShareCategory, enabled: boolean) => {
     if (shareBusy || !selectedCharId) return;
@@ -130,7 +127,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     setShareBusy(category);
     try {
       const result = await setWorkspaceChatPermission(selectedCharId, category, enabled);
-      setData(prev => ({
+      syncData(prev => ({
         ...prev, privateChatPermissions: result.workspace.privateChatPermissions,
         reminders: result.workspace.reminders,
       }));
@@ -143,7 +140,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       // If remote cancellation fails after revocation, show actual persisted access and links.
       try {
         const actual = await readWorkspace();
-        setData(prev => ({
+        syncData(prev => ({
           ...prev, privateChatPermissions: actual.privateChatPermissions,
           reminders: actual.reminders,
         }));
@@ -168,7 +165,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       await queue.current;
       // CAS at the latest serialized DB write, not against a stale React render.
       const updated=await mutateWorkspace(current=>projectCommissionPlan(current,planPreview,planChecked));
-      setData(updated);
+      syncData(()=>updated);
       setPlanChecked([]);
       onClearPlan();
       addToast('已应用 '+planChecked.length+' 项计划调整，并重新计算冲突风险','success');
@@ -176,7 +173,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       addToast('方案未应用：'+(e instanceof Error?e.message:String(e)),'error');
       try {
         const latest=await readWorkspace();
-        setData(prev=>({...prev,commissions:latest.commissions,classes:latest.classes,
+        syncData(prev=>({...prev,commissions:latest.commissions,classes:latest.classes,
           homework:latest.homework,dailyAvailableMinutes:latest.dailyAvailableMinutes}));
       } catch {}
     } finally {setApplyingPlan(false);}
@@ -189,7 +186,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       const options=await loadStudyCourseOptions();
       if(courseId && !options.some(c=>c.id===courseId))
         throw new Error('自习室课程可能已被删除，请刷新列表后重试');
-      change(current=>setClassStudyCourseLink(current,classId,courseId,options));
+      await change(current=>setClassStudyCourseLink(current,classId,courseId,options));
       setStudyCourses(options);
       addToast(courseId?'已关联旧自习室课程':'已解除关联；旧课程及作业笔记均保留','success');
     } catch(e) {
@@ -218,8 +215,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   };
   const recoverOrphan = (kind:'homework'|'note',id:string,classId:string) => {
     try {
-      change(current=>reassignOrphanContent(current,kind,id,classId));
-      addToast('已重新归入课程；原笔记和作业内容未改动','success');
+      void change(current=>reassignOrphanContent(current,kind,id,classId))
+        .then(()=>addToast('已重新归入课程；原笔记和作业内容未改动','success'))
+        .catch(e=>addToast('重新归类保存失败：'+String(e),'error'));
     } catch(e) {addToast('重新归类失败：'+String(e),'error');}
   };
   const stopItemReminders = async (kind:'commission'|'homework', id:string) => {
@@ -320,9 +318,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     }
     try {
       const ref = imageFile ? await putImageBlob(imageFile) : undefined;
-      change(v=>({...v,classes:[...v.classes,...previewRows.map(c=>({
-        ...c, id:newWorkspaceId(), sourceImageRef:ref,
-      }))]}));
+      const added=previewRows.map(c=>({...c,id:newWorkspaceId(),sourceImageRef:ref}));
+      await change(v=>({...v,classes:[...v.classes,...added]}));
       setPreviewRows([]);setImageFile(null);setImagePreview('');
       addToast('已保存确认后的课程', 'success');
     } catch(e) { addToast('课程保存失败：' + String(e), 'error'); }
@@ -453,7 +450,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <div className="flex flex-wrap gap-2">
             <button className={buttonClass} onClick={()=>onFocus('commission',c.id,c.title)}>专注这张稿</button>
             <button className={mutedButton} onClick={()=>onDiscuss('请帮我看看这张委托的下一步（只建议，不更改）：'+JSON.stringify({
-              title:c.title,stage:c.stage,dueDate:c.dueDate,remainingMinutes:c.remainingMinutes,note:c.note,
+              title:c.title,stage:c.stage,dueDate:c.dueDate,remainingMinutes:c.remainingMinutes,
             }))}>问 Char</button>
           </div>
           <WorkspaceReminderControls kind="commission" itemId={c.id}
@@ -611,7 +608,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           </div>)}
           <label className="block text-sm">学习笔记<textarea className={inputClass} value={noteBody} onChange={e=>setNoteBody(e.target.value)} placeholder="记下刚学到的知识"/></label>
           <button className={buttonClass} disabled={!noteBody.trim()} onClick={()=>{
-            change(v=>({...v,notes:[...v.notes,{id:newWorkspaceId(),classId:selectedClassId,body:noteBody.trim(),createdAt:Date.now()}]}));
+            const note={id:newWorkspaceId(),classId:selectedClassId,body:noteBody.trim(),createdAt:Date.now()};
+            void change(v=>({...v,notes:[...v.notes,note]}));
             setNoteBody('');
           }}>保存笔记</button>
           {data.notes.filter(n=>n.classId===selectedClassId).map(n=><div key={n.id} className="border-t border-neutral-200 py-2">
@@ -629,6 +627,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <p className="text-sm">{h.done?'✓ ':''}作业：{h.title} · 截止 {h.dueAt||'未设置'} · 原课程 ID：{h.classId}</p>
             <p className="text-xs whitespace-pre-wrap">{h.note}</p>
             <button className={mutedButton} onClick={()=>onFocus('homework',h.id,h.title)}>继续为这项作业专注</button>
+            <WorkspaceReminderControls kind="homework" itemId={h.id}
+              suggestedAt={h.dueAt} data={data} selectedCharId={selectedCharId}
+              onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>
             <select className={inputClass} aria-label={'重新归类作业 '+h.title} value=""
               onChange={e=>{if(e.target.value)recoverOrphan('homework',h.id,e.target.value);}}>
               <option value="">将作业重新归入课程…</option>

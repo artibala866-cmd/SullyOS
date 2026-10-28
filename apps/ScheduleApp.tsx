@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
+import {notesForStudyChar,legacyUnattributedStudyNotes,type FocusChatNote} from '../utils/studyRoomFocusNotes';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
@@ -15,7 +16,7 @@ type FocusTask = { id: string; title: string; done: boolean; sessions: number; s
 type FocusRecord = { date: string; minutes: number; taskId: string; sessionId?: string };
 type FocusMode = 'focus' | 'break';
 type Session = { id?: string; mode: FocusMode; deadline: number; duration: number; taskId: string; pauseRemainingMs?: number; usedChatWindows?: number[] };
-type Note = { id: string; role: 'user' | 'assistant'; content: string };
+type Note = FocusChatNote;
 const STORAGE = 'sully_pomodoro_v1';
 const EXIT_PHRASE = '真的要退出学习吗';
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -49,12 +50,20 @@ const ScheduleApp: React.FC = () => {
   const [planRequest, setPlanRequest] = useState<CommissionPlanRequest | null>(null);
   const [planPreview, setPlanPreview] = useState<CommissionPlanPreview | null>(null);
   const [focusLock, setFocusLock] = useState<boolean>(() => load('lock', false));
-  const [notes, setNotes] = useState<Note[]>(() => load('notes', []));
+  const [notes, setNotes] = useState<Note[]>(() => {
+    const saved=load<unknown>('notes',[]);
+    return Array.isArray(saved) ? saved.filter((n):n is Note=>n
+      && typeof n.id==='string' && (n.role==='user'||n.role==='assistant')
+      && typeof n.content==='string') : [];
+  });
   const [message, setMessage] = useState('');
   const [replying, setReplying] = useState(false);
   const processed = useRef<string | null>(null);
   const chatBusy = useRef(false);
+  const discussionVersion = useRef(0);
   const activeChar = characters.find(c => c.id === charId);
+  const visibleNotes = notesForStudyChar(notes,charId);
+  const unassignedNotes = legacyUnattributedStudyNotes(notes);
   const remaining = session ? Math.max(0, Math.ceil((session.pauseRemainingMs ?? (session.deadline - now)) / 1000)) : (focusMinutes * 60);
   const allowance = focusChatAllowance(session, now);
   const activeTask = tasks.find(t => t.id === (session?.taskId || selectedTask));
@@ -164,7 +173,17 @@ const ScheduleApp: React.FC = () => {
     }
     setTab('timer');
   };
+  const chooseChar = (id:string) => {
+    if (id===charId) return;
+    discussionVersion.current += 1;
+    setCharId(id);
+    // Never transfer one Char's user-selected context to another Char.
+    setAssistantTopic('');
+    setPlanRequest(null);
+    setMessage('');
+  };
   const discuss = (topic:string) => {
+    discussionVersion.current += 1;
     setPlanRequest(null);
     setAssistantTopic(topic);
     setMessage('请根据当前信息给我建议。');
@@ -172,6 +191,7 @@ const ScheduleApp: React.FC = () => {
   };
   const proposeCommissionPlan = (workspace: WorkspaceData) => {
     try {
+      discussionVersion.current += 1;
       const request=createCommissionPlanRequest(workspace,charId);
       setPlanRequest(request);
       setPlanPreview(null);
@@ -194,6 +214,7 @@ const ScheduleApp: React.FC = () => {
     const gate = focusChatAllowance(session, Date.now());
     if (!gate.canSend) { addToast('本五分钟窗口的交流机会已用完，或计时已暂停', 'error'); return; }
     chatBusy.current = true;
+    const requestVersion=discussionVersion.current;
     if (session?.mode === 'focus') {
       // Reserve the slot before any await. Persist even if request fails or page reloads.
       const nextSession = {
@@ -202,8 +223,9 @@ const ScheduleApp: React.FC = () => {
       save('session', nextSession);
       setSession(nextSession);
     }
-    const history:Note[] = [...notes, { id: newWorkspaceId(), role: 'user', content }];
-    setNotes(history);
+    const note:Note={id:newWorkspaceId(),role:'user',content,charId:activeChar.id};
+    const history:Note[]=[...notesForStudyChar(notes,activeChar.id),note];
+    setNotes(prev=>[...prev,note]);
     setMessage('');
     setReplying(true);
     try {
@@ -225,7 +247,10 @@ const ScheduleApp: React.FC = () => {
       if (!response.ok) throw new Error(data?.error?.message || 'HTTP ' + response.status);
       const reply = extractContent(data);
       if (!reply?.trim()) throw new Error('AI 返回了空回复');
-      setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:reply.trim()}]);
+      setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:reply.trim(),charId:activeChar.id}]);
+      // A role/topic changed while the call was in flight: preserve the answer
+      // only under its original Char, never turn it into a new role's proposal.
+      if(requestVersion!==discussionVersion.current) return;
       if (planRequest) {
         try {
           // Read latest DB value: don't apply a response for stale edits.
@@ -322,8 +347,8 @@ const ScheduleApp: React.FC = () => {
           <div className="text-sm">完成任务：{tasks.filter(t => t.done).length} 项</div>
           <p className="text-xs text-[#aaaaaa]">仅统计完整结束的专注轮次；数据保存在当前浏览器。</p>
         </section>}
-        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={setCharId}/>}
-        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={null} onClearPlan={()=>{}} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={setCharId}/>}
+        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={chooseChar}/>}
+        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={null} onClearPlan={()=>{}} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={chooseChar}/>}
 
       </main>
       <nav className="shrink-0 grid grid-cols-4 gap-1 px-2 py-3 border-t border-neutral-200 bg-white"
@@ -340,7 +365,7 @@ const ScheduleApp: React.FC = () => {
             <h2 className="font-semibold text-sm">Char · 当前工作陪伴</h2>
             <button className="text-lg px-3" aria-label="关闭 Char" onClick={()=>setAssistantOpen(false)}>×</button>
           </div>
-          <select aria-label="选择 Char" value={charId} onChange={e=>setCharId(e.target.value)}
+          <select aria-label="选择 Char" value={charId} onChange={e=>chooseChar(e.target.value)}
             className={inset + ' p-2 text-sm'}>
             <option value="">请选择 Char</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -348,10 +373,16 @@ const ScheduleApp: React.FC = () => {
           {session?.mode==='focus' && <p className="text-xs">本轮已交流 {allowance.used}/{allowance.limit} 次。
             {allowance.canSend?'当前五分钟窗口可交流':'当前窗口不可再交流'}</p>}
           <div className="flex-1 overflow-y-auto border border-neutral-200 rounded-lg p-3 space-y-2">
-            {notes.length===0 && <p className="text-sm text-neutral-500">旧监督记录保存在这里；有需要时再找 Char。</p>}
-            {notes.map(n=><p key={n.id} className="text-sm whitespace-pre-wrap break-words">
+            {visibleNotes.length===0 && <p className="text-sm text-neutral-500">当前 Char 尚无学习室交流记录。</p>}
+            {visibleNotes.map(n=><p key={n.id} className="text-sm whitespace-pre-wrap break-words">
               <span className="text-neutral-500">{n.role==='user'?'我':activeChar?.name||'Char'}：</span>{n.content}</p>)}
           </div>
+          {unassignedNotes.length>0 && <details className="text-xs text-neutral-600">
+            <summary>查看 {unassignedNotes.length} 条旧监督记录（未绑定 Char，仅本机查看；不会发送给 AI）</summary>
+            <div className="max-h-24 overflow-auto whitespace-pre-wrap">
+              {unassignedNotes.map(n=><p key={n.id}>{n.role==='user'?'我':'旧回复'}：{n.content}</p>)}
+            </div>
+          </details>}
           <form onSubmit={e=>{e.preventDefault();void sendNote();}} className="flex gap-2">
             <input className={inset+' flex-1 min-w-0 p-2 text-sm'} value={message} onChange={e=>setMessage(e.target.value)}
               aria-label="对 Char 说" placeholder="主动问 Char…"/>

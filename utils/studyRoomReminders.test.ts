@@ -3,7 +3,7 @@ import {
   cancelStudyReminder, createStudyReminder, permittedReminderText, setWorkspaceChatPermission,
   validateReminderTime, type ReminderRemote,
 } from './studyRoomReminders';
-import { emptyWorkspace, readWorkspace } from './sullyWorkspace';
+import { emptyWorkspace, mutateWorkspace, readWorkspace } from './sullyWorkspace';
 
 let stored: unknown = null;
 vi.mock('./db', () => ({
@@ -37,11 +37,74 @@ const at = '2026-11-15T12:00';
 const now = new Date('2026-11-14T00:00:00Z').getTime();
 
 describe('学习室 AMSG 固定提醒', () => {
-  beforeEach(() => { stored = null; });
+  beforeEach(() => {
+    const w=emptyWorkspace();
+    w.commissions=[{id:'client-secret-123',title:'保密委托',client:'客户',type:'',
+      brief:'',acceptedAt:'',dueDate:'',stage:'草稿',priority:2,status:'active',
+      remainingMinutes:120,bufferMinutes:30,plannedDate:'',price:'',paid:false,note:'',order:1}];
+    w.homework=[
+      {id:'h1',classId:'class1',title:'作业1',dueAt:'',minutes:60,done:false,note:''},
+      {id:'h2',classId:'class1',title:'作业2',dueAt:'',minutes:60,done:false,note:''},
+    ];
+    stored=w;
+  });
   it('统一采用用户本地时间、排除过去和不足两分钟的时间', () => {
     expect(validateReminderTime('2026-11-15T12:00', now)).toContain('2026-11-15T');
     expect(() => validateReminderTime('', now)).toThrow();
     expect(() => validateReminderTime('2026-11-13T12:00', now)).toThrow();
+  });
+  it('底层拒绝不存在、已完成或已交付的事项，不仅依赖 UI 禁止按钮',async()=>{
+    const remote=setupRemote();
+    await expect(createStudyReminder('homework','ghost',at,host(),remote,now)).rejects.toThrow('事项不存在');
+    const current=await readWorkspace();
+    current.homework[0].done=true;
+    current.commissions[0].status='delivered';
+    stored=current;
+    await expect(createStudyReminder('homework','h1',at,host(),remote,now)).rejects.toThrow('已完成');
+    await expect(createStudyReminder('commission','client-secret-123',at,host(),remote,now)).rejects.toThrow('已完成');
+    expect(remote.schedule).not.toHaveBeenCalled();
+    expect(remote.list).not.toHaveBeenCalled();
+  });
+  it('创建期间作业完成，远端创建一旦返回必须补偿取消，不遗留新提醒',async()=>{
+    const remote=setupRemote();
+    (remote.schedule as any).mockImplementationOnce(async()=>{
+      const current=await readWorkspace();
+      current.homework[0].done=true;
+      await mutateWorkspace(w=>({...w,homework:w.homework.map(h=>h.id==='h1'?{...h,done:true}:h)}));
+      return {uuid:'cloud-uuid',clientTaskId:'client-id',firstSendAt:'2026-11-15T04:00:00.000Z'};
+    });
+    await expect(createStudyReminder('homework','h1',at,host(),remote,now))
+      .rejects.toThrow('已取消刚创建的远端提醒');
+    expect(remote.cancel).toHaveBeenCalledWith('cloud-uuid');
+    expect((await readWorkspace()).reminders).toEqual([]);
+  });
+  it('授权在创建过程中撤回，返回 UUID 后应补偿取消，绝不留下幽灵通知',async()=>{
+    const remote=setupRemote();
+    const base=await readWorkspace();
+    base.privateChatPermissions={char1:{study:true,commissions:false}};
+    stored=base;
+    (remote.schedule as any).mockImplementationOnce(async()=>{
+      const revoked=await setWorkspaceChatPermission('char1','study',false,remote);
+      expect(revoked.failedCancellations).toBe(1);
+      return {uuid:'cloud-uuid',clientTaskId:'client-id',firstSendAt:'2026-11-15T04:00:00.000Z'};
+    });
+    await expect(createStudyReminder('homework','h1',at,host(),remote,now))
+      .rejects.toThrow('已取消刚创建的远端提醒');
+    expect(remote.cancel).toHaveBeenCalledWith('cloud-uuid');
+    expect((await readWorkspace()).reminders).toHaveLength(0);
+    expect((await readWorkspace()).privateChatPermissions.char1.study).toBe(false);
+  });
+  it('授权撤回且远端取消失败时保留 UUID 和 cancel_failed，供人工重试',async()=>{
+    const remote=setupRemote();
+    (remote.cancel as any).mockRejectedValueOnce(new Error('offline'));
+    (remote.schedule as any).mockImplementationOnce(async()=>{
+      await setWorkspaceChatPermission('char1','study',false,remote);
+      return {uuid:'cloud-uuid',clientTaskId:'client-id',firstSendAt:'2026-11-15T04:00:00.000Z'};
+    });
+    await expect(createStudyReminder('homework','h1',at,host(),remote,now))
+      .rejects.toThrow('远端取消失败');
+    const pending=(await readWorkspace()).reminders[0];
+    expect(pending).toMatchObject({status:'cancel_failed',taskUuid:'cloud-uuid'});
   });
   it('默认不可创建；没有 AMSG 授权时绝不联系远端', async () => {
     const remote=setupRemote();
