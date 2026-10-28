@@ -15,8 +15,9 @@ export function createBathroomContact(rig:ReturnType<typeof bindBlankBody>,body:
  const chains=['L','R'].map((s,i)=>({target:rig.skeleton.bones.length+i,effector:index(s+'_hand'),iteration:30,maxAngle:.12,links:[{index:index(s+'_forearm')},{index:index(s+'_upperArm')}]}));
  const solver=new CCDIKSolver({skeleton:{bones}} as T.SkinnedMesh,chains),point=new T.Vector3(),rotation=new T.Quaternion(),parentQ=new T.Quaternion();
  const pose=Object.fromEntries(Object.keys(rig.bones).map(n=>[n,new T.Quaternion()]));
+ const shoulder=new T.Vector3(),elbow=new T.Vector3(),wrist=new T.Vector3();
  return (time:number,a:ActivityPose)=>{
-  if(!a.kind.startsWith('bath-')||a.bathPhase&&a.bathPhase!=='work'||!body.parent)return;
+  if(!a.kind.startsWith('bath-')||a.bathPhase&&a.bathPhase!=='work'&&a.kind!=='bath-soak'||!body.parent)return;
   const f=bathroomFrame(time);body.updateWorldMatrix(true,true);
   for(const [i,side,sign] of [[0,'L',1],[1,'R',-1]] as const){
    let weight=0;
@@ -25,12 +26,21 @@ export function createBathroomContact(rig:ReturnType<typeof bindBlankBody>,body:
     point.set(sign*.16*BLANK_SCALE,(.095+Math.sin(time*3+i*Math.PI)*.01)*BLANK_SCALE,.04*BLANK_SCALE);
     rig.bones.head.localToWorld(point);weight=f.wash;
    }else if(a.kind==='bath-soak'&&a.bathHands?.[i]){
-    point.fromArray(a.bathHands[i]).multiplyScalar(a.handScale??1);body.parent.localToWorld(point);weight=T.MathUtils.smootherstep(time,0,.65);
+    point.fromArray(a.bathHands[i]).multiplyScalar(a.handScale??1);body.parent.localToWorld(point);
+    weight=a.bathPhase&&a.bathPhase!=='work'?T.MathUtils.clamp(a.bathSupport??0,0,1):T.MathUtils.smootherstep(time,0,.65);
    }else if(a.kind==='bath-laundry'&&side==='R'&&a.bathHands?.[0]){
     point.fromArray(a.bathHands[0]);point.z+=Math.sin(time*8)*.012*f.press;
     point.multiplyScalar(a.handScale??1);body.parent.localToWorld(point);weight=f.press;
    }
    if(!weight)continue;
+   if(a.kind==='bath-soak'){
+    // World-space authored rim goals may be unreachable for a short or wide
+    // character; never let CCD contort the shoulder toward a moving phantom.
+    const upper=rig.bones[side+'_upperArm'],forearm=rig.bones[side+'_forearm'],end=rig.bones[side+'_hand'];
+    upper.getWorldPosition(shoulder);forearm.getWorldPosition(elbow);end.getWorldPosition(wrist);
+    const reach=shoulder.distanceTo(elbow)+elbow.distanceTo(wrist);
+    if(!Number.isFinite(reach)||shoulder.distanceTo(point)>reach*1.10)continue;
+   }
    const hand=rig.bones[side+'_hand'];hand.getWorldQuaternion(rotation);
    goals[i].matrixWorld.makeTranslation(point.x,point.y,point.z);solver.updateOne(chains[i],weight);
    // Keep the authored wrist orientation while the elbow solves the contact.
