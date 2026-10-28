@@ -16,7 +16,7 @@ import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
-import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch, toggleSocialPostLike, toggleSocialPostCollection, deleteSparkPostWithFence } from '../utils/socialFeedMerge';
+import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch, toggleSocialPostLike, toggleSocialPostCollection, deleteSparkPostWithFence, parseSparkUnsavedPostEdits, selectSparkRecoverablePost } from '../utils/socialFeedMerge';
 import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen, applySparkNpcLike, applySparkNpcFollow, setSparkAccountMuted } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
@@ -1045,6 +1045,36 @@ const SocialApp: React.FC = () => {
     const clearingFeedRef = useRef(false);
     const deletedPostIdsRef = useRef<Set<string>>(new Set());
     const postPersistenceRef = useRef<Promise<void>>(Promise.resolve());
+    const [unsavedPostEdits, setUnsavedPostEdits] = useState<Record<string, SocialPost>>(() => {
+        try { return parseSparkUnsavedPostEdits(localStorage.getItem('spark_unsaved_post_edits')); }
+        catch { return {}; }
+    });
+    const unsavedPostEditsRef = useRef(unsavedPostEdits);
+    const failedThisSessionRef = useRef<Set<string>>(new Set());
+    const [retryingUnsavedPosts, setRetryingUnsavedPosts] = useState(false);
+    const updateUnsavedPostEdits = (next: Record<string, SocialPost>): boolean => {
+        unsavedPostEditsRef.current = next;
+        if (mountedRef.current) setUnsavedPostEdits(next);
+        try {
+            if (Object.keys(next).length) localStorage.setItem('spark_unsaved_post_edits', JSON.stringify(next));
+            else localStorage.removeItem('spark_unsaved_post_edits');
+            return true;
+        } catch (error) {
+            console.warn('Spark unsaved post backup failed', error);
+            return false;
+        }
+    };
+    const recordUnsavedPost = (post: SocialPost): boolean => {
+        failedThisSessionRef.current.add(post.id);
+        return updateUnsavedPostEdits({ ...unsavedPostEditsRef.current, [post.id]: post });
+    };
+    const forgetUnsavedPost = (id: string) => {
+        if (!unsavedPostEditsRef.current[id]) return;
+        const next = { ...unsavedPostEditsRef.current };
+        delete next[id];
+        failedThisSessionRef.current.delete(id);
+        updateUnsavedPostEdits(next);
+    };
     const autonomyTickRef = useRef<() => Promise<void>>(async () => {});
     const persistPostMutation = (write: () => Promise<unknown>): Promise<void> => {
         const running = postPersistenceRef.current.then(async () => { await write(); });
@@ -1304,7 +1334,8 @@ const SocialApp: React.FC = () => {
     };
 
     const prependPostsToFeed = (newPosts: SocialPost[], persist = true) => {
-        const registered = registerSparkPosts(newPosts);
+        if (clearingFeedRef.current || !mountedRef.current) return;
+        const registered = registerSparkPosts(newPosts.filter(post => !deletedPostIdsRef.current.has(post.id)));
         const existingIds = new Set(feedRef.current.map(post => post.id));
         const fresh = registered.filter(post => !existingIds.has(post.id));
         const next = prependUniqueSocialPosts(feedRef.current, fresh);
@@ -1322,8 +1353,18 @@ const SocialApp: React.FC = () => {
             writeCommunity(community);
         }
         if (persist) {
-            void Promise.all(fresh.map(p => persistPostMutation(() => DB.saveSocialPost(p))))
-                .catch(error => addToast('Spark 笔记保存失败，请勿关闭应用：' + (error?.message || error), 'error'));
+            fresh.forEach(post => {
+                void persistPostMutation(() => DB.saveSocialPost(post))
+                    .then(() => { if (feedRef.current.find(item => item.id === post.id) === post) forgetUnsavedPost(post.id); })
+                    .catch(error => {
+                        const live = feedRef.current.find(item => item.id === post.id);
+                        if (!live || deletedPostIdsRef.current.has(post.id) || clearingFeedRef.current) return;
+                        const backedUp = recordUnsavedPost(live);
+                        addToast(backedUp
+                            ? 'Spark 笔记未写入数据库，已留本地备份，可在首页重试：' + (error?.message || error)
+                            : 'Spark 笔记与备份均保存失败，请勿关闭页面：' + (error?.message || error), 'error');
+                    });
+            });
         }
     };
 
@@ -1338,8 +1379,22 @@ const SocialApp: React.FC = () => {
         feedRef.current = next;
         setFeed(next);
         setSelectedPost(current => current?.id === postId ? updated : current);
+        // Once a write has failed, keep later local edits in the emergency
+        // snapshot until a newer version has durably committed.
+        if (unsavedPostEditsRef.current[postId]) recordUnsavedPost(updated);
         void persistPostMutation(() => DB.saveSocialPost(updated))
-            .catch(error => addToast('Spark 修改保存失败，请重试：' + (error?.message || error), 'error'));
+            .then(() => {
+                if (feedRef.current.find(item => item.id === postId) === updated) forgetUnsavedPost(postId);
+            })
+            .catch(error => {
+                const live = feedRef.current.find(item => item.id === postId);
+                if (!live || deletedPostIdsRef.current.has(postId) || clearingFeedRef.current) return;
+                const backedUp = recordUnsavedPost(live);
+                addToast(backedUp
+                    ? '这篇笔记的修改尚未保存到数据库，已留本地备份，请点击重试：' + (error?.message || error)
+                    : '修改与备份均保存失败，请勿关闭页面：' + (error?.message || error), 'error');
+            });
+
         applyTraffic([updated]);
         if (before) {
             let community = communityRef.current;
@@ -1383,6 +1438,7 @@ const SocialApp: React.FC = () => {
         const removed = await deleteSparkPostWithFence(postId, deletedPostIdsRef.current,
             () => persistPostMutation(() => DB.deleteSocialPost(postId)));
         if (!removed) return;
+        forgetUnsavedPost(postId);
         const next = feedRef.current.filter(p => p.id !== postId);
         feedRef.current = next;
         setFeed(next);
@@ -2510,6 +2566,9 @@ ${buildSparkCommentHistory(post)}
         try {
             // Clear is destructive: only report success and remove live data after DB confirms it.
             await persistPostMutation(() => DB.clearSocialPosts());
+            // A cleared feed must never be revived from emergency local drafts.
+            failedThisSessionRef.current.clear();
+            updateUnsavedPostEdits({});
             if (!mountedRef.current) return;
             feedRef.current = [];
             setFeed([]);
@@ -2539,6 +2598,55 @@ ${buildSparkCommentHistory(post)}
             addToast('清空失败，已有帖子仍保留：' + (error?.message || error), 'error');
         } finally {
             clearingFeedRef.current = false;
+        }
+    };
+
+    const retryUnsavedPostWrites = async () => {
+        if (retryingUnsavedPosts || clearingFeedRef.current) return;
+        setRetryingUnsavedPosts(true);
+        let recovered = 0;
+        let skipped = 0;
+        let failed = 0;
+        try {
+            const pending = Object.entries(unsavedPostEditsRef.current);
+            for (const [id, cached] of pending) {
+                if (deletedPostIdsRef.current.has(id) || clearingFeedRef.current) { skipped++; continue; }
+                try {
+                    await persistPostMutation(async () => {
+                        if (deletedPostIdsRef.current.has(id) || clearingFeedRef.current) { skipped++; return; }
+                        const durable = (await DB.getSocialPosts()).find(item => item.id === id);
+                        const previousLive = feedRef.current.find(item => item.id === id);
+                        const fromCurrentSession = failedThisSessionRef.current.has(id) && !!previousLive;
+                        // Explicit retry may save a still-visible new post; a stale
+                        // cache alone may never recreate a post after deletion/clear.
+                        const target = selectSparkRecoverablePost(
+                            durable, cached, previousLive, fromCurrentSession);
+                        if (!target) { skipped++; return; }
+                        await DB.saveSocialPost(target);
+                        // An edit after this retry was queued takes priority.
+                        if (unsavedPostEditsRef.current[id] !== cached) return;
+                        if (!fromCurrentSession && previousLive && feedRef.current.find(item => item.id === id) === previousLive) {
+                            const next = feedRef.current.map(item => item.id === id ? target : item);
+                            feedRef.current = next;
+                            if (mountedRef.current) {
+                                setFeed(next);
+                                setSelectedPost(current => current?.id === id ? target : current);
+                            }
+                        }
+                        forgetUnsavedPost(id);
+                        recovered++;
+                    });
+                } catch (error) {
+                    failed++;
+                    console.warn('Spark post manual recovery failed', id, error);
+                }
+            }
+            if (recovered) addToast('已确认保存 ' + recovered + ' 篇 Spark 修改', 'success');
+            if (skipped || failed) addToast(
+                skipped + ' 篇对应的原帖已不存在或正在删除，未自动复活；' + failed + ' 篇重试写入失败，备份仍保留',
+                'error');
+        } finally {
+            if (mountedRef.current) setRetryingUnsavedPosts(false);
         }
     };
 
@@ -3027,6 +3135,11 @@ ${buildSparkCommentHistory(post)}
                     
                     {activeTab === 'home' && (
                         <div className="p-2 min-h-full">
+                            {Object.keys(unsavedPostEdits).length > 0 && <div role="alert" className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+                                <p>有 {Object.keys(unsavedPostEdits).length} 篇笔记的修改未确认写入数据库；不会自动覆盖已删除的笔记。</p>
+                                <button type="button" disabled={retryingUnsavedPosts} onClick={() => void retryUnsavedPostWrites()} className="mt-2 rounded-lg border border-amber-400 px-3 py-1.5 font-bold disabled:opacity-50">{retryingUnsavedPosts ? '正在确认保存…' : '重试保存修改'}</button>
+                            </div>}
+
                             {(pullDistance > 0 || isRefreshing) && <div className="flex justify-center items-center overflow-hidden text-[#555555]" style={{ height: isRefreshing ? 40 : pullDistance }}>
                                 <div className={`w-5 h-5 border-2 border-[#555555] border-t-transparent rounded-full ${isRefreshing ? 'animate-spin' : ''}`} style={{ transform: isRefreshing ? undefined : `rotate(${pullDistance * 5}deg)` }} />
                                 <span className="text-xs ml-2">{isRefreshing ? '正在刷新…' : pullDistance >= 65 ? '松开刷新' : '下拉刷新'}</span>
