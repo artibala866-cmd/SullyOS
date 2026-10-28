@@ -3938,6 +3938,8 @@ export interface FullBackupData {
     apiConfig?: APIConfig;
     /** 查手机 App 独立 API；null/缺省时跟随聊天默认。 */
     checkPhoneApi?: APIConfig | null;
+    /** Historical per-Char phone localStorage: restore only missing keys, do not reassign contacts. */
+    characterPhoneLegacyLocal?: Record<string, string>;
     pushVapid?: { vapidPublicKey: string; vapidPrivateKey: string; vapidEmail?: string; updatedAt?: number; };
     /**
      * 主动消息 2.0 的全局配置：Worker 地址、共享密钥、一键部署生成的 AMSG_MASTER_KEY、
