@@ -1,6 +1,6 @@
 # Dev Debug 调试子系统
 
-开发分支专用的"工具箱"：一个悬浮按钮 + 面板，放一堆**只在开发分支显示**的调试开关，外加一套可选的「分类捕获」日志——打开**总开关**「记录日志」后会露出并排的类型 checkbox（目前 `api` 普通聊天 / `amsg` 主动消息收发链路 / `lifecycle` 前后台 / `memory-palace` 记忆召回），勾哪类抓哪类。面板走极简：类型并排、无逐条说明（看不懂就别用）。正式分支（main / master）默认整个隐藏，用户看不到也不会误触。
+开发分支专用的"工具箱"：一个悬浮按钮 + 面板，放一堆**只在开发分支显示**的调试开关，外加一套可选的「分类捕获」日志——打开**总开关**「记录日志」后会露出并排的类型 checkbox（目前 `api` 普通聊天 / `amsg` 主动消息收发链路 / `lifecycle` 前后台 / `memory-palace` 记忆召回），勾哪类抓哪类。面板走极简：类型并排、无逐条说明（看不懂就别用）。当前唯一交付分支 `remove-checkphone-vrworld-lifesim` 默认隐藏；历史 main/master 保持旧的界面隐藏行为，不代表它们仍是开发目标。
 
 这份文档讲清楚它怎么运作，以及**怎么往里加新开关 / 加一类捕获日志**——照着步骤抄就行。
 
@@ -19,15 +19,16 @@ isDevDebugAvailable()  // utils/devDebug.ts
 
 | 情况 | 是否显示 |
 |------|---------|
-| 在 `main` / `master` 构建 | ❌ 隐藏（视为正式发布） |
+| 在 `remove-checkphone-vrworld-lifesim` 构建 | ❌ 隐藏（当前唯一指定交付分支） |
+| 在 `main` / `master` 构建 | ❌ 隐藏（保留原来的 UI 门禁，不改变仓库开发规则） |
 | 在其他分支构建 | ✅ 显示 |
 | 设了 `VITE_HIDE_BUILD_BADGE=1` | ❌ 强制隐藏（覆盖默认） |
-| 设了 `VITE_SHOW_BUILD_BADGE=1` | ✅ 强制显示（在 master 本地调试用） |
+| 设了 `VITE_SHOW_BUILD_BADGE=1` | ✅ 强制显示（仅在明确需要的本地调试时开启） |
 | 设置页底部连点「构建版本」5 下 | ✅ 显示（**手动解锁**，会话级、刷新即关，正式版临时排障用） |
 
 > 分支名的来源：CI 优先读 `GITHUB_REF_NAME` / `VERCEL_GIT_COMMIT_REF` / `CF_PAGES_BRANCH` / `BRANCH`，本地退化成 `git rev-parse --abbrev-ref HEAD`，非 git 环境是 `'unknown'`（`'unknown'` 不在发布分支集合里，所以会显示）。
 
-**关键含义**：在 master 上本地想调试，跑 `VITE_SHOW_BUILD_BADGE=1 pnpm dev` 即可，不用改代码。
+**关键含义**：在唯一开发与交付分支上默认隐藏调试浮球。需要本地排障时，明确设置 `VITE_SHOW_BUILD_BADGE=1 pnpm dev`；不应因此切换到 master。
 
 **正式版排障（手动解锁）**：设置页底部连点 `VersionInfo`（构建版本那栏）5 下 → `unlockDevDebug()` **会话级**解锁（**不落 localStorage**），`isDevDebugAvailable()` 放行、`<DevDebugPanel />` 经 `subscribeDevDebugAvailability` 即时弹出。
 
@@ -324,7 +325,7 @@ LLM 日志里的聊天历史动辄几十条，整段塞进 localStorage 很快�
 - **容量是全局共享的**（100 条 / 1 MB，各类混算）：某一类刷得很猛会把别的类挤掉，排查时注意。删了字符串截短之后每条 response 完整保留，单条体积变大（典型 5–10 KB），1 MB 大约 100 条上下——跟 MAX_LOG_ENTRIES 同档，先到先丢的保护仍然成立。
 - **`exposeLogDetail`（记录完整内容）必须复现前开**：它管的是"抓取时存不存完整"，不是导出时才展开。中途打开只对**之后**抓的生效，已经抓下来的折叠版还原不了（原文没存过）。这是用空间换的，符合"大多数时候不需要那堆历史"的设计取舍。
 - **存储按分支隔离**：切到别的分支构建，之前的开关状态 / 日志不会带过来，是预期行为。
-- **master 上看不到面板是正常的**，要么切开发分支，要么 `VITE_SHOW_BUILD_BADGE=1`。
+- **当前交付分支上默认看不到调试浮球是正常的**；需要排障时在该分支明确使用 `VITE_SHOW_BUILD_BADGE=1`，不应为调试创建或切换独立分支。
 - **行为开关默认值一律 `false`、捕获类默认不勾**：dev 开关是"出问题时手动打开来隔离变量"的，默认不能改变正常行为。
 
 ---
