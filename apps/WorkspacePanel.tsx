@@ -163,7 +163,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     if(typed!=='确认恢复并保留原件')return;
     setRecoveringWorkspace(true);
     try{
-      await queue.current;
+      // A failed normal save is EXPECTED with corrupted data. Wait for it to
+      // settle, but do not make that previous rejection block explicit recovery.
+      await queue.current.catch(()=>{});
       const result=await recoverDamagedWorkspace(typed);
       syncData(()=>result.workspace);
       setIntegrityWarnings([]);
