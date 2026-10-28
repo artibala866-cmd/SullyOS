@@ -2,7 +2,7 @@ name: Spark community regression
 on:
   push:
     branches:
-      - fix/spark-community-stability-20261028
+      - remove-checkphone-vrworld-lifesim
   pull_request:
     paths:
       - apps/SocialApp.tsx
