@@ -8,6 +8,7 @@ import '../apps/room3d/editor.css';
 import {createHome} from '../apps/room3d/model.js';
 import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
 import {mountHomeEditor} from '../apps/room3d/editor.js';
+import {Vector3} from 'three';
 const report={status:'starting',stage:'boot',errors:[],actions:[],seat:false,canvas:false,webgl:false,virtualAdvance:false};
 window.__home3dSmoke=report;
 const set=(stage,status)=>{report.stage=stage;if(status)report.status=status;const out=document.getElementById('result');out.dataset.status=report.status;out.textContent=JSON.stringify(report);};
@@ -379,7 +380,8 @@ function texture(color){
     assetBase:new URL('/room3d/',location.href).href,initialState:bathHome,
     onChange:()=>{},onBack:()=>{},timeZone:'Asia/Shanghai'
   });
-  editor.setVisitor(await createVisitor(parts,{bodyShape:'blank',layers:{}}));
+  const bathPerson=await createVisitor(parts,{bodyShape:'blank',layers:{}});
+  editor.setVisitor(bathPerson);
   command('chibi-bath',{id:'smoke-tub',kind:'bath-soak',station:''});
   let bathroom=null;
   for(let i=0;i<100;i++){
@@ -388,9 +390,31 @@ function texture(color){
    if(bathroom)break;
   }
   if(!bathroom)throw Error('Bathtub never reached a safe physical entry station');
-  editor.advancePets(1.8);
+  // Sample the actual animated rig, not just the controller's final status.
+  // These measurements are a diagnostic trace, not mesh/visual approval.
+  report.bathRigFrames=[];
+  for(let i=0;i<12;i++){
+   editor.advancePets(.15);
+   const state=editor.inspect(),root=state.chibiPosition;
+   const rim=state.chibiActivity?.bathHandWorld||[];
+   const handErrors=['L','R'].map((side,k)=>{
+    if(!rim[k])return null;
+    return bathPerson.rig.bones[side+'_hand'].getWorldPosition(new Vector3())
+     .distanceTo(new Vector3(...rim[k]));
+   });
+   report.bathRigFrames.push({
+    progress:Number(((i+1)*.15).toFixed(2)),root,
+    handErrors,leadTrailAngle:bathPerson.rig.bones.L_thigh.quaternion.angleTo(bathPerson.rig.bones.R_thigh.quaternion),
+    toes:['L','R'].map(side=>bathPerson.rig.bones[side+'_toe'].getWorldPosition(new Vector3()).toArray())
+   });
+  }
   if(!editor.inspect().chibiActivity?.bathJourney)
    throw Error('Bath entry stopped unexpectedly before cancellation');
+  const rimHeight=bathroom.edge[1],floorHeight=bathroom.front[1],targetHeight=bathroom.position[1];
+  if(report.bathRigFrames.some(f=>!f.root?.every(Number.isFinite)||f.root[1]>Math.max(floorHeight,targetHeight)+.04))
+   throw Error('Bath journey moved the complete skeleton above its floor-to-interior root range');
+  if(!report.bathRigFrames.some(f=>f.leadTrailAngle>.12))
+   throw Error('The bath transfer never produced separate near/trailing leg poses');
   const returnPoint=[...bathroom.front];
   command('chibi-game-stop');
   if(!Number.isFinite(editor.inspect().chibiActivity?.bathJourney?.cancelElapsed))
