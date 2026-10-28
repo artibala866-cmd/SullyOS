@@ -28,6 +28,18 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check modified backup integration TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/backup-tsc.log 2>&1 || true
+          grep -E '^(context/OSContext.tsx|utils/phoneLegacyBackup.ts|utils/phoneLegacyBackup.test.ts)[(]' /tmp/backup-tsc.log > /tmp/backup-target-errors.log || true
+          if [ -s /tmp/backup-target-errors.log ]; then
+            cat /tmp/backup-target-errors.log
+            exit 1
+          fi
+          echo "Character-phone backup integration has no TypeScript diagnostics."
+      - name: Test phone backup identity, privacy, and Spark draft protection
+        run: pnpm exec vitest run utils/phoneLegacyBackup.test.ts utils/socialFeedMerge.test.ts
       - name: Check STT provider and custom Call UI TypeScript diagnostics
         shell: bash
         run: |
