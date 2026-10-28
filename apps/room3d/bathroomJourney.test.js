@@ -117,3 +117,15 @@ describe('bathtub swept room clearance is checked before entering',()=>{
   });
  }
 });
+
+it('keeps unsupported legacy tub climbing closed without disabling standing bathroom devices',()=>{
+ const room={id:'bath',items:[
+  {id:'tub',assetId:'bath_tub',x:0,y:.18,z:0,rotation:0,stored:false},
+  {id:'washer',assetId:'bath_washer',x:2,y:.18,z:0,rotation:0,stored:false}
+ ]};
+ const legacy=bathroomActivities(room,catalog,{body2:false});
+ expect(legacy.find(a=>a.kind==='bath-soak')?.reason).toContain('安全跨浴缸');
+ expect(legacy.find(a=>a.kind==='bath-laundry')?.reason).not.toContain('安全跨浴缸');
+ const skeletal=bathroomActivities(room,catalog,{body2:true});
+ expect(skeletal.find(a=>a.kind==='bath-soak')?.reason).not.toContain('安全跨浴缸');
+});
