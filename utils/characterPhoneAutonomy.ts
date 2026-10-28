@@ -15,7 +15,7 @@ import { resolveCharTimeZone } from './timezone';
 import { extractContent } from './safeApi';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
 import { isCharacterPhoneRefreshing } from './characterPhoneRefreshTracker';
-import { canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyPreferences } from './characterPhoneApiBudget';
+import { canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyPreferences, bumpPhoneAutonomyRevision } from './characterPhoneApiBudget';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
 /** NPC phone autonomy shares the existing schedule/phone/event/AMSG pipeline.
@@ -43,6 +43,7 @@ export const isCharacterPhoneAutonomyEnabled = (charId: string): boolean => {
 export function setCharacterPhoneAutonomyEnabled(charId: string, enabled: boolean): void {
   if (enabled) localStorage.removeItem('sully_phone_autonomy_disabled_v1:' + charId);
   else localStorage.setItem('sully_phone_autonomy_disabled_v1:' + charId, '1');
+  bumpPhoneAutonomyRevision(charId);
   window.dispatchEvent(new CustomEvent('sully:character-phone-autonomy-changed', { detail: { characterId: charId, enabled } }));
 }
 const DAY = 24 * 3600000;

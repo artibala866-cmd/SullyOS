@@ -17,6 +17,7 @@
 
 import type { ActiveMsg2TaskRecord } from '../types';
 import { renderFireSceneBlock, type AmsgFireScene } from './amsgFireScene';
+import { renderAutonomyCrossDayHint } from './amsgAutonomyPolicy';
 import { DEFAULT_MAX_UNANSWERED_SENDS } from './amsgLimits';
 
 // 连发上限的默认值与解析搬进了 amsgLimits（和其余几项上限住在一起），这里转出去给老调用方。
@@ -910,6 +911,9 @@ export const renderFirePack = (
     taskListBlock?: string;
     realtimeWorldBlock?: string;
     includeClock?: boolean;
+    /** True only for automatic daily contact opportunities. Never injected
+     * into manual reminders or the independent private-chat prompt. */
+    autonomyWake?: boolean;
     /** 已解析的连发上限（Infinity = 不限）。 */
     maxUnansweredSends?: number;
     /**
@@ -978,6 +982,10 @@ export const renderFirePack = (
   out = fillSlot(out, AMSG_SLOT_SCENE, renderFireSceneBlock(pack.scene, nowMs, tz, {
     includeClock: extras?.includeClock !== false,
   }));
+  // No phone sync for days? Keep the recurring opportunity but explicitly
+  // revoke all present-tense authority from yesterday's planned activities.
+  // This is a cloud-autonomy-only ephemeral note, not a character prompt edit.
+  if(extras?.autonomyWake)out += renderAutonomyCrossDayHint(pack.scene,nowMs,pack.tzId);
   // 实时世界那一段是独立的一整块，前导空行在这里补：拉到东西才隔开成段，
   // 没拉到（或功能没开）填空串，输出跟没有这个槽位时一模一样。
   const realtimeWorld = extras?.realtimeWorldBlock?.trim();

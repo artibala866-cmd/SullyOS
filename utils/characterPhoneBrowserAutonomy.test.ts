@@ -56,6 +56,27 @@ describe('Char autonomous Baidu search history',()=>{
     expect(retry.status).toBe('skipped');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('rechecks permission after a pending background search; off/on cycles revoke the old result',async()=>{
+    let release!:(value:any)=>void;
+    const pending=new Promise<any>(resolve=>{release=resolve;});
+    const fetchMock=vi.fn(()=>pending);
+    vi.stubGlobal('fetch',fetchMock);
+    const {writePhoneAutonomyPreferences}=await import('./characterPhoneApiBudget');
+    const promise=runCharacterPhoneBrowserAutonomy(input,'background');
+    for(let i=0;i<60&&fetchMock.mock.calls.length===0;i++)await new Promise(r=>setTimeout(r,0));
+    expect(fetchMock).toHaveBeenCalledOnce();
+    writePhoneAutonomyPreferences('char',{backgroundApiEnabled:false});
+    writePhoneAutonomyPreferences('char',{backgroundApiEnabled:true});
+    release({ok:true,status:200,headers:{get:()=> 'application/json'},
+      text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({
+        search:true,records:[{title:'查新书',query:'新书目录文学艺术',
+          reason:'我想找这本新书',note:'准备查',mood:'好奇',sourceEventIds:[]}],
+      })}}]})});
+    expect((await promise).status).toBe('skipped');
+    expect(readCharacterPhoneBrowserHistory('char')).toHaveLength(0);
+    expect(readCharacterLifeEvents('char').filter(e=>e.kind==='browser-search')).toHaveLength(0);
+  });
   it('does not generate search history while asleep in background',async()=>{
     vi.mocked(getCharacterLifeScheduleContext).mockResolvedValueOnce({
       characterId:'char',observedAt:Date.now(),plannedActivity:'睡觉',

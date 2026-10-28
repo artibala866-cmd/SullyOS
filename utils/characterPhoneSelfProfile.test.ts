@@ -30,6 +30,27 @@ describe('Shared Char avatar vision and profile',()=>{
     expect(readCharacterAvatarLibrary('c').entries.find(e=>e.id===old.id)?.visionModel)
       .toBe('vision-model');
   });
+
+  it('does not apply an old profile result when background API was turned off and back on during request',async()=>{
+    const {writePhoneAutonomyPreferences}=await import('./characterPhoneApiBudget');
+    let release!:(value:any)=>void;
+    const pending=new Promise<any>(resolve=>{release=resolve;});
+    const fetchMock=vi.fn(()=>pending);
+    vi.stubGlobal('fetch',fetchMock);
+    const apply=vi.fn(async()=>{});
+    const job=runCharacterPhoneSelfAutonomy(char,api,apply);
+    for(let i=0;i<60&&fetchMock.mock.calls.length===0;i++)await new Promise(r=>setTimeout(r,0));
+    expect(fetchMock).toHaveBeenCalledOnce();
+    writePhoneAutonomyPreferences('c',{backgroundApiEnabled:false});
+    writePhoneAutonomyPreferences('c',{backgroundApiEnabled:true});
+    release({ok:true,status:200,headers:{get:()=> 'application/json'},
+      text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({
+        pokeSuffix:'的旧背包',reason:'过期决定',avatarId:'',
+      })}}]})});
+    expect(await job).toBe('skipped');
+    expect(apply).not.toHaveBeenCalled();
+    expect(readCharacterPhoneSelfProfile('c').pokeSuffix).toBe('');
+  });
   it('updates AI poke suffix and only chooses a recognized avatar ID',async()=>{
     addCharacterAvatar('c','https://example.invalid/unseen.jpg','upload');
     const described=addCharacterAvatar('c','https://example.invalid/quiet.jpg','upload',{

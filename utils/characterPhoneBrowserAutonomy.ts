@@ -11,7 +11,7 @@ import {
 import { extractContent } from './safeApi';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
 import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
-import { readPhoneAutonomyPreferences, canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
+import { readPhoneAutonomyPreferences, canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyRevision } from './characterPhoneApiBudget';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
 type Api = { baseUrl: string; apiKey: string; model: string };
@@ -68,6 +68,13 @@ export async function runCharacterPhoneBrowserAutonomy(
     return {status:'skipped',count:0,reason:'上游暂时不可用，后台已暂停'};
   if (locks.has(char.id)) return {status:'skipped',count:0,reason:'正在生成'};
   locks.add(char.id);
+  const startRevision=readPhoneAutonomyRevision(char.id);
+  const stillAllowed=()=>mode!=='background'||(
+    isCharacterPhoneAutonomyEnabled(char.id) &&
+    readPhoneAutonomyPreferences(char.id).backgroundApiEnabled &&
+    readPhoneAutonomyPreferences(char.id).browserAutoEnabled &&
+    readPhoneAutonomyRevision(char.id)===startRevision
+  );
   const now=Date.now();
   try {
     const state=readState(char.id,now);
@@ -87,6 +94,7 @@ export async function runCharacterPhoneBrowserAutonomy(
     const context=await buildCharacterPhoneContext(char,user,groups,realtimeConfig);
     // Reserve network budget before request: a failing provider must not run
     // forever in the background or be triggered by every page remount.
+    if (!stillAllowed())return {status:'skipped',count:0,reason:'后台浏览权限已变化'};
     if (mode==='background' && !reservePhoneApiBudget(char.id))
       return {status:'skipped',count:0,reason:'自主调用预算已用完'};
     state.lastAttemptAt=now;state.attempts++;
@@ -114,6 +122,9 @@ export async function runCharacterPhoneBrowserAutonomy(
     const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
     const data=JSON.parse(raw);
     if(data?.search!==true || !Array.isArray(data.records)) return {status:'skipped',count:0};
+    // The user may have disabled background phone AI while this LLM was
+    // in flight. Do not persist fabricated "already browsed" records.
+    if (!stillAllowed())return {status:'skipped',count:0,reason:'后台浏览权限已变化'};
     const allowId=new Set(confirmed.map(e=>e.id));
     const saved:PhoneBrowserVisit[]=[];
     for(const item of data.records.slice(0,2)) {

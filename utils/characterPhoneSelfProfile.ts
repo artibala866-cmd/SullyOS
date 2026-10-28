@@ -5,7 +5,8 @@ import {
 } from './characterAvatarLibrary';
 import { extractContent } from './safeApi';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
-import { readPhoneAutonomyPreferences, canUsePhoneApiBudget, reservePhoneApiBudget } from './characterPhoneApiBudget';
+import { readPhoneAutonomyPreferences, canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyRevision } from './characterPhoneApiBudget';
+import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
 export type PhoneSelfProfile = {
@@ -55,6 +56,14 @@ export async function runCharacterPhoneSelfAutonomy(
   if(!char.id || !api.baseUrl || !api.apiKey || !api.model || typeof localStorage==='undefined')
     return 'skipped';
   if(lock.has(char.id))return 'skipped';
+  const startRevision=readPhoneAutonomyRevision(char.id);
+  const stillAllowed=()=>force||(
+    isCharacterPhoneAutonomyEnabled(char.id) &&
+    readPhoneAutonomyPreferences(char.id).backgroundApiEnabled &&
+    readPhoneAutonomyPreferences(char.id).selfProfileAutoEnabled &&
+    readPhoneAutonomyRevision(char.id)===startRevision
+  );
+  if(!stillAllowed())return 'skipped';
   if(!force && !canRunAutomaticPhoneAi(char.id,api.baseUrl.replace(/\/+$/,'')+'/chat/completions'))return 'skipped';
   if(!force && (!readPhoneAutonomyPreferences(char.id).selfProfileAutoEnabled || !canUsePhoneApiBudget(char.id)))return 'skipped';
   const now=Date.now();
@@ -72,6 +81,7 @@ export async function runCharacterPhoneSelfAutonomy(
     if(!force && /睡觉|入睡|就寝|休息/.test(life.plannedActivity||''))
       return 'skipped';
     // Update a single social profile + image together without extra API calls.
+    if(!stillAllowed())return 'skipped';
     if(!force && !reservePhoneApiBudget(char.id))return 'skipped';
     localStorage.setItem(cooldownKey(char.id),String(now));
     const { response, json } = await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
@@ -92,6 +102,7 @@ export async function runCharacterPhoneSelfAutonomy(
       ]}),
     }, { charId: char.id, purpose: '角色微信资料自主更新', automatic: !force });
     if(!response.ok)throw new Error(json?.error?.message||'头像偏好 AI 请求失败');
+    if(!stillAllowed())return 'skipped';
     const raw=extractContent(json).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
     const data=JSON.parse(raw);
     let suffix=typeof data?.pokeSuffix==='string'?data.pokeSuffix.trim().replace(/[<>\r\n]/g,'').slice(0,48):'';

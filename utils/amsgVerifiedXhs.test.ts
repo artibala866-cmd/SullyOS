@@ -1,7 +1,14 @@
 import {describe,expect,it} from 'vitest';
-import {extractVerifiedXhsActions} from './amsgVerifiedXhs';
+import {extractVerifiedXhsActions,verifiedXhsToolSucceeded} from './amsgVerifiedXhs';
 import {eventsForVerifiedXhsActions} from './amsgPhoneEvent';
 describe('confirmed cloud XHS activity only',()=>{
+  it('requires structured actual success, not no-results, unreachable, or AI text',()=>{
+    expect(verifiedXhsToolSucceeded('xhs_search',{ok:true,notes:['confirmed']})).toBe(true);
+    expect(verifiedXhsToolSucceeded('xhs_search',{ok:false,reason:'no_results'})).toBe(false);
+    expect(verifiedXhsToolSucceeded('xhs_browse',{ok:false,reason:'unreachable'})).toBe(false);
+    expect(verifiedXhsToolSucceeded('xhs_detail','I saw it!')).toBe(false);
+    expect(verifiedXhsToolSucceeded('web_search',{ok:true})).toBe(false);
+  });
  it('excludes failed and duplicated actions, private keywords and unrelated tools',()=>{
   expect(extractVerifiedXhsActions([
    {name:'xhs_search',fingerprint:'secret-keyword',ran:true},

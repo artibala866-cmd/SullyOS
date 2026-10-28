@@ -147,7 +147,7 @@ import {
   type McpSessionState,
 } from '../../../utils/mcpFireCore';
 import { dispatchAgenticTool, type AgenticToolChar, type AgenticToolCtx } from '../../../utils/agenticTools';
-import { extractVerifiedXhsActions } from '../../../utils/amsgVerifiedXhs';
+import { extractVerifiedXhsActions, isVerifiedXhsAction, verifiedXhsToolSucceeded } from '../../../utils/amsgVerifiedXhs';
 import {
   buildDuplicateToolMessage,
   buildToolResultMessage,
@@ -1280,6 +1280,9 @@ const TASK_MUTATING_TOOLS = new Set<string>([
 const toolDidSomething = (name: string, result: unknown): boolean => {
   if (!result || typeof result !== 'object') return true;
   if (TASK_MUTATING_TOOLS.has(name)) return (result as { ok?: unknown }).ok !== false;
+  // Success of an XHS receipt is a stronger claim than just attempting a
+  // request. An empty result or failed MCP cannot become a phone life fact.
+  if (isVerifiedXhsAction(name)) return verifiedXhsToolSucceeded(name,result);
   return !neverRan(result);
 };
 
@@ -2392,6 +2395,7 @@ export const amsgHooks = {
       // 「此刻在做什么」里的钟点跟今日节日同一个开关：关掉时间感知的角色不该从日程块
       // 读到「23:00」——那正是这个开关要挡的东西。日程内容本身照给。
       includeClock: toolPack.timeAwarenessEnabled,
+      autonomyWake,
     }), userHoliday) + mcpBlock + scheduleBlock;
     return {
       messages: [{ role: 'user' as const, content: prompt }],

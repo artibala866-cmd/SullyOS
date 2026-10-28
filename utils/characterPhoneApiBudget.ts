@@ -29,6 +29,23 @@ export type PhoneApiBudgetInfo = PhoneApiBudgetState & {
   pace: PhoneApiPace;
   minIntervalMinutes: number;
 };
+const AUTONOMY_REVISION_PREFIX='sully_phone_autonomy_revision_v1:';
+/** Persist a monotonic revision so a phone AI call started before an off/on
+ * switch cycle cannot overwrite newly chosen phone autonomy preferences.
+ * This is not an API request and stores no chat content.
+ */
+export function readPhoneAutonomyRevision(characterId:string):number{
+  if(!characterId||typeof localStorage==='undefined')return 0;
+  try{
+    const x=Number(localStorage.getItem(AUTONOMY_REVISION_PREFIX+characterId));
+    return Number.isSafeInteger(x)&&x>0?x:0;
+  }catch{return 0;}
+}
+export function bumpPhoneAutonomyRevision(characterId:string):void{
+  if(!characterId||typeof localStorage==='undefined')return;
+  try{localStorage.setItem(AUTONOMY_REVISION_PREFIX+characterId,
+    String(readPhoneAutonomyRevision(characterId)+1));}catch{/* private mode */}
+}
 const SETTINGS_PREFIX = 'sully_char_phone_api_preferences_v1:';
 const BUDGET_PREFIX = 'sully_char_phone_api_budget_v1:';
 export const CHARACTER_PHONE_API_SETTINGS_CHANGED = 'sully:character-phone-api-settings-changed';
@@ -95,6 +112,7 @@ export function writePhoneAutonomyPreferences(characterId:string, updates:Partia
     chatPiggybackEnabled:typeof updates.chatPiggybackEnabled==='boolean'?updates.chatPiggybackEnabled:old.chatPiggybackEnabled,
   };
   localStorage.setItem(SETTINGS_PREFIX+characterId,JSON.stringify(next));
+  bumpPhoneAutonomyRevision(characterId);
   if (typeof window!=='undefined') window.dispatchEvent(new CustomEvent(CHARACTER_PHONE_API_SETTINGS_CHANGED,{
     detail:{characterId},
   }));
