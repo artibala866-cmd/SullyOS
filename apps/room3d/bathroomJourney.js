@@ -17,6 +17,18 @@ export function createBathroomJourney(activity,front,startRotation){
 /** Keep the authored rim contact positions fixed in the room while the actor turns.
  * The IK player takes actor-local goals, not goals that follow the moving root.
  * No contact point is inferred from the furniture's bounding box. */
+/** Refuse a skeletal rim crossing when neither authored palm target is
+ * plausibly reachable from its actual entrance. Never guess a bbox grip. */
+export function bathroomRimReachable(activity,front,reach){
+ if(activity?.kind!=='bath-soak')return true;
+ if(!Array.isArray(activity.bathHandWorld)||!activity.bathHandWorld.length)return false;
+ // A legacy non-skeletal character has no actual joint reach model.
+ if(!reach||!Number.isFinite(reach.armReach)||!Number.isFinite(reach.shoulderHeight))return true;
+ const shoulderY=front[1]+reach.shoulderHeight;
+ return activity.bathHandWorld.some(([x,y,z])=>
+  Math.hypot(x-front[0],y-shoulderY,z-front[2])<=reach.armReach*1.12+.22);
+}
+
 export function bathroomHandTargets(activity,frame){
  if(!Array.isArray(activity.bathHandWorld)||!frame)return activity.bathHands;
  const c=Math.cos(frame.rotation),s=Math.sin(frame.rotation);
