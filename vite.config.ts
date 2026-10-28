@@ -5,6 +5,7 @@ import { bakeVoiceMiddleware } from './server/bake-voice-middleware';
 import { staticCachePlugin } from './scripts/static-cache-build';
 import { startupRecoveryPlugin } from './scripts/startup-recovery-plugin';
 import { APP_VERSION_TAG } from './utils/appVersion';
+import { shouldShowBuildBadge } from './scripts/buildBadgeVisibility';
 
 // MiniMax 国服 / 海外是两套域名，前端每个请求都带 X-MiniMax-Region 头说明走哪边。
 // Vite 的开发代理底层是 http-proxy，不认 router 选项，所以在 configure 里包一层 proxy.web，
@@ -26,11 +27,10 @@ const routeMinimaxByRegion: ProxyOptions['configure'] = (proxy) => {
 // 非 git 环境（容器、tarball 部署）退化成 'unknown'，不影响构建。
 //
 // 显示规则：
-//   - 默认在 main / master 上隐藏（视为正式发布），其他分支显示
+//   - 唯一交付分支 remove-checkphone-vrworld-lifesim 默认隐藏调试 UI；历史 main/master 保持原行为
 //   - CI detached HEAD 优先读 GITHUB_REF_NAME / VERCEL_GIT_COMMIT_REF / CF_PAGES_BRANCH / BRANCH(Netlify)
 //   - VITE_HIDE_BUILD_BADGE=1 强制隐藏（覆盖默认）
-//   - VITE_SHOW_BUILD_BADGE=1 强制显示（在 master 本地调试用）
-const RELEASE_BRANCHES = new Set(['main', 'master']);
+//   - VITE_SHOW_BUILD_BADGE=1 强制显示（仅限明确授权的本地调试）
 const UTC8_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function formatBuildTimeUtc8(date = new Date()): string {
@@ -65,10 +65,7 @@ const gitInfo = { branch: readBranch(), commit: readCommit() };
 const buildTime = formatBuildTimeUtc8();
 // 开头是构建时间（36 进制），网页更新靠它比较两个版本谁新谁旧，别改掉这个前缀。
 const appBuildId = `${Date.now().toString(36)}-${gitInfo.commit}`;
-const isReleaseBranch = RELEASE_BRANCHES.has(gitInfo.branch);
-let showBuildBadge = !isReleaseBranch;
-if (process.env.VITE_HIDE_BUILD_BADGE === '1') showBuildBadge = false;
-if (process.env.VITE_SHOW_BUILD_BADGE === '1') showBuildBadge = true;
+const showBuildBadge = shouldShowBuildBadge(gitInfo.branch, process.env);
 
 export default defineConfig({
   resolve: {
