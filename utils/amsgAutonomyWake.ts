@@ -5,7 +5,7 @@
 import type {ActiveMsg2CharacterConfig,ActiveMsg2TaskRecord,APIConfig,CharacterProfile,GroupProfile,RealtimeConfig,ScheduleSlot,UserProfile} from '../types';
 import {ActiveMsgClient} from './activeMsgClient';
 import {getDailyScheduleForChar} from './dailySchedule';
-import {isPendingTask} from './amsg2Tasks';
+import {isPendingTask,reconcileTasksWithRemote} from './amsg2Tasks';
 import {resolveAmsgLimits} from './amsgLimits';
 import {classifyLifeActivity} from './sullyLifeClock';
 import {getScheduleDateKey} from './scheduleTime';
@@ -80,10 +80,31 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
   try{
     const g=await ActiveMsgClient.getGlobalConfig();
     if(!g.workerUrl?.trim())throw new Error('未配置主动消息 2.0 的云端 Worker');
+    // The browser can disappear AFTER cloud schedule success but BEFORE local
+    // persist. Never make another daily task based on an empty local list:
+    // adopt any cloud-owned autowakes first. This also handles app restarts.
+    const remote=await ActiveMsgClient.listRemoteTasksForChar(char.id);
+    const cloudWakes=remote.filter(t=>
+      t.clientTaskId?.startsWith('autowake:')
+      && t.status!=='failed' && t.status!=='cancelled' && t.status!=='completed'
+    );
+    if(cloudWakes.some(t=>!t.nextSendAt||!t.recurrenceType||!t.messageType)){
+      throw new Error('云端已有自主联系任务，但当前 Worker 缺少对账字段；为避免重复发消息，暂不创建第二份');
+    }
+    const tasks=reconcileTasksWithRemote(active,cloudWakes);
+    const restored=tasks.filter(t=>isAutonomyWakeTask(t)
+      && !active.some(existing=>existing.taskUuid===t.taskUuid));
+    if(restored.length){
+      args.onSave(prev=>prev?.enabled===false?prev:{
+        ...(prev||{enabled:true}),
+        tasks:[...(prev?.tasks||[]),...restored.filter(t=>
+          !(prev?.tasks||[]).some(existing=>existing.taskUuid===t.taskUuid))],
+        lastSyncedAt:Date.now(),
+      });
+    }
     const schedule=await getDailyScheduleForChar(char).catch(()=>null);
     const targets=planAutonomyWakes(char,schedule?.slots||null);
-    const existing=new Set(have.map(t=>t.clientTaskId.split(':')[1]));
-    const tasks=[...active];
+    const existing=new Set(tasks.filter(isAutonomyWakeTask).map(t=>t.clientTaskId.split(':')[1]));
     for(const target of targets){
       if(existing.has(target.slot)||tasks.length>=resolveAmsgLimits(char.activeMsg2Config).maxActiveTasks)continue;
       const result=await ActiveMsgClient.scheduleCharacterTask({

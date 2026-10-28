@@ -37,6 +37,8 @@ describe('cloud wake bootstrap, not an inert switch',()=>{
     // mocked so no credential or Cloudflare account is touched in tests.
     const previousGlobal=ActiveMsgClient.getGlobalConfig;
     const previousSchedule=ActiveMsgClient.scheduleCharacterTask;
+    const previousRemote=ActiveMsgClient.listRemoteTasksForChar;
+    (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[];
     let count=0, saved:any={enabled:true,tasks:[]};
     (ActiveMsgClient as any).getGlobalConfig=async()=>({workerUrl:'https://example.com'});
     (ActiveMsgClient as any).scheduleCharacterTask=async(params:any)=>({
@@ -61,6 +63,67 @@ describe('cloud wake bootstrap, not an inert switch',()=>{
     }finally{
       (ActiveMsgClient as any).getGlobalConfig=previousGlobal;
       (ActiveMsgClient as any).scheduleCharacterTask=previousSchedule;
+      (ActiveMsgClient as any).listRemoteTasksForChar=previousRemote;
     }
   });
+});
+
+describe('AMSG2 cloud/local lost-ledger repair',()=>{
+ it('adopts a real remote daily wake and never creates a duplicate when the local task save was lost',async()=>{
+   const {ensureAutonomyWakes}=await import('./amsgAutonomyWake');
+   const {ActiveMsgClient}=await import('./activeMsgClient');
+   const prevConfig=ActiveMsgClient.getGlobalConfig;
+   const prevSchedule=ActiveMsgClient.scheduleCharacterTask;
+   const prevRemote=ActiveMsgClient.listRemoteTasksForChar;
+   let created=0;let config:any={enabled:true,tasks:[]};
+   const profile:any={...char,id:'repair-remote-wake',activeMsg2Config:config};
+   (ActiveMsgClient as any).getGlobalConfig=async()=>({workerUrl:'https://example.com'});
+   (ActiveMsgClient as any).scheduleCharacterTask=async(opts:any)=>{
+     created++;return {uuid:'created:'+created,
+       clientTaskId:'autowake:'+opts.task.autonomyWakeSlot+':created',
+       firstSendAt:opts.task.firstSendTime};
+   };
+   (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[
+     {uuid:'orphan-cloud-1',clientTaskId:'autowake:day:orphan',
+       messageType:'auto',recurrenceType:'daily',nextSendAt:new Date(Date.now()+86400000).toISOString(),status:'pending'},
+   ];
+   try{
+     await ensureAutonomyWakes({
+       char:profile,apiConfig:{} as any,userProfile:{} as any,groups:[],realtimeConfig:{} as any,
+       onSave:update=>{config=update(config);profile.activeMsg2Config=config;},
+     });
+     expect(config.tasks.some((t:any)=>t.taskUuid==='orphan-cloud-1')).toBe(true);
+     expect(config.tasks.filter((t:any)=>t.clientTaskId.startsWith('autowake:day:'))).toHaveLength(1);
+     expect(created).toBeLessThanOrEqual(1);
+   }finally{
+     (ActiveMsgClient as any).getGlobalConfig=prevConfig;
+     (ActiveMsgClient as any).scheduleCharacterTask=prevSchedule;
+     (ActiveMsgClient as any).listRemoteTasksForChar=prevRemote;
+   }
+ });
+ it('refuses to create a second task if Worker cannot return safe remote identity fields',async()=>{
+   const {ensureAutonomyWakes}=await import('./amsgAutonomyWake');
+   const {ActiveMsgClient}=await import('./activeMsgClient');
+   const oldGlobal=ActiveMsgClient.getGlobalConfig,oldRemote=ActiveMsgClient.listRemoteTasksForChar;
+   const oldSchedule=ActiveMsgClient.scheduleCharacterTask;
+   const profile:any={...char,id:'repair-unsafe-worker',activeMsg2Config:{enabled:true,tasks:[]}};
+   let created=0;
+   (ActiveMsgClient as any).getGlobalConfig=async()=>({workerUrl:'https://example.com'});
+   (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[{
+     uuid:'old',clientTaskId:'autowake:day:orphan',status:'pending',
+   }];
+   (ActiveMsgClient as any).scheduleCharacterTask=async()=>{created++;throw Error('should not be called')};
+   try{
+     await ensureAutonomyWakes({char:profile,apiConfig:{} as any,userProfile:{} as any,groups:[],
+       realtimeConfig:{} as any,onSave:update=>{
+         profile.activeMsg2Config=update(profile.activeMsg2Config);
+       }});
+     expect(created).toBe(0);
+     expect(profile.activeMsg2Config.lastError).toMatch(/对账字段/);
+   }finally{
+     (ActiveMsgClient as any).getGlobalConfig=oldGlobal;
+     (ActiveMsgClient as any).scheduleCharacterTask=oldSchedule;
+     (ActiveMsgClient as any).listRemoteTasksForChar=oldRemote;
+   }
+ });
 });
