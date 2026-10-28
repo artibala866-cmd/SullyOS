@@ -459,6 +459,12 @@ export interface PostProcessApiCall {
 export interface PostProcessMusicHooks {
     getListeningSnapshot: () => {
         songId: number;
+        /** Optional source identity; no change to private-chat prompts. */
+        musicSource?: 'netease' | 'tencent';
+        platformId?: string;
+        mid?: string;
+        lyricId?: string;
+        musicLocal?: boolean;
         name: string;
         artists: string;
         album: string;
@@ -467,6 +473,11 @@ export interface PostProcessMusicHooks {
         fee: number;
     } | null;
     joinListeningTogether: (charId: string) => void | Promise<void>;
+    inviteUserListening?: (charId: string) => void | Promise<void>;
+    rejectListeningInvite?: (charId: string) => void | Promise<void>;
+    stopListeningTogether?: (charId: string) => void;
+    playListeningTrack?: (charId: string, query: string) => boolean | Promise<boolean>;
+    favoriteListeningTrack?: (charId: string, query?: string) => Promise<boolean>;
     addSongToCharPlaylist: (
         charId: string,
         song: any,

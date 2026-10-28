@@ -15,6 +15,6 @@ export const findPendingMusicInvite = <T extends { id?: number; metadata?: any }
     !!message.metadata?.musicListenInvite &&
     (inviter === 'char' ? message.metadata?.inviter === 'char' : message.metadata?.inviter !== 'char') &&
     (messageId === undefined || message.id === messageId) &&
-    !resolved.has(message.id) &&
+    typeof message.id === 'number' && !resolved.has(message.id) &&
     message.metadata?.status !== 'cancelled');
 };

@@ -13,6 +13,7 @@ import React, {
 } from 'react';
 import { cachedCall as _cachedCall, invalidate as _invalidateCache, clearAll as _clearAllCache } from '../utils/musicCache';
 import { DB } from '../utils/db';
+import type { CharPlaylistSong } from '../types';
 import { findPendingMusicInvite } from '../utils/musicInviteStatus';
 import {
   musicKey, sameMusic, normalizeTencentSong, tencentSearchRows, extractMusicUrl,
@@ -1567,7 +1568,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return null;
         }
       },
-      favoriteListeningTrack: async (cid, query) => {
+      favoriteListeningTrack: async (cid: string, query?: string) => {
         const needle = query?.trim().toLocaleLowerCase();
         const selected = needle
           ? queueRef.current.find(song => song.name.toLocaleLowerCase() === needle || song.name.toLocaleLowerCase().includes(needle))
