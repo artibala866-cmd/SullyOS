@@ -266,8 +266,8 @@ const ScheduleApp: React.FC = () => {
           <div className="text-sm">完成任务：{tasks.filter(t => t.done).length} 项</div>
           <p className="text-xs text-[#aaaaaa]">仅统计完整结束的专注轮次；数据保存在当前浏览器。</p>
         </section>}
-        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss}/>}
-        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss}/>}
+        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} selectedCharId={charId} onSelectChar={setCharId}/>}
+        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} selectedCharId={charId} onSelectChar={setCharId}/>}
 
       </main>
       <nav className="shrink-0 grid grid-cols-4 gap-1 px-2 py-3 border-t border-neutral-200 bg-white"

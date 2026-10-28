@@ -58,7 +58,22 @@ export interface ClassNote {
   body: string;
   createdAt: number;
 }
+export type WorkspaceReminderKind = 'commission' | 'homework';
+export type WorkspaceReminderStatus = 'creating' | 'scheduled' | 'cancel_failed' | 'needs_review';
+/** Separate local link: never injected into normal private-chat context. */
+export interface WorkspaceReminder {
+  id: string;
+  kind: WorkspaceReminderKind;
+  itemId: string;
+  charId: string;
+  fireAt: string; // absolute ISO from the user's local datetime picker
+  taskUuid?: string;
+  clientTaskId?: string;
+  status: WorkspaceReminderStatus;
+  error?: string;
+}
 export interface WorkspaceData {
+  reminders: WorkspaceReminder[];
   commissions: Commission[];
   classes: TimetableClass[];
   homework: ClassHomework[];
@@ -66,7 +81,7 @@ export interface WorkspaceData {
   dailyAvailableMinutes: number; // 绘画与学习共同的日可用预算
 }
 export const emptyWorkspace = (): WorkspaceData => ({
-  commissions: [], classes: [], homework: [], notes: [], dailyAvailableMinutes: 240,
+  commissions: [], classes: [], homework: [], notes: [], reminders: [], dailyAvailableMinutes: 240,
 });
 export const localDate = (date: Date): string =>
   [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
@@ -84,6 +99,7 @@ export function normalizeWorkspace(raw: unknown): WorkspaceData {
     classes: Array.isArray(obj.classes) ? obj.classes : [],
     homework: Array.isArray(obj.homework) ? obj.homework : [],
     notes: Array.isArray(obj.notes) ? obj.notes : [],
+    reminders: Array.isArray(obj.reminders) ? obj.reminders : [],
     dailyAvailableMinutes: Number.isFinite(obj.dailyAvailableMinutes)
       ? Math.max(0, Math.min(1440, Number(obj.dailyAvailableMinutes))) : fallback.dailyAvailableMinutes,
   };
@@ -98,6 +114,21 @@ export function writeWorkspace(workspace: WorkspaceData): Promise<void> {
   pendingSave = pendingSave.catch(() => {}).then(() => DB.saveAssetRaw(WORKSPACE_ASSET_ID, workspace));
   return pendingSave;
 }
+/** Serial read-modify-write with other workspace writes, for confirmed remote task links. */
+export async function mutateWorkspace(
+  update: (prev: WorkspaceData) => WorkspaceData,
+): Promise<WorkspaceData> {
+  let saved: WorkspaceData | undefined;
+  const transaction = pendingSave.catch(() => {}).then(async () => {
+    const current = normalizeWorkspace(await DB.getAssetRaw(WORKSPACE_ASSET_ID));
+    saved = update(current);
+    await DB.saveAssetRaw(WORKSPACE_ASSET_ID, saved);
+  });
+  pendingSave = transaction;
+  await transaction;
+  return saved!;
+}
+
 
 /** 优先按手动队列顺序；风险统计则必须按真实截止日期排序。 */
 export function orderedCommissions(items: Commission[], includeArchived = false): Commission[] {

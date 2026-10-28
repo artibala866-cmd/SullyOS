@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { putImageBlob } from '../utils/blobRef';
 import { recognizeCourseImage, type CourseImageDraft } from '../utils/sullyTimetableVision';
+import WorkspaceReminderControls from './WorkspaceReminderControls';
+import { cancelItemReminders } from '../utils/studyRoomReminders';
 import {
   calculatePlanRisks, emptyWorkspace, localDate, newWorkspaceId,
   orderedCommissions, readWorkspace, writeWorkspace,
@@ -16,6 +18,8 @@ interface Props {
   records: FocusLog[];
   onFocus: (kind: WorkKind, id: string, title: string) => void;
   onDiscuss: (topic: string) => void;
+  selectedCharId: string;
+  onSelectChar: (id:string) => void;
 }
 const inputClass = 'w-full min-w-0 bg-white border border-neutral-300 text-neutral-900 rounded-lg p-2.5 text-sm';
 const buttonClass = 'rounded-lg bg-neutral-900 text-white px-3 py-2 text-sm disabled:opacity-40';
@@ -32,7 +36,7 @@ const blankClass = () => ({
   teacher:'',location:'',note:'',
 });
 
-const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onDiscuss}) => {
+const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onDiscuss, selectedCharId, onSelectChar}) => {
   const { apiConfig, addToast } = useOS();
   const [data, setData] = useState<WorkspaceData>(emptyWorkspace);
   const [loaded, setLoaded] = useState(false);
@@ -70,6 +74,32 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const change = (fn: (old:WorkspaceData)=>WorkspaceData) => {
     touched.current = true;
     setData(fn);
+  };
+  const onReminderUpdate = (reminders: WorkspaceData['reminders']) =>
+    setData(prev => ({...prev,reminders}));
+  const stopItemReminders = async (kind:'commission'|'homework', id:string) => {
+    try {
+      const result = await cancelItemReminders(kind,id);
+      onReminderUpdate(result.workspace.reminders);
+      if(result.failed) addToast(
+        '有 '+result.failed+' 条远端提醒取消失败，可能仍会触发。请到对应事项重试取消。','error');
+      return result.failed===0;
+    } catch(e) {
+      addToast('取消远端提醒未确认，旧提醒仍可能触发：'+String(e),'error');
+      return false;
+    }
+  };
+  const changeCommissionStatus = async (id:string, status:Commission['status']) => {
+    patchCommission(id,{status});
+    if(status!=='active') await stopItemReminders('commission',id);
+  };
+  const changeHomeworkDone = async (id:string, done:boolean) => {
+    change(v => ({...v,homework:v.homework.map(h=>h.id===id?{...h,done}:h)}));
+    if(done) await stopItemReminders('homework',id);
+  };
+  const removeHomework = async(id:string) => {
+    if(!(await stopItemReminders('homework',id))) return;
+    change(v=>({...v,homework:v.homework.filter(x=>x.id!==id)}));
   };
   const patchCommission = (id:string, patch:Partial<Commission>) =>
     change(v => ({...v, commissions: v.commissions.map(c=>c.id===id?{...c,...patch}:c)}));
@@ -215,11 +245,14 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               title:c.title,stage:c.stage,dueDate:c.dueDate,remainingMinutes:c.remainingMinutes,note:c.note,
             }))}>问 Char</button>
           </div>
+          <WorkspaceReminderControls kind="commission" itemId={c.id}
+            suggestedAt={c.dueDate} data={data} selectedCharId={selectedCharId}
+            onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>
           <details className="text-sm">
             <summary className="cursor-pointer text-neutral-700">编辑阶段、日期与详情</summary>
             <div className="grid grid-cols-2 gap-2 pt-3">
               <label>阶段<input className={inputClass} list="sully-stages" value={c.stage} onChange={e=>patchCommission(c.id,{stage:e.target.value})}/></label>
-              <label>状态<select className={inputClass} value={c.status} onChange={e=>patchCommission(c.id,{status:e.target.value as Commission['status']})}>
+              <label>状态<select className={inputClass} value={c.status} onChange={e=>void changeCommissionStatus(c.id,e.target.value as Commission['status'])}>
                 <option value="active">正在绘制</option><option value="waiting">等待客户确认</option><option value="paused">已暂停</option><option value="delivered">交付完成</option><option value="cancelled">已取消</option><option value="archived">归档</option>
               </select></label>
               <label>交稿日期<input className={inputClass} type="date" value={c.dueDate} onChange={e=>patchCommission(c.id,{dueDate:e.target.value})}/></label>
@@ -320,14 +353,17 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           </form>
           {data.homework.filter(h=>h.classId===selectedClassId).map(h=><div key={h.id} className="border-t border-neutral-200 pt-2 space-y-2">
             <div className="flex gap-2"><input aria-label={'完成'+h.title} type="checkbox" checked={h.done}
-              onChange={e=>change(v=>({...v,homework:v.homework.map(x=>x.id===h.id?{...x,done:e.target.checked}:x)}))}/>
+              onChange={e=>void changeHomeworkDone(h.id,e.target.checked)}/>
               <span className={h.done?'line-through text-neutral-600':''}>{h.title}</span></div>
             <p className="text-xs">截止 {h.dueAt||'未设置'} · 已专注 {actualMinutes('homework',h.id)} 分钟</p>
             <button className={mutedButton} onClick={()=>onFocus('homework',h.id,h.title)}>为作业开始专注</button>
+            <WorkspaceReminderControls kind="homework" itemId={h.id}
+              suggestedAt={h.dueAt} data={data} selectedCharId={selectedCharId}
+              onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>
             <details><summary className="text-sm">编辑作业</summary>
               <input className={inputClass} type="datetime-local" value={h.dueAt} onChange={e=>change(v=>({...v,homework:v.homework.map(x=>x.id===h.id?{...x,dueAt:e.target.value}:x)}))}/>
               <textarea className={inputClass} value={h.note} placeholder="备注" onChange={e=>change(v=>({...v,homework:v.homework.map(x=>x.id===h.id?{...x,note:e.target.value}:x)}))}/>
-              <button className={mutedButton} onClick={()=>change(v=>({...v,homework:v.homework.filter(x=>x.id!==h.id)}))}>移除作业</button>
+              <button className={mutedButton} onClick={()=>void removeHomework(h.id)}>移除作业</button>
             </details>
           </div>)}
           <label className="block text-sm">学习笔记<textarea className={inputClass} value={noteBody} onChange={e=>setNoteBody(e.target.value)} placeholder="记下刚学到的知识"/></label>
@@ -342,7 +378,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </>}
         {!selectedClass && <p className="text-xs text-neutral-600">先选择一门课，再记录作业和笔记。</p>}
       </section>
-      <p className="text-xs text-neutral-600">到点的 Char 云端提醒尚未自动建立；请以已有 AMSG 2.0 任务列表的实际确认状态为准。</p>
+      <p className="text-xs text-neutral-600">提醒仅在你逐项确认后建立，并沿用 AMSG 2.0 固定消息；不自动生成 AI 追问。远端失败会保留任务身份以便重试。</p>
     </>}
   </div>;
 };
