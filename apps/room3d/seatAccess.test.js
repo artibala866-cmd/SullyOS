@@ -84,3 +84,32 @@ describe('legacy seated motion follows the shared physical entry/exit',()=>{
  });
 
 });
+
+describe('ordinary seat phase-contact coordination',()=>{
+ const change={pose:'chair',front:[.8,.18,1.1],seat:[0,.72,0],rotation:Math.PI,startRotation:-Math.PI+.05,rising:false};
+ it('turns on planted feet, bends the knees before sliding into the seat',()=>{
+  const turn=seatChangePose(change,.20),load=seatChangePose(change,.49),sit=seatChangePose(change,1.05);
+  expect(turn.position).toEqual(change.front);
+  expect(turn.weight).toBe(0);
+  expect(load.weight).toBeGreaterThan(load.travel);
+  expect(load.position[1]).toBeCloseTo(change.front[1]+(change.seat[1]-change.front[1])*load.weight);
+  expect(sit.position).toEqual(change.seat);
+  expect(sit.weight).toBe(1);
+ });
+ for(const fps of [15,30,60]){
+  it('remains continuous on '+fps+' fps entering and standing again',()=>{
+   for(const rising of [false,true]){
+    const job={...change,rising},frames=[];
+    for(let t=0;t<1.05;t+=1/fps)frames.push(seatChangePose(job,t));
+    frames.push(seatChangePose(job,1.05));
+    for(let k=1;k<frames.length;k++){
+     const a=frames[k-1],b=frames[k];
+     expect(Math.hypot(...a.position.map((v,i)=>v-b.position[i]))).toBeLessThan(.22);
+     const d=b.rotation-a.rotation;
+     expect(Math.abs(Math.atan2(Math.sin(d),Math.cos(d)))).toBeLessThan(.3);
+    }
+    expect(frames.at(-1).done).toBe(true);
+   }
+  });
+ }
+});
