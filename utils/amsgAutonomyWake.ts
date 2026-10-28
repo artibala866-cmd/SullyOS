@@ -79,7 +79,7 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
   inFlight.add(char.id);
   try{
     const g=await ActiveMsgClient.getGlobalConfig();
-    if(!g.workerUrl?.trim())return;
+    if(!g.workerUrl?.trim())throw new Error('未配置主动消息 2.0 的云端 Worker');
     const schedule=await getDailyScheduleForChar(char).catch(()=>null);
     const targets=planAutonomyWakes(char,schedule?.slots||null);
     const existing=new Set(have.map(t=>t.clientTaskId.split(':')[1]));
@@ -103,11 +103,18 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
         ...(prev||{enabled:true}),tasks:[
           ...(prev?.tasks||[]).filter(t=>t.taskUuid!==record.taskUuid),record,
         ],lastSyncedAt:Date.now(),
+        lastError:prev?.lastError?.startsWith('自主联系建立失败')?undefined:prev?.lastError,
       }));
     }
     recentFailure.delete(char.id);
   }catch(e){
     recentFailure.set(char.id,Date.now());
+    // A failed background schedule must not look like a successful
+    // "enabled" contact loop. Persist a visible reason without credentials.
+    const detail=e instanceof Error?e.message.slice(0,160):'未知原因';
+    args.onSave(prev=>({
+      ...(prev||{enabled:true}),lastError:'自主联系建立失败：'+detail,
+    }));
     console.warn('[amsg2] 自主联系机会建立失败，下次进入聊天自动重试',e);
   }finally{inFlight.delete(char.id)}
 }
