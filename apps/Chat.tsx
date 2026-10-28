@@ -68,6 +68,7 @@ import FavoritesPortal from '../components/chat/VoiceFavoritesPortal';
 import ChatModals from '../components/chat/ChatModals';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
 import type { ChatCleanupPlan } from '../utils/chatHistoryCleanup';
+import { pruneDeletedPrivateChatLifeEvents } from '../utils/characterLifeEvents';
 import Modal from '../components/os/Modal';
 import MemoryContextSelfCheck from '../components/chat/MemoryContextSelfCheck';
 import ActiveMsg2SettingsModal from '../components/chat/ActiveMsg2SettingsModal';
@@ -2618,6 +2619,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     const handleHistoryCleanupDone = async (plan: ChatCleanupPlan) => {
         trackEvent('清空聊天记录');
+        // The selected range was atomically deleted by ChatHistoryCleanup.
+        // Revoke only AMSG2/XHS facts derived from those exact deleted rows;
+        // NPC chats and independent confirmed life events are untouched.
+        pruneDeletedPrivateChatLifeEvents(plan.charId, plan.deletedProviderMessageIds || []);
         // invalidate 而不是普通打脏：云端那份 fire_pack 里存着最近 30 条对话原文，正是
         // 用户此刻要删掉的东西。没有待触发任务的角色轮不到重传，普通打脏会被门丢掉，
         // 那份原文就永久留在 D1 里了（角色命名空间在 worker 侧没有 TTL）。
@@ -3082,7 +3087,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const handleDeleteMessage = async () => {
         if (!selectedMessage) return;
         const deletedId = selectedMessage.id;
+        const providerId = selectedMessage.metadata?.activeMsg2?.messageId;
         await DB.deleteMessage(deletedId);
+        if (typeof providerId === 'string') pruneDeletedPrivateChatLifeEvents(selectedMessage.charId, [providerId]);
         discardVoiceForMessages([deletedId]);
         // 满血主动消息：云端 fire_pack 里带最近对话原文，删了消息不打脏的话，角色到点
         // 还会提起这条已经不存在的消息（快照的消息在 flush 时从 DB 重读，这里只管打脏）。
@@ -3247,7 +3254,14 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
         const ids = Array.from(msgIdsToDelete);
         if (ids.length > 0) {
+            const deletedProviderIds = messages.filter(m => msgIdsToDelete.has(m.id))
+                .map(m => m.metadata?.activeMsg2?.messageId)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0);
             await DB.deleteMessages(ids);
+            pruneDeletedPrivateChatLifeEvents(char.id, deletedProviderIds);
+            // The remote AMSG fire_pack contains recent chat text. A batch
+            // delete must invalidate its snapshot exactly like single delete.
+            markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
             discardVoiceForMessages(ids);
         }
 

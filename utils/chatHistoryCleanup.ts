@@ -13,6 +13,10 @@ export interface ChatCleanupPlan {
     firstTimestamp: number;
     lastTimestamp: number;
     afterWaterlineCount: number;
+    /** Cloud provider IDs for just the verified, selected messages.
+     * Metadata is collected before atomic deletion, never guessed later.
+     */
+    deletedProviderMessageIds?: string[];
 }
 
 // 只保存 ID 和记录指纹，不把整个待删区间的正文/图片留在内存里。
@@ -65,6 +69,10 @@ export async function prepareChatHistoryCleanup(charId: string, selection: ChatC
                                 plan.firstTimestamp = message.timestamp;
                                 plan.ids.push(message.id);
                                 plan.fingerprints.push(fingerprint(message));
+                                const providerId=message.metadata?.activeMsg2?.messageId;
+                                if(typeof providerId==='string'&&providerId){
+                                    (plan.deletedProviderMessageIds??=[]).push(providerId);
+                                }
                                 if (message.id > hwm) plan.afterWaterlineCount++;
                             }
                         }

@@ -151,3 +151,30 @@ export function attachCharacterLifeGlimpse(
   ));
   return true;
 }
+
+/**
+ * Removing a private chat message must also remove *only* its derived
+ * cloud-delivery and verified-tool facts. Otherwise the CharacterPhone
+ * opportunity engine can revive the deleted conversation as a "new reason".
+ * No unverified AI narrative, NPC WeChat, independent XHS browsing, or
+ * unrelated life event is deleted.
+ */
+export function pruneDeletedPrivateChatLifeEvents(
+  characterId:string, providerMessageIds:readonly string[],
+):number{
+  if(!characterId||!providerMessageIds.length||typeof localStorage==='undefined')return 0;
+  const ids=new Set(providerMessageIds.filter(id=>typeof id==='string'&&!!id));
+  if(!ids.size)return 0;
+  const old=readCharacterLifeEvents(characterId);
+  const remaining=old.filter(event=>!(
+    (event.source==='amsg2'||event.source==='xiaohongshu') &&
+    typeof event.relatedMessageId==='string' &&
+    ids.has(event.relatedMessageId)
+  ));
+  if(remaining.length===old.length)return 0;
+  try{localStorage.setItem(lifeEventStorageKey(characterId),JSON.stringify(remaining));}
+  catch{return 0;}
+  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(
+    CHARACTER_LIFE_EVENTS_CHANGED,{detail:{characterId,pruned:true,source:'deleted-private-chat'}}));
+  return old.length-remaining.length;
+}
