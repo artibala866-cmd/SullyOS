@@ -14,6 +14,11 @@ import React, {
 import { cachedCall as _cachedCall, invalidate as _invalidateCache, clearAll as _clearAllCache } from '../utils/musicCache';
 import { DB } from '../utils/db';
 import { findPendingMusicInvite } from '../utils/musicInviteStatus';
+import {
+  musicKey, sameMusic, normalizeTencentSong, tencentSearchRows, extractMusicUrl,
+  loadGuestMusicLibrary, persistGuestMusicLibrary, recordMusicPlay, upsertLikedSong,
+  type GuestMusicLibrary, type LocalMusicPlaylist,
+} from '../utils/musicLibrary';
 import { getProxyWorkerUrl, DEFAULT_PROXY_WORKER, PROXY_WORKER_CHANGED_EVENT, isLegacyProxyWorkerUrl } from '../utils/proxyWorker';
 import type { PostProcessMusicHooks } from '../utils/applyAssistantPostProcessing';
 import { resolveRefToDataUrl } from '../utils/blobRef';
@@ -202,8 +207,7 @@ const loadState = (): { queue: Song[]; idx: number } => {
 };
 
 // Songs from legacy backups have no source: those remote ids are NetEase ids.
-export const musicSongKey = (song: Pick<Song, 'id' | 'local' | 'source' | 'platformId'>): string =>
-  song.local ? `local:${song.id}` : `${song.source === 'tencent' ? 'tencent' : 'netease'}:${song.platformId || song.id}`;
+export const musicSongKey = musicKey;
 
 const saveState = (queue: Song[], idx: number) => {
   try { localStorage.setItem(LS_STATE_KEY, JSON.stringify({ queue, idx })); } catch {}
@@ -258,9 +262,9 @@ const withMusicWorkerDeadline = async <T,>(request: Promise<T>, ms: number): Pro
     if (timer) clearTimeout(timer);
   }
 };
-const getGuestMusicJson = async (url: URL, unavailable: string): Promise<any> => {
+const getGuestMusicJson = async (url: URL, unavailable: string, timeoutMs = 12000): Promise<any> => {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url.toString(), { signal: controller.signal });
     if (!res.ok) throw new Error(unavailable);
@@ -304,6 +308,60 @@ export const musicApi = {
       al: { name: x.album || '', picUrl: typeof x.pic_url === 'string' && /^https:\/\//i.test(x.pic_url) ? x.pic_url : '' },
       dt: Number(x.duration || 0) * 1000, fee: 0,
     })).filter((x: any) => Number.isFinite(x.id)) } };
+  },
+  // QQ Music uses its own real identifiers and remote resolvers, never NetEase ids.
+  async searchTencent(keyword: string, offset = 0): Promise<Song[]> {
+    const query = keyword.trim();
+    if (!query) return [];
+    let failure: unknown;
+    const vkeys = new URL('https://api.vkeys.cn/v2/music/tencent/search/song');
+    vkeys.searchParams.set('word', query);
+    vkeys.searchParams.set('page', String(Math.floor(offset / 30) + 1));
+    vkeys.searchParams.set('num', '30');
+    try {
+      const payload = await getGuestMusicJson(vkeys, 'QQ 音乐搜索服务不可用', 6500);
+      const songs = tencentSearchRows(payload).map(normalizeTencentSong).filter((s): s is Song => !!s);
+      if (songs.length) return songs;
+    } catch (err) { failure = err; }
+    const gd = new URL('https://music-api.gdstudio.xyz/api.php');
+    for (const [k, v] of Object.entries({ types: 'search', source: 'tencent', name: query, count: '30', pages: String(Math.floor(offset / 30) + 1) })) gd.searchParams.set(k, v);
+    try {
+      const payload = await getGuestMusicJson(gd, 'QQ 音乐备用搜索服务不可用', 6500);
+      if (!Array.isArray(payload)) throw new Error('QQ 音乐搜索结果格式异常');
+      return payload.map(normalizeTencentSong).filter((s): s is Song => !!s);
+    } catch (err) {
+      console.warn('[Music] QQ search providers unavailable', failure, err);
+      throw new Error('QQ 音乐搜索来源暂不可用，请稍后重试');
+    }
+  },
+  async songUrlFor(cfg: MusicCfg, song: Song) {
+    if (song.source !== 'tencent' || song.local) return musicApi.songUrl(cfg, song.id);
+    const id = song.platformId?.trim();
+    if (!id) throw new Error('QQ 音乐歌曲缺少平台 ID');
+    const direct = new URL('https://api.vkeys.cn/v2/music/tencent/geturl');
+    direct.searchParams.set(song.mid ? 'mid' : 'id', song.mid || id);
+    direct.searchParams.set('quality', '8');
+    try {
+      const result = await getGuestMusicJson(direct, 'QQ 音乐播放解析不可用', 6500);
+      const found = extractMusicUrl(result);
+      if (found) return { data: [{ url: found }] };
+    } catch { /* same-source GD fallback */ }
+    const gd = new URL('https://music-api.gdstudio.xyz/api.php');
+    for (const [k, v] of Object.entries({ types: 'url', source: 'tencent', id, br: '128' })) gd.searchParams.set(k, v);
+    const result = await getGuestMusicJson(gd, 'QQ 音乐播放服务暂不可用', 6500);
+    return { data: [{ url: extractMusicUrl(result) || null }] };
+  },
+  async lyricFor(cfg: MusicCfg, song: Song) {
+    if (song.source !== 'tencent' || song.local) return musicApi.lyric(cfg, song.id);
+    const lyricId = song.lyricId || song.platformId;
+    if (!lyricId) return { lrc: { lyric: '' }, tlyric: { lyric: '' } };
+    const gd = new URL('https://music-api.gdstudio.xyz/api.php');
+    for (const [k, v] of Object.entries({ types: 'lyric', source: 'tencent', id: lyricId })) gd.searchParams.set(k, v);
+    const result = await getGuestMusicJson(gd, 'QQ 音乐歌词来源暂不可用', 6500);
+    return {
+      lrc: { lyric: typeof result?.lyric === 'string' ? result.lyric : '' },
+      tlyric: { lyric: typeof result?.tlyric === 'string' ? result.tlyric : '' },
+    };
   },
   async songUrl(cfg: MusicCfg, id: number) {
     try {
@@ -425,6 +483,20 @@ interface MusicContextType {
   prevSong: () => void;
   seek: (pct: number) => void;
 
+  // Account-independent local music library, separate from NetEase and Char data.
+  library: GuestMusicLibrary;
+  toggleLocalLike: (song: Song) => void;
+  createPlaylist: (name: string) => void;
+  renamePlaylist: (id: string, name: string) => void;
+  deletePlaylist: (id: string) => void;
+  addSongToPlaylist: (id: string, song: Song) => void;
+  removeSongFromPlaylist: (id: string, key: string) => void;
+  movePlaylistSong: (id: string, from: number, to: number) => void;
+  addToQueue: (song: Song) => void;
+  moveQueueSong: (from: number, to: number) => void;
+  removeQueueSong: (index: number) => void;
+  clearUpcomingQueue: () => void;
+
   // 播放模式 & 喜欢
   playMode: PlayMode;
   setPlayMode: (m: PlayMode) => void;
@@ -543,6 +615,27 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setQueueState(next);
   }, []);
 
+  // Queue management preserves the currently playing song and audio instance.
+  const addToQueue = useCallback((song: Song) => {
+    setQueueState(prev => prev.some(item => sameMusic(item, song)) ? prev : [...prev, song]);
+  }, []);
+  const moveQueueSong = useCallback((from: number, to: number) => {
+    if (from < 0 || to < 0 || from >= queue.length || to >= queue.length || from === to) return;
+    const moved = [...queue]; const [item] = moved.splice(from, 1); moved.splice(to, 0, item);
+    setQueueState(moved);
+    setIdx(current ? moved.findIndex(s => sameMusic(s, current)) : -1);
+  }, [queue, current]);
+  const removeQueueSong = useCallback((index: number) => {
+    if (index < 0 || index >= queue.length) return;
+    if (index === idx) { toast('当前播放的歌曲会保留在队列中', 'info'); return; }
+    setQueueState(queue.filter((_, i) => i !== index));
+    if (index < idx) setIdx(idx - 1);
+  }, [queue, idx, toast]);
+  const clearUpcomingQueue = useCallback(() => {
+    setQueueState(current ? [current] : []);
+    setIdx(current ? 0 : -1);
+  }, [current]);
+
   // 队列持久化
   useEffect(() => { saveState(queue, idx); }, [queue, idx]);
 
@@ -599,14 +692,59 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => { refreshProfile(); }, [refreshProfile]);
 
+  // The guest library is always local, including when a NetEase user logs in.
+  const [library, setLibraryState] = useState<GuestMusicLibrary>(loadGuestMusicLibrary);
+  const updateLibrary = useCallback((updater: (old: GuestMusicLibrary) => GuestMusicLibrary) => {
+    setLibraryState(old => {
+      const next = updater(old);
+      persistGuestMusicLibrary(next);
+      return next;
+    });
+  }, []);
+  const toggleLocalLike = useCallback((song: Song) => {
+    updateLibrary(old => ({
+      ...old,
+      likes: old.likes.some(item => sameMusic(item, song))
+        ? old.likes.filter(item => !sameMusic(item, song))
+        : upsertLikedSong(old.likes, song),
+    }));
+  }, [updateLibrary]);
+  const createPlaylist = useCallback((name: string) => {
+    const trimmed = name.trim().slice(0, 60);
+    if (!trimmed) return;
+    const now = Date.now();
+    updateLibrary(old => ({
+      ...old, playlists: [...old.playlists, {
+        id: `local-pl-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        name: trimmed, songs: [], createdAt: now, updatedAt: now,
+      }].slice(0, 80),
+    }));
+  }, [updateLibrary]);
+  const renamePlaylist = useCallback((id: string, name: string) => {
+    const trimmed = name.trim().slice(0, 60);
+    if (trimmed) updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => p.id === id ? { ...p, name: trimmed, updatedAt: Date.now() } : p) }));
+  }, [updateLibrary]);
+  const deletePlaylist = useCallback((id: string) => {
+    updateLibrary(old => ({ ...old, playlists: old.playlists.filter(p => p.id !== id) }));
+  }, [updateLibrary]);
+  const addSongToPlaylist = useCallback((id: string, song: Song) => {
+    updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => p.id === id && !p.songs.some(s => sameMusic(s, song))
+      ? { ...p, songs: [...p.songs, song], updatedAt: Date.now() } : p) }));
+  }, [updateLibrary]);
+  const removeSongFromPlaylist = useCallback((id: string, key: string) => {
+    updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => p.id === id
+      ? { ...p, songs: p.songs.filter(s => musicKey(s) !== key), updatedAt: Date.now() } : p) }));
+  }, [updateLibrary]);
+  const movePlaylistSong = useCallback((id: string, from: number, to: number) => {
+    updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => {
+      if (p.id !== id || from < 0 || to < 0 || from >= p.songs.length || to >= p.songs.length || from === to) return p;
+      const songs = [...p.songs]; const [song] = songs.splice(from, 1); songs.splice(to, 0, song);
+      return { ...p, songs, updatedAt: Date.now() };
+    }) }));
+  }, [updateLibrary]);
+
   // 喜欢列表
   const [likedSet, setLikedSet] = useState<Set<number>>(new Set());
-  const [guestLikedSet, setGuestLikedSet] = useState<Set<number>>(() => {
-    try {
-      const ids = JSON.parse(localStorage.getItem('sully_music_guest_likes_v1') || '[]');
-      return new Set<number>(Array.isArray(ids) ? ids.filter((id: unknown) => Number.isInteger(id)) : []);
-    } catch { return new Set<number>(); }
-  });
   useEffect(() => {
     if (!cfg.cookie) { setLikedSet(new Set()); return; }
     musicApi.call(cfg, '/likelist', {}).then(r => {
@@ -621,7 +759,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const liked = !!current && (
     current.local
       ? localAlbumSongs.some(s => s.id === current.id)
-      : (cfg.cookie ? likedSet : guestLikedSet).has(current.id)
+      : (current.source === 'tencent' || !cfg.cookie)
+        ? library.likes.some(song => sameMusic(song, current))
+        : likedSet.has(current.id)
   );
   const toggleLike = useCallback(async () => {
     if (!current) return;
@@ -638,14 +778,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
     // ── 免登录歌曲的喜欢只保存到本地，不假装同步到网易云账号 ──
-    if (!cfg.cookie) {
-      const willLike = !guestLikedSet.has(current.id);
-      setGuestLikedSet(prev => {
-        const next = new Set(prev);
-        if (willLike) next.add(current.id); else next.delete(current.id);
-        try { localStorage.setItem('sully_music_guest_likes_v1', JSON.stringify([...next])); } catch {}
-        return next;
-      });
+    if (!cfg.cookie || current.source === 'tencent') {
+      const willLike = !library.likes.some(song => sameMusic(song, current));
+      toggleLocalLike(current);
       toast(willLike ? '已添加到本地喜欢' : '已从本地喜欢移除', 'success');
       return;
     }
@@ -663,7 +798,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e: any) {
       toast(`喜欢失败: ${e.message}`, 'error');
     }
-  }, [current, cfg, likedSet, guestLikedSet, localAlbumSongs, addLocalSong, removeLocalSong, toast]);
+  }, [current, cfg, likedSet, library.likes, localAlbumSongs, addLocalSong, removeLocalSong, toggleLocalLike, toast]);
 
   // 播放模式
   const [playMode, setPlayMode] = useState<PlayMode>('loop');
@@ -900,7 +1035,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [recentTrackChange, setRecentTrackChange] = useState<RecentTrackChange | null>(null);
   useEffect(() => {
     const previousSong = previousSongRef.current;
-    if (previousSong && (!current || musicSongKey(previousSong) !== musicSongKey(current))) {
+    if (previousSong && (!current || musicKey(previousSong) !== musicKey(current))) {
       const wasListening = listeningTogetherRef.current;
       if (wasListening.length > 0) {
         setRecentTrackChange({
@@ -921,6 +1056,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const cfgRef = useRef(cfg); cfgRef.current = cfg;
   const endedHandlerRef = useRef<() => void>(() => {});
 
+  const lastHistoryRef = useRef({ key: '', at: 0 });
   // 初始化 audio（仅 Provider 生命周期创建一次）
   useEffect(() => {
     const a = new Audio();
@@ -928,7 +1064,22 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 注意: 不要设置 crossOrigin — NetEase CDN 没有 CORS 头，会变成静默加载失败
     audioRef.current = a;
 
-    const onPlay = () => setPlaying(true);
+    const onPlay = () => {
+      setPlaying(true);
+      const song = currentSongRef.current;
+      if (song) {
+        const at = Date.now();
+        if (musicKey(song) !== lastHistoryRef.current.key || at - lastHistoryRef.current.at > 60000) {
+          lastHistoryRef.current = { key: musicKey(song), at };
+          updateLibrary(old => ({
+            ...old,
+            history: recordMusicPlay(old.history, song, at),
+            // Upgrade id-only legacy favorites with actual song metadata.
+            likes: old.likes.map(s => sameMusic(s, song) && s.name.startsWith('网易云歌曲 #') ? song : s),
+          }));
+        }
+      }
+    };
     const onPause = () => setPlaying(false);
     const onTime = () => setProgress(a.currentTime);
     const onMeta = () => setDuration(a.duration || 0);
@@ -971,10 +1122,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (replaceQueue) {
       setQueueState(replaceQueue);
-      setIdx(typeof startIdx === 'number' ? startIdx : replaceQueue.findIndex(s => s.id === song.id));
+      setIdx(typeof startIdx === 'number' ? startIdx : replaceQueue.findIndex(s => sameMusic(s, song)));
     } else if (alsoSetQueue) {
       const qnow = queueRef.current;
-      const existing = qnow.findIndex(s => s.id === song.id);
+      const existing = qnow.findIndex(s => sameMusic(s, song));
       if (existing >= 0) {
         setIdx(existing);
       } else {
@@ -1073,12 +1224,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       // 歌词请求不阻塞音频开始播放；慢歌词只能更新对应的那一首歌。
-      void musicApi.lyric(cfgRef.current, song.id).then(lyricRes => {
+      void musicApi.lyricFor(cfgRef.current, song).then(lyricRes => {
         if (requestId !== playRequestSeq.current) return;
         setLyric(parseLyric(lyricRes?.lrc?.lyric || ''));
         setTlyric(parseLyric(lyricRes?.tlyric?.lyric || ''));
       }).catch(() => {});
-      const urlRes = await musicApi.songUrl(cfgRef.current, song.id);
+      const urlRes = await musicApi.songUrlFor(cfgRef.current, song);
       if (requestId !== playRequestSeq.current) return;
       const url: string | null = urlRes?.data?.[0]?.url || null;
       if (!url) {
@@ -1410,6 +1561,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const value: MusicContextType = {
     cfg, setCfg, effectiveWorkerUrl,
+    library, toggleLocalLike, createPlaylist, renamePlaylist, deletePlaylist,
+    addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
+    addToQueue, moveQueueSong, removeQueueSong, clearUpcomingQueue,
     queue, setQueue, idx, current,
     playing, progress, duration, loadingSong,
     lyric, tlyric, activeLyricIdx,
