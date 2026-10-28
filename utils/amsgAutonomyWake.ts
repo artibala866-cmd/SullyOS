@@ -10,6 +10,7 @@ import {resolveAmsgLimits} from './amsgLimits';
 import {classifyLifeActivity} from './sullyLifeClock';
 import {getScheduleDateKey,getScheduleWallClock} from './scheduleTime';
 import {withAutonomyWakeLock} from './amsgAutonomyLock';
+import {autonomyWakeUuid} from './amsgAutonomyIdentity';
 import {resolveCharTimeZone,wallClockToTimestamp} from './timezone';
 
 export const AMSG_AUTONOMY_SCHEDULE_EVENT='amsg2-schedule-saved';
@@ -192,6 +193,29 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
           Math.abs(oldMinute-newMinute)<30)continue;
         // The existing schedule belongs to an old time slot; ensure the
         // new occurrence is safely future and do NOT generate an AI message.
+        const stableId=autonomyWakeUuid(g.userId,char.id,slot);
+        // Already using D1-unique identity: change the server's next_send_at
+        // instead of creating a second task. Upstream rejects updates while
+        // a fire lease is active, leaving the old time intact for retry.
+        if(old.taskUuid===stableId){
+          const updated=await ActiveMsgClient.updatePendingTasksRemote(
+            [old.taskUuid],{nextSendAt:desired.firstSendTime});
+          if(updated.failed.length||updated.updated!==1)
+            throw new Error('云端任务正在投递或改期失败，保留原时段稍后重试');
+          const refreshed={...old,firstSendTime:desired.firstSendTime,
+            nextSendAt:desired.firstSendTime};
+          const pos=tasks.findIndex(t=>t.taskUuid===old.taskUuid);
+          if(pos>=0)tasks.splice(pos,1,refreshed);
+          args.onSave(prev=>prev?.enabled===false?prev:{
+            ...(prev||{enabled:true}),
+            tasks:(prev?.tasks||[]).map(t=>t.taskUuid===old.taskUuid?refreshed:t),
+            lastSyncedAt:Date.now(),
+          });
+          wanted.delete(slot);
+          continue;
+        }
+        // Old autowakes used a random UUID. Migrate one time using upstream
+        // atomic supersede, so no two billable recurring rows coexist.
         const result=await ActiveMsgClient.scheduleCharacterTask({
           char,config:{...char.activeMsg2Config,tasks},
           task:{mode:'auto',firstSendTime:desired.firstSendTime,

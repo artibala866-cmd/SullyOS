@@ -44,3 +44,18 @@ describe('AMSG2 same-origin exclusive scheduling',()=>{
    }
  });
 });
+
+import {autonomyWakeUuid} from './amsgAutonomyIdentity';
+describe('server-side D1-unique autonomous contact identities',()=>{
+ it('computes one valid UUID on every device for the same owner and slot',()=>{
+   const id=autonomyWakeUuid('account-1','character-1','day');
+   expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/);
+   expect(autonomyWakeUuid('account-1','character-1','day')).toBe(id);
+ });
+ it('different owners and slots cannot be mistaken for the same recurring task',()=>{
+   const id=autonomyWakeUuid('account-1','character-1','day');
+   expect(autonomyWakeUuid('account-2','character-1','day')).not.toBe(id);
+   expect(autonomyWakeUuid('account-1','character-2','day')).not.toBe(id);
+   expect(autonomyWakeUuid('account-1','character-1','evening')).not.toBe(id);
+ });
+});
