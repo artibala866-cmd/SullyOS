@@ -64,6 +64,8 @@ jobs:
             exit 1
           fi
           echo "Real-person reply scheduler has no TypeScript diagnostics."
+      - name: Test deleted WeChat privacy and life-glimpse revocation
+        run: pnpm exec vitest run utils/characterPhoneChatDeletion.test.ts utils/characterPhoneClear.test.ts utils/characterLifeEventGlimpse.test.ts
       - name: Check independent life feature TypeScript diagnostics
         shell: bash
         run: |
