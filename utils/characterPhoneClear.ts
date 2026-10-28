@@ -41,12 +41,14 @@ export function clearSelectedPhoneData(charId:string,ids:readonly PhoneClearGrou
           r=>!(r.kind==='service'||r.contactId?.startsWith('service:'))));
         break;
       case 'chats':
+        advancePhoneContentClearRevision(charId, 'chats');
         localStorage.removeItem('sully_character_phone_wechat_v1:'+charId);
         localStorage.removeItem('sully_phone_inbox_auto_at:'+charId);
         // Don't touch DB private messages. Force refresh of local NPC conversation list.
         emit('sully:character-phone-chats-changed',charId);
         break;
       case 'contacts':
+        advancePhoneContentClearRevision(charId, 'contacts');
         localStorage.removeItem('sully_character_phone_npcs_v1:'+charId);
         localStorage.removeItem('sully_phone_pending_contacts_v1:'+charId);
         emit(CHARACTER_PHONE_CONTACT_CHANGED,charId);

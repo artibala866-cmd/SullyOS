@@ -1,5 +1,6 @@
 import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from '../types';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
+import { readPhoneContentClearRevision } from './characterPhoneContentClearRevision';
 import { classifyLifeActivity } from './sullyLifeClock';
 import { readCharacterLifeEvents, recordCharacterLifeEvent } from './characterLifeEvents';
 import { readNpcProfiles, type NpcProfile } from './characterPhoneNpcs';
@@ -86,6 +87,7 @@ async function bootstrapSocialCircle(input: CharacterPhoneAutonomyInput): Promis
   const context = await buildCharacterPhoneContext(char, user, groups, realtimeConfig);
   const existing = readNpcProfiles(char.id);
   const pending = readPendingContacts(char.id);
+  const contactsClearRevision = readPhoneContentClearRevision(char.id, 'contacts');
   const response = await queryJson(api, [
     { role: 'system', content: `你为虚构角色${char.name}整理其手机通讯录中的真实生活圈。
 必须遵守以下原设/世界书/私聊上下文，禁止改写已有角色身份、家庭、职业、恋爱关系。
@@ -100,6 +102,14 @@ origin为known时必须能从原设或世界书找到证据，evidence取worldbo
 仅返回JSON：{"contacts":[{"name":"","nickname":"","realName":"","identity":"","personality":"","relationship":"","background":"","speechStyle":"","boundary":"","origin":"known|introduced|stranger","evidence":"worldbook|character|suggested"}]}。` },
     { role: 'user', content: '建立角色自己的基本生活圈，不用用户手工编人设。新角色必须服从已有设定；没有必要不要造人。' },
   ], char.id, '自动整理通讯录');
+  // An explicit clear (even of an empty directory), a manual contact edit or
+  // disabling phone autonomy while the request was in flight cancels its writes.
+  if (!isCharacterPhoneAutonomyEnabled(char.id) ||
+      !readPhoneAutonomyPreferences(char.id).backgroundApiEnabled ||
+      isCharacterPhoneRefreshing(char.id) ||
+      contactsClearRevision !== readPhoneContentClearRevision(char.id, 'contacts') ||
+      JSON.stringify(readNpcProfiles(char.id)) !== JSON.stringify(existing) ||
+      JSON.stringify(readPendingContacts(char.id)) !== JSON.stringify(pending)) return false;
   if (!Array.isArray(response?.contacts)) return false;
   let created = false;
   for (const raw of response.contacts.slice(0, 4)) {
@@ -273,6 +283,8 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
         text: e.summary.slice(0, 140),
       }));
     const speakerName = actor === 'owner' ? char.name : contact.name;
+    const chatsClearRevision = readPhoneContentClearRevision(char.id, 'chats');
+    const contactsClearRevision = readPhoneContentClearRevision(char.id, 'contacts');
     if (!reservePhoneApiBudget(char.id)) return 'skipped';
     state.attemptsToday++;
     writeState(char.id, state);
@@ -304,6 +316,8 @@ Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).jo
     // removed the contact, or manually replied in this same conversation.
     if (!isCharacterPhoneAutonomyEnabled(char.id) ||
         !readPhoneAutonomyPreferences(char.id).backgroundApiEnabled ||
+        chatsClearRevision !== readPhoneContentClearRevision(char.id, 'chats') ||
+        contactsClearRevision !== readPhoneContentClearRevision(char.id, 'contacts') ||
         isCharacterPhoneRefreshing(char.id) ||
         !readNpcProfiles(char.id).some(p => p.id === contact.id)) return 'skipped';
     const latestThread = readCharacterPhoneChats(char.id).find(r => r.contactId === contact.id);

@@ -6,6 +6,7 @@ import { readCharacterLifeEvents } from './characterLifeEvents';
 import { runCharacterPhoneAutonomy, setCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import { readPhoneApiBudget, writePhoneAutonomyPreferences } from './characterPhoneApiBudget';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
+import { clearSelectedPhoneData } from './characterPhoneClear';
 import type { CharacterProfile, UserProfile } from '../types';
 
 vi.mock('./characterLifeScheduleContext', () => ({
@@ -253,6 +254,52 @@ describe('character-owned autonomous phone behavior', () => {
     expect(await runCharacterPhoneAutonomy(input('stale'))).toBe('skipped');
     expect(request).not.toHaveBeenCalled();
     expect(readCharacterPhoneChats('stale')).toHaveLength(0);
+  });
+
+  it('discards a bootstrap reply when contacts were cleared during the network request', async () => {
+    saveNpcProfiles('clear-bootstrap', contacts().slice(0, 2));
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'clear-bootstrap',observedAt:Date.now(),
+      plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    let complete!: (response: unknown) => void;
+    const request=vi.fn().mockImplementation(()=>new Promise(resolve=>{complete=resolve;}));
+    vi.stubGlobal('fetch',request);
+    const pending=runCharacterPhoneAutonomy(input('clear-bootstrap'));
+    await vi.waitFor(()=>expect(request).toHaveBeenCalledTimes(1));
+    clearSelectedPhoneData('clear-bootstrap',['contacts']);
+    complete({
+      ok:true,status:200,headers:{get:()=> 'application/json'},
+      text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({
+        contacts:[{name:'新同事',identity:'同事',relationship:'同事',personality:'寡言',
+          origin:'introduced',evidence:'suggested'}],
+      })}}]}),
+    });
+    expect(await pending).toBe('skipped');
+    expect(readNpcProfiles('clear-bootstrap')).toEqual([]);
+  });
+
+  it('does not recreate an empty NPC inbox cleared while an autonomous request was running', async () => {
+    saveNpcProfiles('clear-inbox',contacts());
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'clear-inbox',observedAt:Date.now(),
+      plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    let complete!: (response: unknown) => void;
+    const request=vi.fn().mockImplementation(()=>new Promise(resolve=>{complete=resolve;}));
+    vi.stubGlobal('fetch',request);
+    const pending=runCharacterPhoneAutonomy(input('clear-inbox'));
+    await vi.waitFor(()=>expect(request).toHaveBeenCalledTimes(1));
+    // The original inbox is empty; row-count comparisons alone cannot detect this clear.
+    clearSelectedPhoneData('clear-inbox',['chats']);
+    complete({
+      ok:true,status:200,headers:{get:()=> 'application/json'},
+      text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({
+        send:true,messages:['过期的自动微信，不可保存'],
+      })}}]}),
+    });
+    expect(await pending).toBe('skipped');
+    expect(readCharacterPhoneChats('clear-inbox')).toEqual([]);
   });
 
 });
