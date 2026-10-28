@@ -26,7 +26,7 @@ export function bathroomRimReachable(activity,front,reach){
  if(!reach||!Number.isFinite(reach.armReach)||!Number.isFinite(reach.shoulderHeight))return true;
  const shoulderY=front[1]+reach.shoulderHeight;
  return activity.bathHandWorld.some(([x,y,z])=>
-  Math.hypot(x-front[0],y-shoulderY,z-front[2])<=reach.armReach*1.12+.22);
+  Math.hypot(x-front[0],y-shoulderY,z-front[2])<=reach.armReach*1.12+.60);
 }
 
 export function bathroomHandTargets(activity,frame){
