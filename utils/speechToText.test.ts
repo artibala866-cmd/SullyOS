@@ -7,6 +7,7 @@ import {
   encodeWavFromFloat32,
   cleanFishAsrText,
   transcribeAudioWithProvider,
+  startStt,
 } from '../utils/speechToText';
 
 describe('speechToText provider resolution & strict key guards', () => {
@@ -17,6 +18,12 @@ describe('speechToText provider resolution & strict key guards', () => {
     expect(isOfficialMiniMaxBaseUrl('https://api.openai.com/v1')).toBe(false);
     expect(isOfficialMiniMaxBaseUrl('https://api.deepseek.com/v1')).toBe(false);
     expect(isOfficialMiniMaxBaseUrl('')).toBe(false);
+    expect(isOfficialMiniMaxBaseUrl('http://api.minimaxi.com/v1')).toBe(false);
+    expect(isOfficialMiniMaxBaseUrl('ftp://api.minimaxi.com/v1')).toBe(false);
+    expect(isOfficialMiniMaxBaseUrl('https://api.minimaxi.com.evil.example/v1')).toBe(false);
+    expect(isOfficialMiniMaxBaseUrl('https://evil.example/?u=api.minimax.io')).toBe(false);
+    expect(isOfficialMiniMaxBaseUrl('not-a-url/api.minimaxi.com')).toBe(false);
+    expect(isOfficialMiniMaxBaseUrl('https://user@api.minimaxi.com/v1')).toBe(false);
   });
 
   it('never falls back to non-MiniMax main apiKey for MiniMax STT', () => {
@@ -243,4 +250,39 @@ describe('speechToText WAV encoding & provider transcription', () => {
     },
     30000,
   );
+});
+
+describe('paid STT recorder initialization failures', () => {
+  it('closes acquired audio context and releases microphone if audio graph setup fails', async () => {
+    const stopTrack = vi.fn();
+    const closeContext = vi.fn(async () => {});
+    const onEnd = vi.fn();
+    const onError = vi.fn();
+    const paidCall = vi.fn();
+    class BrokenAudioContext {
+      state = 'running';
+      close = closeContext;
+      createMediaStreamSource(): never { throw new Error('audio graph unsupported'); }
+    }
+    vi.stubGlobal('navigator', {
+      mediaDevices: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop: stopTrack }] })) },
+    });
+    vi.stubGlobal('window', { AudioContext: BrokenAudioContext });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = paidCall as unknown as typeof fetch;
+    try {
+      const session = await startStt('zh-CN', { onEnd, onError }, {
+        sttProvider: 'elevenlabs', elevenLabsApiKey: 'test-token',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.stringContaining('音频初始化失败'));
+      expect(onEnd).toHaveBeenCalledTimes(1);
+      expect(stopTrack).toHaveBeenCalledTimes(1);
+      expect(closeContext).toHaveBeenCalledTimes(1);
+      expect(paidCall).not.toHaveBeenCalled();
+      expect(() => session.stop()).not.toThrow();
+    } finally {
+      globalThis.fetch = originalFetch;
+      vi.unstubAllGlobals();
+    }
+  });
 });
