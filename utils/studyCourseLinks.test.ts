@@ -68,6 +68,19 @@ describe('学习室与原有自习室课程 ID 关联',()=>{
     expect(()=>reassignOrphanContent(restoredBoth,'homework','h1','classB')).toThrow('不是未归属');
     expect(()=>reassignOrphanContent(deleted,'note','n1','missing')).toThrow('不存在');
   });
+  it('旧备份存在不完整课程元信息也不会阻断其它课程关联',()=>{
+    const items=toStudyCourseOptions([
+      null as any, {id:'broken',title:null,chapters:null,totalProgress:NaN} as any,
+      {id:'okay',title:'正常',chapters:[null,{isCompleted:true}],totalProgress:120} as any,
+    ]);
+    expect(items).toHaveLength(2);
+    expect(items.find(x=>x.id==='broken')).toMatchObject({
+      title:'未命名旧课程',totalProgress:0,chaptersTotal:0,chaptersCompleted:0,
+    });
+    expect(items.find(x=>x.id==='okay')).toMatchObject({
+      chaptersCompleted:1,totalProgress:100,
+    });
+  });
   it('历史 orphan 数据无需迁移就可查询和恢复',()=>{
     const data=emptyWorkspace();
     data.homework=[{id:'old-homework',classId:'deleted-class',title:'旧作业',dueAt:'',

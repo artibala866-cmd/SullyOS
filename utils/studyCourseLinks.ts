@@ -11,13 +11,17 @@ export type StudyCourseOption = Pick<StudyCourse, 'id' | 'title' | 'totalProgres
 };
 export function toStudyCourseOptions(courses: readonly StudyCourse[]): StudyCourseOption[] {
   return courses
-    .filter(c => typeof c.id === 'string' && c.id.trim())
-    .map(c => ({
-      id:c.id, title:c.title, totalProgress:Number.isFinite(c.totalProgress)
-        ? Math.max(0,Math.min(100,c.totalProgress)) : 0,
-      chaptersCompleted:(c.chapters || []).filter(ch=>ch.isCompleted).length,
-      chaptersTotal:(c.chapters || []).length,
-    })).sort((a,b)=>a.title.localeCompare(b.title,'zh-Hans'));
+    .filter(c => c != null && typeof c.id === 'string' && c.id.trim())
+    .map(c => {
+      const chapters=Array.isArray(c.chapters) ? c.chapters : [];
+      return {
+        id:c.id, title:typeof c.title==='string'?c.title:'未命名旧课程',
+        totalProgress:Number.isFinite(c.totalProgress)
+          ? Math.max(0,Math.min(100,c.totalProgress)) : 0,
+        chaptersCompleted:chapters.filter(ch=>ch?.isCompleted===true).length,
+        chaptersTotal:chapters.length,
+      };
+    }).sort((a,b)=>a.title.localeCompare(b.title,'zh-Hans'));
 }
 
 export async function loadStudyCourseOptions(): Promise<StudyCourseOption[]> {
