@@ -293,7 +293,7 @@ export function isCaptureEnabled(category: DevDebugCaptureCategory): boolean {
     // 跟可用性绑定：面板看不见就别录。覆盖三种「隐身但 flag 还在 localStorage 里」的场景：
     //   1. 关闭按钮（devDebugForceClosed=true）
     //   2. prod 刷新后（manualUnlock 重置为 false，但 captureEnabled 还在存档里）
-    //   3. master 构建（__BUILD_BADGE_VISIBLE__=false，未解锁）
+    //   3. 当前正式交付分支以及旧 main/master 构建（__BUILD_BADGE_VISIBLE__=false，未解锁）
     // 不挡的话用户看不到面板还在偷偷写带 url/status 的日志条目——隐私债。
     if (!isDevDebugAvailable()) return false;
     const flags = readDevDebugFlags();

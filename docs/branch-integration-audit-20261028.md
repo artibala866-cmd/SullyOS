@@ -280,3 +280,10 @@
 - **仍未移植的高优先级修复**：目标 `apps/SocialApp.tsx` 的 `saveDMThreads` 捕获 localStorage 写入错误仅记录警告，`sendSparkDM` 继续清空输入并调用付费 AI；master 有 `DB.saveAsset` IndexedDB 备份、历史恢复、付费前确认、发送失败回滚与草稿保护。此处通过代码调用关系证实存在真实差异，但尚未安全适配、缺少失败注入回归，**不能认定已整合或覆盖整个 SocialApp**。
 - **未改动的设置与风险**：GitHub 默认分支仍是 master；其历史 `AGENTS.md` 强制 master 的旧文字仍存在，只有当前目标分支和其 `CLAUDE.md` 已经使用新规则。必须显式检出目标分支；更改默认分支设置需用户新授权。Cloudflare/历史 Pages/Worker 同步流程依旧为独立部署对象，未擅自改触发。完整浏览器/真机验收仍未执行。
 - **环境限制**：GitHub 连接器可读取和提交，但当前计算容器无 GitHub 网络 DNS，不能建立本地 Git checkout；`git status`、本地 pnpm 与浏览器验证无法在此环境直接完成。CI 通过不等于真实交互全部验收。
+
+## Home3D 完整动作测试发现与修正（2026-10-28）
+
+- 首次将 `.github/workflows/home3d-motion-regression.yml` 直接接入目标分支后，GitHub Actions [run #82](https://github.com/artibala866-cmd/SullyOS/actions/runs/40669338640) **FAILURE**：23 文件／218 用例中 22 文件、217 用例通过，失败于 `utils/chibiFurnitureMotion.test.ts` 的床位朝向检查：`seatTransform` 返回 null，旧测试直接读取 pose。
+- 根因经现有源码交叉验证：`apps/room3d/seating.js` 使用 `usableFurniturePoints`，`apps/room3d/furniturePointRegistry.js` 明确封锁缺安全进出路径的高床（`bedroom_bunk`、`bedroom_loft`）。`furniturePointRegistry.test.js` 已要求这些床位不暴露可执行动作；失败来自另一份旧测试把所有 catalog beds 当作都可用。
+- 已在目标分支把旧断言改为：安全可用床位必须保持四种旋转下的头部方向计算；未审核可达性床位**必须返回 null**。没有修改床位运行时、安全过滤器、家具数据或取消回归覆盖。修复提交 `de5d2ee139203a0b356eedf3b156743e65fd2bb5`，尚待新一轮 CI 结果确认。
+- 该事件证明之前只凭 Pages 绿灯推断整个 Home3D 动作正常是不充分的；PR #8 仍保留开放草稿状态，视觉与真实设备行为仍未验收。

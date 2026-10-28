@@ -52,9 +52,10 @@ CI 会红一次，并在 run summary 里贴出 diff —— **新增的表和列�
 确认无害之后，从那次 run 的 `umami-schema` artifact 里把新版下下来，覆盖 `infra/umami-schema.sql`
 提交一次，下一轮就恢复绿。
 
-CI 不会自己提交这个文件：master 要求走 PR，bot 直推会被分支保护弹回来（GH013），
-而且红的原因会变成「推不上去」这种跟隐私毫无关系的东西。账本留在 artifact（90 天）
-和 Actions 历史里，目前够用。
+CI 不会自行提交这份基线，避免把隐私配置漂移误处理成自动批准。历史 master 曾要求 PR 且有分支保护（GH013），但它现在不是 SullyOS 的开发交付分支。
+**目前唯一指定提交目标是 `remove-checkphone-vrworld-lifesim`（详见 AGENTS.md）**；现存隐私审计工作流仍监听历史 master，
+因此只更新当前分支的基线不会自动更新旧 master 审计，不能因此宣称远端隐私配置已验收。审计/部署触发的迁移需要仓库所有者另行确认，不得擅自改 master。
+核对后的 schema 快照仍可以保留在 artifact（90 天）与 Actions 历史中，作为审计资料。
 
 ## 换服务器 / 换域名了
 
