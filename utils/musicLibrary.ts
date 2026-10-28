@@ -21,7 +21,7 @@ export interface GuestMusicLibrary {
 }
 
 export const musicKey = (song: Pick<Song, 'id' | 'source' | 'platformId' | 'local'>): string =>
-  song.local ? \`local:\${song.id}\` : \`\${song.source === 'tencent' ? 'tencent' : 'netease'}:\${song.platformId || song.id}\`;
+  song.local ? `local:${song.id}` : `${song.source === 'tencent' ? 'tencent' : 'netease'}:${song.platformId || song.id}`;
 
 export const sameMusic = (a: Pick<Song, 'id' | 'source' | 'platformId' | 'local'>, b: Pick<Song, 'id' | 'source' | 'platformId' | 'local'>) =>
   musicKey(a) === musicKey(b);
@@ -107,7 +107,7 @@ export const loadGuestMusicLibrary = (): GuestMusicLibrary => {
     const legacy = JSON.parse(localStorage.getItem(LEGACY_LIKES_KEY) || '[]');
     if (!Array.isArray(legacy)) return emptyLibrary();
     return { ...emptyLibrary(), likes: [...new Set<number>(legacy.filter((id: unknown) => Number.isSafeInteger(id)))].map(id => ({
-      id, name: \`网易云歌曲 #\${id}\`, artists: '', album: '', albumPic: '', duration: 0, fee: 0,
+      id, name: `网易云歌曲 #${id}`, artists: '', album: '', albumPic: '', duration: 0, fee: 0,
       source: 'netease' as const,
     })) };
   } catch { return emptyLibrary(); }
