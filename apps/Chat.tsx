@@ -71,7 +71,7 @@ import type { ChatCleanupPlan } from '../utils/chatHistoryCleanup';
 import Modal from '../components/os/Modal';
 import MemoryContextSelfCheck from '../components/chat/MemoryContextSelfCheck';
 import ActiveMsg2SettingsModal from '../components/chat/ActiveMsg2SettingsModal';
-import { ensureAutonomyWakes } from '../utils/amsgAutonomyWake';
+import { ensureAutonomyWakes, AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
 import ThinkingChainSettingsModal from '../components/chat/ThinkingChainSettingsModal';
 import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 import { useChatAI } from '../hooks/useChatAI';
@@ -384,6 +384,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [showingTargetIds, setShowingTargetIds] = useState<Set<number>>(new Set());
 
     const char = characters.find(c => c.id === activeCharacterId) || characters[0];
+    const liveCharactersRef=useRef(characters);
+    liveCharactersRef.current=characters;
     // Enabled AMSG2 MUST lead to actual autonomous opportunities even if
     // user never created a task. Existing enabled characters are healed on
     // chat open; a single per-character guard prevents duplicate cloud jobs.
@@ -393,6 +395,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const refresh=()=>{
             if(document.hidden)return;
             void ensureAutonomyWakes({char,apiConfig,userProfile,groups,realtimeConfig,
+                isEnabledNow:()=>liveCharactersRef.current.some(c=>
+                    c.id===targetId&&c.activeMsg2Config?.enabled===true),
                 onSave:updater=>updateCharacter(targetId,prev=>({
                     activeMsg2Config:updater(prev.activeMsg2Config),
                 })),
@@ -409,10 +413,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         };
         document.addEventListener('visibilitychange',visible);
         window.addEventListener(SCHEDULE_CHANGE_EVENT,scheduleChanged);
+        window.addEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT,scheduleChanged);
         return()=>{
             window.clearInterval(interval);
             document.removeEventListener('visibilitychange',visible);
             window.removeEventListener(SCHEDULE_CHANGE_EVENT,scheduleChanged);
+            window.removeEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT,scheduleChanged);
         };
     },[char?.id,char?.activeMsg2Config?.enabled,char?.activeMsg2Config?.tasks?.length,
         apiConfig,userProfile,groups,realtimeConfig,updateCharacter,activeCharacterId]);
@@ -2226,6 +2232,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         setScheduleData(updated);
         await DB.saveDailySchedule(updated);
         markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT, {
+            detail: {charId: char?.id},
+        }));
     };
 
     const handleScheduleDelete = async (index: number) => {
@@ -2235,6 +2244,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         setScheduleData(updated);
         await DB.saveDailySchedule(updated);
         markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT, {
+            detail: {charId: char?.id},
+        }));
     };
 
     const handleScheduleCoverChange = async (dataUrl: string) => {
@@ -2315,6 +2327,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 setScheduleData(result);
                 // 跨天后台重新生成也要刷云端：不刷的话角色到点照着昨天的作息表说话
                 markAmsgStateDirty({ char: targetChar, userProfile, groups, realtimeConfig });
+                window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT, {
+                    detail: {charId: targetChar.id},
+                }));
             }
         } catch (e) {
             console.error('[Schedule] Generation error:', e);
@@ -2337,6 +2352,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 // Style changes regenerate the actual day plan after the profile
                 // update; re-sync now so Worker does not retain the old schedule.
                 markAmsgStateDirty({ char: updatedChar, userProfile, groups, realtimeConfig });
+                window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT, {
+                    detail: {charId: updatedChar.id},
+                }));
             }
         } catch (e) {
             console.error('[Schedule] Regeneration after style change failed:', e);

@@ -12,6 +12,7 @@ import {getScheduleDateKey,getScheduleWallClock} from './scheduleTime';
 import {withAutonomyWakeLock} from './amsgAutonomyLock';
 import {resolveCharTimeZone,wallClockToTimestamp} from './timezone';
 
+export const AMSG_AUTONOMY_SCHEDULE_EVENT='amsg2-schedule-saved';
 export const isAutonomyWakeTask=(task:Pick<ActiveMsg2TaskRecord,'clientTaskId'>)=>
   typeof task.clientTaskId==='string'&&task.clientTaskId.startsWith('autowake:');
 type Slot='day'|'evening';
@@ -68,6 +69,8 @@ type Args={char:CharacterProfile;apiConfig:APIConfig;userProfile:UserProfile;
   onSave:(updater:(prev:ActiveMsg2CharacterConfig|undefined)=>ActiveMsg2CharacterConfig)=>void;
   /** Test-only data injection; production reads the existing daily schedule DB. */
   readSchedule?:()=>Promise<{slots:readonly Pick<ScheduleSlot,'startTime'|'activity'>[]}|null>;
+  /** Live enabled state; prevents stale async cloud writes after turning 2.0 off. */
+  isEnabledNow?:()=>boolean;
 };
 const inFlight=new Set<string>();
 const recentFailure=new Map<string,number>();
@@ -169,6 +172,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
         throw new Error('同一时段有重复云端自主任务，已停止自动改期，需先清理重复任务');
       }
       for(const old of current){
+        if(args.isEnabledNow?.()===false)return;
         const slot=old.clientTaskId.split(':')[1] as 'day'|'evening';
         const desired=wanted.get(slot);
         if(!desired){
@@ -195,6 +199,10 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
           replaceTaskUuid:old.taskUuid,apiConfig:args.apiConfig,
           userProfile:args.userProfile,groups:args.groups,realtimeConfig:args.realtimeConfig,
         });
+        if(args.isEnabledNow?.()===false){
+          await ActiveMsgClient.cancelTask(result.uuid);
+          return;
+        }
         const replacement:ActiveMsg2TaskRecord={
           ...old,taskUuid:result.uuid,clientTaskId:result.clientTaskId,
           firstSendTime:result.firstSendAt,nextSendAt:result.firstSendAt,
@@ -223,6 +231,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
     }
     const existing=new Set(tasks.filter(isAutonomyWakeTask).map(t=>t.clientTaskId.split(':')[1]));
     for(const target of targets){
+      if(args.isEnabledNow?.()===false)return;
       if(existing.has(target.slot)||tasks.length>=resolveAmsgLimits(char.activeMsg2Config).maxActiveTasks)continue;
       const result=await ActiveMsgClient.scheduleCharacterTask({
         char,config:{...char.activeMsg2Config,tasks},task:{
@@ -231,6 +240,13 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
         },apiConfig:args.apiConfig,userProfile:args.userProfile,
         groups:args.groups,realtimeConfig:args.realtimeConfig,
       });
+      if(args.isEnabledNow?.()===false){
+        // User disabled background autonomy while scheduling was in flight.
+        // Roll back this newly-created cloud task instead of leaving a
+        // billable orphan which the disabled UI will never show.
+        await ActiveMsgClient.cancelTask(result.uuid);
+        return;
+      }
       const record:ActiveMsg2TaskRecord={
         taskUuid:result.uuid,clientTaskId:result.clientTaskId,mode:'auto',
         firstSendTime:result.firstSendAt,recurrenceType:'daily',expirePolicy:'expire',
