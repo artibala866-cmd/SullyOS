@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test chat auto reply, keyboard dismissal and grounded life fragments
-        run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgScheduleShortcut.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyLock.test.ts utils/amsgChatGenerationLease.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgPhoneEvent.test.ts utils/amsgVerifiedXhs.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
+        run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgScheduleShortcut.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyLock.test.ts utils/amsgChatGenerationLease.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgPhoneEvent.test.ts utils/characterLifeEventsPrivateDeletion.test.ts utils/amsgVerifiedXhs.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
       - name: Test AMSG2 stale conversation protection (worker simulation)
         run: |
           pnpm exec vitest run worker/amsg/src/index.test.ts -t "onBeforeFire 四道门|连发上限（到点兜底闸）"
@@ -65,7 +65,7 @@ jobs:
           fi
           echo "Real-person reply scheduler has no TypeScript diagnostics."
       - name: Test deleted WeChat privacy and life-glimpse revocation
-        run: pnpm exec vitest run utils/characterPhoneChatDeletion.test.ts utils/characterPhoneClear.test.ts utils/characterLifeEventGlimpse.test.ts
+        run: pnpm exec vitest run utils/characterPhoneChatDeletion.test.ts utils/characterLifeEventsPrivateDeletion.test.ts utils/characterPhoneClear.test.ts utils/characterLifeEventGlimpse.test.ts
       - name: Check independent life feature TypeScript diagnostics
         shell: bash
         run: |
