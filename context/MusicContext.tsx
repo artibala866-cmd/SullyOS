@@ -17,7 +17,7 @@ import { findPendingMusicInvite } from '../utils/musicInviteStatus';
 import {
   musicKey, sameMusic, normalizeTencentSong, tencentSearchRows, extractMusicUrl,
   loadGuestMusicLibrary, persistGuestMusicLibrary, recordMusicPlay, upsertLikedSong,
-  type GuestMusicLibrary, type LocalMusicPlaylist,
+  type GuestMusicLibrary,
 } from '../utils/musicLibrary';
 import { getProxyWorkerUrl, DEFAULT_PROXY_WORKER, PROXY_WORKER_CHANGED_EVENT, isLegacyProxyWorkerUrl } from '../utils/proxyWorker';
 import type { PostProcessMusicHooks } from '../utils/applyAssistantPostProcessing';
@@ -627,10 +627,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [queue, current]);
   const removeQueueSong = useCallback((index: number) => {
     if (index < 0 || index >= queue.length) return;
-    if (index === idx) { toast('当前播放的歌曲会保留在队列中', 'info'); return; }
+    if (index === idx) return; // Currently playing audio cannot be detached from its row.
     setQueueState(queue.filter((_, i) => i !== index));
     if (index < idx) setIdx(idx - 1);
-  }, [queue, idx, toast]);
+  }, [queue, idx]);
   const clearUpcomingQueue = useCallback(() => {
     setQueueState(current ? [current] : []);
     setIdx(current ? 0 : -1);
