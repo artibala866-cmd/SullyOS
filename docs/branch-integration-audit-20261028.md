@@ -16,22 +16,22 @@
 
 | 分支 | 本次检验 HEAD（前 12 位） | 独有提交数 | 当前处理 |
 |---|---|---:|---|
-| `codex/spark-community-system-20261027` | `a0428fa098a0` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `feat/amaama-unity-retarget-probe` | `8e7afdaa9122` | 0（祖先） | 暂保留：PR 或原有回归依赖 |
-| `fix/chat-emotion-buff-independent-home-20261028` | `dec8c1a70290` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/chat-home-experience-regressions-20261028` | `aeffea4beb00` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/home3d-distance-gait-20261027` | `40bed16e127b` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/home3d-dream-entry-20261027` | `f93325d6c437` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/home3d-dream-entry-final-20261027` | `9481a13f5077` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/home3d-furniture-points-audit-20261027` | `1b39ebbf7f38` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/home3d-gray-screen-phone-overlay-20261027` | `453aa2da1b15` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/home3d-gray-screen-thought-bubble` | `4540e1a377be` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/home3d-motion-foundation-recovery-20261027` | `f1a53df2b6ee` | 0（祖先） | 暂保留：PR 或原有回归依赖 |
-| `fix/home3d-thought-bubble-rail` | `25fe99088bc1` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/home3d-thought-clock-preserve-initiative` | `fe2b4364999f` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/phone-life-budget-routing-audit-20261028` | `88ea33c6e6cc` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
-| `fix/spark-community-stability-20261028` | `f2739f837785` | 0（祖先） | 暂保留：PR 或原有回归依赖 |
-| `fix/time-awareness-phone-home-recovery-20261028` | `7587508173b4` | 0（祖先） | 候选：待完成全依赖及删除前再验 |
+| `codex/spark-community-system-20261027` | `a0428fa098a0` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `feat/amaama-unity-retarget-probe` | `8e7afdaa9122` | 0（祖先） | 保留：PR #8 仍开放、原动作回归依赖未迁移 |
+| `fix/chat-emotion-buff-independent-home-20261028` | `dec8c1a70290` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/chat-home-experience-regressions-20261028` | `aeffea4beb00` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/home3d-distance-gait-20261027` | `40bed16e127b` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/home3d-dream-entry-20261027` | `f93325d6c437` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/home3d-dream-entry-final-20261027` | `9481a13f5077` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/home3d-furniture-points-audit-20261027` | `1b39ebbf7f38` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/home3d-gray-screen-phone-overlay-20261027` | `453aa2da1b15` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/home3d-gray-screen-thought-bubble` | `4540e1a377be` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/home3d-motion-foundation-recovery-20261027` | `f1a53df2b6ee` | 0（祖先） | 保留：PR #8 仍开放、原动作回归依赖未迁移 |
+| `fix/home3d-thought-bubble-rail` | `25fe99088bc1` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/home3d-thought-clock-preserve-initiative` | `fe2b4364999f` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/phone-life-budget-routing-audit-20261028` | `88ea33c6e6cc` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/spark-community-stability-20261028` | `f2739f837785` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
+| `fix/time-awareness-phone-home-recovery-20261028` | `7587508173b4` | 0（祖先） | **已删除**：SHA/PR/CI/部署校验通过，清理日志已复核 |
 
 ## master 独有提交初筛（183/183）
 
@@ -251,3 +251,20 @@
 3. 清理远端分支前逐个刷新 SHA、查询开放 PR、检查工作流/部署/脚本/回滚依赖并记录删除结果；未完成不得标记成功。
 4. 对当前分支执行完整依赖安装、相关 Vitest、TypeScript、生产构建、特殊审计、Pages 发布与关键浏览器交互验收。
 5. 不改变 GitHub 默认分支；若确需改变需用户单独授权。
+
+## 实际远端分支清理结果
+
+- 已完成 one-time Actions 执行：[run 40667321969](https://github.com/artibala866-cmd/SullyOS/actions/runs/40667321969)，结论 **success**。
+- 清理执行前逐项确认 14 个候选的原始 SHA 未发生并行变更、`behind_by=0`、无开放 PR 源分支引用、无有效工作流及脚本引用，也无活动部署记录；分别执行远端 ref 删除，并对每一个返回 404 验证不存在。
+- **14 个远端独立分支已成功删除**；再次读取远端 branch API 后只剩 `master`、`remove-checkphone-vrworld-lifesim`、`feat/amaama-unity-retarget-probe`、`fix/home3d-motion-foundation-recovery-20261027`。
+- 仍保留两个 PR #8 所依赖的 Home3D 旧分支。旧 Spark 分支在目标 Spark 回归运行 #339 成功并改正触发条件后纳入清理。
+- 临时 SHA 检查清理工作流 `.github/workflows/one-time-history-branch-cleanup.yml` 仅用于这次清理，并已提交删除：`5de5e2676816227f6462feec64d43b6aafc17fbe`。此工作流不留作未来自动删分支的机制。
+- `master` 默认分支、Cloudflare 配置、用户现有数据及主要功能文件均未因清理发生改动。
+
+## 重点源码实查新增发现
+
+- Home3D：目标 `apps/room3d/editor.js` 已有 `gpuContextLost`、`webglcontextlost`、`recoverFrameFailure`、`contextRecovery` 等对应恢复路径，**不能仅根据 master 多出来的回归测试就断定目标缺少 WebGL 恢复能力**；仍需浏览器故障注入验收。
+- Spark 私信：`master` 的 `utils/sparkDMQueue.ts` 和 `apps/SocialApp.tsx` 有 `parseSparkDMThreadSnapshot`、`mergeSparkDMThreadSnapshots`、`dmReadyRef`、`dmPersistenceIssue` 等保存/恢复机制，而目标这两份文件缺少这些同名机制。**这是尚未证明功能等价的高优先级待核查差异**；不能直接覆盖目标 Spark 的新逻辑。
+- 语音：目标存在 `apps/CallApp.tsx` 和 `api/elevenlabs/tts.ts`，但 master 独有三家 STT API、`utils/voiceStream.ts` 与配套流式语音组件；是否按当前需求继续提供这些能力尚待确认，禁止整套回填。
+- 目标 Spark 回归已在 [run #339](https://github.com/artibala866-cmd/SullyOS/actions/runs/40666892594) 和 [run #340](https://github.com/artibala866-cmd/SullyOS/actions/runs/40667197261) 成功；实际 Pages 后续最新发布结果必须待 Actions 最新运行完成后再确认。
+- 这些源码实查不是全部 183 个提交的逐项调用级验收；该后续工作仍属未完成事项。
