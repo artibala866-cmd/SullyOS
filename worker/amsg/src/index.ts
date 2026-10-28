@@ -1885,6 +1885,30 @@ export const amsgHooks = {
     // 面板上的 lastError 是用户唯一能看到的线索，得直接说出该做什么。
     if (!pack) throw fail(`fire_pack 解析失败：${describeFirePackVersion(packJson)}`);
 
+    // Meal / errand regression: the lightweight chat_presence may know that
+    // the user spoke again, while the full chat transcript is still the OLD
+    // fire_pack (failed upload, suspended WebView, or pending sync). Replacing
+    // only the recency timestamp is NOT equivalent to knowing what was said.
+    // "看情况" MUST NOT ask about an already completed event using that stale
+    // transcript. Throw a retryable error before making any LLM request:
+    // the scheduled job can retry after the frontend catches up, or surface
+    // a failed task if fresh context never arrives. Do not block "到点必发"
+    // alarms, fixed text tasks, or the instant reply that is answering User.
+    if (!instant && policy === 'expire' && presence?.charId === charId) {
+      const latestUserAt = presence.lastUserMessageAt;
+      const syncedUserAt = pack.lastUserMessageAt;
+      if (typeof latestUserAt === 'number' && Number.isFinite(latestUserAt)
+        && latestUserAt <= nowMs + 10_000
+        && (syncedUserAt == null || latestUserAt > syncedUserAt)) {
+        console.warn('[amsg:outdated-chat-transcript]', {
+          taskId: ctx.task.id,
+          syncedUserAt: syncedUserAt ?? null,
+          latestUserAt,
+        });
+        throw new Error('AMSG2_CHAT_CONTEXT_STALE: 云端聊天正文尚未同步到用户最新发言；暂缓主动消息，等待重试，避免重复追问已聊过的话题');
+      }
+    }
+
     // 连发上限以前跟着 fire_pack 走。前端还没换新版（没传过 limits 那份）时，老包上那个值
     // 就是用户设过的上限——拿默认值顶掉的话，设了「不限」或 10 条报备的人会突然被卡在 3 条。
     // 新前端第一次上传就会带上 limits，这条退路自然用不上了。

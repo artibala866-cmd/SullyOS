@@ -388,18 +388,64 @@ describe('onBeforeFire 四道门', () => {
   // presence 行是每轮聊天一开场就写的小值，几十字节就发完了；fire_pack 是整包几十 KB，
   // 同样是打脏即发，但传完总要慢一截。只看 fire_pack 的话，用户刚说完话、包还在路上的
   // 那几秒里，角色会以为对方半小时没说话了。
-  it('presence 记的用户开口时刻比 fire_pack 新 → 提示词按新的那份写', async () => {
+  it('AMSG2 过期吃饭话题：轻量时间戳比正文新四分钟，不许把旧饭题发给 AI', async () => {
+    const userAt = NOW.getTime() - 4 * 60_000;
+    const oldAt = NOW.getTime() - 90 * 60_000;
     const { ctx } = makeCtx({
       charRows: [
-        // 租约本身已经过期（不吃第一道门），但它记着的「最后一条用户消息」仍然算数。
+        // Heartbeat has expired and the two-minute quiet window is over:
+        // previously this path would silently send the OLD transcript.
+        { key: AMSG_CHAT_PRESENCE_KEY, value: presenceValue(NOW.getTime() - 5 * 60_000, { lastUserMessageAt: userAt }) },
+        { key: AMSG_FIRE_PACK_KEY, value: firePackValue(oldAt, {
+          template: `【最近对话上下文】\\n用户：还没吃饭\\n【本次任务】\\n${AMSG_SLOT_TASK_INSTRUCTION}`,
+        }) },
+        { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
+      ],
+    });
+    await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow('AMSG2_CHAT_CONTEXT_STALE');
+    // Retryable, not a permanent state corruption or an AI generation.
+    expect(ctx.scratch.fire).toBeUndefined();
+  });
+
+  it('AMSG2 吃饭已更新：真正同步到新正文后，再用最新事实决定说不说', async () => {
+    const userAt = NOW.getTime() - 4 * 60_000;
+    const { ctx } = makeCtx({
+      charRows: [
+        { key: AMSG_CHAT_PRESENCE_KEY, value: presenceValue(NOW.getTime() - 5 * 60_000, { lastUserMessageAt: userAt }) },
+        { key: AMSG_FIRE_PACK_KEY, value: firePackValue(userAt, {
+          template: `【最近对话上下文】\\n用户：我已经吃完饭了，刚刚也聊了很久\\n【本次任务】\\n${AMSG_SLOT_TASK_INSTRUCTION}`,
+        }) },
+        { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
+      ],
+    });
+    const rendered = fired(await amsgHooks.onBeforeFire(ctx)).messages[0].content;
+    expect(rendered).toContain('我已经吃完饭了');
+    expect(rendered).toContain('问问对方吃了没');
+    // AI may still make a semantic mistake; the gate guarantees evidence
+    // freshness, not an imaginary deterministic model-quality guarantee.
+  });
+
+  it('AMSG2 到点必发：即便云端聊天快照较旧，明确承诺的任务依旧准点', async () => {
+    const { ctx } = makeCtx({
+      metadata: { amsgExpirePolicy: 'force' },
+      charRows: [
+        { key: AMSG_CHAT_PRESENCE_KEY, value: presenceValue(NOW.getTime() - 5 * 60_000, { lastUserMessageAt: NOW.getTime() - 4 * 60_000 }) },
+        { key: AMSG_FIRE_PACK_KEY, value: firePackValue(NOW.getTime() - 90 * 60_000) },
+        { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
+      ],
+    });
+    expect(fired(await amsgHooks.onBeforeFire(ctx)).messages).toHaveLength(1);
+  });
+
+  it('presence 刚记下的用户开口也会先被原有两分钟静默窗推迟', async () => {
+    const { ctx } = makeCtx({
+      charRows: [
         { key: AMSG_CHAT_PRESENCE_KEY, value: presenceValue(NOW.getTime() - 120_000, { lastUserMessageAt: NOW.getTime() - 60_000 }) },
         { key: AMSG_FIRE_PACK_KEY, value: firePackValue(NOW.getTime() - 30 * 60_000, { template: LIVE_TEMPLATE }) },
         { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
       ],
     });
-    const content = fired(await amsgHooks.onBeforeFire(ctx)).messages[0].content;
-    expect(content).toContain('你们此刻正聊着');
-    expect(content).toContain('大约 1 分钟');
+    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ defer: { afterMs: 45_000 } });
   });
 
   it('presence 是别的角色的 → 不拿来当判定材料', async () => {
