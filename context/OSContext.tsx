@@ -43,6 +43,7 @@ import { runCharacterPhoneBrowserAutonomy } from '../utils/characterPhoneBrowser
 import { runCharacterPhoneSelfAutonomy } from '../utils/characterPhoneSelfProfile';
 import { resolveCharacterPhoneApi } from '../utils/characterPhoneApiConfig';
 import { readPhoneInboxPreferences } from '../utils/characterPhoneInboxPrefs';
+import { collectLegacyPhoneBackup, restoreLegacyPhoneBackup } from '../utils/phoneLegacyBackup';
 import { findPhoneAutonomyOpportunity, markPhoneAutonomyOpportunityAttempt } from '../utils/characterPhoneOpportunity';
 import { getCharacterLifeScheduleContext } from '../utils/characterLifeScheduleContext';
 import { classifyLifeActivity } from '../utils/sullyLifeClock';
@@ -3878,6 +3879,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               version: 3,
               apiConfig: (mode === 'text_only' || mode === 'full') ? apiConfig : undefined,
               checkPhoneApi: (mode === 'text_only' || mode === 'full') ? getCheckPhoneApi() : undefined,
+              // Only scope previous phone records to active Char IDs, never resurrect retired apps.
+              characterPhoneLegacyLocal: (mode === 'text_only' || mode === 'full')
+                  ? collectLegacyPhoneBackup((await DB.getAllCharacters()).map(c => c.id)) : undefined,
               apiPresets: (mode === 'text_only' || mode === 'full') ? apiPresets : undefined,
               availableModels: (mode === 'text_only' || mode === 'full') ? availableModels : undefined,
               realtimeConfig: (mode === 'text_only' || mode === 'full') ? realtimeConfig : undefined,
@@ -5050,6 +5054,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
 
           const chars = await DB.getAllCharacters();
+          // Import old phone records only if the per-Char local setting is absent.
+          // The current user's contacts, clears and privacy preferences always win.
+          const phoneRestore = restoreLegacyPhoneBackup(data.characterPhoneLegacyLocal, chars.map(c => c.id));
+          if (phoneRestore.failed > 0) {
+              addToast(`有 ${phoneRestore.failed} 项历史角色手机记录尚未恢复，请保留备份并检查存储空间`, 'error');
+          }
           const groupsList = await DB.getGroups();
           const themes = await DB.getThemes();
           const user = await DB.getUserProfile();
