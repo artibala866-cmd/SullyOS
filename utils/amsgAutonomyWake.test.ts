@@ -221,7 +221,7 @@ describe('AMSG2 P1 daily schedule drift, without touching manual reminders',()=>
      status:'scheduled',createdAt:Date.now()-86400000};
    let state:any={enabled:true,tasks:[previous]},calls=0,removed:string[]=[];
    role.activeMsg2Config=state;
-   (ActiveMsgClient as any).getGlobalConfig=async()=>({workerUrl:'https://example.com'});
+   (ActiveMsgClient as any).getGlobalConfig=async()=>({workerUrl:'https://example.com',userId:'test-user'});
    (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[{
      uuid:previous.taskUuid,clientTaskId:previous.clientTaskId,
      nextSendAt:oldIso,recurrenceType:'daily',messageType:'auto',status:'pending',
