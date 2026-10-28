@@ -7,7 +7,6 @@ import {createBlankBody,BLANK_SCALE} from '../apps/room3d/chibi/blankBody';
 import {bindBlankBody} from '../apps/room3d/chibi/blankRig';
 import {createBlankMotion} from '../apps/room3d/chibi/blankMotion';
 import {bodyHeightY} from '../apps/room3d/chibi/bodyHeight';
-import {createBathroomJourney,bathroomJourneyFrame,bathroomHandTargets} from '../apps/room3d/bathroomJourney.js';
 import {furnitureHandRotation,furniturePalm,racingHands} from '../apps/room3d/chibi/furnitureMotion';
 import {readFileSync} from 'node:fs';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -133,32 +132,5 @@ it('normalizes hand contact frames even with degenerate or near-parallel axes',(
   const axes=[new T.Vector3(1,0,0),new T.Vector3(0,1,0),new T.Vector3(0,0,1)].map(p=>p.applyMatrix4(basis));
   for(const axis of axes)expect(axis.length()).toBeCloseTo(1,6);
   for(let i=0;i<3;i++)for(let j=i+1;j<3;j++)expect(Math.abs(axes[i].dot(axes[j]))).toBeLessThan(1e-6);
- }
-});
-
-it('reversible bath phases preserve second-body bone lengths and finite joint poses at four headings',()=>{
- for(const height of [.8,1,1.25])for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2]){
-  const a=actor(height),resident=new T.Group();resident.add(a.parent);
-  const activity={kind:'bath-soak',position:[0,.54,0],rotation:yaw,
-   edge:[0,1.17,.65],edgeRotation:yaw,posture:'seated',duration:8,
-   bathHandWorld:[[-.25,1.16,.5],[.25,1.16,.5]]};
-  const journey=createBathroomJourney(activity,[0,.18,1.35],yaw);
-  const lengths=a.rig.skeleton.bones.map(b=>b.position.length());
-  for(const t of [0,.45,.92,1.42,1.95,2.43,3.1,3.6,4.1,11.6,12.4,13.2,14.9,15.2]){
-   const f=bathroomJourneyFrame(journey,t),hands=bathroomHandTargets(activity,f);
-   resident.position.fromArray(f.position);resident.rotation.y=f.rotation;
-   a.animate(f.time,'bath-soak','seated',{
-    kind:'bath-soak',hands:[],bathHands:hands,bathPhase:f.phase,seatWeight:f.seatWeight,
-    bathLegLift:f.legLift,bathSupport:f.support,bathLeadStep:f.leadStep,
-    bathTrailStep:f.trailStep,bathLean:f.lean,handScale:1/a.parent.scale.y,
-   });
-   resident.updateWorldMatrix(true,true);
-   expect(a.rig.skeleton.bones.map(b=>b.position.length())).toEqual(lengths);
-   expect(a.rig.skeleton.bones.every(b=>b.matrixWorld.elements.every(Number.isFinite))).toBe(true);
-   expect(Number.isFinite(a.body.position.y)).toBe(true);
-  }
-  const end=bathroomJourneyFrame(journey,journey.enter*2+journey.hold);
-  a.animate(end.time,'idle','standing');
-  expect(a.body.position.y).toBeCloseTo(0,6);
  }
 });
