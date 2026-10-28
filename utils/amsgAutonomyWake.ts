@@ -65,7 +65,10 @@ export function planAutonomyWakes(
 
 type Args={char:CharacterProfile;apiConfig:APIConfig;userProfile:UserProfile;
   groups:GroupProfile[];realtimeConfig:RealtimeConfig;
-  onSave:(updater:(prev:ActiveMsg2CharacterConfig|undefined)=>ActiveMsg2CharacterConfig)=>void};
+  onSave:(updater:(prev:ActiveMsg2CharacterConfig|undefined)=>ActiveMsg2CharacterConfig)=>void;
+  /** Test-only data injection; production reads the existing daily schedule DB. */
+  readSchedule?:()=>Promise<{slots:readonly Pick<ScheduleSlot,'startTime'|'activity'>[]}|null>;
+};
 const inFlight=new Set<string>();
 const recentFailure=new Map<string,number>();
 /** Works for characters enabled days ago: called when their chat opens.
@@ -140,7 +143,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
         lastSyncedAt:Date.now(),
       });
     }
-    const schedule=await getDailyScheduleForChar(char).catch(()=>null);
+    const schedule=await (args.readSchedule?args.readSchedule():getDailyScheduleForChar(char)).catch(()=>null);
     const targets=planAutonomyWakes(char,schedule?.slots||null);
     // Only an actual daily schedule change may reschedule an existing wake.
     // Never rewrite a user's manual reminder or retime a cloud job because
@@ -154,6 +157,17 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
         const wall=getScheduleWallClock(char,when);
         return wall.getHours()*60+wall.getMinutes();
       };
+      // If a previous replace succeeded but cancelling the old cloud job
+      // failed, do not perform further moves on either duplicate. The user
+      // must reconcile that abnormal remote state first.
+      const counts=new Map<string,number>();
+      for(const t of current){
+        const key=t.clientTaskId.split(':')[1];
+        counts.set(key,(counts.get(key)||0)+1);
+      }
+      if([...counts.values()].some(n=>n>1)){
+        throw new Error('同一时段有重复云端自主任务，已停止自动改期，需先清理重复任务');
+      }
       for(const old of current){
         const slot=old.clientTaskId.split(':')[1] as 'day'|'evening';
         const desired=wanted.get(slot);
@@ -223,7 +237,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
         source:'user',status:'scheduled',createdAt:Date.now(),
       };
       tasks.push(record);existing.add(target.slot);
-      args.onSave(prev=>({
+      args.onSave(prev=>prev?.enabled===false?prev:{
         ...(prev||{enabled:true}),tasks:[
           ...(prev?.tasks||[]).filter(t=>t.taskUuid!==record.taskUuid),record,
         ],lastSyncedAt:Date.now(),

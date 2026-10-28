@@ -197,3 +197,61 @@ describe('AMSG2 recurring cloud task health: local switch cannot mask a dead Wor
    }
  });
 });
+describe('AMSG2 P1 daily schedule drift, without touching manual reminders',()=>{
+ it('retimes an existing evening cloud opportunity after a confirmed new daily schedule',async()=>{
+   const {ensureAutonomyWakes,planAutonomyWakes}=await import('./amsgAutonomyWake');
+   const {ActiveMsgClient}=await import('./activeMsgClient');
+   const oldGlobal=ActiveMsgClient.getGlobalConfig,oldRemote=ActiveMsgClient.listRemoteTasksForChar;
+   const oldSchedule=ActiveMsgClient.scheduleCharacterTask,oldCancel=ActiveMsgClient.cancelTask;
+   const role:any={...char,id:'schedule-drift',activeMsg2Config:{enabled:true,tasks:[]}};
+   const plan=planAutonomyWakes(role,[
+     {startTime:'00:00',activity:'睡觉'},
+     {startTime:'09:00',activity:'工作'},
+     {startTime:'18:00',activity:'散步'},
+     {startTime:'22:00',activity:'睡觉'},
+   ]);
+   const desired=plan.find(x=>x.slot==='evening');
+   expect(desired).toBeDefined();
+   // The old daily wake fired at 10:30 local, now within today's working time.
+   const at=new Date(desired!.firstSendTime);
+   const oldIso=new Date(at.getTime()-(9*60+30)*60000).toISOString();
+   const previous:any={taskUuid:'old-evening',clientTaskId:'autowake:evening:old',
+     mode:'auto',firstSendTime:oldIso,nextSendAt:oldIso,
+     recurrenceType:'daily',expirePolicy:'expire',source:'user',
+     status:'scheduled',createdAt:Date.now()-86400000};
+   let state:any={enabled:true,tasks:[previous]},calls=0,removed:string[]=[];
+   role.activeMsg2Config=state;
+   (ActiveMsgClient as any).getGlobalConfig=async()=>({workerUrl:'https://example.com'});
+   (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[{
+     uuid:previous.taskUuid,clientTaskId:previous.clientTaskId,
+     nextSendAt:oldIso,recurrenceType:'daily',messageType:'auto',status:'pending',
+   }];
+   (ActiveMsgClient as any).scheduleCharacterTask=async(p:any)=>{
+     calls++;expect(p.replaceTaskUuid).toBe('old-evening');
+     expect(p.task.autonomyWakeSlot).toBe('evening');
+     return {uuid:'new-evening',clientTaskId:'autowake:evening:new',
+       firstSendAt:p.task.firstSendTime,replacedCancelFailed:false};
+   };
+   (ActiveMsgClient as any).cancelTask=async(uuid:string)=>{removed.push(uuid);return{uuid,alreadyGone:false}};
+   try{
+     await ensureAutonomyWakes({char:role,apiConfig:{} as any,userProfile:{} as any,groups:[],
+       realtimeConfig:{} as any,
+       readSchedule:async()=>({slots:[
+         {startTime:'00:00',activity:'睡觉'},
+         {startTime:'09:00',activity:'工作'},
+         {startTime:'18:00',activity:'散步'},
+         {startTime:'22:00',activity:'睡觉'},
+       ]}),
+       onSave:fn=>{state=fn(state);role.activeMsg2Config=state;},
+     });
+     expect(calls).toBe(1);
+     expect(state.tasks.map((t:any)=>t.taskUuid)).toEqual(['new-evening']);
+     expect(removed).toEqual([]);
+   }finally{
+     (ActiveMsgClient as any).getGlobalConfig=oldGlobal;
+     (ActiveMsgClient as any).listRemoteTasksForChar=oldRemote;
+     (ActiveMsgClient as any).scheduleCharacterTask=oldSchedule;
+     (ActiveMsgClient as any).cancelTask=oldCancel;
+   }
+ });
+});
