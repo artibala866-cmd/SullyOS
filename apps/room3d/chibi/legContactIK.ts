@@ -84,7 +84,9 @@ export function createWorldFootLock(){
   v.root.updateWorldMatrix(true,true);
   const root=v.root.getWorldPosition(new T.Vector3());
   const dt=previousTime===null?0:time-previousTime;
-  if(previousTime!==null&&(dt<=0||dt>.35||root.distanceTo(previousRoot)>Math.max(.22,3*speed*dt)))reset();
+  // A furniture clip may sample the same timestamp more than once while
+  // drawing/reducing motion; re-sampling must never discard a planted toe.
+  if(previousTime!==null&&((forcedSide?dt<-.0001:dt<=0)||dt>.35||root.distanceTo(previousRoot)>Math.max(.22,3*speed*Math.max(0,dt))))reset();
   previousRoot.copy(root);previousTime=time;
   const toes={L:v.rig.bones.L_toe.getWorldPosition(new T.Vector3()),R:v.rig.bones.R_toe.getWorldPosition(new T.Vector3())};
   const candidate:'L'|'R'=forcedSide??(toes.L.y<=toes.R.y?'L':'R');
