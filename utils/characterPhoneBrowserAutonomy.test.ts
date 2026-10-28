@@ -63,6 +63,12 @@ describe('Char autonomous Baidu search history',()=>{
     const fetchMock=vi.fn(()=>pending);
     vi.stubGlobal('fetch',fetchMock);
     const {writePhoneAutonomyPreferences}=await import('./characterPhoneApiBudget');
+    // A confirmed free slot is required for the background request to
+    // actually begin; "休息" is classified as sleep and would gate it off.
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValueOnce({
+      characterId:'char',observedAt:Date.now(),plannedActivity:'散步',
+      plannedDescription:'空闲',confirmedEvents:[],
+    });
     const promise=runCharacterPhoneBrowserAutonomy(input,'background');
     for(let i=0;i<60&&fetchMock.mock.calls.length===0;i++)await new Promise(r=>setTimeout(r,0));
     expect(fetchMock).toHaveBeenCalledOnce();
