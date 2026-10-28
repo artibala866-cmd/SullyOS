@@ -15,6 +15,11 @@ describe('跨标签页事务与 AMSG 手动核查真实接线',()=>{
   expect(body).toContain('updated = update(req.result?.data ?? null)');
   expect(body).toContain('store.put({id,data:updated})');
   expect(body).toContain('tx.oncomplete');
+  const recoveryStart=db.indexOf('recoverAssetRawWithSnapshot: async <T>');
+  const recoveryBody=db.slice(recoveryStart,db.indexOf('deleteAsset: async',recoveryStart));
+  expect(recoveryBody).toContain("db.transaction(STORE_ASSETS,'readwrite')");
+  expect(recoveryBody).toContain('store.put({id:snapshotId,data:raw})');
+  expect(recoveryBody).toContain('store.put({id,data:updated})');
   expect(body).not.toContain('await update(');
  });
  it('学习室所有写操作用原子接口，不再读取后另起事务保存',()=>{

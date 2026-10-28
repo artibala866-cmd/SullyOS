@@ -60,3 +60,10 @@
 - **AMSG 主动核查：** 用户逐项点击「读取 AMSG 云端状态（不修改）」才调用旧有 `listRemoteTasksForChar`，必须以同 Char 的 UUID/客户端任务 ID 严格匹配，不发起新任务、不自动删除本地链接。没有可靠任务号时显示「无法识别」，列表未找到也不自动认定云端不存在。真实网络认证/Worker/Android 通知需人工验收；不得据列表结果自行复创建。
 - **按天容量估算：** `dailyCapacityForecast` 单独显示课程占用、作业分钟、逾期未做作业、当日可用/超额分钟。没有有效截止时间的作业显式报未安排，不虚构日期；共享 `calculatePlanRisks` 风险口径，跨 DST 使用日期键差而非 23/25 小时推算天数。仅为每日预算估算，不是精确小时级自动排程。
 - 定向测试 `workspaceIntegrity.test.ts`、`dailyCapacityForecast.test.ts`、`workspaceAtomic.wiring.test.ts`，连同已有 AMSG 及权限测试一起纳入独立 CI。
+
+## 人工恢复损坏备份
+
+- 若工作空间来源损坏，界面显示详细异常并阻止常规写入。用户选择「确认后备份原件并恢复可识别资料」，须再次输入指定确认词。
+- `DB.recoverAssetRawWithSnapshot` 在同一个 `assets` readwrite 事务里，先检查新快照 ID 未被占用，**同时**写入完整受损原件到 `sully_workspace_recovery_<uuid>`，再用经过校验和补全的条目替换主 `sully_workspace_v1`。事务任何阶段失败均不能完成主空间替换，不能覆盖旧快照；完整备份导出能包含该原件快照。
+- 无法识别/重复 ID 条目不进入新的工作空间显示列表，但保留在原始快照中供人工恢复；可能丢失的 AMSG 提醒标识不会自动删除云端任务，必须人工核对。非交互式代码无法调用此恢复操作。
+- 测试除了安全只读和拒绝损坏写入，还包括人工确认缺失、原件快照完整性、可读资料迁移，以及恢复后正常读写。

@@ -16,7 +16,7 @@ import {
 } from '../utils/commissionPlanProposals';
 import {
   calculatePlanRisks, dailyCapacityForecast, emptyWorkspace, localDate, newWorkspaceId,
-  readWorkspaceIntegrityWarnings,
+  readWorkspaceIntegrityWarnings, recoverDamagedWorkspace,
   orderedCommissions, readWorkspace, mutateWorkspace, permissionForChar,
   type ClassHomework, type Commission, type TimetableClass, type WorkspaceData, type WorkKind, type WorkspaceShareCategory,
 } from '../utils/sullyWorkspace';
@@ -57,6 +57,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const [integrityWarnings, setIntegrityWarnings] = useState<string[]>([]);
+  const [recoveringWorkspace, setRecoveringWorkspace] = useState(false);
   const [shareBusy, setShareBusy] = useState<WorkspaceShareCategory | null>(null);
   const [planChecked, setPlanChecked] = useState<string[]>([]);
   const [applyingPlan, setApplyingPlan] = useState(false);
@@ -151,6 +152,25 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       } catch {}
       addToast('授权变更未完全确认：'+String(e),'error');
     } finally { setShareBusy(null); }
+  };
+  const recoverWorkspace = async () => {
+    if(recoveringWorkspace || !integrityWarnings.length)return;
+    const typed=window.prompt(
+      '此操作会保留完整受损原件为独立本机备份，并用仍可识别的资料修复主工作空间。'+
+      '部分损坏的提醒关联可能无法恢复，云端 AMSG 任务不会自动取消。请先确认你理解风险，输入：确认恢复并保留原件',
+      ''
+    );
+    if(typed!=='确认恢复并保留原件')return;
+    setRecoveringWorkspace(true);
+    try{
+      await queue.current;
+      const result=await recoverDamagedWorkspace(typed);
+      syncData(()=>result.workspace);
+      setIntegrityWarnings([]);
+      setError('');
+      addToast('恢复完成。损坏原件保留在本地快照 '+result.snapshotId+'，请保留完整备份并核对 AMSG 任务。','success');
+    }catch(e){addToast('恢复未完成，原始数据仍保留：'+String(e),'error');}
+    finally{setRecoveringWorkspace(false);}
   };
   const requestPlan = async () => {
     try {
@@ -350,6 +370,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       <h3 className="font-semibold">本地学习室备份存在异常，已开启安全保护</h3>
       <p className="text-xs">仅显示仍可读取的资料；原始损坏记录没有被删除。为避免覆盖可恢复数据，本机写入会被拒绝。请先通过备份管理恢复健康备份，不要清除应用数据。</p>
       <p className="text-xs break-words">{integrityWarnings.slice(0,4).join('；')}{integrityWarnings.length>4?'；另有更多异常':''}</p>
+      <button className={mutedButton} disabled={recoveringWorkspace}
+        onClick={()=>void recoverWorkspace()}>
+        {recoveringWorkspace?'正在备份与恢复…':'确认后备份原件并恢复可识别资料'}
+      </button>
+      <p className="text-xs text-neutral-600">这个操作不会自动执行，也不能保证恢复受损的原始文字；完整损坏原件另存本机以备之后人工修复。</p>
     </section>}
     <section className={cardClass} aria-label="普通私聊授权">
       <h3 className="font-semibold">普通私聊 · 数据授权</h3>

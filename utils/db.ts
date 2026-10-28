@@ -1525,6 +1525,49 @@ export const DB = {
       });
   },
 
+  /**
+   * Explicit manual recovery. Preserve the EXACT damaged record under a fresh
+   * backup key and commit a sanitized current record atomically. No snapshots
+   * are overwritten, even if a generated key collides.
+   */
+  recoverAssetRawWithSnapshot: async <T>(
+    id:string,snapshotId:string,transform:(raw:unknown)=>T,
+  ):Promise<T>=>{
+    if(!snapshotId.startsWith('sully_workspace_recovery_') || snapshotId===id)
+      throw new Error('无效的恢复快照编号');
+    const db=await openDB();
+    return new Promise<T>((resolve,reject)=>{
+      const tx=db.transaction(STORE_ASSETS,'readwrite');
+      const store=tx.objectStore(STORE_ASSETS);
+      let updated:T;
+      const original=store.get(id);
+      original.onsuccess=()=>{
+        try{
+          if(original.result?.data===undefined)throw new Error('原工作空间已不存在，无法恢复');
+          const raw=original.result.data;
+          const candidate=transform(raw);
+          const check=store.get(snapshotId);
+          check.onsuccess=()=>{
+            if(check.result){
+              tx.abort();
+              reject(new Error('快照编号已存在，不得覆盖历史备份'));
+              return;
+            }
+            updated=candidate;
+            store.put({id:snapshotId,data:raw});
+            store.put({id,data:updated});
+          };
+        }catch(error){
+          tx.abort();
+          reject(error);
+        }
+      };
+      tx.oncomplete=()=>resolve(updated);
+      tx.onerror=()=>reject(tx.error||new Error('恢复写入失败'));
+      tx.onabort=()=>reject(tx.error||new Error('恢复事务未完成'));
+    });
+  },
+
   deleteAsset: async (id: string): Promise<void> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {

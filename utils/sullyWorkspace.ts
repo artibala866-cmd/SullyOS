@@ -252,6 +252,31 @@ export async function mutateWorkspace(
   return saved!;
 }
 
+/**
+ * Destructive repair requires an explicit UI confirmation. The unmodified
+ * source record is snapshotted in the same IDB transaction before replacing
+ * the workspace with its valid/sanitized entries.
+ */
+export async function recoverDamagedWorkspace(
+  confirmation:string,
+):Promise<{workspace:WorkspaceData;snapshotId:string;warnings:string[]}> {
+  if(confirmation!=='确认恢复并保留原件')
+    throw new Error('必须先人工确认备份恢复');
+  const snapshotId='sully_workspace_recovery_'+newWorkspaceId();
+  let warnings:string[]=[];
+  let workspace:WorkspaceData|undefined;
+  const action=pendingSave.catch(()=>{}).then(async()=>{
+    workspace=await DB.recoverAssetRawWithSnapshot(WORKSPACE_ASSET_ID,snapshotId,raw=>{
+      warnings=workspaceIntegrityWarnings(raw);
+      if(!warnings.length)throw new Error('原工作空间没有发现需恢复的损坏记录');
+      return normalizeWorkspace(raw);
+    });
+  });
+  pendingSave=action;
+  await action;
+  return {workspace:workspace!,snapshotId,warnings};
+}
+
 /** 优先按手动队列顺序；风险统计则必须按真实截止日期排序。 */
 export function orderedCommissions(items: Commission[], includeArchived = false): Commission[] {
   return [...items].filter(c => includeArchived || c.status !== 'archived')
