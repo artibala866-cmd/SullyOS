@@ -706,10 +706,22 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // The guest library is always local, including when a NetEase user logs in.
   const [library, setLibraryState] = useState<GuestMusicLibrary>(loadGuestMusicLibrary);
+  const libraryTouchedRef = useRef(false);
   // Persist before committing UI state: a quota failure cannot create a fake
   // successful favorite, and the ref serializes rapid updates within one render.
   const libraryRef = useRef(library);
   libraryRef.current = library;
+  useEffect(() => {
+    const onMirrorRecovered = () => {
+      // An early user edit wins over a late mirror recovery notification.
+      if (libraryTouchedRef.current) return;
+      const restored = loadGuestMusicLibrary();
+      libraryRef.current = restored;
+      setLibraryState(restored);
+    };
+    window.addEventListener('music-guest-library-recovered', onMirrorRecovered);
+    return () => window.removeEventListener('music-guest-library-recovered', onMirrorRecovered);
+  }, []);
   const updateLibrary = useCallback((updater: (old: GuestMusicLibrary) => GuestMusicLibrary): boolean => {
     const next = updater(libraryRef.current);
     if (next === libraryRef.current) return false;
@@ -717,6 +729,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       toast('音乐库保存失败：存储空间不足或浏览器拒绝写入，请先备份并检查空间', 'error');
       return false;
     }
+    libraryTouchedRef.current = true;
     libraryRef.current = next;
     setLibraryState(next);
     return true;

@@ -1664,6 +1664,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         const healedKeys = await initLocalStorageMirror().catch(() => [] as string[]);
         const hadPriorFeedbackEvidence = hasPriorFeedbackInstallEvidence();
         if (healedKeys.length > 0) {
+            // MusicProvider may have read the empty localStorage before this async heal.
+            // Notify it to reload the restored library instead of leaving an empty UI.
+            if (healedKeys.includes('sully_music_guest_library_v1') ||
+                healedKeys.includes('sully_music_guest_likes_v1')) {
+                window.dispatchEvent(new Event('music-guest-library-recovered'));
+            }
             console.warn('[lsMirror] localStorage 疑似被清除，已从 IndexedDB 镜像回填:', healedKeys);
             setTimeout(() => addToast(`检测到本地设置曾被浏览器清除，已自动恢复 ${healedKeys.length} 项（主题 / API 等）`, 'info'), 2500);
         }

@@ -34,6 +34,13 @@ describe('正式音乐备份调用链', () => {
     expect(db).toContain('persistGuestMusicLibrary(guestMusic)');
   });
 
+  it('镜像回填后同步正在运行的 MusicProvider 内存，且不覆盖刚保存的收藏', () => {
+    const music = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
+    expect(os).toContain("window.dispatchEvent(new Event('music-guest-library-recovered'))");
+    expect(music).toContain("window.addEventListener('music-guest-library-recovered', onMirrorRecovered)");
+    expect(music).toContain('if (libraryTouchedRef.current) return;');
+  });
+
   it('镜像注册的是本地库和旧数字收藏，不恢复易过期的伴听状态', () => {
     expect(mirror).toContain("'sully_music_guest_library_v1'");
     expect(mirror).toContain("'sully_music_guest_likes_v1'");
