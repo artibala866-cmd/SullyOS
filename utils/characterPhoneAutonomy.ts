@@ -2,6 +2,7 @@ import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 import { readPhoneContentClearRevision } from './characterPhoneContentClearRevision';
 import { classifyLifeActivity } from './sullyLifeClock';
+import {isLocalChatLeaseActive} from './amsgChatGenerationLease';
 import { readCharacterLifeEvents, recordCharacterLifeEvent } from './characterLifeEvents';
 import { readNpcProfiles, type NpcProfile } from './characterPhoneNpcs';
 import { readPendingContacts } from './characterPhoneRequests';
@@ -212,7 +213,8 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       !isCharacterPhoneAutonomyEnabled(char.id)) return 'unavailable';
   // User-triggered refresh/continuation owns the inbox while its LLM call is
   // in flight. Never start a competing background write in the same window.
-  if (isCharacterPhoneRefreshing(char.id) || !canUsePhoneApiBudget(char.id) ||
+  if (isCharacterPhoneRefreshing(char.id) || isLocalChatLeaseActive(char.id) ||
+      !canUsePhoneApiBudget(char.id) ||
       !canRunAutomaticPhoneAi(char.id, api.baseUrl.replace(/\/+$/, '') + '/chat/completions')) return 'skipped';
   if (locks.has(char.id)) return 'skipped';
   locks.add(char.id);

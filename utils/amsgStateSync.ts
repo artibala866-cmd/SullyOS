@@ -33,6 +33,7 @@ import { ActiveMsgClient, isLlmCredentialsReady, owesInstantChatReply } from './
 import { ActiveMsgStore } from './activeMsgStore';
 import { hasActiveAiTask } from './amsg2Tasks';
 import { AmsgChatPresence, CHAT_PRESENCE_HEARTBEAT_MS } from './amsgChatPresence';
+import {touchLocalChatLease} from './amsgChatGenerationLease';
 import {
   buildCharChatCredRow,
   buildCharEmotionCredRow,
@@ -790,6 +791,10 @@ export const wipeAmsgCloudDataForReset = async (): Promise<AmsgResetCloudWipe> =
 };
 
 const writeChatPresence = (charId: string, lastUserMessageAt: number | null) => {
+  // Share the same short lease with the independently billed Char-phone
+  // runner. This pauses automatic NPC generation while an actual private AI
+  // reply is being composed, even in another tab of this origin.
+  touchLocalChatLease(charId);
   const presence: AmsgChatPresence = {
     v: 1,
     charId,
