@@ -10,9 +10,39 @@ export interface SparkPrivateMessage {
 }
 export type SparkDMThreads = Record<string, SparkPrivateMessage[]>;
 
+/** Drafts are private to a stable receiver ID; never reuse input across chats. */
+export function setSparkDMDraft(
+    drafts: Record<string, string>, key: string, content: string,
+): Record<string, string> {
+    if (!key) return drafts;
+    const clean = content.slice(0, 4000);
+    if ((drafts[key] || '') === clean) return drafts;
+    const next = { ...drafts };
+    if (clean) next[key] = clean;
+    else delete next[key];
+    return next;
+}
+
 export function appendSparkDMUser(threads: SparkDMThreads, key: string, content: string, id: string, now: number): SparkDMThreads {
     if (!key || !content.trim() || !id || (threads[key] || []).some(item => item.id === id)) return threads;
     return { ...threads, [key]: [...(threads[key] || []), { role: 'user', content: content.trim(), time: now, id, delivery: 'pending' }] };
+}
+
+/** Merge first-time NPC greetings into the latest local thread snapshot.
+ * Never overwrite messages that were sent while an AI callback was pending.
+ */
+export function mergeSparkIncomingDMs(
+    threads: SparkDMThreads,
+    incoming: readonly { key: string; name: string; content: string }[],
+    now: number,
+): SparkDMThreads {
+    let next = threads;
+    for (const item of incoming) {
+        if (!item.key || !item.content.trim() || next[item.key]?.length || next[item.name]?.length) continue;
+        if (next === threads) next = { ...threads };
+        next[item.key] = [{ role: 'assistant', content: item.content.trim(), time: now }];
+    }
+    return next;
 }
 
 export function setSparkDMDelivery(threads: SparkDMThreads, key: string, id: string, delivery: SparkDMDelivery): SparkDMThreads {
@@ -105,4 +135,97 @@ export function sparkDMBatchHistory(
     threads: SparkDMThreads, key: string, ids: string[],
 ): SparkPrivateMessage[] {
     return ids.length ? sparkDMHistoryThrough(threads, key, ids[ids.length - 1]) : [];
+}
+
+/** Reject unreadable backup data rather than silently replacing old DM history. */
+export function parseSparkDMThreadSnapshot(raw: string | null): SparkDMThreads {
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid Spark DM snapshot');
+    const result: SparkDMThreads = {};
+    for (const [key, messages] of Object.entries(parsed)) {
+        if (!key || !Array.isArray(messages)) throw new Error('Invalid Spark DM thread');
+        if (messages.some(message => !message || typeof message !== 'object' ||
+            (message.role !== 'user' && message.role !== 'assistant') ||
+            typeof message.content !== 'string' || !Number.isFinite(message.time))) {
+            throw new Error('Invalid Spark DM message');
+        }
+        result[key] = messages as SparkPrivateMessage[];
+    }
+    return result;
+}
+
+/** Preserve committed and still-local messages; prefer live delivery states by ID. */
+export function mergeSparkDMThreadSnapshots(durable: SparkDMThreads, live: SparkDMThreads): SparkDMThreads {
+    const merged: SparkDMThreads = {};
+    for (const key of new Set([...Object.keys(durable), ...Object.keys(live)])) {
+        const entries = new Map<string, SparkPrivateMessage>();
+        for (const message of [...(durable[key] || []), ...(live[key] || [])]) {
+            const identity = message.id ? 'id:' + message.id :
+                'legacy:' + [message.role, message.time, message.content, message.replyToId || ''].join('\\u0000');
+            const previous = entries.get(identity);
+            // A confirmed sent message must never become retryable because an
+            // older local cache says pending/failed. Otherwise reopening Spark
+            // can charge AI twice for the same private message.
+            entries.set(identity, previous?.role === 'user' && previous.delivery === 'sent' &&
+                message.role === 'user' && message.delivery !== 'sent' ? previous : message);
+        }
+        merged[key] = [...entries.values()].sort((a, b) => a.time - b.time);
+    }
+    return merged;
+}
+
+/** Preserve the old per-account localStorage format for Spark DM drafts. */
+export function parseSparkDMDrafts(raw: string | null): Record<string, string> {
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Invalid Spark DM drafts');
+    }
+    return Object.fromEntries(Object.entries(parsed).filter(([key, value]) =>
+        !!key && typeof value === 'string' && value.length > 0));
+}
+
+export interface SparkDMDraftBackup {
+    version: 1;
+    updatedAt: number;
+    drafts: Record<string, string>;
+}
+
+export function parseSparkDMDraftBackup(raw: string | null): SparkDMDraftBackup | null {
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Invalid Spark DM draft backup');
+    }
+    const snapshot = parsed as Partial<SparkDMDraftBackup>;
+    if (snapshot.version !== 1 || typeof snapshot.updatedAt !== 'number' ||
+        !Number.isSafeInteger(snapshot.updatedAt) || snapshot.updatedAt < 0 ||
+        !snapshot.drafts || Array.isArray(snapshot.drafts)) {
+        throw new Error('Invalid Spark DM draft backup');
+    }
+    return { version: 1, updatedAt: snapshot.updatedAt,
+        drafts: parseSparkDMDrafts(JSON.stringify(snapshot.drafts)) };
+}
+
+/**
+ * The newer complete snapshot wins, including cleared drafts. Apply live edits
+ * made during asynchronous IndexedDB recovery last; a deleted key is a tombstone.
+ */
+export function mergeSparkDMDraftRecovery(
+    local: Record<string, string>, localVersion: number,
+    backup: SparkDMDraftBackup | null, touched: ReadonlySet<string>,
+): Record<string, string> {
+    const next: Record<string, string> = backup && backup.updatedAt > localVersion
+        ? { ...backup.drafts } : { ...local };
+    for (const key of touched) {
+        if (Object.prototype.hasOwnProperty.call(local, key)) next[key] = local[key];
+        else delete next[key];
+    }
+    return next;
+}
+
+/** A late persisted send must never erase input typed after the user tapped send. */
+export function canClearSparkSentDMDraft(current: string | undefined, submitted: string): boolean {
+    return current === submitted;
 }

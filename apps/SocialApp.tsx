@@ -2,7 +2,7 @@ import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSpark
 import { chooseSparkStock } from '../utils/sparkStock';
 import { planSparkCharacterBatches, selectSparkBatchCharacterResults, parseSparkPostPublishBatch, needsSparkInitialCommentCall } from '../utils/sparkApiBatch';
 import { useLocalBackHandler } from '../hooks/useLocalBackHandler';
-import { appendSparkDMUser, setSparkDMDelivery, recoverSparkInterruptedDMs, sparkDMHistoryThrough, appendSparkDMAnswer, takeSparkDMJobBatch, appendSparkDMBatchAnswer, sparkDMBatchHistory, type SparkDMThreads, type SparkPrivateMessage } from '../utils/sparkDMQueue';
+import { appendSparkDMUser, setSparkDMDelivery, recoverSparkInterruptedDMs, parseSparkDMThreadSnapshot, mergeSparkDMThreadSnapshots, parseSparkDMDrafts, parseSparkDMDraftBackup, mergeSparkDMDraftRecovery, canClearSparkSentDMDraft, sparkDMHistoryThrough, appendSparkDMAnswer, takeSparkDMJobBatch, appendSparkDMBatchAnswer, sparkDMBatchHistory, type SparkDMThreads, type SparkPrivateMessage, mergeSparkIncomingDMs, setSparkDMDraft } from '../utils/sparkDMQueue';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -326,13 +326,70 @@ const SocialApp: React.FC = () => {
         catch { return {}; }
     });
     const dmThreadsRef = useRef<SparkDMThreads>(dmThreads);
-    const saveDMThreads = (next: SparkDMThreads) => {
-        if (next === dmThreadsRef.current) return;
+    const dmReadyRef = useRef(false);
+    const [dmReady, setDmReady] = useState(false);
+    const dmRestoreBusyRef = useRef(false);
+    const [dmRestoreBusy, setDmRestoreBusy] = useState(false);
+    const [dmPersistenceIssue, setDmPersistenceIssue] = useState(false);
+    const dmSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const dmSaveVersionRef = useRef(0);
+    // Keep the original synchronous local cache and a queued IndexedDB backup.
+    // Only allow a paid DM call after one store confirms the new message.
+    const saveDMThreads = (next: SparkDMThreads, force = false): Promise<boolean> => {
+        if (next === dmThreadsRef.current && !force) return Promise.resolve(true);
+        const payload = JSON.stringify(next);
+        const version = ++dmSaveVersionRef.current;
+        let cached = false;
+        try {
+            localStorage.setItem('spark_dm_threads', payload);
+            cached = true;
+        } catch (error) {
+            console.warn('Spark DM local cache write failed', error);
+        }
         dmThreadsRef.current = next;
         setDmThreads(next);
-        try { localStorage.setItem('spark_dm_threads', JSON.stringify(next)); }
-        catch (error) { console.warn('Spark DM persistence failed', error); }
+        if (!dmReadyRef.current) {
+            if (!cached) setDmPersistenceIssue(true);
+            return Promise.resolve(cached);
+        }
+        const write = dmSaveQueueRef.current.then(() => DB.saveAsset('spark_dm_threads', payload));
+        dmSaveQueueRef.current = write.catch(error => console.warn('Spark DM IndexedDB backup failed', error));
+        return write.then(() => {
+            if (version === dmSaveVersionRef.current) setDmPersistenceIssue(false);
+            return true;
+        }).catch(() => {
+            if (!cached) setDmPersistenceIssue(true);
+            return cached;
+        });
     };
+    const recoverDMThreadsFromDB = async () => {
+        if (dmRestoreBusyRef.current) return;
+        dmRestoreBusyRef.current = true;
+        setDmRestoreBusy(true);
+        try {
+            const raw = await DB.getAsset('spark_dm_threads');
+            if (!mountedRef.current) return;
+            const durable = recoverSparkInterruptedDMs(parseSparkDMThreadSnapshot(raw));
+            // DB restoration may finish after the account migration effect.
+            // Re-key only unambiguous legacy handle threads to stable IDs.
+            const next = migrateSparkDMKeys(
+                mergeSparkDMThreadSnapshots(durable, dmThreadsRef.current),
+                communityRef.current.accounts,
+            );
+            dmReadyRef.current = true;
+            setDmReady(true);
+            await saveDMThreads(next, true);
+        } catch (error) {
+            console.warn('Spark DM backup read failed; no paid DM call will start', error);
+            if (mountedRef.current) setDmPersistenceIssue(true);
+        } finally {
+            dmRestoreBusyRef.current = false;
+            if (mountedRef.current) setDmRestoreBusy(false);
+        }
+    };
+    useEffect(() => {
+        void recoverDMThreadsFromDB();
+    }, []);
     const [npcPersonas, setNpcPersonas] = useState<Record<string, string>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_npc_personas') || '{}'); } catch { return {}; }
     });
@@ -343,14 +400,9 @@ const SocialApp: React.FC = () => {
     // entries to immutable IDs, preserving unknown and conflicting conversations.
     useEffect(() => {
         const accounts = communityState.accounts;
-        setDmThreads(prev => {
-            const migrated = migrateSparkDMKeys(prev, accounts);
-            if (migrated !== prev) {
-                dmThreadsRef.current = migrated;
-                localStorage.setItem('spark_dm_threads', JSON.stringify(migrated));
-            }
-            return migrated;
-        });
+        // Move only unambiguous legacy recipient keys using the latest message ref.
+        void saveDMThreads(migrateSparkDMKeys(dmThreadsRef.current, accounts));
+        saveDMDrafts(migrateSparkDMKeys(dmDraftsRef.current, accounts));
         setNpcPersonas(prev => {
             const migrated = migrateSparkDMKeys(prev, accounts);
             if (migrated !== prev) localStorage.setItem('spark_npc_personas', JSON.stringify(migrated));
@@ -384,7 +436,95 @@ const SocialApp: React.FC = () => {
         });
     };
     const [dmTarget, setDmTarget] = useState<SparkDMTarget | null>(null);
-    const [dmInput, setDmInput] = useState('');
+    const [dmDrafts, setDmDrafts] = useState<Record<string, string>>(() => {
+        try { return parseSparkDMDrafts(localStorage.getItem('spark_dm_drafts')); }
+        catch { return {}; }
+    });
+    const dmDraftsRef = useRef(dmDrafts);
+    // A separate revision preserves the old localStorage payload shape while
+    // distinguishing a newer IndexedDB backup from a deliberately cleared draft.
+    const dmDraftLocalStartVersionRef = useRef((() => {
+        try {
+            const local = localStorage.getItem('spark_dm_drafts');
+            if (local === null) return 0;
+            parseSparkDMDrafts(local);
+            const value = Number(localStorage.getItem('spark_dm_drafts_revision') || 0);
+            return Number.isSafeInteger(value) && value > 0 ? value : 0;
+        } catch { return 0; }
+    })());
+    const dmDraftVersionRef = useRef(dmDraftLocalStartVersionRef.current);
+    const dmDraftTouchedRef = useRef(new Set<string>());
+    const dmDraftReadyRef = useRef(false);
+    const dmDraftRestoreBusyRef = useRef(false);
+    const [dmDraftReady, setDmDraftReady] = useState(false);
+    const [dmDraftRestoreBusy, setDmDraftRestoreBusy] = useState(false);
+    const [dmDraftPersistenceIssue, setDmDraftPersistenceIssue] = useState(false);
+    const dmDraftSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const saveDMDrafts = (next: Record<string, string>, force = false) => {
+        const prior = dmDraftsRef.current;
+        if (next === prior && !force) return;
+        if (!force) for (const key of new Set([...Object.keys(prior), ...Object.keys(next)])) {
+            if (prior[key] !== next[key]) dmDraftTouchedRef.current.add(key);
+        }
+        dmDraftsRef.current = next;
+        setDmDrafts(next);
+        const version = Math.max(Date.now(), dmDraftVersionRef.current + 1);
+        dmDraftVersionRef.current = version;
+        let localSaved = false;
+        try {
+            localStorage.setItem('spark_dm_drafts', JSON.stringify(next));
+            localStorage.setItem('spark_dm_drafts_revision', String(version));
+            localSaved = true;
+        } catch (error) {
+            console.warn('Spark DM draft local cache failed', error);
+            setDmDraftPersistenceIssue(true);
+        }
+        // Wait for DB hydration before writing, otherwise an old cache could
+        // overwrite recoverable drafts before they have been read.
+        if (!dmDraftReadyRef.current) {
+            if (!localSaved) setDmDraftPersistenceIssue(true);
+            return;
+        }
+        const backup = JSON.stringify({ version: 1, updatedAt: version, drafts: next });
+        const write = dmDraftSaveQueueRef.current.then(() => DB.saveAsset('spark_dm_drafts', backup));
+        dmDraftSaveQueueRef.current = write.then(() => {
+            if (version === dmDraftVersionRef.current) setDmDraftPersistenceIssue(false);
+        }).catch(error => {
+            console.warn('Spark DM draft IndexedDB backup failed', error);
+            if (version === dmDraftVersionRef.current) setDmDraftPersistenceIssue(true);
+        });
+    };
+    const recoverDMDraftsFromDB = async () => {
+        if (dmDraftRestoreBusyRef.current) return;
+        dmDraftRestoreBusyRef.current = true;
+        setDmDraftRestoreBusy(true);
+        try {
+            const backup = parseSparkDMDraftBackup(await DB.getAsset('spark_dm_drafts'));
+            if (!mountedRef.current) return;
+            const merged = mergeSparkDMDraftRecovery(
+                dmDraftsRef.current, dmDraftLocalStartVersionRef.current,
+                backup, dmDraftTouchedRef.current,
+            );
+            // Restore only unambiguous account names. Never merge two private recipients.
+            const migrated = migrateSparkDMKeys(merged, communityRef.current.accounts);
+            dmDraftReadyRef.current = true;
+            setDmDraftReady(true);
+            saveDMDrafts(migrated, true);
+            dmDraftTouchedRef.current.clear();
+        } catch (error) {
+            console.warn('Spark DM draft backup restore failed; keeping live input', error);
+            if (mountedRef.current) setDmDraftPersistenceIssue(true);
+        } finally {
+            dmDraftRestoreBusyRef.current = false;
+            if (mountedRef.current) setDmDraftRestoreBusy(false);
+        }
+    };
+    useEffect(() => { void recoverDMDraftsFromDB(); }, []);
+    const dmInput = dmTarget ? dmDrafts[dmKey(dmTarget)] || '' : '';
+    const setDmInput = (text: string) => {
+        if (!dmTarget) return;
+        saveDMDrafts(setSparkDMDraft(dmDraftsRef.current, dmKey(dmTarget), text));
+    };
     const [dmVisibleLimit, setDmVisibleLimit] = useState(80);
     const dmScrollRef = useRef<HTMLDivElement>(null);
     const dmInputRef = useRef<HTMLInputElement>(null);
@@ -512,28 +652,60 @@ const SocialApp: React.FC = () => {
             }, 1200);
         }
     };
-    const sendSparkDM = () => {
-        if (!dmTarget || !dmInput.trim()) return;
+    const dmSendSavingRef = useRef(false);
+    const sendSparkDM = async () => {
+        if (!dmTarget || !dmInput.trim() || dmSendSavingRef.current) return;
+        if (!dmReadyRef.current) { addToast('私信尚未完成历史记录核对，本次不会发送付费请求', 'error'); return; }
         if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
         if (dmTarget.accountId && communityRef.current.mutedAccountIds.includes(dmTarget.accountId)) {
             addToast('该账号已屏蔽，无法发送私信', 'info');
             return;
         }
+        dmSendSavingRef.current = true;
         const target = dmTarget;
         const key = dmKey(target);
+        const submittedDraft = dmInput;
+        const content = submittedDraft.trim();
         const id = 'dm-user-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-        saveDMThreads(appendSparkDMUser(dmThreadsRef.current, key, dmInput.trim(), id, Date.now()));
-        setDmInput('');
-        if (target.accountId) sparkEvent('dm_sent', 'user', { targetAccountId: target.accountId });
-        queueSparkDM(target, key, id);
+        const prior = dmThreadsRef.current;
+        const next = appendSparkDMUser(prior, key, content, id, Date.now());
+        try {
+            const persisted = await saveDMThreads(next);
+            if (!persisted) {
+                if (dmThreadsRef.current === next) {
+                    dmThreadsRef.current = prior;
+                    if (mountedRef.current) setDmThreads(prior);
+                }
+                addToast('私信未成功写入任何存储，输入框仍保留原消息；未调用 AI', 'error');
+                return;
+            }
+            if (!mountedRef.current) return;
+            // New typing during async storage confirmation must remain in the editor.
+            if (canClearSparkSentDMDraft(dmDraftsRef.current[key], submittedDraft)) {
+                saveDMDrafts(setSparkDMDraft(dmDraftsRef.current, key, ''));
+            }
+            if (target.accountId) sparkEvent('dm_sent', 'user', { targetAccountId: target.accountId });
+            queueSparkDM(target, key, id);
+        } finally {
+            dmSendSavingRef.current = false;
+        }
     };
-    const retrySparkDM = (target: SparkDMTarget, id?: string) => {
-        if (!id || !apiConfig.apiKey) return;
+    const retrySparkDM = async (target: SparkDMTarget, id?: string) => {
+        if (!id || !apiConfig.apiKey || !dmReadyRef.current) return;
         if (target.accountId && communityRef.current.mutedAccountIds.includes(target.accountId)) return;
         const key = dmKey(target);
         if (!(dmThreadsRef.current[key] || []).some(m => m.id === id && m.delivery === 'failed')) return;
-        saveDMThreads(setSparkDMDelivery(dmThreadsRef.current, key, id, 'pending'));
-        queueSparkDM(target, key, id);
+        const previous = dmThreadsRef.current;
+        const next = setSparkDMDelivery(previous, key, id, 'pending');
+        if (!await saveDMThreads(next)) {
+            if (dmThreadsRef.current === next) {
+                dmThreadsRef.current = previous;
+                if (mountedRef.current) setDmThreads(previous);
+            }
+            addToast('重试前未能保存消息，本次未调用 AI', 'error');
+            return;
+        }
+        if (mountedRef.current) queueSparkDM(target, key, id);
     };
     const [fanCounts, setFanCounts] = useState<Record<string, number>>(() => {
         try { return JSON.parse(localStorage.getItem('spark_fan_counts') || '{}'); } catch { return {}; }
@@ -2119,17 +2291,7 @@ ${buildSparkCommentHistory(post)}
                 });
             }
             if (nextCommunity !== communityRef.current) writeCommunity(nextCommunity);
-            setDmThreads(prev => {
-                const next = { ...prev };
-                for (const item of incoming) {
-                    if (!next[item.key]?.length && !next[item.name]?.length) {
-                        next[item.key] = [{ role: 'assistant' as const, content: item.content, time: Date.now() }];
-                    }
-                }
-                dmThreadsRef.current = next;
-                localStorage.setItem('spark_dm_threads', JSON.stringify(next));
-                return next;
-            });
+            void saveDMThreads(mergeSparkIncomingDMs(dmThreadsRef.current, incoming, Date.now()));
             setNpcPersonas(prev => {
                 const next = { ...prev };
                 for (const item of incoming) {
@@ -2566,15 +2728,21 @@ ${buildSparkCommentHistory(post)}
                         <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${message.role === 'user' ? 'bg-[#555555] text-white' : 'bg-white text-slate-800'}`}>
                             {message.content}
                             {message.role === 'user' && message.delivery === 'pending' && <span className="block text-[10px] opacity-75 mt-1">排队发送中…</span>}
-                            {message.role === 'user' && message.delivery === 'failed' && <button type="button" onClick={() => retrySparkDM(dmTarget, message.id)}
+                            {message.role === 'user' && message.delivery === 'failed' && <button type="button" onClick={() => void retrySparkDM(dmTarget, message.id)}
                                 className="block text-[11px] underline mt-1" aria-label="重试这条私信">发送失败 · 点击重试</button>}
                         </div>
                     </div>)}
                     {dmBusy && <p className="text-xs text-slate-400">对方正在输入…</p>}
                 </div>
+                {!dmReady && <div role="status" className="shrink-0 border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                    {dmRestoreBusy ? '正在核对私信历史…' : '私信历史尚未核对完成，暂时禁止付费发送。'}
+                    {!dmRestoreBusy && <button type="button" className="ml-2 underline font-bold" onClick={() => void recoverDMThreadsFromDB()}>重试读取</button>}
+                </div>}
+                {dmPersistenceIssue && <div role="alert" className="shrink-0 border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">私信历史存储未确认，请先核对备份。<button type="button" className="ml-2 font-bold underline" onClick={() => void recoverDMThreadsFromDB()}>重试核对</button></div>}
+                {dmDraftPersistenceIssue && <div role="alert" className="shrink-0 border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">私信草稿尚未确认保存，关闭页面前请重试。<button type="button" className="ml-2 font-bold underline" disabled={dmDraftRestoreBusy} onClick={() => dmDraftReady ? saveDMDrafts(dmDraftsRef.current, true) : void recoverDMDraftsFromDB()}>{dmDraftRestoreBusy ? '核对中…' : '重试保存'}</button></div>}
                 <div className="flex items-center gap-2 p-3 shrink-0 border-t border-slate-100" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}>
                     <input ref={dmInputRef} onFocus={() => { if (dmScrollRef.current) dmScrollRef.current.scrollTop = dmScrollRef.current.scrollHeight; }} value={dmInput} onChange={e => setDmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); sendSparkDM(); } }} placeholder="发送私信…" className="flex-1 min-w-0 rounded-full bg-slate-100 px-4 py-2 text-sm" />
-                    <button type="button" disabled={!dmInput.trim()} onClick={() => sendSparkDM()} className="text-[#555555] font-bold disabled:opacity-40">发送</button>
+                    <button type="button" disabled={!dmInput.trim() || !dmReady} onClick={() => void sendSparkDM()} className="text-[#555555] font-bold disabled:opacity-40">发送</button>
                 </div>
             </div>}
             {viewedAccount && (() => {
