@@ -16,7 +16,7 @@ import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
-import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch, toggleSocialPostLike, toggleSocialPostCollection, deleteSparkPostWithFence, parseSparkUnsavedPostEdits, selectSparkRecoverablePost, canClearSparkPublishedDraft, keepSparkLiveEdit } from '../utils/socialFeedMerge';
+import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch, toggleSocialPostLike, toggleSocialPostCollection, deleteSparkPostWithFence, parseSparkUnsavedPostEdits, selectSparkRecoverablePost, canClearSparkPublishedEditorDraft, keepSparkLiveEdit } from '../utils/socialFeedMerge';
 import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen, applySparkNpcLike, applySparkNpcFollow, setSparkAccountMuted } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
@@ -2424,9 +2424,9 @@ ${buildSparkCommentHistory(post)}
         learnInterest(saved, 4);
         let clearedPublishedDraft = false;
         try {
-            if (submittedDraft !== null &&
-                latestEditorDraftRef.current === submittedEditorSignature &&
-                canClearSparkPublishedDraft(submittedDraft, localStorage.getItem('spark_post_draft'))) {
+            if (canClearSparkPublishedEditorDraft(
+                submittedEditorSignature, latestEditorDraftRef.current,
+                submittedDraft, localStorage.getItem('spark_post_draft'))) {
                 localStorage.removeItem('spark_post_draft');
                 clearedPublishedDraft = true;
             }
