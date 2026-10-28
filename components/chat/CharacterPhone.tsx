@@ -278,7 +278,11 @@ export default function CharacterPhone({
     return () => { glimpseAbortRef.current?.abort(); glimpseAbortRef.current = null; };
   }, [characterId]);
   const toggleManualGlimpse = (enabled: boolean) => {
-    if (!enabled) { glimpseAbortRef.current?.abort(); setGlimpseGeneratingId(null); }
+    if (!enabled) {
+      glimpseAbortRef.current?.abort();
+      glimpseAbortRef.current = null;
+      setGlimpseGeneratingId(null);
+    }
     setManualLifeGlimpseEnabled(characterId, enabled);
     setManualGlimpseEnabled(enabled);
     setGlimpseNotice('');

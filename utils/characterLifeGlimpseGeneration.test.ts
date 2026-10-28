@@ -16,7 +16,7 @@ describe('independent grounded life narration API', () => {
     const request = buildIndependentLifeGlimpseRequest(char, event, [], null);
     expect(request).toHaveLength(2);
     expect(request[0].content).toContain('不是私聊回复器');
-    expect(request[0].content).toContain('不能把日程计划当作发生的事');
+    expect(request[0].content).toContain('不得把日程计划当作发生的事');
     expect(request[1].content).toContain('整理完书桌');
   });
   it('makes no request unless specifically opted in', async () => {
@@ -31,6 +31,17 @@ describe('independent grounded life narration API', () => {
     expect(await generateIndependentLifeGlimpse({ char, event, api })).toBe('saved');
     expect(readCharacterLifeEvents('char')).toHaveLength(1);
     expect(readCharacterLifeEvents('char')[0].summary).toBe('整理完书桌');
+  });
+  it('discards old requests even after a quick off-on toggle', async () => {
+    recordCharacterLifeEvent(event); setManualLifeGlimpseEnabled('char', true);
+    vi.mocked(fetchCharacterPhoneJson).mockImplementation(async () => {
+      setManualLifeGlimpseEnabled('char', false);
+      setManualLifeGlimpseEnabled('char', true);
+      return { response: { ok: true } as Response,
+        json: { choices: [{ message: { content: JSON.stringify({ skip: false, text: '旧请求不可以在重新开启后写入。' }) } }] } };
+    });
+    expect(await generateIndependentLifeGlimpse({ char, event, api })).toBe('skipped');
+    expect(readCharacterLifeEvents('char')[0].glimpse).toBeUndefined();
   });
   it('discards late work when opt-in is disabled during the API request', async () => {
     recordCharacterLifeEvent(event); setManualLifeGlimpseEnabled('char', true);

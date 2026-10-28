@@ -16,15 +16,32 @@ import type { PhoneDialogueApi } from './characterPhoneApiConfig';
 const KEY = (id: string) => 'sully_life_glimpse_manual_ai_v1:' + id;
 export const LIFE_GLIMPSE_PREFERENCE_CHANGED = 'sully:life-glimpse-preference-changed';
 
+type ManualGlimpseSetting = { enabled: boolean; revision: number };
+function readManualGlimpseSetting(characterId: string): ManualGlimpseSetting {
+  const disabled = { enabled: false, revision: 0 };
+  if (!characterId || typeof localStorage === 'undefined') return disabled;
+  try {
+    const raw = localStorage.getItem(KEY(characterId));
+    if (raw === '1') return { enabled: true, revision: 0 }; // older opt-in value
+    if (!raw) return disabled;
+    const value = JSON.parse(raw);
+    return {
+      enabled: value?.enabled === true,
+      revision: Number.isSafeInteger(value?.revision) && value.revision >= 0 ? value.revision : 0,
+    };
+  } catch { return disabled; }
+}
+
 export function isManualLifeGlimpseEnabled(characterId: string): boolean {
-  if (!characterId || typeof localStorage === 'undefined') return false;
-  try { return localStorage.getItem(KEY(characterId)) === '1'; } catch { return false; }
+  return readManualGlimpseSetting(characterId).enabled;
 }
 
 export function setManualLifeGlimpseEnabled(characterId: string, enabled: boolean): void {
   if (!characterId || typeof localStorage === 'undefined') return;
-  if (enabled) localStorage.setItem(KEY(characterId), '1');
-  else localStorage.removeItem(KEY(characterId));
+  const previous = readManualGlimpseSetting(characterId);
+  localStorage.setItem(KEY(characterId), JSON.stringify({
+    enabled, revision: previous.revision + 1,
+  } satisfies ManualGlimpseSetting));
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(
     LIFE_GLIMPSE_PREFERENCE_CHANGED, { detail: { characterId, enabled } }));
 }
@@ -82,6 +99,7 @@ export async function generateIndependentLifeGlimpse(input: {
       event.occurredAt > Date.now()) return 'skipped';
   if (!/^https?:\/\//i.test(api.baseUrl) || !api.apiKey || !api.model)
     throw new Error('请先配置可用的对话 API，再手动展开生活片段');
+  const preferenceRevision = readManualGlimpseSetting(char.id).revision;
   // Snapshot must still exist unchanged before sending a potentially billed request.
   const known = readCharacterLifeEvents(char.id);
   if (!known.some(f => f.id === event.id && f.summary === event.summary &&
@@ -108,6 +126,8 @@ export async function generateIndependentLifeGlimpse(input: {
   if (narrative.length < 8 || narrative.length > 1000) return 'skipped';
   // No new record is created; clearing or editing the original event during
   // the API call invalidates this exact snapshot. Disabling the toggle aborts.
-  if (signal?.aborted || !isManualLifeGlimpseEnabled(char.id)) return 'skipped';
+  const latestPreference = readManualGlimpseSetting(char.id);
+  if (signal?.aborted || !latestPreference.enabled ||
+      latestPreference.revision !== preferenceRevision) return 'skipped';
   return attachCharacterLifeGlimpse(event, narrative) ? 'saved' : 'skipped';
 }
