@@ -175,7 +175,7 @@ const ScheduleApp: React.FC = () => {
     try {
       const task = activeTask?.title || '自由专注';
       const phase = session?.mode === 'focus' ? '正在专注' : session?.mode === 'break' ? '正在休息' : '未计时';
-      const appContext = '你在糯米机应用内帮助用户。保持角色身份自然回应，不要自动催促，也不能替用户把作业标为完成。'
+      const appContext = '你在学习室应用内帮助用户。保持角色身份自然回应，不要自动催促，也不能替用户把作业标为完成。'
         + '当前任务：' + task + '；状态：' + phase + '；剩余约 ' + Math.ceil(remaining/60) + ' 分钟。'
         + (assistantTopic ? '用户主动请求讨论的工作信息：' + assistantTopic.slice(0, 4500) : '');
       const msgs = await ContextBuilder.buildCharacterRequest(
@@ -211,7 +211,7 @@ const ScheduleApp: React.FC = () => {
     <div className="h-full w-full flex flex-col overflow-hidden bg-[#fafafa] text-neutral-900 font-sans" style={{ paddingTop: 'var(--safe-top)' }}>
       <header className="px-5 pt-5 pb-4 flex items-center justify-between shrink-0">
         <button aria-label="返回" onClick={requestExit} className="text-2xl px-2">‹</button>
-        <div className="text-xs tracking-[0.2em] font-semibold text-neutral-900">糯米机 / FOCUS</div>
+        <div className="text-xs tracking-[0.2em] font-semibold text-neutral-900">学习室 / FOCUS</div>
         <div className="w-8" />
       </header>
       <main className="flex-1 overflow-y-auto px-5 pb-8 space-y-5">
@@ -310,7 +310,7 @@ const ScheduleApp: React.FC = () => {
           <div className="text-xs text-[#999999]">冷静倒计时：{Math.max(0, Math.ceil((exitDeadline - now) / 1000))} 秒</div>
           <input aria-label="退出确认文字" value={exitPhrase} onChange={e => setExitPhrase(e.target.value)} placeholder={EXIT_PHRASE} className="w-full p-3 bg-white rounded-xl text-sm" />
           <button className={btn + ' w-full'} onClick={() => setExitOpen(false)}>继续专注</button>
-          <button className="w-full text-sm py-2 underline" onClick={() => stop(false)}>中断本轮，留在糯米机</button>
+          <button className="w-full text-sm py-2 underline" onClick={() => stop(false)}>中断本轮，留在学习室</button>
           <button className="w-full py-2 text-sm disabled:opacity-30" disabled={exitPhrase.trim() !== EXIT_PHRASE || now < exitDeadline} onClick={() => stop(true)}>确认中断并退出</button>
           <button className="w-full text-xs underline" onClick={() => stop(true)}>紧急退出</button>
         </div>

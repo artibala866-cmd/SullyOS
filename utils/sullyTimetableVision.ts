@@ -1,4 +1,4 @@
-/** 课程表图片识别仅属于糯米机，不修改普通私聊识图提示词。 */
+/** 课程表图片识别仅属于学习室，不修改普通私聊识图提示词。 */
 import type { VisionApiConfig } from '../types';
 import { isVisionApiReady } from './visionApi';
 import { extractContent, extractJson, safeFetchJson } from './safeApi';
@@ -42,7 +42,7 @@ export async function recognizeCourseImage(
         ],
       }],
     }),
-  }, 1, 60000, { appName: '糯米机', purpose: '课程表图片识别' });
+  }, 1, 60000, { appName: '学习室', purpose: '课程表图片识别' });
   const parsed = extractJson(extractContent(result));
   if (!parsed || !Array.isArray(parsed.courses)) throw new Error('图片识别结果无法解析，请手动录入');
   return parsed.courses.slice(0, 40).map((row: unknown) => {
