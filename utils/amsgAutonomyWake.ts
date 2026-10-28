@@ -35,6 +35,15 @@ export function planAutonomyWakes(
   let hash=2166136261;
   for(let i=0;i<char.id.length;i++)hash=Math.imul(hash^char.id.charCodeAt(i),16777619)>>>0;
   const windows:[Slot,number,number][]=[['day',10*60+45,14*60+30],['evening',18*60,21*60+45]];
+  // Advance using the CHARACTER'S calendar, not fixed UTC milliseconds.
+  // On spring DST change, 23:30 + 24 real hours can skip tomorrow entirely.
+  const firstDay=getScheduleDateKey(char,new Date(now));
+  const localCalendarDay=new Date(firstDay+'T12:00:00Z');
+  const dayKeyAtOffset=(offset:number)=>{
+    const date=new Date(localCalendarDay);
+    date.setUTCDate(date.getUTCDate()+offset);
+    return date.toISOString().slice(0,10);
+  };
   const selected=windows.flatMap(([slot,begin,end],i)=>{
     const preferred=begin+15+((hash>>>i*7)%(end-begin-30));
     const isFree=(minute:number)=>{
@@ -50,7 +59,7 @@ export function planAutonomyWakes(
     }
     const clock=`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}:00`;
     for(let d=0;d<3;d++){
-      const day=getScheduleDateKey(char,new Date(now+d*86400000));
+      const day=dayKeyAtOffset(d);
       const ts=wallClockToTimestamp(day+' '+clock,zone);
       if(Number.isFinite(ts)&&ts>now+12*60000)return [{slot,firstSendTime:new Date(ts).toISOString()}];
     }
