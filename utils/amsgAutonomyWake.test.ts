@@ -7,6 +7,7 @@ beforeEach(async()=>{
 });
 afterEach(()=>vi.restoreAllMocks());
 import {isAutonomyWakeTask,planAutonomyWakes} from './amsgAutonomyWake';
+import {getScheduleDateKey} from './scheduleTime';
 const char={id:'mary',customTimezoneEnabled:true,customTimezone:'Asia/Shanghai'};
 const now=Date.parse('2026-10-29T01:00:00Z');
 describe('AMSG2 automatic, durable contact opportunities',()=>{
@@ -28,6 +29,24 @@ describe('AMSG2 automatic, durable contact opportunities',()=>{
  it('a full busy schedule still retains one restrained APK-style fallback opportunity',()=>{
    const found=planAutonomyWakes(char,[{startTime:'00:00',activity:'睡觉'},{startTime:'08:00',activity:'工作'}],now);
    expect(found.map(x=>x.slot)).toEqual(['evening']);
+ });
+ it('does not skip tomorrow after a spring DST jump in the role timezone',()=>{
+   const ny={id:'dst-spring',customTimezoneEnabled:true,customTimezone:'America/New_York'};
+   // March 7 23:30 EST; adding 24 UTC hours jumps to March 9 00:30 EDT.
+   const now=Date.parse('2026-03-08T04:30:00Z');
+   const plans=planAutonomyWakes(ny,null,now);
+   expect(plans.map(x=>x.slot)).toEqual(['day','evening']);
+   expect(plans.map(x=>getScheduleDateKey(ny,new Date(x.firstSendTime))))
+     .toEqual(['2026-03-08','2026-03-08']);
+   expect(plans.every(x=>Date.parse(x.firstSendTime)>now)).toBe(true);
+ });
+ it('chooses the correct date after autumn DST rollback',()=>{
+   const ny={id:'dst-fall',customTimezoneEnabled:true,customTimezone:'America/New_York'};
+   // October 31 23:45 EDT, next calendar day is the 25-hour Nov 1.
+   const now=Date.parse('2026-11-01T03:45:00Z');
+   const plans=planAutonomyWakes(ny,null,now);
+   expect(plans.map(x=>getScheduleDateKey(ny,new Date(x.firstSendTime))))
+     .toEqual(['2026-11-01','2026-11-01']);
  });
  it('auto wakes are separate from user-created reminders',()=>{
    expect(isAutonomyWakeTask({clientTaskId:'autowake:day:some-uuid'})).toBe(true);
