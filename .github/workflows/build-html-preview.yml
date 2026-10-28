@@ -28,6 +28,8 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Test official speech-to-text key guards and provider routes
+        run: pnpm exec vitest run utils/speechToText.test.ts
       - name: Test official delivery branch build badge and debug gate
         run: pnpm exec vitest run scripts/buildBadgeVisibility.test.ts
       - name: Test reusable 3D motion templates and navigation
