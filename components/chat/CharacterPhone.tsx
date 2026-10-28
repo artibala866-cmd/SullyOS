@@ -267,7 +267,7 @@ export default function CharacterPhone({
   },[characterId]);
   const [draft, setDraft] = useState({ name:'', identity:'', personality:'', relationship:'', background:'' });
   const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
-  const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
+  const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>([]); // hydrate after legacy orphan reconciliation; deleted text must not flash
   const [manualGlimpseEnabled, setManualGlimpseEnabled] = useState(() => isManualLifeGlimpseEnabled(characterId));
   const [glimpseGeneratingId, setGlimpseGeneratingId] = useState<string | null>(null);
   const [glimpseNotice, setGlimpseNotice] = useState('');
