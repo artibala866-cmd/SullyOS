@@ -3728,6 +3728,33 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             }).catch(() => { /* Cannot confirm anchor: fail closed. */ });
         },
     });
+    // Music invitations are real user events in the existing chat DB. They may
+    // enter the SAME auto-reply countdown as a normal user send, but only while
+    // that countdown is enabled and the relevant conversation is active.
+    // This never generates a reply directly, changes a prompt, or bypasses
+    // the existing blocked/generating/visibility and real-person timing gates.
+    useEffect(() => {
+        const onMusicInviteForAutoReply = (event: Event) => {
+            const detail = (event as CustomEvent<{ charId?: string; messageId?: number }>).detail;
+            const charId = detail?.charId;
+            if (!charId || charId !== activeCharIdRef.current ||
+                !Number.isSafeInteger(detail.messageId) ||
+                !(inputPreferences.autoReply || lifePacing)) return;
+            void DB.getRecentMessagesByCharId(charId, 24).then(recent => {
+                if (activeCharIdRef.current !== charId) return;
+                const invitation = recent.find(message =>
+                    message.id === detail.messageId &&
+                    message.metadata?.musicListenInvite &&
+                    message.metadata?.inviter !== 'char');
+                if (!invitation) return;
+                const finish = autoReply.beginSend(charId);
+                finish(true);
+            }).catch(() => { /* No reliable DB confirmation: leave invitation pending. */ });
+        };
+        window.addEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
+        return () => window.removeEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
+    }, [autoReply.beginSend, inputPreferences.autoReply, lifePacing]);
+
     // One-tap life pacing; the shared clock keeps memories unchanged.
     // 角色自定义聊天背景：字段值可能是 blobref 令牌（二进制在 IndexedDB），这里解析成能直接
     // 喂进 CSS url() 的地址；data: / http(s) 之类的非令牌值渲染期原样透传。

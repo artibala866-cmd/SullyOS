@@ -1427,7 +1427,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       playListeningTrack: async (cid: string, query: string) => {
         // 只有正在一起听的角色能切歌。优先使用现有队列，找不到再走同一套免登录搜索。
         if (!listeningTogetherRef.current.includes(cid)) return false;
-        const chosenSource = /^(?:QQ音乐|QQ|tencent)\s*[:：]/i.test(query.trim()) ? 'tencent' : undefined;
+        const chosenSource = /^(?:QQ音乐|QQ|tencent)\s*[:：]/i.test(query.trim())
+          ? 'tencent'
+          : currentSongRef.current?.source === 'tencent' ? 'tencent' : undefined;
         const phrase = query.trim().replace(/^(?:QQ音乐|QQ|tencent)\s*[:：]\s*/i, '');
         const needle = phrase.toLocaleLowerCase();
         if (!needle) return false;
