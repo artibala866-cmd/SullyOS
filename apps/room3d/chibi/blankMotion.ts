@@ -168,9 +168,20 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
    for(const [s,p]of [[1,'L'],[-1,'R']]as const){angle(p+'_upperArm',-.22*w,-s*.35*w,-s*(1.25-.70*w));angle(p+'_forearm',0,-s*(.08+1.6*w),-s*.1);}
   }
   if(motion==='bath-soak'){
-   const lift=activity?.bathLegLift??1;
-   angle('head',-.045*seatWeight,Math.sin(time*.7)*.025);angle('spine',-.045*seatWeight);
-   for(const [s,p]of [[1,'L'],[-1,'R']]as const){angle(p+'_thigh',(-1.40-.12*lift)*seatWeight,0,-s*.015*seatWeight);angle(p+'_shin',(1.32-1.02*lift)*seatWeight);angle(p+'_foot',.14*seatWeight);angle(p+'_upperArm',-.08,0,-s*(1.25-.4*seatWeight));angle(p+'_forearm',0,-s*.30*seatWeight,-s*.08);}
+   const lift=activity?.bathLegLift??1,brace=activity?.bathSupport??0,lean=activity?.bathLean??0;
+   // Lift the near leg first and transfer stance before the trailing leg.
+   // The final seated knee pose only blends in as the pelvis lowers.
+   angle('head',-.045*seatWeight-.06*lean,Math.sin(time*.7)*.025);
+   angle('spine',-.045*seatWeight+.18*lean);
+   angle('hips',0,0,.075*((activity?.bathLeadStep??0)-(activity?.bathTrailStep??0)));
+   for(const [s,p]of [[1,'L'],[-1,'R']]as const){
+    const step=T.MathUtils.clamp(p==='L'?activity?.bathLeadStep??0:activity?.bathTrailStep??0,0,1);
+    angle(p+'_thigh',(-1.40-.12*lift)*seatWeight+.75*step*(1-seatWeight),0,-s*.015*seatWeight);
+    angle(p+'_shin',(1.32-1.02*lift)*seatWeight+1.12*step*(1-seatWeight));
+    angle(p+'_foot',.14*seatWeight-.35*step*(1-seatWeight));
+    angle(p+'_upperArm',-.08-.26*brace,0,-s*(1.25-.4*seatWeight-.16*brace));
+    angle(p+'_forearm',0,-s*(.30*seatWeight+.34*brace),-s*.08);
+   }
   }
   if(motion==='bath-laundry'){
    const press=activity?.bathPhase&&activity.bathPhase!=='work'?0:bathroomFrame(time).press;
