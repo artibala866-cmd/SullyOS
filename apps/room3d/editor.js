@@ -576,7 +576,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
     dirty=true;
     if(t>=1){
      companionYield=null;
-     if(y.person.group.visible&&characterSeatState().seat)companionRise={person:y.person,room:y.room,revision:y.revision,rising:true,front:y.front,seat:y.transform.position,rotation:y.transform.rotation,pose:y.transform.pose,poseData:y.poseData,start:elapsed};
+     if(y.person.group.visible&&characterSeatState().seat)companionRise={person:y.person,room:y.room,revision:y.revision,rising:true,front:y.front,seat:y.transform.position,rotation:y.transform.rotation,pose:y.transform.pose,poseData:y.poseData,duration:seatTransitionDuration(y.transform.pose,y.front,y.transform.position),start:elapsed};
     }
    }
   }
@@ -661,7 +661,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
      companionYield={actor:user,person,room:current().id,revision:manualRevision,from,to:target,front,transform,poseData:seat.pose,start:elapsed};
      companionLastResult='正在小步让出起身空间';dirty=true;wake();return true;
    }
-   companionRise={person,room:current().id,revision:manualRevision,rising:true,front,seat:transform.position,rotation:transform.rotation,pose:transform.pose,poseData:seat.pose,start:elapsed};dirty=true;wake();return true;
+   companionRise={person,room:current().id,revision:manualRevision,rising:true,front,seat:transform.position,rotation:transform.rotation,pose:transform.pose,poseData:seat.pose,duration:seatTransitionDuration(transform.pose,front,transform.position),start:elapsed};dirty=true;wake();return true;
   }
   if(action==='furniture'){
    if(furnitureUser){companionLastResult='用户占用家具动作槽';return false;}
