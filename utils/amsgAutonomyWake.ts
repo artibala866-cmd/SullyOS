@@ -75,7 +75,9 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
   if(Date.now()-(recentFailure.get(char.id)??0)<60000)return;
   const active=(char.activeMsg2Config.tasks||[]).filter(t=>isPendingTask(t,Date.now()));
   const have=active.filter(isAutonomyWakeTask);
-  if(have.length>=2||active.length>=resolveAmsgLimits(char.activeMsg2Config).maxActiveTasks)return;
+  // Even a full local task list may hide a cloud-only autonomous wake.
+  // Reconcile remote identity before applying the local capacity ceiling.
+  if(have.length>=2)return;
   inFlight.add(char.id);
   try{
     const g=await ActiveMsgClient.getGlobalConfig();
