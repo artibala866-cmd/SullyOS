@@ -18,7 +18,7 @@ import { BUILD_LABEL } from '../utils/buildInfo';
  * - z-[2147483647]：保证盖在所有 modal / 动画 / 全屏覆盖层之上
  * - safe-area-inset：iOS PWA 底部 home indicator 区域避让
  *
- * 注：这是 dev / fork 专用的醒目角标。正式版（main/master）会被树摇掉，
+ * 注：这是 dev / fork 专用的醒目角标。当前正式交付分支（以及旧 main/master）默认隐藏，
  * 但构建 / SW 版本仍通过 Settings 底部的 VersionInfo 低调展示，方便用户报障。
  */
 const BuildBadge: React.FC = () => {
