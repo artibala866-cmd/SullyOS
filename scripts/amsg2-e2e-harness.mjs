@@ -25,6 +25,24 @@
  * 有意不进 vitest：它要起真端口、真等 cron 到点（多处 1.4s sleep）、并 mock 全局 fetch，
  * 是发布前手动跑的端到端体检，不是单测。改 worker/amsg 或升 amsg-server 后跑一次。
  */
+// The real Cloudflare bundle imports DurableObject from cloudflare:workers.
+// Node's test runner does not implement Cloudflare's ESM URL scheme. Stub
+// ONLY the Cloudflare superclass for this in-memory D1/Cron/WebPush harness;
+// all Worker endpoints/hooks are still the freshly bundled production code.
+import { registerHooks } from 'node:module';
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === 'cloudflare:workers') {
+      return {
+        url: 'data:text/javascript,' + encodeURIComponent(
+          'export class DurableObject { constructor(state, env) { this.ctx = state; this.env = env; } }'
+        ),
+        shortCircuit: true,
+      };
+    }
+    return nextResolve(specifier, context);
+  },
+});
 import { DatabaseSync } from 'node:sqlite';
 import crypto from 'node:crypto';
 import http from 'node:http';
