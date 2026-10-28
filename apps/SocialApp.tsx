@@ -16,7 +16,7 @@ import Modal from '../components/os/Modal';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { House, User, Package, Warning } from '@phosphor-icons/react';
-import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch } from '../utils/socialFeedMerge';
+import { canDeleteSocialPost, mergeSocialComments, prependUniqueSocialPosts, toggleSocialCommentLike, uniqueGeneratedSocialComments, updateSocialPost, parseSparkPublishTags, takeSparkCommentReplyBatch, toggleSocialPostLike, toggleSocialPostCollection, deleteSparkPostWithFence } from '../utils/socialFeedMerge';
 import { createEmptySparkCommunityState, normalizeSparkCommunityState, mergeSparkCommunityStates, ensureSparkAccount, toggleSparkFollow, rankSparkFeed, appendSparkEvent, resolveSparkCharacterHandleId, migrateSparkDMKeys, resolveSparkDMAccount, syncSparkLegacyNotices, getSparkDMThreadKey, getSparkCanonicalAccountName, markSparkPostSeen, applySparkNpcLike, applySparkNpcFollow, setSparkAccountMuted } from '../utils/sparkCommunity';
 import type { SparkCommunityState, SparkAccountType, SparkCommunityEvent } from '../utils/sparkCommunity';
 import { trackEvent } from '../utils/analytics';
@@ -1328,6 +1328,8 @@ const SocialApp: React.FC = () => {
     };
 
     const updatePostInFeed = (postId: string, updater: (post: SocialPost) => SocialPost): SocialPost | undefined => {
+        // A pending or completed delete must never be undone by a delayed AI write.
+        if (clearingFeedRef.current || deletedPostIdsRef.current.has(postId) || !mountedRef.current) return undefined;
         const before = feedRef.current.find(post => post.id === postId);
         const result = updateSocialPost(feedRef.current, postId, updater);
         if (!result.post) return undefined;
@@ -1378,8 +1380,9 @@ const SocialApp: React.FC = () => {
 
     const removePostFromFeed = async (postId: string): Promise<void> => {
         // Only remove UI and notices after persistence succeeds, so a failed delete is recoverable.
-        await persistPostMutation(() => DB.deleteSocialPost(postId));
-        deletedPostIdsRef.current.add(postId);
+        const removed = await deleteSparkPostWithFence(postId, deletedPostIdsRef.current,
+            () => persistPostMutation(() => DB.deleteSocialPost(postId)));
+        if (!removed) return;
         const next = feedRef.current.filter(p => p.id !== postId);
         feedRef.current = next;
         setFeed(next);
@@ -2379,11 +2382,7 @@ ${buildSparkCommentHistory(post)}
         e.stopPropagation();
         if (post.authorType === 'character') remember(post.authorCharId, post, post.isLiked ? '自己的笔记少了一个赞' : '自己的笔记收到点赞');
         learnInterest(post, post.isLiked ? -2 : 2);
-        updatePostInFeed(post.id, current => ({
-            ...current,
-            isLiked: !current.isLiked,
-            likes: current.isLiked ? current.likes - 1 : current.likes + 1,
-        }));
+        updatePostInFeed(post.id, toggleSocialPostLike);
         trackEvent('点赞一条帖子', { action: post.isLiked ? 'unlike' : 'like' });
     };
     
@@ -2701,7 +2700,7 @@ ${buildSparkCommentHistory(post)}
                                     <span className="text-[10px] font-medium">{selectedPost.likes}</span>
                                 </div>
                                 <div className="flex flex-col items-center gap-0.5">
-                                    <Icons.Star filled={selectedPost.isCollected} onClick={() => {  updatePostInFeed(selectedPost.id, current => ({ ...current, isCollected: !current.isCollected })); trackEvent('收藏一条帖子', { action: selectedPost.isCollected ? 'uncollect' : 'collect' }); }} className="w-6 h-6" />
+                                    <Icons.Star filled={selectedPost.isCollected} onClick={() => {  updatePostInFeed(selectedPost.id, toggleSocialPostCollection); trackEvent('收藏一条帖子', { action: selectedPost.isCollected ? 'uncollect' : 'collect' }); }} className="w-6 h-6" />
                                     <span className="text-[10px] font-medium">{selectedPost.isCollected ? '已收藏' : '收藏'}</span>
                                 </div>
                             </div>
