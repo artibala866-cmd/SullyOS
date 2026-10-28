@@ -30,6 +30,7 @@ import { exportHome3DLocal, importHome3DLocal, HOME3D_LOCAL_KEYS } from './home3
 import { exportAmsg2GlobalConfig, importAmsg2GlobalConfig } from './activeMsgStore';
 import { exportWorldHomeLocal, importWorldHomeLocal } from './worldHome/localBackup';
 import { exportDesktopSkinLocal, importDesktopSkinLocal } from './desktopSkinBackup';
+import { loadGuestMusicLibrary } from './musicLibrary';
 
 const DB_NAME = 'AetherOS_Data';
 // v67：两条并行线各自用掉了 v65/v66（A线: blob_assets + 生活记录；B线: room_plates 门牌 + digest_reports 消化日志），
@@ -3648,6 +3649,7 @@ export const DB = {
           mcdLocal: exportMcdLocal(),             // 麦当劳 token + 启用状态（存 localStorage）
           home3DLocal: exportHome3DLocal(),
           mcpLocal: exportMcpLocal(),             // 通用 MCP 服务器配置（存 localStorage）
+          guestMusicLibrary: loadGuestMusicLibrary(), // 个人完整数据导出同样包含免登录音乐库
           amsg2GlobalConfig: await exportAmsg2GlobalConfig(options), // 主动消息 2.0 全局配置（存独立的 ActiveMsg 库；后端连接默认不带走）
           beautyAuthorLocal: exportBeautyAuthorBackup(),
           beautyPreferences: exportBeautyPreferences(),

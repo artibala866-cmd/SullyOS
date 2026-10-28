@@ -111,7 +111,8 @@ import { formatBytes } from '../utils/format';
 import { isEmotionEvalSkipped } from '../utils/devDebug';
 import { isBenignApplicationConsoleMessage } from '../utils/applicationConsole';
 
-import { initLocalStorageMirror } from '../utils/lsMirror';
+import { initLocalStorageMirror, snapshotLocalStorageMirror } from '../utils/lsMirror';
+import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup } from '../utils/musicLibrary';
 import { cleanupInstantPushLegacyData } from '../utils/instantPushLegacyCleanup';
 // 备份用：把存在 localStorage 的本机配置随导出一起带走（键名须与 importFullData 对齐）
 import { exportWorldHomeLocal } from '../utils/worldHome/localBackup';
@@ -4033,6 +4034,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               home3DLocal: (mode === 'text_only' || mode === 'full') ? exportHome3DLocal() : undefined,
               mcpLocal: (mode === 'text_only' || mode === 'full') ? exportMcpLocal() : undefined,
 
+              // 免登录音乐资料是用户自己的文本/歌曲元数据；不打包重复音频 Blob。
+              // 无记录时也导出空库，以便恢复新备份时按备份意图替换本机收藏。
+              // 老备份没有字段：导入时不动当前设备音乐库，绝不误清空。
+              guestMusicLibrary: mode === 'full' || mode === 'text_only' ? loadGuestMusicLibrary() : undefined,
+
               // 梦境盲盒收藏册（账号级 localStorage，不挂在角色上，需单独随备份带走）
               dreamCollection: (mode === 'text_only' || mode === 'full') ? (() => { try { const s = localStorage.getItem('os_dream_collection'); return s ? JSON.parse(s) : undefined; } catch { return undefined; } })() : undefined,
 
@@ -4118,6 +4124,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (backupData.socialAppData?.userProfile) processObject(backupData.socialAppData.userProfile, 'socialAppData.userProfile');
               if (backupData.socialAppData?.userBg) processObject(backupData.socialAppData.userBg, 'socialAppData.userBg');
               if (backupData.roomCustomAssets) processObject(backupData.roomCustomAssets, 'roomCustomAssets');
+              if (backupData.guestMusicLibrary) processObject(backupData.guestMusicLibrary, 'guestMusicLibrary');
               if (backupData.theme) processObject(backupData.theme, 'theme');
               if (backupData.customIcons) processObject(backupData.customIcons, 'customIcons');
               if (backupData.appearancePresets) processObject(backupData.appearancePresets, 'appearancePresets');
@@ -4126,6 +4133,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (backupData.socialAppData?.userProfile) backupData.socialAppData.userProfile = stripBase64(backupData.socialAppData.userProfile);
               if (backupData.socialAppData?.userBg) backupData.socialAppData.userBg = stripBase64(backupData.socialAppData.userBg);
               if (backupData.roomCustomAssets) backupData.roomCustomAssets = stripBase64(backupData.roomCustomAssets);
+              if (backupData.guestMusicLibrary) backupData.guestMusicLibrary = stripBase64(backupData.guestMusicLibrary);
               if (backupData.customIcons) backupData.customIcons = stripBase64(backupData.customIcons);
               if (backupData.appearancePresets) backupData.appearancePresets = stripBase64(backupData.appearancePresets);
               if (backupData.theme) {
@@ -4764,6 +4772,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 备份一旦命中特征就整包拒绝，不能出现“导入了一半才报错”的状态。
           assertSupportedSullyBackup(data);
 
+          // 在写主库之前校验音乐库，坏歌单不能等到数据库被替换后才报错。
+          // 字段缺省是旧备份：保留本机音乐库；新备份含空数组则恢复为空库。
+          const guestMusicToRestore = data.guestMusicLibrary === undefined
+              ? undefined : validateGuestMusicLibraryBackup(data.guestMusicLibrary);
+
           // 在 importFullData 为释放内存逐项清空 data 字段前冻结“这是否是主历史替换”。
           // 新版 media_only 明确不动 SAR；旧备份没有 mode 时，只要带 characters/messages
           // 就按整档恢复处理，避免导入后继续沿用另一份历史的公告/卡池/推演记录。
@@ -4976,6 +4989,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           
           showImportProgress('settings', '正在恢复系统设置...', 92, { current: '系统设置', currentFile: '' });
+          if (guestMusicToRestore !== undefined) {
+              // v2 图片 assets/* 先回填；v3 blobref 在上面的二进制流程恢复。
+              await restoreAssetsInPlace(guestMusicToRestore, '音乐收藏与歌单');
+              if (!persistGuestMusicLibrary(guestMusicToRestore)) {
+                  throw new Error('音乐收藏/歌单恢复失败：本机存储空间不足，请保留原始备份文件');
+              }
+          }
+          // DB.importFullData 可能重建 assets/ls_mirror_v1；这里重新快照，以新
+          // 音乐库为真值，避免下次启动时旧镜像将已恢复的收藏覆写回来。
+          await snapshotLocalStorageMirror();
           if (data.chatInputPreferences !== undefined) saveChatInputPreferences(data.chatInputPreferences);
           if (data.theme) {
               await restoreAssetsInPlace(data.theme, '系统主题');
