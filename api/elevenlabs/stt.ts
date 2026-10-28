@@ -33,7 +33,8 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const apiKey = req.headers['xi-api-key'] || req.query?.apiKey;
+        // API keys must be sent in headers, never in URLs or server request logs.
+        const apiKey = req.headers['xi-api-key'];
         if (!apiKey) {
             return res.status(401).json({ error: 'Missing xi-api-key' });
         }
