@@ -84,7 +84,7 @@ import {roomSeats,roomBeds,seatTransform} from './seating.js';
 import {wallFaces,mountOnFace,wallPlacementError} from './wallMount.js';
 import {wateringSpot,roomPlants} from './watering.js';
 import {createWateringEffect} from './wateringEffect.js';
-import {seatEntry,seatEntryCandidates,seatChangePose} from './seatChange.js';
+import {seatEntry,seatEntryCandidates,seatChangePose,seatTransitionDuration} from './seatChange.js';
 import {body2BedTransform,legacyBedTransform,bedEntry,bedEdge} from './bedMotion.js';
 import {seatChangeDuration} from './chibi/roomMotionFrame.ts';
 import {meshyMotions} from './chibi/meshyMotions';
@@ -267,7 +267,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  // sit/stand animation. Resolve the same transition endpoint before snapshotting.
  function finishSeatChangeForHandoff(){
   const change=seatChange;if(!change)return;
-  const duration=seatChangeDuration(change.pose),frame=change.pose==='bed'?bedChangePose(change,duration):seatChangePose(change,duration);
+  const duration=change.duration??seatChangeDuration(change.pose),frame=change.pose==='bed'?bedChangePose(change,duration):seatChangePose(change,duration);
   resident.position.fromArray(frame.position);setResidentHeading(resident,frame.rotation??change.rotation);
   const pendingActivity=change.pendingActivity;
   if(change.rising){visitorSeat=null;seatAccess=null;visitorLocation={x:resident.position.x+current().x*ROOM_STEP.x,z:resident.position.z+current().z*ROOM_STEP.z,level:current().level};}
@@ -493,8 +493,9 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(!front)return false;
   if(!rising)seatAccess={roomId:r.id,itemId:selected.itemId,seatId:selected.seatId,pose:transform,front:[...front]};
   const edge=transform.pose==='bed'?bedEdge(transform,front):null;
-  seatChange={rising,bedFrom:rising?visitorSeat.bedMode:undefined,bedFromTime:elapsed-(visitorSeat.modeStart??elapsed),front,sleepStart:transform.sleepStart,seat:transform.position,rotation:transform.rotation,edge,startRotation:rising?edge?.rotation:resident.rotation.y,pose:transform.pose,start:elapsed};
-  visitorStart=elapsed;visitorUntil=elapsed+seatChangeDuration(transform.pose)+.2;return true;
+  const transitionDuration=seatTransitionDuration(transform.pose,front,transform.position);
+  seatChange={rising,bedFrom:rising?visitorSeat.bedMode:undefined,bedFromTime:elapsed-(visitorSeat.modeStart??elapsed),front,sleepStart:transform.sleepStart,seat:transform.position,rotation:transform.rotation,edge,startRotation:rising?edge?.rotation:resident.rotation.y,pose:transform.pose,duration:transitionDuration,start:elapsed};
+  visitorStart=elapsed;visitorUntil=elapsed+transitionDuration+.2;return true;
  }
  let modelReplyTo,homeActionPlan=null;
  let journal=[],manualUntil=0,manualRevision=0,autonomousRevision=null;
