@@ -32,7 +32,7 @@ export function planAutonomyWakes(
   let hash=2166136261;
   for(let i=0;i<char.id.length;i++)hash=Math.imul(hash^char.id.charCodeAt(i),16777619)>>>0;
   const windows:[Slot,number,number][]=[['day',10*60+45,14*60+30],['evening',18*60,21*60+45]];
-  return windows.flatMap(([slot,begin,end],i)=>{
+  const selected=windows.flatMap(([slot,begin,end],i)=>{
     const preferred=begin+15+((hash>>>i*7)%(end-begin-30));
     const isFree=(minute:number)=>{
       const active=[...source].reverse().find(s=>s.at<=minute);
@@ -53,6 +53,13 @@ export function planAutonomyWakes(
     }
     return [];
   });
+  // APK's ordinary-contact fallback matters: even when a daily-life plan
+  // offers no usable window, the enabled feature must not go permanently
+  // silent. Keep just ONE evening opportunity rather than ignoring the
+  // busy/sleep schedule with two automatic checks.
+  return selected.length ? selected
+    : source.length ? planAutonomyWakes(char,null,now).filter(x=>x.slot==='evening')
+    : selected;
 }
 
 type Args={char:CharacterProfile;apiConfig:APIConfig;userProfile:UserProfile;
