@@ -1,4 +1,6 @@
 import { createReplyRun, isReplyStopped, withReplyCancellation, type ReplyRun } from './chatReplyCancellation';
+import { eventForDeliveredAmsg } from './amsgPhoneEvent';
+import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
@@ -1803,6 +1805,19 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
       // 走到这里 = 这条真的落进聊天流了（主路径落库完 / 降级存了原稿）。上面每一个
       // continue 都是「没上屏」：跟已有的重了、等前面的分段、压回收件箱重试。
       landedMessageIds.push(message.messageId);
+      // Canonical chat was persisted. Mirror only a factual, content-free
+      // life event to Char-phone's existing ledger. Its own opportunity
+      // consumer is independently gated by the phone background API toggle.
+      // Retry dedup is handled by stable provider messageId in the ledger.
+      const phoneEvent = eventForDeliveredAmsg({
+        charId: message.charId,
+        messageId: message.messageId,
+        source: message.source,
+        messageType: message.messageType,
+        instant: isInstantReply,
+        timestamp: eventSentAt,
+      });
+      if (phoneEvent) recordCharacterLifeEvent(phoneEvent);
 
       // 不管走 post-processing 还是 raw fallback, 单条 inbox message 触发一次 'active-msg-received',
       // 驱动 toast / 未读 / 通知。body 用原文做预览即可。

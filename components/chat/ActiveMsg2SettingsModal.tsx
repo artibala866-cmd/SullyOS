@@ -639,7 +639,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     >
       <div className="space-y-4 text-sm text-slate-600">
         <p className="text-xs leading-relaxed text-slate-500">
-          打开 2.0 后，系统会自动按日程安排每天的自主联系机会，无须手动建第一条任务。角色能决定是否说话、能使用已接入的小红书等工具。每次后台 AI 生成会消耗主 API；下方新建任务用于明确的提醒和约定。
+          2.0 是独立的后台主动联系开关，与「真人感自动回复」分开控制（避免偷偷启用额外收费的 API）。两者都开启时，共用真实聊天及角色日程，主动联系不会打断正在进行的私聊；真正送达的消息也会在查手机的私聊中显示。打开后系统自动安排每日联系机会，无须手动新建第一条任务；每次云端生成仍会消耗主 API。
         </p>
 
         <div className="flex items-center justify-between bg-neutral-50 border border-neutral-100 rounded-2xl p-4">

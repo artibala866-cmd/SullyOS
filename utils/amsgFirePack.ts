@@ -207,6 +207,8 @@ export const LAST_SKIP_REASONS = [
   'min-gap',
   'recurring-unanswered',
   'daily-limit',
+  'autonomy-chatting',
+  'autonomy-busy',
 ] as const;
 
 export interface AmsgLastSkip {
@@ -291,6 +293,10 @@ export const describeLastSkip = (skip: AmsgLastSkip, formatTime: (ms: number) =>
       return `${when} 那条重复消息这次没发——你已经连续几次没回它了，先停一停；你回一句话，它就照常恢复。`;
     case 'daily-limit':
       return `${when} 那次主动消息没发——今天 ta 主动找你的次数已经到了你设的每日上限，跳过的这次不会补发，明天重新计数。`;
+    case 'autonomy-chatting':
+      return `${when} 的自主联系机会让给了你们正在进行的私聊，不另起一条打断，下一次照常。`;
+    case 'autonomy-busy':
+      return `${when} 的自主联系机会碰上 TA 当天日程里的忙碌或睡眠，就跳过这次，下一次照常。`;
   }
 };
 

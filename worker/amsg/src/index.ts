@@ -156,6 +156,7 @@ import {
 } from '../../../utils/agenticToolFeedback';
 import { setProxyWorkerUrlOverride } from '../../../utils/proxyWorker';
 import { XhsMcpClient } from '../../../utils/xhsMcpClient';
+import { autonomyWakeSkipReason } from '../../../utils/amsgAutonomyPolicy';
 // type-only：编译期擦除，classifier 的实现不会因为这行被拉进 bundle。
 import type { ToolCall } from './classifier';
 import {
@@ -1795,6 +1796,12 @@ export const amsgHooks = {
     const taskPolicy = typeof taskMeta.amsgExpirePolicy === 'string'
       ? taskMeta.amsgExpirePolicy : undefined;
     const selfScheduled = taskMeta.amsgSelfScheduled === true;
+    // Automatically provided contact opportunities aren't user-authored
+    // reminders. They share the unanswered + cooling budget of character
+    // initiatives, but NOT the permission restricting AI-created recurring
+    // jobs: the user already explicitly enabled this recurring service.
+    const autonomyWake = taskMeta.amsgAutonomyWake === true;
+    const autonomousOrSelf = selfScheduled || autonomyWake;
     const recurring = ctx.task.recurrenceType === 'daily' || ctx.task.recurrenceType === 'weekly';
 
     // 副 API 凭据落地即取走：这一份 metadata 对象上游还要按引用往下传（onLLMOutput 的
@@ -2026,6 +2033,23 @@ export const amsgHooks = {
     // 这条任务的概要：到点被拦下时随「这次没发」一起送回客户端。
     const taskBrief = findTaskBrief([...pack.pendingTasks, ...selfLog.tasks], ctx.task.uuid);
 
+    // Marshmallow's real-person/phone coordination: an automatic idle
+    // opportunity may not interrupt a live private chat or claim to be
+    // available during a confirmed busy/sleep schedule. Ordinary reminders
+    // and manual recurring tasks are intentionally NOT subjected to this gate.
+    if (!instant && autonomyWake) {
+      const missed = autonomyWakeSkipReason({
+        nowMs,
+        lastUserMessageAt,
+        scene: pack.scene,
+        tzId: pack.tzId,
+      });
+      if (missed) {
+        await recordSkip(ctx, charId, missed, occurrenceMs, taskBrief);
+        return { skip: true } as const;
+      }
+    }
+
     // 连发上限·到点兜底闸（用户主权）：用户未回复期间，角色自己排的任务最多响这么多次。
     // 只拦自排（amsgSelfScheduled）——用户面板排的是明确意愿，不受自己的防骚扰上限误伤；
     // 即时对话在答用户刚说的话，更不归它管。排程工具那半边只能拦「再排新的」，
@@ -2048,7 +2072,7 @@ export const amsgHooks = {
     }
 
     const maxUnansweredSends = limits.maxUnansweredSends;
-    if (!instant && selfScheduled
+    if (!instant && autonomousOrSelf
       && countUnansweredSends(selfLog) >= maxUnansweredSends) {
       console.log('[amsg:unanswered-limit-skip]', {
         taskId: ctx.task.id,
@@ -2070,7 +2094,7 @@ export const amsgHooks = {
       .filter((e) => !e.reply && e.id !== occurrenceEntryId)
       .map((e) => e.startedAt ?? e.at)
       .reduce<number | null>((latest, at) => (latest == null || at > latest ? at : latest), null);
-    if (!instant && selfScheduled && limits.minSendGapMs > 0 && lastSelfSendAt != null
+    if (!instant && autonomousOrSelf && limits.minSendGapMs > 0 && lastSelfSendAt != null
       && nowMs < lastSelfSendAt + limits.minSendGapMs - FIRE_GAP_TOLERANCE_MS) {
       console.log('[amsg:min-gap-skip]', {
         taskId: ctx.task.id, charId, lastSelfSendAt, gapMs: limits.minSendGapMs,

@@ -311,6 +311,37 @@ describe('Worker 入口的具名导出', () => {
 });
 
 describe('onBeforeFire 四道门', () => {
+  it('自发联系：最近五分钟正在聊天就跳过，不把日常开场插进私聊',async()=>{
+    const at=NOW.getTime()-5*60_000;
+    const {ctx}=makeCtx({metadata:{amsgAutonomyWake:true},
+      charRows:[
+        {key:AMSG_FIRE_PACK_KEY,value:firePackValue(at)},
+        {key:AMSG_TOOL_PACK_KEY,value:toolPackValue},
+      ],
+    });
+    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({skip:true});
+    expect(ctx.scratch.fire).toBeUndefined();
+  });
+  it('自发联系：用户没说话且今天正工作，仍先跳过，不发一条像闹钟的私聊',async()=>{
+    const {ctx}=makeCtx({metadata:{amsgAutonomyWake:true},
+      charRows:[
+        {key:AMSG_FIRE_PACK_KEY,value:firePackValue(null,{scene:{
+          charId:CHAR_ID,dateKey:'2026-07-25',songPool:[],
+          schedule:{slots:[{startTime:'00:00',activity:'工作'}]},
+        }})},
+        {key:AMSG_TOOL_PACK_KEY,value:toolPackValue},
+      ],
+    });
+    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({skip:true});
+  });
+  it('自发联系：普通自动联系可以自行判断开口，手动明确提醒不受这道真人感门禁影响',async()=>{
+    const at=NOW.getTime()-5*60_000;
+    const {ctx}=makeCtx({charRows:[
+      {key:AMSG_FIRE_PACK_KEY,value:firePackValue(at)},
+      {key:AMSG_TOOL_PACK_KEY,value:toolPackValue},
+    ]});
+    expect(fired(await amsgHooks.onBeforeFire(ctx)).messages).toHaveLength(1);
+  });
   it('正常路径：填好槽返回 prompt，并把工具状态挂上 scratch', async () => {
     const { ctx, scratch } = makeCtx({});
     const result = await amsgHooks.onBeforeFire(ctx);

@@ -1910,6 +1910,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 const next = !lifePacing;
                 setLifePacing(next);
                 localStorage.setItem('sully_life_pacing', next ? 'on' : 'off');
+                if (next && char && !char.activeMsg2Config?.enabled) {
+                    addToast('真人感自动接话已开启。后台主动联系是单独的 2.0 开关，启用后会使用云端 AI 额度。', 'info');
+                }
                 break;
             }
             case 'mcd-not-configured':
