@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { ContextBuilder } from '../utils/context';
+import WorkspacePanel from './WorkspacePanel';
+import { focusChatAllowance, newWorkspaceId, type WorkKind } from '../utils/sullyWorkspace';
+const StudyApp = React.lazy(() => import('./StudyApp'));
+
 import { safeResponseJson, extractContent } from '../utils/safeApi';
 
-type FocusTask = { id: string; title: string; done: boolean; sessions: number };
-type FocusRecord = { date: string; minutes: number; taskId: string };
+type FocusTask = { id: string; title: string; done: boolean; sessions: number; source?: {kind:WorkKind;id:string} };
+type FocusRecord = { date: string; minutes: number; taskId: string; sessionId?: string };
 type FocusMode = 'focus' | 'break';
-type Session = { mode: FocusMode; deadline: number; duration: number; taskId: string };
+type Session = { id?: string; mode: FocusMode; deadline: number; duration: number; taskId: string; pauseRemainingMs?: number; usedChatWindows?: number[] };
 type Note = { id: string; role: 'user' | 'assistant'; content: string };
 const STORAGE = 'sully_pomodoro_v1';
 const EXIT_PHRASE = '真的要退出学习吗';
@@ -34,19 +38,24 @@ const ScheduleApp: React.FC = () => {
   const [exitOpen, setExitOpen] = useState(false);
   const [exitPhrase, setExitPhrase] = useState('');
   const [exitDeadline, setExitDeadline] = useState(0);
-  const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'chat'>('timer');
+  const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'commissions' | 'calendar' | 'study'>('timer');
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantTopic, setAssistantTopic] = useState('');
+  const [focusLock, setFocusLock] = useState<boolean>(() => load('lock', false));
   const [notes, setNotes] = useState<Note[]>(() => load('notes', []));
   const [message, setMessage] = useState('');
   const [replying, setReplying] = useState(false);
-  const processed = useRef<number | null>(null);
+  const processed = useRef<string | null>(null);
+  const chatBusy = useRef(false);
   const activeChar = characters.find(c => c.id === charId);
-  const remaining = session ? Math.max(0, Math.ceil((session.deadline - now) / 1000)) : (focusMinutes * 60);
+  const remaining = session ? Math.max(0, Math.ceil((session.pauseRemainingMs ?? (session.deadline - now)) / 1000)) : (focusMinutes * 60);
+  const allowance = focusChatAllowance(session, now);
   const activeTask = tasks.find(t => t.id === (session?.taskId || selectedTask));
   const todayRecords = records.filter(r => r.date === today());
   const totalToday = todayRecords.reduce((sum, r) => sum + r.minutes, 0);
-  const shell = 'rounded-[24px] bg-[#eeeeee] shadow-[6px_6px_14px_#d2d2d2,-6px_-6px_14px_#ffffff]';
-  const inset = 'rounded-2xl bg-[#eeeeee] shadow-[inset_3px_3px_7px_#d1d1d1,inset_-3px_-3px_7px_#ffffff]';
-  const btn = 'rounded-2xl px-4 py-3 text-sm font-medium bg-[#777777] text-white disabled:opacity-40';
+  const shell = 'rounded-2xl bg-white border border-neutral-200';
+  const inset = 'rounded-xl bg-white border border-neutral-300';
+  const btn = 'rounded-xl px-4 py-3 text-sm font-medium bg-neutral-900 text-white disabled:opacity-40';
   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 500); return () => window.clearInterval(id); }, []);
   useEffect(() => { save('tasks', tasks); }, [tasks]);
   useEffect(() => { save('records', records); }, [records]);
@@ -56,16 +65,31 @@ const ScheduleApp: React.FC = () => {
   useEffect(() => { save('breakMinutes', breakMinutes); }, [breakMinutes]);
   useEffect(() => { save('session', session); }, [session]);
   useEffect(() => { save('notes', notes); }, [notes]);
+  useEffect(() => { save('lock', focusLock); }, [focusLock]);
   useEffect(() => {
-    if (!session || now < session.deadline || processed.current === session.deadline) return;
-    processed.current = session.deadline;
+    if (!session || session.pauseRemainingMs != null || now < session.deadline) return;
+    const id = session.id || String(session.deadline);
+    if (processed.current === id) return;
+    processed.current = id;
+    // Settle synchronously into the legacy keys BEFORE clearing the session.
+    // Reloading or two effect invocations cannot double-credit the same round.
     if (session.mode === 'focus') {
-      setRecords(prev => [...prev, { date: today(), minutes: session.duration, taskId: session.taskId }]);
-      setTasks(prev => prev.map(t => t.id === session.taskId ? { ...t, sessions: t.sessions + 1 } : t));
+      const stored = load<FocusRecord[]>('records', []);
+      if (!stored.some(r => r.sessionId === id)) {
+        const date = new Date(session.deadline).toLocaleDateString('sv-SE');
+        const updatedRecords = [...stored, { date, minutes: session.duration, taskId: session.taskId, sessionId: id }];
+        save('records', updatedRecords);
+        setRecords(updatedRecords);
+        const storedTasks = load<FocusTask[]>('tasks', []);
+        const updatedTasks = storedTasks.map(t => t.id === session.taskId ? { ...t, sessions: t.sessions + 1 } : t);
+        save('tasks', updatedTasks);
+        setTasks(updatedTasks);
+      }
       addToast('专注完成，可以休息了', 'success');
     } else {
       addToast('休息结束，准备下一轮', 'success');
     }
+    save('session', null);
     setSession(null);
   }, [session, now, addToast]);
   useEffect(() => {
@@ -86,7 +110,7 @@ const ScheduleApp: React.FC = () => {
     if (mode === 'focus' && !selectedTask) { addToast('请先选择或创建任务', 'error'); setTab('tasks'); return; }
     const duration = mode === 'focus' ? focusMinutes : breakMinutes;
     processed.current = null;
-    setSession({ mode, duration, deadline: Date.now() + duration * 60000, taskId: selectedTask });
+    setSession({ id: newWorkspaceId(), mode, duration, deadline: Date.now() + duration * 60000, taskId: selectedTask, usedChatWindows: [] });
     setTab('timer');
   };
   const requestExit = () => {
@@ -95,48 +119,99 @@ const ScheduleApp: React.FC = () => {
     setExitDeadline(Date.now() + 10_000);
     setExitOpen(true);
   };
-  const quit = () => { setSession(null); setExitOpen(false); closeApp(); };
+  const stop = (exitApp: boolean) => {
+    // Explicit interruption is never a completed session.
+    save('session', null);
+    setSession(null);
+    setExitOpen(false);
+    if (exitApp) closeApp();
+  };
+  const pause = () => setSession(prev => prev && prev.pauseRemainingMs == null
+    ? {...prev, pauseRemainingMs: Math.max(0, prev.deadline - Date.now())} : prev);
+  const resume = () => setSession(prev => prev && prev.pauseRemainingMs != null
+    ? {...prev, deadline: Date.now() + prev.pauseRemainingMs, pauseRemainingMs: undefined} : prev);
+  const switchTab = (next: typeof tab) => {
+    if (focusLock && session?.mode === 'focus' && session.pauseRemainingMs == null && next !== 'timer') {
+      addToast('专注保护已开启。请暂停或中断本轮再切换区域。', 'error');
+      return;
+    }
+    setTab(next);
+  };
+  const startLinked = (kind:WorkKind, id:string, title:string) => {
+    const existing = tasks.find(t=>t.source?.kind===kind && t.source.id===id);
+    if (existing) setSelectedTask(existing.id);
+    else {
+      const task:FocusTask={id:newWorkspaceId(),title,done:false,sessions:0,source:{kind,id}};
+      setTasks(prev=>[...prev,task]);
+      setSelectedTask(task.id);
+    }
+    setTab('timer');
+  };
+  const discuss = (topic:string) => {
+    setAssistantTopic(topic);
+    setMessage('请根据当前信息给我建议。');
+    setAssistantOpen(true);
+  };
   const sendNote = async () => {
     const content = message.trim();
-    if (!content || replying) return;
-    if (!activeChar) { addToast('请先选择监督角色', 'error'); return; }
+    if (!content || replying || chatBusy.current) return;
+    if (!activeChar) { addToast('请先选择 Char', 'error'); return; }
     if (!apiConfig.apiKey || !apiConfig.model) { addToast('请先配置聊天 AI', 'error'); return; }
-    const history = [...notes, { id: String(Date.now()), role: 'user' as const, content }];
+    const gate = focusChatAllowance(session, Date.now());
+    if (!gate.canSend) { addToast('本五分钟窗口的交流机会已用完，或计时已暂停', 'error'); return; }
+    chatBusy.current = true;
+    if (session?.mode === 'focus') {
+      // Reserve the slot before any await. Persist even if request fails or page reloads.
+      const nextSession = {
+        ...session, usedChatWindows: [...new Set([...(session.usedChatWindows || []), gate.currentWindow])],
+      };
+      save('session', nextSession);
+      setSession(nextSession);
+    }
+    const history:Note[] = [...notes, { id: newWorkspaceId(), role: 'user', content }];
     setNotes(history);
     setMessage('');
     setReplying(true);
     try {
-      const context = ContextBuilder.buildCoreContext(activeChar, userProfile, true);
       const task = activeTask?.title || '自由专注';
-      const phase = session?.mode === 'focus' ? '正在专注' : session?.mode === 'break' ? '正在休息' : '尚未开始计时';
-      const response = await fetch(`${apiConfig.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+      const phase = session?.mode === 'focus' ? '正在专注' : session?.mode === 'break' ? '正在休息' : '未计时';
+      const appContext = '你在糯米机应用内帮助用户。保持角色身份自然回应，不要自动催促，也不能替用户把作业标为完成。'
+        + '当前任务：' + task + '；状态：' + phase + '；剩余约 ' + Math.ceil(remaining/60) + ' 分钟。'
+        + (assistantTopic ? '用户主动请求讨论的工作信息：' + assistantTopic.slice(0, 4500) : '');
+      const msgs = await ContextBuilder.buildCharacterRequest(
+        {char:activeChar,user:userProfile},
+        [{role:'system',content:appContext},...history.slice(-16).map(n=>({role:n.role,content:n.content}))],
+      );
+      const response = await fetch(apiConfig.baseUrl.replace(/\/$/, '')+'/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
-        body: JSON.stringify({
-          model: apiConfig.model,
-          messages: [
-            { role: 'system', content: `${context}\\n\\n你正在番茄钟的独立监督对话中。保持角色原本的人设和说话方式，像自然交流一样回应用户，适度鼓励、提醒或陪伴，不要扮演系统提示。当前任务：${task}；状态：${phase}；剩余约 ${Math.ceil(remaining / 60)} 分钟。回答简短自然。` },
-            ...history.slice(-16).map(n => ({ role: n.role, content: n.content })),
-          ],
-          temperature: 0.8,
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
+        body: JSON.stringify({model:apiConfig.model,messages:msgs,temperature:0.8}),
       });
       const data = await safeResponseJson(response);
-      if (!response.ok) throw new Error(data?.error?.message || `HTTP ${response.status}`);
+      if (!response.ok) throw new Error(data?.error?.message || 'HTTP ' + response.status);
       const reply = extractContent(data);
       if (!reply?.trim()) throw new Error('AI 返回了空回复');
-      setNotes(prev => [...prev, { id: String(Date.now()) + '_reply', role: 'assistant', content: reply.trim() }]);
-    } catch (error) {
-      addToast(`角色回复失败：${error instanceof Error ? error.message : '请检查 API 设置'}`, 'error');
+      setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:reply.trim()}]);
+      setAssistantTopic('');
+    } catch(e) {
+      addToast('Char 回复失败：' + (e instanceof Error ? e.message : '请检查 API 配置'), 'error');
     } finally {
+      chatBusy.current = false;
       setReplying(false);
     }
   };
+  if (tab === 'study') return (
+    <div className="h-full w-full overflow-hidden bg-white">
+      <React.Suspense fallback={<p className="p-5">正在打开自习室…</p>}>
+        <StudyApp onExit={() => setTab('timer')} />
+      </React.Suspense>
+    </div>
+  );
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden bg-[#eeeeee] text-[#666666] font-sans" style={{ paddingTop: 'var(--safe-top)' }}>
+    <div className="h-full w-full flex flex-col overflow-hidden bg-[#fafafa] text-neutral-900 font-sans" style={{ paddingTop: 'var(--safe-top)' }}>
       <header className="px-5 pt-5 pb-4 flex items-center justify-between shrink-0">
         <button aria-label="返回" onClick={requestExit} className="text-2xl px-2">‹</button>
-        <div className="text-xs tracking-[0.3em] font-medium">FOCUS / 番茄钟</div>
+        <div className="text-xs tracking-[0.2em] font-semibold text-neutral-900">糯米机 / FOCUS</div>
         <div className="w-8" />
       </header>
       <main className="flex-1 overflow-y-auto px-5 pb-8 space-y-5">
@@ -151,7 +226,15 @@ const ScheduleApp: React.FC = () => {
               <label className="text-xs space-y-2">专注分钟<input aria-label="专注分钟" type="number" min={1} max={180} value={focusMinutes} onChange={e => setFocusMinutes(Math.max(1, Math.min(180, Number(e.target.value) || 1)))} className={inset + ' w-full p-3 text-center outline-none'} /></label>
               <label className="text-xs space-y-2">休息分钟<input aria-label="休息分钟" type="number" min={1} max={60} value={breakMinutes} onChange={e => setBreakMinutes(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} className={inset + ' w-full p-3 text-center outline-none'} /></label>
             </div>}
-            {session ? <button className={btn + ' w-full'} onClick={requestExit}>中断本轮</button> : <div className="grid grid-cols-2 gap-3"><button className={btn} onClick={() => start('focus')}>开始专注</button><button className={btn + ' !bg-[#aaaaaa]'} onClick={() => start('break')}>开始休息</button></div>}
+            {session ? <div className="grid grid-cols-2 gap-2">
+              {session.pauseRemainingMs != null
+                ? <button className={btn} onClick={resume}>继续</button>
+                : <button className={btn} onClick={pause}>暂停</button>}
+              <button className="border border-neutral-300 rounded-xl text-sm" onClick={requestExit}>中断本轮</button>
+            </div> : <div className="grid grid-cols-2 gap-3"><button className={btn} onClick={() => start('focus')}>开始专注</button><button className={btn + ' !bg-[#aaaaaa]'} onClick={() => start('break')}>开始休息</button></div>}
+            <button className="block mx-auto text-sm underline underline-offset-4" onClick={() => setAssistantOpen(true)}>
+              {activeChar?.name || 'Char'} · 交流 {session?.mode==='focus' ? allowance.used+'/'+allowance.limit : '不限额'}
+            </button>
           </section>
           <section className={shell + ' p-5 space-y-3'}>
             <div className="text-xs tracking-widest">当前任务</div>
@@ -159,7 +242,11 @@ const ScheduleApp: React.FC = () => {
               <option value="">请选择任务</option>
               {tasks.filter(t => !t.done).map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
             </select>
-            <div className="flex justify-between text-xs text-[#999999]"><span>今日专注</span><span>{totalToday} 分钟 · {todayRecords.length} 轮</span></div>
+            <div className="flex justify-between text-xs text-neutral-600"><span>今日专注</span><span>{totalToday} 分钟 · {todayRecords.length} 轮</span></div>
+            <div className="flex gap-3 text-xs"><button className="underline" onClick={()=>switchTab('tasks')}>任务清单</button>
+              <button className="underline" onClick={()=>switchTab('stats')}>专注统计</button></div>
+            <label className="flex gap-2 items-center text-xs"><input type="checkbox" checked={focusLock}
+              onChange={e=>setFocusLock(e.target.checked)}/>专注保护（仅限制本应用内切换）</label>
           </section>
         </>}
         {tab === 'tasks' && <section className={shell + ' p-5 space-y-4'}>
@@ -179,23 +266,43 @@ const ScheduleApp: React.FC = () => {
           <div className="text-sm">完成任务：{tasks.filter(t => t.done).length} 项</div>
           <p className="text-xs text-[#aaaaaa]">仅统计完整结束的专注轮次；数据保存在当前浏览器。</p>
         </section>}
-        {tab === 'chat' && <section className={shell + ' p-5 space-y-4'}>
-          <div className="tracking-widest text-xs">SUPERVISOR / 监督记录</div>
-          <select aria-label="监督角色" value={charId} onChange={e => setCharId(e.target.value)} className={inset + ' w-full p-3 text-sm'}>
-            <option value="">不选择角色</option>{characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <p className="text-xs text-[#999999]">已选择：{activeChar?.name || '无'}。监督记录与神经链接聊天分开保存；角色会根据当前任务与专注状态回复。</p>
-          <div className={inset + ' min-h-[150px] max-h-[300px] overflow-y-auto p-3 space-y-2'}>
-            {notes.length === 0 && <p className="text-xs text-[#aaaaaa]">记录一下今天的专注感受吧。</p>}
-            {notes.map(n => <p key={n.id} className="text-sm break-words"><span className="text-xs text-[#999999]">{n.role === 'assistant' ? (activeChar?.name || '角色') : '我'}：</span>{n.content}</p>)}
-            {replying && <p className="text-xs text-[#999999]">角色正在回复…</p>}
-          </div>
-          <form onSubmit={e => { e.preventDefault(); void sendNote(); }} className="flex gap-2"><input aria-label="记录内容" value={message} onChange={e => setMessage(e.target.value)} className={inset + ' min-w-0 flex-1 p-3 text-sm'} placeholder="写下想说的话" /><button type="submit" disabled={replying} className={btn}>{replying ? '回复中' : '发送'}</button></form>
-        </section>}
+        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss}/>}
+        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss}/>}
+
       </main>
-      <nav className="shrink-0 grid grid-cols-4 gap-2 px-4 py-4 border-t border-[#dedede] bg-[#eeeeee]" style={{ paddingBottom: 'max(16px, var(--safe-bottom, 0px))' }}>
-        {([['timer','计时'],['tasks','任务'],['stats','统计'],['chat','监督']] as const).map(([id, title]) => <button key={id} onClick={() => setTab(id)} className={`rounded-2xl py-3 text-xs ${tab === id ? 'bg-[#777777] text-white' : 'bg-[#eeeeee] shadow-[3px_3px_7px_#d1d1d1,-3px_-3px_7px_#ffffff]'}`}>{title}</button>)}
+      <nav className="shrink-0 grid grid-cols-4 gap-1 px-2 py-3 border-t border-neutral-200 bg-white"
+        style={{paddingBottom:'max(12px, var(--safe-bottom, 0px))'}}>
+        {([['timer','专注'],['commissions','排单'],['calendar','课程表'],['study','自习室']] as const)
+          .map(([id,title])=><button key={id} onClick={()=>switchTab(id)}
+            className={'rounded-lg py-3 text-sm '+(tab===id?'bg-neutral-900 text-white':'text-neutral-700')}>{title}</button>)}
       </nav>
+      {assistantOpen && <div className="absolute inset-0 z-[80] bg-black/40 flex items-end justify-center"
+        onClick={()=>setAssistantOpen(false)}>
+        <section className="bg-white text-neutral-900 w-full max-w-xl h-[65%] rounded-t-2xl p-4 flex flex-col gap-3"
+          onClick={e=>e.stopPropagation()}>
+          <div className="flex justify-between items-center">
+            <h2 className="font-semibold text-sm">Char · 当前工作陪伴</h2>
+            <button className="text-lg px-3" aria-label="关闭 Char" onClick={()=>setAssistantOpen(false)}>×</button>
+          </div>
+          <select aria-label="选择 Char" value={charId} onChange={e=>setCharId(e.target.value)}
+            className={inset + ' p-2 text-sm'}>
+            <option value="">请选择 Char</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          {assistantTopic && <p className="text-xs text-neutral-600">已带入当前请求的任务背景，仅点击发送后才会提交给 AI。</p>}
+          {session?.mode==='focus' && <p className="text-xs">本轮已交流 {allowance.used}/{allowance.limit} 次。
+            {allowance.canSend?'当前五分钟窗口可交流':'当前窗口不可再交流'}</p>}
+          <div className="flex-1 overflow-y-auto border border-neutral-200 rounded-lg p-3 space-y-2">
+            {notes.length===0 && <p className="text-sm text-neutral-500">旧监督记录保存在这里；有需要时再找 Char。</p>}
+            {notes.map(n=><p key={n.id} className="text-sm whitespace-pre-wrap break-words">
+              <span className="text-neutral-500">{n.role==='user'?'我':activeChar?.name||'Char'}：</span>{n.content}</p>)}
+          </div>
+          <form onSubmit={e=>{e.preventDefault();void sendNote();}} className="flex gap-2">
+            <input className={inset+' flex-1 min-w-0 p-2 text-sm'} value={message} onChange={e=>setMessage(e.target.value)}
+              aria-label="对 Char 说" placeholder="主动问 Char…"/>
+            <button className={btn} disabled={replying || !allowance.canSend} type="submit">{replying?'回复中':'发送'}</button>
+          </form>
+        </section>
+      </div>}
       {exitOpen && <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-[#eeeeee] rounded-3xl p-6 space-y-4 shadow-xl">
           <h2 className="text-lg font-medium">真的要退出学习吗？</h2>
@@ -203,8 +310,9 @@ const ScheduleApp: React.FC = () => {
           <div className="text-xs text-[#999999]">冷静倒计时：{Math.max(0, Math.ceil((exitDeadline - now) / 1000))} 秒</div>
           <input aria-label="退出确认文字" value={exitPhrase} onChange={e => setExitPhrase(e.target.value)} placeholder={EXIT_PHRASE} className="w-full p-3 bg-white rounded-xl text-sm" />
           <button className={btn + ' w-full'} onClick={() => setExitOpen(false)}>继续专注</button>
-          <button className="w-full py-2 text-sm disabled:opacity-30" disabled={exitPhrase.trim() !== EXIT_PHRASE || now < exitDeadline} onClick={quit}>确认中断并退出</button>
-          <button className="w-full text-xs underline" onClick={quit}>紧急退出</button>
+          <button className="w-full text-sm py-2 underline" onClick={() => stop(false)}>中断本轮，留在糯米机</button>
+          <button className="w-full py-2 text-sm disabled:opacity-30" disabled={exitPhrase.trim() !== EXIT_PHRASE || now < exitDeadline} onClick={() => stop(true)}>确认中断并退出</button>
+          <button className="w-full text-xs underline" onClick={() => stop(true)}>紧急退出</button>
         </div>
       </div>}
     </div>
