@@ -242,6 +242,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const historyJumpUnlockTimerRef = useRef<number | null>(null);
     const historyWindowScrollEnabledRef = useRef(false);
     const activeCharIdRef = useRef(activeCharacterId);
+    const manualChatGenerationRevisionRef = useRef(0);
     // 流式预览接棒过的正式消息在当前会话内始终跳过入场动画，避免后续 DB 刷新时动画类又被加回来。
     const streamPreviewHandoverIdsRef = useRef<Set<number>>(new Set());
     const registerStreamPreviewHandover = useCallback((charId: string, messageIds: number[]) => {
@@ -1726,6 +1727,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     // 顶栏 ⚡ 手动触发（也是「发完后自动生成」到点时调的那一下）。
     const handleManualTrigger = () => {
+        manualChatGenerationRevisionRef.current++;
         autoReply.cancel();
         if (isTyping || instantChatPending) {
             stopReplyRuns(char.id);
@@ -1740,6 +1742,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     const handleReroll = async () => {
         if (isTyping || messages.length === 0) return;
+        manualChatGenerationRevisionRef.current++;
         autoReply.cancel();
 
         const lastMsg = messages[messages.length - 1];
@@ -3614,10 +3617,19 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             // persisted last conversational speaker so a late proactive reply
             // or another window cannot be followed by a duplicate AI round.
             const target = char?.id;
-            if (!target || activeCharIdRef.current !== target) return;
-            void DB.getMessagesByCharId(target).then(fresh => {
-                if (activeCharIdRef.current !== target) return;
-                if (fresh.slice().reverse().find(m => m.role === 'user' || m.role === 'assistant')?.role !== 'user') return;
+            const latestLocal = [...messages].reverse().find(m => m.role === 'user' || m.role === 'assistant');
+            if (!target || activeCharIdRef.current !== target || latestLocal?.role !== 'user') return;
+            const manualRevision = manualChatGenerationRevisionRef.current;
+            // Read a small indexed tail, not the entire private history.
+            void DB.getRecentMessagesByCharId(target, 24).then(fresh => {
+                if (activeCharIdRef.current !== target || document.hidden) return;
+                if (manualChatGenerationRevisionRef.current !== manualRevision) return;
+                const latestPersisted = fresh.slice().reverse().find(m => m.role === 'user' || m.role === 'assistant');
+                if (latestPersisted?.role !== 'user' || latestPersisted.id !== latestLocal.id) return;
+                // A new draft may have appeared between the timer and this async
+                // IndexedDB read. Do not send a stale automatic reply over it.
+                const liveComposer = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
+                if (liveComposer?.value.trim()) return;
                 if (isTyping || instantChatPending || isProactiveComposing) return;
                 triggerAI(messages);
             }).catch(() => { /* Cannot confirm anchor: fail closed. */ });
