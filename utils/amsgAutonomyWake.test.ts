@@ -127,3 +127,66 @@ describe('AMSG2 cloud/local lost-ledger repair',()=>{
    }
  });
 });
+
+describe('AMSG2 recurring cloud task health: local switch cannot mask a dead Worker row',()=>{
+ it('replaces an old local daily wake whose cloud row has disappeared, without preserving a phantom slot',async()=>{
+   const {ensureAutonomyWakes}=await import('./amsgAutonomyWake');
+   const {ActiveMsgClient}=await import('./activeMsgClient');
+   const oldGlobal=ActiveMsgClient.getGlobalConfig,oldRemote=ActiveMsgClient.listRemoteTasksForChar;
+   const oldSchedule=ActiveMsgClient.scheduleCharacterTask;
+   let created=0;
+   let cfg:any={enabled:true,tasks:[
+     {taskUuid:'ghost-day',clientTaskId:'autowake:day:ghost',mode:'auto',
+       firstSendTime:new Date(Date.now()-86400000).toISOString(),
+       recurrenceType:'daily',expirePolicy:'expire',source:'user',status:'scheduled',
+       createdAt:Date.now()-2*86400000},
+     {taskUuid:'ghost-evening',clientTaskId:'autowake:evening:ghost',mode:'auto',
+       firstSendTime:new Date(Date.now()-86400000).toISOString(),
+       recurrenceType:'daily',expirePolicy:'expire',source:'user',status:'scheduled',
+       createdAt:Date.now()-2*86400000},
+   ]};
+   const charProfile:any={...char,id:'ghost-health',activeMsg2Config:cfg};
+   (ActiveMsgClient as any).getGlobalConfig=async()=>({workerUrl:'https://example.com'});
+   (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[];
+   (ActiveMsgClient as any).scheduleCharacterTask=async(arg:any)=>({
+      uuid:'fresh-'+(++created),clientTaskId:'autowake:'+arg.task.autonomyWakeSlot+':fresh',
+      firstSendAt:arg.task.firstSendTime,
+   });
+   try{
+     await ensureAutonomyWakes({char:charProfile,apiConfig:{} as any,userProfile:{} as any,
+       groups:[],realtimeConfig:{} as any,onSave:update=>{
+         cfg=update(cfg);charProfile.activeMsg2Config=cfg;
+       }});
+     expect(created).toBe(2);
+     expect(cfg.tasks.map((x:any)=>x.taskUuid)).toEqual(['fresh-1','fresh-2']);
+   }finally{
+     (ActiveMsgClient as any).getGlobalConfig=oldGlobal;
+     (ActiveMsgClient as any).listRemoteTasksForChar=oldRemote;
+     (ActiveMsgClient as any).scheduleCharacterTask=oldSchedule;
+   }
+ });
+ it('reports a failed cloud recurrence instead of repeatedly creating replacement jobs',async()=>{
+   const {ensureAutonomyWakes}=await import('./amsgAutonomyWake');
+   const {ActiveMsgClient}=await import('./activeMsgClient');
+   const oldGlobal=ActiveMsgClient.getGlobalConfig,oldRemote=ActiveMsgClient.listRemoteTasksForChar;
+   const oldSchedule=ActiveMsgClient.scheduleCharacterTask;
+   let created=0;
+   let config:any={enabled:true,tasks:[]};
+   const charProfile:any={...char,id:'terminal-failure',activeMsg2Config:config};
+   (ActiveMsgClient as any).getGlobalConfig=async()=>({workerUrl:'https://example.com'});
+   (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[{
+       uuid:'failed-1',clientTaskId:'autowake:day:dead',status:'failed',
+   }];
+   (ActiveMsgClient as any).scheduleCharacterTask=async()=>{created++;throw Error('unexpected schedule')};
+   try{
+     await ensureAutonomyWakes({char:charProfile,apiConfig:{} as any,userProfile:{} as any,
+       groups:[],realtimeConfig:{} as any,onSave:update=>{config=update(config);charProfile.activeMsg2Config=config;}});
+     expect(created).toBe(0);
+     expect(config.lastError).toMatch(/任务已失败/);
+   }finally{
+     (ActiveMsgClient as any).getGlobalConfig=oldGlobal;
+     (ActiveMsgClient as any).listRemoteTasksForChar=oldRemote;
+     (ActiveMsgClient as any).scheduleCharacterTask=oldSchedule;
+   }
+ });
+});

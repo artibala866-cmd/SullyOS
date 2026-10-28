@@ -74,10 +74,8 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
   if(!char?.id||char.activeMsg2Config?.enabled!==true||inFlight.has(char.id))return;
   if(Date.now()-(recentFailure.get(char.id)??0)<60000)return;
   const active=(char.activeMsg2Config.tasks||[]).filter(t=>isPendingTask(t,Date.now()));
-  const have=active.filter(isAutonomyWakeTask);
-  // Even a full local task list may hide a cloud-only autonomous wake.
-  // Reconcile remote identity before applying the local capacity ceiling.
-  if(have.length>=2)return;
+  // A saved recurring task can silently fail or disappear in the cloud.
+  // Never trust "two local rows" as proof that automation is healthy.
   inFlight.add(char.id);
   try{
     const g=await ActiveMsgClient.getGlobalConfig();
@@ -90,17 +88,32 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
       t.clientTaskId?.startsWith('autowake:')
       && t.status!=='failed' && t.status!=='cancelled' && t.status!=='completed'
     );
+    // A terminally failed worker task is a configuration/runtime error,
+    // not another empty slot to blindly fill and charge the user's API again.
+    const failed=remote.filter(t=>t.clientTaskId?.startsWith('autowake:')&&t.status==='failed');
+    if(failed.length){
+      throw new Error('云端自主联系任务已失败，请查看任务列表中的最后错误；不重复建立可能继续失败的任务');
+    }
     if(cloudWakes.some(t=>!t.nextSendAt||!t.recurrenceType||!t.messageType)){
       throw new Error('云端已有自主联系任务，但当前 Worker 缺少对账字段；为避免重复发消息，暂不创建第二份');
     }
-    const tasks=reconcileTasksWithRemote(active,cloudWakes);
+    // Recently created rows get a short grace period for remote projection
+    // latency. An OLD local-only row must never silently block restoration.
+    const known=new Set(cloudWakes.map(t=>t.uuid));
+    const staleIds=new Set(active.filter(t=>isAutonomyWakeTask(t)
+      && !known.has(t.taskUuid)
+      && Date.now()-t.createdAt>5*60_000).map(t=>t.taskUuid));
+    const healthy=active.filter(t=>!staleIds.has(t.taskUuid));
+    const tasks=reconcileTasksWithRemote(healthy,cloudWakes);
     const restored=tasks.filter(t=>isAutonomyWakeTask(t)
-      && !active.some(existing=>existing.taskUuid===t.taskUuid));
-    if(restored.length){
+      && !healthy.some(existing=>existing.taskUuid===t.taskUuid));
+    if(restored.length||staleIds.size){
       args.onSave(prev=>prev?.enabled===false?prev:{
         ...(prev||{enabled:true}),
-        tasks:[...(prev?.tasks||[]),...restored.filter(t=>
-          !(prev?.tasks||[]).some(existing=>existing.taskUuid===t.taskUuid))],
+        tasks:[
+          ...(prev?.tasks||[]).filter(t=>!staleIds.has(t.taskUuid)),
+          ...restored.filter(t=>!(prev?.tasks||[]).some(existing=>existing.taskUuid===t.taskUuid)),
+        ],
         lastSyncedAt:Date.now(),
       });
     }
