@@ -36,6 +36,11 @@ jobs:
           pnpm exec vitest run utils/amsgStateSync.test.ts
       - name: Build AMSG2 Worker bundles before unrelated long regression tests
         run: pnpm run build:workers
+      # Node 22 + SQLite D1 emulator + real VAPID RFC8291 encrypted push.
+      # This is the actual Worker bundle produced in the previous step, not
+      # just a mocked fire-hook unit test. No real user/device is contacted.
+      - name: P0 Worker end-to-end delivery rehearsal (D1, cron, encrypted push, LLM)
+        run: node scripts/amsg2-e2e-harness.mjs
       - name: Check real-person reply scheduler TypeScript diagnostics
         shell: bash
         run: |

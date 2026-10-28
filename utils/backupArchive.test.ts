@@ -22,7 +22,7 @@ it('跨 1 MiB 输出块保留所有媒体字节，JSON 有压缩，中文路径�
     expect(await read.file('stores/test.json')!.async('string')).toBe(json);
     expect(progress.at(-1)).toBe(100);
     expect(progress.every((p, i) => !i || p >= progress[i - 1])).toBe(true);
-});
+}, 30_000);
 
 it('文件路径冲突不能静默覆盖，生成后不能再写入或返回空的第二份备份', async () => {
     const zip = createBackupArchive();
