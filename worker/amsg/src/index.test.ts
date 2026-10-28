@@ -710,6 +710,25 @@ describe('连发上限（到点兜底闸）', () => {
     expect(lastSkipReason(writeState)).toBe('unanswered-limit');
   });
 
+  it('自主联系自动机会也遵守真人感连发上限，连续没回 3 次后不再硬凑消息', async () => {
+    const {ctx,writeState}=makeCtx({
+      metadata:{amsgAutonomyWake:true},
+      recurrenceType:'daily',
+      charRows:rowsWith(selfLogValue(3)),
+    });
+    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({skip:true});
+    expect(lastSkipReason(writeState)).toBe('unanswered-limit');
+  });
+
+  it('自主联系频率选不限时不被连发闸挡住，但不会绕开其他日程和主动消息护栏',async()=>{
+    const {ctx}=makeCtx({
+      metadata:{amsgAutonomyWake:true},
+      recurrenceType:'daily',
+      charRows:rowsWith(selfLogValue(9),{maxUnansweredSends:0,recurringStopAfter:0}),
+    });
+    expect(fired(await amsgHooks.onBeforeFire(ctx)).messages).toHaveLength(1);
+  });
+
   it('用户面板排的任务不受上限管：同样 3 条连发，照常生成', async () => {
     const { ctx } = makeCtx({ charRows: rowsWith(selfLogValue(3)) });
     fired(await amsgHooks.onBeforeFire(ctx));

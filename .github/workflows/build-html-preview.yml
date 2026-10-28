@@ -32,7 +32,7 @@ jobs:
         run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgScheduleShortcut.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgPhoneEvent.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
       - name: Test AMSG2 stale conversation protection (worker simulation)
         run: |
-          pnpm exec vitest run worker/amsg/src/index.test.ts -t "onBeforeFire 四道门"
+          pnpm exec vitest run worker/amsg/src/index.test.ts -t "onBeforeFire 四道门|连发上限（到点兜底闸）"
           pnpm exec vitest run utils/amsgStateSync.test.ts
       - name: Build AMSG2 Worker bundles before unrelated long regression tests
         run: pnpm run build:workers
