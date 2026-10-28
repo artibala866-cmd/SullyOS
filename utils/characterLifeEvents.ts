@@ -12,6 +12,8 @@ export interface CharacterLifeEvent {
   summary: string;
   contactId?: string;
   relatedMessageId?: string;
+  /** Optional narrative reflection about this *same* confirmed fact. Not a new fact. */
+  glimpse?: { text: string; generatedAt: number; anchorSummary: string };
 }
 export const CHARACTER_LIFE_EVENTS_CHANGED = 'sully:character-life-events-changed';
 export const lifeEventStorageKey = (characterId: string) => 'sully_character_life_events_v1:' + characterId;
@@ -52,4 +54,37 @@ export function pruneCharacterPhoneLifeEvents(
   if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(
     CHARACTER_LIFE_EVENTS_CHANGED,{detail:{characterId,pruned:true}}));
   return old.length-remaining.length;
+}
+
+/**
+ * Attach an optional interpretation to an unchanged, already-confirmed event.
+ * The ledger is the only storage. Never create a new event or alter its summary.
+ * An explicit clear, manual edit, or competing generation invalidates the snapshot.
+ */
+export function attachCharacterLifeGlimpse(
+  expected: CharacterLifeEvent,
+  text: string,
+  generatedAt = Date.now(),
+): boolean {
+  if (!expected.characterId || !expected.id || !text.trim() ||
+      text.length > 1000 || !Number.isFinite(generatedAt)) return false;
+  const latest = readCharacterLifeEvents(expected.characterId);
+  const index = latest.findIndex(item => item.id === expected.id);
+  if (index < 0) return false;
+  const current = latest[index];
+  if (current.occurredAt !== expected.occurredAt ||
+      current.kind !== expected.kind || current.source !== expected.source ||
+      current.summary !== expected.summary ||
+      JSON.stringify(current.glimpse ?? null) !== JSON.stringify(expected.glimpse ?? null)) return false;
+  const next = [...latest];
+  next[index] = { ...current, glimpse: {
+    text: text.trim(), generatedAt, anchorSummary: expected.summary,
+  } };
+  try { localStorage.setItem(lifeEventStorageKey(expected.characterId), JSON.stringify(next)); }
+  catch { return false; }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(
+    CHARACTER_LIFE_EVENTS_CHANGED,
+    { detail: { characterId: expected.characterId, eventId: expected.id } },
+  ));
+  return true;
 }

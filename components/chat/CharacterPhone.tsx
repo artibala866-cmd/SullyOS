@@ -54,6 +54,7 @@ import { parseGeneratedPhoneMessages, type PhoneMessage } from '../../utils/char
 import { extractContent } from '../../utils/safeApi';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from '../../utils/characterPhoneAiRequest';
 import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
+import { generateIndependentLifeGlimpse, isManualLifeGlimpseEnabled, setManualLifeGlimpseEnabled } from '../../utils/characterLifeGlimpseGeneration';
 import { selectConfirmedLifeGlimpses } from '../../utils/characterLifeGlimpses';
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 import {readPhoneInboxPreferences,writePhoneInboxPreferences} from '../../utils/characterPhoneInboxPrefs';
@@ -266,6 +267,40 @@ export default function CharacterPhone({
   const [draft, setDraft] = useState({ name:'', identity:'', personality:'', relationship:'', background:'' });
   const [profiles, setProfiles] = useState<NpcProfile[]>(() => readNpcProfiles(characterId));
   const [lifeEvents, setLifeEvents] = useState<CharacterLifeEvent[]>(() => readCharacterLifeEvents(characterId));
+  const [manualGlimpseEnabled, setManualGlimpseEnabled] = useState(() => isManualLifeGlimpseEnabled(characterId));
+  const [glimpseGeneratingId, setGlimpseGeneratingId] = useState<string | null>(null);
+  const [glimpseNotice, setGlimpseNotice] = useState('');
+  const glimpseAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setManualGlimpseEnabled(isManualLifeGlimpseEnabled(characterId));
+    setGlimpseGeneratingId(null);
+    setGlimpseNotice('');
+    return () => { glimpseAbortRef.current?.abort(); glimpseAbortRef.current = null; };
+  }, [characterId]);
+  const toggleManualGlimpse = (enabled: boolean) => {
+    if (!enabled) { glimpseAbortRef.current?.abort(); setGlimpseGeneratingId(null); }
+    setManualLifeGlimpseEnabled(characterId, enabled);
+    setManualGlimpseEnabled(enabled);
+    setGlimpseNotice('');
+  };
+  const expandLifeGlimpse = async (event: CharacterLifeEvent) => {
+    if (!manualGlimpseEnabled || glimpseAbortRef.current || !isManualLifeGlimpseEnabled(characterId)) return;
+    const controller = new AbortController();
+    glimpseAbortRef.current = controller;
+    setGlimpseGeneratingId(event.id);
+    setGlimpseNotice('');
+    try {
+      const outcome = await generateIndependentLifeGlimpse({ char, event, api: phoneApi, signal: controller.signal });
+      if (!controller.signal.aborted) setGlimpseNotice(outcome === 'saved' ? '已写入原生活事件的独立描述。' : '本次没有合适的内容，原记录保持不变。');
+    } catch (error) {
+      if (!controller.signal.aborted) setGlimpseNotice(error instanceof Error ? error.message : '本次生成失败，原生活记录未修改');
+    } finally {
+      if (glimpseAbortRef.current === controller) {
+        glimpseAbortRef.current = null;
+        setGlimpseGeneratingId(null);
+      }
+    }
+  };
   const [moments, setMoments] = useState<CharacterMoment[]>(() => readCharacterMoments(characterId));
   const [momentBusy, setMomentBusy] = useState(false);
   const [wechatSuiteBusy,setWechatSuiteBusy]=useState(false);
@@ -844,14 +879,33 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
                </div>
              </div>
            </section>
+           <section className="mx-4 rounded-xl bg-white px-4 py-3">
+             <label className="flex items-center justify-between gap-3 text-[13px] text-[#444]">
+               <span><strong className="block">独立生活侧面 AI 展开</strong>
+                 <span className="mt-1 block text-[11px] leading-5 text-[#888]">默认关闭；开启后仍需逐条手动点击，每次使用一次已配置的对话 API。不会改私聊提示词或自动生成手机内容。</span>
+               </span>
+               <input type="checkbox" checked={manualGlimpseEnabled} onChange={e=>toggleManualGlimpse(e.target.checked)} className="h-5 w-5 shrink-0 accent-[#444]" />
+             </label>
+             {glimpseNotice && <p role="status" className="mt-2 text-xs leading-5 text-[#777]">{glimpseNotice}</p>}
+           </section>
            {confirmedLifeGlimpses.length > 0 && <details className="mx-4 overflow-hidden rounded-xl bg-white">
              <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-[#333]">生活侧面 · 已发生的片段（{confirmedLifeGlimpses.length}）</summary>
              <div className="border-t border-[#eee] px-4 pb-4 pt-2">
-               <p className="pb-2 text-[11px] leading-5 text-[#888]">只读取现有记录，不自动生成剧情或私聊。日程只是计划，不算已经发生的经历。</p>
+               <p className="pb-2 text-[11px] leading-5 text-[#888]">仅原事件摘要是已确认事实；AI 展开只表示独立叙事，不增加真实事件、不作为私聊或 NPC 微信。</p>
                <ol className="space-y-3">
                  {confirmedLifeGlimpses.map(event=><li key={event.id} className="border-l-2 border-[#dedede] pl-3">
                    <span className="block text-[11px] text-[#888]">{ChatPrompts.formatDate(event.occurredAt,resolveCharTimeZone(char))} · {event.source==='phone'?'私人手机':event.source==='amsg2'?'主动联系':event.source==='real-mode'?'生活行动':event.source==='chat'?'聊天相关记录':'其他已存记录'}</span>
                    <span className="mt-1 block whitespace-pre-wrap break-words text-[13px] leading-5 text-[#444]">{event.summary}</span>
+                   {event.glimpse?.anchorSummary === event.summary && <div className="mt-2 rounded-lg bg-[#f6f6f6] px-3 py-2">
+                     <span className="block pb-1 text-[10px] text-[#999]">AI 独立描述 · 非新增事实</span>
+                     <p className="whitespace-pre-wrap break-words text-[12px] leading-5 text-[#666]">{event.glimpse.text}</p>
+                   </div>}
+                   {manualGlimpseEnabled && <button type="button"
+                     disabled={glimpseGeneratingId !== null}
+                     onClick={()=>void expandLifeGlimpse(event)}
+                     className="mt-2 rounded-lg border border-[#ddd] px-3 py-2 text-[11px] text-[#555] disabled:opacity-40">
+                     {glimpseGeneratingId === event.id ? '正在展开…' : event.glimpse ? '重新展开（1 次 API）' : '展开这段生活（1 次 API）'}
+                   </button>}
                  </li>)}
                </ol>
              </div>
