@@ -35,6 +35,12 @@ export interface Song {
   albumPic: string;
   duration: number;
   fee: number;
+  /** Extra identity for remote services; legacy numeric id remains intact. */
+  source?: 'netease' | 'tencent';
+  platformId?: string;
+  mid?: string;
+  picId?: string;
+  lyricId?: string;
   // ── Local-source extensions (used for AI-generated songs from 写歌 App) ──
   /** True for songs not from netease — play them via blob from IndexedDB. */
   local?: boolean;
@@ -194,6 +200,10 @@ const loadState = (): { queue: Song[]; idx: number } => {
     return { queue: Array.isArray(s.queue) ? s.queue : [], idx: typeof s.idx === 'number' ? s.idx : -1 };
   } catch { return { queue: [], idx: -1 }; }
 };
+
+// Songs from legacy backups have no source: those remote ids are NetEase ids.
+export const musicSongKey = (song: Pick<Song, 'id' | 'local' | 'source' | 'platformId'>): string =>
+  song.local ? `local:${song.id}` : `${song.source === 'tencent' ? 'tencent' : 'netease'}:${song.platformId || song.id}`;
 
 const saveState = (queue: Song[], idx: number) => {
   try { localStorage.setItem(LS_STATE_KEY, JSON.stringify({ queue, idx })); } catch {}
@@ -658,7 +668,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 播放模式
   const [playMode, setPlayMode] = useState<PlayMode>('loop');
 
-  // 一起听 - char 加入后在 miniPlayer / 播放页显示徽标；切歌 / 结束自动清空
+  // 一起听 - 会话与当前歌曲独立，切歌不会结束会话
   const [listeningTogetherWith, setListeningTogetherWith] = useState<string[]>(() => {
     try { const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}'); return Array.isArray(saved.partners) ? saved.partners.filter((id: unknown) => typeof id === 'string') : []; } catch { return []; }
   });
@@ -705,6 +715,24 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 只在首次加载时读取持久化状态；日常改动由聊天事件同步。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Invitation resolution can happen before playSong's declaration below.
+  // The ref uses the one global MusicProvider player, never a second audio instance.
+  const playSongRef = useRef<(song: Song) => Promise<void>>(async () => {});
+  const resumeInviteTrack = useCallback((raw: unknown) => {
+    if (!raw || typeof raw !== 'object') return;
+    const song = raw as Song;
+    if (!Number.isSafeInteger(song.id) || typeof song.name !== 'string' || !song.name.trim()) return;
+    const active = currentSongRef.current;
+    if (active && musicSongKey(active) === musicSongKey(song)) {
+      const audio = audioRef.current;
+      if (audio?.paused) void audio.play().catch(() =>
+        toast('邀请已接受，请点击播放器上的播放按钮开始听歌', 'info'));
+      return;
+    }
+    void playSongRef.current(song).catch(() =>
+      toast('邀请已接受，但歌曲播放失败，请手动点击播放', 'error'));
+  }, [toast]);
+
   const invitingCharIds = useRef(new Set<string>());
   const settlingUserInvites = useRef(new Set<string>());
   const inviteListeningPartner = useCallback((charId: string) => {
@@ -722,8 +750,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         charId,
         role: 'user',
         type: 'system',
-        content: '[一起听邀请] 我邀请你一起听音乐。',
-        metadata: { musicListenInvite: true, status: 'pending', invitedAt: Date.now() },
+        content: currentSongRef.current
+          ? `[一起听邀请] 我邀请你一起听《${currentSongRef.current.name}》。`
+          : '[一起听邀请] 我邀请你一起听音乐。',
+        metadata: {
+          musicListenInvite: true, status: 'pending', invitedAt: Date.now(),
+          ...(currentSongRef.current ? { musicListenTrack: { ...currentSongRef.current } } : {}),
+        },
       });
       setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
       window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId, messageId } }));
@@ -789,13 +822,16 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }));
       }
       // Char 在普通对话中主动加入时，不要求必须存在一条邀请卡片。
-      if (invite || accepted) respondListeningInvite(charId, accepted);
+      if (invite || accepted) {
+        respondListeningInvite(charId, accepted);
+        if (accepted && invite?.metadata?.musicListenTrack) resumeInviteTrack(invite.metadata.musicListenTrack);
+      }
     } catch (err) {
       console.warn('[MusicTogether] 保存 Char 邀请回应失败', err);
     } finally {
       settlingUserInvites.current.delete(charId);
     }
-  }, [respondListeningInvite]);
+  }, [respondListeningInvite, resumeInviteTrack]);
   const answeringInviteIds = useRef(new Set<number>());
   useEffect(() => {
     const onAnswer = (event: Event) => {
@@ -812,13 +848,16 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           metadata: { musicListenInviteResponseTo: detail.messageId, accepted: detail.accepted },
         });
         respondListeningInvite(detail.charId, detail.accepted);
+        if (detail.accepted && invitation.metadata?.musicListenTrack) {
+          resumeInviteTrack(invitation.metadata.musicListenTrack);
+        }
         window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', { detail }));
       })().catch(err => console.warn('[MusicTogether] 邀请回应保存失败', err))
         .finally(() => answeringInviteIds.current.delete(detail.messageId));
     };
     window.addEventListener('music-listen-invite-answer', onAnswer);
     return () => window.removeEventListener('music-listen-invite-answer', onAnswer);
-  }, [respondListeningInvite]);
+  }, [respondListeningInvite, resumeInviteTrack]);
   const listeningStartedAtRef = useRef(listeningStartedAt);
   listeningStartedAtRef.current = listeningStartedAt;
   const removeListeningPartner = useCallback((charId: string) => {
@@ -861,7 +900,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [recentTrackChange, setRecentTrackChange] = useState<RecentTrackChange | null>(null);
   useEffect(() => {
     const previousSong = previousSongRef.current;
-    if (previousSong && previousSong.id !== current?.id) {
+    if (previousSong && (!current || musicSongKey(previousSong) !== musicSongKey(current))) {
       const wasListening = listeningTogetherRef.current;
       if (wasListening.length > 0) {
         setRecentTrackChange({
@@ -1078,6 +1117,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (requestId === playRequestSeq.current) setLoadingSong(false);
     }
   }, [toast]);
+  playSongRef.current = (song: Song) => playSong(song);
 
   // 下一首 / 上一首
   const nextSong = useCallback(() => {
@@ -1212,8 +1252,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (pending || findPendingMusicInvite(messages, 'user')) return;
           const messageId = await DB.saveMessage({
             charId: cid, role: 'assistant', type: 'system',
-            content: '[一起听邀请] 要不要一起听歌？',
-            metadata: { musicListenInvite: true, inviter: 'char', status: 'pending', invitedAt: Date.now() },
+            content: currentSongRef.current
+              ? `[一起听邀请] 要不要一起听《${currentSongRef.current.name}》？`
+              : '[一起听邀请] 要不要一起听歌？',
+            metadata: {
+              musicListenInvite: true, inviter: 'char', status: 'pending', invitedAt: Date.now(),
+              ...(currentSongRef.current ? { musicListenTrack: { ...currentSongRef.current } } : {}),
+            },
           });
           window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId: cid, messageId } }));
         } finally {
