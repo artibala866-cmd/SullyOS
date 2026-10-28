@@ -1,0 +1,106 @@
+/** Autonomous contact bootstrap for AMSG2. Existing cloud scheduler does
+ * all real delivery: no front-end timer, parallel engine, or extra API call
+ * at idle. Inspired by Marshmallow's schedule opportunities + fallback.
+ */
+import type {ActiveMsg2CharacterConfig,ActiveMsg2TaskRecord,APIConfig,CharacterProfile,GroupProfile,RealtimeConfig,ScheduleSlot,UserProfile} from '../types';
+import {ActiveMsgClient} from './activeMsgClient';
+import {getDailyScheduleForChar} from './dailySchedule';
+import {isPendingTask} from './amsg2Tasks';
+import {resolveAmsgLimits} from './amsgLimits';
+import {classifyLifeActivity} from './sullyLifeClock';
+import {getScheduleDateKey} from './scheduleTime';
+import {resolveCharTimeZone,wallClockToTimestamp} from './timezone';
+
+export const isAutonomyWakeTask=(task:Pick<ActiveMsg2TaskRecord,'clientTaskId'>)=>
+  typeof task.clientTaskId==='string'&&task.clientTaskId.startsWith('autowake:');
+type Slot='day'|'evening';
+export type WakeSlot={slot:Slot;firstSendTime:string};
+
+/** At most two separated daily opportunities; life schedule can eliminate
+ * busy/sleep windows. Missing schedules never disable the fallback. */
+export function planAutonomyWakes(
+  char:Pick<CharacterProfile,'id'|'customTimezoneEnabled'|'customTimezone'>,
+  schedule:readonly Pick<ScheduleSlot,'startTime'|'activity'>[]|null,now=Date.now(),
+):WakeSlot[]{
+  const zone=resolveCharTimeZone(char);
+  const source=(schedule||[]).map(s=>{
+    const m=/^(\d{1,2}):(\d{2})$/.exec(s.startTime);
+    if(!m||Number(m[1])>23||Number(m[2])>59)return null;
+    return {at:Number(m[1])*60+Number(m[2]),kind:classifyLifeActivity(s.activity)};
+  }).filter((v):v is {at:number;kind:'busy'|'sleep'|'free'}=>v!==null)
+    .sort((a,b)=>a.at-b.at);
+  let hash=2166136261;
+  for(let i=0;i<char.id.length;i++)hash=Math.imul(hash^char.id.charCodeAt(i),16777619)>>>0;
+  const windows:[Slot,number,number][]=[['day',10*60+45,14*60+30],['evening',18*60,21*60+45]];
+  return windows.flatMap(([slot,begin,end],i)=>{
+    const preferred=begin+15+((hash>>>i*7)%(end-begin-30));
+    const isFree=(minute:number)=>{
+      const active=[...source].reverse().find(s=>s.at<=minute);
+      return active?.kind==='free';
+    };
+    let minute=preferred;
+    if(source.length&&!isFree(minute)){
+      const possible=Array.from({length:Math.floor((end-begin)/15)},(_,j)=>begin+15*j)
+        .filter(m=>isFree(m));
+      if(!possible.length)return [];
+      minute=possible.reduce((a,b)=>Math.abs(a-preferred)<Math.abs(b-preferred)?a:b);
+    }
+    const clock=`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}:00`;
+    for(let d=0;d<3;d++){
+      const day=getScheduleDateKey(char,new Date(now+d*86400000));
+      const ts=wallClockToTimestamp(day+' '+clock,zone);
+      if(Number.isFinite(ts)&&ts>now+12*60000)return [{slot,firstSendTime:new Date(ts).toISOString()}];
+    }
+    return [];
+  });
+}
+
+type Args={char:CharacterProfile;apiConfig:APIConfig;userProfile:UserProfile;
+  groups:GroupProfile[];realtimeConfig:RealtimeConfig;
+  onSave:(updater:(prev:ActiveMsg2CharacterConfig|undefined)=>ActiveMsg2CharacterConfig)=>void};
+const inFlight=new Set<string>();
+const recentFailure=new Map<string,number>();
+/** Works for characters enabled days ago: called when their chat opens.
+ * Backend tasks are daily recurring, not consumed one-shot alarms. */
+export async function ensureAutonomyWakes(args:Args):Promise<void>{
+  const {char}=args;
+  if(!char?.id||char.activeMsg2Config?.enabled!==true||inFlight.has(char.id))return;
+  if(Date.now()-(recentFailure.get(char.id)??0)<60000)return;
+  const active=(char.activeMsg2Config.tasks||[]).filter(t=>isPendingTask(t,Date.now()));
+  const have=active.filter(isAutonomyWakeTask);
+  if(have.length>=2||active.length>=resolveAmsgLimits(char.activeMsg2Config).maxActiveTasks)return;
+  inFlight.add(char.id);
+  try{
+    const g=await ActiveMsgClient.getGlobalConfig();
+    if(!g.workerUrl?.trim())return;
+    const schedule=await getDailyScheduleForChar(char).catch(()=>null);
+    const targets=planAutonomyWakes(char,schedule?.slots||null);
+    const existing=new Set(have.map(t=>t.clientTaskId.split(':')[1]));
+    const tasks=[...active];
+    for(const target of targets){
+      if(existing.has(target.slot)||tasks.length>=resolveAmsgLimits(char.activeMsg2Config).maxActiveTasks)continue;
+      const result=await ActiveMsgClient.scheduleCharacterTask({
+        char,config:{...char.activeMsg2Config,tasks},task:{
+          mode:'auto',firstSendTime:target.firstSendTime,recurrenceType:'daily',
+          expirePolicy:'expire',autonomyWakeSlot:target.slot,
+        },apiConfig:args.apiConfig,userProfile:args.userProfile,
+        groups:args.groups,realtimeConfig:args.realtimeConfig,
+      });
+      const record:ActiveMsg2TaskRecord={
+        taskUuid:result.uuid,clientTaskId:result.clientTaskId,mode:'auto',
+        firstSendTime:result.firstSendAt,recurrenceType:'daily',expirePolicy:'expire',
+        source:'user',status:'scheduled',createdAt:Date.now(),
+      };
+      tasks.push(record);existing.add(target.slot);
+      args.onSave(prev=>({
+        ...(prev||{enabled:true}),tasks:[
+          ...(prev?.tasks||[]).filter(t=>t.taskUuid!==record.taskUuid),record,
+        ],lastSyncedAt:Date.now(),
+      }));
+    }
+    recentFailure.delete(char.id);
+  }catch(e){
+    recentFailure.set(char.id,Date.now());
+    console.warn('[amsg2] 自主联系机会建立失败，下次进入聊天自动重试',e);
+  }finally{inFlight.delete(char.id)}
+}

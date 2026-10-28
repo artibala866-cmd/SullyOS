@@ -113,6 +113,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
 }) => {
   const saved = char.activeMsg2Config;
   const tasks = saved?.tasks ?? [];
+  const autonomousCount = tasks.filter(t=>t.clientTaskId?.startsWith('autowake:')).length;
   // 任务列表的判定基准时刻：一次 render 只取一次，同屏卡片不会踩在不同的时刻上。
   const now = Date.now();
 
@@ -638,13 +639,16 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     >
       <div className="space-y-4 text-sm text-slate-600">
         <p className="text-xs leading-relaxed text-slate-500">
-          这是新的云端主动消息入口。它会把当前角色设定、最近聊天快照和推送订阅一起提交到主动消息标准服务里。长周期循环任务建议在剧情变化后重新保存一次，避免使用过旧的上下文。
+          打开 2.0 后，系统会自动按日程安排每天的自主联系机会，无须手动建第一条任务。角色能决定是否说话、能使用已接入的小红书等工具。每次后台 AI 生成会消耗主 API；下方新建任务用于明确的提醒和约定。
         </p>
 
         <div className="flex items-center justify-between bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
           <div>
             <div className="font-bold text-slate-700">启用主动消息 2.0</div>
             <div className="text-xs text-neutral-600 mt-1">{pushSummary || '正在检查 Push 状态...'}</div>
+            {enabled && <div className="text-[11px] text-slate-500 mt-1">
+              {autonomousCount ? `每天已安排 ${autonomousCount} 次自主联系机会（可能选择不发）` : '正在建立自主联系机会；需先正确连接云端 Worker'}
+            </div>}
           </div>
           <button
             onClick={handleToggleEnabled}
@@ -658,7 +662,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             也不知道打开它能换来什么。 */}
         {!enabled ? (
           <p className="text-xs leading-relaxed text-slate-400 pl-1">
-            主动消息 2.0 按角色单独开启。打开这个开关，TA 才能在聊天里给你排定时消息，到点由云端发出；你也可以在这里手动建任务。
+            开启后系统会替 TA 建立持续的云端自主联系机会，TA 也能自己排后续。无需先手动新建任务。
           </p>
         ) : null}
 
@@ -741,7 +745,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                         <div className="text-slate-400 mt-0.5 truncate">
                           {describeTaskProgress(t, knownRemoteUuids, now, remoteInfo?.status)} · {describeTaskMode(t)}
                           · {describeExpirePolicy(t.expirePolicy)}
-                          · {t.source === 'character' ? '角色创建' : '手动创建'}
+                          · {t.clientTaskId?.startsWith('autowake:') ? '自动自主联系' : t.source === 'character' ? '角色创建' : '手动创建'}
                         </div>
                         {missingRemote ? (
                           <div className="text-slate-400 mt-1 text-[11px]">⚠ 远端不存在（可能已发送或在别处取消）</div>
@@ -764,7 +768,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                         ) : null}
                       </div>
                       <div className="flex gap-2 shrink-0 ml-2">
-                        {enabled ? (
+                        {enabled && !t.clientTaskId?.startsWith('autowake:') ? (
                           <button onClick={() => setEditingTaskUuid(t.taskUuid)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold">编辑</button>
                         ) : null}
                         <button onClick={() => void handleCancelTask(t)} className="px-2.5 py-1.5 rounded-lg bg-neutral-50 text-neutral-500 font-bold">取消</button>

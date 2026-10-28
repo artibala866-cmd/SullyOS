@@ -71,6 +71,7 @@ import type { ChatCleanupPlan } from '../utils/chatHistoryCleanup';
 import Modal from '../components/os/Modal';
 import MemoryContextSelfCheck from '../components/chat/MemoryContextSelfCheck';
 import ActiveMsg2SettingsModal from '../components/chat/ActiveMsg2SettingsModal';
+import { ensureAutonomyWakes } from '../utils/amsgAutonomyWake';
 import ThinkingChainSettingsModal from '../components/chat/ThinkingChainSettingsModal';
 import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 import { useChatAI } from '../hooks/useChatAI';
@@ -383,6 +384,18 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [showingTargetIds, setShowingTargetIds] = useState<Set<number>>(new Set());
 
     const char = characters.find(c => c.id === activeCharacterId) || characters[0];
+    // Enabled AMSG2 MUST lead to actual autonomous opportunities even if
+    // user never created a task. Existing enabled characters are healed on
+    // chat open; a single per-character guard prevents duplicate cloud jobs.
+    useEffect(()=>{
+        if(!char||char.id!==activeCharacterId||char.activeMsg2Config?.enabled!==true)return;
+        void ensureAutonomyWakes({char,apiConfig,userProfile,groups,realtimeConfig,
+            onSave:updater=>updateCharacter(char.id,prev=>({
+                activeMsg2Config:updater(prev.activeMsg2Config),
+            })),
+        });
+    },[char?.id,char?.activeMsg2Config?.enabled,char?.activeMsg2Config?.tasks?.length,
+        apiConfig,userProfile,groups,realtimeConfig,updateCharacter,activeCharacterId]);
     const selectedAvatar = useMemo(() => { if (!char) return ''; const lib = readCharacterAvatarLibrary(char.id); return lib.entries.find(e => e.id === lib.activeId)?.image || char.avatar; }, [char?.id, char?.avatar, avatarRevision]);
     const memoryRepairRound = useMemo(() => {
         let assistantIndex = -1;

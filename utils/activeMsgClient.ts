@@ -2452,6 +2452,8 @@ export const ActiveMsgClient = {
       expirePolicy?: ActiveMsg2ExpirePolicy;
       /** 角色自己排的（工具桥传 true）。带上 metadata 标记，连发上限的到点兜底闸只拦它。 */
       selfScheduled?: boolean;
+      /** Auto-registered contact opportunity, not a user's reminder. */
+      autonomyWakeSlot?: 'day' | 'evening';
     };
     /** 编辑/续期时传旧任务 uuid：先取消它再新建（不传 = 纯新建）。 */
     replaceTaskUuid?: string;
@@ -2493,7 +2495,9 @@ export const ActiveMsgClient = {
       : await buildFirePack(char, userProfile, groups, realtimeConfig);
     // 任务身份：客户端自造 clientTaskId——远端 uuid 要创建成功后才有，而 metadata
     // 必须在创建时就带上归属键；push 原样透传，送达归属全靠它。
-    const clientTaskId = crypto.randomUUID();
+    const clientTaskId = task.autonomyWakeSlot
+      ? `autowake:${task.autonomyWakeSlot}:${crypto.randomUUID()}`
+      : crypto.randomUUID();
 
     const remoteAvatarUrl = toRemoteAvatarUrl(char.avatar);
     const payload: Record<string, any> = {
@@ -2523,6 +2527,7 @@ export const ActiveMsgClient = {
         amsgExpirePolicy: resolveExpirePolicy(task.mode, task.expirePolicy),
         // 自排标记：到点兜底闸只拦带它的任务（用户面板排的不带、不受连发上限管）。
         ...(task.selfScheduled ? { amsgSelfScheduled: true } : {}),
+        ...(task.autonomyWakeSlot ? { amsgAutonomyWake: true } : {}),
       },
     };
 
@@ -2538,7 +2543,17 @@ export const ActiveMsgClient = {
     } else {
       const activeApi = resolveApiConfig(char, config, apiConfig);
       // 「本次任务」指令随任务 metadata 走，worker 到点拿它填 fire_pack 的指令槽。
-      payload.metadata.amsgTaskInstruction = buildTaskInstruction(task.mode, task.promptHint);
+      payload.metadata.amsgTaskInstruction = task.autonomyWakeSlot
+        ? [
+            '【自主联系机会·非用户设置的闹钟】',
+            '这是你生活中想起对方的机会；不必当成必须完成的任务。',
+            '参考最新实际对话。已结束的话题不要追问，不要再问已经吃完饭的人吃饭了吗。',
+            '有真正在意的事、生活里的新发现或自然想分享的东西时，可以主动发一两句。',
+            '需要时可使用已经真实接通的小红书等工具，搜索或浏览后分享；未调用绝不可谎称看过。',
+            '无需为了主动而主动，没话想说就只输出 [[SILENT]]，不要附加解释。',
+            '不要告诉用户有定时器、任务、系统开关或后台。',
+          ].join('\\n')
+        : buildTaskInstruction(task.mode, task.promptHint);
       // 服务端要求「completePrompt 或 messages」二选一，且 messages 必须非空、
       // content 必须非空字符串，所以这里给一条占位。到点真正发给 LLM 的 messages 由
       // worker 的 onBeforeFire 返回值覆盖（库用 { ...payload, messages } 调 LLM），
