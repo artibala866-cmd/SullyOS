@@ -31,7 +31,7 @@ export function seatTransitionDuration(pose,front,seat){
  const base=seatChangeDuration(pose);
  if(pose==='bed'||pose==='floor'||!front||!seat)return base;
  const distance=Math.hypot(front[0]-seat[0],front[2]-seat[2]);
- return Math.max(base,.3+distance*1.875/(1.8*(.92-.24)));
+ return Math.max(base,.3+distance*1.875/(1.5*(.92-.24)));
 }
 export function seatChangePose(change,time){
  if(change.pose==='bed')return bedChangePose(change,time);
