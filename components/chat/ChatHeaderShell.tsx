@@ -248,7 +248,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
     // its content and color. No AI-authored status text or status editor.
     const offline = presenceState === 'offline';
     const onlineStatusNode = statusStyle === 'pill' ? (
-            <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${isDarkHeader ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/25' : offline ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-emerald-50 text-emerald-500 border-emerald-100'}`}>
+            <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${offline ? (isDarkHeader ? 'bg-slate-500/15 text-slate-300 border-slate-400/30' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/25' : 'bg-slate-100 text-slate-500 border-slate-200') : isDarkHeader ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/25' : 'bg-emerald-50 text-emerald-500 border-emerald-100'}`}>
                 {statusText ?? 'online'}
             </div>
         ) : statusStyle === 'dot' ? (

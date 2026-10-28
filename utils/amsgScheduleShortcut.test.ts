@@ -4,7 +4,7 @@ import { suggestNextFreeScheduleSendAt } from './amsgScheduleShortcut';
 const owner = { customTimezoneEnabled: true, customTimezone: 'Asia/Shanghai' };
 const slots = [
     { startTime: '08:00', activity: '上班' },
-    { startTime: '12:00', activity: '休息' },
+    { startTime: '12:00', activity: '午餐' },
     { startTime: '14:00', activity: '开会' },
     { startTime: '18:00', activity: '吃饭' },
 ];
@@ -21,6 +21,16 @@ describe('one-tap AMSG2 schedule shortcut', () => {
         const nearBusy = Date.parse('2026-10-29T05:55:00Z'); // 13:55
         expect(suggestNextFreeScheduleSendAt(slots, owner, nearBusy))
             .toBe(Date.parse('2026-10-29T10:00:00Z')); // next free 18:00
+    });
+    it('sleep/rest is offline and is never selected as an available proactive slot', () => {
+        const busy = [
+            { startTime: '08:00', activity: '上班' },
+            { startTime: '12:00', activity: '休息' },
+            { startTime: '18:00', activity: '散步' },
+        ];
+        const now = Date.parse('2026-10-29T02:00:00Z');
+        expect(suggestNextFreeScheduleSendAt(busy, owner, now))
+            .toBe(Date.parse('2026-10-29T10:00:00Z'));
     });
     it('does not fabricate a schedule or another day', () => {
         const late = Date.parse('2026-10-29T16:30:00Z'); // next day 00:30 Shanghai

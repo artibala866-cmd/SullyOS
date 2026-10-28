@@ -95,7 +95,7 @@ export function useChatAutoReply(options: Options) {
         };
         if (!visible || !ready()) {
             setSeconds(null);
-                return;
+            return;
         }
         // Normal automatic reply checkbox remains the old two-second behavior.
         // Only "真人感" uses the APK-style grounded busy / repeated-nudge gate.
