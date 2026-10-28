@@ -37,6 +37,10 @@ jobs:
           utils/chibiSocial.test.ts
           utils/chibiRoomWalk.test.ts
           utils/chibiFurnitureMotion.test.ts
+          apps/room3d/bathroomRigMotion.test.js
+          apps/room3d/bathroomJourney.test.js
+          apps/room3d/seatAccess.test.js
+          apps/room3d/bedMotionAccess.test.js
           utils/chibiMotionRecovery.test.ts
           utils/chibiAllSelectedMotionAssets.test.ts
           utils/chibiIntimacy.test.ts
