@@ -28,6 +28,16 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check STT provider and custom Call UI TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/stt-tsc.log 2>&1 || true
+          grep -E '^(apps/CallApp.tsx|components/call/CallPreferencesSheet.tsx|utils/speechToText.ts|utils/speechToText.test.ts|api/minimax/stt.ts|api/fishaudio/stt.ts|api/elevenlabs/stt.ts)[(]' /tmp/stt-tsc.log > /tmp/stt-target-errors.log || true
+          if [ -s /tmp/stt-target-errors.log ]; then
+            cat /tmp/stt-target-errors.log
+            exit 1
+          fi
+          echo "STT routes and custom Call UI have no TypeScript diagnostics."
       - name: Test official speech-to-text key guards and provider routes
         run: pnpm exec vitest run utils/speechToText.test.ts
       - name: Test official delivery branch build badge and debug gate
