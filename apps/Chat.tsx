@@ -157,12 +157,22 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [lifeMode, setLifeMode] = useState(() => readLifeClock().mode);
     const [lifePacing, setLifePacing] = useState(() => localStorage.getItem('sully_life_pacing') !== 'off');
 
-    const [lifeActivity, setLifeActivity] = useState<'sleep' | 'busy' | 'free' | null>(null);
+    const [lifeActivityState, setLifeActivityState] = useState<{
+        characterId: string | null;
+        activity: 'sleep' | 'busy' | 'free' | null;
+    }>({ characterId: null, activity: null });
+    // Character switch must not display or apply a previous character's
+    // schedule while the new one is still loading.
+    const lifeActivity = lifeActivityState.characterId === activeCharacterId
+        ? lifeActivityState.activity : null;
     useEffect(() => {
         let cancelled = false;
         const refresh = async () => {
             const target = characters.find(c => c.id === activeCharacterId);
-            if (!target) { if (!cancelled) setLifeActivity(null); return; }
+            if (!target) {
+                if (!cancelled) setLifeActivityState({ characterId: activeCharacterId || null, activity: null });
+                return;
+            }
             try {
                 const schedule = await getDailyScheduleForChar(target, new Date(getLifeTime()));
                 if (!cancelled) {
@@ -170,9 +180,14 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     // and AMSG fire scene, including virtual-time mode.
                     const slotIndex = schedule ? getCurrentScheduleSlotIndex(schedule.slots, target, new Date(getLifeTime())) : -1;
                     const slot = schedule?.slots[slotIndex >= 0 ? slotIndex : schedule.slots.length - 1];
-                    setLifeActivity(schedule ? classifyLifeActivity(slot?.activity || '') : null);
+                    setLifeActivityState({
+                        characterId: target.id,
+                        activity: schedule ? classifyLifeActivity(slot?.activity || '') : null,
+                    });
                 }
-            } catch { if (!cancelled) setLifeActivity(null); }
+            } catch {
+                if (!cancelled) setLifeActivityState({ characterId: activeCharacterId || null, activity: null });
+            }
         };
         void refresh();
         const timer = window.setInterval(() => { void refresh(); }, 60_000);

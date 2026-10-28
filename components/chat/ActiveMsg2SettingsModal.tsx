@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Modal from '../os/Modal';
 import {
   ActiveMsg2CharacterConfig,
@@ -125,6 +125,8 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [mode, setMode] = useState<ActiveMsg2Mode>('auto');
   const [firstSendTime, setFirstSendTime] = useState(getDefaultActiveMsgFirstSendTime());
   const [findingFreeSlot, setFindingFreeSlot] = useState(false);
+  const currentCharIdRef = useRef(char.id);
+  currentCharIdRef.current = char.id;
   const [recurrenceType, setRecurrenceType] = useState<ActiveMsg2Recurrence>('none');
   const [userMessage, setUserMessage] = useState('');
   const [promptHint, setPromptHint] = useState('');
@@ -590,7 +592,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     try {
       // Read only: no schedule generation, no hidden AMSG job, no extra API.
       const daily = await getDailyScheduleForChar(char);
-      if (characterId !== char.id || !isOpen) return;
+      if (characterId !== currentCharIdRef.current || !isOpen) return;
       const chosen = daily ? suggestNextFreeScheduleSendAt(daily.slots, char) : null;
       if (chosen === null) {
         addToast('今日没有可用的下一段空闲日程，请手动选时间', 'info');
