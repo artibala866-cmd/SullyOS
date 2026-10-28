@@ -83,7 +83,17 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
     // The browser can disappear AFTER cloud schedule success but BEFORE local
     // persist. Never make another daily task based on an empty local list:
     // adopt any cloud-owned autowakes first. This also handles app restarts.
-    const remote=await ActiveMsgClient.listRemoteTasksForChar(char.id);
+    const remote=await ActiveMsgClient.listRemoteTasksForChar(char.id).catch(error=>{
+      // Network offline while two local recurring wakes already exist does
+      // not prove the cloud jobs died. Leave healthy-looking local identity
+      // intact rather than falsely labelling the switch broken.
+      if(active.filter(isAutonomyWakeTask).length>=2){
+        console.warn('[amsg2] 云端暂不可对账，保留已登记的每日联系任务',error);
+        return null;
+      }
+      throw error;
+    });
+    if(remote===null)return;
     const cloudWakes=remote.filter(t=>
       t.clientTaskId?.startsWith('autowake:')
       && t.status!=='failed' && t.status!=='cancelled' && t.status!=='completed'
@@ -102,7 +112,7 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
     const known=new Set(cloudWakes.map(t=>t.uuid));
     const staleIds=new Set(active.filter(t=>isAutonomyWakeTask(t)
       && !known.has(t.taskUuid)
-      && Date.now()-t.createdAt>5*60_000).map(t=>t.taskUuid));
+      && (!Number.isFinite(t.createdAt)||Date.now()-t.createdAt>5*60_000)).map(t=>t.taskUuid));
     const healthy=active.filter(t=>!staleIds.has(t.taskUuid));
     const tasks=reconcileTasksWithRemote(healthy,cloudWakes);
     const restored=tasks.filter(t=>isAutonomyWakeTask(t)
