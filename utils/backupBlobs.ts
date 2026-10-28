@@ -76,8 +76,8 @@ export async function writeBlobsToZip(
             missing.push(token);
             continue;
         }
-        const bytes = new Uint8Array(await blob.arrayBuffer());
-        zip.file(blobEntryPath(id), bytes, { compression: 'STORE' });
+        if (zip.fileBlob) zip.fileBlob(blobEntryPath(id), blob, { compression: 'STORE' });
+        else zip.file(blobEntryPath(id), new Uint8Array(await blob.arrayBuffer()), { compression: 'STORE' });
         entries.push({ id, type: blob.type || '', size: bytes.byteLength });
         opts.onProgress?.(done, list.length);
         if (opts.onYield) await opts.onYield();

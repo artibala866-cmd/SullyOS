@@ -76,3 +76,18 @@ export const ensureCompanionVoiceAssetsForBackup = async (characters: CharacterP
   }
   return migrated;
 };
+
+/** Cursor export retains only referenced IDs, not every full character object. */
+export const ensureCompanionVoiceAssetIdsForBackup = async (assetIds: Iterable<string>): Promise<number> => {
+  let migrated = 0;
+  for (const assetId of assetIds) {
+    const current = await DB.getAssetRaw(assetId).catch(() => null) as CompanionVoiceAsset | Blob | null;
+    if (current instanceof Blob || current?.blob instanceof Blob) continue;
+    const legacy = await DB.getBlobAsset(assetId).catch(() => null);
+    if (!legacy) continue;
+    await saveCompanionVoiceBlob(assetId, legacy);
+    await DB.deleteBlobAsset(assetId).catch(() => undefined);
+    migrated++;
+  }
+  return migrated;
+};

@@ -31,10 +31,12 @@ import { stripCompanionChatStyleResidue } from '../utils/companionThemeIsolation
 import { SULLY_DEFAULT_AVATAR_URL, shouldMigrateSullyAvatar } from '../utils/sullyAvatar';
 import { exportStoryTheaterAppearanceSetting, restoreStoryTheaterAppearanceSetting } from '../utils/storyTheaterBackup';
 import { createV2ArrayFieldWriter, writeV2Backup, assembleV2Backup, type BackupManifest, type ZipFileWriter, type ZipFileReader } from '../utils/backupFormat';
-import { externalizeVoiceMessageBlobs, restoreVoiceMessageBlobs, shouldIncludeVoiceRelatedAssetInBackup } from '../utils/voiceMessageBackup';
-import { ensureCompanionVoiceAssetsForBackup, isCompanionVoiceAssetId } from '../utils/companionVoiceAssets';
+import { externalizeVoiceMessageBlob, externalizeVoiceMessageBlobs, restoreVoiceMessageBlobs, shouldIncludeVoiceRelatedAssetInBackup } from '../utils/voiceMessageBackup';
+import { ensureCompanionVoiceAssetsForBackup, ensureCompanionVoiceAssetIdsForBackup, isCompanionVoiceAssetId } from '../utils/companionVoiceAssets';
 import { collectCharacterCompanionVoiceAssetIds } from '../utils/companionPresets';
 import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/memoryPalace/db';
+import { createBackupArchive } from '../utils/backupArchive';
+import { streamBackupArrayStore } from '../utils/backupStoreStreaming';
 import { considerCharacterMemo } from '../utils/characterMemoAutonomy';
 import { readCharacterLifeEvents } from '../utils/characterLifeEvents';
 import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
@@ -3697,8 +3699,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       try {
           setSysOperation({ status: 'processing', message: '正在初始化打包引擎...', progress: 0 });
           
-          const JSZip = await loadJSZip();
-          const zip = new JSZip();
+          const zip = createBackupArchive();
           const assetsFolder = zip.folder("assets");
           let assetCount = 0;
           let malformedImageCount = 0;
@@ -4078,7 +4079,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   const asset = collaborationAssets[index];
                   const safeId = asset.id.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || `asset-${index}`;
                   const path = `collaboration/assets/${String(index).padStart(5, '0')}-${safeId}.bin`;
-                  zip.file(path, new Uint8Array(await asset.blob.arrayBuffer()), { compression: 'STORE' });
+                  zip.fileBlob(path, asset.blob, { compression: 'STORE' });
                   backupData.collaborationAssetIndex.push({
                       id: asset.id,
                       path,
@@ -4228,6 +4229,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               life_record_settings: 'lifeRecordSettings',
           };
           const prewrittenStores: BackupManifest['stores'] = {};
+          // Existing fork field names; assets is streamed only in media/full mode.
+          const backupArrayFieldByStore: Record<string, string> = { ...textOnlyFieldByStore, assets: 'assets' };
           const textOnlyShardLimits = {
               maxLen: 4 * 1024 * 1024,
               maxItems: 500,
@@ -4252,7 +4255,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
               // 4500+ 条记忆若仍是早期 number[] 存储，getAll 会先在 JS 堆里膨胀成数百 MB。
               // 两遍游标逐条扫描只常驻最终 Float32 紧凑 bin；格式仍是原来的单 bin + index。
-              if (storeName === 'memory_vectors' && mode === 'text_only') {
+              if (storeName === 'memory_vectors') {
                   vectorPayload = await encodeVectorsForBackupChunked(async (onBatch) => {
                       await DB.streamRawStoreData(storeName, item => onBatch([item]));
                   });
@@ -4280,6 +4283,81 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       writer.appendSync([processedItem]);
                   });
                   prewrittenStores[textOnlyField] = await writer.finish();
+                  continue;
+              }
+
+              const arrayField = mode !== 'text_only' ? backupArrayFieldByStore[storeName] : undefined;
+              if (arrayField) {
+                  const field = storeName === 'characters' && mode === 'media_only' ? 'mediaAssets' : arrayField;
+                  prewrittenStores[field] = await streamBackupArrayStore(zip, storeName, field, {
+                      onSerialized: collectSerialized,
+                      transform: (item, index) => {
+                          if (storeName === 'characters') {
+                              normalizeCharacterRoomAssetsInPlace(item);
+                              if (mode !== 'text_only') {
+                                  collectCharacterCompanionVoiceAssetIds([item])
+                                      .forEach(id => companionVoiceAssetIdsForBackup.add(id));
+                              }
+                          }
+                          if (storeName === 'assets') {
+                              const id = item?.id;
+                              if (typeof id === 'string' && (
+                                  isRedundantManagedAssetId(id)
+                                  || (isCompanionVoiceAssetId(id) && !companionVoiceAssetIdsForBackup.has(id))
+                                  || !shouldIncludeVoiceRelatedAssetInBackup(item, mode !== 'text_only')
+                              )) return undefined;
+                              externalizeVoiceMessageBlob(item, index, (path, blob) => {
+                                  zip.fileBlob(path, blob, { compression: 'STORE' });
+                              });
+                          }
+                          if (mode === 'media_only' && storeName === 'messages'
+                              && !(item.type === 'image' || item.type === 'emoji'
+                                  || item.metadata?.cameraSnapshotRef || item.metadata?.cameraSnapshotExpired === true)) {
+                              return undefined;
+                          }
+                          if (mode === 'media_only' && storeName === 'characters') {
+                              const c = item as CharacterProfile;
+                              const extracted = {
+                                  charId: c.id,
+                                  decoration: exportDecorationMedia(c),
+                                  avatar: c.avatar,
+                                  companionAvatar: c.companionAvatar,
+                                  companionTouchSettings: c.companionTouchSettings,
+                                  sprites: c.sprites,
+                                  // Date app sprite data: skin sets carry alternate sprite maps,
+                                  // and customDateSprites/activeSkinSetId are required to wire them up.
+                                  dateSkinSets: c.dateSkinSets,
+                                  activeSkinSetId: c.activeSkinSetId,
+                                  customDateSprites: c.customDateSprites,
+                                  spriteConfig: c.spriteConfig,
+                                  roomItems: c.roomConfig?.items?.reduce((acc: any, item: any) => {
+                                      // data:（旧值，下面 processObject 抽成 assets/*）和 blobref
+                                      // 令牌（v3 原样进包，二进制走 blobs/*）都算媒体，都带走。
+                                      if (item.image && (item.image.startsWith('data:') || isBlobRef(item.image))) {
+                                          acc[item.id] = item.image;
+                                      }
+                                      return acc;
+                                  }, {}),
+                                  backgrounds: {
+                                      chat: c.chatBackground,
+                                      date: c.dateBackground,
+                                      roomWall: c.roomConfig?.wallImage,
+                                      roomFloor: c.roomConfig?.floorImage
+                                  }
+                              };
+                              return processObject(extracted, `characters[${index}](id=${String(c.id).slice(0, 80)})`);
+                          }
+                          if (noImageStores.has(storeName)) return item;
+                          if (mode === 'text_only') return stripTextOnlyMedia(item);
+                          return processObject(item, `${storeName}[${index}]`);
+                      },
+                  });
+                  // mediaAssets starts as [] in metadata; don't serialize it twice.
+                  delete (backupData as Record<string, unknown>)[field];
+                  if (storeName === 'characters' && mode !== 'text_only') {
+                      await ensureCompanionVoiceAssetIdsForBackup(companionVoiceAssetIdsForBackup);
+                  }
+                  await new Promise(resolve => setTimeout(resolve, 0));
                   continue;
               }
 
@@ -4531,14 +4609,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 进度提示：每 ~5% 更新一次（避免高频 React 重渲染），同时让进度
           // 条从 70% 平滑爬到 99%，用户能确切看到"在动"。
           let lastReportedPercent = -10;
-          const content = await zip.generateAsync(
-              {
-                  type: "blob",
-                  streamFiles: true,
-                  compression: "DEFLATE",
-                  // 纯文字备份优先手机稳定性；6 级体积差很小，但比 9 级明显省时省内存。
-                  compressionOptions: { level: mode === 'text_only' ? 6 : 9 },
-              },
+          const content = await zip.generateBlob(
               (metadata) => {
                   const p = metadata.percent;
                   if (p - lastReportedPercent >= 5 || p >= 99) {

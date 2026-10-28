@@ -63,6 +63,7 @@ export interface BackupManifest {
 
 /** 写端：往 zip 里塞文本文件，或二进制（Uint8Array）文件。二进制直写，绝不经 base64 大字符串。 */
 export interface ZipFileWriter {
+    fileBlob?(name: string, data: Blob, options?: { compression?: 'STORE' | 'DEFLATE' }): void;
     file(name: string, data: string | Uint8Array, options?: {
         base64?: boolean;
         compression?: 'STORE' | 'DEFLATE';
