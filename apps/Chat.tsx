@@ -4459,7 +4459,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onGenerate={handleManualTrigger}
                     sendButtonGenerates={inputPreferences.sendButtonGenerates}
                     enterToSend={inputPreferences.enterToSend}
-                    autoReplyEnabled={inputPreferences.autoReply}
+                    autoReplyEnabled={inputPreferences.autoReply || lifePacing}
                     autoReplySeconds={autoReply.seconds}
                     onCancelAutoReply={autoReply.cancel}
                     onInputFocusChange={setIsInputFocused}

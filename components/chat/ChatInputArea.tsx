@@ -6,6 +6,8 @@ import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import { PRESET_THEMES } from './ChatConstants';
 import TokenImg from '../os/TokenImg';
 import { isIOSStandaloneWebApp } from '../../utils/iosStandalone';
+import { isChatKeyboardCovered } from '../../utils/chatKeyboardViewport';
+import { Capacitor } from '@capacitor/core';
 import { trackEvent } from '../../utils/analytics';
 import { findEmojiSuggestions } from '../../utils/emojiSuggestions';
 import { useEmojiThumbnailCache } from '../../utils/useEmojiThumbnailCache';
@@ -130,25 +132,73 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     }, [input, activeCharacterId]);
     const canSwitchToGenerate = sendButtonGenerates && !!onGenerate;
     const canEndEditing = canSwitchToGenerate || autoReplyEnabled;
-    // Android 收起软键盘可能不触发 blur；仅在确实观察到视口先缩小后恢复时解除焦点。
+    // Android 的 layout viewport 也可能随输入法缩小，必须保存聚焦前的完整高度。
+    const keyboardBaselineRef = useRef({ width: 0, height: 0 });
     useEffect(() => {
-        if (!canEndEditing || !isInputFocused || !window.visualViewport) return;
+        const rememberUncoveredHeight = () => {
+            if (isInputFocused) return;
+            const width = window.innerWidth;
+            const height = Math.max(window.innerHeight, document.documentElement.clientHeight, window.visualViewport?.height || 0);
+            const previous = keyboardBaselineRef.current;
+            keyboardBaselineRef.current = {
+                width,
+                height: previous.width === width ? Math.max(previous.height, height) : height,
+            };
+        };
+        rememberUncoveredHeight();
+        window.addEventListener('resize', rememberUncoveredHeight);
+        window.visualViewport?.addEventListener('resize', rememberUncoveredHeight);
+        return () => {
+            window.removeEventListener('resize', rememberUncoveredHeight);
+            window.visualViewport?.removeEventListener('resize', rememberUncoveredHeight);
+        };
+    }, [isInputFocused]);
+
+    // 返回键只触发原生 keyboardDidHide 时，也要解除失效的 textarea 焦点。
+    // 有未发送的草稿时，父组件仍以 draft.trim() 门禁阻止生成。
+    useEffect(() => {
+        if (!canEndEditing || !isInputFocused || !Capacitor.isNativePlatform()) return;
+        let disposed = false;
+        let subscription: { remove: () => Promise<void> } | null = null;
+        void import('@capacitor/keyboard').then(async ({ Keyboard }) => {
+            const handle = await Keyboard.addListener('keyboardDidHide', () => {
+                if (document.activeElement === textareaRef.current) textareaRef.current?.blur();
+                setIsInputFocused(false);
+            });
+            if (disposed) await handle.remove();
+            else subscription = handle;
+        }).catch(() => { /* 缺少原生插件时仍可用视口变化处理。 */ });
+        return () => {
+            disposed = true;
+            if (subscription) void subscription.remove();
+        };
+    }, [canEndEditing, isInputFocused, activeCharacterId]);
+
+    // 仅凭真实的视口遮挡→恢复跃迁解除焦点，避免 Android 收键盘后永久等待。
+    useEffect(() => {
+        if (!canEndEditing || !isInputFocused) return;
         const viewport = window.visualViewport;
-        const fullHeight = Math.max(document.documentElement.clientHeight, window.innerHeight);
-        let keyboardSeen = fullHeight - viewport.height - viewport.offsetTop > 140;
+        const covered = () => isChatKeyboardCovered(
+            Math.max(keyboardBaselineRef.current.height, window.innerHeight, document.documentElement.clientHeight),
+            viewport?.height ?? window.innerHeight,
+            viewport?.offsetTop ?? 0,
+        );
+        let keyboardSeen = covered();
         const onResize = () => {
-            const covered = fullHeight - viewport.height - viewport.offsetTop > 140;
-            if (covered) keyboardSeen = true;
+            if (covered()) keyboardSeen = true;
             else if (keyboardSeen && document.activeElement === textareaRef.current) {
                 keyboardSeen = false;
                 textareaRef.current?.blur();
+                setIsInputFocused(false);
             }
         };
-        viewport.addEventListener('resize', onResize);
-        viewport.addEventListener('scroll', onResize);
+        viewport?.addEventListener('resize', onResize);
+        viewport?.addEventListener('scroll', onResize);
+        window.addEventListener('resize', onResize);
         return () => {
-            viewport.removeEventListener('resize', onResize);
-            viewport.removeEventListener('scroll', onResize);
+            viewport?.removeEventListener('resize', onResize);
+            viewport?.removeEventListener('scroll', onResize);
+            window.removeEventListener('resize', onResize);
         };
     }, [canEndEditing, isInputFocused]);
 
