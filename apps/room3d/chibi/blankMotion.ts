@@ -176,12 +176,16 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
    angle('hips',0,0,.075*((activity?.bathLeadStep??0)-(activity?.bathTrailStep??0)));
    for(const [s,p]of [[1,'L'],[-1,'R']]as const){
     const step=T.MathUtils.clamp(p==='L'?activity?.bathLeadStep??0:activity?.bathTrailStep??0,0,1);
-    angle(p+'_thigh',(-1.40-.12*lift)*seatWeight+.75*step*(1-seatWeight),0,-s*.015*seatWeight);
-    angle(p+'_shin',(1.32-1.02*lift)*seatWeight+1.12*step*(1-seatWeight));
+    const crouch=brace*(1-seatWeight)*(1-.65*step);
+    angle(p+'_thigh',(-1.40-.12*lift)*seatWeight+.75*step*(1-seatWeight)-.38*crouch,0,-s*.015*seatWeight);
+    angle(p+'_shin',(1.32-1.02*lift)*seatWeight+1.12*step*(1-seatWeight)+.78*crouch);
     angle(p+'_foot',.14*seatWeight-.35*step*(1-seatWeight));
     angle(p+'_upperArm',-.08-.26*brace,0,-s*(1.25-.4*seatWeight-.16*brace));
     angle(p+'_forearm',0,-s*(.30*seatWeight+.34*brace),-s*.08);
    }
+   // Lower the torso by bending both knees during the supported rim grip;
+   // the navigation root and the real standing-floor coordinate do not move.
+   position.y-=.42*brace*(1-seatWeight);
   }
   if(motion==='bath-laundry'){
    const press=activity?.bathPhase&&activity.bathPhase!=='work'?0:bathroomFrame(time).press;
