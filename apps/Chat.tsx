@@ -3093,7 +3093,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         discardVoiceForMessages([deletedId]);
         // 满血主动消息：云端 fire_pack 里带最近对话原文，删了消息不打脏的话，角色到点
         // 还会提起这条已经不存在的消息（快照的消息在 flush 时从 DB 重读，这里只管打脏）。
-        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        // A privacy mutation must invalidate cloud state even when no
+        // scheduled task is currently pending; ordinary dirty sync can be
+        // filtered by the "has active AI task" gate.
+        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
         setMessages(prev => prev.filter(m => m.id !== deletedId));
         setTotalMsgCount(prev => Math.max(0, prev - 1));
         setModalType('none');
@@ -3109,7 +3112,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // 内容变了旧语音就作废，否则语音条仍会播放编辑前的音频。
         if (contentChanged) discardVoiceForMessages([selectedMessage.id]);
         // 同 handleDeleteMessage：正文改了要让云端 fire_pack 跟上。
-        if (contentChanged) markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        if (contentChanged) markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
         setMessages(prev => prev.map(m => m.id === selectedMessage.id ? { ...m, content: editContent } : m));
         setModalType('none');
         setSelectedMessage(null);
