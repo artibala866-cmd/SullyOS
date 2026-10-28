@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useOS } from '../context/OSContext';
-import { cancelStudyReminder, createStudyReminder } from '../utils/studyRoomReminders';
-import {
-  remindersFor, type WorkspaceData, type WorkspaceReminderKind,
-} from '../utils/sullyWorkspace';
+import { cancelStudyReminder, createStudyReminder, remindersFor } from '../utils/studyRoomReminders';
+import type { WorkspaceData, WorkspaceReminderKind } from '../utils/sullyWorkspace';
 
 interface Props {
   kind: WorkspaceReminderKind;
