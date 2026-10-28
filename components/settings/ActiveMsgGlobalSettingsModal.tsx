@@ -29,6 +29,7 @@ import {
   type ProvisionProgress,
 } from '../../utils/cfProvision';
 import { isAmsgServerVersionAtLeast } from '../../utils/amsgWorkerVersion';
+import { AMSG_BUNDLE_CHANNEL } from '../../utils/amsgBundleVersion';
 import { trackEvent } from '../../utils/analytics';
 
 // 满血链路吃满这些 worker 特性（amsg-server 2.6.0-next.4+）。探测不到端点（老部署
@@ -1420,7 +1421,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
               */}
               <button
                 onClick={handleSelfUpdateWorker}
-                disabled={loading}
+                disabled={loading || AMSG_BUNDLE_CHANNEL === 'preview'}
                 className={`w-full py-2.5 font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50 ${
                   workerVersion?.state === 'outdated'
                     ? 'bg-neutral-600 text-white border border-neutral-600'
@@ -1433,6 +1434,12 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     ? `更新 Worker 到 ${workerVersion.expected}`
                     : '重新检查并更新 Worker'}
               </button>
+              {AMSG_BUNDLE_CHANNEL === 'preview' ? (
+                <p className="text-xs leading-relaxed text-neutral-700">
+                  当前是测试分支版本：官方自动更新源不含本分支的 Worker 修复，因此已禁用此按钮以防降级。
+                  请从本分支最新的「Build and publish SullyOS test site」运行记录下载 amsg-worker-p0 成品包，部署到你自己的 Cloudflare Worker；不需要改动主分支。
+                </p>
+              ) : null}
               {workerVersion?.state === 'outdated' ? (
                 <p className="text-xs leading-relaxed text-neutral-700">
                   你这台 Worker 上跑的是

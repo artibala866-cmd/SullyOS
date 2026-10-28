@@ -1,4 +1,11 @@
-import {describe,it,expect} from 'vitest';
+import {describe,it,expect,beforeEach,afterEach,vi} from 'vitest';
+beforeEach(async()=>{
+  const {ActiveMsgClient}=await import('./activeMsgClient');
+  vi.spyOn(ActiveMsgClient,'probeWorkerVersion').mockResolvedValue({
+    state:'current',deployed:'test',expected:'test',autoUpdate:null,
+  });
+});
+afterEach(()=>vi.restoreAllMocks());
 import {isAutonomyWakeTask,planAutonomyWakes} from './amsgAutonomyWake';
 const char={id:'mary',customTimezoneEnabled:true,customTimezone:'Asia/Shanghai'};
 const now=Date.parse('2026-10-29T01:00:00Z');

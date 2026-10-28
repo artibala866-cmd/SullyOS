@@ -80,6 +80,15 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
   try{
     const g=await ActiveMsgClient.getGlobalConfig();
     if(!g.workerUrl?.trim())throw new Error('未配置主动消息 2.0 的云端 Worker');
+    // Older Workers accept task creation but don't understand the current
+    // autonomous gating and cloud life context. Do NOT create a paid daily
+    // task that will silently behave like the old alarm-only version.
+    const version=await ActiveMsgClient.probeWorkerVersion({timeoutMs:8000});
+    if(version.state!=='current'){
+      throw new Error(version.state==='outdated'
+        ? `云端 Worker 还是旧版（${version.deployed||'未知'}），当前网页需要 ${version.expected}；先部署同一分支的 Worker 包`
+        : '暂时无法确认云端 Worker 版本，已暂停创建新的后台自主任务以防重复或错误收费');
+    }
     // The browser can disappear AFTER cloud schedule success but BEFORE local
     // persist. Never make another daily task based on an empty local list:
     // adopt any cloud-owned autowakes first. This also handles app restarts.

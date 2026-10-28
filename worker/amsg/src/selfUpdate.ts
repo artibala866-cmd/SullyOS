@@ -21,6 +21,7 @@
  */
 
 import { constantTimeEqual } from './instantChat';
+import { AMSG_BUNDLE_CHANNEL, AMSG_BUNDLE_VERSION } from '../../../utils/amsgBundleVersion';
 
 const CF_API = 'https://api.cloudflare.com/client/v4';
 
@@ -267,6 +268,12 @@ export async function fetchLatestBundle(
   }
   if (!code.includes(BUNDLE_FINGERPRINT)) {
     return { ok: false, message: '取回来的文件不像 amsg 的 worker 代码，没有覆盖，当前版本不动。' };
+  }
+  // A preview Worker must never silently replace itself with the official
+  // stable bundle that lacks the preview-only autonomous contact safeguards.
+  // Users can install the exact branch-built artifact manually.
+  if (AMSG_BUNDLE_CHANNEL === 'preview' && !code.includes(AMSG_BUNDLE_VERSION)) {
+    return { ok: false, message: '当前成品包来源还不是此预览分支版本；为了防止降级，保留正在运行的 Worker，不进行覆盖。' };
   }
   const hash = (await sha256Hex(code)).slice(0, 12);
   return { ok: true, bundle: { code, hash, bytes } };

@@ -19,6 +19,7 @@
 import { ActiveMsgClient, type AmsgWorkerVersionProbe } from './activeMsgClient';
 import { ActiveMsgStore } from './activeMsgStore';
 import { BUILD_LABEL } from './buildInfo';
+import { AMSG_BUNDLE_CHANNEL } from './amsgBundleVersion';
 
 /** 同一个构建下，两次敲门至少隔这么久。 */
 export const STARTUP_UPDATE_CHECK_MIN_INTERVAL_MS = 6 * 60 * 60_000;
@@ -95,6 +96,10 @@ export const requestStartupUpdateCheck = async (
   } catch {
     return 'worker-unset';
   }
+  // Preview backend bundles are built in the branch CI and NOT yet present
+  // at the stable self-update URL. Quietly auto-updating would downgrade the
+  // user's Worker while the UI incorrectly claims the latest preview.
+  if (AMSG_BUNDLE_CHANNEL === 'preview') return 'skipped';
   if (!shouldRequestStartupUpdateCheck(readStartupUpdateCheckMarker(), buildLabel, nowMs)) return 'throttled';
   writeStartupUpdateCheckMarker({ buildLabel, atMs: nowMs });
 
