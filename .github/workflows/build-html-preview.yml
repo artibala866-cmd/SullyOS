@@ -48,6 +48,10 @@ jobs:
           retention-days: 30
       - name: P0 Worker end-to-end delivery rehearsal (D1, cron, encrypted push, LLM)
         run: node scripts/amsg2-p0-e2e.mjs
+      - name: P0 offline inbox receipt, de-duplication and private-chat persistence
+        run: |
+          pnpm exec vitest run utils/activeMsgRuntime.test.ts -t "flushInboxToChat 落库时间戳|本地收件箱守望"
+          pnpm exec vitest run utils/activeMsgRuntime.beforeChat.test.ts utils/amsgResults.test.ts utils/pushSubscribeShared.test.ts
       - name: Check real-person reply scheduler TypeScript diagnostics
         shell: bash
         run: |
