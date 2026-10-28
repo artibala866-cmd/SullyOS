@@ -1,0 +1,120 @@
+# One-time SHA-guarded branch cleanup. Delete this workflow after reviewing its result.
+# This file is intentionally triggered only by its own addition/update.
+name: One-time audit-verified historical branch cleanup
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/one-time-history-branch-cleanup.yml'
+permissions:
+  contents: write
+concurrency:
+  group: sullyos-one-time-branch-cleanup
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preflight all exact refs, open PRs, deployment and live CI/script dependencies; delete by exact name
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: artibala866-cmd/SullyOS
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, sys, urllib.request, urllib.error, urllib.parse
+          repo=os.environ['GITHUB_REPOSITORY']
+          target='remove-checkphone-vrworld-lifesim'
+          expected={
+            "codex/spark-community-system-20261027": "a0428fa098a07cc57e43e953a1c1d81595cb46d8",
+            "fix/chat-emotion-buff-independent-home-20261028": "dec8c1a702906d58f710ecf6d6e0da0627f724b3",
+            "fix/chat-home-experience-regressions-20261028": "aeffea4beb00c1993d6dd14fb260c0be160a3b32",
+            "fix/home3d-distance-gait-20261027": "40bed16e127b02c32e92f2e34ca12d3ce80e1d3a",
+            "fix/home3d-dream-entry-20261027": "f93325d6c4378171b5a053370364840d9fa0310a",
+            "fix/home3d-dream-entry-final-20261027": "9481a13f507744b3d6f1c300599f6c84520676cb",
+            "fix/home3d-furniture-points-audit-20261027": "1b39ebbf7f38004d7089462d83a7e290264ae530",
+            "fix/home3d-gray-screen-phone-overlay-20261027": "453aa2da1b15290ae1ec1b48bb4fcb1a91d81c84",
+            "fix/home3d-gray-screen-thought-bubble": "4540e1a377be64fd7405070b03080ff3f23a87da",
+            "fix/home3d-thought-bubble-rail": "25fe99088bc16b3406fb6343fef1f4177a50bdb8",
+            "fix/home3d-thought-clock-preserve-initiative": "fe2b4364999f2a8843ed36c884659a93cf8afa9b",
+            "fix/phone-life-budget-routing-audit-20261028": "88ea33c6e6cced23792cae78f78b7dc85c43fd66",
+            "fix/time-awareness-phone-home-recovery-20261028": "7587508173b456dd969b3bb1c1122b8da91e066b",
+            "fix/spark-community-stability-20261028": "f2739f8377856ae48fec5911f9d7a53271807a50"
+          }
+          token=os.environ['GH_TOKEN']
+          own='.github/workflows/one-time-history-branch-cleanup.yml'
+          base=f'https://api.github.com/repos/{repo}'
+          def api(method,path):
+              req=urllib.request.Request(base+path,method=method,headers={
+                  'Authorization':f'Bearer {token}',
+                  'Accept':'application/vnd.github+json',
+                  'X-GitHub-Api-Version':'2022-11-28',
+                  'User-Agent':'sullyos-safeguarded-branch-audit',
+              })
+              with urllib.request.urlopen(req,timeout=25) as r:
+                  raw=r.read()
+                  return json.loads(raw) if raw else None
+          current=api('GET','')
+          assert current['default_branch'] not in expected
+          assert target not in expected
+          open_prs=[]
+          for page in range(1,10):
+              rows=api('GET',f'/pulls?state=open&per_page=100&page={page}')
+              open_prs+=rows
+              if len(rows)<100:break
+          target_sha=api('GET','/branches/'+urllib.parse.quote(target,safe='/'))['commit']['sha']
+          blockers=[]
+          checked=[]
+          for name,sha in expected.items():
+              try:
+                  node=api('GET','/branches/'+urllib.parse.quote(name,safe='/'))
+                  observed=node['commit']['sha']
+                  reasons=[]
+                  if observed!=sha:reasons.append('HEAD changed')
+                  if node.get('protected'):reasons.append('protected')
+                  attached=[pr['number'] for pr in open_prs if pr['head']['ref']==name and pr['head']['repo'] and pr['head']['repo']['full_name']==repo]
+                  if attached:reasons.append('open PR: '+str(attached))
+                  compare=api('GET',f'/compare/{sha}...{target_sha}')
+                  if compare['behind_by']!=0:reasons.append('unique commits not included in target')
+                  proc=subprocess.run(['git','grep','-n','-F',name,'--','.github/workflows','scripts','infra','package.json'],capture_output=True,text=True)
+                  refs=[line for line in proc.stdout.splitlines() if not line.startswith(own+':')]
+                  if refs:reasons.append('live CI or script refs: '+str(refs[:4]))
+                  deployments=api('GET','/deployments?ref='+urllib.parse.quote(name,safe='')+'&per_page=2')
+                  if deployments:reasons.append('deployment references: '+str(len(deployments)))
+                  print(json.dumps({'branch':name,'before_sha':observed,'ahead_target':compare['ahead_by'],'behind_target':compare['behind_by'],'open_prs':attached,'issues':reasons},ensure_ascii=False),flush=True)
+                  checked.append((name,sha))
+                  if reasons:blockers.append((name,reasons))
+              except Exception as e:
+                  blockers.append((name,[type(e).__name__,str(e)]))
+          if blockers:
+              print('ABORT: no deletions were attempted because preflight found blockers:',json.dumps(blockers,ensure_ascii=False),flush=True)
+              sys.exit(1)
+          failures=[]
+          for name,sha in checked:
+              observed=api('GET','/branches/'+urllib.parse.quote(name,safe='/'))['commit']['sha']
+              if observed!=sha:
+                  failures.append((name,'concurrent update before deletion'))
+                  print('SKIP concurrent update:',name,flush=True)
+                  continue
+              try:
+                  api('DELETE','/git/refs/heads/'+urllib.parse.quote(name,safe='/'))
+                  try:
+                      api('GET','/branches/'+urllib.parse.quote(name,safe='/'))
+                      failures.append((name,'still exists after deletion'))
+                      print('FAIL still exists:',name,flush=True)
+                  except urllib.error.HTTPError as e:
+                      if e.code==404:print(json.dumps({'deleted':name,'previous_sha':sha,'verified_absent':True},ensure_ascii=False),flush=True)
+                      else:raise
+              except Exception as e:
+                  failures.append((name,str(e)))
+                  print('FAIL deletion:',name,repr(e),flush=True)
+          remaining={v['name'] for v in api('GET','/branches?per_page=100')}
+          for name in expected:
+              if name in remaining and not any(f[0]==name for f in failures):failures.append((name,'still in branch list'))
+          if failures:
+              print('FAILED:',json.dumps(failures,ensure_ascii=False),flush=True)
+              sys.exit(1)
+          print('SUCCESS verified exactly '+str(len(checked))+' intended historical refs removed; protected targets preserved',flush=True)
+          PY
