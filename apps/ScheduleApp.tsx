@@ -2,7 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
-import { focusChatAllowance, newWorkspaceId, type WorkKind } from '../utils/sullyWorkspace';
+import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
+import {
+  createCommissionPlanRequest, parseCommissionPlanReply,
+  type CommissionPlanPreview, type CommissionPlanRequest,
+} from '../utils/commissionPlanProposals';
 const StudyApp = React.lazy(() => import('./StudyApp'));
 
 import { safeResponseJson, extractContent } from '../utils/safeApi';
@@ -41,6 +45,8 @@ const ScheduleApp: React.FC = () => {
   const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'commissions' | 'calendar' | 'study'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantTopic, setAssistantTopic] = useState('');
+  const [planRequest, setPlanRequest] = useState<CommissionPlanRequest | null>(null);
+  const [planPreview, setPlanPreview] = useState<CommissionPlanPreview | null>(null);
   const [focusLock, setFocusLock] = useState<boolean>(() => load('lock', false));
   const [notes, setNotes] = useState<Note[]>(() => load('notes', []));
   const [message, setMessage] = useState('');
@@ -148,14 +154,31 @@ const ScheduleApp: React.FC = () => {
     setTab('timer');
   };
   const discuss = (topic:string) => {
+    setPlanRequest(null);
     setAssistantTopic(topic);
     setMessage('请根据当前信息给我建议。');
     setAssistantOpen(true);
+  };
+  const proposeCommissionPlan = (workspace: WorkspaceData) => {
+    try {
+      const request=createCommissionPlanRequest(workspace,charId);
+      setPlanRequest(request);
+      setPlanPreview(null);
+      setAssistantTopic(request.prompt);
+      setMessage('请按上述 JSON 格式给出一份待我逐项审核的排单方案。');
+      setAssistantOpen(true);
+    } catch(error) {
+      addToast(error instanceof Error ? error.message : '无法整理排单资料','error');
+    }
   };
   const sendNote = async () => {
     const content = message.trim();
     if (!content || replying || chatBusy.current) return;
     if (!activeChar) { addToast('请先选择 Char', 'error'); return; }
+    if (planRequest && planRequest.charId!==charId) {
+      addToast('这份排单请求绑定了原 Char，请重新选择或重新生成','error');
+      return;
+    }
     if (!apiConfig.apiKey || !apiConfig.model) { addToast('请先配置聊天 AI', 'error'); return; }
     const gate = focusChatAllowance(session, Date.now());
     if (!gate.canSend) { addToast('本五分钟窗口的交流机会已用完，或计时已暂停', 'error'); return; }
@@ -177,7 +200,7 @@ const ScheduleApp: React.FC = () => {
       const phase = session?.mode === 'focus' ? '正在专注' : session?.mode === 'break' ? '正在休息' : '未计时';
       const appContext = '你在学习室应用内帮助用户。保持角色身份自然回应，不要自动催促，也不能替用户把作业标为完成。'
         + '当前任务：' + task + '；状态：' + phase + '；剩余约 ' + Math.ceil(remaining/60) + ' 分钟。'
-        + (assistantTopic ? '用户主动请求讨论的工作信息：' + assistantTopic.slice(0, 4500) : '');
+        + (assistantTopic ? '用户主动请求讨论的工作信息：' + assistantTopic.slice(0, 12000) : '');
       const msgs = await ContextBuilder.buildCharacterRequest(
         {char:activeChar,user:userProfile},
         [{role:'system',content:appContext},...history.slice(-16).map(n=>({role:n.role,content:n.content}))],
@@ -192,7 +215,28 @@ const ScheduleApp: React.FC = () => {
       const reply = extractContent(data);
       if (!reply?.trim()) throw new Error('AI 返回了空回复');
       setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:reply.trim()}]);
-      setAssistantTopic('');
+      if (planRequest) {
+        try {
+          // Read latest DB value: don't apply a response for stale edits.
+          const current=await readWorkspace();
+          const preview=parseCommissionPlanReply(reply,planRequest,current);
+          if (preview.changes.length) {
+            setPlanPreview(preview);
+            setAssistantOpen(false);
+            setTab('commissions');
+            addToast('Char 提出了 '+preview.changes.length+' 项调整，请逐项勾选后再应用','success');
+          } else {
+            addToast('Char 没提出需要修改的项，原排单没有变化','info');
+          }
+          setPlanRequest(null);
+          setAssistantTopic('');
+        } catch(error) {
+          addToast('建议未通过校验，排单没有修改：'+(error instanceof Error?error.message:String(error)),'error');
+          setMessage('上轮建议格式无效，请严格按 changes JSON 格式重发，不要多余字段。');
+        }
+      } else {
+        setAssistantTopic('');
+      }
     } catch(e) {
       addToast('Char 回复失败：' + (e instanceof Error ? e.message : '请检查 API 配置'), 'error');
     } finally {
@@ -266,8 +310,8 @@ const ScheduleApp: React.FC = () => {
           <div className="text-sm">完成任务：{tasks.filter(t => t.done).length} 项</div>
           <p className="text-xs text-[#aaaaaa]">仅统计完整结束的专注轮次；数据保存在当前浏览器。</p>
         </section>}
-        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} selectedCharId={charId} onSelectChar={setCharId}/>}
-        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} selectedCharId={charId} onSelectChar={setCharId}/>}
+        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)} selectedCharId={charId} onSelectChar={setCharId}/>}
+        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={null} onClearPlan={()=>{}} selectedCharId={charId} onSelectChar={setCharId}/>}
 
       </main>
       <nav className="shrink-0 grid grid-cols-4 gap-1 px-2 py-3 border-t border-neutral-200 bg-white"
@@ -288,7 +332,7 @@ const ScheduleApp: React.FC = () => {
             className={inset + ' p-2 text-sm'}>
             <option value="">请选择 Char</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          {assistantTopic && <p className="text-xs text-neutral-600">已带入当前请求的任务背景，仅点击发送后才会提交给 AI。</p>}
+          {assistantTopic && <p className="text-xs text-neutral-600">已带入当前请求的任务背景，仅点击发送后才会提交给 AI。{planRequest?'本轮将返回待审核 JSON 方案；不会自动改稿件。':''}</p>}
           {session?.mode==='focus' && <p className="text-xs">本轮已交流 {allowance.used}/{allowance.limit} 次。
             {allowance.canSend?'当前五分钟窗口可交流':'当前窗口不可再交流'}</p>}
           <div className="flex-1 overflow-y-auto border border-neutral-200 rounded-lg p-3 space-y-2">

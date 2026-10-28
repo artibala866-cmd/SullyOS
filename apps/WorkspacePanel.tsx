@@ -5,6 +5,10 @@ import { recognizeCourseImage, type CourseImageDraft } from '../utils/sullyTimet
 import WorkspaceReminderControls from './WorkspaceReminderControls';
 import { cancelItemReminders, setWorkspaceChatPermission } from '../utils/studyRoomReminders';
 import {
+  isPlanPreviewStale, previewCommissionPlanRisk, projectCommissionPlan,
+  type CommissionPlanPreview,
+} from '../utils/commissionPlanProposals';
+import {
   calculatePlanRisks, emptyWorkspace, localDate, newWorkspaceId,
   orderedCommissions, readWorkspace, mutateWorkspace, permissionForChar,
   type ClassHomework, type Commission, type TimetableClass, type WorkspaceData, type WorkKind, type WorkspaceShareCategory,
@@ -18,6 +22,9 @@ interface Props {
   records: FocusLog[];
   onFocus: (kind: WorkKind, id: string, title: string) => void;
   onDiscuss: (topic: string) => void;
+  onPlan: (workspace: WorkspaceData) => void;
+  planPreview: CommissionPlanPreview | null;
+  onClearPlan: () => void;
   selectedCharId: string;
   onSelectChar: (id:string) => void;
 }
@@ -36,12 +43,14 @@ const blankClass = () => ({
   teacher:'',location:'',note:'',
 });
 
-const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onDiscuss, selectedCharId, onSelectChar}) => {
+const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onDiscuss, onPlan, planPreview, onClearPlan, selectedCharId, onSelectChar}) => {
   const { apiConfig, addToast, characters } = useOS();
   const [data, setData] = useState<WorkspaceData>(emptyWorkspace);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const [shareBusy, setShareBusy] = useState<WorkspaceShareCategory | null>(null);
+  const [planChecked, setPlanChecked] = useState<string[]>([]);
+  const [applyingPlan, setApplyingPlan] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [draft, setDraft] = useState(blankCommission);
   const [classDraft, setClassDraft] = useState(blankClass);
@@ -80,6 +89,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     void queue.current.catch(e => setError('保存失败，请勿清理浏览器数据：' + String(e)));
   }, [data, loaded]);
 
+  useEffect(() => { setPlanChecked([]); }, [planPreview]);
   const change = (fn: (old:WorkspaceData)=>WorkspaceData) => {
     touched.current = true;
     setData(fn);
@@ -117,6 +127,36 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       } catch {}
       addToast('授权变更未完全确认：'+String(e),'error');
     } finally { setShareBusy(null); }
+  };
+  const requestPlan = async () => {
+    try {
+      // Finish any pending manual edit before freezing the version the model sees.
+      await queue.current;
+      onPlan(await readWorkspace());
+    } catch(e) {
+      addToast('排单尚未保存，不能请求建议：'+String(e),'error');
+    }
+  };
+  const applyPlan = async () => {
+    if (applyingPlan || !planPreview || !planChecked.length) return;
+    if (!window.confirm('确定只应用勾选的 '+planChecked.length+' 项排单调整？不会修改交稿截止日、价格、客户或作业完成状态。')) return;
+    setApplyingPlan(true);
+    try {
+      await queue.current;
+      // CAS at the latest serialized DB write, not against a stale React render.
+      const updated=await mutateWorkspace(current=>projectCommissionPlan(current,planPreview,planChecked));
+      setData(updated);
+      setPlanChecked([]);
+      onClearPlan();
+      addToast('已应用 '+planChecked.length+' 项计划调整，并重新计算冲突风险','success');
+    } catch(e) {
+      addToast('方案未应用：'+(e instanceof Error?e.message:String(e)),'error');
+      try {
+        const latest=await readWorkspace();
+        setData(prev=>({...prev,commissions:latest.commissions,classes:latest.classes,
+          homework:latest.homework,dailyAvailableMinutes:latest.dailyAvailableMinutes}));
+      } catch {}
+    } finally {setApplyingPlan(false);}
   };
   const stopItemReminders = async (kind:'commission'|'homework', id:string) => {
     try {
@@ -230,6 +270,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   };
   const risk = new Map(calculatePlanRisks(data).map(v=>[v.commissionId,v]));
   const selectedClass = data.classes.find(c=>c.id===selectedClassId);
+  const planStale = !!planPreview && (isPlanPreviewStale(data, planPreview)
+    || planPreview.charId !== selectedCharId);
+  const projectedRisks = !planStale && planPreview && planChecked.length
+    ? previewCommissionPlanRisk(data,planPreview,planChecked) : [];
+  const riskChanges = new Map(projectedRisks.map(r=>[r.commissionId,r]));
   if (!loaded) return <p className="p-6 text-neutral-700">{error || '正在读取工作空间…'}</p>;
 
   return <div className="text-neutral-900 space-y-5 pb-6">
@@ -269,15 +314,48 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <input className={inputClass} type="number" min="0" max="1440" value={data.dailyAvailableMinutes}
             onChange={e=>change(v=>({...v,dailyAvailableMinutes:Math.max(0,Math.min(1440,Number(e.target.value)||0))}))}/>
         </label>
-        <button className={mutedButton} onClick={() => onDiscuss(
-          '请只给出可修改的排单建议，不要擅自更新或对客户承诺。当前委托：' +
-          JSON.stringify(data.commissions.filter(c=>c.status==='active').map(c=>({
-            name:c.title,stage:c.stage,due:c.dueDate,remainingMinutes:c.remainingMinutes,
-            bufferMinutes:c.bufferMinutes,plannedDate:c.plannedDate,
-          })))+'；课程：'+JSON.stringify(data.classes.map(c=>({name:c.name,weekday:c.weekday,start:c.start,end:c.end})))
-        )}>让 Char 帮我排一下</button>
-        <p className="text-xs text-neutral-600">点此才将上述委托时间及课程摘要发送给选定的 AI；回复只作建议，不会自动改动委托。</p>
+        <button className={mutedButton} onClick={()=>void requestPlan()} disabled={!selectedCharId || applyingPlan}>让 Char 帮我排一下</button>
+        <p className="text-xs text-neutral-600">点击只会打开 Char 对话；你再点发送才会将本次稿名、进度、工时、课程时段摘要交给选定的 AI。客户、价格、需求和笔记不发送。返回后必须逐项审核并确认应用。</p>
       </header>
+      {planPreview && <section className={cardClass} aria-label="Char 排单建议预览">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-semibold">Char 排单建议 · 逐项审核</h3>
+          <button className={mutedButton} disabled={applyingPlan} onClick={onClearPlan}>放弃建议</button>
+        </div>
+        <p className="text-xs text-neutral-700">默认一项都不选。以下是 AI 提议，不代表实际交期已修改。只可调整计划日期、剩余分钟与优先级。</p>
+        {planStale && <p role="alert" className="text-sm border border-neutral-500 rounded-lg p-2">
+          生成后原排单或课程时间已变化，或换了 Char。此方案已过期，不能应用；请重新请求。
+        </p>}
+        {planPreview.changes.map(change=>{
+          const current=data.commissions.find(c=>c.id===change.id);
+          const riskDelta=riskChanges.get(change.id);
+          return <div key={change.id} className="border-t border-neutral-200 pt-3 space-y-1">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" disabled={planStale||applyingPlan}
+                checked={planChecked.includes(change.id)}
+                onChange={e=>setPlanChecked(prev=>e.target.checked
+                  ? [...prev,change.id] : prev.filter(id=>id!==change.id))}/>
+              {current?.title || planPreview.commissions.find(c=>c.id===change.id)?.title || '未知委托'}
+            </label>
+            {change.plannedDate!==undefined && <p className="text-xs">计划日期：{current?.plannedDate||'未设置'} → {change.plannedDate}</p>}
+            {change.remainingMinutes!==undefined && <p className="text-xs">剩余工时：{current?.remainingMinutes??'?'} 分钟 → {change.remainingMinutes} 分钟</p>}
+            {change.priority!==undefined && <p className="text-xs">优先级：{current?.priority??'?'} → {change.priority}（1 为高）</p>}
+            {change.reason && <p className="text-xs text-neutral-600">Char 的理由：{change.reason}</p>}
+            {riskDelta && <p className="text-xs">截至交稿的预计缺口：{riskDelta.before} → {riskDelta.after} 分钟</p>}
+          </div>;
+        })}
+        {!!projectedRisks.length && <p className="text-xs border-t border-neutral-200 pt-2">
+          已选调整后的全部在绘稿件缺口：
+          {projectedRisks.filter(r=>r.after>0).map(r=>
+            (data.commissions.find(c=>c.id===r.commissionId)?.title||'稿件')+' '+r.after+' 分钟').join('；')||'暂无估算缺口'}。
+          风险估算按交稿期限、剩余工时及课程/作业时间计算；改计划日期本身不会自动预留日程。
+        </p>}
+        <button className={buttonClass} disabled={planStale || !planChecked.length || applyingPlan}
+          onClick={()=>void applyPlan()}>
+          {applyingPlan?'正在保存…':'确认应用已选 '+planChecked.length+' 项'}
+        </button>
+        <p className="text-xs text-neutral-500">如模型返回无效或越权字段，整份建议将被拒绝；绝不自动发消息给客户或更改交稿截止日。</p>
+      </section>}
       <form onSubmit={addCommission} className={cardClass}>
         <h3 className="font-semibold">新增委托</h3>
         <input className={inputClass} required aria-label="稿件名称" placeholder="稿件名称（必填）" value={draft.title} onChange={e=>setDraft(v=>({...v,title:e.target.value}))}/>
