@@ -1,6 +1,16 @@
 name: Home3D furniture interaction regression
 
 on:
+  push:
+    branches:
+      - remove-checkphone-vrworld-lifesim
+    paths:
+      - 'apps/room3d/**'
+      - 'utils/chibiFurnitureMotion.test.ts'
+      - 'test/home3d-smoke.html'
+      - 'scripts/home3d-webgl-smoke.mjs'
+      - 'public/room3d/catalog.json'
+      - '.github/workflows/home3d-furniture-points.yml'
   pull_request:
     branches:
       - remove-checkphone-vrworld-lifesim
@@ -32,7 +42,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Verify catalog, point transforms and interaction routes
-        run: pnpm exec vitest run apps/room3d/furniturePointRegistry.test.js apps/room3d/furnitureCapabilityRegistry.test.js apps/room3d/mirrorJourney.test.js apps/room3d/furnitureMeshSeat.test.js apps/room3d/kitFurnitureContact.test.js apps/room3d/legacyFurnitureSource.test.js apps/room3d/furnitureSeatCompatibility.test.js apps/room3d/furnitureDiningCompatibility.test.js apps/room3d/furnitureStationRegistry.test.js apps/room3d/seatAccess.test.js apps/room3d/occupiedFurnitureChange.test.js apps/room3d/bedMotionAccess.test.js apps/room3d/bathroomJourney.test.js apps/room3d/frameBudgetTiming.test.js apps/room3d/furnitureGeometryCoverage.test.js apps/room3d/furnitureBrowserCoverage.test.js apps/room3d/kitchenStationMenu.test.js apps/room3d/wateringReachability.test.js utils/room3dSeating.test.ts utils/room3dFurnitureInteractions.test.ts utils/room3dFurnitureCatalog.test.ts utils/room3dBedroomReference.test.ts utils/room3dMirrorJourney.test.ts utils/room3dDining.test.ts utils/room3dFurnitureDock.test.ts utils/room3dGaming.test.ts utils/room3dFunctionalLayout.test.ts
+        run: pnpm exec vitest run apps/room3d/furniturePointRegistry.test.js apps/room3d/furnitureCapabilityRegistry.test.js apps/room3d/mirrorJourney.test.js apps/room3d/furnitureMeshSeat.test.js apps/room3d/kitFurnitureContact.test.js apps/room3d/legacyFurnitureSource.test.js apps/room3d/furnitureSeatCompatibility.test.js apps/room3d/furnitureDiningCompatibility.test.js apps/room3d/furnitureStationRegistry.test.js apps/room3d/seatAccess.test.js apps/room3d/occupiedFurnitureChange.test.js apps/room3d/bedMotionAccess.test.js apps/room3d/bathroomJourney.test.js apps/room3d/bathroomRigMotion.test.js apps/room3d/frameBudgetTiming.test.js apps/room3d/furnitureGeometryCoverage.test.js apps/room3d/furnitureBrowserCoverage.test.js apps/room3d/kitchenStationMenu.test.js apps/room3d/wateringReachability.test.js utils/room3dSeating.test.ts utils/room3dFurnitureInteractions.test.ts utils/room3dFurnitureCatalog.test.ts utils/room3dBedroomReference.test.ts utils/room3dMirrorJourney.test.ts utils/room3dDining.test.ts utils/room3dFurnitureDock.test.ts utils/room3dGaming.test.ts utils/room3dFunctionalLayout.test.ts
       - name: Full room3d regression suite
         run: pnpm exec vitest run utils/room3d
       - name: Build
