@@ -24,16 +24,25 @@ export function seatEntry(transform,map,offset=[0,0],{allowSides=false,sideFirst
  if(preferred&&valid(preferred))return [...preferred];
  return seatEntryCandidates(transform,{allowSides,sideFirst}).find(valid)??null;
 }
+// The last occupied-space shuffle must not accelerate just because the
+// authored safe entrance is farther away (side entrances behind a desk).
+// Match the peak derivative of smootherstep to a short human-sized step.
+export function seatTransitionDuration(pose,front,seat){
+ const base=seatChangeDuration(pose);
+ if(pose==='bed'||pose==='floor'||!front||!seat)return base;
+ const distance=Math.hypot(front[0]-seat[0],front[2]-seat[2]);
+ return Math.max(base,.3+distance*1.875/(1.8*(.92-.24)));
+}
 export function seatChangePose(change,time){
  if(change.pose==='bed')return bedChangePose(change,time);
  // Face the seat's forward direction before lowering onto it. Use the shortest
  // yaw arc so a turn across -PI/PI never spins all the way around.
- const duration=seatChangeDuration(change.pose),turnTime=Math.min(.3,duration*.3);
+ const sourceDuration=seatChangeDuration(change.pose),duration=change.duration??sourceDuration,turnTime=Math.min(.3,duration*.3);
  const turn=Math.max(0,Math.min(1,time/turnTime)),blend=turn*turn*(3-2*turn);
  const target=change.rotation??0,start=change.startRotation??target;
  const delta=Math.atan2(Math.sin(target-start),Math.cos(target-start));
  const rotation=change.rising?target:start+delta*blend;
- const poseTime=change.rising?time:Math.max(0,time-turnTime)*duration/(duration-turnTime);
+ const poseTime=change.rising?time*sourceDuration/duration:Math.max(0,time-turnTime)*sourceDuration/(duration-turnTime);
  const f=seatChangeFrame(poseTime,change.rising,change.pose);
  return {...f,rotation,position:change.front.map((v,i)=>v+(change.seat[i]-v)*(i===1?f.weight:(f.travel??f.weight)))};
 }
