@@ -121,7 +121,7 @@ describe('聊天记录区间永久清理', () => {
         expect(JSON.stringify(plan)).not.toContain('旧的主动联系');
         await deleteChatHistoryCleanup(plan,confirmed);
         expect(await DB.getMessageById(retained)).toBeTruthy();
-        expect(await DB.getMessageById(deleted)).toBeUndefined();
+        expect(await DB.getMessageById(deleted)).toBeNull();
     });
 
     it('十万条记录可保留最近 200 条，预览只保留 ID 和指纹', async () => {
