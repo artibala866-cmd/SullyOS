@@ -28,6 +28,18 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Test chat auto reply, keyboard dismissal and grounded life fragments
+        run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
+      - name: Check independent life feature TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/life-tsc.log 2>&1 || true
+          grep -E '^(utils/characterLifeGlimpseGeneration.ts|utils/characterLifeGlimpseGeneration.test.ts|utils/characterLifeEventGlimpse.test.ts|utils/characterLifeEvents.ts|components/chat/CharacterPhone.tsx)[(]' /tmp/life-tsc.log > /tmp/life-target-errors.log || true
+          if [ -s /tmp/life-target-errors.log ]; then
+            cat /tmp/life-target-errors.log
+            exit 1
+          fi
+          echo "Independent life feature has no TypeScript diagnostics."
       - name: Check modified backup integration TypeScript diagnostics
         shell: bash
         run: |
@@ -77,8 +89,6 @@ jobs:
         run: pnpm exec vitest run utils/musicTogether.test.ts utils/musicInviteStatus.test.ts utils/musicWorkerUrl.test.ts utils/chatMessageVisibility.test.ts utils/homeHistoryCleanup.test.ts utils/homeHistoryButton.test.ts
       - name: Test web update and resource caching
         run: pnpm exec vitest run utils/appPreload.test.ts utils/webUpdateSession.test.ts utils/chunkLoadRecovery.test.ts worker/staticCache.test.ts worker/staticCacheLifecycle.test.ts scripts/static-cache-build.test.ts
-      - name: Test chat auto reply, keyboard dismissal and grounded life fragments
-        run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
       - name: Test character phone NPC autonomy and social loop
         run: pnpm exec vitest run utils/refreshNpcMoments.test.ts utils/phoneChatPiggyback.test.ts utils/characterPhoneAiRequest.test.ts utils/characterPhoneAutonomy.test.ts utils/characterNpcSocial.test.ts utils/characterLifeLoop.test.ts
       - name: Test private-chat time awareness and NPC continuity
