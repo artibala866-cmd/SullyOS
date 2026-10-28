@@ -354,13 +354,15 @@ describe('onBeforeFire 四道门', () => {
     expect(fired(result).messages).toHaveLength(1);
   });
 
-  it('租约过期（超 TTL）不拦', async () => {
+  it('租约过期（超 TTL）、且聊天正文已同步 → 不拦', async () => {
+    const userAt = NOW.getTime() - 30 * 60_000;
     const { ctx } = makeCtx({
       charRows: [
-        // 用户最后一次开口挪到热聊窗外：这条测的是「租约过期这道门不拦」，
-        // 让窗口那道闸抢答的话，过了也说明不了租约的事。
-        { key: AMSG_CHAT_PRESENCE_KEY, value: presenceValue(NOW.getTime() - 120_000, { lastUserMessageAt: NOW.getTime() - 30 * 60_000 }) },
-        { key: AMSG_FIRE_PACK_KEY, value: firePackValue() },
+        // Check lease expiry in isolation: the full transcript actually
+        // contains this user's last message. A stale transcript is a different
+        // correctness failure, covered by the meal regression.
+        { key: AMSG_CHAT_PRESENCE_KEY, value: presenceValue(NOW.getTime() - 120_000, { lastUserMessageAt: userAt }) },
+        { key: AMSG_FIRE_PACK_KEY, value: firePackValue(userAt) },
         { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
       ],
     });

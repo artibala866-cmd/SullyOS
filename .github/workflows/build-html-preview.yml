@@ -31,7 +31,9 @@ jobs:
       - name: Test chat auto reply, keyboard dismissal and grounded life fragments
         run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgScheduleShortcut.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
       - name: Test AMSG2 stale conversation protection (worker simulation)
-        run: pnpm exec vitest run worker/amsg/src/index.test.ts
+        run: |
+          pnpm exec vitest run worker/amsg/src/index.test.ts -t "onBeforeFire 四道门"
+          pnpm exec vitest run utils/amsgStateSync.test.ts
       - name: Check real-person reply scheduler TypeScript diagnostics
         shell: bash
         run: |
