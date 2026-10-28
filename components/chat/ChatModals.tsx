@@ -6,6 +6,7 @@ import { CharacterProfile, Message, EmojiCategory, DailySchedule, ScheduleSlot, 
 import ScheduleCard from '../schedule/ScheduleCard';
 import ChatInputSettings from './ChatInputSettings';
 import ChatSettingsSection from './ChatSettingsSection';
+import EmotionSettingsPanel from './EmotionSettingsPanel';
 import SecretNote from './SecretNote';
 import type { ChatInputPreferences } from '../../utils/chatInputPreferences';
 import { isTranslationLangPreset, normalizeTranslationLangLabel, TRANSLATION_LANG_MAX_LENGTH, TRANSLATION_LANG_PRESETS } from '../../utils/translationLang';
@@ -155,11 +156,12 @@ interface ChatModalsProps {
         waterlineAlreadyAhead: boolean;
     } | null;
     onForceVectorize?: () => void;
-    // Emotion (embedded under schedule modal, synced on/off with scheduleStyle)
+    // Emotion Buff is configured per character, independently of the schedule
     apiPresets?: ApiPreset[];
     onAddApiPreset?: (name: string, config: APIConfig) => void;
     onSaveEmotion?: (config: NonNullable<CharacterProfile['emotionConfig']>) => void;
     onClearBuffs?: () => void;
+    onToggleEmotion?: (enabled: boolean) => void;
 }
 
 interface TranslationLanguagePickerProps {
@@ -273,7 +275,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     isScheduleFeatureEnabled, onToggleScheduleFeature,
     isMemoryPalaceEnabled, isVectorizing, vectorizePendingCount, vectorizeProgress,
     retainRecentForVectorize, setRetainRecentForVectorize, vectorizeResult, onForceVectorize,
-    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs,
+    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs, onToggleEmotion,
 }) => {
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
     const [historyPage, setHistoryPage] = useState(0);
@@ -648,6 +650,13 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             )}
                         </div>
                     </ChatSettingsSection>
+                    {onToggleEmotion && onSaveEmotion && onClearBuffs && onAddApiPreset && (
+                        <ChatSettingsSection title="情绪 Buff" summary="独立开关、副 API 与当前情绪">
+                            <EmotionSettingsPanel char={activeCharacter} apiPresets={apiPresets || []}
+                                addApiPreset={onAddApiPreset} onSave={onSaveEmotion}
+                                onToggle={onToggleEmotion} onClearBuffs={onClearBuffs} />
+                        </ChatSettingsSection>
+                    )}
                     <ChatSettingsSection title="扩展功能" summary="小红书与 HTML 卡片">
                         {/* XHS Toggle */}
                         <div className="pt-2 border-t border-slate-100">

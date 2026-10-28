@@ -17,7 +17,7 @@ export interface HomeEditor {getResidentAnchor?(id?:string):{x:number;y:number;w
 
 export interface HomeEditor {greetOwner?():void;summonOwner?():boolean;getOwnerName?():string;getResidentPosture?(id:string):string;standResident?(id:string):boolean;setResidentBedMode?(id:string,mode:string):boolean;controlResident?(id:string):boolean}
 
-export interface HomeEditor {setResidentPortraits(entries:Array<{id:string;label:string;avatar?:string}>):void}
+export interface HomeEditor {setResidentPortraits(entries:Array<{id:string;label:string;avatar?:string;buffs?:Array<{emoji?:string;label:string;intensity?:number}>}>):void}
 
 export interface HomeEditor {openPets(id?:string):void}
 
