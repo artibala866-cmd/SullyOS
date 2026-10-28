@@ -11,6 +11,15 @@ describe('一起听邀请状态', () => {
     expect(findPendingMusicInvite(history, 'char')?.id).toBe(2);
   });
 
+  it('带歌邀请仍使用同一条关联消息', () => {
+    const song = { id: 123, source: 'tencent', platformId: '123', name: 'QQ 歌曲' };
+    const invite = { id: 7, metadata: { musicListenInvite: true, musicListenTrack: song, invitedAt: 100 } };
+    expect(findPendingMusicInvite([invite], 'user')?.metadata.musicListenTrack).toEqual(song);
+    expect(findPendingMusicInvite([
+      invite, { id: 8, metadata: { musicListenInviteResponseTo: 7, accepted: true } },
+    ], 'user')).toBeUndefined();
+  });
+
   it('接受与拒绝都不应留下待回应邀请', () => {
     expect(findPendingMusicInvite([
       fromUser,

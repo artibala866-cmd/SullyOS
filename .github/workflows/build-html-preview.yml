@@ -28,6 +28,18 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Test source-aware music, guest library and listening invitations
+        run: pnpm exec vitest run utils/musicLibrary.test.ts utils/musicTogether.test.ts utils/musicInviteStatus.test.ts
+      - name: Check music TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/sully-music-tsc.log 2>&1 || true
+          grep -E '^(context/MusicContext.tsx|apps/MusicApp.tsx|utils/musicLibrary.ts|utils/musicLibrary.test.ts|utils/musicTogether.test.ts|utils/musicInviteStatus.ts|utils/musicInviteStatus.test.ts|utils/chatParser.ts|types.ts)[(]' /tmp/sully-music-tsc.log > /tmp/sully-music-errors.log || true
+          if [ -s /tmp/sully-music-errors.log ]; then
+            cat /tmp/sully-music-errors.log
+            exit 1
+          fi
+          echo "Music target files have no TypeScript diagnostics."
       - name: Test Sully workspace focus limits and commission planning
         run: pnpm exec vitest run utils/sullyWorkspace.test.ts utils/studyRoomReminders.test.ts utils/workspacePrivateChat.test.ts utils/workspacePrivateChat.wiring.test.ts
       - name: Check Sully workspace TypeScript diagnostics

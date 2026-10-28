@@ -75,4 +75,50 @@ describe('免登录音乐回退', () => {
     }
   });
 
+
+  it('QQ Music 搜索使用真实 QQ 路径，不返回网易云冒充', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({ data: { song: { list: [
+        { songid: 123, songmid: 'QQMID123', song: 'QQ song', singer: [{ name: 'QQ singer' }] },
+      ] } } }), { status: 200 });
+    }));
+    const songs = await musicApi.searchTencent('QQ song');
+    expect(songs[0]).toMatchObject({ source: 'tencent', platformId: '123', mid: 'QQMID123', name: 'QQ song' });
+    expect(urls[0]).toContain('/tencent/search/song');
+    expect(urls[0]).toContain('word=QQ+song');
+  });
+
+  it('QQ Music 播放地址使用 QQ MID，不调用网易云 URL 接口', async () => {
+    const urls: string[] = [];
+    vi.spyOn(musicApi, 'songUrl').mockImplementation(() => { throw Error('NetEase URL must not be used'); });
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({ data: { url: 'https://example.com/qq.mp3' } }), { status: 200 });
+    }));
+    const result = await musicApi.songUrlFor(guestCfg, {
+      id: 123, source: 'tencent', platformId: '123', mid: 'QQMID123',
+      name: 'QQ', artists: 'A', album: '', albumPic: '', duration: 100, fee: 0,
+    });
+    expect(result.data[0].url).toBe('https://example.com/qq.mp3');
+    expect(urls[0]).toContain('mid=QQMID123');
+    expect(urls[0]).not.toContain('/netease/');
+  });
+
+  it('QQ 备用解析失败不跨平台冒用网易云歌曲', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({ url: null }), { status: 200 });
+    }));
+    const result = await musicApi.songUrlFor(guestCfg, {
+      id: 123, source: 'tencent', platformId: '123',
+      name: 'QQ', artists: 'A', album: '', albumPic: '', duration: 100, fee: 0,
+    });
+    expect(result.data[0].url).toBeNull();
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toContain('source=tencent');
+  });
+
 });

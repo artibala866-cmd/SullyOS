@@ -52,7 +52,9 @@ const MusicApp: React.FC = () => {
         const pending = findPendingMusicInvite(messages, 'char');
         return [c.id, pending?.id ? { id: pending.id, track: pending.metadata?.musicListenTrack as Song | undefined } : null] as const;
       }));
-      if (!cancelled) setCharInvites(Object.fromEntries(entries.filter((entry): entry is readonly [string, { id: number; track?: Song }] => !!entry[1])));
+      if (!cancelled) setCharInvites(Object.fromEntries(
+        entries.filter((entry) => entry[1] !== null) as Array<readonly [string, { id: number; track: Song | undefined }]>
+      ));
     };
     void refresh().catch(console.warn);
     const onInvite = () => { void refresh().catch(console.warn); };
