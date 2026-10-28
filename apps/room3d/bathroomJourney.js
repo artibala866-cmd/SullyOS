@@ -1,5 +1,5 @@
 import {MathUtils as M} from 'three';
-import {gamingPoint} from './gaming.js';
+import {gamingPoint,clearance} from './gaming.js';
 const mix=(a,b,t)=>a.map((v,i)=>M.lerp(v,b[i],t));
 const turn=(a,b,t)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
 const pulse=(p,a,b,c,d)=>M.smootherstep(p,a,b)*(1-M.smootherstep(p,c,d));
@@ -71,4 +71,22 @@ export function bathroomJourneyFrame(j,time){
  }
  return {position,rotation,seatWeight,legLift,support,leadStep,trailStep,lean,phase,time:phase==='work'?t-j.enter:p,
   done:cancelled?t-j.cancelElapsed>=entryProgress:t>=duration};
+}
+
+/** Validate the swept room envelope at planning time, not on every render.
+ * The interacting fixture is intentionally excluded (the resident must
+ * enter it); walls and every unrelated placed object remain solid.
+ * This complements, but does not replace, visual GLB rim penetration QA. */
+export function bathroomJourneyObstacleIssue(room,catalog,activity,journey,headWidth=1.5){
+ if(!room||!journey)return '没有有效的卫浴入口';
+ const itemId=activity?.itemId;
+ const exclusions=[itemId,...(room.items||[]).filter(i=>i.supportId===itemId||
+  (room.items||[]).some(parent=>parent.id===i.supportId&&parent.supportId===itemId)).map(i=>i.id)];
+ for(let i=0;i<=30;i++){
+  const f=bathroomJourneyFrame(journey,journey.enter*i/30);
+  const issue=clearance(room,catalog,{position:f.position,rotation:f.rotation,kind:activity.kind},
+   exclusions,headWidth);
+  if(issue)return '卫浴进入或退出路线被挡住了：'+issue;
+ }
+ return '';
 }
