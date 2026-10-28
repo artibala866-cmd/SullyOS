@@ -35,5 +35,5 @@ export function seatChangePose(change,time){
  const rotation=change.rising?target:start+delta*blend;
  const poseTime=change.rising?time:Math.max(0,time-turnTime)*duration/(duration-turnTime);
  const f=seatChangeFrame(poseTime,change.rising,change.pose);
- return {...f,rotation,position:change.front.map((v,i)=>v+(change.seat[i]-v)*(f.travel??f.weight))};
+ return {...f,rotation,position:change.front.map((v,i)=>v+(change.seat[i]-v)*(i===1?f.weight:(f.travel??f.weight)))};
 }
