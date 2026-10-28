@@ -34,7 +34,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/sully-music-tsc.log 2>&1 || true
-          grep -E '^(context/MusicContext.tsx|apps/MusicApp.tsx|utils/musicLibrary.ts|utils/musicLibrary.test.ts|utils/musicTogether.test.ts|utils/musicInviteStatus.ts|utils/musicInviteStatus.test.ts|utils/chatParser.ts|types.ts)[(]' /tmp/sully-music-tsc.log > /tmp/sully-music-errors.log || true
+          grep -E '^(context/MusicContext.tsx|apps/MusicApp.tsx|utils/musicLibrary.ts|utils/musicLibrary.test.ts|utils/musicLibraryBackup.wiring.test.ts|utils/db.ts|utils/musicTogether.test.ts|utils/musicInviteStatus.ts|utils/musicInviteStatus.test.ts|utils/chatParser.ts|types.ts)[(]' /tmp/sully-music-tsc.log > /tmp/sully-music-errors.log || true
           if [ -s /tmp/sully-music-errors.log ]; then
             cat /tmp/sully-music-errors.log
             exit 1
