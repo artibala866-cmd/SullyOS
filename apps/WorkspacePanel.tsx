@@ -9,6 +9,7 @@ import {
   type StudyCourseOption,
 } from '../utils/studyCourseLinks';
 import { cancelItemReminders, setWorkspaceChatPermission } from '../utils/studyRoomReminders';
+import {pendingFocusProgress,settleFocusProgress} from '../utils/studyFocusProgress';
 import { mergeWorkspaceLocalEdit } from '../utils/workspaceEditMerge';
 import {
   isPlanPreviewStale, previewCommissionPlanRisk, projectCommissionPlan,
@@ -22,7 +23,7 @@ import {
 } from '../utils/sullyWorkspace';
 
 type FocusItem = { id: string; source?: {kind: WorkKind; id: string} };
-type FocusLog = { taskId: string; minutes: number };
+type FocusLog = { taskId: string; minutes: number; sessionId?: string; date?: string };
 interface Props {
   section: 'commissions' | 'calendar';
   focusTasks: FocusItem[];
@@ -58,6 +59,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [error, setError] = useState('');
   const [integrityWarnings, setIntegrityWarnings] = useState<string[]>([]);
   const [recoveringWorkspace, setRecoveringWorkspace] = useState(false);
+  const [settlementBusyId,setSettlementBusyId]=useState('');
   const [shareBusy, setShareBusy] = useState<WorkspaceShareCategory | null>(null);
   const [planChecked, setPlanChecked] = useState<string[]>([]);
   const [applyingPlan, setApplyingPlan] = useState(false);
@@ -351,6 +353,30 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     } catch(e) { addToast('课程保存失败：' + String(e), 'error'); }
   };
   const className = (id:string) => data.classes.find(c=>c.id===id)?.name || '已删除课程';
+  const settleLinkedFocus = async (kind:WorkKind,id:string,estimate:number) => {
+    if(settlementBusyId)return;
+    const candidate=pendingFocusProgress(data,focusTasks,records,kind,id);
+    if(!candidate.sessions.length)return;
+    const label=kind==='commission'?'这张稿件':'这项作业';
+    if(!window.confirm('把 '+candidate.sessions.length+' 轮、共 '+candidate.minutes+
+      ' 分钟的已完成专注记录，手动结算到'+label+'的剩余预计时间？预计剩余 '+
+      estimate+' → '+Math.max(0,estimate-candidate.minutes)+
+      ' 分钟。不会自动认定任务完成、改变交期或触发提醒。'))return;
+    setSettlementBusyId(kind+id);
+    try{
+      await queue.current;
+      const ids=candidate.sessions.map(r=>r.sessionId!);
+      const updated=await mutateWorkspace(current=>
+        settleFocusProgress(current,focusTasks,records,kind,id,ids,estimate));
+      syncData(()=>updated);
+      addToast('已手动结算 '+candidate.minutes+' 分钟，完成状态仍由你决定','success');
+    }catch(e){
+      addToast('专注结算未保存：'+String(e),'error');
+      try{const latest=await readWorkspace();syncData(()=>latest);}catch{}
+    }finally{setSettlementBusyId('');}
+  };
+  const pendingMinutes = (kind:WorkKind,id:string) =>
+    pendingFocusProgress(data,focusTasks,records,kind,id);
   const actualMinutes = (kind:WorkKind,id:string) => {
     const ids = new Set(focusTasks.filter(t=>t.source?.kind===kind && t.source.id===id).map(t=>t.id));
     return records.filter(r=>ids.has(r.taskId)).reduce((sum,r)=>sum+r.minutes,0);
@@ -495,6 +521,13 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             </div>
           </div>
           <p className="text-xs text-neutral-700">交稿 {c.dueDate||'未设置'} · 已专注 {actualMinutes('commission',c.id)} 分钟 · 预计剩余 {c.remainingMinutes} 分钟</p>
+          {pendingMinutes('commission',c.id).minutes>0 && c.status==='active' &&
+            <button className={mutedButton} disabled={!!settlementBusyId}
+              onClick={()=>void settleLinkedFocus('commission',c.id,c.remainingMinutes)}>
+              手动结算尚未抵扣的 {pendingMinutes('commission',c.id).sessions.length} 轮专注（{pendingMinutes('commission',c.id).minutes} 分钟）
+            </button>}
+          {pendingMinutes('commission',c.id).legacyMinutes>0 &&
+            <p className="text-xs text-neutral-600">另有 {pendingMinutes('commission',c.id).legacyMinutes} 分钟旧专注记录没有轮次编号，可自行调整剩余工时，不会自动重复抵扣。</p>}
           {risk.get(c.id)?.shortfallMinutes ? <p className="text-sm font-medium text-neutral-900">
             时间冲突：截至该稿约缺 {risk.get(c.id)?.shortfallMinutes} 分钟（含前序稿件、课程与作业）</p> : null}
           <div className="flex flex-wrap gap-2">
@@ -645,12 +678,24 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <div className="flex gap-2"><input aria-label={'完成'+h.title} type="checkbox" checked={h.done}
               onChange={e=>void changeHomeworkDone(h.id,e.target.checked)}/>
               <span className={h.done?'line-through text-neutral-600':''}>{h.title}</span></div>
-            <p className="text-xs">截止 {h.dueAt||'未设置'} · 已专注 {actualMinutes('homework',h.id)} 分钟</p>
+            <p className="text-xs">截止 {h.dueAt||'未设置'} · 已专注 {actualMinutes('homework',h.id)} 分钟 · 预计剩余 {h.minutes} 分钟</p>
+            {pendingMinutes('homework',h.id).minutes>0 && !h.done &&
+              <button className={mutedButton} disabled={!!settlementBusyId}
+                onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>
+                手动结算 {pendingMinutes('homework',h.id).minutes} 分钟专注（不会自动完成作业）
+              </button>}
+            {pendingMinutes('homework',h.id).legacyMinutes>0 &&
+              <p className="text-xs text-neutral-600">另有 {pendingMinutes('homework',h.id).legacyMinutes} 分钟旧记录需手动核算。</p>}
             <button className={mutedButton} onClick={()=>onFocus('homework',h.id,h.title)}>为作业开始专注</button>
             <WorkspaceReminderControls kind="homework" itemId={h.id}
               suggestedAt={h.dueAt} data={data} selectedCharId={selectedCharId}
               onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>
             <details><summary className="text-sm">编辑作业</summary>
+              <label className="block text-xs">预计剩余分钟
+                <input className={inputClass} type="number" min="0" max="10080" value={h.minutes}
+                  onChange={e=>change(v=>({...v,homework:v.homework.map(x=>
+                    x.id===h.id?{...x,minutes:Math.max(0,Math.min(10080,Number(e.target.value)||0))}:x)}))}/>
+              </label>
               <input className={inputClass} type="datetime-local" value={h.dueAt} onChange={e=>change(v=>({...v,homework:v.homework.map(x=>x.id===h.id?{...x,dueAt:e.target.value}:x)}))}/>
               <textarea className={inputClass} value={h.note} placeholder="备注" onChange={e=>change(v=>({...v,homework:v.homework.map(x=>x.id===h.id?{...x,note:e.target.value}:x)}))}/>
               <button className={mutedButton} onClick={()=>void removeHomework(h.id)}>移除作业</button>
@@ -677,6 +722,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <p className="text-sm">{h.done?'✓ ':''}作业：{h.title} · 截止 {h.dueAt||'未设置'} · 原课程 ID：{h.classId}</p>
             <p className="text-xs whitespace-pre-wrap">{h.note}</p>
             <button className={mutedButton} onClick={()=>onFocus('homework',h.id,h.title)}>继续为这项作业专注</button>
+            {pendingMinutes('homework',h.id).minutes>0 && !h.done &&
+              <button className={mutedButton} disabled={!!settlementBusyId}
+                onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>
+                手动结算 {pendingMinutes('homework',h.id).minutes} 分钟到未归属作业（不更改归类）
+              </button>}
             <WorkspaceReminderControls kind="homework" itemId={h.id}
               suggestedAt={h.dueAt} data={data} selectedCharId={selectedCharId}
               onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>

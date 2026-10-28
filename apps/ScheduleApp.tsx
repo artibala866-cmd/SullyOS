@@ -69,6 +69,10 @@ const ScheduleApp: React.FC = () => {
   const activeTask = tasks.find(t => t.id === (session?.taskId || selectedTask));
   const todayRecords = records.filter(r => r.date === today());
   const totalToday = todayRecords.reduce((sum, r) => sum + r.minutes, 0);
+  const linkedFocusTotals = tasks.filter(t=>t.source).map(task=>({
+    task,minutes:records.filter(r=>r.taskId===task.id)
+      .reduce((sum,r)=>sum+(Number.isFinite(r.minutes)?r.minutes:0),0),
+  })).filter(row=>row.minutes>0);
   const shell = 'rounded-2xl bg-white border border-neutral-200';
   const inset = 'rounded-xl bg-white border border-neutral-300';
   const btn = 'rounded-xl px-4 py-3 text-sm font-medium bg-neutral-900 text-white disabled:opacity-40';
@@ -165,7 +169,12 @@ const ScheduleApp: React.FC = () => {
   };
   const startLinked = (kind:WorkKind, id:string, title:string) => {
     const existing = tasks.find(t=>t.source?.kind===kind && t.source.id===id);
-    if (existing) setSelectedTask(existing.id);
+    if (existing) {
+      // A linked task may be marked done only inside the focus checklist.
+      // Reopen it when the original homework/commission is chosen again.
+      if(existing.done)setTasks(prev=>prev.map(t=>t.id===existing.id?{...t,done:false}:t));
+      setSelectedTask(existing.id);
+    }
     else {
       const task:FocusTask={id:newWorkspaceId(),title,done:false,sessions:0,source:{kind,id}};
       setTasks(prev=>[...prev,task]);
@@ -337,15 +346,35 @@ const ScheduleApp: React.FC = () => {
           {tasks.map(t => <div key={t.id} className={inset + ' p-3 flex items-center gap-3 text-sm'}>
             <input type="checkbox" aria-label={`完成${t.title}`} checked={t.done} onChange={e => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: e.target.checked } : x))} />
             <button className={`min-w-0 flex-1 text-left break-words ${t.done ? 'line-through opacity-50' : ''}`} onClick={() => { setSelectedTask(t.id); setTab('timer'); }}>{t.title}<span className="block text-xs text-[#aaaaaa] mt-1">{t.sessions} 轮专注</span></button>
-            <button aria-label={`删除${t.title}`} className="px-2 text-[#aaaaaa]" onClick={() => { setTasks(prev => prev.filter(x => x.id !== t.id)); if (selectedTask === t.id) setSelectedTask(''); }}>×</button>
+            {t.source && <button className="text-xs underline underline-offset-2 text-neutral-700"
+              onClick={()=>switchTab(t.source!.kind==='commission'?'commissions':'calendar')}>
+              查看原事项
+            </button>}
+            <button aria-label={`删除${t.title}`} className="px-2 text-[#aaaaaa]" onClick={() => {
+              if(t.source && records.some(r=>r.taskId===t.id) &&
+                !window.confirm('删除这个专注任务后，历史专注记录仍在，但将失去与原事项的关联，不能再自动结算。仍要删除？'))return;
+              setTasks(prev => prev.filter(x => x.id !== t.id));
+              if (selectedTask === t.id) setSelectedTask('');
+            }}>×</button>
           </div>)}
         </section>}
         {tab === 'stats' && <section className={shell + ' p-5 space-y-5'}>
           <div className="tracking-widest text-xs">STATISTICS / 专注统计</div>
           <div className="grid grid-cols-2 gap-3"><div className={inset + ' p-4 text-center'}><div className="text-3xl">{totalToday}</div><div className="text-xs mt-2">今日分钟</div></div><div className={inset + ' p-4 text-center'}><div className="text-3xl">{todayRecords.length}</div><div className="text-xs mt-2">今日轮次</div></div></div>
           <div className="text-sm">累计专注：{records.reduce((sum, r) => sum + r.minutes, 0)} 分钟</div>
-          <div className="text-sm">完成任务：{tasks.filter(t => t.done).length} 项</div>
-          <p className="text-xs text-[#aaaaaa]">仅统计完整结束的专注轮次；数据保存在当前浏览器。</p>
+          <div className="text-sm">专注清单已勾选：{tasks.filter(t => t.done).length} 项</div>
+          <p className="text-xs text-neutral-600">专注清单勾选不等于原委托交付或作业完成；原事项须你单独确认。已完成轮次可在原事项中手动核算剩余时间。</p>
+          {linkedFocusTotals.length>0 && <div className="space-y-2 border-t border-neutral-200 pt-3">
+            <h3 className="text-sm font-semibold">专注记录与原事项</h3>
+            {linkedFocusTotals.map(({task,minutes})=><div key={task.id}
+              className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-neutral-100 pb-2">
+              <span className="min-w-0 break-words">{task.source?.kind==='commission'?'画稿':'作业'} · {task.title} · {minutes} 分钟</span>
+              <button className="underline underline-offset-2" onClick={()=>switchTab(task.source?.kind==='commission'?'commissions':'calendar')}>
+                去核对进度
+              </button>
+            </div>)}
+          </div>}
+          <p className="text-xs text-[#aaaaaa]">仅统计完整结束的专注轮次；旧轮次如缺少唯一编号，不会自动抵扣。数据保存在当前浏览器。</p>
         </section>}
         {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={chooseChar}/>}
         {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={null} onClearPlan={()=>{}} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={chooseChar}/>}
