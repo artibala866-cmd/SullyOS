@@ -34,6 +34,8 @@ jobs:
         run: |
           pnpm exec vitest run worker/amsg/src/index.test.ts -t "onBeforeFire 四道门"
           pnpm exec vitest run utils/amsgStateSync.test.ts
+      - name: Build AMSG2 Worker bundles before unrelated long regression tests
+        run: pnpm run build:workers
       - name: Check real-person reply scheduler TypeScript diagnostics
         shell: bash
         run: |
