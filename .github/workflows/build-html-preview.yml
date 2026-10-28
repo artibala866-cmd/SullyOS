@@ -40,7 +40,7 @@ jobs:
       # This is the actual Worker bundle produced in the previous step, not
       # just a mocked fire-hook unit test. No real user/device is contacted.
       - name: P0 Worker end-to-end delivery rehearsal (D1, cron, encrypted push, LLM)
-        run: node scripts/amsg2-e2e-harness.mjs
+        run: node scripts/amsg2-p0-e2e.mjs
       - name: Check real-person reply scheduler TypeScript diagnostics
         shell: bash
         run: |
