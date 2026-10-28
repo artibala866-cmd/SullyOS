@@ -4951,6 +4951,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           suppressFeedbackInvitation();
           await DB.importFullData(data, {
               allowBackendConnection,
+              guestMusicRestoredByCaller: true,
               beforeWrite: restoreAssetsInPlace,
               onProgress: progress => {
                   const sectionRatio = progress.sectionTotal > 0
@@ -4996,9 +4997,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   throw new Error('音乐收藏/歌单恢复失败：本机存储空间不足，请保留原始备份文件');
               }
           }
-          // DB.importFullData 可能重建 assets/ls_mirror_v1；这里重新快照，以新
-          // 音乐库为真值，避免下次启动时旧镜像将已恢复的收藏覆写回来。
-          await snapshotLocalStorageMirror();
           if (data.chatInputPreferences !== undefined) saveChatInputPreferences(data.chatInputPreferences);
           if (data.theme) {
               await restoreAssetsInPlace(data.theme, '系统主题');
@@ -5262,6 +5260,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           } catch (e) {
               console.warn('[amsg2] 导入后云端对账失败（本地数据已恢复，不受影响）', e);
           }
+
+          // 全部设置与音乐库都恢复完成后才刷新镜像；避免导入前的旧配置
+          // 在下一次启动的 healLocalStorageMirror 中复活。
+          await snapshotLocalStorageMirror();
 
           setSysOperation({ status: 'idle', message: '', progress: 100 });
           clearImportInProgress();

@@ -30,7 +30,7 @@ import { exportHome3DLocal, importHome3DLocal, HOME3D_LOCAL_KEYS } from './home3
 import { exportAmsg2GlobalConfig, importAmsg2GlobalConfig } from './activeMsgStore';
 import { exportWorldHomeLocal, importWorldHomeLocal } from './worldHome/localBackup';
 import { exportDesktopSkinLocal, importDesktopSkinLocal } from './desktopSkinBackup';
-import { loadGuestMusicLibrary } from './musicLibrary';
+import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup } from './musicLibrary';
 
 const DB_NAME = 'AetherOS_Data';
 // v67：两条并行线各自用掉了 v65/v66（A线: blob_assets + 生活记录；B线: room_plates 门牌 + digest_reports 消化日志），
@@ -3674,8 +3674,13 @@ export const DB = {
            * 这份文件是谁的，静默连上去的话，ta 的 API 凭据和聊天上下文会写进别人那台 D1。
            */
           allowBackendConnection?: boolean;
+          /** OSContext restores v2/v3 cover assets and music metadata after this DB transaction. */
+          guestMusicRestoredByCaller?: boolean;
       } = {}
   ): Promise<void> => {
+      // Invalid music data must fail before anything in the main database is replaced.
+      const guestMusic = data.guestMusicLibrary === undefined
+          ? undefined : validateGuestMusicLibraryBackup(data.guestMusicLibrary);
       const db = await openDB();
       
       const availableStores = [
@@ -4336,5 +4341,14 @@ export const DB = {
           data.bankState = undefined as any;
           data.bankDollhouse = undefined as any;
       }, (data.bankState ? 1 : 0) + (data.bankDollhouse ? 1 : 0));
+
+      // Generic DB.exportFullData / DB.importFullData round-trip. The OSContext
+      // ZIP route opts out here because it needs to restore assets/* covers first.
+      if (guestMusic !== undefined && !options.guestMusicRestoredByCaller) {
+          await beforeWrite(guestMusic, '个人音乐库', true);
+          if (!persistGuestMusicLibrary(guestMusic)) {
+              throw new Error('音乐收藏/歌单恢复失败：本机存储空间不足');
+          }
+      }
   }
 };

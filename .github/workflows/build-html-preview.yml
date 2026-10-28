@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test source-aware music, guest library and listening invitations
-        run: pnpm exec vitest run utils/musicLibrary.test.ts utils/musicTogether.test.ts utils/musicInviteStatus.test.ts
+        run: pnpm exec vitest run utils/musicLibrary.test.ts utils/musicLibraryBackup.wiring.test.ts utils/musicTogether.test.ts utils/musicInviteStatus.test.ts
       - name: Check music TypeScript diagnostics
         shell: bash
         run: |

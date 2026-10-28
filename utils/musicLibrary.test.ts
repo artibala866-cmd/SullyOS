@@ -72,4 +72,43 @@ describe('跨来源音乐身份与旧数据兼容', () => {
     expect(loadGuestMusicLibrary().likes.map(musicKey)).toEqual(['netease:12']);
   });
 
+  it('音乐库完整元数据可 JSON 备份-清空-恢复往返，不复制音频 Blob', () => {
+    const map = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => map.get(key) ?? null,
+      setItem: (key: string, value: string) => { map.set(key, value); },
+    });
+    const qq = { ...song(42, 'tencent'), mid: 'MID42' };
+    const local = { ...song(7), local: true, localAssetKey: 'assets/local-audio-7' };
+    const original = {
+      likes: [qq, song(42)],
+      playlists: [{ id: 'a', name: '周末', songs: [local, qq, song(42)], createdAt: 1, updatedAt: 2 }],
+      history: [{ song: qq, playedAt: 13 }, { song: local, playedAt: 12 }],
+    };
+    expect(persistGuestMusicLibrary(original)).toBe(true);
+    const archive = JSON.parse(JSON.stringify({ guestMusicLibrary: loadGuestMusicLibrary() }));
+    map.delete('sully_music_guest_library_v1');
+    const restored = validateGuestMusicLibraryBackup(archive.guestMusicLibrary);
+    expect(persistGuestMusicLibrary(restored)).toBe(true);
+    expect(loadGuestMusicLibrary()).toEqual(original);
+    expect(loadGuestMusicLibrary().playlists[0].songs.map(musicKey))
+      .toEqual(['local:7', 'tencent:42', 'netease:42']);
+    expect(JSON.stringify(restored)).toContain('assets/local-audio-7');
+    expect(JSON.stringify(restored)).not.toContain('data:audio/');
+  });
+  it('新备份的空音乐库会覆盖本机旧库，而旧备份缺失字段可以保留现有库', () => {
+    const map = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => map.get(key) ?? null,
+      setItem: (key: string, value: string) => { map.set(key, value); },
+    });
+    expect(persistGuestMusicLibrary({ likes: [song(42)], playlists: [], history: [] })).toBe(true);
+    const oldArchive: { guestMusicLibrary?: unknown } = {};
+    if (oldArchive.guestMusicLibrary !== undefined)
+      persistGuestMusicLibrary(validateGuestMusicLibraryBackup(oldArchive.guestMusicLibrary));
+    expect(loadGuestMusicLibrary().likes).toHaveLength(1);
+    expect(persistGuestMusicLibrary(validateGuestMusicLibraryBackup({ likes: [], playlists: [], history: [] }))).toBe(true);
+    expect(loadGuestMusicLibrary().likes).toHaveLength(0);
+  });
+
 });
