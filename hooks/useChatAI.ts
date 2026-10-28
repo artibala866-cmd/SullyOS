@@ -30,6 +30,7 @@ import { buildMcpOpenAITools, buildMcpRejectedToolsFallbackBody, buildMcpTextFal
 import { buildToolResultMessage, normalizeToolCallsForCompat } from '../utils/toolCallCompat';
 import { toolCallFingerprint } from '../utils/agenticToolFeedback';
 import { buildChatRequestPayload } from '../utils/chatRequestPayload';
+import { loadWorkspacePrivateChatBlock } from '../utils/workspacePrivateChat';
 import { acquireChatReply, isChatReplyActive, subscribeChatReplies } from '../utils/chatReplyLock';
 import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
 import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContinuation';
@@ -925,8 +926,19 @@ export const useChatAI = ({
                     + avatarCandidates.map(e => e.id + '（' + e.visionDescription!.slice(0, 260) + '）').join('；')
                     + '。如果没有适合的，不要换。选择时输出 <char_avatar_choice id="头像ID"/>。不要与 set_avatar 同时输出。未识图图片不可选。\n'
                 : '';
+            // 学习室普通私聊的唯一入口：此刻从 IndexedDB 读取当前 Char 的显式授权。
+            // 不触及 ChatPrompts/角色卡/世界书，且不会写进 AMSG 的长寿 fire_pack。
+            // 即时对话的本轮发送和本地生成都用这份已冻结、同意过的请求。
+            const workspaceChatBlock = payload.flags.promptBuildSkipped ? '' :
+                await replyStep(() => loadWorkspacePrivateChatBlock(char.id));
+            if (workspaceChatBlock) {
+                const insertAt = payload.volatileTailIndex >= 0
+                    ? payload.volatileTailIndex : payload.fullMessages.length;
+                payload.fullMessages.splice(insertAt, 0, {role:'system',content:workspaceChatBlock});
+            }
             payload.fullMessages.unshift({ role: 'system', content: puffAvatarInstruction + avatarInstruction } as any);
-            const systemPrompt = payload.systemPrompt + puffAvatarInstruction + avatarInstruction;
+            const systemPrompt = payload.systemPrompt + puffAvatarInstruction + avatarInstruction
+                + (workspaceChatBlock ? '\n\n'+workspaceChatBlock : '');
             const cleanedApiMessages = payload.cleanedApiMessages;
             // 在续说补丁和本地/即时对话分流前检查最终历史，不能用补出来的 user 掩盖空上下文。
             assertChatHasDialogue(payload.fullMessages);

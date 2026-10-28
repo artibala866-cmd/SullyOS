@@ -3,11 +3,11 @@ import { useOS } from '../context/OSContext';
 import { putImageBlob } from '../utils/blobRef';
 import { recognizeCourseImage, type CourseImageDraft } from '../utils/sullyTimetableVision';
 import WorkspaceReminderControls from './WorkspaceReminderControls';
-import { cancelItemReminders } from '../utils/studyRoomReminders';
+import { cancelItemReminders, setWorkspaceChatPermission } from '../utils/studyRoomReminders';
 import {
   calculatePlanRisks, emptyWorkspace, localDate, newWorkspaceId,
-  orderedCommissions, readWorkspace, writeWorkspace,
-  type ClassHomework, type Commission, type TimetableClass, type WorkspaceData, type WorkKind,
+  orderedCommissions, readWorkspace, mutateWorkspace, permissionForChar,
+  type ClassHomework, type Commission, type TimetableClass, type WorkspaceData, type WorkKind, type WorkspaceShareCategory,
 } from '../utils/sullyWorkspace';
 
 type FocusItem = { id: string; source?: {kind: WorkKind; id: string} };
@@ -37,10 +37,11 @@ const blankClass = () => ({
 });
 
 const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onDiscuss, selectedCharId, onSelectChar}) => {
-  const { apiConfig, addToast } = useOS();
+  const { apiConfig, addToast, characters } = useOS();
   const [data, setData] = useState<WorkspaceData>(emptyWorkspace);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
+  const [shareBusy, setShareBusy] = useState<WorkspaceShareCategory | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [draft, setDraft] = useState(blankCommission);
   const [classDraft, setClassDraft] = useState(blankClass);
@@ -66,8 +67,16 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   useEffect(() => {
     if (!loaded || !touched.current) return;
     const snapshot = data;
-    // Writes are serialized to prevent a slow old IndexedDB transaction overwriting a newer edit.
-    queue.current = queue.current.catch(() => {}).then(() => writeWorkspace(snapshot));
+    // Keep cloud-confirmed reminder UUIDs and authorization records from the freshest
+    // IndexedDB value. UI snapshots must never resurrect previously revoked consent.
+    queue.current = queue.current.catch(() => {}).then(async () => {
+      await mutateWorkspace(current => ({
+        ...current,
+        commissions: snapshot.commissions, classes: snapshot.classes,
+        homework: snapshot.homework, notes: snapshot.notes,
+        dailyAvailableMinutes: snapshot.dailyAvailableMinutes,
+      }));
+    });
     void queue.current.catch(e => setError('保存失败，请勿清理浏览器数据：' + String(e)));
   }, [data, loaded]);
 
@@ -77,6 +86,38 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   };
   const onReminderUpdate = (reminders: WorkspaceData['reminders']) =>
     setData(prev => ({...prev,reminders}));
+
+  const togglePrivateChat = async (category: WorkspaceShareCategory, enabled: boolean) => {
+    if (shareBusy || !selectedCharId) return;
+    if (enabled) {
+      if (!window.confirm('允许当前 Char 在普通私聊中读取这一分类的最小摘要？不会分享客户、价格、需求、课堂笔记或 PDF 原文。')) return;
+    } else if (!window.confirm(
+      '关闭共享后，今后的普通私聊不再读取此分类。还会尝试取消该 Char 在此分类下的固定提醒；取消失败的仍可能触发。确定继续？'
+    )) return;
+    setShareBusy(category);
+    try {
+      const result = await setWorkspaceChatPermission(selectedCharId, category, enabled);
+      setData(prev => ({
+        ...prev, privateChatPermissions: result.workspace.privateChatPermissions,
+        reminders: result.workspace.reminders,
+      }));
+      if(result.failedCancellations) {
+        addToast('共享已关闭，但 '+result.failedCancellations+' 条提醒取消失败或创建状态不明；请检查下方任务记录和 AMSG 云端管理。','error');
+      } else {
+        addToast(enabled ? '此 Char 的分类共享已开启' : '共享已关闭；关联提醒已处理','success');
+      }
+    } catch(e) {
+      // If remote cancellation fails after revocation, show actual persisted access and links.
+      try {
+        const actual = await readWorkspace();
+        setData(prev => ({
+          ...prev, privateChatPermissions: actual.privateChatPermissions,
+          reminders: actual.reminders,
+        }));
+      } catch {}
+      addToast('授权变更未完全确认：'+String(e),'error');
+    } finally { setShareBusy(null); }
+  };
   const stopItemReminders = async (kind:'commission'|'homework', id:string) => {
     try {
       const result = await cancelItemReminders(kind,id);
@@ -193,6 +234,33 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
 
   return <div className="text-neutral-900 space-y-5 pb-6">
     {error && <p role="alert" className="p-3 text-sm border border-neutral-500 rounded-lg">{error}</p>}
+    <section className={cardClass} aria-label="普通私聊授权">
+      <h3 className="font-semibold">普通私聊 · 数据授权</h3>
+      <p className="text-xs text-neutral-600">每个 Char 独立授权，默认全部关闭。开启仅分享课程时间、作业状态或画稿排期的有限摘要；永不自动分享客户、价格、详细需求、笔记与 PDF 原文。关闭后只阻止后续请求，已发送消息和历史记忆不会被自动删除。</p>
+      <label className="block text-xs">选择要授权的 Char
+        <select className={inputClass} value={selectedCharId} onChange={e=>onSelectChar(e.target.value)}>
+          <option value="">请选择 Char</option>
+          {characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </label>
+      {(['study','commissions'] as const).map(category => {
+        const enabled = permissionForChar(data, selectedCharId)[category];
+        const pending = data.reminders.filter(r => r.charId===selectedCharId &&
+          r.kind===(category==='study'?'homework':'commission')).length;
+        return <div className="flex flex-col gap-1" key={category}>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" disabled={!selectedCharId||!!shareBusy} checked={enabled}
+              onChange={e=>void togglePrivateChat(category,e.target.checked)}/>
+            {category==='study'?'允许私聊了解课程与作业进度':'允许私聊了解画稿排期与进度'}
+          </label>
+          {pending>0 && <p className="text-xs text-neutral-700">
+            此 Char 在该分类另有 {pending} 条固定提醒记录。关闭授权会尝试远端取消；
+            状态不明时需在事项下方和 AMSG 管理中核查。
+          </p>}
+        </div>;
+      })}
+      {shareBusy && <p className="text-xs text-neutral-600">正在保存授权并核对远端提醒…</p>}
+    </section>
     {section==='commissions' ? <>
       <header className="space-y-2">
         <h2 className="text-xl font-semibold">画师排单</h2>

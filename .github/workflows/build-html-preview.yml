@@ -29,12 +29,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test Sully workspace focus limits and commission planning
-        run: pnpm exec vitest run utils/sullyWorkspace.test.ts utils/studyRoomReminders.test.ts
+        run: pnpm exec vitest run utils/sullyWorkspace.test.ts utils/studyRoomReminders.test.ts utils/workspacePrivateChat.test.ts utils/workspacePrivateChat.wiring.test.ts
       - name: Check Sully workspace TypeScript diagnostics
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/sully-workspace-tsc.log 2>&1 || true
-          grep -E '^(apps/ScheduleApp.tsx|apps/WorkspacePanel.tsx|apps/WorkspaceReminderControls.tsx|apps/StudyApp.tsx|utils/sullyWorkspace.ts|utils/sullyWorkspace.test.ts|utils/studyRoomReminders.ts|utils/studyRoomReminders.test.ts|utils/sullyTimetableVision.ts|constants.tsx)[(]' /tmp/sully-workspace-tsc.log > /tmp/sully-workspace-target-errors.log || true
+          grep -E '^(apps/ScheduleApp.tsx|apps/WorkspacePanel.tsx|apps/WorkspaceReminderControls.tsx|apps/StudyApp.tsx|utils/sullyWorkspace.ts|utils/sullyWorkspace.test.ts|utils/studyRoomReminders.ts|utils/studyRoomReminders.test.ts|utils/sullyTimetableVision.ts|utils/workspacePrivateChat.ts|utils/workspacePrivateChat.test.ts|utils/workspacePrivateChat.wiring.test.ts|hooks/useChatAI.ts|constants.tsx)[(]' /tmp/sully-workspace-tsc.log > /tmp/sully-workspace-target-errors.log || true
           if [ -s /tmp/sully-workspace-target-errors.log ]; then
             cat /tmp/sully-workspace-target-errors.log
             exit 1

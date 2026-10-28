@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  cancelStudyReminder, createStudyReminder, permittedReminderText,
+  cancelStudyReminder, createStudyReminder, permittedReminderText, setWorkspaceChatPermission,
   validateReminderTime, type ReminderRemote,
 } from './studyRoomReminders';
-import { readWorkspace } from './sullyWorkspace';
+import { emptyWorkspace, readWorkspace } from './sullyWorkspace';
 
 let stored: unknown = null;
 vi.mock('./db', () => ({
@@ -81,5 +81,55 @@ describe('学习室 AMSG 固定提醒', () => {
     expect((await readWorkspace()).reminders[0].status).toBe('needs_review');
     await expect(createStudyReminder('homework','h2',at,host(),remote,now)).rejects.toThrow('已有提醒');
     expect(remote.schedule).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('撤回私聊授权与远端提醒联动', () => {
+  beforeEach(() => { stored = null; });
+  it('先停用当前 Char 的授权，再仅取消对应分类和角色的任务', async () => {
+    const current = emptyWorkspace();
+    current.privateChatPermissions={
+      char1:{study:true,commissions:true},
+      char2:{study:true,commissions:false},
+    };
+    current.reminders=[
+      {id:'h1',kind:'homework',itemId:'a',charId:'char1',fireAt:'2026-11-15T12:00:00Z',taskUuid:'uuid-h1',status:'scheduled'},
+      {id:'c1',kind:'commission',itemId:'b',charId:'char1',fireAt:'2026-11-15T12:00:00Z',taskUuid:'uuid-c1',status:'scheduled'},
+      {id:'h2',kind:'homework',itemId:'c',charId:'char2',fireAt:'2026-11-15T12:00:00Z',taskUuid:'uuid-h2',status:'scheduled'},
+    ];
+    stored=current;
+    const remote=setupRemote();
+    (remote.cancel as any).mockImplementation(async (uuid:string) => {
+      const observed=await readWorkspace();
+      expect(observed.privateChatPermissions.char1.study).toBe(false);
+      return {uuid,alreadyGone:false};
+    });
+    const result=await setWorkspaceChatPermission('char1','study',false,remote);
+    expect(result.failedCancellations).toBe(0);
+    expect(remote.cancel).toHaveBeenCalledTimes(1);
+    expect(remote.cancel).toHaveBeenCalledWith('uuid-h1');
+    expect(result.workspace.privateChatPermissions.char1).toEqual({study:false,commissions:true});
+    expect(result.workspace.privateChatPermissions.char2.study).toBe(true);
+    expect(result.workspace.reminders.map(r=>r.id)).toEqual(['c1','h2']);
+    expect(remote.schedule).not.toHaveBeenCalled();
+  });
+  it('取消失败不恢复授权，保留 UUID 和失败状态供再次核对', async () => {
+    const current=emptyWorkspace();
+    current.privateChatPermissions={char1:{study:false,commissions:true}};
+    current.reminders=[
+      {id:'c1',kind:'commission',itemId:'a',charId:'char1',fireAt:'2026-11-15T12:00:00Z',taskUuid:'cloud-uuid',status:'scheduled'},
+      {id:'c2',kind:'commission',itemId:'b',charId:'char1',fireAt:'2026-11-15T12:00:00Z',status:'needs_review'},
+    ];
+    stored=current;
+    const remote=setupRemote();
+    (remote.cancel as any).mockRejectedValueOnce(new Error('offline'));
+    const result=await setWorkspaceChatPermission('char1','commissions',false,remote);
+    expect(result.workspace.privateChatPermissions.char1.commissions).toBe(false);
+    expect(result.failedCancellations).toBe(2);
+    expect(result.workspace.reminders.map(r=>r.id)).toEqual(['c1','c2']);
+    expect(result.workspace.reminders[0].taskUuid).toBe('cloud-uuid');
+    expect(result.workspace.reminders[0].status).toBe('cancel_failed');
+    expect(remote.cancel).toHaveBeenCalledTimes(1);
   });
 });

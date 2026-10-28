@@ -1,5 +1,5 @@
 /**
- * 糯米机本地数据。独立于旧 StudyCourse / sully_pomodoro_v1。
+ * 学习室本地数据。独立于旧 StudyCourse / sully_pomodoro_v1。
  * 存在现有 assets IndexedDB store，随完整备份导出，不读取普通私聊。
  */
 import { DB } from './db';
@@ -72,7 +72,26 @@ export interface WorkspaceReminder {
   status: WorkspaceReminderStatus;
   error?: string;
 }
+/** Per-Char, per-category positive consent. Missing/legacy settings always deny. */
+export interface WorkspaceChatPermissions { study: boolean; commissions: boolean; }
+export type WorkspaceShareCategory = keyof WorkspaceChatPermissions;
+export const deniedWorkspaceChatPermissions = (): WorkspaceChatPermissions => ({
+  study: false, commissions: false,
+});
+export const permissionForChar = (
+  data: WorkspaceData, charId: string,
+): WorkspaceChatPermissions => {
+  if (!charId) return deniedWorkspaceChatPermissions();
+  const stored = data.privateChatPermissions?.[charId];
+  return {
+    study: stored?.study === true,
+    commissions: stored?.commissions === true,
+  };
+};
+
 export interface WorkspaceData {
+  /** Authorization map is not exported in private chat and is local-only. */
+  privateChatPermissions: Record<string, WorkspaceChatPermissions>;
   reminders: WorkspaceReminder[];
   commissions: Commission[];
   classes: TimetableClass[];
@@ -81,7 +100,7 @@ export interface WorkspaceData {
   dailyAvailableMinutes: number; // 绘画与学习共同的日可用预算
 }
 export const emptyWorkspace = (): WorkspaceData => ({
-  commissions: [], classes: [], homework: [], notes: [], reminders: [], dailyAvailableMinutes: 240,
+  commissions: [], classes: [], homework: [], notes: [], reminders: [], privateChatPermissions: {}, dailyAvailableMinutes: 240,
 });
 export const localDate = (date: Date): string =>
   [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
@@ -100,6 +119,14 @@ export function normalizeWorkspace(raw: unknown): WorkspaceData {
     homework: Array.isArray(obj.homework) ? obj.homework : [],
     notes: Array.isArray(obj.notes) ? obj.notes : [],
     reminders: Array.isArray(obj.reminders) ? obj.reminders : [],
+    // Legacy backup and malformed import must fail closed.
+    privateChatPermissions: obj.privateChatPermissions && typeof obj.privateChatPermissions === 'object'
+      && !Array.isArray(obj.privateChatPermissions)
+      ? Object.fromEntries(Object.entries(obj.privateChatPermissions).filter(([id]) => !!id)
+        .map(([id, value]) => [id, {
+          study: (value as WorkspaceChatPermissions | null)?.study === true,
+          commissions: (value as WorkspaceChatPermissions | null)?.commissions === true,
+        }])) : {},
     dailyAvailableMinutes: Number.isFinite(obj.dailyAvailableMinutes)
       ? Math.max(0, Math.min(1440, Number(obj.dailyAvailableMinutes))) : fallback.dailyAvailableMinutes,
   };

@@ -13,6 +13,7 @@ import { resolveAmsgLimits } from './amsgLimits';
 import {
   mutateWorkspace, newWorkspaceId, readWorkspace,
   type WorkspaceData, type WorkspaceReminder, type WorkspaceReminderKind,
+  type WorkspaceShareCategory, permissionForChar,
 } from './sullyWorkspace';
 
 export const STUDY_REMINDER_MIN_LEAD_MS = 2 * 60_000;
@@ -184,4 +185,39 @@ export async function cancelItemReminders(
     try { await cancelStudyReminder(entry.id, remote); } catch { failed += 1; }
   }
   return { workspace: await readWorkspace(), failed };
+}
+
+
+/**
+ * Per-Char privacy gate. Revocation persists FIRST (future private-chat requests stop
+ * seeing this category), then attempts to cancel only this Char's category reminders.
+ * Failed or ambiguous remote tasks keep local UUID/error for explicit retries.
+ */
+export async function setWorkspaceChatPermission(
+  charId: string,
+  category: WorkspaceShareCategory,
+  enabled: boolean,
+  remote: ReminderRemote = remoteDefault,
+): Promise<{ workspace: WorkspaceData; failedCancellations: number }> {
+  if (!charId || (category !== 'study' && category !== 'commissions')) {
+    throw new Error('无效的角色或分享分类');
+  }
+  const next = await mutateWorkspace(w => ({
+    ...w,
+    privateChatPermissions: {
+      ...w.privateChatPermissions,
+      [charId]: { ...permissionForChar(w, charId), [category]: enabled },
+    },
+  }));
+  if (enabled) return {workspace: next, failedCancellations: 0};
+  let failedCancellations = 0;
+  const kind: WorkspaceReminderKind = category === 'commissions' ? 'commission' : 'homework';
+  for (const entry of next.reminders.filter(r => r.kind === kind && r.charId === charId)) {
+    try {
+      await cancelStudyReminder(entry.id, remote);
+    } catch {
+      failedCancellations += 1;
+    }
+  }
+  return {workspace: await readWorkspace(), failedCancellations};
 }
