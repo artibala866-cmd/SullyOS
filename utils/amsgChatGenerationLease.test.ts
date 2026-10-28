@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {describe,it,expect,beforeEach} from 'vitest';
-import {isLocalChatLeaseActive,touchLocalChatLease,LOCAL_CHAT_LEASE_TTL_MS} from './amsgChatGenerationLease';
+import {isLocalChatLeaseActive,touchLocalChatLease,LOCAL_CHAT_LEASE_TTL_MS,beginLocalChatGenerationLease} from './amsgChatGenerationLease';
 describe('foreground real-person and Char-phone independent AI arbitration',()=>{
  beforeEach(()=>localStorage.clear());
  it('shares only a short active time, never the private message body',()=>{
@@ -13,6 +13,12 @@ describe('foreground real-person and Char-phone independent AI arbitration',()=>
  it('expires automatically after a stopped or crashed chat window',()=>{
    touchLocalChatLease('char',1_000_000);
    expect(isLocalChatLeaseActive('char',1_000_000+LOCAL_CHAT_LEASE_TTL_MS)).toBe(false);
+ });
+ it('the lease is actively refreshed through long replies, then stops refreshing when complete',()=>{
+   const end=beginLocalChatGenerationLease('long-chat');
+   expect(isLocalChatLeaseActive('long-chat')).toBe(true);
+   end();end(); // idempotent finalizer
+   expect(isLocalChatLeaseActive('long-chat')).toBe(true);
  });
  it('ignores missing, malformed and future leases without blocking phone activities',()=>{
    expect(isLocalChatLeaseActive('char')).toBe(false);

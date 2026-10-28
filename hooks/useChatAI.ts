@@ -43,6 +43,7 @@ import {
 } from '../utils/streamPreview';
 import { ActiveMsgStore } from '../utils/activeMsgStore';
 import { markAmsgStateDirty, startAmsgChatPresence, stopAmsgChatPresence } from '../utils/amsgStateSync';
+import {beginLocalChatGenerationLease} from '../utils/amsgChatGenerationLease';
 import { getLastRealUserMessageAt } from '../utils/amsg2ExpireGuard';
 import { getPendingTasks, hasActiveAiTask, isAmsg2EnabledForChar } from '../utils/amsg2Tasks';
 import { buildAmsg2NoticesText, buildAmsg2TaskContextText, collectAmsg2TaskContext, insertAmsg2TaskContextBlock } from '../utils/amsg2TaskContext';
@@ -706,6 +707,7 @@ export const useChatAI = ({
             return outcome;
         };
 
+        const stopLocalPhoneLease=beginLocalChatGenerationLease(char.id);
         try {
             // Include SW readiness in send→API timing; it can be the first request's wait.
             const perfSendT0 = performance.now();
@@ -2134,6 +2136,7 @@ export const useChatAI = ({
             }
             setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
         } finally {
+            stopLocalPhoneLease();
             try {
                 await replyRun.settle();
                 if (replyRun.signal.aborted) setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
