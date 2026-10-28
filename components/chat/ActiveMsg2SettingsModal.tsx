@@ -647,8 +647,8 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             <div className="font-bold text-slate-700">启用主动消息 2.0</div>
             <div className="text-xs text-neutral-600 mt-1">{pushSummary || '正在检查 Push 状态...'}</div>
             {enabled && <div className="text-[11px] text-slate-500 mt-1">
-              {autonomousCount ? `每天已安排 ${autonomousCount} 次自主联系机会（可能选择不发）`
-                : saved?.lastError?.startsWith('自主联系建立失败') ? saved.lastError
+              {saved?.lastError?.startsWith('自主联系建立失败') ? saved.lastError
+                : autonomousCount ? `每天已安排 ${autonomousCount} 次自主联系机会（可能选择不发）`
                 : tasks.length >= resolveAmsgLimits(saved).maxActiveTasks ? '任务名额已满，无法安排自主联系；删除过时的手动任务后会恢复'
                 : '正在建立自主联系机会；需先正确连接云端 Worker'}
             </div>}

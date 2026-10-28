@@ -153,6 +153,14 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
       }));
     }
     recentFailure.delete(char.id);
+    // A prior transient cloud error is no longer current once at least one
+    // durable wake is confirmed. Don't leave a scary stale failure beside
+    // an actually healthy recurring schedule.
+    if(tasks.some(isAutonomyWakeTask)&&char.activeMsg2Config?.lastError?.startsWith('自主联系建立失败')){
+      args.onSave(prev=>prev?.enabled===false?prev:{
+        ...(prev||{enabled:true}),lastError:undefined,
+      });
+    }
   }catch(e){
     recentFailure.set(char.id,Date.now());
     // A failed background schedule must not look like a successful
