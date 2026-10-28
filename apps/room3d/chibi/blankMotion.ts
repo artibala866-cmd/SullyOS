@@ -51,7 +51,7 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
   const dt=previous===undefined?0:time<previous||motion!==previousMotion||posture!==previousPosture?1/30:time-previous;
   // A static/reduced-motion draw must also reach the requested pose. A posture
   // change snaps to its contact plane; limb emotes can blend while it stays put.
-  const blend=activity?.kind==='seat-change'||bed||water||previous===undefined||posture!==previousPosture||motion==='idle'||dt===0||time>=.5&&motion!==previousMotion?1:1-Math.exp(-Math.min(dt,.5)*14);
+  const blend=activity?.kind==='seat-change'||activity?.kind.startsWith('bath-')||bed||water||previous===undefined||posture!==previousPosture||motion==='idle'||dt===0||time>=.5&&motion!==previousMotion?1:1-Math.exp(-Math.min(dt,.5)*14);
   previous=time;previousMotion=motion;previousPosture=posture;
   for(const q of targetRotations)q.identity();
   position.set(0,0,0);rotation.identity();
