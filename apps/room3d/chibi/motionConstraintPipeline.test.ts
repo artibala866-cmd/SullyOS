@@ -13,16 +13,19 @@ function fixture(plans=motionConstraintPlans){
  return {calls,handlers,runner:createMotionConstraintPipeline(handlers,plans)};
 }
 describe('lightweight reusable motion constraint scheduler',()=>{
- it('opts in only the tested hand motion and leaves intimacy and other actions untouched',()=>{
+ it('applies the shared four-stage order to all eight existing contacts without rewriting intimacy',()=>{
   const {runner,calls}=fixture();
-  expect(runner.activate('home-hug')).toBe(false);
-  expect(runner.run()).toBe(false);
-  expect(runner.activate('home-kiss')).toBe(false);
-  expect(runner.activate('cmu-18_03')).toBe(false);
-  expect(runner.activate('cmu-20_10')).toBe(true);
-  expect(runner.phases).toEqual(phases);
-  expect(runner.run()).toBe(true);
-  expect(calls).toEqual(phases);
+  for(const id of ['home-hug','home-kiss','home-princess-carry']){
+   expect(runner.activate(id)).toBe(false);
+   expect(runner.run()).toBe(false);
+  }
+  const ids=['cmu-20_10','cmu-18_03','cmu-20_12','cmu-22_07','cmu-22_05','cmu-22_04','cmu-22_09','cmu-22_03'];
+  for(const id of ids){
+   expect(runner.activate(id)).toBe(true);
+   expect(runner.phases).toEqual(phases);
+   expect(runner.run()).toBe(true);
+  }
+  expect(calls).toEqual(ids.flatMap(()=>phases));
  });
  it('resets on cancel/end and never invokes an inactive solver',()=>{
   const {runner,calls,handlers}=fixture();

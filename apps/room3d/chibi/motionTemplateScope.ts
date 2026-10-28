@@ -20,6 +20,11 @@ export function createMotionTemplateScope(){
   },
   current(token:number){return token===revision&&action!==null;},
   stop,
+  /** Dispose every resource and report a release failure without interrupting
+   * higher-level session/pose reset. Unlike stop(), this never throws. */
+  stopSafely():unknown{
+   try{stop();return null;}catch(error){return error;}
+  },
   get active(){return action;},
   get ownedCount(){return objects.length;},
  };

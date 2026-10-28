@@ -6,7 +6,7 @@ import {poseHug} from './hugMotion';
 import {poseRearHug} from './rearHugMotion';
 import {poseHandHoldPlead} from './handHoldPleadMotion';
 import {poseSofaLapPillow} from './sofaLapPillowMotion';
-import {settleLegContact} from './legContactIK';
+import {captureLegSupport,restoreLegSupport} from './legContactIK';
 import {lipWorld,aimLipContact} from './headContactIK';
 
 type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
@@ -60,11 +60,8 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
    const difference=Math.max(0,gap-.035);
    const rise=T.MathUtils.clamp(difference*.32,0,.18)*heightBlend;
    const bend=T.MathUtils.clamp((difference-rise)*.55,0,.25)*heightBlend;
-   // Record both residents' original contact planes before modifying legs.
-   const groundOf=(v:ChibiVisitor)=>{v.root.updateWorldMatrix(true,true);return Math.min(...(['L_toe','R_toe','L_foot','R_foot'] as const).map(n=>v.rig!.bones[n].getWorldPosition(new T.Vector3()).y));};
-   const tallerGround=groundOf(taller);
-   shorter.root.updateWorldMatrix(true,true);
-   const toeBefore=['L_toe','R_toe'].map(n=>shorter.rig!.bones[n].getWorldPosition(new T.Vector3()));
+   // Take world-space stance snapshots before height blending alters the knees.
+   const shorterSupport=captureLegSupport(shorter),tallerSupport=captureLegSupport(taller);
    for(const side of ['L','R'] as const){
     const foot=shorter.rig!.bones[side+'_foot'];
     const toe=shorter.rig!.bones[side+'_toe'];
@@ -84,27 +81,14 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
     taller.rig!.bones[side+'_shin'].quaternion.multiply(rotation(bend*3.1));
     taller.rig!.bones[side+'_foot'].quaternion.multiply(rotation(-bend*1.3));
    }
-   shorter.root.updateWorldMatrix(true,true);
-   const toeAfter=['L_toe','R_toe'].map(n=>shorter.rig!.bones[n].getWorldPosition(new T.Vector3()));
-   // Keep each toe near its pre-pose contact point while allowing the heel
-   // to rise. The short CCD chain shares the adjustment with shin and thigh.
-   if(rise>.002)for(const side of ['L','R'] as const){
-    const index=side==='L'?0:1;
-    settleLegContact(shorter,side,toeBefore[index],heightBlend);
-   }
-   // Preserve the lowest planted toe rather than averaging both feet:
-   // averaging can leave one foot penetrating the floor.
-   const beforeFloor=Math.min(...toeBefore.map(p=>p.y));
-   const afterFloor=Math.min(...toeAfter.map(p=>p.y));
-   const correction=T.MathUtils.clamp(beforeFloor-afterFloor,-.12,.12);
-   shorter.translatePose(new T.Vector3(0,correction,0));
+   // Toe targets must be sampled again after IK, not from the pre-IK cache.
+   // Rising on the toes intentionally changes foot pitch.
+   restoreLegSupport(shorter,shorterSupport,false);
    taller.rig!.bones.spine.quaternion.multiply(rotation(bend*.9));
    taller.rig!.bones.chest.quaternion.multiply(rotation(bend*1.05));
    taller.rig!.bones.neck.quaternion.multiply(rotation(bend*.45));
-   // Knee flexion can lower the sole below the floor. Restore the taller
-   // resident's original contact plane without moving the navigation root.
-   const tallerCorrection=T.MathUtils.clamp(tallerGround-groundOf(taller),-.12,.12);
-   if(Math.abs(tallerCorrection)>1e-5)taller.translatePose(new T.Vector3(0,tallerCorrection,0));
+   // Keep the taller partner's world foot direction as knees fold.
+   restoreLegSupport(taller,tallerSupport);
    a.root.updateWorldMatrix(true,true);
    b.root.updateWorldMatrix(true,true);
   }
@@ -174,14 +158,22 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
   const facing=both[index].visitor.root.getWorldQuaternion(new T.Quaternion());
   both[index].solver?.({side,point:target,direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(facing),normal:new T.Vector3(0,1,0).applyQuaternion(facing),curl},p.contact);
  };
- const sole=()=>Math.min(...['L_toe','R_toe','L_foot','R_foot'].map(n=>point(a,n).y));
- const standingSole=sole();
+ const carrierSupport=captureLegSupport(a);
+ // Maintain a small grounded load response throughout the lift and hold.
+ // Scale its amount by actual torso lengths, not by an assumed avatar height.
+ // This is a bounded kinematic counterbalance, NOT a simulated mass system.
+ const carrierTorso=point(a,'chest').distanceTo(point(a,'hips'));
+ const recipientTorso=point(b,'chest').distanceTo(point(b,'hips'));
+ const sizeRatio=T.MathUtils.clamp(recipientTorso/Math.max(.01,carrierTorso),.7,1.35);
+ const loadedKnee=p.lift*.085*sizeRatio,flex=p.crouch+loadedKnee;
  for(const side of ['L','R'] as const){
-  turn(a,side+'_thigh',rotation(-p.crouch,0,(side==='L'?-.05:.05)*p.contact),1);
-  turn(a,side+'_shin',rotation(p.crouch*2),1);
-  turn(a,side+'_foot',rotation(-p.crouch),1);
+  turn(a,side+'_thigh',rotation(-flex,0,(side==='L'?-.05:.05)*p.contact),1);
+  turn(a,side+'_shin',rotation(flex*2),1);
+  turn(a,side+'_foot',rotation(-flex),1);
  }
- a.root.updateWorldMatrix(true,true);a.translatePose(new T.Vector3(0,standingSole-sole(),0));
+ a.rig.bones.spine.quaternion.multiply(rotation(-loadedKnee*.7));
+ a.rig.bones.chest.quaternion.multiply(rotation(loadedKnee*.42));
+ a.root.updateWorldMatrix(true,true);restoreLegSupport(a,carrierSupport);
  // The recipient turns across the carrier, folds both knees, then rises into the arms.
  turn(b,'hips',rotation(0,Math.PI/2,0).multiply(rotation(-.45)),p.lift);
  for(const side of ['L','R'] as const){
@@ -190,8 +182,36 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
   turn(b,side+'_foot',rotation(.12),p.lift);
  }
  b.root.updateWorldMatrix(true,true);
- const target=point(a,'hips',[.25,.58,.86]);
+ // Position the carried pelvis relative to real carrier torso/shoulder span.
+ // No fixed avatar-size offset: the mesh and actor's scene scale decide reach.
+ const carrierHip=point(a,'hips'),carrierChest=point(a,'chest');
+ const leftShoulder=point(a,'L_upperArm'),rightShoulder=point(a,'R_upperArm');
+ const shoulderSpan=leftShoulder.distanceTo(rightShoulder);
+ const front=new T.Vector3(0,0,1).applyQuaternion(a.rig.bones.hips.getWorldQuaternion(new T.Quaternion())).normalize();
+ const across=new T.Vector3().subVectors(rightShoulder,leftShoulder).normalize();
+ const target=carrierHip.clone().lerp(carrierChest,.8)
+  .addScaledVector(front,shoulderSpan*.95).addScaledVector(across,shoulderSpan*.18);
  b.translatePose(target.sub(point(b,'hips')).multiplyScalar(p.lift));
+ // Both holding arms must reach their respective support anchors. Move the
+ // recipient as one rigid pose layer (not individual stretched limbs).
+ if(p.lift>.001)for(let iteration=0;iteration<4;iteration++){
+  a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
+  const supports=[
+   {joint:point(a,'L_upperArm'),anchor:point(b,'spine',[0,.10,-.16]),side:'L'},
+   {joint:point(a,'R_upperArm'),anchor:point(b,'R_shin',[0,.08,-.10]),side:'R'},
+  ] as const;
+  const correction=new T.Vector3();let count=0;
+  for(const {joint,anchor,side} of supports){
+   const reach=(a.rig.bones[side+'_forearm'].position.length()+a.rig.bones[side+'_hand'].position.length())
+    *a.rig.bones[side+'_upperArm'].getWorldScale(new T.Vector3()).x*.96;
+   const separation=anchor.clone().sub(joint),distance=separation.length();
+   if(distance>reach&&distance>1e-6){correction.addScaledVector(separation,(reach-distance)/distance);count++;}
+  }
+  if(!count)break;
+  const step=correction.multiplyScalar(p.lift/count).clampLength(0,.16);
+  if(step.lengthSq()<1e-8)break;
+  b.translatePose(step);
+ }
  for(const side of ['L','R'] as const){
   turn(a,side+'_upperArm',rotation(-.15,side==='L'?-.6:.6,side==='L'?-.8:.8),p.contact);
   turn(b,side+'_upperArm',rotation(-.2,side==='L'?-.6:.6,side==='L'?-.6:.6),p.contact);

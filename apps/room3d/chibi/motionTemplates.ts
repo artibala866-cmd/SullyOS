@@ -116,7 +116,7 @@ export function compileMotionTemplates(
  const templates:Record<string,MotionTemplate>={};
  const inherited:Record<string,MotionTemplateDraft>={};
  for(const [id,contact] of Object.entries(existingContacts))
-  inherited[id]={participants:2,capabilities:[...new Set<MotionCapability>(['pairedSync','residentNavigation',...contact.capabilities])],contact,phases:existingPlans[id]};
+  inherited[id]={participants:2,capabilities:[...new Set<MotionCapability>(['pairedSync','residentNavigation',...contact.capabilities])],posture:'standing',standingHeight:'contact',contact,phases:existingPlans[id]};
  for(const id of Object.keys(custom))if(id in inherited)throw Error('Motion template duplicates an existing contact profile: '+id);
  const phases=new Set<MotionConstraintPhase>(['bodyPlacement','clearance','contactIK','presentation']);
  for(const [id,draft] of Object.entries({...inherited,...custom})){
@@ -177,8 +177,9 @@ export function compileMotionTemplates(
  return Object.freeze(templates);
 }
 
-/** All eight Stage-1 contact profiles are inherited; only the already opted-in
- * Stage-2 motion receives a pipeline schedule. New presets may opt in directly.
+/** All eight established contact profiles retain their authored timing and
+ * cached IK, and now opt in to the same post-pose constraint order. Seated
+ * actions are guarded by the pinned pose checks in selectedSocial.
  */
 export const motionTemplates=compileMotionTemplates(
  selectedMotions,authoredMotionTemplates,motionContactProfiles,motionConstraintPlans

@@ -22,7 +22,11 @@ describe('Stage 5 motion authoring contract',()=>{
   expect(motionTemplateFor('home-rear-hug')?.phases).toBeUndefined();
   expect(motionTemplateFor('home-kiss')).toBeUndefined();
   expect(motionTemplateFor('home-princess-carry')).toBeUndefined();
-  expect(Object.keys(motionTemplateConstraintPlans).sort()).toEqual(['cmu-20_10','home-head-pat'].sort());
+  expect(Object.keys(motionTemplateConstraintPlans).sort()).toEqual([...Object.keys(motionContactProfiles),'home-head-pat'].sort());
+  for(const id of Object.keys(motionContactProfiles)){
+   expect(motionTemplateFor(id)?.standingHeight).toBe('contact');
+   expect(motionTemplateFor(id)?.phases).toEqual(['bodyPlacement','clearance','contactIK','presentation']);
+  }
  });
  it('registers the only new playful hair pat in the existing close category',()=>{
   const entry=selectedMotions.find(e=>e.id==='home-head-pat');
@@ -83,6 +87,23 @@ describe('temporary scene resources and stale action protection',()=>{
   expect(scope.active).toBeNull();
   expect(scope.ownedCount).toBe(0);
   expect(calls).toEqual(['cup','phone']);
+ });
+ it('reports a release failure without blocking action reset or later reuse',()=>{
+  const scope=createMotionTemplateScope(),calls:string[]=[];
+  scope.begin('social-action');
+  scope.own({dispose:()=>calls.push('left hand')});
+  scope.own({dispose:()=>{calls.push('failed prop');throw Error('prop cleanup');}});
+  scope.own({dispose:()=>calls.push('right hand')});
+  const error=scope.stopSafely();
+  expect(error).toBeInstanceOf(Error);
+  expect((error as Error).message).toBe('prop cleanup');
+  expect(calls).toEqual(['right hand','failed prop','left hand']);
+  expect(scope.ownedCount).toBe(0);
+  expect(scope.active).toBeNull();
+  expect(scope.stopSafely()).toBeNull();
+  scope.begin('next action');
+  expect(scope.active).toBe('next action');
+  scope.stop();
  });
  it('releases other resources even if one dispose throws',()=>{
   const scope=createMotionTemplateScope(),dispose=vi.fn();

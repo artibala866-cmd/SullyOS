@@ -1,0 +1,62 @@
+name: Home3D motion regression (tests only)
+on:
+  push:
+    branches:
+      - fix/home3d-motion-foundation-recovery-20261027
+  pull_request:
+    branches:
+      - feat/amaama-unity-retarget-probe
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home3d-motion-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run targeted gait, contact, height and intimacy regressions
+        run: >-
+          pnpm exec vitest run
+          utils/chibiSocial.test.ts
+          utils/chibiRoomWalk.test.ts
+          utils/chibiFurnitureMotion.test.ts
+          utils/chibiMotionRecovery.test.ts
+          utils/chibiAllSelectedMotionAssets.test.ts
+          utils/chibiIntimacy.test.ts
+          apps/room3d/chibi/motionTemplates.test.ts
+          apps/room3d/chibi/motionConstraintPipeline.test.ts
+          apps/room3d/chibi/standingHeightAdaptation.test.ts
+          apps/room3d/chibi/motionContactProfiles.test.ts
+          apps/room3d/chibi/hugArmClearance.test.ts
+          apps/room3d/chibi/headPatMotion.test.ts
+          apps/room3d/chibi/rearHugMotion.test.ts
+          apps/room3d/chibi/handHoldPleadMotion.test.ts
+          apps/room3d/chibi/sofaLapPillowMotion.test.ts
+          apps/room3d/chibi/sneakKissMotion.test.ts
+          apps/room3d/chibi/passionKissMotion.test.ts
+          apps/room3d/chibi/pairedHandContact.test.ts
+          apps/room3d/chibi/templateFaceContact.test.ts
+          apps/room3d/chibi/faceContactProfiles.test.ts
+          apps/room3d/chibi/socialPropsTemplate.test.ts
+          apps/room3d/navigation.test.js
+          apps/room3d/socialSpace.test.js
+      - name: Fetch baseline for incremental TypeScript comparison
+        run: git fetch --no-tags --depth=1 origin feat/amaama-unity-retarget-probe:refs/remotes/origin/feat/amaama-unity-retarget-probe
+      - name: Check new TypeScript errors in modified Home3D files
+        run: node --max-old-space-size=4096 scripts/home3d-motion-typecheck.mjs

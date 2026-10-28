@@ -70,9 +70,10 @@ export function poseHug(both:Resident[],time:number,seatedIndex?:number){
    // from cutting through the very same torso proxy used by the elbow solver.
    const target=ready.lerp(back,p.wrap)
     .add(new T.Vector3(sign*.36,.07,0).applyQuaternion(ownerQ).multiplyScalar(Math.sin(Math.PI*p.wrap)));
-   // Pat against the back, not through it or 24 cm beyond it.
+   // Tangential travel along the partner's back. The former small stroke
+   // was below the established 4 cm pat-travel regression; avoid penetrating.
    const scale=partner.rig!.bones.chest.getWorldScale(new T.Vector3()).x;
-   target.add(new T.Vector3(0,.03,-.05).applyQuaternion(backQ).multiplyScalar(scale*p.pat));
+   target.add(new T.Vector3(0,.12,-.09).applyQuaternion(backQ).multiplyScalar(scale*p.pat));
    if(p.wrap>.03)hugOutsideTarget(partner,target);
    const {direction,normal}=hugHandContact(side,i,p.wrap,p.pat,ownerQ,backQ);
    const contact={side,point:target,direction,normal};

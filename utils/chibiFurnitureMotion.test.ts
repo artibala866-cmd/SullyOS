@@ -7,7 +7,7 @@ import {createBlankBody,BLANK_SCALE} from '../apps/room3d/chibi/blankBody';
 import {bindBlankBody} from '../apps/room3d/chibi/blankRig';
 import {createBlankMotion} from '../apps/room3d/chibi/blankMotion';
 import {bodyHeightY} from '../apps/room3d/chibi/bodyHeight';
-import {furniturePalm,racingHands} from '../apps/room3d/chibi/furnitureMotion';
+import {furnitureHandRotation,furniturePalm,racingHands} from '../apps/room3d/chibi/furnitureMotion';
 import {readFileSync} from 'node:fs';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {createGamingEffects} from '../apps/room3d/gamingEffects.js';
@@ -110,5 +110,20 @@ it('ordinary low seats lift feet above the floor while preserving the pelvis con
  const a=actor(),height=.15+slot.position[1]-.18;
  a.animate(2,'idle','seated',{kind:'seat-rest',hands:[],seatHeight:height/a.parent.scale.y,seatPose:'chair'});
  for(const side of ['R','L'])expect(a.rig.bones[side+'_foot'].getWorldPosition(new T.Vector3()).y+height).toBeGreaterThan(.12);
+ }
+});
+
+it('normalizes hand contact frames even with degenerate or near-parallel axes',()=>{
+ for(const side of ['L','R'])for(const [direction,normal] of [
+  [[1,0,0],[1,0,0]],[[0,1,0],[0,1,1e-9]],[[0,0,0],[0,0,0]],
+  [[0,0,1],[0,0,1]],[[.2,.3,.4],[.2,.30000001,.4]],
+ ]){
+  const q=furnitureHandRotation(side,direction,normal);
+  expect([q.x,q.y,q.z,q.w].every(Number.isFinite)).toBe(true);
+  expect(q.length()).toBeCloseTo(1,6);
+  const basis=new T.Matrix4().makeRotationFromQuaternion(q);
+  const axes=[new T.Vector3(1,0,0),new T.Vector3(0,1,0),new T.Vector3(0,0,1)].map(p=>p.applyMatrix4(basis));
+  for(const axis of axes)expect(axis.length()).toBeCloseTo(1,6);
+  for(let i=0;i<3;i++)for(let j=i+1;j<3;j++)expect(Math.abs(axes[i].dot(axes[j]))).toBeLessThan(1e-6);
  }
 });
