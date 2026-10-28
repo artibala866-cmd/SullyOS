@@ -1,0 +1,46 @@
+name: Music playback regression (tests only)
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'context/MusicContext.tsx'
+      - 'utils/musicPlaybackState.ts'
+      - 'utils/musicPlaybackState.test.ts'
+      - 'utils/musicLibrary.ts'
+      - 'utils/musicCache.ts'
+      - 'utils/musicTogether.test.ts'
+      - 'utils/musicInviteStatus.test.ts'
+      - '.github/workflows/music-playback-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sullyos-music-playback
+  cancel-in-progress: false
+jobs:
+  music:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test music queue, audio events, URLs and invitations
+        run: pnpm exec vitest run utils/musicPlaybackState.test.ts utils/musicTogether.test.ts utils/musicLibrary.test.ts utils/musicInviteStatus.test.ts
+      - name: Check music TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/music-playback-tsc.log 2>&1 || true
+          grep -E '^(context/MusicContext.tsx|apps/MusicApp.tsx|utils/musicPlaybackState.ts|utils/musicPlaybackState.test.ts|utils/musicTogether.test.ts|utils/musicLibrary.ts|utils/musicCache.ts|utils/musicInviteStatus.ts|utils/musicInviteStatus.test.ts)[(]' /tmp/music-playback-tsc.log > /tmp/music-playback-errors.log || true
+          if [ -s /tmp/music-playback-errors.log ]; then
+            cat /tmp/music-playback-errors.log
+            exit 1
+          fi
+          echo 'Music playback TypeScript diagnostics: clean.'
