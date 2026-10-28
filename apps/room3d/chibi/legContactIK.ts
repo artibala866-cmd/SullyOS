@@ -103,10 +103,17 @@ export function createWorldFootLock(){
   const knee=v.rig.bones[side+'_shin'].getWorldPosition(new T.Vector3());
   const ankle=v.rig.bones[side+'_foot'].getWorldPosition(new T.Vector3());
   const reach=hip.distanceTo(knee)+knee.distanceTo(ankle);
-  if(locked.distanceTo(toes[side])>Math.max(.18,reach*.6)){locked.copy(toes[side]);return;}
+  // A deliberately planted furniture foot must not silently re-anchor after
+  // a deep knee bend. Only ordinary walk clips may change their stance target
+  // at the shorter swing-foot threshold. Unreachable contacts remain for the
+  // caller's safety gate to reject rather than presenting a false foot lock.
+  if(locked.distanceTo(toes[side])>Math.max(forcedSide?.22:.18,reach*(forcedSide?.88:.6))){
+   if(!forcedSide)locked.copy(toes[side]);
+   return;
+  }
   // Walking needs stronger convergence than one-shot head/seat adjustments.
   // Fixed bone lengths; only the existing thigh and shin rotate.
-  settleLegContact(v,side,locked,.95,{iterations:6,maxAngle:.12});
+  settleLegContact(v,side,locked,.95,{iterations:forcedSide?8:6,maxAngle:forcedSide?.16:.12});
   // IK cannot correct an unreachable toe by bending knees alone. A bounded
   // pelvis-layer counter-shift carries the remaining stance error without
   // moving the navigation root or stretching any bone. The authored base pose
