@@ -78,7 +78,7 @@ export function createWorldFootLock(){
  let previousTime:number|null=null;
  const reset=()=>{side=null;previousTime=null;};
  return {reset,get supportSide(){return side;},get targetWorld(){return side?locked.clone():null;},apply(
-  v:Pick<ChibiVisitor,'root'|'rig'> & {translatePose?:(delta:T.Vector3)=>void},time:number,speed:number,walking=true
+  v:Pick<ChibiVisitor,'root'|'rig'> & {translatePose?:(delta:T.Vector3)=>void},time:number,speed:number,walking=true,forcedSide:'L'|'R'|null=null
  ){
   if(!walking||!v.rig||!Number.isFinite(time)||!Number.isFinite(speed)||speed<=0){reset();return;}
   v.root.updateWorldMatrix(true,true);
@@ -87,13 +87,13 @@ export function createWorldFootLock(){
   if(previousTime!==null&&(dt<=0||dt>.35||root.distanceTo(previousRoot)>Math.max(.22,3*speed*dt)))reset();
   previousRoot.copy(root);previousTime=time;
   const toes={L:v.rig.bones.L_toe.getWorldPosition(new T.Vector3()),R:v.rig.bones.R_toe.getWorldPosition(new T.Vector3())};
-  const candidate:'L'|'R'=toes.L.y<=toes.R.y?'L':'R';
+  const candidate:'L'|'R'=forcedSide??(toes.L.y<=toes.R.y?'L':'R');
   const toeScale=v.rig.bones.L_toe.getWorldScale(new T.Vector3()).x;
   const hysteresis=Math.max(.008,Math.abs(toeScale)*.012);
   const other=side==='L'?'R':'L';
   // Crossing a small vertical margin changes the planted foot; a tie keeps
   // the previous contact so the solver cannot chatter at phase boundaries.
-  if(side===null||toes[other].y+hysteresis<toes[side].y){
+  if(side===null||(forcedSide?side!==forcedSide:toes[other].y+hysteresis<toes[side].y)){
    side=candidate;locked.copy(toes[side]);return;
   }
   // Don't drag the planted foot through a teleport or impossible stride.
