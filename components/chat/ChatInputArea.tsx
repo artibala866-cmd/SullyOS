@@ -33,6 +33,7 @@ interface ChatInputAreaProps {
     onGenerate?: () => void;
     autoReplyEnabled?: boolean;
     autoReplySeconds?: number | null;
+    autoReplyWaitingReason?: string | null;
     onCancelAutoReply?: () => void;
     onInputFocusChange?: (focused: boolean) => void;
     onDeleteSelected: () => void;
@@ -91,7 +92,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     input, setInput, isTyping, selectionMode, compactHome=false,
     showPanel, setShowPanel, onSend, onDeleteSelected, onForwardSelected, onFavoriteSelected, favoriteSelectedCount = 0, selectedCount,
     sendButtonGenerates = false, enterToSend = true, onGenerate,
-    autoReplyEnabled = false, autoReplySeconds = null, onCancelAutoReply, onInputFocusChange,
+    autoReplyEnabled = false, autoReplySeconds = null, autoReplyWaitingReason = null, onCancelAutoReply, onInputFocusChange,
     emojis, characters = [], activeCharacterId = '', onCharSelect = () => {},
     emojiSuggestionsEnabled = false, suggestionEmojis = emojis,
     unreadMessages = {},
@@ -734,9 +735,9 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                     </div>
                 </div>
             )}
-            {autoReplySeconds !== null && !selectionMode && (
+            {(autoReplySeconds !== null || autoReplyWaitingReason) && !selectionMode && (
                 <div className={`sully-chat-auto-reply shrink-0 relative z-40 flex min-h-10 items-center justify-center gap-1 px-4 text-xs text-slate-500 ${shellClass}`}>
-                    <span role="status">即将回复 · {autoReplySeconds} 秒</span>
+                    <span role="status">{autoReplySeconds !== null ? `即将回复 · ${autoReplySeconds} 秒` : autoReplyWaitingReason}</span>
                     <button type="button" onClick={onCancelAutoReply} className="min-h-11 px-3 font-bold text-primary" aria-label="取消自动回复">取消</button>
                 </div>
             )}

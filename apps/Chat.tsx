@@ -1676,10 +1676,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     };
 
     const handleSendText = async (customContent?: string, customType?: MessageType, metadata?: any) => {
-        const finish = autoReply.beginSend(char?.id || null);
+        const isPoke = customType === 'interaction' && String(customContent || '').trim() === '[戳一戳]';
+        const finish = autoReply.beginSend(char?.id || null, { nudge: isPoke });
         try {
             const sent = await sendText(customContent, customType, metadata);
-            finish(sent === true && (!customType || ['text', 'image', 'emoji'].includes(customType)));
+            finish(sent === true && (!customType || ['text', 'image', 'emoji'].includes(customType) || isPoke));
         } catch (error) {
             finish(false);
             throw error;
@@ -3608,7 +3609,19 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             || showActiveMsg2Modal || showThinkingChainModal
             || mcdAppOpen || luckinAppOpen || showForwardModal,
         generating: isTyping || instantChatPending || isProactiveComposing,
-        onGenerate: handleManualTrigger,
+        onGenerate: () => {
+            // This is not the manual lightning button. Check the current
+            // persisted last conversational speaker so a late proactive reply
+            // or another window cannot be followed by a duplicate AI round.
+            const target = char?.id;
+            if (!target || activeCharIdRef.current !== target) return;
+            void DB.getMessagesByCharId(target).then(fresh => {
+                if (activeCharIdRef.current !== target) return;
+                if (fresh.slice().reverse().find(m => m.role === 'user' || m.role === 'assistant')?.role !== 'user') return;
+                if (isTyping || instantChatPending || isProactiveComposing) return;
+                triggerAI(messages);
+            }).catch(() => { /* Cannot confirm anchor: fail closed. */ });
+        },
     });
     // One-tap life pacing; the shared clock keeps memories unchanged.
     // 角色自定义聊天背景：字段值可能是 blobref 令牌（二进制在 IndexedDB），这里解析成能直接
@@ -4461,6 +4474,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     enterToSend={inputPreferences.enterToSend}
                     autoReplyEnabled={inputPreferences.autoReply || lifePacing}
                     autoReplySeconds={autoReply.seconds}
+                    autoReplyWaitingReason={autoReply.waitingReason}
                     onCancelAutoReply={autoReply.cancel}
                     onInputFocusChange={setIsInputFocused}
                     onDeleteSelected={handleBatchDelete}
