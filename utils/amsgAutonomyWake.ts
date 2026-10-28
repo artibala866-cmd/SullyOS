@@ -258,7 +258,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
           ...(prev?.tasks||[]).filter(t=>t.taskUuid!==record.taskUuid),record,
         ],lastSyncedAt:Date.now(),
         lastError:prev?.lastError?.startsWith('自主联系建立失败')?undefined:prev?.lastError,
-      }));
+      });
     }
     recentFailure.delete(char.id);
     // A prior transient cloud error is no longer current once at least one
