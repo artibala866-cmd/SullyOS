@@ -97,9 +97,11 @@ export const isOfficialMiniMaxBaseUrl = (baseUrl?: string | null): boolean => {
   if (!raw) return false;
   try {
     const parsed = new URL(raw.includes('://') ? raw : `https://${raw}`);
-    return /(^|\.)(minimaxi\.com|minimax\.io|minimax\.cn|minimax\.chat)$/i.test(parsed.hostname);
+    return parsed.protocol === 'https:' &&
+      !parsed.username && !parsed.password &&
+      ['api.minimaxi.com', 'api.minimax.io', 'api.minimax.cn', 'api.minimax.chat'].includes(parsed.hostname.toLowerCase());
   } catch {
-    return /(minimaxi\.com|minimax\.io|minimax\.cn|minimax\.chat)/i.test(raw);
+    return false;
   }
 };
 
@@ -144,13 +146,6 @@ export const getConfiguredApiSttProviders = (
 export const hasAnyApiSttConfigured = (apiConfig?: Partial<APIConfig> | null): boolean =>
   getConfiguredApiSttProviders(apiConfig).length > 0;
 
-/**
- * Resolve the active STT provider:
- * 1. If user explicitly chose `apiConfig.sttProvider` and its Key is configured (or 'browser'), use it.
- * 2. Otherwise, if the current `ttsProvider` has its STT Key configured, follow `ttsProvider`.
- * 3. Otherwise, pick the first configured API STT provider (`elevenlabs` -> `fishaudio` -> `minimax`).
- * 4. Otherwise, fall back to `'browser'`.
- */
 /** Free browser/native recognition is the default; paid APIs require explicit selection. */
 export const resolveSttProvider = (apiConfig?: Partial<APIConfig> | null): SttProvider => {
   const selected = apiConfig?.sttProvider;
@@ -174,7 +169,6 @@ export const isAudioRecordingSupported = (): boolean =>
 
 /** Whether voice input is usable in the current environment. */
 export const isSttSupported = (apiConfig?: Partial<APIConfig> | null): boolean => {
-  if (hasAnyApiSttConfigured(apiConfig) && isAudioRecordingSupported()) return true;
   return isBrowserSttSupported() || (hasAnyApiSttConfigured(apiConfig) && isAudioRecordingSupported());
 };
 
@@ -513,7 +507,10 @@ const startApiStt = async (
     return { stop: () => {} };
   }
 
+  let contextToCleanup: AudioContext | null = null;
+  try {
   const audioCtx: AudioContext = new AudioCtx();
+  contextToCleanup = audioCtx;
   if (audioCtx.state === 'suspended') {
     await audioCtx.resume().catch(() => {});
   }
@@ -589,6 +586,15 @@ const startApiStt = async (
       void stopRecordingAndTranscribe();
     },
   };
+  } catch (error: any) {
+    // getUserMedia may succeed even when AudioContext/ScriptProcessor fails.
+    // Close every acquired resource, and always release the UI listening state.
+    stream.getTracks().forEach(track => track.stop());
+    if (contextToCleanup) await contextToCleanup.close().catch(() => {});
+    cb.onError?.('麦克风音频初始化失败：' + (error?.message || error));
+    cb.onEnd?.();
+    return { stop: () => {} };
+  }
 };
 
 // No-response watchdog: domestic Android browsers (Via / Quark / UC / Baidu / WeChat X5)
