@@ -1,4 +1,7 @@
 import type { PhoneMessage } from './characterPhoneIdentity';
+import { advancePhoneContentClearRevision } from './characterPhoneContentClearRevision';
+import { pruneDeletedPhoneChatLifeEvents } from './characterLifeEvents';
+import { readNpcProfiles, saveNpcProfiles, CHARACTER_PHONE_CONTACT_CHANGED } from './characterPhoneNpcs';
 
 /** One persisted inbox for the phone UI and autonomous NPC scheduler. */
 export type CharacterPhoneChat = {
@@ -44,6 +47,40 @@ export function updateCharacterPhoneChats(
   localStorage.setItem(phoneChatStorageKey(characterId), JSON.stringify(next));
   notifyCharacterPhoneChatsChanged(characterId);
   return next;
+}
+
+/** Retire only derived WeChat quotation hints from NPC records, preserving
+ * names, identities and notes from other sources. */
+export function erasePhoneWechatRelationshipNotes(
+  characterId:string,contactIds?:readonly string[],
+):void{
+  const affected=contactIds?new Set(contactIds):null;
+  const previous=readNpcProfiles(characterId);
+  let changed=false;
+  const next=previous.map(p=>{
+    if(affected&&!affected.has(p.id))return p;
+    const notes=(p.relationshipNotes||'').split('\n');
+    const retained=notes.filter(n=>!n.includes('微信提及]'));
+    if(retained.length===notes.length)return p;
+    changed=true;
+    return {...p,relationshipNotes:retained.join('\n')};
+  });
+  if(!changed)return;
+  saveNpcProfiles(characterId,next);
+  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(
+    CHARACTER_PHONE_CONTACT_CHANGED,{detail:{characterId}}));
+}
+
+/** User deleting an NPC WeChat chat must remove its derived life context and
+ * invalidate any in-flight autonomous write that could resurrect it. */
+export function deleteCharacterPhoneChat(characterId:string,threadId:string):boolean{
+  const thread=readCharacterPhoneChats(characterId).find(row=>row.id===threadId);
+  if(!thread)return false;
+  advancePhoneContentClearRevision(characterId,'chats');
+  updateCharacterPhoneChats(characterId,rows=>rows.filter(row=>row.id!==threadId));
+  pruneDeletedPhoneChatLifeEvents(characterId,thread);
+  if(thread.contactId)erasePhoneWechatRelationshipNotes(characterId,[thread.contactId]);
+  return true;
 }
 
 export function appendCharacterPhoneMessages(input: {

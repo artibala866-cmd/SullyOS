@@ -12,6 +12,8 @@ export interface CharacterLifeEvent {
   summary: string;
   contactId?: string;
   relatedMessageId?: string;
+  /** Id of persisted NPC WeChat thread; lets the user revoke its life-context snapshots. */
+  phoneThreadId?: string;
   /** Optional narrative reflection about this *same* confirmed fact. Not a new fact. */
   glimpse?: { text: string; generatedAt: number; anchorSummary: string };
 }
@@ -36,6 +38,31 @@ export function recordCharacterLifeEvent(event: CharacterLifeEvent): boolean {
   catch { return false; }
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHARACTER_LIFE_EVENTS_CHANGED, { detail: { characterId: event.characterId, eventId: event.id } }));
   return true;
+}
+
+/** Revoke only confirmed phone NPC-chat facts when a saved WeChat thread
+ * is explicitly deleted. Legacy event IDs encoded the stable thread id;
+ * contactId handles older records without an explicit phoneThreadId.
+ * Memory Palace and real private-chat records remain untouched.
+ */
+export function pruneDeletedPhoneChatLifeEvents(characterId:string,thread:{
+  id:string;contactId?:string;
+}):number{
+  if(!characterId||!thread.id||typeof localStorage==='undefined')return 0;
+  const before=readCharacterLifeEvents(characterId);
+  const after=before.filter(event=>{
+    if(event.source!=='phone'||event.kind!=='npc-chat')return true;
+    if(event.phoneThreadId)return event.phoneThreadId!==thread.id;
+    const ids=['npc-chat:'+thread.id+':','npc-chat:inbox:'+thread.id+':',
+      'npc-chat:auto:'+thread.id+':'];
+    return !ids.some(prefix=>event.id.startsWith(prefix))&&
+      (!thread.contactId||event.contactId!==thread.contactId);
+  });
+  if(after.length===before.length)return 0;
+  localStorage.setItem(lifeEventStorageKey(characterId),JSON.stringify(after));
+  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(
+    CHARACTER_LIFE_EVENTS_CHANGED,{detail:{characterId,pruned:true,threadId:thread.id}}));
+  return before.length-after.length;
 }
 
 /** Only remove temporary phone-event context for categories the user explicitly cleared.

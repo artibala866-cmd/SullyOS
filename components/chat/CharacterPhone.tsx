@@ -37,7 +37,7 @@ import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, Phone, 
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
 import {
   CHARACTER_PHONE_CHATS_CHANGED, readCharacterPhoneChats,
-  updateCharacterPhoneChats, notifyCharacterPhoneChatsChanged,
+  updateCharacterPhoneChats, deleteCharacterPhoneChat, notifyCharacterPhoneChatsChanged,
   type CharacterPhoneChat,
 } from '../../utils/characterPhoneChats';
 import { findKnownNpc, registerDiscoveredNpc, noteNpcInteraction } from '../../utils/characterNpcNetwork';
@@ -56,6 +56,7 @@ import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from '../../utils/cha
 import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, recordCharacterLifeEvent, type CharacterLifeEvent } from '../../utils/characterLifeEvents';
 import { generateIndependentLifeGlimpse, isManualLifeGlimpseEnabled, setManualLifeGlimpseEnabled } from '../../utils/characterLifeGlimpseGeneration';
 import { selectConfirmedLifeGlimpses } from '../../utils/characterLifeGlimpses';
+import { readPhoneContentClearRevision } from '../../utils/characterPhoneContentClearRevision';
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 import {readPhoneInboxPreferences,writePhoneInboxPreferences} from '../../utils/characterPhoneInboxPrefs';
 import {allowMomentComment} from '../../utils/momentInteractionPreferences';
@@ -440,6 +441,7 @@ export default function CharacterPhone({
             !canRunAutomaticPhoneAi(characterId, phoneApi.baseUrl.replace(/\/+$/, '') + '/chat/completions'))) ||
         !beginCharacterPhoneRefresh(characterId)) return;
     setBusy(true); setError('');setWechatNotice('');
+    const chatsRevisionAtStart=readPhoneContentClearRevision(characterId,'chats');
     try {
       const context = await loadRealContext();
       const phoneTimeAwarenessOn = char.timeAwarenessEnabled !== false;
@@ -502,6 +504,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       if(!data || typeof data!=='object' || Array.isArray(data)) throw new Error('微信收件箱返回格式错误');
       // An optional full-suite subtask may be absent or malformed; save other
       // independently valid results instead of silently discarding the batch.
+      if(chatsRevisionAtStart!==readPhoneContentClearRevision(characterId,'chats')) return;
       const generatedThreads = Array.isArray(data.threads) ? data.threads : [];
       if(!fullSuite && !Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
       let savedNonChatItems=0;
@@ -628,7 +631,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
         recordCharacterLifeEvent({
           id:'npc-chat:inbox:'+thread.id+':'+now,
           characterId, kind:'npc-chat', occurredAt:now, source:'phone',
-          contactId:thread.contactId,
+          contactId:thread.contactId,phoneThreadId:thread.id,
           summary:(newMessages.some(m=>m.speaker.role==='owner') ? '已保存的微信对话：' : '已收到但尚未回复的微信消息：')+newMessages.slice(-12).map(m=>(m.speaker.role==='owner'?name:thread.name)+'：'+m.text.trim()).join('；').slice(0,1200)
         });
       }
@@ -695,6 +698,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
     npcName = profile.name;
     if (!beginCharacterPhoneRefresh(characterId)) return;
     setBusy(true); setError('');
+    const manualChatRevision=readPhoneContentClearRevision(characterId,'chats');
     try {
       const realContext = await loadRealContext();
       const target = records.find(r => r.contactId === profile.id);
@@ -710,6 +714,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       const raw = extractContent(json).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
       const data = JSON.parse(raw);
       if (typeof data.name !== 'string' || !Array.isArray(data.messages)) throw new Error('生成内容格式不正确');
+      if(manualChatRevision!==readPhoneContentClearRevision(characterId,'chats'))return;
       const messages = parseGeneratedPhoneMessages(data.messages, profile.id);
       if (messages.length < 8 || !messages.some(m => m.speaker.role === 'owner') || !messages.some(m => m.speaker.role === 'contact')) throw new Error('生成不足8条有效消息或缺少一方发言，请重试（本次未保存）');
       const npc = profile.name;
@@ -724,7 +729,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       setRecords(readCharacterPhoneChats(characterId));
       noteNpcInteraction(characterId, profile.id, next.time, messages);
       setTab('chats');
-      recordCharacterLifeEvent({ id: 'npc-chat:' + next.id + ':' + next.time, characterId, kind: 'npc-chat', occurredAt: next.time, source: 'phone', summary: '已保存的微信对话：' + messages.slice(-12).map(m => (m.speaker.role === 'owner' ? name : npc) + '：' + m.text.trim()).join('；').slice(0, 1200), contactId: profile.id });
+      recordCharacterLifeEvent({ id: 'npc-chat:' + next.id + ':' + next.time, characterId, kind: 'npc-chat', occurredAt: next.time, source: 'phone', phoneThreadId: next.id, summary: '已保存的微信对话：' + messages.slice(-12).map(m => (m.speaker.role === 'owner' ? name : npc) + '：' + m.text.trim()).join('；').slice(0, 1200), contactId: profile.id });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { finishCharacterPhoneRefresh(characterId);setBusy(false); }
   };
   const letCharDecideMoment = async () => {
@@ -777,7 +782,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
   const deleteChat = (id: string) => {
     if (id === 'private:' + characterId) { setHiddenPrivate(true); try {localStorage.setItem('sully_phone_hide_private:'+characterId,'1');} catch {} }
-    else persist(records.filter(r => r.id !== id));
+    else try {
+      if(deleteCharacterPhoneChat(characterId,id))setRecords(readCharacterPhoneChats(characterId));
+    }catch { setError('微信聊天或关联的生活侧面清理失败，请检查可用存储空间'); }
     setSwipedId('');
   };
   const contact = profiles.find(p => p.id === contactId);

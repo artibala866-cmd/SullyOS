@@ -350,7 +350,7 @@ Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).jo
     recordCharacterLifeEvent({
       id: 'npc-chat:auto:' + added.thread.id + ':' + occurredAt,
       characterId: char.id, kind: 'npc-chat', occurredAt,
-      source: 'phone', contactId: contact.id,
+      source: 'phone', contactId: contact.id, phoneThreadId: added.thread.id,
       summary: (actor === 'owner' ? char.name + '主动给' + contact.name + '发微信：'
         : '收到' + contact.name + '的微信消息：') + added.added.map(m => m.text).join('；').slice(0, 1000),
     });

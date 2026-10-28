@@ -1,7 +1,7 @@
 /** Explicit, narrow, per-Char check-phone data cleanup. Never touches real private chat,
  * global avatars, Memory Palace, music persona, other installed apps or other characters.
  */
-import {updateCharacterPhoneChats,readCharacterPhoneChats} from './characterPhoneChats';
+import {updateCharacterPhoneChats,readCharacterPhoneChats,erasePhoneWechatRelationshipNotes} from './characterPhoneChats';
 import {clearCharacterPhoneWallet} from './characterPhoneWallet';
 import {clearPhonePayReceipts} from './characterPhonePayments';
 import {clearPhoneBrowserHistory} from './characterPhoneBrowser';
@@ -44,6 +44,7 @@ export function clearSelectedPhoneData(charId:string,ids:readonly PhoneClearGrou
         advancePhoneContentClearRevision(charId, 'chats');
         localStorage.removeItem('sully_character_phone_wechat_v1:'+charId);
         localStorage.removeItem('sully_phone_inbox_auto_at:'+charId);
+        erasePhoneWechatRelationshipNotes(charId);
         // Don't touch DB private messages. Force refresh of local NPC conversation list.
         emit('sully:character-phone-chats-changed',charId);
         break;
