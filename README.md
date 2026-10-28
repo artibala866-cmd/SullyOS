@@ -214,7 +214,7 @@ UI 风格参考现有的 Tailwind + glassmorphism。
 
 ### 右下角的 build badge 怎么关
 
-跑非 `main` / `master` 分支时，右下角会堆三行小字标记构建版本：
+在非正式发布的分支构建时，右下角会显示构建版本标记；当前唯一指定交付分支 `remove-checkphone-vrworld-lifesim` 按正式构建处理：
 
 ```
 sw@<service-worker 版本>
@@ -226,10 +226,11 @@ sw@<service-worker 版本>
 
 | 情况 | 显示？ |
 |------|--------|
-| 在 `main` / `master` 上构建 | ❌ 默认隐藏（视为正式发布）|
+| 在 `remove-checkphone-vrworld-lifesim` 上构建 | ❌ 默认隐藏（当前唯一正式交付分支）|
+| 在历史 `main` / `master` 上构建 | ❌ 默认隐藏（沿用旧的 UI 门禁；不代表允许往 master 开发）|
 | 其他分支上构建 | ✅ 默认显示 |
 | `VITE_HIDE_BUILD_BADGE=1` | ❌ 强制隐藏（覆盖默认）|
-| `VITE_SHOW_BUILD_BADGE=1` | ✅ 强制显示（在 release 分支本地调试用）|
+| `VITE_SHOW_BUILD_BADGE=1` | ✅ 强制显示（仅在明确需要的本地调试时开启）|
 
 CI detached HEAD 状态会按 `GITHUB_REF_NAME` → `VERCEL_GIT_COMMIT_REF` → `CF_PAGES_BRANCH` 顺序识别分支，所以 Vercel / Cloudflare Pages / GitHub Actions 部署 release 分支会自动隐藏，不用手动配。
 
@@ -257,7 +258,7 @@ VITE_HIDE_BUILD_BADGE=1 npm run build
 
 捕获日志同时写 `localStorage` 和内存，各类混存、全局最多保留 100 条 / 1 MB（先到先淘汰）。为了省空间 / 隐私，**长文本默认写入时就折叠成前 10 字 + `...`**（那堆 system prompt 和聊天历史不会塞满 localStorage）；真要看完整请求体，打开「记录完整内容」开关再复现一次。录完可以**一键复制成 JSON** 或**下载成文件**丢给别人 debug，导出会自动带上当前分支和 commit hash，方便定位"到底是哪个版本炸的"。
 
-**注意**：跟 build badge 一样，这整套调试 UI 走的是 Vite `define` 编译时注入。在 `main` / `master` 上 `npm run build` 出来的产物里，`DevDebugPanel` 组件连同相关代码会被 esbuild 整棵树摇掉，不会出现在生产包里。换句话说——**用户永远看不到这个扳手，除非你故意在 release 分支 `VITE_SHOW_BUILD_BADGE=1`**。
+**注意**：跟 build badge 一样，这整套调试 UI 走的是 Vite `define` 编译时注入。在 `remove-checkphone-vrworld-lifesim`（以及历史 `main` / `master`）上按默认环境 `pnpm run build` 得到的产物里，`DevDebugPanel` 组件连同相关代码会被 esbuild 整棵树摇掉，不会出现在生产包里。换句话说——**用户永远看不到这个扳手，除非你故意在 release 分支 `VITE_SHOW_BUILD_BADGE=1`**。
 
 > 想加新开关 / 加 debug-only 日志？照着 [`docs/dev-debug.md`](./docs/dev-debug.md) 抄就行，里面有逐步指南和容易踩的坑。
 
