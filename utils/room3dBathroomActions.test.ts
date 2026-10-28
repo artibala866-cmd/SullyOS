@@ -6,10 +6,14 @@ import {bathroomActivities} from '../apps/room3d/bathroom.js';
 import {furnitureInteractions} from '../apps/room3d/furnitureInteractions.js';
 import {createBathroomEffects} from '../apps/room3d/bathroomEffects.js';
 describe('bathroom actions',()=>{
- it('offers four usable actions in the furnished room without changing its saved layout',()=>{
-  const r=bathroomHome(catalog).rooms[0],before=structuredClone(r),actions=bathroomActivities(r,catalog,{headWidth:1.8,body2:true});
+ it('keeps four bathroom action labels without letting the unsupported legacy tub bypass safety',()=>{
+  const r=bathroomHome(catalog).rooms[0],before=structuredClone(r),actions=bathroomActivities(r,catalog,{headWidth:1.8});
   expect(actions.map(a=>a.label).sort()).toEqual(['坐','泡泡浴','洗澡','洗衣'].sort());
-  for(const a of actions){expect(a.reason,a.kind).toBe('');expect(furnitureInteractions(r,catalog,a.itemId).some(v=>v.label===a.label)).toBe(true);}
+  for(const a of actions){
+   if(a.kind==='bath-soak')expect(a.reason,a.kind).toContain('安全跨浴缸');
+   else expect(a.reason,a.kind).toBe('');
+   expect(furnitureInteractions(r,catalog,a.itemId).some(v=>v.label===a.label)).toBe(true);
+  }
   expect(actions.find(a=>a.kind==='bath-toilet')?.posture).toBe('seated');expect(r).toEqual(before);
   r.items.find(i=>i.assetId==='bath_washer')!.stored=true;expect(bathroomActivities(r,catalog).some(a=>a.kind==='bath-laundry')).toBe(false);
  });
