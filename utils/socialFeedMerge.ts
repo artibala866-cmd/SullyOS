@@ -104,6 +104,20 @@ export function canClearSparkPublishedDraft(submitted: string | null, latest: st
     return submitted === latest;
 }
 
+/** Publishing may finish after either the editor or durable draft has changed.
+ * A missing/unreadable draft must not be interpreted as safe to clear.
+ */
+export function canClearSparkPublishedEditorDraft(
+    submittedEditor: string,
+    currentEditor: string,
+    submittedCache: string | null,
+    latestCache: string | null,
+): boolean {
+    return submittedCache !== null &&
+        submittedEditor === currentEditor &&
+        canClearSparkPublishedDraft(submittedCache, latestCache);
+}
+
 /** Mirror user post actions in actor lists used by real profile statistics. */
 export function toggleSocialPostLike(post: SocialPost): SocialPost {
     const isLiked = !post.isLiked;
