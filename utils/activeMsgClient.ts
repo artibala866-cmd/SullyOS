@@ -2653,10 +2653,22 @@ export const ActiveMsgClient = {
         && t.recurrenceType==='daily'
         && !['failed','cancelled','completed'].includes(t.status||''));
       if(winner){
+        // If another device already created the unique replacement while we
+        // were migrating an old random-ID wake, the loser still owns that
+        // old cloud row. Cancel it rather than quietly dropping its local
+        // record and leaving two independent daily sends behind.
+        let failedLegacyCancel=false;
+        if(replaceTaskUuid && replaceTaskUuid!==wakeUuid){
+          try{await this.cancelTask(replaceTaskUuid);}
+          catch(error){
+            failedLegacyCancel=true;
+            console.warn(`${ACTIVE_MSG_RUNTIME_HEADER} 跨设备抢占自主任务后旧任务取消失败`,error);
+          }
+        }
         return {uuid:wakeUuid,clientTaskId,
           status:winner.status||'scheduled',nextSendAt:winner.nextSendAt,
           firstSendAt:winner.nextSendAt||firstSendTime,
-          replacedCancelFailed:false,alreadyExisting:true};
+          replacedCancelFailed:failedLegacyCancel,alreadyExisting:true};
       }
     }
     if (!response?.success) {
