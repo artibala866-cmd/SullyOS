@@ -3848,6 +3848,109 @@ export default {
       }
     }
 
+    // ========== MiniMax STT 代理（静态部署绕 CORS，纯透传 multipart/form-data）==========
+    if (url.pathname === '/minimax/stt') {
+      if (request.method !== 'POST') {
+        return jsonResponse({ error: 'Method not allowed' }, { status: 405, origin });
+      }
+      const auth = request.headers.get('Authorization');
+      if (!auth) {
+        return jsonResponse({ error: 'Missing Authorization header (MiniMax API key)' }, { status: 401, origin });
+      }
+      const region = (request.headers.get('X-MiniMax-Region') || url.searchParams.get('region') || '').trim().toLowerCase();
+      const base = region === 'overseas' ? 'https://api.minimax.io' : 'https://api.minimaxi.com';
+      const lang = (request.headers.get('language') || url.searchParams.get('language') || '').trim();
+      const contentType = request.headers.get('Content-Type') || '';
+      try {
+        const fwdHeaders = {
+          'Authorization': auth,
+          ...(contentType ? { 'Content-Type': contentType } : {}),
+          ...(lang ? { 'language': lang } : {}),
+        };
+        const upstream = await fetch(`${base}/v1/speech_to_text`, {
+          method: 'POST',
+          headers: fwdHeaders,
+          body: await request.arrayBuffer(),
+        });
+        const text = await upstream.text();
+        return new Response(text, {
+          status: upstream.status,
+          headers: {
+            'Content-Type': upstream.headers.get('Content-Type') || 'application/json; charset=utf-8',
+            ...corsHeaders(origin),
+          },
+        });
+      } catch (e) {
+        return jsonResponse({ error: 'MiniMax STT upstream fetch failed', detail: String(e && e.message || e) }, { status: 502, origin });
+      }
+    }
+
+    // ========== 鱼声 Fish Audio STT 代理（静态部署绕 CORS，纯透传 multipart/form-data）==========
+    if (url.pathname === '/fishaudio/stt') {
+      if (request.method !== 'POST') {
+        return jsonResponse({ error: 'Method not allowed' }, { status: 405, origin });
+      }
+      const auth = request.headers.get('Authorization');
+      if (!auth) {
+        return jsonResponse({ error: 'Missing Authorization header (Fish API key)' }, { status: 401, origin });
+      }
+      const model = (url.searchParams.get('model') || request.headers.get('model') || 'transcribe-1-pro').trim();
+      const contentType = request.headers.get('Content-Type') || '';
+      try {
+        const upstream = await fetch('https://api.fish.audio/v1/asr', {
+          method: 'POST',
+          headers: {
+            'Authorization': auth,
+            'model': model,
+            ...(contentType ? { 'Content-Type': contentType } : {}),
+          },
+          body: await request.arrayBuffer(),
+        });
+        const text = await upstream.text();
+        return new Response(text, {
+          status: upstream.status,
+          headers: {
+            'Content-Type': upstream.headers.get('Content-Type') || 'application/json; charset=utf-8',
+            ...corsHeaders(origin),
+          },
+        });
+      } catch (e) {
+        return jsonResponse({ error: 'Fish Audio STT upstream fetch failed', detail: String(e && e.message || e) }, { status: 502, origin });
+      }
+    }
+
+    // ========== ElevenLabs STT 代理（静态部署绕 CORS，纯透传 multipart/form-data）==========
+    if (url.pathname === '/elevenlabs/stt') {
+      if (request.method !== 'POST') {
+        return jsonResponse({ error: 'Method not allowed' }, { status: 405, origin });
+      }
+      const apiKey = (request.headers.get('xi-api-key') || '').trim();
+      if (!apiKey) {
+        return jsonResponse({ error: 'Missing xi-api-key header (ElevenLabs API key)' }, { status: 401, origin });
+      }
+      const contentType = request.headers.get('Content-Type') || '';
+      try {
+        const upstream = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+          method: 'POST',
+          headers: {
+            'xi-api-key': apiKey,
+            ...(contentType ? { 'Content-Type': contentType } : {}),
+          },
+          body: await request.arrayBuffer(),
+        });
+        const text = await upstream.text();
+        return new Response(text, {
+          status: upstream.status,
+          headers: {
+            'Content-Type': upstream.headers.get('Content-Type') || 'application/json; charset=utf-8',
+            ...corsHeaders(origin),
+          },
+        });
+      } catch (e) {
+        return jsonResponse({ error: 'ElevenLabs STT upstream fetch failed', detail: String(e && e.message || e) }, { status: 502, origin });
+      }
+    }
+
     // ========== ElevenLabs TTS 代理（静态部署绕 CORS，纯透传）==========
     // 前端 POST /elevenlabs/tts?voice_id=...&output_format=... + xi-api-key: <user key>
     // Worker 不记录、不持久化 Key 或待合成文本。
