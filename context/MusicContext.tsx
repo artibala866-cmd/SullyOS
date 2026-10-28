@@ -588,6 +588,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const initialState = useMemo(loadState, []);
   const [queue, setQueueState] = useState<Song[]>(initialState.queue);
   const [idx, setIdx] = useState<number>(initialState.idx);
+  // Queue selection stays in sync even if React batches multiple rapid clicks.
+  const queueRef = useRef(queue); queueRef.current = queue;
+  const idxRef = useRef(idx); idxRef.current = idx;
   const current = idx >= 0 && idx < queue.length ? queue[idx] : null;
   // 结束一起听的回调保持稳定，但必须读取最新播放曲目，而不是首次渲染时的空值。
   const currentSongRef = useRef(current);
@@ -605,7 +608,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     // Keep the queue object in sync too. MusicApp downloads from `current`,
     // so a stale queue entry would otherwise keep the pre-regeneration asset key.
-    setQueueState(prev => prev.map(item => item.id === song.id ? song : item));
+    const next = queueRef.current.map(item => item.local && item.id === song.id ? song : item);
+    queueRef.current = next;
+    setQueueState(next);
   }, []);
   const removeLocalSong = useCallback((songId: number) => {
     setLocalAlbumSongs(prev => {
@@ -623,30 +628,42 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setRegeneratingStatus(status);
   }, []);
 
+  const commitQueue = useCallback((next: Song[], index: number) => {
+    // Update refs before setState: a second click can run before React renders.
+    queueRef.current = next;
+    idxRef.current = index;
+    currentSongRef.current = index >= 0 && index < next.length ? next[index] : null;
+    setQueueState(next);
+    setIdx(index);
+  }, []);
   const setQueue = useCallback((next: Song[]) => {
+    const playingSong = queueRef.current[idxRef.current];
+    commitQueue(next, playingSong ? next.findIndex(s => sameMusic(s, playingSong)) : -1);
+  }, [commitQueue]);
+
+  const addToQueue = useCallback((song: Song) => {
+    const previous = queueRef.current;
+    if (previous.some(s => sameMusic(s, song))) return;
+    const next = [...previous, song];
+    queueRef.current = next;
     setQueueState(next);
   }, []);
-
-  // Queue management preserves the currently playing song and audio instance.
-  const addToQueue = useCallback((song: Song) => {
-    setQueueState(prev => prev.some(item => sameMusic(item, song)) ? prev : [...prev, song]);
-  }, []);
   const moveQueueSong = useCallback((from: number, to: number) => {
-    if (from < 0 || to < 0 || from >= queue.length || to >= queue.length || from === to) return;
-    const moved = [...queue]; const [item] = moved.splice(from, 1); moved.splice(to, 0, item);
-    setQueueState(moved);
-    setIdx(current ? moved.findIndex(s => sameMusic(s, current)) : -1);
-  }, [queue, current]);
+    const old = queueRef.current;
+    if (from < 0 || to < 0 || from >= old.length || to >= old.length || from === to) return;
+    const selected = old[idxRef.current];
+    const next = [...old]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved);
+    commitQueue(next, selected ? next.findIndex(s => sameMusic(s, selected)) : -1);
+  }, [commitQueue]);
   const removeQueueSong = useCallback((index: number) => {
-    if (index < 0 || index >= queue.length) return;
-    if (index === idx) return; // Currently playing audio cannot be detached from its row.
-    setQueueState(queue.filter((_, i) => i !== index));
-    if (index < idx) setIdx(idx - 1);
-  }, [queue, idx]);
+    const old = queueRef.current, selectedIndex = idxRef.current;
+    if (index < 0 || index >= old.length || index === selectedIndex) return;
+    commitQueue(old.filter((_, i) => i !== index), index < selectedIndex ? selectedIndex - 1 : selectedIndex);
+  }, [commitQueue]);
   const clearUpcomingQueue = useCallback(() => {
-    setQueueState(current ? [current] : []);
-    setIdx(current ? 0 : -1);
-  }, [current]);
+    const selected = queueRef.current[idxRef.current];
+    commitQueue(selected ? [selected] : [], selected ? 0 : -1);
+  }, [commitQueue]);
 
   // 队列持久化
   useEffect(() => { saveState(queue, idx); }, [queue, idx]);
@@ -1100,8 +1117,6 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [current]);
 
   // 前进/后退 refs (避免循环依赖 & audio 事件闭包陷阱)
-  const queueRef = useRef(queue); queueRef.current = queue;
-  const idxRef = useRef(idx); idxRef.current = idx;
   const modeRef = useRef(playMode); modeRef.current = playMode;
   const cfgRef = useRef(cfg); cfgRef.current = cfg;
   const endedHandlerRef = useRef<() => void>(() => {});
@@ -1190,16 +1205,20 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     currentSongRef.current = song;
 
     if (replaceQueue) {
-      setQueueState(replaceQueue);
-      setIdx(typeof startIdx === 'number' ? startIdx : replaceQueue.findIndex(s => sameMusic(s, song)));
+      const preferred = startIdx !== undefined && Number.isInteger(startIdx) &&
+        startIdx >= 0 && startIdx < replaceQueue.length && sameMusic(replaceQueue[startIdx], song)
+        ? startIdx : replaceQueue.findIndex(s => sameMusic(s, song));
+      commitQueue([...replaceQueue], preferred);
     } else if (alsoSetQueue) {
       const qnow = queueRef.current;
       const existing = qnow.findIndex(s => sameMusic(s, song));
       if (existing >= 0) {
+        // Existing row: do not enqueue a duplicate.
+        idxRef.current = existing;
         setIdx(existing);
       } else {
-        setQueueState(q => [...q, song]);
-        setIdx(qnow.length);
+        // Atomic append & selection: never derive index from a stale render.
+        commitQueue([...qnow, song], qnow.length);
       }
     }
 
@@ -1346,7 +1365,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setLoadingSong(false);
       }
     }
-  }, [toast]);
+  }, [toast, commitQueue]);
   playSongRef.current = (song: Song, opts?: { mediaRecovery?: boolean }) => playSong(song, opts);
 
   // 下一首 / 上一首
@@ -1361,14 +1380,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       n = (cur + 1) % q.length;
     }
-    setIdx(n); playSong(q[n], { alsoSetQueue: false });
+    idxRef.current = n; setIdx(n); void playSong(q[n], { alsoSetQueue: false });
   }, [playSong]);
 
   const prevSong = useCallback(() => {
     const q = queueRef.current; if (!q.length) return;
     const cur = idxRef.current; if (cur < 0) return;
     const n = (cur - 1 + q.length) % q.length;
-    setIdx(n); playSong(q[n], { alsoSetQueue: false });
+    idxRef.current = n; setIdx(n); void playSong(q[n], { alsoSetQueue: false });
   }, [playSong]);
 
   // 自动下一首（end 事件）— 通过 ref 转发，以免 useEffect([], []) 闭包陷阱
