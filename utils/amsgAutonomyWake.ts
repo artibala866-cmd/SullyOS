@@ -8,7 +8,8 @@ import {getDailyScheduleForChar} from './dailySchedule';
 import {isPendingTask,reconcileTasksWithRemote} from './amsg2Tasks';
 import {resolveAmsgLimits} from './amsgLimits';
 import {classifyLifeActivity} from './sullyLifeClock';
-import {getScheduleDateKey} from './scheduleTime';
+import {getScheduleDateKey,getScheduleWallClock} from './scheduleTime';
+import {withAutonomyWakeLock} from './amsgAutonomyLock';
 import {resolveCharTimeZone,wallClockToTimestamp} from './timezone';
 
 export const isAutonomyWakeTask=(task:Pick<ActiveMsg2TaskRecord,'clientTaskId'>)=>
@@ -70,6 +71,9 @@ const recentFailure=new Map<string,number>();
 /** Works for characters enabled days ago: called when their chat opens.
  * Backend tasks are daily recurring, not consumed one-shot alarms. */
 export async function ensureAutonomyWakes(args:Args):Promise<void>{
+  return void await withAutonomyWakeLock(args.char?.id||'',()=>ensureAutonomyWakesUnlocked(args));
+}
+async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
   const {char}=args;
   if(!char?.id||char.activeMsg2Config?.enabled!==true||inFlight.has(char.id))return;
   if(Date.now()-(recentFailure.get(char.id)??0)<60000)return;
@@ -138,6 +142,71 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
     }
     const schedule=await getDailyScheduleForChar(char).catch(()=>null);
     const targets=planAutonomyWakes(char,schedule?.slots||null);
+    // Only an actual daily schedule change may reschedule an existing wake.
+    // Never rewrite a user's manual reminder or retime a cloud job because
+    // the phone temporarily cannot read its offline schedule database.
+    if(schedule?.slots?.length){
+      const wanted=new Map(targets.map(t=>[t.slot,t]));
+      const current=tasks.filter(isAutonomyWakeTask);
+      const minutes=(iso:string)=>{
+        const when=new Date(iso);
+        if(!Number.isFinite(when.getTime()))return null;
+        const wall=getScheduleWallClock(char,when);
+        return wall.getHours()*60+wall.getMinutes();
+      };
+      for(const old of current){
+        const slot=old.clientTaskId.split(':')[1] as 'day'|'evening';
+        const desired=wanted.get(slot);
+        if(!desired){
+          // This part of the day is now occupied. Remove the autonomous
+          // *opportunity* only; leave the other channels and manual tasks.
+          await ActiveMsgClient.cancelTask(old.taskUuid);
+          const index=tasks.findIndex(t=>t.taskUuid===old.taskUuid);
+          if(index>=0)tasks.splice(index,1);
+          args.onSave(prev=>prev?.enabled===false?prev:{
+            ...(prev||{enabled:true}),tasks:(prev?.tasks||[]).filter(t=>t.taskUuid!==old.taskUuid),
+          });
+          continue;
+        }
+        const oldMinute=minutes(old.nextSendAt||old.firstSendTime);
+        const newMinute=minutes(desired.firstSendTime);
+        if(oldMinute===null||newMinute===null||
+          Math.abs(oldMinute-newMinute)<30)continue;
+        // The existing schedule belongs to an old time slot; ensure the
+        // new occurrence is safely future and do NOT generate an AI message.
+        const result=await ActiveMsgClient.scheduleCharacterTask({
+          char,config:{...char.activeMsg2Config,tasks},
+          task:{mode:'auto',firstSendTime:desired.firstSendTime,
+            recurrenceType:'daily',expirePolicy:'expire',autonomyWakeSlot:slot},
+          replaceTaskUuid:old.taskUuid,apiConfig:args.apiConfig,
+          userProfile:args.userProfile,groups:args.groups,realtimeConfig:args.realtimeConfig,
+        });
+        const replacement:ActiveMsg2TaskRecord={
+          ...old,taskUuid:result.uuid,clientTaskId:result.clientTaskId,
+          firstSendTime:result.firstSendAt,nextSendAt:result.firstSendAt,
+          createdAt:Date.now(),
+        };
+        if(result.replacedCancelFailed){
+          // New and old remote jobs may both exist. Keep both ids visible
+          // and do not silently create another replacement on next refresh.
+          tasks.push(replacement);
+          args.onSave(prev=>prev?.enabled===false?prev:{
+            ...(prev||{enabled:true}),
+            tasks:[...(prev?.tasks||[]),replacement],
+            lastError:'自主联系改期后旧任务取消失败：请先检查并清理云端重复任务',
+          });
+          throw new Error('改期后旧任务取消失败；为防止重复发消息，已停止后续修改');
+        }
+        const at=tasks.findIndex(t=>t.taskUuid===old.taskUuid);
+        if(at>=0)tasks.splice(at,1,replacement);
+        args.onSave(prev=>prev?.enabled===false?prev:{
+          ...(prev||{enabled:true}),
+          tasks:[...(prev?.tasks||[]).filter(t=>t.taskUuid!==old.taskUuid),replacement],
+          lastSyncedAt:Date.now(),
+        });
+        wanted.delete(slot);
+      }
+    }
     const existing=new Set(tasks.filter(isAutonomyWakeTask).map(t=>t.clientTaskId.split(':')[1]));
     for(const target of targets){
       if(existing.has(target.slot)||tasks.length>=resolveAmsgLimits(char.activeMsg2Config).maxActiveTasks)continue;
