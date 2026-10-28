@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {seatEntry,seatEntryCandidates,seatChangePose} from './seatChange.js';
+import {seatEntry,seatEntryCandidates,seatChangePose,seatTransitionDuration} from './seatChange.js';
 import {seatChangeDuration} from './chibi/roomMotionFrame.ts';
 import {readFileSync} from 'node:fs';
 
@@ -51,9 +51,9 @@ describe('reusable seat approach and safe get-up route',()=>{
 describe('legacy seated motion follows the shared physical entry/exit',()=>{
  it('moves continuously between the reached standing socket and cushion anchor',()=>{
   const front=[0,.18,.7],chair={pose:'chair',front,seat:[0,.68,0],rotation:0,startRotation:0};
-  const duration=seatChangeDuration('chair');
+  const duration=seatTransitionDuration('chair',front,chair.seat);
   for(const rising of [false,true]){
-   const change={...chair,rising};
+   const change={...chair,rising,duration};
    const samples=Array.from({length:21},(_,i)=>seatChangePose(change,duration*i/20).position);
    const first=samples[0],last=samples.at(-1);
    expect(first[2]).toBeCloseTo(rising?chair.seat[2]:front[2]);
@@ -86,9 +86,9 @@ describe('legacy seated motion follows the shared physical entry/exit',()=>{
 });
 
 describe('ordinary seat phase-contact coordination',()=>{
- const change={pose:'chair',front:[.8,.18,1.1],seat:[0,.72,0],rotation:Math.PI,startRotation:-Math.PI+.05,rising:false};
+ const change={pose:'chair',front:[.8,.18,1.1],seat:[0,.72,0],rotation:Math.PI,startRotation:-Math.PI+.05,rising:false,duration:seatTransitionDuration('chair',[.8,.18,1.1],[0,.72,0])};
  it('turns on planted feet, bends the knees before sliding into the seat',()=>{
-  const turn=seatChangePose(change,.20),load=seatChangePose(change,.49),sit=seatChangePose(change,1.05);
+  const turn=seatChangePose(change,.20),load=seatChangePose(change,.49),sit=seatChangePose(change,change.duration);
   expect(turn.position).toEqual(change.front);
   expect(turn.weight).toBe(0);
   expect(load.weight).toBeGreaterThan(load.travel);
@@ -100,8 +100,8 @@ describe('ordinary seat phase-contact coordination',()=>{
   it('remains continuous on '+fps+' fps entering and standing again',()=>{
    for(const rising of [false,true]){
     const job={...change,rising},frames=[];
-    for(let t=0;t<1.05;t+=1/fps)frames.push(seatChangePose(job,t));
-    frames.push(seatChangePose(job,1.05));
+    for(let t=0;t<job.duration;t+=1/fps)frames.push(seatChangePose(job,t));
+    frames.push(seatChangePose(job,job.duration));
     for(let k=1;k<frames.length;k++){
      const a=frames[k-1],b=frames[k];
      expect(Math.hypot(...a.position.map((v,i)=>v-b.position[i]))).toBeLessThan(.22);
