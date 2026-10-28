@@ -16,6 +16,8 @@ export function HomePresenceBubbles({editor,character,enabled,canInvite=false,on
   const {character:char,enabled}=latest.current;
   if(!char||document.hidden){setView(undefined);clock.current.active=false;clock.current.thoughtActive=false;return;}
   if(!enabled&&!pending.current){setView(undefined);clock.current.active=false;clock.current.thoughtActive=false;return;}
+  // During 3D editor initialization or recovery, snapshots may not be available yet.
+  if(typeof editor.getState!=='function'){setView(undefined);clock.current.active=false;clock.current.thoughtActive=false;return;}
   const home=editor.getState(),scene=editor.getHomeScene(),snapshot=editor.getCompanionSnapshot?.(),now=Date.now(),anchor=editor.getResidentAnchor?.(char.id);
   if(!scene.present||!anchor||anchor.x<0||anchor.x>anchor.width||anchor.y<0||anchor.y>anchor.height){setView(undefined);clock.current.active=false;clock.current.thoughtActive=false;return;}
   // Keep the initiative clock anchored to room entry even while the character is busy.

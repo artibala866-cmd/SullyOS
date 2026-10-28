@@ -1730,8 +1730,6 @@ ${memberTimeline || '(暂无互动记录)'}
     }
 
     // CHAT VIEW
-    // 动森彩蛋模式（与私聊同一开关联动）
-    const acnh = osTheme.skin === 'animalcrossing' && osTheme.acnhChatSync !== false;
     const chatChromeStyle = osTheme.chatChromeStyle || 'soft';
     const chatBackgroundStyle = osTheme.chatBackgroundStyle || 'plain';
     const groupChatRootClass = chatChromeStyle === 'pixel'
@@ -1760,12 +1758,8 @@ ${memberTimeline || '(暂无互动记录)'}
                 }
                 : { backgroundImage: 'none' };
     const groupFineTuneCss = buildChatFineTuneCss(osTheme);
-    const finalGroupRootClass = acnh
-        ? 'h-full w-full flex flex-col overflow-hidden font-sans relative transition-[background-color] duration-500'
-        : groupChatRootClass;
-    const finalGroupRootStyle = acnh
-        ? { backgroundColor: '#f0f0f0', backgroundImage: 'none' }
-        : groupChatRootStyle;
+    const finalGroupRootClass = groupChatRootClass;
+    const finalGroupRootStyle = groupChatRootStyle;
     return (
         <div className={`sully-chat-root ${finalGroupRootClass}`} style={finalGroupRootStyle}>
             {/* 外观 App 的全局聊天细节与私聊共用同一份生成 CSS。 */}
@@ -1853,7 +1847,6 @@ ${memberTimeline || '(暂无互动记录)'}
                 headerDensity={osTheme.chatHeaderDensity}
                 statusStyle={osTheme.chatStatusStyle}
                 chromeStyle={osTheme.chatChromeStyle}
-                acnh={acnh}
             />
 
             {/* Messages Area */}
@@ -1969,7 +1962,6 @@ ${memberTimeline || '(暂无互动记录)'}
                 inputStyle={osTheme.chatInputStyle}
                 sendButtonStyle={osTheme.chatSendButtonStyle}
                 chromeStyle={osTheme.chatChromeStyle}
-                acnh={acnh}
                 actionsContent={
                     <div className="p-6 grid grid-cols-4 gap-8">
                         <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
