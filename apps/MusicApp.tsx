@@ -221,7 +221,7 @@ const MusicApp: React.FC = () => {
           } else void playSong(song);
         };
         return <div key={musicSongKey(song)}
-          className="music-track-row rounded-lg px-1 py-1"
+          className="music-track-row rounded-none px-1 py-1"
           style={{ background: isActive ? '#eeeeed' : '#fff', borderBottom: '1px solid #ebebeb' }}>
           <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
             picId={song.picId} source={song.source}
@@ -279,7 +279,7 @@ const MusicApp: React.FC = () => {
         </div>;
       })}
       {songs.length > visibleCount && <button type="button" onClick={() => setVisibleCount(n => n + 36)}
-        className="music-tap w-full py-3 text-[12px] rounded-2xl"
+        className="music-tap w-full py-3 text-[12px] rounded-sm"
         style={{ background: C.soft, color: C.primary }}>继续显示 · 剩余 {songs.length - visibleCount} 首</button>}
       {songs.length === 0 && <div className="flex flex-col items-center justify-center gap-2 py-12"
         style={{ color: C.muted }}>
@@ -302,8 +302,8 @@ const MusicApp: React.FC = () => {
             <button
               onClick={() => setView('profile')}
               aria-label="进入网易云账号专页"
-              className="music-icon-press p-2 rounded-full"
-              style={{ color: C.primary, background: C.soft }}
+              className="music-icon-press p-2 rounded-sm"
+              style={{ color: C.primary }}
               title="网易云账号专页"
             >
               <UserIcon size={16} weight="bold" />
@@ -311,7 +311,7 @@ const MusicApp: React.FC = () => {
             <button
               onClick={() => setView('settings')}
               aria-label="音乐设置"
-              className="music-icon-press p-2 rounded-full"
+              className="music-icon-press p-2 rounded-sm"
               style={{ color: C.primary }}
             >
               <Gear size={16} weight="bold" />
@@ -319,29 +319,32 @@ const MusicApp: React.FC = () => {
           </div>
         }
       />
-      <div className="relative z-10 px-5 pt-5 pb-2">
-        <p className="text-[10px] font-medium tracking-[0.2em]" style={{ color: C.muted }}>LISTEN & DISCOVER</p>
-        <h1 className="mt-1 text-[25px] font-semibold tracking-tight leading-tight" style={{ color: C.text }}>我的音乐</h1>
+      <div className="relative z-10 px-5 pt-7 pb-3">
+        <p className="text-[10px] font-medium tracking-[0.25em] uppercase" style={{ color: C.muted }}>SULLY / AUDIO</p>
+        <div className="flex items-end justify-between gap-4 mt-2">
+          <h1 className="text-[34px] font-bold tracking-[-0.045em] leading-none" style={{ color: C.text }}>音乐</h1>
+          <span className="text-[10px] tracking-[0.08em] pb-1 shrink-0" style={{ color: C.muted }}>我的私人曲库</span>
+        </div>
       </div>
-      <div className="flex justify-start gap-2 px-4 py-2 relative z-10 text-xs" role="group" aria-label="搜索音乐来源">
+      <div className="flex justify-start gap-6 px-5 pt-2 relative z-10 text-xs" role="group" aria-label="搜索音乐来源">
         {(['netease', 'tencent'] as const).map(src => <button key={src}
           aria-pressed={searchSource === src}
-          className="music-tap px-5 py-2.5 rounded-md font-medium"
-          style={{ color: searchSource === src ? '#fff' : C.muted,
-            background: searchSource === src ? C.primary : '#fff',
-            border: `1px solid ${searchSource === src ? C.primary : '#dededc'}` }}
+          className="music-tap px-0.5 py-2.5 font-medium border-b-2"
+          style={{ color: searchSource === src ? C.primary : C.muted,
+            background: 'transparent',
+            borderColor: searchSource === src ? C.primary : 'transparent' }}
           onClick={() => {
             ++searchSeqRef.current;
             setSearchSource(src); setSearching(false); setHasSearched(false); setResults([]); setSection('results');
           }}>{src === 'netease' ? '网易云音乐' : 'QQ 音乐'}</button>)}
       </div>
       <SearchBar value={keyword} onChange={setKeyword} onSearch={doSearch} searching={searching} />
-      <div className="flex gap-1 px-3 pt-1 pb-0 relative z-10 overflow-x-auto text-[11px] shizuku-scrollbar border-b" role="tablist" aria-label="音乐分类">
+      <div className="flex gap-4 px-5 pt-0 pb-0 relative z-10 overflow-x-auto text-[11px] shizuku-scrollbar border-b" role="tablist" aria-label="音乐分类">
         {([
           ['results', '搜索结果'], ['likes', '本地喜欢'], ['playlists', '我的歌单'],
           ['queue', '播放队列'], ['history', '播放历史'],
         ] as const).map(([key, title]) =>
-          <button key={key} role="tab" className="music-tap shrink-0 px-3.5 py-2.5 font-medium border-b-2"
+          <button key={key} role="tab" className="music-tap shrink-0 px-0.5 py-3 font-medium border-b-2"
              aria-selected={section === key}
              style={{ color: section === key ? C.primary : C.muted,
                background: 'transparent', borderColor: section === key ? C.primary : 'transparent' }}
@@ -351,7 +354,7 @@ const MusicApp: React.FC = () => {
       {/* 网易云登录状态只在独立的账号页面展示，主页不再重复显示。 */}
 
       {/* 音乐库/结果共用现有播放控件 */}
-      <div key={section} role="tabpanel" className="music-panel-enter flex-1 overflow-y-auto px-2 pt-1 relative z-10 shizuku-scrollbar"
+      <div key={section} role="tabpanel" className="music-panel-enter flex-1 overflow-y-auto px-3 pt-3 relative z-10 shizuku-scrollbar"
         style={{ paddingBottom: current ? 126 : 28, background: '#fff' }}>
         {section === 'results' && <div className="px-2 mb-2 text-[11px] flex items-center justify-between" style={{ color: C.muted }}>
           <span>{searching ? '正在搜索…' : results.length ? `找到 ${results.length} 首歌曲` : hasSearched ? '没有找到匹配歌曲，可换关键词或音乐来源' : '搜索歌曲、歌手或专辑'}</span>
@@ -369,25 +372,25 @@ const MusicApp: React.FC = () => {
           {renderLibrarySongs(library.history.map(h => h.song))}
         </>}
         {section === 'playlists' && <div className="space-y-3 px-1">
-          <div className="rounded-lg p-3 flex items-center gap-2"
+          <div className="rounded-sm p-3 flex items-center gap-2"
             style={{ background: '#ffffff', border: `1px solid ${C.soft}` }}>
             <input value={playlistName} onChange={e => setPlaylistName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}
               placeholder="新建歌单名称" aria-label="新歌单名称" maxLength={60}
-              className="rounded-md px-3 py-2.5 min-w-0 flex-1 text-xs outline-none" style={{ background: C.bgDeep, color: C.text }} />
-            <button aria-label="新建本地歌单" title="新建歌单" className="music-tap w-10 h-10 rounded-md flex items-center justify-center text-white"
+              className="rounded-sm px-3 py-2.5 min-w-0 flex-1 text-xs outline-none" style={{ background: C.bgDeep, color: C.text }} />
+            <button aria-label="新建本地歌单" title="新建歌单" className="music-tap w-10 h-10 rounded-sm flex items-center justify-center text-white"
               style={{ background: C.primary }}
               onClick={() => { if (playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}><Plus size={19} weight="bold" /></button>
           </div>
           {library.playlists.map(pl => {
             const opened = openedPlaylist === pl.id;
             const playingThis = !!current && pl.songs.some(song => sameMusic(current, song));
-            return <div key={pl.id} className="rounded-lg p-2.5"
+            return <div key={pl.id} className="rounded-sm p-2.5"
               style={{ background: '#fff', border: `1px solid ${opened ? '#999' : '#e5e5e5'}` }}>
               <div className="flex gap-1.5 items-center">
-                <button className="music-tap font-semibold flex-1 min-w-0 text-left rounded-md p-2 flex items-center gap-2"
+                <button className="music-tap font-semibold flex-1 min-w-0 text-left rounded-sm p-2 flex items-center gap-2"
                   aria-expanded={opened} onClick={() => setOpenedPlaylist(opened ? null : pl.id)}>
-                  <span className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
+                  <span className="w-9 h-9 rounded-sm flex items-center justify-center shrink-0"
                     style={{ background: C.soft, color: C.primary }}><MusicNotes size={18} weight="duotone" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px]" style={{ color: C.text }}>{pl.name}</span>
@@ -413,7 +416,7 @@ const MusicApp: React.FC = () => {
         {section === 'queue' && <div className="space-y-1 px-1">
           <div className="flex justify-between items-center px-2 pb-1 text-xs">
             <span style={{ color: C.muted }}>我的播放队列 · {queue.length} 首</span>
-            <button onClick={clearUpcomingQueue} className="music-tap rounded-xl px-3 py-1.5 text-[11px]"
+            <button onClick={clearUpcomingQueue} className="music-tap rounded-sm px-3 py-1.5 text-[11px]"
               style={{ color: C.primary, background: C.soft }}>清空待播</button>
           </div>
           {queue.slice(0, visibleCount).map((song, i) => {
@@ -422,7 +425,7 @@ const MusicApp: React.FC = () => {
               if (active) { if (!loadingSong) togglePlay(); }
               else void playSong(song);
             };
-            return <div key={musicSongKey(song)} className="music-track-row rounded-lg px-1 py-1"
+            return <div key={musicSongKey(song)} className="music-track-row rounded-none px-1 py-1"
               style={{ background: active ? '#eeeeed' : '#fff', borderBottom: '1px solid #ebebeb' }}>
               <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
                 picId={song.picId} source={song.source}
@@ -447,7 +450,7 @@ const MusicApp: React.FC = () => {
               </div>
             </div>;
           })}
-          {queue.length > visibleCount && <button className="music-tap w-full py-3 text-xs rounded-xl" style={{ color: C.primary, background: C.soft }}
+          {queue.length > visibleCount && <button className="music-tap w-full py-3 text-xs rounded-sm" style={{ color: C.primary, background: C.soft }}
             onClick={() => setVisibleCount(n => n + 36)}>继续显示 · 剩余 {queue.length - visibleCount} 首</button>}
           {!queue.length && <p className="text-center text-xs py-10" style={{ color: C.muted }}>播放队列为空</p>}
         </div>}
@@ -518,7 +521,7 @@ const MusicApp: React.FC = () => {
         <div className="flex-1 flex flex-col items-center px-5 pt-4 pb-3 relative z-10 overflow-hidden">
           <div className="shrink-0 mt-1 relative">
             <VinylDisc albumPic={current.albumPic} picId={current.picId} source={current.source}
-              playing={playing} size={150} bitrate={actualQualityLabel} />
+              playing={playing} size={166} bitrate={actualQualityLabel} />
             {/* 重录中覆盖层 — 只在本地歌且 regeneratingId 匹配时显示 */}
             {isCurrentRegenerating && (
               <div className="absolute inset-0 rounded-md flex items-center justify-center pointer-events-none"
@@ -558,9 +561,9 @@ const MusicApp: React.FC = () => {
             </div>
           )}
 
-          <section className="mt-5 text-center space-y-1.5 shrink-0 px-2">
-            <h2 className="font-light tracking-tight leading-tight"
-              style={{ color: C.text, fontFamily: 'inherit', fontSize: '20px', fontWeight: 650 }}>
+          <section className="mt-6 text-center space-y-1.5 shrink-0 px-2 w-full max-w-full">
+            <h2 className="font-semibold tracking-tight leading-snug break-words line-clamp-2"
+              style={{ color: C.text, fontFamily: 'inherit', fontSize: '22px', fontWeight: 650 }}>
               {current.name}
             </h2>
             <p className="text-[12px]"
@@ -695,7 +698,7 @@ const MusicApp: React.FC = () => {
         <BokehBg />
         <MizuHeader title="设置" onBack={() => setView('search')} />
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 text-sm relative z-10 shizuku-scrollbar">
-          <div className="rounded-lg p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
+          <div className="rounded-sm p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
             <div className="text-[10px] mb-2 tracking-wider flex items-center justify-between" style={{ color: C.muted }}>
               <span className="flex items-center gap-1.5"><Sparkle size={6} color={C.glow} delay={0} /> 服务地址</span>
               {!followsCentral && (
@@ -712,7 +715,7 @@ const MusicApp: React.FC = () => {
                 : <>只在音乐里用这个地址，「设置 → 网络代理」改了也不跟</>}
             </div>
           </div>
-          <div className="rounded-lg p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
+          <div className="rounded-sm p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
             <div className="text-[10px] mb-2 tracking-wider flex items-center gap-1.5" style={{ color: C.muted }}>
               <Sparkle size={6} color={C.sakura} delay={0.5} /> 会员 Cookie
             </div>
@@ -723,7 +726,7 @@ const MusicApp: React.FC = () => {
               也可以在「我的」页面里扫码 / 手机号登录，自动填入 cookie
             </div>
           </div>
-          <div className="rounded-lg p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
+          <div className="rounded-sm p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
             <div className="text-[10px] mb-2 tracking-wider flex items-center gap-1.5" style={{ color: C.muted }}>
               <Sparkle size={6} color={C.lavender} delay={1} /> 音质
             </div>
@@ -781,7 +784,7 @@ const MusicApp: React.FC = () => {
   };
 
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    <div className="music-editorial-shell absolute inset-0 overflow-hidden">
       <div key={view} className="absolute inset-0 music-panel-enter">
         {view === 'search' && renderSearch()}
         {view === 'player' && renderPlayer()}
