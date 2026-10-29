@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Headphones, X } from '@phosphor-icons/react';
 import { C } from './MusicUI';
 
@@ -15,14 +15,40 @@ type Props = {
   people: MusicTogetherPerson[];
   onClose: () => void;
   onAnswer: (charId: string, accept: boolean) => void;
-  onInvite: (charId: string) => void;
-  onCancel: (charId: string) => void;
+  onInvite: (charId: string) => void | Promise<boolean>;
+  onCancel: (charId: string) => void | Promise<boolean>;
   onEnd: (charId: string) => void;
 };
 
 /** One shared, on-demand sheet. It is never repeated inside music tabs or the mini player. */
 export const MusicTogetherSheet: React.FC<Props> = ({ people, onClose, onAnswer, onInvite, onCancel, onEnd }) => {
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const workingRef = useRef(new Set<string>());
+  const [working, setWorking] = useState<Record<string, 'invite' | 'cancel'>>({});
+  const runAction = (charId: string, kind: 'invite' | 'cancel', action: () => void | Promise<boolean>) => {
+    if (workingRef.current.has(charId)) return;
+    workingRef.current.add(charId);
+    setWorking(prev => ({ ...prev, [charId]: kind }));
+    try {
+      void Promise.resolve(action()).catch(err =>
+        console.warn('[MusicTogether] 操作失败', err)).finally(() => {
+        workingRef.current.delete(charId);
+        setWorking(prev => {
+          const next = { ...prev };
+          delete next[charId];
+          return next;
+        });
+      });
+    } catch (err) {
+      console.warn('[MusicTogether] 操作失败', err);
+      workingRef.current.delete(charId);
+      setWorking(prev => {
+        const next = { ...prev };
+        delete next[charId];
+        return next;
+      });
+    }
+  };
   const sheetRef = useRef<HTMLElement | null>(null);
   // The host re-renders frequently (playback ticks). Keep one stable focus
   // guard and always call the latest close handler.
@@ -132,10 +158,14 @@ export const MusicTogetherSheet: React.FC<Props> = ({ people, onClose, onAnswer,
                   style={{ background: '#e9e9e7', color: C.text }}
                   onClick={() => onAnswer(p.id, false)}>拒绝</button>
               </> : <button type="button" aria-label={action + '与 ' + p.name + ' 的一起听'}
-                className="music-tap min-h-11 min-w-11 px-3 rounded-full text-[12px] font-medium"
+                disabled={!!working[p.id]}
+                aria-busy={!!working[p.id]}
+                className="music-tap min-h-11 min-w-11 px-3 rounded-full text-[12px] font-medium disabled:opacity-60"
                 style={{ background: p.active ? C.primary : '#e9e9e7', color: p.active ? '#fff' : C.text }}
-                onClick={() => p.active ? onEnd(p.id) : p.outgoing === 'pending' ? onCancel(p.id) : onInvite(p.id)}>
-                {action}
+                onClick={() => p.active ? onEnd(p.id) : p.outgoing === 'pending'
+                  ? runAction(p.id, 'cancel', () => onCancel(p.id))
+                  : runAction(p.id, 'invite', () => onInvite(p.id))}>
+                {working[p.id] === 'invite' ? '邀请中…' : working[p.id] === 'cancel' ? '撤回中…' : action}
               </button>}
             </div>
           </div>;
