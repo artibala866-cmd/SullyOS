@@ -578,13 +578,15 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f3f3f3]"><PenNib size={22}/></span>
           <div><h3 className="text-xl font-semibold">从第一张画稿开始</h3><p className="mt-2 text-sm text-neutral-500">新委托可以在下方添加。</p></div>
         </div>}
-        <div className="col-span-1 sm:col-span-1 flex min-h-[108px] flex-col justify-between rounded-[24px] bg-[#252525] p-4 text-white">
+        <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-3 sm:grid-cols-1">
+        <div className="flex min-h-[108px] flex-col justify-between rounded-[24px] bg-[#252525] p-4 text-white">
           <div className="flex items-center justify-between"><span className="text-[11px] text-white/70">进行中</span><PenNib size={17} weight="light"/></div>
           <strong className="text-[29px] font-semibold tabular-nums">{data.commissions.filter(c=>c.status==='active').length}</strong>
         </div>
-        <div className="col-span-1 sm:col-span-1 flex min-h-[108px] flex-col justify-between rounded-[24px] bg-white p-4">
+        <div className="flex min-h-[108px] flex-col justify-between rounded-[24px] bg-white p-4">
           <div className="flex items-center justify-between"><span className="text-[11px] text-neutral-500">七天内</span><CalendarDots size={17} weight="light"/></div>
           <strong className="text-[29px] font-semibold tabular-nums">{data.commissions.filter(c=>c.status==='active'&&!!c.dueDate&&c.dueDate>=todayKey&&c.dueDate<=new Date(Date.now()+7*86400000).toLocaleDateString('sv-SE')).length}</strong>
+        </div>
         </div>
         {quickCommissions.slice(1).map(c=><div key={c.id}
           className="col-span-2 sm:col-span-2 flex min-w-0 items-center justify-between gap-3 rounded-[22px] bg-white px-4 py-3">
@@ -728,37 +730,68 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </details>
       <datalist id="sully-stages">{['待确认','排队','草稿','线稿','上色','细化','待审核','交付完成'].map(s=><option key={s} value={s}/>)}</datalist>
     </div><div className={section==='calendar'?'':'hidden'}>
-      <header className={cardClass}><p className="text-xs tracking-wide text-neutral-500">WEEKLY SCHOOL PLANNER</p>
-        <h2 className="font-serif text-[23px] tracking-wide">课程表</h2>
-        <p className="text-xs text-neutral-500"></p></header>
-      <section className={cardClass} aria-label="接下来要做的作业">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">接下来做什么作业</h3>
-          <span className="text-xs text-neutral-600">{data.homework.filter(h=>!h.done).length} 项待做</span>
+      <header className="flex items-center justify-between gap-3 px-1 pt-2">
+        <div className="flex items-center gap-3">
+          <span className="grid h-12 w-12 place-items-center rounded-[17px] bg-[#252525] text-white"><BookOpen size={23} weight="light"/></span>
+          <div><h2 className="text-[21px] font-semibold tracking-tight">课程表</h2><p className="text-[11px] tracking-[.12em] text-neutral-500">WEEKLY SCHOOL PLANNER</p></div>
         </div>
-        {pendingHomework.length ? <div className="space-y-2">
-          {pendingHomework.map(h=><div key={h.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl bg-neutral-50 border border-neutral-100 p-3">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{h.title}</p>
-              <p className="text-xs text-neutral-600">{lessonNameForHomework(data.classes,h.classId)} · {deadlineLabel(h.dueAt,todayKey)}</p>
-            </div>
-            <button type="button" className={primaryButton+' min-h-11'} onClick={()=>onFocus('homework',h.id,h.title)}>开始学</button>
-            {pendingMinutes('homework',h.id).minutes>0 && <button type="button"
-              className={buttonClass+' min-h-11 w-full text-left'} disabled={!!settlementBusyId}
-              onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>
-              已完成 {pendingMinutes('homework',h.id).minutes} 分钟 · 确认是否手动结算
-            </button>}
-            {data.classes.some(c=>c.id===h.classId) &&
-              <button type="button" className={mutedButton} onClick={()=>showClassWork(h.classId)}>查看作业</button>}
-          </div>)}
-        </div> : <p className="text-xs text-neutral-600">目前没有待完成的作业。可以从下方课程表选择课程并添加。</p>}
-        {data.homework.filter(h=>!h.done).length>pendingHomework.length &&
-          <button type="button" className="text-xs underline underline-offset-2" onClick={()=>setShowAllHomework(v=>!v)}>
-            {showAllHomework?'收起其余作业':'查看全部待做作业'}
+        <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white" aria-label="查看作业和笔记"
+          onClick={()=>document.getElementById('study-homework-panel')?.scrollIntoView({block:'start',behavior:'smooth'})}><ArrowRight size={20}/></button>
+      </header>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="接下来要做的作业">
+        {pendingHomework.slice(0,1).map(h=><article key={h.id}
+          className="col-span-2 sm:col-span-3 flex min-h-[216px] flex-col justify-between rounded-[28px] bg-white p-5 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] tracking-[.15em] text-neutral-500">UP NEXT / STUDY</span>
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f2f2f2]"><BookOpen size={20} weight="light"/></span>
+          </div>
+          <div className="min-w-0 py-4">
+            <h3 className="truncate text-[23px] font-semibold tracking-tight">{h.title}</h3>
+            <p className="mt-1.5 text-xs text-neutral-500">{lessonNameForHomework(data.classes,h.classId)} · {deadlineLabel(h.dueAt,todayKey)}</p>
+            <p className="mt-3 text-sm">{h.minutes}<span className="ml-1 text-xs text-neutral-500">分钟预计剩余</span></p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={primaryButton+' flex items-center gap-2 rounded-full !px-5'}
+              onClick={()=>onFocus('homework',h.id,h.title)}><BookOpen size={17}/> 开始学</button>
+            {data.classes.some(c=>c.id===h.classId) && <button type="button" className={mutedButton+' rounded-full !px-4'}
+              onClick={()=>showClassWork(h.classId)}>查看作业 <ArrowRight size={13} className="inline"/></button>}
+          </div>
+          {pendingMinutes('homework',h.id).minutes>0 && <button type="button"
+            className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3 text-xs" disabled={!!settlementBusyId}
+            onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>
+            <Clock size={15}/> 待结算 {pendingMinutes('homework',h.id).minutes} 分钟 <ArrowRight size={14}/>
           </button>}
-        {showAllHomework && <div className="space-y-1 border-t border-neutral-200 pt-2">
+        </article>)}
+        {pendingHomework.length===0 && <div className="col-span-2 sm:col-span-3 flex min-h-[216px] flex-col justify-between rounded-[28px] bg-white p-6">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f3f3f3]"><BookOpen size={22}/></span>
+          <div><h3 className="text-xl font-semibold">今天的课程已就绪</h3><p className="mt-2 text-sm text-neutral-500">选择下方课程，记下新作业。</p></div>
+        </div>}
+        <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-3 sm:grid-cols-1">
+          <div className="flex min-h-[108px] flex-col justify-between rounded-[24px] bg-[#252525] p-4 text-white">
+            <div className="flex items-center justify-between"><span className="text-[11px] text-white/70">待做作业</span><BookOpen size={17} weight="light"/></div>
+            <strong className="text-[29px] font-semibold tabular-nums">{data.homework.filter(h=>!h.done).length}</strong>
+          </div>
+          <div className="flex min-h-[108px] flex-col justify-between rounded-[24px] bg-white p-4">
+            <div className="flex items-center justify-between"><span className="text-[11px] text-neutral-500">本周课程</span><CalendarDots size={17} weight="light"/></div>
+            <strong className="text-[29px] font-semibold tabular-nums">{data.classes.filter(c=>!c.cancelled).length}</strong>
+          </div>
+        </div>
+        {pendingHomework.slice(1).map(h=><div key={h.id} className="col-span-2 sm:col-span-2 flex min-w-0 items-center gap-3 rounded-[22px] bg-white px-4 py-3">
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{h.title}</p>
+            <p className="truncate text-xs text-neutral-500">{lessonNameForHomework(data.classes,h.classId)} · {deadlineLabel(h.dueAt,todayKey)}</p></div>
+          <button type="button" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#252525] text-white"
+            aria-label={'开始学 '+h.title} onClick={()=>onFocus('homework',h.id,h.title)}><ArrowRight size={18}/></button>
+          {data.classes.some(c=>c.id===h.classId)&&<button type="button" className="text-xs text-neutral-600 underline" onClick={()=>showClassWork(h.classId)}>查看作业</button>}
+          {pendingMinutes('homework',h.id).minutes>0&&<button type="button" className="text-xs underline"
+            disabled={!!settlementBusyId} onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>结算</button>}
+        </div>)}
+        {data.homework.filter(h=>!h.done).length>pendingHomework.length && <button type="button"
+          className="col-span-2 min-h-10 text-right text-xs text-neutral-600" onClick={()=>setShowAllHomework(v=>!v)}>
+          {showAllHomework?'收起其余作业':'查看全部待做作业'} <ArrowRight size={14} className="inline"/>
+        </button>}
+        {showAllHomework && <div className="col-span-2 space-y-1 rounded-[24px] bg-white p-4">
           {nextHomework(data.homework,data.homework.length).slice(pendingHomework.length).map(h=>
-            <div key={h.id} className="flex items-center justify-between gap-2 py-1 text-xs">
+            <div key={h.id} className="flex items-center justify-between gap-2 py-2 text-xs border-b border-neutral-100">
               <span className="min-w-0 flex-1 truncate">{h.title} · {lessonNameForHomework(data.classes,h.classId)}</span>
               <button type="button" className="underline underline-offset-2" onClick={()=>onFocus('homework',h.id,h.title)}>开始学</button>
             </div>)}
