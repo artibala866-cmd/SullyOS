@@ -20,6 +20,15 @@
 
 
 
+## 当前唯一测试预览网址（所有 AI 更新汇报必须遵守）
+
+**用户指定的最新开发测试站： https://artibala866-cmd.github.io/SullyOS-Dev-Preview/**
+
+- 以后向用户提供**更新后的测试入口、网页预览地址、版本体验链接**时，统一使用上面的完整 URL；**不得再发送过去的 SullyOS GitHub Pages 共享站或其他旧测试链接**，也不得擅自另建测试地址。
+- 源码仍在本仓库既有交付分支 `remove-checkphone-vrworld-lifesim` 上更新。测试站由独立仓库 [`artibala866-cmd/SullyOS-Dev-Preview`](https://github.com/artibala866-cmd/SullyOS-Dev-Preview) 的 `.github/workflows/branch-preview.yml` 定期读取该分支并发布。**不要把本仓库旧 Pages 工作流当成这个测试站，也不要擅自改变现有发布配置。**
+- **代码已提交 ≠ 测试站已更新。** 汇报“已部署/网页已更新”前，应核对测试站的 [`preview-source.json`](https://artibala866-cmd.github.io/SullyOS-Dev-Preview/preview-source.json) 中 `sourceCommit` 是否包含本次提交（或为包含本次提交的后续源分支提交）；无法核实或尚未同步时，明确告知用户“代码已提交，测试站更新未确认/尚待同步”，不能以旧网址代替。
+- 此规则只统一**面向用户的测试预览链接与更新汇报**；不得据此更换生产部署、修改正式站或清理历史数据。
+
 ## 文档地图
 
 静态资源、Service Worker 缓存、离线启动或网页更新：先读 [`docs/static-resource-cache.md`](./docs/static-resource-cache.md)。不得注销推送 SW、清应用数据库或按整个 `/assets/` 目录设置 immutable。
