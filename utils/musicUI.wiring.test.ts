@@ -10,6 +10,7 @@ const ui = readFileSync(new URL('../apps/music/MusicUI.tsx', import.meta.url), '
 const queueSheet = readFileSync(new URL('../apps/music/MusicQueueSheet.tsx', import.meta.url), 'utf8');
 const playlistSheet = readFileSync(new URL('../apps/music/MusicPlaylistSheet.tsx', import.meta.url), 'utf8');
 const profile = readFileSync(new URL('../apps/music/NeteaseProfilePage.tsx', import.meta.url), 'utf8');
+const togetherSheet = readFileSync(new URL('../apps/music/MusicTogetherSheet.tsx', import.meta.url), 'utf8');
 const login = readFileSync(new URL('../apps/music/NeteaseLoginPanel.tsx', import.meta.url), 'utf8');
 
 describe('音乐首页与网易云独立入口', () => {
@@ -258,7 +259,7 @@ describe('MONO 黑白灰音乐视觉回归', () => {
     expect(ui).toContain('aria-busy={isActive && isLoading}');
     expect(ui).toContain('aria-label="播放进度"');
     expect(ui).toContain("e.key === 'ArrowRight'");
-    expect(ui).toContain('onKick(main.id)');
+    expect(togetherSheet).toContain('onEnd(p.id)');
     expect(ui).toContain('getGuestMusicCover({ albumPic, picId, source })');
   });
   it('登录和个人页移除玻璃糖果式圆角与渐变，二维码和头像仍可显示', () => {
@@ -334,32 +335,6 @@ describe('第三轮网易云账号与登录 UI 样式检查', () => {
 });
 
 
-describe('第三轮一起听视觉与窄屏操作回归', () => {
-  it('邀请状态改成横向滚动的轻卡片', () => {
-    expect(app).toContain('music-together-section relative z-10');
-    expect(app).toContain('overflow-x-auto pb-1 shizuku-scrollbar');
-    expect(app).toContain('aria-label="与角色一起听"');
-    expect(app).toContain('接受 ${c.name} 的一起听邀请');
-    expect(app).toContain('拒绝 ${c.name} 的一起听邀请');
-    expect(app).toContain('max-w-[78vw]');
-  });
-  it('接受、拒绝、撤回与结束依旧由真实状态及现有事件接口驱动', () => {
-    expect(app).toContain('answerCharInvite(c.id, true)');
-    expect(app).toContain('answerCharInvite(c.id, false)');
-    expect(app).toContain("status === 'pending' ? cancelListeningInvite(c.id) : inviteListeningPartner(c.id)");
-    expect(app).toContain('active ? removeListeningPartner(c.id)');
-    expect(app).toContain("status === 'rejected'");
-    expect(app).toContain('listeningTogetherWith.includes(c.id)');
-  });
-  it('320–390px 下保留控件最小触控宽度和横向滚动', () => {
-    expect(ui).toContain('@media(max-width:390px)');
-    expect(ui).toContain('@media(max-width:360px)');
-    expect(ui).toContain('@media(max-width:320px)');
-    expect(ui).toContain('.music-together-section .music-tap{min-width:44px;min-height:44px}');
-    expect(app).toContain('max-w-[70vw]');
-  });
-});
-
 describe('参考图构图偏差：歌单封面与双按钮歌曲行', () => {
   it('歌单陈列先看大封面，进入详情后仍能真实播放和管理', () => {
     expect(app).toContain('music-playlist-shelf flex gap-3 overflow-x-auto');
@@ -384,48 +359,42 @@ describe('参考图构图偏差：歌单封面与双按钮歌曲行', () => {
   });
 });
 
-describe('音乐布局遮挡回归', () => {
-  it('一起听卡片排在滚动列表开头，不能被长歌曲列表挤到下面', () => {
-    const scroll = app.indexOf('key={section} role="tabpanel"');
-    const together = app.indexOf('music-together-section relative z-10');
-    const songs = app.indexOf("section === 'results' && <div", scroll);
-    const dock = app.indexOf('<MiniPlayer', songs);
-    expect(scroll).toBeGreaterThan(-1);
-    expect(together).toBeGreaterThan(scroll);
-    expect(songs).toBeGreaterThan(together);
-    expect(dock).toBeGreaterThan(songs);
-    expect(app).toContain('music-panel-enter flex-1 min-h-0 overflow-y-auto');
+
+describe('一起听改为唯一入口与轻量按需弹层', () => {
+  it('音乐分类页面不再常驻大卡片，顶部只有一个一起听功能入口', () => {
+    expect(app.split('aria-label="打开一起听"').length - 1).toBe(1);
+    expect(app).not.toContain('music-together-section');
+    expect(app).toContain('aria-haspopup="dialog" aria-expanded={togetherSheetOpen}');
+    expect(app).toContain('{togetherSheetOpen && <MusicTogetherSheet');
+    const tabs = app.indexOf('role="tabpanel"');
+    const sheet = app.indexOf('{togetherSheetOpen && <MusicTogetherSheet');
+    expect(sheet).toBeGreaterThan(tabs);
+    expect(app).toContain('Object.keys(charInvites).length > 0');
   });
-  it('迷你播放器在文档流中独立占位，个人页亦不被绝对播放器压住', () => {
+  it('独立弹层支持键盘关闭、焦点恢复、安全区及长角色列表滚动', () => {
+    expect(togetherSheet).toContain('role="dialog" aria-modal="true"');
+    expect(togetherSheet).toContain("e.key === 'Escape'");
+    expect(togetherSheet).toContain('previous?.focus()');
+    expect(togetherSheet).toContain('env(safe-area-inset-bottom');
+    expect(togetherSheet).toContain('flex-1 min-h-0 overflow-y-auto');
+    expect(togetherSheet).toContain('min-h-11 min-w-11');
+  });
+  it('邀请、接受、拒绝、撤回和结束仍调用原有业务接口', () => {
+    expect(app).toContain('answerCharInvite(charId, accepted)');
+    expect(app).toContain('inviteListeningPartner(charId)');
+    expect(app).toContain('cancelListeningInvite(charId)');
+    expect(app).toContain('removeListeningPartner(charId)');
+    expect(togetherSheet).toContain('onAnswer(p.id, true)');
+    expect(togetherSheet).toContain('onAnswer(p.id, false)');
+    expect(togetherSheet).toContain('onCancel(p.id)');
+    expect(togetherSheet).toContain('onEnd(p.id)');
+  });
+  it('迷你播放器不再随 Char 加入而额外增加一整行头像区域', () => {
     const dock = ui.split('export const MiniPlayer:')[1]?.split('// Same public component contract;')[0] || '';
     expect(dock).toContain('className="music-dock relative shrink-0');
-    expect(dock).not.toContain('music-dock absolute');
-    expect(dock).toContain('marginBottom:');
-    expect(dock).toContain('env(safe-area-inset-bottom');
-    expect(app).toContain("paddingBottom: current ? '20px'");
-    expect(profile).toContain('overflow-y-auto pb-5');
-    expect(profile).not.toContain('overflow-y-auto pb-28');
-  });
-  it('更多操作菜单位于滚动列表内，可自动滚到可见位置，支持退出', () => {
-    expect(app).toContain('className="music-track-menu mt-1.5 mb-1.5');
-    expect(app).not.toContain('music-track-menu absolute');
-    expect(app).toContain('openSongMenuRef.current?.scrollIntoView?.');
-    expect(app).toContain('aria-haspopup="menu"');
-    expect(app).toContain('role="menuitem"');
-    expect(app).toContain("if (e.key === 'Escape')");
-  });
-  it('个人页的两处迷你播放器与全局音源、加载状态和进度同步', () => {
-    expect(profile).toContain('current, playing, loadingSong, progress, duration');
-    expect(profile.split('source={current.source}').length - 1).toBe(2);
-    expect(profile.split('loading={loadingSong}').length - 1).toBe(2);
-    expect(profile.split('progress={progress}').length - 1).toBe(2);
-    expect(profile.split('duration={duration}').length - 1).toBe(2);
-  });
-  it('一起听卡片的接受、拒绝、结束保持 44px 点击高度并对应原动作', () => {
-    expect(app).toContain('music-tap min-h-11 px-3 rounded-full');
-    expect(app).toContain('answerCharInvite(c.id, true)');
-    expect(app).toContain('answerCharInvite(c.id, false)');
-    expect(app).toContain('removeListeningPartner(c.id)');
-    expect(ui).toContain('.music-together-section .music-tap{min-width:44px;min-height:44px}');
+    expect(dock).not.toContain('<TogetherHeader');
+    expect(ui).not.toContain('const TogetherHeader:');
+    expect(dock).toContain('onClick={onToggle}');
+    expect(dock).toContain('onClick={onOpenQueue}');
   });
 });

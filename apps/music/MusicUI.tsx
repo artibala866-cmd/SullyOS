@@ -5,8 +5,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getGuestMusicCover } from '../../utils/musicArtwork';
 import { ArrowLeft, X, MagnifyingGlass, Play, Pause, SkipBack, SkipForward, MusicNote, Heart, List } from '@phosphor-icons/react';
-import { isBlobRef, useBlobRefUrl } from '../../utils/blobRef';
-import TokenImg from '../../components/os/TokenImg';
+import { useBlobRefUrl } from '../../utils/blobRef';
 
 export const C = {
   bg: '#f7f7f6',
@@ -63,9 +62,9 @@ const injectStyles = () => {
 @media(pointer:coarse){.music-editorial-shell .music-track-row .music-icon-press{min-width:44px;min-height:44px}}
 @media(max-width:360px){.music-playlist-hero{width:100px!important;height:100px!important}}
 
-@media(max-width:390px){.music-together-section{padding-left:4px;padding-right:4px}.music-together-section .music-tap{min-width:44px;min-height:44px}.music-editorial-shell .music-dock-queue{width:40px}}
+@media(max-width:390px){.music-editorial-shell .music-dock-queue{width:40px}}
 @media(max-width:360px){.music-editorial-shell .music-track-row .music-icon-press{width:44px;min-width:44px;height:44px}.music-player-actions{gap:0!important}.music-player-actions .music-icon-press{min-width:43px}.music-sheet-row-actions{width:36px!important}}
-@media(max-width:320px){.music-dock{margin-left:8px!important;margin-right:8px!important}.music-together-section .shizuku-scrollbar{scrollbar-width:none}}
+@media(max-width:320px){.music-dock{margin-left:8px!important;margin-right:8px!important}}
 @media(max-height:700px){.music-now-playing .music-player-art{width:min(142px,22dvh);height:min(142px,22dvh)}.music-now-playing .music-player-art-frame{padding:9px}.music-now-playing .music-player-meta{margin-top:8px}.music-now-playing .music-player-lyrics{margin-top:6px;margin-bottom:6px}.music-now-playing .music-player-actions{padding-top:7px}.music-now-playing .music-transport{margin-top:4px;margin-bottom:0}}
 @media(max-height:580px){.music-now-playing .music-player-art{width:min(110px,19dvh);height:min(110px,19dvh)}.music-now-playing .music-player-art-frame{padding:6px}.music-now-playing .music-player-meta h2{font-size:16px!important}.music-now-playing .music-player-source{display:none}}
 .music-tap:active:not(:disabled){opacity:.65}
@@ -214,42 +213,6 @@ export const SongRow: React.FC<{
   );
 };
 
-const TinyAvatar: React.FC<{ avatar?: string; name: string; size?: number }> = ({ avatar, name, size = 28 }) => {
-  const isImg = !!avatar && (avatar.startsWith('http') || avatar.startsWith('data:') || isBlobRef(avatar));
-  const style: React.CSSProperties = { width: size, height: size, border: '1px solid #d7d7d7' };
-  return isImg
-    ? <TokenImg value={avatar} alt="" className="rounded-full object-cover shrink-0" style={style} />
-    : <div className="rounded-full flex items-center justify-center shrink-0 font-semibold text-neutral-600"
-        style={{ ...style, background: '#eeeeec', fontSize: Math.round(size * .4) }}>
-        {avatar && avatar.length <= 4 ? avatar : (name || '·').slice(0, 1)}
-      </div>;
-};
-
-const TogetherHeader: React.FC<{
-  userAvatar?: string; userName?: string;
-  companions: { id: string; name: string; avatar?: string }[];
-  onKick?: (id: string) => void;
-  dark?: boolean;
-}> = ({ userAvatar, userName = '你', companions, onKick, dark = false }) => {
-  const main = companions[0];
-  return <div className="flex items-center gap-2.5" style={{ color: dark ? '#fff' : C.text }}>
-    <TinyAvatar avatar={userAvatar} name={userName} size={27} />
-    <span className="text-neutral-400 text-xs">/</span>
-    <TinyAvatar avatar={main?.avatar} name={main?.name || ''} size={27} />
-    <div className="flex-1 min-w-0">
-      <div className="uppercase tracking-[0.12em] text-[9px] font-semibold" style={{ color: dark ? '#bcbcbc' : C.muted }}>Listening together</div>
-      <div className="text-[11px] truncate font-medium" style={{ color: dark ? '#fff' : C.text }}>
-        {userName} · {main?.name}{companions.length > 1 ? ` 等 ${companions.length} 人` : ''}
-      </div>
-    </div>
-    {onKick && main && <button type="button" aria-label={`结束和 ${main.name} 的一起听`}
-      onClick={e => { e.stopPropagation(); onKick(main.id); }}
-      className="music-icon-press w-8 h-8 flex items-center justify-center" style={{ color: dark ? '#fff' : C.muted }}>
-      <X size={15} />
-    </button>}
-  </div>;
-};
-
 export const MiniPlayer: React.FC<{
   name: string; artists: string; albumPic: string; picId?: string; source?: 'netease' | 'tencent';
   playing: boolean; loading?: boolean; progress?: number; duration?: number;
@@ -268,15 +231,9 @@ export const MiniPlayer: React.FC<{
   const collectionHint = charsWithSong?.[0]
     ? `${charsWithSong[0].name} 的《${charsWithSong[0].playlistTitle}》也收藏了`
     : '';
-  // A flex child, not an absolute overlay: the scroll region ends above this
-  // card even when listening-together avatars increase its height.
+  // A compact flex child, never stretched by together-listening controls.
   return <div className="music-dock relative shrink-0 z-30 mx-3 rounded-[21px] px-3.5 pt-2.5 pb-3.5"
     style={{ color: C.text, marginBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
-    {companions && companions.length > 0 && <div className="mb-1.5 pb-1.5"
-      style={{ borderBottom: '1px solid #f0f0ee' }}>
-      <TogetherHeader userAvatar={userAvatar} userName={userName}
-        companions={companions} onKick={onKickCompanion} />
-    </div>}
     <div className="flex items-center gap-1.5 min-w-0">
       <button type="button" onClick={onTap} aria-label={`打开《${name}》的完整播放器`}
         className="music-dock-open music-tap">

@@ -15,6 +15,7 @@ import {
 import NeteaseProfilePage from './music/NeteaseProfilePage';
 import { MusicQueueSheet } from './music/MusicQueueSheet';
 import { MusicPlaylistSheet } from './music/MusicPlaylistSheet';
+import { MusicTogetherSheet } from './music/MusicTogetherSheet';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 
 // ------------------------- 工具 -------------------------
@@ -137,6 +138,7 @@ const MusicApp: React.FC = () => {
 
   const [view, setView] = useState<View>('search');
   const [queueSheetOpen, setQueueSheetOpen] = useState(false);
+  const [togetherSheetOpen, setTogetherSheetOpen] = useState(false);
   // ── 手动对轴 modal state ──
   const [showLyricSync, setShowLyricSync] = useState(false);
   const [syncDraft, setSyncDraft] = useState<number[]>([]);
@@ -326,7 +328,16 @@ const MusicApp: React.FC = () => {
         title="MUSIC"
         onClose={closeApp}
         right={
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
+            {characters.length > 0 && <button type="button" aria-label="打开一起听"
+              title="一起听" aria-haspopup="dialog" aria-expanded={togetherSheetOpen}
+              className="music-icon-press relative w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ color: C.primary }}
+              onClick={() => { setQueueSheetOpen(false); setTogetherSheetOpen(true); }}>
+              <Headphones size={20} weight="regular" />
+              {Object.keys(charInvites).length > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full"
+                aria-label="有待回应的一起听邀请" style={{ background: C.primary, border: '1px solid white' }} />}
+            </button>}
             <button
               onClick={() => setView('profile')}
               aria-label="进入网易云账号专页"
@@ -397,69 +408,6 @@ const MusicApp: React.FC = () => {
           paddingBottom: current ? '20px' : 'calc(24px + env(safe-area-inset-bottom, 0px))',
           background: C.bg,
         }}>
-        {/* Keep listening invitations reachable *before* long result and playlist lists. */}
-      {characters.length > 0 && (
-        <section className="music-together-section relative z-10 px-4 pb-2" aria-label="与角色一起听">
-          <div className="rounded-[19px] border px-3 pt-3 pb-2.5"
-            style={{ background: C.surface, borderColor: '#e9e9e7' }}>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2 min-w-0" style={{ color: C.text }}>
-                <Headphones size={17} weight="regular" aria-hidden="true" />
-                <span className="text-[12px] font-semibold">一起听</span>
-              </div>
-              <span className="text-[10px] truncate" style={{ color: C.muted }}>
-                {listeningTogetherWith.length > 0 ? `正在与 ${listeningTogetherWith.length} 位角色听歌` : '选择角色发起邀请'}
-              </span>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 shizuku-scrollbar overscroll-x-contain"
-              style={{ scrollbarWidth: 'thin' }}>
-              {characters.filter(c => !!charInvites[c.id]).map(c => (
-                <div key={`char-invite-${c.id}`}
-                  className="shrink-0 w-[196px] max-w-[78vw] min-w-0 rounded-[15px] border px-3 py-2.5"
-                  style={{ background: '#f6f6f4', borderColor: '#dededb' }}>
-                  <div className="text-[12px] font-semibold truncate" style={{ color: C.text }}>{c.name} 邀请你</div>
-                  <div className="text-[10px] truncate mt-1" style={{ color: C.muted }}
-                    title={charInvites[c.id]?.track?.name || '一起听歌'}>
-                    {charInvites[c.id]?.track ? `一起听《${charInvites[c.id].track?.name}》` : '邀请你一起听歌'}
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    <button type="button" aria-label={`接受 ${c.name} 的一起听邀请`}
-                      className="music-tap min-h-11 px-3 rounded-full text-[11px] font-medium"
-                      style={{ color: '#fff', background: C.primary }}
-                      onClick={() => void answerCharInvite(c.id, true)}>接受</button>
-                    <button type="button" aria-label={`拒绝 ${c.name} 的一起听邀请`}
-                      className="music-tap min-h-11 px-3 rounded-full text-[11px] font-medium"
-                      style={{ color: C.muted, background: '#e9e9e6' }}
-                      onClick={() => void answerCharInvite(c.id, false)}>拒绝</button>
-                  </div>
-                </div>
-              ))}
-              {characters.filter(c => !charInvites[c.id]).map(c => {
-                const active = listeningTogetherWith.includes(c.id);
-                const status = listeningInvites[c.id];
-                const action = active ? '结束' : status === 'pending' ? '撤回' : '邀请';
-                return (
-                  <div key={c.id} className="shrink-0 w-[160px] max-w-[70vw] min-w-0 rounded-[15px] border px-3 py-2.5"
-                    style={{ background: '#fbfbfa', borderColor: active ? '#cbcbc7' : '#e9e9e7' }}>
-                    <div className="text-[12px] font-semibold truncate" title={c.name} style={{ color: C.text }}>{c.name}</div>
-                    <div className="text-[10px] mt-1 truncate" style={{ color: C.muted }}>
-                      {active ? `一起听中 · ${Math.floor((Date.now() - (listeningStartedAt[c.id] || Date.now())) / 60000)} 分钟`
-                        : status === 'pending' ? '邀请已发送，等待回应'
-                        : status === 'rejected' ? '上次邀请已拒绝' : '可以邀请一起听'}
-                    </div>
-                    <button type="button" aria-label={`${action}与 ${c.name} 的一起听`}
-                      className="music-tap min-h-11 mt-2 px-3 rounded-full text-[11px] font-medium"
-                      style={{ color: active ? '#fff' : C.text, background: active ? C.primary : '#ededeb' }}
-                      onClick={() => active ? removeListeningPartner(c.id) : status === 'pending' ? cancelListeningInvite(c.id) : inviteListeningPartner(c.id)}>
-                      {action}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
         {section === 'results' && <div className="px-2 mb-2 text-[11px] flex items-center justify-between" style={{ color: C.muted }}>
           <span>{searching ? '正在搜索…' : results.length ? `找到 ${results.length} 首歌曲` : hasSearched ? '没有找到匹配歌曲，可换关键词或音乐来源' : '搜索歌曲、歌手或专辑'}</span>
           {searching && <span className="w-3.5 h-3.5 border-2 rounded-full border-t-transparent animate-spin" style={{ borderColor: C.primary, borderTopColor: 'transparent' }} />}
@@ -931,6 +879,24 @@ const MusicApp: React.FC = () => {
           />
         )}
       </div>
+      {togetherSheetOpen && <MusicTogetherSheet
+        people={characters.map(c => ({
+          id: c.id,
+          name: c.name,
+          incoming: !!charInvites[c.id],
+          trackName: charInvites[c.id]?.track?.name,
+          active: listeningTogetherWith.includes(c.id),
+          outgoing: listeningInvites[c.id],
+        }))}
+        onClose={() => setTogetherSheetOpen(false)}
+        onAnswer={(charId, accepted) => {
+          void answerCharInvite(charId, accepted);
+          setTogetherSheetOpen(false);
+        }}
+        onInvite={charId => inviteListeningPartner(charId)}
+        onCancel={charId => cancelListeningInvite(charId)}
+        onEnd={charId => removeListeningPartner(charId)}
+      />}
       {playlistSheetSong && <MusicPlaylistSheet
         song={playlistSheetSong} playlists={library.playlists}
         onClose={() => setPlaylistSheetSong(null)}
