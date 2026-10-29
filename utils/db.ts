@@ -32,6 +32,8 @@ import { exportWorldHomeLocal, importWorldHomeLocal } from './worldHome/localBac
 import { exportDesktopSkinLocal, importDesktopSkinLocal } from './desktopSkinBackup';
 import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup } from './musicLibrary';
 import { findPendingMusicInvite } from './musicInviteStatus';
+import { appendCharPlaylistSong, type CharSongTarget } from './charMusicPlaylist';
+import type { CharPlaylistSong, CharMusicProfile } from '../types';
 
 const DB_NAME = 'AetherOS_Data';
 // v67：两条并行线各自用掉了 v65/v66（A线: blob_assets + 生活记录；B线: room_plates 门牌 + digest_reports 消化日志），
@@ -616,6 +618,32 @@ export const DB = {
   saveCharacter: async (character: CharacterProfile): Promise<void> => {
     const db = await openDB();
     return persistCharacterWithHomeMessages(db, character, clearStaleMemoryMirror);
+  },
+
+  /** Atomic append: read and write current character inside the same
+   * IndexedDB transaction. Never overwrite concurrently edited role fields. */
+  appendSongToCharPlaylist: async (
+    charId: string, song: CharPlaylistSong, target?: CharSongTarget,
+  ): Promise<{playlistTitle:string;created:boolean;inserted:boolean;musicProfile:CharMusicProfile}|null> => {
+    const db = await openDB();
+    return new Promise((resolve,reject) => {
+      const tx = db.transaction(STORE_CHARACTERS, 'readwrite');
+      const store = tx.objectStore(STORE_CHARACTERS);
+      let outcome: {playlistTitle:string;created:boolean;inserted:boolean;musicProfile:CharMusicProfile}|null = null;
+      const req = store.get(charId);
+      req.onsuccess = () => {
+        const char = req.result as CharacterProfile | undefined;
+        if (!char) return;
+        const applied = appendCharPlaylistSong(char.musicProfile, song, target);
+        if (!applied) return;
+        outcome = {playlistTitle:applied.playlistTitle,created:applied.created,
+          inserted:applied.inserted,musicProfile:applied.profile};
+        if (applied.inserted) store.put({...char,musicProfile:applied.profile});
+      };
+      tx.oncomplete = () => resolve(outcome);
+      tx.onerror = () => reject(tx.error || new Error('Char playlist transaction failed'));
+      tx.onabort = () => reject(tx.error || new Error('Char playlist transaction aborted'));
+    });
   },
 
   /** An asynchronous evaluation updates only emotion fields, never its stale home/history snapshot. */

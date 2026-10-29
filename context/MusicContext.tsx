@@ -1811,86 +1811,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       addSongToCharPlaylist: async (cid, song, target) => {
         try {
-          const all = await DB.getAllCharacters();
-          const targetChar = all.find(c => c.id === cid);
-          if (!targetChar) return null;
-          // 尚未生成音乐人格，也应允许 Char 收藏真实歌曲；只建一个未初始化的收藏容器，
-          // 不假装 AI 已生成音乐品味。日后初始化时会保留这些收藏。
-          const profile = targetChar.musicProfile || {
-            bio: '', genreTags: [], signatureArtists: [], playlists: [],
-            likedSongIds: [], recentPlays: [], updatedAt: Date.now(),
-          };
-
-          const now = Date.now();
-          let playlists = profile.playlists.slice();
-          let chosenIdx = -1;
-          let created = false;
-
-          if (target?.kind === 'new') {
-            // 新建歌单 — 标题去重（已存在同名就当成 existing 处理）
-            const dup = playlists.findIndex(p =>
-              p.title.trim().toLowerCase() === target.title.trim().toLowerCase());
-            if (dup >= 0) {
-              chosenIdx = dup;
-            } else {
-              playlists.push({
-                id: `pl-${now}-${playlists.length}`,
-                title: target.title.trim(),
-                description: (target.description || '').trim(),
-                coverStyle: `gradient-0${(playlists.length % 6) + 1}`,
-                songs: [],
-                createdAt: now,
-                updatedAt: now,
-              });
-              chosenIdx = playlists.length - 1;
-              created = true;
-            }
-          } else if (target?.kind === 'existing') {
-            const t = target.title.trim().toLowerCase();
-            chosenIdx = playlists.findIndex(p => p.title.trim().toLowerCase() === t);
-            if (chosenIdx < 0) chosenIdx = playlists.findIndex(p =>
-              p.title.trim().toLowerCase().includes(t) || t.includes(p.title.trim().toLowerCase()));
-            // An explicit target never silently falls back to another playlist.
-            if (chosenIdx < 0) return null;
-          } else {
-            if (playlists.length > 0) chosenIdx = 0;
-          }
-
-          if (chosenIdx < 0) {
-            playlists.push({
-              id: `pl-${now}-0`,
-              title: '我喜欢的音乐',
-              description: '',
-              coverStyle: 'gradient-01',
-              songs: [],
-              createdAt: now,
-              updatedAt: now,
-            });
-            chosenIdx = 0;
-            created = true;
-          }
-
-          const pl = playlists[chosenIdx];
-          if (pl.songs.find(s =>
-            s.id === song.id &&
-            (s.musicSource || 'netease') === (song.musicSource || 'netease') &&
-            (s.platformId || String(s.id)) === (song.platformId || String(song.id)) &&
-            !!s.musicLocal === !!song.musicLocal)) {
-            return { playlistTitle: pl.title, created: false };
-          }
-          const updatedPl = { ...pl, songs: [...pl.songs, song], updatedAt: now };
-          playlists[chosenIdx] = updatedPl;
-
-          const updatedProfile = { ...profile, playlists, updatedAt: now };
-          await DB.saveCharacter({ ...targetChar, musicProfile: updatedProfile });
-          // 只落 DB 的话内存里那份角色还是旧歌单: 之后随便哪个 updateCharacter 都会拿旧内存
-          // 合并写回, 把刚加的歌反向抹掉 (情绪 buff 踩过同一个坑); 主动消息 2.0 的云端快照
-          // 也会停在加歌之前, 角色到点还当这首歌没收藏过。交给 OSContext 的监听补这两件事。
-          window.dispatchEvent(new CustomEvent('char-music-profile-updated', {
-            detail: { charId: cid, musicProfile: updatedProfile },
+          const result = await DB.appendSongToCharPlaylist(cid, song, target);
+          if (!result) return null;
+          if (result.inserted) window.dispatchEvent(new CustomEvent('char-music-profile-updated', {
+            detail: { charId: cid, musicProfile: result.musicProfile },
           }));
-          return { playlistTitle: pl.title, created };
-        } catch {
+          return { playlistTitle: result.playlistTitle, created: result.created };
+        } catch (err) {
+          console.warn('[MusicTogether] Char 歌单写入失败', err);
           return null;
         }
       },
