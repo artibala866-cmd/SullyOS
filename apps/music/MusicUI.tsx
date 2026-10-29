@@ -115,7 +115,8 @@ export const MizuHeader: React.FC<{
   <div className="flex items-center justify-between px-4 h-12 shrink-0 shizuku-glass-strong relative z-20"
     style={{ borderBottom: `1px solid rgba(255,255,255,0.3)`, paddingTop: 'var(--safe-top)', boxSizing: 'content-box' }}>
     <button
-      className="w-8 h-8 flex items-center justify-center rounded-full transition-all"
+      className="music-icon-press w-8 h-8 flex items-center justify-center rounded-full"
+      aria-label={onBack ? '返回上一页' : '关闭音乐应用'}
       style={{ color: C.primary }}
       onClick={onBack || onClose}
     >
@@ -140,7 +141,7 @@ export const SearchBar: React.FC<{
   searching: boolean;
 }> = ({ value, onChange, onSearch, searching }) => (
   <div className="flex gap-2 px-4 py-3 relative z-10">
-    <div className="flex-1 flex items-center gap-2.5 rounded-2xl px-4 py-2 shizuku-glass transition-all"
+    <div className="flex-1 flex items-center gap-2.5 rounded-2xl px-4 py-2 bg-white/85 border border-violet-100 focus-within:ring-2 focus-within:ring-violet-200 transition-shadow"
       style={{
         boxShadow: `0 2px 20px ${C.glow}15, inset 0 1px 0 rgba(255,255,255,0.4)`,
       }}>
@@ -158,18 +159,18 @@ export const SearchBar: React.FC<{
     <button
       onClick={onSearch}
       disabled={searching}
-      className="px-4 py-2 rounded-2xl text-xs text-white disabled:opacity-50 transition-all relative overflow-hidden"
+      className="music-tap px-4 py-2 rounded-2xl text-xs font-semibold text-white disabled:opacity-50 relative overflow-hidden"
       style={{
         background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
         boxShadow: `0 3px 15px ${C.primary}30`,
       }}
     >
-      <span className="relative z-10">{searching ? '...' : '搜索'}</span>
+      <span className="relative z-10">{searching ? '搜索中…' : '搜索'}</span>
       {/* shimmer 扫光 */}
       <div className="absolute inset-0 pointer-events-none" style={{
         background: `linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%)`,
         backgroundSize: '200% 100%',
-        animation: 'shizuku-shimmer 3s ease-in-out infinite',
+        animation: searching ? 'shizuku-shimmer 1.3s ease-in-out infinite' : 'none',
       }} />
     </button>
   </div>
@@ -658,17 +659,18 @@ export const PlayControls: React.FC<{
   onNext: () => void;
 }> = ({ playing, loading, onPrev, onToggle, onNext }) => (
   <div className="flex items-center justify-center gap-8 mt-3 mb-1">
-    <button onClick={onPrev} className="p-2 rounded-full transition-all"
+    <button aria-label="上一首" onClick={onPrev} className="music-icon-press p-2 rounded-full"
       style={{ color: C.muted }}>
       <SkipBack size={22} weight="fill" />
     </button>
     <button
       onClick={onToggle}
-      className="w-[56px] h-[56px] rounded-full flex items-center justify-center transition-transform active:scale-95 relative"
+      aria-label={loading ? '正在加载音频' : playing ? '暂停' : '播放'}
+      className="music-tap w-[56px] h-[56px] rounded-full flex items-center justify-center relative"
       style={{
         background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
         boxShadow: `0 4px 24px ${C.glow}40, 0 0 60px ${C.glow}15`,
-        animation: playing ? 'shizuku-glow 3s ease-in-out infinite' : 'none',
+        animation: 'none',
       }}
     >
       {loading ? (
@@ -682,7 +684,7 @@ export const PlayControls: React.FC<{
       <div className="absolute inset-[-3px] rounded-full pointer-events-none"
         style={{ border: `1px solid rgba(255,255,255,0.2)` }} />
     </button>
-    <button onClick={onNext} className="p-2 rounded-full transition-all"
+    <button aria-label="下一首" onClick={onNext} className="music-icon-press p-2 rounded-full"
       style={{ color: C.muted }}>
       <SkipForward size={22} weight="fill" />
     </button>
