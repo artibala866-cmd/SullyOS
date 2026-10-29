@@ -52,3 +52,10 @@ export const leaveCharListeningState = (
 export const charMusicPlaybackConfirmed = (
   song: Song, current: Song | null, sourcePresent: boolean, paused: boolean, failed: boolean,
 ): boolean => !!current && sameMusic(song, current) && sourcePresent && !paused && !failed;
+
+/** The chat-side music card may only claim that a song was saved when
+ * MusicProvider actually committed it to the intended Char playlist. */
+export const verifiedCharMusicCardIntent = (
+  requested: 'join' | 'add' | 'join_and_add', saved: boolean,
+): 'join' | 'add' | 'join_and_add' | null =>
+  saved ? requested : requested === 'join_and_add' ? 'join' : null;

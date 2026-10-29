@@ -1,4 +1,5 @@
 import { withReplyCancellation, type ReplyRun } from './chatReplyCancellation';
+import { verifiedCharMusicCardIntent } from './musicCharActions';
 
 import { DB } from './db';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -32,7 +33,7 @@ export interface MusicActionSnapshot {
 /**
  * 把 user 的歌加到 char 的歌单时，char 可以指定目标：
  * - 不传 target → 默认放进第一个歌单（兼容老 [[MUSIC_ACTION:add]]）
- * - target.kind === 'existing' → 按标题模糊匹配现有歌单；匹配不到回落到第一个
+ * - target.kind === 'existing' → 按标题模糊匹配现有歌单；找不到则报失败，不擅自改存其他歌单
  * - target.kind === 'new' → 现场新建一个歌单，把这首作为第一首
  *
  * 不论哪种，存入 char 歌单时都会打上 source: 'user' 标签，让 char 之后"听"
@@ -316,8 +317,14 @@ export const ChatParser = {
                 verb === 'join' ? 'join'
                 : (verb === 'add' || verb === 'add_new') ? 'add'
                 : 'join_and_add';
-            if (verb === 'favorite_current') await replyStep(async () => musicHooks.favoriteListeningTrack?.(charId));
-            if (verb === 'favorite_track' && args[0]) await replyStep(async () => musicHooks.favoriteListeningTrack?.(charId, args[0]));
+            if (verb === 'favorite_current') {
+                const saved = await replyStep(async () => musicHooks.favoriteListeningTrack?.(charId));
+                if (saved === false) addToast('角色没有成功收藏当前歌曲，请检查歌单后重试', 'error');
+            }
+            if (verb === 'favorite_track' && args[0]) {
+                const saved = await replyStep(async () => musicHooks.favoriteListeningTrack?.(charId, args[0]));
+                if (saved === false) addToast('角色未能找到或保存指定歌曲，请检查来源后重试', 'error');
+            }
             if (verb === 'invite') await replyStep(async () => musicHooks.inviteUserListening?.(charId));
             if (verb === 'stop') musicHooks.stopListeningTogether?.(charId);
             if (verb === 'reject') await replyStep(async () => musicHooks.rejectListeningInvite?.(charId));
@@ -375,27 +382,38 @@ export const ChatParser = {
                     } catch { replyRun?.check(); /* 忽略 */ }
 
                 }
-                await replyStep(async () => persist({
-                    charId,
-                    role: 'assistant',
-                    type: 'music_card',
-                    content: '[音乐卡片]',
-                    metadata: {
-                        intent,
-                        song: snap,
-                        addedToPlaylistTitle,
-                        playlistCreated,
-                    },
-                }));
-                const playlistSuffix = addedToPlaylistTitle
-                    ? (playlistCreated ? `（新建《${addedToPlaylistTitle}》）` : `《${addedToPlaylistTitle}》`)
-                    : '';
-                addToast(
-                    intent === 'join' ? `${charName} 和你一起听` :
-                    intent === 'add' ? `${charName} 把这首加到了${playlistSuffix || '自己歌单'}` :
-                    `${charName} 和你一起听，也加到了${playlistSuffix || '歌单'}`,
-                    'info'
-                );
+                const cardIntent = verifiedCharMusicCardIntent(intent, !wantsAdd || !!addedToPlaylistTitle);
+                // Never persist an "added to playlist" card when DB returned null.
+                // If Char joined successfully but saving failed, retain only
+                // the truthful "join" card.
+                if (cardIntent) {
+                    await replyStep(async () => persist({
+                        charId,
+                        role: 'assistant',
+                        type: 'music_card',
+                        content: '[音乐卡片]',
+                        metadata: {
+                            intent: cardIntent,
+                            song: snap,
+                            ...(addedToPlaylistTitle ? { addedToPlaylistTitle, playlistCreated } : {}),
+                        },
+                    }));
+                }
+                if (wantsAdd && !addedToPlaylistTitle) {
+                    addToast(wantsJoin
+                        ? `${charName} 已加入一起听，但歌曲未能成功收藏`
+                        : `${charName} 没有成功把歌曲加入歌单，请检查目标歌单后重试`, 'error');
+                } else {
+                    const playlistSuffix = addedToPlaylistTitle
+                        ? (playlistCreated ? `（新建《${addedToPlaylistTitle}》）` : `《${addedToPlaylistTitle}》`)
+                        : '';
+                    addToast(
+                        intent === 'join' ? `${charName} 和你一起听` :
+                        intent === 'add' ? `${charName} 把这首加到了${playlistSuffix}` :
+                        `${charName} 和你一起听，也加到了${playlistSuffix}`,
+                        'info',
+                    );
+                }
             } else if (verb !== 'stop' && verb !== 'reject') {
                 // 两头都空：推送里没冻歌（比如那一刻角色的日程不在听歌的时段，或者是本地
                 // 聊天路径），用户此刻也没在放歌。剩下的选择只有跳过 —— 但静默跳过的结果是

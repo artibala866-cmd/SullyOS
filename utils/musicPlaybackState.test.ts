@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Song } from '../context/MusicContext';
 import { cachedCall, invalidate } from './musicCache';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from './musicPlaybackState';
-import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState } from './musicCharActions';
+import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState, verifiedCharMusicCardIntent } from './musicCharActions';
 
 const song = (id: number, source: Song['source'] = 'netease'): Song => ({
   id, source, platformId: String(id), name: 'Song ' + id, artists: 'Artist',
@@ -118,5 +118,15 @@ describe('多 Char 伴听即刻生效与独立结束', () => {
     expect(left).toEqual({ partners: ['B'], startedAt: { B: 2000 } });
     expect(both.partners).toEqual(['A', 'B']);
     expect(leaveCharListeningState(left.partners, left.startedAt, 'B')).toEqual({ partners: [], startedAt: {} });
+  });
+});
+
+describe('Char 收藏失败不得伪造成功音乐卡片', () => {
+  it('仅保存成功才能生成 add 卡片；join_and_add 保存失败退回单纯一起听', () => {
+    expect(verifiedCharMusicCardIntent('add', false)).toBeNull();
+    expect(verifiedCharMusicCardIntent('join_and_add', false)).toBe('join');
+    expect(verifiedCharMusicCardIntent('join_and_add', true)).toBe('join_and_add');
+    expect(verifiedCharMusicCardIntent('add', true)).toBe('add');
+    expect(verifiedCharMusicCardIntent('join', true)).toBe('join');
   });
 });
