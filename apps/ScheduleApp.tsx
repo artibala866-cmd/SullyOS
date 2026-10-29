@@ -468,13 +468,13 @@ const ScheduleApp: React.FC = () => {
                 <div className="min-w-0"><p className="text-[17px] font-semibold leading-tight">专注计时</p></div></div>
               <span className="shrink-0 rounded-full border border-neutral-200 bg-[#fafafa] px-2.5 py-1.5 text-xs text-neutral-600">{session?.mode==='break'?'休息中':session?.mode==='focus'?'沉浸进行中':'准备开始'}</span>
             </div>
-            <div className="relative overflow-hidden rounded-[26px] bg-white px-4 py-5 sm:px-6 sm:py-8 text-center shadow-[0_12px_36px_rgba(0,0,0,0.035)]">
+            <div className="relative overflow-hidden rounded-[26px] bg-white px-4 py-4 sm:px-6 sm:py-8 text-center shadow-[0_12px_36px_rgba(0,0,0,0.035)]">
               <div className="font-sans font-semibold text-[clamp(48px,13vw,70px)] leading-none tracking-[-.055em] tabular-nums">{pad(Math.floor(remaining/60))}:{pad(remaining%60)}</div>
-              <div className="mx-auto mt-3 sm:mt-5 h-1 w-full max-w-[260px] overflow-hidden rounded-full bg-[#e9e9e9]"><div className="h-full rounded-full bg-neutral-900 transition-[width]"
+              <div className="mx-auto mt-2 sm:mt-5 h-1 w-full max-w-[260px] overflow-hidden rounded-full bg-[#e9e9e9]"><div className="h-full rounded-full bg-neutral-900 transition-[width]"
                 style={{width:session?`${Math.max(0,Math.min(100,(1-remaining/(session.duration*60))*100))}%`:'0%'}}/></div>
-              <p className="mt-4 sm:mt-5 text-[11px] text-neutral-500">当前任务</p>
+              <p className="mt-3 sm:mt-5 text-[11px] text-neutral-500">当前任务</p>
               <p className="mt-1 line-clamp-1 text-[14px] font-semibold">{session?.mode==='break'?'好好休息一下':activeTask?.title||'选一件重要的事开始'}</p>
-              <div className="mt-4 sm:mt-6 flex items-center justify-center gap-4">
+              <div className="mt-3 sm:mt-6 flex items-center justify-center gap-4">
                 {session ? <>
                   <button className="grid h-11 w-11 place-items-center rounded-full border border-neutral-300 bg-white" aria-label={session.pauseRemainingMs!=null?'继续专注':'暂停专注'} onClick={session.pauseRemainingMs!=null?resume:pause}>
                     {session.pauseRemainingMs!=null?<Play size={22} weight="fill"/>:<Pause size={22} weight="fill"/>}</button>
@@ -533,7 +533,7 @@ const ScheduleApp: React.FC = () => {
             </div>
           </section>}
         {tab === 'tasks' && <section className={shell + ' p-5 space-y-4'}>
-          <div className="flex items-center justify-between"><div><p className="text-xs tracking-[.22em] text-neutral-400">TODAY'S CHECKLIST</p><h2 className="mt-1 font-serif text-2xl">任务清单</h2></div><NotePencil size={26} weight="light"/></div>
+          <div className="flex items-center justify-between"><div><h2 className="text-xl font-semibold">任务清单</h2></div><NotePencil size={26} weight="light"/></div>
           <form onSubmit={e => { e.preventDefault(); addTask(); }} className="flex gap-2"><input aria-label="新任务" value={taskInput} onChange={e => setTaskInput(e.target.value)} placeholder="写下今天的目标" className={inset + ' min-w-0 flex-1 p-3 text-sm outline-none'} /><button className={btn} type="submit">添加</button></form>
           {tasks.length === 0 && <p className="text-sm text-[#999999] py-5 text-center">还没有任务</p>}
           {tasks.map(t => <div key={t.id} className={'rounded-2xl border p-4 flex items-center gap-3 text-sm '+(t.done?'border-neutral-100 bg-[#f5f5f5]':'border-neutral-200 bg-white')}>
@@ -552,9 +552,9 @@ const ScheduleApp: React.FC = () => {
           </div>)}
         </section>}
         {tab === 'stats' && <section className={shell + ' p-5 space-y-5'}>
-          <div className="flex items-center justify-between"><div><p className="text-xs tracking-[.22em] text-neutral-400">FOCUS REPORT</p><h2 className="mt-1 font-serif text-2xl">专注统计</h2></div><ChartBar size={27} weight="light"/></div>
+          <div className="flex items-center justify-between"><div><h2 className="text-xl font-semibold">专注统计</h2></div><ChartBar size={27} weight="light"/></div>
           <div className="grid grid-cols-2 gap-3"><div className={inset + ' p-4 text-center'}><div className="text-3xl">{totalToday}</div><div className="text-xs mt-2">今日分钟</div></div><div className={inset + ' p-4 text-center'}><div className="text-3xl">{todayRecords.length}</div><div className="text-xs mt-2">今日轮次</div></div></div>
-          <div className="rounded-2xl bg-[#f5f5f5] px-5 py-4"><p className="text-xs text-neutral-400">累计专注</p><p className="mt-1 font-serif text-4xl tabular-nums">{records.reduce((sum,r)=>sum+r.minutes,0)}<span className="ml-2 text-xs font-sans text-neutral-500">MINUTES</span></p></div>
+          <div className="rounded-2xl bg-[#f5f5f5] px-5 py-4"><p className="text-xs text-neutral-400">累计专注</p><p className="mt-1 font-serif text-4xl tabular-nums">{records.reduce((sum,r)=>sum+r.minutes,0)}<span className="ml-2 text-xs font-sans text-neutral-500">分钟</span></p></div>
           <div className="grid grid-cols-7 gap-2 items-end h-32" aria-label="最近七天专注图">
             {weeklyFocus.map(day=><div className="flex flex-col h-full items-center justify-end gap-1" key={day.key}>
               <span className="text-xs text-neutral-600">{day.minutes||''}</span>
