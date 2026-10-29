@@ -200,8 +200,22 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         };
         void refresh();
         const timer = window.setInterval(() => { void refresh(); }, 60_000);
+        const onScheduleChanged = (event: Event) => {
+            const charId = (event as CustomEvent<{ charId?: string }>).detail?.charId;
+            if (!charId || charId === activeCharacterId) void refresh();
+        };
         window.addEventListener('sully-life-clock-change', refresh);
-        return () => { cancelled = true; clearInterval(timer); window.removeEventListener('sully-life-clock-change', refresh); };
+        // Manual edits and AI-confirmed changes should update presence immediately,
+        // not leave the old activity in the reply gate for another full minute.
+        window.addEventListener(SCHEDULE_CHANGE_EVENT, onScheduleChanged);
+        window.addEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onScheduleChanged);
+        return () => {
+            cancelled = true;
+            clearInterval(timer);
+            window.removeEventListener('sully-life-clock-change', refresh);
+            window.removeEventListener(SCHEDULE_CHANGE_EVENT, onScheduleChanged);
+            window.removeEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onScheduleChanged);
+        };
     }, [activeCharacterId, characters, lifeMode]);
 
     const toggleLifeMode = () => {
