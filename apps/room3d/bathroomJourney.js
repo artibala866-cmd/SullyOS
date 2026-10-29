@@ -64,9 +64,9 @@ export function bathroomJourneyFrame(j,time){
   // Tuck the knee vertically before swinging the foot across the tall rim.
   // The two contacts are separate: lift first, then transfer across.
   leadTuck=pulse(p,1.35,1.67,2.48,2.76);
-  trailTuck=pulse(p,2.42,2.72,3.36,3.72);
+  trailTuck=pulse(p,2.58,2.91,3.38,3.76);
   leadStep=pulse(p,1.84,2.12,2.28,2.60);
-  trailStep=pulse(p,2.64,2.92,3.18,3.52);
+  trailStep=pulse(p,2.86,3.05,3.22,3.58);
   // Hands may reach early; knee flexion and pelvis lowering must wait for
   // BOTH approach feet to land, otherwise the anchored stance toe jumps.
   crouch=M.smootherstep(p,1.24,1.76)*(1-M.smootherstep(p,3.72,4.52));
@@ -78,10 +78,16 @@ export function bathroomJourneyFrame(j,time){
   // Cross the rim in two weight transfers while each corresponding knee is
   // raised; the former single late travel carried grounded feet through GLB.
   const advance=.20*M.smootherstep(p,.30,.74)+.07*M.smootherstep(p,.79,1.19)
-   +.24*M.smootherstep(p,2.05,2.42)+.49*M.smootherstep(p,2.76,3.35);
+   +.24*M.smootherstep(p,2.20,2.50)+.49*M.smootherstep(p,3.00,3.42);
   const lower=M.smootherstep(p,3.52,4.6);
   position=mix(j.front,j.position,advance);
-  position[1]=M.lerp(j.front[1],j.position[1],lower);
+  // A high-sided GLB tub requires a supported transfer of the pelvis:
+  // the anchored hands bear weight while both feet clear the real high rim.
+  // The hoist is gradual and never reaches the rim's root-height, unlike
+  // the former unsupported upward jump.
+  const bracedHoist=.32*M.smootherstep(p,1.48,1.96)
+   *(1-M.smootherstep(p,3.36,4.20));
+  position[1]=M.lerp(j.front[1],j.position[1],lower)+bracedHoist;
   rotation=turn(turn(j.startRotation,j.edgeRotation,facing),j.rotation,M.smootherstep(p,3.75,4.52));
   seatWeight=lower;legLift=M.smootherstep(p,3.32,4.24);
  }else{
