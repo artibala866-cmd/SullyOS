@@ -535,8 +535,6 @@ const MusicApp: React.FC = () => {
           })}
           {!library.playlists.length && <p className="text-xs text-center py-10" style={{ color: C.muted }}>还没有歌单，创建一个收藏喜欢的歌吧</p>}
         </div>}
-      </div>
-
       {characters.length > 0 && (
         <section className="music-together-section relative z-10 px-4 pb-2" aria-label="与角色一起听">
           <div className="rounded-[19px] border px-3 pt-3 pb-2.5"
@@ -599,6 +597,7 @@ const MusicApp: React.FC = () => {
           </div>
         </section>
       )}
+      </div>
       {current && (
         <MiniPlayer
           name={current.name}
