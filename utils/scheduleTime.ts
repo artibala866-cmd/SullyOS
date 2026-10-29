@@ -16,6 +16,21 @@ export const getScheduleDateKey = (
     base: Date = new Date(),
 ): string => getLocalDateKey(getScheduleWallClock(char, base));
 
+/** Only valid wall-clock times can influence schedule-based chat presence. */
+export const parseScheduleStartMinutes = (value: string): number | null => {
+    const match = /^(\d{1,2}):([0-5]\d)$/.exec(value.trim());
+    if (!match) return null;
+    const hour = Number(match[1]);
+    return hour >= 0 && hour < 24 ? hour * 60 + Number(match[2]) : null;
+};
+
+/** Midnight rollover is measured in the character's calendar, not the phone's. */
+export const isSameScheduleCalendarDay = (
+    char: ScheduleCharacter | null | undefined,
+    startedAt: Date,
+    finishedAt: Date,
+): boolean => getScheduleDateKey(char, startedAt) === getScheduleDateKey(char, finishedAt);
+
 /** 按角色所在地的当前时间，找到已经开始的最后一条日程。 */
 export const getCurrentScheduleSlotIndex = (
     slots: ScheduleSlot[],
@@ -25,9 +40,19 @@ export const getCurrentScheduleSlotIndex = (
     const now = getScheduleWallClock(char, base);
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     for (let i = slots.length - 1; i >= 0; i--) {
-        const [h, m] = slots[i].startTime.split(':').map(Number);
-        if (!Number.isFinite(h) || !Number.isFinite(m)) continue;
-        if (currentMinutes >= h * 60 + m) return i;
+        const minute = parseScheduleStartMinutes(slots[i].startTime);
+        if (minute !== null && currentMinutes >= minute) return i;
     }
     return -1;
+};
+
+/** Before today's first slot, the current activity is unknown, not today's last slot. */
+export const getCurrentScheduleActivity = (
+    slots: ScheduleSlot[],
+    char?: ScheduleCharacter | null,
+    base: Date = new Date(),
+): string | null => {
+    const index = getCurrentScheduleSlotIndex(slots, char, base);
+    const activity = index >= 0 ? slots[index]?.activity?.trim() : '';
+    return activity || null;
 };
