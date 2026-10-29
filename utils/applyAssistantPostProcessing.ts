@@ -472,7 +472,7 @@ export interface PostProcessMusicHooks {
         duration: number;
         fee: number;
     } | null;
-    joinListeningTogether: (charId: string) => void | Promise<void>;
+    joinListeningTogether: (charId: string) => boolean | void | Promise<boolean | void>;
     inviteUserListening?: (charId: string) => void | Promise<void>;
     rejectListeningInvite?: (charId: string) => void | Promise<void>;
     stopListeningTogether?: (charId: string) => void;

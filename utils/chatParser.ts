@@ -47,7 +47,7 @@ export interface MusicActionHooks {
     /** 返回 user 此刻正在听的歌快照（chatParser 自己不去碰 MusicContext） */
     getListeningSnapshot: () => MusicActionSnapshot | null;
     /** 将 charId 加入"一起听"名单（chatParser 不维护状态，只通知） */
-    joinListeningTogether: (charId: string) => void | Promise<void>;
+    joinListeningTogether: (charId: string) => boolean | void | Promise<boolean | void>;
     /** 角色可以主动结束伴听，不影响用户的音乐播放。 */
     stopListeningTogether?: (charId: string) => void;
     rejectListeningInvite?: (charId: string) => void | Promise<void>;
@@ -331,7 +331,11 @@ export const ChatParser = {
             if (verb === 'play' && args[0]) await replyStep(async () => musicHooks.playListeningTrack?.(charId, args[0]));
             const wantsJoin = verb === 'join' || verb === 'join_and_add' || verb === 'join_and_add_new';
             // 邀请接受不要求用户此刻已经开始播放；否则无歌时会一直停留在待回应。
-            if (wantsJoin) await replyStep(async () => musicHooks.joinListeningTogether(charId));
+            // Only a persisted/confirmed join can appear on a music card.
+            // Legacy hooks returning void remain compatible.
+            const joined = wantsJoin
+                ? (await replyStep(async () => musicHooks.joinListeningTogether(charId))) !== false
+                : false;
             const wantsAdd = verb !== 'join' && verb !== 'favorite_current' && verb !== 'favorite_track' && verb !== 'invite' && verb !== 'stop' && verb !== 'reject' && verb !== 'play';
 
             let target: AddSongTarget | undefined;
@@ -382,7 +386,7 @@ export const ChatParser = {
                     } catch { replyRun?.check(); /* 忽略 */ }
 
                 }
-                const cardIntent = verifiedCharMusicCardIntent(intent, !wantsAdd || !!addedToPlaylistTitle);
+                const cardIntent = verifiedCharMusicCardIntent(intent, !wantsAdd || !!addedToPlaylistTitle, joined);
                 // Never persist an "added to playlist" card when DB returned null.
                 // If Char joined successfully but saving failed, retain only
                 // the truthful "join" card.
@@ -400,9 +404,13 @@ export const ChatParser = {
                     }));
                 }
                 if (wantsAdd && !addedToPlaylistTitle) {
-                    addToast(wantsJoin
+                    addToast(wantsJoin && joined
                         ? `${charName} 已加入一起听，但歌曲未能成功收藏`
                         : `${charName} 没有成功把歌曲加入歌单，请检查目标歌单后重试`, 'error');
+                } else if (wantsJoin && !joined) {
+                    addToast(addedToPlaylistTitle
+                        ? `${charName} 已收藏歌曲，但没有成功加入一起听`
+                        : `${charName} 没有成功加入一起听，请重试`, 'error');
                 } else {
                     const playlistSuffix = addedToPlaylistTitle
                         ? (playlistCreated ? `（新建《${addedToPlaylistTitle}》）` : `《${addedToPlaylistTitle}》`)

@@ -56,6 +56,11 @@ export const charMusicPlaybackConfirmed = (
 /** The chat-side music card may only claim that a song was saved when
  * MusicProvider actually committed it to the intended Char playlist. */
 export const verifiedCharMusicCardIntent = (
-  requested: 'join' | 'add' | 'join_and_add', saved: boolean,
-): 'join' | 'add' | 'join_and_add' | null =>
-  saved ? requested : requested === 'join_and_add' ? 'join' : null;
+  requested: 'join' | 'add' | 'join_and_add', saved: boolean, joined = true,
+): 'join' | 'add' | 'join_and_add' | null => {
+  if (requested === 'join') return joined ? 'join' : null;
+  if (requested === 'add') return saved ? 'add' : null;
+  if (saved && joined) return 'join_and_add';
+  if (saved) return 'add';
+  return joined ? 'join' : null;
+};

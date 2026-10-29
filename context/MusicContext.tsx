@@ -1113,8 +1113,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (accepted) addListeningPartner(charId);
   }, [addListeningPartner]);
   // Char 接受/拒绝来自用户的邀请只走这一个持久化入口，防止两套动作重复写回应。
-  const settleUserListeningInvite = useCallback(async (charId: string, accepted: boolean) => {
-    if (settlingUserInvites.current.has(charId)) return;
+  const settleUserListeningInvite = useCallback(async (charId: string, accepted: boolean): Promise<boolean> => {
+    if (settlingUserInvites.current.has(charId)) return false;
     settlingUserInvites.current.add(charId);
     try {
       const messages = await DB.getMessagesByCharId(charId, true);
@@ -1133,10 +1133,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (invite || accepted) {
         respondListeningInvite(charId, accepted);
         if (accepted && invite?.metadata?.musicListenTrack) resumeInviteTrack(invite.metadata.musicListenTrack);
+        return true;
       }
+      return false;
     } catch (err) {
       console.warn('[MusicTogether] 保存 Char 邀请回应失败', err);
       toast('角色的邀请回应未能保存，请重试', 'error');
+      return false;
     } finally {
       settlingUserInvites.current.delete(charId);
     }
@@ -1614,9 +1617,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           fee: current.fee,
         };
       },
-      joinListeningTogether: async (cid: string) => {
-        await settleUserListeningInvite(cid, true);
-      },
+      joinListeningTogether: async (cid: string) => settleUserListeningInvite(cid, true),
       inviteUserListening: async (cid: string) => {
         if (creatingCharInvites.current.has(cid) || listeningTogetherRef.current.includes(cid)) return;
         creatingCharInvites.current.add(cid);

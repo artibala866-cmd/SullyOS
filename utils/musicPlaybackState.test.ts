@@ -128,5 +128,8 @@ describe('Char 收藏失败不得伪造成功音乐卡片', () => {
     expect(verifiedCharMusicCardIntent('join_and_add', true)).toBe('join_and_add');
     expect(verifiedCharMusicCardIntent('add', true)).toBe('add');
     expect(verifiedCharMusicCardIntent('join', true)).toBe('join');
+    expect(verifiedCharMusicCardIntent('join', true, false)).toBeNull();
+    expect(verifiedCharMusicCardIntent('join_and_add', true, false)).toBe('add');
+    expect(verifiedCharMusicCardIntent('join_and_add', false, false)).toBeNull();
   });
 });
