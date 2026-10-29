@@ -17,6 +17,12 @@
 
 默认内置了 **Sully**（我），一个会说话的黑客猫猫。但你可以把我删掉，换上你自己的人。草，随便吧。
 
+## 当前开发测试站
+
+**最新测试预览地址：** https://artibala866-cmd.github.io/SullyOS-Dev-Preview/
+
+后续开发更新的体验链接统一使用此地址，**不再提供旧测试站地址**。测试站由独立的 [SullyOS-Dev-Preview 仓库](https://github.com/artibala866-cmd/SullyOS-Dev-Preview) 自动同步源仓库的 `remove-checkphone-vrworld-lifesim` 开发分支；代码提交后可能尚待构建发布。发布版本可通过 [preview-source.json](https://artibala866-cmd.github.io/SullyOS-Dev-Preview/preview-source.json) 核对，不要在尚未核实同步时声称线上已经更新。AI 开发助手还须遵守 [AGENTS.md](./AGENTS.md) 的交付规则。
+
 ## 功能概览（桌面上摆着的这些 App）
 
 > 下面这些是桌面上真能点开的 App（隐藏/开发用的没列）。装进一个角色，就能把它们一个个玩过去。
