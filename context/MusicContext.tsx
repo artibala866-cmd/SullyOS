@@ -1253,25 +1253,37 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => window.removeEventListener('music-listen-invite-cancel', onCancel);
   }, [cancelListeningInvite]);
   const [lastListeningEnd, setLastListeningEnd] = useState<{ charId: string; durationMs: number; at: number } | null>(null);
-  const listeningStartedAtRef = useRef(listeningStartedAt);
-  listeningStartedAtRef.current = listeningStartedAt;
-  const addListeningPartner = useCallback((charId: string) => {
-    if (!charId) return;
-    const joined = joinCharListeningState(
-      listeningTogetherRef.current, listeningStartedAtRef.current, charId, Date.now(),
-    );
-    // The same AI turn may join then immediately play: refs must be current
-    // before React batches a new render.
-    listeningTogetherRef.current = joined.partners;
-    listeningStartedAtRef.current = joined.startedAt;
-    setListeningTogetherWith(joined.partners);
-    setListeningStartedAt(joined.startedAt);
-    setListeningInvites(prev => ({ ...prev, [charId]: 'accepted' }));
-  }, []);
-  const respondListeningInvite = useCallback((charId: string, accepted: boolean) => {
-    setListeningInvites(prev => ({ ...prev, [charId]: accepted ? 'accepted' : 'rejected' }));
-    if (accepted) addListeningPartner(charId);
-  }, [addListeningPartner]);
+  const addListeningPartner = useCallback(async (charId: string): Promise<boolean> => {
+    if (!charId || sessionWritesRef.current.has(charId)) return false;
+    sessionWritesRef.current.add(charId);
+    try {
+      const row = await DB.transitionMusicListeningSession(charId, 'join');
+      if (!row?.active) return false;
+      sessionReadRevisions.current.set(charId, (sessionReadRevisions.current.get(charId) || 0) + 1);
+      applyCommittedMusicSession(charId, row);
+      setListeningInvites(prev => ({...prev,[charId]:'accepted'}));
+      announceMusicListenSessionChanged(charId);
+      return true;
+    } catch (err) {
+      console.warn('[MusicTogether] 开始会话持久化失败', err);
+      toast('一起听会话未能保存，请重试', 'error');
+      return false;
+    } finally {
+      sessionWritesRef.current.delete(charId);
+    }
+  }, [applyCommittedMusicSession, toast]);
+  const respondListeningInvite = useCallback(async (charId: string, accepted: boolean): Promise<boolean> => {
+    if (!accepted) {
+      setListeningInvites(prev => ({...prev,[charId]:'rejected'}));
+      return true;
+    }
+    // The accepting reply already created the active ledger row in one DB
+    // transaction. Never rejoin it after a different tab has ended it.
+    await refreshCommittedMusicSession(charId);
+    const active = listeningTogetherRef.current.includes(charId);
+    if (active) setListeningInvites(prev => ({...prev,[charId]:'accepted'}));
+    return active;
+  }, [refreshCommittedMusicSession]);
   // Char 接受/拒绝来自用户的邀请只走这一个持久化入口，防止两套动作重复写回应。
   const settleUserListeningInvite = useCallback(async (charId: string, accepted: boolean): Promise<boolean> => {
     if (settlingUserInvites.current.has(charId)) return false;
@@ -1289,8 +1301,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }));
       }
       if (settled.resolved) {
-        respondListeningInvite(charId, accepted);
+        const joined = await respondListeningInvite(charId, accepted);
+        if (accepted && !joined) return false;
         if (accepted && settled.track) resumeInviteTrack(settled.track);
+        announceMusicListenSessionChanged(charId);
         return true;
       }
       if (!accepted) return false;
@@ -1299,8 +1313,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Only a later normal user turn establishes a NEW voluntary context.
       const history = await DB.getMessagesByCharId(charId, true);
       if (!canJoinMusicWithoutPendingInvite(history)) return false;
-      respondListeningInvite(charId, true);
-      return true;
+      return addListeningPartner(charId);
     } catch (err) {
       console.warn('[MusicTogether] 保存 Char 邀请回应失败', err);
       toast('角色的邀请回应未能保存，请重试', 'error');
@@ -1308,7 +1321,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } finally {
       settlingUserInvites.current.delete(charId);
     }
-  }, [respondListeningInvite, resumeInviteTrack, toast]);
+  }, [respondListeningInvite, addListeningPartner, resumeInviteTrack, toast]);
   const answeringInviteIds = useRef(new Set<number>());
   // Both the music sheet and chat cards must use this one atomic DB path.
   // Ref locking happens before the first await, preventing contradictory taps.
@@ -1345,8 +1358,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toast('这条邀请已被处理或过期，已同步最新状态', 'info');
         return notify('stale');
       }
-      respondListeningInvite(charId, accepted);
+      const joined = await respondListeningInvite(charId, accepted);
+      if (accepted && !joined) return notify('failed');
       if (accepted && settled.track) resumeInviteTrack(settled.track);
+      announceMusicListenSessionChanged(charId);
       announceMusicInviteDbChanged(charId);
       window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
         detail: { charId, messageId, accepted },
