@@ -80,10 +80,17 @@ export function bathroomJourneyFrame(j,time){
   // In particular, never lerp the root to j.edge[1] (the ~1.17m rim).
   const facing=M.smootherstep(p,0,.48);
   support=M.smootherstep(p,.36,1.02)*(1-M.smootherstep(p,4.0,4.6));
-  // Two short physical footfalls, never a 36cm translation on one planted leg.
+  // A near-rim entrance needs shorter approach steps than a far tile.
+  // The stance toes stay OUTSIDE the solid rim until the high leg lifts.
+  const toRim=Math.hypot(j.front[0]-j.edge[0],j.front[2]-j.edge[2]);
+  const totalTravel=Math.hypot(j.front[0]-j.position[0],j.front[2]-j.position[2]);
+  const earlyTravel=Math.min(.35,Math.max(.08,toRim-.40));
+  const earlyFraction=totalTravel>.01?Math.min(.27,earlyTravel/totalTravel):0;
+  const stepScale=Math.min(1,earlyTravel/.27);
+ // Two short physical footfalls, never a 36cm translation on one planted leg.
   // Left swings while right bears weight, then right swings after left lands.
-  approachStep=pulse(p,.28,.47,.59,.76);
-  approachTrailStep=pulse(p,.78,.94,1.02,1.20);
+  approachStep=stepScale*pulse(p,.28,.47,.59,.76);
+  approachTrailStep=stepScale*pulse(p,.78,.94,1.02,1.20);
   supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
   // Tuck the knee vertically before swinging the foot across the tall rim.
   // The two contacts are separate: lift first, then transfer across.
@@ -101,8 +108,8 @@ export function bathroomJourneyFrame(j,time){
   // The previous .12/.15 split carried the swing foot back to its start.
   // Cross the rim in two weight transfers while each corresponding knee is
   // raised; the former single late travel carried grounded feet through GLB.
-  const advance=.20*M.smootherstep(p,.30,.74)+.07*M.smootherstep(p,.79,1.19)
-   +.24*M.smootherstep(p,3.07,3.40)+.49*M.smootherstep(p,3.40,4.10);
+  const advance=earlyFraction*(.20/.27*M.smootherstep(p,.30,.74)+.07/.27*M.smootherstep(p,.79,1.19))
+   +(1-earlyFraction)*(.24/.73*M.smootherstep(p,3.07,3.40)+.49/.73*M.smootherstep(p,3.40,4.10));
   const lower=M.smootherstep(p,3.52,4.6);
   position=mix(j.front,j.position,advance);
   // A high-sided GLB tub requires a supported transfer of the pelvis:
