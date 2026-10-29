@@ -162,6 +162,22 @@ export const persistGuestMusicLibrary = (library: GuestMusicLibrary): boolean =>
     return false;
   }
 };
+/** Add a local playlist in one library transaction, optionally with its first song.
+ * Callers persist this whole snapshot once; never create an empty playlist first.
+ */
+export const appendGuestMusicPlaylist = (
+  library: GuestMusicLibrary, name: string, id: string, now: number, firstSong?: Song,
+): GuestMusicLibrary | null => {
+  const trimmed = name.trim().slice(0, 60);
+  if (!trimmed || library.playlists.length >= 80) return null;
+  return {
+    ...library,
+    playlists: [...library.playlists, {
+      id, name: trimmed, songs: firstSong ? [firstSong] : [], createdAt: now, updatedAt: now,
+    }],
+  };
+};
+
 export const upsertLikedSong = (songs: Song[], song: Song): Song[] =>
   [song, ...songs.filter(item => !sameMusic(item, song))].slice(0, 1000);
 export const recordMusicPlay = (history: PlayedMusic[], song: Song, at = Date.now()): PlayedMusic[] =>
