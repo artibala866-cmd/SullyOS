@@ -223,16 +223,15 @@ const MusicApp: React.FC = () => {
         return <div key={musicSongKey(song)}
           className="music-track-row rounded-none px-1 py-1"
           style={{ background: isActive ? '#eeeeed' : '#fff', borderBottom: '1px solid #ebebeb' }}>
-          <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
-            picId={song.picId} source={song.source}
-            duration={fmtTime(song.duration)} isVip={song.fee === 1}
-            isActive={isActive} isPlaying={isActive && playing} isLoading={isActive && loadingSong}
-            onClick={handlePlay} />
-          <div className="flex items-center justify-between pl-3 pr-1.5 pb-1 gap-1">
-            <span className="text-[10px] font-medium truncate" style={{ color: isActive ? C.primary : C.muted }}>
-              {isActive && playing ? '♪ 正在播放' : isActive && loadingSong ? '正在连接音源…' : label}
-            </span>
-            <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center min-w-0">
+            <div className="flex-1 min-w-0">
+              <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
+                picId={song.picId} source={song.source}
+                duration={fmtTime(song.duration)} isVip={song.fee === 1}
+                isActive={isActive} isPlaying={isActive && playing} isLoading={isActive && loadingSong}
+                onClick={handlePlay} />
+            </div>
+            <div className="flex items-center gap-0 shrink-0 pr-1">
               <button type="button" aria-label={`将《${song.name}》加入播放队列`} title="加入播放队列"
                 className="music-icon-press w-8 h-8 rounded-sm flex items-center justify-center"
                 style={{ color: C.muted }}
@@ -280,6 +279,10 @@ const MusicApp: React.FC = () => {
                 </select>
               </div>}
             </div>
+          </div>
+          <div className="pl-14 pb-1 -mt-1 text-[10px] leading-tight truncate"
+            style={{ color: isActive ? C.primary : C.muted }}>
+            {isActive && playing ? '♪ 正在播放' : isActive && loadingSong ? '正在连接音源…' : label}
           </div>
         </div>;
       })}
@@ -432,15 +435,14 @@ const MusicApp: React.FC = () => {
             };
             return <div key={musicSongKey(song)} className="music-track-row rounded-none px-1 py-1"
               style={{ background: active ? '#eeeeed' : '#fff', borderBottom: '1px solid #ebebeb' }}>
-              <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
-                picId={song.picId} source={song.source}
-                duration={fmtTime(song.duration)} isVip={song.fee === 1}
-                isActive={active} isPlaying={active && playing} isLoading={active && loadingSong} onClick={onPlay} />
-              <div className="flex items-center justify-between pl-3 pr-1.5 pb-1">
-                <span className="text-[10px]" style={{ color: active ? C.primary : C.muted }}>
-                  {active ? loadingSong ? '正在加载音源…' : playing ? '♪ 正在播放' : '已暂停' : song.local ? '本地' : song.source === 'tencent' ? 'QQ 音乐' : '网易云'}
-                </span>
-                <div className="relative w-8 h-8 flex items-center justify-center shrink-0"
+              <div className="flex items-center min-w-0">
+                <div className="flex-1 min-w-0">
+                  <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
+                    picId={song.picId} source={song.source}
+                    duration={fmtTime(song.duration)} isVip={song.fee === 1}
+                    isActive={active} isPlaying={active && playing} isLoading={active && loadingSong} onClick={onPlay} />
+                </div>
+                <div className="relative w-8 h-8 flex items-center justify-center shrink-0 mr-1"
                   style={{ color: C.muted }}>
                   <DotsThreeVertical size={18} weight="regular" aria-hidden="true" />
                   <select value="" aria-label={`管理播放队列歌曲《${song.name}》`} title="整理队列"
@@ -457,6 +459,10 @@ const MusicApp: React.FC = () => {
                     <option value="remove" disabled={active}>从队列移除</option>
                   </select>
                 </div>
+              </div>
+              <div className="pl-14 pb-1 -mt-1 text-[10px] leading-tight truncate"
+                style={{ color: active ? C.primary : C.muted }}>
+                {active ? loadingSong ? '正在加载音源…' : playing ? '♪ 正在播放' : '已暂停' : song.local ? '本地' : song.source === 'tencent' ? 'QQ 音乐' : '网易云'}
               </div>
             </div>;
           })}
