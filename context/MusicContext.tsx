@@ -1295,7 +1295,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     charId: string, messageId: number, accepted: boolean,
   ): Promise<'resolved' | 'stale' | 'failed' | 'busy'> => {
     if (!charId || !Number.isSafeInteger(messageId) || messageId <= 0) return 'stale';
-    if (answeringInviteIds.current.has(messageId)) return 'busy';
+    if (answeringInviteIds.current.has(messageId)) {
+      window.dispatchEvent(new CustomEvent('music-listen-invite-answer-result', {
+        detail: { charId, messageId, accepted, status: 'busy' },
+      }));
+      return 'busy';
+    }
     answeringInviteIds.current.add(messageId);
     const notify = (status: 'resolved' | 'stale' | 'failed') => {
       window.dispatchEvent(new CustomEvent('music-listen-invite-answer-result', {
@@ -1316,6 +1321,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           detail: { charId, messageId, accepted: false, stale: true },
         }));
         announceMusicInviteDbChanged(charId);
+        toast('这条邀请已被处理或过期，已同步最新状态', 'info');
         return notify('stale');
       }
       respondListeningInvite(charId, accepted);
