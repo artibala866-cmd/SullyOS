@@ -6,7 +6,7 @@ import { DB } from '../utils/db';
 import { findPendingMusicInvite } from '../utils/musicInviteStatus';
 import { sameMusic } from '../utils/musicLibrary';
 import { trackEvent } from '../utils/analytics';
-import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon, Heart, Plus, ListPlus, ArrowUp, ArrowDown, Trash, PencilSimple, CaretDown, CaretUp, MusicNotes, X } from '@phosphor-icons/react';
+import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon, Heart, Plus, ListPlus, DotsThreeVertical, Trash, PencilSimple, CaretDown, CaretUp, MusicNotes } from '@phosphor-icons/react';
 import {
   C, Sparkle, CrossStar, MizuHeader, SearchBar, SongRow, MiniPlayer,
   VinylDisc, GlassProgress, PlayControls, BokehBg,
@@ -234,26 +234,25 @@ const MusicApp: React.FC = () => {
             </span>
             <div className="flex items-center gap-1 shrink-0">
               <button type="button" aria-label={`将《${song.name}》加入播放队列`} title="加入播放队列"
-                className="music-icon-press w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: C.soft, color: C.primary }}
+                className="music-icon-press w-8 h-8 rounded-sm flex items-center justify-center"
+                style={{ color: C.muted }}
                 onClick={() => {
                   const exists = queue.some(item => sameMusic(item, song));
                   addToQueue(song);
                   addToast(exists ? '队列中已有这首歌' : '已加入播放队列', exists ? 'info' : 'success');
-                }}><Plus size={17} weight="bold" /></button>
+                }}><Plus size={14} weight="regular" /></button>
               <button type="button" aria-label={isLiked ? `取消喜欢《${song.name}》` : `喜欢《${song.name}》`}
                 aria-pressed={isLiked} title={isLiked ? '取消本地喜欢' : '加入本地喜欢'}
-                className={`music-icon-press w-8 h-8 rounded-full flex items-center justify-center ${isLiked ? 'music-heart-active' : ''}`}
-                style={{ background: isLiked ? '#dededc' : C.soft,
-                  color: isLiked ? C.accent : C.primary }}
+                className={`music-icon-press w-8 h-8 rounded-sm flex items-center justify-center ${isLiked ? 'music-heart-active' : ''}`}
+                style={{ color: isLiked ? C.primary : C.muted }}
                 onClick={() => {
                   if (toggleLocalLike(song)) addToast(isLiked ? '已从本地喜欢移除' : '已加入本地喜欢', 'success');
                 }}>
-                <Heart size={18} weight={isLiked ? 'fill' : 'regular'} />
+                <Heart size={14} weight={isLiked ? 'fill' : 'regular'} />
               </button>
-              {library.playlists.length > 0 && <div className="relative w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: C.soft, color: C.primary }}>
-                <ListPlus size={17} weight="bold" aria-hidden="true" />
+              {library.playlists.length > 0 && <div className="relative w-8 h-8 rounded-sm flex items-center justify-center"
+                style={{ color: C.muted }}>
+                <ListPlus size={14} weight="regular" aria-hidden="true" />
                 <select aria-label={`把《${song.name}》加入本地歌单`} title="加入歌单"
                   value="" className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                   onChange={e => {
@@ -263,17 +262,23 @@ const MusicApp: React.FC = () => {
                   {library.playlists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>}
-              {playlistId && <>
-                <button type="button" className="music-icon-press w-7 h-8 rounded-full disabled:opacity-25"
-                  aria-label="上移歌曲" title="上移" disabled={i === 0}
-                  onClick={() => movePlaylistSong(playlistId, i, i - 1)}><ArrowUp size={15} /></button>
-                <button type="button" className="music-icon-press w-7 h-8 rounded-full disabled:opacity-25"
-                  aria-label="下移歌曲" title="下移" disabled={i === songs.length - 1}
-                  onClick={() => movePlaylistSong(playlistId, i, i + 1)}><ArrowDown size={15} /></button>
-                <button type="button" className="music-icon-press w-7 h-8 rounded-full"
-                  aria-label="从歌单移除歌曲" title="从歌单移除"
-                  onClick={() => removeSongFromPlaylist(playlistId, musicSongKey(song))}><X size={15} /></button>
-              </>}
+              {playlistId && <div className="relative w-8 h-8 flex items-center justify-center"
+                style={{ color: C.muted }}>
+                <DotsThreeVertical size={18} weight="regular" aria-hidden="true" />
+                <select value="" aria-label={`管理歌单歌曲《${song.name}》`} title="整理歌单"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={e => {
+                    const action = e.target.value;
+                    if (action === 'up') movePlaylistSong(playlistId, i, i - 1);
+                    else if (action === 'down') movePlaylistSong(playlistId, i, i + 1);
+                    else if (action === 'remove') removeSongFromPlaylist(playlistId, musicSongKey(song));
+                  }}>
+                  <option value="">整理歌单</option>
+                  <option value="up" disabled={i === 0}>上移一首</option>
+                  <option value="down" disabled={i === songs.length - 1}>下移一首</option>
+                  <option value="remove">从歌单移除</option>
+                </select>
+              </div>}
             </div>
           </div>
         </div>;
@@ -380,7 +385,7 @@ const MusicApp: React.FC = () => {
               className="rounded-sm px-3 py-2.5 min-w-0 flex-1 text-xs outline-none" style={{ background: C.bgDeep, color: C.text }} />
             <button aria-label="新建本地歌单" title="新建歌单" className="music-tap w-10 h-10 rounded-sm flex items-center justify-center text-white"
               style={{ background: C.primary }}
-              onClick={() => { if (playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}><Plus size={19} weight="bold" /></button>
+              onClick={() => { if (playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}><Plus size={15} weight="regular" /></button>
           </div>
           {library.playlists.map(pl => {
             const opened = openedPlaylist === pl.id;
@@ -435,17 +440,22 @@ const MusicApp: React.FC = () => {
                 <span className="text-[10px]" style={{ color: active ? C.primary : C.muted }}>
                   {active ? loadingSong ? '正在加载音源…' : playing ? '♪ 正在播放' : '已暂停' : song.local ? '本地' : song.source === 'tencent' ? 'QQ 音乐' : '网易云'}
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <button aria-label="队列中上移" title="上移" disabled={i === 0}
-                    className="music-icon-press w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-30"
-                    style={{ color: C.primary, background: C.soft }} onClick={() => moveQueueSong(i, i - 1)}><ArrowUp size={16} /></button>
-                  <button aria-label="队列中下移" title="下移" disabled={i === queue.length - 1}
-                    className="music-icon-press w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-30"
-                    style={{ color: C.primary, background: C.soft }} onClick={() => moveQueueSong(i, i + 1)}><ArrowDown size={16} /></button>
-                  <button aria-label="从播放队列移除" title="移除" disabled={active}
-                    className="music-icon-press w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-30"
-                    style={{ color: C.muted, background: '#eeeeec' }}
-                    onClick={() => removeQueueSong(i)}><X size={16} /></button>
+                <div className="relative w-8 h-8 flex items-center justify-center shrink-0"
+                  style={{ color: C.muted }}>
+                  <DotsThreeVertical size={18} weight="regular" aria-hidden="true" />
+                  <select value="" aria-label={`管理播放队列歌曲《${song.name}》`} title="整理队列"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={e => {
+                      const action = e.target.value;
+                      if (action === 'up') moveQueueSong(i, i - 1);
+                      else if (action === 'down') moveQueueSong(i, i + 1);
+                      else if (action === 'remove') removeQueueSong(i);
+                    }}>
+                    <option value="">整理队列</option>
+                    <option value="up" disabled={i === 0}>上移一首</option>
+                    <option value="down" disabled={i === queue.length - 1}>下移一首</option>
+                    <option value="remove" disabled={active}>从队列移除</option>
+                  </select>
                 </div>
               </div>
             </div>;
