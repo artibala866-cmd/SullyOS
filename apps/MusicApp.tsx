@@ -37,7 +37,7 @@ const MusicApp: React.FC = () => {
     lyric, tlyric, activeLyricIdx,
     playSong, togglePlay, nextSong, prevSong, seek,
     liked, toggleLike, setToastHandler,
-    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, refreshListeningInvite, respondListeningInvite, removeListeningPartner,
+    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, refreshListeningInvite, respondListeningInvite, answerIncomingListeningInvite, removeListeningPartner,
     addLocalSong, removeLocalSong, localAlbumSongs,
     queue, idx, library, toggleLocalLike, createPlaylist, createPlaylistWithSong, renamePlaylist, deletePlaylist,
     addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
@@ -84,13 +84,6 @@ const MusicApp: React.FC = () => {
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [characters, refreshListeningInvite]);
-  const answerCharInvite = useCallback(async (charId: string, accepted: boolean) => {
-    const messageId = charInvites[charId]?.id;
-    if (!messageId) return;
-    window.dispatchEvent(new CustomEvent('music-listen-invite-answer', {
-      detail: { charId, messageId, accepted },
-    }));
-  }, [charInvites]);
   const isCurrentRegenerating = !!current && current.id === regeneratingId;
   // 把对轴入口和单曲循环按钮移到 SubActions 里，避免散乱
   // 下载本地生成的歌曲到本地文件系统
@@ -906,16 +899,13 @@ const MusicApp: React.FC = () => {
           id: c.id,
           name: c.name,
           incoming: !!charInvites[c.id],
+          incomingMessageId: charInvites[c.id]?.id,
           trackName: charInvites[c.id]?.track?.name,
           active: listeningTogetherWith.includes(c.id),
           outgoing: listeningInvites[c.id],
         }))}
         onClose={() => setTogetherSheetOpen(false)}
-        onAnswer={(charId, accepted) => {
-          // Stay open until the provider persists the response and emits its
-          // resolved event. On failure the invitation remains visible to retry.
-          void answerCharInvite(charId, accepted);
-        }}
+        onAnswer={(charId, messageId, accepted) => answerIncomingListeningInvite(charId, messageId, accepted)}
         onInvite={charId => inviteListeningPartner(charId)}
         onCancel={charId => cancelListeningInvite(charId)}
         onEnd={charId => removeListeningPartner(charId)}
