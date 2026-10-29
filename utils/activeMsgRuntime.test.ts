@@ -910,7 +910,7 @@ describe('flushInboxToChat 落库时间戳（走真库）', () => {
 
     it('评估原文随回复一起到 → 落 buff + 熄灯（跟 emotion_update 同一条链）', async () => {
       const charId = 'char-emotion-inline';
-      await DB.saveCharacter({ id: charId, name: '情绪角色' } as any);
+      await DB.saveCharacter({ id: charId, name: '情绪角色', emotionConfig: { enabled: true } } as any);
       await ActiveMsgStore.saveInboxMessage(inboxMsg({
         messageId: 'msg-emotion-inline',
         charId,
@@ -1031,7 +1031,7 @@ describe('flushInboxToChat 落库时间戳（走真库）', () => {
 
     it('补落轮询：第二跳等到结果 → 落 buff + 熄灯 + 删云端副本', async () => {
       const charId = 'char-emotion-late-land';
-      await DB.saveCharacter({ id: charId, name: '补落角色' } as any);
+      await DB.saveCharacter({ id: charId, name: '补落角色', emotionConfig: { enabled: true } } as any);
       const ref = 'emotion_update:client-task-land';
       const readSpy = vi.spyOn(ActiveMsgClient, 'readClientStateValue')
         .mockResolvedValueOnce(null)
@@ -1087,7 +1087,7 @@ describe('flushInboxToChat 落库时间戳（走真库）', () => {
 
     it('装不下时挪进 client_state：按 amsgEmotionRef 取回来照样落 buff，用完就删', async () => {
       const charId = 'char-emotion-ref';
-      await DB.saveCharacter({ id: charId, name: '旁路角色' } as any);
+      await DB.saveCharacter({ id: charId, name: '旁路角色', emotionConfig: { enabled: true } } as any);
       const ref = 'emotion_update:client-task-ref';
       const readSpy = vi.spyOn(ActiveMsgClient, 'readClientStateValue')
         .mockResolvedValue(JSON.stringify({
@@ -1121,7 +1121,7 @@ describe('flushInboxToChat 落库时间戳（走真库）', () => {
     // 早就到了本地。
     it('降级存原稿路径 → 照样落 buff + 熄灯（结果不能躺在 metadata 里烂掉）', async () => {
       const charId = 'char-emotion-degraded';
-      await DB.saveCharacter({ id: charId, name: '降级角色' } as any);
+      await DB.saveCharacter({ id: charId, name: '降级角色', emotionConfig: { enabled: true } } as any);
       await ActiveMsgStore.saveInboxMessage(inboxMsg({
         messageId: 'msg-emotion-degraded',
         charId,
