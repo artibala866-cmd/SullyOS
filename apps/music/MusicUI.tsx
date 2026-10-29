@@ -105,8 +105,9 @@ export const MizuHeader: React.FC<{
       style={{ color: C.text }}>
       {onBack ? <ArrowLeft size={19} /> : <X size={19} />}
     </button>
-    <span className="text-[13px] font-semibold tracking-[0.12em] truncate px-2" style={{ color: C.text }}>{title}</span>
-    <div className="min-w-10 shrink-0 flex items-center justify-end">{right}</div>
+    <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-[13px] font-semibold tracking-[0.10em] truncate max-w-[36%] px-1"
+      style={{ color: C.text }}>{title}</span>
+    <div className="ml-auto min-w-10 shrink-0 flex items-center justify-end">{right}</div>
   </header>
 );
 

@@ -331,7 +331,7 @@ const MusicApp: React.FC = () => {
           <div className="flex items-center gap-0.5">
             {characters.length > 0 && <button type="button" aria-label="打开一起听"
               title="一起听" aria-haspopup="dialog" aria-expanded={togetherSheetOpen}
-              className="music-icon-press relative w-10 h-10 rounded-full flex items-center justify-center"
+              className="music-icon-press relative w-9 h-10 rounded-full flex items-center justify-center"
               style={{ color: C.primary }}
               onClick={() => { setQueueSheetOpen(false); setTogetherSheetOpen(true); }}>
               <Headphones size={20} weight="regular" />
