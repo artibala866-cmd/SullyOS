@@ -40,6 +40,9 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(workspace).toContain('id="study-homework-panel"');
    expect(timetable).toContain('onSelect(c.id)');
    expect(timetable).toContain('!c.cancelled&&c.weekday===day.getDay()');
+   expect(timetable).toContain('aria-label="上一周"');
+   expect(timetable).toContain('aria-label="下一周"');
+   expect(timetable).toContain('aria-label="回到本周"');
  });
  it('新 UI 保留重要操作但按需展开冗长设置：添加/修改/远端提醒/复盘',()=>{
    expect(workspace).toContain('onSubmit={addCommission}');
@@ -52,5 +55,11 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(workspace).toContain('普通私聊');
    expect(schedule).toContain('setSession({ id: newWorkspaceId()');
    expect(schedule).toContain('专注保护');
+   expect(schedule).toContain("if (session) {");
+   expect(schedule).toContain("已有专注或休息轮次进行中");
+   expect(schedule).toContain('aria-label="结束或退出本轮选项"');
+   expect(schedule).toContain('onClick={requestExit}');
+   expect(schedule).toContain('onClick={() => stop(false)}');
+   expect(schedule).toContain("day.minutes?");
  });
 });

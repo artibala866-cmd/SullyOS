@@ -183,6 +183,13 @@ const ScheduleApp: React.FC = () => {
     setTab('study');
   };
   const startLinked = (kind:WorkKind, id:string, title:string) => {
+    // A running (even paused) round belongs to its original taskId.
+    // Do not silently select a new source item until that round finishes.
+    if (session) {
+      addToast('已有专注或休息轮次进行中，请先完成或中断，再切换到这项任务', 'error');
+      setTab('timer');
+      return;
+    }
     const existing = tasks.find(t=>t.source?.kind===kind && t.source.id===id);
     if (existing) {
       // A linked task may be marked done only inside the focus checklist.
@@ -369,13 +376,14 @@ const ScheduleApp: React.FC = () => {
                 {session ? <>
                   <button className="grid h-12 w-12 place-items-center rounded-full border border-neutral-300 bg-white" aria-label={session.pauseRemainingMs!=null?'继续专注':'暂停专注'} onClick={session.pauseRemainingMs!=null?resume:pause}>
                     {session.pauseRemainingMs!=null?<Play size={22} weight="fill"/>:<Pause size={22} weight="fill"/>}</button>
-                  <button className="grid h-[68px] w-[68px] place-items-center rounded-full bg-neutral-900 text-white shadow-xl" aria-label="中断本轮" onClick={requestExit}><Stop size={22} weight="fill"/></button>
+                  <button className="grid h-[68px] w-[68px] place-items-center rounded-full bg-neutral-900 text-white shadow-xl" aria-label="结束或退出本轮选项" title="选择留在学习室或退出" onClick={requestExit}><Stop size={22} weight="fill"/></button>
                 </> : <>
                   <button className="rounded-full border border-neutral-300 bg-white px-4 py-3 text-xs" onClick={()=>start('break')}>休息</button>
                   <button className="grid h-[72px] w-[72px] place-items-center rounded-full bg-neutral-900 text-white shadow-xl" aria-label="开始专注" onClick={()=>start('focus')}><Play size={29} weight="fill"/></button>
                   <button className="rounded-full border border-neutral-300 bg-white px-4 py-3 text-xs" onClick={()=>switchTab('tasks')}>选任务</button>
                 </>}
               </div>
+              {session&&<p className="mt-3 text-[11px] text-neutral-500">结束按钮会先打开选项；未完成的轮次不会计入专注记录。</p>}
               {!session&&<div className="mx-auto mt-7 flex max-w-xs items-center justify-center gap-3 text-xs text-neutral-600">
                 <label className="flex items-center gap-2">专注<input type="number" aria-label="专注分钟" min={1} max={180} value={focusMinutes} onChange={e=>setFocusMinutes(Math.max(1,Math.min(180,Number(e.target.value)||1)))} className="w-14 rounded-xl border border-neutral-200 bg-white p-2 text-center outline-none"/></label>
                 <label className="flex items-center gap-2">休息<input type="number" aria-label="休息分钟" min={1} max={60} value={breakMinutes} onChange={e=>setBreakMinutes(Math.max(1,Math.min(60,Number(e.target.value)||1)))} className="w-14 rounded-xl border border-neutral-200 bg-white p-2 text-center outline-none"/></label>
@@ -400,7 +408,7 @@ const ScheduleApp: React.FC = () => {
               <div className="grid grid-cols-7 items-end gap-2 h-32" aria-label="最近七天专注分钟柱状图">
                 {weeklyFocus.map(day=><div key={day.key} className="flex h-full min-w-0 flex-col items-center justify-end gap-1">
                   <span className="text-[9px] tabular-nums text-neutral-500">{day.minutes||''}</span>
-                  <div title={day.key+' · '+day.minutes+' 分钟'} className="w-full max-w-7 rounded-t-md bg-neutral-800" style={{height:Math.max(4,day.minutes/maxWeekFocus*95)+'px'}}/>
+                  <div title={day.key+' · '+day.minutes+' 分钟'} className="w-full max-w-7 rounded-t-md bg-neutral-800" style={{height:day.minutes?Math.max(4,day.minutes/maxWeekFocus*95)+'px':'0px'}}/>
                   <span className="text-[9px] text-neutral-400">{Number(day.key.slice(-2))}</span>
                 </div>)}
               </div>
@@ -452,7 +460,7 @@ const ScheduleApp: React.FC = () => {
           <div className="grid grid-cols-7 gap-2 items-end h-32" aria-label="最近七天专注图">
             {weeklyFocus.map(day=><div className="flex flex-col h-full items-center justify-end gap-1" key={day.key}>
               <span className="text-[10px] text-neutral-500">{day.minutes||''}</span>
-              <span title={day.key+' · '+day.minutes+' 分钟'} className="block w-full max-w-8 rounded-t-md bg-neutral-900" style={{height:Math.max(4,day.minutes/maxWeekFocus*85)+'px'}}/>
+              <span title={day.key+' · '+day.minutes+' 分钟'} className="block w-full max-w-8 rounded-t-md bg-neutral-900" style={{height:day.minutes?Math.max(4,day.minutes/maxWeekFocus*85)+'px':'0px'}}/>
               <span className="text-[10px] text-neutral-400">{day.key.slice(-2)}</span>
             </div>)}
           </div>
@@ -523,8 +531,8 @@ const ScheduleApp: React.FC = () => {
       </div>}
       {exitOpen && <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-[#eeeeee] rounded-3xl p-6 space-y-4 shadow-xl">
-          <h2 className="text-lg font-medium">真的要退出学习吗？</h2>
-          <p className="text-sm">还没完成这一轮。你可以继续，也可以确认退出。</p>
+          <h2 className="text-lg font-medium">结束当前计时轮次？</h2>
+          <p className="text-sm">尚未完成的轮次不会计入专注成绩。可以继续、仅中断留在学习室，或者确认退出。</p>
           <div className="text-xs text-[#999999]">冷静倒计时：{Math.max(0, Math.ceil((exitDeadline - now) / 1000))} 秒</div>
           <input aria-label="退出确认文字" value={exitPhrase} onChange={e => setExitPhrase(e.target.value)} placeholder={EXIT_PHRASE} className="w-full p-3 bg-white rounded-xl text-sm" />
           <button className={btn + ' w-full'} onClick={() => setExitOpen(false)}>继续专注</button>
