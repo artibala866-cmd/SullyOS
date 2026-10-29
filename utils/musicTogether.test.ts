@@ -83,6 +83,26 @@ describe('免登录音乐回退', () => {
     expect(result.tlyric.lyric).toContain('测试');
   });
 
+  it('网易云明确返回无歌词时，不继续请求返回 403 的备用服务', async () => {
+    vi.spyOn(musicApi, 'call').mockResolvedValue({code:200, nolyric:true, lrc:{lyric:''}});
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await musicApi.lyric(guestCfg, 123);
+    expect(result.lrc.lyric).toBe('');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('真正的无效歌词响应仍然使用备用来源', async () => {
+    vi.spyOn(musicApi, 'call').mockResolvedValue({code:503, lrc:{lyric:''}});
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      lyric:'[00:01.00]Recovery',
+    }), {status:200}));
+    vi.stubGlobal('fetch',fetchMock);
+    const result = await musicApi.lyric(guestCfg,123);
+    expect(result.lrc.lyric).toContain('Recovery');
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('原歌词存在时不重复请求备用服务', async () => {
     vi.spyOn(musicApi, 'call').mockResolvedValue({ lrc: { lyric: '[00:01.00]Original' } });
     const fetchMock = vi.fn();
