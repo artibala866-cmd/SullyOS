@@ -20,7 +20,7 @@ import { findPendingMusicInvite } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
 import {
   musicKey, sameMusic, normalizeTencentSong, tencentSearchRows, extractMusicUrl,
-  loadGuestMusicLibrary, persistGuestMusicLibrary, recordMusicPlay, upsertLikedSong,
+  loadGuestMusicLibrary, persistGuestMusicLibrary, recordMusicPlay, upsertLikedSong, appendGuestMusicPlaylist,
   type GuestMusicLibrary,
 } from '../utils/musicLibrary';
 import { getProxyWorkerUrl, DEFAULT_PROXY_WORKER, PROXY_WORKER_CHANGED_EVENT, isLegacyProxyWorkerUrl } from '../utils/proxyWorker';
@@ -543,9 +543,10 @@ interface MusicContextType {
   library: GuestMusicLibrary;
   toggleLocalLike: (song: Song) => boolean;
   createPlaylist: (name: string) => boolean;
-  renamePlaylist: (id: string, name: string) => void;
+  createPlaylistWithSong: (name: string, song: Song) => boolean;
+  renamePlaylist: (id: string, name: string) => boolean;
   deletePlaylist: (id: string) => void;
-  addSongToPlaylist: (id: string, song: Song) => void;
+  addSongToPlaylist: (id: string, song: Song) => boolean;
   removeSongFromPlaylist: (id: string, key: string) => void;
   movePlaylistSong: (id: string, from: number, to: number) => void;
   addToQueue: (song: Song) => void;
@@ -809,36 +810,51 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         : upsertLikedSong(old.likes, song),
     }));
   }, [updateLibrary, toast]);
-  const createPlaylist = useCallback((name: string): boolean => {
+  const createPlaylistRecord = useCallback((name: string, firstSong?: Song): boolean => {
     const trimmed = name.trim().slice(0, 60);
-    if (!trimmed) return false;
+    if (!trimmed) {
+      toast('请输入歌单名称', 'info');
+      return false;
+    }
     if (libraryRef.current.playlists.length >= 80) {
       toast('本地歌单已达 80 个上限', 'error');
       return false;
     }
     const now = Date.now();
-    return updateLibrary(old => ({
-      ...old, playlists: [...old.playlists, {
-        id: `local-pl-${now}-${Math.random().toString(36).slice(2, 8)}`,
-        name: trimmed, songs: [], createdAt: now, updatedAt: now,
-      }],
-    }));
-  }, [updateLibrary, toast]);
-  const renamePlaylist = useCallback((id: string, name: string) => {
+    const id = `local-pl-${now}-${Math.random().toString(36).slice(2, 8)}`;
+    return updateLibrary(old => appendGuestMusicPlaylist(old, trimmed, id, now, firstSong) ?? old);
+  }, [toast, updateLibrary]);
+  const createPlaylist = useCallback((name: string): boolean =>
+    createPlaylistRecord(name), [createPlaylistRecord]);
+  const createPlaylistWithSong = useCallback((name: string, song: Song): boolean =>
+    createPlaylistRecord(name, song), [createPlaylistRecord]);
+
+  const renamePlaylist = useCallback((id: string, name: string): boolean => {
     const trimmed = name.trim().slice(0, 60);
-    if (trimmed) updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => p.id === id ? { ...p, name: trimmed, updatedAt: Date.now() } : p) }));
+    if (!trimmed || !libraryRef.current.playlists.some(p => p.id === id)) return false;
+    return updateLibrary(old => ({
+      ...old, playlists: old.playlists.map(p => p.id === id
+        ? { ...p, name: trimmed, updatedAt: Date.now() } : p),
+    }));
   }, [updateLibrary]);
   const deletePlaylist = useCallback((id: string) => {
     updateLibrary(old => ({ ...old, playlists: old.playlists.filter(p => p.id !== id) }));
   }, [updateLibrary]);
-  const addSongToPlaylist = useCallback((id: string, song: Song) => {
+  const addSongToPlaylist = useCallback((id: string, song: Song): boolean => {
     const playlist = libraryRef.current.playlists.find(p => p.id === id);
-    if (playlist && playlist.songs.length >= 500 && !playlist.songs.some(s => sameMusic(s, song))) {
-      toast('这个歌单已达 500 首上限，未保存新歌曲', 'error');
-      return;
+    if (!playlist) {
+      toast('歌单已不存在，请重新选择', 'error');
+      return false;
     }
-    updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => p.id === id && !p.songs.some(s => sameMusic(s, song))
-      ? { ...p, songs: [...p.songs, song], updatedAt: Date.now() } : p) }));
+    if (playlist.songs.some(s => sameMusic(s, song))) return true;
+    if (playlist.songs.length >= 500) {
+      toast('这个歌单已达 500 首上限，未保存新歌曲', 'error');
+      return false;
+    }
+    return updateLibrary(old => ({
+      ...old, playlists: old.playlists.map(p => p.id === id
+        ? { ...p, songs: [...p.songs, song], updatedAt: Date.now() } : p),
+    }));
   }, [updateLibrary, toast]);
   const removeSongFromPlaylist = useCallback((id: string, key: string) => {
     updateLibrary(old => ({ ...old, playlists: old.playlists.map(p => p.id === id
@@ -1742,7 +1758,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const value: MusicContextType = {
     cfg, setCfg, effectiveWorkerUrl,
-    library, toggleLocalLike, createPlaylist, renamePlaylist, deletePlaylist,
+    library, toggleLocalLike, createPlaylist, createPlaylistWithSong, renamePlaylist, deletePlaylist,
     addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
     addToQueue, moveQueueSong, removeQueueSong, clearUpcomingQueue,
     queue, setQueue, idx, current,
