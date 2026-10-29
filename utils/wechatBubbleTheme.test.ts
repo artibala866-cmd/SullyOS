@@ -20,6 +20,7 @@ describe('built-in WeChat private-chat bubbles', () => {
   it('has smaller type, content-fit widths, square edges, and two-direction tails', () => {
     expect(WECHAT_BUBBLE_CSS).toContain('font-size: 13px !important');
     expect(WECHAT_BUBBLE_CSS).toContain('max-width: min(72%');
+    expect(WECHAT_BUBBLE_CSS).toContain('max-width: min(62%');
     expect(WECHAT_BUBBLE_CSS).toContain('width: fit-content');
     expect(WECHAT_BUBBLE_CSS).toContain('border-radius: 5px !important');
     expect(WECHAT_BUBBLE_CSS).toContain('clip-path: polygon(0 0, 100% 50%, 0 100%)');

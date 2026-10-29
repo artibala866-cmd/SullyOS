@@ -1099,7 +1099,7 @@ const MessageItem = React.memo(({
 }: MessageItemProps) => {
     const isUser = m.role === 'user';
     const isSystem = m.role === 'system';
-    const wechatTextMessage = wechatBubble && m.type === 'text' && !voiceData?.url && !voiceLoading && !/<[语語]音[^>]*>/.test(m.content);
+    const wechatTextMessage = wechatBubble && m.type === 'text' && (m.role === 'user' || m.role === 'assistant') && !voiceData?.url && !voiceLoading && !/<[语語]音[^>]*>/.test(m.content);
     const spacingClass = messageSpacing === 'compact' ? (isLastInGroup ? 'mb-3' : 'mb-0.5') : messageSpacing === 'spacious' ? (isLastInGroup ? 'mb-8' : 'mb-2.5') : (isLastInGroup ? 'mb-6' : 'mb-1.5');
     const marginBottom = spacingClass;
     const avatarSizeClass = avatarSize === 'small' ? 'w-7 h-7' : avatarSize === 'large' ? 'w-12 h-12' : 'w-9 h-9';
@@ -3450,7 +3450,7 @@ const MessageItem = React.memo(({
                         <circle cx="8" cy="8" r="7" fill="#c8c8c8" />
                         <path d="m4.6 8 2.2 2.2 4.5-4.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <span>糯米机翻译支持</span>
+                    <span>由糯米机提供翻译支持</span>
                 </div>
             </div>
         )}

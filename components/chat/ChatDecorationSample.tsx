@@ -89,6 +89,6 @@ export function renderChatDecorationSample(value:unknown,sceneId:string,thumbnai
  ${wechatBubble ? WECHAT_BUBBLE_CSS : ''}
  .sample-chat .sample-messages,.sample-chat .no-scrollbar{scrollbar-width:none!important;-ms-overflow-style:none}
  .sample-chat .sample-messages::-webkit-scrollbar,.sample-chat .no-scrollbar::-webkit-scrollbar{display:none!important;width:0;height:0}
- ${thumbnailPart?`.beauty-preview-body,.sample-chat.sample-part{height:${thumbnailPart==='psyche'?180:360}px}.sample-chat.sample-part{justify-content:center}.sample-psyche{width:calc(100% - 40px);margin:auto}.sample-bubbles{width:100%;padding:20px 0}.sample-part-psyche,.sample-part-bubbles{background:#f5f4f7}.sample-part .sully-chat-message-content{margin-left:0!important;margin-right:0!important;max-width:86%}${blackWhiteFacebook?'':'.sample-part .sully-chat-message-avatar-slot{display:none}'}`:''}
+ ${thumbnailPart?`.beauty-preview-body,.sample-chat.sample-part{height:${thumbnailPart==='psyche'?180:360}px}.sample-chat.sample-part{justify-content:center}.sample-psyche{width:calc(100% - 40px);margin:auto}.sample-bubbles{width:100%;padding:20px 0}.sample-part-psyche,.sample-part-bubbles{background:#f5f4f7}.sample-part .sully-chat-message-content{margin-left:0!important;margin-right:0!important;max-width:86%}${blackWhiteFacebook||wechatBubble?'':'.sample-part .sully-chat-message-avatar-slot{display:none}'}`:''}
  `};
 }
