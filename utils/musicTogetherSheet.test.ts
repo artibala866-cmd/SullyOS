@@ -106,7 +106,7 @@ describe('一起听独立弹层真实点击与键盘回归', () => {
     expect(dialog.style.maxHeight).toContain('72dvh');
     // jsdom intentionally drops CSS env() values from CSSStyleDeclaration.
     // Assert the real WebView style declaration in source, not jsdom's parser.
-    const source = readFileSync(new URL('../apps/music/MusicTogetherSheet.tsx', import.meta.url), 'utf8');
+    const source = readFileSync('apps/music/MusicTogetherSheet.tsx', 'utf8');
     expect(source).toContain("paddingBottom: 'env(safe-area-inset-bottom, 0px)'");
     expect(list.className).toContain('min-h-0');
     const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>('button'));
