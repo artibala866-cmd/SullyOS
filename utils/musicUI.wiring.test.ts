@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../apps/MusicApp.tsx', import.meta.url), 'utf8');
 const ui = readFileSync(new URL('../apps/music/MusicUI.tsx', import.meta.url), 'utf8');
+const queueSheet = readFileSync(new URL('../apps/music/MusicQueueSheet.tsx', import.meta.url), 'utf8');
 const profile = readFileSync(new URL('../apps/music/NeteaseProfilePage.tsx', import.meta.url), 'utf8');
 const login = readFileSync(new URL('../apps/music/NeteaseLoginPanel.tsx', import.meta.url), 'utf8');
 
@@ -47,18 +48,33 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(ui).toContain('.music-tap:active');
     expect(ui).toContain('@media(prefers-reduced-motion:reduce)');
   });
-  it('队列和本地歌单只显示一个小型整理入口，不再平铺上下箭头和移除按钮', () => {
-    const queue = app.split("section === 'queue' &&")[1]?.split('{characters.length')[0] || '';
-    expect(queue).toContain('<DotsThreeVertical size={18}');
-    expect(queue).toContain('aria-label={`管理播放队列歌曲');
-    expect(queue).toContain("action === 'up'");
-    expect(queue).toContain("action === 'down'");
-    expect(queue).toContain("action === 'remove'");
-    expect(queue).toContain('disabled={i === 0}');
-    expect(queue).toContain('disabled={i === queue.length - 1}');
-    expect(queue).toContain('disabled={active}');
-    expect(queue).not.toContain('<ArrowUp');
-    expect(queue).not.toContain('<ArrowDown');
+  it('队列在迷你播放器右侧三横线打开，不再占用分类导航', () => {
+    const dock = ui.split('export const MiniPlayer:')[1]?.split('// Same public component contract;')[0] || '';
+    expect(dock).toContain('className="music-dock-queue');
+    expect(dock).toContain('<List size={21}');
+    expect(dock).toContain('aria-haspopup="dialog" aria-expanded={queueOpen}');
+    expect(dock).toContain('onClick={onOpenQueue}');
+    expect(app).toContain('queueCount={queue.length}');
+    expect(app).toContain('queueOpen={queueSheetOpen}');
+    expect(app).not.toContain("['queue', '播放队列']");
+    expect(app).not.toContain("section === 'queue'");
+  });
+  it('播放列表底部弹层操作真实 MusicContext 队列，支持切歌、排序、移除、清空', () => {
+    expect(app).toContain('queue={queue} activeIndex={idx} playing={playing} loading={loadingSong}');
+    expect(app).toContain('onMove={moveQueueSong} onRemove={removeQueueSong}');
+    expect(app).toContain('onClearUpcoming={clearUpcomingQueue}');
+    expect(app).toContain('else { void playSong(song);');
+    expect(queueSheet).toContain('role="dialog" aria-modal="true"');
+    expect(queueSheet).toContain('role="list" aria-label="当前播放队列"');
+    expect(queueSheet).toContain("e.target.value === 'up'");
+    expect(queueSheet).toContain("e.target.value === 'down'");
+    expect(queueSheet).toContain("e.target.value === 'remove'");
+    expect(queueSheet).toContain('onClearUpcoming(); setConfirmClear(false)');
+    expect(queueSheet).toContain('disabled={selected}');
+    expect(queueSheet).toContain("e.key === 'Escape'");
+    expect(queueSheet).toContain('env(safe-area-inset-bottom');
+  });
+  it('本地歌单仍有独立整理菜单，不再平铺三颗操作按钮', () => {
     expect(app).toContain('aria-label={`管理歌单歌曲');
     expect(app).toContain('movePlaylistSong(playlistId, i, i - 1)');
     expect(app).toContain('removeSongFromPlaylist(playlistId, musicSongKey(song))');
@@ -70,10 +86,17 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(ui).toContain('w-11 h-11 overflow-hidden rounded-sm');
     expect(ui).toContain('gap-2.5 px-2 py-1.5');
   });
-  it('点击队列其他歌曲会更新当前索引，不能只换音频地址', () => {
-    const queueView = app.split("section === 'queue' &&")[1]?.split('{characters.length')[0] || '';
-    expect(queueView).toContain('else void playSong(song);');
-    expect(queueView).not.toContain('playSong(song, { alsoSetQueue: false })');
+  it('切歌不重建播放器，也不跳转页面；完整播放页有同一个列表入口', () => {
+    expect(app).toContain('onOpenQueue={() => { setQueueSheetOpen(true); trackEvent(\'从完整播放器打开播放列表\'); }}');
+    expect(ui).toContain('onOpenQueue && <Item label="播放列表"');
+    expect(queueSheet).toContain('onClick={() => onSelect(song, index)}');
+    expect(queueSheet).not.toContain('new Audio(');
+  });
+  it('切到喜欢/歌单/历史时隐藏无关搜索栏，手机小屏保留队列入口', () => {
+    expect(app).toContain("section === 'results' && <>");
+    expect(ui).toContain('@media(max-width:390px)');
+    expect(ui).toContain('music-dock-previous{display:none}');
+    expect(ui).toContain('music-dock-queue');
   });
 
   it('缺失封面才解析 pic_id，完整播放器显示真实音质而非请求档位', () => {
