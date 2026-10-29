@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { findPendingMusicInvite, hasPendingMusicInvite } from './musicInviteStatus';
+import { findPendingMusicInvite, hasPendingMusicInvite, persistMusicInviteWithdrawal } from './musicInviteStatus';
 
 describe('一起听邀请状态', () => {
   const fromUser = { id: 1, metadata: { musicListenInvite: true } };
@@ -81,5 +81,41 @@ describe('一起听邀请状态', () => {
     expect(findPendingMusicInvite(history, 'user')?.id).toBe(4);
     expect(findPendingMusicInvite(history, 'user', 1)).toBeUndefined();
     expect(findPendingMusicInvite(history, 'user', 4)?.id).toBe(4);
+  });
+});
+
+describe('撤回邀请的真实持久化流程', () => {
+  it('只撤回指定的用户待回应邀请，保存后不再视为待答复', async () => {
+    const history = [
+      { id: 10, metadata: { musicListenInvite: true, status: 'pending' } },
+    ];
+    const write = async (item: { metadata: { musicListenInviteResponseTo: number; cancelled: true } }) => {
+      history.push({ id: 11, metadata: item.metadata as any });
+      return 11;
+    };
+    const read = async () => history;
+    expect(await persistMusicInviteWithdrawal('a', 10, read, write)).toBe(10);
+    expect(findPendingMusicInvite(history, 'user')).toBeUndefined();
+    expect(await persistMusicInviteWithdrawal('a', 10, read, write)).toBeNull();
+  });
+  it('缓存的 pending 已过期时不重复写撤回，也不会误撤新邀请', async () => {
+    const history = [
+      { id: 1, metadata: { musicListenInvite: true } },
+      { id: 2, metadata: { musicListenInviteResponseTo: 1, accepted: true } },
+      { id: 3, metadata: { musicListenInvite: true } },
+    ];
+    const write = vi.fn(async () => 9);
+    expect(await persistMusicInviteWithdrawal('a', 1, async () => history, write)).toBeNull();
+    expect(write).not.toHaveBeenCalled();
+    expect(await persistMusicInviteWithdrawal('a', undefined, async () => history, write)).toBe(3);
+    expect(write).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: { musicListenInviteResponseTo: 3, accepted: false, cancelled: true },
+    }));
+  });
+  it('保存撤回失败必须抛错，供上层保留按钮并重试', async () => {
+    const history = [{ id: 7, metadata: { musicListenInvite: true } }];
+    const write = vi.fn(async () => { throw new Error('存储失败'); });
+    await expect(persistMusicInviteWithdrawal('a', undefined, async () => history, write)).rejects.toThrow('存储失败');
+    expect(findPendingMusicInvite(history, 'user')?.id).toBe(7);
   });
 });

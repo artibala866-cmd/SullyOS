@@ -25,3 +25,29 @@ export const findPendingMusicInvite = <T extends { id?: number; metadata?: any }
     typeof message.id === 'number' && !resolved.has(message.id) &&
     (message.metadata?.status === undefined || message.metadata?.status === 'pending'));
 };
+
+
+/**
+ * Persist an outgoing withdrawal only for a genuinely pending DB invitation.
+ * The caller changes local UI state only after this operation commits.
+ * Returning null means the cached "pending" flag was stale or already resolved.
+ */
+export const persistMusicInviteWithdrawal = async <T extends { id?: number; metadata?: any }>(
+  charId: string,
+  requestedMessageId: number | undefined,
+  readHistory: (charId: string) => Promise<readonly T[]>,
+  saveResponse: (response: {
+    charId: string; role: 'user'; type: 'system'; content: string;
+    metadata: { musicListenInviteResponseTo: number; accepted: false; cancelled: true };
+  }) => Promise<unknown>,
+): Promise<number | null> => {
+  const messages = await readHistory(charId);
+  const pending = findPendingMusicInvite(messages, 'user', requestedMessageId);
+  if (typeof pending?.id !== 'number') return null;
+  await saveResponse({
+    charId, role: 'user', type: 'system',
+    content: '[一起听邀请] 我撤回了邀请。',
+    metadata: { musicListenInviteResponseTo: pending.id, accepted: false, cancelled: true },
+  });
+  return pending.id;
+};
