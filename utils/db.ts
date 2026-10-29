@@ -976,13 +976,13 @@ export const DB = {
    */
   createMusicListeningInvite: async (
     invite: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number },
-  ): Promise<{ status: 'created' | 'pending_self' | 'pending_other'; messageId: number }> => {
+  ): Promise<{ status: 'created' | 'pending_self' | 'pending_other' | 'already_listening'; messageId: number }> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
       const store = tx.objectStore(STORE_MESSAGES);
       const inviter = invite.metadata?.inviter === 'char' ? 'char' : 'user';
-      let outcome: { status: 'created' | 'pending_self' | 'pending_other'; messageId: number } | null = null;
+      let outcome: { status: 'created' | 'pending_self' | 'pending_other' | 'already_listening'; messageId: number } | null = null;
       let insertedId = 0;
       const req = store.index('charId').getAll(IDBKeyRange.only(invite.charId));
       req.onsuccess = () => {
@@ -994,12 +994,22 @@ export const DB = {
           outcome = { status: own ? 'pending_self' : 'pending_other', messageId: existing.id! };
           return;
         }
-        const { timestamp, ...payload } = invite;
-        const add = store.add({ ...payload, timestamp: timestamp ?? Date.now() });
-        add.onsuccess = () => {
-          insertedId = add.result as number;
-          outcome = { status: 'created', messageId: insertedId };
-          clearStaleMemoryMirror(tx, invite.charId, insertedId);
+        // An old tab may still think the Char is available while the other
+        // tab is already listening. Check the session ledger INSIDE the same
+        // transaction, not a stale React snapshot.
+        const session = tx.objectStore(STORE_ASSETS).get('music_listen_session_v2:' + invite.charId);
+        session.onsuccess = () => {
+          if (session.result?.data?.active === true) {
+            outcome = {status:'already_listening',messageId:0};
+            return;
+          }
+          const { timestamp, ...payload } = invite;
+          const add = store.add({ ...payload, timestamp: timestamp ?? Date.now() });
+          add.onsuccess = () => {
+            insertedId = add.result as number;
+            outcome = {status:'created',messageId:insertedId};
+            clearStaleMemoryMirror(tx, invite.charId, insertedId);
+          };
         };
       };
       tx.oncomplete = () => {
