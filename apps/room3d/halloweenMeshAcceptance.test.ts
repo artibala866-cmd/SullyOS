@@ -2,6 +2,7 @@ import {describe,it,expect,vi,afterAll} from 'vitest';
 import {readFileSync} from 'node:fs';
 import * as T from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import {createBlankBody} from './chibi/blankBody';
 import {bindBlankBody} from './chibi/blankRig';
 import {dressApprovedWardrobe} from './chibi/approvedClothing';
@@ -15,7 +16,7 @@ import type {ChibiVisitor} from './chibi/visitor';
 
 vi.stubGlobal('self',globalThis);
 vi.stubGlobal('createImageBitmap',async()=>({width:1,height:1,close(){}}));
-const loader=new GLTFLoader();
+const loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const fromDisk=async(path:string)=>{
  const bytes=readFileSync('public/room3d/'+path);
  return loader.parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength) as ArrayBuffer,'');
