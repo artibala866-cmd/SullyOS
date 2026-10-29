@@ -8,7 +8,7 @@ import {buildBody,loadBody} from './FbxBody';
 import {BLANK_SCALE} from './blankBody';
 import {bodyHeightY} from './bodyHeight';
 import {createDistanceWalkClock,roomWalkSpeed,type RoomWalkClip} from './roomWalk';
-import {createWorldFootLock} from './legContactIK';
+import {createWorldFootLock,guideBathRimSwing} from './legContactIK';
 import {approvedRoomWalk} from './approvedRoomWalk';
 import type {MotionFrame} from './selectedMotions';
 import {constrainForearmTwist} from '../../../experiments/chibi/forearmTwist';
@@ -119,6 +119,14 @@ export async function createVisitor(parts:Parts,hair?:HairSettings){
   const arms=body.rig?(['L','R'] as const).map(side=>({side:(side==='L'?1:-1) as 1|-1,points:['upperArm','forearm','hand'].map(part=>body.rig!.bones[side+'_'+part].getWorldPosition(new THREE.Vector3()))})):[];
   return classifyHomelyTouch(point,base,crown,arms);
  },getHeadTopWorldPosition(){root.updateWorldMatrix(true,true);return headAnchor.localToWorld(headTopPoint.clone());},setPhotoExpression:body.setExpressionFace,lookToward:body.lookToward,translatePose,getHeadWorldPosition(){root.updateWorldMatrix(true,false);return body.rig?body.rig.bones.head.localToWorld(new THREE.Vector3(0,.72,0)):body.motionBody.localToWorld(new THREE.Vector3(0,1.2,0));},updateExpression,setActionExpression,get faceState(){return faceState;},rig:body.rig,navigation,finishPose,applySelectedFrame,classicPoint:body.classicPoint,classicContact:body.classicContact,get motionScale(){return motionLeg*body.root.scale.y;},setScaleMultiplier,setWalkMotion,get walkSpeed(){return walkSpeed===undefined?body.rig?1.05:1.45:walkSpeed*body.root.scale.y;},get seatScale(){return body.root.scale.y;},get gamingReach(){return body.rig?{shoulderHeight:bodyHeightY(.59*BLANK_SCALE,body.rig.bodyHeight)*body.root.scale.y,armReach:(body.rig.bones.L_forearm.position.length()+body.rig.bones.L_hand.position.length())*body.root.scale.y}:undefined;},get bedHipHeight(){return body.rig?bodyHeightY(.38*BLANK_SCALE,body.rig.bodyHeight)*body.root.scale.y:0;},get bedHeadToHip(){return body.rig?(standingBounds!.max.y/baseScale-bodyHeightY(.38*BLANK_SCALE,body.rig.bodyHeight))*body.root.scale.y:0;},seatOffset:0,animate(time:number,motion:Motion,posture:Posture='standing',activity?:ActivityPose){actionFace=actionExpression(activity?.bedMode==='bed-talk'?'bed-talk':motion);const walkTime=motion==='walk'&&posture==='standing'&&body.rig&&walkSpeed!==undefined?walkClock.sample(root.getWorldPosition(walkWorldPoint),time,walkSpeed*body.root.scale.y):time;if(motion!=='walk'||posture!=='standing')walkClock.reset();body.animate(walkTime,motion,posture,body.rig&&activity&&(['computer','stream','race','rhythm','eat','hug','pet-contact'].includes(activity.kind)||activity.kind.startsWith('bath-'))?{...activity,handScale:(activity.kind.startsWith('bath-')?1:.7)/body.root.scale.y}:activity);if(body.rig){
+  // The authored rim is a physical leg obstacle, not just a hand target.
+  // Reuse the same hip/knee IK for enter and reverse exit, never a second
+  // root/navigation owner or a fabricated furniture collision volume.
+  if(motion==='bath-soak'&&activity?.bathRimGuide&&
+     (activity.bathPhase==='enter'||activity.bathPhase==='exit')){
+   guideBathRimSwing({root,rig:body.rig},activity.bathRimGuide,'L');
+   guideBathRimSwing({root,rig:body.rig},activity.bathRimGuide,'R');
+  }
   // A tub's final grounded approach is still a footfall even while the
   // dedicated bath controller owns the root. Plant the trailing/right foot
   // using the existing world-space IK, not a second root/navigation writer.
