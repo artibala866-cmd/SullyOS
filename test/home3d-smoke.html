@@ -415,16 +415,27 @@ function texture(color){
    throw Error('Bath journey moved the complete skeleton above its floor-to-interior root range');
   if(!report.bathRigFrames.some(f=>f.leadTrailAngle>.12))
    throw Error('The bath transfer never produced separate near/trailing leg poses');
-  const gripBeforeCross=report.bathRigFrames.find(f=>f.progress===1.05);
+  const gripBeforeCross=report.bathRigFrames.find(f=>f.progress===1.2);
   if(!gripBeforeCross?.handErrors?.some(d=>Number.isFinite(d)&&d<.25))
    throw Error('Hands did not reach a real bathtub rim contact before the first crossing leg lifted');
   const grounded=report.bathRigFrames.filter(f=>f.progress>=.6&&f.progress<=1.05);
   if(grounded.some(f=>Math.min(...f.toes.map(p=>p[1]))<floorHeight-.09))
    throw Error('A stance foot sank below the bath entrance floor during the supported approach');
-  const footStart=report.bathRigFrames.find(f=>f.progress===.45)?.toes[1];
-  const footEnd=report.bathRigFrames.find(f=>f.progress===1.05)?.toes[1];
-  if(footStart&&footEnd&&Math.hypot(...footStart.map((v,i)=>v-footEnd[i]))>.22)
-   throw Error('The grounded support foot slid through the tub approach');
+  // A real step may move its swinging foot; the WORLD-PLANTED foot may not.
+  // Check both stance intervals separately, never call the intentional
+  // trailing-right swing from .78-1.20 a "sliding" right support foot.
+  for(const [side,start,end] of [[1,.45,.75],[0,.90,1.05]]){
+   const from=report.bathRigFrames.find(f=>f.progress===start)?.toes[side];
+   const to=report.bathRigFrames.find(f=>f.progress===end)?.toes[side];
+   if(!from||!to)throw Error('Missing independently sampled approach stance toe');
+   const shift=Math.hypot(...from.map((v,i)=>v-to[i]));
+   if(shift>.12)throw Error((side===0?'Left':'Right')+' planted toe slid '+shift.toFixed(3)+'m during the bath approach');
+  }
+  // Both feet really advanced; neither was merely carried through the rim.
+  const first=report.bathRigFrames.find(f=>f.progress===.45)?.toes[0];
+  const after=report.bathRigFrames.find(f=>f.progress===1.2)?.toes[0];
+  if(!first||!after||Math.hypot(...first.map((v,i)=>v-after[i]))<.08)
+   throw Error('The bath approach did not place the first swing foot forward');
   const returnPoint=[...bathroom.front];
   command('chibi-game-stop');
   if(!Number.isFinite(editor.inspect().chibiActivity?.bathJourney?.cancelElapsed))
