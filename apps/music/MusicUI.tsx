@@ -344,6 +344,9 @@ export const MiniPlayer: React.FC<{
   artists: string;
   albumPic: string;
   playing: boolean;
+  loading?: boolean;
+  progress?: number;
+  duration?: number;
   onTap: () => void;
   onPrev: () => void;
   onToggle: () => void;
@@ -356,15 +359,18 @@ export const MiniPlayer: React.FC<{
   onKickCompanion?: (charId: string) => void;
   charsWithSong?: { id: string; name: string; playlistTitle: string }[]; // 歌单里也有这首歌的 char
   regenStatus?: string;  // 当前歌正在重录时的状态文案，置则显示进度条
-}> = ({ name, artists, albumPic, playing, onTap, onPrev, onToggle, onNext, userAvatar, userName, companions, onKickCompanion, charsWithSong, regenStatus }) => {
+}> = ({ name, artists, albumPic, playing, loading = false, progress = 0, duration = 0, onTap, onPrev, onToggle, onNext, userAvatar, userName, companions, onKickCompanion, charsWithSong, regenStatus }) => {
   const resolvedAlbumPic = useBlobRefUrl(albumPic) || '';
   return (
   <div
     onClick={onTap}
-    className="absolute left-3 right-3 bottom-3 z-30 rounded-2xl px-3 py-2.5 cursor-pointer shizuku-glass-strong"
+    role="button" tabIndex={0} aria-label="打开完整播放器"
+    onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onTap(); } }}
+    className="absolute left-3 right-3 bottom-3 z-30 rounded-2xl px-3 py-2.5 cursor-pointer music-panel-enter"
     style={{
-      boxShadow: `0 4px 30px ${C.glow}20, 0 1px 0 inset rgba(255,255,255,0.4)`,
-      animation: 'shizuku-glow 4s ease-in-out infinite',
+      background: 'rgba(255,255,255,.94)',
+      border: `1px solid ${C.glow}75`,
+      boxShadow: '0 10px 32px rgba(88,69,156,.20), 0 1px 0 inset rgba(255,255,255,.9)',
     }}
   >
     {/* 伴听徽章 — 居中两个头像 + 心 */}
@@ -381,7 +387,7 @@ export const MiniPlayer: React.FC<{
       <div className="relative">
         <img src={resolvedAlbumPic} alt="" className="w-10 h-10 rounded-xl object-cover"
           style={{ border: `1.5px solid ${C.accent}40`, opacity: regenStatus ? 0.4 : 1 }} />
-        {playing && !regenStatus && <div className="absolute -bottom-1 -right-1"><Sparkle size={6} color={C.glow} /></div>}
+        {playing && !regenStatus && <div className="absolute -bottom-1 -right-1 rounded-full px-1 py-0.5 bg-white shadow-sm"><span className="music-eq"><span/><span/><span/></span></div>}
         {regenStatus && (
           <div className="absolute inset-0 rounded-xl flex items-center justify-center"
             style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }}>
@@ -397,18 +403,23 @@ export const MiniPlayer: React.FC<{
             <span className="truncate" style={{ color: C.muted }}>{regenStatus}</span>
           </div>
         ) : (
-          <div className="text-[10px] truncate" style={{ color: C.muted }}>{artists}</div>
+          <div className="text-[10px] truncate" style={{ color: C.muted }}>{loading ? '正在获取音源…' : playing ? '♪ 播放中 · ' : '已暂停 · '}{!loading && artists}</div>
         )}
       </div>
       <div className="flex items-center gap-1">
-        <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className="p-1.5 rounded-full transition-colors" style={{ color: C.muted }}><SkipBack size={14} weight="fill" /></button>
+        <button aria-label="上一首" onClick={(e) => { e.stopPropagation(); onPrev(); }} className="music-icon-press p-1.5 rounded-full" style={{ color: C.muted }}><SkipBack size={14} weight="fill" /></button>
         <button onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className="p-2 rounded-full transition-all"
-          style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, boxShadow: `0 2px 10px ${C.primary}30` }}>
-          {playing ? <Pause size={14} weight="fill" color="white" /> : <Play size={14} weight="fill" color="white" />}
+          aria-label={loading ? '正在加载音频' : playing ? '暂停' : '播放'}
+          className="music-tap p-2.5 rounded-full"
+          style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, boxShadow: `0 3px 12px ${C.primary}50` }}>
+          {loading ? <span className="block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : playing ? <Pause size={15} weight="fill" color="white" /> : <Play size={15} weight="fill" color="white" />}
         </button>
-        <button onClick={(e) => { e.stopPropagation(); onNext(); }} className="p-1.5 rounded-full transition-colors" style={{ color: C.muted }}><SkipForward size={14} weight="fill" /></button>
+        <button aria-label="下一首" onClick={(e) => { e.stopPropagation(); onNext(); }} className="music-icon-press p-1.5 rounded-full" style={{ color: C.muted }}><SkipForward size={14} weight="fill" /></button>
       </div>
+    </div>
+    <div className="h-1 mt-2 rounded-full overflow-hidden" style={{ background: C.soft }} aria-hidden="true">
+      <div className="h-full rounded-full transition-[width] duration-300"
+        style={{ width: `${duration > 0 ? Math.min(100, Math.max(0, progress / duration * 100)) : 0}%`, background: `linear-gradient(90deg,${C.primary},${C.accent})` }} />
     </div>
     {/* 同款歌单提示 */}
     {(!companions || companions.length === 0) && charsWithSong && charsWithSong.length > 0 && (
