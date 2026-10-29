@@ -311,7 +311,11 @@ export const musicApi = {
   async search(cfg: MusicCfg, keyword: string, offset = 0) {
     try {
       const result = await withMusicWorkerDeadline(musicApi.call(cfg, '/search', { keyword, limit: 30, offset, type: 1 }), cfg.cookie ? 12000 : 6000);
-      if (result?.result?.songs?.length) return result;
+      // An empty successful search is a valid result, not a provider outage.
+      // Falling through to GD when it is returning 403 disguises "no matches"
+      // as a failed search and wastes an extra remote request.
+      if (Array.isArray(result?.result?.songs) &&
+          (result?.code === undefined || Number(result.code) === 200)) return result;
     } catch { /* guest fallback */ }
     const u = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'search', source: 'netease', name: keyword, count: '30', pages: String(Math.floor(offset / 30) + 1) })) u.searchParams.set(k, v);
@@ -341,6 +345,9 @@ export const musicApi = {
       );
       const songs = tencentSearchRows(payload).map(normalizeTencentSong).filter((s): s is Song => !!s);
       if (songs.length) return songs;
+      // Vkeys explicitly succeeded with zero rows; do not route a genuine
+      // empty page through the often-blocked GD Tencent search endpoint.
+      if (Number(payload?.code) === 200 && tencentSearchRows(payload).length === 0) return [];
     } catch (err) { failure = err; }
     const gd = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'search', source: 'tencent', name: query, count: '30', pages: String(Math.floor(offset / 30) + 1) })) gd.searchParams.set(k, v);
