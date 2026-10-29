@@ -49,6 +49,7 @@ const ScheduleApp: React.FC = () => {
   const [exitDeadline, setExitDeadline] = useState(0);
   const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'commissions' | 'calendar' | 'study'>('timer');
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
+  const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [showCharPicker,setShowCharPicker]=useState(false);
   const [assistantTopic, setAssistantTopic] = useState('');
@@ -171,7 +172,10 @@ const ScheduleApp: React.FC = () => {
       addToast('专注保护已开启。请暂停或中断本轮再切换区域。', 'error');
       return;
     }
-    if (next === 'study') setStudyTargetCourseId(null);
+    if (next === 'study') {
+      setStudyTargetCourseId(null);
+      setStudyReturnTab(tab==='commissions' || tab==='calendar'?tab:'timer');
+    }
     setTab(next);
   };
   const openLinkedStudyCourse=(courseId:string)=>{
@@ -180,6 +184,7 @@ const ScheduleApp: React.FC = () => {
       addToast('专注保护开启中，请先暂停或中断后打开自习室','error');
       return;
     }
+    setStudyReturnTab('calendar');
     setStudyTargetCourseId(courseId);
     setTab('study');
   };
@@ -337,7 +342,7 @@ const ScheduleApp: React.FC = () => {
     <div className="h-full w-full overflow-hidden bg-white">
       <React.Suspense fallback={<p className="p-5">正在打开自习室…</p>}>
         <StudyApp highlightCourseId={studyTargetCourseId || undefined}
-          onExit={() => {setTab(studyTargetCourseId ? 'calendar' : 'timer');setStudyTargetCourseId(null);}} />
+          onExit={() => {setTab(studyReturnTab);setStudyTargetCourseId(null);}} />
       </React.Suspense>
     </div>
   );

@@ -6,6 +6,7 @@ import WorkspaceReminderControls from './WorkspaceReminderControls';
 import StudyCommissionCalendar from './StudyCommissionCalendar';
 import StudyWeekTimetable from './StudyWeekTimetable';
 import StudyCharPicker from './StudyCharPicker';
+import StudyCommissionEditor from './StudyCommissionEditor';
 import {
   loadStudyCourseOptions, setClassStudyCourseLink, deleteTimetableClass,
   orphanedClassContent, reassignOrphanContent, resolveLinkedCourse,
@@ -14,6 +15,7 @@ import {
 import { cancelItemReminders, setWorkspaceChatPermission } from '../utils/studyRoomReminders';
 import {pendingFocusProgress,settleFocusProgress} from '../utils/studyFocusProgress';
 import {buildHomeworkReviewTopic} from '../utils/studyHomeworkReview';
+import {nextDrawableCommissions,nextHomework,lessonNameForHomework,deadlineLabel} from '../utils/studyQuickActions';
 import { mergeWorkspaceLocalEdit } from '../utils/workspaceEditMerge';
 import {
   isPlanPreviewStale, previewCommissionPlanRisk, projectCommissionPlan,
@@ -77,6 +79,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [draft, setDraft] = useState(blankCommission);
   const [classDraft, setClassDraft] = useState(blankClass);
   const [selectedClassId, setSelectedClassId] = useState('');
+  const [showAllHomework,setShowAllHomework]=useState(false);
   const [studyCourses, setStudyCourses] = useState<StudyCourseOption[]>([]);
   const [studyCoursesError, setStudyCoursesError] = useState('');
   const [studyCoursesLoading, setStudyCoursesLoading] = useState(false);
@@ -108,6 +111,14 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   }, []);
 
   useEffect(() => { setPlanChecked([]); }, [planPreview]);
+  useEffect(()=>{
+    if(!loaded || section!=='calendar')return;
+    if(selectedClassId && data.classes.some(c=>c.id===selectedClassId))return;
+    // Choose an existing course automatically; never override a valid choice.
+    const first=data.classes.find(c=>!c.cancelled && c.weekday===new Date().getDay())
+      ??data.classes.find(c=>!c.cancelled)??data.classes[0];
+    if(first)setSelectedClassId(first.id);
+  },[loaded,section,data.classes,selectedClassId]);
   useEffect(()=>{
     if (section!=='calendar') return;
     let alive=true;
@@ -270,9 +281,23 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       return false;
     }
   };
-  const changeCommissionStatus = async (id:string, status:Commission['status']) => {
-    patchCommission(id,{status});
-    if(status!=='active') await stopItemReminders('commission',id);
+  const saveCommissionEdits=async(id:string,patch:Partial<Commission>)=>{
+    try{
+      await change(v=>{
+        if(!v.commissions.some(c=>c.id===id))throw new Error('稿件已被删除');
+        return {...v,commissions:v.commissions.map(c=>c.id===id?{...c,...patch}:c)};
+      });
+    }catch(e){
+      try{const latest=await readWorkspace();syncData(()=>latest);}catch{}
+      throw e;
+    }
+    if(patch.status && patch.status!=='active') {
+      // Preserve the old behavior of attempting to cancel reminders when
+      // work is paused, delivered, cancelled or moved out of the active queue.
+      const cancelled=await stopItemReminders('commission',id);
+      if(!cancelled)addToast('稿件已保存，但远端提醒取消未确认，请到提醒列表核对','error');
+    }
+    addToast('委托已保存','success');
   };
   const changeHomeworkDone = async (id:string, done:boolean) => {
     change(v => ({...v,homework:v.homework.map(h=>h.id===id?{...h,done}:h)}));
@@ -282,8 +307,6 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     if(!(await stopItemReminders('homework',id))) return;
     change(v=>({...v,homework:v.homework.filter(x=>x.id!==id)}));
   };
-  const patchCommission = (id:string, patch:Partial<Commission>) =>
-    change(v => ({...v, commissions: v.commissions.map(c=>c.id===id?{...c,...patch}:c)}));
   const patchClass = (id:string, patch:Partial<TimetableClass>) =>
     change(v => ({...v,classes:v.classes.map(c=>c.id===id?{...c,...patch}:c)}));
 
@@ -294,8 +317,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       ...draft,id:newWorkspaceId(),title:draft.title.trim(),status:'active',
       order: Math.max(0,...data.commissions.map(c=>c.order)) + 1,
     };
-    change(v=>({...v,commissions:[...v.commissions,commission]}));
+    void change(v=>({...v,commissions:[...v.commissions,commission]}));
     setDraft(blankCommission());
+    editCommission(commission.id);
   };
   const reorder = (id:string, direction:number) => {
     const list = orderedCommissions(data.commissions);
@@ -313,7 +337,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     }
     const id = newWorkspaceId();
     change(v=>({...v,classes:[...v.classes,{...classDraft,id,name:classDraft.name.trim()}]}));
-    setSelectedClassId(id);
+    showClassWork(id);
     setClassDraft(blankClass());
   };
   const addHomework = (e:React.FormEvent) => {
@@ -394,6 +418,17 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const risk = new Map(calculatePlanRisks(data).map(v=>[v.commissionId,v]));
   const weekCapacity=dailyCapacityForecast(data,localDate(new Date()),7);
   const selectedClass = data.classes.find(c=>c.id===selectedClassId);
+  const quickCommissions=nextDrawableCommissions(data.commissions);
+  const pendingHomework=nextHomework(data.homework);
+  const todayKey=localDate(new Date());
+  const showClassWork=(id:string)=>{
+    setSelectedClassId(id);
+    requestAnimationFrame(()=>document.getElementById('study-homework-panel')?.scrollIntoView({block:'start',behavior:'smooth'}));
+  };
+  const editCommission=(id:string)=>{
+    setEditingCommissionId(id);setShowCommissionList(true);
+    requestAnimationFrame(()=>document.getElementById('study-commission-'+id)?.scrollIntoView({block:'center',behavior:'smooth'}));
+  };
   const orphaned = orphanedClassContent(data);
   const planStale = !!planPreview && (isPlanPreviewStale(data, planPreview)
     || planPreview.charId !== selectedCharId);
@@ -469,9 +504,28 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         <button className={buttonClass+' w-fit'} onClick={()=>void requestPlan()} disabled={!selectedCharId || applyingPlan}>✦ 让 Char 帮我排一下</button>
         
       </header>
+      <section className={cardClass} aria-label="可直接继续的画稿">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">接下来画什么</h3>
+          <span className="text-xs text-neutral-500">{data.commissions.filter(c=>c.status==='active').length} 张进行中</span>
+        </div>
+        {quickCommissions.length ? <div className="space-y-2">
+          {quickCommissions.map(c=><div key={c.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-neutral-100 bg-neutral-50 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{c.title}</p>
+              <p className="text-xs text-neutral-600">{c.stage} · {deadlineLabel(c.dueDate,todayKey)} · 剩余 {c.remainingMinutes} 分</p>
+              {!!risk.get(c.id)?.shortfallMinutes && <p className="text-xs text-red-700">预计缺口 {risk.get(c.id)?.shortfallMinutes} 分</p>}
+            </div>
+            <button type="button" className={buttonClass} onClick={()=>onFocus('commission',c.id,c.title)}>开始画</button>
+            <button type="button" className={mutedButton} onClick={()=>editCommission(c.id)}>调整</button>
+          </div>)}
+        </div> : <p className="text-xs text-neutral-600">还没有正在绘制的画稿。可以在下方新增委托，或把等待中的稿件改为正在绘制。</p>}
+        {data.commissions.filter(c=>c.status==='active').length>quickCommissions.length &&
+          <button type="button" className="text-xs underline underline-offset-2" onClick={()=>setShowCommissionList(true)}>查看全部画稿并调整顺序</button>}
+      </section>
       <StudyCommissionCalendar commissions={data.commissions}
         onFocus={(id,title)=>onFocus('commission',id,title)}
-        onEdit={id=>{setEditingCommissionId(id);setShowCommissionList(true);}}/>
+        onEdit={editCommission}/>
       {planPreview && <section className={cardClass} aria-label="Char 排单建议预览">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-semibold">Char 排单建议 · 逐项审核</h3>
@@ -560,28 +614,15 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <WorkspaceReminderControls kind="commission" itemId={c.id}
             suggestedAt={c.dueDate} data={data} selectedCharId={selectedCharId}
             onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/></details>
-          <details className="text-sm" open={editingCommissionId===c.id}>
+          <details className="text-sm" open={editingCommissionId===c.id}
+            onToggle={e=>{
+              if(e.currentTarget.open)setEditingCommissionId(c.id);
+              else setEditingCommissionId(prev=>prev===c.id?'':prev);
+            }}>
             <summary className="cursor-pointer text-neutral-700">编辑委托</summary>
-            <div className="grid grid-cols-2 gap-2 pt-3">
-              <label>阶段<input className={inputClass} list="sully-stages" value={c.stage} onChange={e=>patchCommission(c.id,{stage:e.target.value})}/></label>
-              <label>状态<select className={inputClass} value={c.status} onChange={e=>void changeCommissionStatus(c.id,e.target.value as Commission['status'])}>
-                <option value="active">正在绘制</option><option value="waiting">等待客户确认</option><option value="paused">已暂停</option><option value="delivered">交付完成</option><option value="cancelled">已取消</option><option value="archived">归档</option>
-              </select></label>
-              <label>交稿日期<input className={inputClass} type="date" value={c.dueDate} onChange={e=>patchCommission(c.id,{dueDate:e.target.value})}/></label>
-              <label>计划日期<input className={inputClass} type="date" value={c.plannedDate} onChange={e=>patchCommission(c.id,{plannedDate:e.target.value})}/></label>
-              <label>剩余分钟<input className={inputClass} type="number" min="0" value={c.remainingMinutes} onChange={e=>patchCommission(c.id,{remainingMinutes:Number(e.target.value)||0})}/></label>
-              <label>缓冲分钟<input className={inputClass} type="number" min="0" value={c.bufferMinutes} onChange={e=>patchCommission(c.id,{bufferMinutes:Number(e.target.value)||0})}/></label>
-              <label>优先级<select className={inputClass} value={c.priority} onChange={e=>patchCommission(c.id,{priority:Number(e.target.value)})}>
-                <option value="1">高</option><option value="2">中</option><option value="3">低</option>
-              </select></label>
-              <label>约定价格<input className={inputClass} value={c.price} onChange={e=>patchCommission(c.id,{price:e.target.value})}/></label>
-              <label>接单日期<input className={inputClass} type="date" value={c.acceptedAt} onChange={e=>patchCommission(c.id,{acceptedAt:e.target.value})}/></label>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={c.paid} onChange={e=>patchCommission(c.id,{paid:e.target.checked})}/>已收款（手动）</label>
-            </div>
-            <label className="block mt-2">委托人<input className={inputClass} value={c.client} onChange={e=>patchCommission(c.id,{client:e.target.value})}/></label>
-            <label className="block mt-2">稿件类型<input className={inputClass} value={c.type} onChange={e=>patchCommission(c.id,{type:e.target.value})}/></label>
-            <label className="block mt-2">需求<input className={inputClass} value={c.brief} onChange={e=>patchCommission(c.id,{brief:e.target.value})}/></label>
-            <label className="block mt-2">备注<textarea className={inputClass} value={c.note} onChange={e=>patchCommission(c.id,{note:e.target.value})}/></label>
+            {editingCommissionId===c.id && <StudyCommissionEditor key={c.id}
+              commission={c} onSave={patch=>saveCommissionEdits(c.id,patch)}
+              onClose={()=>setEditingCommissionId('')}/>}
           </details>
         </article>)}
       </details>
@@ -590,11 +631,36 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       <header className={cardClass+' !bg-[linear-gradient(120deg,#fff,#f3f3f3)]'}><p className="text-[10px] tracking-[.24em] text-neutral-400">WEEKLY SCHOOL PLANNER</p>
         <h2 className="font-serif text-[23px] tracking-wide">课程表</h2>
         <p className="text-xs text-neutral-500"></p></header>
+      <section className={cardClass} aria-label="接下来要做的作业">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">接下来做什么作业</h3>
+          <span className="text-xs text-neutral-600">{data.homework.filter(h=>!h.done).length} 项待做</span>
+        </div>
+        {pendingHomework.length ? <div className="space-y-2">
+          {pendingHomework.map(h=><div key={h.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl bg-neutral-50 border border-neutral-100 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{h.title}</p>
+              <p className="text-xs text-neutral-600">{lessonNameForHomework(data.classes,h.classId)} · {deadlineLabel(h.dueAt,todayKey)}</p>
+            </div>
+            <button type="button" className={buttonClass} onClick={()=>onFocus('homework',h.id,h.title)}>开始学</button>
+            {data.classes.some(c=>c.id===h.classId) &&
+              <button type="button" className={mutedButton} onClick={()=>showClassWork(h.classId)}>查看作业</button>}
+          </div>)}
+        </div> : <p className="text-xs text-neutral-600">目前没有待完成的作业。可以从下方课程表选择课程并添加。</p>}
+        {data.homework.filter(h=>!h.done).length>pendingHomework.length &&
+          <button type="button" className="text-xs underline underline-offset-2" onClick={()=>setShowAllHomework(v=>!v)}>
+            {showAllHomework?'收起其余作业':'查看全部待做作业'}
+          </button>}
+        {showAllHomework && <div className="space-y-1 border-t border-neutral-200 pt-2">
+          {nextHomework(data.homework,data.homework.length).slice(pendingHomework.length).map(h=>
+            <div key={h.id} className="flex items-center justify-between gap-2 py-1 text-xs">
+              <span className="min-w-0 flex-1 truncate">{h.title} · {lessonNameForHomework(data.classes,h.classId)}</span>
+              <button type="button" className="underline underline-offset-2" onClick={()=>onFocus('homework',h.id,h.title)}>开始学</button>
+            </div>)}
+        </div>}
+      </section>
       <StudyWeekTimetable classes={data.classes} selectedId={selectedClassId}
-        onSelect={id=>{
-          setSelectedClassId(id);
-          document.getElementById('study-homework-panel')?.scrollIntoView({block:'start',behavior:'smooth'});
-        }}/>
+        onSelect={showClassWork}/>
       <details className={cardClass}>
         <summary className="cursor-pointer text-sm font-semibold">＋ 新增课程</summary>
       <form className="space-y-3 pt-2" onSubmit={addClass}>
@@ -641,7 +707,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </div>}
       </details>
       <details className={cardClass}>
-        <summary className="cursor-pointer text-sm font-semibold">全部课程（{data.classes.length}）</summary>
+        <summary className="cursor-pointer text-sm font-semibold">课程管理与关联（{data.classes.length}）</summary>
         <p className="text-xs text-neutral-600">原有 PDF 自习室课程单独保存；这里只关联课程 ID，不复制、删除或重置旧章节及练习册。</p>
         {studyCoursesError && <p role="alert" className="text-sm text-red-700">{studyCoursesError}</p>}
         <button className={mutedButton} type="button" disabled={studyCoursesLoading}
@@ -652,7 +718,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <div className="flex justify-between gap-3">
             <div><h4 className="font-semibold">{c.name}</h4>
               <p className="text-xs text-neutral-600">{weekdayNames[c.weekday] || '待确认'} {c.start}–{c.end} · {c.location||'地点未填'}</p></div>
-            <button className={mutedButton} onClick={()=>setSelectedClassId(c.id)}>查看作业</button>
+            <button className={mutedButton} onClick={()=>showClassWork(c.id)}>查看作业</button>
           </div>
           <div className="space-y-2 rounded-lg border border-neutral-200 p-3">
             <label className="text-xs block">关联原有自习室课程
