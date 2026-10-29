@@ -152,6 +152,7 @@ const MusicApp: React.FC = () => {
   useEffect(() => { setVisibleCount(36); }, [section, openedPlaylist, searchSource]);
   const [results, setResults] = useState<Song[]>([]);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const searchSeqRef = useRef(0);
   const lyricBoxRef = useRef<HTMLDivElement | null>(null);
 
@@ -174,6 +175,8 @@ const MusicApp: React.FC = () => {
     const kw = keyword.trim(); if (!kw) return;
     const seq = ++searchSeqRef.current;
     setSearching(true);
+    setHasSearched(false);
+    setResults([]);
     setSection('results');
     trackEvent('搜索一首歌', { source: searchSource });
     try {
@@ -192,6 +195,7 @@ const MusicApp: React.FC = () => {
           })).filter((song: Song) => Number.isSafeInteger(song.id));
       if (seq !== searchSeqRef.current) return;
       setResults(songs);
+      setHasSearched(true);
       if (!songs.length) addToast('此来源没有找到匹配歌曲', 'info');
     } catch (e: any) {
       if (seq === searchSeqRef.current) addToast(`搜索失败：${e.message}`, 'error');
@@ -329,7 +333,7 @@ const MusicApp: React.FC = () => {
           }}
           onClick={() => {
             ++searchSeqRef.current;
-            setSearchSource(src); setSearching(false); setResults([]); setSection('results');
+            setSearchSource(src); setSearching(false); setHasSearched(false); setResults([]); setSection('results');
           }}>{src === 'netease' ? '网易云音乐' : 'QQ 音乐'}</button>)}
       </div>
       <SearchBar value={keyword} onChange={setKeyword} onSearch={doSearch} searching={searching} />
@@ -355,10 +359,12 @@ const MusicApp: React.FC = () => {
       <div key={section} role="tabpanel" className="music-panel-enter flex-1 overflow-y-auto px-2 pt-1 relative z-10 shizuku-scrollbar"
         style={{ paddingBottom: current ? 126 : 28 }}>
         {section === 'results' && <div className="px-2 mb-2 text-[11px] flex items-center justify-between" style={{ color: C.muted }}>
-          <span>{searching ? '正在搜索喜欢的旋律…' : results.length ? `找到 ${results.length} 首歌曲 · 点击封面即可播放` : '输入歌名或歌手，发现新的旋律'}</span>
+          <span>{searching ? '正在搜索喜欢的旋律…' : results.length ? `找到 ${results.length} 首歌曲 · 点击封面即可播放` : hasSearched ? '没有找到匹配歌曲，可换关键词或音乐来源' : '输入歌名或歌手，发现新的旋律'}</span>
           {searching && <span className="w-3.5 h-3.5 border-2 rounded-full border-t-transparent animate-spin" style={{ borderColor: C.primary, borderTopColor: 'transparent' }} />}
         </div>}
-        {section === 'results' && renderLibrarySongs(results)}
+        {section === 'results' && (hasSearched && !results.length && !searching
+          ? <p className="text-center text-xs px-5 py-12" style={{ color: C.muted }}>搜索完成，没有找到匹配歌曲。可以换一个歌名、歌手或切换来源再试。</p>
+          : renderLibrarySongs(results))}
         {section === 'likes' && <>
           <p className="px-3 pb-2 text-[11px]" style={{ color: C.muted }}>我喜欢的旋律 · {library.likes.length} 首</p>
           {renderLibrarySongs(library.likes)}
