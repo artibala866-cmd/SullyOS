@@ -267,8 +267,10 @@ describe('POST /instant-chat 的形状', () => {
     const result = await sendInstantChatTurn({
       char: CHAR, chatMessages: [{ role: 'user', content: '在吗' }], api: API,
       userProfile: USER, groups: [], realtimeConfig: {} as any,
+      // Deliberately simulate a legacy untyped JS caller. The current
+      // TypeScript API must NOT gain this retired VRWorld field again.
       sarModule,
-    });
+    } as unknown as Parameters<typeof sendInstantChatTurn>[0]);
     expect(result.ok).toBe(true);
     const call = calls.find((c) => String(c.url).includes('/instant-chat'))!;
     const task = JSON.parse(JSON.parse(String(call.init.body)).taskPayload.encryptedData);
