@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act } from 'react-dom/test-utils';
+import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { readFileSync } from 'node:fs';
 import { MusicTogetherSheet, type MusicTogetherPerson } from '../apps/music/MusicTogetherSheet';
 
 let host: HTMLDivElement;
@@ -103,7 +104,10 @@ describe('一起听独立弹层真实点击与键盘回归', () => {
     const dialog = host.querySelector<HTMLElement>('[role="dialog"]')!;
     const list = dialog.querySelector<HTMLElement>('.overflow-y-auto')!;
     expect(dialog.style.maxHeight).toContain('72dvh');
-    expect(dialog.style.paddingBottom).toContain('safe-area-inset-bottom');
+    // jsdom intentionally drops CSS env() values from CSSStyleDeclaration.
+    // Assert the real WebView style declaration in source, not jsdom's parser.
+    const source = readFileSync(new URL('../apps/music/MusicTogetherSheet.tsx', import.meta.url), 'utf8');
+    expect(source).toContain("paddingBottom: 'env(safe-area-inset-bottom, 0px)'");
     expect(list.className).toContain('min-h-0');
     const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>('button'));
     expect(buttons.length).toBeGreaterThanOrEqual(5);
