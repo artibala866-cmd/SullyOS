@@ -18,6 +18,7 @@ import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
 import { findPendingMusicInvite, hasPendingMusicInvite } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
+import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed } from '../utils/musicCharActions';
 import {
   musicKey, sameMusic, normalizeTencentSong, tencentSearchRows, extractMusicUrl,
   loadGuestMusicLibrary, persistGuestMusicLibrary, recordMusicPlay, upsertLikedSong, appendGuestMusicPlaylist,
@@ -993,7 +994,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
   // Invitation resolution can happen before playSong's declaration below.
   // The ref uses the one global MusicProvider player, never a second audio instance.
-  const playSongRef = useRef<(song: Song, opts?: { mediaRecovery?: boolean }) => Promise<void>>(async () => {});
+  const playSongRef = useRef<(song: Song, opts?: { mediaRecovery?: boolean; awaitPlayback?: boolean }) => Promise<void>>(async () => {});
   const resolvingTrackKeyRef = useRef<string | null>(null);
   const resumeInviteTrack = useCallback((raw: unknown) => {
     if (!raw || typeof raw !== 'object') return;
@@ -1010,7 +1011,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
     }
-    void playSongRef.current(song).catch(() =>
+    void playSongRef.current(song, { awaitPlayback: true }).then(() => {
+      const a = audioRef.current;
+      if (a?.getAttribute('src') && a.paused && !a.error &&
+          currentSongRef.current && sameMusic(currentSongRef.current, song)) {
+        toast('邀请已接受；浏览器未能自动播放，请点击播放器的播放按钮开始听歌', 'info');
+      }
+    }).catch(() =>
       toast('邀请已接受，但歌曲播放失败，请手动点击播放', 'error'));
   }, [toast]);
 
@@ -1284,9 +1291,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 每次切歌递增序号，阻止慢请求覆盖后一次点播。
   const playRequestSeq = useRef(0);
+  const charSelectionSeqRef = useRef(0);
   // 播放单曲
-  const playSong = useCallback(async (song: Song, opts: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number; mediaRecovery?: boolean; refreshUrl?: boolean } = {}) => {
-    const { alsoSetQueue = true, replaceQueue, startIdx, mediaRecovery = false, refreshUrl = false } = opts;
+  const playSong = useCallback(async (song: Song, opts: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number; mediaRecovery?: boolean; refreshUrl?: boolean; awaitPlayback?: boolean } = {}) => {
+    const { alsoSetQueue = true, replaceQueue, startIdx, mediaRecovery = false, refreshUrl = false, awaitPlayback = false } = opts;
     const requestId = ++playRequestSeq.current;
     resolvingTrackKeyRef.current = musicSongKey(song);
     mediaRecoveryRef.current = mediaRecovery;
@@ -1333,11 +1341,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const prevSrc = a.src;
         if (prevSrc.startsWith('blob:')) URL.revokeObjectURL(prevSrc);
         a.src = URL.createObjectURL(blob);
-        a.play().catch(err => {
-          if (requestId !== playRequestSeq.current || err?.name === 'AbortError') return;
-          console.warn('[Music] 本地音频播放失败', err);
-          toast('本地歌曲已加载，但未能开始播放，请点击播放按钮重试', 'error');
-        });
+        const playback = a.play();
+        if (awaitPlayback) {
+          await playback;
+          if (requestId !== playRequestSeq.current) return;
+        } else {
+          void playback.catch(err => {
+            if (requestId !== playRequestSeq.current || err?.name === 'AbortError') return;
+            console.warn('[Music] 本地音频播放失败', err);
+            toast('本地歌曲已加载，但未能开始播放，请点击播放按钮重试', 'error');
+          });
+        }
 
         // ── 本地歌词时间分布 ──
         // MiniMax / ACE-Step 不返回带时间戳的歌词，但我们写歌时就有原文。
@@ -1431,11 +1445,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setActualQualityLabel(actualMusicQualityLabel(song.source === 'tencent' ? 'tencent' : 'netease', item?.br, item?.provider));
       const a = audioRef.current!;
       a.src = url.replace(/^http:\/\//i, 'https://');
-      a.play().catch((err) => {
-        if (requestId !== playRequestSeq.current || err?.name === 'AbortError') return;
-        console.warn('[Music] 音频开始播放失败', err);
-        toast('音源已获取，但播放未能开始，请重新点击播放或切换歌曲', 'error');
-      });
+      const playback = a.play();
+      if (awaitPlayback) {
+        await playback;
+        if (requestId !== playRequestSeq.current) return;
+      } else {
+        void playback.catch((err) => {
+          if (requestId !== playRequestSeq.current || err?.name === 'AbortError') return;
+          console.warn('[Music] 音频开始播放失败', err);
+          toast('音源已获取，但播放未能开始，请重新点击播放或切换歌曲', 'error');
+        });
+      }
       // Artwork is secondary: slow third-party pic_id lookups must never keep
       // loadingSong active after audio has started or block the next track.
       if ('mediaSession' in navigator) {
@@ -1452,7 +1472,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         })();
       }
     } catch (e: any) {
-      if (requestId === playRequestSeq.current) toast(`播放失败：${e?.message || '未知错误'}`, 'error');
+      if (requestId === playRequestSeq.current && !awaitPlayback) toast(`播放失败：${e?.message || '未知错误'}`, 'error');
     } finally {
       if (requestId === playRequestSeq.current) {
         resolvingTrackKeyRef.current = null;
@@ -1460,7 +1480,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
   }, [toast, commitQueue]);
-  playSongRef.current = (song: Song, opts?: { mediaRecovery?: boolean }) => playSong(song, opts);
+  playSongRef.current = (song: Song, opts?: { mediaRecovery?: boolean; awaitPlayback?: boolean }) => playSong(song, opts);
 
   // 下一首 / 上一首
   const nextSong = useCallback(() => {
@@ -1618,21 +1638,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await settleUserListeningInvite(cid, false);
       },
       playListeningTrack: async (cid: string, query: string) => {
-        // 只有正在一起听的角色能切歌。优先使用现有队列，找不到再走同一套免登录搜索。
         if (!listeningTogetherRef.current.includes(cid)) return false;
-        const chosenSource = /^(?:QQ音乐|QQ|tencent)\s*[:：]/i.test(query.trim())
-          ? 'tencent'
-          : currentSongRef.current?.source === 'tencent' ? 'tencent' : undefined;
-        const phrase = query.trim().replace(/^(?:QQ音乐|QQ|tencent)\s*[:：]\s*/i, '');
+        const selectionToken = ++charSelectionSeqRef.current;
+        const previousPlaybackRequest = playRequestSeq.current;
+        const request = parseCharMusicRequest(query, currentSongRef.current?.source);
+        const { phrase } = request;
         const needle = phrase.toLocaleLowerCase();
         if (!needle) return false;
-        let match: Song | undefined = queueRef.current.find(song =>
-          (!chosenSource || song.source === chosenSource) &&
-          (song.name.toLocaleLowerCase() === needle ||
-          song.name.toLocaleLowerCase().includes(needle)));
+        let match = findCharMusicTrack(queueRef.current, request);
         if (!match) {
           try {
-            if (chosenSource === 'tencent') {
+            if (request.source === 'tencent') {
               const candidates = await musicApi.searchTencent(phrase);
               match = candidates.find(song => song.name.trim().toLocaleLowerCase() === needle)
                 || candidates.find(song => song.name.toLocaleLowerCase().includes(needle));
@@ -1659,19 +1675,21 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         }
         if (!listeningTogetherRef.current.includes(cid)) return false;
+        // A late search must not override a track the user has picked since
+        // the Char started searching, or another Char's newer request.
+        if (selectionToken !== charSelectionSeqRef.current ||
+            playRequestSeq.current !== previousPlaybackRequest) return false;
         if (!match) { toast('角色想播放的歌曲没有找到，请尝试其他歌名', 'info'); return false; }
-        await playSong(match);
+        await playSong(match, { awaitPlayback: true });
+        if (selectionToken !== charSelectionSeqRef.current ||
+            playRequestSeq.current !== previousPlaybackRequest + 1 ||
+            !listeningTogetherRef.current.includes(cid)) return false;
         const audio = audioRef.current;
-        if (!audio?.src || audio.error || !currentSongRef.current ||
-          !sameMusic(currentSongRef.current, match)) {
-          toast('角色选歌未能取得播放地址', 'error');
-          return false;
-        }
-        if (audio.paused) {
-          try { await audio.play(); }
-          catch { toast('角色选歌已解析，但浏览器阻止播放，请手动点击播放', 'info'); return false; }
-        }
-        return !audio.paused;
+        const success = !!audio && charMusicPlaybackConfirmed(
+          match, currentSongRef.current, !!audio.getAttribute('src'), audio.paused, !!audio.error,
+        );
+        if (!success) toast('角色选歌未能开始播放，请在播放器中手动播放或换歌', 'error');
+        return success;
       },
       stopListeningTogether: (cid: string) => {
         removeListeningPartner(cid);
@@ -1717,7 +1735,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             chosenIdx = playlists.findIndex(p => p.title.trim().toLowerCase() === t);
             if (chosenIdx < 0) chosenIdx = playlists.findIndex(p =>
               p.title.trim().toLowerCase().includes(t) || t.includes(p.title.trim().toLowerCase()));
-            if (chosenIdx < 0 && playlists.length > 0) chosenIdx = 0;
+            // An explicit target never silently falls back to another playlist.
+            if (chosenIdx < 0) return null;
           } else {
             if (playlists.length > 0) chosenIdx = 0;
           }
@@ -1761,10 +1780,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       },
       favoriteListeningTrack: async (cid: string, query?: string) => {
-        const needle = query?.trim().toLocaleLowerCase();
-        const selected = needle
-          ? queueRef.current.find(song => song.name.toLocaleLowerCase() === needle || song.name.toLocaleLowerCase().includes(needle))
-          : current;
+        const request = parseCharMusicRequest(query || '', currentSongRef.current?.source);
+        const selected = request.phrase
+          ? findCharMusicTrack(queueRef.current, request)
+          : currentSongRef.current;
         if (!selected) return false;
         const song: CharPlaylistSong = {
           id: selected.id,

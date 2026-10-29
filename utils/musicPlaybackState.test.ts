@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Song } from '../context/MusicContext';
 import { cachedCall, invalidate } from './musicCache';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from './musicPlaybackState';
+import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed } from './musicCharActions';
 
 const song = (id: number, source: Song['source'] = 'netease'): Song => ({
   id, source, platformId: String(id), name: 'Song ' + id, artists: 'Artist',
@@ -71,5 +72,33 @@ describe('音频错误与锁屏恢复', () => {
     const fresh = await cachedCall('/song/url',args,'music-recovery-test',getUrl);
     expect(fresh.data[0].url).toContain('fresh');
     expect(getUrl).toHaveBeenCalledTimes(2);
+  });
+});
+
+
+describe('Char 点歌与收藏不能选错来源或假装播放成功', () => {
+  const qq = { ...song(42, 'tencent'), name: '同名歌曲', platformId: 'QQMID42', mid: 'QQMID42' };
+  const netease = { ...song(42), name: '同名歌曲' };
+  it('显式指定 QQ/网易云会得到相应来源与纯歌名，不混用同 ID', () => {
+    const qqRequest = parseCharMusicRequest('QQ音乐：同名歌曲', 'netease');
+    const neteaseRequest = parseCharMusicRequest('网易云:同名歌曲', 'tencent');
+    expect(qqRequest).toMatchObject({ phrase: '同名歌曲', source: 'tencent', explicit: true });
+    expect(neteaseRequest).toMatchObject({ phrase: '同名歌曲', source: 'netease', explicit: true });
+    expect(findCharMusicTrack([netease, qq], qqRequest)).toEqual(qq);
+    expect(findCharMusicTrack([qq, netease], neteaseRequest)).toEqual(netease);
+  });
+  it('优先精确匹配，省略平台时沿用当前来源，不让前一首名称包含导致错歌', () => {
+    const long = { ...qq, name: '同名歌曲 现场版' };
+    const request = parseCharMusicRequest('同名歌曲', 'tencent');
+    expect(findCharMusicTrack([long, netease, qq], request)).toEqual(qq);
+    expect(findCharMusicTrack([netease, qq], request)).toEqual(qq);
+    expect(findCharMusicTrack([netease], parseCharMusicRequest('QQ:同名歌曲'))).toBeUndefined();
+  });
+  it('仅在同来源同歌曲且真正开始播放时才算 Char 选歌成功', () => {
+    expect(charMusicPlaybackConfirmed(qq, qq, true, false, false)).toBe(true);
+    expect(charMusicPlaybackConfirmed(qq, netease, true, false, false)).toBe(false);
+    expect(charMusicPlaybackConfirmed(qq, qq, false, false, false)).toBe(false);
+    expect(charMusicPlaybackConfirmed(qq, qq, true, true, false)).toBe(false);
+    expect(charMusicPlaybackConfirmed(qq, qq, true, false, true)).toBe(false);
   });
 });
