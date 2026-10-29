@@ -482,7 +482,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       })}
       {shareBusy && <p className="text-xs text-neutral-600">正在保存授权并核对远端提醒…</p>}
     </details>
-    {section==='commissions' ? <>
+    <div className={section==='commissions'?'':'hidden'}>
       <header className={cardClass}>
         <div><p className="text-xs tracking-wide text-neutral-500">CREATIVE PLANNER</p>
         <h2 className="mt-2 font-serif text-[23px] tracking-wide">画师排单</h2>
@@ -619,10 +619,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               title:c.title,stage:c.stage,dueDate:c.dueDate,remainingMinutes:c.remainingMinutes,
             }),'commission',c.id)}>问 Char</button>
           </div>
-          <details className="border-t border-neutral-100 pt-3"><summary className="cursor-pointer text-xs text-neutral-500">提醒</summary>
           <WorkspaceReminderControls kind="commission" itemId={c.id}
             suggestedAt={c.dueDate} data={data} selectedCharId={selectedCharId}
-            onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/></details>
+            onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>
           <details className="text-sm" open={editingCommissionId===c.id}
             onToggle={e=>{
               if(e.currentTarget.open)setEditingCommissionId(c.id);
@@ -636,7 +635,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </article>)}
       </details>
       <datalist id="sully-stages">{['待确认','排队','草稿','线稿','上色','细化','待审核','交付完成'].map(s=><option key={s} value={s}/>)}</datalist>
-    </> : <>
+    </div><div className={section==='calendar'?'':'hidden'}>
       <header className={cardClass}><p className="text-xs tracking-wide text-neutral-500">WEEKLY SCHOOL PLANNER</p>
         <h2 className="font-serif text-[23px] tracking-wide">课程表</h2>
         <p className="text-xs text-neutral-500"></p></header>
@@ -797,10 +796,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <button className={mutedButton} onClick={()=>onDiscuss(
               buildHomeworkReviewTopic(h,selectedClass?.name||'未归属',actualMinutes('homework',h.id)),
               'study',h.id)}>请 Char 陪我复盘作业</button>
-            <details className="rounded-xl border border-neutral-100 p-3"><summary className="cursor-pointer text-xs text-neutral-500">作业提醒</summary>
             <WorkspaceReminderControls kind="homework" itemId={h.id}
               suggestedAt={h.dueAt} data={data} selectedCharId={selectedCharId}
-              onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/></details>
+              onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>
             <details><summary className="text-sm">编辑作业</summary>
               <label className="block text-xs">预计剩余分钟
                 <input className={inputClass} type="number" min="0" max="10080" value={h.minutes}
@@ -861,7 +859,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           </div>)}
         </details>}
       
-    </>}
+    </div>
   </div>;
 };
 // While hidden, ignore parent timer ticks that only recreate callback lambdas.
