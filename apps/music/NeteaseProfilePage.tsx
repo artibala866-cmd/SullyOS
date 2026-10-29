@@ -50,7 +50,7 @@ interface LocalAlbumCardProps {
 }
 const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExpanded, currentId, playing, onPlay, onRemove }) => (
   <div
-    className="rounded-lg overflow-hidden relative"
+    className="rounded-sm overflow-hidden relative"
     style={{ background: C.surface, border: '1px solid #dedede' }}
   >
     <div
@@ -63,11 +63,11 @@ const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExp
       className="relative w-full flex items-center gap-3 p-2.5 text-left"
     >
       <div className="relative w-12 h-12 shrink-0">
-        <div className="absolute inset-0 rounded-xl flex items-center justify-center overflow-hidden"
+        <div className="absolute inset-0 rounded-sm flex items-center justify-center overflow-hidden"
           style={{
             background: `#171717`,
-            border: `1.5px solid ${C.glow}80`,
-            boxShadow: `0 2px 8px ${C.glow}40`,
+            border: '1px solid #171717',
+            boxShadow: 'none',
           }}
         >
           <MusicNote size={22} color="white" weight="regular" />
@@ -76,17 +76,17 @@ const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExp
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium tracking-wider"
+          <span className="text-sm font-semibold tracking-tight"
             style={{ color: C.primary }}>
             一起写的歌
           </span>
-          <span className="text-[8px] px-1.5 py-[1px] rounded-full font-bold"
+          <span className="text-[10px] px-1.5 py-[2px] rounded-sm font-medium"
             style={{
               background: `#444444`,
               color: 'white',
               letterSpacing: '0.1em',
             }}>
-            OURS
+            LOCAL
           </span>
         </div>
         <div className="text-[10px] truncate mt-0.5" style={{ color: C.muted }}>
@@ -421,10 +421,10 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
           {/* 登录入口卡 */}
           <button
             onClick={() => setShowNeteaseLogin(true)}
-            className="mt-3 w-full rounded-2xl shizuku-glass p-4 flex items-center gap-3 transition-all active:scale-[0.99]"
+            className="mt-4 w-full rounded-sm shizuku-glass p-4 flex items-center gap-3 transition-colors"
           >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${C.faint}40, ${C.muted}30)`, border: `1px solid ${C.faint}40` }}>
+            <div className="w-10 h-10 rounded-sm flex items-center justify-center"
+              style={{ background: C.soft, border: '1px solid #dedede' }}>
               <UserIcon size={18} color={C.muted} weight="duotone" />
             </div>
             <div className="flex-1 text-left">
@@ -492,7 +492,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
         {/* Banner 头图 */}
         <div className="relative h-32 overflow-hidden">
           {profile.backgroundUrl ? (
-            <img src={profile.backgroundUrl} className="absolute inset-0 w-full h-full object-cover" alt="" />
+            <img src={profile.backgroundUrl} className="absolute inset-0 w-full h-full object-cover grayscale" alt="" />
           ) : (
             <div className="absolute inset-0" style={{ background: `#e8e8e8` }} />
           )}
@@ -500,22 +500,22 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
         </div>
 
         {/* 用户卡 */}
-        <div className="-mt-12 mx-4 rounded-3xl p-4 shizuku-glass-strong relative z-10"
-          style={{ boxShadow: `0 10px 40px ${C.glow}15` }}>
+        <div className="-mt-12 mx-4 rounded-sm p-4 shizuku-glass-strong relative z-10"
+          style={{ boxShadow: 'none' }}>
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
               <img
                 src={profile.avatarUrl || 'https://p1.music.126.net/y19E5SadGUmSR8SZxkrNtw==/109951163965029180.jpg'}
                 alt=""
-                className="w-16 h-16 rounded-2xl object-cover"
-                style={{ border: `2px solid ${C.glow}60`, boxShadow: `0 4px 20px ${C.glow}30` }}
+                className="w-16 h-16 rounded-sm object-cover"
+                style={{ border: '1px solid #dedede', boxShadow: 'none' }}
               />
               <div className="absolute -bottom-1 -right-1">
                 <Sparkle size={10} color={C.sakura} delay={0.3} />
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-base font-semibold truncate" style={{ color: C.text, fontFamily: `'Noto Serif', serif` }}>
+              <div className="text-base font-semibold tracking-tight truncate" style={{ color: C.text }}>
                 {profile.nickname}
               </div>
               <div className="text-[10px] mt-0.5 truncate" style={{ color: C.muted }}>
