@@ -6,11 +6,15 @@ import type {ChibiVisitor} from './visitor';
  * and clamps each iteration to avoid knee flips on stylized rigs. */
 export function settleLegContact(
  v:Pick<ChibiVisitor,'root'|'rig'>,side:'L'|'R',target:T.Vector3,strength:number,
- options:{iterations?:number;maxAngle?:number;effector?:'toe'|'foot'}={}
+ options:{iterations?:number;maxAngle?:number;maxTotalAngle?:number;effector?:'toe'|'foot'}={}
 ){
  const bones=v.rig!.bones,toe=bones[side+'_'+(options.effector??'toe')];
  const iterations=Math.max(1,Math.min(10,options.iterations??2));
  const maxAngle=T.MathUtils.clamp(options.maxAngle??.075,.01,.18);
+ // Only furniture stance callers request this bound. Ordinary walk and
+ // seated-surface IK retain their previously approved correction budget.
+ const authored=options.maxTotalAngle===undefined?null:new Map(
+  [side+'_shin',side+'_thigh'].map(name=>[name,bones[name].quaternion.clone()] as const));
  for(let iteration=0;iteration<iterations;iteration++){
   for(const jointName of [side+'_shin',side+'_thigh']){
    const joint=bones[jointName],parent=joint.parent;
@@ -30,6 +34,11 @@ export function settleLegContact(
    const parentWorld=parent.getWorldQuaternion(new T.Quaternion());
    axis.applyQuaternion(parentWorld.invert()).normalize();
    joint.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(axis,Math.min(angle,maxAngle)*T.MathUtils.clamp(strength,0,1)));
+   const original=authored?.get(jointName);
+   if(original){
+    const total=joint.quaternion.angleTo(original),cap=options.maxTotalAngle!;
+    if(total>cap)joint.quaternion.copy(original).slerp(joint.quaternion,cap/total);
+   }
   }
  }
  v.root.updateWorldMatrix(true,true);
@@ -115,7 +124,7 @@ export function createWorldFootLock(){
   }
   // Walking needs stronger convergence than one-shot head/seat adjustments.
   // Fixed bone lengths; only the existing thigh and shin rotate.
-  settleLegContact(v,side,locked,.95,{iterations:forcedSide?8:6,maxAngle:forcedSide?.16:.12});
+  settleLegContact(v,side,locked,.95,{iterations:forcedSide?8:6,maxAngle:forcedSide?.11:.12,maxTotalAngle:forcedSide?.65:undefined});
   // IK cannot correct an unreachable toe by bending knees alone. A bounded
   // pelvis-layer counter-shift carries the remaining stance error without
   // moving the navigation root or stretching any bone. The authored base pose
