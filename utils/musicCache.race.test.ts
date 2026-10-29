@@ -46,6 +46,23 @@ describe('网易云播放链接缓存与快速重试', () => {
     vi.unstubAllGlobals();
   });
 
+  it('Worker HTTP 200 但返回空 URL 不得缓存，下一次必须重新请求', async () => {
+    local();
+    clearAll();
+    const key = {ids:[970104],level:'standard'};
+    const doCall = vi.fn()
+      .mockResolvedValueOnce({code:200,data:[{url:null}]})
+      .mockResolvedValueOnce({code:200,data:[{url:'https://cdn.example/recovered.mp3'}]});
+    const first = await cachedCall('/song/url',key,'',doCall);
+    expect(first.data[0].url).toBeNull();
+    const recovered = await cachedCall('/song/url',key,'',doCall);
+    expect(recovered.data[0].url).toContain('recovered');
+    expect((await cachedCall('/song/url',key,'',doCall)).data[0].url).toContain('recovered');
+    expect(doCall).toHaveBeenCalledTimes(2);
+    clearAll();
+    vi.unstubAllGlobals();
+  });
+
   it('清空全部缓存后，旧请求返回不会重新写入', async () => {
     local();
     clearAll();
