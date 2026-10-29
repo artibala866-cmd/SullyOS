@@ -13,22 +13,22 @@ describe('QQ 音源临时 API 失效', () => {
   it('HTTP 200 但返回 API 已失效时，只重试一次，后续成功无需退出音乐 App', async () => {
     const request = vi.fn().mockResolvedValueOnce({code: 500, msg: 'API 已失效，请稍后重试'})
       .mockResolvedValueOnce({data: {url: 'https://music.example/fresh.mp3'}});
-    const found = await retryGuestMusicOnce(request, v => !!v.data?.url);
+    const found = await retryGuestMusicOnce<any>(request, (v: any) => !!v.data?.url);
     expect(found.data.url).toContain('fresh.mp3');
     expect(request).toHaveBeenCalledTimes(2);
   });
   it('未知的版权或空响应不进入无限重试', async () => {
     const request = vi.fn().mockResolvedValue({data: {url: null}, code: 404, message: '版权限制'});
-    expect(await retryGuestMusicOnce(request, v => !!v.data?.url)).toMatchObject({code: 404});
+    expect(await retryGuestMusicOnce<any>(request, (v: any) => !!v.data?.url)).toMatchObject({code: 404});
     expect(request).toHaveBeenCalledTimes(1);
   });
   it('超时不会立即再次阻塞 5 秒；429 等快速错误重试一次', async () => {
     const timeout = vi.fn().mockRejectedValue(new Error('音源服务响应超时'));
-    await expect(retryGuestMusicOnce(timeout, () => true)).rejects.toThrow('超时');
+    await expect(retryGuestMusicOnce<any>(timeout, () => true)).rejects.toThrow('超时');
     expect(timeout).toHaveBeenCalledOnce();
     const throttled = vi.fn().mockRejectedValueOnce(new Error('HTTP 503'))
       .mockResolvedValueOnce({url: 'https://example.com/fresh.mp3'});
-    expect(await retryGuestMusicOnce(throttled, res => !!res.url)).toHaveProperty('url');
+    expect(await retryGuestMusicOnce<any>(throttled, (res: any) => !!res.url)).toHaveProperty('url');
     expect(throttled).toHaveBeenCalledTimes(2);
   });
   it('能识别第三方 message/msg/error，避免把接口故障误判为版权问题', () => {
