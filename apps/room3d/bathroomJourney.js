@@ -7,14 +7,16 @@ const pulse=(p,a,b,c,d)=>M.smootherstep(p,a,b)*(1-M.smootherstep(p,c,d));
 
 export function bathroomEntryCandidates(item,kind){
  const x=kind==='bath-soak'?.65:0;
- return [1.35,1.6,1.9,2.2].flatMap(z=>(kind==='bath-soak'?[0,-.25,.25,-.5,-.8,-1.1]:[0,-.25,.25,-.5,.5]).map(dx=>gamingPoint(item,[x+dx,.03,z])));
+ return (kind==='bath-soak'?[1.17,1.25,1.35,1.6,1.9,2.2]:[1.35,1.6,1.9,2.2]).flatMap(z=>(kind==='bath-soak'?[0,-.25,.25,-.5,-.8,-1.1]:[0,-.25,.25,-.5,.5]).map(dx=>gamingPoint(item,[x+dx,.03,z])));
 }
 /** Return a truly accessible bath entrance, without weakening wall or body clearance.
  * The path uses the same map as walking; surrounding furniture remains solid. */
 export function planBathroomEntry(room,catalog,activity,item,map,start,{reach=null,headWidth=1.5,offset=[0,0],startRotation=0}={}){
  const candidates=bathroomEntryCandidates(item,activity.kind).filter(p=>bathroomRimReachable(activity,p,reach));
  if(!candidates.length)return {front:null,reason:'grip'};
- const distance=p=>Math.hypot(p[0]+offset[0]-start[0],p[2]+offset[1]-start[1]);
+ // A valid grip is close to the real rim, not merely close to the user's current position.
+ const distance=p=>Math.hypot(p[0]+offset[0]-start[0],p[2]+offset[1]-start[1])+
+  (activity.kind==='bath-soak'?1.5*Math.hypot(p[0]-activity.edge[0],p[2]-activity.edge[2]):0);
  candidates.sort((a,b)=>distance(a)-distance(b));
  let freeCount=0,pathCount=0,obstruction='';
  for(const candidate of candidates){

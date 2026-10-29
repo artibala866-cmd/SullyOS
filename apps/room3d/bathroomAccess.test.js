@@ -23,6 +23,8 @@ describe('bathroom entrance detection in a furnished room',()=>{
   });
   expect(chosen.reason,JSON.stringify(chosen)).toBeNull();
   expect(chosen.front).toBeTruthy();
+  // The walk ends near the actual support rim, not at a visually clear but arm-unreachable distant tile.
+  expect(Math.hypot(chosen.front[0]-action.edge[0],chosen.front[2]-action.edge[2])).toBeLessThan(.72);
   expect(chosen.path?.[0]).toEqual(start);
   expect(map.free(chosen.front[0],chosen.front[2])).toBe(true);
   expect(findWalkPath(map,start,[chosen.front[0],chosen.front[2]])).not.toBeNull();
