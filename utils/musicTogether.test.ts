@@ -4,10 +4,12 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { musicApi, shouldRetryMusicMediaError, type MusicCfg } from '../context/MusicContext';
+import { neteaseGuestCircuit } from './musicSourceHealth';
 
 const guestCfg: MusicCfg = { workerUrl: '', cookie: '', quality: 'standard' };
 
 afterEach(() => {
+  neteaseGuestCircuit.reset();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -264,4 +266,58 @@ describe('免登录音乐回退', () => {
     expect(result.data[0].br).toBe(192);
   });
 
+});
+
+describe('网易云失联 Worker + GD 故障降级', () => {
+  it('GD 403 后避免连续搜歌/取音源/读歌词重复撞站点；Worker 仍可继续响应', async () => {
+    vi.spyOn(musicApi, 'call').mockRejectedValue(new Error('Worker offline'));
+    const fallback = vi.fn(async () => new Response('', {status:403}));
+    vi.stubGlobal('fetch', fallback);
+    await expect(musicApi.search(guestCfg, 'blocked')).rejects.toThrow(/HTTP 403/);
+    await expect(musicApi.songUrl(guestCfg, 13579)).rejects.toThrow('冷却');
+    await expect(musicApi.lyric(guestCfg, 13579)).rejects.toThrow('冷却');
+    expect(fallback).toHaveBeenCalledTimes(1);
+    vi.spyOn(musicApi, 'call').mockResolvedValueOnce({code:200,result:{songs:[]}});
+    await expect(musicApi.search(guestCfg,'empty')).resolves.toMatchObject({result:{songs:[]}});
+    expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('200 但返回业务 403 的歌词不能冒充纯音乐歌词，且后续请求立即停止撞站点', async () => {
+    vi.spyOn(musicApi, 'call').mockRejectedValue(new Error('Worker offline'));
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({code:403, msg:'API blocked', lyric:''}),{status:200}));
+    vi.stubGlobal('fetch',fetchMock);
+    await expect(musicApi.lyric(guestCfg, 42)).rejects.toThrow('业务状态 403');
+    await expect(musicApi.search(guestCfg, 'retry')).rejects.toThrow('冷却');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('GD 备用端 4.5 秒超时后反馈，不会因站点不响应连续等待 12 秒', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(musicApi,'call').mockRejectedValue(new Error('Worker offline'));
+      const fetchMock = vi.fn((_url: string, init: RequestInit) => new Promise((_resolve,reject) => {
+        init.signal?.addEventListener('abort', () =>
+          reject(Object.assign(new Error('aborted'), {name:'AbortError'})));
+      }));
+      vi.stubGlobal('fetch',fetchMock);
+      const request = musicApi.search(guestCfg,'timeout');
+      const assertion = expect(request).rejects.toThrow('超时');
+      await vi.advanceTimersByTimeAsync(4501);
+      await assertion;
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('备用搜索只保留有效正整数 NetEase ID，不把损坏行当歌曲', async () => {
+    vi.spyOn(musicApi,'call').mockRejectedValue(new Error('Worker offline'));
+    vi.stubGlobal('fetch',vi.fn(async () => new Response(JSON.stringify([
+      {id:42,name:'有效歌',artist:['艺术家']},
+      {id:'not-an-id',name:'错误数据'},
+      {id:0,name:'编号零'},
+      {id:-8,name:'负编号'},
+      {id:43,name:''},
+    ]),{status:200})));
+    const result = await musicApi.search(guestCfg,'quality');
+    expect(result.result.songs).toMatchObject([{id:42,name:'有效歌'}]);
+  });
 });

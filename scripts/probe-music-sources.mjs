@@ -5,10 +5,10 @@
  * Failures are diagnostic (non-blocking): an upstream outage cannot fail CI.
  */
 const deadlineMs = 6500;
-const probe = async (label, url) => {
+const probe = async (label, url, init = {}) => {
   const started = Date.now();
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(deadlineMs) });
+    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(deadlineMs) });
     const type = response.headers.get('content-type') || '';
     const allow = response.headers.get('access-control-allow-origin');
     const obj = /json/i.test(type) ? await response.json().catch(() => null) : null;
@@ -42,9 +42,18 @@ qqSearch.searchParams.set('word','钢琴');
 qqSearch.searchParams.set('page','1');
 qqSearch.searchParams.set('num','2');
 
-const [qq, netease] = await Promise.all([
+// Anonymous, read-only diagnostics against the configured default public
+// proxy. No cookies, user data, audio downloads or signed URL values logged.
+const workerSearch = new URL('https://proxy.friedsully.com/netease/search');
+const workerRequest = (body) => ({
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify(body),
+});
+const [qq, netease, worker] = await Promise.all([
   probe('qq_search_vkeys',qqSearch),
   probe('netease_search_gd',gd({types:'search',source:'netease',name:'钢琴',count:2,pages:1})),
+  probe('netease_search_worker', workerSearch, workerRequest({keyword:'钢琴',limit:2,offset:0,type:1})),
 ]);
 const keys = value => value && typeof value === 'object' ? Object.keys(value).slice(0,12) : [];
 // Structural diagnostics only. Do not expose track titles, IDs or signed URLs.
@@ -82,6 +91,30 @@ if (Array.isArray(qqRows) && qqRows.length) {
       successCode: lyrics?.code === 200,
     }));
   }
+}
+// Only inspect response shapes from the SAME NetEase platform and the
+// public Worker; do not print titles or identifiers.
+const workerSongs = Array.isArray(worker?.result?.songs) ? worker.result.songs : [];
+console.log('MUSIC_SOURCE_SHAPE', JSON.stringify({
+  source:'netease_search_worker', validSongs:workerSongs.length>0,
+  successCode:worker?.code === 200,
+}));
+const workerSongId = Number(workerSongs[0]?.id);
+if (Number.isSafeInteger(workerSongId) && workerSongId > 0) {
+  const [track, lyrics] = await Promise.all([
+    probe('netease_url_worker', 'https://proxy.friedsully.com/netease/song/url',
+      workerRequest({ids:[workerSongId],level:'standard'})),
+    probe('netease_lyric_worker', 'https://proxy.friedsully.com/netease/lyric',
+      workerRequest({id:workerSongId})),
+  ]);
+  console.log('MUSIC_SOURCE_SHAPE',JSON.stringify({
+    source:'netease_url_worker', hasUrl:typeof track?.data?.[0]?.url==='string' && track.data[0].url.startsWith('http'),
+    providerCode:track?.code,
+  }));
+  console.log('MUSIC_SOURCE_SHAPE',JSON.stringify({
+    source:'netease_lyric_worker', hasLyrics:typeof lyrics?.lrc?.lyric==='string',
+    instrumental:lyrics?.nolyric === true, providerCode:lyrics?.code,
+  }));
 }
 if (Array.isArray(netease) && netease.length) {
   const first = netease[0], id = first?.id;

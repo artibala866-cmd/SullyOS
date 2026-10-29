@@ -12,7 +12,7 @@ import React, {
   useMemo, useRef, useState,
 } from 'react';
 import { cachedCall as _cachedCall, invalidate as _invalidateCache, clearAll as _clearAllCache } from '../utils/musicCache';
-import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTencentLyrics, retryGuestMusicOnce } from '../utils/musicSourceHealth';
+import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTencentLyrics, retryGuestMusicOnce, neteaseGuestCircuit, validateNeteaseGuestStatus } from '../utils/musicSourceHealth';
 import { getGuestMusicCover } from '../utils/musicArtwork';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
@@ -292,6 +292,20 @@ const getGuestMusicJson = async (url: URL, unavailable: string, timeoutMs = 1200
     clearTimeout(timer);
   }
 };
+/** The NetEase-only guest fallback has a strict network deadline and a
+ * short circuit after provider-wide 403/429, without disabling the Worker. */
+const getNeteaseGuestJson = async (url: URL, unavailable: string): Promise<any> => {
+  neteaseGuestCircuit.assertAvailable();
+  try {
+    const result = await getGuestMusicJson(url, unavailable, 4500);
+    validateNeteaseGuestStatus(result, unavailable);
+    neteaseGuestCircuit.noteSuccess();
+    return result;
+  } catch (error) {
+    neteaseGuestCircuit.noteFailure(error);
+    throw error;
+  }
+};
 /* ───────────── API ───────────── */
 export const musicApi = {
   // 内部：真正打网络（不走缓存）
@@ -320,7 +334,7 @@ export const musicApi = {
     } catch { /* guest fallback */ }
     const u = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'search', source: 'netease', name: keyword, count: '30', pages: String(Math.floor(offset / 30) + 1) })) u.searchParams.set(k, v);
-    const items = await getGuestMusicJson(u, '免登录搜索服务暂不可用');
+    const items = await getNeteaseGuestJson(u, '网易云备用搜索服务暂不可用');
     if (!Array.isArray(items)) throw new Error('免登录搜索数据异常');
     return { result: { songs: items.map((x: any) => ({
       id: Number(x.id), name: x.name, ar: [{ name: Array.isArray(x.artist) ? x.artist.join(' / ') : (x.artist || '') }],
@@ -328,7 +342,7 @@ export const musicApi = {
       al: { name: x.album || '', picUrl: typeof x.pic_url === 'string' && /^https:\/\//i.test(x.pic_url) ? x.pic_url : '' },
       pic_id: x.pic_id ?? '', lyric_id: x.lyric_id ?? x.id,
       dt: Number(x.duration || 0) * 1000, fee: 0,
-    })).filter((x: any) => Number.isFinite(x.id)) } };
+    })).filter((x: any) => Number.isSafeInteger(x.id) && x.id > 0 && typeof x.name === 'string' && x.name.trim().length > 0) } };
   },
   // QQ Music uses its own real identifiers and remote resolvers, never NetEase ids.
   async searchTencent(keyword: string, offset = 0): Promise<Song[]> {
@@ -434,7 +448,7 @@ export const musicApi = {
     } catch { /* guest fallback */ }
     const u = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'url', source: 'netease', id: String(id), br: gdMusicBitrate(cfg.quality) })) u.searchParams.set(k, v);
-    const item = await getGuestMusicJson(u, '免登录播放服务暂不可用');
+    const item = await getNeteaseGuestJson(u, '网易云备用播放服务暂不可用');
     return { data: [{ url: typeof item?.url === 'string' ? item.url : null,
       br: Number(item?.br) || null, provider: 'gdstudio' }] };
   },
@@ -452,8 +466,8 @@ export const musicApi = {
     u.searchParams.set('types', 'lyric');
     u.searchParams.set('source', 'netease');
     u.searchParams.set('id', String(id));
-    const data = await getGuestMusicJson(u, '免登录歌词服务暂不可用');
-    if (!data || typeof data !== 'object') throw new Error('免登录歌词数据异常');
+    const data = await getNeteaseGuestJson(u, '网易云备用歌词服务暂不可用');
+    if (!data || typeof data !== 'object' || (typeof data.lyric !== 'string' && typeof data.tlyric !== 'string')) throw new Error('网易云备用歌词数据异常');
     return {
       lrc: { lyric: typeof data.lyric === 'string' ? data.lyric : '' },
       tlyric: { lyric: typeof data.tlyric === 'string' ? data.tlyric : '' },

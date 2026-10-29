@@ -31,6 +31,47 @@ export const readTencentLyrics = (payload: unknown): { lrc: { lyric: string }; t
   };
 };
 
+/** GDPR-safe, in-memory backoff for NetEase's GD Studio guest fallback.
+ * Ordinary 404/no-rights track failures never trip a provider-wide circuit.
+ * The Worker and QQ providers remain available while GD is cooling down. */
+export const createNeteaseGuestCircuit = () => {
+  let blockedUntil = 0;
+  return {
+    assertAvailable(now = Date.now()): void {
+      if (now < blockedUntil) {
+        throw new Error('网易云备用接口暂时不可用（正在冷却）；请检查音乐代理 Worker 或稍后重试');
+      }
+    },
+    noteFailure(error: unknown, now = Date.now()): void {
+      const message = String(error instanceof Error ? error.message : error);
+      const code = /(?:HTTP\s*|业务状态\s*)(\d{3})/i.exec(message);
+      const status = code ? Number(code[1]) : 0;
+      const delay = [401, 403, 429].includes(status) ? 300000
+        : status >= 500 && status < 600 ? 30000
+        : /超时|timeout|network|Failed to fetch|Load failed/i.test(message) ? 20000 : 0;
+      if (delay) blockedUntil = Math.max(blockedUntil, now + delay);
+    },
+    noteSuccess(): void { blockedUntil = 0; },
+    reset(): void { blockedUntil = 0; },
+    remainingMs(now = Date.now()): number { return Math.max(0, blockedUntil - now); },
+  };
+};
+export const neteaseGuestCircuit = createNeteaseGuestCircuit();
+
+/** HTTP 200 does not mean the remote API succeeded: error payloads are not
+ * a valid instrumental song, empty search or missing playback permission. */
+export const validateNeteaseGuestStatus = (payload: unknown, label: string): void => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
+  const obj = payload as Record<string, any>;
+  const raw = obj.code ?? obj.status;
+  if (raw === undefined) return;
+  const status = Number(raw);
+  if (!Number.isFinite(status) || (status !== 0 && status !== 200)) {
+    const code = Number.isFinite(status) ? String(status) : 'unknown';
+    throw new Error(`${label}（业务状态 ${code}）`);
+  }
+};
+
 export const guestMusicIsTransient = (error: unknown): boolean => {
   const record = error && typeof error === 'object' && !(error instanceof Error)
     ? error as Record<string, any> : null;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText,
-  guestMusicIsTransient, retryGuestMusicOnce } from './musicSourceHealth';
+  guestMusicIsTransient, retryGuestMusicOnce, createNeteaseGuestCircuit, validateNeteaseGuestStatus } from './musicSourceHealth';
 import { clearGuestMusicCoverCache, getGuestMusicCover } from './musicArtwork';
 
 afterEach(() => {
@@ -104,5 +104,36 @@ describe('pic_id 封面限流与懒加载基础', () => {
     vi.stubGlobal('fetch', fetchMock);
     await Promise.all(Array.from({length:50}, (_,i) => getGuestMusicCover({picId:String(i)})));
     expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(18);
+  });
+});
+
+describe('网易云备用源限流和业务失败判定', () => {
+  it('401/403/429 触发短时熔断，冷却结束恢复；404 单曲故障不封整个服务', () => {
+    const gate = createNeteaseGuestCircuit();
+    gate.noteFailure(new Error('服务不可用（HTTP 403）'), 1000);
+    expect(gate.remainingMs(2000)).toBe(299000);
+    expect(() => gate.assertAvailable(2000)).toThrow('冷却');
+    expect(() => gate.assertAvailable(301001)).not.toThrow();
+    gate.noteFailure(new Error('歌曲不存在（HTTP 404）'), 500000);
+    expect(gate.remainingMs(500000)).toBe(0);
+    gate.noteFailure(new Error('接口（业务状态 429）'), 500000);
+    expect(gate.remainingMs(500001)).toBeGreaterThan(0);
+    gate.noteSuccess();
+    expect(() => gate.assertAvailable(500001)).not.toThrow();
+  });
+  it('上游 5xx 限制 30 秒、网络异常 20 秒；不保存 cookie 或歌曲 ID', () => {
+    const gate = createNeteaseGuestCircuit();
+    gate.noteFailure(new Error('HTTP 503'), 10000);
+    expect(gate.remainingMs(10000)).toBe(30000);
+    gate.reset();
+    gate.noteFailure(new Error('Failed to fetch'), 20000);
+    expect(gate.remainingMs(20000)).toBe(20000);
+    expect(gate.remainingMs(40001)).toBe(0);
+  });
+  it('HTTP 200 内部的 403/500 不是合法歌词、歌曲列表或空结果', () => {
+    expect(() => validateNeteaseGuestStatus({code:403, lyric:''}, '歌词')).toThrow('业务状态 403');
+    expect(() => validateNeteaseGuestStatus({code:500, url:null}, '解析')).toThrow('业务状态 500');
+    expect(() => validateNeteaseGuestStatus({code:200, lyric:''}, '歌词')).not.toThrow();
+    expect(() => validateNeteaseGuestStatus([{id:1}], '搜索')).not.toThrow();
   });
 });
