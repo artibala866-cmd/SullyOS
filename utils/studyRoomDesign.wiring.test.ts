@@ -9,6 +9,7 @@ const timetable=read('apps/StudyWeekTimetable.tsx');
 const picker=read('apps/StudyCharPicker.tsx');
 const avatar=read('apps/StudyAvatar.tsx');
 const reminders=read('apps/WorkspaceReminderControls.tsx');
+const legacyClassroom=read('apps/StudyApp.tsx');
 describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口',()=>{
  it('Char 取系统角色的真实头像，支持 blobref/data/URL 且角色切换仍真实调用 chooseChar',()=>{
    expect(picker).toContain('<StudyAvatar value={char.avatar} name={char.name}');
@@ -82,6 +83,24 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(workspace).toContain('onSubmit={addCommission}');
    expect(workspace).toContain('onSubmit={addClass}');
    expect(workspace).toContain('<WorkspaceReminderControls kind="commission"');
+ });
+
+ it('柔和灰阶在选中导航、月历与 PDF 课堂保持统一，公式不再强制白色',()=>{
+   expect(schedule).toContain("bg-[#ececec] text-[#292929] font-semibold");
+   expect(schedule).not.toContain("tab===id?'bg-neutral-900 text-white'");
+   expect(workspace).toContain('const primaryButton = ');
+   expect(workspace).toContain("bg-[#f1f1f1] text-[#292929]");
+   expect(calendar).toContain("border-l-2 border-[#777777]");
+   expect(calendar).not.toContain('text-[8px]');
+   expect(calendar).not.toContain('text-[9px]');
+   expect(timetable).toContain('border-[#bdbdbd] bg-[#f6f6f6]');
+   expect(legacyClassroom).not.toContain('bg-[#2b2b2b]');
+   expect(legacyClassroom).not.toContain('bg-[#1a1a1a]');
+   expect(legacyClassroom).toContain('study-paper-content');
+   expect(legacyClassroom).toContain('.study-paper-content .katex { color: #292929 !important; }');
+   expect(legacyClassroom).not.toContain('.katex { color: white !important; }');
+   expect(legacyClassroom).toContain('bg-white/95 backdrop-blur-xl border-t border-[#e5e5e5]');
+   expect(reminders).toContain('读取 AMSG 云端状态（不修改）');
  });
 
 });
