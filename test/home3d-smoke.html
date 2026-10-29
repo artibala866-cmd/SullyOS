@@ -446,6 +446,44 @@ function texture(color){
     entry:returnPoint,exit:bathroomDone.chibiPosition};
   if(!report.bathCancel.activityCleared||Math.hypot(...bathroomDone.chibiPosition.map((v,i)=>v-returnPoint[i]))>.04)
    throw Error('Bath cancellation did not return character to its original safe entrance');
+  // A complete soak must cross the rim, settle in the authored seat, then
+  // return through the original entrance. The earlier cancellation test
+  // alone never sampled an occupied tub or the reverse trailing-leg step.
+  const captureBath=async stage=>{
+   report.captureStage=stage;
+   for(let retry=0;retry<50&&!report.capturedStages?.includes(stage);retry++)await sleep(200);
+   if(!report.capturedStages?.includes(stage))
+    throw Error('Chromium did not preserve actual bath '+stage+' WebGL screenshot');
+  };
+  set('bathroom full natural entry');
+  command('chibi-bath',{id:'smoke-tub',kind:'bath-soak',station:''});
+  let fullJourney=null;
+  for(let i=0;i<100;i++){
+   editor.advancePets(.25);
+   fullJourney=editor.inspect().chibiActivity?.bathJourney;
+   if(fullJourney)break;
+  }
+  if(!fullJourney)throw Error('Bath could not be reused after a successful cancellation');
+  editor.advancePets(.95);await captureBath('rim-grip');
+  editor.advancePets(.68);await captureBath('leading-leg');
+  editor.advancePets(.74);await captureBath('trailing-leg');
+  editor.advancePets(1.35);await captureBath('seated');
+  const restingBath=editor.inspect(),restPosition=restingBath.chibiPosition;
+  if(restingBath.chibiActivity?.bathPhase!=='work'||!restPosition||
+     Math.hypot(...restPosition.map((n,i)=>n-fullJourney.position[i]))>.06)
+   throw Error('Complete bath did not settle at the original authored interior seat');
+  if(!bathPerson.rig.skeleton.bones.every(b=>b.matrixWorld.elements.every(Number.isFinite)))
+   throw Error('The tub-soak skeletal pose has an invalid joint matrix');
+  editor.advancePets(9.8);await captureBath('exit-leg');
+  editor.advancePets(3);
+  const afterSoak=editor.inspect();
+  report.bathFull={restPosition,finalPosition:afterSoak.chibiPosition,
+   cleared:!afterSoak.chibiActivity,posture:afterSoak.chibiPosture,
+   captures:report.capturedStages};
+  if(!report.bathFull.cleared||afterSoak.chibiPosture!=='standing'||
+     Math.hypot(...afterSoak.chibiPosition.map((v,i)=>v-fullJourney.front[i]))>.04)
+   throw Error('Complete bath failed to return the same skeleton to its free standing entrance');
+  report.captureStage=null;
   const scene=editor.inspect();
   report.posture=scene.chibiPosture;
   report.position=scene.residentPositions?.[0]?.position?.map(n=>Math.round(n*100)/100);
