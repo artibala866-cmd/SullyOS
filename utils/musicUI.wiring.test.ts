@@ -373,8 +373,8 @@ describe('一起听改为唯一入口与轻量按需弹层', () => {
   });
   it('独立弹层支持键盘关闭、焦点恢复、安全区及长角色列表滚动', () => {
     expect(togetherSheet).toContain('role="dialog" aria-modal="true"');
-    expect(togetherSheet).toContain("e.key === 'Escape'");
-    expect(togetherSheet).toContain('previous?.focus()');
+    expect(togetherSheet).toContain("event.key === 'Escape'");
+    expect(togetherSheet).toContain('previous.focus()');
     expect(togetherSheet).toContain('env(safe-area-inset-bottom');
     expect(togetherSheet).toContain('flex-1 min-h-0 overflow-y-auto');
     expect(togetherSheet).toContain('min-h-11 min-w-11');
@@ -396,5 +396,31 @@ describe('一起听改为唯一入口与轻量按需弹层', () => {
     expect(ui).not.toContain('const TogetherHeader:');
     expect(dock).toContain('onClick={onToggle}');
     expect(dock).toContain('onClick={onOpenQueue}');
+  });
+});
+
+describe('一起听弹层交互回归：焦点、安全与失败可重试', () => {
+  it('关闭区域不加入键盘 Tab 顺序，弹层通过 Focus Trap 阻止操作背后音乐', () => {
+    expect(togetherSheet).toContain('document.addEventListener(\'keydown\', onKeyDown, true)');
+    expect(togetherSheet).toContain('document.addEventListener(\'focusin\', onFocusIn)');
+    expect(togetherSheet).toContain('event.key !== \'Tab\'');
+    expect(togetherSheet).toContain('first.focus()');
+    expect(togetherSheet).toContain('last.focus()');
+    expect(togetherSheet).toContain('ref={sheetRef} role="dialog"');
+    expect(togetherSheet).toContain('<div aria-hidden="true" className="absolute inset-0 bg-black/25"');
+    expect(togetherSheet).not.toContain('<button type="button" className="absolute inset-0 bg-black/25"');
+  });
+  it('接受/拒绝只有保存后的邀请事件才更新，失败不自动关窗', () => {
+    expect(app).toContain('onAnswer={(charId, accepted) => {');
+    expect(app).toContain('answerCharInvite(charId, accepted)');
+    expect(app).not.toMatch(/onAnswer=\{\(charId, accepted\) => \{[^}]*setTogetherSheetOpen\(false\)/);
+    expect(app).toContain("if (view !== 'search') setTogetherSheetOpen(false)");
+  });
+  it('短屏可滚动，角色名称优先保留空间，动作至少 44px', () => {
+    expect(togetherSheet).toContain("maxHeight: 'min(72dvh, 540px)'");
+    expect(togetherSheet).toContain('maxWidth: \'100%\'');
+    expect(togetherSheet).toContain('min-w-0');
+    expect(togetherSheet).toContain('min-h-11 min-w-11');
+    expect(togetherSheet).toContain('overscroll-contain');
   });
 });

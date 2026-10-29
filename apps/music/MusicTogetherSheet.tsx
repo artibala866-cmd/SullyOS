@@ -23,23 +23,63 @@ type Props = {
 /** One shared, on-demand sheet. It is never repeated inside music tabs or the mini player. */
 export const MusicTogetherSheet: React.FC<Props> = ({ people, onClose, onAnswer, onInvite, onCancel, onEnd }) => {
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const sheetRef = useRef<HTMLElement | null>(null);
+  // The host re-renders frequently (playback ticks). Keep one stable focus
+  // guard and always call the latest close handler.
+  const closeHandlerRef = useRef(onClose);
+  closeHandlerRef.current = onClose;
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const focusables = () => Array.from(sheetRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), a[href], input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ) || []);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeHandlerRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusables();
+      if (!items.length) { event.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !sheetRef.current?.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !sheetRef.current?.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      // Keyboard navigation must never activate controls behind this dialog.
+      if (event.target instanceof Node && !sheetRef.current?.contains(event.target)) {
+        closeRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('focusin', onFocusIn);
     closeRef.current?.focus();
-    return () => previous?.focus();
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener('focusin', onFocusIn);
+      if (previous?.isConnected) previous.focus();
+    };
   }, []);
 
   const incomingCount = people.filter(p => p.incoming).length;
   const listeningCount = people.filter(p => p.active).length;
 
-  return <div className="absolute inset-0 z-[75] flex flex-col justify-end"
-    onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}>
-    <button type="button" className="absolute inset-0 bg-black/25"
-      aria-label="关闭一起听" onClick={onClose} />
-    <section role="dialog" aria-modal="true" aria-labelledby="music-together-title"
+  return <div className="absolute inset-0 z-[75] flex flex-col justify-end">
+    <div aria-hidden="true" className="absolute inset-0 bg-black/25" onClick={onClose} />
+    <section ref={sheetRef} role="dialog" aria-modal="true" aria-labelledby="music-together-title"
       className="relative flex flex-col min-h-0 w-full rounded-t-[26px] overflow-hidden music-panel-enter"
       style={{
-        maxHeight: 'min(70dvh, 540px)',
+        maxHeight: 'min(72dvh, 540px)',
+        maxWidth: '100%',
         background: C.bg,
         boxShadow: '0 -10px 36px rgba(0,0,0,.11)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
@@ -60,14 +100,14 @@ export const MusicTogetherSheet: React.FC<Props> = ({ people, onClose, onAnswer,
           className="music-icon-press w-11 h-11 rounded-full flex items-center justify-center"
           style={{ color: C.text }}><X size={20} /></button>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain shizuku-scrollbar px-4 pb-4"
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain shizuku-scrollbar px-3 sm:px-4 pb-4"
         style={{ borderTop: '1px solid #ecece9' }}>
         {!people.length && <div className="text-[12px] text-center py-12" style={{ color: C.muted }}>
           还没有可邀请的角色
         </div>}
         {people.map(p => {
           const action = p.active ? '结束' : p.outgoing === 'pending' ? '撤回' : '邀请';
-          return <div key={p.id} className="flex items-center gap-3 min-w-0 px-2 py-3"
+          return <div key={p.id} className="flex items-center gap-2.5 min-w-0 px-2 py-3"
             style={{ borderBottom: '1px solid #eeecea' }}>
             <div className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-[13px] font-medium"
               style={{ background: '#e9e9e7', color: C.text }}>{p.name.slice(0, 1)}</div>
@@ -81,7 +121,7 @@ export const MusicTogetherSheet: React.FC<Props> = ({ people, onClose, onAnswer,
                     : p.outgoing === 'rejected' ? '上次邀请已拒绝' : '可邀请'}
               </div>
             </div>
-            <div className="flex gap-1.5 shrink-0">
+            <div className="flex gap-1 shrink-0">
               {p.incoming ? <>
                 <button type="button" aria-label={'接受 ' + p.name + ' 的一起听邀请'}
                   className="music-tap min-h-11 min-w-11 px-3 rounded-full text-[12px] font-medium"

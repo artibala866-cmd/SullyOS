@@ -139,6 +139,11 @@ const MusicApp: React.FC = () => {
   const [view, setView] = useState<View>('search');
   const [queueSheetOpen, setQueueSheetOpen] = useState(false);
   const [togetherSheetOpen, setTogetherSheetOpen] = useState(false);
+  useEffect(() => {
+    // External shortcuts may change music views while the panel is open.
+    // Never leave an invisible backdrop intercepting the new page.
+    if (view !== 'search') setTogetherSheetOpen(false);
+  }, [view]);
   // ── 手动对轴 modal state ──
   const [showLyricSync, setShowLyricSync] = useState(false);
   const [syncDraft, setSyncDraft] = useState<number[]>([]);
@@ -892,8 +897,9 @@ const MusicApp: React.FC = () => {
         }))}
         onClose={() => setTogetherSheetOpen(false)}
         onAnswer={(charId, accepted) => {
+          // Stay open until the provider persists the response and emits its
+          // resolved event. On failure the invitation remains visible to retry.
           void answerCharInvite(charId, accepted);
-          setTogetherSheetOpen(false);
         }}
         onInvite={charId => inviteListeningPartner(charId)}
         onCancel={charId => cancelListeningInvite(charId)}
