@@ -15,18 +15,18 @@ export const C = {
   bg:       '#fbfbff',       // 几乎纯白 (一抹紫灰)
   bgDeep:   '#f3f1fa',       // 轻雾紫
   bgTint:   '#eaeaea',       // 最深层也只是浅紫雾
-  primary:  '#7f7f7f',       // 淡紫调灰 — 比深紫更柔，饱和度更低
-  accent:   '#adadad',       // 淡紫
-  soft:     '#dcdcdc',       // secondary container — 紫雾
-  glow:     '#cacaca',       // 发光淡紫
-  sakura:   '#cecece',       // 樱花粉 (装饰)
-  lavender: '#c8c8c8',       // 薰衣草 (装饰)
+  primary:  '#7163c9',       // 深薰衣草
+  accent:   '#bd6da5',       // 樱花莓粉
+  soft:     '#eee9ff',       // 薄雾紫
+  glow:     '#b3a3ff',       // 轻亮紫
+  sakura:   '#f3a5be',       // 樱花粉
+  lavender: '#acb7f2',       // 薰衣草蓝
   surface:  'rgba(255,255,255,0.65)',
   glass:    'rgba(255,255,255,0.35)',
   text:     '#22232a',       // 正文
-  muted:    '#7b7b7b',       // 弱文字 (紫调)
-  faint:    '#bababa',       // 超弱
-  vip:      '#a7a7a7',       // VIP
+  muted:    '#747088',       // 次级说明
+  faint:    '#aea9bf',       // 低强调
+  vip:      '#b686d4',       // VIP
   danger:   '#3c3c3c',
 } as const;
 
@@ -45,6 +45,25 @@ const injectStyles = () => {
 @keyframes shizuku-vinyl{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @keyframes shizuku-shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
 @keyframes shizuku-drop{0%{transform:translateY(-30px) scale(0);opacity:0}40%{opacity:.7}100%{transform:translateY(100vh) scale(1);opacity:0}}
+@keyframes music-panel-arrive{from{opacity:.25;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes music-equalizer{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes music-heart-pop{0%{transform:scale(.78)}55%{transform:scale(1.22)}100%{transform:scale(1)}}
+.music-panel-enter{animation:music-panel-arrive .28s cubic-bezier(.2,1,.32,1) both}
+.music-tap{transition:transform .23s cubic-bezier(.22,1.6,.45,1),background-color .2s ease,border-color .2s ease,box-shadow .2s ease;touch-action:manipulation}
+.music-tap:active:not(:disabled){transform:scale(.94)}
+.music-tap:focus-visible{outline:2px solid #7163c9;outline-offset:2px}
+.music-track-row{transition:background-color .22s ease,border-color .22s ease,box-shadow .22s ease}
+.music-track-row:active{background-color:rgba(236,221,255,.7)}
+.music-icon-press{transition:transform .2s cubic-bezier(.2,1.6,.4,1),background-color .2s ease;touch-action:manipulation}
+.music-icon-press:active:not(:disabled){transform:scale(.81)}
+.music-icon-press:focus-visible{outline:2px solid #7163c9;outline-offset:2px}
+.music-eq{display:inline-flex;align-items:flex-end;gap:2px;height:13px;color:#7163c9}
+.music-eq>span{width:3px;height:100%;border-radius:4px;background:currentColor;transform-origin:bottom;animation:music-equalizer .85s ease-in-out infinite}
+.music-eq>span:nth-child(2){animation-delay:.18s}
+.music-eq>span:nth-child(3){animation-delay:.36s}
+.music-heart-active{animation:music-heart-pop .33s cubic-bezier(.22,1.5,.45,1)}
+@media(hover:hover){.music-tap:hover:not(:disabled){transform:translateY(-1px) scale(1.012)}.music-icon-press:hover:not(:disabled){transform:scale(1.09)}}
+@media(prefers-reduced-motion:reduce){.music-panel-enter,.music-tap,.music-icon-press,.music-heart-active,.music-eq>span{animation:none!important;transition:none!important}}
 .shizuku-glass{background:rgba(255,255,255,0.22);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border:1px solid rgba(255,255,255,0.35)}
 .shizuku-glass-strong{background:rgba(255,255,255,0.45);backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);border:1px solid rgba(255,255,255,0.5)}
 .shizuku-scrollbar::-webkit-scrollbar{width:3px}
@@ -165,40 +184,50 @@ export const SongRow: React.FC<{
   duration: string;
   isVip: boolean;
   isActive: boolean;
+  isPlaying?: boolean;
+  isLoading?: boolean;
   onClick: () => void;
-}> = ({ name, artists, album, albumPic, duration, isVip, isActive, onClick }) => {
-  const resolvedAlbumPic = useBlobRefUrl(albumPic) || '';
+}> = ({ name, artists, album, albumPic, duration, isVip, isActive, isPlaying = false, isLoading = false, onClick }) => {
+  const cover = useBlobRefUrl(albumPic) || '';
+  const status = isActive ? isLoading ? '正在加载' : isPlaying ? '播放中' : '已暂停' : '';
   return (
-  <button
-    onClick={onClick}
-    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all mb-1.5 mx-1"
-    style={{
-      background: isActive
-        ? `linear-gradient(135deg, ${C.glass}, rgba(137,212,255,0.15))`
-        : 'rgba(255,255,255,0.08)',
-      backdropFilter: isActive ? 'blur(12px)' : 'none',
-      border: isActive ? `1px solid rgba(255,255,255,0.4)` : '1px solid transparent',
-      boxShadow: isActive ? `0 2px 16px ${C.glow}15` : 'none',
-    }}
-  >
-    {/* 封面 — 圆角 + 水光边框 */}
-    <div className="relative shrink-0">
-      <img src={resolvedAlbumPic} alt="" className="w-11 h-11 rounded-xl object-cover"
-        style={{ border: `1.5px solid ${isActive ? C.accent + '60' : C.faint + '40'}` }} />
-      {isActive && <div className="absolute -top-0.5 -right-0.5"><Sparkle size={8} color={C.glow} delay={0.3} /></div>}
-    </div>
-    <div className="flex-1 min-w-0 text-left">
-      <div className="flex items-center gap-1.5 text-sm truncate" style={{ color: C.text }}>
-        {isVip && (
-          <span className="text-[8px] px-1.5 py-[1px] rounded-full text-white font-medium shrink-0"
-            style={{ background: `linear-gradient(135deg, ${C.vip}, #bdbdbd)`, letterSpacing: '0.05em' }}>VIP</span>
-        )}
-        <span className="truncate font-normal">{name}</span>
+    <button type="button" onClick={onClick}
+      aria-label={isActive && isPlaying ? `暂停《${name}》` : `播放《${name}》`}
+      aria-busy={isActive && isLoading}
+      className="music-tap group w-full min-w-0 flex items-center gap-3 px-2.5 py-2 text-left rounded-2xl"
+      style={{
+        background: isActive ? 'linear-gradient(105deg, rgba(220,211,255,.68),rgba(255,232,244,.57))' : 'transparent',
+        border: `1px solid ${isActive ? C.glow + '75' : 'transparent'}`,
+        boxShadow: isActive ? '0 3px 14px rgba(113,99,201,.11)' : 'none',
+      }}>
+      <div className="relative shrink-0 w-12 h-12 overflow-hidden rounded-xl"
+        style={{ background: `linear-gradient(135deg,${C.soft},#fff0f8)` }}>
+        {cover ? <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />
+          : <div className="w-full h-full flex items-center justify-center" style={{ color: C.primary }}><Play size={19} weight="duotone" /></div>}
+        <div className="absolute inset-0 flex items-center justify-center transition-colors"
+          style={{ background: isActive || isLoading ? 'rgba(42,32,77,.25)' : 'rgba(42,32,77,.12)' }}>
+          {isActive && isLoading
+            ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            : isActive && isPlaying
+              ? <Pause size={20} color="white" weight="fill" />
+              : <Play size={20} color="white" weight="fill" />}
+        </div>
       </div>
-      <div className="text-[11px] truncate mt-0.5" style={{ color: C.muted }}>{artists} · {album}</div>
-    </div>
-    <div className="text-[10px] shrink-0 tabular-nums" style={{ color: C.faint }}>{duration}</div>
-  </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex gap-1.5 items-center text-[13px] font-semibold" style={{ color: isActive ? C.primary : C.text }}>
+          {isVip && <span className="text-[8px] px-1 py-0.5 rounded font-semibold shrink-0" style={{ color: C.vip, background: `${C.vip}18` }}>VIP</span>}
+          <span className="truncate">{name}</span>
+        </div>
+        <div className="text-[11px] truncate mt-0.5" style={{ color: C.muted }}>{artists || '未知歌手'}{album ? ` · ${album}` : ''}</div>
+        {isActive && <div className="flex items-center gap-1.5 mt-0.5 text-[10px] font-medium" style={{ color: C.primary }}>
+          {isPlaying && !isLoading
+            ? <span className="music-eq" aria-hidden="true"><span/><span/><span/></span>
+            : <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: C.accent }} />}
+          {status}
+        </div>}
+      </div>
+      <span className="text-[10px] shrink-0 tabular-nums pr-0.5" style={{ color: isActive ? C.primary : C.faint }}>{duration}</span>
+    </button>
   );
 };
 
