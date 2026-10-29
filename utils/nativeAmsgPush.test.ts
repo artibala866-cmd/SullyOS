@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({
   registered: [] as { event: string; callback: (...args: any[]) => any }[],
   failOnce: '' as string,
+  permission: 'granted' as 'granted' | 'denied' | 'prompt',
   ingest: vi.fn().mockResolvedValue(null),
   register: vi.fn().mockResolvedValue(undefined),
 }));
@@ -17,8 +18,8 @@ vi.mock('@capacitor/push-notifications', () => ({
       }
       state.registered.push({ event, callback });
     }),
-    checkPermissions: vi.fn().mockResolvedValue({ receive: 'granted' }),
-    requestPermissions: vi.fn().mockResolvedValue({ receive: 'granted' }),
+    checkPermissions: vi.fn(async () => ({ receive: state.permission })),
+    requestPermissions: vi.fn(async () => ({ receive: state.permission })),
     register: state.register,
   },
 }));
@@ -42,15 +43,19 @@ describe('native AMSG2 FCM payload bridge', () => {
     state.ingest.mockReset().mockResolvedValue({ charId: 'c1', messageId: 'm1' });
     state.register.mockClear();
     state.failOnce = '';
+    state.permission = 'granted';
   });
 
   it('restores the notification body only when Worker explicitly marks it present', () => {
     const payload = decodeNativeAmsgPayload(notification);
     expect(payload?.message).toBe('你好呀');
     expect(payload?.metadata.charId).toBe('c1');
-    expect(decodeNativeAmsgPayload({ ...notification, data: {
+    const privateNotice = decodeNativeAmsgPayload({ ...notification, data: {
       ...notification.data, amsgHasBody: '0',
-    } })?.message).toBe('');
+    } });
+    expect(privateNotice?.message).toBe('');
+    expect(privateNotice?.amsgNeedsOutboxRecovery).toBe(true);
+    expect(payload?.amsgNeedsOutboxRecovery).toBeUndefined();
   });
 
   it('does not hijack notifications that are not AMSG2', () => {
@@ -62,14 +67,20 @@ describe('native AMSG2 FCM payload bridge', () => {
     await expect(initNativeAmsgPush()).rejects.toThrow('FCM listener not ready');
     expect(state.registered.map(x => x.event))
       .toEqual(['registration', 'registrationError']);
-    // Two callers racing during recovery must still install only once.
+    // Recovery first happens while OS notification permission is denied.
+    state.permission = 'denied';
     await Promise.all([initNativeAmsgPush(), initNativeAmsgPush()]);
     expect(state.registered.map(x => x.event)).toEqual([
       'registration', 'registrationError',
       'pushNotificationReceived', 'pushNotificationActionPerformed',
     ]);
+    expect(state.register).not.toHaveBeenCalled();
+    // User later enables the permission in Android Settings.
+    state.permission = 'granted';
+    await initNativeAmsgPush();
     expect(state.register).toHaveBeenCalledTimes(1);
     await initNativeAmsgPush();
+    expect(state.register).toHaveBeenCalledTimes(1);
     expect(state.registered).toHaveLength(4);
   });
 

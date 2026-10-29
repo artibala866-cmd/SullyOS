@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   flushInboxToChat: vi.fn().mockResolvedValue([]),
   handleInstantErrorPushMessage: vi.fn().mockResolvedValue(undefined),
   drainOutbox: vi.fn().mockResolvedValue({ written: 0, writtenIds: [], ackNow: [], entries: [], staleDropped: 0 }),
+  recoverOutboxPushByMessageId: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('./activeMsgStore', () => ({
@@ -17,6 +18,7 @@ vi.mock('./activeMsgRuntime', () => ({
 
 vi.mock('./amsgInstantChat', () => ({
   drainOutbox: mocks.drainOutbox,
+  recoverOutboxPushByMessageId: mocks.recoverOutboxPushByMessageId,
 }));
 
 import { ingestNativeAmsgPayload, parseNativeAmsgPayload } from './nativeAmsgInbox';
@@ -36,6 +38,7 @@ describe('UnifiedPush and Android native AMSG durable inbox', () => {
     mocks.flushInboxToChat.mockReset().mockResolvedValue([]);
     mocks.handleInstantErrorPushMessage.mockReset().mockResolvedValue(undefined);
     mocks.drainOutbox.mockReset().mockResolvedValue({ written: 0, writtenIds: [], ackNow: [], entries: [], staleDropped: 0 });
+    mocks.recoverOutboxPushByMessageId.mockReset().mockResolvedValue(true);
   });
 
   it('accepts objects or JSON strings, rejects arrays and malformed payloads', async () => {
@@ -87,6 +90,36 @@ describe('UnifiedPush and Android native AMSG durable inbox', () => {
     await ingestNativeAmsgPayload(payload);
     expect(mocks.saveInboxMessage).toHaveBeenCalledTimes(1);
     expect(mocks.flushInboxToChat).toHaveBeenCalledTimes(2);
+  });
+
+  it('private-body-masked FCM fetches only the announced cloud message and never stores blank text', async () => {
+    const result = await ingestNativeAmsgPayload({
+      ...payload, messageId: 'hidden-1', message: '', amsgNeedsOutboxRecovery: true,
+    }, '你有一条新消息');
+    expect(result).toEqual({ charId: 'char-1', messageId: 'hidden-1' });
+    expect(mocks.recoverOutboxPushByMessageId).toHaveBeenCalledWith('hidden-1', 'char-1');
+    expect(mocks.saveInboxMessage).not.toHaveBeenCalled();
+    expect(mocks.flushInboxToChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('cloud content not yet available does not create blank bubbles or poison later retry', async () => {
+    mocks.recoverOutboxPushByMessageId.mockResolvedValue(false);
+    const hidden = { ...payload, messageId: 'hidden-late', message: '', amsgNeedsOutboxRecovery: true };
+    await expect(ingestNativeAmsgPayload(hidden)).resolves.toBeNull();
+    await expect(ingestNativeAmsgPayload(hidden)).resolves.toBeNull();
+    expect(mocks.recoverOutboxPushByMessageId).toHaveBeenCalledTimes(2);
+    expect(mocks.saveInboxMessage).not.toHaveBeenCalled();
+    expect(mocks.flushInboxToChat).not.toHaveBeenCalled();
+  });
+
+  it('native metadata-only multipart fields survive absent top-level aliases', async () => {
+    await ingestNativeAmsgPayload({
+      ...payload, messageId: 'multipart-native',
+      metadata: { charId: 'char-1', sessionId: 's1', messageIndex: 2, totalMessages: 3 },
+    });
+    expect(mocks.saveInboxMessage).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: expect.objectContaining({ sessionId: 's1', messageIndex: 2, totalMessages: 3 }),
+    }));
   });
 
   it('instant failure notification settles the pending reply instead of creating a blank bubble', async () => {

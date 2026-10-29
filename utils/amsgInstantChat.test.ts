@@ -79,6 +79,7 @@ import {
   clearInstantChatPending,
   discardInstantChatExpiredNotices,
   drainOutbox,
+  recoverOutboxPushByMessageId,
   failInstantChatPending,
   getInstantChatPending,
   getStagedInstantChatExpiredNotices,
@@ -1025,6 +1026,36 @@ describe('推送丢了的补收（服务端账本）', () => {
   // 销账、不上屏），单独一组在下面。
   beforeEach(() => {
     localStorage.setItem(AMSG_OUTBOX_ADOPTED_LS_KEY, JSON.stringify({ at: Date.now() }));
+  });
+
+  it('masked FCM retrieves only its provider ID and never adopts unrelated historical backlog', async () => {
+    const wanted = 'hidden-notice-a';
+    const other = 'older-notice-b';
+    localStorage.removeItem(AMSG_OUTBOX_ADOPTED_LS_KEY);
+    stubOutbox([entry(other, outboxPush(other)), entry(wanted, outboxPush(wanted))]);
+    expect(await recoverOutboxPushByMessageId(wanted, CHAR.id)).toBe(true);
+    expect(storeState.saved.map((m) => m.messageId)).toEqual([wanted]);
+    expect(localStorage.getItem(AMSG_OUTBOX_ADOPTED_LS_KEY)).toBeNull();
+    expect(await recoverOutboxPushByMessageId(other, 'wrong-character')).toBe(false);
+    expect(storeState.saved.map((m) => m.messageId)).toEqual([wanted]);
+  });
+
+  it('missing encrypted cloud copy never fabricates private-chat content', async () => {
+    stubOutbox([]);
+    expect(await recoverOutboxPushByMessageId('missing', CHAR.id)).toBe(false);
+    expect(storeState.saved).toHaveLength(0);
+  });
+
+  it('outbox metadata-only multipart fields remain present when aliases are omitted', async () => {
+    const id = 'only-metadata';
+    stubOutbox([entry(id, outboxPush(id, {
+      sessionId: undefined, messageIndex: undefined, totalMessages: undefined,
+      metadata: { charId: CHAR.id, sessionId: 'kept', messageIndex: 3, totalMessages: 3 },
+    }))]);
+    expect(await recoverOutboxPushByMessageId(id, CHAR.id)).toBe(true);
+    expect(storeState.saved[0].metadata).toMatchObject({
+      sessionId: 'kept', messageIndex: 3, totalMessages: 3,
+    });
   });
 
   it('账本上的那条写进收件箱，字段跟 SW 收真推送时写的一份对得上', async () => {
