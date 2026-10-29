@@ -24,6 +24,14 @@ export const parseScheduleStartMinutes = (value: string): number | null => {
     return hour >= 0 && hour < 24 ? hour * 60 + Number(match[2]) : null;
 };
 
+/** Sort a saved/edited daily plan without mutating the original slot array.
+ * Invalid legacy slot times are kept at the end and never match current presence.
+ */
+export const sortScheduleSlots = (slots: ScheduleSlot[]): ScheduleSlot[] =>
+    [...slots].sort((a, b) =>
+        (parseScheduleStartMinutes(a.startTime) ?? Number.POSITIVE_INFINITY)
+        - (parseScheduleStartMinutes(b.startTime) ?? Number.POSITIVE_INFINITY));
+
 /** Midnight rollover is measured in the character's calendar, not the phone's. */
 export const isSameScheduleCalendarDay = (
     char: ScheduleCharacter | null | undefined,
