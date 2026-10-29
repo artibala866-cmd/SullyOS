@@ -334,7 +334,9 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     // No standing idle/walk overlay: both roots stay on their real sofa seats.
     r.visitor.root.quaternion.copy(s.turns[i]);
     r.visitor.animate(0,'idle','seated',options.sofaSeatPoses?.[r.id]);
-   }else if(isIntimacy(s.action)||isSeasonalSocial(s.action)||motionTemplateFor(s.action)?.headTouch){
+   // Halloween capture clips need their sampled bone frames like other paired actions.
+    // Keep intimacy/head-touch adapters idle-only; do not redirect seasonal clips.
+    }else if(isIntimacy(s.action)||motionTemplateFor(s.action)?.headTouch){
     const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));
     r.visitor.root.quaternion.copy(turn).slerp(rearHug?s.rotation:toward,smooth(actionTime,0,.6));
     // No custom walking or late retreat once B is reached.
