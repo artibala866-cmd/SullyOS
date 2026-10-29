@@ -261,7 +261,10 @@ describe('多标签页并发：IndexedDB 原子邀请交易', () => {
     expect(context).toContain('MUSIC_INVITE_DB_CHANGED_KEY');
     expect(context).toContain('inviteReadRevision.current.get(charId) !== revision');
     expect(context).toContain("document.addEventListener('visibilitychange', onVisible)");
-    expect(context).toContain('remotePartners');
+    expect(context).toContain('DB.listActiveMusicListeningSessions()');
+    expect(context).toContain('DB.getMusicListeningSession(charId)');
+    expect(context).toContain('MUSIC_LISTEN_SESSION_CHANGED_KEY');
+    expect(context).not.toContain('remotePartners');
     expect(app).toContain('MUSIC_INVITE_DB_CHANGED_KEY');
     expect(MUSIC_INVITE_DB_CHANGED_KEY).toBe('sully_music_invite_db_changed_v1');
   });
