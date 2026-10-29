@@ -12,7 +12,7 @@ interface Props {
   onSelectChar: (id: string) => void;
   onUpdate: (reminders: WorkspaceData['reminders']) => void;
 }
-const small = 'text-sm rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900';
+const small = 'text-sm rounded-lg border border-[#dcdcdc] bg-[#f6f6f6] px-3 py-2.5 text-[#292929] hover:bg-[#ececec] disabled:opacity-50';
 const timeLocal = (value: string) => {
   if (!value) return '';
   if (value.includes('T')) return value.slice(0, 16);
@@ -83,23 +83,23 @@ const WorkspaceReminderControls: React.FC<Props> = ({
   return <details className="border-t border-neutral-200 pt-3 space-y-2">
     <summary className="text-sm text-neutral-800 cursor-pointer">到点提醒</summary>
     <div className="space-y-3 pt-2 text-sm">
-      <p className="text-xs text-neutral-600">
+      <p className="text-sm text-neutral-600">
         默认关闭。创建后，到点会在私聊收到一次固定提醒；不调用 AI，也不分享此事项的具体资料。
         正常私聊不会因此获得工作空间记录。需要先在 Char 的设置中开启 AMSG 2.0。
       </p>
       {existing.map(reminder=><div className="rounded-lg border border-neutral-300 p-3 space-y-2" key={reminder.id}>
         <div className="text-sm font-medium">{reminder.status==='scheduled'?'已确认':'需要处理'} · {friendly(reminder.fireAt)}</div>
-        <p className="text-xs text-neutral-600">
+        <p className="text-sm text-neutral-600">
           Char：{characters.find(c=>c.id===reminder.charId)?.name || '未知角色'}
           {reminder.taskUuid?' · 任务 '+reminder.taskUuid.slice(0,8):''}
         </p>
-        {reminder.error && <p role="alert" className="text-xs text-neutral-800">{reminder.error}</p>}
+        {reminder.error && <p role="alert" className="text-sm text-neutral-800">{reminder.error}</p>}
         {(reminder.status==='creating' || reminder.status==='needs_review') &&
-          <p className="text-xs text-neutral-700">创建状态不确定，切勿重复创建。请先核查 AMSG 云端任务。</p>}
+          <p className="text-sm text-neutral-700">创建状态不确定，切勿重复创建。请先核查 AMSG 云端任务。</p>}
         <button className={small} disabled={busy} onClick={()=>void inspect(reminder.id)}>
           {busy?'核查中…':'读取 AMSG 云端状态（不修改）'}
         </button>
-        {inspections[reminder.id] && <div className="text-xs border border-neutral-300 rounded-lg p-2 space-y-1" role="status">
+        {inspections[reminder.id] && <div className="text-sm border border-neutral-200 rounded-lg p-2 space-y-1" role="status">
           <p>核查结果：{inspections[reminder.id].status==='matched'
             ? '匹配到云端任务'
             : inspections[reminder.id].status==='not_found'?'未在当前列表找到':'缺少可匹配的身份'}</p>
@@ -113,14 +113,14 @@ const WorkspaceReminderControls: React.FC<Props> = ({
           {busy?'处理中…':'请求远端取消（UUID 已确认）'}</button>}
       </div>)}
       {!existing.length && <>
-        <label className="block text-xs">提醒 Char
+        <label className="block text-sm">提醒 Char
           <select className="w-full mt-1 rounded-lg border border-neutral-300 px-2 py-2" value={selectedCharId}
             onChange={e=>onSelectChar(e.target.value)}>
             <option value="">请选择 Char</option>
             {characters.map(char=><option value={char.id} key={char.id}>{char.name}</option>)}
           </select>
         </label>
-        <label className="block text-xs">本机时间（主动消息到点触发）
+        <label className="block text-sm">本机时间（主动消息到点触发）
           <input type="datetime-local" className="w-full mt-1 rounded-lg border border-neutral-300 px-2 py-2"
             value={at} onChange={e=>setAt(e.target.value)}/>
         </label>
