@@ -2,7 +2,8 @@
  * 雫 (shizuku) 主题 — 音乐 App 视觉组件
  * 水滴般清澈 + 二次元装饰: 玻璃拟态, 浮游粒子, 星芒, 柔光, 梦幻渐变
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { getGuestMusicCover } from '../../utils/musicArtwork';
 import {
   ArrowLeft, X, MagnifyingGlass,
   Play, Pause, SkipBack, SkipForward,
@@ -176,6 +177,43 @@ export const SearchBar: React.FC<{
   </div>
 );
 
+/** Request a missing pic_id only when the cover is about to enter the viewport.
+ * Avoid 36+ network requests on every re-render or Android WebView scroll.
+ */
+const useMusicCover = (albumPic: string, picId?: string, source?: 'netease' | 'tencent') => {
+  const direct = useBlobRefUrl(albumPic) || '';
+  const [fallback, setFallback] = useState('');
+  const [near, setNear] = useState(false);
+  const coverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setFallback('');
+    setNear(false);
+    if (direct || !picId) return;
+    const element = coverRef.current;
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      setNear(true);
+      return;
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setNear(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '120px' });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [albumPic, direct, picId, source]);
+  useEffect(() => {
+    if (!near || direct || !picId) return;
+    let active = true;
+    void getGuestMusicCover({ albumPic, picId, source }).then(url => {
+      if (active) setFallback(url);
+    });
+    return () => { active = false; };
+  }, [albumPic, direct, near, picId, source]);
+  return { coverRef, cover: direct || fallback };
+};
+
 /* ══════════ 歌曲列表项 — 玻璃卡片 ══════════ */
 export const SongRow: React.FC<{
   name: string;
@@ -187,9 +225,11 @@ export const SongRow: React.FC<{
   isActive: boolean;
   isPlaying?: boolean;
   isLoading?: boolean;
+  picId?: string;
+  source?: 'netease' | 'tencent';
   onClick: () => void;
-}> = ({ name, artists, album, albumPic, duration, isVip, isActive, isPlaying = false, isLoading = false, onClick }) => {
-  const cover = useBlobRefUrl(albumPic) || '';
+}> = ({ name, artists, album, albumPic, duration, isVip, isActive, isPlaying = false, isLoading = false, picId, source, onClick }) => {
+  const { coverRef, cover } = useMusicCover(albumPic, picId, source);
   const status = isActive ? isLoading ? '正在加载' : isPlaying ? '播放中' : '已暂停' : '';
   return (
     <button type="button" onClick={onClick}
@@ -201,7 +241,7 @@ export const SongRow: React.FC<{
         border: `1px solid ${isActive ? C.glow + '75' : 'transparent'}`,
         boxShadow: isActive ? '0 3px 14px rgba(113,99,201,.11)' : 'none',
       }}>
-      <div className="relative shrink-0 w-12 h-12 overflow-hidden rounded-xl"
+      <div ref={coverRef} className="relative shrink-0 w-12 h-12 overflow-hidden rounded-xl"
         style={{ background: `linear-gradient(135deg,${C.soft},#fff0f8)` }}>
         {cover ? <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />
           : <div className="w-full h-full flex items-center justify-center" style={{ color: C.primary }}><Play size={19} weight="duotone" /></div>}
@@ -344,6 +384,8 @@ export const MiniPlayer: React.FC<{
   name: string;
   artists: string;
   albumPic: string;
+  picId?: string;
+  source?: 'netease' | 'tencent';
   playing: boolean;
   loading?: boolean;
   progress?: number;
@@ -360,8 +402,8 @@ export const MiniPlayer: React.FC<{
   onKickCompanion?: (charId: string) => void;
   charsWithSong?: { id: string; name: string; playlistTitle: string }[]; // 歌单里也有这首歌的 char
   regenStatus?: string;  // 当前歌正在重录时的状态文案，置则显示进度条
-}> = ({ name, artists, albumPic, playing, loading = false, progress = 0, duration = 0, onTap, onPrev, onToggle, onNext, userAvatar, userName, companions, onKickCompanion, charsWithSong, regenStatus }) => {
-  const resolvedAlbumPic = useBlobRefUrl(albumPic) || '';
+}> = ({ name, artists, albumPic, picId, source, playing, loading = false, progress = 0, duration = 0, onTap, onPrev, onToggle, onNext, userAvatar, userName, companions, onKickCompanion, charsWithSong, regenStatus }) => {
+  const { coverRef, cover: resolvedAlbumPic } = useMusicCover(albumPic, picId, source);
   return (
   <div
     onClick={onTap}
@@ -385,9 +427,10 @@ export const MiniPlayer: React.FC<{
     )}
     <div className="flex items-center gap-3">
       {/* 封面 — 水滴圆角 */}
-      <div className="relative">
-        <img src={resolvedAlbumPic} alt="" className="w-10 h-10 rounded-xl object-cover"
-          style={{ border: `1.5px solid ${C.accent}40`, opacity: regenStatus ? 0.4 : 1 }} />
+      <div ref={coverRef} className="relative">
+        {resolvedAlbumPic ? <img src={resolvedAlbumPic} alt="" className="w-10 h-10 rounded-xl object-cover"
+          style={{ border: `1.5px solid ${C.accent}40`, opacity: regenStatus ? 0.4 : 1 }} /> :
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: C.soft, color: C.primary }}><Play size={17} /></div>}
         {playing && !regenStatus && <div className="absolute -bottom-1 -right-1 rounded-full px-1 py-0.5 bg-white shadow-sm"><span className="music-eq"><span/><span/><span/></span></div>}
         {regenStatus && (
           <div className="absolute inset-0 rounded-xl flex items-center justify-center"
