@@ -7,6 +7,9 @@ type MusicCover = { albumPic?: string; picId?: string; source?: 'netease' | 'ten
 const cached = new Map<string, { url: string; expires: number }>();
 const inflight = new Map<string, Promise<string>>();
 let windowStart = 0, requestsInWindow = 0;
+// A provider-level 403/429 applies to every cover, not just one pic_id.
+// Back off globally instead of hammering the same blocked GD endpoint.
+let providerBlockedUntil = 0;
 const MAX_COVER_CALLS_PER_5_MIN = 18;
 
 export const getGuestMusicCover = async (song: MusicCover): Promise<string> => {
@@ -17,6 +20,7 @@ export const getGuestMusicCover = async (song: MusicCover): Promise<string> => {
   const hit = cached.get(key);
   if (hit && hit.expires > now) return hit.url;
   if (inflight.has(key)) return inflight.get(key)!;
+  if (now < providerBlockedUntil) return '';
   if (now - windowStart > 300000) { windowStart = now; requestsInWindow = 0; }
   if (requestsInWindow >= MAX_COVER_CALLS_PER_5_MIN) return '';
   requestsInWindow++;
@@ -30,7 +34,14 @@ export const getGuestMusicCover = async (song: MusicCover): Promise<string> => {
         id: String(song.picId), size: '300',
       })) url.searchParams.set(k, v);
       const response = await fetch(url.toString(), { signal: controller.signal });
-      if (!response.ok) return '';
+      if (!response.ok) {
+        if ([401, 403, 429].includes(response.status))
+          providerBlockedUntil = Date.now() + 5 * 60 * 1000;
+        else if (response.status >= 500)
+          providerBlockedUntil = Date.now() + 30 * 1000;
+        cached.set(key, { url: '', expires: Date.now() + 60 * 1000 });
+        return '';
+      }
       const body = await response.json();
       const image = typeof body?.url === 'string' && /^https?:\/\//i.test(body.url)
         ? body.url.replace(/^http:\/\//i, 'https://') : '';
@@ -54,4 +65,5 @@ export const clearGuestMusicCoverCache = () => {
   inflight.clear();
   windowStart = 0;
   requestsInWindow = 0;
+  providerBlockedUntil = 0;
 };
