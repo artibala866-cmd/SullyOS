@@ -16,6 +16,25 @@ describe('AMSG2 native FCM transport', () => {
     expect(fcmTokenFromEndpoint('fcm:   ')).toBeNull();
   });
 
+  it('通知横幅是摘要时，不许把摘要冒充完整聊天回复', () => {
+    const result = buildFcmMessage('token', JSON.stringify({
+      messageId: 'm-preview', message: '这是一条很长的真实完整角色回复。',
+      contactName: 'Sully', metadata: { charId: 'char-1' },
+      notification: { body: 'Sully 发来一条新消息' },
+    }));
+    expect(result.message.notification.body).toBe('Sully 发来一条新消息');
+    expect(result.message.data.amsgHasBody).toBe('0');
+    expect(JSON.parse(result.message.data.amsgPayload).message).toBeUndefined();
+  });
+
+  it('仅空白正文和默认横幅不能被识别为聊天原文', () => {
+    const result = buildFcmMessage('token', JSON.stringify({
+      messageId: 'm-blank', message: '   ', metadata: { charId: 'char-1' },
+    }));
+    expect(result.message.notification.body).toBe('有一条新消息');
+    expect(result.message.data.amsgHasBody).toBe('0');
+  });
+
   it('正文只放 notification 一份，data 保留 AMSG2 路由字段', () => {
     const request = buildFcmMessage('token', JSON.stringify({
       messageId: 'm1', message: '你好', contactName: 'Sully',

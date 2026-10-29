@@ -65,6 +65,21 @@ describe('native AMSG2 FCM payload bridge', () => {
     expect(payload?.amsgNeedsOutboxRecovery).toBeUndefined();
   });
 
+  it('preview-only notification signals encrypted exact-ID recovery, not preview as chat content', () => {
+    const summary = decodeNativeAmsgPayload({
+      body: 'Sully 发来一条新消息',
+      data: {
+        amsgPayload: JSON.stringify({
+          messageId: 'm-preview', messageKind: 'content', metadata: { charId: 'c1' },
+        }),
+        amsgHasBody: '0',
+      },
+    });
+    expect(summary?.amsgNeedsOutboxRecovery).toBe(true);
+    expect(summary?.message).toBe('');
+    expect(summary?.messageId).toBe('m-preview');
+  });
+
   it('does not hijack notifications that are not AMSG2', () => {
     expect(decodeNativeAmsgPayload({ body: '普通通知', data: {} })).toBeNull();
   });

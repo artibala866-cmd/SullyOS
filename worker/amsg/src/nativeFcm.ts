@@ -88,10 +88,17 @@ export const fcmTokenFromEndpoint = (endpoint: unknown): string | null => {
   return endpoint.slice(4).trim() || null;
 };
 
-/** notification 承载正文、data 承载其余 AMSG2 结构，避免正文重复两份顶穿 4KB。 */
+/** notification 展示正文或摘要；data 不重复私聊正文，只有完整正文才授权直接入库。 */
 export const buildFcmMessage = (token: string, rawPayload: string) => {
   const payload = JSON.parse(rawPayload) as Record<string, any>;
   const actualBody = String(payload.message ?? payload.body ?? '');
+  const notificationBody = String(payload.notification?.body ?? actualBody).trim() || '有一条新消息';
+  // The notification can be a privacy-safe preview, not the generated reply.
+  // Only authorize the Android bridge to use it as chat content when it is
+  // exactly the true (whitespace-normalized) body. Otherwise the client must
+  // fetch the encrypted outbox row by messageId.
+  const notificationContainsFullBody = !!actualBody.trim()
+    && notificationBody === actualBody.trim();
   const portable = { ...payload };
   delete portable.message;
   delete portable.body;
@@ -102,11 +109,11 @@ export const buildFcmMessage = (token: string, rawPayload: string) => {
       token,
       notification: {
         title: String(payload.contactName ?? payload.metadata?.charName ?? '主动消息'),
-        body: String(payload.notification?.body ?? actualBody).trim() || '有一条新消息',
+        body: notificationBody,
       },
       data: {
         amsgPayload: JSON.stringify(portable),
-        amsgHasBody: actualBody ? '1' : '0',
+        amsgHasBody: notificationContainsFullBody ? '1' : '0',
       },
       android: {
         priority: 'high',
