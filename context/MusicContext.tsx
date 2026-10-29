@@ -16,7 +16,7 @@ import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTence
 import { getGuestMusicCover } from '../utils/musicArtwork';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
-import { findPendingMusicInvite, hasPendingMusicInvite } from '../utils/musicInviteStatus';
+import { findPendingMusicInvite, hasPendingMusicInvite, persistMusicInviteWithdrawal } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
 import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState } from '../utils/musicCharActions';
 import {
@@ -580,8 +580,8 @@ interface MusicContextType {
   listeningTogetherWith: string[];
   listeningStartedAt: Record<string, number>;
   listeningInvites: Record<string, 'pending' | 'accepted' | 'rejected'>;
-  inviteListeningPartner: (charId: string) => void;
-  cancelListeningInvite: (charId: string, messageId?: number) => void;
+  inviteListeningPartner: (charId: string) => Promise<boolean>;
+  cancelListeningInvite: (charId: string, messageId?: number) => Promise<boolean>;
   respondListeningInvite: (charId: string, accepted: boolean) => void;
   lastListeningEnd: { charId: string; durationMs: number; at: number } | null;
   addListeningPartner: (charId: string) => void;
@@ -1023,22 +1023,22 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const invitingCharIds = useRef(new Set<string>());
   const settlingUserInvites = useRef(new Set<string>());
-  const inviteListeningPartner = useCallback((charId: string) => {
-    if (!charId || invitingCharIds.current.has(charId) || listeningTogetherRef.current.includes(charId)) return;
+  const inviteListeningPartner = useCallback(async (charId: string): Promise<boolean> => {
+    // Lock before the first IndexedDB await: rapid tapping must not save
+    // duplicate invites or briefly expose the old action to the user.
+    if (!charId || invitingCharIds.current.has(charId) ||
+        settlingUserInvites.current.has(charId) || listeningTogetherRef.current.includes(charId)) return false;
     invitingCharIds.current.add(charId);
-    void (async () => {
-      // 一次只允许一条未回应邀请；同时查历史记录，防止刷新或快速连点产生重复卡片。
+    try {
       const history = await DB.getMessagesByCharId(charId, true);
       const pending = findPendingMusicInvite(history, 'user');
       if (pending) {
         setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
-        return;
+        return true;
       }
       if (findPendingMusicInvite(history, 'char')) {
-        // Answer the Char's existing invitation instead of creating a
-        // competing user invitation for the same conversation.
         toast('对方已邀请你一起听，请先接受或拒绝这条邀请', 'info');
-        return;
+        return false;
       }
       const messageId = await DB.saveMessage({
         charId,
@@ -1054,40 +1054,67 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
       window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId, messageId } }));
-    })().catch(err => {
+      return true;
+    } catch (err) {
       console.warn('[MusicTogether] 邀请消息保存失败', err);
       toast('一起听邀请未能保存，请稍后重试', 'error');
-    }).finally(() => invitingCharIds.current.delete(charId));
+      return false;
+    } finally {
+      invitingCharIds.current.delete(charId);
+    }
   }, [toast]);
-  const cancelListeningInvite = useCallback((charId: string, messageId?: number) => {
-    if (settlingUserInvites.current.has(charId)) return;
+  const cancelListeningInvite = useCallback(async (charId: string, messageId?: number): Promise<boolean> => {
+    if (!charId) return false;
+    if (settlingUserInvites.current.has(charId) || invitingCharIds.current.has(charId)) {
+      toast('邀请正在处理，请稍后再试', 'info');
+      return false;
+    }
     settlingUserInvites.current.add(charId);
-    void (async () => {
-      const messages = await DB.getMessagesByCharId(charId, true);
-      const pending = findPendingMusicInvite(messages, 'user', messageId);
-      if (!pending) return;
-      await DB.saveMessage({
-        charId, role: 'user', type: 'system',
-        content: '[一起听邀请] 我撤回了邀请。',
-        metadata: { musicListenInviteResponseTo: pending.id, accepted: false, cancelled: true },
-      });
+    try {
+      const withdrawnId = await persistMusicInviteWithdrawal(
+        charId, messageId,
+        id => DB.getMessagesByCharId(id, true),
+        response => DB.saveMessage(response),
+      );
+      if (withdrawnId === null) {
+        // A restored localStorage "pending" can outlive the DB invitation,
+        // e.g. another view answered it. Do not silently leave "撤回" stuck.
+        setListeningInvites(prev => {
+          if (prev[charId] !== 'pending') return prev;
+          const next = { ...prev };
+          delete next[charId];
+          return next;
+        });
+        toast('邀请已处理或不存在，已同步最新状态', 'info');
+        window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
+          detail: { charId, messageId },
+        }));
+        return false;
+      }
       setListeningInvites(prev => {
+        if (prev[charId] !== 'pending') return prev;
         const next = { ...prev };
         delete next[charId];
         return next;
       });
       window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
-        detail: { charId, messageId: pending.id, accepted: false, cancelled: true },
+        detail: { charId, messageId: withdrawnId, accepted: false, cancelled: true },
       }));
-    })().catch(err => {
+      toast('邀请已撤回', 'success');
+      return true;
+    } catch (err) {
+      // Never show "已撤回" when the IndexedDB transaction failed.
       console.warn('[MusicTogether] 撤回邀请失败', err);
       toast('邀请撤回未能保存，请重试', 'error');
-    }).finally(() => settlingUserInvites.current.delete(charId));
+      return false;
+    } finally {
+      settlingUserInvites.current.delete(charId);
+    }
   }, [toast]);
   useEffect(() => {
     const onCancel = (event: Event) => {
       const detail = (event as CustomEvent<{ charId?: string; messageId?: number }>).detail;
-      if (detail?.charId && Number.isInteger(detail.messageId)) cancelListeningInvite(detail.charId, detail.messageId);
+      if (detail?.charId && Number.isInteger(detail.messageId)) void cancelListeningInvite(detail.charId, detail.messageId);
     };
     window.addEventListener('music-listen-invite-cancel', onCancel);
     return () => window.removeEventListener('music-listen-invite-cancel', onCancel);
