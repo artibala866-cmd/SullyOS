@@ -152,6 +152,7 @@ const MusicApp: React.FC = () => {
   const [playlistName, setPlaylistName] = useState('');
   const [openedPlaylist, setOpenedPlaylist] = useState<string | null>(null);
   const [playlistSheetSong, setPlaylistSheetSong] = useState<Song | null>(null);
+  const [openSongMenuKey, setOpenSongMenuKey] = useState<string | null>(null);
   const [editingPlaylist, setEditingPlaylist] = useState<{ id: string; name: string } | null>(null);
   const [deleteConfirmPlaylistId, setDeleteConfirmPlaylistId] = useState<string | null>(null);
   const savePlaylistName = () => {
@@ -237,66 +238,65 @@ const MusicApp: React.FC = () => {
             if (pl) void playSong(song, { replaceQueue: pl.songs, startIdx: i });
           } else void playSong(song);
         };
-        return <div key={musicSongKey(song)}
-          className="music-track-row rounded-[17px] px-1.5 py-1"
+        const key = musicSongKey(song);
+        return <div key={key}
+          className="music-track-row relative rounded-[15px] px-1.5 py-1"
+          onBlur={e => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpenSongMenuKey(null);
+          }}
           style={{ background: isActive ? '#f1f1ef' : '#fff', border: '1px solid #ebebe9' }}>
           <div className="flex items-center min-w-0">
             <div className="flex-1 min-w-0">
-              <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
-                picId={song.picId} source={song.source}
+              <SongRow name={song.name} artists={song.artists} album={song.album}
+                albumPic={song.albumPic} picId={song.picId} source={song.source}
+                sourceLabel={label}
                 duration={fmtTime(song.duration)} isVip={song.fee === 1}
                 isActive={isActive} isPlaying={isActive && playing} isLoading={isActive && loadingSong}
                 onClick={handlePlay} />
             </div>
-            <div className="flex items-center gap-0 shrink-0 pr-1">
-              <button type="button" aria-label={`将《${song.name}》加入播放队列`} title="加入播放队列"
-                className="music-icon-press w-9 h-10 rounded-full flex items-center justify-center"
-                style={{ color: C.muted }}
-                onClick={() => {
-                  const exists = queue.some(item => sameMusic(item, song));
-                  addToQueue(song);
-                  addToast(exists ? '队列中已有这首歌' : '已加入播放队列', exists ? 'info' : 'success');
-                }}><Plus size={18} weight="regular" /></button>
-              <button type="button" aria-label={isLiked ? `取消喜欢《${song.name}》` : `喜欢《${song.name}》`}
+            <div className="flex items-center shrink-0 gap-0 pr-0.5">
+              <button type="button" aria-label={isLiked ? \`取消喜欢《\${song.name}》\` : \`喜欢《\${song.name}》\`}
                 aria-pressed={isLiked} title={isLiked ? '取消本地喜欢' : '加入本地喜欢'}
-                className={`music-icon-press w-9 h-10 rounded-full flex items-center justify-center ${isLiked ? 'music-heart-active' : ''}`}
+                className={\`music-icon-press w-9 h-10 rounded-full flex items-center justify-center \${isLiked ? 'music-heart-active' : ''}\`}
                 style={{ color: isLiked ? C.primary : C.muted }}
                 onClick={() => {
                   if (toggleLocalLike(song)) addToast(isLiked ? '已从本地喜欢移除' : '已加入本地喜欢', 'success');
                 }}>
                 <Heart size={18} weight={isLiked ? 'fill' : 'regular'} />
               </button>
-              <button type="button" aria-label={`把《${song.name}》加入本地歌单`} title="加入歌单或新建歌单"
-                aria-haspopup="dialog"
-                className="music-icon-press w-9 h-10 rounded-full flex items-center justify-center shrink-0"
+              <button type="button" aria-label={\`更多歌曲操作《\${song.name}》\`}
+                aria-haspopup="menu" aria-expanded={openSongMenuKey === key}
+                className="music-icon-press w-9 h-10 rounded-full flex items-center justify-center"
                 style={{ color: C.muted }}
-                onClick={() => setPlaylistSheetSong(song)}>
-                <ListPlus size={19} weight="regular" />
+                onClick={() => setOpenSongMenuKey(openSongMenuKey === key ? null : key)}>
+                <DotsThreeVertical size={20} weight="regular" />
               </button>
-              {playlistId && <div className="relative w-8 h-8 flex items-center justify-center"
-                style={{ color: C.muted }}>
-                <DotsThreeVertical size={18} weight="regular" aria-hidden="true" />
-                <select value="" aria-label={`管理歌单歌曲《${song.name}》`} title="整理歌单"
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  onChange={e => {
-                    const action = e.target.value;
-                    if (action === 'up') movePlaylistSong(playlistId, i, i - 1);
-                    else if (action === 'down') movePlaylistSong(playlistId, i, i + 1);
-                    else if (action === 'remove') removeSongFromPlaylist(playlistId, musicSongKey(song));
-                  }}>
-                  <option value="">整理歌单</option>
-                  <option value="up" disabled={i === 0}>上移一首</option>
-                  <option value="down" disabled={i === songs.length - 1}>下移一首</option>
-                  <option value="remove">从歌单移除</option>
-                </select>
-              </div>}
             </div>
           </div>
-          <div className="pl-[62px] pb-1.5 -mt-0.5 text-[10px] leading-tight truncate"
-            style={{ color: isActive ? C.primary : C.muted }}>
-            {isActive && playing ? '♪ 正在播放' : isActive && loadingSong ? '正在连接音源…' : label}
-          </div>
-        </div>;
+          {openSongMenuKey === key && <div role="menu" aria-label={\`歌曲《\${song.name}》操作\`}
+            className="music-track-menu absolute right-2 top-[calc(100%-2px)] z-40 rounded-[15px] p-1.5 min-w-[152px]"
+            style={{ background: '#fff', border: '1px solid #e6e6e3', boxShadow: '0 8px 24px rgba(0,0,0,.10)' }}>
+            <button type="button" role="menuitem" className="music-tap w-full min-h-10 px-3 text-left text-[12px] rounded-[10px]"
+              onClick={() => {
+                const exists = queue.some(item => sameMusic(item, song));
+                addToQueue(song);
+                addToast(exists ? '队列中已有这首歌' : '已加入播放队列', exists ? 'info' : 'success');
+                setOpenSongMenuKey(null);
+              }}>加入播放队列</button>
+            <button type="button" role="menuitem" className="music-tap w-full min-h-10 px-3 text-left text-[12px] rounded-[10px]"
+              onClick={() => { setPlaylistSheetSong(song); setOpenSongMenuKey(null); }}>加入本地歌单</button>
+            {playlistId && <>
+              <div className="h-px mx-2 my-1" style={{ background: '#eeecea' }} />
+              <button type="button" role="menuitem" disabled={i === 0}
+                className="music-tap w-full min-h-10 px-3 text-left text-[12px] rounded-[10px] disabled:opacity-40"
+                onClick={() => { movePlaylistSong(playlistId, i, i - 1); setOpenSongMenuKey(null); }}>上移一首</button>
+              <button type="button" role="menuitem" disabled={i === songs.length - 1}
+                className="music-tap w-full min-h-10 px-3 text-left text-[12px] rounded-[10px] disabled:opacity-40"
+                onClick={() => { movePlaylistSong(playlistId, i, i + 1); setOpenSongMenuKey(null); }}>下移一首</button>
+              <button type="button" role="menuitem" className="music-tap w-full min-h-10 px-3 text-left text-[12px] rounded-[10px]"
+                onClick={() => { removeSongFromPlaylist(playlistId, musicSongKey(song)); setOpenSongMenuKey(null); }}>从歌单移除</button>
+            </>}
+          </div>}
       })}
       {songs.length > visibleCount && <button type="button" onClick={() => setVisibleCount(n => n + 36)}
         className="music-tap w-full py-3 text-[12px] rounded-sm"
