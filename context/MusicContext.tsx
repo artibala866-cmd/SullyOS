@@ -504,6 +504,7 @@ interface MusicContextType {
   progress: number;
   duration: number;
   loadingSong: boolean;
+  actualQualityLabel: string;
 
   // 歌词
   lyric: LyricLine[];
@@ -700,6 +701,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loadingSong, setLoadingSong] = useState(false);
+  const [actualQualityLabel, setActualQualityLabel] = useState('尚未解析音源');
 
   // 歌词
   const [lyric, setLyric] = useState<LyricLine[]>([]);
@@ -1244,7 +1246,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       commitQueue(plan.queue, plan.idx);
     }
 
-    setLoadingSong(true); setLyric([]); setTlyric([]); setProgress(0); setDuration(0);
+    setLoadingSong(true); setActualQualityLabel('正在解析音质…'); setLyric([]); setTlyric([]); setProgress(0); setDuration(0);
     try {
       // ── Local-source branch ── 本地生成的歌（写歌 App 出歌）从 IndexedDB 取 blob
       if (song.local && !song.localAssetKey) {
@@ -1333,6 +1335,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
           } catch {}
         }
+        setActualQualityLabel(actualMusicQualityLabel('local', null));
         setLoadingSong(false);
         return;
       }
@@ -1345,7 +1348,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }).catch(() => {});
       const urlRes = await musicApi.songUrlFor(cfgRef.current, song);
       if (requestId !== playRequestSeq.current) return;
-      const url: string | null = urlRes?.data?.[0]?.url || null;
+      const item = urlRes?.data?.[0];
+      const url: string | null = item?.url || null;
       if (!url) {
         toast(song.source === 'tencent'
           ? 'QQ 音乐这首歌暂无可用播放地址，可能受版权或来源服务限制'
@@ -1353,6 +1357,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setLoadingSong(false);
         return;
       }
+      setActualQualityLabel(actualMusicQualityLabel(song.source === 'tencent' ? 'tencent' : 'netease', item?.br, item?.provider));
       const a = audioRef.current!;
       a.src = url.replace(/^http:\/\//i, 'https://');
       a.play().catch((err) => {
@@ -1366,7 +1371,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // 锁屏/通知栏的封面不是 DOM，喂不了 blobref 令牌——那边只认能直接加载的地址。
           // 用户自己上传的歌曲封面存的就是令牌，不解析的话锁屏上是空白（而且不报错）。
           // resolveRefToDataUrl 对非令牌原样返回，所以可以无条件走。
-          const artworkSrc = song.albumPic ? await resolveRefToDataUrl(song.albumPic) : '';
+          const coverSrc = song.albumPic || await getGuestMusicCover(song);
+          const artworkSrc = coverSrc ? await resolveRefToDataUrl(coverSrc) : '';
           if (requestId !== playRequestSeq.current) return;
           (navigator as any).mediaSession.metadata = new (window as any).MediaMetadata({
             title: song.name,
@@ -1720,7 +1726,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
     addToQueue, moveQueueSong, removeQueueSong, clearUpcomingQueue,
     queue, setQueue, idx, current,
-    playing, progress, duration, loadingSong,
+    playing, progress, duration, loadingSong, actualQualityLabel,
     lyric, tlyric, activeLyricIdx,
     profile, refreshProfile,
     playSong, togglePlay, nextSong, prevSong, seek,
