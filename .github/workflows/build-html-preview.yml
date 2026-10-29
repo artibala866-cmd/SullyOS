@@ -7,9 +7,12 @@ permissions:
   contents: read
   pages: write
   id-token: write
+# Keep the active production preview build alive while room3d/community work
+# continuously pushes to the same branch. Actions retains at most one latest
+# pending run per group, so this cannot create an unbounded release backlog.
 concurrency:
   group: sullyos-pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   preview:
     runs-on: ubuntu-latest
