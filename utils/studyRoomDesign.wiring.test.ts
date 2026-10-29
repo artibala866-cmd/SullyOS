@@ -66,9 +66,10 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
  });
  it('折叠栏只显示短标题，具体规则留在正文，原表单仍保留',()=>{
    for(const title of [
-     '时间容量','＋ 新增委托','编辑委托','＋ 新增课程',
+     '＋ 新增委托','编辑委托','＋ 新增课程',
      '识别课表','编辑课程'
    ])expect(workspace).toContain('>'+title+'</summary>');
+   expect(workspace).toContain('时间容量');
    expect(workspace).toContain('全部委托（{data.commissions.filter(c=>c.status!==');
    expect(workspace).toContain('课程管理与关联（{data.classes.length}）');
    expect(workspace).toContain('未归属资料（{orphaned.homework.length+orphaned.notes.length}）');
@@ -90,14 +91,14 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
  });
 
  it('柔和灰阶在选中导航、月历与 PDF 课堂保持统一，公式不再强制白色',()=>{
-   expect(schedule).toContain("bg-[#ececec] text-[#292929] font-semibold");
+   expect(schedule).toContain("bg-[#252525] text-white");
    expect(schedule).not.toContain("tab===id?'bg-neutral-900 text-white'");
    expect(workspace).toContain('const primaryButton = ');
    expect(workspace).toContain("bg-[#f1f1f1] text-[#292929]");
-   expect(calendar).toContain("border-l-2 border-[#777777]");
+   expect(calendar).toContain("h-1.5 w-1.5 rounded-full");
    expect(calendar).not.toContain('text-[8px]');
-   expect(calendar).not.toContain('text-[9px]');
-   expect(timetable).toContain('border-[#bdbdbd] bg-[#f6f6f6]');
+   expect(calendar).toContain('min-h-[52px] sm:min-h-[62px]');
+   expect(timetable).toContain('min-w-[122px]');
    expect(legacyClassroom).not.toContain('bg-[#2b2b2b]');
    expect(legacyClassroom).not.toContain('bg-[#1a1a1a]');
    expect(legacyClassroom).toContain('study-paper-content');
