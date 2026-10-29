@@ -205,6 +205,22 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(2);
     });
 
+    it('prevents a stale async check from submitting after the chat surface unmounts', async () => {
+        let resolveCheck!: () => void;
+        render({ onGenerate: vi.fn(stillEligible => new Promise<'retry'>(resolve => {
+            resolveCheck = () => resolve(stillEligible?.() ? 'discard' : 'retry');
+        })) });
+        send();
+        advance(2000);
+        act(() => root.unmount());
+        await act(async () => { resolveCheck(); });
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        root = createRoot(container);
+        render({ onGenerate: vi.fn() });
+        advance(2000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
     it('typing invalidates pending and in-flight candidates', () => {
         send();
         act(() => controls.cancelIfPending());

@@ -3752,7 +3752,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             || showActiveMsg2Modal || showThinkingChainModal
             || mcdAppOpen || luckinAppOpen || showForwardModal,
         generating: isTyping || instantChatPending || isProactiveComposing,
-        onGenerate: async () => {
+        onGenerate: async (stillEligible) => {
             // The intent stays durable while this DB read is in flight. If the
             // page hides before verification, retry on the next visible turn.
             const target = char?.id;
@@ -3762,7 +3762,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             let fresh: Message[];
             try { fresh = await DB.getRecentMessagesByCharId(target, 24); }
             catch { return 'retry'; }
-            if (activeCharIdRef.current !== target || document.hidden) return 'retry';
+            if (activeCharIdRef.current !== target || document.hidden || stillEligible?.() === false) return 'retry';
             if (manualChatGenerationRevisionRef.current !== manualRevision) return 'discard';
             const latestPersisted = fresh.slice().reverse().find(m => m.role === 'user' || m.role === 'assistant');
             if (latestPersisted?.role !== 'user' || latestPersisted.id !== latestLocal.id) return 'discard';

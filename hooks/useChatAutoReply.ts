@@ -41,7 +41,7 @@ interface Options {
     blocked: boolean;
     generating: boolean;
     /** retry means prerequisites are transiently unavailable; discard means the turn was resolved/withdrawn. */
-    onGenerate: () => void | 'retry' | 'discard' | Promise<void | 'retry' | 'discard'>;
+    onGenerate: (stillEligible?: () => boolean) => void | 'retry' | 'discard' | Promise<void | 'retry' | 'discard'>;
     naturalPacing?: boolean;
     lifeActivity?: 'sleep' | 'busy' | 'free' | null;
     lastCharacterReplyAt?: number;
@@ -206,7 +206,12 @@ export function useChatAutoReply(options: Options) {
                     } else cancel();
                 };
                 try {
-                    const result = current.current.onGenerate();
+                    const stillEligible = () => workRef.current === work && work.pending &&
+                        work.cancelVersion === version && current.current.conversationId === currentId &&
+                        current.current.enabled && current.current.active && !current.current.generating &&
+                        !current.current.blocked && !document.hidden &&
+                        (!work.persisted || readIntent(currentId) === work.firstUnansweredAt);
+                    const result = current.current.onGenerate(stillEligible);
                     if (result && typeof (result as Promise<unknown>).then === 'function') {
                         return Promise.resolve(result).then(settle, () => settle('discard'));
                     }
