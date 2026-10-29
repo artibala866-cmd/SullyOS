@@ -16,7 +16,7 @@ import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTence
 import { getGuestMusicCover } from '../utils/musicArtwork';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
-import { findPendingMusicInvite, hasPendingMusicInvite, persistMusicInviteWithdrawal } from '../utils/musicInviteStatus';
+import { findPendingMusicInvite, hasPendingMusicInvite, announceMusicInviteDbChanged, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
 import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState } from '../utils/musicCharActions';
 import {
@@ -1006,6 +1006,52 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 只在首次加载时读取持久化状态；日常改动由聊天事件同步。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Listen for committed changes from OTHER tabs. The localStorage event is
+  // only an invalidation signal; authoritative status still comes from IDB.
+  useEffect(() => {
+    let mounted = true;
+    const refreshOne = async (charId: string) => {
+      const history = await DB.getMessagesByCharId(charId, true);
+      if (!mounted) return;
+      const pending = findPendingMusicInvite(history, 'user');
+      setListeningInvites(prev => {
+        if (pending) return prev[charId] === 'pending' ? prev : { ...prev, [charId]: 'pending' };
+        if (prev[charId] !== 'pending') return prev;
+        const next = { ...prev };
+        delete next[charId];
+        return next;
+      });
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === MUSIC_INVITE_DB_CHANGED_KEY) {
+        const id = musicInviteChangedCharId(event.newValue);
+        if (id) void refreshOne(id).catch(err => console.warn('[MusicTogether] 跨标签页邀请同步失败', err));
+      }
+      if (event.key === 'sully_music_together_v1' && event.newValue) {
+        try {
+          const state = JSON.parse(event.newValue);
+          if (Array.isArray(state.partners)) {
+            setListeningTogetherWith(prev => {
+              const ids = state.partners.filter((id: unknown) => typeof id === 'string') as string[];
+              return JSON.stringify(prev) === JSON.stringify(ids) ? prev : ids;
+            });
+          }
+          if (state.startedAt && typeof state.startedAt === 'object') {
+            setListeningStartedAt(prev => JSON.stringify(prev) === JSON.stringify(state.startedAt) ? prev : state.startedAt);
+          }
+          if (state.invites && typeof state.invites === 'object') {
+            // The broadcast is a hint, not proof of pending status.
+            for (const id of Object.keys(state.invites)) {
+              void refreshOne(id).catch(err => console.warn('[MusicTogether] 邀请同步失败', err));
+            }
+          }
+        } catch { /* Ignore invalid/legacy data from other tabs. */ }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => { mounted = false; window.removeEventListener('storage', onStorage); };
+  }, []);
+
   // Invitation resolution can happen before playSong's declaration below.
   // The ref uses the one global MusicProvider player, never a second audio instance.
   const playSongRef = useRef<(song: Song, opts?: { mediaRecovery?: boolean; awaitPlayback?: boolean }) => Promise<void>>(async () => {});
@@ -1044,17 +1090,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         settlingUserInvites.current.has(charId) || listeningTogetherRef.current.includes(charId)) return false;
     invitingCharIds.current.add(charId);
     try {
-      const history = await DB.getMessagesByCharId(charId, true);
-      const pending = findPendingMusicInvite(history, 'user');
-      if (pending) {
-        setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
-        return true;
-      }
-      if (findPendingMusicInvite(history, 'char')) {
-        toast('对方已邀请你一起听，请先接受或拒绝这条邀请', 'info');
-        return false;
-      }
-      const messageId = await DB.saveMessage({
+      // Lookup and insert must be serialized by the same IndexedDB transaction,
+      // not by a component-only lock (other tabs have separate refs).
+      const created = await DB.createMusicListeningInvite({
         charId,
         role: 'user',
         type: 'system',
@@ -1066,8 +1104,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...(currentSongRef.current ? { musicListenTrack: { ...currentSongRef.current } } : {}),
         },
       });
+      if (created.status === 'pending_other') {
+        toast('对方已邀请你一起听，请先接受或拒绝这条邀请', 'info');
+        return false;
+      }
       setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
-      window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId, messageId } }));
+      if (created.status === 'created') {
+        announceMusicInviteDbChanged(charId);
+        window.dispatchEvent(new CustomEvent('music-listen-invite-created', {
+          detail: { charId, messageId: created.messageId },
+        }));
+      }
       return true;
     } catch (err) {
       console.warn('[MusicTogether] 邀请消息保存失败', err);
@@ -1090,15 +1137,22 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     settlingUserInvites.current.add(charId);
     try {
-      const withdrawnId = await persistMusicInviteWithdrawal(
-        charId, messageId,
-        id => DB.getMessagesByCharId(id, true),
-        response => DB.saveMessage(response),
+      const withdrawal = await DB.resolveMusicListeningInvite(
+        charId, 'user',
+        {
+          charId, role: 'user', type: 'system',
+          content: '[一起听邀请] 我撤回了邀请。',
+          metadata: { accepted: false, cancelled: true },
+        },
+        messageId,
       );
-      if (withdrawnId === null) {
+      if (!withdrawal.resolved) {
         // A restored localStorage "pending" can outlive the DB invitation,
         // e.g. another view answered it. Do not silently leave "撤回" stuck.
+        const history = await DB.getMessagesByCharId(charId, true);
+        const latest = findPendingMusicInvite(history, 'user');
         setListeningInvites(prev => {
+          if (latest) return { ...prev, [charId]: 'pending' };
           if (prev[charId] !== 'pending') return prev;
           const next = { ...prev };
           delete next[charId];
@@ -1118,8 +1172,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return next;
       });
       window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
-        detail: { charId, messageId: withdrawnId, accepted: false, cancelled: true },
+        detail: { charId, messageId: withdrawal.inviteId, accepted: false, cancelled: true },
       }));
+      announceMusicInviteDbChanged(charId);
       toast('邀请已撤回', 'success');
       report(true);
       return true;
@@ -1166,22 +1221,22 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (settlingUserInvites.current.has(charId)) return false;
     settlingUserInvites.current.add(charId);
     try {
-      const messages = await DB.getMessagesByCharId(charId, true);
-      const invite = findPendingMusicInvite(messages, 'user');
-      if (invite) {
-        await DB.saveMessage({
-          charId, role: 'assistant', type: 'system',
-          content: accepted ? '[一起听邀请] 已接受邀请。' : '[一起听邀请] 已拒绝邀请。',
-          metadata: { musicListenInviteResponseTo: invite.id, accepted },
-        });
+      const settled = await DB.resolveMusicListeningInvite(charId, 'user', {
+        charId, role: 'assistant', type: 'system',
+        content: accepted ? '[一起听邀请] 已接受邀请。' : '[一起听邀请] 已拒绝邀请。',
+        metadata: { accepted },
+      });
+      if (settled.resolved) {
+        announceMusicInviteDbChanged(charId);
         window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
-          detail: { charId, messageId: invite.id, accepted },
+          detail: { charId, messageId: settled.inviteId, accepted },
         }));
       }
-      // Char 在普通对话中主动加入时，不要求必须存在一条邀请卡片。
-      if (invite || accepted) {
+      // Char can also voluntarily join via MUSIC_ACTION without a pending card.
+      // A stale response cannot write a second resolution for an already-settled card.
+      if (settled.resolved || accepted) {
         respondListeningInvite(charId, accepted);
-        if (accepted && invite?.metadata?.musicListenTrack) resumeInviteTrack(invite.metadata.musicListenTrack);
+        if (accepted && settled.track) resumeInviteTrack(settled.track);
         return true;
       }
       return false;
@@ -1200,18 +1255,20 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!detail?.charId || !Number.isInteger(detail.messageId) || answeringInviteIds.current.has(detail.messageId)) return;
       answeringInviteIds.current.add(detail.messageId);
       void (async () => {
-        const messages = await DB.getMessagesByCharId(detail.charId, true);
-        const invitation = messages.find(m => m.id === detail.messageId && m.metadata?.musicListenInvite && m.metadata?.inviter === 'char');
-        if (!invitation || messages.some(m => m.metadata?.musicListenInviteResponseTo === detail.messageId)) return;
-        await DB.saveMessage({
+        const settled = await DB.resolveMusicListeningInvite(detail.charId, 'char', {
           charId: detail.charId, role: 'user', type: 'system',
           content: detail.accepted ? '[一起听邀请] 已接受邀请。' : '[一起听邀请] 已拒绝邀请。',
-          metadata: { musicListenInviteResponseTo: detail.messageId, accepted: detail.accepted },
-        });
-        respondListeningInvite(detail.charId, detail.accepted);
-        if (detail.accepted && invitation.metadata?.musicListenTrack) {
-          resumeInviteTrack(invitation.metadata.musicListenTrack);
+          metadata: { accepted: detail.accepted },
+        }, detail.messageId);
+        if (!settled.resolved) {
+          // Another tab has already accepted/rejected this card. Do not join
+          // the session or start playback based on a stale click.
+          window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', { detail }));
+          return;
         }
+        respondListeningInvite(detail.charId, detail.accepted);
+        if (detail.accepted && settled.track) resumeInviteTrack(settled.track);
+        announceMusicInviteDbChanged(detail.charId);
         window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', { detail }));
       })().catch(err => {
         console.warn('[MusicTogether] 邀请回应保存失败', err);
@@ -1672,11 +1729,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         creatingCharInvites.current.add(cid);
         try {
           // AI 每个角色同一时间只保留一条待回应邀请，防止主动消息多次触发叠卡。
-          const messages = await DB.getMessagesByCharId(cid, true);
-          const pending = findPendingMusicInvite(messages, 'char');
-          // 对方已经在等你回应时，不允许 Char 反向再发一张邀请。
-          if (hasPendingMusicInvite(messages)) return;
-          const messageId = await DB.saveMessage({
+          const created = await DB.createMusicListeningInvite({
             charId: cid, role: 'assistant', type: 'system',
             content: currentSongRef.current
               ? `[一起听邀请] 要不要一起听《${currentSongRef.current.name}》？`
@@ -1686,7 +1739,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               ...(currentSongRef.current ? { musicListenTrack: { ...currentSongRef.current } } : {}),
             },
           });
-          window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId: cid, messageId } }));
+          if (created.status === 'created') {
+            announceMusicInviteDbChanged(cid);
+            window.dispatchEvent(new CustomEvent('music-listen-invite-created', {
+              detail: { charId: cid, messageId: created.messageId },
+            }));
+          }
         } finally {
           creatingCharInvites.current.delete(cid);
         }
