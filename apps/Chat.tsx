@@ -3752,32 +3752,27 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             || showActiveMsg2Modal || showThinkingChainModal
             || mcdAppOpen || luckinAppOpen || showForwardModal,
         generating: isTyping || instantChatPending || isProactiveComposing,
-        onGenerate: () => {
-            // This is not the manual lightning button. Check the current
-            // persisted last conversational speaker so a late proactive reply
-            // or another window cannot be followed by a duplicate AI round.
+        onGenerate: async () => {
+            // The intent stays durable while this DB read is in flight. If the
+            // page hides before verification, retry on the next visible turn.
             const target = char?.id;
             const latestLocal = [...messages].reverse().find(m => m.role === 'user' || m.role === 'assistant');
-            if (!target || activeCharIdRef.current !== target || latestLocal?.role !== 'user') return;
+            if (!target || activeCharIdRef.current !== target || latestLocal?.role !== 'user') return 'discard';
             const manualRevision = manualChatGenerationRevisionRef.current;
-            // Read a small indexed tail, not the entire private history.
-            void DB.getRecentMessagesByCharId(target, 24).then(fresh => {
-                if (activeCharIdRef.current !== target || document.hidden) return;
-                if (manualChatGenerationRevisionRef.current !== manualRevision) return;
-                const latestPersisted = fresh.slice().reverse().find(m => m.role === 'user' || m.role === 'assistant');
-                if (latestPersisted?.role !== 'user' || latestPersisted.id !== latestLocal.id) return;
-                // A withdrawal or invitation reply is a system event, not a
-                // new normal conversational prompt. Never auto-generate from it.
-                if (latestPersisted.metadata?.musicListenInviteResponseTo) return;
-                if (latestPersisted.metadata?.musicListenInvite &&
-                    !findPendingMusicInvite(fresh, 'user', latestPersisted.id)) return;
-                // A new draft may have appeared between the timer and this async
-                // IndexedDB read. Do not send a stale automatic reply over it.
-                const liveComposer = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
-                if (liveComposer?.value.trim()) return;
-                if (isTyping || instantChatPending || isProactiveComposing) return;
-                triggerAI(messages);
-            }).catch(() => { /* Cannot confirm anchor: fail closed. */ });
+            let fresh: Message[];
+            try { fresh = await DB.getRecentMessagesByCharId(target, 24); }
+            catch { return 'retry'; }
+            if (activeCharIdRef.current !== target || document.hidden) return 'retry';
+            if (manualChatGenerationRevisionRef.current !== manualRevision) return 'discard';
+            const latestPersisted = fresh.slice().reverse().find(m => m.role === 'user' || m.role === 'assistant');
+            if (latestPersisted?.role !== 'user' || latestPersisted.id !== latestLocal.id) return 'discard';
+            if (latestPersisted.metadata?.musicListenInviteResponseTo) return 'discard';
+            if (latestPersisted.metadata?.musicListenInvite &&
+                !findPendingMusicInvite(fresh, 'user', latestPersisted.id)) return 'discard';
+            const liveComposer = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
+            if (liveComposer?.value.trim() || isTyping || instantChatPending || isProactiveComposing) return 'retry';
+            // At most one existing generation route; it decides local vs cloud.
+            triggerAI(messages);
         },
     });
     const pendingMusicInviteReplyRef = useRef<{ charId: string; messageId: number } | null>(null);

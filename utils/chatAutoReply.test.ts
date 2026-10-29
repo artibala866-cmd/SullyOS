@@ -187,6 +187,24 @@ describe('two-second automatic reply', () => {
         expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeNull();
     });
 
+    it('keeps the durable intent when a prerequisite disappears during async DB verification', async () => {
+        let resolveCheck!: (value: 'retry') => void;
+        render({ onGenerate: vi.fn(() => new Promise<'retry'>(resolve => { resolveCheck = resolve; })) });
+        send();
+        advance(2000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+        vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+        act(() => document.dispatchEvent(new Event('visibilitychange')));
+        await act(async () => { resolveCheck('retry'); });
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        advance(20_000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+        vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+        act(() => document.dispatchEvent(new Event('visibilitychange')));
+        advance(2000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(2);
+    });
+
     it('typing invalidates pending and in-flight candidates', () => {
         send();
         act(() => controls.cancelIfPending());

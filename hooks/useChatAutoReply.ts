@@ -40,7 +40,8 @@ interface Options {
     active: boolean;
     blocked: boolean;
     generating: boolean;
-    onGenerate: () => void;
+    /** retry means prerequisites are transiently unavailable; discard means the turn was resolved/withdrawn. */
+    onGenerate: () => void | 'retry' | 'discard' | Promise<void | 'retry' | 'discard'>;
     naturalPacing?: boolean;
     lifeActivity?: 'sleep' | 'busy' | 'free' | null;
     lastCharacterReplyAt?: number;
@@ -48,6 +49,7 @@ interface Options {
 
 const newWork = () => ({
     pending: false, sends: new Set<symbol>(), cancelVersion: 0, firstUnansweredAt: 0, persisted: false,
+    checking: false, retryAt: 0,
 });
 
 /** Only a successfully saved send in this active conversation creates a candidate. */
@@ -63,6 +65,7 @@ export function useChatAutoReply(options: Options) {
         if (work.pending && work.persisted && current.current.conversationId)
             removeIntent(current.current.conversationId, work.firstUnansweredAt);
         work.pending = false;
+        work.checking = false;
         work.persisted = false;
         work.firstUnansweredAt = 0;
         work.cancelVersion++;
@@ -154,7 +157,7 @@ export function useChatAutoReply(options: Options) {
         }
         const ready = () => {
             const latest = current.current;
-            return workRef.current === work && work.pending && work.sends.size === 0 &&
+            return workRef.current === work && work.pending && !work.checking && work.sends.size === 0 &&
                 latest.enabled && latest.active && !latest.blocked && !latest.generating &&
                 !document.hidden;
         };
@@ -176,21 +179,49 @@ export function useChatAutoReply(options: Options) {
             const recheck = window.setTimeout(() => refresh(), 60_000);
             return () => window.clearTimeout(recheck);
         }
-        // Internal delay only: no countdown state, per-second renders or pre-reply status bar.
+        // Never consume a durable intent until the existing Chat route has
+        // checked the canonical DB tail. Visibility can change during that read.
         const timer = window.setTimeout(() => {
             if (!ready()) return;
             const currentId = current.current.conversationId;
-            // Cross-tab best effort: a reply already claimed elsewhere must not
-            // be started again. The existing chat lock and DB speaker check remain.
-            if (work.persisted && currentId && readIntent(currentId) !== work.firstUnansweredAt) {
-                work.pending = false;
-                work.persisted = false;
-                refresh();
-                return;
-            }
-            cancel();
-            current.current.onGenerate();
-        }, plan.delayMs);
+            if (!currentId) return;
+            const run = (): Promise<void> => {
+                if (!ready()) return Promise.resolve();
+                if (work.persisted && readIntent(currentId) !== work.firstUnansweredAt) {
+                    work.pending = false;
+                    work.persisted = false;
+                    refresh();
+                    return Promise.resolve();
+                }
+                work.checking = true;
+                const version = work.cancelVersion;
+                const settle = (outcome: void | 'retry' | 'discard') => {
+                    if (workRef.current !== work || version !== work.cancelVersion) return;
+                    work.checking = false;
+                    if (outcome === 'retry') {
+                        // Back off a temporarily unavailable local DB / hidden page;
+                        // do not launch a second paid request to make up for it.
+                        work.retryAt = Date.now() + 15_000;
+                        refresh();
+                    } else cancel();
+                };
+                try {
+                    const result = current.current.onGenerate();
+                    if (result && typeof (result as Promise<unknown>).then === 'function') {
+                        return Promise.resolve(result).then(settle, () => settle('discard'));
+                    }
+                    settle(result as void | 'retry' | 'discard');
+                } catch { settle('discard'); }
+                return Promise.resolve();
+            };
+            // Serialize checks across tabs when the WebView offers Web Locks.
+            // Older platforms still use the persisted intent + existing Chat guard.
+            const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+            if (locks?.request) {
+                void locks.request('sully-chat-auto-reply:' + currentId,
+                    { mode: 'exclusive' }, () => run()).catch(() => { if (workRef.current === work && work.checking) cancel(); });
+            } else void run();
+        }, Math.max(plan.delayMs, work.retryAt - now));
         return () => window.clearTimeout(timer);
     }, [revision, visible, options.enabled, options.active, options.blocked, options.generating,
         options.conversationId, options.lifeActivity, options.lastCharacterReplyAt, options.naturalPacing, cancel]);
