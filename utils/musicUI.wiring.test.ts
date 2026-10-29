@@ -322,3 +322,30 @@ describe('第三轮网易云账号与登录 UI 样式检查', () => {
     expect(profile).toContain('await refreshProfile()');
   });
 });
+
+
+describe('第三轮一起听视觉与窄屏操作回归', () => {
+  it('邀请状态改成横向滚动的轻卡片', () => {
+    expect(app).toContain('music-together-section relative z-10');
+    expect(app).toContain('overflow-x-auto pb-1 shizuku-scrollbar');
+    expect(app).toContain('aria-label="与角色一起听"');
+    expect(app).toContain('接受 ${c.name} 的一起听邀请');
+    expect(app).toContain('拒绝 ${c.name} 的一起听邀请');
+    expect(app).toContain('max-w-[78vw]');
+  });
+  it('接受、拒绝、撤回与结束依旧由真实状态及现有事件接口驱动', () => {
+    expect(app).toContain('answerCharInvite(c.id, true)');
+    expect(app).toContain('answerCharInvite(c.id, false)');
+    expect(app).toContain("status === 'pending' ? cancelListeningInvite(c.id) : inviteListeningPartner(c.id)");
+    expect(app).toContain('active ? removeListeningPartner(c.id)');
+    expect(app).toContain("status === 'rejected'");
+    expect(app).toContain('listeningTogetherWith.includes(c.id)');
+  });
+  it('320–390px 下保留控件最小触控宽度和横向滚动', () => {
+    expect(ui).toContain('@media(max-width:390px)');
+    expect(ui).toContain('@media(max-width:360px)');
+    expect(ui).toContain('@media(max-width:320px)');
+    expect(ui).toContain('.music-together-section .music-tap{min-width:44px}');
+    expect(app).toContain('max-w-[70vw]');
+  });
+});
