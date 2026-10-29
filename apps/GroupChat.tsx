@@ -1933,7 +1933,7 @@ ${memberTimeline || '(暂无互动记录)'}
             {previewImage && <ImageViewer value={previewImage} fallback={previewImage} onClose={() => setPreviewImage(null)} />}
             <ChatInputArea
                 input={input}
-                setInput={setInput}
+                setInput={value => { setInput(value); if (value.trim()) autoReply.cancelIfPending(); }}
                 isTyping={isTyping}
                 selectionMode={selectionMode}
                 showPanel={showPanel}
@@ -1943,8 +1943,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 sendButtonGenerates={inputPreferences.sendButtonGenerates}
                 enterToSend={inputPreferences.enterToSend}
                 autoReplyEnabled={inputPreferences.autoReply}
-                autoReplySeconds={autoReply.seconds}
-                onCancelAutoReply={autoReply.cancel}
+
                 onInputFocusChange={setIsInputFocused}
                 onDeleteSelected={deleteSelectedMessages}
                 selectedCount={selectedMsgIds.size}
