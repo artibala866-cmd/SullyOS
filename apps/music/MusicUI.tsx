@@ -479,13 +479,15 @@ export const MiniPlayer: React.FC<{
 /* ══════════ 唱片 — iridescent 星云版 ══════════ */
 export const VinylDisc: React.FC<{
   albumPic: string;
+  picId?: string;
+  source?: 'netease' | 'tencent';
   playing: boolean;
   size?: number;
   bitrate?: string;
-}> = ({ albumPic, playing, size = 180, bitrate }) => {
-  const resolvedAlbumPic = useBlobRefUrl(albumPic) || '';
+}> = ({ albumPic, picId, source, playing, size = 180, bitrate }) => {
+  const { coverRef, cover: resolvedAlbumPic } = useMusicCover(albumPic, picId, source);
   return (
-  <div className="relative" style={{ width: size, height: size }}>
+  <div ref={coverRef} className="relative" style={{ width: size, height: size }}>
     {/* 单层柔光 — 收敛简洁，不再散乱 */}
     <div className="absolute rounded-full pointer-events-none"
       style={{
@@ -502,8 +504,11 @@ export const VinylDisc: React.FC<{
         boxShadow: `0 8px 32px ${C.primary}20, 0 0 0 1px ${C.glow}30`,
       }}>
       {/* 单张封面 — 完全不透明，干净清晰 */}
-      <img src={resolvedAlbumPic} alt=""
-        className="absolute inset-0 w-full h-full object-cover" />
+      {resolvedAlbumPic ? <img src={resolvedAlbumPic} alt=""
+        className="absolute inset-0 w-full h-full object-cover" /> :
+        <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(135deg,${C.soft},#ffe6f2)`, color: C.primary }}>
+          <Play size={size * 0.3} weight="duotone" />
+        </div>}
 
       {/* 中心标签 — 不旋转跟随，保持唱片标识 */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -533,11 +538,11 @@ export const VinylDisc: React.FC<{
 
     {/* 比特率徽章 (chip) */}
     {bitrate && (
-      <div className="absolute -bottom-2 -right-2 px-2 py-0.5 rounded-sm text-[9px] tracking-[0.2em] shizuku-glass-strong"
+      <div className="absolute -bottom-2 -right-2 max-w-[175px] px-2.5 py-1 rounded-lg text-[9px] leading-tight text-center shizuku-glass-strong"
         style={{
           color: C.primary,
           fontFamily: `'Space Grotesk', 'SF Mono', monospace`,
-          letterSpacing: '0.18em',
+          letterSpacing: '0.02em',
           border: `1px solid ${C.primary}20`,
         }}>
         {bitrate}
