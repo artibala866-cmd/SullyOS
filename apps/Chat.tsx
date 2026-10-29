@@ -3820,11 +3820,38 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 }
             }).catch(() => { /* generation gate separately checks DB truth */ });
         };
+        const checkRemoteMusicResolution = (charId: string) => {
+            const pending = pendingMusicInviteReplyRef.current;
+            if (!pending || pending.charId !== charId) return;
+            void DB.getMessagesByCharId(charId, true).then(history => {
+                if (pendingMusicInviteReplyRef.current?.messageId !== pending.messageId) return;
+                if (findPendingMusicInvite(history, 'user', pending.messageId)) return;
+                // Another tab committed a response; use the same guarded
+                // cancellation rather than leaving a stale auto-reply timer.
+                onMusicInviteResolved(new CustomEvent('music-listen-invite-resolved', {
+                    detail: { charId, messageId: pending.messageId },
+                }));
+            }).catch(() => { /* DB validation unavailable: generation guard remains authoritative. */ });
+        };
+        const onRemoteMusicChange = (event: StorageEvent) => {
+            if (event.key !== MUSIC_INVITE_DB_CHANGED_KEY) return;
+            const charId = musicInviteChangedCharId(event.newValue);
+            if (charId) checkRemoteMusicResolution(charId);
+        };
+        const onMusicTabVisible = () => {
+            if (document.visibilityState === 'visible' && pendingMusicInviteReplyRef.current) {
+                checkRemoteMusicResolution(pendingMusicInviteReplyRef.current.charId);
+            }
+        };
         window.addEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
         window.addEventListener('music-listen-invite-resolved', onMusicInviteResolved);
+        window.addEventListener('storage', onRemoteMusicChange);
+        document.addEventListener('visibilitychange', onMusicTabVisible);
         return () => {
             window.removeEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
             window.removeEventListener('music-listen-invite-resolved', onMusicInviteResolved);
+            window.removeEventListener('storage', onRemoteMusicChange);
+            document.removeEventListener('visibilitychange', onMusicTabVisible);
         };
     }, [autoReply.beginSend, autoReply.cancel, inputPreferences.autoReply]);
 
