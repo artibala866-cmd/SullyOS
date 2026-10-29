@@ -399,69 +399,119 @@ const MusicApp: React.FC = () => {
           <p className="px-3 pb-2 text-[11px]" style={{ color: C.muted }}>播放历史 · {library.history.length} 首</p>
           {renderLibrarySongs(library.history.map(h => h.song))}
         </>}
-        {section === 'playlists' && <div className="space-y-3 px-1">
-          <div className="rounded-[18px] p-3 flex items-center gap-2"
-            style={{ background: '#ffffff', border: '1px solid #e9e9e7' }}>
-            <input value={playlistName} onChange={e => setPlaylistName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}
-              placeholder="新建歌单名称" aria-label="新歌单名称" maxLength={60}
-              className="rounded-[12px] px-3 py-2.5 min-w-0 flex-1 text-xs outline-none" style={{ background: C.bgDeep, color: C.text }} />
-            <button aria-label="新建本地歌单" title="新建歌单" className="music-tap w-10 h-10 rounded-full flex items-center justify-center text-white"
-              style={{ background: C.primary }}
-              onClick={() => { if (playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}><Plus size={15} weight="regular" /></button>
+        {section === 'playlists' && <div className="space-y-5 px-1">
+          <div className="flex items-center gap-3 px-1 py-1">
+            <span className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center"
+              style={{ background: '#e9e9e7', color: C.text }}>
+              <UserIcon size={20} weight="regular" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] font-semibold truncate" style={{ color: C.text }}>{userProfile?.name || '我的音乐空间'}</div>
+              <div className="text-[11px] mt-0.5" style={{ color: C.muted }}>只属于你的收藏 · 无需平台账号</div>
+            </div>
+            <span className="text-[11px] tabular-nums shrink-0" style={{ color: C.muted }}>{library.playlists.length} 个歌单</span>
           </div>
-          {library.playlists.map(pl => {
-            const opened = openedPlaylist === pl.id;
+          <div className="flex items-center justify-between gap-2 px-1">
+            <h2 className="text-[13px] font-semibold tracking-[-0.01em]" style={{ color: C.text }}>我的歌单</h2>
+            <span className="text-[11px]" style={{ color: C.muted }}>选择封面查看歌曲</span>
+          </div>
+          {library.playlists.length > 0 && <div className="music-playlist-shelf flex gap-3 overflow-x-auto pb-2 shizuku-scrollbar"
+            role="group" aria-label="选择本地歌单" style={{ scrollSnapType: 'x proximity' }}>
+            {library.playlists.map(pl => {
+              const selected = openedPlaylist === pl.id;
+              const playingThis = !!current && pl.songs.some(song => sameMusic(current, song));
+              return <button key={pl.id} type="button" aria-pressed={selected}
+                aria-label={\`查看歌单《\${pl.name}》，共 \${pl.songs.length} 首\`}
+                className="music-tap shrink-0 min-w-0 text-left"
+                style={{ width: 'clamp(88px,22vw,128px)', scrollSnapAlign: 'start' }}
+                onClick={() => { setOpenedPlaylist(selected ? null : pl.id); setEditingPlaylist(null); setDeleteConfirmPlaylistId(null); }}>
+                <div className="music-playlist-cover relative w-full aspect-square overflow-hidden rounded-[17px]"
+                  style={{ background: '#e7e7e5', border: selected ? '2px solid #292929' : '1px solid #e5e5e2' }}>
+                  {pl.songs[0]
+                    ? <VinylDisc albumPic={pl.songs[0].albumPic} picId={pl.songs[0].picId}
+                        source={pl.songs[0].source} playing={playingThis} size={120} />
+                    : <span className="absolute inset-0 flex items-center justify-center" style={{ color: C.muted }}>
+                        <MusicNotes size={27} weight="thin" />
+                      </span>}
+                  <span className="absolute inset-x-0 bottom-0 py-1.5 px-2 text-[11px] font-medium text-center truncate text-white"
+                    style={{ background: 'rgba(35,35,35,.63)' }}>{pl.name}</span>
+                  {playingThis && <span className="absolute top-1.5 right-1.5 text-[9px] rounded-full px-1.5 py-0.5"
+                    style={{ background: 'rgba(255,255,255,.94)', color: C.text }}>♫</span>}
+                </div>
+                <span className="block text-[10px] mt-1.5 px-1 tabular-nums" style={{ color: C.muted }}>{pl.songs.length} 首歌曲</span>
+              </button>;
+            })}
+          </div>}
+          <div className="rounded-[18px] px-3 py-2.5 flex items-center gap-2"
+            style={{ background: '#fff', border: '1px solid #e9e9e7' }}>
+            <input value={playlistName} onChange={e => setPlaylistName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}
+              placeholder="给新歌单起个名字" aria-label="新歌单名称" maxLength={60}
+              className="rounded-[12px] px-3 py-2.5 min-w-0 flex-1 text-xs outline-none"
+              style={{ background: C.bgDeep, color: C.text }} />
+            <button type="button" aria-label="新建本地歌单" title="新建歌单"
+              className="music-tap w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0"
+              style={{ background: C.primary }}
+              onClick={() => { if (playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}>
+              <Plus size={17} weight="regular" />
+            </button>
+          </div>
+          {library.playlists.filter(pl => pl.id === openedPlaylist).map(pl => {
             const playingThis = !!current && pl.songs.some(song => sameMusic(current, song));
-            return <div key={pl.id} className="rounded-[20px] p-2.5"
-              style={{ background: '#fff', border: `1px solid ${opened ? '#b8b8b5' : '#e9e9e7'}` }}>
-              <div className="flex gap-2 items-center min-w-0">
-                <button className="music-tap font-semibold flex-1 min-w-0 text-left rounded-[15px] p-1.5 flex items-center gap-3"
-                  aria-expanded={opened} onClick={() => setOpenedPlaylist(opened ? null : pl.id)}>
-                  <span className="w-16 h-16 rounded-[13px] overflow-hidden flex items-center justify-center shrink-0"
-                    style={{ background: C.soft, color: C.primary }}>
-                    {pl.songs[0]
-                      ? <VinylDisc albumPic={pl.songs[0].albumPic} picId={pl.songs[0].picId}
-                          source={pl.songs[0].source} playing={playingThis} size={64} />
-                      : <MusicNotes size={24} weight="duotone" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold tracking-[-0.025em]" style={{ color: C.text }}>{pl.name}</span>
-                    <span className="block text-[11px] font-normal mt-1" style={{ color: C.muted }}>我的本地歌单 · {pl.songs.length} 首</span>
-                    {playingThis && <span className="block text-[10px] mt-1" style={{ color: C.primary }}>♪ 正在听</span>}
-                  </span>
-                  {opened ? <CaretUp size={15} color={C.muted} /> : <CaretDown size={15} color={C.muted} />}
-                </button>
-                <button className="music-tap rounded-full w-10 h-10 shrink-0 flex items-center justify-center text-white disabled:opacity-35"
-                  style={{ background: C.primary }} disabled={!pl.songs.length} aria-label={`播放歌单《${pl.name}》`} title="播放歌单"
-                  onClick={() => { if (pl.songs.length) void playSong(pl.songs[0], { replaceQueue: pl.songs, startIdx: 0 }); }}>
-                  <PlayIcon size={18} weight="fill" />
-                </button>
-              </div>
-              {opened && <div className="flex items-center justify-between gap-2 px-2 pt-2 pb-1"
-                style={{ color: C.muted, borderTop: '1px solid #f0f0ee', marginTop: 10 }}>
-                <span className="text-[11px] font-medium">歌单歌曲 · {pl.songs.length} 首</span>
-                <div className="flex items-center gap-1">
-                  <button type="button" className="music-icon-press rounded-full min-w-11 h-11 px-2 flex items-center justify-center gap-1"
-                    style={{ color: C.primary }} aria-label={`编辑歌单名称《${pl.name}》`} title="编辑歌单名称"
-                    onClick={() => setEditingPlaylist(editingPlaylist?.id === pl.id ? null : { id: pl.id, name: pl.name })}>
-                    <PencilSimple size={17} />
-                    <span className="text-[11px]">编辑</span>
+            return <section key={pl.id} className="music-playlist-detail rounded-[22px] overflow-hidden"
+              aria-label={\`歌单《\${pl.name}》详情\`}
+              style={{ background: '#fff', border: '1px solid #e9e9e7' }}>
+              <div className="px-4 pt-5 pb-4 flex flex-col items-center text-center">
+                <div className="music-playlist-hero w-[116px] h-[116px] rounded-[19px] overflow-hidden flex items-center justify-center shrink-0"
+                  style={{ background: '#efefed', border: '1px solid #e4e4e2' }}>
+                  {pl.songs[0] ? <VinylDisc albumPic={pl.songs[0].albumPic} picId={pl.songs[0].picId}
+                    source={pl.songs[0].source} playing={playingThis} size={116} />
+                    : <MusicNotes size={36} weight="thin" color={C.muted} />}
+                </div>
+                <h3 className="mt-3 text-[17px] font-semibold tracking-[-0.025em] max-w-full break-words"
+                  style={{ color: C.text }}>{pl.name}</h3>
+                <p className="mt-1 text-[11px]" style={{ color: C.muted }}>私人歌单 · {pl.songs.length} 首 · 仅保存在本地</p>
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  <button type="button" className="music-tap min-h-10 px-5 rounded-full text-[12px] font-medium text-white disabled:opacity-40"
+                    style={{ background: C.primary }} disabled={!pl.songs.length} aria-label={\`播放歌单《\${pl.name}》\`}
+                    onClick={() => { if (pl.songs.length) void playSong(pl.songs[0], { replaceQueue: pl.songs, startIdx: 0 }); }}>
+                    <span className="inline-flex items-center gap-1.5"><PlayIcon size={16} weight="fill" /> 播放歌单</span>
                   </button>
-                  <button type="button" className="music-icon-press rounded-full min-w-11 h-11 px-2 flex items-center justify-center gap-1"
-                    style={{ color: C.muted }} aria-label={`删除歌单《${pl.name}》`} title="删除歌单"
+                  <button type="button" className="music-icon-press min-h-10 min-w-10 rounded-full flex items-center justify-center"
+                    aria-label={\`编辑歌单名称《\${pl.name}》\`} title="编辑歌单名称"
+                    onClick={() => { setEditingPlaylist(editingPlaylist?.id === pl.id ? null : { id: pl.id, name: pl.name }); setDeleteConfirmPlaylistId(null); }}>
+                    <PencilSimple size={19} color={C.muted} />
+                  </button>
+                  <button type="button" className="music-icon-press min-h-10 min-w-10 rounded-full flex items-center justify-center"
+                    aria-label={\`删除歌单《\${pl.name}》\`} title="删除歌单"
                     onClick={() => { setDeleteConfirmPlaylistId(deleteConfirmPlaylistId === pl.id ? null : pl.id); setEditingPlaylist(null); }}>
-                    <Trash size={17} />
-                    <span className="text-[11px]">删除</span>
+                    <Trash size={19} color={C.muted} />
                   </button>
                 </div>
+              </div>
+              {editingPlaylist?.id === pl.id && <div className="mx-3 mb-3 flex gap-2 items-center">
+                <input aria-label={\`编辑《\${pl.name}》的新名称\`} autoFocus
+                  value={editingPlaylist.name} maxLength={60}
+                  onChange={e => setEditingPlaylist({ id: pl.id, name: e.target.value })}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') { e.stopPropagation(); setEditingPlaylist(null); }
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) savePlaylistName();
+                  }}
+                  className="flex-1 min-w-0 h-11 rounded-[12px] px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-neutral-500"
+                  style={{ background: C.bgDeep, color: C.text }} />
+                <button type="button" onClick={savePlaylistName} disabled={!editingPlaylist.name.trim()}
+                  className="music-tap h-11 px-3 rounded-[12px] text-xs font-medium disabled:opacity-40"
+                  style={{ background: C.primary, color: '#fff' }}>保存</button>
+                <button type="button" onClick={() => setEditingPlaylist(null)}
+                  className="music-tap h-11 px-3 rounded-[12px] text-xs"
+                  style={{ background: C.soft, color: C.muted }}>取消</button>
               </div>}
-              {deleteConfirmPlaylistId === pl.id && <div className="mt-2 rounded-md px-3 py-3 flex flex-wrap items-center gap-2"
+              {deleteConfirmPlaylistId === pl.id && <div className="mx-3 mb-3 rounded-[14px] px-3 py-3 flex flex-wrap items-center gap-2"
                 style={{ background: C.soft }}>
                 <span className="text-xs flex-1 min-w-[120px]" style={{ color: C.text }}>确定删除《{pl.name}》？不会删除已喜欢的歌曲。</span>
-                <button type="button" className="music-tap min-h-11 px-3 rounded-md text-xs"
+                <button type="button" className="music-tap min-h-11 px-3 rounded-[12px] text-xs"
                   onClick={() => setDeleteConfirmPlaylistId(null)}>取消</button>
-                <button type="button" className="music-tap min-h-11 px-3 rounded-md text-xs font-semibold"
+                <button type="button" className="music-tap min-h-11 px-3 rounded-[12px] text-xs font-semibold"
                   style={{ color: '#fff', background: C.primary }}
                   onClick={() => {
                     if (deletePlaylist(pl.id)) {
@@ -471,29 +521,18 @@ const MusicApp: React.FC = () => {
                     }
                   }}>确认删除</button>
               </div>}
-              {editingPlaylist?.id === pl.id && <div className="mt-2 flex gap-2 items-center px-2 pb-2">
-                <input aria-label={`编辑《${pl.name}》的新名称`} autoFocus
-                  value={editingPlaylist.name} maxLength={60}
-                  onChange={e => setEditingPlaylist({ id: pl.id, name: e.target.value })}
-                  onKeyDown={e => {
-                    if (e.key === 'Escape') { e.stopPropagation(); setEditingPlaylist(null); }
-                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) savePlaylistName();
-                  }}
-                  className="flex-1 min-w-0 h-11 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-neutral-500"
-                  style={{ background: C.bgDeep, color: C.text }} />
-                <button type="button" onClick={savePlaylistName} disabled={!editingPlaylist.name.trim()}
-                  className="music-tap h-11 px-3 rounded-md text-xs font-medium disabled:opacity-40"
-                  style={{ background: C.primary, color: '#fff' }}>保存</button>
-                <button type="button" onClick={() => setEditingPlaylist(null)}
-                  className="music-tap h-11 px-3 rounded-md text-xs"
-                  style={{ background: C.soft, color: C.muted }}>取消</button>
-              </div>}
-              {opened && <div className="music-panel-enter mt-2 pt-2" style={{ borderTop: '1px solid #f1f1ef' }}>{renderLibrarySongs(pl.songs, pl.id)}</div>}
-            </div>;
+              <div className="px-3 pb-3">
+                <div className="flex items-center justify-between gap-2 px-2 py-3"
+                  style={{ borderTop: '1px solid #eeecea' }}>
+                  <span className="text-[12px] font-semibold" style={{ color: C.text }}>歌单列表</span>
+                  <span className="text-[11px]" style={{ color: C.muted }}>{pl.songs.length} 首</span>
+                </div>
+                {renderLibrarySongs(pl.songs, pl.id)}
+              </div>
+            </section>;
           })}
-          {!library.playlists.length && <p className="text-xs text-center py-10" style={{ color: C.muted }}>暂无歌单，输入名称后即可创建</p>}
+          {!library.playlists.length && <p className="text-xs text-center py-10" style={{ color: C.muted }}>还没有歌单，创建一个收藏喜欢的歌吧</p>}
         </div>}
-
       </div>
 
       {characters.length > 0 && (
