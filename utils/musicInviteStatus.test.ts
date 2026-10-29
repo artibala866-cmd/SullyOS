@@ -52,6 +52,18 @@ describe('一起听邀请状态', () => {
     expect(findPendingMusicInvite([b], 'char')).toBeUndefined();
   });
 
+  it('旧消息直接写入接受、拒绝、结束或撤回状态时也不能重新当作待答复', () => {
+    for (const status of ['accepted', 'rejected', 'ended', 'cancelled', 'withdrawn']) {
+      const user = { id: 40, metadata: { musicListenInvite: true, status } };
+      const char = { id: 41, metadata: { musicListenInvite: true, inviter: 'char', status } };
+      expect(hasPendingMusicInvite([user, char])).toBe(false);
+      expect(findPendingMusicInvite([user], 'user')).toBeUndefined();
+      expect(findPendingMusicInvite([char], 'char')).toBeUndefined();
+    }
+    expect(hasPendingMusicInvite([{ id: 50, metadata: { musicListenInvite: true, status: 'pending' } }])).toBe(true);
+    expect(hasPendingMusicInvite([{ id: 51, metadata: { musicListenInvite: true } }])).toBe(true);
+  });
+
   it('撤回后可重新邀请，指定消息不能误撤其他邀请', () => {
     const history = [
       fromUser,
