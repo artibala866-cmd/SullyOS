@@ -1,6 +1,6 @@
 import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
-import { getCurrentScheduleSlotIndex } from '../utils/scheduleTime';
+import { getCurrentScheduleActivity } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
 import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellation';
@@ -172,26 +172,30 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         ? lifeActivityState.activity : null;
     useEffect(() => {
         let cancelled = false;
+        let latestRequest = 0;
         const refresh = async () => {
+            const request = ++latestRequest;
             const target = characters.find(c => c.id === activeCharacterId);
-            if (!target) {
-                if (!cancelled) setLifeActivityState({ characterId: activeCharacterId || null, activity: null });
+            // A disabled schedule must not gate private chat using an old saved plan.
+            if (!target || !isScheduleFeatureOn(target)) {
+                if (!cancelled && request === latestRequest)
+                    setLifeActivityState({ characterId: activeCharacterId || null, activity: null });
                 return;
             }
             try {
-                const schedule = await getDailyScheduleForChar(target, new Date(getLifeTime()));
-                if (!cancelled) {
-                    // Use the same character-local clock as the schedule display
-                    // and AMSG fire scene, including virtual-time mode.
-                    const slotIndex = schedule ? getCurrentScheduleSlotIndex(schedule.slots, target, new Date(getLifeTime())) : -1;
-                    const slot = schedule?.slots[slotIndex >= 0 ? slotIndex : schedule.slots.length - 1];
+                const at = new Date(getLifeTime());
+                const schedule = await getDailyScheduleForChar(target, at);
+                if (!cancelled && request === latestRequest) {
+                    // One instant for the role-local day and slot. No current slot means unknown.
+                    const activity = schedule ? getCurrentScheduleActivity(schedule.slots, target, at) : null;
                     setLifeActivityState({
                         characterId: target.id,
-                        activity: schedule ? classifyLifeActivity(slot?.activity || '') : null,
+                        activity: activity ? classifyLifeActivity(activity) : null,
                     });
                 }
             } catch {
-                if (!cancelled) setLifeActivityState({ characterId: activeCharacterId || null, activity: null });
+                if (!cancelled && request === latestRequest)
+                    setLifeActivityState({ characterId: activeCharacterId || null, activity: null });
             }
         };
         void refresh();
