@@ -40,6 +40,7 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
   });
   it('分类切换有弹性动画，列表分批渲染，尊重减少动态效果设置', () => {
     expect(app).toContain('key={section} role="tabpanel" className="music-panel-enter');
+    expect(app).toContain('key={view} className="absolute inset-0 music-panel-enter"');
     expect(app).toContain('songs.slice(0, visibleCount)');
     expect(ui).toContain('.music-tap:active');
     expect(ui).toContain('@media(prefers-reduced-motion:reduce)');
