@@ -1385,8 +1385,27 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.addEventListener('music-listen-invite-answer', onAnswer);
     return () => window.removeEventListener('music-listen-invite-answer', onAnswer);
   }, [answerIncomingListeningInvite]);
-  const removeListeningPartner = useCallback((charId: string) => {
+  const removeListeningPartner = useCallback(async (charId: string): Promise<void> => {
+    // End only the session this tab actually observed. A stale tab must not
+    // terminate a new session created after another tab ended the old one.
+    if (!charId || sessionWritesRef.current.has(charId)) return;
+    const expectedId = sessionIdsRef.current.get(charId);
     const startedAt = listeningStartedAtRef.current[charId];
+    if (!expectedId) { await refreshCommittedMusicSession(charId); return; }
+    sessionWritesRef.current.add(charId);
+    try {
+      const row = await DB.transitionMusicListeningSession(charId, 'end', expectedId);
+      sessionReadRevisions.current.set(charId, (sessionReadRevisions.current.get(charId) || 0) + 1);
+      applyCommittedMusicSession(charId, row);
+      if (!row?.changed) return;
+      announceMusicListenSessionChanged(charId);
+    } catch (err) {
+      console.warn('[MusicTogether] 结束会话保存失败', err);
+      toast('结束一起听失败，请重试', 'error');
+      return;
+    } finally {
+      sessionWritesRef.current.delete(charId);
+    }
     if (startedAt) {
       const at = Date.now();
       const durationMs = Math.max(0, at - startedAt);
@@ -1404,17 +1423,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         window.dispatchEvent(new CustomEvent('music-listen-session-ended', { detail: { charId, messageId } }));
       }).catch(err => console.warn('[MusicTogether] 结束事件保存失败', err));
     }
-    const left = leaveCharListeningState(
-      listeningTogetherRef.current, listeningStartedAtRef.current, charId,
-    );
-    listeningTogetherRef.current = left.partners;
-    listeningStartedAtRef.current = left.startedAt;
-    setListeningTogetherWith(left.partners);
-    setListeningStartedAt(left.startedAt);
+
     setListeningInvites(prev => { const next = { ...prev }; delete next[charId]; return next; });
-  }, []);
+  }, [applyCommittedMusicSession, refreshCommittedMusicSession, toast]);
   const clearListeningPartners = useCallback(() => {
-    [...listeningTogetherRef.current].forEach(removeListeningPartner);
+    [...listeningTogetherRef.current].forEach(id => { void removeListeningPartner(id); });
   }, [removeListeningPartner]);
 
   // 切歌后清空上一首的"一起听"。只结束状态，不触发主动消息 ——
