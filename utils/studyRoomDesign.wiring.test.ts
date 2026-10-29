@@ -69,7 +69,7 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
      '识别课表','编辑课程','作业提醒'
    ])expect(workspace).toContain('>'+title+'</summary>');
    expect(workspace).toContain('全部委托（{data.commissions.filter(c=>c.status!==');
-   expect(workspace).toContain('全部课程（{data.classes.length}）');
+   expect(workspace).toContain('课程管理与关联（{data.classes.length}）');
    expect(workspace).toContain('未归属资料（{orphaned.homework.length+orphaned.notes.length}）');
    expect(workspace).toContain('<span>隐私授权</span>');
    expect(schedule).toContain('>发送内容</summary>');
