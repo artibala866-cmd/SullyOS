@@ -3,6 +3,8 @@ import { flushInboxToChat } from './activeMsgRuntime';
 import { ActiveMsgStore } from './activeMsgStore';
 
 const RECEIVED_IDS_KEY = 'amsg2_native_received_ids_v2';
+/** Both native notification callbacks use this one ingest path. */
+const inFlight = new Map<string, Promise<{ charId: string; messageId: string } | null>>();
 
 const readReceivedIds = (): string[] => {
   try {
@@ -14,61 +16,86 @@ const readReceivedIds = (): string[] => {
 };
 
 const rememberReceivedId = (messageId: string): void => {
-  const next = [messageId, ...readReceivedIds().filter((id) => id !== messageId)].slice(0, 100);
-  localStorage.setItem(RECEIVED_IDS_KEY, JSON.stringify(next));
+  try {
+    const next = [messageId, ...readReceivedIds().filter(id => id !== messageId)].slice(0, 100);
+    localStorage.setItem(RECEIVED_IDS_KEY, JSON.stringify(next));
+  } catch {
+    // A storage/quota failure cannot keep an already-persisted push from
+    // reaching the inbox. The messageId is also idempotent in IndexedDB.
+  }
 };
 
 export const parseNativeAmsgPayload = (raw: unknown): Record<string, any> | null => {
-  if (raw && typeof raw === 'object') return raw as Record<string, any>;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw as Record<string, any>;
   if (typeof raw !== 'string' || !raw.trim()) return null;
   try {
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed as Record<string, any> : null;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, any> : null;
   } catch {
     return null;
   }
 };
 
-/** 把 UnifiedPush 收到的标准 AMSG payload 送进 master 现有的 inbox 管线。 */
-export const ingestNativeAmsgPayload = async (
+/** UnifiedPush and Capacitor FCM both persist through the same durable inbox.
+ * A duplicate receipt still retries the flush: the first save may have
+ * succeeded immediately before a WebView suspension or a failed flush.
+ */
+export const ingestNativeAmsgPayload = (
   raw: unknown,
   previewOverride?: string,
 ): Promise<{ charId: string; messageId: string } | null> => {
   const payload = parseNativeAmsgPayload(raw);
   const charId = payload?.metadata?.charId;
-  if (!payload || typeof charId !== 'string' || !charId) return null;
+  // Do not manufacture a Date.now()-based ID for malformed envelopes:
+  // multiple callbacks would then persist duplicate or empty chat messages.
+  const messageId = typeof payload?.messageId === 'string' ? payload.messageId.trim() : '';
+  if (typeof charId !== 'string' || !charId || !messageId) return Promise.resolve(null);
 
-  const messageId = String(payload.messageId || `${charId}-${Date.now()}`);
-  if (readReceivedIds().includes(messageId)) return { charId, messageId };
+  const key = JSON.stringify([charId, messageId]);
+  const running = inFlight.get(key);
+  if (running) return running;
 
-  const parsedSentAt = payload.timestamp ? new Date(payload.timestamp).getTime() : NaN;
-  const body = String(payload.message || '').trim();
-  const inbox: ActiveMsg2InboxMessage = {
-    messageId,
-    charId,
-    charName: String(payload.contactName || payload.metadata?.charName || '主动消息'),
-    body,
-    previewBody: String(previewOverride || payload.previewBody || body).trim(),
-    avatarUrl: payload.avatarUrl,
-    source: payload.source,
-    messageType: payload.messageType,
-    messageSubtype: payload.messageSubtype,
-    taskId: payload.taskId ?? null,
-    taskUuid: payload.taskUuid ?? null,
-    recurrenceType: payload.recurrenceType ?? null,
-    occurrenceMs: payload.occurrenceMs ?? null,
-    metadata: {
-      ...(payload.metadata || {}),
-      sessionId: payload.sessionId,
-      messageIndex: payload.messageIndex,
-      totalMessages: payload.totalMessages,
-    },
-    sentAt: Number.isFinite(parsedSentAt) ? parsedSentAt : Date.now(),
-    receivedAt: Date.now(),
-  };
+  const task = (async () => {
+    const result = { charId, messageId };
+    if (!readReceivedIds().includes(messageId)) {
+      const parsedSentAt = payload?.timestamp ? new Date(payload.timestamp).getTime() : NaN;
+      const body = String(payload?.message || '').trim();
+      const inbox: ActiveMsg2InboxMessage = {
+        messageId,
+        charId,
+        charName: String(payload?.contactName || payload?.metadata?.charName || '主动消息'),
+        body,
+        previewBody: String(previewOverride || payload?.previewBody || body).trim(),
+        avatarUrl: payload?.avatarUrl,
+        source: payload?.source,
+        messageType: payload?.messageType,
+        messageSubtype: payload?.messageSubtype,
+        taskId: payload?.taskId ?? null,
+        taskUuid: payload?.taskUuid ?? null,
+        recurrenceType: payload?.recurrenceType ?? null,
+        occurrenceMs: payload?.occurrenceMs ?? null,
+        metadata: {
+          ...(payload?.metadata || {}),
+          sessionId: payload?.sessionId,
+          messageIndex: payload?.messageIndex,
+          totalMessages: payload?.totalMessages,
+        },
+        sentAt: Number.isFinite(parsedSentAt) ? parsedSentAt : Date.now(),
+        receivedAt: Date.now(),
+      };
+      // Failure here must not mark the receipt as seen: a later native
+      // callback should be free to retry the durable save.
+      await ActiveMsgStore.saveInboxMessage(inbox);
+      rememberReceivedId(messageId);
+    }
+    // flushInboxToChat itself degrades to [] on IDB failure. Re-attempt
+    // on a duplicate receipt instead of silently stranding the saved item.
+    await flushInboxToChat('原生收件箱');
+    return result;
+  })();
 
-  await ActiveMsgStore.saveInboxMessage(inbox);
-  rememberReceivedId(messageId);
-  await flushInboxToChat('原生收件箱');
-  return { charId, messageId };
+  inFlight.set(key, task);
+  void task.finally(() => { if (inFlight.get(key) === task) inFlight.delete(key); }).catch(() => {});
+  return task;
 };
