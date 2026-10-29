@@ -81,7 +81,7 @@ const WorkspaceReminderControls: React.FC<Props> = ({
     }finally{setBusy(false);}
   };
   return <details className="border-t border-neutral-200 pt-3 space-y-2">
-    <summary className="text-sm text-neutral-800 cursor-pointer">到点提醒（自愿开启）</summary>
+    <summary className="text-sm text-neutral-800 cursor-pointer">到点提醒</summary>
     <div className="space-y-3 pt-2 text-sm">
       <p className="text-xs text-neutral-600">
         默认关闭。创建后，到点会在私聊收到一次固定提醒；不调用 AI，也不分享此事项的具体资料。

@@ -480,9 +480,9 @@ const ScheduleApp: React.FC = () => {
             <button className="text-lg px-3" aria-label="关闭 Char" onClick={()=>setAssistantOpen(false)}>×</button>
           </div>
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
-          <p className="text-xs text-neutral-600">当前讨论：{assistantScope==='focus'?'专注陪伴':assistantScope==='study'?'作业与学习复盘':assistantScope==='commission'?'画稿进度建议':'画稿排单方案'} · 只载入此 Char 在同一事项及用途的对话。</p>
+          <p className="text-xs text-neutral-500">{assistantScope==='focus'?'专注陪伴':assistantScope==='study'?'作业复盘':assistantScope==='commission'?'画稿建议':'排单建议'}</p>
           {assistantTopic && <details className="text-xs rounded-lg border border-neutral-200 px-3 py-2">
-            <summary className="cursor-pointer">查看本轮主动提交给 Char 的具体资料（仅点击发送才会提交）</summary>
+            <summary className="cursor-pointer">发送内容</summary>
             <p className="mt-2 whitespace-pre-wrap break-words max-h-36 overflow-y-auto">{assistantTopic.slice(0,12000)}</p>
             {planRequest && <p>本轮只返回待审核的 JSON 方案，不自动改稿件。</p>}
           </details>}
@@ -494,13 +494,13 @@ const ScheduleApp: React.FC = () => {
               <span className="text-neutral-500">{n.role==='user'?'我':activeChar?.name||'Char'}：</span>{n.content}</p>)}
           </div>
           {unscopedNotes.length>0 && <details className="text-xs text-neutral-600">
-            <summary>查看 {unscopedNotes.length} 条当前 Char 的旧对话（未知用途，仅本机查看；不会发送给 AI）</summary>
+            <summary>旧对话（{unscopedNotes.length}）</summary>
             <div className="max-h-24 overflow-auto whitespace-pre-wrap">
               {unscopedNotes.map(n=><p key={n.id}>{n.role==='user'?'我':'旧回复'}：{n.content}</p>)}
             </div>
           </details>}
           {unassignedNotes.length>0 && <details className="text-xs text-neutral-600">
-            <summary>查看 {unassignedNotes.length} 条旧监督记录（未绑定 Char，仅本机查看；不会发送给 AI）</summary>
+            <summary>旧记录（{unassignedNotes.length}）</summary>
             <div className="max-h-24 overflow-auto whitespace-pre-wrap">
               {unassignedNotes.map(n=><p key={n.id}>{n.role==='user'?'我':'旧回复'}：{n.content}</p>)}
             </div>

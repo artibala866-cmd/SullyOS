@@ -28,7 +28,7 @@ describe('学习室 Char 的角色 API、来源隔离与人工复盘真实接线
   expect(panel).toContain("'study',h.id");
   expect(panel).toContain("'study',n.id");
   expect(panel).toContain("'commission',c.id");
-  expect(schedule).toContain('查看本轮主动提交给 Char 的具体资料');
+  expect(schedule).toContain('>发送内容</summary>');
   expect(schedule).toContain("onSubmit={e=>{e.preventDefault();void sendNote();}}");
   expect(schedule).toContain('setAssistantOpen(true)');
   expect(panel).not.toContain('createStudyReminder(');
