@@ -108,4 +108,33 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(reminders).toContain('读取 AMSG 云端状态（不修改）');
  });
 
+ it('参考图式编辑布局：主视觉加侧边信息块，重要入口优先图标表达',()=>{
+   expect(schedule).toContain('rounded-[30px] bg-white px-5 py-9');
+   expect(schedule).toContain('grid grid-cols-2 gap-3');
+   expect(schedule).toContain('bg-[#252525] text-white');
+   expect(schedule).toContain('<PenNib size={19}/>');
+   expect(schedule).toContain('<CalendarDots size={19}/>');
+   expect(schedule).toContain('<BookOpen size={19}/>');
+   expect(workspace).toContain('col-span-2 sm:col-span-3 flex min-h-[222px]');
+   expect(workspace).toContain('col-span-2 sm:col-span-3 flex min-h-[216px]');
+   expect(workspace).toContain('col-span-2 sm:col-span-1 grid grid-cols-2 gap-3 sm:grid-cols-1');
+   expect(workspace).toContain("quickCommissions.slice(0,1).map");
+   expect(workspace).toContain("pendingHomework.slice(0,1).map");
+   expect(workspace).toContain('aria-label="可直接继续的画稿"');
+   expect(workspace).toContain('aria-label="接下来要做的作业"');
+ });
+ it('密集信息已移到次层：月历靠圆点、课程靠日期卡片，课程书架仅改外观',()=>{
+   expect(calendar).toContain('h-1.5 w-1.5 rounded-full');
+   expect(calendar).not.toContain('list.slice(0,2).map((e,i)=><span key={e.id+e.kind+i} title=');
+   expect(calendar).toContain('aria-label={day.date+');
+   expect(timetable).toContain('overflow-x-auto snap-x');
+   expect(timetable).toContain('min-w-[122px]');
+   expect(legacyClassroom).toContain('aspect-[4/5] rounded-[26px]');
+   expect(legacyClassroom).toContain('style={{ background: course.coverStyle }}');
+   expect(legacyClassroom).toContain('onClick={() => startSession(course)}');
+   expect(workspace).toContain('时间容量');
+   expect(workspace).toContain('学习室设置 · 私聊授权');
+   expect(workspace).toContain('读取旧自习室课程');
+ });
+
 });
