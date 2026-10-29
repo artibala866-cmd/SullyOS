@@ -3,6 +3,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
+import { resolveRealPersonReplyPlan } from './realPersonReplyTiming';
 
 let root: Root;
 let container: HTMLDivElement;
@@ -10,7 +11,7 @@ let options: Parameters<typeof useChatAutoReply>[0];
 let controls: ReturnType<typeof useChatAutoReply>;
 function Harness() {
     controls = useChatAutoReply(options);
-    return React.createElement('span', null, controls.seconds);
+    return React.createElement('span', null, 'chat');
 }
 const render = (patch: Partial<typeof options> = {}) => {
     options = { ...options, ...patch };
@@ -44,9 +45,7 @@ describe('two-second automatic reply', () => {
         advance(5000);
         expect(options.onGenerate).not.toHaveBeenCalled();
         send();
-        expect(controls.seconds).toBe(2);
         advance(1000);
-        expect(controls.seconds).toBe(1);
         advance(999);
         expect(options.onGenerate).not.toHaveBeenCalled();
         advance(1);
@@ -59,7 +58,6 @@ describe('two-second automatic reply', () => {
         render({ blocked: true });
         send();
         advance(5000);
-        expect(controls.seconds).toBeNull();
         render({ blocked: false });
         advance(1500);
         render({ blocked: true });
@@ -135,7 +133,7 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
-    it('does not generate while the page is hidden and restarts the delay on return', () => {
+    it('invalidates a pending reply when backgrounded, without replay on return', () => {
         send();
         advance(1000);
         vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
@@ -144,104 +142,91 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).not.toHaveBeenCalled();
         vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
         act(() => document.dispatchEvent(new Event('visibilitychange')));
-        advance(1999);
+        advance(5000);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        advance(1);
+        send();
+        advance(2000);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('typing invalidates pending and in-flight candidates', () => {
+        send();
+        act(() => controls.cancelIfPending());
+        advance(10000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        let finish!: (sent: boolean) => void;
+        act(() => { finish = controls.beginSend('a'); controls.cancelIfPending(); });
+        act(() => finish(true));
+        advance(10000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
     });
 });
 
 
-describe('real-person busy and repeated nudge behavior', () => {
-    it('holds a busy character without any automatic AI call after the old 18-second timeout', () => {
-        render({ naturalPacing: true, lifeActivity: 'busy' });
-        send();
-        advance(180_000);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-        expect(controls.seconds).toBeNull();
-        expect('waitingReason' in controls).toBe(false);
-    });
+describe('real-person pacing without mechanical nudges', () => {
+    const delayFor = (activity: 'free' | 'busy' | 'sleep' | null, at = Date.now()) =>
+        resolveRealPersonReplyPlan({ activity, firstUnansweredAt: at, now: at, fallbackDelayMs: 5_000 }).delayMs;
 
-    it('wakes after six actually delivered user messages, not a random timeout', () => {
+    it('one successful send is enough for a delayed busy reply', () => {
         render({ naturalPacing: true, lifeActivity: 'busy' });
-        for (let i = 0; i < 6; i++) send();
-        advance(4_499);
+        const delay = delayFor('busy')!;
+        send();
+        advance(delay - 1);
         expect(options.onGenerate).not.toHaveBeenCalled();
         advance(1);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
         advance(100_000);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-
-    it('can wake after four nudges and eight minutes of actual waiting', () => {
+    it('many messages do not unlock an immediate fixed reply', () => {
         render({ naturalPacing: true, lifeActivity: 'busy' });
+        const delay = delayFor('busy')!;
         send();
-        advance(8 * 60_000);
-        for (let i = 0; i < 3; i++) send();
-        advance(4_500);
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
-    });
-
-    it('lets three explicit poke interactions wake a busy character after a prior message', () => {
-        render({ naturalPacing: true, lifeActivity: 'busy' });
-        send();
-        act(() => controls.beginSend('a', { nudge: true })(true));
-        act(() => controls.beginSend('a', { nudge: true })(true));
-        act(() => controls.beginSend('a', { nudge: true })(true));
-        advance(4_500);
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
-    });
-
-    it('sleep requires extra nudges but manual/cancel remains immediate', () => {
-        render({ naturalPacing: true, lifeActivity: 'sleep' });
         for (let i = 0; i < 6; i++) send();
-        advance(120_000);
+        advance(4_500);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        send();
-        advance(12_000);
+        advance(delay - 4_500);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-
-    it('an already active conversation stays responsive despite a conflicting busy schedule', () => {
+    it('sleep stays quiet regardless of nudges until the actual schedule changes', () => {
+        render({ naturalPacing: true, lifeActivity: 'sleep' });
+        for (let i = 0; i < 12; i++) send();
+        advance(180_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        render({ lifeActivity: 'free' });
+        advance(delayFor('free')!);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('recent genuine conversation outranks a busy schedule', () => {
         render({ naturalPacing: true, lifeActivity: 'busy', lastCharacterReplyAt: Date.now() - 60_000 });
         send();
-        advance(2_999);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-        advance(1);
+        advance(delayFor('free')!);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-
-    it('a reply from long ago does not claim the character is still actively chatting', () => {
-        render({ naturalPacing: true, lifeActivity: 'busy', lastCharacterReplyAt: Date.now() - 10 * 60_000 });
-        send();
-        advance(60_000);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-    });
-
-    it('schedule becomes free and safely releases a previous busy wait', () => {
+    it('a persisted assistant or AMSG reply consumes the old pending candidate', () => {
         render({ naturalPacing: true, lifeActivity: 'busy' });
         send();
-        advance(50_000);
-        render({ lifeActivity: 'free' });
-        advance(2_999);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-        advance(1);
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not accidentally wake on failed pokes or late sends from another chat', () => {
-        render({ naturalPacing: true, lifeActivity: 'busy' });
-        send();
-        act(() => controls.beginSend('a', { nudge: true })(false));
-        act(() => controls.beginSend('other', { nudge: true })(true));
-        advance(50_000);
+        render({ lastCharacterReplyAt: Date.now() + 1 });
+        advance(180_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
     });
-
-    it('normal two-second auto reply survives when real-person mode is disabled', () => {
+    it('existing two-second plain auto reply still works when真人感 is off', () => {
         render({ naturalPacing: false, lifeActivity: 'busy' });
         send();
         advance(2000);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('natural pacing cannot turn on a disabled auto reply', () => {
+        render({ enabled: false, naturalPacing: true, lifeActivity: 'free' });
+        send();
+        advance(180_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+    });
+    it('failed sends and a different character never arm this conversation', () => {
+        render({ naturalPacing: true, lifeActivity: 'busy' });
+        send(false);
+        act(() => controls.beginSend('other')(true));
+        advance(180_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
     });
 });

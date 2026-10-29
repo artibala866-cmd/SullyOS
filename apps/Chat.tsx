@@ -1362,6 +1362,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     const handleInputChange = (val: string) => {
         setInput(val);
+        // New typing revokes a previous successful-send candidate, including its pending async save.
+        if (val.trim()) autoReply.cancelIfPending();
         if (val.trim()) localStorage.setItem(draftKey, val);
         else localStorage.removeItem(draftKey);
     };
@@ -1739,7 +1741,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     const handleSendText = async (customContent?: string, customType?: MessageType, metadata?: any) => {
         const isPoke = customType === 'interaction' && String(customContent || '').trim() === '[戳一戳]';
-        const finish = autoReply.beginSend(char?.id || null, { nudge: isPoke });
+        const finish = autoReply.beginSend(char?.id || null);
         try {
             const sent = await sendText(customContent, customType, metadata);
             finish(sent === true && (!customType || ['text', 'image', 'emoji'].includes(customType) || isPoke));
@@ -1942,9 +1944,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 const next = !lifePacing;
                 setLifePacing(next);
                 localStorage.setItem('sully_life_pacing', next ? 'on' : 'off');
-                if (next && char && !char.activeMsg2Config?.enabled) {
-                    addToast('真人感自动接话已开启。后台主动联系是单独的 2.0 开关，启用后会使用云端 AI 额度。', 'info');
-                }
+                addToast(next
+                    ? (inputPreferences.autoReply
+                        ? '真人感节奏已开启，将调整原有自动回复的忙闲等待；不显示倒计时。'
+                        : '真人感节奏已开启；需另外开启“发完后自动生成回复”才会自动接话。')
+                    : '真人感节奏已关闭；普通自动回复仍由原有开关控制。', 'info');
                 break;
             }
             case 'mcd-not-configured':
@@ -3699,7 +3703,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const schedulePresence = resolveSchedulePresence(lifeActivity, latestRealReplyAt);
     const showSchedulePresence = lifePacing && lifeActivity !== null;
     const autoReply = useChatAutoReply({
-        enabled: inputPreferences.autoReply || lifePacing,
+        enabled: inputPreferences.autoReply,
         naturalPacing: lifePacing,
         lifeActivity,
         lastCharacterReplyAt: latestRealReplyAt,
@@ -3744,7 +3748,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             const charId = detail?.charId;
             if (!charId || charId !== activeCharIdRef.current ||
                 !Number.isSafeInteger(detail.messageId) ||
-                !(inputPreferences.autoReply || lifePacing)) return;
+                !inputPreferences.autoReply) return;
             void DB.getRecentMessagesByCharId(charId, 24).then(recent => {
                 if (activeCharIdRef.current !== charId) return;
                 // The user may have withdrawn the invite while this async
@@ -3758,7 +3762,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         };
         window.addEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
         return () => window.removeEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
-    }, [autoReply.beginSend, inputPreferences.autoReply, lifePacing]);
+    }, [autoReply.beginSend, inputPreferences.autoReply]);
 
     // One-tap life pacing; the shared clock keeps memories unchanged.
     // 角色自定义聊天背景：字段值可能是 blobref 令牌（二进制在 IndexedDB），这里解析成能直接
@@ -4620,9 +4624,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onGenerate={handleManualTrigger}
                     sendButtonGenerates={inputPreferences.sendButtonGenerates}
                     enterToSend={inputPreferences.enterToSend}
-                    autoReplyEnabled={inputPreferences.autoReply || lifePacing}
-                    autoReplySeconds={autoReply.seconds}
-                    onCancelAutoReply={autoReply.cancel}
+                    autoReplyEnabled={inputPreferences.autoReply}
                     onInputFocusChange={setIsInputFocused}
                     onDeleteSelected={handleBatchDelete}
                     onForwardSelected={handleForwardSelected}

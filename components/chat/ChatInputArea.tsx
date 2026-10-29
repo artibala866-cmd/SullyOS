@@ -32,8 +32,6 @@ interface ChatInputAreaProps {
     enterToSend?: boolean;
     onGenerate?: () => void;
     autoReplyEnabled?: boolean;
-    autoReplySeconds?: number | null;
-    onCancelAutoReply?: () => void;
     onInputFocusChange?: (focused: boolean) => void;
     onDeleteSelected: () => void;
     onForwardSelected?: () => void;
@@ -91,7 +89,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     input, setInput, isTyping, selectionMode, compactHome=false,
     showPanel, setShowPanel, onSend, onDeleteSelected, onForwardSelected, onFavoriteSelected, favoriteSelectedCount = 0, selectedCount,
     sendButtonGenerates = false, enterToSend = true, onGenerate,
-    autoReplyEnabled = false, autoReplySeconds = null, onCancelAutoReply, onInputFocusChange,
+    autoReplyEnabled = false, onInputFocusChange,
     emojis, characters = [], activeCharacterId = '', onCharSelect = () => {},
     emojiSuggestionsEnabled = false, suggestionEmojis = emojis,
     unreadMessages = {},
@@ -589,7 +587,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             </div>}
             <span className="text-xs font-bold">日程</span>
         </button>,
-        <button key="life-pacing" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+        <button key="life-pacing" title="仅调整已开启的自动回复节奏，不会单独触发回复；主动消息使用 AMSG 2.0" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${lifePacingEnabled ? 'bg-slate-100 text-[#737373] border-slate-300' : 'bg-white text-[#737373] border-slate-200'}`}>
                 <svg width="26" height="26" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="14" cy="14" r="9"/><path d="M10 11c1-1.5 2.4-1.5 3.5 0M18 11c-1-1.5-2.4-1.5-3.5 0M10 17c2.5 3 5.5 3 8 0"/></svg>
             </div>
@@ -732,12 +730,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             </button>
                         ))}
                     </div>
-                </div>
-            )}
-            {autoReplySeconds !== null && !selectionMode && (
-                <div className={`sully-chat-auto-reply shrink-0 relative z-40 flex min-h-10 items-center justify-center gap-1 px-4 text-xs text-slate-500 ${shellClass}`}>
-                    <span role="status">即将回复 · {autoReplySeconds} 秒</span>
-                    <button type="button" onClick={onCancelAutoReply} className="min-h-11 px-3 font-bold text-primary" aria-label="取消自动回复">取消</button>
                 </div>
             )}
         <div className={`sully-chat-inputbar ${shellClass} pb-safe shrink-0 z-40 relative`}>

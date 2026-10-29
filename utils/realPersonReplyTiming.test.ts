@@ -1,25 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { resolveRealPersonReplyPlan } from './realPersonReplyTiming';
-const plan = (activity: 'busy'|'sleep'|'free'|null, nudgeScore: number, now = 0) =>
-    resolveRealPersonReplyPlan({ activity, nudgeScore, firstUnansweredAt: 0, now, fallbackDelayMs: 9_000 });
+const plan = (activity: 'busy' | 'sleep' | 'free' | null, anchor = 1_000_000, now = anchor) =>
+    resolveRealPersonReplyPlan({ activity, firstUnansweredAt: anchor, now, fallbackDelayMs: 90_000 });
 
-describe('schedule-grounded real-person reply policy', () => {
-    it('free and missing schedules retain fast deterministic fallbacks', () => {
-        expect(plan('free', 1).delayMs).toBe(3_000);
-        expect(plan(null, 1).delayMs).toBe(9_000);
+describe('schedule grounded timing with no nudge score', () => {
+    it('free and unknown keep bounded responsive waits', () => {
+        expect(plan('free').delayMs).toBeGreaterThanOrEqual(2_500);
+        expect(plan('free').delayMs).toBeLessThan(6_000);
+        expect(plan(null).delayMs).toBe(9_000);
     });
-    it('a busy character does not wake just because the clock advanced hours', () => {
-        expect(plan('busy', 1, 2 * 60 * 60_000).delayMs).toBeNull();
-        expect(plan('busy', 3, 2 * 60 * 60_000).delayMs).toBeNull();
-        expect(plan('busy', 4, 8 * 60_000).delayMs).toBe(4_500);
-        expect(plan('busy', 6).delayMs).toBe(4_500);
+    it('busy waits after one send, without fixed message-count thresholds', () => {
+        const delay = plan('busy').delayMs!;
+        expect(delay).toBeGreaterThanOrEqual(35_000);
+        expect(delay).toBeLessThan(110_000);
+        expect(plan('busy', 1_000_000, 1_010_000).delayMs).toBe(delay - 10_000);
+        expect(plan('busy', 1_000_000, 2_000_000).delayMs).toBe(3_500);
     });
-    it('sleep takes more deliberate nudges and no time bonus', () => {
-        expect(plan('sleep', 6, 10 * 60 * 60_000).delayMs).toBeNull();
-        expect(plan('sleep', 7).delayMs).toBe(12_000);
+    it('sleep cannot be unlocked just by nudging', () => {
+        expect(plan('sleep').delayMs).toBeNull();
+        expect(plan('sleep', 1_000_000, 2_000_000).delayMs).toBeNull();
     });
-    it('never generates a new fact or empty fake reply request', () => {
-        expect(plan('busy', Number.NaN).delayMs).toBeNull();
-        expect(plan(null, -1).delayMs).toBeGreaterThan(0);
+    it('unknown state and invalid inputs never invent a busy state', () => {
+        expect(resolveRealPersonReplyPlan({ activity:null, firstUnansweredAt:NaN, now:0, fallbackDelayMs:NaN }).delayMs).toBe(3_000);
     });
 });
