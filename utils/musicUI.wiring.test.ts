@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 const app = readFileSync(new URL('../apps/MusicApp.tsx', import.meta.url), 'utf8');
 const ui = readFileSync(new URL('../apps/music/MusicUI.tsx', import.meta.url), 'utf8');
 const queueSheet = readFileSync(new URL('../apps/music/MusicQueueSheet.tsx', import.meta.url), 'utf8');
+const playlistSheet = readFileSync(new URL('../apps/music/MusicPlaylistSheet.tsx', import.meta.url), 'utf8');
 const profile = readFileSync(new URL('../apps/music/NeteaseProfilePage.tsx', import.meta.url), 'utf8');
 const login = readFileSync(new URL('../apps/music/NeteaseLoginPanel.tsx', import.meta.url), 'utf8');
 
@@ -140,6 +141,40 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
   });
 });
 
+
+describe('歌单交互与移动端可用性', () => {
+  it('歌曲行一直可直接打开歌单弹层，无需预先创建歌单', () => {
+    expect(app).toContain('setPlaylistSheetSong(song)');
+    expect(app).toContain('aria-haspopup="dialog"');
+    expect(app).toContain('className="music-icon-press w-11 h-11');
+    expect(app).toContain('{playlistSheetSong && <MusicPlaylistSheet');
+    expect(app).not.toContain('library.playlists.length > 0 && <div className="relative w-8 h-8');
+    expect(playlistSheet).toContain('role="dialog" aria-modal="true"');
+    expect(playlistSheet).toContain('min-h-[54px]');
+    expect(playlistSheet).toContain('env(safe-area-inset-bottom');
+  });
+
+  it('可选择既有歌单，也能一次创建并把当前歌加入', () => {
+    expect(playlistSheet).toContain('新建歌单并加入这首歌');
+    expect(playlistSheet).toContain('onCreateAndAdd(name.trim())');
+    expect(playlistSheet).toContain('if (onAdd(pl.id)) onClose()');
+    expect(playlistSheet).toContain('disabled={already || full}');
+    expect(app).toContain('createPlaylistWithSong(name, playlistSheetSong)');
+    expect(app).toContain('if (!playlist || !addSongToPlaylist(id, playlistSheetSong)) return false;');
+    expect(playlistSheet).toContain("e.key === 'Enter' && !e.nativeEvent.isComposing");
+    expect(playlistSheet).toContain("e.key === 'Escape'");
+  });
+
+  it('重命名在歌单卡片内完成，写入失败保留编辑内容', () => {
+    expect(app).toContain('const [editingPlaylist, setEditingPlaylist]');
+    expect(app).toContain('renamePlaylist(editingPlaylist.id, name)');
+    expect(app).toContain('editingPlaylist?.id === pl.id');
+    expect(app).toContain('aria-label={`编辑《${pl.name}》的新名称`}');
+    expect(app).not.toContain("window.prompt('修改歌单名称'");
+    expect(app).toContain('编辑歌单名称');
+    expect(app).toContain('取消</button>');
+  });
+});
 
 describe('高级感灰阶排版与播放交互回归', () => {
   it('首页使用编辑式字级层次、线性音源导航，不恢复粉彩药丸按钮', () => {
