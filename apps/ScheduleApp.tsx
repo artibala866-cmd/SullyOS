@@ -7,6 +7,7 @@ import StudyAvatar from './StudyAvatar';
 import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
+import {buildCompanionOverview,companionMomentText} from '../utils/studyRoomCompanion';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
@@ -54,6 +55,8 @@ const ScheduleApp: React.FC = () => {
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
   const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [companionMoment,setCompanionMoment]=useState('');
+  const [overviewBusy,setOverviewBusy]=useState(false);
   const [showCharPicker,setShowCharPicker]=useState(false);
   const [assistantTopic, setAssistantTopic] = useState('');
   const [assistantScope,setAssistantScope]=useState<StudyDialogueScope>('focus');
@@ -149,8 +152,10 @@ const ScheduleApp: React.FC = () => {
         setTasks(updatedTasks);
       }
       addToast('专注完成，可以休息了', 'success');
+      setCompanionMoment('这轮专注完成啦。可以休息一下，或和 Char 聊聊刚才的进展。');
     } else {
       addToast('休息结束，准备下一轮', 'success');
+      setCompanionMoment('休息结束啦。想继续刚才的任务，可以再开始一轮。');
     }
     save('session', null);
     setSession(null);
@@ -173,6 +178,7 @@ const ScheduleApp: React.FC = () => {
     if (mode === 'focus' && !selectedTask) { addToast('请先选择或创建任务', 'error'); setTab('tasks'); return; }
     const duration = mode === 'focus' ? focusMinutes : breakMinutes;
     processed.current = null;
+    setCompanionMoment('');
     setSession({ id: newWorkspaceId(), mode, duration, deadline: Date.now() + duration * 60000, taskId: selectedTask, usedChatWindows: [] });
     setTab('timer');
   };
@@ -238,6 +244,7 @@ const ScheduleApp: React.FC = () => {
     }
     // Starting from an actionable work card requires only one deliberate tap.
     processed.current=null;
+    setCompanionMoment('');
     setSession({
       id:newWorkspaceId(),mode:'focus',duration:focusMinutes,
       deadline:Date.now()+focusMinutes*60000,
@@ -257,6 +264,23 @@ const ScheduleApp: React.FC = () => {
     setPlanRequest(null);
     setPlanPreview(null);
     setMessage('');
+  };
+  const openCompanionOverview=async()=>{
+    if(overviewBusy)return;
+    if(!activeChar){setShowCharPicker(true);addToast('请先选择想陪你学习的 Char','info');return;}
+    const version=++discussionVersion.current;
+    setOverviewBusy(true);
+    try{
+      // Read only on a deliberate user action; no paid AI call yet.
+      const workspace=await readWorkspace();
+      if(version!==discussionVersion.current)return;
+      setPlanRequest(null);setPlanPreview(null);
+      setAssistantScope('overview');setAssistantItemId('');
+      setAssistantTopic(buildCompanionOverview(workspace,session,activeTask?.title||''));
+      setMessage('陪我一起看看现在先做什么比较好？');
+      setAssistantOpen(true);
+    }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
+    finally{setOverviewBusy(false);}
   };
   const discuss = (topic:string,scope:'study'|'commission',itemId='') => {
     if(!activeChar){addToast('请先选择 Char 再发起讨论','error');return;}
@@ -373,14 +397,24 @@ const ScheduleApp: React.FC = () => {
       setReplying(false);
     }
   };
+  const companionStatus=companionMoment || companionMomentText(session,activeTask?.title||'',(records.length?records[records.length-1].minutes:0));
   return (
-    <>
+    <div className="relative h-full w-full overflow-hidden">
       {tab === 'study' && (
-        <div className="h-full w-full overflow-hidden bg-white">
+        <div className="relative h-full w-full overflow-hidden bg-white">
           <React.Suspense fallback={<p className="p-5">正在打开自习室…</p>}>
             <StudyApp highlightCourseId={studyTargetCourseId || undefined}
               onExit={() => {setTab(studyReturnTab);setStudyTargetCourseId(null);}} />
           </React.Suspense>
+          <button type="button" disabled={overviewBusy}
+            className="absolute right-3 bottom-16 z-[60] flex max-w-[85%] items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 shadow-lg text-xs disabled:opacity-60"
+            aria-label="在自习室和当前 Char 继续陪伴"
+            onClick={()=>void openCompanionOverview()}>
+            <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full bg-neutral-100">
+              <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-full w-full rounded-full"/>
+            </span>
+            <span className="min-w-0 truncate">{activeChar?.name||'选择 Char'} · 陪我学习</span>
+          </button>
         </div>
       )}
       <div className={tab === 'study'
@@ -401,6 +435,15 @@ const ScheduleApp: React.FC = () => {
           </button>
         </div>
       </header>
+      <div className="shrink-0 flex w-full items-center justify-between gap-2 border-b border-neutral-200 bg-white/90 px-3 py-1.5 text-xs sm:px-6" aria-label="Char 持续陪伴状态">
+        <p className="min-w-0 flex-1 truncate text-neutral-600">
+          <strong className="text-neutral-800">{activeChar?.name||'尚未选 Char'}</strong> · {companionStatus}
+        </p>
+        <button type="button" disabled={overviewBusy} onClick={()=>void openCompanionOverview()}
+          className="shrink-0 rounded-full border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-[11px] font-medium disabled:opacity-50">
+          {overviewBusy?'读取中…':'一起看今天'}
+        </button>
+      </div>
       <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 pb-4 space-y-3">
         {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
@@ -523,6 +566,19 @@ const ScheduleApp: React.FC = () => {
           .map(([id,title])=><button key={id} onClick={()=>switchTab(id)}
             className={'rounded-xl py-2.5 text-[12px] font-medium transition-colors '+(tab===id?'bg-neutral-900 text-white':'text-neutral-500 hover:bg-neutral-100')}>{title}</button>)}
       </nav>
+      {exitOpen && <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-[#eeeeee] rounded-3xl p-6 space-y-4 shadow-xl">
+          <h2 className="text-lg font-medium">结束当前计时轮次？</h2>
+          <p className="text-sm">尚未完成的轮次不会计入专注成绩。可以继续、仅中断留在学习室，或者确认退出。</p>
+          <div className="text-xs text-[#999999]">冷静倒计时：{Math.max(0, Math.ceil((exitDeadline - now) / 1000))} 秒</div>
+          <input aria-label="退出确认文字" value={exitPhrase} onChange={e => setExitPhrase(e.target.value)} placeholder={EXIT_PHRASE} className="w-full p-3 bg-white rounded-xl text-sm" />
+          <button className={btn + ' w-full'} onClick={() => setExitOpen(false)}>继续专注</button>
+          <button className="w-full text-sm py-2 underline" onClick={() => stop(false)}>中断本轮，留在学习室</button>
+          <button className="w-full py-2 text-sm disabled:opacity-30" disabled={exitPhrase.trim() !== EXIT_PHRASE || now < exitDeadline} onClick={() => stop(true)}>确认中断并退出</button>
+          <button className="w-full text-xs underline" onClick={() => stop(true)}>紧急退出</button>
+        </div>
+      </div>}
+      </div>
       {assistantOpen && <div className="absolute inset-0 z-[80] bg-black/40 flex items-end justify-center"
         onClick={()=>setAssistantOpen(false)}>
         <section className="bg-white text-neutral-900 w-full max-w-xl h-[65%] rounded-t-2xl p-4 flex flex-col gap-3"
@@ -532,7 +588,7 @@ const ScheduleApp: React.FC = () => {
             <button className="text-lg px-3" aria-label="关闭 Char" onClick={()=>setAssistantOpen(false)}>×</button>
           </div>
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
-          <p className="text-xs text-neutral-500">{assistantScope==='focus'?'专注陪伴':assistantScope==='study'?'作业复盘':assistantScope==='commission'?'画稿建议':'排单建议'}</p>
+          <p className="text-xs text-neutral-500">{assistantScope==='focus'?'专注陪伴':assistantScope==='study'?'作业复盘':assistantScope==='commission'?'画稿建议':assistantScope==='overview'?'今日陪伴':'排单建议'}</p>
           {assistantTopic && <details className="text-xs rounded-lg border border-neutral-200 px-3 py-2">
             <summary className="cursor-pointer">发送内容</summary>
             <p className="mt-2 whitespace-pre-wrap break-words max-h-36 overflow-y-auto">{assistantTopic.slice(0,12000)}</p>
@@ -564,20 +620,7 @@ const ScheduleApp: React.FC = () => {
           </form>
         </section>
       </div>}
-      {exitOpen && <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-[#eeeeee] rounded-3xl p-6 space-y-4 shadow-xl">
-          <h2 className="text-lg font-medium">结束当前计时轮次？</h2>
-          <p className="text-sm">尚未完成的轮次不会计入专注成绩。可以继续、仅中断留在学习室，或者确认退出。</p>
-          <div className="text-xs text-[#999999]">冷静倒计时：{Math.max(0, Math.ceil((exitDeadline - now) / 1000))} 秒</div>
-          <input aria-label="退出确认文字" value={exitPhrase} onChange={e => setExitPhrase(e.target.value)} placeholder={EXIT_PHRASE} className="w-full p-3 bg-white rounded-xl text-sm" />
-          <button className={btn + ' w-full'} onClick={() => setExitOpen(false)}>继续专注</button>
-          <button className="w-full text-sm py-2 underline" onClick={() => stop(false)}>中断本轮，留在学习室</button>
-          <button className="w-full py-2 text-sm disabled:opacity-30" disabled={exitPhrase.trim() !== EXIT_PHRASE || now < exitDeadline} onClick={() => stop(true)}>确认中断并退出</button>
-          <button className="w-full text-xs underline" onClick={() => stop(true)}>紧急退出</button>
-        </div>
-      </div>}
-      </div>
-    </>
+    </div>
   );
 };
 export default ScheduleApp;

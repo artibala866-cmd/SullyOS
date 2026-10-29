@@ -2,7 +2,7 @@
  * Unscoped historic content remains visible on-device but is never reused
  * as AI context: it could contain unrelated commissions, coursework or notes.
  */
-export type StudyDialogueScope='focus'|'study'|'commission'|'plan';
+export type StudyDialogueScope='focus'|'study'|'commission'|'plan'|'overview';
 export interface FocusChatNote {
   id:string;
   role:'user'|'assistant';
