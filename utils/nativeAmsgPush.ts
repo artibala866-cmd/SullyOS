@@ -15,6 +15,7 @@ const installed = {
   registrationError: false,
   received: false,
   opened: false,
+  resumeRecheck: false,
 };
 
 export const decodeNativeAmsgPayload = (
@@ -61,6 +62,14 @@ const onNotificationOpened = (action: ActionPerformed) => {
     });
 };
 
+const onRegistrationError = (error: unknown) => {
+  // The OS may report a failure asynchronously after register() returned.
+  // Do not permanently treat this device as registered: try again when the
+  // user next foregrounds the application.
+  registeredForPush = false;
+  console.warn('[ActiveMsg:native] FCM registration 失败，回前台后可重试', error);
+};
+
 const registerToken = async (token: Token) => {
   const value = token.value?.trim();
   if (!value) return;
@@ -95,8 +104,7 @@ export const initNativeAmsgPush = async (): Promise<void> => {
       installed.registration = true;
     }
     if (!installed.registrationError) {
-      await PushNotifications.addListener('registrationError', error =>
-        console.warn('[ActiveMsg:native] FCM registration 失败', error));
+      await PushNotifications.addListener('registrationError', onRegistrationError);
       installed.registrationError = true;
     }
     if (!installed.received) {
@@ -106,6 +114,18 @@ export const initNativeAmsgPush = async (): Promise<void> => {
     if (!installed.opened) {
       await PushNotifications.addListener('pushNotificationActionPerformed', onNotificationOpened);
       installed.opened = true;
+    }
+
+    // Android permission can change in Settings while the WebView survives.
+    // Recheck on foreground, not only on the first application bootstrap.
+    if (!installed.resumeRecheck && typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && !registeredForPush) {
+          void initNativeAmsgPush().catch(error =>
+            console.warn('[ActiveMsg:native] 回前台重新登记推送失败', error));
+        }
+      });
+      installed.resumeRecheck = true;
     }
 
     const current = await PushNotifications.checkPermissions();

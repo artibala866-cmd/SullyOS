@@ -6,6 +6,7 @@ const state = vi.hoisted(() => ({
   permission: 'granted' as 'granted' | 'denied' | 'prompt',
   ingest: vi.fn().mockResolvedValue(null),
   register: vi.fn().mockResolvedValue(undefined),
+  registerToken: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@capacitor/push-notifications', () => ({
@@ -23,7 +24,10 @@ vi.mock('@capacitor/push-notifications', () => ({
     register: state.register,
   },
 }));
-vi.mock('./activeMsgClient', () => ({ ActiveMsgClient: {}, NATIVE_PUSH_TOKEN_STORAGE_KEY: 'token' }));
+vi.mock('./activeMsgClient', () => ({
+  ActiveMsgClient: { registerNativePushToken: state.registerToken },
+  NATIVE_PUSH_TOKEN_STORAGE_KEY: 'token',
+}));
 vi.mock('./nativeAmsgInbox', () => ({
   parseNativeAmsgPayload: (raw: string) => JSON.parse(raw),
   ingestNativeAmsgPayload: state.ingest,
@@ -42,6 +46,7 @@ describe('native AMSG2 FCM payload bridge', () => {
   beforeEach(() => {
     state.ingest.mockReset().mockResolvedValue({ charId: 'c1', messageId: 'm1' });
     state.register.mockClear();
+    state.registerToken.mockReset().mockResolvedValue(undefined);
     state.failOnce = '';
     state.permission = 'granted';
   });
@@ -82,6 +87,27 @@ describe('native AMSG2 FCM payload bridge', () => {
     await initNativeAmsgPush();
     expect(state.register).toHaveBeenCalledTimes(1);
     expect(state.registered).toHaveLength(4);
+  });
+
+  it('registrationError clears apparent success and permits retry', async () => {
+    const failed = state.registered.find(x => x.event === 'registrationError')!.callback;
+    failed({ error: 'FCM token rejected' });
+    await initNativeAmsgPush();
+    expect(state.register).toHaveBeenCalledTimes(1);
+    expect(state.registered).toHaveLength(4);
+  });
+
+  it('a storage quota failure does not prevent direct FCM token registration', async () => {
+    const registration = state.registered.find(x => x.event === 'registration')!.callback;
+    vi.stubGlobal('localStorage', {
+      setItem: () => { throw new Error('storage disabled'); },
+    });
+    try {
+      await registration({ value: 'fcm-device-token' });
+      expect(state.registerToken).toHaveBeenCalledWith('fcm-device-token');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('native receipt and notification tap both use the shared durable ingest', async () => {
