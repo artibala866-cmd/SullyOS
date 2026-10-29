@@ -555,9 +555,9 @@ async function saveContentToInbox(payload: any) {
       // (第 1 条才挂 metadata.thinkingChain).
       metadata: {
         ...(payload?.metadata || {}),
-        sessionId: payload?.sessionId,
-        messageIndex: payload?.messageIndex,
-        totalMessages: payload?.totalMessages,
+        ...(payload?.sessionId !== undefined ? { sessionId: payload.sessionId } : {}),
+        ...(payload?.messageIndex !== undefined ? { messageIndex: payload.messageIndex } : {}),
+        ...(payload?.totalMessages !== undefined ? { totalMessages: payload.totalMessages } : {}),
       },
       sentAt,
       receivedAt: Date.now(),

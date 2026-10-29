@@ -60,7 +60,7 @@ jobs:
       - name: Test stage-2 natural bubbles and streaming-to-storage parity
         run: pnpm exec vitest run utils/streamPreview.test.ts utils/chatParser.chunkText.test.ts utils/applyAssistantPostProcessing.amsg2Drift.test.ts
       - name: Test stage-6 privacy-masked FCM recovery and permission re-registration
-        run: pnpm exec vitest run utils/nativeAmsgInbox.test.ts utils/nativeAmsgPush.test.ts utils/amsgInstantChat.test.ts utils/activeMsgRuntime.beforeChat.test.ts utils/amsgResults.test.ts
+        run: pnpm exec vitest run utils/nativeAmsgInbox.test.ts utils/nativeAmsgPush.test.ts utils/amsgInstantChat.test.ts utils/activeMsgRuntime.beforeChat.test.ts utils/amsgResults.test.ts utils/amsgSwMetadataParity.test.ts
       - name: Check stage-6 targeted cloud-delivery TypeScript diagnostics
         shell: bash
         run: |
