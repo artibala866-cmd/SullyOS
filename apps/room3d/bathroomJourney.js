@@ -49,7 +49,7 @@ export function bathroomJourneyFrame(j,time){
  const progress=cancelled?Math.max(0,entryProgress-(t-j.cancelElapsed)):undefined;
  const phase=cancelled?'exit':t<j.enter?'enter':t<j.enter+j.hold?'work':'exit';
  const p=cancelled?progress:phase==='enter'?t:phase==='work'?j.enter:duration-t;
- let position,rotation,seatWeight=0,legLift=0,support=0,approachStep=0,approachTrailStep=0,leadStep=0,trailStep=0,lean=0,crouch=0,supportFoot=null;
+ let position,rotation,seatWeight=0,legLift=0,support=0,approachStep=0,approachTrailStep=0,leadStep=0,trailStep=0,leadTuck=0,trailTuck=0,lean=0,crouch=0,supportFoot=null;
  if(j.tub){
   // Turn on the planted feet, reach the rim, lift one leg, transfer weight,
   // then lift the trailing leg. Lower into the authored seat AFTER clearing.
@@ -61,6 +61,10 @@ export function bathroomJourneyFrame(j,time){
   approachStep=pulse(p,.28,.47,.59,.76);
   approachTrailStep=pulse(p,.78,.94,1.02,1.20);
   supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
+  // Tuck the knee vertically before swinging the foot across the tall rim.
+  // The two contacts are separate: lift first, then transfer across.
+  leadTuck=pulse(p,1.24,1.58,2.34,2.72);
+  trailTuck=pulse(p,2.34,2.62,3.25,3.65);
   leadStep=pulse(p,1.84,2.12,2.28,2.60);
   trailStep=pulse(p,2.64,2.92,3.18,3.52);
   // Hands may reach early; knee flexion and pelvis lowering must wait for
@@ -79,7 +83,7 @@ export function bathroomJourneyFrame(j,time){
   const f=M.smootherstep(p,0,j.enter);
   position=mix(j.front,j.position,f);rotation=turn(j.startRotation,j.rotation,f);seatWeight=j.seated?f:0;
  }
- return {position,rotation,seatWeight,legLift,support,approachStep,approachTrailStep,supportFoot,leadStep,trailStep,lean,crouch,phase,time:phase==='work'?t-j.enter:p,
+ return {position,rotation,seatWeight,legLift,support,approachStep,approachTrailStep,supportFoot,leadStep,trailStep,leadTuck,trailTuck,lean,crouch,phase,time:phase==='work'?t-j.enter:p,
   done:cancelled?t-j.cancelElapsed+1e-8>=entryProgress:t>=duration};
 }
 
