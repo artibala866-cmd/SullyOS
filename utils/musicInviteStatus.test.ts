@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { findPendingMusicInvite, hasPendingMusicInvite } from './musicInviteStatus';
 
 describe('一起听邀请状态', () => {
@@ -29,6 +30,13 @@ describe('一起听邀请状态', () => {
       fromChar,
       { id: 4, metadata: { musicListenInviteResponseTo: 2, accepted: false } },
     ], 'char')).toBeUndefined();
+  });
+
+  it('两个邀请方向共享同一串行锁，避免读库/写库之间并发叠卡', () => {
+    const context = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
+    expect(context).toContain('const creatingCharInvites = invitingCharIds;');
+    expect(context).toContain("if (hasPendingMusicInvite(messages)) return;");
+    expect(context).toContain("if (findPendingMusicInvite(history, 'char'))");
   });
 
   it('任一方的待回应邀请都会阻止再创建反向邀请', () => {

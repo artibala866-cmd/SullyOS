@@ -1561,7 +1561,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [current, playing, lyric, activeLyricIdx, listeningTogetherWith, cfg, recentTrackChange, listeningStartedAt, listeningInvites, lastListeningEnd]);
 
-  const creatingCharInvites = useRef(new Set<string>());
+  // Both User→Char and Char→User must share one synchronous per-Char lock.
+  // Independent locks could both read the DB before either writes an invite.
+  const creatingCharInvites = invitingCharIds;
   // 把整组 musicHooks 写到模块级 slot — useChatAI 和 activeMsgRuntime 都从这里取.
   // current / addListeningPartner 变化时刷新闭包, 保证读到的是最新 React state.
   // addSongToCharPlaylist 直接落 DB, 落完广播 'char-music-profile-updated' 让 OSContext
