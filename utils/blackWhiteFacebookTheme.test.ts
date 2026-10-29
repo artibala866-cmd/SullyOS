@@ -47,7 +47,7 @@ describe('actual current-character bubble picker wiring', () => {
     const item = source('components/chat/MessageItem.tsx');
     expect(item).toContain('blackWhiteFacebook && isUser && m.replyTo');
     expect(item).toContain('blackWhiteFacebook && !isUser && m.replyTo');
-    expect(item).toContain("blackWhiteFacebook && m.type === 'text' ? 'flex flex-col items-stretch min-w-0'");
+    expect(item).toContain("blackWhiteFacebook && m.type === 'text' ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0')");
     expect(item).toContain('m.replyTo && !blackWhiteFacebook');
     expect(item).toContain('prev.blackWhiteFacebook === next.blackWhiteFacebook');
   });

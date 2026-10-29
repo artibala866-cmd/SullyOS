@@ -1640,7 +1640,7 @@ const MessageItem = React.memo(({
                         {...interactionProps}
                     >
                     {!centerModules && thinkingChainNode}
-                    <div className={`${selectionMode ? 'pointer-events-none' : ''} ${blackWhiteFacebook && m.type === 'text' ? 'flex flex-col items-stretch min-w-0' : ''}`}>
+                    <div className={`${selectionMode ? 'pointer-events-none' : ''} ${blackWhiteFacebook && m.type === 'text' ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''}`}>
                         {<ChatCardSurface message={m}>{content}</ChatCardSurface>}
                     </div>
                     {isLastInGroup && showTimestamp !== 'never' && (
