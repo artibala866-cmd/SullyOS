@@ -14,6 +14,7 @@ import {
 } from './music/MusicUI';
 import NeteaseProfilePage from './music/NeteaseProfilePage';
 import { MusicQueueSheet } from './music/MusicQueueSheet';
+import { MusicPlaylistSheet } from './music/MusicPlaylistSheet';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 
 // ------------------------- 工具 -------------------------
@@ -37,7 +38,7 @@ const MusicApp: React.FC = () => {
     liked, toggleLike, setToastHandler,
     listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, respondListeningInvite, removeListeningPartner,
     addLocalSong, removeLocalSong, localAlbumSongs,
-    queue, idx, library, toggleLocalLike, createPlaylist, renamePlaylist, deletePlaylist,
+    queue, idx, library, toggleLocalLike, createPlaylist, createPlaylistWithSong, renamePlaylist, deletePlaylist,
     addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
     addToQueue, moveQueueSong, removeQueueSong, clearUpcomingQueue,
     playMode, setPlayMode,
@@ -150,6 +151,18 @@ const MusicApp: React.FC = () => {
   const [section, setSection] = useState<'results' | 'likes' | 'playlists' | 'history'>('results');
   const [playlistName, setPlaylistName] = useState('');
   const [openedPlaylist, setOpenedPlaylist] = useState<string | null>(null);
+  const [playlistSheetSong, setPlaylistSheetSong] = useState<Song | null>(null);
+  const [editingPlaylist, setEditingPlaylist] = useState<{ id: string; name: string } | null>(null);
+  const savePlaylistName = () => {
+    if (!editingPlaylist) return;
+    const name = editingPlaylist.name.trim();
+    const previous = library.playlists.find(p => p.id === editingPlaylist.id);
+    if (!name || !previous) return;
+    if (previous.name === name || renamePlaylist(editingPlaylist.id, name)) {
+      setEditingPlaylist(null);
+      if (previous.name !== name) addToast('歌单已重命名', 'success');
+    }
+  };
   const [visibleCount, setVisibleCount] = useState(36);
   useEffect(() => { setVisibleCount(36); }, [section, openedPlaylist, searchSource]);
   const [results, setResults] = useState<Song[]>([]);
@@ -236,7 +249,7 @@ const MusicApp: React.FC = () => {
             </div>
             <div className="flex items-center gap-0 shrink-0 pr-1">
               <button type="button" aria-label={`将《${song.name}》加入播放队列`} title="加入播放队列"
-                className="music-icon-press w-8 h-8 rounded-sm flex items-center justify-center"
+                className="music-icon-press w-10 h-11 rounded-sm flex items-center justify-center"
                 style={{ color: C.muted }}
                 onClick={() => {
                   const exists = queue.some(item => sameMusic(item, song));
@@ -245,25 +258,20 @@ const MusicApp: React.FC = () => {
                 }}><Plus size={14} weight="regular" /></button>
               <button type="button" aria-label={isLiked ? `取消喜欢《${song.name}》` : `喜欢《${song.name}》`}
                 aria-pressed={isLiked} title={isLiked ? '取消本地喜欢' : '加入本地喜欢'}
-                className={`music-icon-press w-8 h-8 rounded-sm flex items-center justify-center ${isLiked ? 'music-heart-active' : ''}`}
+                className={`music-icon-press w-10 h-11 rounded-sm flex items-center justify-center ${isLiked ? 'music-heart-active' : ''}`}
                 style={{ color: isLiked ? C.primary : C.muted }}
                 onClick={() => {
                   if (toggleLocalLike(song)) addToast(isLiked ? '已从本地喜欢移除' : '已加入本地喜欢', 'success');
                 }}>
                 <Heart size={14} weight={isLiked ? 'fill' : 'regular'} />
               </button>
-              {library.playlists.length > 0 && <div className="relative w-8 h-8 rounded-sm flex items-center justify-center"
-                style={{ color: C.muted }}>
-                <ListPlus size={14} weight="regular" aria-hidden="true" />
-                <select aria-label={`把《${song.name}》加入本地歌单`} title="加入歌单"
-                  value="" className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                  onChange={e => {
-                    if (e.target.value) addSongToPlaylist(e.target.value, song);
-                  }}>
-                  <option value="">加入歌单</option>
-                  {library.playlists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>}
+              <button type="button" aria-label={`把《${song.name}》加入本地歌单`} title="加入歌单或新建歌单"
+                aria-haspopup="dialog"
+                className="music-icon-press w-11 h-11 rounded-sm flex items-center justify-center shrink-0"
+                style={{ color: C.muted }}
+                onClick={() => setPlaylistSheetSong(song)}>
+                <ListPlus size={20} weight="regular" />
+              </button>
               {playlistId && <div className="relative w-8 h-8 flex items-center justify-center"
                 style={{ color: C.muted }}>
                 <DotsThreeVertical size={18} weight="regular" aria-hidden="true" />
@@ -418,9 +426,11 @@ const MusicApp: React.FC = () => {
                   </span>
                   {opened ? <CaretUp size={15} color={C.primary} /> : <CaretDown size={15} color={C.primary} />}
                 </button>
-                <button className="music-icon-press rounded-full w-8 h-8 flex items-center justify-center"
-                  style={{ color: C.primary }} aria-label={`重命名《${pl.name}》`} title="重命名"
-                  onClick={() => { const n = window.prompt('修改歌单名称', pl.name); if (n?.trim()) renamePlaylist(pl.id, n); }}><PencilSimple size={17} /></button>
+                <button type="button" className="music-icon-press rounded-full w-10 h-11 flex items-center justify-center"
+                  style={{ color: C.primary }} aria-label={`编辑歌单名称《${pl.name}》`} title="编辑歌单名称"
+                  onClick={() => setEditingPlaylist(editingPlaylist?.id === pl.id ? null : { id: pl.id, name: pl.name })}>
+                  <PencilSimple size={18} />
+                </button>
                 <button className="music-tap rounded-full w-9 h-9 flex items-center justify-center text-white"
                   style={{ background: C.primary }} disabled={!pl.songs.length} aria-label={`播放歌单《${pl.name}》`} title="播放歌单"
                   onClick={() => { if (pl.songs.length) void playSong(pl.songs[0], { replaceQueue: pl.songs, startIdx: 0 }); }}><PlayIcon size={17} weight="fill" /></button>
@@ -428,6 +438,23 @@ const MusicApp: React.FC = () => {
                   style={{ color: C.accent }} aria-label={`删除歌单《${pl.name}》`} title="删除歌单"
                   onClick={() => { if (window.confirm(`删除本地歌单《${pl.name}》？歌曲收藏和历史不会被删除。`)) deletePlaylist(pl.id); }}><Trash size={17} /></button>
               </div>
+              {editingPlaylist?.id === pl.id && <div className="mt-2 flex gap-2 items-center px-2 pb-2">
+                <input aria-label={`编辑《${pl.name}》的新名称`} autoFocus
+                  value={editingPlaylist.name} maxLength={60}
+                  onChange={e => setEditingPlaylist({ id: pl.id, name: e.target.value })}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') { e.stopPropagation(); setEditingPlaylist(null); }
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) savePlaylistName();
+                  }}
+                  className="flex-1 min-w-0 h-11 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-neutral-500"
+                  style={{ background: C.bgDeep, color: C.text }} />
+                <button type="button" onClick={savePlaylistName} disabled={!editingPlaylist.name.trim()}
+                  className="music-tap h-11 px-3 rounded-md text-xs font-medium disabled:opacity-40"
+                  style={{ background: C.primary, color: '#fff' }}>保存</button>
+                <button type="button" onClick={() => setEditingPlaylist(null)}
+                  className="music-tap h-11 px-3 rounded-md text-xs"
+                  style={{ background: C.soft, color: C.muted }}>取消</button>
+              </div>}
               {opened && <div className="music-panel-enter mt-3 pt-2" style={{ borderTop: `1px solid ${C.soft}` }}>{renderLibrarySongs(pl.songs, pl.id)}</div>}
             </div>;
           })}
@@ -779,6 +806,21 @@ const MusicApp: React.FC = () => {
           />
         )}
       </div>
+      {playlistSheetSong && <MusicPlaylistSheet
+        song={playlistSheetSong} playlists={library.playlists}
+        onClose={() => setPlaylistSheetSong(null)}
+        onAdd={id => {
+          const playlist = library.playlists.find(p => p.id === id);
+          if (!playlist || !addSongToPlaylist(id, playlistSheetSong)) return false;
+          addToast(`已加入《${playlist.name}》`, 'success');
+          return true;
+        }}
+        onCreateAndAdd={name => {
+          if (!createPlaylistWithSong(name, playlistSheetSong)) return false;
+          addToast('新歌单已创建，歌曲已加入', 'success');
+          return true;
+        }}
+      />}
       {queueSheetOpen && <MusicQueueSheet
         queue={queue} activeIndex={idx} playing={playing} loading={loadingSong}
         onClose={() => setQueueSheetOpen(false)}
