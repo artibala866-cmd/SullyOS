@@ -3754,8 +3754,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         blocked: messages.length === 0 || isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
             || selectionMode || isSummarizing || collaborationOpen || memoryRepairOpen || favoritesOpen
             || showActiveMsg2Modal || showThinkingChainModal
-            || mcdAppOpen || luckinAppOpen || showForwardModal,
-        generating: isTyping || instantChatPending || isProactiveComposing,
+            || mcdAppOpen || luckinAppOpen || showForwardModal || isProactiveComposing,
+        // AMSG proactive composition delays this user turn; it does not answer it.
+        generating: isTyping || instantChatPending,
         onGenerate: async (stillEligible) => {
             // The intent stays durable while this DB read is in flight. If the
             // page hides before verification, retry on the next visible turn.
