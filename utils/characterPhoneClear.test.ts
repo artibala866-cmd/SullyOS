@@ -2,6 +2,7 @@
 import {beforeEach,describe,expect,it} from 'vitest';
 import {clearSelectedPhoneData,PHONE_CLEAR_GROUPS} from './characterPhoneClear';
 import {readCharacterPhoneChats} from './characterPhoneChats';
+import {readPhoneContentClearRevision} from './characterPhoneContentClearRevision';
 import {recordCharacterLifeEvent,readCharacterLifeEvents} from './characterLifeEvents';
 beforeEach(()=>localStorage.clear());
 describe('selective Char phone cleanup',()=>{
@@ -36,6 +37,21 @@ describe('selective Char phone cleanup',()=>{
   clearSelectedPhoneData(id,['service']);
   expect(readCharacterPhoneChats(id)).toHaveLength(1);
   expect(readCharacterPhoneChats(id)[0].name).toBe('朋友');
+ });
+ it('separate phone clears invalidate only the pending category and cannot resurrect full-suite output',()=>{
+  const id='owner';
+  const kinds=['chats','contacts','moments','payments'] as const;
+  const before=Object.fromEntries(kinds.map(kind=>[kind,readPhoneContentClearRevision(id,kind)]));
+  clearSelectedPhoneData(id,['moments','payments']);
+  expect(readPhoneContentClearRevision(id,'moments')).toBeGreaterThan(before.moments);
+  expect(readPhoneContentClearRevision(id,'payments')).toBeGreaterThan(before.payments);
+  expect(readPhoneContentClearRevision(id,'chats')).toBe(before.chats);
+  expect(readPhoneContentClearRevision(id,'contacts')).toBe(before.contacts);
+  expect(readPhoneContentClearRevision('other','moments')).toBe(0);
+  clearSelectedPhoneData(id,['contacts']);
+  expect(readPhoneContentClearRevision(id,'contacts')).toBeGreaterThan(before.contacts);
+  clearSelectedPhoneData(id,['service']);
+  expect(readPhoneContentClearRevision(id,'chats')).toBeGreaterThan(before.chats);
  });
  it('retains Char music persona when resetting optional app install list',()=>{
   localStorage.setItem('sully_character_phone_install_plan_v1:owner','old plan');

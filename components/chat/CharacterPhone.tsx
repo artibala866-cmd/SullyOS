@@ -456,6 +456,9 @@ export default function CharacterPhone({
         !beginCharacterPhoneRefresh(characterId)) return;
     setBusy(true); setError('');setWechatNotice('');
     const chatsRevisionAtStart=readPhoneContentClearRevision(characterId,'chats');
+    const contactsRevisionAtStart=readPhoneContentClearRevision(characterId,'contacts');
+    const momentsRevisionAtStart=readPhoneContentClearRevision(characterId,'moments');
+    const paymentsRevisionAtStart=readPhoneContentClearRevision(characterId,'payments');
     try {
       const context = await loadRealContext();
       const phoneTimeAwarenessOn = char.timeAwarenessEnabled !== false;
@@ -518,7 +521,8 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       if(!data || typeof data!=='object' || Array.isArray(data)) throw new Error('微信收件箱返回格式错误');
       // An optional full-suite subtask may be absent or malformed; save other
       // independently valid results instead of silently discarding the batch.
-      if(chatsRevisionAtStart!==readPhoneContentClearRevision(characterId,'chats')) return;
+      if(chatsRevisionAtStart!==readPhoneContentClearRevision(characterId,'chats') ||
+         contactsRevisionAtStart!==readPhoneContentClearRevision(characterId,'contacts')) return;
       const generatedThreads = Array.isArray(data.threads) ? data.threads : [];
       if(!fullSuite && !Array.isArray(data.threads)) throw new Error('微信收件箱返回格式错误');
       let savedNonChatItems=0;
@@ -584,7 +588,8 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
         }
         if(savedThreads) setRecords(updatedRecords);
       }
-      if (prefs.paymentNotices && Array.isArray(data.payments)) {
+      if (prefs.paymentNotices && Array.isArray(data.payments) &&
+          paymentsRevisionAtStart===readPhoneContentClearRevision(characterId,'payments')) {
         try {
           const receipts=appendSimulatedPhonePayments(characterId,data.payments,now);
           if(receipts.length){
@@ -651,7 +656,8 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       }
       // The manual full-suite response includes its own Moments without an
       // additional paid request. No posts are generated for User or unknown IDs.
-      if(fullSuite&&data.moments&&typeof data.moments==='object'){
+      if(fullSuite&&data.moments&&typeof data.moments==='object' &&
+         momentsRevisionAtStart===readPhoneContentClearRevision(characterId,'moments')){
         try{
           const known=readNpcProfiles(characterId);
           const listed=readCharacterMoments(characterId);

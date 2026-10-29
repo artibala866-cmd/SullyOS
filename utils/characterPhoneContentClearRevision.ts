@@ -2,7 +2,7 @@
  * Clearing an already empty list must still invalidate any pending AI result.
  * This is not a replacement data store or an autonomous scheduler.
  */
-export type PhoneContentClearKind = 'moments' | 'memos' | 'chats' | 'contacts';
+export type PhoneContentClearKind = 'moments' | 'memos' | 'chats' | 'contacts' | 'payments';
 const key = (characterId: string, kind: PhoneContentClearKind) =>
   'sully_phone_content_clear_revision_v1:' + characterId + ':' + kind;
 // Storage can be full exactly when the User needs the clear button most.

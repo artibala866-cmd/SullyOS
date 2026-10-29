@@ -37,6 +37,9 @@ export function clearSelectedPhoneData(charId:string,ids:readonly PhoneClearGrou
   for(const kind of selected){
     switch(kind){
       case 'service':
+        // A late full-suite inbox response must not recreate cleared service
+        // conversations while preserving the user's NPC chats.
+        if(!selected.includes('chats'))advancePhoneContentClearRevision(charId, 'chats');
         if(!selected.includes('chats'))updateCharacterPhoneChats(charId,rows=>rows.filter(
           r=>!(r.kind==='service'||r.contactId?.startsWith('service:'))));
         break;
@@ -72,6 +75,7 @@ export function clearSelectedPhoneData(charId:string,ids:readonly PhoneClearGrou
         clearCharacterPhoneWallet(charId);
         break;
       case 'payments':
+        advancePhoneContentClearRevision(charId, 'payments');
         clearPhonePayReceipts(charId);
         break;
       case 'social':
