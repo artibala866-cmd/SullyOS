@@ -28,6 +28,14 @@ describe('black-white private-chat Facebook-style theme', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-monochrome .sully-bubble-user');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-monochrome .sully-bubble-ai');
   });
+  it('only reflows text messages, leaving images, cards and wallpapers alone', () => {
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-facebook-text-message');
+    expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('.sully-chat-monochrome .sully-chat-message {');
+    const item = readFileSync(new URL('../components/chat/MessageItem.tsx', import.meta.url), 'utf8');
+    const chat = readFileSync(new URL('../apps/Chat.tsx', import.meta.url), 'utf8');
+    expect(item).toContain("blackWhiteFacebook && m.type === 'text' ? 'sully-facebook-text-message'");
+    expect(chat).toContain("avatarMode={blackWhiteFacebook && m.type === 'text' ? 'every_message' : osTheme.chatAvatarMode}");
+  });
   it('keeps incoming messages readable and quoted text untruncated', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('font-weight: 400 !important');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: 76% !important');

@@ -1579,6 +1579,7 @@ const MessageItem = React.memo(({
                 isFirstInGroup ? 'sully-chat-message-group-first' : '',
                 isLastInGroup ? 'sully-chat-message-group-last' : '',
                 isModuleCard ? 'sully-chat-message-module' : '',
+                blackWhiteFacebook && m.type === 'text' ? 'sully-facebook-text-message' : '',
                 `flex items-end ${marginBottom} px-3 group select-none relative transition-[padding] duration-300`,
                 selectionMode ? 'pl-12' : '',
             ].filter(Boolean).join(' ')}

@@ -4419,7 +4419,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             onPlayVoice={onPlayVoiceStable}
                             avatarShape={osTheme.chatAvatarShape}
                             avatarSize={osTheme.chatAvatarSize}
-                            avatarMode={blackWhiteFacebook ? 'every_message' : osTheme.chatAvatarMode}
+                            avatarMode={blackWhiteFacebook && m.type === 'text' ? 'every_message' : osTheme.chatAvatarMode}
                             bubbleVariant={osTheme.chatBubbleStyle}
                             messageSpacing={osTheme.chatMessageSpacing}
                             showTimestamp={blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
