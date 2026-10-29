@@ -356,3 +356,52 @@ describe('已撤回邀请与 Char 自愿加入的异步竞态', () => {
     expect(context).toContain('if (!canJoinMusicWithoutPendingInvite(history)) return false');
   });
 });
+
+describe('角色主动邀请：数据库原子回应与切换角色', () => {
+  const incoming = (charId: string) => ({
+    charId, role: 'assistant' as const, type: 'system' as const,
+    content: '一起听吗？',
+    metadata: { musicListenInvite: true, inviter: 'char', status: 'pending', invitedAt: Date.now() },
+  });
+  const reply = (charId: string, accepted: boolean) => ({
+    charId, role: 'user' as const, type: 'system' as const,
+    content: accepted ? '接受' : '拒绝', metadata: { accepted },
+  });
+  it('同一 Char 邀请接受和拒绝并发时只能提交一条结果', async () => {
+    const id = 'music-char-race-accept-reject';
+    const created = await DB.createMusicListeningInvite(incoming(id));
+    expect(created.status).toBe('created');
+    const [accepted, rejected] = await Promise.all([
+      DB.resolveMusicListeningInvite(id, 'char', reply(id, true), created.messageId),
+      DB.resolveMusicListeningInvite(id, 'char', reply(id, false), created.messageId),
+    ]);
+    expect([accepted.resolved, rejected.resolved].sort()).toEqual([false, true]);
+    const history = await DB.getMessagesByCharId(id, true);
+    expect(history.filter(m => m.metadata?.musicListenInviteResponseTo === created.messageId)).toHaveLength(1);
+    expect(findPendingMusicInvite(history, 'char')).toBeUndefined();
+  });
+  it('角色切换时旧消息 ID 不可结算新角色或新一轮邀请', async () => {
+    const firstId = 'music-char-switch-first';
+    const secondId = 'music-char-switch-second';
+    const first = await DB.createMusicListeningInvite(incoming(firstId));
+    const second = await DB.createMusicListeningInvite(incoming(secondId));
+    expect((await DB.resolveMusicListeningInvite(secondId, 'char', reply(secondId, true), first.messageId)).resolved).toBe(false);
+    expect(findPendingMusicInvite(await DB.getMessagesByCharId(secondId, true), 'char')?.id).toBe(second.messageId);
+    expect((await DB.resolveMusicListeningInvite(firstId, 'char', reply(firstId, false), first.messageId)).resolved).toBe(true);
+    const fresh = await DB.createMusicListeningInvite(incoming(firstId));
+    expect(fresh.status).toBe('created');
+    expect((await DB.resolveMusicListeningInvite(firstId, 'char', reply(firstId, true), first.messageId)).resolved).toBe(false);
+    expect(findPendingMusicInvite(await DB.getMessagesByCharId(firstId, true), 'char')?.id).toBe(fresh.messageId);
+  });
+  it('失败时不能乐观加入；聊天卡片接收保存结果并恢复重试', () => {
+    const provider = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
+    const card = readFileSync(new URL('../components/chat/MessageItem.tsx', import.meta.url), 'utf8');
+    expect(provider).toContain('answerIncomingListeningInvite');
+    expect(provider).toContain("return notify('failed')");
+    expect(provider).toContain("return notify('stale')");
+    expect(provider).toContain("return notify('resolved')");
+    expect(card).toContain("'music-listen-invite-answer-result'");
+    expect(card).toContain('inviteAnswerLockRef.current');
+    expect(card).toContain("setInviteAnswerError('回应未保存，请重试')");
+  });
+});
