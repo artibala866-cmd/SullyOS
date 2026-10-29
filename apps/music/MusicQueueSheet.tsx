@@ -44,13 +44,13 @@ export const MusicQueueSheet: React.FC<{
   return <div className="absolute inset-0 z-[60] flex flex-col justify-end" onKeyDown={e => {
     if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
   }}>
-    <button type="button" className="absolute inset-0 bg-black/45"
+    <button type="button" className="absolute inset-0 bg-black/25"
       aria-label="关闭播放列表" onClick={onClose} />
     <section role="dialog" aria-modal="true" aria-labelledby="music-queue-title"
-      className="relative flex flex-col w-full rounded-t-2xl overflow-hidden music-panel-enter shadow-[0_-12px_40px_rgba(0,0,0,.24)]"
-      style={{ maxHeight: 'min(80dvh, 740px)', background: '#fff', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      className="relative flex flex-col w-full rounded-t-[28px] overflow-hidden music-panel-enter shadow-[0_-10px_30px_rgba(0,0,0,.10)]"
+      style={{ maxHeight: 'min(80dvh, 740px)', background: C.bg, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       <div className="w-10 h-1 rounded-full shrink-0 self-center mt-3 mb-2" style={{ background: '#d1d1d1' }} aria-hidden="true" />
-      <div className="shrink-0 px-5 py-2 border-b flex items-center justify-between gap-3" style={{ borderColor: '#eeeeed' }}>
+      <div className="shrink-0 px-5 py-2 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 id="music-queue-title" className="text-[15px] font-semibold flex items-center gap-2" style={{ color: C.text }}>
             <List size={19} /> 播放列表 <span className="text-xs font-normal" style={{ color: C.muted }}>{queue.length} 首</span>
@@ -65,7 +65,7 @@ export const MusicQueueSheet: React.FC<{
           style={{ background: C.soft, color: C.text }}><X size={20} /></button>
       </div>
 
-      <div className="shrink-0 flex items-center justify-between px-5 py-2 text-[11px] border-b" style={{ color: C.muted, borderColor: '#f1f1f1' }}>
+      <div className="shrink-0 flex items-center justify-between gap-1 px-5 py-2.5 text-[11px]" style={{ color: C.muted, borderTop: '1px solid #ecece9' }}>
         <span>点击歌曲切换 · 右侧可整理顺序</span>
         {queue.length > (active ? 1 : 0) && (
           confirmClear
@@ -89,9 +89,9 @@ export const MusicQueueSheet: React.FC<{
         {queue.slice(start, end).map((song, offset) => {
           const index = start + offset;
           const selected = index === activeIndex;
-          return <div role="listitem" key={`${musicKey(song)}-${index}`} className="border-b" style={{
-            borderColor: '#ededed', background: selected ? '#f1f1f0' : '#fff',
-          }}>
+          return <div role="listitem" key={`${musicKey(song)}-${index}`}
+            className="music-sheet-card my-1.5 px-1.5"
+            style={{ background: selected ? '#f0f0ee' : '#fff', borderColor: selected ? '#d5d5d0' : '#e9e9e7' }}>
             <div className="flex items-center min-w-0 gap-1">
               <div className="min-w-0 flex-1">
                 <SongRow name={song.name} artists={song.artists} album={song.album}
@@ -100,7 +100,7 @@ export const MusicQueueSheet: React.FC<{
                   isActive={selected} isPlaying={selected && playing} isLoading={selected && loading}
                   onClick={() => onSelect(song, index)} />
               </div>
-              <div className="relative w-11 h-11 shrink-0 flex items-center justify-center" style={{ color: C.muted }}>
+              <div className="music-sheet-row-actions relative w-11 h-11 shrink-0 flex items-center justify-center" style={{ color: C.muted }}>
                 <DotsThreeVertical size={22} aria-hidden="true" />
                 <select className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   aria-label={`整理播放列表《${song.name}》`} title="调整顺序或移除"

@@ -35,12 +35,12 @@ export const MusicPlaylistSheet: React.FC<{
   return <div className="absolute inset-0 z-[65] flex flex-col justify-end"
     onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}>
     <button type="button" aria-label="关闭加入歌单" onClick={onClose}
-      className="absolute inset-0 bg-black/45" />
+      className="absolute inset-0 bg-black/25" />
     <section role="dialog" aria-modal="true" aria-labelledby="music-add-playlist-title"
-      className="relative flex flex-col rounded-t-2xl bg-white shadow-[0_-12px_40px_rgba(0,0,0,.24)] overflow-hidden music-panel-enter"
-      style={{ maxHeight: 'min(78dvh, 690px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      className="relative flex flex-col rounded-t-[28px] shadow-[0_-10px_30px_rgba(0,0,0,.10)] overflow-hidden music-panel-enter"
+      style={{ maxHeight: 'min(78dvh, 690px)', background: C.bg, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       <div className="w-10 h-1 rounded-full self-center mt-3 mb-2 shrink-0" style={{ background: '#d1d1d1' }} aria-hidden="true" />
-      <div className="flex items-center justify-between gap-3 px-5 py-2 border-b" style={{ borderColor: '#ededed' }}>
+      <div className="flex items-center justify-between gap-3 px-5 py-2">
         <div className="min-w-0">
           <h2 id="music-add-playlist-title" className="text-[15px] font-semibold flex items-center gap-2" style={{ color: C.text }}>
             <ListPlus size={19} /> 加入歌单
@@ -53,8 +53,8 @@ export const MusicPlaylistSheet: React.FC<{
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto shizuku-scrollbar px-4 py-3">
-        <button type="button" className="music-tap w-full min-h-12 flex items-center gap-3 rounded-lg px-3 text-left"
-          style={{ background: C.soft, color: C.text }} onClick={() => setCreating(v => !v)}
+        <button type="button" className="music-tap w-full min-h-12 flex items-center gap-3 rounded-[16px] px-3 text-left"
+          style={{ background: C.surface, border: '1px solid #e9e9e7', color: C.text }} onClick={() => setCreating(v => !v)}
           aria-expanded={creating}>
           <Plus size={20} />
           <span className="text-[13px] font-medium flex-1">新建歌单并加入这首歌</span>
@@ -79,10 +79,10 @@ export const MusicPlaylistSheet: React.FC<{
           const full = pl.songs.length >= 500;
           return <button type="button" key={pl.id} disabled={already || full}
             aria-label={`${already ? '已在' : '加入'}《${pl.name}》`}
-            className="music-tap min-h-[54px] w-full flex items-center gap-3 border-b text-left px-2 disabled:opacity-55"
-            style={{ borderColor: '#eeeeee', color: C.text }}
+            className="music-tap min-h-[54px] w-full flex items-center gap-3 rounded-[16px] text-left px-3 my-2 disabled:opacity-55"
+            style={{ border: '1px solid #e9e9e7', background: C.surface, color: C.text }}
             onClick={() => { if (onAdd(pl.id)) onClose(); }}>
-            <div className="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg"
+            <div className="w-10 h-10 shrink-0 flex items-center justify-center rounded-[12px]"
               style={{ background: C.soft }}><ListPlus size={18} /></div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium truncate">{pl.name}</p>

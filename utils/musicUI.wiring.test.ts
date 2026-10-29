@@ -266,3 +266,40 @@ describe('MONO 黑白灰音乐视觉回归', () => {
     expect(login).not.toContain('linear-gradient(180deg, #ffffff');
   });
 });
+
+
+describe('第二轮轻量化音乐详情与歌单交互回归', () => {
+  it('播放页封面随短屏缩放，保留歌词滚动、进度与播控', () => {
+    expect(app).toContain('music-now-playing flex flex-col h-full');
+    expect(app).toContain('className="music-player-art"');
+    expect(app).toContain('size={188} bitrate={actualQualityLabel}');
+    expect(ui).toContain('@media(max-height:700px)');
+    expect(ui).toContain('@media(max-height:580px)');
+    expect(app).toContain('ref={lyricBoxRef}');
+    expect(app).toContain('music-player-lyrics flex-1');
+    expect(app).toContain('onSeek={seek}');
+    expect(app).toContain('onToggle={togglePlay}');
+    expect(app).toContain('onOpenQueue={() => { setQueueSheetOpen(true)');
+  });
+  it('本地歌单使用真实首曲封面，所有更名、删除与顺序播放回调保持不变', () => {
+    expect(app).toContain('pl.songs[0].albumPic');
+    expect(app).toContain('pl.songs[0].source');
+    expect(app).toContain('我的本地歌单 · {pl.songs.length} 首');
+    expect(app).toContain('rounded-[20px] p-2.5');
+    expect(app).toContain('setEditingPlaylist(editingPlaylist?.id === pl.id');
+    expect(app).toContain('setDeleteConfirmPlaylistId(deleteConfirmPlaylistId === pl.id');
+    expect(app).toContain('if (deletePlaylist(pl.id))');
+    expect(app).toContain('replaceQueue: pl.songs, startIdx: 0');
+  });
+  it('队列及歌单弹层共享轻色风格，触屏弹层和焦点保护仍然存在', () => {
+    expect(queueSheet).toContain('rounded-t-[28px]');
+    expect(playlistSheet).toContain('rounded-t-[28px]');
+    expect(queueSheet).toContain('music-sheet-card my-1.5');
+    expect(queueSheet).toContain('role="dialog" aria-modal="true"');
+    expect(playlistSheet).toContain('role="dialog" aria-modal="true"');
+    expect(queueSheet).toContain('env(safe-area-inset-bottom');
+    expect(playlistSheet).toContain('env(safe-area-inset-bottom');
+    expect(queueSheet).toContain('onClearUpcoming(); setConfirmClear(false)');
+    expect(playlistSheet).toContain('if (onAdd(pl.id)) onClose()');
+  });
+});
