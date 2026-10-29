@@ -172,8 +172,8 @@ const useMusicCover = (albumPic: string, picId?: string, source?: 'netease' | 't
 export const SongRow: React.FC<{
   name: string; artists: string; album: string; albumPic: string; duration: string;
   isVip: boolean; isActive: boolean; isPlaying?: boolean; isLoading?: boolean;
-  picId?: string; source?: 'netease' | 'tencent'; onClick: () => void;
-}> = ({ name, artists, album, albumPic, duration, isVip, isActive, isPlaying = false, isLoading = false, picId, source, onClick }) => {
+  picId?: string; source?: 'netease' | 'tencent'; sourceLabel?: string; onClick: () => void;
+}> = ({ name, artists, album, albumPic, duration, isVip, isActive, isPlaying = false, isLoading = false, picId, source, sourceLabel, onClick }) => {
   const { coverRef, cover } = useMusicCover(albumPic, picId, source);
   const status = isActive ? isLoading ? '正在加载' : isPlaying ? '播放中' : '已暂停' : '';
   return (
@@ -200,7 +200,7 @@ export const SongRow: React.FC<{
           <span className="truncate">{name}</span>
           {isVip && <span className="text-[9px] border px-1 py-0.5 shrink-0" style={{ borderColor: '#d3d3d3', color: C.muted }}>VIP</span>}
         </div>
-        <div className="text-[11px] truncate mt-1 leading-snug" style={{ color: C.muted }}>{artists || '未知歌手'}{album ? ` · ${album}` : ''}</div>
+        <div className="text-[11px] truncate mt-1 leading-snug" style={{ color: C.muted }}>{artists || '未知歌手'}{album ? ` · ${album}` : ''}{sourceLabel ? ` · ${sourceLabel}` : ''}</div>
         {isActive && <div className="flex items-center gap-1.5 mt-1 text-[10px]" style={{ color: C.primary }}>
           {isPlaying && !isLoading ? <span className="music-eq" aria-hidden="true"><span/><span/><span/></span>
             : <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.primary }} />}
