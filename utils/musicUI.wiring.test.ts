@@ -96,6 +96,8 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
   });
   it('切到喜欢/歌单/历史时隐藏无关搜索栏，手机小屏保留队列入口', () => {
     expect(app).toContain("section === 'results' && <>");
+    expect(app).toContain('void doSearch(src)');
+    expect(app).toContain("const source = sourceOverride || searchSource");
     expect(ui).toContain('@media(max-width:390px)');
     expect(ui).toContain('music-dock-previous{display:none}');
     expect(ui).toContain('music-dock-queue');
