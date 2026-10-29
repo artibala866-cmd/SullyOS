@@ -164,9 +164,9 @@ export const SongRow: React.FC<{
     <button type="button" onClick={onClick}
       aria-label={isActive && isPlaying ? `暂停《${name}》` : `播放《${name}》`}
       aria-busy={isActive && isLoading}
-      className="music-tap group w-full min-w-0 flex items-center gap-3 px-2 py-2.5 text-left rounded-none"
+      className="music-tap group w-full min-w-0 flex items-center gap-2.5 px-2 py-1.5 text-left rounded-none"
       style={{ background: isActive ? '#f0f0ef' : 'transparent' }}>
-      <div ref={coverRef} className="relative shrink-0 w-12 h-12 overflow-hidden rounded-sm"
+      <div ref={coverRef} className="relative shrink-0 w-11 h-11 overflow-hidden rounded-sm"
         style={{ background: '#e6e6e5' }}>
         {cover ? <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />
           : <div className="w-full h-full flex items-center justify-center" style={{ color: C.muted }}><MusicNote size={20} /></div>}
@@ -180,18 +180,18 @@ export const SongRow: React.FC<{
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 text-[13px] font-medium tracking-[-0.01em]" style={{ color: C.text }}>
+        <div className="flex items-center gap-1.5 text-[12px] font-medium tracking-[-0.01em]" style={{ color: C.text }}>
           <span className="truncate">{name}</span>
           {isVip && <span className="text-[9px] border px-1 py-0.5 shrink-0" style={{ borderColor: '#d3d3d3', color: C.muted }}>VIP</span>}
         </div>
-        <div className="text-[11px] truncate mt-1 leading-relaxed" style={{ color: C.muted }}>{artists || '未知歌手'}{album ? ` · ${album}` : ''}</div>
+        <div className="text-[10px] truncate mt-0.5 leading-relaxed" style={{ color: C.muted }}>{artists || '未知歌手'}{album ? ` · ${album}` : ''}</div>
         {isActive && <div className="flex items-center gap-1.5 mt-1 text-[10px]" style={{ color: C.primary }}>
           {isPlaying && !isLoading ? <span className="music-eq" aria-hidden="true"><span/><span/><span/></span>
             : <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.primary }} />}
           {status}
         </div>}
       </div>
-      <span className="text-[11px] shrink-0 tabular-nums" style={{ color: C.muted }}>{duration}</span>
+      <span className="text-[10px] shrink-0 tabular-nums" style={{ color: C.muted }}>{duration}</span>
     </button>
   );
 };
