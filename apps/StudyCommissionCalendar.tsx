@@ -61,8 +61,6 @@ export default function StudyCommissionCalendar({commissions,onFocus,onEdit}:Pro
             {list.slice(0,2).map((e,i)=><span key={e.id+e.kind+i}
               className={'h-1.5 w-1.5 rounded-full '+(e.kind==='deadline'?'bg-[#292929]':'bg-[#b6b6b6]')}/>)}
             {list.length>2&&<span className="text-[9px] text-neutral-500">+</span>}
-          </span>)}
-            {list.length>2&&<span className="text-xs text-neutral-500">+{list.length-2}</span>}
           </span>
         </button>;
       })}
