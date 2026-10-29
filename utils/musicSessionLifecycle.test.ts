@@ -96,6 +96,14 @@ describe('一起听完整生命周期与重启恢复', () => {
     expect(provider).toContain('换歌不代表一起听结束');
   });
 
+  it('接受记录已提交但另一标签刚结束时仍广播回应，不重放已经结束的歌曲', () => {
+    const provider = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url),'utf8');
+    expect(provider).toContain("sessionAlreadyEnded: accepted && !joined");
+    expect(provider).toContain("return notify(accepted && !joined ? 'stale' : 'resolved')");
+    expect(provider).toContain("if (accepted && joined && settled.track) resumeInviteTrack(settled.track)");
+    expect(provider).toContain("announceMusicInviteDbChanged(charId)");
+  });
+
   it('旧标签页的慢速恢复不能覆盖本标签页已经提交的结束', async () => {
     const provider = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url),'utf8');
     expect(provider).toContain('perCharRevisionAtStart');
