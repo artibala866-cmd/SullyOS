@@ -894,7 +894,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </details>
       <section id="study-homework-panel" className={cardClass+' scroll-mt-4'}>
         <div className="flex items-center justify-between gap-3">
-          <div><p className="text-xs tracking-[.22em] text-neutral-400">HOMEWORK & NOTES</p><h3 className="mt-1 text-[18px] font-semibold">作业与笔记</h3></div>
+          <div><h3 className="mt-1 text-[18px] font-semibold">作业与笔记</h3></div>
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f1f1f1] text-lg">✎</span>
         </div>
         <label className="text-sm">选择课程<select className={inputClass} value={selectedClassId} onChange={e=>setSelectedClassId(e.target.value)}>
