@@ -173,16 +173,17 @@ const MusicApp: React.FC = () => {
   }, [activeLyricIdx, view]);
 
   // ── 搜索 ──
-  const doSearch = useCallback(async () => {
+  const doSearch = useCallback(async (sourceOverride?: 'netease' | 'tencent') => {
     const kw = keyword.trim(); if (!kw) return;
+    const source = sourceOverride || searchSource;
     const seq = ++searchSeqRef.current;
     setSearching(true);
     setHasSearched(false);
     setResults([]);
     setSection('results');
-    trackEvent('搜索一首歌', { source: searchSource });
+    trackEvent('搜索一首歌', { source });
     try {
-      const songs: Song[] = searchSource === 'tencent'
+      const songs: Song[] = source === 'tencent'
         ? await musicApi.searchTencent(kw)
         : ((await musicApi.search(cfg, kw))?.result?.songs || []).map((song: any) => ({
             id: Number(song.id), source: 'netease' as const,
@@ -345,8 +346,15 @@ const MusicApp: React.FC = () => {
             background: 'transparent',
             borderColor: searchSource === src ? C.primary : 'transparent' }}
           onClick={() => {
-            ++searchSeqRef.current;
-            setSearchSource(src); setSearching(false); setHasSearched(false); setResults([]); setSection('results');
+            if (src === searchSource) return;
+            setSearchSource(src);
+            // Reuse the current query when changing sources; no second Search tap.
+            if (keyword.trim() && (hasSearched || searching)) {
+              void doSearch(src);
+            } else {
+              ++searchSeqRef.current;
+              setSearching(false); setHasSearched(false); setResults([]); setSection('results');
+            }
           }}>{src === 'netease' ? '网易云音乐' : 'QQ 音乐'}</button>)}
       </div>
       <SearchBar value={keyword} onChange={setKeyword} onSearch={doSearch} searching={searching} />
