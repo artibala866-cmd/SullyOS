@@ -253,9 +253,9 @@ describe('MONO 黑白灰音乐视觉回归', () => {
   });
   it('登录和个人页移除玻璃糖果式圆角与渐变，二维码和头像仍可显示', () => {
     expect(login).toContain('aria-pressed={mode === t.k}');
-    expect(login).toContain('border-b-2 transition-colors');
+    expect(login).toContain('rounded-[13px] text-[12px] font-medium tracking-wide transition-colors');
     expect(login).not.toContain('rounded-3xl p-4 shizuku-glass-strong');
-    expect(profile).toContain('rounded-sm p-4 shizuku-glass-strong');
+    expect(profile).toContain('rounded-[22px] p-4 shizuku-glass-strong');
     expect(profile).toContain('object-cover grayscale');
     expect(profile).not.toContain('linear-gradient(135deg, ${C.faint}');
     expect(profile).toContain('<LocalAlbumCard');
@@ -301,5 +301,24 @@ describe('第二轮轻量化音乐详情与歌单交互回归', () => {
     expect(playlistSheet).toContain('env(safe-area-inset-bottom');
     expect(queueSheet).toContain('onClearUpcoming(); setConfirmClear(false)');
     expect(playlistSheet).toContain('if (onAdd(pl.id)) onClose()');
+  });
+});
+
+
+describe('第三轮网易云账号与登录 UI 样式检查', () => {
+  it('扫码、手机号和 Cookie 切换沿用原业务状态，但采用浅色切换器和宽松输入区', () => {
+    expect(login).toContain('aria-pressed={mode === t.k}');
+    expect(login).toContain('rounded-[24px] p-5 shizuku-glass-strong');
+    expect(login).toContain('min-h-12 py-3 rounded-[15px]');
+    expect(login).toContain('sendCaptcha');
+    expect(login).toContain('startQr');
+    expect(login).toContain('onLoggedIn(final)');
+  });
+  it('资料卡、本地创作及账号歌单入口仍使用原数据与播放事件', () => {
+    expect(profile).toContain('rounded-[22px] p-4 shizuku-glass-strong');
+    expect(profile).toContain('rounded-[20px] overflow-hidden relative');
+    expect(profile).toContain('<LocalAlbumCard');
+    expect(profile).toContain('playSong(s, { replaceQueue: plTracks[pl.id]');
+    expect(profile).toContain('await refreshProfile()');
   });
 });
