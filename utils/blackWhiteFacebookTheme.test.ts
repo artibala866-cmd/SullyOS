@@ -34,7 +34,10 @@ describe('black-white private-chat Facebook-style theme', () => {
     const item = readFileSync(new URL('../components/chat/MessageItem.tsx', import.meta.url), 'utf8');
     const chat = readFileSync(new URL('../apps/Chat.tsx', import.meta.url), 'utf8');
     expect(item).toContain("blackWhiteFacebook && m.type === 'text' ? 'sully-facebook-text-message'");
-    expect(chat).toContain("avatarMode={blackWhiteFacebook && m.type === 'text' ? 'every_message' : osTheme.chatAvatarMode}");
+    // Both built-in themes share this avatar layout; don't pin the test to an obsolete ternary.
+    const avatarModeLine = chat.split('\n').find(line => line.includes('avatarMode={') && line.includes("m.type === 'text'")) || '';
+    expect(avatarModeLine).toContain('blackWhiteFacebook');
+    expect(avatarModeLine).toContain("'every_message'");
   });
   it('keeps incoming messages readable and quoted text untruncated', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('font-weight: 400 !important');
