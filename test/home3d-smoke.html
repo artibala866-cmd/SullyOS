@@ -477,7 +477,7 @@ function texture(color){
   // Native room-view control: center the real actor near the tub before
   // documenting contacts. Never move the runtime's character or camera via
   // test-only internals or directly alter a furniture transform.
-  command('chibi-view');command('zoom',{factor:.72});
+  command('chibi-view');command('turn-view',{angle:.65});command('zoom',{factor:.72});
   editor.advancePets(1.8);await captureBath('rim-grip');
   editor.advancePets(.44);await captureBath('leading-leg');
   editor.advancePets(.80);await captureBath('trailing-leg');
