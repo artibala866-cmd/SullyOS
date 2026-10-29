@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 const app = readFileSync(new URL('../apps/MusicApp.tsx', import.meta.url), 'utf8');
 const ui = readFileSync(new URL('../apps/music/MusicUI.tsx', import.meta.url), 'utf8');
 const profile = readFileSync(new URL('../apps/music/NeteaseProfilePage.tsx', import.meta.url), 'utf8');
+const login = readFileSync(new URL('../apps/music/NeteaseLoginPanel.tsx', import.meta.url), 'utf8');
 
 describe('音乐首页与网易云独立入口', () => {
   it('已登录账号资料不再重复占据音乐主页，专属入口保留', () => {
@@ -81,5 +82,42 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(ui).toContain('aria-label={loading ?');
     expect(app).toContain('loading={loadingSong}');
     expect(app).toContain('progress={progress}');
+  });
+});
+
+
+describe('MONO 黑白灰音乐视觉回归', () => {
+  it('统一中性色票，不能回到旧紫粉色和星芒水滴主题', () => {
+    expect(ui).toContain("primary: '#171717'");
+    expect(ui).toContain("accent: '#454545'");
+    expect(ui).toContain("bg: '#f6f6f5'");
+    expect(ui).not.toContain('#7163c9');
+    expect(ui).not.toContain('#bd6da5');
+    expect(ui).not.toContain('shizuku-twinkle');
+    expect(ui).not.toContain('@keyframes shizuku-float');
+    expect(app).toContain('title="MUSIC"');
+    expect(app).not.toContain('rgba(255,222,237');
+  });
+  it('方形专辑封面、简洁列表、黑色播放键与无粒子背景必须保留', () => {
+    const cover = ui.split('export const VinylDisc:')[1]?.split('export const MetaChip:')[0] || '';
+    expect(cover).toContain('rounded-md overflow-hidden');
+    expect(cover).not.toContain('shizuku-vinyl');
+    expect(cover).not.toContain('<Sparkle');
+    expect(ui).toContain('No animated particles, colored halos');
+    expect(ui).toContain('background: C.primary');
+    expect(app).toContain('borderBottom: \'1px solid #ebebeb\'');
+  });
+  it('切换成简约风也不能丢失搜索、播控、播放进度与无障碍操作', () => {
+    expect(ui).toContain('aria-label="搜索歌曲或歌手"');
+    expect(ui).toContain('aria-busy={isActive && isLoading}');
+    expect(ui).toContain('aria-label="播放进度"');
+    expect(ui).toContain("e.key === 'ArrowRight'");
+    expect(ui).toContain('onKick(main.id)');
+    expect(ui).toContain('getGuestMusicCover({ albumPic, picId, source })');
+  });
+  it('账号页与登录页也使用灰阶，不残留紫粉渐变按钮', () => {
+    expect(profile).not.toContain('#e0b88a');
+    expect(login).not.toContain('linear-gradient(135deg, ${C.primary}, ${C.accent})');
+    expect(login).not.toContain('linear-gradient(180deg, #ffffff');
   });
 });
