@@ -8,7 +8,7 @@ import { sameMusic } from '../utils/musicLibrary';
 import { trackEvent } from '../utils/analytics';
 import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon, Heart, Plus, ListPlus, ArrowUp, ArrowDown, Trash, PencilSimple, CaretDown, CaretUp, MusicNotes, X } from '@phosphor-icons/react';
 import {
-  C, Sparkle, CrossStar, MizuHeader, SearchBar, SongRow, MiniPlayer,
+  C, MizuHeader, SearchBar, SongRow, MiniPlayer,
   VinylDisc, GlassProgress, PlayControls, BokehBg,
   MetaChip, SubActions,
 } from './music/MusicUI';
@@ -207,7 +207,7 @@ const MusicApp: React.FC = () => {
   // The same recognizable transport and compact controls are shared by results,
   // likes, history and the currently opened playlist.
   const renderLibrarySongs = (songs: Song[], playlistId?: string) => (
-    <div className="space-y-2.5 px-1">
+    <div className="space-y-1 px-1">
       {songs.slice(0, visibleCount).map((song, i) => {
         const isActive = !!current && sameMusic(current, song);
         const isLiked = library.likes.some(s => sameMusic(s, song));
@@ -221,10 +221,8 @@ const MusicApp: React.FC = () => {
           } else void playSong(song);
         };
         return <div key={musicSongKey(song)}
-          className="music-track-row rounded-[20px] p-1.5"
-          style={{ background: isActive ? 'rgba(237,230,255,.68)' : 'rgba(255,255,255,.77)',
-            border: `1px solid ${isActive ? C.glow + '80' : 'rgba(205,193,229,.38)'}`,
-            boxShadow: isActive ? '0 6px 20px rgba(97,79,174,.09)' : '0 2px 9px rgba(90,82,125,.035)' }}>
+          className="music-track-row rounded-lg px-1 py-1"
+          style={{ background: isActive ? '#eeeeed' : '#fff', borderBottom: '1px solid #ebebeb' }}>
           <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
             picId={song.picId} source={song.source}
             duration={fmtTime(song.duration)} isVip={song.fee === 1}
@@ -285,8 +283,8 @@ const MusicApp: React.FC = () => {
         style={{ background: C.soft, color: C.primary }}>继续显示 · 剩余 {songs.length - visibleCount} 首</button>}
       {songs.length === 0 && <div className="flex flex-col items-center justify-center gap-2 py-12"
         style={{ color: C.muted }}>
-        <MusicNotes size={29} weight="duotone" color={C.primary} />
-        <p className="text-xs">这里还没有歌曲，去发现一首喜欢的吧</p>
+        <MusicNotes size={29} weight="regular" color={C.muted} />
+        <p className="text-xs">暂无歌曲，搜索后即可添加到音乐库</p>
       </div>}
     </div>
   );
@@ -294,10 +292,10 @@ const MusicApp: React.FC = () => {
   // ════════════════ 搜索页 ════════════════
   const renderSearch = () => (
     <div className="flex flex-col h-full relative"
-      style={{ background: `linear-gradient(180deg, #ffffff 0%, ${C.bg} 50%, ${C.bgDeep} 100%)` }}>
+      style={{ background: C.bg }}>
       <BokehBg />
       <MizuHeader
-        title="未来音楽"
+        title="MUSIC"
         onClose={closeApp}
         right={
           <div className="flex items-center gap-1">
@@ -324,32 +322,25 @@ const MusicApp: React.FC = () => {
       <div className="flex justify-center gap-2 px-4 py-2 relative z-10 text-xs" role="group" aria-label="搜索音乐来源">
         {(['netease', 'tencent'] as const).map(src => <button key={src}
           aria-pressed={searchSource === src}
-          className="music-tap px-5 py-2.5 rounded-2xl font-semibold"
-          style={{
-            color: searchSource === src ? '#fff' : C.muted,
-            background: searchSource === src ? `linear-gradient(135deg,${C.primary},${C.accent})` : 'rgba(255,255,255,.86)',
-            border: `1px solid ${searchSource === src ? 'transparent' : C.soft}`,
-            boxShadow: searchSource === src ? '0 4px 14px rgba(113,99,201,.19)' : 'none',
-          }}
+          className="music-tap px-5 py-2.5 rounded-md font-medium"
+          style={{ color: searchSource === src ? '#fff' : C.muted,
+            background: searchSource === src ? C.primary : '#fff',
+            border: `1px solid ${searchSource === src ? C.primary : '#dededc'}` }}
           onClick={() => {
             ++searchSeqRef.current;
             setSearchSource(src); setSearching(false); setHasSearched(false); setResults([]); setSection('results');
           }}>{src === 'netease' ? '网易云音乐' : 'QQ 音乐'}</button>)}
       </div>
       <SearchBar value={keyword} onChange={setKeyword} onSearch={doSearch} searching={searching} />
-      <div className="flex gap-1.5 px-3 py-2 relative z-10 overflow-x-auto text-[11px] shizuku-scrollbar" role="tablist" aria-label="音乐分类">
+      <div className="flex gap-1 px-3 pt-1 pb-0 relative z-10 overflow-x-auto text-[11px] shizuku-scrollbar border-b" role="tablist" aria-label="音乐分类">
         {([
           ['results', '搜索结果'], ['likes', '本地喜欢'], ['playlists', '我的歌单'],
           ['queue', '播放队列'], ['history', '播放历史'],
         ] as const).map(([key, title]) =>
-          <button key={key} role="tab" className="music-tap shrink-0 rounded-full px-3.5 py-2.5 font-semibold"
-            aria-selected={section === key}
-            style={{
-              color: section === key ? C.primary : C.muted,
-              background: section === key ? 'rgba(227,220,255,.93)' : 'rgba(255,255,255,.66)',
-              border: `1px solid ${section === key ? C.glow : 'rgba(204,194,232,.4)'}`,
-              boxShadow: section === key ? '0 3px 12px rgba(105,80,180,.11)' : 'none',
-            }}
+          <button key={key} role="tab" className="music-tap shrink-0 px-3.5 py-2.5 font-medium border-b-2"
+             aria-selected={section === key}
+             style={{ color: section === key ? C.primary : C.muted,
+               background: 'transparent', borderColor: section === key ? C.primary : 'transparent' }}
             onClick={() => setSection(key)}>{title}</button>)}
       </div>
 
@@ -357,38 +348,38 @@ const MusicApp: React.FC = () => {
 
       {/* 音乐库/结果共用现有播放控件 */}
       <div key={section} role="tabpanel" className="music-panel-enter flex-1 overflow-y-auto px-2 pt-1 relative z-10 shizuku-scrollbar"
-        style={{ paddingBottom: current ? 126 : 28 }}>
+        style={{ paddingBottom: current ? 126 : 28, background: '#fff' }}>
         {section === 'results' && <div className="px-2 mb-2 text-[11px] flex items-center justify-between" style={{ color: C.muted }}>
-          <span>{searching ? '正在搜索喜欢的旋律…' : results.length ? `找到 ${results.length} 首歌曲 · 点击封面即可播放` : hasSearched ? '没有找到匹配歌曲，可换关键词或音乐来源' : '输入歌名或歌手，发现新的旋律'}</span>
+          <span>{searching ? '正在搜索…' : results.length ? `找到 ${results.length} 首歌曲` : hasSearched ? '没有找到匹配歌曲，可换关键词或音乐来源' : '搜索歌曲、歌手或专辑'}</span>
           {searching && <span className="w-3.5 h-3.5 border-2 rounded-full border-t-transparent animate-spin" style={{ borderColor: C.primary, borderTopColor: 'transparent' }} />}
         </div>}
         {section === 'results' && (hasSearched && !results.length && !searching
           ? <p className="text-center text-xs px-5 py-12" style={{ color: C.muted }}>搜索完成，没有找到匹配歌曲。可以换一个歌名、歌手或切换来源再试。</p>
           : renderLibrarySongs(results))}
         {section === 'likes' && <>
-          <p className="px-3 pb-2 text-[11px]" style={{ color: C.muted }}>我喜欢的旋律 · {library.likes.length} 首</p>
+          <p className="px-3 pb-2 text-[11px]" style={{ color: C.muted }}>本地喜欢 · {library.likes.length} 首</p>
           {renderLibrarySongs(library.likes)}
         </>}
         {section === 'history' && <>
-          <p className="px-3 pb-2 text-[11px]" style={{ color: C.muted }}>最近听过 · {library.history.length} 首</p>
+          <p className="px-3 pb-2 text-[11px]" style={{ color: C.muted }}>播放历史 · {library.history.length} 首</p>
           {renderLibrarySongs(library.history.map(h => h.song))}
         </>}
         {section === 'playlists' && <div className="space-y-3 px-1">
           <div className="rounded-[22px] p-3 flex items-center gap-2"
-            style={{ background: 'rgba(255,255,255,.83)', border: `1px solid ${C.soft}` }}>
+            style={{ background: '#ffffff', border: `1px solid ${C.soft}` }}>
             <input value={playlistName} onChange={e => setPlaylistName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}
-              placeholder="给新歌单起个名字…" aria-label="新歌单名称" maxLength={60}
+              placeholder="新建歌单名称" aria-label="新歌单名称" maxLength={60}
               className="rounded-xl px-3 py-2.5 min-w-0 flex-1 text-xs outline-none" style={{ background: C.bgDeep, color: C.text }} />
             <button aria-label="新建本地歌单" title="新建歌单" className="music-tap w-10 h-10 rounded-xl flex items-center justify-center text-white"
-              style={{ background: `linear-gradient(135deg,${C.primary},${C.accent})` }}
+              style={{ background: C.primary }}
               onClick={() => { if (playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}><Plus size={19} weight="bold" /></button>
           </div>
           {library.playlists.map(pl => {
             const opened = openedPlaylist === pl.id;
             const playingThis = !!current && pl.songs.some(song => sameMusic(current, song));
             return <div key={pl.id} className="rounded-[22px] p-2.5"
-              style={{ background: 'rgba(255,255,255,.84)', border: `1px solid ${opened ? C.glow : C.soft}` }}>
+              style={{ background: '#ffffff', border: `1px solid ${opened ? C.glow : C.soft}` }}>
               <div className="flex gap-1.5 items-center">
                 <button className="music-tap font-semibold flex-1 min-w-0 text-left rounded-xl p-2 flex items-center gap-2"
                   aria-expanded={opened} onClick={() => setOpenedPlaylist(opened ? null : pl.id)}>
@@ -413,9 +404,9 @@ const MusicApp: React.FC = () => {
               {opened && <div className="music-panel-enter mt-3 pt-2" style={{ borderTop: `1px solid ${C.soft}` }}>{renderLibrarySongs(pl.songs, pl.id)}</div>}
             </div>;
           })}
-          {!library.playlists.length && <p className="text-xs text-center py-10" style={{ color: C.muted }}>在这里收藏你的专属歌单 ✦</p>}
+          {!library.playlists.length && <p className="text-xs text-center py-10" style={{ color: C.muted }}>暂无歌单，输入名称后即可创建</p>}
         </div>}
-        {section === 'queue' && <div className="space-y-2.5 px-1">
+        {section === 'queue' && <div className="space-y-1 px-1">
           <div className="flex justify-between items-center px-2 pb-1 text-xs">
             <span style={{ color: C.muted }}>我的播放队列 · {queue.length} 首</span>
             <button onClick={clearUpcomingQueue} className="music-tap rounded-xl px-3 py-1.5 text-[11px]"
@@ -427,9 +418,8 @@ const MusicApp: React.FC = () => {
               if (active) { if (!loadingSong) togglePlay(); }
               else void playSong(song);
             };
-            return <div key={musicSongKey(song)} className="music-track-row rounded-[20px] p-1.5"
-              style={{ background: active ? 'rgba(237,230,255,.78)' : 'rgba(255,255,255,.83)',
-                border: `1px solid ${active ? C.glow : C.soft}` }}>
+            return <div key={musicSongKey(song)} className="music-track-row rounded-lg px-1 py-1"
+              style={{ background: active ? '#eeeeed' : '#fff', borderBottom: '1px solid #ebebeb' }}>
               <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
                 picId={song.picId} source={song.source}
                 duration={fmtTime(song.duration)} isVip={song.fee === 1}
@@ -447,7 +437,7 @@ const MusicApp: React.FC = () => {
                     style={{ color: C.primary, background: C.soft }} onClick={() => moveQueueSong(i, i + 1)}><ArrowDown size={16} /></button>
                   <button aria-label="从播放队列移除" title="移除" disabled={active}
                     className="music-icon-press w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-30"
-                    style={{ color: C.accent, background: 'rgba(255,235,243,.85)' }}
+                    style={{ color: C.muted, background: '#eeeeec' }}
                     onClick={() => removeQueueSong(i)}><X size={16} /></button>
                 </div>
               </div>
@@ -455,7 +445,7 @@ const MusicApp: React.FC = () => {
           })}
           {queue.length > visibleCount && <button className="music-tap w-full py-3 text-xs rounded-xl" style={{ color: C.primary, background: C.soft }}
             onClick={() => setVisibleCount(n => n + 36)}>继续显示 · 剩余 {queue.length - visibleCount} 首</button>}
-          {!queue.length && <p className="text-center text-xs py-10" style={{ color: C.muted }}>播放队列还是空的 ♪</p>}
+          {!queue.length && <p className="text-center text-xs py-10" style={{ color: C.muted }}>播放队列为空</p>}
         </div>}
       </div>
 
@@ -517,9 +507,9 @@ const MusicApp: React.FC = () => {
     if (!current) return null;
     return (
       <div className="flex flex-col h-full relative"
-        style={{ background: `linear-gradient(180deg, #ffffff 0%, ${C.bg} 60%, ${C.bgDeep} 100%)` }}>
+        style={{ background: C.bg }}>
         <BokehBg />
-        <MizuHeader title="Now Playing" onBack={() => setView('search')} />
+        <MizuHeader title="正在播放" onBack={() => setView('search')} />
 
         <div className="flex-1 flex flex-col items-center px-5 pt-4 pb-3 relative z-10 overflow-hidden">
           <div className="shrink-0 mt-1 relative">
@@ -532,7 +522,7 @@ const MusicApp: React.FC = () => {
                   background: `radial-gradient(circle, rgba(0, 0, 0,0.55) 30%, rgba(0, 0, 0,0.35) 70%)`,
                   backdropFilter: 'blur(6px)',
                   WebkitBackdropFilter: 'blur(6px)',
-                  boxShadow: `0 0 30px ${C.glow}80`,
+                  boxShadow: 'none',
                   animation: 'shizuku-glow 2s ease-in-out infinite',
                 }}
               >
@@ -553,7 +543,7 @@ const MusicApp: React.FC = () => {
           {isCurrentRegenerating && (
             <div className="mt-3 px-3 py-1.5 rounded-full flex items-center gap-2 text-[10px] tracking-wider"
               style={{
-                background: `linear-gradient(135deg, ${C.primary}15, ${C.lavender}25)`,
+                background: '#eeeeec',
                 border: `1px solid ${C.glow}60`,
                 color: C.primary,
               }}
@@ -714,11 +704,11 @@ const MusicApp: React.FC = () => {
     const followsCentral = !cfg.workerUrl.trim();
     return (
       <div className="flex flex-col h-full relative"
-        style={{ background: `linear-gradient(180deg, #ffffff 0%, ${C.bg} 50%, ${C.bgDeep} 100%)` }}>
+        style={{ background: C.bg }}>
         <BokehBg />
         <MizuHeader title="设置" onBack={() => setView('search')} />
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 text-sm relative z-10 shizuku-scrollbar">
-          <div className="rounded-2xl p-3.5 shizuku-glass" style={{ boxShadow: `0 2px 16px ${C.glow}08` }}>
+          <div className="rounded-2xl p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
             <div className="text-[10px] mb-2 tracking-wider flex items-center justify-between" style={{ color: C.muted }}>
               <span className="flex items-center gap-1.5"><Sparkle size={6} color={C.glow} delay={0} /> 服务地址</span>
               {!followsCentral && (
@@ -735,7 +725,7 @@ const MusicApp: React.FC = () => {
                 : <>只在音乐里用这个地址，「设置 → 网络代理」改了也不跟</>}
             </div>
           </div>
-          <div className="rounded-2xl p-3.5 shizuku-glass" style={{ boxShadow: `0 2px 16px ${C.glow}08` }}>
+          <div className="rounded-2xl p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
             <div className="text-[10px] mb-2 tracking-wider flex items-center gap-1.5" style={{ color: C.muted }}>
               <Sparkle size={6} color={C.sakura} delay={0.5} /> 会员 Cookie
             </div>
@@ -746,7 +736,7 @@ const MusicApp: React.FC = () => {
               也可以在「我的」页面里扫码 / 手机号登录，自动填入 cookie
             </div>
           </div>
-          <div className="rounded-2xl p-3.5 shizuku-glass" style={{ boxShadow: `0 2px 16px ${C.glow}08` }}>
+          <div className="rounded-2xl p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
             <div className="text-[10px] mb-2 tracking-wider flex items-center gap-1.5" style={{ color: C.muted }}>
               <Sparkle size={6} color={C.lavender} delay={1} /> 音质
             </div>
@@ -757,7 +747,7 @@ const MusicApp: React.FC = () => {
                   style={{
                     background: cfg.quality === q ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : C.glass,
                     color: cfg.quality === q ? 'white' : C.muted,
-                    border: cfg.quality === q ? '1px solid transparent' : `1px solid rgba(255, 255, 255,0.3)`,
+                    border: cfg.quality === q ? '1px solid transparent' : `1px solid rgba(230,230,230,.8)`,
                     boxShadow: cfg.quality === q ? `0 2px 12px ${C.glow}30` : 'none',
                     backdropFilter: 'blur(8px)',
                   }}
@@ -790,10 +780,10 @@ const MusicApp: React.FC = () => {
             >诊断（搜索晴天）</button>
             <button onClick={commit}
               className="w-full py-3 rounded-2xl text-xs text-white tracking-wider transition-all relative overflow-hidden"
-              style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, boxShadow: `0 3px 18px ${C.glow}30` }}>
+              style={{ background: C.primary, boxShadow: 'none' }}>
               <span className="relative z-10">保存</span>
               <div className="absolute inset-0 pointer-events-none" style={{
-                background: `linear-gradient(90deg, transparent 30%, rgba(255, 255, 255,0.25) 50%, transparent 70%)`,
+                background: `linear-gradient(90deg, transparent 30%, rgba(255,255,255,.18) 50%, transparent 70%)`,
                 backgroundSize: '200% 100%', animation: 'shizuku-shimmer 3s ease-in-out infinite',
               }} />
             </button>
@@ -850,17 +840,17 @@ const MusicApp: React.FC = () => {
           // 重新 playSong 让 LyricLine 立即用新时间
           playSong(updated, { alsoSetQueue: false });
           setShowLyricSync(false);
-          addToast('对轴已保存 ✦', 'success');
+          addToast('对轴已保存', 'success');
           trackEvent('保存歌词对轴');
         };
 
         return (
           <div className="absolute inset-0 z-50 flex flex-col"
-            style={{ background: `linear-gradient(180deg, #ffffff 0%, ${C.bg} 60%, ${C.bgDeep} 100%)` }}>
+            style={{ background: C.bg }}>
             <BokehBg />
             {/* Header */}
             <div className="relative z-10 shizuku-glass-strong"
-              style={{ borderBottom: `1px solid rgba(255, 255, 255,0.3)`, paddingTop: 'var(--safe-top)' }}>
+              style={{ borderBottom: `1px solid rgba(230,230,230,.8)`, paddingTop: 'var(--safe-top)' }}>
               <div className="flex items-center justify-between h-12 px-4">
                 <button onClick={() => setShowLyricSync(false)} className="text-[11px] px-2 py-1 rounded-full" style={{ color: C.muted }}>取消</button>
                 <div className="flex items-center gap-1.5">
@@ -869,9 +859,9 @@ const MusicApp: React.FC = () => {
                 </div>
                 <button onClick={saveSync} className="text-[11px] font-bold px-3 py-1 rounded-full"
                   style={{
-                    background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+                    background: C.primary,
                     color: 'white',
-                    boxShadow: `0 2px 10px ${C.glow}50`,
+                    boxShadow: 'none',
                   }}>保存</button>
               </div>
             </div>
@@ -882,9 +872,9 @@ const MusicApp: React.FC = () => {
                 <button onClick={togglePlay}
                   className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 active:scale-95 transition-transform"
                   style={{
-                    background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+                    background: C.primary,
                     color: 'white',
-                    boxShadow: `0 3px 12px ${C.glow}50`,
+                    boxShadow: 'none',
                   }}
                 >
                   {playing ? <PauseIcon size={14} weight="fill" /> : <PlayIcon size={14} weight="fill" />}
@@ -903,7 +893,7 @@ const MusicApp: React.FC = () => {
                     <div className="absolute top-0 left-0 h-full rounded-full"
                       style={{
                         width: `${duration > 0 ? (progress / duration) * 100 : 0}%`,
-                        background: `linear-gradient(90deg, ${C.primary}, ${C.glow})`,
+                        background: C.primary,
                       }} />
                   </div>
                 </div>
