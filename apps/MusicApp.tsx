@@ -538,18 +538,25 @@ const MusicApp: React.FC = () => {
   const renderPlayer = () => {
     if (!current) return null;
     return (
-      <div className="flex flex-col h-full relative"
+      <div className="music-now-playing flex flex-col h-full relative"
         style={{ background: C.bg }}>
         <BokehBg />
         <MizuHeader title="正在播放" onBack={() => setView('search')} />
 
-        <div className="flex-1 flex flex-col items-center px-5 pt-4 pb-3 relative z-10 overflow-hidden">
-          <div className="shrink-0 mt-1 relative">
-            <VinylDisc albumPic={current.albumPic} picId={current.picId} source={current.source}
-              playing={playing} size={166} bitrate={actualQualityLabel} />
+        <div className="flex-1 min-h-0 flex flex-col items-center px-5 pt-3 pb-3 relative z-10 overflow-hidden">
+          <div className="music-player-source shrink-0 text-[10px] tracking-[0.2em] font-medium mb-3"
+            style={{ color: C.muted }}>
+            {current.local ? 'LOCAL RECORDING' : current.source === 'tencent' ? 'QQ MUSIC' : 'NETEASE MUSIC'}
+          </div>
+          <div className="music-player-art-frame shrink-0 relative rounded-[25px] p-3.5"
+            style={{ background: C.surface, border: '1px solid #ecece9', boxShadow: '0 9px 28px rgba(0,0,0,.035)' }}>
+            <div className="music-player-art">
+              <VinylDisc albumPic={current.albumPic} picId={current.picId} source={current.source}
+                playing={playing} size={188} bitrate={actualQualityLabel} />
+            </div>
             {/* 重录中覆盖层 — 只在本地歌且 regeneratingId 匹配时显示 */}
             {isCurrentRegenerating && (
-              <div className="absolute inset-0 rounded-md flex items-center justify-center pointer-events-none"
+              <div className="absolute inset-3 rounded-2xl flex items-center justify-center pointer-events-none"
                 style={{
                   background: `radial-gradient(circle, rgba(0, 0, 0,0.55) 30%, rgba(0, 0, 0,0.35) 70%)`,
                   backdropFilter: 'blur(6px)',
@@ -586,12 +593,12 @@ const MusicApp: React.FC = () => {
             </div>
           )}
 
-          <section className="mt-6 text-center space-y-1.5 shrink-0 px-2 w-full max-w-full">
+          <section className="music-player-meta mt-4 text-center space-y-1.5 shrink-0 px-2 w-full max-w-full">
             <h2 className="font-semibold tracking-tight leading-snug break-words line-clamp-2"
-              style={{ color: C.text, fontFamily: 'inherit', fontSize: '22px', fontWeight: 650 }}>
+              style={{ color: C.text, fontFamily: 'inherit', fontSize: '20px', fontWeight: 650 }}>
               {current.name}
             </h2>
-            <p className="text-[12px]"
+            <p className="text-[12px] truncate max-w-full"
               style={{ color: C.muted, letterSpacing: '0.01em' }}>
               {current.artists}
             </p>
@@ -599,11 +606,8 @@ const MusicApp: React.FC = () => {
 
           <div
             ref={lyricBoxRef}
-            className="flex-1 w-full my-3 min-h-0 overflow-y-auto text-center scroll-smooth shizuku-scrollbar px-2"
-            style={{
-              maskImage: 'linear-gradient(to bottom, transparent, black 18%, black 82%, transparent)',
-              WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 18%, black 82%, transparent)',
-            }}
+            className="music-player-lyrics flex-1 w-full my-2 min-h-0 overflow-y-auto text-center scroll-smooth shizuku-scrollbar px-2"
+            style={{ overscrollBehavior: 'contain' }}
           >
             {lyric.length === 0 ? (
               <div className="pt-6 flex flex-col items-center gap-2" style={{ color: C.faint }}>
@@ -613,7 +617,7 @@ const MusicApp: React.FC = () => {
                 </span>
               </div>
             ) : (
-              <div className="space-y-4 py-8">
+              <div className="space-y-3.5 py-5">
                 {lyric.map((l, i) => {
                   const tr = tlyric.find(t => Math.abs(t.t - l.t) < 0.2);
                   const active = i === activeLyricIdx;
@@ -632,7 +636,7 @@ const MusicApp: React.FC = () => {
                           className={active ? '' : 'opacity-0'}
                         />
                         <div
-                          className="text-[16px] leading-[1.4]"
+                          className="text-[15px] leading-[1.5]"
                           style={{
                             fontFamily: 'inherit',
                             fontWeight: active ? 650 : 400,
@@ -688,7 +692,7 @@ const MusicApp: React.FC = () => {
             />
           </div>
 
-          <div className="shrink-0 mt-3 w-full">
+          <div className="shrink-0 mt-2 w-full">
             <SubActions
               liked={liked}
               onLike={() => { toggleLike(); trackEvent('收藏或取消收藏当前歌', { action: liked ? 'unlike' : 'like' }); }}

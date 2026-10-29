@@ -49,6 +49,14 @@ const injectStyles = () => {
 .music-dock .music-dock-progress{background:#e7e7e5}
 .music-dock .music-dock-progress>div{background:#353535}
 @media(max-width:380px){.music-dock .music-dock-previous{display:none}.music-dock{padding-left:10px!important;padding-right:10px!important}.music-dock-open{gap:8px}}
+.music-now-playing .music-player-art{width:min(188px,25dvh);height:min(188px,25dvh)}
+.music-now-playing .music-player-cover{width:100%!important;height:100%!important}
+.music-now-playing .music-player-cover>div{border-radius:16px;box-shadow:0 8px 24px rgba(33,33,33,.08)!important}
+.music-player-lyrics{mask-image:linear-gradient(to bottom,transparent,black 17%,black 83%,transparent);-webkit-mask-image:linear-gradient(to bottom,transparent,black 17%,black 83%,transparent)}
+.music-sheet-card{background:#fff;border:1px solid #e9e9e7;border-radius:17px}
+@media(max-width:360px){.music-editorial-shell .music-track-row .music-icon-press{width:30px;min-width:30px}.music-player-actions{gap:0!important}.music-player-actions .music-icon-press{min-width:43px}.music-sheet-row-actions{width:36px!important}}
+@media(max-height:700px){.music-now-playing .music-player-art{width:min(142px,22dvh);height:min(142px,22dvh)}.music-now-playing .music-player-art-frame{padding:9px}.music-now-playing .music-player-meta{margin-top:8px}.music-now-playing .music-player-lyrics{margin-top:6px;margin-bottom:6px}.music-now-playing .music-player-actions{padding-top:7px}.music-now-playing .music-transport{margin-top:4px;margin-bottom:0}}
+@media(max-height:580px){.music-now-playing .music-player-art{width:min(110px,19dvh);height:min(110px,19dvh)}.music-now-playing .music-player-art-frame{padding:6px}.music-now-playing .music-player-meta h2{font-size:16px!important}.music-now-playing .music-player-source{display:none}}
 .music-tap:active:not(:disabled){opacity:.65}
 .music-tap:focus-visible,.music-icon-press:focus-visible{outline:2px solid #171717;outline-offset:2px}
 .music-icon-press{touch-action:manipulation;transition:color .15s ease,opacity .15s ease}
@@ -312,7 +320,7 @@ export const VinylDisc: React.FC<{
   playing: boolean; size?: number; bitrate?: string;
 }> = ({ albumPic, picId, source, size = 180, bitrate }) => {
   const { coverRef, cover } = useMusicCover(albumPic, picId, source);
-  return <div ref={coverRef} className="relative" style={{ width: size, height: size }}>
+  return <div ref={coverRef} className="relative music-player-cover" style={{ width: size, height: size }}>
     <div className="w-full h-full rounded-md overflow-hidden"
       style={{ background: '#e6e6e4', border: '1px solid #dededc', boxShadow: '0 12px 30px rgba(0,0,0,.10)' }}>
       {cover ? <img src={cover} alt="专辑封面" className="w-full h-full object-cover" />
@@ -334,13 +342,13 @@ export const SubActions: React.FC<{
 }> = ({ onLike, liked, onSync, showSync, onDownload, showDownload, playMode = 'loop', onCyclePlayMode, onAdd, onOpenQueue }) => {
   const Item = ({ label, glyph, onClick, active }: { label: string; glyph: React.ReactNode; onClick?: () => void; active?: boolean }) =>
     <button type="button" onClick={onClick} aria-label={label} aria-pressed={active}
-      className="music-icon-press flex flex-col items-center justify-center min-w-12 gap-1 py-1"
+      className="music-icon-press flex flex-col items-center justify-center min-w-11 gap-1 py-1.5 rounded-xl"
       style={{ color: active ? C.primary : C.muted }}>
       <span className="h-6 flex items-center justify-center">{glyph}</span>
       <span className="text-[10px] font-medium">{label}</span>
     </button>;
   const modeLabel = playMode === 'single' ? '单曲循环' : playMode === 'shuffle' ? '随机播放' : '列表循环';
-  return <div className="flex items-center justify-around gap-2 max-w-[340px] mx-auto border-t pt-3" style={{ borderColor: '#e6e6e6' }}>
+  return <div className="music-player-actions flex items-center justify-around gap-1 max-w-[360px] mx-auto pt-2.5" style={{ borderTop: '1px solid #ededea' }}>
     {onLike && <Item label={liked ? '已喜欢' : '喜欢'} glyph={<Heart size={16} weight={liked ? 'fill' : 'regular'} />} active={liked} onClick={onLike} />}
     {showSync && onSync && <Item label="歌词对轴" glyph={<span className="text-lg">⌖</span>} onClick={onSync} />}
     {showDownload && onDownload && <Item label="下载" glyph={<span className="text-lg">↓</span>} onClick={onDownload} />}
@@ -357,12 +365,12 @@ export const GlassProgress: React.FC<{
 }> = ({ progress, duration, fmtTime, onSeek }) => {
   const pct = duration > 0 ? Math.min(100, Math.max(0, progress / duration * 100)) : 0;
   return <div className="w-full">
-    <div className="h-5 flex items-center cursor-pointer touch-none" role="slider" tabIndex={0}
+    <div className="h-6 flex items-center cursor-pointer touch-none" role="slider" tabIndex={0}
       aria-label="播放进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}
       onKeyDown={e => { if (e.key === 'ArrowRight') onSeek(Math.min(1, pct / 100 + .05));
         if (e.key === 'ArrowLeft') onSeek(Math.max(0, pct / 100 - .05)); }}
       onClick={e => { const rect = e.currentTarget.getBoundingClientRect(); if (rect.width) onSeek(Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))); }}>
-      <div className="relative w-full h-[3px] rounded-full" style={{ background: '#d7d7d7' }}>
+      <div className="relative w-full h-[3px] rounded-full" style={{ background: '#e4e4e1' }}>
         <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: C.primary }} />
         <div className="absolute top-1/2 w-2.5 h-2.5 rounded-full border-2 border-white"
           style={{ left: `${pct}%`, transform: 'translate(-50%, -50%)', background: C.primary }} />
@@ -377,17 +385,17 @@ export const GlassProgress: React.FC<{
 export const PlayControls: React.FC<{
   playing: boolean; loading: boolean; onPrev: () => void; onToggle: () => void; onNext: () => void;
 }> = ({ playing, loading, onPrev, onToggle, onNext }) =>
-  <div className="flex items-center justify-center gap-10 mt-3 mb-2">
-    <button type="button" aria-label="上一首" onClick={onPrev} className="music-icon-press p-2" style={{ color: C.text }}>
-      <SkipBack size={24} weight="fill" /></button>
+  <div className="music-transport flex items-center justify-center gap-9 mt-2 mb-1">
+    <button type="button" aria-label="上一首" onClick={onPrev} className="music-icon-press w-11 h-11 rounded-full flex items-center justify-center" style={{ color: C.text }}>
+      <SkipBack size={21} weight="fill" /></button>
     <button type="button" onClick={onToggle} aria-label={loading ? '正在加载音频' : playing ? '暂停' : '播放'}
-      className="music-tap w-[58px] h-[58px] rounded-full flex items-center justify-center"
+      className="music-tap w-[54px] h-[54px] rounded-full flex items-center justify-center shadow-[0_5px_14px_rgba(0,0,0,.11)]"
       style={{ background: C.primary }}>
       {loading ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        : playing ? <Pause size={24} color="white" weight="fill" /> : <Play size={24} color="white" weight="fill" />}
+        : playing ? <Pause size={22} color="white" weight="fill" /> : <Play size={22} color="white" weight="fill" />}
     </button>
-    <button type="button" aria-label="下一首" onClick={onNext} className="music-icon-press p-2" style={{ color: C.text }}>
-      <SkipForward size={24} weight="fill" /></button>
+    <button type="button" aria-label="下一首" onClick={onNext} className="music-icon-press w-11 h-11 rounded-full flex items-center justify-center" style={{ color: C.text }}>
+      <SkipForward size={21} weight="fill" /></button>
   </div>;
 
 export const BokehBg: React.FC = () => {
