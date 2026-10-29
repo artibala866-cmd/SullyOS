@@ -443,7 +443,7 @@ const ScheduleApp: React.FC = () => {
           <span className="hidden sm:block text-xs tracking-normal text-neutral-500">专注 · 创作 · 成长</span>
           <button type="button" aria-label="选择陪伴 Char" aria-expanded={showCharPicker}
             onClick={()=>setShowCharPicker(v=>!v)}
-            className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-900">
+            className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-900">
             <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-full w-full rounded-full"/>
           </button>
         </div>
@@ -477,7 +477,7 @@ const ScheduleApp: React.FC = () => {
               <p className="mt-0.5 line-clamp-1 text-[13px] font-medium">{session?.mode==='break'?'好好休息一下':activeTask?.title||'选一件重要的事开始'}</p>
               <div className="mt-3 flex items-center justify-center gap-3">
                 {session ? <>
-                  <button className="grid h-9 w-9 place-items-center rounded-full border border-neutral-300 bg-white" aria-label={session.pauseRemainingMs!=null?'继续专注':'暂停专注'} onClick={session.pauseRemainingMs!=null?resume:pause}>
+                  <button className="grid h-11 w-11 place-items-center rounded-full border border-neutral-300 bg-white" aria-label={session.pauseRemainingMs!=null?'继续专注':'暂停专注'} onClick={session.pauseRemainingMs!=null?resume:pause}>
                     {session.pauseRemainingMs!=null?<Play size={22} weight="fill"/>:<Pause size={22} weight="fill"/>}</button>
                   <button className="grid h-[48px] w-[48px] place-items-center rounded-full bg-[#363636] text-white shadow-sm" aria-label="结束或退出本轮选项" title="选择留在学习室或退出" onClick={requestExit}><Stop size={22} weight="fill"/></button>
                 </> : <>
