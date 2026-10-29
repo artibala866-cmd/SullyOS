@@ -52,8 +52,8 @@ interface LocalAlbumCardProps {
 }
 const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExpanded, currentId, playing, onPlay, onRemove }) => (
   <div
-    className="rounded-sm overflow-hidden relative"
-    style={{ background: C.surface, border: '1px solid #dedede' }}
+    className="rounded-[20px] overflow-hidden relative"
+    style={{ background: C.surface, border: '1px solid #e9e9e7' }}
   >
     <div
       aria-hidden
@@ -62,19 +62,19 @@ const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExp
     />
     <button
       onClick={() => setExpanded((v: boolean) => !v)}
-      className="relative w-full flex items-center gap-3 p-2.5 text-left"
+      className="relative w-full flex items-center gap-3 p-3 text-left"
     >
       <div className="relative w-12 h-12 shrink-0">
-        <div className="absolute inset-0 rounded-sm flex items-center justify-center overflow-hidden"
+        <div className="absolute inset-0 rounded-[13px] flex items-center justify-center overflow-hidden"
           style={{
-            background: `#171717`,
-            border: '1px solid #171717',
+            background: '#ededeb',
+            border: '1px solid #e1e1df',
             boxShadow: 'none',
           }}
         >
-          <MusicNote size={22} color="white" weight="regular" />
+          <MusicNote size={22} color={C.accent} weight="regular" />
         </div>
-        <Sparkle size={9} className="absolute -top-1 -right-1" color={C.sakura} delay={0.5} />
+        
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
@@ -82,10 +82,10 @@ const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExp
             style={{ color: C.primary }}>
             一起写的歌
           </span>
-          <span className="text-[10px] px-1.5 py-[2px] rounded-sm font-medium"
+          <span className="text-[10px] px-1.5 py-[2px] rounded-[13px] font-medium"
             style={{
-              background: `#444444`,
-              color: 'white',
+              background: '#efefed',
+              color: C.muted,
               letterSpacing: '0.1em',
             }}>
             LOCAL
@@ -100,7 +100,7 @@ const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExp
       </div>
     </button>
     {expanded && (
-      <div className="relative border-t px-1 py-1" style={{ borderColor: `${C.sakura}30` }}>
+      <div className="relative border-t px-2 py-2" style={{ borderColor: '#ededea' }}>
         {songs.map((s, idx) => {
           const active = currentId === s.id;
           return (
@@ -335,10 +335,10 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
     // 有本地专辑 → 简洁单页：仅 album + 一个登录入口卡
     return (
       <div className="flex flex-col h-full relative"
-        style={{ background: `#f6f6f5` }}>
+        style={{ background: C.bg }}>
         <BokehBg />
         <MizuHeader title="My Cloud" onBack={onBack} />
-        <div className="relative z-10 flex-1 overflow-y-auto pb-24 px-3 pt-3 shizuku-scrollbar">
+        <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pb-28 px-4 pt-4 shizuku-scrollbar">
           {/* 本地专辑卡 */}
           <LocalAlbumCard
             songs={localAlbumSongs}
@@ -423,9 +423,9 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
           {/* 登录入口卡 */}
           <button
             onClick={() => setShowNeteaseLogin(true)}
-            className="mt-4 w-full rounded-sm shizuku-glass p-4 flex items-center gap-3 transition-colors"
+            className="mt-4 w-full rounded-[20px] shizuku-glass p-4 flex items-center gap-3 transition-colors"
           >
-            <div className="w-10 h-10 rounded-sm flex items-center justify-center"
+            <div className="w-10 h-10 rounded-[13px] flex items-center justify-center"
               style={{ background: C.soft, border: '1px solid #dedede' }}>
               <UserIcon size={18} color={C.muted} weight="duotone" />
             </div>
@@ -462,7 +462,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
 
   return (
     <div className="flex flex-col h-full relative"
-      style={{ background: `#f6f6f5` }}>
+      style={{ background: C.bg }}>
       <BokehBg />
       <MizuHeader
         title="My Cloud"
@@ -493,7 +493,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
         }
       />
 
-      <div className="flex-1 overflow-y-auto relative z-10 shizuku-scrollbar pb-20">
+      <div className="flex-1 min-h-0 overflow-y-auto relative z-10 shizuku-scrollbar pb-28">
         {/* Banner 头图 */}
         <div className="relative h-32 overflow-hidden">
           {profile.backgroundUrl ? (
@@ -505,19 +505,17 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
         </div>
 
         {/* 用户卡 */}
-        <div className="-mt-12 mx-4 rounded-sm p-4 shizuku-glass-strong relative z-10"
+        <div className="-mt-12 mx-4 rounded-[22px] p-4 shizuku-glass-strong relative z-10"
           style={{ boxShadow: 'none' }}>
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
               <img
                 src={profile.avatarUrl || 'https://p1.music.126.net/y19E5SadGUmSR8SZxkrNtw==/109951163965029180.jpg'}
                 alt=""
-                className="w-16 h-16 rounded-sm object-cover"
+                className="w-16 h-16 rounded-[15px] object-cover"
                 style={{ border: '1px solid #dedede', boxShadow: 'none' }}
               />
-              <div className="absolute -bottom-1 -right-1">
-                <Sparkle size={10} color={C.sakura} delay={0.3} />
-              </div>
+
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-base font-semibold tracking-tight truncate" style={{ color: C.text }}>
@@ -549,7 +547,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
           <div className="flex items-center gap-2 mt-3">
             <button
               onClick={doSignIn}
-              className="flex-1 py-2 rounded-xl text-[11px] transition-all shizuku-glass"
+              className="flex-1 min-h-10 py-2 rounded-[13px] text-[11px] transition-all shizuku-glass"
               style={{ color: signedIn ? C.muted : C.primary, border: `1px solid ${signedIn ? C.faint : C.primary}30` }}
             >
               {signedIn ? '已签到 ✓' : '每日签到'}
@@ -572,7 +570,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
                   trackEvent('播放每日推荐');
                 } catch (e: any) { addToast(`获取失败：${e.message}`, 'error'); }
               }}
-              className="flex-1 py-2 rounded-xl text-[11px] transition-all text-white"
+              className="flex-1 min-h-10 py-2 rounded-[13px] text-[11px] transition-all text-white"
               style={{ background: `#171717`, boxShadow: 'none' }}
             >
               每日推荐
@@ -595,7 +593,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
                   trackEvent('播放私人 FM');
                 } catch (e: any) { addToast(`FM 失败：${e.message}`, 'error'); }
               }}
-              className="flex-1 py-2 rounded-xl text-[11px] transition-all shizuku-glass"
+              className="flex-1 min-h-10 py-2 rounded-[13px] text-[11px] transition-all shizuku-glass"
               style={{ color: C.accent, border: `1px solid ${C.accent}30` }}
             >
               私人 FM
@@ -680,7 +678,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
         )}
 
         {/* Tabs */}
-        <div className="mx-4 mt-5 flex items-center gap-1 shizuku-glass rounded-full p-1">
+        <div className="mx-4 mt-5 flex items-center gap-1 rounded-[17px] p-1" style={{ background: '#eaeae8' }}>
           {([
             { k: 'playlist', label: '歌单' },
             { k: 'record', label: '最近' },
@@ -689,10 +687,11 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
             <button
               key={t.k}
               onClick={() => { setTab(t.k); trackEvent('切换我的云音乐标签', { tab: t.k }); }}
-              className="flex-1 py-1.5 rounded-full text-[11px] tracking-wider transition-all"
+              className="flex-1 min-h-10 py-2 rounded-[13px] text-[11px] tracking-wide transition-all"
               style={{
-                background: tab === t.k ? `#171717` : 'transparent',
-                color: tab === t.k ? 'white' : C.muted,
+                background: tab === t.k ? '#fff' : 'transparent',
+                color: tab === t.k ? C.primary : C.muted,
+                boxShadow: tab === t.k ? '0 1px 5px rgba(0,0,0,.06)' : 'none',
               }}
             >
               {t.label}
@@ -728,13 +727,13 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
               <div className="text-center text-[11px] py-10" style={{ color: C.faint }}>还没有歌单</div>
             )}
             {playlists.map(pl => (
-              <div key={pl.id} className="rounded-2xl shizuku-glass overflow-hidden">
+              <div key={pl.id} className="rounded-[20px] shizuku-glass overflow-hidden">
                 <button
                   onClick={() => expandPlaylist(pl)}
                   className="w-full flex items-center gap-3 p-2.5 text-left"
                 >
                   <img src={pl.coverImgUrl} alt=""
-                    className="w-12 h-12 rounded-xl object-cover"
+                    className="w-12 h-12 rounded-[12px] object-cover"
                     style={{ border: `1px solid ${C.faint}30` }} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm truncate" style={{ color: C.text }}>{pl.name}</div>
@@ -788,7 +787,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
                   trackEvent('播放「我的」页列表里的一首歌', { source: 'record' });
                 }}
                 className="w-full flex items-center gap-3 p-2 rounded-2xl text-left transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)' }}
+                style={{ background: C.surface, border: '1px solid #e9e9e7' }}
               >
                 <div className="text-[10px] w-5 text-center shrink-0" style={{ color: C.faint }}>{i + 1}</div>
                 <TokenImg value={r.song.albumPic} alt="" className="w-10 h-10 rounded-lg object-cover" />
@@ -818,7 +817,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
                   trackEvent('播放「我的」页列表里的一首歌', { source: 'cloud' });
                 }}
                 className="w-full flex items-center gap-3 p-2 rounded-2xl text-left transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)' }}
+                style={{ background: C.surface, border: '1px solid #e9e9e7' }}
               >
                 <TokenImg value={s.albumPic || 'https://p1.music.126.net/y19E5SadGUmSR8SZxkrNtw==/109951163965029180.jpg'}
                   alt="" className="w-10 h-10 rounded-lg object-cover" />
