@@ -17,12 +17,12 @@ export default function StudyWeekTimetable({classes,selectedId,onSelect}:Props){
       <div><h3 className="text-base font-semibold">本周课程</h3><p className="text-xs tracking-normal text-neutral-500">WEEKLY TIMETABLE</p></div></div>
       <div className="flex items-center gap-1.5">
         <button type="button" aria-label="上一周" title="上一周"
-          className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 hover:bg-neutral-100"
+          className="grid h-11 w-11 place-items-center rounded-full border border-neutral-200 hover:bg-neutral-100"
           onClick={()=>setWeekOffset(x=>Math.max(-520,x-1))}><CaretLeft size={16}/></button>
         <button type="button" aria-label="回到本周" onClick={()=>setWeekOffset(0)}
           className="rounded-full border border-neutral-200 bg-[#fafafa] px-3 py-2 text-xs text-neutral-700">本周</button>
         <button type="button" aria-label="下一周" title="下一周"
-          className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 hover:bg-neutral-100"
+          className="grid h-11 w-11 place-items-center rounded-full border border-neutral-200 hover:bg-neutral-100"
           onClick={()=>setWeekOffset(x=>Math.min(520,x+1))}><CaretRight size={16}/></button>
       </div>
     </div>
