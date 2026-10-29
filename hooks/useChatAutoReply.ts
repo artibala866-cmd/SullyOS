@@ -4,6 +4,7 @@ import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 
 export const CHAT_AUTO_REPLY_DELAY_MS = 2000;
+const CHAT_AUTO_REPLY_MAX_PENDING_AGE_MS = 30 * 60_000;
 
 interface Options {
     enabled: boolean;
@@ -91,6 +92,12 @@ export function useChatAutoReply(options: Options) {
 
     useEffect(() => {
         const work = workRef.current;
+        // Sleep/closed-keyboard waiting must not resurrect a hours-old user question.
+        if (work.pending && work.firstUnansweredAt > 0 &&
+            Date.now() - work.firstUnansweredAt >= CHAT_AUTO_REPLY_MAX_PENDING_AGE_MS) {
+            cancel();
+            return;
+        }
         const ready = () => {
             const latest = current.current;
             return workRef.current === work && work.pending && work.sends.size === 0 &&

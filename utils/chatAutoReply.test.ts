@@ -190,12 +190,21 @@ describe('real-person pacing without mechanical nudges', () => {
     });
     it('sleep stays quiet regardless of nudges until the actual schedule changes', () => {
         render({ naturalPacing: true, lifeActivity: 'sleep' });
+        const originalSendAt = Date.now();
         for (let i = 0; i < 12; i++) send();
         advance(180_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
         render({ lifeActivity: 'free' });
-        advance(delayFor('free')!);
+        advance(delayFor('free', originalSendAt)!);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('an old sleep candidate expires rather than suddenly replying hours later', () => {
+        render({ naturalPacing: true, lifeActivity: 'sleep' });
+        send();
+        advance(31 * 60_000);
+        render({ lifeActivity: 'free' });
+        advance(10_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
     });
     it('recent genuine conversation outranks a busy schedule', () => {
         render({ naturalPacing: true, lifeActivity: 'busy', lastCharacterReplyAt: Date.now() - 60_000 });
