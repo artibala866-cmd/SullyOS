@@ -44,6 +44,12 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(ui).toContain('.music-tap:active');
     expect(ui).toContain('@media(prefers-reduced-motion:reduce)');
   });
+  it('点击队列其他歌曲会更新当前索引，不能只换音频地址', () => {
+    const queueView = app.split("section === 'queue' &&")[1]?.split('{characters.length')[0] || '';
+    expect(queueView).toContain('else void playSong(song);');
+    expect(queueView).not.toContain('playSong(song, { alsoSetQueue: false })');
+  });
+
   it('迷你播放器有加载、播放/暂停状态和进度条', () => {
     expect(ui).toContain("loading ? '正在获取音源…'");
     expect(ui).toContain('progress / duration * 100');
