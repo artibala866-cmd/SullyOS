@@ -60,6 +60,10 @@ describe('P2 密度的真实学习室概览卡',()=>{
     vi.mocked(readWorkspace).mockRejectedValueOnce(new Error('IndexedDB unavailable'));
     await render();
     expect(host.querySelector('[role="alert"]')?.textContent).toContain('无法读取');
+    expect(host.textContent).toContain('资料暂不可用');
+    expect(host.textContent).toContain('课程暂不可用');
+    expect(host.textContent).toContain('作业暂不可用');
+    expect(host.textContent).not.toContain('0 进行中');
     expect(host.textContent).not.toContain('真实画稿');
   });
 });

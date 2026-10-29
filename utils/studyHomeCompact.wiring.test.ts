@@ -31,6 +31,12 @@ describe('手机学习室按 P2 紧凑仪表盘比例整改',()=>{
   expect(home).toContain('readWorkspace()');
   expect(home).toContain('commissionCalendarEvents(data.commissions)');
   expect(home).toContain('calendarMonthGrid(year,month-1)');
+  expect(home).toContain('aria-label="迷你日历上一月"');
+  expect(home).toContain('aria-label="迷你日历下一月"');
+  expect(home).toContain('aria-label="迷你日历回本月"');
+  expect(home).toContain('min-h-[36px]');
+  expect(home).toContain('setSelectedDate(nextMonth+');
+  expect(home).toContain('chooseDate(d.date)');
   expect(home).toContain('data.classes');
   expect(home).toContain('data.homework');
   expect(home).toContain('onClick={onCommissions}');
