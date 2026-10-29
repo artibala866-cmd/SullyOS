@@ -1065,8 +1065,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [toast]);
   const cancelListeningInvite = useCallback(async (charId: string, messageId?: number): Promise<boolean> => {
     if (!charId) return false;
+    const report = (success: boolean, reason?: string) =>
+      window.dispatchEvent(new CustomEvent('music-listen-invite-withdrawal-result', {
+        detail: { charId, messageId, success, reason },
+      }));
     if (settlingUserInvites.current.has(charId) || invitingCharIds.current.has(charId)) {
       toast('邀请正在处理，请稍后再试', 'info');
+      report(false, 'processing');
       return false;
     }
     settlingUserInvites.current.add(charId);
@@ -1089,6 +1094,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
           detail: { charId, messageId },
         }));
+        report(false, 'not_found');
         return false;
       }
       setListeningInvites(prev => {
@@ -1101,11 +1107,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         detail: { charId, messageId: withdrawnId, accepted: false, cancelled: true },
       }));
       toast('邀请已撤回', 'success');
+      report(true);
       return true;
     } catch (err) {
       // Never show "已撤回" when the IndexedDB transaction failed.
       console.warn('[MusicTogether] 撤回邀请失败', err);
       toast('邀请撤回未能保存，请重试', 'error');
+      report(false, 'storage');
       return false;
     } finally {
       settlingUserInvites.current.delete(charId);
