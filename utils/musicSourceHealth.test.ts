@@ -91,6 +91,14 @@ describe('pic_id 封面限流与懒加载基础', () => {
     expect(await getGuestMusicCover({albumPic:'',picId:''})).toBe('');
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it('GD 整站 403 后不继续请求其他封面，避免被限流时反复撞接口', async () => {
+    const fetchMock = vi.fn(async () => new Response('', {status:403}));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await getGuestMusicCover({picId:'blocked-1'})).toBe('');
+    expect(await getGuestMusicCover({picId:'blocked-2'})).toBe('');
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('一口气打开 50 首无封面的歌也不会超过保护预算', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({url:''}), {status:200}));
     vi.stubGlobal('fetch', fetchMock);
