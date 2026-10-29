@@ -30,7 +30,7 @@ const MusicApp: React.FC = () => {
   const { closeApp, addToast, characters, userProfile } = useOS();
   const {
     cfg, setCfg, effectiveWorkerUrl,
-    current, playing, progress, duration, loadingSong,
+    current, playing, progress, duration, loadingSong, actualQualityLabel,
     lyric, tlyric, activeLyricIdx,
     playSong, togglePlay, nextSong, prevSong, seek,
     liked, toggleLike, setToastHandler,
@@ -185,6 +185,8 @@ const MusicApp: React.FC = () => {
             artists: (song.ar || song.artists || []).map((a: any) => a.name).join(' / '),
             album: song.al?.name || song.album?.name || '',
             albumPic: toHttps(song.al?.picUrl || song.album?.picUrl || ''),
+            picId: String(song.pic_id ?? song.al?.pic_id ?? ''),
+            lyricId: String(song.lyric_id ?? song.id),
             duration: (song.dt || song.duration || 0) / 1000,
             fee: song.fee ?? 0,
           })).filter((song: Song) => Number.isSafeInteger(song.id));
@@ -220,6 +222,7 @@ const MusicApp: React.FC = () => {
             border: `1px solid ${isActive ? C.glow + '80' : 'rgba(205,193,229,.38)'}`,
             boxShadow: isActive ? '0 6px 20px rgba(97,79,174,.09)' : '0 2px 9px rgba(90,82,125,.035)' }}>
           <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
+            picId={song.picId} source={song.source}
             duration={fmtTime(song.duration)} isVip={song.fee === 1}
             isActive={isActive} isPlaying={isActive && playing} isLoading={isActive && loadingSong}
             onClick={handlePlay} />
@@ -422,6 +425,7 @@ const MusicApp: React.FC = () => {
               style={{ background: active ? 'rgba(237,230,255,.78)' : 'rgba(255,255,255,.83)',
                 border: `1px solid ${active ? C.glow : C.soft}` }}>
               <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
+                picId={song.picId} source={song.source}
                 duration={fmtTime(song.duration)} isVip={song.fee === 1}
                 isActive={active} isPlaying={active && playing} isLoading={active && loadingSong} onClick={onPlay} />
               <div className="flex items-center justify-between pl-3 pr-1.5 pb-1">
@@ -481,6 +485,8 @@ const MusicApp: React.FC = () => {
           name={current.name}
           artists={current.artists}
           albumPic={current.albumPic}
+          picId={current.picId}
+          source={current.source}
           playing={playing}
           loading={loadingSong}
           progress={progress}
@@ -501,14 +507,6 @@ const MusicApp: React.FC = () => {
   );
 
   // ════════════════ 播放页 ════════════════
-  const bitrateMap: Record<string, string> = {
-    standard: '128 kbps',
-    higher:   '192 kbps',
-    exhigh:   '320 kbps',
-    lossless: '1411 kbps',
-    hires:    '24bit · Hi-Res',
-  };
-
   const renderPlayer = () => {
     if (!current) return null;
     return (
@@ -519,7 +517,8 @@ const MusicApp: React.FC = () => {
 
         <div className="flex-1 flex flex-col items-center px-5 pt-4 pb-3 relative z-10 overflow-hidden">
           <div className="shrink-0 mt-1 relative">
-            <VinylDisc albumPic={current.albumPic} playing={playing} size={150} bitrate={bitrateMap[cfg.quality]} />
+            <VinylDisc albumPic={current.albumPic} picId={current.picId} source={current.source}
+              playing={playing} size={150} bitrate={actualQualityLabel} />
             {/* 重录中覆盖层 — 只在本地歌且 regeneratingId 匹配时显示 */}
             {isCurrentRegenerating && (
               <div className="absolute inset-0 rounded-full flex items-center justify-center pointer-events-none"
@@ -759,7 +758,7 @@ const MusicApp: React.FC = () => {
                 >{q}</button>
               ))}
             </div>
-            <div className="text-[9px] mt-1.5 italic" style={{ color: C.faint }}>lossless / hires 需要黑胶 SVIP</div>
+            <div className="text-[10px] mt-1.5 leading-relaxed" style={{ color: C.muted }}>这是优先请求的音质档位，实际播放质量以音源服务返回为准；QQ 匿名来源可能无法报告码率。lossless / hires 可能需要会员授权。</div>
           </div>
           <div className="space-y-3 pt-1">
             <button
