@@ -95,3 +95,13 @@ export const canJoinMusicWithoutPendingInvite = <
     m.role === 'user' && m.type !== 'system' &&
     !m.metadata?.musicListenInvite && !m.metadata?.musicListenInviteResponseTo);
 };
+
+/** Session invalidation only; the actual active state lives in IndexedDB. */
+export const MUSIC_LISTEN_SESSION_CHANGED_KEY = 'sully_music_listening_session_changed_v2';
+export const announceMusicListenSessionChanged = (charId: string): void => {
+  try {
+    localStorage.setItem(MUSIC_LISTEN_SESSION_CHANGED_KEY, JSON.stringify({
+      charId, at: Date.now(), nonce: Math.random(),
+    }));
+  } catch { /* In-app updates still work if storage is blocked. */ }
+};
