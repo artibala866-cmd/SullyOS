@@ -9,11 +9,14 @@ export function gamingPoint(item,p){const a=item.rotation*Math.PI/180,c=Math.cos
 const overlap=(a,b)=>a[0]<b[3]-.015&&a[3]>b[0]+.015&&a[1]<b[4]-.015&&a[4]>b[1]+.015&&a[2]<b[5]-.015&&a[5]>b[2]+.015;
 export function clearance(room,catalog,pose,excluded,headWidth,profile={}){
  const [x,y,z]=pose.position,a=pose.rotation,c=Math.abs(Math.cos(a)),s=Math.abs(Math.sin(a)),hx=c*headWidth/2+s*.43,hz=s*headWidth/2+c*.43;
- const rect=[x-hx,z-hz,x+hx,z+hz];if(room.floorCells?!insideFloors(rect,room.floorCells):rect[0]<-ROOM_HALF.x+.14||rect[2]>ROOM_HALF.x-.14||rect[1]<-ROOM_HALF.z+.15||rect[3]>ROOM_HALF.z-.15)return '给脑袋留一点空间，离墙远些';
+ const headRadius=Number.isFinite(profile.headRadius)?Math.min(headWidth/2,Math.max(.28,profile.headRadius)):null;
+ const rx=headRadius??hx,rz=headRadius??hz;
+ const rect=[x-rx,z-rz,x+rx,z+rz];if(room.floorCells?!insideFloors(rect,room.floorCells):rect[0]<-ROOM_HALF.x+.14||rect[2]>ROOM_HALF.x-.14||rect[1]<-ROOM_HALF.z+.15||rect[3]>ROOM_HALF.z-.15)return '给脑袋留一点空间，离墙远些';
  const bottom=profile.headBottom??y+.60,top=profile.headTop??y+1.62;
- const volumes=[[x-.25,y+.025,z-(profile.bodyHalfDepth??.25),x+.25,profile.headBottom??y+.53,z+(profile.bodyHalfDepth??.25)],[x-hx,bottom,z-hz,x+hx,top,z+hz]];
+ const volumes=[[x-.25,y+.025,z-(profile.bodyHalfDepth??.25),x+.25,profile.headBottom??y+.53,z+(profile.bodyHalfDepth??.25)],...(headRadius===null?[[x-hx,bottom,z-hz,x+hx,top,z+hz]]:[])];
  const obstacles=[...boundaryBoxes(room,catalog),...room.items.filter(i=>!i.stored&&!excluded.includes(i.id)&&!(pose.kind==='rhythm'?['rug']:['rug','ceiling']).includes(asset(catalog,i.assetId)?.surface)).flatMap(i=>boxes(i,asset(catalog,i.assetId)))];
- if(obstacles.some(b=>volumes.some(v=>overlap(v,b))))return '座位或头部空间被挡住了';
+ if(obstacles.some(b=>volumes.some(v=>overlap(v,b))||headRadius!==null&&bottom<b[4]&&top>b[1]&&
+   Math.max(b[0]-x,0,x-b[3])**2+Math.max(b[2]-z,0,z-b[5])**2<headRadius**2))return '座位或头部空间被挡住了';
  return '';
 }
 export function gamingActivities(room,catalog,{headWidth=1.5,body2=false,shoulderHeight=1.652,armReach=.678}={}){

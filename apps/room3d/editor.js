@@ -35,7 +35,7 @@ import {createGuestLife} from './guestLife.js';
 import {setCharacterRoomTint,setCharacterRoomLighting} from './chibi/illustration';
 import {comparisonSpot,visitorFootprintWidth} from './visitorComparison.js';
 import {bathroomActivities,isBathAction} from './bathroom.js';
-import {bathroomEntryCandidates,createBathroomJourney,bathroomJourneyFrame,bathroomHandTargets,bathroomRimReachable,bathroomJourneyObstacleIssue} from './bathroomJourney.js';
+import {planBathroomEntry,createBathroomJourney,bathroomJourneyFrame,bathroomHandTargets,bathroomRimReachable,bathroomJourneyObstacleIssue} from './bathroomJourney.js';
 import {createBathroomEffects} from './bathroomEffects.js';
 import {interactionIcon,actionIcon} from './interactionIcons.js';
 import {roomPixelRatio,roomLightBudget} from './renderQuality.js';
@@ -1042,13 +1042,19 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  }
  function approachBathroom(next){
   stopWalking();const item=current().items.find(i=>i.id===next.itemId);if(!item)return;
-  const map=navMap(),ox=current().x*ROOM_STEP.x,oz=current().z*ROOM_STEP.z,start=[resident.position.x+ox,resident.position.z+oz];
-  const entrances=bathroomEntryCandidates(item,next.kind),reach=visitor?.rig?visitor.gamingReach:null;
-   const supported=entrances.filter(p=>bathroomRimReachable(next,[p[0],resident.position.y,p[2]],reach));
-   if(!supported.length){notify('浴缸边缘没有小手能安全够到的扶边点，暂时不能跨入',true);return;}
-   const front=supported.find(p=>map.free(p[0]+ox,p[2]+oz)&&findWalkPath(map,start,[p[0]+ox,p[2]+oz])&&
-    !bathroomJourneyObstacleIssue(current(),catalog,next,createBathroomJourney(next,p,resident.rotation.y),headWidth));
-  if(!front){notify('家具前没有能走到的空位，先留一点进出的空间',true);return;}
+  const ox=current().x*ROOM_STEP.x,oz=current().z*ROOM_STEP.z,start=[resident.position.x+ox,resident.position.z+oz];
+  const reach=visitor?.rig?visitor.gamingReach:null;
+  const entry=planBathroomEntry(current(),catalog,next,item,residentWalkMap(start),start,{
+   reach,headWidth,offset:[ox,oz],startRotation:resident.rotation.y
+  });
+  if(!entry.front){
+   const reasons={grip:'浴缸边缘没有小手能安全够到的扶边点，暂时不能跨入',
+    occupied:'浴缸入口的站位被家具或墙挡住了，先给入口留一点空间',
+    route:'浴缸旁有空位，但目前没有走得到的安全路线',
+    sweep:'浴缸进出动作可能撞到旁边的家具，请检查浴缸周围的摆设'};
+   notify(reasons[entry.reason]||entry.detail||'目前无法安全进入卫浴家具',true);return;
+  }
+  const front=entry.front;
   if(!walkTo([front[0]+ox,front[2]+oz]))return;
   walking.arrived=()=>{
    const currentActivity=activities().find(a=>a.itemId===next.itemId&&a.kind===next.kind&&a.stationId===next.stationId&&!a.reason);

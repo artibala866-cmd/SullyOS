@@ -1,5 +1,6 @@
 import {MathUtils as M} from 'three';
 import {gamingPoint,clearance} from './gaming.js';
+import {findWalkPath} from './navigation.js';
 const mix=(a,b,t)=>a.map((v,i)=>M.lerp(v,b[i],t));
 const turn=(a,b,t)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
 const pulse=(p,a,b,c,d)=>M.smootherstep(p,a,b)*(1-M.smootherstep(p,c,d));
@@ -7,6 +8,27 @@ const pulse=(p,a,b,c,d)=>M.smootherstep(p,a,b)*(1-M.smootherstep(p,c,d));
 export function bathroomEntryCandidates(item,kind){
  const x=kind==='bath-soak'?.65:0;
  return [1.35,1.6,1.9,2.2].flatMap(z=>(kind==='bath-soak'?[0,-.25,.25,-.5,-.8,-1.1]:[0,-.25,.25,-.5,.5]).map(dx=>gamingPoint(item,[x+dx,.03,z])));
+}
+/** Return a truly accessible bath entrance, without weakening wall or body clearance.
+ * The path uses the same map as walking; surrounding furniture remains solid. */
+export function planBathroomEntry(room,catalog,activity,item,map,start,{reach=null,headWidth=1.5,offset=[0,0],startRotation=0}={}){
+ const candidates=bathroomEntryCandidates(item,activity.kind).filter(p=>bathroomRimReachable(activity,p,reach));
+ if(!candidates.length)return {front:null,reason:'grip'};
+ const distance=p=>Math.hypot(p[0]+offset[0]-start[0],p[2]+offset[1]-start[1]);
+ candidates.sort((a,b)=>distance(a)-distance(b));
+ let freeCount=0,pathCount=0,obstruction='';
+ for(const candidate of candidates){
+  const target=[candidate[0]+offset[0],candidate[2]+offset[1]];
+  if(!map.free(...target))continue;
+  freeCount++;
+  const path=findWalkPath(map,start,target);
+  if(!path)continue;
+  pathCount++;
+  const issue=bathroomJourneyObstacleIssue(room,catalog,activity,createBathroomJourney(activity,candidate,startRotation),headWidth);
+  if(issue){obstruction||=issue;continue;}
+  return {front:candidate,path,reason:null};
+ }
+ return {front:null,reason:freeCount===0?'occupied':pathCount===0?'route':'sweep',detail:obstruction};
 }
 export function createBathroomJourney(activity,front,startRotation){
  const tub=activity.kind==='bath-soak',seated=activity.posture==='seated';
@@ -118,7 +140,7 @@ export function bathroomJourneyObstacleIssue(room,catalog,activity,journey,headW
  for(let i=0;i<=30;i++){
   const f=bathroomJourneyFrame(journey,journey.enter*i/30);
   const issue=clearance(room,catalog,{position:f.position,rotation:f.rotation,kind:activity.kind},
-   exclusions,headWidth);
+   exclusions,headWidth,activity.kind==='bath-soak'?{headRadius:.42}:{});
   if(issue)return '卫浴进入或退出路线被挡住了：'+issue;
  }
  return '';
