@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findPendingMusicInvite } from './musicInviteStatus';
+import { findPendingMusicInvite, hasPendingMusicInvite } from './musicInviteStatus';
 
 describe('一起听邀请状态', () => {
   const fromUser = { id: 1, metadata: { musicListenInvite: true } };
@@ -29,6 +29,27 @@ describe('一起听邀请状态', () => {
       fromChar,
       { id: 4, metadata: { musicListenInviteResponseTo: 2, accepted: false } },
     ], 'char')).toBeUndefined();
+  });
+
+  it('任一方的待回应邀请都会阻止再创建反向邀请', () => {
+    const charPending = { id: 20, metadata: { musicListenInvite: true, inviter: 'char' } };
+    const userPending = { id: 21, metadata: { musicListenInvite: true } };
+    expect(hasPendingMusicInvite([charPending])).toBe(true);
+    expect(hasPendingMusicInvite([userPending])).toBe(true);
+    // 解决角色邀请后才能新建 User 邀请，反之亦然。
+    expect(hasPendingMusicInvite([
+      charPending, { id: 22, metadata: { musicListenInviteResponseTo: 20, accepted: false } },
+    ])).toBe(false);
+    expect(hasPendingMusicInvite([
+      userPending, { id: 23, metadata: { musicListenInviteResponseTo: 21, cancelled: true } },
+    ])).toBe(false);
+  });
+
+  it('不同角色的邀请历史不得混在同一聊天会话的判定中', () => {
+    const a = { id: 31, metadata: { musicListenInvite: true, inviter: 'char' } };
+    const b = { id: 32, metadata: { musicListenInvite: true } };
+    expect(hasPendingMusicInvite([a])).toBe(true);
+    expect(findPendingMusicInvite([b], 'char')).toBeUndefined();
   });
 
   it('撤回后可重新邀请，指定消息不能误撤其他邀请', () => {

@@ -16,7 +16,7 @@ import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTence
 import { getGuestMusicCover } from '../utils/musicArtwork';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
-import { findPendingMusicInvite } from '../utils/musicInviteStatus';
+import { findPendingMusicInvite, hasPendingMusicInvite } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
 import {
   musicKey, sameMusic, normalizeTencentSong, tencentSearchRows, extractMusicUrl,
@@ -1027,6 +1027,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
         return;
       }
+      if (findPendingMusicInvite(history, 'char')) {
+        // Answer the Char's existing invitation instead of creating a
+        // competing user invitation for the same conversation.
+        toast('对方已邀请你一起听，请先接受或拒绝这条邀请', 'info');
+        return;
+      }
       const messageId = await DB.saveMessage({
         charId,
         role: 'user',
@@ -1041,9 +1047,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
       window.dispatchEvent(new CustomEvent('music-listen-invite-created', { detail: { charId, messageId } }));
-    })().catch(err => console.warn('[MusicTogether] 邀请消息保存失败', err))
-      .finally(() => invitingCharIds.current.delete(charId));
-  }, []);
+    })().catch(err => {
+      console.warn('[MusicTogether] 邀请消息保存失败', err);
+      toast('一起听邀请未能保存，请稍后重试', 'error');
+    }).finally(() => invitingCharIds.current.delete(charId));
+  }, [toast]);
   const cancelListeningInvite = useCallback((charId: string, messageId?: number) => {
     if (settlingUserInvites.current.has(charId)) return;
     settlingUserInvites.current.add(charId);
@@ -1064,9 +1072,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
         detail: { charId, messageId: pending.id, accepted: false, cancelled: true },
       }));
-    })().catch(err => console.warn('[MusicTogether] 撤回邀请失败', err))
-      .finally(() => settlingUserInvites.current.delete(charId));
-  }, []);
+    })().catch(err => {
+      console.warn('[MusicTogether] 撤回邀请失败', err);
+      toast('邀请撤回未能保存，请重试', 'error');
+    }).finally(() => settlingUserInvites.current.delete(charId));
+  }, [toast]);
   useEffect(() => {
     const onCancel = (event: Event) => {
       const detail = (event as CustomEvent<{ charId?: string; messageId?: number }>).detail;
@@ -1109,10 +1119,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     } catch (err) {
       console.warn('[MusicTogether] 保存 Char 邀请回应失败', err);
+      toast('角色的邀请回应未能保存，请重试', 'error');
     } finally {
       settlingUserInvites.current.delete(charId);
     }
-  }, [respondListeningInvite, resumeInviteTrack]);
+  }, [respondListeningInvite, resumeInviteTrack, toast]);
   const answeringInviteIds = useRef(new Set<number>());
   useEffect(() => {
     const onAnswer = (event: Event) => {
@@ -1133,12 +1144,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           resumeInviteTrack(invitation.metadata.musicListenTrack);
         }
         window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', { detail }));
-      })().catch(err => console.warn('[MusicTogether] 邀请回应保存失败', err))
-        .finally(() => answeringInviteIds.current.delete(detail.messageId));
+      })().catch(err => {
+        console.warn('[MusicTogether] 邀请回应保存失败', err);
+        toast('一起听回应未能保存，请重试', 'error');
+      }).finally(() => answeringInviteIds.current.delete(detail.messageId));
     };
     window.addEventListener('music-listen-invite-answer', onAnswer);
     return () => window.removeEventListener('music-listen-invite-answer', onAnswer);
-  }, [respondListeningInvite, resumeInviteTrack]);
+  }, [respondListeningInvite, resumeInviteTrack, toast]);
   const listeningStartedAtRef = useRef(listeningStartedAt);
   listeningStartedAtRef.current = listeningStartedAt;
   const removeListeningPartner = useCallback((charId: string) => {
@@ -1583,7 +1596,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const messages = await DB.getMessagesByCharId(cid, true);
           const pending = findPendingMusicInvite(messages, 'char');
           // 对方已经在等你回应时，不允许 Char 反向再发一张邀请。
-          if (pending || findPendingMusicInvite(messages, 'user')) return;
+          if (hasPendingMusicInvite(messages)) return;
           const messageId = await DB.saveMessage({
             charId: cid, role: 'assistant', type: 'system',
             content: currentSongRef.current
