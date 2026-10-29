@@ -54,6 +54,13 @@ const injectStyles = () => {
 .music-now-playing .music-player-cover>div{border-radius:16px;box-shadow:0 8px 24px rgba(33,33,33,.08)!important}
 .music-player-lyrics{mask-image:linear-gradient(to bottom,transparent,black 17%,black 83%,transparent);-webkit-mask-image:linear-gradient(to bottom,transparent,black 17%,black 83%,transparent)}
 .music-sheet-card{background:#fff;border:1px solid #e9e9e7;border-radius:17px}
+.music-playlist-cover .music-player-cover,.music-playlist-hero .music-player-cover{width:100%!important;height:100%!important}
+.music-playlist-cover .music-player-cover>div,.music-playlist-hero .music-player-cover>div{border:0!important;box-shadow:none!important;border-radius:inherit!important}
+.music-playlist-cover .music-player-cover img,.music-playlist-hero .music-player-cover img{width:100%;height:100%;object-fit:cover}
+.music-playlist-shelf{scroll-padding-inline:4px;scrollbar-width:thin}
+.music-playlist-detail .music-track-row{border-color:transparent!important;border-bottom:1px solid #efefed!important;border-radius:12px!important}
+@media(max-width:360px){.music-playlist-hero{width:100px!important;height:100px!important}}
+
 @media(max-width:390px){.music-together-section{padding-left:12px;padding-right:12px}.music-together-section .music-tap{min-width:44px}.music-editorial-shell .music-dock-queue{width:32px}}
 @media(max-width:360px){.music-editorial-shell .music-track-row .music-icon-press{width:30px;min-width:30px}.music-player-actions{gap:0!important}.music-player-actions .music-icon-press{min-width:43px}.music-sheet-row-actions{width:36px!important}}
 @media(max-width:320px){.music-dock{left:8px!important;right:8px!important}.music-together-section .shizuku-scrollbar{scrollbar-width:none}}
