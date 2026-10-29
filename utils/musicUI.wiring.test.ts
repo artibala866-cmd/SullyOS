@@ -149,6 +149,15 @@ describe('MONO 黑白灰音乐视觉回归', () => {
     expect(ui).toContain('onKick(main.id)');
     expect(ui).toContain('getGuestMusicCover({ albumPic, picId, source })');
   });
+  it('登录和个人页移除玻璃糖果式圆角与渐变，二维码和头像仍可显示', () => {
+    expect(login).toContain('aria-pressed={mode === t.k}');
+    expect(login).toContain('border-b-2 transition-colors');
+    expect(login).not.toContain('rounded-3xl p-4 shizuku-glass-strong');
+    expect(profile).toContain('rounded-sm p-4 shizuku-glass-strong');
+    expect(profile).toContain('object-cover grayscale');
+    expect(profile).not.toContain('linear-gradient(135deg, ${C.faint}');
+    expect(profile).toContain('<LocalAlbumCard');
+  });
   it('账号页与登录页也使用灰阶，不残留紫粉渐变按钮', () => {
     expect(profile).not.toContain('#e0b88a');
     expect(login).not.toContain('linear-gradient(135deg, ${C.primary}, ${C.accent})');
