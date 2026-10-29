@@ -270,7 +270,8 @@ export const MiniPlayer: React.FC<{
           <span className="block truncate text-[13px] leading-tight font-semibold tracking-[-0.02em]">{name}</span>
           <span className="block truncate text-[11px] mt-1" title={collectionHint || undefined}
             style={{ color: C.muted }}>
-            {regenStatus || (loading ? '正在获取音源…' : artists || '未知歌手')}
+            {regenStatus || (loading ? '正在获取音源…' : collectionHint
+              ? `${artists || '未知歌手'} · ${collectionHint}` : artists || '未知歌手')}
           </span>
         </span>
       </button>
@@ -281,7 +282,7 @@ export const MiniPlayer: React.FC<{
         <button type="button" onClick={onToggle}
           aria-label={loading ? '正在加载音频' : playing ? '暂停' : '播放'}
           className="music-tap w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ background: C.primary }} disabled={loading}>
+          style={{ background: C.primary }}>
           {loading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             : playing ? <Pause size={19} color="white" weight="fill" /> : <Play size={19} color="white" weight="fill" />}
         </button>

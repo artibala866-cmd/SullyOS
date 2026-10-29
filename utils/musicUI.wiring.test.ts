@@ -34,8 +34,8 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(queueSheet).toContain('isPlaying={selected && playing} isLoading={selected && loading}');
   });
   it('加入队列用加号、喜欢用心形，保留辅助文字标签', () => {
-    expect(app).toContain('<Plus size={14} weight="regular" />');
-    expect(app).toContain('<Heart size={14}');
+    expect(app).toContain('<Plus size={18} weight="regular" />');
+    expect(app).toContain('<Heart size={18}');
     expect(ui).toContain('<Heart size={16}');
     expect(app).toContain('title="加入播放队列"');
     expect(app).toContain('title={isLiked ?');
@@ -52,7 +52,7 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
   it('队列在迷你播放器右侧三横线打开，不再占用分类导航', () => {
     const dock = ui.split('export const MiniPlayer:')[1]?.split('// Same public component contract;')[0] || '';
     expect(dock).toContain('className="music-dock-queue');
-    expect(dock).toContain('<List size={21}');
+    expect(dock).toContain('<List size={20}');
     expect(dock).toContain('aria-haspopup="dialog" aria-expanded={queueOpen}');
     expect(dock).toContain('onClick={onOpenQueue}');
     expect(app).toContain('queueCount={queue.length}');
@@ -86,12 +86,12 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(app).toContain('movePlaylistSong(playlistId, i, i - 1)');
     expect(app).toContain('removeSongFromPlaylist(playlistId, musicSongKey(song))');
   });
-  it('歌曲操作收进同一紧凑行，封面尺寸缩至 44px，不再额外堆一排大图标', () => {
+  it('歌曲操作收在紧凑行，封面保留 48px 的易辨识尺寸', () => {
     expect(app).toContain('className="flex items-center min-w-0"');
     expect(app).toContain('className="flex items-center gap-0 shrink-0 pr-1"');
-    expect(app).toContain('className="pl-14 pb-1 -mt-1 text-[10px] leading-tight truncate"');
-    expect(ui).toContain('w-11 h-11 overflow-hidden rounded-sm');
-    expect(ui).toContain('gap-2.5 px-2 py-1.5');
+    expect(app).toContain('className="pl-[62px] pb-1.5 -mt-0.5 text-[10px] leading-tight truncate"');
+    expect(ui).toContain('w-12 h-12 overflow-hidden rounded-[11px]');
+    expect(ui).toContain('gap-3 px-2.5 py-1.5');
   });
   it('切歌不重建播放器，也不跳转页面；完整播放页有同一个列表入口', () => {
     expect(app).toContain('onOpenQueue={() => { setQueueSheetOpen(true); trackEvent(\'从完整播放器打开播放列表\'); }}');
@@ -103,7 +103,7 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(app).toContain("section === 'results' && <>");
     expect(app).toContain('void doSearch(src)');
     expect(app).toContain("const source = sourceOverride || searchSource");
-    expect(ui).toContain('@media(max-width:390px)');
+    expect(ui).toContain('@media(max-width:380px)');
     expect(ui).toContain('music-dock-previous{display:none}');
     expect(ui).toContain('music-dock-queue');
   });
@@ -146,7 +146,7 @@ describe('歌单交互与移动端可用性', () => {
   it('歌曲行一直可直接打开歌单弹层，无需预先创建歌单', () => {
     expect(app).toContain('setPlaylistSheetSong(song)');
     expect(app).toContain('aria-haspopup="dialog"');
-    expect(app).toContain('className="music-icon-press w-11 h-11');
+    expect(app).toContain('className="music-icon-press w-9 h-10 rounded-full');
     expect(app).toContain('{playlistSheetSong && <MusicPlaylistSheet');
     expect(app).not.toContain('library.playlists.length > 0 && <div className="relative w-8 h-8');
     expect(playlistSheet).toContain('role="dialog" aria-modal="true"');
@@ -184,21 +184,24 @@ describe('歌单交互与移动端可用性', () => {
 });
 
 describe('高级感灰阶排版与播放交互回归', () => {
-  it('首页使用编辑式字级层次、线性音源导航，不恢复粉彩药丸按钮', () => {
+  it('首页使用浅色层次、柔和音源选项，不恢复粉彩或深色巨型标题', () => {
     expect(app).toContain('SULLY / AUDIO');
     expect(app).toContain('我的私人曲库');
-    expect(app).toContain('text-[34px] font-bold');
-    expect(app).toContain('searchSource === src ? C.primary : C.muted');
+    expect(app).toContain('text-[25px] font-semibold');
+    expect(app).toContain("background: searchSource === src ? '#eaeae8' : 'transparent'");
     expect(app).toContain('music-editorial-shell absolute inset-0');
     expect(ui).toContain('.music-editorial-shell .music-track-row');
   });
-  it('黑色悬浮播放器把打开详情和播控拆成并列按钮，避免嵌套交互', () => {
+  it('浅色悬浮播放器不再是大黑条，详情和播控仍是独立按钮', () => {
     const dock = ui.split('export const MiniPlayer:')[1]?.split('// Same public component contract;')[0] || '';
     expect(dock).toContain('className="music-dock');
-    expect(dock).toContain('background: \'#171717\'');
+    expect(ui).toContain('.music-dock{background:#fff;border:1px solid #e9e9e6');
+    expect(ui).toContain('box-shadow:0 6px 23px rgba(34,34,34,.09)');
+    expect(dock).not.toContain("background: '#171717'");
     expect(dock).toContain('className="music-dock-open music-tap"');
     expect(dock).toContain('onClick={onTap}');
     expect(dock).toContain('onClick={onToggle}');
+    expect(dock).toContain('onClick={onOpenQueue}');
     expect(dock).not.toContain('role="button" tabIndex={0}');
     expect(dock).not.toContain('e.stopPropagation()');
     expect(dock).toContain('env(safe-area-inset-bottom');
@@ -221,7 +224,7 @@ describe('MONO 黑白灰音乐视觉回归', () => {
   it('统一中性色票，不能回到旧紫粉色和星芒水滴主题', () => {
     expect(ui).toContain("primary: '#171717'");
     expect(ui).toContain("accent: '#454545'");
-    expect(ui).toContain("bg: '#f6f6f5'");
+    expect(ui).toContain("bg: '#f7f7f6'");
     expect(ui).not.toContain('#7163c9');
     expect(ui).not.toContain('#bd6da5');
     expect(ui).not.toContain('shizuku-twinkle');
@@ -229,14 +232,16 @@ describe('MONO 黑白灰音乐视觉回归', () => {
     expect(app).toContain('title="MUSIC"');
     expect(app).not.toContain('rgba(255,222,237');
   });
-  it('方形专辑封面、简洁列表、黑色播放键与无粒子背景必须保留', () => {
+  it('方形专辑封面、柔和列表、深色播放键与无粒子背景保持一致', () => {
     const cover = ui.split('export const VinylDisc:')[1]?.split('export const MetaChip:')[0] || '';
     expect(cover).toContain('rounded-md overflow-hidden');
     expect(cover).not.toContain('shizuku-vinyl');
     expect(cover).not.toContain('<Sparkle');
     expect(ui).toContain('No animated particles, colored halos');
     expect(ui).toContain('background: C.primary');
-    expect(app).toContain('borderBottom: \'1px solid #ebebeb\'');
+    expect(app).toContain("border: '1px solid #ebebe9'");
+    expect(app).toContain('className="music-track-row rounded-[17px]');
+    expect(ui).toContain('rounded-[21px] px-3.5 pt-2.5 pb-3.5');
   });
   it('切换成简约风也不能丢失搜索、播控、播放进度与无障碍操作', () => {
     expect(ui).toContain('aria-label="搜索歌曲或歌手"');
