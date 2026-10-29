@@ -57,14 +57,20 @@ describe('native AMSG2 FCM payload bridge', () => {
     expect(decodeNativeAmsgPayload({ body: '普通通知', data: {} })).toBeNull();
   });
 
-  it('repeated initialization is idempotent and does not add duplicate native listeners', async () => {
+  it('retries a half-failed native registration without duplicate listeners', async () => {
+    state.failOnce = 'pushNotificationReceived';
+    await expect(initNativeAmsgPush()).rejects.toThrow('FCM listener not ready');
+    expect(state.registered.map(x => x.event))
+      .toEqual(['registration', 'registrationError']);
+    // Two callers racing during recovery must still install only once.
     await Promise.all([initNativeAmsgPush(), initNativeAmsgPush()]);
-    const names = state.registered.map(x => x.event);
-    expect(names).toEqual([
+    expect(state.registered.map(x => x.event)).toEqual([
       'registration', 'registrationError',
       'pushNotificationReceived', 'pushNotificationActionPerformed',
     ]);
     expect(state.register).toHaveBeenCalledTimes(1);
+    await initNativeAmsgPush();
+    expect(state.registered).toHaveLength(4);
   });
 
   it('native receipt and notification tap both use the shared durable ingest', async () => {
