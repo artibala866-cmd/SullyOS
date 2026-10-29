@@ -97,6 +97,13 @@ describe('computeStreamPreviewBubbles', () => {
             .toEqual(['你好', '好了']);
     });
 
+    it('控制标签的名字与属性拆成两行，也不能把后面正文闪出来', () => {
+        expect(computeStreamPreviewBubbles('前面\n<think\nprivate>\n内部\n</think>\n后面'))
+            .toEqual(['前面', '后面']);
+        expect(computeStreamPreviewBubbles('前面\n<语音\nemotion="calm">\n声音内容\n</语音>\n后面'))
+            .toEqual(['前面', '后面']);
+    });
+
     it('CJK 之间的空格按最终管线保留在同一个气泡', () => {
         const bubbles = computeStreamPreviewBubbles('你来了 坐吧\n');
         expect(bubbles).toEqual(['你来了 坐吧']);
@@ -111,6 +118,11 @@ describe('computeStreamPreviewBubbles', () => {
 describe('extractStreamingEmbeddedThinking', () => {
     it('实时提取仍未闭合的 think 尾块', () => {
         expect(extractStreamingEmbeddedThinking('<think>刚想到这里')).toBe('刚想到这里');
+    });
+
+    it('带属性的思考标签仍能提取思考内容且绝不变成公开聊天气泡', () => {
+        expect(extractStreamingEmbeddedThinking('<think type="analysis">内容</think>')).toBe('内容');
+        expect(extractStreamingEmbeddedThinking('<thinking channel="analysis">还在写')).toBe('还在写');
     });
 
     it('合并已闭合块与后续仍在增长的块', () => {

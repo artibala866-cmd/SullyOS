@@ -24,11 +24,11 @@ const BLOCK_RULES: Array<{ open: RegExp; close: RegExp }> = [
     // HTML 卡片块
     { open: /\[html\]/i, close: /\[\/html\]/i },
     // Internal phone data is not a chat bubble, including partial streaming JSON.
-    { open: /<sully_phone_events(?=[\s>])/i, close: /<\/\s*sully_phone_events\s*>/i },
+    { open: /<sully_phone_events(?=[\s>]|$)/i, close: /<\/\s*sully_phone_events\s*>/i },
     // 思考链（content 内嵌形态；reasoning_content 通道根本不进正文）
-    { open: /<(?:think|thinking|thought)(?=[\s>])/i, close: /<\/\s*(?:think|thinking|thought)\s*>/i },
+    { open: /<(?:think|thinking|thought)(?=[\s>]|$)/i, close: /<\/\s*(?:think|thinking|thought)\s*>/i },
     // 语音 / 字幕 / 双语翻译标签 —— 由最终管线成对解析渲染，预览一律不碰
-    { open: /<[语語]音(?=[\s>])/, close: /<\/\s*[语語]音\s*>/ },
+    { open: /<[语語]音(?=[\s>]|$)/, close: /<\/\s*[语語]音\s*>/ },
     { open: /<字幕>/, close: /<\/字幕>/ },
     { open: /<翻译>/, close: /<\/翻译>/ },
 ];
@@ -104,7 +104,7 @@ export function computeStreamPreviewBubbles(fullText: string): string[] {
 export function extractStreamingEmbeddedThinking(fullText: string): string {
     if (!fullText) return '';
     const blocks: string[] = [];
-    const closed = /<(think|thinking|thought)>([\s\S]*?)<\/\1>/gi;
+    const closed = /<(think|thinking|thought)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi;
     let match: RegExpExecArray | null;
     let lastClosedEnd = 0;
     while ((match = closed.exec(fullText)) !== null) {
@@ -114,7 +114,7 @@ export function extractStreamingEmbeddedThinking(fullText: string): string {
     }
 
     const tail = fullText.slice(lastClosedEnd);
-    const open = tail.match(/<(?:think|thinking|thought)>([\s\S]*)$/i);
+    const open = tail.match(/<(?:think|thinking|thought)(?:\s[^>]*)?>([\s\S]*)$/i);
     if (open?.[1].trim()) blocks.push(open[1].trim());
     return blocks.join('\n\n').trim();
 }

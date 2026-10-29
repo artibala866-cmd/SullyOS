@@ -161,6 +161,15 @@ describe('阶段 2：私聊与 AMSG 共用的自然气泡持久化', () => {
         expect(reread).toEqual(messages.map(m => m.content));
     }, 20000);
 
+    it('API 截断在属性未结束的思考标签，不能留下任何内部半截标记', async () => {
+        const charId = `c-incomplete-thinking-${Date.now()}`;
+        await applyAssistantPostProcessing('正常正文\n<think type="analysis"\n尚未闭合',
+            makeCtx({ id: charId, name: '阿一' }, { skipSecondPassLLM: true }));
+        const texts = (await DB.getMessagesByCharId(charId, true))
+            .filter(m => m.role === 'assistant' && m.type === 'text').map(m => m.content);
+        expect(texts).toEqual(['正常正文']);
+    }, 20000);
+
     it('带属性 think 块的文字不能出现在角色实际消息里', async () => {
         const charId = `c-private-think-block-${Date.now()}`;
         await applyAssistantPostProcessing(

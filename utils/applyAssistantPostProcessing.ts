@@ -86,6 +86,8 @@ const normalizeAiContent = (raw: string): string => {
     // in both live chat and AMSG inbox replay, not become persisted text bubbles.
     cleaned = cleaned.replace(/<(think|thinking|thought)(?:\s[^>]*)?>[\s\S]*?<\/\1\s*>/gi, '');
     cleaned = cleaned.replace(/<(?:think|thinking|thought)(?:\s[^>]*)?>[\s\S]*$/gi, '');
+    // Also discard a truncated opener (including a newline in its attributes).
+    cleaned = cleaned.replace(/<(?:think|thinking|thought)(?=[\s>]|$)[^>]*$/gi, '');
     cleaned = cleaned.replace(/\[\d{4}[-/年]\d{1,2}[-/月]\d{1,2}.*?\]/g, '');
     cleaned = cleaned.replace(/^[\w一-龥]+:\s*/, '');
     // Strip source tags leaked from history context, including model-mutated forms such as [聊chat].
