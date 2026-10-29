@@ -991,6 +991,8 @@ interface MessageItemProps {
     isFirstInGroup: boolean;
     isLastInGroup: boolean;
     activeTheme: ChatTheme;
+    /** Private-chat-only style; never inferred from the theme inside GroupChat. */
+    blackWhiteFacebook?: boolean;
     charAvatar: string;
     charName: string;
     userAvatar: string;
@@ -1054,6 +1056,7 @@ const MessageItem = React.memo(({
     isFirstInGroup,
     isLastInGroup,
     activeTheme,
+    blackWhiteFacebook = false,
     charAvatar,
     charName,
     userAvatar,
@@ -3165,6 +3168,13 @@ const MessageItem = React.memo(({
     const isForeignVoiceMsg = !isUser && m.type === 'text' && !!voiceData?.url && !!voiceData?.lang && !!cleanVoiceText(voiceData?.spokenText);
 
     return commonLayout(
+        <>
+        {blackWhiteFacebook && isUser && m.replyTo && (
+            <div className="sully-facebook-reply" title={`${m.replyTo.name}：${replyPreview}`}>
+                <span className="sully-facebook-reply-name">{m.replyTo.name}：</span>
+                <span className="sully-facebook-reply-content">{replyPreview}</span>
+            </div>
+        )}
         <div className={isVoiceOnlyMsg
             ? `relative ${suppressEntranceAnimation ? '' : 'animate-fade-in'}`
             : `relative ${bubbleVariant === 'flat' || bubbleVariant === 'outline' || bubbleVariant === 'wechat' ? '' : 'shadow-sm '}px-5 py-3 ${suppressEntranceAnimation ? '' : 'animate-fade-in'} ${bubbleVariant === 'outline' ? '' : 'border border-black/5 '}active:scale-[0.98] transition-transform overflow-visible ${isUser ? 'sully-bubble-user' : 'sully-bubble-ai'} ${bubbleGroupClasses}`}
@@ -3197,7 +3207,7 @@ const MessageItem = React.memo(({
             )}
 
             {/* Layer 3: Reply/Quote Block */}
-            {m.replyTo && (
+            {m.replyTo && !blackWhiteFacebook && (
                 <div className="relative z-10 mb-1 text-[10px] bg-black/5 p-1.5 rounded-md border-l-2 border-current opacity-60 flex flex-col gap-0.5 max-w-full overflow-hidden">
                     <span className="font-bold opacity-90 truncate">{m.replyTo.name}</span>
                     <span className="truncate italic">"{replyPreview.length > 10 ? replyPreview.slice(0, 10) + '...' : replyPreview}"</span>
@@ -3207,10 +3217,10 @@ const MessageItem = React.memo(({
             {/* Layer 4: Text Content — shown when there's visible text after stripping voice tags */}
             {/* 外语语音消息把双语文字交给下方语音条渲染，顶部不再重复正文 */}
             {displayContent && !isForeignVoiceMsg && (
-            <div className="relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text" style={{ color: styleConfig.textColor }}>
+            <div className="sully-facebook-bubble-text relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text" style={{ color: styleConfig.textColor }}>
                 {renderContent(displayContent)}
                 {showExpandedTranslation && (
-                    <div className="mt-2.5 pt-2 border-t border-current/15">
+                    <div className="sully-facebook-translation mt-2.5 pt-2 border-t border-current/15">
                         <div className="mb-1 text-[9px] font-bold tracking-[0.16em] opacity-40 select-none">翻译</div>
                         {renderContent(langBContent)}
                     </div>
@@ -3426,6 +3436,13 @@ const MessageItem = React.memo(({
                 );
             })()}
         </div>
+        {blackWhiteFacebook && !isUser && m.replyTo && (
+            <div className="sully-facebook-reply" title={`${m.replyTo.name}：${replyPreview}`}>
+                <span className="sully-facebook-reply-name">{m.replyTo.name}：</span>
+                <span className="sully-facebook-reply-content">{replyPreview}</span>
+            </div>
+        )}
+        </>
     );
 }, (prev, next) => {
     return prev.msg.id === next.msg.id &&
@@ -3439,6 +3456,7 @@ const MessageItem = React.memo(({
            prev.isFirstInGroup === next.isFirstInGroup &&
            prev.isLastInGroup === next.isLastInGroup &&
            prev.activeTheme === next.activeTheme &&
+           prev.blackWhiteFacebook === next.blackWhiteFacebook &&
            prev.charAvatar === next.charAvatar &&
            prev.charName === next.charName &&
            prev.userAvatar === next.userAvatar &&
