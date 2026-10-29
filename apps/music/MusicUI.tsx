@@ -9,20 +9,20 @@ import { isBlobRef, useBlobRefUrl } from '../../utils/blobRef';
 import TokenImg from '../../components/os/TokenImg';
 
 export const C = {
-  bg: '#f6f6f5',
-  bgDeep: '#ededeb',
-  bgTint: '#e5e5e3',
+  bg: '#f7f7f6',
+  bgDeep: '#f0f0ee',
+  bgTint: '#eaeae7',
   primary: '#171717',
   accent: '#454545',
-  soft: '#eeeeec',
+  soft: '#f0f0ee',
   glow: '#b6b6b2',
   sakura: '#666666',
   lavender: '#8a8a87',
   surface: '#ffffff',
-  glass: '#fafafa',
+  glass: '#fbfbfa',
   text: '#171717',
-  muted: '#666666',
-  faint: '#999999',
+  muted: '#777775',
+  faint: '#a1a19e',
   vip: '#555555',
   danger: '#303030',
 } as const;
@@ -40,16 +40,15 @@ const injectStyles = () => {
 .music-editorial-shell{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Noto Sans SC",sans-serif;color:#171717}
 .music-editorial-shell ::selection{background:#171717;color:#fff}
 .music-editorial-shell input::placeholder{color:#929292}
-.music-editorial-shell .music-track-row{border-radius:0}
-.music-editorial-shell .music-track-row:hover{background:#f4f4f3}
-.music-dock{box-shadow:0 14px 42px rgba(0,0,0,.20);border:1px solid #282828}
-.music-dock .music-tap:focus-visible,.music-dock .music-icon-press:focus-visible{outline-color:#fff}
-.music-dock-open{min-width:0;flex:1;display:flex;align-items:center;gap:11px;text-align:left}
-.music-dock-open:focus-visible{outline:2px solid #fff;outline-offset:3px}
-.music-dock .music-dock-progress{background:#565656}
-.music-dock .music-dock-progress>div{background:#f7f7f7}
-@media(max-width:390px){.music-dock .music-dock-previous{display:none}.music-dock{padding-left:10px!important;padding-right:10px!important}.music-dock-open{gap:7px}}
-@media(hover:none){.music-editorial-shell .music-track-row:hover{background:transparent}}
+.music-editorial-shell .music-track-row{border-radius:17px}
+@media(hover:hover){.music-editorial-shell .music-track-row:hover{background:#fafaf9}}
+.music-dock{background:#fff;border:1px solid #e9e9e6;box-shadow:0 6px 23px rgba(34,34,34,.09),0 1px 3px rgba(34,34,34,.03)}
+.music-dock .music-tap:focus-visible,.music-dock .music-icon-press:focus-visible{outline-color:#171717}
+.music-dock-open{min-width:0;flex:1;display:flex;align-items:center;gap:10px;text-align:left}
+.music-dock-open:focus-visible{outline:2px solid #171717;outline-offset:2px;border-radius:9px}
+.music-dock .music-dock-progress{background:#e7e7e5}
+.music-dock .music-dock-progress>div{background:#353535}
+@media(max-width:380px){.music-dock .music-dock-previous{display:none}.music-dock{padding-left:10px!important;padding-right:10px!important}.music-dock-open{gap:8px}}
 .music-tap:active:not(:disabled){opacity:.65}
 .music-tap:focus-visible,.music-icon-press:focus-visible{outline:2px solid #171717;outline-offset:2px}
 .music-icon-press{touch-action:manipulation;transition:color .15s ease,opacity .15s ease}
@@ -84,7 +83,7 @@ export const MizuHeader: React.FC<{
     style={{ background: C.surface, borderBottom: '1px solid #e9e9e7', paddingTop: 'var(--safe-top)', boxSizing: 'content-box' }}>
     <button type="button" onClick={onBack || onClose}
       aria-label={onBack ? '返回上一页' : '关闭音乐应用'}
-      className="music-icon-press flex items-center justify-center w-10 h-10 rounded-md"
+      className="music-icon-press flex items-center justify-center w-10 h-10 rounded-full"
       style={{ color: C.text }}>
       {onBack ? <ArrowLeft size={19} /> : <X size={19} />}
     </button>
@@ -99,9 +98,9 @@ export const SearchBar: React.FC<{
   onSearch: () => void;
   searching: boolean;
 }> = ({ value, onChange, onSearch, searching }) => (
-  <div className="flex gap-2 px-5 pt-3 pb-4 relative z-10" role="search">
-    <div className="flex-1 min-w-0 flex items-center gap-2.5 rounded-sm px-3.5 h-12 border focus-within:border-neutral-800"
-      style={{ background: '#fff', borderColor: '#d4d4d4' }}>
+  <div className="flex gap-2.5 px-5 pt-2 pb-4 relative z-10" role="search">
+    <div className="flex-1 min-w-0 flex items-center gap-2.5 rounded-[15px] px-3.5 h-11 border focus-within:border-neutral-500"
+      style={{ background: '#fff', borderColor: '#e5e5e2' }}>
       <MagnifyingGlass size={18} color={C.muted} />
       <input aria-label="搜索歌曲或歌手"
         className="flex-1 min-w-0 bg-transparent outline-none text-[13px] placeholder:text-neutral-400"
@@ -110,7 +109,7 @@ export const SearchBar: React.FC<{
         onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) onSearch(); }} />
     </div>
     <button type="button" onClick={onSearch} disabled={searching}
-      className="music-tap h-12 px-6 rounded-sm text-[12px] font-semibold text-white disabled:opacity-50"
+      className="music-tap h-11 px-4 rounded-[15px] text-[12px] font-medium text-white disabled:opacity-50"
       style={{ background: C.primary }}>{searching ? '搜索中' : '搜索'}</button>
   </div>
 );
@@ -164,10 +163,10 @@ export const SongRow: React.FC<{
     <button type="button" onClick={onClick}
       aria-label={isActive && isPlaying ? `暂停《${name}》` : `播放《${name}》`}
       aria-busy={isActive && isLoading}
-      className="music-tap group w-full min-w-0 flex items-center gap-2.5 px-2 py-1.5 text-left rounded-none"
-      style={{ background: isActive ? '#f0f0ef' : 'transparent' }}>
-      <div ref={coverRef} className="relative shrink-0 w-11 h-11 overflow-hidden rounded-sm"
-        style={{ background: '#e6e6e5' }}>
+      className="music-tap group w-full min-w-0 flex items-center gap-3 px-2.5 py-1.5 text-left rounded-[15px]"
+      style={{ background: 'transparent' }}>
+      <div ref={coverRef} className="relative shrink-0 w-12 h-12 overflow-hidden rounded-[11px]"
+        style={{ background: '#efefed' }}>
         {cover ? <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />
           : <div className="w-full h-full flex items-center justify-center" style={{ color: C.muted }}><MusicNote size={20} /></div>}
         <div className="absolute inset-0 flex items-center justify-center transition-opacity"
@@ -180,11 +179,11 @@ export const SongRow: React.FC<{
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 text-[12px] font-medium tracking-[-0.01em]" style={{ color: C.text }}>
+        <div className="flex items-center gap-1.5 text-[13px] leading-snug font-semibold tracking-[-0.02em]" style={{ color: C.text }}>
           <span className="truncate">{name}</span>
           {isVip && <span className="text-[9px] border px-1 py-0.5 shrink-0" style={{ borderColor: '#d3d3d3', color: C.muted }}>VIP</span>}
         </div>
-        <div className="text-[10px] truncate mt-0.5 leading-relaxed" style={{ color: C.muted }}>{artists || '未知歌手'}{album ? ` · ${album}` : ''}</div>
+        <div className="text-[11px] truncate mt-1 leading-snug" style={{ color: C.muted }}>{artists || '未知歌手'}{album ? ` · ${album}` : ''}</div>
         {isActive && <div className="flex items-center gap-1.5 mt-1 text-[10px]" style={{ color: C.primary }}>
           {isPlaying && !isLoading ? <span className="music-eq" aria-hidden="true"><span/><span/><span/></span>
             : <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.primary }} />}
@@ -247,54 +246,61 @@ export const MiniPlayer: React.FC<{
   userAvatar, userName, companions, onKickCompanion, charsWithSong, regenStatus }) => {
   const { coverRef, cover } = useMusicCover(albumPic, picId, source);
   const pct = duration > 0 ? Math.min(100, Math.max(0, progress / duration * 100)) : 0;
-  return <div className="music-dock absolute left-3 right-3 bottom-3 z-30 rounded-lg px-3.5 py-3"
-    style={{ background: '#171717', color: '#fff', bottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
-    {companions && companions.length > 0 && <div className="mb-2.5 pb-2 border-b border-neutral-700">
-      <TogetherHeader userAvatar={userAvatar} userName={userName} companions={companions} onKick={onKickCompanion} dark />
+  const collectionHint = charsWithSong?.[0]
+    ? `${charsWithSong[0].name} 的《${charsWithSong[0].playlistTitle}》也收藏了`
+    : '';
+  return <div className="music-dock absolute left-3 right-3 z-30 rounded-[21px] px-3.5 pt-2.5 pb-3.5"
+    style={{ color: C.text, bottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
+    {companions && companions.length > 0 && <div className="mb-1.5 pb-1.5"
+      style={{ borderBottom: '1px solid #f0f0ee' }}>
+      <TogetherHeader userAvatar={userAvatar} userName={userName}
+        companions={companions} onKick={onKickCompanion} />
     </div>}
-    <div className="flex items-center gap-2 min-w-0">
+    <div className="flex items-center gap-1.5 min-w-0">
       <button type="button" onClick={onTap} aria-label={`打开《${name}》的完整播放器`}
         className="music-dock-open music-tap">
-        <div ref={coverRef} className="relative shrink-0 w-11 h-11 rounded-sm overflow-hidden" style={{ background: '#383838' }}>
+        <div ref={coverRef} className="relative shrink-0 w-11 h-11 rounded-[12px] overflow-hidden"
+          style={{ background: '#efefed' }}>
           {cover ? <img src={cover} alt="" className="w-full h-full object-cover" />
-            : <div className="w-full h-full flex items-center justify-center"><MusicNote size={19} color="#d0d0d0" /></div>}
-          {regenStatus && <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            : <div className="w-full h-full flex items-center justify-center"><MusicNote size={19} color={C.muted} /></div>}
+          {regenStatus && <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>}
         </div>
         <span className="flex-1 min-w-0">
-          <span className="block truncate text-[13px] font-semibold tracking-[-0.01em] text-white">{name}</span>
-          <span className="block truncate text-[11px] mt-1" style={{ color: '#bdbdbd' }}>
-            {regenStatus ? regenStatus : loading ? '正在获取音源…' : artists}
+          <span className="block truncate text-[13px] leading-tight font-semibold tracking-[-0.02em]">{name}</span>
+          <span className="block truncate text-[11px] mt-1" title={collectionHint || undefined}
+            style={{ color: C.muted }}>
+            {regenStatus || (loading ? '正在获取音源…' : artists || '未知歌手')}
           </span>
         </span>
       </button>
       <div className="flex items-center gap-0 shrink-0">
         <button type="button" aria-label="上一首" onClick={onPrev}
-          className="music-dock-previous music-icon-press w-9 h-10 flex items-center justify-center" style={{ color: '#d4d4d4' }}><SkipBack size={18} weight="fill" /></button>
+          className="music-dock-previous music-icon-press w-8 h-10 flex items-center justify-center"
+          style={{ color: C.accent }}><SkipBack size={17} weight="fill" /></button>
         <button type="button" onClick={onToggle}
           aria-label={loading ? '正在加载音频' : playing ? '暂停' : '播放'}
-          className="music-tap w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#fff' }}>
-          {loading ? <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-            : playing ? <Pause size={18} color="#171717" weight="fill" /> : <Play size={18} color="#171717" weight="fill" />}
+          className="music-tap w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ background: C.primary }} disabled={loading}>
+          {loading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            : playing ? <Pause size={19} color="white" weight="fill" /> : <Play size={19} color="white" weight="fill" />}
         </button>
         <button type="button" aria-label="下一首" onClick={onNext}
-          className="music-icon-press w-9 h-10 flex items-center justify-center" style={{ color: '#d4d4d4' }}><SkipForward size={18} weight="fill" /></button>
+          className="music-icon-press w-8 h-10 flex items-center justify-center"
+          style={{ color: C.accent }}><SkipForward size={17} weight="fill" /></button>
         {onOpenQueue && <button type="button" aria-label={`打开播放列表，共 ${queueCount ?? 0} 首`}
           title="播放列表" aria-haspopup="dialog" aria-expanded={queueOpen}
           onClick={onOpenQueue}
-          className="music-dock-queue music-icon-press w-10 h-10 flex items-center justify-center"
-          style={{ color: queueOpen ? '#fff' : '#d4d4d4' }}>
-          <List size={21} weight="regular" />
+          className="music-dock-queue music-icon-press w-8 h-10 flex items-center justify-center"
+          style={{ color: queueOpen ? C.text : C.muted }}>
+          <List size={20} weight="regular" />
         </button>}
       </div>
     </div>
-    <div className="music-dock-progress h-[2px] mt-3 overflow-hidden" aria-hidden="true">
+    <div className="music-dock-progress absolute left-3.5 right-3.5 bottom-1.5 h-[2px] rounded-full overflow-hidden"
+      role="progressbar" aria-label="播放进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
       <div className="h-full transition-[width] duration-300" style={{ width: `${pct}%` }} />
     </div>
-    {(!companions || companions.length === 0) && charsWithSong && charsWithSong.length > 0 &&
-      <div className="mt-2 text-[10px] truncate" style={{ color: '#bdbdbd' }}>
-        {charsWithSong[0].name} 的《{charsWithSong[0].playlistTitle}》里也有
-      </div>}
   </div>;
 };
 
