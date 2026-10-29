@@ -33,6 +33,8 @@ interface RecordItem {
 interface Props {
   onBack: () => void;
   onOpenPlayer: () => void;
+  onOpenQueue?: () => void;
+  queueOpen?: boolean;
   onOpenSearch?: () => void;
   onOpenSettings?: () => void;
   onVisitChar?: (charId: string) => void;
@@ -151,11 +153,11 @@ const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExp
   </div>
 );
 
-const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearch, onOpenSettings, onVisitChar }) => {
+const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue, queueOpen, onOpenSearch, onOpenSettings, onVisitChar }) => {
   const { addToast, characters, userProfile } = useOS();
   const {
     cfg, setCfg, profile, refreshProfile, playSong,
-    current, playing, togglePlay, nextSong, prevSong,
+    current, playing, togglePlay, nextSong, prevSong, queue,
     listeningTogetherWith, removeListeningPartner,
     localAlbumSongs, removeLocalSong,
     regeneratingId, regeneratingStatus,
@@ -444,6 +446,9 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
             onPrev={prevSong}
             onToggle={togglePlay}
             onNext={nextSong}
+            onOpenQueue={onOpenQueue}
+            queueOpen={queueOpen}
+            queueCount={queue.length}
             userAvatar={userProfile?.avatar}
             userName={userProfile?.name}
             companions={companions}
@@ -837,6 +842,9 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
           onPrev={prevSong}
           onToggle={togglePlay}
           onNext={nextSong}
+          onOpenQueue={onOpenQueue}
+          queueOpen={queueOpen}
+          queueCount={queue.length}
           userAvatar={userProfile?.avatar}
           userName={userProfile?.name}
           companions={companions}
