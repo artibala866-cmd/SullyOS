@@ -393,7 +393,7 @@ function texture(color){
   // Sample the actual animated rig, not just the controller's final status.
   // These measurements are a diagnostic trace, not mesh/visual approval.
   report.bathRigFrames=[];
-  for(let i=0;i<12;i++){
+  for(let i=0;i<16;i++){
    editor.advancePets(.15);
    const state=editor.inspect(),root=state.chibiPosition;
    const rim=state.chibiActivity?.bathHandWorld||[];
