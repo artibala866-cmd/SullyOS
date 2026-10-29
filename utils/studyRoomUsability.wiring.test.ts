@@ -53,4 +53,33 @@ describe('学习室原始需求：流畅的画稿与作业操作路径',()=>{
   expect(focus).not.toContain('可直接继续的画稿');
   expect(focus).not.toContain('接下来要做的作业');
  });
+ it('切换排单与课程仍保留已挂载编辑器，学习笔记按课程保存草稿',()=>{
+  expect(panel).toContain("<div className={section==='commissions'?'':'hidden'}>");
+  expect(panel).toContain("<div className={section==='calendar'?'':'hidden'}>");
+  expect(panel).not.toContain("{section==='commissions' ? <>");
+  expect(panel).toContain('const [noteDrafts, setNoteDrafts]');
+  expect(panel).toContain('const raw=noteDrafts[classId]');
+  expect(panel).toContain('await change(current=>');
+  expect(panel).toContain("setNoteDrafts(prev=>prev[classId]===raw?");
+  expect(panel).toContain('笔记未保存，草稿仍保留');
+  expect(panel).toContain('disabled={!noteBody.trim()||noteSaving}');
+ });
+ it('可以从下一张画稿和待做作业确认结算，但绝不自动标记完成',()=>{
+  expect(panel).toContain("pendingMinutes('commission',c.id).minutes>0");
+  expect(panel).toContain("pendingMinutes('homework',h.id).minutes>0");
+  expect(panel).toContain("settleLinkedFocus('commission',c.id,c.remainingMinutes)");
+  expect(panel).toContain("settleLinkedFocus('homework',h.id,h.minutes)");
+  expect(schedule).toContain('setRecentLinkedFocus({kind:completedTask.source.kind');
+  expect(schedule).toContain('records.some(r=>r.sessionId===recentLinkedFocus.sessionId)');
+  expect(schedule).toContain('去核对并手动结算');
+  expect(panel).toContain('不会自动认定任务完成、改变交期或触发提醒');
+ });
+ it('手机 Char 弹层限制动态高度，并给输入区预留最小点击尺寸',()=>{
+  expect(schedule).toContain('h-[78dvh] max-h-full min-h-0');
+  expect(schedule).toContain('min-h-0 flex-1 overflow-y-auto overscroll-contain');
+  expect(schedule).toContain('shrink-0 flex gap-2');
+  expect(schedule).toContain("className={btn+' min-h-11'}");
+  expect(schedule).toContain('max-h-[90dvh] overflow-y-auto');
+ });
+
 });
