@@ -18,7 +18,7 @@ import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
 import { findPendingMusicInvite, canJoinMusicWithoutPendingInvite, announceMusicInviteDbChanged, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId, MUSIC_LISTEN_SESSION_CHANGED_KEY, announceMusicListenSessionChanged } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
-import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState } from '../utils/musicCharActions';
+import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed } from '../utils/musicCharActions';
 import {
   musicKey, sameMusic, normalizeTencentSong, tencentSearchRows, extractMusicUrl,
   loadGuestMusicLibrary, persistGuestMusicLibrary, recordMusicPlay, upsertLikedSong, appendGuestMusicPlaylist,
@@ -1019,11 +1019,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const refreshAllCommittedMusicSessions = useCallback(async () => {
     const revision = ++sessionAllReadRevision.current;
     const localWrites = new Set(sessionWritesRef.current);
+    const perCharRevisionAtStart = new Map(sessionReadRevisions.current);
     const rows = await DB.listActiveMusicListeningSessions();
     if (revision !== sessionAllReadRevision.current) return;
     const ids = new Set([...listeningTogetherRef.current, ...rows.map(row => row.charId)]);
     for (const id of ids) {
-      if (sessionWritesRef.current.has(id) || localWrites.has(id)) continue;
+      if (sessionWritesRef.current.has(id) || localWrites.has(id) ||
+          (sessionReadRevisions.current.get(id) || 0) !== (perCharRevisionAtStart.get(id) || 0)) continue;
       const record = rows.find(row => row.charId === id);
       applyCommittedMusicSession(id, record || null);
     }
