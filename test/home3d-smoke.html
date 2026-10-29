@@ -415,6 +415,9 @@ function texture(color){
    });
    report.bathRigFrames.push({
     progress:Number(progress.toFixed(4)),root,
+    bathGoals:rim,
+    shoulders:['L','R'].map(side=>bathPerson.rig.bones[side+'_upperArm'].getWorldPosition(new Vector3()).toArray()),
+    hands:['L','R'].map(side=>bathPerson.rig.bones[side+'_hand'].getWorldPosition(new Vector3()).toArray()),
     handErrors,leadTrailAngle:bathPerson.rig.bones.L_thigh.quaternion.angleTo(bathPerson.rig.bones.R_thigh.quaternion),
     toes:['L','R'].map(side=>bathPerson.rig.bones[side+'_toe'].getWorldPosition(new Vector3()).toArray())
    });
