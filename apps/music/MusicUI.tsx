@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { getGuestMusicCover } from '../../utils/musicArtwork';
-import { ArrowLeft, X, MagnifyingGlass, Play, Pause, SkipBack, SkipForward, MusicNote, Heart } from '@phosphor-icons/react';
+import { ArrowLeft, X, MagnifyingGlass, Play, Pause, SkipBack, SkipForward, MusicNote, Heart, List } from '@phosphor-icons/react';
 import { isBlobRef, useBlobRefUrl } from '../../utils/blobRef';
 import TokenImg from '../../components/os/TokenImg';
 
@@ -48,7 +48,7 @@ const injectStyles = () => {
 .music-dock-open:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .music-dock .music-dock-progress{background:#565656}
 .music-dock .music-dock-progress>div{background:#f7f7f7}
-@media(max-width:350px){.music-dock .music-dock-previous{display:none}}
+@media(max-width:390px){.music-dock .music-dock-previous{display:none}.music-dock{padding-left:10px!important;padding-right:10px!important}.music-dock-open{gap:7px}}
 @media(hover:none){.music-editorial-shell .music-track-row:hover{background:transparent}}
 .music-tap:active:not(:disabled){opacity:.65}
 .music-tap:focus-visible,.music-icon-press:focus-visible{outline:2px solid #171717;outline-offset:2px}
@@ -236,13 +236,15 @@ export const MiniPlayer: React.FC<{
   name: string; artists: string; albumPic: string; picId?: string; source?: 'netease' | 'tencent';
   playing: boolean; loading?: boolean; progress?: number; duration?: number;
   onTap: () => void; onPrev: () => void; onToggle: () => void; onNext: () => void;
+  onOpenQueue?: () => void; queueCount?: number; queueOpen?: boolean;
   userAvatar?: string; userName?: string;
   companions?: { id: string; name: string; avatar?: string }[];
   onKickCompanion?: (charId: string) => void;
   charsWithSong?: { id: string; name: string; playlistTitle: string }[];
   regenStatus?: string;
 }> = ({ name, artists, albumPic, picId, source, playing, loading = false, progress = 0, duration = 0,
-  onTap, onPrev, onToggle, onNext, userAvatar, userName, companions, onKickCompanion, charsWithSong, regenStatus }) => {
+  onTap, onPrev, onToggle, onNext, onOpenQueue, queueCount, queueOpen = false,
+  userAvatar, userName, companions, onKickCompanion, charsWithSong, regenStatus }) => {
   const { coverRef, cover } = useMusicCover(albumPic, picId, source);
   const pct = duration > 0 ? Math.min(100, Math.max(0, progress / duration * 100)) : 0;
   return <div className="music-dock absolute left-3 right-3 bottom-3 z-30 rounded-lg px-3.5 py-3"
@@ -277,6 +279,13 @@ export const MiniPlayer: React.FC<{
         </button>
         <button type="button" aria-label="下一首" onClick={onNext}
           className="music-icon-press w-9 h-10 flex items-center justify-center" style={{ color: '#d4d4d4' }}><SkipForward size={18} weight="fill" /></button>
+        {onOpenQueue && <button type="button" aria-label={`打开播放列表，共 ${queueCount ?? 0} 首`}
+          title="播放列表" aria-haspopup="dialog" aria-expanded={queueOpen}
+          onClick={onOpenQueue}
+          className="music-dock-queue music-icon-press w-10 h-10 flex items-center justify-center"
+          style={{ color: queueOpen ? '#fff' : '#d4d4d4' }}>
+          <List size={21} weight="regular" />
+        </button>}
       </div>
     </div>
     <div className="music-dock-progress h-[2px] mt-3 overflow-hidden" aria-hidden="true">
