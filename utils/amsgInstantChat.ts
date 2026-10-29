@@ -900,7 +900,7 @@ const backfillOutboxEntries = async (
     // or old encrypted push can omit it (or carry another ID). If processing
     // uses the inner ID, the chat bubble cannot be acknowledged by the row ID
     // and subsequent drains replay it under a different identity.
-    const push = { ...(entry.push || {}), messageId: entry.messageId };
+    const push: Record<string, any> = { ...(entry.push || {}), messageId: entry.messageId };
     const kind = typeof push.messageKind === 'string' ? push.messageKind : 'content';
     if (kind === 'result') {
       // 聊天那道两天的时效窗刻意不套在结果上：结果晚到本来就是常态（正是为此才上云的），
