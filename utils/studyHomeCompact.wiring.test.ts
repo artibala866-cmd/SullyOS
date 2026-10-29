@@ -12,7 +12,7 @@ describe('手机学习室按 P2 的视觉比例与分区原则：番茄钟只做
  it('专注页只渲染单卡计时器：日历、课程和作业预览不混入番茄钟',()=>{
   expect(schedule).toContain('StudyCharPicker compact characters={characters}');
   const focusView=schedule.split("{tab === 'timer' &&")[1]?.split("{tab === 'tasks' &&")[0]||'';
-  expect(focusView).toContain('max-w-[570px]');
+  expect(focusView).toContain('max-w-[510px]');
   expect(focusView).not.toContain('StudyHomeOverview');
   expect(focusView).not.toContain('StudyCommissionCalendar');
   expect(focusView).not.toContain('StudyWeekTimetable');
@@ -33,7 +33,7 @@ describe('手机学习室按 P2 的视觉比例与分区原则：番茄钟只做
   expect(schedule).toContain("section={tab==='calendar'?'calendar':'commissions'}");
   expect((schedule.match(/<WorkspacePanel /g)||[]).length).toBe(1);
   expect(schedule).toContain("tab === 'study'");
-  expect(schedule).toContain('text-[clamp(48px,13vw,74px)]');
+  expect(schedule).toContain('text-[clamp(48px,13vw,70px)]');
   expect(schedule).not.toContain('text-[clamp(64px,12vw,112px)]');
   expect(schedule).not.toContain('px-5 py-10 sm:py-14');
   expect(schedule).not.toContain('<StudyHomeOverview');
@@ -71,7 +71,7 @@ describe('手机学习室按 P2 的视觉比例与分区原则：番茄钟只做
  it('正式排单与课程界面也缩小单元格和留白，保留编辑/导航',()=>{
   expect(panel).toContain('StudyCommissionCalendar commissions={data.commissions}');
   expect(panel).toContain('StudyWeekTimetable classes={data.classes}');
-  expect(commission).toContain('min-h-[52px] sm:min-h-[62px]');
+  expect(commission).toContain('min-h-[44px] sm:min-h-[52px]');
   expect(commission).toContain('onClick={()=>onEdit(event.id)}');
   expect(weekly).toContain('onSelect(c.id)');
   expect(weekly).toContain('aria-label="下一周"');
