@@ -12,7 +12,7 @@ interface Props {
   onSelectChar: (id: string) => void;
   onUpdate: (reminders: WorkspaceData['reminders']) => void;
 }
-const small = 'text-sm rounded-lg border border-[#dcdcdc] bg-[#f6f6f6] px-3 py-2.5 text-[#292929] hover:bg-[#ececec] disabled:opacity-50';
+const small = 'min-h-11 text-sm rounded-lg border border-[#dcdcdc] bg-[#f6f6f6] px-3 py-2.5 text-[#292929] hover:bg-[#ececec] disabled:opacity-50';
 const timeLocal = (value: string) => {
   if (!value) return '';
   if (value.includes('T')) return value.slice(0, 16);
@@ -81,7 +81,7 @@ const WorkspaceReminderControls: React.FC<Props> = ({
     }finally{setBusy(false);}
   };
   return <details className="border-t border-neutral-200 pt-3 space-y-2">
-    <summary className="text-sm text-neutral-800 cursor-pointer">到点提醒</summary>
+    <summary className="min-h-11 py-3 text-sm font-medium text-neutral-800 cursor-pointer">到点提醒</summary>
     <div className="space-y-3 pt-2 text-sm">
       <p className="text-sm text-neutral-600">
         默认关闭。创建后，到点会在私聊收到一次固定提醒；不调用 AI，也不分享此事项的具体资料。
@@ -114,14 +114,14 @@ const WorkspaceReminderControls: React.FC<Props> = ({
       </div>)}
       {!existing.length && <>
         <label className="block text-sm">提醒 Char
-          <select className="w-full mt-1 rounded-lg border border-neutral-300 px-2 py-2" value={selectedCharId}
+          <select className="w-full min-h-11 mt-1 rounded-lg border border-neutral-300 px-2 py-2" value={selectedCharId}
             onChange={e=>onSelectChar(e.target.value)}>
             <option value="">请选择 Char</option>
             {characters.map(char=><option value={char.id} key={char.id}>{char.name}</option>)}
           </select>
         </label>
         <label className="block text-sm">本机时间（主动消息到点触发）
-          <input type="datetime-local" className="w-full mt-1 rounded-lg border border-neutral-300 px-2 py-2"
+          <input type="datetime-local" className="w-full min-h-11 mt-1 rounded-lg border border-neutral-300 px-2 py-2"
             value={at} onChange={e=>setAt(e.target.value)}/>
         </label>
         <button className={small} disabled={busy || !at || !selectedCharId || !isActive}
