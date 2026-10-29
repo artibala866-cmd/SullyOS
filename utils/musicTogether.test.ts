@@ -112,11 +112,10 @@ describe('免登录音乐回退', () => {
       urls.push(String(url));
       return new Response(JSON.stringify({ url: null }), { status: 200 });
     }));
-    const result = await musicApi.songUrlFor(guestCfg, {
+    await expect(musicApi.songUrlFor(guestCfg, {
       id: 123, source: 'tencent', platformId: '123',
       name: 'QQ', artists: 'A', album: '', albumPic: '', duration: 100, fee: 0,
-    });
-    expect(result.data[0].url).toBeNull();
+    })).rejects.toThrow('接口暂不可用或未提供播放授权');
     expect(urls).toHaveLength(2);
     expect(urls[1]).toContain('source=tencent');
   });
@@ -128,6 +127,36 @@ describe('免登录音乐回退', () => {
     expect(shouldRetryMusicMediaError(2, true, false)).toBe(false);
     expect(shouldRetryMusicMediaError(3, false, false)).toBe(false);
     expect(shouldRetryMusicMediaError(undefined, false, false)).toBe(false);
+  });
+
+  it('QQ 解析接口首次返回 API 失效，第二次取得链接后不再走备用服务', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify(calls.length === 1
+        ? { code: 503, message: 'API 暂时失效，请稍后重试' }
+        : { data: { url: 'https://example.com/qq-new.mp3' } }), { status: 200 });
+    }));
+    const result = await musicApi.songUrlFor(guestCfg, {
+      id: 123, source: 'tencent', platformId: '123', mid: 'QQMID123',
+      name: 'QQ', artists: 'A', album: '', albumPic: '', duration: 100, fee: 0,
+    });
+    expect(result.data[0].url).toBe('https://example.com/qq-new.mp3');
+    expect(calls).toHaveLength(2);
+    expect(calls.every(url => url.includes('/tencent/geturl'))).toBe(true);
+  });
+
+  it('网易云免登录音源按所选音质请求，不再强制 128', async () => {
+    vi.spyOn(musicApi, 'call').mockRejectedValue(new Error('Worker offline'));
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({ url: 'https://example.com/n.mp3', br: 192 }), { status: 200 });
+    }));
+    const cfg = { ...guestCfg, quality: 'higher' as const };
+    const result = await musicApi.songUrl(cfg, 123);
+    expect(urls[0]).toContain('br=192');
+    expect(result.data[0].br).toBe(192);
   });
 
 });
