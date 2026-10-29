@@ -402,7 +402,9 @@ describe('角色主动邀请：数据库原子回应与切换角色', () => {
     expect(provider).toContain('answerIncomingListeningInvite');
     expect(provider).toContain("return notify('failed')");
     expect(provider).toContain("return notify('stale')");
-    expect(provider).toContain("return notify('resolved')");
+    // A saved acceptance whose listening session ended concurrently is stale,
+    // never an optimistic success; successful live sessions still resolve.
+    expect(provider).toContain("return notify(accepted && !joined ? 'stale' : 'resolved')");
     expect(card).toContain("'music-listen-invite-answer-result'");
     expect(card).toContain('inviteAnswerLockRef.current');
     expect(card).toContain("setInviteAnswerError('回应未保存，请重试')");
