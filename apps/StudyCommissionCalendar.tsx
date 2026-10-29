@@ -31,11 +31,11 @@ export default function StudyCommissionCalendar({commissions,onFocus,onEdit}:Pro
     const ym=date.toISOString().slice(0,7);
     setMonth(ym);setSelected(ym+'-01');setShowAll(false);
   };
-  return <section className="rounded-[28px] border border-neutral-200 bg-white p-4 sm:p-6 shadow-[0_12px_36px_rgba(0,0,0,0.035)] space-y-5" aria-label="委托日历">
+  return <section className="rounded-[18px] border border-[#e8e8e8] bg-white p-3.5 sm:p-5 shadow-[0_3px_12px_rgba(0,0,0,0.025)] space-y-3" aria-label="委托日历">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2.5">
-        <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f2f2f2]"><CalendarBlank size={21} weight="light"/></span>
-        <div><h3 className="text-[17px] font-semibold tracking-tight">委托日程</h3><p className="text-[11px] tracking-[0.17em] text-neutral-400">COMMISSION PLANNER</p></div>
+        <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#f2f2f2]"><CalendarBlank size={21} weight="light"/></span>
+        <div><h3 className="text-[14px] font-semibold tracking-tight">委托日程</h3><p className="text-[11px] tracking-[0.17em] text-neutral-400">COMMISSION PLANNER</p></div>
       </div>
       <div className="flex items-center gap-1.5">
         <button type="button" className={chip} onClick={()=>{setMonth(today.slice(0,7));setSelected(today);setShowAll(false);}}>今天</button>
@@ -55,9 +55,9 @@ export default function StudyCommissionCalendar({commissions,onFocus,onEdit}:Pro
         return <button key={day.date} type="button" aria-pressed={active}
           onClick={()=>{setSelected(day.date);setShowAll(false);if(!day.inMonth)setMonth(day.date.slice(0,7));}}
           aria-label={day.date+'，'+list.length+' 项日程'}
-          className={'min-w-0 min-h-[61px] sm:min-h-[78px] rounded-xl border px-0.5 sm:px-1 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-800 '+(active?'border-neutral-900 bg-[#f1f1f1]':day.inMonth?'border-neutral-100 bg-white hover:bg-[#f7f7f7]':'border-transparent bg-[#fafafa] opacity-45')}>
+          className={'min-w-0 min-h-[45px] sm:min-h-[65px] rounded-xl border px-0.5 sm:px-1 py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-800 '+(active?'border-neutral-900 bg-[#f1f1f1]':day.inMonth?'border-neutral-100 bg-white hover:bg-[#f7f7f7]':'border-transparent bg-[#fafafa] opacity-45')}>
           <span className={'mx-auto grid h-6 w-6 place-items-center rounded-full text-[11px] tabular-nums '+(current?'bg-neutral-900 text-white':active?'font-bold':'text-neutral-700')}>{Number(day.date.slice(-2))}</span>
-          <span className="mt-1 flex flex-col items-center gap-0.5">
+          <span className="mt-0.5 flex flex-col items-center gap-0.5">
             {list.slice(0,2).map((e,i)=><span key={e.id+e.kind+i} title={e.title+' · '+(e.kind==='deadline'?'交稿':'计划')}
               className={'w-full truncate rounded px-1 py-[3px] text-[8px] sm:text-[10px] leading-tight '+(e.kind==='deadline'?'bg-neutral-900 text-white':'bg-[#e9e9e9] text-neutral-800')}>
               {e.kind==='deadline'?'⚑ ':''}{e.title}
@@ -79,7 +79,7 @@ export default function StudyCommissionCalendar({commissions,onFocus,onEdit}:Pro
       {[
         [summary.active,'进行中'],[summary.upcoming,'七天内'],[summary.late,'已逾期'],[summary.finished,'已交付'],
       ].map(([count,label],i)=><div key={label} className={'min-w-0 rounded-2xl p-3 text-center '+(i===2&&count?'bg-neutral-900 text-white':'bg-[#f5f5f5]')}>
-        <div className="font-serif text-2xl tabular-nums">{count}</div><p className="mt-1 text-[10px] opacity-70">{label}</p>
+        <div className="font-serif text-xl tabular-nums">{count}</div><p className="mt-1 text-[10px] opacity-70">{label}</p>
       </div>)}
     </div>
     <div className="border-t border-neutral-100 pt-4 space-y-3">

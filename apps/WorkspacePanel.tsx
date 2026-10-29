@@ -41,10 +41,10 @@ interface Props {
   selectedCharId: string;
   onSelectChar: (id:string) => void;
 }
-const inputClass = 'w-full min-w-0 bg-[#fafafa] border border-neutral-200 text-neutral-900 rounded-xl p-3 text-sm outline-none focus:border-neutral-700';
-const buttonClass = 'rounded-2xl bg-neutral-900 text-white px-4 py-3 text-sm font-medium disabled:opacity-40';
-const mutedButton = 'rounded-2xl border border-neutral-200 bg-white px-3 py-2.5 text-xs text-neutral-800 hover:bg-[#f6f6f6] disabled:opacity-40';
-const cardClass = 'rounded-[26px] border border-neutral-200 p-4 sm:p-6 bg-white shadow-[0_12px_36px_rgba(0,0,0,0.035)] space-y-4';
+const inputClass = 'w-full min-w-0 bg-[#fafafa] border border-neutral-200 text-neutral-900 rounded-lg p-2.5 text-sm outline-none focus:border-neutral-700';
+const buttonClass = 'rounded-xl bg-neutral-900 text-white px-3 py-2.5 text-xs font-medium disabled:opacity-40';
+const mutedButton = 'rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-800 hover:bg-[#f6f6f6] disabled:opacity-40';
+const cardClass = 'rounded-[18px] border border-[#e8e8e8] p-3.5 sm:p-5 bg-white shadow-[0_3px_12px_rgba(0,0,0,0.025)] space-y-3';
 const weekdayNames = ['周日','周一','周二','周三','周四','周五','周六'];
 const blankCommission = () => ({
   title:'',client:'',type:'',brief:'',acceptedAt:localDate(new Date()),
@@ -402,7 +402,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const riskChanges = new Map(projectedRisks.map(r=>[r.commissionId,r]));
   if (!loaded) return <p className="p-6 text-neutral-700">{error || '正在读取工作空间…'}</p>;
 
-  return <div className="text-neutral-900 space-y-5 sm:space-y-6 pb-7">
+  return <div className="text-neutral-900 space-y-3 sm:space-y-4 pb-4">
     {error && <p role="alert" className="p-3 text-sm border border-neutral-500 rounded-lg">{error}</p>}
     {integrityWarnings.length>0 && <section className={cardClass} role="alert">
       <h3 className="font-semibold">本地学习室备份存在异常，已开启安全保护</h3>
@@ -441,7 +441,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     {section==='commissions' ? <>
       <header className={cardClass+' !bg-[linear-gradient(120deg,#fff,#f3f3f3)]'}>
         <div><p className="text-[10px] tracking-[.24em] text-neutral-400">CREATIVE PLANNER</p>
-        <h2 className="mt-2 font-serif text-[29px] tracking-wide">画师排单</h2>
+        <h2 className="mt-2 font-serif text-[23px] tracking-wide">画师排单</h2>
         <p className="mt-1 text-xs text-neutral-500">按日期看计划、截止日与风险。委托资料仅保存在本机。</p></div>
         <details className="rounded-2xl border border-neutral-200 bg-white p-3 text-sm">
           <summary className="cursor-pointer text-xs font-medium">时间容量与计划设置 · 展开查看</summary>
@@ -588,7 +588,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       <datalist id="sully-stages">{['待确认','排队','草稿','线稿','上色','细化','待审核','交付完成'].map(s=><option key={s} value={s}/>)}</datalist>
     </> : <>
       <header className={cardClass+' !bg-[linear-gradient(120deg,#fff,#f3f3f3)]'}><p className="text-[10px] tracking-[.24em] text-neutral-400">WEEKLY SCHOOL PLANNER</p>
-        <h2 className="font-serif text-[29px] tracking-wide">课程表</h2>
+        <h2 className="font-serif text-[23px] tracking-wide">课程表</h2>
         <p className="text-xs text-neutral-500">点选一门课，即可在下方查看作业与笔记。</p></header>
       <StudyWeekTimetable classes={data.classes} selectedId={selectedClassId}
         onSelect={id=>{

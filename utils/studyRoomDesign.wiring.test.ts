@@ -17,7 +17,7 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(schedule).toContain('<StudyAvatar value={activeChar?.avatar}');
    expect(picker).toContain('onClick={()=>onSelect(char.id)}');
    expect(picker).toContain('aria-pressed={selectedId===char.id}');
-   expect(schedule).toContain('StudyCharPicker characters={characters} selectedId={charId} onSelect={chooseChar}');
+   expect(schedule).toContain('StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}');
    expect(schedule).toContain('StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}');
    expect(workspace).toContain('StudyCharPicker compact characters={characters} selectedId={selectedCharId} onSelect={onSelectChar}');
  });
