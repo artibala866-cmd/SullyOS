@@ -255,16 +255,16 @@ const MusicApp: React.FC = () => {
                 onClick={handlePlay} />
             </div>
             <div className="flex items-center shrink-0 gap-0 pr-0.5">
-              <button type="button" aria-label={isLiked ? \`取消喜欢《\${song.name}》\` : \`喜欢《\${song.name}》\`}
+              <button type="button" aria-label={isLiked ? `取消喜欢《${song.name}》` : `喜欢《${song.name}》`}
                 aria-pressed={isLiked} title={isLiked ? '取消本地喜欢' : '加入本地喜欢'}
-                className={\`music-icon-press w-9 h-10 rounded-full flex items-center justify-center \${isLiked ? 'music-heart-active' : ''}\`}
+                className={`music-icon-press w-9 h-10 rounded-full flex items-center justify-center ${isLiked ? 'music-heart-active' : ''}`}
                 style={{ color: isLiked ? C.primary : C.muted }}
                 onClick={() => {
                   if (toggleLocalLike(song)) addToast(isLiked ? '已从本地喜欢移除' : '已加入本地喜欢', 'success');
                 }}>
                 <Heart size={18} weight={isLiked ? 'fill' : 'regular'} />
               </button>
-              <button type="button" aria-label={\`更多歌曲操作《\${song.name}》\`}
+              <button type="button" aria-label={`更多歌曲操作《${song.name}》`}
                 aria-haspopup="menu" aria-expanded={openSongMenuKey === key}
                 className="music-icon-press w-9 h-10 rounded-full flex items-center justify-center"
                 style={{ color: C.muted }}
@@ -273,7 +273,7 @@ const MusicApp: React.FC = () => {
               </button>
             </div>
           </div>
-          {openSongMenuKey === key && <div role="menu" aria-label={\`歌曲《\${song.name}》操作\`}
+          {openSongMenuKey === key && <div role="menu" aria-label={`歌曲《${song.name}》操作`}
             className="music-track-menu absolute right-2 top-[calc(100%-2px)] z-40 rounded-[15px] p-1.5 min-w-[152px]"
             style={{ background: '#fff', border: '1px solid #e6e6e3', boxShadow: '0 8px 24px rgba(0,0,0,.10)' }}>
             <button type="button" role="menuitem" className="music-tap w-full min-h-10 px-3 text-left text-[12px] rounded-[10px]"
@@ -422,7 +422,7 @@ const MusicApp: React.FC = () => {
               const selected = openedPlaylist === pl.id;
               const playingThis = !!current && pl.songs.some(song => sameMusic(current, song));
               return <button key={pl.id} type="button" aria-pressed={selected}
-                aria-label={\`查看歌单《\${pl.name}》，共 \${pl.songs.length} 首\`}
+                aria-label={`查看歌单《${pl.name}》，共 ${pl.songs.length} 首`}
                 className="music-tap shrink-0 min-w-0 text-left"
                 style={{ width: 'clamp(88px,22vw,128px)', scrollSnapAlign: 'start' }}
                 onClick={() => { setOpenedPlaylist(selected ? null : pl.id); setEditingPlaylist(null); setDeleteConfirmPlaylistId(null); }}>
@@ -460,7 +460,7 @@ const MusicApp: React.FC = () => {
           {library.playlists.filter(pl => pl.id === openedPlaylist).map(pl => {
             const playingThis = !!current && pl.songs.some(song => sameMusic(current, song));
             return <section key={pl.id} className="music-playlist-detail rounded-[22px] overflow-hidden"
-              aria-label={\`歌单《\${pl.name}》详情\`}
+              aria-label={`歌单《${pl.name}》详情`}
               style={{ background: '#fff', border: '1px solid #e9e9e7' }}>
               <div className="px-4 pt-5 pb-4 flex flex-col items-center text-center">
                 <div className="music-playlist-hero w-[116px] h-[116px] rounded-[19px] overflow-hidden flex items-center justify-center shrink-0"
@@ -474,24 +474,24 @@ const MusicApp: React.FC = () => {
                 <p className="mt-1 text-[11px]" style={{ color: C.muted }}>私人歌单 · {pl.songs.length} 首 · 仅保存在本地</p>
                 <div className="mt-3 flex items-center justify-center gap-2">
                   <button type="button" className="music-tap min-h-10 px-5 rounded-full text-[12px] font-medium text-white disabled:opacity-40"
-                    style={{ background: C.primary }} disabled={!pl.songs.length} aria-label={\`播放歌单《\${pl.name}》\`}
+                    style={{ background: C.primary }} disabled={!pl.songs.length} aria-label={`播放歌单《${pl.name}》`}
                     onClick={() => { if (pl.songs.length) void playSong(pl.songs[0], { replaceQueue: pl.songs, startIdx: 0 }); }}>
                     <span className="inline-flex items-center gap-1.5"><PlayIcon size={16} weight="fill" /> 播放歌单</span>
                   </button>
                   <button type="button" className="music-icon-press min-h-10 min-w-10 rounded-full flex items-center justify-center"
-                    aria-label={\`编辑歌单名称《\${pl.name}》\`} title="编辑歌单名称"
+                    aria-label={`编辑歌单名称《${pl.name}》`} title="编辑歌单名称"
                     onClick={() => { setEditingPlaylist(editingPlaylist?.id === pl.id ? null : { id: pl.id, name: pl.name }); setDeleteConfirmPlaylistId(null); }}>
                     <PencilSimple size={19} color={C.muted} />
                   </button>
                   <button type="button" className="music-icon-press min-h-10 min-w-10 rounded-full flex items-center justify-center"
-                    aria-label={\`删除歌单《\${pl.name}》\`} title="删除歌单"
+                    aria-label={`删除歌单《${pl.name}》`} title="删除歌单"
                     onClick={() => { setDeleteConfirmPlaylistId(deleteConfirmPlaylistId === pl.id ? null : pl.id); setEditingPlaylist(null); }}>
                     <Trash size={19} color={C.muted} />
                   </button>
                 </div>
               </div>
               {editingPlaylist?.id === pl.id && <div className="mx-3 mb-3 flex gap-2 items-center">
-                <input aria-label={\`编辑《\${pl.name}》的新名称\`} autoFocus
+                <input aria-label={`编辑《${pl.name}》的新名称`} autoFocus
                   value={editingPlaylist.name} maxLength={60}
                   onChange={e => setEditingPlaylist({ id: pl.id, name: e.target.value })}
                   onKeyDown={e => {
