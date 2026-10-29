@@ -4,6 +4,7 @@ import {createBlankBody,BLANK_SCALE} from './chibi/blankBody.ts';
 import {bindBlankBody} from './chibi/blankRig.ts';
 import {createBlankMotion} from './chibi/blankMotion.ts';
 import {createBathroomJourney,bathroomJourneyFrame,bathroomHandTargets} from './bathroomJourney.js';
+import {guideBathRimSwing} from './chibi/legContactIK.ts';
 
 // Numeric skeletal/controller verification only. It never certifies GLB
 // penetration, floor contact or real browser visual quality.
@@ -24,6 +25,12 @@ function frame(a,activity,journey,t){
   bathLean:f.lean,handScale:1/a.parent.scale.y
  });
  a.resident.updateWorldMatrix(true,true);
+ if(f.phase==='enter'||f.phase==='exit'){
+  const guide={front:journey.front,rim:journey.edge,time:f.time};
+  guideBathRimSwing({root:a.resident,rig:a.rig},guide,'L');
+  guideBathRimSwing({root:a.resident,rig:a.rig},guide,'R');
+  a.rig.skeleton.update();
+ }
  return f;
 }
 
