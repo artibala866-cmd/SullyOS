@@ -47,6 +47,9 @@ jobs:
         run: pnpm exec vitest run apps/room3d/furniturePointRegistry.test.js apps/room3d/furnitureCapabilityRegistry.test.js apps/room3d/mirrorJourney.test.js apps/room3d/furnitureMeshSeat.test.js apps/room3d/kitFurnitureContact.test.js apps/room3d/legacyFurnitureSource.test.js apps/room3d/furnitureSeatCompatibility.test.js apps/room3d/furnitureDiningCompatibility.test.js apps/room3d/furnitureStationRegistry.test.js apps/room3d/seatAccess.test.js apps/room3d/occupiedFurnitureChange.test.js apps/room3d/bedMotionAccess.test.js apps/room3d/bathroomJourney.test.js apps/room3d/bathroomRigMotion.test.js apps/room3d/frameBudgetTiming.test.js utils/homeRomance.test.ts utils/homeGuestLife.test.ts utils/homeVisits.test.ts apps/room3d/furnitureGeometryCoverage.test.js apps/room3d/furnitureBrowserCoverage.test.js apps/room3d/kitchenStationMenu.test.js apps/room3d/wateringReachability.test.js utils/room3dSeating.test.ts utils/room3dFurnitureInteractions.test.ts utils/room3dFurnitureCatalog.test.ts utils/room3dBedroomReference.test.ts utils/room3dMirrorJourney.test.ts utils/room3dDining.test.ts utils/room3dFurnitureDock.test.ts utils/room3dGaming.test.ts utils/room3dFunctionalLayout.test.ts
       - name: Full room3d regression suite
         run: pnpm exec vitest run utils/room3d
+      - name: Verify Halloween 25 GLBs, 20 presets, pet hats and interactive prop meshes
+        timeout-minutes: 14
+        run: pnpm exec vitest run apps/room3d/halloweenMeshAcceptance.test.ts apps/room3d/halloweenWardrobeFestival.test.js utils/wardrobePickerUI.test.ts
       - name: Build
         run: pnpm build
       - name: Chromium WebGL scene and seat-action smoke

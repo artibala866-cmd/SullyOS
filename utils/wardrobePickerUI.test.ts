@@ -17,8 +17,8 @@ it('adds animal accessories without stripping the legacy initial outfit',()=>{
 it('offers image tiles for every outfit and applies its complete items',()=>{
  const change=vi.fn();root=createRoot(host);act(()=>root.render(React.createElement(WardrobePicker,{hair:{layers:{},extras:[],bodyShape:'blank'},onChange:change})));
  const grid=host.querySelector('[aria-label="套装款式"]')!;
- expect(grid.querySelectorAll('button')).toHaveLength(Object.keys(approvedPresets).length);
- for(const [id,p] of Object.entries(approvedPresets)){
+ expect(grid.querySelectorAll('button')).toHaveLength(Object.values(approvedPresets).filter(p=>p.collection!=='halloween').length);
+ for(const [id,p] of Object.entries(approvedPresets).filter(([,p])=>p.collection!=='halloween')){
   const tile=grid.querySelector<HTMLButtonElement>(`[aria-label="${p.label}"]`)!;
   expect(tile.querySelector(`[aria-label="${p.label}整套穿着预览"]`)).not.toBeNull();
   act(()=>tile.click());expect(change.mock.lastCall![0].wardrobe).toEqual(p.items);
@@ -42,5 +42,21 @@ it('applies all six authored outfits without losing fits, colors or layering to 
   expect(applied).toMatchObject({headSize:1.2,...outfit.clothes});
   expect(applied.wardrobeFits).toEqual(outfit.clothes.wardrobeFits);
   expect(applied.wardrobeColors).toEqual(outfit.clothes.wardrobeColors);
+ }
+});
+
+it('keeps 20 complete Halloween presets separate from the original outfit menu and applies all dyes',()=>{
+ const change=vi.fn();root=createRoot(host);act(()=>root.render(React.createElement(WardrobePicker,{hair:{layers:{},extras:[],bodyShape:'blank'},onChange:change})));
+ expect(host.querySelectorAll('[aria-label="套装款式"] button')).toHaveLength(Object.values(approvedPresets).filter(p=>p.collection!=='halloween').length);
+ act(()=>[...host.querySelectorAll<HTMLButtonElement>('nav button')].find(b=>b.textContent?.includes('万圣节'))!.click());
+ const grid=host.querySelector('[aria-label="万圣节套装款式"]')!;
+ const festive=Object.entries(approvedPresets).filter(([,p])=>p.collection==='halloween');
+ expect(festive).toHaveLength(20);expect(grid.querySelectorAll('button')).toHaveLength(20);
+ for(const [id,p] of festive){
+  const tile=grid.querySelector<HTMLButtonElement>(`[aria-label="${p.label}"]`)!;
+  expect(tile).toBeTruthy();
+  act(()=>tile.click());
+  expect(change.mock.lastCall![0].wardrobe).toEqual(p.items);
+  expect(change.mock.lastCall![0].wardrobeColors).toEqual(p.clothes!.wardrobeColors);
  }
 });
