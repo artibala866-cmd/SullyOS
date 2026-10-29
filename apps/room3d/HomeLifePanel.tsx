@@ -134,13 +134,14 @@ export default function HomeLifePanel({editor,character,user,api,conversationCon
  };
  const sourceName={user:'手动',local:'自主',model:'模型'};
  const title=panel==='chat'?`和${character?.name||'TA'}聊聊`:panel==='journal'?'家里的日常':'我的家';
- if(!panel||panel==='interact')return null;
+ if(!panel||panel==='interact'||panel==='visits')return null;
  const docked=presentation==='homely'&&panel==='chat';
  return <div className={`home-life-overlay ${docked?'homely-chat':''}`} onPointerDown={e=>{if(!docked&&e.target===e.currentTarget)onPanel(null);}}>
   <section ref={sheet} className={`home-life-sheet home-life-${panel}`} aria-label={title} role="dialog" aria-modal={docked?undefined:true} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onPanel(null);}if(e.key==='Tab'&&!docked){const items=[...e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),textarea:not(:disabled),input:not(:disabled),summary')].filter(el=>el.getClientRects().length);const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}}}>
    <header><div><small>{scene.roomName}</small><h2>{title}</h2></div><div className="home-life-header-actions">{panel==='chat'&&<button type="button" className="home-icon home-clear-history" aria-label="一键清空家园聊天和动作记录" title="清空家园聊天、动作及私聊里的家园记录" disabled={clearing||!character} onClick={()=>void clearAll()}><Trash size={19}/></button>}<button className="home-icon" aria-label={docked?'收起家园聊天':'关闭面板'} onClick={()=>onPanel(null)}>{docked?<span className="homely-chat-collapse" aria-hidden="true">⌄</span>:<X size={22}/>}</button></div></header>
    {panel==='more'?<div className="home-menu-grid island-menu-grid">
     {[
+     {label:'串个门',tone:'sky',note:'预约拜访与查看申请',Icon:Users,run:()=>onPanel('visits')},
      {label:'宠物',tone:'mint',note:'照顾伙伴、装扮与小记',Icon:PawPrint,run:()=>{onPanel(null);trackHomeFeature('pets');editor.openPets();}},
      {label:'布置房间',tone:'butter',note:'家具与装修',Icon:PaintBrush,run:()=>{onPanel(null);trackHomeFeature('edit');editor.openPanel('decorate');}},
      ...(onFigures?[{label:'手办柜',tone:'rose',note:'双方形象',Icon:House,run:()=>{onPanel(null);onFigures();}}]:[]),

@@ -16,6 +16,8 @@ import {hasUnansweredUserTurn,withChatContinuation} from './chatContinuation';
 import type {Message} from '../types';
 import {extractContent,safeResponseJson} from './safeApi';
 import {parseHomeReply} from './homeReplyParser';
+import {homeVisitPrompt} from './homeVisits';
+import {consumeHomeVisitReply} from './homeVisitReply';
 import type {HomeReply} from './homeReplyParser';
 export {parseHomeReply} from './homeReplyParser';
 export type {HomeReply} from './homeReplyParser';
@@ -116,7 +118,8 @@ export async function generateHomeReply(args:HomeReplyRequest):Promise<HomeReply
  if(!api.baseUrl||!api.model)throw Error('先在系统设置中配置聊天 API');
  const started=performance.now();
  const payload=await buildHomeConversationRequest(args);
- const messages=payload.fullMessages;
+ const messages=[...payload.fullMessages];
+ const visitNotice=await homeVisitPrompt(char);if(visitNotice)messages.push({role:'system',content:visitNotice});
  timingLog.info('上下文准备完成，启动主回复与情绪评估',{ms:Math.round(performance.now()-started)});
  if(signal.aborted)throw new DOMException('已取消','AbortError');
  args.onStage?.('等待角色回复');
@@ -128,7 +131,10 @@ export async function generateHomeReply(args:HomeReplyRequest):Promise<HomeReply
  void evaluateHomeReplyEmotion(args,messages);
  const response=await awaitHomeStage(signal,()=>request);
  if(!response.ok)throw Error(`暂时没有收到回复（${response.status}），可以重试`);
- const result=parseHomeReply(extractContent(await safeResponseJson(response)),scene,selection=>timingLog.info('模型动作字段',selection));
+ const raw=extractContent(await safeResponseJson(response));
+ signal.throwIfAborted();
+ const cleaned=await consumeHomeVisitReply(char.id,raw);
+ const result=parseHomeReply(cleaned,scene,selection=>timingLog.info('模型动作字段',selection));
  timingLog.info('回复动作解析',{availableActions:scene.actions.length,selected:result.actionIds??(result.actionId?[result.actionId]:[])});
  if(payload.amsg2ExpiredNoticeIds?.length){
   const {ActiveMsgStore}=await import('./activeMsgStore');
