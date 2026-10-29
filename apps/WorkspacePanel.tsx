@@ -91,7 +91,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [linkBusyId, setLinkBusyId] = useState('');
   const [homeworkTitle, setHomeworkTitle] = useState('');
   const [homeworkDue, setHomeworkDue] = useState('');
-  const [noteBody, setNoteBody] = useState('');
+  const [noteDrafts, setNoteDrafts] = useState<Record<string,string>>({});
+  const [noteSaving,setNoteSaving] = useState(false);
+  const noteSaveInFlight = useRef(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
   const [visionBusy, setVisionBusy] = useState(false);
@@ -428,8 +430,32 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const risk=useMemo(()=>new Map(calculatePlanRisks(data,todayKey).map(v=>[v.commissionId,v])),[data,todayKey]);
   const weekCapacity=useMemo(()=>dailyCapacityForecast(data,todayKey,7),[data,todayKey]);
   const selectedClass = data.classes.find(c=>c.id===selectedClassId);
+  const noteBody = noteDrafts[selectedClassId] || '';
   const quickCommissions=useMemo(()=>nextDrawableCommissions(data.commissions),[data.commissions]);
   const pendingHomework=useMemo(()=>nextHomework(data.homework),[data.homework]);
+  const saveNote = async () => {
+    const classId=selectedClassId;
+    const raw=noteDrafts[classId] || '';
+    const body=raw.trim();
+    if(!classId || !body || noteSaveInFlight.current)return;
+    noteSaveInFlight.current=true;
+    setNoteSaving(true);
+    try{
+      await change(current=>{
+        if(!current.classes.some(c=>c.id===classId))throw new Error('课程已被删除，请重新选择');
+        const note={id:newWorkspaceId(),classId,body,createdAt:Date.now()};
+        return {...current,notes:[...current.notes,note]};
+      });
+      setNoteDrafts(prev=>prev[classId]===raw?{...prev,[classId]:''}:prev);
+      addToast('学习笔记已保存','success');
+    }catch(e){
+      addToast('笔记未保存，草稿仍保留：'+String(e),'error');
+      try{await queue.current.catch(()=>{});const latest=await readWorkspace();syncData(()=>latest);}catch{}
+    }finally{
+      noteSaveInFlight.current=false;
+      setNoteSaving(false);
+    }
+  };
   const showClassWork=(id:string)=>{
     setSelectedClassId(id);
     requestAnimationFrame(()=>document.getElementById('study-homework-panel')?.scrollIntoView({block:'start',behavior:'smooth'}));
@@ -810,12 +836,10 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               <button className={mutedButton} onClick={()=>void removeHomework(h.id)}>移除作业</button>
             </details>
           </div>)}
-          <label className="block text-sm">学习笔记<textarea className={inputClass} value={noteBody} onChange={e=>setNoteBody(e.target.value)} placeholder="记下刚学到的知识"/></label>
-          <button className={buttonClass} disabled={!noteBody.trim()} onClick={()=>{
-            const note={id:newWorkspaceId(),classId:selectedClassId,body:noteBody.trim(),createdAt:Date.now()};
-            void change(v=>({...v,notes:[...v.notes,note]}));
-            setNoteBody('');
-          }}>保存笔记</button>
+          <label className="block text-sm">学习笔记<textarea className={inputClass} value={noteBody} onChange={e=>setNoteDrafts(prev=>({...prev,[selectedClassId]:e.target.value}))} placeholder="记下刚学到的知识"/></label>
+          <button className={buttonClass+' min-h-11'} disabled={!noteBody.trim()||noteSaving} onClick={()=>void saveNote()}>
+            {noteSaving?'正在保存…':'保存笔记'}
+          </button>
           {data.notes.filter(n=>n.classId===selectedClassId).map(n=><div key={n.id} className="rounded-xl border-b border-neutral-100 bg-[#fafafa] p-3 space-y-2">
             <p className="text-sm whitespace-pre-wrap break-words">{n.body}</p>
             <button className={mutedButton} onClick={()=>onDiscuss('请让我把刚学到的 '+className(n.classId)+' 的内容讲给你听，然后根据笔记追问我，不要擅自判定作业完成。笔记：'+n.body.slice(0,1500),'study',n.id)}>请 Char 提问</button>
