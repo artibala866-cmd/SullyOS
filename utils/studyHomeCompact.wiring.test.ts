@@ -27,8 +27,11 @@ describe('手机学习室按 P2 的视觉比例与分区原则：番茄钟只做
   expect(focusView).toContain("onClick={()=>switchTab('stats')}");
   expect(focusView).toContain('与 Char 陪伴交流');
   expect(focusView).toContain('专注保护');
-  expect(schedule).toContain("tab === 'commissions' && <WorkspacePanel section=\"commissions\"");
-  expect(schedule).toContain("tab === 'calendar' && <WorkspacePanel section=\"calendar\"");
+  // A persistent workspace editor keeps in-progress class/order forms when
+  // changing sections. Both categories still use the same old data source.
+  expect(schedule).toContain('workspaceVisited && <div');
+  expect(schedule).toContain("section={tab==='calendar'?'calendar':'commissions'}");
+  expect((schedule.match(/<WorkspacePanel /g)||[]).length).toBe(1);
   expect(schedule).toContain("tab === 'study'");
   expect(schedule).toContain('text-[clamp(48px,13vw,74px)]');
   expect(schedule).not.toContain('text-[clamp(64px,12vw,112px)]');
