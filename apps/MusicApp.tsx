@@ -153,6 +153,7 @@ const MusicApp: React.FC = () => {
   const [openedPlaylist, setOpenedPlaylist] = useState<string | null>(null);
   const [playlistSheetSong, setPlaylistSheetSong] = useState<Song | null>(null);
   const [editingPlaylist, setEditingPlaylist] = useState<{ id: string; name: string } | null>(null);
+  const [deleteConfirmPlaylistId, setDeleteConfirmPlaylistId] = useState<string | null>(null);
   const savePlaylistName = () => {
     if (!editingPlaylist) return;
     const name = editingPlaylist.name.trim();
@@ -434,10 +435,25 @@ const MusicApp: React.FC = () => {
                 <button className="music-tap rounded-full w-9 h-9 flex items-center justify-center text-white"
                   style={{ background: C.primary }} disabled={!pl.songs.length} aria-label={`播放歌单《${pl.name}》`} title="播放歌单"
                   onClick={() => { if (pl.songs.length) void playSong(pl.songs[0], { replaceQueue: pl.songs, startIdx: 0 }); }}><PlayIcon size={17} weight="fill" /></button>
-                <button className="music-icon-press rounded-full w-8 h-8 flex items-center justify-center"
+                <button type="button" className="music-icon-press rounded-full w-10 h-11 flex items-center justify-center"
                   style={{ color: C.accent }} aria-label={`删除歌单《${pl.name}》`} title="删除歌单"
-                  onClick={() => { if (window.confirm(`删除本地歌单《${pl.name}》？歌曲收藏和历史不会被删除。`)) deletePlaylist(pl.id); }}><Trash size={17} /></button>
+                  onClick={() => { setDeleteConfirmPlaylistId(deleteConfirmPlaylistId === pl.id ? null : pl.id); setEditingPlaylist(null); }}><Trash size={18} /></button>
               </div>
+              {deleteConfirmPlaylistId === pl.id && <div className="mt-2 rounded-md px-3 py-3 flex flex-wrap items-center gap-2"
+                style={{ background: C.soft }}>
+                <span className="text-xs flex-1 min-w-[120px]" style={{ color: C.text }}>确定删除《{pl.name}》？不会删除已喜欢的歌曲。</span>
+                <button type="button" className="music-tap min-h-11 px-3 rounded-md text-xs"
+                  onClick={() => setDeleteConfirmPlaylistId(null)}>取消</button>
+                <button type="button" className="music-tap min-h-11 px-3 rounded-md text-xs font-semibold"
+                  style={{ color: '#fff', background: C.primary }}
+                  onClick={() => {
+                    if (deletePlaylist(pl.id)) {
+                      setDeleteConfirmPlaylistId(null);
+                      if (openedPlaylist === pl.id) setOpenedPlaylist(null);
+                      addToast('歌单已删除', 'success');
+                    }
+                  }}>确认删除</button>
+              </div>}
               {editingPlaylist?.id === pl.id && <div className="mt-2 flex gap-2 items-center px-2 pb-2">
                 <input aria-label={`编辑《${pl.name}》的新名称`} autoFocus
                   value={editingPlaylist.name} maxLength={60}
