@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { BLACK_WHITE_FACEBOOK_CSS, formatBlackWhiteTime, isBlackWhiteFacebookTheme, shouldStartBlackWhiteTimeGroup } from './blackWhiteFacebookTheme';
 
 describe('black-white private-chat Facebook-style theme', () => {
@@ -25,5 +26,34 @@ describe('black-white private-chat Facebook-style theme', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-message-user');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-message-ai');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-facebook-time');
+  });
+});
+
+describe('actual current-character bubble picker wiring', () => {
+  const source = (path: string) => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+  it('connects the screenshot picker to the current character theme, not global defaults', () => {
+    const picker = source('components/chat/ChatInputArea.tsx');
+    const chat = source('apps/Chat.tsx');
+    const presets = source('components/chat/ChatConstants.ts');
+    expect(picker).toContain('气泡样式 · 当前角色');
+    expect(picker).toContain('onClick={() => onUpdateTheme(t.id)}');
+    expect(chat).toContain('onUpdateTheme={(id) => updateCharacter(char.id, { bubbleStyle: id })}');
+    expect(chat).toContain('const blackWhiteFacebook = !homePhone && isBlackWhiteFacebookTheme(activeTheme)');
+    expect(chat).toContain('blackWhiteFacebook={blackWhiteFacebook}');
+    expect(presets).toContain("id: 'default', name: '黑白气泡'");
+    expect(presets).toContain("backgroundColor: '#050505'");
+  });
+  it('keeps both reply positions outside the bubble and makes the quote wrapper a flex column', () => {
+    const item = source('components/chat/MessageItem.tsx');
+    expect(item).toContain('blackWhiteFacebook && isUser && m.replyTo');
+    expect(item).toContain('blackWhiteFacebook && !isUser && m.replyTo');
+    expect(item).toContain("blackWhiteFacebook && m.type === 'text' ? 'flex flex-col items-stretch min-w-0'");
+    expect(item).toContain('m.replyTo && !blackWhiteFacebook');
+    expect(item).toContain('prev.blackWhiteFacebook === next.blackWhiteFacebook');
+  });
+  it('keeps a matching preview when source bubble has the preset id', () => {
+    const sample = source('components/chat/ChatDecorationSample.tsx');
+    expect(sample).toContain('isBlackWhiteFacebookTheme(sourceBubble)');
+    expect(sample).toContain('blackWhiteFacebook={blackWhiteFacebook}');
   });
 });

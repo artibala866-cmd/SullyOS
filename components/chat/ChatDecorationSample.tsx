@@ -32,7 +32,10 @@ const defaultBubble=PRESET_THEMES.default;
 /** Static rendering intentionally never mounts effects or binds actual message actions. */
 export function renderChatDecorationSample(value:unknown,sceneId:string,thumbnailPart?:DecorationThumbnailPart,state:DecorationPreviewState={}) {
  const p=validateDecoration(value).parts,l=p.layout||{};
- const blackWhiteFacebook=isBlackWhiteFacebookTheme(p.bubbles);
+ // validateDecoration normalizes imported bubble id to import-preview; retain the
+ // source id exclusively to identify the built-in preset in the preview.
+ const sourceBubble=(value as {parts?:{bubbles?:{id:string;name:string}}}|null)?.parts?.bubbles;
+ const blackWhiteFacebook=isBlackWhiteFacebookTheme(sourceBubble);
  if(p.date||p.story){
   const style=meetingAppearance(p.date||p.story);
   const markup=renderToStaticMarkup(<main className="meeting-reading" data-reading-preset={style.id}>

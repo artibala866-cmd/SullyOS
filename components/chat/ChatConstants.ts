@@ -5,7 +5,7 @@ import { ChatTheme } from '../../types';
 export const PRESET_THEMES: Record<string, ChatTheme> = {
     default: {
         id: 'default', name: '黑白气泡', type: 'preset',
-        user: { textColor: '#ffffff', backgroundColor: '#242424', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 },
+        user: { textColor: '#ffffff', backgroundColor: '#050505', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 },
         ai: { textColor: '#202020', backgroundColor: '#ffffff', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.5 }
     },
     dream: {
