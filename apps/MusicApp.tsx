@@ -37,7 +37,7 @@ const MusicApp: React.FC = () => {
     lyric, tlyric, activeLyricIdx,
     playSong, togglePlay, nextSong, prevSong, seek,
     liked, toggleLike, setToastHandler,
-    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, respondListeningInvite, removeListeningPartner,
+    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, refreshListeningInvite, respondListeningInvite, removeListeningPartner,
     addLocalSong, removeLocalSong, localAlbumSongs,
     queue, idx, library, toggleLocalLike, createPlaylist, createPlaylistWithSong, renamePlaylist, deletePlaylist,
     addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
@@ -57,9 +57,14 @@ const MusicApp: React.FC = () => {
         const pending = findPendingMusicInvite(messages, 'char');
         return [c.id, pending?.id ? { id: pending.id, track: pending.metadata?.musicListenTrack as Song | undefined } : null] as const;
       }));
-      if (!cancelled && requestedRevision === revision) setCharInvites(Object.fromEntries(
-        entries.filter((entry) => entry[1] !== null) as Array<readonly [string, { id: number; track: Song | undefined }]>
-      ));
+      if (!cancelled && requestedRevision === revision) {
+        setCharInvites(Object.fromEntries(
+          entries.filter((entry) => entry[1] !== null) as Array<readonly [string, { id: number; track: Song | undefined }]>
+        ));
+        // A freshly opened tab may have no cached "pending" flag at all.
+        // Hydrate every outgoing invitation from committed DB messages as well.
+        await Promise.all(characters.map(c => refreshListeningInvite(c.id)));
+      }
     };
     void refresh().catch(console.warn);
     const onInvite = () => { void refresh().catch(console.warn); };
@@ -78,7 +83,7 @@ const MusicApp: React.FC = () => {
       window.removeEventListener('storage', onRemote);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [characters]);
+  }, [characters, refreshListeningInvite]);
   const answerCharInvite = useCallback(async (charId: string, accepted: boolean) => {
     const messageId = charInvites[charId]?.id;
     if (!messageId) return;
