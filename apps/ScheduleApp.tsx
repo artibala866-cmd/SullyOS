@@ -259,7 +259,9 @@ const ScheduleApp: React.FC = () => {
     setShowCharPicker(false);
     // Never transfer one Char's user-selected context to another Char.
     setAssistantTopic('');
-    setAssistantScope('focus');
+    // First-time selection from the shared companion keeps the overview tab,
+    // but never carries another Char's message or unreviewed context.
+    setAssistantScope(assistantOpen && assistantScope==='overview'?'overview':'focus');
     setAssistantItemId('');
     setPlanRequest(null);
     setPlanPreview(null);

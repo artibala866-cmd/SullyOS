@@ -21,6 +21,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain("setMessage('');setAssistantOpen(true);");
   expect(schedule).toContain("disabled={!activeChar||overviewBusy}");
   expect(schedule).toContain('查看最新学习和画稿计划');
+  expect(schedule).toContain("setAssistantScope(assistantOpen && assistantScope==='overview'?'overview':'focus')");
  });
  it('只有手动点击今日计划后才读取最新工作空间，在发送前展示摘要',()=>{
   const fn=schedule.split('const openCompanionOverview=async()=>{')[1]?.split('const discuss =')[0]||'';
