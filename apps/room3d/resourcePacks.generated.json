@@ -1,0 +1,155 @@
+[
+  {
+    "id": "halloween-furniture",
+    "name": "万圣节家具包",
+    "description": "12 件家具与预览图",
+    "revision": "232d0c0af2424abc6d03013b25422f0b63352684ebde6ac66722f1f72f601733",
+    "bytes": 4599475,
+    "files": [
+      {
+        "path": "room3d/halloween_bat_pumpkin_clock.glb",
+        "bytes": 330232,
+        "sha256": "090765d1d7abbff69b49bf1b443b3c208d3a1be93880c84589c6265b3977d800",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_bat_rug.glb",
+        "bytes": 290508,
+        "sha256": "dee2bc7f212927c9055241a2f40dae066bad6540a239b6ad58a0a171e9f9f8b6",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_bat_sofa.glb",
+        "bytes": 450792,
+        "sha256": "44784864c8807dbaa8acfaa7732e4d77744e60f2bc3dced46c7715f07e59e09f",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_cat_ear_mirror.glb",
+        "bytes": 313324,
+        "sha256": "2b17976d87d722f4fa6224c66fd07d9dd9069af86a2b247c356c91d931417bd4",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_cauldron_planter.glb",
+        "bytes": 332524,
+        "sha256": "81fb9a8cb49ae71a93153a59313ad6ffc44956d60ecb7f528a56111fe98d2423",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_coffin_coffee_table.glb",
+        "bytes": 304204,
+        "sha256": "122a8be8670364b851e6a660d8481fe51b0007674d435d6b16d8334fc6a51792",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_ghost_floor_lamp.glb",
+        "bytes": 312952,
+        "sha256": "a75d4892334dbd1ce7949a989b404ee2d0c58b9dfefa2737adfbf24aaf3aa286",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_gothic_curtain_window.glb",
+        "bytes": 583256,
+        "sha256": "ec934812ac8acfbc1a27fa1879753fc74c67a9681062b66a9d393f0fb1d3587b",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_haunted_fireplace.glb",
+        "bytes": 529716,
+        "sha256": "609abed225cba801ae22e221f37e589f2bdafd00a871271e47d04ac43b5b4db7",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_potion_bookcase.glb",
+        "bytes": 470072,
+        "sha256": "83dbe706f82bfd226809a79d033e45a825ad642b7bc7b7d26823ca464abff18c",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_pumpkin_armchair.glb",
+        "bytes": 355744,
+        "sha256": "33b67fa1c874591b57d7a7c92f24077730ecddc7cf826ac82b1c122bed280b02",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/halloween_pumpkin_lantern.glb",
+        "bytes": 248496,
+        "sha256": "5ef9c6eccbb370b0da6b4b889b6f6c15be3b3f263427e1e1b6ef84ee7b66d6d0",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_bat_pumpkin_clock.png",
+        "bytes": 3725,
+        "sha256": "d68c11fbcbb2b2a463e46dfdc6864fc85bcc4880c78b6674f8b888ed7c2b3132",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_bat_rug.png",
+        "bytes": 5417,
+        "sha256": "4564d1c8180ef3548237ab18a84092be409381c7e9a6cc8babd6d9e5f6ce3082",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_bat_sofa.png",
+        "bytes": 6664,
+        "sha256": "a318c5390e28519cfedc3532b6264c18ce0b85df1a30b48eef50a5d285777632",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_cat_ear_mirror.png",
+        "bytes": 5262,
+        "sha256": "9580382c2710d0b159564289ed35d3b1de71159992a3fd7a68a9f657eccfd77b",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_cauldron_planter.png",
+        "bytes": 7358,
+        "sha256": "f93ce10c24919bd658599960cbb471d0c33e58a9a378f3c40bb850de32b02b85",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_coffin_coffee_table.png",
+        "bytes": 5244,
+        "sha256": "5a1692870595b07c32a2dffe5cd8ae9f2d3e440171a5493dd775f724222f1fd0",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_ghost_floor_lamp.png",
+        "bytes": 3918,
+        "sha256": "bc72455b90f201fe81c9add35dbd499cd81159496a1ec0cbc1a656781dd0a818",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_gothic_curtain_window.png",
+        "bytes": 7648,
+        "sha256": "55ceb52951a962e57c41378f56085ab5b120d331be0331fee8231c29db33374a",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_haunted_fireplace.png",
+        "bytes": 9806,
+        "sha256": "1c6cfa26249019c1d0e146d29ac7f3d4ce1e415764cdb1679bbabde79eb57928",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_potion_bookcase.png",
+        "bytes": 6172,
+        "sha256": "ccc770526e76079067e8757ebc809c1c07d54b87a2a04afc66c2a56e39a39277",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_pumpkin_armchair.png",
+        "bytes": 10119,
+        "sha256": "2069850dea6f0455ddd3df10a6db13d2430b27e1c08705f04e1d50ec1077b57f",
+        "dependencies": []
+      },
+      {
+        "path": "room3d/thumbnails/halloween_pumpkin_lantern.png",
+        "bytes": 6322,
+        "sha256": "b0af7dc75d231a75c7f07824c2bfa169d756e8b8de135960db7598b23831c2ac",
+        "dependencies": []
+      }
+    ]
+  }
+]
