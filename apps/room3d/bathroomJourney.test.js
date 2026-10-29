@@ -45,6 +45,19 @@ describe('bathroom interaction cancellation reverses actual partial path',()=>{
  });
 });
 
+describe('live bathtub authored grips',()=>{
+ it('offers two nearby, individually reachable palm supports on the actual front rim',()=>{
+  const room={id:'bath',items:[{id:'t',assetId:'bath_tub',x:0,y:.18,z:0,rotation:0,stored:false}]};
+  const a=bathroomActivities(room,catalog,{body2:true,headWidth:1.2})[0];
+  const entry=gamingPoint(room.items[0],[.65,.03,1.35]);
+  expect(a.bathHandWorld).toHaveLength(2);
+  for(const grip of a.bathHandWorld){
+   expect(grip[2]).toBeGreaterThan(.5); // The near rim, never the unreachable far rim.
+   expect(bathroomRimReachable({...a,bathHandWorld:[grip]},entry,{shoulderHeight:.9,armReach:.65})).toBe(true);
+  }
+ });
+});
+
 describe('authored tub rim contact and reversible leg crossing',()=>{
  it('never treats the high rim as a root elevation target',()=>{
   const j=fixture(),samples=Array.from({length:121},(_,i)=>bathroomJourneyFrame(j,i*j.enter/120));
