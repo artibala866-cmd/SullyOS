@@ -8,7 +8,7 @@ import { sameMusic } from '../utils/musicLibrary';
 import { trackEvent } from '../utils/analytics';
 import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon, Heart, Plus, ListPlus, ArrowUp, ArrowDown, Trash, PencilSimple, CaretDown, CaretUp, MusicNotes, X } from '@phosphor-icons/react';
 import {
-  C, MizuHeader, SearchBar, SongRow, MiniPlayer,
+  C, Sparkle, CrossStar, MizuHeader, SearchBar, SongRow, MiniPlayer,
   VinylDisc, GlassProgress, PlayControls, BokehBg,
   MetaChip, SubActions,
 } from './music/MusicUI';
@@ -244,7 +244,7 @@ const MusicApp: React.FC = () => {
               <button type="button" aria-label={isLiked ? `取消喜欢《${song.name}》` : `喜欢《${song.name}》`}
                 aria-pressed={isLiked} title={isLiked ? '取消本地喜欢' : '加入本地喜欢'}
                 className={`music-icon-press w-8 h-8 rounded-full flex items-center justify-center ${isLiked ? 'music-heart-active' : ''}`}
-                style={{ background: isLiked ? 'rgba(255,222,237,.85)' : C.soft,
+                style={{ background: isLiked ? '#dededc' : C.soft,
                   color: isLiked ? C.accent : C.primary }}
                 onClick={() => {
                   if (toggleLocalLike(song)) addToast(isLiked ? '已从本地喜欢移除' : '已加入本地喜欢', 'success');
@@ -523,7 +523,7 @@ const MusicApp: React.FC = () => {
                   backdropFilter: 'blur(6px)',
                   WebkitBackdropFilter: 'blur(6px)',
                   boxShadow: 'none',
-                  animation: 'shizuku-glow 2s ease-in-out infinite',
+                  animation: 'none',
                 }}
               >
                 <div className="text-center space-y-1.5 px-3">
@@ -613,7 +613,7 @@ const MusicApp: React.FC = () => {
                             color: active ? undefined : C.faint,
                             ...(active
                               ? {
-                                  background: `linear-gradient(135deg, ${C.primary} 0%, ${C.accent} 50%, #7b7b7b 100%)`,
+                                  background: `#171717`,
                                   WebkitBackgroundClip: 'text',
                                   WebkitTextFillColor: 'transparent',
                                   backgroundClip: 'text',
@@ -745,7 +745,7 @@ const MusicApp: React.FC = () => {
                 <button key={q} onClick={() => { setDraft({ quality: q }); trackEvent('切换音质档位', { quality: q }); }}
                   className="py-2 rounded-xl text-[10px] transition-all"
                   style={{
-                    background: cfg.quality === q ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : C.glass,
+                    background: cfg.quality === q ? `#171717` : C.glass,
                     color: cfg.quality === q ? 'white' : C.muted,
                     border: cfg.quality === q ? '1px solid transparent' : `1px solid rgba(230,230,230,.8)`,
                     boxShadow: cfg.quality === q ? `0 2px 12px ${C.glow}30` : 'none',
@@ -784,7 +784,7 @@ const MusicApp: React.FC = () => {
               <span className="relative z-10">保存</span>
               <div className="absolute inset-0 pointer-events-none" style={{
                 background: `linear-gradient(90deg, transparent 30%, rgba(255,255,255,.18) 50%, transparent 70%)`,
-                backgroundSize: '200% 100%', animation: 'shizuku-shimmer 3s ease-in-out infinite',
+                backgroundSize: '200% 100%', animation: 'none',
               }} />
             </button>
           </div>
@@ -922,7 +922,7 @@ const MusicApp: React.FC = () => {
                         className="flex items-center gap-2 rounded-xl px-2.5 py-2 transition-all"
                         style={{
                           background: isActive
-                            ? `linear-gradient(135deg, ${C.glow}25, ${C.lavender}18)`
+                            ? `#ececeb`
                             : 'rgba(255, 255, 255,0.5)',
                           border: `1px solid ${isActive ? C.glow + '60' : C.faint + '30'}`,
                           boxShadow: isActive ? `0 2px 12px ${C.glow}30` : 'none',
