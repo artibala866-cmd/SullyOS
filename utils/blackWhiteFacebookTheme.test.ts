@@ -41,9 +41,22 @@ describe('black-white private-chat Facebook-style theme', () => {
   });
   it('keeps incoming messages readable and quoted text untruncated', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('font-weight: 400 !important');
-    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: 76% !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: 70% !important');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('white-space: pre-wrap');
     expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('text-overflow: ellipsis');
+  });
+  it('shrinks the built-in black-white bubbles as a coordinated, readable scale', () => {
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('font-size: 13px !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('line-height: 1.45 !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('padding: 5px 9px !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('border-radius: 14px !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('width: 29px !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: min(76%, calc(100% - 39px)) !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: 70% !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('font-size: 11px;');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('margin: 13px 0 14px;');
+    expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('background: #fff !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('.sully-chat-monochrome .sully-chat-message {');
   });
   it('scopes outgoing, incoming, quote and time spacing', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-monochrome .sully-facebook-reply');
