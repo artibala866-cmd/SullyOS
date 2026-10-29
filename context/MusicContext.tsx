@@ -606,6 +606,7 @@ interface MusicContextType {
   listeningInvites: Record<string, 'pending' | 'accepted' | 'rejected'>;
   inviteListeningPartner: (charId: string) => Promise<boolean>;
   cancelListeningInvite: (charId: string, messageId?: number) => Promise<boolean>;
+  refreshListeningInvite: (charId: string) => Promise<void>;
   respondListeningInvite: (charId: string, accepted: boolean) => void;
   lastListeningEnd: { charId: string; durationMs: number; at: number } | null;
   addListeningPartner: (charId: string) => void;
@@ -1883,7 +1884,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     playSong, togglePlay, nextSong, prevSong, seek,
     playMode, setPlayMode,
     liked, toggleLike,
-    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, respondListeningInvite, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
+    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, refreshListeningInvite: refreshOutgoingInvite, respondListeningInvite, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
     recentTrackChange,
     toast, setToastHandler,
     localAlbumSongs, addLocalSong, removeLocalSong,
