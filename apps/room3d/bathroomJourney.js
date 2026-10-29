@@ -78,7 +78,7 @@ export function bathroomJourneyFrame(j,time){
   // Cross the rim in two weight transfers while each corresponding knee is
   // raised; the former single late travel carried grounded feet through GLB.
   const advance=.20*M.smootherstep(p,.30,.74)+.07*M.smootherstep(p,.79,1.19)
-   +.24*M.smootherstep(p,2.20,2.50)+.49*M.smootherstep(p,3.00,3.42);
+   +.24*M.smootherstep(p,2.20,2.50)+.49*M.smootherstep(p,3.00,3.58);
   const lower=M.smootherstep(p,3.52,4.6);
   position=mix(j.front,j.position,advance);
   // A high-sided GLB tub requires a supported transfer of the pelvis:
