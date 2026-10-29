@@ -6,6 +6,7 @@ export type MusicTogetherPerson = {
   id: string;
   name: string;
   incoming: boolean;
+  incomingMessageId?: number;
   trackName?: string;
   active: boolean;
   outgoing?: string;
@@ -14,7 +15,7 @@ export type MusicTogetherPerson = {
 type Props = {
   people: MusicTogetherPerson[];
   onClose: () => void;
-  onAnswer: (charId: string, accept: boolean) => void;
+  onAnswer: (charId: string, messageId: number, accept: boolean) => Promise<'resolved' | 'stale' | 'failed' | 'busy'>;
   onInvite: (charId: string) => void | Promise<boolean>;
   onCancel: (charId: string) => void | Promise<boolean>;
   onEnd: (charId: string) => void;
@@ -24,7 +25,27 @@ type Props = {
 export const MusicTogetherSheet: React.FC<Props> = ({ people, onClose, onAnswer, onInvite, onCancel, onEnd }) => {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const workingRef = useRef(new Set<string>());
-  const [working, setWorking] = useState<Record<string, 'invite' | 'cancel'>>({});
+  const [working, setWorking] = useState<Record<string, 'invite' | 'cancel' | 'accept' | 'reject'>>({});
+  const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
+  const answerChar = (charId: string, inviteId: number | undefined, accepted: boolean) => {
+    if (workingRef.current.has(charId)) return;
+    if (!Number.isSafeInteger(inviteId)) {
+      setAnswerErrors(prev => ({ ...prev, [charId]: '这条邀请已失效，请重新打开面板' }));
+      return;
+    }
+    workingRef.current.add(charId);
+    setAnswerErrors(prev => { const next = { ...prev }; delete next[charId]; return next; });
+    setWorking(prev => ({ ...prev, [charId]: accepted ? 'accept' : 'reject' }));
+    void onAnswer(charId, inviteId!, accepted).then(result => {
+      if (result === 'failed') setAnswerErrors(prev => ({ ...prev, [charId]: '保存失败，请重试' }));
+      else if (result === 'stale') setAnswerErrors(prev => ({ ...prev, [charId]: '邀请已过期或已在其他页面处理' }));
+      else if (result === 'busy') setAnswerErrors(prev => ({ ...prev, [charId]: '正在处理，请稍后再试' }));
+    }).catch(() => setAnswerErrors(prev => ({ ...prev, [charId]: '保存失败，请重试' })))
+      .finally(() => {
+        workingRef.current.delete(charId);
+        setWorking(prev => { const next = { ...prev }; delete next[charId]; return next; });
+      });
+  };
   const runAction = (charId: string, kind: 'invite' | 'cancel', action: () => void | Promise<boolean>) => {
     if (workingRef.current.has(charId)) return;
     workingRef.current.add(charId);
@@ -54,6 +75,22 @@ export const MusicTogetherSheet: React.FC<Props> = ({ people, onClose, onAnswer,
   // guard and always call the latest close handler.
   const closeHandlerRef = useRef(onClose);
   closeHandlerRef.current = onClose;
+  // Android/browser Back produces popstate. Keep one history entry per sheet
+  // so Back dismisses the dialog instead of navigating out of Music.
+  useEffect(() => {
+    const marker = 'music-together-' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+    let pushed = false;
+    try {
+      window.history.pushState({ ...(window.history.state || {}), sullyMusicTogetherSheet: marker }, '', window.location.href);
+      pushed = true;
+    } catch { /* Restricted WebView: on-screen close and Escape still work. */ }
+    const onBack = () => closeHandlerRef.current();
+    window.addEventListener('popstate', onBack);
+    return () => {
+      window.removeEventListener('popstate', onBack);
+      if (pushed && window.history.state?.sullyMusicTogetherSheet === marker) window.history.back();
+    };
+  }, []);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const focusables = () => Array.from(sheetRef.current?.querySelectorAll<HTMLElement>(
@@ -146,17 +183,20 @@ export const MusicTogetherSheet: React.FC<Props> = ({ people, onClose, onAnswer,
                     : p.outgoing === 'pending' ? '等待回应'
                     : p.outgoing === 'rejected' ? '上次邀请已拒绝' : '可邀请'}
               </div>
+              {answerErrors[p.id] && <div role="status" className="text-[10px] mt-1 text-rose-600">{answerErrors[p.id]}</div>}
             </div>
             <div className="flex gap-1 shrink-0">
               {p.incoming ? <>
                 <button type="button" aria-label={'接受 ' + p.name + ' 的一起听邀请'}
-                  className="music-tap min-h-11 min-w-11 px-3 rounded-full text-[12px] font-medium"
+                  disabled={!!working[p.id]} aria-busy={!!working[p.id]}
+                  className="music-tap min-h-11 min-w-11 px-3 rounded-full text-[12px] font-medium disabled:opacity-50"
                   style={{ background: C.primary, color: '#fff' }}
-                  onClick={() => onAnswer(p.id, true)}>接受</button>
+                  onClick={() => answerChar(p.id, p.incomingMessageId, true)}>{working[p.id] === 'accept' ? '接受中…' : '接受'}</button>
                 <button type="button" aria-label={'拒绝 ' + p.name + ' 的一起听邀请'}
-                  className="music-tap min-h-11 min-w-11 px-3 rounded-full text-[12px]"
+                  disabled={!!working[p.id]} aria-busy={!!working[p.id]}
+                  className="music-tap min-h-11 min-w-11 px-3 rounded-full text-[12px] disabled:opacity-50"
                   style={{ background: '#e9e9e7', color: C.text }}
-                  onClick={() => onAnswer(p.id, false)}>拒绝</button>
+                  onClick={() => answerChar(p.id, p.incomingMessageId, false)}>{working[p.id] === 'reject' ? '拒绝中…' : '拒绝'}</button>
               </> : <button type="button" aria-label={action + '与 ' + p.name + ' 的一起听'}
                 disabled={!!working[p.id]}
                 aria-busy={!!working[p.id]}
