@@ -248,7 +248,9 @@ describe('MONO 黑白灰音乐视觉回归', () => {
     expect(ui).toContain('No animated particles, colored halos');
     expect(ui).toContain('background: C.primary');
     expect(app).toContain("border: '1px solid #ebebe9'");
-    expect(app).toContain('className="music-track-row relative rounded-[15px]');
+    expect(app).toContain('className="music-track-row rounded-[15px]');
+    // Song actions stay accessible in the same row menu after the layout refactor.
+    expect(app).toContain('aria-haspopup="menu" aria-expanded={openSongMenuKey === key}');
     expect(ui).toContain('rounded-[21px] px-3.5 pt-2.5 pb-3.5');
   });
   it('切换成简约风也不能丢失搜索、播控、播放进度与无障碍操作', () => {
