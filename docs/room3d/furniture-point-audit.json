@@ -1,20 +1,20 @@
 {
   "title": "SullyOS 家园全家具互动点位逐件元数据审计",
   "baseBranch": "remove-checkphone-vrworld-lifesim",
-  "catalogSha": "cbd2dd90e69d4ee167bb7f127600da6292221129",
-  "auditScope": "仅检查 248 条资源的目录元数据、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。 本次更新还执行了 248 条资源 GLB 网格合法性、坐点源建模核对及活动能力调用链的自动化检查；没有用户视角的 WebGL/人体触面逐件目视验收。 此次另补 chair/pouf 两件的实际合并 kit.glb 三角面支撑验证，并在 Chromium 中完成小木椅两类人物的进出/重复入座控制器测试，但该浏览器测试也不属于逐件目视验收。 后续浏览器追加验证：bedroom_single_bed、bedroom_double_bed 左右两位、show_bed 两位，五个开放床位均在现有 WebGL 控制器通过进入与起身（固定时间步进）；未开放高架床的上铺。 已在 GitHub Actions Chromium WebGL 中运行全部 21 类家具有坐点的 29 个接入/起身控制器场景，所有场景完成路径与座位释放；此外还复核了占用时整屋模板替换拒绝、配色撤销和重做不更改人物实际位置。上述仅证明动作执行链路可用，不证明全量人体 IK、手脚贴合和视觉验收；visualPassed 仍为 0。",
+  "catalogSha": "2e4dadf1f50be5524d962c597ad406abf5274f33",
+  "auditScope": "仅检查 262 条资源的目录元数据（其中 14 条为本阶段新增，尚未实景验证）、已有能力来源、点位数值与已知进出限制；不是实际 mesh 接触面审查，更不是画面/动作验收。 本次更新还执行了 248 条资源 GLB 网格合法性、坐点源建模核对及活动能力调用链的自动化检查；没有用户视角的 WebGL/人体触面逐件目视验收。 此次另补 chair/pouf 两件的实际合并 kit.glb 三角面支撑验证，并在 Chromium 中完成小木椅两类人物的进出/重复入座控制器测试，但该浏览器测试也不属于逐件目视验收。 后续浏览器追加验证：bedroom_single_bed、bedroom_double_bed 左右两位、show_bed 两位，五个开放床位均在现有 WebGL 控制器通过进入与起身（固定时间步进）；未开放高架床的上铺。 已在 GitHub Actions Chromium WebGL 中运行全部 21 类家具有坐点的 29 个接入/起身控制器场景，所有场景完成路径与座位释放；此外还复核了占用时整屋模板替换拒绝、配色撤销和重做不更改人物实际位置。上述仅证明动作执行链路可用，不证明全量人体 IK、手脚贴合和视觉验收；visualPassed 仍为 0。",
   "counts": {
-    "assets": 248,
-    "registeredSeatAssets": 21,
+    "assets": 262,
+    "registeredSeatAssets": 23,
     "registeredBedAssets": 5,
-    "seats": 29,
+    "seats": 32,
     "beds": 8,
     "exposedBeds": 5,
     "visualPassed": 0,
     "modelGLBsInspected": 248,
     "modelSources": {
       "kit": 28,
-      "external": 220
+      "external": 234
     },
     "meshBedAnchorCheckedAssets": 2,
     "meshBedAnchorCheckedPoints": 3,
@@ -5564,6 +5564,319 @@
         "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
       ],
       "notes": "目前仅依据目录字段与已知动作映射检查；无实模表面及运行场景验收"
+    },
+    {
+      "id": "pet_hamster",
+      "name": "糯糯仓鼠",
+      "model": "pets/hamster.glb",
+      "surface": "floor",
+      "size": [
+        0.7990436255931854,
+        0.665845433017239,
+        0.6238844692707062
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "pet_jellyfish",
+      "name": "啵啵水母",
+      "model": "pets/jellyfish.glb",
+      "surface": "floor",
+      "size": [
+        0.800000011920929,
+        0.643724953639321,
+        0.7624850273132324
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_bat_sofa",
+      "name": "蝙蝠双人沙发",
+      "model": "halloween_bat_sofa.glb",
+      "surface": "floor",
+      "size": [
+        3.9000000000000004,
+        1.7381948590278626,
+        1.6049475431442262
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "0",
+        "1"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_pumpkin_armchair",
+      "name": "南瓜扶手椅",
+      "model": "halloween_pumpkin_armchair.glb",
+      "surface": "floor",
+      "size": [
+        2.1,
+        2.047149324417114,
+        2.0654864430427553
+      ],
+      "registered": [
+        "sit"
+      ],
+      "seatPoints": [
+        "0"
+      ],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "已配置但尚未完成画面验证",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_coffin_coffee_table",
+      "name": "棺木月牙茶几",
+      "model": "halloween_coffin_coffee_table.glb",
+      "surface": "floor",
+      "size": [
+        2.7,
+        0.6646373927593232,
+        1.3969800710678102
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_potion_bookcase",
+      "name": "魔药尖顶书柜",
+      "model": "halloween_potion_bookcase.glb",
+      "surface": "floor",
+      "size": [
+        1.7724474089276552,
+        3.499996884286218,
+        0.9302186433695839
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_haunted_fireplace",
+      "name": "幽宅魔火壁炉",
+      "model": "halloween_haunted_fireplace.glb",
+      "surface": "floor",
+      "size": [
+        2.6,
+        2.247569942474365,
+        0.9269571840763092
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_ghost_floor_lamp",
+      "name": "幽灵落地灯",
+      "model": "halloween_ghost_floor_lamp.glb",
+      "surface": "floor",
+      "size": [
+        1.059184197024115,
+        2.6500010002298238,
+        1.1203700479697085
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_gothic_curtain_window",
+      "name": "哥特月夜帘窗",
+      "model": "halloween_gothic_curtain_window.glb",
+      "surface": "wall",
+      "size": [
+        3.6,
+        2.651364040374756,
+        0.3161988079547882
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_bat_rug",
+      "name": "蝙蝠花边地毯",
+      "model": "halloween_bat_rug.glb",
+      "surface": "rug",
+      "size": [
+        3.6,
+        0.04551242427366343,
+        3.6032320642074502
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_cauldron_planter",
+      "name": "魔药蘑菇坩埚",
+      "model": "halloween_cauldron_planter.glb",
+      "surface": "floor",
+      "size": [
+        1,
+        1.144953381131354,
+        0.8679582127765106
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_cat_ear_mirror",
+      "name": "猫耳穿衣镜",
+      "model": "halloween_cat_ear_mirror.glb",
+      "surface": "floor",
+      "size": [
+        1.4351899383983573,
+        2.6500006545665062,
+        1.2828282350979736
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_bat_pumpkin_clock",
+      "name": "蝙蝠南瓜挂钟",
+      "model": "halloween_bat_pumpkin_clock.glb",
+      "surface": "wall",
+      "size": [
+        1.55,
+        0.7991319060325622,
+        0.09178169947117568
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
+    },
+    {
+      "id": "halloween_pumpkin_lantern",
+      "name": "万圣节南瓜提灯",
+      "model": "halloween_pumpkin_lantern.glb",
+      "surface": "tabletop",
+      "size": [
+        0.36,
+        0.42949278971947563,
+        0.3641781120727852
+      ],
+      "registered": [],
+      "seatPoints": [],
+      "bedPoints": [],
+      "exposedBedPoints": [],
+      "status": "需要补齐或修复",
+      "screenValidated": false,
+      "needsModelReview": true,
+      "issues": [
+        "当前目录没有登记人物能力：需要先实际查看模型，再判定适用或不适用"
+      ],
+      "notes": "本阶段仅增量登记资源和互动点元数据；尚未完成实际 mesh 接触面或 3D 画面验收"
     }
   ]
 }
