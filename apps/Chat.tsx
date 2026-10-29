@@ -51,6 +51,7 @@ import LuckinHelpModal from '../components/luckin/LuckinHelpModal';
 import { PRESET_THEMES, DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
 import { resolveChatTheme } from '../utils/groupChat/theme';
 import { BLACK_WHITE_FACEBOOK_CSS, formatBlackWhiteTime, isBlackWhiteFacebookTheme, shouldStartBlackWhiteTimeGroup } from '../utils/blackWhiteFacebookTheme';
+import { isBuiltInWechatTheme, WECHAT_BUBBLE_CSS } from '../utils/wechatBubbleTheme';
 import ChatHeader from '../components/chat/ChatHeaderShell';
 import { Phone } from '@phosphor-icons/react';
 import CharacterEntryTransition from '../components/chat/CharacterEntryTransition';
@@ -498,6 +499,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         [currentThemeId, customThemes,!!homePhone],
     );
     const blackWhiteFacebook = !homePhone && isBlackWhiteFacebookTheme(activeTheme);
+    const wechatBubble = !homePhone && isBuiltInWechatTheme(activeTheme);
     const draftKey = `chat_draft_${activeCharacterId}`;
 
     // Filter categories and emojis by active character's visibility (used for both AI prompt and UI)
@@ -3827,7 +3829,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     return (
         <div
-            className={`sully-chat-root ${chatRootClass} ${blackWhiteFacebook ? 'sully-chat-monochrome' : ''}`}
+            className={`sully-chat-root ${chatRootClass} ${blackWhiteFacebook ? 'sully-chat-monochrome' : ''} ${wechatBubble ? 'sully-chat-wechat' : ''}`}
             style={chatRootStyle}
         >
              {/* 聊天细节微调（外观 App 可视化设置生成）：排在用户自定义 CSS 之前——
@@ -3859,6 +3861,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
              {activeTheme.customCss && <style>{activeTheme.customCss}</style>}
              {blackWhiteFacebook && <style>{BLACK_WHITE_FACEBOOK_CSS}</style>}
+             {wechatBubble && <style>{WECHAT_BUBBLE_CSS}</style>}
              {/* 气泡工坊的尾巴频率依赖直接挂在气泡上的稳定类。用户 CSS 即使给
                  ::before/::after 写了 !important，中间气泡仍会按“仅组末/隐藏”设置收起尾巴。 */}
              <style>{`
@@ -4393,6 +4396,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                         <MessageItem
                             msg={m}
                             blackWhiteFacebook={blackWhiteFacebook}
+                            wechatBubble={wechatBubble}
                             isFirstInGroup={breaksWithPrevious}
                             isLastInGroup={breaksWithNext}
                             activeTheme={activeTheme}
@@ -4419,7 +4423,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             onPlayVoice={onPlayVoiceStable}
                             avatarShape={osTheme.chatAvatarShape}
                             avatarSize={osTheme.chatAvatarSize}
-                            avatarMode={blackWhiteFacebook && m.type === 'text' ? 'every_message' : osTheme.chatAvatarMode}
+                            avatarMode={(wechatBubble || blackWhiteFacebook) && m.type === 'text' ? 'every_message' : osTheme.chatAvatarMode}
                             bubbleVariant={osTheme.chatBubbleStyle}
                             messageSpacing={osTheme.chatMessageSpacing}
                             showTimestamp={blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
@@ -4489,6 +4493,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                     isFirstInGroup={i === 0}
                                     isLastInGroup={i === streamingBubbles.length - 1}
                                     blackWhiteFacebook={blackWhiteFacebook}
+                            wechatBubble={wechatBubble}
                                     activeTheme={activeTheme}
                                     charAvatar={char.avatar}
                                     charName={char.name}
@@ -4500,7 +4505,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                     onToggleSelect={() => {}}
                                     avatarShape={osTheme.chatAvatarShape}
                                     avatarSize={osTheme.chatAvatarSize}
-                                    avatarMode={blackWhiteFacebook ? 'every_message' : osTheme.chatAvatarMode}
+                                    avatarMode={wechatBubble || blackWhiteFacebook ? 'every_message' : osTheme.chatAvatarMode}
                                     bubbleVariant={osTheme.chatBubbleStyle}
                                     messageSpacing={osTheme.chatMessageSpacing}
                                     showTimestamp={blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}

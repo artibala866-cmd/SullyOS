@@ -10,8 +10,8 @@ export const PRESET_THEMES: Record<string, ChatTheme> = {
     },
     dream: {
         id: 'dream', name: '微信气泡', type: 'preset',
-        user: { textColor: '#1b1b1b', backgroundColor: '#95ec69', borderRadius: 12, opacity: 1, backgroundImageOpacity: 0.5 },
-        ai: { textColor: '#202020', backgroundColor: '#ffffff', borderRadius: 12, opacity: 1, backgroundImageOpacity: 0.5 }
+        user: { textColor: '#1b1b1b', backgroundColor: '#95ec69', borderRadius: 5, opacity: 1, backgroundImageOpacity: 0.5 },
+        ai: { textColor: '#202020', backgroundColor: '#ffffff', borderRadius: 5, opacity: 1, backgroundImageOpacity: 0.5 }
     },
     forest: {
         id: 'forest', name: 'QQ气泡', type: 'preset',

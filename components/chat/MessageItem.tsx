@@ -993,6 +993,8 @@ interface MessageItemProps {
     activeTheme: ChatTheme;
     /** Private-chat-only style; never inferred from the theme inside GroupChat. */
     blackWhiteFacebook?: boolean;
+    /** Built-in WeChat style for plain text; media and modules remain unchanged. */
+    wechatBubble?: boolean;
     charAvatar: string;
     charName: string;
     userAvatar: string;
@@ -1057,6 +1059,7 @@ const MessageItem = React.memo(({
     isLastInGroup,
     activeTheme,
     blackWhiteFacebook = false,
+    wechatBubble = false,
     charAvatar,
     charName,
     userAvatar,
@@ -1096,6 +1099,7 @@ const MessageItem = React.memo(({
 }: MessageItemProps) => {
     const isUser = m.role === 'user';
     const isSystem = m.role === 'system';
+    const wechatTextMessage = wechatBubble && m.type === 'text' && !voiceData?.url && !voiceLoading && !/<[语語]音[^>]*>/.test(m.content);
     const spacingClass = messageSpacing === 'compact' ? (isLastInGroup ? 'mb-3' : 'mb-0.5') : messageSpacing === 'spacious' ? (isLastInGroup ? 'mb-8' : 'mb-2.5') : (isLastInGroup ? 'mb-6' : 'mb-1.5');
     const marginBottom = spacingClass;
     const avatarSizeClass = avatarSize === 'small' ? 'w-7 h-7' : avatarSize === 'large' ? 'w-12 h-12' : 'w-9 h-9';
@@ -1580,6 +1584,7 @@ const MessageItem = React.memo(({
                 isLastInGroup ? 'sully-chat-message-group-last' : '',
                 isModuleCard ? 'sully-chat-message-module' : '',
                 blackWhiteFacebook && m.type === 'text' ? 'sully-facebook-text-message' : '',
+                wechatTextMessage ? 'sully-wechat-text-message' : '',
                 `flex items-end ${marginBottom} px-3 group select-none relative transition-[padding] duration-300`,
                 selectionMode ? 'pl-12' : '',
             ].filter(Boolean).join(' ')}
@@ -1641,7 +1646,7 @@ const MessageItem = React.memo(({
                         {...interactionProps}
                     >
                     {!centerModules && thinkingChainNode}
-                    <div className={`${selectionMode ? 'pointer-events-none' : ''} ${blackWhiteFacebook && m.type === 'text' ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''}`}>
+                    <div className={`${selectionMode ? 'pointer-events-none' : ''} ${blackWhiteFacebook && m.type === 'text' ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''} ${wechatTextMessage ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''}`}>
                         {<ChatCardSurface message={m}>{content}</ChatCardSurface>}
                     </div>
                     {isLastInGroup && showTimestamp !== 'never' && (
@@ -3218,9 +3223,9 @@ const MessageItem = React.memo(({
             {/* Layer 4: Text Content — shown when there's visible text after stripping voice tags */}
             {/* 外语语音消息把双语文字交给下方语音条渲染，顶部不再重复正文 */}
             {displayContent && !isForeignVoiceMsg && (
-            <div className="sully-facebook-bubble-text relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text" style={{ color: styleConfig.textColor }}>
+            <div className={`sully-facebook-bubble-text ${wechatTextMessage ? 'sully-wechat-bubble-text' : ''} relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text`} style={{ color: styleConfig.textColor }}>
                 {renderContent(displayContent)}
-                {showExpandedTranslation && (
+                {showExpandedTranslation && !wechatTextMessage && (
                     <div className="sully-facebook-translation mt-2.5 pt-2 border-t border-current/15">
                         <div className="mb-1 text-[9px] font-bold tracking-[0.16em] opacity-40 select-none">翻译</div>
                         {renderContent(langBContent)}
@@ -3232,7 +3237,7 @@ const MessageItem = React.memo(({
             {/* Layer 5: 双语「翻译/原文」切换 —— 气泡内右下角，细分隔线压层级，小灰字克制易找 */}
             {showTranslateButton && displayContent && !isForeignVoiceMsg && (
                 <div
-                    className="relative z-10 mt-2 pt-1.5 flex justify-end"
+                    className={`relative z-10 mt-2 pt-1.5 flex justify-end ${wechatTextMessage ? 'sully-wechat-translate-action' : ''}`}
                     style={{ borderTop: '1px solid rgba(127, 127, 127, 0.16)' }}
                 >
                     <button
@@ -3437,6 +3442,18 @@ const MessageItem = React.memo(({
                 );
             })()}
         </div>
+        {wechatTextMessage && !isUser && showExpandedTranslation && !isForeignVoiceMsg && (
+            <div className="sully-wechat-translation-card">
+                <div className="sully-wechat-translation-body">{renderContent(langBContent)}</div>
+                <div className="sully-wechat-translation-foot">
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none">
+                        <circle cx="8" cy="8" r="7" fill="#c8c8c8" />
+                        <path d="m4.6 8 2.2 2.2 4.5-4.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span>糯米机翻译支持</span>
+                </div>
+            </div>
+        )}
         {blackWhiteFacebook && !isUser && m.replyTo && (
             <div className="sully-facebook-reply" title={`${m.replyTo.name}：${replyPreview}`}>
                 <span className="sully-facebook-reply-name">{m.replyTo.name}：</span>
@@ -3458,6 +3475,7 @@ const MessageItem = React.memo(({
            prev.isLastInGroup === next.isLastInGroup &&
            prev.activeTheme === next.activeTheme &&
            prev.blackWhiteFacebook === next.blackWhiteFacebook &&
+           prev.wechatBubble === next.wechatBubble &&
            prev.charAvatar === next.charAvatar &&
            prev.charName === next.charName &&
            prev.userAvatar === next.userAvatar &&

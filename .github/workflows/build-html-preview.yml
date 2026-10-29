@@ -156,8 +156,8 @@ jobs:
         run: pnpm exec vitest run utils/appPreload.test.ts utils/webUpdateSession.test.ts utils/chunkLoadRecovery.test.ts worker/staticCache.test.ts worker/staticCacheLifecycle.test.ts scripts/static-cache-build.test.ts
       - name: Test character phone NPC autonomy and social loop
         run: pnpm exec vitest run utils/refreshNpcMoments.test.ts utils/phoneChatPiggyback.test.ts utils/characterPhoneAiRequest.test.ts utils/characterPhoneAutonomy.test.ts utils/characterNpcSocial.test.ts utils/characterLifeLoop.test.ts
-      - name: Test private-chat time awareness, black-white bubble wiring, and NPC continuity
-        run: pnpm exec vitest run utils/chatPrompts.test.ts utils/timeAwarenessRequests.test.ts utils/relationshipChat.test.ts utils/blackWhiteFacebookTheme.test.ts
+      - name: Test private-chat themes, time awareness, and NPC continuity
+        run: pnpm exec vitest run utils/chatPrompts.test.ts utils/timeAwarenessRequests.test.ts utils/relationshipChat.test.ts utils/blackWhiteFacebookTheme.test.ts utils/wechatBubbleTheme.test.ts
       - name: Test Char wallet assets and real Baidu browser
         run: pnpm exec vitest run utils/characterPhoneWallet.test.ts utils/characterPhoneBrowser.test.ts
       - name: Test Char AI browser motives and avatar vision personalization
