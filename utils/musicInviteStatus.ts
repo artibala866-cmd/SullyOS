@@ -51,3 +51,25 @@ export const persistMusicInviteWithdrawal = async <T extends { id?: number; meta
   });
   return pending.id;
 };
+
+/** Cross-tab notification only. IndexedDB stays the source of truth. */
+export const MUSIC_INVITE_DB_CHANGED_KEY = 'sully_music_invite_db_changed_v1';
+
+export const announceMusicInviteDbChanged = (charId: string): void => {
+  try {
+    // A unique value makes repeated updates observable by other tabs.
+    localStorage.setItem(MUSIC_INVITE_DB_CHANGED_KEY, JSON.stringify({
+      charId, at: Date.now(), nonce: Math.random(),
+    }));
+  } catch { /* In-page events still work when storage is blocked. */ }
+};
+
+export const musicInviteChangedCharId = (value: string | null): string | null => {
+  if (!value) return null;
+  try {
+    const decoded: unknown = JSON.parse(value);
+    if (!decoded || typeof decoded !== 'object') return null;
+    const id = (decoded as { charId?: unknown }).charId;
+    return typeof id === 'string' && id.length > 0 && id.length < 256 ? id : null;
+  } catch { return null; }
+};
