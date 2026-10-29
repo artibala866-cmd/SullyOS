@@ -1322,8 +1322,8 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
 
                 <div className="p-6 flex-1 overflow-y-auto no-scrollbar">
                     {allQuizzes.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                            <Notepad size={48} className="mb-4 text-slate-400" />
+                        <div className="flex flex-col items-center justify-center h-full text-slate-600">
+                            <Notepad size={48} className="mb-4 text-slate-600" />
                             <span className="text-sm">还没有做过题哦</span>
                             <span className="text-xs mt-1">在自习室的课堂中点击「刷题」开始吧</span>
                         </div>
@@ -1343,7 +1343,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                                 ) : (
                                                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">答题中</span>
                                                 )}
-                                                <span className="text-[10px] text-slate-400">{new Date(quiz.createdAt).toLocaleDateString()}</span>
+                                                <span className="text-xs text-slate-600">{new Date(quiz.createdAt).toLocaleDateString()}</span>
                                             </div>
                                         </div>
                                         <button onClick={(e) => { e.stopPropagation(); setDeleteQuizTarget(quiz); }} className="p-2 text-slate-300 hover:text-neutral-400 transition-colors">
@@ -1521,7 +1521,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-slate-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                             </button>
                             <span className="font-bold text-slate-800 text-sm tracking-wide">{quizSession?.chapterTitle || '做题中'}</span>
-                            <div className="text-xs text-slate-400 font-bold">
+                            <div className="text-xs text-slate-600 font-bold">
                                 {Object.keys(quizUserAnswers).length}/{quizSession?.questions.length || 0}
                             </div>
                         </div>
@@ -1536,7 +1536,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                         {selectedChar && (
                             <div className="flex items-center gap-2 mt-2">
                                 <TokenImg value={selectedChar.avatar} className="w-8 h-8 rounded-full object-cover" />
-                                <span className="text-xs text-slate-400">{selectedChar.name} {quizLoading}</span>
+                                <span className="text-xs text-slate-600">{selectedChar.name} {quizLoading}</span>
                             </div>
                         )}
                     </div>
@@ -1637,7 +1637,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                 <div className="p-6 flex-1 overflow-y-auto no-scrollbar">
                     {/* Character Selector */}
                     <div className="mb-8">
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">当前助教</h3>
+                        <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">当前助教</h3>
                         {/* 分组筛选（没建分组时不渲染），横向头像列表太挤，单独放一行 */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups}
                             value={tutorGroupId} onChange={setTutorGroupId} className="mb-3" />
@@ -1647,7 +1647,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                     <div className={`w-14 h-14 rounded-full p-[2px] ${selectedChar?.id === c.id ? 'border-2 border-neutral-500' : 'border border-slate-200'}`}>
                                         <TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" />
                                     </div>
-                                    <span className="text-[10px] font-bold text-slate-600">{c.name}</span>
+                                    <span className="text-xs font-bold text-slate-600">{c.name}</span>
                                 </div>
                             ))}
                         </div>
@@ -1660,20 +1660,20 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                             : '关联的自习室课程不存在（可能已删除或未随备份导入）。请返回学习室解除或重新关联。'
                           : '正在读取自习室课程…'}
                     </p>}
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">我的课程</h3>
+                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">我的课程</h3>
                     
                     <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => fileInputRef.current?.click()} className="aspect-[3/4] rounded-r-xl rounded-l-sm border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-neutral-400 hover:text-neutral-500 transition-colors bg-white">
+                        <button onClick={() => fileInputRef.current?.click()} className="aspect-[3/4] rounded-r-xl rounded-l-sm border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 text-slate-600 hover:border-neutral-400 hover:text-neutral-500 transition-colors bg-white">
                             {isProcessing ? (
                                 <div className="text-center px-2">
                                     <div className="w-6 h-6 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                                    <span className="text-[10px]">{processStatus}</span>
+                                    <span className="text-xs">{processStatus}</span>
                                 </div>
                             ) : (
                                 <>
                                     <span className="text-3xl">+</span>
                                     <span className="text-xs font-bold">导入学习资料</span>
-                                    <span className="px-3 text-center text-[10px] leading-relaxed">支持 PDF，让角色陪你讲解、练习</span>
+                                    <span className="px-3 text-center text-xs leading-relaxed">支持 PDF，让角色陪你讲解、练习</span>
                                 </>
                             )}
                         </button>
@@ -1688,7 +1688,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 <div className="p-4 flex flex-col h-full text-white relative z-10">
                                     <div className="flex-1 font-serif font-bold text-lg leading-tight line-clamp-3 drop-shadow-md">{course.title}</div>
                                     <div className="mt-2">
-                                        <div className="text-[10px] font-bold opacity-80 mb-1">进度 {course.totalProgress}%</div>
+                                        <div className="text-xs font-bold opacity-80 mb-1">进度 {course.totalProgress}%</div>
                                         <div className="h-1 bg-white/30 rounded-full overflow-hidden">
                                             <div className="h-full bg-white transition-all duration-500" style={{ width: `${course.totalProgress}%` }}></div>
                                         </div>
@@ -1712,7 +1712,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                         </div>
                         {tutorPresets.length > 0 && (
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">选择预设提示词</label>
+                                <label className="text-xs font-bold text-slate-600 uppercase mb-2 block">选择预设提示词</label>
                                 <div className="flex flex-wrap gap-2">
                                     {tutorPresets.map(p => (
                                         <button key={p.id} onClick={() => setImportPreference(p.prompt)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${importPreference === p.prompt ? 'bg-neutral-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
@@ -1723,7 +1723,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                             </div>
                         )}
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">AI 助教偏好 (Preferences)</label>
+                            <label className="text-xs font-bold text-slate-600 uppercase mb-2 block">AI 助教偏好 (Preferences)</label>
                             <textarea
                                 value={importPreference}
                                 onChange={e => setImportPreference(e.target.value)}
@@ -1749,7 +1749,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                     <button onClick={clearStudyApi} className="py-2.5 px-4 bg-slate-200 text-slate-500 font-bold rounded-xl text-xs">清除</button>
                                 </div>
                                 {(studyApi.baseUrl || studyApi.model) && (
-                                    <div className="text-[10px] text-neutral-600 bg-neutral-50 rounded-lg p-2">
+                                    <div className="text-xs text-neutral-600 bg-neutral-50 rounded-lg p-2">
                                         当前使用专用 API: {studyApi.model || effectiveApi.model}
                                     </div>
                                 )}
@@ -1765,12 +1765,12 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                         <div key={p.id} className="bg-slate-50 rounded-xl p-3 flex items-start gap-2">
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-sm font-bold text-slate-700">{p.name}</div>
-                                                <div className="text-xs text-slate-400 truncate">{p.prompt}</div>
+                                                <div className="text-xs text-slate-600 truncate">{p.prompt}</div>
                                             </div>
-                                            <button onClick={() => { setEditingPreset(p); setPresetName(p.name); setPresetPrompt(p.prompt); }} className="text-slate-400 hover:text-neutral-500 shrink-0 p-1">
+                                            <button onClick={() => { setEditingPreset(p); setPresetName(p.name); setPresetPrompt(p.prompt); }} className="text-slate-600 hover:text-neutral-500 shrink-0 p-1">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" /></svg>
                                             </button>
-                                            <button onClick={() => deletePreset(p.id)} className="text-slate-400 hover:text-neutral-500 shrink-0 p-1">
+                                            <button onClick={() => deletePreset(p.id)} className="text-slate-600 hover:text-neutral-500 shrink-0 p-1">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                             </button>
                                         </div>
@@ -1784,7 +1784,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                     {editingPreset ? '更新预设' : '添加预设'}
                                 </button>
                                 {editingPreset && (
-                                    <button onClick={() => { setEditingPreset(null); setPresetName(''); setPresetPrompt(''); }} className="w-full py-2 text-slate-400 text-xs">取消编辑</button>
+                                    <button onClick={() => { setEditingPreset(null); setPresetName(''); setPresetPrompt(''); }} className="w-full py-2 text-slate-600 text-xs">取消编辑</button>
                                 )}
                             </div>
                         </div>
