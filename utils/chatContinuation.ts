@@ -9,6 +9,17 @@ const lastSpeakerRole = (messages: Speaker[]): string | undefined =>
 const isScheduledProactive = (message: Speaker): boolean =>
     message.role === 'assistant' && message.metadata?.activeMsg2?.taskId != null;
 
+/** Last unanswered user turn, ignoring ONLY genuine scheduled proactive bubbles.
+ * An ordinary assistant or instant-chat reply after the user has answered them.
+ * Does not fabricate a new user message or change the canonical chat history.
+ */
+export function findPendingUserTurn<T extends Speaker>(messages: T[]): T | null {
+    const speakers = messages.filter(isSpeaker);
+    const userIndex = speakers.map(m => m.role).lastIndexOf('user');
+    if (userIndex < 0 || !speakers.slice(userIndex + 1).every(isScheduledProactive)) return null;
+    return speakers[userIndex];
+}
+
 /**
  * 点发送时最后说话的是用户，读历史时那句话后面却多了角色的定时主动消息：它们是生成前
  * 刚收下的，用户那句话还没人回。后面跟的若是别的东西（比如上一轮迟到的回复）不算。

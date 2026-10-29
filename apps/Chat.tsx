@@ -1,5 +1,6 @@
 import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
+import { findPendingUserTurn } from '../utils/chatContinuation';
 import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
@@ -3735,6 +3736,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const handleSendCallback = useCallback(() => handleSendText(), [char, input, replyTarget, inputPreferences]);
     const handleCharSelectCallback = useCallback((id: string) => { setActiveCharacterId(id); setShowPanel('none'); }, []);
     const latestRealReplyAt = [...messages].reverse().find(m => m.role === 'assistant' && Number(m.timestamp) > 0)?.timestamp ?? 0;
+    // A scheduled proactive note is not an answer to the user's earlier text.
+    const latestAnsweredAt = [...messages].reverse().find(m => m.role === 'assistant' &&
+        m.metadata?.activeMsg2?.taskId == null && Number(m.timestamp) > 0)?.timestamp ?? 0;
     // Same rule as the reply gate; status is a schedule-based display, NOT
     // a character-authored status message or AI-generated short sentence.
     const schedulePresence = resolveSchedulePresence(lifeActivity, latestRealReplyAt);
@@ -3743,7 +3747,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         enabled: inputPreferences.autoReply,
         naturalPacing: lifePacing,
         lifeActivity,
-        lastCharacterReplyAt: latestRealReplyAt,
+        lastCharacterReplyAt: latestAnsweredAt,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
         // Hydrated intent must not fire before the persisted chat tail finishes loading.
@@ -3756,23 +3760,27 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             // The intent stays durable while this DB read is in flight. If the
             // page hides before verification, retry on the next visible turn.
             const target = char?.id;
-            const latestLocal = [...messages].reverse().find(m => m.role === 'user' || m.role === 'assistant');
-            if (!target || activeCharIdRef.current !== target || latestLocal?.role !== 'user') return 'discard';
+            const latestLocal = findPendingUserTurn(messages);
+            if (!target || activeCharIdRef.current !== target || !latestLocal) return 'discard';
             const manualRevision = manualChatGenerationRevisionRef.current;
             let fresh: Message[];
             try { fresh = await DB.getRecentMessagesByCharId(target, 24); }
             catch { return 'retry'; }
             if (activeCharIdRef.current !== target || document.hidden || stillEligible?.() === false) return 'retry';
             if (manualChatGenerationRevisionRef.current !== manualRevision) return 'discard';
-            const latestPersisted = fresh.slice().reverse().find(m => m.role === 'user' || m.role === 'assistant');
-            if (latestPersisted?.role !== 'user' || latestPersisted.id !== latestLocal.id) return 'discard';
+            const latestPersisted = findPendingUserTurn(fresh);
+            if (!latestPersisted || latestPersisted.id !== latestLocal.id) return 'discard';
             if (latestPersisted.metadata?.musicListenInviteResponseTo) return 'discard';
             if (latestPersisted.metadata?.musicListenInvite &&
                 !findPendingMusicInvite(fresh, 'user', latestPersisted.id)) return 'discard';
             const liveComposer = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
             if (liveComposer?.value.trim() || isTyping || instantChatPending || isProactiveComposing) return 'retry';
             // At most one existing generation route; it decides local vs cloud.
-            triggerAI(messages);
+            // Passing the original user-turn boundary lets the existing
+            // chatContinuation logic recognize later scheduled proactive notes.
+            const lastUserIndex = messages.findIndex(m => m.id === latestLocal.id);
+            if (lastUserIndex < 0) return 'discard';
+            triggerAI(messages.slice(0, lastUserIndex + 1));
         },
     });
     const pendingMusicInviteReplyRef = useRef<{ charId: string; messageId: number } | null>(null);

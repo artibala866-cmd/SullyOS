@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { resolveRealPersonReplyPlan } from './realPersonReplyTiming';
+import { findPendingUserTurn } from './chatContinuation';
 
 let root: Root;
 let container: HTMLDivElement;
@@ -234,6 +235,19 @@ describe('two-second automatic reply', () => {
     });
 });
 
+
+describe('scheduled proactive messages cannot swallow an unanswered user turn', () => {
+    const user = { role: 'user', id: 4 };
+    const scheduled = { role: 'assistant', id: 5, metadata: { activeMsg2: { taskId: 'daily' } } };
+    it('preserves the user turn across a delivered cloud scheduled message', () => {
+        expect(findPendingUserTurn([user, scheduled])?.id).toBe(4);
+        expect(findPendingUserTurn([user, scheduled, { ...scheduled, id: 6 }])?.id).toBe(4);
+    });
+    it('treats ordinary and instant assistant answers as actual replies', () => {
+        expect(findPendingUserTurn([user, { role: 'assistant', id: 7 }])).toBeNull();
+        expect(findPendingUserTurn([user, { role: 'assistant', id: 8, metadata: { activeMsg2: { taskId: null } } }])).toBeNull();
+    });
+});
 
 describe('real-person pacing without mechanical nudges', () => {
     const delayFor = (activity: 'free' | 'busy' | 'sleep' | null, at = Date.now()) =>
