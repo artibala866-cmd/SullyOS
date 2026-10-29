@@ -5,7 +5,7 @@ import { DB } from './db';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { injectMemoryPalace } from './memoryPalace/pipeline';
 import { getDailyScheduleForChar } from './dailySchedule';
-import { getScheduleDateKey, getScheduleWallClock } from './scheduleTime';
+import { getScheduleDateKey, getScheduleWallClock, parseScheduleStartMinutes, isSameScheduleCalendarDay } from './scheduleTime';
 import { loadCharacterContextRange } from './chatContextRange';
 import { ChatPrompts } from './chatPrompts';
 import { cleanApiMessages, flattenImageContentParts } from './promptMessageCleanup';
@@ -316,14 +316,18 @@ export async function generateDailyScheduleForChar(
         const slots: ScheduleSlot[] = (parsed.slots || []).map((s: any) => {
             const homePosition = parseHomePosition(s.homePosition, char);
             return {
-            startTime: s.startTime || '00:00',
+            startTime: typeof s.startTime === 'string' ? s.startTime.trim() : '',
             activity: s.activity || '',
             description: s.description,
             emoji: s.emoji,
             location: homePosition?.kind === 'home' ? char.home3D?.rooms.find(room => room.id === homePosition.roomId)?.name : typeof s.location === 'string' ? s.location : homePosition?.kind === 'away' ? '外出' : undefined,
             homePosition,
             innerThought: s.innerThought,
-        };}).filter((s: ScheduleSlot) => s.activity);
+        };}).filter((s: ScheduleSlot) => !!s.activity && parseScheduleStartMinutes(s.startTime) !== null)
+            .map((s: ScheduleSlot) => {
+                const minutes = parseScheduleStartMinutes(s.startTime)!;
+                return { ...s, startTime: String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0') };
+            });
 
         if (slots.length === 0) return null;
 
@@ -342,12 +346,19 @@ export async function generateDailyScheduleForChar(
             if (Object.keys(flowNarrative).length === 0) flowNarrative = undefined;
         }
 
+        // Discard results of calls that crossed midnight in the character's timezone.
+        // A stale completion must not replace the new day's schedule.
+        if (!isSameScheduleCalendarDay(char, baseNow, new Date())) {
+            console.warn('[Schedule] Day changed during generation; ignoring stale plan', { charId: char.id, today });
+            return null;
+        }
+
         const schedule: DailySchedule = {
             id: `${char.id}_${today}`,
             charId: char.id,
             date: today,
             slots,
-            generatedAt: Date.now(),
+            generatedAt: baseNow.getTime(),
             coverImage,
             flowNarrative,
         };
