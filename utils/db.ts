@@ -1039,6 +1039,21 @@ export const DB = {
         const history = (req.result as Message[]).filter(m => !m.groupId);
         const pending = findPendingMusicInvite(history, inviter, requestedId);
         if (pending?.id === undefined) return;
+        // Accepted invitation and session activation share the SAME
+        // IndexedDB transaction. A restart can never observe accepted=true
+        // with a missing session row, and another tab's later end wins.
+        if (response.metadata?.accepted === true) {
+          const sessions = tx.objectStore(STORE_ASSETS);
+          const key = 'music_listen_session_v2:' + charId;
+          const current = sessions.get(key);
+          current.onsuccess = () => {
+            if (current.result?.data?.active === true) return;
+            const now = Date.now();
+            sessions.put({id:key, data: {
+              active:true, sessionId:`${now}-${Math.random().toString(36).slice(2)}`, startedAt:now,
+            }});
+          };
+        }
         const { timestamp, ...payload } = response;
         const add = store.add({
           ...payload, charId,
