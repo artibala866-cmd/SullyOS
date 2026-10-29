@@ -31,6 +31,7 @@ import { exportAmsg2GlobalConfig, importAmsg2GlobalConfig } from './activeMsgSto
 import { exportWorldHomeLocal, importWorldHomeLocal } from './worldHome/localBackup';
 import { exportDesktopSkinLocal, importDesktopSkinLocal } from './desktopSkinBackup';
 import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup } from './musicLibrary';
+import { findPendingMusicInvite } from './musicInviteStatus';
 
 const DB_NAME = 'AetherOS_Data';
 // v67：两条并行线各自用掉了 v65/v66（A线: blob_assets + 生活记录；B线: room_plates 门牌 + digest_reports 消化日志），
@@ -936,6 +937,103 @@ export const DB = {
         request.onerror = () => reject(request.error);
         transaction.onerror = () => reject(transaction.error || new Error('消息未能保存'));
         transaction.onabort = () => reject(transaction.error || new Error('消息未能保存'));
+    });
+  },
+
+  /**
+   * A single readwrite transaction spans the pending-invite lookup AND insert.
+   * IndexedDB serializes overlapping message-store write transactions across
+   * browser tabs. Reading in one transaction and calling saveMessage later did
+   * not provide that guarantee.
+   */
+  createMusicListeningInvite: async (
+    invite: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number },
+  ): Promise<{ status: 'created' | 'pending_self' | 'pending_other'; messageId: number }> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+      const store = tx.objectStore(STORE_MESSAGES);
+      const inviter = invite.metadata?.inviter === 'char' ? 'char' : 'user';
+      let outcome: { status: 'created' | 'pending_self' | 'pending_other'; messageId: number } | null = null;
+      let insertedId = 0;
+      const req = store.index('charId').getAll(IDBKeyRange.only(invite.charId));
+      req.onsuccess = () => {
+        const history = (req.result as Message[]).filter(m => !m.groupId);
+        const own = findPendingMusicInvite(history, inviter);
+        const other = findPendingMusicInvite(history, inviter === 'char' ? 'user' : 'char');
+        if (own?.id !== undefined || other?.id !== undefined) {
+          const existing = own || other!;
+          outcome = { status: own ? 'pending_self' : 'pending_other', messageId: existing.id! };
+          return;
+        }
+        const { timestamp, ...payload } = invite;
+        const add = store.add({ ...payload, timestamp: timestamp ?? Date.now() });
+        add.onsuccess = () => {
+          insertedId = add.result as number;
+          outcome = { status: 'created', messageId: insertedId };
+          clearStaleMemoryMirror(tx, invite.charId, insertedId);
+        };
+      };
+      tx.oncomplete = () => {
+        if (!outcome) { reject(new Error('Music invitation transaction produced no result')); return; }
+        if (insertedId) {
+          try {
+            const key = `mp_lastMsgId_${invite.charId}`;
+            if (parseInt(localStorage.getItem(key) || '0', 10) >= insertedId) localStorage.removeItem(key);
+          } catch { /* committed; localStorage may be unavailable */ }
+        }
+        resolve(outcome);
+      };
+      tx.onerror = () => reject(tx.error || new Error('Music invitation transaction failed'));
+      tx.onabort = () => reject(tx.error || new Error('Music invitation transaction aborted'));
+    });
+  },
+
+  /**
+   * A reply/withdrawal must select the still-pending invitation and insert
+   * its linked response in ONE transaction. Competing tabs cannot both settle
+   * the same invite, and an old message ID cannot settle a newer invitation.
+   */
+  resolveMusicListeningInvite: async (
+    charId: string,
+    inviter: 'user' | 'char',
+    response: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number },
+    requestedId?: number,
+  ): Promise<{ resolved: boolean; inviteId?: number; track?: unknown }> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+      const store = tx.objectStore(STORE_MESSAGES);
+      let outcome: { resolved: boolean; inviteId?: number; track?: unknown } = { resolved: false };
+      let insertedId = 0;
+      const req = store.index('charId').getAll(IDBKeyRange.only(charId));
+      req.onsuccess = () => {
+        const history = (req.result as Message[]).filter(m => !m.groupId);
+        const pending = findPendingMusicInvite(history, inviter, requestedId);
+        if (pending?.id === undefined) return;
+        const { timestamp, ...payload } = response;
+        const add = store.add({
+          ...payload, charId,
+          timestamp: timestamp ?? Date.now(),
+          metadata: { ...response.metadata, musicListenInviteResponseTo: pending.id },
+        });
+        add.onsuccess = () => {
+          insertedId = add.result as number;
+          outcome = { resolved: true, inviteId: pending.id, track: pending.metadata?.musicListenTrack };
+          clearStaleMemoryMirror(tx, charId, insertedId);
+        };
+      };
+      tx.oncomplete = () => {
+        if (insertedId) {
+          try {
+            const key = `mp_lastMsgId_${charId}`;
+            if (parseInt(localStorage.getItem(key) || '0', 10) >= insertedId) localStorage.removeItem(key);
+          } catch { /* transaction has committed */ }
+        }
+        resolve(outcome);
+      };
+      tx.onerror = () => reject(tx.error || new Error('Music response transaction failed'));
+      tx.onabort = () => reject(tx.error || new Error('Music response transaction aborted'));
     });
   },
 
