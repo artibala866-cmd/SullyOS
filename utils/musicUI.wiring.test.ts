@@ -106,6 +106,12 @@ describe('高级感灰阶排版与播放交互回归', () => {
     expect(dock).not.toContain('e.stopPropagation()');
     expect(dock).toContain('env(safe-area-inset-bottom');
   });
+  it('设置页诊断不泄露 MUSIC_U Cookie 前缀，输入框与保存操作保持简洁', () => {
+    expect(app).toContain('已配置（敏感值不显示）');
+    expect(app).not.toContain("ck.slice(0, 18)");
+    expect(app).toContain('className="w-full py-3.5 rounded-sm text-[13px] font-semibold');
+    expect(app).not.toContain('linear-gradient(90deg, transparent 30%');
+  });
   it('中文输入法确认候选字不会误提交搜索，歌词仍可键盘拖动进度', () => {
     expect(ui).toContain("e.key === 'Enter' && !e.nativeEvent.isComposing");
     expect(ui).toContain('aria-label="播放进度"');
