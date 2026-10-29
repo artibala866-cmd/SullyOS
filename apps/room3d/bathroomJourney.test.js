@@ -87,6 +87,18 @@ describe('authored tub rim contact and reversible leg crossing',()=>{
   expect(laterDistance).toBeGreaterThan(earlyDistance);
   expect(earlyDistance).toBeLessThan(distance(j.front,j.position)*.17);
  });
+ it('tucks each leg above the rim before swinging it across the bathtub',()=>{
+  const j=fixture(),lead=bathroomJourneyFrame(j,1.69),cross=bathroomJourneyFrame(j,2.19),
+   trail=bathroomJourneyFrame(j,2.58),follow=bathroomJourneyFrame(j,3.05);
+  expect(lead.leadTuck).toBeGreaterThan(.8);
+  expect(lead.leadStep).toBe(0);
+  expect(cross.leadTuck).toBeGreaterThan(.8);
+  expect(cross.leadStep).toBeGreaterThan(.5);
+  expect(trail.trailTuck).toBeGreaterThan(.8);
+  expect(trail.trailStep).toBe(0);
+  expect(follow.trailTuck).toBeGreaterThan(.8);
+  expect(follow.trailStep).toBeGreaterThan(.5);
+ });
  it('keeps both palm contacts fixed in room space across entering, yaw and exit',()=>{
   const a={...activity,bathHandWorld:[[.72,1.16,.52],[.72,1.16,-.52]]};
   for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2]){
