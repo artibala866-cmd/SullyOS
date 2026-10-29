@@ -608,6 +608,7 @@ interface MusicContextType {
   cancelListeningInvite: (charId: string, messageId?: number) => Promise<boolean>;
   refreshListeningInvite: (charId: string) => Promise<void>;
   respondListeningInvite: (charId: string, accepted: boolean) => void;
+  answerIncomingListeningInvite: (charId: string, messageId: number, accepted: boolean) => Promise<'resolved' | 'stale' | 'failed' | 'busy'>;
   lastListeningEnd: { charId: string; durationMs: number; at: number } | null;
   addListeningPartner: (charId: string) => void;
   removeListeningPartner: (charId: string) => void;
@@ -1288,35 +1289,54 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [respondListeningInvite, resumeInviteTrack, toast]);
   const answeringInviteIds = useRef(new Set<number>());
+  // Both the music sheet and chat cards must use this one atomic DB path.
+  // Ref locking happens before the first await, preventing contradictory taps.
+  const answerIncomingListeningInvite = useCallback(async (
+    charId: string, messageId: number, accepted: boolean,
+  ): Promise<'resolved' | 'stale' | 'failed' | 'busy'> => {
+    if (!charId || !Number.isSafeInteger(messageId) || messageId <= 0) return 'stale';
+    if (answeringInviteIds.current.has(messageId)) return 'busy';
+    answeringInviteIds.current.add(messageId);
+    try {
+      const settled = await DB.resolveMusicListeningInvite(charId, 'char', {
+        charId, role: 'user', type: 'system',
+        content: accepted ? '[一起听邀请] 已接受邀请。' : '[一起听邀请] 已拒绝邀请。',
+        metadata: { accepted },
+      }, messageId);
+      if (!settled.resolved) {
+        // Another tab or a different character switch already settled it.
+        // A stale click must not join, resume audio or commit another reply.
+        window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
+          detail: { charId, messageId, accepted: false, stale: true },
+        }));
+        announceMusicInviteDbChanged(charId);
+        return 'stale';
+      }
+      respondListeningInvite(charId, accepted);
+      if (accepted && settled.track) resumeInviteTrack(settled.track);
+      announceMusicInviteDbChanged(charId);
+      window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
+        detail: { charId, messageId, accepted },
+      }));
+      return 'resolved';
+    } catch (err) {
+      // No optimistic join or UI clear on a failed IndexedDB transaction.
+      console.warn('[MusicTogether] 邀请回应保存失败', err);
+      toast('一起听回应未能保存，请重试', 'error');
+      return 'failed';
+    } finally {
+      answeringInviteIds.current.delete(messageId);
+    }
+  }, [respondListeningInvite, resumeInviteTrack, toast]);
   useEffect(() => {
     const onAnswer = (event: Event) => {
       const detail = (event as CustomEvent<{ charId: string; messageId: number; accepted: boolean }>).detail;
-      if (!detail?.charId || !Number.isInteger(detail.messageId) || answeringInviteIds.current.has(detail.messageId)) return;
-      answeringInviteIds.current.add(detail.messageId);
-      void (async () => {
-        const settled = await DB.resolveMusicListeningInvite(detail.charId, 'char', {
-          charId: detail.charId, role: 'user', type: 'system',
-          content: detail.accepted ? '[一起听邀请] 已接受邀请。' : '[一起听邀请] 已拒绝邀请。',
-          metadata: { accepted: detail.accepted },
-        }, detail.messageId);
-        if (!settled.resolved) {
-          // Another tab has already accepted/rejected this card. Do not join
-          // the session or start playback based on a stale click.
-          window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', { detail }));
-          return;
-        }
-        respondListeningInvite(detail.charId, detail.accepted);
-        if (detail.accepted && settled.track) resumeInviteTrack(settled.track);
-        announceMusicInviteDbChanged(detail.charId);
-        window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', { detail }));
-      })().catch(err => {
-        console.warn('[MusicTogether] 邀请回应保存失败', err);
-        toast('一起听回应未能保存，请重试', 'error');
-      }).finally(() => answeringInviteIds.current.delete(detail.messageId));
+      if (!detail?.charId || !Number.isSafeInteger(detail.messageId)) return;
+      void answerIncomingListeningInvite(detail.charId, detail.messageId, detail.accepted);
     };
     window.addEventListener('music-listen-invite-answer', onAnswer);
     return () => window.removeEventListener('music-listen-invite-answer', onAnswer);
-  }, [respondListeningInvite, resumeInviteTrack, toast]);
+  }, [answerIncomingListeningInvite]);
   const removeListeningPartner = useCallback((charId: string) => {
     const startedAt = listeningStartedAtRef.current[charId];
     if (startedAt) {
@@ -1901,7 +1921,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     playSong, togglePlay, nextSong, prevSong, seek,
     playMode, setPlayMode,
     liked, toggleLike,
-    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, refreshListeningInvite: refreshOutgoingInvite, respondListeningInvite, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
+    listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, refreshListeningInvite: refreshOutgoingInvite, respondListeningInvite, answerIncomingListeningInvite, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
     recentTrackChange,
     toast, setToastHandler,
     localAlbumSongs, addLocalSong, removeLocalSong,
