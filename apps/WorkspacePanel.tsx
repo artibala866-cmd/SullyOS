@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {PenNib,CalendarDots,BookOpen,Clock,ArrowRight,Sparkle,ChartBar,Plus} from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { putImageBlob } from '../utils/blobRef';
 import { recognizeCourseImage, type CourseImageDraft } from '../utils/sullyTimetableVision';
@@ -536,37 +537,75 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </button>
       <p className="text-xs text-neutral-600">这个操作不会自动执行，也不能保证恢复受损的原始文字；完整损坏原件另存本机以备之后人工修复。</p>
     </section>}
-    <details className={cardClass} aria-label="普通私聊授权">
-      <summary className="cursor-pointer font-medium text-sm flex items-center justify-between">
-        <span>学习室设置 · 私聊授权</span>
-      </summary>
-      <p className="text-xs text-neutral-600">每个 Char 独立授权，默认全部关闭。开启仅分享课程时间、作业状态或画稿排期的有限摘要；永不自动分享客户、价格、详细需求、笔记与 PDF 原文。关闭后只阻止后续请求，已发送消息和历史记忆不会被自动删除。</p>
-      <StudyCharPicker compact characters={characters} selectedId={selectedCharId} onSelect={onSelectChar}/>
-      {(['study','commissions'] as const).map(category => {
-        const enabled = permissionForChar(data, selectedCharId)[category];
-        const pending = data.reminders.filter(r => r.charId===selectedCharId &&
-          r.kind===(category==='study'?'homework':'commission')).length;
-        return <div className="flex flex-col gap-1" key={category}>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" disabled={!selectedCharId||!!shareBusy} checked={enabled}
-              onChange={e=>void togglePrivateChat(category,e.target.checked)}/>
-            {category==='study'?'允许私聊了解课程与作业进度':'允许私聊了解画稿排期与进度'}
-          </label>
-          {pending>0 && <p className="text-xs text-neutral-700">
-            此 Char 在该分类另有 {pending} 条固定提醒记录。关闭授权会尝试远端取消；
-            状态不明时需在事项下方和 AMSG 管理中核查。
-          </p>}
-        </div>;
-      })}
-      {shareBusy && <p className="text-xs text-neutral-600">正在保存授权并核对远端提醒…</p>}
-    </details>
     <div className={section==='commissions'?'':'hidden'}>
-      <header className={cardClass}>
-        <div><p className="text-xs tracking-wide text-neutral-500">CREATIVE PLANNER</p>
-        <h2 className="mt-2 font-serif text-[23px] tracking-wide">画师排单</h2>
+      <header className="flex flex-wrap items-center justify-between gap-3 px-1 pt-1 pb-1">
+        <div className="flex items-center gap-3">
+          <span className="grid h-12 w-12 place-items-center rounded-[17px] bg-[#252525] text-white"><PenNib size={23} weight="light"/></span>
+          <div><h2 className="text-[21px] font-semibold tracking-tight">画师排单</h2>
+            <p className="text-[11px] tracking-[.12em] text-neutral-500">CREATIVE WORKSPACE</p></div>
         </div>
-        <details className="rounded-2xl border border-neutral-200 bg-white p-3 text-sm">
-          <summary className="cursor-pointer text-xs font-medium">时间容量</summary>
+        <button type="button" className="flex min-h-11 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-medium text-neutral-800 shadow-sm disabled:opacity-40"
+          onClick={()=>void requestPlan()} disabled={!selectedCharId || applyingPlan}>
+          <Sparkle size={17}/> Char 排单 <ArrowRight size={14}/>
+        </button>
+      </header>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="可直接继续的画稿">
+        {quickCommissions.slice(0,1).map(c=><article key={c.id}
+          className="col-span-2 sm:col-span-3 flex min-h-[222px] min-w-0 flex-col justify-between rounded-[28px] bg-white p-5 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] tracking-[.15em] text-neutral-500">NOW CREATING</span>
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f2f2f2]"><PenNib size={20} weight="light"/></span>
+          </div>
+          <div className="min-w-0 py-4">
+            <h3 className="truncate text-[23px] font-semibold tracking-tight">{c.title}</h3>
+            <p className="mt-1.5 text-xs text-neutral-500">{c.stage} · {deadlineLabel(c.dueDate,todayKey)}</p>
+            <p className="mt-3 text-sm tabular-nums">{c.remainingMinutes}<span className="ml-1 text-xs text-neutral-500">分钟待绘制</span></p>
+            {!!risk.get(c.id)?.shortfallMinutes && <p className="mt-1 text-xs text-red-700">预计缺口 {risk.get(c.id)?.shortfallMinutes} 分</p>}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={primaryButton+' flex items-center justify-center gap-2 rounded-full !px-5'}
+              onClick={()=>onFocus('commission',c.id,c.title)}><PenNib size={17}/> 开始画</button>
+            <button type="button" className={mutedButton+' rounded-full !px-4'}
+              onClick={()=>editCommission(c.id)}>调整 <ArrowRight size={13} className="inline"/></button>
+          </div>
+          {pendingMinutes('commission',c.id).minutes>0 && <button type="button"
+            className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3 text-xs text-neutral-700" disabled={!!settlementBusyId}
+            onClick={()=>void settleLinkedFocus('commission',c.id,c.remainingMinutes)}>
+            <Clock size={15}/> 待结算 {pendingMinutes('commission',c.id).minutes} 分钟 <ArrowRight size={14}/>
+          </button>}
+        </article>)}
+        {quickCommissions.length===0 && <div className="col-span-2 sm:col-span-3 flex min-h-[222px] flex-col justify-between rounded-[28px] bg-white p-6">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f3f3f3]"><PenNib size={22}/></span>
+          <div><h3 className="text-xl font-semibold">从第一张画稿开始</h3><p className="mt-2 text-sm text-neutral-500">新委托可以在下方添加。</p></div>
+        </div>}
+        <div className="col-span-1 sm:col-span-1 flex min-h-[108px] flex-col justify-between rounded-[24px] bg-[#252525] p-4 text-white">
+          <div className="flex items-center justify-between"><span className="text-[11px] text-white/70">进行中</span><PenNib size={17} weight="light"/></div>
+          <strong className="text-[29px] font-semibold tabular-nums">{data.commissions.filter(c=>c.status==='active').length}</strong>
+        </div>
+        <div className="col-span-1 sm:col-span-1 flex min-h-[108px] flex-col justify-between rounded-[24px] bg-white p-4">
+          <div className="flex items-center justify-between"><span className="text-[11px] text-neutral-500">七天内</span><CalendarDots size={17} weight="light"/></div>
+          <strong className="text-[29px] font-semibold tabular-nums">{data.commissions.filter(c=>c.status==='active'&&!!c.dueDate&&c.dueDate>=todayKey&&c.dueDate<=new Date(Date.now()+7*86400000).toLocaleDateString('sv-SE')).length}</strong>
+        </div>
+        {quickCommissions.slice(1).map(c=><div key={c.id}
+          className="col-span-2 sm:col-span-2 flex min-w-0 items-center justify-between gap-3 rounded-[22px] bg-white px-4 py-3">
+          <div className="min-w-0"><p className="truncate text-sm font-semibold">{c.title}</p>
+            <p className="text-xs text-neutral-500">{c.stage} · {deadlineLabel(c.dueDate,todayKey)}</p></div>
+          <button type="button" aria-label={'开始画 '+c.title} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#252525] text-white"
+            onClick={()=>onFocus('commission',c.id,c.title)}><ArrowRight size={18}/></button>
+          <button type="button" className="shrink-0 text-xs text-neutral-600 underline" onClick={()=>editCommission(c.id)}>调整</button>
+          {pendingMinutes('commission',c.id).minutes>0 && <button type="button" className="shrink-0 text-xs underline"
+            disabled={!!settlementBusyId} onClick={()=>void settleLinkedFocus('commission',c.id,c.remainingMinutes)}>结算</button>}
+        </div>)}
+        {data.commissions.filter(c=>c.status==='active').length>quickCommissions.length && <button type="button"
+          className="col-span-2 min-h-10 text-right text-xs text-neutral-600" onClick={()=>setShowCommissionList(true)}>
+          查看全部画稿 <ArrowRight size={14} className="inline"/>
+        </button>}
+      </section>
+      <StudyCommissionCalendar commissions={data.commissions}
+        onFocus={(id,title)=>onFocus('commission',id,title)}
+        onEdit={editCommission}/>
+        <details className="rounded-[24px] bg-white p-4 sm:p-5 text-sm shadow-[0_4px_20px_rgba(0,0,0,.02)]">
+          <summary className="flex min-h-10 cursor-pointer items-center gap-2 text-sm font-semibold"><Clock size={18} weight="light"/> 时间容量 <span className="ml-auto text-xs font-normal text-neutral-500">{data.dailyAvailableMinutes} 分/日</span></summary>
         <label className="mt-3 block text-xs">每天可用于学习和绘画的时间（分钟）
           <input className={inputClass} type="number" min="0" max="1440" value={data.dailyAvailableMinutes}
             onChange={e=>change(v=>({...v,dailyAvailableMinutes:Math.max(0,Math.min(1440,Number(e.target.value)||0))}))}/>
@@ -588,36 +627,6 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <p role="status">另有 {weekCapacity[0].unscheduledHomeworkCount} 项未完成作业没有有效截止日期，未纳入容量估算。请手动排入计划。</p>}
         </section>
         </details>
-        <button className={buttonClass+' w-fit'} onClick={()=>void requestPlan()} disabled={!selectedCharId || applyingPlan}>✦ 让 Char 帮我排一下</button>
-        
-      </header>
-      <section className={cardClass} aria-label="可直接继续的画稿">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">接下来画什么</h3>
-          <span className="text-xs text-neutral-500">{data.commissions.filter(c=>c.status==='active').length} 张进行中</span>
-        </div>
-        {quickCommissions.length ? <div className="space-y-2">
-          {quickCommissions.map(c=><div key={c.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-neutral-100 bg-neutral-50 p-3">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{c.title}</p>
-              <p className="text-xs text-neutral-600">{c.stage} · {deadlineLabel(c.dueDate,todayKey)} · 剩余 {c.remainingMinutes} 分</p>
-              {!!risk.get(c.id)?.shortfallMinutes && <p className="text-xs text-red-700">预计缺口 {risk.get(c.id)?.shortfallMinutes} 分</p>}
-            </div>
-            <button type="button" className={primaryButton+' min-h-11'} onClick={()=>onFocus('commission',c.id,c.title)}>开始画</button>
-            <button type="button" className={mutedButton+' min-h-11'} onClick={()=>editCommission(c.id)}>调整</button>
-            {pendingMinutes('commission',c.id).minutes>0 && <button type="button"
-              className={buttonClass+' min-h-11 w-full text-left'} disabled={!!settlementBusyId}
-              onClick={()=>void settleLinkedFocus('commission',c.id,c.remainingMinutes)}>
-              已完成 {pendingMinutes('commission',c.id).minutes} 分钟 · 确认是否手动结算
-            </button>}
-          </div>)}
-        </div> : <p className="text-xs text-neutral-600">还没有正在绘制的画稿。可以在下方新增委托，或把等待中的稿件改为正在绘制。</p>}
-        {data.commissions.filter(c=>c.status==='active').length>quickCommissions.length &&
-          <button type="button" className="text-xs underline underline-offset-2" onClick={()=>setShowCommissionList(true)}>查看全部画稿并调整顺序</button>}
-      </section>
-      <StudyCommissionCalendar commissions={data.commissions}
-        onFocus={(id,title)=>onFocus('commission',id,title)}
-        onEdit={editCommission}/>
       {planPreview && <section className={cardClass} aria-label="Char 排单建议预览">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-semibold">Char 排单建议 · 逐项审核</h3>
@@ -946,6 +955,30 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </details>}
       
     </div>
+    <details className={cardClass+' mt-5'} aria-label="普通私聊授权">
+      <summary className="cursor-pointer font-medium text-sm flex items-center justify-between">
+        <span>学习室设置 · 私聊授权</span>
+      </summary>
+      <p className="text-xs text-neutral-600">每个 Char 独立授权，默认全部关闭。开启仅分享课程时间、作业状态或画稿排期的有限摘要；永不自动分享客户、价格、详细需求、笔记与 PDF 原文。关闭后只阻止后续请求，已发送消息和历史记忆不会被自动删除。</p>
+      <StudyCharPicker compact characters={characters} selectedId={selectedCharId} onSelect={onSelectChar}/>
+      {(['study','commissions'] as const).map(category => {
+        const enabled = permissionForChar(data, selectedCharId)[category];
+        const pending = data.reminders.filter(r => r.charId===selectedCharId &&
+          r.kind===(category==='study'?'homework':'commission')).length;
+        return <div className="flex flex-col gap-1" key={category}>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" disabled={!selectedCharId||!!shareBusy} checked={enabled}
+              onChange={e=>void togglePrivateChat(category,e.target.checked)}/>
+            {category==='study'?'允许私聊了解课程与作业进度':'允许私聊了解画稿排期与进度'}
+          </label>
+          {pending>0 && <p className="text-xs text-neutral-700">
+            此 Char 在该分类另有 {pending} 条固定提醒记录。关闭授权会尝试远端取消；
+            状态不明时需在事项下方和 AMSG 管理中核查。
+          </p>}
+        </div>;
+      })}
+      {shareBusy && <p className="text-xs text-neutral-600">正在保存授权并核对远端提醒…</p>}
+    </details>
   </div>;
 };
 // While hidden, ignore parent timer ticks that only recreate callback lambdas.
