@@ -48,11 +48,19 @@ export const getCurrentScheduleSlotIndex = (
 ): number => {
     const now = getScheduleWallClock(char, base);
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    for (let i = slots.length - 1; i >= 0; i--) {
+    // Older persisted plans or imported schedules can be out of order.
+    // Select the latest *clock time*, while returning the original array index
+    // needed by schedule cards, editors and the private-chat presence gate.
+    let index = -1;
+    let latestMinute = -1;
+    for (let i = 0; i < slots.length; i++) {
         const minute = parseScheduleStartMinutes(slots[i].startTime);
-        if (minute !== null && currentMinutes >= minute) return i;
+        if (minute !== null && minute <= currentMinutes && minute >= latestMinute) {
+            index = i;
+            latestMinute = minute;
+        }
     }
-    return -1;
+    return index;
 };
 
 /** Before today's first slot, the current activity is unknown, not today's last slot. */

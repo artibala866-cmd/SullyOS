@@ -97,6 +97,19 @@ describe('character schedule clock', () => {
             new Date('2026-07-20T15:59:00Z'), new Date('2026-07-20T16:01:00Z'))).toBe(false);
     });
 
+    it('legacy unsorted plans agree with the cloud current-slot selection', () => {
+        process.env.TZ = 'Asia/Shanghai';
+        const instant = new Date('2026-07-20T23:30:00Z'); // LA 16:30
+        const unsorted: ScheduleSlot[] = [
+            { startTime: '22:00', activity: '睡觉' },
+            { startTime: '15:00', activity: '散步' },
+            { startTime: '08:00', activity: '工作' },
+            { startTime: '18:99', activity: '错误时间' },
+        ];
+        expect(getCurrentScheduleSlotIndex(unsorted, losAngelesChar, instant)).toBe(1);
+        expect(getCurrentScheduleActivity(unsorted, losAngelesChar, instant)).toBe('散步');
+    });
+
     it('ignores malformed slot times instead of selecting them', () => {
         const instant = new Date('2026-07-20T16:30:00.000Z');
         expect(getCurrentScheduleSlotIndex([
