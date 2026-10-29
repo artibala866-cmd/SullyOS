@@ -32,8 +32,9 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(app).toContain('isPlaying={active && playing} isLoading={active && loadingSong}');
   });
   it('加入队列用加号、喜欢用心形，保留辅助文字标签', () => {
-    expect(app).toContain('<Plus size={17} weight="bold" />');
-    expect(app).toContain('<Heart size={18}');
+    expect(app).toContain('<Plus size={14} weight="regular" />');
+    expect(app).toContain('<Heart size={14}');
+    expect(ui).toContain('<Heart size={16}');
     expect(app).toContain('title="加入播放队列"');
     expect(app).toContain('title={isLiked ?');
     expect(app).not.toContain('>加入队列</button>');
@@ -45,6 +46,22 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(app).toContain('songs.slice(0, visibleCount)');
     expect(ui).toContain('.music-tap:active');
     expect(ui).toContain('@media(prefers-reduced-motion:reduce)');
+  });
+  it('队列和本地歌单只显示一个小型整理入口，不再平铺上下箭头和移除按钮', () => {
+    const queue = app.split("section === 'queue' &&")[1]?.split('{characters.length')[0] || '';
+    expect(queue).toContain('<DotsThreeVertical size={18}');
+    expect(queue).toContain('aria-label={`管理播放队列歌曲');
+    expect(queue).toContain("action === 'up'");
+    expect(queue).toContain("action === 'down'");
+    expect(queue).toContain("action === 'remove'");
+    expect(queue).toContain('disabled={i === 0}');
+    expect(queue).toContain('disabled={i === queue.length - 1}');
+    expect(queue).toContain('disabled={active}');
+    expect(queue).not.toContain('<ArrowUp');
+    expect(queue).not.toContain('<ArrowDown');
+    expect(app).toContain('aria-label={`管理歌单歌曲');
+    expect(app).toContain('movePlaylistSong(playlistId, i, i - 1)');
+    expect(app).toContain('removeSongFromPlaylist(playlistId, musicSongKey(song))');
   });
   it('点击队列其他歌曲会更新当前索引，不能只换音频地址', () => {
     const queueView = app.split("section === 'queue' &&")[1]?.split('{characters.length')[0] || '';
