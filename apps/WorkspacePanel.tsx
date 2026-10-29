@@ -486,7 +486,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     </section>}
     <details className={cardClass} aria-label="普通私聊授权">
       <summary className="cursor-pointer font-medium text-sm flex items-center justify-between">
-        <span>隐私授权</span>
+        <span>学习室设置 · 私聊授权</span>
       </summary>
       <p className="text-xs text-neutral-600">每个 Char 独立授权，默认全部关闭。开启仅分享课程时间、作业状态或画稿排期的有限摘要；永不自动分享客户、价格、详细需求、笔记与 PDF 原文。关闭后只阻止后续请求，已发送消息和历史记忆不会被自动删除。</p>
       <StudyCharPicker compact characters={characters} selectedId={selectedCharId} onSelect={onSelectChar}/>
@@ -551,8 +551,13 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               <p className="text-xs text-neutral-600">{c.stage} · {deadlineLabel(c.dueDate,todayKey)} · 剩余 {c.remainingMinutes} 分</p>
               {!!risk.get(c.id)?.shortfallMinutes && <p className="text-xs text-red-700">预计缺口 {risk.get(c.id)?.shortfallMinutes} 分</p>}
             </div>
-            <button type="button" className={primaryButton} onClick={()=>onFocus('commission',c.id,c.title)}>开始画</button>
-            <button type="button" className={mutedButton} onClick={()=>editCommission(c.id)}>调整</button>
+            <button type="button" className={primaryButton+' min-h-11'} onClick={()=>onFocus('commission',c.id,c.title)}>开始画</button>
+            <button type="button" className={mutedButton+' min-h-11'} onClick={()=>editCommission(c.id)}>调整</button>
+            {pendingMinutes('commission',c.id).minutes>0 && <button type="button"
+              className={buttonClass+' min-h-11 w-full text-left'} disabled={!!settlementBusyId}
+              onClick={()=>void settleLinkedFocus('commission',c.id,c.remainingMinutes)}>
+              已完成 {pendingMinutes('commission',c.id).minutes} 分钟 · 确认是否手动结算
+            </button>}
           </div>)}
         </div> : <p className="text-xs text-neutral-600">还没有正在绘制的画稿。可以在下方新增委托，或把等待中的稿件改为正在绘制。</p>}
         {data.commissions.filter(c=>c.status==='active').length>quickCommissions.length &&
@@ -676,7 +681,12 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               <p className="truncate text-sm font-medium">{h.title}</p>
               <p className="text-xs text-neutral-600">{lessonNameForHomework(data.classes,h.classId)} · {deadlineLabel(h.dueAt,todayKey)}</p>
             </div>
-            <button type="button" className={primaryButton} onClick={()=>onFocus('homework',h.id,h.title)}>开始学</button>
+            <button type="button" className={primaryButton+' min-h-11'} onClick={()=>onFocus('homework',h.id,h.title)}>开始学</button>
+            {pendingMinutes('homework',h.id).minutes>0 && <button type="button"
+              className={buttonClass+' min-h-11 w-full text-left'} disabled={!!settlementBusyId}
+              onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>
+              已完成 {pendingMinutes('homework',h.id).minutes} 分钟 · 确认是否手动结算
+            </button>}
             {data.classes.some(c=>c.id===h.classId) &&
               <button type="button" className={mutedButton} onClick={()=>showClassWork(h.classId)}>查看作业</button>}
           </div>)}
