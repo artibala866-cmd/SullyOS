@@ -225,7 +225,7 @@ export const MiniPlayer: React.FC<{
   regenStatus?: string;
 }> = ({ name, artists, albumPic, picId, source, playing, loading = false, progress = 0, duration = 0,
   onTap, onPrev, onToggle, onNext, onOpenQueue, queueCount, queueOpen = false,
-  userAvatar, userName, companions, onKickCompanion, charsWithSong, regenStatus }) => {
+  charsWithSong, regenStatus }) => {
   const { coverRef, cover } = useMusicCover(albumPic, picId, source);
   const pct = duration > 0 ? Math.min(100, Math.max(0, progress / duration * 100)) : 0;
   const collectionHint = charsWithSong?.[0]
