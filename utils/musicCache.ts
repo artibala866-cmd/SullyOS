@@ -173,7 +173,7 @@ export async function cachedCall<T = any>(
 
   // An invalidated/older request must not repopulate MEM after a newer
   // attempt succeeds (e.g. expired CDN URL resolved during a rapid retry).
-  const p = doCall().then(
+  const p: Promise<T> = doCall().then(
     (res) => {
       if (INFLIGHT.get(key) === p) {
         MEM.set(key, { data: res, expires: Date.now() + ttl });
