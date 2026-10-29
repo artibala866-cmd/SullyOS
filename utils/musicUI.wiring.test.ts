@@ -67,6 +67,14 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(ui).toContain('.music-tap:active');
   });
 
+  it('真实空搜索展示无匹配提示，切换来源不会残留上一来源的结果', () => {
+    expect(app).toContain('const [hasSearched, setHasSearched] = useState(false)');
+    expect(app).toContain('setHasSearched(true)');
+    expect(app).toContain('setHasSearched(false); setResults([]); setSection');
+    expect(app).toContain('搜索完成，没有找到匹配歌曲');
+    expect(app).toContain('hasSearched && !results.length && !searching');
+  });
+
   it('迷你播放器有加载、播放/暂停状态和进度条', () => {
     expect(ui).toContain("loading ? '正在获取音源…'");
     expect(ui).toContain('progress / duration * 100');
