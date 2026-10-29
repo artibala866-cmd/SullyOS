@@ -75,6 +75,10 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(queueSheet).toContain('disabled={selected}');
     expect(queueSheet).toContain("e.key === 'Escape'");
     expect(queueSheet).toContain('env(safe-area-inset-bottom');
+    expect(queueSheet).toContain('Math.min(activeIndex - 6, queue.length - pageSize)');
+    expect(queueSheet).toContain('queue.slice(start, end)');
+    expect(queueSheet).toContain('查看前面的歌曲');
+    expect(queueSheet).toContain('查看后面的歌曲');
   });
   it('本地歌单仍有独立整理菜单，不再平铺三颗操作按钮', () => {
     expect(app).toContain('aria-label={`管理歌单歌曲');
