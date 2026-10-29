@@ -89,7 +89,7 @@ describe('authored tub rim contact and reversible leg crossing',()=>{
  });
  it('tucks each leg above the rim before swinging it across the bathtub',()=>{
   const j=fixture(),lead=bathroomJourneyFrame(j,1.69),cross=bathroomJourneyFrame(j,2.19),
-   trail=bathroomJourneyFrame(j,2.58),follow=bathroomJourneyFrame(j,3.05);
+   trail=bathroomJourneyFrame(j,2.72),follow=bathroomJourneyFrame(j,3.05);
   expect(lead.leadTuck).toBeGreaterThan(.8);
   expect(lead.leadStep).toBe(0);
   expect(cross.leadTuck).toBeGreaterThan(.8);
