@@ -979,18 +979,29 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try { const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}'); return saved.startedAt && typeof saved.startedAt === 'object' ? saved.startedAt : {}; } catch { return {}; }
   });
   const [listeningInvites, setListeningInvites] = useState<Record<string, 'pending' | 'accepted' | 'rejected'>>(() => {
-    try { const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}'); return saved.invites && typeof saved.invites === 'object' ? saved.invites : {}; } catch { return {}; }
+    try {
+      const newer = localStorage.getItem('sully_music_listening_invites_view_v1');
+      const saved = newer ? JSON.parse(newer) : JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}').invites;
+      return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+    } catch { return {}; }
   });
   const listeningTogetherRef = useRef(listeningTogetherWith);
   listeningTogetherRef.current = listeningTogetherWith;
 
+  // Persist independently: a pending/rejected invite changing in tab B must
+  // never overwrite tab A's newer listening-partner membership with stale data.
   useEffect(() => {
     try {
       localStorage.setItem('sully_music_together_v1', JSON.stringify({
-        partners: listeningTogetherWith, startedAt: listeningStartedAt, invites: listeningInvites,
+        partners: listeningTogetherWith, startedAt: listeningStartedAt,
       }));
     } catch (err) { console.warn('[MusicTogether] 会话状态持久化失败', err); }
-  }, [listeningTogetherWith, listeningStartedAt, listeningInvites]);
+  }, [listeningTogetherWith, listeningStartedAt]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('sully_music_listening_invites_view_v1', JSON.stringify(listeningInvites));
+    } catch (err) { console.warn('[MusicTogether] 邀请显示状态持久化失败', err); }
+  }, [listeningInvites]);
   // Never let a slower pre-withdrawal DB read overwrite a later committed state.
   const inviteReadRevision = useRef(new Map<string, number>());
   const refreshOutgoingInvite = useCallback(async (charId: string) => {
@@ -1061,7 +1072,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setListeningStartedAt(prev =>
             JSON.stringify(prev) === JSON.stringify(saved.startedAt) ? prev : saved.startedAt);
         }
-        const ids = new Set([...Object.keys(saved.invites || {}), ...Object.keys(listeningInvites)]);
+        const inviteSnapshot = JSON.parse(localStorage.getItem('sully_music_listening_invites_view_v1') || '{}');
+        const ids = new Set([...Object.keys(inviteSnapshot || {}), ...Object.keys(saved.invites || {}), ...Object.keys(listeningInvites)]);
         for (const id of ids) void refreshOne(id).catch(err =>
           console.warn('[MusicTogether] 标签页恢复邀请检查失败', err));
       } catch { /* Non-persistent browser storage. */ }
