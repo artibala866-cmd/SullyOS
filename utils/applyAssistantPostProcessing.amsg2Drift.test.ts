@@ -142,3 +142,33 @@ describe('打包之后配置被关掉', () => {
         expect(msgs.some(m => m.content.includes('[HTML 卡片]'))).toBe(false);
     });
 });
+
+describe('阶段 2：私聊与 AMSG 共用的自然气泡持久化', () => {
+    it('保留模型本来的气泡条数、CJK 空格以及字面换行分隔', async () => {
+        const charId = `c-natural-bubbles-${Date.now()}`;
+        const input = '你来了 坐吧\\n不用着急\n说完这一句就好';
+        await applyAssistantPostProcessing(input, makeCtx({ id: charId, name: '阿一' }, {
+            skipSecondPassLLM: true,
+            mcdInheritMeta: pushMeta('push-natural-bubbles'),
+        }));
+        const messages = (await DB.getMessagesByCharId(charId, true))
+            .filter(m => m.role === 'assistant' && m.type === 'text');
+        expect(messages.map(m => m.content)).toEqual(['你来了 坐吧', '不用着急', '说完这一句就好']);
+        expect(messages.every(m => m.metadata?.activeMsg2?.messageId === 'push-natural-bubbles')).toBe(true);
+        // Reopen the conversation by reading persisted rows: no frontend-only synthetic bubbles.
+        const reread = (await DB.getMessagesByCharId(charId, true))
+            .filter(m => m.role === 'assistant' && m.type === 'text').map(m => m.content);
+        expect(reread).toEqual(messages.map(m => m.content));
+    }, 20000);
+
+    it('带属性 think 块的文字不能出现在角色实际消息里', async () => {
+        const charId = `c-private-think-block-${Date.now()}`;
+        await applyAssistantPostProcessing(
+            '还在呢\n<think type="analysis">\n这段内部思考不得显示\n</think>\n继续聊',
+            makeCtx({ id: charId, name: '阿一' }, { skipSecondPassLLM: true }),
+        );
+        const texts = (await DB.getMessagesByCharId(charId, true))
+            .filter(m => m.role === 'assistant' && m.type === 'text').map(m => m.content);
+        expect(texts).toEqual(['还在呢', '继续聊']);
+    }, 20000);
+});

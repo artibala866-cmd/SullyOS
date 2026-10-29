@@ -82,8 +82,10 @@ export function buildReplySnapshotContent(msg: { type?: string; content: string 
 const normalizeAiContent = (raw: string): string => {
     let cleaned = normalizeAssistantActionFormatting(raw || '');
     // Strip hidden chain-of-thought blocks: <think> / <thinking> / <thought>
-    cleaned = cleaned.replace(/<(think|thinking|thought)>[\s\S]*?<\/\1>/gi, '');
-    cleaned = cleaned.replace(/<(?:think|thinking|thought)>[\s\S]*$/gi, '');
+    // Some models add attributes to a thinking tag. This must remain internal
+    // in both live chat and AMSG inbox replay, not become persisted text bubbles.
+    cleaned = cleaned.replace(/<(think|thinking|thought)(?:\s[^>]*)?>[\s\S]*?<\/\1\s*>/gi, '');
+    cleaned = cleaned.replace(/<(?:think|thinking|thought)(?:\s[^>]*)?>[\s\S]*$/gi, '');
     cleaned = cleaned.replace(/\[\d{4}[-/年]\d{1,2}[-/月]\d{1,2}.*?\]/g, '');
     cleaned = cleaned.replace(/^[\w一-龥]+:\s*/, '');
     // Strip source tags leaked from history context, including model-mutated forms such as [聊chat].
@@ -804,14 +806,14 @@ export async function applyAssistantPostProcessing(
             || ''
         ).trim();
         const thinkBlocks: string[] = [];
-        const thinkPat = /<(think|thinking|thought)>([\s\S]*?)<\/\1>/gi;
+        const thinkPat = /<(think|thinking|thought)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi;
         let tm: RegExpExecArray | null;
         while ((tm = thinkPat.exec(lastRaw)) !== null) {
             const t = tm[2].trim();
             if (t) thinkBlocks.push(t);
         }
-        if (!/<\/(?:think|thinking|thought)>/i.test(lastRaw)) {
-            const openOnly = lastRaw.match(/<(?:think|thinking|thought)>([\s\S]*$)/i);
+        if (!/<\/(?:think|thinking|thought)\s*>/i.test(lastRaw)) {
+            const openOnly = lastRaw.match(/<(?:think|thinking|thought)(?:\s[^>]*)?>([\s\S]*$)/i);
             if (openOnly && openOnly[1].trim()) thinkBlocks.push(openOnly[1].trim());
         }
         const chain = [lastReasoning, ...thinkBlocks].filter(s => !!s).join('\n\n').trim();

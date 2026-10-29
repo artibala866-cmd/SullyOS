@@ -47,6 +47,18 @@ describe('chunkText: <语音> 原子块保护', () => {
     expect(ChatParser.chunkText('你好 世界')).toEqual(['你好 世界']);
   });
 
+  it('气泡数完全由正文分行决定，不强制固定条数', () => {
+    expect(ChatParser.chunkText('就这样。')).toEqual(['就这样。']);
+    expect(ChatParser.chunkText('第一句\n第二句\n第三句\n第四句\n第五句')).toHaveLength(5);
+    expect(ChatParser.chunkText('一句话。再一句话。第三句也仍然在同一行。')).toHaveLength(1);
+    expect(ChatParser.chunkText('第一句\r\n\r\n第二句\u2028第三句')).toEqual(['第一句', '第二句', '第三句']);
+  });
+
+  it('语音及其字幕与前后正常正文仍按顺序成为独立气泡', () => {
+    const voice = '<语音 emotion="calm">第一段\n\n第二段</语音><字幕>你好\n再见</字幕>';
+    expect(ChatParser.chunkText(`早上好\n${voice}\n晚安`)).toEqual(['早上好', voice, '晚安']);
+  });
+
   it('角色自定义的日中双语长句不会在中文空格处被拦腰拆开', () => {
     const input = '「1日3個くらいなら死にはしないよ。卵より、キノコ以外の野菜がゼロなことの方を心配しろ（一天三个死不了人的。比起鸡蛋 你还是多担心一下除了菌菇以外蔬菜为零这件事吧）」';
     expect(ChatParser.chunkText(input)).toEqual([input]);

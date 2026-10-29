@@ -24,11 +24,11 @@ const BLOCK_RULES: Array<{ open: RegExp; close: RegExp }> = [
     // HTML 卡片块
     { open: /\[html\]/i, close: /\[\/html\]/i },
     // Internal phone data is not a chat bubble, including partial streaming JSON.
-    { open: /<sully_phone_events>/i, close: /<\/sully_phone_events>/i },
+    { open: /<sully_phone_events(?=[\s>])/i, close: /<\/\s*sully_phone_events\s*>/i },
     // 思考链（content 内嵌形态；reasoning_content 通道根本不进正文）
-    { open: /<(?:think|thinking|thought)>/i, close: /<\/(?:think|thinking|thought)>/i },
+    { open: /<(?:think|thinking|thought)(?=[\s>])/i, close: /<\/\s*(?:think|thinking|thought)\s*>/i },
     // 语音 / 字幕 / 双语翻译标签 —— 由最终管线成对解析渲染，预览一律不碰
-    { open: /<[语語]音[^>]*>/, close: /<\/\s*[语語]音\s*>/ },
+    { open: /<[语語]音(?=[\s>])/, close: /<\/\s*[语語]音\s*>/ },
     { open: /<字幕>/, close: /<\/字幕>/ },
     { open: /<翻译>/, close: /<\/翻译>/ },
 ];
@@ -90,7 +90,10 @@ export function computeStreamPreviewBubbles(fullText: string): string[] {
     // 与最终管线同一套气泡切分（只认显式换行），再逐条 sanitize + 有效内容校验，
     // 让预览气泡的边界和内容尽量贴近最终落库的样子。
     const bubbles: string[] = [];
-    for (const chunk of ChatParser.chunkText(kept.join('\n'))) {
+    // Final persistence sanitizes before chunkText: escaped \\n is a real bubble
+    // boundary there. Match that order so preview and stored bubbles agree.
+    const normalized = ChatParser.sanitize(kept.join('\n'));
+    for (const chunk of ChatParser.chunkText(normalized)) {
         const clean = ChatParser.sanitize(chunk).trim();
         if (clean && ChatParser.hasDisplayContent(clean)) bubbles.push(clean);
     }

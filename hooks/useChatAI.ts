@@ -2082,7 +2082,7 @@ export const useChatAI = ({
                     musicHooks: loadMusicHooks() ?? undefined,
                 },
                 // 流式预览已把气泡展示过 → 落库免打字延迟，秒回填（未预览时行为不变）
-                instantRender: streamPreviewShown,
+                instantRender: streamPreviewShown && latestStreamPreviewBubbles.length > 0,
                 // Phase 0: 本地 fetch 路径保持原逻辑, 不跳 2nd-pass LLM, 也没有结构化 directives。
                 skipSecondPassLLM: false,
                 directives: [],

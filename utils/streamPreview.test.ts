@@ -78,6 +78,25 @@ describe('computeStreamPreviewBubbles', () => {
         expect(computeStreamPreviewBubbles(text)).toEqual([]);
     });
 
+    it('字面反斜杠 n 和显式换行的气泡边界与最终落库一致', () => {
+        expect(computeStreamPreviewBubbles('第一句\\n第二句')).toEqual(['第一句', '第二句']);
+        expect(computeStreamPreviewBubbles('第一句\\n第二句\n第三句')).toEqual(['第一句', '第二句', '第三句']);
+        expect(computeStreamPreviewBubbles('只有一条，没有换行')).toEqual(['只有一条，没有换行']);
+    });
+
+    it('带属性的多行思考块绝不闪出内部正文', () => {
+        const raw = '先说正事\n<think type="analysis">\n这里是内部推理\n不能显示\n</think>\n好了\n';
+        expect(computeStreamPreviewBubbles(raw)).toEqual(['先说正事', '好了']);
+        expect(computeStreamPreviewBubbles('前面\n<thinking channel="analysis"\nmode="private">\n内部文本\n</thinking>\n后面')).toEqual(['前面', '后面']);
+    });
+
+    it('有属性或未完成开始标签的 phone event 多行 JSON 不进入气泡', () => {
+        expect(computeStreamPreviewBubbles('你好\n<sully_phone_events version="2">\n{ "secret": 123 }\n</sully_phone_events>\n回头聊'))
+            .toEqual(['你好', '回头聊']);
+        expect(computeStreamPreviewBubbles('你好\n<sully_phone_events\nversion="2">\n{ "secret": 123 }\n</sully_phone_events>\n好了'))
+            .toEqual(['你好', '好了']);
+    });
+
     it('CJK 之间的空格按最终管线保留在同一个气泡', () => {
         const bubbles = computeStreamPreviewBubbles('你来了 坐吧\n');
         expect(bubbles).toEqual(['你来了 坐吧']);
@@ -122,6 +141,14 @@ describe('findNewStreamPreviewHandoverIds', () => {
 
         expect(findNewStreamPreviewHandoverIds(messages, ['第一句', '第二句'], 10, new Set()))
             .toEqual([11, 13]);
+    });
+
+    it('混合表情和其他消息也只交接实际匹配的正文，不误领新生成内容', () => {
+        expect(findNewStreamPreviewHandoverIds(
+            [message(10, '旧'), message(11, '第一句'), message(12, '表情链接', 'emoji'),
+             message(13, '第二句'), message(14, '后来才生成的第三句')],
+            ['第一句', '第二句'], 10, new Set([11]),
+        )).toEqual([13]);
     });
 
     it('多次刷新消息列表时只返回尚未登记的接棒消息', () => {
