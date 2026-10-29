@@ -286,8 +286,8 @@ export const VinylDisc: React.FC<{
       {cover ? <img src={cover} alt="专辑封面" className="w-full h-full object-cover" />
         : <div className="w-full h-full flex items-center justify-center"><MusicNote size={size * .27} color={C.muted} weight="thin" /></div>}
     </div>
-    {bitrate && <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2.5 px-2 py-1.5 max-w-[210px] min-w-[145px] text-[9px] text-center leading-tight"
-      style={{ color: C.muted, background: '#eeeeec', border: '1px solid #e1e1df' }}>{bitrate}</div>}
+    {bitrate && <div className="absolute bottom-2 left-2 right-2 px-1.5 py-1 rounded-sm text-[9px] text-center leading-tight"
+      style={{ color: '#fff', background: 'rgba(0,0,0,.72)' }}>{bitrate}</div>}
   </div>;
 };
 
