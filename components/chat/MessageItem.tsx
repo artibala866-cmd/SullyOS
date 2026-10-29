@@ -4,6 +4,7 @@ import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anni
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Message, ChatTheme } from '../../types';
+import { DB } from '../../utils/db';
 import { phoneFieldToText } from '../../utils/phoneEvidence';
 import { VALID_INTERJECTION_TAGS, cleanVoiceMarkupForDisplay } from '../../utils/minimaxTts';
 import { stripFishCuesForDisplay } from '../../utils/fishAudioTts';
