@@ -1,6 +1,7 @@
 import {it,expect,vi,afterEach} from 'vitest';
 import * as T from 'three';
 import fs from 'node:fs';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {createSocialScene,socialActions} from '../apps/room3d/chibi/social';
 import {sampleSelected,selectedMotions} from '../apps/room3d/chibi/selectedMotions';
 import type {ChibiVisitor} from '../apps/room3d/chibi/visitor';
@@ -132,4 +133,28 @@ it.each([30,60,120])('rejects a newly blocked swept step before exposing it at %
  visitors.forEach((v,i)=>expect(v.root.position.distanceTo(before[i])).toBeLessThan(1e-9));
  expect(checks.at(-1)!.every(path=>path.length===2)).toBe(true);
  blocked=false;expect(await runtime.start('cmu-22_07','1','0')).toBe(true);runtime.cancel();
+});
+
+it.each(['halloween-boo','halloween-trick-or-treat','halloween-candy-shower','halloween-ghost-tease'])('runs a real paired %s timeline and cleans up all temporary props',async action=>{
+ mockFetch();
+ const template=new T.Group();template.add(new T.Mesh(new T.BoxGeometry(.1,.1,.1),new T.MeshStandardMaterial()));
+ const mock=vi.spyOn(GLTFLoader.prototype,'loadAsync').mockResolvedValue({scene:template} as any);
+ const parent=new T.Group(),visitors=[actor(),actor()];
+ visitors.forEach((v,i)=>{parent.add(v.root);v.root.position.x=i*1.8;});
+ const runtime=createSocialScene(visitors.map((visitor,i)=>({id:String(i),visitor})));
+ try{
+  expect(await runtime.start(action,'0','1')).toBe(true);
+  expect(runtime.inspect().session?.participants).toEqual(['0','1']);
+  const prop=parent.children.find(x=>x.name==='halloween-social-props');
+  expect(!!prop).toBe(action!=='halloween-boo');
+  for(const second of [1,2.2,3.4,5.2]){
+   runtime.seek(runtime.inspect().session!.duration-socialActions[action].duration+second+.6);
+   expect(visitors[0].applySelectedFrame).toHaveBeenCalled();
+   expect(visitors[1].setActionExpression).toHaveBeenCalled();
+  }
+  expect(runtime.active).toBe(true);
+  runtime.cancel();
+  expect(runtime.inspect().session).toBeNull();
+  expect(parent.children.some(x=>x.name==='halloween-social-props')).toBe(false);
+ }finally{runtime.cancel();mock.mockRestore();}
 });
