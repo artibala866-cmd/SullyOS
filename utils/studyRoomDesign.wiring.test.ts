@@ -97,7 +97,7 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(workspace).toContain("bg-[#f1f1f1] text-[#292929]");
    expect(calendar).toContain("h-1.5 w-1.5 rounded-full");
    expect(calendar).not.toContain('text-[8px]');
-   expect(calendar).toContain('min-h-[52px] sm:min-h-[62px]');
+   expect(calendar).toContain('min-h-[44px] sm:min-h-[52px]');
    expect(timetable).toContain('min-w-[122px]');
    expect(legacyClassroom).not.toContain('bg-[#2b2b2b]');
    expect(legacyClassroom).not.toContain('bg-[#1a1a1a]');
@@ -109,14 +109,14 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
  });
 
  it('参考图式编辑布局：主视觉加侧边信息块，重要入口优先图标表达',()=>{
-   expect(schedule).toContain('rounded-[30px] bg-white px-5 py-9');
+   expect(schedule).toContain('rounded-[26px] bg-white px-4 py-4');
    expect(schedule).toContain('grid grid-cols-2 gap-3');
    expect(schedule).toContain('bg-[#252525] text-white');
    expect(schedule).toContain('<PenNib size={19}/>');
    expect(schedule).toContain('<CalendarDots size={19}/>');
    expect(schedule).toContain('<BookOpen size={19}/>');
-   expect(workspace).toContain('col-span-2 sm:col-span-3 flex min-h-[222px]');
-   expect(workspace).toContain('col-span-2 sm:col-span-3 flex min-h-[216px]');
+   expect(workspace).toContain('col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[198px]');
+   expect(workspace).toContain('col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[194px]');
    expect(workspace).toContain('col-span-2 sm:col-span-1 grid grid-cols-2 gap-3 sm:grid-cols-1');
    expect(workspace).toContain("quickCommissions.slice(0,1).map");
    expect(workspace).toContain("pendingHomework.slice(0,1).map");
@@ -135,6 +135,30 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(workspace).toContain('时间容量');
    expect(workspace).toContain('学习室设置 · 私聊授权');
    expect(workspace).toContain('读取旧自习室课程');
+ });
+
+ it('手机短屏不能用巨大固定高度、重复入口和装饰英文撑满首屏',()=>{
+   const focus=schedule.split("{tab === 'timer' &&")[1]?.split("{tab === 'tasks' &&")[0]||'';
+   expect(focus).toContain('rounded-[26px] bg-white px-4 py-4');
+   expect(focus).toContain('min-h-[80px] sm:min-h-[100px]');
+   expect(focus).toContain('aria-label="打开任务清单"');
+   expect(focus).toContain('aria-label="当前任务"');
+   expect(focus).not.toContain('py-9 sm:py-12');
+   expect(focus).not.toContain('min-h-[118px]');
+   expect(focus).not.toContain('DEEP FOCUS');
+   expect(focus).not.toContain('CURRENT TASK');
+   expect(focus).not.toContain('>选任务</button>');
+   expect(workspace).not.toContain('min-h-[222px]');
+   expect(workspace).not.toContain('min-h-[216px]');
+   expect(workspace).not.toContain('min-h-[108px]');
+   expect(workspace).toContain('quickCommissions.slice(1,2)');
+   expect(workspace).toContain('pendingHomework.slice(1,2)');
+   expect(workspace).not.toContain('NOW CREATING');
+   expect(workspace).not.toContain('UP NEXT / STUDY');
+   expect(calendar).toContain('min-h-[44px] sm:min-h-[52px]');
+   expect(calendar).not.toContain('min-h-[52px] sm:min-h-[62px]');
+   expect(calendar).not.toContain('grid grid-cols-4 gap-2 border-t');
+   expect(timetable).not.toContain('WEEKLY TIMETABLE');
  });
 
 });
