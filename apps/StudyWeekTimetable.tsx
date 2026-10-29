@@ -11,10 +11,10 @@ export default function StudyWeekTimetable({classes,selectedId,onSelect}:Props){
   begin.setHours(12,0,0,0);
   begin.setDate(today.getDate()-today.getDay()+weekOffset*7);
   const dates=Array.from({length:7},(_,i)=>{const date=new Date(begin);date.setDate(begin.getDate()+i);return date;});
-  return <section className="rounded-[28px] bg-white p-4 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.025)] space-y-5" aria-label="本周课程时间表">
+  return <section className="rounded-[24px] bg-white p-3 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.025)] space-y-3" aria-label="本周课程时间表">
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2.5"><span className="grid h-8 w-8 place-items-center rounded-xl bg-[#f2f2f2]"><CalendarDots size={21} weight="light"/></span>
-      <div><h3 className="text-[17px] font-semibold">本周课程</h3><p className="text-[11px] tracking-[.12em] text-neutral-500">WEEKLY TIMETABLE</p></div></div>
+      <div><h3 className="text-[17px] font-semibold">本周课程</h3></div></div>
       <div className="flex items-center gap-1.5">
         <button type="button" aria-label="上一周" title="上一周"
           className="grid h-11 w-11 place-items-center rounded-full border border-neutral-200 hover:bg-neutral-100"
