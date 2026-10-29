@@ -4,8 +4,7 @@ import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
 import StudyCharPicker from './StudyCharPicker';
 import StudyAvatar from './StudyAvatar';
-import StudyHomeOverview from './StudyHomeOverview';
-import {ArrowRight,BookOpen,ChartBar,Clock,Pause,Play,Stop,Target,NotePencil,Palette} from '@phosphor-icons/react';
+import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
@@ -51,6 +50,7 @@ const ScheduleApp: React.FC = () => {
   const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'commissions' | 'calendar' | 'study'>('timer');
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [showCharPicker,setShowCharPicker]=useState(false);
   const [assistantTopic, setAssistantTopic] = useState('');
   const [assistantScope,setAssistantScope]=useState<StudyDialogueScope>('focus');
   const [assistantItemId,setAssistantItemId]=useState('');
@@ -206,9 +206,10 @@ const ScheduleApp: React.FC = () => {
     setTab('timer');
   };
   const chooseChar = (id:string) => {
-    if (id===charId) return;
+    if (id===charId) {setShowCharPicker(false);return;}
     discussionVersion.current += 1;
     setCharId(id);
+    setShowCharPicker(false);
     // Never transfer one Char's user-selected context to another Char.
     setAssistantTopic('');
     setAssistantScope('focus');
@@ -349,17 +350,18 @@ const ScheduleApp: React.FC = () => {
             <h1 className="font-serif text-[23px] leading-tight tracking-[0.11em]">学习室<span className="ml-2 align-middle text-[11px] font-normal italic tracking-normal text-neutral-400">Focus & Create</span></h1>
           </div>
           <span className="hidden sm:block text-[11px] tracking-[0.15em] text-neutral-400">专注 · 创作 · 成长</span>
-          <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100">
+          <button type="button" aria-label="选择陪伴 Char" aria-expanded={showCharPicker}
+            onClick={()=>setShowCharPicker(v=>!v)}
+            className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-900">
             <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-full w-full rounded-full"/>
-          </span>
+          </button>
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 pb-4 space-y-3">
-        <section className={shell + ' px-2.5 py-1'} aria-label="Char 头像角色栏">
+        {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
-        </section>
-        {tab === 'timer' && <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(330px,1fr)]">
-          <section className={shell + ' relative overflow-hidden p-3.5 sm:p-5 space-y-3'}>
+        </section>}
+        {tab === 'timer' && <section className={shell + ' relative mx-auto w-full max-w-[570px] overflow-hidden p-4 sm:p-6 space-y-4'}>
             <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-[radial-gradient(circle,#ededed_0%,transparent_70%)] opacity-65"/>
             <div className="relative flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#f1f1f1]"><Target size={18} weight="light"/></span>
@@ -391,49 +393,30 @@ const ScheduleApp: React.FC = () => {
                 <span className="text-neutral-400">分</span>
               </div>}
             </div>
-            <div className="flex flex-row gap-2 items-center">
-              <select aria-label="当前任务" value={selectedTask} disabled={!!session} onChange={e=>setSelectedTask(e.target.value)} className={inset+' min-w-0 flex-1 p-2.5 text-[12px] outline-none'}>
+            <div className="min-w-0">
+              <select aria-label="当前任务" value={selectedTask} disabled={!!session} onChange={e=>setSelectedTask(e.target.value)} className={inset+' w-full min-w-0 p-2.5 text-[12px] outline-none'}>
                 <option value="">请选择今天的专注任务</option>
                 {tasks.filter(t=>!t.done).map(t=><option value={t.id} key={t.id}>{t.title}</option>)}
               </select>
-              <button className="shrink-0 rounded-xl bg-neutral-900 px-3 py-2.5 text-[11px] text-white" onClick={()=>switchTab('tasks')}>任务 <ArrowRight className="inline" size={12}/></button>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-500">
-              <span><strong className="text-neutral-900">{totalToday}</strong> 分钟 · 今日已完成 <strong className="text-neutral-900">{todayRecords.length}</strong> 轮</span>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={focusLock} onChange={e=>setFocusLock(e.target.checked)}/>专注保护（仅限制本页切换）</label>
+            <div className="flex items-center justify-between gap-2 border-t border-neutral-100 pt-3 text-[11px] text-neutral-500">
+              <span>今日专注 <strong className="text-neutral-900">{totalToday}</strong> 分 · <strong className="text-neutral-900">{todayRecords.length}</strong> 轮</span>
+              <button type="button" onClick={()=>switchTab('stats')} className="shrink-0 rounded-lg px-2 py-1.5 text-neutral-700 underline underline-offset-4">查看专注记录</button>
             </div>
-          </section>
-          <div className="space-y-3">
-            <StudyHomeOverview onCommissions={()=>switchTab('commissions')} onCourses={()=>switchTab('calendar')}/>
-            <div className="grid grid-cols-2 gap-3">
-            <section className={shell+' min-w-0 p-3 space-y-2'}>
-              <div className="flex items-center justify-between gap-1"><h3 className="flex items-center gap-1 text-[12px] font-semibold"><ChartBar size={15} weight="light"/> 专注数据</h3><button className="text-[10px] text-neutral-500" onClick={()=>switchTab('stats')}>详情 →</button></div>
-              <div className="grid grid-cols-7 items-end gap-1 h-14" aria-label="最近七天专注分钟柱状图">
-                {weeklyFocus.map(day=><div key={day.key} className="flex h-full min-w-0 flex-col items-center justify-end gap-1">
-                  <span className="text-[9px] tabular-nums text-neutral-500">{day.minutes||''}</span>
-                  <div title={day.key+' · '+day.minutes+' 分钟'} className="w-full max-w-7 rounded-t-md bg-neutral-800" style={{height:day.minutes?Math.max(3,day.minutes/maxWeekFocus*35)+'px':'0px'}}/>
-                  <span className="text-[9px] text-neutral-400">{Number(day.key.slice(-2))}</span>
-                </div>)}
-              </div>
-              <p className="border-t border-neutral-100 pt-2 text-[10px] text-neutral-500">近七天 <strong className="font-serif text-[16px] text-neutral-900">{weeklyFocus.reduce((sum,day)=>sum+day.minutes,0)}</strong> 分</p>
-            </section>
-            <section className={shell+' min-w-0 p-3 space-y-2'}>
-              <h3 className="text-[12px] font-semibold">Char 陪伴</h3>
-              <div className="flex min-w-0 items-center gap-2 rounded-xl bg-[#f6f6f6] p-2">
-                <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-neutral-200">
-                  <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-full w-full rounded-lg"/>
-                </span>
-                <div className="min-w-0"><p className="truncate text-[12px] font-medium">{activeChar?.name||'选择 Char'}</p><p className="truncate text-[10px] text-neutral-500">{activeChar?'陪你完成当下':'点上方头像'}</p></div>
-              </div>
-              <button className={btn+' w-full'} onClick={()=>{
-                discussionVersion.current+=1;setPlanRequest(null);setAssistantTopic('');
-                setAssistantScope('focus');setAssistantItemId('');setAssistantOpen(true);
-              }}>和 Char 交流 <ArrowRight size={12} className="inline"/></button>
-              <p className="text-[9px] text-neutral-400">主动发送才调用 AI</p>
-            </section>
+            <div className="flex items-center justify-between gap-3">
+              <label className="flex min-w-0 items-center gap-2 text-[11px] text-neutral-600">
+                <input type="checkbox" checked={focusLock} onChange={e=>setFocusLock(e.target.checked)}/>
+                专注保护
+              </label>
+              <button type="button" className="flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-200 bg-[#f7f7f7] px-3 py-2 text-xs text-neutral-800"
+                onClick={()=>{
+                  discussionVersion.current+=1;
+                  setPlanRequest(null);setAssistantTopic('');
+                  setAssistantScope('focus');setAssistantItemId('');
+                  setAssistantOpen(true);
+                }}>与 Char 陪伴交流 <ArrowRight size={13}/></button>
             </div>
-          </div>
-        </div>}
+          </section>}
         {tab === 'tasks' && <section className={shell + ' p-5 space-y-4'}>
           <div className="flex items-center justify-between"><div><p className="text-[10px] tracking-[.22em] text-neutral-400">TODAY'S CHECKLIST</p><h2 className="mt-1 font-serif text-2xl">任务清单</h2></div><NotePencil size={26} weight="light"/></div>
           <form onSubmit={e => { e.preventDefault(); addTask(); }} className="flex gap-2"><input aria-label="新任务" value={taskInput} onChange={e => setTaskInput(e.target.value)} placeholder="写下今天的目标" className={inset + ' min-w-0 flex-1 p-3 text-sm outline-none'} /><button className={btn} type="submit">添加</button></form>
