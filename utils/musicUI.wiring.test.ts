@@ -150,7 +150,10 @@ describe('歌单交互与移动端可用性', () => {
   });
   it('歌曲行一直可直接打开歌单弹层，无需预先创建歌单', () => {
     expect(app).toContain('setPlaylistSheetSong(song)');
-    expect(app).toContain('aria-haspopup="dialog"');
+    // Song actions live in the keyboard-accessible menu; the add-to-playlist
+    // action opens the existing MusicPlaylistSheet dialog from that menu.
+    expect(app).toContain('aria-haspopup="menu" aria-expanded={openSongMenuKey === key}');
+    expect(app).toContain('role="menuitem"');
     expect(app).toContain('className="music-icon-press w-9 h-10 rounded-full');
     expect(app).toContain('{playlistSheetSong && <MusicPlaylistSheet');
     expect(app).not.toContain('library.playlists.length > 0 && <div className="relative w-8 h-8');
