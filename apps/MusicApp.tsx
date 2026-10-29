@@ -153,6 +153,12 @@ const MusicApp: React.FC = () => {
   const [openedPlaylist, setOpenedPlaylist] = useState<string | null>(null);
   const [playlistSheetSong, setPlaylistSheetSong] = useState<Song | null>(null);
   const [openSongMenuKey, setOpenSongMenuKey] = useState<string | null>(null);
+  const openSongMenuRef = useRef<HTMLDivElement | null>(null);
+  // Inline menus must scroll into view if expanded at the bottom of a long list.
+  useEffect(() => {
+    if (openSongMenuKey) openSongMenuRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [openSongMenuKey]);
+  useEffect(() => { setOpenSongMenuKey(null); }, [section, openedPlaylist, searchSource]);
   const [editingPlaylist, setEditingPlaylist] = useState<{ id: string; name: string } | null>(null);
   const [deleteConfirmPlaylistId, setDeleteConfirmPlaylistId] = useState<string | null>(null);
   const savePlaylistName = () => {
@@ -273,7 +279,7 @@ const MusicApp: React.FC = () => {
               </button>
             </div>
           </div>
-          {openSongMenuKey === key && <div role="menu" aria-label={`歌曲《${song.name}》操作`}
+          {openSongMenuKey === key && <div ref={openSongMenuRef} role="menu" aria-label={`歌曲《${song.name}》操作`}
             className="music-track-menu mt-1.5 mb-1.5 rounded-[15px] p-1.5 w-full"
             onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpenSongMenuKey(null); } }}
             style={{ background: '#fff', border: '1px solid #e6e6e3', boxShadow: '0 8px 24px rgba(0,0,0,.10)' }}>
