@@ -86,6 +86,34 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
 });
 
 
+describe('高级感灰阶排版与播放交互回归', () => {
+  it('首页使用编辑式字级层次、线性音源导航，不恢复粉彩药丸按钮', () => {
+    expect(app).toContain('SULLY / AUDIO');
+    expect(app).toContain('我的私人曲库');
+    expect(app).toContain('text-[34px] font-bold');
+    expect(app).toContain('searchSource === src ? C.primary : C.muted');
+    expect(app).toContain('music-editorial-shell absolute inset-0');
+    expect(ui).toContain('.music-editorial-shell .music-track-row');
+  });
+  it('黑色悬浮播放器把打开详情和播控拆成并列按钮，避免嵌套交互', () => {
+    const dock = ui.split('export const MiniPlayer:')[1]?.split('// Same public component contract;')[0] || '';
+    expect(dock).toContain('className="music-dock');
+    expect(dock).toContain('background: \'#171717\'');
+    expect(dock).toContain('className="music-dock-open music-tap"');
+    expect(dock).toContain('onClick={onTap}');
+    expect(dock).toContain('onClick={onToggle}');
+    expect(dock).not.toContain('role="button" tabIndex={0}');
+    expect(dock).not.toContain('e.stopPropagation()');
+    expect(dock).toContain('env(safe-area-inset-bottom');
+  });
+  it('中文输入法确认候选字不会误提交搜索，歌词仍可键盘拖动进度', () => {
+    expect(ui).toContain("e.key === 'Enter' && !e.nativeEvent.isComposing");
+    expect(ui).toContain('aria-label="播放进度"');
+    expect(ui).toContain("e.key === 'ArrowLeft'");
+    expect(ui).toContain('@media(prefers-reduced-motion:reduce)');
+  });
+});
+
 describe('MONO 黑白灰音乐视觉回归', () => {
   it('统一中性色票，不能回到旧紫粉色和星芒水滴主题', () => {
     expect(ui).toContain("primary: '#171717'");
