@@ -68,6 +68,25 @@ describe('authored tub rim contact and reversible leg crossing',()=>{
   expect(second.seatWeight).toBe(0);
   expect(sit.seatWeight).toBeGreaterThan(.9);
  });
+ it('alternates actual support feet during the final approach before the rim crossing',()=>{
+  const j=fixture(),left=bathroomJourneyFrame(j,.55),transfer=bathroomJourneyFrame(j,.83),
+   right=bathroomJourneyFrame(j,1.04),cross=bathroomJourneyFrame(j,1.33);
+  expect(left.supportFoot).toBe('R');
+  expect(left.approachStep).toBeGreaterThan(.7);
+  expect(left.approachTrailStep).toBe(0);
+  expect(transfer.supportFoot).toBe('L');
+  expect(right.supportFoot).toBe('L');
+  expect(right.approachTrailStep).toBeGreaterThan(.5);
+  expect(right.approachStep).toBe(0);
+  expect(cross.supportFoot).toBe(null);
+  expect(cross.leadStep).toBeGreaterThan(0);
+  expect(cross.approachTrailStep).toBe(0);
+  expect(left.position[1]).toBe(j.front[1]);
+  expect(right.position[1]).toBe(j.front[1]);
+  const earlyDistance=distance(j.front,left.position),laterDistance=distance(j.front,right.position);
+  expect(laterDistance).toBeGreaterThan(earlyDistance);
+  expect(earlyDistance).toBeLessThan(distance(j.front,j.position)*.17);
+ });
  it('keeps both palm contacts fixed in room space across entering, yaw and exit',()=>{
   const a={...activity,bathHandWorld:[[.72,1.16,.52],[.72,1.16,-.52]]};
   for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2]){
