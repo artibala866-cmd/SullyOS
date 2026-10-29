@@ -51,6 +51,22 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(queueView).not.toContain('playSong(song, { alsoSetQueue: false })');
   });
 
+  it('缺失封面才解析 pic_id，完整播放器显示真实音质而非请求档位', () => {
+    expect(app).toContain('picId={song.picId} source={song.source}');
+    expect(app).toContain('bitrate={actualQualityLabel}');
+    expect(app).toContain('lyricMessage ||');
+    expect(ui).toContain('IntersectionObserver');
+    expect(ui).toContain('getGuestMusicCover({ albumPic, picId, source })');
+    expect(ui).toContain('ref={coverRef}');
+  });
+
+  it('触屏滚动关闭高成本玻璃模糊和无限背景动画，保留操作弹性', () => {
+    expect(ui).toContain('@media(pointer:coarse)');
+    expect(ui).toContain('backdrop-filter:none!important');
+    expect(ui).toContain('.shizuku-bokeh [style*="animation"]');
+    expect(ui).toContain('.music-tap:active');
+  });
+
   it('迷你播放器有加载、播放/暂停状态和进度条', () => {
     expect(ui).toContain("loading ? '正在获取音源…'");
     expect(ui).toContain('progress / duration * 100');
