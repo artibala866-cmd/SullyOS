@@ -319,7 +319,11 @@ const MusicApp: React.FC = () => {
           </div>
         }
       />
-      <div className="flex justify-center gap-2 px-4 py-2 relative z-10 text-xs" role="group" aria-label="搜索音乐来源">
+      <div className="relative z-10 px-5 pt-5 pb-2">
+        <p className="text-[10px] font-medium tracking-[0.2em]" style={{ color: C.muted }}>LISTEN & DISCOVER</p>
+        <h1 className="mt-1 text-[25px] font-semibold tracking-tight leading-tight" style={{ color: C.text }}>我的音乐</h1>
+      </div>
+      <div className="flex justify-start gap-2 px-4 py-2 relative z-10 text-xs" role="group" aria-label="搜索音乐来源">
         {(['netease', 'tencent'] as const).map(src => <button key={src}
           aria-pressed={searchSource === src}
           className="music-tap px-5 py-2.5 rounded-md font-medium"
