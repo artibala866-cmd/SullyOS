@@ -23,7 +23,9 @@ const chrome=spawn(binary,[
 ],{stdio:['ignore','ignore','pipe']});
 let stderr='';chrome.stderr.on('data',x=>{stderr=(stderr+x.toString()).slice(-20000);});
 let port=0,ws,report={status:'fail',stage:'init',errors:[]};
-const deadline=Date.now()+30000;
+// Shared CI runners can take longer to launch SwiftShader under parallel
+// regression load. This only extends browser startup, never motion tolerances.
+const deadline=Date.now()+60000;
 try{
  while(Date.now()<deadline){
   if(chrome.exitCode!==null)throw Error('Chromium exited prematurely: '+stderr.slice(-1000));
