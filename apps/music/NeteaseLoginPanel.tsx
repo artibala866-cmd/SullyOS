@@ -7,7 +7,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import { useMusic, musicApi } from '../../context/MusicContext';
-import { C, Sparkle, MizuHeader, BokehBg } from './MusicUI';
+import { C, MizuHeader, BokehBg } from './MusicUI';
 import { trackEvent } from '../../utils/analytics';
 
 type Mode = 'qr' | 'phone' | 'manual';
@@ -147,22 +147,22 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
 
   return (
     <div className="flex flex-col h-full relative"
-      style={{ background: `#f6f6f5` }}>
+      style={{ background: C.bg }}>
       <BokehBg />
       <MizuHeader title="登录网易云" onBack={onBack} />
 
       {/* Mode switcher */}
-      <div className="mx-4 mt-5 flex items-center gap-0 border-b border-neutral-300 relative z-10">
+      <div className="mx-5 mt-5 flex items-center gap-1 rounded-[17px] p-1 relative z-10" style={{ background: '#eaeae8' }}>
         {([
           { k: 'qr' as const, label: '扫码' },
           { k: 'phone' as const, label: '手机号' },
           { k: 'manual' as const, label: 'Cookie' },
         ]).map(t => (
           <button key={t.k} onClick={() => setMode(t.k)} aria-pressed={mode === t.k}
-            className="flex-1 py-3 text-[12px] font-medium tracking-wide border-b-2 transition-colors"
+            className="flex-1 min-h-10 py-2 rounded-[13px] text-[12px] font-medium tracking-wide transition-colors"
             style={{
-              background: 'transparent',
-              borderColor: mode === t.k ? C.primary : 'transparent',
+              background: mode === t.k ? '#fff' : 'transparent',
+              boxShadow: mode === t.k ? '0 1px 5px rgba(0,0,0,.06)' : 'none',
               color: mode === t.k ? C.primary : C.muted,
             }}>
             {t.label}
@@ -170,11 +170,11 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 relative z-10 shizuku-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5 relative z-10 shizuku-scrollbar">
         {/* ── 扫码 ── */}
         {mode === 'qr' && (
           <div className="flex flex-col items-center">
-            <div className="relative rounded-sm p-4 shizuku-glass-strong"
+            <div className="relative rounded-[24px] p-5 shizuku-glass-strong"
               style={{ boxShadow: 'none' }}>
               {qrImg ? (
                 <img src={qrImg} alt="qr" className="w-48 h-48 rounded-md" />
@@ -185,8 +185,6 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
                     style={{ borderColor: `${C.faint}40`, borderTopColor: C.primary }} />
                 </div>
               )}
-              <div className="absolute -top-1 -right-1"><Sparkle size={12} color={C.glow} delay={0} /></div>
-              <div className="absolute -bottom-1 -left-1"><Sparkle size={10} color={C.sakura} delay={0.7} /></div>
             </div>
             <div className="mt-4 text-center">
               <div className="text-[11px] tracking-wide" style={{ color: C.primary }}>
@@ -194,7 +192,7 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
               </div>
               {qrStatus === 'expired' && (
                 <button onClick={startQr}
-                  className="mt-3 px-4 py-2 rounded-sm text-[12px] text-white"
+                  className="mt-3 px-4 py-2 rounded-[14px] text-[12px] text-white"
                   style={{ background: `#171717` }}>
                   刷新二维码
                 </button>
@@ -209,17 +207,17 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
         {/* ── 手机号 ── */}
         {mode === 'phone' && (
           <div className="space-y-3 max-w-[320px] mx-auto">
-            <div className="rounded-sm p-3 shizuku-glass">
+            <div className="rounded-[18px] p-3.5 shizuku-glass">
               <div className="text-[10px] mb-1.5 tracking-wider" style={{ color: C.muted }}>手机号 (仅中国)</div>
               <input
-                className="w-full rounded-sm px-3 py-2.5 outline-none text-sm shizuku-glass"
+                className="w-full rounded-[12px] px-3 py-3 outline-none text-sm shizuku-glass"
                 style={{ color: C.text }}
                 placeholder="13800138000"
                 value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
                 inputMode="numeric"
               />
             </div>
-            <div className="rounded-sm p-3 shizuku-glass">
+            <div className="rounded-[18px] p-3.5 shizuku-glass">
               <div className="text-[10px] mb-1.5 tracking-wider flex justify-between" style={{ color: C.muted }}>
                 <span>验证码</span>
                 <button
@@ -232,7 +230,7 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
                 </button>
               </div>
               <input
-                className="w-full rounded-sm px-3 py-2.5 outline-none text-sm shizuku-glass tracking-widest"
+                className="w-full rounded-[12px] px-3 py-3 outline-none text-sm shizuku-glass tracking-widest"
                 style={{ color: C.text }}
                 placeholder="6 位验证码"
                 value={captcha} onChange={e => setCaptcha(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -242,7 +240,7 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
             <button
               onClick={doLogin}
               disabled={loggingIn}
-              className="w-full py-3 rounded-sm text-sm font-semibold text-white tracking-wide disabled:opacity-60"
+              className="w-full min-h-12 py-3 rounded-[15px] text-sm font-semibold text-white tracking-wide disabled:opacity-60"
               style={{ background: `#171717`, boxShadow: 'none' }}
             >
               <span className="relative z-10">{loggingIn ? '登录中...' : '登录'}</span>
@@ -256,10 +254,10 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
         {/* ── 手动 Cookie ── */}
         {mode === 'manual' && (
           <div className="space-y-3 max-w-[320px] mx-auto">
-            <div className="rounded-sm p-3 shizuku-glass">
+            <div className="rounded-[18px] p-3.5 shizuku-glass">
               <div className="text-[10px] mb-1.5 tracking-wider" style={{ color: C.muted }}>MUSIC_U Cookie</div>
               <textarea
-                className="w-full rounded-sm px-3 py-2.5 outline-none text-[12px] shizuku-glass"
+                className="w-full rounded-[12px] px-3 py-3 outline-none text-[12px] shizuku-glass"
                 rows={4}
                 style={{ color: C.text, fontFamily: 'monospace', resize: 'none' }}
                 placeholder="MUSIC_U=xxx... 或直接粘贴 cookie 值"
@@ -277,7 +275,7 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
                 trackEvent('手动粘贴 Cookie 登录网易云');
                 onLoggedIn(final);
               }}
-              className="w-full py-3 rounded-sm text-sm font-semibold text-white"
+              className="w-full min-h-12 py-3 rounded-[15px] text-sm font-semibold text-white"
               style={{ background: `#171717`, boxShadow: 'none' }}
             >
               保存并登录
