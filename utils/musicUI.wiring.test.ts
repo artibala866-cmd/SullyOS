@@ -355,7 +355,7 @@ describe('第三轮一起听视觉与窄屏操作回归', () => {
     expect(ui).toContain('@media(max-width:390px)');
     expect(ui).toContain('@media(max-width:360px)');
     expect(ui).toContain('@media(max-width:320px)');
-    expect(ui).toContain('.music-together-section .music-tap{min-width:44px}');
+    expect(ui).toContain('.music-together-section .music-tap{min-width:44px;min-height:44px}');
     expect(app).toContain('max-w-[70vw]');
   });
 });
