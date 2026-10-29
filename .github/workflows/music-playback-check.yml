@@ -7,6 +7,7 @@ on:
       - 'apps/MusicApp.tsx'
       - 'apps/music/MusicUI.tsx'
       - 'apps/music/MusicQueueSheet.tsx'
+      - 'apps/music/MusicPlaylistSheet.tsx'
       - 'apps/music/NeteaseProfilePage.tsx'
       - 'utils/musicUI.wiring.test.ts'
       - 'utils/musicPlaybackState.ts'
@@ -48,7 +49,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/music-playback-tsc.log 2>&1 || true
-          grep -E '^(context/MusicContext.tsx|apps/MusicApp.tsx|apps/music/MusicUI.tsx|apps/music/NeteaseProfilePage.tsx|utils/musicUI.wiring.test.ts|apps/music/MusicQueueSheet.tsx|utils/musicSourceHealth.ts|utils/musicSourceHealth.test.ts|utils/musicArtwork.ts|utils/musicPlaybackState.ts|utils/musicPlaybackState.test.ts|utils/musicTogether.test.ts|utils/musicLibrary.ts|utils/musicCache.ts|utils/musicCache.race.test.ts|utils/musicInviteStatus.ts|utils/musicInviteStatus.test.ts)[(]' /tmp/music-playback-tsc.log > /tmp/music-playback-errors.log || true
+          grep -E '^(context/MusicContext.tsx|apps/MusicApp.tsx|apps/music/MusicUI.tsx|apps/music/NeteaseProfilePage.tsx|utils/musicUI.wiring.test.ts|apps/music/MusicQueueSheet.tsx|apps/music/MusicPlaylistSheet.tsx|utils/musicSourceHealth.ts|utils/musicSourceHealth.test.ts|utils/musicArtwork.ts|utils/musicPlaybackState.ts|utils/musicPlaybackState.test.ts|utils/musicTogether.test.ts|utils/musicLibrary.ts|utils/musicCache.ts|utils/musicCache.race.test.ts|utils/musicInviteStatus.ts|utils/musicInviteStatus.test.ts)[(]' /tmp/music-playback-tsc.log > /tmp/music-playback-errors.log || true
           if [ -s /tmp/music-playback-errors.log ]; then
             cat /tmp/music-playback-errors.log
             exit 1
