@@ -191,7 +191,8 @@ function chooseAction(charId: string, contacts: NpcProfile[], threads: Character
 
   // 2) Otherwise require a concrete anchor: a recent new contact or a follow-up to
   //    an existing message from Char. Do not rotate through stale contacts by clock bucket.
-  const candidates = eligible.flatMap(contact => {
+  type FollowupCandidate = Decision & { recentAt: number; createdAt: number };
+  const candidates = eligible.flatMap((contact): FollowupCandidate[] => {
     const thread = threads.find(row => row.contactId === contact.id);
     const last = thread?.messages[thread.messages.length - 1];
     const createdAt = contact.createdAt || 0;
@@ -313,7 +314,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       { role: 'system', content: `你模拟一台虚构角色自己的微信手机，不能扮演User。
 本轮只能由${speakerName}说话，发给${actor === 'owner' ? contact.name : char.name}，禁止替另一方同时回复。
 Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).join('\\n').slice(0, 4200)}
-角色相关世界书：${(char.mountedWorldbooks || []).filter(w => w.enabled !== false).map(w => w.title + '：' + w.content).join('\\n').slice(0, 2200)}
+角色相关世界书：${(char.mountedWorldbooks || []).filter(w => (w as typeof w & { enabled?: boolean }).enabled !== false).map(w => w.title + '：' + w.content).join('\\n').slice(0, 2200)}
 角色当前时间与时间感知：${timeContextText}
 联系人固定档案：${JSON.stringify(contact).slice(0, 1800)}
 当前日程计划（仅是计划，不是已发生事件）：${life.plannedActivity || '无'}，${life.plannedDescription || ''}。
@@ -328,7 +329,7 @@ Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).jo
 仅输出JSON：{"send":true,"messages":["消息1","消息2"]}或{"send":false,"messages":[]}。不得生成双方完整对话。` },
       { role: 'user', content: '由这位角色自主决定是否给对方发微信。' },
     ], char.id, '后台微信自然对话');
-    const textMessages = Array.isArray(result?.messages)
+    const textMessages: string[] = Array.isArray(result?.messages)
       ? result.messages.filter((m: unknown): m is string => typeof m === 'string' && !!m.trim()).slice(0, 3)
       : [];
     if (result?.send !== true || !textMessages.length) return 'skipped';
