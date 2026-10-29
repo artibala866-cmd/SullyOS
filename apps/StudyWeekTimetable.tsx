@@ -11,10 +11,10 @@ export default function StudyWeekTimetable({classes,selectedId,onSelect}:Props){
   begin.setHours(12,0,0,0);
   begin.setDate(today.getDate()-today.getDay()+weekOffset*7);
   const dates=Array.from({length:7},(_,i)=>{const date=new Date(begin);date.setDate(begin.getDate()+i);return date;});
-  return <section className="rounded-2xl border border-[#e9e9e9] bg-white p-3.5 sm:p-5 shadow-[0_2px_10px_rgba(0,0,0,0.018)] space-y-3" aria-label="本周课程时间表">
+  return <section className="rounded-[28px] bg-white p-4 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.025)] space-y-5" aria-label="本周课程时间表">
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2.5"><span className="grid h-8 w-8 place-items-center rounded-xl bg-[#f2f2f2]"><CalendarDots size={21} weight="light"/></span>
-      <div><h3 className="text-base font-semibold">本周课程</h3><p className="text-xs tracking-normal text-neutral-500">WEEKLY TIMETABLE</p></div></div>
+      <div><h3 className="text-[17px] font-semibold">本周课程</h3><p className="text-[11px] tracking-[.12em] text-neutral-500">WEEKLY TIMETABLE</p></div></div>
       <div className="flex items-center gap-1.5">
         <button type="button" aria-label="上一周" title="上一周"
           className="grid h-11 w-11 place-items-center rounded-full border border-neutral-200 hover:bg-neutral-100"
@@ -27,27 +27,27 @@ export default function StudyWeekTimetable({classes,selectedId,onSelect}:Props){
       </div>
     </div>
     <p className="text-xs text-neutral-500" aria-live="polite">{dates[0].getFullYear()}年 {dates[0].getMonth()+1}/{dates[0].getDate()} — {dates[6].getMonth()+1}/{dates[6].getDate()}{weekOffset===0?' · 本周':''}</p>
-    <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2">
+    <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3">
       {dates.map(day=>{
         const key=dayKey(day);
         const lessons=classes.filter(c=>!c.cancelled&&c.weekday===day.getDay()&&(!c.until||key<=c.until))
           .sort((a,b)=>a.start.localeCompare(b.start));
         const current=dayKey(today)===key;
-        return <div key={key} className={'min-w-[96px] flex-1 snap-start rounded-2xl border p-2.5 '+(current?'border-[#bdbdbd] bg-[#f6f6f6]':'border-neutral-100 bg-[#fdfdfd]')}>
-          <div className="mb-3 text-center">
-            <span className={'mx-auto grid h-8 w-8 place-items-center rounded-full font-medium text-xs '+(current?'bg-[#e3e3e3] text-[#292929] font-semibold':'bg-[#f0f0f0]')}>{day.getDate()}</span>
-            <p className="mt-1 text-xs text-neutral-500">{short[day.getDay()]}</p>
+        return <div key={key} className={'min-w-[122px] flex-1 snap-start rounded-[22px] px-3 py-4 '+(current?'bg-[#ebebeb]':'bg-[#f7f7f7]')}>
+          <div className="mb-4 text-left">
+            <span className={'grid h-10 w-10 place-items-center rounded-full font-semibold text-[17px] '+(current?'bg-[#252525] text-white':'bg-white text-[#292929]')}>{day.getDate()}</span>
+            <p className="mt-1 text-[11px] text-neutral-500">{short[day.getDay()]}</p>
           </div>
           <div className="space-y-2">{lessons.length?lessons.map(c=><button key={c.id} type="button" aria-pressed={c.id===selectedId}
             aria-label={'查看 '+c.name+' 作业'} onClick={()=>onSelect(c.id)}
-            className={'w-full rounded-xl border p-2 text-left focus-visible:ring-2 focus-visible:ring-neutral-800 '+(selectedId===c.id?'border-[#b8b8b8] bg-[#ececec]':'border-neutral-100 bg-white hover:border-neutral-400')}>
-            <p className="text-xs font-medium tabular-nums text-neutral-500">{c.start}–{c.end}</p>
-            <p className="mt-1 text-xs font-medium break-words line-clamp-2">{c.name}</p>
-            {c.location&&<p className="mt-1 flex items-center gap-0.5 truncate text-xs text-neutral-400"><MapPin size={10}/>{c.location}</p>}
+            className={'w-full border-l-2 py-1.5 pl-2 text-left focus-visible:ring-2 focus-visible:ring-neutral-800 '+(selectedId===c.id?'border-[#252525] bg-white/65':'border-[#cecece] hover:border-[#666666]')}>
+            <p className="text-[11px] font-medium tabular-nums text-neutral-500">{c.start}–{c.end}</p>
+            <p className="mt-1 text-[13px] font-semibold break-words line-clamp-2">{c.name}</p>
+            {c.location&&<p className="mt-1 flex items-center gap-0.5 truncate text-[11px] text-neutral-500"><MapPin size={10}/>{c.location}</p>}
           </button>):<div className="grid min-h-[50px] place-items-center text-xs text-neutral-500">—</div>}</div>
         </div>;
       })}
     </div>
-    <p className="text-xs text-neutral-400">左右切换周次，点选课程即可查看作业与笔记；这里只预览每周重复的课程，不修改原资料。</p>
+    <p className="text-xs text-neutral-500">滑动看下一天 · 点击课程查看作业</p>
   </section>;
 }
