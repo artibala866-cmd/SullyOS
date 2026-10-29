@@ -139,3 +139,49 @@ export function createWorldFootLock(){
   }
  }};
 }
+
+/** An authored high-rim swing path through the existing two-joint leg IK.
+ * Unlike a root teleport, this moves ONLY the crossing thigh/shin. Goal
+ * points are defined by the actual fixed GLB rim rather than a guessed bbox.
+ * A missed physical contact still fails the separate Chromium clearance gate.
+ */
+export function guideBathRimSwing(
+ v:Pick<ChibiVisitor,'root'|'rig'>,
+ stage:{front:number[];rim:number[];time:number},
+ side:'L'|'R',
+){
+ if(!v.rig||!Number.isFinite(stage.time))return;
+ const times=side==='L'?[1.35,2.10,2.45,2.96]:[2.42,2.92,3.26,3.78];
+ const [begin,crest,over,land]=times,p=stage.time;
+ if(p<=begin||p>=land)return;
+ const parent=v.root.parent;
+ const roomWorld=(point:number[])=>{
+  const v3=new T.Vector3(...point);
+  return parent?parent.localToWorld(v3):v3;
+ };
+ v.root.updateWorldMatrix(true,true);
+ const rim=roomWorld(stage.rim),front=roomWorld(stage.front);
+ const outward=new T.Vector3(front.x-rim.x,0,front.z-rim.z);
+ if(outward.lengthSq()<1e-5)return;
+ outward.normalize();
+ const tangent=new T.Vector3(-outward.z,0,outward.x);
+ const toe=v.rig.bones[side+'_toe'].getWorldPosition(new T.Vector3());
+ const lateral=toe.clone().sub(rim).dot(tangent);
+ const rise=T.MathUtils.smootherstep(p,begin,crest),
+  pass=T.MathUtils.smootherstep(p,crest,over),
+  settle=T.MathUtils.smootherstep(p,over,land);
+ const goal=rim.clone()
+  .addScaledVector(outward,T.MathUtils.lerp(.20,-.24,pass))
+  .addScaledVector(tangent,lateral);
+ goal.y=T.MathUtils.lerp(front.y+.05,rim.y+.08,rise)*(1-settle)
+   +(front.y+.05)*settle;
+ // At landing the foot must already be on the inside; fade the IK into
+ // the authored pose without a new root motion or a joint-length stretch.
+ const weight=T.MathUtils.smootherstep(p,begin,begin+.14)
+   *(1-T.MathUtils.smootherstep(p,land-.20,land));
+ if(weight<=.001)return;
+ goal.lerp(toe,1-weight);
+ settleLegContact(v,side,goal,1,{
+  iterations:9,maxAngle:.18,maxTotalAngle:1.75
+ });
+}
