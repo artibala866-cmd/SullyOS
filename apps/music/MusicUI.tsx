@@ -49,7 +49,7 @@ const injectStyles = () => {
 .music-dock .music-dock-progress{background:#e7e7e5}
 .music-dock .music-dock-progress>div{background:#353535}
 @media(max-width:380px){.music-dock .music-dock-previous{display:none}.music-dock{padding-left:10px!important;padding-right:10px!important}.music-dock-open{gap:8px}}
-.music-now-playing .music-player-art{width:min(188px,25dvh);height:min(188px,25dvh)}
+.music-now-playing .music-player-art{width:min(214px,28dvh,68vw);height:min(214px,28dvh,68vw)}
 .music-now-playing .music-player-cover{width:100%!important;height:100%!important}
 .music-now-playing .music-player-cover>div{border-radius:16px;box-shadow:0 8px 24px rgba(33,33,33,.08)!important}
 .music-player-lyrics{mask-image:linear-gradient(to bottom,transparent,black 17%,black 83%,transparent);-webkit-mask-image:linear-gradient(to bottom,transparent,black 17%,black 83%,transparent)}
@@ -59,10 +59,12 @@ const injectStyles = () => {
 .music-playlist-cover .music-player-cover img,.music-playlist-hero .music-player-cover img{width:100%;height:100%;object-fit:cover}
 .music-playlist-shelf{scroll-padding-inline:4px;scrollbar-width:thin}
 .music-playlist-detail .music-track-row{border-color:transparent!important;border-bottom:1px solid #efefed!important;border-radius:12px!important}
+.music-track-menu{max-width:min(235px,85vw)}
+@media(pointer:coarse){.music-editorial-shell .music-track-row .music-icon-press{min-width:44px;min-height:44px}}
 @media(max-width:360px){.music-playlist-hero{width:100px!important;height:100px!important}}
 
 @media(max-width:390px){.music-together-section{padding-left:12px;padding-right:12px}.music-together-section .music-tap{min-width:44px}.music-editorial-shell .music-dock-queue{width:32px}}
-@media(max-width:360px){.music-editorial-shell .music-track-row .music-icon-press{width:30px;min-width:30px}.music-player-actions{gap:0!important}.music-player-actions .music-icon-press{min-width:43px}.music-sheet-row-actions{width:36px!important}}
+@media(max-width:360px){.music-editorial-shell .music-track-row .music-icon-press{width:44px;min-width:44px;height:44px}.music-player-actions{gap:0!important}.music-player-actions .music-icon-press{min-width:43px}.music-sheet-row-actions{width:36px!important}}
 @media(max-width:320px){.music-dock{left:8px!important;right:8px!important}.music-together-section .shizuku-scrollbar{scrollbar-width:none}}
 @media(max-height:700px){.music-now-playing .music-player-art{width:min(142px,22dvh);height:min(142px,22dvh)}.music-now-playing .music-player-art-frame{padding:9px}.music-now-playing .music-player-meta{margin-top:8px}.music-now-playing .music-player-lyrics{margin-top:6px;margin-bottom:6px}.music-now-playing .music-player-actions{padding-top:7px}.music-now-playing .music-transport{margin-top:4px;margin-bottom:0}}
 @media(max-height:580px){.music-now-playing .music-player-art{width:min(110px,19dvh);height:min(110px,19dvh)}.music-now-playing .music-player-art-frame{padding:6px}.music-now-playing .music-player-meta h2{font-size:16px!important}.music-now-playing .music-player-source{display:none}}

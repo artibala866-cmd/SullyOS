@@ -274,7 +274,8 @@ const MusicApp: React.FC = () => {
             </div>
           </div>
           {openSongMenuKey === key && <div role="menu" aria-label={`歌曲《${song.name}》操作`}
-            className="music-track-menu absolute right-2 top-[calc(100%-2px)] z-40 rounded-[15px] p-1.5 min-w-[152px]"
+            className={`music-track-menu absolute right-2 ${playlistId && i >= songs.length - 2 ? 'bottom-[calc(100%-2px)]' : 'top-[calc(100%-2px)]'} z-40 rounded-[15px] p-1.5 min-w-[152px]`}
+            onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpenSongMenuKey(null); } }}
             style={{ background: '#fff', border: '1px solid #e6e6e3', boxShadow: '0 8px 24px rgba(0,0,0,.10)' }}>
             <button type="button" role="menuitem" className="music-tap w-full min-h-10 px-3 text-left text-[12px] rounded-[10px]"
               onClick={() => {
@@ -459,7 +460,7 @@ const MusicApp: React.FC = () => {
           </div>
           {library.playlists.filter(pl => pl.id === openedPlaylist).map(pl => {
             const playingThis = !!current && pl.songs.some(song => sameMusic(current, song));
-            return <section key={pl.id} className="music-playlist-detail rounded-[22px] overflow-hidden"
+            return <section key={pl.id} className="music-playlist-detail rounded-[22px] overflow-visible"
               aria-label={`歌单《${pl.name}》详情`}
               style={{ background: '#fff', border: '1px solid #e9e9e7' }}>
               <div className="px-4 pt-5 pb-4 flex flex-col items-center text-center">
