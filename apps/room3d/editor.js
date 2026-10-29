@@ -1287,7 +1287,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   // Before crossing, require an actual skeletal palm at an authored rim
   // anchor. Failed IK exits along the reached path; it never teleports.
   const bathGuard=visitorActivity?.bathJourney;
-  if(bathPose?.kind==='bath-soak'&&bathPose.bathPhase==='enter'&&bathPose.bathTime>=1.02&&
+  if(bathPose?.kind==='bath-soak'&&bathPose.bathPhase==='enter'&&bathPose.bathTime>=1.81&&
      bathGuard&&!bathGuard.rimChecked&&!Number.isFinite(bathGuard.cancelElapsed)&&visitor?.rig){
    bathGuard.rimChecked=true;
    const parent=resident.parent;
