@@ -208,7 +208,7 @@ describe('two-second automatic reply', () => {
 
     it('prevents a stale async check from submitting after the chat surface unmounts', async () => {
         let resolveCheck!: () => void;
-        render({ onGenerate: vi.fn(stillEligible => new Promise<'retry'>(resolve => {
+        render({ onGenerate: vi.fn((stillEligible?: () => boolean) => new Promise<'retry'>(resolve => {
             resolveCheck = () => resolve(stillEligible?.() ? 'discard' : 'retry');
         })) });
         send();
@@ -286,10 +286,11 @@ describe('real-person pacing without mechanical nudges', () => {
     });
     it('retains a sleeping user turn overnight, but expires an abandoned 48-hour intent', () => {
         render({ naturalPacing: true, lifeActivity: 'sleep' });
+        const originalSendAt = Date.now();
         send();
         vi.setSystemTime(Date.now() + 12 * 60 * 60_000);
         render({ lifeActivity: 'free' });
-        advance(delayFor('free')!);
+        advance(delayFor('free', originalSendAt)!);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
         render({ lifeActivity: 'sleep' });
         send();
