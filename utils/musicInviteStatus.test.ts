@@ -321,3 +321,17 @@ describe('恢复页面与跨标签页撤回的交互防护', () => {
     expect(chat).toContain('autoReply.cancel()');
   });
 });
+
+describe('双标签页会话与邀请缓存不互相覆盖', () => {
+  it('邀请状态独立持久化，不再触发重新写入旧的伴听成员名单', () => {
+    const context = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
+    expect(context).toContain("localStorage.setItem('sully_music_listening_invites_view_v1'");
+    expect(context).toContain("localStorage.setItem('sully_music_together_v1'");
+    expect(context).toContain('}, [listeningTogetherWith, listeningStartedAt]);');
+    expect(context).not.toContain('}, [listeningTogetherWith, listeningStartedAt, listeningInvites]);');
+    expect(context).toContain('}, [listeningInvites]);');
+    // New users use the separate cache; older installations still migrate
+    // their previous combined field without discarding it.
+    expect(context).toContain("localStorage.getItem('sully_music_together_v1') || '{}').invites");
+  });
+});
