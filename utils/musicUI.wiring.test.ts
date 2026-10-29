@@ -380,12 +380,12 @@ describe('一起听改为唯一入口与轻量按需弹层', () => {
     expect(togetherSheet).toContain('min-h-11 min-w-11');
   });
   it('邀请、接受、拒绝、撤回和结束仍调用原有业务接口', () => {
-    expect(app).toContain('answerCharInvite(charId, accepted)');
+    expect(app).toContain('answerIncomingListeningInvite(charId, messageId, accepted)');
     expect(app).toContain('inviteListeningPartner(charId)');
     expect(app).toContain('cancelListeningInvite(charId)');
     expect(app).toContain('removeListeningPartner(charId)');
-    expect(togetherSheet).toContain('onAnswer(p.id, true)');
-    expect(togetherSheet).toContain('onAnswer(p.id, false)');
+    expect(togetherSheet).toContain('answerChar(p.id, p.incomingMessageId, true)');
+    expect(togetherSheet).toContain('answerChar(p.id, p.incomingMessageId, false)');
     expect(togetherSheet).toContain('onCancel(p.id)');
     expect(togetherSheet).toContain('onEnd(p.id)');
   });
@@ -411,9 +411,9 @@ describe('一起听弹层交互回归：焦点、安全与失败可重试', () =
     expect(togetherSheet).not.toContain('<button type="button" className="absolute inset-0 bg-black/25"');
   });
   it('接受/拒绝只有保存后的邀请事件才更新，失败不自动关窗', () => {
-    expect(app).toContain('onAnswer={(charId, accepted) => {');
-    expect(app).toContain('answerCharInvite(charId, accepted)');
-    expect(app).not.toMatch(/onAnswer=\{\(charId, accepted\) => \{[^}]*setTogetherSheetOpen\(false\)/);
+    expect(app).toContain('onAnswer={(charId, messageId, accepted) => answerIncomingListeningInvite');
+    expect(app).toContain('answerIncomingListeningInvite(charId, messageId, accepted)');
+    expect(app).not.toContain('setTogetherSheetOpen(false); // close before DB commit');
     expect(app).toContain("if (view !== 'search') setTogetherSheetOpen(false)");
   });
   it('短屏可滚动，角色名称优先保留空间，动作至少 44px', () => {
@@ -422,5 +422,21 @@ describe('一起听弹层交互回归：焦点、安全与失败可重试', () =
     expect(togetherSheet).toContain('min-w-0');
     expect(togetherSheet).toContain('min-h-11 min-w-11');
     expect(togetherSheet).toContain('overscroll-contain');
+  });
+});
+
+describe('Char → User 邀请状态 / 手机返回逻辑回归', () => {
+  it('接受或拒绝显式携带原邀请 ID，通过 Provider 等待原子提交', () => {
+    expect(app).toContain('incomingMessageId: charInvites[c.id]?.id');
+    expect(app).toContain('answerIncomingListeningInvite(charId, messageId, accepted)');
+    expect(togetherSheet).toContain('answerChar(p.id, p.incomingMessageId, true)');
+    expect(togetherSheet).toContain('answerChar(p.id, p.incomingMessageId, false)');
+    expect(togetherSheet).toContain('workingRef.current.has(charId)');
+  });
+  it('手机返回只消费弹层历史，不把遮罩留在音乐页面', () => {
+    expect(togetherSheet).toContain('window.history.pushState(');
+    expect(togetherSheet).toContain("window.addEventListener('popstate', onBack)");
+    expect(togetherSheet).toContain("window.removeEventListener('popstate', onBack)");
+    expect(togetherSheet).toContain('window.history.back()');
   });
 });
