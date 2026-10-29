@@ -54,7 +54,7 @@ try{
   }
  });
  const send=(method,params={})=>new Promise((resolve,reject)=>{
-  const id=++seq,timeout=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout: '+method));},15000);
+  const id=++seq,timeout=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout: '+method));},method==='Page.captureScreenshot'?30000:15000);
   pending.set(id,{resolve,reject,timeout});ws.send(JSON.stringify({id,method,params}));
  });
  await send('Page.enable');
