@@ -1297,6 +1297,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!charId || !Number.isSafeInteger(messageId) || messageId <= 0) return 'stale';
     if (answeringInviteIds.current.has(messageId)) return 'busy';
     answeringInviteIds.current.add(messageId);
+    const notify = (status: 'resolved' | 'stale' | 'failed') => {
+      window.dispatchEvent(new CustomEvent('music-listen-invite-answer-result', {
+        detail: { charId, messageId, accepted, status },
+      }));
+      return status;
+    };
     try {
       const settled = await DB.resolveMusicListeningInvite(charId, 'char', {
         charId, role: 'user', type: 'system',
@@ -1310,7 +1316,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           detail: { charId, messageId, accepted: false, stale: true },
         }));
         announceMusicInviteDbChanged(charId);
-        return 'stale';
+        return notify('stale');
       }
       respondListeningInvite(charId, accepted);
       if (accepted && settled.track) resumeInviteTrack(settled.track);
@@ -1318,12 +1324,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
         detail: { charId, messageId, accepted },
       }));
-      return 'resolved';
+      return notify('resolved');
     } catch (err) {
       // No optimistic join or UI clear on a failed IndexedDB transaction.
       console.warn('[MusicTogether] 邀请回应保存失败', err);
       toast('一起听回应未能保存，请重试', 'error');
-      return 'failed';
+      return notify('failed');
     } finally {
       answeringInviteIds.current.delete(messageId);
     }
