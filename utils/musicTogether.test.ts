@@ -200,6 +200,57 @@ describe('免登录音乐回退', () => {
     expect(calls.every(url => url.includes('/tencent/geturl'))).toBe(true);
   });
 
+  it('QQ 歌词优先使用同平台 MID，保持 LRC 与翻译对应，不碰网易云', async () => {
+    const urls: string[] = [];
+    vi.spyOn(musicApi, 'lyric').mockImplementation(() => { throw Error('QQ lyrics must not use NetEase'); });
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({
+        code: 200, data: { lrc: '[00:01.00]QQ 原词', tlyric: '[00:01.00]QQ 翻译' },
+      }), { status: 200 });
+    }));
+    const result = await musicApi.lyricFor(guestCfg, {
+      id: 123, source: 'tencent', platformId: '123', mid: 'QQ-MID-ABC',
+      lyricId: '123', name: 'QQ歌', artists: '', album: '', albumPic: '', duration: 0, fee: 0,
+    });
+    expect(result.lrc.lyric).toContain('QQ 原词');
+    expect(result.tlyric.lyric).toContain('QQ 翻译');
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain('/tencent/lyric?mid=QQ-MID-ABC');
+  });
+
+  it('QQ 纯数字平台 ID 用 id 参数；明确无歌词不走失败的 GD 备用接口', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({code: 200, data: {lrc: ''}}), { status: 200 });
+    }));
+    const result = await musicApi.lyricFor(guestCfg, {
+      id: 456, source: 'tencent', platformId: '456', name: 'QQ纯音乐',
+      artists: '', album: '', albumPic: '', duration: 0, fee: 0,
+    });
+    expect(result.lrc.lyric).toBe('');
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain('/tencent/lyric?id=456');
+  });
+
+  it('QQ 歌词接口格式损坏时只尝试同来源备用解析，绝不复用网易云歌词', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify(urls.length === 1
+        ? { code: 200, data: { unrelated: 'no lyric' } }
+        : { lyric: '[00:01.00]QQ 同来源备用歌词' }), { status: 200 });
+    }));
+    const result = await musicApi.lyricFor(guestCfg, {
+      id: 456, source: 'tencent', platformId: '456', name: 'QQ歌',
+      artists: '', album: '', albumPic: '', duration: 0, fee: 0,
+    });
+    expect(result.lrc.lyric).toContain('备用歌词');
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toContain('source=tencent');
+  });
+
   it('网易云免登录音源按所选音质请求，不再强制 128', async () => {
     vi.spyOn(musicApi, 'call').mockRejectedValue(new Error('Worker offline'));
     const urls: string[] = [];

@@ -15,6 +15,22 @@ export const guestMusicErrorText = (value: unknown): string => {
     .filter(v => typeof v === 'string').join(' ').slice(0, 240);
 };
 
+/** A successful QQ lyric response can use data.lrc; never mistake a provider
+ * error payload for an instrumental song. The API may also provide translation. */
+export const readTencentLyrics = (payload: unknown): { lrc: { lyric: string }; tlyric: { lyric: string } } | null => {
+  if (!payload || typeof payload !== 'object') return null;
+  const obj = payload as Record<string, any>;
+  if (obj.code !== undefined && ![0, 200].includes(Number(obj.code))) return null;
+  const data = obj.data && typeof obj.data === 'object' ? obj.data : obj;
+  const original = data.lrc ?? data.lyric;
+  if (typeof original !== 'string') return null;
+  const translated = data.tlyric ?? data.trans ?? data.translation;
+  return {
+    lrc: { lyric: original },
+    tlyric: { lyric: typeof translated === 'string' ? translated : '' },
+  };
+};
+
 export const guestMusicIsTransient = (error: unknown): boolean => {
   const record = error && typeof error === 'object' && !(error instanceof Error)
     ? error as Record<string, any> : null;

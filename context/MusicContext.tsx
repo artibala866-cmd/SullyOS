@@ -12,7 +12,7 @@ import React, {
   useMemo, useRef, useState,
 } from 'react';
 import { cachedCall as _cachedCall, invalidate as _invalidateCache, clearAll as _clearAllCache } from '../utils/musicCache';
-import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, retryGuestMusicOnce } from '../utils/musicSourceHealth';
+import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTencentLyrics, retryGuestMusicOnce } from '../utils/musicSourceHealth';
 import { getGuestMusicCover } from '../utils/musicArtwork';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
@@ -402,15 +402,29 @@ export const musicApi = {
   },
   async lyricFor(cfg: MusicCfg, song: Song) {
     if (song.source !== 'tencent' || song.local) return musicApi.lyric(cfg, song.id);
-    const lyricId = song.lyricId || song.platformId;
+    // QQ lyrics must use QQ's own MID/ID, never the legacy numeric Song.id or
+    // a name-matched NetEase track. Prefer the same live service as QQ search.
+    const lyricId = song.mid?.trim() || song.lyricId?.trim() || song.platformId?.trim();
     if (!lyricId) return { lrc: { lyric: '' }, tlyric: { lyric: '' } };
+    const direct = new URL('https://api.vkeys.cn/v2/music/tencent/lyric');
+    direct.searchParams.set(song.mid ? 'mid' : 'id', lyricId);
+    try {
+      const payload = await retryGuestMusicOnce(
+        () => getGuestMusicJson(direct, 'QQ 音乐歌词服务不可用', 5000),
+        value => readTencentLyrics(value) !== null,
+      );
+      const parsed = readTencentLyrics(payload);
+      // Successful empty lyrics are real (instrumentals); do not force a
+      // second, often-blocked provider call or claim an account is required.
+      if (parsed) return parsed;
+    } catch (err) { console.warn('[Music] QQ lyrics primary unavailable', err); }
+    // Same-source fallback only; GD may currently return 403. Keep play alive.
     const gd = new URL('https://music-api.gdstudio.xyz/api.php');
-    for (const [k, v] of Object.entries({ types: 'lyric', source: 'tencent', id: lyricId })) gd.searchParams.set(k, v);
-    const result = await getGuestMusicJson(gd, 'QQ 音乐歌词来源暂不可用', 4500);
-    return {
-      lrc: { lyric: typeof result?.lyric === 'string' ? result.lyric : '' },
-      tlyric: { lyric: typeof result?.tlyric === 'string' ? result.tlyric : '' },
-    };
+    for (const [k, v] of Object.entries({ types: 'lyric', source: 'tencent', id: song.lyricId || song.platformId || lyricId })) gd.searchParams.set(k, v);
+    const result = await getGuestMusicJson(gd, 'QQ 音乐备用歌词来源暂不可用', 4500);
+    const parsed = readTencentLyrics(result);
+    if (!parsed) throw new Error('QQ 音乐来源未返回可用歌词');
+    return parsed;
   },
   async songUrl(cfg: MusicCfg, id: number) {
     try {

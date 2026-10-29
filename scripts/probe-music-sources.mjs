@@ -71,6 +71,16 @@ if (Array.isArray(qqRows) && qqRows.length) {
     console.log('MUSIC_SOURCE_SHAPE', JSON.stringify({
       source:'qq_url_vkeys', hasUrl: !!(resp?.data?.url || resp?.url), errorFlag: !!(resp?.error || resp?.msg),
     }));
+    // Metadata-only probe: do not print lyric text, IDs or signed URLs.
+    const lyricUrl = new URL('https://api.vkeys.cn/v2/music/tencent/lyric');
+    lyricUrl.searchParams.set(mid ? 'mid' : 'id', mid || id);
+    const lyrics = await probe('qq_lyric_vkeys', lyricUrl);
+    console.log('MUSIC_SOURCE_SHAPE', JSON.stringify({
+      source: 'qq_lyric_vkeys',
+      hasLrc: typeof (lyrics?.data?.lrc ?? lyrics?.data?.lyric) === 'string',
+      hasTranslation: typeof (lyrics?.data?.tlyric ?? lyrics?.data?.trans) === 'string',
+      successCode: lyrics?.code === 200,
+    }));
   }
 }
 if (Array.isArray(netease) && netease.length) {
