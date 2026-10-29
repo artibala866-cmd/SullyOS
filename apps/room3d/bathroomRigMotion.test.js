@@ -51,6 +51,8 @@ describe('existing skeletal bath IK and reversible tub pose',()=>{
    edge:[0,1.17,.65],edgeRotation:0,posture:'seated',duration:8,
    bathHandWorld:[[-.25,1.16,.5],[.25,1.16,.5]]};
   const j=createBathroomJourney(activity,[0,.18,1.35],0);
+  frame(a,activity,j,1.82);
+  expect(a.body.position.y).toBeLessThan(-.25); // A tall rig must crouch toward the real rim.
   const lead=frame(a,activity,j,2.20);
   const left=a.rig.bones.L_thigh.quaternion.clone(),right=a.rig.bones.R_thigh.quaternion.clone();
   expect(lead.leadStep).toBeGreaterThan(.5);

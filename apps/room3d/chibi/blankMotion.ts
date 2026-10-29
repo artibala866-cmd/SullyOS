@@ -187,7 +187,7 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
    }
    // Lower the torso by bending both knees during the supported rim grip;
    // the navigation root and the real standing-floor coordinate do not move.
-   position.y-=.14*flex*(1-seatWeight);
+   position.y-=.48*flex*(1-seatWeight);
   }
   if(motion==='bath-laundry'){
    const press=activity?.bathPhase&&activity.bathPhase!=='work'?0:bathroomFrame(time).press;
