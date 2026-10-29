@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Halloween 3D asset visual acceptance</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:16px;background:#f3eff0;color:#453747;font-family:system-ui,sans-serif}
+h1{font-size:20px}p{font-size:13px}#status{position:sticky;top:0;background:#fff8e9;padding:7px;z-index:3}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:12px}
+figure{margin:0;min-width:0;background:white;border:1px solid #d1c7c9;border-radius:10px;overflow:hidden}
+figure img{display:block;width:100%;aspect-ratio:240/280;object-fit:contain;background:#e9dedd}
+figcaption{padding:7px;font-size:11px;overflow-wrap:anywhere}
+@media(max-width:430px){body{padding:8px}.gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}figure figcaption{font-size:10px}}
+</style>
+</head>
+<body>
+<h1>🎃 万圣节服装 / 宠物帽子 · 实际 WebGL 画面</h1>
+<output id="status">准备加载真实 3D 模型…</output>
+<h2>20 套服装与配色</h2><div class="gallery" id="outfits"></div>
+<h2>9 种宠物 × 2 顶帽子</h2><div class="gallery" id="pets"></div>
+<script type="module">
+import * as T from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+import {createBlankBody,BLANK_SCALE} from '../apps/room3d/chibi/blankBody.ts';
+import {bindBlankBody} from '../apps/room3d/chibi/blankRig.ts';
+import {dressApprovedWardrobe} from '../apps/room3d/chibi/approvedClothing.ts';
+import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe.ts';
+import {attachPetHat} from '../apps/room3d/petHatModel.js';
+const report={status:'loading',stage:'init',errors:[],outfits:0,petHats:0,blank:[],colorGroups:{},images:[]};
+window.__halloweenVisualAcceptance=report;
+const status=document.getElementById('status');
+const update=(stage)=>{report.stage=stage;status.textContent=`${report.status} · ${stage} · ${report.outfits} 套衣服 / ${report.petHats} 顶宠物帽子`;};
+window.addEventListener('error',e=>{report.errors.push(e.message||'runtime error');});
+window.addEventListener('unhandledrejection',e=>{report.errors.push(String(e.reason));});
+const renderer=new T.WebGLRenderer({antialias:false,alpha:false,preserveDrawingBuffer:true,powerPreference:'low-power'});
+renderer.setPixelRatio(1);renderer.setSize(240,280,false);
+const gl=renderer.getContext(),loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+function light(scene){scene.background=new T.Color('#e9dedd');scene.add(new T.HemisphereLight('#ffffff','#bdb5bc',2));const sun=new T.DirectionalLight('#fff1d8',1.7);sun.position.set(-3,6,7);scene.add(sun);const rim=new T.DirectionalLight('#e0e6ff',.5);rim.position.set(4,3,-5);scene.add(rim);}
+const hash=str=>{let v=2166136261;for(let i=0;i<str.length;i++){v^=str.charCodeAt(i);v=Math.imul(v,16777619);}return (v>>>0).toString(16);};
+function snapshot(scene,camera,target,id,label){
+ renderer.render(scene,camera);
+ const pixels=new Uint8Array(240*280*4);gl.readPixels(0,0,240,280,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+ let colored=0;
+ for(let i=0;i<pixels.length;i+=32){if(Math.abs(pixels[i]-233)+Math.abs(pixels[i+1]-222)+Math.abs(pixels[i+2]-221)>42)colored++;}
+ if(colored<120){report.blank.push(id);throw Error('3D render blank: '+id+' ('+colored+' non-background samples)');}
+ const uri=renderer.domElement.toDataURL('image/png');
+ const figure=document.createElement('figure'),img=document.createElement('img'),caption=document.createElement('figcaption');
+ img.src=uri;img.alt=label;img.loading='eager';caption.textContent=label;figure.append(img,caption);target.append(figure);
+ report.images.push({id,label,digest:hash(uri),colored});
+ return hash(uri);
+}
+const nextFrame=()=>new Promise(r=>setTimeout(r,15));
+(async()=>{try{
+ update('prepare body');
+ const root=new T.Group(),skin=new T.Mesh(createBlankBody('skin'),new T.MeshStandardMaterial({color:'#efc7ad',roughness:.9})),hair=new T.Group();
+ root.add(skin,hair);const rig=bindBlankBody(skin,hair,true);
+ rig.setPose('reference');root.scale.setScalar(2.8/BLANK_SCALE);
+ const scene=new T.Scene();light(scene);scene.add(root);
+ const camera=new T.OrthographicCamera(-1.28,1.28,1.49,-1.49,.01,40);camera.position.set(0,1.40,8);camera.lookAt(0,1.40,0);
+ const presets=Object.entries(approvedPresets).filter(([,v])=>v.collection==='halloween');
+ if(presets.length!==20)throw Error('Expected 20 presets, got '+presets.length);
+ for(const [id,p] of presets){
+  update('outfit '+id);const outfit=await dressApprovedWardrobe(rig,p.items,{},p.clothes?.wardrobeColors??{},true);
+  try{
+   rig.setPose('reference');root.updateMatrixWorld(true);rig.skeleton.update();outfit.updatePose?.();
+   const digest=snapshot(scene,camera,document.getElementById('outfits'),id,p.label);
+   (report.colorGroups[id.split('-').slice(0,2).join('-')]??=[]).push(digest);
+   report.outfits++;
+  }finally{outfit.dispose();}
+  if(rig.mesh.geometry!==rig.baseGeometry)throw Error('Skin not restored after '+id);
+  await nextFrame();
+ }
+ for(const [group,values] of Object.entries(report.colorGroups))if(new Set(values).size!==4)throw Error('Palette variants produced the same frame: '+group+' '+values.join(','));
+ root.removeFromParent();rig.baseGeometry.dispose();rig.skeleton.dispose();
+ update('prepare 9 pet models × 2 hats');
+ const response=await fetch('/room3d/catalog.json');if(!response.ok)throw Error('Catalog fetch '+response.status);
+ const catalog=(await response.json()).filter(x=>x.petSpecies);
+ if(catalog.length!==9)throw Error('Expected 9 pet assets');
+ for(const asset of catalog){
+  const loaded=await loader.loadAsync('/room3d/'+asset.url);
+  for(const type of ['witch','pumpkin']){
+   update('pet '+asset.petSpecies+' '+type);
+   const model=loaded.scene.clone(true);model.scale.setScalar(.75);
+   const hat=attachPetHat(model,type,asset);
+   if(!hat)throw Error('Hat missing on '+asset.id+' '+type);
+   const stage=new T.Scene();light(stage);stage.add(model);model.updateWorldMatrix(true,true);
+   const box=new T.Box3().setFromObject(model),center=box.getCenter(new T.Vector3()),size=box.getSize(new T.Vector3());
+   const half=Math.max(size.y*.84,size.x*.74,size.z*.70,.30);
+   const cam=new T.OrthographicCamera(-half*240/280,half*240/280,half,-half,.01,40);
+   cam.position.copy(center).add(new T.Vector3(0,half*.25,half*3));cam.lookAt(center);
+   snapshot(stage,cam,document.getElementById('pets'),asset.petSpecies+'-'+type,asset.name+' · '+(type==='witch'?'女巫帽':'南瓜帽'));
+   report.petHats++;await nextFrame();
+  }
+ }
+ if(report.errors.length)throw Error('Browser errors: '+report.errors.join('; '));
+ if(report.outfits!==20||report.petHats!==18)throw Error('Incorrect gallery coverage');
+ report.status='pass';update('all 38 real WebGL frames rendered');
+}catch(e){report.errors.push(e?.stack||String(e));report.status='fail';update('failed: '+String(e));console.error(e);}
+})().finally(()=>{renderer.dispose();renderer.forceContextLoss();});
+</script>
+</body></html>

@@ -52,6 +52,21 @@ jobs:
         run: pnpm exec vitest run apps/room3d/halloweenMeshAcceptance.test.ts apps/room3d/halloweenWardrobeFestival.test.js utils/wardrobePickerUI.test.ts
       - name: Build
         run: pnpm build
+      - name: Halloween WebGL visual review of 20 outfits and 9 pet species with both hats
+        timeout-minutes: 12
+        run: |
+          pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/halloween-visual-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill "$VITE_PID" 2>/dev/null || true' EXIT
+          node scripts/halloween-visual-smoke.mjs
+      - name: Preserve Halloween desktop/mobile screenshots and every rendered sample
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: halloween-visual-acceptance
+          path: halloween-visual-acceptance/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Chromium WebGL scene and seat-action smoke
         timeout-minutes: 5
         run: |
