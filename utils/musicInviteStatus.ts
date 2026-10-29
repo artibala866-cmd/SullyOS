@@ -73,3 +73,25 @@ export const musicInviteChangedCharId = (value: string | null): string | null =>
     return typeof id === 'string' && id.length > 0 && id.length < 256 ? id : null;
   } catch { return null; }
 };
+
+/**
+ * A Char MUSIC_ACTION may voluntarily join without a pending invitation.
+ * However, if the user's most recent invitation was already withdrawn or
+ * answered, a delayed AI "accept" from that OLD turn must not resurrect it.
+ * A later ordinary user turn is a new opportunity for a voluntary join.
+ */
+export const canJoinMusicWithoutPendingInvite = <
+  T extends { id?: number; role?: string; type?: string; metadata?: any }
+>(messages: readonly T[]): boolean => {
+  const ordered = [...messages].filter(m => typeof m.id === 'number')
+    .sort((a, b) => (a.id as number) - (b.id as number));
+  const lastOutgoing = [...ordered].reverse().find(m =>
+    m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char');
+  if (!lastOutgoing) return true;
+  const resolution = ordered.find(m =>
+    m.metadata?.musicListenInviteResponseTo === lastOutgoing.id);
+  if (!resolution) return false; // A pending invite needs its actual resolution.
+  return ordered.some(m => (m.id as number) > (resolution.id as number) &&
+    m.role === 'user' && m.type !== 'system' &&
+    !m.metadata?.musicListenInvite && !m.metadata?.musicListenInviteResponseTo);
+};
