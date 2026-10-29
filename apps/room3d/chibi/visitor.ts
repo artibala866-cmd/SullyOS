@@ -122,7 +122,7 @@ export async function createVisitor(parts:Parts,hair?:HairSettings){
   // A tub's final grounded approach is still a footfall even while the
   // dedicated bath controller owns the root. Plant the trailing/right foot
   // using the existing world-space IK, not a second root/navigation writer.
-  const bathPlanted=motion==='bath-soak'&&activity?.bathPhase==='enter'&&(activity.bathApproachStep??0)>.02?'R':null;
+  const bathPlanted=motion==='bath-soak'&&activity?.bathPhase!=='work'?activity.bathSupportFoot??null:null;
   footLock.apply({root,rig:body.rig,translatePose},time,walkSpeed===undefined?0:walkSpeed*body.root.scale.y,
    motion==='walk'&&posture==='standing'||!!bathPlanted,bathPlanted);
   root.updateWorldMatrix(true,true);body.rig.skeleton.update();
