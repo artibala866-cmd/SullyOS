@@ -2,12 +2,17 @@ import {readFileSync} from 'node:fs';
 import {describe,it,expect} from 'vitest';
 import {motionCategories,selectedMotions,sampleSelected,type SelectedClip} from '../apps/room3d/chibi/selectedMotions';
 
-/** Asset-wide numeric regression, not a claim that all 49 were visually played. */
+/** Asset-wide numeric regression, not a claim of visual acceptance. */
 describe('every existing 3D motion clip loads and interpolates with finite bone poses',()=>{
- it('keeps the authored 49 actions and eight public menu categories unchanged',()=>{
-  expect(selectedMotions).toHaveLength(49);
-  expect(Object.keys(motionCategories)).toHaveLength(8);
-  expect(new Set(selectedMotions.map(x=>x.id)).size).toBe(49);
+ it('retains 49 legacy actions and 8 old categories, plus 4 Halloween actions in their own category',()=>{
+  const legacy=selectedMotions.filter(x=>!x.id.startsWith('halloween-'));
+  expect(legacy).toHaveLength(49);
+  expect(selectedMotions.filter(x=>x.id.startsWith('halloween-'))).toHaveLength(4);
+  expect(selectedMotions).toHaveLength(53);
+  expect(Object.keys(motionCategories).filter(id=>id!=='mischief')).toHaveLength(8);
+  expect(Object.keys(motionCategories)).toHaveLength(9);
+  expect(motionCategories.mischief).toContain('万圣节');
+  expect(new Set(selectedMotions.map(x=>x.id)).size).toBe(53);
   expect(new Set(selectedMotions.map(x=>x.category))).toEqual(new Set(Object.keys(motionCategories)));
  });
  for(const entry of selectedMotions){

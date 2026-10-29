@@ -8,8 +8,10 @@ import {createMotionTemplateScope} from './motionTemplateScope';
 const metadata=[{id:'new-pair',participants:2},{id:'new-solo',participants:1},{id:'new-face',participants:2},{id:'new-cup',participants:2}];
 const pair=()=>motionTemplatePresets.pairedHands({pairing:'sampledClosest',enter:[.6,1.1],exit:[1.7,2.2],curl:.3});
 describe('Stage 5 motion authoring contract',()=>{
- it('preserves original motion templates and eight visible categories as the catalog grows',()=>{
-  expect(selectedMotions).toHaveLength(49);
+ it('preserves original motion templates while extending the catalog by four seasonal actions',()=>{
+  expect(selectedMotions.filter(x=>!x.id.startsWith('halloween-'))).toHaveLength(49);
+  expect(selectedMotions.filter(x=>x.id.startsWith('halloween-'))).toHaveLength(4);
+  expect(selectedMotions).toHaveLength(53);
   expect(motionCapabilityKeys).toHaveLength(10);
   expect(Object.keys(authoredMotionTemplates).sort()).toEqual(['home-hand-hold-plead','home-head-pat','home-passion-kiss','home-rear-hug','home-sneak-kiss','home-sofa-lap-pillow']);
   expect(Object.keys(motionTemplates).sort()).toEqual([...Object.keys(motionContactProfiles),'home-hand-hold-plead','home-head-pat','home-passion-kiss','home-rear-hug','home-sneak-kiss','home-sofa-lap-pillow'].sort());
