@@ -20,7 +20,7 @@ function frame(a,activity,journey,t){
  a.animate(f.time,'bath-soak','seated',{
   kind:'bath-soak',hands:[],bathHands:bathroomHandTargets(activity,f),
   bathPhase:f.phase,seatWeight:f.seatWeight,bathLegLift:f.legLift,
-  bathSupport:f.support,bathCrouch:f.crouch,bathApproachStep:f.approachStep,bathApproachTrailStep:f.approachTrailStep,bathSupportFoot:f.supportFoot,bathLeadStep:f.leadStep,bathTrailStep:f.trailStep,
+  bathSupport:f.support,bathCrouch:f.crouch,bathApproachStep:f.approachStep,bathApproachTrailStep:f.approachTrailStep,bathSupportFoot:f.supportFoot,bathLeadStep:f.leadStep,bathTrailStep:f.trailStep,bathLeadTuck:f.leadTuck,bathTrailTuck:f.trailTuck,
   bathLean:f.lean,handScale:1/a.parent.scale.y
  });
  a.resident.updateWorldMatrix(true,true);
