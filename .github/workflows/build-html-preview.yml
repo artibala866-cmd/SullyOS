@@ -61,6 +61,16 @@ jobs:
         run: pnpm exec vitest run utils/streamPreview.test.ts utils/chatParser.chunkText.test.ts utils/applyAssistantPostProcessing.amsg2Drift.test.ts
       - name: Test stage-3 character-local schedules, midnight and daylight-saving rules
         run: pnpm exec vitest run utils/scheduleTime.test.ts utils/dailySchedule.test.ts utils/scheduleTimezone.e2e.test.ts utils/scheduleInjection.test.ts utils/scheduleGenerator.context.test.ts
+      - name: Check stage-3 schedule and private chat TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/stage3-schedule-tsc.log 2>&1 || true
+          grep -E '^(utils/scheduleTime.ts|utils/scheduleGenerator.ts|utils/scheduleTime.test.ts|apps/Chat.tsx)[(]' /tmp/stage3-schedule-tsc.log > /tmp/stage3-schedule-errors.log || true
+          if [ -s /tmp/stage3-schedule-errors.log ]; then
+            cat /tmp/stage3-schedule-errors.log
+            exit 1
+          fi
+          echo "Stage-3 schedule and private chat files have no TypeScript diagnostics."
       - name: Test cloud-message provenance in atomic private-chat cleanup
         run: pnpm exec vitest run utils/chatHistoryCleanup.test.ts -t "云端私聊的清空预览"
       - name: Test AMSG2 stale conversation protection (worker simulation)
