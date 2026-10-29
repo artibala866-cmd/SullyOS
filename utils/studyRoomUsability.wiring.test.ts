@@ -39,6 +39,14 @@ describe('学习室原始需求：流畅的画稿与作业操作路径',()=>{
   expect(editor).toContain('取消');
   expect(panel).toContain("stopItemReminders('commission',id)");
  });
+ it('从画稿与作业点开始后立即启动一轮专注，而不是只选任务',()=>{
+  expect(schedule).toContain('const taskIdForNewLinkedWork=existing?.id||newWorkspaceId()');
+  expect(schedule).toContain("id:newWorkspaceId(),mode:'focus',duration:focusMinutes");
+  expect(schedule).toContain('deadline:Date.now()+focusMinutes*60000');
+  expect(schedule).toContain('taskId:existing?.id||taskIdForNewLinkedWork');
+  expect(schedule).toContain('if (session) {');
+  expect(schedule).toContain('processed.current=null;');
+ });
  it('番茄钟仍然纯粹，未将看板硬塞进计时页面',()=>{
   const focus=schedule.split("{tab === 'timer' &&")[1]?.split("{tab === 'tasks' &&")[0]||'';
   expect(focus).toContain('aria-label="开始专注"');

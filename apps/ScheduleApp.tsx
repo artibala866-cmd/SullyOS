@@ -197,6 +197,7 @@ const ScheduleApp: React.FC = () => {
       return;
     }
     const existing = tasks.find(t=>t.source?.kind===kind && t.source.id===id);
+    const taskIdForNewLinkedWork=existing?.id||newWorkspaceId();
     if (existing) {
       // A linked task may be marked done only inside the focus checklist.
       // Reopen it when the original homework/commission is chosen again.
@@ -204,10 +205,20 @@ const ScheduleApp: React.FC = () => {
       setSelectedTask(existing.id);
     }
     else {
-      const task:FocusTask={id:newWorkspaceId(),title,done:false,sessions:0,source:{kind,id}};
+      const task:FocusTask={id:taskIdForNewLinkedWork,title,done:false,sessions:0,source:{kind,id}};
       setTasks(prev=>[...prev,task]);
       setSelectedTask(task.id);
     }
+    // The user clicked a button explicitly labelled “开始画/开始学/开始专注”.
+    // Starting here should be one action rather than selecting then pressing Play.
+    // Use the same session schema and focus duration as the timer's Start button.
+    processed.current=null;
+    setSession({
+      id:newWorkspaceId(),mode:'focus',duration:focusMinutes,
+      deadline:Date.now()+focusMinutes*60000,
+      taskId:existing?.id||taskIdForNewLinkedWork,
+      usedChatWindows:[],
+    });
     setTab('timer');
   };
   const chooseChar = (id:string) => {
