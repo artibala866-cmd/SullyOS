@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { DB } from './db';
 import { findPendingMusicInvite, hasPendingMusicInvite, persistMusicInviteWithdrawal } from './musicInviteStatus';
 
 describe('一起听邀请状态', () => {
@@ -126,6 +127,28 @@ describe('撤回邀请的真实持久化流程', () => {
     const write = vi.fn(async () => { throw new Error('存储失败'); });
     await expect(persistMusicInviteWithdrawal('a', undefined, async () => history, write)).rejects.toThrow('存储失败');
     expect(findPendingMusicInvite(history, 'user')?.id).toBe(7);
+  });
+});
+
+describe('IndexedDB 实际邀请与撤回交易', () => {
+  it('保存邀请→确认撤回落库→再次邀请不会误判旧消息 pending', async () => {
+    const charId = 'music-withdrawal-idb-test';
+    const original = await DB.saveMessage({
+      charId, role: 'user', type: 'system', content: '测试发起邀请',
+      metadata: { musicListenInvite: true, status: 'pending', invitedAt: Date.now() },
+    });
+    expect(findPendingMusicInvite(await DB.getMessagesByCharId(charId, true), 'user')?.id).toBe(original);
+    const withdrawn = await persistMusicInviteWithdrawal(
+      charId, original, id => DB.getMessagesByCharId(id, true),
+      response => DB.saveMessage(response),
+    );
+    expect(withdrawn).toBe(original);
+    expect(findPendingMusicInvite(await DB.getMessagesByCharId(charId, true), 'user')).toBeUndefined();
+    const retry = await DB.saveMessage({
+      charId, role: 'user', type: 'system', content: '再次邀请',
+      metadata: { musicListenInvite: true, status: 'pending', invitedAt: Date.now() },
+    });
+    expect(findPendingMusicInvite(await DB.getMessagesByCharId(charId, true), 'user')?.id).toBe(retry);
   });
 });
 
