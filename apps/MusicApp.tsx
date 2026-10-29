@@ -297,6 +297,7 @@ const MusicApp: React.FC = () => {
                 onClick={() => { removeSongFromPlaylist(playlistId, musicSongKey(song)); setOpenSongMenuKey(null); }}>从歌单移除</button>
             </>}
           </div>}
+        </div>;
       })}
       {songs.length > visibleCount && <button type="button" onClick={() => setVisibleCount(n => n + 36)}
         className="music-tap w-full py-3 text-[12px] rounded-sm"
