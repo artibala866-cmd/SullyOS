@@ -157,7 +157,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
   const { addToast, characters, userProfile } = useOS();
   const {
     cfg, setCfg, profile, refreshProfile, playSong,
-    current, playing, togglePlay, nextSong, prevSong, queue,
+    current, playing, loadingSong, progress, duration, togglePlay, nextSong, prevSong, queue,
     listeningTogetherWith, removeListeningPartner,
     localAlbumSongs, removeLocalSong,
     regeneratingId, regeneratingStatus,
@@ -441,7 +441,12 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
             name={current.name}
             artists={current.artists}
             albumPic={current.albumPic}
+            picId={current.picId}
+            source={current.source}
             playing={playing}
+            loading={loadingSong}
+            progress={progress}
+            duration={duration}
             onTap={onOpenPlayer}
             onPrev={prevSong}
             onToggle={togglePlay}
@@ -836,7 +841,12 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
           name={current.name}
           artists={current.artists}
           albumPic={current.albumPic}
+          picId={current.picId}
+          source={current.source}
           playing={playing}
+          loading={loadingSong}
+          progress={progress}
+          duration={duration}
           onTap={onOpenPlayer}
           onPrev={prevSong}
           onToggle={togglePlay}
