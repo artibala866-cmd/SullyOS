@@ -13,6 +13,10 @@ on:
       - 'utils/musicLibrary.ts'
       - 'utils/musicCache.ts'
       - 'utils/musicTogether.test.ts'
+      - 'utils/musicSourceHealth.ts'
+      - 'utils/musicSourceHealth.test.ts'
+      - 'utils/musicArtwork.ts'
+      - 'scripts/probe-music-sources.mjs'
       - 'utils/musicInviteStatus.test.ts'
       - '.github/workflows/music-playback-check.yml'
   workflow_dispatch:
@@ -37,14 +41,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test music queue, audio events, URLs and invitations
-        run: pnpm exec vitest run utils/musicPlaybackState.test.ts utils/musicUI.wiring.test.ts utils/musicTogether.test.ts utils/musicLibrary.test.ts utils/musicInviteStatus.test.ts
+        run: pnpm exec vitest run utils/musicPlaybackState.test.ts utils/musicUI.wiring.test.ts utils/musicSourceHealth.test.ts utils/musicTogether.test.ts utils/musicLibrary.test.ts utils/musicInviteStatus.test.ts
       - name: Check music TypeScript diagnostics
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/music-playback-tsc.log 2>&1 || true
-          grep -E '^(context/MusicContext.tsx|apps/MusicApp.tsx|apps/music/MusicUI.tsx|apps/music/NeteaseProfilePage.tsx|utils/musicUI.wiring.test.ts|utils/musicPlaybackState.ts|utils/musicPlaybackState.test.ts|utils/musicTogether.test.ts|utils/musicLibrary.ts|utils/musicCache.ts|utils/musicInviteStatus.ts|utils/musicInviteStatus.test.ts)[(]' /tmp/music-playback-tsc.log > /tmp/music-playback-errors.log || true
+          grep -E '^(context/MusicContext.tsx|apps/MusicApp.tsx|apps/music/MusicUI.tsx|apps/music/NeteaseProfilePage.tsx|utils/musicUI.wiring.test.ts|utils/musicSourceHealth.ts|utils/musicSourceHealth.test.ts|utils/musicArtwork.ts|utils/musicPlaybackState.ts|utils/musicPlaybackState.test.ts|utils/musicTogether.test.ts|utils/musicLibrary.ts|utils/musicCache.ts|utils/musicInviteStatus.ts|utils/musicInviteStatus.test.ts)[(]' /tmp/music-playback-tsc.log > /tmp/music-playback-errors.log || true
           if [ -s /tmp/music-playback-errors.log ]; then
             cat /tmp/music-playback-errors.log
             exit 1
           fi
           echo 'Music playback TypeScript diagnostics: clean.'
+      - name: Probe external QQ and NetEase metadata endpoints (diagnostic only)
+        # Upstream or regional outages must not break local playback code checks.
+        continue-on-error: true
+        run: node scripts/probe-music-sources.mjs
