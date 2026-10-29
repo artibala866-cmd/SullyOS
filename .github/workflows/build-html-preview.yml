@@ -1,7 +1,7 @@
 name: Build and publish SullyOS test site
+# The isolated SullyOS-Dev-Preview repo now owns automatic preview publishing.
+# Never auto-deploy to this repository's shared/official GitHub Pages on dev pushes.
 on:
-  push:
-    branches: [remove-checkphone-vrworld-lifesim]
   workflow_dispatch:
 permissions:
   contents: read
