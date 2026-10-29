@@ -478,7 +478,7 @@ function texture(color){
    throw Error('Complete bath did not settle at the original authored interior seat');
   if(!bathPerson.rig.skeleton.bones.every(b=>b.matrixWorld.elements.every(Number.isFinite)))
    throw Error('The tub-soak skeletal pose has an invalid joint matrix');
-  editor.advancePets(9.8);await captureBath('exit-leg');
+  editor.advancePets(10.2);await captureBath('exit-leg');
   editor.advancePets(3);
   const afterSoak=editor.inspect();
   report.bathFull={restPosition,finalPosition:afterSoak.chibiPosition,
