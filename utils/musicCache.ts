@@ -171,15 +171,19 @@ export async function cachedCall<T = any>(
   const pending = INFLIGHT.get(key);
   if (pending) return pending as Promise<T>;
 
+  // An invalidated/older request must not repopulate MEM after a newer
+  // attempt succeeds (e.g. expired CDN URL resolved during a rapid retry).
   const p = doCall().then(
     (res) => {
-      MEM.set(key, { data: res, expires: Date.now() + ttl });
-      INFLIGHT.delete(key);
-      schedulePersist();
+      if (INFLIGHT.get(key) === p) {
+        MEM.set(key, { data: res, expires: Date.now() + ttl });
+        INFLIGHT.delete(key);
+        schedulePersist();
+      }
       return res;
     },
     (err) => {
-      INFLIGHT.delete(key);
+      if (INFLIGHT.get(key) === p) INFLIGHT.delete(key);
       throw err;
     },
   );
@@ -197,7 +201,10 @@ export async function cachedCall<T = any>(
 export function invalidate(pathPrefix: string, cookie?: string) {
   load();
   const salt = cookie !== undefined ? cookieSalt(cookie) : null;
-  for (const k of [...MEM.keys()]) {
+  // Invalidate both settled entries and requests still in flight.
+  // Simply clearing MEM is insufficient: pending requests can otherwise put
+  // a known-bad URL back into the cache after the explicit recovery.
+  for (const k of new Set([...MEM.keys(), ...INFLIGHT.keys()])) {
     const sepA = k.indexOf('|');
     if (sepA < 0) continue;
     const sepB = k.indexOf('|', sepA + 1);
@@ -205,7 +212,10 @@ export function invalidate(pathPrefix: string, cookie?: string) {
     const s = k.slice(0, sepA);
     const path = k.slice(sepA + 1, sepB);
     if (salt && s !== salt) continue;
-    if (path.startsWith(pathPrefix)) MEM.delete(k);
+    if (path.startsWith(pathPrefix)) {
+      MEM.delete(k);
+      INFLIGHT.delete(k);
+    }
   }
   schedulePersist();
 }
