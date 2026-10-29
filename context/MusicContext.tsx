@@ -16,7 +16,7 @@ import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTence
 import { getGuestMusicCover } from '../utils/musicArtwork';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
-import { findPendingMusicInvite, canJoinMusicWithoutPendingInvite, announceMusicInviteDbChanged, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
+import { findPendingMusicInvite, canJoinMusicWithoutPendingInvite, announceMusicInviteDbChanged, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId, MUSIC_LISTEN_SESSION_CHANGED_KEY, announceMusicListenSessionChanged } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
 import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState } from '../utils/musicCharActions';
 import {
@@ -972,13 +972,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [playMode, setPlayMode] = useState<PlayMode>('loop');
 
   // 一起听 - 会话与当前歌曲独立，切歌不会结束会话
-  const [listeningTogetherWith, setListeningTogetherWith] = useState<string[]>(() => {
-    try { const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}'); return Array.isArray(saved.partners) ? saved.partners.filter((id: unknown) => typeof id === 'string') : []; } catch { return []; }
-  });
+  // Never claim that a legacy localStorage cache means a live session.
+  const [listeningTogetherWith, setListeningTogetherWith] = useState<string[]>([]);
   // 伴听会话与歌曲解耦：记录起始时间，供聊天/主动消息读取。
-  const [listeningStartedAt, setListeningStartedAt] = useState<Record<string, number>>(() => {
-    try { const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}'); return saved.startedAt && typeof saved.startedAt === 'object' ? saved.startedAt : {}; } catch { return {}; }
-  });
+  const [listeningStartedAt, setListeningStartedAt] = useState<Record<string, number>>({});
   const [listeningInvites, setListeningInvites] = useState<Record<string, 'pending' | 'accepted' | 'rejected'>>(() => {
     try {
       const newer = localStorage.getItem('sully_music_listening_invites_view_v1');
@@ -988,6 +985,52 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const listeningTogetherRef = useRef(listeningTogetherWith);
   listeningTogetherRef.current = listeningTogetherWith;
+  const listeningStartedAtRef = useRef(listeningStartedAt);
+  listeningStartedAtRef.current = listeningStartedAt;
+  const sessionIdsRef = useRef(new Map<string, string>());
+  const sessionReadRevisions = useRef(new Map<string, number>());
+  const sessionAllReadRevision = useRef(0);
+  const sessionWritesRef = useRef(new Set<string>());
+  const applyCommittedMusicSession = useCallback((charId: string, session: {active:boolean;sessionId:string;startedAt:number}|null) => {
+    const active = !!session?.active;
+    if (active) sessionIdsRef.current.set(charId, session!.sessionId);
+    else sessionIdsRef.current.delete(charId);
+    const ids = listeningTogetherRef.current;
+    const next = active ? (ids.includes(charId) ? ids : [...ids,charId])
+      : (ids.includes(charId) ? ids.filter(id => id !== charId) : ids);
+    listeningTogetherRef.current = next;
+    if (next !== ids) setListeningTogetherWith(next);
+    const times = listeningStartedAtRef.current;
+    if (active ? times[charId] !== session!.startedAt : charId in times) {
+      const nextTimes = {...times};
+      if (active) nextTimes[charId] = session!.startedAt;
+      else delete nextTimes[charId];
+      listeningStartedAtRef.current = nextTimes;
+      setListeningStartedAt(nextTimes);
+    }
+  }, []);
+  const refreshCommittedMusicSession = useCallback(async (charId: string) => {
+    const revision = (sessionReadRevisions.current.get(charId) || 0) + 1;
+    sessionReadRevisions.current.set(charId, revision);
+    const row = await DB.getMusicListeningSession(charId);
+    if (sessionReadRevisions.current.get(charId) !== revision || sessionWritesRef.current.has(charId)) return;
+    applyCommittedMusicSession(charId, row);
+  }, [applyCommittedMusicSession]);
+  const refreshAllCommittedMusicSessions = useCallback(async () => {
+    const revision = ++sessionAllReadRevision.current;
+    const localWrites = new Set(sessionWritesRef.current);
+    const rows = await DB.listActiveMusicListeningSessions();
+    if (revision !== sessionAllReadRevision.current) return;
+    const ids = new Set([...listeningTogetherRef.current, ...rows.map(row => row.charId)]);
+    for (const id of ids) {
+      if (sessionWritesRef.current.has(id) || localWrites.has(id)) continue;
+      const record = rows.find(row => row.charId === id);
+      applyCommittedMusicSession(id, record || null);
+    }
+  }, [applyCommittedMusicSession]);
+  useEffect(() => {
+    void refreshAllCommittedMusicSessions().catch(err => console.warn('[MusicTogether] 会话恢复失败', err));
+  }, [refreshAllCommittedMusicSessions]);
 
   // Persist independently: a pending/rejected invite changing in tab B must
   // never overwrite tab A's newer listening-partner membership with stale data.
@@ -1037,42 +1080,20 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const id = musicInviteChangedCharId(event.newValue);
         if (id) void refreshOne(id).catch(err => console.warn('[MusicTogether] 跨标签页邀请同步失败', err));
       }
-      if (event.key === 'sully_music_together_v1' && event.newValue) {
-        try {
-          const state = JSON.parse(event.newValue);
-          if (Array.isArray(state.partners)) {
-            setListeningTogetherWith(prev => {
-              const ids = state.partners.filter((id: unknown) => typeof id === 'string') as string[];
-              return JSON.stringify(prev) === JSON.stringify(ids) ? prev : ids;
-            });
-          }
-          if (state.startedAt && typeof state.startedAt === 'object') {
-            setListeningStartedAt(prev => JSON.stringify(prev) === JSON.stringify(state.startedAt) ? prev : state.startedAt);
-          }
-          if (state.invites && typeof state.invites === 'object') {
-            // The broadcast is a hint, not proof of pending status.
-            for (const id of Object.keys(state.invites)) {
-              void refreshOne(id).catch(err => console.warn('[MusicTogether] 邀请同步失败', err));
-            }
-          }
-        } catch { /* Ignore invalid/legacy data from other tabs. */ }
+      if (event.key === MUSIC_LISTEN_SESSION_CHANGED_KEY) {
+        const id = musicInviteChangedCharId(event.newValue);
+        if (id) void refreshCommittedMusicSession(id).catch(err => console.warn('[MusicTogether] 跨标签页会话刷新失败',err));
       }
+      // Old tabs may re-broadcast stale partner arrays. Do not trust them.
+      if (event.key === 'sully_music_together_v1')
+        void refreshAllCommittedMusicSessions().catch(err => console.warn('[MusicTogether] 旧会话缓存校验失败',err));
     };
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
       try {
         const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}');
-        // Some Android WebViews defer storage events while hidden; on resume
-        // restore companion membership as well as pending invitation status.
-        if (Array.isArray(saved.partners)) {
-          const remotePartners = saved.partners.filter((id: unknown) => typeof id === 'string') as string[];
-          setListeningTogetherWith(prev =>
-            JSON.stringify(prev) === JSON.stringify(remotePartners) ? prev : remotePartners);
-        }
-        if (saved.startedAt && typeof saved.startedAt === 'object') {
-          setListeningStartedAt(prev =>
-            JSON.stringify(prev) === JSON.stringify(saved.startedAt) ? prev : saved.startedAt);
-        }
+        void refreshAllCommittedMusicSessions().catch(err =>
+          console.warn('[MusicTogether] 恢复前台会话校验失败', err));
         const inviteSnapshot = JSON.parse(localStorage.getItem('sully_music_listening_invites_view_v1') || '{}');
         const ids = new Set([...Object.keys(inviteSnapshot || {}), ...Object.keys(saved.invites || {}), ...Object.keys(listeningInvites)]);
         for (const id of ids) void refreshOne(id).catch(err =>
@@ -1085,7 +1106,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.removeEventListener('storage', onStorage);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [refreshOutgoingInvite]);
+  }, [refreshOutgoingInvite, refreshCommittedMusicSession, refreshAllCommittedMusicSessions]);
 
   // Invitation resolution can happen before playSong's declaration below.
   // The ref uses the one global MusicProvider player, never a second audio instance.
