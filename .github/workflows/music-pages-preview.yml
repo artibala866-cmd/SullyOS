@@ -1,0 +1,78 @@
+name: Publish latest music preview to SullyOS GitHub Pages
+
+# Only music and this workflow can trigger preview publishing. The active
+# branch also receives frequent unrelated 3D commits; listening to every push
+# would keep cancelling Pages deployments before they complete.
+on:
+  push:
+    branches:
+      - remove-checkphone-vrworld-lifesim
+    paths:
+      - '.github/workflows/music-pages-preview.yml'
+      - 'apps/MusicApp.tsx'
+      - 'apps/music/**'
+      - 'context/MusicContext.tsx'
+      - 'utils/musicCache.ts'
+      - 'utils/musicCache.race.test.ts'
+      - 'utils/musicSourceHealth.ts'
+      - 'utils/musicSourceHealth.test.ts'
+      - 'utils/musicArtwork.ts'
+      - 'utils/musicLibrary.ts'
+      - 'utils/musicTogether.test.ts'
+      - 'utils/musicPlaybackState.ts'
+      - 'utils/musicPlaybackState.test.ts'
+      - 'utils/musicUI.wiring.test.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: sullyos-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify, build and deploy music preview
+    if: github.ref == 'refs/heads/remove-checkphone-vrworld-lifesim'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GITHUB_PAGES: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify music playback and UI before publishing
+        run: >-
+          pnpm exec vitest run
+          utils/musicPlaybackState.test.ts
+          utils/musicUI.wiring.test.ts
+          utils/musicSourceHealth.test.ts
+          utils/musicCache.race.test.ts
+          utils/musicTogether.test.ts
+          utils/musicLibrary.test.ts
+          utils/musicInviteStatus.test.ts
+      - name: Build full SullyOS site for the existing Pages URL
+        run: pnpm run build
+      - name: Verify output includes the actual site entry point
+        run: test -s dist/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+      - name: Deploy latest branch to the same GitHub Pages URL
+        id: deployment
+        uses: actions/deploy-pages@v4
