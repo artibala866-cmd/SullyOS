@@ -383,3 +383,42 @@ describe('参考图构图偏差：歌单封面与双按钮歌曲行', () => {
     expect(ui).toContain('sourceLabel ?');
   });
 });
+
+describe('音乐布局遮挡回归', () => {
+  it('一起听卡片排在滚动列表开头，不能被长歌曲列表挤到下面', () => {
+    const scroll = app.indexOf('key={section} role="tabpanel"');
+    const together = app.indexOf('music-together-section relative z-10');
+    const songs = app.indexOf("section === 'results' && <div", scroll);
+    const dock = app.indexOf('<MiniPlayer', songs);
+    expect(scroll).toBeGreaterThan(-1);
+    expect(together).toBeGreaterThan(scroll);
+    expect(songs).toBeGreaterThan(together);
+    expect(dock).toBeGreaterThan(songs);
+    expect(app).toContain('music-panel-enter flex-1 min-h-0 overflow-y-auto');
+  });
+  it('迷你播放器在文档流中独立占位，个人页亦不被绝对播放器压住', () => {
+    const dock = ui.split('export const MiniPlayer:')[1]?.split('// Same public component contract;')[0] || '';
+    expect(dock).toContain('className="music-dock relative shrink-0');
+    expect(dock).not.toContain('music-dock absolute');
+    expect(dock).toContain('marginBottom:');
+    expect(dock).toContain('env(safe-area-inset-bottom');
+    expect(app).toContain("paddingBottom: current ? '20px'");
+    expect(profile).toContain('overflow-y-auto pb-5');
+    expect(profile).not.toContain('overflow-y-auto pb-28');
+  });
+  it('更多操作菜单位于滚动列表内，可自动滚到可见位置，支持退出', () => {
+    expect(app).toContain('className="music-track-menu mt-1.5 mb-1.5');
+    expect(app).not.toContain('music-track-menu absolute');
+    expect(app).toContain('openSongMenuRef.current?.scrollIntoView?.');
+    expect(app).toContain('aria-haspopup="menu"');
+    expect(app).toContain('role="menuitem"');
+    expect(app).toContain("if (e.key === 'Escape')");
+  });
+  it('一起听卡片的接受、拒绝、结束保持 44px 点击高度并对应原动作', () => {
+    expect(app).toContain('music-tap min-h-11 px-3 rounded-full');
+    expect(app).toContain('answerCharInvite(c.id, true)');
+    expect(app).toContain('answerCharInvite(c.id, false)');
+    expect(app).toContain('removeListeningPartner(c.id)');
+    expect(ui).toContain('.music-together-section .music-tap{min-width:44px;min-height:44px}');
+  });
+});
