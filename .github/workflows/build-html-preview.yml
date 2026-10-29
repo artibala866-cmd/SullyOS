@@ -59,6 +59,8 @@ jobs:
         run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgScheduleShortcut.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyLock.test.ts utils/amsgChatGenerationLease.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgP1CrossDay.test.ts utils/amsgPhoneEvent.test.ts utils/characterPhoneBrowserAutonomy.test.ts utils/characterPhoneSelfProfile.test.ts utils/characterLifeEventsPrivateDeletion.test.ts utils/amsgVerifiedXhs.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
       - name: Test stage-2 natural bubbles and streaming-to-storage parity
         run: pnpm exec vitest run utils/streamPreview.test.ts utils/chatParser.chunkText.test.ts utils/applyAssistantPostProcessing.amsg2Drift.test.ts
+      - name: Test stage-4 cloud snapshot provenance and autonomous wake guards
+        run: pnpm exec vitest run utils/activeMsgClient.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgAutonomyWake.test.ts utils/scheduleInjection.test.ts utils/amsgFireScene.test.ts utils/amsgP1CrossDay.test.ts
       - name: Test stage-3 character-local schedules, midnight and daylight-saving rules
         run: pnpm exec vitest run utils/scheduleTime.test.ts utils/dailySchedule.test.ts utils/scheduleTimezone.e2e.test.ts utils/scheduleInjection.test.ts utils/scheduleGenerator.context.test.ts
       - name: Check stage-3 schedule and private chat TypeScript diagnostics

@@ -30,6 +30,14 @@ describe('AMSG2 voluntary wake vs. real-person conversation and phone schedule',
  it('never mistakes yesterday schedule for todays confirmed reality',()=>{
    expect(judge(null,{...scene,dateKey:'2026-07-24'})).toBe(null);
  });
+ it('ignores malformed schedule times rather than treating 18:99 as 19:39 busy time',()=>{
+   const corrupted={...scene,schedule:{slots:[
+     {startTime:'00:00',activity:'散步'},
+     {startTime:'18:99',activity:'睡觉'},
+     {startTime:'25:00',activity:'工作'},
+   ]}};
+   expect(judge(null,corrupted)).toBe(null);
+ });
  it('unknown schedule remains an opportunity but cannot claim to have done things',()=>{
    expect(judge(null,null)).toBe(null);
  });

@@ -53,6 +53,7 @@ import { clearInstantChatPending, setInstantChatPending } from './amsgInstantCha
 import { AMSG_TOOL_CONFIG_KEY, AMSG_TOOL_PACK_KEY } from './amsgToolPack';
 import { AMSG_LIMITS_KEY } from './amsgLimits';
 import * as dailySchedule from './dailySchedule';
+import { renderFireSceneBlock } from './amsgFireScene';
 import { ChatPrompts } from './chatPrompts';
 import { DB } from './db';
 import { KeepAlive } from './keepAlive';
@@ -1119,9 +1120,9 @@ describe('buildFirePack 的时区参照系与模板（①）', () => {
     expect(out.template).toContain(`${AMSG_SLOT_USER_CLOCK}${AMSG_SLOT_SCENE}`);
   });
 
-  // 回归守卫：作息表里只有「几点做什么」，没有日期。周五晚打的包周日上午触发时，
-  // 光按墙钟时分照样挑得出「09:00 晨会」。带上打包那天的日期，到点先比日期再用。
-  it('作息表随包带打包那天的日期（角色当地日历日）', async () => {
+  // A schedule fetched before midnight may finish packaging after midnight.
+  // The date key belongs to the snapshot, NOT the time the Promise settled.
+  it('日程日期来自快照本身，旧日程不得在云端伪装成今天', async () => {
     vi.spyOn(dailySchedule, 'getDailyScheduleForChar').mockResolvedValue({
       id: 's', charId: 'char-1', date: '2026-08-02', generatedAt: 0,
       slots: [{ startTime: '08:00', activity: '晨跑' }],
@@ -1132,9 +1133,26 @@ describe('buildFirePack 的时区参照系与模板（①）', () => {
       customTimezoneEnabled: true,
       customTimezone: 'America/New_York',
     }));
-    expect(out.scene?.dateKey).toBe(
-      new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()),
-    );
+    expect(out.scene?.dateKey).toBe('2026-08-02');
+    expect(renderFireSceneBlock(out.scene, Date.now(), { tzId: 'America/New_York' })).toBe('');
+  });
+
+  it('异步跨过角色午夜：即便今天已翻篇也不把昨天的活动重标成今天', async () => {
+    vi.setSystemTime(new Date('2026-10-29T15:59:59Z')); // Shanghai Oct 29 23:59:59
+    let finishRead!: (record: any) => void;
+    const reading = new Promise<any>(resolve => { finishRead = resolve; });
+    vi.spyOn(dailySchedule, 'getDailyScheduleForChar').mockReturnValue(reading);
+    const inFlight = pack(baseChar({
+      scheduleFeatureEnabled: true,
+      customTimezoneEnabled: true,
+      customTimezone: 'Asia/Shanghai',
+    }));
+    vi.setSystemTime(new Date('2026-10-29T16:00:01Z')); // Shanghai Oct 30 00:00:01
+    finishRead({ id: 's', charId: 'char-1', date: '2026-10-29', generatedAt: Date.parse('2026-10-29T15:59:59Z'),
+      slots: [{ startTime: '22:00', activity: '昨晚在画画' }] });
+    const out = await inFlight;
+    expect(out.scene?.dateKey).toBe('2026-10-29');
+    expect(renderFireSceneBlock(out.scene, Date.now(), { tzId: 'Asia/Shanghai' })).toBe('');
   });
 
   it('角色没开日程 → scene 为 null（槽位到点被抹平）', async () => {

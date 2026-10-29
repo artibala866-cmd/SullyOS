@@ -17,7 +17,8 @@ export const getScheduleDateKey = (
 ): string => getLocalDateKey(getScheduleWallClock(char, base));
 
 /** Only valid wall-clock times can influence schedule-based chat presence. */
-export const parseScheduleStartMinutes = (value: string): number | null => {
+export const parseScheduleStartMinutes = (value: unknown): number | null => {
+    if (typeof value !== 'string') return null;
     const match = /^(\d{1,2}):([0-5]\d)$/.exec(value.trim());
     if (!match) return null;
     const hour = Number(match[1]);

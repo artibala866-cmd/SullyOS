@@ -4,7 +4,7 @@
 // 常态：日程第一条在 07:00，凌晨一点触发时按「今天刚要开始」写，角色就会顶着清晨的心境
 // 说话。凌晨 0-5 点算前一夜的尾巴，独白取「晚」档、措辞也得是夜里的说法。
 import { describe, expect, it } from 'vitest';
-import { buildScheduleInjection, getFlowNarrativeKey, type RenderableSchedule } from './scheduleInjection';
+import { buildScheduleInjection, getFlowNarrativeKey, resolveScheduleSlots, type RenderableSchedule } from './scheduleInjection';
 
 const schedule: RenderableSchedule = {
     slots: [
@@ -21,6 +21,30 @@ const schedule: RenderableSchedule = {
 
 /** 用本地时间构造，getHours() 就是写死的那个点，不受机器时区影响。 */
 const at = (hour: number, minute = 0) => new Date(2026, 7, 2, hour, minute);
+
+describe('旧日程／云端快照的时段容错', () => {
+    it('未排序的旧表按真实钟点选择当前及下一项，不改变原顺序', () => {
+        const unsorted: RenderableSchedule = { slots: [
+            { startTime: '22:00', activity: '睡觉' },
+            { startTime: '08:00', activity: '画画' },
+            { startTime: '15:00', activity: '散步' },
+        ] };
+        const resolved = resolveScheduleSlots(unsorted, at(16));
+        expect(resolved.current?.activity).toBe('散步');
+        expect(resolved.next?.activity).toBe('睡觉');
+        expect(unsorted.slots[0].activity).toBe('睡觉');
+        expect(buildScheduleInjection(unsorted, undefined, at(16))).toContain('当前时段：15:00 你正在散步');
+    });
+    it('损坏的时间条目不参与云端此刻事实或下一项选择', () => {
+        const malformed: RenderableSchedule = { slots: [
+            { startTime: '18:99', activity: '错误的晚班' },
+            { startTime: '25:00', activity: '错误的睡眠' },
+            { startTime: '12:00', activity: '看书' },
+        ] };
+        expect(resolveScheduleSlots(malformed, at(20)).current?.activity).toBe('看书');
+        expect(resolveScheduleSlots(malformed, at(20)).next).toBeNull();
+    });
+});
 
 describe('凌晨 0-5 点算前一夜的延续', () => {
     it('凌晨一点、今天第一条还没到 → 独白取「晚」档，不是清晨那句', () => {

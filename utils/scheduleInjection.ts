@@ -10,6 +10,7 @@
  */
 
 import type { DailySchedule, ScheduleSlot } from '../types';
+import { parseScheduleStartMinutes } from './scheduleTime';
 
 /**
  * 渲染真正会读到的那部分日程。
@@ -55,19 +56,24 @@ export const resolveScheduleSlots = (
     now: Date,
 ): { current: ScheduleSlot | null; next: ScheduleSlot | null } => {
     if (!schedule?.slots?.length) return { current: null, next: null };
+    // Legacy/manual schedules can be unsorted and can contain malformed times.
+    // Derive the current+next pair from a stable chronological view, without
+    // mutating the stored order or treating e.g. "18:99" as an actual slot.
+    const timeline = schedule.slots.map(slot => ({ slot, minute: parseScheduleStartMinutes(slot.startTime) }))
+        .filter((item): item is { slot: ScheduleSlot; minute: number } => item.minute !== null)
+        .sort((a, b) => a.minute - b.minute);
+    if (!timeline.length) return { current: null, next: null };
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    for (let i = schedule.slots.length - 1; i >= 0; i--) {
-        const [h, m] = schedule.slots[i].startTime.split(':').map(Number);
-        if (!Number.isFinite(h) || !Number.isFinite(m)) continue;
-        if (currentMinutes >= h * 60 + m) {
+    for (let i = timeline.length - 1; i >= 0; i--) {
+        if (currentMinutes >= timeline[i].minute) {
             return {
-                current: schedule.slots[i],
-                next: i < schedule.slots.length - 1 ? schedule.slots[i + 1] : null,
+                current: timeline[i].slot,
+                next: i < timeline.length - 1 ? timeline[i + 1].slot : null,
             };
         }
     }
     // 今天第一条还没到点：没有「当前」，只有「稍后先做什么」。
-    return { current: null, next: schedule.slots[0] };
+    return { current: null, next: timeline[0].slot };
 };
 
 /**

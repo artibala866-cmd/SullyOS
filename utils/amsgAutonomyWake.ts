@@ -8,7 +8,7 @@ import {getDailyScheduleForChar} from './dailySchedule';
 import {isPendingTask,reconcileTasksWithRemote} from './amsg2Tasks';
 import {resolveAmsgLimits} from './amsgLimits';
 import {classifyLifeActivity} from './sullyLifeClock';
-import {getScheduleDateKey,getScheduleWallClock} from './scheduleTime';
+import {getScheduleDateKey,getScheduleWallClock,parseScheduleStartMinutes} from './scheduleTime';
 import {withAutonomyWakeLock} from './amsgAutonomyLock';
 import {autonomyWakeUuid} from './amsgAutonomyIdentity';
 import {resolveCharTimeZone,wallClockToTimestamp} from './timezone';
@@ -27,9 +27,8 @@ export function planAutonomyWakes(
 ):WakeSlot[]{
   const zone=resolveCharTimeZone(char);
   const source=(schedule||[]).map(s=>{
-    const m=/^(\d{1,2}):(\d{2})$/.exec(s.startTime);
-    if(!m||Number(m[1])>23||Number(m[2])>59)return null;
-    return {at:Number(m[1])*60+Number(m[2]),kind:classifyLifeActivity(s.activity)};
+    const at=parseScheduleStartMinutes(s.startTime);
+    return at===null?null:{at,kind:classifyLifeActivity(s.activity)};
   }).filter((v):v is {at:number;kind:'busy'|'sleep'|'free'}=>v!==null)
     .sort((a,b)=>a.at-b.at);
   let hash=2166136261;

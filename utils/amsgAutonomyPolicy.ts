@@ -7,6 +7,7 @@ import type {AmsgFireScene} from './amsgFireScene';
 import {classifyLifeActivity} from './sullyLifeClock';
 import {dayKeyInZone} from './amsgLimits';
 import {nowInTimeZone} from './timezone';
+import {parseScheduleStartMinutes} from './scheduleTime';
 
 /** Only present-day, actually synced schedule facts are authoritative for
  * autonomous cloud contact. A phone closed for days cannot make new days
@@ -44,8 +45,8 @@ export function autonomyWakeSkipReason(args:{
   const local=nowInTimeZone(tzId,new Date(nowMs));
   const minutes=local.getHours()*60+local.getMinutes();
   const current=scene.schedule.slots.map(s=>{
-    const m=/^(\d{1,2}):(\d{2})$/.exec(s.startTime);
-    return m?{minute:Number(m[1])*60+Number(m[2]),activity:s.activity}:null;
+    const minute=parseScheduleStartMinutes(s.startTime);
+    return minute!==null?{minute,activity:s.activity}:null;
   }).filter((s):s is {minute:number;activity:string}=>s!==null)
     .sort((a,b)=>a.minute-b.minute)
     .filter(s=>s.minute<=minutes).pop();

@@ -787,7 +787,10 @@ export const buildFirePack = async (
     ? {
         charId: char.id,
         // 这份表是角色当地「今天」的安排，到点先比日期再用（见 renderFireSceneBlock）。
-        dateKey: getLocalDateKey(nowInTimeZone(tzId)),
+        // Bind the scene to the schedule's own calendar day, never a fresh
+        // Date.now() after asynchronous DB/prompt reads. A midnight rollover
+        // must not relabel yesterday's activities as today's confirmed facts.
+        dateKey: schedule.date,
         schedule: {
           slots: schedule.slots.map((s) => ({
             startTime: s.startTime,
