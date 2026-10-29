@@ -57,7 +57,7 @@ describe('authored tub rim contact and reversible leg crossing',()=>{
  });
  it('plants the first approach, grips the rim and steps one leg at a time before sitting',()=>{
   const j=fixture(),turn=bathroomJourneyFrame(j,.25),grip=bathroomJourneyFrame(j,.84),
-   first=bathroomJourneyFrame(j,1.50),second=bathroomJourneyFrame(j,2.28),sit=bathroomJourneyFrame(j,3.55);
+   first=bathroomJourneyFrame(j,2.20),second=bathroomJourneyFrame(j,3.04),sit=bathroomJourneyFrame(j,4.55);
   expect(distance(turn.position,j.front)).toBeLessThan(1e-6);
   expect(grip.support).toBeGreaterThan(0);
   expect(first.leadStep).toBeGreaterThan(.5);
