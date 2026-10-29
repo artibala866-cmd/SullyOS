@@ -16,7 +16,7 @@ import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTence
 import { getGuestMusicCover } from '../utils/musicArtwork';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
-import { findPendingMusicInvite, announceMusicInviteDbChanged, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
+import { findPendingMusicInvite, canJoinMusicWithoutPendingInvite, announceMusicInviteDbChanged, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
 import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState } from '../utils/musicCharActions';
 import {
@@ -1266,14 +1266,19 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           detail: { charId, messageId: settled.inviteId, accepted },
         }));
       }
-      // Char can also voluntarily join via MUSIC_ACTION without a pending card.
-      // A stale response cannot write a second resolution for an already-settled card.
-      if (settled.resolved || accepted) {
+      if (settled.resolved) {
         respondListeningInvite(charId, accepted);
         if (accepted && settled.track) resumeInviteTrack(settled.track);
         return true;
       }
-      return false;
+      if (!accepted) return false;
+      // Voluntary MUSIC_ACTION joins remain possible, but a delayed AI accept
+      // must not revive a message already withdrawn/rejected in another tab.
+      // Only a later normal user turn establishes a NEW voluntary context.
+      const history = await DB.getMessagesByCharId(charId, true);
+      if (!canJoinMusicWithoutPendingInvite(history)) return false;
+      respondListeningInvite(charId, true);
+      return true;
     } catch (err) {
       console.warn('[MusicTogether] 保存 Char 邀请回应失败', err);
       toast('角色的邀请回应未能保存，请重试', 'error');
