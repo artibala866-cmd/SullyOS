@@ -72,6 +72,16 @@ describe('existing skeletal bath IK and reversible tub pose',()=>{
   const landed=a.rig.bones.L_toe.getWorldPosition(new T.Vector3());
   expect(first.distanceTo(landed)).toBeGreaterThan(.08);
  });
+ it('moves the swing toe forwards during a near-rim approach without dragging the root through the tub',()=>{
+  const a=actor(),activity={kind:'bath-soak',position:[0,.54,0],rotation:0,edge:[0,1.17,.65],edgeRotation:0,posture:'seated',duration:8,bathHandWorld:[[-.25,1.16,.5],[.25,1.16,.5]]};
+  const j=createBathroomJourney(activity,[0,.18,1.17],0);
+  frame(a,activity,j,.41);
+  const first=a.rig.bones.L_toe.getWorldPosition(new T.Vector3()).clone();
+  frame(a,activity,j,1.17);
+  const landed=a.rig.bones.L_toe.getWorldPosition(new T.Vector3());
+  expect(first.distanceTo(landed)).toBeGreaterThan(.08);
+  expect(a.resident.position.z).toBeGreaterThan(j.edge[2]+.35);
+ });
  it('preserves the exact reached pose at a mid-crossing cancellation',()=>{
   const activity={kind:'bath-soak',position:[0,.54,0],rotation:0,
    edge:[0,1.17,.65],edgeRotation:0,posture:'seated',duration:8,
