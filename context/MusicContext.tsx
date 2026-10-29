@@ -18,7 +18,7 @@ import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
 import { findPendingMusicInvite, hasPendingMusicInvite } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
-import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed } from '../utils/musicCharActions';
+import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState } from '../utils/musicCharActions';
 import {
   musicKey, sameMusic, normalizeTencentSong, tencentSearchRows, extractMusicUrl,
   loadGuestMusicLibrary, persistGuestMusicLibrary, recordMusicPlay, upsertLikedSong, appendGuestMusicPlaylist,
@@ -1093,10 +1093,20 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => window.removeEventListener('music-listen-invite-cancel', onCancel);
   }, [cancelListeningInvite]);
   const [lastListeningEnd, setLastListeningEnd] = useState<{ charId: string; durationMs: number; at: number } | null>(null);
+  const listeningStartedAtRef = useRef(listeningStartedAt);
+  listeningStartedAtRef.current = listeningStartedAt;
   const addListeningPartner = useCallback((charId: string) => {
-    setListeningTogetherWith(prev => prev.includes(charId) ? prev : [...prev, charId]);
+    if (!charId) return;
+    const joined = joinCharListeningState(
+      listeningTogetherRef.current, listeningStartedAtRef.current, charId, Date.now(),
+    );
+    // The same AI turn may join then immediately play: refs must be current
+    // before React batches a new render.
+    listeningTogetherRef.current = joined.partners;
+    listeningStartedAtRef.current = joined.startedAt;
+    setListeningTogetherWith(joined.partners);
+    setListeningStartedAt(joined.startedAt);
     setListeningInvites(prev => ({ ...prev, [charId]: 'accepted' }));
-    setListeningStartedAt(prev => prev[charId] ? prev : { ...prev, [charId]: Date.now() });
   }, []);
   const respondListeningInvite = useCallback((charId: string, accepted: boolean) => {
     setListeningInvites(prev => ({ ...prev, [charId]: accepted ? 'accepted' : 'rejected' }));
@@ -1159,8 +1169,6 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.addEventListener('music-listen-invite-answer', onAnswer);
     return () => window.removeEventListener('music-listen-invite-answer', onAnswer);
   }, [respondListeningInvite, resumeInviteTrack, toast]);
-  const listeningStartedAtRef = useRef(listeningStartedAt);
-  listeningStartedAtRef.current = listeningStartedAt;
   const removeListeningPartner = useCallback((charId: string) => {
     const startedAt = listeningStartedAtRef.current[charId];
     if (startedAt) {
@@ -1179,19 +1187,18 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }).then(messageId => {
         window.dispatchEvent(new CustomEvent('music-listen-session-ended', { detail: { charId, messageId } }));
       }).catch(err => console.warn('[MusicTogether] 结束事件保存失败', err));
-      const next = { ...listeningStartedAtRef.current };
-      delete next[charId];
-      listeningStartedAtRef.current = next;
     }
-    setListeningTogetherWith(prev => prev.filter(id => id !== charId));
+    const left = leaveCharListeningState(
+      listeningTogetherRef.current, listeningStartedAtRef.current, charId,
+    );
+    listeningTogetherRef.current = left.partners;
+    listeningStartedAtRef.current = left.startedAt;
+    setListeningTogetherWith(left.partners);
+    setListeningStartedAt(left.startedAt);
     setListeningInvites(prev => { const next = { ...prev }; delete next[charId]; return next; });
-    setListeningStartedAt(prev => {
-      const next = { ...prev }; delete next[charId]; return next;
-    });
   }, []);
   const clearListeningPartners = useCallback(() => {
-    setListeningTogetherWith(prev => prev.length ? [] : prev);
-    Object.keys(listeningStartedAtRef.current).forEach(removeListeningPartner);
+    [...listeningTogetherRef.current].forEach(removeListeningPartner);
   }, [removeListeningPartner]);
 
   // 切歌后清空上一首的"一起听"。只结束状态，不触发主动消息 ——

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Song } from '../context/MusicContext';
 import { cachedCall, invalidate } from './musicCache';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from './musicPlaybackState';
-import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed } from './musicCharActions';
+import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState } from './musicCharActions';
 
 const song = (id: number, source: Song['source'] = 'netease'): Song => ({
   id, source, platformId: String(id), name: 'Song ' + id, artists: 'Artist',
@@ -100,5 +100,23 @@ describe('Char 点歌与收藏不能选错来源或假装播放成功', () => {
     expect(charMusicPlaybackConfirmed(qq, qq, false, false, false)).toBe(false);
     expect(charMusicPlaybackConfirmed(qq, qq, true, true, false)).toBe(false);
     expect(charMusicPlaybackConfirmed(qq, qq, true, false, true)).toBe(false);
+  });
+});
+
+describe('多 Char 伴听即刻生效与独立结束', () => {
+  it('接受 A 后马上切歌已具备 A 的有效状态；两人开始时间各自保留', () => {
+    const a = joinCharListeningState([], {}, 'A', 1000);
+    const b = joinCharListeningState(a.partners, a.startedAt, 'B', 2000);
+    expect(a.partners).toEqual(['A']);
+    expect(b).toEqual({ partners: ['A','B'], startedAt: { A: 1000, B: 2000 } });
+    const again = joinCharListeningState(b.partners, b.startedAt, 'A', 3000);
+    expect(again.startedAt.A).toBe(1000);
+  });
+  it('A 结束后不能继续选歌，不会误删 B 的伴听状态', () => {
+    const both = joinCharListeningState(['A'], { A: 1000 }, 'B', 2000);
+    const left = leaveCharListeningState(both.partners, both.startedAt, 'A');
+    expect(left).toEqual({ partners: ['B'], startedAt: { B: 2000 } });
+    expect(both.partners).toEqual(['A', 'B']);
+    expect(leaveCharListeningState(left.partners, left.startedAt, 'B')).toEqual({ partners: [], startedAt: {} });
   });
 });

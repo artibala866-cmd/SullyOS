@@ -32,6 +32,22 @@ export const findCharMusicTrack = (queue: readonly Song[], request: CharMusicReq
   return preferred(exact) || preferred(partial);
 };
 
+/** Project state synchronously for same-tick Char join / stop operations. */
+export const joinCharListeningState = (
+  partners: readonly string[], startedAt: Readonly<Record<string, number>>, id: string, now: number,
+): { partners: string[]; startedAt: Record<string, number> } => ({
+  partners: partners.includes(id) ? [...partners] : [...partners, id],
+  startedAt: { ...startedAt, [id]: startedAt[id] ?? now },
+});
+
+export const leaveCharListeningState = (
+  partners: readonly string[], startedAt: Readonly<Record<string, number>>, id: string,
+): { partners: string[]; startedAt: Record<string, number> } => {
+  const remaining = { ...startedAt };
+  delete remaining[id];
+  return { partners: partners.filter(charId => charId !== id), startedAt: remaining };
+};
+
 /** Audio source presence is not proof that playback started. */
 export const charMusicPlaybackConfirmed = (
   song: Song, current: Song | null, sourcePresent: boolean, paused: boolean, failed: boolean,
