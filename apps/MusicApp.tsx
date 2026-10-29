@@ -706,7 +706,7 @@ const MusicApp: React.FC = () => {
                   className="text-[9px] underline" style={{ color: C.muted }}>改回跟随中心</button>
               )}
             </div>
-            <input className="w-full rounded-md px-3 py-2 outline-none text-xs shizuku-glass" value={cfg.workerUrl}
+            <input className="w-full rounded-sm px-3 py-2.5 outline-none text-xs shizuku-glass" value={cfg.workerUrl}
               onChange={e => setDraft({ workerUrl: e.target.value })} placeholder={effectiveWorkerUrl}
               style={{ color: C.text }} />
             <div className="text-[9px] mt-1.5 italic" style={{ color: C.faint }}>
@@ -719,7 +719,7 @@ const MusicApp: React.FC = () => {
             <div className="text-[10px] mb-2 tracking-wider flex items-center gap-1.5" style={{ color: C.muted }}>
               <Sparkle size={6} color={C.sakura} delay={0.5} /> 会员 Cookie
             </div>
-            <textarea className="w-full rounded-md px-3 py-2 outline-none text-[10px] shizuku-glass" rows={3} value={cfg.cookie}
+            <textarea className="w-full rounded-sm px-3 py-2.5 outline-none text-[11px] shizuku-glass" rows={3} value={cfg.cookie}
               onChange={e => setDraft({ cookie: e.target.value })} placeholder="MUSIC_U=xxx 或直接粘贴值..."
               style={{ color: C.text, fontFamily: 'monospace', resize: 'none' }} />
             <div className="text-[9px] mt-1.5 italic" style={{ color: C.faint }}>
@@ -733,13 +733,12 @@ const MusicApp: React.FC = () => {
             <div className="grid grid-cols-5 gap-1.5">
               {(['standard', 'higher', 'exhigh', 'lossless', 'hires'] as const).map(q => (
                 <button key={q} onClick={() => { setDraft({ quality: q }); trackEvent('切换音质档位', { quality: q }); }}
-                  className="py-2 rounded-md text-[10px] transition-all"
+                  className="py-2.5 rounded-sm text-[10px] font-medium transition-colors"
                   style={{
                     background: cfg.quality === q ? `#171717` : C.glass,
                     color: cfg.quality === q ? 'white' : C.muted,
                     border: cfg.quality === q ? '1px solid transparent' : `1px solid rgba(230,230,230,.8)`,
-                    boxShadow: cfg.quality === q ? `0 2px 12px ${C.glow}30` : 'none',
-                    backdropFilter: 'blur(8px)',
+                    boxShadow: 'none',
                   }}
                 >{q}</button>
               ))}
@@ -753,7 +752,7 @@ const MusicApp: React.FC = () => {
                 const lines: string[] = [];
                 const ck = normalizeCookie(cfg.cookie);
                 lines.push(`Worker: ${effectiveWorkerUrl}${followsCentral ? '（跟随中心）' : '（音乐单独设的）'}`);
-                lines.push(`Cookie: ${ck ? ck.slice(0, 18) + '...(' + ck.length + 'c)' : '(未填)'}`);
+                lines.push(`Cookie: ${ck ? '已配置（敏感值不显示）' : '未配置'}`);
                 try {
                   const res = await fetch(`${effectiveWorkerUrl}/netease/search`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json', ...(ck ? { 'X-Netease-Cookie': ck } : {}) },
@@ -765,17 +764,13 @@ const MusicApp: React.FC = () => {
                 } catch (e: any) { lines.push(`异常: ${e.message}`); }
                 alert(lines.join('\n'));
               }}
-              className="w-full py-2.5 rounded-2xl text-[10px] tracking-wider shizuku-glass transition-all"
+              className="w-full py-3 rounded-sm text-[12px] font-medium tracking-wide shizuku-glass transition-all"
               style={{ color: C.vip, border: `1px solid ${C.vip}30` }}
             >诊断（搜索晴天）</button>
             <button onClick={commit}
-              className="w-full py-3 rounded-2xl text-xs text-white tracking-wider transition-all relative overflow-hidden"
+              className="w-full py-3.5 rounded-sm text-[13px] font-semibold text-white tracking-wide transition-colors"
               style={{ background: C.primary }}>
-              <span className="relative z-10">保存</span>
-              <div className="absolute inset-0 pointer-events-none" style={{
-                background: `linear-gradient(90deg, transparent 30%, rgba(255,255,255,.18) 50%, transparent 70%)`,
-                backgroundSize: '200% 100%', animation: 'none',
-              }} />
+              保存
             </button>
           </div>
         </div>
