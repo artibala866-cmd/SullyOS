@@ -31,6 +31,11 @@ export function commissionCalendarEvents(commissions:readonly Commission[]):Comm
   return events.sort((a,b)=>a.date.localeCompare(b.date)||Number(b.kind==='deadline')-Number(a.kind==='deadline')
     ||a.priority-b.priority||a.title.localeCompare(b.title));
 }
+/** Keep date-less work visible. Calendar cells cannot show work without a date. */
+export function undatedCommissionItems(commissions:readonly Commission[]):Commission[]{
+  return commissions.filter(c=>c && !['archived','cancelled','delivered'].includes(c.status)
+    && !validCalendarDate(c.plannedDate) && !validCalendarDate(c.dueDate));
+}
 export function commissionCalendarSummary(commissions:readonly Commission[],today:string){
   const active=commissions.filter(c=>c.status==='active').length;
   const finished=commissions.filter(c=>c.status==='delivered').length;

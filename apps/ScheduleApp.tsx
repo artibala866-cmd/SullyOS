@@ -3,7 +3,7 @@ import { useOS } from '../context/OSContext';
 import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
 import StudyCharPicker from './StudyCharPicker';
-import TokenImg from '../components/os/TokenImg';
+import StudyAvatar from './StudyAvatar';
 import {ArrowRight,BookOpen,ChartBar,Clock,Pause,Play,Stop,Target,NotePencil,Palette} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
@@ -342,7 +342,7 @@ const ScheduleApp: React.FC = () => {
           </div>
           <span className="hidden sm:block text-xs tracking-[0.17em] text-neutral-400">专注 · 创作 · 成长</span>
           <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100">
-            {activeChar?.avatar?<TokenImg value={activeChar.avatar} className="h-full w-full object-cover" alt={activeChar.name+' 头像'}/>:<span className="text-xs">Char</span>}
+            <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-full w-full rounded-full"/>
           </span>
         </div>
       </header>
@@ -410,7 +410,7 @@ const ScheduleApp: React.FC = () => {
               <h3 className="text-base font-semibold">Char 陪伴</h3>
               <div className="flex items-center gap-4 rounded-2xl bg-[#f6f6f6] p-4">
                 <span className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-neutral-200">
-                  {activeChar?.avatar?<TokenImg value={activeChar.avatar} alt={activeChar.name+' 头像'} className="h-full w-full object-cover"/>:<span className="grid h-full w-full place-items-center font-serif text-2xl">C</span>}
+                  <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-full w-full rounded-2xl"/>
                 </span>
                 <div className="min-w-0"><p className="text-base font-medium truncate">{activeChar?.name||'选择陪伴角色'}</p><p className="mt-1 text-xs text-neutral-500">{activeChar?'陪你完成当下的一件事':'在上方点击 Char 头像'}</p></div>
               </div>

@@ -7,9 +7,14 @@ const workspace=read('apps/WorkspacePanel.tsx');
 const calendar=read('apps/StudyCommissionCalendar.tsx');
 const timetable=read('apps/StudyWeekTimetable.tsx');
 const picker=read('apps/StudyCharPicker.tsx');
+const avatar=read('apps/StudyAvatar.tsx');
 describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口',()=>{
  it('Char 取系统角色的真实头像，支持 blobref/data/URL 且角色切换仍真实调用 chooseChar',()=>{
-   expect(picker).toContain('TokenImg value={char.avatar}');
+   expect(picker).toContain('<StudyAvatar value={char.avatar} name={char.name}');
+   expect(avatar).toContain("isImageValue(value)");
+   expect(avatar).toContain('onError={()=>setBroken(imageValue)}');
+   expect(avatar).toContain('broken!==imageValue');
+   expect(schedule).toContain('<StudyAvatar value={activeChar?.avatar}');
    expect(picker).toContain('onClick={()=>onSelect(char.id)}');
    expect(picker).toContain('aria-pressed={selectedId===char.id}');
    expect(schedule).toContain('StudyCharPicker characters={characters} selectedId={charId} onSelect={chooseChar}');
@@ -26,9 +31,13 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(calendar).toContain('onClick={()=>onEdit(event.id)}');
    expect(calendar).toContain('onFocus(event.id,event.title)');
    expect(calendar).not.toContain('window.localStorage');
+   expect(calendar).toContain('undatedCommissionItems(commissions)');
+   expect(calendar).toContain('onClick={()=>onEdit(undated[0].id)}');
  });
  it('周课程表读取原课程关联且触发原有作业、笔记选择，不读写 PDF',()=>{
-   expect(workspace).toContain('StudyWeekTimetable classes={data.classes} selectedId={selectedClassId} onSelect={setSelectedClassId}');
+   expect(workspace).toContain('StudyWeekTimetable classes={data.classes} selectedId={selectedClassId}');
+   expect(workspace).toContain("document.getElementById('study-homework-panel')?.scrollIntoView");
+   expect(workspace).toContain('id="study-homework-panel"');
    expect(timetable).toContain('onSelect(c.id)');
    expect(timetable).toContain('!c.cancelled&&c.weekday===day.getDay()');
  });

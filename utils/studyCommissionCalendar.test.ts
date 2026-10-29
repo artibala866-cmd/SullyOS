@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {calendarMonthGrid,commissionCalendarEvents,commissionCalendarSummary,validCalendarDate} from './studyCommissionCalendar';
+import {calendarMonthGrid,commissionCalendarEvents,commissionCalendarSummary,validCalendarDate,undatedCommissionItems} from './studyCommissionCalendar';
 import type {Commission} from './sullyWorkspace';
 const make=(id:string,override:Partial<Commission>={}):Commission=>({
   id,title:'插画 '+id,client:'秘密客户',type:'头像',brief:'敏感需求',acceptedAt:'',
@@ -35,4 +35,20 @@ describe('学习室真实委托月历',()=>{
      make('done',{status:'delivered',dueDate:'2026-10-20'})];
    expect(commissionCalendarSummary(list,'2026-10-29')).toEqual({active:2,finished:1,upcoming:1,late:1});
  });
+ it('无日期委托仍能从日历找到；等待中也显示；已归档、已取消、已交付不混入待排期',()=>{
+   const list=[
+     make('both-missing',{plannedDate:'',dueDate:''}),
+     make('waiting',{status:'waiting',plannedDate:'',dueDate:''}),
+     make('bad',{plannedDate:'2026-02-31',dueDate:''}),
+     make('planned',{dueDate:'',plannedDate:'2026-11-02'}),
+     make('deadline',{plannedDate:'',dueDate:'2026-11-04'}),
+     make('done',{status:'delivered',plannedDate:'',dueDate:''}),
+     make('cancel',{status:'cancelled',plannedDate:'',dueDate:''}),
+     make('arch',{status:'archived',plannedDate:'',dueDate:''}),
+   ];
+   expect(undatedCommissionItems(list).map(c=>c.id)).toEqual(['both-missing','waiting','bad']);
+   expect(commissionCalendarEvents(list).map(e=>e.id)).toEqual(['planned','deadline']);
+   expect(list[0].title).toBe('插画 both-missing');
+ });
+
 });

@@ -590,7 +590,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       <header className={cardClass+' !bg-[linear-gradient(120deg,#fff,#f3f3f3)]'}><p className="text-[10px] tracking-[.24em] text-neutral-400">WEEKLY SCHOOL PLANNER</p>
         <h2 className="font-serif text-[29px] tracking-wide">课程表</h2>
         <p className="text-xs text-neutral-500">点选一门课，即可在下方查看作业与笔记。</p></header>
-      <StudyWeekTimetable classes={data.classes} selectedId={selectedClassId} onSelect={setSelectedClassId}/>
+      <StudyWeekTimetable classes={data.classes} selectedId={selectedClassId}
+        onSelect={id=>{
+          setSelectedClassId(id);
+          document.getElementById('study-homework-panel')?.scrollIntoView({block:'start',behavior:'smooth'});
+        }}/>
       <details className={cardClass}>
         <summary className="cursor-pointer text-sm font-semibold">＋ 新增课程 · 点击展开</summary>
       <form className="space-y-3 pt-2" onSubmit={addClass}>
@@ -686,7 +690,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           </details>
         </article>)}
       </details>
-      <section className={cardClass}>
+      <section id="study-homework-panel" className={cardClass+' scroll-mt-4'}>
         <div className="flex items-center justify-between gap-3">
           <div><p className="text-[10px] tracking-[.22em] text-neutral-400">HOMEWORK & NOTES</p><h3 className="mt-1 text-[18px] font-semibold">作业与笔记</h3></div>
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f1f1f1] text-lg">✎</span>

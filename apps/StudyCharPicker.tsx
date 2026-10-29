@@ -1,5 +1,5 @@
 import React from 'react';
-import TokenImg from '../components/os/TokenImg';
+import StudyAvatar from './StudyAvatar';
 import type {CharacterProfile} from '../types';
 
 type CharacterChoice=Pick<CharacterProfile,'id'|'name'|'avatar'>;
@@ -20,9 +20,7 @@ export default function StudyCharPicker({characters,selectedId,onSelect,compact=
         aria-pressed={selectedId===char.id} onClick={()=>onSelect(char.id)}
         className={'snap-start flex shrink-0 flex-col items-center gap-1.5 rounded-2xl px-1.5 py-2 transition-colors focus-visible:ring-2 focus-visible:ring-neutral-800 '+(selectedId===char.id?'bg-[#ededed]':'hover:bg-neutral-100')}>
         <span className={'relative grid place-items-center rounded-full border-[3px] p-[3px] '+(compact?'h-14 w-14':'h-[72px] w-[72px]')+' '+(selectedId===char.id?'border-neutral-900':'border-transparent')}>
-          {char.avatar?<TokenImg value={char.avatar} alt={char.name+' 的头像'} loading="lazy"
-            className="h-full w-full rounded-full object-cover bg-neutral-200"/>:
-            <span className="grid h-full w-full place-items-center rounded-full bg-neutral-200 font-serif text-xl">{char.name.slice(0,1)}</span>}
+          <StudyAvatar value={char.avatar} name={char.name} className="h-full w-full rounded-full"/>
           {selectedId===char.id&&<span className="absolute -bottom-0.5 -right-1 grid h-5 w-5 place-items-center rounded-full border-2 border-white bg-neutral-900 text-[11px] text-white">✓</span>}
         </span>
         <span className={'max-w-[84px] truncate text-center '+(compact?'text-[11px]':'text-xs font-medium')}>{char.name}</span>

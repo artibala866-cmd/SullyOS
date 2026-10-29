@@ -1,7 +1,7 @@
 import React,{useMemo,useState} from 'react';
 import {CalendarBlank,CaretLeft,CaretRight,Flag,PenNib,Clock} from '@phosphor-icons/react';
 import type {Commission} from '../utils/sullyWorkspace';
-import {calendarMonthGrid,commissionCalendarEvents,commissionCalendarSummary} from '../utils/studyCommissionCalendar';
+import {calendarMonthGrid,commissionCalendarEvents,commissionCalendarSummary,undatedCommissionItems} from '../utils/studyCommissionCalendar';
 
 interface Props{
   commissions:readonly Commission[];
@@ -24,6 +24,7 @@ export default function StudyCommissionCalendar({commissions,onFocus,onEdit}:Pro
   },[events]);
   const today=todayKey();
   const summary=commissionCalendarSummary(commissions,today);
+  const undated=undatedCommissionItems(commissions);
   const selectedEvents=showAll?events.filter(e=>e.date.startsWith(month)):byDay.get(selected)||[];
   const stepMonth=(delta:number)=>{
     const date=new Date(Date.UTC(y,m-1+delta,1));
@@ -51,7 +52,7 @@ export default function StudyCommissionCalendar({commissions,onFocus,onEdit}:Pro
         const list=byDay.get(day.date)||[];
         const current=day.date===today;
         const active=day.date===selected&&!showAll;
-        return <button key={day.date} type="button" role="gridcell" aria-selected={active}
+        return <button key={day.date} type="button" aria-pressed={active}
           onClick={()=>{setSelected(day.date);setShowAll(false);if(!day.inMonth)setMonth(day.date.slice(0,7));}}
           aria-label={day.date+'，'+list.length+' 项日程'}
           className={'min-w-0 min-h-[61px] sm:min-h-[78px] rounded-xl border px-0.5 sm:px-1 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-800 '+(active?'border-neutral-900 bg-[#f1f1f1]':day.inMonth?'border-neutral-100 bg-white hover:bg-[#f7f7f7]':'border-transparent bg-[#fafafa] opacity-45')}>
@@ -66,6 +67,14 @@ export default function StudyCommissionCalendar({commissions,onFocus,onEdit}:Pro
         </button>;
       })}
     </div>
+    {undated.length>0&&<div className="rounded-2xl border border-dashed border-neutral-300 bg-[#fafafa] px-4 py-3" aria-label="尚未安排日期的委托">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-medium text-neutral-700">{undated.length} 项委托尚未填写计划日或交稿日</p>
+        <button type="button" onClick={()=>onEdit(undated[0].id)}
+          className="shrink-0 rounded-full bg-neutral-900 px-3 py-2 text-[11px] text-white">去安排日期</button>
+      </div>
+      <p className="mt-1 text-[11px] text-neutral-500">这些稿件仍在工作队列中，不会因没有日期被删除；设置日期后将出现在月历里。</p>
+    </div>}
     <div className="grid grid-cols-4 gap-2" aria-label="委托数量概览">
       {[
         [summary.active,'进行中'],[summary.upcoming,'七天内'],[summary.late,'已逾期'],[summary.finished,'已交付'],
@@ -79,7 +88,7 @@ export default function StudyCommissionCalendar({commissions,onFocus,onEdit}:Pro
         <button type="button" className="text-xs text-neutral-600 underline underline-offset-4"
           onClick={()=>setShowAll(v=>!v)}>{showAll?'查看所选日期':'查看本月全部'}</button>
       </div>
-      {selectedEvents.length===0?<div className="rounded-2xl bg-[#f8f8f8] p-5 text-center text-xs text-neutral-400">这一天暂无委托安排。你可以在下方添加计划日期或交稿日期。</div>:
+      {selectedEvents.length===0?<div className="rounded-2xl bg-[#f8f8f8] p-5 text-center text-xs text-neutral-400">{showAll?'本月暂无已排期委托。':'这一天暂无委托安排。'}你可以在下方添加计划日期或交稿日期。</div>:
         <div className="max-h-64 overflow-y-auto space-y-2">
           {selectedEvents.map(event=>{
             const commission=commissions.find(c=>c.id===event.id);
