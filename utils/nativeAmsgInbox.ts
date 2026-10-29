@@ -1,5 +1,5 @@
 import type { ActiveMsg2InboxMessage } from '../types';
-import { flushInboxToChat } from './activeMsgRuntime';
+import { flushInboxToChat, handleInstantErrorPushMessage } from './activeMsgRuntime';
 import { ActiveMsgStore } from './activeMsgStore';
 
 const RECEIVED_IDS_KEY = 'amsg2_native_received_ids_v2';
@@ -58,6 +58,21 @@ export const ingestNativeAmsgPayload = (
 
   const task = (async () => {
     const result = { charId, messageId };
+    const kind = typeof payload?.messageKind === 'string' ? payload.messageKind : 'content';
+    if (kind === 'error') {
+      // An instant-chat failure is a control message, not an empty reply.
+      await handleInstantErrorPushMessage(payload);
+      return result;
+    }
+    if (kind === 'result') {
+      // Cloud results are processed/acked by the existing outbox dispatcher.
+      // Never insert their payload into private chat as an empty bubble.
+      const { drainOutbox } = await import('./amsgInstantChat');
+      await drainOutbox();
+      await flushInboxToChat('原生收件箱');
+      return result;
+    }
+    if (kind !== 'content' && kind !== 'emotion_update') return null;
     if (!readReceivedIds().includes(messageId)) {
       const parsedSentAt = payload?.timestamp ? new Date(payload.timestamp).getTime() : NaN;
       const body = String(payload?.message || '').trim();
@@ -69,7 +84,7 @@ export const ingestNativeAmsgPayload = (
         previewBody: String(previewOverride || payload?.previewBody || body).trim(),
         avatarUrl: payload?.avatarUrl,
         source: payload?.source,
-        messageType: payload?.messageType,
+        messageType: kind === 'emotion_update' ? 'emotion_update' : payload?.messageType,
         messageSubtype: payload?.messageSubtype,
         taskId: payload?.taskId ?? null,
         taskUuid: payload?.taskUuid ?? null,

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   saveInboxMessage: vi.fn().mockResolvedValue(undefined),
   flushInboxToChat: vi.fn().mockResolvedValue([]),
+  handleInstantErrorPushMessage: vi.fn().mockResolvedValue(undefined),
+  drainOutbox: vi.fn().mockResolvedValue({ written: 0, writtenIds: [], ackNow: [], entries: [], staleDropped: 0 }),
 }));
 
 vi.mock('./activeMsgStore', () => ({
@@ -10,6 +12,11 @@ vi.mock('./activeMsgStore', () => ({
 }));
 vi.mock('./activeMsgRuntime', () => ({
   flushInboxToChat: mocks.flushInboxToChat,
+  handleInstantErrorPushMessage: mocks.handleInstantErrorPushMessage,
+}));
+
+vi.mock('./amsgInstantChat', () => ({
+  drainOutbox: mocks.drainOutbox,
 }));
 
 import { ingestNativeAmsgPayload, parseNativeAmsgPayload } from './nativeAmsgInbox';
@@ -27,6 +34,8 @@ describe('UnifiedPush and Android native AMSG durable inbox', () => {
     localStorage.clear();
     mocks.saveInboxMessage.mockReset().mockResolvedValue(undefined);
     mocks.flushInboxToChat.mockReset().mockResolvedValue([]);
+    mocks.handleInstantErrorPushMessage.mockReset().mockResolvedValue(undefined);
+    mocks.drainOutbox.mockReset().mockResolvedValue({ written: 0, writtenIds: [], ackNow: [], entries: [], staleDropped: 0 });
   });
 
   it('accepts objects or JSON strings, rejects arrays and malformed payloads', async () => {
@@ -78,6 +87,43 @@ describe('UnifiedPush and Android native AMSG durable inbox', () => {
     await ingestNativeAmsgPayload(payload);
     expect(mocks.saveInboxMessage).toHaveBeenCalledTimes(1);
     expect(mocks.flushInboxToChat).toHaveBeenCalledTimes(2);
+  });
+
+  it('instant failure notification settles the pending reply instead of creating a blank bubble', async () => {
+    await ingestNativeAmsgPayload({
+      ...payload, messageId: 'err-1', message: '', messageKind: 'error',
+      metadata: { charId: 'char-1', taskUuid: 'task-1', reason: 'timeout' },
+    });
+    expect(mocks.handleInstantErrorPushMessage).toHaveBeenCalledWith(expect.objectContaining({
+      messageKind: 'error', messageId: 'err-1',
+    }));
+    expect(mocks.saveInboxMessage).not.toHaveBeenCalled();
+  });
+
+  it('background result notification is reconciled through the cloud result ledger', async () => {
+    await ingestNativeAmsgPayload({
+      ...payload, messageId: 'result-1', messageKind: 'result', resultKind: 'schedule-change',
+    });
+    expect(mocks.drainOutbox).toHaveBeenCalledTimes(1);
+    expect(mocks.saveInboxMessage).not.toHaveBeenCalled();
+  });
+
+  it('unknown native control messages cannot become empty chat bubbles', async () => {
+    await expect(ingestNativeAmsgPayload({
+      ...payload, messageId: 'unsupported', messageKind: 'diagnostic',
+    })).resolves.toBeNull();
+    expect(mocks.saveInboxMessage).not.toHaveBeenCalled();
+    expect(mocks.flushInboxToChat).not.toHaveBeenCalled();
+  });
+
+  it('emotion-update envelope keeps its dispatch kind even if messageType was omitted', async () => {
+    await ingestNativeAmsgPayload({
+      ...payload, messageId: 'emotion-kind', message: '', messageKind: 'emotion_update',
+      messageType: undefined,
+    });
+    expect(mocks.saveInboxMessage).toHaveBeenCalledWith(expect.objectContaining({
+      messageType: 'emotion_update', body: '',
+    }));
   });
 
   it('an empty native content still preserves non-chat metadata for the existing inbox dispatcher', async () => {
