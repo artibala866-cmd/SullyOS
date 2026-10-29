@@ -267,7 +267,11 @@ const ScheduleApp: React.FC = () => {
   };
   const openCompanionOverview=async()=>{
     if(overviewBusy)return;
-    if(!activeChar){setShowCharPicker(true);addToast('请先选择想陪你学习的 Char','info');return;}
+    if(!activeChar){
+      setAssistantScope('overview');setAssistantItemId('');setAssistantTopic('');
+      setMessage('');setAssistantOpen(true);
+      addToast('请先在学习室陪伴对话框中选择 Char','info');return;
+    }
     const version=++discussionVersion.current;
     setOverviewBusy(true);
     try{
@@ -588,6 +592,11 @@ const ScheduleApp: React.FC = () => {
             <button className="text-lg px-3" aria-label="关闭 Char" onClick={()=>setAssistantOpen(false)}>×</button>
           </div>
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
+          {assistantScope==='overview' && <button type="button" disabled={!activeChar||overviewBusy}
+            className="self-start rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs disabled:opacity-50"
+            onClick={()=>void openCompanionOverview()}>
+            {overviewBusy?'正在读取计划…':'查看最新学习和画稿计划'}
+          </button>}
           <p className="text-xs text-neutral-500">{assistantScope==='focus'?'专注陪伴':assistantScope==='study'?'作业复盘':assistantScope==='commission'?'画稿建议':assistantScope==='overview'?'今日陪伴':'排单建议'}</p>
           {assistantTopic && <details className="text-xs rounded-lg border border-neutral-200 px-3 py-2">
             <summary className="cursor-pointer">发送内容</summary>
