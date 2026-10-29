@@ -73,6 +73,14 @@ export const ingestNativeAmsgPayload = (
       return result;
     }
     if (kind !== 'content' && kind !== 'emotion_update') return null;
+    if (kind === 'content' && payload?.amsgNeedsOutboxRecovery === true) {
+      // A privacy-masked FCM notification is a signal, not a private-chat
+      // message. Fetch only the exact encrypted outbox entry it announces.
+      const { recoverOutboxPushByMessageId } = await import('./amsgInstantChat');
+      const restored = await recoverOutboxPushByMessageId(messageId, charId);
+      if (restored) await flushInboxToChat('原生收件箱');
+      return restored ? result : null;
+    }
     if (!readReceivedIds().includes(messageId)) {
       const parsedSentAt = payload?.timestamp ? new Date(payload.timestamp).getTime() : NaN;
       const body = String(payload?.message || '').trim();
@@ -92,9 +100,9 @@ export const ingestNativeAmsgPayload = (
         occurrenceMs: payload?.occurrenceMs ?? null,
         metadata: {
           ...(payload?.metadata || {}),
-          sessionId: payload?.sessionId,
-          messageIndex: payload?.messageIndex,
-          totalMessages: payload?.totalMessages,
+          ...(payload?.sessionId !== undefined ? { sessionId: payload.sessionId } : {}),
+          ...(payload?.messageIndex !== undefined ? { messageIndex: payload.messageIndex } : {}),
+          ...(payload?.totalMessages !== undefined ? { totalMessages: payload.totalMessages } : {}),
         },
         sentAt: Number.isFinite(parsedSentAt) ? parsedSentAt : Date.now(),
         receivedAt: Date.now(),

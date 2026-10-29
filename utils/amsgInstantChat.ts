@@ -687,9 +687,9 @@ export const outboxPushToInbox = (
     occurrenceMs: payload?.occurrenceMs ?? null,
     metadata: {
       ...(payload?.metadata || {}),
-      sessionId: payload?.sessionId,
-      messageIndex: payload?.messageIndex,
-      totalMessages: payload?.totalMessages,
+      ...(payload?.sessionId !== undefined ? { sessionId: payload.sessionId } : {}),
+      ...(payload?.messageIndex !== undefined ? { messageIndex: payload.messageIndex } : {}),
+      ...(payload?.totalMessages !== undefined ? { totalMessages: payload.totalMessages } : {}),
       // 走到这里 = 真推送没送到、从云端副本捡回来的。销账那边靠它决定要不要顺手
       // 取消还挂在重试队列里的任务行（正常送达的路没这个标记，一个多余请求不发）。
       // SW 那份映射（saveContentToInbox）刻意没有这个键：它只在补收路径为真。
@@ -964,6 +964,30 @@ const backfillOutboxEntries = async (
  * 是为了避免和 activeMsgRuntime 成环）。要跟用户报「补回了几条」的，还得拿 writtenIds
  * 跟冲刷返回的落库名单对一次——写进收件箱不等于上了屏。
  */
+/**
+ * Privacy-masked native FCM notifications contain a provider ID but no
+ * message body. Restore only that one encrypted cloud entry, without
+ * acknowledging unrelated old backlog or changing first-adoption state.
+ */
+export const recoverOutboxPushByMessageId = async (
+  messageId: string,
+  charId: string,
+): Promise<boolean> => {
+  if (!messageId || !charId) return false;
+  const entries = await ActiveMsgClient.listOutboxEntries();
+  const matches = entries.filter(entry =>
+    entry.messageId === messageId
+    && entry.push?.metadata?.charId === charId
+    && (entry.push?.messageKind === 'content' || entry.push?.messageKind == null),
+  );
+  if (!matches.length) return false;
+  const { written, ackNow } = await backfillOutboxEntries(matches);
+  // The inbox pipeline acknowledges normal content only after it is safely
+  // persisted in private chat. Never mark the entire outbox as adopted here.
+  if (ackNow.length) await ActiveMsgClient.ackOutboxMessages(ackNow);
+  return written > 0;
+};
+
 export const drainOutbox = async (
   options?: {
     /**

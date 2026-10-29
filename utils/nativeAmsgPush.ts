@@ -8,6 +8,7 @@ import { ActiveMsgClient, NATIVE_PUSH_TOKEN_STORAGE_KEY } from './activeMsgClien
 import { ingestNativeAmsgPayload, parseNativeAmsgPayload } from './nativeAmsgInbox';
 
 let initialized = false;
+let registeredForPush = false;
 let initializing: Promise<void> | null = null;
 const installed = {
   registration: false,
@@ -25,8 +26,12 @@ export const decodeNativeAmsgPayload = (
   if (!payload) return null;
   // The FCM data payload intentionally omits private text where possible;
   // only an explicit body marker authorizes using the notification text.
-  return { ...payload, message: notification.data?.amsgHasBody === '1'
-    ? String(notification.body || '') : '' };
+  const hasBody = notification.data?.amsgHasBody === '1';
+  return {
+    ...payload,
+    message: hasBody ? String(notification.body || '') : '',
+    ...(hasBody ? {} : { amsgNeedsOutboxRecovery: true }),
+  };
 };
 
 /** Both native arrival and tap callbacks converge on the same receipt
@@ -59,7 +64,11 @@ const onNotificationOpened = (action: ActionPerformed) => {
 const registerToken = async (token: Token) => {
   const value = token.value?.trim();
   if (!value) return;
-  localStorage.setItem(NATIVE_PUSH_TOKEN_STORAGE_KEY, value);
+  try {
+    localStorage.setItem(NATIVE_PUSH_TOKEN_STORAGE_KEY, value);
+  } catch (error) {
+    console.warn('[ActiveMsg:native] 推送 token 本地缓存失败，尝试直接登记', error);
+  }
   try {
     await ActiveMsgClient.registerNativePushToken(value);
   } catch (error) {
@@ -68,14 +77,16 @@ const registerToken = async (token: Token) => {
 };
 
 export const initNativeAmsgPush = async (): Promise<void> => {
-  if (initialized) return;
+  if (initialized && registeredForPush) return;
   if (initializing) return initializing;
 
   const task = (async () => {
-    await PushNotifications.createChannel({
-      id: 'amsg2', name: '主动消息', description: '角色主动消息与定时消息',
-      importance: 5, visibility: 1, vibration: true,
-    }).catch(() => undefined);
+    if (!initialized) {
+      await PushNotifications.createChannel({
+        id: 'amsg2', name: '主动消息', description: '角色主动消息与定时消息',
+        importance: 5, visibility: 1, vibration: true,
+      }).catch(() => undefined);
+    }
 
     // A failure halfway through registration must remain retryable without
     // installing the already-successful listeners a second time.
@@ -100,7 +111,12 @@ export const initNativeAmsgPush = async (): Promise<void> => {
     const current = await PushNotifications.checkPermissions();
     const permission = current.receive === 'prompt'
       ? await PushNotifications.requestPermissions() : current;
-    if (permission.receive === 'granted') await PushNotifications.register();
+    if (permission.receive === 'granted' && !registeredForPush) {
+      await PushNotifications.register();
+      registeredForPush = true;
+    }
+    // A denied permission may be granted later in Android Settings.
+    // Recheck on another init call without installing duplicate listeners.
     initialized = true;
   })();
   initializing = task;
