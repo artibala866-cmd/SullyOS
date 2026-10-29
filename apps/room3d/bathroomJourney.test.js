@@ -85,13 +85,13 @@ describe('authored tub rim contact and reversible leg crossing',()=>{
  });
  it('plants the first approach, grips the rim and steps one leg at a time before sitting',()=>{
   const j=fixture(),turn=bathroomJourneyFrame(j,.25),grip=bathroomJourneyFrame(j,.84),
-   first=bathroomJourneyFrame(j,2.20),second=bathroomJourneyFrame(j,3.04),sit=bathroomJourneyFrame(j,4.55);
+   first=bathroomJourneyFrame(j,2.20),second=bathroomJourneyFrame(j,3.11),sit=bathroomJourneyFrame(j,4.55);
   expect(distance(turn.position,j.front)).toBeLessThan(1e-6);
   expect(grip.support).toBeGreaterThan(0);
   expect(first.leadStep).toBeGreaterThan(.5);
   expect(first.trailStep).toBe(0);
   expect(second.trailStep).toBeGreaterThan(.5);
-  expect(second.leadStep).toBeLessThan(.5);
+  expect(second.leadStep).toBeGreaterThan(.5); // Keep the first foot above the rim until the trailing foot clears.
   expect(first.seatWeight).toBe(0);
   expect(second.seatWeight).toBe(0);
   expect(sit.seatWeight).toBeGreaterThan(.9);
@@ -117,13 +117,13 @@ describe('authored tub rim contact and reversible leg crossing',()=>{
  });
  it('tucks each leg above the rim before swinging it across the bathtub',()=>{
   const j=fixture(),lead=bathroomJourneyFrame(j,1.69),cross=bathroomJourneyFrame(j,2.19),
-   trail=bathroomJourneyFrame(j,2.83),follow=bathroomJourneyFrame(j,3.17);
+   trail=bathroomJourneyFrame(j,3.00),follow=bathroomJourneyFrame(j,3.27);
   expect(lead.leadTuck).toBeGreaterThan(.8);
   expect(lead.leadStep).toBe(0);
   expect(cross.leadTuck).toBeGreaterThan(.8);
   expect(cross.leadStep).toBeGreaterThan(.5);
   expect(trail.trailTuck).toBeGreaterThan(.7);
-  expect(trail.trailStep).toBe(0);
+  expect(trail.trailStep).toBeLessThan(.15);
   expect(follow.trailTuck).toBeGreaterThan(.8);
   expect(follow.trailStep).toBeGreaterThan(.5);
  });

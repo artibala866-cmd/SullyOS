@@ -58,9 +58,9 @@ describe('existing skeletal bath IK and reversible tub pose',()=>{
   expect(lead.leadStep).toBeGreaterThan(.5);
   expect(lead.trailStep).toBe(0);
   expect(left.angleTo(right)).toBeGreaterThan(.10);
-  const trail=frame(a,activity,j,3.04);
+  const trail=frame(a,activity,j,3.11);
   expect(trail.trailStep).toBeGreaterThan(.5);
-  expect(trail.leadStep).toBeLessThan(.5);
+  expect(trail.leadStep).toBeGreaterThan(.5); // The first foot stays clear while the second swings.
   expect(a.rig.bones.L_thigh.quaternion.angleTo(a.rig.bones.R_thigh.quaternion)).toBeGreaterThan(.10);
  });
  it('takes a real forward approach step instead of swinging back onto the same footprint',()=>{

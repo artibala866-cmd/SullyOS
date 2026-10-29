@@ -63,10 +63,10 @@ export function bathroomJourneyFrame(j,time){
   supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
   // Tuck the knee vertically before swinging the foot across the tall rim.
   // The two contacts are separate: lift first, then transfer across.
-  leadTuck=pulse(p,1.35,1.67,2.48,2.76);
-  trailTuck=pulse(p,2.58,2.91,3.38,3.76);
-  leadStep=pulse(p,1.84,2.12,2.28,2.60);
-  trailStep=pulse(p,2.86,3.05,3.22,3.58);
+  leadTuck=pulse(p,1.35,1.67,3.46,3.90);
+  trailTuck=pulse(p,2.82,3.03,3.48,3.90);
+  leadStep=pulse(p,1.84,2.12,3.44,3.82);
+  trailStep=pulse(p,2.97,3.19,3.48,3.87);
   // Hands may reach early; knee flexion and pelvis lowering must wait for
   // BOTH approach feet to land, otherwise the anchored stance toe jumps.
   crouch=M.smootherstep(p,1.24,1.76)*(1-M.smootherstep(p,3.72,4.52));
@@ -78,7 +78,7 @@ export function bathroomJourneyFrame(j,time){
   // Cross the rim in two weight transfers while each corresponding knee is
   // raised; the former single late travel carried grounded feet through GLB.
   const advance=.20*M.smootherstep(p,.30,.74)+.07*M.smootherstep(p,.79,1.19)
-   +.24*M.smootherstep(p,2.20,2.50)+.49*M.smootherstep(p,3.00,3.58);
+   +.24*M.smootherstep(p,3.07,3.40)+.49*M.smootherstep(p,3.40,4.10);
   const lower=M.smootherstep(p,3.52,4.6);
   position=mix(j.front,j.position,advance);
   // A high-sided GLB tub requires a supported transfer of the pelvis:
