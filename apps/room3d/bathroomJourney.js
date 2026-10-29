@@ -49,7 +49,7 @@ export function bathroomJourneyFrame(j,time){
  const progress=cancelled?Math.max(0,entryProgress-(t-j.cancelElapsed)):undefined;
  const phase=cancelled?'exit':t<j.enter?'enter':t<j.enter+j.hold?'work':'exit';
  const p=cancelled?progress:phase==='enter'?t:phase==='work'?j.enter:duration-t;
- let position,rotation,seatWeight=0,legLift=0,support=0,approachStep=0,approachTrailStep=0,leadStep=0,trailStep=0,lean=0,supportFoot=null;
+ let position,rotation,seatWeight=0,legLift=0,support=0,approachStep=0,approachTrailStep=0,leadStep=0,trailStep=0,lean=0,crouch=0,supportFoot=null;
  if(j.tub){
   // Turn on the planted feet, reach the rim, lift one leg, transfer weight,
   // then lift the trailing leg. Lower into the authored seat AFTER clearing.
@@ -63,6 +63,9 @@ export function bathroomJourneyFrame(j,time){
   supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
   leadStep=pulse(p,1.24,1.48,1.73,2.12);
   trailStep=pulse(p,1.84,2.10,2.51,2.94);
+  // Hands may reach early; knee flexion and pelvis lowering must wait for
+  // BOTH approach feet to land, otherwise the anchored stance toe jumps.
+  crouch=M.smootherstep(p,1.21,1.57)*(1-M.smootherstep(p,2.70,3.55));
   lean=M.smootherstep(p,.58,1.12)*(1-M.smootherstep(p,2.65,3.55));
   // Walk the last short, grounded step to reach the REAL near rim before
   // the first crossing leg lifts. Do not drag the standing root vertically.
@@ -76,7 +79,7 @@ export function bathroomJourneyFrame(j,time){
   const f=M.smootherstep(p,0,j.enter);
   position=mix(j.front,j.position,f);rotation=turn(j.startRotation,j.rotation,f);seatWeight=j.seated?f:0;
  }
- return {position,rotation,seatWeight,legLift,support,approachStep,approachTrailStep,supportFoot,leadStep,trailStep,lean,phase,time:phase==='work'?t-j.enter:p,
+ return {position,rotation,seatWeight,legLift,support,approachStep,approachTrailStep,supportFoot,leadStep,trailStep,lean,crouch,phase,time:phase==='work'?t-j.enter:p,
   done:cancelled?t-j.cancelElapsed>=entryProgress:t>=duration};
 }
 
