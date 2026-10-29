@@ -1,0 +1,81 @@
+/**
+ * Read-only, anonymous third-party music-source smoke probe.
+ * Searches public metadata and inspects URL/cover/lyric response shapes;
+ * NEVER downloads or plays audio, sends user cookies, or logs signed URLs.
+ * Failures are diagnostic (non-blocking): an upstream outage cannot fail CI.
+ */
+const deadlineMs = 6500;
+const probe = async (label, url) => {
+  const started = Date.now();
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(deadlineMs) });
+    const type = response.headers.get('content-type') || '';
+    const allow = response.headers.get('access-control-allow-origin');
+    const obj = /json/i.test(type) ? await response.json().catch(() => null) : null;
+    const summary = {
+      source: label,
+      http: response.status,
+      latencyMs: Date.now() - started,
+      json: !!obj,
+      cors: allow || '(none)',
+      providerCode: typeof obj?.code === 'number' ? obj.code : undefined,
+    };
+    console.log('MUSIC_SOURCE_PROBE', JSON.stringify(summary));
+    return obj;
+  } catch (error) {
+    console.log('MUSIC_SOURCE_PROBE', JSON.stringify({
+      source: label, http: 'unreachable', latencyMs: Date.now()-started,
+      reason: error?.name === 'TimeoutError' ? 'timeout' : 'request failed',
+    }));
+    return null;
+  }
+};
+
+const gd = (params) => {
+  const url = new URL('https://music-api.gdstudio.xyz/api.php');
+  Object.entries(params).forEach(([key,value]) => url.searchParams.set(key,String(value)));
+  return url;
+};
+
+const qqSearch = new URL('https://api.vkeys.cn/v2/music/tencent/search/song');
+qqSearch.searchParams.set('word','钢琴');
+qqSearch.searchParams.set('page','1');
+qqSearch.searchParams.set('num','2');
+
+const [qq, netease] = await Promise.all([
+  probe('qq_search_vkeys',qqSearch),
+  probe('netease_search_gd',gd({types:'search',source:'netease',name:'钢琴',count:2,pages:1})),
+]);
+const qqRows = qq?.data?.song?.list || qq?.data?.list || qq?.data?.songs || qq?.list || [];
+if (Array.isArray(qqRows) && qqRows.length) {
+  const first = qqRows[0];
+  const mid = String(first?.songmid || first?.mid || '');
+  const id = String(first?.songid || first?.id || '');
+  if (mid || id) {
+    const url = new URL('https://api.vkeys.cn/v2/music/tencent/geturl');
+    url.searchParams.set(mid ? 'mid' : 'id', mid || id);
+    url.searchParams.set('quality','8');
+    const resp = await probe('qq_url_vkeys',url);
+    console.log('MUSIC_SOURCE_SHAPE', JSON.stringify({
+      source:'qq_url_vkeys', hasUrl: !!(resp?.data?.url || resp?.url), errorFlag: !!(resp?.error || resp?.msg),
+    }));
+  }
+}
+if (Array.isArray(netease) && netease.length) {
+  const first = netease[0], id = first?.id;
+  if (id != null) {
+    const url = await probe('netease_url_gd',gd({types:'url',source:'netease',id,br:128}));
+    console.log('MUSIC_SOURCE_SHAPE',JSON.stringify({source:'netease_url_gd',hasUrl:typeof url?.url==='string' && url.url.startsWith('http'),br: url?.br ?? null}));
+    if (first?.pic_id) {
+      const pic = await probe('netease_pic_gd',gd({types:'pic',source:'netease',id:first.pic_id,size:300}));
+      console.log('MUSIC_SOURCE_SHAPE',JSON.stringify({source:'netease_pic_gd',hasPic:typeof pic?.url==='string' && pic.url.startsWith('http')}));
+    }
+    if (first?.lyric_id || id) {
+      const lyric = await probe('netease_lyric_gd',gd({types:'lyric',source:'netease',id:first.lyric_id || id}));
+      console.log('MUSIC_SOURCE_SHAPE',JSON.stringify({source:'netease_lyric_gd',hasLyric:typeof lyric?.lyric==='string' && lyric.lyric.length>0}));
+    }
+  }
+}
+// A response may fail due to region/IP/rights; report shapes without inventing
+// a guaranteed global availability verdict.
+console.log('MUSIC_SOURCE_PROBE_DONE (anonymous metadata only; no audio downloaded)');
