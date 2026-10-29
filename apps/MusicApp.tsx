@@ -30,7 +30,7 @@ const MusicApp: React.FC = () => {
   const { closeApp, addToast, characters, userProfile } = useOS();
   const {
     cfg, setCfg, effectiveWorkerUrl,
-    current, playing, progress, duration, loadingSong, actualQualityLabel,
+    current, playing, progress, duration, loadingSong, actualQualityLabel, lyricMessage,
     lyric, tlyric, activeLyricIdx,
     playSong, togglePlay, nextSong, prevSong, seek,
     liked, toggleLike, setToastHandler,
@@ -581,7 +581,7 @@ const MusicApp: React.FC = () => {
               <div className="pt-6 flex flex-col items-center gap-2" style={{ color: C.faint }}>
                 <Sparkle size={12} color={C.glow} />
                 <span className="text-[11px] italic tracking-wider" style={{ fontFamily: `'Noto Serif','Georgia',serif` }}>
-                  {loadingSong ? 'loading...' : 'no lyrics'}
+                  {lyricMessage || (loadingSong ? '正在加载歌词…' : '暂无歌词')}
                 </span>
               </div>
             ) : (
