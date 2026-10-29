@@ -464,6 +464,10 @@ function texture(color){
    if(fullJourney)break;
   }
   if(!fullJourney)throw Error('Bath could not be reused after a successful cancellation');
+  // Native room-view control: center the real actor near the tub before
+  // documenting contacts. Never move the runtime's character or camera via
+  // test-only internals or directly alter a furniture transform.
+  command('chibi-view');command('zoom',{factor:.72});
   editor.advancePets(.95);await captureBath('rim-grip');
   editor.advancePets(.68);await captureBath('leading-leg');
   editor.advancePets(.74);await captureBath('trailing-leg');
