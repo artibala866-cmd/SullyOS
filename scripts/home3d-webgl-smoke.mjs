@@ -57,11 +57,23 @@ try{
  });
  await send('Page.enable');
  await send('Runtime.enable');
- const until=Date.now()+240000; // real seat/bed, toy return and bath cancellation in software WebGL
+ const until=Date.now()+300000; // full seat/bed/prop actions plus bath contact-stage screenshots in software WebGL
+ const captured=new Set();
  while(Date.now()<until){
   const result=await send('Runtime.evaluate',{expression:'JSON.stringify(window.__home3dSmoke ?? {status:"starting",stage:"waiting for module"})',returnByValue:true});
   const value=result?.result?.value;
   try{report=JSON.parse(value||'{}');}catch{}
+  // Capture the actual WebGL canvas at authored contact phases, not merely
+  // a status screenshot after the model has already exited the furniture.
+  // These are reviewable evidence, NOT a computer-vision pass/fail verdict.
+  const stage=report.captureStage;
+  if(stage&&/^[a-z0-9-]{3,40}$/.test(stage)&&!captured.has(stage)){
+   const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+   if(!shot?.data)throw Error('Cannot capture the real WebGL frame: '+stage);
+   writeFileSync(join(output,'bath-'+stage+'.png'),Buffer.from(shot.data,'base64'));
+   captured.add(stage);
+   await send('Runtime.evaluate',{expression:'window.__home3dSmoke.capturedStages = [...(window.__home3dSmoke.capturedStages ?? []), '+JSON.stringify(stage)+']'});
+  }
   if(['pass','fail'].includes(report.status))break;
   await delay(1100);
  }
