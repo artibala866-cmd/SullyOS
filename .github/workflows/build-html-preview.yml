@@ -61,6 +61,16 @@ jobs:
         run: pnpm exec vitest run utils/streamPreview.test.ts utils/chatParser.chunkText.test.ts utils/applyAssistantPostProcessing.amsg2Drift.test.ts
       - name: Test stage-4 cloud snapshot provenance and autonomous wake guards
         run: pnpm exec vitest run utils/activeMsgClient.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgAutonomyWake.test.ts utils/scheduleInjection.test.ts utils/amsgFireScene.test.ts utils/amsgP1CrossDay.test.ts
+      - name: Check stage-4 AMSG snapshot and wake TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/amsg-stage4-tsc.log 2>&1 || true
+          grep -E '^(utils/(activeMsgClient|scheduleTime|scheduleInjection|amsgAutonomyPolicy|amsgAutonomyWake)(\\.test)?\\.ts)[(]' /tmp/amsg-stage4-tsc.log > /tmp/amsg-stage4-errors.log || true
+          if [ -s /tmp/amsg-stage4-errors.log ]; then
+            cat /tmp/amsg-stage4-errors.log
+            exit 1
+          fi
+          echo "Stage-4 AMSG snapshot and wake files have no TypeScript diagnostics."
       - name: Test stage-3 character-local schedules, midnight and daylight-saving rules
         run: pnpm exec vitest run utils/scheduleTime.test.ts utils/dailySchedule.test.ts utils/scheduleTimezone.e2e.test.ts utils/scheduleInjection.test.ts utils/scheduleGenerator.context.test.ts
       - name: Check stage-3 schedule and private chat TypeScript diagnostics

@@ -222,7 +222,7 @@ describe('AMSG2 P1 daily schedule drift, without touching manual reminders',()=>
    const {ActiveMsgClient}=await import('./activeMsgClient');
    const oldGlobal=ActiveMsgClient.getGlobalConfig,oldRemote=ActiveMsgClient.listRemoteTasksForChar;
    const oldSchedule=ActiveMsgClient.scheduleCharacterTask,oldCancel=ActiveMsgClient.cancelTask;
-   const role:any={...char,id:'schedule-drift',activeMsg2Config:{enabled:true,tasks:[]}};
+   const role:any={...char,id:'schedule-drift',scheduleFeatureEnabled:true,activeMsg2Config:{enabled:true,tasks:[]}};
    const plan=planAutonomyWakes(role,[
      {startTime:'00:00',activity:'睡觉'},
      {startTime:'09:00',activity:'工作'},
@@ -273,4 +273,43 @@ describe('AMSG2 P1 daily schedule drift, without touching manual reminders',()=>
      (ActiveMsgClient as any).cancelTask=oldCancel;
    }
  });
+});
+
+describe('AMSG2 schedule toggle is independent from autonomous contact',()=>{
+  it('turning off the timetable does not suppress daily wake planning using stale saved busy slots',async()=>{
+    const {ensureAutonomyWakes}=await import('./amsgAutonomyWake');
+    const {ActiveMsgClient}=await import('./activeMsgClient');
+    const oldGlobal=ActiveMsgClient.getGlobalConfig;
+    const oldRemote=ActiveMsgClient.listRemoteTasksForChar;
+    const oldSchedule=ActiveMsgClient.scheduleCharacterTask;
+    let config:any={enabled:true,tasks:[]};
+    const role:any={...char,id:'wake-schedule-off',scheduleFeatureEnabled:false,
+      activeMsg2Config:config};
+    let readCount=0;
+    const created:string[]=[];
+    (ActiveMsgClient as any).getGlobalConfig=async()=>({workerUrl:'https://example.com'});
+    (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[];
+    (ActiveMsgClient as any).scheduleCharacterTask=async(args:any)=>{
+      const slot=args.task.autonomyWakeSlot;
+      created.push(slot);
+      return {uuid:'off-'+slot,clientTaskId:'autowake:'+slot+':off',firstSendAt:args.task.firstSendTime};
+    };
+    try{
+      await ensureAutonomyWakes({char:role,apiConfig:{} as any,userProfile:{} as any,
+        groups:[],realtimeConfig:{} as any,
+        readSchedule:async()=>{readCount++;return {slots:[
+          {startTime:'00:00',activity:'睡觉'},
+          {startTime:'08:00',activity:'工作'},
+        ]};},
+        onSave:update=>{config=update(config);role.activeMsg2Config=config;},
+      });
+      expect(readCount).toBe(0);
+      expect(created).toEqual(['day','evening']);
+      expect(config.tasks).toHaveLength(2);
+    }finally{
+      (ActiveMsgClient as any).getGlobalConfig=oldGlobal;
+      (ActiveMsgClient as any).listRemoteTasksForChar=oldRemote;
+      (ActiveMsgClient as any).scheduleCharacterTask=oldSchedule;
+    }
+  });
 });

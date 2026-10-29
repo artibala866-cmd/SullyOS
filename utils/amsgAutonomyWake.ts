@@ -12,6 +12,7 @@ import {getScheduleDateKey,getScheduleWallClock,parseScheduleStartMinutes} from 
 import {withAutonomyWakeLock} from './amsgAutonomyLock';
 import {autonomyWakeUuid} from './amsgAutonomyIdentity';
 import {resolveCharTimeZone,wallClockToTimestamp} from './timezone';
+import {isScheduleFeatureOn} from './scheduleFeature';
 
 export const AMSG_AUTONOMY_SCHEDULE_EVENT='amsg2-schedule-saved';
 export const isAutonomyWakeTask=(task:Pick<ActiveMsg2TaskRecord,'clientTaskId'>)=>
@@ -155,7 +156,12 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
         lastSyncedAt:Date.now(),
       });
     }
-    const schedule=await (args.readSchedule?args.readSchedule():getDailyScheduleForChar(char)).catch(()=>null);
+    // The schedule's own switch is separate from AMSG2. Turning the
+    // timetable off must immediately stop treating old saved slots as busy
+    // or free facts when planning cloud contact opportunities.
+    const schedule=isScheduleFeatureOn(char)
+      ? await (args.readSchedule?args.readSchedule():getDailyScheduleForChar(char)).catch(()=>null)
+      : null;
     const targets=planAutonomyWakes(char,schedule?.slots||null);
     // Only an actual daily schedule change may reschedule an existing wake.
     // Never rewrite a user's manual reminder or retime a cloud job because
