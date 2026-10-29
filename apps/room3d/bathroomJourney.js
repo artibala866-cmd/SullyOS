@@ -85,7 +85,7 @@ export function bathroomJourneyFrame(j,time){
   // the anchored hands bear weight while both feet clear the real high rim.
   // The hoist is gradual and never reaches the rim's root-height, unlike
   // the former unsupported upward jump.
-  const bracedHoist=.32*M.smootherstep(p,1.48,1.96)
+  const bracedHoist=.26*M.smootherstep(p,1.48,1.96)
    *(1-M.smootherstep(p,3.36,4.20));
   position[1]=M.lerp(j.front[1],j.position[1],lower)+bracedHoist;
   rotation=turn(turn(j.startRotation,j.edgeRotation,facing),j.rotation,M.smootherstep(p,3.75,4.52));
