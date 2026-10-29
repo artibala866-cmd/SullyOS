@@ -46,9 +46,9 @@ interface Props {
   onSelectChar: (id:string) => void;
 }
 const inputClass = 'w-full min-w-0 bg-[#fafafa] border border-neutral-200 text-neutral-900 rounded-lg p-2.5 text-sm outline-none focus:border-neutral-700';
-const buttonClass = 'rounded-xl border border-[#dfdfdf] bg-[#f1f1f1] text-[#292929] px-3 py-2.5 text-sm font-medium hover:bg-[#e9e9e9] disabled:opacity-40';
-const primaryButton = 'rounded-xl bg-[#383838] text-white px-3 py-2.5 text-sm font-medium disabled:opacity-40';
-const mutedButton = 'rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-800 hover:bg-[#f6f6f6] disabled:opacity-40';
+const buttonClass = 'min-h-11 rounded-xl border border-[#dfdfdf] bg-[#f1f1f1] text-[#292929] px-3 py-2.5 text-sm font-medium hover:bg-[#e9e9e9] disabled:opacity-40';
+const primaryButton = 'min-h-11 rounded-xl bg-[#383838] text-white px-3 py-2.5 text-sm font-medium disabled:opacity-40';
+const mutedButton = 'min-h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-800 hover:bg-[#f6f6f6] disabled:opacity-40';
 const cardClass = 'rounded-2xl border border-[#e9e9e9] p-3.5 sm:p-5 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.018)] space-y-3';
 const weekdayNames = ['周日','周一','周二','周三','周四','周五','周六'];
 const blankCommission = () => ({
