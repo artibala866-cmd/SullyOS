@@ -14,6 +14,9 @@ describe('home3d furniture capability registry',()=>{
  it('has an audit row for every catalog asset without making visual-pass claims',()=>{
   expect(audit.items.map(a=>a.id)).toEqual(catalog.map(a=>a.id));
   expect(audit.counts.assets).toBe(catalog.length);
+  expect(audit.items.filter(a=>a.id.startsWith('halloween_'))).toHaveLength(12);
+  expect(audit.counts.seats).toBe(32);
+  expect(audit.counts.webglControllerSeatSlotsTested).toBe(29); // Earlier 29 were exercised; new seats still need visual sign-off.
   expect(audit.items.every(a=>a.screenValidated===false)).toBe(true);
   expect(audit.items.filter(a=>a.status==='可用且验证通过')).toHaveLength(0);
  });
@@ -27,6 +30,8 @@ describe('home3d furniture capability registry',()=>{
   expect(kinds('kitchen_sink')).not.toContain('sit');
   expect(kinds('chair')).toContain('sit');
   expect(kinds('pouf')).toContain('sit'); // Source-derived candidate, screen QA pending.
+  expect(kinds('halloween_bat_sofa')).toContain('sit');
+  expect(kinds('halloween_pumpkin_armchair')).toContain('sit');
   expect(kinds('bedroom_loft')).not.toContain('bed'); // Upper berth has no safe access yet.
   expect(kinds('bath_shower')).toContain('bath');
   expect(kinds('suite_floor_mirror')).toContain('mirror');
