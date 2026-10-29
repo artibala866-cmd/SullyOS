@@ -10,7 +10,7 @@ import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon
 import {
   C, Sparkle, CrossStar, MizuHeader, SearchBar, SongRow, MiniPlayer,
   VinylDisc, GlassProgress, PlayControls, BokehBg,
-  MetaChip, SubActions,
+  SubActions,
 } from './music/MusicUI';
 import NeteaseProfilePage from './music/NeteaseProfilePage';
 import { shareOrDownloadBlob } from '../utils/shareExport';
@@ -365,25 +365,25 @@ const MusicApp: React.FC = () => {
           {renderLibrarySongs(library.history.map(h => h.song))}
         </>}
         {section === 'playlists' && <div className="space-y-3 px-1">
-          <div className="rounded-[22px] p-3 flex items-center gap-2"
+          <div className="rounded-lg p-3 flex items-center gap-2"
             style={{ background: '#ffffff', border: `1px solid ${C.soft}` }}>
             <input value={playlistName} onChange={e => setPlaylistName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}
               placeholder="新建歌单名称" aria-label="新歌单名称" maxLength={60}
-              className="rounded-xl px-3 py-2.5 min-w-0 flex-1 text-xs outline-none" style={{ background: C.bgDeep, color: C.text }} />
-            <button aria-label="新建本地歌单" title="新建歌单" className="music-tap w-10 h-10 rounded-xl flex items-center justify-center text-white"
+              className="rounded-md px-3 py-2.5 min-w-0 flex-1 text-xs outline-none" style={{ background: C.bgDeep, color: C.text }} />
+            <button aria-label="新建本地歌单" title="新建歌单" className="music-tap w-10 h-10 rounded-md flex items-center justify-center text-white"
               style={{ background: C.primary }}
               onClick={() => { if (playlistName.trim() && createPlaylist(playlistName)) setPlaylistName(''); }}><Plus size={19} weight="bold" /></button>
           </div>
           {library.playlists.map(pl => {
             const opened = openedPlaylist === pl.id;
             const playingThis = !!current && pl.songs.some(song => sameMusic(current, song));
-            return <div key={pl.id} className="rounded-[22px] p-2.5"
-              style={{ background: '#ffffff', border: `1px solid ${opened ? C.glow : C.soft}` }}>
+            return <div key={pl.id} className="rounded-lg p-2.5"
+              style={{ background: '#fff', border: `1px solid ${opened ? '#999' : '#e5e5e5'}` }}>
               <div className="flex gap-1.5 items-center">
-                <button className="music-tap font-semibold flex-1 min-w-0 text-left rounded-xl p-2 flex items-center gap-2"
+                <button className="music-tap font-semibold flex-1 min-w-0 text-left rounded-md p-2 flex items-center gap-2"
                   aria-expanded={opened} onClick={() => setOpenedPlaylist(opened ? null : pl.id)}>
-                  <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  <span className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
                     style={{ background: C.soft, color: C.primary }}><MusicNotes size={18} weight="duotone" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px]" style={{ color: C.text }}>{pl.name}</span>
@@ -517,7 +517,7 @@ const MusicApp: React.FC = () => {
               playing={playing} size={150} bitrate={actualQualityLabel} />
             {/* 重录中覆盖层 — 只在本地歌且 regeneratingId 匹配时显示 */}
             {isCurrentRegenerating && (
-              <div className="absolute inset-0 rounded-full flex items-center justify-center pointer-events-none"
+              <div className="absolute inset-0 rounded-md flex items-center justify-center pointer-events-none"
                 style={{
                   background: `radial-gradient(circle, rgba(0, 0, 0,0.55) 30%, rgba(0, 0, 0,0.35) 70%)`,
                   backdropFilter: 'blur(6px)',
@@ -556,11 +556,11 @@ const MusicApp: React.FC = () => {
 
           <section className="mt-5 text-center space-y-1.5 shrink-0 px-2">
             <h2 className="font-light tracking-tight leading-tight"
-              style={{ color: C.primary, fontFamily: `'Noto Serif','Georgia',serif`, fontSize: '22px' }}>
+              style={{ color: C.text, fontFamily: 'inherit', fontSize: '20px', fontWeight: 650 }}>
               {current.name}
             </h2>
-            <p className="text-[10px] uppercase opacity-70"
-              style={{ color: C.muted, fontFamily: `'Space Grotesk','SF Mono',monospace`, letterSpacing: '0.2em' }}>
+            <p className="text-[12px]"
+              style={{ color: C.muted, letterSpacing: '0.01em' }}>
               {current.artists}
             </p>
           </section>
@@ -576,7 +576,7 @@ const MusicApp: React.FC = () => {
             {lyric.length === 0 ? (
               <div className="pt-6 flex flex-col items-center gap-2" style={{ color: C.faint }}>
                 <Sparkle size={12} color={C.glow} />
-                <span className="text-[11px] italic tracking-wider" style={{ fontFamily: `'Noto Serif','Georgia',serif` }}>
+                <span className="text-[12px]" style={{ fontFamily: 'inherit' }}>
                   {lyricMessage || (loadingSong ? '正在加载歌词…' : '暂无歌词')}
                 </span>
               </div>
@@ -589,12 +589,8 @@ const MusicApp: React.FC = () => {
                   //     只让外层盒子用 transform:scale 视觉放大，不动内部文字度量。
                   return (
                     <div key={i} data-lyric-idx={i}
-                      className="transition-transform duration-300 will-change-transform"
-                      style={{
-                        transform: active ? 'scale(1.05)' : 'scale(1)',
-                        transformOrigin: 'center center',
-                        opacity: active ? 1 : 0.45,
-                      }}>
+                      className="transition-opacity duration-150"
+                      style={{ opacity: active ? 1 : 0.42 }}>
                       <div className="flex items-center justify-center gap-2 px-3">
                         <CrossStar
                           size={12}
@@ -606,20 +602,11 @@ const MusicApp: React.FC = () => {
                         <div
                           className="text-[16px] leading-[1.4]"
                           style={{
-                            fontFamily: `'Noto Serif','Georgia',serif`,
-                            fontWeight: 400,
+                            fontFamily: 'inherit',
+                            fontWeight: active ? 650 : 400,
                             maxWidth: '100%',
                             wordBreak: 'break-word',
-                            color: active ? undefined : C.faint,
-                            ...(active
-                              ? {
-                                  background: `#171717`,
-                                  WebkitBackgroundClip: 'text',
-                                  WebkitTextFillColor: 'transparent',
-                                  backgroundClip: 'text',
-                                  filter: `drop-shadow(0 0 14px ${C.glow}a0) drop-shadow(0 0 4px ${C.sakura}80)`,
-                                }
-                              : {}),
+                            color: active ? C.text : C.muted,
                           }}
                         >
                           {l.text}
@@ -654,10 +641,6 @@ const MusicApp: React.FC = () => {
           </div>
 
           <div className="w-full shrink-0 max-w-sm">
-            <div className="flex justify-between items-center mb-2 px-0.5">
-              <MetaChip>{fmtTime(progress)}</MetaChip>
-              <MetaChip>{fmtTime(duration)}</MetaChip>
-            </div>
             <GlassProgress progress={progress} duration={duration} fmtTime={fmtTime} onSeek={seek} />
           </div>
 
@@ -708,7 +691,7 @@ const MusicApp: React.FC = () => {
         <BokehBg />
         <MizuHeader title="设置" onBack={() => setView('search')} />
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 text-sm relative z-10 shizuku-scrollbar">
-          <div className="rounded-2xl p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
+          <div className="rounded-lg p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
             <div className="text-[10px] mb-2 tracking-wider flex items-center justify-between" style={{ color: C.muted }}>
               <span className="flex items-center gap-1.5"><Sparkle size={6} color={C.glow} delay={0} /> 服务地址</span>
               {!followsCentral && (
@@ -716,7 +699,7 @@ const MusicApp: React.FC = () => {
                   className="text-[9px] underline" style={{ color: C.muted }}>改回跟随中心</button>
               )}
             </div>
-            <input className="w-full rounded-xl px-3 py-2 outline-none text-xs shizuku-glass" value={cfg.workerUrl}
+            <input className="w-full rounded-md px-3 py-2 outline-none text-xs shizuku-glass" value={cfg.workerUrl}
               onChange={e => setDraft({ workerUrl: e.target.value })} placeholder={effectiveWorkerUrl}
               style={{ color: C.text }} />
             <div className="text-[9px] mt-1.5 italic" style={{ color: C.faint }}>
@@ -725,25 +708,25 @@ const MusicApp: React.FC = () => {
                 : <>只在音乐里用这个地址，「设置 → 网络代理」改了也不跟</>}
             </div>
           </div>
-          <div className="rounded-2xl p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
+          <div className="rounded-lg p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
             <div className="text-[10px] mb-2 tracking-wider flex items-center gap-1.5" style={{ color: C.muted }}>
               <Sparkle size={6} color={C.sakura} delay={0.5} /> 会员 Cookie
             </div>
-            <textarea className="w-full rounded-xl px-3 py-2 outline-none text-[10px] shizuku-glass" rows={3} value={cfg.cookie}
+            <textarea className="w-full rounded-md px-3 py-2 outline-none text-[10px] shizuku-glass" rows={3} value={cfg.cookie}
               onChange={e => setDraft({ cookie: e.target.value })} placeholder="MUSIC_U=xxx 或直接粘贴值..."
               style={{ color: C.text, fontFamily: 'monospace', resize: 'none' }} />
             <div className="text-[9px] mt-1.5 italic" style={{ color: C.faint }}>
               也可以在「我的」页面里扫码 / 手机号登录，自动填入 cookie
             </div>
           </div>
-          <div className="rounded-2xl p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
+          <div className="rounded-lg p-3.5 shizuku-glass" style={{ boxShadow: 'none' }}>
             <div className="text-[10px] mb-2 tracking-wider flex items-center gap-1.5" style={{ color: C.muted }}>
               <Sparkle size={6} color={C.lavender} delay={1} /> 音质
             </div>
             <div className="grid grid-cols-5 gap-1.5">
               {(['standard', 'higher', 'exhigh', 'lossless', 'hires'] as const).map(q => (
                 <button key={q} onClick={() => { setDraft({ quality: q }); trackEvent('切换音质档位', { quality: q }); }}
-                  className="py-2 rounded-xl text-[10px] transition-all"
+                  className="py-2 rounded-md text-[10px] transition-all"
                   style={{
                     background: cfg.quality === q ? `#171717` : C.glass,
                     color: cfg.quality === q ? 'white' : C.muted,
@@ -780,7 +763,7 @@ const MusicApp: React.FC = () => {
             >诊断（搜索晴天）</button>
             <button onClick={commit}
               className="w-full py-3 rounded-2xl text-xs text-white tracking-wider transition-all relative overflow-hidden"
-              style={{ background: C.primary, boxShadow: 'none' }}>
+              style={{ background: C.primary }}>
               <span className="relative z-10">保存</span>
               <div className="absolute inset-0 pointer-events-none" style={{
                 background: `linear-gradient(90deg, transparent 30%, rgba(255,255,255,.18) 50%, transparent 70%)`,
