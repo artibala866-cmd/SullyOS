@@ -11,6 +11,7 @@ const phoneHands:Record<string,'L'|'R'>={
  'vrma-54a37ca48a1d4ffb':'L',
  'vrma-cae36da2cc8b9845':'R',
 };
+export interface SocialProp {update(time:number,duration:number,weight:number):void;dispose():void}
 /** Transient props belong to an action, never to the furniture save. */
 export function createSocialProp(id:string,visitors:ChibiVisitor[],template?:MotionPropTemplate){
  const phoneSide=template?.kind==='phone'?template.hand:phoneHands[id],phone=!!phoneSide,drink=template?.kind==='cup'||id==='cmu-22_13';

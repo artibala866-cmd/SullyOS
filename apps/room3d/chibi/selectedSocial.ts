@@ -1,6 +1,8 @@
 import {planPassionKiss,posePassionKiss,passionKissPhase,type PassionKissPlan} from './passionKissMotion';
 import {planSneakKiss,planSneakKissApproach,poseSneakKiss,sneakKissPhase,sneakKissExpression,type SneakKissPlan} from './sneakKissMotion';
 import {actionExpression} from './actionExpression';
+import {isSeasonalSocial,poseSeasonalSocial,seasonalExpression} from './seasonalSocial';
+import {loadHalloweenProps,createHalloweenProp} from './halloweenProps';
 import * as T from 'three';
 import type {ChibiVisitor} from './visitor';
 import {selectedMotions,loadSelectedMotion,sampleSelected,type SelectedClip,type MotionFrame} from './selectedMotions';
@@ -240,7 +242,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
  }
  function presentPostPose(both:NonNullable<ReturnType<typeof states.get>>[],sourceTime:number,actionTime:number,weight:number){
   const s=session!;
-  prop?.update(sourceTime,s.clip.duration,weight);for(const [index,r] of both.entries())r.visitor.setActionExpression(s.passionPlan?(sourceTime<11.5?'smiling':'neutral'):s.sneakPlan?sneakKissExpression(index as 0|1,sourceTime):actionTime<s.clip.duration? actionExpression(s.action,socialActions[s.action].category,socialActions[s.action].label):'neutral',sourceTime);finish();
+  prop?.update(sourceTime,s.clip.duration,weight);for(const [index,r] of both.entries())r.visitor.setActionExpression(s.passionPlan?(sourceTime<11.5?'smiling':'neutral'):s.sneakPlan?sneakKissExpression(index as 0|1,sourceTime):isSeasonalSocial(s.action)?seasonalExpression(s.action,sourceTime,index):actionTime<s.clip.duration? actionExpression(s.action,socialActions[s.action].category,socialActions[s.action].label):'neutral',sourceTime);finish();
  }
  // One stable set of callbacks per scene; frame data reuses this object.
  // No scheduler allocations, phase sorting or IK re-creation per frame.
@@ -269,7 +271,8 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   clearance:()=>correctHeadClearance(constraintFrame.both,constraintFrame.points),
   contactIK:()=>{
    const template=motionTemplateFor(session!.action);
-   if(template?.headTouch&&constraintFrame.both.length===2){
+   if(isSeasonalSocial(session!.action))poseSeasonalSocial(session!.action,constraintFrame.both,constraintFrame.sourceTime);
+   else if(template?.headTouch&&constraintFrame.both.length===2){
     applyHeadPatMotion(template.headTouch,[constraintFrame.both[0],constraintFrame.both[1]],
      constraintFrame.actionTime,constraintFrame.weight);
    }else{
@@ -331,7 +334,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     // No standing idle/walk overlay: both roots stay on their real sofa seats.
     r.visitor.root.quaternion.copy(s.turns[i]);
     r.visitor.animate(0,'idle','seated',options.sofaSeatPoses?.[r.id]);
-   }else if(isIntimacy(s.action)||motionTemplateFor(s.action)?.headTouch){
+   }else if(isIntimacy(s.action)||isSeasonalSocial(s.action)||motionTemplateFor(s.action)?.headTouch){
     const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));
     r.visitor.root.quaternion.copy(turn).slerp(rearHug?s.rotation:toward,smooth(actionTime,0,.6));
     // No custom walking or late retreat once B is reached.
@@ -384,6 +387,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   }
    if(s.passionPlan)posePassionKiss(both,sourceTime,s.passionPlan);
    else if(s.sneakPlan)poseSneakKiss(both[0].visitor,both[1].visitor,sourceTime,s.sneakPlan);
+   else if(isSeasonalSocial(s.action))poseSeasonalSocial(s.action,both,sourceTime);
    else if(isIntimacy(s.action)&&both[0].visitor.rig)poseIntimacy(s.action,both,sourceTime,pinned?s.ids.indexOf(pinned.id):undefined,s.handSign);else contacts(both,frames,weight);
    presentPostPose(both,sourceTime,actionTime,weight);
   }
@@ -415,12 +419,13 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    if(!states.has(a)||entry.participants===2&&(!b||!states.has(b)||a===b))throw Error('请选择两位不同的居民');
    const checkRelation=()=>{if(options.canInteract&&!options.canInteract(action,a,b))throw Error('这两位未设置浪漫关系，不能执行亲密动作');};
    checkRelation();
-   if(isPrincessCarry(action)&&!states.get(a)!.visitor.rig)throw Error('公主抱需要二号素体');
+   if(isSeasonalSocial(action)&&pinned)throw Error('万圣节双人互动需要两个人先站起来');
+    if(isPrincessCarry(action)&&!states.get(a)!.visitor.rig)throw Error('公主抱需要二号素体');
    if(action==='home-rear-hug'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('背后搂抱需要 Q 版骨骼素体');
    if(['home-sneak-kiss','home-passion-kiss'].includes(action)&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error(entry.label+'需要 Q 版骨骼素体');
    if(action==='home-sofa-lap-pillow'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('沙发膝枕需要 Q 版骨骼素体');
    const token=++generation;restore();loading=true;
-   try{const sourceClip=await loadSelectedMotion(action);if(token!==generation)return false;
+   try{const [sourceClip,propModels]=await Promise.all([loadSelectedMotion(action),loadHalloweenProps(action)]);if(token!==generation)return false;
     checkRelation();
     // This capture stores the seated recipient first and the crouching comforter second.
     // Keep semantic participant IDs (initiator, recipient) stable; only map the tracks.
@@ -506,7 +511,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned&&action!=='home-rear-hug'&&action!=='home-hand-hold-plead'&&action!=='home-sneak-kiss'&&action!=='home-passion-kiss')for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
     if(!valid)throw Error(action==='cmu-22_09'?'坐着的人身后没有可站立的位置，请先给椅背后留出空地':'这段动作需要更大的空地，先移动居民或挪开家具');
     session=candidate;motionScope.begin(action);constraintPipeline.activate(action);
-     prop=motionScope.own(createSocialProp(action,both,motionTemplateFor(action)?.prop));
+     prop=motionScope.own(isSeasonalSocial(action)?createHalloweenProp(action,both,propModels):createSocialProp(action,both,motionTemplateFor(action)?.prop));
      draw();return true;
    }catch(error){
     // A synchronous pose/prop failure after activation must not leave a live

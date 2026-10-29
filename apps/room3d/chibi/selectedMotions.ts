@@ -1,6 +1,6 @@
 import * as T from 'three';
 import catalog from './selectedMotionCatalog.json';
-export const motionCategories={greet:'招呼与示好',talk:'聊天交流',care:'关心照顾',close:'亲密',kiss:'亲亲',play:'玩闹活动',conflict:'闹别扭',self:'自己的小动作'};
+export const motionCategories={greet:'招呼与示好',talk:'聊天交流',care:'关心照顾',close:'亲密',kiss:'亲亲',play:'玩闹活动',conflict:'闹别扭',mischief:'🎃 万圣节互动',self:'自己的小动作'};
 export const selectedMotions=catalog;
 export type SelectedMotion=typeof catalog[number];
 export interface MotionTrack {duration:number;times:number[];tracks:Record<string,number[]>;positions:number[];points:Record<string,number[]>;hipHeight:number}
