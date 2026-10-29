@@ -1039,6 +1039,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (document.visibilityState !== 'visible') return;
       try {
         const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}');
+        // Some Android WebViews defer storage events while hidden; on resume
+        // restore companion membership as well as pending invitation status.
+        if (Array.isArray(saved.partners)) {
+          const remotePartners = saved.partners.filter((id: unknown) => typeof id === 'string') as string[];
+          setListeningTogetherWith(prev =>
+            JSON.stringify(prev) === JSON.stringify(remotePartners) ? prev : remotePartners);
+        }
+        if (saved.startedAt && typeof saved.startedAt === 'object') {
+          setListeningStartedAt(prev =>
+            JSON.stringify(prev) === JSON.stringify(saved.startedAt) ? prev : saved.startedAt);
+        }
         const ids = new Set([...Object.keys(saved.invites || {}), ...Object.keys(listeningInvites)]);
         for (const id of ids) void refreshOne(id).catch(err =>
           console.warn('[MusicTogether] 标签页恢复邀请检查失败', err));
