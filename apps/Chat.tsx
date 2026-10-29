@@ -16,6 +16,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
+import { findPendingMusicInvite } from '../utils/musicInviteStatus';
 import {HOME_HISTORY_COMMITTED} from '../utils/secretNote';
 import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
 import { chatCharacterDisplayName } from '../utils/characterRemark';
@@ -3746,10 +3747,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 !(inputPreferences.autoReply || lifePacing)) return;
             void DB.getRecentMessagesByCharId(charId, 24).then(recent => {
                 if (activeCharIdRef.current !== charId) return;
-                const invitation = recent.find(message =>
-                    message.id === detail.messageId &&
-                    message.metadata?.musicListenInvite &&
-                    message.metadata?.inviter !== 'char');
+                // The user may have withdrawn the invite while this async
+                // DB read was pending. Never start an auto-reply countdown for
+                // an already answered or cancelled invitation.
+                const invitation = findPendingMusicInvite(recent, 'user', detail.messageId);
                 if (!invitation) return;
                 const finish = autoReply.beginSend(charId);
                 finish(true);
