@@ -12,7 +12,7 @@ export function bathroomActivities(room,catalog,{headWidth=1.5,body2=false}={}){
   // Reviewed bathing interiors intentionally contain the resident; still check
   // walls, all other furniture, and the full head footprint.
   const exclude=spec.kind==='bath-laundry'?[]:[item.id,...room.items.filter(i=>i.supportId===item.id||room.items.some(p=>p.id===i.supportId&&p.supportId===item.id)).map(i=>i.id)];
-  const contact=spec.kind==='bath-soak'?[[.34,1.16,.65],[.96,1.17,.65]]:spec.kind==='bath-laundry'?[[.40,1.30,.56]]:[];
+  const contact=spec.kind==='bath-soak'?[[.96,1.16,.65],[.34,1.17,.65]]:spec.kind==='bath-laundry'?[[.40,1.30,.56]]:[];
   const bathHands=contact.map(p=>{const v=gamingPoint(item,p),dx=v[0]-position[0],dz=v[2]-position[2],c=Math.cos(rotation),s=Math.sin(rotation);return [c*dx-s*dz,v[1]-position[1],s*dx+c*dz];});
   return {...spec,...pose,body2,bathHands,bathHandWorld:contact.map(p=>gamingPoint(item,p)),edge:gamingPoint(item,[.65,1.17,.65]),edgeRotation:item.rotation*Math.PI/180,roomId:item.ownerRoomId||room.id,itemId:item.id,seat:null,dependencies:[],hands:[[-.30,.55,.2],[.30,.55,.2]],reason:spec.kind==='bath-soak'&&!body2?'旧版人物尚没有经验证的安全跨浴缸动作，暂时不能使用浴缸':clearance(room,catalog,pose,exclude,headWidth),duration:furnitureActivitySeconds(spec.kind)};
  });

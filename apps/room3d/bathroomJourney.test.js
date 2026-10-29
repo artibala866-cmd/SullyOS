@@ -51,6 +51,8 @@ describe('live bathtub authored grips',()=>{
   const a=bathroomActivities(room,catalog,{body2:true,headWidth:1.2})[0];
   const entry=gamingPoint(room.items[0],[.65,.03,1.35]);
   expect(a.bathHandWorld).toHaveLength(2);
+  // The blank rig's left shoulder is the positive local X side of this tub.
+  expect(a.bathHandWorld[0][0]).toBeGreaterThan(a.bathHandWorld[1][0]);
   for(const grip of a.bathHandWorld){
    expect(grip[2]).toBeGreaterThan(.5); // The near rim, never the unreachable far rim.
    expect(bathroomRimReachable({...a,bathHandWorld:[grip]},entry,{shoulderHeight:.9,armReach:.65})).toBe(true);
