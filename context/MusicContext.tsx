@@ -1365,25 +1365,20 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.warn('[Music] 音频开始播放失败', err);
         toast('音源已获取，但播放未能开始，请重新点击播放或切换歌曲', 'error');
       });
-      // 媒体会话（锁屏 / 通知栏）
+      // Artwork is secondary: slow third-party pic_id lookups must never keep
+      // loadingSong active after audio has started or block the next track.
       if ('mediaSession' in navigator) {
-        try {
-          // 锁屏/通知栏的封面不是 DOM，喂不了 blobref 令牌——那边只认能直接加载的地址。
-          // 用户自己上传的歌曲封面存的就是令牌，不解析的话锁屏上是空白（而且不报错）。
-          // resolveRefToDataUrl 对非令牌原样返回，所以可以无条件走。
-          const coverSrc = song.albumPic || await getGuestMusicCover(song);
-          const artworkSrc = coverSrc ? await resolveRefToDataUrl(coverSrc) : '';
-          if (requestId !== playRequestSeq.current) return;
-          (navigator as any).mediaSession.metadata = new (window as any).MediaMetadata({
-            title: song.name,
-            artist: song.artists,
-            album: song.album,
-            artwork: artworkSrc ? [
-              { src: artworkSrc, sizes: '300x300', type: 'image/jpeg' },
-              { src: artworkSrc, sizes: '512x512', type: 'image/jpeg' },
-            ] : [],
-          });
-        } catch {}
+        void (async () => {
+          try {
+            const coverSrc = song.albumPic || await getGuestMusicCover(song);
+            const artworkSrc = coverSrc ? await resolveRefToDataUrl(coverSrc) : '';
+            if (requestId !== playRequestSeq.current) return;
+            (navigator as any).mediaSession.metadata = new (window as any).MediaMetadata({
+              title: song.name, artist: song.artists, album: song.album,
+              artwork: artworkSrc ? [{ src: artworkSrc, sizes: '512x512', type: 'image/jpeg' }] : [],
+            });
+          } catch { /* media artwork never prevents audio */ }
+        })();
       }
     } catch (e: any) {
       if (requestId === playRequestSeq.current) toast(`播放失败：${e?.message || '未知错误'}`, 'error');
