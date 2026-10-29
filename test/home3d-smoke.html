@@ -396,7 +396,7 @@ function texture(color){
   // advancePets samples can begin partway through entry after the arrival
   // tick, so labeling them i*dt can falsely count a swinging foot as planted.
   report.bathRigFrames=[];
-  for(let i=0;i<70;i++){
+  for(let i=0;i<90;i++){
    editor.advancePets(.06);
    const state=editor.inspect(),root=state.chibiPosition;
    const progress=state.chibiActivity?.bathTime;
@@ -413,14 +413,14 @@ function texture(color){
     handErrors,leadTrailAngle:bathPerson.rig.bones.L_thigh.quaternion.angleTo(bathPerson.rig.bones.R_thigh.quaternion),
     toes:['L','R'].map(side=>bathPerson.rig.bones[side+'_toe'].getWorldPosition(new Vector3()).toArray())
    });
-   if(progress>=2.52)break;
+   if(progress>=4.46)break;
   }
   const sampleAt=(time,tolerance=.085)=>{
    const closest=report.bathRigFrames.reduce((best,f)=>
     !best||Math.abs(f.progress-time)<Math.abs(best.progress-time)?f:best,null);
    return closest&&Math.abs(closest.progress-time)<=tolerance?closest:null;
   };
-  if(!sampleAt(2.5))throw Error('Timed bath entry did not reach the crossing-leg checkpoint');
+  if(!sampleAt(4.44))throw Error('Timed bath entry did not capture both complete leg crossings');
   if(!editor.inspect().chibiActivity?.bathJourney)
    throw Error('Bath entry stopped unexpectedly before cancellation');
   const floorHeight=bathroom.front[1],targetHeight=bathroom.position[1];
@@ -446,6 +446,28 @@ function texture(color){
   const first=sampleAt(.40)?.toes[0],after=sampleAt(1.17)?.toes[0];
   if(!first||!after||Math.hypot(...first.map((v,i)=>v-after[i]))<.08)
    throw Error('The bath approach did not place the first swing foot forward');
+  // Test the *actual foot trajectory* over the authored physical near rim.
+  // State-machine success is not enough: the foot must first clear the rim
+  // before its world-space toe crosses from outside the tub to the interior.
+  const across=[bathroom.front[0]-bathroom.position[0],bathroom.front[2]-bathroom.position[2]];
+  const span=Math.hypot(...across),normal=across.map(n=>n/span);
+  const rim=[bathroom.edge[0],bathroom.edge[1],bathroom.edge[2]];
+  const distanceToRim=p=>(p[0]-rim[0])*normal[0]+(p[2]-rim[2])*normal[1];
+  report.bathRimCrossings=[];
+  for(const [side,index] of [['L',0],['R',1]]){
+   for(let i=1;i<report.bathRigFrames.length;i++){
+    const prev=report.bathRigFrames[i-1],next=report.bathRigFrames[i];
+    const before=distanceToRim(prev.toes[index]),after=distanceToRim(next.toes[index]);
+    if(before>.01&&after<=.01){
+     const alpha=before/(before-after),y=prev.toes[index][1]+alpha*(next.toes[index][1]-prev.toes[index][1]);
+     report.bathRimCrossings.push({side,time:prev.progress+alpha*(next.progress-prev.progress),footHeight:y,rimHeight:rim[1]});
+     if(y<rim[1]-.08)
+      throw Error(side+' crossing foot cut through the bathtub rim by '+(rim[1]-y).toFixed(3)+'m');
+    }
+   }
+  }
+  if(!['L','R'].every(side=>report.bathRimCrossings.some(x=>x.side===side)))
+   throw Error('Both feet did not cross the authored bathtub rim into its interior');
   const returnPoint=[...bathroom.front];
   command('chibi-game-stop');
   if(!Number.isFinite(editor.inspect().chibiActivity?.bathJourney?.cancelElapsed))
