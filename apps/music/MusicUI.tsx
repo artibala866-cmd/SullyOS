@@ -325,7 +325,7 @@ export const SubActions: React.FC<{
     </button>;
   const modeLabel = playMode === 'single' ? '单曲循环' : playMode === 'shuffle' ? '随机播放' : '列表循环';
   return <div className="flex items-center justify-around gap-2 max-w-[340px] mx-auto border-t pt-3" style={{ borderColor: '#e6e6e6' }}>
-    {onLike && <Item label={liked ? '已喜欢' : '喜欢'} glyph={<Heart size={19} weight={liked ? 'fill' : 'regular'} />} active={liked} onClick={onLike} />}
+    {onLike && <Item label={liked ? '已喜欢' : '喜欢'} glyph={<Heart size={16} weight={liked ? 'fill' : 'regular'} />} active={liked} onClick={onLike} />}
     {showSync && onSync && <Item label="歌词对轴" glyph={<span className="text-lg">⌖</span>} onClick={onSync} />}
     {showDownload && onDownload && <Item label="下载" glyph={<span className="text-lg">↓</span>} onClick={onDownload} />}
     {onCyclePlayMode && <Item label={modeLabel} glyph={<span className="text-lg">{playMode === 'shuffle' ? '⤨' : playMode === 'single' ? '↻¹' : '↻'}</span>}
