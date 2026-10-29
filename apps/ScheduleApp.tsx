@@ -56,6 +56,7 @@ const ScheduleApp: React.FC = () => {
   const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [companionMoment,setCompanionMoment]=useState('');
+  const [recentLinkedFocus,setRecentLinkedFocus]=useState<{kind:WorkKind;title:string;minutes:number;sessionId:string}|null>(null);
   const [overviewBusy,setOverviewBusy]=useState(false);
   const [showCharPicker,setShowCharPicker]=useState(false);
   const [assistantTopic, setAssistantTopic] = useState('');
@@ -142,6 +143,10 @@ const ScheduleApp: React.FC = () => {
     if (session.mode === 'focus') {
       const stored = load<FocusRecord[]>('records', []);
       if (!stored.some(r => r.sessionId === id)) {
+        const completedTask=load<FocusTask[]>('tasks',[]).find(t=>t.id===session.taskId);
+        if(completedTask?.source){
+          setRecentLinkedFocus({kind:completedTask.source.kind,title:completedTask.title,minutes:session.duration,sessionId:id});
+        }
         const date = new Date(session.deadline).toLocaleDateString('sv-SE');
         const updatedRecords = [...stored, { date, minutes: session.duration, taskId: session.taskId, sessionId: id }];
         save('records', updatedRecords);
@@ -179,6 +184,7 @@ const ScheduleApp: React.FC = () => {
     const duration = mode === 'focus' ? focusMinutes : breakMinutes;
     processed.current = null;
     setCompanionMoment('');
+    setRecentLinkedFocus(null);
     setSession({ id: newWorkspaceId(), mode, duration, deadline: Date.now() + duration * 60000, taskId: selectedTask, usedChatWindows: [] });
     setTab('timer');
   };
@@ -245,6 +251,7 @@ const ScheduleApp: React.FC = () => {
     // Starting from an actionable work card requires only one deliberate tap.
     processed.current=null;
     setCompanionMoment('');
+    setRecentLinkedFocus(null);
     setSession({
       id:newWorkspaceId(),mode:'focus',duration:focusMinutes,
       deadline:Date.now()+focusMinutes*60000,
@@ -429,7 +436,7 @@ const ScheduleApp: React.FC = () => {
         style={{paddingTop:'var(--safe-top)'}}>
       <header className="shrink-0 border-b border-neutral-200/70 bg-white/95 px-3 sm:px-6 py-2 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-2.5">
-          <button aria-label="返回" onClick={requestExit} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-neutral-200 text-lg hover:bg-neutral-100">‹</button>
+          <button aria-label="返回" onClick={requestExit} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-neutral-200 text-lg hover:bg-neutral-100">‹</button>
           <div className="flex-1 min-w-0"><p className="text-xs tracking-wide text-neutral-500">STUDY ROOM · SULLYOS</p>
             <h1 className="font-serif text-[23px] leading-tight tracking-[0.11em]">学习室<span className="ml-2 align-middle text-xs font-normal tracking-normal text-neutral-500">Focus & Create</span></h1>
           </div>
@@ -486,6 +493,15 @@ const ScheduleApp: React.FC = () => {
                 <span className="text-neutral-400">分</span>
               </div>}
             </div>
+            {!session && recentLinkedFocus && records.some(r=>r.sessionId===recentLinkedFocus.sessionId) &&
+              <div role="status" className="rounded-xl border border-[#e5e5e5] bg-[#fafafa] px-3 py-3 text-sm">
+                <p className="font-medium break-words">已完成 {recentLinkedFocus.minutes} 分钟 · {recentLinkedFocus.title}</p>
+                <p className="mt-1 text-xs text-neutral-600">时长已记录。是否抵扣剩余工时，需要你在原事项中确认，不会自动完成作业或画稿。</p>
+                <button type="button" className={btn+' mt-2 min-h-11'}
+                  onClick={()=>switchTab(recentLinkedFocus.kind==='commission'?'commissions':'calendar')}>
+                  去核对并手动结算
+                </button>
+              </div>}
             <div className="min-w-0">
               <select aria-label="当前任务" value={selectedTask} disabled={!!session} onChange={e=>setSelectedTask(e.target.value)} className={inset+' w-full min-w-0 p-2.5 text-[12px] outline-none'}>
                 <option value="">请选择今天的专注任务</option>
@@ -570,10 +586,10 @@ const ScheduleApp: React.FC = () => {
         style={{paddingBottom:'max(12px, var(--safe-bottom, 0px))'}}>
         {([['timer','专注'],['commissions','排单'],['calendar','课程表'],['study','自习室']] as const)
           .map(([id,title])=><button key={id} onClick={()=>switchTab(id)}
-            className={'rounded-xl py-2.5 text-[12px] font-medium transition-colors '+(tab===id?'bg-[#ececec] text-[#292929] font-semibold ring-1 ring-inset ring-[#dedede]':'text-neutral-600 hover:bg-neutral-100')}>{title}</button>)}
+            className={'min-h-11 rounded-xl py-2.5 text-[12px] font-medium transition-colors '+(tab===id?'bg-[#ececec] text-[#292929] font-semibold ring-1 ring-inset ring-[#dedede]':'text-neutral-600 hover:bg-neutral-100')}>{title}</button>)}
       </nav>
       {exitOpen && <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-[#eeeeee] rounded-3xl p-6 space-y-4 shadow-xl">
+        <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-[#eeeeee] rounded-3xl p-6 space-y-4 shadow-xl">
           <h2 className="text-lg font-medium">结束当前计时轮次？</h2>
           <p className="text-sm">尚未完成的轮次不会计入专注成绩。可以继续、仅中断留在学习室，或者确认退出。</p>
           <div className="text-xs text-[#999999]">冷静倒计时：{Math.max(0, Math.ceil((exitDeadline - now) / 1000))} 秒</div>
@@ -587,7 +603,7 @@ const ScheduleApp: React.FC = () => {
       </div>
       {assistantOpen && <div className="absolute inset-0 z-[80] bg-black/40 flex items-end justify-center"
         onClick={()=>setAssistantOpen(false)}>
-        <section className="bg-white text-neutral-900 w-full max-w-xl h-[65%] rounded-t-2xl p-4 flex flex-col gap-3"
+        <section className="bg-white text-neutral-900 w-full max-w-xl h-[78dvh] max-h-full min-h-0 rounded-t-2xl p-4 pb-[max(16px,var(--safe-bottom,0px))] flex flex-col gap-3"
           onClick={e=>e.stopPropagation()}>
           <div className="flex justify-between items-center">
             <h2 className="font-semibold text-sm">Char · 当前工作陪伴</h2>
@@ -607,7 +623,7 @@ const ScheduleApp: React.FC = () => {
           </details>}
           {session?.mode==='focus' && <p className="text-xs">本轮已交流 {allowance.used}/{allowance.limit} 次。
             {allowance.canSend?'当前五分钟窗口可交流':'当前窗口不可再交流'}</p>}
-          <div className="flex-1 overflow-y-auto border border-neutral-200 rounded-lg p-3 space-y-2">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border border-neutral-200 rounded-lg p-3 space-y-2">
             {visibleNotes.length===0 && <p className="text-sm text-neutral-500">当前 Char 尚无学习室交流记录。</p>}
             {visibleNotes.map(n=><p key={n.id} className="text-sm whitespace-pre-wrap break-words">
               <span className="text-neutral-500">{n.role==='user'?'我':activeChar?.name||'Char'}：</span>{n.content}</p>)}
@@ -624,10 +640,10 @@ const ScheduleApp: React.FC = () => {
               {unassignedNotes.map(n=><p key={n.id}>{n.role==='user'?'我':'旧回复'}：{n.content}</p>)}
             </div>
           </details>}
-          <form onSubmit={e=>{e.preventDefault();void sendNote();}} className="flex gap-2">
-            <input className={inset+' flex-1 min-w-0 p-2 text-sm'} value={message} onChange={e=>setMessage(e.target.value)}
+          <form onSubmit={e=>{e.preventDefault();void sendNote();}} className="shrink-0 flex gap-2">
+            <input className={inset+' min-h-11 flex-1 min-w-0 p-2 text-sm'} value={message} onChange={e=>setMessage(e.target.value)}
               aria-label="对 Char 说" placeholder="主动问 Char…"/>
-            <button className={btn} disabled={replying || !allowance.canSend} type="submit">{replying?'回复中':'发送'}</button>
+            <button className={btn+' min-h-11'} disabled={replying || !allowance.canSend} type="submit">{replying?'回复中':'发送'}</button>
           </form>
         </section>
       </div>}
