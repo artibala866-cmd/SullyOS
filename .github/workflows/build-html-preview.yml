@@ -74,6 +74,16 @@ jobs:
             exit 1
           fi
           echo "Stage-6 delivery files have no TypeScript diagnostics."
+      - name: Check stage-7 native FCM transport TypeScript diagnostics
+        shell: bash
+        run: |
+          printf 'worker/amsg/src/nativeFcm.test.ts(1,1): error TS9999: gate sentinel\n' | grep -Eq '^worker/amsg/src/nativeFcm(\.test)?\.ts[(]' || { echo "Stage-7 FCM diagnostic filter is broken"; exit 1; }
+          grep -E '^worker/amsg/src/nativeFcm(\.test)?\.ts[(]' /tmp/stage6-delivery-tsc.log > /tmp/stage7-fcm-errors.log || true
+          if [ -s /tmp/stage7-fcm-errors.log ]; then
+            cat /tmp/stage7-fcm-errors.log
+            exit 1
+          fi
+          echo "Stage-7 FCM transport and tests have no TypeScript diagnostics."
       - name: Test stage-5 Android native push inbox, replay and duplicate protection
         run: pnpm exec vitest run utils/nativeAmsgInbox.test.ts utils/nativeAmsgPush.test.ts utils/activeMsgRuntime.test.ts utils/activeMsgRuntime.beforeChat.test.ts utils/amsgResults.test.ts utils/amsgInstantChat.test.ts
       - name: Check stage-5 native inbox TypeScript diagnostics
