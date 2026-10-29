@@ -545,7 +545,7 @@ interface MusicContextType {
   createPlaylist: (name: string) => boolean;
   createPlaylistWithSong: (name: string, song: Song) => boolean;
   renamePlaylist: (id: string, name: string) => boolean;
-  deletePlaylist: (id: string) => void;
+  deletePlaylist: (id: string) => boolean;
   addSongToPlaylist: (id: string, song: Song) => boolean;
   removeSongFromPlaylist: (id: string, key: string) => void;
   movePlaylistSong: (id: string, from: number, to: number) => void;
@@ -837,8 +837,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ? { ...p, name: trimmed, updatedAt: Date.now() } : p),
     }));
   }, [updateLibrary]);
-  const deletePlaylist = useCallback((id: string) => {
-    updateLibrary(old => ({ ...old, playlists: old.playlists.filter(p => p.id !== id) }));
+  const deletePlaylist = useCallback((id: string): boolean => {
+    if (!libraryRef.current.playlists.some(p => p.id === id)) return false;
+    return updateLibrary(old => ({
+      ...old, playlists: old.playlists.filter(p => p.id !== id),
+    }));
   }, [updateLibrary]);
   const addSongToPlaylist = useCallback((id: string, song: Song): boolean => {
     const playlist = libraryRef.current.playlists.find(p => p.id === id);
