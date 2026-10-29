@@ -161,6 +161,17 @@ describe('阶段 2：私聊与 AMSG 共用的自然气泡持久化', () => {
         expect(reread).toEqual(messages.map(m => m.content));
     }, 20000);
 
+    it('无法解析的带属性 phone events 只剔除内部数据，不丢失前后正常消息', async () => {
+        const charId = `c-phone-internal-${Date.now()}`;
+        await applyAssistantPostProcessing(
+            '我在呢\n<sully_phone_events version="2">\n{"chats":[{"messages":[] }]}\n</sully_phone_events>\n等你',
+            makeCtx({ id: charId, name: '阿一' }, { skipSecondPassLLM: true }),
+        );
+        const messages = (await DB.getMessagesByCharId(charId, true))
+            .filter(m => m.role === 'assistant' && m.type === 'text').map(m => m.content);
+        expect(messages).toEqual(['我在呢', '等你']);
+    }, 20000);
+
     it('API 截断在属性未结束的思考标签，不能留下任何内部半截标记', async () => {
         const charId = `c-incomplete-thinking-${Date.now()}`;
         await applyAssistantPostProcessing('正常正文\n<think type="analysis"\n尚未闭合',

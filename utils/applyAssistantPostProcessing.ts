@@ -88,6 +88,10 @@ const normalizeAiContent = (raw: string): string => {
     cleaned = cleaned.replace(/<(?:think|thinking|thought)(?:\s[^>]*)?>[\s\S]*$/gi, '');
     // Also discard a truncated opener (including a newline in its attributes).
     cleaned = cleaned.replace(/<(?:think|thinking|thought)(?=[\s>]|$)[^>]*$/gi, '');
+    // The canonical phone-event extractor already consumed valid blocks upstream.
+    // Malformed attributed/incomplete internal containers have no safe chat rendering.
+    cleaned = cleaned.replace(/<sully_phone_events(?:\s[^>]*)?>[\s\S]*?<\/\s*sully_phone_events\s*>/gi, '');
+    cleaned = cleaned.replace(/<sully_phone_events(?=[\s>]|$)[\s\S]*$/gi, '');
     cleaned = cleaned.replace(/\[\d{4}[-/年]\d{1,2}[-/月]\d{1,2}.*?\]/g, '');
     cleaned = cleaned.replace(/^[\w一-龥]+:\s*/, '');
     // Strip source tags leaked from history context, including model-mutated forms such as [聊chat].
