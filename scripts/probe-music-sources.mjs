@@ -46,7 +46,19 @@ const [qq, netease] = await Promise.all([
   probe('qq_search_vkeys',qqSearch),
   probe('netease_search_gd',gd({types:'search',source:'netease',name:'钢琴',count:2,pages:1})),
 ]);
-const qqRows = qq?.data?.song?.list || qq?.data?.list || qq?.data?.songs || qq?.list || [];
+const keys = value => value && typeof value === 'object' ? Object.keys(value).slice(0,12) : [];
+// Structural diagnostics only. Do not expose track titles, IDs or signed URLs.
+console.log('MUSIC_SOURCE_SHAPE', JSON.stringify({
+  source:'qq_search_vkeys',
+  rootKeys:keys(qq),
+  dataType:Array.isArray(qq?.data) ? 'array' : typeof qq?.data,
+  dataKeys:keys(qq?.data),
+  songKeys:keys(qq?.data?.song),
+  providerMessage:typeof (qq?.message || qq?.msg) === 'string' ? String(qq.message || qq.msg).slice(0,80) : undefined,
+}));
+const qqRows = Array.isArray(qq?.data) ? qq.data
+  : qq?.data?.song?.list || qq?.data?.list || qq?.data?.songs || qq?.data?.song ||
+    qq?.data?.results || qq?.data?.records || qq?.list || [];
 if (Array.isArray(qqRows) && qqRows.length) {
   const first = qqRows[0];
   const mid = String(first?.songmid || first?.mid || '');
