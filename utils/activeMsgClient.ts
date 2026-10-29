@@ -103,7 +103,6 @@ import {
 import type { AmsgFireScene } from './amsgFireScene';
 import { buildSongPool } from './charMusicSchedule';
 import { getDailyScheduleForChar } from './dailySchedule';
-import { getLocalDateKey } from './localDate';
 import { isScheduleFeatureOn } from './scheduleGenerator';
 import {
   AMSG_GLOBAL_NAMESPACE,
@@ -117,7 +116,7 @@ import {
 import type { AmsgEmotionEvalSpec } from '../worker/amsg/src/emotionEval';
 import { listRecallableMonths } from './agenticTools';
 import { ChatPrompts } from './chatPrompts';
-import { nowInTimeZone, resolveCharTimeZone, tzAwarenessNote } from './timezone';
+import { resolveCharTimeZone, tzAwarenessNote } from './timezone';
 import { DB } from './db';
 import { copyWorkerBundleToClipboard } from './workerDeploy';
 import { collectMcpFireServers, getMcpUseNativeTools } from './mcpClient';
