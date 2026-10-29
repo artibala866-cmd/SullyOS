@@ -168,7 +168,7 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
    for(const [s,p]of [[1,'L'],[-1,'R']]as const){angle(p+'_upperArm',-.22*w,-s*.35*w,-s*(1.25-.70*w));angle(p+'_forearm',0,-s*(.08+1.6*w),-s*.1);}
   }
   if(motion==='bath-soak'){
-   const lift=activity?.bathLegLift??1,brace=activity?.bathSupport??0,lean=activity?.bathLean??0;
+   const lift=activity?.bathLegLift??1,brace=activity?.bathSupport??0,lean=activity?.bathLean??0,flex=activity?.bathCrouch??brace;
    // Lift the near leg first and transfer stance before the trailing leg.
    // The final seated knee pose only blends in as the pelvis lowers.
    angle('head',-.045*seatWeight-.06*lean,Math.sin(time*.7)*.025);
