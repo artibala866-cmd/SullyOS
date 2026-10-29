@@ -29,13 +29,13 @@ describe('UnifiedPush and Android native AMSG durable inbox', () => {
     mocks.flushInboxToChat.mockReset().mockResolvedValue([]);
   });
 
-  it('accepts objects or JSON strings, rejects arrays and malformed payloads', () => {
+  it('accepts objects or JSON strings, rejects arrays and malformed payloads', async () => {
     expect(parseNativeAmsgPayload({ message: 'hi' })).toEqual({ message: 'hi' });
     expect(parseNativeAmsgPayload('{"message":"hi"}')).toEqual({ message: 'hi' });
     expect(parseNativeAmsgPayload('[]')).toBeNull();
     expect(parseNativeAmsgPayload(['hi'])).toBeNull();
     expect(parseNativeAmsgPayload('not-json')).toBeNull();
-    expect(ingestNativeAmsgPayload({ metadata: { charId: 'char-1' }, message: 'missing ID' }))
+    await expect(ingestNativeAmsgPayload({ metadata: { charId: 'char-1' }, message: 'missing ID' }))
       .resolves.toBeNull();
   });
 

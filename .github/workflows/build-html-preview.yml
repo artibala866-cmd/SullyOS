@@ -59,6 +59,18 @@ jobs:
         run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgScheduleShortcut.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyLock.test.ts utils/amsgChatGenerationLease.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgP1CrossDay.test.ts utils/amsgPhoneEvent.test.ts utils/characterPhoneBrowserAutonomy.test.ts utils/characterPhoneSelfProfile.test.ts utils/characterLifeEventsPrivateDeletion.test.ts utils/amsgVerifiedXhs.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
       - name: Test stage-2 natural bubbles and streaming-to-storage parity
         run: pnpm exec vitest run utils/streamPreview.test.ts utils/chatParser.chunkText.test.ts utils/applyAssistantPostProcessing.amsg2Drift.test.ts
+      - name: Test stage-5 Android native push inbox, replay and duplicate protection
+        run: pnpm exec vitest run utils/nativeAmsgInbox.test.ts utils/nativeAmsgPush.test.ts utils/activeMsgRuntime.test.ts utils/activeMsgRuntime.beforeChat.test.ts utils/amsgResults.test.ts utils/amsgInstantChat.test.ts
+      - name: Check stage-5 native inbox TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/amsg-stage5-tsc.log 2>&1 || true
+          grep -E '^(utils/(nativeAmsgInbox|nativeAmsgPush)(\\.test)?\\.ts)[(]' /tmp/amsg-stage5-tsc.log > /tmp/amsg-stage5-errors.log || true
+          if [ -s /tmp/amsg-stage5-errors.log ]; then
+            cat /tmp/amsg-stage5-errors.log
+            exit 1
+          fi
+          echo "Native AMSG inbox and push TypeScript diagnostics clean."
       - name: Test stage-4 cloud snapshot provenance and autonomous wake guards
         run: pnpm exec vitest run utils/activeMsgClient.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgAutonomyWake.test.ts utils/scheduleInjection.test.ts utils/amsgFireScene.test.ts utils/amsgP1CrossDay.test.ts
       - name: Check stage-4 AMSG snapshot and wake TypeScript diagnostics

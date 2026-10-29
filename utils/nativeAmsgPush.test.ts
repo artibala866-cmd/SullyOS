@@ -57,6 +57,16 @@ describe('native AMSG2 FCM payload bridge', () => {
     expect(decodeNativeAmsgPayload({ body: '普通通知', data: {} })).toBeNull();
   });
 
+  it('repeated initialization is idempotent and does not add duplicate native listeners', async () => {
+    await Promise.all([initNativeAmsgPush(), initNativeAmsgPush()]);
+    const names = state.registered.map(x => x.event);
+    expect(names).toEqual([
+      'registration', 'registrationError',
+      'pushNotificationReceived', 'pushNotificationActionPerformed',
+    ]);
+    expect(state.register).toHaveBeenCalledTimes(1);
+  });
+
   it('native receipt and notification tap both use the shared durable ingest', async () => {
     await initNativeAmsgPush();
     const received = state.registered.find(x => x.event === 'pushNotificationReceived')!.callback;
@@ -68,13 +78,4 @@ describe('native AMSG2 FCM payload bridge', () => {
       expect.objectContaining({ messageId: 'm1', message: '你好呀' }), '你好呀');
   });
 
-  it('repeated initialization is idempotent and does not add duplicate native listeners', async () => {
-    await Promise.all([initNativeAmsgPush(), initNativeAmsgPush()]);
-    const names = state.registered.map(x => x.event);
-    expect(names).toEqual([
-      'registration', 'registrationError',
-      'pushNotificationReceived', 'pushNotificationActionPerformed',
-    ]);
-    expect(state.register).toHaveBeenCalledTimes(1);
-  });
 });
