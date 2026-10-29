@@ -14,7 +14,7 @@ const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
 const expectContinuous=(a,b)=>expect(distance(a.position,b.position)).toBeLessThan(.15);
 
 describe('bathroom interaction cancellation reverses actual partial path',()=>{
- for(const [label,elapsed] of [['early entry',.65],['mid-entry',2.2],['working',7.3],['already exiting',12.2]]){
+ for(const [label,elapsed] of [['early entry',.65],['mid-entry',2.2],['working',7.3],['already exiting',13.5]]){
   it('does not snap a resident when cancelled during '+label,()=>{
    const j=fixture();
    const before=bathroomJourneyFrame(j,elapsed);
