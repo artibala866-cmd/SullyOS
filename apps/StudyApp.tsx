@@ -1614,14 +1614,14 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
 
     if (mode === 'bookshelf') {
         return (
-            <div className="h-full w-full bg-[#fbfbfb] flex flex-col font-sans relative">
-                <div className="bg-[#fbfbfb]/90 backdrop-blur-md border-b border-[#e5e5e5] shrink-0 sticky top-0 z-20" style={{ paddingTop: 'var(--safe-top)' }}>
-                    <div className="flex items-center px-6 py-3">
+            <div className="h-full w-full bg-[#eeeeed] flex flex-col font-sans relative">
+                <div className="bg-[#eeeeed]/90 backdrop-blur-md shrink-0 sticky top-0 z-20" style={{ paddingTop: 'var(--safe-top)' }}>
+                    <div className="flex items-center mx-3 mt-3 sm:mx-6 rounded-[24px] bg-white px-4 py-3 shadow-[0_6px_22px_rgba(0,0,0,.025)]">
                     <div className="flex justify-between items-center w-full">
                         <button onClick={onExit || closeApp} className="p-2 -ml-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-slate-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
-                        <span className="font-bold text-slate-800 text-lg tracking-wide">自习室</span>
+                        <span className="font-semibold text-[#252525] text-lg tracking-tight">自习室</span>
                         <div className="flex gap-1">
                             <button onClick={() => { trackEvent('打开练习册'); loadQuizzes(); setMode('practice_book'); }} className="p-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform" title="练习册">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-500"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>
@@ -1634,14 +1634,14 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     </div>
                 </div>
 
-                <div className="p-6 flex-1 overflow-y-auto no-scrollbar">
+                <div className="px-4 sm:px-7 pt-5 pb-8 flex-1 overflow-y-auto no-scrollbar">
                     {/* Character Selector */}
-                    <div className="mb-8">
-                        <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">当前助教</h3>
+                    <div className="mb-5 rounded-[26px] bg-white p-5">
+                        <h3 className="text-[12px] font-semibold text-neutral-700 mb-4">当前助教</h3>
                         {/* 分组筛选（没建分组时不渲染），横向头像列表太挤，单独放一行 */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups}
                             value={tutorGroupId} onChange={setTutorGroupId} className="mb-3" />
-                        <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+                        <div className="flex gap-4 overflow-x-auto pb-1 no-scrollbar">
                             {filterCharactersByGroup(characters, characterGroups, tutorGroupId).map(c => (
                                 <div key={c.id} onClick={() => setSelectedChar(c)} className={`flex flex-col items-center gap-2 cursor-pointer transition-opacity ${selectedChar?.id === c.id ? 'opacity-100' : 'opacity-50'}`}>
                                     <div className={`w-14 h-14 rounded-full p-[2px] ${selectedChar?.id === c.id ? 'border-2 border-neutral-500' : 'border border-slate-200'}`}>
@@ -1660,10 +1660,10 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                             : '关联的自习室课程不存在（可能已删除或未随备份导入）。请返回学习室解除或重新关联。'
                           : '正在读取自习室课程…'}
                     </p>}
-                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">我的课程</h3>
+                    <h3 className="text-[12px] font-semibold text-neutral-700 mb-4">我的课程</h3>
                     
-                    <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => fileInputRef.current?.click()} className="aspect-[3/4] rounded-r-xl rounded-l-sm border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 text-slate-600 hover:border-neutral-400 hover:text-neutral-500 transition-colors bg-white">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                        <button onClick={() => fileInputRef.current?.click()} className="aspect-[4/5] rounded-[26px] border border-dashed border-[#cccccc] flex flex-col items-center justify-center gap-3 text-[#454545] hover:border-neutral-400 transition-colors bg-white">
                             {isProcessing ? (
                                 <div className="text-center px-2">
                                     <div className="w-6 h-6 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
@@ -1671,9 +1671,9 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 </div>
                             ) : (
                                 <>
-                                    <span className="text-3xl">+</span>
-                                    <span className="text-xs font-bold">导入学习资料</span>
-                                    <span className="px-3 text-center text-xs leading-relaxed">支持 PDF，让角色陪你讲解、练习</span>
+                                    <span className="grid h-14 w-14 place-items-center rounded-full bg-[#f1f1f1] text-[30px] font-light">+</span>
+                                    <span className="text-sm font-semibold">导入 PDF</span>
+                                    
                                 </>
                             )}
                         </button>
@@ -1682,21 +1682,21 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                         {courses.map(course => (
                             <div key={course.id} ref={course.id===highlightCourseId ? highlightedCardRef : undefined}
                                 onClick={() => startSession(course)}
-                                className={'aspect-[3/4] rounded-r-xl rounded-l-sm shadow-md relative group cursor-pointer overflow-hidden transition-transform active:scale-95 '+(course.id===highlightCourseId?'ring-4 ring-neutral-700 ring-offset-2':'')}
+                                className={'aspect-[4/5] rounded-[26px] shadow-[0_8px_26px_rgba(0,0,0,.07)] relative group cursor-pointer overflow-hidden grayscale transition-transform active:scale-95 '+(course.id===highlightCourseId?'ring-4 ring-neutral-700 ring-offset-2':'')}
                                 style={{ background: course.coverStyle }}>
-                                <div className="absolute left-0 top-0 bottom-0 w-2 bg-black/10"></div> {/* Spine */}
-                                <div className="p-4 flex flex-col h-full text-white relative z-10">
-                                    <div className="flex-1 font-serif font-bold text-lg leading-tight line-clamp-3 drop-shadow-md">{course.title}</div>
+                                
+                                <div className="p-4 sm:p-5 flex flex-col h-full text-white relative z-10">
+                                    <div className="flex-1 font-sans font-semibold text-[17px] leading-snug line-clamp-3 drop-shadow-sm">{course.title}</div>
                                     <div className="mt-2">
                                         <div className="text-xs font-bold opacity-80 mb-1">进度 {course.totalProgress}%</div>
-                                        <div className="h-1 bg-white/30 rounded-full overflow-hidden">
+                                        <div className="h-1 bg-white/35 rounded-full overflow-hidden">
                                             <div className="h-full bg-white transition-all duration-500" style={{ width: `${course.totalProgress}%` }}></div>
                                         </div>
                                     </div>
                                 </div>
                                 <button 
                                     onClick={(e) => requestDeleteCourse(e, course)} 
-                                    className="absolute top-2 right-2 bg-black/20 hover:bg-neutral-500 text-white w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-md transition-all z-20"
+                                    className="absolute top-2 right-2 bg-black/35 hover:bg-neutral-500 text-white w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md transition-all z-20"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
