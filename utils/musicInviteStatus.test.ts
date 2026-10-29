@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { DB } from './db';
-import { findPendingMusicInvite, hasPendingMusicInvite, persistMusicInviteWithdrawal, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from './musicInviteStatus';
+import { findPendingMusicInvite, hasPendingMusicInvite, persistMusicInviteWithdrawal, canJoinMusicWithoutPendingInvite, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from './musicInviteStatus';
 
 describe('一起听邀请状态', () => {
   const fromUser = { id: 1, metadata: { musicListenInvite: true } };
@@ -333,5 +333,26 @@ describe('双标签页会话与邀请缓存不互相覆盖', () => {
     // New users use the separate cache; older installations still migrate
     // their previous combined field without discarding it.
     expect(context).toContain("localStorage.getItem('sully_music_together_v1') || '{}').invites");
+  });
+});
+
+describe('已撤回邀请与 Char 自愿加入的异步竞态', () => {
+  const invite = { id: 1, role: 'user', type: 'system', metadata: { musicListenInvite: true } };
+  const cancel = { id: 2, role: 'user', type: 'system', metadata: { musicListenInviteResponseTo: 1, cancelled: true } };
+  it('撤回与旧的接受结果先后交错时不能擅自加入', () => {
+    expect(canJoinMusicWithoutPendingInvite([invite, cancel])).toBe(false);
+    expect(canJoinMusicWithoutPendingInvite([invite])).toBe(false);
+  });
+  it('没有邀请时仍允许原 MUSIC_ACTION 自愿加入', () => {
+    expect(canJoinMusicWithoutPendingInvite([])).toBe(true);
+    expect(canJoinMusicWithoutPendingInvite([{ id: 9, role: 'user', type: 'text' }])).toBe(true);
+  });
+  it('取消后用户又正常发消息，可以开始新的自愿伴听，不受旧邀请永久阻断', () => {
+    const newTurn = { id: 3, role: 'user', type: 'text' };
+    expect(canJoinMusicWithoutPendingInvite([invite, cancel, newTurn])).toBe(true);
+    // Additional system events are not a new human instruction.
+    expect(canJoinMusicWithoutPendingInvite([invite, cancel, { id: 4, role: 'user', type: 'system' }])).toBe(false);
+    const context = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
+    expect(context).toContain('if (!canJoinMusicWithoutPendingInvite(history)) return false');
   });
 });
