@@ -128,3 +128,19 @@ describe('撤回邀请的真实持久化流程', () => {
     expect(findPendingMusicInvite(history, 'user')?.id).toBe(7);
   });
 });
+
+describe('聊天卡片撤回反馈与跨页面事件检查', () => {
+  it('撤回必须反馈保存成功、失败和过期结果，不能留着不可点击的卡片', () => {
+    const provider = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
+    const card = readFileSync(new URL('../components/chat/MessageItem.tsx', import.meta.url), 'utf8');
+    expect(provider).toContain("'music-listen-invite-withdrawal-result'");
+    expect(provider).toContain("report(false, 'not_found')");
+    expect(provider).toContain("report(false, 'storage')");
+    expect(provider).toContain('report(true)');
+    expect(card).toContain("'music-listen-invite-withdrawal-result'");
+    expect(card).toContain("inviteCancelling ? '撤回中…' : '撤回邀请'");
+    expect(card).toContain('onClick={cancelMusicInvite}');
+    expect(card).toContain("role=\"status\"");
+    expect(card).toContain("clearTimeout(inviteCancelTimerRef.current)");
+  });
+});
