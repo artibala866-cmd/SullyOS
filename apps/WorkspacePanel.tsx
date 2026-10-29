@@ -551,15 +551,15 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </header>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="可直接继续的画稿">
         {quickCommissions.slice(0,1).map(c=><article key={c.id}
-          className="col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[198px] min-w-0 flex-col justify-between rounded-[24px] bg-white p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
+          className="col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[198px] min-w-0 flex-col justify-between rounded-[24px] bg-white px-4 py-3 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-neutral-600">正在画</span>
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f2f2f2]"><PenNib size={20} weight="light"/></span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#f2f2f2]"><PenNib size={20} weight="light"/></span>
           </div>
-          <div className="min-w-0 py-2.5 sm:py-4">
+          <div className="min-w-0 py-1 sm:py-3">
             <h3 className="truncate text-[18px] sm:text-[22px] font-semibold tracking-tight">{c.title}</h3>
             <p className="mt-1.5 text-xs text-neutral-500">{c.stage} · {deadlineLabel(c.dueDate,todayKey)}</p>
-            <p className="mt-3 text-sm tabular-nums">{c.remainingMinutes}<span className="ml-1 text-xs text-neutral-500">分钟待绘制</span></p>
+            <p className="mt-1.5 text-sm tabular-nums">{c.remainingMinutes}<span className="ml-1 text-xs text-neutral-500">分钟待绘制</span></p>
             {!!risk.get(c.id)?.shortfallMinutes && <p className="mt-1 text-xs text-red-700">预计缺口 {risk.get(c.id)?.shortfallMinutes} 分</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -740,15 +740,15 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </header>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="接下来要做的作业">
         {pendingHomework.slice(0,1).map(h=><article key={h.id}
-          className="col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[194px] flex-col justify-between rounded-[24px] bg-white p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
+          className="col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[194px] flex-col justify-between rounded-[24px] bg-white px-4 py-3 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-neutral-600">接下来</span>
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f2f2f2]"><BookOpen size={20} weight="light"/></span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#f2f2f2]"><BookOpen size={20} weight="light"/></span>
           </div>
-          <div className="min-w-0 py-2.5 sm:py-4">
+          <div className="min-w-0 py-1 sm:py-3">
             <h3 className="truncate text-[18px] sm:text-[22px] font-semibold tracking-tight">{h.title}</h3>
             <p className="mt-1.5 text-xs text-neutral-500">{lessonNameForHomework(data.classes,h.classId)} · {deadlineLabel(h.dueAt,todayKey)}</p>
-            <p className="mt-3 text-sm">{h.minutes}<span className="ml-1 text-xs text-neutral-500">分钟预计剩余</span></p>
+            <p className="mt-1.5 text-sm">{h.minutes}<span className="ml-1 text-xs text-neutral-500">分钟预计剩余</span></p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={primaryButton+' flex items-center gap-2 rounded-full !px-5'}
