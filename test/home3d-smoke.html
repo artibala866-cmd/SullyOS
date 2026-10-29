@@ -396,12 +396,17 @@ function texture(color){
   // advancePets samples can begin partway through entry after the arrival
   // tick, so labeling them i*dt can falsely count a swinging foot as planted.
   report.bathRigFrames=[];
-  for(let i=0;i<90;i++){
-   editor.advancePets(.06);
+  // A journey may already be partway through its entry on the arrival tick.
+  // Capture its current real phase before advancing, then sample until the
+  // full entry endpoint without assuming 90 frames will remain.
+  for(let i=0;i<110;i++){
+   if(i)editor.advancePets(.045);
    const state=editor.inspect(),root=state.chibiPosition;
    const progress=state.chibiActivity?.bathTime;
-   if(!Number.isFinite(progress)||state.chibiActivity?.bathPhase!=='enter')
-    throw Error('Bath stopped or reversed before the required entry samples were collected');
+   if(!Number.isFinite(progress))
+    throw Error('Bath journey was released before entry measurements completed');
+   if(state.chibiActivity?.bathPhase!=='enter'&&progress<4.46)
+    throw Error('Bath entry ended before both legs cleared the rim');
    const rim=state.chibiActivity?.bathHandWorld||[];
    const handErrors=['L','R'].map((side,k)=>{
     if(!rim[k])return null;
