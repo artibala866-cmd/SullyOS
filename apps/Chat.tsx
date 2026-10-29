@@ -3134,6 +3134,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const handleDeleteMessage = async () => {
         if (!selectedMessage) return;
         const deletedId = selectedMessage.id;
+        // A deleted unanswered user message must not be revived by a pending timer.
+        if (selectedMessage.role === 'user' && findPendingUserTurn(messages)?.id === deletedId) autoReply.cancel();
         const providerId = selectedMessage.metadata?.activeMsg2?.messageId;
         await DB.deleteMessage(deletedId);
         if (typeof providerId === 'string') pruneDeletedPrivateChatLifeEvents(selectedMessage.charId, [providerId]);
@@ -3155,6 +3157,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const confirmEditMessage = async () => {
         if (!selectedMessage) return;
         const contentChanged = editContent !== selectedMessage.content;
+        if (contentChanged && selectedMessage.role === 'user' &&
+            findPendingUserTurn(messages)?.id === selectedMessage.id) autoReply.cancel();
         await DB.updateMessage(selectedMessage.id, editContent);
         // 内容变了旧语音就作废，否则语音条仍会播放编辑前的音频。
         if (contentChanged) discardVoiceForMessages([selectedMessage.id]);
@@ -3303,6 +3307,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             });
         }
         const ids = Array.from(msgIdsToDelete);
+        const unanswered = findPendingUserTurn(messages);
+        if (unanswered && msgIdsToDelete.has(unanswered.id)) autoReply.cancel();
         if (ids.length > 0) {
             const deletedProviderIds = messages.filter(m => msgIdsToDelete.has(m.id))
                 .map(m => m.metadata?.activeMsg2?.messageId)
