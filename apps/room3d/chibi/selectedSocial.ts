@@ -68,7 +68,7 @@ export function sampleSocialApproach(path:readonly T.Vector3[],time:number,durat
  return {position,heading,progress:traveled/total,speed};
 }
 
-export function createSocialScene(residents:SocialResident[],options:{facingTarget?:T.Vector3;pinned?:{id:string;pose:any};onComplete?:()=>void;canPlace?:(paths:T.Vector3[][])=>boolean;canPerform?:(paths:T.Vector3[][])=>boolean;origins?:T.Vector3[];findPath?:(from:T.Vector3,to:T.Vector3)=>T.Vector3[]|null;sofaSeatPoses?:Record<string,any>}={}){
+export function createSocialScene(residents:SocialResident[],options:{canInteract?:(action:string,a:string,b?:string)=>boolean;facingTarget?:T.Vector3;pinned?:{id:string;pose:any};onComplete?:()=>void;canPlace?:(paths:T.Vector3[][])=>boolean;canPerform?:(paths:T.Vector3[][])=>boolean;origins?:T.Vector3[];findPath?:(from:T.Vector3,to:T.Vector3)=>T.Vector3[]|null;sofaSeatPoses?:Record<string,any>}={}){
  if(new Set(residents.map(r=>r.id)).size!==residents.length)throw Error('Duplicate resident ID');
  if(residents.some(r=>!!r.visitor.rig!==!!residents[0]?.visitor.rig))throw Error('A home must use one body type');
  const states=new Map(residents.map(r=>[r.id,{...r,solver:contactSolver(r.visitor),home:r.visitor.root.position.clone(),rotation:r.visitor.root.quaternion.clone()}]));
@@ -413,12 +413,15 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   async start(action:SocialAction,a:string,b?:string){
    const entry=socialActions[action];if(!entry)throw Error('这个动作没有被选中');
    if(!states.has(a)||entry.participants===2&&(!b||!states.has(b)||a===b))throw Error('请选择两位不同的居民');
+   const checkRelation=()=>{if(options.canInteract&&!options.canInteract(action,a,b))throw Error('这两位未设置浪漫关系，不能执行亲密动作');};
+   checkRelation();
    if(isPrincessCarry(action)&&!states.get(a)!.visitor.rig)throw Error('公主抱需要二号素体');
    if(action==='home-rear-hug'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('背后搂抱需要 Q 版骨骼素体');
    if(['home-sneak-kiss','home-passion-kiss'].includes(action)&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error(entry.label+'需要 Q 版骨骼素体');
    if(action==='home-sofa-lap-pillow'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('沙发膝枕需要 Q 版骨骼素体');
    const token=++generation;restore();loading=true;
    try{const sourceClip=await loadSelectedMotion(action);if(token!==generation)return false;
+    checkRelation();
     // This capture stores the seated recipient first and the crouching comforter second.
     // Keep semantic participant IDs (initiator, recipient) stable; only map the tracks.
     const clip=action==='cmu-22_03'?{...sourceClip,actors:[sourceClip.actors[1],sourceClip.actors[0]]}:sourceClip;
