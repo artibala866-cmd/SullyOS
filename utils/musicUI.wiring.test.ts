@@ -30,7 +30,7 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(ui).toContain('<Pause size={20} color="white" weight="fill" />');
     expect(ui).toContain('music-eq');
     expect(app).toContain('isPlaying={isActive && playing} isLoading={isActive && loadingSong}');
-    expect(app).toContain('isPlaying={active && playing} isLoading={active && loadingSong}');
+    expect(queueSheet).toContain('isPlaying={selected && playing} isLoading={selected && loading}');
   });
   it('加入队列用加号、喜欢用心形，保留辅助文字标签', () => {
     expect(app).toContain('<Plus size={14} weight="regular" />');
@@ -70,6 +70,8 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(queueSheet).toContain("e.target.value === 'down'");
     expect(queueSheet).toContain("e.target.value === 'remove'");
     expect(queueSheet).toContain('onClearUpcoming(); setConfirmClear(false)');
+    expect(profile).toContain('onOpenQueue={onOpenQueue}');
+    expect(app).toContain('queueOpen={queueSheetOpen}');
     expect(queueSheet).toContain('disabled={selected}');
     expect(queueSheet).toContain("e.key === 'Escape'");
     expect(queueSheet).toContain('env(safe-area-inset-bottom');
