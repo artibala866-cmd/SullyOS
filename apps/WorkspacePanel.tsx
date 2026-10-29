@@ -46,9 +46,10 @@ interface Props {
   onSelectChar: (id:string) => void;
 }
 const inputClass = 'w-full min-w-0 bg-[#fafafa] border border-neutral-200 text-neutral-900 rounded-lg p-2.5 text-sm outline-none focus:border-neutral-700';
-const buttonClass = 'rounded-xl bg-neutral-900 text-white px-3 py-2.5 text-xs font-medium disabled:opacity-40';
+const buttonClass = 'rounded-xl border border-[#dfdfdf] bg-[#f1f1f1] text-[#292929] px-3 py-2.5 text-sm font-medium hover:bg-[#e9e9e9] disabled:opacity-40';
+const primaryButton = 'rounded-xl bg-[#383838] text-white px-3 py-2.5 text-sm font-medium disabled:opacity-40';
 const mutedButton = 'rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-800 hover:bg-[#f6f6f6] disabled:opacity-40';
-const cardClass = 'rounded-[18px] border border-[#e8e8e8] p-3.5 sm:p-5 bg-white shadow-[0_3px_12px_rgba(0,0,0,0.025)] space-y-3';
+const cardClass = 'rounded-2xl border border-[#e9e9e9] p-3.5 sm:p-5 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.018)] space-y-3';
 const weekdayNames = ['周日','周一','周二','周三','周四','周五','周六'];
 const blankCommission = () => ({
   title:'',client:'',type:'',brief:'',acceptedAt:localDate(new Date()),
@@ -482,8 +483,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       {shareBusy && <p className="text-xs text-neutral-600">正在保存授权并核对远端提醒…</p>}
     </details>
     {section==='commissions' ? <>
-      <header className={cardClass+' !bg-[linear-gradient(120deg,#fff,#f3f3f3)]'}>
-        <div><p className="text-[10px] tracking-[.24em] text-neutral-400">CREATIVE PLANNER</p>
+      <header className={cardClass}>
+        <div><p className="text-xs tracking-wide text-neutral-500">CREATIVE PLANNER</p>
         <h2 className="mt-2 font-serif text-[23px] tracking-wide">画师排单</h2>
         </div>
         <details className="rounded-2xl border border-neutral-200 bg-white p-3 text-sm">
@@ -497,12 +498,12 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <p className="text-neutral-600">同时间课程只扣一次；逾期作业按今天补做估算。仅按日汇总，并非精确到小时的自动预约。</p>
           <div className="grid grid-cols-7 gap-2 items-end pt-2">
             {weekCapacity.map(day=><div className="min-w-0 text-center" key={day.date}>
-              <span className="block truncate text-[10px] text-neutral-400">{day.date.slice(-2)}日</span>
+              <span className="block truncate text-xs text-neutral-500">{day.date.slice(-2)}日</span>
               <span title={'课程 '+day.classMinutes+' 分，作业 '+day.homeworkMinutes+' 分，可用 '+day.availableMinutes+' 分'}
                 className={'mt-2 block w-full rounded-md '+(day.overbookedMinutes?'bg-neutral-900':'bg-[#d4d4d4]')}
                 style={{height:Math.max(6,Math.round((day.classMinutes+day.homeworkMinutes)/Math.max(1,data.dailyAvailableMinutes)*65))+'px',maxHeight:'78px'}}/>
-              <strong className="mt-1 block text-[10px] tabular-nums">{day.availableMinutes}</strong>
-              {day.overbookedMinutes>0&&<span className="block text-[9px] text-red-700">超 {day.overbookedMinutes}</span>}
+              <strong className="mt-1 block text-xs tabular-nums">{day.availableMinutes}</strong>
+              {day.overbookedMinutes>0&&<span className="block text-xs text-red-700">超 {day.overbookedMinutes}</span>}
             </div>)}
           </div>
           {weekCapacity[0]?.unscheduledHomeworkCount>0 &&
@@ -524,7 +525,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               <p className="text-xs text-neutral-600">{c.stage} · {deadlineLabel(c.dueDate,todayKey)} · 剩余 {c.remainingMinutes} 分</p>
               {!!risk.get(c.id)?.shortfallMinutes && <p className="text-xs text-red-700">预计缺口 {risk.get(c.id)?.shortfallMinutes} 分</p>}
             </div>
-            <button type="button" className={buttonClass} onClick={()=>onFocus('commission',c.id,c.title)}>开始画</button>
+            <button type="button" className={primaryButton} onClick={()=>onFocus('commission',c.id,c.title)}>开始画</button>
             <button type="button" className={mutedButton} onClick={()=>editCommission(c.id)}>调整</button>
           </div>)}
         </div> : <p className="text-xs text-neutral-600">还没有正在绘制的画稿。可以在下方新增委托，或把等待中的稿件改为正在绘制。</p>}
@@ -636,7 +637,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </details>
       <datalist id="sully-stages">{['待确认','排队','草稿','线稿','上色','细化','待审核','交付完成'].map(s=><option key={s} value={s}/>)}</datalist>
     </> : <>
-      <header className={cardClass+' !bg-[linear-gradient(120deg,#fff,#f3f3f3)]'}><p className="text-[10px] tracking-[.24em] text-neutral-400">WEEKLY SCHOOL PLANNER</p>
+      <header className={cardClass}><p className="text-xs tracking-wide text-neutral-500">WEEKLY SCHOOL PLANNER</p>
         <h2 className="font-serif text-[23px] tracking-wide">课程表</h2>
         <p className="text-xs text-neutral-500"></p></header>
       <section className={cardClass} aria-label="接下来要做的作业">
@@ -650,7 +651,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               <p className="truncate text-sm font-medium">{h.title}</p>
               <p className="text-xs text-neutral-600">{lessonNameForHomework(data.classes,h.classId)} · {deadlineLabel(h.dueAt,todayKey)}</p>
             </div>
-            <button type="button" className={buttonClass} onClick={()=>onFocus('homework',h.id,h.title)}>开始学</button>
+            <button type="button" className={primaryButton} onClick={()=>onFocus('homework',h.id,h.title)}>开始学</button>
             {data.classes.some(c=>c.id===h.classId) &&
               <button type="button" className={mutedButton} onClick={()=>showClassWork(h.classId)}>查看作业</button>}
           </div>)}
@@ -764,7 +765,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </details>
       <section id="study-homework-panel" className={cardClass+' scroll-mt-4'}>
         <div className="flex items-center justify-between gap-3">
-          <div><p className="text-[10px] tracking-[.22em] text-neutral-400">HOMEWORK & NOTES</p><h3 className="mt-1 text-[18px] font-semibold">作业与笔记</h3></div>
+          <div><p className="text-xs tracking-[.22em] text-neutral-400">HOMEWORK & NOTES</p><h3 className="mt-1 text-[18px] font-semibold">作业与笔记</h3></div>
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f1f1f1] text-lg">✎</span>
         </div>
         <label className="text-sm">选择课程<select className={inputClass} value={selectedClassId} onChange={e=>setSelectedClassId(e.target.value)}>
@@ -780,11 +781,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <input className={inputClass} type="datetime-local" aria-label="作业截止时间" value={homeworkDue} onChange={e=>setHomeworkDue(e.target.value)}/>
             <button className={buttonClass} type="submit">添加作业</button>
           </form>
-          {data.homework.filter(h=>h.classId===selectedClassId).map(h=><div key={h.id} className="rounded-2xl border border-neutral-100 bg-[#fafafa] p-4 space-y-3">
+          {data.homework.filter(h=>h.classId===selectedClassId).map(h=><div key={h.id} className="rounded-xl border-b border-neutral-100 bg-[#fafafa] p-3 space-y-3">
             <div className="flex gap-2"><input aria-label={'完成'+h.title} type="checkbox" checked={h.done}
               onChange={e=>void changeHomeworkDone(h.id,e.target.checked)}/>
               <span className={'font-medium text-sm '+(h.done?'line-through text-neutral-400':'text-neutral-900')}>{h.title}</span></div>
-            <p className="text-[11px] text-neutral-500">截止 {h.dueAt||'未设置'} · 已专注 {actualMinutes('homework',h.id)} 分钟 · 预计剩余 {h.minutes} 分钟</p>
+            <p className="text-xs text-neutral-500">截止 {h.dueAt||'未设置'} · 已专注 {actualMinutes('homework',h.id)} 分钟 · 预计剩余 {h.minutes} 分钟</p>
             {pendingMinutes('homework',h.id).minutes>0 && !h.done &&
               <button className={mutedButton} disabled={!!settlementBusyId}
                 onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>
@@ -817,7 +818,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             void change(v=>({...v,notes:[...v.notes,note]}));
             setNoteBody('');
           }}>保存笔记</button>
-          {data.notes.filter(n=>n.classId===selectedClassId).map(n=><div key={n.id} className="rounded-2xl border border-neutral-100 bg-[#fafafa] p-4 space-y-2">
+          {data.notes.filter(n=>n.classId===selectedClassId).map(n=><div key={n.id} className="rounded-xl border-b border-neutral-100 bg-[#fafafa] p-3 space-y-2">
             <p className="text-sm whitespace-pre-wrap break-words">{n.body}</p>
             <button className={mutedButton} onClick={()=>onDiscuss('请让我把刚学到的 '+className(n.classId)+' 的内容讲给你听，然后根据笔记追问我，不要擅自判定作业完成。笔记：'+n.body.slice(0,1500),'study',n.id)}>请 Char 提问</button>
           </div>)}
