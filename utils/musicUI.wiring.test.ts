@@ -63,6 +63,13 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(app).toContain('movePlaylistSong(playlistId, i, i - 1)');
     expect(app).toContain('removeSongFromPlaylist(playlistId, musicSongKey(song))');
   });
+  it('歌曲操作收进同一紧凑行，封面尺寸缩至 44px，不再额外堆一排大图标', () => {
+    expect(app).toContain('className="flex items-center min-w-0"');
+    expect(app).toContain('className="flex items-center gap-0 shrink-0 pr-1"');
+    expect(app).toContain('className="pl-14 pb-1 -mt-1 text-[10px] leading-tight truncate"');
+    expect(ui).toContain('w-11 h-11 overflow-hidden rounded-sm');
+    expect(ui).toContain('gap-2.5 px-2 py-1.5');
+  });
   it('点击队列其他歌曲会更新当前索引，不能只换音频地址', () => {
     const queueView = app.split("section === 'queue' &&")[1]?.split('{characters.length')[0] || '';
     expect(queueView).toContain('else void playSong(song);');
