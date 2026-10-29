@@ -172,7 +172,7 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
    // Lift the near leg first and transfer stance before the trailing leg.
    // The final seated knee pose only blends in as the pelvis lowers.
    angle('head',-.045*seatWeight-.06*lean,Math.sin(time*.7)*.025);
-   angle('spine',-.045*seatWeight+.18*lean);
+   angle('spine',-.045*seatWeight+.46*lean);
    angle('hips',0,0,.075*((activity?.bathLeadStep??0)-(activity?.bathTrailStep??0)));
    for(const [s,p]of [[1,'L'],[-1,'R']]as const){
     const approach=activity?.bathApproachStep??0;
