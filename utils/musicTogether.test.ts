@@ -30,6 +30,40 @@ describe('免登录音乐回退', () => {
     expect(calls[0]).toContain('source=netease');
   });
 
+  it('网易云成功搜索但没有匹配歌曲时，不误判为备用服务故障', async () => {
+    vi.spyOn(musicApi, 'call').mockResolvedValue({ code: 200, result: { songs: [] } });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await musicApi.search(guestCfg, '不存在的歌曲名称');
+    expect(result.result.songs).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('QQ Vkeys 搜索成功返回空数据时，不调用可能返回 403 的 GD 备用源', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify({ code: 200, message: '请求成功！', data: [] }), { status: 200 });
+    }));
+    expect(await musicApi.searchTencent('完全没有结果的名称')).toEqual([]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('/tencent/search/song');
+  });
+
+  it('QQ 来源损坏的成功响应仍可切换备用源，不会把无效结构当成空结果', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify(calls.length === 1
+        ? { code: 200, data: { unexpected: true } }
+        : [{ id: 567, name: '备用结果', artist: ['歌手'] }]), { status: 200 });
+    }));
+    const result = await musicApi.searchTencent('备用结果');
+    expect(result).toHaveLength(1);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toContain('source=tencent');
+  });
+
   it('没有网易云 Cookie 也能取得备用音源', async () => {
     vi.spyOn(musicApi, 'call').mockRejectedValue(new Error('Worker offline'));
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
