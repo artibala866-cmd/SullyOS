@@ -129,7 +129,9 @@ export const initNativeAmsgPush = async (): Promise<void> => {
     }
 
     const current = await PushNotifications.checkPermissions();
-    const permission = current.receive === 'prompt'
+    // Request permission only on first bootstrap. Rechecking when coming
+    // back from Settings must not repeatedly pop the OS consent dialog.
+    const permission = current.receive === 'prompt' && !initialized
       ? await PushNotifications.requestPermissions() : current;
     if (permission.receive === 'granted' && !registeredForPush) {
       await PushNotifications.register();

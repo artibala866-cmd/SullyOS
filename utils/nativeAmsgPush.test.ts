@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
   ingest: vi.fn().mockResolvedValue(null),
   register: vi.fn().mockResolvedValue(undefined),
   registerToken: vi.fn().mockResolvedValue(undefined),
+  permissionRequest: vi.fn(async () => ({ receive: 'prompt' as const })),
 }));
 
 vi.mock('@capacitor/push-notifications', () => ({
@@ -20,7 +21,7 @@ vi.mock('@capacitor/push-notifications', () => ({
       state.registered.push({ event, callback });
     }),
     checkPermissions: vi.fn(async () => ({ receive: state.permission })),
-    requestPermissions: vi.fn(async () => ({ receive: state.permission })),
+    requestPermissions: state.permissionRequest,
     register: state.register,
   },
 }));
@@ -47,6 +48,7 @@ describe('native AMSG2 FCM payload bridge', () => {
     state.ingest.mockReset().mockResolvedValue({ charId: 'c1', messageId: 'm1' });
     state.register.mockClear();
     state.registerToken.mockReset().mockResolvedValue(undefined);
+    state.permissionRequest.mockClear();
     state.failOnce = '';
     state.permission = 'granted';
   });
@@ -80,6 +82,9 @@ describe('native AMSG2 FCM payload bridge', () => {
       'pushNotificationReceived', 'pushNotificationActionPerformed',
     ]);
     expect(state.register).not.toHaveBeenCalled();
+    state.permission = 'prompt';
+    await initNativeAmsgPush();
+    expect(state.permissionRequest, 'Do not nag with another OS permission dialog on resume').not.toHaveBeenCalled();
     // User later enables the permission in Android Settings.
     state.permission = 'granted';
     await initNativeAmsgPush();
