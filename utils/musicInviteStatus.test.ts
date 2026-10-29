@@ -85,6 +85,15 @@ describe('一起听邀请状态', () => {
 });
 
 describe('撤回邀请的真实持久化流程', () => {
+  it('撤回已生效的邀请不再触发私聊自动回复倒计时', () => {
+    const chat = readFileSync(new URL('../apps/Chat.tsx', import.meta.url), 'utf8');
+    expect(chat).toContain("findPendingMusicInvite(recent, 'user', detail.messageId)");
+    expect(findPendingMusicInvite([
+      { id: 10, metadata: { musicListenInvite: true } },
+      { id: 11, metadata: { musicListenInviteResponseTo: 10, cancelled: true } },
+    ], 'user', 10)).toBeUndefined();
+  });
+
   it('只撤回指定的用户待回应邀请，保存后不再视为待答复', async () => {
     const history: Array<{ id: number; metadata: Record<string, unknown> }> = [
       { id: 10, metadata: { musicListenInvite: true, status: 'pending' } },
