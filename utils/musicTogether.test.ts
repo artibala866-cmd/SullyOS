@@ -75,6 +75,31 @@ describe('免登录音乐回退', () => {
     expect(result.data[0].url).toBe('https://example.com/track.mp3');
   });
 
+  it('网易云 Worker 明确返回无播放权限时保留真实结果，不误触发 403 备用源', async () => {
+    const denied = { code: 200, data: [{ id: 123, url: null, fee: 1 }] };
+    vi.spyOn(musicApi, 'call').mockResolvedValue(denied);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await musicApi.songUrl(guestCfg, 123)).toEqual(denied);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('网易云 Worker 明确返回空结果时不把备用接口故障说成歌曲版权问题', async () => {
+    vi.spyOn(musicApi, 'call').mockResolvedValue({ code: 200, data: [] });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    expect((await musicApi.songUrl(guestCfg, 123)).data).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('网易云 Worker 无效业务响应依然尝试同平台备用解析', async () => {
+    vi.spyOn(musicApi, 'call').mockResolvedValue({ code: 503, data: [{ url: null }] });
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ url: 'https://example.com/netease.mp3' }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect((await musicApi.songUrl(guestCfg, 123)).data[0].url).toContain('netease.mp3');
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('备用歌词使用播放器原有格式', async () => {
     vi.spyOn(musicApi, 'call').mockRejectedValue(new Error('Worker offline'));
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({

@@ -445,6 +445,16 @@ export const musicApi = {
     try {
       const result = await withMusicWorkerDeadline(musicApi.call(cfg, '/song/url', { ids: [id], level: cfg.quality }), cfg.cookie ? 12000 : 6000);
       if (result?.data?.[0]?.url) return result;
+      // A successful Worker response with an explicit empty URL is a real
+      // unavailable/rights-limited track, NOT a broken provider. Sending it to
+      // GD (currently returning 403) would turn a clear playback result into
+      // an unrelated fallback outage.
+      if ((result?.code === undefined || Number(result.code) === 200) &&
+          Array.isArray(result?.data) &&
+          result.data.every((row: unknown) =>
+            row === null || (typeof row === 'object' && row !== null && 'url' in row))) {
+        return result;
+      }
     } catch { /* guest fallback */ }
     const u = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'url', source: 'netease', id: String(id), br: gdMusicBitrate(cfg.quality) })) u.searchParams.set(k, v);
