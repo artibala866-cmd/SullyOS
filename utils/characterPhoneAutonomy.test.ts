@@ -183,6 +183,77 @@ describe('character-owned autonomous phone behavior', () => {
     expect(readPhoneApiBudget('disabled-midflight').requests).toBe(1);
   });
 
+  it('rejects an old NPC reply after autonomy is disabled then enabled during the same request', async () => {
+    saveNpcProfiles('toggle-back-reply', contacts().slice(0, 2));
+    const at = Date.now() - 20 * 60_000;
+    appendCharacterPhoneMessages({
+      characterId: 'toggle-back-reply', contactId: 'npc0', contactName: '阿林', at,
+      messages: [{ speaker: { role: 'contact', contactId: 'npc0' }, text: '在吗', createdAt: at }],
+    });
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId: 'toggle-back-reply', observedAt: Date.now(),
+      plannedActivity: null, plannedDescription: null, confirmedEvents: [],
+    });
+    let complete!: (response: unknown) => void;
+    const request = vi.fn().mockImplementation(() => new Promise(resolve => { complete = resolve; }));
+    vi.stubGlobal('fetch', request);
+    const pending = runCharacterPhoneAutonomy({ ...input('toggle-back-reply'), replyOnly: true });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    setCharacterPhoneAutonomyEnabled('toggle-back-reply', false);
+    setCharacterPhoneAutonomyEnabled('toggle-back-reply', true);
+    complete({
+      ok: true, status: 200, headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        send: true, messages: ['不应复活的旧回复'],
+      }) } }] }),
+    });
+    expect(await pending).toBe('skipped');
+    expect(readCharacterPhoneChats('toggle-back-reply')[0].messages.map(m => m.text)).toEqual(['在吗']);
+    expect(readPhoneApiBudget('toggle-back-reply').requests).toBe(1);
+  });
+
+  it('rejects late contacts from an old request after the autonomy switch is toggled off and back on', async () => {
+    saveNpcProfiles('toggle-back-contacts', contacts().slice(0, 2));
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId: 'toggle-back-contacts', observedAt: Date.now(),
+      plannedActivity: null, plannedDescription: null, confirmedEvents: [],
+    });
+    let complete!: (response: unknown) => void;
+    const request = vi.fn().mockImplementation(() => new Promise(resolve => { complete = resolve; }));
+    vi.stubGlobal('fetch', request);
+    const pending = runCharacterPhoneAutonomy(input('toggle-back-contacts'));
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    setCharacterPhoneAutonomyEnabled('toggle-back-contacts', false);
+    setCharacterPhoneAutonomyEnabled('toggle-back-contacts', true);
+    complete({
+      ok: true, status: 200, headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        contacts: [{ name: '旧任务制造的联系人', identity: '同事',
+          personality: '稳重', relationship: '同事', origin: 'introduced', evidence: 'suggested' }],
+      }) } }] }),
+    });
+    expect(await pending).toBe('skipped');
+    expect(readNpcProfiles('toggle-back-contacts')).toHaveLength(2);
+  });
+
+  it('switching permission off during schedule lookup does not start a new background API request', async () => {
+    saveNpcProfiles('toggle-while-schedule', contacts());
+    let resolveSchedule!: (value: any) => void;
+    vi.mocked(getCharacterLifeScheduleContext).mockImplementationOnce(() =>
+      new Promise(resolve => { resolveSchedule = resolve; }));
+    const request = mockApi();
+    const pending = runCharacterPhoneAutonomy(input('toggle-while-schedule'));
+    setCharacterPhoneAutonomyEnabled('toggle-while-schedule', false);
+    setCharacterPhoneAutonomyEnabled('toggle-while-schedule', true);
+    resolveSchedule({
+      characterId: 'toggle-while-schedule', observedAt: Date.now(),
+      plannedActivity: null, plannedDescription: null, confirmedEvents: [],
+    });
+    expect(await pending).toBe('skipped');
+    expect(request).not.toHaveBeenCalled();
+    expect(readPhoneApiBudget('toggle-while-schedule').requests).toBe(0);
+  });
+
   it('does not append a stale AI reply over a manual reply sent while API was running', async () => {
     saveNpcProfiles('manual-midflight', contacts().slice(0, 2));
     const at = Date.now() - 20 * 60_000;

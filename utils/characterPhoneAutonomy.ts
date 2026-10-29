@@ -15,7 +15,7 @@ import { resolveCharTimeZone } from './timezone';
 import { extractContent } from './safeApi';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
 import { isCharacterPhoneRefreshing } from './characterPhoneRefreshTracker';
-import { canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyPreferences, bumpPhoneAutonomyRevision } from './characterPhoneApiBudget';
+import { canUsePhoneApiBudget, reservePhoneApiBudget, readPhoneAutonomyPreferences, readPhoneAutonomyRevision, bumpPhoneAutonomyRevision } from './characterPhoneApiBudget';
 import { resolveCharacterPhoneApi } from './characterPhoneApiConfig';
 
 /** NPC phone autonomy shares the existing schedule/phone/event/AMSG pipeline.
@@ -83,13 +83,19 @@ function knownContactSnapshot(rows: NpcProfile[]): unknown {
  * Known people become contacts, merely suggested people only become contacts
  * when the character is established as knowing them; strangers get requests.
  */
-async function bootstrapSocialCircle(input: CharacterPhoneAutonomyInput): Promise<boolean> {
+async function bootstrapSocialCircle(input: CharacterPhoneAutonomyInput, expectedRevision: number): Promise<boolean> {
   const { char, user, groups, realtimeConfig } = input;
   const api = resolveCharacterPhoneApi(char.id,input.api);
   const context = await buildCharacterPhoneContext(char, user, groups, realtimeConfig);
   const existing = readNpcProfiles(char.id);
   const pending = readPendingContacts(char.id);
   const contactsClearRevision = readPhoneContentClearRevision(char.id, 'contacts');
+  // Building the phone context may await DB reads. If the user toggled the
+  // permission while that was pending, do not start a new billable request.
+  if (!isCharacterPhoneAutonomyEnabled(char.id) ||
+      !readPhoneAutonomyPreferences(char.id).backgroundApiEnabled ||
+      readPhoneAutonomyRevision(char.id) !== expectedRevision ||
+      isCharacterPhoneRefreshing(char.id)) return false;
   const response = await queryJson(api, [
     { role: 'system', content: `你为虚构角色${char.name}整理其手机通讯录中的真实生活圈。
 必须遵守以下原设/世界书/私聊上下文，禁止改写已有角色身份、家庭、职业、恋爱关系。
@@ -108,6 +114,7 @@ origin为known时必须能从原设或世界书找到证据，evidence取worldbo
   // disabling phone autonomy while the request was in flight cancels its writes.
   if (!isCharacterPhoneAutonomyEnabled(char.id) ||
       !readPhoneAutonomyPreferences(char.id).backgroundApiEnabled ||
+      readPhoneAutonomyRevision(char.id) !== expectedRevision ||
       isCharacterPhoneRefreshing(char.id) ||
       contactsClearRevision !== readPhoneContentClearRevision(char.id, 'contacts') ||
       JSON.stringify(readNpcProfiles(char.id)) !== JSON.stringify(existing) ||
@@ -131,6 +138,9 @@ origin为known时必须能从原设或世界书找到证据，evidence取worldbo
         ? raw.evidence : 'suggested',
     };
     const result = registerDiscoveredNpc(char.id, item, { blockedNames: [char.name, user.name] });
+    // An event listener may synchronously change settings while this loop
+    // persists the previous contact. Stop immediately on that revision.
+    if (readPhoneAutonomyRevision(char.id) !== expectedRevision) break;
     if (result.status === 'added' || result.status === 'pending') created = true;
     if (result.status === 'added' && result.profile) recordCharacterLifeEvent({
       id: 'contact:' + result.profile.id, characterId: char.id, kind: 'contact-added',
@@ -219,6 +229,10 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       !canRunAutomaticPhoneAi(char.id, api.baseUrl.replace(/\/+$/, '') + '/chat/completions')) return 'skipped';
   if (locks.has(char.id)) return 'skipped';
   locks.add(char.id);
+  const expectedRevision = readPhoneAutonomyRevision(char.id);
+  const stillAuthorized = () => isCharacterPhoneAutonomyEnabled(char.id) &&
+    readPhoneAutonomyPreferences(char.id).backgroundApiEnabled &&
+    readPhoneAutonomyRevision(char.id) === expectedRevision;
   const now = Date.now();
   try {
     const state = readState(char.id, now);
@@ -226,6 +240,8 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     // Check the character's own schedule BEFORE bootstrap or reserving any
     // API call. The prior order could create new NPCs while Char was asleep.
     const life = await getCharacterLifeScheduleContext(char, new Date(now));
+    if (!stillAuthorized() || isCharacterPhoneRefreshing(char.id) ||
+        isLocalChatLeaseActive(char.id)) return 'skipped';
     const busyStatus = classifyLifeActivity(char.scheduleFeatureEnabled === false ? '' : (life.plannedActivity || ''));
     if (busyStatus === 'sleep') return 'skipped';
     // Reserve the attempt BEFORE the network request. The app may be reopened or
@@ -239,7 +255,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       state.attemptsToday++;
       writeState(char.id, state);
       try {
-        if (await bootstrapSocialCircle(input)) return 'generated-contacts';
+        if (await bootstrapSocialCircle(input, expectedRevision)) return 'generated-contacts';
       } catch (error) { console.warn('[PhoneAutonomy] NPC bootstrap skipped', error); }
       // Even a skipped/failed bootstrap was an API attempt. Never fall through
       // into a second, separately billed NPC turn during the same opportunity.
@@ -288,6 +304,8 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     const speakerName = actor === 'owner' ? char.name : contact.name;
     const chatsClearRevision = readPhoneContentClearRevision(char.id, 'chats');
     const contactsClearRevision = readPhoneContentClearRevision(char.id, 'contacts');
+    if (!stillAuthorized() || isCharacterPhoneRefreshing(char.id) ||
+        isLocalChatLeaseActive(char.id)) return 'skipped';
     if (!reservePhoneApiBudget(char.id)) return 'skipped';
     state.attemptsToday++;
     writeState(char.id, state);
@@ -317,8 +335,8 @@ Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).jo
     // A slow completion is not authority to overwrite changes made while it
     // was in flight. User may have disabled autonomy, cleared the inbox,
     // removed the contact, or manually replied in this same conversation.
-    if (!isCharacterPhoneAutonomyEnabled(char.id) ||
-        !readPhoneAutonomyPreferences(char.id).backgroundApiEnabled ||
+    if (!stillAuthorized() ||
+        isLocalChatLeaseActive(char.id) ||
         chatsClearRevision !== readPhoneContentClearRevision(char.id, 'chats') ||
         contactsClearRevision !== readPhoneContentClearRevision(char.id, 'contacts') ||
         isCharacterPhoneRefreshing(char.id) ||
