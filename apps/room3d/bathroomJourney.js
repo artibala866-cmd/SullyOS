@@ -88,7 +88,7 @@ export function bathroomJourneyFrame(j,time){
   const bracedHoist=.26*M.smootherstep(p,1.48,1.96)
    *(1-M.smootherstep(p,3.36,4.20));
   position[1]=M.lerp(j.front[1],j.position[1],lower)+bracedHoist;
-  rotation=turn(turn(j.startRotation,j.edgeRotation,facing),j.rotation,M.smootherstep(p,3.75,4.52));
+  rotation=turn(turn(j.startRotation,j.edgeRotation,facing),j.rotation,M.smootherstep(p,4.10,4.52));
   seatWeight=lower;legLift=M.smootherstep(p,3.32,4.24);
  }else{
   const f=M.smootherstep(p,0,j.enter);
