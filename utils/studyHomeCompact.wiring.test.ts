@@ -71,7 +71,7 @@ describe('手机学习室按 P2 的视觉比例与分区原则：番茄钟只做
  it('正式排单与课程界面也缩小单元格和留白，保留编辑/导航',()=>{
   expect(panel).toContain('StudyCommissionCalendar commissions={data.commissions}');
   expect(panel).toContain('StudyWeekTimetable classes={data.classes}');
-  expect(commission).toContain('min-h-[45px] sm:min-h-[65px]');
+  expect(commission).toContain('min-h-[52px] sm:min-h-[62px]');
   expect(commission).toContain('onClick={()=>onEdit(event.id)}');
   expect(weekly).toContain('onSelect(c.id)');
   expect(weekly).toContain('aria-label="下一周"');
