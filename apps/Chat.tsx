@@ -3746,7 +3746,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         lastCharacterReplyAt: latestRealReplyAt,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
-        blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
+        // Hydrated intent must not fire before the persisted chat tail finishes loading.
+        blocked: messages.length === 0 || isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
             || selectionMode || isSummarizing || collaborationOpen || memoryRepairOpen || favoritesOpen
             || showActiveMsg2Modal || showThinkingChainModal
             || mcdAppOpen || luckinAppOpen || showForwardModal,

@@ -24,6 +24,7 @@ beforeEach(() => {
     vi.useFakeTimers();
     (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+    localStorage.clear();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -133,20 +134,47 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
-    it('invalidates a pending reply when backgrounded, without replay on return', () => {
+    it('retains a saved user turn when backgrounded and responds once after returning', () => {
         send();
         advance(1000);
         vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
         act(() => document.dispatchEvent(new Event('visibilitychange')));
         advance(5000);
         expect(options.onGenerate).not.toHaveBeenCalled();
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
         vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
         act(() => document.dispatchEvent(new Event('visibilitychange')));
+        advance(1999);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        advance(1);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeNull();
+        advance(5000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('restores the original unanswered intent after unmount and ignores other characters', () => {
+        send();
+        const saved = localStorage.getItem('sully_chat_auto_reply_intent_v1:a');
+        act(() => root.unmount());
+        root = createRoot(container);
+        render({ conversationId: 'b' });
         advance(5000);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        send();
+        render({ conversationId: 'a' });
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBe(saved);
         advance(2000);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not replay a restored wait already answered by another channel', () => {
+        send();
+        act(() => root.unmount());
+        root = createRoot(container);
+        render({ lastCharacterReplyAt: Date.now() + 1 });
+        advance(5000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeNull();
     });
 
     it('typing invalidates pending and in-flight candidates', () => {
@@ -198,13 +226,19 @@ describe('real-person pacing without mechanical nudges', () => {
         advance(delayFor('free', originalSendAt)!);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-    it('an old sleep candidate expires rather than suddenly replying hours later', () => {
+    it('retains a sleeping user turn overnight, but expires an abandoned 48-hour intent', () => {
         render({ naturalPacing: true, lifeActivity: 'sleep' });
         send();
-        advance(31 * 60_000);
+        vi.setSystemTime(Date.now() + 12 * 60 * 60_000);
+        render({ lifeActivity: 'free' });
+        advance(delayFor('free')!);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+        render({ lifeActivity: 'sleep' });
+        send();
+        vi.setSystemTime(Date.now() + 49 * 60 * 60_000);
         render({ lifeActivity: 'free' });
         advance(10_000);
-        expect(options.onGenerate).not.toHaveBeenCalled();
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
     it('recent genuine conversation outranks a busy schedule', () => {
         render({ naturalPacing: true, lifeActivity: 'busy', lastCharacterReplyAt: Date.now() - 60_000 });

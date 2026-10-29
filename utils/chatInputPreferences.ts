@@ -50,7 +50,20 @@ export const loadChatInputPreferences = (): ChatInputPreferences => {
 
 export const saveChatInputPreferences = (preferences: ChatInputPreferences): void => {
     try {
-        localStorage.setItem(CHAT_INPUT_PREFERENCES_KEY, JSON.stringify(normalizeChatInputPreferences(preferences)));
+        const wasEnabled = loadChatInputPreferences().autoReply;
+        const next = normalizeChatInputPreferences(preferences);
+        localStorage.setItem(CHAT_INPUT_PREFERENCES_KEY, JSON.stringify(next));
+        // This is a global switch; off must revoke intents for inactive chars too.
+        // Only delete our own intent keys, never chat, AMSG or phone records.
+        if (wasEnabled && !next.autoReply) {
+            const prefix = 'sully_chat_auto_reply_intent_v1:';
+            const keys: string[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key?.startsWith(prefix)) keys.push(key);
+            }
+            for (const key of keys) localStorage.removeItem(key);
+        }
     } catch {
         // 存储不可用的 WebView 中仍允许在当前会话使用。
     }
