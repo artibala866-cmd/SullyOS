@@ -15,7 +15,8 @@ describe('all authored seat types retain an executable WebGL smoke scenario',()=
    for(const [,id] of match[1].matchAll(/'([a-z][a-z0-9_]*)'/g))
     if(seatIds.has(id))names.add(id);
   expect([...names].sort()).toEqual(expected.sort());
-  expect(expected.reduce((total,id)=>total+catalog.find(a=>a.id===id).seats.length,0)).toBe(29);
+  expect(expected.filter(id=>!id.startsWith('halloween_')).reduce((total,id)=>total+catalog.find(a=>a.id===id).seats.length,0)).toBe(29);
+  expect(expected.reduce((total,id)=>total+catalog.find(a=>a.id===id).seats.length,0)).toBe(32);
  });
  it('uses live Home3D controller input and verifies released seats after standing',()=>{
   expect(script).toContain('await mountHomeEditor(');

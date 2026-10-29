@@ -6,9 +6,9 @@ import {createHome,validateHome} from '../apps/room3d/model.js';
 import {paintPanel} from '../apps/room3d/paintPanel.js';
 const pets=catalog.filter(a=>'petSpecies' in a);
 const read=(a:any)=>{const b=fs.readFileSync('public/room3d/'+a.url);return JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString());};
-describe('seven solid-color pet assets',()=>{
+describe('nine solid-color pet assets',()=>{
  it('ships each entire pet below 4000 triangles without images, UVs or vertex colors',()=>{
-  expect(pets).toHaveLength(7);
+  expect(pets).toHaveLength(9);
   for(const a of pets){
    const g=read(a),primitives=g.meshes.flatMap((m:any)=>m.primitives);
    expect(primitives.reduce((sum:number,p:any)=>sum+g.accessors[p.indices].count/3,0),a.id).toBeLessThan(4000);

@@ -215,7 +215,7 @@ function texture(color){
   // halves of each sofa and bench through the real action controller, without
   // converting deep benches into imaginary snap-to-seat points.
   report.doubleSeats={};
-  for(const assetId of ['sofa','bedroom_bench','show_bedroom_bench','bedroom_ref_bench']){
+  for(const assetId of ['sofa','bedroom_bench','show_bedroom_bench','bedroom_ref_bench','halloween_bat_sofa']){
    editor.dispose();set('seat matrix '+assetId);
    const house=createHome(catalog);
    house.rooms[0].items=[{id:'smoke-two-seat',assetId,
@@ -251,7 +251,7 @@ function texture(color){
   report.additionalSeats={};
   for(const assetId of ['pouf','petal_sofa','show_kitchen_bench','living_ref_sofa','bedroom_ref_flower_pouf',
    'petal_armchair','gaming_chair','dining_chair','bath_stool','bedroom_stool',
-   'bedroom_desk_chair','show_spa_stool','show_study_pouf','show_living_sofa',
+   'bedroom_desk_chair','show_spa_stool','show_study_pouf','show_living_sofa','halloween_pumpkin_armchair',
    'show_living_pouf','show_bedroom_pouf']){
    editor.dispose();set('additional seat '+assetId);
    const house=createHome(catalog);
