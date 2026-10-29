@@ -156,7 +156,7 @@ export function guideBathRimSwing(
  if(p<=begin||p>=land)return;
  const parent=v.root.parent;
  const roomWorld=(point:number[])=>{
-  const v3=new T.Vector3(...point);
+  const v3=new T.Vector3(point[0],point[1],point[2]);
   return parent?parent.localToWorld(v3):v3;
  };
  v.root.updateWorldMatrix(true,true);
