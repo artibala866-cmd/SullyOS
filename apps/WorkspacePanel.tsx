@@ -93,6 +93,10 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [homeworkDue, setHomeworkDue] = useState('');
   const [noteDrafts, setNoteDrafts] = useState<Record<string,string>>({});
   const [noteSaving,setNoteSaving] = useState(false);
+  const [addingCommission,setAddingCommission] = useState(false);
+  const [addingClass,setAddingClass] = useState(false);
+  const [addingHomework,setAddingHomework] = useState(false);
+  const addBusy = useRef({commission:false,course:false,homework:false});
   const noteSaveInFlight = useRef(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -147,6 +151,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     queue.current=commit;
     void commit.catch(e=>setError('本地保存冲突或失败，请勿清理浏览器数据：'+String(e)));
     return commit;
+  };
+  const resyncAfterFailedWrite=async()=>{
+    try{await queue.current.catch(()=>{});const latest=await readWorkspace();syncData(()=>latest);}catch{}
   };
   const onReminderUpdate = (reminders: WorkspaceData['reminders']) =>
     syncData(prev => ({...prev,reminders}));
@@ -306,8 +313,13 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     addToast('委托已保存','success');
   };
   const changeHomeworkDone = async (id:string, done:boolean) => {
-    change(v => ({...v,homework:v.homework.map(h=>h.id===id?{...h,done}:h)}));
-    if(done) await stopItemReminders('homework',id);
+    try{
+      await change(v => ({...v,homework:v.homework.map(h=>h.id===id?{...h,done}:h)}));
+      if(done) await stopItemReminders('homework',id);
+    }catch(e){
+      await resyncAfterFailedWrite();
+      addToast('作业状态未保存，请重试：'+String(e),'error');
+    }
   };
   const removeHomework = async(id:string) => {
     if(!(await stopItemReminders('homework',id))) return;
@@ -321,16 +333,28 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       return {...v,classes:v.classes.map(c=>c.id===id?{...c,...patch}:c)};
     });
 
-  const addCommission = (e:React.FormEvent) => {
+  const addCommission = async (e:React.FormEvent) => {
     e.preventDefault();
-    if (!draft.title.trim()) return;
+    if (!draft.title.trim() || addBusy.current.commission) return;
+    addBusy.current.commission=true;
+    setAddingCommission(true);
+    const submitted=draft;
     const commission:Commission = {
-      ...draft,id:newWorkspaceId(),title:draft.title.trim(),status:'active',
+      ...submitted,id:newWorkspaceId(),title:submitted.title.trim(),status:'active',
       order: Math.max(0,...data.commissions.map(c=>c.order)) + 1,
     };
-    void change(v=>({...v,commissions:[...v.commissions,commission]}));
-    setDraft(blankCommission());
-    editCommission(commission.id);
+    try{
+      await change(v=>({...v,commissions:[...v.commissions,commission]}));
+      setDraft(prev=>prev===submitted?blankCommission():prev);
+      addToast('委托已加入排单','success');
+      editCommission(commission.id);
+    }catch(e){
+      await resyncAfterFailedWrite();
+      addToast('委托未保存，填写内容仍保留：'+String(e),'error');
+    }finally{
+      addBusy.current.commission=false;
+      setAddingCommission(false);
+    }
   };
   const reorder = (id:string, direction:number) => {
     const list = orderedCommissions(data.commissions);
@@ -341,25 +365,53 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     const orders = new Map(next.map((c,k)=>[c.id,k+1]));
     change(v=>({...v,commissions:v.commissions.map(c=>orders.has(c.id)?{...c,order:orders.get(c.id)!}:c)}));
   };
-  const addClass = (e:React.FormEvent) => {
+  const addClass = async (e:React.FormEvent) => {
     e.preventDefault();
+    if(addBusy.current.course)return;
     if (!classDraft.name.trim() || !classDraft.start || !classDraft.end || classDraft.end <= classDraft.start) {
       addToast('请检查课程名及上课起止时间', 'error'); return;
     }
     const id = newWorkspaceId();
-    change(v=>({...v,classes:[...v.classes,{...classDraft,id,name:classDraft.name.trim()}]}));
-    showClassWork(id);
-    setClassDraft(blankClass());
+    const submitted=classDraft;
+    addBusy.current.course=true;
+    setAddingClass(true);
+    try{
+      await change(v=>({...v,classes:[...v.classes,{...submitted,id,name:submitted.name.trim()}]}));
+      setClassDraft(prev=>prev===submitted?blankClass():prev);
+      addToast('课程已保存','success');
+      showClassWork(id);
+    }catch(e){
+      await resyncAfterFailedWrite();
+      addToast('课程未保存，填写内容仍保留：'+String(e),'error');
+    }finally{
+      addBusy.current.course=false;
+      setAddingClass(false);
+    }
   };
-  const addHomework = (e:React.FormEvent) => {
+  const addHomework = async (e:React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClassId || !homeworkTitle.trim()) return;
+    if (!selectedClassId || !homeworkTitle.trim() || addBusy.current.homework) return;
+    const title=homeworkTitle,dueAt=homeworkDue,classId=selectedClassId;
     const task:ClassHomework = {
-      id:newWorkspaceId(),classId:selectedClassId,title:homeworkTitle.trim(),
-      dueAt:homeworkDue,minutes:60,done:false,note:'',
+      id:newWorkspaceId(),classId,title:title.trim(),dueAt,minutes:60,done:false,note:'',
     };
-    change(v=>({...v,homework:[...v.homework,task]}));
-    setHomeworkTitle('');setHomeworkDue('');
+    addBusy.current.homework=true;
+    setAddingHomework(true);
+    try{
+      await change(v=>{
+        if(!v.classes.some(c=>c.id===classId))throw new Error('目标课程已删除，请重新选择');
+        return {...v,homework:[...v.homework,task]};
+      });
+      setHomeworkTitle(prev=>prev===title?'':prev);
+      setHomeworkDue(prev=>prev===dueAt?'':prev);
+      addToast('作业已添加','success');
+    }catch(e){
+      await resyncAfterFailedWrite();
+      addToast('作业未保存，填写内容仍保留：'+String(e),'error');
+    }finally{
+      addBusy.current.homework=false;
+      setAddingHomework(false);
+    }
   };
   const pickImage = (file?: File) => {
     setPreviewRows([]);
@@ -450,7 +502,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       addToast('学习笔记已保存','success');
     }catch(e){
       addToast('笔记未保存，草稿仍保留：'+String(e),'error');
-      try{await queue.current.catch(()=>{});const latest=await readWorkspace();syncData(()=>latest);}catch{}
+      await resyncAfterFailedWrite();
     }finally{
       noteSaveInFlight.current=false;
       setNoteSaving(false);
@@ -617,7 +669,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <label className="text-xs">预计剩余分钟<input className={inputClass} type="number" min="0" value={draft.remainingMinutes} onChange={e=>setDraft(v=>({...v,remainingMinutes:Math.max(0,Number(e.target.value)||0)}))}/></label>
         </div>
         <textarea className={inputClass} placeholder="需求与参考资料说明（可稍后补充）" value={draft.brief} onChange={e=>setDraft(v=>({...v,brief:e.target.value}))}/>
-        <button className={buttonClass} type="submit">加入排单</button>
+        <button className={buttonClass+' min-h-11'} disabled={addingCommission} type="submit">{addingCommission?'保存中…':'加入排单'}</button>
       </form>
       </details>
       <details className={cardClass} open={showCommissionList} onToggle={e=>setShowCommissionList(e.currentTarget.open)}>
@@ -720,7 +772,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <input className={inputClass} placeholder="地点或上课链接" aria-label="上课地点" value={classDraft.location} onChange={e=>setClassDraft(v=>({...v,location:e.target.value}))}/>
         </div>
         <textarea className={inputClass} placeholder="调课、请假与备注" value={classDraft.note} onChange={e=>setClassDraft(v=>({...v,note:e.target.value}))}/>
-        <button type="submit" className={buttonClass}>保存课程</button>
+        <button type="submit" className={buttonClass+' min-h-11'} disabled={addingClass}>{addingClass?'保存中…':'保存课程'}</button>
       </form>
       </details>
       <details className={cardClass}>
@@ -814,7 +866,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <form onSubmit={addHomework} className="space-y-2">
             <input className={inputClass} required aria-label="新增作业" placeholder="新增作业" value={homeworkTitle} onChange={e=>setHomeworkTitle(e.target.value)}/>
             <input className={inputClass} type="datetime-local" aria-label="作业截止时间" value={homeworkDue} onChange={e=>setHomeworkDue(e.target.value)}/>
-            <button className={buttonClass} type="submit">添加作业</button>
+            <button className={buttonClass+' min-h-11'} type="submit" disabled={addingHomework}>{addingHomework?'保存中…':'添加作业'}</button>
           </form>
           {data.homework.filter(h=>h.classId===selectedClassId).map(h=><div key={h.id} className="rounded-xl border-b border-neutral-100 bg-[#fafafa] p-3 space-y-3">
             <div className="flex gap-2"><input aria-label={'完成'+h.title} type="checkbox" checked={h.done}
