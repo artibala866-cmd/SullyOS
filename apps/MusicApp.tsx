@@ -335,8 +335,10 @@ const MusicApp: React.FC = () => {
               style={{ color: C.primary }}
               onClick={() => { setQueueSheetOpen(false); setTogetherSheetOpen(true); }}>
               <Headphones size={20} weight="regular" />
-              {Object.keys(charInvites).length > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full"
-                aria-label="有待回应的一起听邀请" style={{ background: C.primary, border: '1px solid white' }} />}
+              {(Object.keys(charInvites).length > 0 || listeningTogetherWith.length > 0 ||
+                Object.values(listeningInvites).some(status => status === 'pending')) &&
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full"
+                  aria-label="有一起听动态" style={{ background: C.primary, border: '1px solid white' }} />}
             </button>}
             <button
               onClick={() => setView('profile')}
