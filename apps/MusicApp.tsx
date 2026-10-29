@@ -764,6 +764,8 @@ const MusicApp: React.FC = () => {
           <NeteaseProfilePage
             onBack={() => setView('search')}
             onOpenPlayer={() => setView('player')}
+            onOpenQueue={() => setQueueSheetOpen(true)}
+            queueOpen={queueSheetOpen}
             onOpenSearch={() => setView('search')}
             onOpenSettings={() => setView('settings')}
           />
