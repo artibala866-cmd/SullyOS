@@ -21,6 +21,19 @@ describe('black-white private-chat Facebook-style theme', () => {
     expect(formatBlackWhiteTime(sunday,new Date(2026,9,25,20,0).getTime())).toBe('周日 16:50');
     expect(formatBlackWhiteTime(sunday,new Date(2026,9,26,12,0).getTime())).toBe('昨天 16:50');
   });
+  it('never overrides the chat wallpaper or root background', () => {
+    expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('.sully-chat-root.sully-chat-monochrome {');
+    expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('background: #fff !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('background-color: #fff !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-monochrome .sully-bubble-user');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-monochrome .sully-bubble-ai');
+  });
+  it('keeps incoming messages readable and quoted text untruncated', () => {
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('font-weight: 400 !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: 76% !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('white-space: pre-wrap');
+    expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('text-overflow: ellipsis');
+  });
   it('scopes outgoing, incoming, quote and time spacing', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-monochrome .sully-facebook-reply');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-message-user');
