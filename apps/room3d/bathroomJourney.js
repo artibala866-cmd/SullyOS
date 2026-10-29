@@ -49,20 +49,24 @@ export function bathroomJourneyFrame(j,time){
  const progress=cancelled?Math.max(0,entryProgress-(t-j.cancelElapsed)):undefined;
  const phase=cancelled?'exit':t<j.enter?'enter':t<j.enter+j.hold?'work':'exit';
  const p=cancelled?progress:phase==='enter'?t:phase==='work'?j.enter:duration-t;
- let position,rotation,seatWeight=0,legLift=0,support=0,approachStep=0,leadStep=0,trailStep=0,lean=0;
+ let position,rotation,seatWeight=0,legLift=0,support=0,approachStep=0,approachTrailStep=0,leadStep=0,trailStep=0,lean=0,supportFoot=null;
  if(j.tub){
   // Turn on the planted feet, reach the rim, lift one leg, transfer weight,
   // then lift the trailing leg. Lower into the authored seat AFTER clearing.
   // In particular, never lerp the root to j.edge[1] (the ~1.17m rim).
   const facing=M.smootherstep(p,0,.48);
   support=M.smootherstep(p,.36,1.02)*(1-M.smootherstep(p,3.05,3.6));
-  approachStep=pulse(p,.32,.51,.76,1.03);
-  leadStep=pulse(p,1.03,1.40,1.73,2.12);
-  trailStep=pulse(p,1.76,2.11,2.51,2.94);
+  // Two short physical footfalls, never a 36cm translation on one planted leg.
+  // Left swings while right bears weight, then right swings after left lands.
+  approachStep=pulse(p,.28,.47,.59,.76);
+  approachTrailStep=pulse(p,.78,.94,1.02,1.20);
+  supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
+  leadStep=pulse(p,1.24,1.48,1.73,2.12);
+  trailStep=pulse(p,1.84,2.10,2.51,2.94);
   lean=M.smootherstep(p,.58,1.12)*(1-M.smootherstep(p,2.65,3.55));
   // Walk the last short, grounded step to reach the REAL near rim before
   // the first crossing leg lifts. Do not drag the standing root vertically.
-  const advance=.27*M.smootherstep(p,.32,1.02)+.73*M.smootherstep(p,1.33,2.96);
+  const advance=.12*M.smootherstep(p,.30,.74)+.15*M.smootherstep(p,.79,1.19)+.73*M.smootherstep(p,1.42,2.96);
   const lower=M.smootherstep(p,2.50,3.6);
   position=mix(j.front,j.position,advance);
   position[1]=M.lerp(j.front[1],j.position[1],lower);
@@ -72,7 +76,7 @@ export function bathroomJourneyFrame(j,time){
   const f=M.smootherstep(p,0,j.enter);
   position=mix(j.front,j.position,f);rotation=turn(j.startRotation,j.rotation,f);seatWeight=j.seated?f:0;
  }
- return {position,rotation,seatWeight,legLift,support,approachStep,leadStep,trailStep,lean,phase,time:phase==='work'?t-j.enter:p,
+ return {position,rotation,seatWeight,legLift,support,approachStep,approachTrailStep,supportFoot,leadStep,trailStep,lean,phase,time:phase==='work'?t-j.enter:p,
   done:cancelled?t-j.cancelElapsed>=entryProgress:t>=duration};
 }
 
