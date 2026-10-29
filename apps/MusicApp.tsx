@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOS } from '../context/OSContext';
 import { useMusic, musicApi, musicSongKey, normalizeCookie, toHttps, Song } from '../context/MusicContext';
 import { DB } from '../utils/db';
-import { findPendingMusicInvite } from '../utils/musicInviteStatus';
+import { findPendingMusicInvite, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import { sameMusic } from '../utils/musicLibrary';
 import { trackEvent } from '../utils/analytics';
 import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon, Heart, Plus, ListPlus, DotsThreeVertical, Trash, PencilSimple, CaretDown, CaretUp, MusicNotes, Headphones } from '@phosphor-icons/react';
@@ -48,25 +48,35 @@ const MusicApp: React.FC = () => {
   const [charInvites, setCharInvites] = useState<Record<string, { id: number; track?: Song }>>({});
   useEffect(() => {
     let cancelled = false;
+    let revision = 0;
     const refresh = async () => {
+      const requestedRevision = ++revision;
       const entries = await Promise.all(characters.map(async c => {
         // 邀请与回应可能已被记忆宫殿归档；用完整历史判断真正尚未回应的邀请。
         const messages = await DB.getMessagesByCharId(c.id, true);
         const pending = findPendingMusicInvite(messages, 'char');
         return [c.id, pending?.id ? { id: pending.id, track: pending.metadata?.musicListenTrack as Song | undefined } : null] as const;
       }));
-      if (!cancelled) setCharInvites(Object.fromEntries(
+      if (!cancelled && requestedRevision === revision) setCharInvites(Object.fromEntries(
         entries.filter((entry) => entry[1] !== null) as Array<readonly [string, { id: number; track: Song | undefined }]>
       ));
     };
     void refresh().catch(console.warn);
     const onInvite = () => { void refresh().catch(console.warn); };
+    const onRemote = (event: StorageEvent) => {
+      if (event.key === MUSIC_INVITE_DB_CHANGED_KEY && musicInviteChangedCharId(event.newValue)) onInvite();
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') onInvite(); };
     window.addEventListener('music-listen-invite-created', onInvite);
     window.addEventListener('music-listen-invite-resolved', onInvite);
+    window.addEventListener('storage', onRemote);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
       window.removeEventListener('music-listen-invite-created', onInvite);
       window.removeEventListener('music-listen-invite-resolved', onInvite);
+      window.removeEventListener('storage', onRemote);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [characters]);
   const answerCharInvite = useCallback(async (charId: string, accepted: boolean) => {
