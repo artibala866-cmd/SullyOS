@@ -11,7 +11,7 @@ import {mountHomeEditor} from '../apps/room3d/editor.js';
 import {Vector3} from 'three';
 const report={status:'starting',stage:'boot',errors:[],actions:[],seat:false,canvas:false,webgl:false,virtualAdvance:false};
 window.__home3dSmoke=report;
-const set=(stage,status)=>{report.stage=stage;if(status)report.status=status;const out=document.getElementById('result');out.dataset.status=report.status;out.textContent=JSON.stringify(report);};
+const set=(stage,status)=>{report.stage=stage;if(status)report.status=status;const out=document.getElementById('result');out.dataset.status=report.status;out.textContent='Home3D '+report.status+' | '+report.stage+' | '+report.errors.length+' errors';};
 window.addEventListener('error',e=>{report.errors.push(e.message||String(e.error));set('browser error');});
 window.addEventListener('unhandledrejection',e=>{report.errors.push(String(e.reason));set('unhandled rejection');});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
