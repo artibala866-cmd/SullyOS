@@ -1,6 +1,6 @@
 import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
-import { getCurrentScheduleActivity } from '../utils/scheduleTime';
+import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
 import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellation';
@@ -2239,10 +2239,21 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // 日程表随 fire_pack 一起上云（角色到点按它说自己在干嘛），改完要让云端那份跟上：
     // 用户把「健身」改成「在家养病」，角色晚上还说「刚从健身房回来」就穿帮了。
     const handleScheduleEdit = async (index: number, slot: ScheduleSlot) => {
-        if (!scheduleData) return;
+        if (!scheduleData || !scheduleData.slots[index]) return;
+        const minutes = parseScheduleStartMinutes(slot.startTime);
+        if (minutes === null) {
+            addToast('时段时间无效，请输入 00:00 至 23:59', 'error');
+            return;
+        }
         const newSlots = [...scheduleData.slots];
-        newSlots[index] = slot;
-        const updated = { ...scheduleData, slots: newSlots };
+        newSlots[index] = {
+            ...slot,
+            startTime: String(Math.floor(minutes / 60)).padStart(2, '0') + ':'
+                + String(minutes % 60).padStart(2, '0'),
+        };
+        // Manual time edits can move a slot across the day. Keep the canonical
+        // chronological order used by the card, status and AMSG fire scene.
+        const updated = { ...scheduleData, slots: sortScheduleSlots(newSlots) };
         setScheduleData(updated);
         await DB.saveDailySchedule(updated);
         markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
