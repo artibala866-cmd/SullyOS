@@ -82,4 +82,21 @@ describe('学习室原始需求：流畅的画稿与作业操作路径',()=>{
   expect(schedule).toContain('max-h-[90dvh] overflow-y-auto');
  });
 
+ it('新增委托、课程和作业必须等保存完成才清空表单，失败保留草稿',()=>{
+  const commission=panel.split('const addCommission = async ')[1]?.split('const reorder =')[0]||'';
+  const classes=panel.split('const addClass = async ')[1]?.split('const addHomework =')[0]||'';
+  const homework=panel.split('const addHomework = async ')[1]?.split('const pickImage =')[0]||'';
+  for(const [section,clear] of [[commission,'setDraft(prev=>'],[classes,'setClassDraft(prev=>'],[homework,'setHomeworkTitle(prev=>']]){
+    expect(section).toContain('await change(');
+    expect(section.indexOf('await change(')).toBeLessThan(section.indexOf(clear));
+    expect(section).toContain('await resyncAfterFailedWrite()');
+    expect(section).toContain('填写内容仍保留');
+  }
+  const done=panel.split('const changeHomeworkDone = async ')[1]?.split('const removeHomework =')[0]||'';
+  expect(done.indexOf('await change(')).toBeLessThan(done.indexOf("stopItemReminders('homework',id)"));
+  expect(panel).toContain('disabled={addingCommission}');
+  expect(panel).toContain('disabled={addingHomework}');
+  expect(panel).toContain('disabled={addingClass}');
+ });
+
 });
