@@ -4,6 +4,7 @@ import {
     getCurrentScheduleSlotIndex,
     getCurrentScheduleActivity,
     parseScheduleStartMinutes,
+    sortScheduleSlots,
     isSameScheduleCalendarDay,
     getScheduleDateKey,
     getScheduleWallClock,
@@ -67,6 +68,21 @@ describe('character schedule clock', () => {
         expect(parseScheduleStartMinutes('08:60')).toBeNull();
         expect(parseScheduleStartMinutes('08:00:00')).toBeNull();
         expect(parseScheduleStartMinutes('8:05')).toBe(485);
+    });
+
+    it('moves a manually edited morning slot to evening without altering its content', () => {
+        const original: ScheduleSlot[] = [
+            { startTime: '21:00', activity: '原来的晨读', description: '练习' },
+            { startTime: '12:00', activity: '午餐' },
+            { startTime: '18:00', activity: '晚饭' },
+        ];
+        const sorted = sortScheduleSlots(original);
+        expect(sorted.map(x => x.startTime)).toEqual(['12:00', '18:00', '21:00']);
+        expect(sorted[2].description).toBe('练习');
+        expect(original[0].startTime).toBe('21:00');
+        const instant = new Date('2026-07-20T20:00:00Z'); // LA 13:00
+        expect(getCurrentScheduleSlotIndex(sorted, losAngelesChar, instant)).toBe(0);
+        expect(getCurrentScheduleActivity(sorted, losAngelesChar, instant)).toBe('午餐');
     });
 
     it('midnight and DST are measured against the character calendar, not the phone', () => {
