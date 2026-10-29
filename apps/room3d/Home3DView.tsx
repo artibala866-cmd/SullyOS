@@ -29,6 +29,7 @@ import {HomePresenceBubbles,type HomeInitiativeRequest} from './HomePresenceBubb
 import HomeLifePanel from './HomeLifePanel';
 import HomeQualityTip from './HomeQualityTip';
 import {useHomeCompanion} from './useHomeCompanion';
+import {useHomeSocialLife} from './useHomeSocialLife';
 import {isEmotionBuffEnabled} from '../../utils/emotionFeature';
 import {HomeSpeechBubble} from './HomeSpeechBubble';
 
@@ -50,6 +51,7 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
  useHomeCompanion(editor,character,user,api,mainReady,suspended);
  const [photoActive,setPhotoActive]=useState(false),[phoneOpen,setPhoneOpen]=useState(false),[phoneBusy,setPhoneBusy]=useState(false),[homeBusy,setHomeBusy]=useState(false);
  const [interactionTarget,setInteractionTarget]=useState<string>();
+ useHomeSocialLife(editor,character?.id,mainReady&&!suspended&&!homeBusy&&!phoneBusy&&!photoActive&&!homely,setResidentError);
  const openLifePanel=(name:string|null,targetId?:string)=>{if(name&&name!==lifePanel)trackHomeFeature(name);setInteractionTarget(name==='interact'?targetId:undefined);setLifePanel(name);};
  const openFigures=onFigures?()=>{trackHomeFeature('figures');onFigures();}:undefined;
  const [initiative,setInitiative]=useState<HomeInitiativeRequest>();

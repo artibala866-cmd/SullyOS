@@ -9,6 +9,7 @@ export interface HomeEditor {setHomelyChatOpen?(open:boolean):void}
 export interface HomeEditor {setHomelyMusic?(value:{playing:boolean;position:number}):void;startHomelyAttention?():boolean;cancelHomelyAttention?():void}
 export interface HomeEditor {setViewMode(mode:'flat'|'free'):void}
 export interface HomeEditor {setLightingMode(mode:'auto'|'morning'|'day'|'sunset'|'night'):void;setTimeZone(timeZone?:string):void}
+export interface HomeEditor {getPresentResidents():Array<{id:string;name:string}>;getResidentScene(id:string):HomeScene;getGuestActions(id:string):HomeScene['actions'];performGuestAction(id:string,action:string):boolean;performResidentActions(id:string,ids:string[],replyTo?:string,signal?:AbortSignal):Promise<'completed'|'cancelled'|'unavailable'>;setJoinedResidentIds(ids:string[]):void;setSocialReplyBusy(value:boolean):void;isSocialReplyBusy():boolean}
 export interface HomeEditor {canPlaySocial(action:string,a:string,b?:string):boolean;setRomanticRelation(a:string,b:string,enabled:boolean):void}
 export interface HomeEditor {setPrimaryResidentId(id:string,label?:string):void;setSocialResident(id:string,visitor:ChibiVisitor,label?:string):void;removeSocialResident(id:string):void;playSocial(action:string,a:string,b?:string):Promise<boolean>;cancelSocial():void}
 export interface HomeEditor {dispose():void;warmResidentShaders?():Promise<void>;setSuspended?(value:boolean):void;setVisitor?(visitor:ChibiVisitor|null,options?:{preservePose?:boolean}):void;getState?():Home3DState;inspect?():unknown;advanceTime?(ms:number):void}
