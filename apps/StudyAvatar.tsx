@@ -10,7 +10,7 @@ interface StudyAvatarProps{
 }
 export default function StudyAvatar({value,name,className='h-full w-full'}:StudyAvatarProps){
   const [broken,setBroken]=useState<string|null>(null);
-  const textValue=typeof value==='string'&&!isImageValue(value)&&value.length<=24?value:'';
+  const textValue=typeof value==='string'&&value.length<=24&&!isImageValue(value)?value:'';
   const imageValue=isImageValue(value)?value:null;
   const canShowImage=!!imageValue&&broken!==imageValue;
   return canShowImage
