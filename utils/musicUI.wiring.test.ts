@@ -143,9 +143,11 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
 
 
 describe('歌单交互与移动端可用性', () => {
-  it('歌单模板文本使用合法 JSX 表达式，不保留错误的转义字符', () => {
-    expect(app).not.toContain('\\' + '`');
-    expect(app).not.toContain('\\' + '
+  it('歌单模板文案使用合法 JSX 表达式，不保留转义模板字符', () => {
+    expect(app).not.toContain(String.fromCharCode(92, 96));
+    expect(app).not.toContain(String.fromCharCode(92, 36, 123));
+    expect(app).toContain('aria-label={`查看歌单');
+  });
   it('歌曲行一直可直接打开歌单弹层，无需预先创建歌单', () => {
     expect(app).toContain('setPlaylistSheetSong(song)');
     expect(app).toContain('aria-haspopup="dialog"');
