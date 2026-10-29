@@ -5,6 +5,7 @@ import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anni
 import React, { useEffect, useRef, useState } from 'react';
 import { Message, ChatTheme } from '../../types';
 import { DB } from '../../utils/db';
+import { MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../../utils/musicInviteStatus';
 import { phoneFieldToText } from '../../utils/phoneEvidence';
 import { VALID_INTERJECTION_TAGS, cleanVoiceMarkupForDisplay } from '../../utils/minimaxTts';
 import { stripFishCuesForDisplay } from '../../utils/fishAudioTts';
@@ -1171,13 +1172,25 @@ const MessageItem = React.memo(({
                 ? '邀请已回应或不存在，请刷新聊天记录'
                 : detail.reason === 'processing' ? '邀请正在处理，请稍后再试' : '撤回未成功，请重试');
         };
+        const onStorage = (event: StorageEvent) => {
+            if (event.key !== MUSIC_INVITE_DB_CHANGED_KEY ||
+                musicInviteChangedCharId(event.newValue) !== m.charId) return;
+            void refresh().catch(console.warn);
+        };
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') void refresh().catch(console.warn);
+        };
         window.addEventListener('music-listen-invite-resolved', onResolved);
         window.addEventListener('music-listen-invite-withdrawal-result', onWithdrawResult);
+        window.addEventListener('storage', onStorage);
+        document.addEventListener('visibilitychange', onVisible);
         return () => {
             cancelled = true;
             if (inviteCancelTimerRef.current) clearTimeout(inviteCancelTimerRef.current);
             window.removeEventListener('music-listen-invite-resolved', onResolved);
             window.removeEventListener('music-listen-invite-withdrawal-result', onWithdrawResult);
+            window.removeEventListener('storage', onStorage);
+            document.removeEventListener('visibilitychange', onVisible);
         };
     }, [m.id, m.charId, m.metadata?.musicListenInvite, m.metadata?.inviter]);
 
