@@ -16,14 +16,24 @@ export const guestMusicErrorText = (value: unknown): string => {
 };
 
 export const guestMusicIsTransient = (error: unknown): boolean => {
+  const record = error && typeof error === 'object' && !(error instanceof Error)
+    ? error as Record<string, any> : null;
+  const status = Number(record?.code ?? record?.status ?? record?.data?.code);
+  // The provider often reports HTTP 200 with an inner 401/403/404. Retrying
+  // forbidden/missing resources just burns the rate limit and hides the cause.
+  if (Number.isInteger(status) && status >= 400 && status < 500 &&
+      status !== 408 && status !== 429) return false;
+  if (Number.isInteger(status) && (status === 429 || status >= 500 && status < 600)) return true;
   const str = typeof error === 'string' ? error : error instanceof Error ? error.message : guestMusicErrorText(error);
-  return /(?:429|5(?:00|02|03|04)|timeout|temporar|network|fetch|abort|频繁|限流|超时|网络|暂时|稍后|接口|api|失效|过期|重试|异常)/i.test(str);
+  const httpStatus = /\bHTTP\s*(4\d\d)\b/i.exec(str);
+  if (httpStatus && ![408, 429].includes(Number(httpStatus[1]))) return false;
+  return /(?:\b429\b|\b5(?:00|01|02|03|04)\b|timeout|temporar|network|fetch|abort|频繁|限流|超时|网络|暂时|稍后|失效|过期|重试|维护|接口(?:维护|故障|超时)|api\s*(?:fail|expired|error))/i.test(str);
 };
 
 /** Retry only *fast* transient errors: do not double a 6-second timeout. */
 export const retryGuestMusicOnce = async <T>(
   request: () => Promise<T>, isGood: (v: T) => boolean,
-  getError: (v: T) => unknown = guestMusicErrorText,
+  getError: (v: T) => unknown = value => value,
 ): Promise<T> => {
   let first: T;
   try { first = await request(); }
