@@ -84,11 +84,11 @@ export function bathroomJourneyFrame(j,time){
   // The stance toes stay OUTSIDE the solid rim until the high leg lifts.
   const toRim=Math.hypot(j.front[0]-j.edge[0],j.front[2]-j.edge[2]);
   const totalTravel=Math.hypot(j.front[0]-j.position[0],j.front[2]-j.position[2]);
-  const earlyTravel=Math.min(.35,Math.max(.22,toRim-.35));
+  const earlyTravel=Math.min(.35,Math.max(.18,toRim-.35));
   const earlyFraction=totalTravel>.01?(toRim>=.65?.27:Math.min(.23,earlyTravel/totalTravel)):0;
  // Two short physical footfalls, never a 36cm translation on one planted leg.
   // Left swings while right bears weight, then right swings after left lands.
-  approachStep=pulse(p,.28,.47,.59,.76);
+  approachStep=pulse(p,.43,.55,.68,.78);
   approachTrailStep=pulse(p,.78,.94,1.02,1.20);
   supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
   // Tuck the knee vertically before swinging the foot across the tall rim.
