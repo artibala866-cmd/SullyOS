@@ -1,0 +1,47 @@
+import {describe,it,expect} from 'vitest';
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+const read=(path:string)=>readFileSync(resolve(process.cwd(),path),'utf8');
+const schedule=read('apps/ScheduleApp.tsx');
+const workspace=read('apps/WorkspacePanel.tsx');
+const calendar=read('apps/StudyCommissionCalendar.tsx');
+const timetable=read('apps/StudyWeekTimetable.tsx');
+const picker=read('apps/StudyCharPicker.tsx');
+describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口',()=>{
+ it('Char 取系统角色的真实头像，支持 blobref/data/URL 且角色切换仍真实调用 chooseChar',()=>{
+   expect(picker).toContain('TokenImg value={char.avatar}');
+   expect(picker).toContain('onClick={()=>onSelect(char.id)}');
+   expect(picker).toContain('aria-pressed={selectedId===char.id}');
+   expect(schedule).toContain('StudyCharPicker characters={characters} selectedId={charId} onSelect={chooseChar}');
+   expect(schedule).toContain('StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}');
+   expect(workspace).toContain('StudyCharPicker compact characters={characters} selectedId={selectedCharId} onSelect={onSelectChar}');
+ });
+ it('月历从原有数据生成，支持月份移动、日历选日、当天编辑与开始专注',()=>{
+   expect(workspace).toContain('StudyCommissionCalendar commissions={data.commissions}');
+   expect(workspace).toContain("onFocus={(id,title)=>onFocus('commission',id,title)}");
+   expect(workspace).toContain('setShowCommissionList(true)');
+   expect(calendar).toContain('commissionCalendarEvents(commissions)');
+   expect(calendar).toContain('onClick={()=>stepMonth(-1)}');
+   expect(calendar).toContain('onClick={()=>stepMonth(1)}');
+   expect(calendar).toContain('onClick={()=>onEdit(event.id)}');
+   expect(calendar).toContain('onFocus(event.id,event.title)');
+   expect(calendar).not.toContain('window.localStorage');
+ });
+ it('周课程表读取原课程关联且触发原有作业、笔记选择，不读写 PDF',()=>{
+   expect(workspace).toContain('StudyWeekTimetable classes={data.classes} selectedId={selectedClassId} onSelect={setSelectedClassId}');
+   expect(timetable).toContain('onSelect(c.id)');
+   expect(timetable).toContain('!c.cancelled&&c.weekday===day.getDay()');
+ });
+ it('新 UI 保留重要操作但按需展开冗长设置：添加/修改/远端提醒/复盘',()=>{
+   expect(workspace).toContain('onSubmit={addCommission}');
+   expect(workspace).toContain('onSubmit={addClass}');
+   expect(workspace).toContain("onClick={()=>void requestPlan()}");
+   expect(workspace).toContain('WorkspaceReminderControls kind="commission"');
+   expect(workspace).toContain('WorkspaceReminderControls kind="homework"');
+   expect(workspace).toContain('buildHomeworkReviewTopic(h,selectedClass?.name');
+   expect(workspace).toContain('mergeWorkspaceLocalEdit(before,after,current)');
+   expect(workspace).toContain('普通私聊');
+   expect(schedule).toContain('setSession({ id: newWorkspaceId()');
+   expect(schedule).toContain('专注保护');
+ });
+});

@@ -3,6 +3,9 @@ import { useOS } from '../context/OSContext';
 import { putImageBlob } from '../utils/blobRef';
 import { recognizeCourseImage, type CourseImageDraft } from '../utils/sullyTimetableVision';
 import WorkspaceReminderControls from './WorkspaceReminderControls';
+import StudyCommissionCalendar from './StudyCommissionCalendar';
+import StudyWeekTimetable from './StudyWeekTimetable';
+import StudyCharPicker from './StudyCharPicker';
 import {
   loadStudyCourseOptions, setClassStudyCourseLink, deleteTimetableClass,
   orphanedClassContent, reassignOrphanContent, resolveLinkedCourse,
@@ -38,10 +41,10 @@ interface Props {
   selectedCharId: string;
   onSelectChar: (id:string) => void;
 }
-const inputClass = 'w-full min-w-0 bg-white border border-neutral-300 text-neutral-900 rounded-lg p-2.5 text-sm';
-const buttonClass = 'rounded-lg bg-neutral-900 text-white px-3 py-2 text-sm disabled:opacity-40';
-const mutedButton = 'border border-neutral-300 rounded-lg px-3 py-2 text-sm text-neutral-800';
-const cardClass = 'rounded-xl border border-neutral-200 p-4 bg-white space-y-3';
+const inputClass = 'w-full min-w-0 bg-[#fafafa] border border-neutral-200 text-neutral-900 rounded-xl p-3 text-sm outline-none focus:border-neutral-700';
+const buttonClass = 'rounded-2xl bg-neutral-900 text-white px-4 py-3 text-sm font-medium disabled:opacity-40';
+const mutedButton = 'rounded-2xl border border-neutral-200 bg-white px-3 py-2.5 text-xs text-neutral-800 hover:bg-[#f6f6f6] disabled:opacity-40';
+const cardClass = 'rounded-[26px] border border-neutral-200 p-4 sm:p-6 bg-white shadow-[0_12px_36px_rgba(0,0,0,0.035)] space-y-4';
 const weekdayNames = ['周日','周一','周二','周三','周四','周五','周六'];
 const blankCommission = () => ({
   title:'',client:'',type:'',brief:'',acceptedAt:localDate(new Date()),
@@ -65,6 +68,12 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [planChecked, setPlanChecked] = useState<string[]>([]);
   const [applyingPlan, setApplyingPlan] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showCommissionList,setShowCommissionList]=useState(false);
+  const [editingCommissionId,setEditingCommissionId]=useState('');
+  useEffect(()=>{
+    if(section!=='commissions'||!showCommissionList||!editingCommissionId)return;
+    document.getElementById('study-commission-'+editingCommissionId)?.scrollIntoView({block:'center',behavior:'smooth'});
+  },[section,showCommissionList,editingCommissionId]);
   const [draft, setDraft] = useState(blankCommission);
   const [classDraft, setClassDraft] = useState(blankClass);
   const [selectedClassId, setSelectedClassId] = useState('');
@@ -393,7 +402,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const riskChanges = new Map(projectedRisks.map(r=>[r.commissionId,r]));
   if (!loaded) return <p className="p-6 text-neutral-700">{error || '正在读取工作空间…'}</p>;
 
-  return <div className="text-neutral-900 space-y-5 pb-6">
+  return <div className="text-neutral-900 space-y-5 sm:space-y-6 pb-7">
     {error && <p role="alert" className="p-3 text-sm border border-neutral-500 rounded-lg">{error}</p>}
     {integrityWarnings.length>0 && <section className={cardClass} role="alert">
       <h3 className="font-semibold">本地学习室备份存在异常，已开启安全保护</h3>
@@ -405,15 +414,12 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </button>
       <p className="text-xs text-neutral-600">这个操作不会自动执行，也不能保证恢复受损的原始文字；完整损坏原件另存本机以备之后人工修复。</p>
     </section>}
-    <section className={cardClass} aria-label="普通私聊授权">
-      <h3 className="font-semibold">普通私聊 · 数据授权</h3>
+    <details className={cardClass} aria-label="普通私聊授权">
+      <summary className="cursor-pointer font-medium text-sm flex items-center justify-between">
+        <span>隐私与 Char 授权</span><span className="text-xs text-neutral-400">按需展开 · 默认关闭</span>
+      </summary>
       <p className="text-xs text-neutral-600">每个 Char 独立授权，默认全部关闭。开启仅分享课程时间、作业状态或画稿排期的有限摘要；永不自动分享客户、价格、详细需求、笔记与 PDF 原文。关闭后只阻止后续请求，已发送消息和历史记忆不会被自动删除。</p>
-      <label className="block text-xs">选择要授权的 Char
-        <select className={inputClass} value={selectedCharId} onChange={e=>onSelectChar(e.target.value)}>
-          <option value="">请选择 Char</option>
-          {characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      </label>
+      <StudyCharPicker compact characters={characters} selectedId={selectedCharId} onSelect={onSelectChar}/>
       {(['study','commissions'] as const).map(category => {
         const enabled = permissionForChar(data, selectedCharId)[category];
         const pending = data.reminders.filter(r => r.charId===selectedCharId &&
@@ -431,31 +437,41 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </div>;
       })}
       {shareBusy && <p className="text-xs text-neutral-600">正在保存授权并核对远端提醒…</p>}
-    </section>
+    </details>
     {section==='commissions' ? <>
-      <header className="space-y-2">
-        <h2 className="text-xl font-semibold">画师排单</h2>
-        <p className="text-sm text-neutral-600">委托只存入本地数据库，等待客户的稿件不算作绘画欠工。</p>
-        <label className="block text-sm">每天可用于学习和绘画的时间（分钟）
+      <header className={cardClass+' !bg-[linear-gradient(120deg,#fff,#f3f3f3)]'}>
+        <div><p className="text-[10px] tracking-[.24em] text-neutral-400">CREATIVE PLANNER</p>
+        <h2 className="mt-2 font-serif text-[29px] tracking-wide">画师排单</h2>
+        <p className="mt-1 text-xs text-neutral-500">按日期看计划、截止日与风险。委托资料仅保存在本机。</p></div>
+        <details className="rounded-2xl border border-neutral-200 bg-white p-3 text-sm">
+          <summary className="cursor-pointer text-xs font-medium">时间容量与计划设置 · 展开查看</summary>
+        <label className="mt-3 block text-xs">每天可用于学习和绘画的时间（分钟）
           <input className={inputClass} type="number" min="0" max="1440" value={data.dailyAvailableMinutes}
             onChange={e=>change(v=>({...v,dailyAvailableMinutes:Math.max(0,Math.min(1440,Number(e.target.value)||0))}))}/>
         </label>
         <section className="border border-neutral-200 bg-white rounded-xl p-3 text-xs space-y-2" aria-label="未来七天可用时间">
           <h3 className="text-sm font-semibold">未来七天 · 时间容量预估</h3>
           <p className="text-neutral-600">同时间课程只扣一次；逾期作业按今天补做估算。仅按日汇总，并非精确到小时的自动预约。</p>
-          {weekCapacity.map(day=><div className="flex flex-wrap gap-x-2 border-t border-neutral-100 pt-1" key={day.date}>
-            <span>{day.date}</span>
-            <span>课程 {day.classMinutes} 分</span>
-            <span>作业 {day.homeworkMinutes} 分</span>
-            <strong>可用 {day.availableMinutes} 分</strong>
-            {day.overbookedMinutes>0 && <span className="text-red-700">超额 {day.overbookedMinutes} 分</span>}
-          </div>)}
+          <div className="grid grid-cols-7 gap-2 items-end pt-2">
+            {weekCapacity.map(day=><div className="min-w-0 text-center" key={day.date}>
+              <span className="block truncate text-[10px] text-neutral-400">{day.date.slice(-2)}日</span>
+              <span title={'课程 '+day.classMinutes+' 分，作业 '+day.homeworkMinutes+' 分，可用 '+day.availableMinutes+' 分'}
+                className={'mt-2 block w-full rounded-md '+(day.overbookedMinutes?'bg-neutral-900':'bg-[#d4d4d4]')}
+                style={{height:Math.max(6,Math.round((day.classMinutes+day.homeworkMinutes)/Math.max(1,data.dailyAvailableMinutes)*65))+'px',maxHeight:'78px'}}/>
+              <strong className="mt-1 block text-[10px] tabular-nums">{day.availableMinutes}</strong>
+              {day.overbookedMinutes>0&&<span className="block text-[9px] text-red-700">超 {day.overbookedMinutes}</span>}
+            </div>)}
+          </div>
           {weekCapacity[0]?.unscheduledHomeworkCount>0 &&
             <p role="status">另有 {weekCapacity[0].unscheduledHomeworkCount} 项未完成作业没有有效截止日期，未纳入容量估算。请手动排入计划。</p>}
         </section>
-        <button className={mutedButton} onClick={()=>void requestPlan()} disabled={!selectedCharId || applyingPlan}>让 Char 帮我排一下</button>
+        </details>
+        <button className={buttonClass+' w-fit'} onClick={()=>void requestPlan()} disabled={!selectedCharId || applyingPlan}>✦ 让 Char 帮我排一下</button>
         <p className="text-xs text-neutral-600">点击只会打开 Char 对话；你再点发送才会将本次稿名、进度、工时、课程时段摘要交给选定的 AI。客户、价格、需求和笔记不发送。返回后必须逐项审核并确认应用。</p>
       </header>
+      <StudyCommissionCalendar commissions={data.commissions}
+        onFocus={(id,title)=>onFocus('commission',id,title)}
+        onEdit={id=>{setEditingCommissionId(id);setShowCommissionList(true);}}/>
       {planPreview && <section className={cardClass} aria-label="Char 排单建议预览">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-semibold">Char 排单建议 · 逐项审核</h3>
@@ -495,8 +511,10 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </button>
         <p className="text-xs text-neutral-500">如模型返回无效或越权字段，整份建议将被拒绝；绝不自动发消息给客户或更改交稿截止日。</p>
       </section>}
-      <form onSubmit={addCommission} className={cardClass}>
-        <h3 className="font-semibold">新增委托</h3>
+      <details className={cardClass}>
+        <summary className="cursor-pointer text-sm font-semibold">＋ 新增委托 · 点击展开填写</summary>
+      <form onSubmit={addCommission} className="space-y-3 pt-2">
+        <h3 className="text-xs font-medium text-neutral-500">在这里录入委托，日期会立即出现在上方日历。</h3>
         <input className={inputClass} required aria-label="稿件名称" placeholder="稿件名称（必填）" value={draft.title} onChange={e=>setDraft(v=>({...v,title:e.target.value}))}/>
         <div className="grid grid-cols-2 gap-2">
           <input className={inputClass} aria-label="委托人" placeholder="委托人/备注" value={draft.client} onChange={e=>setDraft(v=>({...v,client:e.target.value}))}/>
@@ -507,12 +525,13 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         <textarea className={inputClass} placeholder="需求与参考资料说明（可稍后补充）" value={draft.brief} onChange={e=>setDraft(v=>({...v,brief:e.target.value}))}/>
         <button className={buttonClass} type="submit">加入排单</button>
       </form>
-      <div className="flex justify-between items-center">
-        <h3 className="font-semibold">工作队列 · {data.commissions.filter(c=>c.status!=='archived').length}</h3>
-        <button className={mutedButton} onClick={()=>setShowArchived(x=>!x)}>{showArchived?'隐藏归档':'查看归档'}</button>
-      </div>
+      </details>
+      <details className={cardClass} open={showCommissionList} onToggle={e=>setShowCommissionList(e.currentTarget.open)}>
+        <summary className="cursor-pointer text-sm font-semibold">全部委托 · 编辑与提醒（{data.commissions.filter(c=>c.status!=='archived').length} 项）</summary>
+        <div className="flex justify-end"><button className={mutedButton} onClick={()=>setShowArchived(x=>!x)}>{showArchived?'隐藏归档':'查看归档'}</button></div>
       {orderedCommissions(data.commissions, showArchived)
-        .map(c=><article className={cardClass} key={c.id}>
+        .sort((a,b)=>Number(b.id===editingCommissionId)-Number(a.id===editingCommissionId))
+        .map(c=><article id={'study-commission-'+c.id} className={cardClass+' !shadow-none '+(editingCommissionId===c.id?'!border-neutral-900':'')} key={c.id}>
           <div className="flex justify-between gap-2">
             <div className="min-w-0"><h4 className="font-semibold break-words">{c.title}</h4>
               <p className="text-xs text-neutral-600">{c.client || '未填写客户'} · {c.stage}</p></div>
@@ -537,10 +556,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               title:c.title,stage:c.stage,dueDate:c.dueDate,remainingMinutes:c.remainingMinutes,
             }),'commission',c.id)}>问 Char</button>
           </div>
+          <details className="border-t border-neutral-100 pt-3"><summary className="cursor-pointer text-xs text-neutral-500">提醒设置 · 按需展开</summary>
           <WorkspaceReminderControls kind="commission" itemId={c.id}
             suggestedAt={c.dueDate} data={data} selectedCharId={selectedCharId}
-            onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>
-          <details className="text-sm">
+            onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/></details>
+          <details className="text-sm" open={editingCommissionId===c.id}>
             <summary className="cursor-pointer text-neutral-700">编辑阶段、日期与详情</summary>
             <div className="grid grid-cols-2 gap-2 pt-3">
               <label>阶段<input className={inputClass} list="sully-stages" value={c.stage} onChange={e=>patchCommission(c.id,{stage:e.target.value})}/></label>
@@ -564,12 +584,17 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <label className="block mt-2">备注<textarea className={inputClass} value={c.note} onChange={e=>patchCommission(c.id,{note:e.target.value})}/></label>
           </details>
         </article>)}
+      </details>
       <datalist id="sully-stages">{['待确认','排队','草稿','线稿','上色','细化','待审核','交付完成'].map(s=><option key={s} value={s}/>)}</datalist>
     </> : <>
-      <header><h2 className="text-xl font-semibold">课程表</h2>
-        <p className="text-sm text-neutral-600">报班时间表与已有 PDF 自习室分开保存。也可以完全手动录入。</p></header>
-      <form className={cardClass} onSubmit={addClass}>
-        <h3 className="font-semibold">新增课程</h3>
+      <header className={cardClass+' !bg-[linear-gradient(120deg,#fff,#f3f3f3)]'}><p className="text-[10px] tracking-[.24em] text-neutral-400">WEEKLY SCHOOL PLANNER</p>
+        <h2 className="font-serif text-[29px] tracking-wide">课程表</h2>
+        <p className="text-xs text-neutral-500">点选一门课，即可在下方查看作业与笔记。</p></header>
+      <StudyWeekTimetable classes={data.classes} selectedId={selectedClassId} onSelect={setSelectedClassId}/>
+      <details className={cardClass}>
+        <summary className="cursor-pointer text-sm font-semibold">＋ 新增课程 · 点击展开</summary>
+      <form className="space-y-3 pt-2" onSubmit={addClass}>
+        <h3 className="text-xs text-neutral-500">添加后立即显示在本周视图</h3>
         <input className={inputClass} required placeholder="课程名称" aria-label="课程名称" value={classDraft.name} onChange={e=>setClassDraft(v=>({...v,name:e.target.value}))}/>
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs">上课星期<select className={inputClass} value={classDraft.weekday} onChange={e=>setClassDraft(v=>({...v,weekday:Number(e.target.value)}))}>
@@ -583,8 +608,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         <textarea className={inputClass} placeholder="调课、请假与备注" value={classDraft.note} onChange={e=>setClassDraft(v=>({...v,note:e.target.value}))}/>
         <button type="submit" className={buttonClass}>保存课程</button>
       </form>
-      <section className={cardClass}>
-        <h3 className="font-semibold">从图片识别</h3>
+      </details>
+      <details className={cardClass}>
+        <summary className="cursor-pointer text-sm font-semibold">从图片识别课程 · 需要时再展开</summary>
         <p className="text-xs text-neutral-600">选择图片后，需主动点击识别（会调用你设置的识图服务）；结果不会直接入库。</p>
         <input type="file" accept="image/*" aria-label="上传课程表图片" onChange={e=>pickImage(e.target.files?.[0])} className="w-full text-sm"/>
         {imagePreview && <img src={imagePreview} alt="待识别课程表预览" className="max-h-40 max-w-full object-contain"/>}
@@ -609,9 +635,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <button className={buttonClass} onClick={()=>void savePreview()}>确认并保存这些课程</button>
           <button className={mutedButton} onClick={()=>setPreviewRows([])}>放弃识别结果</button>
         </div>}
-      </section>
-      <section className="space-y-3">
-        <h3 className="font-semibold">我的课程 · {data.classes.length}</h3>
+      </details>
+      <details className={cardClass}>
+        <summary className="cursor-pointer text-sm font-semibold">全部课程 · 管理旧自习室关联（{data.classes.length}）</summary>
         <p className="text-xs text-neutral-600">原有 PDF 自习室课程单独保存；这里只关联课程 ID，不复制、删除或重置旧章节及练习册。</p>
         {studyCoursesError && <p role="alert" className="text-sm text-red-700">{studyCoursesError}</p>}
         <button className={mutedButton} type="button" disabled={studyCoursesLoading}
@@ -659,9 +685,12 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             </div>
           </details>
         </article>)}
-      </section>
+      </details>
       <section className={cardClass}>
-        <h3 className="font-semibold">作业与笔记</h3>
+        <div className="flex items-center justify-between gap-3">
+          <div><p className="text-[10px] tracking-[.22em] text-neutral-400">HOMEWORK & NOTES</p><h3 className="mt-1 text-[18px] font-semibold">作业与笔记</h3></div>
+          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f1f1f1] text-lg">✎</span>
+        </div>
         <label className="text-sm">选择课程<select className={inputClass} value={selectedClassId} onChange={e=>setSelectedClassId(e.target.value)}>
           <option value="">请选择</option>{data.classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         {selectedClass && <>
@@ -675,11 +704,11 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <input className={inputClass} type="datetime-local" aria-label="作业截止时间" value={homeworkDue} onChange={e=>setHomeworkDue(e.target.value)}/>
             <button className={buttonClass} type="submit">添加作业</button>
           </form>
-          {data.homework.filter(h=>h.classId===selectedClassId).map(h=><div key={h.id} className="border-t border-neutral-200 pt-2 space-y-2">
+          {data.homework.filter(h=>h.classId===selectedClassId).map(h=><div key={h.id} className="rounded-2xl border border-neutral-100 bg-[#fafafa] p-4 space-y-3">
             <div className="flex gap-2"><input aria-label={'完成'+h.title} type="checkbox" checked={h.done}
               onChange={e=>void changeHomeworkDone(h.id,e.target.checked)}/>
-              <span className={h.done?'line-through text-neutral-600':''}>{h.title}</span></div>
-            <p className="text-xs">截止 {h.dueAt||'未设置'} · 已专注 {actualMinutes('homework',h.id)} 分钟 · 预计剩余 {h.minutes} 分钟</p>
+              <span className={'font-medium text-sm '+(h.done?'line-through text-neutral-400':'text-neutral-900')}>{h.title}</span></div>
+            <p className="text-[11px] text-neutral-500">截止 {h.dueAt||'未设置'} · 已专注 {actualMinutes('homework',h.id)} 分钟 · 预计剩余 {h.minutes} 分钟</p>
             {pendingMinutes('homework',h.id).minutes>0 && !h.done &&
               <button className={mutedButton} disabled={!!settlementBusyId}
                 onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>
@@ -691,9 +720,10 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <button className={mutedButton} onClick={()=>onDiscuss(
               buildHomeworkReviewTopic(h,selectedClass?.name||'未归属',actualMinutes('homework',h.id)),
               'study',h.id)}>请 Char 陪我复盘作业</button>
+            <details className="rounded-xl border border-neutral-100 p-3"><summary className="cursor-pointer text-xs text-neutral-500">固定提醒 · 设置与核查</summary>
             <WorkspaceReminderControls kind="homework" itemId={h.id}
               suggestedAt={h.dueAt} data={data} selectedCharId={selectedCharId}
-              onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>
+              onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/></details>
             <details><summary className="text-sm">编辑作业</summary>
               <label className="block text-xs">预计剩余分钟
                 <input className={inputClass} type="number" min="0" max="10080" value={h.minutes}
@@ -711,7 +741,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             void change(v=>({...v,notes:[...v.notes,note]}));
             setNoteBody('');
           }}>保存笔记</button>
-          {data.notes.filter(n=>n.classId===selectedClassId).map(n=><div key={n.id} className="border-t border-neutral-200 py-2">
+          {data.notes.filter(n=>n.classId===selectedClassId).map(n=><div key={n.id} className="rounded-2xl border border-neutral-100 bg-[#fafafa] p-4 space-y-2">
             <p className="text-sm whitespace-pre-wrap break-words">{n.body}</p>
             <button className={mutedButton} onClick={()=>onDiscuss('请让我把刚学到的 '+className(n.classId)+' 的内容讲给你听，然后根据笔记追问我，不要擅自判定作业完成。笔记：'+n.body.slice(0,1500),'study',n.id)}>请 Char 提问</button>
           </div>)}
@@ -719,8 +749,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         {!selectedClass && <p className="text-xs text-neutral-600">先选择一门课，再记录作业和笔记。</p>}
       </section>
       {(orphaned.homework.length>0 || orphaned.notes.length>0) &&
-        <section className={cardClass} aria-label="未归属作业与笔记">
-          <h3 className="font-semibold">未归属资料 · {orphaned.homework.length} 条作业 / {orphaned.notes.length} 条笔记</h3>
+        <details className={cardClass} aria-label="未归属作业与笔记">
+          <summary className="cursor-pointer font-semibold text-sm">未归属资料 · {orphaned.homework.length} 条作业 / {orphaned.notes.length} 条笔记（展开管理）</summary>
           <p className="text-xs text-neutral-600">来自已删除的学习室课程表记录或旧备份，原文保留。可以重新归类；不会修改旧自习室 PDF 或测验。</p>
           {orphaned.homework.map(h=><div key={h.id} className="border-t pt-2 space-y-2">
             <p className="text-sm">{h.done?'✓ ':''}作业：{h.title} · 截止 {h.dueAt||'未设置'} · 原课程 ID：{h.classId}</p>
@@ -752,7 +782,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               {data.classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>)}
-        </section>}
+        </details>}
       <p className="text-xs text-neutral-600">提醒仅在你逐项确认后建立，并沿用 AMSG 2.0 固定消息；不自动生成 AI 追问。远端失败会保留任务身份以便重试。</p>
     </>}
   </div>;
