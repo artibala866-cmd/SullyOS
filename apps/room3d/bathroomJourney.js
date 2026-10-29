@@ -75,7 +75,10 @@ export function bathroomJourneyFrame(j,time){
   // the first crossing leg lifts. Do not drag the standing root vertically.
   // Shift weight onto the new left landing before the right foot follows.
   // The previous .12/.15 split carried the swing foot back to its start.
-  const advance=.20*M.smootherstep(p,.30,.74)+.07*M.smootherstep(p,.79,1.19)+.73*M.smootherstep(p,2.12,3.85);
+  // Cross the rim in two weight transfers while each corresponding knee is
+  // raised; the former single late travel carried grounded feet through GLB.
+  const advance=.20*M.smootherstep(p,.30,.74)+.07*M.smootherstep(p,.79,1.19)
+   +.24*M.smootherstep(p,2.05,2.42)+.49*M.smootherstep(p,2.76,3.35);
   const lower=M.smootherstep(p,3.52,4.6);
   position=mix(j.front,j.position,advance);
   position[1]=M.lerp(j.front[1],j.position[1],lower);
