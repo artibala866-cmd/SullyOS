@@ -59,7 +59,7 @@ try{
  });
  await send('Page.enable');
  await send('Runtime.enable');
- const until=Date.now()+300000; // full seat/bed/prop actions plus bath contact-stage screenshots in software WebGL
+ const until=Date.now()+420000; // full seat/bed/prop actions plus bath contact-stage screenshots in software WebGL
  const captured=new Set();
  while(Date.now()<until){
   const result=await send('Runtime.evaluate',{expression:'JSON.stringify(window.__home3dSmoke ?? {status:"starting",stage:"waiting for module"})',returnByValue:true});
