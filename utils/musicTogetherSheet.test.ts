@@ -98,6 +98,42 @@ describe('一起听独立弹层真实点击与键盘回归', () => {
     expect(host.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
+  it('撤回等待数据库确认时按钮锁定，写入失败后恢复可重试', async () => {
+    let finish!: (ok: boolean) => void;
+    const onCancel = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve; }));
+    const h = { ...handlers(), onCancel };
+    await render({ people, ...h });
+    const cancel = byLabel('撤回与 很长很长很长很长很长的角色名称 的一起听')!;
+    await press(cancel);
+    expect(cancel.disabled).toBe(true);
+    expect(cancel.getAttribute('aria-busy')).toBe('true');
+    expect(cancel.textContent).toContain('撤回中');
+    await press(cancel);
+    expect(onCancel).toHaveBeenCalledOnce();
+    await act(async () => finish(false));
+    expect(cancel.disabled).toBe(false);
+    expect(cancel.textContent).toBe('撤回');
+    await press(cancel);
+    expect(onCancel).toHaveBeenCalledTimes(2);
+    await act(async () => finish(true));
+    expect(cancel.disabled).toBe(false);
+  });
+
+  it('邀请的数据库写入尚未完成时禁止双击重复创建邀请', async () => {
+    let finish!: (ok: boolean) => void;
+    const onInvite = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve; }));
+    const h = { ...handlers(), onInvite };
+    await render({ people: [{ id: 'fresh', name: '新角色', incoming: false, active: false }], ...h });
+    const invite = byLabel('邀请与 新角色 的一起听')!;
+    await press(invite);
+    expect(invite.disabled).toBe(true);
+    expect(invite.textContent).toContain('邀请中');
+    await press(invite);
+    expect(onInvite).toHaveBeenCalledOnce();
+    await act(async () => finish(true));
+    expect(invite.disabled).toBe(false);
+  });
+
   it('320px 及短屏布局使用可滚动内容、可触控按钮和底部安全区域', async () => {
     const h = handlers();
     await render({ people, ...h });
