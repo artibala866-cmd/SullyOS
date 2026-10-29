@@ -67,6 +67,12 @@ const injectStyles = () => {
 @media(prefers-reduced-motion:reduce){.music-panel-enter,.music-tap,.music-icon-press,.music-heart-active,.music-eq>span{animation:none!important;transition:none!important}}
 .shizuku-glass{background:rgba(255,255,255,0.22);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border:1px solid rgba(255,255,255,0.35)}
 .shizuku-glass-strong{background:rgba(255,255,255,0.45);backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);border:1px solid rgba(255,255,255,0.5)}
+.shizuku-scrollbar{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+@media(pointer:coarse){
+  .shizuku-glass,.shizuku-glass-strong{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(255,255,255,.83)}
+  .shizuku-bokeh [style*="animation"]{animation:none!important}
+}
+@media(prefers-reduced-motion:reduce){.shizuku-bokeh [style*="animation"]{animation:none!important}}
 .shizuku-scrollbar::-webkit-scrollbar{width:3px}
 .shizuku-scrollbar::-webkit-scrollbar-thumb{background:${C.faint}60;border-radius:3px}
 .shizuku-scrollbar::-webkit-scrollbar-track{background:transparent}
@@ -743,7 +749,7 @@ export const PlayControls: React.FC<{
 export const BokehBg: React.FC = () => {
   useEffect(() => { injectStyles(); }, []);
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+    <div className="shizuku-bokeh absolute inset-0 overflow-hidden pointer-events-none z-0">
       {/* 白色柔光 bokeh (主力) */}
       <div className="absolute top-[8%] right-[5%] w-32 h-32 rounded-full"
         style={{ background: `radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 70%)`, animation: 'shizuku-float 8s ease-in-out infinite' }} />
