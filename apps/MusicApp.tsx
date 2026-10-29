@@ -231,13 +231,19 @@ const MusicApp: React.FC = () => {
               <button type="button" aria-label={`将《${song.name}》加入播放队列`} title="加入播放队列"
                 className="music-icon-press w-8 h-8 rounded-full flex items-center justify-center"
                 style={{ background: C.soft, color: C.primary }}
-                onClick={() => addToQueue(song)}><Plus size={17} weight="bold" /></button>
+                onClick={() => {
+                  const exists = queue.some(item => sameMusic(item, song));
+                  addToQueue(song);
+                  addToast(exists ? '队列中已有这首歌' : '已加入播放队列', exists ? 'info' : 'success');
+                }}><Plus size={17} weight="bold" /></button>
               <button type="button" aria-label={isLiked ? `取消喜欢《${song.name}》` : `喜欢《${song.name}》`}
                 aria-pressed={isLiked} title={isLiked ? '取消本地喜欢' : '加入本地喜欢'}
                 className={`music-icon-press w-8 h-8 rounded-full flex items-center justify-center ${isLiked ? 'music-heart-active' : ''}`}
                 style={{ background: isLiked ? 'rgba(255,222,237,.85)' : C.soft,
                   color: isLiked ? C.accent : C.primary }}
-                onClick={() => toggleLocalLike(song)}>
+                onClick={() => {
+                  if (toggleLocalLike(song)) addToast(isLiked ? '已从本地喜欢移除' : '已加入本地喜欢', 'success');
+                }}>
                 <Heart size={18} weight={isLiked ? 'fill' : 'regular'} />
               </button>
               {library.playlists.length > 0 && <div className="relative w-8 h-8 rounded-full flex items-center justify-center"
@@ -410,7 +416,7 @@ const MusicApp: React.FC = () => {
             const active = idx === i;
             const onPlay = () => {
               if (active) { if (!loadingSong) togglePlay(); }
-              else void playSong(song, { alsoSetQueue: false });
+              else void playSong(song);
             };
             return <div key={musicSongKey(song)} className="music-track-row rounded-[20px] p-1.5"
               style={{ background: active ? 'rgba(237,230,255,.78)' : 'rgba(255,255,255,.83)',
