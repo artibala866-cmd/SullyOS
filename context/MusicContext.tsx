@@ -1166,6 +1166,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toast('对方已邀请你一起听，请先接受或拒绝这条邀请', 'info');
         return false;
       }
+      if (created.status === 'already_listening') {
+        await refreshCommittedMusicSession(charId);
+        toast('已经在一起听，无需重复邀请', 'info');
+        return false;
+      }
       setListeningInvites(prev => ({ ...prev, [charId]: 'pending' }));
       if (created.status === 'created') {
         announceMusicInviteDbChanged(charId);
@@ -1181,7 +1186,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } finally {
       invitingCharIds.current.delete(charId);
     }
-  }, [toast]);
+  }, [toast, refreshCommittedMusicSession]);
   const cancelListeningInvite = useCallback(async (charId: string, messageId?: number): Promise<boolean> => {
     if (!charId) return false;
     const report = (success: boolean, reason?: string) =>
