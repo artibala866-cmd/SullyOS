@@ -666,13 +666,17 @@ export const outboxPushToInbox = (
 ): ActiveMsg2InboxMessage | null => {
   const charId = payload?.metadata?.charId;
   if (typeof charId !== 'string' || !charId) return null;
+  // A missing ID must never be replaced with a wall-clock-derived value:
+  // neither cloud acknowledgement nor private-chat de-dup can recognize it.
+  const messageId = typeof payload?.messageId === 'string' ? payload.messageId.trim() : '';
+  if (!messageId) return null;
   const body = String(payload?.message || payload?.body || '').trim();
   const notificationBody = typeof payload?.notification?.body === 'string'
     ? payload.notification.body.trim()
     : '';
   const parsedSentAt = payload?.timestamp ? new Date(payload.timestamp).getTime() : NaN;
   return {
-    messageId: String(payload?.messageId || `${charId}-outbox-${receivedAt}`),
+    messageId,
     charId,
     charName: payload?.contactName || payload?.metadata?.charName || '主动消息',
     body,
@@ -892,7 +896,11 @@ const backfillOutboxEntries = async (
   }
 
   for (const entry of entries) {
-    const push = entry.push || {};
+    // The row's messageId is the authoritative outbox primary key. A damaged
+    // or old encrypted push can omit it (or carry another ID). If processing
+    // uses the inner ID, the chat bubble cannot be acknowledged by the row ID
+    // and subsequent drains replay it under a different identity.
+    const push = { ...(entry.push || {}), messageId: entry.messageId };
     const kind = typeof push.messageKind === 'string' ? push.messageKind : 'content';
     if (kind === 'result') {
       // 聊天那道两天的时效窗刻意不套在结果上：结果晚到本来就是常态（正是为此才上云的），

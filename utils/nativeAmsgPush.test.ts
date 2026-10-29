@@ -115,6 +115,36 @@ describe('native AMSG2 FCM payload bridge', () => {
     }
   });
 
+  it('通知点击不等云端补收：慢网、离线时仍立即打开对应私聊', async () => {
+    let complete!: () => void;
+    state.ingest.mockImplementationOnce(() => new Promise(resolve => {
+      complete = () => resolve({ charId: 'c1', messageId: 'm1' });
+    }));
+    const dispatched = vi.fn();
+    vi.stubGlobal('window', { dispatchEvent: dispatched });
+    vi.stubGlobal('CustomEvent', class {
+      type: string;
+      detail: unknown;
+      constructor(type: string, options: { detail: unknown }) {
+        this.type = type;
+        this.detail = options.detail;
+      }
+    });
+    try {
+      await initNativeAmsgPush();
+      const opened = state.registered.find(x => x.event === 'pushNotificationActionPerformed')!.callback;
+      opened({ notification });
+      // The cloud promise deliberately remains unresolved at this assertion.
+      expect(state.ingest).toHaveBeenCalledTimes(1);
+      expect(dispatched).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'active-msg-open', detail: { charId: 'c1' },
+      }));
+      complete();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('native receipt and notification tap both use the shared durable ingest', async () => {
     await initNativeAmsgPush();
     const received = state.registered.find(x => x.event === 'pushNotificationReceived')!.callback;

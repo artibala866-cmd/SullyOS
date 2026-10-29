@@ -52,14 +52,16 @@ const onNotificationReceived = (notification: PushNotificationSchema) => {
 const onNotificationOpened = (action: ActionPerformed) => {
   const notification = action.notification;
   const charId = decodeNativeAmsgPayload(notification)?.metadata?.charId;
+  // Open immediately, even if decrypting the cloud outbox is stalled or the
+  // device is offline. The inbox worker completes independently and flushes
+  // when content arrives. Waiting for a remote fetch here traps the user on
+  // the previous screen after they tapped a system notification.
   void ingestNotification(notification).catch(error =>
-    console.warn('[ActiveMsg:native] 点击通知时入库失败，仍可打开私聊等待补收', error))
-    .finally(() => {
-      if (typeof charId === 'string' && charId
-        && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('active-msg-open', { detail: { charId } }));
-      }
-    });
+    console.warn('[ActiveMsg:native] 点击通知时入库失败，私聊可通过后续补收恢复', error));
+  if (typeof charId === 'string' && charId
+    && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('active-msg-open', { detail: { charId } }));
+  }
 };
 
 const onRegistrationError = (error: unknown) => {

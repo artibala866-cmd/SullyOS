@@ -1060,6 +1060,30 @@ describe('推送丢了的补收（服务端账本）', () => {
     });
   });
 
+  it('云端账本行 ID 才是权威：信封缺 ID 时也按账本 ID 落库并可销账', async () => {
+    const id = 'ledger-authoritative-missing';
+    stubOutbox([entry(id, outboxPush(id, { messageId: undefined }))]);
+    const { written, writtenIds } = await drainOutbox();
+    expect(written).toBe(1);
+    expect(writtenIds).toEqual([id]);
+    expect(storeState.saved[0].messageId).toBe(id);
+  });
+
+  it('云端账本行 ID 与内部信封冲突时不为另一条消息造假身份', async () => {
+    const id = 'ledger-authoritative-mismatch';
+    stubOutbox([entry(id, outboxPush(id, { messageId: 'incorrect-inner-id' }))]);
+    const { writtenIds } = await drainOutbox();
+    expect(writtenIds).toEqual([id]);
+    expect(storeState.saved[0].messageId).toBe(id);
+  });
+
+  it('隐藏正文定向补收也使用云端权威 ID，而不是信封的错误 ID', async () => {
+    const id = 'masked-ledger-authoritative';
+    stubOutbox([entry(id, outboxPush(id, { messageId: 'wrong' }))]);
+    expect(await recoverOutboxPushByMessageId(id, CHAR.id)).toBe(true);
+    expect(storeState.saved[0].messageId).toBe(id);
+  });
+
   it('账本上的那条写进收件箱，字段跟 SW 收真推送时写的一份对得上', async () => {
     const messageId = 'msg_task_7@1700000000000_hook_0';
     stubOutbox([entry(messageId, outboxPush(messageId))]);
