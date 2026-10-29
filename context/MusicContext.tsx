@@ -347,7 +347,12 @@ export const musicApi = {
       if (songs.length) return songs;
       // Vkeys explicitly succeeded with zero rows; do not route a genuine
       // empty page through the often-blocked GD Tencent search endpoint.
-      if (Number(payload?.code) === 200 && tencentSearchRows(payload).length === 0) return [];
+      const rows = payload?.data ?? payload?.result ?? payload;
+      const hasDocumentedList = [
+        rows?.list, rows?.songs, rows?.song?.list, rows?.song, rows?.data, rows,
+      ].some(Array.isArray);
+      if (Number(payload?.code) === 200 && hasDocumentedList &&
+          tencentSearchRows(payload).length === 0) return [];
     } catch (err) { failure = err; }
     const gd = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'search', source: 'tencent', name: query, count: '30', pages: String(Math.floor(offset / 30) + 1) })) gd.searchParams.set(k, v);
