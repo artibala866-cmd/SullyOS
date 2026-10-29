@@ -386,11 +386,9 @@ const MusicApp: React.FC = () => {
       {/* 音乐库/结果共用现有播放控件 */}
       <div key={section} role="tabpanel" className="music-panel-enter flex-1 min-h-0 overflow-y-auto px-4 pt-3 relative z-10 shizuku-scrollbar"
         style={{
-          // The floating player grows when a Char joins. Reserve its ACTUAL
-          // worst-case footprint plus safe area so invitation buttons stay tappable.
-          paddingBottom: current
-            ? `calc(env(safe-area-inset-bottom, 0px) + ${companions.length ? 164 : 112}px)`
-            : '24px',
+          // The player is now a separate flex item. Do not leave a giant
+          // spacer or let a second, inaccurate reserve obscure this panel.
+          paddingBottom: current ? '20px' : 'calc(24px + env(safe-area-inset-bottom, 0px))',
           background: C.bg,
         }}>
         {/* Keep listening invitations reachable *before* long result and playlist lists. */}
@@ -420,11 +418,11 @@ const MusicApp: React.FC = () => {
                   </div>
                   <div className="flex gap-2 mt-2">
                     <button type="button" aria-label={`接受 ${c.name} 的一起听邀请`}
-                      className="music-tap min-h-9 px-3 rounded-full text-[11px] font-medium"
+                      className="music-tap min-h-11 px-3 rounded-full text-[11px] font-medium"
                       style={{ color: '#fff', background: C.primary }}
                       onClick={() => void answerCharInvite(c.id, true)}>接受</button>
                     <button type="button" aria-label={`拒绝 ${c.name} 的一起听邀请`}
-                      className="music-tap min-h-9 px-3 rounded-full text-[11px] font-medium"
+                      className="music-tap min-h-11 px-3 rounded-full text-[11px] font-medium"
                       style={{ color: C.muted, background: '#e9e9e6' }}
                       onClick={() => void answerCharInvite(c.id, false)}>拒绝</button>
                   </div>
@@ -444,7 +442,7 @@ const MusicApp: React.FC = () => {
                         : status === 'rejected' ? '上次邀请已拒绝' : '可以邀请一起听'}
                     </div>
                     <button type="button" aria-label={`${action}与 ${c.name} 的一起听`}
-                      className="music-tap min-h-9 mt-2 px-3 rounded-full text-[11px] font-medium"
+                      className="music-tap min-h-11 mt-2 px-3 rounded-full text-[11px] font-medium"
                       style={{ color: active ? '#fff' : C.text, background: active ? C.primary : '#ededeb' }}
                       onClick={() => active ? removeListeningPartner(c.id) : status === 'pending' ? cancelListeningInvite(c.id) : inviteListeningPartner(c.id)}>
                       {action}

@@ -63,9 +63,9 @@ const injectStyles = () => {
 @media(pointer:coarse){.music-editorial-shell .music-track-row .music-icon-press{min-width:44px;min-height:44px}}
 @media(max-width:360px){.music-playlist-hero{width:100px!important;height:100px!important}}
 
-@media(max-width:390px){.music-together-section{padding-left:12px;padding-right:12px}.music-together-section .music-tap{min-width:44px}.music-editorial-shell .music-dock-queue{width:32px}}
+@media(max-width:390px){.music-together-section{padding-left:4px;padding-right:4px}.music-together-section .music-tap{min-width:44px;min-height:44px}.music-editorial-shell .music-dock-queue{width:40px}}
 @media(max-width:360px){.music-editorial-shell .music-track-row .music-icon-press{width:44px;min-width:44px;height:44px}.music-player-actions{gap:0!important}.music-player-actions .music-icon-press{min-width:43px}.music-sheet-row-actions{width:36px!important}}
-@media(max-width:320px){.music-dock{left:8px!important;right:8px!important}.music-together-section .shizuku-scrollbar{scrollbar-width:none}}
+@media(max-width:320px){.music-dock{margin-left:8px!important;margin-right:8px!important}.music-together-section .shizuku-scrollbar{scrollbar-width:none}}
 @media(max-height:700px){.music-now-playing .music-player-art{width:min(142px,22dvh);height:min(142px,22dvh)}.music-now-playing .music-player-art-frame{padding:9px}.music-now-playing .music-player-meta{margin-top:8px}.music-now-playing .music-player-lyrics{margin-top:6px;margin-bottom:6px}.music-now-playing .music-player-actions{padding-top:7px}.music-now-playing .music-transport{margin-top:4px;margin-bottom:0}}
 @media(max-height:580px){.music-now-playing .music-player-art{width:min(110px,19dvh);height:min(110px,19dvh)}.music-now-playing .music-player-art-frame{padding:6px}.music-now-playing .music-player-meta h2{font-size:16px!important}.music-now-playing .music-player-source{display:none}}
 .music-tap:active:not(:disabled){opacity:.65}
@@ -268,8 +268,10 @@ export const MiniPlayer: React.FC<{
   const collectionHint = charsWithSong?.[0]
     ? `${charsWithSong[0].name} 的《${charsWithSong[0].playlistTitle}》也收藏了`
     : '';
-  return <div className="music-dock absolute left-3 right-3 z-30 rounded-[21px] px-3.5 pt-2.5 pb-3.5"
-    style={{ color: C.text, bottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
+  // A flex child, not an absolute overlay: the scroll region ends above this
+  // card even when listening-together avatars increase its height.
+  return <div className="music-dock relative shrink-0 z-30 mx-3 rounded-[21px] px-3.5 pt-2.5 pb-3.5"
+    style={{ color: C.text, marginBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}>
     {companions && companions.length > 0 && <div className="mb-1.5 pb-1.5"
       style={{ borderBottom: '1px solid #f0f0ee' }}>
       <TogetherHeader userAvatar={userAvatar} userName={userName}

@@ -338,7 +338,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
         style={{ background: C.bg }}>
         <BokehBg />
         <MizuHeader title="My Cloud" onBack={onBack} />
-        <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pb-28 px-4 pt-4 shizuku-scrollbar">
+        <div className="relative z-10 flex-1 min-h-0 overflow-y-auto pb-5 px-4 pt-4 shizuku-scrollbar">
           {/* 本地专辑卡 */}
           <LocalAlbumCard
             songs={localAlbumSongs}
@@ -493,7 +493,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenQueue
         }
       />
 
-      <div className="flex-1 min-h-0 overflow-y-auto relative z-10 shizuku-scrollbar pb-28">
+      <div className="flex-1 min-h-0 overflow-y-auto relative z-10 shizuku-scrollbar pb-5">
         {/* Banner 头图 */}
         <div className="relative h-32 overflow-hidden">
           {profile.backgroundUrl ? (
