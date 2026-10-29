@@ -68,6 +68,18 @@ describe('一起听完整生命周期与重启恢复', () => {
     expect((await DB.getMusicListeningSession(charId))?.active).toBe(true);
   });
 
+  it('第二个标签页持有过期界面时也无法重复邀请已在一起听的角色', async () => {
+    const charId = prefix + 'active-reinvite-guard';
+    const live = await DB.transitionMusicListeningSession(charId, 'join');
+    expect(live?.active).toBe(true);
+    const blocked = await DB.createMusicListeningInvite(incoming(charId));
+    expect(blocked.status).toBe('already_listening');
+    expect((await DB.getMessagesByCharId(charId, true)).filter(m => m.metadata?.musicListenInvite)).toHaveLength(0);
+    await DB.transitionMusicListeningSession(charId, 'end', live!.sessionId);
+    const invited = await DB.createMusicListeningInvite(incoming(charId));
+    expect(invited.status).toBe('created');
+  });
+
   it('用户拒绝邀请不写会话；重启不从旧 localStorage 缓存恢复假在线', async () => {
     const charId = prefix + 'rejected';
     const invited = await DB.createMusicListeningInvite(incoming(charId));
