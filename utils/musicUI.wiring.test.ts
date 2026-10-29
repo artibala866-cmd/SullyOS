@@ -34,10 +34,10 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(queueSheet).toContain('isPlaying={selected && playing} isLoading={selected && loading}');
   });
   it('加入队列用加号、喜欢用心形，保留辅助文字标签', () => {
-    expect(app).toContain('<Plus size={18} weight="regular" />');
+    expect(app).toContain('<DotsThreeVertical size={20} weight="regular" />');
     expect(app).toContain('<Heart size={18}');
     expect(ui).toContain('<Heart size={16}');
-    expect(app).toContain('title="加入播放队列"');
+    expect(app).toContain('>加入播放队列</button>');
     expect(app).toContain('title={isLiked ?');
     expect(app).not.toContain('>加入队列</button>');
     expect(app).not.toContain('>取消本地喜欢</button>');
@@ -82,14 +82,14 @@ describe('搜索结果、喜欢、历史、队列与迷你播放器的状态反�
     expect(queueSheet).toContain('查看后面的歌曲');
   });
   it('本地歌单仍有独立整理菜单，不再平铺三颗操作按钮', () => {
-    expect(app).toContain('aria-label={`管理歌单歌曲');
+    expect(app).toContain('role="menu" aria-label={`歌曲《');
     expect(app).toContain('movePlaylistSong(playlistId, i, i - 1)');
     expect(app).toContain('removeSongFromPlaylist(playlistId, musicSongKey(song))');
   });
   it('歌曲操作收在紧凑行，封面保留 48px 的易辨识尺寸', () => {
     expect(app).toContain('className="flex items-center min-w-0"');
-    expect(app).toContain('className="flex items-center gap-0 shrink-0 pr-1"');
-    expect(app).toContain('className="pl-[62px] pb-1.5 -mt-0.5 text-[10px] leading-tight truncate"');
+    expect(app).toContain('className="flex items-center shrink-0 gap-0 pr-0.5"');
+    expect(app).toContain('sourceLabel={label}');
     expect(ui).toContain('w-12 h-12 overflow-hidden rounded-[11px]');
     expect(ui).toContain('gap-3 px-2.5 py-1.5');
   });
@@ -245,7 +245,7 @@ describe('MONO 黑白灰音乐视觉回归', () => {
     expect(ui).toContain('No animated particles, colored halos');
     expect(ui).toContain('background: C.primary');
     expect(app).toContain("border: '1px solid #ebebe9'");
-    expect(app).toContain('className="music-track-row rounded-[17px]');
+    expect(app).toContain('className="music-track-row relative rounded-[15px]');
     expect(ui).toContain('rounded-[21px] px-3.5 pt-2.5 pb-3.5');
   });
   it('切换成简约风也不能丢失搜索、播控、播放进度与无障碍操作', () => {
@@ -290,7 +290,7 @@ describe('第二轮轻量化音乐详情与歌单交互回归', () => {
     expect(app).toContain('pl.songs[0].albumPic');
     expect(app).toContain('pl.songs[0].source');
     expect(app).toContain('私人歌单 · {pl.songs.length} 首 · 仅保存在本地');
-    expect(app).toContain('rounded-[20px] p-2.5');
+    expect(app).toContain('music-playlist-detail rounded-[22px]');
     expect(app).toContain('setEditingPlaylist(editingPlaylist?.id === pl.id');
     expect(app).toContain('setDeleteConfirmPlaylistId(deleteConfirmPlaylistId === pl.id');
     expect(app).toContain('if (deletePlaylist(pl.id))');
@@ -352,5 +352,29 @@ describe('第三轮一起听视觉与窄屏操作回归', () => {
     expect(ui).toContain('@media(max-width:320px)');
     expect(ui).toContain('.music-together-section .music-tap{min-width:44px}');
     expect(app).toContain('max-w-[70vw]');
+  });
+});
+
+describe('参考图构图偏差：歌单封面与双按钮歌曲行', () => {
+  it('歌单陈列先看大封面，进入详情后仍能真实播放和管理', () => {
+    expect(app).toContain('music-playlist-shelf flex gap-3 overflow-x-auto');
+    expect(app).toContain('role="group" aria-label="选择本地歌单"');
+    expect(app).toContain('music-playlist-cover relative w-full aspect-square');
+    expect(app).toContain('library.playlists.filter(pl => pl.id === openedPlaylist).map');
+    expect(app).toContain('music-playlist-hero w-[116px] h-[116px]');
+    expect(app).toContain('replaceQueue: pl.songs, startIdx: 0');
+    expect(app).toContain('savePlaylistName()');
+    expect(app).toContain('if (deletePlaylist(pl.id))');
+    expect(app).toContain('renderLibrarySongs(pl.songs, pl.id)');
+    expect(ui).toContain('.music-playlist-cover .music-player-cover');
+  });
+  it('收藏直达、加入队列和歌单整理可从独立更多菜单完成', () => {
+    expect(app).toContain('aria-haspopup="menu" aria-expanded={openSongMenuKey === key}');
+    expect(app).toContain('role="menuitem"');
+    expect(app).toContain('setPlaylistSheetSong(song)');
+    expect(app).toContain('addToQueue(song)');
+    expect(app).toContain('movePlaylistSong(playlistId, i, i - 1)');
+    expect(app).toContain('removeSongFromPlaylist(playlistId, musicSongKey(song))');
+    expect(ui).toContain('sourceLabel ?');
   });
 });
