@@ -1192,7 +1192,7 @@ const MessageItem = React.memo(({
         };
         const onAnswerResult = (event: Event) => {
             const detail = (event as CustomEvent<{
-                charId?: string; messageId?: number; status?: 'resolved' | 'stale' | 'failed';
+                charId?: string; messageId?: number; status?: 'resolved' | 'stale' | 'failed' | 'busy';
             }>).detail;
             if (detail?.charId !== m.charId || detail?.messageId !== m.id) return;
             if (inviteAnswerTimerRef.current) clearTimeout(inviteAnswerTimerRef.current);
@@ -1201,6 +1201,7 @@ const MessageItem = React.memo(({
             setInviteAnswerPending(null);
             if (detail.status === 'failed') setInviteAnswerError('回应未保存，请重试');
             else if (detail.status === 'stale') setInviteAnswerError('邀请已在其他页面处理或已过期');
+            else if (detail.status === 'busy') setInviteAnswerError('这条邀请正在其他页面处理，请稍后查看结果');
             else setInviteAnswerError('');
         };
         const onStorage = (event: StorageEvent) => {
