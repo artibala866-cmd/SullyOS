@@ -180,7 +180,7 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
     const tuck=p==='L'?(activity?.bathLeadTuck??0):(activity?.bathTrailTuck??0);
     const crouch=flex*(1-seatWeight)*(1-.65*step);
     angle(p+'_thigh',(-1.40-.12*lift)*seatWeight+.75*step*(1-seatWeight)+(-.28+.48*step)*tuck*(1-seatWeight)-.38*crouch,0,-s*.015*seatWeight);
-    angle(p+'_shin',(1.32-1.02*lift)*seatWeight+1.12*step*(1-seatWeight)+(1.50-.40*step)*tuck*(1-seatWeight)+.78*crouch);
+    angle(p+'_shin',(1.32-1.02*lift)*seatWeight+1.12*step*(1-seatWeight)+(1.50-.40*step+.85*Math.sin(Math.PI*step))*tuck*(1-seatWeight)+.78*crouch);
     angle(p+'_foot',.14*seatWeight-.35*step*(1-seatWeight));
     angle(p+'_upperArm',-.08-.26*brace,0,-s*(1.25-.4*seatWeight-.16*brace));
     angle(p+'_forearm',0,-s*(.30*seatWeight+.34*brace),-s*.08);
