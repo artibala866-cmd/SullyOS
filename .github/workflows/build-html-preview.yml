@@ -1,7 +1,7 @@
 name: Build and publish SullyOS test site
 on:
-  # Furniture iteration is test-only; never publish Pages on a code push.
-  # Retain the explicitly manual release workflow for its existing owners.
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
   workflow_dispatch:
 permissions:
   contents: read
