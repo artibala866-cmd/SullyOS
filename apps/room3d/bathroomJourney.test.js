@@ -102,7 +102,7 @@ describe('authored tub rim contact and reversible leg crossing',()=>{
   expect(n.position[2]).toBeGreaterThan(near.edge[2]+.35);
   expect(distance(near.front,n.position)).toBeLessThan(distance(far.front,f.position));
   expect(n.leadTuck).toBe(0);
-  expect(bathroomJourneyFrame(near,near.enter).position).toEqual(near.position);
+  expect(distance(bathroomJourneyFrame(near,near.enter).position,near.position)).toBeLessThan(1e-9);
  });
  it('alternates actual support feet during the final approach before the rim crossing',()=>{
   const j=fixture(),left=bathroomJourneyFrame(j,.55),transfer=bathroomJourneyFrame(j,.83),
