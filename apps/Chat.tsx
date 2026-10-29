@@ -3765,6 +3765,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 if (manualChatGenerationRevisionRef.current !== manualRevision) return;
                 const latestPersisted = fresh.slice().reverse().find(m => m.role === 'user' || m.role === 'assistant');
                 if (latestPersisted?.role !== 'user' || latestPersisted.id !== latestLocal.id) return;
+                // A withdrawal or invitation reply is a system event, not a
+                // new normal conversational prompt. Never auto-generate from it.
+                if (latestPersisted.metadata?.musicListenInviteResponseTo) return;
+                if (latestPersisted.metadata?.musicListenInvite &&
+                    !findPendingMusicInvite(fresh, 'user', latestPersisted.id)) return;
                 // A new draft may have appeared between the timer and this async
                 // IndexedDB read. Do not send a stale automatic reply over it.
                 const liveComposer = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
@@ -3774,6 +3779,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             }).catch(() => { /* Cannot confirm anchor: fail closed. */ });
         },
     });
+    const pendingMusicInviteReplyRef = useRef<{ charId: string; messageId: number } | null>(null);
     // Music invitations are real user events in the existing chat DB. They may
     // enter the SAME auto-reply countdown as a normal user send, but only while
     // that countdown is enabled and the relevant conversation is active.
@@ -3793,13 +3799,34 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 // an already answered or cancelled invitation.
                 const invitation = findPendingMusicInvite(recent, 'user', detail.messageId);
                 if (!invitation) return;
+                pendingMusicInviteReplyRef.current = { charId, messageId: detail.messageId! };
                 const finish = autoReply.beginSend(charId);
                 finish(true);
             }).catch(() => { /* No reliable DB confirmation: leave invitation pending. */ });
         };
+        const onMusicInviteResolved = (event: Event) => {
+            const detail = (event as CustomEvent<{ charId?: string; messageId?: number }>).detail;
+            const pending = pendingMusicInviteReplyRef.current;
+            if (!pending || pending.charId !== detail?.charId || pending.messageId !== detail.messageId) return;
+            pendingMusicInviteReplyRef.current = null;
+            // Cancel ONLY if the latest user turn is this invitation (or its
+            // withdrawal). A newer normal user message owns its own countdown.
+            void DB.getRecentMessagesByCharId(pending.charId, 24).then(recent => {
+                if (activeCharIdRef.current !== pending.charId) return;
+                const latest = [...recent].reverse().find(m => m.role === 'user' || m.role === 'assistant');
+                if (latest?.id === pending.messageId ||
+                    latest?.metadata?.musicListenInviteResponseTo === pending.messageId) {
+                    autoReply.cancel();
+                }
+            }).catch(() => { /* generation gate separately checks DB truth */ });
+        };
         window.addEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
-        return () => window.removeEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
-    }, [autoReply.beginSend, inputPreferences.autoReply]);
+        window.addEventListener('music-listen-invite-resolved', onMusicInviteResolved);
+        return () => {
+            window.removeEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
+            window.removeEventListener('music-listen-invite-resolved', onMusicInviteResolved);
+        };
+    }, [autoReply.beginSend, autoReply.cancel, inputPreferences.autoReply]);
 
     // One-tap life pacing; the shared clock keeps memories unchanged.
     // 角色自定义聊天背景：字段值可能是 blobref 令牌（二进制在 IndexedDB），这里解析成能直接
