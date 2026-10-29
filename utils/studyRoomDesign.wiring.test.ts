@@ -66,17 +66,21 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
  });
  it('折叠栏只显示短标题，具体规则留在正文，原表单仍保留',()=>{
    for(const title of [
-     '时间容量','＋ 新增委托','提醒','编辑委托','＋ 新增课程',
-     '识别课表','编辑课程','作业提醒'
+     '时间容量','＋ 新增委托','编辑委托','＋ 新增课程',
+     '识别课表','编辑课程'
    ])expect(workspace).toContain('>'+title+'</summary>');
    expect(workspace).toContain('全部委托（{data.commissions.filter(c=>c.status!==');
    expect(workspace).toContain('课程管理与关联（{data.classes.length}）');
    expect(workspace).toContain('未归属资料（{orphaned.homework.length+orphaned.notes.length}）');
-   expect(workspace).toContain('<span>隐私授权</span>');
+   expect(workspace).toContain('<span>学习室设置 · 私聊授权</span>');
    expect(schedule).toContain('>发送内容</summary>');
    expect(schedule).toContain('旧对话（{unscopedNotes.length}）');
    expect(schedule).toContain('旧记录（{unassignedNotes.length}）');
    expect(reminders).toContain('>到点提醒</summary>');
+   expect(workspace).not.toContain('>作业提醒</summary>');
+   expect(workspace).not.toContain('>提醒</summary>');
+   expect(reminders).toContain('读取 AMSG 云端状态（不修改）');
+   expect(reminders).toContain('请求远端取消（UUID 已确认）');
    for(const noisy of ['点击展开','按需展开','编辑与提醒（','需要时再展开',
      '管理旧自习室关联（','设置与核查','不会发送给 AI）</summary>'])
      expect(workspace+schedule+reminders).not.toContain(noisy);
