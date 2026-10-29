@@ -11,12 +11,12 @@ let opener: HTMLButtonElement;
 let root: Root;
 
 const people: MusicTogetherPerson[] = [
-  { id: 'a', name: '周树生', incoming: true, trackName: 'My Jinji', active: false },
+  { id: 'a', name: '周树生', incoming: true, incomingMessageId: 7, trackName: 'My Jinji', active: false },
   { id: 'b', name: '陈众木', incoming: false, active: true },
   { id: 'c', name: '很长很长很长很长很长的角色名称', incoming: false, active: false, outgoing: 'pending' },
 ];
 const handlers = () => ({
-  onClose: vi.fn(), onAnswer: vi.fn(), onInvite: vi.fn(), onCancel: vi.fn(), onEnd: vi.fn(),
+  onClose: vi.fn(), onAnswer: vi.fn(async () => 'resolved' as const), onInvite: vi.fn(), onCancel: vi.fn(), onEnd: vi.fn(),
 });
 
 const render = async (props: React.ComponentProps<typeof MusicTogetherSheet>) => {
@@ -87,15 +87,57 @@ describe('一起听独立弹层真实点击与键盘回归', () => {
     const h = handlers();
     await render({ people, ...h });
     await press(byLabel('接受 周树生 的一起听邀请'));
-    expect(h.onAnswer).toHaveBeenCalledWith('a', true);
+    expect(h.onAnswer).toHaveBeenCalledWith('a', 7, true);
     await press(byLabel('拒绝 周树生 的一起听邀请'));
-    expect(h.onAnswer).toHaveBeenCalledWith('a', false);
+    expect(h.onAnswer).toHaveBeenCalledWith('a', 7, false);
     await press(byLabel('结束与 陈众木 的一起听'));
     expect(h.onEnd).toHaveBeenCalledWith('b');
     await press(byLabel('撤回与 很长很长很长很长很长的角色名称 的一起听'));
     expect(h.onCancel).toHaveBeenCalledWith('c');
     expect(h.onClose).not.toHaveBeenCalled();
     expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+  });
+
+  it('Char 接受与拒绝共享操作锁，提交失败恢复可重试且不误接受', async () => {
+    let finish!: (result: 'resolved' | 'stale' | 'failed') => void;
+    const onAnswer = vi.fn(() => new Promise<'resolved' | 'stale' | 'failed'>(resolve => { finish = resolve; }));
+    const h = { ...handlers(), onAnswer };
+    await render({ people, ...h });
+    const accept = byLabel('接受 周树生 的一起听邀请')!;
+    const reject = byLabel('拒绝 周树生 的一起听邀请')!;
+    await press(accept);
+    expect(accept.disabled).toBe(true);
+    expect(reject.disabled).toBe(true);
+    expect(accept.textContent).toContain('接受中');
+    await press(reject);
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+    expect(onAnswer).toHaveBeenCalledWith('a', 7, true);
+    await act(async () => finish('failed'));
+    expect(accept.disabled).toBe(false);
+    expect(reject.disabled).toBe(false);
+    expect(host.textContent).toContain('保存失败，请重试');
+    await press(reject);
+    expect(onAnswer).toHaveBeenCalledWith('a', 7, false);
+    await act(async () => finish('resolved'));
+    expect(host.textContent).not.toContain('保存失败，请重试');
+  });
+
+  it('切换角色或旧消息已过期时不得结算新的邀请，面板提示并可关闭', async () => {
+    const h = { ...handlers(), onAnswer: vi.fn(async () => 'stale' as const) };
+    await render({ people, ...h });
+    await press(byLabel('接受 周树生 的一起听邀请'));
+    expect(host.textContent).toContain('邀请已过期');
+    expect(h.onAnswer).toHaveBeenCalledWith('a', 7, true);
+  });
+
+  it('手机系统返回对应 popstate 只关闭弹层，不直接退出音乐应用', async () => {
+    const h = handlers();
+    await render({ people, ...h });
+    expect(window.history.state?.sullyMusicTogetherSheet).toBeTruthy();
+    await act(async () => window.dispatchEvent(new PopStateEvent('popstate')));
+    expect(h.onClose).toHaveBeenCalledOnce();
+    await act(async () => root.render(React.createElement(React.Fragment)));
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it('撤回等待数据库确认时按钮锁定，写入失败后恢复可重试', async () => {
