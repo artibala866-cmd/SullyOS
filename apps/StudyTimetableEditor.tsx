@@ -39,31 +39,31 @@ export default function StudyTimetableEditor({course,onSave,onClose}:Props){
     catch(e){setError('保存未成功，请检查是否被其他窗口修改：'+String(e));}
     finally{setBusy(false);}
   };
-  return <form className="space-y-2 pt-3" onSubmit={e=>void submit(e)}>
-    <p className="text-xs text-neutral-600">修改先保留在这里，按「保存修改」后才写入课程表；不会更改原 PDF 自习室资料。</p>
-    <label className="block text-xs">课程名称<input className={input} required value={draft.name} onChange={e=>set('name',e.target.value)}/></label>
+  return <form className="space-y-3 pt-3 text-sm" onSubmit={e=>void submit(e)}>
+    <p className="text-sm text-neutral-600">修改先保留在这里，按「保存修改」后才写入课程表；不会更改原 PDF 自习室资料。</p>
+    <label className="block text-sm">课程名称<input className={input} required value={draft.name} onChange={e=>set('name',e.target.value)}/></label>
     <div className="grid grid-cols-2 gap-2">
-      <label className="block text-xs">上课星期
+      <label className="block text-sm">上课星期
         <select className={input} value={draft.weekday} onChange={e=>set('weekday',Number(e.target.value))}>
           {weekdays.map((day,i)=><option value={i} key={day}>{day}</option>)}
         </select>
       </label>
-      <label className="block text-xs">结束日期<input className={input} type="date" value={draft.until} onChange={e=>set('until',e.target.value)}/></label>
-      <label className="block text-xs">开始<input className={input} type="time" value={draft.start} onChange={e=>set('start',e.target.value)}/></label>
-      <label className="block text-xs">结束<input className={input} type="time" value={draft.end} onChange={e=>set('end',e.target.value)}/></label>
+      <label className="block text-sm">结束日期<input className={input} type="date" value={draft.until} onChange={e=>set('until',e.target.value)}/></label>
+      <label className="block text-sm">开始<input className={input} type="time" value={draft.start} onChange={e=>set('start',e.target.value)}/></label>
+      <label className="block text-sm">结束<input className={input} type="time" value={draft.end} onChange={e=>set('end',e.target.value)}/></label>
     </div>
-    <label className="block text-xs">老师/班级<input className={input} value={draft.teacher} onChange={e=>set('teacher',e.target.value)}/></label>
-    <label className="block text-xs">地点/上课链接<input className={input} value={draft.location} onChange={e=>set('location',e.target.value)}/></label>
-    <label className="block text-xs">请假、调课、补课等备注
+    <label className="block text-sm">老师/班级<input className={input} value={draft.teacher} onChange={e=>set('teacher',e.target.value)}/></label>
+    <label className="block text-sm">地点/上课链接<input className={input} value={draft.location} onChange={e=>set('location',e.target.value)}/></label>
+    <label className="block text-sm">请假、调课、补课等备注
       <textarea className={input} rows={3} value={draft.note} onChange={e=>set('note',e.target.value)}/>
     </label>
-    <label className="flex items-center gap-2 text-xs">
+    <label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={draft.cancelled===true} onChange={e=>set('cancelled',e.target.checked)}/>
       暂停/停课（保留历史）
     </label>
     {error&&<p className="text-sm text-red-700" role="alert">{error}</p>}
     <div className="flex flex-wrap gap-2">
-      <button className="rounded-lg bg-neutral-900 text-white px-3 py-2 text-sm disabled:opacity-40" disabled={busy} type="submit">
+      <button className="rounded-lg bg-[#383838] text-white px-3 py-2 text-sm disabled:opacity-40" disabled={busy} type="submit">
         {busy?'正在保存…':'保存修改'}
       </button>
       <button type="button" className="rounded-lg border border-neutral-300 px-3 py-2 text-sm" disabled={busy} onClick={onClose}>取消</button>
