@@ -54,8 +54,8 @@ describe('学习室原始需求：流畅的画稿与作业操作路径',()=>{
   expect(focus).not.toContain('接下来要做的作业');
  });
  it('切换排单与课程仍保留已挂载编辑器，学习笔记按课程保存草稿',()=>{
-  expect(panel).toContain("<div className={section==='commissions'?'':'hidden'}>");
-  expect(panel).toContain("<div className={section==='calendar'?'':'hidden'}>");
+  expect(panel).toContain("<div className={'space-y-4 sm:space-y-5 '+(section==='commissions'?'':'hidden')}>");
+  expect(panel).toContain("<div className={'space-y-4 sm:space-y-5 '+(section==='calendar'?'':'hidden')}>");
   expect(panel).not.toContain("{section==='commissions' ? <>");
   expect(panel).toContain('const [noteDrafts, setNoteDrafts]');
   expect(panel).toContain('const raw=noteDrafts[classId]');
