@@ -176,7 +176,7 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
    angle('hips',0,0,.075*((activity?.bathLeadStep??0)-(activity?.bathTrailStep??0)));
    for(const [s,p]of [[1,'L'],[-1,'R']]as const){
     const approach=activity?.bathApproachStep??0;
-    const step=T.MathUtils.clamp(p==='L'?(activity?.bathLeadStep??0)+approach*.18:(activity?.bathTrailStep??0)+(activity?.bathApproachTrailStep??0)*.18,0,1);
+    const step=T.MathUtils.clamp(p==='L'?(activity?.bathLeadStep??0)+approach*.07:(activity?.bathTrailStep??0)+(activity?.bathApproachTrailStep??0)*.18,0,1);
     const tuck=p==='L'?(activity?.bathLeadTuck??0):(activity?.bathTrailTuck??0);
     const crouch=flex*(1-seatWeight)*(1-.65*step);
     angle(p+'_thigh',(-1.40-.12*lift)*seatWeight+.75*step*(1-seatWeight)+(-.28+.48*step)*tuck*(1-seatWeight)-.38*crouch,0,-s*.015*seatWeight);

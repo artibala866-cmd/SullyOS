@@ -63,6 +63,15 @@ describe('existing skeletal bath IK and reversible tub pose',()=>{
   expect(trail.leadStep).toBeLessThan(.5);
   expect(a.rig.bones.L_thigh.quaternion.angleTo(a.rig.bones.R_thigh.quaternion)).toBeGreaterThan(.10);
  });
+ it('takes a real forward approach step instead of swinging back onto the same footprint',()=>{
+  const a=actor(),activity={kind:'bath-soak',position:[0,.54,0],rotation:0,edge:[0,1.17,.65],edgeRotation:0,posture:'seated',duration:8,bathHandWorld:[[-.25,1.16,.5],[.25,1.16,.5]]};
+  const journey=createBathroomJourney(activity,[0,.18,1.35],0);
+  frame(a,activity,journey,.42);
+  const first=a.rig.bones.L_toe.getWorldPosition(new T.Vector3()).clone();
+  frame(a,activity,journey,1.17);
+  const landed=a.rig.bones.L_toe.getWorldPosition(new T.Vector3());
+  expect(first.distanceTo(landed)).toBeGreaterThan(.08);
+ });
  it('preserves the exact reached pose at a mid-crossing cancellation',()=>{
   const activity={kind:'bath-soak',position:[0,.54,0],rotation:0,
    edge:[0,1.17,.65],edgeRotation:0,posture:'seated',duration:8,
