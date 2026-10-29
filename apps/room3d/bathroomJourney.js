@@ -80,7 +80,7 @@ export function bathroomJourneyFrame(j,time){
   position=mix(j.front,j.position,f);rotation=turn(j.startRotation,j.rotation,f);seatWeight=j.seated?f:0;
  }
  return {position,rotation,seatWeight,legLift,support,approachStep,approachTrailStep,supportFoot,leadStep,trailStep,lean,crouch,phase,time:phase==='work'?t-j.enter:p,
-  done:cancelled?t-j.cancelElapsed>=entryProgress:t>=duration};
+  done:cancelled?t-j.cancelElapsed+1e-8>=entryProgress:t>=duration};
 }
 
 /** Validate the swept room envelope at planning time, not on every render.
