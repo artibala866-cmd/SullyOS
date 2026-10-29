@@ -1564,6 +1564,86 @@ export const DB = {
     });
   },
 
+  /**
+   * One authoritative listening session record per Char. IndexedDB serializes
+   * concurrent joins/ends on this asset key; no DB version bump is required.
+   * LocalStorage only broadcasts invalidations, never decides who is online.
+   */
+  listActiveMusicListeningSessions: async (): Promise<Array<{charId:string; sessionId:string; startedAt:number; active:true}>> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_ASSETS, 'readonly');
+      const out: Array<{charId:string; sessionId:string; startedAt:number; active:true}> = [];
+      const prefix = 'music_listen_session_v2:';
+      const cursor = tx.objectStore(STORE_ASSETS).openCursor(IDBKeyRange.bound(prefix, prefix + '\uffff'));
+      cursor.onsuccess = () => {
+        const item = cursor.result;
+        if (!item) return;
+        const value = item.value?.data as {active?:boolean;sessionId?:string;startedAt?:number} | undefined;
+        if (value?.active === true && typeof value.sessionId === 'string' && value.sessionId &&
+            Number.isFinite(value.startedAt) && (value.startedAt as number) > 0) {
+          out.push({charId: String(item.key).slice(prefix.length), sessionId:value.sessionId, startedAt:value.startedAt as number, active:true});
+        }
+        item.continue();
+      };
+      tx.oncomplete = () => resolve(out);
+      tx.onerror = () => reject(tx.error || new Error('Music session restore failed'));
+      tx.onabort = () => reject(tx.error || new Error('Music session restore aborted'));
+    });
+  },
+
+  getMusicListeningSession: async (charId: string): Promise<{active:boolean;sessionId:string;startedAt:number}|null> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_ASSETS, 'readonly');
+      let result: {active:boolean;sessionId:string;startedAt:number}|null = null;
+      const req = tx.objectStore(STORE_ASSETS).get('music_listen_session_v2:' + charId);
+      req.onsuccess = () => {
+        const data = req.result?.data;
+        if (typeof data?.sessionId === 'string' && Number.isFinite(data?.startedAt))
+          result = {active:data.active === true, sessionId:data.sessionId, startedAt:data.startedAt};
+      };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = () => reject(tx.error || new Error('Music session lookup failed'));
+    });
+  },
+
+  transitionMusicListeningSession: async (
+    charId: string, action: 'join' | 'end', expectedSessionId?: string,
+  ): Promise<{active:boolean;sessionId:string;startedAt:number; changed:boolean}|null> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_ASSETS, 'readwrite');
+      const store = tx.objectStore(STORE_ASSETS);
+      const key = 'music_listen_session_v2:' + charId;
+      let outcome: {active:boolean;sessionId:string;startedAt:number;changed:boolean}|null = null;
+      const req = store.get(key);
+      req.onsuccess = () => {
+        const value = req.result?.data as {active?:boolean;sessionId?:string;startedAt?:number}|undefined;
+        const valid = typeof value?.sessionId === 'string' && Number.isFinite(value?.startedAt);
+        const previous = valid ? {
+          active:value?.active === true, sessionId:value!.sessionId as string, startedAt:value!.startedAt as number,
+        } : null;
+        if (action === 'join') {
+          if (previous?.active) { outcome = {...previous,changed:false}; return; }
+          const joined = {active:true,sessionId:`${Date.now()}-${Math.random().toString(36).slice(2)}`,startedAt:Date.now()};
+          store.put({id:key,data:joined});
+          outcome = {...joined,changed:true};
+        } else if (previous?.active && expectedSessionId && previous.sessionId === expectedSessionId) {
+          const ended = {...previous,active:false};
+          store.put({id:key,data:ended});
+          outcome = {...ended,changed:true};
+        } else if (previous) {
+          // A stale tab is not allowed to end a newer listening session.
+          outcome = {...previous,changed:false};
+        }
+      };
+      tx.oncomplete = () => resolve(outcome);
+      tx.onerror = () => reject(tx.error || new Error('Music session transition failed'));
+      tx.onabort = () => reject(tx.error || new Error('Music session transition aborted'));
+    });
+  },
+
   getAsset: async (id: string): Promise<string | null> => {
       const db = await openDB();
       return new Promise((resolve, reject) => {
