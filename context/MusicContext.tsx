@@ -12,6 +12,8 @@ import React, {
   useMemo, useRef, useState,
 } from 'react';
 import { cachedCall as _cachedCall, invalidate as _invalidateCache, clearAll as _clearAllCache } from '../utils/musicCache';
+import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, retryGuestMusicOnce } from '../utils/musicSourceHealth';
+import { getGuestMusicCover } from '../utils/musicArtwork';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
 import { findPendingMusicInvite } from '../utils/musicInviteStatus';
@@ -280,7 +282,7 @@ const getGuestMusicJson = async (url: URL, unavailable: string, timeoutMs = 1200
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url.toString(), { signal: controller.signal });
-    if (!res.ok) throw new Error(unavailable);
+    if (!res.ok) throw new Error(`${unavailable}（HTTP ${res.status}）`);
     return await res.json();
   } catch (err: any) {
     if (err?.name === 'AbortError') throw new Error('免登录音乐服务响应超时，请稍后重试');
@@ -319,6 +321,7 @@ export const musicApi = {
       id: Number(x.id), name: x.name, ar: [{ name: Array.isArray(x.artist) ? x.artist.join(' / ') : (x.artist || '') }],
       // GD Studio 的 types=pic 返回的是 JSON {url}，不能直接当 <img src> 使用。
       al: { name: x.album || '', picUrl: typeof x.pic_url === 'string' && /^https:\/\//i.test(x.pic_url) ? x.pic_url : '' },
+      pic_id: x.pic_id ?? '', lyric_id: x.lyric_id ?? x.id,
       dt: Number(x.duration || 0) * 1000, fee: 0,
     })).filter((x: any) => Number.isFinite(x.id)) } };
   },
@@ -332,37 +335,58 @@ export const musicApi = {
     vkeys.searchParams.set('page', String(Math.floor(offset / 30) + 1));
     vkeys.searchParams.set('num', '30');
     try {
-      const payload = await getGuestMusicJson(vkeys, 'QQ 音乐搜索服务不可用', 6500);
+      const payload = await retryGuestMusicOnce(
+        () => getGuestMusicJson(vkeys, 'QQ 音乐搜索服务不可用', 5000),
+        res => tencentSearchRows(res).length > 0,
+      );
       const songs = tencentSearchRows(payload).map(normalizeTencentSong).filter((s): s is Song => !!s);
       if (songs.length) return songs;
     } catch (err) { failure = err; }
     const gd = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'search', source: 'tencent', name: query, count: '30', pages: String(Math.floor(offset / 30) + 1) })) gd.searchParams.set(k, v);
     try {
-      const payload = await getGuestMusicJson(gd, 'QQ 音乐备用搜索服务不可用', 6500);
-      if (!Array.isArray(payload)) throw new Error('QQ 音乐搜索结果格式异常');
-      return payload.map(normalizeTencentSong).filter((s): s is Song => !!s);
+      const payload = await getGuestMusicJson(gd, 'QQ 音乐备用搜索服务不可用', 4500);
+      if (!Array.isArray(payload)) throw new Error('QQ 备用来源当前未开放');
+      const songs = payload.map(normalizeTencentSong).filter((s): s is Song => !!s);
+      if (!songs.length) throw new Error('QQ 备用来源当前无结果');
+      return songs;
     } catch (err) {
       console.warn('[Music] QQ search providers unavailable', failure, err);
-      throw new Error('QQ 音乐搜索来源暂不可用，请稍后重试');
+      throw new Error('QQ 音乐来源暂不可用（接口可能过期或限流），请稍后直接重试，不需要退出应用');
     }
   },
   async songUrlFor(cfg: MusicCfg, song: Song) {
     if (song.source !== 'tencent' || song.local) return musicApi.songUrl(cfg, song.id);
-    const id = song.platformId?.trim();
+    const id = song.platformId?.trim() || (song.mid ? song.mid.trim() : '');
     if (!id) throw new Error('QQ 音乐歌曲缺少平台 ID');
     const direct = new URL('https://api.vkeys.cn/v2/music/tencent/geturl');
     direct.searchParams.set(song.mid ? 'mid' : 'id', song.mid || id);
+    // Vkeys quality=8 is a legacy argument, not a verified actual bitrate.
     direct.searchParams.set('quality', '8');
+    let firstFailure: unknown;
     try {
-      const result = await getGuestMusicJson(direct, 'QQ 音乐播放解析不可用', 6500);
+      const result = await retryGuestMusicOnce(
+        () => getGuestMusicJson(direct, 'QQ 音乐播放解析不可用', 5000),
+        value => !!extractMusicUrl(value),
+      );
       const found = extractMusicUrl(result);
-      if (found) return { data: [{ url: found }] };
-    } catch { /* same-source GD fallback */ }
+      if (found) return { data: [{ url: found, br: null as number | null, provider: 'vkeys' }] };
+      firstFailure = guestMusicErrorText(result) || 'QQ 音源服务没有返回有效播放地址';
+    } catch (err) { firstFailure = err; }
+    // Same-source fallback ONLY: QQ identifiers must not resolve as NetEase.
+    // GD Studio currently excludes Tencent from its supported live sources.
     const gd = new URL('https://music-api.gdstudio.xyz/api.php');
-    for (const [k, v] of Object.entries({ types: 'url', source: 'tencent', id, br: '128' })) gd.searchParams.set(k, v);
-    const result = await getGuestMusicJson(gd, 'QQ 音乐播放服务暂不可用', 6500);
-    return { data: [{ url: extractMusicUrl(result) || null }] };
+    for (const [k, v] of Object.entries({
+      types: 'url', source: 'tencent', id, br: gdMusicBitrate(cfg.quality),
+    })) gd.searchParams.set(k, v);
+    try {
+      const result = await getGuestMusicJson(gd, 'QQ 音乐备用解析不可用', 4500);
+      const found = extractMusicUrl(result);
+      if (found) return { data: [{ url: found, br: Number(result?.br) || null, provider: 'gdstudio' }] };
+    } catch (err) {
+      console.warn('[Music] QQ URL providers temporarily unavailable', firstFailure, err);
+    }
+    throw new Error('QQ 音乐音源接口暂不可用或未提供播放授权。可能是 API 临时失效、限流或链接过期；请稍后点击播放重试');
   },
   async lyricFor(cfg: MusicCfg, song: Song) {
     if (song.source !== 'tencent' || song.local) return musicApi.lyric(cfg, song.id);
@@ -370,7 +394,7 @@ export const musicApi = {
     if (!lyricId) return { lrc: { lyric: '' }, tlyric: { lyric: '' } };
     const gd = new URL('https://music-api.gdstudio.xyz/api.php');
     for (const [k, v] of Object.entries({ types: 'lyric', source: 'tencent', id: lyricId })) gd.searchParams.set(k, v);
-    const result = await getGuestMusicJson(gd, 'QQ 音乐歌词来源暂不可用', 6500);
+    const result = await getGuestMusicJson(gd, 'QQ 音乐歌词来源暂不可用', 4500);
     return {
       lrc: { lyric: typeof result?.lyric === 'string' ? result.lyric : '' },
       tlyric: { lyric: typeof result?.tlyric === 'string' ? result.tlyric : '' },
@@ -382,9 +406,10 @@ export const musicApi = {
       if (result?.data?.[0]?.url) return result;
     } catch { /* guest fallback */ }
     const u = new URL('https://music-api.gdstudio.xyz/api.php');
-    for (const [k, v] of Object.entries({ types: 'url', source: 'netease', id: String(id), br: '128' })) u.searchParams.set(k, v);
+    for (const [k, v] of Object.entries({ types: 'url', source: 'netease', id: String(id), br: gdMusicBitrate(cfg.quality) })) u.searchParams.set(k, v);
     const item = await getGuestMusicJson(u, '免登录播放服务暂不可用');
-    return { data: [{ url: typeof item?.url === 'string' ? item.url : null }] };
+    return { data: [{ url: typeof item?.url === 'string' ? item.url : null,
+      br: Number(item?.br) || null, provider: 'gdstudio' }] };
   },
   async lyric(cfg: MusicCfg, id: number) {
     // 优先使用原有 Worker；无歌词或接口失败时，尝试免登录歌词服务。
