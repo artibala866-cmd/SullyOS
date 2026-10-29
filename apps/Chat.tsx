@@ -16,7 +16,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { findPendingMusicInvite } from '../utils/musicInviteStatus';
+import { findPendingMusicInvite, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import {HOME_HISTORY_COMMITTED} from '../utils/secretNote';
 import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
 import { chatCharacterDisplayName } from '../utils/characterRemark';
@@ -1184,13 +1184,21 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             if (detail?.charId !== activeCharIdRef.current) return;
             void reloadMessages(visibleCountRef.current);
         };
+        const onRemoteInvite = (event: StorageEvent) => {
+            if (event.key !== MUSIC_INVITE_DB_CHANGED_KEY) return;
+            const charId = musicInviteChangedCharId(event.newValue);
+            if (charId && charId === activeCharIdRef.current)
+                void reloadMessages(visibleCountRef.current);
+        };
         window.addEventListener('music-listen-invite-created', refreshMusicInvite);
         window.addEventListener('music-listen-invite-resolved', refreshMusicInvite);
         window.addEventListener('music-listen-session-ended', refreshMusicInvite);
+        window.addEventListener('storage', onRemoteInvite);
         return () => {
             window.removeEventListener('music-listen-invite-created', refreshMusicInvite);
             window.removeEventListener('music-listen-invite-resolved', refreshMusicInvite);
             window.removeEventListener('music-listen-session-ended', refreshMusicInvite);
+            window.removeEventListener('storage', onRemoteInvite);
         };
     }, [reloadMessages]);
 
