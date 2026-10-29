@@ -1366,14 +1366,16 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return notify('stale');
       }
       const joined = await respondListeningInvite(charId, accepted);
-      if (accepted && !joined) return notify('failed');
-      if (accepted && settled.track) resumeInviteTrack(settled.track);
+      // The reply was ALREADY committed. If another tab ended the session
+      // during our UI refresh, still publish the resolved invitation and do
+      // not replay audio or pretend the DB acceptance failed.
+      if (accepted && joined && settled.track) resumeInviteTrack(settled.track);
       announceMusicListenSessionChanged(charId);
       announceMusicInviteDbChanged(charId);
       window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
-        detail: { charId, messageId, accepted },
+        detail: { charId, messageId, accepted, sessionAlreadyEnded: accepted && !joined },
       }));
-      return notify('resolved');
+      return notify(accepted && !joined ? 'stale' : 'resolved');
     } catch (err) {
       // No optimistic join or UI clear on a failed IndexedDB transaction.
       console.warn('[MusicTogether] 邀请回应保存失败', err);
