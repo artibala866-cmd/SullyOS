@@ -6,7 +6,7 @@ import { DB } from '../utils/db';
 import { findPendingMusicInvite } from '../utils/musicInviteStatus';
 import { sameMusic } from '../utils/musicLibrary';
 import { trackEvent } from '../utils/analytics';
-import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon, Heart, Plus, ListPlus, DotsThreeVertical, Trash, PencilSimple, CaretDown, CaretUp, MusicNotes } from '@phosphor-icons/react';
+import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon, Heart, Plus, ListPlus, DotsThreeVertical, Trash, PencilSimple, CaretDown, CaretUp, MusicNotes, Headphones } from '@phosphor-icons/react';
 import {
   C, Sparkle, CrossStar, MizuHeader, SearchBar, SongRow, MiniPlayer,
   VinylDisc, GlassProgress, PlayControls, BokehBg,
@@ -497,31 +497,66 @@ const MusicApp: React.FC = () => {
       </div>
 
       {characters.length > 0 && (
-        <div className="px-5 pb-2 flex items-center gap-2 flex-wrap relative z-10">
-          <span className="text-xs font-semibold text-neutral-600">一起听</span>
-          {characters.filter(c => !!charInvites[c.id]).map(c => (
-            <span key={`char-invite-${c.id}`} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-700">
-              {c.name} 邀请你一起听{charInvites[c.id]?.track ? `《${charInvites[c.id].track?.name}》` : ''}
-              <button className="ml-2 underline" onClick={() => void answerCharInvite(c.id, true)}>接受</button>
-              <button className="ml-2 underline" onClick={() => void answerCharInvite(c.id, false)}>拒绝</button>
-            </span>
-          ))}
-          {characters.filter(c => !charInvites[c.id]).map(c => {
-            const active = listeningTogetherWith.includes(c.id);
-            const status = listeningInvites[c.id];
-            return (
-              <span key={c.id} className="text-[10px] rounded-full px-2.5 py-1 border border-neutral-300 text-neutral-600">
-                {active ? `与 ${c.name} 一起听 · ${Math.floor((Date.now() - (listeningStartedAt[c.id] || Date.now())) / 60000)} 分钟`
-                  : status === 'pending' ? `${c.name} · 等待回应`
-                  : status === 'rejected' ? `${c.name} · 已拒绝`
-                  : c.name}
-                <button className="ml-2 underline" onClick={() => active ? removeListeningPartner(c.id) : status === 'pending' ? cancelListeningInvite(c.id) : inviteListeningPartner(c.id)}>
-                  {active ? '结束' : status === 'pending' ? '撤回' : '邀请'}
-                </button>
+        <section className="music-together-section relative z-10 px-4 pb-2" aria-label="与角色一起听">
+          <div className="rounded-[19px] border px-3 pt-3 pb-2.5"
+            style={{ background: C.surface, borderColor: '#e9e9e7' }}>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2 min-w-0" style={{ color: C.text }}>
+                <Headphones size={17} weight="regular" aria-hidden="true" />
+                <span className="text-[12px] font-semibold">一起听</span>
+              </div>
+              <span className="text-[10px] truncate" style={{ color: C.muted }}>
+                {listeningTogetherWith.length > 0 ? `正在与 ${listeningTogetherWith.length} 位角色听歌` : '选择角色发起邀请'}
               </span>
-            );
-          })}
-        </div>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 shizuku-scrollbar overscroll-x-contain"
+              style={{ scrollbarWidth: 'thin' }}>
+              {characters.filter(c => !!charInvites[c.id]).map(c => (
+                <div key={`char-invite-${c.id}`}
+                  className="shrink-0 w-[196px] max-w-[78vw] min-w-0 rounded-[15px] border px-3 py-2.5"
+                  style={{ background: '#f6f6f4', borderColor: '#dededb' }}>
+                  <div className="text-[12px] font-semibold truncate" style={{ color: C.text }}>{c.name} 邀请你</div>
+                  <div className="text-[10px] truncate mt-1" style={{ color: C.muted }}
+                    title={charInvites[c.id]?.track?.name || '一起听歌'}>
+                    {charInvites[c.id]?.track ? `一起听《${charInvites[c.id].track?.name}》` : '邀请你一起听歌'}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <button type="button" aria-label={`接受 ${c.name} 的一起听邀请`}
+                      className="music-tap min-h-9 px-3 rounded-full text-[11px] font-medium"
+                      style={{ color: '#fff', background: C.primary }}
+                      onClick={() => void answerCharInvite(c.id, true)}>接受</button>
+                    <button type="button" aria-label={`拒绝 ${c.name} 的一起听邀请`}
+                      className="music-tap min-h-9 px-3 rounded-full text-[11px] font-medium"
+                      style={{ color: C.muted, background: '#e9e9e6' }}
+                      onClick={() => void answerCharInvite(c.id, false)}>拒绝</button>
+                  </div>
+                </div>
+              ))}
+              {characters.filter(c => !charInvites[c.id]).map(c => {
+                const active = listeningTogetherWith.includes(c.id);
+                const status = listeningInvites[c.id];
+                const action = active ? '结束' : status === 'pending' ? '撤回' : '邀请';
+                return (
+                  <div key={c.id} className="shrink-0 w-[160px] max-w-[70vw] min-w-0 rounded-[15px] border px-3 py-2.5"
+                    style={{ background: '#fbfbfa', borderColor: active ? '#cbcbc7' : '#e9e9e7' }}>
+                    <div className="text-[12px] font-semibold truncate" title={c.name} style={{ color: C.text }}>{c.name}</div>
+                    <div className="text-[10px] mt-1 truncate" style={{ color: C.muted }}>
+                      {active ? `一起听中 · ${Math.floor((Date.now() - (listeningStartedAt[c.id] || Date.now())) / 60000)} 分钟`
+                        : status === 'pending' ? '邀请已发送，等待回应'
+                        : status === 'rejected' ? '上次邀请已拒绝' : '可以邀请一起听'}
+                    </div>
+                    <button type="button" aria-label={`${action}与 ${c.name} 的一起听`}
+                      className="music-tap min-h-9 mt-2 px-3 rounded-full text-[11px] font-medium"
+                      style={{ color: active ? '#fff' : C.text, background: active ? C.primary : '#ededeb' }}
+                      onClick={() => active ? removeListeningPartner(c.id) : status === 'pending' ? cancelListeningInvite(c.id) : inviteListeningPartner(c.id)}>
+                      {action}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
       )}
       {current && (
         <MiniPlayer
