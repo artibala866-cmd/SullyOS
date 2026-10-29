@@ -176,9 +176,18 @@ export async function cachedCall<T = any>(
   const p: Promise<T> = doCall().then(
     (res) => {
       if (INFLIGHT.get(key) === p) {
-        MEM.set(key, { data: res, expires: Date.now() + ttl });
+        // A Worker can return HTTP 200 with {data:[{url:null}]} during a
+        // temporary CDN/API outage. Caching it for 90 seconds prevents the
+        // very next retry from seeing a recovered playable URL.
+        const playable = path !== '/song/url' ||
+          (Array.isArray((res as any)?.data) &&
+            (res as any).data.some((item: any) =>
+              typeof item?.url === 'string' && /^https?:\/\//i.test(item.url)));
+        if (playable) {
+          MEM.set(key, { data: res, expires: Date.now() + ttl });
+          schedulePersist();
+        }
         INFLIGHT.delete(key);
-        schedulePersist();
       }
       return res;
     },
