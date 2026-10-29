@@ -31,6 +31,21 @@ describe('QQ 音源临时 API 失效', () => {
     expect(await retryGuestMusicOnce<any>(throttled, (res: any) => !!res.url)).toHaveProperty('url');
     expect(throttled).toHaveBeenCalledTimes(2);
   });
+  it('HTTP 401/403/404 即使错误文字带 API 也不能重试', async () => {
+    expect(guestMusicIsTransient('QQ 音乐播放解析接口不可用（HTTP 403）')).toBe(false);
+    expect(guestMusicIsTransient('QQ API error HTTP 404')).toBe(false);
+    expect(guestMusicIsTransient({code: 403, msg: 'API 暂时失效'})).toBe(false);
+    expect(guestMusicIsTransient({code: 404, message: '稍后重试'})).toBe(false);
+    expect(guestMusicIsTransient({code: 429, message: '限流'})).toBe(true);
+    expect(guestMusicIsTransient({code: 503})).toBe(true);
+    const denied = vi.fn().mockRejectedValue(new Error('QQ API（HTTP 403）'));
+    await expect(retryGuestMusicOnce<any>(denied, () => true)).rejects.toThrow('403');
+    expect(denied).toHaveBeenCalledOnce();
+    const payload = vi.fn().mockResolvedValue({code:403, msg:'API 过期', data:{url:null}});
+    expect(await retryGuestMusicOnce<any>(payload, (v: any) => !!v.data?.url)).toMatchObject({code:403});
+    expect(payload).toHaveBeenCalledOnce();
+  });
+
   it('能识别第三方 message/msg/error，避免把接口故障误判为版权问题', () => {
     expect(guestMusicErrorText({code:503, data:{message:'接口维护'}})).toContain('接口维护');
     expect(guestMusicIsTransient('API 已失效')).toBe(true);
