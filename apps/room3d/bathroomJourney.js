@@ -63,8 +63,8 @@ export function bathroomJourneyFrame(j,time){
   supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
   // Tuck the knee vertically before swinging the foot across the tall rim.
   // The two contacts are separate: lift first, then transfer across.
-  leadTuck=pulse(p,1.24,1.58,2.34,2.72);
-  trailTuck=pulse(p,2.34,2.62,3.25,3.65);
+  leadTuck=pulse(p,1.35,1.67,2.48,2.76);
+  trailTuck=pulse(p,2.42,2.72,3.36,3.72);
   leadStep=pulse(p,1.84,2.12,2.28,2.60);
   trailStep=pulse(p,2.64,2.92,3.18,3.52);
   // Hands may reach early; knee flexion and pelvis lowering must wait for
@@ -73,7 +73,9 @@ export function bathroomJourneyFrame(j,time){
   lean=M.smootherstep(p,1.16,1.78)*(1-M.smootherstep(p,3.75,4.55));
   // Walk the last short, grounded step to reach the REAL near rim before
   // the first crossing leg lifts. Do not drag the standing root vertically.
-  const advance=.12*M.smootherstep(p,.30,.74)+.15*M.smootherstep(p,.79,1.19)+.73*M.smootherstep(p,2.12,3.85);
+  // Shift weight onto the new left landing before the right foot follows.
+  // The previous .12/.15 split carried the swing foot back to its start.
+  const advance=.20*M.smootherstep(p,.30,.74)+.07*M.smootherstep(p,.79,1.19)+.73*M.smootherstep(p,2.12,3.85);
   const lower=M.smootherstep(p,3.52,4.6);
   position=mix(j.front,j.position,advance);
   position[1]=M.lerp(j.front[1],j.position[1],lower);
