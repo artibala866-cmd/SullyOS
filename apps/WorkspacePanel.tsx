@@ -542,7 +542,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         <div className="flex items-center gap-3">
           <span className="grid h-12 w-12 place-items-center rounded-[17px] bg-[#252525] text-white"><PenNib size={23} weight="light"/></span>
           <div><h2 className="text-[21px] font-semibold tracking-tight">画师排单</h2>
-            <p className="text-[11px] tracking-[.12em] text-neutral-500">CREATIVE WORKSPACE</p></div>
+            </div>
         </div>
         <button type="button" className="flex min-h-11 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-medium text-neutral-800 shadow-sm disabled:opacity-40"
           onClick={()=>void requestPlan()} disabled={!selectedCharId || applyingPlan}>
@@ -551,13 +551,13 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </header>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="可直接继续的画稿">
         {quickCommissions.slice(0,1).map(c=><article key={c.id}
-          className="col-span-2 sm:col-span-3 flex min-h-[222px] min-w-0 flex-col justify-between rounded-[28px] bg-white p-5 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
+          className="col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[198px] min-w-0 flex-col justify-between rounded-[24px] bg-white p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] tracking-[.15em] text-neutral-500">NOW CREATING</span>
+            <span className="text-xs font-medium text-neutral-600">正在画</span>
             <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f2f2f2]"><PenNib size={20} weight="light"/></span>
           </div>
-          <div className="min-w-0 py-4">
-            <h3 className="truncate text-[23px] font-semibold tracking-tight">{c.title}</h3>
+          <div className="min-w-0 py-2.5 sm:py-4">
+            <h3 className="truncate text-[18px] sm:text-[22px] font-semibold tracking-tight">{c.title}</h3>
             <p className="mt-1.5 text-xs text-neutral-500">{c.stage} · {deadlineLabel(c.dueDate,todayKey)}</p>
             <p className="mt-3 text-sm tabular-nums">{c.remainingMinutes}<span className="ml-1 text-xs text-neutral-500">分钟待绘制</span></p>
             {!!risk.get(c.id)?.shortfallMinutes && <p className="mt-1 text-xs text-red-700">预计缺口 {risk.get(c.id)?.shortfallMinutes} 分</p>}
@@ -574,22 +574,22 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <Clock size={15}/> 待结算 {pendingMinutes('commission',c.id).minutes} 分钟 <ArrowRight size={14}/>
           </button>}
         </article>)}
-        {quickCommissions.length===0 && <div className="col-span-2 sm:col-span-3 flex min-h-[222px] flex-col justify-between rounded-[28px] bg-white p-6">
+        {quickCommissions.length===0 && <div className="col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[198px] flex-col justify-between rounded-[28px] bg-white p-6">
           <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f3f3f3]"><PenNib size={22}/></span>
           <div><h3 className="text-xl font-semibold">从第一张画稿开始</h3><p className="mt-2 text-sm text-neutral-500">新委托可以在下方添加。</p></div>
         </div>}
         <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-3 sm:grid-cols-1">
-        <div className="flex min-h-[108px] flex-col justify-between rounded-[24px] bg-[#252525] p-4 text-white">
+        <div className="flex min-h-[78px] sm:min-h-[94px] flex-col justify-between rounded-[20px] bg-[#252525] p-3 sm:p-4 text-white">
           <div className="flex items-center justify-between"><span className="text-[11px] text-white/70">进行中</span><PenNib size={17} weight="light"/></div>
-          <strong className="text-[29px] font-semibold tabular-nums">{data.commissions.filter(c=>c.status==='active').length}</strong>
+          <strong className="text-[23px] sm:text-[27px] font-semibold tabular-nums">{data.commissions.filter(c=>c.status==='active').length}</strong>
         </div>
-        <div className="flex min-h-[108px] flex-col justify-between rounded-[24px] bg-white p-4">
+        <div className="flex min-h-[78px] sm:min-h-[94px] flex-col justify-between rounded-[24px] bg-white p-4">
           <div className="flex items-center justify-between"><span className="text-[11px] text-neutral-500">七天内</span><CalendarDots size={17} weight="light"/></div>
-          <strong className="text-[29px] font-semibold tabular-nums">{data.commissions.filter(c=>c.status==='active'&&!!c.dueDate&&c.dueDate>=todayKey&&c.dueDate<=new Date(Date.now()+7*86400000).toLocaleDateString('sv-SE')).length}</strong>
+          <strong className="text-[23px] sm:text-[27px] font-semibold tabular-nums">{data.commissions.filter(c=>c.status==='active'&&!!c.dueDate&&c.dueDate>=todayKey&&c.dueDate<=new Date(Date.now()+7*86400000).toLocaleDateString('sv-SE')).length}</strong>
         </div>
         </div>
-        {quickCommissions.slice(1).map(c=><div key={c.id}
-          className="col-span-2 sm:col-span-2 flex min-w-0 items-center justify-between gap-3 rounded-[22px] bg-white px-4 py-3">
+        {quickCommissions.slice(1,2).map(c=><div key={c.id}
+          className="col-span-2 sm:col-span-2 flex min-w-0 items-center justify-between gap-2 rounded-[18px] bg-white px-3 py-2">
           <div className="min-w-0"><p className="truncate text-sm font-semibold">{c.title}</p>
             <p className="text-xs text-neutral-500">{c.stage} · {deadlineLabel(c.dueDate,todayKey)}</p></div>
           <button type="button" aria-label={'开始画 '+c.title} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#252525] text-white"
@@ -598,7 +598,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           {pendingMinutes('commission',c.id).minutes>0 && <button type="button" className="shrink-0 text-xs underline"
             disabled={!!settlementBusyId} onClick={()=>void settleLinkedFocus('commission',c.id,c.remainingMinutes)}>结算</button>}
         </div>)}
-        {data.commissions.filter(c=>c.status==='active').length>quickCommissions.length && <button type="button"
+        {data.commissions.filter(c=>c.status==='active').length>Math.min(quickCommissions.length,2) && <button type="button"
           className="col-span-2 min-h-10 text-right text-xs text-neutral-600" onClick={()=>setShowCommissionList(true)}>
           查看全部画稿 <ArrowRight size={14} className="inline"/>
         </button>}
@@ -733,20 +733,20 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       <header className="flex items-center justify-between gap-3 px-1 pt-2">
         <div className="flex items-center gap-3">
           <span className="grid h-12 w-12 place-items-center rounded-[17px] bg-[#252525] text-white"><BookOpen size={23} weight="light"/></span>
-          <div><h2 className="text-[21px] font-semibold tracking-tight">课程表</h2><p className="text-[11px] tracking-[.12em] text-neutral-500">WEEKLY SCHOOL PLANNER</p></div>
+          <div><h2 className="text-[21px] font-semibold tracking-tight">课程表</h2></div>
         </div>
         <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white" aria-label="查看作业和笔记"
           onClick={()=>document.getElementById('study-homework-panel')?.scrollIntoView({block:'start',behavior:'smooth'})}><ArrowRight size={20}/></button>
       </header>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="接下来要做的作业">
         {pendingHomework.slice(0,1).map(h=><article key={h.id}
-          className="col-span-2 sm:col-span-3 flex min-h-[216px] flex-col justify-between rounded-[28px] bg-white p-5 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
+          className="col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[194px] flex-col justify-between rounded-[24px] bg-white p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,.025)]">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] tracking-[.15em] text-neutral-500">UP NEXT / STUDY</span>
+            <span className="text-xs font-medium text-neutral-600">接下来</span>
             <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f2f2f2]"><BookOpen size={20} weight="light"/></span>
           </div>
-          <div className="min-w-0 py-4">
-            <h3 className="truncate text-[23px] font-semibold tracking-tight">{h.title}</h3>
+          <div className="min-w-0 py-2.5 sm:py-4">
+            <h3 className="truncate text-[18px] sm:text-[22px] font-semibold tracking-tight">{h.title}</h3>
             <p className="mt-1.5 text-xs text-neutral-500">{lessonNameForHomework(data.classes,h.classId)} · {deadlineLabel(h.dueAt,todayKey)}</p>
             <p className="mt-3 text-sm">{h.minutes}<span className="ml-1 text-xs text-neutral-500">分钟预计剩余</span></p>
           </div>
@@ -762,21 +762,21 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <Clock size={15}/> 待结算 {pendingMinutes('homework',h.id).minutes} 分钟 <ArrowRight size={14}/>
           </button>}
         </article>)}
-        {pendingHomework.length===0 && <div className="col-span-2 sm:col-span-3 flex min-h-[216px] flex-col justify-between rounded-[28px] bg-white p-6">
+        {pendingHomework.length===0 && <div className="col-span-2 sm:col-span-3 flex min-h-[160px] sm:min-h-[194px] flex-col justify-between rounded-[28px] bg-white p-6">
           <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f3f3f3]"><BookOpen size={22}/></span>
           <div><h3 className="text-xl font-semibold">今天的课程已就绪</h3><p className="mt-2 text-sm text-neutral-500">选择下方课程，记下新作业。</p></div>
         </div>}
         <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-3 sm:grid-cols-1">
-          <div className="flex min-h-[108px] flex-col justify-between rounded-[24px] bg-[#252525] p-4 text-white">
+          <div className="flex min-h-[78px] sm:min-h-[94px] flex-col justify-between rounded-[20px] bg-[#252525] p-3 sm:p-4 text-white">
             <div className="flex items-center justify-between"><span className="text-[11px] text-white/70">待做作业</span><BookOpen size={17} weight="light"/></div>
-            <strong className="text-[29px] font-semibold tabular-nums">{data.homework.filter(h=>!h.done).length}</strong>
+            <strong className="text-[23px] sm:text-[27px] font-semibold tabular-nums">{data.homework.filter(h=>!h.done).length}</strong>
           </div>
-          <div className="flex min-h-[108px] flex-col justify-between rounded-[24px] bg-white p-4">
+          <div className="flex min-h-[78px] sm:min-h-[94px] flex-col justify-between rounded-[24px] bg-white p-4">
             <div className="flex items-center justify-between"><span className="text-[11px] text-neutral-500">本周课程</span><CalendarDots size={17} weight="light"/></div>
-            <strong className="text-[29px] font-semibold tabular-nums">{data.classes.filter(c=>!c.cancelled).length}</strong>
+            <strong className="text-[23px] sm:text-[27px] font-semibold tabular-nums">{data.classes.filter(c=>!c.cancelled).length}</strong>
           </div>
         </div>
-        {pendingHomework.slice(1).map(h=><div key={h.id} className="col-span-2 sm:col-span-2 flex min-w-0 items-center gap-3 rounded-[22px] bg-white px-4 py-3">
+        {pendingHomework.slice(1,2).map(h=><div key={h.id} className="col-span-2 sm:col-span-2 flex min-w-0 items-center gap-2 rounded-[18px] bg-white px-3 py-2">
           <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{h.title}</p>
             <p className="truncate text-xs text-neutral-500">{lessonNameForHomework(data.classes,h.classId)} · {deadlineLabel(h.dueAt,todayKey)}</p></div>
           <button type="button" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#252525] text-white"
@@ -785,12 +785,12 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           {pendingMinutes('homework',h.id).minutes>0&&<button type="button" className="text-xs underline"
             disabled={!!settlementBusyId} onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>结算</button>}
         </div>)}
-        {data.homework.filter(h=>!h.done).length>pendingHomework.length && <button type="button"
+        {data.homework.filter(h=>!h.done).length>Math.min(pendingHomework.length,2) && <button type="button"
           className="col-span-2 min-h-10 text-right text-xs text-neutral-600" onClick={()=>setShowAllHomework(v=>!v)}>
           {showAllHomework?'收起其余作业':'查看全部待做作业'} <ArrowRight size={14} className="inline"/>
         </button>}
         {showAllHomework && <div className="col-span-2 space-y-1 rounded-[24px] bg-white p-4">
-          {nextHomework(data.homework,data.homework.length).slice(pendingHomework.length).map(h=>
+          {nextHomework(data.homework,data.homework.length).slice(2).map(h=>
             <div key={h.id} className="flex items-center justify-between gap-2 py-2 text-xs border-b border-neutral-100">
               <span className="min-w-0 flex-1 truncate">{h.title} · {lessonNameForHomework(data.classes,h.classId)}</span>
               <button type="button" className="underline underline-offset-2" onClick={()=>onFocus('homework',h.id,h.title)}>开始学</button>
