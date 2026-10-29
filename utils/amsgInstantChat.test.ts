@@ -96,7 +96,6 @@ import {
 import { FIRE_PACK_VERSION, unpackStateValue } from './amsgFirePack';
 import { AMSG_BUNDLE_VERSION } from './amsgBundleVersion';
 import { ActiveMsgStore } from './activeMsgStore';
-import type { AmsgSarModuleSnapshot } from './vrWorld/sarEnvelopeCore';
 import { ChatPrompts } from './chatPrompts';
 import { DB } from './db';
 
@@ -248,12 +247,12 @@ describe('POST /instant-chat 的形状', () => {
     expect(task.metadata.amsgEmotionEval).toBeUndefined();
   });
 
-  // SAR 模块生效 / 恢复期那一轮：worker 靠 amsgSar 拆信封并原样挂回末条推送，落库侧
-  // 靠它写事件、推进回合。键名是三方约定，改一个字 worker 就当普通回合处理——信封整段上屏。
-  it('SAR 快照原样进任务 metadata.amsgSar（经 sendInstantChatTurn 一路带上去）', async () => {
+  // This branch retired VRWorld/SAR. Legacy callers must not silently
+  // re-introduce SAR metadata into a private-cloud instant reply.
+  it('退役的 SAR 快照不再写入即时回复云端 metadata', async () => {
     stubFirePackDeps();
     const calls = mockInstantChatFetch(202, { status: 'accepted', uuid: 'uuid-sar' });
-    const sarModule: AmsgSarModuleSnapshot = {
+    const sarModule = {
       v: 1,
       character: { runId: 'run-c', moduleId: 'm1', moduleTitle: '模块', target: 'character', phase: 'active' },
       events: [{
@@ -272,7 +271,7 @@ describe('POST /instant-chat 的形状', () => {
     expect(result.ok).toBe(true);
     const call = calls.find((c) => String(c.url).includes('/instant-chat'))!;
     const task = JSON.parse(JSON.parse(String(call.init.body)).taskPayload.encryptedData);
-    expect(task.metadata.amsgSar).toEqual(sarModule);
+    expect(task.metadata.amsgSar).toBeUndefined();
   });
 
   it('没有 SAR 模块的普通回合不带 amsgSar', async () => {

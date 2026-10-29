@@ -49,8 +49,10 @@ const onNotificationOpened = (action: ActionPerformed) => {
   void ingestNotification(notification).catch(error =>
     console.warn('[ActiveMsg:native] 点击通知时入库失败，仍可打开私聊等待补收', error))
     .finally(() => {
-      if (typeof charId === 'string' && charId)
+      if (typeof charId === 'string' && charId
+        && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
         window.dispatchEvent(new CustomEvent('active-msg-open', { detail: { charId } }));
+      }
     });
 };
 
