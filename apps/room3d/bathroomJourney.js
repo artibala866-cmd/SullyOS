@@ -86,11 +86,10 @@ export function bathroomJourneyFrame(j,time){
   const totalTravel=Math.hypot(j.front[0]-j.position[0],j.front[2]-j.position[2]);
   const earlyTravel=Math.min(.35,Math.max(.08,toRim-.40));
   const earlyFraction=totalTravel>.01?Math.min(.27,earlyTravel/totalTravel):0;
-  const stepScale=Math.min(1,earlyTravel/.27);
  // Two short physical footfalls, never a 36cm translation on one planted leg.
   // Left swings while right bears weight, then right swings after left lands.
-  approachStep=stepScale*pulse(p,.28,.47,.59,.76);
-  approachTrailStep=stepScale*pulse(p,.78,.94,1.02,1.20);
+  approachStep=pulse(p,.28,.47,.59,.76);
+  approachTrailStep=pulse(p,.78,.94,1.02,1.20);
   supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
   // Tuck the knee vertically before swinging the foot across the tall rim.
   // The two contacts are separate: lift first, then transfer across.
