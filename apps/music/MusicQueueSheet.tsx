@@ -29,7 +29,7 @@ export const MusicQueueSheet: React.FC<{
   const pageSize = 48;
   const [firstVisible, setFirstVisible] = useState(() =>
     activeIndex < 12 ? 0 : Math.max(0, Math.min(activeIndex - 6, queue.length - pageSize)));
-  const start = Math.min(firstVisible, Math.max(0, queue.length - 1));
+  const start = Math.min(firstVisible, Math.max(0, queue.length - pageSize));
   const end = Math.min(queue.length, start + pageSize);
   const [confirmClear, setConfirmClear] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
