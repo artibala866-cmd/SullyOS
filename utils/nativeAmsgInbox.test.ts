@@ -112,6 +112,16 @@ describe('UnifiedPush and Android native AMSG durable inbox', () => {
     expect(mocks.flushInboxToChat).not.toHaveBeenCalled();
   });
 
+  it('large emotion-update notifications recover the exact cloud event rather than losing its raw analysis', async () => {
+    await ingestNativeAmsgPayload({
+      ...payload, messageId: 'large-emotion', messageKind: 'emotion_update',
+      message: '', amsgNeedsOutboxRecovery: true,
+    });
+    expect(mocks.recoverOutboxPushByMessageId).toHaveBeenCalledWith('large-emotion', 'char-1');
+    expect(mocks.saveInboxMessage).not.toHaveBeenCalled();
+    expect(mocks.flushInboxToChat).toHaveBeenCalledTimes(1);
+  });
+
   it('native metadata-only multipart fields survive absent top-level aliases', async () => {
     await ingestNativeAmsgPayload({
       ...payload, messageId: 'multipart-native',

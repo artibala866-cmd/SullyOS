@@ -125,7 +125,34 @@ export const buildFcmMessage = (token: string, rawPayload: string) => {
       },
     },
   };
-  const bytes = utf8.encode(JSON.stringify(result)).byteLength;
+  let bytes = utf8.encode(JSON.stringify(result)).byteLength;
+  if (bytes > 4000) {
+    // FCM has a 4KB payload cap. The encrypted outbox already owns the
+    // complete content: do not lose the notification for a long reply or
+    // leak megabytes of private metadata into an OS notification. Only a
+    // compact routing envelope is needed to fetch the exact message later.
+    const messageId = typeof payload.messageId === 'string' ? payload.messageId.trim() : '';
+    const charId = typeof payload.metadata?.charId === 'string' ? payload.metadata.charId.trim() : '';
+    if (!messageId || !charId) {
+      throw new Error('FCM_COMPACT_MISSING_ID: oversized notification needs messageId and metadata.charId');
+    }
+    const kind = typeof payload.messageKind === 'string' ? payload.messageKind : 'content';
+    const metadata: Record<string, string> = { charId };
+    if (kind === 'error') {
+      const taskUuid = payload.metadata?.taskUuid ?? payload.taskUuid;
+      if (typeof taskUuid === 'string') metadata.taskUuid = taskUuid;
+      if (typeof payload.metadata?.errorCode === 'string') {
+        metadata.errorCode = payload.metadata.errorCode.slice(0, 100);
+      }
+      if (typeof payload.metadata?.reason === 'string') {
+        metadata.reason = payload.metadata.reason.slice(0, 160);
+      }
+    }
+    result.message.notification.body = '有一条新消息';
+    result.message.data.amsgPayload = JSON.stringify({ messageId, messageKind: kind, metadata });
+    result.message.data.amsgHasBody = '0';
+    bytes = utf8.encode(JSON.stringify(result)).byteLength;
+  }
   if (bytes > 4000) throw new Error(`FCM_PAYLOAD_TOO_LARGE: ${bytes} bytes（安全上限 4000）`);
   return result;
 };

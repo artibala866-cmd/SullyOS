@@ -986,7 +986,9 @@ export const recoverOutboxPushByMessageId = async (
   const matches = entries.filter(entry =>
     entry.messageId === messageId
     && entry.push?.metadata?.charId === charId
-    && (entry.push?.messageKind === 'content' || entry.push?.messageKind == null),
+    && (entry.push?.messageKind === 'content'
+      || entry.push?.messageKind === 'emotion_update'
+      || entry.push?.messageKind == null),
   );
   if (!matches.length) return false;
   const { written, ackNow } = await backfillOutboxEntries(matches);

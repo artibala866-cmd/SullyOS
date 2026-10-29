@@ -35,6 +35,42 @@ describe('AMSG2 native FCM transport', () => {
     expect(result.message.data.amsgHasBody).toBe('0');
   });
 
+  it('超长正文降级为轻量通知，完整文本由加密账本按 ID 补收', () => {
+    const messageId = 'long-text-1';
+    const result = buildFcmMessage('token', JSON.stringify({
+      messageId, messageKind: 'content', message: '真' .repeat(5000),
+      metadata: { charId: 'char-1', privateContext: '秘密'.repeat(1000) },
+    }));
+    expect(new TextEncoder().encode(JSON.stringify(result)).byteLength).toBeLessThanOrEqual(4000);
+    expect(result.message.notification.body).toBe('有一条新消息');
+    expect(result.message.data.amsgHasBody).toBe('0');
+    expect(JSON.parse(result.message.data.amsgPayload)).toEqual({
+      messageId, messageKind: 'content', metadata: { charId: 'char-1' },
+    });
+  });
+
+  it('超大情绪结果也保留消息类型以便精确补收，不当成空白回复', () => {
+    const result = buildFcmMessage('token', JSON.stringify({
+      messageId: 'emotion-too-large', messageKind: 'emotion_update',
+      metadata: { charId: 'char-1', emotionRaw: 'A'.repeat(8000) },
+    }));
+    expect(result.message.data.amsgHasBody).toBe('0');
+    expect(JSON.parse(result.message.data.amsgPayload).messageKind).toBe('emotion_update');
+    expect(new TextEncoder().encode(JSON.stringify(result)).byteLength).toBeLessThanOrEqual(4000);
+  });
+
+  it('超大错误信封保留任务身份以便关闭相应即时对话待收记录', () => {
+    const result = buildFcmMessage('token', JSON.stringify({
+      messageId: 'err-long', messageKind: 'error', metadata: {
+        charId: 'char-1', taskUuid: 'task-uuid', reason: 'X'.repeat(5000),
+      },
+    }));
+    const received = JSON.parse(result.message.data.amsgPayload);
+    expect(received.metadata.taskUuid).toBe('task-uuid');
+    expect(received.metadata.reason.length).toBeLessThanOrEqual(160);
+    expect(result.message.data.amsgHasBody).toBe('0');
+  });
+
   it('正文只放 notification 一份，data 保留 AMSG2 路由字段', () => {
     const request = buildFcmMessage('token', JSON.stringify({
       messageId: 'm1', message: '你好', contactName: 'Sully',

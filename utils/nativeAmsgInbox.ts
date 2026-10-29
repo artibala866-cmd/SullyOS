@@ -73,9 +73,10 @@ export const ingestNativeAmsgPayload = (
       return result;
     }
     if (kind !== 'content' && kind !== 'emotion_update') return null;
-    if (kind === 'content' && payload?.amsgNeedsOutboxRecovery === true) {
-      // A privacy-masked FCM notification is a signal, not a private-chat
-      // message. Fetch only the exact encrypted outbox entry it announces.
+    if ((kind === 'content' || kind === 'emotion_update') && payload?.amsgNeedsOutboxRecovery === true) {
+      // A privacy-masked or oversized FCM notification is a signal, not
+      // a chat message or an empty emotion update. Fetch the exact encrypted
+      // outbox entry; it contains all necessary private data.
       const { recoverOutboxPushByMessageId } = await import('./amsgInstantChat');
       const restored = await recoverOutboxPushByMessageId(messageId, charId);
       if (restored) await flushInboxToChat('原生收件箱');

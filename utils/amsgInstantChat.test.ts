@@ -1042,6 +1042,19 @@ describe('推送丢了的补收（服务端账本）', () => {
     expect(storeState.saved.map((m) => m.messageId)).toEqual([wanted]);
   });
 
+  it('oversize emotion result is recovered as an emotion_update and retains its raw metadata', async () => {
+    const id = 'oversize-emotion-id';
+    const raw = '{"changed":true,"buffs":[{"label":"安心"}]}';
+    stubOutbox([entry(id, outboxPush(id, {
+      messageKind: 'emotion_update', messageType: undefined, message: '',
+      metadata: { charId: CHAR.id, emotionRaw: raw },
+    }))]);
+    expect(await recoverOutboxPushByMessageId(id, CHAR.id)).toBe(true);
+    expect(storeState.saved[0].messageId).toBe(id);
+    expect(storeState.saved[0].messageType).toBe('emotion_update');
+    expect(storeState.saved[0].metadata.emotionRaw).toBe(raw);
+  });
+
   it('missing encrypted cloud copy never fabricates private-chat content', async () => {
     stubOutbox([]);
     expect(await recoverOutboxPushByMessageId('missing', CHAR.id)).toBe(false);
