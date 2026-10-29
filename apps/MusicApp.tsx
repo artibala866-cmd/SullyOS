@@ -13,6 +13,7 @@ import {
   SubActions,
 } from './music/MusicUI';
 import NeteaseProfilePage from './music/NeteaseProfilePage';
+import { MusicQueueSheet } from './music/MusicQueueSheet';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 
 // ------------------------- 工具 -------------------------
@@ -134,6 +135,7 @@ const MusicApp: React.FC = () => {
   useEffect(() => { setToastHandler(addToast); }, [addToast, setToastHandler]);
 
   const [view, setView] = useState<View>('search');
+  const [queueSheetOpen, setQueueSheetOpen] = useState(false);
   // ── 手动对轴 modal state ──
   const [showLyricSync, setShowLyricSync] = useState(false);
   const [syncDraft, setSyncDraft] = useState<number[]>([]);
@@ -145,7 +147,7 @@ const MusicApp: React.FC = () => {
   });
   const [keyword, setKeyword] = useState('');
   const [searchSource, setSearchSource] = useState<'netease' | 'tencent'>('netease');
-  const [section, setSection] = useState<'results' | 'likes' | 'playlists' | 'queue' | 'history'>('results');
+  const [section, setSection] = useState<'results' | 'likes' | 'playlists' | 'history'>('results');
   const [playlistName, setPlaylistName] = useState('');
   const [openedPlaylist, setOpenedPlaylist] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(36);
@@ -334,6 +336,7 @@ const MusicApp: React.FC = () => {
           <span className="text-[10px] tracking-[0.08em] pb-1 shrink-0" style={{ color: C.muted }}>我的私人曲库</span>
         </div>
       </div>
+      {section === 'results' && <>
       <div className="flex justify-start gap-6 px-5 pt-2 relative z-10 text-xs" role="group" aria-label="搜索音乐来源">
         {(['netease', 'tencent'] as const).map(src => <button key={src}
           aria-pressed={searchSource === src}
@@ -347,10 +350,11 @@ const MusicApp: React.FC = () => {
           }}>{src === 'netease' ? '网易云音乐' : 'QQ 音乐'}</button>)}
       </div>
       <SearchBar value={keyword} onChange={setKeyword} onSearch={doSearch} searching={searching} />
+      </>}
       <div className="flex gap-4 px-5 pt-0 pb-0 relative z-10 overflow-x-auto text-[11px] shizuku-scrollbar border-b" role="tablist" aria-label="音乐分类">
         {([
           ['results', '搜索结果'], ['likes', '本地喜欢'], ['playlists', '我的歌单'],
-          ['queue', '播放队列'], ['history', '播放历史'],
+          ['history', '播放历史'],
         ] as const).map(([key, title]) =>
           <button key={key} role="tab" className="music-tap shrink-0 px-0.5 py-3 font-medium border-b-2"
              aria-selected={section === key}
@@ -421,55 +425,7 @@ const MusicApp: React.FC = () => {
           })}
           {!library.playlists.length && <p className="text-xs text-center py-10" style={{ color: C.muted }}>暂无歌单，输入名称后即可创建</p>}
         </div>}
-        {section === 'queue' && <div className="space-y-1 px-1">
-          <div className="flex justify-between items-center px-2 pb-1 text-xs">
-            <span style={{ color: C.muted }}>我的播放队列 · {queue.length} 首</span>
-            <button onClick={clearUpcomingQueue} className="music-tap rounded-sm px-3 py-1.5 text-[11px]"
-              style={{ color: C.primary, background: C.soft }}>清空待播</button>
-          </div>
-          {queue.slice(0, visibleCount).map((song, i) => {
-            const active = idx === i;
-            const onPlay = () => {
-              if (active) { if (!loadingSong) togglePlay(); }
-              else void playSong(song);
-            };
-            return <div key={musicSongKey(song)} className="music-track-row rounded-none px-1 py-1"
-              style={{ background: active ? '#eeeeed' : '#fff', borderBottom: '1px solid #ebebeb' }}>
-              <div className="flex items-center min-w-0">
-                <div className="flex-1 min-w-0">
-                  <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
-                    picId={song.picId} source={song.source}
-                    duration={fmtTime(song.duration)} isVip={song.fee === 1}
-                    isActive={active} isPlaying={active && playing} isLoading={active && loadingSong} onClick={onPlay} />
-                </div>
-                <div className="relative w-8 h-8 flex items-center justify-center shrink-0 mr-1"
-                  style={{ color: C.muted }}>
-                  <DotsThreeVertical size={18} weight="regular" aria-hidden="true" />
-                  <select value="" aria-label={`管理播放队列歌曲《${song.name}》`} title="整理队列"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={e => {
-                      const action = e.target.value;
-                      if (action === 'up') moveQueueSong(i, i - 1);
-                      else if (action === 'down') moveQueueSong(i, i + 1);
-                      else if (action === 'remove') removeQueueSong(i);
-                    }}>
-                    <option value="">整理队列</option>
-                    <option value="up" disabled={i === 0}>上移一首</option>
-                    <option value="down" disabled={i === queue.length - 1}>下移一首</option>
-                    <option value="remove" disabled={active}>从队列移除</option>
-                  </select>
-                </div>
-              </div>
-              <div className="pl-14 pb-1 -mt-1 text-[10px] leading-tight truncate"
-                style={{ color: active ? C.primary : C.muted }}>
-                {active ? loadingSong ? '正在加载音源…' : playing ? '♪ 正在播放' : '已暂停' : song.local ? '本地' : song.source === 'tencent' ? 'QQ 音乐' : '网易云'}
-              </div>
-            </div>;
-          })}
-          {queue.length > visibleCount && <button className="music-tap w-full py-3 text-xs rounded-sm" style={{ color: C.primary, background: C.soft }}
-            onClick={() => setVisibleCount(n => n + 36)}>继续显示 · 剩余 {queue.length - visibleCount} 首</button>}
-          {!queue.length && <p className="text-center text-xs py-10" style={{ color: C.muted }}>播放队列为空</p>}
-        </div>}
+
       </div>
 
       {characters.length > 0 && (
@@ -514,6 +470,9 @@ const MusicApp: React.FC = () => {
           onPrev={() => { prevSong(); trackEvent('切歌（上一首/下一首）', { direction: 'prev' }); }}
           onToggle={togglePlay}
           onNext={() => { nextSong(); trackEvent('切歌（上一首/下一首）', { direction: 'next' }); }}
+          onOpenQueue={() => { setQueueSheetOpen(true); trackEvent('从迷你播放器打开播放列表'); }}
+          queueCount={queue.length}
+          queueOpen={queueSheetOpen}
           userAvatar={userProfile?.avatar}
           userName={userProfile?.name}
           companions={companions}
@@ -693,6 +652,7 @@ const MusicApp: React.FC = () => {
               onDownload={downloadCurrentLocal}
               playMode={playMode}
               onCyclePlayMode={cyclePlayMode}
+              onOpenQueue={() => { setQueueSheetOpen(true); trackEvent('从完整播放器打开播放列表'); }}
             />
           </div>
         </div>
@@ -809,6 +769,16 @@ const MusicApp: React.FC = () => {
           />
         )}
       </div>
+      {queueSheetOpen && <MusicQueueSheet
+        queue={queue} activeIndex={idx} playing={playing} loading={loadingSong}
+        onClose={() => setQueueSheetOpen(false)}
+        onSelect={(song, index) => {
+          if (index === idx) { if (!loadingSong) togglePlay(); }
+          else { void playSong(song); trackEvent('从播放列表选歌'); }
+        }}
+        onMove={moveQueueSong} onRemove={removeQueueSong}
+        onClearUpcoming={clearUpcomingQueue}
+      />}
       {/* 手动对轴 modal — 全屏覆盖，不开新 view */}
       {showLyricSync && current && current.local && (() => {
         const fmt = (s: number) => {
