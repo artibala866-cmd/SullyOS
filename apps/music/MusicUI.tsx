@@ -323,8 +323,8 @@ export type SubPlayMode = 'loop' | 'single' | 'shuffle';
 export const SubActions: React.FC<{
   onLike?: () => void; liked?: boolean; onSync?: () => void; showSync?: boolean;
   onDownload?: () => void; showDownload?: boolean;
-  playMode?: SubPlayMode; onCyclePlayMode?: () => void; onAdd?: () => void;
-}> = ({ onLike, liked, onSync, showSync, onDownload, showDownload, playMode = 'loop', onCyclePlayMode, onAdd }) => {
+  playMode?: SubPlayMode; onCyclePlayMode?: () => void; onAdd?: () => void; onOpenQueue?: () => void;
+}> = ({ onLike, liked, onSync, showSync, onDownload, showDownload, playMode = 'loop', onCyclePlayMode, onAdd, onOpenQueue }) => {
   const Item = ({ label, glyph, onClick, active }: { label: string; glyph: React.ReactNode; onClick?: () => void; active?: boolean }) =>
     <button type="button" onClick={onClick} aria-label={label} aria-pressed={active}
       className="music-icon-press flex flex-col items-center justify-center min-w-12 gap-1 py-1"
@@ -340,6 +340,7 @@ export const SubActions: React.FC<{
     {onCyclePlayMode && <Item label={modeLabel} glyph={<span className="text-lg">{playMode === 'shuffle' ? '⤨' : playMode === 'single' ? '↻¹' : '↻'}</span>}
       active={playMode !== 'loop'} onClick={onCyclePlayMode} />}
     {onAdd && <Item label="加入队列" glyph={<span className="text-lg">＋</span>} onClick={onAdd} />}
+    {onOpenQueue && <Item label="播放列表" glyph={<List size={20} />} onClick={onOpenQueue} />}
   </div>;
 };
 
