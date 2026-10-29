@@ -56,7 +56,7 @@ describe('existing skeletal bath IK and reversible tub pose',()=>{
   expect(lead.leadStep).toBeGreaterThan(.5);
   expect(lead.trailStep).toBe(0);
   expect(left.angleTo(right)).toBeGreaterThan(.10);
-  const trail=frame(a,activity,j,2.28);
+  const trail=frame(a,activity,j,3.04);
   expect(trail.trailStep).toBeGreaterThan(.5);
   expect(trail.leadStep).toBeLessThan(.5);
   expect(a.rig.bones.L_thigh.quaternion.angleTo(a.rig.bones.R_thigh.quaternion)).toBeGreaterThan(.10);
