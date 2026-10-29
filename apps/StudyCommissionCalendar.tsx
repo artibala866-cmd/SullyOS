@@ -39,9 +39,9 @@ export default function StudyCommissionCalendar({commissions,onFocus,onEdit}:Pro
       </div>
       <div className="flex items-center gap-1.5">
         <button type="button" className={chip} onClick={()=>{setMonth(today.slice(0,7));setSelected(today);setShowAll(false);}}>今天</button>
-        <button type="button" aria-label="上个月" className="grid h-9 w-9 place-items-center rounded-full hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-800" onClick={()=>stepMonth(-1)}><CaretLeft size={17}/></button>
+        <button type="button" aria-label="上个月" className="grid h-11 w-11 place-items-center rounded-full hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-800" onClick={()=>stepMonth(-1)}><CaretLeft size={17}/></button>
         <span className="min-w-[94px] text-center text-xs font-semibold tabular-nums">{y} / {String(m).padStart(2,'0')}</span>
-        <button type="button" aria-label="下个月" className="grid h-9 w-9 place-items-center rounded-full hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-800" onClick={()=>stepMonth(1)}><CaretRight size={17}/></button>
+        <button type="button" aria-label="下个月" className="grid h-11 w-11 place-items-center rounded-full hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-800" onClick={()=>stepMonth(1)}><CaretRight size={17}/></button>
       </div>
     </div>
     <div className="grid grid-cols-7 gap-1 text-center text-xs text-neutral-400">
