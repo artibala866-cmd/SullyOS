@@ -259,6 +259,9 @@ describe('多标签页并发：IndexedDB 原子邀请交易', () => {
     const context = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
     const app = readFileSync(new URL('../apps/MusicApp.tsx', import.meta.url), 'utf8');
     expect(context).toContain('MUSIC_INVITE_DB_CHANGED_KEY');
+    expect(context).toContain('inviteReadRevision.current.get(charId) !== revision');
+    expect(context).toContain("document.addEventListener('visibilitychange', onVisible)");
+    expect(context).toContain('remotePartners');
     expect(app).toContain('MUSIC_INVITE_DB_CHANGED_KEY');
     expect(MUSIC_INVITE_DB_CHANGED_KEY).toBe('sully_music_invite_db_changed_v1');
   });
