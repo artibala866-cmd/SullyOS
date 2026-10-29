@@ -415,7 +415,7 @@ function texture(color){
    throw Error('Bath journey moved the complete skeleton above its floor-to-interior root range');
   if(!report.bathRigFrames.some(f=>f.leadTrailAngle>.12))
    throw Error('The bath transfer never produced separate near/trailing leg poses');
-  const gripBeforeCross=report.bathRigFrames.find(f=>f.progress===1.2);
+  const gripBeforeCross=report.bathRigFrames.find(f=>f.progress===1.8);
   if(!gripBeforeCross?.handErrors?.some(d=>Number.isFinite(d)&&d<.25))
    throw Error('Hands did not reach a real bathtub rim contact before the first crossing leg lifted');
   const grounded=report.bathRigFrames.filter(f=>f.progress>=.6&&f.progress<=1.05);
