@@ -174,6 +174,13 @@ describe('歌单交互与移动端可用性', () => {
     expect(app).toContain('编辑歌单名称');
     expect(app).toContain('取消</button>');
   });
+  it('删除歌单在卡片中确认，失败时不关闭也不谎报删除成功', () => {
+    expect(app).not.toContain('window.confirm(');
+    expect(app).toContain('deleteConfirmPlaylistId === pl.id');
+    expect(app).toContain('if (deletePlaylist(pl.id))');
+    expect(app).toContain('不会删除已喜欢的歌曲');
+    expect(app).toContain('确认删除');
+  });
 });
 
 describe('高级感灰阶排版与播放交互回归', () => {
