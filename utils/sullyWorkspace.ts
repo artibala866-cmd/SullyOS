@@ -406,20 +406,32 @@ export function calculatePlanRisks(
   const open = workspace.commissions
     .filter(c => c.dueDate && c.status === 'active')
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.priority - b.priority);
+  // A single date forecast shared by all commissions. Previously each row
+  // rescanned every lesson and homework item for every day up to its deadline,
+  // making the queue increasingly sluggish as commissions accumulated.
+  const utcDay=(value:string)=> {
+    const parts=value.split('-').map(Number);
+    return Date.UTC(parts[0],parts[1]-1,parts[2]);
+  };
+  const start=new Date(fromDate+'T12:00:00');
+  const horizon=Math.max(0,...open.map(c=>{
+    const end=new Date(c.dueDate+'T12:00:00');
+    return Number.isFinite(end.getTime()) && Number.isFinite(start.getTime())
+      ? Math.max(0,Math.min(366,Math.round((utcDay(c.dueDate)-utcDay(fromDate))/86400000)+1))
+      : 0;
+  }));
+  const capacityPrefix=[0];
+  for(const day of dailyCapacityForecast(workspace,fromDate,horizon)){
+    capacityPrefix.push(capacityPrefix[capacityPrefix.length-1]+day.availableMinutes);
+  }
   let required = 0;
   return open.map(c => {
     required += Math.max(0, c.remainingMinutes || 0) + Math.max(0, c.bufferMinutes || 0);
-    const start = new Date(fromDate + 'T12:00:00');
-    const end = new Date(c.dueDate + 'T12:00:00');
-    const utcDay=(value:string)=>{
-      const parts=value.split('-').map(Number);
-      return Date.UTC(parts[0],parts[1]-1,parts[2]);
-    };
+    const end=new Date(c.dueDate+'T12:00:00');
     const days=Number.isFinite(end.getTime()) && Number.isFinite(start.getTime())
       ? Math.max(0,Math.min(366,Math.round((utcDay(c.dueDate)-utcDay(fromDate))/86400000)+1))
       : 0;
-    const available=dailyCapacityForecast(workspace,fromDate,days)
-      .reduce((sum,day)=>sum+day.availableMinutes,0);
+    const available=capacityPrefix[days] ?? 0;
     return {
       commissionId: c.id, requiredMinutes: required,
       availableMinutes: available, shortfallMinutes: Math.max(0, required - available),

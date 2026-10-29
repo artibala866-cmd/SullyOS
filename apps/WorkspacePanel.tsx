@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { putImageBlob } from '../utils/blobRef';
 import { recognizeCourseImage, type CourseImageDraft } from '../utils/sullyTimetableVision';
@@ -7,6 +7,7 @@ import StudyCommissionCalendar from './StudyCommissionCalendar';
 import StudyWeekTimetable from './StudyWeekTimetable';
 import StudyCharPicker from './StudyCharPicker';
 import StudyCommissionEditor from './StudyCommissionEditor';
+import StudyTimetableEditor from './StudyTimetableEditor';
 import {
   loadStudyCourseOptions, setClassStudyCourseLink, deleteTimetableClass,
   orphanedClassContent, reassignOrphanContent, resolveLinkedCourse,
@@ -72,6 +73,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [showArchived, setShowArchived] = useState(false);
   const [showCommissionList,setShowCommissionList]=useState(false);
   const [editingCommissionId,setEditingCommissionId]=useState('');
+  const [editingClassId,setEditingClassId]=useState('');
   useEffect(()=>{
     if(section!=='commissions'||!showCommissionList||!editingCommissionId)return;
     document.getElementById('study-commission-'+editingCommissionId)?.scrollIntoView({block:'center',behavior:'smooth'});
@@ -307,8 +309,13 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     if(!(await stopItemReminders('homework',id))) return;
     change(v=>({...v,homework:v.homework.filter(x=>x.id!==id)}));
   };
-  const patchClass = (id:string, patch:Partial<TimetableClass>) =>
-    change(v => ({...v,classes:v.classes.map(c=>c.id===id?{...c,...patch}:c)}));
+  // Course edits are drafted locally by StudyTimetableEditor; a single
+  // explicit save replaces dozens of per-keystroke IndexedDB transactions.
+  const saveClassEdits = (id:string,patch:Partial<TimetableClass>):Promise<void> =>
+    change(v=>{
+      if(!v.classes.some(c=>c.id===id))throw new Error('课程表记录已被移除');
+      return {...v,classes:v.classes.map(c=>c.id===id?{...c,...patch}:c)};
+    });
 
   const addCommission = (e:React.FormEvent) => {
     e.preventDefault();
@@ -415,12 +422,12 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     const ids = new Set(focusTasks.filter(t=>t.source?.kind===kind && t.source.id===id).map(t=>t.id));
     return records.filter(r=>ids.has(r.taskId)).reduce((sum,r)=>sum+r.minutes,0);
   };
-  const risk = new Map(calculatePlanRisks(data).map(v=>[v.commissionId,v]));
-  const weekCapacity=dailyCapacityForecast(data,localDate(new Date()),7);
-  const selectedClass = data.classes.find(c=>c.id===selectedClassId);
-  const quickCommissions=nextDrawableCommissions(data.commissions);
-  const pendingHomework=nextHomework(data.homework);
   const todayKey=localDate(new Date());
+  const risk=useMemo(()=>new Map(calculatePlanRisks(data,todayKey).map(v=>[v.commissionId,v])),[data,todayKey]);
+  const weekCapacity=useMemo(()=>dailyCapacityForecast(data,todayKey,7),[data,todayKey]);
+  const selectedClass = data.classes.find(c=>c.id===selectedClassId);
+  const quickCommissions=useMemo(()=>nextDrawableCommissions(data.commissions),[data.commissions]);
+  const pendingHomework=useMemo(()=>nextHomework(data.homework),[data.homework]);
   const showClassWork=(id:string)=>{
     setSelectedClassId(id);
     requestAnimationFrame(()=>document.getElementById('study-homework-panel')?.scrollIntoView({block:'start',behavior:'smooth'}));
@@ -741,19 +748,17 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
                 ? <p className="text-xs text-red-700">找不到旧课程：可能已删除或备份中未包含。关联记录保留；可重新选择或解除。</p>
                 : <p className="text-xs text-neutral-600">可在已有 PDF 自习室课程中继续学习；作业和笔记仍归这门课程表课程管理。</p>}
           </div>
-          <details className="text-sm"><summary className="cursor-pointer">编辑课程</summary>
-            <div className="space-y-2 pt-2">
-              <input className={inputClass} aria-label="编辑课程名" value={c.name} onChange={e=>patchClass(c.id,{name:e.target.value})}/>
-              <select className={inputClass} value={c.weekday} onChange={e=>patchClass(c.id,{weekday:Number(e.target.value)})}>{weekdayNames.map((w,i)=><option key={w} value={i}>{w}</option>)}</select>
-              <input className={inputClass} type="time" value={c.start} onChange={e=>patchClass(c.id,{start:e.target.value})}/>
-              <input className={inputClass} type="time" value={c.end} onChange={e=>patchClass(c.id,{end:e.target.value})}/>
-              <input className={inputClass} type="date" value={c.until} onChange={e=>patchClass(c.id,{until:e.target.value})}/>
-              <input className={inputClass} placeholder="老师" value={c.teacher} onChange={e=>patchClass(c.id,{teacher:e.target.value})}/>
-              <input className={inputClass} placeholder="地点" value={c.location} onChange={e=>patchClass(c.id,{location:e.target.value})}/>
-              <textarea className={inputClass} placeholder="调课/请假/补课" value={c.note} onChange={e=>patchClass(c.id,{note:e.target.value})}/>
-              <button className={mutedButton} onClick={()=>deleteClass(c.id)}>仅删除此课程表记录</button>
-            </div>
+          <details className="text-sm" open={editingClassId===c.id}
+            onToggle={e=>{
+              if(e.currentTarget.open)setEditingClassId(c.id);
+              else setEditingClassId(prev=>prev===c.id?'':prev);
+            }}>
+            <summary className="cursor-pointer">编辑课程</summary>
+            {editingClassId===c.id && <StudyTimetableEditor key={c.id}
+              course={c} onSave={patch=>saveClassEdits(c.id,patch)}
+              onClose={()=>setEditingClassId('')}/>}
           </details>
+          <button className={mutedButton} onClick={()=>deleteClass(c.id)}>仅删除此课程表记录</button>
         </article>)}
       </details>
       <section id="study-homework-panel" className={cardClass+' scroll-mt-4'}>

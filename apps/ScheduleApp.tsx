@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
@@ -48,6 +48,9 @@ const ScheduleApp: React.FC = () => {
   const [exitPhrase, setExitPhrase] = useState('');
   const [exitDeadline, setExitDeadline] = useState(0);
   const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'commissions' | 'calendar' | 'study'>('timer');
+  const [workspaceVisited,setWorkspaceVisited]=useState(false);
+  const mainScrollRef=useRef<HTMLElement|null>(null);
+  const tabScrollOffsets=useRef<Record<string,number>>({});
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
   const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -93,7 +96,30 @@ const ScheduleApp: React.FC = () => {
     return {key,minutes:records.filter(r=>r.date===key).reduce((sum,r)=>sum+r.minutes,0)};
   });
   const maxWeekFocus=Math.max(25,...weeklyFocus.map(day=>day.minutes));
-  useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 500); return () => window.clearInterval(id); }, []);
+  // Do not rerender large forms twice per second while editing orders/classes.
+  useEffect(()=>{
+    if(tab!=='timer' && !assistantOpen && !exitOpen)return;
+    const refresh=()=>setNow(Date.now());
+    refresh();
+    const timer=window.setInterval(refresh,1000);
+    document.addEventListener('visibilitychange',refresh);
+    return ()=>{
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange',refresh);
+    };
+  },[tab,assistantOpen,exitOpen]);
+  // A single deadline wake-up still settles sessions while the other tabs are open.
+  useEffect(()=>{
+    if(!session || session.pauseRemainingMs!=null || tab==='timer' || assistantOpen || exitOpen)return;
+    const wait=session.deadline-Date.now();
+    if(wait<=0){setNow(Date.now());return;}
+    const timer=window.setTimeout(()=>setNow(Date.now()),wait+20);
+    return ()=>window.clearTimeout(timer);
+  },[session?.deadline,session?.pauseRemainingMs,tab,assistantOpen,exitOpen]);
+  useEffect(()=>{if(tab==='calendar'||tab==='commissions')setWorkspaceVisited(true);},[tab]);
+  useLayoutEffect(()=>{
+    if(mainScrollRef.current)mainScrollRef.current.scrollTop=tabScrollOffsets.current[tab]??0;
+  },[tab]);
   useEffect(() => { save('tasks', tasks); }, [tasks]);
   useEffect(() => { save('records', records); }, [records]);
   useEffect(() => { save('selectedTask', selectedTask); }, [selectedTask]);
@@ -176,6 +202,7 @@ const ScheduleApp: React.FC = () => {
       setStudyTargetCourseId(null);
       setStudyReturnTab(tab==='commissions' || tab==='calendar'?tab:'timer');
     }
+    if(mainScrollRef.current)tabScrollOffsets.current[tab]=mainScrollRef.current.scrollTop;
     setTab(next);
   };
   const openLinkedStudyCourse=(courseId:string)=>{
@@ -209,15 +236,12 @@ const ScheduleApp: React.FC = () => {
       setTasks(prev=>[...prev,task]);
       setSelectedTask(task.id);
     }
-    // The user clicked a button explicitly labelled “开始画/开始学/开始专注”.
-    // Starting here should be one action rather than selecting then pressing Play.
-    // Use the same session schema and focus duration as the timer's Start button.
+    // Starting from an actionable work card requires only one deliberate tap.
     processed.current=null;
     setSession({
       id:newWorkspaceId(),mode:'focus',duration:focusMinutes,
       deadline:Date.now()+focusMinutes*60000,
-      taskId:existing?.id||taskIdForNewLinkedWork,
-      usedChatWindows:[],
+      taskId:existing?.id||taskIdForNewLinkedWork,usedChatWindows:[],
     });
     setTab('timer');
   };
@@ -349,16 +373,20 @@ const ScheduleApp: React.FC = () => {
       setReplying(false);
     }
   };
-  if (tab === 'study') return (
-    <div className="h-full w-full overflow-hidden bg-white">
-      <React.Suspense fallback={<p className="p-5">正在打开自习室…</p>}>
-        <StudyApp highlightCourseId={studyTargetCourseId || undefined}
-          onExit={() => {setTab(studyReturnTab);setStudyTargetCourseId(null);}} />
-      </React.Suspense>
-    </div>
-  );
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden bg-[#f5f5f5] text-neutral-900 font-sans" style={{ paddingTop: 'var(--safe-top)' }}>
+    <>
+      {tab === 'study' && (
+        <div className="h-full w-full overflow-hidden bg-white">
+          <React.Suspense fallback={<p className="p-5">正在打开自习室…</p>}>
+            <StudyApp highlightCourseId={studyTargetCourseId || undefined}
+              onExit={() => {setTab(studyReturnTab);setStudyTargetCourseId(null);}} />
+          </React.Suspense>
+        </div>
+      )}
+      <div className={tab === 'study'
+        ? 'hidden'
+        : 'h-full w-full flex flex-col overflow-hidden bg-[#f5f5f5] text-neutral-900 font-sans'}
+        style={{paddingTop:'var(--safe-top)'}}>
       <header className="shrink-0 border-b border-neutral-200/70 bg-white/95 px-3 sm:px-6 py-2 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-2.5">
           <button aria-label="返回" onClick={requestExit} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-neutral-200 text-lg hover:bg-neutral-100">‹</button>
@@ -373,7 +401,7 @@ const ScheduleApp: React.FC = () => {
           </button>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 pb-4 space-y-3">
+      <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 pb-4 space-y-3">
         {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
         </section>}
@@ -477,8 +505,16 @@ const ScheduleApp: React.FC = () => {
           </div>}
           <p className="text-xs text-[#aaaaaa]">仅统计完整结束的专注轮次；旧轮次如缺少唯一编号，不会自动抵扣。数据保存在当前浏览器。</p>
         </section>}
-        {tab === 'commissions' && <WorkspacePanel section="commissions" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={chooseChar}/>}
-        {tab === 'calendar' && <WorkspacePanel section="calendar" focusTasks={tasks} records={records} onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan} planPreview={null} onClearPlan={()=>{}} onOpenStudyCourse={openLinkedStudyCourse} selectedCharId={charId} onSelectChar={chooseChar}/>}
+        {/* One persistent editor across sections: changing tabs no longer
+            destroys unfinished course/commission forms or image previews. */}
+        {workspaceVisited && <div className={tab==='commissions'||tab==='calendar'?'':'hidden'}>
+          <WorkspacePanel section={tab==='calendar'?'calendar':'commissions'}
+            focusTasks={tasks} records={records}
+            onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan}
+            planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)}
+            onOpenStudyCourse={openLinkedStudyCourse}
+            selectedCharId={charId} onSelectChar={chooseChar}/>
+        </div>}
 
       </main>
       <nav className="shrink-0 grid grid-cols-4 gap-1 px-2 py-2 border-t border-neutral-200 bg-white/95 shadow-[0_-4px_18px_rgba(0,0,0,0.025)]"
@@ -540,7 +576,8 @@ const ScheduleApp: React.FC = () => {
           <button className="w-full text-xs underline" onClick={() => stop(true)}>紧急退出</button>
         </div>
       </div>}
-    </div>
+      </div>
+    </>
   );
 };
 export default ScheduleApp;
