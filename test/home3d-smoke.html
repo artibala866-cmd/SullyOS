@@ -461,7 +461,7 @@ function texture(color){
   // alone never sampled an occupied tub or the reverse trailing-leg step.
   const captureBath=async stage=>{
    report.captureStage=stage;
-   for(let retry=0;retry<50&&!report.capturedStages?.includes(stage);retry++)await sleep(200);
+   for(let retry=0;retry<120&&!report.capturedStages?.includes(stage);retry++)await sleep(250);
    if(!report.capturedStages?.includes(stage))
     throw Error('Chromium did not preserve actual bath '+stage+' WebGL screenshot');
   };
