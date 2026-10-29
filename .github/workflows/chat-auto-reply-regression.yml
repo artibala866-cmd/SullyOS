@@ -1,0 +1,46 @@
+name: Chat auto-reply intent regression
+
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'hooks/useChatAutoReply.ts'
+      - 'apps/Chat.tsx'
+      - 'utils/chatAutoReply.test.ts'
+      - 'utils/chatInputPreferences.ts'
+      - '.github/workflows/chat-auto-reply-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sully-chat-auto-reply-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test durable reply, schedule pacing, and cloud instant-chat compatibility
+        run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgInstantChat.test.ts
+      - name: Check changed code TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/chat-reply-tsc.log 2>&1 || true
+          grep -E '^(hooks/useChatAutoReply.ts|apps/Chat.tsx|utils/chatAutoReply.test.ts|utils/chatInputPreferences.ts)[(]' /tmp/chat-reply-tsc.log > /tmp/chat-reply-target-errors.log || true
+          if [ -s /tmp/chat-reply-target-errors.log ]; then
+            cat /tmp/chat-reply-target-errors.log
+            exit 1
+          fi
