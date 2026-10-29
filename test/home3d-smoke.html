@@ -460,10 +460,18 @@ function texture(color){
   // return through the original entrance. The earlier cancellation test
   // alone never sampled an occupied tub or the reverse trailing-leg step.
   const captureBath=async stage=>{
-   report.captureStage=stage;
-   for(let retry=0;retry<120&&!report.capturedStages?.includes(stage);retry++)await sleep(250);
-   if(!report.capturedStages?.includes(stage))
-    throw Error('Chromium did not preserve actual bath '+stage+' WebGL screenshot');
+   // Freeze only the CI fixture's public editor clock while CDP captures the
+   // exact rendered pose. SwiftShader screenshots are not instantaneous.
+   editor.setSuspended(true);
+   try{
+    report.captureStage=stage;
+    for(let retry=0;retry<120&&!report.capturedStages?.includes(stage);retry++)await sleep(250);
+    if(!report.capturedStages?.includes(stage))
+     throw Error('Chromium did not preserve actual bath '+stage+' WebGL screenshot');
+   }finally{
+    report.captureStage=null;
+    editor.setSuspended(false);
+   }
   };
   set('bathroom full natural entry');
   command('chibi-bath',{id:'smoke-tub',kind:'bath-soak',station:''});
