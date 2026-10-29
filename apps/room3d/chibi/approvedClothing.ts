@@ -86,6 +86,7 @@ export async function prepareApprovedWardrobe(rig:Rig,value:ApprovedWardrobe,fit
  const clipMesh=(mesh:T.SkinnedMesh,covers:(p:T.Vector3)=>boolean)=>{if(!mesh.geometry.groups.length)mesh.geometry.addGroup(0,mesh.geometry.index!.count,0);const clipped=createClothingMask(mesh.geometry,covers,-Infinity);mesh.geometry=clipped;resources.push(clipped);};
  // Socks stay complete as an asset; only their buried section is clipped while shoes are worn.
  if(shoeOpening>0)for(const mesh of meshes.filter(m=>defs.find(d=>d.id===m.userData.garmentId)?.slot==='socks')){
+  const sockDef=defs.find(d=>d.id===mesh.userData.garmentId)!;
   if(sockDef.collection==='halloween'&&sockDef.halloweenOutfit!=='pumpkin'&&shoe?.collection==='halloween')continue;
   // These two pieces were split along their existing shared triangle seam;
   // clipping that seam again would cut holes and add interpolated vertices.
