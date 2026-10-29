@@ -36,7 +36,9 @@ export const MusicTogetherSheet: React.FC<Props> = ({ people, onClose, onAnswer,
     workingRef.current.add(charId);
     setAnswerErrors(prev => { const next = { ...prev }; delete next[charId]; return next; });
     setWorking(prev => ({ ...prev, [charId]: accepted ? 'accept' : 'reject' }));
-    void onAnswer(charId, inviteId!, accepted).then(result => {
+    // Promise.resolve() also catches synchronous adapter errors; neither type
+    // of failure may leave the accept/reject buttons permanently locked.
+    void Promise.resolve().then(() => onAnswer(charId, inviteId!, accepted)).then(result => {
       if (result === 'failed') setAnswerErrors(prev => ({ ...prev, [charId]: '保存失败，请重试' }));
       else if (result === 'stale') setAnswerErrors(prev => ({ ...prev, [charId]: '邀请已过期或已在其他页面处理' }));
       else if (result === 'busy') setAnswerErrors(prev => ({ ...prev, [charId]: '正在处理，请稍后再试' }));
