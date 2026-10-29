@@ -208,7 +208,7 @@ describe('two-second automatic reply', () => {
 
     it('prevents a stale async check from submitting after the chat surface unmounts', async () => {
         let resolveCheck!: () => void;
-        render({ onGenerate: vi.fn((stillEligible?: () => boolean) => new Promise<'retry'>(resolve => {
+        render({ onGenerate: vi.fn((stillEligible?: () => boolean) => new Promise<'retry' | 'discard'>(resolve => {
             resolveCheck = () => resolve(stillEligible?.() ? 'discard' : 'retry');
         })) });
         send();
