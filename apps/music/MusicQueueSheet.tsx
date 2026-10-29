@@ -24,7 +24,13 @@ export const MusicQueueSheet: React.FC<{
   onClearUpcoming: () => void;
   onClose: () => void;
 }> = ({ queue, activeIndex, playing, loading, onSelect, onMove, onRemove, onClearUpcoming, onClose }) => {
-  const [visibleCount, setVisibleCount] = useState(48);
+  // A long queue opens near the currently playing track, not always at song #1.
+  // Render a small window to avoid mounting hundreds of cover observers on mobile.
+  const pageSize = 48;
+  const [firstVisible, setFirstVisible] = useState(() =>
+    activeIndex < 12 ? 0 : Math.max(0, Math.min(activeIndex - 6, queue.length - pageSize)));
+  const start = Math.min(firstVisible, Math.max(0, queue.length - 1));
+  const end = Math.min(queue.length, start + pageSize);
   const [confirmClear, setConfirmClear] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -76,9 +82,14 @@ export const MusicQueueSheet: React.FC<{
 
       <div className="flex-1 min-h-0 overflow-y-auto shizuku-scrollbar overscroll-contain px-3 pb-4"
         role="list" aria-label="当前播放队列">
-        {queue.slice(0, visibleCount).map((song, index) => {
+        {start > 0 && <button type="button" className="music-tap w-full py-3 text-xs font-medium"
+          style={{ color: C.primary }} onClick={() => setFirstVisible(Math.max(0, start - pageSize))}>
+          查看前面的歌曲
+        </button>}
+        {queue.slice(start, end).map((song, offset) => {
+          const index = start + offset;
           const selected = index === activeIndex;
-          return <div role="listitem" key={musicKey(song)} className="border-b" style={{
+          return <div role="listitem" key={`${musicKey(song)}-${index}`} className="border-b" style={{
             borderColor: '#ededed', background: selected ? '#f1f1f0' : '#fff',
           }}>
             <div className="flex items-center min-w-0 gap-1">
@@ -112,10 +123,10 @@ export const MusicQueueSheet: React.FC<{
         {queue.length === 0 && <div className="py-14 text-center text-sm" style={{ color: C.muted }}>
           播放列表还是空的，搜索歌曲后就能加入
         </div>}
-        {queue.length > visibleCount && <button type="button"
+        {end < queue.length && <button type="button"
           className="music-tap w-full py-4 text-xs font-medium"
-          style={{ color: C.primary }} onClick={() => setVisibleCount(n => n + 48)}>
-          显示更多歌曲 · 还有 {queue.length - visibleCount} 首
+          style={{ color: C.primary }} onClick={() => setFirstVisible(end)}>
+          查看后面的歌曲 · 还有 {queue.length - end} 首
         </button>}
       </div>
     </section>
