@@ -422,7 +422,11 @@ export const musicApi = {
     // 优先使用原有 Worker；无歌词或接口失败时，尝试免登录歌词服务。
     try {
       const result = await withMusicWorkerDeadline(musicApi.call(cfg, '/lyric', { id }), cfg.cookie ? 12000 : 6000);
-      if (typeof result?.lrc?.lyric === 'string' && result.lrc.lyric.trim()) return result;
+      // An instrumental track can legitimately return a successful empty lyric.
+      // Falling back to a blocked GD endpoint (403) would misleadingly label
+      // "no lyrics" as a provider outage and add unnecessary latency.
+      if ((result?.code === undefined || Number(result.code) === 200) &&
+          (typeof result?.lrc?.lyric === 'string' || result?.nolyric === true)) return result;
     } catch { /* guest fallback */ }
     const u = new URL('https://music-api.gdstudio.xyz/api.php');
     u.searchParams.set('types', 'lyric');
