@@ -1,18 +1,30 @@
-/** Local-only focus chat history is isolated by character.
- * Legacy notes without a charId stay readable on-device but are never placed
- * into any future model request, because their original recipient is unknown.
+/** Study-room conversations are isolated by recipient AND explicit purpose.
+ * Unscoped historic content remains visible on-device but is never reused
+ * as AI context: it could contain unrelated commissions, coursework or notes.
  */
+export type StudyDialogueScope='focus'|'study'|'commission'|'plan';
 export interface FocusChatNote {
   id:string;
   role:'user'|'assistant';
   content:string;
   charId?:string;
+  scope?:StudyDialogueScope;
+  topicId?:string;
 }
-export function notesForStudyChar(notes:readonly FocusChatNote[],charId:string):FocusChatNote[] {
-  if (!charId) return [];
+export function notesForStudyChar(notes:readonly FocusChatNote[],charId:string):FocusChatNote[]{
+  if(!charId)return [];
   return notes.filter(n=>n?.charId===charId
     && (n.role==='user'||n.role==='assistant') && typeof n.content==='string');
 }
-export function legacyUnattributedStudyNotes(notes:readonly FocusChatNote[]):FocusChatNote[] {
+export function notesForStudyContext(
+  notes:readonly FocusChatNote[],charId:string,scope:StudyDialogueScope,topicId='',
+):FocusChatNote[]{
+  return notesForStudyChar(notes,charId).filter(n=>n.scope===scope
+    && (n.topicId||'')===topicId);
+}
+export function legacyUnattributedStudyNotes(notes:readonly FocusChatNote[]):FocusChatNote[]{
   return notes.filter(n=>n && !n.charId && typeof n.content==='string');
+}
+export function legacyUnscopedStudyNotes(notes:readonly FocusChatNote[],charId:string):FocusChatNote[]{
+  return notesForStudyChar(notes,charId).filter(n=>!n.scope);
 }

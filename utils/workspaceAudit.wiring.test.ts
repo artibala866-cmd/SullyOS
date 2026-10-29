@@ -22,7 +22,7 @@ describe('学习室深度审计 · 实际业务接线',()=>{
   expect(panel).not.toContain('remainingMinutes:c.remainingMinutes,note:c.note');
  });
  it('每个 Char 只发送自己的监督聊天历史，过时 AI 回复不能重启旧方案',()=>{
-  expect(schedule).toContain('notesForStudyChar(notes,activeChar.id)');
+  expect(schedule).toContain('notesForStudyContext(notes,activeChar.id,requestScope,requestItemId)');
   expect(schedule).toContain('if(requestVersion!==discussionVersion.current) return');
   expect(schedule).toContain("setNotes(prev=>[...prev,note])");
   expect(schedule).not.toContain('const history:Note[] = [...notes,');

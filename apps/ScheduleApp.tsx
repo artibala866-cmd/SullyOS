@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
-import {notesForStudyChar,legacyUnattributedStudyNotes,type FocusChatNote} from '../utils/studyRoomFocusNotes';
+import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
+import {resolveDialogueApi} from '../utils/characterApi';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
@@ -47,6 +48,8 @@ const ScheduleApp: React.FC = () => {
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantTopic, setAssistantTopic] = useState('');
+  const [assistantScope,setAssistantScope]=useState<StudyDialogueScope>('focus');
+  const [assistantItemId,setAssistantItemId]=useState('');
   const [planRequest, setPlanRequest] = useState<CommissionPlanRequest | null>(null);
   const [planPreview, setPlanPreview] = useState<CommissionPlanPreview | null>(null);
   const [focusLock, setFocusLock] = useState<boolean>(() => load('lock', false));
@@ -62,8 +65,10 @@ const ScheduleApp: React.FC = () => {
   const chatBusy = useRef(false);
   const discussionVersion = useRef(0);
   const activeChar = characters.find(c => c.id === charId);
-  const visibleNotes = notesForStudyChar(notes,charId);
+  const visibleNotes = notesForStudyContext(notes,charId,assistantScope,assistantItemId);
   const unassignedNotes = legacyUnattributedStudyNotes(notes);
+  const unscopedNotes = legacyUnscopedStudyNotes(notes,charId);
+  const selectedDialogueApi = resolveDialogueApi(apiConfig,activeChar);
   const remaining = session ? Math.max(0, Math.ceil((session.pauseRemainingMs ?? (session.deadline - now)) / 1000)) : (focusMinutes * 60);
   const allowance = focusChatAllowance(session, now);
   const activeTask = tasks.find(t => t.id === (session?.taskId || selectedTask));
@@ -188,14 +193,21 @@ const ScheduleApp: React.FC = () => {
     setCharId(id);
     // Never transfer one Char's user-selected context to another Char.
     setAssistantTopic('');
+    setAssistantScope('focus');
+    setAssistantItemId('');
     setPlanRequest(null);
+    setPlanPreview(null);
     setMessage('');
   };
-  const discuss = (topic:string) => {
+  const discuss = (topic:string,scope:'study'|'commission',itemId='') => {
+    if(!activeChar){addToast('请先选择 Char 再发起讨论','error');return;}
     discussionVersion.current += 1;
     setPlanRequest(null);
+    setPlanPreview(null);
+    setAssistantScope(scope);
+    setAssistantItemId(itemId);
     setAssistantTopic(topic);
-    setMessage('请根据当前信息给我建议。');
+    setMessage(scope==='study'?'请根据我提供的作业或笔记追问我，帮我复盘。':'请根据当前画稿进度建议下一步。');
     setAssistantOpen(true);
   };
   const proposeCommissionPlan = (workspace: WorkspaceData) => {
@@ -204,6 +216,8 @@ const ScheduleApp: React.FC = () => {
       const request=createCommissionPlanRequest(workspace,charId);
       setPlanRequest(request);
       setPlanPreview(null);
+      setAssistantScope('plan');
+      setAssistantItemId('');
       setAssistantTopic(request.prompt);
       setMessage('请按上述 JSON 格式给出一份待我逐项审核的排单方案。');
       setAssistantOpen(true);
@@ -219,7 +233,10 @@ const ScheduleApp: React.FC = () => {
       addToast('这份排单请求绑定了原 Char，请重新选择或重新生成','error');
       return;
     }
-    if (!apiConfig.apiKey || !apiConfig.model) { addToast('请先配置聊天 AI', 'error'); return; }
+    if (!selectedDialogueApi.apiKey || !selectedDialogueApi.model || !selectedDialogueApi.baseUrl) {
+      addToast('当前 Char 的对话 API 配置不完整，请检查神经链接或全局 AI 设置','error');
+      return;
+    }
     const gate = focusChatAllowance(session, Date.now());
     if (!gate.canSend) { addToast('本五分钟窗口的交流机会已用完，或计时已暂停', 'error'); return; }
     chatBusy.current = true;
@@ -232,31 +249,39 @@ const ScheduleApp: React.FC = () => {
       save('session', nextSession);
       setSession(nextSession);
     }
-    const note:Note={id:newWorkspaceId(),role:'user',content,charId:activeChar.id};
-    const history:Note[]=[...notesForStudyChar(notes,activeChar.id),note];
+    const requestScope=assistantScope;
+    const requestItemId=assistantItemId;
+    const note:Note={id:newWorkspaceId(),role:'user',content,charId:activeChar.id,
+      scope:requestScope,topicId:requestItemId};
+    const history:Note[]=[...notesForStudyContext(notes,activeChar.id,requestScope,requestItemId),note];
     setNotes(prev=>[...prev,note]);
     setMessage('');
     setReplying(true);
     try {
-      const task = activeTask?.title || '自由专注';
       const phase = session?.mode === 'focus' ? '正在专注' : session?.mode === 'break' ? '正在休息' : '未计时';
-      const appContext = '你在学习室应用内帮助用户。保持角色身份自然回应，不要自动催促，也不能替用户把作业标为完成。'
-        + '当前任务：' + task + '；状态：' + phase + '；剩余约 ' + Math.ceil(remaining/60) + ' 分钟。'
+      const taskContext = requestScope==='focus'
+        ? '当前专注任务：'+(activeTask?.title||'自由专注')+'；状态：'+phase+
+          '；剩余约 '+Math.ceil(remaining/60)+' 分钟。'
+        : '本次只处理用户主动提交的专题，不引用其他任务或未授权资料。';
+      const appContext = '你在学习室应用内帮助用户。保持角色身份自然回应，不要自动催促，也不能替用户把作业标为完成、委托标为交付。'
+        + taskContext
         + (assistantTopic ? '用户主动请求讨论的工作信息：' + assistantTopic.slice(0, 12000) : '');
       const msgs = await ContextBuilder.buildCharacterRequest(
         {char:activeChar,user:userProfile},
         [{role:'system',content:appContext},...history.slice(-16).map(n=>({role:n.role,content:n.content}))],
       );
-      const response = await fetch(apiConfig.baseUrl.replace(/\/$/, '')+'/chat/completions', {
+      const response = await fetch(selectedDialogueApi.baseUrl.replace(/\/$/, '')+'/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiConfig.apiKey },
-        body: JSON.stringify({model:apiConfig.model,messages:msgs,temperature:0.8}),
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + selectedDialogueApi.apiKey },
+        body: JSON.stringify({model:selectedDialogueApi.model,messages:msgs,
+          temperature:typeof selectedDialogueApi.temperature==='number'?selectedDialogueApi.temperature:0.8}),
       });
       const data = await safeResponseJson(response);
       if (!response.ok) throw new Error(data?.error?.message || 'HTTP ' + response.status);
       const reply = extractContent(data);
       if (!reply?.trim()) throw new Error('AI 返回了空回复');
-      setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:reply.trim(),charId:activeChar.id}]);
+      setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:reply.trim(),
+        charId:activeChar.id,scope:requestScope,topicId:requestItemId}]);
       // A role/topic changed while the call was in flight: preserve the answer
       // only under its original Char, never turn it into a new role's proposal.
       if(requestVersion!==discussionVersion.current) return;
@@ -322,7 +347,11 @@ const ScheduleApp: React.FC = () => {
                 : <button className={btn} onClick={pause}>暂停</button>}
               <button className="border border-neutral-300 rounded-xl text-sm" onClick={requestExit}>中断本轮</button>
             </div> : <div className="grid grid-cols-2 gap-3"><button className={btn} onClick={() => start('focus')}>开始专注</button><button className={btn + ' !bg-[#aaaaaa]'} onClick={() => start('break')}>开始休息</button></div>}
-            <button className="block mx-auto text-sm underline underline-offset-4" onClick={() => setAssistantOpen(true)}>
+            <button className="block mx-auto text-sm underline underline-offset-4" onClick={() => {
+              discussionVersion.current+=1;
+              setPlanRequest(null);setAssistantTopic('');
+              setAssistantScope('focus');setAssistantItemId('');setAssistantOpen(true);
+            }}>
               {activeChar?.name || 'Char'} · 交流 {session?.mode==='focus' ? allowance.used+'/'+allowance.limit : '不限额'}
             </button>
           </section>
@@ -398,7 +427,12 @@ const ScheduleApp: React.FC = () => {
             className={inset + ' p-2 text-sm'}>
             <option value="">请选择 Char</option>{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          {assistantTopic && <p className="text-xs text-neutral-600">已带入当前请求的任务背景，仅点击发送后才会提交给 AI。{planRequest?'本轮将返回待审核 JSON 方案；不会自动改稿件。':''}</p>}
+          <p className="text-xs text-neutral-600">当前讨论：{assistantScope==='focus'?'专注陪伴':assistantScope==='study'?'作业与学习复盘':assistantScope==='commission'?'画稿进度建议':'画稿排单方案'} · 只载入此 Char 在同一事项及用途的对话。</p>
+          {assistantTopic && <details className="text-xs rounded-lg border border-neutral-200 px-3 py-2">
+            <summary className="cursor-pointer">查看本轮主动提交给 Char 的具体资料（仅点击发送才会提交）</summary>
+            <p className="mt-2 whitespace-pre-wrap break-words max-h-36 overflow-y-auto">{assistantTopic.slice(0,12000)}</p>
+            {planRequest && <p>本轮只返回待审核的 JSON 方案，不自动改稿件。</p>}
+          </details>}
           {session?.mode==='focus' && <p className="text-xs">本轮已交流 {allowance.used}/{allowance.limit} 次。
             {allowance.canSend?'当前五分钟窗口可交流':'当前窗口不可再交流'}</p>}
           <div className="flex-1 overflow-y-auto border border-neutral-200 rounded-lg p-3 space-y-2">
@@ -406,6 +440,12 @@ const ScheduleApp: React.FC = () => {
             {visibleNotes.map(n=><p key={n.id} className="text-sm whitespace-pre-wrap break-words">
               <span className="text-neutral-500">{n.role==='user'?'我':activeChar?.name||'Char'}：</span>{n.content}</p>)}
           </div>
+          {unscopedNotes.length>0 && <details className="text-xs text-neutral-600">
+            <summary>查看 {unscopedNotes.length} 条当前 Char 的旧对话（未知用途，仅本机查看；不会发送给 AI）</summary>
+            <div className="max-h-24 overflow-auto whitespace-pre-wrap">
+              {unscopedNotes.map(n=><p key={n.id}>{n.role==='user'?'我':'旧回复'}：{n.content}</p>)}
+            </div>
+          </details>}
           {unassignedNotes.length>0 && <details className="text-xs text-neutral-600">
             <summary>查看 {unassignedNotes.length} 条旧监督记录（未绑定 Char，仅本机查看；不会发送给 AI）</summary>
             <div className="max-h-24 overflow-auto whitespace-pre-wrap">

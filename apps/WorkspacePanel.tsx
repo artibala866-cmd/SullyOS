@@ -10,6 +10,7 @@ import {
 } from '../utils/studyCourseLinks';
 import { cancelItemReminders, setWorkspaceChatPermission } from '../utils/studyRoomReminders';
 import {pendingFocusProgress,settleFocusProgress} from '../utils/studyFocusProgress';
+import {buildHomeworkReviewTopic} from '../utils/studyHomeworkReview';
 import { mergeWorkspaceLocalEdit } from '../utils/workspaceEditMerge';
 import {
   isPlanPreviewStale, previewCommissionPlanRisk, projectCommissionPlan,
@@ -30,7 +31,7 @@ interface Props {
   records: FocusLog[];
   onFocus: (kind: WorkKind, id: string, title: string) => void;
   onOpenStudyCourse: (id:string) => void;
-  onDiscuss: (topic: string) => void;
+  onDiscuss: (topic: string, scope:'study'|'commission', itemId?:string) => void;
   onPlan: (workspace: WorkspaceData) => void;
   planPreview: CommissionPlanPreview | null;
   onClearPlan: () => void;
@@ -534,7 +535,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <button className={buttonClass} onClick={()=>onFocus('commission',c.id,c.title)}>专注这张稿</button>
             <button className={mutedButton} onClick={()=>onDiscuss('请帮我看看这张委托的下一步（只建议，不更改）：'+JSON.stringify({
               title:c.title,stage:c.stage,dueDate:c.dueDate,remainingMinutes:c.remainingMinutes,
-            }))}>问 Char</button>
+            }),'commission',c.id)}>问 Char</button>
           </div>
           <WorkspaceReminderControls kind="commission" itemId={c.id}
             suggestedAt={c.dueDate} data={data} selectedCharId={selectedCharId}
@@ -687,6 +688,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             {pendingMinutes('homework',h.id).legacyMinutes>0 &&
               <p className="text-xs text-neutral-600">另有 {pendingMinutes('homework',h.id).legacyMinutes} 分钟旧记录需手动核算。</p>}
             <button className={mutedButton} onClick={()=>onFocus('homework',h.id,h.title)}>为作业开始专注</button>
+            <button className={mutedButton} onClick={()=>onDiscuss(
+              buildHomeworkReviewTopic(h,selectedClass?.name||'未归属',actualMinutes('homework',h.id)),
+              'study',h.id)}>请 Char 陪我复盘作业</button>
             <WorkspaceReminderControls kind="homework" itemId={h.id}
               suggestedAt={h.dueAt} data={data} selectedCharId={selectedCharId}
               onSelectChar={onSelectChar} onUpdate={onReminderUpdate}/>
@@ -709,7 +713,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           }}>保存笔记</button>
           {data.notes.filter(n=>n.classId===selectedClassId).map(n=><div key={n.id} className="border-t border-neutral-200 py-2">
             <p className="text-sm whitespace-pre-wrap break-words">{n.body}</p>
-            <button className={mutedButton} onClick={()=>onDiscuss('请让我把刚学到的 '+className(n.classId)+' 的内容讲给你听，然后根据笔记追问我，不要擅自判定作业完成。笔记：'+n.body)}>请 Char 提问</button>
+            <button className={mutedButton} onClick={()=>onDiscuss('请让我把刚学到的 '+className(n.classId)+' 的内容讲给你听，然后根据笔记追问我，不要擅自判定作业完成。笔记：'+n.body.slice(0,1500),'study',n.id)}>请 Char 提问</button>
           </div>)}
         </>}
         {!selectedClass && <p className="text-xs text-neutral-600">先选择一门课，再记录作业和笔记。</p>}
@@ -722,6 +726,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <p className="text-sm">{h.done?'✓ ':''}作业：{h.title} · 截止 {h.dueAt||'未设置'} · 原课程 ID：{h.classId}</p>
             <p className="text-xs whitespace-pre-wrap">{h.note}</p>
             <button className={mutedButton} onClick={()=>onFocus('homework',h.id,h.title)}>继续为这项作业专注</button>
+            <button className={mutedButton} onClick={()=>onDiscuss(
+              buildHomeworkReviewTopic(h,'未归属课程',actualMinutes('homework',h.id)),
+              'study',h.id)}>请 Char 复盘未归属作业</button>
             {pendingMinutes('homework',h.id).minutes>0 && !h.done &&
               <button className={mutedButton} disabled={!!settlementBusyId}
                 onClick={()=>void settleLinkedFocus('homework',h.id,h.minutes)}>

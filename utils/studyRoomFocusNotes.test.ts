@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {legacyUnattributedStudyNotes,notesForStudyChar} from './studyRoomFocusNotes';
+import {legacyUnattributedStudyNotes,legacyUnscopedStudyNotes,notesForStudyChar,notesForStudyContext} from './studyRoomFocusNotes';
 
 describe('学习室 Char 对话隔离及旧记录迁移',()=>{
  const notes=[
@@ -17,5 +17,25 @@ describe('学习室 Char 对话隔离及旧记录迁移',()=>{
   expect(legacyUnattributedStudyNotes(notes).map(n=>n.id)).toEqual(['4']);
   expect(JSON.stringify(notesForStudyChar(notes,'A'))).not.toContain('敏感笔记');
   expect(JSON.stringify(notesForStudyChar(notes,'B'))).not.toContain('敏感笔记');
+ });
+ it('同 Char 的画稿、作业、专注、排单以及不同作业不能串用历史',()=>{
+  const tagged=[
+    {id:'focus',role:'user' as const,charId:'A',scope:'focus' as const,content:'专注任务'},
+    {id:'commission',role:'user' as const,charId:'A',scope:'commission' as const,topicId:'c1',content:'秘密客户画稿'},
+    {id:'homework1',role:'assistant' as const,charId:'A',scope:'study' as const,topicId:'h1',content:'作业一复盘'},
+    {id:'homework2',role:'user' as const,charId:'A',scope:'study' as const,topicId:'h2',content:'作业二笔记'},
+    {id:'plan',role:'user' as const,charId:'A',scope:'plan' as const,content:'整份排单'},
+    {id:'wrongChar',role:'user' as const,charId:'B',scope:'study' as const,topicId:'h1',content:'角色 B'},
+    ...notes,
+  ];
+  expect(notesForStudyContext(tagged,'A','study','h1').map(n=>n.id)).toEqual(['homework1']);
+  expect(notesForStudyContext(tagged,'A','study','h2').map(n=>n.id)).toEqual(['homework2']);
+  expect(notesForStudyContext(tagged,'A','commission','c1').map(n=>n.id)).toEqual(['commission']);
+  expect(notesForStudyContext(tagged,'A','plan').map(n=>n.id)).toEqual(['plan']);
+  expect(notesForStudyContext(tagged,'A','focus').map(n=>n.id)).toEqual(['focus']);
+  expect(notesForStudyContext(tagged,'B','study','h1').map(n=>n.id)).toEqual(['wrongChar']);
+  expect(legacyUnscopedStudyNotes(tagged,'A').map(n=>n.id)).toEqual(['1','2']);
+  expect(notesForStudyContext(tagged,'A','study','h1').map(n=>n.content).join('|'))
+    .not.toContain('秘密客户');
  });
 });
