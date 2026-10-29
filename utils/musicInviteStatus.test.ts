@@ -287,3 +287,37 @@ describe('撤回邀请不再留住自动回复倒计时', () => {
     expect(findPendingMusicInvite(last, 'user', 100)).toBeUndefined();
   });
 });
+
+describe('恢复页面与跨标签页撤回的交互防护', () => {
+  it('没有本地缓存也能从 DB 还原待撤回邀请，已撤回不再恢复', async () => {
+    const id = 'restore-pending-no-local-cache-test';
+    const created = await DB.createMusicListeningInvite({
+      charId: id, role: 'user', type: 'system', content: '无缓存的邀请',
+      metadata: { musicListenInvite: true, status: 'pending' },
+    });
+    // This simulates a fresh tab whose sully_music_together_v1 lacks invites.
+    expect(findPendingMusicInvite(await DB.getMessagesByCharId(id, true), 'user')?.id).toBe(created.messageId);
+    const done = await DB.resolveMusicListeningInvite(id, 'user', {
+      charId: id, role: 'user', type: 'system', content: '撤回',
+      metadata: { accepted: false, cancelled: true },
+    }, created.messageId);
+    expect(done.resolved).toBe(true);
+    expect(findPendingMusicInvite(await DB.getMessagesByCharId(id, true), 'user')).toBeUndefined();
+    const app = readFileSync(new URL('../apps/MusicApp.tsx', import.meta.url), 'utf8');
+    const context = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
+    expect(app).toContain('refreshListeningInvite(c.id)');
+    expect(context).toContain('refreshListeningInvite: refreshOutgoingInvite');
+    expect(context).toContain('inviteReadRevision.current.get(charId) !== revision');
+  });
+
+  it('跨标签页删除邀请后，聊天自动回复计时会按 DB 判断撤回', () => {
+    const chat = readFileSync(new URL('../apps/Chat.tsx', import.meta.url), 'utf8');
+    expect(chat).toContain('checkRemoteMusicResolution');
+    expect(chat).toContain("window.addEventListener('storage', onRemoteMusicChange)");
+    expect(chat).toContain("window.removeEventListener('storage', onRemoteMusicChange)");
+    expect(chat).toContain("document.addEventListener('visibilitychange', onMusicTabVisible)");
+    expect(chat).toContain("findPendingMusicInvite(history, 'user', pending.messageId)");
+    expect(chat).toContain('onMusicInviteResolved(new CustomEvent(');
+    expect(chat).toContain('autoReply.cancel()');
+  });
+});
