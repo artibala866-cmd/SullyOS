@@ -123,7 +123,7 @@ export async function createVisitor(parts:Parts,hair?:HairSettings){
   // dedicated bath controller owns the root. Plant the trailing/right foot
   // using the existing world-space IK, not a second root/navigation writer.
   const bathPlanted=motion==='bath-soak'&&activity?.bathPhase!=='work'?activity?.bathSupportFoot??null:null;
-  footLock.apply({root,rig:body.rig,translatePose},time,walkSpeed===undefined?0:walkSpeed*body.root.scale.y,
+  footLock.apply({root,rig:body.rig,translatePose},motion==='bath-soak'?activity?.bathElapsed??time:time,walkSpeed===undefined?0:walkSpeed*body.root.scale.y,
    motion==='walk'&&posture==='standing'||!!bathPlanted,bathPlanted);
   root.updateWorldMatrix(true,true);body.rig.skeleton.update();
   Object.assign(body.rig.mesh,{boundingBox:null,boundingSphere:null});
