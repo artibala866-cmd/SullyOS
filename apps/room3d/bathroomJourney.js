@@ -11,7 +11,7 @@ export function bathroomEntryCandidates(item,kind){
 export function createBathroomJourney(activity,front,startRotation){
  const tub=activity.kind==='bath-soak',seated=activity.posture==='seated';
  return {front:[...front],startRotation,edge:activity.edge,position:[...activity.position],rotation:activity.rotation,
-  edgeRotation:activity.edgeRotation??activity.rotation,tub,seated,enter:tub?3.6:seated?1.4:1.2,hold:activity.duration||12};
+  edgeRotation:activity.edgeRotation??activity.rotation,tub,seated,enter:tub?4.6:seated?1.4:1.2,hold:activity.duration||12};
 }
 
 /** Keep the authored rim contact positions fixed in the room while the actor turns.
@@ -55,26 +55,26 @@ export function bathroomJourneyFrame(j,time){
   // then lift the trailing leg. Lower into the authored seat AFTER clearing.
   // In particular, never lerp the root to j.edge[1] (the ~1.17m rim).
   const facing=M.smootherstep(p,0,.48);
-  support=M.smootherstep(p,.36,1.02)*(1-M.smootherstep(p,3.05,3.6));
+  support=M.smootherstep(p,.36,1.02)*(1-M.smootherstep(p,4.0,4.6));
   // Two short physical footfalls, never a 36cm translation on one planted leg.
   // Left swings while right bears weight, then right swings after left lands.
   approachStep=pulse(p,.28,.47,.59,.76);
   approachTrailStep=pulse(p,.78,.94,1.02,1.20);
   supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
-  leadStep=pulse(p,1.24,1.48,1.73,2.12);
-  trailStep=pulse(p,1.84,2.10,2.51,2.94);
+  leadStep=pulse(p,1.84,2.12,2.28,2.60);
+  trailStep=pulse(p,2.64,2.92,3.18,3.52);
   // Hands may reach early; knee flexion and pelvis lowering must wait for
   // BOTH approach feet to land, otherwise the anchored stance toe jumps.
-  crouch=M.smootherstep(p,1.21,1.57)*(1-M.smootherstep(p,2.70,3.55));
-  lean=M.smootherstep(p,.58,1.12)*(1-M.smootherstep(p,2.65,3.55));
+  crouch=M.smootherstep(p,1.24,1.76)*(1-M.smootherstep(p,3.72,4.52));
+  lean=M.smootherstep(p,1.16,1.78)*(1-M.smootherstep(p,3.75,4.55));
   // Walk the last short, grounded step to reach the REAL near rim before
   // the first crossing leg lifts. Do not drag the standing root vertically.
-  const advance=.12*M.smootherstep(p,.30,.74)+.15*M.smootherstep(p,.79,1.19)+.73*M.smootherstep(p,1.42,2.96);
-  const lower=M.smootherstep(p,2.50,3.6);
+  const advance=.12*M.smootherstep(p,.30,.74)+.15*M.smootherstep(p,.79,1.19)+.73*M.smootherstep(p,2.12,3.85);
+  const lower=M.smootherstep(p,3.52,4.6);
   position=mix(j.front,j.position,advance);
   position[1]=M.lerp(j.front[1],j.position[1],lower);
-  rotation=turn(turn(j.startRotation,j.edgeRotation,facing),j.rotation,M.smootherstep(p,2.65,3.55));
-  seatWeight=lower;legLift=M.smootherstep(p,2.38,3.25);
+  rotation=turn(turn(j.startRotation,j.edgeRotation,facing),j.rotation,M.smootherstep(p,3.75,4.52));
+  seatWeight=lower;legLift=M.smootherstep(p,3.32,4.24);
  }else{
   const f=M.smootherstep(p,0,j.enter);
   position=mix(j.front,j.position,f);rotation=turn(j.startRotation,j.rotation,f);seatWeight=j.seated?f:0;
