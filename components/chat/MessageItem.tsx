@@ -1123,6 +1123,26 @@ const MessageItem = React.memo(({
     const bubbleBgUrl = useBlobRefUrl(styleConfig.backgroundImage);
     const [showVoiceText, setShowVoiceText] = useState(previewExpanded);
     const [inviteAnswer, setInviteAnswer] = useState<'accepted' | 'rejected' | 'cancelled' | null>(null);
+    const [inviteCancelling, setInviteCancelling] = useState(false);
+    const [inviteCancelError, setInviteCancelError] = useState('');
+    const inviteCancellingRef = useRef(false);
+    const inviteCancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cancelMusicInvite = () => {
+        if (inviteCancellingRef.current) return;
+        inviteCancellingRef.current = true;
+        setInviteCancelling(true);
+        setInviteCancelError('');
+        // In case the provider is unavailable, never leave this Chat card
+        // permanently disabled with no explanation.
+        inviteCancelTimerRef.current = setTimeout(() => {
+            inviteCancellingRef.current = false;
+            setInviteCancelling(false);
+            setInviteCancelError('操作超时，请检查邀请状态后重试');
+        }, 15000);
+        window.dispatchEvent(new CustomEvent('music-listen-invite-cancel', {
+            detail: { charId: m.charId, messageId: m.id },
+        }));
+    };
     useEffect(() => {
         if (!m.metadata?.musicListenInvite) return;
         let cancelled = false;
@@ -1136,8 +1156,28 @@ const MessageItem = React.memo(({
             const detail = (event as CustomEvent<{ charId?: string; messageId?: number }>).detail;
             if (detail?.charId === m.charId && detail.messageId === m.id) void refresh().catch(console.warn);
         };
+        const onWithdrawResult = (event: Event) => {
+            const detail = (event as CustomEvent<{
+                charId?: string; messageId?: number; success?: boolean; reason?: string;
+            }>).detail;
+            if (detail?.charId !== m.charId || detail?.messageId !== m.id) return;
+            if (inviteCancelTimerRef.current) clearTimeout(inviteCancelTimerRef.current);
+            inviteCancelTimerRef.current = null;
+            inviteCancellingRef.current = false;
+            setInviteCancelling(false);
+            if (detail.success) setInviteCancelError('');
+            else setInviteCancelError(detail.reason === 'not_found'
+                ? '邀请已回应或不存在，请刷新聊天记录'
+                : detail.reason === 'processing' ? '邀请正在处理，请稍后再试' : '撤回未成功，请重试');
+        };
         window.addEventListener('music-listen-invite-resolved', onResolved);
-        return () => { cancelled = true; window.removeEventListener('music-listen-invite-resolved', onResolved); };
+        window.addEventListener('music-listen-invite-withdrawal-result', onWithdrawResult);
+        return () => {
+            cancelled = true;
+            if (inviteCancelTimerRef.current) clearTimeout(inviteCancelTimerRef.current);
+            window.removeEventListener('music-listen-invite-resolved', onResolved);
+            window.removeEventListener('music-listen-invite-withdrawal-result', onWithdrawResult);
+        };
     }, [m.id, m.charId, m.metadata?.musicListenInvite, m.metadata?.inviter]);
 
     const [openingCollaborationFile, setOpeningCollaborationFile] = useState(false);
@@ -1684,7 +1724,12 @@ const MessageItem = React.memo(({
                     <div className="text-xs font-semibold">一起听邀请</div>
                     <div className="mt-2 text-sm">{fromChar ? `${charName} 邀请你一起听音乐` : '你邀请对方一起听音乐'}</div>
                     {inviteAnswer && <div className="mt-3 text-xs text-neutral-500">{inviteAnswer === 'accepted' ? '已接受' : inviteAnswer === 'cancelled' ? '已撤回' : '已拒绝'}</div>}
-                    {!fromChar && !inviteAnswer && <button className="mt-3 rounded-lg border border-neutral-400 px-3 py-1 text-xs" onClick={() => window.dispatchEvent(new CustomEvent('music-listen-invite-cancel', { detail: { charId: m.charId, messageId: m.id } }))}>撤回邀请</button>}
+                    {!fromChar && !inviteAnswer && <>
+                        <button type="button" disabled={inviteCancelling}
+                            className="mt-3 min-h-10 rounded-lg border border-neutral-400 px-3 py-1 text-xs disabled:opacity-50"
+                            onClick={cancelMusicInvite}>{inviteCancelling ? '撤回中…' : '撤回邀请'}</button>
+                        {inviteCancelError && <div role="status" className="mt-2 text-xs text-neutral-500">{inviteCancelError}</div>}
+                    </>}
                     {fromChar && !inviteAnswer && (
                         <div className="mt-3 flex gap-2">
                             <button className="rounded-lg border border-neutral-400 px-3 py-1 text-xs" onClick={() => window.dispatchEvent(new CustomEvent('music-listen-invite-answer', { detail: { charId: m.charId, messageId: m.id, accepted: true } }))}>接受</button>
