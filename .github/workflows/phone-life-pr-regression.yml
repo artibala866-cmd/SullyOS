@@ -39,6 +39,10 @@ jobs:
           utils/characterPhoneOpportunity.test.ts
           utils/characterPhoneAutonomy.test.ts
           utils/characterPhoneLateResult.test.ts
+          utils/characterPhoneClear.test.ts
+          utils/characterPhoneChatDeletion.test.ts
+          utils/characterLifeGlimpseGeneration.test.ts
+          utils/characterLifeEventGlimpse.test.ts
           utils/characterLifeLoop.test.ts
           utils/characterLifeEventRouting.test.ts
           utils/characterLifeScheduleContext.test.ts

@@ -57,6 +57,19 @@ jobs:
           echo "Sully workspace target files have no TypeScript diagnostics."
       - name: Test chat auto reply, keyboard dismissal and grounded life fragments
         run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgScheduleShortcut.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyLock.test.ts utils/amsgChatGenerationLease.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgP1CrossDay.test.ts utils/amsgPhoneEvent.test.ts utils/characterPhoneBrowserAutonomy.test.ts utils/characterPhoneSelfProfile.test.ts utils/characterLifeEventsPrivateDeletion.test.ts utils/amsgVerifiedXhs.test.ts utils/chatKeyboardViewport.test.ts utils/characterLifeGlimpses.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/characterLifeEventGlimpse.test.ts
+      - name: Test original phone autonomy, async cancellation, life-event truth and API budget
+        run: pnpm exec vitest run utils/characterPhoneAiRequest.test.ts utils/characterPhoneApiBudget.test.ts utils/characterPhoneOpportunity.test.ts utils/characterPhoneAutonomy.test.ts utils/characterPhoneLateResult.test.ts utils/characterLifeLoop.test.ts utils/characterLifeEventRouting.test.ts utils/characterLifeScheduleContext.test.ts utils/characterLifeGlimpseGeneration.test.ts utils/phoneChatPiggyback.test.ts utils/characterPhoneMoments.test.ts utils/characterPhonePayments.test.ts utils/characterPhoneClear.test.ts utils/characterPhoneChatDeletion.test.ts utils/refreshNpcMoments.test.ts
+      - name: Check original phone autonomy TypeScript diagnostics
+        shell: bash
+        run: |
+          printf 'utils/characterPhoneAutonomy.test.ts(1,1): error TS9999: gate sentinel\n' | grep -Eq '^(utils/(characterPhoneAutonomy|characterPhoneApiBudget|characterPhoneOpportunity|characterLifeGlimpseGeneration)(\.test)?\.ts)[(]' || { echo "Phone diagnostic filter broken"; exit 1; }
+          pnpm exec tsc --noEmit --pretty false > /tmp/phone-life-audit-tsc.log 2>&1 || true
+          grep -E '^(utils/(characterPhoneAutonomy|characterPhoneApiBudget|characterPhoneOpportunity|characterLifeGlimpseGeneration)(\.test)?\.ts)[(]' /tmp/phone-life-audit-tsc.log > /tmp/phone-life-audit-errors.log || true
+          if [ -s /tmp/phone-life-audit-errors.log ]; then
+            cat /tmp/phone-life-audit-errors.log
+            exit 1
+          fi
+          echo "Phone autonomy and grounded-life files have no TypeScript diagnostics."
       - name: Test stage-2 natural bubbles and streaming-to-storage parity
         run: pnpm exec vitest run utils/streamPreview.test.ts utils/chatParser.chunkText.test.ts utils/applyAssistantPostProcessing.amsg2Drift.test.ts
       - name: Test stage-7 FCM preview integrity and outbox primary-key recovery
