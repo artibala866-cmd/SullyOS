@@ -129,7 +129,7 @@ export const MizuHeader: React.FC<{
       <WaterDrop size={5} />
       <Sparkle size={7} delay={1.2} />
     </div>
-    <div className="w-8 flex justify-end">{right}</div>
+    <div className="min-w-8 shrink-0 flex items-center justify-end">{right}</div>
   </div>
 );
 
