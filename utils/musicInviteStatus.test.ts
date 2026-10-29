@@ -86,7 +86,7 @@ describe('一起听邀请状态', () => {
 
 describe('撤回邀请的真实持久化流程', () => {
   it('只撤回指定的用户待回应邀请，保存后不再视为待答复', async () => {
-    const history = [
+    const history: Array<{ id: number; metadata: Record<string, unknown> }> = [
       { id: 10, metadata: { musicListenInvite: true, status: 'pending' } },
     ];
     const write = async (item: { metadata: { musicListenInviteResponseTo: number; cancelled: true } }) => {
