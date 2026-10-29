@@ -434,13 +434,11 @@ const ScheduleApp: React.FC = () => {
         ? 'hidden'
         : 'h-full w-full flex flex-col overflow-hidden bg-[#eeeeed] text-[#242424] font-sans'}
         style={{paddingTop:'var(--safe-top)'}}>
-      <header className="shrink-0 mx-3 mt-3 sm:mx-6 rounded-[24px] bg-white px-3 sm:px-5 py-2.5 shadow-[0_6px_22px_rgba(0,0,0,.025)]">
+      <header className="shrink-0 mx-3 mt-2 sm:mx-6 rounded-[24px] bg-white px-3 sm:px-5 py-2.5 shadow-[0_6px_22px_rgba(0,0,0,.025)]">
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-2.5">
           <button aria-label="返回" onClick={requestExit} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-neutral-200 text-lg hover:bg-neutral-100">‹</button>
-          <div className="flex-1 min-w-0"><p className="text-[10px] tracking-[.18em] text-neutral-500">SULLY OS / STUDY</p>
-            <h1 className="text-[20px] font-semibold leading-tight tracking-tight">学习室</h1>
+          <div className="flex-1 min-w-0"><h1 className="text-[20px] font-semibold leading-tight tracking-tight">学习室</h1>
           </div>
-          <span className="hidden sm:block text-xs text-neutral-400">Focus & Create</span>
           <button type="button" aria-label="选择陪伴 Char" aria-expanded={showCharPicker}
             onClick={()=>setShowCharPicker(v=>!v)}
             className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-900">
@@ -448,7 +446,7 @@ const ScheduleApp: React.FC = () => {
           </button>
         </div>
       </header>
-      <div className="shrink-0 mx-3 mt-3 sm:mx-6 flex items-center justify-between gap-2 rounded-2xl bg-white/65 px-4 py-2 text-xs" aria-label="Char 持续陪伴状态">
+      <div className="shrink-0 mx-3 mt-2 sm:mx-6 flex items-center justify-between gap-2 rounded-2xl bg-white/65 px-4 py-2 text-xs" aria-label="Char 持续陪伴状态">
         <p className="min-w-0 flex-1 truncate text-neutral-500" title={companionStatus}>
           <span className="inline-block mr-2 h-1.5 w-1.5 rounded-full bg-neutral-500 align-middle" aria-hidden="true"></span>
           <strong className="text-neutral-800">{activeChar?.name||'尚未选 Char'}</strong> <span className="hidden sm:inline">· {companionStatus}</span>
@@ -459,34 +457,32 @@ const ScheduleApp: React.FC = () => {
           {overviewBusy?'读取中…':'一起看今天'}
         </button>
       </div>
-      <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-5 pb-7 space-y-5">
+      <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-5 pb-5 space-y-3 sm:space-y-5">
         {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
         </section>}
-        {tab === 'timer' && <section className="relative mx-auto w-full max-w-[570px] space-y-4 pb-4 sm:pt-3">
+        {tab === 'timer' && <section className="relative mx-auto w-full max-w-[510px] space-y-3 pb-2 sm:pt-3">
             
             <div className="flex items-center justify-between gap-2 px-1">
               <div className="flex min-w-0 items-center gap-2.5"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#242424] text-white"><Target size={20} weight="regular"/></span>
-                <div className="min-w-0"><p className="text-[17px] font-semibold leading-tight">专注计时</p><p className="truncate text-[11px] tracking-wide text-neutral-500">FOCUS / TIME</p></div></div>
+                <div className="min-w-0"><p className="text-[17px] font-semibold leading-tight">专注计时</p></div></div>
               <span className="shrink-0 rounded-full border border-neutral-200 bg-[#fafafa] px-2.5 py-1.5 text-xs text-neutral-600">{session?.mode==='break'?'休息中':session?.mode==='focus'?'沉浸进行中':'准备开始'}</span>
             </div>
-            <div className="relative overflow-hidden rounded-[30px] bg-white px-5 py-9 sm:py-12 text-center shadow-[0_12px_36px_rgba(0,0,0,0.035)]">
-              <div className="text-[11px] tracking-[.22em] text-neutral-400">{session?.mode==='break'?'REST & RESET':'DEEP FOCUS'}</div>
-              <div className="mt-5 font-sans font-semibold text-[clamp(48px,13vw,74px)] leading-none tracking-[-.055em] tabular-nums">{pad(Math.floor(remaining/60))}:{pad(remaining%60)}</div>
-              <div className="mx-auto mt-7 h-1 w-full max-w-[260px] overflow-hidden rounded-full bg-[#e9e9e9]"><div className="h-full rounded-full bg-neutral-900 transition-[width]"
+            <div className="relative overflow-hidden rounded-[26px] bg-white px-4 py-5 sm:px-6 sm:py-8 text-center shadow-[0_12px_36px_rgba(0,0,0,0.035)]">
+              <div className="font-sans font-semibold text-[clamp(48px,13vw,70px)] leading-none tracking-[-.055em] tabular-nums">{pad(Math.floor(remaining/60))}:{pad(remaining%60)}</div>
+              <div className="mx-auto mt-3 sm:mt-5 h-1 w-full max-w-[260px] overflow-hidden rounded-full bg-[#e9e9e9]"><div className="h-full rounded-full bg-neutral-900 transition-[width]"
                 style={{width:session?`${Math.max(0,Math.min(100,(1-remaining/(session.duration*60))*100))}%`:'0%'}}/></div>
-              <p className="mt-8 text-[11px] tracking-wide text-neutral-500">CURRENT TASK</p>
+              <p className="mt-4 sm:mt-5 text-[11px] text-neutral-500">当前任务</p>
               <p className="mt-1 line-clamp-1 text-[14px] font-semibold">{session?.mode==='break'?'好好休息一下':activeTask?.title||'选一件重要的事开始'}</p>
-              <div className="mt-8 flex items-center justify-center gap-4">
+              <div className="mt-4 sm:mt-6 flex items-center justify-center gap-4">
                 {session ? <>
                   <button className="grid h-11 w-11 place-items-center rounded-full border border-neutral-300 bg-white" aria-label={session.pauseRemainingMs!=null?'继续专注':'暂停专注'} onClick={session.pauseRemainingMs!=null?resume:pause}>
                     {session.pauseRemainingMs!=null?<Play size={22} weight="fill"/>:<Pause size={22} weight="fill"/>}</button>
                   <button className="grid h-[48px] w-[48px] place-items-center rounded-full bg-[#363636] text-white shadow-sm" aria-label="结束或退出本轮选项" title="选择留在学习室或退出" onClick={requestExit}><Stop size={22} weight="fill"/></button>
                 </> : <>
                   <button className="min-h-11 rounded-full bg-[#f2f2f2] px-5 py-2 text-xs font-medium" onClick={()=>start('break')}>休息</button>
-                  <button className="grid h-[60px] w-[60px] place-items-center rounded-full bg-[#232323] text-white shadow-sm" aria-label="开始专注" onClick={()=>start('focus')}><Play size={23} weight="fill"/></button>
-                  <button className="min-h-11 rounded-full bg-[#f2f2f2] px-5 py-2 text-xs font-medium" onClick={()=>switchTab('tasks')}>选任务</button>
-                </>}
+                  <button className="grid h-[50px] w-[50px] place-items-center rounded-full bg-[#232323] text-white shadow-sm" aria-label="开始专注" onClick={()=>start('focus')}><Play size={23} weight="fill"/></button>
+                                  </>}
               </div>
               {session&&<p className="mt-2 text-xs text-neutral-600">结束先确认，未完成不计入记录。</p>}
               {!session&&<div className="mx-auto mt-2.5 flex max-w-xs items-center justify-center gap-2.5 text-xs text-neutral-600">
@@ -504,20 +500,22 @@ const ScheduleApp: React.FC = () => {
                   去核对并手动结算
                 </button>
               </div>}
-            <div className="rounded-[22px] bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,.02)]">
-              <select aria-label="当前任务" value={selectedTask} disabled={!!session} onChange={e=>setSelectedTask(e.target.value)} className={'w-full min-w-0 rounded-xl bg-[#f4f4f4] px-3 py-3 text-sm outline-none'}>
+            <div className="flex items-center gap-2 rounded-[20px] bg-white px-3 py-2 shadow-[0_4px_20px_rgba(0,0,0,.02)]">
+              <select aria-label="当前任务" value={selectedTask} disabled={!!session} onChange={e=>setSelectedTask(e.target.value)} className={'min-w-0 flex-1 rounded-xl bg-[#f4f4f4] px-3 py-2.5 text-sm outline-none'}>
                 <option value="">请选择今天的专注任务</option>
                 {tasks.filter(t=>!t.done).map(t=><option value={t.id} key={t.id}>{t.title}</option>)}
               </select>
+              <button type="button" aria-label="打开任务清单" title="任务清单" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#f4f4f4]"
+                onClick={()=>switchTab('tasks')}><NotePencil size={19}/></button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex min-h-[118px] flex-col justify-between rounded-[24px] bg-white p-4 shadow-[0_4px_20px_rgba(0,0,0,.02)]">
+              <div className="flex min-h-[80px] sm:min-h-[100px] flex-col justify-between rounded-[20px] bg-white p-3 sm:p-4 shadow-[0_4px_20px_rgba(0,0,0,.02)]">
                 <div className="flex items-center justify-between"><span className="text-xs text-neutral-500">今日专注</span><Target size={19} weight="light"/></div>
-                <p className="text-[30px] font-semibold tabular-nums leading-none">{totalToday}<span className="ml-1.5 text-xs font-normal text-neutral-500">min</span></p>
+                <p className="text-[25px] sm:text-[30px] font-semibold tabular-nums leading-none">{totalToday}<span className="ml-1.5 text-xs font-normal text-neutral-500">min</span></p>
               </div>
-              <button type="button" onClick={()=>switchTab('stats')} className="flex min-h-[118px] flex-col justify-between rounded-[24px] bg-[#252525] p-4 text-left text-white">
+              <button type="button" onClick={()=>switchTab('stats')} className="flex min-h-[80px] sm:min-h-[100px] flex-col justify-between rounded-[20px] bg-[#252525] p-3 sm:p-4 text-left text-white">
                 <div className="flex items-center justify-between"><span className="text-xs text-white/70">专注轮次</span><ArrowRight size={19}/></div>
-                <p className="text-[30px] font-semibold tabular-nums leading-none">{todayRecords.length}<span className="ml-1.5 text-xs font-normal text-white/60">次</span></p>
+                <p className="text-[25px] sm:text-[30px] font-semibold tabular-nums leading-none">{todayRecords.length}<span className="ml-1.5 text-xs font-normal text-white/60">次</span></p>
               </button>
             </div>
             <div className="flex items-center justify-between gap-3 px-2 pt-1">
