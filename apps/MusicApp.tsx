@@ -6,7 +6,7 @@ import { DB } from '../utils/db';
 import { findPendingMusicInvite } from '../utils/musicInviteStatus';
 import { sameMusic } from '../utils/musicLibrary';
 import { trackEvent } from '../utils/analytics';
-import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon } from '@phosphor-icons/react';
+import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon, Heart, Plus, ListPlus, ArrowUp, ArrowDown, Trash, PencilSimple, CaretDown, CaretUp, MusicNotes, X } from '@phosphor-icons/react';
 import {
   C, Sparkle, CrossStar, MizuHeader, SearchBar, SongRow, MiniPlayer,
   VinylDisc, GlassProgress, PlayControls, BokehBg,
@@ -32,7 +32,7 @@ const MusicApp: React.FC = () => {
     cfg, setCfg, effectiveWorkerUrl,
     current, playing, progress, duration, loadingSong,
     lyric, tlyric, activeLyricIdx,
-    profile, playSong, togglePlay, nextSong, prevSong, seek,
+    playSong, togglePlay, nextSong, prevSong, seek,
     liked, toggleLike, setToastHandler,
     listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, respondListeningInvite, removeListeningPartner,
     addLocalSong, removeLocalSong, localAlbumSongs,
@@ -148,6 +148,8 @@ const MusicApp: React.FC = () => {
   const [section, setSection] = useState<'results' | 'likes' | 'playlists' | 'queue' | 'history'>('results');
   const [playlistName, setPlaylistName] = useState('');
   const [openedPlaylist, setOpenedPlaylist] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(36);
+  useEffect(() => { setVisibleCount(36); }, [section, openedPlaylist, searchSource]);
   const [results, setResults] = useState<Song[]>([]);
   const [searching, setSearching] = useState(false);
   const searchSeqRef = useRef(0);
@@ -196,45 +198,83 @@ const MusicApp: React.FC = () => {
     }
   }, [keyword, searchSource, cfg, addToast]);
 
+  // The same recognizable transport and compact controls are shared by results,
+  // likes, history and the currently opened playlist.
   const renderLibrarySongs = (songs: Song[], playlistId?: string) => (
-    <div className="space-y-1">
-      {songs.map((song, i) => (
-        <div key={musicSongKey(song)} className="rounded-xl shizuku-glass px-2 py-1">
-          <SongRow
-            name={song.name} artists={song.artists} album={song.album}
-            albumPic={song.albumPic} duration={fmtTime(song.duration)}
-            isVip={song.fee === 1}
-            isActive={!!current && sameMusic(current, song)}
-            onClick={() => {
-              if (playlistId) {
-                const pl = library.playlists.find(p => p.id === playlistId);
-                if (pl) void playSong(song, { replaceQueue: pl.songs, startIdx: i });
-              } else void playSong(song);
-            }}
-          />
-          <div className="flex flex-wrap gap-2 px-2 pb-1 text-[11px]" style={{ color: C.muted }}>
-            <span className="mr-auto">{song.local ? '本地生成' : song.source === 'tencent' ? 'QQ音乐' : '网易云'}</span>
-            <button onClick={() => addToQueue(song)}>加入队列</button>
-            <button onClick={() => toggleLocalLike(song)}>
-              {library.likes.some(s => sameMusic(s, song)) ? '取消本地喜欢' : '本地喜欢'}
-            </button>
-            {library.playlists.length > 0 && <select aria-label="加入本地歌单" defaultValue=""
-              className="bg-transparent max-w-28" onChange={e => {
-                if (e.target.value) addSongToPlaylist(e.target.value, song);
-                e.target.value = '';
-              }}>
-              <option value="">加入歌单…</option>
-              {library.playlists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>}
-            {playlistId && <>
-              <button disabled={i === 0} onClick={() => movePlaylistSong(playlistId, i, i - 1)}>上移</button>
-              <button disabled={i === songs.length - 1} onClick={() => movePlaylistSong(playlistId, i, i + 1)}>下移</button>
-              <button onClick={() => removeSongFromPlaylist(playlistId, musicSongKey(song))}>移除</button>
-            </>}
+    <div className="space-y-2.5 px-1">
+      {songs.slice(0, visibleCount).map((song, i) => {
+        const isActive = !!current && sameMusic(current, song);
+        const isLiked = library.likes.some(s => sameMusic(s, song));
+        const label = song.local ? '本地创作' : song.source === 'tencent' ? 'QQ 音乐' : '网易云音乐';
+        const handlePlay = () => {
+          if (isActive) {
+            if (!loadingSong) togglePlay();
+          } else if (playlistId) {
+            const pl = library.playlists.find(p => p.id === playlistId);
+            if (pl) void playSong(song, { replaceQueue: pl.songs, startIdx: i });
+          } else void playSong(song);
+        };
+        return <div key={musicSongKey(song)}
+          className="music-track-row rounded-[20px] p-1.5"
+          style={{ background: isActive ? 'rgba(237,230,255,.68)' : 'rgba(255,255,255,.77)',
+            border: `1px solid ${isActive ? C.glow + '80' : 'rgba(205,193,229,.38)'}`,
+            boxShadow: isActive ? '0 6px 20px rgba(97,79,174,.09)' : '0 2px 9px rgba(90,82,125,.035)' }}>
+          <SongRow name={song.name} artists={song.artists} album={song.album} albumPic={song.albumPic}
+            duration={fmtTime(song.duration)} isVip={song.fee === 1}
+            isActive={isActive} isPlaying={isActive && playing} isLoading={isActive && loadingSong}
+            onClick={handlePlay} />
+          <div className="flex items-center justify-between pl-3 pr-1.5 pb-1 gap-1">
+            <span className="text-[10px] font-medium truncate" style={{ color: isActive ? C.primary : C.muted }}>
+              {isActive && playing ? '♪ 正在播放' : isActive && loadingSong ? '正在连接音源…' : label}
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              <button type="button" aria-label={`将《${song.name}》加入播放队列`} title="加入播放队列"
+                className="music-icon-press w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: C.soft, color: C.primary }}
+                onClick={() => addToQueue(song)}><Plus size={17} weight="bold" /></button>
+              <button type="button" aria-label={isLiked ? `取消喜欢《${song.name}》` : `喜欢《${song.name}》`}
+                aria-pressed={isLiked} title={isLiked ? '取消本地喜欢' : '加入本地喜欢'}
+                className={`music-icon-press w-8 h-8 rounded-full flex items-center justify-center ${isLiked ? 'music-heart-active' : ''}`}
+                style={{ background: isLiked ? 'rgba(255,222,237,.85)' : C.soft,
+                  color: isLiked ? C.accent : C.primary }}
+                onClick={() => toggleLocalLike(song)}>
+                <Heart size={18} weight={isLiked ? 'fill' : 'regular'} />
+              </button>
+              {library.playlists.length > 0 && <div className="relative w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: C.soft, color: C.primary }}>
+                <ListPlus size={17} weight="bold" aria-hidden="true" />
+                <select aria-label={`把《${song.name}》加入本地歌单`} title="加入歌单"
+                  value="" className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  onChange={e => {
+                    if (e.target.value) addSongToPlaylist(e.target.value, song);
+                  }}>
+                  <option value="">加入歌单</option>
+                  {library.playlists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>}
+              {playlistId && <>
+                <button type="button" className="music-icon-press w-7 h-8 rounded-full disabled:opacity-25"
+                  aria-label="上移歌曲" title="上移" disabled={i === 0}
+                  onClick={() => movePlaylistSong(playlistId, i, i - 1)}><ArrowUp size={15} /></button>
+                <button type="button" className="music-icon-press w-7 h-8 rounded-full disabled:opacity-25"
+                  aria-label="下移歌曲" title="下移" disabled={i === songs.length - 1}
+                  onClick={() => movePlaylistSong(playlistId, i, i + 1)}><ArrowDown size={15} /></button>
+                <button type="button" className="music-icon-press w-7 h-8 rounded-full"
+                  aria-label="从歌单移除歌曲" title="从歌单移除"
+                  onClick={() => removeSongFromPlaylist(playlistId, musicSongKey(song))}><X size={15} /></button>
+              </>}
+            </div>
           </div>
-        </div>
-      ))}
-      {songs.length === 0 && <p className="text-xs text-center py-8" style={{ color: C.muted }}>这里还没有歌曲</p>}
+        </div>;
+      })}
+      {songs.length > visibleCount && <button type="button" onClick={() => setVisibleCount(n => n + 36)}
+        className="music-tap w-full py-3 text-[12px] rounded-2xl"
+        style={{ background: C.soft, color: C.primary }}>继续显示 · 剩余 {songs.length - visibleCount} 首</button>}
+      {songs.length === 0 && <div className="flex flex-col items-center justify-center gap-2 py-12"
+        style={{ color: C.muted }}>
+        <MusicNotes size={29} weight="duotone" color={C.primary} />
+        <p className="text-xs">这里还没有歌曲，去发现一首喜欢的吧</p>
+      </div>}
     </div>
   );
 
