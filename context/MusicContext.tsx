@@ -16,7 +16,7 @@ import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTence
 import { getGuestMusicCover } from '../utils/musicArtwork';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
-import { findPendingMusicInvite, hasPendingMusicInvite, announceMusicInviteDbChanged, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
+import { findPendingMusicInvite, announceMusicInviteDbChanged, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import { chooseMusicPlayAction, selectMusicQueueTrack } from '../utils/musicPlaybackState';
 import { parseCharMusicRequest, findCharMusicTrack, charMusicPlaybackConfirmed, joinCharListeningState, leaveCharListeningState } from '../utils/musicCharActions';
 import {
@@ -980,48 +980,35 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
     } catch (err) { console.warn('[MusicTogether] 会话状态持久化失败', err); }
   }, [listeningTogetherWith, listeningStartedAt, listeningInvites]);
-  // 刷新后不能仅相信 localStorage 里的 pending：聊天记录可能已经收到回应或被归档。
-  // 以完整 DB 历史为准校正状态，避免 Char 再次把已结束的邀请当作待答复。
+  // Never let a slower pre-withdrawal DB read overwrite a later committed state.
+  const inviteReadRevision = useRef(new Map<string, number>());
+  const refreshOutgoingInvite = useCallback(async (charId: string) => {
+    const revision = (inviteReadRevision.current.get(charId) || 0) + 1;
+    inviteReadRevision.current.set(charId, revision);
+    const history = await DB.getMessagesByCharId(charId, true);
+    if (inviteReadRevision.current.get(charId) !== revision) return;
+    const pending = findPendingMusicInvite(history, 'user');
+    setListeningInvites(prev => {
+      if (pending) return prev[charId] === 'pending' ? prev : { ...prev, [charId]: 'pending' };
+      if (prev[charId] !== 'pending') return prev;
+      const next = { ...prev };
+      delete next[charId];
+      return next;
+    });
+  }, []);
   useEffect(() => {
-    let alive = true;
-    void (async () => {
-      const pendingIds = Object.keys(listeningInvites).filter(id => listeningInvites[id] === 'pending');
-      const reconciled = await Promise.all(pendingIds.map(async charId => {
-        const messages = await DB.getMessagesByCharId(charId, true);
-        return { charId, pending: !!findPendingMusicInvite(messages, 'user') };
-      }));
-      if (!alive) return;
-      setListeningInvites(prev => {
-        let next = prev;
-        for (const { charId, pending } of reconciled) {
-          if (!pending && next[charId] === 'pending') {
-            if (next === prev) next = { ...prev };
-            delete next[charId];
-          }
-        }
-        return next;
-      });
-    })().catch(err => console.warn('[MusicTogether] 待回应邀请校验失败', err));
-    return () => { alive = false; };
-  // 只在首次加载时读取持久化状态；日常改动由聊天事件同步。
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const knownIds = Object.keys(listeningInvites).filter(id => listeningInvites[id] === 'pending');
+    for (const id of knownIds) {
+      void refreshOutgoingInvite(id).catch(err =>
+        console.warn('[MusicTogether] 启动后待回应邀请校验失败', err));
+    }
+    // Initial restore only. Incoming notifications are handled separately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Listen for committed changes from OTHER tabs. The localStorage event is
   // only an invalidation signal; authoritative status still comes from IDB.
   useEffect(() => {
-    let mounted = true;
-    const refreshOne = async (charId: string) => {
-      const history = await DB.getMessagesByCharId(charId, true);
-      if (!mounted) return;
-      const pending = findPendingMusicInvite(history, 'user');
-      setListeningInvites(prev => {
-        if (pending) return prev[charId] === 'pending' ? prev : { ...prev, [charId]: 'pending' };
-        if (prev[charId] !== 'pending') return prev;
-        const next = { ...prev };
-        delete next[charId];
-        return next;
-      });
-    };
+    const refreshOne = (charId: string) => refreshOutgoingInvite(charId);
     const onStorage = (event: StorageEvent) => {
       if (event.key === MUSIC_INVITE_DB_CHANGED_KEY) {
         const id = musicInviteChangedCharId(event.newValue);
@@ -1048,9 +1035,22 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } catch { /* Ignore invalid/legacy data from other tabs. */ }
       }
     };
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const saved = JSON.parse(localStorage.getItem('sully_music_together_v1') || '{}');
+        const ids = new Set([...Object.keys(saved.invites || {}), ...Object.keys(listeningInvites)]);
+        for (const id of ids) void refreshOne(id).catch(err =>
+          console.warn('[MusicTogether] 标签页恢复邀请检查失败', err));
+      } catch { /* Non-persistent browser storage. */ }
+    };
     window.addEventListener('storage', onStorage);
-    return () => { mounted = false; window.removeEventListener('storage', onStorage); };
-  }, []);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refreshOutgoingInvite]);
 
   // Invitation resolution can happen before playSong's declaration below.
   // The ref uses the one global MusicProvider player, never a second audio instance.
