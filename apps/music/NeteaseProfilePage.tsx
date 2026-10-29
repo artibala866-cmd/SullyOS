@@ -9,7 +9,7 @@ import { useMusic, musicApi, toHttps, Song } from '../../context/MusicContext';
 import {
   C, Sparkle, MizuHeader, BokehBg, MiniPlayer,
 } from './MusicUI';
-import { MagnifyingGlass, Gear, User as UserIcon } from '@phosphor-icons/react';
+import { MagnifyingGlass, Gear, User as UserIcon, MusicNote } from '@phosphor-icons/react';
 import NeteaseLoginPanel from './NeteaseLoginPanel';
 import TokenImg from '../../components/os/TokenImg';
 import { isBlobRef } from '../../utils/blobRef';
@@ -50,17 +50,13 @@ interface LocalAlbumCardProps {
 }
 const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExpanded, currentId, playing, onPlay, onRemove }) => (
   <div
-    className="rounded-2xl overflow-hidden relative"
-    style={{
-      background: `linear-gradient(135deg, ${C.sakura}25, ${C.lavender}22, ${C.glow}20)`,
-      border: `1px solid ${C.sakura}50`,
-      boxShadow: `0 4px 18px ${C.sakura}25, inset 0 1px 0 rgba(255,255,255,0.5)`,
-    }}
+    className="rounded-lg overflow-hidden relative"
+    style={{ background: C.surface, border: '1px solid #dedede' }}
   >
     <div
       aria-hidden
       className="pointer-events-none absolute inset-0 opacity-50"
-      style={{ background: `radial-gradient(ellipse at 80% 20%, ${C.sakura}40 0%, transparent 50%)` }}
+      style={{ background: 'transparent' }}
     />
     <button
       onClick={() => setExpanded((v: boolean) => !v)}
@@ -69,24 +65,24 @@ const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExp
       <div className="relative w-12 h-12 shrink-0">
         <div className="absolute inset-0 rounded-xl flex items-center justify-center overflow-hidden"
           style={{
-            background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+            background: `#171717`,
             border: `1.5px solid ${C.glow}80`,
             boxShadow: `0 2px 8px ${C.glow}40`,
           }}
         >
-          <Sparkle size={20} color="white" delay={0} />
+          <MusicNote size={22} color="white" weight="regular" />
         </div>
         <Sparkle size={9} className="absolute -top-1 -right-1" color={C.sakura} delay={0.5} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-medium tracking-wider"
-            style={{ color: C.primary, fontFamily: `'Georgia', 'Noto Serif SC', serif` }}>
+            style={{ color: C.primary }}>
             一起写的歌
           </span>
           <span className="text-[8px] px-1.5 py-[1px] rounded-full font-bold"
             style={{
-              background: `linear-gradient(135deg, ${C.sakura}, ${C.lavender})`,
+              background: `#444444`,
               color: 'white',
               letterSpacing: '0.1em',
             }}>
@@ -112,12 +108,12 @@ const LocalAlbumCard: React.FC<LocalAlbumCardProps> = ({ songs, expanded, setExp
                 className="flex-1 flex items-center gap-2 min-w-0 text-left"
               >
                 <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-                  style={{ background: active ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : `${C.faint}25` }}>
+                  style={{ background: active ? `#171717` : `${C.faint}25` }}>
                   {active && playing ? (
                     <span className="flex gap-0.5">
-                      <span className="w-0.5 h-2 bg-white rounded-full" style={{ animation: 'shizuku-twinkle 0.6s ease-in-out infinite' }} />
-                      <span className="w-0.5 h-3 bg-white rounded-full" style={{ animation: 'shizuku-twinkle 0.8s ease-in-out 0.15s infinite' }} />
-                      <span className="w-0.5 h-2 bg-white rounded-full" style={{ animation: 'shizuku-twinkle 0.7s ease-in-out 0.3s infinite' }} />
+                      <span className="w-0.5 h-2 bg-white rounded-full" style={{ animation: 'music-equalizer .85s ease-in-out infinite' }} />
+                      <span className="w-0.5 h-3 bg-white rounded-full" style={{ animation: 'music-equalizer .85s ease-in-out .15s infinite' }} />
+                      <span className="w-0.5 h-2 bg-white rounded-full" style={{ animation: 'music-equalizer .85s ease-in-out .3s infinite' }} />
                     </span>
                   ) : (
                     <svg width="10" height="10" viewBox="0 0 24 24" fill={active ? 'white' : C.muted}>
@@ -337,7 +333,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
     // 有本地专辑 → 简洁单页：仅 album + 一个登录入口卡
     return (
       <div className="flex flex-col h-full relative"
-        style={{ background: `linear-gradient(180deg, #ffffff 0%, ${C.bg} 50%, ${C.bgDeep} 100%)` }}>
+        style={{ background: `#f6f6f5` }}>
         <BokehBg />
         <MizuHeader title="My Cloud" onBack={onBack} />
         <div className="relative z-10 flex-1 overflow-y-auto pb-24 px-3 pt-3 shizuku-scrollbar">
@@ -393,8 +389,8 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
                           className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-semibold transition-transform group-active:scale-95"
                           style={{
                             background: initialized
-                              ? `linear-gradient(135deg, ${C.primary}, ${C.lavender})`
-                              : `linear-gradient(135deg, ${C.faint}, ${C.muted})`,
+                              ? `#2a2a2a`
+                              : `#c2c2c2`,
                             border: `2px solid ${initialized ? C.accent : C.faint}60`,
                             boxShadow: initialized ? `0 2px 12px ${C.glow}40` : 'none',
                             opacity: initialized ? 1 : 0.7,
@@ -461,7 +457,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
 
   return (
     <div className="flex flex-col h-full relative"
-      style={{ background: `linear-gradient(180deg, #ffffff 0%, ${C.bg} 50%, ${C.bgDeep} 100%)` }}>
+      style={{ background: `#f6f6f5` }}>
       <BokehBg />
       <MizuHeader
         title="My Cloud"
@@ -498,7 +494,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
           {profile.backgroundUrl ? (
             <img src={profile.backgroundUrl} className="absolute inset-0 w-full h-full object-cover" alt="" />
           ) : (
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${C.accent}40, ${C.sakura}40, ${C.lavender}40)` }} />
+            <div className="absolute inset-0" style={{ background: `#e8e8e8` }} />
           )}
           <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 0%, ${C.bg}CC 100%)` }} />
         </div>
@@ -527,7 +523,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
               </div>
               <div className="flex items-center gap-1.5 mt-1.5">
                 <span className="text-[9px] px-2 py-0.5 rounded-full text-white font-medium"
-                  style={{ background: `linear-gradient(135deg, ${C.vip}, #e0b88a)`, letterSpacing: '0.05em' }}>
+                  style={{ background: `#555555`, letterSpacing: '0.05em' }}>
                   {vipLabel}
                 </span>
                 <span className="text-[9px] px-2 py-0.5 rounded-full" style={{ color: C.muted, border: `1px solid ${C.faint}40` }}>
@@ -572,7 +568,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
                 } catch (e: any) { addToast(`获取失败：${e.message}`, 'error'); }
               }}
               className="flex-1 py-2 rounded-xl text-[11px] transition-all text-white"
-              style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, boxShadow: `0 2px 10px ${C.glow}30` }}
+              style={{ background: `#171717`, boxShadow: 'none' }}
             >
               每日推荐
             </button>
@@ -649,8 +645,8 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
                           className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-semibold transition-transform group-active:scale-95"
                           style={{
                             background: initialized
-                              ? `linear-gradient(135deg, ${C.primary}, ${C.lavender})`
-                              : `linear-gradient(135deg, ${C.faint}, ${C.muted})`,
+                              ? `#2a2a2a`
+                              : `#c2c2c2`,
                             border: `2px solid ${initialized ? C.accent : C.faint}60`,
                             boxShadow: initialized ? `0 2px 12px ${C.glow}40` : 'none',
                             opacity: initialized ? 1 : 0.7,
@@ -690,7 +686,7 @@ const NeteaseProfilePage: React.FC<Props> = ({ onBack, onOpenPlayer, onOpenSearc
               onClick={() => { setTab(t.k); trackEvent('切换我的云音乐标签', { tab: t.k }); }}
               className="flex-1 py-1.5 rounded-full text-[11px] tracking-wider transition-all"
               style={{
-                background: tab === t.k ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : 'transparent',
+                background: tab === t.k ? `#171717` : 'transparent',
                 color: tab === t.k ? 'white' : C.muted,
               }}
             >
