@@ -147,7 +147,7 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
 
   return (
     <div className="flex flex-col h-full relative"
-      style={{ background: `linear-gradient(180deg, #ffffff 0%, ${C.bg} 50%, ${C.bgDeep} 100%)` }}>
+      style={{ background: `#f6f6f5` }}>
       <BokehBg />
       <MizuHeader title="登录网易云" onBack={onBack} />
 
@@ -161,7 +161,7 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
           <button key={t.k} onClick={() => setMode(t.k)}
             className="flex-1 py-1.5 rounded-full text-[11px] tracking-wider transition-all"
             style={{
-              background: mode === t.k ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : 'transparent',
+              background: mode === t.k ? `#171717` : 'transparent',
               color: mode === t.k ? 'white' : C.muted,
             }}>
             {t.label}
@@ -176,9 +176,9 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
             <div className="relative rounded-3xl p-4 shizuku-glass-strong"
               style={{ boxShadow: `0 8px 40px ${C.glow}20` }}>
               {qrImg ? (
-                <img src={qrImg} alt="qr" className="w-48 h-48 rounded-xl" />
+                <img src={qrImg} alt="qr" className="w-48 h-48 rounded-md" />
               ) : (
-                <div className="w-48 h-48 rounded-xl flex items-center justify-center"
+                <div className="w-48 h-48 rounded-md flex items-center justify-center"
                   style={{ background: C.glass }}>
                   <span className="w-5 h-5 border-2 rounded-full animate-spin"
                     style={{ borderColor: `${C.faint}40`, borderTopColor: C.primary }} />
@@ -194,7 +194,7 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
               {qrStatus === 'expired' && (
                 <button onClick={startQr}
                   className="mt-3 px-4 py-1.5 rounded-full text-[10px] text-white"
-                  style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})` }}>
+                  style={{ background: `#171717` }}>
                   刷新二维码
                 </button>
               )}
@@ -208,17 +208,17 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
         {/* ── 手机号 ── */}
         {mode === 'phone' && (
           <div className="space-y-3 max-w-[320px] mx-auto">
-            <div className="rounded-2xl p-3 shizuku-glass">
+            <div className="rounded-lg p-3 shizuku-glass">
               <div className="text-[10px] mb-1.5 tracking-wider" style={{ color: C.muted }}>手机号 (仅中国)</div>
               <input
-                className="w-full rounded-xl px-3 py-2 outline-none text-sm shizuku-glass"
+                className="w-full rounded-md px-3 py-2 outline-none text-sm shizuku-glass"
                 style={{ color: C.text }}
                 placeholder="13800138000"
                 value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
                 inputMode="numeric"
               />
             </div>
-            <div className="rounded-2xl p-3 shizuku-glass">
+            <div className="rounded-lg p-3 shizuku-glass">
               <div className="text-[10px] mb-1.5 tracking-wider flex justify-between" style={{ color: C.muted }}>
                 <span>验证码</span>
                 <button
@@ -231,7 +231,7 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
                 </button>
               </div>
               <input
-                className="w-full rounded-xl px-3 py-2 outline-none text-sm shizuku-glass tracking-widest"
+                className="w-full rounded-md px-3 py-2 outline-none text-sm shizuku-glass tracking-widest"
                 style={{ color: C.text }}
                 placeholder="6 位验证码"
                 value={captcha} onChange={e => setCaptcha(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -241,8 +241,8 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
             <button
               onClick={doLogin}
               disabled={loggingIn}
-              className="w-full py-3 rounded-2xl text-sm text-white tracking-wider relative overflow-hidden disabled:opacity-60"
-              style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, boxShadow: `0 3px 18px ${C.glow}30` }}
+              className="w-full py-3 rounded-lg text-sm text-white tracking-wider relative overflow-hidden disabled:opacity-60"
+              style={{ background: `#171717`, boxShadow: 'none' }}
             >
               <span className="relative z-10">{loggingIn ? '登录中...' : '登录'}</span>
             </button>
@@ -255,10 +255,10 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
         {/* ── 手动 Cookie ── */}
         {mode === 'manual' && (
           <div className="space-y-3 max-w-[320px] mx-auto">
-            <div className="rounded-2xl p-3 shizuku-glass">
+            <div className="rounded-lg p-3 shizuku-glass">
               <div className="text-[10px] mb-1.5 tracking-wider" style={{ color: C.muted }}>MUSIC_U Cookie</div>
               <textarea
-                className="w-full rounded-xl px-3 py-2 outline-none text-[10px] shizuku-glass"
+                className="w-full rounded-md px-3 py-2 outline-none text-[10px] shizuku-glass"
                 rows={4}
                 style={{ color: C.text, fontFamily: 'monospace', resize: 'none' }}
                 placeholder="MUSIC_U=xxx... 或直接粘贴 cookie 值"
@@ -276,8 +276,8 @@ const NeteaseLoginPanel: React.FC<Props> = ({ onBack, onLoggedIn }) => {
                 trackEvent('手动粘贴 Cookie 登录网易云');
                 onLoggedIn(final);
               }}
-              className="w-full py-3 rounded-2xl text-sm text-white"
-              style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, boxShadow: `0 3px 18px ${C.glow}30` }}
+              className="w-full py-3 rounded-lg text-sm text-white"
+              style={{ background: `#171717`, boxShadow: 'none' }}
             >
               保存并登录
             </button>
