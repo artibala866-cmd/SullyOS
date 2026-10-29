@@ -33,6 +33,7 @@ type FocusItem = { id: string; source?: {kind: WorkKind; id: string} };
 type FocusLog = { taskId: string; minutes: number; sessionId?: string; date?: string };
 interface Props {
   section: 'commissions' | 'calendar';
+  visible?: boolean;
   focusTasks: FocusItem[];
   records: FocusLog[];
   onFocus: (kind: WorkKind, id: string, title: string) => void;
@@ -862,4 +863,14 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     </>}
   </div>;
 };
-export default WorkspacePanel;
+// While hidden, ignore parent timer ticks that only recreate callback lambdas.
+// Re-enable normal rendering immediately when the section becomes visible.
+const MemoWorkspacePanel=React.memo(WorkspacePanel,(previous,next)=>
+  previous.visible===false && next.visible===false
+  && previous.section===next.section
+  && previous.records===next.records
+  && previous.focusTasks===next.focusTasks
+  && previous.selectedCharId===next.selectedCharId
+  && previous.planPreview===next.planPreview
+);
+export default MemoWorkspacePanel;

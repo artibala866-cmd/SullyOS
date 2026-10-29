@@ -35,6 +35,8 @@ describe('学习室输入顺手、页面保留和排单性能回归',()=>{
     expect(src).toContain("if(!session || session.pauseRemainingMs!=null || tab==='timer'");
     expect(src).toContain('workspaceVisited && <div');
     expect((src.match(/<WorkspacePanel /g)||[]).length).toBe(1);
+    expect(src).toContain("visible={tab==='calendar'||tab==='commissions'}");
+    expect(read('apps/WorkspacePanel.tsx')).toContain('previous.visible===false && next.visible===false');
     expect(src).toContain("tab === 'study' && (");
     expect(src).toContain('tabScrollOffsets.current[tab]');
   });

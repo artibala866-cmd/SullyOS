@@ -508,7 +508,7 @@ const ScheduleApp: React.FC = () => {
         {/* One persistent editor across sections: changing tabs no longer
             destroys unfinished course/commission forms or image previews. */}
         {workspaceVisited && <div className={tab==='commissions'||tab==='calendar'?'':'hidden'}>
-          <WorkspacePanel section={tab==='calendar'?'calendar':'commissions'}
+          <WorkspacePanel visible={tab==='calendar'||tab==='commissions'} section={tab==='calendar'?'calendar':'commissions'}
             focusTasks={tasks} records={records}
             onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan}
             planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)}
