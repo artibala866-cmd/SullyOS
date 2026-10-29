@@ -48,9 +48,9 @@ interface Props {
 }
 const inputClass = 'w-full min-w-0 bg-[#fafafa] border border-neutral-200 text-neutral-900 rounded-lg p-2.5 text-sm outline-none focus:border-neutral-700';
 const buttonClass = 'min-h-11 rounded-xl border border-[#dfdfdf] bg-[#f1f1f1] text-[#292929] px-3 py-2.5 text-sm font-medium hover:bg-[#e9e9e9] disabled:opacity-40';
-const primaryButton = 'min-h-11 rounded-xl bg-[#383838] text-white px-3 py-2.5 text-sm font-medium disabled:opacity-40';
-const mutedButton = 'min-h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-800 hover:bg-[#f6f6f6] disabled:opacity-40';
-const cardClass = 'rounded-2xl border border-[#e9e9e9] p-3.5 sm:p-5 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.018)] space-y-3';
+const primaryButton = 'min-h-11 rounded-full bg-[#242424] text-white px-4 py-2.5 text-sm font-medium disabled:opacity-40';
+const mutedButton = 'min-h-10 rounded-full border border-[#e8e8e8] bg-[#f6f6f6] px-4 py-2 text-xs text-neutral-800 hover:bg-[#eeeeee] disabled:opacity-40';
+const cardClass = 'rounded-[24px] bg-white p-4 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.025)] space-y-4';
 const weekdayNames = ['周日','周一','周二','周三','周四','周五','周六'];
 const blankCommission = () => ({
   title:'',client:'',type:'',brief:'',acceptedAt:localDate(new Date()),
@@ -525,7 +525,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const riskChanges = new Map(projectedRisks.map(r=>[r.commissionId,r]));
   if (!loaded) return <p className="p-6 text-neutral-700">{error || '正在读取工作空间…'}</p>;
 
-  return <div className="text-neutral-900 space-y-3 sm:space-y-4 pb-4">
+  return <div className="text-neutral-900 space-y-5 pb-6">
     {error && <p role="alert" className="p-3 text-sm border border-neutral-500 rounded-lg">{error}</p>}
     {integrityWarnings.length>0 && <section className={cardClass} role="alert">
       <h3 className="font-semibold">本地学习室备份存在异常，已开启安全保护</h3>
@@ -537,7 +537,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </button>
       <p className="text-xs text-neutral-600">这个操作不会自动执行，也不能保证恢复受损的原始文字；完整损坏原件另存本机以备之后人工修复。</p>
     </section>}
-    <div className={section==='commissions'?'':'hidden'}>
+    <div className={'space-y-4 sm:space-y-5 '+(section==='commissions'?'':'hidden')}>
       <header className="flex flex-wrap items-center justify-between gap-3 px-1 pt-1 pb-1">
         <div className="flex items-center gap-3">
           <span className="grid h-12 w-12 place-items-center rounded-[17px] bg-[#252525] text-white"><PenNib size={23} weight="light"/></span>
@@ -729,7 +729,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </article>)}
       </details>
       <datalist id="sully-stages">{['待确认','排队','草稿','线稿','上色','细化','待审核','交付完成'].map(s=><option key={s} value={s}/>)}</datalist>
-    </div><div className={section==='calendar'?'':'hidden'}>
+    </div><div className={'space-y-4 sm:space-y-5 '+(section==='calendar'?'':'hidden')}>
       <header className="flex items-center justify-between gap-3 px-1 pt-2">
         <div className="flex items-center gap-3">
           <span className="grid h-12 w-12 place-items-center rounded-[17px] bg-[#252525] text-white"><BookOpen size={23} weight="light"/></span>
