@@ -35,6 +35,7 @@ vi.mock('./nativeAmsgInbox', () => ({
 }));
 
 import { decodeNativeAmsgPayload, initNativeAmsgPush } from './nativeAmsgPush';
+import { buildFcmMessage } from '../worker/amsg/src/nativeFcm';
 
 const notification = {
   body: '你好呀',
@@ -78,6 +79,46 @@ describe('native AMSG2 FCM payload bridge', () => {
     expect(summary?.amsgNeedsOutboxRecovery).toBe(true);
     expect(summary?.message).toBe('');
     expect(summary?.messageId).toBe('m-preview');
+  });
+
+  it('真实 Worker 的摘要 FCM 信封被原生端识别为需补取原文，而非把摘要上屏', () => {
+    const sent = buildFcmMessage('token', JSON.stringify({
+      messageId: 'cross-layer-preview', messageKind: 'content',
+      message: '第一句和第二句都属于真正的聊天正文',
+      notification: { body: '你收到了一条主动消息' },
+      metadata: { charId: 'c1' },
+    }));
+    const decoded = decodeNativeAmsgPayload({
+      body: sent.message.notification.body, data: sent.message.data,
+    });
+    expect(decoded?.messageId).toBe('cross-layer-preview');
+    expect(decoded?.amsgNeedsOutboxRecovery).toBe(true);
+    expect(decoded?.message).toBe('');
+  });
+
+  it('真实 Worker 的完整短正文信封可以直接进入原生收件箱', () => {
+    const sent = buildFcmMessage('token', JSON.stringify({
+      messageId: 'cross-layer-full', messageKind: 'content',
+      message: '晚安', metadata: { charId: 'c1' },
+    }));
+    const decoded = decodeNativeAmsgPayload({
+      body: sent.message.notification.body, data: sent.message.data,
+    });
+    expect(decoded?.message).toBe('晚安');
+    expect(decoded?.amsgNeedsOutboxRecovery).toBeUndefined();
+  });
+
+  it('超长真实 FCM 信封仅用 ID 恢复，不把通用横幅当正文', () => {
+    const sent = buildFcmMessage('token', JSON.stringify({
+      messageId: 'cross-layer-large', messageKind: 'content',
+      message: '这是一段长回复。'.repeat(2500), metadata: { charId: 'c1' },
+    }));
+    const decoded = decodeNativeAmsgPayload({
+      body: sent.message.notification.body, data: sent.message.data,
+    });
+    expect(decoded?.messageId).toBe('cross-layer-large');
+    expect(decoded?.message).toBe('');
+    expect(decoded?.amsgNeedsOutboxRecovery).toBe(true);
   });
 
   it('does not hijack notifications that are not AMSG2', () => {
