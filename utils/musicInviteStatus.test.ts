@@ -263,3 +263,24 @@ describe('多标签页并发：IndexedDB 原子邀请交易', () => {
     expect(MUSIC_INVITE_DB_CHANGED_KEY).toBe('sully_music_invite_db_changed_v1');
   });
 });
+
+describe('撤回邀请不再留住自动回复倒计时', () => {
+  it('只有关联的邀请撤回才取消计时；其他正常用户消息不受影响', () => {
+    const chat = readFileSync(new URL('../apps/Chat.tsx', import.meta.url), 'utf8');
+    expect(chat).toContain('pendingMusicInviteReplyRef.current');
+    expect(chat).toContain('onMusicInviteResolved');
+    expect(chat).toContain('pending.messageId !== detail.messageId');
+    expect(chat).toContain('latest?.metadata?.musicListenInviteResponseTo === pending.messageId');
+    expect(chat).toContain('autoReply.cancel()');
+    expect(chat).toContain("if (latestPersisted.metadata?.musicListenInviteResponseTo) return;");
+    expect(chat).toContain("!findPendingMusicInvite(fresh, 'user', latestPersisted.id)");
+  });
+
+  it('待回应记录已经被撤回时不能作为自动回复候选', () => {
+    const last = [
+      { id: 100, metadata: { musicListenInvite: true, status: 'pending' } },
+      { id: 101, metadata: { musicListenInviteResponseTo: 100, cancelled: true } },
+    ];
+    expect(findPendingMusicInvite(last, 'user', 100)).toBeUndefined();
+  });
+});
