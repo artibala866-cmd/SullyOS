@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { DB } from './db';
-import { findPendingMusicInvite, hasPendingMusicInvite, persistMusicInviteWithdrawal } from './musicInviteStatus';
+import { findPendingMusicInvite, hasPendingMusicInvite, persistMusicInviteWithdrawal, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from './musicInviteStatus';
 
 describe('一起听邀请状态', () => {
   const fromUser = { id: 1, metadata: { musicListenInvite: true } };
@@ -36,8 +36,12 @@ describe('一起听邀请状态', () => {
   it('两个邀请方向共享同一串行锁，避免读库/写库之间并发叠卡', () => {
     const context = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
     expect(context).toContain('const creatingCharInvites = invitingCharIds;');
-    expect(context).toContain("if (hasPendingMusicInvite(messages)) return;");
-    expect(context).toContain("if (findPendingMusicInvite(history, 'char'))");
+    expect(context).toContain('DB.createMusicListeningInvite({');
+    expect(context).toContain('DB.resolveMusicListeningInvite(');
+    const dbSource = readFileSync(new URL('./db.ts', import.meta.url), 'utf8');
+    expect(dbSource).toContain("db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite')");
+    expect(dbSource).toContain("store.index('charId').getAll(IDBKeyRange.only(invite.charId))");
+    expect(dbSource).toContain("store.index('charId').getAll(IDBKeyRange.only(charId))");
   });
 
   it('任一方的待回应邀请都会阻止再创建反向邀请', () => {
@@ -165,5 +169,97 @@ describe('聊天卡片撤回反馈与跨页面事件检查', () => {
     expect(card).toContain('onClick={cancelMusicInvite}');
     expect(card).toContain("role=\"status\"");
     expect(card).toContain("clearTimeout(inviteCancelTimerRef.current)");
+  });
+});
+
+describe('多标签页并发：IndexedDB 原子邀请交易', () => {
+  const outgoing = (charId: string) => ({
+    charId, role: 'user' as const, type: 'system' as const,
+    content: '邀请一起听',
+    metadata: { musicListenInvite: true, status: 'pending', invitedAt: Date.now() },
+  });
+  const incoming = (charId: string) => ({
+    charId, role: 'assistant' as const, type: 'system' as const,
+    content: '角色邀请',
+    metadata: { musicListenInvite: true, inviter: 'char', status: 'pending', invitedAt: Date.now() },
+  });
+  const answer = (charId: string, accepted: boolean, cancelled = false) => ({
+    charId, role: 'user' as const, type: 'system' as const,
+    content: accepted ? '接受' : cancelled ? '撤回' : '拒绝',
+    metadata: { accepted, ...(cancelled ? { cancelled: true } : {}) },
+  });
+
+  it('并发两次创建只能产生一条邀请，两端分享同一消息 ID', async () => {
+    const id = 'atomic-same-direction-1';
+    const [a, b] = await Promise.all([
+      DB.createMusicListeningInvite(outgoing(id)),
+      DB.createMusicListeningInvite(outgoing(id)),
+    ]);
+    expect([a.status, b.status].sort()).toEqual(['created', 'pending_self']);
+    expect(a.messageId).toBe(b.messageId);
+    const history = await DB.getMessagesByCharId(id, true);
+    expect(history.filter(m => m.metadata?.musicListenInvite).length).toBe(1);
+  });
+
+  it('两个方向同时发邀请，只有一方创建成功', async () => {
+    const id = 'atomic-opposite-directions-1';
+    const [a, b] = await Promise.all([
+      DB.createMusicListeningInvite(outgoing(id)),
+      DB.createMusicListeningInvite(incoming(id)),
+    ]);
+    expect([a.status, b.status].sort()).toEqual(['created', 'pending_other']);
+    expect(a.messageId).toBe(b.messageId);
+    expect((await DB.getMessagesByCharId(id, true))
+      .filter(m => m.metadata?.musicListenInvite).length).toBe(1);
+  });
+
+  it('两标签页同时撤回与接受，同一条邀请只能有一条最终回应', async () => {
+    const id = 'atomic-withdraw-vs-accept-1';
+    const created = await DB.createMusicListeningInvite(outgoing(id));
+    const [withdraw, accepted] = await Promise.all([
+      DB.resolveMusicListeningInvite(id, 'user', answer(id, false, true), created.messageId),
+      DB.resolveMusicListeningInvite(id, 'user', {
+        ...answer(id, true), role: 'assistant' as const,
+      }, created.messageId),
+    ]);
+    expect([withdraw.resolved, accepted.resolved].sort()).toEqual([false, true]);
+    const history = await DB.getMessagesByCharId(id, true);
+    expect(history.filter(m => m.metadata?.musicListenInviteResponseTo === created.messageId)).toHaveLength(1);
+    expect(findPendingMusicInvite(history, 'user')).toBeUndefined();
+    const again = await DB.resolveMusicListeningInvite(id, 'user', answer(id, false, true), created.messageId);
+    expect(again.resolved).toBe(false);
+  });
+
+  it('旧消息 ID 不能撤回新邀请，撤回成功后可再次创建', async () => {
+    const id = 'atomic-stale-message-1';
+    const first = await DB.createMusicListeningInvite(outgoing(id));
+    expect((await DB.resolveMusicListeningInvite(id, 'user', answer(id, false, true), first.messageId)).resolved).toBe(true);
+    const second = await DB.createMusicListeningInvite(outgoing(id));
+    expect(second.status).toBe('created');
+    expect(second.messageId).not.toBe(first.messageId);
+    expect((await DB.resolveMusicListeningInvite(id, 'user', answer(id, false, true), first.messageId)).resolved).toBe(false);
+    expect(findPendingMusicInvite(await DB.getMessagesByCharId(id, true), 'user')?.id).toBe(second.messageId);
+  });
+
+  it('角色邀请已被其他标签页拒绝后，过期的接受动作不能再加入或写重复回应', async () => {
+    const id = 'atomic-reply-char-1';
+    const created = await DB.createMusicListeningInvite(incoming(id));
+    const reject = await DB.resolveMusicListeningInvite(id, 'char', answer(id, false), created.messageId);
+    expect(reject.resolved).toBe(true);
+    const staleAccept = await DB.resolveMusicListeningInvite(id, 'char', answer(id, true), created.messageId);
+    expect(staleAccept.resolved).toBe(false);
+    const history = await DB.getMessagesByCharId(id, true);
+    expect(history.filter(m => m.metadata?.musicListenInviteResponseTo === created.messageId)).toHaveLength(1);
+  });
+
+  it('跨标签页的变更信号只携带角色 ID，不相信缓存的 pending 标记', () => {
+    expect(musicInviteChangedCharId(JSON.stringify({charId:'char-123',at:1}))).toBe('char-123');
+    expect(musicInviteChangedCharId('{broken')).toBeNull();
+    expect(musicInviteChangedCharId(JSON.stringify({charId:42}))).toBeNull();
+    const context = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
+    const app = readFileSync(new URL('../apps/MusicApp.tsx', import.meta.url), 'utf8');
+    expect(context).toContain('MUSIC_INVITE_DB_CHANGED_KEY');
+    expect(app).toContain('MUSIC_INVITE_DB_CHANGED_KEY');
+    expect(MUSIC_INVITE_DB_CHANGED_KEY).toBe('sully_music_invite_db_changed_v1');
   });
 });
