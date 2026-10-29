@@ -127,6 +127,17 @@ describe('authored tub rim contact and reversible leg crossing',()=>{
   expect(follow.trailTuck).toBeGreaterThan(.8);
   expect(follow.trailStep).toBeGreaterThan(.5);
  });
+ it('reverses the complete in-tub pivot through the identical safe path',()=>{
+  const j=fixture(),duration=j.enter*2+j.hold;
+  for(let t=3.4;t<j.enter;t+=.04){
+   const entry=bathroomJourneyFrame(j,t),exit=bathroomJourneyFrame(j,duration-t);
+   expect(distance(entry.position,exit.position)).toBeLessThan(1e-6);
+   expect(Math.abs(entry.rotation-exit.rotation)).toBeLessThan(1e-6);
+  }
+  const rest=bathroomJourneyFrame(j,j.enter);
+  expect(distance(rest.position,j.position)).toBeLessThan(1e-6);
+  expect(rest.rotation).toBeCloseTo(j.rotation,6);
+ });
  it('keeps both palm contacts fixed in room space across entering, yaw and exit',()=>{
   const a={...activity,bathHandWorld:[[.72,1.16,.52],[.72,1.16,-.52]]};
   for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2]){
