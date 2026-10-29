@@ -4,7 +4,7 @@ import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
 import StudyCharPicker from './StudyCharPicker';
 import StudyAvatar from './StudyAvatar';
-import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil} from '@phosphor-icons/react';
+import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
 import {buildCompanionOverview,companionMomentText} from '../utils/studyRoomCompanion';
@@ -90,7 +90,7 @@ const ScheduleApp: React.FC = () => {
     task,minutes:records.filter(r=>r.taskId===task.id)
       .reduce((sum,r)=>sum+(Number.isFinite(r.minutes)?r.minutes:0),0),
   })).filter(row=>row.minutes>0);
-  const shell = 'rounded-2xl bg-white border border-[#e9e9e9] shadow-[0_2px_10px_rgba(0,0,0,0.018)]';
+  const shell = 'rounded-[26px] bg-white shadow-[0_8px_30px_rgba(18,18,18,0.035)]';
   const inset = 'rounded-xl bg-[#fafafa] border border-neutral-200';
   const btn = 'rounded-xl border border-[#dedede] bg-[#f0f0f0] px-3 py-2.5 text-sm font-medium text-[#292929] disabled:opacity-40 active:scale-[.98] transition-transform';
   const weeklyFocus=Array.from({length:7},(_,i)=>{
@@ -432,15 +432,15 @@ const ScheduleApp: React.FC = () => {
       )}
       <div className={tab === 'study'
         ? 'hidden'
-        : 'h-full w-full flex flex-col overflow-hidden bg-[#f7f7f7] text-[#292929] font-sans'}
+        : 'h-full w-full flex flex-col overflow-hidden bg-[#eeeeed] text-[#242424] font-sans'}
         style={{paddingTop:'var(--safe-top)'}}>
-      <header className="shrink-0 border-b border-neutral-200/70 bg-white/95 px-3 sm:px-6 py-2 backdrop-blur-xl">
+      <header className="shrink-0 mx-3 mt-3 sm:mx-6 rounded-[24px] bg-white px-3 sm:px-5 py-2.5 shadow-[0_6px_22px_rgba(0,0,0,.025)]">
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-2.5">
           <button aria-label="返回" onClick={requestExit} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-neutral-200 text-lg hover:bg-neutral-100">‹</button>
-          <div className="flex-1 min-w-0"><p className="text-xs tracking-wide text-neutral-500">STUDY ROOM · SULLYOS</p>
-            <h1 className="font-serif text-[23px] leading-tight tracking-[0.11em]">学习室<span className="ml-2 align-middle text-xs font-normal tracking-normal text-neutral-500">Focus & Create</span></h1>
+          <div className="flex-1 min-w-0"><p className="text-[10px] tracking-[.18em] text-neutral-500">SULLY OS / STUDY</p>
+            <h1 className="text-[20px] font-semibold leading-tight tracking-tight">学习室</h1>
           </div>
-          <span className="hidden sm:block text-xs tracking-normal text-neutral-500">专注 · 创作 · 成长</span>
+          <span className="hidden sm:block text-xs text-neutral-400">Focus & Create</span>
           <button type="button" aria-label="选择陪伴 Char" aria-expanded={showCharPicker}
             onClick={()=>setShowCharPicker(v=>!v)}
             className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-900">
@@ -448,42 +448,44 @@ const ScheduleApp: React.FC = () => {
           </button>
         </div>
       </header>
-      <div className="shrink-0 flex w-full items-center justify-between gap-2 border-b border-neutral-200 bg-white/90 px-3 py-1.5 text-xs sm:px-6" aria-label="Char 持续陪伴状态">
-        <p className="min-w-0 flex-1 truncate text-neutral-600">
-          <strong className="text-neutral-800">{activeChar?.name||'尚未选 Char'}</strong> · {companionStatus}
+      <div className="shrink-0 mx-3 mt-3 sm:mx-6 flex items-center justify-between gap-2 rounded-2xl bg-white/65 px-4 py-2 text-xs" aria-label="Char 持续陪伴状态">
+        <p className="min-w-0 flex-1 truncate text-neutral-500" title={companionStatus}>
+          <span className="inline-block mr-2 h-1.5 w-1.5 rounded-full bg-neutral-500 align-middle" aria-hidden="true"></span>
+          <strong className="text-neutral-800">{activeChar?.name||'尚未选 Char'}</strong> <span className="hidden sm:inline">· {companionStatus}</span>
+          <span className="sm:hidden">· 陪伴中</span>
         </p>
         <button type="button" disabled={overviewBusy} onClick={()=>void openCompanionOverview()}
           className="shrink-0 rounded-full border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs font-medium disabled:opacity-50">
           {overviewBusy?'读取中…':'一起看今天'}
         </button>
       </div>
-      <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 pb-4 space-y-3">
+      <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-5 pb-7 space-y-5">
         {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
         </section>}
-        {tab === 'timer' && <section className={shell + ' relative mx-auto w-full max-w-[570px] overflow-hidden p-4 sm:p-6 space-y-4'}>
+        {tab === 'timer' && <section className="relative mx-auto w-full max-w-[570px] space-y-4 pb-4 sm:pt-3">
             
-            <div className="relative flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#f1f1f1]"><Target size={18} weight="light"/></span>
-                <div className="min-w-0"><p className="text-[14px] font-semibold leading-tight">专注计时</p><p className="truncate text-xs tracking-normal text-neutral-500">FOCUS TIME</p></div></div>
+            <div className="flex items-center justify-between gap-2 px-1">
+              <div className="flex min-w-0 items-center gap-2.5"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#242424] text-white"><Target size={20} weight="regular"/></span>
+                <div className="min-w-0"><p className="text-[17px] font-semibold leading-tight">专注计时</p><p className="truncate text-[11px] tracking-wide text-neutral-500">FOCUS / TIME</p></div></div>
               <span className="shrink-0 rounded-full border border-neutral-200 bg-[#fafafa] px-2.5 py-1.5 text-xs text-neutral-600">{session?.mode==='break'?'休息中':session?.mode==='focus'?'沉浸进行中':'准备开始'}</span>
             </div>
-            <div className="relative rounded-[15px] border border-[#eeeeee] bg-[#fafafa] px-3 py-3.5 sm:py-5 text-center">
-              <div className="text-xs tracking-wide text-neutral-500">{session?.mode==='break'?'REST & RESET':'YOUR QUIET MOMENT'}</div>
-              <div className="mt-1.5 font-serif text-[clamp(48px,13vw,74px)] leading-none tracking-[-.055em] tabular-nums">{pad(Math.floor(remaining/60))}:{pad(remaining%60)}</div>
-              <div className="mx-auto mt-2.5 h-1 w-full max-w-sm overflow-hidden rounded-full bg-[#e5e5e5]"><div className="h-full rounded-full bg-neutral-900 transition-[width]"
+            <div className="relative overflow-hidden rounded-[30px] bg-white px-5 py-9 sm:py-12 text-center shadow-[0_12px_36px_rgba(0,0,0,0.035)]">
+              <div className="text-[11px] tracking-[.22em] text-neutral-400">{session?.mode==='break'?'REST & RESET':'DEEP FOCUS'}</div>
+              <div className="mt-5 font-sans font-semibold text-[clamp(48px,13vw,74px)] leading-none tracking-[-.055em] tabular-nums">{pad(Math.floor(remaining/60))}:{pad(remaining%60)}</div>
+              <div className="mx-auto mt-7 h-1 w-full max-w-[260px] overflow-hidden rounded-full bg-[#e9e9e9]"><div className="h-full rounded-full bg-neutral-900 transition-[width]"
                 style={{width:session?`${Math.max(0,Math.min(100,(1-remaining/(session.duration*60))*100))}%`:'0%'}}/></div>
-              <p className="mt-2.5 text-xs text-neutral-500">当前任务</p>
-              <p className="mt-0.5 line-clamp-1 text-[13px] font-medium">{session?.mode==='break'?'好好休息一下':activeTask?.title||'选一件重要的事开始'}</p>
-              <div className="mt-3 flex items-center justify-center gap-3">
+              <p className="mt-8 text-[11px] tracking-wide text-neutral-500">CURRENT TASK</p>
+              <p className="mt-1 line-clamp-1 text-[14px] font-semibold">{session?.mode==='break'?'好好休息一下':activeTask?.title||'选一件重要的事开始'}</p>
+              <div className="mt-8 flex items-center justify-center gap-4">
                 {session ? <>
                   <button className="grid h-11 w-11 place-items-center rounded-full border border-neutral-300 bg-white" aria-label={session.pauseRemainingMs!=null?'继续专注':'暂停专注'} onClick={session.pauseRemainingMs!=null?resume:pause}>
                     {session.pauseRemainingMs!=null?<Play size={22} weight="fill"/>:<Pause size={22} weight="fill"/>}</button>
                   <button className="grid h-[48px] w-[48px] place-items-center rounded-full bg-[#363636] text-white shadow-sm" aria-label="结束或退出本轮选项" title="选择留在学习室或退出" onClick={requestExit}><Stop size={22} weight="fill"/></button>
                 </> : <>
-                  <button className="rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs" onClick={()=>start('break')}>休息</button>
-                  <button className="grid h-[50px] w-[50px] place-items-center rounded-full bg-[#363636] text-white shadow-sm" aria-label="开始专注" onClick={()=>start('focus')}><Play size={23} weight="fill"/></button>
-                  <button className="rounded-full border border-neutral-300 bg-white px-4 py-3 text-xs" onClick={()=>switchTab('tasks')}>选任务</button>
+                  <button className="min-h-11 rounded-full bg-[#f2f2f2] px-5 py-2 text-xs font-medium" onClick={()=>start('break')}>休息</button>
+                  <button className="grid h-[60px] w-[60px] place-items-center rounded-full bg-[#232323] text-white shadow-sm" aria-label="开始专注" onClick={()=>start('focus')}><Play size={23} weight="fill"/></button>
+                  <button className="min-h-11 rounded-full bg-[#f2f2f2] px-5 py-2 text-xs font-medium" onClick={()=>switchTab('tasks')}>选任务</button>
                 </>}
               </div>
               {session&&<p className="mt-2 text-xs text-neutral-600">结束先确认，未完成不计入记录。</p>}
@@ -502,17 +504,23 @@ const ScheduleApp: React.FC = () => {
                   去核对并手动结算
                 </button>
               </div>}
-            <div className="min-w-0">
-              <select aria-label="当前任务" value={selectedTask} disabled={!!session} onChange={e=>setSelectedTask(e.target.value)} className={inset+' w-full min-w-0 p-2.5 text-[12px] outline-none'}>
+            <div className="rounded-[22px] bg-white px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,.02)]">
+              <select aria-label="当前任务" value={selectedTask} disabled={!!session} onChange={e=>setSelectedTask(e.target.value)} className={'w-full min-w-0 rounded-xl bg-[#f4f4f4] px-3 py-3 text-sm outline-none'}>
                 <option value="">请选择今天的专注任务</option>
                 {tasks.filter(t=>!t.done).map(t=><option value={t.id} key={t.id}>{t.title}</option>)}
               </select>
             </div>
-            <div className="flex items-center justify-between gap-2 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
-              <span>今日专注 <strong className="text-neutral-900">{totalToday}</strong> 分 · <strong className="text-neutral-900">{todayRecords.length}</strong> 轮</span>
-              <button type="button" onClick={()=>switchTab('stats')} className="shrink-0 rounded-lg px-2 py-1.5 text-neutral-700 underline underline-offset-4">查看专注记录</button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex min-h-[118px] flex-col justify-between rounded-[24px] bg-white p-4 shadow-[0_4px_20px_rgba(0,0,0,.02)]">
+                <div className="flex items-center justify-between"><span className="text-xs text-neutral-500">今日专注</span><Target size={19} weight="light"/></div>
+                <p className="text-[30px] font-semibold tabular-nums leading-none">{totalToday}<span className="ml-1.5 text-xs font-normal text-neutral-500">min</span></p>
+              </div>
+              <button type="button" onClick={()=>switchTab('stats')} className="flex min-h-[118px] flex-col justify-between rounded-[24px] bg-[#252525] p-4 text-left text-white">
+                <div className="flex items-center justify-between"><span className="text-xs text-white/70">专注轮次</span><ArrowRight size={19}/></div>
+                <p className="text-[30px] font-semibold tabular-nums leading-none">{todayRecords.length}<span className="ml-1.5 text-xs font-normal text-white/60">次</span></p>
+              </button>
             </div>
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 px-2 pt-1">
               <label className="flex min-w-0 items-center gap-2 text-xs text-neutral-600">
                 <input type="checkbox" checked={focusLock} onChange={e=>setFocusLock(e.target.checked)}/>
                 专注保护
@@ -582,11 +590,13 @@ const ScheduleApp: React.FC = () => {
         </div>}
 
       </main>
-      <nav className="shrink-0 grid grid-cols-4 gap-1 px-2 py-2 border-t border-neutral-200 bg-white/95 shadow-[0_-4px_18px_rgba(0,0,0,0.025)]"
+      <nav className="shrink-0 grid grid-cols-4 gap-1.5 mx-3 mb-2 rounded-[24px] bg-white px-2 py-1.5 shadow-[0_-3px_22px_rgba(0,0,0,0.035)]"
         style={{paddingBottom:'max(12px, var(--safe-bottom, 0px))'}}>
         {([['timer','专注'],['commissions','排单'],['calendar','课程表'],['study','自习室']] as const)
           .map(([id,title])=><button key={id} onClick={()=>switchTab(id)}
-            className={'min-h-11 rounded-xl py-2.5 text-[12px] font-medium transition-colors '+(tab===id?'bg-[#ececec] text-[#292929] font-semibold ring-1 ring-inset ring-[#dedede]':'text-neutral-600 hover:bg-neutral-100')}>{title}</button>)}
+            className={'min-h-[52px] flex flex-col items-center justify-center gap-0.5 rounded-[16px] py-1.5 text-[11px] font-medium transition-colors '+(tab===id?'bg-[#252525] text-white':'text-neutral-500 hover:bg-[#f4f4f4]')}>
+            {id==='timer'?<Target size={19}/>:id==='commissions'?<PenNib size={19}/>:id==='calendar'?<CalendarDots size={19}/>:<BookOpen size={19}/>}
+            <span>{title}</span></button>)}
       </nav>
       {exitOpen && <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center p-6">
         <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-[#eeeeee] rounded-3xl p-6 space-y-4 shadow-xl">
