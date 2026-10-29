@@ -29,6 +29,9 @@ describe('incremental Home3D Halloween furniture and pets',()=>{
  });
  it('ships the original GLB binary and thumbnail for each newly registered asset',()=>{
   for(const asset of [...seasonal,...newPets.map(find)]){
+   // New Meshopt-compressed GLBs must use the configured loader, not an unconfigured default.
+   const loaderSource=readFileSync('apps/room3d/editor.js','utf8');
+   expect(loaderSource).toContain('setMeshoptDecoder(MeshoptDecoder)');
    expect(asset?.url).toBeTruthy();
    const model=readFileSync('public/room3d/'+asset.url);
    expect(model.toString('ascii',0,4),asset.id).toBe('glTF');
