@@ -94,7 +94,7 @@ export function bathroomJourneyFrame(j,time){
   // return to the exact authored seat center. Never rotate a planted toe
   // across the near rim or teleport the character.
   const dx=j.position[0]-j.front[0],dz=j.position[2]-j.front[2],length=Math.hypot(dx,dz)||1;
-  const interiorScoot=.40*Math.sin(Math.PI*turnWeight);
+  const interiorScoot=.20*Math.sin(Math.PI*turnWeight);
   position[0]+=dx/length*interiorScoot;
   position[2]+=dz/length*interiorScoot;
   seatWeight=lower;legLift=M.smootherstep(p,3.32,4.24);
