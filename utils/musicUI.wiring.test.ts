@@ -416,10 +416,10 @@ describe('音乐布局遮挡回归', () => {
   });
   it('个人页的两处迷你播放器与全局音源、加载状态和进度同步', () => {
     expect(profile).toContain('current, playing, loadingSong, progress, duration');
-    expect(profile.match(/source=\\{current\\.source\\}/g)?.length).toBe(2);
-    expect(profile.match(/loading=\\{loadingSong\\}/g)?.length).toBe(2);
-    expect(profile.match(/progress=\\{progress\\}/g)?.length).toBe(2);
-    expect(profile.match(/duration=\\{duration\\}/g)?.length).toBe(2);
+    expect(profile.split('source={current.source}').length - 1).toBe(2);
+    expect(profile.split('loading={loadingSong}').length - 1).toBe(2);
+    expect(profile.split('progress={progress}').length - 1).toBe(2);
+    expect(profile.split('duration={duration}').length - 1).toBe(2);
   });
   it('一起听卡片的接受、拒绝、结束保持 44px 点击高度并对应原动作', () => {
     expect(app).toContain('music-tap min-h-11 px-3 rounded-full');
