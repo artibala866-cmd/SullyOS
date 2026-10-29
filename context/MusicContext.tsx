@@ -505,6 +505,7 @@ interface MusicContextType {
   duration: number;
   loadingSong: boolean;
   actualQualityLabel: string;
+  lyricMessage: string;
 
   // 歌词
   lyric: LyricLine[];
@@ -702,6 +703,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [duration, setDuration] = useState(0);
   const [loadingSong, setLoadingSong] = useState(false);
   const [actualQualityLabel, setActualQualityLabel] = useState('尚未解析音源');
+  const [lyricMessage, setLyricMessage] = useState('正在获取歌词…');
 
   // 歌词
   const [lyric, setLyric] = useState<LyricLine[]>([]);
@@ -1246,7 +1248,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       commitQueue(plan.queue, plan.idx);
     }
 
-    setLoadingSong(true); setActualQualityLabel('正在解析音质…'); setLyric([]); setTlyric([]); setProgress(0); setDuration(0);
+    setLoadingSong(true); setActualQualityLabel('正在解析音质…'); setLyricMessage('正在获取歌词…'); setLyric([]); setTlyric([]); setProgress(0); setDuration(0);
     try {
       // ── Local-source branch ── 本地生成的歌（写歌 App 出歌）从 IndexedDB 取 blob
       if (song.local && !song.localAssetKey) {
@@ -1324,6 +1326,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else {
           setLyric([]);
           setTlyric([]);
+          setLyricMessage('这首本地歌曲没有保存歌词');
         }
 
         if ('mediaSession' in navigator) {
@@ -1343,9 +1346,15 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // 歌词请求不阻塞音频开始播放；慢歌词只能更新对应的那一首歌。
       void musicApi.lyricFor(cfgRef.current, song).then(lyricRes => {
         if (requestId !== playRequestSeq.current) return;
-        setLyric(parseLyric(lyricRes?.lrc?.lyric || ''));
-        setTlyric(parseLyric(lyricRes?.tlyric?.lyric || ''));
-      }).catch(() => {});
+        const original = parseLyric(lyricRes?.lrc?.lyric || '');
+        const translation = parseLyric(lyricRes?.tlyric?.lyric || '');
+        setLyric(original);
+        setTlyric(translation);
+        setLyricMessage(original.length ? '' : '这个来源没有返回带时间轴的歌词');
+      }).catch(() => {
+        if (requestId === playRequestSeq.current) setLyricMessage(
+          song.source === 'tencent' ? 'QQ 歌词接口暂不可用，不影响音频播放' : '歌词接口暂不可用，不影响音频播放');
+      });
       const urlRes = await musicApi.songUrlFor(cfgRef.current, song);
       if (requestId !== playRequestSeq.current) return;
       const item = urlRes?.data?.[0];
@@ -1721,7 +1730,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
     addToQueue, moveQueueSong, removeQueueSong, clearUpcomingQueue,
     queue, setQueue, idx, current,
-    playing, progress, duration, loadingSong, actualQualityLabel,
+    playing, progress, duration, loadingSong, actualQualityLabel, lyricMessage,
     lyric, tlyric, activeLyricIdx,
     profile, refreshProfile,
     playSong, togglePlay, nextSong, prevSong, seek,
