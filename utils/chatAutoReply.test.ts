@@ -101,13 +101,23 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
-    it.each([{ conversationId: 'b' }, { active: false }, { enabled: false }])('discards pending work and late completions after %o', patch => {
+    it.each([{ conversationId: 'b' }, { active: false }])('preserves an existing reply intent while %o, ignoring late saves', patch => {
         send();
         let finish!: (sent: boolean) => void;
         act(() => { finish = controls.beginSend('a'); });
         render(patch);
         act(() => finish(true));
         render({ conversationId: 'a', active: true, enabled: true });
+        advance(2000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('removes the saved reply intent when automatic replies are switched off', () => {
+        send();
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        render({ enabled: false });
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeNull();
+        render({ enabled: true });
         advance(5000);
         expect(options.onGenerate).not.toHaveBeenCalled();
     });
