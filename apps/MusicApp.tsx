@@ -800,17 +800,19 @@ const MusicApp: React.FC = () => {
 
   return (
     <div className="absolute inset-0 overflow-hidden">
-      {view === 'search' && renderSearch()}
-      {view === 'player' && renderPlayer()}
-      {view === 'settings' && renderSettings()}
-      {view === 'profile' && (
-        <NeteaseProfilePage
-          onBack={() => setView('search')}
-          onOpenPlayer={() => setView('player')}
-          onOpenSearch={() => setView('search')}
-          onOpenSettings={() => setView('settings')}
-        />
-      )}
+      <div key={view} className="absolute inset-0 music-panel-enter">
+        {view === 'search' && renderSearch()}
+        {view === 'player' && renderPlayer()}
+        {view === 'settings' && renderSettings()}
+        {view === 'profile' && (
+          <NeteaseProfilePage
+            onBack={() => setView('search')}
+            onOpenPlayer={() => setView('player')}
+            onOpenSearch={() => setView('search')}
+            onOpenSettings={() => setView('settings')}
+          />
+        )}
+      </div>
       {/* 手动对轴 modal — 全屏覆盖，不开新 view */}
       {showLyricSync && current && current.local && (() => {
         const fmt = (s: number) => {
