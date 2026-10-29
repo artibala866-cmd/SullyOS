@@ -392,10 +392,16 @@ function texture(color){
   if(!bathroom)throw Error('Bathtub never reached a safe physical entry station');
   // Sample the actual animated rig, not just the controller's final status.
   // These measurements are a diagnostic trace, not mesh/visual approval.
+  // Only the controller's real authored bath clock defines support phases.
+  // advancePets samples can begin partway through entry after the arrival
+  // tick, so labeling them i*dt can falsely count a swinging foot as planted.
   report.bathRigFrames=[];
-  for(let i=0;i<16;i++){
-   editor.advancePets(.15);
+  for(let i=0;i<70;i++){
+   editor.advancePets(.06);
    const state=editor.inspect(),root=state.chibiPosition;
+   const progress=state.chibiActivity?.bathTime;
+   if(!Number.isFinite(progress)||state.chibiActivity?.bathPhase!=='enter')
+    throw Error('Bath stopped or reversed before the required entry samples were collected');
    const rim=state.chibiActivity?.bathHandWorld||[];
    const handErrors=['L','R'].map((side,k)=>{
     if(!rim[k])return null;
@@ -403,37 +409,41 @@ function texture(color){
      .distanceTo(new Vector3(...rim[k]));
    });
    report.bathRigFrames.push({
-    progress:Number(((i+1)*.15).toFixed(2)),root,
+    progress:Number(progress.toFixed(4)),root,
     handErrors,leadTrailAngle:bathPerson.rig.bones.L_thigh.quaternion.angleTo(bathPerson.rig.bones.R_thigh.quaternion),
     toes:['L','R'].map(side=>bathPerson.rig.bones[side+'_toe'].getWorldPosition(new Vector3()).toArray())
    });
+   if(progress>=2.52)break;
   }
+  const sampleAt=(time,tolerance=.085)=>{
+   const closest=report.bathRigFrames.reduce((best,f)=>
+    !best||Math.abs(f.progress-time)<Math.abs(best.progress-time)?f:best,null);
+   return closest&&Math.abs(closest.progress-time)<=tolerance?closest:null;
+  };
+  if(!sampleAt(2.5))throw Error('Timed bath entry did not reach the crossing-leg checkpoint');
   if(!editor.inspect().chibiActivity?.bathJourney)
    throw Error('Bath entry stopped unexpectedly before cancellation');
-  const rimHeight=bathroom.edge[1],floorHeight=bathroom.front[1],targetHeight=bathroom.position[1];
+  const floorHeight=bathroom.front[1],targetHeight=bathroom.position[1];
   if(report.bathRigFrames.some(f=>!f.root?.every(Number.isFinite)||f.root[1]>Math.max(floorHeight,targetHeight)+.04))
    throw Error('Bath journey moved the complete skeleton above its floor-to-interior root range');
   if(!report.bathRigFrames.some(f=>f.leadTrailAngle>.12))
    throw Error('The bath transfer never produced separate near/trailing leg poses');
-  const gripBeforeCross=report.bathRigFrames.find(f=>f.progress===1.8);
+  const gripBeforeCross=sampleAt(1.80);
   if(!gripBeforeCross?.handErrors?.some(d=>Number.isFinite(d)&&d<.25))
    throw Error('Hands did not reach a real bathtub rim contact before the first crossing leg lifted');
-  const grounded=report.bathRigFrames.filter(f=>f.progress>=.6&&f.progress<=1.05);
+  const grounded=report.bathRigFrames.filter(f=>f.progress>=.36&&f.progress<=1.20);
   if(grounded.some(f=>Math.min(...f.toes.map(p=>p[1]))<floorHeight-.09))
    throw Error('A stance foot sank below the bath entrance floor during the supported approach');
-  // A real step may move its swinging foot; the WORLD-PLANTED foot may not.
-  // Check both stance intervals separately, never call the intentional
-  // trailing-right swing from .78-1.20 a "sliding" right support foot.
-  for(const [side,start,end] of [[1,.45,.75],[0,.90,1.05]]){
-   const from=report.bathRigFrames.find(f=>f.progress===start)?.toes[side];
-   const to=report.bathRigFrames.find(f=>f.progress===end)?.toes[side];
-   if(!from||!to)throw Error('Missing independently sampled approach stance toe');
+  // The supporting foot may only be measured within the actual controller
+  // phase where it is planted: right .27-.77, then left .77-1.24.
+  for(const [side,fromTime,toTime] of [[1,.36,.70],[0,.86,1.13]]){
+   const from=sampleAt(fromTime)?.toes[side],to=sampleAt(toTime)?.toes[side];
+   if(!from||!to)throw Error('Missing actual-clock approach stance toe samples');
    const shift=Math.hypot(...from.map((v,i)=>v-to[i]));
    if(shift>.12)throw Error((side===0?'Left':'Right')+' planted toe slid '+shift.toFixed(3)+'m during the bath approach');
   }
-  // Both feet really advanced; neither was merely carried through the rim.
-  const first=report.bathRigFrames.find(f=>f.progress===.45)?.toes[0];
-  const after=report.bathRigFrames.find(f=>f.progress===1.2)?.toes[0];
+  // Confirm an actual left-leg approach swing, not merely a moving root.
+  const first=sampleAt(.40)?.toes[0],after=sampleAt(1.17)?.toes[0];
   if(!first||!after||Math.hypot(...first.map((v,i)=>v-after[i]))<.08)
    throw Error('The bath approach did not place the first swing foot forward');
   const returnPoint=[...bathroom.front];
