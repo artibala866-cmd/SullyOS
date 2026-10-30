@@ -242,15 +242,16 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).toContain('setPhonePage(\'study\')');
  });;
 
- it('真正手机结构：常驻单一头像球、手机硬边框、原生私聊历史和原生私聊提示词',()=>{
+
+ it('手机外壳与真正私聊继续独立，保留悬浮球和原有私聊数据路径',()=>{
    expect(schedule).toContain('aria-label="打开 Char 悬浮手机"');
    expect(schedule).toContain('className="study-room-float-ball"');
    expect(schedule).toContain('className="home-phone study-room-phone"');
    expect(schedule).toContain('study-phone-speaker');
    expect(schedule).toContain('study-phone-homebar');
    expect(studyPhoneCss).toContain('border:5px solid #252525');
-   expect(studyPhoneCss).toContain('width:min(218px,56vw,calc((100dvh - 154px)*0.46))');
-   expect(studyPhoneCss).toContain('aspect-ratio:9 / 19.5;height:auto;min-height:0;max-height:none');
+   expect(studyPhoneCss).toContain('width:min(326px,calc(100% - 24px),calc((100dvh - 132px)*0.5))');
+   expect(studyPhoneCss).toContain('aspect-ratio:9 / 18;height:auto;min-height:0;max-height:none');
    expect(nativeChat).toContain('homePhone?.characterId??osActiveCharacterId');
    expect(nativeChat).toContain('hideHeader?:boolean');
    expect(schedule).toContain("getContext:blankPhoneContext");
@@ -259,44 +260,43 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).not.toContain('与 Char 陪伴交流');
    expect(schedule).toContain("!session&&phonePage==='private'&&activeChar");
  });
-
- it('尺寸回归：320/360/390 窄屏及短屏均保持真手机纵向比例而非压扁横版',()=>{
-   const ratio=9/19.5;
-   for(const [w,h] of [[320,568],[360,740],[390,844],[430,932],[698,768]]){
-      const width=Math.min(218,w*0.56,(h-154)*0.46);
-      const height=width/ratio;
-      expect(height/width).toBeCloseTo(19.5/9,4);
-      expect(height).toBeGreaterThan(width*2);
-      expect(width).toBeLessThan(w*0.65);
-      expect(height+91).toBeLessThan(h);
+ it('320/349/360/390/430 和宽屏：手机比例不被压扁，也不超出屏幕',()=>{
+   for(const [w,h] of [[320,568],[349,768],[360,740],[390,844],[430,932],[698,768]]){
+      const phoneWidth=Math.min(326,w-24,(h-132)*0.5);
+      const phoneHeight=phoneWidth*18/9;
+      const bottom=h<=620?76:86;
+      expect(phoneHeight/phoneWidth).toBeCloseTo(2,5);
+      expect(phoneWidth).toBeLessThanOrEqual(w-24);
+      expect(phoneHeight+bottom).toBeLessThan(h);
    }
-   const css=studyPhoneCss.split('@media(max-height:620px)')[1]||'';
-   expect(css).not.toContain('height:min(60dvh,410px)');
-   expect(studyPhoneCss).not.toContain('width:min(326px');
+   const screenshotWidth=Math.min(326,349-24,(768-132)*0.5);
+   expect(screenshotWidth).toBeGreaterThan(300);
+   expect(studyPhoneCss).not.toContain('width:min(218px');
+   expect(studyPhoneCss).not.toContain('width:min(232px');
+   expect(studyPhoneCss).toContain('font-size:17px!important');
+   expect(studyPhoneCss).toContain('line-height:1.55!important');
    expect(schedule).toContain('<NotePencil size={17}/>');
-   expect(schedule).toContain('className="grid h-8 w-8 shrink-0 place-items-center"');
  });
-
- it('私聊整页按390逻辑宽度等比缩小，不能只压窄消息气泡或输入区',()=>{
-   expect(schedule).toContain('const nativePhoneWidth=390;');
+ it('真实私聊按300px逻辑宽度排版，常见手机的实际聊天文字至少约15px',()=>{
+   expect(schedule).toContain('const nativePhoneWidth=300;');
    expect(schedule).toContain('new ResizeObserver(measure)');
    expect(schedule).toContain('width:nativePhoneWidth');
    expect(schedule).toContain('height:Math.ceil(nativeViewportSize.height/nativePhoneScale)');
-   expect(schedule).toContain('transform:`scale(${nativePhoneScale})`');
-   expect(schedule).toContain("ref={nativePhoneViewport} className=\"study-phone-native-viewport\"");
+   expect(schedule).toContain('transform:\`scale(\${nativePhoneScale})\`');
+   expect(schedule).toContain('ref={nativePhoneViewport} className="study-phone-native-viewport"');
    expect(schedule).toContain('className="study-phone-native-canvas"');
    expect(studyPhoneCss).toContain('transform-origin:top left');
    expect(studyPhoneCss).toContain('position:absolute;inset:0;overflow:hidden');
    expect(studyPhoneCss).toContain('width:100%!important;height:100%!important');
-   for(const [outerWidth,insideWidth,insideHeight] of [[218,198,416],[180,160,350],[205,185,380]]){
-     const scale=insideWidth/390;
-     const logicalHeight=insideHeight/scale;
-     expect(390*scale).toBeCloseTo(insideWidth);
-     expect(logicalHeight*scale).toBeCloseTo(insideHeight);
-     expect(scale).toBeGreaterThan(0.35);
-     expect(scale).toBeLessThan(0.6);
-     expect(outerWidth-insideWidth).toBeGreaterThanOrEqual(20);
+   for(const [w,h] of [[349,768],[360,740],[390,844],[430,932]]){
+     const phoneWidth=Math.min(326,w-24,(h-132)*0.5);
+     const interior=phoneWidth-22;
+     const scale=interior/300;
+     expect(300*scale).toBeCloseTo(interior);
+     expect(17*scale).toBeGreaterThanOrEqual(15);
    }
+   expect(studyPhoneCss).toContain('.study-room-phone .sully-chat-inputbar textarea');
+   expect(studyPhoneCss).not.toContain('font-size:7px');
  });
 
 });
