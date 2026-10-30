@@ -1616,7 +1616,13 @@ describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
   it('puts a saved NPC reply in the real outbox even when User contact is SILENT, never in a push', async () => {
     const o=newContext();
     const prepared=fired(await amsgHooks.onBeforeFire(o.ctx));
-    expect(prepared.messages[0].content).toContain('昨晚的事怎么样了');
+    expect(prepared.messages[0].content,
+      'Stage4 worker snapshot/reservation diagnostic: ' + JSON.stringify({
+        rowKeys:[...o.used.rows.keys()],
+        resultSideId:o.used.rows.get('cloud_phone_last_reply_attempt'),
+        scratchPhone:JSON.stringify(o.scratch).slice(0,1200),
+        rawCandidate:candidate,
+      })).toContain('昨晚的事怎么样了');
     const decision=await output(o,'[[SILENT]]\n[[CLOUD_PHONE_REPLY:{"messages":["我刚看到，晚点聊"]}]]');
     expect(decision.decision).toBe('skip-push');
     expect(o.emitResult).toHaveBeenCalledTimes(1);
