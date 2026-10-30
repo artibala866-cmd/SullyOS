@@ -199,3 +199,46 @@ it('kneels in front of the seated hug partner, preserves their seat, strokes the
   both.forEach(r=>r.visitor.rig!.mesh.geometry.dispose());
  }}finally{vi.unstubAllGlobals();}
 });
+
+
+it('combines actual princess-carry clip bones with existing paired hand support for both role directions',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async(url:string)=>({ok:true,json:async()=>JSON.parse(readFileSync('public/'+url.replace(/^\//,''),'utf8'))})));
+ try{
+  for(const action of ['home-princess-carry','home-princess-carried'])for(const heights of [[1,1],[.8,1.25]]){
+   const residents=[actor(heights[0],-.45,0),actor(heights[1],.45,Math.PI)];
+   residents.forEach(r=>{
+    vi.mocked(r.visitor.applySelectedFrame).mockImplementation((frame,weight=1)=>{
+     for(const [n,q] of Object.entries(frame.rotations))r.visitor.rig!.bones[n]?.quaternion.slerp(q as T.Quaternion,weight);
+     r.visitor.root.updateWorldMatrix(true,true);
+    });
+   });
+   const runtime=createSocialScene(residents.map((r,i)=>({id:String(i),visitor:r.visitor})));
+   expect(await runtime.start(action,'0','1')).toBe(true);
+   const session=runtime.inspect().session!;
+   runtime.seek(session.duration-socialActions[action].duration+5.6);
+   const [carrier,recipient]=action==='home-princess-carried'?[residents[1],residents[0]]:residents;
+   expect(recipient.body.position.length(),action).toBeGreaterThan(.10);
+   expect(residents.map(r=>r.visitor.root.position.y)).toEqual([0,0]);
+   for(const r of residents){
+    const calls=vi.mocked(r.visitor.applySelectedFrame).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const frame=calls.at(-1)![0];
+    expect(frame.rotations.spine).toBeDefined();
+    expect(frame.rotations.L_upperArm).toBeUndefined(); // Existing hand IK still owns both supports.
+    expect(frame.position.y).toBe(0); // Navigation never inherits Meshy vertical drift.
+    expect(r.visitor.rig!.skeleton.bones.every(b=>b.matrixWorld.elements.every(Number.isFinite))).toBe(true);
+   }
+   const supports=[
+    recipient.visitor.rig!.bones.spine.localToWorld(new T.Vector3(0,.10,-.16)),
+    recipient.visitor.rig!.bones.R_shin.localToWorld(new T.Vector3(0,.08,-.10)),
+   ];
+   for(const [i,side] of (['L','R'] as const).entries()){
+    const palm=carrier.visitor.rig!.bones[side+'_hand'].localToWorld(furniturePalm(side));
+    expect(palm.distanceTo(supports[i]),`real capture hand ${side}, ${action}, ${heights}`).toBeLessThan(.20);
+   }
+   runtime.cancel();
+   expect(runtime.inspect().session).toBeNull();
+   residents.forEach(r=>{expect(r.body.position.length()).toBeLessThan(1e-5);r.visitor.rig!.mesh.geometry.dispose();});
+  }
+ }finally{vi.unstubAllGlobals();}
+});
