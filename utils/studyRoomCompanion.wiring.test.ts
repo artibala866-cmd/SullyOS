@@ -56,7 +56,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain("coachIdleSince.current=Date.now()");
   expect(schedule).toContain('if(!activeChar || coachSetting.level===\'off\'');
   expect(schedule).toContain("isVisible:document.visibilityState==='visible'");
-  expect(schedule).toContain("isTimerTab:tab!=='study'");
+  expect(schedule).toContain("isTimerTab:true, // caller already exits on the separate legacy PDF tab");
   expect(schedule).toContain("lastEventKey:sameDay?seen.key:''");
   expect(schedule).toContain("if(isStudyCoachQuietTime(coachSetting,new Date(when)))");
   expect(schedule).toContain('window.setInterval(check,60000)');
@@ -183,7 +183,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
 
  it('真陪伴审计：跨分区不打断表单，真实主动消息可辨识且上下文不丢',()=>{
    expect(schedule).toContain("['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName||'')");
-   expect(schedule).toContain("isTimerTab:tab!=='study'");
+   expect(schedule).toContain("isTimerTab:true, // caller already exits on the separate legacy PDF tab");
    expect(schedule).toContain('seenEventKeys:sameDay?seen.seenKeys:[]');
    expect(schedule).toContain('rememberStudyCoachEvent(');
    expect(schedule).toContain("origin:'auto_coach'");
