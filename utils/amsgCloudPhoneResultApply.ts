@@ -31,7 +31,7 @@ export async function applyCloudPhoneResult(payload: unknown, context?: AmsgResu
       !isCharacterPhoneAutonomyEnabled(row.charId) ||
       readPhoneAutonomyRevision(row.charId) !== row.revision ||
       readPhoneContentClearRevision(row.charId, 'chats') !== row.clearRevision) return true;
-    const contact = readNpcProfiles(row.charId).find(c => c.id === row.contactId && c.source !== 'character');
+    const contact = readNpcProfiles(row.charId).find(c => c.id === row.contactId && c.source !== 'character' && !c.linkedCharacterId);
     if (!contact) return true;
     const thread = readCharacterPhoneChats(row.charId).find(t => t.id === row.threadId && t.contactId === contact.id);
     if (!thread) return true;
