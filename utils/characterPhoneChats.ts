@@ -94,12 +94,27 @@ export function appendCharacterPhoneMessages(input: {
   contactName: string;
   messages: PhoneMessage[];
   at?: number;
+  /** An offline cloud reply must be appended ONLY if the exact original
+   * unanswered thread still exists. Never re-create a deleted conversation.
+   * Checked in the same synchronous storage transform as the append. */
+  expectedLatest?: { threadId: string; messageCount: number; lastAt: number; lastText: string };
 }): { thread: CharacterPhoneChat; added: PhoneMessage[] } | null {
   if (!input.characterId || !input.contactId || !input.messages.length) return null;
   const at = input.at ?? Date.now();
   let result: { thread: CharacterPhoneChat; added: PhoneMessage[] } | null = null;
   updateCharacterPhoneChats(input.characterId, old => {
     const previous = old.find(r => r.contactId === input.contactId);
+    if (input.expectedLatest) {
+      const expected = input.expectedLatest;
+      const last = previous?.messages[previous.messages.length - 1];
+      if (!previous || previous.id !== expected.threadId ||
+          previous.messages.length !== expected.messageCount ||
+          last?.speaker?.role !== 'contact' ||
+          (last.createdAt || previous.time) !== expected.lastAt ||
+          typeof last.text !== 'string' || last.text.slice(0, 300) !== expected.lastText) {
+        return old;
+      }
+    }
     // Repeated short human phrases are legitimate hours later. Reject only
     // immediate duplicated deliveries/retries, not every historical "嗯".
     const recent = new Set((previous?.messages || []).slice(-12)
@@ -111,7 +126,10 @@ export function appendCharacterPhoneMessages(input: {
       if (m.cloudSourceId && knownCloudIds.has(m.cloudSourceId)) return false;
       if (m.cloudSourceId) knownCloudIds.add(m.cloudSourceId);
       const key = m.speaker.role + '|' + m.text.trim();
-      if (recent.has(key)) return false;
+      // Cloud messages already have a globally stable source ID. A repeated
+      // short phrase can be an intentional separate NPC turn; text-based
+      // duplicate suppression must not silently discard it.
+      if (!m.cloudSourceId && recent.has(key)) return false;
       recent.add(key);
       return true;
     });
