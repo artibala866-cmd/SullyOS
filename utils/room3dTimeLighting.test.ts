@@ -15,6 +15,15 @@ describe('home daylight follows the owner clock',()=>{
   for(const at of ['2026-10-02T00:00:00Z','2026-10-02T12:00:00Z'])expect(resolveRoomLightPhase('day','Asia/Shanghai',new Date(at))).toBe('day');
   expect(resolveRoomLightPhase('bad-mode','Asia/Shanghai',new Date('2026-10-02T12:00:00Z'))).toBe('night');
  });
+ it('keeps every time-of-day profile readable without excessive ambient or fill wash',()=>{
+  for(const [name,p] of Object.entries(ROOM_LIGHT_PHASES)){
+   expect(p.ambient, name).toBeGreaterThanOrEqual(1);
+   expect(p.ambient, name).toBeLessThan(1.5);
+   expect(p.fillPower, name).toBeLessThan(.5);
+   expect(p.keyPower, name).toBeGreaterThan(p.fillPower);
+   expect(p.brightness, name).toBeGreaterThan(0);
+  }
+ });
  it('changes the existing GPU uniform values without replacing their shared references',()=>{
   const uniforms=createRoomLightUniforms(),original={...uniforms},sky=uniforms.skyTop.value;
   updateRoomLightUniforms(uniforms,ROOM_LIGHT_PHASES.day);const day=sky.getHex();
