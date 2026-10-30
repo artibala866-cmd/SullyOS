@@ -190,3 +190,59 @@ export function buildStudyRoomReality(
   activeCommissions,pendingHomework,todayCourses,dueSoonCommissions,dueSoonHomework,hint,
  };
 }
+
+
+/** A contextual draft for a user-initiated conversation. This is NOT a Char
+ * response; personality comes from the actual selected character's model.
+ * No private data or automatic task mutations are included.
+ */
+export interface CompanionPdfPresence {
+ courseTitle:string;chapterTitle:string;progress:number;
+}
+export function companionEntryPrompt(
+ reality:StudyRoomReality,
+ taskName='',
+ pdf:CompanionPdfPresence|null=null,
+ recentRoundMinutes=0,
+):string {
+ if(pdf?.courseTitle){
+  const chapter=pdf.chapterTitle?'《'+pdf.chapterTitle.slice(0,60)+'》':'这门课';
+  return '我在看《'+pdf.courseTitle.slice(0,60)+'》的'+chapter+'。请用你自己的方式陪我梳理刚学的内容，先问我理解到哪里，不要假定我已学会。';
+ }
+ if(reality.phase==='focus')
+  return '我正在专注'+(taskName?'处理「'+taskName.slice(0,60)+'」':'')+'。我想简短说一下卡住的地方，请先听我说，不打断本轮计时。';
+ if(reality.phase==='paused')
+  return '我暂停了一下当前任务'+(taskName?'「'+taskName.slice(0,60)+'」':'')+'。陪我理清卡住的地方，别替我把任务标成完成。';
+ if(reality.phase==='break')
+  return '现在是休息时间。我想跟你简单聊聊这一轮，先不要催我继续。';
+ if(recentRoundMinutes>0)
+  return '我刚完成一轮 '+recentRoundMinutes+' 分钟专注。先听我说实际做了什么，再陪我复盘，暂时不要自动结算。';
+ if(reality.unsettledLinkedMinutes>0)
+  return '我有 '+reality.unsettledLinkedMinutes+' 分钟专注记录还没核对。陪我回顾实际进展，但不要自动扣工时或标记完成。';
+ if(reality.dueSoonHomework>0||reality.dueSoonCommissions>0)
+  return '接下来有 '+(reality.dueSoonHomework+reality.dueSoonCommissions)+' 项临近的学习或画稿安排。陪我一起选一件先做的，不要替我改日期。';
+ if(reality.todayCourses>0)
+  return '今天安排了 '+reality.todayCourses+' 节课程。帮我理一下学习顺序，先问我的状态。';
+ if(reality.todayFocusMinutes>0)
+  return '我今天已记录 '+reality.todayFocusMinutes+' 分钟专注。陪我回顾进展，再一起决定下一步。';
+ return '陪我一起看看现在先做什么比较好？';
+}
+
+/** Display only a genuine recent AI reply from the same Char's voluntary
+ * study-room overview. Do not expose a commission-specific or homework-
+ * specific reply on unrelated pages, or treat old unknown-time replies as new.
+ */
+export function recentCompanionReply(
+ notes:readonly {charId?:string;scope?:string;role?:string;content?:string;createdAt?:number}[],
+ charId:string,now=Date.now(),
+):string {
+ if(!charId)return '';
+ for(let i=notes.length-1;i>=0;i--){
+  const n=notes[i];
+  if(n.charId!==charId||n.scope!=='overview'||n.role!=='assistant')continue;
+  if(!Number.isFinite(n.createdAt)||!n.createdAt||now-n.createdAt<0||now-n.createdAt>10*60000)return '';
+  const snippet=(n.content||'').replace(/[\r\n\t]+/g,' ').replace(/\s+/g,' ').trim().slice(0,54);
+  return snippet?snippet+(n.content!.trim().length>54?'…':''):'';
+ }
+ return '';
+}
