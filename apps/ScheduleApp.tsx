@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
+import {AppID} from '../types';
 import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
 import StudyCharPicker from './StudyCharPicker';
 import StudyAvatar from './StudyAvatar';
-import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X} from '@phosphor-icons/react';
+import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X,Minus,ChatCircleDots,CaretDown,ArrowsOutSimple} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
 import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachEvent,rememberStudyCoachEvent,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
@@ -36,7 +37,7 @@ const save = (key: string, value: unknown) => {
 };
 
 const ScheduleApp: React.FC = () => {
-  const { closeApp, characters, activeCharacterId, addToast, apiConfig, userProfile } = useOS();
+  const { closeApp, openApp, setActiveCharacterId, characters, activeCharacterId, addToast, apiConfig, userProfile } = useOS();
   const [tasks, setTasks] = useState<FocusTask[]>(() => load('tasks', []));
   const [records, setRecords] = useState<FocusRecord[]>(() => load('records', []));
   const [taskInput, setTaskInput] = useState('');
@@ -68,6 +69,10 @@ const ScheduleApp: React.FC = () => {
   },[charId]);
   const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantMinimized,setAssistantMinimized]=useState(false);
+  const [assistantPickerOpen,setAssistantPickerOpen]=useState(false);
+  const [assistantOffset,setAssistantOffset]=useState({x:0,y:0});
+  const assistantDrag=useRef<{startX:number;startY:number;x:number;y:number;left:number;right:number;top:number;bottom:number;hostLeft:number;hostRight:number;hostTop:number;hostBottom:number}|null>(null);
   const [companionMoment,setCompanionMoment]=useState('');
   const [companionMomentAt,setCompanionMomentAt]=useState(0);
   const [coachByChar,setCoachByChar]=useState<Record<string,StudyCoachSetting>>(()=>load('coachByChar',{}));
@@ -426,6 +431,7 @@ const ScheduleApp: React.FC = () => {
     setCoachPrompt('');
   };
   const chooseChar = (id:string) => {
+    setAssistantPickerOpen(false);
     if (id!==charId){autoCoachController.current?.abort();manualChatController.current?.abort();}
     if (id===charId) {setShowCharPicker(false);return;}
     discussionVersion.current += 1;
@@ -445,11 +451,44 @@ const ScheduleApp: React.FC = () => {
     setPlanPreview(null);
     setMessage('');
   };
+  const openSelectedPrivateChat=()=>{
+    if(!activeChar)return;
+    // A private-chat shortcut must not bypass the focus chat-window restriction.
+    if(session){addToast('先安全结束计时，再进入私聊','info');return;}
+    if(message.trim()&&!window.confirm('学习室里有尚未发送的文字。进入私聊不会自动转发这些内容，继续吗？'))return;
+    manualChatController.current?.abort();
+    autoCoachController.current?.abort();
+    setActiveCharacterId(activeChar.id);
+    openApp(AppID.Chat);
+  };
+  const onAssistantDragStart=(event:React.PointerEvent<HTMLDivElement>)=>{
+    if(event.button!==0||(event.target as HTMLElement).closest('button'))return;
+    const panel=event.currentTarget.closest('[data-study-floating-chat]');
+    const host=panel?.parentElement;
+    if(!panel||!host)return;
+    const rect=panel.getBoundingClientRect(),parent=host.getBoundingClientRect();
+    assistantDrag.current={startX:event.clientX,startY:event.clientY,
+      x:assistantOffset.x,y:assistantOffset.y,
+      left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,
+      hostLeft:parent.left,hostRight:parent.right,hostTop:parent.top,hostBottom:parent.bottom};
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const onAssistantDragMove=(event:React.PointerEvent<HTMLDivElement>)=>{
+    const drag=assistantDrag.current;
+    if(!drag)return;
+    const dx=Math.max(drag.hostLeft+8-drag.left,Math.min(drag.hostRight-8-drag.right,event.clientX-drag.startX));
+    const dy=Math.max(drag.hostTop+8-drag.top,Math.min(drag.hostBottom-8-drag.bottom,event.clientY-drag.startY));
+    setAssistantOffset({x:drag.x+dx,y:drag.y+dy});
+  };
+  const onAssistantDragEnd=(event:React.PointerEvent<HTMLDivElement>)=>{
+    assistantDrag.current=null;
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+  };
   const openCompanionOverview=async()=>{
     if(overviewBusy)return;
     if(!activeChar){
       setAssistantScope('overview');setAssistantItemId('');setAssistantTopic('');
-      setMessage('');setAssistantOpen(true);
+      setMessage('');setAssistantMinimized(false);setAssistantOpen(true);
       addToast('请先在学习室陪伴对话框中选择 Char','info');return;
     }
     manualChatController.current?.abort();
@@ -488,7 +527,7 @@ const ScheduleApp: React.FC = () => {
       // Refreshing the overview must not overwrite a draft the user is editing.
       setMessage(assistantOpen&&assistantScope==='overview'&&message.trim()?message
         :continuing?'':draft);
-      setAssistantOpen(true);
+      setAssistantMinimized(false);setAssistantOpen(true);
     }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
     finally{setOverviewBusy(false);}
   };
@@ -502,7 +541,7 @@ const ScheduleApp: React.FC = () => {
     setAssistantItemId(itemId);
     setAssistantTopic(topic);
     setMessage(scope==='study'?'请根据我提供的作业或笔记追问我，帮我复盘。':'请根据当前画稿进度建议下一步。');
-    setAssistantOpen(true);
+    setAssistantMinimized(false);setAssistantOpen(true);
   };
   const proposeCommissionPlan = (workspace: WorkspaceData) => {
     try {
@@ -515,7 +554,7 @@ const ScheduleApp: React.FC = () => {
       setAssistantItemId('');
       setAssistantTopic(request.prompt);
       setMessage('请按上述 JSON 格式给出一份待我逐项审核的排单方案。');
-      setAssistantOpen(true);
+      setAssistantMinimized(false);setAssistantOpen(true);
     } catch(error) {
       addToast(error instanceof Error ? error.message : '无法整理排单资料','error');
     }
@@ -742,7 +781,7 @@ const ScheduleApp: React.FC = () => {
                   discussionVersion.current+=1;
                   setPlanRequest(null);setAssistantTopic('');
                   setAssistantScope('focus');setAssistantItemId('');
-                  setAssistantOpen(true);
+                  setAssistantMinimized(false);setAssistantOpen(true);
                 }}>与 Char 陪伴交流 <ArrowRight size={13}/></button>
             </div>
           </section>}
@@ -856,49 +895,74 @@ const ScheduleApp: React.FC = () => {
           <p className="mt-4 text-xs leading-relaxed text-neutral-500">只在学习室空闲时，根据真实事项变化显示提醒；相同事项当天不重复，专注或休息时保持安静。本机提醒不是 Char 消息。仅开启上方独立授权后，才可能由模型在学习室内发出真实回复；不会向普通私聊或 AMSG 自动推送。</p>
         </section>
       </div>}
-      {assistantOpen && <div className="absolute inset-0 z-[80] bg-black/40 flex items-end justify-center"
-        onClick={()=>setAssistantOpen(false)}>
-        <section className="bg-white text-neutral-900 w-full max-w-xl h-[78dvh] max-h-full min-h-0 rounded-t-2xl p-4 pb-[max(16px,var(--safe-bottom,0px))] flex flex-col gap-3"
-          onClick={e=>e.stopPropagation()}>
-          <div className="flex justify-between items-center">
-            <h2 className="font-semibold text-sm">Char · 当前工作陪伴</h2>
-            <button className="text-lg px-3" aria-label="关闭 Char" onClick={()=>setAssistantOpen(false)}>×</button>
+
+      {assistantOpen && assistantMinimized && <div className="pointer-events-none absolute bottom-[max(16px,var(--safe-bottom,0px))] right-3 z-[80]">
+        <button type="button" onClick={()=>setAssistantMinimized(false)}
+          aria-label="展开学习室 Char 悬浮聊天" className="pointer-events-auto flex min-h-12 max-w-[225px] items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm shadow-[0_10px_30px_rgba(0,0,0,.15)]">
+          <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-8 w-8 rounded-full object-cover"/>
+          <span className="max-w-[125px] truncate">{activeChar?.name||'Char'} · 继续聊</span><ArrowsOutSimple size={16}/>
+        </button>
+      </div>}
+      {assistantOpen && !assistantMinimized && <div className="pointer-events-none absolute inset-0 z-[80]" aria-label="学习室悬浮聊天区域">
+        <section data-study-floating-chat role="dialog" aria-modal="false" aria-label="学习室 Char 悬浮聊天"
+          style={{transform:`translate(${assistantOffset.x}px,${assistantOffset.y}px)`}}
+          className="pointer-events-auto absolute bottom-[max(12px,var(--safe-bottom,0px))] right-3 flex h-[min(62dvh,510px)] min-h-[260px] max-h-[calc(100dvh-72px)] w-[calc(100%-24px)] max-w-[355px] flex-col overflow-hidden rounded-[25px] border border-neutral-200 bg-[#f6f6f6] text-neutral-900 shadow-[0_18px_65px_rgba(0,0,0,.20)]">
+          <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2.5 touch-none select-none cursor-grab active:cursor-grabbing"
+            onPointerDown={onAssistantDragStart} onPointerMove={onAssistantDragMove} onPointerUp={onAssistantDragEnd} onPointerCancel={onAssistantDragEnd}>
+            <button type="button" aria-label="快速选择 Char" aria-expanded={assistantPickerOpen}
+              className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={()=>setAssistantPickerOpen(v=>!v)}>
+              <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-9 w-9 shrink-0 rounded-full object-cover"/>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{activeChar?.name||'选择 Char'}</span>
+              <CaretDown size={14} className="shrink-0 text-neutral-500"/>
+            </button>
+            <button type="button" aria-label="进入所选 Char 的真正私聊" title={session?'计时中不能跳过专注聊天限制':'进入真正私聊（不自动同步学习室记录）'}
+              disabled={!activeChar||!!session} onClick={openSelectedPrivateChat}
+              className="flex h-10 shrink-0 items-center gap-1 rounded-full bg-[#eeeeee] px-2.5 text-xs font-medium disabled:opacity-40">
+              <ChatCircleDots size={17}/> 私聊
+            </button>
+            <button type="button" aria-label="收起悬浮聊天" onClick={()=>setAssistantMinimized(true)}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-neutral-100"><Minus size={19}/></button>
+            <button type="button" aria-label="关闭 Char 聊天" onClick={()=>setAssistantOpen(false)}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-neutral-100"><X size={19}/></button>
           </div>
-          <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
-          {assistantScope==='overview' && <button type="button" disabled={!activeChar||overviewBusy}
-            className="self-start rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs disabled:opacity-50"
-            onClick={()=>void openCompanionOverview()}>
-            {overviewBusy?'正在读取计划…':'查看最新学习和画稿计划'}
-          </button>}
-          <p className="text-xs text-neutral-500">{assistantScope==='focus'?'专注陪伴':assistantScope==='study'?'作业复盘':assistantScope==='commission'?'画稿建议':assistantScope==='overview'?'今日陪伴':'排单建议'}</p>
-          {assistantTopic && <details className="text-xs rounded-lg border border-neutral-200 px-3 py-2">
-            <summary className="cursor-pointer">发送内容</summary>
-            <p className="mt-2 whitespace-pre-wrap break-words max-h-36 overflow-y-auto">{assistantTopic.slice(0,12000)}</p>
-            {planRequest && <p>本轮只返回待审核的 JSON 方案，不自动改稿件。</p>}
+          {assistantPickerOpen && <div className="shrink-0 border-b border-neutral-200 bg-white px-2 py-2" aria-label="选择陪伴 Char">
+            <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
+          </div>}
+          <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 text-[11px] text-neutral-500">
+            <span>{assistantScope==='focus'?'专注':assistantScope==='study'?'作业':assistantScope==='commission'?'画稿':assistantScope==='overview'?'今天':'排单'}</span>
+            {assistantScope==='overview'&&<button type="button" disabled={!activeChar||overviewBusy}
+              onClick={()=>void openCompanionOverview()} className="rounded-full px-2 py-1 hover:bg-neutral-200 disabled:opacity-40">
+              {overviewBusy?'读取中…':'更新计划'}
+            </button>}
+          </div>
+          {assistantTopic&&<details className="shrink-0 mx-3 mb-1 rounded-xl bg-white/80 px-2.5 py-1.5 text-[11px] text-neutral-600">
+            <summary className="cursor-pointer">本轮共享内容 · 点击查看</summary>
+            <p className="mt-1 max-h-20 overflow-y-auto whitespace-pre-wrap break-words">{assistantTopic.slice(0,12000)}</p>
+            {planRequest&&<p>本轮只生成待确认排单，不自动修改委托。</p>}
           </details>}
-          {session?.mode==='focus' && <p className="text-xs">本轮已交流 {allowance.used}/{allowance.limit} 次。
-            {allowance.canSend?'当前五分钟窗口可交流':'当前窗口不可再交流'}</p>}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border border-neutral-200 rounded-lg p-3 space-y-2">
-            {visibleNotes.length===0 && <p className="text-sm text-neutral-500">当前 Char 尚无学习室交流记录。</p>}
-            {visibleNotes.map(n=><p key={n.id} className="text-sm whitespace-pre-wrap break-words">
-              <span className="text-neutral-500">{n.role==='user'?'我':activeChar?.name||'Char'}{n.origin==='auto_coach'?' · 主动陪伴':''}：</span>{n.content}</p>)}
+          {session?.mode==='focus'&&<p className="shrink-0 px-3 text-[11px] text-neutral-500">本轮交流 {allowance.used}/{allowance.limit} · {allowance.canSend?'可以发送':'当前窗口已用完'}</p>}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-2" aria-label="学习室聊天消息">
+            {visibleNotes.length===0&&<p className="py-10 text-center text-xs text-neutral-400">和 {activeChar?.name||'Char'} 说句话吧</p>}
+            {visibleNotes.map(n=><div key={n.id} className={'flex min-w-0 gap-2 '+(n.role==='user'?'justify-end':'justify-start')}>
+              {n.role==='assistant'&&<StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="mt-1 h-7 w-7 shrink-0 rounded-full object-cover"/>}
+              <div className={'max-w-[79%] min-w-0 rounded-[17px] px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap break-words '+(n.role==='user'?'rounded-br-[5px] bg-[#292929] text-white':'rounded-bl-[5px] bg-white text-neutral-800 shadow-[0_2px_10px_rgba(0,0,0,.035)]')}>
+                {n.origin==='auto_coach'&&<p className="mb-1 text-[10px] text-neutral-500">主动陪伴</p>}
+                {n.content}
+              </div>
+            </div>)}
           </div>
-          {unscopedNotes.length>0 && <details className="text-xs text-neutral-600">
-            <summary>旧对话（{unscopedNotes.length}）</summary>
-            <div className="max-h-24 overflow-auto whitespace-pre-wrap">
-              {unscopedNotes.map(n=><p key={n.id}>{n.role==='user'?'我':'旧回复'}：{n.content}</p>)}
+          {(unscopedNotes.length>0||unassignedNotes.length>0)&&<details className="shrink-0 px-3 text-[11px] text-neutral-500">
+            <summary className="cursor-pointer">旧记录 ({unscopedNotes.length+unassignedNotes.length})</summary>
+            <div className="max-h-16 overflow-y-auto break-words">
+              {[...unscopedNotes,...unassignedNotes].map(n=><p key={n.id}>{n.role==='user'?'我':'Char'}：{n.content}</p>)}
             </div>
           </details>}
-          {unassignedNotes.length>0 && <details className="text-xs text-neutral-600">
-            <summary>旧记录（{unassignedNotes.length}）</summary>
-            <div className="max-h-24 overflow-auto whitespace-pre-wrap">
-              {unassignedNotes.map(n=><p key={n.id}>{n.role==='user'?'我':'旧回复'}：{n.content}</p>)}
-            </div>
-          </details>}
-          <form onSubmit={e=>{e.preventDefault();void sendNote();}} className="shrink-0 flex gap-2">
-            <input className={inset+' min-h-11 flex-1 min-w-0 p-2 text-sm'} value={message} onChange={e=>setMessage(e.target.value)}
-              aria-label="对 Char 说" placeholder="主动问 Char…"/>
-            <button className={btn+' min-h-11'} disabled={replying || !allowance.canSend} type="submit">{replying?'回复中':'发送'}</button>
+          <form onSubmit={e=>{e.preventDefault();void sendNote();}}
+            className="flex shrink-0 gap-2 border-t border-neutral-200 bg-white px-3 pt-2.5 pb-[max(12px,var(--safe-bottom,0px))]">
+            <input className="min-w-0 min-h-11 flex-1 rounded-full bg-[#f3f3f3] px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-neutral-500"
+              value={message} onChange={e=>setMessage(e.target.value)} aria-label="对 Char 说" placeholder="说点什么…"/>
+            <button className="grid h-11 min-w-12 shrink-0 place-items-center rounded-full bg-[#292929] px-3 text-sm text-white disabled:opacity-40"
+              disabled={replying||!allowance.canSend} type="submit">{replying?'…':'发送'}</button>
           </form>
         </section>
       </div>}
