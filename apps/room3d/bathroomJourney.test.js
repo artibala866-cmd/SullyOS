@@ -249,3 +249,22 @@ describe('bathtub seated transfer without an inboard foot-drop rebound',()=>{
   }
  });
 });
+
+describe('bathroom palm release when the body pivots away from the fixed outer rim',()=>{
+ it('retains the hold for both foot crossings, eases it before the old grip becomes unreachable, and reverses symmetrically',()=>{
+  const j=fixture(),end=2*j.enter+j.hold;
+  for(const t of [1.8,2.5,3.2,3.40]){
+   expect(bathroomJourneyFrame(j,t).support).toBeGreaterThan(.98);
+  }
+  const samples=[3.5,3.65,3.8,3.95,4.05,4.08,4.25].map(t=>({t,s:bathroomJourneyFrame(j,t).support}));
+  expect(samples[0].s).toBeCloseTo(1,7);
+  expect(samples.at(-1).s).toBe(0);
+  expect(samples.find(x=>x.t===4.05).s).toBeLessThan(.025);
+  for(let i=1;i<samples.length;i++)expect(samples[i].s).toBeLessThanOrEqual(samples[i-1].s+1e-9);
+  for(const {t,s} of samples)expect(bathroomJourneyFrame(j,end-t).support).toBeCloseTo(s,8);
+  for(const t of [3.5,3.65,3.8,3.95,4.05,4.08]){
+   const delta=Math.abs(bathroomJourneyFrame(j,t+.005).support-bathroomJourneyFrame(j,t-.005).support);
+   expect(delta).toBeLessThan(.03);
+  }
+ });
+});

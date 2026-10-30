@@ -503,6 +503,13 @@ function texture(color){
     editor.setSuspended(false);
    }
   };
+  const captureBathSide=async stage=>{
+   // Rotate the actual viewer, never the furniture, actor, root or IK target.
+   // Restore the original angle before continuing the reversible journey.
+   command('turn-view',{angle:1.12});
+   try{await captureBath(stage+'-side');}
+   finally{command('turn-view',{angle:-1.12});}
+  };
   set('bathroom full natural entry');
   command('chibi-bath',{id:'smoke-tub',kind:'bath-soak',station:''});
   let fullJourney=null;
@@ -521,11 +528,11 @@ function texture(color){
   editor.advancePets(.75);await captureBath('approach-step');
   editor.advancePets(1.05);await captureBath('rim-grip');
   editor.advancePets(.44);await captureBath('leading-leg');
-  editor.advancePets(.44);await captureBath('lead-hold');
+  editor.advancePets(.44);await captureBath('lead-hold');await captureBathSide('lead-hold');
   editor.advancePets(.36);await captureBath('trailing-leg');
   editor.advancePets(.50);await captureBath('lower-turn');
-  editor.advancePets(.54);await captureBath('turn-clearance');
-  editor.advancePets(.34);await captureBath('seat-descent');
+  editor.advancePets(.54);await captureBath('turn-clearance');await captureBathSide('turn-clearance');
+  editor.advancePets(.34);await captureBath('seat-descent');await captureBathSide('seat-descent');
   editor.advancePets(.28);await captureBath('seated');
   const restingBath=editor.inspect(),restPosition=restingBath.chibiPosition;
   if(restingBath.chibiActivity?.bathPhase!=='work'||!restPosition||
@@ -536,7 +543,7 @@ function texture(color){
   // The production bath's work phase is 30 seconds, not the shorter 8s
   // numeric fixture. Honour the real authored hold and reversible exit clock.
   editor.advancePets(fullJourney.hold+.60);await captureBath('exit-brace');
-  editor.advancePets(.90);await captureBath('exit-leg');
+  editor.advancePets(.90);await captureBath('exit-leg');await captureBathSide('exit-leg');
   editor.advancePets(.95);await captureBath('exit-leading');
   editor.advancePets(fullJourney.enter+1.0);
   const afterSoak=editor.inspect();

@@ -79,7 +79,10 @@ export function bathroomJourneyFrame(j,time){
   // then lift the trailing leg. Lower into the authored seat AFTER clearing.
   // In particular, never lerp the root to j.edge[1] (the ~1.17m rim).
   const facing=M.smootherstep(p,0,.48);
-  support=M.smootherstep(p,.36,1.02)*(1-M.smootherstep(p,4.0,4.6));
+  // Release the outer rim as the torso begins turning inboard, before the
+  // rotating shoulders make that fixed world-space grip unreachable. Keep
+  // the original firm hold through both actual high-rim foot crossings.
+  support=M.smootherstep(p,.36,1.02)*(1-M.smootherstep(p,3.50,4.08));
   // A near-rim entrance needs shorter approach steps than a far tile.
   // The stance toes stay OUTSIDE the solid rim until the high leg lifts.
   const toRim=Math.hypot(j.front[0]-j.edge[0],j.front[2]-j.edge[2]);
