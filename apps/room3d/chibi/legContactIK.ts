@@ -87,34 +87,34 @@ export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captu
 export function createWorldFootLock(){
  let side:'L'|'R'|null=null,locked=new T.Vector3(),previousRoot=new T.Vector3();
  const lockRoot=new T.Vector3();
-let previousTime:number|null=null,awaitingOpposite:'L'|'R'|null=null;
-type LegPose={side:'L'|'R';thigh:T.Quaternion;shin:T.Quaternion};
-let lastCorrected:LegPose|null=null,releasePose:(LegPose&{start:number})|null=null;
-// The gait sampler resets the skeleton at every frame. Fade the just-released
-// IK leg toward its authored swing over a short window; an abrupt switch can
-// otherwise jump a toe >20cm in one 60Hz frame.
-const beginRelease=(time:number,outgoing:'L'|'R')=>{
- if(lastCorrected?.side===outgoing)releasePose={...lastCorrected,start:time};
- lastCorrected=null;
-};
-const fadeRelease=(v:Pick<ChibiVisitor,'rig'|'root'>,time:number)=>{
- if(!releasePose||!v.rig)return;
- const remaining=T.MathUtils.clamp(1-(time-releasePose.start)/.12,0,1);
- if(remaining<=0){releasePose=null;return;}
- const alpha=.78*remaining*remaining,side=releasePose.side;
- v.rig.bones[side+'_thigh'].quaternion.slerp(releasePose.thigh,alpha);
- v.rig.bones[side+'_shin'].quaternion.slerp(releasePose.shin,alpha);
- v.root.updateWorldMatrix(true,true);
-};
-const reset=()=>{side=null;previousTime=null;awaitingOpposite=null;lastCorrected=null;releasePose=null;};
+ let previousTime:number|null=null,awaitingOpposite:'L'|'R'|null=null;
+ type LegPose={side:'L'|'R';thigh:T.Quaternion;shin:T.Quaternion};
+ let lastCorrected:LegPose|null=null,releasePose:(LegPose&{start:number})|null=null;
+ // The gait sampler resets the skeleton at every frame. Fade the just-released
+ // IK leg toward its authored swing over a short window; an abrupt switch can
+ // otherwise jump a toe >20cm in one 60Hz frame.
+ const beginRelease=(time:number,outgoing:'L'|'R')=>{
+  if(lastCorrected?.side===outgoing)releasePose={...lastCorrected,start:time};
+  lastCorrected=null;
+ };
+ const fadeRelease=(v:Pick<ChibiVisitor,'rig'|'root'>,time:number)=>{
+  if(!releasePose||!v.rig)return;
+  const remaining=T.MathUtils.clamp(1-(time-releasePose.start)/.12,0,1);
+  if(remaining<=0){releasePose=null;return;}
+  const alpha=.78*remaining*remaining,side=releasePose.side;
+  v.rig.bones[side+'_thigh'].quaternion.slerp(releasePose.thigh,alpha);
+  v.rig.bones[side+'_shin'].quaternion.slerp(releasePose.shin,alpha);
+  v.root.updateWorldMatrix(true,true);
+ };
+ const reset=()=>{side=null;previousTime=null;awaitingOpposite=null;lastCorrected=null;releasePose=null;};
  return {reset,get supportSide(){return side;},get targetWorld(){return side?locked.clone():null;},apply(
   v:Pick<ChibiVisitor,'root'|'rig'> & {translatePose?:(delta:T.Vector3)=>void},time:number,speed:number,walking=true,forcedSide:'L'|'R'|null=null
  ){
   if(!walking||!v.rig||!Number.isFinite(time)||!Number.isFinite(speed)||speed<=0){reset();return;}
   v.root.updateWorldMatrix(true,true);
   const root=v.root.getWorldPosition(new T.Vector3());
-const dt=previousTime===null?0:time-previousTime;
-if(forcedSide){lastCorrected=null;releasePose=null;}
+  const dt=previousTime===null?0:time-previousTime;
+  if(forcedSide){lastCorrected=null;releasePose=null;}
   // A furniture clip may sample the same timestamp more than once while
   // drawing/reducing motion; re-sampling must never discard a planted toe.
   if(previousTime!==null&&((forcedSide?dt<-.0001:dt<=0)||dt>.35||root.distanceTo(previousRoot)>Math.max(.22,3*speed*Math.max(0,dt))))reset();
@@ -136,7 +136,7 @@ if(forcedSide){lastCorrected=null;releasePose=null;}
    const rising=toes[side].y>floor+swingClearance;
    const pastStance=root.distanceTo(lockRoot)>Math.max(.19,reach*.43);
    if(rising||pastStance&&toes[other].y<=floor+swingClearance){
-beginRelease(time,side);awaitingOpposite=side;side=null;
+     beginRelease(time,side);awaitingOpposite=side;side=null;
    }
   }
   if(side===null){
@@ -144,14 +144,14 @@ beginRelease(time,side);awaitingOpposite=side;side=null;
    // re-planted old toes must not masquerade as a fresh step.
    if(!forcedSide&&candidate===awaitingOpposite){
     const landing=awaitingOpposite==='L'?'R':'L';
-if(toes[landing].y>floor+swingClearance){fadeRelease(v,time);return;}
+     if(toes[landing].y>floor+swingClearance){fadeRelease(v,time);return;}
     side=landing;
    }else side=candidate;
-awaitingOpposite=null;locked.copy(toes[side]);lockRoot.copy(root);fadeRelease(v,time);return;
+    awaitingOpposite=null;locked.copy(toes[side]);lockRoot.copy(root);fadeRelease(v,time);return;
   }
   if(forcedSide?side!==forcedSide:toes[other].y+hysteresis<toes[side].y){
-if(!forcedSide)beginRelease(time,side);
-side=forcedSide??other;awaitingOpposite=null;locked.copy(toes[side]);lockRoot.copy(root);fadeRelease(v,time);return;
+    if(!forcedSide)beginRelease(time,side);
+    side=forcedSide??other;awaitingOpposite=null;locked.copy(toes[side]);lockRoot.copy(root);fadeRelease(v,time);return;
   }
   // Joint origins measure actual limb lengths, not scaled hip offsets.
   const hip=v.rig.bones[side+'_thigh'].getWorldPosition(new T.Vector3());
@@ -164,8 +164,8 @@ side=forcedSide??other;awaitingOpposite=null;locked.copy(toes[side]);lockRoot.co
   // caller's safety gate to reject rather than presenting a false foot lock.
   if(locked.distanceTo(toes[side])>Math.max(forcedSide?.22:.18,reach*(forcedSide?.88:.6))){
    // An unreachable planted target cannot silently follow a swinging toe.
-if(!forcedSide){beginRelease(time,side);awaitingOpposite=side;side=null;}
-fadeRelease(v,time);
+    if(!forcedSide){beginRelease(time,side);awaitingOpposite=side;side=null;}
+    fadeRelease(v,time);
    return;
   }
   // Walking needs stronger convergence than one-shot head/seat adjustments.
@@ -185,7 +185,7 @@ fadeRelease(v,time);
     v.translatePose(hipStep);
    }
   }
-lastCorrected={side,thigh:v.rig.bones[side+'_thigh'].quaternion.clone(),shin:v.rig.bones[side+'_shin'].quaternion.clone()};
-fadeRelease(v,time);
+  lastCorrected={side,thigh:v.rig.bones[side+'_thigh'].quaternion.clone(),shin:v.rig.bones[side+'_shin'].quaternion.clone()};
+  fadeRelease(v,time);
  }};
 }
