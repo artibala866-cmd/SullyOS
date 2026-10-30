@@ -17,7 +17,7 @@ export function selectCloudPhoneOpportunity(char: CharacterProfile, now = Date.n
   if (!prefs.chatPiggybackEnabled || !prefs.backgroundApiEnabled) return null;
   const found = findPhoneAutonomyOpportunity(char.id, now);
   if (!found || found.kind !== 'unanswered-npc') return null;
-  const contacts = new Map(readNpcProfiles(char.id).filter(c => c.source !== 'character')
+  const contacts = new Map(readNpcProfiles(char.id).filter(c => c.source !== 'character' && !c.linkedCharacterId)
     .map(c => [c.id, c]));
   const thread = readCharacterPhoneChats(char.id).find(t =>
     t.contactId && contacts.has(t.contactId) && t.kind !== 'group' && t.kind !== 'service' &&
@@ -34,7 +34,7 @@ export function selectCloudPhoneOpportunity(char: CharacterProfile, now = Date.n
     threadId: thread.id, sourceKey: found.key,
     replyToAt: at, replyToCount: thread.messages.length,
     replyToText: last.text.slice(0, 300),
-    history: thread.messages.slice(-5).map(m => ({
+    history: thread.messages.filter(m => m.speaker.role === 'owner' || m.speaker.role === 'contact').slice(-5).map(m => ({
       speaker: m.speaker.role === 'owner' ? 'owner' as const : 'contact' as const,
       text: m.text.slice(0, 200),
     })),
