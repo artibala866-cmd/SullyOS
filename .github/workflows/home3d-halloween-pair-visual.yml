@@ -1,0 +1,49 @@
+name: Home3D Halloween paired real-WebGL facing acceptance
+on:
+  push:
+    branches:
+      - remove-checkphone-vrworld-lifesim
+    paths:
+      - 'test/halloween-pair-visual.html'
+      - 'scripts/halloween-pair-visual-smoke.mjs'
+      - 'apps/room3d/chibi/selectedSocial.ts'
+      - 'apps/room3d/chibi/halloweenProps.ts'
+      - '.github/workflows/home3d-halloween-pair-visual.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home3d-halloween-pair-visual-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  real-webgl-halloween-pair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run four true skinned Halloween pairs with role, height and camera variants
+        timeout-minutes: 25
+        run: |
+          pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/halloween-pair-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill "$VITE_PID" 2>/dev/null || true' EXIT
+          node scripts/halloween-pair-visual-smoke.mjs
+      - name: Upload actual pre/post WebGL frames and complete world-space metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home3d-halloween-paired-facing-review
+          path: halloween-pair-visual/
+          retention-days: 14
+          if-no-files-found: ignore
