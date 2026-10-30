@@ -22,6 +22,7 @@ type FocusRecord = { date: string; minutes: number; taskId: string; sessionId?: 
 type FocusMode = 'focus' | 'break';
 type Session = { id?: string; mode: FocusMode; deadline: number; duration: number; taskId: string; pauseRemainingMs?: number; usedChatWindows?: number[] };
 type Note = FocusChatNote;
+type StudyLearningPresence={courseTitle:string;chapterTitle:string;progress:number;tutorCharId?:string};
 const STORAGE = 'sully_pomodoro_v1';
 const EXIT_PHRASE = '真的要退出学习吗';
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -59,9 +60,9 @@ const ScheduleApp: React.FC = () => {
   const mainScrollRef=useRef<HTMLElement|null>(null);
   const tabScrollOffsets=useRef<Record<string,number>>({});
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
-  const [studyPresence,setStudyPresence]=useState<{courseTitle:string;chapterTitle:string;progress:number}|null>(null);
-  const [recentStudyByChar,setRecentStudyByChar]=useState<Record<string,{courseTitle:string;chapterTitle:string;progress:number;seenAt:number}>>({});
-  const onLearningStateChange=useCallback((value:{courseTitle:string;chapterTitle:string;progress:number}|null)=>{
+  const [studyPresence,setStudyPresence]=useState<StudyLearningPresence|null>(null);
+  const [recentStudyByChar,setRecentStudyByChar]=useState<Record<string,StudyLearningPresence&{seenAt:number}>>({});
+  const onLearningStateChange=useCallback((value:StudyLearningPresence|null)=>{
     setStudyPresence(value);
     if(value&&charId)setRecentStudyByChar(prev=>({...prev,[charId]:{...value,seenAt:Date.now()}}));
   },[charId]);
@@ -470,6 +471,7 @@ const ScheduleApp: React.FC = () => {
         dueSoonHomework:actual.dueSoonHomework,
         pdfLearning:tab==='study'?studyPresence:recentPdf?{
           courseTitle:recentPdf.courseTitle,chapterTitle:recentPdf.chapterTitle,progress:recentPdf.progress,
+          withDifferentTutor:!!recentPdf.tutorCharId&&recentPdf.tutorCharId!==charId,
         }:null,
       });
       setAssistantTopic([brief,evidence,overview].filter(Boolean).join('\n').slice(0,7800));
@@ -609,7 +611,7 @@ const ScheduleApp: React.FC = () => {
     session?companionMomentText(session,activeTask?.title||'',0)
       :recentVoice?'刚才说：'+recentVoice
       :freshMoment?companionMoment
-      :recentPdf?'刚一起看过《'+recentPdf.courseTitle.slice(0,22)+'》'
+      :recentPdf?(recentPdf.tutorCharId&&recentPdf.tutorCharId!==charId?'最近在看《':'刚一起看过《')+recentPdf.courseTitle.slice(0,22)+'》'
       :companionReality?.hint||companionMomentText(null,'',0));
   const companionActionLabel=overviewBusy?'读取中…':coachPrompt?'聊聊'
     :recentVoice?'接着聊':freshMoment?'聊这轮'
