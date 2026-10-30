@@ -84,7 +84,7 @@ import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 import { useChatAI } from '../hooks/useChatAI';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { usePrivateChatSpeech } from '../hooks/usePrivateChatSpeech';
-import { makeUserVoiceMetadata } from '../utils/userVoiceMessage';
+import { attachUserVoiceAudio, makeUserVoiceMetadata } from '../utils/userVoiceMessage';
 import { cleanTextForTts, parseVoiceOutput } from '../utils/minimaxTts';
 import { collectVoiceBatchSubtitle, isPoisonedVoiceSubtitle } from '../utils/voiceSubtitle';
 import {
@@ -1806,15 +1806,42 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const text = privateChatSpeech.transcript.trim();
         const targetCharId = char.id;
         speechSendingRef.current = true;
-        void handleSendText(text, 'voice', makeUserVoiceMetadata(text, 'recorded'))
-            .then(() => {
+        // The paid provider's STT and saved WAV share a microphone stream.
+        // Browser/native STT has no trustworthy audio bytes and stays transcript-only.
+        const recorded = privateChatSpeech.getAudioDraft();
+        void (async () => {
+            let audioRef: string | undefined;
+            try {
+                let metadata = makeUserVoiceMetadata(text, 'recorded');
+                if (recorded?.blob.size && recorded.durationSec > 0) {
+                    try {
+                        audioRef = await putImageBlob(recorded.blob);
+                        metadata = attachUserVoiceAudio(metadata, audioRef, recorded.durationSec);
+                    } catch (storageError) {
+                        // A failed asset write must not create a broken/pretend play button.
+                        if (audioRef) await deleteBlobRefIfUnreferenced(audioRef).catch(() => {});
+                        audioRef = undefined;
+                        addToast('录音保存失败，本次仅发送转写文字', 'info');
+                    }
+                }
+                if (activeCharIdRef.current !== targetCharId) {
+                    if (audioRef) await deleteBlobRefIfUnreferenced(audioRef).catch(() => {});
+                    return;
+                }
+                const saved = await handleSendText(text, 'voice', metadata);
+                if (saved !== true) {
+                    if (audioRef) await deleteBlobRefIfUnreferenced(audioRef).catch(() => {});
+                    return;
+                }
                 if (activeCharIdRef.current === targetCharId) privateChatSpeech.cancel();
-            })
-            .catch(error => {
-                // Keep the editable transcript if persistence fails.
+            } catch (error) {
+                if (audioRef) await deleteBlobRefIfUnreferenced(audioRef).catch(() => {});
+                // Preserve both the transcript and audio draft for a retry.
                 addToast(error instanceof Error ? error.message : '发送失败', 'error');
-            })
-            .finally(() => { speechSendingRef.current = false; });
+            } finally {
+                speechSendingRef.current = false;
+            }
+        })();
     };
 
     const typedVoiceSendingRef = useRef(false);
