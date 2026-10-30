@@ -484,7 +484,7 @@ const ScheduleApp: React.FC = () => {
       setReplying(false);
     }
   };
-  const companionStatus=coachPrompt||companionMoment||companionReality?.hint||companionMomentText(session,activeTask?.title||'',(records.length?records[records.length-1].minutes:0));
+  const companionStatus=coachPrompt||companionReality?.hint||companionMoment||companionMomentText(session,activeTask?.title||'',(records.length?records[records.length-1].minutes:0));
   return (
     <div className="relative h-full w-full overflow-hidden">
       {tab === 'study' && (
