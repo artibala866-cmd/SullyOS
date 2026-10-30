@@ -161,7 +161,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
  it('真正主动 AI 仅在学习室单独授权，按事件去重且关闭/离开/后台中止',()=>{
    expect(schedule).toContain('checked={coachSetting.allowAutoAI}');
    expect(schedule).toContain('updateCoachSetting({allowAutoAI:e.target.checked})');
-   expect(schedule).toContain('可能消耗模型额度');
+   expect(schedule).toContain('使用你的模型额度');
    const proactive=schedule.split('// The optional paid model request is separate')[1]?.split('  useEffect(() => {\n    if (!session')[0]||'';
    expect(proactive).toContain('coachSetting.allowAutoAI');
    expect(proactive).toContain('!workspaceSnapshot');
