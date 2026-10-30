@@ -1,7 +1,9 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>Home3D photo export real WebGL acceptance</title>
-<style>body{margin:0;padding:10px;background:#221928;color:white;font:13px system-ui}#out{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}figure{margin:0}img{display:block;max-width:100%;max-height:270px;object-fit:contain}figcaption{margin:5px}</style></head><body><h1>Home3D photo 4-frame export</h1><output id="status">Starting</output><main id="out"></main><script type="module">
+<style>body{margin:0;padding:10px;background:#221928;color:white;font:13px system-ui}#out{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}figure{margin:0}img{display:block;max-width:100%;max-height:270px;object-fit:contain}figcaption{margin:5px}</style></head><body><h1>Home3D original and paper photo exports</h1><output id="status">Starting</output><main id="out"></main><script type="module">
 import * as T from 'three';
 import {photoFrames,photoSize,photoDrag} from '../apps/room3d/photoFrame.ts';
+import {photoCaptureAspect,composePhoto,isPhotoPaper} from '../apps/room3d/photoComposition.ts';
+import {defaultPhotoLettering,loadPhotoFont} from '../apps/room3d/photoLettering.ts';
 import {createPhotoRenderer} from '../apps/room3d/photoRenderer.ts';
 import {photoLooks} from '../apps/room3d/photoEffects.ts';
 const report={status:'starting',formats:[],errors:[],png:true,filters:true};
@@ -22,7 +24,15 @@ try{
  for(const [id,frame] of Object.entries(photoFrames)){
   status.textContent='Render '+id;
   const out=document.createElement('canvas');
-  photo.render(out,id==='landscape'?photoLooks.daylight:photoLooks.natural,{aspect:frame.aspect,quality:'export'});
+  const paper=isPhotoPaper(id),source=paper?document.createElement('canvas'):out;
+  const cameraAspect=paper?photoCaptureAspect(id):frame.aspect;
+  photo.render(source,id==='landscape'?photoLooks.daylight:photoLooks.natural,{aspect:cameraAspect,quality:'export'});
+  if(paper){
+   const lettering=defaultPhotoLettering(id);
+   lettering.title='3D 家园合影';lettering.footer='镜头里的我们';
+   await loadPhotoFont(lettering);
+   composePhoto(source,out,id,'export',lettering);
+  }
   const target=photoSize(frame.aspect,'export');
   if(out.width!==target.width||out.height!==target.height)throw Error(id+': actual canvas dimensions '+out.width+'x'+out.height);
   if(Math.abs(out.width/out.height-frame.aspect)>.002)throw Error(id+': aspect mismatch');
@@ -38,15 +48,15 @@ try{
   report.formats.push({id,width:out.width,height:out.height,pngBytes:blob.size});
   // Filter-only changes never cause a second scene capture.
   const before=photo.inspect().captures;
-  photo.render(out,photoLooks.neon,{aspect:frame.aspect,quality:'export'});
+  photo.render(source,photoLooks.neon,{aspect:cameraAspect,quality:'export'});
   if(photo.inspect().captures!==before)throw Error(id+': changing filters redrew WebGL scene');
   await new Promise(resolve=>setTimeout(resolve,10));
  }
  if(photoDrag(12,8,true).dx!==8)throw Error('Rotated camera gesture mismatch');
  photo.dispose();
  if(renderer.getSize(new T.Vector2()).x!==original.width||cam.left!==original.left||cam.right!==original.right)throw Error('Photo mode failed to restore scene dimensions');
- if(report.formats.length!==4)throw Error('Incomplete frame coverage');
- report.status='pass';status.textContent='PASS · four real WebGL PNGs, original camera restored';
+ if(report.formats.length!==8)throw Error('Incomplete original/paper frame coverage');
+ report.status='pass';status.textContent='PASS · eight real WebGL PNGs, original camera restored';
 }catch(e){report.status='fail';report.errors.push(String(e?.stack||e));status.textContent='FAIL '+e;console.error(e);}
 finally{renderer.dispose();renderer.forceContextLoss();}
 </script></body></html>
