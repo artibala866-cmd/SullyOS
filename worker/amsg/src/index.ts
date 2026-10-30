@@ -2595,7 +2595,10 @@ export const amsgHooks = {
         await ctx.emitResult({
           resultKind: CLOUD_PHONE_RESULT_KIND,
           charId: stash.charId, id: cloudPhoneReplyId(stash.charId, offered),
-          contactId: offered.contactId, threadId: offered.threadId,
+          contactId: offered.contactId,
+          contactCreatedAt: offered.contactCreatedAt,
+          contactsClearRevision: offered.contactsClearRevision,
+          threadId: offered.threadId,
           sourceKey: offered.sourceKey,
           replyToAt: offered.replyToAt, replyToCount: offered.replyToCount,
           replyToText: offered.replyToText,
