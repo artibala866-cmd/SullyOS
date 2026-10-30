@@ -262,12 +262,14 @@ it('reclines a taller carried partner farther without moving navigation roots or
  expect(tallRecipient).toBeGreaterThan(shortRecipient+.10);
 });
 
-it('acquires support, seats upright, then lifts before release',()=>{
+it('acquires hands, offers one knee, then lifts after the planted-foot phase',()=>{
  const f=princessCarryPhase;
  expect(f(1.5).lift).toBe(0);
  expect(f(2.8).secured).toBeGreaterThan(.99);
  expect(f(2.8).lift).toBe(0);
- expect(f(3.5).seat).toBeGreaterThan(f(3.5).lift);
+ expect(f(3.5).offer).toBeGreaterThan(.98);
+ expect(f(3.5).seat).toBe(0);
+ expect(f(3.5).lift).toBe(0);
  expect(f(3.5).cradle).toBe(0);
  expect(f(5.5).lift).toBeGreaterThan(.99);
  expect(f(8.8).plant).toBeGreaterThan(0);
@@ -283,12 +285,14 @@ it('acquires support, seats upright, then lifts before release',()=>{
  }
 });
 
-it('carry seats into the arms before takeoff and reclines only during the supported lift',()=>{
+it('one-knee offer stays upright before separate seating and lifting phases',()=>{
  const p=(t:number)=>princessCarryPhase(t);
- expect(p(3.45).seat).toBeGreaterThan(.9);
+ expect(p(3.45).offer).toBeGreaterThan(.9);
+ expect(p(3.45).seat).toBe(0);
  expect(p(3.45).lift).toBe(0);
  expect(p(3.45).cradle).toBe(0);
- expect(p(4.35).seat).toBeGreaterThan(.99);
+ expect(p(4.35).seat).toBeGreaterThan(0);
+ expect(p(4.35).seat).toBeLessThan(.5);
  expect(p(4.35).lift).toBeGreaterThan(0);
  expect(p(4.35).lift).toBeLessThan(.5);
  for(const heights of [[1,1],[.8,1.25],[1.25,.8]]){
@@ -301,7 +305,20 @@ it('carry seats into the arms before takeoff and reclines only during the suppor
     foot:b.visitor.rig!.bones.L_toe.getWorldPosition(new T.Vector3())};
   };
   const entering=sample(3.45),held=sample(5.5);
-  expect(entering.chest.y-entering.hip.y, `recipient should be upright while seating ${heights}`).toBeGreaterThan(.28);
+  expect(entering.chest.y-entering.hip.y, `recipient should be upright while offering a knee ${heights}`).toBeGreaterThan(.28);
   expect(held.foot.y-entering.foot.y,`recipient should actually rise after support ${heights}`).toBeGreaterThan(.15);
+ }
+});
+
+it('during the offer only the recipient raised thigh bends, while carrier stays upright',()=>{
+ for(const heights of [[1,1],[1.25,.8],[.8,1.25]]){
+  const a=actor(heights[0],-.4,0),b=actor(heights[1],.4,Math.PI);
+  a.reset();b.reset();poseIntimacy('home-princess-carry',[a,b],3.45);
+  const offered=b.visitor.rig!.bones.L_thigh.quaternion;
+  const planted=b.visitor.rig!.bones.R_thigh.quaternion;
+  expect(offered.angleTo(planted),`independent leg offer for ${heights}`).toBeGreaterThan(.60);
+  expect(planted.angleTo(new T.Quaternion()),`standing recipient leg should not crouch ${heights}`).toBeLessThan(.25);
+  const carrierShin=a.visitor.rig!.bones.L_shin.quaternion;
+  expect(carrierShin.angleTo(new T.Quaternion()),`carrier should not deep squat while receiving ${heights}`).toBeLessThan(.30);
  }
 });
