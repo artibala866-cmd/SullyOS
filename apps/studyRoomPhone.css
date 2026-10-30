@@ -1,10 +1,11 @@
 /* Only the learning-room miniature phone. No private-chat prompts or persisted data. */
 .home-phone.study-room-phone{
-  /* Portrait iPhone silhouette: shrink WIDTH when the viewport gets short;
-     never shorten HEIGHT independently into a broad chat panel. */
-  position:absolute;right:12px;bottom:calc(91px + env(safe-area-inset-bottom,0px));
-  width:min(218px,56vw,calc((100dvh - 154px)*0.46));
-  aspect-ratio:9 / 19.5;height:auto;min-height:0;max-height:none;
+  /* Readable handheld size. Do not miniaturize the whole private chat to 218px:
+     it made 13px text render at about 7px after scaling. Phone width and
+     vertical fit are coupled so the window never gets squashed or clipped. */
+  position:absolute;right:8px;bottom:calc(86px + env(safe-area-inset-bottom,0px));
+  width:min(326px,calc(100% - 24px),calc((100dvh - 132px)*0.5));
+  aspect-ratio:9 / 18;height:auto;min-height:0;max-height:none;
   box-sizing:border-box;
   padding:0 6px 7px;display:flex;flex-direction:column;overflow:hidden;
   background:#252525;color:#252525;border:5px solid #252525;border-radius:34px;
@@ -44,9 +45,19 @@
   background:#f7f7f7!important;padding:0!important;
 }
 .study-room-phone .study-phone-body .sully-chat-root .fixed{max-height:100%}
+.study-room-phone .sully-bubble-user,
+.study-room-phone .sully-bubble-ai{
+  font-size:17px!important;
+  line-height:1.55!important;
+  overflow-wrap:anywhere;
+}
 .study-room-phone .sully-bubble-user{background:#e9e9e9!important;color:#303030!important}
 .study-room-phone .sully-bubble-ai{background:white!important;color:#303030!important}
-.study-room-phone .sully-chat-inputbar{padding:7px!important;background:white!important}
+.study-room-phone .sully-chat-inputbar{padding:8px!important;background:white!important}
+.study-room-phone .sully-chat-inputbar textarea{
+  font-size:17px!important;line-height:1.45!important;
+  min-width:0!important;
+}
 .study-room-phone .study-phone-homebar{height:4px;width:67px;margin:7px auto 1px;border-radius:99px;background:#aaa;flex-shrink:0}
 .study-room-float-ball{
   pointer-events:auto;position:absolute;right:20px;bottom:calc(97px + env(safe-area-inset-bottom,0px));
