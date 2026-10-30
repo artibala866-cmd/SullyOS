@@ -214,14 +214,14 @@ export function companionEntryPrompt(
   return '现在是休息时间。我想跟你简单聊聊这一轮，先不要催我继续。';
  if(recentRoundMinutes>0)
   return '我刚完成一轮 '+recentRoundMinutes+' 分钟专注。先听我说实际做了什么，再陪我复盘，暂时不要自动结算。';
- if(pdf?.courseTitle){
-  const chapter=pdf.chapterTitle?'《'+pdf.chapterTitle.slice(0,60)+'》':'这门课';
-  return '我在看《'+pdf.courseTitle.slice(0,60)+'》的'+chapter+'。请用你自己的方式陪我梳理刚学的内容，先问我理解到哪里，不要假定我已学会。';
- }
  if(area==='commissions'&&reality.activeCommissions>0)
   return '我正在排画稿，目前有 '+reality.activeCommissions+' 张进行中。请先听我说今天可用的时间，再帮我判断先做哪张，不要直接改期或承诺交付。';
  if(area==='calendar'&&(reality.pendingHomework>0||reality.todayCourses>0))
   return '我正在看课程表，有 '+reality.pendingHomework+' 项待做作业。帮我结合今天的课程安排下一步，先问我的实际学习进度。';
+ if(pdf?.courseTitle){
+  const chapter=pdf.chapterTitle?'《'+pdf.chapterTitle.slice(0,60)+'》':'这门课';
+  return '我在看《'+pdf.courseTitle.slice(0,60)+'》的'+chapter+'。请用你自己的方式陪我梳理刚学的内容，先问我理解到哪里，不要假定我已学会。';
+ }
  if(reality.unsettledLinkedMinutes>0)
   return '我有 '+reality.unsettledLinkedMinutes+' 分钟专注记录还没核对。陪我回顾实际进展，但不要自动扣工时或标记完成。';
  if(reality.dueSoonHomework>0||reality.dueSoonCommissions>0)
