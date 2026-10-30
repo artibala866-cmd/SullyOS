@@ -184,7 +184,11 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
  // Recline the carried torso far enough that both enlarged chibi hair caps
  // no longer stack directly at eye level. The recipient's limbs and palms
  // still follow the existing scale-aware support and arm IK below.
- turn(b,'hips',rotation(0,Math.PI/2,0).multiply(rotation(-.90)),p.lift);
+ // Taller recipients need a wider cradle angle to keep large hair silhouettes
+ // from stacking over a smaller carrier's head. Scale the extra recline by the
+ // measured torso ratio; equal/shorter recipients keep the reviewed baseline.
+ const recline=.90+T.MathUtils.clamp((sizeRatio-1)*.95,0,.36);
+ turn(b,'hips',rotation(0,Math.PI/2,0).multiply(rotation(-recline)),p.lift);
  for(const side of ['L','R'] as const){
   turn(b,side+'_thigh',rotation(-1.35,0,side==='L'?-.025:.025),p.lift);
   turn(b,side+'_shin',rotation(1.45),p.lift);
