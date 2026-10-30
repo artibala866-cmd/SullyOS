@@ -2109,7 +2109,18 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   if(d.action==='building-room'){stopWalking();visitorLocation=null;activateRoom(state.rooms.find(r=>r.id===d.id));selected=null;persist();rebuild();renderUI();return}
   if(d.action==='room'||d.action==='floor'){const r=d.action==='room'?state.rooms.find(r=>r.id===d.id):state.rooms.find(r=>r.level===Number(d.level));if(r){stopWalking();visitorLocation=null;activateRoom(r);overview=false;selected=null;panel=null;persist();rebuild();renderUI()}return}
   if(d.action==='halloween-pack'){void confirmResourcePack('halloween-furniture',abort.signal).then(ok=>{if(ok&&!destroyed)notify('万圣节家具已保存到本机，可以继续使用');}).catch(e=>{if(!destroyed)notify(e.message||'资源包下载失败',true);});return;}
-  if(d.action==='activity-room'){commit(()=>{const added=addActivityRoom(state,'halloween',catalog);visitorLocation=null;selected=null;panel=null;edit=true;overview=false;controls.enabled=true;message='万圣节魔法小屋已开放，原房间和家具全部保留';},{templateUpgrade:true});return;}
+  if(d.action==='activity-room'){
+   // Only create the annex once its required furniture pack is available on this device.
+   if(!d.packConfirmed){
+    void confirmResourcePack('halloween-furniture',abort.signal).then(ok=>{
+     if(ok&&!destroyed)runAction({...d,packConfirmed:'true'});
+    }).catch(e=>{if(!destroyed)notify(e instanceof Error?e.message:'万圣节家具资源包加载失败',true);});
+    return;
+   }
+   const annex=state.rooms.find(room=>room.activityRoom==='halloween');
+   if(annex){runAction({action:'room',id:annex.id});return;}
+   commit(()=>{addActivityRoom(state,'halloween',catalog);visitorLocation=null;selected=null;panel=null;edit=false;overview=false;controls.enabled=true;message='万圣节魔法小屋已开放，原房间和家具全部保留';},{templateUpgrade:true});return;
+  }
   if(d.action==='showroom'){commit(()=>{const added=addShowroom(state,d.value,catalog,{compact:phone});if(showroomPalette)applyRoomPalette(added,showroomPalette,catalog);visitorLocation=null;panel=null;selected=null;edit=true;overview=false;controls.enabled=true;message=phone&&d.value==='bedroom'?'已添加手机精简卧室，每件家具都可以单独调整':'样板房已搬来，每件家具都可以单独调整';});return;}
   if(d.action==='expand'){commit(()=>{visitorLocation=null;addRoom(state,d.direction);panel=null;selected=null;edit=true;overview=false;controls.enabled=true;message='新空间，留给新的生活';error=false});return}
   if(d.action==='add-item'||d.action==='restore'){commit(()=>{
