@@ -16,6 +16,11 @@ import type {ChibiVisitor} from './chibi/visitor';
 
 vi.stubGlobal('self',globalThis);
 vi.stubGlobal('createImageBitmap',async()=>({width:1,height:1,close(){}}));
+vi.stubGlobal('fetch',vi.fn(async(request:string|URL|Request)=>{
+ const path=String(request).split('room3d/')[1]?.split('?')[0];
+ if(!path)throw Error('Bad model request: '+request);
+ return new Response(new Uint8Array(readFileSync('public/room3d/'+path)),{status:200});
+}));
 const loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const fromDisk=async(path:string)=>{
  const bytes=readFileSync('public/room3d/'+path);

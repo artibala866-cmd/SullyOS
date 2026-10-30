@@ -5,6 +5,11 @@ import {afterEach,it,expect,vi} from 'vitest';
 import {WardrobePicker} from '../experiments/chibi/WardrobePicker';
 import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe';
 import builtinOutfits from '../apps/room3d/chibi/builtinOutfits.json';
+// Simulate successful user permission in UI; real pack download has separate tests.
+vi.mock('../apps/room3d/ResourcePackPanel',async()=>{
+ const R=await import('react');
+ return {confirmResourcePack:vi.fn(async()=>true),useResourcePackInstalled:()=>true,PackImage:({src,...props}:any)=>R.createElement('img',{...props,src})};
+});
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
 const host=document.createElement('div');document.body.appendChild(host);let root:ReturnType<typeof createRoot>;
 afterEach(()=>act(()=>root.unmount()));
@@ -45,7 +50,7 @@ it('applies all six authored outfits without losing fits, colors or layering to 
  }
 });
 
-it('keeps 20 complete Halloween presets separate from the original outfit menu and applies all dyes',()=>{
+it('keeps 20 complete Halloween presets separate from the original outfit menu and applies all dyes',async()=>{
  const change=vi.fn();root=createRoot(host);act(()=>root.render(React.createElement(WardrobePicker,{hair:{layers:{},extras:[],bodyShape:'blank'},onChange:change})));
  expect(host.querySelectorAll('[aria-label="套装款式"] button')).toHaveLength(Object.values(approvedPresets).filter(p=>p.collection!=='halloween').length);
  act(()=>[...host.querySelectorAll<HTMLButtonElement>('nav button')].find(b=>b.textContent?.includes('万圣节'))!.click());
@@ -55,7 +60,7 @@ it('keeps 20 complete Halloween presets separate from the original outfit menu a
  for(const [id,p] of festive){
   const tile=grid.querySelector<HTMLButtonElement>(`[aria-label="${p.label}"]`)!;
   expect(tile).toBeTruthy();
-  act(()=>tile.click());
+  await act(async()=>{tile.click();});
   expect(change.mock.lastCall![0].wardrobe).toEqual(p.items);
   expect(change.mock.lastCall![0].wardrobeColors).toEqual(p.clothes!.wardrobeColors);
  }

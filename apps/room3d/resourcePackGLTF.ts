@@ -5,9 +5,10 @@ import {readPackAsset,resourcePath} from './resourcePacks';
 
 /** Only this model and its texture dependencies are materialized, never the entire pack. */
 export async function loadHomeGLTF(url:string,signal?:AbortSignal){
- const local=await readPackAsset(url);
+ let local:Awaited<ReturnType<typeof readPackAsset>>;
+ try{local=await readPackAsset(url);}catch(error){if(typeof indexedDB!=='undefined')throw error;}
  if(signal?.aborted)throw signal.reason;
- const absolute=new URL(url,location.href),base=new URL('.',absolute).href;
+ const absolute=new URL(url,typeof location==='undefined'?'https://local.invalid/':location.href),base=new URL('.',absolute).href;
  const manager=new LoadingManager(),urls:string[]=[];
  try{
   if(local){
