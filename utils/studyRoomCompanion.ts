@@ -240,7 +240,8 @@ export function recentCompanionReply(
  for(let i=notes.length-1;i>=0;i--){
   const n=notes[i];
   if(n.charId!==charId||n.scope!=='overview'||n.role!=='assistant')continue;
-  if(!Number.isFinite(n.createdAt)||!n.createdAt||now-n.createdAt<0||now-n.createdAt>10*60000)return '';
+  const at=n.createdAt;
+  if(typeof at!=='number'||!Number.isFinite(at)||at<=0||now-at<0||now-at>10*60000)return '';
   const snippet=(n.content||'').replace(/[\r\n\t]+/g,' ').replace(/\s+/g,' ').trim().slice(0,54);
   return snippet?snippet+(n.content!.trim().length>54?'…':''):'';
  }
