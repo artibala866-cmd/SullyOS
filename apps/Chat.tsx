@@ -1817,12 +1817,24 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             .finally(() => { speechSendingRef.current = false; });
     };
 
+    const typedVoiceSendingRef = useRef(false);
     const handleSendTypedVoice = () => {
         const text = input.trim();
-        if (!typedVoiceEnabled || !text || !char) return;
-        // sendText() owns clearing the existing draft and saving the current replyTo.
+        if (typedVoiceSendingRef.current || !typedVoiceEnabled || !text || !char) return;
+        typedVoiceSendingRef.current = true;
+        const targetCharId = char.id;
+        // sendText() owns clearing the original composer draft and saving replyTo.
         void handleSendText(undefined, 'voice', makeUserVoiceMetadata(text, 'typed'))
-            .catch(error => addToast(error instanceof Error ? error.message : '发送失败', 'error'));
+            .catch(error => {
+                if (activeCharIdRef.current === targetCharId) {
+                    // sendText clears the composer before DB.saveMessage; restore on failure
+                    // without overwriting anything the user typed in the meantime.
+                    setInput(previous => previous.trim() ? previous : text);
+                    localStorage.setItem(draftKey, text);
+                }
+                addToast(error instanceof Error ? error.message : '发送失败', 'error');
+            })
+            .finally(() => { typedVoiceSendingRef.current = false; });
     };
 
     // 用户点开「收到的转账」卡（角色发来、待处理）选择接收 / 退回：
