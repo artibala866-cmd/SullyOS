@@ -46,3 +46,13 @@
 - 同一联系人有多个已保存微信会话（旧备份、导入）时，云端回复按其原始 `threadId` 精确找到会话，而不是盲目修改该联系人列表里的第一项。原会话已变成群聊/服务号后，不得作为虚构 NPC 私聊继续写入。
 - 此次对“Worker 发起实际 AMSG 自主机会 → 云端结果收件箱”的测试做协议更新：`[[SILENT]]` 可同时产生独立的跳过诊断结果；验收只统计 `cloud-phone-reply-v1` 类型的 NPC 结果，**不能把合法诊断当成重复发 NPC**。
 - 这仍不是完整 24 小时 NPC 手机系统，也不会更新用户自己的 Worker；必须让用户自行部署与当前网页同版的 `2026-10-30.3` Worker，真实 API/Cron/Push 的端到端送达还需设备测试。
+
+## 2026-10-30 Worker 触发与联系人同步深度回归
+
+- 用现有 `worker/amsg/src/index.test.ts` 的**真实 onBeforeFire / onLLMOutput 钩子**模拟每日自主联系，不再只检查本地候选和解析器：覆盖 `[[SILENT]]` 时的单独 NPC 结果回程、工具多轮回复只回收一次、同一 NPC 待回复不能重复预留，以及没有可靠 result outbox 就不预留。
+- `fire-skipped`（这次不联系 User）与 `cloud-phone-reply-v1`（NPC 私下回复）属于同一个云端结果队列的**不同结果种类**。两个结果共存并不代表 NPC 被重复回复；回归只统计符合种类的 NPC 回执。
+- 候选和结果增加 `contactCreatedAt`、`contactsClearRevision`，防止删除了 NPC 后用同一 ID 重新创建时，旧 Worker 结果套用到新联系人。测试夹具必须使用当前协议，不能把旧候选格式误判为 Worker 无法认领。
+- `saveNpcProfiles` 之前直接保存联系人或整批删除不会发 `CHARACTER_PHONE_CONTACT_CHANGED` 事件，导致已经开启自主联系的角色可能把旧联系人名单留在云端 `fire_pack`。现改成**每次成功保存都发原有变更事件**，无需增加后台 API 或独立轮询；新增联系人仍保留 `contactId` 事件字段，保存失败不发事件。OSContext 原有事件监听会刷新云端快照。
+- 本次 Stage 4 GitHub Actions 使用独立的 Worker 钩子测试（避免把其他开发者正在调整的 SAR 全量旧断言误算成本模块故障），并保留现有主动消息及手机回归。多人共享开发分支时，当前验证不再被每个并行 push 取消。
+- 验证：`41027539994`——Worker 实际钩子 **3 项成功**，相关模块 **10 组 170 项成功**，变更模块 TypeScript 检查和 `pnpm build:workers` 成功。源码测试不是用户线上 Worker、移动设备的真实推送验收。
+
