@@ -73,6 +73,12 @@ const ScheduleApp: React.FC = () => {
   const [assistantPickerOpen,setAssistantPickerOpen]=useState(false);
   const [assistantOffset,setAssistantOffset]=useState({x:0,y:0});
   const assistantDrag=useRef<{startX:number;startY:number;x:number;y:number;left:number;right:number;top:number;bottom:number;hostLeft:number;hostRight:number;hostTop:number;hostBottom:number}|null>(null);
+  useEffect(()=>{
+    // Keep a previously dragged floating phone visible after rotation/keyboard resize.
+    const reset=()=>setAssistantOffset(v=>(v.x||v.y)?{x:0,y:0}:v);
+    window.addEventListener('resize',reset);
+    return ()=>window.removeEventListener('resize',reset);
+  },[]);
   const [companionMoment,setCompanionMoment]=useState('');
   const [companionMomentAt,setCompanionMomentAt]=useState(0);
   const [coachByChar,setCoachByChar]=useState<Record<string,StudyCoachSetting>>(()=>load('coachByChar',{}));
@@ -906,7 +912,7 @@ const ScheduleApp: React.FC = () => {
       {assistantOpen && !assistantMinimized && <div className="pointer-events-none absolute inset-0 z-[80]" aria-label="学习室悬浮聊天区域">
         <section data-study-floating-chat role="dialog" aria-modal="false" aria-label="学习室 Char 悬浮聊天"
           style={{transform:`translate(${assistantOffset.x}px,${assistantOffset.y}px)`}}
-          className="pointer-events-auto absolute bottom-[max(12px,var(--safe-bottom,0px))] right-3 flex h-[min(62dvh,510px)] min-h-[260px] max-h-[calc(100dvh-72px)] w-[calc(100%-24px)] max-w-[355px] flex-col overflow-hidden rounded-[25px] border border-neutral-200 bg-[#f6f6f6] text-neutral-900 shadow-[0_18px_65px_rgba(0,0,0,.20)]">
+          className="pointer-events-auto absolute bottom-[max(12px,var(--safe-bottom,0px))] right-3 flex h-[min(57dvh,470px)] min-h-[245px] max-h-[calc(100dvh-72px)] w-[calc(100%-32px)] max-w-[340px] flex-col overflow-hidden rounded-[25px] border border-neutral-200 bg-[#f6f6f6] text-neutral-900 shadow-[0_18px_65px_rgba(0,0,0,.20)]">
           <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2.5 touch-none select-none cursor-grab active:cursor-grabbing"
             onPointerDown={onAssistantDragStart} onPointerMove={onAssistantDragMove} onPointerUp={onAssistantDragEnd} onPointerCancel={onAssistantDragEnd}>
             <button type="button" aria-label="快速选择 Char" aria-expanded={assistantPickerOpen}
@@ -920,7 +926,7 @@ const ScheduleApp: React.FC = () => {
               className="flex h-10 shrink-0 items-center gap-1 rounded-full bg-[#eeeeee] px-2.5 text-xs font-medium disabled:opacity-40">
               <ChatCircleDots size={17}/> 私聊
             </button>
-            <button type="button" aria-label="收起悬浮聊天" onClick={()=>setAssistantMinimized(true)}
+            <button type="button" aria-label="收起悬浮聊天" onClick={()=>{setAssistantPickerOpen(false);setAssistantMinimized(true);}}
               className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-neutral-100"><Minus size={19}/></button>
             <button type="button" aria-label="关闭 Char 聊天" onClick={()=>setAssistantOpen(false)}
               className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-neutral-100"><X size={19}/></button>
