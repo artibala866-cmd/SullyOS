@@ -54,7 +54,16 @@ try{
     if(![...sample.L,...sample.R,...sample.hips].every(Number.isFinite))throw Error('Non-finite skeleton '+height.name);
     samples.push(sample);
    }
-   report.traces.push({height:height.name,outfit:outfit.name,fps:60,samples});
+   // The 60Hz toe trajectory must not snap when world-foot IK releases.
+   // This limit scales with the approved character proportions. It catches
+   // the observed 0.20m one-frame dash without masking natural swing travel.
+   const toeJump=Math.max(...samples.slice(1).map((now,i)=>{
+    const prev=samples[i];
+    return Math.max(...['L','R'].map(side=>Math.hypot(
+     now[side][0]-prev[side][0],now[side][2]-prev[side][2])));
+   }));
+   if(toeJump>.12*height.scale)throw Error('Abrupt 60Hz toe dash '+height.name+' / '+outfit.name+': '+toeJump.toFixed(3)+'m');
+   report.traces.push({height:height.name,outfit:outfit.name,fps:60,samples,maxToeFrameJump:toeJump});
    v.animate(0,'idle');
    const poses=[];
    for(let i=0;i<=10;i++){
