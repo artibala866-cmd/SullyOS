@@ -20,7 +20,7 @@ export function princessCarryPhase(time:number){
   // hand only follows AFTER the carried leg starts its deliberate offer.
   // Both hands retreat toward idle after the feet have planted.
   backReach:e(1.10,2.65,8.85,9.58),
-  kneeReach:e(2.65,4.17,8.85,9.58),
+  kneeReach:e(2.65,3.85,8.85,9.58),
   // A hand may reach toward a shoulder early, but the full embrace only
   // settles after the carrier has acquired back and knee support.
   shoulderL:e(2.85,3.90,8.8,9.48),
@@ -191,7 +191,8 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
   const waypoint=shoulder.clone().addScaledVector(outward,width*.30)
    .addScaledVector(front,width*.24).add(new T.Vector3(0,-width*.12,0));
   const ready=smooth(time,backHand?1.0:2.65,backHand?1.75:3.30);
-  const attach=smooth(time,backHand?1.80:3.35,backHand?3.05:4.40);
+  // Lower arm must finish entering beneath the offered knee BEFORE lift.
+  const attach=smooth(time,backHand?1.80:3.00,backHand?3.05:3.83);
   const goal=point(a,side+'_hand').lerp(waypoint,ready).lerp(anchor,attach);
   pair[0].solver?.({side,point:goal,
    direction:new T.Vector3(sign,0,0).applyQuaternion(rotation),
