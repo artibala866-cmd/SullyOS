@@ -82,8 +82,30 @@ export const isStudyCoachQuietTime=(setting:StudyCoachSetting,now:Date):boolean=
  const current=now.getHours()*60+now.getMinutes();
  return start<end?current>=start&&current<end:current>=start||current<end;
 };
+// Minimum spacing. The same real-world event is shown only once per day.
 export const STUDY_COACH_INTERVAL_MINUTES:Record<Exclude<CoachLevel,'off'>,number>={
- gentle:30,normal:15,firm:8,
+ gentle:120,normal:90,firm:45,
+};
+export const STUDY_COACH_DAILY_MAX:Record<Exclude<CoachLevel,'off'>,number>={
+ gentle:1,normal:2,firm:3,
+};
+export interface StudyCoachEvent {key:string;text:string;}
+/** Local reminders are not messages from Char. Never invent an unconfirmed completion. */
+export const studyCoachEvent=(reality:StudyRoomReality|undefined,now:Date):StudyCoachEvent|null=>{
+ if(!reality||reality.phase!=='idle')return null;
+ const day=localDate(now);
+ if(reality.unsettledLinkedMinutes>0)
+  return {key:day+':unsettled:'+reality.unsettledLinkedMinutes,
+    text:'有 '+reality.unsettledLinkedMinutes+' 分钟专注记录待手动结算'};
+ const due=reality.dueSoonHomework+reality.dueSoonCommissions;
+ if(due>0)return {key:day+':due:'+due,text:'七天内有 '+due+' 项待安排'};
+ if(reality.todayCourses>0)
+  return {key:day+':course:'+reality.todayCourses,text:'今天有 '+reality.todayCourses+' 节课程'};
+ if(reality.completedRounds>0)
+  return {key:day+':rounds:'+reality.completedRounds,text:'今天已完成 '+reality.completedRounds+' 轮专注'};
+ const pending=reality.pendingHomework+reality.activeCommissions;
+ if(pending>0)return {key:day+':pending:'+pending,text:'还有 '+pending+' 项待处理事项'};
+ return null;
 };
 export interface StudyCoachCheck{
  charId:string;
@@ -92,6 +114,8 @@ export interface StudyCoachCheck{
  now:Date;
  idleSince:number;
  lastPromptAt:number;
+ lastEventKey?:string;
+ promptCountToday?:number;
  reality?:StudyRoomReality;
  isVisible:boolean;
  isTimerTab:boolean;
@@ -100,22 +124,15 @@ export const nextStudyCoachPrompt=(check:StudyCoachCheck):string|null=>{
  const {charId,setting,session,now,idleSince,lastPromptAt,isVisible,isTimerTab,reality}=check;
  if(!charId||setting.level==='off'||setting.paused||!isVisible||!isTimerTab||session)return null;
  if(isStudyCoachQuietTime(setting,now))return null;
- const minutes=STUDY_COACH_INTERVAL_MINUTES[setting.level];
- const interval=minutes*60000;
+ const event=studyCoachEvent(reality,now);
+ if(!event || event.key===check.lastEventKey)return null;
+ if((check.promptCountToday||0)>=STUDY_COACH_DAILY_MAX[setting.level])return null;
+ const interval=STUDY_COACH_INTERVAL_MINUTES[setting.level]*60000;
  if(!Number.isFinite(idleSince)||idleSince<=0||now.getTime()-idleSince<interval)return null;
  if(Number.isFinite(lastPromptAt)&&lastPromptAt>0&&now.getTime()-lastPromptAt<interval)return null;
- // The cue is tied to a real existing task or completed record, not an imaginary
- // conversation by Char. The real personality comes from ContextBuilder only after SEND.
- const cue=reality?.unsettledLinkedMinutes
-  ?'有 '+reality.unsettledLinkedMinutes+' 分钟已记录但还没有手动核对'
-  :reality && reality.dueSoonHomework+reality.dueSoonCommissions>0
-   ?'七天内有 '+(reality.dueSoonHomework+reality.dueSoonCommissions)+' 项待安排'
-   :reality?.todayCourses?'今天有 '+reality.todayCourses+' 节课程'
-   :reality?.todayFocusMinutes?'今天已记录 '+reality.todayFocusMinutes+' 分钟专注'
-   :'还没有新的专注轮次';
- return setting.level==='gentle'?'提醒一下：'+cue+'。需要时再开始就好。'
-  :setting.level==='normal'?cue+'。要不要一起选下一步？'
-  :cue+'。需要我协助你安排下一轮吗？';
+ return setting.level==='gentle'?'提醒一下：'+event.text+'。需要时再开始就好。'
+  :setting.level==='normal'?event.text+'。要不要一起看看下一步？'
+  :event.text+'。想核对一下实际进度吗？';
 };
 export const studyCoachBrief=(setting:StudyCoachSetting):string=>{
  if(setting.level==='off'||setting.paused)return '';
