@@ -14,10 +14,12 @@ export function selectCloudPhoneOpportunity(char: CharacterProfile, now = Date.n
   const prefs = readPhoneAutonomyPreferences(char.id);
   if (!isCloudPhonePiggybackAuthorized(char.activeMsg2Config?.enabled === true,
       prefs.chatPiggybackEnabled)) return null;
-  const found = findPhoneAutonomyOpportunity(char.id, now);
+  const contacts = new Map(readNpcProfiles(char.id)
+    .filter(c => c.source !== 'character' && !c.linkedCharacterId).map(c => [c.id, c]));
+  // Only fictional, eligible NPCs may enter cloud snapshots; a first pending
+  // reply from a linked real Char must not mask every other contact.
+  const found = findPhoneAutonomyOpportunity(char.id, now, new Set(contacts.keys()));
   if (!found || found.kind !== 'unanswered-npc') return null;
-  const contacts = new Map(readNpcProfiles(char.id).filter(c => c.source !== 'character' && !c.linkedCharacterId)
-    .map(c => [c.id, c]));
   const thread = readCharacterPhoneChats(char.id).find(t =>
     t.contactId && contacts.has(t.contactId) && t.kind !== 'group' && t.kind !== 'service' &&
     found.key.startsWith('reply:' + t.id + ':'));
