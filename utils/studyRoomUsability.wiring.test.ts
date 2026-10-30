@@ -75,10 +75,10 @@ describe('学习室原始需求：流畅的画稿与作业操作路径',()=>{
   expect(panel).toContain('不会自动认定任务完成、改变交期或触发提醒');
  });
  it('手机 Char 弹层限制动态高度，并给输入区预留最小点击尺寸',()=>{
-  expect(schedule).toContain('h-[min(57dvh,470px)] min-h-[170px] max-h-[calc(100dvh-72px)]');
-  expect(schedule).toContain('min-h-0 flex-1 overflow-y-auto overscroll-contain');
-  expect(schedule).toContain('flex shrink-0 gap-2 border-t border-neutral-200');
-  expect(schedule).toContain('className="grid h-11 min-w-12 shrink-0');
+  expect(schedule).toContain('home-phone study-room-phone');
+  expect(schedule).toContain('min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain');
+  expect(schedule).toContain('flex shrink-0 gap-1.5 border-t border-neutral-200 bg-white p-2');
+  expect(schedule).toContain('min-h-10 rounded-full bg-[#292929] px-3 text-xs');
   expect(schedule).toContain('max-h-[90dvh] overflow-y-auto');
  });
 
