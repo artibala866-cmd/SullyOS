@@ -241,7 +241,7 @@ const ScheduleApp: React.FC = () => {
            {role:'user',content:'根据我在学习室里确认的真实数据，主动关心一次下一步即可。事件：'+coachPrompt+'。'+summary}],
         );
         if(!active||controller.signal.aborted)return;
-        const response=await fetch(api.baseUrl.replace(/\\/$/,'')+'/chat/completions',{
+        const response=await fetch(api.baseUrl.replace(/\/$/,'')+'/chat/completions',{
           method:'POST',signal:controller.signal,
           headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
           body:JSON.stringify({model:api.model,messages:msgs,
