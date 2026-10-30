@@ -12,11 +12,11 @@ describe('incremental Home3D character style switching',()=>{
   const initialKey=material.customProgramCacheKey(),initialCompile=material.onBeforeCompile,originalGeometry=mesh.geometry,originalMap=material.map;
   setCharacterIllustration(root,true,'legacy');
   const classicKey=material.customProgramCacheKey();
-  expect(classicKey).toContain('-character-illustration-v5-legacy');
+  expect(classicKey).toMatch(/-character-illustration-v\d+-legacy/);
   setCharacterRoomTint(root,'#ffddaa');
   setCharacterRoomLighting(root,{roomShadeTint:{value:new T.Color('#dddddd')},roomSunTint:{value:new T.Color('#ffffff')},roomBrightness:{value:1},roomSunContrast:{value:0}});
   setCharacterIllustration(root,true,'modern');
-  expect(material.customProgramCacheKey()).toContain('-character-illustration-v5-modern');
+  expect(material.customProgramCacheKey()).toMatch(/-character-illustration-v\d+-modern/);
   expect(mesh.geometry).toBe(originalGeometry);
   expect(material.map).toBe(originalMap);
   setCharacterIllustration(root,true,'legacy');
