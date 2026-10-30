@@ -2,7 +2,9 @@
  * Display names are NOT identifiers: user, owner Char, NPC and another Char can share a name.
  */
 export type PhoneSpeaker = { role: 'owner' } | { role: 'user' } | { role: 'contact'; contactId: string };
-export type PhoneMessage = { speaker: PhoneSpeaker; text: string; from?: string; createdAt?: number };
+export type PhoneMessage = { speaker: PhoneSpeaker; text: string; from?: string; createdAt?: number;
+  /** A delivered cloud-side NPC turn; stable identity prevents outbox replay duplicates. */
+  cloudSourceId?: string; };
 export type PhoneThread = { contactId: string; messages: PhoneMessage[] };
 export const speakerKey = (speaker: PhoneSpeaker): string =>
   speaker.role === 'contact' ? 'contact:' + speaker.contactId : speaker.role;

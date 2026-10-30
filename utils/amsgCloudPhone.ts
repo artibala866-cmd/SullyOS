@@ -77,13 +77,14 @@ export function extractCloudPhoneReply(raw: string, allowed: boolean): CloudPhon
   return { content, messages };
 }
 
-export function parseCloudPhoneResult(value: unknown): ({
+export type CloudPhoneResult = {
   resultKind: typeof CLOUD_PHONE_RESULT_KIND; charId: string; id: string;
   contactId: string; threadId: string; sourceKey: string;
   replyToAt: number; replyToCount: number; replyToText: string;
   revision: number; clearRevision: number; occurredAt: number;
   messages: string[];
-}) | null {
+};
+export function parseCloudPhoneResult(value: unknown): CloudPhoneResult | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const x = value as Record<string, unknown>;
   if (x.resultKind !== CLOUD_PHONE_RESULT_KIND ||
@@ -93,5 +94,5 @@ export function parseCloudPhoneResult(value: unknown): ({
     !Number.isSafeInteger(x.occurredAt) || typeof x.replyToText !== 'string' ||
     !Array.isArray(x.messages) || x.messages.length < 1 || x.messages.length > 2 ||
     !x.messages.every(m => typeof m === 'string' && !!m.trim() && m.length <= 160)) return null;
-  return x as ReturnType<typeof parseCloudPhoneResult> & NonNullable<ReturnType<typeof parseCloudPhoneResult>>;
+  return x as CloudPhoneResult;
 }

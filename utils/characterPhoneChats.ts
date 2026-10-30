@@ -105,8 +105,11 @@ export function appendCharacterPhoneMessages(input: {
     const recent = new Set((previous?.messages || []).slice(-12)
       .filter(m => at - (m.createdAt || previous?.time || 0) < 10 * 60_000)
       .map(m => m.speaker.role + '|' + m.text.trim()));
+    const knownCloudIds = new Set((previous?.messages || []).map(m => m.cloudSourceId).filter(Boolean));
     const added = input.messages.filter(m => {
       if (!m.text?.trim() || m.speaker.role === 'user') return false;
+      if (m.cloudSourceId && knownCloudIds.has(m.cloudSourceId)) return false;
+      if (m.cloudSourceId) knownCloudIds.add(m.cloudSourceId);
       const key = m.speaker.role + '|' + m.text.trim();
       if (recent.has(key)) return false;
       recent.add(key);

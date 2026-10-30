@@ -462,6 +462,9 @@ export interface AmsgFirePack {
   /** Last client-synced actual phone events; never treated as live cloud data. */
   phoneEvents?: Array<{ occurredAt: number; summary: string }>;
   /** Small, privacy-bounded NPC relationship snapshot. No raw private chats. */
+  /** Optional opt-in saved NPC message awaiting a Char-only reply, for the
+   * same AMSG2 paid LLM request. No extra cloud phone scheduler. */
+  cloudPhoneOpportunity?: import('./amsgCloudPhone').CloudPhoneOpportunity | null;
   phoneSocialContacts?: Array<{
     id: string; name: string; relationship: string; trait?: string; continuity?: string;
   }>;
