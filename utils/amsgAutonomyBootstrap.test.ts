@@ -45,23 +45,22 @@ describe('OS-global AMSG2 opt-in bootstrap', () => {
   });
   it('rejects task writes made after a character disables 2.0, without touching other data', async () => {
     const h = harness();
-    vi.mocked(ensureAutonomyWakes).mockImplementation(async args => {
-      h.setChars(h.getChars().map(c => c.id === 'alice'
-        ? { ...c, activeMsg2Config: { enabled: false, tasks: [] } } : c));
-      args.onSave(prev => ({ ...(prev || { enabled:true }), enabled:true,
-        tasks: [{ taskUuid:'bad' }] as any }));
-    });
     await reconcileGlobalAutonomyWakes(h.scope, 'alice');
+    const captured = vi.mocked(ensureAutonomyWakes).mock.calls[0][0];
+    h.setChars(h.getChars().map(c => c.id === 'alice'
+      ? { ...c, activeMsg2Config: { enabled: false, tasks: [] } } : c));
+    // Callback arrives after the user switched 2.0 off.
+    captured.onSave(prev => ({ ...(prev || { enabled:true }), enabled:true,
+      tasks: [{ taskUuid:'bad' }] as any }));
     expect(h.saves).toEqual([]);
     expect(h.getChars()[0].activeMsg2Config?.enabled).toBe(false);
   });
   it('ignores a delayed cloud result for a deleted character', async () => {
     const h = harness();
-    vi.mocked(ensureAutonomyWakes).mockImplementation(async args => {
-      h.setChars(h.getChars().filter(c => c.id !== args.char.id));
-      args.onSave(prev => ({ ...(prev || { enabled:true }), tasks: [] }));
-    });
     await reconcileGlobalAutonomyWakes(h.scope, 'alice');
+    const captured = vi.mocked(ensureAutonomyWakes).mock.calls[0][0];
+    h.setChars(h.getChars().filter(c => c.id !== 'alice'));
+    captured.onSave(prev => ({ ...(prev || { enabled:true }), tasks: [] }));
     expect(h.saves).toEqual([]);
   });
   it('does not run when the app is hidden/unmounted or no role opted in', async () => {
@@ -73,9 +72,7 @@ describe('OS-global AMSG2 opt-in bootstrap', () => {
   });
   it('a single bad role cannot stop a later opted-in role from reconciling', async () => {
     const h = harness();
-    vi.mocked(ensureAutonomyWakes).mockImplementation(async args => {
-      if (args.char.id === 'alice') throw new Error('remote unavailable');
-    });
+    vi.mocked(ensureAutonomyWakes).mockRejectedValueOnce(new Error('remote unavailable'));
     await reconcileGlobalAutonomyWakes(h.scope);
     expect(vi.mocked(ensureAutonomyWakes).mock.calls.map(([a]) => a.char.id))
       .toEqual(['alice','bob']);
