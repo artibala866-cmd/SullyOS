@@ -111,6 +111,16 @@ describe('stage4: outbox replay and user sovereignty',()=>{
   expect(await applyCloudPhoneResult(row)).toBe(true);
   expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(2);
  });
+ it('never sends a stale NPC cloud reply into a group or service conversation',async()=>{
+  const key='sully_character_phone_wechat_v1:'+id;
+  for (const kind of ['group','service'] as const) {
+    const list=readCharacterPhoneChats(id);
+    list[0].kind=kind;
+    localStorage.setItem(key,JSON.stringify(list));
+    expect(await applyCloudPhoneResult(row)).toBe(true);
+    expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(1);
+  }
+ });
  it('never applies an old cloud reply when contacts were cleared and the same ID was recreated',async()=>{
   advancePhoneContentClearRevision(id,'contacts');
   // The old chat was deliberately retained; even an identical contact ID
