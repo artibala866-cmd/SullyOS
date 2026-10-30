@@ -56,16 +56,32 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  const feetA=captureLegSupport(a),feetB=captureLegSupport(b);
  const ratio=T.MathUtils.clamp(point(b,'chest').distanceTo(point(b,'hips'))/
   Math.max(.01,point(a,'chest').distanceTo(point(a,'hips'))),.7,1.35);
- const flex=(p.stance+p.lower)*.40+p.weight*.08*ratio;
- // Load originates in the supporting legs and is counterbalanced by the spine.
+ // Estimate the combined horizontal centre of mass from both torso
+ // proportions and the planned cradle pelvis. Compare its floor projection to
+ // the real support-toe footprint, not a hardcoded pose displacement.
+ a.root.updateWorldMatrix(true,true);
+ const carrierHip=point(a,'hips'),carrierChest=point(a,'chest');
+ const frontLoad=new T.Vector3(0,0,1).applyQuaternion(ab.hips.getWorldQuaternion(new T.Quaternion())).normalize();
+ const shoulderWidth=point(a,'L_upperArm').distanceTo(point(a,'R_upperArm'));
+ const estimatedLoad=carrierChest.clone().addScaledVector(frontLoad,shoulderWidth*.95);
+ const footCentre=feetA!.toes[0].clone().add(feetA!.toes[1]).multiplyScalar(.5);
+ const massShare=T.MathUtils.clamp(Math.pow(ratio,3)/(1+Math.pow(ratio,3)),.32,.68);
+ const combined=carrierHip.clone().lerp(estimatedLoad,massShare);
+ const toeForward=Math.max(...feetA!.toes.map(toe=>toe.clone().sub(footCentre).dot(frontLoad)));
+ const overhang=Math.max(0,combined.sub(footCentre).dot(frontLoad)-toeForward);
+ const torsoLength=carrierChest.distanceTo(carrierHip);
+ const counterTilt=T.MathUtils.clamp(Math.atan2(overhang,Math.max(.01,torsoLength))*.5,0,.17)*p.weight;
+ const flex=(p.stance+p.lower)*.40+p.weight*T.MathUtils.clamp(.08*ratio+counterTilt*.55,.07,.18);
+ // Support legs flex first; the spine leans against the measured forward
+ // overhang while the chest preserves a stable surface for both support palms.
  for(const side of ['L','R'] as const){
   const sign=side==='L'?-1:1;
   pose(a,side+'_thigh',q(-flex,0,sign*.05*p.acquire),1);
   pose(a,side+'_shin',q(flex*1.95),1);
   pose(a,side+'_foot',q(-flex*.95),1);
  }
- ab.spine.quaternion.multiply(q(-.07*p.weight*ratio));
- ab.chest.quaternion.multiply(q(.04*p.weight*ratio));
+ ab.spine.quaternion.multiply(q(-counterTilt));
+ ab.chest.quaternion.multiply(q(counterTilt*.35));
  a.root.updateWorldMatrix(true,true);
  restoreLegSupport(a,feetA);
  const floor=a.root.getWorldPosition(new T.Vector3()).y+.012;
