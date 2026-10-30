@@ -2182,7 +2182,10 @@ export const amsgHooks = {
     // A missing/broken writeState only disables this optional side activity,
     // never the ordinary autonomous contact to the user.
     let cloudPhoneOpportunity: CloudPhoneOpportunity | null = null;
-    const offered = !instant && autonomyWake ? pack.cloudPhoneOpportunity : null;
+    // On a Worker without the durable result outbox, do not consume a phone
+    // opportunity or ask the model for a reply that cannot reach its owner.
+    const offered = !instant && autonomyWake && typeof ctx.emitResult === 'function'
+      ? pack.cloudPhoneOpportunity : null;
     if (isCloudPhoneOpportunityFresh(offered, nowMs) && ctx.writeState) {
       const eventId = cloudPhoneReplyId(charId, offered);
       const already = charRows.find(r => r.key === CLOUD_PHONE_STATE_KEY)?.value;
