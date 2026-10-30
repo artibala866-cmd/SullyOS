@@ -51,9 +51,13 @@ export function poseSeasonalSocial(id:string,both:Resident[],time:number){
   a.root.updateWorldMatrix(true,true);
   hand(1,'R',palm(a,'L').add(new T.Vector3(0,.09,0)),p.offer,.4);
  }else if(id==='halloween-ghost-tease'){
-  // The captured raised arm puts the miniature partly behind the hair.
-  // Blend, rather than replace, its hand pose toward a partner-visible point.
-  hand(0,'R',socialAnchor(a,-.23,.38,.66),p.ghost*.62);
+  if(a.rig){
+   // Use the fitted skeleton's actual wrist; avoid source head/hair occlusion.
+   hand(0,'R',socialAnchor(a,-.23,.38,.66),p.ghost*.62);
+  }else{
+   // Classic's proportionally huge head requires its original side offset.
+   hand(0,'R',socialAnchor(a,-.95,.03,.48),p.reach*.8);
+  }
  }else if(forehead){
   const joined=palm(a,'L').lerp(palm(b,'R'),.5);
   hand(0,'L',joined,p.reach,.35);hand(1,'R',joined,p.reach,.35);

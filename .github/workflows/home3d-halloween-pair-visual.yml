@@ -8,6 +8,7 @@ on:
       - 'scripts/halloween-pair-visual-smoke.mjs'
       - 'apps/room3d/chibi/selectedSocial.ts'
       - 'apps/room3d/chibi/halloweenProps.ts'
+      - 'apps/room3d/chibi/seasonalSocial.ts'
       - '.github/workflows/home3d-halloween-pair-visual.yml'
   workflow_dispatch:
 
