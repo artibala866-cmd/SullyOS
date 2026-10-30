@@ -452,6 +452,7 @@ const ScheduleApp: React.FC = () => {
       setMessage('');setAssistantOpen(true);
       addToast('请先在学习室陪伴对话框中选择 Char','info');return;
     }
+    manualChatController.current?.abort();
     const version=++discussionVersion.current;
     setOverviewBusy(true);
     try{
@@ -492,6 +493,7 @@ const ScheduleApp: React.FC = () => {
     finally{setOverviewBusy(false);}
   };
   const discuss = (topic:string,scope:'study'|'commission',itemId='') => {
+    manualChatController.current?.abort();
     if(!activeChar){addToast('请先选择 Char 再发起讨论','error');return;}
     discussionVersion.current += 1;
     setPlanRequest(null);
@@ -504,6 +506,7 @@ const ScheduleApp: React.FC = () => {
   };
   const proposeCommissionPlan = (workspace: WorkspaceData) => {
     try {
+      manualChatController.current?.abort();
       discussionVersion.current += 1;
       const request=createCommissionPlanRequest(workspace,charId);
       setPlanRequest(request);
