@@ -40,9 +40,10 @@ export async function applyCloudPhoneResult(payload: unknown, context?: AmsgResu
     const previous = thread.messages.filter(m => m.cloudSourceId?.startsWith(id + ':'));
     if (!previous.length) {
       const last = thread.messages[thread.messages.length - 1];
-      if (thread.messages.length !== row.replyToCount || last?.speaker.role !== 'contact' ||
+      if (thread.messages.length !== row.replyToCount || last?.speaker?.role !== 'contact' ||
         (last.createdAt || thread.time) !== row.replyToAt ||
-        last.text.slice(0, 300) !== row.replyToText) return true;
+        typeof last.text !== 'string' || last.text.slice(0, 300) !== row.replyToText ||
+        row.sourceKey !== 'reply:' + thread.id + ':' + row.replyToAt + ':' + row.replyToCount) return true;
       try {
         const added = appendCharacterPhoneMessages({
           characterId: row.charId, contactId: contact.id,
