@@ -29,9 +29,12 @@ export async function applyCloudPhoneResult(payload: unknown, context?: AmsgResu
     if (!isCloudPhonePiggybackAuthorized(char.activeMsg2Config?.enabled === true,
       prefs.chatPiggybackEnabled) ||
       readPhoneAutonomyRevision(row.charId) !== row.revision ||
-      readPhoneContentClearRevision(row.charId, 'chats') !== row.clearRevision) return true;
+      readPhoneContentClearRevision(row.charId, 'chats') !== row.clearRevision ||
+      readPhoneContentClearRevision(row.charId, 'contacts') !== row.contactsClearRevision) return true;
     const contact = readNpcProfiles(row.charId).find(c => c.id === row.contactId && c.source !== 'character' && !c.linkedCharacterId);
-    if (!contact) return true;
+    // Clearing/re-creating contacts must not attach an old cloud-generated
+    // owner reply to a new NPC who happens to reuse the same stable ID.
+    if (!contact || contact.createdAt !== row.contactCreatedAt) return true;
     const thread = readCharacterPhoneChats(row.charId).find(t => t.id === row.threadId && t.contactId === contact.id);
     if (!thread) return true;
     // If the same outbox result already landed, repair its life event even if
