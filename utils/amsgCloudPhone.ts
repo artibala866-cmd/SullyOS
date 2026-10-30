@@ -34,6 +34,10 @@ export const MAX_CLOUD_PHONE_AGE_MS = 72 * 60 * 60_000;
 export type CloudPhoneOpportunity = {
   contactId: string;
   contactName: string;
+  /** Identity of the actual saved NPC; an ID reused after deletion is not
+   * the same contact, even when an old chat thread survives. */
+  contactCreatedAt: number;
+  contactsClearRevision: number;
   threadId: string;
   sourceKey: string;
   replyToAt: number;
@@ -50,6 +54,8 @@ export const isCloudPhoneOpportunityFresh = (
 ): candidate is CloudPhoneOpportunity => !!candidate &&
   typeof candidate.sourceKey === 'string' && candidate.sourceKey.startsWith('reply:') &&
   !!candidate.contactId && !!candidate.threadId && !!candidate.contactName &&
+  Number.isSafeInteger(candidate.contactCreatedAt) && candidate.contactCreatedAt > 0 &&
+  Number.isSafeInteger(candidate.contactsClearRevision) && candidate.contactsClearRevision >= 0 &&
   Number.isSafeInteger(candidate.replyToCount) && candidate.replyToCount > 0 &&
   Number.isSafeInteger(candidate.replyToAt) && candidate.replyToAt > 0 &&
   now >= candidate.replyToAt + 7 * 60_000 &&
@@ -104,7 +110,8 @@ export function extractCloudPhoneReply(raw: string, allowed: boolean): CloudPhon
 
 export type CloudPhoneResult = {
   resultKind: typeof CLOUD_PHONE_RESULT_KIND; charId: string; id: string;
-  contactId: string; threadId: string; sourceKey: string;
+  contactId: string; contactCreatedAt: number; contactsClearRevision: number;
+  threadId: string; sourceKey: string;
   replyToAt: number; replyToCount: number; replyToText: string;
   revision: number; clearRevision: number; occurredAt: number;
   messages: string[];
@@ -116,6 +123,8 @@ export function parseCloudPhoneResult(value: unknown): CloudPhoneResult | null {
     ![x.charId,x.id,x.contactId,x.threadId,x.sourceKey].every(s => typeof s === 'string' && !!s) ||
     !Number.isSafeInteger(x.replyToAt) || !Number.isSafeInteger(x.replyToCount) ||
     !Number.isSafeInteger(x.revision) || !Number.isSafeInteger(x.clearRevision) ||
+    !Number.isSafeInteger(x.contactCreatedAt) || (x.contactCreatedAt as number) <= 0 ||
+    !Number.isSafeInteger(x.contactsClearRevision) || (x.contactsClearRevision as number) < 0 ||
     !Number.isSafeInteger(x.occurredAt) || (x.occurredAt as number) <= 0 ||
     (x.replyToAt as number) <= 0 || (x.replyToCount as number) <= 0 ||
     (x.revision as number) < 0 || (x.clearRevision as number) < 0 ||
