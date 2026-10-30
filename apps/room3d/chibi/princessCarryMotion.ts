@@ -45,9 +45,12 @@ export function assessPrincessCarryReach(carrier:ChibiVisitor,recipient:ChibiVis
 export function princessCarrySupports(v:ChibiVisitor){
  const b=v.rig!.bones;v.root.updateWorldMatrix(true,true);
  const upper=b.spine.localToWorld(new T.Vector3(0,.10,-.16));
- const knee=b.R_shin.getWorldPosition(new T.Vector3());
- const lower=b.R_shin.localToWorld(new T.Vector3(0,.08,-.10))
-  .addScaledVector(b.R_thigh.getWorldPosition(new T.Vector3()).sub(knee),.08);
+ // Reach beneath the OFFERED knee, not the shin of the still-planted
+ // leg. Otherwise the carrier's hand reaches toward the floor and the
+ // recipient appears to squat to meet it.
+ const knee=b.L_shin.getWorldPosition(new T.Vector3());
+ const thigh=b.L_thigh.getWorldPosition(new T.Vector3());
+ const lower=knee.clone().lerp(thigh,.20).add(new T.Vector3(0,-.045,0));
  return {upper,lower};
 }
 
