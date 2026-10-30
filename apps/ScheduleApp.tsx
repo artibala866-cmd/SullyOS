@@ -388,7 +388,8 @@ const ScheduleApp: React.FC = () => {
       setAssistantTopic([brief,evidence,overview].filter(Boolean).join('\n').slice(0,7800));
       const last=records.filter(r=>r.date===new Date().toLocaleDateString('sv-SE')).slice(-1)[0];
       setMessage(companionEntryPrompt(actual,activeTask?.title||'',tab==='study'?studyPresence:recentPdf,
-        companionMoment.startsWith('刚完成一轮专注')&&Date.now()-companionMomentAt<2*60000?last?.minutes||0:0));
+        companionMoment.startsWith('刚完成一轮专注')&&Date.now()-companionMomentAt<2*60000?last?.minutes||0:0,
+        tab==='commissions'?'commissions':tab==='calendar'?'calendar':tab==='study'?'study':'timer'));
       setAssistantOpen(true);
     }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
     finally{setOverviewBusy(false);}
