@@ -101,7 +101,7 @@ export const studyCoachEvent=(reality:StudyRoomReality|undefined,now:Date):Study
   return {key:day+':unsettled:'+reality.unsettledLinkedMinutes,
     text:'有 '+reality.unsettledLinkedMinutes+' 分钟专注记录待手动结算'};
  const due=reality.dueSoonHomework+reality.dueSoonCommissions;
- if(due>0)return {key:day+':due:'+due,text:'七天内有 '+due+' 项待安排'};
+ if(due>0)return {key:day+':due:'+due,text:'七天内有 '+due+' 项临近截止'};
  if(reality.todayCourses>0)
   return {key:day+':course:'+reality.todayCourses,text:'今天有 '+reality.todayCourses+' 节课程'};
  if(reality.completedRounds>0)
@@ -118,6 +118,7 @@ export interface StudyCoachCheck{
  idleSince:number;
  lastPromptAt:number;
  lastEventKey?:string;
+ seenEventKeys?:readonly string[];
  promptCountToday?:number;
  reality?:StudyRoomReality;
  isVisible:boolean;
@@ -128,7 +129,7 @@ export const nextStudyCoachPrompt=(check:StudyCoachCheck):string|null=>{
  if(!charId||setting.level==='off'||setting.paused||!isVisible||!isTimerTab||session)return null;
  if(isStudyCoachQuietTime(setting,now))return null;
  const event=studyCoachEvent(reality,now);
- if(!event || event.key===check.lastEventKey)return null;
+ if(!event || event.key===check.lastEventKey || check.seenEventKeys?.includes(event.key))return null;
  if((check.promptCountToday||0)>=STUDY_COACH_DAILY_MAX[setting.level])return null;
  const interval=STUDY_COACH_INTERVAL_MINUTES[setting.level]*60000;
  if(!Number.isFinite(idleSince)||idleSince<=0||now.getTime()-idleSince<interval)return null;
@@ -136,6 +137,21 @@ export const nextStudyCoachPrompt=(check:StudyCoachCheck):string|null=>{
  return setting.level==='gentle'?'提醒一下：'+event.text+'。需要时再开始就好。'
   :setting.level==='normal'?event.text+'。要不要一起看看下一步？'
   :event.text+'。想核对一下实际进度吗？';
+};
+/** Prevent repeating a previously shown cue after intervening edits or a reload.
+ * Keep a small fixed-size history instead of storing task names or notes.
+ */
+export const rememberStudyCoachEvent=(previous:{
+ day?:string;key?:string;count?:number;seenKeys?:readonly string[];
+}|undefined,eventKey:string,now:Date)=>{
+ const day=localDate(now);
+ const old=previous?.day===day?previous:undefined;
+ const keys=(old?.seenKeys&&old.seenKeys.length?old.seenKeys:old?.key?[old.key]:[])
+  .filter((key):key is string=>typeof key==='string');
+ return {
+  day,key:eventKey,count:Math.min(99,(old?.count||0)+1),
+  seenKeys:[...new Set([...keys,eventKey])].slice(-12),
+ };
 };
 export const studyCoachBrief=(setting:StudyCoachSetting):string=>{
  if(setting.level==='off'||setting.paused)return '';
