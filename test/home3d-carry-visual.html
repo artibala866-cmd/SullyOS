@@ -52,7 +52,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     runtime=createSocialScene(pair.map((visitor,i)=>({id:String(i),visitor})));
     await runtime.start(direction,'0','1');
     const session=runtime.inspect().session;if(!session)throw Error('No active carry session');
-    const approach=session.duration-socialActions[direction].duration,records=[],timeSamples=[1.5,3.5,5,7,8.7,9.5];
+    const approach=session.duration-socialActions[direction].duration,records=[],timeSamples=[1.5,2.5,3.5,5,7,7.8,8.7,9.5];
     for(const time of timeSamples){
      // Existing player keeps a 0.6s entry blend before sampling source motion.
      runtime.seek(approach+time+.6);
@@ -84,7 +84,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    }
   }finally{runtime?.cancel();for(const v of pair){scene.remove(v.root);v.dispose();}}
  }
- if(report.images.length!==3*2*2*7)throw Error('Missing carry visual frames '+report.images.length);
+ if(report.images.length!==3*2*2*9)throw Error('Missing carry visual frames '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
 }catch(error){report.errors.push(String(error));report.status='fail';stage('错误');}
 })();

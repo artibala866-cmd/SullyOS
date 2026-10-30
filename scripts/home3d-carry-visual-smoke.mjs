@@ -41,7 +41,7 @@ try{
  writeFileSync(join(out,'result.json'),JSON.stringify(report,null,2));
  console.log('Carry WebGL review:',JSON.stringify({status:report.status,stage:report.stage,images:report.images?.length,scenarios:report.sequences?.length,errors:report.errors}));
  if(report.status!=='pass')throw Error('Carry WebGL fixture failed: '+(report.errors||[]).join(' | ').slice(0,1000));
- if(report.images.length!==84||report.sequences.length!==12)throw Error('Incomplete real-wardrobe carry gallery');
+ if(report.images.length!==108||report.sequences.length!==12)throw Error('Incomplete real-wardrobe carry gallery');
  for(let i=0;i<report.images.length;i++){
   const src=await evaluate('document.querySelectorAll(".gallery figure img")['+i+']?.src');
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing actual WebGL render '+i);
@@ -52,5 +52,5 @@ try{
  if(h>16000||h<300)throw Error('Unexpected gallery height '+h);
  const img=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width:1280,height:h,scale:1}});
  if(img?.data)writeFileSync(join(out,'all-poses-desktop.png'),Buffer.from(img.data,'base64'));
- console.log('Saved 84 original WebGL images and full review gallery. Assess visible garment/hair occlusion by inspection.');
+ console.log('Saved 108 original WebGL images and full review gallery. Assess visible garment/hair occlusion by inspection.');
 }finally{try{ws?.close();}catch{}try{chrome.kill('SIGTERM');}catch{}if(report.status!=='pass')console.error('Carry WebGL Chrome stderr',stderr.slice(-1200));}

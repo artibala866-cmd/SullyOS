@@ -185,9 +185,10 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
  // no longer stack directly at eye level. The recipient's limbs and palms
  // still follow the existing scale-aware support and arm IK below.
  // Taller recipients need a wider cradle angle to keep large hair silhouettes
- // from stacking over a smaller carrier's head. Scale the extra recline by the
- // measured torso ratio; equal/shorter recipients keep the reviewed baseline.
- const recline=.90+T.MathUtils.clamp((sizeRatio-1)*.95,0,.36);
+ // from stacking over a smaller carrier's head. The modest 1.04 baseline also
+ // opens space for equal/shorter recipients. Cap the extra torso-ratio lean so
+ // taller recipients keep the already-reviewed 1.26-radian upper limit.
+ const recline=1.04+T.MathUtils.clamp((sizeRatio-1)*.70,0,.22);
  turn(b,'hips',rotation(0,Math.PI/2,0).multiply(rotation(-recline)),p.lift);
  for(const side of ['L','R'] as const){
   turn(b,side+'_thigh',rotation(-1.35,0,side==='L'?-.025:.025),p.lift);
