@@ -323,6 +323,34 @@ it('during the offer only the recipient raised thigh bends, while carrier stays 
  }
 });
 
+it('carry elbow bend directions do not reverse between nearby animation frames',()=>{
+ for(const heights of [[1,1],[.8,1.25],[1.25,.8]]){
+  const a=actor(heights[0],-.4,0),b=actor(heights[1],.4,Math.PI);
+  const prev=new Map<string,T.Vector3>();
+  for(let step=0;step<=28;step++){
+   const time=2.8+step*.10;
+   a.reset();b.reset();
+   poseIntimacy('home-princess-carry',[a,b],time);
+   for(const [index,r] of [a,b].entries())for(const side of ['L','R'] as const){
+    const bones=r.visitor.rig!.bones;
+    const shoulder=bones[side+'_upperArm'].getWorldPosition(new T.Vector3());
+    const elbow=bones[side+'_forearm'].getWorldPosition(new T.Vector3());
+    const wrist=bones[side+'_hand'].getWorldPosition(new T.Vector3());
+    const axis=wrist.clone().sub(shoulder);
+    if(axis.lengthSq()<1e-7)continue;
+    axis.normalize();
+    const bend=elbow.sub(shoulder);
+    bend.addScaledVector(axis,-bend.dot(axis));
+    if(bend.lengthSq()<1e-6)continue;
+    bend.normalize();
+    const key=index+side,before=prev.get(key);
+    if(before)expect(bend.dot(before),`elbow flip height ${heights} role ${index} side ${side} time ${time}`).toBeGreaterThan(-.65);
+    prev.set(key,bend);
+   }
+  }
+ }
+});
+
 it('carry hands have staggered entry and a complete fade back to idle after grounding',()=>{
  const f=princessCarryPhase;
  expect(f(0).backReach).toBe(0);
