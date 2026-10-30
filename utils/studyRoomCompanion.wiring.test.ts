@@ -249,7 +249,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).toContain('study-phone-speaker');
    expect(schedule).toContain('study-phone-homebar');
    expect(studyPhoneCss).toContain('border:5px solid #252525');
-   expect(studyPhoneCss).toContain('width:min(232px,58vw,calc((100dvh - 154px)*0.46))');
+   expect(studyPhoneCss).toContain('width:min(218px,56vw,calc((100dvh - 154px)*0.46))');
    expect(studyPhoneCss).toContain('aspect-ratio:9 / 19.5;height:auto;min-height:0;max-height:none');
    expect(nativeChat).toContain('homePhone?.characterId??osActiveCharacterId');
    expect(nativeChat).toContain('hideHeader?:boolean');
@@ -263,7 +263,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
  it('尺寸回归：320/360/390 窄屏及短屏均保持真手机纵向比例而非压扁横版',()=>{
    const ratio=9/19.5;
    for(const [w,h] of [[320,568],[360,740],[390,844],[430,932],[698,768]]){
-      const width=Math.min(232,w*0.58,(h-154)*0.46);
+      const width=Math.min(218,w*0.56,(h-154)*0.46);
       const height=width/ratio;
       expect(height/width).toBeCloseTo(19.5/9,4);
       expect(height).toBeGreaterThan(width*2);
@@ -275,6 +275,28 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(studyPhoneCss).not.toContain('width:min(326px');
    expect(schedule).toContain('<NotePencil size={17}/>');
    expect(schedule).toContain('className="grid h-8 w-8 shrink-0 place-items-center"');
+ });
+
+ it('私聊整页按390逻辑宽度等比缩小，不能只压窄消息气泡或输入区',()=>{
+   expect(schedule).toContain('const nativePhoneWidth=390;');
+   expect(schedule).toContain('new ResizeObserver(measure)');
+   expect(schedule).toContain('width:nativePhoneWidth');
+   expect(schedule).toContain('height:Math.ceil(nativeViewportSize.height/nativePhoneScale)');
+   expect(schedule).toContain('transform:`scale(${nativePhoneScale})`');
+   expect(schedule).toContain("ref={nativePhoneViewport} className=\"study-phone-native-viewport\"");
+   expect(schedule).toContain('className="study-phone-native-canvas"');
+   expect(studyPhoneCss).toContain('transform-origin:top left');
+   expect(studyPhoneCss).toContain('position:absolute;inset:0;overflow:hidden');
+   expect(studyPhoneCss).toContain('width:100%!important;height:100%!important');
+   for(const [outerWidth,insideWidth,insideHeight] of [[218,198,416],[180,160,350],[205,185,380]]){
+     const scale=insideWidth/390;
+     const logicalHeight=insideHeight/scale;
+     expect(390*scale).toBeCloseTo(insideWidth);
+     expect(logicalHeight*scale).toBeCloseTo(insideHeight);
+     expect(scale).toBeGreaterThan(0.35);
+     expect(scale).toBeLessThan(0.6);
+     expect(outerWidth-insideWidth).toBeGreaterThanOrEqual(20);
+   }
  });
 
 });
