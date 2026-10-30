@@ -48,7 +48,7 @@ try{
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing real WebGL screenshot '+i);
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
- const expected=4*3*2*(5+2)*4;
+ const expected=4*3*2*(6+3)*4;
  if(report.status!=='pass'||report.images?.length!==expected||report.runs?.length!==24)throw Error('Missing or failed WebGL acceptance: '+(report.errors||[]).join(' | ').slice(0,1000));
  const shot=await send('Page.captureScreenshot',{format:'png',clip:{x:0,y:0,width:1280,height:800,scale:1}});
  if(shot?.data)writeFileSync(join(out,'gallery-preview.png'),Buffer.from(shot.data,'base64'));

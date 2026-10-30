@@ -24,6 +24,8 @@ export function createHalloweenProp(action:string,visitors:ChibiVisitor[],models
  const add=(id:string)=>{if(!models[id])throw Error('互动道具未准备好');const m=models[id].clone(true);m.name=id;m.scale.setScalar(factor);root.add(m);return m;};
  const bucket=action==='halloween-trick-or-treat'?add('pumpkin-pail'):null;
  const ghost=action==='halloween-ghost-tease'?add('little-ghost'):null;
+ // Geometry-only size compensation: the prop remains anchored to the palm.
+ if(ghost)ghost.scale.multiplyScalar(1.3);
  const candies=action==='halloween-candy-shower'?Array.from({length:7},()=>add('wrapped-candy')):action==='halloween-trick-or-treat'?[add('wrapped-candy')]:[];
  const palm=(v:ChibiVisitor,side:'L'|'R')=>v.rig?v.rig.bones[side+'_hand'].localToWorld(furniturePalm(side)):v.classicPoint(side+'_hand');
  const place=(m:T.Object3D,p:T.Vector3,q?:T.Quaternion)=>{m.position.copy(root.worldToLocal(p));m.quaternion.copy(q??new T.Quaternion()).premultiply(root.getWorldQuaternion(new T.Quaternion()).invert());};

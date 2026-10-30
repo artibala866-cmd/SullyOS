@@ -50,8 +50,10 @@ export function poseSeasonalSocial(id:string,both:Resident[],time:number){
   hand(0,'L',socialAnchor(a,.40,-.28,.52),p.reach*.65);
   a.root.updateWorldMatrix(true,true);
   hand(1,'R',palm(a,'L').add(new T.Vector3(0,.09,0)),p.offer,.4);
- }else if(id==='halloween-ghost-tease'&&!a.rig){
-  hand(0,'R',socialAnchor(a,-.95,.03,.48),p.reach*.8);
+ }else if(id==='halloween-ghost-tease'){
+  // The captured raised arm puts the miniature partly behind the hair.
+  // Blend, rather than replace, its hand pose toward a partner-visible point.
+  hand(0,'R',socialAnchor(a,-.23,.38,.66),p.ghost*.62);
  }else if(forehead){
   const joined=palm(a,'L').lerp(palm(b,'R'),.5);
   hand(0,'L',joined,p.reach,.35);hand(1,'R',joined,p.reach,.35);
