@@ -30,6 +30,8 @@ describe('stage4 cloud snapshot selection',()=>{
   const selection=selectCloudPhoneOpportunity(char(),now);
   expect(selection?.contactId).toBe('npc1');
   expect(selection?.replyToText).toBe('今天有空吗');
+  expect(selection?.contactCreatedAt).toBe(now-86400_000);
+  expect(selection?.contactsClearRevision).toBe(0);
   expect(selection && isCloudPhoneOpportunityFresh(selection,now)).toBe(true);
   expect(selectCloudPhoneOpportunity(char(false),now)).toBeNull();
  });
