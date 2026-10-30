@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {PenNib,CalendarDots,BookOpen,Clock,ArrowRight,Sparkle,ChartBar,Plus} from '@phosphor-icons/react';
+import {PenNib,CalendarDots,BookOpen,Clock,ArrowRight,Sparkle,Plus,ListBullets,Camera,ShieldCheck,X} from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { putImageBlob } from '../utils/blobRef';
 import { recognizeCourseImage, type CourseImageDraft } from '../utils/sullyTimetableVision';
@@ -51,6 +51,8 @@ const buttonClass = 'min-h-11 rounded-xl border border-[#dfdfdf] bg-[#f1f1f1] te
 const primaryButton = 'min-h-11 rounded-full bg-[#242424] text-white px-4 py-2.5 text-sm font-medium disabled:opacity-40';
 const mutedButton = 'min-h-10 rounded-full border border-[#e8e8e8] bg-[#f6f6f6] px-4 py-2 text-xs text-neutral-800 hover:bg-[#eeeeee] disabled:opacity-40';
 const cardClass = 'rounded-[24px] bg-white p-4 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.025)] space-y-4';
+const disclosureClass = 'rounded-[18px] bg-white px-4 py-1.5 shadow-[0_4px_14px_rgba(0,0,0,0.018)]';
+const summaryClass = 'flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden';
 const weekdayNames = ['周日','周一','周二','周三','周四','周五','周六'];
 const blankCommission = () => ({
   title:'',client:'',type:'',brief:'',acceptedAt:localDate(new Date()),
@@ -71,6 +73,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const [recoveringWorkspace, setRecoveringWorkspace] = useState(false);
   const [settlementBusyId,setSettlementBusyId]=useState('');
   const [shareBusy, setShareBusy] = useState<WorkspaceShareCategory | null>(null);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [planChecked, setPlanChecked] = useState<string[]>([]);
   const [applyingPlan, setApplyingPlan] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -668,8 +671,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </button>
         <p className="text-xs text-neutral-500">如模型返回无效或越权字段，整份建议将被拒绝；绝不自动发消息给客户或更改交稿截止日。</p>
       </section>}
-      <details className={cardClass}>
-        <summary className="cursor-pointer text-sm font-semibold">＋ 新增委托</summary>
+      <details className={disclosureClass}>
+        <summary className={summaryClass}><Plus size={18} weight="light"/> 新建</summary>
       <form onSubmit={addCommission} className="space-y-3 pt-2">
         
         <input className={inputClass} required aria-label="稿件名称" placeholder="稿件名称（必填）" value={draft.title} onChange={e=>setDraft(v=>({...v,title:e.target.value}))}/>
@@ -683,8 +686,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         <button className={buttonClass+' min-h-11'} disabled={addingCommission} type="submit">{addingCommission?'保存中…':'加入排单'}</button>
       </form>
       </details>
-      <details className={cardClass} open={showCommissionList} onToggle={e=>setShowCommissionList(e.currentTarget.open)}>
-        <summary className="cursor-pointer text-sm font-semibold">全部委托（{data.commissions.filter(c=>c.status!=='archived').length}）</summary>
+      {data.commissions.length>0 && <details className={disclosureClass} open={showCommissionList} onToggle={e=>setShowCommissionList(e.currentTarget.open)}>
+        <summary className={summaryClass}><ListBullets size={18} weight="light"/> 全部 <span className="ml-auto text-xs text-neutral-500">{data.commissions.filter(c=>c.status!=='archived').length}</span></summary>
         <div className="flex justify-end"><button className={mutedButton} onClick={()=>setShowArchived(x=>!x)}>{showArchived?'隐藏归档':'查看归档'}</button></div>
       {orderedCommissions(data.commissions, showArchived)
         .sort((a,b)=>Number(b.id===editingCommissionId)-Number(a.id===editingCommissionId))
@@ -727,7 +730,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
               onClose={()=>setEditingCommissionId('')}/>}
           </details>
         </article>)}
-      </details>
+      </details>}
       <datalist id="sully-stages">{['待确认','排队','草稿','线稿','上色','细化','待审核','交付完成'].map(s=><option key={s} value={s}/>)}</datalist>
     </div><div className={'space-y-4 sm:space-y-5 '+(section==='calendar'?'':'hidden')}>
       <header className="flex items-center justify-between gap-3 px-1 pt-2">
@@ -735,8 +738,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <span className="grid h-12 w-12 place-items-center rounded-[17px] bg-[#252525] text-white"><BookOpen size={23} weight="light"/></span>
           <div><h2 className="text-[21px] font-semibold tracking-tight">课程表</h2></div>
         </div>
-        <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white" aria-label="查看作业和笔记"
-          onClick={()=>document.getElementById('study-homework-panel')?.scrollIntoView({block:'start',behavior:'smooth'})}><ArrowRight size={20}/></button>
+        <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white" aria-label="私聊权限"
+          onClick={()=>setPrivacyOpen(true)}><ShieldCheck size={20}/></button>
       </header>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="接下来要做的作业">
         {pendingHomework.slice(0,1).map(h=><article key={h.id}
@@ -799,8 +802,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </section>
       <StudyWeekTimetable classes={data.classes} selectedId={selectedClassId}
         onSelect={showClassWork}/>
-      <details className={cardClass}>
-        <summary className="cursor-pointer text-sm font-semibold">＋ 新增课程</summary>
+      <details className={disclosureClass}>
+        <summary className={summaryClass}><Plus size={18} weight="light"/> 新建</summary>
       <form className="space-y-3 pt-2" onSubmit={addClass}>
         
         <input className={inputClass} required placeholder="课程名称" aria-label="课程名称" value={classDraft.name} onChange={e=>setClassDraft(v=>({...v,name:e.target.value}))}/>
@@ -817,8 +820,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         <button type="submit" className={buttonClass+' min-h-11'} disabled={addingClass}>{addingClass?'保存中…':'保存课程'}</button>
       </form>
       </details>
-      <details className={cardClass}>
-        <summary className="cursor-pointer text-sm font-semibold">识别课表</summary>
+      <details className={disclosureClass}>
+        <summary className={summaryClass}><Camera size={18} weight="light"/> 识别</summary>
         <p className="text-xs text-neutral-600">选择图片后，需主动点击识别（会调用你设置的识图服务）；结果不会直接入库。</p>
         <input type="file" accept="image/*" aria-label="上传课程表图片" onChange={e=>pickImage(e.target.files?.[0])} className="w-full text-sm"/>
         {imagePreview && <img src={imagePreview} alt="待识别课程表预览" className="max-h-40 max-w-full object-contain"/>}
@@ -844,8 +847,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <button className={mutedButton} onClick={()=>setPreviewRows([])}>放弃识别结果</button>
         </div>}
       </details>
-      <details className={cardClass}>
-        <summary className="cursor-pointer text-sm font-semibold">课程管理与关联（{data.classes.length}）</summary>
+      {data.classes.length>0 && <details className={disclosureClass}>
+        <summary className={summaryClass}><ListBullets size={18} weight="light"/> 课程 <span className="ml-auto text-xs text-neutral-500">{data.classes.length}</span></summary>
         <p className="text-xs text-neutral-600">原有 PDF 自习室课程单独保存；这里只关联课程 ID，不复制、删除或重置旧章节及练习册。</p>
         {studyCoursesError && <p role="alert" className="text-sm text-red-700">{studyCoursesError}</p>}
         <button className={mutedButton} type="button" disabled={studyCoursesLoading}
@@ -891,14 +894,14 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           </details>
           <button className={mutedButton} onClick={()=>deleteClass(c.id)}>仅删除此课程表记录</button>
         </article>)}
-      </details>
+      </details>}
       <section id="study-homework-panel" className={cardClass+' scroll-mt-4'}>
         <div className="flex items-center justify-between gap-3">
-          <div><h3 className="mt-1 text-[18px] font-semibold">作业与笔记</h3></div>
+          <div><h3 className="text-[18px] font-semibold">作业 · 笔记</h3></div>
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f1f1f1] text-lg">✎</span>
         </div>
-        <label className="text-sm">选择课程<select className={inputClass} value={selectedClassId} onChange={e=>setSelectedClassId(e.target.value)}>
-          <option value="">请选择</option>{data.classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        <label className="text-sm"><span className="sr-only">选择课程</span><select aria-label="选择课程" className={inputClass} value={selectedClassId} onChange={e=>setSelectedClassId(e.target.value)}>
+          <option value="">选择课程</option>{data.classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         {selectedClass && <>
           {selectedClass.studyCourseId && resolveLinkedCourse(selectedClass,studyCourses) &&
             <button type="button" className={mutedButton}
@@ -949,7 +952,6 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <button className={mutedButton} onClick={()=>onDiscuss('请让我把刚学到的 '+className(n.classId)+' 的内容讲给你听，然后根据笔记追问我，不要擅自判定作业完成。笔记：'+n.body.slice(0,1500),'study',n.id)}>请 Char 提问</button>
           </div>)}
         </>}
-        {!selectedClass && <p className="text-xs text-neutral-600">先选择一门课，再记录作业和笔记。</p>}
       </section>
       {(orphaned.homework.length>0 || orphaned.notes.length>0) &&
         <details className={cardClass} aria-label="未归属作业与笔记">
@@ -988,11 +990,16 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </details>}
       
     </div>
-    <details className={cardClass+' mt-5'} aria-label="普通私聊授权">
-      <summary className="cursor-pointer font-medium text-sm flex items-center justify-between">
-        <span>学习室设置 · 私聊授权</span>
-      </summary>
-      <p className="text-xs text-neutral-600">每个 Char 独立授权，默认全部关闭。开启仅分享课程时间、作业状态或画稿排期的有限摘要；永不自动分享客户、价格、详细需求、笔记与 PDF 原文。关闭后只阻止后续请求，已发送消息和历史记忆不会被自动删除。</p>
+    {privacyOpen && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/35 p-3 sm:items-center" onClick={()=>setPrivacyOpen(false)}>
+      <section role="dialog" aria-modal="true" aria-label="私聊权限" className="w-full max-w-md max-h-[85dvh] overflow-y-auto rounded-[24px] bg-white p-5 shadow-xl" onClick={e=>e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-base font-semibold"><ShieldCheck size={20}/> 私聊权限</h3>
+          <button type="button" aria-label="关闭私聊权限" className="grid h-11 w-11 place-items-center rounded-full bg-[#f5f5f5]" onClick={()=>setPrivacyOpen(false)}><X size={20}/></button>
+        </div>
+        <details className="mb-4 text-xs text-neutral-600">
+          <summary className="cursor-pointer">仅共享进度摘要 · 查看规则</summary>
+          <p className="mt-2">每个 Char 独立授权，默认关闭。仅分享课程时间、作业状态或画稿排期；不分享客户、价格、需求、笔记和 PDF 原文。关闭授权不删除已发送消息及历史记忆。</p>
+        </details>
       <StudyCharPicker compact characters={characters} selectedId={selectedCharId} onSelect={onSelectChar}/>
       {(['study','commissions'] as const).map(category => {
         const enabled = permissionForChar(data, selectedCharId)[category];
@@ -1011,7 +1018,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </div>;
       })}
       {shareBusy && <p className="text-xs text-neutral-600">正在保存授权并核对远端提醒…</p>}
-    </details>
+      </section>
+    </div>}
   </div>;
 };
 // While hidden, ignore parent timer ticks that only recreate callback lambdas.
