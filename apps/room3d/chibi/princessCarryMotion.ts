@@ -14,11 +14,14 @@ export function princessCarryPhase(time:number){
  const t=T.MathUtils.clamp(Number.isFinite(time)?time:0,0,10);
  const e=(a:number,b:number,c:number,d:number)=>smooth(t,a,b)*(1-smooth(t,c,d));
  return {
-  stance:e(.35,1.55,2.95,4.35), acquire:smooth(t,.65,2.4),
-  secured:e(2.1,2.8,9.15,9.85), weight:e(2.75,3.45,8.35,9.1),
-  cradle:e(2.85,4.3,6.9,8.65), tuck:e(3.1,4.35,7.1,8.65),
-  lift:e(3.25,4.75,6.75,8.95), lower:e(6.55,7.60,8.9,9.8),
-  plant:smooth(t,8.55,9.08), embrace:e(3.9,5.15,8.95,9.6),
+  stance:e(.35,1.65,3.7,5.25), acquire:smooth(t,.65,2.4),
+  secured:e(2.1,2.8,9.15,9.85), weight:e(3.5,4.55,8.0,9.15),
+  // First sit down into both supporting hands while the feet still bear
+  // weight. Only then lift: torso, pelvis and two legs have different arcs.
+  seat:e(2.45,3.55,7.75,9.2),
+  cradle:e(3.60,5.25,7.1,9.0), tuck:e(3.2,4.9,7.25,8.9),
+  lift:e(3.85,5.4,6.8,9.00), lower:e(6.7,7.75,8.95,9.8),
+  plant:smooth(t,8.55,9.08), embrace:e(3.4,4.85,8.95,9.6),
   release:smooth(t,9.15,9.85),
  };
 }
@@ -87,18 +90,37 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  const floor=a.root.getWorldPosition(new T.Vector3()).y+.012;
  const sole=Math.min(...['L_foot','R_foot','L_toe','R_toe'].map(n=>point(a,n).y));
  if(sole<floor)a.translatePose(new T.Vector3(0,Math.min(.75,floor-sole),0));
- // A gradual pelvis turn and leg tuck are independent from the vertical lift.
- const recline=1.04+T.MathUtils.clamp((ratio-1)*.70,0,.22);
- pose(b,'hips',q(0,Math.PI/2).multiply(q(-recline)),p.cradle);
- for(const side of ['L','R'] as const){
-  pose(b,side+'_thigh',q(-1.35,0,side==='L'?-.025:.025),p.tuck);
-  pose(b,side+'_shin',q(1.45),p.tuck);
-  pose(b,side+'_foot',q(.12),p.tuck);
+ // A princess carry is NOT a rigid 90-degree rotation of the recipient.
+ // First the knees fold and the pelvis sits into the carrier's arms with
+ // both feet still supporting. The carrier lifts the seated body, and only
+ // then does it recline sideways. Keep chest/head independent of the hips.
+ const seated=p.seat,lifted=p.lift;
+ const sideTurn=.48*seated+1.05*p.cradle;
+ const recline=.13*seated+.47*p.cradle;
+ const cradleWeight=Math.max(seated,p.cradle);
+ pose(b,'hips',q(0,sideTurn).multiply(q(-recline)),cradleWeight);
+ // The back does not follow the pelvis as one stiff board: it stays upright
+ // during initial seating and gently yields as weight transfers to the arms.
+ bb.spine.quaternion.multiply(q(.24*p.cradle));
+ bb.chest.quaternion.multiply(q(.14*p.cradle));
+ const legs=[
+  {side:'L' as const, fold:smooth(time,2.75,4.38)*(1-smooth(time,7.25,8.9))},
+  {side:'R' as const, fold:smooth(time,3.24,4.93)*(1-smooth(time,7.45,9.05))},
+ ];
+ for(const {side,fold} of legs){
+  const sign=side==='L'?-1:1;
+  pose(b,side+'_thigh',q(-1.32,0,sign*.035),fold);
+  pose(b,side+'_shin',q(1.45),fold);
+  pose(b,side+'_foot',q(.12),fold);
  }
- const headDelay=p.cradle-smooth(time,3.25,4.70)*(1-smooth(time,7.35,8.85));
- bb.neck.quaternion.multiply(q(-.05*headDelay));
- bb.head.quaternion.multiply(q(-.08*headDelay));
+ // A seated person's neck remains free to track the carrier instead of
+ // snapping to the body tilt; the shoulder embrace follows the actual lift.
+ bb.neck.quaternion.multiply(q(-.035*p.cradle));
+ bb.head.quaternion.multiply(q(-.055*p.cradle));
  b.root.updateWorldMatrix(true,true);
+ // The recipient may turn and bend before takeoff, but cannot float upward
+ // from the floor merely because the pelvis is being rotated.
+ if(seated>.001&&lifted<.001)restoreLegSupport(b,feetB,true,.14,seated);
  // Rebuild the loaded pelvis destination from actual carrier skeleton lengths.
  const hip=point(a,'hips'),chest=point(a,'chest');
  const left=point(a,'L_upperArm'),right=point(a,'R_upperArm');

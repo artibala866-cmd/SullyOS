@@ -281,3 +281,26 @@ it('acquires support before flight, rotates before lift, plants before release',
   }
  }
 });
+
+it('carry seats into the arms before takeoff and reclines only during the supported lift',()=>{
+ const p=(t:number)=>princessCarryPhase(t);
+ expect(p(3.45).seat).toBeGreaterThan(.9);
+ expect(p(3.45).lift).toBe(0);
+ expect(p(3.45).cradle).toBe(0);
+ expect(p(4.35).seat).toBeGreaterThan(.99);
+ expect(p(4.35).lift).toBeGreaterThan(0);
+ expect(p(4.35).lift).toBeLessThan(.5);
+ for(const heights of [[1,1],[.8,1.25],[1.25,.8]]){
+  const a=actor(heights[0],-.4,0),b=actor(heights[1],.4,Math.PI);
+  const sample=(t:number)=>{
+   a.reset();b.reset();
+   poseIntimacy('home-princess-carry',[a,b],t);
+   return {hip:b.visitor.rig!.bones.hips.getWorldPosition(new T.Vector3()),
+    chest:b.visitor.rig!.bones.chest.getWorldPosition(new T.Vector3()),
+    foot:b.visitor.rig!.bones.L_toe.getWorldPosition(new T.Vector3())};
+  };
+  const entering=sample(3.45),held=sample(5.5);
+  expect(entering.chest.y-entering.hip.y, `recipient should be upright while seating ${heights}`).toBeGreaterThan(.28);
+  expect(held.foot.y-entering.foot.y,`recipient should actually rise after support ${heights}`).toBeGreaterThan(.15);
+ }
+});
