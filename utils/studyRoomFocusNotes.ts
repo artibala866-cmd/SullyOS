@@ -10,6 +10,8 @@ export interface FocusChatNote {
   charId?:string;
   scope?:StudyDialogueScope;
   topicId?:string;
+  /** Genuine AI speaking via separately authorized local supervision, not a user message. */
+  origin?:'auto_coach';
   /** Only newly returned messages have a trustworthy creation time. */
   createdAt?:number;
 }
