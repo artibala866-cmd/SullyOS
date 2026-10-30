@@ -170,9 +170,11 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
   if(motion==='bath-soak'){
    const lift=activity?.bathLegLift??1,brace=activity?.bathSupport??0,lean=activity?.bathLean??0,flex=activity?.bathCrouch??brace;
    // Lift the near leg first and transfer stance before the trailing leg.
-   // The final seated knee pose only blends in as the pelvis lowers.
-   angle('head',-.045*seatWeight-.06*lean,Math.sin(time*.7)*.025);
-   angle('spine',-.045*seatWeight+.46*lean);
+   // During supported rim entry, the head counter-rotates against the reduced
+   // spine pitch: the chibi crown stays readable instead of folding over
+   // the fixture. The original separated knee crossing and rim IK remain.
+   angle('head',-.045*seatWeight-.13*lean,Math.sin(time*.7)*.025);
+   angle('spine',-.045*seatWeight+.29*lean);
    angle('hips',0,0,.075*((activity?.bathLeadStep??0)-(activity?.bathTrailStep??0)));
    for(const [s,p]of [[1,'L'],[-1,'R']]as const){
     const approach=activity?.bathApproachStep??0;
