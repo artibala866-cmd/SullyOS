@@ -13,6 +13,9 @@ type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
 const rotation=(x=0,y=0,z=0)=>new T.Quaternion().setFromEuler(new T.Euler(x,y,z));
 export const isPrincessCarry=(id:string)=>id==='home-princess-carry'||id==='home-princess-carried';
+/** A pose-local clearance envelope to let the carried knees pass the carrier's
+ * waist on release; zero during approach, the hold and final standing. */
+export const carryReleaseClearance=(time:number)=>.14*smooth(time,7.15,7.65)*(1-smooth(time,8.35,8.85));
 export const isIntimacy=(id:string)=>id==='home-hug'||id==='home-rear-hug'||id==='home-hand-hold-plead'||id==='home-sofa-lap-pillow'||id==='home-kiss'||id==='home-sneak-kiss'||id==='home-passion-kiss'||isPrincessCarry(id);
 /** Reference-video phases, in elapsed seconds; neither role owns a separate clock. */
 export function intimacyPhase(action:string,time:number){
@@ -206,6 +209,16 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
  const target=carrierHip.clone().lerp(carrierChest,.8)
   .addScaledVector(front,shoulderSpan*.95).addScaledVector(across,shoulderSpan*.18);
  b.translatePose(target.sub(point(b,'hips')).multiplyScalar(p.lift));
+ // In the release phase the recipient's bent knees otherwise clip through
+ // the carrier's skinned waist and fitted jacket as the torso rights itself.
+ // A small, reversible, horizontal pose-layer offset clears that path.
+ // Root navigation targets, original garment meshes and saved rooms stay fixed.
+ const clearance=carryReleaseClearance(time);
+ if(clearance>.0001){
+  const away=point(b,'hips').sub(point(a,'hips')).setY(0);
+  if(away.lengthSq()>1e-6)b.translatePose(away.normalize().multiplyScalar(clearance));
+ }
+
  // Both holding arms must reach their respective support anchors. Move the
  // recipient as one rigid pose layer (not individual stretched limbs).
  if(p.lift>.001)for(let iteration=0;iteration<4;iteration++){

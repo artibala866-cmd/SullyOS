@@ -5,7 +5,7 @@ import {createBlankBody,BLANK_SCALE} from '../apps/room3d/chibi/blankBody';
 import {bindBlankBody} from '../apps/room3d/chibi/blankRig';
 import {createBlankMotion} from '../apps/room3d/chibi/blankMotion';
 import {contactSolver} from '../apps/room3d/chibi/socialContact';
-import {poseIntimacy} from '../apps/room3d/chibi/intimacyMotion';
+import {poseIntimacy,carryReleaseClearance} from '../apps/room3d/chibi/intimacyMotion';
 import type {MotionFrame} from '../apps/room3d/chibi/selectedMotions';
 import type {ChibiVisitor} from '../apps/room3d/chibi/visitor';
 import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial';
@@ -259,4 +259,19 @@ it('reclines a taller carried partner farther without moving navigation roots or
  const equal=sample(1,1),tallRecipient=sample(.8,1.25),shortRecipient=sample(1.25,.8);
  expect(tallRecipient).toBeGreaterThan(equal+.10);
  expect(tallRecipient).toBeGreaterThan(shortRecipient+.10);
+});
+
+it('separates the carried knees from the waist only during the reversible landing window',()=>{
+ for(const t of [0,1.5,2.5,3.5,5,6.9,9,10])expect(carryReleaseClearance(t)).toBeCloseTo(0,6);
+ expect(carryReleaseClearance(7.8)).toBeGreaterThan(.10);
+ expect(carryReleaseClearance(7.8)).toBeLessThanOrEqual(.14);
+ for(const t of [7.15,7.65,8.35,8.85])expect(Math.abs(carryReleaseClearance(t+.008)-carryReleaseClearance(t-.008))).toBeLessThan(.012);
+ for(const heights of [[1,1],[.8,1.25],[1.25,.8]]){
+  const a=actor(heights[0],-.4,0),b=actor(heights[1],.4,Math.PI);
+  for(const t of [7.7,7.8,8.1,8.7,9.5]){
+   a.reset();b.reset();poseIntimacy('home-princess-carry',[a,b],t);
+   expect(a.visitor.root.position.y).toBe(0);expect(b.visitor.root.position.y).toBe(0);
+   expect([a,b].every(r=>r.visitor.rig!.skeleton.bones.every(n=>n.matrixWorld.elements.every(Number.isFinite)))).toBe(true);
+  }
+ }
 });
