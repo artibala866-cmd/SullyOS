@@ -3,8 +3,9 @@ import type {ChibiVisitor} from './visitor';
 import type {contactSolver} from './socialContact';
 import type {ActionExpression} from './actionExpression';
 import {furniturePalm} from './furnitureMotion';
+import {alignFaceHeight,closeFaceGap} from './faceSocialContact';
 
-export const seasonalActions=['halloween-boo','halloween-trick-or-treat','halloween-candy-shower','halloween-ghost-tease'] as const;
+export const seasonalActions=['halloween-boo','halloween-trick-or-treat','halloween-candy-shower','halloween-ghost-tease','home-forehead-touch'] as const;
 export const isSeasonalSocial=(id:string)=>seasonalActions.includes(id as typeof seasonalActions[number]);
 const smooth=T.MathUtils.smootherstep;
 const windowAt=(t:number,a:number,b:number,c:number,d:number)=>smooth(t,a,b)*(1-smooth(t,c,d));
@@ -33,15 +34,17 @@ export function seasonalExpression(id:string,t:number,role:number):ActionExpress
 /** Generated clips supply full body motion; only contacts are corrected. */
 export function poseSeasonalSocial(id:string,both:Resident[],time:number){
  const p=seasonalPhase(id,time),[a,b]=both.map(r=>r.visitor);
+ const forehead=id==='home-forehead-touch';
   const hand=(i:number,side:'L'|'R',target:T.Vector3,w=p.reach,curl=.2)=>{
   const v=both[i].visitor,q=v.root.getWorldQuaternion(new T.Quaternion());
   // Joined hands meet with thumbs up. Forcing palms upward over-rotates the
   // shorter partner's wrist and crosses the forearm twist's ±180° seam.
-  const normal=new T.Vector3(0,1,0);
+  const normal=forehead?new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(q):new T.Vector3(0,1,0);
   if(both[i].solver)both[i].solver!({side,point:target,direction:new T.Vector3(0,0,1).applyQuaternion(q),normal,curl},w);
   else v.classicContact(side,target,w);
  };
 
+ if(forehead){alignFaceHeight(a,b,id,p.settle);closeFaceGap(a,b,id,p.settle);}
  const palm=(v:ChibiVisitor,side:'L'|'R')=>v.rig?v.rig.bones[side+'_hand'].localToWorld(furniturePalm(side)):v.classicPoint(side+'_hand');
  if(id==='halloween-trick-or-treat'){
   hand(0,'L',socialAnchor(a,.40,-.28,.52),p.reach*.65);
@@ -49,5 +52,10 @@ export function poseSeasonalSocial(id:string,both:Resident[],time:number){
   hand(1,'R',palm(a,'L').add(new T.Vector3(0,.09,0)),p.offer,.4);
  }else if(id==='halloween-ghost-tease'&&!a.rig){
   hand(0,'R',socialAnchor(a,-.95,.03,.48),p.reach*.8);
-}
+ }else if(forehead){
+  const joined=palm(a,'L').lerp(palm(b,'R'),.5);
+  hand(0,'L',joined,p.reach,.35);hand(1,'R',joined,p.reach,.35);
+  hand(0,'R',socialAnchor(b,.19,.04,.06),p.settle*.8,.12);
+  hand(1,'L',socialAnchor(a,-.19,.02,.06),p.settle*.8,.12);
+ }
 }

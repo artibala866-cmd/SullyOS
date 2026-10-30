@@ -689,5 +689,19 @@
       "2732818ef1c605d84b9da457c46fcf4fe343766e63570b371c091591f24924fe",
       "aa496b10400dd08113f1d4016e265ee26b4885a4c2d1da8e264e4d61e7e8e566"
     ]
+  },
+  {
+    "id": "home-forehead-touch",
+    "label": "贴额头",
+    "category": "close",
+    "source": "Meshy Text-to-Motion Prime; retargeted and contact-corrected",
+    "sourceUrl": "https://docs.meshy.ai/en/api/text-to-motion",
+    "duration": 8,
+    "participants": 2,
+    "file": "home-forehead-touch.json",
+    "hashes": [
+      "d83bfe81daa39fd0716abd0024470edbe54d4f2eb8ac38473579e2a36720ed43",
+      "f938c6b6a035203c26792d8253d55cd4eb3fef089bec1dcf3482e4be3c9594ce"
+    ]
   }
 ]
