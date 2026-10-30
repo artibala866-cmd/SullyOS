@@ -4,7 +4,7 @@ import type {Home3DState} from './types';
 // Close-category actions and these intimate-looking care/play clips require an
 // explicit pair. Affinity, nickname, cohabitation and model prose never grant it.
 const intimateExtras=new Set(['cmu-20_10','cmu-22_09']);
-export function isRomanticMotion(id:string){return catalog.some(m=>m.id===id&&(m.category==='close'||intimateExtras.has(id)));}
+export function isRomanticMotion(id:string){return catalog.some(m=>m.id===id&&(m.category==='close'||m.category==='kiss'||intimateExtras.has(id)));}
 export function normalizeRomanticPairs(value:unknown):[string,string][]{
  if(value===undefined)return [];
  if(!Array.isArray(value)||value.length>100||value.some(p=>!Array.isArray(p)||p.length!==2||p.some(id=>typeof id!=='string'||!id.trim())||p[0]===p[1]))throw Error('家园浪漫关系格式不正确');
