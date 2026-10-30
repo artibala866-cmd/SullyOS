@@ -49,6 +49,39 @@ describe('stage4: outbox replay and user sovereignty',()=>{
   expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(2);
   expect(readCharacterLifeEvents(id).filter(e=>e.kind==='npc-chat')).toHaveLength(1);
  });
+ it('retains two intentional identical short cloud lines but never duplicates a replay',async()=>{
+  row.messages=['嗯','嗯'];
+  expect(await applyCloudPhoneResult(row)).toBe(true);
+  const messages=readCharacterPhoneChats(id)[0].messages;
+  expect(messages).toHaveLength(3);
+  expect(messages.slice(1).map(m=>m.text)).toEqual(['嗯','嗯']);
+  expect(messages[1].cloudSourceId).not.toBe(messages[2].cloudSourceId);
+  expect(await applyCloudPhoneResult(row)).toBe(true);
+  expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(3);
+  expect(readCharacterLifeEvents(id).filter(e=>e.kind==='npc-chat')).toHaveLength(1);
+ });
+ it('never re-creates a deleted thread when an old cloud payload is replayed',async()=>{
+  const old=readCharacterPhoneChats(id);
+  localStorage.removeItem('sully_character_phone_wechat_v1:'+id);
+  const { appendCharacterPhoneMessages } = await import('./characterPhoneChats');
+  const added=appendCharacterPhoneMessages({
+    characterId:id,contactId:contact,contactName:'小圆',
+    expectedLatest:{threadId:thread,messageCount:old[0].messages.length,lastAt:at,lastText:'忙吗'},
+    messages:[{speaker:{role:'owner'},text:'已经错过的回复',cloudSourceId:'old:0'}],
+  });
+  expect(added).toBeNull();
+  expect(readCharacterPhoneChats(id)).toHaveLength(0);
+  expect(await applyCloudPhoneResult(row)).toBe(true);
+  expect(readCharacterPhoneChats(id)).toHaveLength(0);
+ });
+ it('a deleted NPC chat also prunes the derived cloud-life memory source',async()=>{
+  const { deleteCharacterPhoneChat } = await import('./characterPhoneChats');
+  expect(await applyCloudPhoneResult(row)).toBe(true);
+  expect(readCharacterLifeEvents(id).filter(e=>e.kind==='npc-chat')).toHaveLength(1);
+  expect(deleteCharacterPhoneChat(id,thread)).toBe(true);
+  expect(readCharacterPhoneChats(id)).toHaveLength(0);
+  expect(readCharacterLifeEvents(id).filter(e=>e.kind==='npc-chat')).toHaveLength(0);
+ });
  it('rejects a delayed cloud reply when user disabled opt-in',async()=>{
   writePhoneAutonomyPreferences(id,{chatPiggybackEnabled:false});
   expect(await applyCloudPhoneResult(row)).toBe(true);
