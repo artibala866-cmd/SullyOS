@@ -390,7 +390,7 @@ const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCh
         } else if (activeCharacterId) {
             setSelectedChar(characters.find(c=>c.id===activeCharacterId)||characters[0]||null);
         }
-    }, [activeCharacterId,companionCharId]);
+    }, [activeCharacterId,companionCharId,characters]);
     useAppShortcut(ShortcutAppID.Study, intent => {
         setSelectedChar(characters.find(c => c.id === intent.characterId) || null);
         setMode('bookshelf');
