@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>真实 Q 版走路 WebGL 视觉测试</title>
+<style>body{font:13px system-ui;background:#eee9f1;color:#342b39;padding:10px}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px}figure{margin:0;background:white;border:1px solid #c1b6c5}img{width:100%;aspect-ratio:4/3;object-fit:contain}figcaption{padding:6px}output{position:sticky;top:0;display:block;background:white;padding:6px}</style>
+</head><body><h1>真实脚底接地 / 身体倾斜 · WebGL 连续视觉测试</h1><output>加载中</output><main></main>
+<script type="module">
+import * as T from 'three';
+import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
+import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe.ts';
+const report={status:'starting',stage:'boot',errors:[],images:[],sequences:[],traces:[]};
+window.__walkVisualAcceptance=report;
+const label=document.querySelector('output');
+const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' WebGL frames';};
+window.addEventListener('error',e=>report.errors.push(e.message||String(e.error)));
+window.addEventListener('unhandledrejection',e=>report.errors.push(String(e.reason)));
+const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+function color(hex){const c=document.createElement('canvas');c.width=c.height=472;const x=c.getContext('2d');x.fillStyle=hex;x.fillRect(0,0,472,472);return c;}
+async function source(name){const i=new Image();i.src='/like520/parts/'+name+'.png';await i.decode();return i;}
+const hair=await Promise.all(['fronthair_02','back1_02','back2_03','earhair_01'].map(source));
+function parts(){return {skin:color('#e9bca4'),eyes:color('#7661a5'),mouth:color('#ab6968'),fronthair:hair[0],back1:hair[1],back2:hair[2],earhair:hair[3],outfit:color('#bac9d6'),outer:color('#cbb5c7')};}
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(480,360,false);renderer.setPixelRatio(1);renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
+const scene=new T.Scene();scene.background=new T.Color('#f0ebf3');
+scene.add(new T.HemisphereLight('#fff9f1','#9991b2',2.5));
+const light=new T.DirectionalLight('#fff5ec',2.8);light.position.set(4,7,5);scene.add(light);
+const floor=new T.Mesh(new T.PlaneGeometry(12,12),new T.MeshStandardMaterial({color:'#dad0db',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.035;scene.add(floor);
+const grid=new T.GridHelper(12,24,'#988d99','#baaab8');grid.position.y=-.023;scene.add(grid);
+const camera=new T.OrthographicCamera(-2.15,2.15,1.6125,-1.6125,.1,40);
+const angles={front:[7,2.5,0],side:[.35,2.5,7],back:[-7,2.5,0],'three-quarter':[4.9,2.9,5.4]};
+function view(kind,x){const p=angles[kind];camera.position.set(p[0]+x,p[1],p[2]);camera.lookAt(x,1.2,0);camera.updateProjectionMatrix();}
+function frame(v,time,speed){
+ const traveled=Math.min(2,Math.max(0,speed*time));
+ v.root.position.set(-1+traveled,0,0);v.root.rotation.y=Math.PI/2;
+ v.animate(time,'walk');v.finishPose();v.root.updateWorldMatrix(true,true);
+ const b=v.rig.bones,world=n=>b[n].getWorldPosition(new T.Vector3()).toArray();
+ const hip=b.hips.getWorldPosition(new T.Vector3()),nav=v.root.getWorldPosition(new T.Vector3());
+ return {time,nav:nav.toArray(),hips:hip.toArray(),hipRelative:v.root.worldToLocal(hip.clone()).toArray(),L:world('L_toe'),R:world('R_toe'),Lsole:world('L_foot'),Rsole:world('R_foot')};
+}
+try{
+ if(renderer.getContext().isContextLost())throw Error('No WebGL');
+ for(const height of [{name:'short',scale:.8},{name:'equal',scale:1},{name:'tall',scale:1.25}])
+ for(const outfit of [{name:'hoodie',id:'original'},{name:'sailor',id:'sailor'}]){
+  stage('load '+height.name+'/'+outfit.name);
+  const preset=approvedPresets[outfit.id];
+  const v=await createVisitor(parts(),{bodyShape:'blank',bodyHeight:height.scale,headSize:1.02,layers:{},extras:[],wardrobe:preset.items,wardrobeLayering:true,hairColor:'#805a9a'});
+  if(!v.rig)throw Error('Missing Q rig');
+  scene.add(v.root);
+  try{
+   const speed=v.walkSpeed,duration=2/speed;
+   if(!Number.isFinite(duration)||duration<=0||duration>15)throw Error('Invalid walk duration '+duration);
+   v.animate(0,'idle');
+   const samples=[];
+   for(let i=0;i<=Math.ceil(duration*60);i++){
+    const sample=frame(v,Math.min(duration,i/60),speed);
+    if(![...sample.L,...sample.R,...sample.hips].every(Number.isFinite))throw Error('Non-finite skeleton '+height.name);
+    samples.push(sample);
+   }
+   report.traces.push({height:height.name,outfit:outfit.name,fps:60,samples});
+   v.animate(0,'idle');
+   const poses=[];
+   for(let i=0;i<=10;i++){
+    const time=duration*i/10,sample=frame(v,time,speed);poses.push(sample);
+    if(Math.min(sample.L[1],sample.R[1],sample.Lsole[1],sample.Rsole[1])<-.07)throw Error('Feet through floor '+height.name+' '+time);
+    for(const kind of ['front','side','three-quarter','back']){
+     stage('render '+height.name+'/'+outfit.name+'/'+i+'/'+kind);
+     view(kind,sample.nav[0]);renderer.render(scene,camera);
+     const name=[height.name,outfit.name,String(i).padStart(2,'0'),kind].join('-');
+     const img=document.createElement('img'),fig=document.createElement('figure'),cap=document.createElement('figcaption');
+     img.src=renderer.domElement.toDataURL('image/png');img.alt=name;cap.textContent=name+' · '+time.toFixed(2)+'s · '+speed.toFixed(2)+'m/s';
+     fig.append(img,cap);document.querySelector('main').append(fig);report.images.push({name});await next();
+    }
+   }
+   report.sequences.push({height:height.name,outfit:outfit.name,speed,duration,frames:poses});
+  }finally{scene.remove(v.root);v.dispose();}
+ }
+ if(report.images.length!==264||report.sequences.length!==6||report.traces.length!==6)throw Error('Incomplete gait captures '+report.images.length);
+ report.status='pass';stage('264 real WebGL frames + six 60Hz traces; manual visual judgement still required');
+}catch(error){report.errors.push(String(error));report.status='fail';stage('error');}
+</script></body></html>
