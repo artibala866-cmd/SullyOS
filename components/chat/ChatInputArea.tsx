@@ -1,8 +1,9 @@
 import EmojiExportDialog from './EmojiExportDialog';
 import ChatCamera from './ChatCamera';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, BellSimpleRinging, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase } from '@phosphor-icons/react';
+import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, BellSimpleRinging, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, Microphone, Keyboard, Stop, X, Check, CircleNotch, Waveform } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
+import type { PrivateChatSpeechStatus } from '../../hooks/usePrivateChatSpeech';
 import { PRESET_THEMES } from './ChatConstants';
 import TokenImg from '../os/TokenImg';
 import { isIOSStandaloneWebApp } from '../../utils/iosStandalone';
@@ -15,7 +16,21 @@ import { useEmojiThumbnailCache } from '../../utils/useEmojiThumbnailCache';
 const EMOJI_PAGE_SIZE = 40;
 const ACTION_PAGE_SIZE = 8;
 
+interface PrivateChatSpeechInput {
+    status: PrivateChatSpeechStatus;
+    transcript: string;
+    seconds: number;
+    error: string;
+    start: () => Promise<void>;
+    stop: () => void;
+    cancel: () => void;
+    editTranscript: (text: string) => void;
+    confirm: () => void;
+}
+
 interface ChatInputAreaProps {
+    /** Present only in one-to-one Chat; group chat stays unchanged. */
+    speechInput?: PrivateChatSpeechInput;
     compactHome?: boolean;
 
     /** Initial page for static decoration previews; does not run menu actions. */
@@ -86,7 +101,7 @@ interface ChatInputAreaProps {
 }
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
-    input, setInput, isTyping, selectionMode, compactHome=false,
+    input, setInput, isTyping, selectionMode, compactHome=false, speechInput,
     showPanel, setShowPanel, onSend, onDeleteSelected, onForwardSelected, onFavoriteSelected, favoriteSelectedCount = 0, selectedCount,
     sendButtonGenerates = false, enterToSend = true, onGenerate,
     autoReplyEnabled = false, onInputFocusChange,
@@ -113,6 +128,8 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
 }) => {
     const chatImageInputRef = useRef<HTMLInputElement>(null);
     const [cameraOpen, setCameraOpen] = useState(false);
+    const [voiceMenuOpen, setVoiceMenuOpen] = useState(false);
+    useEffect(() => setVoiceMenuOpen(false), [activeCharacterId, selectionMode, showPanel]);
     useEffect(() => setCameraOpen(false), [activeCharacterId]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const sendButtonRef = useRef<HTMLButtonElement>(null);
@@ -759,6 +776,36 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 </div>
             ) : (
                 <div className="sully-chat-composer p-3 px-4 flex gap-3 items-end relative">
+                    {speechInput && speechInput.status !== 'idle' && (
+                        <div role="region" aria-label="语音转写草稿" className={`absolute bottom-full left-3 right-3 z-50 mb-2 rounded-2xl border p-3 shadow-lg ${isDiscordStyle ? 'bg-slate-900 text-white border-slate-700' : isPixelStyle ? 'bg-[#f1f1f1] text-[#515151] border-[#6d6d6d]' : 'bg-white text-slate-700 border-slate-200'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                {speechInput.status === 'starting' || speechInput.status === 'transcribing'
+                                    ? <CircleNotch size={18} className="animate-spin" aria-hidden="true" />
+                                    : speechInput.status === 'listening'
+                                        ? <span className="flex items-center gap-1" aria-hidden="true"><span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /><Waveform size={18} /></span>
+                                        : <Waveform size={18} aria-hidden="true" />}
+                                <span aria-label="录音时长" className="text-xs font-mono tabular-nums">{`${String(Math.floor(speechInput.seconds / 60)).padStart(2, '0')}:${String(speechInput.seconds % 60).padStart(2, '0')}`}</span>
+                                <span className="flex-1" />
+                                {(speechInput.status === 'starting' || speechInput.status === 'listening') && (
+                                    <button type="button" title="停止录音" aria-label="停止录音" onClick={speechInput.stop} className="w-9 h-9 rounded-full grid place-items-center hover:bg-black/10"><Stop size={18} weight="fill" /></button>
+                                )}
+                                <button type="button" title="取消录音" aria-label="取消录音" onClick={speechInput.cancel} className="w-9 h-9 rounded-full grid place-items-center hover:bg-black/10"><X size={18} /></button>
+                                {speechInput.status === 'review' && (
+                                    <button type="button" title="确认发送转写" aria-label="确认发送转写" disabled={!speechInput.transcript.trim()} onClick={speechInput.confirm} className="w-9 h-9 rounded-full grid place-items-center text-primary hover:bg-black/10 disabled:opacity-30"><Check size={20} weight="bold" /></button>
+                                )}
+                            </div>
+                            <textarea
+                                aria-label="修改语音转写内容"
+                                rows={2}
+                                value={speechInput.transcript}
+                                onChange={event => speechInput.editTranscript(event.target.value)}
+                                placeholder="..."
+                                disabled={speechInput.status === 'starting' || speechInput.status === 'transcribing'}
+                                className={`w-full min-h-[3rem] max-h-24 resize-y rounded-xl px-3 py-2 text-sm outline-none ${isDiscordStyle ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}
+                            />
+                            {speechInput.error && <p role="alert" className="text-xs text-rose-500 mt-1">{speechInput.error}</p>}
+                        </div>
+                    )}
                     <button aria-label="聊天功能" aria-expanded={showPanel === 'actions'} onClick={() => setShowPanel(showPanel === 'actions' ? 'none' : 'actions')} className={`sully-chat-actions-button ${actionButtonClass}`}>
                         <Plus className="w-6 h-6" weight="bold" />
                     </button>
@@ -785,6 +832,26 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             <Smiley className="w-6 h-6" weight="regular" />
                         </button>
                     </div>
+                    {speechInput && (
+                        <div className="relative shrink-0 self-end">
+                            <button
+                                type="button"
+                                title="语音消息"
+                                aria-label="语音消息"
+                                aria-expanded={voiceMenuOpen}
+                                onClick={() => { textareaRef.current?.blur(); setVoiceMenuOpen(open => !open); }}
+                                className={`w-9 h-11 grid place-items-center rounded-full transition-colors ${voiceMenuOpen || speechInput.status !== 'idle' ? 'bg-primary/10 text-primary' : isDiscordStyle ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-500 hover:bg-black/5'}`}
+                            >
+                                <Microphone size={21} weight={voiceMenuOpen ? 'fill' : 'regular'} />
+                            </button>
+                            {voiceMenuOpen && (
+                                <div role="group" aria-label="选择语音输入方式" className={`absolute bottom-full right-0 mb-2 z-50 p-1.5 flex gap-1 rounded-2xl border shadow-lg ${isDiscordStyle ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+                                    <button type="button" title="真实语音" aria-label="真实语音" aria-pressed={speechInput.status !== 'idle'} onClick={() => { setVoiceMenuOpen(false); void speechInput.start(); }} className={`w-11 h-10 rounded-xl grid place-items-center ${speechInput.status !== 'idle' ? 'bg-primary/15 text-primary' : 'hover:bg-black/5'}`}><Microphone size={21} /></button>
+                                    <button type="button" title="键盘输入" aria-label="键盘输入" aria-pressed={false} onClick={() => { setVoiceMenuOpen(false); speechInput.cancel(); textareaRef.current?.focus(); }} className="w-11 h-10 rounded-xl grid place-items-center hover:bg-black/5"><Keyboard size={21} /></button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <button
                         ref={sendButtonRef}
                         data-guide={isGenerateButton ? 'generate' : undefined}
