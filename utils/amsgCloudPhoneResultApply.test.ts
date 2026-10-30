@@ -37,7 +37,8 @@ beforeEach(()=>{
  ]));
  writePhoneAutonomyPreferences(id,{chatPiggybackEnabled:true,backgroundApiEnabled:true});
  row={resultKind:CLOUD_PHONE_RESULT_KIND,id:'cloud-npc:abcd',charId:id,
-  contactId:contact,threadId:thread,sourceKey:'reply:'+thread+':'+at+':1',
+  contactId:contact,contactCreatedAt:now-86400000,contactsClearRevision:0,
+  threadId:thread,sourceKey:'reply:'+thread+':'+at+':1',
   replyToAt:at,replyToCount:1,replyToText:'忙吗',
   revision:readPhoneAutonomyRevision(id),clearRevision:0,occurredAt:now,
   messages:['刚忙完，怎么啦？']};
@@ -96,6 +97,21 @@ describe('stage4: outbox replay and user sovereignty',()=>{
   row.revision=readPhoneAutonomyRevision(id);
   expect(await applyCloudPhoneResult(row)).toBe(true);
   expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(2);
+ });
+ it('never applies an old cloud reply when contacts were cleared and the same ID was recreated',async()=>{
+  advancePhoneContentClearRevision(id,'contacts');
+  // The old chat was deliberately retained; even an identical contact ID
+  // cannot inherit cloud work consented to before the explicit contact clear.
+  expect(await applyCloudPhoneResult(row)).toBe(true);
+  expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(1);
+ });
+ it('never lets a newly created NPC reuse an older contact ID for a cloud result',async()=>{
+  const key='sully_character_phone_npcs_v1:'+id;
+  const records=JSON.parse(localStorage.getItem(key)||'[]');
+  records[0].createdAt=Date.now();
+  localStorage.setItem(key,JSON.stringify(records));
+  expect(await applyCloudPhoneResult(row)).toBe(true);
+  expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(1);
  });
  it('never resurrects a chat after the user cleared the inbox',async()=>{
   advancePhoneContentClearRevision(id,'chats');
