@@ -6,7 +6,7 @@ import type {HomeEditor} from './editor';
 import {photoLooks,type PhotoLook} from './photoEffects';
 import {shareOrDownloadBlob} from '../../utils/shareExport';
 import './homePhoto.css';
-import {photoFrames,photoDrag,type PhotoFrame} from './photoFrame';
+import {photoFrames,photoSize,photoDrag,type PhotoFrame} from './photoFrame';
 
 type PhotoFace=Parameters<HomeEditor['setPhotoFace']>[1];
 const expressions={original:'原表情',neutral:'自然',smile:'微笑',happy:'开心',closed:'闭眼笑',surprised:'惊讶'} as const;
@@ -48,6 +48,10 @@ export default function HomePhotoMode({editor,onClose}:{editor:HomeEditor;onClos
   setError('');setCapturing(true);
   try{
    editor.renderPhoto(output,original?photoLooks.natural:look,{aspect,quality:'export'});
+   // Never present a preview-sized or empty canvas as a high-quality photo.
+   // On an unsupported device the existing retry UI handles the failure safely.
+   const expected=photoSize(aspect,'export');
+   if(output.width!==expected.width||output.height!==expected.height)throw Error(`照片分辨率异常：${output.width}×${output.height}`);
    output.toBlob(blob=>{
     output.width=output.height=1;
     if(!alive.current||version!==captureVersion.current)return;
@@ -84,7 +88,7 @@ export default function HomePhotoMode({editor,onClose}:{editor:HomeEditor;onClos
     <div hidden={tab!=='动作'}><PhotoActions editor={editor} actors={actors} refresh={()=>refresh(n=>n+1)} compact={compactActions} onPreview={()=>setCompactActions(true)} onExpand={()=>setCompactActions(false)}/></div>
     {tab==='氛围'&&<><div className="photo-options photo-presets">{Object.entries(names).map(([key,label])=><button key={key} aria-pressed={look.preset===key} onClick={()=>setLook({...photoLooks[key as PhotoLook['preset']]})}>{label}</button>)}</div>{slider('光晕',look.glow,0,3,.05,v=>setLook({...look,glow:v}))}{slider('色差',look.fringe,0,1,.05,v=>setLook({...look,fringe:v}))}{slider('暗角',look.vignette,0,1,.05,v=>setLook({...look,vignette:v}))}{slider('曝光',look.exposure,.5,1.6,.05,v=>setLook({...look,exposure:v}))}<PhotoLookLibrary look={look} onApply={value=>{setLook(value);setOriginal(false);}}/></>}
     </div></div></div>
-   <footer>{bounds.h>bounds.w?<button aria-pressed={rotated} onClick={()=>{pointers.current.clear();setSideways(!sideways);}}>{rotated?'回到竖屏':'横屏取景'}</button>:<span>{dragMode==='orbit'?'拖动画面转镜头':'拖动画面平移取景'}</span>}<button className="photo-shutter" aria-label="拍下合影" disabled={capturing} onClick={shoot}><Camera size={28}/></button><span>无界面原图</span></footer>
+   <footer>{bounds.h>bounds.w?<button aria-pressed={rotated} onClick={()=>{pointers.current.clear();setSideways(!sideways);}}>{rotated?'回到竖屏':'横屏取景'}</button>:<span>{dragMode==='orbit'?'拖动画面转镜头':'拖动画面平移取景'}</span>}<button className="photo-shutter" aria-label="拍下合影" disabled={capturing} onClick={shoot}><Camera size={28}/></button><span aria-label="照片导出分辨率">高清 PNG · {photoSize(aspect,'export').width}×{photoSize(aspect,'export').height}</span></footer>
   </>}{error&&<p role="alert" className="photo-error">{error}</p>}
  </section></div>;
 }

@@ -3,6 +3,7 @@ import React,{act} from 'react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {createRoot,type Root} from 'react-dom/client';
 import HomePhotoMode from './HomePhotoMode';
+import {photoSize} from './photoFrame';
 
 vi.mock('./PhotoFilterPresets',()=>({default:()=>null}));
 vi.mock('./PhotoActions',()=>({PhotoActions:()=>null}));
@@ -14,7 +15,9 @@ const editor={
  beginPhotoMode:vi.fn(()=>[]),
  endPhotoMode:vi.fn(),
  setPhotoCamera:vi.fn(),
- renderPhoto:vi.fn(),
+ renderPhoto:vi.fn((canvas:HTMLCanvasElement,_look:unknown,options:{aspect?:number;quality?:'moving'|'preview'|'export'}={})=>{
+  const size=photoSize(options.aspect??16/9,options.quality);canvas.width=size.width;canvas.height=size.height;
+ }),
 } as any;
 const makeObjectUrl=vi.fn(()=>'blob:home-photo-1');
 const revokeObjectUrl=vi.fn();
@@ -106,9 +109,33 @@ it('captures export from a separate PNG canvas, preserving the current preview a
  const [output,,options]=editor.renderPhoto.mock.lastCall!;
  expect(output).not.toBe(preview);
  expect(options).toMatchObject({aspect:16/9,quality:'export'});
+ expect(output.width).toBe(2560);expect(output.height).toBe(1440);
  expect(pending).toHaveLength(1);
  act(()=>pending[0](new Blob(['hi-res PNG'],{type:'image/png'})));
  expect(host.querySelector('.photo-result img')).toBeTruthy();
  click('.photo-result button');
  expect(revokeObjectUrl).toHaveBeenCalledWith('blob:home-photo-1');
+});
+
+it('refuses silently downgraded or empty exports without altering stored photo URLs',async()=>{
+ await render();
+ editor.renderPhoto.mockImplementationOnce((canvas:HTMLCanvasElement)=>{canvas.width=1280;canvas.height=720;});
+ click('button[aria-label="拍下合影"]');
+ expect(host.querySelector('[role="alert"]')?.textContent).toContain('照片生成失败');
+ expect(host.querySelector<HTMLButtonElement>('button[aria-label="拍下合影"]')?.disabled).toBe(false);
+ expect(pending).toHaveLength(0);
+ expect(makeObjectUrl).not.toHaveBeenCalled();
+});
+it('exports the chosen 3:4 portrait as full-resolution PNG and visibly reports its dimensions',async()=>{
+ await render();
+ act(()=>[...host.querySelectorAll<HTMLButtonElement>('.photo-controls nav button')].find(b=>b.textContent==='镜头')!.click());
+ act(()=>[...host.querySelectorAll<HTMLButtonElement>('[aria-label="照片比例"] button')].find(b=>b.textContent==='竖幅 3:4')!.click());
+ expect(host.querySelector('[aria-label="照片导出分辨率"]')?.textContent).toContain('1920×2560');
+ click('button[aria-label="拍下合影"]');
+ const [output,,options]=editor.renderPhoto.mock.lastCall!;
+ expect(options).toMatchObject({aspect:3/4,quality:'export'});
+ expect([output.width,output.height]).toEqual([1920,2560]);
+ expect(pending).toHaveLength(1);
+ act(()=>pending[0](new Blob(['hi-res'],{type:'image/png'})));
+ expect(host.querySelector('.photo-result img')).toBeTruthy();
 });
