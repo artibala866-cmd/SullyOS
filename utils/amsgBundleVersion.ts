@@ -12,7 +12,7 @@
 //   - utils/amsgWorkerVersion.ts 比的是**上游库** @rei-standard/amsg-server 的 semver；
 //   - utils/buildInfo.ts 的 APP_VERSION 是整个 SullyOS App 的版本。
 //   这里管的只有一样：用户自己那台 Worker 上跑的这份 bundle 是哪天的。
-export const AMSG_BUNDLE_VERSION = '2026-10-30.1';
+export const AMSG_BUNDLE_VERSION = '2026-10-30.2';
 // This branch is a preview release, NOT the Tosd0/sullyos-workers main
 // distribution channel. Do not let its automatic updater roll back to the
 // stable bundle while claiming this preview's P0 changes are deployed.
