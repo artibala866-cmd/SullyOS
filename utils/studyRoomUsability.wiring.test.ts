@@ -78,7 +78,7 @@ describe('学习室原始需求：流畅的画稿与作业操作路径',()=>{
   expect(schedule).toContain('h-[min(57dvh,470px)] min-h-[245px] max-h-[calc(100dvh-72px)]');
   expect(schedule).toContain('min-h-0 flex-1 overflow-y-auto overscroll-contain');
   expect(schedule).toContain('flex shrink-0 gap-2 border-t border-neutral-200');
-  expect(schedule).toContain("className="grid h-11 min-w-12 shrink-0");
+  expect(schedule).toContain('className="grid h-11 min-w-12 shrink-0');
   expect(schedule).toContain('max-h-[90dvh] overflow-y-auto');
  });
 
