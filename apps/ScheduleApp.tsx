@@ -4,7 +4,7 @@ import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
 import StudyCharPicker from './StudyCharPicker';
 import StudyAvatar from './StudyAvatar';
-import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X,Minus,CaretDown} from '@phosphor-icons/react';
+import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X,Minus,CaretDown,ChatCircleDots} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
 import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachEvent,rememberStudyCoachEvent,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
@@ -906,21 +906,22 @@ const ScheduleApp: React.FC = () => {
               onPointerDown={onAssistantDragStart} onPointerMove={onAssistantDragMove}
               onPointerUp={onAssistantDragEnd} onPointerCancel={onAssistantDragEnd}>
               <button type="button" aria-expanded={assistantPickerOpen} aria-label="快速选择 Char"
-                onClick={()=>setAssistantPickerOpen(v=>!v)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-8 w-8 rounded-full shrink-0"/>
-                <span className="min-w-0 truncate text-sm font-semibold">{activeChar?.name||'选择 Char'}</span>
-                <CaretDown size={14}/>
+                onClick={()=>setAssistantPickerOpen(v=>!v)} className="flex min-w-0 flex-1 items-center gap-1 text-left">
+                <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-7 w-7 rounded-full shrink-0"/>
+                <span className="min-w-0 truncate text-[12px] font-semibold">{activeChar?.name||'选择 Char'}</span>
+                <CaretDown size={12} className="shrink-0"/>
               </button>
               <button type="button" aria-label={session?'专注中只能使用限额陪聊':phonePage==='private'?'查看学习室记录':'进入真正私聊'}
                 disabled={!!session} title={session?'专注中仅能按限额聊天':'切换真实私聊与学习室记录'}
                 onClick={()=>setPhonePage(p=>p==='private'?'study':'private')}
-                className="shrink-0 px-2 text-xs disabled:opacity-40">
-                {session?'专注陪聊':phonePage==='private'?'学习记录':'私聊'}
+                className="grid h-8 w-8 shrink-0 place-items-center disabled:opacity-40">
+                {phonePage==='private'&&!session?<NotePencil size={17}/>:<ChatCircleDots size={17}/>}
+
               </button>
               <button type="button" aria-label="缩成 Char 悬浮球" onClick={()=>{setAssistantPickerOpen(false);setAssistantMinimized(true);}}
-                className="grid h-9 w-9 shrink-0 place-items-center"><Minus size={18}/></button>
+                className="grid h-8 w-8 shrink-0 place-items-center"><Minus size={17}/></button>
               <button type="button" aria-label="关闭 Char 手机" onClick={()=>{setAssistantPickerOpen(false);setAssistantOpen(false);}}
-                className="grid h-9 w-9 shrink-0 place-items-center"><X size={17}/></button>
+                className="grid h-8 w-8 shrink-0 place-items-center"><X size={16}/></button>
             </div>
             {assistantPickerOpen&&<div className="shrink-0 border-b border-neutral-200 bg-white p-2" aria-label="快速切换 Char">
               <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
