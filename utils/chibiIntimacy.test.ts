@@ -262,13 +262,14 @@ it('reclines a taller carried partner farther without moving navigation roots or
  expect(tallRecipient).toBeGreaterThan(shortRecipient+.10);
 });
 
-it('acquires support before flight, rotates before lift, plants before release',()=>{
+it('acquires support, seats upright, then lifts before release',()=>{
  const f=princessCarryPhase;
  expect(f(1.5).lift).toBe(0);
  expect(f(2.8).secured).toBeGreaterThan(.99);
  expect(f(2.8).lift).toBe(0);
- expect(f(3.5).cradle).toBeGreaterThan(f(3.5).lift);
- expect(f(5).lift).toBeGreaterThan(.99);
+ expect(f(3.5).seat).toBeGreaterThan(f(3.5).lift);
+ expect(f(3.5).cradle).toBe(0);
+ expect(f(5.5).lift).toBeGreaterThan(.99);
  expect(f(8.8).plant).toBeGreaterThan(0);
  expect(f(8.8).release).toBe(0);
  expect(f(9.5).release).toBeGreaterThan(0);

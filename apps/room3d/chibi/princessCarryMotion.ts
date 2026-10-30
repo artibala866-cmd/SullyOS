@@ -96,7 +96,8 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  // then does it recline sideways. Keep chest/head independent of the hips.
  const seated=p.seat,lifted=p.lift;
  const sideTurn=.48*seated+1.05*p.cradle;
- const recline=.13*seated+.47*p.cradle;
+ const heightRecline=T.MathUtils.clamp((ratio-1)*.44,0,.18);
+ const recline=.13*seated+(.47+heightRecline)*p.cradle;
  const cradleWeight=Math.max(seated,p.cradle);
  pose(b,'hips',q(0,sideTurn).multiply(q(-recline)),cradleWeight);
  // The back does not follow the pelvis as one stiff board: it stays upright
