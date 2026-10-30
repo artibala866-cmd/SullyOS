@@ -49,7 +49,7 @@ describe('home 3D photo frame and high-quality export',()=>{
   expect(preview.width).toBe(960);expect(preview.height).toBe(1280);
   expect(camera.right-camera.left).toBeCloseTo((camera.top-camera.bottom)*3/4,4);
   expect(capture).toHaveBeenCalledTimes(1);
-  photo.render(preview,photoLooks.daylight,{aspect:3/4,quality:'preview'});
+  photo.render(preview,{...photoLooks.natural,exposure:1.08},{aspect:3/4,quality:'preview'});
   expect(capture).toHaveBeenCalledTimes(1); // Filters reuse frozen RGB pixels.
   photo.render(exported,photoLooks.natural,{aspect:16/9,quality:'export'});
   expect(exported.width).toBe(2560);expect(exported.height).toBe(1440);

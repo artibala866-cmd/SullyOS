@@ -537,6 +537,44 @@ function texture(color){
   if(!report.bathFull.cleared||afterSoak.chibiPosture!=='standing'||
      Math.hypot(...afterSoak.chibiPosition.map((v,i)=>v-fullJourney.front[i]))>.04)
    throw Error('Complete bath failed to return the same skeleton to its free standing entrance');
+  // Acceptance on the actual occupied Home3D WebGL scene, after all bath
+  // and seating actions. Photo staging must not modify home layout or saves.
+  set('photo four aspect crops');
+  const stageCanvas=document.querySelector('.h3-stage canvas');
+  const houseBuffer=[stageCanvas.width,stageCanvas.height];
+  const photoLook={preset:'natural',glow:0,fringe:0,vignette:0,exposure:1};
+  const frames=[
+   ['landscape',16/9,[1280,720]],['cinema',2.39,[1280,536]],
+   ['portrait',3/4,[960,1280]],['square',1,[1280,1280]]
+  ];
+  report.photoFrames=[];
+  const photoActors=editor.beginPhotoMode();
+  if(!photoActors?.length)throw Error('House photo mode opened without any resident');
+  try{
+   for(const [name,aspect,expected] of frames){
+    const output=document.createElement('canvas');
+    editor.renderPhoto(output,photoLook,{aspect,quality:'preview'});
+    if(output.width!==expected[0]||output.height!==expected[1])
+     throw Error('Home3D '+name+' photo aspect was stretched: '+output.width+'x'+output.height);
+    const pixel=output.getContext('2d').getImageData(Math.floor(output.width/2),Math.floor(output.height/2),1,1).data;
+    if(pixel[3]!==255)throw Error('Home3D '+name+' frame has no actual room rendering');
+    report.photoFrames.push({name,width:output.width,height:output.height,center:[...pixel]});
+    output.width=output.height=1;
+   }
+   set('photo 2560px original PNG export');
+   const finalPhoto=document.createElement('canvas');
+   editor.renderPhoto(finalPhoto,photoLook,{aspect:16/9,quality:'export'});
+   if(finalPhoto.width!==2560||finalPhoto.height!==1440)
+    throw Error('High-quality original photo did not reach 2560x1440');
+   const png=await new Promise((resolve,reject)=>finalPhoto.toBlob(b=>b?resolve(b):reject(Error('Full-resolution PNG export returned null')),'image/png'));
+   if(png.type!=='image/png'||png.size<5000)throw Error('Full-resolution photo was empty or not PNG');
+   report.photoExport={width:finalPhoto.width,height:finalPhoto.height,bytes:png.size,type:png.type};
+   finalPhoto.width=finalPhoto.height=1;
+  }finally{editor.endPhotoMode();}
+  if(stageCanvas.width!==houseBuffer[0]||stageCanvas.height!==houseBuffer[1])
+   throw Error('Closing photo mode did not restore the original house WebGL drawing buffer');
+  if(editor.inspect().chibiPosture!=='standing')
+   throw Error('Photo mode damaged the character posture after the bath');
   report.captureStage=null;
   const scene=editor.inspect();
   report.posture=scene.chibiPosture;
