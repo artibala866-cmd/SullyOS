@@ -8,7 +8,7 @@ import * as T from 'three';
 import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
 import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial.ts';
 import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe.ts';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],sequences:[],models:[]};
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -25,7 +25,7 @@ scene.add(new T.HemisphereLight('#fff9f1','#9991b2',2.5));
 const lamp=new T.DirectionalLight('#fff5ec',2.8);lamp.position.set(4,7,5);scene.add(lamp);
 const floor=new T.Mesh(new T.PlaneGeometry(12,12),new T.MeshStandardMaterial({color:'#dacfdc',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.035;scene.add(floor);
 const camera=new T.OrthographicCamera(-2.55,2.55,1.9125,-1.9125,.1,40);
-const view=(kind)=>{camera.position.set(kind==='side'?6.4:3.7,kind==='side'?2.55:2.8,kind==='side'?.35:6.7);camera.lookAt(0,1.32,0);camera.updateProjectionMatrix();};
+const view=(kind)=>{const cameras={front:[0,2.7,7.1],back:[0,2.7,-7.1],side:[6.4,2.55,.35],'three-quarter':[3.7,2.8,6.7]};camera.position.set(...cameras[kind]);camera.lookAt(0,1.32,0);camera.updateProjectionMatrix();};
 const hairBox=v=>{const box=new T.Box3(),part=new T.Box3();v.root.traverse(o=>{if(o instanceof T.Mesh&&(/hair|wisp|fringe/i.test(o.name)||o.userData.hairConstruction)){part.setFromObject(o);box.union(part);}});return box.isEmpty()?null:{min:box.min.toArray(),max:box.max.toArray()};};
 const head=v=>v.rig.bones.head.getWorldPosition(new T.Vector3());
 const wardrobeMeshes=v=>{let count=0;v.root.traverse(o=>{if(o.name.startsWith('wardrobe:')&&o.visible)count++});return count;};
@@ -52,7 +52,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     runtime=createSocialScene(pair.map((visitor,i)=>({id:String(i),visitor})));
     await runtime.start(direction,'0','1');
     const session=runtime.inspect().session;if(!session)throw Error('No active carry session');
-    const approach=session.duration-socialActions[direction].duration,records=[],timeSamples=[1.5,2.5,3.5,5,7,7.8,8.7,9.5];
+    const approach=session.duration-socialActions[direction].duration,records=[],timeSamples=[0,1,1.5,2.5,3.5,4.3,5,6.8,7.8,8.7,9.3,10];
     for(const time of timeSamples){
      // Existing player keeps a 0.6s entry blend before sampling source motion.
      runtime.seek(approach+time+.6);
@@ -66,9 +66,9 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
      if(feet[carrier]<floorY-.035)throw Error('Carrier foot sank under floor: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+(feet[carrier]-floorY).toFixed(3)+'m');
      if(frame.wardrobe.some(n=>n<2))throw Error('Wardrobe disappeared during carry');
      records.push(frame);
-     for(const angle of time===5?['three-quarter','side']:['three-quarter']){
+     for(const angle of ['front','side','three-quarter','back']){
       stage('渲染 '+heights.name+'/'+outfit.name+'/'+direction+'/'+time+'/'+angle);
-      view(angle==='side'?'side':'three-quarter');renderer.render(scene,camera);
+      view(angle);renderer.render(scene,camera);
       const img=document.createElement('img'),fig=document.createElement('figure'),caption=document.createElement('figcaption');
       const name=[heights.name,outfit.name,direction.replace('home-princess-',''),String(time).replace('.','-'),angle].join('-');
       img.src=renderer.domElement.toDataURL('image/png');img.alt=name;
@@ -78,13 +78,38 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
       await next();
      }
     }
+    // Full 10 Hz image sequences for both role directions and front/side.
+    // Numeric 30/60 Hz traces complement, but do not replace, visual review.
+    if(heights.name==='equal'&&outfit.name==='hoodie'){
+     const traces={fps30:[],fps60:[]};
+     for(const fps of [30,60])for(let i=0;i<=10*fps;i++){
+      const t=i/fps;runtime.seek(approach+t+.6);pair.forEach(v=>v.finishPose());
+      traces['fps'+fps].push({time:t,
+       hips:pair.map(v=>v.rig.bones.hips.getWorldPosition(new T.Vector3()).toArray()),
+       feet:pair.map(v=>Math.min(...['L_foot','R_foot','L_toe','R_toe'].map(n=>v.rig.bones[n].getWorldPosition(new T.Vector3()).y)))});
+     }
+     for(let i=0;i<=100;i++){
+      const t=i/10;runtime.seek(approach+t+.6);pair.forEach(v=>v.finishPose());
+      for(const angle of ['front','side']){
+       view(angle);renderer.render(scene,camera);
+       const name=['timeline',direction.replace('home-princess-',''),String(i).padStart(3,'0'),angle].join('-');
+       const img=document.createElement('img'),fig=document.createElement('figure'),caption=document.createElement('figcaption');
+       img.src=renderer.domElement.toDataURL('image/png');img.alt=name;
+       caption.textContent=direction+' · '+t.toFixed(1)+'s · '+angle;
+       fig.append(img,caption);document.querySelector('.gallery').append(fig);
+       report.images.push({name});report.frames.push({scenario:heights.name,outfit:outfit.name,direction,time:t,name,angle,continuous:true});
+       await next();
+      }
+     }
+     report.timelines.push({direction,scenario:heights.name,outfit:outfit.name,fps:10,frameCount:101,angles:['front','side'],traces});
+    }
     report.sequences.push({scenario:heights.name,outfit:outfit.name,direction,frames:records});
     runtime.cancel();runtime=undefined;
     if(pair.some(v=>v.root.position.y>.05))throw Error('Navigation root lifted after cancel');
    }
   }finally{runtime?.cancel();for(const v of pair){scene.remove(v.root);v.dispose();}}
  }
- if(report.images.length!==3*2*2*9)throw Error('Missing carry visual frames '+report.images.length);
+ if(report.images.length!==980||report.timelines.length!==2)throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
 }catch(error){report.errors.push(String(error));report.status='fail';stage('错误');}
 })();
