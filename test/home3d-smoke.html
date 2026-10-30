@@ -9,6 +9,8 @@ import {createHome} from '../apps/room3d/model.js';
 import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
 import {mountHomeEditor} from '../apps/room3d/editor.js';
 import {Vector3} from 'three';
+import {photoLooks} from '../apps/room3d/photoEffects.ts';
+import {composePhoto,photoCaptureAspect} from '../apps/room3d/photoComposition.ts';
 const report={status:'starting',stage:'boot',errors:[],actions:[],seat:false,canvas:false,webgl:false,virtualAdvance:false};
 window.__home3dSmoke=report;
 const set=(stage,status)=>{report.stage=stage;if(status)report.status=status;const out=document.getElementById('result');out.dataset.status=report.status;out.textContent='Home3D '+report.status+' | '+report.stage+' | '+report.errors.length+' errors';};
@@ -72,6 +74,27 @@ function texture(color){
   const person=await createVisitor(parts,{bodyShape:'classic',layers:{}});
   editor.setVisitor(person);
   await sleep(800);
+  // Full Home3D (not an isolated cube) paper-photo integration: stage the real
+  // resident and room, render the WebGL scene, compose four panels, then restore.
+  const paperActors=editor.beginPhotoMode();
+  if(!paperActors.length)throw Error('Photo session lost its resident in the actual home');
+  const paperSource=document.createElement('canvas'),paperOut=document.createElement('canvas');
+  try{
+   editor.renderPhoto(paperSource,photoLooks.daylight,{aspect:photoCaptureAspect('collage'),quality:'preview'});
+   composePhoto(paperSource,paperOut,'collage','preview',{title:'家园四格',footer:'3D PHOTO',font:'classic'});
+   const image=paperOut.getContext('2d').getImageData(100,120,1,1).data;
+   report.realHomePaper={actors:paperActors.length,width:paperOut.width,height:paperOut.height,alpha:image[3],originalFurniture:editor.getHomeScene().furniture.some(i=>i.id==='smoke-chair')};
+   if(paperOut.width!==1024||paperOut.height!==1280||image[3]!==255||!report.realHomePaper.originalFurniture)
+    throw Error('Actual Home3D four-photo paper capture failed or changed furniture');
+   paperOut.style.cssText='position:fixed;z-index:9999;right:10px;top:10px;width:225px;height:auto;max-height:90vh;pointer-events:none';
+   document.body.appendChild(paperOut);
+   report.captureStage='real-home-paper';
+   await sleep(2400);
+   report.captureStage=null;
+  }finally{
+   paperOut.remove();paperSource.width=paperSource.height=1;
+   editor.endPhotoMode();
+  }
   const actions=editor.getHomeScene().actions;
   report.actions=actions.filter(a=>['sit','stand','sleep','water'].includes(a.kind)).map(a=>a.kind);
   const target=actions.find(a=>a.kind==='sit');
