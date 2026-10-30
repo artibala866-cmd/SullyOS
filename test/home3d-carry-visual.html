@@ -65,7 +65,8 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
       v.rig.bones[side+'_toe'].getWorldPosition(new T.Vector3()).y)])));
      const hipHeights=pair.map(v=>v.rig.bones.hips.getWorldPosition(new T.Vector3()).y);
      if(time===0)standingHipBaseline=hipHeights;
-     const frame={scenario:heights.name,outfit:outfit.name,direction,time,heads:heads.map(v=>v.toArray()),headDistance:distance,footMin:feet,feetBySide,hipHeights,hair:pair.map(hairBox),palms:pair.map(palm),wardrobe:pair.map(wardrobeMeshes)};
+     const frame={scenario:heights.name,outfit:outfit.name,direction,time,heads:heads.map(v=>v.toArray()),headDistance:distance,footMin:feet,feetBySide,hipHeights,hair:pair.map(hairBox),palms:pair.map(palm),wardrobe:pair.map(wardrobeMeshes),
+      upperArms:pair.map(v=>['L','R'].map(side=>v.rig.bones[side+'_upperArm'].quaternion.toArray()))};
      if(!Number.isFinite(distance)||!feet.every(Number.isFinite)||!frame.heads.flat().every(Number.isFinite))throw Error('Non-finite geometry '+heights.name+'/'+time);
      const carrier=direction==='home-princess-carry'?0:1;
      const floorY=pair[carrier].root.getWorldPosition(new T.Vector3()).y;
@@ -92,6 +93,14 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
      // place both head centres on top of each other even if leg IK passes.
      if(heights.name==='equal'&&time>=5&&time<=6.8&&distance<.62)
       throw Error('Overlapping heads in carried hold: '+outfit.name+' / '+direction+' / '+time+' => '+distance.toFixed(3)+'m');
+     if(time===0)window.__carryIdleArmPose=frame.upperArms;
+     if(time===10){
+      for(let i=0;i<2;i++)for(let j=0;j<2;j++){
+       const idle=new T.Quaternion().fromArray(window.__carryIdleArmPose[i][j]);
+       const ended=new T.Quaternion().fromArray(frame.upperArms[i][j]);
+       if(idle.angleTo(ended)>.05)throw Error('T-pose or residual arm preparation at exit: '+heights.name+' / '+direction+' / '+i+' / '+j+' '+idle.angleTo(ended).toFixed(3));
+      }
+     }
      if(frame.wardrobe.some(n=>n<2))throw Error('Wardrobe disappeared during carry');
      records.push(frame);
      for(const angle of ['front','side','three-quarter','back']){

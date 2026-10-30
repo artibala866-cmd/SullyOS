@@ -16,6 +16,13 @@ export function princessCarryPhase(time:number){
  return {
   // No synchronized squat: offer one knee with the opposite foot grounded.
   stance:e(3.25,3.90,4.30,5.30), acquire:smooth(t,.65,2.4),
+  // Different contact clocks: the upper back is reached first; the knee
+  // hand only follows AFTER the carried leg starts its deliberate offer.
+  // Both hands retreat toward idle after the feet have planted.
+  backReach:e(1.10,2.65,8.85,9.58),
+  kneeReach:e(2.65,4.17,8.85,9.58),
+  shoulderL:e(2.10,3.65,8.8,9.48),
+  shoulderR:e(3.55,4.70,8.8,9.48),
   secured:e(2.65,3.55,9.15,9.85), weight:e(3.85,4.55,8.0,9.15),
   offer:e(2.6,3.55,7.35,8.9),
   seat:e(3.88,5.15,7.15,9.1),
@@ -164,40 +171,43 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
   if(adjustment.lengthSq()<1e-8)break;
   b.translatePose(adjustment);b.root.updateWorldMatrix(true,true);
  }
- // Approach both contact points through outward arcs, not torso-crossing chords.
- const rotation=a.root.getWorldQuaternion(new T.Quaternion()),access=smooth(time,.95,2.70);
+ // Single owner per arm: the IK contact solver controls BOTH shoulder and
+ // elbow articulation. A concurrent FK pre-pose previously pulled the elbow
+ // against the moving IK wrist, winding the arms across the torso.
+ const rotation=a.root.getWorldQuaternion(new T.Quaternion());
  const support=princessCarrySupports(b);
  for(const [side,anchor] of [['L',support.upper],['R',support.lower]] as const){
   const sign=side==='L'?1:-1;
-  ab[side+'_clavicle'].quaternion.multiply(q(0,sign*.12*p.acquire,sign*.06*p.acquire));
-  pose(a,side+'_upperArm',q(-.2,side==='L'?-.6:.6,side==='L'?-.7:.7),p.acquire);
-  pose(a,side+'_forearm',q(-.22,sign*.13,-sign*.16),p.acquire);
-  a.root.updateWorldMatrix(true,true);
+  const backHand=side==='L',contactWeight=backHand?p.backReach:p.kneeReach;
+  if(contactWeight<=0)continue;
+  const shoulder=point(a,side+'_upperArm');
   const outward=new T.Vector3(sign,0,0).applyQuaternion(rotation);
-  const waypoint=point(a,side+'_upperArm').addScaledVector(outward,width*.42)
-   .addScaledVector(front,width*.22).add(new T.Vector3(0,-width*.15,0));
-  const goal=waypoint.lerp(anchor,access)
-   .addScaledVector(outward,Math.sin(Math.PI*access)*width*.22);
+  // At the beginning the hand stays in its own outward lane; it never dives
+  // straight through the other forearm. Let the offered leg arrive before
+  // the lower palm tracks its knee, rather than chasing a standing shin.
+  const waypoint=shoulder.clone().addScaledVector(outward,width*.30)
+   .addScaledVector(front,width*.24).add(new T.Vector3(0,-width*.12,0));
+  const ready=smooth(time,backHand?1.0:2.65,backHand?1.75:3.30);
+  const attach=smooth(time,backHand?1.80:3.35,backHand?3.05:4.40);
+  const goal=point(a,side+'_hand').lerp(waypoint,ready).lerp(anchor,attach);
   pair[0].solver?.({side,point:goal,
    direction:new T.Vector3(sign,0,0).applyQuaternion(rotation),
    normal:new T.Vector3(0,1,0).applyQuaternion(rotation),
-   curl:.28*p.secured},p.acquire*(1-p.release));
+   curl:.28*p.secured},contactWeight);
  }
- // Shoulder embrace follows successful load, never initiates the lift.
- for(const side of ['L','R'] as const){
-  const sign=side==='L'?-1:1;
-  bb[side+'_clavicle'].quaternion.multiply(q(0,sign*.10*p.embrace));
-  pose(b,side+'_upperArm',q(-.25,sign*.58,sign*.58),p.embrace);
-  pose(b,side+'_forearm',q(-.30,sign*.2,-sign*.13),p.embrace);
- }
+ // The recipient's first arm wraps a shoulder; the opposite arm only follows
+ // near lift. Don't drive a second pair of FK rotations against these IK goals.
  a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
  for(const [side,anchor] of [
   ['L',ab.R_upperArm.localToWorld(new T.Vector3(0,.07,-.10))],
   ['R',ab.L_upperArm.localToWorld(new T.Vector3(0,.02,-.12))],
- ] as const)pair[1].solver?.({side,point:anchor,
-  direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(rotation),
-  normal:new T.Vector3(0,1,0).applyQuaternion(rotation),
-  curl:.14*p.embrace},p.embrace);
+ ] as const){
+  const strength=side==='L'?p.shoulderL:p.shoulderR;
+  pair[1].solver?.({side,point:anchor,
+   direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(rotation),
+   normal:new T.Vector3(0,1,0).applyQuaternion(rotation),
+   curl:.14*strength},strength);
+ }
  // Blend foot-ground reconciliation in gradually instead of crossing a
  // boolean IK threshold at ~8.6s; a hard switch snaps the carried pelvis.
  // The shared resolver stays unchanged for all full-strength callers.

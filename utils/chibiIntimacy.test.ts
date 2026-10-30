@@ -322,3 +322,32 @@ it('during the offer only the recipient raised thigh bends, while carrier stays 
   expect(carrierShin.angleTo(new T.Quaternion()),`carrier should not deep squat while receiving ${heights}`).toBeLessThan(.30);
  }
 });
+
+it('carry hands have staggered entry and a complete fade back to idle after grounding',()=>{
+ const f=princessCarryPhase;
+ expect(f(0).backReach).toBe(0);
+ expect(f(0).kneeReach).toBe(0);
+ expect(f(2.45).backReach).toBeGreaterThan(.95);
+ expect(f(2.45).kneeReach).toBe(0);
+ expect(f(3.45).kneeReach).toBeGreaterThan(0);
+ expect(f(3.45).shoulderL).toBeGreaterThan(f(3.45).shoulderR);
+ expect(f(5.3).backReach).toBeGreaterThan(.99);
+ expect(f(5.3).kneeReach).toBeGreaterThan(.99);
+ for(const time of [9.6,9.8,10]){
+  expect(f(time).backReach).toBe(0);
+  expect(f(time).kneeReach).toBe(0);
+  expect(f(time).shoulderL).toBe(0);
+  expect(f(time).shoulderR).toBe(0);
+ }
+ for(const heights of [[1,1],[1.25,.8],[.8,1.25]]){
+  const a=actor(heights[0],-.4,0),b=actor(heights[1],.4,Math.PI);
+  const handPose=(time:number)=>{
+   a.reset();b.reset();poseIntimacy('home-princess-carry',[a,b],time);
+   return [a,b].map(r=>['L','R'].map(side=>
+    r.visitor.rig!.bones[side+'_upperArm'].quaternion.clone()));
+  };
+  const idle=handPose(0),end=handPose(10);
+  for(let i=0;i<2;i++)for(let j=0;j<2;j++)
+   expect(idle[i][j].angleTo(end[i][j]),`returned arms ${heights} ${i} ${j}`).toBeLessThan(.03);
+ }
+});
