@@ -671,7 +671,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </button>
         <p className="text-xs text-neutral-500">如模型返回无效或越权字段，整份建议将被拒绝；绝不自动发消息给客户或更改交稿截止日。</p>
       </section>}
-      <details className={disclosureClass}>
+      <div className="grid grid-cols-2 gap-2">
+      <details className={disclosureClass+(data.commissions.length?'':' col-span-2')+' open:col-span-2'}>
         <summary className={summaryClass}><Plus size={18} weight="light"/> 新建</summary>
       <form onSubmit={addCommission} className="space-y-3 pt-2">
         
@@ -686,7 +687,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         <button className={buttonClass+' min-h-11'} disabled={addingCommission} type="submit">{addingCommission?'保存中…':'加入排单'}</button>
       </form>
       </details>
-      {data.commissions.length>0 && <details className={disclosureClass} open={showCommissionList} onToggle={e=>setShowCommissionList(e.currentTarget.open)}>
+      {data.commissions.length>0 && <details className={disclosureClass+' open:col-span-2'} open={showCommissionList} onToggle={e=>setShowCommissionList(e.currentTarget.open)}>
         <summary className={summaryClass}><ListBullets size={18} weight="light"/> 全部 <span className="ml-auto text-xs text-neutral-500">{data.commissions.filter(c=>c.status!=='archived').length}</span></summary>
         <div className="flex justify-end"><button className={mutedButton} onClick={()=>setShowArchived(x=>!x)}>{showArchived?'隐藏归档':'查看归档'}</button></div>
       {orderedCommissions(data.commissions, showArchived)
@@ -731,6 +732,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           </details>
         </article>)}
       </details>}
+      </div>
       <datalist id="sully-stages">{['待确认','排队','草稿','线稿','上色','细化','待审核','交付完成'].map(s=><option key={s} value={s}/>)}</datalist>
     </div><div className={'space-y-4 sm:space-y-5 '+(section==='calendar'?'':'hidden')}>
       <header className="flex items-center justify-between gap-3 px-1 pt-2">
@@ -802,7 +804,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </section>
       <StudyWeekTimetable classes={data.classes} selectedId={selectedClassId}
         onSelect={showClassWork}/>
-      <details className={disclosureClass}>
+      <div className="grid grid-cols-2 gap-2">
+      <details className={disclosureClass+' open:col-span-2'}>
         <summary className={summaryClass}><Plus size={18} weight="light"/> 新建</summary>
       <form className="space-y-3 pt-2" onSubmit={addClass}>
         
@@ -820,7 +823,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         <button type="submit" className={buttonClass+' min-h-11'} disabled={addingClass}>{addingClass?'保存中…':'保存课程'}</button>
       </form>
       </details>
-      <details className={disclosureClass}>
+      <details className={disclosureClass+' open:col-span-2'}>
         <summary className={summaryClass}><Camera size={18} weight="light"/> 识别</summary>
         <p className="text-xs text-neutral-600">选择图片后，需主动点击识别（会调用你设置的识图服务）；结果不会直接入库。</p>
         <input type="file" accept="image/*" aria-label="上传课程表图片" onChange={e=>pickImage(e.target.files?.[0])} className="w-full text-sm"/>
@@ -847,7 +850,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <button className={mutedButton} onClick={()=>setPreviewRows([])}>放弃识别结果</button>
         </div>}
       </details>
-      {data.classes.length>0 && <details className={disclosureClass}>
+      {data.classes.length>0 && <details className={disclosureClass+' open:col-span-2'}>
         <summary className={summaryClass}><ListBullets size={18} weight="light"/> 课程 <span className="ml-auto text-xs text-neutral-500">{data.classes.length}</span></summary>
         <p className="text-xs text-neutral-600">原有 PDF 自习室课程单独保存；这里只关联课程 ID，不复制、删除或重置旧章节及练习册。</p>
         {studyCoursesError && <p role="alert" className="text-sm text-red-700">{studyCoursesError}</p>}
@@ -895,6 +898,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <button className={mutedButton} onClick={()=>deleteClass(c.id)}>仅删除此课程表记录</button>
         </article>)}
       </details>}
+      </div>
       {data.classes.length>0 && <section id="study-homework-panel" className={cardClass+' scroll-mt-4'}>
         <div className="flex items-center justify-between gap-3">
           <div><h3 className="text-[18px] font-semibold">作业 · 笔记</h3></div>
