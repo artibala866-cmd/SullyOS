@@ -15,7 +15,7 @@ function actor(height:number,z:number,angle:number){
  const root=new T.Group(),body=new T.Group(),hair=new T.Group();root.scale.setScalar(2.8/BLANK_SCALE);root.position.z=z;root.rotation.y=angle;root.add(body);
  const mesh=new T.Mesh(createBlankBody('skin',{bodyHeight:height}),new T.MeshBasicMaterial());body.add(mesh,hair);
  const rig=bindBlankBody(mesh,hair,true),animate=createBlankMotion(rig,body);
- const visitor={root,rig,motionScale:1,animate:(time:number,motion:any='idle',posture:any='standing',activity:any=undefined)=>animate(time,motion,posture,activity),setActionExpression:vi.fn(),finishPose:()=>root.updateWorldMatrix(true,true),translatePose(delta:T.Vector3){const start=root.worldToLocal(new T.Vector3()),end=root.worldToLocal(delta.clone());body.position.add(end.sub(start));root.updateWorldMatrix(true,true);}} as unknown as ChibiVisitor;
+ const visitor={root,rig,motionScale:1,animate:(time:number,motion:any='idle',posture:any='standing',activity:any=undefined)=>animate(time,motion,posture,activity),setActionExpression:vi.fn(),applySelectedFrame:vi.fn(),finishPose:()=>root.updateWorldMatrix(true,true),translatePose(delta:T.Vector3){const start=root.worldToLocal(new T.Vector3()),end=root.worldToLocal(delta.clone());body.position.add(end.sub(start));root.updateWorldMatrix(true,true);}} as unknown as ChibiVisitor;
  const reset=()=>{animate(0,'idle','standing');root.updateWorldMatrix(true,true);};reset();
  return {visitor,solver:contactSolver(visitor),body,reset};
 }
@@ -140,6 +140,15 @@ it('cancel and completion clear the carried pose for either initiator without mo
   const runtime=createSocialScene(both.map((r,i)=>({id:String(i),visitor:r.visitor})));
   for(const action of ['home-princess-carry','home-princess-carried'])for(const ids of [['0','1'],['1','0']]){
    await runtime.start(action,...ids as [string,string]);runtime.seek(5);
+   // Both roles consume the real capture; shared arm IK still owns their hands.
+   for(const r of both){
+    const apply=vi.mocked(r.visitor.applySelectedFrame);
+    expect(apply).toHaveBeenCalled();
+    const frame=apply.mock.lastCall![0];
+    expect(frame.rotations.spine).toBeDefined();
+    expect(frame.rotations.L_upperArm).toBeUndefined();
+    expect(frame.rotations.R_hand).toBeUndefined();
+   }
    expect(both[Number(ids[action==='home-princess-carried'?0:1])].body.position.length()).toBeGreaterThan(.1);
    expect(both.map(r=>r.visitor.root.position.y)).toEqual([0,0]);
    runtime.cancel();expect(runtime.inspect().session).toBeNull();both.forEach(r=>expect(r.body.position.length()).toBe(0));

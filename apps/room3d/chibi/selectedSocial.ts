@@ -10,6 +10,7 @@ import {contactSolver,sharedPalmTarget} from './socialContact';
 import {furniturePalm} from './furnitureMotion';
 import {createSocialProp} from './socialProps';
 import {isIntimacy,isPrincessCarry,poseIntimacy} from './intimacyMotion';
+import {carryCaptureWeight,prepareCarryFrame} from './princessCarryCapture';
 import {splitMotionHeading} from './motionHeading';
 import {motionTemplateFor,motionTemplateContact,motionTemplateConstraintPlans} from './motionTemplates';
 import {createMotionTemplateScope} from './motionTemplateScope';
@@ -341,6 +342,12 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     r.visitor.root.quaternion.copy(turn).slerp(rearHug?s.rotation:toward,smooth(actionTime,0,.6));
     // No custom walking or late retreat once B is reached.
     r.visitor.animate(sourceTime,'idle');
+    if(isPrincessCarry(s.action)&&r.visitor.rig){
+     // Apply the 30 Hz captured torso and secondary motion first. The local
+     // pair solver still owns lift, two support palms and floor clearance.
+     prepareCarryFrame(frames[i],sourceTime);
+     r.visitor.applySelectedFrame?.(frames[i],carryCaptureWeight(sourceTime));
+    }
    }else{
     const {heading,lean}=splitMotionHeading(frames[i].rotations.hips);
     // The sampled pelvis already contains this actor's capture heading. Put it
@@ -422,7 +429,10 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
    const checkRelation=()=>{if(options.canInteract&&!options.canInteract(action,a,b))throw Error('这两位未设置浪漫关系，不能执行亲密动作');};
    checkRelation();
    if(isSeasonalSocial(action)&&pinned)throw Error('万圣节双人互动需要两个人先站起来');
-    if(isPrincessCarry(action)&&!states.get(a)!.visitor.rig)throw Error('公主抱需要二号素体');
+    if(isPrincessCarry(action)){
+     if(pinned)throw Error('公主抱需要两个人先站起来');
+     if(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig)throw Error('公主抱需要两个人都使用 Q 版骨骼素体');
+    }
    if(action==='home-rear-hug'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('背后搂抱需要 Q 版骨骼素体');
    if(['home-sneak-kiss','home-passion-kiss'].includes(action)&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error(entry.label+'需要 Q 版骨骼素体');
    if(action==='home-sofa-lap-pillow'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('沙发膝枕需要 Q 版骨骼素体');
