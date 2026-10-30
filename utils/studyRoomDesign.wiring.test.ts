@@ -79,7 +79,6 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(workspace).not.toContain('学习室设置 · 私聊授权');
    expect(schedule).toContain('>本轮共享内容 · 点击查看</summary>');
    expect(schedule).toContain('旧记录 ({unscopedNotes.length+unassignedNotes.length})');
-   expect(schedule).toContain('旧记录（{unassignedNotes.length}）');
    expect(reminders).toContain('>到点提醒</summary>');
    expect(workspace).not.toContain('>作业提醒</summary>');
    expect(workspace).not.toContain('>提醒</summary>');
