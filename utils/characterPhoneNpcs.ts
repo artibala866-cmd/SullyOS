@@ -43,8 +43,16 @@ export function readNpcProfiles(characterId: string): NpcProfile[] {
       })) : [];
   } catch { return []; }
 }
+/** Every confirmed contact edit, not only addDiscoveredContact, must
+ * invalidate the optional cloud-phone candidate in the existing AMSG state
+ * sync. A deleted/renamed NPC must not linger in a stale Worker fire_pack.
+ * Notify only after the local save succeeds; never emit for failed storage.
+ */
 export function saveNpcProfiles(characterId: string, profiles: NpcProfile[]) {
   localStorage.setItem(npcStorageKey(characterId), JSON.stringify(profiles));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(
+    CHARACTER_PHONE_CONTACT_CHANGED, { detail: { characterId } },
+  ));
 }
 // Shared registration interface for future real-mode, chat and Xiaohongshu events.
 // Caller must supply a profile grounded in the source character's persona.
@@ -73,6 +81,5 @@ export function addDiscoveredContact(characterId: string, profile: NpcProfile): 
     (profile.linkedCharacterId && p.linkedCharacterId === profile.linkedCharacterId));
   if (existing) return { added: false, profile: existing };
   saveNpcProfiles(characterId, [...previous, profile]);
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHARACTER_PHONE_CONTACT_CHANGED, { detail: { characterId, contactId: profile.id } }));
   return { added: true, profile };
 }
