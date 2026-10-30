@@ -4,10 +4,10 @@ import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
 import StudyCharPicker from './StudyCharPicker';
 import StudyAvatar from './StudyAvatar';
-import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen} from '@phosphor-icons/react';
+import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
-import {buildCompanionOverview,companionMomentText} from '../utils/studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachBrief,type StudyCoachSetting} from '../utils/studyRoomCompanion';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
@@ -56,6 +56,11 @@ const ScheduleApp: React.FC = () => {
   const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [companionMoment,setCompanionMoment]=useState('');
+  const [coachByChar,setCoachByChar]=useState<Record<string,StudyCoachSetting>>(()=>load('coachByChar',{}));
+  const [coachLastShown,setCoachLastShown]=useState<Record<string,number>>(()=>load('coachLastShown',{}));
+  const [coachSettingsOpen,setCoachSettingsOpen]=useState(false);
+  const [coachPrompt,setCoachPrompt]=useState('');
+  const coachIdleSince=useRef(Date.now());
   const [recentLinkedFocus,setRecentLinkedFocus]=useState<{kind:WorkKind;title:string;minutes:number;sessionId:string}|null>(null);
   const [overviewBusy,setOverviewBusy]=useState(false);
   const [showCharPicker,setShowCharPicker]=useState(false);
@@ -77,6 +82,7 @@ const ScheduleApp: React.FC = () => {
   const chatBusy = useRef(false);
   const discussionVersion = useRef(0);
   const activeChar = characters.find(c => c.id === charId);
+  const coachSetting=normalizeStudyCoachSetting(coachByChar?.[charId]);
   const visibleNotes = notesForStudyContext(notes,charId,assistantScope,assistantItemId);
   const unassignedNotes = legacyUnattributedStudyNotes(notes);
   const unscopedNotes = legacyUnscopedStudyNotes(notes,charId);
@@ -133,6 +139,31 @@ const ScheduleApp: React.FC = () => {
   useEffect(() => { save('session', session); }, [session]);
   useEffect(() => { save('notes', notes); }, [notes]);
   useEffect(() => { save('lock', focusLock); }, [focusLock]);
+  useEffect(() => { save('coachByChar', coachByChar); }, [coachByChar]);
+  useEffect(() => { save('coachLastShown', coachLastShown); }, [coachLastShown]);
+  // A fresh round, pause, completed round or Char selection starts a new local idle window.
+  useEffect(()=>{
+    coachIdleSince.current=Date.now();
+    setCoachPrompt('');
+  },[charId,session?.id,session?.mode,session?.pauseRemainingMs]);
+  useEffect(()=>{
+    if(!charId || coachSetting.level==='off' || coachSetting.paused || session || tab!=='timer')return;
+    const check=()=>{
+      const when=Date.now();
+      const prompt=nextStudyCoachPrompt({
+        charId,setting:coachSetting,session:null,now:new Date(when),
+        idleSince:coachIdleSince.current,lastPromptAt:coachLastShown?.[charId]||0,
+        isVisible:document.visibilityState==='visible',isTimerTab:tab==='timer',
+      });
+      if(!prompt)return;
+      setCoachPrompt(prompt);
+      setCoachLastShown(prev=>({...prev,[charId]:when}));
+    };
+    check();
+    const interval=window.setInterval(check,60000);
+    document.addEventListener('visibilitychange',check);
+    return ()=>{window.clearInterval(interval);document.removeEventListener('visibilitychange',check);};
+  },[charId,coachByChar,coachLastShown,session,tab]);
   useEffect(() => {
     if (!session || session.pauseRemainingMs != null || now < session.deadline) return;
     const id = session.id || String(session.deadline);
@@ -259,11 +290,22 @@ const ScheduleApp: React.FC = () => {
     });
     setTab('timer');
   };
+  const updateCoachSetting=(change:Partial<StudyCoachSetting>)=>{
+    if(!charId)return;
+    setCoachByChar(prev=>({...prev,[charId]:normalizeStudyCoachSetting({
+      ...normalizeStudyCoachSetting(prev?.[charId]),...change,
+    })}));
+    coachIdleSince.current=Date.now();
+    setCoachPrompt('');
+  };
   const chooseChar = (id:string) => {
     if (id===charId) {setShowCharPicker(false);return;}
     discussionVersion.current += 1;
     setCharId(id);
     setShowCharPicker(false);
+    setCoachPrompt('');
+    setCompanionMoment('');
+    setCoachSettingsOpen(false);
     // Never transfer one Char's user-selected context to another Char.
     setAssistantTopic('');
     // First-time selection from the shared companion keeps the overview tab,
@@ -289,7 +331,7 @@ const ScheduleApp: React.FC = () => {
       if(version!==discussionVersion.current)return;
       setPlanRequest(null);setPlanPreview(null);
       setAssistantScope('overview');setAssistantItemId('');
-      setAssistantTopic(buildCompanionOverview(workspace,session,activeTask?.title||''));
+      setAssistantTopic((buildCompanionOverview(workspace,session,activeTask?.title||'')+'\n'+studyCoachBrief(coachSetting)).slice(0,7800));
       setMessage('陪我一起看看现在先做什么比较好？');
       setAssistantOpen(true);
     }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
@@ -410,7 +452,7 @@ const ScheduleApp: React.FC = () => {
       setReplying(false);
     }
   };
-  const companionStatus=companionMoment || companionMomentText(session,activeTask?.title||'',(records.length?records[records.length-1].minutes:0));
+  const companionStatus=coachPrompt||companionMoment||companionMomentText(session,activeTask?.title||'',(records.length?records[records.length-1].minutes:0));
   return (
     <div className="relative h-full w-full overflow-hidden">
       {tab === 'study' && (
@@ -450,14 +492,22 @@ const ScheduleApp: React.FC = () => {
         <p className="min-w-0 flex-1 truncate text-neutral-500" title={companionStatus}>
           <span className="inline-block mr-2 h-1.5 w-1.5 rounded-full bg-neutral-500 align-middle" aria-hidden="true"></span>
           <strong className="text-neutral-800">{activeChar?.name||'尚未选 Char'}</strong> <span className="hidden sm:inline">· {companionStatus}</span>
-          <span className="sm:hidden">· 陪伴中</span>
+          <span className="sm:hidden">· {coachPrompt?'提醒':!activeChar?'待选择':session?.mode==='focus'?'专注中':session?.mode==='break'?'休息中':coachSetting.level==='off'?'待命':coachSetting.paused?'已暂停':'监督中'}</span>
         </p>
-        <button type="button" disabled={overviewBusy} onClick={()=>void openCompanionOverview()}
+        <button type="button" disabled={overviewBusy} onClick={()=>{setCoachPrompt('');void openCompanionOverview();}}
           className="shrink-0 rounded-full border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs font-medium disabled:opacity-50">
-          {overviewBusy?'读取中…':'一起看今天'}
+          {overviewBusy?'读取中…':coachPrompt?'聊聊':'一起看今天'}
+        </button>
+        <button type="button" aria-label="督促设置" title="督促设置" aria-expanded={coachSettingsOpen}
+          onClick={()=>setCoachSettingsOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-neutral-200 bg-white">
+          <SlidersHorizontal size={18}/>
         </button>
       </div>
       <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-5 pb-5 space-y-3 sm:space-y-5">
+        {coachPrompt && tab==='timer' && <div role="status" aria-live="polite" className="mx-auto flex max-w-[510px] items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs text-neutral-700">
+          <span className="min-w-0 flex-1">{coachPrompt}</span>
+          <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f4f4f4]" aria-label="稍后提醒" onClick={()=>setCoachPrompt('')}><X size={17}/></button>
+        </div>}
         {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
         </section>}
@@ -609,6 +659,35 @@ const ScheduleApp: React.FC = () => {
         </div>
       </div>}
       </div>
+      {coachSettingsOpen && <div className="absolute inset-0 z-[90] flex items-end justify-center bg-black/35 p-3 sm:items-center" onClick={()=>setCoachSettingsOpen(false)}>
+        <section role="dialog" aria-modal="true" aria-label="督促设置" className="w-full max-w-sm max-h-[85dvh] overflow-y-auto rounded-[24px] bg-white p-5 shadow-xl" onClick={e=>e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold">学习督促</h2>
+            <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-[#f5f5f5]" aria-label="关闭督促设置" onClick={()=>setCoachSettingsOpen(false)}><X size={20}/></button>
+          </div>
+          <p className="mt-1 text-xs text-neutral-500">{activeChar?.name||'选择 Char'} · 单独设置</p>
+          <label className="mt-4 block text-sm font-medium">提醒频率
+            <select aria-label="学习督促强度" disabled={!activeChar} className="mt-2 w-full rounded-xl border border-neutral-200 bg-[#fafafa] p-3 text-sm" value={coachSetting.level}
+              onChange={e=>updateCoachSetting({level:e.target.value as StudyCoachSetting['level']})}>
+              <option value="off">关闭</option><option value="gentle">温和 · 30 分钟</option>
+              <option value="normal">适中 · 15 分钟</option><option value="firm">积极 · 8 分钟</option>
+            </select>
+          </label>
+          {coachSetting.level!=='off' && <>
+            <label className="mt-4 flex min-h-11 items-center justify-between gap-3 text-sm">
+              <span>暂停督促</span><input type="checkbox" checked={coachSetting.paused} onChange={e=>updateCoachSetting({paused:e.target.checked})}/>
+            </label>
+            <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
+              <span>免打扰</span><input type="checkbox" checked={coachSetting.quietEnabled} onChange={e=>updateCoachSetting({quietEnabled:e.target.checked})}/>
+            </label>
+            {coachSetting.quietEnabled && <div className="mt-2 grid grid-cols-2 gap-3">
+              <label className="text-xs text-neutral-600">开始<input aria-label="免打扰开始" type="time" className="mt-1 w-full min-w-0 rounded-xl border border-neutral-200 bg-[#fafafa] p-2 text-sm" value={coachSetting.quietStart} onChange={e=>updateCoachSetting({quietStart:e.target.value})}/></label>
+              <label className="text-xs text-neutral-600">结束<input aria-label="免打扰结束" type="time" className="mt-1 w-full min-w-0 rounded-xl border border-neutral-200 bg-[#fafafa] p-2 text-sm" value={coachSetting.quietEnd} onChange={e=>updateCoachSetting({quietEnd:e.target.value})}/></label>
+            </div>}
+          </>}
+          <p className="mt-4 text-xs leading-relaxed text-neutral-500">仅在学习室专注页打开、没有计时且超过所选间隔时显示本机提示。专注、暂停、休息、免打扰和后台均不催促；不调用 AI，也不会自动发消息。想要 Char 回复时由你亲自发送。</p>
+        </section>
+      </div>}
       {assistantOpen && <div className="absolute inset-0 z-[80] bg-black/40 flex items-end justify-center"
         onClick={()=>setAssistantOpen(false)}>
         <section className="bg-white text-neutral-900 w-full max-w-xl h-[78dvh] max-h-full min-h-0 rounded-t-2xl p-4 pb-[max(16px,var(--safe-bottom,0px))] flex flex-col gap-3"
