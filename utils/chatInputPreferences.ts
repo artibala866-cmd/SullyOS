@@ -11,6 +11,8 @@ export interface ChatInputPreferences {
 }
 
 export const CHAT_INPUT_PREFERENCES_KEY = 'sully-chat-input-preferences-v1';
+/** A persisted opt-out generation. Late async saves must not undo a switch-off. */
+export const CHAT_AUTO_REPLY_REVOKE_REVISION_KEY = 'sully_chat_auto_reply_revoke_revision_v1';
 
 export const DEFAULT_CHAT_INPUT_PREFERENCES: ChatInputPreferences = {
     sendButtonGenerates: false,
@@ -56,6 +58,9 @@ export const saveChatInputPreferences = (preferences: ChatInputPreferences): voi
         // This is a global switch; off must revoke intents for inactive chars too.
         // Only delete our own intent keys, never chat, AMSG or phone records.
         if (wasEnabled && !next.autoReply) {
+            const rev = Number(localStorage.getItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY));
+            localStorage.setItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY,
+                String(Number.isSafeInteger(rev) && rev >= 0 ? rev + 1 : 1));
             const prefix = 'sully_chat_auto_reply_intent_v1:';
             const keys: string[] = [];
             for (let i = 0; i < localStorage.length; i++) {

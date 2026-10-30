@@ -1,6 +1,7 @@
 import { getNaturalReplyDelay } from '../utils/sullyLifeClock';
 import { resolveRealPersonReplyPlan } from '../utils/realPersonReplyTiming';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
+import { CHAT_AUTO_REPLY_REVOKE_REVISION_KEY } from '../utils/chatInputPreferences';
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 
 export const CHAT_AUTO_REPLY_DELAY_MS = 2000;
@@ -20,6 +21,10 @@ function readIntent(charId: string, now = Date.now()): number {
         }
         return at;
     } catch { return 0; }
+}
+function readOptOutRevision(): string | null {
+    try { return localStorage.getItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY); }
+    catch { return null; }
 }
 function persistIntent(charId: string, at: number): boolean {
     try {
@@ -136,11 +141,13 @@ export function useChatAutoReply(options: Options) {
         work.ownerId = conversationId;
         const token = Symbol();
         const version = work.cancelVersion;
+        const optOutRevision = readOptOutRevision();
         work.sends.add(token);
         refresh();
         return (sent: boolean) => {
             if (!work.sends.delete(token)) return;
-            if (sent && version === work.cancelVersion && current.current.enabled) {
+            if (sent && version === work.cancelVersion && current.current.enabled &&
+                optOutRevision === readOptOutRevision()) {
                 // The IndexedDB save can resolve after Char switches or Chat
                 // unmounts. Persist ONLY the successful send for its original Char.
                 // Cancellation while saving still invalidates this callback.

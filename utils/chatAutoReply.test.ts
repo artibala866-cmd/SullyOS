@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { resolveRealPersonReplyPlan } from './realPersonReplyTiming';
 import { findPendingUserTurn } from './chatContinuation';
+import { DEFAULT_CHAT_INPUT_PREFERENCES, saveChatInputPreferences } from './chatInputPreferences';
 
 let root: Root;
 let container: HTMLDivElement;
@@ -125,6 +126,21 @@ describe('two-second automatic reply', () => {
         render({ conversationId: 'a' });
         advance(2000);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not resurrect a late saved send after explicit global auto-reply opt-out', () => {
+        saveChatInputPreferences({ ...DEFAULT_CHAT_INPUT_PREFERENCES, autoReply:true });
+        let finish!: (sent: boolean) => void;
+        act(() => { finish = controls.beginSend('a'); });
+        render({ conversationId:'b' });
+        saveChatInputPreferences({ ...DEFAULT_CHAT_INPUT_PREFERENCES, autoReply:false });
+        // Even if the stale Chat hook has not observed the settings update,
+        // the persisted opt-out revision blocks the async save callback.
+        act(() => finish(true));
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeNull();
+        render({ conversationId:'a', enabled:false });
+        advance(5000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
     });
 
     it('does not re-arm a late send cancelled before the character switch', () => {
