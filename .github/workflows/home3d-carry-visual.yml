@@ -8,6 +8,7 @@ on:
       - 'scripts/home3d-carry-visual-smoke.mjs'
       - '.github/workflows/home3d-carry-visual.yml'
       - 'apps/room3d/chibi/princessCarryCapture.ts'
+      - 'apps/room3d/chibi/princessCarryMotion.ts'
       - 'apps/room3d/chibi/intimacyMotion.ts'
       - 'apps/room3d/chibi/selectedSocial.ts'
   workflow_dispatch:
@@ -36,7 +37,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Render actual 3D hair and approved skinned garments at 108 paired-motion poses
-        timeout-minutes: 19
+        timeout-minutes: 23
         run: |
           pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/home3d-carry-vite.log 2>&1 &
           VITE_PID=$!
