@@ -42,17 +42,18 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    await next();report.styles.push(getCharacterStyle());
    for(const time of [2.3,4.7]){
     pair.forEach((visitor,i)=>{
-     visitor.root.position.set(0,0,i===0?-.38:.38);
+     visitor.root.position.set(0,0,i===0?-.75:.75);
      visitor.root.quaternion.setFromAxisAngle(new T.Vector3(0,1,0),i===0?0:Math.PI);
      visitor.applySelectedFrame(sampleSelected(clip.actors[i],time));
     });
+    const startGap=faceSocialPoint(pair[0],'home-forehead-touch').distanceTo(faceSocialPoint(pair[1],'home-forehead-touch'));
     poseSeasonalSocial('home-forehead-touch',both,time);
     pair.forEach(v=>v.finishPose());
     const faces=pair.map(v=>faceSocialPoint(v,'home-forehead-touch'));
     const distance=faces[0].distanceTo(faces[1]),vertical=Math.abs(faces[0].y-faces[1].y);
     if(!Number.isFinite(distance)||!Number.isFinite(vertical))throw Error('Nonfinite head contact '+scenario+' '+time);
     // Keep meaningful 3D geometry thresholds while retaining an intentional skin air gap.
-    if(time===4.7){report.contacts.push({scenario,style,distance,vertical});if(distance>.34||vertical>.19)throw Error('Forehead contact too far '+scenario+'/'+style+': '+distance.toFixed(3)+'m, vertical '+vertical.toFixed(3)+'m');}
+    if(time===4.7){report.contacts.push({scenario,style,startGap,distance,vertical});if(distance>.34||vertical>.19)throw Error('Forehead contact too far '+scenario+'/'+style+': '+distance.toFixed(3)+'m, vertical '+vertical.toFixed(3)+'m');}
     note('render '+scenario+' '+style+' '+time);
     renderer.render(scene,camera);
     const pixels=new Uint8Array(400*300*4),gl=renderer.getContext();gl.readPixels(0,0,400,300,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
@@ -61,7 +62,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     const name=scenario+'-'+style+'-'+String(time).replace('.','-'),img=document.createElement('img'),fig=document.createElement('figure'),label=document.createElement('figcaption');
     img.src=renderer.domElement.toDataURL('image/png');img.alt=name;label.textContent=name+' | 距离 '+distance.toFixed(3)+'m / 高差 '+vertical.toFixed(3)+'m';
     fig.append(img,label);document.getElementById('gallery').append(fig);
-    report.frames.push({name,scenario,style,time,colored,distance,vertical});
+    report.frames.push({name,scenario,style,time,colored,startGap,distance,vertical});
     report.images.push({name});
    }
   }
