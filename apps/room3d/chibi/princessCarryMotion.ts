@@ -14,14 +14,14 @@ export function princessCarryPhase(time:number){
  const t=T.MathUtils.clamp(Number.isFinite(time)?time:0,0,10);
  const e=(a:number,b:number,c:number,d:number)=>smooth(t,a,b)*(1-smooth(t,c,d));
  return {
-  stance:e(.35,1.65,3.7,5.25), acquire:smooth(t,.65,2.4),
-  secured:e(2.1,2.8,9.15,9.85), weight:e(3.5,4.55,8.0,9.15),
-  // First sit down into both supporting hands while the feet still bear
-  // weight. Only then lift: torso, pelvis and two legs have different arcs.
-  seat:e(2.45,3.55,7.75,9.2),
-  cradle:e(3.60,5.25,7.1,9.0), tuck:e(3.2,4.9,7.25,8.9),
-  lift:e(3.85,5.4,6.8,9.00), lower:e(6.7,7.75,8.95,9.8),
-  plant:smooth(t,8.55,9.08), embrace:e(3.4,4.85,8.95,9.6),
+  // No synchronized squat: offer one knee with the opposite foot grounded.
+  stance:e(3.25,3.90,4.30,5.30), acquire:smooth(t,.65,2.4),
+  secured:e(2.65,3.55,9.15,9.85), weight:e(3.85,4.55,8.0,9.15),
+  offer:e(2.6,3.55,7.35,8.9),
+  seat:e(3.88,5.15,7.15,9.1),
+  cradle:e(4.05,5.42,7.1,9.0), tuck:e(4.1,5.2,7.25,8.9),
+  lift:e(3.88,5.25,6.8,9.0), lower:e(6.7,7.75,8.95,9.8),
+  plant:smooth(t,8.55,9.08), embrace:e(1.85,3.2,8.95,9.6),
   release:smooth(t,9.15,9.85),
  };
 }
@@ -74,7 +74,10 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  const overhang=Math.max(0,combined.sub(footCentre).dot(frontLoad)-toeForward);
  const torsoLength=carrierChest.distanceTo(carrierHip);
  const counterTilt=T.MathUtils.clamp(.028+Math.atan2(overhang,Math.max(.01,torsoLength))*.5,.028,.17)*p.weight;
- const flex=(p.stance+p.lower)*.40+p.weight*T.MathUtils.clamp(.08*ratio+counterTilt*.55,.07,.18);
+ // Mild height-aware leg flex by the carrier, never a deep squat.
+ const reachBend=.035+.10*Math.max(0,ratio-.9);
+ const flex=reachBend*p.stance+.075*p.lower+
+  p.weight*T.MathUtils.clamp(.04*ratio+counterTilt*.23,.035,.085);
  // Support legs flex first; the spine leans against the measured forward
  // overhang while the chest preserves a stable surface for both support palms.
  for(const side of ['L','R'] as const){
@@ -90,14 +93,12 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  const floor=a.root.getWorldPosition(new T.Vector3()).y+.012;
  const sole=Math.min(...['L_foot','R_foot','L_toe','R_toe'].map(n=>point(a,n).y));
  if(sole<floor)a.translatePose(new T.Vector3(0,Math.min(.75,floor-sole),0));
- // A princess carry is NOT a rigid 90-degree rotation of the recipient.
- // First the knees fold and the pelvis sits into the carrier's arms with
- // both feet still supporting. The carrier lifts the seated body, and only
- // then does it recline sideways. Keep chest/head independent of the hips.
+ // One offered knee first, then a supported lift/recline. Neither person's
+ // pelvis rotates while the standing foot carries their body weight.
  const seated=p.seat,lifted=p.lift;
- const sideTurn=.48*seated+1.05*p.cradle;
+ const sideTurn=.36*seated+1.17*p.cradle;
  const heightRecline=T.MathUtils.clamp((ratio-1)*.70,0,.25);
- const recline=.13*seated+(.68+heightRecline)*p.cradle;
+ const recline=.08*seated+(.73+heightRecline)*p.cradle;
  const cradleWeight=Math.max(seated,p.cradle);
  pose(b,'hips',q(0,sideTurn).multiply(q(-recline)),cradleWeight);
  // The back does not follow the pelvis as one stiff board: it stays upright
@@ -105,8 +106,8 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  bb.spine.quaternion.multiply(q(.24*p.cradle));
  bb.chest.quaternion.multiply(q(.14*p.cradle));
  const legs=[
-  {side:'L' as const, fold:smooth(time,2.75,4.38)*(1-smooth(time,7.25,8.9))},
-  {side:'R' as const, fold:smooth(time,3.24,4.93)*(1-smooth(time,7.45,9.05))},
+  {side:'L' as const, fold:p.offer}, // offered knee, while R sole bears weight
+  {side:'R' as const, fold:smooth(time,4.17,5.18)*(1-smooth(time,7.45,9.05))}, // planted until takeoff
  ];
  for(const {side,fold} of legs){
   const sign=side==='L'?-1:1;
@@ -124,8 +125,10 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  // Do not switch off foot IK on the first non-zero lift frame. That Boolean
  // crossing made the pelvis jump 7 cm in one 60Hz frame. Transfer the
  // recipient's weight from planted feet into the two cradle hands gradually.
- const groundShare=seated*(1-smooth(time,3.85,4.2));
- if(groundShare>0)restoreLegSupport(b,feetB,true,.14,groundShare);
+ // Lock just the R standing sole; locking the offered L foot makes both
+ // knees squat. Hand off this sole to the cradle over multiple 60Hz frames.
+ const groundShare=(1-smooth(time,3.86,4.33))*(1-p.release);
+ if(groundShare>0)restoreLegSupport(b,feetB,true,.14,groundShare,'R');
  // Rebuild the loaded pelvis destination from actual carrier skeleton lengths.
  const hip=point(a,'hips'),chest=point(a,'chest');
  const left=point(a,'L_upperArm'),right=point(a,'R_upperArm');

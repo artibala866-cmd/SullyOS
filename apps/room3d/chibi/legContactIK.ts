@@ -56,11 +56,12 @@ export function captureLegSupport(v:ChibiVisitor){
 }
 /** Reconcile planted toes and original sole direction after a skeletal pose.
  * Keep the new bending of knees, but avoid sliding or rolling planted feet. */
-export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captureLegSupport>,preserveFootDirection=true,maxCorrection=.16,strength=1){
+export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captureLegSupport>,preserveFootDirection=true,maxCorrection=.16,strength=1,onlySide:'L'|'R'|null=null){
  const alpha=T.MathUtils.clamp(strength,0,1);
  if(!v.rig||!support||alpha<=0)return 0;
  v.root.updateWorldMatrix(true,true);
  for(const [i,side] of (['L','R'] as const).entries()){
+  if(onlySide&&side!==onlySide)continue;
   // Solve the ankle first: a fixed sole orientation determines its toe
   // offset. Solving the toe and then rotating its ancestors breaks that
   // orientation; restoring it afterwards would move the toe off target.
@@ -71,7 +72,7 @@ export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captu
   }
  }
  v.root.updateWorldMatrix(true,true);
- const ground=Math.min(...(['L','R'] as const).flatMap(side=>[
+ const ground=Math.min(...(['L','R'] as const).filter(side=>!onlySide||side===onlySide).flatMap(side=>[
   v.rig!.bones[side+'_toe'].getWorldPosition(new T.Vector3()).y,
   v.rig!.bones[side+'_foot'].getWorldPosition(new T.Vector3()).y,
  ]));
