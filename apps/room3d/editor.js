@@ -248,7 +248,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
   refreshRoomLighting();scheduleRoomLighting();renderUI();
  }
  refreshRoomLighting();
- const ground=new THREE.Mesh(new THREE.PlaneGeometry(160,160),new THREE.ShadowMaterial({color:'#8b779b',opacity:.12}));ground.rotation.x=-Math.PI/2;ground.position.y=-.47;ground.receiveShadow=true;scene.add(ground);
+ const ground=new THREE.Mesh(new THREE.PlaneGeometry(160,160),new THREE.ShadowMaterial({color:'#77747b',opacity:.14}));ground.rotation.x=-Math.PI/2;ground.position.y=-.47;ground.receiveShadow=true;scene.add(ground);
  const content=new THREE.Group();scene.add(content);const finishes=createRoomFinishes();
  const resident=new THREE.Group();resident.rotation.order='YXZ';scene.add(resident);
  const comparisonRoot=new THREE.Group();scene.add(comparisonRoot);let comparisonEntries=[],activeComparisonId=null,comparisonRevision=0;
