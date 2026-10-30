@@ -41,6 +41,31 @@ function texture(color){
   const gl=canvas?.getContext('webgl2');
   report.webgl=!!gl&&!gl.isContextLost();
   if(!report.canvas||!report.webgl)throw Error('WebGL drawing buffer was not created');
+  // Navigate from the REAL home map to a WebGL-rendered seasonal annex.
+  // Only this isolated fixture bypasses download approval, never the production UI.
+  const seasonalButton=document.querySelector('.h3-home-map [data-action="activity-room"]');
+  if(!seasonalButton||!seasonalButton.textContent.includes('万圣节'))
+   throw Error('Halloween house entry missing from visible 3D home map');
+  seasonalButton.dataset.packConfirmed='true';
+  seasonalButton.click();
+  const halloweenState=editor.inspect(),halloweenRoom=halloweenState.rooms.find(r=>r.activityRoom==='halloween');
+  report.halloweenMap={
+   created:!!halloweenRoom,items:halloweenRoom?.items.length,
+   originalChair:halloweenState.rooms[0].items.some(i=>i.id==='smoke-chair'),
+   mapEntry:!!document.querySelector('.h3-home-map .h3-map-annex')?.textContent.includes('万圣节魔法小屋')
+  };
+  if(!report.halloweenMap.created||report.halloweenMap.items!==12||!report.halloweenMap.originalChair||!report.halloweenMap.mapEntry)
+   throw Error('Seasonal WebGL room did not appear or original furniture was lost');
+  report.captureStage='halloween-room';
+  await sleep(3000);
+  report.captureStage=null;
+  const undoSeason=document.createElement('button');
+  undoSeason.dataset.action='undo';
+  document.querySelector('.h3-ui').appendChild(undoSeason);
+  undoSeason.click();undoSeason.remove();
+  report.halloweenMap.undoRestored=editor.inspect().rooms.length===1&&
+   editor.inspect().rooms[0].items.some(i=>i.id==='smoke-chair');
+  if(!report.halloweenMap.undoRestored)throw Error('Seasonal room undo did not restore original layout');
   set('build classic visitor');
   const keys=['skin','eyes','mouth','fronthair','earhair','back1','back2','outfit','outer','decor','facemark'];
   const parts=Object.fromEntries(keys.map((k,i)=>[k,texture(i<2?'#dfac91':i<6?'#7e636e':'#8a9db4')]));
