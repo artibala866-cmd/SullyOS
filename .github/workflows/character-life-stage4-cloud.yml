@@ -23,7 +23,10 @@ permissions:
   contents: read
 concurrency:
   group: sully-stage4-cloud-${{ github.ref }}
-  cancel-in-progress: true
+  # Other developers frequently push unrelated 3D/study commits to this
+  # same development branch. Finish the currently running Stage4 verification
+  # instead of cancelling it at every concurrent push; queue only the newest.
+  cancel-in-progress: false
 jobs:
   stage4:
     runs-on: ubuntu-latest
