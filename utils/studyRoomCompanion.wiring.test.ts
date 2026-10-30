@@ -250,8 +250,8 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).toContain('study-phone-speaker');
    expect(schedule).toContain('study-phone-homebar');
    expect(studyPhoneCss).toContain('border:5px solid #252525');
-   expect(studyPhoneCss).toContain('width:min(326px,calc(100% - 24px),calc((100dvh - 132px)*0.5))');
-   expect(studyPhoneCss).toContain('aspect-ratio:9 / 18;height:auto;min-height:0;max-height:none');
+   expect(studyPhoneCss).toContain('width:min(334px,calc(100% - 30px),calc((100dvh - 140px)*0.5625))');
+   expect(studyPhoneCss).toContain('aspect-ratio:9 / 16;height:auto;min-height:0;max-height:none');
    expect(nativeChat).toContain('homePhone?.characterId??osActiveCharacterId');
    expect(nativeChat).toContain('hideHeader?:boolean');
    expect(schedule).toContain("getContext:blankPhoneContext");
@@ -262,14 +262,14 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
  });
  it('320/349/360/390/430 和宽屏：手机比例不被压扁，也不超出屏幕',()=>{
    for(const [w,h] of [[320,568],[349,768],[360,740],[390,844],[430,932],[698,768]]){
-      const phoneWidth=Math.min(326,w-24,(h-132)*0.5);
-      const phoneHeight=phoneWidth*18/9;
+      const phoneWidth=Math.min(334,w-30,(h-140)*0.5625);
+      const phoneHeight=phoneWidth*16/9;
       const bottom=h<=620?76:86;
-      expect(phoneHeight/phoneWidth).toBeCloseTo(2,5);
-      expect(phoneWidth).toBeLessThanOrEqual(w-24);
+      expect(phoneHeight/phoneWidth).toBeCloseTo(16/9,5);
+      expect(phoneWidth).toBeLessThanOrEqual(w-30);
       expect(phoneHeight+bottom).toBeLessThan(h);
    }
-   const screenshotWidth=Math.min(326,349-24,(768-132)*0.5);
+   const screenshotWidth=Math.min(334,349-30,(768-140)*0.5625);
    expect(screenshotWidth).toBeGreaterThan(300);
    expect(studyPhoneCss).not.toContain('width:min(218px');
    expect(studyPhoneCss).not.toContain('width:min(232px');
@@ -289,7 +289,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(studyPhoneCss).toContain('position:absolute;inset:0;overflow:hidden');
    expect(studyPhoneCss).toContain('width:100%!important;height:100%!important');
    for(const [w,h] of [[349,768],[360,740],[390,844],[430,932]]){
-     const phoneWidth=Math.min(326,w-24,(h-132)*0.5);
+     const phoneWidth=Math.min(334,w-30,(h-140)*0.5625);
      const interior=phoneWidth-22;
      const scale=interior/300;
      expect(300*scale).toBeCloseTo(interior);
