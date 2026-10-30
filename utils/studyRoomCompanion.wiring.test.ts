@@ -115,4 +115,19 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(open).not.toContain('fetch(');
  });
 
+ it('返回课程表或专注页，同一个 Char 只延续最近 30 分钟自己的 PDF 章节',()=>{
+  expect(schedule).toContain('setRecentStudyByChar(prev=>({...prev,[charId]:{...value,seenAt:Date.now()}}))');
+  expect(schedule).toContain('recentStudyByChar[charId]');
+  expect(schedule).toContain('Date.now()-lastStudy.seenAt<30*60000');
+  expect(schedule).toContain('pdfLearning:tab===\'study\'?studyPresence:recentPdf?');
+  expect(schedule).toContain('刚一起看过《');
+  expect(schedule).toContain("setMessage(companionEntryPrompt(");
+ });
+ it('后台工作空间读取不能覆盖更晚确认的课程与画稿进度',()=>{
+  expect(schedule).toContain('const workspaceRevision=useRef(0)');
+  expect(schedule).toContain('workspaceRevision.current+=1');
+  expect(schedule).toContain('workspaceRevision.current===revision');
+  expect(schedule).toContain('onWorkspaceSnapshot={onWorkspaceSnapshot}');
+ });
+
 });
