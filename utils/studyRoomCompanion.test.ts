@@ -170,6 +170,7 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
   expect(companionEntryPrompt({...base,todayCourses:1})).toContain('1 节课程');
   expect(companionEntryPrompt({...base,todayFocusMinutes:50})).toContain('50 分钟');
   expect(companionEntryPrompt(base,'',{courseTitle:'素描基础',chapterTitle:'明暗',progress:18})).toContain('明暗');
+  expect(companionEntryPrompt(base,'',{courseTitle:'素描基础',chapterTitle:'明暗',progress:18},25)).toContain('25 分钟');
  });
  it('顶部短句只使用同一 Char 近十分钟内真实 AI 概览回复，不能借用其他目的或角色',()=>{
   const now=Date.now();
