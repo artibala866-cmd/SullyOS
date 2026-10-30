@@ -196,7 +196,7 @@ const ScheduleApp: React.FC = () => {
         promptCountToday:sameDay?seen.count:0,
         reality,isVisible:document.visibilityState==='visible'&&!assistantOpen&&!coachSettingsOpen&&!exitOpen
           &&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName||''),
-        isTimerTab:tab!=='study',
+        isTimerTab:true, // caller already exits on the separate legacy PDF tab
       });
       if(!prompt||!latestEvent)return;
       setCoachPrompt(prompt);
