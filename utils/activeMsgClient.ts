@@ -1,6 +1,6 @@
 import { readCharacterLifeEvents } from './characterLifeEvents';
 import { readNpcProfiles } from './characterPhoneNpcs';
-import { selectCloudPhoneOpportunity } from './amsgCloudPhoneSelection';
+import { safelySelectCloudPhoneOpportunity } from './amsgCloudPhoneSelection';
 import { resolveDialogueApi } from './characterApi';
 import { stoppedReplyStateEntries } from './amsgStoppedReplyClient';
 import { loadCharacterContextMessages } from './chatContextRange';
@@ -950,7 +950,7 @@ export const buildFirePack = async (
     phoneSocialContacts,
     // Explicit phone piggyback opt-in only. Never upload the NPC private
     // inbox to the Worker just because ordinary AMSG 2.0 was enabled.
-    cloudPhoneOpportunity: templateStub ? null : selectCloudPhoneOpportunity(char),
+    cloudPhoneOpportunity: templateStub ? null : safelySelectCloudPhoneOpportunity(char),
   };
 };
 
