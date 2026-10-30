@@ -1,11 +1,11 @@
 export type PhotoLook={preset:'natural'|'neon'|'dream'|'afterglow'|'watercolor'|'daylight';glow:number;fringe:number;vignette:number;exposure:number};
 export const photoLooks:Record<PhotoLook['preset'],PhotoLook>={
  natural:{preset:'natural',glow:0,fringe:0,vignette:0,exposure:1},
- neon:{preset:'neon',glow:.42,fringe:.28,vignette:.35,exposure:1},
- dream:{preset:'dream',glow:.62,fringe:.16,vignette:.18,exposure:1.12},
- afterglow:{preset:'afterglow',glow:.3,fringe:.38,vignette:.6,exposure:.82},
- watercolor:{preset:'watercolor',glow:.15,fringe:0,vignette:.1,exposure:1.06},
- daylight:{preset:'daylight',glow:.55,fringe:.60,vignette:.12,exposure:1.02},
+ neon:{preset:'neon',glow:.32,fringe:.18,vignette:.28,exposure:1},
+ dream:{preset:'dream',glow:.42,fringe:.10,vignette:.14,exposure:1.12},
+ afterglow:{preset:'afterglow',glow:.24,fringe:.20,vignette:.40,exposure:.82},
+ watercolor:{preset:'watercolor',glow:.08,fringe:0,vignette:.08,exposure:1.06},
+ daylight:{preset:'daylight',glow:.22,fringe:.12,vignette:.08,exposure:1.02},
 };
 // Reuse the expensive offscreen buffers for successive frames and filter changes.
 // Each output owns its buffers: no effect state or pixels leak across photographs.
