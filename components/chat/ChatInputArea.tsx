@@ -31,6 +31,11 @@ interface PrivateChatSpeechInput {
 interface ChatInputAreaProps {
     /** Present only in one-to-one Chat; group chat stays unchanged. */
     speechInput?: PrivateChatSpeechInput;
+    /** Typed voice uses the ordinary draft field, but sends as a genuine user voice message. */
+    typedVoiceEnabled?: boolean;
+    onSelectTypedVoice?: () => void;
+    onExitTypedVoice?: () => void;
+    onSendTypedVoice?: () => void;
     compactHome?: boolean;
 
     /** Initial page for static decoration previews; does not run menu actions. */
@@ -102,6 +107,7 @@ interface ChatInputAreaProps {
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     input, setInput, isTyping, selectionMode, compactHome=false, speechInput,
+    typedVoiceEnabled = false, onSelectTypedVoice, onExitTypedVoice, onSendTypedVoice,
     showPanel, setShowPanel, onSend, onDeleteSelected, onForwardSelected, onFavoriteSelected, favoriteSelectedCount = 0, selectedCount,
     sendButtonGenerates = false, enterToSend = true, onGenerate,
     autoReplyEnabled = false, onInputFocusChange,
@@ -217,7 +223,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         };
     }, [canEndEditing, isInputFocused]);
 
-    const isGenerateButton = canSwitchToGenerate && !isInputFocused;
+    const isGenerateButton = canSwitchToGenerate && !isInputFocused && !typedVoiceEnabled;
     const primaryButtonDisabled = isGenerateButton ? false : !input.trim();
 
     useEffect(() => {
@@ -281,7 +287,8 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         }
         if (enterToSend && e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            onSend();
+            if (typedVoiceEnabled) onSendTypedVoice?.();
+            else onSend();
         }
     };
 
@@ -809,6 +816,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                 title="语音消息"
                                 aria-label="语音消息"
                                 aria-expanded={voiceMenuOpen}
+                                aria-pressed={typedVoiceEnabled}
                                 onClick={() => { textareaRef.current?.blur(); setVoiceMenuOpen(open => !open); }}
                                 className={`w-9 h-11 grid place-items-center rounded-full transition-colors ${voiceMenuOpen || speechInput.status !== 'idle' ? 'bg-primary/10 text-primary' : isDiscordStyle ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-500 hover:bg-black/5'}`}
                             >
@@ -816,8 +824,8 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             </button>
                             {voiceMenuOpen && (
                                 <div role="group" aria-label="选择语音输入方式" className={`absolute bottom-full right-0 mb-2 z-50 p-1.5 flex gap-1 rounded-2xl border shadow-lg ${isDiscordStyle ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
-                                    <button type="button" title="真实语音" aria-label="真实语音" aria-pressed={speechInput.status !== 'idle'} onClick={() => { setVoiceMenuOpen(false); void speechInput.start(); }} className={`w-11 h-10 rounded-xl grid place-items-center ${speechInput.status !== 'idle' ? 'bg-primary/15 text-primary' : 'hover:bg-black/5'}`}><Microphone size={21} /></button>
-                                    <button type="button" title="键盘输入" aria-label="键盘输入" aria-pressed={false} onClick={() => { setVoiceMenuOpen(false); speechInput.cancel(); textareaRef.current?.focus(); }} className="w-11 h-10 rounded-xl grid place-items-center hover:bg-black/5"><Keyboard size={21} /></button>
+                                    <button type="button" title="真实语音" aria-label="真实语音" aria-pressed={speechInput.status !== 'idle'} onClick={() => { setVoiceMenuOpen(false); onExitTypedVoice?.(); void speechInput.start(); }} className={`w-11 h-10 rounded-xl grid place-items-center ${speechInput.status !== 'idle' ? 'bg-primary/15 text-primary' : 'hover:bg-black/5'}`}><Microphone size={21} /></button>
+                                    <button type="button" title="键盘输入" aria-label="键盘输入" aria-pressed={typedVoiceEnabled} onClick={() => { setVoiceMenuOpen(false); speechInput.cancel(); if (typedVoiceEnabled) onExitTypedVoice?.(); else onSelectTypedVoice?.(); textareaRef.current?.focus(); }} className={`w-11 h-10 rounded-xl grid place-items-center ${typedVoiceEnabled ? 'bg-primary/15 text-primary' : 'hover:bg-black/5'}`}><Keyboard size={21} /></button>
                                 </div>
                             )}
                         </div>
@@ -830,10 +838,10 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             // 保留点下时的发送模式与光标，避免 blur 先于 click 把这一下变成生成。
                             if (canEndEditing && isInputFocused && e.button === 0) e.preventDefault();
                         }}
-                        onClick={isGenerateButton ? onGenerate : onSend}
+                        onClick={typedVoiceEnabled ? onSendTypedVoice : isGenerateButton ? onGenerate : onSend}
                         disabled={primaryButtonDisabled}
-                        aria-label={isGenerateButton ? (isTyping ? '停止回复' : '生成回复') : '发送文字'}
-                        title={isGenerateButton ? (isTyping ? '停止回复' : '让对方回复已发送的消息') : '发送文字'}
+                        aria-label={typedVoiceEnabled ? '发送文字语音' : isGenerateButton ? (isTyping ? '停止回复' : '生成回复') : '发送文字'}
+                        title={typedVoiceEnabled ? '发送文字语音' : isGenerateButton ? (isTyping ? '停止回复' : '让对方回复已发送的消息') : '发送文字'}
                         className={`sully-chat-send-button ${sendButtonClass} ${primaryButtonDisabled ? 'opacity-45 shadow-none' : ''}`}
                     >
                         {sendButtonStyle === 'pill'
