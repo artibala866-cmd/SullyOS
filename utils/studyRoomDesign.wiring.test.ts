@@ -38,7 +38,7 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
  });
  it('周课程表读取原课程关联且触发原有作业、笔记选择，不读写 PDF',()=>{
    expect(workspace).toContain('StudyWeekTimetable classes={data.classes} selectedId={selectedClassId}');
-   expect(workspace).toContain("document.getElementById('study-homework-panel')?.scrollIntoView");
+   expect(workspace).toContain('onClick={()=>setPrivacyOpen(true)}');
    expect(workspace).toContain('id="study-homework-panel"');
    expect(timetable).toContain('onSelect(c.id)');
    expect(timetable).toContain('!c.cancelled&&c.weekday===day.getDay()');
@@ -65,15 +65,18 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(schedule).toContain("day.minutes?");
  });
  it('折叠栏只显示短标题，具体规则留在正文，原表单仍保留',()=>{
-   for(const title of [
-     '＋ 新增委托','编辑委托','＋ 新增课程',
-     '识别课表','编辑课程'
-   ])expect(workspace).toContain('>'+title+'</summary>');
+   expect(workspace).toContain('<Plus size={18} weight="light"/> 新建</summary>');
+   expect(workspace).toContain('<Camera size={18} weight="light"/> 识别</summary>');
+   expect(workspace).toContain('<ListBullets size={18} weight="light"/> 全部');
+   expect(workspace).toContain('编辑委托</summary>');
+   expect(workspace).toContain('编辑课程</summary>');
    expect(workspace).toContain('时间容量');
-   expect(workspace).toContain('全部委托（{data.commissions.filter(c=>c.status!==');
-   expect(workspace).toContain('课程管理与关联（{data.classes.length}）');
+   expect(workspace).toContain("data.commissions.length>0 && <details");
+   expect(workspace).toContain('data.classes.length>0 && <details');
    expect(workspace).toContain('未归属资料（{orphaned.homework.length+orphaned.notes.length}）');
-   expect(workspace).toContain('<span>学习室设置 · 私聊授权</span>');
+   expect(workspace).toContain('aria-label="私聊权限"');
+   expect(workspace).toContain('role="dialog" aria-modal="true"');
+   expect(workspace).not.toContain('学习室设置 · 私聊授权');
    expect(schedule).toContain('>发送内容</summary>');
    expect(schedule).toContain('旧对话（{unscopedNotes.length}）');
    expect(schedule).toContain('旧记录（{unassignedNotes.length}）');
@@ -98,7 +101,7 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(calendar).toContain("h-1.5 w-1.5 rounded-full");
    expect(calendar).not.toContain('text-[8px]');
    expect(calendar).toContain('min-h-[44px] sm:min-h-[52px]');
-   expect(timetable).toContain('min-w-[122px]');
+   expect(timetable).toContain('grid grid-cols-7 gap-1');
    expect(legacyClassroom).not.toContain('bg-[#2b2b2b]');
    expect(legacyClassroom).not.toContain('bg-[#1a1a1a]');
    expect(legacyClassroom).toContain('study-paper-content');
@@ -127,13 +130,15 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(calendar).toContain('h-1.5 w-1.5 rounded-full');
    expect(calendar).not.toContain('list.slice(0,2).map((e,i)=><span key={e.id+e.kind+i} title=');
    expect(calendar).toContain('aria-label={day.date+');
-   expect(timetable).toContain('overflow-x-auto snap-x');
-   expect(timetable).toContain('min-w-[122px]');
+   expect(timetable).toContain('aria-label="选择星期"');
+   expect(timetable).toContain('grid grid-cols-7 gap-1');
    expect(legacyClassroom).toContain('aspect-[4/5] rounded-[26px]');
    expect(legacyClassroom).toContain('style={{ background: course.coverStyle }}');
    expect(legacyClassroom).toContain('onClick={() => startSession(course)}');
    expect(workspace).toContain('时间容量');
-   expect(workspace).toContain('学习室设置 · 私聊授权');
+   expect(workspace).toContain('关闭私聊权限');
+   expect(workspace).toContain('permissionForChar(data, selectedCharId)');
+   expect(workspace).toContain('togglePrivateChat(category,e.target.checked)');
    expect(workspace).toContain('读取旧自习室课程');
  });
 
@@ -159,6 +164,24 @@ describe('学习室黑白灰视觉改造 · 真实数据、操作和隐私入口
    expect(calendar).not.toContain('min-h-[52px] sm:min-h-[62px]');
    expect(calendar).not.toContain('grid grid-cols-4 gap-2 border-t');
    expect(timetable).not.toContain('WEEKLY TIMETABLE');
+ });
+
+ it('手机截图修正：空白页面不渲染无意义管理卡，私聊仅有一个按需弹层',()=>{
+   expect(workspace).toContain("data.classes.length>0 && <section id=\"study-homework-panel\"");
+   expect(workspace).toContain("data.commissions.length>0 && <details");
+   expect(workspace).toContain('role="dialog" aria-modal="true" aria-label="私聊权限"');
+   expect(workspace).toContain('onClick={()=>setPrivacyOpen(true)}');
+   expect(workspace).toContain('onClick={()=>setPrivacyOpen(false)}');
+   expect(workspace).not.toContain('学习室设置 · 私聊授权');
+   expect(workspace).not.toContain('＋ 新增委托');
+   expect(workspace).not.toContain('全部委托（');
+   expect(workspace).not.toContain('课程管理与关联（');
+   expect(calendar).not.toContain('进行中 {summary.active} · 七天内 {summary.upcoming}');
+   expect(timetable).not.toContain('滑动看下一天 · 点击课程查看作业');
+   expect(timetable).not.toContain('min-w-[122px]');
+   expect(timetable).toContain('grid grid-cols-7 gap-1');
+   expect(legacyClassroom).toContain('col-span-2 sm:col-span-1 flex h-[88px]');
+   expect(legacyClassroom).toContain('onClick={() => fileInputRef.current?.click()}');
  });
 
 });
