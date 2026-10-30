@@ -15,8 +15,8 @@ export const PRESET_THEMES: Record<string, ChatTheme> = {
     },
     forest: {
         id: 'forest', name: 'QQ气泡', type: 'preset',
-        user: { textColor: '#ffffff', backgroundColor: '#12b7f5', borderRadius: 18, opacity: 1, backgroundImageOpacity: 0.5 },
-        ai: { textColor: '#202020', backgroundColor: '#ffffff', borderRadius: 18, opacity: 1, backgroundImageOpacity: 0.5 }
+        user: { textColor: '#ffffff', backgroundColor: '#159eff', borderRadius: 12, opacity: 1, backgroundImageOpacity: 0.5 },
+        ai: { textColor: '#202020', backgroundColor: '#ffffff', borderRadius: 12, opacity: 1, backgroundImageOpacity: 0.5 }
     },
 };
 

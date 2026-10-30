@@ -997,6 +997,8 @@ interface MessageItemProps {
     blackWhiteFacebook?: boolean;
     /** Built-in WeChat style for plain text; media and modules remain unchanged. */
     wechatBubble?: boolean;
+    /** Compact QQ text bubble layout, private-chat only. */
+    qqBubble?: boolean;
     charAvatar: string;
     charName: string;
     userAvatar: string;
@@ -1062,6 +1064,7 @@ const MessageItem = React.memo(({
     activeTheme,
     blackWhiteFacebook = false,
     wechatBubble = false,
+    qqBubble = false,
     charAvatar,
     charName,
     userAvatar,
@@ -1102,6 +1105,7 @@ const MessageItem = React.memo(({
     const isUser = m.role === 'user';
     const isSystem = m.role === 'system';
     const wechatTextMessage = wechatBubble && m.type === 'text' && (m.role === 'user' || m.role === 'assistant') && !voiceData?.url && !voiceLoading && !/<[语語]音[^>]*>/.test(m.content);
+    const qqTextMessage = qqBubble && m.type === 'text' && (m.role === 'user' || m.role === 'assistant') && !voiceData?.url && !voiceLoading && !/<[语語]音[^>]*>/.test(m.content);
     const spacingClass = messageSpacing === 'compact' ? (isLastInGroup ? 'mb-3' : 'mb-0.5') : messageSpacing === 'spacious' ? (isLastInGroup ? 'mb-8' : 'mb-2.5') : (isLastInGroup ? 'mb-6' : 'mb-1.5');
     const marginBottom = spacingClass;
     const avatarSizeClass = avatarSize === 'small' ? 'w-7 h-7' : avatarSize === 'large' ? 'w-12 h-12' : 'w-9 h-9';
@@ -1674,6 +1678,7 @@ const MessageItem = React.memo(({
                 isModuleCard ? 'sully-chat-message-module' : '',
                 blackWhiteFacebook && m.type === 'text' ? 'sully-facebook-text-message' : '',
                 wechatTextMessage ? 'sully-wechat-text-message' : '',
+                qqTextMessage ? 'sully-qq-text-message' : '',
                 `flex items-end ${marginBottom} px-3 group select-none relative transition-[padding] duration-300`,
                 selectionMode ? 'pl-12' : '',
             ].filter(Boolean).join(' ')}
@@ -1735,7 +1740,7 @@ const MessageItem = React.memo(({
                         {...interactionProps}
                     >
                     {!centerModules && thinkingChainNode}
-                    <div className={`${selectionMode ? 'pointer-events-none' : ''} ${blackWhiteFacebook && m.type === 'text' ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''} ${wechatTextMessage ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''}`}>
+                    <div className={`${selectionMode ? 'pointer-events-none' : ''} ${blackWhiteFacebook && m.type === 'text' ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''} ${wechatTextMessage ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''} ${qqTextMessage ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''}`}>
                         {<ChatCardSurface message={m}>{content}</ChatCardSurface>}
                     </div>
                     {isLastInGroup && showTimestamp !== 'never' && (
@@ -3312,7 +3317,16 @@ const MessageItem = React.memo(({
             )}
 
             {/* Layer 3: Reply/Quote Block */}
-            {m.replyTo && !blackWhiteFacebook && (
+            {qqTextMessage && m.replyTo && (
+                <div className="sully-qq-quote relative z-10" title={`${m.replyTo.name}：${replyPreview}`}>
+                    <div className="sully-qq-quote-head">
+                        <span className="sully-qq-quote-name">{m.replyTo.name}</span>
+                        <span className="sully-qq-quote-arrow" aria-hidden="true">↗</span>
+                    </div>
+                    <span className="sully-qq-quote-content">{replyPreview}</span>
+                </div>
+            )}
+            {m.replyTo && !blackWhiteFacebook && !qqTextMessage && (
                 <div className="relative z-10 mb-1 text-[10px] bg-black/5 p-1.5 rounded-md border-l-2 border-current opacity-60 flex flex-col gap-0.5 max-w-full overflow-hidden">
                     <span className="font-bold opacity-90 truncate">{m.replyTo.name}</span>
                     <span className="truncate italic">"{replyPreview.length > 10 ? replyPreview.slice(0, 10) + '...' : replyPreview}"</span>
@@ -3322,7 +3336,7 @@ const MessageItem = React.memo(({
             {/* Layer 4: Text Content — shown when there's visible text after stripping voice tags */}
             {/* 外语语音消息把双语文字交给下方语音条渲染，顶部不再重复正文 */}
             {displayContent && !isForeignVoiceMsg && (
-            <div className={`sully-facebook-bubble-text ${wechatTextMessage ? 'sully-wechat-bubble-text' : ''} relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text`} style={{ color: styleConfig.textColor }}>
+            <div className={`sully-facebook-bubble-text ${wechatTextMessage ? 'sully-wechat-bubble-text' : ''} ${qqTextMessage ? 'sully-qq-bubble-text' : ''} relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text`} style={{ color: styleConfig.textColor }}>
                 {renderContent(displayContent)}
                 {showExpandedTranslation && !wechatTextMessage && (
                     <div className="sully-facebook-translation mt-2.5 pt-2 border-t border-current/15">
@@ -3575,6 +3589,7 @@ const MessageItem = React.memo(({
            prev.activeTheme === next.activeTheme &&
            prev.blackWhiteFacebook === next.blackWhiteFacebook &&
            prev.wechatBubble === next.wechatBubble &&
+           prev.qqBubble === next.qqBubble &&
            prev.charAvatar === next.charAvatar &&
            prev.charName === next.charName &&
            prev.userAvatar === next.userAvatar &&

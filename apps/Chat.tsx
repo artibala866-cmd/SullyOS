@@ -55,6 +55,7 @@ import { PRESET_THEMES, DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatC
 import { resolveChatTheme } from '../utils/groupChat/theme';
 import { BLACK_WHITE_FACEBOOK_CSS, formatBlackWhiteTime, isBlackWhiteFacebookTheme, shouldStartBlackWhiteTimeGroup } from '../utils/blackWhiteFacebookTheme';
 import { isBuiltInWechatTheme, WECHAT_BUBBLE_CSS } from '../utils/wechatBubbleTheme';
+import { isBuiltInQQTheme, QQ_BUBBLE_CSS, shouldStartQQTimeGroup, formatQQTime } from '../utils/qqBubbleTheme';
 import ChatHeader from '../components/chat/ChatHeaderShell';
 import { Phone } from '@phosphor-icons/react';
 import CharacterEntryTransition from '../components/chat/CharacterEntryTransition';
@@ -521,6 +522,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     );
     const blackWhiteFacebook = !homePhone && isBlackWhiteFacebookTheme(activeTheme);
     const wechatBubble = !homePhone && isBuiltInWechatTheme(activeTheme);
+    const qqBubble = !homePhone && isBuiltInQQTheme(activeTheme);
     const draftKey = `chat_draft_${activeCharacterId}`;
 
     // Filter categories and emojis by active character's visibility (used for both AI prompt and UI)
@@ -3947,7 +3949,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     return (
         <div
-            className={`sully-chat-root ${chatRootClass} ${blackWhiteFacebook ? 'sully-chat-monochrome' : ''} ${wechatBubble ? 'sully-chat-wechat' : ''}`}
+            className={`sully-chat-root ${chatRootClass} ${blackWhiteFacebook ? 'sully-chat-monochrome' : ''} ${wechatBubble ? 'sully-chat-wechat' : ''} ${qqBubble ? 'sully-chat-qq' : ''}`}
             style={chatRootStyle}
         >
              {/* 聊天细节微调（外观 App 可视化设置生成）：排在用户自定义 CSS 之前——
@@ -3980,6 +3982,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
              {activeTheme.customCss && <style>{activeTheme.customCss}</style>}
              {blackWhiteFacebook && <style>{BLACK_WHITE_FACEBOOK_CSS}</style>}
              {wechatBubble && <style>{WECHAT_BUBBLE_CSS}</style>}
+             {qqBubble && <style>{QQ_BUBBLE_CSS}</style>}
              {/* 气泡工坊的尾巴频率依赖直接挂在气泡上的稳定类。用户 CSS 即使给
                  ::before/::after 写了 !important，中间气泡仍会按“仅组末/隐藏”设置收起尾巴。 */}
              <style>{`
@@ -4511,10 +4514,14 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                         {blackWhiteFacebook && m.role !== 'system' && shouldStartBlackWhiteTimeGroup(prevMessage?.timestamp, m.timestamp) && (
                             <div className="sully-facebook-time">{formatBlackWhiteTime(m.timestamp)}</div>
                         )}
+                        {qqBubble && m.role !== 'system' && shouldStartQQTimeGroup(prevMessage?.timestamp, m.timestamp) && (
+                            <div className="sully-qq-time">{formatQQTime(m.timestamp)}</div>
+                        )}
                         <MessageItem
                             msg={m}
                             blackWhiteFacebook={blackWhiteFacebook}
                             wechatBubble={wechatBubble}
+                            qqBubble={qqBubble}
                             isFirstInGroup={breaksWithPrevious}
                             isLastInGroup={breaksWithNext}
                             activeTheme={activeTheme}
@@ -4541,10 +4548,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             onPlayVoice={onPlayVoiceStable}
                             avatarShape={osTheme.chatAvatarShape}
                             avatarSize={osTheme.chatAvatarSize}
-                            avatarMode={(wechatBubble || blackWhiteFacebook) && m.type === 'text' ? 'every_message' : osTheme.chatAvatarMode}
+                            avatarMode={qqBubble || ((wechatBubble || blackWhiteFacebook) && m.type === 'text') ? 'every_message' : osTheme.chatAvatarMode}
                             bubbleVariant={osTheme.chatBubbleStyle}
                             messageSpacing={osTheme.chatMessageSpacing}
-                            showTimestamp={blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
+                            showTimestamp={qqBubble || blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
                             suppressEntranceAnimation={suppressEntranceAnimation}
                             onMcdSendCart={handleMcdSendCart}
                             onMcdCandidate={handleMcdCandidate}
@@ -4612,6 +4619,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                     isLastInGroup={i === streamingBubbles.length - 1}
                                     blackWhiteFacebook={blackWhiteFacebook}
                             wechatBubble={wechatBubble}
+                            qqBubble={qqBubble}
                                     activeTheme={activeTheme}
                                     charAvatar={char.avatar}
                                     charName={char.name}
@@ -4623,10 +4631,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                     onToggleSelect={() => {}}
                                     avatarShape={osTheme.chatAvatarShape}
                                     avatarSize={osTheme.chatAvatarSize}
-                                    avatarMode={wechatBubble || blackWhiteFacebook ? 'every_message' : osTheme.chatAvatarMode}
+                                    avatarMode={qqBubble || wechatBubble || blackWhiteFacebook ? 'every_message' : osTheme.chatAvatarMode}
                                     bubbleVariant={osTheme.chatBubbleStyle}
                                     messageSpacing={osTheme.chatMessageSpacing}
-                                    showTimestamp={blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
+                                    showTimestamp={qqBubble || blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
                                     thinkingChainOptions={thinkingChainOptions}
                                 />
                             </div>
