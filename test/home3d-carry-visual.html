@@ -53,13 +53,19 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     await runtime.start(direction,'0','1');
     const session=runtime.inspect().session;if(!session)throw Error('No active carry session');
     const approach=session.duration-socialActions[direction].duration,records=[],timeSamples=[0,1,1.5,2.5,3.5,4.3,5,6.8,7.8,8.7,9.3,10];
+    let standingHipBaseline=null;
     for(const time of timeSamples){
      // Existing player keeps a 0.6s entry blend before sampling source motion.
      runtime.seek(approach+time+.6);
      pair.forEach(v=>v.finishPose());
      const heads=pair.map(head),distance=heads[0].distanceTo(heads[1]);
      const feet=pair.map(v=>Math.min(...['L_toe','R_toe','L_foot','R_foot'].map(n=>v.rig.bones[n].getWorldPosition(new T.Vector3()).y)));
-     const frame={scenario:heights.name,outfit:outfit.name,direction,time,heads:heads.map(v=>v.toArray()),headDistance:distance,footMin:feet,hair:pair.map(hairBox),palms:pair.map(palm),wardrobe:pair.map(wardrobeMeshes)};
+     const feetBySide=pair.map(v=>Object.fromEntries(['L','R'].map(side=>[side,Math.min(
+      v.rig.bones[side+'_foot'].getWorldPosition(new T.Vector3()).y,
+      v.rig.bones[side+'_toe'].getWorldPosition(new T.Vector3()).y)])));
+     const hipHeights=pair.map(v=>v.rig.bones.hips.getWorldPosition(new T.Vector3()).y);
+     if(time===0)standingHipBaseline=hipHeights;
+     const frame={scenario:heights.name,outfit:outfit.name,direction,time,heads:heads.map(v=>v.toArray()),headDistance:distance,footMin:feet,feetBySide,hipHeights,hair:pair.map(hairBox),palms:pair.map(palm),wardrobe:pair.map(wardrobeMeshes)};
      if(!Number.isFinite(distance)||!feet.every(Number.isFinite)||!frame.heads.flat().every(Number.isFinite))throw Error('Non-finite geometry '+heights.name+'/'+time);
      const carrier=direction==='home-princess-carry'?0:1;
      const floorY=pair[carrier].root.getWorldPosition(new T.Vector3()).y;
@@ -68,6 +74,17 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
      // never float before the cradle, hold a real airborne load, then plant
      // both recipient feet before the hands enter their late release window.
      const recipient=1-carrier,clearance=feet[recipient]-floorY;
+     // Real WebGL geometry of the offered leg and the carrier's pelvis:
+     // this catches the old "both squat in sync" clip despite smooth IK.
+     if(time===3.5){
+      const recipientFeet=feetBySide[recipient];
+      if(recipientFeet.L-recipientFeet.R<.10)throw Error(
+       'Missing one-leg offer before lift: '+heights.name+' / '+direction+' => '+JSON.stringify(recipientFeet));
+      if(recipientFeet.R-floorY>.13)throw Error(
+       'Standing recipient foot left the floor during offer: '+heights.name+' / '+direction);
+      if(hipHeights[carrier]<standingHipBaseline[carrier]-.06*heights.heights[carrier])
+       throw Error('Carrier deep-squatted during leg offer: '+heights.name+' / '+direction);
+     }
      if(time<=2.5&&clearance>.12)throw Error('Premature recipient lift: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
      if(time>=5&&time<=6.8&&clearance<.55)throw Error('Missing supported airborne hold: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
      if(time>=8.7&&clearance>.12)throw Error('Recipient not planted before release: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
