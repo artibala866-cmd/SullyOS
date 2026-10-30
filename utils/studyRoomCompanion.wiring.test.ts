@@ -275,6 +275,9 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(studyPhoneCss).not.toContain('width:min(232px');
    expect(studyPhoneCss).toContain('font-size:17px!important');
    expect(studyPhoneCss).toContain('line-height:1.55!important');
+   expect(studyPhoneCss).toContain('font-size:21px!important');
+   const shortFont=21*((Math.min(334,320-30,(568-140)*0.5625)-22)/300);
+   expect(shortFont).toBeGreaterThanOrEqual(15);
    expect(schedule).toContain('<NotePencil size={17}/>');
  });
  it('真实私聊按300px逻辑宽度排版，常见手机的实际聊天文字至少约15px',()=>{
