@@ -140,6 +140,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [pushSummary, setPushSummary] = useState('');
   const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported' | null>(null);
   const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [cloudPushState, setCloudPushState] = useState<'unknown' | 'present' | 'missing'>('unknown');
   const [pushRegistering, setPushRegistering] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // editingTaskUuid=null → 新建；非 null → 编辑该任务（保存时 replaceTaskUuid）。
@@ -205,21 +206,32 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     setPacingOpen(false);
     setKnownRemoteUuids(null);
     setRemoteTaskInfo(null);
+    setCloudPushState('unknown');
+    let disposed = false;
+    const isCurrent = () => !disposed && currentCharIdRef.current === char.id;
 
     // 全局即时对话开没开（现成的读取函数，别自己另读存储）。读失败按没开置灰。
     void isInstantChatReady().then(setGlobalInstantChatOn).catch(() => setGlobalInstantChatOn(false));
 
     void (async () => {
       const globalConfig = await ActiveMsgClient.getGlobalConfig();
+      if (!isCurrent()) return;
       setGlobalReady(Boolean(globalConfig.workerUrl));
       const pushStatus = await ActiveMsgClient.getPushStatus();
+      if (!isCurrent()) return;
       setPushPermission(pushStatus.permission);
       setPushSubscribed(pushStatus.hasSubscription);
       setPushSummary(pushStatus.supported
         ? `权限：${pushStatus.permission} / 本机订阅：${pushStatus.hasSubscription ? '已建立' : '未建立'}`
         : (pushStatus.detail || '当前环境不支持推送'));
+      // Local subscription is not proof that the Worker has a receiver.
+      if (globalConfig.workerUrl) {
+        const remotePush = await ActiveMsgClient.getRemotePushSubscription();
+        if (isCurrent()) setCloudPushState(remotePush === null ? 'unknown'
+          : remotePush.exists ? 'present' : 'missing');
+      }
     })().catch(error => {
-      setPushSummary('无法检查推送状态：请检查 Worker 连接或通知权限');
+      if (isCurrent()) setPushSummary('无法检查推送状态：请检查 Worker 连接或通知权限');
       console.warn('[ActiveMsg2Settings] push status check failed', error);
     });
 
@@ -228,6 +240,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     setDailySends(null);
     void (async () => {
       const status = await ActiveMsgClient.readPanelStatus(char.id);
+      if (!isCurrent()) return;
       setLastSkip(status.lastSkip);
       setDailySends(status.dailySends);
     })();
@@ -239,12 +252,14 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         // 全量投影一次拉齐：uuid 当对账底账，status / lastError 给任务卡片说明
         // 「上次到点为什么没发出去」，nextSendAt 给循环任务显示真正会响的时刻。
         remoteTasks = await ActiveMsgClient.listRemoteTasksForChar(char.id);
+        if (!isCurrent()) return;
         remote = new Set(remoteTasks.map((t) => t.uuid));
         setRemoteTaskInfo(new Map(remoteTasks.map((t) => [
           t.uuid, { status: t.status, lastError: t.lastError },
         ])));
       } catch {
         // 对账失败不打扰：null 让「远端不存在」徽标整体不显示，也不清任何任务。
+        if (!isCurrent()) return;
         setKnownRemoteUuids(null);
         return;
       }
@@ -262,13 +277,14 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       const settled = settle(current);
       const changed = settled.length !== current.length
         || settled.some((t, i) => t !== current[i]);
-      if (changed) {
+      if (changed && isCurrent()) {
         onSave((prev) => ({
           ...(prev ?? { enabled: true, tasks: [] }),
           tasks: settle(prev?.tasks ?? []),
         }));
       }
     })();
+    return () => { disposed = true; };
     // char.activeMsg2Config 只在函数体里读当前值当探针，不进依赖——清理落盘会改它，
     // 进了依赖就是「清理 → 重跑 → 再清理」的自激循环。
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -336,6 +352,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       setPushSummary('通知已允许，正在向云端登记推送订阅…');
       await ActiveMsgClient.registerPushSubscription();
       setPushSubscribed(true);
+      setCloudPushState('present');
       setPushSummary('通知已允许、本机推送已登记；正在恢复云端主动联系机会');
       allowImmediateAutonomyWakeRetry(char.id);
       window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
@@ -700,8 +717,15 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           <div>
             <div className="font-bold text-slate-700">启用主动消息 2.0</div>
             <div className="text-xs text-neutral-600 mt-1">{pushSummary || '正在检查 Push 状态...'}</div>
+            {enabled && globalReady && cloudPushState === 'missing' && (
+              <div className="text-[11px] text-amber-700 mt-1">Worker 目前没有收件设备；即使任务已排好也不能正常推送。</div>
+            )}
+            {enabled && pushPermission === 'denied' && !Capacitor.isNativePlatform() && (
+              <div className="text-[11px] text-amber-700 mt-1">当前站点通知已被禁止。请到浏览器的站点权限设置中允许通知，再回来登记推送。</div>
+            )}
             {enabled && globalReady && !Capacitor.isNativePlatform() && typeof Notification !== 'undefined' && (
-              pushPermission === 'default' || (pushPermission === 'granted' && !pushSubscribed)
+              pushPermission === 'default' || (pushPermission === 'granted' &&
+                (!pushSubscribed || cloudPushState === 'missing'))
             ) && (
               <button type="button" disabled={pushRegistering}
                 onClick={requestAndRegisterPushFromGesture}
@@ -712,7 +736,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             {enabled && <div className="text-[11px] text-slate-500 mt-1">
               {saved?.lastError?.startsWith('自主联系建立失败') ? saved.lastError
                 : verifiedAutonomyCount !== null && verifiedAutonomyCount > 0
-                  ? `云端已确认 ${verifiedAutonomyCount} 次每日自主联系机会（到点仍可能选择不发）`
+                  ? `最近一次核对：云端有 ${verifiedAutonomyCount} 次每日自主联系机会（到点仍可能选择不发）`
                 : autonomousCount > 0
                   ? `本地记录 ${autonomousCount} 次自主联系机会，尚未确认云端可用；重新打开面板会对账`
                 : tasks.length >= resolveAmsgLimits(saved).maxActiveTasks ? '任务名额已满，无法安排自主联系；删除过时的手动任务后会恢复'
