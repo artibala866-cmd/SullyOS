@@ -8,7 +8,7 @@ import * as T from 'three';
 import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
 import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial.ts';
 import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe.ts';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],sequences:[],timelines:[],models:[]};
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -157,6 +157,46 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    }
   }finally{runtime?.cancel();for(const v of pair){scene.remove(v.root);v.dispose();}}
  }
+
+ // Extra real-WebGL material acceptance: dark, pale and warm hair on the
+ // original hair sheets, three skin tones, both dark and light wardrobes.
+ // Keep the 980 motion frames unchanged for exact prior-run comparisons.
+ const materialCases=[
+  {id:'black-fair-dark',hair:'#20242b',skin:'#efc8b4',outfit:'sailor'},
+  {id:'black-deep-light',hair:'#22252d',skin:'#956750',outfit:'original'},
+  {id:'ash-deep-dark',hair:'#c9bbac',skin:'#8f6351',outfit:'sailor'},
+  {id:'copper-medium-light',hair:'#b96b46',skin:'#c9967b',outfit:'original'},
+ ];
+ const materialGallery=document.createElement('main');materialGallery.className='materials';document.body.append(materialGallery);
+ renderer.setSize(700,525,false);renderer.setPixelRatio(1);
+ for(const variant of materialCases){
+  const p=parts(0);p.skin=color(variant.skin);
+  const preset=approvedPresets[variant.outfit];
+  let actor;
+  try{
+   actor=await createVisitor(p,{bodyShape:'blank',bodyHeight:1,headSize:1.04,layers:{},extras:[],
+    wardrobe:preset.items,wardrobeLayering:true,hairColor:variant.hair,skinColor:variant.skin});
+   if(!actor.rig||wardrobeMeshes(actor)<2)throw Error('Missing real materials '+variant.id);
+   scene.add(actor.root);actor.animate(0,'idle');actor.finishPose();
+   const strand=actor.root.getObjectByName('front-hair-sheet');
+   const pivot=strand?.parent;
+   if(!pivot)throw Error('Missing real hair pivot '+variant.id);
+   for(const [pose,tilt] of [['neutral',0],['down',.23],['up',-.23]]){
+    pivot.rotation.x=tilt;
+    for(const angle of ['front','side','three-quarter']){
+     stage('材质检查 '+variant.id+'/'+pose+'/'+angle);
+     view(angle);renderer.render(scene,camera);
+     const name=['material',variant.id,pose,angle].join('-');
+     const img=document.createElement('img'),fig=document.createElement('figure');
+     img.src=renderer.domElement.toDataURL('image/png');img.alt=name;
+     fig.append(img);materialGallery.append(fig);
+     report.materialImages.push({name,skin:variant.skin,hair:variant.hair,wardrobe:variant.outfit,pose,angle});
+     await next();
+    }
+   }
+  }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
+ }
+ if(report.materialImages.length!==36)throw Error('Incomplete material test '+report.materialImages.length);
  if(report.images.length!==980||report.timelines.length!==2)throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
 }catch(error){report.errors.push(String(error));report.status='fail';stage('错误');}

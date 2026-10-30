@@ -50,12 +50,20 @@ try{
   const name=report.images[i].name;if(!/^[a-z0-9-]+$/.test(name))throw Error('Unsafe capture name');
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
+ for(let i=0;i<(report.materialImages||[]).length;i++){
+  const src=await evaluate('document.querySelectorAll(".materials figure img")['+i+']?.src');
+  if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing material WebGL frame '+i);
+  const name=report.materialImages[i].name;
+  if(!/^material-[a-z0-9-]+$/.test(name))throw Error('Unsafe material frame name '+name);
+  writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
+ }
+ if((report.materialImages||[]).length!==36)throw Error('Material coverage incomplete');
  if(!complete)throw Error('Carry WebGL fixture failed/incomplete: '+(report.errors||[]).join(' | ').slice(0,1000));
  const h=await evaluate('document.documentElement.scrollHeight');
  if(h<300)throw Error('Empty visual gallery '+h);
  // Save every frame individually; an extremely tall full-page screenshot OOMs.
  const img=await send('Page.captureScreenshot',{format:'png',clip:{x:0,y:0,width:1280,height:800,scale:1}});
  if(img?.data)writeFileSync(join(out,'all-poses-desktop.png'),Buffer.from(img.data,'base64'));
- console.log('Saved 980 WebGL PNGs, two complete 10Hz timelines and 30/60Hz joint traces.');
+ console.log('Saved 980 motion PNGs + 36 material WebGL PNGs, two 10Hz timelines and 30/60Hz joint traces.');
 
 }finally{try{ws?.close();}catch{}try{chrome.kill('SIGTERM');}catch{}if(report.status!=='pass')console.error('Carry WebGL Chrome stderr',stderr.slice(-1200));}
