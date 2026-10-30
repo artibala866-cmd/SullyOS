@@ -73,5 +73,10 @@
 @media(max-height:620px){
  .home-phone.study-room-phone{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
  .study-room-float-ball{bottom:calc(82px + env(safe-area-inset-bottom,0px))}
+ /* A narrow, short viewport shrinks the complete 300px native Chat canvas.
+    Raise its logical type so the final rendered text still exceeds ~15px. */
+ .study-room-phone .sully-bubble-user,
+ .study-room-phone .sully-bubble-ai{font-size:21px!important}
+ .study-room-phone .sully-chat-inputbar textarea{font-size:21px!important}
 }
 @media(prefers-reduced-motion:reduce){.home-phone.study-room-phone{animation:none}}
