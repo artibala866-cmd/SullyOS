@@ -13,7 +13,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('onClick={()=>void openCompanionOverview()}');
   expect(schedule).toContain('setPhonePage(\'study\')');
   const hidden=schedule.indexOf("className={tab === 'study'");
-  const overlay=schedule.indexOf('      {assistantOpen && !assistantMinimized && <div');
+  const overlay=schedule.indexOf("      {tab!=='study' && assistantOpen && !assistantMinimized && <div");
   const hiddenClose=schedule.indexOf('      </div>\n      {coachSettingsOpen && <div');
   expect(hidden).toBeGreaterThan(0);
   expect(overlay).toBeGreaterThan(hiddenClose);
