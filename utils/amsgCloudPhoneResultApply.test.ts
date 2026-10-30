@@ -14,11 +14,14 @@ function storage(){
   key:(i:number)=>Array.from(m.keys())[i]??null,get length(){return m.size;}
  };
 }
-const id='stage4-role-'+Math.random().toString(36).slice(2);
+let id='';
 const contact='stage4-npc';
 const thread='stage4-thread';
 let at=0;let row:Record<string,unknown>;
 beforeEach(()=>{
+ // The production clear-revision module intentionally retains an in-memory
+ // fallback when storage is cleared; each test needs its OWN Char identity.
+ id='stage4-role-'+Math.random().toString(36).slice(2);
  vi.stubGlobal('localStorage',storage());
  vi.mocked(DB.getAllCharacters).mockReset().mockResolvedValue([
   {id,activeMsg2Config:{enabled:true,tasks:[]}} as any,
