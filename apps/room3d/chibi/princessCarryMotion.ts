@@ -70,7 +70,7 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  restoreLegSupport(a,feetA);
  const floor=a.root.getWorldPosition(new T.Vector3()).y+.012;
  const sole=Math.min(...['L_foot','R_foot','L_toe','R_toe'].map(n=>point(a,n).y));
- if(sole<floor)a.translatePose(new T.Vector3(0,Math.min(.40,floor-sole),0));
+ if(sole<floor)a.translatePose(new T.Vector3(0,Math.min(.75,floor-sole),0));
  // A gradual pelvis turn and leg tuck are independent from the vertical lift.
  const recline=1.04+T.MathUtils.clamp((ratio-1)*.70,0,.22);
  pose(b,'hips',q(0,Math.PI/2).multiply(q(-recline)),p.cradle);

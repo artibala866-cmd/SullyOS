@@ -7,6 +7,7 @@ import {poseRearHug} from './rearHugMotion';
 import {poseHandHoldPlead} from './handHoldPleadMotion';
 import {poseSofaLapPillow} from './sofaLapPillowMotion';
 import {posePrincessCarry,princessCarryPhase} from './princessCarryMotion';
+import {captureLegSupport,restoreLegSupport} from './legContactIK';
 import {lipWorld,aimLipContact} from './headContactIK';
 
 type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
