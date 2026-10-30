@@ -207,3 +207,25 @@ it('keeps unsupported legacy tub climbing closed without disabling standing bath
  const skeletal=bathroomActivities(room,catalog,{body2:true});
  expect(skeletal.find(a=>a.kind==='bath-soak')?.reason??'').not.toContain('安全跨浴缸');
 });
+
+
+describe('real bathtub turn/seat shoe clearance',()=>{
+ it('keeps both legs tucked until the torso has crossed the front wall and clears before resting',()=>{
+  const j=fixture();
+  const turn=bathroomJourneyFrame(j,3.54),interior=bathroomJourneyFrame(j,4.08),rest=bathroomJourneyFrame(j,4.6);
+  expect(turn.leadTuck).toBeGreaterThan(.85);
+  expect(turn.trailTuck).toBeGreaterThan(.85);
+  expect(turn.leadStep).toBeGreaterThan(.85);
+  expect(turn.trailStep).toBeGreaterThan(.85);
+  expect(interior.trailTuck).toBeGreaterThan(.8);
+  expect(rest.leadTuck).toBe(0);expect(rest.trailTuck).toBe(0);
+  expect(rest.leadStep).toBe(0);expect(rest.trailStep).toBe(0);
+  const duration=j.enter*2+j.hold;
+  for(const time of [3.54,4.08,4.42,4.6]){
+   const entry=bathroomJourneyFrame(j,time),exit=bathroomJourneyFrame(j,duration-time);
+   for(const name of ['leadTuck','trailTuck','leadStep','trailStep','seatWeight']){
+    expect(exit[name],name+' reverse at '+time).toBeCloseTo(entry[name],8);
+   }
+  }
+ });
+});

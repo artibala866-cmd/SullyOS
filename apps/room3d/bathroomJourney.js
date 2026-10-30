@@ -93,10 +93,13 @@ export function bathroomJourneyFrame(j,time){
   supportFoot=p>=.27&&p<.77?'R':p>=.77&&p<1.24?'L':null;
   // Tuck the knee vertically before swinging the foot across the tall rim.
   // The two contacts are separate: lift first, then transfer across.
-  leadTuck=pulse(p,1.35,1.67,3.46,3.90);
-  trailTuck=pulse(p,2.82,3.03,3.48,3.90);
-  leadStep=pulse(p,1.84,2.12,3.44,3.82);
-  trailStep=pulse(p,2.97,3.19,3.48,3.87);
+  leadTuck=pulse(p,1.35,1.67,3.93,4.33);
+  trailTuck=pulse(p,2.82,3.03,4.05,4.42);
+  leadStep=pulse(p,1.84,2.12,3.92,4.30);
+  trailStep=pulse(p,2.97,3.19,4.07,4.44);
+  // Keep the two raised shoes above the physical front wall while the torso
+  // turns into the interior, then lower them after the inboard translation.
+  // Reversible pulses preserve the identical safe route on exit.
   // Hands may reach early; knee flexion and pelvis lowering must wait for
   // BOTH approach feet to land, otherwise the anchored stance toe jumps.
   crouch=M.smootherstep(p,1.24,1.76)*(1-M.smootherstep(p,3.72,4.52));

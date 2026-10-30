@@ -524,7 +524,9 @@ function texture(color){
   editor.advancePets(.44);await captureBath('lead-hold');
   editor.advancePets(.36);await captureBath('trailing-leg');
   editor.advancePets(.50);await captureBath('lower-turn');
-  editor.advancePets(1.16);await captureBath('seated');
+  editor.advancePets(.54);await captureBath('turn-clearance');
+  editor.advancePets(.34);await captureBath('seat-descent');
+  editor.advancePets(.28);await captureBath('seated');
   const restingBath=editor.inspect(),restPosition=restingBath.chibiPosition;
   if(restingBath.chibiActivity?.bathPhase!=='work'||!restPosition||
      Math.hypot(...restPosition.map((n,i)=>n-fullJourney.position[i]))>.06)
