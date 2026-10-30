@@ -2,6 +2,8 @@ import {describe,it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
 import * as T from 'three';
 import {sampleSelected,type SelectedClip} from '../apps/room3d/chibi/selectedMotions';
+import {createSocialScene} from '../apps/room3d/chibi/selectedSocial';
+import type {ChibiVisitor} from '../apps/room3d/chibi/visitor';
 import {prepareCarryFrame,carryCaptureWeight} from '../apps/room3d/chibi/princessCarryCapture';
 
 const load=(id:string)=>JSON.parse(readFileSync('public/room3d/motions/selected/'+id+'.json','utf8')) as SelectedClip;
@@ -51,4 +53,16 @@ describe('two-role captured princess carry and local support IK',()=>{
    expect(Math.abs(carryCaptureWeight(t-.001)-carryCaptureWeight(t+.001))).toBeLessThan(.01);
   }
  });
+ it('rejects a missing Q-rig or seated carry before loading clips or touching navigation roots',async()=>{
+  const classic=():ChibiVisitor=>({root:new T.Group(),motionScale:1,animate:()=>{},finishPose:()=>{},applySelectedFrame:()=>{}} as unknown as ChibiVisitor);
+  const a=classic(),b=classic(),start=[a.root.position.clone(),b.root.position.clone()];
+  const create=({pinned=false}={})=>createSocialScene([{id:'a',visitor:a},{id:'b',visitor:b}],pinned?{pinned:{id:'b',pose:{kind:'seat'}}}:{});
+  const standing=create();
+  await expect(standing.start('home-princess-carry','a','b')).rejects.toThrow('Q 版骨骼素体');
+  expect([a.root.position.toArray(),b.root.position.toArray()]).toEqual(start.map(x=>x.toArray()));
+  const seated=create({pinned:true});
+  await expect(seated.start('home-princess-carried','a','b')).rejects.toThrow('先站起来');
+  expect([a.root.position.toArray(),b.root.position.toArray()]).toEqual(start.map(x=>x.toArray()));
+ });
+
 });
