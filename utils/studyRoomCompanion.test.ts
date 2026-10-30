@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {emptyWorkspace,type Commission,type ClassHomework} from './sullyWorkspace';
-import {buildCompanionOverview,companionMomentText,DEFAULT_STUDY_COACH,normalizeStudyCoachSetting,isStudyCoachQuietTime,nextStudyCoachPrompt,studyCoachBrief,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,studyCoachEvent,STUDY_COACH_INTERVAL_MINUTES,STUDY_COACH_DAILY_MAX} from './studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,DEFAULT_STUDY_COACH,normalizeStudyCoachSetting,isStudyCoachQuietTime,nextStudyCoachPrompt,studyCoachBrief,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,studyCoachEvent,rememberStudyCoachEvent,STUDY_COACH_INTERVAL_MINUTES,STUDY_COACH_DAILY_MAX} from './studyRoomCompanion';
 import {notesForStudyContext} from './studyRoomFocusNotes';
 const commission=(id:string,status:Commission['status']):Commission=>({
  id,title:'画稿'+id,client:'私人委托人',type:'图',brief:'机密需求内容',
@@ -218,6 +218,24 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
    expect(STUDY_COACH_DAILY_MAX.firm).toBeLessThanOrEqual(3);
    expect(studyCoachEvent({...reality,pendingHomework:0,activeCommissions:0,dueSoonHomework:0,dueSoonCommissions:0},now)).toBeNull();
    expect(studyCoachEvent({...reality,unsettledLinkedMinutes:25},now)?.key).not.toBe(event?.key);
+ });
+
+ it('已展示过的真实事件在当天发生其他变化后不会被重复提醒',()=>{
+   const now=new Date(2026,9,30,14),timestamp=now.getTime();
+   const a=rememberStudyCoachEvent(undefined,'2026-10-30:due:1',now);
+   const b=rememberStudyCoachEvent(a,'2026-10-30:unsettled:25',now);
+   expect(b.seenKeys).toEqual(['2026-10-30:due:1','2026-10-30:unsettled:25']);
+   const context={charId:'a',setting:{...DEFAULT_STUDY_COACH,level:'firm' as const},
+     now,session:null,isVisible:true,isTimerTab:true,
+     idleSince:timestamp-100*60000,lastPromptAt:0,
+     reality:{phase:'idle' as const,todayFocusMinutes:0,completedRounds:0,
+       unsettledLinkedMinutes:0,activeCommissions:0,pendingHomework:1,
+       todayCourses:0,dueSoonCommissions:0,dueSoonHomework:1,hint:''}};
+   expect(nextStudyCoachPrompt({...context,seenEventKeys:b.seenKeys,lastEventKey:b.key})).toBeNull();
+   expect(rememberStudyCoachEvent(b,'2026-10-31:due:1',new Date(2026,9,31,9)).seenKeys)
+     .toEqual(['2026-10-31:due:1']);
+   expect(rememberStudyCoachEvent({day:'2026-10-30',key:'legacy',count:1},
+     'next',now).seenKeys).toEqual(['legacy','next']);
  });
 
 });
