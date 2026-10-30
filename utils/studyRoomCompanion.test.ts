@@ -171,6 +171,7 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
   expect(companionEntryPrompt({...base,todayFocusMinutes:50})).toContain('50 分钟');
   expect(companionEntryPrompt({...base,activeCommissions:3},'',null,0,'commissions')).toContain('3 张');
   expect(companionEntryPrompt({...base,pendingHomework:2},'',null,0,'calendar')).toContain('2 项');
+  expect(companionEntryPrompt({...base,activeCommissions:3},'',{courseTitle:'旧课',chapterTitle:'旧章节',progress:30},0,'commissions')).toContain('3 张');
   expect(companionEntryPrompt(base,'',{courseTitle:'素描基础',chapterTitle:'明暗',progress:18})).toContain('明暗');
   expect(companionEntryPrompt(base,'',{courseTitle:'素描基础',chapterTitle:'明暗',progress:18},25)).toContain('25 分钟');
  });
