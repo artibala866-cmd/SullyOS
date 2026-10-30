@@ -51,6 +51,25 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     };
   }, [characterId, cancel, clearElapsedTimer]);
 
+  useEffect(() => {
+    // Backgrounding the page must never leave the microphone recording silently.
+    const interrupt = () => {
+      if (document.visibilityState === 'hidden') {
+        if (status === 'starting' || status === 'listening' || status === 'transcribing') cancel();
+      }
+    };
+    const onPageHide = () => {
+      if (status === 'starting' || status === 'listening' || status === 'transcribing') cancel();
+    };
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    document.addEventListener('visibilitychange', interrupt);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', interrupt);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, [status, cancel]);
+
   const start = useCallback(async () => {
     if (!characterId || status !== 'idle') return;
     const generation = ++generationRef.current;
