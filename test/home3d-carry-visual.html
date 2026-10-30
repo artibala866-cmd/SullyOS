@@ -64,6 +64,13 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
      const carrier=direction==='home-princess-carry'?0:1;
      const floorY=pair[carrier].root.getWorldPosition(new T.Vector3()).y;
      if(feet[carrier]<floorY-.035)throw Error('Carrier foot sank under floor: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+(feet[carrier]-floorY).toFixed(3)+'m');
+     // Stage acceptance from the actual posed toes, not the phase curve alone:
+     // never float before the cradle, hold a real airborne load, then plant
+     // both recipient feet before the hands enter their late release window.
+     const recipient=1-carrier,clearance=feet[recipient]-floorY;
+     if(time<=2.5&&clearance>.12)throw Error('Premature recipient lift: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
+     if(time>=4.3&&time<=6.8&&clearance<.55)throw Error('Missing supported airborne hold: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
+     if(time>=8.7&&clearance>.12)throw Error('Recipient not planted before release: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
      if(frame.wardrobe.some(n=>n<2))throw Error('Wardrobe disappeared during carry');
      records.push(frame);
      for(const angle of ['front','side','three-quarter','back']){
