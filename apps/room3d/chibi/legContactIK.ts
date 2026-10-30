@@ -56,17 +56,18 @@ export function captureLegSupport(v:ChibiVisitor){
 }
 /** Reconcile planted toes and original sole direction after a skeletal pose.
  * Keep the new bending of knees, but avoid sliding or rolling planted feet. */
-export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captureLegSupport>,preserveFootDirection=true,maxCorrection=.16){
- if(!v.rig||!support)return 0;
+export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captureLegSupport>,preserveFootDirection=true,maxCorrection=.16,strength=1){
+ const alpha=T.MathUtils.clamp(strength,0,1);
+ if(!v.rig||!support||alpha<=0)return 0;
  v.root.updateWorldMatrix(true,true);
  for(const [i,side] of (['L','R'] as const).entries()){
   // Solve the ankle first: a fixed sole orientation determines its toe
   // offset. Solving the toe and then rotating its ancestors breaks that
   // orientation; restoring it afterwards would move the toe off target.
-  settleLegContact(v,side,preserveFootDirection?support.soles[i]:support.toes[i],1,{effector:preserveFootDirection?'foot':'toe'});
+  settleLegContact(v,side,preserveFootDirection?support.soles[i]:support.toes[i],alpha,{effector:preserveFootDirection?'foot':'toe'});
   if(preserveFootDirection){
    const foot=v.rig.bones[side+'_foot'],parent=foot.parent;
-   if(parent)foot.quaternion.copy(parent.getWorldQuaternion(new T.Quaternion()).invert().multiply(support.rotations[i]));
+   if(parent)foot.quaternion.slerp(parent.getWorldQuaternion(new T.Quaternion()).invert().multiply(support.rotations[i]),alpha);
   }
  }
  v.root.updateWorldMatrix(true,true);
@@ -74,7 +75,7 @@ export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captu
   v.rig!.bones[side+'_toe'].getWorldPosition(new T.Vector3()).y,
   v.rig!.bones[side+'_foot'].getWorldPosition(new T.Vector3()).y,
  ]));
- const correction=T.MathUtils.clamp(support.ground-ground,-maxCorrection,maxCorrection);
+ const correction=T.MathUtils.clamp(support.ground-ground,-maxCorrection,maxCorrection)*alpha;
  if(Math.abs(correction)>1e-5)v.translatePose(new T.Vector3(0,correction,0));
  v.root.updateWorldMatrix(true,true);
  return correction;

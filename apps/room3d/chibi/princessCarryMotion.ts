@@ -157,7 +157,9 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
   direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(rotation),
   normal:new T.Vector3(0,1,0).applyQuaternion(rotation),
   curl:.14*p.embrace},p.embrace);
- // Feet settle before both partners release their hands after 9.15 seconds.
- if(p.plant>.01&&p.lift<.10)restoreLegSupport(b,feetB);
+ // Blend foot-ground reconciliation in gradually instead of crossing a
+ // boolean IK threshold at ~8.6s; a hard switch snaps the carried pelvis.
+ // The shared resolver stays unchanged for all full-strength callers.
+ if(p.plant>0&&p.lift<.10)restoreLegSupport(b,feetB,true,.16,p.plant);
  return true;
 }
