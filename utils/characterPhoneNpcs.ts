@@ -48,10 +48,10 @@ export function readNpcProfiles(characterId: string): NpcProfile[] {
  * sync. A deleted/renamed NPC must not linger in a stale Worker fire_pack.
  * Notify only after the local save succeeds; never emit for failed storage.
  */
-export function saveNpcProfiles(characterId: string, profiles: NpcProfile[]) {
+export function saveNpcProfiles(characterId: string, profiles: NpcProfile[], contactId?: string) {
   localStorage.setItem(npcStorageKey(characterId), JSON.stringify(profiles));
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(
-    CHARACTER_PHONE_CONTACT_CHANGED, { detail: { characterId } },
+    CHARACTER_PHONE_CONTACT_CHANGED, { detail: { characterId, ...(contactId ? { contactId } : {}) } },
   ));
 }
 // Shared registration interface for future real-mode, chat and Xiaohongshu events.
@@ -80,6 +80,6 @@ export function addDiscoveredContact(characterId: string, profile: NpcProfile): 
   const existing = previous.find(p => p.id === profile.id ||
     (profile.linkedCharacterId && p.linkedCharacterId === profile.linkedCharacterId));
   if (existing) return { added: false, profile: existing };
-  saveNpcProfiles(characterId, [...previous, profile]);
+  saveNpcProfiles(characterId, [...previous, profile], profile.id);
   return { added: true, profile };
 }
