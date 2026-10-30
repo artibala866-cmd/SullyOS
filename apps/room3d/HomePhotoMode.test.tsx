@@ -72,11 +72,12 @@ it('shows a retryable error when canvas photo capture fails',async()=>{
  expect(host.querySelector<HTMLButtonElement>('button[aria-label="拍下合影"]')?.disabled).toBe(false);
 });
 
-it('offers four independent aspect frames and toggles horizontal framing without changing filters or actions',async()=>{
+it('preserves four original frames while adding independent paper and tall frames and toggles horizontal framing without changing filters or actions',async()=>{
  Object.defineProperty(HTMLElement.prototype,'clientWidth',{configurable:true,get(){return 390;}});
  Object.defineProperty(HTMLElement.prototype,'clientHeight',{configurable:true,get(){return 844;}});
  await render();
  expect(host.querySelector('.photo-frame')).toBeTruthy();
+ expect(host.querySelector('.photo-format-label')?.textContent).toBe('横幅 16:9');
  const turn=[...host.querySelectorAll<HTMLButtonElement>('footer button')].find(b=>b.textContent==='横屏取景');
  expect(turn).toBeTruthy();
  act(()=>turn!.click());
@@ -90,8 +91,8 @@ it('offers four independent aspect frames and toggles horizontal framing without
  const tabs=[...host.querySelectorAll<HTMLButtonElement>('.photo-controls nav button')];
  act(()=>tabs.find(b=>b.textContent==='镜头')!.click());
  const formats=host.querySelector('[aria-label="照片比例"]')!;
- expect(formats.querySelectorAll('button')).toHaveLength(4);
- for(const label of ['横幅 16:9','电影 2.39:1','竖幅 3:4','方形 1:1']){
+ expect(formats.querySelectorAll('button')).toHaveLength(8);
+ for(const label of ['横幅 16:9','电影 2.39:1','竖幅 3:4','方形 1:1','全身 9:16','奶油拍立得','爱心大头贴','四格贴纸']){
   const button=[...formats.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===label)!;
   act(()=>button.click());
   expect(button.getAttribute('aria-pressed')).toBe('true');
