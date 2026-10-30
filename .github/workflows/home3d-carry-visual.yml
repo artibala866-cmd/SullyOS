@@ -7,6 +7,8 @@ on:
       - 'test/home3d-carry-visual.html'
       - 'scripts/home3d-carry-visual-smoke.mjs'
       - '.github/workflows/home3d-carry-visual.yml'
+      - 'apps/room3d/chibi/illustration.ts'
+      - 'apps/room3d/chibi/FbxBody.ts'
       - 'apps/room3d/chibi/princessCarryCapture.ts'
       - 'apps/room3d/chibi/princessCarryMotion.ts'
       - 'apps/room3d/chibi/intimacyMotion.ts'

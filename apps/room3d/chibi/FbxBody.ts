@@ -57,7 +57,9 @@ export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin
     const skin=validAppearanceColor(hair?.skinColor)??average(parts.skin);
     const garment=composeGarments(parts,{outfit:hair?.layers.outfit?.length??1,outer:hair?.layers.outer?.length??1});
     const frontScalp=keep(new T.MeshStandardMaterial({color:average(parts.fronthair),roughness:1}));
+    frontScalp.userData.illustrationHair=true;
     const rearScalp=keep(new T.MeshStandardMaterial({color:average(parts.back1||parts.back2||parts.fronthair),roughness:1}));
+    rearScalp.userData.illustrationHair=true;
     // Match the actual face/body material boundary (model y=.60) in the original
     // 472px canvas. Split spatially, so several rolled decorations can land on
     // different surfaces without classifying the whole decor layer as one item.
@@ -132,6 +134,7 @@ export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin
     const faceKeys=appearance==='outfit'&&!blank?['facemark','eyes','mouth','outfit','faceDecor']:['facemark','eyes','mouth','faceDecor'];
     const front=keep(new T.MeshStandardMaterial({map:makeTexture(faceKeys,skin),roughness:1}));
     front.userData.illustrationFace=true;
+    front.userData.illustrationSkin=true;
     const awakeMap=front.map;
     const asleepMap=makeTexture(faceKeys,skin,'sleep');
     const cuteMap=makeTexture(faceKeys,skin,'squeeze');
@@ -169,6 +172,7 @@ export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin
         front.map=canBlink&&time%4.3>4.12?asleepMap:awakeMap;
     };
     const back=keep(new T.MeshStandardMaterial({color:skin,roughness:1}));
+    back.userData.illustrationSkin=true;
     const backCloth=keep(new T.MeshStandardMaterial({map:appearance==='outfit'?garmentMap(true):makeTexture([],skin),roughness:1}));
     const root=new T.Group(), body=new T.Group();root.add(body);
     const hairPivot=new T.Group();hairPivot.position.y=.64;body.add(hairPivot);
@@ -250,6 +254,7 @@ export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin
     const actionLimbs:Array<{mesh:T.Mesh;side:number;foot:boolean}>=[];
     const ballGeometry=keep(new T.SphereGeometry(.105,16,12));
     const handMaterial=keep(new T.MeshStandardMaterial({color:skin,roughness:1}));
+    handMaterial.userData.illustrationSkin=true;
     for(const side of [-1,1]){
         const shoeCanvas=frontCloth.map?.image as HTMLCanvasElement|undefined;
         let shoeColor=skin;
