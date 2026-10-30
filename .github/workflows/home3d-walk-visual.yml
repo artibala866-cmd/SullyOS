@@ -1,0 +1,46 @@
+name: Home3D walking real-WebGL visual acceptance
+on:
+  push:
+    branches:
+      - remove-checkphone-vrworld-lifesim
+    paths:
+      - 'test/home3d-walk-visual.html'
+      - 'scripts/home3d-walk-visual-smoke.mjs'
+      - '.github/workflows/home3d-walk-visual.yml'
+      - 'apps/room3d/chibi/legContactIK.ts'
+      - 'apps/room3d/chibi/roomWalk.ts'
+      - 'apps/room3d/chibi/blankMotion.ts'
+      - 'apps/room3d/chibi/visitor.ts'
+      - 'apps/room3d/chibi/selectedSocial.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  walk-webgl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Render actual skinned Q characters, outfits and grounded walking
+        timeout-minutes: 22
+        run: |
+          pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/home3d-walk-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill "$VITE_PID" 2>/dev/null || true' EXIT
+          node scripts/home3d-walk-visual-smoke.mjs
+      - name: Save screenshots and all raw gait traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home3d-walk-webgl-review
+          path: home3d-walk-visual/
+          if-no-files-found: ignore
+          retention-days: 14
