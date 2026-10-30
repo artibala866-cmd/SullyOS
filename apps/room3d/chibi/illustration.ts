@@ -107,11 +107,11 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkFacing = dot(normal, inkLight);
             // Separate the authored shade boundary from ambient intensity.
             float inkSoftness = clamp(roomShadeSoftness*characterRoomEnabled,0.,1.);
-            float inkFeather = max(fwidth(inkFacing)*1.5, ${face ? '.20' : '.13'})*mix(1.,1.4,inkSoftness);
+            float inkFeather = max(fwidth(inkFacing)*1.5, ${face ? '.24' : '.13'})*mix(1.,1.4,inkSoftness);
             float inkLit = smoothstep(-inkFeather,inkFeather,inkFacing + ${face ? '.23' : hair ? '-.08' : '-.20'});
             float inkShadow = mix(1.,getShadowMask(),characterRoomEnabled);
             inkLit *= mix(${face ? '.62' : '.20'},1.,inkShadow);
-            vec3 inkShadeFactor = ${face ? 'vec3(.91,.79,.80)' : hair ? 'vec3(.62,.53,.72)' : 'vec3(.63,.64,.78)'};
+            vec3 inkShadeFactor = ${face ? 'vec3(.89,.82,.79)' : hair ? 'vec3(.62,.53,.72)' : 'vec3(.63,.64,.78)'};
             // Neutralise only the lighting tint, keeping dyed clothes and hair intact.
             inkShadeFactor = mix(inkShadeFactor,vec3(dot(inkShadeFactor,vec3(.2126,.7152,.0722))),inkSoftness)*mix(1.,1.08,inkSoftness);
             vec3 inkShadeColor = diffuseColor.rgb * inkShadeFactor;
@@ -126,12 +126,12 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkContour = smoothstep(.62,.94,inkFresnel)*${face ? '.035' : '.16'}*(1.-inkLit*.5);
             inkColor *= 1.-inkContour;
             float inkRim = pow(inkFresnel,4.)*smoothstep(-.15,.65,inkFacing)*${face ? '.015' : '.055'};
-            ${hair ? 'float inkHighlight=smoothstep(.86,.93,dot(normal,normalize(inkLight+inkView)))*inkLit*.055; inkRim+=inkHighlight;' : ''}
+            ${hair ? `// A broad satin reflection follows the projected vertical strand axis.\n            // Avoid UV-derived tangents: projected/contour hair sheets do not share a reliable UV direction.\n            vec3 inkStrandAxis = normalize(mat3(viewMatrix) * vec3(0.,1.,0.));\n            vec3 inkHalf = normalize(inkLight+inkView);\n            float inkStrandAlignment = abs(dot(inkHalf,inkStrandAxis));\n            float inkHairBand = (1.-smoothstep(.26,.72,inkStrandAlignment))*smoothstep(.42,.92,dot(normal,inkHalf));\n            float inkHairHighlight = inkHairBand*inkLit*.024;\n            inkRim += inkHairHighlight;` : ''}
             vec3 outgoingLight = inkColor + (1.-clamp(inkColor,0.,1.))*inkRim*inkLitTint;
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v5-' + style + '-' + face + '-' + hair;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v6-' + style + '-' + face + '-' + hair;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;
