@@ -6,25 +6,20 @@ import {poseHug} from './hugMotion';
 import {poseRearHug} from './rearHugMotion';
 import {poseHandHoldPlead} from './handHoldPleadMotion';
 import {poseSofaLapPillow} from './sofaLapPillowMotion';
-import {captureLegSupport,restoreLegSupport} from './legContactIK';
+import {posePrincessCarry,princessCarryPhase} from './princessCarryMotion';
 import {lipWorld,aimLipContact} from './headContactIK';
 
 type Resident={visitor:ChibiVisitor;solver:ReturnType<typeof contactSolver>};
 const smooth=T.MathUtils.smootherstep;
 const rotation=(x=0,y=0,z=0)=>new T.Quaternion().setFromEuler(new T.Euler(x,y,z));
 export const isPrincessCarry=(id:string)=>id==='home-princess-carry'||id==='home-princess-carried';
-/** A pose-local clearance envelope to let the carried knees pass the carrier's
- * waist on release; zero during approach, the hold and final standing. */
-export const carryReleaseClearance=(time:number)=>.14*smooth(time,7.15,7.65)*(1-smooth(time,8.35,8.85));
 export const isIntimacy=(id:string)=>id==='home-hug'||id==='home-rear-hug'||id==='home-hand-hold-plead'||id==='home-sofa-lap-pillow'||id==='home-kiss'||id==='home-sneak-kiss'||id==='home-passion-kiss'||isPrincessCarry(id);
 /** Reference-video phases, in elapsed seconds; neither role owns a separate clock. */
 export function intimacyPhase(action:string,time:number){
- const carry=isPrincessCarry(action);
- return {
-  contact:smooth(time,.3,carry?1.8:2)*(1-smooth(time,7.5,9.6)),
-  lift:carry?smooth(time,2,3.8)*(1-smooth(time,6.7,8.8)):0,
-  crouch:carry?(smooth(time,.5,1.7)*(1-smooth(time,2,3.5))+smooth(time,6.5,7.7)*(1-smooth(time,8.2,9.5)))*.48:0,
- };
+ const c=isPrincessCarry(action)?princessCarryPhase(time):null;
+ return {contact:c?c.acquire*(1-c.release):smooth(time,.3,2)*(1-smooth(time,7.5,9.6)),
+  lift:c?.lift??0,crouch:c?(c.stance+c.lower)*.4:0};
+
 }
 /** Pose only: called after idle reset; translations live under the navigation root. */
 export function poseIntimacy(action:string,both:Resident[],time:number,seatedIndex?:number,handSign:1|-1=1){
@@ -155,97 +150,5 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
   return;
  }
 
- const turn=(v:ChibiVisitor,n:string,q:T.Quaternion,w:number)=>v.rig!.bones[n].quaternion.slerp(q,w);
- const point=(v:ChibiVisitor,n:string,offset=[0,0,0])=>v.rig!.bones[n].localToWorld(new T.Vector3(...offset));
- const contact=(index:number,side:'L'|'R',target:T.Vector3,curl=.18)=>{
-  const facing=both[index].visitor.root.getWorldQuaternion(new T.Quaternion());
-  both[index].solver?.({side,point:target,direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(facing),normal:new T.Vector3(0,1,0).applyQuaternion(facing),curl},p.contact);
- };
- const carrierSupport=captureLegSupport(a);
- // Maintain a small grounded load response throughout the lift and hold.
- // Scale its amount by actual torso lengths, not by an assumed avatar height.
- // This is a bounded kinematic counterbalance, NOT a simulated mass system.
- const carrierTorso=point(a,'chest').distanceTo(point(a,'hips'));
- const recipientTorso=point(b,'chest').distanceTo(point(b,'hips'));
- const sizeRatio=T.MathUtils.clamp(recipientTorso/Math.max(.01,carrierTorso),.7,1.35);
- const loadedKnee=p.lift*.085*sizeRatio,flex=p.crouch+loadedKnee;
- for(const side of ['L','R'] as const){
-  turn(a,side+'_thigh',rotation(-flex,0,(side==='L'?-.05:.05)*p.contact),1);
-  turn(a,side+'_shin',rotation(flex*2),1);
-  turn(a,side+'_foot',rotation(-flex),1);
- }
- a.rig.bones.spine.quaternion.multiply(rotation(-loadedKnee*.7));
- a.rig.bones.chest.quaternion.multiply(rotation(loadedKnee*.42));
- a.root.updateWorldMatrix(true,true);restoreLegSupport(a,carrierSupport);
- // The captured human crouch can place a skinned Q-rig foot below the scene
- // floor during entry and release. Adjust only the pose-local body (never
- // the navigation root), before resolving the recipient and both palms.
- const carrierFloor=a.root.getWorldPosition(new T.Vector3()).y+.012;
- const actualSole=Math.min(...['L_foot','R_foot','L_toe','R_toe'].map(n=>point(a,n).y));
- if(actualSole<carrierFloor) a.translatePose(new T.Vector3(0,Math.min(.75,carrierFloor-actualSole),0));
- // The recipient turns across the carrier, folds both knees, then rises into the arms.
- // Recline the carried torso far enough that both enlarged chibi hair caps
- // no longer stack directly at eye level. The recipient's limbs and palms
- // still follow the existing scale-aware support and arm IK below.
- // Taller recipients need a wider cradle angle to keep large hair silhouettes
- // from stacking over a smaller carrier's head. The modest 1.04 baseline also
- // opens space for equal/shorter recipients. Cap the extra torso-ratio lean so
- // taller recipients keep the already-reviewed 1.26-radian upper limit.
- const recline=1.04+T.MathUtils.clamp((sizeRatio-1)*.70,0,.22);
- turn(b,'hips',rotation(0,Math.PI/2,0).multiply(rotation(-recline)),p.lift);
- for(const side of ['L','R'] as const){
-  turn(b,side+'_thigh',rotation(-1.35,0,side==='L'?-.025:.025),p.lift);
-  turn(b,side+'_shin',rotation(1.45),p.lift);
-  turn(b,side+'_foot',rotation(.12),p.lift);
- }
- b.root.updateWorldMatrix(true,true);
- // Position the carried pelvis relative to real carrier torso/shoulder span.
- // No fixed avatar-size offset: the mesh and actor's scene scale decide reach.
- const carrierHip=point(a,'hips'),carrierChest=point(a,'chest');
- const leftShoulder=point(a,'L_upperArm'),rightShoulder=point(a,'R_upperArm');
- const shoulderSpan=leftShoulder.distanceTo(rightShoulder);
- const front=new T.Vector3(0,0,1).applyQuaternion(a.rig.bones.hips.getWorldQuaternion(new T.Quaternion())).normalize();
- const across=new T.Vector3().subVectors(rightShoulder,leftShoulder).normalize();
- const target=carrierHip.clone().lerp(carrierChest,.8)
-  .addScaledVector(front,shoulderSpan*.95).addScaledVector(across,shoulderSpan*.18);
- b.translatePose(target.sub(point(b,'hips')).multiplyScalar(p.lift));
- // In the release phase the recipient's bent knees otherwise clip through
- // the carrier's skinned waist and fitted jacket as the torso rights itself.
- // A small, reversible, horizontal pose-layer offset clears that path.
- // Root navigation targets, original garment meshes and saved rooms stay fixed.
- const clearance=carryReleaseClearance(time);
- if(clearance>.0001){
-  const away=point(b,'hips').sub(point(a,'hips')).setY(0);
-  if(away.lengthSq()>1e-6)b.translatePose(away.normalize().multiplyScalar(clearance));
- }
-
- // Both holding arms must reach their respective support anchors. Move the
- // recipient as one rigid pose layer (not individual stretched limbs).
- if(p.lift>.001)for(let iteration=0;iteration<4;iteration++){
-  a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
-  const supports=[
-   {joint:point(a,'L_upperArm'),anchor:point(b,'spine',[0,.10,-.16]),side:'L'},
-   {joint:point(a,'R_upperArm'),anchor:point(b,'R_shin',[0,.08,-.10]),side:'R'},
-  ] as const;
-  const correction=new T.Vector3();let count=0;
-  for(const {joint,anchor,side} of supports){
-   const reach=(a.rig.bones[side+'_forearm'].position.length()+a.rig.bones[side+'_hand'].position.length())
-    *a.rig.bones[side+'_upperArm'].getWorldScale(new T.Vector3()).x*.96;
-   const separation=anchor.clone().sub(joint),distance=separation.length();
-   if(distance>reach&&distance>1e-6){correction.addScaledVector(separation,(reach-distance)/distance);count++;}
-  }
-  if(!count)break;
-  const step=correction.multiplyScalar(p.lift/count).clampLength(0,.16);
-  if(step.lengthSq()<1e-8)break;
-  b.translatePose(step);
- }
- for(const side of ['L','R'] as const){
-  turn(a,side+'_upperArm',rotation(-.15,side==='L'?-.6:.6,side==='L'?-.8:.8),p.contact);
-  turn(b,side+'_upperArm',rotation(-.2,side==='L'?-.6:.6,side==='L'?-.6:.6),p.contact);
- }
- a.root.updateWorldMatrix(true,true);b.root.updateWorldMatrix(true,true);
- contact(0,'L',point(b,'spine',[0,.10,-.16]),.3);
- contact(0,'R',point(b,'R_shin',[0,.08,-.10]),.3);
- contact(1,'L',point(a,'R_upperArm',[0,.07,-.10]));
- contact(1,'R',point(a,'L_upperArm',[0,.02,-.12]));
+ return posePrincessCarry(both,time);
 }

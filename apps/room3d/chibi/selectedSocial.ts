@@ -10,6 +10,7 @@ import {contactSolver,sharedPalmTarget} from './socialContact';
 import {furniturePalm} from './furnitureMotion';
 import {createSocialProp} from './socialProps';
 import {isIntimacy,isPrincessCarry,poseIntimacy} from './intimacyMotion';
+import {assessPrincessCarryReach} from './princessCarryMotion';
 import {carryCaptureWeight,prepareCarryFrame} from './princessCarryCapture';
 import {splitMotionHeading} from './motionHeading';
 import {motionTemplateFor,motionTemplateContact,motionTemplateConstraintPlans} from './motionTemplates';
@@ -432,6 +433,9 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     if(isPrincessCarry(action)){
      if(pinned)throw Error('公主抱需要两个人先站起来');
      if(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig)throw Error('公主抱需要两个人都使用 Q 版骨骼素体');
+     const carrier=states.get(action==='home-princess-carried'?b!:a)!.visitor;
+     const carried=states.get(action==='home-princess-carried'?a:b!)!.visitor;
+     if(!assessPrincessCarryReach(carrier,carried).possible)throw Error('双方身高或手臂长度差距太大，无法安全承托公主抱');
     }
    if(action==='home-rear-hug'&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error('背后搂抱需要 Q 版骨骼素体');
    if(['home-sneak-kiss','home-passion-kiss'].includes(action)&&(!states.get(a)!.visitor.rig||!states.get(b!)!.visitor.rig))throw Error(entry.label+'需要 Q 版骨骼素体');
