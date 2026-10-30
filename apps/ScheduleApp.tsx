@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
@@ -7,7 +7,7 @@ import StudyAvatar from './StudyAvatar';
 import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
-import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachBrief,isStudyCoachQuietTime,type StudyCoachSetting} from '../utils/studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,type StudyCoachSetting} from '../utils/studyRoomCompanion';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
@@ -50,6 +50,8 @@ const ScheduleApp: React.FC = () => {
   const [exitDeadline, setExitDeadline] = useState(0);
   const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'commissions' | 'calendar' | 'study'>('timer');
   const [workspaceVisited,setWorkspaceVisited]=useState(false);
+  const [workspaceSnapshot,setWorkspaceSnapshot]=useState<WorkspaceData|null>(null);
+  const onWorkspaceSnapshot=useCallback((value:WorkspaceData)=>setWorkspaceSnapshot(value),[]);
   const mainScrollRef=useRef<HTMLElement|null>(null);
   const tabScrollOffsets=useRef<Record<string,number>>({});
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
@@ -90,6 +92,9 @@ const ScheduleApp: React.FC = () => {
   const remaining = session ? Math.max(0, Math.ceil((session.pauseRemainingMs ?? (session.deadline - now)) / 1000)) : (focusMinutes * 60);
   const allowance = focusChatAllowance(session, now);
   const activeTask = tasks.find(t => t.id === (session?.taskId || selectedTask));
+  const companionReality=workspaceSnapshot?buildStudyRoomReality(
+    workspaceSnapshot,session,activeTask?.title||'',records,tasks,new Date(now),
+  ):null;
   const todayRecords = records.filter(r => r.date === today());
   const totalToday = todayRecords.reduce((sum, r) => sum + r.minutes, 0);
   const linkedFocusTotals = tasks.filter(t=>t.source).map(task=>({
@@ -127,6 +132,12 @@ const ScheduleApp: React.FC = () => {
     return ()=>window.clearTimeout(timer);
   },[session?.deadline,session?.pauseRemainingMs,tab,assistantOpen,exitOpen]);
   useEffect(()=>{if(tab==='calendar'||tab==='commissions')setWorkspaceVisited(true);},[tab]);
+  // One shared read of existing workspace data; no hidden chat permission change or AI call.
+  useEffect(()=>{
+    let alive=true;
+    void readWorkspace().then(value=>{if(alive)setWorkspaceSnapshot(value);}).catch(()=>{});
+    return ()=>{alive=false;};
+  },[tab]);
   useLayoutEffect(()=>{
     if(mainScrollRef.current)mainScrollRef.current.scrollTop=tabScrollOffsets.current[tab]??0;
   },[tab]);
@@ -335,11 +346,20 @@ const ScheduleApp: React.FC = () => {
       // Read only on a deliberate user action; no paid AI call yet.
       const workspace=await readWorkspace();
       if(version!==discussionVersion.current)return;
+      setWorkspaceSnapshot(workspace);
       setPlanRequest(null);setPlanPreview(null);
       setAssistantScope('overview');setAssistantItemId('');
       const brief=studyCoachBrief(coachSetting);
       const overview=buildCompanionOverview(workspace,session,activeTask?.title||'');
-      setAssistantTopic(brief?(brief+'\n'+overview).slice(0,7800):overview);
+      const actual=buildStudyRoomReality(workspace,session,activeTask?.title||'',records,tasks);
+      const evidence='【学习室实际状态（来源：计时记录、排单和课程，不等于任务已经完成）】'+JSON.stringify({
+        phase:actual.phase,todayFocusMinutes:actual.todayFocusMinutes,
+        completedRounds:actual.completedRounds,unsettledLinkedMinutes:actual.unsettledLinkedMinutes,
+        activeCommissions:actual.activeCommissions,pendingHomework:actual.pendingHomework,
+        todayCourses:actual.todayCourses,dueSoonCommissions:actual.dueSoonCommissions,
+        dueSoonHomework:actual.dueSoonHomework,
+      });
+      setAssistantTopic([brief,evidence,overview].filter(Boolean).join('\n').slice(0,7800));
       setMessage('陪我一起看看现在先做什么比较好？');
       setAssistantOpen(true);
     }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
@@ -460,13 +480,14 @@ const ScheduleApp: React.FC = () => {
       setReplying(false);
     }
   };
-  const companionStatus=coachPrompt||companionMoment||companionMomentText(session,activeTask?.title||'',(records.length?records[records.length-1].minutes:0));
+  const companionStatus=coachPrompt||companionMoment||companionReality?.hint||companionMomentText(session,activeTask?.title||'',(records.length?records[records.length-1].minutes:0));
   return (
     <div className="relative h-full w-full overflow-hidden">
       {tab === 'study' && (
         <div className="relative h-full w-full overflow-hidden bg-white">
           <React.Suspense fallback={<p className="p-5">正在打开自习室…</p>}>
             <StudyApp highlightCourseId={studyTargetCourseId || undefined}
+              companionCharId={charId} onCompanionSelect={chooseChar}
               onExit={() => {setTab(studyReturnTab);setStudyTargetCourseId(null);}} />
           </React.Suspense>
           <button type="button" disabled={overviewBusy}
@@ -500,7 +521,7 @@ const ScheduleApp: React.FC = () => {
         <p className="min-w-0 flex-1 truncate text-neutral-500" title={companionStatus}>
           <span className="inline-block mr-2 h-1.5 w-1.5 rounded-full bg-neutral-500 align-middle" aria-hidden="true"></span>
           <strong className="text-neutral-800">{activeChar?.name||'尚未选 Char'}</strong> <span className="hidden sm:inline">· {companionStatus}</span>
-          <span className="sm:hidden">· {coachPrompt?'提醒':!activeChar?'待选择':session?.mode==='focus'?'专注中':session?.mode==='break'?'休息中':coachSetting.level==='off'?'待命':coachSetting.paused?'已暂停':'监督中'}</span>
+          <span className="sm:hidden">· {activeChar?companionStatus:'待选择'}</span>
         </p>
         <button type="button" disabled={overviewBusy} onClick={()=>{setCoachPrompt('');void openCompanionOverview();}}
           className="shrink-0 rounded-full border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs font-medium disabled:opacity-50">
@@ -642,7 +663,7 @@ const ScheduleApp: React.FC = () => {
             onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan}
             planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)}
             onOpenStudyCourse={openLinkedStudyCourse}
-            selectedCharId={charId} onSelectChar={chooseChar}/>
+            selectedCharId={charId} onSelectChar={chooseChar} onWorkspaceSnapshot={onWorkspaceSnapshot}/>
         </div>}
 
       </main>
