@@ -11,6 +11,7 @@ on:
       - 'utils/amsgBundleVersion.ts'
       - 'utils/characterPhoneChats.ts'
       - 'utils/characterPhoneIdentity.ts'
+      - 'components/chat/CharacterPhone.tsx'
       - 'context/OSContext.tsx'
       - '.github/workflows/character-life-stage4-cloud.yml'
   workflow_dispatch:
