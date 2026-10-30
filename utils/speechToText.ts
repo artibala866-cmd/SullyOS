@@ -20,6 +20,8 @@ import { getProxyWorkerUrl } from './proxyWorker';
 import { isStaticWebDeployment } from './staticWebDeployment';
 
 export interface SttCallbacks {
+  /** Captured WAV bytes from the existing paid-STT microphone stream (no second recording). */
+  onAudioCaptured?: (audio: Blob, durationSec: number) => void;
   /** Fired repeatedly with the best-so-far transcript (interim + final, browser mode). */
   onPartial?: (text: string) => void;
   /** Fired once with the final transcript when recognition settles. */
@@ -566,6 +568,10 @@ const startApiStt = async (
     cb.onTranscribing?.(true);
     try {
       const wavBlob = encodeWavFromFloat32(merged, sampleRate, 16000);
+      // One capture stream serves STT and (opt-in) the durable user message.
+      // Do not publish bytes for cancelled sessions or upload an empty recording.
+      if (!cancelled) cb.onAudioCaptured?.(wavBlob, totalSamples / sampleRate);
+      if (cancelled) return;
       const transcript = await transcribeAudioWithProvider(wavBlob, provider, lang, apiConfig);
       if (cancelled) return;
       if (transcript) {
