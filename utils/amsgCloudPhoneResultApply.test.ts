@@ -54,6 +54,13 @@ describe('stage4: outbox replay and user sovereignty',()=>{
   expect(await applyCloudPhoneResult(row)).toBe(true);
   expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(1);
  });
+ it('still applies explicit same-round consent with independent paid phone AI and phone master switched off',async()=>{
+  writePhoneAutonomyPreferences(id,{backgroundApiEnabled:false,chatPiggybackEnabled:true});
+  localStorage.setItem('sully_phone_autonomy_disabled_v1:'+id,'1');
+  row.revision=readPhoneAutonomyRevision(id);
+  expect(await applyCloudPhoneResult(row)).toBe(true);
+  expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(2);
+ });
  it('never resurrects a chat after the user cleared the inbox',async()=>{
   advancePhoneContentClearRevision(id,'chats');
   expect(await applyCloudPhoneResult(row)).toBe(true);
