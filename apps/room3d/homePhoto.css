@@ -44,3 +44,12 @@
 .home-photo-mode[data-short=true] .photo-shutter{width:46px;height:46px}
 .home-photo-mode[data-sideways=true] header{top:0;padding-left:max(12px,env(safe-area-inset-top,0px));padding-right:max(12px,env(safe-area-inset-bottom,0px))}
 .home-photo-mode[data-short=true] .photo-dock .photo-controls{max-height:calc(var(--photo-height) - 220px)}.home-photo-mode[data-short=true] .photo-controls .photo-settings{max-height:calc(var(--photo-height) - 280px)}
+
+/* Paper formats reuse the existing photo dock and its mobile scroll contract. */
+.photo-formats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.photo-formats button{text-align:left;white-space:normal}
+.photo-lettering{margin:12px 0;padding:10px 0;border-block:1px solid #ffffff20;font-size:12px}
+.photo-lettering summary{cursor:pointer;padding:4px 0}
+.photo-lettering label{display:flex;flex-direction:column;gap:6px;margin-top:12px;color:#e0d2e7}
+.photo-lettering input,.photo-lettering select{width:100%;min-width:0;min-height:42px;border:1px solid #ffffff30;border-radius:10px;background:#30253e;color:#fff3ff;padding:9px;font:inherit;font-size:16px}
+.photo-lettering input:focus-visible,.photo-lettering select:focus-visible{outline:2px solid #dca8f4;outline-offset:2px}
