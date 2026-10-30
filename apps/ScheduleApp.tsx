@@ -77,9 +77,10 @@ const ScheduleApp: React.FC = () => {
   const [assistantMinimized,setAssistantMinimized]=useState(false);
   const [assistantPickerOpen,setAssistantPickerOpen]=useState(false);
   const [assistantOffset,setAssistantOffset]=useState({x:0,y:0});
-  // Mini-phone shell is small, but native Chat must lay out at a normal phone width.
-  // Scale the entire interactive chat screen, never squeeze individual bubbles/forms.
-  const nativePhoneWidth=390;
+  // Compose the real private-chat screen at a readable mobile width; only
+  // apply near-1:1 uniform scaling to fit the floating phone. The former
+  // 390px canvas inside a 218px shell halved text and touch targets.
+  const nativePhoneWidth=300;
   const nativePhoneViewport=useRef<HTMLDivElement|null>(null);
   const [nativeViewportSize,setNativeViewportSize]=useState({width:0,height:0});
   useEffect(()=>{
