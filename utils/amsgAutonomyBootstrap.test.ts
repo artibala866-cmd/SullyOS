@@ -6,7 +6,7 @@ import { ensureAutonomyWakes } from './amsgAutonomyWake';
 import { reconcileGlobalAutonomyWakes } from './amsgAutonomyBootstrap';
 
 const character = (id: string, enabled = true) =>
-  ({ id, activeMsg2Config: { enabled, tasks: [] } }) as CharacterProfile;
+  ({ id, activeMsg2Config: { enabled, tasks: [] } }) as unknown as CharacterProfile;
 function harness(initial = [character('alice'), character('bob')]) {
   let chars = initial;
   let active = true;
