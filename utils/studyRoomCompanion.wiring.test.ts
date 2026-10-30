@@ -211,13 +211,13 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).toContain('aria-modal="false" aria-label="学习室 Char 悬浮聊天"');
    expect(schedule).toContain('pointer-events-none absolute inset-0 z-[80]');
    expect(schedule).not.toContain('absolute inset-0 z-[80] bg-black/40 flex items-end');
-   expect(schedule).toContain('h-[min(62dvh,510px)]');
-   expect(schedule).toContain('w-[calc(100%-24px)] max-w-[355px]');
+   expect(schedule).toContain('h-[min(57dvh,470px)]');
+   expect(schedule).toContain('w-[calc(100%-32px)] max-w-[340px]');
    expect(schedule).toContain('onPointerDown={onAssistantDragStart}');
    expect(schedule).toContain('onPointerMove={onAssistantDragMove}');
    expect(schedule).toContain('onPointerUp={onAssistantDragEnd}');
    expect(schedule).toContain('assistantOpen && assistantMinimized');
-   expect(schedule).toContain('onClick={()=>setAssistantMinimized(true)}');
+   expect(schedule).toContain('onClick={()=>{setAssistantPickerOpen(false);setAssistantMinimized(true);}}');
    expect(schedule).toContain('onClick={()=>setAssistantMinimized(false)}');
    expect(schedule).toContain("n.role==='user'?'justify-end':'justify-start'");
    expect(schedule).toContain("n.origin==='auto_coach'");
