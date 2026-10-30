@@ -53,6 +53,23 @@ describe('stage4 cloud snapshot selection',()=>{
   localStorage.setItem('sully_character_phone_wechat_v1:cloud-phone-selection',JSON.stringify(chats));
   expect(selectCloudPhoneOpportunity(char(),now)?.contactId).toBe('npc1');
  });
+ it('skips a malformed older NPC chat instead of starving a valid pending message',()=>{
+  writePhoneAutonomyPreferences(char().id,{chatPiggybackEnabled:true});
+  const key='sully_character_phone_wechat_v1:cloud-phone-selection';
+  const chats=JSON.parse(localStorage.getItem(key)||'[]');
+  chats.unshift({id:'old-blank',contactId:'npc1',name:'阿圆',time:at-60000,
+    messages:[{speaker:{role:'contact',contactId:'npc1'},text:'   ',createdAt:at-60000}]});
+  localStorage.setItem(key,JSON.stringify(chats));
+  expect(selectCloudPhoneOpportunity(char(),now)?.threadId).toBe('t1');
+ });
+ it('rejects a saved contact message attributed to a different contact',()=>{
+  writePhoneAutonomyPreferences(char().id,{chatPiggybackEnabled:true});
+  const key='sully_character_phone_wechat_v1:cloud-phone-selection';
+  const chats=JSON.parse(localStorage.getItem(key)||'[]');
+  chats[0].messages[0].speaker.contactId='other';
+  localStorage.setItem(key,JSON.stringify(chats));
+  expect(selectCloudPhoneOpportunity(char(),now)).toBeNull();
+ });
  it('never impersonates another real Char in a linked phone contact',()=>{
   writePhoneAutonomyPreferences(char().id,{chatPiggybackEnabled:true});
   const list=JSON.parse(localStorage.getItem('sully_character_phone_npcs_v1:cloud-phone-selection')||'[]');
