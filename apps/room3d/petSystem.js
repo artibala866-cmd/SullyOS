@@ -45,7 +45,9 @@ export function mountPetSystem({host,scene,home,catalog,templates,actors,contact
  }
  function headPoint(p){
   const root=models.get(p.id);if(!root)return null;root.updateWorldMatrix(true,true);const box=new THREE.Box3(),meshes=[];
-  root.traverse(o=>{if(o.isMesh){meshes.push(o);if((Array.isArray(o.material)?o.material:[o.material]).some(m=>m.name==='pet-eyes'))box.union(new THREE.Box3().setFromObject(o));}});
+  // Seasonal hats are removable decoration, not the pet's skin/head contact surface.
+  // Excluding their meshes keeps petting targets identical before and after dress-up.
+  root.traverse(o=>{if(o.isMesh&&!o.userData.petHat){meshes.push(o);if((Array.isArray(o.material)?o.material:[o.material]).some(m=>m.name==='pet-eyes'))box.union(new THREE.Box3().setFromObject(o));}});
   if(box.isEmpty())return null;const center=box.getCenter(new THREE.Vector3());center.x-=Math.sin(p.rotation)*.08;center.z-=Math.cos(p.rotation)*.08;center.y=3;
   const hit=new THREE.Raycaster(center,new THREE.Vector3(0,-1,0)).intersectObjects(meshes,false)[0];return hit?hit.point.clone().add(new THREE.Vector3(0,.025,0)):null;
  }

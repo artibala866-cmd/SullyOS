@@ -77,6 +77,7 @@ describe('Halloween authored 3D asset integration acceptance',()=>{
     const hat=attachPetHat(visual,type,asset);
     expect(hat?.name).toBe('pet-hat-'+type);
     expect(hat?.parent).toBe(visual);
+    hat!.traverse(o=>{if(o instanceof T.Mesh)expect(o.userData.petHat,asset.id+': pet contact excludes hat geometry').toBe(true);});
     visual.updateWorldMatrix(true,true);
     const hatBounds=new T.Box3().setFromObject(hat!),bodyBounds=new T.Box3().setFromObject(scene);
     expect(hatBounds.isEmpty(),asset.id+': '+type).toBe(false);
