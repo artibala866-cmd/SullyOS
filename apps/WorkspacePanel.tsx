@@ -895,10 +895,10 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <button className={mutedButton} onClick={()=>deleteClass(c.id)}>仅删除此课程表记录</button>
         </article>)}
       </details>}
-      <section id="study-homework-panel" className={cardClass+' scroll-mt-4'}>
+      {data.classes.length>0 && <section id="study-homework-panel" className={cardClass+' scroll-mt-4'}>
         <div className="flex items-center justify-between gap-3">
           <div><h3 className="text-[18px] font-semibold">作业 · 笔记</h3></div>
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f1f1f1] text-lg">✎</span>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f1f1f1]"><BookOpen size={18}/></span>
         </div>
         <label className="text-sm"><span className="sr-only">选择课程</span><select aria-label="选择课程" className={inputClass} value={selectedClassId} onChange={e=>setSelectedClassId(e.target.value)}>
           <option value="">选择课程</option>{data.classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
@@ -952,7 +952,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <button className={mutedButton} onClick={()=>onDiscuss('请让我把刚学到的 '+className(n.classId)+' 的内容讲给你听，然后根据笔记追问我，不要擅自判定作业完成。笔记：'+n.body.slice(0,1500),'study',n.id)}>请 Char 提问</button>
           </div>)}
         </>}
-      </section>
+      </section>}
       {(orphaned.homework.length>0 || orphaned.notes.length>0) &&
         <details className={cardClass} aria-label="未归属作业与笔记">
           <summary className="cursor-pointer font-semibold text-sm">未归属资料（{orphaned.homework.length+orphaned.notes.length}）</summary>
