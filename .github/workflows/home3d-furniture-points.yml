@@ -6,6 +6,12 @@ on:
       - remove-checkphone-vrworld-lifesim
     paths:
       - 'apps/room3d/**'
+      - 'experiments/chibi/OutfitPreview.tsx'
+      - 'experiments/chibi/WardrobePicker.tsx'
+      - 'scripts/home-resource-packs.mjs'
+      - 'utils/homeResourcePacks.test.ts'
+      - 'utils/homeResourcePackGLTF.test.ts'
+      - 'utils/halloweenAssetBoundary.test.ts'
       - 'utils/chibiFurnitureMotion.test.ts'
       - 'utils/chibiRoomWalk.test.ts'
       - 'utils/room3dBathroomActions.test.ts'
@@ -20,6 +26,12 @@ on:
       - remove-checkphone-vrworld-lifesim
     paths:
       - 'apps/room3d/**'
+      - 'experiments/chibi/OutfitPreview.tsx'
+      - 'experiments/chibi/WardrobePicker.tsx'
+      - 'scripts/home-resource-packs.mjs'
+      - 'utils/homeResourcePacks.test.ts'
+      - 'utils/homeResourcePackGLTF.test.ts'
+      - 'utils/halloweenAssetBoundary.test.ts'
       - 'test/home3d-smoke.html'
       - 'test/home3d-photo-export.html'
       - 'scripts/home3d-photo-webgl-smoke.mjs'
