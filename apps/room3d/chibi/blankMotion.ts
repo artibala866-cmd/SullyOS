@@ -303,6 +303,11 @@ export function createBlankMotion(rig:ReturnType<typeof bindBlankBody>,body:T.Gr
   if(furniture&&!lying)furnitureContact(time,activity);
   if(activity?.kind==='pet-contact')furnitureContact(Math.max(.65,time),activity);
   if(activity?.kind.startsWith('bath-'))bathroomContact(time,activity);
+  // Only after both shoes cross the near rim: keep soles above the tub's
+  // occupied interior floor during the hand-supported rotation into sitting.
+  // Leg IK adjusts knee/shin rotations, never navigation or bone length.
+  if(activity?.kind==='bath-soak'&&activity.bathFootFloor!==undefined&&seatWeight>.04)
+   surfaceContact(activity.bathFootFloor);
   if(seated&&!bed&&!floorSeat&&activity?.seatHeight!==undefined&&!activity.kind.startsWith('bath-')){
    surfaceContact(bodyHeightY(.049*BLANK_SCALE,rig.bodyHeight)-activity.seatHeight);
   }
