@@ -57,6 +57,7 @@ import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, pruneOrphanedPh
 import { generateIndependentLifeGlimpse, isManualLifeGlimpseEnabled, setManualLifeGlimpseEnabled } from '../../utils/characterLifeGlimpseGeneration';
 import { selectConfirmedLifeGlimpses } from '../../utils/characterLifeGlimpses';
 import { readPhoneContentClearRevision } from '../../utils/characterPhoneContentClearRevision';
+import { safelySelectCloudPhoneOpportunity } from '../../utils/amsgCloudPhoneSelection';
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 import {readPhoneInboxPreferences,writePhoneInboxPreferences} from '../../utils/characterPhoneInboxPrefs';
 import {allowMomentComment} from '../../utils/momentInteractionPreferences';
@@ -1146,6 +1147,15 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
                 onChange={e=>changePhonePrefs({chatPiggybackEnabled:e.target.checked})}
                 className="h-5 w-5 shrink-0 accent-[#444]"/>
             </label>
+            {phonePrefs.chatPiggybackEnabled && (
+              <p className="rounded-xl bg-[#f6f6f6] px-3 py-2 text-[11px] leading-5 text-[#777]">
+                {char.activeMsg2Config?.enabled !== true
+                  ? '离线 NPC 微信续聊尚不能运行：还需为这个角色开启主动消息 2.0，且部署兼容的 Worker。无需手动创建第一条每日任务。'
+                  : safelySelectCloudPhoneOpportunity(char)
+                    ? '本地有符合条件的已保存 NPC 待回消息。下次成功同步到新版 Worker、每日自主联系到点时，角色可选择在同次生成里回复；不保证每次都会回复。'
+                    : '同轮权限已允许，目前没有符合条件的虚构 NPC 待回微信。云端不会凭空编造联系人或生活经历；仍需兼容的 Worker 才能离线运行。'}
+              </p>
+            )}
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">允许独立后台 AI 请求</strong>
                 <span className="block mt-1 leading-5 text-[#888]">关闭后，手机的独立自主 AI 任务不会再调用接口；原有手动生成、User 私聊，以及另行开启的“私聊同轮生成”不受影响。开启后仍遵守下方共享预算。</span></span>
