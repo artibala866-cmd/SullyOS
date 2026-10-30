@@ -5,8 +5,10 @@ const schedule=readFileSync(resolve(process.cwd(),'apps/ScheduleApp.tsx'),'utf8'
 const study=readFileSync(resolve(process.cwd(),'apps/StudyApp.tsx'),'utf8');
 const workspace=readFileSync(resolve(process.cwd(),'apps/WorkspacePanel.tsx'),'utf8');
 describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()=>{
- it('旧自习室挂载期间仍展示 Char 同一聊天，不再放在隐藏的工作台容器里',()=>{
-  expect(schedule).toContain('aria-label="在自习室和当前 Char 继续陪伴"');
+ it('PDF 保持原有助教教学与问答，不再叠加第二个独立浮动聊天按钮',()=>{
+  expect(schedule).not.toContain('aria-label="在自习室和当前 Char 继续陪伴"');
+  expect(study).toContain('handleAskQuestion');
+  expect(study).toContain('showAssistant');
   expect(schedule).toContain('aria-label="Char 持续陪伴状态"');
   expect(schedule).toContain('onClick={()=>void openCompanionOverview()}');
   expect(schedule).toContain('assistantScope===\'overview\'?\'今日陪伴\'');
@@ -37,7 +39,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('onSubmit={e=>{e.preventDefault();void sendNote();}}');
  });
  it('专注结束生成的是本机陪伴提示，不冒充 Char 已发 AI 消息',()=>{
-  expect(schedule).toContain("setCompanionMoment('这轮专注完成啦");
+  expect(schedule).toContain("setCompanionMoment('刚完成一轮专注");
   expect(schedule).toContain('companionMomentText(session,activeTask?.title');
   expect(schedule).toContain('focusChatAllowance(session, now)');
   expect(schedule).toContain('if (session?.mode === \'focus\')');
@@ -99,6 +101,18 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(overview).toContain('buildStudyRoomReality(');
   expect(overview).not.toContain('sendNote()');
   expect(overview).not.toContain('fetch(');
+ });
+
+ it('同一角色在所有非课堂页面保留真实最近回复和上下文行动，不另造聊天或冒充主动 AI',()=>{
+  expect(schedule).toContain('recentCompanionReply(notes,charId)');
+  expect(schedule).toContain('companionActionLabel');
+  expect(schedule).toContain('companionEntryPrompt(actual,activeTask?.title');
+  expect(schedule).toContain('createdAt:Date.now()');
+  expect(schedule).not.toContain('aria-label="在自习室和当前 Char 继续陪伴"');
+  const open=schedule.split('const openCompanionOverview=async()=>{')[1]?.split('const discuss =')[0]||'';
+  expect(open).toContain('setMessage(companionEntryPrompt(');
+  expect(open).not.toContain('sendNote()');
+  expect(open).not.toContain('fetch(');
  });
 
 });
