@@ -77,6 +77,30 @@ const ScheduleApp: React.FC = () => {
   const [assistantMinimized,setAssistantMinimized]=useState(false);
   const [assistantPickerOpen,setAssistantPickerOpen]=useState(false);
   const [assistantOffset,setAssistantOffset]=useState({x:0,y:0});
+  // Mini-phone shell is small, but native Chat must lay out at a normal phone width.
+  // Scale the entire interactive chat screen, never squeeze individual bubbles/forms.
+  const nativePhoneWidth=390;
+  const nativePhoneViewport=useRef<HTMLDivElement|null>(null);
+  const [nativeViewportSize,setNativeViewportSize]=useState({width:0,height:0});
+  useEffect(()=>{
+    if(tab==='study'||!assistantOpen||assistantMinimized||phonePage!=='private'||!!session)return;
+    const el=nativePhoneViewport.current;
+    if(!el)return;
+    const measure=()=>{
+      const width=el.clientWidth,height=el.clientHeight;
+      setNativeViewportSize(old=>old.width===width&&old.height===height?old:{width,height});
+    };
+    measure();
+    const observer=new ResizeObserver(measure);
+    observer.observe(el);
+    window.visualViewport?.addEventListener('resize',measure);
+    return ()=>{
+      observer.disconnect();
+      window.visualViewport?.removeEventListener('resize',measure);
+    };
+  },[tab,assistantOpen,assistantMinimized,phonePage,session,charId]);
+  const nativePhoneScale=nativeViewportSize.width>0?nativeViewportSize.width/nativePhoneWidth:0;
+
   const assistantDrag=useRef<{startX:number;startY:number;x:number;y:number;left:number;right:number;top:number;bottom:number;hostLeft:number;hostRight:number;hostTop:number;hostBottom:number}|null>(null);
   useEffect(()=>{
     // Keep a previously dragged floating phone visible after rotation/keyboard resize.
@@ -928,9 +952,18 @@ const ScheduleApp: React.FC = () => {
             </div>}
             <div className="study-phone-body">
               {!session&&phonePage==='private'&&activeChar?(
-                <React.Suspense fallback={<p className="p-4 text-center text-xs text-neutral-500">正在打开私聊…</p>}>
-                  <NativeChat key={charId} homePhone={{characterId:charId,getContext:blankPhoneContext,onBack:()=>setAssistantMinimized(true),hideHeader:true}}/>
-                </React.Suspense>
+                <div ref={nativePhoneViewport} className="study-phone-native-viewport">
+                  {nativePhoneScale>0&&<div className="study-phone-native-canvas"
+                    style={{
+                      width:nativePhoneWidth,
+                      height:Math.ceil(nativeViewportSize.height/nativePhoneScale),
+                      transform:`scale(${nativePhoneScale})`,
+                    }}>
+                    <React.Suspense fallback={<p className="p-4 text-center text-xs text-neutral-500">正在打开私聊…</p>}>
+                      <NativeChat key={charId} homePhone={{characterId:charId,getContext:blankPhoneContext,onBack:()=>setAssistantMinimized(true),hideHeader:true}}/>
+                    </React.Suspense>
+                  </div>}
+                </div>
               ):(
                 <div className="flex h-full min-h-0 flex-col bg-[#f6f6f6]">
                   <div className="flex shrink-0 justify-between px-3 py-2 text-xs text-neutral-600">
