@@ -823,7 +823,7 @@ const ScheduleApp: React.FC = () => {
           </div>
         </section>}
         {previousCoachPlan && !session && !pendingCoachAction && tab!=='study' && <p role="status"
-          className="mx-auto max-w-[510px] rounded-2xl bg-white px-4 py-3 text-xs text-neutral-600">{previousCoachPlan}</p>
+          className="mx-auto max-w-[510px] rounded-2xl bg-white px-4 py-3 text-xs text-neutral-600">{previousCoachPlan}</p>}
         {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
         </section>}
