@@ -25,7 +25,7 @@ describe('手机学习室按 P2 的视觉比例与分区原则：番茄钟只做
   expect(focusView).toContain("onClick={()=>start('break')}");
   expect(focusView).toContain("onClick={()=>switchTab('tasks')}");
   expect(focusView).toContain("onClick={()=>switchTab('stats')}");
-  expect(focusView).toContain('与 Char 陪伴交流');
+  expect(schedule).toContain('aria-label="打开 Char 悬浮手机"');
   expect(focusView).toContain('专注保护');
   // A persistent workspace editor keeps in-progress class/order forms when
   // changing sections. Both categories still use the same old data source.
