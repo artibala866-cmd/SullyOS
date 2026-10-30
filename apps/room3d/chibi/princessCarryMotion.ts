@@ -96,7 +96,7 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  // then does it recline sideways. Keep chest/head independent of the hips.
  const seated=p.seat,lifted=p.lift;
  const sideTurn=.48*seated+1.05*p.cradle;
- const heightRecline=T.MathUtils.clamp((ratio-1)*.44,0,.18);
+ const heightRecline=T.MathUtils.clamp((ratio-1)*.70,0,.25);
  const recline=.13*seated+(.47+heightRecline)*p.cradle;
  const cradleWeight=Math.max(seated,p.cradle);
  pose(b,'hips',q(0,sideTurn).multiply(q(-recline)),cradleWeight);
@@ -128,7 +128,12 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  const width=left.distanceTo(right);
  const front=new T.Vector3(0,0,1).applyQuaternion(ab.hips.getWorldQuaternion(new T.Quaternion())).normalize();
  const across=right.clone().sub(left).normalize();
- const target=hip.lerp(chest,.80).addScaledVector(front,width*.95).addScaledVector(across,width*.18);
+ // The carrier's palms support a seated pelvis below their chest, not a
+ // shoulder-high pelvis. Keeping the torso upright without this lower cradle
+ // buried the recipient's oversized Q head in the carrier's hair.
+ const seatDrop=width*(.54+Math.max(0,ratio-1)*.18);
+ const target=hip.lerp(chest,.76).addScaledVector(front,width*.95)
+  .addScaledVector(across,width*.60).add(new T.Vector3(0,-seatDrop,0));
  b.translatePose(target.sub(point(b,'hips')).multiplyScalar(p.lift));
  b.root.updateWorldMatrix(true,true);
  // Keep both support targets in reach without stretching bone lengths.
