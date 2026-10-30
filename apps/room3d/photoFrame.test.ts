@@ -2,6 +2,7 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 import * as T from 'three';
 import {photoFrames,photoSize,photoDrag} from './photoFrame';
+import {photoWindows,photoCaptureAspect,isPhotoPaper} from './photoComposition';
 import {createPhotoRenderer} from './photoRenderer';
 import {photoLooks} from './photoEffects';
 
@@ -13,6 +14,14 @@ describe('home 3D photo frame and high-quality export',()=>{
   expect(photoFrames.cinema.aspect).toBe(2.39);
   expect(photoFrames.portrait.aspect).toBe(3/4);
   expect(photoFrames.square.aspect).toBe(1);
+  expect(photoFrames.tall.aspect).toBe(9/16);
+  expect(photoFrames.polaroid.aspect).toBe(4/5);
+  expect(photoFrames.sticker.aspect).toBe(3/4);
+  expect(photoFrames.collage.aspect).toBe(4/5);
+  expect(photoCaptureAspect('polaroid')).toBeCloseTo(1);
+  expect(photoCaptureAspect('collage')).toBeCloseTo(1);
+  expect(photoWindows('collage')).toHaveLength(4);
+  expect(isPhotoPaper('landscape')).toBe(false);
   for(const [id,f] of Object.entries(photoFrames)){
    const a=photoSize(f.aspect,'moving'),b=photoSize(f.aspect,'preview'),c=photoSize(f.aspect,'export');
    expect(Math.max(a.width,a.height),id).toBe(768);
