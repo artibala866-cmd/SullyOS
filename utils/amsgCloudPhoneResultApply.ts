@@ -36,7 +36,7 @@ export async function applyCloudPhoneResult(payload: unknown, context?: AmsgResu
     // owner reply to a new NPC who happens to reuse the same stable ID.
     if (!contact || contact.createdAt !== row.contactCreatedAt) return true;
     const thread = readCharacterPhoneChats(row.charId).find(t => t.id === row.threadId && t.contactId === contact.id);
-    if (!thread) return true;
+    if (!thread || thread.kind === 'group' || thread.kind === 'service') return true;
     // If the same outbox result already landed, repair its life event even if
     // the NPC inbox has since advanced; do not append another cloud message.
     const previous = thread.messages.filter(m => m.cloudSourceId?.startsWith(id + ':'));
