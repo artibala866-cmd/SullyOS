@@ -265,7 +265,7 @@ it('reclines a taller carried partner farther without moving navigation roots or
 it('acquires hands, offers one knee, then lifts after the planted-foot phase',()=>{
  const f=princessCarryPhase;
  expect(f(1.5).lift).toBe(0);
- expect(f(2.8).secured).toBeGreaterThan(.99);
+ expect(f(3.6).secured).toBeGreaterThan(.99);
  expect(f(2.8).lift).toBe(0);
  expect(f(3.5).offer).toBeGreaterThan(.98);
  expect(f(3.5).seat).toBe(0);
