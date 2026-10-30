@@ -1634,20 +1634,20 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     </div>
                 </div>
 
-                <div className="px-4 sm:px-7 pt-5 pb-8 flex-1 overflow-y-auto no-scrollbar">
+                <div className="px-3 sm:px-7 pt-3 pb-8 flex-1 overflow-y-auto no-scrollbar">
                     {/* Character Selector */}
-                    <div className="mb-5 rounded-[26px] bg-white p-5">
-                        <h3 className="text-[12px] font-semibold text-neutral-700 mb-4">当前助教</h3>
+                    <div className="mb-4 rounded-[20px] bg-white px-4 py-3">
+                        <h3 className="text-sm font-semibold text-neutral-800 mb-2">助教</h3>
                         {/* 分组筛选（没建分组时不渲染），横向头像列表太挤，单独放一行 */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups}
-                            value={tutorGroupId} onChange={setTutorGroupId} className="mb-3" />
-                        <div className="flex gap-4 overflow-x-auto pb-1 no-scrollbar">
+                            value={tutorGroupId} onChange={setTutorGroupId} className="mb-2" />
+                        <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
                             {filterCharactersByGroup(characters, characterGroups, tutorGroupId).map(c => (
-                                <div key={c.id} onClick={() => setSelectedChar(c)} className={`flex flex-col items-center gap-2 cursor-pointer transition-opacity ${selectedChar?.id === c.id ? 'opacity-100' : 'opacity-50'}`}>
-                                    <div className={`w-14 h-14 rounded-full p-[2px] ${selectedChar?.id === c.id ? 'border-2 border-neutral-500' : 'border border-slate-200'}`}>
+                                <div key={c.id} onClick={() => setSelectedChar(c)} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${selectedChar?.id === c.id ? 'opacity-100' : 'opacity-50'}`}>
+                                    <div className={`w-11 h-11 rounded-full p-[2px] ${selectedChar?.id === c.id ? 'border-2 border-neutral-500' : 'border border-slate-200'}`}>
                                         <TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" />
                                     </div>
-                                    <span className="text-xs font-bold text-slate-600">{c.name}</span>
+                                    <span className="max-w-[62px] truncate text-[11px] font-medium text-slate-600">{c.name}</span>
                                 </div>
                             ))}
                         </div>
@@ -1660,10 +1660,10 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                             : '关联的自习室课程不存在（可能已删除或未随备份导入）。请返回学习室解除或重新关联。'
                           : '正在读取自习室课程…'}
                     </p>}
-                    <h3 className="text-[12px] font-semibold text-neutral-700 mb-4">我的课程</h3>
+                    <h3 className="text-base font-semibold text-neutral-800 mb-3">课程</h3>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                        <button onClick={() => fileInputRef.current?.click()} className="aspect-[4/5] rounded-[26px] border border-dashed border-[#cccccc] flex flex-col items-center justify-center gap-3 text-[#454545] hover:border-neutral-400 transition-colors bg-white">
+                        <button onClick={() => fileInputRef.current?.click()} className="col-span-2 sm:col-span-1 flex h-[88px] items-center justify-center gap-3 rounded-[20px] border border-dashed border-[#cccccc] bg-white text-[#454545] transition-colors hover:border-neutral-400">
                             {isProcessing ? (
                                 <div className="text-center px-2">
                                     <div className="w-6 h-6 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
@@ -1671,8 +1671,8 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                 </div>
                             ) : (
                                 <>
-                                    <span className="grid h-14 w-14 place-items-center rounded-full bg-[#f1f1f1] text-[30px] font-light">+</span>
-                                    <span className="text-sm font-semibold">导入 PDF</span>
+                                    <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f1f1f1] text-[23px] font-light">+</span>
+                                    <span className="text-sm font-medium">导入 PDF</span>
                                     
                                 </>
                             )}
