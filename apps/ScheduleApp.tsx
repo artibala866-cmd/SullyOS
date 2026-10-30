@@ -7,7 +7,7 @@ import StudyAvatar from './StudyAvatar';
 import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
-import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachBrief,type StudyCoachSetting} from '../utils/studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachBrief,isStudyCoachQuietTime,type StudyCoachSetting} from '../utils/studyRoomCompanion';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
@@ -147,9 +147,10 @@ const ScheduleApp: React.FC = () => {
     setCoachPrompt('');
   },[charId,session?.id,session?.mode,session?.pauseRemainingMs]);
   useEffect(()=>{
-    if(!charId || coachSetting.level==='off' || coachSetting.paused || session || tab!=='timer')return;
+    if(!activeChar || coachSetting.level==='off' || coachSetting.paused || session || tab!=='timer')return;
     const check=()=>{
       const when=Date.now();
+      if(isStudyCoachQuietTime(coachSetting,new Date(when))){setCoachPrompt('');return;}
       const prompt=nextStudyCoachPrompt({
         charId,setting:coachSetting,session:null,now:new Date(when),
         idleSince:coachIdleSince.current,lastPromptAt:coachLastShown?.[charId]||0,
@@ -161,9 +162,14 @@ const ScheduleApp: React.FC = () => {
     };
     check();
     const interval=window.setInterval(check,60000);
-    document.addEventListener('visibilitychange',check);
-    return ()=>{window.clearInterval(interval);document.removeEventListener('visibilitychange',check);};
-  },[charId,coachByChar,coachLastShown,session,tab]);
+    const onVisibility=()=>{
+      // Reopening a backgrounded app is not evidence of time spent avoiding study.
+      coachIdleSince.current=Date.now();
+      setCoachPrompt('');
+    };
+    document.addEventListener('visibilitychange',onVisibility);
+    return ()=>{window.clearInterval(interval);document.removeEventListener('visibilitychange',onVisibility);};
+  },[activeChar?.id,charId,coachByChar,coachLastShown,session,tab]);
   useEffect(() => {
     if (!session || session.pauseRemainingMs != null || now < session.deadline) return;
     const id = session.id || String(session.deadline);
@@ -331,7 +337,9 @@ const ScheduleApp: React.FC = () => {
       if(version!==discussionVersion.current)return;
       setPlanRequest(null);setPlanPreview(null);
       setAssistantScope('overview');setAssistantItemId('');
-      setAssistantTopic((buildCompanionOverview(workspace,session,activeTask?.title||'')+'\n'+studyCoachBrief(coachSetting)).slice(0,7800));
+      const brief=studyCoachBrief(coachSetting);
+      const overview=buildCompanionOverview(workspace,session,activeTask?.title||'');
+      setAssistantTopic(brief?(brief+'\n'+overview).slice(0,7800):overview);
       setMessage('陪我一起看看现在先做什么比较好？');
       setAssistantOpen(true);
     }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
