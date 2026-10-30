@@ -115,6 +115,12 @@ export function normalizeMessageContent(
     if (type === 'emoji') return '[表情包]';
     if (type === 'voice') {
         const transcript = getVoiceTranscript(msg);
+        if (msg.role === 'user' && msg.metadata?.inputMode === 'typed') {
+            return transcript ? `[用户以语音消息形式发送的文字] ${transcript}` : '[文字语音]';
+        }
+        if (msg.role === 'user') {
+            return transcript ? `[用户发送语音消息，转写内容] ${transcript}` : '[语音]';
+        }
         return transcript ? `[语音转写] ${transcript}` : '[语音]';
     }
 
