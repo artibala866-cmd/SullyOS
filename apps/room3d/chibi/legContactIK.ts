@@ -121,9 +121,14 @@ export function createWorldFootLock(){
    }
   }
   if(side===null){
-   // Do not re-anchor the same toe while waiting for the opposite landing.
-   if(!forcedSide&&candidate===awaitingOpposite)return;
-   side=candidate;awaitingOpposite=null;locked.copy(toes[side]);lockRoot.copy(root);return;
+   // After a released stance, prefer a physically grounded opposite foot;
+   // re-planted old toes must not masquerade as a fresh step.
+   if(!forcedSide&&candidate===awaitingOpposite){
+    const landing=awaitingOpposite==='L'?'R':'L';
+    if(toes[landing].y>floor+swingClearance)return;
+    side=landing;
+   }else side=candidate;
+   awaitingOpposite=null;locked.copy(toes[side]);lockRoot.copy(root);return;
   }
   if(forcedSide?side!==forcedSide:toes[other].y+hysteresis<toes[side].y){
    side=forcedSide??other;awaitingOpposite=null;locked.copy(toes[side]);lockRoot.copy(root);return;
