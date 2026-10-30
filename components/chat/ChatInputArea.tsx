@@ -776,36 +776,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 </div>
             ) : (
                 <div className="sully-chat-composer p-3 px-4 flex gap-3 items-end relative">
-                    {speechInput && speechInput.status !== 'idle' && (
-                        <div role="region" aria-label="语音转写草稿" className={`absolute bottom-full left-3 right-3 z-50 mb-2 rounded-2xl border p-3 shadow-lg ${isDiscordStyle ? 'bg-slate-900 text-white border-slate-700' : isPixelStyle ? 'bg-[#f1f1f1] text-[#515151] border-[#6d6d6d]' : 'bg-white text-slate-700 border-slate-200'}`}>
-                            <div className="flex items-center gap-2 mb-2">
-                                {speechInput.status === 'starting' || speechInput.status === 'transcribing'
-                                    ? <CircleNotch size={18} className="animate-spin" aria-hidden="true" />
-                                    : speechInput.status === 'listening'
-                                        ? <span className="flex items-center gap-1" aria-hidden="true"><span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /><Waveform size={18} /></span>
-                                        : <Waveform size={18} aria-hidden="true" />}
-                                <span aria-label="录音时长" className="text-xs font-mono tabular-nums">{`${String(Math.floor(speechInput.seconds / 60)).padStart(2, '0')}:${String(speechInput.seconds % 60).padStart(2, '0')}`}</span>
-                                <span className="flex-1" />
-                                {(speechInput.status === 'starting' || speechInput.status === 'listening') && (
-                                    <button type="button" title="停止录音" aria-label="停止录音" onClick={speechInput.stop} className="w-9 h-9 rounded-full grid place-items-center hover:bg-black/10"><Stop size={18} weight="fill" /></button>
-                                )}
-                                <button type="button" title="取消录音" aria-label="取消录音" onClick={speechInput.cancel} className="w-9 h-9 rounded-full grid place-items-center hover:bg-black/10"><X size={18} /></button>
-                                {speechInput.status === 'review' && (
-                                    <button type="button" title="确认发送转写" aria-label="确认发送转写" disabled={!speechInput.transcript.trim()} onClick={speechInput.confirm} className="w-9 h-9 rounded-full grid place-items-center text-primary hover:bg-black/10 disabled:opacity-30"><Check size={20} weight="bold" /></button>
-                                )}
-                            </div>
-                            <textarea
-                                aria-label="修改语音转写内容"
-                                rows={2}
-                                value={speechInput.transcript}
-                                onChange={event => speechInput.editTranscript(event.target.value)}
-                                placeholder="..."
-                                disabled={speechInput.status === 'starting' || speechInput.status === 'transcribing'}
-                                className={`w-full min-h-[3rem] max-h-24 resize-y rounded-xl px-3 py-2 text-sm outline-none ${isDiscordStyle ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}
-                            />
-                            {speechInput.error && <p role="alert" className="text-xs text-rose-500 mt-1">{speechInput.error}</p>}
-                        </div>
-                    )}
                     <button aria-label="聊天功能" aria-expanded={showPanel === 'actions'} onClick={() => setShowPanel(showPanel === 'actions' ? 'none' : 'actions')} className={`sully-chat-actions-button ${actionButtonClass}`}>
                         <Plus className="w-6 h-6" weight="bold" />
                     </button>
@@ -875,6 +845,36 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
 
                     {emojiSelectionMode && (
                         <div className={`absolute inset-0 z-10 ${isPixelStyle ? 'bg-[#e0e0e0]/70 backdrop-blur-[2px]' : isDiscordStyle ? 'bg-slate-950/70 backdrop-blur-[2px]' : 'bg-white/60 backdrop-blur-[2px]'}`} />
+                    )}
+                    {speechInput && speechInput.status !== 'idle' && (
+                        <div role="region" aria-label="语音转写草稿" className={`absolute bottom-full left-3 right-3 z-50 mb-2 rounded-2xl border p-3 shadow-lg ${isDiscordStyle ? 'bg-slate-900 text-white border-slate-700' : isPixelStyle ? 'bg-[#f1f1f1] text-[#515151] border-[#6d6d6d]' : 'bg-white text-slate-700 border-slate-200'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                {speechInput.status === 'starting' || speechInput.status === 'transcribing'
+                                    ? <CircleNotch size={18} className="animate-spin" aria-hidden="true" />
+                                    : speechInput.status === 'listening'
+                                        ? <span className="flex items-center gap-1" aria-hidden="true"><span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /><Waveform size={18} /></span>
+                                        : <Waveform size={18} aria-hidden="true" />}
+                                <span aria-label="录音时长" className="text-xs font-mono tabular-nums">{`${String(Math.floor(speechInput.seconds / 60)).padStart(2, '0')}:${String(speechInput.seconds % 60).padStart(2, '0')}`}</span>
+                                <span className="flex-1" />
+                                {(speechInput.status === 'starting' || speechInput.status === 'listening') && (
+                                    <button type="button" title="停止录音" aria-label="停止录音" onClick={speechInput.stop} className="w-9 h-9 rounded-full grid place-items-center hover:bg-black/10"><Stop size={18} weight="fill" /></button>
+                                )}
+                                <button type="button" title="取消录音" aria-label="取消录音" onClick={speechInput.cancel} className="w-9 h-9 rounded-full grid place-items-center hover:bg-black/10"><X size={18} /></button>
+                                {speechInput.status === 'review' && (
+                                    <button type="button" title="确认发送转写" aria-label="确认发送转写" disabled={!speechInput.transcript.trim()} onClick={speechInput.confirm} className="w-9 h-9 rounded-full grid place-items-center text-primary hover:bg-black/10 disabled:opacity-30"><Check size={20} weight="bold" /></button>
+                                )}
+                            </div>
+                            <textarea
+                                aria-label="修改语音转写内容"
+                                rows={2}
+                                value={speechInput.transcript}
+                                onChange={event => speechInput.editTranscript(event.target.value)}
+                                placeholder="..."
+                                disabled={speechInput.status === 'starting' || speechInput.status === 'transcribing'}
+                                className={`w-full min-h-[3rem] max-h-24 resize-y rounded-xl px-3 py-2 text-sm outline-none ${isDiscordStyle ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}
+                            />
+                            {speechInput.error && <p role="alert" className="text-xs text-rose-500 mt-1">{speechInput.error}</p>}
+                        </div>
                     )}
                 </div>
             )}
