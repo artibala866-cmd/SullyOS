@@ -35,6 +35,8 @@ export interface SttCallbacks {
 export interface SttSession {
   /** Stop listening (and trigger transcription for API providers). Safe to call multiple times. */
   stop: () => void;
+  /** Discard captured input; unlike stop(), never begin a paid transcription. */
+  cancel: () => void;
 }
 
 export interface SttProviderOption {
@@ -481,7 +483,7 @@ const startApiStt = async (
   if (!isAudioRecordingSupported()) {
     cb.onError?.('当前环境不支持麦克风录音，请检查浏览器权限或改用 HTTPS 访问');
     cb.onEnd?.();
-    return { stop: () => {} };
+    return { stop: () => {}, cancel: () => {} };
   }
 
   let stream: MediaStream;
@@ -496,7 +498,7 @@ const startApiStt = async (
   } catch (e: any) {
     cb.onError?.(friendlyBrowserError(e?.name || e?.message || 'permission-denied', true));
     cb.onEnd?.();
-    return { stop: () => {} };
+    return { stop: () => {}, cancel: () => {} };
   }
 
   const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -504,7 +506,7 @@ const startApiStt = async (
     stream.getTracks().forEach((t) => t.stop());
     cb.onError?.('当前浏览器不支持 WebAudio 录音');
     cb.onEnd?.();
-    return { stop: () => {} };
+    return { stop: () => {}, cancel: () => {} };
   }
 
   let contextToCleanup: AudioContext | null = null;
@@ -520,6 +522,7 @@ const startApiStt = async (
   const recordedChunks: Float32Array[] = [];
   let totalSamples = 0;
   let stopped = false;
+  let cancelled = false;
 
   processor.onaudioprocess = (event: AudioProcessingEvent) => {
     if (stopped) return;
@@ -564,16 +567,19 @@ const startApiStt = async (
     try {
       const wavBlob = encodeWavFromFloat32(merged, sampleRate, 16000);
       const transcript = await transcribeAudioWithProvider(wavBlob, provider, lang, apiConfig);
+      if (cancelled) return;
       if (transcript) {
         cb.onFinal?.(transcript);
       } else {
         cb.onError?.('没听清刚才那句话，请靠近麦克风再试一次');
       }
     } catch (err: any) {
-      cb.onError?.(err?.message || '语音转写失败');
+      if (!cancelled) cb.onError?.(err?.message || '语音转写失败');
     } finally {
-      cb.onTranscribing?.(false);
-      cb.onEnd?.();
+      if (!cancelled) {
+        cb.onTranscribing?.(false);
+        cb.onEnd?.();
+      }
     }
   };
 
@@ -585,6 +591,19 @@ const startApiStt = async (
     stop: () => {
       void stopRecordingAndTranscribe();
     },
+    cancel: () => {
+      if (cancelled) return;
+      cancelled = true;
+      window.clearTimeout(autoStopTimer);
+      if (!stopped) {
+        stopped = true;
+        try { processor.disconnect(); source.disconnect(); } catch { /* ignore */ }
+        stream.getTracks().forEach(track => track.stop());
+        void audioCtx.close().catch(() => {});
+        cb.onEnd?.();
+      }
+      // An already submitted provider request cannot be unbilled; ignore late results.
+    },
   };
   } catch (error: any) {
     // getUserMedia may succeed even when AudioContext/ScriptProcessor fails.
@@ -593,7 +612,7 @@ const startApiStt = async (
     if (contextToCleanup) await contextToCleanup.close().catch(() => {});
     cb.onError?.('麦克风音频初始化失败：' + (error?.message || error));
     cb.onEnd?.();
-    return { stop: () => {} };
+    return { stop: () => {}, cancel: () => {} };
   }
 };
 
@@ -610,7 +629,7 @@ const startWeb = (lang: string, cb: SttCallbacks, hasPaidConfigured: boolean): S
       : '当前浏览器不支持自带语音识别，可在「设置 → 其他 API」配置 ElevenLabs、鱼声 Fish 或 MiniMax Key 开启高精度语音转文字';
     cb.onError?.(hint);
     cb.onEnd?.();
-    return { stop: () => {} };
+    return { stop: () => {}, cancel: () => {} };
   }
 
   const rec = new Ctor();
@@ -622,6 +641,7 @@ const startWeb = (lang: string, cb: SttCallbacks, hasPaidConfigured: boolean): S
   let lastEmitted = '';
   let gotAnyResult = false;
   let gotAudioSignal = false;
+  let cancelled = false;
   let watchdog: number | null = null;
   const clearWatchdog = () => {
     if (watchdog !== null) { window.clearTimeout(watchdog); watchdog = null; }
@@ -648,12 +668,14 @@ const startWeb = (lang: string, cb: SttCallbacks, hasPaidConfigured: boolean): S
   };
 
   rec.onerror = (e: any) => {
+    if (cancelled) return;
     clearWatchdog();
     if (e?.error === 'aborted') return;
     cb.onError?.(friendlyBrowserError(e?.error || e?.message || '', hasPaidConfigured));
   };
 
   rec.onend = () => {
+    if (cancelled) return;
     clearWatchdog();
     if (lastEmitted) cb.onFinal?.(lastEmitted);
     cb.onEnd?.();
@@ -664,7 +686,7 @@ const startWeb = (lang: string, cb: SttCallbacks, hasPaidConfigured: boolean): S
   } catch (e: any) {
     cb.onError?.(friendlyBrowserError(e?.message || 'start-failed', hasPaidConfigured));
     cb.onEnd?.();
-    return { stop: () => {} };
+    return { stop: () => {}, cancel: () => {} };
   }
 
   watchdog = window.setTimeout(() => {
@@ -678,7 +700,16 @@ const startWeb = (lang: string, cb: SttCallbacks, hasPaidConfigured: boolean): S
     );
   }, SILENT_HANG_WATCHDOG_MS);
 
-  return { stop: () => { clearWatchdog(); try { rec.stop(); } catch { /* ignore */ } } };
+  return {
+    stop: () => { clearWatchdog(); try { rec.stop(); } catch { /* ignore */ } },
+    cancel: () => {
+      if (cancelled) return;
+      cancelled = true;
+      clearWatchdog();
+      try { rec.abort(); } catch { /* ignore */ }
+      cb.onEnd?.();
+    },
+  };
 };
 
 const startNative = async (lang: string, cb: SttCallbacks, hasPaidConfigured: boolean): Promise<SttSession> => {
@@ -710,7 +741,16 @@ const startNative = async (lang: string, cb: SttCallbacks, hasPaidConfigured: bo
     .then((res: any) => finish((res?.matches?.[0] || lastPartial || '').trim()))
     .catch((e: any) => finish('', e?.message || 'native-error'));
 
-  return { stop: () => { SpeechRecognition.stop().catch(() => { /* ignore */ }); } };
+  return {
+    stop: () => { SpeechRecognition.stop().catch(() => { /* ignore */ }); },
+    cancel: () => {
+      if (ended) return;
+      ended = true;
+      void handle.remove();
+      void SpeechRecognition.stop().catch(() => {});
+      cb.onEnd?.();
+    },
+  };
 };
 
 /**
