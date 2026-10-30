@@ -7,8 +7,8 @@ import StudyAvatar from './StudyAvatar';
 import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
-import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
-import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
+import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachEvent,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
+import { focusChatAllowance, newWorkspaceId, readWorkspace, localDate, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
   type CommissionPlanPreview, type CommissionPlanRequest,
@@ -71,6 +71,7 @@ const ScheduleApp: React.FC = () => {
   const [companionMomentAt,setCompanionMomentAt]=useState(0);
   const [coachByChar,setCoachByChar]=useState<Record<string,StudyCoachSetting>>(()=>load('coachByChar',{}));
   const [coachLastShown,setCoachLastShown]=useState<Record<string,number>>(()=>load('coachLastShown',{}));
+  const [coachEventByChar,setCoachEventByChar]=useState<Record<string,{day:string;key:string;count:number}>>(()=>load('coachEventByChar',{}));
   const [coachSettingsOpen,setCoachSettingsOpen]=useState(false);
   const [coachPrompt,setCoachPrompt]=useState('');
   const coachIdleSince=useRef(Date.now());
@@ -169,6 +170,7 @@ const ScheduleApp: React.FC = () => {
   useEffect(() => { save('lock', focusLock); }, [focusLock]);
   useEffect(() => { save('coachByChar', coachByChar); }, [coachByChar]);
   useEffect(() => { save('coachLastShown', coachLastShown); }, [coachLastShown]);
+  useEffect(() => { save('coachEventByChar', coachEventByChar); }, [coachEventByChar]);
   // A fresh round, pause, completed round or Char selection starts a new local idle window.
   useEffect(()=>{
     coachIdleSince.current=Date.now();
@@ -179,15 +181,24 @@ const ScheduleApp: React.FC = () => {
     const check=()=>{
       const when=Date.now();
       if(isStudyCoachQuietTime(coachSetting,new Date(when))){setCoachPrompt('');return;}
+      const date=new Date(when), day=localDate(date);
+      const reality=workspaceSnapshot?buildStudyRoomReality(workspaceSnapshot,null,'',records,tasks,date):undefined;
+      const latestEvent=studyCoachEvent(reality,date);
+      const seen=coachEventByChar?.[charId];
+      const sameDay=seen?.day===day;
       const prompt=nextStudyCoachPrompt({
-        charId,setting:coachSetting,session:null,now:new Date(when),
+        charId,setting:coachSetting,session:null,now:date,
         idleSince:coachIdleSince.current,lastPromptAt:coachLastShown?.[charId]||0,
-        reality:workspaceSnapshot?buildStudyRoomReality(workspaceSnapshot,null,'',records,tasks,new Date(when)):undefined,
-        isVisible:document.visibilityState==='visible',isTimerTab:tab==='timer',
+        lastEventKey:sameDay?seen.key:'',promptCountToday:sameDay?seen.count:0,
+        reality,isVisible:document.visibilityState==='visible'&&!assistantOpen&&!coachSettingsOpen&&!exitOpen,
+        isTimerTab:tab==='timer',
       });
-      if(!prompt)return;
+      if(!prompt||!latestEvent)return;
       setCoachPrompt(prompt);
       setCoachLastShown(prev=>({...prev,[charId]:when}));
+      setCoachEventByChar(prev=>({...prev,[charId]:{
+        day,key:latestEvent.key,count:(sameDay?seen.count:0)+1,
+      }}));
     };
     check();
     const interval=window.setInterval(check,60000);
@@ -198,7 +209,7 @@ const ScheduleApp: React.FC = () => {
     };
     document.addEventListener('visibilitychange',onVisibility);
     return ()=>{window.clearInterval(interval);document.removeEventListener('visibilitychange',onVisibility);};
-  },[activeChar?.id,charId,coachByChar,coachLastShown,session,tab,workspaceSnapshot,records,tasks]);
+  },[activeChar?.id,charId,coachByChar,coachLastShown,coachEventByChar,session,tab,workspaceSnapshot,records,tasks,assistantOpen,coachSettingsOpen,exitOpen]);
   useEffect(() => {
     if (!session || session.pauseRemainingMs != null || now < session.deadline) return;
     const id = session.id || String(session.deadline);
@@ -511,7 +522,7 @@ const ScheduleApp: React.FC = () => {
   };
   const recentVoice=!session?recentCompanionReply(notes,charId):'';
   const freshMoment=!!companionMoment&&Date.now()-companionMomentAt<2*60000;
-  const companionStatus=coachPrompt||(
+  const companionStatus=(
     session?companionMomentText(session,activeTask?.title||'',0)
       :recentVoice?'刚才说：'+recentVoice
       :freshMoment?companionMoment
@@ -564,7 +575,7 @@ const ScheduleApp: React.FC = () => {
       </div>
       <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-5 pb-5 space-y-3 sm:space-y-5">
         {coachPrompt && tab==='timer' && <div role="status" aria-live="polite" className="mx-auto flex max-w-[510px] items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs text-neutral-700">
-          <span className="min-w-0 flex-1">{coachPrompt}</span>
+          <span className="min-w-0 flex-1"><strong>学习室提醒</strong> · {coachPrompt}</span>
           <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f4f4f4]" aria-label="稍后提醒" onClick={()=>setCoachPrompt('')}><X size={17}/></button>
         </div>}
         {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
@@ -728,8 +739,8 @@ const ScheduleApp: React.FC = () => {
           <label className="mt-4 block text-sm font-medium">提醒频率
             <select aria-label="学习督促强度" disabled={!activeChar} className="mt-2 w-full rounded-xl border border-neutral-200 bg-[#fafafa] p-3 text-sm" value={coachSetting.level}
               onChange={e=>updateCoachSetting({level:e.target.value as StudyCoachSetting['level']})}>
-              <option value="off">关闭</option><option value="gentle">温和 · 30 分钟</option>
-              <option value="normal">适中 · 15 分钟</option><option value="firm">积极 · 8 分钟</option>
+              <option value="off">关闭</option><option value="gentle">轻提醒 · 最多每天 1 次</option>
+              <option value="normal">适度陪学 · 最多每天 2 次</option><option value="firm">认真陪学 · 最多每天 3 次</option>
             </select>
           </label>
           {coachSetting.level!=='off' && <>
@@ -744,7 +755,7 @@ const ScheduleApp: React.FC = () => {
               <label className="text-xs text-neutral-600">结束<input aria-label="免打扰结束" type="time" className="mt-1 w-full min-w-0 rounded-xl border border-neutral-200 bg-[#fafafa] p-2 text-sm" value={coachSetting.quietEnd} onChange={e=>updateCoachSetting({quietEnd:e.target.value})}/></label>
             </div>}
           </>}
-          <p className="mt-4 text-xs leading-relaxed text-neutral-500">仅在学习室专注页打开、没有计时且超过所选间隔时显示本机提示。专注、暂停、休息、免打扰和后台均不催促；不调用 AI，也不会自动发消息。想要 Char 回复时由你亲自发送。</p>
+          <p className="mt-4 text-xs leading-relaxed text-neutral-500">只在学习室空闲时，根据真实事项变化显示提醒；相同事项当天不重复，专注或休息时保持安静。提醒不是 Char 消息，不会自动调用付费 AI 或 AMSG。想聊时再由你发送。</p>
         </section>
       </div>}
       {assistantOpen && <div className="absolute inset-0 z-[80] bg-black/40 flex items-end justify-center"
