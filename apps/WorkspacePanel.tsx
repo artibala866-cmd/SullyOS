@@ -491,7 +491,9 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       await queue.current;
       const ids=candidate.sessions.map(r=>r.sessionId!);
       const updated=await mutateWorkspace(current=>
-        settleFocusProgress(current,focusTasks,records,kind,id,ids,estimate,Date.now(),phaseId));
+        (phaseId
+          ?settleFocusProgress(current,focusTasks,records,kind,id,ids,estimate,Date.now(),phaseId)
+          :settleFocusProgress(current,focusTasks,records,kind,id,ids,estimate)));
       syncData(()=>updated);
       addToast('已手动结算 '+candidate.minutes+' 分钟，完成状态仍由你决定','success');
     }catch(e){
