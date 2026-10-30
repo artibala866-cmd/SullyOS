@@ -74,6 +74,16 @@ it('offers four independent aspect frames and toggles horizontal framing without
  Object.defineProperty(HTMLElement.prototype,'clientHeight',{configurable:true,get(){return 844;}});
  await render();
  expect(host.querySelector('.photo-frame')).toBeTruthy();
+ const turn=[...host.querySelectorAll<HTMLButtonElement>('footer button')].find(b=>b.textContent==='横屏取景');
+ expect(turn).toBeTruthy();
+ act(()=>turn!.click());
+ const rotated=host.querySelector<HTMLElement>('.home-photo-mode')!;
+ expect(rotated.getAttribute('data-sideways')).toBe('true');
+ expect(rotated.style.transform).toContain('rotate(90deg)');
+ expect(rotated.style.width).toBe('844px');
+ expect(rotated.style.height).toBe('390px');
+ act(()=>[...host.querySelectorAll<HTMLButtonElement>('footer button')].find(b=>b.textContent==='回到竖屏')!.click());
+ expect(rotated.getAttribute('data-sideways')).toBe('false');
  const tabs=[...host.querySelectorAll<HTMLButtonElement>('.photo-controls nav button')];
  act(()=>tabs.find(b=>b.textContent==='镜头')!.click());
  const formats=host.querySelector('[aria-label="照片比例"]')!;
