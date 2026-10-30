@@ -8,6 +8,8 @@ on:
       - 'utils/amsgAutonomyBootstrap.ts'
       - 'utils/amsgAutonomyBootstrap.test.ts'
       - 'utils/amsgAutonomyWake.ts'
+      - 'utils/amsg2Tasks.ts'
+      - 'utils/amsg2Tasks.test.ts'
       - 'apps/Chat.tsx'
       - 'utils/dailyScheduleForegroundRecovery.ts'
       - 'utils/dailyScheduleForegroundRecovery.test.ts'
@@ -38,11 +40,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Validate schedule recovery, life events, NPC continuity, and messaging
-        run: pnpm exec vitest run utils/dailyScheduleForegroundRecovery.test.ts utils/characterPhoneOpportunity.test.ts utils/characterPhoneAutonomy.test.ts utils/characterLifeEventRouting.test.ts utils/characterLifeScheduleContext.test.ts utils/characterPhoneApiBudget.test.ts utils/scheduleTime.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyBootstrap.test.ts utils/chatAutoReply.test.ts
+        run: pnpm exec vitest run utils/dailyScheduleForegroundRecovery.test.ts utils/characterPhoneOpportunity.test.ts utils/characterPhoneAutonomy.test.ts utils/characterLifeEventRouting.test.ts utils/characterLifeScheduleContext.test.ts utils/characterPhoneApiBudget.test.ts utils/scheduleTime.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyBootstrap.test.ts utils/amsg2Tasks.test.ts utils/chatAutoReply.test.ts
       - name: Check changed modules for TypeScript diagnostics
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/life-stage3-tsc.log 2>&1 || true
-          grep -E '^(context/OSContext.tsx|apps/Chat.tsx|components/chat/ActiveMsg2SettingsModal.tsx|utils/(amsgAutonomyBootstrap|amsgAutonomyWake|dailyScheduleForegroundRecovery|scheduleGenerator|homeVisits|characterPhoneAutonomy|characterPhoneOpportunity)(\.test)?\.ts)[(]' /tmp/life-stage3-tsc.log > /tmp/life-stage3-errors.log || true
+          grep -E '^(context/OSContext.tsx|apps/Chat.tsx|components/chat/ActiveMsg2SettingsModal.tsx|utils/(amsg2Tasks|amsgAutonomyBootstrap|amsgAutonomyWake|dailyScheduleForegroundRecovery|scheduleGenerator|homeVisits|characterPhoneAutonomy|characterPhoneOpportunity)(\.test)?\.ts)[(]' /tmp/life-stage3-tsc.log > /tmp/life-stage3-errors.log || true
           if [ -s /tmp/life-stage3-errors.log ]; then cat /tmp/life-stage3-errors.log; exit 1; fi
           echo 'Stage 3 touched-module diagnostics clean.'

@@ -50,6 +50,7 @@ import {
   keepUncancelledTasks,
   pruneFiredTasks,
   reconcileTasksWithRemote,
+  reconcileTaskListWithoutOptIn,
   resolveExpirePolicy,
   type RemoteTaskLastError,
   type RemoteTaskProjection,
@@ -277,11 +278,11 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       const settled = settle(current);
       const changed = settled.length !== current.length
         || settled.some((t, i) => t !== current[i]);
-      if (changed && isCurrent()) {
-        onSave((prev) => ({
-          ...(prev ?? { enabled: true, tasks: [] }),
-          tasks: settle(prev?.tasks ?? []),
-        }));
+      // Cloud listing is a READ, never a grant to turn 2.0 on.
+      // An unconfigured character must not acquire an enabled:true profile
+      // (or any new profile) just because a legacy Worker holds an orphan.
+      if (changed && isCurrent() && char.activeMsg2Config) {
+        onSave(prev => reconcileTaskListWithoutOptIn(prev, settle));
       }
     })();
     return () => { disposed = true; };

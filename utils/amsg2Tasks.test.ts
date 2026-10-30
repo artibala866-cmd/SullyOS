@@ -24,6 +24,7 @@ import {
   REMOTE_ERROR_REASON_MAX,
   pruneStaleTasks,
   reconcileTasksWithRemote,
+  reconcileTaskListWithoutOptIn,
   shortTaskId,
   toDatetimeLocalValue,
 } from './amsg2Tasks';
@@ -37,6 +38,28 @@ const task = (extra: Partial<ActiveMsg2TaskRecord> = {}): ActiveMsg2TaskRecord =
   recurrenceType: 'none', expirePolicy: 'expire',
   source: 'character', status: 'scheduled', createdAt: Date.now(),
   ...extra,
+});
+
+describe('AMSG2 remote read must not become unauthorized opt-in', () => {
+  it('never enables an unconfigured Char merely by adopting a cloud row', () => {
+    const remote = task({taskUuid:'orphan',clientTaskId:'autowake:day:orphan',recurrenceType:'daily'});
+    const next = reconcileTaskListWithoutOptIn(undefined, () => [remote]);
+    expect(next.enabled).toBe(false);
+    expect(next.tasks).toEqual([remote]);
+  });
+  it('preserves explicit off and existing account preferences on reconciliation', () => {
+    const before = {enabled:false,tasks:[],maxTokens:400} as const;
+    const next = reconcileTaskListWithoutOptIn(before as any, old => [...old,task()]);
+    expect(next.enabled).toBe(false);
+    expect(next.maxTokens).toBe(400);
+    expect(next.tasks).toHaveLength(1);
+  });
+  it('preserves an authorized on switch while refreshing existing task records', () => {
+    const before = {enabled:true,tasks:[]} as const;
+    const next = reconcileTaskListWithoutOptIn(before as any, () => [task()]);
+    expect(next.enabled).toBe(true);
+    expect(next.tasks).toHaveLength(1);
+  });
 });
 
 describe('amsg2Tasks helpers', () => {

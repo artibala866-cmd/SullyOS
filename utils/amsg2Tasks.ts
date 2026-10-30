@@ -44,6 +44,18 @@ import { AMSG_BACKGROUND_JOB_SUBTYPE } from './amsgTaskKinds';
 export const isAmsg2EnabledForChar = (char: CharacterProfile): boolean =>
   char.activeMsg2Config?.enabled === true;
 
+/** A remote read is never user consent. In particular, adopting an orphan
+ * cloud job from a legacy client must not turn a disabled/unconfigured Char on.
+ * The caller avoids writing at all when no profile config existed.
+ */
+export const reconcileTaskListWithoutOptIn = (
+  prev: ActiveMsg2CharacterConfig | undefined,
+  settle: (tasks: ActiveMsg2TaskRecord[]) => ActiveMsg2TaskRecord[],
+): ActiveMsg2CharacterConfig => {
+  const current = prev ?? { enabled: false, tasks: [] };
+  return { ...current, tasks: settle(current.tasks ?? []) };
+};
+
 export const shortTaskId = (taskUuid: string): string => taskUuid.slice(0, 8);
 
 /**
