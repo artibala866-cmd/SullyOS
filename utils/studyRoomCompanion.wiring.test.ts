@@ -158,4 +158,24 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(study).toContain('已有讲解不重写');
  });
 
+ it('真正主动 AI 仅在学习室单独授权，按事件去重且关闭/离开/后台中止',()=>{
+   expect(schedule).toContain('checked={coachSetting.allowAutoAI}');
+   expect(schedule).toContain('updateCoachSetting({allowAutoAI:e.target.checked})');
+   expect(schedule).toContain('可能消耗模型额度');
+   const proactive=schedule.split('// The optional paid model request is separate')[1]?.split('  useEffect(() => {\n    if (!session')[0]||'';
+   expect(proactive).toContain('coachSetting.allowAutoAI');
+   expect(proactive).toContain('!workspaceSnapshot');
+   expect(proactive).toContain("tab!=='timer'");
+   expect(proactive).toContain("document.visibilityState!=='visible'");
+   expect(proactive).toContain('isStudyCoachQuietTime(coachSetting,clock)');
+   expect(proactive).toContain('autoCoachAttempted.current.add(key)');
+   expect(proactive).toContain('controller.abort()');
+   expect(proactive).toContain('notesForStudyContext(notes,chosen.id,\'overview\')');
+   expect(proactive).toContain("role:'assistant',content:answer");
+   expect(proactive).toContain("scope:'overview'");
+   expect(proactive).not.toContain('ActiveMsgClient');
+   expect(proactive).not.toContain('loadWorkspacePrivateChatBlock');
+   expect(schedule).toContain('学习室提醒</strong>');
+ });
+
 });
