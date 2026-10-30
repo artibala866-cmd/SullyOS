@@ -53,6 +53,19 @@ describe('stage4: outbox replay and user sovereignty',()=>{
   expect(readCharacterPhoneChats(id)[0].messages).toHaveLength(2);
   expect(readCharacterLifeEvents(id).filter(e=>e.kind==='npc-chat')).toHaveLength(1);
  });
+ it('targets the original thread even if a second thread has the same NPC contact',async()=>{
+  const key='sully_character_phone_wechat_v1:'+id;
+  const chats=readCharacterPhoneChats(id);
+  chats.unshift({
+    id:'another-thread',contactId:contact,name:'小圆',time:at-60000,
+    messages:[{speaker:{role:'contact',contactId:contact},text:'另一条旧消息',createdAt:at-60000}],
+  });
+  localStorage.setItem(key,JSON.stringify(chats));
+  expect(await applyCloudPhoneResult(row)).toBe(true);
+  const persisted=readCharacterPhoneChats(id);
+  expect(persisted.find(t=>t.id===thread)?.messages).toHaveLength(2);
+  expect(persisted.find(t=>t.id==='another-thread')?.messages).toHaveLength(1);
+ });
  it('retains two intentional identical short cloud lines but never duplicates a replay',async()=>{
   row.messages=['嗯','嗯'];
   expect(await applyCloudPhoneResult(row)).toBe(true);
