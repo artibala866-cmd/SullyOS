@@ -72,7 +72,12 @@ try{
   if(stage&&/^[a-z0-9-]{3,40}$/.test(stage)&&!captured.has(stage)){
    const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
    if(!shot?.data)throw Error('Cannot capture the real WebGL frame: '+stage);
-   writeFileSync(join(output,'bath-'+stage+'.png'),Buffer.from(shot.data,'base64'));
+   const bytes=Buffer.from(shot.data,'base64');
+   if(stage.endsWith('-side')){
+    const primary=readFileSync(join(output,'bath-'+stage.slice(0,-5)+'.png'));
+    if(bytes.equals(primary))throw Error('Bathtub camera did not redraw before side-view capture: '+stage);
+   }
+   writeFileSync(join(output,'bath-'+stage+'.png'),bytes);
    captured.add(stage);
    await send('Runtime.evaluate',{expression:'window.__home3dSmoke.capturedStages = [...(window.__home3dSmoke.capturedStages ?? []), '+JSON.stringify(stage)+']'});
   }

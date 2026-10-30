@@ -504,11 +504,13 @@ function texture(color){
    }
   };
   const captureBathSide=async stage=>{
-   // Rotate the actual viewer, never the furniture, actor, root or IK target.
-   // Restore the original angle before continuing the reversible journey.
+   // Camera commands schedule a render. Two browser frames must complete
+   // BEFORE captureBath suspends the editor or the screenshot is a pixel-for-
+   // pixel duplicate of the original angle despite the camera rotating.
+   const redraw=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
    command('turn-view',{angle:1.12});
-   try{await captureBath(stage+'-side');}
-   finally{command('turn-view',{angle:-1.12});}
+   try{await redraw();await captureBath(stage+'-side');}
+   finally{command('turn-view',{angle:-1.12});await redraw();}
   };
   set('bathroom full natural entry');
   command('chibi-bath',{id:'smoke-tub',kind:'bath-soak',station:''});
