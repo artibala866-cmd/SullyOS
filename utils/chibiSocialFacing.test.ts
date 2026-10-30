@@ -1,16 +1,12 @@
-import {it,expect,vi,beforeEach,afterEach} from 'vitest';
+import {it,expect,vi,afterEach} from 'vitest';
 import * as T from 'three';
-import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {readFileSync} from 'node:fs';
 import {createSocialScene} from '../apps/room3d/chibi/selectedSocial';
 import {selectedMotions} from '../apps/room3d/chibi/selectedMotions';
 import type {ChibiVisitor} from '../apps/room3d/chibi/visitor';
 import {splitMotionHeading} from '../apps/room3d/chibi/motionHeading';
 const clip=(id:string)=>JSON.parse(readFileSync(`public/room3d/motions/selected/${id}.json`,'utf8'));
-// Existing heading tests use real imported clips, but should not request props
-// over a browser-relative GLB URL in Node. WebGL integration owns that check.
-beforeEach(()=>vi.spyOn(GLTFLoader.prototype,'load').mockImplementation((_url,onLoad)=>{onLoad({scene:new T.Group()} as any);}));
-afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
+afterEach(()=>vi.unstubAllGlobals());
 function actor(z:number){
  const root=new T.Group();root.position.z=z;root.rotation.y=z>0?Math.PI:0;let hips=new T.Quaternion();
  return {visitor:{root,motionScale:.4,setActionExpression:()=>{},animate:()=>hips.identity(),finishPose:()=>{},classicPoint:()=>new T.Vector3(),classicContact:()=>{},applySelectedFrame:(f:any,w:number)=>hips.identity().slerp(f.rotations.hips,w)} as unknown as ChibiVisitor,
@@ -18,9 +14,10 @@ function actor(z:number){
 }
 const signed=(v:T.Vector3)=>Math.atan2(v.x,v.z);
 const change=(a:number,b:number)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
-it('uses one shortest heading transition on entry and release for all imported paired actions',async()=>{
+// Halloween has a separate pre-action turn and dedicated actor-facing regression.
+it('uses one shortest heading transition on entry and release for legacy imported paired actions',async()=>{
  vi.stubGlobal('fetch',vi.fn(async(url:string)=>({ok:true,json:async()=>clip(url.split('/').pop()!.replace('.json',''))})));
- for(const e of selectedMotions.filter(e=>e.participants===2&&!e.id.startsWith('home-'))){
+ for(const e of selectedMotions.filter(e=>e.participants===2&&!e.id.startsWith('home-')&&!e.id.startsWith('halloween-'))){
   const actors=[actor(1.2),actor(-1.2)],runtime=createSocialScene(actors.map((a,i)=>({id:String(i),visitor:a.visitor})));
   await runtime.start(e.id,'0','1');const approach=runtime.inspect().session!.duration-e.duration-1.2;
   for(const start of [approach,approach+e.duration+.6]){
