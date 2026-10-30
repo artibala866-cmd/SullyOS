@@ -75,4 +75,15 @@ describe('学习室·人工结算专注到原委托/作业',()=>{
       {sessionId:'s1',kind:'commission',itemId:'c1',minutes:25,appliedAt:1},
     ]}).join(' ')).toContain('重复');
   });
+  it('人工选择具体阶段结算，但不自动把阶段或委托标记完成',()=>{
+    const {data,tasks,records}=fixture();
+    data.commissions[0].phases=[{id:'color',title:'上色',state:'active',remainingMinutes:45,bufferMinutes:10}];
+    const updated=settleFocusProgress(data,tasks,records,'commission','c1',['s1'],90,1000,'color');
+    expect(updated.focusSettlements[0].phaseId).toBe('color');
+    expect(updated.commissions[0].phases?.[0]).toMatchObject({remainingMinutes:20,state:'active'});
+    expect(updated.commissions[0]).toMatchObject({remainingMinutes:65,status:'active'});
+    expect(()=>settleFocusProgress(updated,tasks,records,'commission','c1',['s1'],65,2000,'color')).toThrow();
+    expect(()=>settleFocusProgress(data,tasks,records,'commission','c1',['s1','s2'],90,1000,'color')).toThrow('不足');
+  });
+
 });

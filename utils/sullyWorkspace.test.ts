@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  busyClassMinutesForDay, calculatePlanRisks, emptyWorkspace, focusChatAllowance, normalizeWorkspace,
+  busyClassMinutesForDay, calculatePlanRisks, planIssues, emptyWorkspace, focusChatAllowance, normalizeWorkspace,
   orderedCommissions, type Commission,
 } from './sullyWorkspace';
 
@@ -72,4 +72,24 @@ describe('排单基础数据', () => {
     }];
     expect(calculatePlanRisks(data, '2026-10-29')[0].shortfallMinutes).toBe(160);
   });
+  it('具体时段识别课程/画稿/作业重叠和可用时间约束，并兼容旧 stage',()=>{
+    const w=emptyWorkspace();
+    w.dailyAvailableMinutes=180;
+    w.commissions=[{...commission('a','2026-11-05',1),
+      phases:[{id:'draft',title:'草稿',remainingMinutes:60,bufferMinutes:10,state:'active'}]}];
+    w.homework=[{id:'h1',classId:'class',title:'练习',dueAt:'2026-11-06T18:00',minutes:50,done:false,note:''}];
+    w.classes=[{id:'lesson',name:'课程',weekday:4,start:'14:00',end:'15:00',until:'',teacher:'',location:'',note:''}];
+    w.availability=[{id:'a',date:'2026-11-05',start:'13:00',end:'18:00'}];
+    w.planSlots=[
+      {id:'s1',kind:'commission',itemId:'a',phaseId:'draft',date:'2026-11-05',start:'14:30',end:'15:30'},
+      {id:'s2',kind:'homework',itemId:'h1',date:'2026-11-05',start:'15:00',end:'16:00'},
+    ];
+    expect(planIssues(w).some(x=>x.slotId==='s1'&&x.code==='class')).toBe(true);
+    expect(planIssues(w).some(x=>x.slotId==='s1'&&x.code==='overlap')).toBe(true);
+    w.planSlots[0]={...w.planSlots[0],start:'16:00',end:'17:00'};
+    expect(planIssues(w).some(x=>x.slotId==='s1'&&x.code==='overlap')).toBe(false);
+    expect(normalizeWorkspace({commissions:[{...commission('b','2026-11-06',2)}]}).commissions[0].stage).toBe('草稿');
+    expect(normalizeWorkspace(w).commissions[0].phases?.[0].title).toBe('草稿');
+  });
+
 });

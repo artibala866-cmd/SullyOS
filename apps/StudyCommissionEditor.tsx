@@ -1,16 +1,16 @@
 import React,{useState} from 'react';
-import type {Commission} from '../utils/sullyWorkspace';
+import {newWorkspaceId,type Commission,type CommissionPhase} from '../utils/sullyWorkspace';
 
 const input='w-full min-w-0 rounded-lg border border-neutral-300 bg-white p-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-neutral-800';
 const fields=['title','client','type','brief','acceptedAt','dueDate','stage','priority',
-  'status','remainingMinutes','bufferMinutes','plannedDate','price','paid','note'] as const;
+  'status','remainingMinutes','bufferMinutes','plannedDate','price','paid','note','phases'] as const;
 type EditField=typeof fields[number];
 
 /** Only changed fields should be persisted; avoid overwriting unrelated edits. */
 export function commissionFormPatch(before:Commission,after:Commission):Partial<Commission>{
   const patch:Partial<Commission>={};
   for(const field of fields){
-    if(before[field]!==after[field]) {
+    if(JSON.stringify(before[field])!==JSON.stringify(after[field])) {
       (patch as unknown as Record<string,unknown>)[field]=after[field];
     }
   }
@@ -28,11 +28,24 @@ export default function StudyCommissionEditor({commission,onSave,onClose}:Props)
   const [error,setError]=useState('');
   const update=<K extends EditField>(key:K,value:Commission[K])=>
     setDraft(prev=>({...prev,[key]:value}));
+  const updatePhase=(id:string,patch:Partial<CommissionPhase>)=>
+    setDraft(prev=>({...prev,phases:(prev.phases||[]).map(p=>p.id===id?{...p,...patch}:p)}));
+  const addPhase=()=>setDraft(prev=>({...prev,phases:[
+    ...(prev.phases||[]),{id:newWorkspaceId(),title:'新阶段',remainingMinutes:30,bufferMinutes:0,state:'todo' as const},
+  ]}));
   const save=async(e:React.FormEvent)=>{
     e.preventDefault();
     if(busy)return;
     if(!draft.title.trim()){setError('请填写稿件名称');return;}
-    const patch=commissionFormPatch(commission,{...draft,title:draft.title.trim()});
+    if(draft.phases?.some(p=>!p.title.trim()||!Number.isInteger(p.remainingMinutes)||p.remainingMinutes<0))
+      {setError('请检查阶段名称及剩余分钟');return;}
+    const phasesChanged=JSON.stringify(draft.phases)!==JSON.stringify(commission.phases);
+    const next=phasesChanged&&draft.phases?.length ? {
+      ...draft,remainingMinutes:draft.phases.filter(p=>p.state!=='skipped'&&p.state!=='done')
+        .reduce((sum,p)=>sum+p.remainingMinutes,0),
+      bufferMinutes:draft.phases.reduce((sum,p)=>sum+(p.state==='skipped'||p.state==='done'?0:p.bufferMinutes),0),
+    }:draft;
+    const patch=commissionFormPatch(commission,{...next,title:next.title.trim()});
     if(!Object.keys(patch).length){onClose();return;}
     setBusy(true);setError('');
     try{await onSave(patch);onClose();}
@@ -60,6 +73,25 @@ export default function StudyCommissionEditor({commission,onSave,onClose}:Props)
       <label className="text-sm">接单日期<input className={input} type="date" value={draft.acceptedAt} onChange={e=>update('acceptedAt',e.target.value)}/></label>
       <label className="flex items-center gap-2 text-sm pt-5"><input type="checkbox" checked={draft.paid} onChange={e=>update('paid',e.target.checked)}/>已收款（仅手动）</label>
     </div>
+    <fieldset className="space-y-2 border-t border-neutral-200 pt-3">
+      <legend className="text-sm">自定义阶段（旧委托可以继续使用单一阶段）</legend>
+      {(draft.phases||[]).map(p=><div key={p.id} className="grid grid-cols-2 gap-2">
+        <input aria-label="阶段名称" className={input} value={p.title} onChange={ev=>updatePhase(p.id,{title:ev.target.value})}/>
+        <select aria-label="阶段状态" className={input} value={p.state}
+          onChange={ev=>updatePhase(p.id,{state:ev.target.value as CommissionPhase['state']})}>
+          <option value="todo">待开始</option><option value="active">绘制中</option>
+          <option value="waiting">等待审核</option><option value="skipped">跳过</option>
+          <option value="done">用户已确认结束</option>
+        </select>
+        <label className="text-xs">剩余分钟<input className={input} type="number" min="0" value={p.remainingMinutes}
+          onChange={ev=>updatePhase(p.id,{remainingMinutes:Math.max(0,Number(ev.target.value)||0)})}/></label>
+        <label className="text-xs">修改缓冲分钟<input className={input} type="number" min="0" value={p.bufferMinutes}
+          onChange={ev=>updatePhase(p.id,{bufferMinutes:Math.max(0,Number(ev.target.value)||0)})}/></label>
+        <button type="button" className="text-xs underline" onClick={()=>setDraft(v=>({...v,phases:v.phases?.filter(x=>x.id!==p.id)}))}>移除此阶段</button>
+      </div>)}
+      <button type="button" className="text-xs underline" onClick={addPhase}>添加阶段</button>
+      <p className="text-xs text-neutral-500">阶段状态由你手动确认，计时结束不会自动宣告完成。</p>
+    </fieldset>
     <label className="block text-sm">委托人<input className={input} value={draft.client} onChange={e=>update('client',e.target.value)}/></label>
     <label className="block text-sm">稿件类型<input className={input} value={draft.type} onChange={e=>update('type',e.target.value)}/></label>
     <label className="block text-sm">需求与参考<textarea className={input} rows={3} value={draft.brief} onChange={e=>update('brief',e.target.value)}/></label>

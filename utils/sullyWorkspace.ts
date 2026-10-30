@@ -9,6 +9,61 @@ export const DEFAULT_STAGES = ['待确认', '排队', '草稿', '线稿', '上�
 export type WorkKind = 'commission' | 'homework';
 export type WorkStatus = 'active' | 'waiting' | 'paused' | 'delivered' | 'cancelled' | 'archived';
 
+export type CommissionPhaseState='todo'|'active'|'waiting'|'skipped'|'done';
+export interface CommissionPhase {id:string;title:string;remainingMinutes:number;bufferMinutes:number;state:CommissionPhaseState}
+export interface WorkspacePlanSlot {id:string;kind:WorkKind;itemId:string;phaseId?:string;date:string;start:string;end:string}
+export interface WorkspaceAvailability {id:string;date:string;start:string;end:string}
+export interface ExecutionPlanIssue {slotId:string;code:'invalid'|'overlap'|'class'|'outside_availability'|'over_capacity'|'inactive';detail:string}
+export const timeToMinutes=(s:string):number|null=>{
+  if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(s))return null;
+  const [h,m]=s.split(':').map(Number);return h*60+m;
+};
+export const isValidDay=(s:string):boolean=>{
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;
+  const d=new Date(s+'T00:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===s;
+};
+export const planSlotMinutes=(s:Pick<WorkspacePlanSlot,'start'|'end'>):number=>{
+  const a=timeToMinutes(s.start),b=timeToMinutes(s.end);return a===null||b===null||b<=a?0:b-a;
+};
+export const validPlanSlot=(s:Pick<WorkspacePlanSlot,'date'|'start'|'end'>)=>isValidDay(s.date)&&planSlotMinutes(s)>0;
+/** Check concrete time collisions; does not infer any time slot from daily budget alone. */
+export function planIssues(data:WorkspaceData):ExecutionPlanIssue[]{
+  const issues:ExecutionPlanIssue[]=[];
+  const slots=data.planSlots||[],availability=data.availability||[];
+  for(const slot of slots){
+    const duration=planSlotMinutes(slot),a=timeToMinutes(slot.start),b=timeToMinutes(slot.end);
+    if(!validPlanSlot(slot)||a===null||b===null){
+      issues.push({slotId:slot.id,code:'invalid',detail:'无效计划日期或时段'});continue;
+    }
+    const commission=slot.kind==='commission'?data.commissions.find(c=>c.id===slot.itemId):undefined;
+    const homework=slot.kind==='homework'?data.homework.find(h=>h.id===slot.itemId):undefined;
+    if(commission?.dueDate&&slot.date>commission.dueDate)
+      issues.push({slotId:slot.id,code:'invalid',detail:'已超过画稿约定交期'});
+    if(homework?.dueAt&&slot.date>homework.dueAt.slice(0,10))
+      issues.push({slotId:slot.id,code:'invalid',detail:'已超过作业交期'});
+    if(!((commission&&commission.status==='active')||(homework&&!homework.done))||
+      (slot.phaseId&&(!commission?.phases?.some(p=>p.id===slot.phaseId&&p.state!=='done'&&p.state!=='skipped'))))
+      issues.push({slotId:slot.id,code:'inactive',detail:'事项或阶段已暂停、结束或不存在'});
+    if(slots.some(other=>other.id!==slot.id&&other.date===slot.date&&
+      (timeToMinutes(other.start)??1440)<b&&(timeToMinutes(other.end)??0)>a))
+      issues.push({slotId:slot.id,code:'overlap',detail:'与其他画稿或作业时段重叠'});
+    const date=new Date(slot.date+'T12:00:00');
+    if(data.classes.some(c=>!c.cancelled&&c.weekday===date.getDay()&&(!c.until||slot.date<=c.until)
+      &&(timeToMinutes(c.start)??1440)<b&&(timeToMinutes(c.end)??0)>a))
+      issues.push({slotId:slot.id,code:'class',detail:'与现实课程时间重叠'});
+    const windows=availability.filter(w=>w.date===slot.date&&planSlotMinutes(w)>0)
+      .map(w=>({a:Math.max(a,timeToMinutes(w.start)!),b:Math.min(b,timeToMinutes(w.end)!)}))
+      .filter(w=>w.b>w.a).sort((x,y)=>x.a-y.a);
+    if(availability.some(w=>w.date===slot.date)){
+      let covered=0,end=0;for(const w of windows){covered+=Math.max(0,w.b-Math.max(end,w.a));end=Math.max(end,w.b);}
+      if(covered<duration)issues.push({slotId:slot.id,code:'outside_availability',detail:'不在当天设置的可用时间内'});
+    }
+    const total=slots.filter(x=>x.date===slot.date).reduce((sum,x)=>sum+planSlotMinutes(x),0);
+    if(total>data.dailyAvailableMinutes)
+      issues.push({slotId:slot.id,code:'over_capacity',detail:'当天已排时长超出日预算'});
+  }
+  return issues;
+}
 export interface Commission {
   id: string;
   title: string;
@@ -18,6 +73,7 @@ export interface Commission {
   acceptedAt: string;
   dueDate: string;
   stage: string;
+  phases?: CommissionPhase[]; // Legacy stage stays authoritative until user creates phases.
   priority: number;
   status: WorkStatus;
   remainingMinutes: number;
@@ -64,6 +120,7 @@ export interface FocusSettlement {
   itemId:string;
   minutes:number;
   appliedAt:number;
+  phaseId?:string;
 }
 export type WorkspaceReminderKind = 'commission' | 'homework';
 export type WorkspaceReminderStatus = 'creating' | 'scheduled' | 'cancel_failed' | 'needs_review';
@@ -107,10 +164,13 @@ export interface WorkspaceData {
   homework: ClassHomework[];
   notes: ClassNote[];
   dailyAvailableMinutes: number; // 绘画与学习共同的日可用预算
+  planSlots?: WorkspacePlanSlot[];
+  availability?: WorkspaceAvailability[];
 }
 export const emptyWorkspace = (): WorkspaceData => ({
   commissions: [], classes: [], homework: [], notes: [], reminders: [],
   focusSettlements: [], privateChatPermissions: {}, dailyAvailableMinutes: 240,
+  planSlots: [], availability: [],
 });
 export const localDate = (date: Date): string =>
   [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
@@ -186,6 +246,12 @@ export function workspaceIntegrityWarnings(raw:unknown):string[] {
       });
     }
   }
+  for(const field of ['planSlots','availability'] as const){
+    if(raw[field]!==undefined&&(!Array.isArray(raw[field])||
+      (raw[field] as unknown[]).some(row=>!isRow(row)||typeof row.id!=='string'||
+        typeof row.date!=='string'||typeof row.start!=='string'||typeof row.end!=='string')))
+      issues.push(field+'包含无效时段');
+  }
   return issues;
 }
 export function normalizeWorkspace(raw:unknown):WorkspaceData {
@@ -197,7 +263,15 @@ export function normalizeWorkspace(raw:unknown):WorkspaceData {
       ...row,id:row.id as string,title:asText(row.title,'未命名委托'),
       client:asText(row.client),type:asText(row.type),brief:asText(row.brief),
       acceptedAt:asText(row.acceptedAt),dueDate:asText(row.dueDate),
-      stage:asText(row.stage,'草稿'),priority:asNumber(row.priority,2),
+      stage:asText(row.stage,'草稿'),
+      phases:Array.isArray(row.phases)?normalizedRows(row.phases,p=>({
+        id:p.id as string,title:asText(p.title,'未命名阶段'),
+        remainingMinutes:Math.max(0,asNumber(p.remainingMinutes)),
+        bufferMinutes:Math.max(0,asNumber(p.bufferMinutes)),
+        state:['todo','active','waiting','skipped','done'].includes(asText(p.state))
+          ?p.state as CommissionPhaseState:'todo',
+      })):undefined,
+      priority:asNumber(row.priority,2),
       status:['active','waiting','paused','delivered','cancelled','archived']
         .includes(asText(row.status))?row.status as WorkStatus:'paused',
       remainingMinutes:Math.max(0,asNumber(row.remainingMinutes)),
@@ -247,6 +321,13 @@ export function normalizeWorkspace(raw:unknown):WorkspaceData {
           study:isRow(value)&&value.study===true,
           commissions:isRow(value)&&value.commissions===true,
         }])):{},
+    planSlots:normalizedRows(raw.planSlots,row=>({
+      id:row.id as string,kind:row.kind==='homework'?'homework':'commission',itemId:asText(row.itemId),
+      phaseId:asText(row.phaseId)||undefined,date:asText(row.date),start:asText(row.start),end:asText(row.end),
+    })),
+    availability:normalizedRows(raw.availability,row=>({
+      id:row.id as string,date:asText(row.date),start:asText(row.start),end:asText(row.end),
+    })),
     dailyAvailableMinutes:typeof raw.dailyAvailableMinutes==='number' && Number.isFinite(raw.dailyAvailableMinutes)
       ? Math.max(0,Math.min(1440,Number(raw.dailyAvailableMinutes))):fallback.dailyAvailableMinutes,
   };
@@ -375,19 +456,45 @@ export function dailyCapacityForecast(
     return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10)===key;
   };
   const unscheduledHomeworkCount=incomplete.filter(h=>!validDue(h.dueAt)).length;
+  const bookedHomework=(h:ClassHomework)=>Math.min(Math.max(0,h.minutes||0),
+    (workspace.planSlots||[]).filter(slot=>slot.kind==='homework'&&slot.itemId===h.id
+      &&validPlanSlot(slot)&&(!validDue(h.dueAt)||slot.date<=h.dueAt.slice(0,10)))
+      .reduce((sum,slot)=>sum+planSlotMinutes(slot),0));
   const overdueHomeworkMinutes=incomplete.filter(h=>validDue(h.dueAt)
-    && h.dueAt.slice(0,10)<fromDate).reduce((sum,h)=>sum+Math.max(0,h.minutes||0),0);
+    && h.dueAt.slice(0,10)<fromDate)
+    .reduce((sum,h)=>sum+Math.max(0,h.minutes-bookedHomework(h)),0);
   const result:DailyCapacity[]=[];
   for(let i=0;i<count;i++){
     const date=new Date(start);
     date.setDate(start.getDate()+i);
     const key=localDate(date);
-    const classMinutes=busyClassMinutesForDay(workspace.classes,date);
+    const windows=(workspace.availability||[]).filter(w=>w.date===key&&planSlotMinutes(w)>0);
+    const classMinutes=windows.length
+      ? (()=>{
+        const spans=workspace.classes.filter(c=>!c.cancelled&&c.weekday===date.getDay()&&(!c.until||key<=c.until))
+          .flatMap(c=>windows.map(w=>({
+            start:Math.max(timeToMinutes(c.start)??1440,timeToMinutes(w.start)!),
+            end:Math.min(timeToMinutes(c.end)??0,timeToMinutes(w.end)!),
+          })).filter(v=>v.end>v.start)).sort((a,b)=>a.start-b.start);
+        let minutes=0,last=0;for(const span of spans){
+          minutes+=Math.max(0,span.end-Math.max(last,span.start));last=Math.max(last,span.end);
+        }return minutes;
+      })()
+      : busyClassMinutesForDay(workspace.classes,date);
     const dueToday=incomplete.filter(h=>validDue(h.dueAt)&&h.dueAt.slice(0,10)===key)
-      .reduce((sum,h)=>sum+Math.max(0,h.minutes||0),0);
+      .reduce((sum,h)=>sum+Math.max(0,h.minutes-bookedHomework(h)),0);
+    const bookedToday=(workspace.planSlots||[]).filter(slot=>slot.kind==='homework'
+      &&incomplete.some(h=>h.id===slot.itemId)&&slot.date===key&&validPlanSlot(slot))
+      .reduce((sum,slot)=>sum+planSlotMinutes(slot),0);
     const backlog=i===0?overdueHomeworkMinutes:0;
-    const homeworkMinutes=dueToday+backlog;
-    const capacity=Math.max(0,Math.min(1440,workspace.dailyAvailableMinutes||0));
+    const homeworkMinutes=dueToday+backlog+bookedToday;
+    const ranges=windows.map(w=>({start:timeToMinutes(w.start)!,end:timeToMinutes(w.end)!}))
+      .sort((a,b)=>a.start-b.start);
+    let windowMinutes=0,windowEnd=0;
+    for(const span of ranges){windowMinutes+=Math.max(0,span.end-Math.max(windowEnd,span.start));
+      windowEnd=Math.max(windowEnd,span.end);}
+    const capacity=Math.max(0,Math.min(1440,workspace.dailyAvailableMinutes||0,
+      windows.length?windowMinutes:1440));
     result.push({
       date:key,classMinutes,homeworkMinutes,
       overdueHomeworkMinutes:backlog,

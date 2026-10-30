@@ -854,7 +854,7 @@ const ScheduleApp: React.FC = () => {
           <WorkspacePanel visible={tab==='calendar'||tab==='commissions'} section={tab==='calendar'?'calendar':'commissions'}
             focusTasks={tasks} records={records}
             onFocus={startLinked} onDiscuss={discuss} onPlan={proposeCommissionPlan}
-            planPreview={planPreview} onClearPlan={()=>setPlanPreview(null)}
+            planPreview={planPreview} onEditPlanPreview={setPlanPreview} onClearPlan={()=>setPlanPreview(null)}
             onOpenStudyCourse={openLinkedStudyCourse}
             selectedCharId={charId} onSelectChar={chooseChar} onWorkspaceSnapshot={onWorkspaceSnapshot}/>
         </div>}

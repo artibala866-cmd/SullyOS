@@ -8,6 +8,7 @@ import StudyCommissionCalendar from './StudyCommissionCalendar';
 import StudyWeekTimetable from './StudyWeekTimetable';
 import StudyCharPicker from './StudyCharPicker';
 import StudyCommissionEditor from './StudyCommissionEditor';
+import StudyExecutionSlots from './StudyExecutionSlots';
 import StudyTimetableEditor from './StudyTimetableEditor';
 import {
   loadStudyCourseOptions, setClassStudyCourseLink, deleteTimetableClass,
@@ -42,6 +43,7 @@ interface Props {
   onDiscuss: (topic: string, scope:'study'|'commission', itemId?:string) => void;
   onPlan: (workspace: WorkspaceData) => void;
   planPreview: CommissionPlanPreview | null;
+  onEditPlanPreview: (next:CommissionPlanPreview)=>void;
   onClearPlan: () => void;
   selectedCharId: string;
   onSelectChar: (id:string) => void;
@@ -65,7 +67,7 @@ const blankClass = () => ({
   teacher:'',location:'',note:'',
 });
 
-const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onOpenStudyCourse, onDiscuss, onPlan, planPreview, onClearPlan, selectedCharId, onSelectChar, onWorkspaceSnapshot}) => {
+const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onOpenStudyCourse, onDiscuss, onPlan, planPreview, onEditPlanPreview, onClearPlan, selectedCharId, onSelectChar, onWorkspaceSnapshot}) => {
   const { apiConfig, addToast, characters } = useOS();
   const [data, setData] = useState<WorkspaceData>(emptyWorkspace);
   const [loaded, setLoaded] = useState(false);
@@ -225,6 +227,12 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     } catch(e) {
       addToast('排单尚未保存，不能请求建议：'+String(e),'error');
     }
+  };
+  const editPlanSlot=(commissionId:string,index:number,field:'date'|'start'|'end'|'phaseId',value:string)=>{
+    if(!planPreview)return;
+    onEditPlanPreview({...planPreview,changes:planPreview.changes.map(ch=>ch.id!==commissionId?ch:{
+      ...ch,slots:ch.slots?.map((slot,i)=>i===index?{...slot,[field]:value}:slot),
+    })});
   };
   const applyPlan = async () => {
     if (applyingPlan || !planPreview || !planChecked.length) return;
@@ -462,6 +470,18 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     const candidate=pendingFocusProgress(data,focusTasks,records,kind,id);
     if(!candidate.sessions.length)return;
     const label=kind==='commission'?'这张稿件':'这项作业';
+    let phaseId:string|undefined;
+    if(kind==='commission'){
+      const phases=data.commissions.find(c=>c.id===id)?.phases?.filter(p=>p.state!=='done'&&p.state!=='skipped')||[];
+      if(phases.length){
+        const answer=window.prompt('将本轮结算到哪个阶段？输入编号，0 为仅记到委托总工时（不归属具体阶段）：\\n'+
+          phases.map((p,index)=>(index+1)+'. '+p.title+'（剩余 '+p.remainingMinutes+' 分）').join('\\n'),'1');
+        if(answer===null)return;
+        const index=Number(answer);
+        if(!Number.isInteger(index)||index<0||index>phases.length){addToast('阶段编号无效，未结算','error');return;}
+        phaseId=index?phases[index-1].id:undefined;
+      }
+    }
     if(!window.confirm('把 '+candidate.sessions.length+' 轮、共 '+candidate.minutes+
       ' 分钟的已完成专注记录，手动结算到'+label+'的剩余预计时间？预计剩余 '+
       estimate+' → '+Math.max(0,estimate-candidate.minutes)+
@@ -471,7 +491,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       await queue.current;
       const ids=candidate.sessions.map(r=>r.sessionId!);
       const updated=await mutateWorkspace(current=>
-        settleFocusProgress(current,focusTasks,records,kind,id,ids,estimate));
+        settleFocusProgress(current,focusTasks,records,kind,id,ids,estimate,Date.now(),phaseId));
       syncData(()=>updated);
       addToast('已手动结算 '+candidate.minutes+' 分钟，完成状态仍由你决定','success');
     }catch(e){
@@ -526,8 +546,12 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const orphaned = orphanedClassContent(data);
   const planStale = !!planPreview && (isPlanPreviewStale(data, planPreview)
     || planPreview.charId !== selectedCharId);
-  const projectedRisks = !planStale && planPreview && planChecked.length
-    ? previewCommissionPlanRisk(data,planPreview,planChecked) : [];
+  let projectedRisks:ReturnType<typeof previewCommissionPlanRisk>=[];
+  let planRiskError='';
+  if(!planStale&&planPreview&&planChecked.length){
+    try{projectedRisks=previewCommissionPlanRisk(data,planPreview,planChecked);}
+    catch(e){planRiskError=String(e);}
+  }
   const riskChanges = new Map(projectedRisks.map(r=>[r.commissionId,r]));
   if (!loaded) return <p className="p-6 text-neutral-700">{error || '正在读取工作空间…'}</p>;
 
@@ -635,12 +659,13 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             <p role="status">另有 {weekCapacity[0].unscheduledHomeworkCount} 项未完成作业没有有效截止日期，未纳入容量估算。请手动排入计划。</p>}
         </section>
         </details>
+      <StudyExecutionSlots data={data} onChange={change}/>
       {planPreview && <section className={cardClass} aria-label="Char 排单建议预览">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-semibold">Char 排单建议 · 逐项审核</h3>
           <button className={mutedButton} disabled={applyingPlan} onClick={onClearPlan}>放弃建议</button>
         </div>
-        <p className="text-xs text-neutral-700">默认一项都不选。以下是 AI 提议，不代表实际交期已修改。只可调整计划日期、剩余分钟与优先级。</p>
+        <p className="text-xs text-neutral-700">默认一项都不选。以下是 AI 候选时段与优先级建议，不代表已经执行；只有用户选择确认才保存，不修改客户交期。</p>
         {planStale && <p role="alert" className="text-sm border border-neutral-500 rounded-lg p-2">
           生成后原排单或课程时间已变化，或换了 Char。此方案已过期，不能应用；请重新请求。
         </p>}
@@ -655,6 +680,22 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
                   ? [...prev,change.id] : prev.filter(id=>id!==change.id))}/>
               {current?.title || planPreview.commissions.find(c=>c.id===change.id)?.title || '未知委托'}
             </label>
+            {change.slots?.map((slot,i)=><div className="grid grid-cols-3 gap-2 text-xs" key={i}>
+              <label>建议日期<input className={inputClass} type="date" value={slot.date}
+                disabled={planStale||applyingPlan} onChange={e=>editPlanSlot(change.id,i,'date',e.target.value)}/></label>
+              <label>开始<input className={inputClass} type="time" value={slot.start}
+                disabled={planStale||applyingPlan} onChange={e=>editPlanSlot(change.id,i,'start',e.target.value)}/></label>
+              <label>结束<input className={inputClass} type="time" value={slot.end}
+                disabled={planStale||applyingPlan} onChange={e=>editPlanSlot(change.id,i,'end',e.target.value)}/></label>
+              {current?.phases?.length ? <label className="col-span-3">绘画阶段
+                <select className={inputClass} value={slot.phaseId||''} disabled={planStale||applyingPlan}
+                  onChange={e=>editPlanSlot(change.id,i,'phaseId',e.target.value)}>
+                  <option value="">暂不指定</option>
+                  {current.phases.filter(p=>p.state!=='skipped'&&p.state!=='done').map(p=>
+                    <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              </label>:null}
+            </div>)}
             {change.plannedDate!==undefined && <p className="text-xs">计划日期：{current?.plannedDate||'未设置'} → {change.plannedDate}</p>}
             {change.remainingMinutes!==undefined && <p className="text-xs">剩余工时：{current?.remainingMinutes??'?'} 分钟 → {change.remainingMinutes} 分钟</p>}
             {change.priority!==undefined && <p className="text-xs">优先级：{current?.priority??'?'} → {change.priority}（1 为高）</p>}
@@ -662,6 +703,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
             {riskDelta && <p className="text-xs">截至交稿的预计缺口：{riskDelta.before} → {riskDelta.after} 分钟</p>}
           </div>;
         })}
+        {planRiskError&&<p role="alert" className="text-xs text-red-700">当前预览时段无法应用：{planRiskError}</p>}
         {!!projectedRisks.length && <p className="text-xs border-t border-neutral-200 pt-2">
           已选调整后的全部在绘稿件缺口：
           {projectedRisks.filter(r=>r.after>0).map(r=>

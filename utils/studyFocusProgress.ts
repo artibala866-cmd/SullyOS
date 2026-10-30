@@ -50,7 +50,7 @@ export function settleFocusProgress(
   data:WorkspaceData,tasks:readonly LinkedFocusTask[],
   records:readonly CompletedFocusRecord[],kind:WorkKind,id:string,
   selectedSessionIds:readonly string[],expectedRemaining:number,
-  appliedAt:number=Date.now(),
+  appliedAt:number=Date.now(),phaseId?:string,
 ):WorkspaceData {
   if(!Number.isFinite(appliedAt))throw new Error('结算时间无效');
   if(!selectedSessionIds.length || new Set(selectedSessionIds).size!==selectedSessionIds.length)
@@ -74,15 +74,26 @@ export function settleFocusProgress(
   const minutes=selectedSessionIds.reduce((sum,key)=>sum+index.get(key)!.minutes,0);
   if(!validMinutes(Math.min(180,minutes)) || minutes<=0)
     throw new Error('专注时长不合法');
+  const commission=kind==='commission'?data.commissions.find(c=>c.id===id):undefined;
+  const phase=phaseId?commission?.phases?.find(p=>p.id===phaseId):undefined;
+  if(phaseId&&(!phase||phase.state==='skipped'||phase.state==='done'))
+    throw new Error('阶段不存在、已跳过或已结束');
+  if(phase&&phase.remainingMinutes<minutes)
+    throw new Error('阶段剩余分钟不足，请先修改阶段估算');
   const settlements:FocusSettlement[]=selectedSessionIds.map(sessionId=>({
     sessionId,kind,itemId:id,minutes:index.get(sessionId)!.minutes,appliedAt,
+    ...(phaseId?{phaseId}:{}),
   }));
   const nextRemaining=Math.max(0,remaining-minutes);
   return {
     ...data,
     focusSettlements:[...data.focusSettlements,...settlements],
     commissions:kind==='commission'
-      ? data.commissions.map(c=>c.id===id?{...c,remainingMinutes:nextRemaining}:c)
+      ? data.commissions.map(c=>c.id===id?{
+          ...c,remainingMinutes:nextRemaining,
+          ...(phaseId?{phases:c.phases?.map(p=>p.id===phaseId
+            ?{...p,remainingMinutes:p.remainingMinutes-minutes}:p)}:{}),
+        }:c)
       : data.commissions,
     homework:kind==='homework'
       ? data.homework.map(h=>h.id===id?{...h,minutes:nextRemaining}:h)

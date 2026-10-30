@@ -105,4 +105,22 @@ describe('Char 排单建议必须经过用户逐项确认',()=>{
     const preview=parseCommissionPlanReply('{"changes":[{"id":"a","priority":1}]}',req,w);
     expect(preview.charId).toBe('charA');
   });
+  it('Char 具体时间段需要用户可用时间、不可冲课，且仅确认后才应用',()=>{
+    const w=workspace();w.dailyAvailableMinutes=240;
+    w.availability=[{id:'av',date:'2026-11-11',start:'13:00',end:'18:00'}];
+    const req=request(w);
+    const proposal={changes:[{id:'a',slots:[{date:'2026-11-11',start:'14:00',end:'15:00'}],reason:'下午有空'}]};
+    const preview=parseCommissionPlanReply(JSON.stringify(proposal),req,w);
+    expect(w.planSlots).toEqual([]);
+    const confirmed=projectCommissionPlan(w,preview,['a'],'2026-11-10');
+    expect(confirmed.planSlots).toMatchObject([{kind:'commission',itemId:'a',date:'2026-11-11'}]);
+    expect(w.planSlots).toEqual([]);
+    const missing={...w,availability:[]};
+    const absentReq=request(missing);
+    expect(()=>parseCommissionPlanReply(JSON.stringify(proposal),absentReq,missing)).toThrow('可用时间');
+    const collision={...w,classes:[{...w.classes[0],weekday:3,start:'14:30',end:'15:30'}]};
+    const collisionReq=request(collision);
+    expect(()=>parseCommissionPlanReply(JSON.stringify(proposal),collisionReq,collision)).toThrow('冲突');
+  });
+
 });

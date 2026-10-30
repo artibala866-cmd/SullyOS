@@ -3,7 +3,7 @@
  * Only a fresh user-approved selection can update three explicitly whitelisted fields.
  */
 import {
-  calculatePlanRisks, localDate, type Commission, type WorkspaceData,
+  calculatePlanRisks, localDate, planIssues, validPlanSlot, type WorkspacePlanSlot, type Commission, type WorkspaceData,
 } from './sullyWorkspace';
 
 export interface CommissionPlanChange {
@@ -11,6 +11,7 @@ export interface CommissionPlanChange {
   plannedDate?: string;
   remainingMinutes?: number;
   priority?: 1 | 2 | 3;
+  slots?: Array<Pick<WorkspacePlanSlot,'date'|'start'|'end'|'phaseId'>>;
   reason: string;
 }
 export interface CommissionPlanRequest {
@@ -32,7 +33,7 @@ export function planSourceVersion(data: WorkspaceData): string {
     commissions: data.commissions.map(c => ({
       id:c.id, status:c.status, stage:c.stage, order:c.order,
       dueDate:c.dueDate, plannedDate:c.plannedDate, priority:c.priority,
-      remainingMinutes:c.remainingMinutes, bufferMinutes:c.bufferMinutes,
+      remainingMinutes:c.remainingMinutes, bufferMinutes:c.bufferMinutes,phases:c.phases,
       title:c.title,
     })),
     classes: data.classes.map(c=>({
@@ -41,6 +42,7 @@ export function planSourceVersion(data: WorkspaceData): string {
     homework: data.homework.map(h=>({
       id:h.id,done:h.done,dueAt:h.dueAt,minutes:h.minutes,
     })),
+    availability:data.availability||[],planSlots:data.planSlots||[],
   });
 }
 
@@ -55,6 +57,7 @@ export function createCommissionPlanRequest(
     id:c.id, title:c.title, stage:c.stage, dueDate:c.dueDate,
     plannedDate:c.plannedDate, remainingMinutes:c.remainingMinutes,
     bufferMinutes:c.bufferMinutes, priority:c.priority,
+    phases:c.phases?.map(p=>({id:p.id,title:p.title,state:p.state,remainingMinutes:p.remainingMinutes,bufferMinutes:p.bufferMinutes})),
   }));
   const classes=data.classes.filter(c=>!c.cancelled).slice(0,24).map(c=>({
     weekday:c.weekday,start:c.start,end:c.end,until:c.until,
@@ -62,17 +65,23 @@ export function createCommissionPlanRequest(
   const homework=data.homework.filter(h=>!h.done).slice(0,24).map(h=>({
     dueAt:h.dueAt,minutes:h.minutes,
   }));
+  const availability=(data.availability||[]).filter(w=>w.date>=fromDate).slice(0,80)
+    .map(w=>({date:w.date,start:w.start,end:w.end}));
+  const existingSlots=(data.planSlots||[]).filter(w=>w.date>=fromDate).slice(0,100)
+    .map(w=>({kind:w.kind,itemId:w.itemId,phaseId:w.phaseId,date:w.date,start:w.start,end:w.end}));
   const prompt = '请根据以下本机排单信息给出建议，不要修改客户承诺的交稿截止日，不要代替用户决定完成状态。'
     + '只输出一个 JSON 对象，不要 Markdown，不要额外说明。'
-    + '严格格式：{"changes":[{"id":"原委托id","plannedDate":"YYYY-MM-DD","remainingMinutes":120,"priority":2,"reason":"调整原因"}]}。'
-    + '只允许 id、plannedDate、remainingMinutes、priority、reason；三个修改字段任选一至三项；'
+    + '严格格式：{"changes":[{"id":"原委托id","plannedDate":"YYYY-MM-DD","remainingMinutes":120,"priority":2,"slots":[{"date":"YYYY-MM-DD","start":"14:00","end":"15:00","phaseId":"阶段id或省略"}],"reason":"调整原因"}]}。'
+    + '只允许 id、plannedDate、remainingMinutes、priority、slots、reason；可按需要省略修改字段；'
+    + 'slots 是此稿完整替换的排程时段，必须落在用户提供的可用时间且不和课程、作业、画稿重叠；'
+    + '若未提供可用时间段，不要猜测几点空闲，请只提出优先级或计划日期建议；'
     + 'plannedDate 不能早于今天，也不能晚于该稿 dueDate（如有）；'
     + 'remainingMinutes 必须为 1～10080 的整数；priority 为 1、2、3。'
     + '不要提出更改 dueDate、价格、客户、稿名、状态或付款。最多 10 项；不能确定就返回 {"changes":[]}。'
     + '今天：'+fromDate+'。以下数据仅供本次用户主动请求：'
     + JSON.stringify({
       dailyAvailableMinutes:data.dailyAvailableMinutes,
-      commissions:input, classes, homework,
+      commissions:input, classes, homework, availability, existingSlots,
     });
   if (prompt.length > 12000) throw new Error('排单摘要过长，请先缩短稿名或分批排单');
   return {
@@ -119,7 +128,7 @@ export function parseCommissionPlanReply(
     const current=source.commissions.find(c=>c.id===row.id);
     if (!current || current.status!=='active') throw new Error('建议指向的委托不再处于绘制中');
     // Reject any attempt at hidden modifications rather than silently accepting them.
-    const accepted=['id','plannedDate','remainingMinutes','priority','reason'];
+    const accepted=['id','plannedDate','remainingMinutes','priority','slots','reason'];
     if (Object.keys(row).some(k=>!accepted.includes(k)))
       throw new Error('建议含有交期或隐私字段，已拒绝');
     const ch:CommissionPlanChange={id:row.id,reason:typeof row.reason==='string'?row.reason.slice(0,240):''};
@@ -139,13 +148,34 @@ export function parseCommissionPlanReply(
       if (![1,2,3].includes(row.priority as number)) throw new Error('建议优先级必须为 1～3');
       ch.priority=row.priority as 1|2|3;
     }
-    if (ch.plannedDate===undefined && ch.remainingMinutes===undefined && ch.priority===undefined)
+    if(row.slots!==undefined){
+      if(!Array.isArray(row.slots)||row.slots.length>30)throw new Error('时段数量无效');
+      const known=new Set<string>();
+      ch.slots=row.slots.map((raw:unknown)=>{
+        if(!isObject(raw)||Object.keys(raw).some(key=>!['date','start','end','phaseId'].includes(key))||
+          typeof raw.date!=='string'||typeof raw.start!=='string'||typeof raw.end!=='string')
+          throw new Error('时段字段不合法');
+        const slot={date:raw.date,start:raw.start,end:raw.end,
+          ...(typeof raw.phaseId==='string'?{phaseId:raw.phaseId}:{})};
+        if(!validPlanSlot(slot)||slot.date<request.fromDate||(current.dueDate&&slot.date>current.dueDate))
+          throw new Error('计划时段无效或超过截止日');
+        if(slot.phaseId&&!current.phases?.some(p=>p.id===slot.phaseId&&p.state!=='done'&&p.state!=='skipped'))
+          throw new Error('阶段不存在或已结束');
+        const key=[slot.date,slot.start,slot.end,slot.phaseId||''].join('|');
+        if(known.has(key))throw new Error('同一稿件重复时段');known.add(key);
+        return slot;
+      });
+    }
+    if (ch.plannedDate===undefined && ch.remainingMinutes===undefined && ch.priority===undefined && ch.slots===undefined)
       throw new Error('建议没有可修改的字段');
     if ((ch.plannedDate!==undefined && ch.plannedDate!==current.plannedDate)
       || (ch.remainingMinutes!==undefined && ch.remainingMinutes!==current.remainingMinutes)
-      || (ch.priority!==undefined && ch.priority!==current.priority)) changes.push(ch);
+      || (ch.priority!==undefined && ch.priority!==current.priority)
+      || ch.slots!==undefined) changes.push(ch);
   }
-  return {...request,changes};
+  const preview={...request,changes};
+  if(changes.some(c=>c.slots!==undefined))projectCommissionPlan(source,preview,changes.map(c=>c.id),request.fromDate);
+  return preview;
 }
 
 export function isPlanPreviewStale(data:WorkspaceData, preview:CommissionPlanPreview):boolean {
@@ -165,7 +195,11 @@ export function projectCommissionPlan(
     [...selected].some(id=>!preview.changes.some(c=>c.id===id)))
     throw new Error('包含不存在或重复的建议 ID');
   const changes=new Map(preview.changes.filter(c=>selected.has(c.id)).map(c=>[c.id,c]));
-  return {
+  for(const change of changes.values()){
+    if(change.slots?.length && change.slots.some(slot=>!(data.availability||[]).some(w=>w.date===slot.date)))
+      throw new Error('用户没有确认当天可用时间，不能应用 Char 猜测的具体时段');
+  }
+  const next:WorkspaceData={
     ...data,
     commissions:data.commissions.map(c=>{
       const change=changes.get(c.id);
@@ -178,7 +212,20 @@ export function projectCommissionPlan(
         ...(change.priority===undefined?{}:{priority:change.priority}),
       } as Commission;
     }),
+    planSlots:[
+      ...(data.planSlots||[]).filter(s=>s.kind!=='commission'||!changes.get(s.itemId)?.slots),
+      ...[...changes].flatMap(([id,ch])=>(ch.slots||[]).map((slot,index)=>({
+        id:'char-plan:'+id+':'+index+':'+slot.date+':'+slot.start,
+        kind:'commission' as const,itemId:id,...slot,
+      }))),
+    ],
   };
+  const added=new Set([...changes].flatMap(([id,ch])=>(ch.slots||[])
+    .map((slot,index)=>'char-plan:'+id+':'+index+':'+slot.date+':'+slot.start)));
+
+  const conflicts=planIssues(next).filter(issue=>added.has(issue.slotId));
+  if(conflicts.length)throw new Error('建议时段有冲突：'+conflicts[0].detail);
+  return next;
 }
 
 export function previewCommissionPlanRisk(

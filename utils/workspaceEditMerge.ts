@@ -6,8 +6,8 @@
 import type {WorkspaceData} from './sullyWorkspace';
 
 type Row = {id:string};
-type WorkspaceRows = 'commissions'|'classes'|'homework'|'notes';
-const rowKeys:WorkspaceRows[]=['commissions','classes','homework','notes'];
+type WorkspaceRows = 'commissions'|'classes'|'homework'|'notes'|'planSlots'|'availability';
+const rowKeys:WorkspaceRows[]=['commissions','classes','homework','notes','planSlots','availability'];
 const same=(a:unknown,b:unknown):boolean=>JSON.stringify(a)===JSON.stringify(b);
 
 function mergeRows<T extends Row>(before:T[],after:T[],current:T[],label:string):T[] {
@@ -56,7 +56,7 @@ export function mergeWorkspaceLocalEdit(
     // The common Row base is enough for key-aware patching; preserve the
     // original typed collection at runtime and at the external boundary.
     (result as unknown as Record<string,unknown>)[field]=mergeRows(
-      before[field] as Row[],after[field] as Row[],current[field] as Row[],field,
+      (before[field]||[]) as Row[],(after[field]||[]) as Row[],(current[field]||[]) as Row[],field,
     );
   }
   if(!same(before.dailyAvailableMinutes,after.dailyAvailableMinutes)){
