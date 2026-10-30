@@ -32,12 +32,17 @@ import {useHomeCompanion} from './useHomeCompanion';
 import {useHomeSocialLife} from './useHomeSocialLife';
 import {isEmotionBuffEnabled} from '../../utils/emotionFeature';
 import {HomeSpeechBubble} from './HomeSpeechBubble';
+import {homeRecords} from '../../utils/homeRecords';
+import {isSharedHomeRecord,stampHomeSceneRecords} from '../../utils/homeSharedEvents';
 
 export default function Home3DView({value,onChange,onBack,character,user,api,conversationContext,onDefinition,onFigures,parts:previewParts,hair:inputHair,suspended=false,residents=[],onEditor,onReadyChange,presentation='home'}:{onReadyChange?:(ready:boolean)=>void;presentation?:'home'|'homely';value?:Home3DState;onChange:(value:Home3DState)=>void;onBack:()=>void;character?:CharacterProfile;user?:UserProfile;api?:APIConfig;conversationContext?:HomeConversationContext;onDefinition?:()=>void;onFigures?:()=>void;parts?:Parts;hair?:HairSettings;suspended?:boolean;residents?:HomeResidentOption[];onEditor?:(editor:HomeEditor)=>void}){
  const homely=presentation==='homely';
  const entryTracked=useRef(false);
  const hair=inputHair??character?.chibiStudio?.home3D?.hair;
  const host=useRef<HTMLDivElement>(null),save=useRef(onChange),back=useRef(onBack),initial=useRef(value);
+ const activeEditor=useRef<HomeEditor>();
+ const currentOwner=useRef(character);currentOwner.current=character;
+ const knownHomeRecords=useRef(new Map(homeRecords(value).map(record=>[record.id,record])));
  const [editor,setEditor]=useState<HomeEditor>(),[parts,setParts]=useState<Parts>(),[residentError,setResidentError]=useState('');
  const [userResidentReady,setUserResidentReady]=useState(false);
  const userAvatar=useBlobRefUrl(user?.avatar),characterAvatar=useBlobRefUrl(character?.avatar);
@@ -91,8 +96,17 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
   let cancelled=false;const controller=new AbortController();
   const assetBase=new URL(`${import.meta.env.BASE_URL}room3d/`,location.href).href;
   // StrictMode's setup/cleanup probe finishes before this microtask: no abandoned WebGL or requests.
-  Promise.resolve().then(()=>{if(cancelled)return;return mountHomeEditor(host.current!,{assetBase,firstPerson:homely,initialState:initial.current,timeZone:initialTimeZone.current,onChange:(s:Home3DState)=>save.current(s),onBack:()=>back.current(),onMenu:openLifePanel,signal:controller.signal});})
-   .then(e=>{if(!e||cancelled)return;setEditor(e);onEditor?.(e);}).catch(e=>{if(!cancelled)setError(e.message)});
+  Promise.resolve().then(()=>{if(cancelled)return;return mountHomeEditor(host.current!,{assetBase,firstPerson:homely,initialState:initial.current,timeZone:initialTimeZone.current,onChange:(s:Home3DState)=>{
+    const owner=currentOwner.current;
+    if(!owner){save.current(s);return;}
+    const incoming=homeRecords(s),known=knownHomeRecords.current;
+    // Visit arrival records already carry an authoritative at-event participant snapshot.
+    for(const record of incoming)if(isSharedHomeRecord(record)&&!known.has(record.id))known.set(record.id,record);
+    const guests=activeEditor.current?.getPresentResidents().filter(person=>person.id!==owner.id&&person.id!=='user')??[];
+    const stamped=stampHomeSceneRecords(incoming,known,{id:owner.id,name:owner.name},guests);
+    save.current({...s,records:stamped});
+   },onBack:()=>back.current(),onMenu:openLifePanel,signal:controller.signal});})
+   .then(e=>{if(!e||cancelled)return;activeEditor.current=e;setEditor(e);onEditor?.(e);}).catch(e=>{if(!cancelled)setError(e.message)});
   return()=>{cancelled=true;controller.abort(homeDisposalReason())};
  },[]);
  return <div className={`home-island ${homely?'homely-scene':''} relative h-full w-full min-h-0 overflow-hidden`} data-chat-open={homely&&lifePanel==='chat'} data-photo-active={photoActive} style={{background:'#fafafa'}}>

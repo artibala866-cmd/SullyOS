@@ -69,6 +69,10 @@ jobs:
         run: pnpm exec vitest run utils/chibiBedContact.test.ts utils/chibiBedSupport.test.ts
       - name: Verify creator hair tint parity and saved dye controls
         run: pnpm exec vitest run utils/appearanceDye.test.ts utils/homeFigureHairControls.test.ts
+      - name: Verify advanced eye dye palette, preserved creator state, and character style selection
+        run: pnpm exec vitest run utils/homeFigureEyeControls.test.ts utils/characterStyle.test.ts
+      - name: Verify multi-resident home shared event transactions and guest privacy
+        run: pnpm exec vitest run utils/homeSharedEvents.integration.test.ts
       - name: Verify Halloween 25 GLBs, 20 presets, pet hats and interactive prop meshes
         timeout-minutes: 14
         run: pnpm exec vitest run apps/room3d/halloweenMeshAcceptance.test.ts apps/room3d/halloweenWardrobeFestival.test.js utils/wardrobePickerUI.test.ts

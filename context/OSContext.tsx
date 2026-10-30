@@ -1,6 +1,8 @@
 import { handleLocalBack } from '../utils/localBackHandlers';
 import {isHomeAssetDisposal} from '../utils/homeAssetCancellation';
 import { processHomeMemoryAfterSave } from '../utils/homeMemoryPostHook';
+import {homeSharedRecipients} from '../utils/homeSharedEvents';
+import {homeRecords} from '../utils/homeRecords';
 import { retireCloudCharacter } from '../utils/amsgCloudRetirement';
 import { resolveDialogueApi } from '../utils/characterApi';
 import {isBuiltinAppearance, readBuiltinAppearance} from '../utils/builtinAppearance';
@@ -3322,6 +3324,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             addToast('家园记忆整理失败', 'error');
           });
           markAmsgStateDirty({ char: target, userProfile, groups, realtimeConfig });
+          // Home events projected into a guest's history also refresh that guest's cloud context.
+          const oldHomeEvents=new Map(homeRecords(before?.home3D).map(record=>[record.id,record]));
+          const nextHomeEvents=homeRecords(target.home3D),nextIds=new Set(nextHomeEvents.map(record=>record.id));
+          const changedHomeEvents=[...nextHomeEvents.filter(record=>JSON.stringify(record)!==JSON.stringify(oldHomeEvents.get(record.id))),...[...oldHomeEvents.values()].filter(record=>!nextIds.has(record.id))];
+          for(const guestId of homeSharedRecipients(changedHomeEvents)){
+            if(guestId===target.id)continue;
+            void DB.getCharacter(guestId).then(guest=>{if(guest)markAmsgStateDirty({char:guest,userProfile,groups,realtimeConfig});}).catch(error=>console.warn('[Home3D] Guest context invalidation failed',error));
+          }
           if (JSON.stringify(before?.dialogueApi) !== JSON.stringify(target.dialogueApi)) {
             // Fresh snapshot also distinguishes consecutive role-only changes during an upload.
             syncAmsgLlmCredentials({ ...apiConfig });
