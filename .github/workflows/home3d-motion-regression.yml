@@ -44,6 +44,7 @@ jobs:
           utils/chibiMotionRecovery.test.ts
           utils/chibiAllSelectedMotionAssets.test.ts
           utils/chibiIntimacy.test.ts
+          utils/chibiPrincessCarryCapture.test.ts
           apps/room3d/chibi/motionTemplates.test.ts
           apps/room3d/chibi/motionConstraintPipeline.test.ts
           apps/room3d/chibi/standingHeightAdaptation.test.ts
