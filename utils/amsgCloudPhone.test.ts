@@ -9,7 +9,8 @@ import {
 } from './amsgCloudPhone';
 
 const now=Date.parse('2026-10-30T12:00:00Z');
-const o:CloudPhoneOpportunity={contactId:'npc-1',contactName:'小圆',threadId:'t1',
+const o:CloudPhoneOpportunity={contactId:'npc-1',contactName:'小圆',
+  contactCreatedAt:now-86400000,contactsClearRevision:0,threadId:'t1',
   sourceKey:'reply:t1:'+(now-20*60000)+':1',
   replyToAt:now-20*60000,replyToCount:1,replyToText:'在忙吗',
   revision:2,clearRevision:0,history:[{speaker:'contact',text:'在忙吗'}]};
@@ -65,12 +66,15 @@ describe('stage4 optional cloud NPC side effect (no independent LLM request)',()
   });
   it('rejects malformed results, arbitrary kinds, and invalid text limits',()=>{
     const result={resultKind:CLOUD_PHONE_RESULT_KIND,charId:'role',
-      id:'cloud-npc:abcd',contactId:'npc-1',threadId:'t1',sourceKey:o.sourceKey,
+      id:'cloud-npc:abcd',contactId:'npc-1',contactCreatedAt:o.contactCreatedAt,
+      contactsClearRevision:0,threadId:'t1',sourceKey:o.sourceKey,
       replyToAt:o.replyToAt,replyToCount:1,replyToText:o.replyToText,
       revision:2,clearRevision:0,occurredAt:now,messages:['嗯']};
     expect(parseCloudPhoneResult(result)).toEqual(result);
     expect(parseCloudPhoneResult({...result,resultKind:'other'})).toBeNull();
     expect(parseCloudPhoneResult({...result,messages:['']})).toBeNull();
     expect(parseCloudPhoneResult({...result,contactId:''})).toBeNull();
+    expect(parseCloudPhoneResult({...result,contactsClearRevision:-1})).toBeNull();
+    expect(parseCloudPhoneResult({...result,contactCreatedAt:null})).toBeNull();
   });
 });
