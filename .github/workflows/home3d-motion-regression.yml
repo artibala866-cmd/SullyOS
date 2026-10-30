@@ -35,6 +35,8 @@ jobs:
         run: >-
           pnpm exec vitest run
           utils/chibiSocial.test.ts
+          utils/chibiSocialFacing.test.ts
+          utils/chibiHalloweenFacing.test.ts
           utils/chibiRoomWalk.test.ts
           utils/chibiFurnitureMotion.test.ts
           apps/room3d/bathroomRigMotion.test.js
