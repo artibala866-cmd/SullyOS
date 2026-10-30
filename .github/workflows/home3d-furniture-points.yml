@@ -83,10 +83,10 @@ jobs:
         timeout-minutes: 14
         run: pnpm exec vitest run apps/room3d/halloweenMeshAcceptance.test.ts apps/room3d/halloweenWardrobeFestival.test.js utils/wardrobePickerUI.test.ts
       - name: Verify photo crop, landscape camera, export resolution, and original capture lifecycle
-        run: pnpm exec vitest run apps/room3d/photoFrame.test.ts apps/room3d/HomePhotoMode.test.tsx apps/room3d/photoEffectsReuse.test.ts
+        run: pnpm exec vitest run apps/room3d/photoFrame.test.ts apps/room3d/HomePhotoMode.test.tsx apps/room3d/photoEffectsReuse.test.ts apps/room3d/photoStage2.test.tsx
       - name: Build
         run: pnpm build
-      - name: Chromium WebGL photo 4-frame full-quality PNG acceptance
+      - name: Chromium WebGL original and paper-frame full-quality PNG acceptance
         timeout-minutes: 5
         run: |
           pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/home3d-photo-vite.log 2>&1 &
