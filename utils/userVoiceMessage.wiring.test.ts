@@ -33,6 +33,21 @@ describe('user voice must use the actual private-chat pipeline', () => {
     expect(bubble).toContain('{voice.transcript ||');
   });
 
+  it('stores paid-provider WAV without a second microphone capture, and cleans up safely', () => {
+    const stt = read('utils/speechToText.ts');
+    const hook = read('hooks/usePrivateChatSpeech.ts');
+    const chat = read('apps/Chat.tsx');
+    expect(stt).toContain('cb.onAudioCaptured?.(wavBlob, totalSamples / sampleRate)');
+    expect(hook).toContain('audioDraftRef.current = { blob, durationSec }');
+    expect(hook).toContain("document.addEventListener('visibilitychange', interrupt)");
+    expect(chat).toContain('const recorded = privateChatSpeech.getAudioDraft()');
+    expect(chat).toContain('audioRef = await putImageBlob(recorded.blob)');
+    expect(chat).toContain('metadata = attachUserVoiceAudio(metadata, audioRef, recorded.durationSec)');
+    expect(chat).toContain('cleanupDeletedUserVoiceAudio');
+    expect(chat).toContain('editedVoiceMetadata');
+    expect(chat).toContain('deleteBlobRefIfUnreferenced');
+  });
+
   it('passes both user voice variants to the model history via canonical normalization', () => {
     const prompts = read('utils/chatPrompts.ts');
     const normalizer = read('utils/messageFormat.ts');
