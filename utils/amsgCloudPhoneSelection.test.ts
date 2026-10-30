@@ -38,6 +38,19 @@ describe('stage4 cloud snapshot selection',()=>{
   writePhoneAutonomyPreferences(char().id,{chatPiggybackEnabled:true,backgroundApiEnabled:false});
   expect(selectCloudPhoneOpportunity(char(),now)?.contactId).toBe('npc1');
  });
+ it('a pending linked real Char must not mask a later eligible NPC reply',()=>{
+  writePhoneAutonomyPreferences(char().id,{chatPiggybackEnabled:true});
+  const npcs=JSON.parse(localStorage.getItem('sully_character_phone_npcs_v1:cloud-phone-selection')||'[]');
+  npcs.push({id:'real',name:'另一个真实 Char',relationship:'同事',identity:'Char',
+    personality:'真实角色',background:'角色',source:'character',linkedCharacterId:'linked-char',createdAt:now-86400_000});
+  localStorage.setItem('sully_character_phone_npcs_v1:cloud-phone-selection',JSON.stringify(npcs));
+  const chats=JSON.parse(localStorage.getItem('sully_character_phone_wechat_v1:cloud-phone-selection')||'[]');
+  chats.unshift({id:'real-thread',contactId:'real',name:'另一个真实 Char',
+    time:now-30*60_000,messages:[{speaker:{role:'contact',contactId:'real'},
+      text:'先前的一条真实角色待回消息',createdAt:now-30*60_000}]});
+  localStorage.setItem('sully_character_phone_wechat_v1:cloud-phone-selection',JSON.stringify(chats));
+  expect(selectCloudPhoneOpportunity(char(),now)?.contactId).toBe('npc1');
+ });
  it('never impersonates another real Char in a linked phone contact',()=>{
   writePhoneAutonomyPreferences(char().id,{chatPiggybackEnabled:true});
   const list=JSON.parse(localStorage.getItem('sully_character_phone_npcs_v1:cloud-phone-selection')||'[]');
