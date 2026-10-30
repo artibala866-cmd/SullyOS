@@ -27,6 +27,7 @@ import { safeResponseJson, extractContent } from '../utils/safeApi';
 import { buildChatFineTuneCss, mergeChatFineTune } from '../utils/chatFineTuneCss';
 import TokenImg from '../components/os/TokenImg';
 import { generateDailyScheduleForChar, isScheduleFeatureOn } from '../utils/scheduleGenerator';
+import { recoverForegroundDailySchedule } from '../utils/dailyScheduleForegroundRecovery';
 import { getDailyScheduleForChar } from '../utils/dailySchedule';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../utils/timezone';
@@ -1307,8 +1308,18 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
         getDailyScheduleForChar(char).then(existing => {
             if (!existing) {
-                // Generate in background, don't block chat
-                generateDailySchedule(char, false);
+                // Same guarded, throttled generator as OS foreground recovery.
+                // Chat opening must not race a second paid request against OSContext.
+                void recoverForegroundDailySchedule({
+                    char, user: userProfile, api: apiConfig,
+                    currentChar: () => liveCharactersRef.current.find(c => c.id === char.id),
+                    onSaved: schedule => {
+                        if (activeCharIdRef.current === char.id) setScheduleData(schedule);
+                        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+                        window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT,
+                            { detail: { charId: char.id } }));
+                    },
+                });
             } else {
                 setScheduleData(existing);
             }

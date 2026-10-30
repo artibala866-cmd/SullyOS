@@ -47,6 +47,7 @@ import { resolveCharacterPhoneApi } from '../utils/characterPhoneApiConfig';
 import { readPhoneInboxPreferences } from '../utils/characterPhoneInboxPrefs';
 import { collectLegacyPhoneBackup, restoreLegacyPhoneBackup } from '../utils/phoneLegacyBackup';
 import { findPhoneAutonomyOpportunity, markPhoneAutonomyOpportunityAttempt } from '../utils/characterPhoneOpportunity';
+import { CHARACTER_PHONE_CHATS_CHANGED } from '../utils/characterPhoneChats';
 import { getCharacterLifeScheduleContext } from '../utils/characterLifeScheduleContext';
 import { classifyLifeActivity } from '../utils/sullyLifeClock';
 import { canUsePhoneApiBudget, readPhoneApiBudget, readPhoneAutonomyPreferences } from '../utils/characterPhoneApiBudget';
@@ -81,6 +82,8 @@ import {
   migrateCharacterContextRange,
 } from '../utils/chatContextRange';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
+import { recoverForegroundDailySchedule } from '../utils/dailyScheduleForegroundRecovery';
+import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
 import { CHAT_GEN_EVENTS, setChatViewSnapshot, isEmbeddedChatVisible } from '../utils/chatGenEvents';
@@ -2337,6 +2340,54 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   groupsRef.current = groups;
   const realtimeConfigRef = useRef(realtimeConfig);
   realtimeConfigRef.current = realtimeConfig;
+  // Restore TODAY'S plans for enabled characters from the global OS surface,
+  // not just when a private-chat component happens to mount. This runs only
+  // while the app is visible; cloud-only/offline scheduling is a later stage.
+  // Uses the original generator, local DB, AMSG state sync and per-char throttle.
+  useEffect(() => {
+      if (!isDataLoaded) return;
+      let disposed = false;
+      let running = false;
+      const recover = async () => {
+          if (disposed || running || document.visibilityState !== 'visible') return;
+          running = true;
+          try {
+              for (const original of charactersRef.current) {
+                  if (disposed || document.visibilityState !== 'visible') break;
+                  const current = charactersRef.current.find(c => c.id === original.id);
+                  if (!current || !isScheduleFeatureOn(current)) continue;
+                  const user = userProfileRef.current;
+                  if (!user) break;
+                  await recoverForegroundDailySchedule({
+                      char: current, user, api: apiConfigRef.current,
+                      currentChar: () => disposed ? undefined : charactersRef.current.find(c => c.id === current.id),
+                      onSaved: () => {
+                          if (disposed) return;
+                          const live = charactersRef.current.find(c => c.id === current.id);
+                          if (!live || !isScheduleFeatureOn(live)) return;
+                          markAmsgStateDirty({ char: live, userProfile: userProfileRef.current,
+                              groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
+                          window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT,
+                              { detail: { charId: live.id } }));
+                      },
+                  });
+              }
+          } finally { running = false; }
+      };
+      const initial = window.setTimeout(() => { void recover(); }, 9_000);
+      const interval = window.setInterval(() => { void recover(); }, 30 * 60_000);
+      const onVisible = () => { if (document.visibilityState === 'visible') void recover(); };
+      document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener('pageshow', onVisible);
+      return () => {
+          disposed = true;
+          clearTimeout(initial);
+          clearInterval(interval);
+          document.removeEventListener('visibilitychange', onVisible);
+          window.removeEventListener('pageshow', onVisible);
+      };
+  }, [isDataLoaded]);
+
   // One life-event ledger feeds both AMSG and the existing Memory Palace.
   // Phone events are archived serially; a missed browser event can be recovered
   // from persisted evidence after the app reloads or becomes visible again.
@@ -2493,11 +2544,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let running = false;
       let cursor = 0;
       const momentTimers = new Map<string, number>();
-      const tick = async () => {
+      const evidenceTimers = new Map<string, number>();
+      const tick = async (requestedCharId?: string) => {
           if (disposed || running || document.visibilityState !== 'visible') return;
           const all = charactersRef.current.filter(c => !!c.id);
           if (!all.length || !userProfileRef.current) return;
-          const char = all[cursor++ % all.length];
+          const char = requestedCharId
+              ? all.find(c => c.id === requestedCharId)
+              : all[cursor++ % all.length];
+          if (!char) return;
           if (!isCharacterPhoneAutonomyEnabled(char.id) || !canUsePhoneApiBudget(char.id)) return;
           // The polling clock is never a social motive. Require a saved life
           // event (including AMSG) or an actual unanswered NPC message.
@@ -2576,19 +2631,56 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               void runCharacterMomentInteractionAutonomy({char, api});
           }, 15_000));
       };
-      const onVisible = () => { if (document.visibilityState === 'visible') void tick(); };
-      const initial = window.setTimeout(() => { void tick(); }, 10_000);
+      // A confirmed AMSG/real-life event is a reason to CHECK for a phone
+      // opportunity, not permission to fabricate NPC activity. Keep it inside
+      // the existing budgeted foreground runner, with one coalesced wake/Char.
+      const wakeForEvidence = (charId: string) => {
+          if (!charId || disposed || document.visibilityState !== 'visible' ||
+              !charactersRef.current.some(c => c.id === charId) ||
+              !isCharacterPhoneAutonomyEnabled(charId) || !canUsePhoneApiBudget(charId) ||
+              !findPhoneAutonomyOpportunity(charId)) return;
+          if (evidenceTimers.has(charId)) return;
+          evidenceTimers.set(charId, window.setTimeout(() => {
+              evidenceTimers.delete(charId);
+              if (disposed || document.visibilityState !== 'visible') return;
+              void tick(charId);
+          }, 12_000));
+      };
+      const onLifeEventForPhone = (event: Event) => {
+          const detail = (event as CustomEvent<{characterId?:string;eventId?:string;pruned?:boolean}>).detail;
+          if (!detail?.characterId || !detail.eventId || detail.pruned) return;
+          const evidence = readCharacterLifeEvents(detail.characterId).find(e => e.id === detail.eventId);
+          if (!evidence || evidence.source === 'phone') return;
+          wakeForEvidence(detail.characterId);
+      };
+      const onPhoneChatsChanged = (event: Event) => {
+          const charId = (event as CustomEvent<{characterId?:string}>).detail?.characterId;
+          if (!charId || findPhoneAutonomyOpportunity(charId)?.kind !== 'unanswered-npc') return;
+          wakeForEvidence(charId);
+      };
+      const onVisible = () => {
+          if (document.visibilityState !== 'visible') return;
+          void tick();
+          for (const char of charactersRef.current) wakeForEvidence(char.id);
+      };
+      const initial = window.setTimeout(() => { onVisible(); }, 10_000);
       const interval = window.setInterval(() => { void tick(); }, 3 * 60_000);
       document.addEventListener('visibilitychange', onVisible);
       window.addEventListener(CHARACTER_MOMENTS_CHANGED, onMomentsChanged);
+      window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEventForPhone);
+      window.addEventListener(CHARACTER_PHONE_CHATS_CHANGED, onPhoneChatsChanged);
       return () => {
           disposed = true;
           window.clearTimeout(initial);
           window.clearInterval(interval);
           document.removeEventListener('visibilitychange', onVisible);
           window.removeEventListener(CHARACTER_MOMENTS_CHANGED, onMomentsChanged);
+          window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEventForPhone);
+          window.removeEventListener(CHARACTER_PHONE_CHATS_CHANGED, onPhoneChatsChanged);
           for (const timer of momentTimers.values()) window.clearTimeout(timer);
+          for (const timer of evidenceTimers.values()) window.clearTimeout(timer);
           momentTimers.clear();
+          evidenceTimers.clear();
       };
   }, [isDataLoaded]);
 
