@@ -91,7 +91,11 @@ export function parseCloudPhoneResult(value: unknown): CloudPhoneResult | null {
     ![x.charId,x.id,x.contactId,x.threadId,x.sourceKey].every(s => typeof s === 'string' && !!s) ||
     !Number.isSafeInteger(x.replyToAt) || !Number.isSafeInteger(x.replyToCount) ||
     !Number.isSafeInteger(x.revision) || !Number.isSafeInteger(x.clearRevision) ||
-    !Number.isSafeInteger(x.occurredAt) || typeof x.replyToText !== 'string' ||
+    !Number.isSafeInteger(x.occurredAt) || (x.occurredAt as number) <= 0 ||
+    (x.replyToAt as number) <= 0 || (x.replyToCount as number) <= 0 ||
+    (x.revision as number) < 0 || (x.clearRevision as number) < 0 ||
+    typeof x.replyToText !== 'string' || !x.replyToText.trim() ||
+    x.replyToText.length > 300 ||
     !Array.isArray(x.messages) || x.messages.length < 1 || x.messages.length > 2 ||
     !x.messages.every(m => typeof m === 'string' && !!m.trim() && m.length <= 160)) return null;
   return x as CloudPhoneResult;
