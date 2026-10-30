@@ -212,6 +212,18 @@ const ScheduleApp: React.FC = () => {
     document.addEventListener('visibilitychange',onVisibility);
     return ()=>{window.clearInterval(interval);document.removeEventListener('visibilitychange',onVisibility);};
   },[activeChar?.id,charId,coachByChar,coachLastShown,coachEventByChar,session,tab,workspaceSnapshot,records,tasks,assistantOpen,coachSettingsOpen,exitOpen]);
+  // Revalidate the visible cue against freshly confirmed workspace changes.
+  // Completed or cancelled work, role switches and leaving the room stop stale nagging.
+  useEffect(()=>{
+    if(!coachPrompt)return;
+    if(tab!=='timer'||session||!activeChar||coachSetting.level==='off'||coachSetting.paused
+      ||!workspaceSnapshot||isStudyCoachQuietTime(coachSetting,new Date())){
+      setCoachPrompt('');return;
+    }
+    const actual=buildStudyRoomReality(workspaceSnapshot,null,'',records,tasks,new Date());
+    const current=studyCoachEvent(actual,new Date());
+    if(!current || current.key!==coachEventByChar[charId]?.key)setCoachPrompt('');
+  },[coachPrompt,tab,session,charId,coachByChar,coachEventByChar,workspaceSnapshot,records,tasks,activeChar?.id]);
   // The optional paid model request is separate from the local reminder timer.
   // No ChatApp prompt, private-chat permission or AMSG schedule is touched.
   useEffect(()=>{
