@@ -4,7 +4,9 @@ import type {ChibiVisitor} from './visitor';
 import {furnitureHandRotation,furniturePalm} from './furnitureMotion';
 import {constrainForearmTwist} from '../../../experiments/chibi/forearmTwist';
 export type HandSide='R'|'L';
-export type Contact={side:HandSide;point:T.Vector3;direction:T.Vector3;normal:T.Vector3;curl?:number};
+export type Contact={side:HandSide;point:T.Vector3;direction:T.Vector3;normal:T.Vector3;curl?:number;
+ /** Optional world-space elbow bend direction; specialist paired motions opt in. */
+ poleDirection?:T.Vector3};
 /** An anatomical target stored in the receiving bone's local frame. */
 export type BodyContactAnchor={bone:T.Object3D;offset:T.Vector3;direction:T.Vector3;normal:T.Vector3};
 export function bodyContactAnchor(bone:T.Object3D,offset:T.Vector3,direction:T.Vector3,normal:T.Vector3):BodyContactAnchor{
@@ -96,6 +98,30 @@ export function contactSolver(visitor:ChibiVisitor){
   const constrained=boundArmWristReach(shoulder,elbow,current,wrist).target;
   goals[i].matrixWorld.makeTranslation(constrained.x,constrained.y,constrained.z);
   solver.updateOne(chains[i],strength);
+  // CCD can flip an elbow across the torso when a moving partner changes the
+  // goal. Swivel around the shoulder-wrist line to keep the authored external
+  // elbow lane, preserving wrist reach and fixed skeletal segment lengths.
+  const pole=contact.poleDirection;
+  if(pole&&[pole.x,pole.y,pole.z].every(Number.isFinite)&&pole.lengthSq()>1e-8){
+   visitor.root.updateWorldMatrix(true,true);
+   const upper=rig.bones[contact.side+'_upperArm'],fore=rig.bones[contact.side+'_forearm'];
+   const base=upper.getWorldPosition(new T.Vector3());
+   const axis=hand.getWorldPosition(new T.Vector3()).sub(base);
+   if(axis.lengthSq()>1e-7&&upper.parent){
+    axis.normalize();
+    const bend=fore.getWorldPosition(new T.Vector3()).sub(base);
+    bend.addScaledVector(axis,-bend.dot(axis));
+    const wanted=pole.clone().addScaledVector(axis,-pole.dot(axis));
+    if(bend.lengthSq()>1e-7&&wanted.lengthSq()>1e-7){
+     bend.normalize();wanted.normalize();
+     const signed=Math.atan2(axis.dot(bend.clone().cross(wanted)),bend.dot(wanted));
+     const localAxis=axis.applyQuaternion(upper.parent.getWorldQuaternion(new T.Quaternion()).invert());
+     // Avoid a sudden 180-degree flip through the straight-arm singularity.
+     upper.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(
+      localAxis,T.MathUtils.clamp(signed,-1.35,1.35)*strength));
+    }
+   }
+  }
   const local=hand.parent!.getWorldQuaternion(new T.Quaternion()).invert().multiply(rotation);
   hand.quaternion.slerp(local,strength);
   // A caller with individually authored fingers owns its own hand shape.
