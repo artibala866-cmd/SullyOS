@@ -7,7 +7,7 @@ import StudyAvatar from './StudyAvatar';
 import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
-import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachEvent,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachEvent,rememberStudyCoachEvent,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, localDate, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
@@ -71,7 +71,7 @@ const ScheduleApp: React.FC = () => {
   const [companionMomentAt,setCompanionMomentAt]=useState(0);
   const [coachByChar,setCoachByChar]=useState<Record<string,StudyCoachSetting>>(()=>load('coachByChar',{}));
   const [coachLastShown,setCoachLastShown]=useState<Record<string,number>>(()=>load('coachLastShown',{}));
-  const [coachEventByChar,setCoachEventByChar]=useState<Record<string,{day:string;key:string;count:number}>>(()=>load('coachEventByChar',{}));
+  const [coachEventByChar,setCoachEventByChar]=useState<Record<string,{day:string;key:string;count:number;seenKeys?:string[]}>>(()=>load('coachEventByChar',{}));
   const [coachSettingsOpen,setCoachSettingsOpen]=useState(false);
   const [coachPrompt,setCoachPrompt]=useState('');
   const coachIdleSince=useRef(Date.now());
@@ -179,7 +179,7 @@ const ScheduleApp: React.FC = () => {
     setCoachPrompt('');
   },[charId,session?.id,session?.mode,session?.pauseRemainingMs]);
   useEffect(()=>{
-    if(!activeChar || coachSetting.level==='off' || coachSetting.paused || session || tab!=='timer')return;
+    if(!activeChar || coachSetting.level==='off' || coachSetting.paused || session || tab==='study')return;
     const check=()=>{
       const when=Date.now();
       if(isStudyCoachQuietTime(coachSetting,new Date(when))){setCoachPrompt('');return;}
@@ -191,16 +191,18 @@ const ScheduleApp: React.FC = () => {
       const prompt=nextStudyCoachPrompt({
         charId,setting:coachSetting,session:null,now:date,
         idleSince:coachIdleSince.current,lastPromptAt:coachLastShown?.[charId]||0,
-        lastEventKey:sameDay?seen.key:'',promptCountToday:sameDay?seen.count:0,
-        reality,isVisible:document.visibilityState==='visible'&&!assistantOpen&&!coachSettingsOpen&&!exitOpen,
-        isTimerTab:tab==='timer',
+        lastEventKey:sameDay?seen.key:'',seenEventKeys:sameDay?seen.seenKeys:[],
+        promptCountToday:sameDay?seen.count:0,
+        reality,isVisible:document.visibilityState==='visible'&&!assistantOpen&&!coachSettingsOpen&&!exitOpen
+          &&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName||''),
+        isTimerTab:tab!=='study',
       });
       if(!prompt||!latestEvent)return;
       setCoachPrompt(prompt);
       setCoachLastShown(prev=>({...prev,[charId]:when}));
-      setCoachEventByChar(prev=>({...prev,[charId]:{
-        day,key:latestEvent.key,count:(sameDay?seen.count:0)+1,
-      }}));
+      setCoachEventByChar(prev=>({...prev,[charId]:rememberStudyCoachEvent(
+        prev[charId],latestEvent.key,date,
+      )}));
     };
     check();
     const interval=window.setInterval(check,60000);
@@ -216,7 +218,7 @@ const ScheduleApp: React.FC = () => {
   // Completed or cancelled work, role switches and leaving the room stop stale nagging.
   useEffect(()=>{
     if(!coachPrompt)return;
-    if(tab!=='timer'||session||!activeChar||coachSetting.level==='off'||coachSetting.paused
+    if(tab==='study'||session||!activeChar||coachSetting.level==='off'||coachSetting.paused
       ||!workspaceSnapshot||isStudyCoachQuietTime(coachSetting,new Date())){
       setCoachPrompt('');return;
     }
@@ -228,7 +230,7 @@ const ScheduleApp: React.FC = () => {
   // No ChatApp prompt, private-chat permission or AMSG schedule is touched.
   useEffect(()=>{
     if(!coachPrompt||!activeChar||!coachSetting.allowAutoAI||coachSetting.level==='off'
-      ||coachSetting.paused||session||tab!=='timer'||assistantOpen||coachSettingsOpen||exitOpen
+      ||coachSetting.paused||session||tab==='study'||assistantOpen||coachSettingsOpen||exitOpen
       ||document.visibilityState!=='visible'||!workspaceSnapshot)return;
     const event=coachEventByChar[charId];
     const clock=new Date();
@@ -648,7 +650,7 @@ const ScheduleApp: React.FC = () => {
         </button>
       </div>
       <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-5 pb-5 space-y-3 sm:space-y-5">
-        {coachPrompt && tab==='timer' && <div role="status" aria-live="polite" className="mx-auto flex max-w-[510px] items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs text-neutral-700">
+        {coachPrompt && tab!=='study' && <div role="status" aria-live="polite" className="mx-auto flex max-w-[510px] items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs text-neutral-700">
           <span className="min-w-0 flex-1"><strong>学习室提醒</strong> · {coachPrompt}</span>
           <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f4f4f4]" aria-label="稍后提醒" onClick={()=>setCoachPrompt('')}><X size={17}/></button>
         </div>}
