@@ -4,6 +4,20 @@
  */
 export const CLOUD_PHONE_RESULT_KIND = 'cloud-phone-reply-v1';
 export const CLOUD_PHONE_STATE_KEY = 'cloud_phone_last_reply_attempt';
+/** Preserve a bounded history, not only the newest ID: otherwise two
+ * different NPC threads alternately arriving could re-bill an old reply. */
+export function readCloudPhoneAttemptIds(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.filter((x): x is string =>
+      typeof x === 'string' && x.startsWith('cloud-npc:')).slice(-16);
+  } catch { /* pre-stage4 single-id representation */ }
+  return value.startsWith('cloud-npc:') ? [value] : [];
+}
+export function rememberCloudPhoneAttempt(value: string | null | undefined, id: string): string {
+  return JSON.stringify([...readCloudPhoneAttemptIds(value).filter(x => x !== id), id].slice(-16));
+}
 export const CLOUD_PHONE_TAG = '[[CLOUD_PHONE_REPLY:';
 export const MAX_CLOUD_PHONE_AGE_MS = 72 * 60 * 60_000;
 export type CloudPhoneOpportunity = {

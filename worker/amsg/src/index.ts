@@ -161,7 +161,8 @@ import { autonomyWakeSkipReason } from '../../../utils/amsgAutonomyPolicy';
 import {
   CLOUD_PHONE_RESULT_KIND, CLOUD_PHONE_STATE_KEY,
   cloudPhoneReplyId, cloudPhoneInstruction, extractCloudPhoneReply,
-  isCloudPhoneOpportunityFresh, type CloudPhoneOpportunity,
+  isCloudPhoneOpportunityFresh, readCloudPhoneAttemptIds, rememberCloudPhoneAttempt,
+  type CloudPhoneOpportunity,
 } from '../../../utils/amsgCloudPhone';
 // type-only：编译期擦除，classifier 的实现不会因为这行被拉进 bundle。
 import type { ToolCall } from './classifier';
@@ -2181,10 +2182,11 @@ export const amsgHooks = {
     if (isCloudPhoneOpportunityFresh(offered, nowMs) && ctx.writeState) {
       const eventId = cloudPhoneReplyId(charId, offered);
       const already = charRows.find(r => r.key === CLOUD_PHONE_STATE_KEY)?.value;
-      if (already !== eventId) {
+      if (!readCloudPhoneAttemptIds(already).includes(eventId)) {
         try {
           const result = await ctx.writeState(amsgStateNamespace(charId), [{
-            key: CLOUD_PHONE_STATE_KEY, value: eventId, updatedAt: Date.now(),
+            key: CLOUD_PHONE_STATE_KEY, value: rememberCloudPhoneAttempt(already, eventId),
+            updatedAt: Date.now(),
           }]);
           if (result.upserted > 0) cloudPhoneOpportunity = offered;
         } catch (error) {

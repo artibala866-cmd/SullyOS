@@ -3,6 +3,7 @@ import {
   CLOUD_PHONE_RESULT_KIND, CLOUD_PHONE_STATE_KEY,
   cloudPhoneInstruction, cloudPhoneReplyId,
   extractCloudPhoneReply, isCloudPhoneOpportunityFresh, parseCloudPhoneResult,
+  readCloudPhoneAttemptIds, rememberCloudPhoneAttempt,
   type CloudPhoneOpportunity,
 } from './amsgCloudPhone';
 
@@ -17,6 +18,15 @@ describe('stage4 optional cloud NPC side effect (no independent LLM request)',()
     expect(isCloudPhoneOpportunityFresh(o,now+73*3600_000)).toBe(false);
     expect(isCloudPhoneOpportunityFresh({...o,replyToAt:now-1000},now)).toBe(false);
     expect(cloudPhoneInstruction(o)).toContain('在忙吗');
+  });
+  it('keeps recent cloud reply reservations across distinct NPC threads',()=>{
+    const first=cloudPhoneReplyId('role',o);
+    const second=cloudPhoneReplyId('role',{...o,threadId:'another',sourceKey:'reply:another:1:1'});
+    const previous=rememberCloudPhoneAttempt(null,first);
+    const after=rememberCloudPhoneAttempt(previous,second);
+    expect(readCloudPhoneAttemptIds(after)).toEqual([first,second]);
+    expect(readCloudPhoneAttemptIds(rememberCloudPhoneAttempt(after,first))).toEqual([second,first]);
+    expect(readCloudPhoneAttemptIds(first)).toEqual([first]); // legacy scalar
   });
   it('same saved inbound yields a stable cloud reservation ID across retries',()=>{
     const id=cloudPhoneReplyId('role',o);
