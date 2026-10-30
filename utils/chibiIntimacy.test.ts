@@ -271,7 +271,7 @@ it('separates the carried knees from the waist only during the reversible landin
   for(const t of [7.7,7.8,8.1,8.7,9.5]){
    a.reset();b.reset();poseIntimacy('home-princess-carry',[a,b],t);
    expect(a.visitor.root.position.y).toBe(0);expect(b.visitor.root.position.y).toBe(0);
-   expect([a,b].every(r=>r.visitor.rig!.skeleton.bones.every(n=>n.matrixWorld.elements.every(Number.isFinite)))).toBe(true);
+   expect([a,b].every(r=>r.visitor.rig!.skeleton.bones.every((n:T.Bone)=>n.matrixWorld.elements.every(Number.isFinite)))).toBe(true);
   }
  }
 });
