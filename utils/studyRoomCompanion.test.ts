@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {emptyWorkspace,type Commission,type ClassHomework} from './sullyWorkspace';
-import {buildCompanionOverview,companionMomentText,DEFAULT_STUDY_COACH,normalizeStudyCoachSetting,isStudyCoachQuietTime,nextStudyCoachPrompt,studyCoachBrief} from './studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,DEFAULT_STUDY_COACH,normalizeStudyCoachSetting,isStudyCoachQuietTime,nextStudyCoachPrompt,studyCoachBrief,buildStudyRoomReality} from './studyRoomCompanion';
 import {notesForStudyContext} from './studyRoomFocusNotes';
 const commission=(id:string,status:Commission['status']):Commission=>({
  id,title:'画稿'+id,client:'私人委托人',type:'图',brief:'机密需求内容',
@@ -88,6 +88,54 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
    expect(studyCoachBrief(DEFAULT_STUDY_COACH)).toBe('');
    expect(studyCoachBrief({...DEFAULT_STUDY_COACH,level:'firm',paused:true})).toBe('');
    expect(studyCoachBrief({...DEFAULT_STUDY_COACH,level:'normal'})).toContain('先询问');
+ });
+
+ it('真实课程、排单和专注记录构成同一份连续的学习状态，不能凭计时自动判完成',()=>{
+  const workspace=emptyWorkspace();
+  workspace.commissions=[{...commission('c1','active'),dueDate:'2026-11-02'}];
+  workspace.homework=[homework];
+  workspace.classes=[{id:'class1',name:'素描班',weekday:5,start:'09:00',end:'10:00',until:'',
+   teacher:'私人老师',location:'私人地点',note:'保密内容'}];
+  workspace.focusSettlements=[{sessionId:'done',kind:'commission',itemId:'c1',minutes:25,appliedAt:Date.now()}];
+  const logs=[
+   {date:'2026-10-30',taskId:'t1',sessionId:'pending',minutes:25},
+   {date:'2026-10-30',taskId:'t1',sessionId:'done',minutes:25},
+   {date:'2026-10-29',taskId:'t1',sessionId:'past',minutes:30},
+  ];
+  const tasks=[{id:'t1',source:{kind:'commission' as const,id:'c1'}}];
+  const at=new Date(2026,9,30,14);
+  const reality=buildStudyRoomReality(workspace,null,'',logs,tasks,at);
+  expect(reality.phase).toBe('idle');
+  expect(reality.todayFocusMinutes).toBe(50);
+  expect(reality.completedRounds).toBe(2);
+  expect(reality.unsettledLinkedMinutes).toBe(55);
+  expect(reality.activeCommissions).toBe(1);
+  expect(reality.pendingHomework).toBe(1);
+  expect(reality.todayCourses).toBe(1);
+  expect(reality.dueSoonCommissions).toBe(1);
+  expect(reality.dueSoonHomework).toBe(1);
+  expect(reality.hint).toContain('等待手动核对');
+  const inFocus=buildStudyRoomReality(workspace,{mode:'focus'},'绘制',logs,tasks,at);
+  expect(inFocus.hint).toContain('绘制');
+  const paused=buildStudyRoomReality(workspace,{mode:'focus',pauseRemainingMs:2000},'绘制',logs,tasks,at);
+  expect(paused.phase).toBe('paused');
+  expect(paused.hint).not.toContain('正在专注');
+  expect(buildStudyRoomReality(workspace,{mode:'break'},'',logs,tasks,at).hint).toContain('不打扰');
+  expect(JSON.stringify(reality)).not.toContain('私人委托人');
+  expect(JSON.stringify(reality)).not.toContain('保密内容');
+ });
+ it('没有任务记录时不捏造学习进度，已交付或已完成也不伪装为仍待结算',()=>{
+  const d=emptyWorkspace();
+  d.commissions=[commission('closed','delivered')];
+  d.homework=[{...homework,done:true}];
+  const actual=buildStudyRoomReality(d,null,'',[
+   {date:'2026-10-30',taskId:'t1',sessionId:'x',minutes:25},
+  ],[{id:'t1',source:{kind:'commission',id:'closed'}}],new Date(2026,9,30,16));
+  expect(actual.todayFocusMinutes).toBe(25);
+  expect(actual.unsettledLinkedMinutes).toBe(0);
+  expect(actual.activeCommissions).toBe(0);
+  expect(actual.pendingHomework).toBe(0);
+  expect(actual.hint).toContain('25 分钟');
  });
 
 });
