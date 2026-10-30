@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {emptyWorkspace,type Commission,type ClassHomework} from './sullyWorkspace';
-import {buildCompanionOverview,companionMomentText,DEFAULT_STUDY_COACH,normalizeStudyCoachSetting,isStudyCoachQuietTime,nextStudyCoachPrompt,studyCoachBrief,buildStudyRoomReality} from './studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,DEFAULT_STUDY_COACH,normalizeStudyCoachSetting,isStudyCoachQuietTime,nextStudyCoachPrompt,studyCoachBrief,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply} from './studyRoomCompanion';
 import {notesForStudyContext} from './studyRoomFocusNotes';
 const commission=(id:string,status:Commission['status']):Commission=>({
  id,title:'画稿'+id,client:'私人委托人',type:'图',brief:'机密需求内容',
@@ -155,6 +155,37 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
     idleSince:t-31*60000,reality:linked});
    expect(soft).toContain('需要时再开始');
    expect(soft).not.toContain('你怎么还不');
+ });
+
+ it('不同真实状态预填不同的用户主动对话，角色本人仍须等用户发送后才能回复',()=>{
+  const d=emptyWorkspace();
+  const base=buildStudyRoomReality(d,null,'',[],[],new Date(2026,9,30));
+  expect(companionEntryPrompt(base)).toContain('先做什么');
+  expect(companionEntryPrompt({...base,phase:'focus'},'线稿')).toContain('线稿');
+  expect(companionEntryPrompt({...base,phase:'paused'},'线稿')).toContain('暂停');
+  expect(companionEntryPrompt({...base,phase:'break'})).toContain('不要催');
+  expect(companionEntryPrompt(base,'',null,25)).toContain('25 分钟');
+  expect(companionEntryPrompt({...base,unsettledLinkedMinutes:40})).toContain('不要自动扣工时');
+  expect(companionEntryPrompt({...base,dueSoonHomework:2})).toContain('2 项');
+  expect(companionEntryPrompt({...base,todayCourses:1})).toContain('1 节课程');
+  expect(companionEntryPrompt({...base,todayFocusMinutes:50})).toContain('50 分钟');
+  expect(companionEntryPrompt(base,'',{courseTitle:'素描基础',chapterTitle:'明暗',progress:18})).toContain('明暗');
+ });
+ it('顶部短句只使用同一 Char 近十分钟内真实 AI 概览回复，不能借用其他目的或角色',()=>{
+  const now=Date.now();
+  const lines=[
+   {charId:'A',scope:'overview',role:'assistant',createdAt:now-5000,content:'先从最简单的一个小步骤开始。'},
+   {charId:'B',scope:'overview',role:'assistant',createdAt:now-1000,content:'来自另一个角色的回复'},
+   {charId:'A',scope:'commission',role:'assistant',createdAt:now-500,content:'委托敏感信息'},
+   {charId:'A',scope:'overview',role:'user',createdAt:now-200,content:'用户说的话'},
+  ];
+  expect(recentCompanionReply(lines,'A',now)).toContain('小步骤');
+  expect(recentCompanionReply(lines,'B',now)).toContain('另一个角色');
+  expect(recentCompanionReply(lines,'C',now)).toBe('');
+  expect(recentCompanionReply(lines,'A',now+11*60000)).toBe('');
+  expect(recentCompanionReply([{charId:'A',scope:'overview',role:'assistant',content:'旧回复'}],'A',now)).toBe('');
+  expect(recentCompanionReply([{charId:'A',scope:'study',role:'assistant',createdAt:now,content:'私人课堂记录'}],'A',now)).toBe('');
+  expect(recentCompanionReply([{charId:'A',scope:'overview',role:'assistant',createdAt:now,content:'a'.repeat(100)}],'A',now).length).toBeLessThanOrEqual(55);
  });
 
 });
