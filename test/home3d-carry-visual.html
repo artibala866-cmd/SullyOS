@@ -161,6 +161,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
  // Extra real-WebGL material acceptance: dark, pale and warm hair on the
  // original hair sheets, three skin tones, both dark and light wardrobes.
  // Keep the 980 motion frames unchanged for exact prior-run comparisons.
+ const [testEyes,testMouth,testMarks]=await Promise.all(['eyes_01','mouth_01','facemark_01'].map(source));
  const materialCases=[
   {id:'black-fair-dark',hair:'#20242b',skin:'#efc8b4',outfit:'sailor'},
   {id:'black-deep-light',hair:'#22252d',skin:'#956750',outfit:'original'},
@@ -170,7 +171,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
  const materialGallery=document.createElement('main');materialGallery.className='materials';document.body.append(materialGallery);
  renderer.setSize(700,525,false);renderer.setPixelRatio(1);
  for(const variant of materialCases){
-  const p=parts(0);p.skin=color(variant.skin);
+  const p=parts(0);p.skin=color(variant.skin);p.eyes=testEyes;p.mouth=testMouth;p.facemark=testMarks;
   const preset=approvedPresets[variant.outfit];
   let actor;
   try{
@@ -179,10 +180,12 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    if(!actor.rig||wardrobeMeshes(actor)<2)throw Error('Missing real materials '+variant.id);
    scene.add(actor.root);actor.animate(0,'idle');actor.finishPose();
    const strand=actor.root.getObjectByName('front-hair-sheet');
-   const pivot=strand?.parent;
-   if(!pivot)throw Error('Missing real hair pivot '+variant.id);
+   const head=actor.rig.bones.head;
+   if(!strand||!head||!head.children.includes(strand.parent))throw Error('Hair not attached to real head bone '+variant.id);
+   const restHeadX=head.rotation.x;
    for(const [pose,tilt] of [['neutral',0],['down',.23],['up',-.23]]){
-    pivot.rotation.x=tilt;
+    // Rotate the actual rig head bone: hair, face artwork and skull follow together.
+    head.rotation.x=restHeadX+tilt;actor.finishPose();
     for(const angle of ['front','side','three-quarter']){
      stage('材质检查 '+variant.id+'/'+pose+'/'+angle);
      view(angle);renderer.render(scene,camera);
