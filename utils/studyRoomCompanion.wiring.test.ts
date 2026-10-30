@@ -2,6 +2,8 @@ import {describe,it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 const schedule=readFileSync(resolve(process.cwd(),'apps/ScheduleApp.tsx'),'utf8');
+const study=readFileSync(resolve(process.cwd(),'apps/StudyApp.tsx'),'utf8');
+const workspace=readFileSync(resolve(process.cwd(),'apps/WorkspacePanel.tsx'),'utf8');
 describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()=>{
  it('旧自习室挂载期间仍展示 Char 同一聊天，不再放在隐藏的工作台容器里',()=>{
   expect(schedule).toContain('aria-label="在自习室和当前 Char 继续陪伴"');
@@ -69,6 +71,30 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('const overview=buildCompanionOverview(');
   expect(schedule).toContain('onSubmit={e=>{e.preventDefault();void sendNote();}}');
   expect(schedule).toContain('Reopening a backgrounded app is not evidence');
+ });
+
+ it('一个陪伴 Char 贯穿 PDF 助教、专注与排单，双方选择同步，不是叠加独立聊天窗',()=>{
+  expect(schedule).toContain('companionCharId={charId} onCompanionSelect={chooseChar}');
+  expect(study).toContain('companionCharId?:string;onCompanionSelect?:(id:string)=>void');
+  expect(study).toContain('setSelectedChar(characters.find(c=>c.id===companionCharId)||null)');
+  expect(study).toContain('onCompanionSelect?.(c.id)');
+  expect(study).toContain('if (companionCharId !== undefined)');
+  expect(study).toContain('useAppShortcut(ShortcutAppID.Study');
+ });
+ it('工作区已确认保存的进度实时进入陪伴状态，AI 仅收到用户主动审阅的数据',()=>{
+  expect(schedule).toContain('buildStudyRoomReality(');
+  expect(schedule).toContain('const companionReality=workspaceSnapshot?');
+  expect(schedule).toContain("const evidence='【学习室实际状态");
+  expect(schedule).toContain('setAssistantTopic([brief,evidence,overview]');
+  expect(schedule).toContain('onWorkspaceSnapshot={onWorkspaceSnapshot}');
+  expect(workspace).toContain('onWorkspaceSnapshot?.(confirmed)');
+  expect(workspace).toContain('onWorkspaceSnapshot?.(value)');
+  expect(workspace).toContain('previous.onWorkspaceSnapshot===next.onWorkspaceSnapshot');
+  expect(schedule).toContain('await readWorkspace()');
+  const overview=schedule.split('const openCompanionOverview=async()=>{')[1]?.split('const discuss =')[0]||'';
+  expect(overview).toContain('buildStudyRoomReality(');
+  expect(overview).not.toContain('sendNote()');
+  expect(overview).not.toContain('fetch(');
  });
 
 });
