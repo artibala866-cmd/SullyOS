@@ -121,7 +121,11 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  b.root.updateWorldMatrix(true,true);
  // The recipient may turn and bend before takeoff, but cannot float upward
  // from the floor merely because the pelvis is being rotated.
- if(seated>.001&&lifted<.001)restoreLegSupport(b,feetB,true,.14,seated);
+ // Do not switch off foot IK on the first non-zero lift frame. That Boolean
+ // crossing made the pelvis jump 7 cm in one 60Hz frame. Transfer the
+ // recipient's weight from planted feet into the two cradle hands gradually.
+ const groundShare=seated*(1-smooth(time,3.85,4.2));
+ if(groundShare>0)restoreLegSupport(b,feetB,true,.14,groundShare);
  // Rebuild the loaded pelvis destination from actual carrier skeleton lengths.
  const hip=point(a,'hips'),chest=point(a,'chest');
  const left=point(a,'L_upperArm'),right=point(a,'R_upperArm');

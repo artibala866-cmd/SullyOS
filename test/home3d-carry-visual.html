@@ -99,6 +99,17 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
        hips:pair.map(v=>v.rig.bones.hips.getWorldPosition(new T.Vector3()).toArray()),
        feet:pair.map(v=>Math.min(...['L_foot','R_foot','L_toe','R_toe'].map(n=>v.rig.bones[n].getWorldPosition(new T.Vector3()).y)))});
      }
+     // A numeric "pass" at sparse keyframes can hide a one-frame teleport.
+     // Assert 60Hz pelvis continuity specifically across toe-lock handoff.
+     for(let i=1;i<traces.fps60.length;i++){
+      const cur=traces.fps60[i],prev=traces.fps60[i-1];
+      if(cur.time<3.8||cur.time>4.4)continue;
+      const carried=direction==='home-princess-carry'?1:0;
+      const delta=new T.Vector3().fromArray(cur.hips[carried]).distanceTo(
+       new T.Vector3().fromArray(prev.hips[carried]));
+      if(delta>.035)throw Error('Abrupt seated-to-airborne pelvis snap at '+
+       cur.time.toFixed(3)+'s: '+delta.toFixed(3)+'m in 1/60s');
+     }
      for(let i=0;i<=100;i++){
       const t=i/10;runtime.seek(approach+t+.6);pair.forEach(v=>v.finishPose());
       for(const angle of ['front','side']){
