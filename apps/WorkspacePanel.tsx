@@ -45,6 +45,7 @@ interface Props {
   onClearPlan: () => void;
   selectedCharId: string;
   onSelectChar: (id:string) => void;
+  onWorkspaceSnapshot?: (data: WorkspaceData) => void;
 }
 const inputClass = 'w-full min-w-0 bg-[#fafafa] border border-neutral-200 text-neutral-900 rounded-lg p-2.5 text-sm outline-none focus:border-neutral-700';
 const buttonClass = 'min-h-11 rounded-xl border border-[#dfdfdf] bg-[#f1f1f1] text-[#292929] px-3 py-2.5 text-sm font-medium hover:bg-[#e9e9e9] disabled:opacity-40';
@@ -64,7 +65,7 @@ const blankClass = () => ({
   teacher:'',location:'',note:'',
 });
 
-const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onOpenStudyCourse, onDiscuss, onPlan, planPreview, onClearPlan, selectedCharId, onSelectChar}) => {
+const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus, onOpenStudyCourse, onDiscuss, onPlan, planPreview, onClearPlan, selectedCharId, onSelectChar, onWorkspaceSnapshot}) => {
   const { apiConfig, addToast, characters } = useOS();
   const [data, setData] = useState<WorkspaceData>(emptyWorkspace);
   const [loaded, setLoaded] = useState(false);
@@ -119,6 +120,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     void Promise.all([readWorkspace(),readWorkspaceIntegrityWarnings()]).then(([value,warnings]) => {
       if (alive) {
         dataRef.current=value;setData(value);setIntegrityWarnings(warnings);setLoaded(true);
+        onWorkspaceSnapshot?.(value);
       }
     }).catch(e => { if (alive) setError('无法读取本地工作空间：' + String(e)); });
     return () => { alive = false; };
@@ -150,7 +152,8 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     const after=fn(before);
     syncData(()=>after);
     const commit=queue.current.catch(()=>{}).then(async()=>{
-      await mutateWorkspace(current=>mergeWorkspaceLocalEdit(before,after,current));
+      const confirmed=await mutateWorkspace(current=>mergeWorkspaceLocalEdit(before,after,current));
+      onWorkspaceSnapshot?.(confirmed);
     });
     queue.current=commit;
     void commit.catch(e=>setError('本地保存冲突或失败，请勿清理浏览器数据：'+String(e)));
@@ -1035,5 +1038,6 @@ const MemoWorkspacePanel=React.memo(WorkspacePanel,(previous,next)=>
   && previous.focusTasks===next.focusTasks
   && previous.selectedCharId===next.selectedCharId
   && previous.planPreview===next.planPreview
+  && previous.onWorkspaceSnapshot===next.onWorkspaceSnapshot
 );
 export default MemoWorkspacePanel;
