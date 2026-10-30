@@ -10,7 +10,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('assistantScope===\'overview\'?\'今日陪伴\'');
   const hidden=schedule.indexOf("className={tab === 'study'");
   const overlay=schedule.indexOf('      {assistantOpen && <div');
-  const hiddenClose=schedule.indexOf('      </div>\n      {assistantOpen && <div');
+  const hiddenClose=schedule.indexOf('      </div>\n      {coachSettingsOpen && <div');
   expect(hidden).toBeGreaterThan(0);
   expect(overlay).toBeGreaterThan(hiddenClose);
   expect(hiddenClose).toBeGreaterThan(hidden);
@@ -40,4 +40,35 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('focusChatAllowance(session, now)');
   expect(schedule).toContain('if (session?.mode === \'focus\')');
  });
+ it('督促单独保存每位 Char 配置，默认关闭，绝不调用自动 AI 或 AMSG',()=>{
+  expect(schedule).toContain("load('coachByChar',{})");
+  expect(schedule).toContain("save('coachByChar', coachByChar)");
+  expect(schedule).toContain("load('coachLastShown',{})");
+  expect(schedule).toContain('normalizeStudyCoachSetting(coachByChar?.[charId])');
+  expect(schedule).toContain("setCoachByChar(prev=>({...prev,[charId]:normalizeStudyCoachSetting({");
+  expect(schedule).toContain('setCoachPrompt(\'\');');
+  expect(schedule).toContain("coachIdleSince.current=Date.now()");
+  expect(schedule).toContain('if(!activeChar || coachSetting.level===\'off\'');
+  expect(schedule).toContain("isVisible:document.visibilityState==='visible'");
+  expect(schedule).toContain("isTimerTab:tab==='timer'");
+  expect(schedule).toContain("if(isStudyCoachQuietTime(coachSetting,new Date(when)))");
+  expect(schedule).toContain('window.setInterval(check,60000)');
+  const watch=schedule.split("  useEffect(()=>{\n    if(!activeChar || coachSetting.level==='off'")[1]?.split('  useEffect(')[0]||'';
+  expect(watch).not.toContain('sendNote(');
+  expect(watch).not.toContain('ContextBuilder');
+  expect(watch).not.toContain('ActiveMsgClient');
+ });
+ it('设置是单个轻量面板，兼顾免打扰、暂停、频率及用户发送授权',()=>{
+  expect(schedule).toContain('aria-label="督促设置"');
+  expect(schedule).toContain('role="dialog" aria-modal="true" aria-label="督促设置"');
+  for(const part of ['温和 · 30 分钟','适中 · 15 分钟','积极 · 8 分钟',
+   '暂停督促','免打扰','免打扰开始','免打扰结束'])expect(schedule).toContain(part);
+  expect(schedule).toContain('coachPrompt && tab===\'timer\'');
+  expect(schedule).toContain('onClick={()=>setCoachPrompt(\'\')}');
+  expect(schedule).toContain("const brief=studyCoachBrief(coachSetting)");
+  expect(schedule).toContain('const overview=buildCompanionOverview(');
+  expect(schedule).toContain('onSubmit={e=>{e.preventDefault();void sendNote();}}');
+  expect(schedule).toContain('Reopening a backgrounded app is not evidence');
+ });
+
 });
