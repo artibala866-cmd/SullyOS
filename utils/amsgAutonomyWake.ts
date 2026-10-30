@@ -84,6 +84,12 @@ type Args={char:CharacterProfile;apiConfig:APIConfig;userProfile:UserProfile;
 };
 const inFlight=new Set<string>();
 const recentFailure=new Map<string,number>();
+/** Only an explicit user action (e.g. enabling 2.0/granting Push permission)
+ * removes the transient 60s retry backoff; automatic polling keeps it.
+ */
+export function allowImmediateAutonomyWakeRetry(charId:string):void {
+  if(charId) recentFailure.delete(charId);
+}
 /** Works for characters enabled days ago: called when their chat opens.
  * Backend tasks are daily recurring, not consumed one-shot alarms. */
 export async function ensureAutonomyWakes(args:Args):Promise<void>{

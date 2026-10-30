@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { allowImmediateAutonomyWakeRetry } from '../../utils/amsgAutonomyWake';
 import Modal from '../os/Modal';
 import {
   ActiveMsg2CharacterConfig,
@@ -151,6 +153,11 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     status?: string;
     lastError: RemoteTaskLastError | null;
   }> | null>(null);
+  // Never call local task rows "cloud confirmed". A lost/failed Worker task
+  // can remain in IndexedDB until the next reconciliation.
+  const verifiedAutonomyCount = knownRemoteUuids === null ? null : tasks.filter(t =>
+    t.clientTaskId?.startsWith('autowake:') && knownRemoteUuids.has(t.taskUuid) &&
+    !['failed','cancelled','completed'].includes(remoteTaskInfo?.get(t.taskUuid)?.status || '')).length;
   // 最近一次到点没发的记录（worker 写的）。null = 没有记录 / 没读到。
   const [lastSkip, setLastSkip] = useState<AmsgLastSkip | null>(null);
   // 今天主动找了几次（worker 每次发完累加的那份）。null = 没有记录 / 没读到。
@@ -300,6 +307,30 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     // 顺手把面板上其它角色级设置（maxTokens）一起带上，与
     // buildConfig 的口径一致：这几项本来就只有面板会写。
     if (turningOn) {
+      // Request Web Push *directly in this click gesture*, before any await.
+      // Calling Notification.requestPermission from the OS bootstrap timer
+      // is rejected by browsers that require a user activation.
+      // Native FCM/UnifiedPush has its own authorization flow.
+      if (globalReady && !Capacitor.isNativePlatform() &&
+          typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        try {
+          void Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              setPushSummary('通知权限已允许，正在登记云端推送订阅');
+              allowImmediateAutonomyWakeRetry(char.id);
+              window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
+            } else {
+              setPushSummary('通知权限未授予；主动消息无法推送到此设备');
+              addToast('请允许浏览器通知权限，否则云端主动消息无法推送到这台设备。', 'error');
+            }
+          }).catch(error => {
+            console.warn('[ActiveMsg2Settings] 请求通知权限失败', error);
+          });
+        } catch (error) {
+          console.warn('[ActiveMsg2Settings] 当前浏览器无法请求通知权限', error);
+        }
+      }
+      allowImmediateAutonomyWakeRetry(char.id);
       onSave((prev) => buildConfig(prev, (list) => list, { enabled: true }));
       // 上次关 2.0 时云端那份「频率与额度」被写成了关，这里立刻改回开。不等也不报错：
       // 真到要用它的时候（排任务 / 云端聊天）每次都会连同上下文再传一份。
@@ -648,9 +679,12 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             <div className="text-xs text-neutral-600 mt-1">{pushSummary || '正在检查 Push 状态...'}</div>
             {enabled && <div className="text-[11px] text-slate-500 mt-1">
               {saved?.lastError?.startsWith('自主联系建立失败') ? saved.lastError
-                : autonomousCount ? `每天已安排 ${autonomousCount} 次自主联系机会（可能选择不发）`
+                : verifiedAutonomyCount !== null && verifiedAutonomyCount > 0
+                  ? `云端已确认 ${verifiedAutonomyCount} 次每日自主联系机会（到点仍可能选择不发）`
+                : autonomousCount > 0
+                  ? `本地记录 ${autonomousCount} 次自主联系机会，尚未确认云端可用；重新打开面板会对账`
                 : tasks.length >= resolveAmsgLimits(saved).maxActiveTasks ? '任务名额已满，无法安排自主联系；删除过时的手动任务后会恢复'
-                : '正在建立自主联系机会；需先正确连接云端 Worker'}
+                : '正在建立自主联系机会；需先正确连接云端 Worker 和推送订阅'}
             </div>}
           </div>
           <button

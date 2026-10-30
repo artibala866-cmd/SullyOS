@@ -14,6 +14,7 @@ export type GlobalAutonomyWakeScope = {
   getRealtimeConfig: () => RealtimeConfig;
   /** Persist via the existing OSContext.updateCharacter merge, never a competing store. */
   saveCharacterConfig: (id: string, update: (prev: ActiveMsg2CharacterConfig | undefined) => ActiveMsg2CharacterConfig) => void;
+  /** Only controls starting more work and updating mounted React state; not a user opt-out. */
   isActive: () => boolean;
 };
 
@@ -41,7 +42,11 @@ export async function reconcileGlobalAutonomyWakes(
         userProfile: user,
         groups: scope.getGroups(),
         realtimeConfig: scope.getRealtimeConfig(),
-        isEnabledNow: () => scope.isActive() && scope.getCharacters().some(c =>
+        // Closing the browser isn't disabling 2.0. A cloud task already
+        // accepted by the Worker must NOT be rolled back just because the
+        // React provider unmounted while the network request was in flight.
+        // The authoritative opt-out is the actual character flag, not isActive.
+        isEnabledNow: () => scope.getCharacters().some(c =>
           c.id === id && c.activeMsg2Config?.enabled === true),
         onSave: update => {
           // Async cloud work might finish after Char was deleted or 2.0 turned off.

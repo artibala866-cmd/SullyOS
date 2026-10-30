@@ -63,6 +63,25 @@ describe('OS-global AMSG2 opt-in bootstrap', () => {
     captured.onSave(prev => ({ ...(prev || { enabled:true }), tasks: [] }));
     expect(h.saves).toEqual([]);
   });
+  it('closing the OS during a cloud request does NOT revoke an enabled task', async () => {
+    const h = harness();
+    await reconcileGlobalAutonomyWakes(h.scope, 'alice');
+    const captured = vi.mocked(ensureAutonomyWakes).mock.calls[0][0];
+    h.disable(); // provider unmounted, role has NOT switched 2.0 off
+    expect(captured.isEnabledNow?.()).toBe(true);
+    captured.onSave(prev => ({ ...(prev || { enabled:true }), tasks: [{taskUuid:'cloud'}] as any }));
+    // The Worker keeps its task; next launch adopts remote identity; no
+    // detached React state write from an unmounted provider.
+    expect(h.saves).toEqual([]);
+  });
+  it('explicitly switching 2.0 off is different from closing the page', async () => {
+    const h = harness();
+    await reconcileGlobalAutonomyWakes(h.scope, 'alice');
+    const captured = vi.mocked(ensureAutonomyWakes).mock.calls[0][0];
+    h.setChars(h.getChars().map(c => c.id === 'alice'
+      ? { ...c, activeMsg2Config: { enabled:false, tasks:[] } } : c));
+    expect(captured.isEnabledNow?.()).toBe(false);
+  });
   it('does not run when the app is hidden/unmounted or no role opted in', async () => {
     const h = harness([character('off',false)]);
     await reconcileGlobalAutonomyWakes(h.scope);
