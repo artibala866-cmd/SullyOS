@@ -11,6 +11,9 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
   const [error, setError] = useState('');
   const [seconds, setSeconds] = useState(0);
   const sessionRef = useRef<SttSession | null>(null);
+  // Audio exists only for the paid-STT path, where we share its original stream.
+  // Browser and Android native STT remain honest transcript-only fallbacks.
+  const audioDraftRef = useRef<{ blob: Blob; durationSec: number } | null>(null);
   const generationRef = useRef(0);
   const editedRef = useRef(false);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -27,6 +30,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     clearElapsedTimer();
     const active = sessionRef.current;
     sessionRef.current = null;
+    audioDraftRef.current = null;
     // Cancelling must discard captured audio, not invoke paid STT via stop().
     active?.cancel();
     setStatus('idle');
@@ -51,6 +55,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     if (!characterId || status !== 'idle') return;
     const generation = ++generationRef.current;
     sessionRef.current = null;
+    audioDraftRef.current = null;
     stopPendingRef.current = false;
     editedRef.current = false;
     setTranscript('');
@@ -64,6 +69,10 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
 
     try {
       const session = await startStt('zh-CN', {
+        onAudioCaptured: (blob, durationSec) => {
+          if (generation !== generationRef.current || blob.size === 0 || durationSec <= 0) return;
+          audioDraftRef.current = { blob, durationSec };
+        },
         onPartial: text => {
           if (generation !== generationRef.current) return;
           setStatus(previous => previous === 'transcribing' ? previous : 'listening');
@@ -124,5 +133,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     setTranscript(text);
   }, []);
 
-  return { status, transcript, error, seconds, start, stop, cancel, editTranscript };
+  const getAudioDraft = useCallback(() => audioDraftRef.current, []);
+
+  return { status, transcript, error, seconds, start, stop, cancel, editTranscript, getAudioDraft };
 }
