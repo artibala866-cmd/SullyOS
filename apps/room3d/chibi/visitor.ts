@@ -4,6 +4,7 @@ import {createSocialProp} from './socialProps';
 import {residentBlinkSeed,residentFaceFrame,type ResidentExpression} from './residentExpression';
 import * as THREE from 'three';
 import {setCharacterIllustration} from './illustration';
+import {subscribeCharacterStyle} from './characterStyle';
 import {buildBody,loadBody} from './FbxBody';
 import {BLANK_SCALE} from './blankBody';
 import {bodyHeightY} from './bodyHeight';
@@ -38,6 +39,7 @@ export async function createVisitor(parts:Parts,hair?:HairSettings){
  body.root.scale.setScalar(hair?.bodyShape==='blank'?1.4/BLANK_SCALE*(NEW_BODY_HOME_PERCENT/100):.7);
  // Keep the painted features legible under the room's brighter directional light.
  body.root.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=false;o.receiveShadow=false;for(const m of Array.isArray(o.material)?o.material:[o.material])if(m instanceof THREE.MeshStandardMaterial){m.emissive.set('#ffffff');m.emissiveIntensity=.04;}}});
+ const unsubscribeStyle=subscribeCharacterStyle(()=>setCharacterIllustration(body.root));
  setCharacterIllustration(body.root);
  let actionFace:ActionExpression='neutral';
  const blinkSeed=residentBlinkSeed(root.uuid);let faceState={...residentFaceFrame(0,blinkSeed,{blink:false}),mouth:'base' as ReturnType<typeof actionMouthFrame>['mouth']};
@@ -128,6 +130,6 @@ export async function createVisitor(parts:Parts,hair?:HairSettings){
   root.updateWorldMatrix(true,true);body.rig.skeleton.update();
   Object.assign(body.rig.mesh,{boundingBox:null,boundingSphere:null});
  }else footLock.reset();
- updateBedPhone(time,activity);updateOutfitPose?.();updateExpression(time);},dispose(){if(disposed)return;disposed=true;bedPhone?.dispose();root.removeFromParent();for(const resource of body.resources)resource.dispose();}};
+ updateBedPhone(time,activity);updateOutfitPose?.();updateExpression(time);},dispose(){if(disposed)return;disposed=true;unsubscribeStyle();bedPhone?.dispose();root.removeFromParent();for(const resource of body.resources)resource.dispose();}};
 }
 export type ChibiVisitor=Awaited<ReturnType<typeof createVisitor>>;
