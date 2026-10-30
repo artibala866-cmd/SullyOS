@@ -50,7 +50,7 @@ jobs:
       - name: Gate TypeScript diagnostics in user voice files
         shell: bash
         run: |
-          grep -E '^(apps/Chat.tsx|components/chat/(ChatInputArea|MessageItem|UserVoiceBubble).tsx|hooks/usePrivateChatSpeech.ts|utils/(speechToText|messageFormat|chatPrompts|userVoiceMessage(\.test|\.wiring\.test)?).ts)[(]' /tmp/user-voice-tsc.log > /tmp/user-voice-target-ts-errors.log || true
+          grep -E '^(apps/Chat.tsx|components/chat/(ChatInputArea|MessageItem|UserVoiceBubble).tsx|hooks/usePrivateChatSpeech.ts|utils/(speechToText|messageFormat|chatPrompts|applyAssistantPostProcessing|backupBlobs|userVoiceMessage(\.test|\.wiring\.test)?|userVoiceAudio\.test).ts)[(]' /tmp/user-voice-tsc.log > /tmp/user-voice-target-ts-errors.log || true
           if [ -s /tmp/user-voice-target-ts-errors.log ]; then
             cat /tmp/user-voice-target-ts-errors.log
             exit 1
