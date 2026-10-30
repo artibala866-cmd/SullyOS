@@ -24,7 +24,8 @@ export function selectCloudPhoneOpportunity(char: CharacterProfile, now = Date.n
     found.key.startsWith('reply:' + t.id + ':'));
   if (!thread?.contactId) return null;
   const last = thread.messages[thread.messages.length - 1];
-  if (!last || last.speaker.role !== 'contact') return null;
+  if (!last || last.speaker?.role !== 'contact' ||
+    typeof last.text !== 'string' || !last.text.trim()) return null;
   const at = last.createdAt || thread.time;
   if (found.key !== 'reply:' + thread.id + ':' + at + ':' + thread.messages.length) return null;
   const contact = contacts.get(thread.contactId);
@@ -34,11 +35,22 @@ export function selectCloudPhoneOpportunity(char: CharacterProfile, now = Date.n
     threadId: thread.id, sourceKey: found.key,
     replyToAt: at, replyToCount: thread.messages.length,
     replyToText: last.text.slice(0, 300),
-    history: thread.messages.filter(m => m.speaker.role === 'owner' || m.speaker.role === 'contact').slice(-5).map(m => ({
+    history: thread.messages.filter(m =>
+      !!m && typeof m.text === 'string' &&
+      (m.speaker?.role === 'owner' || m.speaker?.role === 'contact')).slice(-5).map(m => ({
       speaker: m.speaker.role === 'owner' ? 'owner' as const : 'contact' as const,
       text: m.text.slice(0, 200),
     })),
     revision: readPhoneAutonomyRevision(char.id),
     clearRevision: readPhoneContentClearRevision(char.id, 'chats'),
   };
+}
+
+/** Optional NPC data must never break ordinary cloud contact scheduling. */
+export function safelySelectCloudPhoneOpportunity(char: CharacterProfile, now = Date.now()): CloudPhoneOpportunity | null {
+  try { return selectCloudPhoneOpportunity(char, now); }
+  catch (error) {
+    console.warn('[AMSG2] optional cloud NPC snapshot skipped (invalid phone data)', error);
+    return null;
+  }
 }
