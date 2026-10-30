@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
-import {AppID} from '../types';
 import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
 import StudyCharPicker from './StudyCharPicker';
 import StudyAvatar from './StudyAvatar';
-import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X,Minus,ChatCircleDots,CaretDown,ArrowsOutSimple} from '@phosphor-icons/react';
+import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X,Minus,ChatCircleDots,CaretDown} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
 import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachEvent,rememberStudyCoachEvent,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
@@ -15,6 +14,10 @@ import {
   type CommissionPlanPreview, type CommissionPlanRequest,
 } from '../utils/commissionPlanProposals';
 const StudyApp = React.lazy(() => import('./StudyApp'));
+const NativeChat = React.lazy(() => import('./Chat'));
+import {registerEmbeddedChatView} from '../utils/chatGenEvents';
+import './room3d/homePhone.css';
+import './studyRoomPhone.css';
 
 import { safeResponseJson, extractContent } from '../utils/safeApi';
 
@@ -37,7 +40,7 @@ const save = (key: string, value: unknown) => {
 };
 
 const ScheduleApp: React.FC = () => {
-  const { closeApp, openApp, setActiveCharacterId, characters, activeCharacterId, addToast, apiConfig, userProfile } = useOS();
+  const { closeApp, characters, activeCharacterId, addToast, apiConfig, userProfile } = useOS();
   const [tasks, setTasks] = useState<FocusTask[]>(() => load('tasks', []));
   const [records, setRecords] = useState<FocusRecord[]>(() => load('records', []));
   const [taskInput, setTaskInput] = useState('');
@@ -69,6 +72,8 @@ const ScheduleApp: React.FC = () => {
   },[charId]);
   const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [phonePage,setPhonePage]=useState<'private'|'study'>('private');
+  const blankPhoneContext=useCallback(()=>'',[]);
   const [assistantMinimized,setAssistantMinimized]=useState(false);
   const [assistantPickerOpen,setAssistantPickerOpen]=useState(false);
   const [assistantOffset,setAssistantOffset]=useState({x:0,y:0});
@@ -457,16 +462,12 @@ const ScheduleApp: React.FC = () => {
     setPlanPreview(null);
     setMessage('');
   };
-  const openSelectedPrivateChat=()=>{
-    if(!activeChar)return;
-    // A private-chat shortcut must not bypass the focus chat-window restriction.
-    if(session){addToast('先安全结束计时，再进入私聊','info');return;}
-    if(message.trim()&&!window.confirm('学习室里有尚未发送的文字。进入私聊不会自动转发这些内容，继续吗？'))return;
-    manualChatController.current?.abort();
-    autoCoachController.current?.abort();
-    setActiveCharacterId(activeChar.id);
-    openApp(AppID.Chat);
-  };
+  // Read actual private-chat records in the miniature phone, never silently merge room notes.
+  // Empty context means no private-chat prompt injection from the learning room.
+  useEffect(()=>{
+    if(tab==='study'||!assistantOpen||assistantMinimized||!!session||phonePage!=='private'||!charId)return;
+    return registerEmbeddedChatView(charId);
+  },[tab,assistantOpen,assistantMinimized,session,phonePage,charId]);
   const onAssistantDragStart=(event:React.PointerEvent<HTMLDivElement>)=>{
     if(event.button!==0||(event.target as HTMLElement).closest('button'))return;
     const panel=event.currentTarget.closest('[data-study-floating-chat]');
@@ -494,7 +495,7 @@ const ScheduleApp: React.FC = () => {
     if(overviewBusy)return;
     if(!activeChar){
       setAssistantScope('overview');setAssistantItemId('');setAssistantTopic('');
-      setMessage('');setAssistantMinimized(false);setAssistantOpen(true);
+      setMessage('');setPhonePage('study');setAssistantMinimized(false);setAssistantOpen(true);
       addToast('请先在学习室陪伴对话框中选择 Char','info');return;
     }
     manualChatController.current?.abort();
@@ -533,7 +534,7 @@ const ScheduleApp: React.FC = () => {
       // Refreshing the overview must not overwrite a draft the user is editing.
       setMessage(assistantOpen&&assistantScope==='overview'&&message.trim()?message
         :continuing?'':draft);
-      setAssistantMinimized(false);setAssistantOpen(true);
+      setPhonePage('study');setAssistantMinimized(false);setAssistantOpen(true);
     }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
     finally{setOverviewBusy(false);}
   };
@@ -560,7 +561,7 @@ const ScheduleApp: React.FC = () => {
       setAssistantItemId('');
       setAssistantTopic(request.prompt);
       setMessage('请按上述 JSON 格式给出一份待我逐项审核的排单方案。');
-      setAssistantMinimized(false);setAssistantOpen(true);
+      setPhonePage('study');setAssistantMinimized(false);setAssistantOpen(true);
     } catch(error) {
       addToast(error instanceof Error ? error.message : '无法整理排单资料','error');
     }
@@ -703,10 +704,6 @@ const ScheduleApp: React.FC = () => {
           <strong className="text-neutral-800">{activeChar?.name||'尚未选 Char'}</strong> <span className="hidden sm:inline">· {companionStatus}</span>
           <span className="sm:hidden">· {activeChar?companionStatus:'待选择'}</span>
         </p>
-        <button type="button" disabled={overviewBusy} onClick={()=>{setCoachPrompt('');void openCompanionOverview();}}
-          className="shrink-0 rounded-full border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs font-medium disabled:opacity-50">
-          {companionActionLabel}
-        </button>
         <button type="button" aria-label="督促设置" title="督促设置" aria-expanded={coachSettingsOpen}
           onClick={()=>setCoachSettingsOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-neutral-200 bg-white">
           <SlidersHorizontal size={18}/>
@@ -782,13 +779,7 @@ const ScheduleApp: React.FC = () => {
                 <input type="checkbox" checked={focusLock} onChange={e=>setFocusLock(e.target.checked)}/>
                 专注保护
               </label>
-              <button type="button" className="flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-200 bg-[#f7f7f7] px-3 py-2 text-xs text-neutral-800"
-                onClick={()=>{
-                  discussionVersion.current+=1;
-                  setPlanRequest(null);setAssistantTopic('');
-                  setAssistantScope('focus');setAssistantItemId('');
-                  setAssistantMinimized(false);setAssistantOpen(true);
-                }}>与 Char 陪伴交流 <ArrowRight size={13}/></button>
+              
             </div>
           </section>}
         {tab === 'tasks' && <section className={shell + ' p-5 space-y-4'}>
@@ -902,74 +893,85 @@ const ScheduleApp: React.FC = () => {
         </section>
       </div>}
 
-      {assistantOpen && assistantMinimized && <div className="pointer-events-none absolute bottom-[calc(84px+var(--safe-bottom,0px))] right-3 z-[80]">
-        <button type="button" onClick={()=>setAssistantMinimized(false)}
-          aria-label="展开学习室 Char 悬浮聊天" className="pointer-events-auto flex min-h-12 max-w-[225px] items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm shadow-[0_10px_30px_rgba(0,0,0,.15)]">
-          <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-8 w-8 rounded-full object-cover"/>
-          <span className="max-w-[125px] truncate">{activeChar?.name||'Char'} · 继续聊</span><ArrowsOutSimple size={16}/>
-        </button>
-      </div>}
-      {assistantOpen && !assistantMinimized && <div className="pointer-events-none absolute inset-0 z-[80]" aria-label="学习室悬浮聊天区域">
-        <section data-study-floating-chat role="dialog" aria-modal="false" aria-label="学习室 Char 悬浮聊天"
+      {tab!=='study' && (!assistantOpen||assistantMinimized) && <button type="button"
+        aria-label="打开 Char 悬浮手机" title="和 Char 聊天" className="study-room-float-ball"
+        onClick={()=>{setPhonePage(session?'study':'private');setAssistantPickerOpen(false);setAssistantMinimized(false);setAssistantOpen(true);}}>
+        <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-full w-full rounded-full"/>
+        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-[#5b5b5b]" aria-hidden="true"/>
+      </button>}
+      {tab!=='study' && assistantOpen && !assistantMinimized && <div className="pointer-events-none absolute inset-0 z-[80]" aria-label="学习室悬浮手机区域">
+        <section data-study-floating-chat role="dialog" aria-modal="false" aria-label="Char 手机私聊"
           style={{transform:`translate(${assistantOffset.x}px,${assistantOffset.y}px)`}}
-          className="pointer-events-auto absolute bottom-[calc(84px+var(--safe-bottom,0px))] right-3 flex h-[min(57dvh,470px)] min-h-[170px] max-h-[calc(100dvh-72px)] w-[calc(100%-32px)] max-w-[340px] flex-col overflow-hidden rounded-[25px] border border-neutral-200 bg-[#f6f6f6] text-neutral-900 shadow-[0_18px_65px_rgba(0,0,0,.20)]">
-          <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2.5 touch-none select-none cursor-grab active:cursor-grabbing"
-            onPointerDown={onAssistantDragStart} onPointerMove={onAssistantDragMove} onPointerUp={onAssistantDragEnd} onPointerCancel={onAssistantDragEnd}>
-            <button type="button" aria-label="快速选择 Char" aria-expanded={assistantPickerOpen}
-              className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={()=>setAssistantPickerOpen(v=>!v)}>
-              <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-9 w-9 shrink-0 rounded-full object-cover"/>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{activeChar?.name||'选择 Char'}</span>
-              <CaretDown size={14} className="shrink-0 text-neutral-500"/>
-            </button>
-            <button type="button" aria-label="进入所选 Char 的真正私聊" title={session?'计时中不能跳过专注聊天限制':'进入真正私聊（不自动同步学习室记录）'}
-              disabled={!activeChar||!!session} onClick={openSelectedPrivateChat}
-              className="flex h-10 shrink-0 items-center gap-1 rounded-full bg-[#eeeeee] px-2.5 text-xs font-medium disabled:opacity-40">
-              <ChatCircleDots size={17}/> 私聊
-            </button>
-            <button type="button" aria-label="收起悬浮聊天" onClick={()=>{setAssistantPickerOpen(false);setAssistantMinimized(true);}}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-neutral-100"><Minus size={19}/></button>
-            <button type="button" aria-label="关闭 Char 聊天" onClick={()=>setAssistantOpen(false)}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-neutral-100"><X size={19}/></button>
-          </div>
-          {assistantPickerOpen && <div className="shrink-0 border-b border-neutral-200 bg-white px-2 py-2" aria-label="选择陪伴 Char">
-            <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
-          </div>}
-          <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 text-[11px] text-neutral-500">
-            <span>{assistantScope==='focus'?'专注':assistantScope==='study'?'作业':assistantScope==='commission'?'画稿':assistantScope==='overview'?'今天':'排单'}</span>
-            {assistantScope==='overview'&&<button type="button" disabled={!activeChar||overviewBusy}
-              onClick={()=>void openCompanionOverview()} className="rounded-full px-2 py-1 hover:bg-neutral-200 disabled:opacity-40">
-              {overviewBusy?'读取中…':'更新计划'}
-            </button>}
-          </div>
-          {assistantTopic&&<details className="shrink-0 mx-3 mb-1 rounded-xl bg-white/80 px-2.5 py-1.5 text-[11px] text-neutral-600">
-            <summary className="cursor-pointer">本轮共享内容 · 点击查看</summary>
-            <p className="mt-1 max-h-20 overflow-y-auto whitespace-pre-wrap break-words">{assistantTopic.slice(0,12000)}</p>
-            {planRequest&&<p>本轮只生成待确认排单，不自动修改委托。</p>}
-          </details>}
-          {session?.mode==='focus'&&<p className="shrink-0 px-3 text-[11px] text-neutral-500">本轮交流 {allowance.used}/{allowance.limit} · {allowance.canSend?'可以发送':'当前窗口已用完'}</p>}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-2" aria-label="学习室聊天消息">
-            {visibleNotes.length===0&&<p className="py-10 text-center text-xs text-neutral-400">和 {activeChar?.name||'Char'} 说句话吧</p>}
-            {visibleNotes.map(n=><div key={n.id} className={'flex min-w-0 gap-2 '+(n.role==='user'?'justify-end':'justify-start')}>
-              {n.role==='assistant'&&<StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="mt-1 h-7 w-7 shrink-0 rounded-full object-cover"/>}
-              <div className={'max-w-[79%] min-w-0 rounded-[17px] px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap break-words '+(n.role==='user'?'rounded-br-[5px] bg-[#292929] text-white':'rounded-bl-[5px] bg-white text-neutral-800 shadow-[0_2px_10px_rgba(0,0,0,.035)]')}>
-                {n.origin==='auto_coach'&&<p className="mb-1 text-[10px] text-neutral-500">主动陪伴</p>}
-                {n.content}
-              </div>
-            </div>)}
-          </div>
-          {(unscopedNotes.length>0||unassignedNotes.length>0)&&<details className="shrink-0 px-3 text-[11px] text-neutral-500">
-            <summary className="cursor-pointer">旧记录 ({unscopedNotes.length+unassignedNotes.length})</summary>
-            <div className="max-h-16 overflow-y-auto break-words">
-              {[...unscopedNotes,...unassignedNotes].map(n=><p key={n.id}>{n.role==='user'?'我':'Char'}：{n.content}</p>)}
+          className="home-phone study-room-phone">
+          <div className="study-phone-speaker" aria-hidden="true"/>
+          <div className="study-phone-screen">
+            <div className="study-phone-topbar touch-none select-none cursor-grab active:cursor-grabbing"
+              onPointerDown={onAssistantDragStart} onPointerMove={onAssistantDragMove}
+              onPointerUp={onAssistantDragEnd} onPointerCancel={onAssistantDragEnd}>
+              <button type="button" aria-expanded={assistantPickerOpen} aria-label="快速选择 Char"
+                onClick={()=>setAssistantPickerOpen(v=>!v)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-8 w-8 rounded-full shrink-0"/>
+                <span className="min-w-0 truncate text-sm font-semibold">{activeChar?.name||'选择 Char'}</span>
+                <CaretDown size={14}/>
+              </button>
+              <button type="button" aria-label={session?'专注中只能使用限额陪聊':phonePage==='private'?'查看学习室记录':'进入真正私聊'}
+                disabled={!!session} title={session?'专注中仅能按限额聊天':'切换真实私聊与学习室记录'}
+                onClick={()=>setPhonePage(p=>p==='private'?'study':'private')}
+                className="shrink-0 px-2 text-xs disabled:opacity-40">
+                {session?'专注陪聊':phonePage==='private'?'学习记录':'私聊'}
+              </button>
+              <button type="button" aria-label="缩成 Char 悬浮球" onClick={()=>{setAssistantPickerOpen(false);setAssistantMinimized(true);}}
+                className="grid h-9 w-9 shrink-0 place-items-center"><Minus size={18}/></button>
+              <button type="button" aria-label="关闭 Char 手机" onClick={()=>{setAssistantPickerOpen(false);setAssistantOpen(false);}}
+                className="grid h-9 w-9 shrink-0 place-items-center"><X size={17}/></button>
             </div>
-          </details>}
-          <form onSubmit={e=>{e.preventDefault();void sendNote();}}
-            className="flex shrink-0 gap-2 border-t border-neutral-200 bg-white px-3 pt-2.5 pb-[max(12px,var(--safe-bottom,0px))]">
-            <input className="min-w-0 min-h-11 flex-1 rounded-full bg-[#f3f3f3] px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-neutral-500"
-              value={message} onChange={e=>setMessage(e.target.value)} aria-label="对 Char 说" placeholder="说点什么…"/>
-            <button className="grid h-11 min-w-12 shrink-0 place-items-center rounded-full bg-[#292929] px-3 text-sm text-white disabled:opacity-40"
-              disabled={replying||!allowance.canSend} type="submit">{replying?'…':'发送'}</button>
-          </form>
+            {assistantPickerOpen&&<div className="shrink-0 border-b border-neutral-200 bg-white p-2" aria-label="快速切换 Char">
+              <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
+            </div>}
+            <div className="study-phone-body">
+              {!session&&phonePage==='private'&&activeChar?(
+                <React.Suspense fallback={<p className="p-4 text-center text-xs text-neutral-500">正在打开私聊…</p>}>
+                  <NativeChat key={charId} homePhone={{characterId:charId,getContext:blankPhoneContext,onBack:()=>setAssistantMinimized(true),hideHeader:true}}/>
+                </React.Suspense>
+              ):(
+                <div className="flex h-full min-h-0 flex-col bg-[#f6f6f6]">
+                  <div className="flex shrink-0 justify-between px-3 py-2 text-xs text-neutral-600">
+                    <span>{session?'专注期间 · 限额陪聊':'学习室独立记录'}</span>
+                    {!session&&<button type="button" onClick={()=>void openCompanionOverview()} disabled={overviewBusy}
+                      className="rounded-full bg-white px-2 py-1 disabled:opacity-40">一起看今天</button>}
+                  </div>
+                  {session?.mode==='focus'&&<p className="px-3 text-[11px] text-neutral-500">
+                    本轮 {allowance.used}/{allowance.limit} · {allowance.canSend?'可交流':'等待下个窗口'}
+                  </p>}
+                  {assistantTopic&&<details className="mx-3 text-[11px] text-neutral-500">
+                    <summary className="cursor-pointer">本轮学习内容</summary>
+                    <div className="max-h-14 overflow-y-auto whitespace-pre-wrap break-words">{assistantTopic.slice(0,8000)}</div>
+                  </details>}
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3" aria-label="学习室限额消息">
+                    {visibleNotes.length===0&&<p className="pt-8 text-center text-xs text-neutral-400">一起聊聊现在的学习吧</p>}
+                    {visibleNotes.map(n=><div key={n.id} className={'flex gap-2 '+(n.role==='user'?'justify-end':'justify-start')}>
+                      {n.role==='assistant'&&<StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-7 w-7 shrink-0 rounded-full"/>}
+                      <div className={'max-w-[80%] break-words whitespace-pre-wrap rounded-2xl px-3 py-2 text-[13px] leading-relaxed '+(n.role==='user'?'bg-[#292929] text-white':'bg-white text-neutral-900')}>
+                        {n.origin==='auto_coach'&&<span className="text-[10px] text-neutral-500">主动陪伴 · </span>}{n.content}
+                      </div>
+                    </div>)}
+                  </div>
+                  {(unscopedNotes.length>0||unassignedNotes.length>0)&&<details className="shrink-0 px-3 text-[11px] text-neutral-500">
+                    <summary>旧记录 ({unscopedNotes.length+unassignedNotes.length})</summary>
+                    <div className="max-h-12 overflow-y-auto">{[...unscopedNotes,...unassignedNotes].map(n=><p key={n.id}>{n.content}</p>)}</div>
+                  </details>}
+                  <form onSubmit={e=>{e.preventDefault();void sendNote();}} className="flex shrink-0 gap-1.5 border-t border-neutral-200 bg-white p-2">
+                    <input className="min-w-0 min-h-10 flex-1 rounded-full bg-[#f3f3f3] px-3 text-sm outline-none"
+                      aria-label="学习室内对 Char 说" placeholder="聊聊…" value={message} onChange={e=>setMessage(e.target.value)}/>
+                    <button type="submit" disabled={replying||!allowance.canSend}
+                      className="min-h-10 rounded-full bg-[#292929] px-3 text-xs text-white disabled:opacity-40">
+                      {replying?'…':'发送'}</button>
+                  </form>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="study-phone-homebar" aria-hidden="true"/>
         </section>
       </div>}
     </div>
