@@ -19,6 +19,19 @@ export function makeUserVoiceMetadata(text: string, inputMode: UserVoiceInputMod
   return { transcript, inputMode, hasAudio: false };
 }
 
+/** Never mark a voice message as playable before its real audio bytes are stored. */
+export function attachUserVoiceAudio(
+  metadata: UserVoiceMetadata,
+  audioRef: string,
+  durationSec: number,
+): UserVoiceMetadata {
+  if (metadata.inputMode !== 'recorded' || !isBlobRef(audioRef)
+      || !Number.isFinite(durationSec) || durationSec <= 0) {
+    throw new Error('无效的真实录音资源');
+  }
+  return { ...metadata, hasAudio: true, audioRef, durationSec: Math.max(1, Math.ceil(durationSec)) };
+}
+
 /** Only saved, referenced audio qualifies for a playable voice bar. */
 export function describeUserVoice(msg: Message): {
   transcript: string;
