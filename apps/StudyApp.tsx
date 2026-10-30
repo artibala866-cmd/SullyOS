@@ -306,7 +306,7 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
 
 // Only highlight a legacy course after user explicitly clicks through from timetable.
  // Never auto-run handleTeach: opening a link must not start a paid model request.
-const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCharId?:string;onCompanionSelect?:(id:string)=>void;onLearningStateChange?:(state:{courseTitle:string;chapterTitle:string;progress:number}|null)=>void}> = ({onExit,highlightCourseId,companionCharId,onCompanionSelect,onLearningStateChange}) => {
+const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCharId?:string;onCompanionSelect?:(id:string)=>void;onLearningStateChange?:(state:{courseTitle:string;chapterTitle:string;progress:number;tutorCharId?:string}|null)=>void}> = ({onExit,highlightCourseId,companionCharId,onCompanionSelect,onLearningStateChange}) => {
     const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, updateCharacter, characterGroups } = useOS();
     const [mode, setMode] = useState<'bookshelf' | 'classroom' | 'quiz' | 'quiz_review' | 'practice_book'>('bookshelf');
     const [courses, setCourses] = useState<StudyCourse[]>([]);
@@ -387,8 +387,9 @@ const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCh
             courseTitle:activeCourse.title.slice(0,80),
             chapterTitle:(activeCourse.chapters[activeCourse.currentChapterIndex]?.title||'').slice(0,80),
             progress:Math.max(0,Math.min(100,Number(activeCourse.totalProgress)||0)),
+            tutorCharId:activeCourse.tutorCharId||selectedChar?.id,
         });
-    },[mode,activeCourse?.id,activeCourse?.currentChapterIndex,activeCourse?.totalProgress,onLearningStateChange]);
+    },[mode,activeCourse?.id,activeCourse?.currentChapterIndex,activeCourse?.totalProgress,activeCourse?.tutorCharId,selectedChar?.id,onLearningStateChange]);
 
     const currentSprite = selectedChar?.sprites?.['normal'] || selectedChar?.avatar;
 
