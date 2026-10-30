@@ -3,7 +3,7 @@
   /* Portrait iPhone silhouette: shrink WIDTH when the viewport gets short;
      never shorten HEIGHT independently into a broad chat panel. */
   position:absolute;right:12px;bottom:calc(91px + env(safe-area-inset-bottom,0px));
-  width:min(232px,58vw,calc((100dvh - 154px)*0.46));
+  width:min(218px,56vw,calc((100dvh - 154px)*0.46));
   aspect-ratio:9 / 19.5;height:auto;min-height:0;max-height:none;
   box-sizing:border-box;
   padding:0 6px 7px;display:flex;flex-direction:column;overflow:hidden;
@@ -26,6 +26,19 @@
 .study-room-phone .study-phone-topbar button{min-height:32px;border:0;background:transparent;color:#333;border-radius:11px}
 .study-room-phone .study-phone-topbar button:focus-visible{outline:2px solid #555;outline-offset:1px}
 .study-room-phone .study-phone-body{flex:1;min-height:0;overflow:hidden;position:relative}
+/* Embed the ORIGINAL private chat at a full logical phone width. Applying
+   max-width or changing individual message styles here used to crop the text,
+   avatars, send field and image bubbles. Scale the ENTIRE native chat canvas. */
+.study-room-phone .study-phone-native-viewport{
+  position:absolute;inset:0;overflow:hidden;background:#f7f7f7;
+}
+.study-room-phone .study-phone-native-canvas{
+  position:absolute;top:0;left:0;transform-origin:top left;overflow:hidden;
+  background:#f7f7f7;
+}
+.study-room-phone .study-phone-native-canvas>.sully-chat-root{
+  width:100%!important;height:100%!important;min-width:0!important;
+}
 .study-room-phone .study-phone-body .sully-chat-root{
   height:100%!important;min-height:0!important;
   background:#f7f7f7!important;padding:0!important;
