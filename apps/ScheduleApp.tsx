@@ -75,6 +75,7 @@ const ScheduleApp: React.FC = () => {
   const [coachSettingsOpen,setCoachSettingsOpen]=useState(false);
   const [coachPrompt,setCoachPrompt]=useState('');
   const coachIdleSince=useRef(Date.now());
+  const autoCoachAttempted=useRef(new Set<string>());
   const [recentLinkedFocus,setRecentLinkedFocus]=useState<{kind:WorkKind;title:string;minutes:number;sessionId:string}|null>(null);
   const [overviewBusy,setOverviewBusy]=useState(false);
   const [showCharPicker,setShowCharPicker]=useState(false);
@@ -210,6 +211,59 @@ const ScheduleApp: React.FC = () => {
     document.addEventListener('visibilitychange',onVisibility);
     return ()=>{window.clearInterval(interval);document.removeEventListener('visibilitychange',onVisibility);};
   },[activeChar?.id,charId,coachByChar,coachLastShown,coachEventByChar,session,tab,workspaceSnapshot,records,tasks,assistantOpen,coachSettingsOpen,exitOpen]);
+  // The optional paid model request is separate from the local reminder timer.
+  // No ChatApp prompt, private-chat permission or AMSG schedule is touched.
+  useEffect(()=>{
+    if(!coachPrompt||!activeChar||!coachSetting.allowAutoAI||coachSetting.level==='off'
+      ||coachSetting.paused||session||tab!=='timer'||assistantOpen||coachSettingsOpen||exitOpen
+      ||document.visibilityState!=='visible'||!workspaceSnapshot)return;
+    const event=coachEventByChar[charId];
+    const clock=new Date();
+    if(!event||event.day!==localDate(clock))return;
+    const reality=buildStudyRoomReality(workspaceSnapshot,null,'',records,tasks,clock);
+    if(isStudyCoachQuietTime(coachSetting,clock)||studyCoachEvent(reality,clock)?.key!==event.key)return;
+    const key=charId+'|'+event.key;
+    if(autoCoachAttempted.current.has(key))return;
+    autoCoachAttempted.current.add(key);
+    const chosen=activeChar,api=selectedDialogueApi,controller=new AbortController();
+    let active=true;
+    const onVisibility=()=>{if(document.visibilityState!=='visible')controller.abort();};
+    document.addEventListener('visibilitychange',onVisibility);
+    void (async()=>{
+      try{
+        if(!api.apiKey||!api.baseUrl||!api.model)throw new Error('当前 Char 的模型配置不完整');
+        const summary=buildCompanionOverview(workspaceSnapshot,null,'',clock);
+        const history=notesForStudyContext(notes,chosen.id,'overview').slice(-6);
+        const msgs=await ContextBuilder.buildCharacterRequest(
+          {char:chosen,user:userProfile},
+          [{role:'system',content:'仅在学习室内部使用：用户单独开启了真实事件触发的 Char 主动陪伴。自然表达一次简短关心，最多问一个问题。不得假定任务已完成、自动修改资料，或暗示已在普通私聊主动发消息。'},
+           ...history.map(n=>({role:n.role,content:n.content})),
+           {role:'user',content:'根据我在学习室里确认的真实数据，主动关心一次下一步即可。事件：'+coachPrompt+'。'+summary}],
+        );
+        if(!active||controller.signal.aborted)return;
+        const response=await fetch(api.baseUrl.replace(/\\/$/,'')+'/chat/completions',{
+          method:'POST',signal:controller.signal,
+          headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
+          body:JSON.stringify({model:api.model,messages:msgs,
+            temperature:typeof api.temperature==='number'?api.temperature:0.8}),
+        });
+        const result=await safeResponseJson(response);
+        if(!response.ok)throw new Error(result?.error?.message||'HTTP '+response.status);
+        const answer=extractContent(result)?.trim();
+        if(!answer)throw new Error('模型没有返回有效文字');
+        if(!active||controller.signal.aborted||document.visibilityState!=='visible')return;
+        setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:answer,
+          charId:chosen.id,scope:'overview',createdAt:Date.now()}]);
+        setCoachPrompt('');
+      }catch(error){
+        if(active&&!controller.signal.aborted)addToast('Char 主动陪伴未发送：'+String(error),'error');
+      }
+    })();
+    return ()=>{active=false;controller.abort();document.removeEventListener('visibilitychange',onVisibility);};
+  // The event key is persisted: failed or aborted requests are not re-charged in a loop.
+  },[coachPrompt,charId,coachByChar,coachEventByChar,workspaceSnapshot,session,tab,
+     activeChar?.id,assistantOpen,coachSettingsOpen,exitOpen,
+     selectedDialogueApi.apiKey,selectedDialogueApi.baseUrl,selectedDialogueApi.model]);
   useEffect(() => {
     if (!session || session.pauseRemainingMs != null || now < session.deadline) return;
     const id = session.id || String(session.deadline);
@@ -750,12 +804,16 @@ const ScheduleApp: React.FC = () => {
             <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
               <span>免打扰</span><input type="checkbox" checked={coachSetting.quietEnabled} onChange={e=>updateCoachSetting({quietEnabled:e.target.checked})}/>
             </label>
+            <label className="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
+              <span>Char 主动陪伴 <small className="block text-xs text-neutral-500">单独授权 · 可能消耗模型额度</small></span>
+              <input type="checkbox" checked={coachSetting.allowAutoAI} onChange={e=>updateCoachSetting({allowAutoAI:e.target.checked})}/>
+            </label>
             {coachSetting.quietEnabled && <div className="mt-2 grid grid-cols-2 gap-3">
               <label className="text-xs text-neutral-600">开始<input aria-label="免打扰开始" type="time" className="mt-1 w-full min-w-0 rounded-xl border border-neutral-200 bg-[#fafafa] p-2 text-sm" value={coachSetting.quietStart} onChange={e=>updateCoachSetting({quietStart:e.target.value})}/></label>
               <label className="text-xs text-neutral-600">结束<input aria-label="免打扰结束" type="time" className="mt-1 w-full min-w-0 rounded-xl border border-neutral-200 bg-[#fafafa] p-2 text-sm" value={coachSetting.quietEnd} onChange={e=>updateCoachSetting({quietEnd:e.target.value})}/></label>
             </div>}
           </>}
-          <p className="mt-4 text-xs leading-relaxed text-neutral-500">只在学习室空闲时，根据真实事项变化显示提醒；相同事项当天不重复，专注或休息时保持安静。提醒不是 Char 消息，不会自动调用付费 AI 或 AMSG。想聊时再由你发送。</p>
+          <p className="mt-4 text-xs leading-relaxed text-neutral-500">只在学习室空闲时，根据真实事项变化显示提醒；相同事项当天不重复，专注或休息时保持安静。本机提醒不是 Char 消息。仅开启上方独立授权后，才可能由模型在学习室内发出真实回复；不会向普通私聊或 AMSG 自动推送。</p>
         </section>
       </div>}
       {assistantOpen && <div className="absolute inset-0 z-[80] bg-black/40 flex items-end justify-center"
