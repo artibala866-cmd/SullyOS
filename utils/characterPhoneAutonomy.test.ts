@@ -141,6 +141,25 @@ describe('character-owned autonomous phone behavior', () => {
       .toEqual(['contact', 'owner']);
   });
 
+  it('prioritizes an existing NPC reply over contact bootstrap even on a life-event opportunity', async () => {
+    saveNpcProfiles('small-life', contacts().slice(0, 2));
+    const at = Date.now() - 24 * 60_000;
+    appendCharacterPhoneMessages({
+      characterId:'small-life', contactId:'npc0', contactName:'阿林', at,
+      messages:[{ speaker:{role:'contact', contactId:'npc0'},text:'你上次说的事后来怎么样了？',createdAt:at }],
+    });
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'small-life',observedAt:Date.now(),
+      plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    const request = mockApi();
+    expect(await runCharacterPhoneAutonomy(input('small-life'))).toBe('messaged');
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(readNpcProfiles('small-life')).toHaveLength(2);
+    expect(readCharacterPhoneChats('small-life')[0].messages.map(m=>m.speaker.role))
+      .toEqual(['contact','owner']);
+  });
+
   it('does not create contacts or start new topics for reply-only opportunities without waiting messages', async () => {
     saveNpcProfiles('no-reply', contacts().slice(0, 2));
     vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({

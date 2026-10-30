@@ -249,8 +249,12 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     // multiple phone surfaces may ask for updates in the same time window.
     state.lastAttemptAt = now;
     writeState(char.id, state);
-    let contacts = readNpcProfiles(char.id);
-    if (!input.replyOnly && contacts.length < 4 && now - state.bootstrapAt > DAY) {
+    const contacts = readNpcProfiles(char.id);
+    const threads = readCharacterPhoneChats(char.id);
+    const decision = chooseAction(char.id, contacts, threads, state, now, busyStatus === 'busy');
+    // Keep real ongoing conversations ahead of optional social bootstrap.
+    // A small address book is NOT a reason to ignore someone's saved message.
+    if (!decision && !input.replyOnly && contacts.length < 4 && now - state.bootstrapAt > DAY) {
       if (!reservePhoneApiBudget(char.id)) return 'skipped';
       state.bootstrapAt = now;
       state.attemptsToday++;
@@ -262,9 +266,6 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       // into a second, separately billed NPC turn during the same opportunity.
       return 'skipped';
     }
-    if (!contacts.length) return 'skipped';
-    const threads = readCharacterPhoneChats(char.id);
-    const decision = chooseAction(char.id, contacts, threads, state, now, busyStatus === 'busy');
     if (!decision || (input.replyOnly && decision.why !== 'unanswered')) return 'skipped';
     const { contact, thread, actor, why } = decision;
     const charTimeZone = resolveCharTimeZone(char);
