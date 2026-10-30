@@ -55,6 +55,8 @@ const ScheduleApp: React.FC = () => {
   const mainScrollRef=useRef<HTMLElement|null>(null);
   const tabScrollOffsets=useRef<Record<string,number>>({});
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
+  const [studyPresence,setStudyPresence]=useState<{courseTitle:string;chapterTitle:string;progress:number}|null>(null);
+  const onLearningStateChange=useCallback((value:{courseTitle:string;chapterTitle:string;progress:number}|null)=>setStudyPresence(value),[]);
   const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [companionMoment,setCompanionMoment]=useState('');
@@ -359,6 +361,7 @@ const ScheduleApp: React.FC = () => {
         activeCommissions:actual.activeCommissions,pendingHomework:actual.pendingHomework,
         todayCourses:actual.todayCourses,dueSoonCommissions:actual.dueSoonCommissions,
         dueSoonHomework:actual.dueSoonHomework,
+        pdfLearning:tab==='study'?studyPresence:null,
       });
       setAssistantTopic([brief,evidence,overview].filter(Boolean).join('\n').slice(0,7800));
       setMessage('陪我一起看看现在先做什么比较好？');
@@ -488,8 +491,8 @@ const ScheduleApp: React.FC = () => {
         <div className="relative h-full w-full overflow-hidden bg-white">
           <React.Suspense fallback={<p className="p-5">正在打开自习室…</p>}>
             <StudyApp highlightCourseId={studyTargetCourseId || undefined}
-              companionCharId={charId} onCompanionSelect={chooseChar}
-              onExit={() => {setTab(studyReturnTab);setStudyTargetCourseId(null);}} />
+              companionCharId={charId} onCompanionSelect={chooseChar} onLearningStateChange={onLearningStateChange}
+              onExit={() => {setTab(studyReturnTab);setStudyTargetCourseId(null);setStudyPresence(null);}} />
           </React.Suspense>
           <button type="button" disabled={overviewBusy}
             className="absolute right-3 bottom-16 z-[60] flex max-w-[85%] items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 shadow-lg text-xs disabled:opacity-60"
