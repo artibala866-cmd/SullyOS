@@ -6,6 +6,7 @@ const short=['周日','周一','周二','周三','周四','周五','周六'];
 const dayKey=(date:Date)=>date.toLocaleDateString('sv-SE');
 export default function StudyWeekTimetable({classes,selectedId,onSelect}:Props){
   const [weekOffset,setWeekOffset]=useState(0);
+  const [selectedDay,setSelectedDay]=useState(new Date().getDay());
   const today=new Date(),begin=new Date(today);
   // Local noon avoids nonexistent/repeated midnight during DST changes.
   begin.setHours(12,0,0,0);
@@ -26,28 +27,31 @@ export default function StudyWeekTimetable({classes,selectedId,onSelect}:Props){
           onClick={()=>setWeekOffset(x=>Math.min(520,x+1))}><CaretRight size={16}/></button>
       </div>
     </div>
-    <p className="text-xs text-neutral-500" aria-live="polite">{dates[0].getFullYear()}年 {dates[0].getMonth()+1}/{dates[0].getDate()} — {dates[6].getMonth()+1}/{dates[6].getDate()}{weekOffset===0?' · 本周':''}</p>
-    <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3">
-      {dates.map(day=>{
-        const key=dayKey(day);
-        const lessons=classes.filter(c=>!c.cancelled&&c.weekday===day.getDay()&&(!c.until||key<=c.until))
-          .sort((a,b)=>a.start.localeCompare(b.start));
-        const current=dayKey(today)===key;
-        return <div key={key} className={'min-w-[122px] flex-1 snap-start rounded-[22px] px-3 py-4 '+(current?'bg-[#ebebeb]':'bg-[#f7f7f7]')}>
-          <div className="mb-4 text-left">
-            <span className={'grid h-10 w-10 place-items-center rounded-full font-semibold text-[17px] '+(current?'bg-[#252525] text-white':'bg-white text-[#292929]')}>{day.getDate()}</span>
-            <p className="mt-1 text-[11px] text-neutral-500">{short[day.getDay()]}</p>
-          </div>
-          <div className="space-y-2">{lessons.length?lessons.map(c=><button key={c.id} type="button" aria-pressed={c.id===selectedId}
-            aria-label={'查看 '+c.name+' 作业'} onClick={()=>onSelect(c.id)}
-            className={'w-full border-l-2 py-1.5 pl-2 text-left focus-visible:ring-2 focus-visible:ring-neutral-800 '+(selectedId===c.id?'border-[#252525] bg-white/65':'border-[#cecece] hover:border-[#666666]')}>
-            <p className="text-[11px] font-medium tabular-nums text-neutral-500">{c.start}–{c.end}</p>
-            <p className="mt-1 text-[13px] font-semibold break-words line-clamp-2">{c.name}</p>
-            {c.location&&<p className="mt-1 flex items-center gap-0.5 truncate text-[11px] text-neutral-500"><MapPin size={10}/>{c.location}</p>}
-          </button>):<div className="grid min-h-[50px] place-items-center text-xs text-neutral-500">—</div>}</div>
-        </div>;
+    <div className="grid grid-cols-7 gap-1" aria-label="选择星期">
+      {dates.map((day,i)=>{
+        const date=dayKey(day);
+        const lessons=classes.filter(c=>!c.cancelled&&c.weekday===day.getDay()&&(!c.until||date<=c.until));
+        const active=selectedDay===i;
+        const current=dayKey(today)===date;
+        return <button type="button" key={date} aria-pressed={active}
+          aria-label={date+' '+short[i]} onClick={()=>setSelectedDay(i)}
+          className={'flex min-h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-[13px] text-xs '+(active?'bg-[#262626] text-white':current?'bg-[#ededed] text-[#222]':'bg-[#f7f7f7] text-neutral-600')}>
+          <span className="text-[10px]">{short[i].slice(1)}</span>
+          <span className="text-[14px] font-semibold tabular-nums">{day.getDate()}</span>
+          {lessons.length>0&&<span className={'h-1 w-1 rounded-full '+(active?'bg-white':'bg-neutral-600')}/>}
+        </button>;
       })}
     </div>
-    <p className="text-xs text-neutral-500">滑动看下一天 · 点击课程查看作业</p>
+    <div className="space-y-1.5" aria-label="当天课程">
+      {classes.filter(c=>!c.cancelled&&c.weekday===selectedDay&&(!c.until||dayKey(dates[selectedDay])<=c.until))
+        .sort((a,b)=>a.start.localeCompare(b.start))
+        .map(c=><button type="button" key={c.id} onClick={()=>onSelect(c.id)}
+          aria-label={'查看 '+c.name+' 作业'} aria-pressed={c.id===selectedId}
+          className={'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm '+(selectedId===c.id?'bg-[#ebebeb]':'bg-[#f7f7f7]')}>
+          <span className="shrink-0 text-xs tabular-nums text-neutral-600">{c.start}</span>
+          <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
+          {c.location&&<span className="hidden max-w-[100px] truncate text-xs text-neutral-500 sm:flex"><MapPin size={12}/>{c.location}</span>}
+        </button>)}
+    </div>
   </section>;
 }
