@@ -40,9 +40,8 @@ describe('photo paper and 3D double-person permission regression',()=>{
   expect(draws).toHaveLength(4);
   expect(texts.map(v=>v[0])).toEqual(['四个瞬间','我们的家']);
   expect([output.width,output.height]).toEqual([2048,2560]);
-  expect(draws[0].slice(1).map((n:number)=>n/output.width)).toEqual(
-   expect.arrayContaining([expect.closeTo(.055,2),expect.closeTo(.075*output.height/output.width,2)])
-  );
+  expect(draws[0][1]/output.width).toBeCloseTo(.055,2);
+  expect(draws[0][2]/output.height).toBeCloseTo(.075,2);
  });
  it('stores only user-edited paper lettering, does not touch home saves, tolerates corrupt local storage',()=>{
   const value={polaroid:{title:'给你',footer:'秋夜',font:'rounded' as const}};
