@@ -1600,7 +1600,7 @@ describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
       amsgMode: 'auto', amsgClientTaskId: 'autowake:day:stage4',
       amsgExpirePolicy: 'force', amsgTaskInstruction: '自主判断是否联系对方',
     };
-    const emitResult = vi.fn(async () => ({messageId:'outbox-1',pushed:false}));
+    const emitResult = vi.fn(async (_payload: unknown) => ({messageId:'outbox-1',pushed:false}));
     const ctx = {
       task: {id:42,uuid:TASK_UUID,contactName:'Nyah',recurrenceType:'daily',
         nextSendAt:NOW.toISOString(),metadata},
@@ -1616,6 +1616,14 @@ describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
       metadata:o.metadata,scratch:o.scratch,writeState:o.used.writeState,
       emitResult:o.emitResult,iteration,
     } as any) as Promise<any>;
+  // SILENT also emits a separate, legitimate fire-skip diagnostic via the
+  // same result outbox; count only cloud NPC replies for these assertions.
+  const phoneResults = (o: ReturnType<typeof newContext>) =>
+    o.emitResult.mock.calls.map(([payload]) => payload).filter(
+      (payload): payload is Record<string,unknown> =>
+        !!payload && typeof payload === 'object' &&
+        (payload as Record<string,unknown>).resultKind === 'cloud-phone-reply-v1',
+    );
 
   it('puts a saved NPC reply in the real outbox even when User contact is SILENT, never in a push', async () => {
     const o=newContext();
@@ -1633,8 +1641,8 @@ describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
       })).toContain('昨晚的事怎么样了');
     const decision=await output(o,'[[SILENT]]\n[[CLOUD_PHONE_REPLY:{"messages":["我刚看到，晚点聊"]}]]');
     expect(decision.decision).toBe('skip-push');
-    expect(o.emitResult).toHaveBeenCalledTimes(1);
-    expect(o.emitResult.mock.calls[0][0]).toMatchObject({
+    expect(phoneResults(o)).toHaveLength(1);
+    expect(phoneResults(o)[0]).toMatchObject({
       resultKind:'cloud-phone-reply-v1',charId:CHAR_ID,contactId:'npc-circle-1',
       messages:['我刚看到，晚点聊'],notification:{show:false},
     });
@@ -1649,8 +1657,8 @@ describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
     expect(o.emitResult).not.toHaveBeenCalled();
     const last=await output(o,'[[SILENT]]',1);
     expect(last.decision).toBe('skip-push');
-    expect(o.emitResult).toHaveBeenCalledTimes(1);
-    expect(o.emitResult.mock.calls[0][0].messages).toEqual(['下班啦']);
+    expect(phoneResults(o)).toHaveLength(1);
+    expect(phoneResults(o)[0].messages).toEqual(['下班啦']);
   });
 
   it('only the first repeated wake reserves the same phone message, and no phone-transport means no reservation',async()=>{
