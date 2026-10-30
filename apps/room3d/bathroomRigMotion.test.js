@@ -3,6 +3,7 @@ import * as T from 'three';
 import {createBlankBody,BLANK_SCALE} from './chibi/blankBody.ts';
 import {bindBlankBody} from './chibi/blankRig.ts';
 import {createBlankMotion} from './chibi/blankMotion.ts';
+import {bathInnerHandWeight} from './chibi/bathroomMotion.ts';
 import {createBathroomJourney,bathroomJourneyFrame,bathroomHandTargets} from './bathroomJourney.js';
 
 // Numeric skeletal/controller verification only. It never certifies GLB
@@ -111,6 +112,31 @@ describe('skinned tub-floor support while settling',()=>{
     frame(a,activity,j,time);
     const soles=['L_toe','R_toe'].map(n=>a.rig.bones[n].getWorldPosition(new T.Vector3()).y);
     expect(Math.min(...soles), 'shoe under tub at '+height+'/'+time).toBeGreaterThan(activity.position[1]-.12-.18);
+    expect(a.rig.skeleton.bones.map(b=>b.position.length())).toEqual(lengths);
+   }
+  }
+ });
+});
+
+describe('tub rim support to inside seated hand rest',()=>{
+ it('keeps a fixed rim grip through crossing then moves the hands inside rather than through the side wall',()=>{
+  expect(bathInnerHandWeight(.1,1,'enter')).toBe(0);
+  expect(bathInnerHandWeight(.8,.2,'enter')).toBeGreaterThan(.5);
+  expect(bathInnerHandWeight(1,0,'work')).toBe(1);
+  for(const height of [.8,1,1.25]){
+   const a=actor(height),activity={kind:'bath-soak',position:[0,.54,0],rotation:0,
+    edge:[0,1.17,.65],edgeRotation:0,posture:'seated',duration:8,
+    bathHandWorld:[[-.25,1.16,.5],[.25,1.16,.5]]};
+   const journey=createBathroomJourney(activity,[0,.18,1.35],0);
+   const lengths=a.rig.skeleton.bones.map(b=>b.position.length());
+   for(const t of [4.35,4.6,5.1]){
+    frame(a,activity,journey,t);
+    const chest=a.rig.bones.chest.getWorldPosition(new T.Vector3());
+    for(const side of ['L','R']){
+     const hand=a.rig.bones[side+'_hand'].getWorldPosition(new T.Vector3());
+     expect(hand.distanceTo(chest),height+'/'+t+'/'+side+' hand must rest inside torso envelope').toBeLessThan(.85);
+     expect(Number.isFinite(hand.y)).toBe(true);
+    }
     expect(a.rig.skeleton.bones.map(b=>b.position.length())).toEqual(lengths);
    }
   }
