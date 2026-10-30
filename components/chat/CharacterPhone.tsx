@@ -985,7 +985,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               ? '允许 Char 在网页前台、遇到已有生活事件或需要回复的 NPC 时自主处理手机'
               : '独立自主生成已暂停；查看已有内容、手动生成仍可使用'}</p>
             <p>{phonePrefs.chatPiggybackEnabled
-              ? '私聊同轮附带手机内容：已开启（不会另发一轮 API）'
+              ? '私聊同轮附带手机内容：已开启（若主动消息 2.0 同时开启，也可随云端自主联系回复旧 NPC 微信）'
               : '私聊同轮附带手机内容：未开启'}</p>
             <p>每个应用仍遵守原来的手动／自动选择；无需为普通浏览调整下面的高级参数。</p>
           </section>}
@@ -1141,7 +1141,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           <section className="space-y-4 rounded-2xl bg-white p-4">
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">私聊同轮生成 NPC 微信／朋友圈</strong>
-                <span className="block mt-1 leading-5 text-[#888]">使用 Char 给 User 的同一次模型回复，只有自然触发时才附带已认识 NPC 的聊天、NPC 回信或 Char 动态。没有额外 API 请求，但会增加该次输出 token；可和“关闭独立后台请求”搭配使用。</span></span>
+                <span className="block mt-1 leading-5 text-[#888]">角色私聊回复可以在同次生成中附带虚构 NPC 手机互动。若还开启了这个角色的主动消息 2.0，并使用兼容的云端 Worker，原有每日自主联系也可顺带回复一条已保存的 NPC 待回微信，关网页后结果可在下次上线时补收。这里不会另启一轮 API，但会增加输出 token；关掉独立后台 AI 请求或前台手机自主生活不会关闭此项。关闭本项或主动消息 2.0 就不再云端顺带回复。</span></span>
               <input type="checkbox" checked={phonePrefs.chatPiggybackEnabled}
                 onChange={e=>changePhonePrefs({chatPiggybackEnabled:e.target.checked})}
                 className="h-5 w-5 shrink-0 accent-[#444]"/>
