@@ -36,12 +36,16 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     editedRef.current = false;
   }, [clearElapsedTimer]);
 
-  useEffect(() => () => {
-    generationRef.current += 1;
-    clearElapsedTimer();
-    sessionRef.current?.cancel();
-    sessionRef.current = null;
-  }, [characterId, clearElapsedTimer]);
+  useEffect(() => {
+    // A character switch must never expose the previous character's speech draft.
+    cancel();
+    return () => {
+      generationRef.current += 1;
+      clearElapsedTimer();
+      sessionRef.current?.cancel();
+      sessionRef.current = null;
+    };
+  }, [characterId, cancel, clearElapsedTimer]);
 
   const start = useCallback(async () => {
     if (!characterId || status !== 'idle') return;
