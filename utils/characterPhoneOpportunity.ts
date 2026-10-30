@@ -26,10 +26,17 @@ function readSeen(charId: string): string[] {
 }
 
 /** Only saved, grounded reasons are eligible; a periodic timer is not a reason. */
-export function findPhoneAutonomyOpportunity(charId: string, now = Date.now()): PhoneAutonomyOpportunity | null {
+/** Optionally restrict the NPC set for cloud piggyback. A linked real Char or
+ * service conversation must not mask a later eligible fictional NPC reply.
+ * Foreground callers without a filter keep their established behavior.
+ */
+export function findPhoneAutonomyOpportunity(
+  charId: string, now = Date.now(), eligibleContactIds?: ReadonlySet<string>,
+): PhoneAutonomyOpportunity | null {
   if (!charId || typeof localStorage === 'undefined') return null;
   const seen = new Set(readSeen(charId));
-  const known = new Set(readNpcProfiles(charId).map(x => x.id));
+  const known = new Set(readNpcProfiles(charId)
+    .filter(x => !eligibleContactIds || eligibleContactIds.has(x.id)).map(x => x.id));
   const unanswered = readCharacterPhoneChats(charId)
     .filter(t => t.contactId && known.has(t.contactId) && t.kind !== 'service' && t.kind !== 'group')
     .flatMap(t => {
