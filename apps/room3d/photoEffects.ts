@@ -44,7 +44,9 @@ export function paintPhoto(source:HTMLCanvasElement,out:HTMLCanvasElement,look:P
   const pixels=l.getImageData(0,0,light.width,light.height),d=pixels.data;
   for(let i=0;i<d.length;i+=4){const peak=Math.max(d[i],d[i+1],d[i+2])/255;const t=Math.max(0,Math.min(1,(peak-.5)/.4));const gain=t*t*(3-2*t);d[i]*=gain;d[i+1]*=gain;d[i+2]*=gain;}
   l.putImageData(pixels,0,0);ctx.globalCompositeOperation='screen';
-  // Subtle looks need only the two close halo scales; skip the widest blur\n  // to save a full-size canvas draw/filter on mobile photo exports.\n  const haloScales=look.glow>=.3?[[.004,.55],[.016,.4],[.04,.25]]:[[.004,.55],[.016,.4]];\n  for(const [radius,weight] of haloScales){ctx.globalAlpha=Math.min(1,look.glow*weight);ctx.filter=`blur(${Math.max(w,h)*radius}px)`;ctx.drawImage(light,0,0,w,h);}
+  // Subtle looks need only the two close halo scales; skip the widest blur\n  // to save a full-size canvas draw/filter on mobile photo exports.
+  const haloScales=look.glow>=.3?[[.004,.55],[.016,.4],[.04,.25]]:[[.004,.55],[.016,.4]];
+  for(const [radius,weight] of haloScales){ctx.globalAlpha=Math.min(1,look.glow*weight);ctx.filter=`blur(${Math.max(w,h)*radius}px)`;ctx.drawImage(light,0,0,w,h);}
   ctx.filter='none';
  }
  if(look.preset!=='natural'&&!illustrated){
