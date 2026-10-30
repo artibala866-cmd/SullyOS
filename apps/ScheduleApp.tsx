@@ -7,7 +7,7 @@ import StudyAvatar from './StudyAvatar';
 import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
-import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,type StudyCoachSetting} from '../utils/studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
@@ -60,6 +60,7 @@ const ScheduleApp: React.FC = () => {
   const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [companionMoment,setCompanionMoment]=useState('');
+  const [companionMomentAt,setCompanionMomentAt]=useState(0);
   const [coachByChar,setCoachByChar]=useState<Record<string,StudyCoachSetting>>(()=>load('coachByChar',{}));
   const [coachLastShown,setCoachLastShown]=useState<Record<string,number>>(()=>load('coachLastShown',{}));
   const [coachSettingsOpen,setCoachSettingsOpen]=useState(false);
@@ -208,10 +209,12 @@ const ScheduleApp: React.FC = () => {
         setTasks(updatedTasks);
       }
       addToast('专注完成，可以休息了', 'success');
-      setCompanionMoment('这轮专注完成啦。可以休息一下，或和 Char 聊聊刚才的进展。');
+      setCompanionMoment('刚完成一轮专注，可以一起回顾。');
+      setCompanionMomentAt(Date.now());
     } else {
       addToast('休息结束，准备下一轮', 'success');
-      setCompanionMoment('休息结束啦。想继续刚才的任务，可以再开始一轮。');
+      setCompanionMoment('休息结束了，想继续就开始下一轮。');
+      setCompanionMomentAt(Date.now());
     }
     save('session', null);
     setSession(null);
@@ -235,6 +238,7 @@ const ScheduleApp: React.FC = () => {
     const duration = mode === 'focus' ? focusMinutes : breakMinutes;
     processed.current = null;
     setCompanionMoment('');
+    setCompanionMomentAt(0);
     setRecentLinkedFocus(null);
     setSession({ id: newWorkspaceId(), mode, duration, deadline: Date.now() + duration * 60000, taskId: selectedTask, usedChatWindows: [] });
     setTab('timer');
@@ -302,6 +306,7 @@ const ScheduleApp: React.FC = () => {
     // Starting from an actionable work card requires only one deliberate tap.
     processed.current=null;
     setCompanionMoment('');
+    setCompanionMomentAt(0);
     setRecentLinkedFocus(null);
     setSession({
       id:newWorkspaceId(),mode:'focus',duration:focusMinutes,
@@ -325,6 +330,7 @@ const ScheduleApp: React.FC = () => {
     setShowCharPicker(false);
     setCoachPrompt('');
     setCompanionMoment('');
+    setCompanionMomentAt(0);
     setCoachSettingsOpen(false);
     // Never transfer one Char's user-selected context to another Char.
     setAssistantTopic('');
@@ -364,7 +370,9 @@ const ScheduleApp: React.FC = () => {
         pdfLearning:tab==='study'?studyPresence:null,
       });
       setAssistantTopic([brief,evidence,overview].filter(Boolean).join('\n').slice(0,7800));
-      setMessage('陪我一起看看现在先做什么比较好？');
+      const last=records.filter(r=>r.date===new Date().toLocaleDateString('sv-SE')).slice(-1)[0];
+      setMessage(companionEntryPrompt(actual,activeTask?.title||'',tab==='study'?studyPresence:null,
+        companionMoment&&Date.now()-companionMomentAt<2*60000?last?.minutes||0:0));
       setAssistantOpen(true);
     }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
     finally{setOverviewBusy(false);}
@@ -422,7 +430,7 @@ const ScheduleApp: React.FC = () => {
     const requestScope=assistantScope;
     const requestItemId=assistantItemId;
     const note:Note={id:newWorkspaceId(),role:'user',content,charId:activeChar.id,
-      scope:requestScope,topicId:requestItemId};
+      scope:requestScope,topicId:requestItemId,createdAt:Date.now()};
     const history:Note[]=[...notesForStudyContext(notes,activeChar.id,requestScope,requestItemId),note];
     setNotes(prev=>[...prev,note]);
     setMessage('');
@@ -451,7 +459,7 @@ const ScheduleApp: React.FC = () => {
       const reply = extractContent(data);
       if (!reply?.trim()) throw new Error('AI 返回了空回复');
       setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:reply.trim(),
-        charId:activeChar.id,scope:requestScope,topicId:requestItemId}]);
+        charId:activeChar.id,scope:requestScope,topicId:requestItemId,createdAt:Date.now()}]);
       // A role/topic changed while the call was in flight: preserve the answer
       // only under its original Char, never turn it into a new role's proposal.
       if(requestVersion!==discussionVersion.current) return;
@@ -484,7 +492,16 @@ const ScheduleApp: React.FC = () => {
       setReplying(false);
     }
   };
-  const companionStatus=coachPrompt||companionReality?.hint||companionMoment||companionMomentText(session,activeTask?.title||'',(records.length?records[records.length-1].minutes:0));
+  const recentVoice=!session?recentCompanionReply(notes,charId):'';
+  const freshMoment=!!companionMoment&&Date.now()-companionMomentAt<2*60000;
+  const companionStatus=coachPrompt||(
+    session?companionMomentText(session,activeTask?.title||'',0)
+      :recentVoice?'刚才说：'+recentVoice
+      :freshMoment?companionMoment
+      :companionReality?.hint||companionMomentText(null,'',0));
+  const companionActionLabel=overviewBusy?'读取中…':coachPrompt?'聊聊'
+    :recentVoice?'接着聊':freshMoment?'聊这轮'
+    :tab==='calendar'?'聊课程':tab==='commissions'?'聊画稿':'聊今天';
   return (
     <div className="relative h-full w-full overflow-hidden">
       {tab === 'study' && (
@@ -494,15 +511,6 @@ const ScheduleApp: React.FC = () => {
               companionCharId={charId} onCompanionSelect={chooseChar} onLearningStateChange={onLearningStateChange}
               onExit={() => {setTab(studyReturnTab);setStudyTargetCourseId(null);setStudyPresence(null);}} />
           </React.Suspense>
-          <button type="button" disabled={overviewBusy}
-            className="absolute right-3 bottom-16 z-[60] flex max-w-[85%] items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 shadow-lg text-xs disabled:opacity-60"
-            aria-label="在自习室和当前 Char 继续陪伴"
-            onClick={()=>void openCompanionOverview()}>
-            <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full bg-neutral-100">
-              <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-full w-full rounded-full"/>
-            </span>
-            <span className="min-w-0 truncate">{activeChar?.name||'选择 Char'} · 陪我学习</span>
-          </button>
         </div>
       )}
       <div className={tab === 'study'
@@ -529,7 +537,7 @@ const ScheduleApp: React.FC = () => {
         </p>
         <button type="button" disabled={overviewBusy} onClick={()=>{setCoachPrompt('');void openCompanionOverview();}}
           className="shrink-0 rounded-full border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs font-medium disabled:opacity-50">
-          {overviewBusy?'读取中…':coachPrompt?'聊聊':'一起看今天'}
+          {companionActionLabel}
         </button>
         <button type="button" aria-label="督促设置" title="督促设置" aria-expanded={coachSettingsOpen}
           onClick={()=>setCoachSettingsOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-neutral-200 bg-white">
