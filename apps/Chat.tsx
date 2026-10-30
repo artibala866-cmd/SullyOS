@@ -3221,6 +3221,18 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         return()=>window.removeEventListener('home-secrets-updated',refresh);
     },[char?.id,visibleCount,reloadMessages]);
 
+    // Delete only after DB has removed every reference; the shared Blob store's
+    // full reference scan prevents us from deleting assets used by other records.
+    const cleanupDeletedUserVoiceAudio = (removed: Message[]) => {
+        const refs = [...new Set(removed
+            .filter(m => m.role === 'user' && m.type === 'voice')
+            .map(m => m.metadata?.audioRef)
+            .filter((ref): ref is string => typeof ref === 'string'))];
+        for (const ref of refs) {
+            void deleteBlobRefIfUnreferenced(ref).catch(error => console.warn('[Chat] voice blob cleanup deferred', error));
+        }
+    };
+
     // --- Message Management ---
     const handleDeleteMessage = async () => {
         if (!selectedMessage) return;
@@ -3229,6 +3241,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if (selectedMessage.role === 'user' && findPendingUserTurn(messages)?.id === deletedId) autoReply.cancel();
         const providerId = selectedMessage.metadata?.activeMsg2?.messageId;
         await DB.deleteMessage(deletedId);
+        cleanupDeletedUserVoiceAudio([selectedMessage]);
         if (typeof providerId === 'string') pruneDeletedPrivateChatLifeEvents(selectedMessage.charId, [providerId]);
         discardVoiceForMessages([deletedId]);
         // 满血主动消息：云端 fire_pack 里带最近对话原文，删了消息不打脏的话，角色到点
@@ -3251,11 +3264,24 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if (contentChanged && selectedMessage.role === 'user' &&
             findPendingUserTurn(messages)?.id === selectedMessage.id) autoReply.cancel();
         await DB.updateMessage(selectedMessage.id, editContent);
+        let editedVoiceMetadata = selectedMessage.metadata;
+        if (contentChanged && selectedMessage.role === 'user' && selectedMessage.type === 'voice') {
+            const { audioRef: oldAudioRef, durationSec: _durationSec, ...rest } = selectedMessage.metadata || {};
+            editedVoiceMetadata = {
+                ...rest,
+                transcript: editContent,
+                hasAudio: false,
+            };
+            await DB.updateMessageMetadata(selectedMessage.id, () => editedVoiceMetadata);
+            if (typeof oldAudioRef === 'string') {
+                void deleteBlobRefIfUnreferenced(oldAudioRef).catch(() => {});
+            }
+        }
         // 内容变了旧语音就作废，否则语音条仍会播放编辑前的音频。
         if (contentChanged) discardVoiceForMessages([selectedMessage.id]);
         // 同 handleDeleteMessage：正文改了要让云端 fire_pack 跟上。
         if (contentChanged) markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
-        setMessages(prev => prev.map(m => m.id === selectedMessage.id ? { ...m, content: editContent } : m));
+        setMessages(prev => prev.map(m => m.id === selectedMessage.id ? { ...m, content: editContent, metadata: editedVoiceMetadata } : m));
         setModalType('none');
         setSelectedMessage(null);
         addToast('消息已修改', 'success');
@@ -3405,6 +3431,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 .map(m => m.metadata?.activeMsg2?.messageId)
                 .filter((id): id is string => typeof id === 'string' && id.length > 0);
             await DB.deleteMessages(ids);
+            cleanupDeletedUserVoiceAudio(messages.filter(m => msgIdsToDelete.has(m.id)));
             pruneDeletedPrivateChatLifeEvents(char.id, deletedProviderIds);
             // The remote AMSG fire_pack contains recent chat text. A batch
             // delete must invalidate its snapshot exactly like single delete.
@@ -3477,7 +3504,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // Build preview text (first few messages)
         const previewLines = selectedMsgs.slice(0, 4).map(m => {
             const sender = m.role === 'user' ? userProfile.name : char.name;
-            const text = m.type === 'text' ? m.content.slice(0, 30) : `[${m.type === 'image' ? '图片' : m.type === 'emoji' ? '表情' : m.type}]`;
+            const text = m.type === 'voice'
+                ? `[语音] ${m.content.slice(0, 30)}`
+                : m.type === 'text' ? m.content.slice(0, 30)
+                    : `[${m.type === 'image' ? '图片' : m.type === 'emoji' ? '表情' : m.type}]`;
             return `${sender}: ${text}`;
         });
         if (selectedMsgs.length > 4) previewLines.push(`... 共 ${selectedMsgs.length} 条消息`);
@@ -3490,7 +3520,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             messages: selectedMsgs.map(m => ({
                 role: m.role,
                 type: m.type,
-                content: m.content,
+                content: m.type === 'voice' ? `[语音] ${m.content}` : m.content,
                 timestamp: m.timestamp || Date.now()
             }))
         };
