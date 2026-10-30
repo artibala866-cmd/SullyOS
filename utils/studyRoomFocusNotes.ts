@@ -10,6 +10,8 @@ export interface FocusChatNote {
   charId?:string;
   scope?:StudyDialogueScope;
   topicId?:string;
+  /** Only newly returned messages have a trustworthy creation time. */
+  createdAt?:number;
 }
 export function notesForStudyChar(notes:readonly FocusChatNote[],charId:string):FocusChatNote[]{
   if(!charId)return [];
