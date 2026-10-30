@@ -61,6 +61,9 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
      const feet=pair.map(v=>Math.min(...['L_toe','R_toe','L_foot','R_foot'].map(n=>v.rig.bones[n].getWorldPosition(new T.Vector3()).y)));
      const frame={scenario:heights.name,outfit:outfit.name,direction,time,heads:heads.map(v=>v.toArray()),headDistance:distance,footMin:feet,hair:pair.map(hairBox),palms:pair.map(palm),wardrobe:pair.map(wardrobeMeshes)};
      if(!Number.isFinite(distance)||!feet.every(Number.isFinite)||!frame.heads.flat().every(Number.isFinite))throw Error('Non-finite geometry '+heights.name+'/'+time);
+     const carrier=direction==='home-princess-carry'?0:1;
+     const floorY=pair[carrier].root.getWorldPosition(new T.Vector3()).y;
+     if(feet[carrier]<floorY-.035)throw Error('Carrier foot sank under floor: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+(feet[carrier]-floorY).toFixed(3)+'m');
      if(frame.wardrobe.some(n=>n<2))throw Error('Wardrobe disappeared during carry');
      records.push(frame);
      for(const angle of time===5?['three-quarter','side']:['three-quarter']){

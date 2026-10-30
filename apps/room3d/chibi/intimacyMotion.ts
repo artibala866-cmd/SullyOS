@@ -174,8 +174,17 @@ export function poseIntimacy(action:string,both:Resident[],time:number,seatedInd
  a.rig.bones.spine.quaternion.multiply(rotation(-loadedKnee*.7));
  a.rig.bones.chest.quaternion.multiply(rotation(loadedKnee*.42));
  a.root.updateWorldMatrix(true,true);restoreLegSupport(a,carrierSupport);
+ // The captured human crouch can place a skinned Q-rig foot below the scene
+ // floor during entry and release. Adjust only the pose-local body (never
+ // the navigation root), before resolving the recipient and both palms.
+ const carrierFloor=a.root.getWorldPosition(new T.Vector3()).y+.012;
+ const actualSole=Math.min(...['L_foot','R_foot','L_toe','R_toe'].map(n=>point(a,n).y));
+ if(actualSole<carrierFloor) a.translatePose(new T.Vector3(0,Math.min(.75,carrierFloor-actualSole),0));
  // The recipient turns across the carrier, folds both knees, then rises into the arms.
- turn(b,'hips',rotation(0,Math.PI/2,0).multiply(rotation(-.45)),p.lift);
+ // Recline the carried torso far enough that both enlarged chibi hair caps
+ // no longer stack directly at eye level. The recipient's limbs and palms
+ // still follow the existing scale-aware support and arm IK below.
+ turn(b,'hips',rotation(0,Math.PI/2,0).multiply(rotation(-.90)),p.lift);
  for(const side of ['L','R'] as const){
   turn(b,side+'_thigh',rotation(-1.35,0,side==='L'?-.025:.025),p.lift);
   turn(b,side+'_shin',rotation(1.45),p.lift);
