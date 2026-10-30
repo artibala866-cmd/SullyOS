@@ -2543,10 +2543,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let disposed = false;
       let running = false;
       let cursor = 0;
+      const queuedEvidence = new Set<string>();
+      let queuedDrainTimer: number | null = null;
       const momentTimers = new Map<string, number>();
       const evidenceTimers = new Map<string, number>();
       const tick = async (requestedCharId?: string) => {
-          if (disposed || running || document.visibilityState !== 'visible') return;
+          if (disposed || document.visibilityState !== 'visible') return;
+          if (running) {
+              // A confirmed event for another Char must not vanish merely
+              // because one NPC request is still in flight. Dedupe by Char.
+              if (requestedCharId) queuedEvidence.add(requestedCharId);
+              return;
+          }
           const all = charactersRef.current.filter(c => !!c.id);
           if (!all.length || !userProfileRef.current) return;
           const char = requestedCharId
@@ -2607,7 +2615,20 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           } catch (error) {
               console.warn('[CharacterPhone] grounded autonomous tick skipped', error);
-          } finally { running = false; }
+          } finally {
+              running = false;
+              if (!disposed && document.visibilityState === 'visible' &&
+                  queuedEvidence.size > 0 && queuedDrainTimer === null) {
+                  const next = queuedEvidence.values().next().value as string;
+                  queuedEvidence.delete(next);
+                  // Re-check the persisted opportunity + budget in tick;
+                  // only one queued Char runs at a time, never an AI storm.
+                  queuedDrainTimer = window.setTimeout(() => {
+                      queuedDrainTimer = null;
+                      void tick(next);
+                  }, 1_000);
+              }
+          }
       };
       // Newly published posts and new User comments receive a foreground
       // reaction opportunity without waiting for the next 3-minute OS tick.
@@ -2679,6 +2700,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           window.removeEventListener(CHARACTER_PHONE_CHATS_CHANGED, onPhoneChatsChanged);
           for (const timer of momentTimers.values()) window.clearTimeout(timer);
           for (const timer of evidenceTimers.values()) window.clearTimeout(timer);
+          if (queuedDrainTimer !== null) window.clearTimeout(queuedDrainTimer);
+          queuedEvidence.clear();
           momentTimers.clear();
           evidenceTimers.clear();
       };

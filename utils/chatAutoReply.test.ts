@@ -113,6 +113,31 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
+    it('persists a send that finishes only after switching to another character', () => {
+        let finish!: (sent: boolean) => void;
+        act(() => { finish = controls.beginSend('a'); });
+        render({ conversationId: 'b' });
+        act(() => finish(true));
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:b')).toBeNull();
+        advance(5000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        render({ conversationId: 'a' });
+        advance(2000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not re-arm a late send cancelled before the character switch', () => {
+        let finish!: (sent: boolean) => void;
+        act(() => { finish = controls.beginSend('a'); controls.cancel(); });
+        render({ conversationId: 'b' });
+        act(() => finish(true));
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeNull();
+        render({ conversationId: 'a' });
+        advance(5000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+    });
+
     it('removes the saved reply intent when automatic replies are switched off', () => {
         send();
         expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();

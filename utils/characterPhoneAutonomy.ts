@@ -178,7 +178,9 @@ function chooseAction(charId: string, contacts: NpcProfile[], threads: Character
     if (last?.speaker.role !== 'contact') return [];
     const lastAt = last.createdAt || thread?.time || 0;
     const waitMs = now - lastAt;
-    if (waitMs <= (busy ? 60 : 7) * 60_000) return [];
+    // An old abandoned NPC conversation is not a fresh reason to speak.
+    // Match the 72-hour evidence window in characterPhoneOpportunity.
+    if (waitMs <= (busy ? 60 : 7) * 60_000 || waitMs > 72 * 60 * 60_000) return [];
     return [{ contact, thread, actor: 'owner' as const, why: 'unanswered' as const, waitMs }];
   });
   if (unanswered.length) {
@@ -201,7 +203,9 @@ function chooseAction(charId: string, contacts: NpcProfile[], threads: Character
     if (!last && createdAt > 0 && contactAge > 5 * 60_000 && contactAge <= 3 * DAY) {
       return [{ contact, thread, recentAt, createdAt, actor: (busy ? 'contact' : 'owner') as 'owner' | 'contact', why: 'new-contact' as const }];
     }
-    if (last?.speaker.role === 'owner' && now - recentAt > 4 * 60 * 60_000) {
+    const lastAt = last?.createdAt || thread?.time || 0;
+    if (last?.speaker.role === 'owner' && lastAt > 0 && now - lastAt >= 4 * 60 * 60_000 &&
+        now - lastAt <= 72 * 60 * 60_000 && recentAt <= now) {
       return [{ contact, thread, recentAt, createdAt, actor: 'contact' as const, why: 'follow-up' as const }];
     }
     return [];
@@ -245,10 +249,8 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
         isLocalChatLeaseActive(char.id)) return 'skipped';
     const busyStatus = classifyLifeActivity(char.scheduleFeatureEnabled === false ? '' : (life.plannedActivity || ''));
     if (busyStatus === 'sleep') return 'skipped';
-    // Reserve the attempt BEFORE the network request. The app may be reopened or
-    // multiple phone surfaces may ask for updates in the same time window.
-    state.lastAttemptAt = now;
-    writeState(char.id, state);
+    // No motive / no eligible recipient means no API call and must not place
+    // the Char into a fake 18-minute post-attempt cooldown.
     const contacts = readNpcProfiles(char.id);
     const threads = readCharacterPhoneChats(char.id);
     const decision = chooseAction(char.id, contacts, threads, state, now, busyStatus === 'busy');
@@ -256,6 +258,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     // A small address book is NOT a reason to ignore someone's saved message.
     if (!decision && !input.replyOnly && contacts.length < 4 && now - state.bootstrapAt > DAY) {
       if (!reservePhoneApiBudget(char.id)) return 'skipped';
+      state.lastAttemptAt = now;
       state.bootstrapAt = now;
       state.attemptsToday++;
       writeState(char.id, state);
@@ -309,6 +312,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     if (!stillAuthorized() || isCharacterPhoneRefreshing(char.id) ||
         isLocalChatLeaseActive(char.id)) return 'skipped';
     if (!reservePhoneApiBudget(char.id)) return 'skipped';
+    state.lastAttemptAt = now;
     state.attemptsToday++;
     writeState(char.id, state);
     const result = await queryJson(api, [

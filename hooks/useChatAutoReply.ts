@@ -49,7 +49,7 @@ interface Options {
 
 const newWork = () => ({
     pending: false, sends: new Set<symbol>(), cancelVersion: 0, firstUnansweredAt: 0, persisted: false,
-    checking: false, retryAt: 0,
+    checking: false, retryAt: 0, ownerId: null as string | null,
 });
 
 /** Only a successfully saved send in this active conversation creates a candidate. */
@@ -62,8 +62,8 @@ export function useChatAutoReply(options: Options) {
 
     const cancel = useCallback(() => {
         const work = workRef.current;
-        if (work.pending && work.persisted && current.current.conversationId)
-            removeIntent(current.current.conversationId, work.firstUnansweredAt);
+        if (work.pending && work.persisted && work.ownerId)
+            removeIntent(work.ownerId, work.firstUnansweredAt);
         work.pending = false;
         work.checking = false;
         work.persisted = false;
@@ -79,6 +79,7 @@ export function useChatAutoReply(options: Options) {
 
     useLayoutEffect(() => {
         const work = newWork();
+        work.ownerId = options.conversationId;
         if (options.conversationId) {
             if (!options.enabled) {
                 const old = readIntent(options.conversationId);
@@ -132,18 +133,39 @@ export function useChatAutoReply(options: Options) {
         if (!current.current.enabled || !current.current.active ||
             conversationId !== current.current.conversationId) return (_sent: boolean) => {};
         const work = workRef.current;
+        work.ownerId = conversationId;
         const token = Symbol();
         const version = work.cancelVersion;
         work.sends.add(token);
         refresh();
         return (sent: boolean) => {
-            if (workRef.current !== work || !work.sends.delete(token)) return;
-            if (sent && version === work.cancelVersion) {
-                if (!work.pending) work.firstUnansweredAt = Date.now();
+            if (!work.sends.delete(token)) return;
+            if (sent && version === work.cancelVersion && current.current.enabled) {
+                // The IndexedDB save can resolve after Char switches or Chat
+                // unmounts. Persist ONLY the successful send for its original Char.
+                // Cancellation while saving still invalidates this callback.
+                const savedAt = readIntent(conversationId!) ||
+                    (work.pending ? work.firstUnansweredAt : Date.now());
+                const stored = persistIntent(conversationId!, savedAt);
+                if (workRef.current !== work) {
+                    // A newly mounted/returned surface may already be showing
+                    // this same Char; hydrate it without resetting its work.
+                    const currentWork = workRef.current;
+                    if (stored && current.current.conversationId === conversationId &&
+                        current.current.active && !currentWork.pending) {
+                        currentWork.ownerId = conversationId;
+                        currentWork.pending = true;
+                        currentWork.persisted = true;
+                        currentWork.firstUnansweredAt = savedAt;
+                        refresh();
+                    }
+                    return;
+                }
+                if (!work.pending) work.firstUnansweredAt = savedAt;
                 work.pending = true;
-                work.persisted = persistIntent(conversationId!, work.firstUnansweredAt);
+                work.persisted = stored;
             }
-            refresh();
+            if (workRef.current === work) refresh();
         };
     }, []);
 

@@ -343,6 +343,46 @@ describe('character-owned autonomous phone behavior', () => {
     expect(request).not.toHaveBeenCalled();
     expect(readCharacterPhoneChats('sleep')).toHaveLength(0);
   });
+  it('does not revive an NPC message older than 72 hours after a new unrelated life event', async () => {
+    saveNpcProfiles('old-npc', contacts());
+    const at = Date.now() - 5 * 86400_000;
+    appendCharacterPhoneMessages({characterId:'old-npc',contactId:'npc0',contactName:'阿林',at,
+      messages:[{speaker:{role:'contact',contactId:'npc0'},text:'旧消息',createdAt:at}]});
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'old-npc',observedAt:Date.now(),plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    const request=mockApi();
+    expect(await runCharacterPhoneAutonomy({...input('old-npc'),replyOnly:true})).toBe('skipped');
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('does not restart an ancient owner-to-NPC thread just because another event was saved', async () => {
+    saveNpcProfiles('old-followup', contacts());
+    const at=Date.now()-5*86400_000;
+    appendCharacterPhoneMessages({characterId:'old-followup',contactId:'npc0',contactName:'阿林',at,
+      messages:[{speaker:{role:'owner'},text:'上个月再聊吧',createdAt:at}]});
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'old-followup',observedAt:Date.now(),plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    const request=mockApi();
+    expect(await runCharacterPhoneAutonomy(input('old-followup'))).toBe('skipped');
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('a no-op phone tick cannot delay a later real NPC reply', async () => {
+    saveNpcProfiles('no-motive', contacts());
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
+      characterId:'no-motive',observedAt:Date.now(),plannedActivity:null,plannedDescription:null,confirmedEvents:[],
+    });
+    const request=mockApi();
+    expect(await runCharacterPhoneAutonomy(input('no-motive'))).toBe('skipped');
+    const at=Date.now()-20*60_000;
+    appendCharacterPhoneMessages({characterId:'no-motive',contactId:'npc0',contactName:'阿林',at,
+      messages:[{speaker:{role:'contact',contactId:'npc0'},text:'有空吗',createdAt:at}]});
+    expect(await runCharacterPhoneAutonomy({...input('no-motive'),replyOnly:true})).toBe('messaged');
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   it('does not start arbitrary chats with stale contacts when there is no recent thread or reason', async () => {
     saveNpcProfiles('stale', contacts().map(contact => ({
       ...contact, createdAt: Date.now() - 10 * 24 * 60 * 60_000,
