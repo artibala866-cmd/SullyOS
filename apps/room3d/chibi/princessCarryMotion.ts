@@ -70,7 +70,7 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  const toeForward=Math.max(...feetA!.toes.map(toe=>toe.clone().sub(footCentre).dot(frontLoad)));
  const overhang=Math.max(0,combined.sub(footCentre).dot(frontLoad)-toeForward);
  const torsoLength=carrierChest.distanceTo(carrierHip);
- const counterTilt=T.MathUtils.clamp(Math.atan2(overhang,Math.max(.01,torsoLength))*.5,0,.17)*p.weight;
+ const counterTilt=T.MathUtils.clamp(.028+Math.atan2(overhang,Math.max(.01,torsoLength))*.5,.028,.17)*p.weight;
  const flex=(p.stance+p.lower)*.40+p.weight*T.MathUtils.clamp(.08*ratio+counterTilt*.55,.07,.18);
  // Support legs flex first; the spine leans against the measured forward
  // overhang while the chest preserves a stable surface for both support palms.
