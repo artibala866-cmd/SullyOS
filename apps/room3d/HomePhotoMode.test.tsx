@@ -141,3 +141,34 @@ it('exports the chosen 3:4 portrait as full-resolution PNG and visibly reports i
  act(()=>pending[0](new Blob(['hi-res'],{type:'image/png'})));
  expect(host.querySelector('.photo-result img')).toBeTruthy();
 });
+
+it('composes editable paper lettering at export resolution without changing camera or original capture mode',async()=>{
+ const ctx:any={fillRect:vi.fn(),drawImage:vi.fn(),save:vi.fn(),restore:vi.fn(),translate:vi.fn(),scale:vi.fn(),beginPath:vi.fn(),moveTo:vi.fn(),bezierCurveTo:vi.fn(),lineTo:vi.fn(),closePath:vi.fn(),fill:vi.fn(),fillText:vi.fn(),measureText:vi.fn(()=>({width:100}))};
+ vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(ctx);
+ await render();
+ const initialCamera=editor.setPhotoCamera.mock.lastCall?.[0];
+ act(()=>[...host.querySelectorAll<HTMLButtonElement>('.photo-controls nav button')].find(b=>b.textContent==='镜头')!.click());
+ act(()=>[...host.querySelectorAll<HTMLButtonElement>('[aria-label="照片比例"] button')].find(b=>b.textContent==='四格贴纸')!.click());
+ expect(editor.setPhotoCamera.mock.lastCall?.[0]).toEqual(initialCamera);
+ expect(host.querySelector('.photo-lettering')).toBeTruthy();
+ const field=host.querySelector<HTMLInputElement>('input[aria-label="相纸主文案"]')!;
+ await act(async()=>{
+  const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!;
+  setter.call(field,'我们的四格合照');
+  field.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ expect(localStorage.getItem('sully.home.photo-lettering.v1')).toContain('我们的四格合照');
+ click('button[aria-label="拍下合影"]');
+ await act(async()=>{await Promise.resolve();await Promise.resolve();});
+ const calls=editor.renderPhoto.mock.calls;
+ const last=calls.at(-1)!,source=last[0] as HTMLCanvasElement;
+ expect(last[2]).toMatchObject({aspect:1,quality:'export'});
+ expect([source.width,source.height]).toEqual([1,1]); // source is intentionally released after composition
+ expect(ctx.drawImage).toHaveBeenCalledTimes(4);
+ expect(ctx.fillText).toHaveBeenCalledWith('我们的四格合照',expect.any(Number),expect.any(Number),expect.any(Number));
+ expect(pending).toHaveLength(1);
+ act(()=>pending[0](new Blob(['paper'],{type:'image/png'})));
+ expect(host.querySelector('.photo-result img')).toBeTruthy();
+ click('.photo-result button');
+ expect(host.querySelector('button[aria-label="拍下合影"]')).toBeTruthy();
+});
