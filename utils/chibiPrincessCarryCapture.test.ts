@@ -39,7 +39,7 @@ describe('two-role captured princess carry and local support IK',()=>{
     expect(Math.abs(e.x)).toBeLessThan(.231);expect(Math.abs(e.z)).toBeLessThan(.231);
    }
    expect(raw.rotations.spine.angleTo(new T.Quaternion())).toBeGreaterThan(0);
-   expect(fresh.rotations.spine.angleTo(capturedSpine)).toBeLessThan(1e-12);
+   expect(fresh.rotations.spine.toArray()).toEqual(capturedSpine.toArray());
    expect(fresh.rotations.L_hand).toBeDefined();
    expect(fresh.position.y).not.toBe(0);
   }
