@@ -68,3 +68,37 @@ it('shows a retryable error when canvas photo capture fails',async()=>{
  expect(host.querySelector('[role="alert"]')?.textContent).toContain('照片生成失败');
  expect(host.querySelector<HTMLButtonElement>('button[aria-label="拍下合影"]')?.disabled).toBe(false);
 });
+
+it('offers four independent aspect frames and toggles horizontal framing without changing filters or actions',async()=>{
+ Object.defineProperty(HTMLElement.prototype,'clientWidth',{configurable:true,get(){return 390;}});
+ Object.defineProperty(HTMLElement.prototype,'clientHeight',{configurable:true,get(){return 844;}});
+ await render();
+ expect(host.querySelector('.photo-frame')).toBeTruthy();
+ const tabs=[...host.querySelectorAll<HTMLButtonElement>('.photo-controls nav button')];
+ act(()=>tabs.find(b=>b.textContent==='镜头')!.click());
+ const formats=host.querySelector('[aria-label="照片比例"]')!;
+ expect(formats.querySelectorAll('button')).toHaveLength(4);
+ for(const label of ['横幅 16:9','电影 2.39:1','竖幅 3:4','方形 1:1']){
+  const button=[...formats.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===label)!;
+  act(()=>button.click());
+  expect(button.getAttribute('aria-pressed')).toBe('true');
+  expect(host.querySelector('.photo-format-label')?.textContent).toBe(label);
+ }
+ expect(host.querySelector('.photo-dock .photo-controls nav button:last-child')?.textContent).toBe('氛围');
+ click('button[aria-label="拍下合影"]');
+ expect(editor.renderPhoto).toHaveBeenCalledWith(expect.any(HTMLCanvasElement),expect.objectContaining({preset:'daylight'}),{aspect:1,quality:'export'});
+ expect(host.querySelector('.home-photo-mode')).toBeTruthy();
+});
+it('captures export from a separate PNG canvas, preserving the current preview and original storage lifecycle',async()=>{
+ await render();
+ const preview=host.querySelector<HTMLCanvasElement>('canvas.photo-view')!;
+ click('button[aria-label="拍下合影"]');
+ const [output,,options]=editor.renderPhoto.mock.lastCall!;
+ expect(output).not.toBe(preview);
+ expect(options).toMatchObject({aspect:16/9,quality:'export'});
+ expect(pending).toHaveLength(1);
+ act(()=>pending[0](new Blob(['hi-res PNG'],{type:'image/png'})));
+ expect(host.querySelector('.photo-result img')).toBeTruthy();
+ click('.photo-result button');
+ expect(revokeObjectUrl).toHaveBeenCalledWith('blob:home-photo-1');
+});

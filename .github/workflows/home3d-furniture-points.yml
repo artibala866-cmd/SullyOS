@@ -50,6 +50,8 @@ jobs:
       - name: Verify Halloween 25 GLBs, 20 presets, pet hats and interactive prop meshes
         timeout-minutes: 14
         run: pnpm exec vitest run apps/room3d/halloweenMeshAcceptance.test.ts apps/room3d/halloweenWardrobeFestival.test.js utils/wardrobePickerUI.test.ts
+      - name: Verify photo crop, landscape camera, export resolution, and original capture lifecycle
+        run: pnpm exec vitest run apps/room3d/photoFrame.test.ts apps/room3d/HomePhotoMode.test.tsx
       - name: Build
         run: pnpm build
       - name: Halloween WebGL visual review of 20 outfits and 9 pet species with both hats
