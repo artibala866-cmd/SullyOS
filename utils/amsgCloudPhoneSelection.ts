@@ -30,9 +30,11 @@ export function selectCloudPhoneOpportunity(char: CharacterProfile, now = Date.n
   const at = last.createdAt || thread.time;
   if (found.key !== 'reply:' + thread.id + ':' + at + ':' + thread.messages.length) return null;
   const contact = contacts.get(thread.contactId);
-  if (!contact) return null;
+  if (!contact || !Number.isSafeInteger(contact.createdAt) || contact.createdAt <= 0) return null;
   return {
     contactId: contact.id, contactName: (contact.remark || contact.nickname || contact.name).slice(0, 50),
+    contactCreatedAt: contact.createdAt,
+    contactsClearRevision: readPhoneContentClearRevision(char.id, 'contacts'),
     threadId: thread.id, sourceKey: found.key,
     replyToAt: at, replyToCount: thread.messages.length,
     replyToText: last.text.slice(0, 300),
