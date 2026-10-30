@@ -6,6 +6,7 @@ import {bindBlankBody} from '../apps/room3d/chibi/blankRig';
 import {createBlankMotion} from '../apps/room3d/chibi/blankMotion';
 import {contactSolver} from '../apps/room3d/chibi/socialContact';
 import {poseIntimacy} from '../apps/room3d/chibi/intimacyMotion';
+import type {MotionFrame} from '../apps/room3d/chibi/selectedMotions';
 import type {ChibiVisitor} from '../apps/room3d/chibi/visitor';
 import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial';
 import {furniturePalm} from '../apps/room3d/chibi/furnitureMotion';
@@ -207,7 +208,7 @@ it('combines actual princess-carry clip bones with existing paired hand support 
   for(const action of ['home-princess-carry','home-princess-carried'])for(const heights of [[1,1],[.8,1.25]]){
    const residents=[actor(heights[0],-.45,0),actor(heights[1],.45,Math.PI)];
    residents.forEach(r=>{
-    vi.mocked(r.visitor.applySelectedFrame).mockImplementation((frame,weight=1)=>{
+    vi.mocked(r.visitor.applySelectedFrame).mockImplementation((frame:MotionFrame,weight=1)=>{
      for(const [n,q] of Object.entries(frame.rotations))r.visitor.rig!.bones[n]?.quaternion.slerp(q as T.Quaternion,weight);
      r.visitor.root.updateWorldMatrix(true,true);
     });
@@ -226,7 +227,7 @@ it('combines actual princess-carry clip bones with existing paired hand support 
     expect(frame.rotations.spine).toBeDefined();
     expect(frame.rotations.L_upperArm).toBeUndefined(); // Existing hand IK still owns both supports.
     expect(frame.position.y).toBe(0); // Navigation never inherits Meshy vertical drift.
-    expect(r.visitor.rig!.skeleton.bones.every(b=>b.matrixWorld.elements.every(Number.isFinite))).toBe(true);
+    expect(r.visitor.rig!.skeleton.bones.every((bone:T.Bone)=>bone.matrixWorld.elements.every(Number.isFinite))).toBe(true);
    }
    const supports=[
     recipient.visitor.rig!.bones.spine.localToWorld(new T.Vector3(0,.10,-.16)),
