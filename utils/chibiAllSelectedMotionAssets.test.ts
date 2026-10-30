@@ -5,14 +5,15 @@ import {motionCategories,selectedMotions,sampleSelected,type SelectedClip} from 
 /** Asset-wide numeric regression, not a claim of visual acceptance. */
 describe('every existing 3D motion clip loads and interpolates with finite bone poses',()=>{
  it('retains 49 legacy actions and 8 old categories, plus 4 Halloween actions in their own category',()=>{
-  const legacy=selectedMotions.filter(x=>!x.id.startsWith('halloween-'));
+  const legacy=selectedMotions.filter(x=>!x.id.startsWith('halloween-')&&x.id!=='home-forehead-touch');
   expect(legacy).toHaveLength(49);
   expect(selectedMotions.filter(x=>x.id.startsWith('halloween-'))).toHaveLength(4);
-  expect(selectedMotions).toHaveLength(53);
+  expect(selectedMotions).toHaveLength(54);
+ expect(selectedMotions.find(x=>x.id==='home-forehead-touch')).toMatchObject({participants:2,category:'close'});
   expect(Object.keys(motionCategories).filter(id=>id!=='mischief')).toHaveLength(8);
   expect(Object.keys(motionCategories)).toHaveLength(9);
   expect(motionCategories.mischief).toContain('万圣节');
-  expect(new Set(selectedMotions.map(x=>x.id)).size).toBe(53);
+  expect(new Set(selectedMotions.map(x=>x.id)).size).toBe(54);
   expect(new Set(selectedMotions.map(x=>x.category))).toEqual(new Set(Object.keys(motionCategories)));
  });
  for(const entry of selectedMotions){
