@@ -205,10 +205,6 @@ export function companionEntryPrompt(
  pdf:CompanionPdfPresence|null=null,
  recentRoundMinutes=0,
 ):string {
- if(pdf?.courseTitle){
-  const chapter=pdf.chapterTitle?'《'+pdf.chapterTitle.slice(0,60)+'》':'这门课';
-  return '我在看《'+pdf.courseTitle.slice(0,60)+'》的'+chapter+'。请用你自己的方式陪我梳理刚学的内容，先问我理解到哪里，不要假定我已学会。';
- }
  if(reality.phase==='focus')
   return '我正在专注'+(taskName?'处理「'+taskName.slice(0,60)+'」':'')+'。我想简短说一下卡住的地方，请先听我说，不打断本轮计时。';
  if(reality.phase==='paused')
@@ -217,6 +213,10 @@ export function companionEntryPrompt(
   return '现在是休息时间。我想跟你简单聊聊这一轮，先不要催我继续。';
  if(recentRoundMinutes>0)
   return '我刚完成一轮 '+recentRoundMinutes+' 分钟专注。先听我说实际做了什么，再陪我复盘，暂时不要自动结算。';
+ if(pdf?.courseTitle){
+  const chapter=pdf.chapterTitle?'《'+pdf.chapterTitle.slice(0,60)+'》':'这门课';
+  return '我在看《'+pdf.courseTitle.slice(0,60)+'》的'+chapter+'。请用你自己的方式陪我梳理刚学的内容，先问我理解到哪里，不要假定我已学会。';
+ }
  if(reality.unsettledLinkedMinutes>0)
   return '我有 '+reality.unsettledLinkedMinutes+' 分钟专注记录还没核对。陪我回顾实际进展，但不要自动扣工时或标记完成。';
  if(reality.dueSoonHomework>0||reality.dueSoonCommissions>0)
