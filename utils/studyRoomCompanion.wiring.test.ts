@@ -56,7 +56,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain("coachIdleSince.current=Date.now()");
   expect(schedule).toContain('if(!activeChar || coachSetting.level===\'off\'');
   expect(schedule).toContain("isVisible:document.visibilityState==='visible'");
-  expect(schedule).toContain("isTimerTab:tab==='timer'");
+  expect(schedule).toContain("isTimerTab:tab!=='study'");
   expect(schedule).toContain("lastEventKey:sameDay?seen.key:''");
   expect(schedule).toContain("if(isStudyCoachQuietTime(coachSetting,new Date(when)))");
   expect(schedule).toContain('window.setInterval(check,60000)');
@@ -70,7 +70,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('role="dialog" aria-modal="true" aria-label="督促设置"');
   for(const part of ['轻提醒 · 最多每天 1 次','适度陪学 · 最多每天 2 次','认真陪学 · 最多每天 3 次',
    '暂停督促','免打扰','免打扰开始','免打扰结束'])expect(schedule).toContain(part);
-  expect(schedule).toContain('coachPrompt && tab===\'timer\'');
+  expect(schedule).toContain('coachPrompt && tab!==\'study\'');
   expect(schedule).toContain('onClick={()=>setCoachPrompt(\'\')}');
   expect(schedule).toContain("const brief=studyCoachBrief(coachSetting)");
   expect(schedule).toContain('const overview=buildCompanionOverview(');
@@ -116,7 +116,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('createdAt:Date.now()');
   expect(schedule).not.toContain('aria-label="在自习室和当前 Char 继续陪伴"');
   const open=schedule.split('const openCompanionOverview=async()=>{')[1]?.split('const discuss =')[0]||'';
-  expect(open).toContain('setMessage(companionEntryPrompt(');
+  expect(open).toContain('const draft=companionEntryPrompt(');
   expect(open).not.toContain('sendNote()');
   expect(open).not.toContain('fetch(');
  });
@@ -127,7 +127,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('Date.now()-lastStudy.seenAt<30*60000');
   expect(schedule).toContain('pdfLearning:tab===\'study\'?studyPresence:recentPdf?');
   expect(schedule).toContain('刚一起看过《');
-  expect(schedule).toContain("setMessage(companionEntryPrompt(");
+  expect(schedule).toContain("const draft=companionEntryPrompt(");
  });
  it('后台工作空间读取不能覆盖更晚确认的课程与画稿进度',()=>{
   expect(schedule).toContain('const workspaceRevision=useRef(0)');
@@ -165,7 +165,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    const proactive=schedule.split('// The optional paid model request is separate')[1]?.split('  useEffect(() => {\n    if (!session')[0]||'';
    expect(proactive).toContain('coachSetting.allowAutoAI');
    expect(proactive).toContain('!workspaceSnapshot');
-   expect(proactive).toContain("tab!=='timer'");
+   expect(proactive).toContain("tab==='study'");
    expect(proactive).toContain("document.visibilityState!=='visible'");
    expect(proactive).toContain('isStudyCoachQuietTime(coachSetting,clock)');
    expect(proactive).toContain('autoCoachAttempted.current.add(key)');
@@ -179,6 +179,21 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).toContain('Revalidate the visible cue against freshly confirmed workspace changes');
    expect(schedule).toContain('current.key!==coachEventByChar[charId]?.key');
    expect(schedule).toContain('autoCoachController.current?.abort()');
+ });
+
+ it('真陪伴审计：跨分区不打断表单，真实主动消息可辨识且上下文不丢',()=>{
+   expect(schedule).toContain("['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName||'')");
+   expect(schedule).toContain("isTimerTab:tab!=='study'");
+   expect(schedule).toContain('seenEventKeys:sameDay?seen.seenKeys:[]');
+   expect(schedule).toContain('rememberStudyCoachEvent(');
+   expect(schedule).toContain("origin:'auto_coach'");
+   expect(schedule).toContain("n.origin==='auto_coach'?' · 主动陪伴':''");
+   expect(schedule).toContain("if(requestScope!=='overview')setAssistantTopic('')");
+   expect(schedule).toContain("continuing?'':draft");
+   expect(schedule).toContain("assistantOpen&&assistantScope==='overview'&&message.trim()?message");
+   expect(study).toContain("tutorCharId:activeCourse.tutorCharId||selectedChar?.id");
+   expect(schedule).toContain('最近在看《');
+   expect(schedule).not.toContain('const companionStatus=coachPrompt||(');
  });
 
 });
