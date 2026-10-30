@@ -12,3 +12,8 @@
 .home3d.h3-playing .h3-top>.h3-pill[data-action=edit]{display:none}
 
 .h3-control-status{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);z-index:25;display:flex;align-items:center;gap:12px;max-width:calc(100% - 24px);padding:9px 14px;border:1px solid #c8c8c8;border-radius:22px;background:#f9f9f9;color:#5f5f5f;box-shadow:0 3px 12px #60451e18;font-size:13px;pointer-events:auto;white-space:nowrap}.h3-control-status button{border:0;border-left:1px solid #c8c8c8;background:transparent;color:inherit;padding:3px 0 3px 12px;font:inherit;font-weight:600;cursor:pointer}
+
+/* Keep the annex action readable beneath the original room grid. */
+.home3d .h3-home-map>.h3-map-annex{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;width:100%;min-height:42px;margin-top:9px;padding:6px 4px;border:1px solid #e8d4bc;border-radius:11px;background:#fff5e9;color:#6c482a;font-size:11px;line-height:1.35;text-align:center}
+.home3d .h3-home-map>.h3-map-annex strong{font-size:11px;line-height:1.35;white-space:normal}
+.home3d.h3-playing .h3-home-map{max-height:calc(100% - 190px);overflow-y:auto}
