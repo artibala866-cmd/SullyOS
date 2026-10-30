@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {emptyWorkspace,type Commission,type ClassHomework} from './sullyWorkspace';
-import {buildCompanionOverview,companionMomentText,DEFAULT_STUDY_COACH,normalizeStudyCoachSetting,isStudyCoachQuietTime,nextStudyCoachPrompt,studyCoachBrief,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply} from './studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,DEFAULT_STUDY_COACH,normalizeStudyCoachSetting,isStudyCoachQuietTime,nextStudyCoachPrompt,studyCoachBrief,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,studyCoachEvent,STUDY_COACH_INTERVAL_MINUTES,STUDY_COACH_DAILY_MAX} from './studyRoomCompanion';
 import {notesForStudyContext} from './studyRoomFocusNotes';
 const commission=(id:string,status:Commission['status']):Commission=>({
  id,title:'画稿'+id,client:'私人委托人',type:'图',brief:'机密需求内容',
@@ -69,8 +69,9 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
  it('督促只在角色开启、计时未运行、学习室可见且间隔足够时出现',()=>{
    const now=new Date(2026,9,30,14,0);const t=now.getTime();
    const base={charId:'A',setting:{...DEFAULT_STUDY_COACH,level:'normal' as const},session:null,now,
-     idleSince:t-16*60000,lastPromptAt:0,isVisible:true,isTimerTab:true};
-   expect(nextStudyCoachPrompt(base)).toContain('专注轮次');
+     idleSince:t-95*60000,lastPromptAt:0,isVisible:true,isTimerTab:true,
+     reality:buildStudyRoomReality({...emptyWorkspace(),homework:[homework]},null,'',[],[],now)};
+   expect(nextStudyCoachPrompt(base)).toContain('待处理事项');
    expect(nextStudyCoachPrompt({...base,charId:''})).toBeNull();
    expect(nextStudyCoachPrompt({...base,setting:DEFAULT_STUDY_COACH})).toBeNull();
    expect(nextStudyCoachPrompt({...base,setting:{...base.setting,paused:true}})).toBeNull();
@@ -82,7 +83,7 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
    expect(nextStudyCoachPrompt({...base,idleSince:t-5*60000})).toBeNull();
    expect(nextStudyCoachPrompt({...base,lastPromptAt:t-5*60000})).toBeNull();
    expect(nextStudyCoachPrompt({...base,setting:{...base.setting,level:'gentle'}})).toBeNull();
-   expect(nextStudyCoachPrompt({...base,setting:{...base.setting,level:'firm'}})).toContain('下一轮');
+   expect(nextStudyCoachPrompt({...base,setting:{...base.setting,level:'firm'}})).toContain('核对');
  });
  it('督促说明只含允许的语气，不包括客户、笔记和私人聊天',()=>{
    expect(studyCoachBrief(DEFAULT_STUDY_COACH)).toBe('');
@@ -145,14 +146,14 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
    data.homework=[homework];
    const reality=buildStudyRoomReality(data,null,'',[],[],now);
    const base={charId:'A',setting:{...DEFAULT_STUDY_COACH,level:'normal' as const},
-     session:null,now,idleSince:t-20*60000,lastPromptAt:0,isVisible:true,isTimerTab:true,reality};
+     session:null,now,idleSince:t-130*60000,lastPromptAt:0,isVisible:true,isTimerTab:true,reality};
    expect(nextStudyCoachPrompt(base)).toContain('七天内有 2 项');
    const linked=buildStudyRoomReality(data,null,'',[
     {date:'2026-10-30',taskId:'t',sessionId:'s1',minutes:25},
    ],[{id:'t',source:{kind:'commission',id:'draw'}}],now);
    expect(nextStudyCoachPrompt({...base,reality:linked})).toContain('没有手动核对');
    const soft=nextStudyCoachPrompt({...base,setting:{...base.setting,level:'gentle'},
-    idleSince:t-31*60000,reality:linked});
+    idleSince:t-130*60000,reality:linked});
    expect(soft).toContain('需要时再开始');
    expect(soft).not.toContain('你怎么还不');
  });
@@ -190,6 +191,30 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
   expect(recentCompanionReply([{charId:'A',scope:'overview',role:'assistant',content:'旧回复'}],'A',now)).toBe('');
   expect(recentCompanionReply([{charId:'A',scope:'study',role:'assistant',createdAt:now,content:'私人课堂记录'}],'A',now)).toBe('');
   expect(recentCompanionReply([{charId:'A',scope:'overview',role:'assistant',createdAt:now,content:'a'.repeat(100)}],'A',now).length).toBeLessThanOrEqual(55);
+ });
+
+ it('同一事项每天只提醒一次、有每日限额，无待办则不凭空催促',()=>{
+   const now=new Date(2026,9,30,14),t=now.getTime();
+   const d=emptyWorkspace();
+   const noWork=buildStudyRoomReality(d,null,'',[],[],now);
+   expect(studyCoachEvent(noWork,now)).toBeNull();
+   const x={...d,homework:[homework]};
+   const reality=buildStudyRoomReality(x,null,'',[],[],now);
+   const event=studyCoachEvent(reality,now);
+   expect(event?.key).toContain('pending');
+   const b={charId:'A',setting:{...DEFAULT_STUDY_COACH,level:'normal' as const},
+    session:null,now,idleSince:t-180*60000,lastPromptAt:0,
+    isVisible:true,isTimerTab:true,reality};
+   expect(nextStudyCoachPrompt({...b,reality:noWork})).toBeNull();
+   expect(nextStudyCoachPrompt(b)).toContain('待处理事项');
+   expect(nextStudyCoachPrompt({...b,lastEventKey:event?.key})).toBeNull();
+   expect(nextStudyCoachPrompt({...b,promptCountToday:2})).toBeNull();
+   expect(nextStudyCoachPrompt({...b,lastPromptAt:t-40*60000})).toBeNull();
+   expect(STUDY_COACH_INTERVAL_MINUTES.firm).toBeGreaterThan(5);
+   expect(STUDY_COACH_DAILY_MAX.gentle).toBe(1);
+   expect(STUDY_COACH_DAILY_MAX.firm).toBeLessThanOrEqual(3);
+   expect(studyCoachEvent({...reality,pendingHomework:0,activeCommissions:0},now)).toBeNull();
+   expect(studyCoachEvent({...reality,unsettledLinkedMinutes:25},now)?.key).not.toBe(event?.key);
  });
 
 });
