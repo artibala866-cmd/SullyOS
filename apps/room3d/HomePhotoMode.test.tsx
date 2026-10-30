@@ -99,6 +99,7 @@ it('preserves four original frames while adding independent paper and tall frame
   expect(host.querySelector('.photo-format-label')?.textContent).toBe(label);
  }
  expect(host.querySelector('.photo-dock .photo-controls nav button:last-child')?.textContent).toBe('氛围');
+ act(()=>[...formats.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='方形 1:1')!.click());
  click('button[aria-label="拍下合影"]');
  expect(editor.renderPhoto).toHaveBeenCalledWith(expect.any(HTMLCanvasElement),expect.objectContaining({preset:'daylight'}),{aspect:1,quality:'export'});
  expect(host.querySelector('.home-photo-mode')).toBeTruthy();
