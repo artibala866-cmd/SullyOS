@@ -4300,7 +4300,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 triggerIcon={isTyping || instantChatPending ? 'stop' : 'lightning'}
                 hideTrigger={inputPreferences.sendButtonGenerates}
                 onShowCharsPanel={() => setShowPanel('chars')}
-                extraAction={{ label: '电话', icon: <Phone size={21} weight="regular" color="#171717" />, onClick: () => openApp(AppID.Call) }}
+                extraAction={{ label: '电话', icon: <Phone size={21} weight="regular" color="currentColor" />, onClick: () => openApp(AppID.Call) }}
                 onDeleteBuff={(buffId) => {
                     const currentBuffs = char.activeBuffs || [];
                     const newBuffs = currentBuffs.filter(b => b.id !== buffId);

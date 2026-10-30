@@ -242,7 +242,12 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
         ? 'text-sky-300 hover:bg-sky-400/10 rounded-full'
         : isPixelHeader
           ? 'text-[#fff7ed] hover:bg-[#f8f0e0]/20 rounded-[4px] border-2 border-[#8f674a] bg-[#f8f0e0]/10'
-          : 'text-indigo-500 hover:bg-indigo-50 rounded-full';
+          : 'text-black hover:bg-black/5 rounded-full';
+
+    // Private-chat phone action: use black on light headers, but retain contrast for dark/pixel variants.
+    const phoneActionButtonClass = extraAction?.label === '电话' && !isDarkHeader && !isPixelHeader
+        ? 'text-black hover:bg-black/5 rounded-full'
+        : iconButtonClass;
 
     // Appearance controls the form; actual schedule-derived presence controls
     // its content and color. No AI-authored status text or status editor.
@@ -411,7 +416,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
                         {triggerIconNode}
                     </button>}
                     {extraAction && (
-                        <button onClick={extraAction.onClick} className={`absolute ${hideTrigger ? "right-0" : "right-10"} bottom-2 p-2 ${iconButtonClass}`} title={extraAction.label} aria-label={extraAction.label}>
+                        <button onClick={extraAction.onClick} className={`absolute ${hideTrigger ? "right-0" : "right-10"} bottom-2 p-2 ${phoneActionButtonClass}`} title={extraAction.label} aria-label={extraAction.label}>
                             {extraAction.icon}
                         </button>
                     )}
@@ -428,7 +433,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
                     </div>
 
                     {extraAction && (
-                        <button onClick={extraAction.onClick} className={`p-2 ml-auto ${iconButtonClass}`} title={extraAction.label} aria-label={extraAction.label}>
+                        <button onClick={extraAction.onClick} className={`p-2 ml-auto ${phoneActionButtonClass}`} title={extraAction.label} aria-label={extraAction.label}>
                             {extraAction.icon}
                         </button>
                     )}
