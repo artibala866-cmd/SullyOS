@@ -314,6 +314,8 @@ const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCh
     const highlightedCardRef = useRef<HTMLDivElement | null>(null);
     const [activeCourse, setActiveCourse] = useState<StudyCourse | null>(null);
     const [selectedChar, setSelectedChar] = useState<CharacterProfile | null>(null);
+    const [showCourseTutors,setShowCourseTutors] = useState(false);
+    const [savingCourseTutor,setSavingCourseTutor] = useState(false);
     const [tutorGroupId, setTutorGroupId] = useState<string>(GROUP_FILTER_ALL); // 书架页「当前助教」的分组筛选
     
     // Classroom State
@@ -393,15 +395,40 @@ const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCh
     useEffect(() => {
         loadCourses();
     }, []);
-    // Within the learning room the PDF tutor IS the selected companion; standalone
-    // StudyApp and shortcut launches retain their existing identity behavior.
+    // A course-specific tutor is explicitly chosen by the user. Otherwise
+    // share the room companion without altering private ChatApp or role prompts.
     useEffect(() => {
-        if (companionCharId !== undefined) {
-            setSelectedChar(characters.find(c=>c.id===companionCharId)||null);
-        } else if (activeCharacterId) {
-            setSelectedChar(characters.find(c=>c.id===activeCharacterId)||characters[0]||null);
+        const tutorId=activeCourse?.tutorCharId;
+        const fallback=companionCharId!==undefined
+            ? characters.find(c=>c.id===companionCharId)||null
+            : characters.find(c=>c.id===activeCharacterId)||characters[0]||null;
+        if (tutorId) {
+            setSelectedChar(characters.find(c=>c.id===tutorId)||fallback);
+        } else {
+            setSelectedChar(fallback);
         }
-    }, [activeCharacterId,companionCharId,characters]);
+    },[activeCharacterId,companionCharId,characters,activeCourse?.id,activeCourse?.tutorCharId]);
+    const chooseCourseTutor=async(tutorId?:string)=>{
+        if(!activeCourse||savingCourseTutor)return;
+        const tutor=tutorId?characters.find(c=>c.id===tutorId):null;
+        const fallback=companionCharId!==undefined
+            ? characters.find(c=>c.id===companionCharId)||null
+            : characters.find(c=>c.id===activeCharacterId)||characters[0]||null;
+        if(tutorId&&!tutor){addToast('所选助教已不存在','error');return;}
+        setSavingCourseTutor(true);
+        try{
+            // Existing StudyCourse storage, backup and chapter data stay intact.
+            const updated={...activeCourse,tutorCharId:tutorId};
+            await DB.saveCourse(updated);
+            setCourses(prev=>prev.map(c=>c.id===updated.id?updated:c));
+            setActiveCourse(updated);
+            setSelectedChar(tutor||fallback);
+            setChatHistory([]);
+            setShowCourseTutors(false);
+            addToast(tutor?'本课助教已保存':'本课改为跟随学习室 Char','success');
+        }catch(error){addToast('助教未保存：'+String(error),'error');}
+        finally{setSavingCourseTutor(false);}
+    };
     useAppShortcut(ShortcutAppID.Study, intent => {
         setSelectedChar(characters.find(c => c.id === intent.characterId) || null);
         setMode('bookshelf');
@@ -656,7 +683,13 @@ For each chapter, provide a title, a brief summary of what it covers, and a diff
 
     const startSession = (course: StudyCourse) => {
         trackEvent('进入课程课堂');
+        // Explicit per-course tutor is chosen before teaching begins.
+        const tutor=characters.find(c=>c.id===course.tutorCharId)
+            ||(companionCharId!==undefined?characters.find(c=>c.id===companionCharId):null)
+            ||selectedChar;
         setActiveCourse(course);
+        setSelectedChar(tutor||null);
+        setShowCourseTutors(false);
         setMode('classroom');
         setChatHistory([]);
         
@@ -672,14 +705,15 @@ For each chapter, provide a title, a brief summary of what it covers, and a diff
              setCourses(prev => prev.map(c => c.id === updated.id ? updated : c)); // Sync
         }
         
-        handleTeach(course, targetIdx);
+        handleTeach(course, targetIdx, false, tutor||null);
     };
 
     // [MODIFIED]: buildStudyContext Removed. We now use ContextBuilder directly in handleTeach.
 
-    const handleTeach = async (course: StudyCourse, chapterIdx: number, forceRegenerate: boolean = false) => {
+    const handleTeach = async (course: StudyCourse, chapterIdx: number, forceRegenerate: boolean = false, tutorOverride:CharacterProfile|null=null) => {
+        const tutor=tutorOverride||selectedChar;
 
-        if (!selectedChar || !effectiveApi.apiKey) return;
+        if (!tutor || !effectiveApi.apiKey) return;
         
         const chapter = course.chapters[chapterIdx];
         
@@ -732,7 +766,7 @@ Explain this chapter's key concepts to the user based strictly on the Source Mat
                 body: JSON.stringify({
                     model: effectiveApi.model,
                     messages: isFallback ? [{ role: "user", content: prompt }]
-                        : (await ContextBuilder.buildCharacterRequest({ char: selectedChar, user: userProfile }, [{ role: "user", content: prompt }])),
+                        : (await ContextBuilder.buildCharacterRequest({ char: tutor, user: userProfile }, [{ role: "user", content: prompt }])),
                     temperature: 0.7,
                     max_tokens: 8000, 
                     safetySettings: [
@@ -748,7 +782,7 @@ Explain this chapter's key concepts to the user based strictly on the Source Mat
         try {
             // Attempt 1: Full Character Context (The "Soul")
             // [MODIFIED]: Use centralized ContextBuilder with memory enabled
-            await injectMemoryPalace(selectedChar, undefined, chapter.title);
+            await injectMemoryPalace(tutor, undefined, chapter.title);
             let baseContext = ''; // 角色上下文由 callApi 的统一消息管线装配。
 
             // Append Study Mode specific instructions to the core context
@@ -1841,6 +1875,13 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                 </button>
                 <div className="flex gap-2">
+                    <button type="button" aria-label="选择本课助教" title="本课助教"
+                        disabled={savingCourseTutor||classroomState==='teaching'||isTyping}
+                        onClick={()=>setShowCourseTutors(v=>!v)}
+                        className="pointer-events-auto rounded-full border border-[#e5e5e5] bg-white/95 px-3 py-2 text-xs font-medium text-[#333333] disabled:opacity-40">
+                        助教 · {selectedChar?.name||'未选择'}
+                    </button>
+
                     <div onClick={() => { trackEvent('打开章节目录'); setShowChapterMenu(true); }} className="bg-white/95 text-[#333333] px-4 py-1.5 rounded-full backdrop-blur-md text-xs font-bold border border-[#e5e5e5] shadow-sm pointer-events-auto cursor-pointer flex items-center gap-2 hover:bg-[#ededed]">
                         <span className="truncate max-w-[150px]">{activeCourse?.chapters[activeCourse.currentChapterIndex]?.title}</span>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
@@ -1852,6 +1893,21 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                 </div>
             </div>
 
+            {showCourseTutors && <div className="absolute inset-x-3 top-[70px] z-[48] mx-auto max-w-sm rounded-2xl bg-white p-3 shadow-lg">
+                <p className="mb-2 text-xs text-neutral-600">仅本门课程 · 不改变学习室陪伴 Char</p>
+                <button type="button" disabled={savingCourseTutor} className="mb-2 min-h-11 w-full rounded-xl bg-[#f5f5f5] px-3 text-left text-sm"
+                  onClick={()=>void chooseCourseTutor(undefined)}>跟随学习室 Char</button>
+                <div className="max-h-[42dvh] space-y-1 overflow-y-auto">
+                  {characters.map(c=><button type="button" key={c.id} disabled={savingCourseTutor}
+                      aria-pressed={activeCourse?.tutorCharId===c.id}
+                      className={'flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-sm '+(activeCourse?.tutorCharId===c.id?'bg-[#e9e9e9]':'hover:bg-[#f7f7f7]')}
+                      onClick={()=>void chooseCourseTutor(c.id)}>
+                      <TokenImg value={c.avatar} className="h-7 w-7 rounded-full object-cover"/>
+                      <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                  </button>)}
+                </div>
+                <p className="mt-2 text-xs text-neutral-500">已有讲解不重写，后续提问使用新助教。</p>
+              </div>}
             {/* Chapter Menu Sidebar */}
             {showChapterMenu && (
                 <div className="absolute inset-0 z-50 flex">
