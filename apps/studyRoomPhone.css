@@ -1,0 +1,47 @@
+/* Only the learning-room miniature phone. No private-chat prompts or persisted data. */
+.home-phone.study-room-phone{
+  position:absolute;right:14px;bottom:calc(91px + env(safe-area-inset-bottom,0px));
+  width:min(326px,calc(100% - 38px));height:min(58dvh,478px);
+  min-height:220px;max-height:calc(100dvh - 132px);
+  padding:0 6px 7px;display:flex;flex-direction:column;overflow:hidden;
+  background:#303030;color:#252525;border:4px solid #303030;border-radius:35px;
+  box-shadow:0 14px 48px rgba(0,0,0,.27),inset 0 0 0 1px #858585;
+  animation:none;isolation:isolate;z-index:85;pointer-events:auto;
+}
+.study-room-phone .study-phone-speaker{
+  display:block;width:43px;height:4px;border-radius:999px;
+  background:#aaa;margin:6px auto 7px;flex-shrink:0;
+}
+.study-room-phone .study-phone-screen{
+  display:flex;flex:1;min-height:0;flex-direction:column;
+  overflow:hidden;border-radius:24px;background:#f8f8f8;
+}
+.study-room-phone .study-phone-topbar{
+  flex-shrink:0;display:flex;align-items:center;gap:6px;padding:5px 8px;
+  min-height:47px;border-bottom:1px solid #ededed;background:#fff;
+}
+.study-room-phone .study-phone-topbar button{min-height:36px;border:0;background:transparent;color:#333;border-radius:12px}
+.study-room-phone .study-phone-topbar button:focus-visible{outline:2px solid #555;outline-offset:1px}
+.study-room-phone .study-phone-body{flex:1;min-height:0;overflow:hidden;position:relative}
+.study-room-phone .study-phone-body .sully-chat-root{
+  height:100%!important;min-height:0!important;
+  background:#f7f7f7!important;padding:0!important;
+}
+.study-room-phone .study-phone-body .sully-chat-root .fixed{max-height:100%}
+.study-room-phone .sully-bubble-user{background:#e9e9e9!important;color:#303030!important}
+.study-room-phone .sully-bubble-ai{background:white!important;color:#303030!important}
+.study-room-phone .sully-chat-inputbar{padding:7px!important;background:white!important}
+.study-room-phone .study-phone-homebar{height:4px;width:67px;margin:7px auto 1px;border-radius:99px;background:#aaa;flex-shrink:0}
+.study-room-float-ball{
+  pointer-events:auto;position:absolute;right:20px;bottom:calc(97px + env(safe-area-inset-bottom,0px));
+  width:58px;height:58px;display:grid;place-items:center;z-index:80;
+  background:white;border:3px solid #fff;border-radius:50%;
+  box-shadow:0 5px 22px rgba(0,0,0,.23),0 0 0 1px #e1e1e1;
+}
+.study-room-float-ball:focus-visible{outline:3px solid #404040;outline-offset:3px}
+.study-room-float-ball img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+@media(max-height:620px){
+ .home-phone.study-room-phone{height:min(60dvh,410px);max-height:calc(100dvh - 110px);bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+ .study-room-float-ball{bottom:calc(82px + env(safe-area-inset-bottom,0px))}
+}
+@media(prefers-reduced-motion:reduce){.home-phone.study-room-phone{animation:none}}
