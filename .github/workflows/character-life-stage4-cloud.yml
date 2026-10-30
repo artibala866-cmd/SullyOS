@@ -4,6 +4,7 @@ on:
     branches: [remove-checkphone-vrworld-lifesim]
     paths:
       - 'worker/amsg/src/index.ts'
+      - 'worker/amsg/src/index.test.ts'
       - 'utils/amsgCloudPhone*.ts'
       - 'utils/activeMsgClient.ts'
       - 'utils/amsgFirePack.ts'
@@ -38,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test cloud phone consent, privacy, idempotence, and established AMSG continuity
-        run: pnpm exec vitest run utils/amsgCloudPhone.test.ts utils/amsgCloudPhoneSelection.test.ts utils/amsgCloudPhoneResultApply.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyBootstrap.test.ts utils/characterPhoneAutonomy.test.ts utils/characterPhoneOpportunity.test.ts utils/amsg2Tasks.test.ts
+        run: pnpm exec vitest run worker/amsg/src/index.test.ts utils/amsgCloudPhone.test.ts utils/amsgCloudPhoneSelection.test.ts utils/amsgCloudPhoneResultApply.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyBootstrap.test.ts utils/characterPhoneAutonomy.test.ts utils/characterPhoneOpportunity.test.ts utils/amsg2Tasks.test.ts
       - name: Check affected TypeScript modules
         shell: bash
         run: |
