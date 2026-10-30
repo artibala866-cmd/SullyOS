@@ -103,7 +103,12 @@ export function appendCharacterPhoneMessages(input: {
   const at = input.at ?? Date.now();
   let result: { thread: CharacterPhoneChat; added: PhoneMessage[] } | null = null;
   updateCharacterPhoneChats(input.characterId, old => {
-    const previous = old.find(r => r.contactId === input.contactId);
+    // Several saved threads can share a contact (legacy imports, archives,
+    // service rows). Cloud results carry an exact thread ID: target that row
+    // rather than whichever conversation with the same contact appears first.
+    const previous = input.expectedLatest
+      ? old.find(r => r.id === input.expectedLatest!.threadId && r.contactId === input.contactId)
+      : old.find(r => r.contactId === input.contactId);
     if (input.expectedLatest) {
       const expected = input.expectedLatest;
       const last = previous?.messages[previous.messages.length - 1];
