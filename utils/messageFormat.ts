@@ -362,7 +362,9 @@ export function formatMessageForPrompt(
     charName: string,
     userName: string,
 ): string {
-    const sender = msg.role === 'user' ? userName
+    const sender = msg.metadata?.homeSharedOwnerId
+        ? (msg.metadata.homeContextKind === 'speech' ? msg.metadata.homeActorName || '角色' : '家园记录')
+        : msg.role === 'user' ? userName
         : msg.role === 'system' ? '[系统]'
         : charName;
     return `[${sender}]: ${normalizeMessageContent(msg, charName, userName)}`;
@@ -375,7 +377,9 @@ export function formatMessageWithTime(
     userName: string,
     timeFormatter: (ts: number) => string,
 ): string {
-    const sender = msg.role === 'user' ? userName
+    const sender = msg.metadata?.homeSharedOwnerId
+        ? (msg.metadata.homeContextKind === 'speech' ? msg.metadata.homeActorName || '角色' : '家园记录')
+        : msg.role === 'user' ? userName
         : msg.role === 'system' ? '[系统]'
         : charName;
     const time = msg.timestamp > 0 ? timeFormatter(msg.timestamp) : '';

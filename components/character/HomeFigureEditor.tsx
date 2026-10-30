@@ -8,6 +8,7 @@ import {decodeParts} from '../../apps/room3d/chibi/visitor';
 import {cleanFace} from '../../apps/room3d/chibi/faceAppearance';
 import {selectedHairAssets, type HairSettings, type Parts} from '../../apps/room3d/chibi/types';
 import {HairEditor} from '../../experiments/chibi/HairEditor';
+import {CharacterStyleToggle} from '../../experiments/chibi/CharacterStyleToggle';
 import {loadCreatorPartsForRender} from '../../utils/creatorPartsBlob';
 import type {HomeFigureSlot, CharacterProfile, CustomCreatorPart} from '../../types';
 import {flipHomeFigurePart,selectHomeFigurePart} from '../../utils/homeFigureParts';
@@ -95,6 +96,7 @@ export default function HomeFigureEditor({paletteId, name, ownerId, value, seedS
             <strong className="flex-1 text-sm"><small>3D 形象</small><span>{name}的造型间</span></strong>
             {!editingBase && <button className="home-figure-save min-h-[44px] rounded-xl bg-[#466a48] px-4 text-white disabled:opacity-40" disabled={!renderParts || rebuilding || !!error} onClick={() => onSave({state, img: image, hair: {...hair, assets}, updatedAt: Date.now()})}>{rebuilding ? '准备中…' : '完成并保存'}</button>}
         </header>
+        {!editingBase && <CharacterStyleToggle/>}
         {editingBase ? <div className="flex-1 min-h-0"><CreatorIframe mode={ownerId === 'user' ? 'user' : 'char'} charName={name} isSully={isSully} presets={isSully ? sullyPresets() : undefined} savedState={state} draftKey={draftKey ?? `home_figure_${ownerId}`} title={`${name} · 家园形象`} subtitle="HOME FIGURE" onConfirm={confirmBase} /></div> : <div className="home-figure-editor-content flex-1 min-h-0">
             {renderParts ? <HairEditor allowSully={isSully} parts={renderParts} hair={hair} previewHair={previewHair} deferredPreview={deferred} assets={assets} onChange={change}
                 bodyNotice={ownerId === 'user' ? '进入家园后，全员使用房主选择的体型。这里可先试捏你的形象。' : '这个家园内，全员跟随房主体型，包括你和来访角色。'}

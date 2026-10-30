@@ -70,7 +70,7 @@ jobs:
       - name: Verify creator hair tint parity and saved dye controls
         run: pnpm exec vitest run utils/appearanceDye.test.ts utils/homeFigureHairControls.test.ts
       - name: Verify advanced eye dye palette, preserved creator state, and character style selection
-        run: pnpm exec vitest run utils/homeFigureEyeControls.test.ts utils/characterStyle.test.ts
+        run: pnpm exec vitest run utils/homeFigureEyeControls.test.ts utils/characterStyle.test.ts utils/homeFigureStyleToggle.test.ts
       - name: Verify multi-resident home shared event transactions and guest privacy
         run: pnpm exec vitest run utils/homeSharedEvents.integration.test.ts
       - name: Verify Halloween 25 GLBs, 20 presets, pet hats and interactive prop meshes
