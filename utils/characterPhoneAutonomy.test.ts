@@ -357,7 +357,9 @@ describe('character-owned autonomous phone behavior', () => {
   });
 
   it('does not restart an ancient owner-to-NPC thread just because another event was saved', async () => {
-    saveNpcProfiles('old-followup', contacts());
+    saveNpcProfiles('old-followup', contacts().map(contact => ({
+      ...contact, createdAt:Date.now()-10*86400_000,
+    })));
     const at=Date.now()-5*86400_000;
     appendCharacterPhoneMessages({characterId:'old-followup',contactId:'npc0',contactName:'阿林',at,
       messages:[{speaker:{role:'owner'},text:'上个月再聊吧',createdAt:at}]});
@@ -370,7 +372,9 @@ describe('character-owned autonomous phone behavior', () => {
   });
 
   it('a no-op phone tick cannot delay a later real NPC reply', async () => {
-    saveNpcProfiles('no-motive', contacts());
+    saveNpcProfiles('no-motive', contacts().map(contact => ({
+      ...contact, createdAt:Date.now()-10*86400_000,
+    })));
     vi.mocked(getCharacterLifeScheduleContext).mockResolvedValue({
       characterId:'no-motive',observedAt:Date.now(),plannedActivity:null,plannedDescription:null,confirmedEvents:[],
     });

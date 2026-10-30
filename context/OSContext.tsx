@@ -2547,6 +2547,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let queuedDrainTimer: number | null = null;
       const momentTimers = new Map<string, number>();
       const evidenceTimers = new Map<string, number>();
+      // Drain one grounded wake at a time. Even a skipped/deleted first
+      // candidate must let the next Char run; no background AI is created here.
+      const scheduleQueuedEvidence = () => {
+          if (disposed || running || document.visibilityState !== 'visible' ||
+              queuedDrainTimer !== null || !queuedEvidence.size) return;
+          const next = queuedEvidence.values().next().value as string;
+          queuedEvidence.delete(next);
+          queuedDrainTimer = window.setTimeout(() => {
+              queuedDrainTimer = null;
+              void tick(next).finally(scheduleQueuedEvidence);
+          }, 1_000);
+      };
       const tick = async (requestedCharId?: string) => {
           if (disposed || document.visibilityState !== 'visible') return;
           if (running) {
@@ -2617,17 +2629,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               console.warn('[CharacterPhone] grounded autonomous tick skipped', error);
           } finally {
               running = false;
-              if (!disposed && document.visibilityState === 'visible' &&
-                  queuedEvidence.size > 0 && queuedDrainTimer === null) {
-                  const next = queuedEvidence.values().next().value as string;
-                  queuedEvidence.delete(next);
-                  // Re-check the persisted opportunity + budget in tick;
-                  // only one queued Char runs at a time, never an AI storm.
-                  queuedDrainTimer = window.setTimeout(() => {
-                      queuedDrainTimer = null;
-                      void tick(next);
-                  }, 1_000);
-              }
+              scheduleQueuedEvidence();
           }
       };
       // Newly published posts and new User comments receive a foreground
@@ -2682,6 +2684,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const onVisible = () => {
           if (document.visibilityState !== 'visible') return;
           void tick();
+          scheduleQueuedEvidence();
           for (const char of charactersRef.current) wakeForEvidence(char.id);
       };
       const initial = window.setTimeout(() => { onVisible(); }, 10_000);
