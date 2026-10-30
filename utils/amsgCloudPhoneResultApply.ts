@@ -48,6 +48,13 @@ export async function applyCloudPhoneResult(payload: unknown, context?: AmsgResu
           characterId: row.charId, contactId: contact.id,
           contactName: contact.remark || contact.nickname || contact.name,
           at: row.occurredAt,
+          // Re-check inside the phone storage mutation, not only before it:
+          // other tabs/user deletion must not turn a late cloud response into
+          // a brand-new chat after its original thread vanished.
+          expectedLatest: {
+            threadId: row.threadId, messageCount: row.replyToCount,
+            lastAt: row.replyToAt, lastText: row.replyToText,
+          },
           messages: row.messages.map((text, i) => ({
             speaker: { role:'owner' as const }, text,
             createdAt: row.occurredAt + i * 1000,
