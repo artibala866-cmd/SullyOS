@@ -8,7 +8,11 @@ import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDot
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
 import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachEvent,rememberStudyCoachEvent,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
-import { focusChatAllowance, newWorkspaceId, readWorkspace, localDate, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
+import { focusChatAllowance, newWorkspaceId, readWorkspace, mutateWorkspace, localDate, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
+import {
+  coachSuppressed,replyToCoach,proposeCoachAction,decideCoachAction,coachFollowUp,coachConfirmedContext,
+  type CoachFeedback,
+} from '../utils/studyCoachWorkflow';
 import {
   createCommissionPlanRequest, parseCommissionPlanReply,
   type CommissionPlanPreview, type CommissionPlanRequest,
@@ -116,6 +120,7 @@ const ScheduleApp: React.FC = () => {
   const [coachEventByChar,setCoachEventByChar]=useState<Record<string,{day:string;key:string;count:number;seenKeys?:string[]}>>(()=>load('coachEventByChar',{}));
   const [coachSettingsOpen,setCoachSettingsOpen]=useState(false);
   const [coachPrompt,setCoachPrompt]=useState('');
+  const [coachDecisionBusy,setCoachDecisionBusy]=useState(false);
   const coachIdleSince=useRef(Date.now());
   const autoCoachAttempted=useRef(new Set<string>());
   const autoCoachController=useRef<AbortController|null>(null);
@@ -151,6 +156,10 @@ const ScheduleApp: React.FC = () => {
   const activeTask = tasks.find(t => t.id === (session?.taskId || selectedTask));
   const lastStudy=recentStudyByChar[charId];
   const recentPdf=lastStudy&&Date.now()-lastStudy.seenAt<30*60000?lastStudy:null;
+  const pendingCoachAction=workspaceSnapshot?.coachActions?.filter(a=>a.charId===charId
+    &&a.state==='pending'&&a.kind==='slot').slice(-1)[0];
+  const previousCoachPlan=workspaceSnapshot && !coachSuppressed(workspaceSnapshot,charId,now)
+    ?coachFollowUp(workspaceSnapshot,charId,new Date(now)):'';
   const companionReality=workspaceSnapshot?buildStudyRoomReality(
     workspaceSnapshot,session,activeTask?.title||'',records,tasks,new Date(now),
   ):null;
@@ -225,7 +234,10 @@ const ScheduleApp: React.FC = () => {
     if(!activeChar || coachSetting.level==='off' || coachSetting.paused || session || tab==='study')return;
     const check=()=>{
       const when=Date.now();
-      if(isStudyCoachQuietTime(coachSetting,new Date(when))){setCoachPrompt('');return;}
+      if(isStudyCoachQuietTime(coachSetting,new Date(when))
+        ||coachSuppressed(workspaceSnapshot||undefined,charId,when)){
+        setCoachPrompt('');return;
+      }
       const date=new Date(when), day=localDate(date);
       const reality=workspaceSnapshot?buildStudyRoomReality(workspaceSnapshot,null,'',records,tasks,date):undefined;
       const latestEvent=studyCoachEvent(reality,date);
@@ -262,7 +274,8 @@ const ScheduleApp: React.FC = () => {
   useEffect(()=>{
     if(!coachPrompt)return;
     if(tab==='study'||session||!activeChar||coachSetting.level==='off'||coachSetting.paused
-      ||!workspaceSnapshot||isStudyCoachQuietTime(coachSetting,new Date())){
+      ||!workspaceSnapshot||isStudyCoachQuietTime(coachSetting,new Date())
+      ||coachSuppressed(workspaceSnapshot,charId)){
       setCoachPrompt('');return;
     }
     const actual=buildStudyRoomReality(workspaceSnapshot,null,'',records,tasks,new Date());
@@ -274,7 +287,8 @@ const ScheduleApp: React.FC = () => {
   useEffect(()=>{
     if(!coachPrompt||!activeChar||!coachSetting.allowAutoAI||coachSetting.level==='off'
       ||coachSetting.paused||session||tab==='study'||assistantOpen||coachSettingsOpen||exitOpen
-      ||document.visibilityState!=='visible'||!workspaceSnapshot)return;
+      ||document.visibilityState!=='visible'||!workspaceSnapshot
+      ||coachSuppressed(workspaceSnapshot,charId))return;
     const event=coachEventByChar[charId];
     const clock=new Date();
     if(!event||event.day!==localDate(clock))return;
@@ -291,7 +305,8 @@ const ScheduleApp: React.FC = () => {
     void (async()=>{
       try{
         if(!api.apiKey||!api.baseUrl||!api.model)throw new Error('当前 Char 的模型配置不完整');
-        const summary=buildCompanionOverview(workspaceSnapshot,null,'',clock);
+        const summary=buildCompanionOverview(workspaceSnapshot,null,'',clock)
+          +'\n'+coachConfirmedContext(workspaceSnapshot,chosen.id);
         const history=notesForStudyContext(notes,chosen.id,'overview').slice(-6);
         const msgs=await ContextBuilder.buildCharacterRequest(
           {char:chosen,user:userProfile},
@@ -456,6 +471,46 @@ const ScheduleApp: React.FC = () => {
       taskId:existing?.id||taskIdForNewLinkedWork,usedChatWindows:[],
     });
     setTab('timer');
+  };
+  const giveCoachFeedback=async(choice:CoachFeedback)=>{
+    if(!charId||coachDecisionBusy||!coachPrompt)return;
+    const eventKey=coachEventByChar[charId]?.key;
+    if(!eventKey)return;
+    // A user response takes precedence over any optional paid proactive request.
+    autoCoachController.current?.abort();
+    setCoachDecisionBusy(true);
+    try{
+      const saved=await mutateWorkspace(current=>replyToCoach(current,charId,eventKey,choice));
+      onWorkspaceSnapshot(saved);
+      setCoachPrompt('');
+      addToast(choice==='later'?'已记下：两小时内不再督促'
+        :choice==='rest_today'?'已记下：今天休息，不再督促'
+        :'已记下：今天不再提醒','success');
+    }catch(error){addToast('未保存反馈：'+String(error),'error');}
+    finally{setCoachDecisionBusy(false);}
+  };
+  const draftCoachPlan=async()=>{
+    if(!charId||coachDecisionBusy||!coachPrompt)return;
+    const eventKey=coachEventByChar[charId]?.key;
+    if(!eventKey)return;
+    autoCoachController.current?.abort();
+    setCoachDecisionBusy(true);
+    try{
+      const saved=await mutateWorkspace(current=>proposeCoachAction(current,charId,eventKey));
+      onWorkspaceSnapshot(saved);setCoachPrompt('');
+    }catch(error){addToast('尚未安排：'+String(error),'error');}
+    finally{setCoachDecisionBusy(false);}
+  };
+  const resolveCoachPlan=async(actionId:string,accept:boolean)=>{
+    if(!charId||coachDecisionBusy)return;
+    if(accept&&!window.confirm('确定将这个具体时段写入画稿/作业排期？它不会标记已完成，也不会创建远端提醒。'))return;
+    setCoachDecisionBusy(true);
+    try{
+      const saved=await mutateWorkspace(current=>decideCoachAction(current,charId,actionId,accept));
+      onWorkspaceSnapshot(saved);
+      addToast(accept?'已确认并写入原学习室计划':'已放弃建议，原排期未变','success');
+    }catch(error){addToast('未应用：'+String(error),'error');}
+    finally{setCoachDecisionBusy(false);}
   };
   const updateCoachSetting=(change:Partial<StudyCoachSetting>)=>{
     if(!charId)return;
@@ -633,6 +688,7 @@ const ScheduleApp: React.FC = () => {
         : '本次只处理用户主动提交的专题，不引用其他任务或未授权资料。';
       const appContext = '你在学习室应用内帮助用户。保持角色身份自然回应，不要自动催促，也不能替用户把作业标为完成、委托标为交付。'
         + taskContext
+        + (requestScope==='overview'?coachConfirmedContext(workspaceSnapshot||undefined,activeChar.id):'')
         + (assistantTopic ? '用户主动请求讨论的工作信息：' + assistantTopic.slice(0, 12000) : '');
       const msgs = await ContextBuilder.buildCharacterRequest(
         {char:activeChar,user:userProfile},
@@ -692,7 +748,7 @@ const ScheduleApp: React.FC = () => {
       :recentVoice?'刚才说：'+recentVoice
       :freshMoment?companionMoment
       :recentPdf?(recentPdf.tutorCharId&&recentPdf.tutorCharId!==charId?'最近在看《':'刚一起看过《')+recentPdf.courseTitle.slice(0,22)+'》'
-      :companionReality?.hint||companionMomentText(null,'',0));
+      :previousCoachPlan||companionReality?.hint||companionMomentText(null,'',0));
   return (
     <div className="relative h-full w-full overflow-hidden">
       {tab === 'study' && (
@@ -732,10 +788,38 @@ const ScheduleApp: React.FC = () => {
         </button>
       </div>
       <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-5 pb-5 space-y-3 sm:space-y-5">
-        {coachPrompt && tab!=='study' && <div role="status" aria-live="polite" className="mx-auto flex max-w-[510px] items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs text-neutral-700">
-          <span className="min-w-0 flex-1"><strong>学习室提醒</strong> · {coachPrompt}</span>
-          <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f4f4f4]" aria-label="稍后提醒" onClick={()=>setCoachPrompt('')}><X size={17}/></button>
+        {coachPrompt && tab!=='study' && <div role="status" aria-live="polite"
+          className="mx-auto flex max-w-[510px] flex-col gap-2 rounded-2xl bg-white px-4 py-3 text-xs text-neutral-700">
+          <p><strong>学习室本机提醒</strong> · {coachPrompt}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={coachDecisionBusy} className={btn+' min-h-10 px-3'}
+              onClick={()=>void draftCoachPlan()}>生成待确认安排</button>
+            <button type="button" disabled={coachDecisionBusy} className={btn+' min-h-10 px-3'}
+              onClick={()=>void giveCoachFeedback('later')}>两小时后再说</button>
+            <button type="button" disabled={coachDecisionBusy} className={btn+' min-h-10 px-3'}
+              onClick={()=>void giveCoachFeedback('rest_today')}>今天需要休息</button>
+            <button type="button" disabled={coachDecisionBusy} className="min-h-10 px-3 underline"
+              onClick={()=>void giveCoachFeedback('decline_today')}>今天不再提醒</button>
+          </div>
         </div>}
+        {pendingCoachAction?.slot && !session && tab!=='study' && <section aria-label="Char 待确认执行建议"
+          className="mx-auto max-w-[510px] rounded-2xl bg-white px-4 py-3 text-xs space-y-2">
+          <strong>此前选择的 Char · 待确认计划</strong>
+          <p>{pendingCoachAction.slot.kind==='commission'?'画稿':'作业'} ·
+            {pendingCoachAction.slot.kind==='commission'
+              ?workspaceSnapshot?.commissions.find(c=>c.id===pendingCoachAction.slot!.itemId)?.title||'原事项'
+              :workspaceSnapshot?.homework.find(h=>h.id===pendingCoachAction.slot!.itemId)?.title||'原事项'}</p>
+          <p>{pendingCoachAction.slot.date} {pendingCoachAction.slot.start}–{pendingCoachAction.slot.end}（仅候选，尚未写入日程）</p>
+          <p className="text-neutral-500">此建议只来自真实委托、作业、课程和你提供的可用时间；不是 Char 已做出的修改。</p>
+          <div className="flex gap-2">
+            <button className={btn+' min-h-11 px-3'} disabled={coachDecisionBusy}
+              onClick={()=>void resolveCoachPlan(pendingCoachAction.id,true)}>确认写入原日程</button>
+            <button className={btn+' min-h-11 px-3'} disabled={coachDecisionBusy}
+              onClick={()=>void resolveCoachPlan(pendingCoachAction.id,false)}>不采用</button>
+          </div>
+        </section>}
+        {previousCoachPlan && !session && !pendingCoachAction && tab!=='study' && <p role="status"
+          className="mx-auto max-w-[510px] rounded-2xl bg-white px-4 py-3 text-xs text-neutral-600">{previousCoachPlan}</p>
         {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
           <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
         </section>}

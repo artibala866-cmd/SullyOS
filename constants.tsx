@@ -91,7 +91,7 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Journal, name: '交换日记', icon: 'Journal', color: 'amber' },
   // { id: AppID.Handbook, name: '手账', icon: 'Handbook', color: 'fuchsia' }, // Hidden temporarily, pending update
   { id: AppID.Social, name: 'Spark', icon: 'Social', color: 'red' },
-  { id: AppID.Study, name: '自习室', icon: 'Study', color: 'emerald' },
+  // 自习室功能已内嵌进学习室；保留 AppID.Study 路由供旧链接和历史状态兼容，不显示重复桌面图标。
   { id: AppID.Songwriting, name: '写歌', icon: 'Songwriting', color: 'fuchsia' },
   { id: AppID.Schedule, name: '学习室', icon: 'Schedule', color: 'cyan' },
   { id: AppID.Worldbook, name: '世界书', icon: 'Worldbook', color: 'indigo' },
