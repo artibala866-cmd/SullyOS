@@ -10,7 +10,7 @@ import motions from '../apps/room3d/chibi/selectedMotionCatalog.json';
 afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 it('denies every intimate clip by default, including old homes and apparent high affinity',()=>{
  const home={affinity:100,relationship:'情侣',socialMemberIds:['A','B']} as any;
- const ids=motions.filter(m=>m.category==='close').map(m=>m.id).concat(['cmu-20_10','cmu-22_09']);
+ const ids=motions.filter(m=>m.category==='close'||m.category==='kiss').map(m=>m.id).concat(['cmu-20_10','cmu-22_09']);
  for(const id of ids){expect(isRomanticMotion(id)).toBe(true);expect(homeSocialActionAllowed(home,id,'A','B')).toBe(false);}
  expect(homeSocialActionAllowed({},'cmu-18_08','A','B')).toBe(true);expect(homeSocialActionAllowed({},'cmu-22_13','A','B')).toBe(true);
 });
