@@ -248,9 +248,9 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).toContain('className="home-phone study-room-phone"');
    expect(schedule).toContain('study-phone-speaker');
    expect(schedule).toContain('study-phone-homebar');
-   expect(studyPhoneCss).toContain('border:4px solid #303030');
-   expect(studyPhoneCss).toContain('width:min(326px,calc(100% - 38px))');
-   expect(studyPhoneCss).toContain('height:min(58dvh,478px)');
+   expect(studyPhoneCss).toContain('border:5px solid #252525');
+   expect(studyPhoneCss).toContain('width:min(232px,58vw,calc((100dvh - 154px)*0.46))');
+   expect(studyPhoneCss).toContain('aspect-ratio:9 / 19.5;height:auto;min-height:0;max-height:none');
    expect(nativeChat).toContain('homePhone?.characterId??osActiveCharacterId');
    expect(nativeChat).toContain('hideHeader?:boolean');
    expect(schedule).toContain("getContext:blankPhoneContext");
@@ -258,6 +258,23 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).not.toContain("openApp(AppID.Chat)");
    expect(schedule).not.toContain('与 Char 陪伴交流');
    expect(schedule).toContain("!session&&phonePage==='private'&&activeChar");
+ });
+
+ it('尺寸回归：320/360/390 窄屏及短屏均保持真手机纵向比例而非压扁横版',()=>{
+   const ratio=9/19.5;
+   for(const [w,h] of [[320,568],[360,740],[390,844],[430,932],[698,768]]){
+      const width=Math.min(232,w*0.58,(h-154)*0.46);
+      const height=width/ratio;
+      expect(height/width).toBeCloseTo(19.5/9,4);
+      expect(height).toBeGreaterThan(width*2);
+      expect(width).toBeLessThan(w*0.65);
+      expect(height+91).toBeLessThan(h);
+   }
+   const css=studyPhoneCss.split('@media(max-height:620px)')[1]||'';
+   expect(css).not.toContain('height:min(60dvh,410px)');
+   expect(studyPhoneCss).not.toContain('width:min(326px');
+   expect(schedule).toContain('<NotePencil size={17}/>');
+   expect(schedule).toContain('className="grid h-8 w-8 shrink-0 place-items-center"');
  });
 
 });
