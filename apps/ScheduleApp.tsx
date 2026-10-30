@@ -902,7 +902,7 @@ const ScheduleApp: React.FC = () => {
         </section>
       </div>}
 
-      {assistantOpen && assistantMinimized && <div className="pointer-events-none absolute bottom-[max(16px,var(--safe-bottom,0px))] right-3 z-[80]">
+      {assistantOpen && assistantMinimized && <div className="pointer-events-none absolute bottom-[calc(84px+var(--safe-bottom,0px))] right-3 z-[80]">
         <button type="button" onClick={()=>setAssistantMinimized(false)}
           aria-label="展开学习室 Char 悬浮聊天" className="pointer-events-auto flex min-h-12 max-w-[225px] items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm shadow-[0_10px_30px_rgba(0,0,0,.15)]">
           <StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-8 w-8 rounded-full object-cover"/>
@@ -912,7 +912,7 @@ const ScheduleApp: React.FC = () => {
       {assistantOpen && !assistantMinimized && <div className="pointer-events-none absolute inset-0 z-[80]" aria-label="学习室悬浮聊天区域">
         <section data-study-floating-chat role="dialog" aria-modal="false" aria-label="学习室 Char 悬浮聊天"
           style={{transform:`translate(${assistantOffset.x}px,${assistantOffset.y}px)`}}
-          className="pointer-events-auto absolute bottom-[max(12px,var(--safe-bottom,0px))] right-3 flex h-[min(57dvh,470px)] min-h-[245px] max-h-[calc(100dvh-72px)] w-[calc(100%-32px)] max-w-[340px] flex-col overflow-hidden rounded-[25px] border border-neutral-200 bg-[#f6f6f6] text-neutral-900 shadow-[0_18px_65px_rgba(0,0,0,.20)]">
+          className="pointer-events-auto absolute bottom-[calc(84px+var(--safe-bottom,0px))] right-3 flex h-[min(57dvh,470px)] min-h-[245px] max-h-[calc(100dvh-72px)] w-[calc(100%-32px)] max-w-[340px] flex-col overflow-hidden rounded-[25px] border border-neutral-200 bg-[#f6f6f6] text-neutral-900 shadow-[0_18px_65px_rgba(0,0,0,.20)]">
           <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2.5 touch-none select-none cursor-grab active:cursor-grabbing"
             onPointerDown={onAssistantDragStart} onPointerMove={onAssistantDragMove} onPointerUp={onAssistantDragEnd} onPointerCancel={onAssistantDragEnd}>
             <button type="button" aria-label="快速选择 Char" aria-expanded={assistantPickerOpen}
