@@ -112,7 +112,7 @@ export function bathroomJourneyFrame(j,time){
   // raised; the former single late travel carried grounded feet through GLB.
   const advance=earlyFraction*(.20/.27*M.smootherstep(p,.30,.74)+.07/.27*M.smootherstep(p,.79,1.19))
    +(1-earlyFraction)*(.24/.73*M.smootherstep(p,3.07,3.40)+.49/.73*M.smootherstep(p,3.40,4.10));
-  const lower=M.smootherstep(p,3.52,4.6);
+  const lower=M.smootherstep(p,3.46,4.34);
   position=mix(j.front,j.position,advance);
   // A high-sided GLB tub requires a supported transfer of the pelvis:
   // the anchored hands bear weight while both feet clear the real high rim.
@@ -124,10 +124,12 @@ export function bathroomJourneyFrame(j,time){
   const turnWeight=M.smootherstep(p,3.56,4.53);
   rotation=turn(turn(j.startRotation,j.edgeRotation,facing),j.rotation,turnWeight);
   // Pivot smoothly towards the interior while the lifted legs settle, then
-  // return to the exact authored seat center. Never rotate a planted toe
+  // return to the exact authored seat center. Avoid the prior 20cm inboard
+  // overshoot and backslide while lowering; finish against the saved seat.
+  // Never rotate a planted toe
   // across the near rim or teleport the character.
   const dx=j.position[0]-j.front[0],dz=j.position[2]-j.front[2],length=Math.hypot(dx,dz)||1;
-  const interiorScoot=.20*Math.sin(Math.PI*turnWeight);
+  const interiorScoot=.065*Math.sin(Math.PI*turnWeight);
   position[0]+=dx/length*interiorScoot;
   position[2]+=dz/length*interiorScoot;
   seatWeight=lower;legLift=M.smootherstep(p,3.32,4.24);

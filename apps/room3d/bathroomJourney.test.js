@@ -229,3 +229,23 @@ describe('real bathtub turn/seat shoe clearance',()=>{
   }
  });
 });
+
+
+describe('bathtub seated transfer without an inboard foot-drop rebound',()=>{
+ it('settles the pelvis before the high legs untuck and removes excessive backwards root drift',()=>{
+  const j=fixture(),last=j.enter*2+j.hold,interior=bathroomJourneyFrame(j,4.08);
+  expect(interior.seatWeight).toBeGreaterThan(.8);
+  expect(interior.leadTuck).toBeGreaterThan(0);
+  const frames=Array.from({length:21},(_,i)=>bathroomJourneyFrame(j,3.6+i*.05));
+  for(let i=1;i<frames.length;i++){
+   expect(frames[i].seatWeight+1e-8).toBeGreaterThanOrEqual(frames[i-1].seatWeight);
+   expect(frames[i].position[2]).toBeGreaterThanOrEqual(j.position[2]-.08);
+   expect(frames[i].seatWeight).toBeGreaterThanOrEqual(0);
+  }
+  for(const t of [3.6,3.9,4.08,4.34]){
+   const a=bathroomJourneyFrame(j,t),b=bathroomJourneyFrame(j,last-t);
+   expect(b.seatWeight).toBeCloseTo(a.seatWeight,8);
+   expect(distance(a.position,b.position)).toBeLessThan(1e-7);
+  }
+ });
+});
