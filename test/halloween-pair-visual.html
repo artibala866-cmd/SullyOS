@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>万圣节四组双人动作｜真实 WebGL 方向与接触验收</title>
+<style>*{box-sizing:border-box}body{margin:0;padding:12px;background:#eee8ee;color:#34303c;font:13px system-ui,sans-serif}output{position:sticky;top:0;display:block;background:#fff;padding:10px;z-index:4}main{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:9px}figure{margin:0;background:#fff;border:1px solid #c8bfd0;border-radius:8px;overflow:hidden}figure img{width:100%;display:block;aspect-ratio:4/3;object-fit:contain}figcaption{padding:6px;font-size:11px}</style>
+</head><body><h1>🎃 万圣节双人动作 · 原始导入朝向公式与局部修复对照</h1>
+<p>“旧公式重建”用导入动作的原始骨盆帧和旧版共同 session.rotation 重新构图，不代表找到了 Meshy 原始 FBX。全部图片由实际 Q 版蒙皮骨骼和真实道具 GLB 在 WebGL 中渲染。</p>
+<output id="status">准备加载真实双人角色…</output><main class="gallery"></main>
+<script type="module">
+import * as T from 'three';
+import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
+import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial.ts';
+import {sampleSelected} from '../apps/room3d/chibi/selectedMotions.ts';
+import {splitMotionHeading} from '../apps/room3d/chibi/motionHeading.ts';
+import {createHalloweenProp,loadHalloweenProps} from '../apps/room3d/chibi/halloweenProps.ts';
+
+const ids=['halloween-boo','halloween-trick-or-treat','halloween-candy-shower','halloween-ghost-tease'];
+const heights=[{id:'equal',values:[1,1]},{id:'short-a',values:[.8,1.25]},{id:'tall-a',values:[1.25,.8]}];
+const phases=[{id:'walk-arrive',offset:-.72},{id:'face-settled',offset:-.003},{id:'reaction',source:2.9},{id:'end',source:7.45},{id:'release',source:8.55}];
+const views=['front','side','diagonal','back'];
+const report={status:'loading',stage:'boot',errors:[],frames:[],images:[],runs:[],measurements:[],coverage:{},beforeMode:'旧版共同 root Yaw 公式重建；非原始 FBX'};
+window.__halloweenPairVisualAcceptance=report;
+const status=document.querySelector('#status');
+function stage(message){report.stage=message;status.textContent=report.status+' · '+message+' · '+report.images.length+' 张 WebGL 画面';}
+window.addEventListener('error',e=>report.errors.push(e.message||String(e.error)));
+window.addEventListener('unhandledrejection',e=>report.errors.push(String(e.reason)));
+function color(hex){const canvas=document.createElement('canvas');canvas.width=canvas.height=472;const ctx=canvas.getContext('2d');ctx.fillStyle=hex;ctx.fillRect(0,0,472,472);return canvas;}
+async function photo(id){const image=new Image();image.src='/like520/parts/'+id+'.png';await image.decode();return image;}
+const hairs=await Promise.all(['fronthair_02','back1_02','back2_03','earhair_01','fronthair_06','back1_04','back2_08','earhair_03'].map(photo));
+function parts(i){return {skin:color(i?'#e9c5b5':'#edbfae'),eyes:color(i?'#485b86':'#554669'),mouth:color('#a64a60'),
+fronthair:hairs[i?4:0],back1:hairs[i?5:1],back2:hairs[i?6:2],earhair:hairs[i?7:3],outfit:color('#c4b0da'),outer:color('#eed0aa')};}
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,powerPreference:'low-power'});
+renderer.setPixelRatio(1);renderer.setSize(320,240,false);renderer.outputColorSpace=T.SRGBColorSpace;
+const scene=new T.Scene();scene.background=new T.Color('#f0e9ef');
+scene.add(new T.HemisphereLight('#fff7ef','#9293ac',2.4));const sun=new T.DirectionalLight('#fff7ee',2.9);sun.position.set(3,7,5);scene.add(sun);
+const floor=new T.Mesh(new T.PlaneGeometry(12,12),new T.MeshStandardMaterial({color:'#dacddc',roughness:1}));
+floor.rotation.x=-Math.PI/2;floor.position.y=-.02;scene.add(floor);
+const camera=new T.OrthographicCamera(-2.7,2.7,2.025,-2.025,.1,45);
+const view=kind=>{
+ const positions={front:[0,3,7.2],side:[7.1,3,.1],diagonal:[4.65,3,5.5],back:[0,3,-7.2]};
+ camera.position.set(...positions[kind]);camera.lookAt(0,1.35,0);camera.updateProjectionMatrix();
+};
+const axis=new T.Vector3(0,1,0),forward=new T.Vector3(0,0,1);
+const hand=v=>Object.fromEntries(['L','R'].map(s=>[s,v.rig.bones[s+'_hand'].getWorldPosition(new T.Vector3()).toArray()]));
+const feet=v=>Object.fromEntries(['L','R'].map(s=>[s,Math.min(v.rig.bones[s+'_foot'].getWorldPosition(new T.Vector3()).y,v.rig.bones[s+'_toe'].getWorldPosition(new T.Vector3()).y)]));
+function snapshot(pair,phase,action,scenario,role,kind,baseline=false){
+ pair.forEach(v=>v.finishPose());scene.updateWorldMatrix(true,true);
+ const coords=pair.map(v=>v.root.getWorldPosition(new T.Vector3()));
+ const fronts=pair.map(v=>forward.clone().applyQuaternion(v.rig.bones.chest.getWorldQuaternion(new T.Quaternion())).setY(0).normalize());
+ const rootFront=pair.map(v=>forward.clone().applyQuaternion(v.root.getWorldQuaternion(new T.Quaternion())).setY(0).normalize());
+ const toward=pair.map((v,i)=>coords[1-i].clone().sub(coords[i]).setY(0).normalize());
+ const metrics={action,scenario,role,phase:phase.id,baseline,angle:kind,
+  positions:coords.map(v=>v.toArray()),fronts:fronts.map(v=>v.toArray()),rootFront:rootFront.map(v=>v.toArray()),
+  toward: toward.map(v=>v.toArray()),frontAngle:fronts.map((f,i)=>f.angleTo(toward[i])*180/Math.PI),
+  rootAngle:rootFront.map((f,i)=>f.angleTo(toward[i])*180/Math.PI),gap:coords[0].distanceTo(coords[1]),
+  palms:pair.map(hand),soleHeight:pair.map(feet),
+  props:scene.children.filter(o=>o.name==='halloween-social-props'&&o.visible).flatMap(o=>o.children.filter(c=>c.visible).map(c=>({id:c.name,position:c.getWorldPosition(new T.Vector3()).toArray(),rotation:c.getWorldQuaternion(new T.Quaternion()).toArray()})))};
+ for(const v of [...metrics.positions.flat(),...metrics.fronts.flat(),...metrics.rootAngle,...metrics.frontAngle,...Object.values(metrics.soleHeight[0]),...Object.values(metrics.soleHeight[1]),...metrics.palms.flatMap(p=>[...p.L,...p.R])])if(!Number.isFinite(v))throw Error('Invalid world metric '+action+'/'+phase.id);
+ view(kind);renderer.render(scene,camera);
+ const path=[action,scenario,role,phase.id,baseline?'old':'fixed',kind].join('-');
+ const image=document.createElement('img'),fig=document.createElement('figure'),cap=document.createElement('figcaption');
+ image.src=renderer.domElement.toDataURL('image/png');image.alt=path;
+ cap.textContent=action+' · '+scenario+' · '+role+' · '+phase.id+' · '+kind+(baseline?' · 旧公式重建':' · 新版')+' · 朝向 '+metrics.rootAngle.map(n=>n.toFixed(0)+'°').join('/')+' · 距离 '+metrics.gap.toFixed(2);
+ fig.append(image,cap);document.querySelector('.gallery').append(fig);
+ report.images.push({name:path});report.frames.push(metrics);
+ return metrics;
+}
+const pause=()=>new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));
+(async()=>{try{
+ if(renderer.getContext().isContextLost())throw Error('WebGL unavailable');
+ const clips={};for(const id of ids){const res=await fetch('/room3d/motions/selected/'+id+'.json');if(!res.ok)throw Error('Motion not found '+id);clips[id]=await res.json();}
+ for(const h of heights)for(const role of ['a-user','a-ai']){
+  const residents=[];let runtime=null;
+  try{
+   stage('创建真实骨架 '+h.id+'/'+role);
+   for(let i=0;i<2;i++){
+    const v=await createVisitor(parts(i),{bodyShape:'blank',bodyHeight:h.values[i],headSize:1.02,
+     layers:{},extras:[],hairColor:i?'#607b91':'#796aa3'});
+    if(!v.rig)throw Error('Expected blank-body skinned rig');
+    residents.push(v);scene.add(v.root);
+   }
+   for(const action of ids){
+    const idsForRole=role==='a-user'?[0,1]:[1,0];
+    residents.forEach((v,i)=>{v.root.position.set(0,0,i?1.15:-1.15);v.root.quaternion.identity();v.animate(0,'idle');});
+    runtime=createSocialScene(residents.map((visitor,i)=>({id:String(i),visitor})));
+    await runtime.start(action,String(idsForRole[0]),String(idsForRole[1]));
+    const session=runtime.inspect().session;if(!session)throw Error('Session missing '+action);
+    const approach=session.duration-socialActions[action].duration;
+    const pair=idsForRole.map(i=>residents[i]);
+    const originalStarts=pair.map(v=>v.root.position.clone());
+    // Source baseline uses old shared session.rotation with each source hips yaw;
+    // exact after entry (0.6s), so old/new images compare identical source time.
+    const clip=clips[action],srcA=new T.Vector3().fromArray(clip.actors[0].positions);
+    const srcB=new T.Vector3().fromArray(clip.actors[1].positions);
+    const srcDelta=srcB.clone().sub(srcA),realDelta=originalStarts[1].clone().sub(originalStarts[0]);
+    const baseYaw=Math.atan2(realDelta.x,realDelta.z)-Math.atan2(srcDelta.x,srcDelta.z);
+    const baselineModels=await loadHalloweenProps(action);
+    const run={action,scenario:h.id,role,markers:[],repeat:false,cancel:false};
+    for(const phase of phases){
+     const time=phase.source===undefined?approach+phase.offset:approach+.6+phase.source;
+     runtime.seek(time);pair.forEach(v=>v.finishPose());
+     const fixed=views.map(kind=>snapshot(pair,phase,action,h.id,role,kind));
+     if(phase.id==='reaction'||phase.id==='end'){
+      for(const m of fixed){
+       if(m.rootAngle.some(n=>n>20))throw Error('Not facing partner: '+action+'/'+role+'/'+h.id+'/'+phase.id+' '+JSON.stringify(m.rootAngle));
+      }
+      // Baseline snapshots are real skinned renders with the old yaw formula,
+      // not fabricated stills and not claimed to be archived Meshy previews.
+      const activeProps=scene.children.filter(o=>o.name==='halloween-social-props');
+      activeProps.forEach(o=>o.visible=false);
+      for(let i=0;i<2;i++){
+       const hip=sampleSelected(clip.actors[i],phase.source).rotations.hips;
+       const heading=splitMotionHeading(hip).heading;
+       pair[i].root.quaternion.setFromAxisAngle(axis,baseYaw).multiply(heading);
+      }
+      pair.forEach(v=>v.finishPose());
+      const baselineProp=createHalloweenProp(action,pair,baselineModels);
+      baselineProp?.update(phase.source,clip.duration,1);
+      for(const kind of views)snapshot(pair,phase,action,h.id,role,kind,true);
+      baselineProp?.dispose();activeProps.forEach(o=>o.visible=true);
+      runtime.seek(time);
+     }
+     run.markers.push({phase:phase.id,seconds:time,rootAngles:fixed[0].rootAngle,feet:fixed[0].soleHeight,props:fixed[0].props});
+     stage(action+'/'+h.id+'/'+role+'/'+phase.id);
+     await pause();
+    }
+    runtime.cancel();run.cancel=runtime.inspect().session===null;
+    if(!run.cancel)throw Error('Cancel leaked '+action);
+    await runtime.start(action,String(idsForRole[0]),String(idsForRole[1]));
+    const again=runtime.inspect().session;
+    if(!again)throw Error('Replay failed '+action);
+    runtime.seek(again.duration-socialActions[action].duration+.6+2.9);
+    const facing=pair.map((v,i)=>{
+      const from=v.root.getWorldPosition(new T.Vector3()),other=pair[1-i].root.getWorldPosition(new T.Vector3());
+      return forward.clone().applyQuaternion(v.root.quaternion).setY(0).normalize().angleTo(other.sub(from).setY(0).normalize())*180/Math.PI;
+    });
+    run.repeat=facing.every(n=>n<20);if(!run.repeat)throw Error('Replay wrong direction '+action+' '+facing);
+    runtime.cancel();runtime=null;report.runs.push(run);
+   }
+  }finally{runtime?.cancel();for(const v of residents){scene.remove(v.root);v.dispose();}}
+ }
+ // Four actions × 3 height pairs × 2 role orders × 5 phases × 4 camera views
+ // plus 2 old-yaw reference phases per scenario and view.
+ const expected=4*3*2*(5+2)*4;
+ if(report.images.length!==expected||report.runs.length!==24)throw Error('Missing coverage '+report.images.length+'/'+expected+' runs='+report.runs.length);
+ if(report.errors.length)throw Error('Browser errors: '+report.errors.join('; '));
+ report.status='pass';stage('完成 '+expected+' 张真实 WebGL 画面，需人工检查道具/碰撞可读性');
+}catch(err){report.errors.push(String(err?.stack||err));report.status='fail';stage('失败 '+String(err));console.error(err);}
+})();
+</script></body></html>
