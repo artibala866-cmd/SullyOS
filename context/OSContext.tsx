@@ -2613,6 +2613,28 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
   }, [isDataLoaded]);
 
+  // Stage 4: only a phone owner who explicitly enabled piggyback uploads an
+  // eligible NPC inbox snapshot. Permission/contact/chat edits revoke or
+  // refresh that cloud snapshot without a private Chat view or new LLM call.
+  useEffect(() => {
+      if (!isDataLoaded) return;
+      const refresh = (event: Event) => {
+          const charId = (event as CustomEvent<{characterId?:string}>).detail?.characterId;
+          const char = charId && charactersRef.current.find(c => c.id === charId);
+          if (char && userProfileRef.current && char.activeMsg2Config?.enabled === true)
+              markAmsgStateDirty({char, userProfile: userProfileRef.current,
+                  groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current});
+      };
+      const channels = [
+          'sully:character-phone-api-settings-changed',
+          'sully:character-phone-autonomy-changed',
+          'sully:character-phone-contact-changed',
+          CHARACTER_PHONE_CHATS_CHANGED,
+      ];
+      channels.forEach(name => window.addEventListener(name, refresh));
+      return () => channels.forEach(name => window.removeEventListener(name, refresh));
+  }, [isDataLoaded]);
+
   // Character-owned NPC phone actions, NOT a second User-facing AMSG system.
   // Bounded, one character at a time; only while app is in the foreground.
   // Every persisted action enters the original life-event ledger, whose listener
