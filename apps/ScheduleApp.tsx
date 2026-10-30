@@ -56,7 +56,11 @@ const ScheduleApp: React.FC = () => {
   const tabScrollOffsets=useRef<Record<string,number>>({});
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
   const [studyPresence,setStudyPresence]=useState<{courseTitle:string;chapterTitle:string;progress:number}|null>(null);
-  const onLearningStateChange=useCallback((value:{courseTitle:string;chapterTitle:string;progress:number}|null)=>setStudyPresence(value),[]);
+  const [recentStudyByChar,setRecentStudyByChar]=useState<Record<string,{courseTitle:string;chapterTitle:string;progress:number;seenAt:number}>>({});
+  const onLearningStateChange=useCallback((value:{courseTitle:string;chapterTitle:string;progress:number}|null)=>{
+    setStudyPresence(value);
+    if(value&&charId)setRecentStudyByChar(prev=>({...prev,[charId]:{...value,seenAt:Date.now()}}));
+  },[charId]);
   const [studyReturnTab,setStudyReturnTab] = useState<'timer'|'commissions'|'calendar'>('timer');
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [companionMoment,setCompanionMoment]=useState('');
@@ -95,6 +99,8 @@ const ScheduleApp: React.FC = () => {
   const remaining = session ? Math.max(0, Math.ceil((session.pauseRemainingMs ?? (session.deadline - now)) / 1000)) : (focusMinutes * 60);
   const allowance = focusChatAllowance(session, now);
   const activeTask = tasks.find(t => t.id === (session?.taskId || selectedTask));
+  const lastStudy=recentStudyByChar[charId];
+  const recentPdf=lastStudy&&Date.now()-lastStudy.seenAt<30*60000?lastStudy:null;
   const companionReality=workspaceSnapshot?buildStudyRoomReality(
     workspaceSnapshot,session,activeTask?.title||'',records,tasks,new Date(now),
   ):null;
@@ -367,12 +373,14 @@ const ScheduleApp: React.FC = () => {
         activeCommissions:actual.activeCommissions,pendingHomework:actual.pendingHomework,
         todayCourses:actual.todayCourses,dueSoonCommissions:actual.dueSoonCommissions,
         dueSoonHomework:actual.dueSoonHomework,
-        pdfLearning:tab==='study'?studyPresence:null,
+        pdfLearning:tab==='study'?studyPresence:recentPdf?{
+          courseTitle:recentPdf.courseTitle,chapterTitle:recentPdf.chapterTitle,progress:recentPdf.progress,
+        }:null,
       });
       setAssistantTopic([brief,evidence,overview].filter(Boolean).join('\n').slice(0,7800));
       const last=records.filter(r=>r.date===new Date().toLocaleDateString('sv-SE')).slice(-1)[0];
-      setMessage(companionEntryPrompt(actual,activeTask?.title||'',tab==='study'?studyPresence:null,
-        companionMoment&&Date.now()-companionMomentAt<2*60000?last?.minutes||0:0));
+      setMessage(companionEntryPrompt(actual,activeTask?.title||'',tab==='study'?studyPresence:recentPdf,
+        companionMoment.startsWith('刚完成一轮专注')&&Date.now()-companionMomentAt<2*60000?last?.minutes||0:0));
       setAssistantOpen(true);
     }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
     finally{setOverviewBusy(false);}
@@ -498,6 +506,7 @@ const ScheduleApp: React.FC = () => {
     session?companionMomentText(session,activeTask?.title||'',0)
       :recentVoice?'刚才说：'+recentVoice
       :freshMoment?companionMoment
+      :recentPdf?'刚一起看过《'+recentPdf.courseTitle.slice(0,22)+'》'
       :companionReality?.hint||companionMomentText(null,'',0));
   const companionActionLabel=overviewBusy?'读取中…':coachPrompt?'聊聊'
     :recentVoice?'接着聊':freshMoment?'聊这轮'
