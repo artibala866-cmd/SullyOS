@@ -1,0 +1,44 @@
+name: Stage 3 character life continuity regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'context/OSContext.tsx'
+      - 'apps/Chat.tsx'
+      - 'utils/dailyScheduleForegroundRecovery.ts'
+      - 'utils/dailyScheduleForegroundRecovery.test.ts'
+      - 'utils/scheduleGenerator.ts'
+      - 'utils/homeVisits.ts'
+      - 'utils/characterPhoneAutonomy.ts'
+      - 'utils/characterPhoneOpportunity.ts'
+      - '.github/workflows/character-life-stage3-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sully-character-life-stage3-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Validate schedule recovery, life events, NPC continuity, and messaging
+        run: pnpm exec vitest run utils/dailyScheduleForegroundRecovery.test.ts utils/characterPhoneOpportunity.test.ts utils/characterPhoneAutonomy.test.ts utils/characterLifeEventRouting.test.ts utils/characterLifeScheduleContext.test.ts utils/characterPhoneApiBudget.test.ts utils/scheduleTime.test.ts utils/amsgAutonomyWake.test.ts utils/chatAutoReply.test.ts
+      - name: Check changed modules for TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/life-stage3-tsc.log 2>&1 || true
+          grep -E '^(context/OSContext.tsx|apps/Chat.tsx|utils/(dailyScheduleForegroundRecovery|scheduleGenerator|homeVisits|characterPhoneAutonomy|characterPhoneOpportunity)(\.test)?\.ts)[(]' /tmp/life-stage3-tsc.log > /tmp/life-stage3-errors.log || true
+          if [ -s /tmp/life-stage3-errors.log ]; then cat /tmp/life-stage3-errors.log; exit 1; fi
+          echo 'Stage 3 touched-module diagnostics clean.'
