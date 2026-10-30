@@ -1794,14 +1794,22 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     };
 
     // Phase 1: confirmed STT drafts use the existing text message send path.
-    // Phase 2 will attach the explicit voice metadata and user-side voice bubble.
+    // Phase 2 will attach explicit voice metadata and the user-side voice bubble.
+    const speechSendingRef = useRef(false);
     const handleConfirmSpeechTranscript = () => {
-        if (privateChatSpeech.status !== 'review' || !privateChatSpeech.transcript.trim() || !char) return;
+        if (speechSendingRef.current || privateChatSpeech.status !== 'review' || !privateChatSpeech.transcript.trim() || !char) return;
         const text = privateChatSpeech.transcript.trim();
-        privateChatSpeech.cancel(); // closes the draft before async send, preventing double taps
-        void handleSendText(text, 'text').catch(error => {
-            addToast(error instanceof Error ? error.message : '发送失败', 'error');
-        });
+        const targetCharId = char.id;
+        speechSendingRef.current = true;
+        void handleSendText(text, 'text')
+            .then(() => {
+                if (activeCharIdRef.current === targetCharId) privateChatSpeech.cancel();
+            })
+            .catch(error => {
+                // Keep the editable transcript if persistence fails.
+                addToast(error instanceof Error ? error.message : '发送失败', 'error');
+            })
+            .finally(() => { speechSendingRef.current = false; });
     };
 
     // 用户点开「收到的转账」卡（角色发来、待处理）选择接收 / 退回：
