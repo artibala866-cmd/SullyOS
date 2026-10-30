@@ -59,7 +59,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     setStatus('starting');
     const startedAt = Date.now();
     clearElapsedTimer();
-    elapsedTimerRef.current = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 250);
+    elapsedTimerRef.current = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
     let ended = false;
 
     try {
