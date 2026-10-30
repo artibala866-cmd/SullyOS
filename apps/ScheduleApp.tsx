@@ -165,6 +165,7 @@ const ScheduleApp: React.FC = () => {
       const prompt=nextStudyCoachPrompt({
         charId,setting:coachSetting,session:null,now:new Date(when),
         idleSince:coachIdleSince.current,lastPromptAt:coachLastShown?.[charId]||0,
+        reality:workspaceSnapshot?buildStudyRoomReality(workspaceSnapshot,null,'',records,tasks,new Date(when)):undefined,
         isVisible:document.visibilityState==='visible',isTimerTab:tab==='timer',
       });
       if(!prompt)return;
@@ -180,7 +181,7 @@ const ScheduleApp: React.FC = () => {
     };
     document.addEventListener('visibilitychange',onVisibility);
     return ()=>{window.clearInterval(interval);document.removeEventListener('visibilitychange',onVisibility);};
-  },[activeChar?.id,charId,coachByChar,coachLastShown,session,tab]);
+  },[activeChar?.id,charId,coachByChar,coachLastShown,session,tab,workspaceSnapshot,records,tasks]);
   useEffect(() => {
     if (!session || session.pauseRemainingMs != null || now < session.deadline) return;
     const id = session.id || String(session.deadline);
