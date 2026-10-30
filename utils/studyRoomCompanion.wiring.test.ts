@@ -4,6 +4,8 @@ import {resolve} from 'node:path';
 const schedule=readFileSync(resolve(process.cwd(),'apps/ScheduleApp.tsx'),'utf8');
 const study=readFileSync(resolve(process.cwd(),'apps/StudyApp.tsx'),'utf8');
 const workspace=readFileSync(resolve(process.cwd(),'apps/WorkspacePanel.tsx'),'utf8');
+const studyPhoneCss=readFileSync(resolve(process.cwd(),'apps/studyRoomPhone.css'),'utf8');
+const nativeChat=readFileSync(resolve(process.cwd(),'apps/Chat.tsx'),'utf8');
 describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()=>{
  it('PDF 保持原有助教教学与问答，不再叠加第二个独立浮动聊天按钮',()=>{
   expect(schedule).not.toContain('aria-label="在自习室和当前 Char 继续陪伴"');
@@ -239,5 +241,23 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).not.toContain('与 Char 陪伴交流 <ArrowRight');
    expect(schedule).toContain('setPhonePage(\'study\')');
  });;
+
+ it('真正手机结构：常驻单一头像球、手机硬边框、原生私聊历史和原生私聊提示词',()=>{
+   expect(schedule).toContain('aria-label="打开 Char 悬浮手机"');
+   expect(schedule).toContain('className="study-room-float-ball"');
+   expect(schedule).toContain('className="home-phone study-room-phone"');
+   expect(schedule).toContain('study-phone-speaker');
+   expect(schedule).toContain('study-phone-homebar');
+   expect(studyPhoneCss).toContain('border:4px solid #303030');
+   expect(studyPhoneCss).toContain('width:min(326px,calc(100% - 38px))');
+   expect(studyPhoneCss).toContain('height:min(58dvh,478px)');
+   expect(nativeChat).toContain('homePhone?.characterId??osActiveCharacterId');
+   expect(nativeChat).toContain('hideHeader?:boolean');
+   expect(schedule).toContain("getContext:blankPhoneContext");
+   expect(schedule).toContain("const blankPhoneContext=useCallback(()=>'',[])");
+   expect(schedule).not.toContain("openApp(AppID.Chat)");
+   expect(schedule).not.toContain('与 Char 陪伴交流');
+   expect(schedule).toContain("!session&&phonePage==='private'&&activeChar");
+ });
 
 });
