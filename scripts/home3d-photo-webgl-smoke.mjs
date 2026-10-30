@@ -29,8 +29,8 @@ try{
  }
  writeFileSync(join(output,'result.json'),JSON.stringify(report,null,2));
  console.info('Home3D photo WebGL export:',JSON.stringify(report));
- if(report.status!=='pass'||report.formats?.length!==4)throw Error('Photo WebGL acceptance failed: '+(report.errors||[]).join(' | ').slice(0,800));
+ if(report.status!=='pass'||report.formats?.length!==8)throw Error('Photo WebGL acceptance failed: '+(report.errors||[]).join(' | ').slice(0,800));
  const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});
  if(!shot?.data)throw Error('No real WebGL photo screenshot');
- writeFileSync(join(output,'four-exported-photos.png'),Buffer.from(shot.data,'base64'));
+ writeFileSync(join(output,'eight-original-and-paper-photos.png'),Buffer.from(shot.data,'base64'));
 }finally{try{socket?.close();}catch{}try{chrome.kill('SIGTERM');}catch{}if(report.status!=='pass')console.error(stderr.slice(-500));}
