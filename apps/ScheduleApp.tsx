@@ -269,7 +269,7 @@ const ScheduleApp: React.FC = () => {
         if(!answer)throw new Error('模型没有返回有效文字');
         if(!active||controller.signal.aborted||document.visibilityState!=='visible')return;
         setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:answer,
-          charId:chosen.id,scope:'overview',createdAt:Date.now()}]);
+          charId:chosen.id,scope:'overview',origin:'auto_coach',createdAt:Date.now()}]);
         setCoachPrompt('');
       }catch(error){
         if(active&&!controller.signal.aborted)addToast('Char 主动陪伴未发送：'+String(error),'error');
@@ -474,9 +474,16 @@ const ScheduleApp: React.FC = () => {
       });
       setAssistantTopic([brief,evidence,overview].filter(Boolean).join('\n').slice(0,7800));
       const last=records.filter(r=>r.date===new Date().toLocaleDateString('sv-SE')).slice(-1)[0];
-      setMessage(companionEntryPrompt(actual,activeTask?.title||'',tab==='study'?studyPresence:recentPdf,
+      const thread=notesForStudyContext(notes,charId,'overview');
+      const lastReply=thread.filter(n=>n.role==='assistant'&&typeof n.createdAt==='number').slice(-1)[0];
+      const continuing=!!lastReply?.createdAt&&Date.now()-lastReply.createdAt<30*60000;
+      const draft=companionEntryPrompt(actual,activeTask?.title||'',tab==='study'?studyPresence:recentPdf,
         companionMoment.startsWith('刚完成一轮专注')&&Date.now()-companionMomentAt<2*60000?last?.minutes||0:0,
-        tab==='commissions'?'commissions':tab==='calendar'?'calendar':tab==='study'?'study':'timer'));
+        tab==='commissions'?'commissions':tab==='calendar'?'calendar':tab==='study'?'study':'timer');
+      // Continuing an actual Char conversation does not force a new synthetic question.
+      // Refreshing the overview must not overwrite a draft the user is editing.
+      setMessage(assistantOpen&&assistantScope==='overview'&&message.trim()?message
+        :continuing?'':draft);
       setAssistantOpen(true);
     }catch(e){addToast('无法读取今天的学习室计划：'+String(e),'error');}
     finally{setOverviewBusy(false);}
@@ -587,7 +594,7 @@ const ScheduleApp: React.FC = () => {
           setMessage('上轮建议格式无效，请严格按 changes JSON 格式重发，不要多余字段。');
         }
       } else {
-        setAssistantTopic('');
+        if(requestScope!=='overview')setAssistantTopic('');
       }
     } catch(e) {
       addToast('Char 回复失败：' + (e instanceof Error ? e.message : '请检查 API 配置'), 'error');
@@ -863,7 +870,7 @@ const ScheduleApp: React.FC = () => {
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border border-neutral-200 rounded-lg p-3 space-y-2">
             {visibleNotes.length===0 && <p className="text-sm text-neutral-500">当前 Char 尚无学习室交流记录。</p>}
             {visibleNotes.map(n=><p key={n.id} className="text-sm whitespace-pre-wrap break-words">
-              <span className="text-neutral-500">{n.role==='user'?'我':activeChar?.name||'Char'}：</span>{n.content}</p>)}
+              <span className="text-neutral-500">{n.role==='user'?'我':activeChar?.name||'Char'}{n.origin==='auto_coach'?' · 主动陪伴':''}：</span>{n.content}</p>)}
           </div>
           {unscopedNotes.length>0 && <details className="text-xs text-neutral-600">
             <summary>旧对话（{unscopedNotes.length}）</summary>
