@@ -1578,7 +1578,11 @@ describe('轮次上限与上游共用同一个数', () => {
 describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
   const at = NOW.getTime() - 20 * 60_000;
   const candidate = {
-    contactId: 'npc-circle-1', contactName: '小园', threadId: 'npc-thread-1',
+    contactId: 'npc-circle-1', contactName: '小园',
+    // Stage 4 .3 protocol: bind the result to this saved contact's identity
+    // and contact-clear epoch; legacy candidate shapes are intentionally refused.
+    contactCreatedAt: at - 86400_000, contactsClearRevision: 0,
+    threadId: 'npc-thread-1',
     sourceKey: 'reply:npc-thread-1:' + at + ':1', replyToAt: at,
     replyToCount: 1, replyToText: '昨晚的事怎么样了',
     revision: 2, clearRevision: 0,
