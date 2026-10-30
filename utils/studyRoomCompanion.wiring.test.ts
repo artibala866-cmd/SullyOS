@@ -196,4 +196,14 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).not.toContain('const companionStatus=coachPrompt||(');
  });
 
+ it('切换 Char/话题时旧请求立即取消，不会晚到后混入新角色的对话',()=>{
+   expect(schedule).toContain('const manualChatController=useRef<AbortController|null>(null)');
+   expect(schedule).toContain('manualChatController.current?.abort()');
+   expect(schedule).toContain('manualChatController.current=controller');
+   expect(schedule).toContain('signal:controller.signal');
+   expect(schedule).toContain('controller.signal.aborted||requestVersion!==discussionVersion.current');
+   expect(schedule).toContain('if(!controller.signal.aborted)addToast(');
+   expect(schedule).toContain('if(manualChatController.current===controller)manualChatController.current=null');
+ });
+
 });
