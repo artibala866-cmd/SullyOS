@@ -13,7 +13,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('onClick={()=>void openCompanionOverview()}');
   expect(schedule).toContain('assistantScope===\'overview\'?\'今日陪伴\'');
   const hidden=schedule.indexOf("className={tab === 'study'");
-  const overlay=schedule.indexOf('      {assistantOpen && <div');
+  const overlay=schedule.indexOf('      {assistantOpen && !assistantMinimized && <div');
   const hiddenClose=schedule.indexOf('      </div>\n      {coachSettingsOpen && <div');
   expect(hidden).toBeGreaterThan(0);
   expect(overlay).toBeGreaterThan(hiddenClose);
@@ -22,9 +22,9 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
  });
  it('尚未选择 Char 时，自习室也能打开真实角色选择框，再手动读取最新计划',()=>{
   expect(schedule).toContain("setAssistantScope('overview');setAssistantItemId('');setAssistantTopic('');");
-  expect(schedule).toContain("setMessage('');setAssistantOpen(true);");
+  expect(schedule).toContain("setMessage('');setAssistantMinimized(false);setAssistantOpen(true);");
   expect(schedule).toContain("disabled={!activeChar||overviewBusy}");
-  expect(schedule).toContain('查看最新学习和画稿计划');
+  expect(schedule).toContain('更新计划');
   expect(schedule).toContain("setAssistantScope(assistantOpen && assistantScope==='overview'?'overview':'focus')");
  });
  it('只有手动点击今日计划后才读取最新工作空间，在发送前展示摘要',()=>{
@@ -204,6 +204,38 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).toContain('controller.signal.aborted||requestVersion!==discussionVersion.current');
    expect(schedule).toContain('if(!controller.signal.aborted)addToast(');
    expect(schedule).toContain('if(manualChatController.current===controller)manualChatController.current=null');
+ });
+
+ it('学习室悬浮聊天是小手机尺寸、独立对话气泡并支持收起和拖动',()=>{
+   expect(schedule).toContain('data-study-floating-chat');
+   expect(schedule).toContain('aria-modal="false" aria-label="学习室 Char 悬浮聊天"');
+   expect(schedule).toContain('pointer-events-none absolute inset-0 z-[80]');
+   expect(schedule).not.toContain('absolute inset-0 z-[80] bg-black/40 flex items-end');
+   expect(schedule).toContain('h-[min(62dvh,510px)]');
+   expect(schedule).toContain('w-[calc(100%-24px)] max-w-[355px]');
+   expect(schedule).toContain('onPointerDown={onAssistantDragStart}');
+   expect(schedule).toContain('onPointerMove={onAssistantDragMove}');
+   expect(schedule).toContain('onPointerUp={onAssistantDragEnd}');
+   expect(schedule).toContain('assistantOpen && assistantMinimized');
+   expect(schedule).toContain('onClick={()=>setAssistantMinimized(true)}');
+   expect(schedule).toContain('onClick={()=>setAssistantMinimized(false)}');
+   expect(schedule).toContain("n.role==='user'?'justify-end':'justify-start'");
+   expect(schedule).toContain("n.origin==='auto_coach'");
+   expect(schedule).toContain('aria-label="快速选择 Char"');
+   expect(schedule).toContain('onSelect={chooseChar}');
+ });
+ it('明确跳转真正私聊但不将学习室内容偷偷写入私聊，也不绕过专注限额',()=>{
+   expect(schedule).toContain('const openSelectedPrivateChat=()=>{');
+   const fn=schedule.split('const openSelectedPrivateChat=()=>{')[1]?.split('const onAssistantDragStart')[0]||'';
+   expect(fn).toContain("if(session){addToast('先安全结束计时");
+   expect(fn).toContain('window.confirm(');
+   expect(fn).toContain('setActiveCharacterId(activeChar.id)');
+   expect(fn).toContain('openApp(AppID.Chat)');
+   expect(fn).not.toContain('DB.saveMessage');
+   expect(fn).not.toContain('sendNote()');
+   expect(schedule).toContain('disabled={!activeChar||!!session} onClick={openSelectedPrivateChat}');
+   expect(schedule).toContain('scope:requestScope');
+   expect(schedule).toContain('focusChatAllowance(session, Date.now())');
  });
 
 });
