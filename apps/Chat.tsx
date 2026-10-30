@@ -155,7 +155,7 @@ const HISTORY_WINDOW_BATCH_SIZE = 30;
 /** 即时对话那一轮回复「推送陆续到齐」的宽限时间，也就是自动合成的补扫窗口有多长（见下面的 auto-TTS effect）。 */
 const INSTANT_VOICE_SCAN_WINDOW_MS = 30_000;
 
-export interface HomePhoneChatProps {characterId:string;getContext:()=>string;onBack:()=>void}
+export interface HomePhoneChatProps {characterId:string;getContext:()=>string;onBack:()=>void;hideHeader?:boolean}
 const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const { activeApp, characters, activeCharacterId: osActiveCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, openApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar } = useOS();
     const activeCharacterId=homePhone?.characterId??osActiveCharacterId;
@@ -4284,7 +4284,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 document.body,
              )}
 
-             {homePhone?<header className="home-phone-chat-header"><span className="home-phone-chat-avatar" aria-hidden="true">{char.name.slice(0,1)}</span><div><strong>{chatCharacterDisplayName(char)}</strong><small>{isTyping||instantChatPending?'正在输入…':showSchedulePresence?(schedulePresence === 'online' ? '在线' : '离线'):'在家，也想给你发消息'}</small></div><button onClick={handleManualTrigger} disabled={isTyping} aria-label="让对方回复">↗</button></header>:<ChatHeader
+             {homePhone?(homePhone.hideHeader?null:<header className="home-phone-chat-header"><span className="home-phone-chat-avatar" aria-hidden="true">{char.name.slice(0,1)}</span><div><strong>{chatCharacterDisplayName(char)}</strong><small>{isTyping||instantChatPending?'正在输入…':showSchedulePresence?(schedulePresence === 'online' ? '在线' : '离线'):'在家，也想给你发消息'}</small></div><button onClick={handleManualTrigger} disabled={isTyping} aria-label="让对方回复">↗</button></header>):<ChatHeader
                 selectionMode={selectionMode}
                 selectedCount={selectedMsgIds.size + Array.from(selectedThinkingMsgIds).filter(id => !selectedMsgIds.has(id)).length}
                 onCancelSelection={() => { setSelectionMode(false); setSelectedMsgIds(new Set()); setSelectedThinkingMsgIds(new Set()); }}
