@@ -248,12 +248,12 @@ it('combines actual princess-carry clip bones with existing paired hand support 
 it('reclines a taller carried partner farther without moving navigation roots or stretching bones',()=>{
  const sample=(carrier:number,recipient:number)=>{
   const a=actor(carrier,-.4,0),b=actor(recipient,.4,Math.PI);
-  const lengths=b.visitor.rig!.skeleton.bones.map(n=>n.position.length());
+  const lengths=b.visitor.rig!.skeleton.bones.map((n:T.Bone)=>n.position.length());
   a.reset();b.reset();poseIntimacy('home-princess-carry',[a,b],5);
   const angle=new T.Euler().setFromQuaternion(b.visitor.rig!.bones.hips.quaternion,'YXZ').x;
   const startRoots=[a.visitor.root.position.y,b.visitor.root.position.y];
   expect(startRoots).toEqual([0,0]);
-  expect(b.visitor.rig!.skeleton.bones.map(n=>n.position.length())).toEqual(lengths);
+  expect(b.visitor.rig!.skeleton.bones.map((n:T.Bone)=>n.position.length())).toEqual(lengths);
   return Math.abs(angle);
  };
  const equal=sample(1,1),tallRecipient=sample(.8,1.25),shortRecipient=sample(1.25,.8);
