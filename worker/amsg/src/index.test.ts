@@ -1585,11 +1585,6 @@ describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
     history: [{ speaker: 'contact', text: '昨晚的事怎么样了' }],
   };
   const newContext = (options: { offer?: boolean; authorized?: boolean; store?: ReturnType<typeof makeFireStore> } = {}) => {
-    const rows = options.store?.rows;
-    const state = options.store ? {
-      readState: options.store.readState, writeState: options.store.writeState,
-    } : makeFireStore();
-    state; // keep state store shared for the fire and its retry
     const used = options.store ?? makeFireStore();
     used.rows.set(AMSG_FIRE_PACK_KEY, firePackValue(null, {
       cloudPhoneOpportunity: options.offer === false ? null : candidate,
@@ -1648,7 +1643,7 @@ describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
     const store=makeFireStore();
     const first=newContext({store});
     await amsgHooks.onBeforeFire(first.ctx);
-    expect(fired(await amsgHooks.onBuildMessages?.(first.ctx) as unknown).messages).toBeDefined();
+    expect(store.rows.has('cloud_phone_last_reply_attempt')).toBe(true);
     const second=newContext({store});
     const prepared=fired(await amsgHooks.onBeforeFire(second.ctx));
     expect(prepared.messages[0].content).not.toContain('【仅本轮允许的角色手机');
