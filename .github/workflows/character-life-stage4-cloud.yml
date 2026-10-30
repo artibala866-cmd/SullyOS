@@ -11,6 +11,8 @@ on:
       - 'utils/amsgResults.ts'
       - 'utils/amsgBundleVersion.ts'
       - 'utils/characterPhoneChats.ts'
+      - 'utils/characterPhoneNpcs.ts'
+      - 'utils/characterPhoneNpcs.test.ts'
       - 'utils/characterPhoneChatDeletion.test.ts'
       - 'utils/characterPhoneOpportunity.ts'
       - 'utils/characterPhoneOpportunity.test.ts'
@@ -45,12 +47,12 @@ jobs:
       - name: Test actual Stage 4 Worker autonomous fire and cloud NPC outbox
         run: pnpm exec vitest run worker/amsg/src/index.test.ts -t 'Stage 4 AMSG autonomy wake'
       - name: Test cloud phone consent, privacy, idempotence, and established AMSG continuity
-        run: pnpm exec vitest run utils/amsgCloudPhone.test.ts utils/amsgCloudPhoneSelection.test.ts utils/amsgCloudPhoneResultApply.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyBootstrap.test.ts utils/characterPhoneAutonomy.test.ts utils/characterPhoneOpportunity.test.ts utils/characterPhoneChatDeletion.test.ts utils/amsg2Tasks.test.ts
+        run: pnpm exec vitest run utils/amsgCloudPhone.test.ts utils/amsgCloudPhoneSelection.test.ts utils/amsgCloudPhoneResultApply.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyBootstrap.test.ts utils/characterPhoneAutonomy.test.ts utils/characterPhoneNpcs.test.ts utils/characterPhoneOpportunity.test.ts utils/characterPhoneChatDeletion.test.ts utils/amsg2Tasks.test.ts
       - name: Check affected TypeScript modules
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/stage4-tsc.log 2>&1 || true
-          grep -E '^(worker/amsg/src/index.ts|context/OSContext.tsx|components/chat/CharacterPhone.tsx|utils/(amsgCloudPhone|amsgCloudPhoneSelection|amsgCloudPhoneResultApply|activeMsgClient|amsgFirePack|amsgResults|characterPhoneIdentity|characterPhoneChats|characterPhoneOpportunity)(\\.test)?\\.ts)[(]' /tmp/stage4-tsc.log > /tmp/stage4-errors.log || true
+          grep -E '^(worker/amsg/src/index.ts|context/OSContext.tsx|components/chat/CharacterPhone.tsx|utils/(amsgCloudPhone|amsgCloudPhoneSelection|amsgCloudPhoneResultApply|activeMsgClient|amsgFirePack|amsgResults|characterPhoneIdentity|characterPhoneChats|characterPhoneNpcs|characterPhoneOpportunity)(\\.test)?\\.ts)[(]' /tmp/stage4-tsc.log > /tmp/stage4-errors.log || true
           if [ -s /tmp/stage4-errors.log ]; then cat /tmp/stage4-errors.log; exit 1; fi
           echo 'Stage 4 changed-module diagnostics clean.'
       - name: Compile actual Cloudflare Worker bundle
