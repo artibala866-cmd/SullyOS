@@ -1,0 +1,45 @@
+name: Private chat user voice regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/Chat.tsx'
+      - 'components/chat/ChatInputArea.tsx'
+      - 'components/chat/MessageItem.tsx'
+      - 'components/chat/UserVoiceBubble.tsx'
+      - 'hooks/usePrivateChatSpeech.ts'
+      - 'utils/speechToText.ts'
+      - 'utils/messageFormat.ts'
+      - 'utils/chatPrompts.ts'
+      - 'utils/userVoiceMessage.ts'
+      - 'utils/userVoiceMessage.test.ts'
+      - '.github/workflows/chat-user-voice-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sully-user-voice-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run voice, auto-reply, keyboard and history regression
+        run: pnpm exec vitest run utils/userVoiceMessage.test.ts utils/chatAutoReply.test.ts utils/chatKeyboardViewport.test.ts
+      - name: Full TypeScript check
+        run: pnpm exec tsc --noEmit
+      - name: Verify application build
+        run: pnpm build
