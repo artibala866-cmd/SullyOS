@@ -84,6 +84,7 @@ import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 import { useChatAI } from '../hooks/useChatAI';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { usePrivateChatSpeech } from '../hooks/usePrivateChatSpeech';
+import { makeUserVoiceMetadata } from '../utils/userVoiceMessage';
 import { cleanTextForTts, parseVoiceOutput } from '../utils/minimaxTts';
 import { collectVoiceBatchSubtitle, isPoisonedVoiceSubtitle } from '../utils/voiceSubtitle';
 import {
@@ -161,6 +162,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const { activeApp, characters, activeCharacterId: osActiveCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, openApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar } = useOS();
     const activeCharacterId=homePhone?.characterId??osActiveCharacterId;
     const privateChatSpeech = usePrivateChatSpeech(activeCharacterId, apiConfig);
+    const [typedVoiceEnabled, setTypedVoiceEnabled] = useState(false);
+    useEffect(() => {
+        setTypedVoiceEnabled(false);
+    }, [activeCharacterId]);
     const osTheme = useMemo(()=>homePhone?homePhoneAppearance(baseOsTheme):resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId,!!homePhone]);
     const isProactiveComposing = !!(activeCharacterId && proactiveComposingChars[activeCharacterId]);
     const localDateKey = useLocalDateKey();
@@ -1786,7 +1791,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const finish = autoReply.beginSend(char?.id || null);
         try {
             const sent = await sendText(customContent, customType, metadata);
-            finish(sent === true && (!customType || ['text', 'image', 'emoji'].includes(customType) || isPoke));
+            finish(sent === true && (!customType || ['text', 'image', 'emoji', 'voice'].includes(customType) || isPoke));
         } catch (error) {
             finish(false);
             throw error;
@@ -1801,7 +1806,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const text = privateChatSpeech.transcript.trim();
         const targetCharId = char.id;
         speechSendingRef.current = true;
-        void handleSendText(text, 'text')
+        void handleSendText(text, 'voice', makeUserVoiceMetadata(text, 'recorded'))
             .then(() => {
                 if (activeCharIdRef.current === targetCharId) privateChatSpeech.cancel();
             })
@@ -1810,6 +1815,14 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 addToast(error instanceof Error ? error.message : '发送失败', 'error');
             })
             .finally(() => { speechSendingRef.current = false; });
+    };
+
+    const handleSendTypedVoice = () => {
+        const text = input.trim();
+        if (!typedVoiceEnabled || !text || !char) return;
+        // sendText() owns clearing the existing draft and saving the current replyTo.
+        void handleSendText(undefined, 'voice', makeUserVoiceMetadata(text, 'typed'))
+            .catch(error => addToast(error instanceof Error ? error.message : '发送失败', 'error'));
     };
 
     // 用户点开「收到的转账」卡（角色发来、待处理）选择接收 / 退回：
@@ -4764,6 +4777,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     showPanel={showPanel} setShowPanel={setShowPanel}
                     onSend={handleSendCallback}
                     speechInput={{ ...privateChatSpeech, confirm: handleConfirmSpeechTranscript }}
+                    typedVoiceEnabled={typedVoiceEnabled}
+                    onSelectTypedVoice={() => setTypedVoiceEnabled(true)}
+                    onExitTypedVoice={() => setTypedVoiceEnabled(false)}
+                    onSendTypedVoice={handleSendTypedVoice}
                     onGenerate={handleManualTrigger}
                     sendButtonGenerates={inputPreferences.sendButtonGenerates}
                     enterToSend={inputPreferences.enterToSend}
