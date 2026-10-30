@@ -113,7 +113,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
 
  it('同一角色在所有非课堂页面保留真实最近回复和上下文行动，不另造聊天或冒充主动 AI',()=>{
   expect(schedule).toContain('recentCompanionReply(notes,charId)');
-  expect(schedule).toContain('companionActionLabel');
+  expect(schedule).toContain('aria-label="打开 Char 悬浮手机"');
   expect(schedule).toContain('companionEntryPrompt(actual,activeTask?.title');
   expect(schedule).toContain('createdAt:Date.now()');
   expect(schedule).not.toContain('aria-label="在自习室和当前 Char 继续陪伴"');
