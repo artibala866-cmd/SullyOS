@@ -158,6 +158,11 @@ import {
 import { setProxyWorkerUrlOverride } from '../../../utils/proxyWorker';
 import { XhsMcpClient } from '../../../utils/xhsMcpClient';
 import { autonomyWakeSkipReason } from '../../../utils/amsgAutonomyPolicy';
+import {
+  CLOUD_PHONE_RESULT_KIND, CLOUD_PHONE_STATE_KEY,
+  cloudPhoneReplyId, cloudPhoneInstruction, extractCloudPhoneReply,
+  isCloudPhoneOpportunityFresh, type CloudPhoneOpportunity,
+} from '../../../utils/amsgCloudPhone';
 // type-only：编译期擦除，classifier 的实现不会因为这行被拉进 bundle。
 import type { ToolCall } from './classifier';
 import {
@@ -370,6 +375,9 @@ interface SessionCtx {
 /** 一次 fire 的跨轮状态：工具执行上下文 + 旁白累积。挂在 ctx.scratch.fire 上。 */
 interface FireStash {
   session: FireSessionState;
+  /** A real, opted-in, previously saved inbound NPC message. Only automatic
+   * contact fires can piggyback; no extra LLM job or fabricated chat state. */
+  cloudPhoneOpportunity: CloudPhoneOpportunity | null;
   toolCtx: AgenticToolCtx;
   proxyWorkerUrl: string | null;
   xhsCookie: string;
@@ -2164,8 +2172,29 @@ export const amsgHooks = {
         && t.taskUuid !== ctx.task.uuid);
     // 显式标注而不是 satisfies：下面即时对话那一支要往 emotionEvalPromise 上写 promise，
     // 用 satisfies 的话这个字段会被推成字面量 null 类型，写不进去。
+    // Stage 4 offline NPC continuity: reserve one eligible reply BEFORE LLM
+    // generation, or a retry/crash can bill for the same phone turn twice.
+    // A missing/broken writeState only disables this optional side activity,
+    // never the ordinary autonomous contact to the user.
+    let cloudPhoneOpportunity: CloudPhoneOpportunity | null = null;
+    const offered = !instant && autonomyWake ? pack.cloudPhoneOpportunity : null;
+    if (isCloudPhoneOpportunityFresh(offered, nowMs) && ctx.writeState) {
+      const eventId = cloudPhoneReplyId(charId, offered);
+      const already = charRows.find(r => r.key === CLOUD_PHONE_STATE_KEY)?.value;
+      if (already !== eventId) {
+        try {
+          const result = await ctx.writeState(amsgStateNamespace(charId), [{
+            key: CLOUD_PHONE_STATE_KEY, value: eventId, updatedAt: Date.now(),
+          }]);
+          if (result.upserted > 0) cloudPhoneOpportunity = offered;
+        } catch (error) {
+          console.warn('[amsg:cloud-phone] optional reply reservation failed', error);
+        }
+      }
+    }
     const stash: FireStash = {
       session: createFireSessionState(),
+      cloudPhoneOpportunity,
       toolCtx,
       proxyWorkerUrl,
       xhsCookie,
@@ -2396,7 +2425,8 @@ export const amsgHooks = {
       // 读到「23:00」——那正是这个开关要挡的东西。日程内容本身照给。
       includeClock: toolPack.timeAwarenessEnabled,
       autonomyWake,
-    }), userHoliday) + mcpBlock + scheduleBlock;
+    }), userHoliday) + mcpBlock + scheduleBlock
+      + (stash.cloudPhoneOpportunity ? cloudPhoneInstruction(stash.cloudPhoneOpportunity) : '');
     return {
       messages: [{ role: 'user' as const, content: prompt }],
       ...common,
@@ -2417,7 +2447,14 @@ export const amsgHooks = {
       return handler.llmOutput({ ctx, state: kindFire.state });
     }
 
-    const content = stripReasoningTags(ctx.llmOutputText || '').trim();
+    // Remove internal phone directives BEFORE chat segmentation / push. This
+    // strip runs even on an old/unauthorized model response: never leak raw
+    // phone JSON to the user or mistake a NPC reply for their chat message.
+    const cloudPhoneRaw = extractCloudPhoneReply(
+      stripReasoningTags(ctx.llmOutputText || ''),
+      !!getFireStash(ctx.scratch)?.cloudPhoneOpportunity,
+    );
+    const content = cloudPhoneRaw.content;
 
     // 任务身份直接从 ctx 上读（sessionId 是给日志和去重用的不透明串，不拿它切）。
     const taskId = ctx.taskId != null ? String(ctx.taskId) : null;
@@ -2528,6 +2565,29 @@ export const amsgHooks = {
         sessionId: ctx.sessionId,
         pushes: decision.decision === 'finish' ? decision.pushPayloads.length : 0,
       });
+    }
+
+    // A generated NPC reply isn't a user-facing message. Only final LLM
+    // rounds may emit it, through the existing durable cloud outbox.
+    // Failure doesn't initiate a new billable request or affect normal chat.
+    if (decision.decision !== 'tool-request' && cloudPhoneRaw.messages.length &&
+        stash.cloudPhoneOpportunity && !stash.instant && typeof ctx.emitResult === 'function') {
+      const offered = stash.cloudPhoneOpportunity;
+      try {
+        await ctx.emitResult({
+          resultKind: CLOUD_PHONE_RESULT_KIND,
+          charId: stash.charId, id: cloudPhoneReplyId(stash.charId, offered),
+          contactId: offered.contactId, threadId: offered.threadId,
+          sourceKey: offered.sourceKey,
+          replyToAt: offered.replyToAt, replyToCount: offered.replyToCount,
+          replyToText: offered.replyToText,
+          revision: offered.revision, clearRevision: offered.clearRevision,
+          occurredAt: Date.now(), messages: cloudPhoneRaw.messages,
+          notification: { show: false },
+        });
+      } catch (error) {
+        console.warn('[amsg:cloud-phone] result outbox unavailable; no duplicate paid retry', error);
+      }
     }
 
     if (decision.decision === 'skip-push') {
