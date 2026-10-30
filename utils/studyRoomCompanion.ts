@@ -64,7 +64,8 @@ export const DEFAULT_STUDY_COACH:Readonly<StudyCoachSetting>=Object.freeze({
 const isTime=(value:unknown):value is string=>
  typeof value==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 export const normalizeStudyCoachSetting=(value:unknown):StudyCoachSetting=>{
- const v=value&&typeof value==='object'?value as Partial<StudyCoachSetting>:{};
+ const v:Partial<StudyCoachSetting>=value&&typeof value==='object'&&!Array.isArray(value)
+  ?value as Partial<StudyCoachSetting>:{};
  return {
   level:v.level==='gentle'||v.level==='normal'||v.level==='firm'?v.level:'off',
   quietEnabled:typeof v.quietEnabled==='boolean'?v.quietEnabled:true,
