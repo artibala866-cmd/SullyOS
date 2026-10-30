@@ -3,6 +3,17 @@
  * Worker-safe pure leaf: never read browser localStorage in this module.
  */
 export const CLOUD_PHONE_RESULT_KIND = 'cloud-phone-reply-v1';
+/** Consent for same-model-call NPC work. Independent phone-API requests have
+ * their own switch; that switch does not control piggyback. */
+export const isCloudPhonePiggybackAuthorized = (amsg2Enabled:boolean,piggybackEnabled:boolean):boolean =>
+  amsg2Enabled && piggybackEnabled;
+
+/** Keep the first valid NPC side response over agentic tool rounds until
+ * the final round; no extra API call and never generate multiple side replies. */
+export function retainCloudPhoneMessages(
+  saved:readonly string[],current:readonly string[],authorized:boolean,
+):string[]{return !authorized?[]:saved.length?[...saved]:current.slice(0,2);}
+
 export const CLOUD_PHONE_STATE_KEY = 'cloud_phone_last_reply_attempt';
 /** Preserve a bounded history, not only the newest ID: otherwise two
  * different NPC threads alternately arriving could re-bill an old reply. */
