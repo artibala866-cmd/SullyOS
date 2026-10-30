@@ -228,7 +228,9 @@ export async function generateDailyScheduleForChar(
     char: CharacterProfile,
     userProfile: UserProfile,
     apiConfig: ApiConfig,
-    forceRegenerate: boolean = false
+    forceRegenerate: boolean = false,
+    /** Optional foreground-recovery guard. Manual generation remains unchanged. */
+    mayCommit?: () => boolean,
 ): Promise<DailySchedule | null> {
 
     // 总开关关闭时直接短路，避免副 API / 兜底调用
@@ -365,9 +367,23 @@ export async function generateDailyScheduleForChar(
             flowNarrative,
         };
 
+        // Recovery must not overwrite a manually generated/edited schedule that
+        // appeared during the LLM call, or save after Char was deleted/disabled.
+        if (mayCommit?.() === false) return null;
+        if (!forceRegenerate) {
+            const newer = await getDailyScheduleForChar(char);
+            if (newer) return newer;
+        }
+        if (!isSameScheduleCalendarDay(char, baseNow, new Date()) || mayCommit?.() === false) return null;
         // Missing or stale room IDs must not overwrite a usable old schedule.
         if (homePrompt && !hasHomeSchedulePositions(schedule, char)) return null;
-        try{await submitScheduleHomeVisits(char,schedule.date,parsed.homeVisits,schedule);}catch(error){console.warn('[Home visit] optional schedule request rejected; preserving regular schedule',error);await DB.saveDailySchedule(schedule);}
+        try {
+            await submitScheduleHomeVisits(char, schedule.date, parsed.homeVisits, schedule, mayCommit);
+        } catch (error) {
+            console.warn('[Home visit] optional schedule request rejected; preserving regular schedule', error);
+            if (mayCommit?.() === false || !isSameScheduleCalendarDay(char, baseNow, new Date())) return null;
+            await DB.saveDailySchedule(schedule);
+        }
         return schedule;
     } catch (e) {
         console.error('[Schedule] Generation failed:', e);

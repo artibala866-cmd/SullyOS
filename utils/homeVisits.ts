@@ -20,8 +20,8 @@ async function change<T>(fn:(rows:HomeVisit[],chars:CharacterProfile[])=>T,sched
 }
 const active=(v:HomeVisit)=>['pending','accepted','arrived'].includes(v.status);
 const pair=(chars:CharacterProfile[],hostId:string,guestId:string)=>{const host=chars.find(c=>c.id===hostId),guest=chars.find(c=>c.id===guestId);if(!host||!guest||host===guest)throw Error('串门角色不存在');if(!host.home3D?.rooms.length)throw Error('对方还没有 3D 家园');if(homeSocialPair(host,guest).blocked)throw Error('双方存在拉黑关系，不能串门');return {host,guest};};
-export async function requestHomeVisit(input:Pick<HomeVisit,'hostId'|'guestId'|'startsAt'|'endsAt'|'purpose'>&{scheduleKey?:string},now=Date.now(),schedule?:DailySchedule){
- return change((rows,chars)=>{pair(chars,input.hostId,input.guestId);
+export async function requestHomeVisit(input:Pick<HomeVisit,'hostId'|'guestId'|'startsAt'|'endsAt'|'purpose'>&{scheduleKey?:string},now=Date.now(),schedule?:DailySchedule,mayCommit?:()=>boolean){
+ return change((rows,chars)=>{if(mayCommit?.()===false)throw Error('日程自主生成已取消');pair(chars,input.hostId,input.guestId);
   if(!Number.isFinite(input.startsAt)||!Number.isFinite(input.endsAt)||input.startsAt<now-60000||input.startsAt>now+7*86400000||input.endsAt-input.startsAt<5*60000||input.endsAt-input.startsAt>4*3600000)throw Error('串门时间需在未来七天内，时长 5 分钟至 4 小时');
   const duplicate=rows.find(v=>v.guestId===input.guestId&&v.hostId===input.hostId&&v.startsAt===input.startsAt&&v.endsAt===input.endsAt);if(duplicate)return duplicate;
   if(rows.some(v=>active(v)&&(v.guestId===input.guestId||v.hostId===input.guestId||v.guestId===input.hostId)&&v.startsAt<input.endsAt&&v.endsAt>input.startsAt))throw Error('这个时间已有冲突的串门安排');
@@ -51,11 +51,13 @@ export async function homeVisitPrompt(char:CharacterProfile){
 }
 export async function scheduleHomeVisitPrompt(char:CharacterProfile){const chars=await DB.getAllCharacters();const targets=chars.filter(c=>c.id!==char.id&&c.home3D?.rooms.length&&homeSocialPair(char,c).forward.known&&!homeSocialPair(char,c).blocked);
  return targets.length?'\n可选串门：只在确实想拜访熟人时，在日程 JSON 顶层加 homeVisits:[{"hostId":"下列ID","startTime":"HH:mm","endTime":"HH:mm","purpose":"简短来意"}]，最多一项。不想去就省略。时间按你本地当天，申请不代表到场，不修改已有 homePosition 为已到别人家。候选（公开身份）：'+JSON.stringify(targets.map(c=>({id:c.id,name:c.name}))):'';}
-export async function submitScheduleHomeVisits(char:CharacterProfile,date:string,value:unknown,schedule?:DailySchedule){
- if(value===undefined||Array.isArray(value)&&!value.length){if(schedule)await DB.saveDailySchedule(schedule);return;}
+export async function submitScheduleHomeVisits(char:CharacterProfile,date:string,value:unknown,schedule?:DailySchedule,mayCommit?:()=>boolean){
+ if(mayCommit?.()===false)return;
+ if(value===undefined||Array.isArray(value)&&!value.length){if(schedule&&mayCommit?.()!==false)await DB.saveDailySchedule(schedule);return;}
  if(!Array.isArray(value)||value.length>1)throw Error('日程串门格式不正确');
  const row=value[0],time=/^(?:[01]\d|2[0-3]):[0-5]\d$/;
  if(!row||typeof row.hostId!=='string'||typeof row.purpose!=='string'||!time.test(row.startTime)||!time.test(row.endTime))throw Error('日程串门时间格式不正确');
  const host=await DB.getCharacter(row.hostId);if(!host||!homeSocialPair(char,host).forward.known)throw Error('不能向未认识的角色自动申请串门');
- await requestHomeVisit({hostId:row.hostId,guestId:char.id,startsAt:wallClockToTimestamp(date+'T'+row.startTime,resolveCharTimeZone(char)),endsAt:wallClockToTimestamp(date+'T'+row.endTime,resolveCharTimeZone(char)),purpose:row.purpose,scheduleKey:char.id+'_'+date},Date.now(),schedule);
+ if(mayCommit?.()===false)return;
+ await requestHomeVisit({hostId:row.hostId,guestId:char.id,startsAt:wallClockToTimestamp(date+'T'+row.startTime,resolveCharTimeZone(char)),endsAt:wallClockToTimestamp(date+'T'+row.endTime,resolveCharTimeZone(char)),purpose:row.purpose,scheduleKey:char.id+'_'+date},Date.now(),schedule,mayCommit);
 }
