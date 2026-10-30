@@ -1792,6 +1792,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         try {
             const sent = await sendText(customContent, customType, metadata);
             finish(sent === true && (!customType || ['text', 'image', 'emoji', 'voice'].includes(customType) || isPoke));
+            return sent === true;
         } catch (error) {
             finish(false);
             throw error;
