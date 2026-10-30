@@ -3797,6 +3797,8 @@ export interface StudyChapter {
 
 export interface StudyCourse {
     id: string;
+    /** Optional per-course teaching Char; absent means use the learning-room companion. */
+    tutorCharId?: string;
     title: string;
     rawText: string; 
     chapters: StudyChapter[];
