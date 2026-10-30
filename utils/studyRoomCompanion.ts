@@ -118,3 +118,68 @@ export const studyCoachBrief=(setting:StudyCoachSetting):string=>{
    ?'本次请友善地帮助我明确下一步学习目标，先询问再建议，不要代替我完成事项。'
    :'本次请帮助我检查目标、安排下一轮专注，但不要责备或擅自标记完成。';
 };
+
+
+/** Evidence of what happened in the WHOLE learning room, not a fabricated
+ * "Char has been watching you" narrative. Derived only from local task,
+ * timetable, commission and completed focus records. Never mutates anything.
+ */
+export interface StudyRoomFocusRecord {
+ date:string;minutes:number;taskId:string;sessionId?:string;
+}
+export interface StudyRoomLinkedTask {
+ id:string;source?:{kind:'commission'|'homework';id:string};
+}
+export interface StudyRoomReality {
+ phase:'idle'|'focus'|'paused'|'break';
+ todayFocusMinutes:number;
+ completedRounds:number;
+ unsettledLinkedMinutes:number;
+ activeCommissions:number;
+ pendingHomework:number;
+ todayCourses:number;
+ dueSoonCommissions:number;
+ dueSoonHomework:number;
+ hint:string;
+}
+export function buildStudyRoomReality(
+ data:WorkspaceData,
+ session:CompanionSession,
+ taskName:string,
+ records:readonly StudyRoomFocusRecord[],
+ linkedTasks:readonly StudyRoomLinkedTask[],
+ now=new Date(),
+):StudyRoomReality {
+ const day=localDate(now),end=new Date(now);
+ end.setDate(end.getDate()+7);
+ const endDay=localDate(end);
+ const todayLogs=records.filter(r=>r.date===day && Number.isFinite(r.minutes) && r.minutes>0);
+ const todayFocusMinutes=todayLogs.reduce((n,r)=>n+r.minutes,0);
+ const settled=new Set(data.focusSettlements.map(s=>s.sessionId));
+ const linkedIds=new Set(linkedTasks.filter(t=>t.source&&(
+  t.source.kind==='commission'?data.commissions.some(c=>c.id===t.source?.id&&c.status==='active')
+   :data.homework.some(h=>h.id===t.source?.id&&!h.done)
+ )).map(t=>t.id));
+ const unsettledLinkedMinutes=records.filter(r=>r.sessionId&&!settled.has(r.sessionId)
+  &&linkedIds.has(r.taskId)&&Number.isFinite(r.minutes)&&r.minutes>0)
+  .reduce((n,r)=>n+r.minutes,0);
+ const activeCommissions=data.commissions.filter(c=>c.status==='active').length;
+ const pendingHomework=data.homework.filter(h=>!h.done).length;
+ const todayCourses=data.classes.filter(c=>!c.cancelled&&c.weekday===now.getDay()
+  &&(!c.until||c.until>=day)).length;
+ const dueSoonCommissions=data.commissions.filter(c=>c.status==='active'&&c.dueDate>=day&&c.dueDate<=endDay).length;
+ const dueSoonHomework=data.homework.filter(h=>!h.done&&h.dueAt.slice(0,10)>=day&&h.dueAt.slice(0,10)<=endDay).length;
+ const phase=session?.pauseRemainingMs!=null?'paused':session?.mode||'idle';
+ const hint=phase==='focus'?'正在专注'+(taskName?' · '+taskName.slice(0,40):'')
+  :phase==='paused'?'专注已暂停，进度保留'
+  :phase==='break'?'正在休息，不打扰'
+  :unsettledLinkedMinutes>0?'已记录 '+unsettledLinkedMinutes+' 分钟，等待手动核对'
+  :todayCourses>0?'今天有 '+todayCourses+' 节课程'
+  :dueSoonCommissions+dueSoonHomework>0?'七天内有 '+(dueSoonCommissions+dueSoonHomework)+' 项待安排'
+  :todayFocusMinutes>0?'今天已专注 '+todayFocusMinutes+' 分钟'
+  :'还没有新的专注记录';
+ return {
+  phase,todayFocusMinutes,completedRounds:todayLogs.length,unsettledLinkedMinutes,
+  activeCommissions,pendingHomework,todayCourses,dueSoonCommissions,dueSoonHomework,hint,
+ };
+}
