@@ -17,6 +17,7 @@ import { buildReplySnapshotContent } from '../../utils/applyAssistantPostProcess
 import { stripLeakedSourceTags } from '../../utils/sanitize';
 import TokenImg from '../os/TokenImg';
 import ChatImage from './ChatImage';
+import UserVoiceBubble from './UserVoiceBubble';
 import McdCard from './McdCard';
 import HtmlCard from './HtmlCard';
 import LuckinCard from './LuckinCard';
@@ -3099,6 +3100,26 @@ const MessageItem = React.memo(({
         ...(bubbleVariant === 'wechat' ? { boxShadow: 'none', border: '1px solid rgba(15,23,42,0.05)' } : {}),
         ...(bubbleVariant === 'ios' ? { boxShadow: '0 10px 24px rgba(148,163,184,0.16)', border: '1px solid rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' } : {}),
     };
+
+    // User voice messages have their own presentation and audio source.
+    // Keep Char TTS generation, playback and <语音> tags in the existing text-only path.
+    if (isUser && m.type === 'voice') {
+        return commonLayout(
+            <div
+                className={`sully-bubble-user ${bubbleGroupClasses} relative px-3 py-2.5 overflow-visible ${suppressEntranceAnimation ? '' : 'animate-fade-in'}`}
+                style={containerStyle}
+            >
+                {m.replyTo && (
+                    <div className="mb-2 px-2 py-1 rounded-lg bg-black/10 text-[11px] max-w-full"
+                        style={{ color: styleConfig.textColor }}>
+                        <span className="block font-semibold truncate">{m.replyTo.name}</span>
+                        <span className="block truncate opacity-75">{m.replyTo.content}</span>
+                    </div>
+                )}
+                <UserVoiceBubble message={m} styleConfig={styleConfig} initiallyExpanded={previewExpanded} />
+            </div>,
+        );
+    }
 
     // --- Inline formatting parser: code → bold → italic → plain ---
     const renderInline = (text: string): React.ReactNode[] => {
