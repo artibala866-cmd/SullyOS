@@ -48,6 +48,8 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain("load('coachByChar',{})");
   expect(schedule).toContain("save('coachByChar', coachByChar)");
   expect(schedule).toContain("load('coachLastShown',{})");
+  expect(schedule).toContain("load('coachEventByChar',{})");
+  expect(schedule).toContain("save('coachEventByChar', coachEventByChar)");
   expect(schedule).toContain('normalizeStudyCoachSetting(coachByChar?.[charId])');
   expect(schedule).toContain("setCoachByChar(prev=>({...prev,[charId]:normalizeStudyCoachSetting({");
   expect(schedule).toContain('setCoachPrompt(\'\');');
@@ -55,6 +57,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('if(!activeChar || coachSetting.level===\'off\'');
   expect(schedule).toContain("isVisible:document.visibilityState==='visible'");
   expect(schedule).toContain("isTimerTab:tab==='timer'");
+  expect(schedule).toContain("lastEventKey:sameDay?seen.key:''");
   expect(schedule).toContain("if(isStudyCoachQuietTime(coachSetting,new Date(when)))");
   expect(schedule).toContain('window.setInterval(check,60000)');
   const watch=schedule.split("  useEffect(()=>{\n    if(!activeChar || coachSetting.level==='off'")[1]?.split('  useEffect(')[0]||'';
@@ -65,7 +68,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
  it('设置是单个轻量面板，兼顾免打扰、暂停、频率及用户发送授权',()=>{
   expect(schedule).toContain('aria-label="督促设置"');
   expect(schedule).toContain('role="dialog" aria-modal="true" aria-label="督促设置"');
-  for(const part of ['温和 · 30 分钟','适中 · 15 分钟','积极 · 8 分钟',
+  for(const part of ['轻提醒 · 最多每天 1 次','适度陪学 · 最多每天 2 次','认真陪学 · 最多每天 3 次',
    '暂停督促','免打扰','免打扰开始','免打扰结束'])expect(schedule).toContain(part);
   expect(schedule).toContain('coachPrompt && tab===\'timer\'');
   expect(schedule).toContain('onClick={()=>setCoachPrompt(\'\')}');
@@ -78,9 +81,12 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
  it('一个陪伴 Char 贯穿 PDF 助教、专注与排单，双方选择同步，不是叠加独立聊天窗',()=>{
   expect(schedule).toContain('companionCharId={charId} onCompanionSelect={chooseChar}');
   expect(study).toContain('companionCharId?:string;onCompanionSelect?:(id:string)=>void');
-  expect(study).toContain('setSelectedChar(characters.find(c=>c.id===companionCharId)||null)');
+  expect(study).toContain('setSelectedChar(characters.find(c=>c.id===tutorId)||fallback)');
+  expect(study).toContain('tutorCharId:tutorId');
+  expect(study).toContain('onClick={()=>void chooseCourseTutor(c.id)}');
+  expect(study).toContain('onClick={()=>void chooseCourseTutor(undefined)}');
   expect(study).toContain('onCompanionSelect?.(c.id)');
-  expect(study).toContain('if (companionCharId !== undefined)');
+  expect(study).toContain('companionCharId!==undefined');
   expect(study).toContain('useAppShortcut(ShortcutAppID.Study');
   expect(schedule).toContain('onLearningStateChange={onLearningStateChange}');
   expect(study).toContain('onLearningStateChange?.({');
@@ -128,6 +134,28 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('workspaceRevision.current+=1');
   expect(schedule).toContain('workspaceRevision.current===revision');
   expect(schedule).toContain('onWorkspaceSnapshot={onWorkspaceSnapshot}');
+ });
+
+ it('本机督促从不冒充 Char 回复，角色切换不会串发旧聊天',()=>{
+   const coach=schedule.split("  useEffect(()=>{\n    if(!activeChar || coachSetting.level==='off'")[1]?.split('  useEffect(')[0]||'';
+   expect(coach).not.toContain('fetch(');
+   expect(coach).not.toContain('sendNote(');
+   expect(coach).toContain('studyCoachEvent(reality,date)');
+   expect(schedule).toContain('<strong>学习室提醒</strong>');
+   expect(schedule).toContain('const companionStatus=(');
+   expect(schedule).not.toContain('const companionStatus=coachPrompt||(');
+   expect(schedule).toContain('discussionVersion.current += 1');
+   expect(schedule).toContain('setMessage(\'\')');
+ });
+ it('单门 PDF 助教覆盖只保存该门课程，并保留独立的学习室陪伴角色',()=>{
+   expect(study).toContain('const updated={...activeCourse,tutorCharId:tutorId}');
+   expect(study).toContain('await DB.saveCourse(updated)');
+   const choose=study.split('const chooseCourseTutor=async')[1]?.split('useAppShortcut')[0]||'';
+   expect(choose).not.toContain('onCompanionSelect?.(');
+   expect(choose).not.toContain('prompt =');
+   expect(study).toContain('handleTeach(course, targetIdx, false, tutor||null)');
+   expect(study).toContain('onClick={()=>void chooseCourseTutor(undefined)}');
+   expect(study).toContain('已有讲解不重写');
  });
 
 });
