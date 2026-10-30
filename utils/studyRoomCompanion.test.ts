@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {emptyWorkspace,type Commission,type ClassHomework} from './sullyWorkspace';
-import {buildCompanionOverview,companionMomentText} from './studyRoomCompanion';
+import {buildCompanionOverview,companionMomentText,DEFAULT_STUDY_COACH,normalizeStudyCoachSetting,isStudyCoachQuietTime,nextStudyCoachPrompt,studyCoachBrief} from './studyRoomCompanion';
 import {notesForStudyContext} from './studyRoomFocusNotes';
 const commission=(id:string,status:Commission['status']):Commission=>({
  id,title:'画稿'+id,client:'私人委托人',type:'图',brief:'机密需求内容',
@@ -49,4 +49,45 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
   expect(notesForStudyContext(history,'A','study','h1').map(x=>x.id)).toEqual(['h']);
   expect(notesForStudyContext(history,'B','overview').map(x=>x.id)).toEqual(['b']);
  });
+ it('督促设置默认关闭，坏存档及非法时间一律退回安全值',()=>{
+   expect(normalizeStudyCoachSetting(undefined)).toEqual(DEFAULT_STUDY_COACH);
+   expect(normalizeStudyCoachSetting({level:'unexpected',quietStart:'55:99',quietEnd:'hi',paused:'yes'}))
+     .toEqual(DEFAULT_STUDY_COACH);
+   expect(normalizeStudyCoachSetting({level:'firm',quietEnabled:false,paused:true,quietStart:'09:30',quietEnd:'17:00'}))
+     .toEqual({level:'firm',quietEnabled:false,paused:true,quietStart:'09:30',quietEnd:'17:00'});
+ });
+ it('跨午夜免打扰、整日免打扰与白天窗口准确隔离',()=>{
+   const s={...DEFAULT_STUDY_COACH,level:'normal' as const};
+   expect(isStudyCoachQuietTime(s,new Date(2026,9,30,23,30))).toBe(true);
+   expect(isStudyCoachQuietTime(s,new Date(2026,9,31,7,59))).toBe(true);
+   expect(isStudyCoachQuietTime(s,new Date(2026,9,31,8,0))).toBe(false);
+   expect(isStudyCoachQuietTime({...s,quietEnabled:false},new Date(2026,9,30,23,30))).toBe(false);
+   expect(isStudyCoachQuietTime({...s,quietStart:'10:00',quietEnd:'10:00'},new Date(2026,9,30,12))).toBe(true);
+   expect(isStudyCoachQuietTime({...s,quietStart:'10:00',quietEnd:'12:00'},new Date(2026,9,30,11))).toBe(true);
+   expect(isStudyCoachQuietTime({...s,quietStart:'10:00',quietEnd:'12:00'},new Date(2026,9,30,13))).toBe(false);
+ });
+ it('督促只在角色开启、计时未运行、学习室可见且间隔足够时出现',()=>{
+   const now=new Date(2026,9,30,14,0);const t=now.getTime();
+   const base={charId:'A',setting:{...DEFAULT_STUDY_COACH,level:'normal' as const},session:null,now,
+     idleSince:t-16*60000,lastPromptAt:0,isVisible:true,isTimerTab:true};
+   expect(nextStudyCoachPrompt(base)).toContain('计时记录');
+   expect(nextStudyCoachPrompt({...base,charId:''})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,setting:DEFAULT_STUDY_COACH})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,setting:{...base.setting,paused:true}})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,session:{mode:'focus'}})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,session:{mode:'break'}})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,session:{mode:'focus',pauseRemainingMs:1000}})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,isVisible:false})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,isTimerTab:false})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,idleSince:t-5*60000})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,lastPromptAt:t-5*60000})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,setting:{...base.setting,level:'gentle'}})).toBeNull();
+   expect(nextStudyCoachPrompt({...base,setting:{...base.setting,level:'firm'}})).toContain('下一步');
+ });
+ it('督促说明只含允许的语气，不包括客户、笔记和私人聊天',()=>{
+   expect(studyCoachBrief(DEFAULT_STUDY_COACH)).toBe('');
+   expect(studyCoachBrief({...DEFAULT_STUDY_COACH,level:'firm',paused:true})).toBe('');
+   expect(studyCoachBrief({...DEFAULT_STUDY_COACH,level:'normal'})).toContain('先询问');
+ });
+
 });
