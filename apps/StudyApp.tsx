@@ -398,7 +398,7 @@ const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCh
     // A course-specific tutor is explicitly chosen by the user. Otherwise
     // share the room companion without altering private ChatApp or role prompts.
     useEffect(() => {
-        const tutorId=activeCourse?.tutorCharId;
+        const tutorId=mode==='bookshelf'?undefined:activeCourse?.tutorCharId;
         const fallback=companionCharId!==undefined
             ? characters.find(c=>c.id===companionCharId)||null
             : characters.find(c=>c.id===activeCharacterId)||characters[0]||null;
@@ -407,7 +407,7 @@ const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCh
         } else {
             setSelectedChar(fallback);
         }
-    },[activeCharacterId,companionCharId,characters,activeCourse?.id,activeCourse?.tutorCharId]);
+    },[activeCharacterId,companionCharId,characters,mode,activeCourse?.id,activeCourse?.tutorCharId]);
     const chooseCourseTutor=async(tutorId?:string)=>{
         if(!activeCourse||savingCourseTutor)return;
         const tutor=tutorId?characters.find(c=>c.id===tutorId):null;
