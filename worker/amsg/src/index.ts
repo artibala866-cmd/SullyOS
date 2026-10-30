@@ -162,6 +162,7 @@ import {
   CLOUD_PHONE_RESULT_KIND, CLOUD_PHONE_STATE_KEY,
   cloudPhoneReplyId, cloudPhoneInstruction, extractCloudPhoneReply,
   isCloudPhoneOpportunityFresh, readCloudPhoneAttemptIds, rememberCloudPhoneAttempt,
+  retainCloudPhoneMessages,
   type CloudPhoneOpportunity,
 } from '../../../utils/amsgCloudPhone';
 // type-only：编译期擦除，classifier 的实现不会因为这行被拉进 bundle。
@@ -379,6 +380,9 @@ interface FireStash {
   /** A real, opted-in, previously saved inbound NPC message. Only automatic
    * contact fires can piggyback; no extra LLM job or fabricated chat state. */
   cloudPhoneOpportunity: CloudPhoneOpportunity | null;
+  /** Buffered across agentic tool rounds; flushed once at terminal output. */
+  cloudPhoneMessages: string[];
+  cloudPhoneEmitted: boolean;
   toolCtx: AgenticToolCtx;
   proxyWorkerUrl: string | null;
   xhsCookie: string;
@@ -2197,6 +2201,8 @@ export const amsgHooks = {
     const stash: FireStash = {
       session: createFireSessionState(),
       cloudPhoneOpportunity,
+      cloudPhoneMessages: [],
+      cloudPhoneEmitted: false,
       toolCtx,
       proxyWorkerUrl,
       xhsCookie,
@@ -2475,6 +2481,12 @@ export const amsgHooks = {
     if (!stash) {
       throw new Error('AMSG2_FIRE_STASH_MISSING: onLLMOutput 读不到 ctx.scratch.fire，检查 amsg-server 是否仍共享 scratch');
     }
+    // An earlier tool round can contain the side reply even when the final
+    // natural-language response contains no phone tag. Do not drop that reply.
+    stash.cloudPhoneMessages = retainCloudPhoneMessages(
+      stash.cloudPhoneMessages, cloudPhoneRaw.messages,
+      !!stash.cloudPhoneOpportunity && !stash.instant,
+    );
     const session = stash.session;
 
     // 思考链两个来源：响应字段 + 正文内联 <think>。抄的是没 strip 过的原文
@@ -2572,8 +2584,9 @@ export const amsgHooks = {
     // A generated NPC reply isn't a user-facing message. Only final LLM
     // rounds may emit it, through the existing durable cloud outbox.
     // Failure doesn't initiate a new billable request or affect normal chat.
-    if (decision.decision !== 'tool-request' && cloudPhoneRaw.messages.length &&
-        stash.cloudPhoneOpportunity && !stash.instant && typeof ctx.emitResult === 'function') {
+    if (decision.decision !== 'tool-request' && stash.cloudPhoneMessages.length &&
+        !stash.cloudPhoneEmitted && stash.cloudPhoneOpportunity && !stash.instant &&
+        typeof ctx.emitResult === 'function') {
       const offered = stash.cloudPhoneOpportunity;
       try {
         await ctx.emitResult({
@@ -2584,9 +2597,10 @@ export const amsgHooks = {
           replyToAt: offered.replyToAt, replyToCount: offered.replyToCount,
           replyToText: offered.replyToText,
           revision: offered.revision, clearRevision: offered.clearRevision,
-          occurredAt: Date.now(), messages: cloudPhoneRaw.messages,
+          occurredAt: Date.now(), messages: stash.cloudPhoneMessages,
           notification: { show: false },
         });
+        stash.cloudPhoneEmitted = true;
       } catch (error) {
         console.warn('[amsg:cloud-phone] result outbox unavailable; no duplicate paid retry', error);
       }
