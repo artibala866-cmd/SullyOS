@@ -4,6 +4,7 @@ import {
   cloudPhoneInstruction, cloudPhoneReplyId,
   extractCloudPhoneReply, isCloudPhoneOpportunityFresh, parseCloudPhoneResult,
   readCloudPhoneAttemptIds, rememberCloudPhoneAttempt,
+  isCloudPhonePiggybackAuthorized, retainCloudPhoneMessages,
   type CloudPhoneOpportunity,
 } from './amsgCloudPhone';
 
@@ -13,6 +14,17 @@ const o:CloudPhoneOpportunity={contactId:'npc-1',contactName:'小圆',threadId:'
   replyToAt:now-20*60000,replyToCount:1,replyToText:'在忙吗',
   revision:2,clearRevision:0,history:[{speaker:'contact',text:'在忙吗'}]};
 describe('stage4 optional cloud NPC side effect (no independent LLM request)',()=>{
+  it('honors same-completion opt-in even when independent paid phone AI is off',()=>{
+    expect(isCloudPhonePiggybackAuthorized(true,true)).toBe(true);
+    expect(isCloudPhonePiggybackAuthorized(false,true)).toBe(false);
+    expect(isCloudPhonePiggybackAuthorized(true,false)).toBe(false);
+  });
+  it('retains a phone reply from a tool round until the terminal round',()=>{
+    const first=retainCloudPhoneMessages([],['刚忙完'],true);
+    expect(retainCloudPhoneMessages(first,[],true)).toEqual(['刚忙完']);
+    expect(retainCloudPhoneMessages(first,['再说一次'],true)).toEqual(['刚忙完']);
+    expect(retainCloudPhoneMessages(first,[],false)).toEqual([]);
+  });
   it('only consumes fresh grounded unanswered inbox context',()=>{
     expect(isCloudPhoneOpportunityFresh(o,now)).toBe(true);
     expect(isCloudPhoneOpportunityFresh(o,now+73*3600_000)).toBe(false);
