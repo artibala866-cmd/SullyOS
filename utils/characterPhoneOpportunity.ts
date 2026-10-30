@@ -41,8 +41,13 @@ export function findPhoneAutonomyOpportunity(
     .filter(t => t.contactId && known.has(t.contactId) && t.kind !== 'service' && t.kind !== 'group')
     .flatMap(t => {
       const last = t.messages[t.messages.length - 1];
-      if (last?.speaker?.role !== 'contact') return [];
+      // Older imported chats can contain blank/mismatched NPC rows. Such
+      // records are not a grounded motive and must not starve other contacts.
+      if (last?.speaker?.role !== 'contact' ||
+          typeof last.text !== 'string' || !last.text.trim() ||
+          (last.speaker.contactId && last.speaker.contactId !== t.contactId)) return [];
       const at = last.createdAt || t.time;
+      if (!Number.isSafeInteger(at) || at <= 0) return [];
       const age = now - at;
       const key = 'reply:' + t.id + ':' + at + ':' + t.messages.length;
       return age >= MIN_REPLY_DELAY_MS && age <= MAX_REPLY_AGE_MS && !seen.has(key)
