@@ -138,6 +138,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [pacingOpen, setPacingOpen] = useState(false);
   const [globalReady, setGlobalReady] = useState(false);
   const [pushSummary, setPushSummary] = useState('');
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported' | null>(null);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushRegistering, setPushRegistering] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // editingTaskUuid=null → 新建；非 null → 编辑该任务（保存时 replaceTaskUuid）。
   const [editingTaskUuid, setEditingTaskUuid] = useState<string | null>(null);
@@ -208,12 +211,17 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
 
     void (async () => {
       const globalConfig = await ActiveMsgClient.getGlobalConfig();
-      const pushStatus = await ActiveMsgClient.getPushStatus();
       setGlobalReady(Boolean(globalConfig.workerUrl));
+      const pushStatus = await ActiveMsgClient.getPushStatus();
+      setPushPermission(pushStatus.permission);
+      setPushSubscribed(pushStatus.hasSubscription);
       setPushSummary(pushStatus.supported
-        ? `权限：${pushStatus.permission} / 订阅：${pushStatus.hasSubscription ? '已就绪' : '未创建'}`
-        : '当前环境不支持 Web Push');
-    })();
+        ? `权限：${pushStatus.permission} / 本机订阅：${pushStatus.hasSubscription ? '已建立' : '未建立'}`
+        : (pushStatus.detail || '当前环境不支持推送'));
+    })().catch(error => {
+      setPushSummary('无法检查推送状态：请检查 Worker 连接或通知权限');
+      console.warn('[ActiveMsg2Settings] push status check failed', error);
+    });
 
     // 防穿帮闸最近拦下了哪次触发、今天主动找了几次。闸是静默的，不说一声的话「让路了」
     // 在用户看来跟「没发出去」一模一样；次数摆出来，用户才知道上限是不是在起作用。
@@ -301,35 +309,50 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
    * 角色在远端的任务全部取消，这里就地写一个 enabled:false，远端任务没人管，会变成
    * 面板看不见却照样到点触发的幽灵任务。
    */
+  // Web Push permission MUST be requested synchronously from an actual click.
+  // This same action repairs users who enabled 2.0 in an older build but
+  // never got a browser notification permission prompt.
+  const requestAndRegisterPushFromGesture = () => {
+    if (!globalReady || Capacitor.isNativePlatform() || typeof Notification === 'undefined') return;
+    let request: Promise<NotificationPermission>;
+    try {
+      request = Notification.permission === 'default'
+        ? Notification.requestPermission()
+        : Promise.resolve(Notification.permission);
+    } catch (error) {
+      setPushSummary('浏览器无法申请通知权限，请检查站点通知设置');
+      console.warn('[ActiveMsg2Settings] notification permission unavailable', error);
+      return;
+    }
+    setPushRegistering(true);
+    void request.then(async permission => {
+      setPushPermission(permission);
+      if (permission !== 'granted') {
+        setPushSummary(permission === 'denied'
+          ? '浏览器已禁止通知，请在此站点的浏览器设置中允许通知'
+          : '尚未允许通知，云端无法把主动消息推送到此设备');
+        return;
+      }
+      setPushSummary('通知已允许，正在向云端登记推送订阅…');
+      await ActiveMsgClient.registerPushSubscription();
+      setPushSubscribed(true);
+      setPushSummary('通知已允许、本机推送已登记；正在恢复云端主动联系机会');
+      allowImmediateAutonomyWakeRetry(char.id);
+      window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
+    }).catch(error => {
+      setPushSummary('推送登记失败：请检查 Worker 连接、浏览器通知和订阅设置');
+      console.warn('[ActiveMsg2Settings] push subscription registration failed', error);
+    }).finally(() => setPushRegistering(false));
+  };
+
   const handleToggleEnabled = () => {
     const turningOn = !enabled;
     setEnabled(!enabled);
     // 顺手把面板上其它角色级设置（maxTokens）一起带上，与
     // buildConfig 的口径一致：这几项本来就只有面板会写。
     if (turningOn) {
-      // Request Web Push *directly in this click gesture*, before any await.
-      // Calling Notification.requestPermission from the OS bootstrap timer
-      // is rejected by browsers that require a user activation.
-      // Native FCM/UnifiedPush has its own authorization flow.
-      if (globalReady && !Capacitor.isNativePlatform() &&
-          typeof Notification !== 'undefined' && Notification.permission === 'default') {
-        try {
-          void Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-              setPushSummary('通知权限已允许，正在登记云端推送订阅');
-              allowImmediateAutonomyWakeRetry(char.id);
-              window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
-            } else {
-              setPushSummary('通知权限未授予；主动消息无法推送到此设备');
-              addToast('请允许浏览器通知权限，否则云端主动消息无法推送到这台设备。', 'error');
-            }
-          }).catch(error => {
-            console.warn('[ActiveMsg2Settings] 请求通知权限失败', error);
-          });
-        } catch (error) {
-          console.warn('[ActiveMsg2Settings] 当前浏览器无法请求通知权限', error);
-        }
-      }
+      // User-initiated permission + cloud Push registration, not a timer prompt.
+      requestAndRegisterPushFromGesture();
       allowImmediateAutonomyWakeRetry(char.id);
       onSave((prev) => buildConfig(prev, (list) => list, { enabled: true }));
       // 上次关 2.0 时云端那份「频率与额度」被写成了关，这里立刻改回开。不等也不报错：
@@ -677,6 +700,15 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           <div>
             <div className="font-bold text-slate-700">启用主动消息 2.0</div>
             <div className="text-xs text-neutral-600 mt-1">{pushSummary || '正在检查 Push 状态...'}</div>
+            {enabled && globalReady && !Capacitor.isNativePlatform() && typeof Notification !== 'undefined' && (
+              pushPermission === 'default' || (pushPermission === 'granted' && !pushSubscribed)
+            ) && (
+              <button type="button" disabled={pushRegistering}
+                onClick={requestAndRegisterPushFromGesture}
+                className="mt-2 text-[11px] font-bold text-neutral-700 underline disabled:opacity-60">
+                {pushRegistering ? '正在登记推送…' : pushPermission === 'default' ? '允许通知并启动主动联系' : '重新登记云端推送'}
+              </button>
+            )}
             {enabled && <div className="text-[11px] text-slate-500 mt-1">
               {saved?.lastError?.startsWith('自主联系建立失败') ? saved.lastError
                 : verifiedAutonomyCount !== null && verifiedAutonomyCount > 0
