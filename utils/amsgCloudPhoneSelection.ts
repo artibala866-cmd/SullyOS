@@ -4,17 +4,16 @@
 import type { CharacterProfile } from '../types';
 import { readPhoneAutonomyPreferences, readPhoneAutonomyRevision } from './characterPhoneApiBudget';
 import { readPhoneContentClearRevision } from './characterPhoneContentClearRevision';
-import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import { readNpcProfiles } from './characterPhoneNpcs';
 import { readCharacterPhoneChats } from './characterPhoneChats';
 import { findPhoneAutonomyOpportunity } from './characterPhoneOpportunity';
-import type { CloudPhoneOpportunity } from './amsgCloudPhone';
+import { isCloudPhonePiggybackAuthorized, type CloudPhoneOpportunity } from './amsgCloudPhone';
 
 export function selectCloudPhoneOpportunity(char: CharacterProfile, now = Date.now()): CloudPhoneOpportunity | null {
-  if (!char?.id || char.activeMsg2Config?.enabled !== true ||
-    !isCharacterPhoneAutonomyEnabled(char.id)) return null;
+  if (!char?.id) return null;
   const prefs = readPhoneAutonomyPreferences(char.id);
-  if (!prefs.chatPiggybackEnabled || !prefs.backgroundApiEnabled) return null;
+  if (!isCloudPhonePiggybackAuthorized(char.activeMsg2Config?.enabled === true,
+      prefs.chatPiggybackEnabled)) return null;
   const found = findPhoneAutonomyOpportunity(char.id, now);
   if (!found || found.kind !== 'unanswered-npc') return null;
   const contacts = new Map(readNpcProfiles(char.id).filter(c => c.source !== 'character' && !c.linkedCharacterId)
