@@ -71,6 +71,10 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
      if(time<=2.5&&clearance>.12)throw Error('Premature recipient lift: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
      if(time>=5&&time<=6.8&&clearance<.55)throw Error('Missing supported airborne hold: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
      if(time>=8.7&&clearance>.12)throw Error('Recipient not planted before release: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
+     // Q heads are much larger than human heads. The stable hold must not
+     // place both head centres on top of each other even if leg IK passes.
+     if(heights.name==='equal'&&time>=5&&time<=6.8&&distance<.62)
+      throw Error('Overlapping heads in carried hold: '+outfit.name+' / '+direction+' / '+time+' => '+distance.toFixed(3)+'m');
      if(frame.wardrobe.some(n=>n<2))throw Error('Wardrobe disappeared during carry');
      records.push(frame);
      for(const angle of ['front','side','three-quarter','back']){

@@ -97,7 +97,7 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  const seated=p.seat,lifted=p.lift;
  const sideTurn=.48*seated+1.05*p.cradle;
  const heightRecline=T.MathUtils.clamp((ratio-1)*.70,0,.25);
- const recline=.13*seated+(.47+heightRecline)*p.cradle;
+ const recline=.13*seated+(.68+heightRecline)*p.cradle;
  const cradleWeight=Math.max(seated,p.cradle);
  pose(b,'hips',q(0,sideTurn).multiply(q(-recline)),cradleWeight);
  // The back does not follow the pelvis as one stiff board: it stays upright
@@ -131,9 +131,12 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  // The carrier's palms support a seated pelvis below their chest, not a
  // shoulder-high pelvis. Keeping the torso upright without this lower cradle
  // buried the recipient's oversized Q head in the carrier's hair.
- const seatDrop=width*(.54+Math.max(0,ratio-1)*.18);
+ const seatDrop=width*(.70+Math.max(0,ratio-1)*.18);
  const target=hip.lerp(chest,.76).addScaledVector(front,width*.95)
-  .addScaledVector(across,width*.60).add(new T.Vector3(0,-seatDrop,0));
+  // The Q-rig's bone right-left axis points toward negative world X in
+  // this carrier-facing arrangement: extend the seated body OUTWARD, not
+  // into the carrier's oversized head (verified against front/side WebGL).
+  .addScaledVector(across,-width*.70).add(new T.Vector3(0,-seatDrop,0));
  b.translatePose(target.sub(point(b,'hips')).multiplyScalar(p.lift));
  b.root.updateWorldMatrix(true,true);
  // Keep both support targets in reach without stretching bone lengths.
