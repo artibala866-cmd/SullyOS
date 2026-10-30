@@ -234,8 +234,8 @@ const ScheduleApp: React.FC = () => {
     if(!activeChar || coachSetting.level==='off' || coachSetting.paused || session || tab==='study')return;
     const check=()=>{
       const when=Date.now();
-      if(isStudyCoachQuietTime(coachSetting,new Date(when))
-        ||coachSuppressed(workspaceSnapshot||undefined,charId,when)){
+      if(isStudyCoachQuietTime(coachSetting,new Date(when))){setCoachPrompt('');return;}
+      if(coachSuppressed(workspaceSnapshot||undefined,charId,when)){
         setCoachPrompt('');return;
       }
       const date=new Date(when), day=localDate(date);
@@ -790,7 +790,11 @@ const ScheduleApp: React.FC = () => {
       <main ref={mainScrollRef} className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-5 pb-5 space-y-3 sm:space-y-5">
         {coachPrompt && tab!=='study' && <div role="status" aria-live="polite"
           className="mx-auto flex max-w-[510px] flex-col gap-2 rounded-2xl bg-white px-4 py-3 text-xs text-neutral-700">
-          <p><strong>学习室本机提醒</strong> · {coachPrompt}</p>
+          <div className="flex items-center justify-between gap-3">
+            <p><strong>学习室提醒</strong>（本机） · {coachPrompt}</p>
+            <button type="button" aria-label="关闭本条提醒" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f4f4f4]"
+              onClick={()=>setCoachPrompt('')}><X size={17}/></button>
+          </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={coachDecisionBusy} className={btn+' min-h-10 px-3'}
               onClick={()=>void draftCoachPlan()}>生成待确认安排</button>
