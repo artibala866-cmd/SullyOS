@@ -51,7 +51,11 @@ const ScheduleApp: React.FC = () => {
   const [tab, setTab] = useState<'timer' | 'tasks' | 'stats' | 'commissions' | 'calendar' | 'study'>('timer');
   const [workspaceVisited,setWorkspaceVisited]=useState(false);
   const [workspaceSnapshot,setWorkspaceSnapshot]=useState<WorkspaceData|null>(null);
-  const onWorkspaceSnapshot=useCallback((value:WorkspaceData)=>setWorkspaceSnapshot(value),[]);
+  const workspaceRevision=useRef(0);
+  const onWorkspaceSnapshot=useCallback((value:WorkspaceData)=>{
+    workspaceRevision.current+=1;
+    setWorkspaceSnapshot(value);
+  },[]);
   const mainScrollRef=useRef<HTMLElement|null>(null);
   const tabScrollOffsets=useRef<Record<string,number>>({});
   const [studyTargetCourseId, setStudyTargetCourseId] = useState<string | null>(null);
@@ -144,7 +148,11 @@ const ScheduleApp: React.FC = () => {
   // One shared read of existing workspace data; no hidden chat permission change or AI call.
   useEffect(()=>{
     let alive=true;
-    void readWorkspace().then(value=>{if(alive)setWorkspaceSnapshot(value);}).catch(()=>{});
+    const revision=workspaceRevision.current;
+    // Never let an older tab-activation read replace a confirmed newer edit.
+    void readWorkspace().then(value=>{
+      if(alive&&workspaceRevision.current===revision)setWorkspaceSnapshot(value);
+    }).catch(()=>{});
     return ()=>{alive=false;};
   },[tab]);
   useLayoutEffect(()=>{
