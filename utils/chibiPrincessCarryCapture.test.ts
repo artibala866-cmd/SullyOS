@@ -33,7 +33,7 @@ describe('two-role captured princess carry and local support IK',()=>{
    expect(Object.keys(raw.rotations)).toContain('L_upperArm');
    prepareCarryFrame(raw,4.5);
    expect(raw.position.y).toBe(0);
-   for(const n of ['L_upperArm','R_upperArm','L_forearm','R_forearm','L_hand','R_hand'])expect(raw.rotations[n]).toBeUndefined();
+   for(const n of ['L_upperArm','R_upperArm','L_forearm','R_forearm','L_hand','R_hand','L_thigh','R_thigh','L_shin','R_shin','L_foot','R_foot'])expect(raw.rotations[n]).toBeUndefined();
    for(const n of ['hips','spine','chest','neck','head']){
     const e=new T.Euler().setFromQuaternion(raw.rotations[n],'YXZ');
     expect(Math.abs(e.x)).toBeLessThan(.231);expect(Math.abs(e.z)).toBeLessThan(.231);
