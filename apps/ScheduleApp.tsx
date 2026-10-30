@@ -4,7 +4,7 @@ import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
 import StudyCharPicker from './StudyCharPicker';
 import StudyAvatar from './StudyAvatar';
-import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X,Minus,ChatCircleDots,CaretDown} from '@phosphor-icons/react';
+import {ArrowRight,ChartBar,Pause,Play,Stop,Target,NotePencil,PenNib,CalendarDots,BookOpen,SlidersHorizontal,X,Minus,CaretDown} from '@phosphor-icons/react';
 import {notesForStudyContext,legacyUnscopedStudyNotes,legacyUnattributedStudyNotes,type FocusChatNote,type StudyDialogueScope} from '../utils/studyRoomFocusNotes';
 import {resolveDialogueApi} from '../utils/characterApi';
 import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachEvent,rememberStudyCoachEvent,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
@@ -668,9 +668,6 @@ const ScheduleApp: React.FC = () => {
       :freshMoment?companionMoment
       :recentPdf?(recentPdf.tutorCharId&&recentPdf.tutorCharId!==charId?'最近在看《':'刚一起看过《')+recentPdf.courseTitle.slice(0,22)+'》'
       :companionReality?.hint||companionMomentText(null,'',0));
-  const companionActionLabel=overviewBusy?'读取中…':coachPrompt?'聊聊'
-    :recentVoice?'接着聊':freshMoment?'聊这轮'
-    :tab==='calendar'?'聊课程':tab==='commissions'?'聊画稿':'聊今天';
   return (
     <div className="relative h-full w-full overflow-hidden">
       {tab === 'study' && (
