@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>双人公主抱 · 服装/头发/身高/进出动作 WebGL 视觉验收</title>
+<style>*{box-sizing:border-box}body{margin:0;padding:14px;background:#ebe4ed;color:#34303c;font:14px system-ui,sans-serif}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}figure{margin:0;background:#fff;border:1px solid #cabdd3;border-radius:8px;overflow:hidden}figure img{width:100%;display:block;aspect-ratio:4/3;object-fit:contain}figcaption{padding:9px;font-size:12px}output{position:sticky;top:0;background:white;padding:8px;display:block;z-index:2}</style>
+</head><body><h1>公主抱 · 实际 3D 模型逐帧检查</h1><output id="status">准备真实骨架、发型和服装 GLB…</output><main class="gallery"></main>
+<script type="module">
+import * as T from 'three';
+import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
+import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial.ts';
+import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe.ts';
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],sequences:[],models:[]};
+window.__carryVisualAcceptance=report;
+const label=document.querySelector('#status');
+const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
+window.addEventListener('error',e=>report.errors.push(e.message||String(e.error)));
+window.addEventListener('unhandledrejection',e=>report.errors.push(String(e.reason)));
+function color(hex){const c=document.createElement('canvas');c.width=c.height=472;const x=c.getContext('2d');x.fillStyle=hex;x.fillRect(0,0,472,472);return c;}
+async function source(name){const i=new Image();i.src='/like520/parts/'+name+'.png';await i.decode();return i;}
+const images=await Promise.all(['fronthair_02','back1_02','back2_03','earhair_01','fronthair_06','back1_04','back2_08','earhair_03'].map(source));
+function parts(i){const colors=i?['#e8bfaf','#566b9a','#a25767']:['#e9bca4','#7661a5','#ab6968'];return {skin:color(colors[0]),eyes:color(colors[1]),mouth:color(colors[2]),fronthair:images[i?4:0],back1:images[i?5:1],back2:images[i?6:2],earhair:images[i?7:3],outfit:color('#bac9d6'),outer:color('#cbb5c7')};}
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(420,315,false);renderer.setPixelRatio(1);renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
+const scene=new T.Scene();scene.background=new T.Color('#eee9f1');
+scene.add(new T.HemisphereLight('#fff9f1','#9991b2',2.5));
+const lamp=new T.DirectionalLight('#fff5ec',2.8);lamp.position.set(4,7,5);scene.add(lamp);
+const floor=new T.Mesh(new T.PlaneGeometry(12,12),new T.MeshStandardMaterial({color:'#dacfdc',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.035;scene.add(floor);
+const camera=new T.OrthographicCamera(-2.55,2.55,1.9125,-1.9125,.1,40);
+const view=(kind)=>{camera.position.set(kind==='side'?6.4:3.7,kind==='side'?2.55:2.8,kind==='side'?.35:6.7);camera.lookAt(0,1.32,0);camera.updateProjectionMatrix();};
+const hairBox=v=>{const box=new T.Box3(),part=new T.Box3();v.root.traverse(o=>{if(o instanceof T.Mesh&&(/hair|wisp|fringe/i.test(o.name)||o.userData.hairConstruction)){part.setFromObject(o);box.union(part);}});return box.isEmpty()?null:{min:box.min.toArray(),max:box.max.toArray()};};
+const head=v=>v.rig.bones.head.getWorldPosition(new T.Vector3());
+const wardrobeMeshes=v=>{let count=0;v.root.traverse(o=>{if(o.name.startsWith('wardrobe:')&&o.visible)count++});return count;};
+const palm=v=>['L','R'].map(s=>v.rig.bones[s+'_hand'].getWorldPosition(new T.Vector3()).toArray());
+const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+(async()=>{try{
+ if(renderer.getContext().isContextLost())throw Error('WebGL context lost');
+ const variants=[{name:'equal',heights:[1,1]},{name:'short-carrier',heights:[.8,1.25]},{name:'tall-carrier',heights:[1.25,.8]}];
+ const outfits=[{name:'hoodie',id:'original'},{name:'sailor',id:'sailor'}];
+ for(const heights of variants)for(const outfit of outfits){
+  const pair=[];let runtime;
+  try{
+   stage('创建 '+heights.name+' / '+outfit.name);
+   for(let i=0;i<2;i++){
+    const preset=approvedPresets[outfit.id];
+    if(!preset)throw Error('No wardrobe preset '+outfit.id);
+    const v=await createVisitor(parts(i),{bodyShape:'blank',bodyHeight:heights.heights[i],headSize:i?1.07:1,layers:{},extras:[],wardrobe:preset.items,wardrobeLayering:true,hairColor:i?'#506eac':'#ad7382'});
+    if(!v.rig)throw Error('Missing Q rig');if(wardrobeMeshes(v)<2)throw Error('Real wardrobe meshes not mounted '+outfit.name);
+    pair.push(v);scene.add(v.root);
+   }
+   report.models.push({scenario:heights.name,outfit:outfit.name,meshCounts:pair.map(wardrobeMeshes)});
+   for(const direction of ['home-princess-carry','home-princess-carried']){
+    pair.forEach((v,i)=>{v.root.position.set(0,0,i? .42:-.42);v.root.rotation.y=i?Math.PI:0;v.animate(0,'idle');});
+    runtime=createSocialScene(pair.map((visitor,i)=>({id:String(i),visitor})));
+    await runtime.start(direction,'0','1');
+    const session=runtime.inspect().session;if(!session)throw Error('No active carry session');
+    const approach=session.duration-socialActions[direction].duration,records=[],timeSamples=[1.5,3.5,5,7,8.7,9.5];
+    for(const time of timeSamples){
+     // Existing player keeps a 0.6s entry blend before sampling source motion.
+     runtime.seek(approach+time+.6);
+     pair.forEach(v=>v.finishPose());
+     const heads=pair.map(head),distance=heads[0].distanceTo(heads[1]);
+     const feet=pair.map(v=>Math.min(...['L_toe','R_toe','L_foot','R_foot'].map(n=>v.rig.bones[n].getWorldPosition(new T.Vector3()).y)));
+     const frame={scenario:heights.name,outfit:outfit.name,direction,time,heads:heads.map(v=>v.toArray()),headDistance:distance,footMin:feet,hair:pair.map(hairBox),palms:pair.map(palm),wardrobe:pair.map(wardrobeMeshes)};
+     if(!Number.isFinite(distance)||!feet.every(Number.isFinite)||!frame.heads.flat().every(Number.isFinite))throw Error('Non-finite geometry '+heights.name+'/'+time);
+     if(frame.wardrobe.some(n=>n<2))throw Error('Wardrobe disappeared during carry');
+     records.push(frame);
+     for(const angle of time===5?['three-quarter','side']:['three-quarter']){
+      stage('渲染 '+heights.name+'/'+outfit.name+'/'+direction+'/'+time+'/'+angle);
+      view(angle==='side'?'side':'three-quarter');renderer.render(scene,camera);
+      const img=document.createElement('img'),fig=document.createElement('figure'),caption=document.createElement('figcaption');
+      const name=[heights.name,outfit.name,direction.replace('home-princess-',''),String(time).replace('.','-'),angle].join('-');
+      img.src=renderer.domElement.toDataURL('image/png');img.alt=name;
+      caption.textContent=heights.name+' · '+outfit.name+' · '+direction+' · '+time+'s · '+angle+' · 头中心距离 '+distance.toFixed(2)+'m';
+      fig.append(img,caption);document.querySelector('.gallery').append(fig);
+      report.images.push({name});report.frames.push({...frame,name,angle});
+      await next();
+     }
+    }
+    report.sequences.push({scenario:heights.name,outfit:outfit.name,direction,frames:records});
+    runtime.cancel();runtime=undefined;
+    if(pair.some(v=>v.root.position.y>.05))throw Error('Navigation root lifted after cancel');
+   }
+  }finally{runtime?.cancel();for(const v of pair){scene.remove(v.root);v.dispose();}}
+ }
+ if(report.images.length!==3*2*2*7)throw Error('Missing carry visual frames '+report.images.length);
+ report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
+}catch(error){report.errors.push(String(error));report.status='fail';stage('错误');}
+})();
+</script></body></html>

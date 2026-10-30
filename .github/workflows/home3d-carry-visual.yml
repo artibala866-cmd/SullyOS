@@ -1,0 +1,52 @@
+name: Home3D princess carry real-WebGL visual acceptance
+on:
+  push:
+    branches:
+      - remove-checkphone-vrworld-lifesim
+    paths:
+      - 'test/home3d-carry-visual.html'
+      - 'scripts/home3d-carry-visual-smoke.mjs'
+      - '.github/workflows/home3d-carry-visual.yml'
+      - 'apps/room3d/chibi/princessCarryCapture.ts'
+      - 'apps/room3d/chibi/intimacyMotion.ts'
+      - 'apps/room3d/chibi/selectedSocial.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Separate from the busy motion regression workflow: unrelated concurrent
+# pushes must not abort a visual acceptance run halfway through screenshots.
+concurrency:
+  group: home3d-carry-visual-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  real-webgl-carry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Render actual 3D hair and approved skinned garments at 84 paired-motion poses
+        timeout-minutes: 19
+        run: |
+          pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/home3d-carry-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill "$VITE_PID" 2>/dev/null || true' EXIT
+          node scripts/home3d-carry-visual-smoke.mjs
+      - name: Save every original WebGL frame, gallery and quantitative pose metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home3d-princess-carry-webgl-review
+          path: home3d-carry-visual/
+          if-no-files-found: ignore
+          retention-days: 14
