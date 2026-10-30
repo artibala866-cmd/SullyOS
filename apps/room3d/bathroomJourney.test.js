@@ -264,7 +264,9 @@ describe('bathroom palm release when the body pivots away from the fixed outer r
   for(const {t,s} of samples)expect(bathroomJourneyFrame(j,end-t).support).toBeCloseTo(s,8);
   for(const t of [3.5,3.65,3.8,3.95,4.05,4.08]){
    const delta=Math.abs(bathroomJourneyFrame(j,t+.005).support-bathroomJourneyFrame(j,t-.005).support);
-   expect(delta).toBeLessThan(.03);
+   // With a 0.58s smootherstep, its maximum 10ms difference is 0.03233.
+   // Check temporal continuity without falsely rejecting the authored ease.
+   expect(delta).toBeLessThan(.035);
   }
  });
 });
