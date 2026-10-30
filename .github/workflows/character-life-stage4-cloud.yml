@@ -11,6 +11,7 @@ on:
       - 'utils/amsgResults.ts'
       - 'utils/amsgBundleVersion.ts'
       - 'utils/characterPhoneChats.ts'
+      - 'utils/characterPhoneChatDeletion.test.ts'
       - 'utils/characterPhoneOpportunity.ts'
       - 'utils/characterPhoneOpportunity.test.ts'
       - 'utils/characterPhoneIdentity.ts'
@@ -41,7 +42,7 @@ jobs:
       - name: Test actual Stage 4 Worker autonomous fire and cloud NPC outbox
         run: pnpm exec vitest run worker/amsg/src/index.test.ts -t 'Stage 4 AMSG autonomy wake'
       - name: Test cloud phone consent, privacy, idempotence, and established AMSG continuity
-        run: pnpm exec vitest run utils/amsgCloudPhone.test.ts utils/amsgCloudPhoneSelection.test.ts utils/amsgCloudPhoneResultApply.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyBootstrap.test.ts utils/characterPhoneAutonomy.test.ts utils/characterPhoneOpportunity.test.ts utils/amsg2Tasks.test.ts
+        run: pnpm exec vitest run utils/amsgCloudPhone.test.ts utils/amsgCloudPhoneSelection.test.ts utils/amsgCloudPhoneResultApply.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyBootstrap.test.ts utils/characterPhoneAutonomy.test.ts utils/characterPhoneOpportunity.test.ts utils/characterPhoneChatDeletion.test.ts utils/amsg2Tasks.test.ts
       - name: Check affected TypeScript modules
         shell: bash
         run: |
