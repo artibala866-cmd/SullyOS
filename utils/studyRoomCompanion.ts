@@ -57,9 +57,11 @@ export interface StudyCoachSetting{
  quietStart:string;
  quietEnd:string;
  paused:boolean;
+ /** Explicit per-Char consent for metered in-room proactive AI; never affects ChatApp or AMSG. */
+ allowAutoAI:boolean;
 }
 export const DEFAULT_STUDY_COACH:Readonly<StudyCoachSetting>=Object.freeze({
- level:'off',quietEnabled:true,quietStart:'22:00',quietEnd:'08:00',paused:false,
+ level:'off',quietEnabled:true,quietStart:'22:00',quietEnd:'08:00',paused:false,allowAutoAI:false,
 });
 const isTime=(value:unknown):value is string=>
  typeof value==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -72,6 +74,7 @@ export const normalizeStudyCoachSetting=(value:unknown):StudyCoachSetting=>{
   quietStart:isTime(v.quietStart)?v.quietStart:'22:00',
   quietEnd:isTime(v.quietEnd)?v.quietEnd:'08:00',
   paused:v.paused===true,
+  allowAutoAI:v.allowAutoAI===true,
  };
 };
 const timeMinute=(v:string)=>Number(v.slice(0,2))*60+Number(v.slice(3,5));
