@@ -270,6 +270,8 @@ it('acquires hands, offers one knee, then lifts after the planted-foot phase',()
  expect(f(3.5).offer).toBeGreaterThan(.98);
  expect(f(3.5).seat).toBe(0);
  expect(f(3.5).lift).toBe(0);
+ expect(f(3.86).kneeReach).toBeGreaterThan(.99);
+ expect(f(3.86).lift).toBe(0);
  expect(f(3.5).cradle).toBe(0);
  expect(f(5.5).lift).toBeGreaterThan(.99);
  expect(f(8.8).plant).toBeGreaterThan(0);
