@@ -26,7 +26,7 @@ afterEach(async()=>{
 
 describe('optional Halloween furniture caching in IndexedDB',()=>{
  it('retains the original public furniture manifest and does not open storage for ordinary GLBs',async()=>{
-  expect(resourcePacks.map(p=>p.id)).toEqual([id]);
+  expect(resourcePacks.map(p=>p.id)).toEqual([id,'halloween-wardrobe']);
   const open=vi.spyOn(indexedDB,'open');
   expect(await readPackAsset(url('room3d/kit.glb'))).toBeUndefined();
   expect(open).not.toHaveBeenCalled();

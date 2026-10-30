@@ -32,7 +32,7 @@ describe('Halloween annex and optional furniture resource pack',()=>{
  });
  it('provides exactly the existing 12 furniture models and thumbnails with content hashes',()=>{
   const [pack]=resourcePacks;
-  expect(resourcePacks.map(p=>p.id)).toEqual(['halloween-furniture']);
+  expect(resourcePacks.map(p=>p.id)).toEqual(['halloween-furniture','halloween-wardrobe']);
   expect(pack.files).toHaveLength(24);
   expect(pack.bytes).toBe(pack.files.reduce((n,f)=>n+f.bytes,0));
   for(const file of pack.files){
