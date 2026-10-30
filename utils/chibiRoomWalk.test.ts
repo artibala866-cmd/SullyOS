@@ -50,6 +50,22 @@ it('distance clock agrees at 30/60/120 Hz and resets discontinuities',()=>{
  clock.reset();expect(clock.sample(point,0,1)).toBe(0);
 });
 
+it('hands the stance to the grounded opposite foot instead of dragging the pelvis',()=>{
+ const root=new T.Group(),left=new T.Bone(),right=new T.Bone();
+ left.name='L_toe';right.name='R_toe';right.position.y=.012;
+ const hip=new T.Bone(),knee=new T.Bone(),ankle=new T.Bone();
+ hip.position.set(-.12,.80,0);knee.position.y=-.40;ankle.position.y=-.35;
+ root.add(left,right,hip);hip.add(knee);knee.add(ankle);
+ const rig={bones:{L_toe:left,R_toe:right,L_thigh:hip,L_shin:knee,L_foot:ankle}} as any;
+ const footLock=createWorldFootLock();
+ footLock.apply({root,rig},0,1);
+ expect(footLock.supportSide).toBe('L');
+ root.position.z=.42;
+ footLock.apply({root,rig},.31,1);
+ expect(footLock.supportSide).toBe('R');
+ expect(footLock.targetWorld!.distanceTo(right.getWorldPosition(new T.Vector3()))).toBeLessThan(1e-8);
+});
+
 it('world-space planted toe IK reduces real moving-rig drift at rotated headings',()=>{
  for(const bodyHeight of [.8,1,1.25])for(const angle of [0,Math.PI/2]){
   const root=new T.Group(),body=new T.Group(),hair=new T.Group();
