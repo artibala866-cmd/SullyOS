@@ -2,6 +2,7 @@ import {PartMirrorControls,type PartMirrorProps} from './PartMirrorControls';
 import {createLocalId} from '../../utils/localId.js';
 import {FigureSlider} from './FigureSlider';
 import {AppearanceColorControl} from './AppearanceColorControl';
+import {HairDyeControls} from './HairDyeControls';
 import {FaceAccessoryControls} from './FaceAccessoryControls';
 import {Play,Pause,TShirt,ArrowCounterClockwise,ArrowClockwise,UserCircle,Smiley,PersonSimple} from '@phosphor-icons/react';
 import React,{useState,useEffect,useMemo,useRef,useCallback} from 'react';
@@ -82,9 +83,7 @@ export function HairEditor({deferredPreview=false,allowSully=false,parts,hair,pr
    {category==='clothes'&&hair.bodyShape==='blank'&&<WardrobePicker parts={parts} hair={hair} layeringReport={bare?undefined:layeringReport} previewBare={bare||hair.bodyShape!=='blank'} onBegin={onBegin} onEnd={onEnd} onChange={next=>{setBare(false);onChange(next);}}/>}
    {category==='face'&&faceSection==='hair'&&<>
     <nav className="garment-slots" aria-label="头发分层">{[['fronthair','前发'],['earhair','耳发'],['back1','后发 1'],['back2','后发 2'],...hair.extras.map((e,i)=>[e.id,`发片 ${i+1}`])].map(([id,label])=><button key={id} aria-pressed={selected===id} onClick={()=>setSelected(id)}>{label}</button>)}</nav>
-    <div className="hair-dye-mode" aria-label="发色模式"><button aria-pressed={!hair.hairTipColor} onClick={()=>onChange({...hair,hairTipColor:undefined})}>纯色</button><button aria-pressed={!!hair.hairTipColor} onClick={()=>onChange({...hair,hairColor:hair.hairColor??'#73513b',hairTipColor:hair.hairTipColor??'#ecc5d5'})}>渐变</button></div>
-    <AppearanceColorControl label={hair.hairTipColor?'发根':'发色'} value={hair.hairColor} colors={['#302b35','#73513b','#c89861','#ece3cf','#bd7796','#7f92b1']} onChange={hairColor=>onChange({...hair,hairColor,...(!hairColor?{hairTipColor:undefined}:{})})} onBegin={onBegin} onEnd={onEnd}/>
-    {hair.hairTipColor&&<AppearanceColorControl label="发梢" value={hair.hairTipColor} colors={['#ecc5d5','#b7c8e1','#b8d4c5','#eee2c6','#ac8dc0']} onChange={hairTipColor=>onChange({...hair,hairTipColor})} onBegin={onBegin} onEnd={onEnd}/>}
+    <HairDyeControls hair={hair} onChange={onChange} onBegin={onBegin} onEnd={onEnd}/>
     {onCustomPart&&<CustomPartChoices items={allowSully?[...sullyHairParts,...customParts.filter(p=>!sullyHairParts.some(s=>s.id===p.id))]:customParts} selected={selectedParts} onSelect={onCustomPart} categories={[selected]}/>}
     <PartMirrorControls category={selected} selected={selectedParts} flipped={flipped} onFlipPart={onFlipPart}/>
     {extra&&<div className="hair-buttons"><button aria-label="发片镜像" aria-pressed={!!extra.mirrored} onClick={()=>onChange({...hair,extras:hair.extras.map(e=>e.id===selected?{...e,mirrored:!e.mirrored}:e)})}>发片 · {extra.mirrored?'已镜像':'镜像'}</button></div>}

@@ -65,6 +65,10 @@ jobs:
         run: pnpm exec vitest run utils/room3d
       - name: Verify download manifests, offline meshopt GLTFs, wardrobe asset boundaries
         run: pnpm exec vitest run utils/homeResourcePacks.test.ts utils/homeResourcePackGLTF.test.ts utils/halloweenAssetBoundary.test.ts
+      - name: Verify bed mattress contact and unchanged bone lengths
+        run: pnpm exec vitest run utils/chibiBedContact.test.ts utils/chibiBedSupport.test.ts
+      - name: Verify creator hair tint parity and saved dye controls
+        run: pnpm exec vitest run utils/appearanceDye.test.ts utils/homeFigureHairControls.test.ts
       - name: Verify Halloween 25 GLBs, 20 presets, pet hats and interactive prop meshes
         timeout-minutes: 14
         run: pnpm exec vitest run apps/room3d/halloweenMeshAcceptance.test.ts apps/room3d/halloweenWardrobeFestival.test.js utils/wardrobePickerUI.test.ts
