@@ -52,7 +52,7 @@ import {mirrorActivities,isMirrorAction} from './mirror.js';
 import {createMirrorJourney,mirrorJourneyFrame} from './mirrorJourney.js';
 import {SHOWROOMS,addShowroom,applyShowroomStyle} from './showrooms.js';
 import {addActivityRoom} from './activityRooms.js';
-import {readPackAsset} from './resourcePacks';
+import {loadHomeGLTF} from './resourcePackGLTF';
 import {confirmResourcePack} from './ResourcePackPanel';
 import {ROOM_PALETTES,applyRoomPalette} from './roomPalettes.js';
 import {exportRoomLayout,parseRoomLayout,applyRoomLayout} from './roomSharing.js';
@@ -85,7 +85,6 @@ import {coffeeGrip} from './coffeeGrip.js';
 import {createGamingEffects} from './gamingEffects.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import {previewFurniture} from './model.js';
 import {roomSeats,roomBeds,seatTransform} from './seating.js';
 import {wallFaces,mountOnFace,wallPlacementError} from './wallMount.js';
@@ -1466,11 +1465,11 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const onAbort=()=>requestController.abort();
    abort.signal.addEventListener('abort',onAbort,{once:true});
    const timer=setTimeout(()=>requestController.abort(),20000);
-   let data;
-   try{const stored=a.id.startsWith('halloween_')?await readPackAsset(url.href).catch(()=>undefined):undefined;data=stored?await stored.blob.arrayBuffer():await fetch(url,{signal:requestController.signal}).then(r=>{if(!r.ok)throw Error('家具模型加载失败：'+a.name);return r.arrayBuffer()});}
+   let loaded;
+   try{loaded=await loadHomeGLTF(url.href,requestController.signal);}
    catch(e){if(requestController.signal.aborted&&!abort.signal.aborted)throw Error('家具模型加载超时：'+a.name);throw e;}
    finally{clearTimeout(timer);abort.signal.removeEventListener('abort',onAbort);}
-   const loaded=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(data,assetBase),root=new THREE.Group();root.userData.assetId=a.id;
+   const root=new THREE.Group();root.userData.assetId=a.id;
    if(destroyed){loaded.scene.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material]){for(const value of Object.values(m))if(value?.isTexture)value.dispose();m.dispose();}}});return;}
    const model=loaded.scene,bounds=new THREE.Box3().setFromObject(model),scale=a.size[0]/bounds.getSize(new THREE.Vector3()).x;
    model.scale.multiplyScalar(scale);bounds.setFromObject(model);const center=bounds.getCenter(new THREE.Vector3());model.position.sub(new THREE.Vector3(center.x,bounds.min.y,center.z));

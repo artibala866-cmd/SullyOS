@@ -4,6 +4,7 @@ import { execSync } from 'node:child_process';
 import { bakeVoiceMiddleware } from './server/bake-voice-middleware';
 import { staticCachePlugin } from './scripts/static-cache-build';
 import { startupRecoveryPlugin } from './scripts/startup-recovery-plugin';
+import { homeResourcePacksPlugin } from './scripts/home-resource-packs.mjs';
 import { APP_VERSION_TAG } from './utils/appVersion';
 import { shouldShowBuildBadge } from './scripts/buildBadgeVisibility';
 
@@ -82,6 +83,7 @@ export default defineConfig({
   },
   plugins: [
     startupRecoveryPlugin(appBuildId),
+    homeResourcePacksPlugin(),
     react(),
     staticCachePlugin({ buildId: appBuildId, appVersion: APP_VERSION_TAG }),
     {
