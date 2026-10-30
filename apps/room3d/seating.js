@@ -5,7 +5,9 @@ import {usableFurniturePoints} from './furniturePointRegistry.js';
 const body2SeatProfiles={bedroom_ref_flower_pouf:{pose:'floor',forward:.20}};
 // Reviewed mattress surface, not the wider draped blanket/bed-frame bounds.
 const body2BedProfiles={
- show_bed:{headEnd:-1.27,edgeX:1.30,edgeY:.85},
+ show_bed:{headEnd:-1.27,edgeX:1.30,edgeY:.85,
+  // Reviewed mattress at both sleeping lanes; the duvet slopes down by the footboard.
+  footSurface:[[.6,.887],[.8,.900],[1,.898],[1.2,.882],[1.4,.788],[1.6,.627]]},
  bedroom_single_bed:{headEnd:-1.38,edgeX:.82,edgeY:1.10},
  bedroom_double_bed:{headEnd:-1.55,edgeX:1.48,edgeY:1.08},
  // Keep the existing direct entry for raised/railed beds; no invented ladder animation.
