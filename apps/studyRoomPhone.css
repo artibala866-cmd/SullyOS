@@ -3,10 +3,10 @@
   /* Readable handheld size. Do not miniaturize the whole private chat to 218px:
      it made 13px text render at about 7px after scaling. Phone width and
      vertical fit are coupled so the window never gets squashed or clipped. */
-  position:absolute;right:8px;bottom:calc(86px + env(safe-area-inset-bottom,0px));
+  position:absolute;right:8px;bottom:calc(100px + env(safe-area-inset-bottom,0px));
   /* The supplied P2 floating-phone reference is closer to 9:16 than 9:19.
      This keeps the larger screen below the study-room header on mobile. */
-  width:min(334px,calc(100% - 30px),calc((100dvh - 140px)*0.5625));
+  width:min(306px,calc(100% - 30px),calc((100dvh - 140px)*0.5625));
   aspect-ratio:9 / 16;height:auto;min-height:0;max-height:none;
   box-sizing:border-box;
   padding:0 6px 7px;display:flex;flex-direction:column;overflow:hidden;
