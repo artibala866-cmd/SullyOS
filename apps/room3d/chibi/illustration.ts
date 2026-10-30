@@ -62,6 +62,11 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
         material.customProgramCacheKey=saved.cache;
         const cacheKey = material.customProgramCacheKey();
         const face=!!material.userData.illustrationFace;
+        // Only explicit surface metadata may opt into a non-fabric response.
+        // Outfit colour is not a reliable material classifier.
+        const surface=material.userData.illustrationSurface;
+        const leather=surface==='leather';
+        const metal=surface==='metal';
         const hair=!!material.userData.illustrationHair || /hair/.test(object.name);
         originals.set(material,{...saved,style});
         const roomTint=roomTints.get(material)??{value:new T.Color('#ffffff')};roomTints.set(material,roomTint);
@@ -125,13 +130,16 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             // Material-space edge shaping, not an extra outline mesh/pass.
             float inkContour = smoothstep(.62,.94,inkFresnel)*${face ? '.035' : '.16'}*(1.-inkLit*.5);
             inkColor *= 1.-inkContour;
-            float inkRim = pow(inkFresnel,4.)*smoothstep(-.15,.65,inkFacing)*${face ? '.015' : '.055'};
+            float inkRim = pow(inkFresnel,4.)*smoothstep(-.15,.65,inkFacing)*${face ? '.015' : hair ? '.055' : leather ? '.035' : metal ? '.045' : '.018'};
+            ${leather || metal ? `// Restrained material-specific glint; no extra light, texture or pass.
+            float inkSurfaceGlint = smoothstep(${metal ? '.88,.97' : '.62,.91'},dot(normal,normalize(inkLight+inkView)))*inkLit*${metal ? '.065' : '.028'};
+            inkRim += inkSurfaceGlint;` : ''}
             ${hair ? `// A broad satin reflection follows the projected vertical strand axis.\n            // Avoid UV-derived tangents: projected/contour hair sheets do not share a reliable UV direction.\n            vec3 inkStrandAxis = normalize(mat3(viewMatrix) * vec3(0.,1.,0.));\n            vec3 inkHalf = normalize(inkLight+inkView);\n            float inkStrandAlignment = abs(dot(inkHalf,inkStrandAxis));\n            float inkHairBand = (1.-smoothstep(.26,.72,inkStrandAlignment))*smoothstep(.42,.92,dot(normal,inkHalf));\n            float inkHairHighlight = inkHairBand*inkLit*.024;\n            inkRim += inkHairHighlight;` : ''}
             vec3 outgoingLight = inkColor + (1.-clamp(inkColor,0.,1.))*inkRim*inkLitTint;
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v6-' + style + '-' + face + '-' + hair;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v7-' + style + '-' + face + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;
