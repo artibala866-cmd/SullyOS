@@ -70,7 +70,7 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
    const now=new Date(2026,9,30,14,0);const t=now.getTime();
    const base={charId:'A',setting:{...DEFAULT_STUDY_COACH,level:'normal' as const},session:null,now,
      idleSince:t-16*60000,lastPromptAt:0,isVisible:true,isTimerTab:true};
-   expect(nextStudyCoachPrompt(base)).toContain('计时记录');
+   expect(nextStudyCoachPrompt(base)).toContain('专注轮次');
    expect(nextStudyCoachPrompt({...base,charId:''})).toBeNull();
    expect(nextStudyCoachPrompt({...base,setting:DEFAULT_STUDY_COACH})).toBeNull();
    expect(nextStudyCoachPrompt({...base,setting:{...base.setting,paused:true}})).toBeNull();
@@ -82,7 +82,7 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
    expect(nextStudyCoachPrompt({...base,idleSince:t-5*60000})).toBeNull();
    expect(nextStudyCoachPrompt({...base,lastPromptAt:t-5*60000})).toBeNull();
    expect(nextStudyCoachPrompt({...base,setting:{...base.setting,level:'gentle'}})).toBeNull();
-   expect(nextStudyCoachPrompt({...base,setting:{...base.setting,level:'firm'}})).toContain('下一步');
+   expect(nextStudyCoachPrompt({...base,setting:{...base.setting,level:'firm'}})).toContain('下一轮');
  });
  it('督促说明只含允许的语气，不包括客户、笔记和私人聊天',()=>{
    expect(studyCoachBrief(DEFAULT_STUDY_COACH)).toBe('');
@@ -136,6 +136,25 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
   expect(actual.activeCommissions).toBe(0);
   expect(actual.pendingHomework).toBe(0);
   expect(actual.hint).toContain('25 分钟');
+ });
+
+ it('本机督促根据真实积压的结算、交期和专注纪录变化，而不是始终同一句话',()=>{
+   const now=new Date(2026,9,30,14);const t=now.getTime();
+   const data=emptyWorkspace();
+   data.commissions=[{...commission('draw','active'),dueDate:'2026-11-02'}];
+   data.homework=[homework];
+   const reality=buildStudyRoomReality(data,null,'',[],[],now);
+   const base={charId:'A',setting:{...DEFAULT_STUDY_COACH,level:'normal' as const},
+     session:null,now,idleSince:t-20*60000,lastPromptAt:0,isVisible:true,isTimerTab:true,reality};
+   expect(nextStudyCoachPrompt(base)).toContain('七天内有 2 项');
+   const linked=buildStudyRoomReality(data,null,'',[
+    {date:'2026-10-30',taskId:'t',sessionId:'s1',minutes:25},
+   ],[{id:'t',source:{kind:'commission',id:'draw'}}],now);
+   expect(nextStudyCoachPrompt({...base,reality:linked})).toContain('没有手动核对');
+   const soft=nextStudyCoachPrompt({...base,setting:{...base.setting,level:'gentle'},
+    idleSince:t-31*60000,reality:linked});
+   expect(soft).toContain('需要时再开始');
+   expect(soft).not.toContain('你怎么还不');
  });
 
 });
