@@ -113,6 +113,7 @@ export function appendCharacterPhoneMessages(input: {
       const expected = input.expectedLatest;
       const last = previous?.messages[previous.messages.length - 1];
       if (!previous || previous.id !== expected.threadId ||
+          previous.kind === 'group' || previous.kind === 'service' ||
           previous.messages.length !== expected.messageCount ||
           last?.speaker?.role !== 'contact' ||
           (last.createdAt || previous.time) !== expected.lastAt ||
