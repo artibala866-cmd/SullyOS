@@ -4,11 +4,10 @@
  * always wins over older cloud work. No new LLM request is made here.
  */
 import { DB } from './db';
-import { CLOUD_PHONE_RESULT_KIND, parseCloudPhoneResult } from './amsgCloudPhone';
+import { isCloudPhonePiggybackAuthorized, parseCloudPhoneResult } from './amsgCloudPhone';
 import { readCharacterPhoneChats, appendCharacterPhoneMessages } from './characterPhoneChats';
 import { readNpcProfiles } from './characterPhoneNpcs';
 import { readPhoneAutonomyPreferences, readPhoneAutonomyRevision } from './characterPhoneApiBudget';
-import { isCharacterPhoneAutonomyEnabled } from './characterPhoneAutonomy';
 import { readPhoneContentClearRevision } from './characterPhoneContentClearRevision';
 import { readCharacterLifeEvents, recordCharacterLifeEvent } from './characterLifeEvents';
 import { markPhoneAutonomyOpportunityAttempt } from './characterPhoneOpportunity';
@@ -25,10 +24,10 @@ export async function applyCloudPhoneResult(payload: unknown, context?: AmsgResu
   const apply = async (): Promise<boolean> => {
     const chars = await DB.getAllCharacters();
     const char = chars.find(c => c.id === row.charId);
-    if (!char || char.activeMsg2Config?.enabled !== true) return true;
+    if (!char) return true;
     const prefs = readPhoneAutonomyPreferences(row.charId);
-    if (!prefs.chatPiggybackEnabled || !prefs.backgroundApiEnabled ||
-      !isCharacterPhoneAutonomyEnabled(row.charId) ||
+    if (!isCloudPhonePiggybackAuthorized(char.activeMsg2Config?.enabled === true,
+      prefs.chatPiggybackEnabled) ||
       readPhoneAutonomyRevision(row.charId) !== row.revision ||
       readPhoneContentClearRevision(row.charId, 'chats') !== row.clearRevision) return true;
     const contact = readNpcProfiles(row.charId).find(c => c.id === row.contactId && c.source !== 'character' && !c.linkedCharacterId);
