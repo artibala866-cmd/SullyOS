@@ -983,7 +983,7 @@ const ScheduleApp: React.FC = () => {
                     {visibleNotes.length===0&&<p className="pt-8 text-center text-xs text-neutral-400">一起聊聊现在的学习吧</p>}
                     {visibleNotes.map(n=><div key={n.id} className={'flex gap-2 '+(n.role==='user'?'justify-end':'justify-start')}>
                       {n.role==='assistant'&&<StudyAvatar value={activeChar?.avatar} name={activeChar?.name||'Char'} className="h-7 w-7 shrink-0 rounded-full"/>}
-                      <div className={'max-w-[80%] break-words whitespace-pre-wrap rounded-2xl px-3 py-2 text-[13px] leading-relaxed '+(n.role==='user'?'bg-[#292929] text-white':'bg-white text-neutral-900')}>
+                      <div className={'max-w-[80%] break-words whitespace-pre-wrap rounded-2xl px-3 py-2 text-[15px] leading-relaxed '+(n.role==='user'?'bg-[#292929] text-white':'bg-white text-neutral-900')}>
                         {n.origin==='auto_coach'&&<span className="text-[10px] text-neutral-500">主动陪伴 · </span>}{n.content}
                       </div>
                     </div>)}
@@ -993,7 +993,7 @@ const ScheduleApp: React.FC = () => {
                     <div className="max-h-12 overflow-y-auto">{[...unscopedNotes,...unassignedNotes].map(n=><p key={n.id}>{n.content}</p>)}</div>
                   </details>}
                   <form onSubmit={e=>{e.preventDefault();void sendNote();}} className="flex shrink-0 gap-1.5 border-t border-neutral-200 bg-white p-2">
-                    <input className="min-w-0 min-h-10 flex-1 rounded-full bg-[#f3f3f3] px-3 text-sm outline-none"
+                    <input className="min-w-0 min-h-10 flex-1 rounded-full bg-[#f3f3f3] px-3 text-[15px] outline-none"
                       aria-label="学习室内对 Char 说" placeholder="聊聊…" value={message} onChange={e=>setMessage(e.target.value)}/>
                     <button type="submit" disabled={replying||!allowance.canSend}
                       className="min-h-10 rounded-full bg-[#292929] px-3 text-xs text-white disabled:opacity-40">
