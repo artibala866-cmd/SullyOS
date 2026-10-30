@@ -85,7 +85,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(schedule).toContain('onLearningStateChange={onLearningStateChange}');
   expect(study).toContain('onLearningStateChange?.({');
   expect(study).toContain('courseTitle:activeCourse.title.slice(0,80)');
-  expect(schedule).toContain("pdfLearning:tab==='study'?studyPresence:null");
+  expect(schedule).toContain("pdfLearning:tab==='study'?studyPresence:recentPdf?");
  });
  it('工作区已确认保存的进度实时进入陪伴状态，AI 仅收到用户主动审阅的数据',()=>{
   expect(schedule).toContain('buildStudyRoomReality(');
