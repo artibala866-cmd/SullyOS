@@ -11,7 +11,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
   expect(study).toContain('showAssistant');
   expect(schedule).toContain('aria-label="Char 持续陪伴状态"');
   expect(schedule).toContain('onClick={()=>void openCompanionOverview()}');
-  expect(schedule).toContain('assistantScope===\'overview\'?\'今日陪伴\'');
+  expect(schedule).toContain('assistantScope===\'overview\'?\'今天\'');
   const hidden=schedule.indexOf("className={tab === 'study'");
   const overlay=schedule.indexOf('      {assistantOpen && !assistantMinimized && <div');
   const hiddenClose=schedule.indexOf('      </div>\n      {coachSettingsOpen && <div');
@@ -187,7 +187,7 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(schedule).toContain('seenEventKeys:sameDay?seen.seenKeys:[]');
    expect(schedule).toContain('rememberStudyCoachEvent(');
    expect(schedule).toContain("origin:'auto_coach'");
-   expect(schedule).toContain("n.origin==='auto_coach'?' · 主动陪伴':''");
+   expect(schedule).toContain("n.origin==='auto_coach'&&<p");
    expect(schedule).toContain("if(requestScope!=='overview')setAssistantTopic('')");
    expect(schedule).toContain("continuing?'':draft");
    expect(schedule).toContain("assistantOpen&&assistantScope==='overview'&&message.trim()?message");
