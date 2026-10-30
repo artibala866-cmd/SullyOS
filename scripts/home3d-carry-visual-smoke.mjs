@@ -40,14 +40,17 @@ try{
  }
  writeFileSync(join(out,'result.json'),JSON.stringify(report,null,2));
  console.log('Carry WebGL review:',JSON.stringify({status:report.status,stage:report.stage,images:report.images?.length,scenarios:report.sequences?.length,errors:report.errors}));
- if(report.status!=='pass')throw Error('Carry WebGL fixture failed: '+(report.errors||[]).join(' | ').slice(0,1000));
- if(report.images.length!==980||report.sequences.length!==12||report.timelines.length!==2)throw Error('Incomplete 980-frame four-angle WebGL evidence');
+ // Persist available real WebGL frames even when acceptance rejects a pose.
+ // A failed iteration must remain visually inspectable instead of uploading
+ // only a JSON error, especially during motion choreography development.
+ const complete=report.status==='pass'&&report.images.length===980&&report.sequences.length===12&&report.timelines.length===2;
  for(let i=0;i<report.images.length;i++){
   const src=await evaluate('document.querySelectorAll(".gallery figure img")['+i+']?.src');
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing actual WebGL render '+i);
   const name=report.images[i].name;if(!/^[a-z0-9-]+$/.test(name))throw Error('Unsafe capture name');
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
+ if(!complete)throw Error('Carry WebGL fixture failed/incomplete: '+(report.errors||[]).join(' | ').slice(0,1000));
  const h=await evaluate('document.documentElement.scrollHeight');
  if(h<300)throw Error('Empty visual gallery '+h);
  // Save every frame individually; an extremely tall full-page screenshot OOMs.

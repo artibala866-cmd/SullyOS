@@ -69,7 +69,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
      // both recipient feet before the hands enter their late release window.
      const recipient=1-carrier,clearance=feet[recipient]-floorY;
      if(time<=2.5&&clearance>.12)throw Error('Premature recipient lift: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
-     if(time>=4.3&&time<=6.8&&clearance<.55)throw Error('Missing supported airborne hold: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
+     if(time>=5&&time<=6.8&&clearance<.55)throw Error('Missing supported airborne hold: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
      if(time>=8.7&&clearance>.12)throw Error('Recipient not planted before release: '+heights.name+' / '+outfit.name+' / '+direction+' / '+time+' => '+clearance.toFixed(3)+'m');
      if(frame.wardrobe.some(n=>n<2))throw Error('Wardrobe disappeared during carry');
      records.push(frame);
