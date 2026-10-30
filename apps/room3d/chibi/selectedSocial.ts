@@ -37,6 +37,17 @@ export type SocialAction=string;
 export const socialActions=Object.fromEntries(selectedMotions.map(e=>[e.id,{...e,duration:e.id==='home-passion-kiss'?12:e.id==='home-sneak-kiss'?5:e.id==='home-kiss'?9.6:e.id==='home-rear-hug'?7.5:e.id==='home-hand-hold-plead'?6.7:e.id==='home-sofa-lap-pillow'?9.3:e.duration+1.2}]));
 export interface SocialResident {id:string;visitor:ChibiVisitor}
 const yAxis=new T.Vector3(0,1,0),smooth=T.MathUtils.smootherstep;
+const halloweenPairs=new Set(['halloween-boo','halloween-trick-or-treat','halloween-candy-shower','halloween-ghost-tease']);
+const halloweenTurnTime=.72;
+/** Source clips have no reliable per-actor facing, so calibrate the imported
+ * pelvis yaw against the real +Z-facing resident and the other participant.
+ * The source's relative yaw stays at the root and lean remains on hips. */
+export function halloweenActorFacing(heading:T.Quaternion,firstHips:T.Quaternion,from:T.Vector3,to:T.Vector3){
+ const dx=to.x-from.x,dz=to.z-from.z;
+ if(dx*dx+dz*dz<1e-8)return heading.clone();
+ return new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(dx,dz))
+  .multiply(splitMotionHeading(firstHips).heading.invert()).multiply(heading);
+}
 /** Both roles share a clock and capture transform. Observers stay independent. */
 /** Smooth travel on an existing planned path. Start and finish at rest,
 * and sample neighbouring positions for continuous heading through bends.
@@ -301,6 +312,32 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
   }holdPinned();finish();return;}
   const s=session;
   if(s.time<s.approach){
+   if(halloweenPairs.has(s.action)){
+    // Arrive and stop on the existing collision-checked paths; then turn.
+    // No world-space clip rotation and no camera-facing override.
+    const travel=Math.max(0,s.approach-halloweenTurnTime),destinations=locations(s,0);
+    s.ids.forEach((id,i)=>{
+     const v=states.get(id)!.visitor;
+     const walk=sampleSocialApproach(s.paths[i],Math.min(s.time,travel),travel);
+     v.root.position.copy(walk.position);
+     const pathYaw=walk.heading===null?s.turns[i].clone():new T.Quaternion().setFromAxisAngle(yAxis,walk.heading);
+     const firstHips=new T.Quaternion().fromArray(s.clip.actors[i].tracks.hips,0);
+     const face=halloweenActorFacing(splitMotionHeading(firstHips).heading,firstHips,destinations[i],destinations[1-i]);
+     const steer=travel>0?smooth(Math.min(s.time,travel),0,Math.min(.3,travel*.3)):0;
+     const turn=smooth(s.time,travel,s.approach);
+     v.root.quaternion.copy(s.turns[i]).slerp(pathYaw,steer).slerp(face,turn);
+     v.animate(s.time,s.time<travel&&walk.speed>.001?'walk':'idle');
+     if(v.rig&&turn>0&&turn<1){
+      // Small head lead; never add a second full yaw to hips.
+      const startYaw=new T.Euler().setFromQuaternion(pathYaw,'YXZ').y;
+      const endYaw=new T.Euler().setFromQuaternion(face,'YXZ').y;
+      const yaw=Math.atan2(Math.sin(endYaw-startYaw),Math.cos(endYaw-startYaw));
+      const lead=T.MathUtils.clamp(yaw*.14,-.22,.22)*Math.sin(Math.PI*turn);
+      v.rig.bones.neck.rotateY(lead*.45);v.rig.bones.head.rotateY(lead*.55);
+     }
+    });
+    finish();return;
+   }
    s.ids.forEach((id,i)=>{
     if(id===pinned?.id){holdPinned();return;}
     const v=states.get(id)!.visitor,approach=sampleSocialApproach(s.paths[i],s.time,s.approach);
@@ -354,8 +391,11 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     // The sampled pelvis already contains this actor's capture heading. Put it
     // on the root before blending from the approach (and back out to idle).
     // At full weight root * lean is exactly the original root * pelvis pose.
-    const facing=pinned&&s.action==='cmu-22_09'?pinnedRotation!.clone():s.rotation.clone().multiply(heading);
-    r.visitor.root.quaternion.copy(turn).slerp(facing,smooth(actionTime,0,.6));
+    const facing=halloweenPairs.has(s.action)
+     ?halloweenActorFacing(heading,new T.Quaternion().fromArray(s.clip.actors[i].tracks.hips,0),points[i],points[1-i])
+     :pinned&&s.action==='cmu-22_09'?pinnedRotation!.clone():s.rotation.clone().multiply(heading);
+    // Halloween's independent root turn ended before the captured clip begins.
+    r.visitor.root.quaternion.copy(turn).slerp(facing,halloweenPairs.has(s.action)?1:smooth(actionTime,0,.6));
     if(both.length===2&&!(pinned&&s.action==='cmu-22_09')){const other=points[1-i],toward=new T.Quaternion().setFromAxisAngle(yAxis,Math.atan2(other.x-points[i].x,other.z-points[i].z));r.visitor.root.quaternion.slerp(toward,smooth(actionTime,s.clip.duration+.6,s.clip.duration+1.2));}
     frames[i].rotations.hips=lean;
     // Classic reconstructs hand offsets from capture points instead of bones.
@@ -526,6 +566,7 @@ function contacts(both:NonNullable<ReturnType<typeof states.get>>[],frames:Motio
     }
     if(!valid&&pinned&&action!=='cmu-22_09'&&action!=='home-hug'){const base=rotation.clone();for(const angle of [.35,-.35,.7,-.7,1.1,-1.1,Math.PI]){candidate.rotation=base.clone().multiply(new T.Quaternion().setFromAxisAngle(yAxis,angle));if(fits()){valid=true;break;}}}if(!valid&&!pinned&&action!=='home-rear-hug'&&action!=='home-hand-hold-plead'&&action!=='home-sneak-kiss'&&action!=='home-passion-kiss')for(const alternative of options.origins??[]){candidate.origin=alternative.clone();if(fits()){valid=true;break;}}
     if(!valid)throw Error(action==='cmu-22_09'?'坐着的人身后没有可站立的位置，请先给椅背后留出空地':'这段动作需要更大的空地，先移动居民或挪开家具');
+    if(halloweenPairs.has(action))candidate.approach+=halloweenTurnTime;
     session=candidate;motionScope.begin(action);constraintPipeline.activate(action);
      prop=motionScope.own(isSeasonalSocial(action)?createHalloweenProp(action,both,propModels):createSocialProp(action,both,motionTemplateFor(action)?.prop));
      draw();return true;
