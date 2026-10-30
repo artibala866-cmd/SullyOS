@@ -639,7 +639,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     >
       <div className="space-y-4 text-sm text-slate-600">
         <p className="text-xs leading-relaxed text-slate-500">
-          2.0 是独立的后台主动联系开关，与「真人感自动回复」分开控制（避免偷偷启用额外收费的 API）。两者都开启时，共用真实聊天及角色日程，主动联系不会打断正在进行的私聊；真正送达的消息也会在查手机的私聊中显示。打开后系统自动安排每日联系机会，无须手动新建第一条任务；每次云端生成仍会消耗主 API。
+          2.0 是独立的后台主动联系开关，与「真人感自动回复」分开控制（避免偷偷启用额外收费的 API）。两者都开启时，共用真实聊天及角色日程，主动联系不会打断正在进行的私聊；真正送达的消息也会在查手机的私聊中显示。打开后系统会在前台初始化或恢复时自动向已配置且版本匹配的云端 Worker 登记每日联系机会，无须手动新建第一条任务；之后由 Worker 到点判断是否真的联系（可能选择沉默），每次云端生成仍会消耗主 API。真人感主要调整私聊回复节奏；手机内 NPC 社交仍需其独立开关及运行条件，不能把“云端主动联系”当成离线 NPC 手机活动全部完成。
         </p>
 
         <div className="flex items-center justify-between bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
@@ -665,7 +665,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             也不知道打开它能换来什么。 */}
         {!enabled ? (
           <p className="text-xs leading-relaxed text-slate-400 pl-1">
-            开启后系统会替 TA 建立持续的云端自主联系机会，TA 也能自己排后续。无需先手动新建任务。
+            开启后会自动向已配置的新版 Worker 建立持续的云端自主联系机会，无需手动新建任务；没配置 Worker 或版本不匹配时会显示失败原因，不会假装已经启动。
           </p>
         ) : null}
 

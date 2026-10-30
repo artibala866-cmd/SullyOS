@@ -84,6 +84,8 @@ import {
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { recoverForegroundDailySchedule } from '../utils/dailyScheduleForegroundRecovery';
 import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
+import { reconcileGlobalAutonomyWakes } from '../utils/amsgAutonomyBootstrap';
+import { SCHEDULE_CHANGE_EVENT } from '../utils/scheduleChange';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
 import { CHAT_GEN_EVENTS, setChatViewSnapshot, isEmbeddedChatVisible } from '../utils/chatGenEvents';
@@ -2340,6 +2342,83 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   groupsRef.current = groups;
   const realtimeConfigRef = useRef(realtimeConfig);
   realtimeConfigRef.current = realtimeConfig;
+  // Keep existing AMSG2 cloud autonomy alive for *every opted-in role*, even
+  // if the user only visited Settings and never opens that Char's Chat again.
+  // The Worker performs the actual fires. No new scheduler or paid idle LLM.
+  useEffect(() => {
+      if (!isDataLoaded) return;
+      let disposed = false;
+      let running = false;
+      let pendingAll = false;
+      const pendingChars = new Set<string>();
+      const scope = {
+          getCharacters: () => charactersRef.current,
+          getUserProfile: () => userProfileRef.current,
+          getApiConfig: () => apiConfigRef.current,
+          getGroups: () => groupsRef.current,
+          getRealtimeConfig: () => realtimeConfigRef.current,
+          isActive: () => !disposed,
+          saveCharacterConfig: (charId: string, updater: (prev: CharacterProfile['activeMsg2Config']) => NonNullable<CharacterProfile['activeMsg2Config']>) => {
+              void updateCharacter(charId, previous => ({
+                  activeMsg2Config: updater(previous.activeMsg2Config),
+              }));
+          },
+      };
+      const drain = async () => {
+          if (disposed || running || document.visibilityState !== 'visible') return;
+          running = true;
+          try {
+              while (!disposed && document.visibilityState === 'visible' &&
+                  (pendingAll || pendingChars.size)) {
+                  const id = pendingAll ? undefined : pendingChars.values().next().value as string;
+                  if (pendingAll) { pendingAll = false; pendingChars.clear(); }
+                  else pendingChars.delete(id!);
+                  await reconcileGlobalAutonomyWakes(scope, id);
+              }
+          } finally { running = false; }
+      };
+      const request = (id?: string) => {
+          if (disposed) return;
+          if (id) pendingChars.add(id);
+          else pendingAll = true;
+          void drain();
+      };
+      const initial = window.setTimeout(() => request(), 2_000);
+      const interval = window.setInterval(() => request(), 30 * 60_000);
+      const onVisible = () => { if (document.visibilityState === 'visible') request(); };
+      const onSchedule = (event: Event) => {
+          const detail = (event as CustomEvent<{ charId?: string }>).detail;
+          if (detail?.charId) request(detail.charId);
+      };
+      const onChange = () => request();
+      document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener('pageshow', onVisible);
+      window.addEventListener('focus', onVisible);
+      window.addEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onSchedule);
+      window.addEventListener(SCHEDULE_CHANGE_EVENT, onSchedule);
+      window.addEventListener('sully:amsg-autonomy-refresh', onChange);
+      return () => {
+          disposed = true;
+          clearTimeout(initial);
+          clearInterval(interval);
+          document.removeEventListener('visibilitychange', onVisible);
+          window.removeEventListener('pageshow', onVisible);
+          window.removeEventListener('focus', onVisible);
+          window.removeEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onSchedule);
+          window.removeEventListener(SCHEDULE_CHANGE_EVENT, onSchedule);
+          window.removeEventListener('sully:amsg-autonomy-refresh', onChange);
+      };
+  }, [isDataLoaded]);
+  // Opt-in changes trigger one prompt cloud reconciliation without re-mounting
+  // the long-lived runner; updates to task lists must not trigger request loops.
+  const optedInAutonomyIds = characters
+      .filter(c => c.id && c.activeMsg2Config?.enabled === true)
+      .map(c => c.id).sort().join('|');
+  useEffect(() => {
+      if (isDataLoaded && optedInAutonomyIds)
+          window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
+  }, [isDataLoaded, optedInAutonomyIds]);
+
   // Restore TODAY'S plans for enabled characters from the global OS surface,
   // not just when a private-chat component happens to mount. This runs only
   // while the app is visible; cloud-only/offline scheduling is a later stage.
