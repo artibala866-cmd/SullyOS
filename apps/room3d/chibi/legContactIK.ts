@@ -86,8 +86,9 @@ export function restoreLegSupport(v:ChibiVisitor,support:ReturnType<typeof captu
  * authored walking poses, not an alternate walk clip or a new skeletal bone. */
 export function createWorldFootLock(){
  let side:'L'|'R'|null=null,locked=new T.Vector3(),previousRoot=new T.Vector3();
- let previousTime:number|null=null;
- const reset=()=>{side=null;previousTime=null;};
+ const lockRoot=new T.Vector3();
+ let previousTime:number|null=null,awaitingOpposite:'L'|'R'|null=null;
+ const reset=()=>{side=null;previousTime=null;awaitingOpposite=null;};
  return {reset,get supportSide(){return side;},get targetWorld(){return side?locked.clone():null;},apply(
   v:Pick<ChibiVisitor,'root'|'rig'> & {translatePose?:(delta:T.Vector3)=>void},time:number,speed:number,walking=true,forcedSide:'L'|'R'|null=null
  ){
@@ -103,15 +104,31 @@ export function createWorldFootLock(){
   const candidate:'L'|'R'=forcedSide??(toes.L.y<=toes.R.y?'L':'R');
   const toeScale=v.rig.bones.L_toe.getWorldScale(new T.Vector3()).x;
   const hysteresis=Math.max(.008,Math.abs(toeScale)*.012);
+  const swingClearance=Math.max(.025,Math.abs(toeScale)*.035);
+  const floor=Math.min(toes.L.y,toes.R.y);
   const other=side==='L'?'R':'L';
-  // Crossing a small vertical margin changes the planted foot; a tie keeps
-  // the previous contact so the solver cannot chatter at phase boundaries.
-  if(side===null||(forcedSide?side!==forcedSide:toes[other].y+hysteresis<toes[side].y)){
-   side=candidate;locked.copy(toes[side]);return;
+  // A planted toe is not allowed to drag the entire pelvis into its swing.
+  // During walking, release on toe rise or after crossing the stance reach.
+  if(!forcedSide&&side){
+   const hip=v.rig.bones[side+'_thigh'].getWorldPosition(new T.Vector3());
+   const knee=v.rig.bones[side+'_shin'].getWorldPosition(new T.Vector3());
+   const ankle=v.rig.bones[side+'_foot'].getWorldPosition(new T.Vector3());
+   const reach=hip.distanceTo(knee)+knee.distanceTo(ankle);
+   const rising=toes[side].y>floor+swingClearance;
+   const pastStance=root.distanceTo(lockRoot)>Math.max(.19,reach*.43);
+   if(rising||pastStance&&toes[other].y<=floor+swingClearance){
+    awaitingOpposite=side;side=null;
+   }
   }
-  // Don't drag the planted foot through a teleport or impossible stride.
-  // Joint origins measure actual upper/lower leg lengths even with scaled
-  // parents; thigh.position is a pelvis offset, not the femur length.
+  if(side===null){
+   // Do not re-anchor the same toe while waiting for the opposite landing.
+   if(!forcedSide&&candidate===awaitingOpposite)return;
+   side=candidate;awaitingOpposite=null;locked.copy(toes[side]);lockRoot.copy(root);return;
+  }
+  if(forcedSide?side!==forcedSide:toes[other].y+hysteresis<toes[side].y){
+   side=forcedSide??other;awaitingOpposite=null;locked.copy(toes[side]);lockRoot.copy(root);return;
+  }
+  // Joint origins measure actual limb lengths, not scaled hip offsets.
   const hip=v.rig.bones[side+'_thigh'].getWorldPosition(new T.Vector3());
   const knee=v.rig.bones[side+'_shin'].getWorldPosition(new T.Vector3());
   const ankle=v.rig.bones[side+'_foot'].getWorldPosition(new T.Vector3());
@@ -121,7 +138,8 @@ export function createWorldFootLock(){
   // at the shorter swing-foot threshold. Unreachable contacts remain for the
   // caller's safety gate to reject rather than presenting a false foot lock.
   if(locked.distanceTo(toes[side])>Math.max(forcedSide?.22:.18,reach*(forcedSide?.88:.6))){
-   if(!forcedSide)locked.copy(toes[side]);
+   // An unreachable planted target cannot silently follow a swinging toe.
+   if(!forcedSide){awaitingOpposite=side;side=null;}
    return;
   }
   // Walking needs stronger convergence than one-shot head/seat adjustments.
@@ -135,7 +153,9 @@ export function createWorldFootLock(){
    const actual=v.rig.bones[side+'_toe'].getWorldPosition(new T.Vector3());
    const residual=locked.clone().sub(actual);
    if(residual.lengthSq()>.000025){
-    const hipStep=residual.multiplyScalar(.72).clampLength(0,.045);
+    // A large lateral pelvis pull caused visible dashes at foot transitions.
+    // Leave the main stance correction to knee IK and cap this residual.
+    const hipStep=residual.multiplyScalar(.52).clampLength(0,.020);
     v.translatePose(hipStep);
    }
   }
