@@ -21,8 +21,10 @@ export function princessCarryPhase(time:number){
   // Both hands retreat toward idle after the feet have planted.
   backReach:e(1.10,2.65,8.85,9.58),
   kneeReach:e(2.65,4.17,8.85,9.58),
-  shoulderL:e(2.10,3.65,8.8,9.48),
-  shoulderR:e(3.55,4.70,8.8,9.48),
+  // A hand may reach toward a shoulder early, but the full embrace only
+  // settles after the carrier has acquired back and knee support.
+  shoulderL:e(2.85,3.90,8.8,9.48),
+  shoulderR:e(4.05,5.00,8.8,9.48),
   secured:e(2.65,3.55,9.15,9.85), weight:e(3.85,4.55,8.0,9.15),
   offer:e(2.6,3.55,7.35,8.9),
   seat:e(3.88,5.15,7.15,9.1),
@@ -84,8 +86,9 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
  const overhang=Math.max(0,combined.sub(footCentre).dot(frontLoad)-toeForward);
  const torsoLength=carrierChest.distanceTo(carrierHip);
  const counterTilt=T.MathUtils.clamp(.028+Math.atan2(overhang,Math.max(.01,torsoLength))*.5,.028,.17)*p.weight;
- // Mild height-aware leg flex by the carrier, never a deep squat.
- const reachBend=.035+.10*Math.max(0,ratio-.9);
+ // Visible leg compression during weight acquisition, followed by extension
+ // into the loaded cradle. No root-node elevator substitutes for the legs.
+ const reachBend=.115+.11*Math.max(0,ratio-.9);
  const flex=reachBend*p.stance+.075*p.lower+
   p.weight*T.MathUtils.clamp(.04*ratio+counterTilt*.23,.035,.085);
  // Support legs flex first; the spine leans against the measured forward
@@ -193,6 +196,9 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
   pair[0].solver?.({side,point:goal,
    direction:new T.Vector3(sign,0,0).applyQuaternion(rotation),
    normal:new T.Vector3(0,1,0).applyQuaternion(rotation),
+   // Keep the carrier elbow outside the torso while the wrist wraps around
+   // the back or enters underneath the raised knee.
+   poleDirection:new T.Vector3(sign,-.32,.24).applyQuaternion(rotation),
    curl:.28*p.secured},contactWeight);
  }
  // The recipient's first arm wraps a shoulder; the opposite arm only follows
@@ -203,9 +209,14 @@ export function posePrincessCarry(pair:readonly Member[],time:number){
   ['R',ab.L_upperArm.localToWorld(new T.Vector3(0,.02,-.12))],
  ] as const){
   const strength=side==='L'?p.shoulderL:p.shoulderR;
+  const ownRotation=b.root.getWorldQuaternion(new T.Quaternion());
+  const outward=side==='L'?1:-1;
   pair[1].solver?.({side,point:anchor,
-   direction:new T.Vector3(side==='L'?1:-1,0,0).applyQuaternion(rotation),
+   direction:new T.Vector3(outward,0,0).applyQuaternion(rotation),
    normal:new T.Vector3(0,1,0).applyQuaternion(rotation),
+   // The carried person's elbows wrap from their OWN shoulder space.
+   // Using the carrier's pole orientation twisted both arms together.
+   poleDirection:new T.Vector3(outward,-.20,.32).applyQuaternion(ownRotation),
    curl:.14*strength},strength);
  }
  // Blend foot-ground reconciliation in gradually instead of crossing a
