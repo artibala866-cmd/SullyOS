@@ -97,6 +97,7 @@ const ScheduleApp: React.FC = () => {
   const [replying, setReplying] = useState(false);
   const processed = useRef<string | null>(null);
   const chatBusy = useRef(false);
+  const manualChatController=useRef<AbortController|null>(null);
   const discussionVersion = useRef(0);
   const activeChar = characters.find(c => c.id === charId);
   const coachSetting=normalizeStudyCoachSetting(coachByChar?.[charId]);
@@ -425,7 +426,7 @@ const ScheduleApp: React.FC = () => {
     setCoachPrompt('');
   };
   const chooseChar = (id:string) => {
-    if (id!==charId)autoCoachController.current?.abort();
+    if (id!==charId){autoCoachController.current?.abort();manualChatController.current?.abort();}
     if (id===charId) {setShowCharPicker(false);return;}
     discussionVersion.current += 1;
     setCharId(id);
@@ -531,6 +532,8 @@ const ScheduleApp: React.FC = () => {
     const gate = focusChatAllowance(session, Date.now());
     if (!gate.canSend) { addToast('本五分钟窗口的交流机会已用完，或计时已暂停', 'error'); return; }
     chatBusy.current = true;
+    const controller=new AbortController();
+    manualChatController.current=controller;
     const requestVersion=discussionVersion.current;
     if (session?.mode === 'focus') {
       // Reserve the slot before any await. Persist even if request fails or page reloads.
@@ -561,8 +564,9 @@ const ScheduleApp: React.FC = () => {
         {char:activeChar,user:userProfile},
         [{role:'system',content:appContext},...history.slice(-16).map(n=>({role:n.role,content:n.content}))],
       );
+      if(controller.signal.aborted||requestVersion!==discussionVersion.current)return;
       const response = await fetch(selectedDialogueApi.baseUrl.replace(/\/$/, '')+'/chat/completions', {
-        method: 'POST',
+        method: 'POST',signal:controller.signal,
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + selectedDialogueApi.apiKey },
         body: JSON.stringify({model:selectedDialogueApi.model,messages:msgs,
           temperature:typeof selectedDialogueApi.temperature==='number'?selectedDialogueApi.temperature:0.8}),
@@ -571,6 +575,7 @@ const ScheduleApp: React.FC = () => {
       if (!response.ok) throw new Error(data?.error?.message || 'HTTP ' + response.status);
       const reply = extractContent(data);
       if (!reply?.trim()) throw new Error('AI 返回了空回复');
+      if(controller.signal.aborted||requestVersion!==discussionVersion.current)return;
       setNotes(prev=>[...prev,{id:newWorkspaceId(),role:'assistant',content:reply.trim(),
         charId:activeChar.id,scope:requestScope,topicId:requestItemId,createdAt:Date.now()}]);
       // A role/topic changed while the call was in flight: preserve the answer
@@ -599,8 +604,9 @@ const ScheduleApp: React.FC = () => {
         if(requestScope!=='overview')setAssistantTopic('');
       }
     } catch(e) {
-      addToast('Char 回复失败：' + (e instanceof Error ? e.message : '请检查 API 配置'), 'error');
+      if(!controller.signal.aborted)addToast('Char 回复失败：' + (e instanceof Error ? e.message : '请检查 API 配置'), 'error');
     } finally {
+      if(manualChatController.current===controller)manualChatController.current=null;
       chatBusy.current = false;
       setReplying(false);
     }
