@@ -92,23 +92,30 @@ export interface StudyCoachCheck{
  now:Date;
  idleSince:number;
  lastPromptAt:number;
+ reality?:StudyRoomReality;
  isVisible:boolean;
  isTimerTab:boolean;
 }
 export const nextStudyCoachPrompt=(check:StudyCoachCheck):string|null=>{
- const {charId,setting,session,now,idleSince,lastPromptAt,isVisible,isTimerTab}=check;
+ const {charId,setting,session,now,idleSince,lastPromptAt,isVisible,isTimerTab,reality}=check;
  if(!charId||setting.level==='off'||setting.paused||!isVisible||!isTimerTab||session)return null;
  if(isStudyCoachQuietTime(setting,now))return null;
  const minutes=STUDY_COACH_INTERVAL_MINUTES[setting.level];
  const interval=minutes*60000;
  if(!Number.isFinite(idleSince)||idleSince<=0||now.getTime()-idleSince<interval)return null;
  if(Number.isFinite(lastPromptAt)&&lastPromptAt>0&&now.getTime()-lastPromptAt<interval)return null;
- // Never guess whether the user is actually studying off-screen.
- return setting.level==='gentle'
-  ?'还没开始新的专注轮次。想好了再开始也可以。'
-  :setting.level==='normal'
-   ?'还没有新的计时记录。要不要选一件事开始？'
-   :'还没开始新一轮专注。需要我陪你确定下一步吗？';
+ // The cue is tied to a real existing task or completed record, not an imaginary
+ // conversation by Char. The real personality comes from ContextBuilder only after SEND.
+ const cue=reality?.unsettledLinkedMinutes
+  ?'有 '+reality.unsettledLinkedMinutes+' 分钟已记录但还没有手动核对'
+  :reality && reality.dueSoonHomework+reality.dueSoonCommissions>0
+   ?'七天内有 '+(reality.dueSoonHomework+reality.dueSoonCommissions)+' 项待安排'
+   :reality?.todayCourses?'今天有 '+reality.todayCourses+' 节课程'
+   :reality?.todayFocusMinutes?'今天已记录 '+reality.todayFocusMinutes+' 分钟专注'
+   :'还没有新的专注轮次';
+ return setting.level==='gentle'?'提醒一下：'+cue+'。需要时再开始就好。'
+  :setting.level==='normal'?cue+'。要不要一起选下一步？'
+  :cue+'。需要我协助你安排下一轮吗？';
 };
 export const studyCoachBrief=(setting:StudyCoachSetting):string=>{
  if(setting.level==='off'||setting.paused)return '';
