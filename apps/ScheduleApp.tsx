@@ -76,6 +76,7 @@ const ScheduleApp: React.FC = () => {
   const [coachPrompt,setCoachPrompt]=useState('');
   const coachIdleSince=useRef(Date.now());
   const autoCoachAttempted=useRef(new Set<string>());
+  const autoCoachController=useRef<AbortController|null>(null);
   const [recentLinkedFocus,setRecentLinkedFocus]=useState<{kind:WorkKind;title:string;minutes:number;sessionId:string}|null>(null);
   const [overviewBusy,setOverviewBusy]=useState(false);
   const [showCharPicker,setShowCharPicker]=useState(false);
@@ -226,6 +227,7 @@ const ScheduleApp: React.FC = () => {
     if(autoCoachAttempted.current.has(key))return;
     autoCoachAttempted.current.add(key);
     const chosen=activeChar,api=selectedDialogueApi,controller=new AbortController();
+    autoCoachController.current=controller;
     let active=true;
     const onVisibility=()=>{if(document.visibilityState!=='visible')controller.abort();};
     document.addEventListener('visibilitychange',onVisibility);
@@ -259,7 +261,9 @@ const ScheduleApp: React.FC = () => {
         if(active&&!controller.signal.aborted)addToast('Char 主动陪伴未发送：'+String(error),'error');
       }
     })();
-    return ()=>{active=false;controller.abort();document.removeEventListener('visibilitychange',onVisibility);};
+    return ()=>{active=false;controller.abort();
+      if(autoCoachController.current===controller)autoCoachController.current=null;
+      document.removeEventListener('visibilitychange',onVisibility);};
   // The event key is persisted: failed or aborted requests are not re-charged in a loop.
   },[coachPrompt,charId,coachByChar,coachEventByChar,workspaceSnapshot,session,tab,
      activeChar?.id,assistantOpen,coachSettingsOpen,exitOpen,
@@ -313,6 +317,7 @@ const ScheduleApp: React.FC = () => {
     setTaskInput('');
   };
   const start = (mode: FocusMode) => {
+    autoCoachController.current?.abort();
     if (mode === 'focus' && !selectedTask) { addToast('请先选择或创建任务', 'error'); setTab('tasks'); return; }
     const duration = mode === 'focus' ? focusMinutes : breakMinutes;
     processed.current = null;
@@ -323,6 +328,7 @@ const ScheduleApp: React.FC = () => {
     setTab('timer');
   };
   const requestExit = () => {
+    autoCoachController.current?.abort();
     if (!session) { closeApp(); return; }
     setExitPhrase('');
     setExitDeadline(Date.now() + 10_000);
@@ -396,6 +402,7 @@ const ScheduleApp: React.FC = () => {
   };
   const updateCoachSetting=(change:Partial<StudyCoachSetting>)=>{
     if(!charId)return;
+    if(change.level==='off'||change.paused===true||change.allowAutoAI===false)autoCoachController.current?.abort();
     setCoachByChar(prev=>({...prev,[charId]:normalizeStudyCoachSetting({
       ...normalizeStudyCoachSetting(prev?.[charId]),...change,
     })}));
@@ -403,6 +410,7 @@ const ScheduleApp: React.FC = () => {
     setCoachPrompt('');
   };
   const chooseChar = (id:string) => {
+    if (id!==charId)autoCoachController.current?.abort();
     if (id===charId) {setShowCharPicker(false);return;}
     discussionVersion.current += 1;
     setCharId(id);
@@ -805,7 +813,7 @@ const ScheduleApp: React.FC = () => {
               <span>免打扰</span><input type="checkbox" checked={coachSetting.quietEnabled} onChange={e=>updateCoachSetting({quietEnabled:e.target.checked})}/>
             </label>
             <label className="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
-              <span>Char 主动陪伴 <small className="block text-xs text-neutral-500">单独授权 · 可能消耗模型额度</small></span>
+              <span>Char 主动陪伴 <small className="block text-xs text-neutral-500">任务标题与进度摘要 · 使用你的模型额度</small></span>
               <input type="checkbox" checked={coachSetting.allowAutoAI} onChange={e=>updateCoachSetting({allowAutoAI:e.target.checked})}/>
             </label>
             {coachSetting.quietEnabled && <div className="mt-2 grid grid-cols-2 gap-3">
