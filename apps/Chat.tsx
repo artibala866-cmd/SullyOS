@@ -1818,6 +1818,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     };
 
     const typedVoiceSendingRef = useRef(false);
+    const latestComposerInputRef = useRef(input);
+    latestComposerInputRef.current = input;
     const handleSendTypedVoice = () => {
         const text = input.trim();
         if (typedVoiceSendingRef.current || !typedVoiceEnabled || !text || !char) return;
@@ -1829,8 +1831,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 if (activeCharIdRef.current === targetCharId) {
                     // sendText clears the composer before DB.saveMessage; restore on failure
                     // without overwriting anything the user typed in the meantime.
-                    setInput(previous => previous.trim() ? previous : text);
-                    localStorage.setItem(draftKey, text);
+                    if (!latestComposerInputRef.current.trim()) {
+                        setInput(text);
+                        localStorage.setItem(draftKey, text);
+                    }
                 }
                 addToast(error instanceof Error ? error.message : '发送失败', 'error');
             })
