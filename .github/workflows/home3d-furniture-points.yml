@@ -10,6 +10,8 @@ on:
       - 'utils/chibiRoomWalk.test.ts'
       - 'utils/room3dBathroomActions.test.ts'
       - 'test/home3d-smoke.html'
+      - 'test/home3d-photo-export.html'
+      - 'scripts/home3d-photo-webgl-smoke.mjs'
       - 'scripts/home3d-webgl-smoke.mjs'
       - 'public/room3d/catalog.json'
       - '.github/workflows/home3d-furniture-points.yml'
@@ -19,6 +21,8 @@ on:
     paths:
       - 'apps/room3d/**'
       - 'test/home3d-smoke.html'
+      - 'test/home3d-photo-export.html'
+      - 'scripts/home3d-photo-webgl-smoke.mjs'
       - 'scripts/home3d-webgl-smoke.mjs'
       - 'public/room3d/catalog.json'
       - 'docs/room3d/**'
@@ -54,6 +58,21 @@ jobs:
         run: pnpm exec vitest run apps/room3d/photoFrame.test.ts apps/room3d/HomePhotoMode.test.tsx apps/room3d/photoEffectsReuse.test.ts
       - name: Build
         run: pnpm build
+      - name: Chromium WebGL photo 4-frame full-quality PNG acceptance
+        timeout-minutes: 5
+        run: |
+          pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/home3d-photo-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill "$VITE_PID" 2>/dev/null || true' EXIT
+          node scripts/home3d-photo-webgl-smoke.mjs
+      - name: Preserve real WebGL exported photo evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home3d-photo-export-acceptance
+          path: home3d-photo-acceptance/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Halloween WebGL visual review of 20 outfits and 9 pet species with both hats
         timeout-minutes: 12
         run: |
