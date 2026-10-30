@@ -51,10 +51,13 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
  });
  it('督促设置默认关闭，坏存档及非法时间一律退回安全值',()=>{
    expect(normalizeStudyCoachSetting(undefined)).toEqual(DEFAULT_STUDY_COACH);
+   expect(normalizeStudyCoachSetting({allowAutoAI:'true'}).allowAutoAI).toBe(false);
+   expect(normalizeStudyCoachSetting({allowAutoAI:true}).allowAutoAI).toBe(true);
+   expect(DEFAULT_STUDY_COACH.allowAutoAI).toBe(false);
    expect(normalizeStudyCoachSetting({level:'unexpected',quietStart:'55:99',quietEnd:'hi',paused:'yes'}))
      .toEqual(DEFAULT_STUDY_COACH);
    expect(normalizeStudyCoachSetting({level:'firm',quietEnabled:false,paused:true,quietStart:'09:30',quietEnd:'17:00'}))
-     .toEqual({level:'firm',quietEnabled:false,paused:true,quietStart:'09:30',quietEnd:'17:00'});
+     .toEqual({level:'firm',quietEnabled:false,paused:true,quietStart:'09:30',quietEnd:'17:00',allowAutoAI:false});
  });
  it('跨午夜免打扰、整日免打扰与白天窗口准确隔离',()=>{
    const s={...DEFAULT_STUDY_COACH,level:'normal' as const};
