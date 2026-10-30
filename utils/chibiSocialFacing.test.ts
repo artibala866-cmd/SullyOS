@@ -9,7 +9,7 @@ import {splitMotionHeading} from '../apps/room3d/chibi/motionHeading';
 const clip=(id:string)=>JSON.parse(readFileSync(`public/room3d/motions/selected/${id}.json`,'utf8'));
 // Existing heading tests use real imported clips, but should not request props
 // over a browser-relative GLB URL in Node. WebGL integration owns that check.
-beforeEach(()=>vi.spyOn(GLTFLoader.prototype,'loadAsync').mockImplementation(async()=>({scene:new T.Group()} as any)));
+beforeEach(()=>vi.spyOn(GLTFLoader.prototype,'load').mockImplementation((_url,onLoad)=>{onLoad({scene:new T.Group()} as any);}));
 afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 function actor(z:number){
  const root=new T.Group();root.position.z=z;root.rotation.y=z>0?Math.PI:0;let hips=new T.Quaternion();
