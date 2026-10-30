@@ -16,6 +16,9 @@ on:
       - 'utils/chibiRoomWalk.test.ts'
       - 'utils/room3dBathroomActions.test.ts'
       - 'test/home3d-smoke.html'
+      - 'test/home3d-forehead.html'
+      - 'scripts/home3d-forehead-visual-smoke.mjs'
+      - 'utils/homeFigureStyleToggle.test.ts'
       - 'test/home3d-photo-export.html'
       - 'scripts/home3d-photo-webgl-smoke.mjs'
       - 'scripts/home3d-webgl-smoke.mjs'
@@ -33,6 +36,9 @@ on:
       - 'utils/homeResourcePackGLTF.test.ts'
       - 'utils/halloweenAssetBoundary.test.ts'
       - 'test/home3d-smoke.html'
+      - 'test/home3d-forehead.html'
+      - 'scripts/home3d-forehead-visual-smoke.mjs'
+      - 'utils/homeFigureStyleToggle.test.ts'
       - 'test/home3d-photo-export.html'
       - 'scripts/home3d-photo-webgl-smoke.mjs'
       - 'scripts/home3d-webgl-smoke.mjs'
@@ -108,6 +114,21 @@ jobs:
         with:
           name: halloween-visual-acceptance
           path: halloween-visual-acceptance/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Forehead-touch two-person WebGL contact review (both body heights and render styles)
+        timeout-minutes: 7
+        run: |
+          pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/forehead-visual-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill "$VITE_PID" 2>/dev/null || true' EXIT
+          node scripts/home3d-forehead-visual-smoke.mjs
+      - name: Preserve forehead contact render frames and desktop/mobile evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home3d-forehead-contact-acceptance
+          path: home3d-forehead-acceptance/
           if-no-files-found: ignore
           retention-days: 7
       - name: Chromium WebGL scene and seat-action smoke

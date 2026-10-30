@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>双人贴额头 WebGL 实景验收</title>
+<style>*{box-sizing:border-box}body{margin:0;padding:16px;background:#ede6f0;color:#3d3744;font:14px system-ui,sans-serif}.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}figure{margin:0;border:1px solid #cabed2;background:#fff;border-radius:10px;overflow:hidden}img{display:block;width:100%;aspect-ratio:4/3;object-fit:contain}figcaption{padding:8px;font-size:12px}#status{position:sticky;top:0;background:#fff;padding:8px;z-index:4}</style>
+</head><body><h1>双人「贴额头」 · 实际 WebGL 接触验收</h1><output id="status">载入两人动作模型…</output><main class="gallery" id="gallery"></main>
+<script type="module">
+import * as T from 'three';
+import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
+import {loadSelectedMotion,sampleSelected} from '../apps/room3d/chibi/selectedMotions.ts';
+import {contactSolver} from '../apps/room3d/chibi/socialContact.ts';
+import {poseSeasonalSocial} from '../apps/room3d/chibi/seasonalSocial.ts';
+import {faceSocialPoint} from '../apps/room3d/chibi/faceSocialContact.ts';
+import {setCharacterStyle,getCharacterStyle} from '../apps/room3d/chibi/characterStyle.ts';
+const report={status:'starting',stage:'boot',errors:[],frames:[],contacts:[],styles:[],images:[]};
+window.__foreheadVisualAcceptance=report;
+const $=document.getElementById('status');
+const note=stage=>{report.stage=stage;$.textContent=report.status+' · '+stage+' · '+report.frames.length+' 帧';};
+window.addEventListener('error',e=>report.errors.push(e.message||String(e.error)));
+window.addEventListener('unhandledrejection',e=>report.errors.push(String(e.reason)));
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(400,300,false);renderer.setPixelRatio(1);
+const scene=new T.Scene();scene.background=new T.Color('#e8dfea');
+scene.add(new T.HemisphereLight('#ffffff','#a6a0b6',2.5));
+const sun=new T.DirectionalLight('#fff8ef',2.5);sun.position.set(4,7,5);scene.add(sun);
+const floor=new T.Mesh(new T.PlaneGeometry(12,12),new T.MeshStandardMaterial({color:'#dccbd8',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.02;scene.add(floor);
+const camera=new T.OrthographicCamera(-2.2,2.2,1.65,-1.65,.1,40);
+camera.position.set(3,2.6,6.5);camera.lookAt(0,1.45,0);
+function part(color){const c=document.createElement('canvas');c.width=c.height=472;const ctx=c.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,472,472);return c;}
+const names=['skin','eyes','mouth','fronthair','earhair','back1','back2','outfit','outer','decor','facemark'];
+const textures=Object.fromEntries(names.map((key,i)=>[key,part(i===0?'#e7b8a1':i===1?'#6a5b83':i<7?'#6c4b6c':'#92a7b9')]));
+const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+(async()=>{const previous=getCharacterStyle(),visitors=[];try{
+ const clip=await loadSelectedMotion('home-forehead-touch');if(clip.actors.length!==2)throw Error('Missing pair clip');
+ if(!renderer.getContext()||renderer.getContext().isContextLost())throw Error('WebGL context unavailable');
+ for(const [scenario,heights] of [['equal',[1,1]],['different',[.8,1.25]]]){
+  note('prepare '+scenario);
+  const pair=await Promise.all(heights.map(bodyHeight=>createVisitor(textures,{bodyShape:'blank',bodyHeight,layers:{},extras:[]})));
+  visitors.push(...pair);pair.forEach(v=>scene.add(v.root));
+  const both=pair.map(visitor=>({visitor,solver:contactSolver(visitor)}));
+  for(const style of ['modern','legacy']){
+   setCharacterStyle(style);
+   await next();report.styles.push(getCharacterStyle());
+   for(const time of [2.3,4.7]){
+    pair.forEach((visitor,i)=>{
+     visitor.root.position.set(0,0,i===0?-.38:.38);
+     visitor.root.quaternion.setFromAxisAngle(new T.Vector3(0,1,0),i===0?0:Math.PI);
+     visitor.applySelectedFrame(sampleSelected(clip.actors[i],time));
+    });
+    poseSeasonalSocial('home-forehead-touch',both,time);
+    pair.forEach(v=>v.finishPose());
+    const faces=pair.map(v=>faceSocialPoint(v,'home-forehead-touch'));
+    const distance=faces[0].distanceTo(faces[1]),vertical=Math.abs(faces[0].y-faces[1].y);
+    if(!Number.isFinite(distance)||!Number.isFinite(vertical))throw Error('Nonfinite head contact '+scenario+' '+time);
+    // Keep meaningful 3D geometry thresholds while retaining an intentional skin air gap.
+    if(time===4.7){report.contacts.push({scenario,style,distance,vertical});if(distance>.34||vertical>.19)throw Error('Forehead contact too far '+scenario+'/'+style+': '+distance.toFixed(3)+'m, vertical '+vertical.toFixed(3)+'m');}
+    note('render '+scenario+' '+style+' '+time);
+    renderer.render(scene,camera);
+    const pixels=new Uint8Array(400*300*4),gl=renderer.getContext();gl.readPixels(0,0,400,300,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+    let colored=0;for(let j=0;j<pixels.length;j+=32)if(Math.abs(pixels[j]-232)+Math.abs(pixels[j+1]-223)+Math.abs(pixels[j+2]-234)>40)colored++;
+    if(colored<100)throw Error('Blank 3D render '+scenario+' '+style+' '+time);
+    const name=scenario+'-'+style+'-'+String(time).replace('.','-'),img=document.createElement('img'),fig=document.createElement('figure'),label=document.createElement('figcaption');
+    img.src=renderer.domElement.toDataURL('image/png');img.alt=name;label.textContent=name+' | 距离 '+distance.toFixed(3)+'m / 高差 '+vertical.toFixed(3)+'m';
+    fig.append(img,label);document.getElementById('gallery').append(fig);
+    report.frames.push({name,scenario,style,time,colored,distance,vertical});
+    report.images.push({name});
+   }
+  }
+  pair.forEach(v=>{scene.remove(v.root);v.dispose();});
+ }
+ if(report.frames.length!==8||report.contacts.length!==4||report.styles.join(',')!=='modern,legacy,modern,legacy')throw Error('Incomplete two-style scene review');
+ report.status='pass';note('8 real WebGL frames collected');
+}catch(error){report.errors.push(String(error));report.status='fail';note('error');}
+finally{setCharacterStyle(previous);for(const v of visitors)try{v.dispose();}catch{}}
+})();
+</script></body></html>
