@@ -71,7 +71,7 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
    const base={charId:'A',setting:{...DEFAULT_STUDY_COACH,level:'normal' as const},session:null,now,
      idleSince:t-95*60000,lastPromptAt:0,isVisible:true,isTimerTab:true,
      reality:buildStudyRoomReality({...emptyWorkspace(),homework:[homework]},null,'',[],[],now)};
-   expect(nextStudyCoachPrompt(base)).toContain('待处理事项');
+   expect(nextStudyCoachPrompt(base)).toContain('七天内有 1 项');
    expect(nextStudyCoachPrompt({...base,charId:''})).toBeNull();
    expect(nextStudyCoachPrompt({...base,setting:DEFAULT_STUDY_COACH})).toBeNull();
    expect(nextStudyCoachPrompt({...base,setting:{...base.setting,paused:true}})).toBeNull();
@@ -151,7 +151,7 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
    const linked=buildStudyRoomReality(data,null,'',[
     {date:'2026-10-30',taskId:'t',sessionId:'s1',minutes:25},
    ],[{id:'t',source:{kind:'commission',id:'draw'}}],now);
-   expect(nextStudyCoachPrompt({...base,reality:linked})).toContain('没有手动核对');
+   expect(nextStudyCoachPrompt({...base,reality:linked})).toContain('待手动结算');
    const soft=nextStudyCoachPrompt({...base,setting:{...base.setting,level:'gentle'},
     idleSince:t-130*60000,reality:linked});
    expect(soft).toContain('需要时再开始');
@@ -201,19 +201,19 @@ describe('学习室持续 Char 陪伴：本机状态、单次主动共享、跨�
    const x={...d,homework:[homework]};
    const reality=buildStudyRoomReality(x,null,'',[],[],now);
    const event=studyCoachEvent(reality,now);
-   expect(event?.key).toContain('pending');
+   expect(event?.key).toContain('due');
    const b={charId:'A',setting:{...DEFAULT_STUDY_COACH,level:'normal' as const},
     session:null,now,idleSince:t-180*60000,lastPromptAt:0,
     isVisible:true,isTimerTab:true,reality};
    expect(nextStudyCoachPrompt({...b,reality:noWork})).toBeNull();
-   expect(nextStudyCoachPrompt(b)).toContain('待处理事项');
+   expect(nextStudyCoachPrompt(b)).toContain('七天内');
    expect(nextStudyCoachPrompt({...b,lastEventKey:event?.key})).toBeNull();
    expect(nextStudyCoachPrompt({...b,promptCountToday:2})).toBeNull();
    expect(nextStudyCoachPrompt({...b,lastPromptAt:t-40*60000})).toBeNull();
    expect(STUDY_COACH_INTERVAL_MINUTES.firm).toBeGreaterThan(5);
    expect(STUDY_COACH_DAILY_MAX.gentle).toBe(1);
    expect(STUDY_COACH_DAILY_MAX.firm).toBeLessThanOrEqual(3);
-   expect(studyCoachEvent({...reality,pendingHomework:0,activeCommissions:0},now)).toBeNull();
+   expect(studyCoachEvent({...reality,pendingHomework:0,activeCommissions:0,dueSoonHomework:0,dueSoonCommissions:0},now)).toBeNull();
    expect(studyCoachEvent({...reality,unsettledLinkedMinutes:25},now)?.key).not.toBe(event?.key);
  });
 
