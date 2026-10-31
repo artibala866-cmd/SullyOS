@@ -62,6 +62,8 @@ try {
   partnerBubble:color('conversation','.sully-bubble-ai','backgroundColor')==='rgb(238, 238, 238)',
   groupPartnerBubble:color('group-chat','.sully-bubble-ai','backgroundColor')==='rgb(238, 238, 238)',
   profileGlass:color('conversation','.sully-chat-profile','backgroundColor')==='rgba(255, 255, 255, 0.75)',
+  headerStatusSingleLine:($('conversation','.sully-chat-profile .sully-chat-status')?.getBoundingClientRect().height||100)<=20,
+  transferCardFullSize:($('transfer','.sully-chat-transfer-card')?.getBoundingClientRect().width||0)>=218,
   originalNamePlate:getComputedStyle($('conversation','.sully-chat-message-group-first .sully-bubble-ai')!,'::before').content.includes('char'),
   originalInputPrompt:getComputedStyle($('conversation','.sully-chat-input-wrap')!,'::after').content.includes('imonly temporary 2 u'),
   avatarOnlyWhenVisible:[...root.querySelectorAll<HTMLElement>('[data-scene="conversation"] .sully-chat-message-avatar:not(.sully-chat-avatar-wrap)')].every(node=>{
