@@ -51,6 +51,10 @@ export function createRoomFinishPass(renderer){
      float paintLuma=dot(c,vec3(.2126,.7152,.0722));
      c+= (c-vec3(paintLuma))*.12*midWeight;
      c=max(c,vec3(0.));
+     // A thin, luminous paper veil over midtones only. Avoid flat fog over
+     // dark hair, eyes, bright skin and white walls; keep authored detail.
+     float paperMask=smoothstep(.09,.36,inkLuma)*(1.-smoothstep(.81,.98,inkLuma));
+     c=mix(c,c*vec3(.987,.990,.996)+vec3(.014,.012,.015),paperMask*.72);
      // Joyce Comic.fx-inspired CURRENT-PIXEL ink. The four surrounding
      // texels are edge DETECTORS only; their colours NEVER enter the output.
      // Unlike fake depth of field this cannot superimpose shifted copies of
@@ -62,17 +66,25 @@ export function createRoomFinishPass(renderer){
      vec3 outlineDx=rightInk-leftInk;
      vec3 outlineDy=upInk-downInk;
      float colourDiscontinuity=max(length(outlineDx),length(outlineDy));
-     float outlineStrength=smoothstep(.17,.58,colourDiscontinuity);
+     float outlineStrength=smoothstep(.22,.68,colourDiscontinuity);
      // Ink the boundary pixel itself, never an offset silhouette.
      // Keep light, detailed surfaces crisp without filling them with black.
-     float inkWeight=outlineStrength*mix(.14,.32,smoothstep(.11,.78,paintLuma));
-     c=mix(c,vec3(.050,.041,.050),inkWeight);
+     float inkWeight=outlineStrength*mix(.075,.16,smoothstep(.11,.78,paintLuma));
+     c=mix(c,vec3(.070,.057,.071),inkWeight);
+     // Faint pink/cyan pigment sits on the detected edge pixel itself.
+     // There are no offset image copies, so moving characters do not ghost.
+     float edgeSign=dot(outlineDx+outlineDy,vec3(.20,.63,.17));
+     vec3 colouredInk=edgeSign>0.?vec3(.91,.56,.73):vec3(.47,.77,.91);
+     float colouredEdge=outlineStrength*.060*mix(.42,1.,smoothstep(.07,.60,paintLuma))
+                       *(1.-smoothstep(.96,1.03,paintLuma));
+     c=mix(c,colouredInk,colouredEdge);
      // Static fine-grain, applied after the lens pass. It is deliberately
      // weakest over clean whites, near-blacks, pupils and dark linework.
      vec2 grainCell=floor(gl_FragCoord.xy*.82);
      float noise=fract(sin(dot(grainCell,vec2(12.9898,78.233)))*43758.5453)-.5;
      float grainMask=smoothstep(.045,.18,inkLuma)*(1.-smoothstep(.85,1.04,inkLuma));
-     c+=vec3(noise)*.028*grainMask;
+     float paperTooth=fract(sin(dot(floor(gl_FragCoord.xy*.31),vec2(31.123,57.179)))*31758.5453)-.5;
+     c+=vec3(noise*.018+paperTooth*.006)*grainMask;
     }
     gl_FragColor=vec4(max(c,0.),1.);
     #include <colorspace_fragment>
