@@ -8,6 +8,8 @@ on:
       - 'utils/builtinWhitebox.test.ts'
       - 'components/chat/ChatDecorationPresets.tsx'
       - 'components/chat/MessageItem.tsx'
+      - 'components/chat/ChatHeaderShell.tsx'
+      - 'components/chat/BlobRefStyle.tsx'
       - 'apps/GroupChat.tsx'
       - 'utils/chatWhitebox.ts'
       - 'utils/chatPreviewFixtures.ts'
@@ -40,7 +42,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false >/tmp/silent-tsc.txt 2>&1 || true
-          grep -E '^(utils/builtinWhitebox(\.test)?\.ts|utils/chatPreviewFixtures\.ts|components/chat/(ChromeCssEditor|ChatDecorationPresets|MessageItem)\.tsx|apps/GroupChat\.tsx|tests/silent-letter-whitebox-visual\.ts)[(]' /tmp/silent-tsc.txt >/tmp/silent-target-errors.txt || true
+          grep -E '^(utils/builtinWhitebox(\.test)?\.ts|utils/chatPreviewFixtures\.ts|components/chat/(ChromeCssEditor|ChatDecorationPresets|MessageItem|ChatHeaderShell|BlobRefStyle)\.tsx|apps/GroupChat\.tsx|tests/silent-letter-whitebox-visual\.ts)[(]' /tmp/silent-tsc.txt >/tmp/silent-target-errors.txt || true
           if test -s /tmp/silent-target-errors.txt; then cat /tmp/silent-target-errors.txt; exit 1; fi
       - name: Generate the real private chat preview stylesheet
         run: pnpm run build:chat-preview
