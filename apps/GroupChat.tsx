@@ -112,7 +112,7 @@ export const GroupPacketCard = ({ msg, nameOf, onOpen }: {
     return (
         <div
             onClick={() => onOpen?.(msg)}
-            className={`sully-chat-group-packet w-60 p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden active:scale-95 transition-transform cursor-pointer text-white ${opened ? 'bg-[#bebebe]' : 'bg-gradient-to-br from-[#a2a2a2] to-[#686868]'}`}
+            data-status={status}\n            className={`sully-chat-group-packet w-60 p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden active:scale-95 transition-transform cursor-pointer text-white ${opened ? 'bg-[#bebebe]' : 'bg-gradient-to-br from-[#a2a2a2] to-[#686868]'}`}
         >
             <div className="text-3xl drop-shadow-sm">🧧</div>
             <div className="z-10 min-w-0 flex-1 pb-3">
@@ -1927,7 +1927,7 @@ ${memberTimeline || '(暂无互动记录)'}
             {/* Redesigned Input Area (WeChat/iOS Style) */}
             {/* 回复预览条（对齐私聊 Chat.tsx 的样式与位置） */}
             {replyTarget && !selectionMode && (
-                <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 shrink-0 z-40">
+                <div className="sully-chat-reply-preview flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 shrink-0 z-40">
                     {/* 引用的是图片 / 表情时这里显示占位符，跟落库的快照同一口径 */}
                     <div className="flex items-center gap-2 truncate"><span className="font-bold text-slate-700">正在回复:</span><span className="truncate max-w-[200px]">{buildReplySnapshotContent(replyTarget)}</span></div>
                     <button onClick={() => setReplyTarget(null)} className="p-1 text-slate-400 hover:text-slate-600">×</button>
