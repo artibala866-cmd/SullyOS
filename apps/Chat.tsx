@@ -1823,6 +1823,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                         // A failed asset write must not create a broken/pretend play button.
                         if (audioRef) await deleteBlobRefIfUnreferenced(audioRef).catch(() => {});
                         audioRef = undefined;
+                        // Without audio OR user-authored words there is nothing to send.
+                        // Keep the captured draft for retry rather than posting a fake voice.
+                        if (!text) throw new Error('录音保存失败，原声尚未发送，请重试');
                         addToast('录音保存失败，本次仅发送转写文字', 'info');
                     }
                 }
