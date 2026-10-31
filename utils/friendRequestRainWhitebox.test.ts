@@ -22,6 +22,15 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   expect(css).toContain('padding:5px 9px!important');
   expect(css).toContain('渐变爱心与首条气泡解耦 v14');
   expect(css).toContain('气泡内层文字与独立引用遮挡修复 v15');
+  expect(css).toContain('用户气泡右边线稳定对齐 v16');
+  const alignRules=css.slice(css.indexOf('/* 请求添加好友 · 用户气泡右边线稳定对齐 v16'));
+  expect(alignRules).toContain('.sully-chat-message-user:not(.sully-chat-message-module) > .sully-chat-message-content');
+  expect(alignRules).toContain('margin-left:auto!important');
+  expect(alignRules).toContain('margin-right:3rem!important');
+  expect(alignRules).toContain('align-self:flex-end!important');
+  for(const forbidden of ['.sully-chat-header','.sully-chat-inputbar','.sully-chat-profile','.sully-chat-avatar','.sully-bubble-ai','font-size:12px','padding:5px 9px'])
+    expect(alignRules).not.toContain(forbidden);
+
   const v15Rules=css.slice(css.indexOf('/* 请求添加好友 · 气泡内层文字与独立引用遮挡修复 v15'));
   expect(v15Rules).toContain('.sully-bubble-user > .sully-facebook-bubble-text');
   expect(v15Rules).toContain('font-size:12px!important');
@@ -91,10 +100,11 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   const v13='/* 请求添加好友 · 仅缩小气泡 v13';
   const v14='/* 请求添加好友 · 渐变爱心与首条气泡解耦 v14';
   const v15='/* 请求添加好友 · 气泡内层文字与独立引用遮挡修复 v15';
-  for(const marker of [v8,v9,v10,v13,v14,v15]){
+  const v16='/* 请求添加好友 · 用户气泡右边线稳定对齐 v16';
+  for(const marker of [v8,v9,v10,v13,v14,v15,v16]){
     const older=full.slice(0,full.indexOf(marker))+'\n.my-css{color:hotpink}';
     const migrated=resolveLegacyFriendRequestRainCss(older);
-    expect(migrated).toContain(v15);
+    expect(migrated).toContain(v16);
     expect(migrated).toContain('.my-css{color:hotpink}');
     expect(resolveLegacyFriendRequestRainCss(migrated)).toBe(migrated);
   }

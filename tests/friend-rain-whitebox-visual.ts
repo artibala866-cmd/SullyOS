@@ -108,6 +108,33 @@ try {
  quoteScene.innerHTML='<h2>缩小气泡与独立引用不遮挡</h2><div class="beauty-preview-body">'+quoteMarkup+'</div>';
  const quoteStyle=document.createElement('style');quoteStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
  quoteScene.prepend(quoteStyle);root.append(quoteScene);
+
+ // First/next user bubbles with DIFFERENT text widths: hearts, long messages, and replies.
+ // The old equal-length fixture could not catch first-user-bubble rightward displacement.
+ const userAlignScene=document.createElement('section');
+ userAlignScene.className='scene';userAlignScene.dataset.scene='user-edge';
+ const alignCases=[
+  {id:50101,content:'嗯',first:true,last:false,reply:false},
+  {id:50102,content:'今天晚上一起去看电影吧，我们聊聊最近发生的事情。',first:false,last:true,reply:false},
+  {id:50103,content:'好',first:true,last:true,reply:true},
+  {id:50104,content:'这是另外一条比较长的用户消息，我们看看是否和前面几条的右边界保持一致。',first:true,last:true,reply:false}
+ ];
+ const userAlignMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sample-chat'},
+  React.createElement('div',{className:'sully-chat-messages sample-messages'},
+   ...alignCases.map(item=>React.createElement(MessageItem,{
+    msg:{...demo,id:item.id,role:'user',content:item.content,
+      replyTo:item.reply?{name:'示例角色',content:'引用消息'}:undefined},
+    activeTheme:preset.parts.bubbles!,friendRainWhitebox:true,
+    charName:'示例角色',charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,
+    isFirstInGroup:item.first,isLastInGroup:item.last,showTimestamp:'always',
+    avatarMode:'grouped',avatarSize:'small',
+    onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,
+    onToggleSelect:()=>{},suppressEntranceAnimation:true
+   }))
+  )));
+ userAlignScene.innerHTML='<h2>用户气泡长短文字、爱心、引用统一右对齐</h2><div class="beauty-preview-body">'+userAlignMarkup+'</div>';
+ const userAlignStyle=document.createElement('style');userAlignStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
+ userAlignScene.prepend(userAlignStyle);root.append(userAlignScene);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
 
  const rect=(scene:string,sel:string)=>$(scene,sel)?.getBoundingClientRect();
@@ -212,7 +239,36 @@ try {
   return ok;
  });
 
+
+ const userEdgeDiagnostics:Array<Record<string,unknown>>=[];
+ const userEdgesAligned=[320,360,390,430].every(width=>{
+  const body=userAlignScene.querySelector<HTMLElement>('.beauty-preview-body');
+  const app=userAlignScene.querySelector<HTMLElement>('.sample-chat');
+  if(!body||!app)return false;
+  const prevBody=body.style.width,prevApp=app.style.width;
+  body.style.setProperty('width',width+'px','important');app.style.width=width+'px';
+  const roots=[...app.querySelectorAll<HTMLElement>('.sully-chat-message-user:not(.sully-chat-message-module)')];
+  const bubbleRects=roots.map(x=>x.querySelector<HTMLElement>('.sully-bubble-user')?.getBoundingClientRect());
+  const rowRects=roots.map(x=>x.getBoundingClientRect());
+  const contentRects=roots.map(x=>x.querySelector<HTMLElement>('.sully-chat-message-content')?.getBoundingClientRect());
+  const edges=bubbleRects.map(x=>x?.right||0);
+  const edgeSpread=Math.max(...edges)-Math.min(...edges);
+  const withinRows=bubbleRects.every((b,i)=>!!b&&b.right<=rowRects[i].right-3&&b.left>=rowRects[i].left);
+  const marginConsistent=contentRects.every((c,i)=>!!c&&Math.abs(rowRects[i].right-c.right-48)<=3);
+  const heartsDetached=roots.filter(x=>x.classList.contains('sully-chat-message-group-first')).every(x=>{
+   const b=x.querySelector<HTMLElement>('.sully-bubble-user');
+   return !!b&&getComputedStyle(b,'::after').position==='absolute'&&getComputedStyle(b).marginTop==='0px';
+  });
+  const quote=roots[2]?.querySelector<HTMLElement>('.sully-chat-reply');
+  const good=roots.length===4&&edgeSpread<=1&&withinRows&&marginConsistent&&heartsDetached&&!!quote;
+  userEdgeDiagnostics.push({width,good,edges,edgeSpread,withinRows,marginConsistent,heartsDetached,
+    rowRights:rowRects.map(x=>x.right),contentRights:contentRects.map(x=>x?.right)});
+  body.style.width=prevBody;app.style.width=prevApp;
+  return good;
+ });
+
  const checks={
+  userEdgesAligned,
   quoteCompactChecks,
   heartAlignment,
   responsive,
@@ -293,5 +349,5 @@ try {
  };
  root.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';
  const output=document.createElement('output');output.textContent=JSON.stringify(checks,null,2);root.prepend(output);
- if(root.dataset.ready!=='true')throw Error(JSON.stringify({checks,responsiveDiagnostics,quoteDiagnostics}));
+ if(root.dataset.ready!=='true')throw Error(JSON.stringify({checks,responsiveDiagnostics,quoteDiagnostics,userEdgeDiagnostics}));
 }catch(e){root.dataset.ready='false';root.dataset.error=String(e);const output=document.createElement('output');output.textContent=String(e);root.prepend(output)}
