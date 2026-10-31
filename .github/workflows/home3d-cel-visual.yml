@@ -8,6 +8,8 @@ on:
       - 'apps/room3d/chibi/characterStyle.ts'
       - 'apps/room3d/chibi/FbxBody.ts'
       - 'apps/room3d/editor.js'
+      - 'apps/room3d/roomFinishPass.js'
+      - 'apps/room3d/furnitureHalo.js'
       - 'test/home3d-carry-visual.html'
       - 'scripts/home3d-carry-visual-smoke.mjs'
       - '.github/workflows/home3d-cel-visual.yml'
