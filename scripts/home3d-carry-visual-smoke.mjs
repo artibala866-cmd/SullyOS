@@ -8,7 +8,8 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 
-const out=join(process.cwd(),'home3d-carry-visual');mkdirSync(out,{recursive:true});
+const celOnly=process.env.HOME3D_CEL_ONLY==='1';
+const out=join(process.cwd(),celOnly?'home3d-cel-visual':'home3d-carry-visual');mkdirSync(out,{recursive:true});
 let binary=process.env.CHROME_BIN||'';
 for(const cmd of ['google-chrome','chromium','chromium-browser'])if(!binary)try{binary=execFileSync('which',[cmd],{encoding:'utf8'}).trim();}catch{}
 if(!binary)throw Error('Chromium is required');
@@ -16,7 +17,7 @@ const profile=mkdtempSync(join(tmpdir(),'sully-carry-'));
 const chrome=spawn(binary,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
  '--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader',
  '--remote-allow-origins=*','--remote-debugging-port=0','--window-size=1280,800',
- '--user-data-dir='+profile,'http://127.0.0.1:4173/test/home3d-carry-visual.html'],
+ '--user-data-dir='+profile,'http://127.0.0.1:4173/test/home3d-carry-visual.html'+(celOnly?'?cel-only':'')],
  {stdio:['ignore','ignore','pipe']});
 let stderr='',ws,report={status:'starting',errors:[]};chrome.stderr.on('data',v=>stderr=(stderr+v.toString()).slice(-20000));
 try{
@@ -43,7 +44,7 @@ try{
  // Persist available real WebGL frames even when acceptance rejects a pose.
  // A failed iteration must remain visually inspectable instead of uploading
  // only a JSON error, especially during motion choreography development.
- const complete=report.status==='pass'&&report.images.length===980&&report.sequences.length===12&&report.timelines.length===2;
+ const complete=report.status==='pass'&&(celOnly?report.images.length===0&&report.materialImages?.length===36:report.images.length===980&&report.sequences.length===12&&report.timelines.length===2);
  for(let i=0;i<report.images.length;i++){
   const src=await evaluate('document.querySelectorAll(".gallery figure img")['+i+']?.src');
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing actual WebGL render '+i);

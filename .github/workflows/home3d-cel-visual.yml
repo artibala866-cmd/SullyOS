@@ -1,0 +1,49 @@
+name: Home3D illustrated cel shader fast real-WebGL visual acceptance
+on:
+  push:
+    branches:
+      - remove-checkphone-vrworld-lifesim
+    paths:
+      - 'apps/room3d/chibi/illustration.ts'
+      - 'apps/room3d/chibi/characterStyle.ts'
+      - 'apps/room3d/chibi/FbxBody.ts'
+      - 'apps/room3d/editor.js'
+      - 'test/home3d-carry-visual.html'
+      - 'scripts/home3d-carry-visual-smoke.mjs'
+      - '.github/workflows/home3d-cel-visual.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: home3d-cel-visual-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  real-webgl-cel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Render real character cel shader, all hair/skin variants and original-vs-new four phases
+        timeout-minutes: 12
+        run: |
+          pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/home3d-cel-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill "$VITE_PID" 2>/dev/null || true' EXIT
+          HOME3D_CEL_ONLY=1 node scripts/home3d-carry-visual-smoke.mjs
+      - name: Preserve original, illustrated, restored real WebGL screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home3d-illustrated-cel-webgl-review
+          path: home3d-cel-visual/
+          if-no-files-found: ignore
+          retention-days: 14

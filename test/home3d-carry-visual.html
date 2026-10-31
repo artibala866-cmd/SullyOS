@@ -37,9 +37,10 @@ const palm=v=>['L','R'].map(s=>v.rig.bones[s+'_hand'].getWorldPosition(new T.Vec
 const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 (async()=>{try{
  if(renderer.getContext().isContextLost())throw Error('WebGL context lost');
+ const celOnly=new URLSearchParams(location.search).has('cel-only');
  const variants=[{name:'equal',heights:[1,1]},{name:'short-carrier',heights:[.8,1.25]},{name:'tall-carrier',heights:[1.25,.8]}];
  const outfits=[{name:'hoodie',id:'original'},{name:'sailor',id:'sailor'}];
- for(const heights of variants)for(const outfit of outfits){
+ if(!celOnly)for(const heights of variants)for(const outfit of outfits){
   const pair=[];let runtime;
   try{
    stage('创建 '+heights.name+' / '+outfit.name);
@@ -302,7 +303,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
  }
  if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==24||report.phaseImages.length!==12)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
  finishPass.dispose();
- if(report.images.length!==980||report.timelines.length!==2)throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
+ if(!celOnly&&(report.images.length!==980||report.timelines.length!==2))throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
 }catch(error){report.errors.push(String(error));report.status='fail';stage('错误');}
 })();
