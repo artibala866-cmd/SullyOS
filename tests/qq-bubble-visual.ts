@@ -4,7 +4,6 @@
  */
 import { renderChatDecorationSample } from '../components/chat/ChatDecorationSample';
 import { PRESET_THEMES } from '../components/chat/ChatConstants';
-import '../index.css';
 
 const root = document.getElementById('qq-visual-samples');
 if (!root) throw new Error('QQ visual root missing');
