@@ -22,6 +22,8 @@ interface ChatHeaderShellProps {
     selectedCount: number;
     onCancelSelection: () => void;
     activeCharacter: HeaderCharacter;
+    /** 仅指定成对头像美化时传入；值来自当前用户的头像，而非主题固定图。 */
+    pairedAvatar?: string;
     isTyping: boolean;
     isSummarizing: boolean;
     /** 覆盖状态区的 "Online" 文案（群聊传 "N 成员"）。不传 = 原行为 */
@@ -74,6 +76,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
     selectedCount,
     onCancelSelection,
     activeCharacter,
+    pairedAvatar,
     isEmotionEvaluating,
     isMemoryPalaceProcessing,
     memoryPalaceStatusText,
@@ -203,6 +206,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
     const isDarkHeader = headerStyle === 'discord';
     const isPixelHeader = headerStyle === 'pixel';
     const useCenteredLayout = headerAlign === 'center';
+    const showPairedAvatar = useCenteredLayout && pairedAvatar !== undefined;
     const avatarRadiusClass = avatarShape === 'square' ? 'rounded-sm' : avatarShape === 'rounded' ? 'rounded-xl' : 'rounded-full';
     const buffChipStyle = (buff: CharacterBuff): React.CSSProperties => ({ color: buff.color || '#db2777', borderColor: `${buff.color || '#db2777'}40`, background: `${buff.color || '#db2777'}10` });
 
@@ -347,7 +351,12 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
 
     const renderCenteredInfo = () => (
         <div className="flex w-full min-w-0 max-w-full flex-col items-center text-center">
-            <TokenImg value={activeCharacter.avatar} className={`sully-chat-avatar w-10 h-10 object-cover shadow-sm ${avatarRadiusClass}`} alt="avatar" />
+            {showPairedAvatar ? <div className="sully-chat-avatar-pair" aria-label="角色与我的配对头像">
+                <TokenImg value={activeCharacter.avatar} className={`sully-chat-avatar w-10 h-10 object-cover shadow-sm ${avatarRadiusClass}`} alt="角色头像" />
+                {pairedAvatar
+                    ? <TokenImg value={pairedAvatar} className="sully-chat-pair-user-avatar" alt="我的头像" />
+                    : <span className="sully-chat-pair-user-avatar sully-chat-pair-user-fallback" aria-label="尚未设置我的头像">我</span>}
+            </div> : <TokenImg value={activeCharacter.avatar} className={`sully-chat-avatar w-10 h-10 object-cover shadow-sm ${avatarRadiusClass}`} alt="avatar" />}
             <div className={`sully-chat-name mt-1 font-bold ${primaryTextClass}`}>{chatCharacterDisplayName(activeCharacter)}</div>
             <div className="sully-chat-status flex items-center justify-center gap-2 flex-wrap">
                 {onlineStatusNode}
@@ -389,6 +398,27 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
 
     return (
         <div className="shrink-0 z-30 sticky top-0">
+        {showPairedAvatar && <style>{`
+            /* Faint Silk: the right avatar is an actual user image, not a CSS background.
+               Extra specificity replaces the fixed pseudo-image in already-installed themes. */
+            .sully-chat-root:not(.sully-chat-group-root) .sully-chat-header:has(.sully-chat-avatar-pair) .sully-chat-avatar-pair {
+                display:flex!important; align-items:center!important; justify-content:center!important;
+                gap:10px!important; width:110px!important; max-width:100%!important; margin:0 auto!important;
+            }
+            .sully-chat-root:not(.sully-chat-group-root) .sully-chat-header:has(.sully-chat-avatar-pair) .sully-chat-avatar-pair .sully-chat-avatar,
+            .sully-chat-root:not(.sully-chat-group-root) .sully-chat-header:has(.sully-chat-avatar-pair) .sully-chat-pair-user-avatar {
+                width:50px!important;height:50px!important;min-width:50px!important;
+                border-radius:50%!important;object-fit:cover!important;flex-shrink:0!important;
+                transform:none!important;position:static!important;box-shadow:0 2px 12px #0000001a!important;
+            }
+            .sully-chat-root:not(.sully-chat-group-root) .sully-chat-header:has(.sully-chat-avatar-pair) .sully-chat-pair-user-fallback {
+                display:flex!important;align-items:center;justify-content:center;
+                color:#6b5a52!important;background:#ffffff80!important;font-size:19px;font-weight:600;
+            }
+            .sully-chat-root:not(.sully-chat-group-root) .sully-chat-header:has(.sully-chat-avatar-pair) .sully-chat-name::after {
+                content:none!important;display:none!important;background:none!important;
+            }
+        `}</style>}
         {/* header 主体：sully-chat-header 钩子背景从 y=0 铺起、paddingTop 让出 safe-top，刘海段即顶栏自己的背景（无缝，和其余 App 统一）；内容垂直居中 */}
         <div className={`sully-chat-header ${headerDensityClass} flex items-center relative ${headerToneClass}`} style={headerSafeStyle}>
             {selectionMode ? (
