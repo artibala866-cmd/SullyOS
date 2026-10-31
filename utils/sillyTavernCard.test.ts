@@ -116,7 +116,7 @@ describe('SillyTavern card normalization', () => {
             order: 220, caseSensitive: true, matchWholeWords: true, sourceUid: 53 });
         const mounted = result.worldbooks.map(toMountedWorldbook);
         expect(isWorldbookEntryActive(mounted[1], [])).toBe(false);
-        expect(isWorldbookEntryActive({ ...mounted[2], useProbability: false }, [{ content: '钟楼与雨' }])).toBe(true);
+        expect(isWorldbookEntryActive({ ...mounted[2], useProbability: false }, [{ content: '钟楼 雨' }])).toBe(true);
         expect(isWorldbookEntryActive({ ...mounted[2], useProbability: false }, [{ content: '钟楼' }])).toBe(false);
         expect(resolveWorldbookEntries(mounted, []).map(x => x.book.id)).toEqual([a.id]);
         expect(a.id).not.toBe(b.id);
