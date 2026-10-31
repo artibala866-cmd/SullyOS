@@ -101,6 +101,13 @@ try{
   if(!/^art-[a-z0-9-]+$/.test(name))throw Error('Unsafe illustrated film frame '+name);
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
+ for(let i=0;i<(report.dofImages||[]).length;i++){
+  const src=await evaluate('document.querySelectorAll(".dof-comparison figure img")['+i+']?.src');
+  if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing depth-of-field PNG '+i);
+  const name=report.dofImages[i].name;if(!/^dof-(on|off)$/.test(name))throw Error('Unsafe DOF name');
+  writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
+ }
+ if((report.dofImages||[]).length!==2||(report.dofStats||[]).length!==1)throw Error('DOF A/B screenshot coverage missing');
  for(let i=0;i<(report.antiGhostImages||[]).length;i++){
   const src=await evaluate('document.querySelectorAll(".antighost-comparison figure img")['+i+']?.src');
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing real-WebGL ghost-check PNG '+i);
