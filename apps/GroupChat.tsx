@@ -4,6 +4,7 @@ import { avatarDecorationImageStyle, isAnniversaryFrame } from '../utils/anniver
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import BlobRefStyle from '../components/chat/BlobRefStyle';
+import {isWeixinBaiyuCss} from '../components/chat/BlobRefStyle';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
@@ -1941,6 +1942,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 actions 面板整体替换为群聊自己的 4 格 */}
             {previewImage && <ImageViewer value={previewImage} fallback={previewImage} onClose={() => setPreviewImage(null)} />}
             <ChatInputArea
+                weixinOriginalIcons={isWeixinBaiyuCss(activeGroup?.chromeCustomCss || osTheme.chatChromeCustomCss)}
                 input={input}
                 setInput={value => { setInput(value); if (value.trim()) autoReply.cancelIfPending(); }}
                 isTyping={isTyping}
