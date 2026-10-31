@@ -32,7 +32,7 @@ try {
   partnerBubble:color('conversation','.sully-bubble-ai','backgroundColor')==='rgb(238, 238, 238)',
   header:sceneHas('conversation','.sully-chat-header'),
   input:sceneHas('conversation','.sully-chat-inputbar'),
-  reply:sceneHas('reply','.sully-chat-message-content'),
+  reply:sceneHas('reply','.sully-chat-reply'),
   voice:sceneHas('voice-playing','.sully-voice-bar'),
   transfer:sceneHas('transfer','.sully-chat-transfer-card[data-status="pending"]'),
   accepted:sceneHas('transfer-accepted','.sully-chat-transfer-receipt'),
