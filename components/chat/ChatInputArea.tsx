@@ -1,3 +1,7 @@
+import wyOriginalVoice from '../../assets/chat/weixin-baiyu/voice.png?url';
+import wyOriginalSticker from '../../assets/chat/weixin-baiyu/sticker.png?url';
+import wyOriginalAction from '../../assets/chat/weixin-baiyu/action.png?url';
+import wyOriginalMicrophone from '../../assets/chat/weixin-baiyu/microphone.png?url';
 import EmojiExportDialog from './EmojiExportDialog';
 import ChatCamera from './ChatCamera';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
@@ -45,9 +49,10 @@ const WeixinSourceIcon: React.FC<{active?:boolean;src:string;children:React.Reac
     </span>;
 };
 const WEIXIN_SOURCE_ICONS = {
-    voice: 'https://nos.netease.com/vcloud-statistic/nrtc/17ec3907-e615-4349-a269-9f716cf59489.png',
-    sticker: 'https://nos.netease.com/vcloud-statistic/nrtc/da835c40-d3c7-4462-ad4b-5c598284837b.png',
-    menu: 'https://nos.netease.com/vcloud-statistic/nrtc/4f7329f5-0fbc-4871-98ea-b2223db71efb.png',
+    voice: wyOriginalVoice,
+    sticker: wyOriginalSticker,
+    menu: wyOriginalAction,
+    microphone: wyOriginalMicrophone,
 } as const;
 
 interface ChatInputAreaProps {
