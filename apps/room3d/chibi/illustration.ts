@@ -154,9 +154,11 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkHairDirection=abs(dot(normalize(inkLocalStrandView),inkHairHalf));
             float inkHairSheen=(1.-smoothstep(.18,.78,inkHairDirection))
                 *smoothstep(.34,.90,clamp(dot(normal,inkHairHalf),0.,1.));
-            float inkPaintMask=smoothstep(.015,.24,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722)));
+            float inkPaintMask=smoothstep(.002,.055,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722)));
+            // Keep dark hair coloured, never replace it with flat white glare.
+            vec3 inkSheenPigment=mix(diffuseColor.rgb,sqrt(max(diffuseColor.rgb,vec3(0.)))*.32,.40);
             inkColor*=1.-.020*inkShadeShare;
-            inkColor+=(1.-clamp(inkColor,0.,1.))*diffuseColor.rgb*inkHairSheen*inkLit*inkPaintMask*.075;` : leather || metal ? `
+            inkColor+=(1.-clamp(inkColor,0.,1.))*inkSheenPigment*inkHairSheen*inkLit*inkPaintMask*.105;` : leather || metal ? `
             // Keep the existing resource-authored glints and colours unchanged.` : `
             // Cloth stays matte: give folded shade a little depth without
             // touching unshadowed fabric colours or changing room illumination.
@@ -167,11 +169,11 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             // Material-space edge shaping, not an extra outline mesh/pass.
             float inkContour = smoothstep(.62,.94,inkFresnel)*${face ? '.035' : '.16'}*(1.-inkLit*.5);
             inkColor *= 1.-inkContour;
-            float inkRim = pow(inkFresnel,4.)*smoothstep(-.15,.65,inkFacing)*${face ? '.015' : hair ? '.055' : leather ? '.035' : metal ? '.045' : '.018'};
+            float inkRim = pow(inkFresnel,4.)*smoothstep(-.15,.65,inkFacing)*${face ? '.015' : hair ? style==='illustrated' ? '.035' : '.055' : leather ? '.035' : metal ? '.045' : '.018'};
             ${leather || metal ? `// Restrained material-specific glint; no extra light, texture or pass.
             float inkSurfaceGlint = smoothstep(${metal ? '.88,.97' : '.62,.91'},dot(normal,normalize(inkLight+inkView)))*inkLit*${metal ? '.065' : '.028'};
             inkRim += inkSurfaceGlint;` : ''}
-            ${hair ? `// A broad satin reflection follows the projected vertical strand axis.\n            // Avoid UV-derived tangents: projected/contour hair sheets do not share a reliable UV direction.\n            vec3 inkStrandAxis = normalize(mat3(viewMatrix) * vec3(0.,1.,0.));\n            vec3 inkHalf = normalize(inkLight+inkView);\n            float inkStrandAlignment = abs(dot(inkHalf,inkStrandAxis));\n            float inkHairBand = (1.-smoothstep(.26,.72,inkStrandAlignment))*smoothstep(.42,.92,dot(normal,inkHalf));\n            float inkHairHighlight = inkHairBand*inkLit*.024;\n            inkRim += inkHairHighlight;` : ''}
+            ${hair && style!=='illustrated' ? `// A broad satin reflection follows the projected vertical strand axis.\n            // Avoid UV-derived tangents: projected/contour hair sheets do not share a reliable UV direction.\n            vec3 inkStrandAxis = normalize(mat3(viewMatrix) * vec3(0.,1.,0.));\n            vec3 inkHalf = normalize(inkLight+inkView);\n            float inkStrandAlignment = abs(dot(inkHalf,inkStrandAxis));\n            float inkHairBand = (1.-smoothstep(.26,.72,inkStrandAlignment))*smoothstep(.42,.92,dot(normal,inkHalf));\n            float inkHairHighlight = inkHairBand*inkLit*.024;\n            inkRim += inkHairHighlight;` : ''}
             vec3 outgoingLight = inkColor + (1.-clamp(inkColor,0.,1.))*inkRim*inkLitTint;
             `,
           );
