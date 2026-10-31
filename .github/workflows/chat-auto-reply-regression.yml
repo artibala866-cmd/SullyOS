@@ -8,6 +8,11 @@ on:
       - 'apps/Chat.tsx'
       - 'utils/chatAutoReply.test.ts'
       - 'utils/chatInputPreferences.ts'
+      - 'worker/amsg/src/**'
+      - 'utils/amsgAutoUpdateTrigger*'
+      - 'utils/amsgBundleVersion.ts'
+      - 'utils/activeMsgClient.ts'
+      - 'components/settings/ActiveMsgGlobalSettingsModal.tsx'
       - '.github/workflows/chat-auto-reply-regression.yml'
   workflow_dispatch:
 
@@ -34,12 +39,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test durable reply, schedule pacing, and cloud instant-chat compatibility
-        run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgInstantChat.test.ts
+        run: pnpm exec vitest run utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts utils/chatSchedulePresence.test.ts utils/amsgInstantChat.test.ts worker/amsg/src/selfUpdate.test.ts worker/amsg/src/autoUpdate.test.ts utils/amsgAutoUpdateTrigger.test.ts
       - name: Check changed code TypeScript diagnostics
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/chat-reply-tsc.log 2>&1 || true
-          grep -E '^(hooks/useChatAutoReply.ts|apps/Chat.tsx|utils/chatAutoReply.test.ts|utils/chatInputPreferences.ts)[(]' /tmp/chat-reply-tsc.log > /tmp/chat-reply-target-errors.log || true
+          grep -E '^(hooks/useChatAutoReply.ts|apps/Chat.tsx|utils/chatAutoReply.test.ts|utils/chatInputPreferences.ts|utils/amsgAutoUpdateTrigger.ts|utils/amsgBundleVersion.ts|utils/activeMsgClient.ts|worker/amsg/src/selfUpdate.ts|worker/amsg/src/index.ts|components/settings/ActiveMsgGlobalSettingsModal.tsx)[(]' /tmp/chat-reply-tsc.log > /tmp/chat-reply-target-errors.log || true
           if [ -s /tmp/chat-reply-target-errors.log ]; then
             cat /tmp/chat-reply-target-errors.log
             exit 1
