@@ -36,6 +36,7 @@ import { UsersThree, Money, GearSix, Image as ImageIcon, ArrowsClockwise, PaintB
 import ChatHeaderShell from '../components/chat/ChatHeaderShell';
 import {isFaintSilkPairCss} from '../utils/faintSilkPair';
 import {FAINT_SILK_POLISH_CSS} from '../utils/faintSilkPolish';
+import {FaintSilkIcons} from '../components/chat/FaintSilkIcons';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import ChatInputSettings from '../components/chat/ChatInputSettings';
@@ -1780,6 +1781,7 @@ ${memberTimeline || '(暂无互动记录)'}
             {(isFaintSilkPairCss(activeGroup?.chromeCustomCss) || (!activeGroup?.chromeCustomCss && isFaintSilkPairCss(osTheme.chatChromeCustomCss))) && (
                 <style>{FAINT_SILK_POLISH_CSS}</style>
             )}
+            {(isFaintSilkPairCss(activeGroup?.chromeCustomCss) || (!activeGroup?.chromeCustomCss && isFaintSilkPairCss(osTheme.chatChromeCustomCss))) && <FaintSilkIcons />}
             {/* 守护样式（注在用户 CSS 之后）：保证返回键与输入区永远可见可点。 */}
             {(osTheme.chatChromeCustomCss || activeGroup?.chromeCustomCss || groupBubbleCustomCss) && (
                 <style>{`
