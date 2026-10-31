@@ -63,7 +63,18 @@ try{
      now[side][0]-prev[side][0],now[side][2]-prev[side][2])));
    }));
    if(toeJump>.12*height.scale)throw Error('Abrupt 60Hz toe dash '+height.name+' / '+outfit.name+': '+toeJump.toFixed(3)+'m');
-   report.traces.push({height:height.name,outfit:outfit.name,fps:60,samples,maxToeFrameJump:toeJump});
+   // Check the actual moving skinned skeleton, not the presence of a walk
+   // flag. A foot glued to the floor while the pelvis moves once passed the
+   // old anti-snap test, so reject that visual regression explicitly.
+   const toeLift=Math.max(...['L','R'].map(side=>{
+    const heights=samples.map(sample=>sample[side][1]);
+    return Math.max(...heights)-Math.min(...heights);
+   }));
+   const hipHeights=samples.map(sample=>sample.hipRelative[1]);
+   const hipBob=Math.max(...hipHeights)-Math.min(...hipHeights);
+   if(toeLift<.10*height.scale)throw Error('Walking toe never lifts: '+height.name+'/'+outfit.name+' '+toeLift.toFixed(3)+'m');
+   if(hipBob>.13*height.scale)throw Error('Walk pelvis dragged by stance IK: '+height.name+'/'+outfit.name+' '+hipBob.toFixed(3)+'m');
+   report.traces.push({height:height.name,outfit:outfit.name,fps:60,samples,maxToeFrameJump:toeJump,toeLift,hipBob});
    v.animate(0,'idle');
    const poses=[];
    for(let i=0;i<=10;i++){
