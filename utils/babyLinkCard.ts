@@ -19,7 +19,8 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === 'object' && !Array.isArray(value);
 const optionalText = (value: unknown, field: string, max = MAX_INFLATED): string => {
     if (value == null) return '';
-    if (typeof value !== 'string' || value.length > max) throw new Error('BabyLink ' + field + ' 格式无效');
+    if (typeof value !== 'string') throw new Error('BabyLink ' + field + ' 格式无效');
+    if (value.length > max) throw new Error('BabyLink ' + field + ' 超出安全长度限制');
     return value.trim();
 };
 const numberIn = (value: unknown, min: number, max: number, fallback: number, field: string): number => {
