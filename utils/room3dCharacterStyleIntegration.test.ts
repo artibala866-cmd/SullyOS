@@ -41,6 +41,14 @@ describe('incremental Home3D character style switching',()=>{
   expect(pass).toContain('c=mix(c,vec3(.070,.057,.071),inkWeight)');
   expect(pass).toContain('float paperMask=');
   expect(pass).toContain('vec3 colouredInk=');
+  expect(pass).toContain('float inkWeight=outlineStrength*mix(.25,.44');
+  expect(pass).toContain('float colouredEdge=outlineStrength*.185');
+  expect(pass).toContain('float inkHalation=');
+  expect(pass).toContain('float inkFilm=');
+  const character=readFileSync('apps/room3d/chibi/illustration.ts','utf8');
+  expect(character).toContain("inkCutoutEdge*.77");
+  expect(character).toContain('float inkMeshStroke=1.-smoothstep(.065,.175+inkLineAA,inkViewDot)');
+  expect(character).toContain("'-character-illustration-v21-'");
   expect(pass).toContain('float paperTooth=');
   // A neighbour can detect an edge but never contribute its displaced
   // source colour to the output: that produced four clear ghost copies.
