@@ -1,5 +1,5 @@
 import type { ImageApiSettings } from '../components/settings/ImageApiSettingsPanel';
-import type { CharacterImageProfile } from '../components/character/CharacterImagePanel';
+import type { CharacterImageProfile } from './characterImageProfile';
 import { dataUrlToBlob, getBlobForRef, isBlobRef } from './blobRef';
 
 /**
