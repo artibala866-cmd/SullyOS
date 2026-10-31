@@ -237,7 +237,40 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
     };
 };
 
-const readTextMetadata = (png: Uint8Array): { chara?: string; ccv3?: string } => {
+/** Stream a zlib-compressed PNG text payload; cap output before it can become a zip bomb. */
+const inflatePngText = async (compressed: Uint8Array): Promise<string> => {
+    if (typeof DecompressionStream === 'undefined') {
+        throw new Error('当前浏览器不支持压缩 PNG 角色元数据，请使用 JSON 或 tEXt 原图');
+    }
+    const stream = new Blob([Uint8Array.from(compressed)]).stream()
+        .pipeThrough(new DecompressionStream('deflate'));
+    const reader = stream.getReader();
+    const pieces: Uint8Array[] = [];
+    let count = 0;
+    try {
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            count += value.byteLength;
+            if (count > MAX_JSON * 1.4) {
+                await reader.cancel();
+                throw new Error('解压后的 PNG 角色元数据超过安全限制');
+            }
+            pieces.push(value);
+        }
+    } catch (error) {
+        if (error instanceof Error && error.message.includes('安全限制')) throw error;
+        throw new Error('PNG 压缩角色元数据损坏');
+    } finally {
+        reader.releaseLock();
+    }
+    const joined = new Uint8Array(count);
+    let offset = 0;
+    for (const piece of pieces) { joined.set(piece, offset); offset += piece.byteLength; }
+    return decoder.decode(joined);
+};
+
+const readTextMetadata = async (png: Uint8Array): Promise<{ chara?: string; ccv3?: string }> => {
     const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
     const found: { chara?: string; ccv3?: string } = {};
     for (let offset = 8; offset + 12 <= png.length;) {
@@ -245,7 +278,7 @@ const readTextMetadata = (png: Uint8Array): { chara?: string; ccv3?: string } =>
         const end = offset + 12 + size;
         if (end > png.length) throw new Error('PNG 元数据长度损坏');
         const type = String.fromCharCode(...png.subarray(offset + 4, offset + 8));
-        if (type === 'tEXt') {
+        if (type === 'tEXt' || type === 'zTXt' || type === 'iTXt') {
             const data = png.subarray(offset + 8, end - 4);
             const separator = data.indexOf(0);
             if (separator > 0 && separator < 80) {
@@ -253,7 +286,24 @@ const readTextMetadata = (png: Uint8Array): { chara?: string; ccv3?: string } =>
                 if (keyword === 'chara' || keyword === 'ccv3') {
                     if (found[keyword] !== undefined) throw new Error('PNG 含重复 ' + keyword + ' 角色元数据');
                     if (data.length > MAX_JSON * 1.4) throw new Error('PNG 角色元数据过大');
-                    found[keyword] = decoder.decode(data.subarray(separator + 1));
+                    let encoded: string;
+                    if (type === 'tEXt') {
+                        encoded = decoder.decode(data.subarray(separator + 1));
+                    } else if (type === 'zTXt') {
+                        if (data[separator + 1] !== 0 || separator + 2 >= data.length) {
+                            throw new Error('PNG 压缩角色元数据格式无效');
+                        }
+                        encoded = await inflatePngText(data.subarray(separator + 2));
+                    } else {
+                        const flag = data[separator + 1], method = data[separator + 2];
+                        if ((flag !== 0 && flag !== 1) || method !== 0) throw new Error('PNG 国际文本元数据无效');
+                        const languageEnd = data.indexOf(0, separator + 3);
+                        const translatedEnd = languageEnd < 0 ? -1 : data.indexOf(0, languageEnd + 1);
+                        if (translatedEnd < 0) throw new Error('PNG 国际文本元数据不完整');
+                        const payload = data.subarray(translatedEnd + 1);
+                        encoded = flag === 1 ? await inflatePngText(payload) : decoder.decode(payload);
+                    }
+                    found[keyword] = encoded;
                 }
             }
         }
@@ -262,7 +312,6 @@ const readTextMetadata = (png: Uint8Array): { chara?: string; ccv3?: string } =>
     }
     return found;
 };
-
 const decodeMetadata = (encoded: string): unknown => {
     const clean = encoded.trim();
     if (!clean || clean.length > MAX_JSON * 1.4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(clean) || clean.length % 4 !== 0) {
@@ -298,7 +347,7 @@ export const readCharacterCardFile = async (file: File): Promise<PreparedCharact
         if (prepared.source !== 'sully') throw new Error('糯米机分享块的内容不是原生角色卡');
         return prepared;
     }
-    const metadata = readTextMetadata(bytes);
+    const metadata = await readTextMetadata(bytes);
     if (!metadata.ccv3 && !metadata.chara) {
         throw new Error('普通 PNG 不含酒馆角色卡数据，请使用未压缩的角色卡原图');
     }
