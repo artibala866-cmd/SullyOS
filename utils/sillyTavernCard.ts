@@ -78,11 +78,10 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
         if (/(?:^|\n)\s*@@[a-z_]+(?:\b|$)/i.test(item.content)) {
             throw new Error('世界书第 ' + (n + 1) + ' 条含酒馆专用 @@ 触发/注入装饰器，无法安全等价转换');
         }
-        if (item.use_regex === true || item.extensions?.use_regex === true) {
-            throw new Error('世界书第 ' + (n + 1) + ' 条使用正则关键词，糯米机不支持等价触发；未写入任何数据');
-        }
         const ext = object(item.extensions) ? item.extensions : {};
-        const rawPosition = item.position ?? ext.position;
+        // A CCv3 entry may carry both a generic before/after character label
+        // and its actual placement in the SillyTavern extension. Use the latter.
+        const rawPosition = typeof ext.position === 'number' ? ext.position : (item.position ?? ext.position);
         const position = rawPosition === 'before_char' ? 0 : rawPosition === 'after_char' ? 1 :
             rawPosition == null ? 1 : rawPosition;
         if (typeof position !== 'number' || !Number.isInteger(position) || position < 0 || position > 6) {
@@ -96,6 +95,21 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
         const secondary = item.keysecondary ?? item.secondary_keys ?? [];
         if (!Array.isArray(primary) || !Array.isArray(secondary) ||
             [...primary, ...secondary].some(k => typeof k !== 'string')) throw new Error('世界书关键词结构无效');
+        // Tavern exports can set use_regex=true even for constants or literal
+        // trigger terms. Rejecting the flag outright breaks otherwise valid cards.
+        // Never execute patterns; unsafe patterns remain in the library disabled.
+        const isConstant = bool(item.constant) ?? false;
+        const usesRegex = item.use_regex === true || ext.use_regex === true;
+        const keywords = [...primary, ...secondary];
+        const complexRegex = usesRegex && !isConstant &&
+            keywords.some(key => [...key].some(ch => ch.charCodeAt(0) === 92 ||
+                '^$.*+?()[]{}|'.includes(ch)));
+        if (complexRegex) {
+            warnings.push('世界书第 ' + (n + 1) + ' 条含复杂正则关键词：已保留正文、关键词并停用条目；请手动改为普通关键词后开启');
+        } else if (usesRegex && !isConstant && keywords.length &&
+            !warnings.includes('酒馆世界书的普通文字关键词已转换为糯米机关键词触发')) {
+            warnings.push('酒馆世界书的普通文字关键词已转换为糯米机关键词触发');
+        }
         const requestedRole = item.role ?? ext.role;
         const role = requestedRole === 'system' ? 0 : requestedRole === 'user' ? 1 :
             requestedRole === 'assistant' ? 2 : requestedRole;
@@ -123,26 +137,33 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
             comment: text(item.comment) || text(item.name) || '条目 ' + (n + 1),
             content: normalizeMacros(item.content, warnings),
             key: primary, keysecondary: secondary,
-            constant: bool(item.constant) ?? false,
+            constant: isConstant,
             selective: bool(item.selective) ?? secondary.length > 0,
             selectiveLogic: controls.selectiveLogic ?? 0,
             order: item.order ?? item.insertion_order ?? item.priority ?? 100,
             position,
-            disable: book.enabled === false || disabled === true || enabled === false,
+            disable: book.enabled === false || disabled === true || enabled === false || complexRegex,
             probability: controls.probability ?? 100,
             useProbability: bool(item.useProbability) ?? bool(ext.useProbability) ?? false,
             depth: controls.depth ?? 4,
             role: role ?? null,
             scanDepth: controls.scanDepth ?? fallbackScanDepth ?? null,
-            caseSensitive: item.caseSensitive ?? item.case_sensitive ?? ext.caseSensitive ?? null,
-            matchWholeWords: item.matchWholeWords ?? item.match_whole_words ?? ext.matchWholeWords ?? null,
+            caseSensitive: item.caseSensitive ?? item.case_sensitive ?? ext.caseSensitive ?? ext.case_sensitive ?? null,
+            matchWholeWords: item.matchWholeWords ?? item.match_whole_words ??
+                ext.matchWholeWords ?? ext.match_whole_words ?? null,
         };
-        const supportedExtensions = new Set(['position','use_regex','role','depth','scanDepth',
-            'probability','useProbability','caseSensitive','matchWholeWords','selectiveLogic']);
+        const supportedExtensions = new Set(['position','use_regex','role','depth','scanDepth','scan_depth',
+            'probability','useProbability','caseSensitive','case_sensitive',
+            'matchWholeWords','match_whole_words','selectiveLogic']);
         const unsupportedExtensions = Object.keys(ext).filter(key => !supportedExtensions.has(key));
-        if (unsupportedExtensions.length) {
-            warnings.push('世界书第 ' + (n + 1) + ' 条扩展字段无法等价执行：' +
-                unsupportedExtensions.join('、').slice(0, 180));
+        // Don't flood the confirmation modal with 19 identical warnings.
+        const behaviorExtensions = unsupportedExtensions.filter(key =>
+            !['display_index','automation_id'].includes(key) && ext[key] !== false &&
+            ext[key] !== 0 && ext[key] !== '' && ext[key] != null);
+        if (behaviorExtensions.length) {
+            const warning = '酒馆部分世界书扩展规则不等价（例如 ' +
+                behaviorExtensions.slice(0, 3).join('、') + '），原有正文与启停状态仍保留';
+            if (!warnings.includes(warning)) warnings.push(warning);
         }
         const unsupportedActivation = ['sticky','cooldown','delay','group','groupOverride',
             'excludeRecursion','preventRecursion','delayUntilRecursion','trigger','triggers',
