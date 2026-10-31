@@ -7,6 +7,10 @@ on:
       - 'utils/builtinWhitebox.ts'
       - 'utils/builtinWhitebox.test.ts'
       - 'components/chat/ChatDecorationPresets.tsx'
+      - 'components/chat/MessageItem.tsx'
+      - 'apps/GroupChat.tsx'
+      - 'utils/chatWhitebox.ts'
+      - 'utils/chatPreviewFixtures.ts'
       - 'components/chat/ChromeCssEditor.tsx'
       - 'tests/silent-letter-whitebox-visual.*'
       - '.github/workflows/silent-letter-whitebox-visual.yml'
@@ -36,7 +40,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false >/tmp/silent-tsc.txt 2>&1 || true
-          grep -E '^(utils/builtinWhitebox(\.test)?\.ts|components/chat/(ChromeCssEditor|ChatDecorationPresets)\.tsx|tests/silent-letter-whitebox-visual\.ts)[(]' /tmp/silent-tsc.txt >/tmp/silent-target-errors.txt || true
+          grep -E '^(utils/builtinWhitebox(\.test)?\.ts|utils/chatPreviewFixtures\.ts|components/chat/(ChromeCssEditor|ChatDecorationPresets|MessageItem)\.tsx|apps/GroupChat\.tsx|tests/silent-letter-whitebox-visual\.ts)[(]' /tmp/silent-tsc.txt >/tmp/silent-target-errors.txt || true
           if test -s /tmp/silent-target-errors.txt; then cat /tmp/silent-target-errors.txt; exit 1; fi
       - name: Generate the real private chat preview stylesheet
         run: pnpm run build:chat-preview
@@ -57,7 +61,7 @@ jobs:
           done
           chrome="${{ steps.chrome.outputs.chrome-path }}"
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
-            --window-size=1640,1430 --virtual-time-budget=15000 \
+            --window-size=1640,2170 --virtual-time-budget=15000 \
             --dump-dom http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html > /tmp/silent-dom.txt 2>/tmp/silent-chrome.log || true
           if ! grep -q 'data-ready="true"' /tmp/silent-dom.txt; then
             grep -o '<output[^>]*>[^<]*</output>' /tmp/silent-dom.txt | head -5 || true
@@ -66,7 +70,7 @@ jobs:
             exit 1
           fi
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
-            --window-size=1640,1430 --virtual-time-budget=15000 \
+            --window-size=1640,2170 --virtual-time-budget=15000 \
             --screenshot="$GITHUB_WORKSPACE/silent-letter-native-chat.png" \
             http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html
           test -s silent-letter-native-chat.png
