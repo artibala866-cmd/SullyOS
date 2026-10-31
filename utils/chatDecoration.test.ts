@@ -51,7 +51,7 @@ describe('portable chat decoration',()=>{
   const broken=png.slice();broken[50]^=1;await expect(readDecorationFile(file(broken))).rejects.toThrow();
  });
  it('recognizes standalone bubble JSON without carrying id or extra fields',()=>{
-  const p=parseDecorationText(JSON.stringify({...PRESET_THEMES.dream,apiKey:'SECRET'}));expect(p.parts.bubbles?.name).toBe('Dream');expect(JSON.stringify(p)).not.toContain('SECRET');
+  const p=parseDecorationText(JSON.stringify({...PRESET_THEMES.dream,apiKey:'SECRET'}));expect(p.parts.bubbles?.name).toBe(PRESET_THEMES.dream.name);expect(JSON.stringify(p)).not.toContain('SECRET');
  });
  it('only applies selected parts and preserves independent sound on CSS import',async()=>{
   const result=await decorationPatches(validateDecoration(wrap({css:'.new{color:gray}',sound:{src:'pop'},layout:{chatHeaderStyle:'minimal'}})),['css'],'character',char,base);
