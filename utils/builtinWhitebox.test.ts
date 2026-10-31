@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {BUILTIN_WHITEBOX_PRESETS} from './builtinWhitebox';
-import {resolveLegacySilentLetterCss} from '../components/chat/BlobRefStyle';
+import {resolveLegacySilentLetterCss,isWeixinBaiyuCss,resolveLegacyWeixinBaiyuCss} from '../components/chat/BlobRefStyle';
 import {decorationPatches} from './chatDecoration';
 import {portableCssImages} from './cssImageAssets';
 import {isFaintSilkPairCss} from './faintSilkPair';
@@ -167,5 +167,32 @@ describe('微信 by 白榆 full whitebox native conversion',()=>{
   expect(all.theme.chatChromeCustomCss).toContain('.sully-chat-group-packet');
   expect(all.theme.chatDefaultBubbleStyle).toBeDefined();
   expect(all.theme.chatHeaderAlign).toBe('center');
+ });
+});
+
+describe('Weixin top-bar phone / native reply lightning after earlier CSS was applied',()=>{
+ it('does not turn the lightning icon into three dots and positions both actions independently',()=>{
+  const p=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-weixin-baiyu')!.read();
+  const css=p.parts.css!;
+  expect(css).toContain('/* 白榆顶栏原生闪电修复 v2');
+  expect(css).not.toContain('.sully-chat-trigger:not([title="停止生成"])');
+  expect(css).toContain('.sully-chat-header .sully-chat-trigger svg{');
+  expect(css).toContain('visibility:visible!important');
+  expect(css).toContain('.sully-chat-header button[aria-label="电话"]');
+  expect(css).toContain('right:40px!important');
+  expect(css).toContain('position:absolute!important');
+ });
+ it('repairs an already-applied version without replacing personal CSS and only once',()=>{
+  const good=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-weixin-baiyu')!.read().parts.css!;
+  const marker='/* 白榆顶栏原生闪电修复 v2';
+  const original=good.slice(0,good.indexOf(marker))+'\n.sully-chat-root .sully-chat-trigger::after{content:"•••"}\n.custom-private{color:purple}';
+  expect(isWeixinBaiyuCss(original)).toBe(true);
+  const upgraded=resolveLegacyWeixinBaiyuCss(original);
+  expect(upgraded).toContain('.custom-private{color:purple}');
+  expect(upgraded).toContain('.sully-chat-trigger::after');
+  expect(upgraded).toContain('content:none!important;display:none!important');
+  expect(resolveLegacyWeixinBaiyuCss(upgraded)).toBe(upgraded);
+  expect(resolveLegacyWeixinBaiyuCss(good)).toBe(good);
+  expect(resolveLegacyWeixinBaiyuCss('.sully-chat-trigger{color:red}')).toBe('.sully-chat-trigger{color:red}');
  });
 });
