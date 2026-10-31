@@ -52,6 +52,16 @@ try {
   groupPacket:same('group','.sully-chat-group-packet','rgb(233, 167, 70)'),
   groupReceipt:!!$('group','.sully-chat-group-packet-receipt'),
   inputNoOverlap:inBounds('conversation'),
+  headerNoExtraHeight:(()=>{
+   const h=$('conversation','.sully-chat-header');
+   return !!h && h.getBoundingClientRect().height<=80;
+  })(),
+  realActionsHaveMatchingIcons:(()=>{
+   const menu=$('conversation','.sully-chat-actions-button'),send=$('conversation','.sully-chat-send-button');
+   const menuIcon=menu?.querySelector('svg');
+   return !!menu&&!!send&&!!menuIcon&&getComputedStyle(menuIcon).visibility==='visible'
+     && getComputedStyle(menu,'::before').content==='none';
+  })(),
   nativePhotoDimensions:(()=>{
    const img=$('image','.chat-image-thumbnail img');
    if(!img)return false;
