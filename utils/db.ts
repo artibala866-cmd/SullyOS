@@ -2806,6 +2806,31 @@ export const DB = {
       });
   },
 
+  /** One transaction for selected BabyLink characters and their deduplicated shared worldbooks. */
+  importCharacterCardsAtomic: async (characters: CharacterProfile[], books: Worldbook[]): Promise<void> => {
+      if (!characters.length) throw new Error('未选择任何角色');
+      if (new Set(characters.map(char => char.id)).size !== characters.length ||
+          new Set(books.map(book => book.id)).size !== books.length) {
+          throw new Error('导入数据存在重复 ID');
+      }
+      const db = await openDB();
+      return new Promise<void>((resolve, reject) => {
+          const tx = db.transaction([STORE_CHARACTERS, STORE_WORLDBOOKS], 'readwrite');
+          tx.oncomplete = () => resolve();
+          tx.onabort = () => reject(tx.error || new Error('批量导入失败，事务已撤销'));
+          tx.onerror = () => { /* failure handled by transaction abort */ };
+          try {
+              const characterStore = tx.objectStore(STORE_CHARACTERS);
+              const bookStore = tx.objectStore(STORE_WORLDBOOKS);
+              for (const character of characters) characterStore.add(character);
+              for (const book of books) bookStore.add(book);
+          } catch (error) {
+              try { tx.abort(); } catch {}
+              reject(error);
+          }
+      });
+  },
+
   saveWorldbook: async (book: Worldbook): Promise<void> => {
       const db = await openDB();
       const transaction = db.transaction(STORE_WORLDBOOKS, 'readwrite');
