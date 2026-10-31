@@ -1,6 +1,10 @@
 /** Screenshot-only regression using real MessageItem and ChatHeaderShell renderers. */
 import {renderChatDecorationSample} from '../components/chat/ChatDecorationSample';
 import {BUILTIN_WHITEBOX_PRESETS} from '../utils/builtinWhitebox';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {GroupMessageItem,GroupPacketCard} from '../apps/GroupChat';
+import {BEAUTY_PREVIEW_AVATAR} from '../utils/beautyPreviewAssets';
 
 const root=document.querySelector<HTMLElement>('#silent-letter-visual');
 if (!root) throw Error('visual host missing');
@@ -19,6 +23,32 @@ try {
   section.prepend(name);
   root.append(section);
  }
+ const groupSection=document.createElement('section');
+ groupSection.className='scene';
+ groupSection.dataset.scene='group-chat';
+ const demo={id:18021,role:'assistant' as const,type:'text' as const,charId:'preview',timestamp:1790386860000};
+ const baseGroupProps={
+  userAvatar:BEAUTY_PREVIEW_AVATAR,onImageClick:()=>{},selectionMode:false,isSelected:false,
+  onToggleSelect:()=>{},onLongPress:()=>{},onReply:()=>{},nameOf:()=>'示例角色',
+  onPacketClick:()=>{},themeScopeClass:'sully-group-default-theme',isFirstInGroup:true,isLastInGroup:true,
+  avatarShape:'circle' as const,avatarSize:'medium' as const,avatarMode:'grouped' as const,
+  bubbleVariant:'modern' as const,messageSpacing:'compact' as const,showTimestamp:'never' as const,
+ };
+ const member=React.createElement(GroupMessageItem,{
+  ...baseGroupProps,msg:{...demo,replyTo:{id:10,name:'我',content:'我们哪天出门？'},content:'明天下午去看花。'},
+  isUser:false,char:{id:'preview',name:'示例角色',avatar:BEAUTY_PREVIEW_AVATAR} as any,
+  styleConfig:preset.parts.bubbles!.ai,
+ });
+ const user=React.createElement(GroupMessageItem,{
+  ...baseGroupProps,msg:{...demo,id:18022,role:'user',content:'好呀，我带上相机。'},
+  isUser:true,styleConfig:preset.parts.bubbles!.user,
+ });
+ const packet=React.createElement(GroupPacketCard,{msg:{...demo,id:18023,type:'transfer',metadata:{}},nameOf:()=>'示例角色'});
+ const receipt=React.createElement(GroupPacketCard,{msg:{...demo,id:18024,type:'transfer',metadata:{packetReceipt:'claimed',claimantName:'示例角色',senderName:'我',amount:25}},nameOf:()=>'示例角色'});
+ groupSection.innerHTML='<h2>群聊原生消息 / 引用 / 红包 / 回执</h2><div class="beauty-preview-body">'+
+  renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sample-chat'},React.createElement('div',{className:'sully-chat-messages sample-messages'},member,user,packet,receipt)))+'</div>';
+ const groupStyle=document.createElement('style');groupStyle.textContent=renderChatDecorationSample(preset,'conversation').css;groupSection.prepend(groupStyle);
+ root.append(groupSection);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
  const color=(scene:string,selector:string,property:'backgroundColor'|'color')=>{
   const el=$(scene,selector);
@@ -30,6 +60,7 @@ try {
   presetParts:['layout','bubbles','psyche','css'].every(key=>key in preset.parts),
   userBubble:color('conversation','.sully-bubble-user','backgroundColor')==='rgb(26, 26, 26)',
   partnerBubble:color('conversation','.sully-bubble-ai','backgroundColor')==='rgb(238, 238, 238)',
+  groupPartnerBubble:color('group-chat','.sully-bubble-ai','backgroundColor')==='rgb(238, 238, 238)',
   header:sceneHas('conversation','.sully-chat-header'),
   input:sceneHas('conversation','.sully-chat-inputbar'),
   reply:sceneHas('reply','.sully-chat-reply'),
@@ -38,6 +69,10 @@ try {
   accepted:sceneHas('transfer-accepted','.sully-chat-transfer-receipt'),
   returned:sceneHas('transfer-returned','.sully-chat-transfer-receipt'),
   psyche:sceneHas('psyche-open','.sully-psyche-card'),
+  groupMessage:sceneHas('group-chat','.sully-chat-message-sender')&&sceneHas('group-chat','.sully-bubble-ai'),
+  groupReply:sceneHas('group-chat','.sully-chat-reply'),
+  groupPacket:sceneHas('group-chat','.sully-chat-group-packet'),
+  groupReceipt:sceneHas('group-chat','.sully-chat-group-packet-receipt'),
   safeControls:sceneHas('conversation','.sully-chat-send-button') || sceneHas('conversation','.sully-chat-actions-button'),
   noOverflow:![...root.querySelectorAll<HTMLElement>('.scene')].some(el=>el.scrollWidth>el.clientWidth+2),
  };
