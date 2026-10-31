@@ -1,6 +1,9 @@
 /** Screenshot smoke: native Chat Header, MessageItem and GroupChat renderers, fictional data. */
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
+import {flushSync} from 'react-dom';
+import {createRoot} from 'react-dom/client';
+import ChatInputArea from '../components/chat/ChatInputArea';
 import {renderChatDecorationSample} from '../components/chat/ChatDecorationSample';
 import {BUILTIN_WHITEBOX_PRESETS} from '../utils/builtinWhitebox';
 import {GroupMessageItem,GroupPacketCard} from '../apps/GroupChat';
@@ -11,6 +14,48 @@ if(!root)throw Error('No host');
 try {
  const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-weixin-baiyu')?.read();
  if(!preset)throw Error('Weixin built-in not found');
+
+ // A real mounted React composer, not just a server-rendered mock: original PNGs
+ // replace native SVG only AFTER loading and never intercept an existing button.
+ const live=document.createElement('section');
+ live.className='scene';live.dataset.scene='live-original-icons';
+ live.innerHTML='<h2>原始图标实际加载 / 单层兜底 / 原生按钮</h2><div class="beauty-preview-body"><main class="sully-chat-root sample-chat" style="height:600px;display:flex;flex-direction:column;justify-content:flex-end"><div id="weixin-live-input"></div></main></div>';
+ const liveStyle=document.createElement('style');
+ liveStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
+ live.prepend(liveStyle);root.append(live);
+ const inputHost=live.querySelector<HTMLElement>('#weixin-live-input')!;
+ const liveRoot=createRoot(inputHost);
+ const presses:{[key:string]:number}={menu:0,send:0,voice:0};
+ flushSync(()=>liveRoot.render(React.createElement(ChatInputArea,{
+   weixinOriginalIcons:true,
+   input:'',setInput:()=>{},isTyping:false,selectionMode:false,showPanel:'none',
+   setShowPanel:()=>{presses.menu++},onSend:()=>{presses.send++},onDeleteSelected:()=>{},
+   selectedCount:0,emojis:[],onPanelAction:()=>{},onImageSelect:()=>{},
+   isSummarizing:false,onReroll:()=>{},canReroll:false,
+   speechInput:{status:'idle',transcript:'',seconds:0,error:'',start:async()=>{},
+    startTranscription:async()=>{presses.voice++},stop:()=>{},cancel:()=>{},
+    editTranscript:()=>{},confirm:()=>{}},
+ })));
+ const liveMenu=live.querySelector<HTMLButtonElement>('.sully-chat-actions-button');
+ const liveVoice=live.querySelector<HTMLButtonElement>('.sully-chat-voice-trigger');
+ const liveSticker=live.querySelector<HTMLButtonElement>('button[aria-label="表情面板"]');
+ const sourceGlyphs=[liveMenu,liveVoice,liveSticker];
+ const originalGlyphsPresent=sourceGlyphs.every(button=>
+   !!button?.querySelector('.sully-wy-source-fallback svg') &&
+   !!button?.querySelector('.sully-wy-source-image'));
+ const originalGlyphsSingleLayer=sourceGlyphs.every(button=>{
+   const glyph=button?.querySelector<HTMLElement>('.sully-wy-source-icon');
+   const img=glyph?.querySelector<HTMLImageElement>('img');
+   const svg=glyph?.querySelector<HTMLElement>('.sully-wy-source-fallback');
+   return !!glyph && !!img && !!svg &&
+    (getComputedStyle(img).display==='none') !== (getComputedStyle(svg).display==='none') &&
+    getComputedStyle(button!,'::before').content==='none';
+ });
+ flushSync(()=>liveMenu?.click());
+ const nativeActionStillWorks=presses.menu===1 &&
+  liveMenu?.getAttribute('aria-label')==='聊天功能' &&
+  liveVoice?.getAttribute('aria-label')==='选择语音输入方式';
+
  for(const scene of ['conversation','weixin-send','reply','voice-playing','transfer','transfer-accepted','transfer-returned','image','emoji','interaction','chat_forward','sim_card','system']){
   const {markup,css}=renderChatDecorationSample(preset,scene);
   const section=document.createElement('section');section.className='scene';section.dataset.scene=scene;
@@ -40,6 +85,9 @@ try {
  const dark=window.matchMedia('(prefers-color-scheme: dark)').matches;
  const expected=(light:string,night:string)=>dark?night:light;
  const checks={
+  originalGlyphsPresent,
+  originalGlyphsSingleLayer,
+  nativeActionStillWorks,
   chatRoot:same('conversation','.sully-chat-root',expected('rgb(237, 237, 237)','rgb(24, 24, 24)')),
   header:same('conversation','.sully-chat-header',expected('rgb(237, 237, 237)','rgb(17, 17, 17)')),
   input:same('conversation','.sully-chat-inputbar',expected('rgb(247, 247, 247)','rgb(23, 23, 23)')),
