@@ -4868,6 +4868,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 <InstantChatRouteNotice charId={activeCharacterId} />
 
                 <ChatInputArea
+                weixinOriginalIcons={isWeixinBaiyuCss(char.chromeCustomCss || osTheme.chatChromeCustomCss)}
                     compactHome={!!homePhone}
                     lifePacingEnabled={lifePacing}
                     input={input} setInput={handleInputChange}
