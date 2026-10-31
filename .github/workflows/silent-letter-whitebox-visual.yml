@@ -44,6 +44,8 @@ jobs:
           if test -s /tmp/silent-target-errors.txt; then cat /tmp/silent-target-errors.txt; exit 1; fi
       - name: Generate the real private chat preview stylesheet
         run: pnpm run build:chat-preview
+      - name: Install readable CJK font for visual screenshots
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:
