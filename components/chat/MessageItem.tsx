@@ -448,7 +448,8 @@ const ForwardCard: React.FC<{
     commonLayout: (content: React.ReactNode) => JSX.Element;
     interactionProps: any;
     selectionMode: boolean;
-}> = ({ forwardData, commonLayout, selectionMode }) => {
+    voiceStyle: ChatTheme['ai'];
+}> = ({ forwardData, commonLayout, selectionMode, voiceStyle }) => {
     const [expanded, setExpanded] = useState(false);
 
     const handleCardClick = (e: React.MouseEvent) => {
@@ -504,11 +505,26 @@ const ForwardCard: React.FC<{
                                 <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[80%] ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
                                         <div className="text-[10px] text-slate-400 mb-1 px-1">{senderName} {msg.timestamp ? formatTime(msg.timestamp) : ''}</div>
-                                        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-all ${isUser ? 'bg-primary text-white rounded-br-sm' : 'bg-white text-slate-700 rounded-bl-sm shadow-sm border border-slate-100'}`}>
-                                            {msg.type === 'image' ? (msg.content ? <TokenImg value={msg.content} className="max-w-[200px] rounded-xl" /> : <span className="italic opacity-60">[图片已丢失]</span>) :
-                                             msg.type === 'emoji' ? (msg.content ? <TokenImg value={msg.content} className="max-w-[100px]" /> : <span className="italic opacity-60">[表情已丢失]</span>) :
-                                             msg.content}
-                                        </div>
+                                        {msg.type === 'voice' ? (
+                                            <UserVoiceBubble
+                                                message={{
+                                                    id: i,
+                                                    charId: '',
+                                                    role: msg.role === 'assistant' ? 'assistant' : 'user',
+                                                    type: 'voice',
+                                                    timestamp: msg.timestamp || 0,
+                                                    content: msg.content || '[语音]',
+                                                    metadata: msg.metadata,
+                                                }}
+                                                styleConfig={voiceStyle}
+                                            />
+                                        ) : (
+                                            <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-all ${isUser ? 'bg-primary text-white rounded-br-sm' : 'bg-white text-slate-700 rounded-bl-sm shadow-sm border border-slate-100'}`}>
+                                                {msg.type === 'image' ? (msg.content ? <TokenImg value={msg.content} className="max-w-[200px] rounded-xl" /> : <span className="italic opacity-60">[图片已丢失]</span>) :
+                                                 msg.type === 'emoji' ? (msg.content ? <TokenImg value={msg.content} className="max-w-[100px]" /> : <span className="italic opacity-60">[表情已丢失]</span>) :
+                                                 msg.content}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -1780,7 +1796,7 @@ const MessageItem = React.memo(({
         let forwardData: any = null;
         try { forwardData = JSON.parse(m.content); } catch {}
         if (forwardData) {
-            return <ForwardCard forwardData={forwardData} commonLayout={commonLayout} interactionProps={interactionProps} selectionMode={selectionMode} />;
+            return <ForwardCard forwardData={forwardData} commonLayout={commonLayout} interactionProps={interactionProps} selectionMode={selectionMode} voiceStyle={activeTheme.ai} />;
         }
     }
 
