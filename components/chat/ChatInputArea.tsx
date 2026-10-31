@@ -31,7 +31,28 @@ interface PrivateChatSpeechInput {
     confirm: () => void;
 }
 
+/** Use the supplied theme's ORIGINAL image on the existing clickable control.
+ * Load failure falls back to the native SVG; the two are never painted together.
+ * No extra button, intercepting layer, click handler or missing offline control.
+ */
+const WeixinSourceIcon: React.FC<{active?:boolean;src:string;children:React.ReactNode}> = ({active,src,children}) => {
+    const [ready,setReady] = useState(false);
+    if (!active) return <>{children}</>;
+    return <span className="sully-wy-source-icon" data-source-ready={ready ? 'true' : 'false'} aria-hidden="true">
+        <span className="sully-wy-source-fallback" style={{display:ready?'none':'flex'}}>{children}</span>
+        <img className="sully-wy-source-image" src={src} alt="" draggable={false}
+             style={{display:ready?'block':'none'}} onLoad={()=>setReady(true)} onError={()=>setReady(false)} />
+    </span>;
+};
+const WEIXIN_SOURCE_ICONS = {
+    voice: 'https://nos.netease.com/vcloud-statistic/nrtc/17ec3907-e615-4349-a269-9f716cf59489.png',
+    sticker: 'https://nos.netease.com/vcloud-statistic/nrtc/da835c40-d3c7-4462-ad4b-5c598284837b.png',
+    menu: 'https://nos.netease.com/vcloud-statistic/nrtc/4f7329f5-0fbc-4871-98ea-b2223db71efb.png',
+} as const;
+
 interface ChatInputAreaProps {
+    /** Only for the matching built-in whitebox: replace glyphs without changing controls. */
+    weixinOriginalIcons?: boolean;
     /** Present only in one-to-one Chat; group chat stays unchanged. */
     speechInput?: PrivateChatSpeechInput;
     /** Typed voice uses the ordinary draft field, but sends as a genuine user voice message. */
@@ -110,6 +131,7 @@ interface ChatInputAreaProps {
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     input, setInput, isTyping, selectionMode, compactHome=false, speechInput,
+    weixinOriginalIcons = false,
     typedVoiceEnabled = false, onSelectTypedVoice, onExitTypedVoice, onSendTypedVoice,
     showPanel, setShowPanel, onSend, onDeleteSelected, onForwardSelected, onFavoriteSelected, favoriteSelectedCount = 0, selectedCount,
     sendButtonGenerates = false, enterToSend = true, onGenerate,
@@ -813,7 +835,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             ) : (
                 <div className="sully-chat-composer px-2.5 py-2.5 flex gap-2 items-end relative">
                     <button aria-label="聊天功能" aria-expanded={showPanel === 'actions'} onClick={() => { setVoiceMenuOpen(false); setShowPanel(showPanel === 'actions' ? 'none' : 'actions'); }} className={`sully-chat-actions-button ${actionButtonClass}`}>
-                        <Plus className="w-6 h-6" weight="bold" />
+                        <WeixinSourceIcon active={weixinOriginalIcons} src={WEIXIN_SOURCE_ICONS.menu}><Plus className="w-6 h-6" weight="bold" /></WeixinSourceIcon>
                     </button>
                     <div ref={inputWrapRef} className={`sully-chat-input-wrap flex-1 min-w-0 flex items-center px-1 transition-all ${useIOSStandaloneInputFix ? 'overflow-visible' : 'overflow-hidden'} ${inputWrapClass} ${typedVoiceEnabled ? 'ring-1 ring-primary/25' : ''} ${isPixelStyle ? 'focus-within:bg-[#f8f8f8]' : isDiscordStyle ? 'focus-within:bg-slate-800 focus-within:border-white/20' : 'border border-transparent focus-within:bg-white focus-within:border-primary/30'}`}>
                         <textarea
@@ -836,7 +858,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         />
                         <button hidden={compactHome} type="button" aria-label="表情面板" onClick={() => { setVoiceMenuOpen(false); setShowPanel(showPanel === 'emojis' ? 'none' : 'emojis'); }}
                             className={`w-9 h-9 shrink-0 grid place-items-center rounded-full ${isDiscordStyle ? 'text-slate-400 hover:text-neutral-300' : isPixelStyle ? 'text-[#6d6d6d] hover:text-[#696969]' : 'text-slate-400 hover:text-primary'}`}>
-                            <Smiley className="w-5 h-5" weight="regular" />
+                            <WeixinSourceIcon active={weixinOriginalIcons} src={WEIXIN_SOURCE_ICONS.sticker}><Smiley className="w-5 h-5" weight="regular" /></WeixinSourceIcon>
                         </button>
                         {/* Keep the microphone INSIDE the composer field, not as a fourth outer column. */}
                         {speechInput && (
@@ -848,7 +870,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                 disabled={speechInput.status !== 'idle'}
                                 onClick={() => { if (showPanel !== 'none') setShowPanel('none'); setVoiceMenuOpen(open => !open); }}
                                 className={`sully-chat-voice-trigger w-9 h-9 mr-0.5 shrink-0 grid place-items-center rounded-full transition-colors disabled:opacity-50 ${typedVoiceEnabled || voiceMenuOpen ? 'text-primary bg-primary/10' : isDiscordStyle ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-500 hover:bg-black/5'}`}>
-                                <Microphone size={19} weight={typedVoiceEnabled ? 'fill' : 'regular'} />
+                                <WeixinSourceIcon active={weixinOriginalIcons} src={WEIXIN_SOURCE_ICONS.voice}><Microphone size={19} weight={typedVoiceEnabled ? 'fill' : 'regular'} /></WeixinSourceIcon>
                             </button>
                         )}
                     </div>
