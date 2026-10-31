@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { APIConfig } from '../types';
-import { isAudioRecordingSupported, isBrowserSttSupported, resolveSttProvider, startPrivateChatRecording, startStt, type SttCallbacks, type SttSession } from '../utils/speechToText';
+import { isAudioRecordingSupported, isBrowserSttSupported, resolveSttProvider, startPrivateChatRecording, startPrivateChatStt, type SttCallbacks, type SttSession } from '../utils/speechToText';
 
 export type PrivateChatSpeechStatus = 'idle' | 'starting' | 'listening' | 'transcribing' | 'review';
 export type PrivateChatSpeechMode = 'record' | 'transcribe';
@@ -144,7 +144,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
       };
       const session = useLocalRecording
         ? await startPrivateChatRecording(callbacks)
-        : await startStt('zh-CN', callbacks, apiConfig);
+        : await startPrivateChatStt('zh-CN', callbacks, apiConfig);
       if (generation !== generationRef.current || ended) {
         session.cancel();
         return;
