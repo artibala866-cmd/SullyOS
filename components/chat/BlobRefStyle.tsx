@@ -82,16 +82,41 @@ const FRIEND_RAIN_PATCHES=[
  '/* 请求添加好友 · 尺寸与申请按钮适配 v8',
  '/* 请求添加好友 · 顶区操作与标签去重叠 v9',
  '/* 请求添加好友 · 原生动作按钮 + 原 SVG 五心 + 用户消息状态 v10',
- '/* 请求添加好友 · 头像与整体尺寸回归 v11',
- '/* 请求添加好友 · 原文件头部 82px 回归 v12',
+ '/* 请求添加好友 · 仅缩小气泡 v13',
 ] as const;
+const FRIEND_RAIN_V11 = '/* 请求添加好友 · 头像与整体尺寸回归 v11';
+const FRIEND_RAIN_V12 = '/* 请求添加好友 · 原文件头部 82px 回归 v12';
+/** Revert only our unrequested top/bottom changes in already-applied copies.
+ * Retain independent custom CSS appended after the old patches. */
+function stripUnrequestedFriendRainSizing(css:string):string {
+ let result=css;
+ const from=result.indexOf(FRIEND_RAIN_V11);
+ const v12=result.indexOf(FRIEND_RAIN_V12);
+ if(from>=0){
+  let stop=-1;
+  if(v12>=0){
+   const end=result.indexOf('\n}',v12);
+   if(end>=0)stop=end+2;
+  }else{
+   const dark=result.indexOf('@media(prefers-color-scheme:dark){',from);
+   const end=dark>=0?result.indexOf('\n }\n}',dark):-1;
+   if(end>=0)stop=end+5;
+  }
+  if(stop>from)result=result.slice(0,from)+result.slice(stop);
+ }else if(v12>=0){
+  const end=result.indexOf('\n}',v12);
+  if(end>=0)result=result.slice(0,v12)+result.slice(end+2);
+ }
+ return result;
+}
 export function resolveLegacyFriendRequestRainCss(css:string):string {
  if(css.includes(FRIEND_RAIN_BAD))return friendRequestRain.parts.css;
  if(!css.includes(FRIEND_RAIN_FIXED))return css;
- const missing=FRIEND_RAIN_PATCHES.find(marker=>!css.includes(marker));
- if(!missing)return css;
+ const cleaned=stripUnrequestedFriendRainSizing(css);
+ const missing=FRIEND_RAIN_PATCHES.find(marker=>!cleaned.includes(marker));
+ if(!missing)return cleaned;
  const index=friendRequestRain.parts.css.indexOf(missing);
- return index<0?css:css+'\n'+friendRequestRain.parts.css.slice(index);
+ return index<0?cleaned:cleaned+'\n'+friendRequestRain.parts.css.slice(index);
 }
 
 /** Keep persisted CSS independent of the short-lived browser object URLs. */

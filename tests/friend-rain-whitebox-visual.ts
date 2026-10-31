@@ -96,8 +96,8 @@ try {
 
  const checks={
   responsive,
-  headerCompact:(rect('conversation','.sully-chat-header')?.height||0)<=95 && (rect('conversation','.sully-chat-header')?.height||0)>=80,
-  footerCompact:(rect('conversation','.sully-chat-inputbar')?.height||0)<=83,
+  headerRestored:(rect('conversation','.sully-chat-header')?.height||0)>=135 && (rect('conversation','.sully-chat-header')?.height||0)<=165,
+  footerRestored:(rect('conversation','.sully-chat-inputbar')?.height||0)<=96 && (rect('conversation','.sully-chat-inputbar')?.height||0)>=75,
   requestLabelsClearOfProfile:(()=>{
     const header=rect('conversation','.sully-chat-header');
     const profile=rect('conversation','.sully-chat-profile');
@@ -106,7 +106,7 @@ try {
   headerAvatarWithinProfile:(()=>{
     const a=rect('conversation','.sully-chat-profile .sully-chat-avatar');
     const p=rect('conversation','.sully-chat-profile');
-    return !!a&&!!p&&a.width<=54&&a.right<=p.right+7&&a.left>=p.left-8;
+    return !!a&&!!p&&a.width<=78&&a.right<=p.right+9&&a.left>=p.left-9;
   })(),
   groupAvatarFirstOnly:(()=>{
     const first=$('avatar-group','.sully-chat-message-group-first .sully-chat-message-avatar-slot img');
@@ -123,7 +123,7 @@ try {
   reply:!!$('reply','.sully-chat-reply'),
   voice:!!$('voice-playing','.sully-voice-bar'),
   hearts:cssStyle('conversation','.sully-bubble-user','::after').backgroundImage.includes('data:image/svg+xml'),
-  avatarPolaroid:(rect('conversation','.sully-chat-profile .sully-chat-avatar')?.height||0)>=46 && (rect('conversation','.sully-chat-profile .sully-chat-avatar')?.height||0)<=56,
+  avatarPolaroid:(rect('conversation','.sully-chat-profile .sully-chat-avatar')?.height||0)>=60 && (rect('conversation','.sully-chat-profile .sully-chat-avatar')?.height||0)<=78,
   originalHeaderImage:cssStyle('conversation','.sully-chat-header').backgroundImage.includes('73e0368b5bd87713b3c6506c4989f43a.jpeg'),
   darkFloatingPill:cssStyle('conversation','.sully-chat-composer','::before').backgroundColor==='rgb(37, 37, 37)',
   bilingualFooter:cssStyle('conversation','.sully-chat-inputbar','::before').content.includes('Dreamed of a rain'),
@@ -132,6 +132,10 @@ try {
   translated:!!$('translation-real','.sully-facebook-translation')
     && !!$('translation-real','.sully-chat-translate-action button')
     && cssStyle('translation-real','.sully-chat-translate-action button','::after').backgroundImage.includes('data:image/svg+xml'),
+  bubbleOnlyCompact:cssStyle('conversation','.sully-bubble-user').fontSize==='12px'
+    && cssStyle('conversation','.sully-bubble-ai').fontSize==='12px'
+    && cssStyle('conversation','.sully-bubble-user').paddingTop==='5px'
+    && cssStyle('conversation','.sully-bubble-ai').paddingLeft==='9px',
   blackBubble:cssStyle('conversation','.sully-bubble-user').backgroundColor==='rgb(0, 0, 0)',
   whiteBubble:cssStyle('conversation','.sully-bubble-ai').backgroundColor==='rgb(255, 255, 255)',
   nativeBackVisible:cssStyle('conversation','.sully-chat-back > svg').display!=='none'
