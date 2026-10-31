@@ -1222,6 +1222,11 @@ ${voiceActingGuide()}`;
                         ? m.metadata.pokeSuffix.trim().replace(/[\r\n<>{}]/g,'').slice(0,48) : '';
                     content = `${timeStr} [系统: 用户戳了你一下${suffix ? '；你当前设置的戳一戳后缀是「' + suffix + '」' : ''}]`;
                 }
+                else if (m.type === 'chat_forward') {
+                    // Forward cards may carry shared audio BlobRefs for user playback.
+                    // Pass a human-readable history summary, never the embedded JSON.
+                    content = `${timeStr} ${normalizeMessageContent(m, char?.name || '你', userProfile?.name || '用户')}`;
+                }
                 else if (m.type === 'voice') {
                     // Same canonical transcript for local chat, instant chat and memory.
                     // Do not imply that text-only voice has a playable recording.
