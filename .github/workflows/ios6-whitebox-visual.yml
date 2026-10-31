@@ -29,6 +29,8 @@ jobs:
         run: pnpm exec vitest run utils/builtinWhitebox.test.ts utils/chatDecoration.test.ts
       - name: Build chat preview CSS
         run: pnpm run build:chat-preview
+      - name: Install Chinese glyphs for actual rendered text checks
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:
