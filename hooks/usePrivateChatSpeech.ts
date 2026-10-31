@@ -14,8 +14,8 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
   const [hasAudioDraft, setHasAudioDraft] = useState(false);
   const [mode, setMode] = useState<PrivateChatSpeechMode>('transcribe');
   const sessionRef = useRef<SttSession | null>(null);
-  // Audio exists only for the paid-STT path, where we share its original stream.
-  // Browser and Android native STT remain honest transcript-only fallbacks.
+  // Recorded audio may come from original microphone capture or paid STT.
+  // Browser/Android recognizers may only provide a transcript; never invent an audio file.
   const audioDraftRef = useRef<{ blob: Blob; durationSec: number } | null>(null);
   const generationRef = useRef(0);
   const editedRef = useRef(false);
@@ -95,6 +95,11 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
       setStatus('review');
       return;
     }
+    if (nextMode === 'record' && !isAudioRecordingSupported()) {
+      setError('这个设备无法采集原声。可以改用「语音转文字」或手机输入法的麦克风。');
+      setStatus('review');
+      return;
+    }
     setStatus('starting');
     const startedAt = Date.now();
     clearElapsedTimer();
@@ -102,11 +107,9 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     let ended = false;
 
     try {
-      // Browser WebSpeech often exposes webkitSpeechRecognition but silently hangs
-      // when its remote backend is unreachable. A user selecting "录音语音"
-      // needs REAL audio, so use local MediaRecorder unless a paid ASR provider
-      // was explicitly selected. Keep native speech fallback on older WebViews.
-      const useLocalRecording = nextMode === 'record' && resolveSttProvider(apiConfig) === 'browser' && isAudioRecordingSupported();
+      // Voice dictation uses selected STT. 'Only original audio' always uses
+      // local microphone capture; never silently charges a configured STT API.
+      const useLocalRecording = nextMode === 'record';
       const callbacks: SttCallbacks = {
         onAudioCaptured: (blob, durationSec) => {
           if (generation !== generationRef.current || blob.size === 0 || durationSec <= 0) return;
