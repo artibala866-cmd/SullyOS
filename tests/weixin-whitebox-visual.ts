@@ -37,19 +37,21 @@ try {
   return a.width>=25 && b.width>=70 && v.width>=25 && v.right<=b.left+2 && b.right<=a.left+2
    && getComputedStyle(send).display==='none';
  };
+ const dark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+ const expected=(light:string,night:string)=>dark?night:light;
  const checks={
-  chatRoot:same('conversation','.sully-chat-root','rgb(237, 237, 237)'),
-  header:same('conversation','.sully-chat-header','rgb(237, 237, 237)'),
-  input:same('conversation','.sully-chat-inputbar','rgb(247, 247, 247)'),
-  field:same('conversation','.sully-chat-input-wrap','rgb(255, 255, 255)'),
-  userGreen:same('conversation','.sully-bubble-user','rgb(149, 236, 105)'),
-  aiWhite:same('conversation','.sully-bubble-ai','rgb(255, 255, 255)'),
+  chatRoot:same('conversation','.sully-chat-root',expected('rgb(237, 237, 237)','rgb(24, 24, 24)')),
+  header:same('conversation','.sully-chat-header',expected('rgb(237, 237, 237)','rgb(17, 17, 17)')),
+  input:same('conversation','.sully-chat-inputbar',expected('rgb(247, 247, 247)','rgb(23, 23, 23)')),
+  field:same('conversation','.sully-chat-input-wrap',expected('rgb(255, 255, 255)','rgb(41, 41, 41)')),
+  userGreen:same('conversation','.sully-bubble-user',expected('rgb(149, 236, 105)','rgb(62, 181, 117)')),
+  aiWhite:same('conversation','.sully-bubble-ai',expected('rgb(255, 255, 255)','rgb(42, 42, 44)')),
   reply:!!$('reply','.sully-chat-reply'),
   voice:!!$('voice-playing','.sully-voice-bar'),
   transfer:same('transfer','.sully-chat-transfer-card','rgb(250, 157, 59)'),
   accepted:!!$('transfer-accepted','.sully-chat-transfer-receipt'),
   returned:!!$('transfer-returned','.sully-chat-transfer-receipt'),
-  groupBubble:same('group','.sully-bubble-ai','rgb(255, 255, 255)'),
+  groupBubble:same('group','.sully-bubble-ai',expected('rgb(255, 255, 255)','rgb(42, 42, 44)')),
   groupPacket:same('group','.sully-chat-group-packet','rgb(233, 167, 70)'),
   groupReceipt:!!$('group','.sully-chat-group-packet-receipt'),
   inputNoOverlap:inBounds('conversation'),
