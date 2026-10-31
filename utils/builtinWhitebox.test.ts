@@ -53,6 +53,23 @@ describe('bundled star orbit outfits',()=>{
   const other='.sully-chat-header {background: pink!important;}';
   expect(resolveLegacySilentLetterCss(other)).toBe(other);
  });
+ it('upgrades the exact persisted v2 icon overlay while preserving cached image refs and user extras',()=>{
+  const current=BUILTIN_WHITEBOX_PRESETS.find(p=>p.id==='builtin-silent-letter-dark')!.read().parts.css!;
+  const iconPatch='/* 11. 贴图是真正的替换图标';
+  const v2=current.slice(0,current.indexOf(iconPatch))+'\n/* user extra */ .custom-user-class{color:purple;}';
+  const withCachedImage=v2.replace('https://i.imgant.com/v2/L06lLMZ.png','blobref:old-user-icon');
+  const migrated=resolveLegacySilentLetterCss(withCachedImage);
+  expect(migrated).toContain('blobref:old-user-icon');
+  expect(migrated).toContain('.custom-user-class{color:purple;}');
+  expect(migrated).toContain('.sully-chat-actions-button > svg');
+  expect(migrated).toContain('.sully-chat-trigger:not([title="停止生成"]) > svg');
+  expect(migrated).toContain('.sully-chat-send-button:is(');
+  expect(migrated).not.toContain('content:"+"} .sully-chat-avatar-wrap');
+  expect(resolveLegacySilentLetterCss(migrated)).toBe(migrated);
+  expect(resolveLegacySilentLetterCss(current)).toBe(current);
+  const unrelated='/* source stylesheet */ .sully-chat-actions-button > svg{display:block}';
+  expect(resolveLegacySilentLetterCss(unrelated)).toBe(unrelated);
+ });
  it('keeps builtins unchanged when a returned copy is edited',()=>{
   const item=BUILTIN_WHITEBOX_PRESETS[0];const p=item.read();p.parts.css='changed';
   expect(item.read().parts.css).not.toBe('changed');
