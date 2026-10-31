@@ -135,7 +135,31 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     const chatImageInputRef = useRef<HTMLInputElement>(null);
     const [cameraOpen, setCameraOpen] = useState(false);
     const [voiceMenuOpen, setVoiceMenuOpen] = useState(false);
+    const voiceTriggerRef = useRef<HTMLButtonElement>(null);
+    const voiceMenuRef = useRef<HTMLDivElement>(null);
+    const inputWrapRef = useRef<HTMLDivElement>(null);
     useEffect(() => setVoiceMenuOpen(false), [activeCharacterId, selectionMode, showPanel]);
+    useEffect(() => {
+        if (speechInput?.status !== 'idle') setVoiceMenuOpen(false);
+    }, [speechInput?.status]);
+    useEffect(() => {
+        if (!voiceMenuOpen) return;
+        const dismiss = (event: PointerEvent) => {
+            const target = event.target;
+            if (!(target instanceof Node)) return;
+            if (voiceTriggerRef.current?.contains(target) || voiceMenuRef.current?.contains(target)) return;
+            setVoiceMenuOpen(false);
+        };
+        const dismissEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setVoiceMenuOpen(false);
+        };
+        document.addEventListener('pointerdown', dismiss);
+        document.addEventListener('keydown', dismissEscape);
+        return () => {
+            document.removeEventListener('pointerdown', dismiss);
+            document.removeEventListener('keydown', dismissEscape);
+        };
+    }, [voiceMenuOpen]);
     useEffect(() => setCameraOpen(false), [activeCharacterId]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const sendButtonRef = useRef<HTMLButtonElement>(null);
@@ -240,7 +264,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         const blurOnOutsidePointer = (event: PointerEvent) => {
             const target = event.target;
             if (!(target instanceof Node)) return;
-            if (textareaRef.current?.contains(target) || sendButtonRef.current?.contains(target) || suggestionsRef.current?.contains(target)) return;
+            if (inputWrapRef.current?.contains(target) || sendButtonRef.current?.contains(target) || suggestionsRef.current?.contains(target) || voiceMenuRef.current?.contains(target)) return;
             textareaRef.current?.blur();
         };
         document.addEventListener('pointerdown', blurOnOutsidePointer, true);
@@ -782,11 +806,11 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                     </button>
                 </div>
             ) : (
-                <div className="sully-chat-composer p-3 px-4 flex gap-3 items-end relative">
+                <div className="sully-chat-composer px-2.5 py-2.5 flex gap-2 items-end relative">
                     <button aria-label="聊天功能" aria-expanded={showPanel === 'actions'} onClick={() => setShowPanel(showPanel === 'actions' ? 'none' : 'actions')} className={`sully-chat-actions-button ${actionButtonClass}`}>
                         <Plus className="w-6 h-6" weight="bold" />
                     </button>
-                    <div className={`sully-chat-input-wrap flex-1 min-w-0 flex items-center px-1 transition-all ${useIOSStandaloneInputFix ? 'overflow-visible' : 'overflow-hidden'} ${inputWrapClass} ${isPixelStyle ? 'focus-within:bg-[#f8f8f8]' : isDiscordStyle ? 'focus-within:bg-slate-800 focus-within:border-white/20' : 'border border-transparent focus-within:bg-white focus-within:border-primary/30'}`}>
+                    <div ref={inputWrapRef} className={`sully-chat-input-wrap flex-1 min-w-0 flex items-center px-1 transition-all ${useIOSStandaloneInputFix ? 'overflow-visible' : 'overflow-hidden'} ${inputWrapClass} ${typedVoiceEnabled ? 'ring-1 ring-primary/25' : ''} ${isPixelStyle ? 'focus-within:bg-[#f8f8f8]' : isDiscordStyle ? 'focus-within:bg-slate-800 focus-within:border-white/20' : 'border border-transparent focus-within:bg-white focus-within:border-primary/30'}`}>
                         <textarea
                             ref={textareaRef}
                             rows={1}
@@ -802,32 +826,45 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             autoCorrect="on"
                             autoCapitalize="sentences"
                             className={`sully-chat-textarea flex-1 min-w-0 bg-transparent px-4 py-3 ${useIOSStandaloneInputFix ? 'text-[16px]' : 'text-[15px]'} resize-none max-h-24 no-scrollbar ${isDiscordStyle ? 'text-white placeholder:text-slate-500' : isPixelStyle ? 'text-[#515151] placeholder:text-[#898989]' : ''}`}
-                            placeholder="Message..."
+                            placeholder={typedVoiceEnabled ? '输入语音文字…' : 'Message...'}
                             style={{ height: 'auto' }}
                         />
-                        <button hidden={compactHome} onClick={() => setShowPanel(showPanel === 'emojis' ? 'none' : 'emojis')} className={`p-2 shrink-0 ${isDiscordStyle ? 'text-slate-400 hover:text-neutral-300' : isPixelStyle ? 'text-[#6d6d6d] hover:text-[#696969]' : 'text-slate-400 hover:text-primary'}`}>
-                            <Smiley className="w-6 h-6" weight="regular" />
+                        <button hidden={compactHome} type="button" aria-label="表情面板" onClick={() => setShowPanel(showPanel === 'emojis' ? 'none' : 'emojis')}
+                            className={`w-9 h-9 shrink-0 grid place-items-center rounded-full ${isDiscordStyle ? 'text-slate-400 hover:text-neutral-300' : isPixelStyle ? 'text-[#6d6d6d] hover:text-[#696969]' : 'text-slate-400 hover:text-primary'}`}>
+                            <Smiley className="w-5 h-5" weight="regular" />
                         </button>
-                    </div>
-                    {speechInput && (
-                        <div className="relative shrink-0 self-end">
-                            <button
-                                type="button"
-                                title="语音消息"
-                                aria-label="语音消息"
+                        {/* Keep the microphone INSIDE the composer field, not as a fourth outer column. */}
+                        {speechInput && (
+                            <button ref={voiceTriggerRef} type="button"
+                                title={typedVoiceEnabled ? '当前：文字语音，点按切换' : '选择语音方式'}
+                                aria-label="选择语音输入方式"
                                 aria-expanded={voiceMenuOpen}
                                 aria-pressed={typedVoiceEnabled}
-                                onClick={() => { textareaRef.current?.blur(); setVoiceMenuOpen(open => !open); }}
-                                className={`w-9 h-11 grid place-items-center rounded-full transition-colors ${voiceMenuOpen || speechInput.status !== 'idle' ? 'bg-primary/10 text-primary' : isDiscordStyle ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-500 hover:bg-black/5'}`}
-                            >
-                                <Microphone size={21} weight={voiceMenuOpen ? 'fill' : 'regular'} />
+                                disabled={speechInput.status !== 'idle'}
+                                onPointerDown={event => { if (event.button === 0) event.preventDefault(); }}
+                                onClick={() => { if (showPanel !== 'none') setShowPanel('none'); setVoiceMenuOpen(open => !open); }}
+                                className={`sully-chat-voice-trigger w-9 h-9 mr-0.5 shrink-0 grid place-items-center rounded-full transition-colors disabled:opacity-50 ${typedVoiceEnabled || voiceMenuOpen ? 'text-primary bg-primary/10' : isDiscordStyle ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-500 hover:bg-black/5'}`}>
+                                <Microphone size={19} weight={typedVoiceEnabled ? 'fill' : 'regular'} />
                             </button>
-                            {voiceMenuOpen && (
-                                <div role="group" aria-label="选择语音输入方式" className={`absolute bottom-full right-0 mb-2 z-50 p-1.5 flex gap-1 rounded-2xl border shadow-lg ${isDiscordStyle ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
-                                    <button type="button" title="真实语音" aria-label="真实语音" aria-pressed={speechInput.status !== 'idle'} onClick={() => { setVoiceMenuOpen(false); onExitTypedVoice?.(); void speechInput.start(); }} className={`w-11 h-10 rounded-xl grid place-items-center ${speechInput.status !== 'idle' ? 'bg-primary/15 text-primary' : 'hover:bg-black/5'}`}><Microphone size={21} /></button>
-                                    <button type="button" title="键盘输入" aria-label="键盘输入" aria-pressed={typedVoiceEnabled} onClick={() => { setVoiceMenuOpen(false); speechInput.cancel(); if (typedVoiceEnabled) onExitTypedVoice?.(); else onSelectTypedVoice?.(); textareaRef.current?.focus(); }} className={`w-11 h-10 rounded-xl grid place-items-center ${typedVoiceEnabled ? 'bg-primary/15 text-primary' : 'hover:bg-black/5'}`}><Keyboard size={21} /></button>
-                                </div>
-                            )}
+                        )}
+                    </div>
+                    {/* A narrow, vertical voice selector aligns over the embedded microphone.
+                        As a composer sibling it cannot be clipped by input-wrap overflow-hidden. */}
+                    {speechInput && voiceMenuOpen && speechInput.status === 'idle' && (
+                        <div ref={voiceMenuRef} role="group" aria-label="语音输入方式"
+                            className={`sully-chat-voice-menu absolute bottom-full right-[3.25rem] z-[70] mb-1.5 w-[154px] rounded-2xl border p-1 shadow-[0_8px_28px_rgba(0,0,0,0.12)] backdrop-blur-xl ${isDiscordStyle ? 'bg-slate-900/95 border-slate-700 text-slate-200' : isPixelStyle ? 'bg-[#f1f1f1] border-[#6d6d6d]/30 text-[#515151]' : 'bg-white/95 border-slate-200/80 text-slate-700'}`}>
+                            <button type="button" aria-label="录音语音" aria-pressed={false}
+                                onClick={() => { setVoiceMenuOpen(false); onExitTypedVoice?.(); textareaRef.current?.blur(); void speechInput.start(); }}
+                                className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs hover:bg-black/5 active:bg-black/10">
+                                <Microphone size={18} weight="regular" className="shrink-0" />
+                                <span>录音语音</span>
+                            </button>
+                            <button type="button" aria-label={typedVoiceEnabled ? '恢复普通文字输入' : '文字模拟语音'} aria-pressed={typedVoiceEnabled}
+                                onClick={() => { setVoiceMenuOpen(false); if (typedVoiceEnabled) onExitTypedVoice?.(); else onSelectTypedVoice?.(); textareaRef.current?.focus({ preventScroll: true }); }}
+                                className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs hover:bg-black/5 active:bg-black/10 ${typedVoiceEnabled ? 'bg-primary/10 text-primary' : ''}`}>
+                                <Keyboard size={18} weight="regular" className="shrink-0" />
+                                <span>{typedVoiceEnabled ? '恢复普通文字' : '文字模拟语音'}</span>
+                            </button>
                         </div>
                     )}
                     <button
