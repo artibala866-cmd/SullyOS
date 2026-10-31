@@ -23,6 +23,29 @@ describe('user voice must use the actual private-chat pipeline', () => {
     expect(input).toContain('aria-pressed={typedVoiceEnabled}');
   });
 
+  it('uses a compact, embedded microphone without shrinking the private-chat composer', () => {
+    const input = read('components/chat/ChatInputArea.tsx');
+    const composer = input.slice(
+      input.indexOf('sully-chat-composer px-2.5 py-2.5'),
+      input.indexOf('{emojiSelectionMode && (', input.indexOf('sully-chat-composer px-2.5 py-2.5')),
+    );
+    // Exactly three outer columns: add, expandable input with emoji/mic, send.
+    expect(composer).toContain('sully-chat-input-wrap flex-1 min-w-0');
+    expect(composer).toContain('sully-chat-voice-trigger w-9 h-9');
+    expect(composer).toContain('sully-chat-voice-menu absolute bottom-full');
+    expect(composer).toContain('flex w-full items-center gap-2.5 rounded-xl'); // stacked items, not two large squares
+    expect(composer).toContain('录音语音');
+    expect(composer).toContain('文字模拟语音');
+    expect(composer).toContain('恢复普通文字');
+    expect(composer).not.toContain('w-11 h-10 rounded-xl grid place-items-center');
+    const mic = composer.indexOf('sully-chat-voice-trigger');
+    const inputWrapEnd = composer.indexOf('</div>', mic);
+    expect(mic).toBeGreaterThan(0);
+    expect(inputWrapEnd).toBeGreaterThan(mic); // mic renders in the input wrap
+    expect(input).toContain("if (showPanel !== 'none') setShowPanel('none')");
+    expect(input).toContain('voiceMenuRef.current?.contains(target)');
+  });
+
   it('keeps Char TTS distinct and never shows fake audio playback', () => {
     const item = read('components/chat/MessageItem.tsx');
     const bubble = read('components/chat/UserVoiceBubble.tsx');
