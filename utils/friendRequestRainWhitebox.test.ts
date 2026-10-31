@@ -61,7 +61,7 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   const bad='/* 请求添加好友 · 雨梦 by 池谕 | SullyOS 原生整套白框适配\\n.old-drops{color:red}';
   const corrected=resolveLegacyFriendRequestRainCss(bad);
   expect(corrected).toBe(read().parts.css);
-  expect(resolveLegacyFriendRequestRainCss(restoredSizing)).toBe(restoredSizing);
+  expect(resolveLegacyFriendRequestRainCss(corrected)).toBe(corrected);
   const full=read().parts.css!;
   const v8='/* 请求添加好友 · 尺寸与申请按钮适配 v8';
   const v9='/* 请求添加好友 · 顶区操作与标签去重叠 v9';
