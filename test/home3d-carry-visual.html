@@ -12,7 +12,7 @@ import {createRoomFinishPass} from '../apps/room3d/roomFinishPass.js';
 import {setCharacterStyle} from '../apps/room3d/chibi/characterStyle.ts';
 import {setCharacterRoomLighting,setCharacterRoomTint} from '../apps/room3d/chibi/illustration.ts';
 import {ROOM_LIGHT_PHASES,createRoomLightUniforms,updateRoomLightUniforms} from '../apps/room3d/roomLighting.js';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],artImages:[],artStats:[],phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],artImages:[],artStats:[],antiGhostImages:[],antiGhostStats:null,phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -196,6 +196,49 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
  };
 
  renderer.setSize(700,525,false);renderer.setPixelRatio(1);
+ // An isolated white plane in the right-hand background catches the old
+ // 18px four-direction shifted scene copies. The same image must have no
+ // bright satellite borders once the illustrated finish is applied.
+ {
+  const ghostScene=new T.Scene();ghostScene.background=new T.Color('#08080d');
+  const ghostCamera=new T.OrthographicCamera(-2.55,2.55,1.9125,-1.9125,.1,20);
+  ghostCamera.position.set(0,0,5);ghostCamera.lookAt(0,0,0);
+  const bar=new T.Mesh(new T.PlaneGeometry(.72,1.7),
+    new T.MeshBasicMaterial({color:'#ffffff',toneMapped:false}));
+  bar.position.x=1.45;ghostScene.add(bar);
+  const screenshot=(name)=>{
+   const fig=document.createElement('figure'),img=document.createElement('img');
+   img.src=renderer.domElement.toDataURL('image/png');img.alt=name;
+   artGallery.append(fig);report.antiGhostImages.push({name});
+   const sample=document.createElement('canvas');
+   sample.width=renderer.domElement.width;sample.height=renderer.domElement.height;
+   const context=sample.getContext('2d');context.drawImage(renderer.domElement,0,0);
+   return context.getImageData(0,0,sample.width,sample.height).data;
+  };
+  renderer.render(ghostScene,ghostCamera);
+  const unfiltered=screenshot('antighost-original');
+  renderer.render(ghostScene,ghostCamera);
+  finishPass.render('day',{baseFinish:false,detail:0,illustrated:true,focus:1,focusCenter:[.5,.52]});
+  const comic=screenshot('antighost-comic');
+  const w=renderer.domElement.width,h=renderer.domElement.height,row=Math.floor(h/2);
+  const lum=(data,x,y)=>{const k=(y*w+x)*4;return data[k]*.2126+data[k+1]*.7152+data[k+2]*.0722;};
+  const active=[];
+  for(let x=0;x<w;x++)if(lum(unfiltered,x,row)>220)active.push(x);
+  if(active.length<35)throw Error('Real anti-ghost WebGL fixture has no crisp white subject');
+  const [left,right]=[active[0],active[active.length-1]];
+  let maxSatellite=0,spuriousBright=0;
+  for(let y=Math.floor(h*.30);y<Math.floor(h*.70);y++){
+   for(let d=4;d<=32;d++)for(const x of [left-d,right+d]){
+    if(x<0||x>=w)continue;
+    const b=lum(unfiltered,x,y),v=lum(comic,x,y);
+    if(b<23){maxSatellite=Math.max(maxSatellite,v);if(v>43)spuriousBright++;}
+   }
+  }
+  report.antiGhostStats={left,right,maxSatellite,spuriousBright};
+  if(spuriousBright>0||maxSatellite>43)
+   throw Error('Illustrated film created shifted ghost silhouettes: '+JSON.stringify(report.antiGhostStats));
+  bar.geometry.dispose();bar.material.dispose();
+ }
  for(const variant of materialCases){
   const p=parts(0);p.skin=color(variant.skin);p.eyes=testEyes;p.mouth=testMouth;p.facemark=testMarks;
   const preset=approvedPresets[variant.outfit];
@@ -414,7 +457,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     throw Error('Full illustrated film look not visible or too destructive '+variant.id+': '+JSON.stringify({artMean,artFraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
- if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12||report.artImages.length!==8)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
+ if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12||report.artImages.length!==8||report.antiGhostImages.length!==2||report.antiGhostStats?.spuriousBright!==0)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
  finishPass.dispose();
  if(!celOnly&&(report.images.length!==980||report.timelines.length!==2))throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
