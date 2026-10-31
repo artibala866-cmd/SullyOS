@@ -86,7 +86,7 @@ import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 import { useChatAI } from '../hooks/useChatAI';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { usePrivateChatSpeech } from '../hooks/usePrivateChatSpeech';
-import { attachUserVoiceAudio, formatForwardedUserVoice, makeUserVoiceMetadata, reviseUserVoiceTranscript } from '../utils/userVoiceMessage';
+import { attachUserVoiceAudio, formatForwardedUserVoice, forwardUserVoiceSnapshot, makeUserVoiceMetadata, reviseUserVoiceTranscript } from '../utils/userVoiceMessage';
 import { cleanTextForTts, parseVoiceOutput } from '../utils/minimaxTts';
 import { collectVoiceBatchSubtitle, isPoisonedVoiceSubtitle } from '../utils/voiceSubtitle';
 import {
@@ -3516,7 +3516,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const previewLines = selectedMsgs.slice(0, 4).map(m => {
             const sender = m.role === 'user' ? userProfile.name : char.name;
             const text = m.type === 'voice'
-                ? `[语音] ${(getVoiceTranscript(m) || '原声未随转发附带').slice(0, 30)}`
+                ? `[语音] ${(getVoiceTranscript(m) || (m.metadata?.hasAudio ? '原声录音' : '无转写')).slice(0, 30)}`
                 : m.type === 'text' ? m.content.slice(0, 30)
                     : `[${m.type === 'image' ? '图片' : m.type === 'emoji' ? '表情' : m.type}]`;
             return `${sender}: ${text}`;
@@ -3528,15 +3528,14 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             fromCharName: char.name,
             count: selectedMsgs.length,
             preview: previewLines,
-            messages: selectedMsgs.map(m => ({
-                role: m.role,
-                type: m.type,
-                // Forwarded history is a text-only snapshot, not an audio attachment.
-                content: m.type === 'voice'
-                    ? formatForwardedUserVoice(m)
-                    : m.content,
-                timestamp: m.timestamp || Date.now()
-            }))
+            messages: selectedMsgs.map(m => m.type === 'voice'
+                ? forwardUserVoiceSnapshot(m)
+                : ({
+                    role: m.role,
+                    type: m.type,
+                    content: m.content,
+                    timestamp: m.timestamp || Date.now(),
+                }))
         };
 
         // Save forward card to target character's chat
