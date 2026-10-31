@@ -2,6 +2,7 @@ import {describe,it,expect} from 'vitest';
 import * as T from 'three';
 import {setCharacterIllustration,setCharacterRoomLighting,setCharacterRoomTint} from '../apps/room3d/chibi/illustration';
 import {getCharacterStyle,setCharacterStyle} from '../apps/room3d/chibi/characterStyle';
+import {dreamcoreFocusStrength} from '../apps/room3d/roomFinishPass.js';
 import {readFileSync} from 'node:fs';
 
 describe('incremental Home3D character style switching',()=>{
@@ -52,6 +53,33 @@ describe('incremental Home3D character style switching',()=>{
   expect(pass).toContain('sceneBuffer.depthTexture');
   expect(editor).toContain("['illustrated','手绘风梦核']");
   expect(editor).toContain('人物画风 · 手绘线条、柔和纸感和真实空间景深');
+ });
+ it('keeps an overview completely sharp and only fades in gentle DOF on deliberate zoom',()=>{
+  const c=new T.OrthographicCamera(-1.45,1.45,2.9,-2.9,.1,200);
+  c.zoom=1;
+  expect(dreamcoreFocusStrength(c)).toBe(0); // actual portrait living-view h=5.8
+  c.zoom=1.3;
+  expect(dreamcoreFocusStrength(c)).toBe(0);
+  c.zoom=1.6;
+  const entering=dreamcoreFocusStrength(c);
+  expect(entering).toBeGreaterThan(0);
+  expect(entering).toBeLessThan(.5);
+  c.zoom=2.75;
+  expect(dreamcoreFocusStrength(c)).toBeGreaterThan(.99);
+  expect(dreamcoreFocusStrength(c,{edit:true})).toBe(0);
+  expect(dreamcoreFocusStrength(c,{overview:true})).toBe(0);
+  expect(dreamcoreFocusStrength(c,{firstPerson:true})).toBe(0);
+  c.zoom=1;
+  c.top=16;c.bottom=-16; // full-room portrait overview
+  c.zoom=5;
+  expect(dreamcoreFocusStrength(c)).toBe(0);
+  expect(dreamcoreFocusStrength(new T.PerspectiveCamera())).toBe(0);
+  const pass=readFileSync('apps/room3d/roomFinishPass.js','utf8');
+  const editor=readFileSync('apps/room3d/editor.js','utf8');
+  expect(pass).toContain('depthOfField*.21');
+  expect(pass).toContain('dreamcoreFocusStrength');
+  expect(editor).toContain('const focusAmount=dreamcore?dreamcoreFocusStrength(camera');
+  expect(editor).toContain('const depthCapture=focusAmount>.001&&roomFinish.beginScene()');
  });
  it('is only a device preference and leaves current avatar, 29 original seat registrations and homes untouched',()=>{
   const source=readFileSync('apps/room3d/editor.js','utf8');
