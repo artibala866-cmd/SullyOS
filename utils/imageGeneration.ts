@@ -101,7 +101,7 @@ const readNovelImage = async (blob: Blob): Promise<Blob> => {
   if (!item) throw new Error('NAI ZIP 中没有可用图片');
   const mime = /\.webp$/i.test(item.name) ? 'image/webp' : /\.jpe?g$/i.test(item.name) ? 'image/jpeg' : 'image/png';
   const bytes = await item.async('uint8array');
-  return asImageBlob(new Blob([bytes], { type: mime }));
+  return asImageBlob(new Blob([Uint8Array.from(bytes)], { type: mime }));
 };
 
 const normalizedSize = (config: ImageApiSettings): string => {
