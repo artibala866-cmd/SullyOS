@@ -30,9 +30,9 @@ const numberIn = (value: unknown, min: number, max: number, fallback: number, fi
     }
     return value;
 };
-const arrayOfStrings = (value: unknown, field: string): string[] => {
+const arrayOfStrings = (value: unknown, field: string, maxItems = 100): string[] => {
     if (value == null) return [];
-    if (!Array.isArray(value) || value.length > 100 ||
+    if (!Array.isArray(value) || value.length > maxItems ||
         value.some(item => typeof item !== 'string' || item.length > 512)) {
         throw new Error('BabyLink ' + field + ' 关键词格式无效');
     }
@@ -65,6 +65,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         if (!isObject(value) || !Array.isArray(value.entries)) {
             throw new Error('BabyLink 第 ' + (index + 1) + ' 本世界书结构不完整');
         }
+        if (value.scope !== 'local') throw new Error('BabyLink 分享包包含非角色私有世界书');
         const bookId = optionalText(value.id, '世界书 ID', 256);
         if (!bookId || bookMap.has(bookId)) throw new Error('BabyLink 世界书 ID 缺失或重复');
         if (value.enabled != null && typeof value.enabled !== 'boolean') throw new Error('BabyLink 世界书启用状态无效');
@@ -102,8 +103,8 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
             if (activation === 'priority' && !warnings.includes('BabyLink priority 条目已保持常驻并优先排序，但专属优先级机制无法完全等价')) {
                 warnings.push('BabyLink priority 条目已保持常驻并优先排序，但专属优先级机制无法完全等价');
             }
-            if (position === 'after-chat' && !warnings.includes('BabyLink after-chat 已映射到角色设定后；聊天结束后的精确注入位置尚无法等价')) {
-                warnings.push('BabyLink after-chat 已映射到角色设定后；聊天结束后的精确注入位置尚无法等价');
+            if (position === 'after-chat' && !warnings.includes('BabyLink after-chat 已映射到对话消息末尾；原有 depth 阅读提示不会执行为消息截断')) {
+                warnings.push('BabyLink after-chat 已映射到对话消息末尾；原有 depth 阅读提示不会执行为消息截断');
             }
             const now = Date.now();
             books.push({
@@ -115,9 +116,12 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
                 key: keys, keysecondary: secondaryKeys,
                 constant, selective: !constant && secondaryKeys.length > 0,
                 selectiveLogic: 0,
-                position: position === 'before-chat' ? 0 : 1,
+                position: position === 'before-chat' ? 0 : 4,
                 order: activation === 'priority' ? order - 10000 : order,
-                depth,
+                // Native position 4 injects after the latest message when depth=0.
+                // BabyLink's depth is an explanatory field, not its insertion offset.
+                depth: position === 'after-chat' ? 0 : depth,
+                role: position === 'after-chat' ? 0 : null,
                 probability, useProbability: probability < 100,
                 caseSensitive: entry.caseSensitive === true,
                 disable: value.enabled === false || entry.enabled === false,
@@ -141,7 +145,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         if (sourceAvatar && !avatar && !warnings.includes('部分 BabyLink 私有头像路径无法跨应用读取，已忽略')) {
             warnings.push('部分 BabyLink 私有头像路径无法跨应用读取，已忽略');
         }
-        const ids = arrayOfStrings(value.localWorldBookIds, 'localWorldBookIds');
+        const ids = arrayOfStrings(value.localWorldBookIds, 'localWorldBookIds', MAX_BOOKS);
         const books: Worldbook[] = [];
         const seen = new Set<string>();
         for (const bookId of ids) {
@@ -189,7 +193,14 @@ export function extractBabyLinkCompressed(pixels: Uint8ClampedArray): Uint8Array
     };
     const length = ((readByte(0) * 0x1000000) + (readByte(1) << 16) +
         (readByte(2) << 8) + readByte(3)) >>> 0;
-    if (!length || length > MAX_COMPRESSED || length > capacity - 4) return null;
+    if (!length || length > MAX_COMPRESSED || length > capacity - 4) {
+        // A corrupted length header must not turn a recognizable BabyLink gzip payload
+        // into an innocuous 'ordinary PNG' fallback.
+        if (capacity >= 7 && readByte(4) === 0x1f && readByte(5) === 0x8b && readByte(6) === 0x08) {
+            throw new Error('BabyLink 分享图片长度信息损坏，无法导入');
+        }
+        return null;
+    }
     const compressed = new Uint8Array(length);
     for (let n = 0; n < length; n++) compressed[n] = readByte(n + 4);
     // A plausible declared length implies a share file, including if its gzip header is corrupt.
