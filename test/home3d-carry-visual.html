@@ -231,16 +231,16 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    const drawn=styleScreenshot('style-'+variant.id+'-illustrated');
    setCharacterStyle('modern');renderer.render(scene,camera);
    const restored=styleScreenshot('style-'+variant.id+'-restored');
-   let total=0,changed=0,reversible=0;
+   let styleTotal=0,styleChanged=0,styleReversible=0;
    for(let px=0;px<orig.length;px+=4){
     const diff=(Math.abs(orig[px]-drawn[px])+Math.abs(orig[px+1]-drawn[px+1])+Math.abs(orig[px+2]-drawn[px+2]))/3;
     const revers=(Math.abs(orig[px]-restored[px])+Math.abs(orig[px+1]-restored[px+1])+Math.abs(orig[px+2]-restored[px+2]))/3;
-    total+=diff;if(diff>.5)changed++;reversible=Math.max(reversible,revers);
+    styleTotal+=diff;if(diff>.5)styleChanged++;styleReversible=Math.max(styleReversible,revers);
    }
-   const mean=total/(orig.length/4),fraction=changed/(orig.length/4);
-   report.styleStats.push({variant:variant.id,mean,fraction,maxRestoreDifference:reversible});
-   if(mean<.05||mean>12||fraction<.005||fraction>.75||reversible>.01)
-    throw Error('Original look not preserved or cel shader ineffective '+variant.id+': '+JSON.stringify({mean,fraction,reversible}));
+   const styleMean=styleTotal/(orig.length/4),styleFraction=styleChanged/(orig.length/4);
+   report.styleStats.push({variant:variant.id,mean:styleMean,fraction:styleFraction,maxRestoreDifference:styleReversible});
+   if(styleMean<.05||styleMean>12||styleFraction<.005||styleFraction>.75||styleReversible>.01)
+    throw Error('Original look not preserved or cel shader ineffective '+variant.id+': '+JSON.stringify({mean:styleMean,fraction:styleFraction,reversible:styleReversible}));
    if(variant.id==='black-fair-dark'){
     // Preserve the actual shared room colour uniforms across all four daylight
     // phases and verify switching the optional style cannot remove existing light.
