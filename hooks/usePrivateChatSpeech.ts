@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { APIConfig } from '../types';
-import { isAudioRecordingSupported, resolveSttProvider, startPrivateChatRecording, startStt, type SttSession } from '../utils/speechToText';
+import { isAudioRecordingSupported, resolveSttProvider, startPrivateChatRecording, startStt, type SttCallbacks, type SttSession } from '../utils/speechToText';
 
 export type PrivateChatSpeechStatus = 'idle' | 'starting' | 'listening' | 'transcribing' | 'review';
 
@@ -94,7 +94,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
       // needs REAL audio, so use local MediaRecorder unless a paid ASR provider
       // was explicitly selected. Keep native speech fallback on older WebViews.
       const useLocalRecording = resolveSttProvider(apiConfig) === 'browser' && isAudioRecordingSupported();
-      const callbacks = {
+      const callbacks: SttCallbacks = {
         onAudioCaptured: (blob, durationSec) => {
           if (generation !== generationRef.current || blob.size === 0 || durationSec <= 0) return;
           audioDraftRef.current = { blob, durationSec };
