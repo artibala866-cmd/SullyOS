@@ -51,6 +51,8 @@ export function getVoiceTranscript(msg: Message): string {
         if (typeof candidate !== 'string') continue;
         const trimmed = candidate.trim();
         if (!trimmed) continue;
+        if (msg.type === 'voice' && meta.inputMode === 'recorded' && !meta.transcript &&
+            /^(?:\[语音\]|\[录音消息\])$/.test(trimmed)) continue;
         if (/^(?:blob:|blobref:|data:audio\/)/i.test(trimmed)) continue;
         if (/^https?:\/\/\S+$/i.test(trimmed)) continue;
         const cleaned = trimmed
