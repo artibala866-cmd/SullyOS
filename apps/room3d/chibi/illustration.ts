@@ -169,8 +169,8 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkToonN=inkFacing+${face ? '.15' : skin ? '.10' : hair ? '-.09' : '-.12'};
             float inkToonAA=max(fwidth(inkToonN)*1.35,.020);
             float inkPaperShadow=smoothstep(-.33-inkToonAA,-.18+inkToonAA,inkToonN);
-            float inkHalfTone=smoothstep(-.02-inkToonAA,.12+inkToonAA,inkToonN);
-            float inkBrightTone=smoothstep(.40-inkToonAA,.57+inkToonAA,inkToonN);
+            float inkHalfTone=smoothstep(-.17-inkToonAA,.07+inkToonAA,inkToonN);
+            float inkBrightTone=smoothstep(.31-inkToonAA,.61+inkToonAA,inkToonN);
             float inkToonCast=smoothstep(.12,.92,mix(1.,getShadowMask(),characterRoomEnabled));
             // Preserve the depth of dark textiles and dark hair instead of
             // washing all surfaces to the same pastel value.
@@ -180,10 +180,21 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             vec3 inkPigmentShadow=${face || skin ? 'vec3(1.00,.91,.86)' : hair ? 'vec3(.91,.95,1.00)' : 'vec3(.95,.96,1.00)'};
             vec3 inkAmbient=mix(inkPigmentShadow,mix(vec3(1.),roomShadeTint,characterRoomEnabled*.44),inkHalfTone);
             vec3 inkKey=mix(characterRoomTint,roomSunTint,characterRoomEnabled*.64);
+            // Painted form is a continuous underpainting plus distinct lit
+            // planes. Earlier two-step mixing ignored inkPaperShadow entirely,
+            // creating flat colour slabs even where the original mesh curved.
             vec3 inkCelShade=diffuseColor.rgb*inkAmbient*inkShadeStrength;
             vec3 inkCelMid=diffuseColor.rgb*mix(inkAmbient,inkKey,.44)*inkMidStrength;
             vec3 inkCelBright=diffuseColor.rgb*inkKey*inkKeyStrength;
-            inkColor=mix(mix(inkCelShade,inkCelMid,inkHalfTone),inkCelBright,inkBrightTone);
+            float inkFormWash=smoothstep(-.74,.72,inkToonN);
+            vec3 inkUnderpaint=mix(inkCelShade,inkCelBright,inkFormWash);
+            vec3 inkBrushPlanes=mix(mix(inkCelShade,inkCelMid,inkPaperShadow*.77+inkHalfTone*.23),
+                                     inkCelBright,inkBrightTone);
+            inkColor=mix(inkUnderpaint,inkBrushPlanes,${face ? '.45' : skin ? '.56' : hair ? '.68' : '.62'});
+            // Soft bounced light follows the curved surface, but cannot wash
+            // a black outfit or dark hair into the same pastel tone as skin.
+            float inkBounceForm=smoothstep(-.54,.18,inkToonN)*(1.-inkBrightTone);
+            inkColor+=diffuseColor.rgb*inkBounceForm*${face ? '.034' : skin ? '.040' : hair ? '.018' : '.014'};
             inkColor*=mix(${face || skin ? '.82' : '.70'},1.,inkToonCast)*inkBrightness;
             // A slight painted paper bounce only on naturally pale pigments;
             // never draw light over pupils, dark hair or clothing linework.
@@ -223,12 +234,20 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkLineAA=max(fwidth(inkViewDot)*1.45,.024);
             float inkMeshStroke=1.-smoothstep(.13,.32+inkLineAA,inkViewDot);
             float inkStroke=max(inkMeshStroke*${face ? '.48' : skin ? '.75' : '.96'},${cutoutHair ? 'inkCutoutEdge*.98' : '0.'});
-            vec3 inkLineColour=mix(vec3(.037,.031,.041),diffuseColor.rgb*.065,.13);
-            outgoingLight=mix(outgoingLight,inkLineColour,clamp(inkStroke,0.,1.));` : ''}
+            // Hand-drawn internal linework follows actual painted boundaries:
+            // hair strands, embroidery and clothing folds. One derivative
+            // pair costs no extra texture reads and leaves facial ink intact.
+            vec3 inkPaintEdge=fwidth(diffuseColor.rgb);
+            float inkPaintJump=max(inkPaintEdge.r,max(inkPaintEdge.g,inkPaintEdge.b));
+            float inkInteriorStroke=smoothstep(.078,.30,inkPaintJump);
+            inkInteriorStroke*= ${face ? '.16' : skin ? '.12' : hair ? '.52' : '.38'};
+            inkStroke=clamp(max(inkStroke,inkInteriorStroke),0.,.96);
+            vec3 inkLineColour=mix(vec3(.039,.032,.044),diffuseColor.rgb*.065,.12);
+            outgoingLight=mix(outgoingLight,inkLineColour,inkStroke);` : ''}
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v16-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v17-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;
