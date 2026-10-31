@@ -106,7 +106,7 @@ try {
   headerAvatarWithinProfile:(()=>{
     const a=rect('conversation','.sully-chat-profile .sully-chat-avatar');
     const p=rect('conversation','.sully-chat-profile');
-    return !!a&&!!p&&a.width<=50&&a.right<=p.right+2&&a.left>=p.left-5;
+    return !!a&&!!p&&a.width<=54&&a.right<=p.right+7&&a.left>=p.left-8;
   })(),
   groupAvatarFirstOnly:(()=>{
     const first=$('avatar-group','.sully-chat-message-group-first .sully-chat-message-avatar-slot img');
