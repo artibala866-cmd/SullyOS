@@ -12,7 +12,7 @@ const sections: HTMLElement[] = [];
 try {
 for (const scene of scenes) {
   const { markup, css } = renderChatDecorationSample(
-    { parts: { bubbles: PRESET_THEMES.forest } },
+    { format: 'sullyos-chat-decoration', version: 1, name: 'QQ浏览器视觉测试', parts: { bubbles: PRESET_THEMES.forest } },
     scene
   );
   const container = document.createElement('section');
