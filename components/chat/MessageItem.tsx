@@ -1137,7 +1137,12 @@ const MessageItem = React.memo(({
     const avatarSizeClass = avatarSize === 'small' ? 'w-7 h-7' : avatarSize === 'large' ? 'w-12 h-12' : 'w-9 h-9';
     const avatarRadiusClass = avatarShape === 'square' ? 'rounded-sm' : avatarShape === 'rounded' ? 'rounded-xl' : 'rounded-full';
     const avatarSizePx = avatarSize === 'small' ? 28 : avatarSize === 'large' ? 48 : 36;
-    const shouldShowAvatar = avatarMode === 'every_message' || isLastInGroup;
+    // Source whitebox 「请求添加好友」 displays the real avatar at the START of a turn,
+    // not its end. This affects only this bundle; other themes keep their existing behavior.
+    const friendRainAvatar = activeTheme.id === 'friend-request-rain';
+    const shouldShowAvatar = friendRainAvatar
+        ? isFirstInGroup
+        : avatarMode === 'every_message' || isLastInGroup;
     // 头像绝对定位在气泡底部尖角处，bottom 恒为 0。
     // 时间戳改用绝对定位浮层（见下方渲染处），不再占据行内高度，
     // 于是气泡列底恒等于气泡尖角——头像贴 bottom-0 就始终对齐：

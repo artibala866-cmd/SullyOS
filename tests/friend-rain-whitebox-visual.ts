@@ -42,6 +42,21 @@ try {
  translation.innerHTML='<h2>真实双语展开与翻译按钮</h2><div class="beauty-preview-body">'+translateMarkup+'</div>';
  const translationStyle=document.createElement('style');translationStyle.textContent=renderChatDecorationSample(preset,'reply').css;
  translation.prepend(translationStyle);root.append(translation);
+
+ // Native two-message turn: verify the actual avatar image is rendered only for the first message.
+ const avatarScene=document.createElement('section');avatarScene.className='scene';avatarScene.dataset.scene='avatar-group';
+ const avatarMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sample-chat'},
+   React.createElement('div',{className:'sully-chat-messages sample-messages'},
+     React.createElement(MessageItem,{msg:{...demo,id:30001,role:'assistant',content:'第一条'},activeTheme:preset.parts.bubbles!,
+      charName:'示例角色',charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,isFirstInGroup:true,isLastInGroup:false,
+      avatarMode:'grouped',avatarSize:'small',onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},suppressEntranceAnimation:true}),
+     React.createElement(MessageItem,{msg:{...demo,id:30002,role:'assistant',content:'第二条'},activeTheme:preset.parts.bubbles!,
+      charName:'示例角色',charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,isFirstInGroup:false,isLastInGroup:true,
+      avatarMode:'grouped',avatarSize:'small',onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},suppressEntranceAnimation:true})
+  )));
+ avatarScene.innerHTML='<h2>头像首条 / 连发不重复</h2><div class="beauty-preview-body">'+avatarMarkup+'</div>';
+ const avatarStyle=document.createElement('style');avatarStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
+ avatarScene.prepend(avatarStyle);root.append(avatarScene);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
 
  const rect=(scene:string,sel:string)=>$(scene,sel)?.getBoundingClientRect();
@@ -81,12 +96,22 @@ try {
 
  const checks={
   responsive,
-  headerTaller:(rect('conversation','.sully-chat-header')?.height||0)>=135,
-  footerCompact:(rect('conversation','.sully-chat-inputbar')?.height||0)<=96,
+  headerCompact:(rect('conversation','.sully-chat-header')?.height||0)<=120 && (rect('conversation','.sully-chat-header')?.height||0)>=100,
+  footerCompact:(rect('conversation','.sully-chat-inputbar')?.height||0)<=83,
   requestLabelsClearOfProfile:(()=>{
     const header=rect('conversation','.sully-chat-header');
     const profile=rect('conversation','.sully-chat-profile');
     return !!header&&!!profile&&profile.right<=header.right-92;
+  })(),
+  headerAvatarWithinProfile:(()=>{
+    const a=rect('conversation','.sully-chat-profile .sully-chat-avatar');
+    const p=rect('conversation','.sully-chat-profile');
+    return !!a&&!!p&&a.width<=50&&a.right<=p.right+2&&a.left>=p.left-5;
+  })(),
+  groupAvatarFirstOnly:(()=>{
+    const first=$('avatar-group','.sully-chat-message-group-first .sully-chat-message-avatar-slot img');
+    const last=$('avatar-group','.sully-chat-message-group-last .sully-chat-message-avatar-slot img');
+    return !!first&&!last;
   })(),
   nativePrivate:!!$('conversation','.sully-chat-header')&&!!$('conversation','.sully-chat-composer'),
   nativeGroup:!!$('group','.sully-bubble-ai')&&!!$('group','.sully-bubble-user'),
@@ -98,7 +123,7 @@ try {
   reply:!!$('reply','.sully-chat-reply'),
   voice:!!$('voice-playing','.sully-voice-bar'),
   hearts:cssStyle('conversation','.sully-bubble-user','::after').backgroundImage.includes('data:image/svg+xml'),
-  avatarPolaroid:(rect('conversation','.sully-chat-profile .sully-chat-avatar')?.height||0)>=60,
+  avatarPolaroid:(rect('conversation','.sully-chat-profile .sully-chat-avatar')?.height||0)>=46 && (rect('conversation','.sully-chat-profile .sully-chat-avatar')?.height||0)<=56,
   originalHeaderImage:cssStyle('conversation','.sully-chat-header').backgroundImage.includes('73e0368b5bd87713b3c6506c4989f43a.jpeg'),
   darkFloatingPill:cssStyle('conversation','.sully-chat-composer','::before').backgroundColor==='rgb(37, 37, 37)',
   bilingualFooter:cssStyle('conversation','.sully-chat-inputbar','::before').content.includes('Dreamed of a rain'),

@@ -13,6 +13,12 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   expect(p.parts.background).toBeUndefined();
   expect(css).toContain('原生逐项适配 v7');
   expect(css).toContain('尺寸与申请按钮适配 v8');
+  expect(css).toContain('头像与整体尺寸回归 v11');
+  expect(p.parts.layout?.chatAvatarSize).toBe('small');
+  expect(css).toContain('height:calc(108px + var(--safe-top,0px))');
+  expect(css).toContain('min-height:68px!important');
+  expect(css).toContain('sully-chat-message-avatar-slot img{display:block!important');
+
   expect(css).toContain('content:"拒绝"');
   expect(css).toContain('content:"同意"');
   expect(css).toContain('background-image:none!important');
@@ -58,10 +64,11 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   const v8='/* 请求添加好友 · 尺寸与申请按钮适配 v8';
   const v9='/* 请求添加好友 · 顶区操作与标签去重叠 v9';
   const v10='/* 请求添加好友 · 原生动作按钮 + 原 SVG 五心 + 用户消息状态 v10';
-  for(const marker of [v8,v9,v10]){
+  const v11='/* 请求添加好友 · 头像与整体尺寸回归 v11';
+  for(const marker of [v8,v9,v10,v11]){
     const older=full.slice(0,full.indexOf(marker))+'\n.my-css{color:hotpink}';
     const migrated=resolveLegacyFriendRequestRainCss(older);
-    expect(migrated).toContain(v10);
+    expect(migrated).toContain(v11);
     expect(migrated).toContain('.my-css{color:hotpink}');
     expect(resolveLegacyFriendRequestRainCss(migrated)).toBe(migrated);
   }
