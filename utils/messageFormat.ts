@@ -126,6 +126,36 @@ export function normalizeMessageContent(
         return transcript ? `[语音转写] ${transcript}` : '[语音]';
     }
 
+    if (type === 'chat_forward') {
+        // Forwarded records can retain a playable audioRef, but the model and
+        // archives must see spoken words, never local Blob storage identifiers.
+        try {
+            const packet = JSON.parse(msg.content || '{}');
+            if (!Array.isArray(packet.messages)) return '[转发的聊天记录]';
+            const nameUser = String(packet.fromUserName || userName).slice(0, 40);
+            const nameChar = String(packet.fromCharName || charName).slice(0, 40);
+            const lines = packet.messages.slice(0, 30).map((part: any) => {
+                const speaker = part?.role === 'user' ? nameUser : nameChar;
+                const kind = String(part?.type || 'text');
+                if (kind === 'voice') {
+                    const transcript = getVoiceTranscript({
+                        type: 'voice', content: String(part?.content || ''),
+                        metadata: part?.metadata || {},
+                    } as Message).replace(/^\[语音(?:记录)?\]\s*/, '').trim();
+                    return `${speaker}: ${transcript ? '[语音转写] ' + transcript.slice(0, 300) : '[语音无转写]'}`;
+                }
+                if (kind === 'image') return `${speaker}: [图片]`;
+                if (kind === 'emoji') return `${speaker}: [表情包]`;
+                if (kind !== 'text') return `${speaker}: [${kind.replace(/[^a-z_]/gi, '').slice(0, 24) || '消息'}]`;
+                const text = String(part?.content || '').slice(0, 300)
+                    .replace(/blobref:[\w:-]+/g, '[本地资源]')
+                    .replace(/data:audio\/\S+/gi, '[音频]');
+                return `${speaker}: ${text}`;
+            });
+            return `[聊天记录转发，${packet.messages.length} 条]\n${lines.join('\n')}`;
+        } catch { return '[转发的聊天记录]'; }
+    }
+
     // 系统交互事件
     // TODO(记录形态): 转账已迁到 [[记录:TRANSFER|...]] (见 transferFormat.ts 头注)，
     // 戳一戳等其他系统事件观察一段时间后再迁 —— sanitize 终线和幂等哨兵已按整个
