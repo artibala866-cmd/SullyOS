@@ -108,7 +108,7 @@ const stubNetwork = (bundle: string, options: { uploadOk?: boolean; bundleStatus
   return calls;
 };
 
-const pulledBundle = (calls: Array<{ url: string }>) => calls.filter((c) => c.(url.includes('amsg-worker.bundle.js') || url.includes('raw.githubusercontent.com'))).length;
+const pulledBundle = (calls: Array<{ url: string }>) => calls.filter((c) => (c.url.includes('amsg-worker.bundle.js') || c.url.includes('raw.githubusercontent.com'))).length;
 const uploaded = (calls: Array<{ method: string }>) => calls.filter((c) => c.method === 'PUT').length;
 
 describe.skipIf(!sqlite)('runAutoUpdate', () => {
