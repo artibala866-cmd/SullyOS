@@ -46,6 +46,8 @@ describe('bundled star orbit outfits',()=>{
   expect(preset.parts.css).toContain('DcdDRsw.png');
   expect(preset.parts.css).toContain('n9OXMPV.png');
   expect(preset.parts.css).toContain('H9Q5nB122');
+  expect(preset.parts.css).toContain('/* 15. 无声回信群聊原版设置图标 v6');
+  expect(preset.parts.css).toContain('button[aria-label="群聊记忆规则"]');
   expect(preset.parts.css).toContain('.sully-chat-composer > .sully-chat-send-button');
   expect(preset.parts.css).toContain('.sully-chat-trigger:not([title="停止生成"]) > svg');
   expect(preset.parts.css).not.toMatch(/\.msg-transfer-card|\.bubble-me-custom|\.chat-detail-screen/);
@@ -83,6 +85,7 @@ describe('bundled star orbit outfits',()=>{
   expect(migrated).toContain('sully-psyche-author-avatar');
   expect(migrated).toContain('/* 13. 无声回信独立引用条适配 v4');
   expect(migrated).toContain('/* 14. 无声回信输入区原作图标与实际热区对齐 v5');
+  expect(migrated).toContain('/* 15. 无声回信群聊原版设置图标 v6');
   expect(migrated).not.toContain('content:"+"} .sully-chat-avatar-wrap');
   expect(resolveLegacySilentLetterCss(migrated)).toBe(migrated);
   expect(resolveLegacySilentLetterCss(current)).toBe(current);
