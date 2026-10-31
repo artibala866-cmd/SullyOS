@@ -15,7 +15,9 @@ export type UserVoiceMetadata = {
 /** Preserve genuine voice/typed origin; never invent recorded audio or duration. */
 export function makeUserVoiceMetadata(text: string, inputMode: UserVoiceInputMode): UserVoiceMetadata {
   const transcript = text.trim();
-  if (!transcript) throw new Error('语音消息不能是空白内容');
+  // Real audio can be sent without invented recognition text.
+  // A typed simulation must always include actual user-authored words.
+  if (!transcript && inputMode === 'typed') throw new Error('语音消息不能是空白内容');
   return { transcript, inputMode, hasAudio: false };
 }
 
