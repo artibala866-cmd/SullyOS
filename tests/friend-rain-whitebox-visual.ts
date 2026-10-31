@@ -81,13 +81,7 @@ try {
 
  const checks={
   responsive,
-  requestLabels:cssStyle('conversation','.sully-chat-header','::before').content.includes('拒绝')
-    && cssStyle('conversation','.sully-chat-header','::after').content.includes('同意'),
   headerTaller:(rect('conversation','.sully-chat-header')?.height||0)>=135,
-  lightningClearOfRequestLabels:(()=>{
-    const h=rect('conversation','.sully-chat-header'),l=rect('conversation','.sully-chat-trigger');
-    return !!h&&!!l&&l.bottom<h.bottom-60;
-  })(),
   footerCompact:(rect('conversation','.sully-chat-inputbar')?.height||0)<=96,
   requestLabelsClearOfProfile:(()=>{
     const header=rect('conversation','.sully-chat-header');
@@ -119,7 +113,16 @@ try {
    && cssStyle('conversation','.sully-chat-back > svg').opacity==='1',
   sourcePlusReplacesNative:cssStyle('conversation','.sully-chat-actions-button > svg').display==='none'
    && cssStyle('conversation','.sully-chat-actions-button','::after').backgroundImage.includes('data:image/svg+xml'),
-  lightningVisible:cssStyle('conversation','.sully-chat-trigger > svg').opacity==='1',
+  mergedPhoneButton:cssStyle('conversation','.sully-chat-header button[aria-label="电话"]','::after').content.includes('拒绝')
+    && cssStyle('conversation','.sully-chat-header button[aria-label="电话"] > svg').display==='none',
+  mergedGenerateButton:cssStyle('conversation','.sully-chat-trigger','::after').content.includes('同意')
+    && cssStyle('conversation','.sully-chat-trigger > svg').display==='none',
+  mergedStopButton:cssStyle('silent-letter-stop','.sully-chat-trigger','::after').content.includes('停止'),
+  noDuplicatedHeaderLabels:cssStyle('conversation','.sully-chat-header','::after').content==='none'
+    && cssStyle('conversation','.sully-chat-header','::before').content==='none',
+  userFiveHearts:cssStyle('conversation','.sully-chat-message-user.sully-chat-message-group-first .sully-chat-message-content','::before').backgroundImage.split('data:image/svg+xml').length===6,
+  aiFiveHearts:cssStyle('conversation','.sully-chat-message-ai.sully-chat-message-group-first .sully-chat-message-content','::before').backgroundImage.split('data:image/svg+xml').length===6,
+  userReadReceipt:cssStyle('conversation','.sully-chat-message-user .sully-chat-message-timestamp','::after').content.includes('已读'),
   stopAvailable:!!$('silent-letter-stop','.sully-chat-trigger[title="停止生成"]'),
   sendAvailable:!!$('silent-letter-send','.sully-chat-send-button'),
   headerSeparated:!overlap(rect('conversation','.sully-chat-back'),rect('conversation','.sully-chat-trigger')),

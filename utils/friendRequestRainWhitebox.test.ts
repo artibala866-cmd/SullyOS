@@ -39,7 +39,13 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   expect(css).toContain('.sully-chat-actions-button::after');
   expect(css).toContain('.sully-chat-voice-trigger::after');
   expect(css).toContain('[aria-label="生成回复"]::after');
-  expect(css).toContain('.sully-chat-header button>svg{display:block!important');
+  expect(css).toContain('.sully-chat-header button[aria-label="电话"]::after');
+  expect(css).toContain('.sully-chat-trigger::after');
+  expect(css).toContain('content:"拒绝"');
+  expect(css).toContain('content:"同意"');
+  expect(css).toContain('.sully-chat-message-content::before');
+  expect(css).toContain('.sully-chat-message-timestamp::after');
+  expect(css).toContain('content:"已读"');
   expect(css).toContain('[aria-label="发送文字"]::after');
   expect(css).toContain('content:">> "');
  });
