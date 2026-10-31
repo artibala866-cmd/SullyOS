@@ -139,8 +139,21 @@ describe('SillyTavern card normalization', () => {
         expect(() => normalizeCharacterCard(v2({ name: '' }))).toThrow();
         expect(() => normalizeCharacterCard(v2({ character_book: { entries: [null] } }))).toThrow();
     });
-    it('rejects regex-trigger books rather than silently changing activation behavior', () => {
-        expect(() => normalizeCharacterCard(v3({ character_book: lore([entry({ use_regex: true })]) }))).toThrow('正则关键词');
+    it('keeps literal regex-marked worldbook entries active while disabling unsupported expressions', () => {
+        const result = normalizeCharacterCard(v3({ character_book: lore([
+            entry({ id: 9, keys: [], constant: true, use_regex: true, enabled: true }),
+            entry({ id: 10, keys: ['钟楼'], constant: false, use_regex: true, enabled: true }),
+            entry({ id: 11, keys: ['钟楼.*'], constant: false, use_regex: true, enabled: true }),
+            entry({ id: 12, keys: ['旧城'], constant: false, use_regex: true, enabled: false }),
+        ]) }));
+        expect(result.worldbooks).toHaveLength(4);
+        expect(result.worldbooks.map(book => book.disable)).toEqual([false, false, true, true]);
+        expect(isWorldbookEntryActive(result.worldbooks[0], [])).toBe(true);
+        expect(isWorldbookEntryActive(result.worldbooks[1], [{ content: '走进钟楼' }])).toBe(true);
+        expect(isWorldbookEntryActive(result.worldbooks[1], [{ content: '去海边' }])).toBe(false);
+        expect(isWorldbookEntryActive(result.worldbooks[2], [{ content: '钟楼后面的房间' }])).toBe(false);
+        expect(result.worldbooks[2].key).toEqual(['钟楼.*']);
+        expect(result.warnings.join(' ')).toContain('复杂正则');
     });
     it('rejects excessive entries and oversize content', () => {
         expect(() => normalizeCharacterCard(v2({ character_book: lore(Array(1001).fill(entry())) }))).toThrow('1000');
@@ -266,6 +279,53 @@ describe('SullyOS chat request round-trip from imported data', () => {
 
 
 describe('Deep audit: real-world card compatibility', () => {
+    it('accepts a realistic dual-metadata V3 PNG with all 19 lore entries and six disabled', async () => {
+        // Synthetic, non-personal fixture mirrors the structural flags of a real
+        // SillyTavern V3 export: every entry has use_regex=true, but terms are literal.
+        const disabled = new Set([1, 12, 13, 14, 15, 17]);
+        const conditional = new Set([5, 7, 8, 10, 11, 12, 14, 16]);
+        const entries = Array.from({ length: 19 }, (_, i) => ({
+            id: i, comment: '第' + i + '条', content: '设定正文' + i,
+            keys: conditional.has(i) ? ['词条' + i] : [],
+            secondary_keys: [7, 8, 10].includes(i) ? ['次要词'] : [],
+            constant: !conditional.has(i), selective: true,
+            insertion_order: 100 + i, enabled: !disabled.has(i),
+            position: i % 5 === 0 ? 'before_char' : 'after_char',
+            use_regex: true,
+            extensions: {
+                position: i % 5 === 0 ? 0 : 4,
+                depth: 3, role: 0, probability: 100,
+                useProbability: true, selectiveLogic: 0,
+                exclude_recursion: i === 3, prevent_recursion: i === 4,
+                display_index: i, automation_id: '', sticky: 0, cooldown: 0,
+            },
+        }));
+        const v3Card = v3({ name: 'PNG测试角色', description: '这里是角色背景',
+            first_mes: '必须被忽略的开场白', system_prompt: '必须被忽略的酒馆系统指令',
+            character_book: lore(entries), extensions: { regex_scripts: ['不准导入的脚本'] },
+        });
+        const bytes = png({ name: 'chara', raw: v2({ name: '旧版资料' }) },
+            { name: 'ccv3', raw: v3Card });
+        const result = await readCharacterCardFile(file(bytes, 'character-card.png'));
+        if ('cards' in result) throw new Error('Unexpected BabyLink result');
+        expect(result.source).toBe('tavern-v3');
+        expect(result.character.name).toBe('PNG测试角色');
+        expect(result.worldbooks).toHaveLength(19);
+        expect(result.worldbooks.filter(book => book.disable)).toHaveLength(6);
+        expect(result.worldbooks.filter(book => !book.disable)).toHaveLength(13);
+        expect(result.worldbooks[1].position).toBe(4);
+        expect(result.worldbooks[4].position).toBe(4);
+        expect(result.worldbooks[5].position).toBe(0);
+        expect(result.worldbooks[7].keysecondary).toEqual(['次要词']);
+        expect(isWorldbookEntryActive(result.worldbooks[7],
+            [{ content: '这里提到词条7，也有次要词' }])).toBe(true);
+        expect(isWorldbookEntryActive(result.worldbooks[7],
+            [{ content: '这里没有对应触发词' }])).toBe(false);
+        expect(JSON.stringify(result.character)).not.toContain('必须被忽略');
+        expect(JSON.stringify(result.character)).not.toContain('不准导入');
+        expect(result.warnings.length).toBeLessThan(7);
+    });
+
     it('does not treat ordinary name/description JSON as verified Tavern V1', () => {
         expect(() => normalizeCharacterCard({ name: '列表项', description: '说明' })).toThrow('无法识别');
     });
