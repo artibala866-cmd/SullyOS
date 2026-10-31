@@ -81,15 +81,15 @@ try {
   groupNoExtraPortrait:!$('group-chat','.sully-chat-pair-user-avatar'),
   oldSavedThemeReplaced:!!$('legacy-pair','.sully-chat-pair-user-avatar')
     && ['none','normal'].includes(getComputedStyle($('legacy-pair','.sully-chat-name')!,'::after').content),
-  userGlass:style('conversation','.sully-bubble-user').backgroundColor==='rgba(255, 255, 255, 0.61)',
-  aiGlass:style('conversation','.sully-bubble-ai').backgroundColor==='rgba(255, 255, 255, 0.61)',
-  groupGlass:style('group-chat','.sully-bubble-ai').backgroundColor==='rgba(255, 255, 255, 0.61)',
+  userGlass:style('conversation','.sully-bubble-user').backgroundColor==='rgba(239, 239, 239, 0.18)',
+  aiGlass:style('conversation','.sully-bubble-ai').backgroundColor==='rgba(239, 239, 239, 0.18)',
+  groupGlass:style('group-chat','.sully-bubble-ai').backgroundColor==='rgba(239, 239, 239, 0.18)',
   groupPacket:!!$('group-chat','.sully-chat-group-packet'),
   groupReceipt:!!$('group-chat','.sully-chat-group-packet-receipt'),
-  transferGlass:style('transfer','.sully-chat-transfer-card').backgroundColor==='rgba(255, 255, 255, 0.61)',
+  transferGlass:style('transfer','.sully-chat-transfer-card').backgroundColor==='rgba(239, 239, 239, 0.18)',
   transferReceipt:!!$('transfer-accepted','.sully-chat-transfer-receipt')||!!$('transfer-returned','.sully-chat-transfer-receipt'),
-  // Compare rendered controls rather than source text: sticker backgrounds must disappear,
-  // native buttons must remain visible and be compact on 360px mobile layout.
+  // First check native fallbacks: until the original images decode, all controls remain usable.
+  // Each loaded image later replaces its matching SVG, never draws a second icon.
   cleanBackIcon:style('conversation','.sully-chat-back').backgroundImage==='none'
     && style('conversation','.sully-chat-back > svg').visibility==='visible',
   cleanTriggerIcon:style('conversation','.sully-chat-trigger').backgroundImage==='none'
