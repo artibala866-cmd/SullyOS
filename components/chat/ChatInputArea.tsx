@@ -18,11 +18,13 @@ const ACTION_PAGE_SIZE = 8;
 
 interface PrivateChatSpeechInput {
     status: PrivateChatSpeechStatus;
+    mode?: 'record' | 'transcribe';
     transcript: string;
     seconds: number;
     hasAudioDraft?: boolean;
     error: string;
     start: () => Promise<void>;
+    startTranscription: () => Promise<void>;
     stop: () => void;
     cancel: () => void;
     editTranscript: (text: string) => void;
@@ -829,7 +831,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             autoCorrect="on"
                             autoCapitalize="sentences"
                             className={`sully-chat-textarea flex-1 min-w-0 bg-transparent px-4 py-3 ${useIOSStandaloneInputFix ? 'text-[16px]' : 'text-[15px]'} resize-none max-h-24 no-scrollbar ${isDiscordStyle ? 'text-white placeholder:text-slate-500' : isPixelStyle ? 'text-[#515151] placeholder:text-[#898989]' : ''}`}
-                            placeholder={typedVoiceEnabled ? '输入语音文字…' : 'Message...'}
+                            placeholder={typedVoiceEnabled ? '用输入法麦克风说话…' : 'Message...'}
                             style={{ height: 'auto' }}
                         />
                         <button hidden={compactHome} type="button" aria-label="表情面板" onClick={() => { setVoiceMenuOpen(false); setShowPanel(showPanel === 'emojis' ? 'none' : 'emojis'); }}
@@ -854,18 +856,24 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         As a composer sibling it cannot be clipped by input-wrap overflow-hidden. */}
                     {speechInput && voiceMenuOpen && speechInput.status === 'idle' && (
                         <div ref={voiceMenuRef} role="group" aria-label="语音输入方式"
-                            className={`sully-chat-voice-menu absolute bottom-full right-[3.25rem] z-[70] mb-1.5 w-[154px] rounded-2xl border p-1 shadow-[0_8px_28px_rgba(0,0,0,0.12)] backdrop-blur-xl ${isDiscordStyle ? 'bg-slate-900/95 border-slate-700 text-slate-200' : isPixelStyle ? 'bg-[#f1f1f1] border-[#6d6d6d]/30 text-[#515151]' : 'bg-white/95 border-slate-200/80 text-slate-700'}`}>
-                            <button type="button" aria-label="录音语音" aria-pressed={false}
-                                onClick={() => { setVoiceMenuOpen(false); onExitTypedVoice?.(); textareaRef.current?.blur(); void speechInput.start(); }}
+                            className={`sully-chat-voice-menu absolute bottom-full right-[3.25rem] z-[70] mb-1.5 w-[174px] rounded-2xl border p-1 shadow-[0_8px_28px_rgba(0,0,0,0.12)] backdrop-blur-xl ${isDiscordStyle ? 'bg-slate-900/95 border-slate-700 text-slate-200' : isPixelStyle ? 'bg-[#f1f1f1] border-[#6d6d6d]/30 text-[#515151]' : 'bg-white/95 border-slate-200/80 text-slate-700'}`}>
+                            <button type="button" aria-label="自动语音转文字" aria-pressed={false}
+                                onClick={() => { setVoiceMenuOpen(false); onExitTypedVoice?.(); textareaRef.current?.blur(); void speechInput.startTranscription(); }}
                                 className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs hover:bg-black/5 active:bg-black/10">
                                 <Microphone size={18} weight="regular" className="shrink-0" />
-                                <span>录音语音</span>
+                                <span>语音转文字</span>
                             </button>
-                            <button type="button" aria-label={typedVoiceEnabled ? '恢复普通文字输入' : '文字模拟语音'} aria-pressed={typedVoiceEnabled}
-                                onClick={() => { setVoiceMenuOpen(false); if (typedVoiceEnabled) onExitTypedVoice?.(); else onSelectTypedVoice?.(); textareaRef.current?.focus({ preventScroll: true }); }}
+                            <button type="button" aria-label={typedVoiceEnabled ? '恢复普通文字输入' : '输入法语音'} aria-pressed={typedVoiceEnabled}
+                                onClick={() => { setVoiceMenuOpen(false); speechInput.cancel(); if (!typedVoiceEnabled) onSelectTypedVoice?.(); else onExitTypedVoice?.(); textareaRef.current?.focus({ preventScroll: true }); }}
                                 className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs hover:bg-black/5 active:bg-black/10 ${typedVoiceEnabled ? 'bg-primary/10 text-primary' : ''}`}>
                                 <Keyboard size={18} weight="regular" className="shrink-0" />
-                                <span>{typedVoiceEnabled ? '恢复普通文字' : '文字模拟语音'}</span>
+                                <span>{typedVoiceEnabled ? '恢复普通文字' : '输入法语音'}</span>
+                            </button>
+                            <button type="button" aria-label="仅发送原声录音"
+                                onClick={() => { setVoiceMenuOpen(false); onExitTypedVoice?.(); textareaRef.current?.blur(); void speechInput.start(); }}
+                                className="flex w-full items-center gap-2.5 rounded-xl border-t border-current/10 px-2.5 py-1.5 text-left text-[11px] opacity-65 hover:bg-black/5 active:bg-black/10">
+                                <Waveform size={16} weight="regular" className="shrink-0" />
+                                <span>仅发原声（不识别）</span>
                             </button>
                         </div>
                     )}
@@ -916,13 +924,20 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                 rows={2}
                                 value={speechInput.transcript}
                                 onChange={event => speechInput.editTranscript(event.target.value)}
-                                placeholder={speechInput.hasAudioDraft ? '可选：补充文字，方便 Char 理解录音' : '语音识别文字…'}
+                                placeholder={speechInput.hasAudioDraft ? '识别内容（可修改）…' : speechInput.mode === 'transcribe' ? '正在等待语音识别…' : '可选：补充文字，方便 Char 理解录音'}
                                 disabled={speechInput.status === 'starting' || speechInput.status === 'transcribing'}
                                 className={`w-full min-h-[3rem] max-h-24 resize-y rounded-xl px-3 py-2 text-sm outline-none ${isDiscordStyle ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}
                             />
                             {speechInput.status === 'review' && speechInput.hasAudioDraft && !speechInput.transcript.trim() &&
-                                <p className="mt-1 text-[11px] leading-relaxed opacity-75">录音已保存为草稿，可直接发送原声；如需 Char 理解说话内容，请填写文字（当前未自动转写）。</p>}
+                                <p className="mt-1 text-[11px] leading-relaxed opacity-75">这段原声尚无转写；想让 Char 理解内容，请补充文字。</p>}
                             {speechInput.error && <p role="alert" className="text-xs text-rose-500 mt-1">{speechInput.error}</p>}
+                            {speechInput.status === 'review' && (speechInput.error || !speechInput.transcript.trim()) && (
+                                <button type="button" aria-label="改用输入法语音识别"
+                                    onClick={() => { speechInput.cancel(); onSelectTypedVoice?.(); textareaRef.current?.focus({ preventScroll: true }); }}
+                                    className="mt-2 w-full rounded-xl bg-primary/10 px-3 py-2 text-left text-xs text-primary active:bg-primary/20">
+                                    改用手机输入法麦克风（打开键盘后点麦克风）
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
