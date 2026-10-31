@@ -139,40 +139,46 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkBrightness = mix(1.,roomBrightness,characterRoomEnabled);
             float inkForm = .90 + .10*smoothstep(-.1,.85,inkFacing);
             vec3 inkColor = mix(inkShadeColor*inkShadeTint,diffuseColor.rgb*.96*inkForm*inkLitTint,inkLit)*inkBrightness;
-            ${style==='illustrated' ? `// Extra ink/material response only. Everything above (room lighting,
-            // actual shadow mask, tint, authored ramp and brightness) stays intact.
-            float inkShadeShare=clamp(1.-inkLit,0.,1.);
-            float inkViewSide=1.-clamp(abs(dot(normal,normalize(vViewPosition))),0.,1.);
-            float inkSideBand=smoothstep(.32,.82,inkViewSide);
-            ${face ? `// A lightly articulated jaw/cheek shadow; preserve painted
-            // eyes, highlights, expression atlas and original skin colour.
-            inkColor*=1.-(.055*inkShadeShare+.095*inkSideBand);` : skin ? `
-            // Exposed rear/hand skin only; no blanket atlas classification.
-            inkColor*=1.-(.075*inkShadeShare+.065*inkSideBand);` : hair ? `
-            // Local-space satin follows the existing head bone. A very soft,
-            // tint-preserving band enhances already authored strands, not a
-            // second plastic-white reflection over the entire hair shell.
-            vec3 inkHairHalf=normalize(inkLight+normalize(vViewPosition));
-            float inkHairDirection=abs(dot(normalize(inkLocalStrandView),inkHairHalf));
-            float inkHairSheen=(1.-smoothstep(.18,.78,inkHairDirection))
-                *smoothstep(.34,.90,clamp(dot(normal,inkHairHalf),0.,1.));
-            float inkPaintMask=mix(.65,1.,smoothstep(.008,.20,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722))));
-            // Keep dark hair coloured, never replace it with flat white glare.
-            vec3 inkSheenPigment=mix(diffuseColor.rgb,sqrt(max(diffuseColor.rgb,vec3(0.)))*.55,.75);
-            inkColor*=1.-(.040*inkShadeShare+.040*inkSideBand);
-            float inkSheenStrength=mix(.24,.10,smoothstep(.15,.65,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722))));
-            inkColor+=(1.-clamp(inkColor,0.,1.))*inkSheenPigment*inkHairSheen*inkLit*inkPaintMask*inkSheenStrength;` : leather || metal ? `
-            // Keep the existing resource-authored glints and colours unchanged.` : `
-            // Cloth stays matte: give folded shade a little depth without
-            // touching unshadowed fabric colours or changing room illumination.
-            inkColor*=1.-(.11*inkShadeShare+.085*inkSideBand);`}
+            ${style==='illustrated' ? `// Illustration-only material pass: three intentionally distinct
+            // painted light bands driven by the ORIGINAL room light and shadow mask.
+            // No extra lights, textures, geometry, passes, or modifications to modern/legacy.
+            float inkToonN = inkFacing + ${face ? '.17' : skin ? '.13' : hair ? '-.04' : '-.08'};
+            float inkToonAA = max(fwidth(inkToonN)*1.10,.018);
+            float inkToonHalf = smoothstep(-.42-inkToonAA,-.42+inkToonAA,inkToonN);
+            float inkToonKey = smoothstep(.10-inkToonAA,.10+inkToonAA,inkToonN);
+            float inkCast = mix(1.,getShadowMask(),characterRoomEnabled);
+            float inkToonCast = smoothstep(.24,.76,inkCast);
+            float inkBandValue = ${face ? '.63' : skin ? '.57' : hair ? '.43' : '.43'}
+              + ${face ? '.18' : skin ? '.21' : hair ? '.25' : '.23'} * inkToonHalf
+              + ${face ? '.19' : skin ? '.22' : hair ? '.32' : '.34'} * inkToonKey;
+            inkBandValue *= mix(${face || skin ? '.74' : '.66'},1.,inkToonCast);
+            // Keep every original complexion/dye: multiply the painted texel,
+            // never paint over the facial expression or replace the authored albedo.
+            vec3 inkPaletteShade = ${face || skin ? 'vec3(.92,.77,.73)' : hair ? 'vec3(.74,.77,.90)' : 'vec3(.76,.78,.88)'};
+            vec3 inkToonShadeTint = mix(vec3(1.),roomShadeTint,characterRoomEnabled*.65);
+            vec3 inkToonLightTint = mix(characterRoomTint,roomSunTint,characterRoomEnabled);
+            vec3 inkBandTint = mix(inkPaletteShade*inkToonShadeTint,inkToonLightTint,inkToonKey);
+            inkColor = diffuseColor.rgb * inkBandTint * inkBandValue * inkBrightness;
+            // A clean dark ink contour changes the *style*, but remains inside
+            // this same surface shader and does not introduce outline meshes.
+            float inkToonView = 1.-abs(dot(normal,normalize(vViewPosition)));
+            float inkInkEdge=smoothstep(.43,.90,inkToonView);
+            inkColor *= 1.-inkInkEdge*${face ? '.16' : skin ? '.23' : hair ? '.39' : '.34'};
+            ${hair ? `// Local-head strand ribbons; glints are tinted, never metallic white.
+            vec3 inkToonHalfVector = normalize(inkLight+normalize(vViewPosition));
+            float inkStrand = abs(dot(normalize(inkLocalStrandView),inkToonHalfVector));
+            float inkStrandFacing=clamp(dot(normal,inkToonHalfVector),0.,1.);
+            float inkSatinWide=(1.-smoothstep(.16,.78,inkStrand))*smoothstep(.24,.80,inkStrandFacing);
+            float inkSatinThin=(1.-smoothstep(.08,.28,inkStrand))*smoothstep(.72,.96,inkStrandFacing);
+            vec3 inkSatinColor=sqrt(max(diffuseColor.rgb,vec3(0.)))*vec3(.58,.61,.66);
+            inkColor += (1.-clamp(inkColor,0.,1.))*inkSatinColor*(inkSatinWide*.36+inkSatinThin*.08)*inkToonKey*inkToonCast;` : ''}
             ` : ''}
             vec3 inkView = normalize(vViewPosition);
             float inkFresnel = 1.-clamp(abs(dot(normal,inkView)),0.,1.);
             // Material-space edge shaping, not an extra outline mesh/pass.
             float inkContour = smoothstep(.62,.94,inkFresnel)*${face ? '.035' : '.16'}*(1.-inkLit*.5);
             inkColor *= 1.-inkContour;
-            float inkRim = pow(inkFresnel,4.)*smoothstep(-.15,.65,inkFacing)*${face ? '.015' : hair ? style==='illustrated' ? '.035' : '.055' : leather ? '.035' : metal ? '.045' : '.018'};
+            float inkRim = pow(inkFresnel,4.)*smoothstep(-.15,.65,inkFacing)*${style==='illustrated' ? face ? '.003' : hair ? '.010' : '.006' : face ? '.015' : hair ? '.055' : leather ? '.035' : metal ? '.045' : '.018'};
             ${leather || metal ? `// Restrained material-specific glint; no extra light, texture or pass.
             float inkSurfaceGlint = smoothstep(${metal ? '.88,.97' : '.62,.91'},dot(normal,normalize(inkLight+inkView)))*inkLit*${metal ? '.065' : '.028'};
             inkRim += inkSurfaceGlint;` : ''}
@@ -181,7 +187,7 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v9-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v10-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;

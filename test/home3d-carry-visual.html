@@ -250,7 +250,21 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    }
    const styleMean=styleTotal/(orig.length/4),styleFraction=styleChanged/(orig.length/4);
    report.styleStats.push({variant:variant.id,mean:styleMean,fraction:styleFraction,maxRestoreDifference:styleReversible});
-   if(styleMean<.05||styleMean>12||styleFraction<.005||styleFraction>.75||styleReversible>.01)
+   // Strong-style acceptance: the pictured subject must change, not just
+   // occasional background pixels or a one-pixel antialiasing edge.
+   const tw=renderer.domElement.width,th=renderer.domElement.height;
+   let focusSum=0,focusChanged=0,focusCount=0;
+   for(let y=Math.floor(th*.10);y<Math.floor(th*.86);y++)for(let x=Math.floor(tw*.30);x<Math.floor(tw*.72);x++){
+    const px=(y*tw+x)*4;
+    const d=(Math.abs(orig[px]-drawn[px])+Math.abs(orig[px+1]-drawn[px+1])+Math.abs(orig[px+2]-drawn[px+2]))/3;
+    focusSum+=d;focusCount++;if(d>4)focusChanged++;
+   }
+   const focusMean=focusSum/focusCount,focusShare=focusChanged/focusCount;
+   report.styleStats[report.styleStats.length-1].focusMean=focusMean;
+   report.styleStats[report.styleStats.length-1].focusShare=focusShare;
+   if(focusMean<3.5||focusShare<.16||focusMean>34)
+    throw Error('Illustrated style is not visually distinctive or is destructive: '+variant.id+' '+JSON.stringify({focusMean,focusShare}));
+   if(styleMean<1.25||styleMean>32||styleFraction<.045||styleFraction>.90||styleReversible>.01)
     throw Error('Original look not preserved or cel shader ineffective '+variant.id+': '+JSON.stringify({mean:styleMean,fraction:styleFraction,reversible:styleReversible}));
    // Close-up at unchanged pose and light to expose real shader detail; use
    // the orthographic camera zoom, not CSS or interpolated screenshot scaling.
