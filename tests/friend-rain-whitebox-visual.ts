@@ -195,8 +195,9 @@ try {
    const b=bubble.getBoundingClientRect(),q=quote.getBoundingClientRect();
    const t=stamp.getBoundingClientRect(),n=nextBubble.getBoundingClientRect();
    const singleLineQuote=q.height<=24&&q.width>60;
-   const quoteNoOverlap=q.top>=b.bottom+3&&t.top>=q.bottom+1&&n.top>=t.bottom+1;
-   const quoteInsideScreen=q.left>=-1&&q.right<=width+1;
+   const quoteNoOverlap=q.top>=b.bottom+3&&t.top>=q.bottom&&n.top>=t.bottom;
+   const appBounds=app.getBoundingClientRect();
+   const quoteInsideScreen=q.left>=appBounds.left-1&&q.right<=appBounds.right+1;
    const compact=getComputedStyle(inner).fontSize==='12px'
      &&getComputedStyle(inner).lineHeight!=='normal'
      &&getComputedStyle(bubble).paddingLeft==='9px';
