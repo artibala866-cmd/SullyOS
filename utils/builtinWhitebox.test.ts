@@ -196,3 +196,33 @@ describe('Weixin top-bar phone / native reply lightning after earlier CSS was ap
   expect(resolveLegacyWeixinBaiyuCss('.sully-chat-trigger{color:red}')).toBe('.sully-chat-trigger{color:red}');
  });
 });
+
+describe('Weixin original source CSS fidelity / persisted wardrobe compatibility v3',()=>{
+ it('keeps all native counterparts to source theme and does not strip real content or actions',()=>{
+  const p=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-weixin-baiyu')!.read();
+  const css=p.parts.css!;
+  for(const selector of ['.chat-image-thumbnail img','.sully-emoji-msg','.sully-chat-reply-preview','.sully-chat-interaction','.sully-chat-card[data-card-kind="chat_forward"]','.sully-chat-card[data-card-kind="sim_card"]','.sully-chat-group-packet[data-status="done"]','.sully-chat-group-packet-receipt'])
+   expect(css).toContain(selector);
+  expect(css).toContain('/* 微信 by 白榆 · 糯米机真实组件深度适配 v3');
+  expect(css).not.toContain('.msg-sim-card *');
+  expect(css).not.toContain('.msg-reply-block{display:none');
+  expect(css).toContain('var(--safe-top,0px)');
+  expect(css).toContain('calc(100vw - 108px)');
+ });
+ it('upgrades pre-v2 and v2-applied character/group whiteboxes without invalid escaped newline or duplicate patches',()=>{
+  const full=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-weixin-baiyu')!.read().parts.css!;
+  const v2Mark='/* 白榆顶栏原生闪电修复 v2';
+  const v3Mark='/* 微信 by 白榆 · 糯米机真实组件深度适配 v3';
+  const storedV1=full.slice(0,full.indexOf(v2Mark))+'\n.user-override{letter-spacing:1px}';
+  const storedV2=full.slice(0,full.indexOf(v3Mark))+'\n.user-override{letter-spacing:1px}';
+  for(const stored of [storedV1,storedV2]){
+   const migrated=resolveLegacyWeixinBaiyuCss(stored);
+   expect(migrated).toContain('\n/* '+(stored===storedV1?'白榆顶栏原生闪电修复 v2':'微信 by 白榆 · 糯米机真实组件深度适配 v3'));
+   expect(migrated).toContain('.user-override{letter-spacing:1px}');
+   expect(migrated).toContain(v3Mark);
+   expect(migrated).not.toContain('\\\\n/*');
+   expect(resolveLegacyWeixinBaiyuCss(migrated)).toBe(migrated);
+  }
+  expect(resolveLegacyWeixinBaiyuCss(full)).toBe(full);
+ });
+});
