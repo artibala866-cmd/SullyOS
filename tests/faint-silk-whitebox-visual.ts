@@ -21,6 +21,16 @@ try {
   const title=document.createElement('h2');title.textContent=scene;section.prepend(title);
   root.append(section);
  }
+ // Simulate the former installed Faint Silk CSS with its fixed ::after background.
+ // The live avatar must replace it without requiring users to reapply the outfit.
+ const legacy=structuredClone(preset);
+ legacy.parts.css += '\n.sully-chat-root:not(.sully-chat-group-root) .sully-chat-header:has(.sully-chat-back.absolute) .sully-chat-name::after{content:"";position:absolute;left:calc(50% + 5px);top:-56px;width:50px;height:50px;background:url("https://i.postimg.cc/DycRKBL9/image.jpg") center/cover no-repeat!important;}';
+ const oldScene=renderChatDecorationSample(legacy,'conversation');
+ const legacySection=document.createElement('section');legacySection.className='scene';legacySection.dataset.scene='legacy-pair';
+ legacySection.innerHTML='<div class="beauty-preview-body">'+oldScene.markup+'</div>';
+ const legacyStyle=document.createElement('style');legacyStyle.textContent=oldScene.css;legacySection.prepend(legacyStyle);
+ const legacyLabel=document.createElement('h2');legacyLabel.textContent='已应用旧浅丝 / 自动兼容';legacySection.prepend(legacyLabel);
+ root.append(legacySection);
  // Real shared group message and packet renderers receive the same CSS.
  const group=document.createElement('section');
  group.className='scene';group.dataset.scene='group-chat';
@@ -67,6 +77,8 @@ try {
     return !!pair && !!back && !!generate && pair.left>=back.right-2 && pair.right<=generate.left+2;
   })(),
   groupNoExtraPortrait:!$('group-chat','.sully-chat-pair-user-avatar'),
+  oldSavedThemeReplaced:!!$('legacy-pair','.sully-chat-pair-user-avatar')
+    && ['none','normal'].includes(getComputedStyle($('legacy-pair','.sully-chat-name')!,'::after').content),
   userGlass:style('conversation','.sully-bubble-user').backgroundColor==='rgba(239, 239, 239, 0.18)',
   aiGlass:style('conversation','.sully-bubble-ai').backgroundColor==='rgba(239, 239, 239, 0.18)',
   groupGlass:style('group-chat','.sully-bubble-ai').backgroundColor==='rgba(239, 239, 239, 0.18)',
