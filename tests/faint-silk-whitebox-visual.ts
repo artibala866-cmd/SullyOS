@@ -55,6 +55,7 @@ try {
   inputVisible:!!$('conversation','.sully-chat-textarea')&&style('conversation','.sully-chat-textarea').visibility!=='hidden',
   backVisible:style('conversation','.sully-chat-back').opacity==='1',
   sendVisible:!!$('silent-letter-send','.sully-chat-send-button')&&style('silent-letter-send','.sully-chat-send-button').visibility!=='hidden',
+  sendIconActuallyVisible:style('silent-letter-send','.sully-chat-send-button[aria-label="发送文字"] > svg').visibility==='visible',
   stopVisible:!!$('silent-letter-stop','.sully-chat-trigger[title="停止生成"]')&&style('silent-letter-stop','.sully-chat-trigger').visibility!=='hidden',
   headerNoOverlap:(()=>{const a=$('conversation','.sully-chat-back')?.getBoundingClientRect(),b=$('conversation','.sully-chat-trigger')?.getBoundingClientRect();return !!a&&!!b&&a.right+2<=b.left;})(),
   inputHeight:(()=>{const a=$('conversation','.sully-chat-inputbar')?.getBoundingClientRect();return !!a&&a.height>=40&&a.height<=180;})(),
