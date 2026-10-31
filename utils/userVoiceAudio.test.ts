@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Message } from '../types';
-import { attachUserVoiceAudio, describeUserVoice, formatForwardedUserVoice, makeUserVoiceMetadata, reviseUserVoiceTranscript } from './userVoiceMessage';
+import { attachUserVoiceAudio, describeUserVoice, formatForwardedUserVoice, forwardUserVoiceSnapshot, makeUserVoiceMetadata, reviseUserVoiceTranscript } from './userVoiceMessage';
 import { collectBlobRefs, readBlobsIndex, restoreBlobsFromZip, writeBlobsToZip } from './backupBlobs';
 import { normalizeMessageContent } from './messageFormat';
 import { buildReplySnapshotContent } from './applyAssistantPostProcessing';
@@ -11,6 +11,35 @@ const msg = (content: string, metadata: any): Message => ({
 });
 
 describe('durable user-recorded audio', () => {
+  it('forwards a playable recording as a shared asset and keeps AI history private', () => {
+    const voice = msg('我已经画完了', attachUserVoiceAudio(makeUserVoiceMetadata('我已经画完了', 'recorded'), ref, 5));
+    const snapshot = forwardUserVoiceSnapshot(voice);
+    expect(snapshot.metadata).toMatchObject({
+      transcript: '我已经画完了', hasAudio: true, audioRef: ref, durationSec: 5,
+    });
+    const packet = {
+      fromUserName: '我', fromCharName: 'Char', count: 1,
+      messages: [snapshot], preview: ['我: [语音] 我已经画完了'],
+    };
+    const forwarded = { ...voice, type: 'chat_forward' as const, content: JSON.stringify(packet), metadata: undefined };
+    const prompt = normalizeMessageContent(forwarded, 'Char', '我');
+    expect(prompt).toContain('我已经画完了');
+    expect(prompt).not.toContain(ref);
+    const tokens = new Set<string>();
+    collectBlobRefs(JSON.stringify({ messages: [forwarded] }), tokens);
+    expect(tokens.has(ref)).toBe(true);
+    expect(describeUserVoice({ ...voice, ...snapshot }).audioRef).toBe(ref);
+  });
+
+  it('never invents a forwarded audio player for typed text voice', () => {
+    const snapshot = forwardUserVoiceSnapshot(msg('用文字发语音', makeUserVoiceMetadata('用文字发语音', 'typed')));
+    expect(snapshot.metadata).toEqual({
+      transcript: '用文字发语音', inputMode: 'typed', hasAudio: false,
+    });
+    expect(snapshot.content).toBe('用文字发语音');
+  });
+
+
   it('corrects transcript without destroying the original playable audio', () => {
     const original = attachUserVoiceAudio(makeUserVoiceMetadata('天气好', 'recorded'), ref, 7.3);
     const revised = reviseUserVoiceTranscript(original, '天气真好');
