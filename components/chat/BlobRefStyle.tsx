@@ -17,6 +17,7 @@ const ICON_REPLACEMENT_END = '/* 辅助功能：动态文字';
 const SILENT_LETTER_V3 = '/* 12. 无声回信原生交互与原作细节补齐 v3';
 const SILENT_LETTER_V4 = '/* 13. 无声回信独立引用条适配 v4';
 const SILENT_LETTER_V5 = '/* 14. 无声回信输入区原作图标与实际热区对齐 v5';
+const SILENT_LETTER_V6 = '/* 15. 无声回信群聊原版设置图标 v6';
 export function resolveLegacySilentLetterCss(css: string): string {
     if (css.includes(SILENT_LETTER_V1) && css.includes('.sully-chat-message-avatar:not(.sully-chat-avatar-wrap)')) {
         return silentLetter.parts.css;
@@ -38,6 +39,10 @@ export function resolveLegacySilentLetterCss(css: string): string {
     }
     if (!upgraded.includes(SILENT_LETTER_V5)) {
         const from = silentLetter.parts.css.indexOf(SILENT_LETTER_V5);
+        if (from >= 0) upgraded += '\n' + silentLetter.parts.css.slice(from);
+    }
+    if (!upgraded.includes(SILENT_LETTER_V6)) {
+        const from = silentLetter.parts.css.indexOf(SILENT_LETTER_V6);
         if (from >= 0) upgraded += '\n' + silentLetter.parts.css.slice(from);
     }
     return upgraded;
@@ -74,7 +79,6 @@ const FRIEND_RAIN_SIGNATURE='/* 请求添加好友 · 雨梦 by 池谕 | SullyOS
 const FRIEND_RAIN_MARKERS=[
  '/* 请求添加好友 · 池谕原稿视觉补全 v4',
  '/* 请求添加好友 · 池谕视觉回归修正 v5',
- '/* 请求添加好友 · 池谕顶栏文字防遮挡 v6',
 ] as const;
 export function resolveLegacyFriendRequestRainCss(css:string):string {
  if(!css.includes(FRIEND_RAIN_SIGNATURE))return css;
