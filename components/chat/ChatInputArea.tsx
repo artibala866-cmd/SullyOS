@@ -20,6 +20,7 @@ interface PrivateChatSpeechInput {
     status: PrivateChatSpeechStatus;
     transcript: string;
     seconds: number;
+    hasAudioDraft?: boolean;
     error: string;
     start: () => Promise<void>;
     stop: () => void;
@@ -907,7 +908,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                 )}
                                 <button type="button" title="取消录音" aria-label="取消录音" onClick={speechInput.cancel} className="w-9 h-9 rounded-full grid place-items-center hover:bg-black/10"><X size={18} /></button>
                                 {speechInput.status === 'review' && (
-                                    <button type="button" title="确认发送转写" aria-label="确认发送转写" disabled={!speechInput.transcript.trim()} onClick={speechInput.confirm} className="w-9 h-9 rounded-full grid place-items-center text-primary hover:bg-black/10 disabled:opacity-30"><Check size={20} weight="bold" /></button>
+                                    <button type="button" title="确认发送转写" aria-label="确认发送转写" disabled={!speechInput.transcript.trim() && !speechInput.hasAudioDraft} onClick={speechInput.confirm} className="w-9 h-9 rounded-full grid place-items-center text-primary hover:bg-black/10 disabled:opacity-30"><Check size={20} weight="bold" /></button>
                                 )}
                             </div>
                             <textarea
@@ -915,10 +916,12 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                 rows={2}
                                 value={speechInput.transcript}
                                 onChange={event => speechInput.editTranscript(event.target.value)}
-                                placeholder="..."
+                                placeholder={speechInput.hasAudioDraft ? '可选：补充文字，方便 Char 理解录音' : '语音识别文字…'}
                                 disabled={speechInput.status === 'starting' || speechInput.status === 'transcribing'}
                                 className={`w-full min-h-[3rem] max-h-24 resize-y rounded-xl px-3 py-2 text-sm outline-none ${isDiscordStyle ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}
                             />
+                            {speechInput.status === 'review' && speechInput.hasAudioDraft && !speechInput.transcript.trim() &&
+                                <p className="mt-1 text-[11px] leading-relaxed opacity-75">录音已保存为草稿，可直接发送原声；如需 Char 理解说话内容，请填写文字（当前未自动转写）。</p>}
                             {speechInput.error && <p role="alert" className="text-xs text-rose-500 mt-1">{speechInput.error}</p>}
                         </div>
                     )}
