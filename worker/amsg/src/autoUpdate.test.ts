@@ -62,7 +62,7 @@ describe('定时任务的更新检查顺序', () => {
 });
 
 /** 一份看起来像成品包的假代码；改一个字指纹就变。 */
-const bundleWith = (marker: string) => `// src_default as default ${marker}\n${'x'.repeat(200 * 1024)}`;
+const bundleWith = (marker: string) => `// src_default as default ${marker}\nbundleChannel: "preview"\n${'x'.repeat(200 * 1024)}`;
 
 const FULL_ENV = {
   AMSG_SERVER_TOKEN: 'shared',
@@ -83,7 +83,7 @@ const stubNetwork = (bundle: string, options: { uploadOk?: boolean; bundleStatus
     const url = String(input);
     const method = init.method ?? 'GET';
     calls.push({ method, url });
-    if (url.includes('raw.githubusercontent.com')) {
+    if ((url.includes('amsg-worker.bundle.js') || url.includes('raw.githubusercontent.com'))) {
       return new Response(bundle, { status: options.bundleStatus ?? 200 });
     }
     if (method === 'GET' && url.endsWith('/settings')) {
@@ -108,7 +108,7 @@ const stubNetwork = (bundle: string, options: { uploadOk?: boolean; bundleStatus
   return calls;
 };
 
-const pulledBundle = (calls: Array<{ url: string }>) => calls.filter((c) => c.url.includes('raw.githubusercontent.com')).length;
+const pulledBundle = (calls: Array<{ url: string }>) => calls.filter((c) => c.(url.includes('amsg-worker.bundle.js') || url.includes('raw.githubusercontent.com'))).length;
 const uploaded = (calls: Array<{ method: string }>) => calls.filter((c) => c.method === 'PUT').length;
 
 describe.skipIf(!sqlite)('runAutoUpdate', () => {
@@ -282,7 +282,7 @@ describe.skipIf(!sqlite)('runAutoUpdate', () => {
     globalThis.fetch = (async (input: any, init: any = {}) => {
       const url = String(input);
       calls.push(init.method ?? 'GET');
-      if (url.includes('raw.githubusercontent.com')) {
+      if ((url.includes('amsg-worker.bundle.js') || url.includes('raw.githubusercontent.com'))) {
         await bundleGate;
         return new Response(bundleWith('a'));
       }
