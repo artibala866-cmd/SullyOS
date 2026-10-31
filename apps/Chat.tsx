@@ -1,3 +1,4 @@
+import '../components/chat/WeixinOriginalAssets.css';
 import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { findPendingUserTurn } from '../utils/chatContinuation';
@@ -4071,7 +4072,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     return (
         <div
-            className={`sully-chat-root ${chatRootClass} ${blackWhiteFacebook ? 'sully-chat-monochrome' : ''} ${wechatBubble ? 'sully-chat-wechat' : ''} ${qqBubble ? 'sully-chat-qq' : ''}`}
+            className={`sully-chat-root ${chatRootClass} ${isWeixinBaiyuCss(char.chromeCustomCss || osTheme.chatChromeCustomCss) ? 'sully-wy-native' : ''} ${blackWhiteFacebook ? 'sully-chat-monochrome' : ''} ${wechatBubble ? 'sully-chat-wechat' : ''} ${qqBubble ? 'sully-chat-qq' : ''}`}
             style={chatRootStyle}
         >
              {/* 聊天细节微调（外观 App 可视化设置生成）：排在用户自定义 CSS 之前——
