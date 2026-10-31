@@ -43,7 +43,7 @@ export const WHITEBOX_SELECTOR_GROUPS = [
     selectors: [
       '.sully-chat-message', '.sully-chat-message-user', '.sully-chat-message-ai',
       '.sully-chat-message-group-first', '.sully-chat-message-group-last', '.sully-chat-message-module',
-      '.sully-chat-system', '.sully-chat-interaction', '.sully-chat-message-content', '.sully-chat-message-sender', '.sully-chat-message-avatar-slot',
+      '.sully-chat-system', '.sully-chat-interaction', '.sully-chat-message-content', '.sully-chat-message-sender', '.sully-chat-reply', '.sully-chat-message-avatar-slot',
       '.sully-chat-message-avatar', '.sully-chat-message-avatar-img', '.sully-chat-turn-avatar-slot',
       '.sully-chat-turn-avatar', '.sully-chat-avatar-wrap', '.sully-chat-avatar-frame',
     ],
@@ -57,6 +57,10 @@ export const WHITEBOX_SELECTOR_GROUPS = [
   {
     label: '转账主卡、回执与详情',
     selectors: ['card', 'receipt', 'header', 'icon', 'brand', 'watermark', 'amount', 'note', 'recipient', 'status', 'overlay', 'dialog', 'accept', 'return'].map(part => `.sully-chat-transfer-${part}`),
+  },
+  {
+    label: '群聊红包、领取与退回回执',
+    selectors: ['.sully-chat-group-packet', '.sully-chat-group-packet-receipt'],
   },
   {
     label: '正式文件附件',
