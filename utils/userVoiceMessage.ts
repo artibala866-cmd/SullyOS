@@ -45,6 +45,28 @@ export function formatForwardedUserVoice(message: Message): string {
   return text ? `[语音记录] ${text}` : '[语音记录] 仅有原声，未转发音频文件';
 }
 
+/**
+ * Voice messages forwarded within the same local-first database can keep the
+ * original BlobRef. The forward card is then a genuine playable snapshot and
+ * v3 backup/GC can see that shared reference in its serialized message content.
+ */
+export function forwardUserVoiceSnapshot(message: Message) {
+  const voice = describeUserVoice(message);
+  return {
+    role: message.role,
+    type: 'voice' as const,
+    content: voice.transcript || '[语音]',
+    timestamp: message.timestamp,
+    metadata: {
+      inputMode: voice.mode,
+      transcript: voice.transcript,
+      hasAudio: !!voice.audioRef,
+      ...(voice.audioRef ? { audioRef: voice.audioRef } : {}),
+      ...(voice.durationSec ? { durationSec: voice.durationSec } : {}),
+    },
+  };
+}
+
 /** Only saved, referenced audio qualifies for a playable voice bar. */
 export function describeUserVoice(msg: Message): {
   transcript: string;
