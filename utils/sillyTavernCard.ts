@@ -15,6 +15,20 @@ const id = (kind: string): string =>
     kind + '-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
 const bool = (value: unknown): boolean | undefined => typeof value === 'boolean' ? value : undefined;
+const MAX_AVATAR_DATA_URL = 5 * 1024 * 1024;
+const safeInlineAvatar = (value: unknown): string => {
+    if (typeof value !== 'string' || value.length > MAX_AVATAR_DATA_URL) return '';
+    return /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(value) ? value : '';
+};
+const stableScenario = (scenario: string, warnings: string[]): string => {
+    if (!scenario) return '';
+    // Filter one-time openings by paragraph/sentence, not by dropping the whole worldview.
+    const sentences = scenario.split(/(?<=[。！？!?])\s*|\n+/u).map(part => part.trim()).filter(Boolean);
+    const opening = /(?:开场|初次见面|此刻|刚刚|你走进|你推开|你醒来|opening scene|first meeting|you enter|you wake up|the scene begins)/i;
+    const stable = sentences.filter(part => !opening.test(part));
+    if (stable.length !== sentences.length) warnings.push('一次性开局场景已过滤，稳定世界背景保留');
+    return stable.join('\n');
+};
 
 /** Strictly normalized, inert data. Nothing here can execute Tavern scripts or API calls. */
 export interface PreparedCharacterCard {
@@ -56,10 +70,16 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
         const item = entries[n];
         if (!object(item) || typeof item.content !== 'string') throw new Error('世界书第 ' + (n + 1) + ' 条内容结构损坏');
         if (item.content.length > MAX_ENTRY_TEXT) throw new Error('世界书第 ' + (n + 1) + ' 条正文超出安全限制');
+        // CCv3 decorators affect entry activation, targeting and routing; SullyOS
+        // does not interpret these lines. Never silently inject them as ordinary prose.
+        if (/(?:^|\n)\s*@@[a-z_]+(?:\b|$)/i.test(item.content)) {
+            throw new Error('世界书第 ' + (n + 1) + ' 条含酒馆专用 @@ 触发/注入装饰器，无法安全等价转换');
+        }
         if (item.use_regex === true || item.extensions?.use_regex === true) {
             throw new Error('世界书第 ' + (n + 1) + ' 条使用正则关键词，糯米机不支持等价触发；未写入任何数据');
         }
-        const rawPosition = item.position ?? item.extensions?.position;
+        const ext = object(item.extensions) ? item.extensions : {};
+        const rawPosition = item.position ?? ext.position;
         const position = rawPosition === 'before_char' ? 0 : rawPosition === 'after_char' ? 1 :
             rawPosition == null ? 1 : rawPosition;
         if (typeof position !== 'number' || !Number.isInteger(position) || position < 0 || position > 6) {
@@ -73,14 +93,23 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
         const secondary = item.keysecondary ?? item.secondary_keys ?? [];
         if (!Array.isArray(primary) || !Array.isArray(secondary) ||
             [...primary, ...secondary].some(k => typeof k !== 'string')) throw new Error('世界书关键词结构无效');
-        const role = item.role;
+        const requestedRole = item.role ?? ext.role;
+        const role = requestedRole === 'system' ? 0 : requestedRole === 'user' ? 1 :
+            requestedRole === 'assistant' ? 2 : requestedRole;
         if (role != null && !([0, 1, 2].includes(role))) throw new Error('世界书第 ' + (n + 1) + ' 条使用不支持的角色注入位置');
+        const controls: Record<string, unknown> = {
+            probability: item.probability ?? ext.probability,
+            depth: item.depth ?? ext.depth,
+            scanDepth: item.scanDepth ?? ext.scanDepth,
+            selectiveLogic: item.selectiveLogic ?? item.selective_logic ?? ext.selectiveLogic,
+        };
         for (const [field, minimum, maximum] of [
             ['probability', 0, 100], ['depth', 0, 999], ['scanDepth', 0, 999],
             ['selectiveLogic', 0, 3],
         ] as const) {
-            if (item[field] != null && (typeof item[field] !== 'number' ||
-                !Number.isFinite(item[field]) || item[field] < minimum || item[field] > maximum)) {
+            const value = controls[field];
+            if (value != null && (typeof value !== 'number' ||
+                !Number.isFinite(value) || value < minimum || value > maximum)) {
                 throw new Error('世界书第 ' + (n + 1) + ' 条的 ' + field + ' 超出支持范围');
             }
         }
@@ -93,21 +122,31 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
             key: primary, keysecondary: secondary,
             constant: bool(item.constant) ?? false,
             selective: bool(item.selective) ?? secondary.length > 0,
-            selectiveLogic: item.selectiveLogic ?? item.selective_logic ?? 0,
+            selectiveLogic: controls.selectiveLogic ?? 0,
             order: item.order ?? item.insertion_order ?? item.priority ?? 100,
             position,
             disable: book.enabled === false || disabled === true || enabled === false,
-            probability: item.probability ?? 100,
-            useProbability: bool(item.useProbability) ?? false,
-            depth: item.depth ?? 4,
+            probability: controls.probability ?? 100,
+            useProbability: bool(item.useProbability) ?? bool(ext.useProbability) ?? false,
+            depth: controls.depth ?? 4,
             role: role ?? null,
-            scanDepth: item.scanDepth ?? fallbackScanDepth ?? null,
-            caseSensitive: item.caseSensitive ?? item.case_sensitive ?? null,
-            matchWholeWords: item.matchWholeWords ?? item.match_whole_words ?? null,
+            scanDepth: controls.scanDepth ?? fallbackScanDepth ?? null,
+            caseSensitive: item.caseSensitive ?? item.case_sensitive ?? ext.caseSensitive ?? null,
+            matchWholeWords: item.matchWholeWords ?? item.match_whole_words ?? ext.matchWholeWords ?? null,
         };
-        if (item.extensions && Object.keys(item.extensions).some(key => !['position', 'use_regex'].includes(key))) {
-            if (!warnings.includes('部分酒馆世界书扩展字段无法等价执行')) warnings.push('部分酒馆世界书扩展字段无法等价执行');
+        const supportedExtensions = new Set(['position','use_regex','role','depth','scanDepth',
+            'probability','useProbability','caseSensitive','matchWholeWords','selectiveLogic']);
+        const unsupportedExtensions = Object.keys(ext).filter(key => !supportedExtensions.has(key));
+        if (unsupportedExtensions.length) {
+            warnings.push('世界书第 ' + (n + 1) + ' 条扩展字段无法等价执行：' +
+                unsupportedExtensions.join('、').slice(0, 180));
         }
+        const unsupportedActivation = ['sticky','cooldown','delay','group','groupOverride',
+            'excludeRecursion','preventRecursion','delayUntilRecursion','trigger','triggers',
+            'matchWholeWords','useGroupScoring','vectorized','outletName'].filter(key =>
+            item[key] !== undefined && key !== 'matchWholeWords');
+        if (unsupportedActivation.length) warnings.push('世界书第 ' + (n + 1) + ' 条特殊规则不等价：' +
+            unsupportedActivation.join('、'));
         standardEntries.push(entry);
     }
     if (!standardEntries.length) return [];
@@ -155,7 +194,9 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
         data = raw.data;
     } else if (!('spec' in raw) && !('data' in raw) &&
         typeof raw.name === 'string' &&
-        ['description', 'personality', 'scenario'].some(key => typeof raw[key] === 'string')) {
+        // Bare name+description is commonly ordinary app JSON, not a verified V1 card.
+        ['description','personality','scenario','first_mes','mes_example']
+            .filter(key => typeof raw[key] === 'string').length >= 2) {
         source = 'tavern-v1';
         data = raw;
     } else {
@@ -172,14 +213,15 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
     const description = normalizeMacros(text(data.description), warnings) +
         (nick && nick !== name ? '\n【角色昵称】' + normalizeMacros(nick, warnings) : '');
     const personality = normalizeMacros(text(data.personality), warnings);
-    const scenario = text(data.scenario);
-    // One-time openings, forced user actions and in-person encounter scenes do not belong in a phone persona.
-    const transientScene = /(?:开场|初次见面|此刻|刚刚|你走进|你推开|你醒来|opening scene|first meeting|you enter|you wake up|the scene begins)/i.test(scenario);
-    const worldview = scenario && !transientScene ? normalizeMacros(scenario, warnings) : '';
-    if (scenario && transientScene) warnings.push('一次性开局场景已过滤');
-    // Never turn Tavern system_prompt / post-history instructions into SullyOS execution instructions.
-    // Only stable character personality from the explicit persona fields is admitted.
-    const systemPrompt = personality ? '【角色性格与行为设定】\n' + personality : '';
+    const worldview = normalizeMacros(stableScenario(text(data.scenario), warnings), warnings);
+    // In SullyOS the "description" field is treated as a local nickname/user note
+    // by ContextBuilder, not core persona. Preserve it visibly AND also put the
+    // exact text into the role instruction, or identity/background is lost in chat.
+    // Never import Tavern system_prompt or post-history control instructions.
+    const systemPrompt = [
+        description.trim() ? '【角色身份与背景】\n' + description.trim() : '',
+        personality ? '【角色性格与行为设定】\n' + personality : '',
+    ].filter(Boolean).join('\n\n');
     const book = data.character_book;
     const worldbooks = normalizeWorldbooks(book, name, warnings);
     if (!description.trim() && !personality && !worldview && worldbooks.length === 0) {
@@ -190,7 +232,7 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
     }
     return {
         source,
-        character: { name, description, systemPrompt, worldview },
+        character: { name, avatar: safeInlineAvatar(data.avatar), description, systemPrompt, worldview },
         worldbooks, avatarFile: null, warnings: [...new Set(warnings)],
     };
 };
