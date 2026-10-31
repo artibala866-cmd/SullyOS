@@ -1,6 +1,7 @@
 /** Screenshot-only regression using real MessageItem and ChatHeaderShell renderers. */
 import {renderChatDecorationSample} from '../components/chat/ChatDecorationSample';
 import {BUILTIN_WHITEBOX_PRESETS} from '../utils/builtinWhitebox';
+import {resolveLegacySilentLetterCss} from '../components/chat/BlobRefStyle';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {GroupMessageItem,GroupPacketCard} from '../apps/GroupChat';
@@ -11,14 +12,24 @@ if (!root) throw Error('visual host missing');
 try {
  const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-silent-letter-dark')?.read();
  if (!preset) throw Error('built-in outfit missing');
- const scenes=['conversation','silent-letter-send','silent-letter-stop','reply','voice-playing','transfer','transfer-accepted','transfer-returned','psyche','psyche-open'];
+ const scenes=['installed-v2','conversation','silent-letter-send','silent-letter-stop','reply','voice-playing','transfer','transfer-accepted','transfer-returned','psyche','psyche-open'];
  for(const scene of scenes) {
-  const {markup,css}=renderChatDecorationSample(preset,scene);
+  // A returning user's CSS is stored in their character/global settings and
+  // is not changed when the built-in JSON is updated. Simulate exactly that.
+  const marker='/* 11. 贴图是真正的替换图标';
+  const persistedV2=preset.parts.css!.slice(0,preset.parts.css!.indexOf(marker));
+  const fixture=scene==='installed-v2'
+    ? {...preset,parts:{...preset.parts,css:persistedV2}}
+    : preset;
+  const {markup,css}=renderChatDecorationSample(fixture,scene==='installed-v2'?'conversation':scene);
+  const runtimeCss=scene==='installed-v2'
+    ? css.replace(persistedV2,resolveLegacySilentLetterCss(persistedV2))
+    : css;
   const section=document.createElement('section');
   section.className='scene';
   section.dataset.scene=scene;
   section.innerHTML='<div class="beauty-preview-body">'+markup+'</div>';
-  const style=document.createElement('style');style.textContent=css;section.prepend(style);
+  const style=document.createElement('style');style.textContent=runtimeCss;section.prepend(style);
   const name=document.createElement('h2');name.textContent=scene;
   section.prepend(name);
   root.append(section);
@@ -81,6 +92,10 @@ try {
     return hasImage || (getComputedStyle(node,'::after').content==='none' || getComputedStyle(node,'::after').content==='normal') && getComputedStyle(node).borderTopWidth==='0px';
   }),
   groupedAvatar:[...root.querySelectorAll<HTMLElement>('[data-scene="conversation"] .sully-chat-message-ai:not(.sully-chat-message-group-last) .sully-chat-message-avatar-slot')].every(slot=>!slot.querySelector('.sully-chat-avatar-wrap')),
+  persistedV2BackFixed:nativeSvgReplaced('installed-v2','.sully-chat-back'),
+  persistedV2PlusFixed:nativeSvgReplaced('installed-v2','.sully-chat-actions-button'),
+  persistedV2LightningFixed:nativeSvgReplaced('installed-v2','.sully-chat-trigger'),
+  persistedV2SendFixed:nativeSvgReplaced('installed-v2','.sully-chat-send-button'),
   oldBackIconReplaced:nativeSvgReplaced('conversation','.sully-chat-back'),
   oldPlusIconReplaced:nativeSvgReplaced('conversation','.sully-chat-actions-button'),
   oldLightningIconReplaced:nativeSvgReplaced('conversation','.sully-chat-trigger'),
