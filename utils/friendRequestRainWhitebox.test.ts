@@ -14,6 +14,8 @@ describe('请求添加好友 native whitebox',()=>{
    expect(css).toContain(s);
   expect(css).not.toMatch(/\.chat-header-custom|\.msg-transfer-card|\.chat-detail-screen|\.input-btns-right/);
   expect(css).toContain('content:"♥ ♥ ♥ ♥ ♥"');
+  expect(css).toContain('.sully-chat-transfer-card .sully-chat-transfer-watermark{display:none!important}');
+  expect(css).toContain('.sully-chat-transfer-card .sully-chat-transfer-icon>svg{display:none!important}');
   expect(css).toContain('@media(max-width:390px)');
   expect(css).toContain('@media(prefers-color-scheme:dark)');
  });

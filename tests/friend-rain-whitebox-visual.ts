@@ -53,6 +53,10 @@ try {
   composerReadable:(rect('conversation','.sully-chat-input-wrap')?.width||0)>=115,
   clickIntact:['.sully-chat-back','.sully-chat-trigger','.sully-chat-actions-button','.sully-chat-send-button'].every(s=>cssStyle('conversation',s).pointerEvents!=='none'),
   transferInteractive:cssStyle('transfer','.sully-chat-transfer-card').pointerEvents!=='none',
+  transferDecorated:cssStyle('transfer','.sully-chat-transfer-card .sully-chat-transfer-watermark').display==='none'
+    && cssStyle('transfer','.sully-chat-transfer-card .sully-chat-transfer-icon').backgroundImage.includes('IMG-3703.png')
+    && cssStyle('transfer','.sully-chat-transfer-card .sully-chat-transfer-icon > svg').display==='none',
+  headerPictureRoom:(rect('conversation','.sully-chat-header')?.height||0)>=90,
   noOverflow:[...root.querySelectorAll<HTMLElement>('.scene')].every(e=>e.scrollWidth<=e.clientWidth+2)
  };
  root.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';
