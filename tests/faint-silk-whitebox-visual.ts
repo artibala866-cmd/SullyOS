@@ -3,6 +3,7 @@ import {renderChatDecorationSample} from '../components/chat/ChatDecorationSampl
 import {BUILTIN_WHITEBOX_PRESETS} from '../utils/builtinWhitebox';
 import {GroupMessageItem,GroupPacketCard} from '../apps/GroupChat';
 import {BEAUTY_PREVIEW_AVATAR} from '../utils/beautyPreviewAssets';
+import {FAINT_SILK_ICON_IMAGES, faintSilkLoadedIconCss, type FaintSilkIconKey} from '../components/chat/FaintSilkIcons';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 
@@ -130,7 +131,41 @@ try {
   headerNoOverlap:(()=>{const a=$('conversation','.sully-chat-back')?.getBoundingClientRect(),b=$('conversation','.sully-chat-trigger')?.getBoundingClientRect();return !!a&&!!b&&a.right+2<=b.left;})(),
   inputHeight:(()=>{const a=$('conversation','.sully-chat-inputbar')?.getBoundingClientRect();return !!a&&a.height>=40&&a.height<=180;})(),
  };
- const out=document.createElement('output');out.textContent=JSON.stringify(checks,null,2);
+ // Exercise the ONE-layer image replacement state in the same actual DOM.
+ // No dependency on third-party image uptime for the assertion.
+ const iconVisualStyle=document.createElement('style');
+ iconVisualStyle.textContent=faintSilkLoadedIconCss(['actions','emoji','send']);
+ root.append(iconVisualStyle);
+ const imageReplacementChecks={
+  actionArtwork:style('conversation','.sully-chat-actions-button').backgroundImage.includes(FAINT_SILK_ICON_IMAGES.actions)
+    && style('conversation','.sully-chat-actions-button > svg').visibility==='hidden',
+  emojiArtwork:style('conversation','.sully-chat-input-wrap button[aria-label="表情面板"]').backgroundImage.includes(FAINT_SILK_ICON_IMAGES.emoji)
+    && style('conversation','.sully-chat-input-wrap button[aria-label="表情面板"] > svg').visibility==='hidden',
+  untouchedGenerate:style('conversation','.sully-chat-trigger > svg').visibility==='visible',
+  untouchedMicrophone:!$('conversation','.sully-chat-voice-trigger')
+     || style('conversation','.sully-chat-voice-trigger > svg').visibility==='visible',
+ };
+ Object.assign(checks,imageReplacementChecks);
+ iconVisualStyle.remove();
+ // Use only real, successfully decoded original image files in the screenshot.
+ // If third-party hosting is down, the native icons remain visible and usable.
+ const loaded=await Promise.all((Object.entries(FAINT_SILK_ICON_IMAGES) as [FaintSilkIconKey,string][]).map(([id,url])=>
+    new Promise<FaintSilkIconKey|null>(resolve=>{
+      const image=new Image();let done=false;
+      const finish=(ok:boolean)=>{if(done)return;done=true;clearTimeout(timer);resolve(ok?id:null);};
+      const timer=setTimeout(()=>finish(false),1800);
+      image.onload=()=>finish(image.naturalWidth>0);
+      image.onerror=()=>finish(false);
+      image.src=url;
+    })
+ ));
+ const available=loaded.filter((id):id is FaintSilkIconKey=>id!==null);
+ if(available.length){
+   const runtimeStyle=document.createElement('style');
+   runtimeStyle.textContent=faintSilkLoadedIconCss(available);
+   root.append(runtimeStyle);
+ }
+  const out=document.createElement('output');out.textContent=JSON.stringify(checks,null,2);
  out.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';
  root.append(out);
  if(out.dataset.ready!=='true')console.error('Faint Silk check failed',checks);
