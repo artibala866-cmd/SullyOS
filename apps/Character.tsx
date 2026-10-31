@@ -38,7 +38,7 @@ import { COMMON_TIMEZONES } from '../utils/timezone';
 import { toMountedWorldbook } from '../utils/worldbook';
 import { stripSensitiveCardFields } from '../utils/characterCard';
 import { shareOrDownloadFile } from '../utils/shareExport';
-import { readCharacterCardFile, type PreparedCharacterCard } from '../utils/sillyTavernCard';
+import { readCharacterCardFile, type PreparedCardImport, type PreparedCharacterCard } from '../utils/sillyTavernCard';
 import { confirmExportSafety } from '../utils/exportGuard';
 import { trackEvent } from '../utils/analytics';
 import { sortCharacterGroups, GROUP_FILTER_UNGROUPED } from '../components/character/CharacterGroupFilter';
@@ -187,12 +187,14 @@ const Character: React.FC = () => {
   }, [characters]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cardImportRef = useRef<HTMLInputElement>(null);
-  const [pendingCard, setPendingCard] = useState<PreparedCharacterCard | null>(null);
+  const [pendingCard, setPendingCard] = useState<PreparedCardImport | null>(null);
+  const [selectedImportIndices, setSelectedImportIndices] = useState<number[]>([0]);
   const [savingCard, setSavingCard] = useState(false);
   const [cardPreviewUrl, setCardPreviewUrl] = useState('');
   useEffect(() => {
-      if (!pendingCard?.avatarFile) { setCardPreviewUrl(''); return; }
-      const url = URL.createObjectURL(pendingCard.avatarFile);
+      const preview = pendingCard?.source === 'babylink' ? null : pendingCard;
+      if (!preview?.avatarFile) { setCardPreviewUrl(''); return; }
+      const url = URL.createObjectURL(preview.avatarFile);
       setCardPreviewUrl(url);
       return () => URL.revokeObjectURL(url);
   }, [pendingCard]);
@@ -1172,8 +1174,9 @@ ${isInitialGeneration ? `
       const file = e.target.files?.[0];
       if (!file) return;
       try {
-          // Pure parsing and validation; the database is untouched until confirmation.
           const prepared = await readCharacterCardFile(file);
+          setSelectedImportIndices(prepared.source === 'babylink'
+              ? prepared.cards.map((_, index) => index) : [0]);
           setPendingCard(prepared);
       } catch (error: any) {
           console.error('[Character Card] Parse failed', error);
@@ -1185,59 +1188,61 @@ ${isInitialGeneration ? `
 
   const confirmCardImport = async () => {
       if (!pendingCard || savingCard) return;
+      const chosen: PreparedCharacterCard[] = pendingCard.source === 'babylink'
+          ? pendingCard.cards.filter((_, index) => selectedImportIndices.includes(index))
+          : [pendingCard];
+      if (chosen.length === 0) { addToast('请至少选择一个角色', 'error'); return; }
       setSavingCard(true);
-      let newAvatarToken: string | null = null;
+      const createdAvatars: string[] = [];
       let databaseCommitted = false;
       try {
-          const prepared = pendingCard;
-          const newId = 'char-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto
-              ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
-          let avatar = prepared.character.avatar || '';
-          if (prepared.avatarFile) {
-              // Decode to a resized Blob, not a huge data URL; never silently fall
-              // back to storing the whole PNG as a string on IndexedDB failure.
-              newAvatarToken = await putImageBlob(await processImageToBlob(prepared.avatarFile, { maxWidth: 900 }));
-              avatar = newAvatarToken;
-          } else if (avatar.startsWith('data:image/')) {
-              const storedAvatar = await migrateDataUrlToRef(avatar);
-              if (storedAvatar === avatar) throw new Error('头像 Blob 保存失败，导入已取消');
-              avatar = storedAvatar;
+          const charactersToSave: CharacterProfile[] = [];
+          const booksToSave = new Map<string, typeof chosen[number]['worldbooks'][number]>();
+          for (const prepared of chosen) {
+              const newId = 'char-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                  ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
+              let avatar = prepared.character.avatar || '';
+              if (prepared.avatarFile) {
+                  avatar = await putImageBlob(await processImageToBlob(prepared.avatarFile, { maxWidth: 900 }));
+                  createdAvatars.push(avatar);
+              } else if (avatar.startsWith('data:image/')) {
+                  // Store every new image through the existing Blob mechanism, with rollback on failure.
+                  const sourceImage = await (await fetch(avatar)).blob();
+                  const imageFile = new File([sourceImage], 'imported-avatar.png', { type: sourceImage.type });
+                  avatar = await putImageBlob(await processImageToBlob(imageFile, { maxWidth: 900 }));
+                  createdAvatars.push(avatar);
+              }
+              const mounted = prepared.worldbooks.map(toMountedWorldbook);
+              for (const book of prepared.worldbooks) booksToSave.set(book.id, book);
+              charactersToSave.push({
+                  ...prepared.character,
+                  id: newId, avatar, name: prepared.character.name,
+                  description: prepared.character.description, systemPrompt: prepared.character.systemPrompt,
+                  memories: [], refinedMemories: {}, activeMemoryMonths: [], mountedWorldbooks: mounted,
+                  contextRangeMode: prepared.character.contextRangeMode ?? 'manual',
+                  contextLimit: prepared.character.contextLimit ?? DEFAULT_MANUAL_CONTEXT_LIMIT,
+                  contextRangePolicyVersion: prepared.character.contextRangePolicyVersion ?? CONTEXT_RANGE_POLICY_VERSION,
+                  emotionConfig: prepared.character.emotionConfig ?? { enabled: false },
+              } as CharacterProfile);
           }
-          const mounted = prepared.worldbooks.map(toMountedWorldbook);
-          const newChar: CharacterProfile = {
-              ...prepared.character,
-              id: newId,
-              avatar,
-              name: prepared.character.name,
-              description: prepared.character.description,
-              systemPrompt: prepared.character.systemPrompt,
-              memories: [],
-              refinedMemories: {},
-              activeMemoryMonths: [],
-              mountedWorldbooks: mounted,
-              contextRangeMode: prepared.character.contextRangeMode ?? 'manual',
-              contextLimit: prepared.character.contextLimit ?? DEFAULT_MANUAL_CONTEXT_LIMIT,
-              contextRangePolicyVersion: prepared.character.contextRangePolicyVersion ?? CONTEXT_RANGE_POLICY_VERSION,
-              emotionConfig: prepared.character.emotionConfig ?? { enabled: false },
-          } as CharacterProfile;
-          // DB.add is collision-safe; one transaction commits both tables or neither.
-          await DB.importCharacterCardAtomic(newChar, prepared.worldbooks);
+          const libraryBooks = [...booksToSave.values()];
+          await DB.importCharacterCardsAtomic(charactersToSave, libraryBooks);
           databaseCommitted = true;
-          const [saved, library] = await Promise.all([DB.getCharacter(newId), DB.getAllWorldbooks()]);
-          if (!saved || saved.mountedWorldbooks?.length !== mounted.length ||
-              prepared.worldbooks.some(book => !library.some(row => row.id === book.id))) {
+          const [saved, library] = await Promise.all([
+              Promise.all(charactersToSave.map(char => DB.getCharacter(char.id))),
+              DB.getAllWorldbooks(),
+          ]);
+          if (saved.some((char, index) => !char || char.mountedWorldbooks?.length !== charactersToSave[index].mountedWorldbooks?.length) ||
+              libraryBooks.some(book => !library.some(row => row.id === book.id))) {
               throw new Error('保存事务已提交，但读取校验失败，请检查角色与世界书后再操作');
           }
           setPendingCard(null);
           trackEvent('导入角色卡');
-          addToast('角色 ' + newChar.name + ' 导入成功，世界书 ' + mounted.length + ' 条', 'success');
+          addToast('已导入 ' + charactersToSave.length + ' 个角色，世界书 ' + libraryBooks.length + ' 条', 'success');
           window.setTimeout(() => window.location.reload(), 450);
       } catch (error: any) {
-          // The avatar blob is created before the character transaction. If the
-          // transaction aborts, remove only the newly created token; never remove
-          // a deduplicated native avatar or an already committed character's image.
-          if (newAvatarToken && !databaseCommitted) {
-              try { await deleteBlobRef(newAvatarToken); } catch {}
+          if (!databaseCommitted) for (const token of createdAvatars) {
+              try { await deleteBlobRef(token); } catch {}
           }
           console.error('[Character Card] Save failed', error);
           addToast(error?.message || '导入失败，未保存角色', 'error');
@@ -2197,14 +2202,37 @@ ${isInitialGeneration ? `
 
         <Modal
             isOpen={!!pendingCard}
-            title="确认导入角色卡"
+            title={pendingCard?.source === 'babylink' ? '导入 BabyLink 角色分享包' : '确认导入角色卡'}
             onClose={() => { if (!savingCard) setPendingCard(null); }}
             footer={<div className="flex w-full gap-2">
                 <button disabled={savingCard} onClick={() => setPendingCard(null)} className="flex-1 py-3 bg-neutral-100 text-neutral-600 rounded-2xl font-semibold disabled:opacity-50">取消</button>
-                <button disabled={savingCard} onClick={confirmCardImport} className="flex-1 py-3 bg-[#222222] text-white rounded-2xl font-semibold disabled:opacity-50">{savingCard ? '保存中…' : '确认导入'}</button>
+                <button disabled={savingCard || (pendingCard?.source === 'babylink' && selectedImportIndices.length === 0)}
+                    onClick={confirmCardImport} className="flex-1 py-3 bg-[#222222] text-white rounded-2xl font-semibold disabled:opacity-50">
+                    {savingCard ? '保存中…' : '确认导入'}
+                </button>
             </div>}
         >
-            {pendingCard && <div className="flex flex-col gap-4 py-2">
+            {pendingCard?.source === 'babylink' ? <div className="flex flex-col gap-3 py-2">
+                <p className="text-xs text-neutral-600">共 {pendingCard.cards.length} 个角色，勾选需要导入的角色及其专属世界书：</p>
+                <div className="max-h-[48vh] overflow-y-auto space-y-2">
+                    {pendingCard.cards.map((card, index) => <label key={index} className="flex items-start gap-3 p-3 border border-neutral-200 rounded-xl">
+                        <input type="checkbox" checked={selectedImportIndices.includes(index)} disabled={savingCard}
+                            onChange={event => setSelectedImportIndices(current => event.target.checked
+                                ? [...current, index] : current.filter(n => n !== index))} className="mt-4" />
+                        <span className="w-12 h-12 shrink-0 overflow-hidden rounded-xl bg-neutral-100">
+                            <TokenImg value={card.character.avatar || ''} alt="角色头像" className="w-full h-full object-cover" />
+                        </span>
+                        <span className="flex flex-col gap-1 min-w-0">
+                            <span className="text-sm font-semibold break-words">{card.character.name}</span>
+                            <span className="text-xs text-neutral-500">人设：{card.character.systemPrompt || card.character.description ? '已识别' : '仅姓名'}</span>
+                            <span className="text-xs text-neutral-600">世界书 {card.worldbooks.length} 条 · 启用 {card.worldbooks.filter(book => !book.disable).length} · 停用 {card.worldbooks.filter(book => book.disable).length}</span>
+                        </span>
+                    </label>)}
+                </div>
+                {pendingCard.warnings.length > 0 && <div className="text-xs text-amber-800 bg-amber-50 rounded-xl p-3">
+                    {pendingCard.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
+                </div>}
+            </div> : pendingCard && <div className="flex flex-col gap-4 py-2">
                 <div className="flex items-center gap-3">
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-100 shrink-0">
                         {cardPreviewUrl ? <img src={cardPreviewUrl} alt="角色头像" className="w-full h-full object-cover" /> :
