@@ -175,6 +175,7 @@ try {
 
 
  // Actual browser rectangles at four widths, for both user and Char.
+ const quoteDiagnostics:Array<Record<string,unknown>>=[];
  const quoteCompactChecks=[320,360,390,430].every(width=>{
   const body=quoteScene.querySelector<HTMLElement>('.beauty-preview-body');
   const app=quoteScene.querySelector<HTMLElement>('.sample-chat');
@@ -199,7 +200,12 @@ try {
    const compact=getComputedStyle(inner).fontSize==='12px'
      &&getComputedStyle(inner).lineHeight!=='normal'
      &&getComputedStyle(bubble).paddingLeft==='9px';
-   return singleLineQuote&&quoteNoOverlap&&quoteInsideScreen&&compact;
+   const good=singleLineQuote&&quoteNoOverlap&&quoteInsideScreen&&compact;
+   quoteDiagnostics.push({width,index:i,good,singleLineQuote,quoteNoOverlap,quoteInsideScreen,compact,
+     q:[q.left,q.right,q.top,q.bottom,q.width,q.height],b:[b.top,b.bottom,b.width],
+     t:[t.top,t.bottom],n:[n.top,n.bottom],font:getComputedStyle(inner).fontSize,
+     quoteCss:getComputedStyle(quote).maxWidth});
+   return good;
   });
   body.style.width=oldBody;app.style.width=oldApp;
   return ok;
@@ -286,5 +292,5 @@ try {
  };
  root.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';
  const output=document.createElement('output');output.textContent=JSON.stringify(checks,null,2);root.prepend(output);
- if(root.dataset.ready!=='true')throw Error(JSON.stringify({checks,responsiveDiagnostics}));
+ if(root.dataset.ready!=='true')throw Error(JSON.stringify({checks,responsiveDiagnostics,quoteDiagnostics}));
 }catch(e){root.dataset.ready='false';root.dataset.error=String(e);const output=document.createElement('output');output.textContent=String(e);root.prepend(output)}
