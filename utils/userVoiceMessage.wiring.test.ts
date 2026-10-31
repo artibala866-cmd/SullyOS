@@ -28,8 +28,19 @@ describe('user voice must use the actual private-chat pipeline', () => {
     const bubble = read('components/chat/UserVoiceBubble.tsx');
     expect(item).toContain("if (isUser && m.type === 'voice')");
     expect(item).toContain("!isUser && m.type === 'text'");
-    expect(bubble).toContain('{audioUrl && (');
-    expect(bubble).toContain('{duration && <span');
+    // Screenshot regression: user voice must borrow the original light bar,
+    // never the extra black user text-bubble surface.
+    const userBranch = item.slice(item.indexOf("if (isUser && m.type === 'voice')"), item.indexOf('// --- Inline formatting parser'));
+    expect(userBranch).not.toContain('sully-bubble-user');
+    expect(userBranch).not.toContain('style={containerStyle}');
+    expect(userBranch).toContain('styleConfig={activeTheme.ai}');
+    expect(bubble).toContain('sully-voice-bar-shell sully-user-voice-message');
+    expect(bubble).toContain('sully-voice-bar flex items-center gap-2.5 w-full px-3 py-2 rounded-2xl');
+    expect(bubble).toContain('sully-voice-bar-button');
+    expect(bubble).toContain('sully-voice-bar-wave-segment');
+    expect(bubble).toContain('sully-voice-bar-toggle');
+    expect(bubble).toContain("showVoiceText ? '收起' : '转文字'");
+    expect(bubble).toContain('仅转写，无可播放录音');
     expect(bubble).toContain('{voice.transcript ||');
   });
 
