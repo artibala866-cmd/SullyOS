@@ -71,12 +71,18 @@ export function resolveLegacyWeixinBaiyuCss(css: string): string {
 
 /** Upgrade previously applied Friend Rain CSS without replacing user additions or cached blobref images. */
 const FRIEND_RAIN_SIGNATURE='/* 请求添加好友 · 雨梦 by 池谕 | SullyOS 原生整套白框适配';
-const FRIEND_RAIN_V4='/* 请求添加好友 · 池谕原稿视觉补全 v4';
+const FRIEND_RAIN_MARKERS=[
+ '/* 请求添加好友 · 池谕原稿视觉补全 v4',
+ '/* 请求添加好友 · 池谕视觉回归修正 v5',
+] as const;
 export function resolveLegacyFriendRequestRainCss(css:string):string {
- if(!css.includes(FRIEND_RAIN_SIGNATURE)||css.includes(FRIEND_RAIN_V4))return css;
- const full=friendRequestRain.parts.css;
- const from=full.indexOf(FRIEND_RAIN_V4);
- return from===-1?css:css+'\n'+full.slice(from);
+ if(!css.includes(FRIEND_RAIN_SIGNATURE))return css;
+ const latest=friendRequestRain.parts.css;
+ // Append only missing generations; old cached image refs and personal CSS survive.
+ const missing=FRIEND_RAIN_MARKERS.find(marker=>!css.includes(marker));
+ if(!missing)return css;
+ const from=latest.indexOf(missing);
+ return from<0?css:css+'\n'+latest.slice(from);
 }
 
 /** Keep persisted CSS independent of the short-lived browser object URLs. */

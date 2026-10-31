@@ -15,6 +15,8 @@ describe('请求添加好友 native whitebox',()=>{
    expect(css).toContain(s);
   expect(css).not.toMatch(/\.chat-header-custom|\.msg-transfer-card|\.chat-detail-screen|\.input-btns-right/);
   expect(css).toContain('池谕原稿视觉补全 v4');
+  expect(css).toContain('池谕视觉回归修正 v5');
+  expect(p.parts.bubbles!.user.tailMode).toBe('every');
   expect(css).toContain('content:"♥ ♥ ♥ ♥ ♥"');
   expect(css).toContain('.sully-chat-transfer-card .sully-chat-transfer-watermark{display:none!important}');
   expect(css).toContain('.sully-chat-transfer-card .sully-chat-transfer-icon>svg{display:none!important}');
@@ -53,6 +55,10 @@ describe('请求添加好友 native whitebox',()=>{
   expect(patched).toContain('.user-custom{color:red}');
   expect(patched).toContain(mark);
   expect(resolveLegacyFriendRequestRainCss(patched)).toBe(patched);
+  const v4Only=full.slice(0,full.indexOf('/* 请求添加好友 · 池谕视觉回归修正 v5'));
+  const patchedV4=resolveLegacyFriendRequestRainCss(v4Only);
+  expect(patchedV4).toContain('池谕视觉回归修正 v5');
+  expect(resolveLegacyFriendRequestRainCss(patchedV4)).toBe(patchedV4);
   expect(resolveLegacyFriendRequestRainCss('.other-theme{color:red}')).toBe('.other-theme{color:red}');
  });
 });

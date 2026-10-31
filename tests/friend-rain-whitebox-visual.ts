@@ -4,6 +4,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {renderChatDecorationSample} from '../components/chat/ChatDecorationSample';
 import {BUILTIN_WHITEBOX_PRESETS} from '../utils/builtinWhitebox';
 import {GroupMessageItem,GroupPacketCard} from '../apps/GroupChat';
+import MessageItem from '../components/chat/MessageItem';
 import {BEAUTY_PREVIEW_AVATAR} from '../utils/beautyPreviewAssets';
 const root=document.querySelector<HTMLElement>('#friend-rain-visual');
 if(!root)throw Error('No host');
@@ -22,6 +23,25 @@ try {
  const groupMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sully-chat-group-root sample-chat'},React.createElement('div',{className:'sully-chat-messages sample-messages'},React.createElement(GroupMessageItem,{...base,msg:demo,isUser:false,char:{id:'preview',name:'示例角色',avatar:BEAUTY_PREVIEW_AVATAR} as any,styleConfig:preset.parts.bubbles!.ai}),React.createElement(GroupMessageItem,{...base,msg:{...demo,id:25002,role:'user',content:'当然，我带相机！'},isUser:true,styleConfig:preset.parts.bubbles!.user}),React.createElement(GroupPacketCard,{msg:{...demo,id:25003,type:'transfer',metadata:{}},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25004,type:'transfer',metadata:{packetReceipt:'claimed',claimantName:'示例角色',senderName:'我',amount:25}},nameOf:()=>'示例角色'}))));
  group.innerHTML='<h2>群聊双方消息、红包与领取回执</h2><div class="beauty-preview-body">'+groupMarkup+'</div>';
  const style=document.createElement('style');style.textContent=renderChatDecorationSample(preset,'conversation').css;group.prepend(style);root.append(group);
+
+ // Translation exercise uses the real MessageItem and the actual %%BILINGUAL%% contract.
+ // The legacy preview text placed its marker first and produced an empty message.
+ const translation=document.createElement('section');
+ translation.className='scene';translation.dataset.scene='translation-real';
+ const translateMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sample-chat'},
+  React.createElement('div',{className:'sully-chat-messages sample-messages'},
+   React.createElement(MessageItem,{msg:{...demo,id:29901,content:'You are my serendipity%%BILINGUAL%%你是我的不期而遇'},activeTheme:preset.parts.bubbles!,charName:'示例角色',
+    charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,isFirstInGroup:true,isLastInGroup:true,
+    translationEnabled:true,translationExpanded:true,onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,
+    onToggleSelect:()=>{},suppressEntranceAnimation:true}),
+   React.createElement(MessageItem,{msg:{...demo,id:29902,content:'明天一起看海%%BILINGUAL%%See the sea tomorrow'},activeTheme:preset.parts.bubbles!,charName:'示例角色',
+    charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,isFirstInGroup:true,isLastInGroup:true,
+    translationEnabled:true,translationExpanded:false,onTranslateToggle:()=>{},onLongPress:()=>{},onReply:()=>{},
+    selectionMode:false,isSelected:false,onToggleSelect:()=>{},suppressEntranceAnimation:true})
+  )));
+ translation.innerHTML='<h2>真实双语展开与翻译按钮</h2><div class="beauty-preview-body">'+translateMarkup+'</div>';
+ const translationStyle=document.createElement('style');translationStyle.textContent=renderChatDecorationSample(preset,'reply').css;
+ translation.prepend(translationStyle);root.append(translation);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
 
  const rect=(scene:string,sel:string)=>$(scene,sel)?.getBoundingClientRect();
@@ -44,7 +64,9 @@ try {
   bilingualFooter:cssStyle('conversation','.sully-chat-inputbar','::after').content.includes('Dreamed of a rain'),
   wallpaper:cssStyle('conversation','.sully-chat-root').backgroundImage.includes('data:image/svg+xml'),
   psyche:!!$('psyche','.sully-psyche-title')&&!!$('psyche-open','.sully-psyche-body'),
-  translated:!!$('reply','.sully-facebook-translation'),
+  translated:!!$('translation-real','.sully-facebook-translation')
+    && !!$('translation-real','.sully-chat-translate-action button')
+    && cssStyle('translation-real','.sully-chat-translate-action button','::after').backgroundImage.includes('data:image/svg+xml'),
   blackBubble:cssStyle('conversation','.sully-bubble-user').backgroundColor==='rgb(0, 0, 0)',
   whiteBubble:cssStyle('conversation','.sully-bubble-ai').backgroundColor==='rgb(255, 255, 255)',
   backReplaced:cssStyle('conversation','.sully-chat-back > svg').opacity==='0'
