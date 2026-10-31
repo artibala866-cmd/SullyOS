@@ -12,7 +12,7 @@ import {createRoomFinishPass} from '../apps/room3d/roomFinishPass.js';
 import {setCharacterStyle} from '../apps/room3d/chibi/characterStyle.ts';
 import {setCharacterRoomLighting,setCharacterRoomTint} from '../apps/room3d/chibi/illustration.ts';
 import {ROOM_LIGHT_PHASES,createRoomLightUniforms,updateRoomLightUniforms} from '../apps/room3d/roomLighting.js';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],artImages:[],artStats:[],phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -184,6 +184,8 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
  };
  const materialGallery=document.createElement('main');materialGallery.className='materials';document.body.append(materialGallery);
  const finishedGallery=document.createElement('main');finishedGallery.className='finish-comparison';document.body.append(finishedGallery);
+ const artGallery=document.createElement('main');artGallery.className='art-look-comparison';document.body.append(artGallery);
+ const artScreenshot=name=>{const fig=document.createElement('figure'),img=document.createElement('img');img.src=renderer.domElement.toDataURL('image/png');img.alt=name;fig.append(img);artGallery.append(fig);report.artImages.push({name});const canvas=document.createElement('canvas');canvas.width=renderer.domElement.width;canvas.height=renderer.domElement.height;const context=canvas.getContext('2d');context.drawImage(renderer.domElement,0,0);return context.getImageData(0,0,canvas.width,canvas.height).data;};
  const finishPass=createRoomFinishPass(renderer);
  const finishScreenshot=(name)=>{
   const img=document.createElement('img'),fig=document.createElement('figure');
@@ -392,9 +394,27 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    // Guard both excessive global changes and insufficient character detail.
    if(mean<.10||mean>12||fraction<.025||fraction>.85||subjectMean<.50||subjectMean>18||subjectFraction<.10)
     throw Error('Unsafe or invisible detail filter '+variant.id+': '+JSON.stringify({mean,fraction,subjectMean,subjectFraction}));
+   // Complete real WebGL illustrated look: same actor, camera, light and room
+   // finish, with new painterly ink, paper grain and portrait-focus defocus.
+   setCharacterStyle('modern');renderer.render(scene,camera);
+   finishPass.render('day',{baseFinish:true,detail:0,illustrated:false});
+   const artBase=artScreenshot('art-'+variant.id+'-original');
+   setCharacterStyle('illustrated');renderer.render(scene,camera);
+   finishPass.render('day',{baseFinish:true,detail:0,illustrated:true,focus:.85});
+   const artNew=artScreenshot('art-'+variant.id+'-illustrated');
+   setCharacterStyle('modern');
+   let artChange=0,artChanged=0;
+   for(let k=0;k<artBase.length;k+=4){
+    const delta=(Math.abs(artBase[k]-artNew[k])+Math.abs(artBase[k+1]-artNew[k+1])+Math.abs(artBase[k+2]-artNew[k+2]))/3;
+    artChange+=delta;if(delta>3)artChanged++;
+   }
+   const artMean=artChange/(artBase.length/4),artFraction=artChanged/(artBase.length/4);
+   report.artStats.push({variant:variant.id,mean:artMean,fraction:artFraction});
+   if(artMean<1||artMean>35||artFraction<.10)
+    throw Error('Full illustrated film look not visible or too destructive '+variant.id+': '+JSON.stringify({artMean,artFraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
- if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
+ if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12||report.artImages.length!==8)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
  finishPass.dispose();
  if(!celOnly&&(report.images.length!==980||report.timelines.length!==2))throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
