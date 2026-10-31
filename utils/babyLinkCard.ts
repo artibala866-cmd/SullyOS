@@ -61,6 +61,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
     const warnings: string[] = [];
     const bookMap = new Map<string, Worldbook[]>();
     let totalEntries = 0;
+    let hasEnabledKeywordEntry = false;
     for (const [index, value] of raw.worldBooks.entries()) {
         if (!isObject(value) || !Array.isArray(value.entries)) {
             throw new Error('BabyLink 第 ' + (index + 1) + ' 本世界书结构不完整');
@@ -100,6 +101,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
             const depth = numberIn(entry.depth, 0, 12, 4, 'depth');
             const probability = numberIn(entry.probability, 0, 100, 100, 'probability');
             const constant = activation !== 'keyword';
+            if (!constant && value.enabled !== false && entry.enabled !== false) hasEnabledKeywordEntry = true;
             if (activation === 'priority' && !warnings.includes('BabyLink priority 条目已保持常驻并优先排序，但专属优先级机制无法完全等价')) {
                 warnings.push('BabyLink priority 条目已保持常驻并优先排序，但专属优先级机制无法完全等价');
             }
@@ -133,7 +135,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         }
         bookMap.set(bookId, books);
     }
-    if (totalEntries > 0) warnings.push('BabyLink 关键词原本还会扫描平台记忆摘要；糯米机改为扫描可用聊天历史，摘要触发不完全等价');
+    if (hasEnabledKeywordEntry) warnings.push('BabyLink 关键词原本还会扫描平台记忆摘要；糯米机改为扫描可用聊天历史，摘要触发不完全等价');
     const cards: PreparedCharacterCard[] = raw.characters.map((value, index) => {
         if (!isObject(value)) throw new Error('BabyLink 第 ' + (index + 1) + ' 个角色结构不完整');
         const name = optionalText(value.name, '角色姓名', 160) || optionalText(value.nickname, '角色昵称', 160);
