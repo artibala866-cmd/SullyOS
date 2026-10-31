@@ -202,7 +202,18 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    actor=await createVisitor(p,{bodyShape:'blank',bodyHeight:1,headSize:1.04,layers:{},extras:[],
     wardrobe:preset.items,wardrobeLayering:true,hairColor:variant.hair,skinColor:variant.skin});
    if(!actor.rig||wardrobeMeshes(actor)<2)throw Error('Missing real materials '+variant.id);
-   scene.add(actor.root);actor.animate(0,'idle');actor.finishPose();
+   scene.add(actor.root);
+   // Bind the shared room light uniforms BEFORE the first GPU compilation:
+   // later rebinding to a different uniform object can leave cached shader
+   // programs with stale references in Chromium/Three.
+   let lighting;
+   if(variant.id==='black-fair-dark'){
+    lighting=createRoomLightUniforms();lighting.roomShadeSoftness={value:.35};
+    updateRoomLightUniforms(lighting,ROOM_LIGHT_PHASES.day);
+    setCharacterRoomLighting(actor.root,lighting);
+    setCharacterRoomTint(actor.root,ROOM_LIGHT_PHASES.day.character);
+   }
+   actor.animate(0,'idle');actor.finishPose();
    const strand=actor.root.getObjectByName('front-hair-sheet');
    const head=actor.rig.bones.head;
    if(!strand||!head||!head.children.includes(strand.parent))throw Error('Hair not attached to real head bone '+variant.id);
@@ -245,8 +256,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     // Preserve the actual shared room colour uniforms across all four daylight
     // phases and verify switching the optional style cannot remove existing light.
     const phases=['morning','day','sunset','night'];
-    const lighting=createRoomLightUniforms();lighting.roomShadeSoftness={value:.35};
-    setCharacterRoomLighting(actor.root,lighting);
+    if(!lighting)throw Error('Missing prebound original room light uniforms');
     for(const phase of phases){
       const profile=ROOM_LIGHT_PHASES[phase];
       updateRoomLightUniforms(lighting,profile);

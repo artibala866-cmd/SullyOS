@@ -142,11 +142,13 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             ${style==='illustrated' ? `// Extra ink/material response only. Everything above (room lighting,
             // actual shadow mask, tint, authored ramp and brightness) stays intact.
             float inkShadeShare=clamp(1.-inkLit,0.,1.);
+            float inkViewSide=1.-clamp(abs(dot(normal,normalize(vViewPosition))),0.,1.);
+            float inkSideBand=smoothstep(.32,.82,inkViewSide);
             ${face ? `// A lightly articulated jaw/cheek shadow; preserve painted
             // eyes, highlights, expression atlas and original skin colour.
-            inkColor*=1.-.026*inkShadeShare;` : skin ? `
+            inkColor*=1.-(.055*inkShadeShare+.095*inkSideBand);` : skin ? `
             // Exposed rear/hand skin only; no blanket atlas classification.
-            inkColor*=1.-.035*inkShadeShare;` : hair ? `
+            inkColor*=1.-(.075*inkShadeShare+.065*inkSideBand);` : hair ? `
             // Local-space satin follows the existing head bone. A very soft,
             // tint-preserving band enhances already authored strands, not a
             // second plastic-white reflection over the entire hair shell.
@@ -154,15 +156,16 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkHairDirection=abs(dot(normalize(inkLocalStrandView),inkHairHalf));
             float inkHairSheen=(1.-smoothstep(.18,.78,inkHairDirection))
                 *smoothstep(.34,.90,clamp(dot(normal,inkHairHalf),0.,1.));
-            float inkPaintMask=smoothstep(.002,.055,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722)));
+            float inkPaintMask=mix(.65,1.,smoothstep(.008,.20,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722))));
             // Keep dark hair coloured, never replace it with flat white glare.
-            vec3 inkSheenPigment=mix(diffuseColor.rgb,sqrt(max(diffuseColor.rgb,vec3(0.)))*.32,.40);
-            inkColor*=1.-.020*inkShadeShare;
-            inkColor+=(1.-clamp(inkColor,0.,1.))*inkSheenPigment*inkHairSheen*inkLit*inkPaintMask*.105;` : leather || metal ? `
+            vec3 inkSheenPigment=mix(diffuseColor.rgb,sqrt(max(diffuseColor.rgb,vec3(0.)))*.55,.75);
+            inkColor*=1.-(.040*inkShadeShare+.040*inkSideBand);
+            float inkSheenStrength=mix(.24,.10,smoothstep(.15,.65,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722))));
+            inkColor+=(1.-clamp(inkColor,0.,1.))*inkSheenPigment*inkHairSheen*inkLit*inkPaintMask*inkSheenStrength;` : leather || metal ? `
             // Keep the existing resource-authored glints and colours unchanged.` : `
             // Cloth stays matte: give folded shade a little depth without
             // touching unshadowed fabric colours or changing room illumination.
-            inkColor*=1.-.060*inkShadeShare;`}
+            inkColor*=1.-(.11*inkShadeShare+.085*inkSideBand);`}
             ` : ''}
             vec3 inkView = normalize(vViewPosition);
             float inkFresnel = 1.-clamp(abs(dot(normal,inkView)),0.,1.);
