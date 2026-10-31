@@ -3,7 +3,7 @@ export const CHARACTER_STYLE_KEY='sully-home3d-character-style';
 // Fresh installs use the noticeably illustrated look. A saved 'modern' value
 // stays an explicit rollback choice; never reset someone's selected style.
 const clean=(value:unknown):CharacterStyle=>value==='legacy'?'legacy':value==='modern'?'modern':'illustrated';
-const read=():CharacterStyle=>{try{return clean(localStorage.getItem(CHARACTER_STYLE_KEY));}catch{return 'modern';}};
+const read=():CharacterStyle=>{try{return clean(localStorage.getItem(CHARACTER_STYLE_KEY));}catch{return 'illustrated';}};
 let style=read();
 let persisted=true;
 const listeners=new Set<()=>void>();
