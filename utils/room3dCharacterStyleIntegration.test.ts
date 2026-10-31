@@ -79,7 +79,7 @@ describe('incremental Home3D character style switching',()=>{
   expect(pass).toContain('depthOfField*.21');
   expect(pass).toContain('dreamcoreFocusStrength');
   expect(editor).toContain('const focusAmount=dreamcore?dreamcoreFocusStrength(camera');
-  expect(editor).toContain('const depthCapture=focusAmount>.001&&roomFinish.beginScene()');
+  expect(editor).toContain('const sceneCaptured=dreamcore&&roomFinish.beginScene()');
  });
  it('is only a device preference and leaves current avatar, 29 original seat registrations and homes untouched',()=>{
   const source=readFileSync('apps/room3d/editor.js','utf8');
