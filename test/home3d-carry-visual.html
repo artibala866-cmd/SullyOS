@@ -443,8 +443,10 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    setCharacterStyle('modern');renderer.render(scene,camera);
    finishPass.render('day',{baseFinish:true,detail:0,illustrated:false});
    const artBase=artScreenshot('art-'+variant.id+'-original');
-   setCharacterStyle('illustrated');renderer.render(scene,camera);
-   finishPass.render('day',{baseFinish:true,detail:0,illustrated:true,focus:.85});
+   setCharacterStyle('illustrated');finishPass.beginScene();renderer.render(scene,camera);
+   camera.updateMatrixWorld();
+   const focusDepth=T.MathUtils.clamp((head.getWorldPosition(new T.Vector3()).project(camera).z+1)*.5,.01,.99);
+   finishPass.render('day',{baseFinish:true,detail:0,illustrated:true,focusDepth,cameraSpan:camera.far-camera.near,depthStrength:1});
    const artNew=artScreenshot('art-'+variant.id+'-illustrated');
    setCharacterStyle('modern');
    let artChange=0,artChanged=0;
