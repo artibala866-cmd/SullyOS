@@ -69,7 +69,7 @@ const PRESET_THEME_GROUP: ChatTheme = {
 };
 
 // --- Sub-Component: 红包卡片（2.0：拼手气/专属 + 状态角标 + 回执结算条；旧数据 legacy 简卡） ---
-const GroupPacketCard = ({ msg, nameOf, onOpen }: {
+export const GroupPacketCard = ({ msg, nameOf, onOpen }: {
     msg: Message;
     nameOf: (id: string) => string;
     onOpen?: (msg: Message) => void;
@@ -123,7 +123,7 @@ const GroupPacketCard = ({ msg, nameOf, onOpen }: {
 };
 
 // --- Sub-Component: Group Message Bubble ---
-const GroupMessageItem = React.memo(({
+export const GroupMessageItem = React.memo(({
     msg,
     isUser,
     char,
