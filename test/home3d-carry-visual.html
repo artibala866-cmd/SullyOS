@@ -222,9 +222,21 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     if(d>.5)changed++;sum+=d;
    }
    const mean=sum/(baseline.length/4),fraction=changed/(baseline.length/4);
-   report.finishStats.push({variant:variant.id,meanDifference:mean,changedFraction:fraction});
-   if(mean<.18||mean>12||fraction<.025||fraction>.85)
-    throw Error('Unsafe or invisible detail filter '+variant.id+': '+JSON.stringify({mean,fraction}));
+   // The floor/backdrop fills most pixels. Measure the real actor separately
+   // so a visible but restrained material detail pass isn't marked invisible.
+   const sw=renderer.domElement.width,sh=renderer.domElement.height;
+   const x0=Math.round(sw*.37),x1=Math.round(sw*.65),y0=Math.round(sh*.12),y1=Math.round(sh*.82);
+   let subjectTotal=0,subjectChanged=0,subjectPixels=0;
+   for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+    const k=(y*sw+x)*4;
+    const d=(Math.abs(baseline[k]-enhanced[k])+Math.abs(baseline[k+1]-enhanced[k+1])+Math.abs(baseline[k+2]-enhanced[k+2]))/3;
+    subjectTotal+=d;subjectPixels++;if(d>.5)subjectChanged++;
+   }
+   const subjectMean=subjectTotal/subjectPixels,subjectFraction=subjectChanged/subjectPixels;
+   report.finishStats.push({variant:variant.id,meanDifference:mean,changedFraction:fraction,subjectMean,subjectFraction});
+   // Guard both excessive global changes and insufficient character detail.
+   if(mean<.10||mean>12||fraction<.025||fraction>.85||subjectMean<.50||subjectMean>18||subjectFraction<.10)
+    throw Error('Unsafe or invisible detail filter '+variant.id+': '+JSON.stringify({mean,fraction,subjectMean,subjectFraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
  if(report.materialImages.length!==36||report.finishImages.length!==8)throw Error('Incomplete materials and A/B finish '+report.materialImages.length+'/'+report.finishImages.length);
