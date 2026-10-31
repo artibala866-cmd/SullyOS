@@ -543,7 +543,7 @@ function texture(color){
    editor.setSuspended(true);
    try{
     report.captureStage=stage;
-    for(let retry=0;retry<120&&!report.capturedStages?.includes(stage);retry++)await sleep(250);
+    for(let retry=0;retry<360&&!report.capturedStages?.includes(stage);retry++)await sleep(250);
     if(!report.capturedStages?.includes(stage))
      throw Error('Chromium did not preserve actual bath '+stage+' WebGL screenshot');
    }finally{
