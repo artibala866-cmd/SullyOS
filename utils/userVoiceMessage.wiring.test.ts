@@ -55,7 +55,7 @@ describe('user voice must use the actual private-chat pipeline', () => {
     expect(hook).toContain("startStt('zh-CN', callbacks, apiConfig)");
     expect(hook).toContain("start('transcribe')");
     expect(hook).toContain('isBrowserSttSupported()');
-    expect(hook).toContain('当前'); // failure gives a readable Chinese keyboard fallback
+    expect(hook).toContain('此浏览器没有可用的语音识别接口');
     expect(hook).toContain('输入法语音');
     expect(input).toContain('改用手机输入法麦克风');
     expect(input).toContain("speechInput.cancel(); onSelectTypedVoice?.(); textareaRef.current?.focus({ preventScroll: true })");
