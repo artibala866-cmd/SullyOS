@@ -1,0 +1,79 @@
+name: Silent Letter whitebox native UI regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'presets/chat/silent-letter-dark.json'
+      - 'utils/builtinWhitebox.ts'
+      - 'utils/builtinWhitebox.test.ts'
+      - 'components/chat/ChatDecorationPresets.tsx'
+      - 'components/chat/ChromeCssEditor.tsx'
+      - 'tests/silent-letter-whitebox-visual.*'
+      - '.github/workflows/silent-letter-whitebox-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: silent-letter-whitebox-\${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate complete preset, isolation, sounds, existing chat contracts
+        run: pnpm exec vitest run utils/builtinWhitebox.test.ts utils/chatDecoration.test.ts utils/decorationPreviewScenes.test.ts
+      - name: TypeScript check for touched files
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false >/tmp/silent-tsc.txt 2>&1 || true
+          grep -E '^(utils/builtinWhitebox(\.test)?\.ts|components/chat/(ChromeCssEditor|ChatDecorationPresets)\.tsx|tests/silent-letter-whitebox-visual\.ts)[(]' /tmp/silent-tsc.txt >/tmp/silent-target-errors.txt || true
+          if test -s /tmp/silent-target-errors.txt; then cat /tmp/silent-target-errors.txt; exit 1; fi
+      - name: Generate the real private chat preview stylesheet
+        run: pnpm run build:chat-preview
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Run mobile-sized native Chat / Group shared renderer and screenshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/silent-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="\${{ steps.chrome.outputs.chrome-path }}"
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=1640,1430 --virtual-time-budget=15000 \
+            --dump-dom http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html > /tmp/silent-dom.txt 2>/tmp/silent-chrome.log || true
+          if ! grep -q 'data-ready="true"' /tmp/silent-dom.txt; then
+            grep -o '<output[^>]*>[^<]*</output>' /tmp/silent-dom.txt | head -5 || true
+            tail -60 /tmp/silent-vite.log || true
+            tail -40 /tmp/silent-chrome.log || true
+            exit 1
+          fi
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+            --window-size=1640,1430 --virtual-time-budget=15000 \
+            --screenshot="$GITHUB_WORKSPACE/silent-letter-native-chat.png" \
+            http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html
+          test -s silent-letter-native-chat.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: silent-letter-native-chat-screenshot
+          path: silent-letter-native-chat.png
+          if-no-files-found: ignore
+          retention-days: 7
