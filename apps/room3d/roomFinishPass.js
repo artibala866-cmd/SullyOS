@@ -12,10 +12,10 @@ export function createRoomFinishPass(renderer){
    vec3 bright(vec2 p){vec3 c=sRGBTransferEOTF(texture2D(source,p)).rgb;return c*smoothstep(.58,.94,max(c.r,max(c.g,c.b)));}
    void main(){vec3 halo=vec3(0.);for(int i=0;i<8;i++){float a=float(i)*.78539816;halo+=bright(vUv+vec2(cos(a),sin(a))*pixel*4.);}gl_FragColor=vec4(halo/8.,1.);}`});
  const material=new T.ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,
-  uniforms:{source:{value:null},halo:{value:null},glow:{value:.12},warmth:{value:0},detail:{value:0},finishOn:{value:1},pixel:{value:new T.Vector2()}},
+  uniforms:{source:{value:null},halo:{value:null},glow:{value:.12},warmth:{value:0},detail:{value:0},finishOn:{value:1},artStyle:{value:0},focusStrength:{value:0},pixel:{value:new T.Vector2()}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
   fragmentShader:`varying vec2 vUv;uniform sampler2D source;uniform sampler2D halo;uniform float glow;uniform float warmth;
-   uniform float detail;uniform float finishOn;uniform vec2 pixel;
+   uniform float detail;uniform float finishOn;uniform float artStyle;uniform float focusStrength;uniform vec2 pixel;
    vec3 sceneColor(vec2 uv){return sRGBTransferEOTF(texture2D(source,clamp(uv,vec2(0.),vec2(1.)))).rgb;}
    void main(){
     vec3 c=sceneColor(vUv);float l=dot(c,vec3(.2126,.7152,.0722));
@@ -39,17 +39,47 @@ export function createRoomFinishPass(renderer){
      c=mix(vec3(dot(c,vec3(.2126,.7152,.0722))),c,1.04);c=(c-.18)*1.025+.18;
      c+=bloom*glow*(1.-clamp(c,0.,1.)) + vec3(.012,.005,0.)*warmth*smoothstep(.35,.85,l);
     }
+    if(artStyle>.5){
+     // Illustrated film grade: build midtone depth instead of lifting dark
+     // cloth to pale grey. Warm lit planes, restrained cooler shade planes.
+     float inkLuma=dot(c,vec3(.2126,.7152,.0722));
+     float plane=smoothstep(.25,.80,inkLuma);
+     c*=mix(vec3(.945,.963,1.025),vec3(1.038,1.012,.971),plane);
+     c=mix(c,smoothstep(vec3(.018),vec3(.97),c),.18);
+     // Portrait-focus defocus with a soft falloff, restricted to the frame
+     // periphery. No always-on depth targets, blurred character faces or
+     // second renderer; quality controls the radius and contribution.
+     vec2 focusPos=(vUv-vec2(.50,.52))*vec2(.98,1.03);
+     float outOfFocus=smoothstep(.30,.66,length(focusPos))*focusStrength;
+     if(outOfFocus>.012){
+      vec2 radius=pixel*mix(2.5,7.5,focusStrength);
+      vec3 softened=(sceneColor(vUv+vec2(radius.x,0.))
+        +sceneColor(vUv-vec2(radius.x,0.))
+        +sceneColor(vUv+vec2(0.,radius.y))
+        +sceneColor(vUv-vec2(0.,radius.y)))*.25;
+      float blurMix=outOfFocus*.70;
+      c=mix(c,softened*mix(vec3(.945,.963,1.025),vec3(1.038,1.012,.971),plane),blurMix);
+     }
+     // Fixed fine paper-film grain at display pixel scale. Noise is applied
+     // after focus softening so photographed details remain legible.
+     vec2 grainCell=floor(gl_FragCoord.xy*.75);
+     float noise=fract(sin(dot(grainCell,vec2(12.9898,78.233)))*43758.5453)-.5;
+     float grainMask=smoothstep(.035,.17,inkLuma)*(1.-smoothstep(.88,1.08,inkLuma));
+     c+=vec3(noise)*.023*grainMask;
+    }
     gl_FragColor=vec4(max(c,0.),1.);
     #include <colorspace_fragment>
    }`});
  const quad=new FullScreenQuad(material);
  const glowQuad=new FullScreenQuad(glowMaterial);
- return {render(phase,{baseFinish=true,detail=0}={}){
+ return {render(phase,{baseFinish=true,detail=0,illustrated=false,focus=1}={}){
   renderer.getDrawingBufferSize(size);
   if(width!==size.x||height!==size.y){texture?.dispose();halo?.dispose();width=size.x;height=size.y;texture=new T.FramebufferTexture(width,height);texture.colorSpace=T.NoColorSpace;texture.minFilter=texture.magFilter=T.LinearFilter;halo=new T.WebGLRenderTarget(Math.ceil(width/2),Math.ceil(height/2),{depthBuffer:false,stencilBuffer:false});material.uniforms.source.value=glowMaterial.uniforms.source.value=texture;material.uniforms.halo.value=halo.texture;}
   glowMaterial.uniforms.pixel.value.set(1/width,1/height);
   material.uniforms.pixel.value.set(1/width,1/height);
   material.uniforms.detail.value=T.MathUtils.clamp(Number(detail)||0,0,.7);
+  material.uniforms.artStyle.value=illustrated?1:0;
+  material.uniforms.focusStrength.value=illustrated?T.MathUtils.clamp(Number(focus)||0,0,1):0;
   material.uniforms.finishOn.value=baseFinish?1:0;
   material.uniforms.glow.value=baseFinish?(phase==='sunset'?.22:phase==='morning'?.14:phase==='night'?.12:.07):0;
   material.uniforms.warmth.value=baseFinish?(phase==='sunset'?1:phase==='night'?.45:0):0;
