@@ -144,6 +144,12 @@ export function createRoomFinishPass(renderer){
      float colouredEdge=outlineStrength*.185*outerPaper
                        *(1.-smoothstep(.94,1.03,paintLuma));
      c=mix(c,colouredInk,colouredEdge);
+     // Gentle 1px halation from EXISTING ink-neighbour taps, not a bloom
+     // render target. The source image never shifts or doubles at the edge.
+     float lightAround=dot((leftInk+rightInk+upInk+downInk)*.25,vec3(.2126,.7152,.0722));
+     float inkHalation=max(0.,lightAround-paintLuma)*smoothstep(.62,.95,lightAround)
+                       *(1.-smoothstep(.88,1.02,paintLuma));
+     c+=vec3(.090,.062,.081)*inkHalation;
      // Static fine-grain, applied after the lens pass. It is deliberately
      // weakest over clean whites, near-blacks, pupils and dark linework.
      vec2 grainCell=floor(gl_FragCoord.xy*.82);
