@@ -29,6 +29,43 @@ const share = (characters: unknown[], books: unknown[]) => ({
 });
 
 describe('BabyLink 1.1.10 share conversion', () => {
+    it('imports the observed real-export field layout: one local book, two constant entries, embedded JPEG', () => {
+        // Field structure verified against a real 1080x1350 BabyLink V1 share.
+        // Personal avatar, character text, and original user-supplied payload are not committed.
+        const character = char('示例角色', ['local-book'], {
+            nickname: '别名', signature: '',
+            initialProfile: { nickname: '别名', signature: '' },
+            avatar: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/',
+            description: '人物资料 第一段\n人物资料 第二段',
+            imageProfile: { seed: 'not-imported', referenceImageEnabled: true },
+        });
+        const localBook = {
+            ...book('local-book', true, [
+                entry('人际关系', { content: '联系设定', activation: 'constant', keys: [] }),
+                entry('校园', { content: '学校设定', activation: 'constant', keys: [] }),
+            ]), content: '联系设定\n\n学校设定', coverImage: 'private-file',
+        };
+        const parsed = normalizeBabyLinkShare(share([character], [localBook]));
+        expect(parsed.cards).toHaveLength(1);
+        expect(parsed.cards[0].character).toMatchObject({
+            name: '示例角色', avatar: character.avatar,
+        });
+        expect(parsed.cards[0].character.systemPrompt).toContain('人物资料 第一段\n人物资料 第二段');
+        expect(parsed.cards[0].worldbooks.map(b => b.title)).toEqual(['人际关系', '校园']);
+        expect(parsed.cards[0].worldbooks.every(b => b.constant && !b.disable && b.position === 0)).toBe(true);
+        expect(parsed.warnings).toEqual([]);
+        expect(JSON.stringify(parsed)).not.toContain('private-file');
+        expect(JSON.stringify(parsed)).not.toContain('not-imported');
+        // The aggregate worldbook.content is not imported a second time.
+        expect(JSON.stringify(parsed).split('联系设定').length).toBe(2);
+    });
+    it('warns about summary keyword differences only for enabled keyword entries', () => {
+        const keyword = entry('keyword', { activation: 'keyword' });
+        const active = normalizeBabyLinkShare(share([char('甲', ['bk'])], [book('bk', true, [keyword])]));
+        expect(active.warnings.some(w => w.includes('记忆摘要'))).toBe(true);
+        const inactive = normalizeBabyLinkShare(share([char('甲', ['bk'])], [book('bk', false, [keyword])]));
+        expect(inactive.warnings.some(w => w.includes('记忆摘要'))).toBe(false);
+    });
     it('keeps full stable persona, real name and nickname without openings or platform state', () => {
         const bundle = normalizeBabyLinkShare(share([char('路明', [])], []));
         expect(bundle.source).toBe('babylink');
