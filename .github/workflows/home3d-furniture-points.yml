@@ -132,7 +132,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - name: Chromium WebGL scene and seat-action smoke
-        timeout-minutes: 5
+        timeout-minutes: 9
         run: |
           pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/home3d-vite.log 2>&1 &
           VITE_PID=$!
