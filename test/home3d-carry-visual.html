@@ -560,7 +560,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     let delta=0;
     for(let k=0;k<sharp.length;k+=4)delta+=(Math.abs(sharp[k]-blurred[k])+Math.abs(sharp[k+1]-blurred[k+1])+Math.abs(sharp[k+2]-blurred[k+2]))/3;
     const mean=delta/(sharp.length/4);report.dofStats.push({mean});
-    if(mean<.12||mean>15)throw Error('Depth of field absent or destructive: '+mean);
+    if(mean<.02||mean>4)throw Error('Subtle depth of field absent or destructive: '+mean);
    }
    scene.remove(backgroundDecor);backgroundDecor.traverse(o=>{if(o.isMesh)o.geometry.dispose();});shelfMaterial.dispose();accentMaterial.dispose();
    setCharacterStyle('modern');
