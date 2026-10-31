@@ -47,13 +47,17 @@ describe('incremental Home3D character style switching',()=>{
   expect(pass).not.toMatch(/c\s*=\s*mix\(c,\s*(?:softened|near)/);
   expect(pass).toContain('baseFinish&&!illustrated');
   expect(editor).not.toContain('focusCenter');
-  expect(editor).toContain('清晰漫画描线与轻微胶片颗粒，无重影');
+  expect(pass).toContain('beginScene()');
+  expect(pass).toContain('depthOfField');
+  expect(pass).toContain('sceneBuffer.depthTexture');
+  expect(editor).toContain("['illustrated','手绘风梦核']");
+  expect(editor).toContain('人物画风 · 手绘线条、柔和纸感和真实空间景深');
  });
  it('is only a device preference and leaves current avatar, 29 original seat registrations and homes untouched',()=>{
   const source=readFileSync('apps/room3d/editor.js','utf8');
   expect(source).toContain('data-action="character-style"');
   expect(source).toContain("setCharacterStyle(d.value==='legacy'?'legacy':d.value==='illustrated'?'illustrated':'modern')");
-  expect(source).toContain("['illustrated','清晰漫画手绘线 · 轻梦核']");
+  expect(source).toContain("['illustrated','手绘风梦核']");
   expect(source).not.toContain('state.characterStyle=');
   setCharacterStyle('legacy');
   expect(getCharacterStyle()).toBe('legacy');
