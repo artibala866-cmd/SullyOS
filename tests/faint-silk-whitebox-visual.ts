@@ -45,6 +45,25 @@ try {
  const all=scenes.every(scene=>!!$(scene,'.sully-chat-root')&&!!$(scene,'.sully-chat-header')&&!!$(scene,'.sully-chat-inputbar'));
  const checks={
   realComponents:all,
+  pairedPortraits:(()=>{
+   const char=$('conversation','.sully-chat-avatar-pair .sully-chat-avatar') as HTMLImageElement|null;
+   const user=$('conversation','.sully-chat-avatar-pair .sully-chat-pair-user-avatar') as HTMLImageElement|null;
+   if(!char||!user)return false;
+   const a=char.getBoundingClientRect(),b=user.getBoundingClientRect();
+   return !!user.src && !!char.src && user.src!==char.src && user.complete && user.naturalWidth>0
+      && b.left>=a.right+3 && a.width>=45 && b.width>=45 && a.height>=45 && b.height>=45;
+  })(),
+  noFixedPortrait:(()=>{
+    const text=$('conversation','.sully-chat-name');
+    return !!text && ['none','normal'].includes(getComputedStyle(text,'::after').content);
+  })(),
+  pairingWithinActions:(()=>{
+    const pair=$('conversation','.sully-chat-avatar-pair')?.getBoundingClientRect();
+    const back=$('conversation','.sully-chat-back')?.getBoundingClientRect();
+    const generate=$('conversation','.sully-chat-trigger')?.getBoundingClientRect();
+    return !!pair && !!back && !!generate && pair.left>=back.right-2 && pair.right<=generate.left+2;
+  })(),
+  groupNoExtraPortrait:!$('group-chat','.sully-chat-pair-user-avatar'),
   userGlass:style('conversation','.sully-bubble-user').backgroundColor==='rgba(239, 239, 239, 0.18)',
   aiGlass:style('conversation','.sully-bubble-ai').backgroundColor==='rgba(239, 239, 239, 0.18)',
   groupGlass:style('group-chat','.sully-bubble-ai').backgroundColor==='rgba(239, 239, 239, 0.18)',
