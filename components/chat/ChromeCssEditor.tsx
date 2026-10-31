@@ -1,4 +1,5 @@
 import BeautyConfirmDialog from '../share/BeautyConfirmDialog';
+import silentLetter from '../../presets/chat/silent-letter-dark.json';
 import {readCssAttribution,stampBeautyCss} from '../../utils/beautyCssAttribution';
 import BeautyPresetPreview from '../share/BeautyPresetPreview';
 import {WHITEBOX_AI_PROMPT as AI_PROMPT} from '../../utils/chatWhitebox';
@@ -335,7 +336,7 @@ const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void
             <div>
                 <div className="mb-2 text-[11px] font-bold text-slate-500">内置风格 <span className="font-normal text-slate-400">· 点一下套用</span></div>
                 <div className="flex flex-wrap gap-2">
-                    {PRESETS.map((p) => (
+                    {[...PRESETS, {name:'无声回信 · 黑', code:silentLetter.parts.css, swatch:'#1a1a1a'}].map((p) => (
                         <button key={p.name} onClick={() => onChange(p.code)} title={p.name} className={cardCls}>
                             <span className="absolute inset-0" style={{ background: p.swatch }} />
                             <span className={cardLabelCls} style={{ background: 'linear-gradient(to top, rgba(0,0,0,.5), transparent)' }}>{p.name}</span>
