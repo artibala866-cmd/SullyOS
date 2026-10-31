@@ -49,6 +49,7 @@ export function createFurnitureHalo(renderer,scene,camera){
  }
  return {
   render(objects){
+   const destination=renderer.getRenderTarget();
    renderer.render(scene,camera);
    if(!objects.length){coverage=0;return;}
    renderer.getDrawingBufferSize(size);
@@ -81,7 +82,7 @@ export function createFurnitureHalo(renderer,scene,camera){
     renderer.autoClear=false;renderer.render(scene,camera);
    }finally{
     for(const [o,m,v] of restore){o.material=m;o.visible=v;}
-    scene.background=background;renderer.shadowMap.enabled=shadows;renderer.autoClear=autoClear;renderer.setClearColor(clearColor,clearAlpha);renderer.setRenderTarget(null);
+    scene.background=background;renderer.shadowMap.enabled=shadows;renderer.autoClear=autoClear;renderer.setClearColor(clearColor,clearAlpha);renderer.setRenderTarget(destination);
    }
    renderer.autoClear=false;
    renderer.getScissor(scissor);const scissorTest=renderer.getScissorTest(),ratio=renderer.getPixelRatio();
