@@ -3,6 +3,16 @@ import {FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 
 // Keep the source/character edges at full resolution. Only the soft halo is
 // sampled at half width/height (one quarter of the expensive 8-tap fragments).
+// Orthographic camera zoom changes the visible scene size, not camera.far.
+// Only a deliberate close-up may add a hint of depth-of-field. A whole-room
+// shot remains entirely sharp, even when character style is illustrated.
+export function dreamcoreFocusStrength(camera,{edit=false,overview=false,firstPerson=false}={}){
+ if(!camera?.isOrthographicCamera||edit||overview||firstPerson)return 0;
+ const zoom=Math.max(.001,Number(camera.zoom)||1);
+ const visibleHeight=Math.abs(camera.top-camera.bottom)/zoom;
+ if(!Number.isFinite(visibleHeight))return 0;
+ return 1-T.MathUtils.smoothstep(visibleHeight,2.15,4.25);
+}
 export function createRoomFinishPass(renderer){
  let texture=null,halo=null,width=0,height=0;const size=new T.Vector2();
  // The illustrated look reuses its ONE original room draw with a hardware
@@ -54,9 +64,11 @@ export function createRoomFinishPass(renderer){
      float rawDepth=texture2D(depth,vUv).r;
      float metres=(rawDepth-focusDepth)*cameraSpan;
      // Actual orthographic view depth, not a screen-centre fog vignette.
-     float farBlur=smoothstep(.55,2.7,metres);
-     float nearBlur=smoothstep(1.8,4.5,-metres)*.28;
-     float aperture=clamp(max(farBlur,nearBlur)*depthOfField,0.,.93);
+     // Only a gentle lens transition once the user zooms into a portrait.
+     // Prevent the entire room from turning to blocky half-res blur.
+     float farBlur=smoothstep(1.5,5.5,metres);
+     float nearBlur=smoothstep(2.0,6.5,-metres)*.12;
+     float aperture=clamp(max(farBlur,nearBlur)*depthOfField*.21,0.,.21);
      c=mix(c,texture2D(defocused,vUv).rgb,aperture);
     }
     float l=dot(c,vec3(.2126,.7152,.0722));
@@ -189,7 +201,7 @@ export function createRoomFinishPass(renderer){
     depthBlurMaterial.uniforms.depth.value=sceneBuffer.depthTexture;
     // Radius is expressed in half-resolution texels. Clamp it on Android:
     // a broad 24px ring produced the reported window/wardrobe ghosts.
-    depthBlurMaterial.uniforms.radius.value=T.MathUtils.clamp(Math.min(width,height)*.005,1.05,2.1);
+    depthBlurMaterial.uniforms.radius.value=T.MathUtils.clamp(Math.min(width,height)*.0025,.65,1.15);
     depthBlurMaterial.uniforms.texel.value.set(1/blurHorizontal.width,1/blurHorizontal.height);
     depthBlurMaterial.uniforms.source.value=sceneBuffer.texture;
     depthBlurMaterial.uniforms.direction.value.set(1,0);
