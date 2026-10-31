@@ -1,3 +1,4 @@
+import '../components/chat/WeixinOriginalAssets.css';
 import { resolveDialogueApi } from '../utils/characterApi';
 import {ChatCardSurface} from '../components/chat/ChatCardSurface';
 import { avatarDecorationImageStyle, isAnniversaryFrame } from '../utils/anniversaryGifts';
@@ -1766,7 +1767,7 @@ ${memberTimeline || '(暂无互动记录)'}
     const finalGroupRootClass = groupChatRootClass;
     const finalGroupRootStyle = groupChatRootStyle;
     return (
-        <div className={`sully-chat-root sully-chat-group-root ${finalGroupRootClass}`} style={finalGroupRootStyle}>
+        <div className={`sully-chat-root sully-chat-group-root ${finalGroupRootClass} ${isWeixinBaiyuCss(activeGroup?.chromeCustomCss || osTheme.chatChromeCustomCss) ? 'sully-wy-native' : ''}`} style={finalGroupRootStyle}>
             {/* 外观 App 的全局聊天细节与私聊共用同一份生成 CSS。 */}
             {groupFineTuneCss && <style>{groupFineTuneCss}</style>}
             {/* 白框自定义 CSS：全局默认在前、群专属在后（后者叠加覆盖）。作用于 .sully-chat-* 各零件。 */}
