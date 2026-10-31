@@ -57,6 +57,7 @@ import { BLACK_WHITE_FACEBOOK_CSS, formatBlackWhiteTime, isBlackWhiteFacebookThe
 import { isBuiltInWechatTheme, WECHAT_BUBBLE_CSS } from '../utils/wechatBubbleTheme';
 import { isBuiltInQQTheme, QQ_BUBBLE_CSS, shouldStartQQTimeGroup, formatQQTime } from '../utils/qqBubbleTheme';
 import ChatHeader from '../components/chat/ChatHeaderShell';
+import {isFaintSilkPairCss} from '../utils/faintSilkPair';
 import { Phone } from '@phosphor-icons/react';
 import CharacterEntryTransition from '../components/chat/CharacterEntryTransition';
 import {resolveDecorationTheme} from '../utils/chatDecoration';
@@ -4403,6 +4404,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 selectedCount={selectedMsgIds.size + Array.from(selectedThinkingMsgIds).filter(id => !selectedMsgIds.has(id)).length}
                 onCancelSelection={() => { setSelectionMode(false); setSelectedMsgIds(new Set()); setSelectedThinkingMsgIds(new Set()); }}
                 activeCharacter={{...char, avatar: selectedAvatar}}
+                pairedAvatar={!homePhone && (isFaintSilkPairCss(char.chromeCustomCss) || isFaintSilkPairCss(osTheme.chatChromeCustomCss))
+                    ? (userProfile.perCharAvatars?.[char.id] || userProfile.avatar || '')
+                    : undefined}
                 presenceState={showSchedulePresence ? schedulePresence : undefined}
                 statusText={showSchedulePresence ? (schedulePresence === 'online' ? '在线' : '离线') : undefined}
                 isTyping={isTyping || instantChatPending}
