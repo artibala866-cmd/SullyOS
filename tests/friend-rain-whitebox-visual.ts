@@ -85,20 +85,20 @@ try {
   voice:!!$('voice-playing','.sully-voice-bar'),
   hearts:cssStyle('conversation','.sully-bubble-user','::after').backgroundImage.includes('data:image/svg+xml'),
   avatarPolaroid:(rect('conversation','.sully-chat-profile .sully-chat-avatar')?.height||0)>=60,
-  rainHeader:(rect('conversation','.sully-chat-header')?.height||0)>=135,
+  originalHeaderImage:cssStyle('conversation','.sully-chat-header').backgroundImage.includes('73e0368b5bd87713b3c6506c4989f43a.jpeg'),
   darkFloatingPill:cssStyle('conversation','.sully-chat-composer','::before').backgroundColor==='rgb(37, 37, 37)',
-  bilingualFooter:cssStyle('conversation','.sully-chat-inputbar','::after').content.includes('Dreamed of a rain'),
-  wallpaper:cssStyle('conversation','.sully-chat-root').backgroundImage.includes('data:image/svg+xml'),
+  bilingualFooter:cssStyle('conversation','.sully-chat-inputbar','::before').content.includes('Dreamed of a rain'),
+  noInventedWallpaper:cssStyle('conversation','.sully-chat-root').backgroundImage==='none',
   psyche:!!$('psyche','.sully-psyche-title')&&!!$('psyche-open','.sully-psyche-body'),
   translated:!!$('translation-real','.sully-facebook-translation')
     && !!$('translation-real','.sully-chat-translate-action button')
     && cssStyle('translation-real','.sully-chat-translate-action button','::after').backgroundImage.includes('data:image/svg+xml'),
   blackBubble:cssStyle('conversation','.sully-bubble-user').backgroundColor==='rgb(0, 0, 0)',
   whiteBubble:cssStyle('conversation','.sully-bubble-ai').backgroundColor==='rgb(255, 255, 255)',
-  backReplaced:cssStyle('conversation','.sully-chat-back > svg').opacity==='0'
-   && cssStyle('conversation','.sully-chat-back','::after').content!=='none',
-  actionsReplaced:cssStyle('conversation','.sully-chat-actions-button > svg').opacity==='0'
-   && cssStyle('conversation','.sully-chat-actions-button','::after').content!=='none',
+  nativeBackVisible:cssStyle('conversation','.sully-chat-back > svg').display!=='none'
+   && cssStyle('conversation','.sully-chat-back > svg').opacity==='1',
+  sourcePlusReplacesNative:cssStyle('conversation','.sully-chat-actions-button > svg').display==='none'
+   && cssStyle('conversation','.sully-chat-actions-button','::after').backgroundImage.includes('data:image/svg+xml'),
   lightningVisible:cssStyle('conversation','.sully-chat-trigger > svg').opacity==='1',
   stopAvailable:!!$('silent-letter-stop','.sully-chat-trigger[title="停止生成"]'),
   sendAvailable:!!$('silent-letter-send','.sully-chat-send-button'),
@@ -114,7 +114,7 @@ try {
   transferDecorated:cssStyle('transfer','.sully-chat-transfer-card .sully-chat-transfer-watermark').display==='none'
     && cssStyle('transfer','.sully-chat-transfer-card .sully-chat-transfer-icon').backgroundImage.includes('IMG-3703.png')
     && cssStyle('transfer','.sully-chat-transfer-card .sully-chat-transfer-icon > svg').display==='none',
-  headerPictureRoom:(rect('conversation','.sully-chat-header')?.height||0)>=90,
+  headerPictureRoom:(rect('conversation','.sully-chat-header')?.height||0)>=82,
   noOverflow:[...root.querySelectorAll<HTMLElement>('.scene')].every(e=>e.scrollWidth<=e.clientWidth+2)
  };
  root.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';

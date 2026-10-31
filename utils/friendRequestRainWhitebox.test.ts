@@ -1,67 +1,61 @@
 import {describe,it,expect} from 'vitest';
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
 import {BUILTIN_WHITEBOX_PRESETS} from './builtinWhitebox';
 import {decorationPatches} from './chatDecoration';
 import {resolveLegacyFriendRequestRainCss} from '../components/chat/BlobRefStyle';
 const read=()=>BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-friend-request-rain')!.read();
-describe('请求添加好友 native whitebox',()=>{
- it('contains one whole outfit with actual chat and group hooks',()=>{
+const source=readFileSync(resolve(process.cwd(),'presets/chat/friend-request-rain.source.css'),'utf8');
+describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
+ it('does not invent wallpapers, fake banners, labels, or unrelated packet artwork',()=>{
   const p=read(),css=p.parts.css!;
-  expect(Object.keys(p.parts).sort()).toEqual(['background','bubbles','css','layout']);
-  for(const s of ['.sully-chat-header','.sully-chat-back','.sully-chat-trigger','.sully-chat-composer',
-  '.sully-chat-input-wrap','.sully-chat-voice-trigger','.sully-chat-voice-menu','.sully-chat-send-button',
-  '.sully-bubble-user','.sully-bubble-ai','.sully-chat-reply','.sully-chat-interaction',
-  '.sully-voice-bar','.sully-psyche-card','.sully-chat-transfer-card',
-  '.sully-chat-transfer-receipt','.sully-chat-group-packet','.sully-chat-group-packet-receipt'])
-   expect(css).toContain(s);
-  expect(css).not.toMatch(/\.chat-header-custom|\.msg-transfer-card|\.chat-detail-screen|\.input-btns-right/);
-  expect(css).toContain('池谕原稿视觉补全 v4');
-  expect(css).toContain('池谕视觉回归修正 v5');
-  expect(css).toContain('池谕顶栏文字防遮挡 v6');
-  expect(p.parts.bubbles!.user.tailMode).toBe('every');
-  expect(css).toContain('content:"♥ ♥ ♥ ♥ ♥"');
-  expect(css).toContain('.sully-chat-transfer-card .sully-chat-transfer-watermark{display:none!important}');
-  expect(css).toContain('.sully-chat-transfer-card .sully-chat-transfer-icon>svg{display:none!important}');
-  expect(css).toContain('@media(max-width:390px)');
-  expect(css).toContain('@media(prefers-color-scheme:dark)');
+  expect(Object.keys(p.parts).sort()).toEqual(['bubbles','css','layout']);
+  expect(p.parts.background).toBeUndefined();
+  expect(css).toContain('原生逐项适配 v7');
+  expect(css).toContain('background-image:none!important');
+  expect(css).not.toContain('池谕原稿视觉补全 v4');
+  expect(css).not.toContain('池谕视觉回归修正 v5');
+  expect(css).not.toContain('池谕顶栏文字防遮挡 v6');
+  expect(css).not.toContain('viewBox%3D%220%200%20360%20780%22');
+  expect(css).not.toContain('.sully-chat-group-packet{');
+  expect(css).not.toContain('content:"拒绝"');
+  expect(css).not.toContain('content:"同意"');
  });
- it('uses single icon replacement without masking functional lightning, send, or voice mode',()=>{
+ it('references only uploaded source images and its text',()=>{
   const css=read().parts.css!;
-  expect(css).toContain('.sully-chat-back>svg{opacity:0!important}');
-  expect(css).toContain('.sully-chat-back::after');
-  expect(css).toContain('.sully-chat-actions-button>svg{opacity:0!important}');
+  const urls=[...css.matchAll(/https?:\/\/[^\s'")]+/g)].map(m=>m[0]);
+  expect(urls.length).toBeGreaterThan(5);
+  for(const url of urls)expect(source).toContain(url);
+  for(const content of ['请求添加你为好友','夢 見 一 場 不 會 結 束 的 雨','Dreamed of a rain that wouldn','我們的世界不应該只剩下彼此了嗎','終 · わ · ら · な · い · 雨']){expect(css).toContain(content);expect(source).toContain(content);}
+  for(const hook of ['.sully-chat-header','.sully-chat-avatar','.sully-chat-trigger','.sully-bubble-user',
+    '.sully-bubble-ai','.sully-chat-reply','.sully-chat-translate-action','.sully-chat-composer',
+    '.sully-chat-voice-trigger','.sully-chat-send-button','.sully-chat-transfer-card'])
+    expect(css).toContain(hook);
+ });
+ it('replaces icons once but never disguises actual native actions',()=>{
+  const css=read().parts.css!;
+  expect(css).toContain('.sully-chat-actions-button svg{display:none!important}');
   expect(css).toContain('.sully-chat-actions-button::after');
-  expect(css).toContain('.sully-chat-trigger>svg{visibility:visible!important;opacity:1!important');
-  expect(css).toContain('.sully-chat-voice-trigger>svg{opacity:1!important');
-  expect(css).toContain('.sully-chat-send-button[aria-label="发送文字"]>svg{opacity:0!important}');
-  expect(css).toContain('.sully-chat-translate-action');
-  expect(css).toContain('Dreamed of a rain');
-  expect(css).toContain('sully-chat-inputbar:has(.sully-chat-textarea:placeholder-shown)');
-  expect(css).toContain('min-height:calc(148px');
-  expect(css).not.toMatch(/voice-transcription-toggle|msg-translation-btn|content:"•••"/);
+  expect(css).toContain('.sully-chat-voice-trigger::after');
+  expect(css).toContain('[aria-label="生成回复"]::after');
+  expect(css).toContain('.sully-chat-header button>svg{display:block!important');
+  expect(css).toContain('[aria-label="发送文字"]::after');
+  expect(css).toContain('content:">> "');
  });
- it('applies to global and character without losing existing sounds',async()=>{
-  const p=read();const local=await decorationPatches(p,['layout','bubbles','css'],'character',{id:'test',chatSound:{src:'ding'}} as any,{} as any);
-  expect(local.character.chromeCustomCss).toContain('.sully-chat-group-packet');
-  expect(local.character.chatDecorationCssIsolated).toBe(true);
+ it('replaces old applied wrong CSS, leaves other themes and subsequent corrections untouched',()=>{
+  const bad='/* 请求添加好友 · 雨梦 by 池谕 | SullyOS 原生整套白框适配\\n.old-drops{color:red}';
+  const corrected=resolveLegacyFriendRequestRainCss(bad);
+  expect(corrected).toBe(read().parts.css);
+  expect(resolveLegacyFriendRequestRainCss(corrected)).toBe(corrected);
+  expect(resolveLegacyFriendRequestRainCss('.unrelated-theme{color:red}')).toBe('.unrelated-theme{color:red}');
+ });
+ it('applies character/global parts without modifying sounds or removing native group packet',async()=>{
+  const p=read();
+  const local=await decorationPatches(p,['layout','bubbles','css'],'character',{id:'c',chatSound:{src:'ding'}} as any,{} as any);
+  expect(local.character.chromeCustomCss).toContain('IMG-3703.png');
   expect(local.character.chatSound).toEqual({src:'ding'});
-  const global=await decorationPatches(p,['layout','bubbles','css'],'global',{id:'test'} as any,{} as any);
-  expect(global.theme.chatChromeCustomCss).toContain('.sully-chat-group-packet');
-  const edited=read();edited.parts.css='oops';expect(read().parts.css).not.toBe('oops');
-  expect(p.parts.background?.image.startsWith('data:image/svg+xml,')).toBe(true);
- });
- it('updates old installed CSS idempotently and keeps user edits',()=>{
-  const full=read().parts.css!;const mark='/* 请求添加好友 · 池谕原稿视觉补全 v4';
-  const older=full.slice(0,full.indexOf(mark))+'\n.user-custom{color:red}';
-  const patched=resolveLegacyFriendRequestRainCss(older);
-  expect(patched).toContain('.user-custom{color:red}');
-  expect(patched).toContain(mark);
-  expect(resolveLegacyFriendRequestRainCss(patched)).toBe(patched);
-  const v4Only=full.slice(0,full.indexOf('/* 请求添加好友 · 池谕视觉回归修正 v5'));
-  const patchedV4=resolveLegacyFriendRequestRainCss(v4Only);
-  expect(patchedV4).toContain('池谕视觉回归修正 v5');
-  expect(resolveLegacyFriendRequestRainCss(patchedV4)).toBe(patchedV4);
-  const v5Only=full.slice(0,full.indexOf('/* 请求添加好友 · 池谕顶栏文字防遮挡 v6'));
-  expect(resolveLegacyFriendRequestRainCss(v5Only)).toContain('池谕顶栏文字防遮挡 v6');
-  expect(resolveLegacyFriendRequestRainCss('.other-theme{color:red}')).toBe('.other-theme{color:red}');
+  expect(local.character.chatDecorationCssIsolated).toBe(true);
+  const global=await decorationPatches(p,['layout','bubbles','css'],'global',{id:'c'} as any,{} as any);
+  expect(global.theme.chatChromeCustomCss).toContain('IMG-3703.png');
  });
 });
