@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Message } from '../types';
-import { attachUserVoiceAudio, describeUserVoice, makeUserVoiceMetadata } from './userVoiceMessage';
+import { attachUserVoiceAudio, describeUserVoice, formatForwardedUserVoice, makeUserVoiceMetadata, reviseUserVoiceTranscript } from './userVoiceMessage';
 import { collectBlobRefs, readBlobsIndex, restoreBlobsFromZip, writeBlobsToZip } from './backupBlobs';
 import { normalizeMessageContent } from './messageFormat';
 import { buildReplySnapshotContent } from './applyAssistantPostProcessing';
@@ -11,6 +11,27 @@ const msg = (content: string, metadata: any): Message => ({
 });
 
 describe('durable user-recorded audio', () => {
+  it('corrects transcript without destroying the original playable audio', () => {
+    const original = attachUserVoiceAudio(makeUserVoiceMetadata('天气好', 'recorded'), ref, 7.3);
+    const revised = reviseUserVoiceTranscript(original, '天气真好');
+    expect(revised).toMatchObject({
+      transcript: '天气真好', inputMode: 'recorded',
+      hasAudio: true, audioRef: ref, durationSec: 8,
+    });
+    const changed = msg('天气真好', revised);
+    expect(describeUserVoice(changed).audioRef).toBe(ref);
+    expect(describeUserVoice(changed).transcript).toBe('天气真好');
+    expect(formatForwardedUserVoice(changed)).toBe('[语音记录] 天气真好');
+  });
+
+  it('forwards only understandable text, never a pretend playable audio file', () => {
+    const audioOnly = msg('[语音]', attachUserVoiceAudio(makeUserVoiceMetadata('', 'recorded'), ref, 2));
+    expect(formatForwardedUserVoice(audioOnly)).toBe('[语音记录] 仅有原声，未转发音频文件');
+    expect(formatForwardedUserVoice(audioOnly)).not.toContain(ref);
+    const typed = msg('今天完成了', makeUserVoiceMetadata('今天完成了', 'typed'));
+    expect(formatForwardedUserVoice(typed)).toBe('[语音记录] 今天完成了');
+  });
+
   it('only a real persisted BlobRef makes a user voice playable', () => {
     const base = makeUserVoiceMetadata('你好', 'recorded');
     expect(base.hasAudio).toBe(false);
