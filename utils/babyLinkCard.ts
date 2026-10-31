@@ -234,20 +234,55 @@ async function unzipLimited(compressed: Uint8Array): Promise<Uint8Array> {
     return result;
 }
 
+type DrawableImage = {
+    source: CanvasImageSource;
+    width: number;
+    height: number;
+    release: () => void;
+};
+
+/** Android/WebKit fallback when createImageBitmap is unavailable. Never fetch a remote URL. */
+async function openLocalPng(file: File): Promise<DrawableImage> {
+    if (typeof createImageBitmap === 'function') {
+        let bitmap: ImageBitmap;
+        try { bitmap = await createImageBitmap(file); }
+        catch { throw new Error('PNG 图像数据损坏或无法解码'); }
+        return { source: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close() };
+    }
+    if (typeof Image === 'undefined' || typeof URL === 'undefined' ||
+        typeof URL.createObjectURL !== 'function') {
+        throw new Error('当前浏览器不能读取 PNG 像素，无法验证 BabyLink 分享图');
+    }
+    const url = URL.createObjectURL(file);
+    try {
+        const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('PNG 图像数据损坏或无法解码'));
+            img.src = url;
+        });
+        return { source: image, width: image.naturalWidth, height: image.naturalHeight,
+            release: () => URL.revokeObjectURL(url) };
+    } catch (error) {
+        URL.revokeObjectURL(url);
+        throw error;
+    }
+}
+
 /** null means 'not BabyLink'; recognized-but-invalid bundles throw and never fall back to Tavern. */
 export async function decodeBabyLinkPng(file: File, png: Uint8Array): Promise<PreparedBabyLinkBundle | null> {
     if (png.byteLength < 33 || file.size > 32 * 1024 * 1024) throw new Error('BabyLink PNG 文件大小无效');
     const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
     const width = view.getUint32(16), height = view.getUint32(20);
     if (!width || !height || width * height > MAX_PIXELS) throw new Error('BabyLink PNG 图片像素超出安全限制');
-    const bitmap = await createImageBitmap(file);
+    const image = await openLocalPng(file);
     try {
-        if (bitmap.width !== width || bitmap.height !== height) throw new Error('PNG 图像实际尺寸不匹配');
+        if (image.width !== width || image.height !== height) throw new Error('PNG 图像实际尺寸不匹配');
         const canvas = document.createElement('canvas');
         canvas.width = width; canvas.height = height;
         const context = canvas.getContext('2d', { willReadFrequently: true });
         if (!context) throw new Error('浏览器无法读取 BabyLink PNG 颜色通道');
-        context.drawImage(bitmap, 0, 0);
+        context.drawImage(image.source, 0, 0);
         const compressed = extractBabyLinkCompressed(context.getImageData(0, 0, width, height).data);
         if (!compressed) return null;
         let raw: unknown;
@@ -257,5 +292,5 @@ export async function decodeBabyLinkPng(file: File, png: Uint8Array): Promise<Pr
             throw new Error('BabyLink 分享数据损坏或解压失败：' + (error instanceof Error ? error.message : '未知错误'));
         }
         return normalizeBabyLinkShare(raw);
-    } finally { bitmap.close(); }
+    } finally { image.release(); }
 }
