@@ -2784,6 +2784,28 @@ export const DB = {
       });
   },
 
+  /**
+   * One IndexedDB transaction for a new character and every attached worldbook.
+   * add() intentionally rejects collisions instead of overwriting a user's records.
+   */
+  importCharacterCardAtomic: async (character: CharacterProfile, books: Worldbook[]): Promise<void> => {
+      const db = await openDB();
+      return new Promise<void>((resolve, reject) => {
+          const tx = db.transaction([STORE_CHARACTERS, STORE_WORLDBOOKS], 'readwrite');
+          tx.oncomplete = () => resolve();
+          tx.onabort = () => reject(tx.error || new Error('角色与世界书保存失败，已撤销本次导入'));
+          tx.onerror = () => { /* transaction onabort reports the actual error */ };
+          try {
+              tx.objectStore(STORE_CHARACTERS).add(character);
+              const worldbookStore = tx.objectStore(STORE_WORLDBOOKS);
+              for (const book of books) worldbookStore.add(book);
+          } catch (error) {
+              try { tx.abort(); } catch {}
+              reject(error);
+          }
+      });
+  },
+
   saveWorldbook: async (book: Worldbook): Promise<void> => {
       const db = await openDB();
       const transaction = db.transaction(STORE_WORLDBOOKS, 'readwrite');
