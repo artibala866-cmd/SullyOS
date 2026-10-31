@@ -46,7 +46,7 @@ try {
  const packet=React.createElement(GroupPacketCard,{msg:{...demo,id:18023,type:'transfer',metadata:{}},nameOf:()=>'示例角色'});
  const receipt=React.createElement(GroupPacketCard,{msg:{...demo,id:18024,type:'transfer',metadata:{packetReceipt:'claimed',claimantName:'示例角色',senderName:'我',amount:25}},nameOf:()=>'示例角色'});
  groupSection.innerHTML='<h2>群聊原生消息 / 引用 / 红包 / 回执</h2><div class="beauty-preview-body">'+
-  renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sample-chat'},React.createElement('div',{className:'sully-chat-messages sample-messages'},member,user,packet,receipt)))+'</div>';
+  renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sully-chat-group-root sample-chat'},React.createElement('div',{className:'sully-chat-messages sample-messages'},member,user,packet,receipt)))+'</div>';
  const groupStyle=document.createElement('style');groupStyle.textContent=renderChatDecorationSample(preset,'conversation').css;groupSection.prepend(groupStyle);
  root.append(groupSection);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
@@ -61,10 +61,18 @@ try {
   userBubble:color('conversation','.sully-bubble-user','backgroundColor')==='rgb(26, 26, 26)',
   partnerBubble:color('conversation','.sully-bubble-ai','backgroundColor')==='rgb(238, 238, 238)',
   groupPartnerBubble:color('group-chat','.sully-bubble-ai','backgroundColor')==='rgb(238, 238, 238)',
+  profileGlass:color('conversation','.sully-chat-profile','backgroundColor')==='rgba(255, 255, 255, 0.75)',
+  originalNamePlate:getComputedStyle($('conversation','.sully-chat-message-group-first .sully-bubble-ai')!,'::before').content.includes('char'),
+  originalInputPrompt:getComputedStyle($('conversation','.sully-chat-input-wrap')!,'::after').content.includes('imonly temporary 2 u'),
+  avatarOnlyWhenVisible:[...root.querySelectorAll<HTMLElement>('[data-scene="conversation"] .sully-chat-message-avatar:not(.sully-chat-avatar-wrap)')].every(node=>{
+    const hasImage=!!node.querySelector('.sully-chat-message-avatar-img');
+    return hasImage || (getComputedStyle(node,'::after').content==='none' || getComputedStyle(node,'::after').content==='normal') && getComputedStyle(node).borderTopWidth==='0px';
+  }),
+  groupedAvatar:[...root.querySelectorAll<HTMLElement>('[data-scene="conversation"] .sully-chat-message-ai:not(.sully-chat-message-group-last) .sully-chat-message-avatar-slot')].every(slot=>!slot.querySelector('.sully-chat-avatar-wrap')),
   header:sceneHas('conversation','.sully-chat-header'),
   input:sceneHas('conversation','.sully-chat-inputbar'),
   reply:sceneHas('reply','.sully-chat-reply'),
-  replyContrast:color('reply','.sully-bubble-user .sully-chat-reply','color')==='rgb(238, 238, 238)',
+  replyContrast:color('reply','.sully-bubble-user .sully-chat-reply','color')==='rgb(243, 243, 243)',
   voice:sceneHas('voice-playing','.sully-voice-bar'),
   transfer:sceneHas('transfer','.sully-chat-transfer-card[data-status="pending"]'),
   accepted:sceneHas('transfer-accepted','.sully-chat-transfer-receipt'),
