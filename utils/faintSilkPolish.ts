@@ -22,6 +22,18 @@ export const FAINT_SILK_POLISH_CSS = `
 .sully-chat-root .sully-chat-name{font-size:17px!important;font-weight:600!important;letter-spacing:.15px!important;}
 .sully-chat-root .sully-chat-status{font-size:10px!important;color:#9b948e!important;letter-spacing:.04em;}
 .sully-chat-root .sully-chat-avatar{box-shadow:0 2px 10px rgba(62,55,52,.09)!important;}
+/* Token/status badges move into the unobstructed upper-right corner,
+   never across the paired avatars or their decorative caption. */
+.sully-chat-root .sully-chat-header:has(.sully-chat-avatar-pair) .sully-chat-floating-status{
+  top:2px!important;right:0!important;
+  transform:none!important;
+  max-width:calc(100% - 140px)!important;
+  justify-content:flex-end!important;
+}
+.sully-chat-root .sully-chat-header:has(.sully-chat-avatar-pair) .sully-chat-token{
+  border:0!important;background:rgba(255,255,255,.5)!important;
+  color:#98918b!important;font-size:9px!important;
+}
 /* Do not paint image stickers on top of native navigation, AI or input buttons. */
 .sully-chat-root .sully-chat-back,
 .sully-chat-root .sully-chat-trigger,
