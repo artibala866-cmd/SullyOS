@@ -86,7 +86,7 @@ import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 import { useChatAI } from '../hooks/useChatAI';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { usePrivateChatSpeech } from '../hooks/usePrivateChatSpeech';
-import { attachUserVoiceAudio, makeUserVoiceMetadata } from '../utils/userVoiceMessage';
+import { attachUserVoiceAudio, formatForwardedUserVoice, makeUserVoiceMetadata, reviseUserVoiceTranscript } from '../utils/userVoiceMessage';
 import { cleanTextForTts, parseVoiceOutput } from '../utils/minimaxTts';
 import { collectVoiceBatchSubtitle, isPoisonedVoiceSubtitle } from '../utils/voiceSubtitle';
 import {
@@ -3275,7 +3275,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if (contentChanged && selectedMessage.role === 'user' && selectedMessage.type === 'voice') {
             // Correcting a speech-recognition transcript must not destroy the real
             // recorded audio. The voice remains playable with its original duration.
-            editedVoiceMetadata = { ...selectedMessage.metadata, transcript: editContent };
+            editedVoiceMetadata = reviseUserVoiceTranscript(selectedMessage.metadata, editContent);
         }
         await DB.updateMessage(selectedMessage.id, editContent);
         if (editedVoiceMetadata !== selectedMessage.metadata) {
@@ -3533,7 +3533,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 type: m.type,
                 // Forwarded history is a text-only snapshot, not an audio attachment.
                 content: m.type === 'voice'
-                    ? `[语音记录] ${getVoiceTranscript(m) || '仅有原声，未转发音频文件'}`
+                    ? formatForwardedUserVoice(m)
                     : m.content,
                 timestamp: m.timestamp || Date.now()
             }))
