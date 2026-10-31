@@ -57,6 +57,7 @@ const checks = {
 };
 const status = document.createElement('output');
 status.id = 'qq-visual-smoke';
+status.hidden = true;
 status.textContent = JSON.stringify(checks);
 root.prepend(status);
 root.dataset.qqRendered = Object.values(checks).every(Boolean) ? 'true' : 'false';
