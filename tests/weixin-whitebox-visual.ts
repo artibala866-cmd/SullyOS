@@ -24,8 +24,8 @@ try {
  const style=document.createElement('style');style.textContent=renderChatDecorationSample(preset,'conversation').css;group.prepend(style);root.append(group);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
 
- const style=(scene:string,selector:string)=>{const el=$(scene,selector);return el?getComputedStyle(el):null};
- const bg=(scene:string,selector:string)=>style(scene,selector)?.backgroundColor;
+ const cssStyle=(scene:string,selector:string)=>{const el=$(scene,selector);return el?getComputedStyle(el):null};
+ const bg=(scene:string,selector:string)=>cssStyle(scene,selector)?.backgroundColor;
  const same=(scene:string,selector:string,color:string)=>bg(scene,selector)===color;
  const inBounds=(scene:string)=>{
   const action=$(scene,'.sully-chat-actions-button'),field=$(scene,'.sully-chat-input-wrap'),send=$(scene,'.sully-chat-send-button');
@@ -49,8 +49,8 @@ try {
   groupPacket:same('group','.sully-chat-group-packet','rgb(233, 167, 70)'),
   groupReceipt:!!$('group','.sully-chat-group-packet-receipt'),
   inputNoOverlap:inBounds('conversation'),
-  sendVisible:style('conversation','.sully-chat-send-button')?.visibility==='visible',
-  backVisible:style('conversation','.sully-chat-back')?.visibility==='visible',
+  sendVisible:cssStyle('conversation','.sully-chat-send-button')?.visibility==='visible',
+  backVisible:cssStyle('conversation','.sully-chat-back')?.visibility==='visible',
   noHorizontalOverflow:[...root.querySelectorAll<HTMLElement>('.scene')].every(e=>e.scrollWidth<=e.clientWidth+2)
  };
  root.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';
