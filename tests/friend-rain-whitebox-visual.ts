@@ -57,6 +57,31 @@ try {
  avatarScene.innerHTML='<h2>头像首条 / 连发不重复</h2><div class="beauty-preview-body">'+avatarMarkup+'</div>';
  const avatarStyle=document.createElement('style');avatarStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
  avatarScene.prepend(avatarStyle);root.append(avatarScene);
+
+ // Regression: short first messages must never gain a displaced bubble when hearts are shown.
+ const heartScene=document.createElement('section');
+ heartScene.className='scene';heartScene.dataset.scene='heart-alignment';
+ const heartMessages=[
+  {id:40101,role:'assistant' as const,first:true,last:false},
+  {id:40102,role:'assistant' as const,first:false,last:true},
+  {id:40103,role:'user' as const,first:true,last:false},
+  {id:40104,role:'user' as const,first:false,last:true},
+ ];
+ const heartMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sample-chat'},
+  React.createElement('div',{className:'sully-chat-messages sample-messages'},
+    ...heartMessages.map(item=>React.createElement(MessageItem,{
+      msg:{...demo,id:item.id,role:item.role,content:'嗯'},
+      activeTheme:preset.parts.bubbles!,friendRainWhitebox:true,
+      charName:'示例角色',charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,
+      isFirstInGroup:item.first,isLastInGroup:item.last,
+      avatarMode:'grouped',avatarSize:'small',showTimestamp:'never',
+      onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},
+      suppressEntranceAnimation:true,
+    }))
+  )));
+ heartScene.innerHTML='<h2>五心与短气泡对齐（双方首条/后续）</h2><div class="beauty-preview-body">'+heartMarkup+'</div>';
+ const heartStyle=document.createElement('style');heartStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
+ heartScene.prepend(heartStyle);root.append(heartScene);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
 
  const rect=(scene:string,sel:string)=>$(scene,sel)?.getBoundingClientRect();
@@ -94,7 +119,36 @@ try {
   return good;
  });
 
+
+ // Compare the *bubble rectangles* (not the decorative SVG) at actual mobile widths.
+ const heartAlignment=[320,360,390,430].every(width=>{
+  const body=heartScene.querySelector<HTMLElement>('.beauty-preview-body');
+  const app=heartScene.querySelector<HTMLElement>('.sample-chat');
+  if(!body||!app)return false;
+  const oldBody=body.style.width,oldApp=app.style.width;
+  body.style.setProperty('width',width+'px','important');app.style.width=width+'px';
+  const bubbles=[...app.querySelectorAll<HTMLElement>('.sully-bubble-ai,.sully-bubble-user')];
+  const ai=bubbles.filter(e=>e.classList.contains('sully-bubble-ai'));
+  const me=bubbles.filter(e=>e.classList.contains('sully-bubble-user'));
+  const pairAligned=(pair:HTMLElement[],edge:'left'|'right')=>pair.length===2
+    &&Math.abs(pair[0].getBoundingClientRect()[edge]-pair[1].getBoundingClientRect()[edge])<=1
+    &&Math.abs(pair[0].getBoundingClientRect().width-pair[1].getBoundingClientRect().width)<=1;
+  const firstHearts=!!ai[0]&&!!me[0]
+    &&[ai[0],me[0]].every(el=>{
+      const style=getComputedStyle(el,'::after');
+      return style.position==='absolute'&&style.display!=='none'
+        &&style.backgroundImage.split('data:image/svg+xml').length===6
+        &&getComputedStyle(el).marginTop==='0px';
+    });
+  const oldHearts=[...app.querySelectorAll<HTMLElement>('.sully-chat-message-group-first .sully-chat-message-content')]
+    .every(el=>getComputedStyle(el,'::before').display==='none');
+  const ok=pairAligned(ai,'left')&&pairAligned(me,'right')&&firstHearts&&oldHearts;
+  body.style.width=oldBody;app.style.width=oldApp;
+  return ok;
+ });
+
  const checks={
+  heartAlignment,
   responsive,
   headerRestored:(rect('conversation','.sully-chat-header')?.height||0)>=135 && (rect('conversation','.sully-chat-header')?.height||0)<=165,
   footerRestored:(rect('conversation','.sully-chat-inputbar')?.height||0)<=96 && (rect('conversation','.sully-chat-inputbar')?.height||0)>=75,
@@ -149,8 +203,10 @@ try {
   mergedStopButton:cssStyle('silent-letter-stop','.sully-chat-trigger','::after').content.includes('停止'),
   noDuplicatedHeaderLabels:cssStyle('conversation','.sully-chat-header','::after').content==='none'
     && cssStyle('conversation','.sully-chat-header','::before').content==='none',
-  userFiveHearts:cssStyle('conversation','.sully-chat-message-user.sully-chat-message-group-first .sully-chat-message-content','::before').backgroundImage.split('data:image/svg+xml').length===6,
-  aiFiveHearts:cssStyle('conversation','.sully-chat-message-ai.sully-chat-message-group-first .sully-chat-message-content','::before').backgroundImage.split('data:image/svg+xml').length===6,
+  userFiveHearts:cssStyle('conversation','.sully-chat-message-user.sully-chat-message-group-first .sully-bubble-user','::after').backgroundImage.split('data:image/svg+xml').length===6
+    && cssStyle('conversation','.sully-chat-message-user.sully-chat-message-group-first .sully-bubble-user','::after').display!=='none',
+  aiFiveHearts:cssStyle('conversation','.sully-chat-message-ai.sully-chat-message-group-first .sully-bubble-ai','::after').backgroundImage.split('data:image/svg+xml').length===6
+    && cssStyle('conversation','.sully-chat-message-ai.sully-chat-message-group-first .sully-bubble-ai','::after').display!=='none',
   userReadReceipt:cssStyle('conversation','.sully-chat-message-user .sully-chat-message-timestamp','::after').content.includes('已读'),
   stopAvailable:!!$('silent-letter-stop','.sully-chat-trigger[title="停止生成"]'),
   sendAvailable:!!$('silent-letter-send','.sully-chat-send-button'),

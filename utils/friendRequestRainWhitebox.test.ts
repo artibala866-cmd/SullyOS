@@ -20,6 +20,16 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   expect(css).toContain('min-height:80px!important');
   expect(css).toContain('font-size:12px!important');
   expect(css).toContain('padding:5px 9px!important');
+  expect(css).toContain('渐变爱心与首条气泡解耦 v14');
+  const newRules=css.slice(css.indexOf('/* 请求添加好友 · 渐变爱心与首条气泡解耦 v14'));
+  expect(newRules).toContain('.sully-chat-message-content::before');
+  expect(newRules).toContain('content:none!important');
+  expect(newRules).toContain('.sully-bubble-user.sully-bubble-group-first::after');
+  expect(newRules).toContain('position:absolute!important');
+  expect(newRules).toContain('margin-top:0!important');
+  // New patch has no header, footer, avatar, or ordinary bubble-size selectors.
+  expect(newRules).not.toMatch(/\.sully-chat-header|\.sully-chat-inputbar|\.sully-chat-avatar|font-size:\s*12px|padding:5px 9px/);
+
   expect(p.parts.layout?.chatAvatarSize).toBe('small');
   expect(css).toContain('content:"拒绝"');
   expect(css).toContain('content:"同意"');
@@ -67,10 +77,11 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   const v9='/* 请求添加好友 · 顶区操作与标签去重叠 v9';
   const v10='/* 请求添加好友 · 原生动作按钮 + 原 SVG 五心 + 用户消息状态 v10';
   const v13='/* 请求添加好友 · 仅缩小气泡 v13';
-  for(const marker of [v8,v9,v10,v13]){
+  const v14='/* 请求添加好友 · 渐变爱心与首条气泡解耦 v14';
+  for(const marker of [v8,v9,v10,v13,v14]){
     const older=full.slice(0,full.indexOf(marker))+'\n.my-css{color:hotpink}';
     const migrated=resolveLegacyFriendRequestRainCss(older);
-    expect(migrated).toContain(v13);
+    expect(migrated).toContain(v14);
     expect(migrated).toContain('.my-css{color:hotpink}');
     expect(resolveLegacyFriendRequestRainCss(migrated)).toBe(migrated);
   }
@@ -83,6 +94,11 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   expect(restoredSizing).not.toContain('/* 请求添加好友 · 头像与整体尺寸回归 v11');
   expect(restoredSizing).not.toContain('/* 请求添加好友 · 原文件头部 82px 回归 v12');
   expect(resolveLegacyFriendRequestRainCss(restoredSizing)).toBe(restoredSizing);
+  const preFix=full.slice(0,full.indexOf(v14))+'\n.user-adjusted{border-radius:23px}';
+  const updated=resolveLegacyFriendRequestRainCss(preFix);
+  expect(updated).toContain('.user-adjusted{border-radius:23px}');
+  expect(updated).toContain(v14);
+  expect(resolveLegacyFriendRequestRainCss(updated)).toBe(updated);
   expect(resolveLegacyFriendRequestRainCss('.unrelated-theme{color:red}')).toBe('.unrelated-theme{color:red}');
  });
  it('applies character/global parts without modifying sounds or removing native group packet',async()=>{
