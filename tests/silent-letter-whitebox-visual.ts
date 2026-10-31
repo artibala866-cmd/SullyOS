@@ -12,7 +12,7 @@ if (!root) throw Error('visual host missing');
 try {
  const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-silent-letter-dark')?.read();
  if (!preset) throw Error('built-in outfit missing');
- const scenes=['installed-v2','conversation','silent-letter-send','silent-letter-stop','reply','voice-playing','transfer','transfer-accepted','transfer-returned','psyche','psyche-open'];
+ const scenes=['installed-v2','conversation','silent-letter-send','silent-letter-stop','reply','voice-playing','transfer','transfer-accepted','transfer-returned','psyche','psyche-open','sim_card'];
  for(const scene of scenes) {
   // A returning user's CSS is stored in their character/global settings and
   // is not changed when the built-in JSON is updated. Simulate exactly that.
@@ -72,6 +72,11 @@ try {
    const svg=button?.querySelector('svg');
    return !!button && !!svg && getComputedStyle(svg).display==='none' && getComputedStyle(button).pointerEvents!=='none';
  };
+ const nativeLightningVisible=(scene:string)=>{
+  const button=$(scene,'.sully-chat-trigger:not([title="停止生成"])');
+  const svg=button?.querySelector('svg');
+  return !!svg&&getComputedStyle(svg).display!=='none'&&getComputedStyle(button!,'::after').display==='none';
+ };
  const stopButton=$('silent-letter-stop','.sully-chat-trigger[title="停止生成"]');
  const stoppedIcon=stopButton?.querySelector('svg');
  const phone=$('conversation','.sully-chat-header button[aria-label="电话"]');
@@ -94,11 +99,11 @@ try {
   groupedAvatar:[...root.querySelectorAll<HTMLElement>('[data-scene="conversation"] .sully-chat-message-ai:not(.sully-chat-message-group-last) .sully-chat-message-avatar-slot')].every(slot=>!slot.querySelector('.sully-chat-avatar-wrap')),
   persistedV2BackFixed:nativeSvgReplaced('installed-v2','.sully-chat-back'),
   persistedV2PlusFixed:nativeSvgReplaced('installed-v2','.sully-chat-actions-button'),
-  persistedV2LightningFixed:nativeSvgReplaced('installed-v2','.sully-chat-trigger'),
+  persistedV2LightningFixed:nativeLightningVisible('installed-v2'),
   persistedV2SendFixed:nativeSvgReplaced('installed-v2','.sully-chat-send-button'),
   oldBackIconReplaced:nativeSvgReplaced('conversation','.sully-chat-back'),
   oldPlusIconReplaced:nativeSvgReplaced('conversation','.sully-chat-actions-button'),
-  oldLightningIconReplaced:nativeSvgReplaced('conversation','.sully-chat-trigger'),
+  headerLightningNativeVisible:nativeLightningVisible('conversation'),
   oldGenerateIconReplaced:nativeSvgReplaced('conversation','.sully-chat-send-button'),
   oldSendIconReplaced:nativeSvgReplaced('silent-letter-send','.sully-chat-send-button[aria-label="发送文字"]'),
   stopControlPreserved:!!stopButton&&!!stoppedIcon&&getComputedStyle(stoppedIcon).display!=='none'&&getComputedStyle(stopButton,'::after').display==='none',
@@ -112,6 +117,11 @@ try {
   accepted:sceneHas('transfer-accepted','.sully-chat-transfer-receipt'),
   returned:sceneHas('transfer-returned','.sully-chat-transfer-receipt'),
   psyche:sceneHas('psyche-open','.sully-psyche-card'),
+  psycheRealCharacter:sceneHas('psyche-open','.sully-psyche-author-avatar')&&
+    $('psyche-open','.sully-psyche-author-name')?.textContent==='示例角色'&&
+    getComputedStyle($('psyche-open','.sully-psyche-author')!).display==='flex',
+  simulatedCardStack:getComputedStyle($('sim_card','.sully-chat-card[data-card-kind="sim_card"]')!,'::before').content!=='none'&&
+    getComputedStyle($('sim_card','.sully-chat-card[data-card-kind="sim_card"]')!,'::after').content!=='none',
   groupMessage:sceneHas('group-chat','.sully-chat-message-sender')&&sceneHas('group-chat','.sully-bubble-ai'),
   groupReply:sceneHas('group-chat','.sully-chat-reply'),
   groupPacket:sceneHas('group-chat','.sully-chat-group-packet'),

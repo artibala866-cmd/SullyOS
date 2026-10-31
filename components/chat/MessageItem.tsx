@@ -137,7 +137,9 @@ export const ThinkingChainBlock: React.FC<{
     styleId?: ThinkingChainStyleId;
     customColors?: { bg?: string; accent?: string; text?: string };
     onOpenSettings?: () => void;
-}> = ({ chain, styleId, customColors, onOpenSettings, initiallyExpanded=false }) => {
+    authorName?: string;
+    authorAvatar?: string;
+}> = ({ chain, styleId, customColors, onOpenSettings, authorName, authorAvatar, initiallyExpanded=false }) => {
     const [expanded, setExpanded] = useState(initiallyExpanded);
     const [copyState, setCopyState] = useState<'idle' | 'ready' | 'ok' | 'error'>('idle');
     const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -325,7 +327,13 @@ export const ThinkingChainBlock: React.FC<{
                             : '0 1px 3px rgba(15, 23, 42, 0.08)',
                 }}
             >
-                {/* 四角装饰括号 */}
+                {/* 仅无声回信白框以原作者推文形式显示真实 Char 头像和名称；其他主题默认隐藏。 */}
+                {authorName && <div className="sully-psyche-author" style={{display:'none'}} aria-hidden="true">
+                    {authorAvatar && <TokenImg value={authorAvatar} alt="" className="sully-psyche-author-avatar" />}
+                    <span className="sully-psyche-author-name">{authorName}</span>
+                    <span className="sully-psyche-author-handle">@Evilove</span>
+                </div>}
+                {/* 四角装饰括号 */
                 {spec.showCorners && (
                     <>
                         <span aria-hidden className="absolute top-1 left-1 w-2 h-2 border-t border-l pointer-events-none" style={{ borderColor: spec.accent }} />
@@ -1659,6 +1667,8 @@ const MessageItem = React.memo(({
                     styleId={thinkingChainOptions?.styleId}
                     customColors={thinkingChainOptions?.customColors}
                     onOpenSettings={thinkingChainOptions?.onOpenSettings}
+                    authorName={charName}
+                    authorAvatar={charAvatar}
                 />
             </div>
         </div>

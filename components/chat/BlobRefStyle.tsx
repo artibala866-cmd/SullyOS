@@ -13,16 +13,23 @@ const SILENT_LETTER_V1 = '/* 【糯叽机】无声回信（黑）by黛 — Sully
 const SILENT_LETTER_V2 = '/* 【糯叽机】无声回信（黑）by黛 · 原版完整界面 SullyOS 适配 v2';
 const ICON_REPLACEMENT_START = '/* 11. 贴图是真正的替换图标';
 const ICON_REPLACEMENT_END = '/* 辅助功能：动态文字';
+const SILENT_LETTER_V3 = '/* 12. 无声回信原生交互与原作细节补齐 v3';
 export function resolveLegacySilentLetterCss(css: string): string {
     if (css.includes(SILENT_LETTER_V1) && css.includes('.sully-chat-message-avatar:not(.sully-chat-avatar-wrap)')) {
         return silentLetter.parts.css;
     }
     if (!css.includes(SILENT_LETTER_V2) || !css.includes('.sully-chat-actions-button')) return css;
-    if (css.includes(ICON_REPLACEMENT_START)) return css;
-    const from = silentLetter.parts.css.indexOf(ICON_REPLACEMENT_START);
-    const to = silentLetter.parts.css.indexOf(ICON_REPLACEMENT_END, from);
-    if (from < 0 || to < from) return css;
-    return css + '\n' + silentLetter.parts.css.slice(from, to);
+    let upgraded = css;
+    if (!upgraded.includes(ICON_REPLACEMENT_START)) {
+        const from = silentLetter.parts.css.indexOf(ICON_REPLACEMENT_START);
+        const to = silentLetter.parts.css.indexOf(ICON_REPLACEMENT_END, from);
+        if (from >= 0 && to >= from) upgraded += '\n' + silentLetter.parts.css.slice(from, to);
+    }
+    if (!upgraded.includes(SILENT_LETTER_V3)) {
+        const from = silentLetter.parts.css.indexOf(SILENT_LETTER_V3);
+        if (from >= 0) upgraded += '\n' + silentLetter.parts.css.slice(from);
+    }
+    return upgraded;
 }
 
 

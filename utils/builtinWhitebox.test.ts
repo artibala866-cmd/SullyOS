@@ -34,6 +34,12 @@ describe('bundled star orbit outfits',()=>{
   expect(preset.parts.css).toContain('.sully-psyche-card');
   expect(preset.parts.css).toContain('.sully-voice-bar');
   expect(preset.parts.css).toContain('.sully-chat-inputbar');
+  expect(preset.parts.css).toContain('/* 12. 无声回信原生交互与原作细节补齐 v3');
+  expect(preset.parts.css).toContain('.sully-psyche-author-avatar');
+  expect(preset.parts.css).toContain('.sully-chat-card[data-card-kind="sim_card"]');
+  expect(preset.parts.css).toContain('.sully-facebook-translation');
+  expect(preset.parts.css).toContain('.sully-chat-voice-menu');
+  expect(preset.parts.css).toContain('.sully-chat-trigger:not([title="停止生成"]) > svg');
   expect(preset.parts.css).not.toMatch(/\.msg-transfer-card|\.bubble-me-custom|\.chat-detail-screen/);
   expect(preset.parts.css).not.toMatch(/(?:display:\s*none|visibility:\s*hidden)[^}]*\.sully-chat-send-button/);
   const char=await decorationPatches(preset,['layout','bubbles','psyche','css'],'character',{id:'test',chatSound:{src:'ding'}} as any,{} as any);
@@ -65,6 +71,8 @@ describe('bundled star orbit outfits',()=>{
   expect(migrated).toContain('.sully-chat-actions-button > svg');
   expect(migrated).toContain('.sully-chat-trigger:not([title="停止生成"]) > svg');
   expect(migrated).toContain('.sully-chat-send-button:is(');
+  expect(migrated).toContain('/* 12. 无声回信原生交互与原作细节补齐 v3');
+  expect(migrated).toContain('sully-psyche-author-avatar');
   expect(migrated).not.toContain('content:"+"} .sully-chat-avatar-wrap');
   expect(resolveLegacySilentLetterCss(migrated)).toBe(migrated);
   expect(resolveLegacySilentLetterCss(current)).toBe(current);
