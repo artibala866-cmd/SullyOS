@@ -1,0 +1,49 @@
+name: Tavern Character Card Import Regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/Character.tsx'
+      - 'utils/sillyTavernCard.ts'
+      - 'utils/sillyTavernCard.test.ts'
+      - 'utils/db.ts'
+      - 'utils/worldbook.ts'
+      - 'utils/pngShare.ts'
+      - '.github/workflows/tavern-character-card.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tavern-character-card-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Regression tests for card imports and context worldbooks
+        run: pnpm exec vitest run utils/sillyTavernCard.test.ts utils/characterCard.test.ts utils/worldbook.test.ts utils/worldbookPersistence.test.ts utils/contextWorldbook.test.ts
+      - name: TypeScript diagnostics on imported-card surfaces
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/tavern-tsc.log 2>&1 || true
+          grep -E '^(apps/Character.tsx|utils/(sillyTavernCard(\.test)?|db|worldbook|pngShare).ts)[(]' /tmp/tavern-tsc.log > /tmp/tavern-errors.log || true
+          if [ -s /tmp/tavern-errors.log ]; then
+            cat /tmp/tavern-errors.log
+            exit 1
+          fi
+          echo "Imported card files have no TypeScript diagnostics."
+      - name: Build application
+        run: pnpm run build
