@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { APIConfig } from '../types';
-import { isAudioRecordingSupported, resolveSttProvider, startPrivateChatRecording, startStt, type SttCallbacks, type SttSession } from '../utils/speechToText';
+import { isAudioRecordingSupported, isBrowserSttSupported, resolveSttProvider, startPrivateChatRecording, startStt, type SttCallbacks, type SttSession } from '../utils/speechToText';
 
 export type PrivateChatSpeechStatus = 'idle' | 'starting' | 'listening' | 'transcribing' | 'review';
+export type PrivateChatSpeechMode = 'record' | 'transcribe';
 
 /** A private-chat speech draft; it never posts a message without explicit confirmation. */
 export function usePrivateChatSpeech(characterId: string | undefined, apiConfig: Partial<APIConfig> | null | undefined) {
@@ -11,6 +12,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
   const [error, setError] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [hasAudioDraft, setHasAudioDraft] = useState(false);
+  const [mode, setMode] = useState<PrivateChatSpeechMode>('transcribe');
   const sessionRef = useRef<SttSession | null>(null);
   // Audio exists only for the paid-STT path, where we share its original stream.
   // Browser and Android native STT remain honest transcript-only fallbacks.
@@ -74,7 +76,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     };
   }, [status, cancel]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (nextMode: PrivateChatSpeechMode = 'transcribe') => {
     if (!characterId || status !== 'idle') return;
     const generation = ++generationRef.current;
     sessionRef.current = null;
@@ -85,6 +87,14 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     setTranscript('');
     setError('');
     setSeconds(0);
+    setMode(nextMode);
+    // An unsupported browser cannot transcribe audio through its microphone API.
+    // Tell the user to use the actual system keyboard mic instead of recording unusable audio.
+    if (nextMode === 'transcribe' && resolveSttProvider(apiConfig) === 'browser' && !isBrowserSttSupported()) {
+      setError('此浏览器没有可用的语音识别接口。请选「输入法语音」，用手机键盘自带的麦克风说话。');
+      setStatus('review');
+      return;
+    }
     setStatus('starting');
     const startedAt = Date.now();
     clearElapsedTimer();
@@ -96,7 +106,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
       // when its remote backend is unreachable. A user selecting "录音语音"
       // needs REAL audio, so use local MediaRecorder unless a paid ASR provider
       // was explicitly selected. Keep native speech fallback on older WebViews.
-      const useLocalRecording = resolveSttProvider(apiConfig) === 'browser' && isAudioRecordingSupported();
+      const useLocalRecording = nextMode === 'record' && resolveSttProvider(apiConfig) === 'browser' && isAudioRecordingSupported();
       const callbacks: SttCallbacks = {
         onAudioCaptured: (blob, durationSec) => {
           if (generation !== generationRef.current || blob.size === 0 || durationSec <= 0) return;
@@ -161,6 +171,9 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     setStatus('transcribing');
   }, [status, clearElapsedTimer]);
 
+  const startTranscription = useCallback(() => start('transcribe'), [start]);
+  const startRecording = useCallback(() => start('record'), [start]);
+
   const editTranscript = useCallback((text: string) => {
     editedRef.current = true;
     setTranscript(text);
@@ -168,5 +181,5 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
 
   const getAudioDraft = useCallback(() => audioDraftRef.current, []);
 
-  return { status, transcript, error, seconds, hasAudioDraft, start, stop, cancel, editTranscript, getAudioDraft };
+  return { status, mode, transcript, error, seconds, hasAudioDraft, start: startRecording, startTranscription, stop, cancel, editTranscript, getAudioDraft };
 }
