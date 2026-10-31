@@ -38,7 +38,7 @@ describe('incremental Home3D character style switching',()=>{
   const editor=readFileSync('apps/room3d/editor.js','utf8');
   expect(pass).toContain('colourDiscontinuity');
   expect(pass).toContain('vec3 leftInk=sceneColor(');
-  expect(pass).toContain('c=mix(c,vec3(.070,.057,.071),inkWeight)');
+  expect(pass).toContain('c=mix(c,vec3(.075,.064,.100),inkWeight)');
   expect(pass).toContain('float paperMask=');
   expect(pass).toContain('vec3 colouredInk=');
   expect(pass).toContain('float inkWeight=outlineStrength*mix(.25,.44');
