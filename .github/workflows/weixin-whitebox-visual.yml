@@ -37,6 +37,26 @@ jobs:
         run: pnpm exec vitest run utils/builtinWhitebox.test.ts utils/chatDecoration.test.ts
       - name: Build chat preview CSS
         run: pnpm run build:chat-preview
+      - name: Capture author-supplied icon files and verify reachable assets
+        shell: bash
+        run: |
+          mkdir -p weixin-original-assets
+          urls=(
+            "voice:https://nos.netease.com/vcloud-statistic/nrtc/17ec3907-e615-4349-a269-9f716cf59489.png"
+            "sticker:https://nos.netease.com/vcloud-statistic/nrtc/da835c40-d3c7-4462-ad4b-5c598284837b.png"
+            "action:https://nos.netease.com/vcloud-statistic/nrtc/4f7329f5-0fbc-4871-98ea-b2223db71efb.png"
+            "microphone:https://nos.netease.com/vcloud-statistic/nrtc/59f469f5-0c70-43ce-ae1e-4c633e9a4e9a.png"
+          )
+          for item in "${urls[@]}"; do
+            key="${item%%:*}"
+            url="${item#*:}"
+            if curl --fail --location --retry 2 --max-time 12 --silent --show-error "$url" -o "weixin-original-assets/${key}.png"; then
+              file "weixin-original-assets/${key}.png"
+            else
+              rm -f "weixin-original-assets/${key}.png"
+              echo "::warning::Original ${key} asset unavailable; native glyph fallback remains visible"
+            fi
+          done
       - name: Install Chinese glyphs for actual rendered text checks
         run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
       - uses: browser-actions/setup-chrome@v1
@@ -71,6 +91,13 @@ jobs:
             exit 1
           fi
           test -s weixin-native-chat-dark.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: weixin-author-original-icons
+          path: weixin-original-assets/*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: always()
         with:
