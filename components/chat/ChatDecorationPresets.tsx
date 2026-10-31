@@ -1,4 +1,5 @@
 import {readLibraryDecorations,saveLibraryDecoration,deleteLibraryDecoration,type LibraryDecoration} from '../../utils/decorationLibrary';
+import {BUILTIN_WHITEBOX_PRESETS} from '../../utils/builtinWhitebox';
 import React,{useEffect,useRef,useState} from 'react';
 import BeautySharePanel from '../share/BeautySharePanel';
 import { useOS } from '../../context/OSContext';
@@ -44,6 +45,13 @@ export default function ChatDecorationPresets({target,scope,currentBubble,export
    <div className="chat-decoration-preset-actions"><button disabled={busy||(pending.kind==='preset'&&!parts.length)} onClick={apply}>{busy?'处理中…':'确认应用'}</button><button disabled={busy} onClick={()=>setPending(null)}>取消</button></div>
   </section>}
   <section className="chat-decoration-preset-save"><h3>保存当前整套装扮</h3><label className="chat-decoration-field">预设名称<input value={name} maxLength={60} onChange={e=>setName(e.target.value)} aria-label="装扮预设名称"/></label><p className="chat-decoration-note">包含当前布局、气泡、背景、声音和 CSS。本地图片会打包进文件，外链素材仍需联网。</p><div className="chat-decoration-preset-actions"><button disabled={busy} onClick={save}>存为预设</button><button disabled={busy} onClick={share}>导出分享</button></div></section>
+  <section className="chat-decoration-preset-save" aria-label="内置整套白框">
+   <h3>内置整套白框</h3>
+   <p className="chat-decoration-note">界面、双方气泡、转账、群聊兼容样式与心象放在同一套。角色专属仅影响私聊；切换「全局默认」应用后，未单独设置白框的群聊也会沿用。</p>
+   <div className="chat-decoration-preset-actions">
+    {BUILTIN_WHITEBOX_PRESETS.map(item=><button key={item.id} type="button" disabled={busy} onClick={()=>stage({kind:'preset',preset:item.read()})}>{item.name}</button>)}
+   </div>
+  </section>
   <section className="chat-decoration-preset-save"><h3>我的预设</h3>{saved.length?saved.map((preset,index)=><div key={index} className="chat-decoration-saved"><button disabled={busy} onClick={()=>stage({kind:'preset',preset})}>{preset.name}<small>查看并应用 →</small></button><button aria-label={`删除预设 ${preset.name}`} disabled={busy} onClick={()=>run(async()=>{await deleteLibraryDecoration(preset._libraryId);setSaved(await readLibraryDecorations());})}>删除</button></div>):<p className="chat-decoration-note">保存喜欢的搭配，下次可以整套换上。</p>}</section>
  </div>;
 }
