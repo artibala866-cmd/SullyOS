@@ -3,6 +3,7 @@ import {BUILTIN_WHITEBOX_PRESETS} from './builtinWhitebox';
 import {resolveLegacySilentLetterCss} from '../components/chat/BlobRefStyle';
 import {decorationPatches} from './chatDecoration';
 import {portableCssImages} from './cssImageAssets';
+import {isFaintSilkPairCss} from './faintSilkPair';
 
 // Export may use base64 instead of percent-encoded SVG; compare decoded assets and CSS.
 const normalizeImages=(css:string)=>css.replace(/data:image\/svg\+xml(;base64)?,([^"\n]*)/g,(_,base64,body)=>
@@ -109,6 +110,12 @@ describe('Faint Silk 浅丝 full whitebox conversion by 落吟',()=>{
   expect(preset.parts.layout?.chatHeaderAlign).toBe('center');
   expect(preset.parts.bubbles?.user.textColor).toBe('#262626');
   expect(preset.parts.bubbles?.ai.tailMode).toBe('none');
+  expect(isFaintSilkPairCss(css)).toBe(true);
+  expect(css).not.toContain('DycRKBL9/image.jpg'); // former hard-coded right avatar
+  expect(css).not.toMatch(/\.sully-chat-name::after\s*\{[^}]*background:\s*url/i);
+  const previousSavedCss='/* Faint Silk 浅丝 by 落吟 | SullyOS 糯米机白框转换 */ .sully-chat-root{--faint-glass:rgba(239,239,239,.18)} .sully-chat-name::after{background:url("https://i.postimg.cc/DycRKBL9/image.jpg")}';
+  expect(isFaintSilkPairCss(previousSavedCss)).toBe(true);
+  expect(isFaintSilkPairCss(BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-ios6-crystal')!.read().parts.css)).toBe(false);
   for(const selector of ['.sully-chat-header','.sully-chat-inputbar','.sully-chat-input-wrap','.sully-chat-textarea','.sully-chat-send-button','.sully-bubble-user','.sully-bubble-ai','.sully-voice-bar','.sully-chat-transfer-card','.sully-chat-transfer-receipt','.sully-chat-group-packet','.sully-chat-group-packet-receipt'])
    expect(css).toContain(selector);
   for(const legacy of ['.chat-header-custom','.header-profile-section','.input-area-custom','--bubble-me-bg','--transfer-card-bg','[class*="messages"]'])
