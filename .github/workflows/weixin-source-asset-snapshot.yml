@@ -1,0 +1,51 @@
+name: Snapshot original Weixin Baiyu image icons
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - .github/workflows/weixin-source-asset-snapshot.yml
+permissions:
+  contents: write
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: remove-checkphone-vrworld-lifesim
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --disable-pip-version-check pillow
+      - name: Keep original source image pixels in local, small, offline-safe icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/chat/weixin-baiyu
+          urls=(
+            "voice:https://nos.netease.com/vcloud-statistic/nrtc/17ec3907-e615-4349-a269-9f716cf59489.png"
+            "sticker:https://nos.netease.com/vcloud-statistic/nrtc/da835c40-d3c7-4462-ad4b-5c598284837b.png"
+            "action:https://nos.netease.com/vcloud-statistic/nrtc/4f7329f5-0fbc-4871-98ea-b2223db71efb.png"
+            "microphone:https://nos.netease.com/vcloud-statistic/nrtc/59f469f5-0c70-43ce-ae1e-4c633e9a4e9a.png"
+          )
+          for item in "${urls[@]}"; do
+            name="${item%%:*}"
+            url="${item#*:}"
+            curl --fail --location --retry 2 --max-time 18 --silent --show-error "$url" -o "/tmp/wy-${name}.png"
+            python - "$name" <<'PY'
+          from PIL import Image
+          import sys
+          name=sys.argv[1]
+          original=Image.open('/tmp/wy-'+name+'.png').convert('RGBA')
+          original.thumbnail((96,96),Image.Resampling.LANCZOS)
+          original.save('assets/chat/weixin-baiyu/'+name+'.png',optimize=True)
+          PY
+          done
+          git add assets/chat/weixin-baiyu
+          if ! git diff --cached --quiet; then
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "assets(chat): bundle author's original Weixin icons for reliable offline rendering"
+            git pull --rebase origin remove-checkphone-vrworld-lifesim
+            git push origin HEAD:remove-checkphone-vrworld-lifesim
+          fi
