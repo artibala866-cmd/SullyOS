@@ -33,7 +33,7 @@ import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../utils/timezone';
 import { generateSlotTheater } from '../utils/theaterGenerator';
 import TheaterPlayer from '../components/schedule/TheaterPlayer';
-import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, normalizeMessageContent } from '../utils/messageFormat';
+import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, getVoiceTranscript, normalizeMessageContent } from '../utils/messageFormat';
 import { getRoomLabel } from '../utils/memoryPalace/types';
 import { XhsMcpClient, extractNotesFromMcpData, normalizeXhsLiteDetail } from '../utils/xhsMcpClient';
 import { extractWebpageContent, detectFirstUrl, detectXhsShortUrl, extractXhsShareTitle, isXhsUrl, extractXhsNoteLink, expandShortUrl, type ExtractedWebpage } from '../utils/webpageExtractor';
@@ -3271,21 +3271,24 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const contentChanged = editContent !== selectedMessage.content;
         if (contentChanged && selectedMessage.role === 'user' &&
             findPendingUserTurn(messages)?.id === selectedMessage.id) autoReply.cancel();
-        await DB.updateMessage(selectedMessage.id, editContent);
         let editedVoiceMetadata = selectedMessage.metadata;
         if (contentChanged && selectedMessage.role === 'user' && selectedMessage.type === 'voice') {
-            const { audioRef: oldAudioRef, durationSec: _durationSec, ...rest } = selectedMessage.metadata || {};
-            editedVoiceMetadata = {
-                ...rest,
-                transcript: editContent,
-                hasAudio: false,
-            };
-            await DB.updateMessageMetadata(selectedMessage.id, () => editedVoiceMetadata);
-            if (typeof oldAudioRef === 'string') {
-                void deleteBlobRefIfUnreferenced(oldAudioRef).catch(() => {});
+            // Correcting a speech-recognition transcript must not destroy the real
+            // recorded audio. The voice remains playable with its original duration.
+            editedVoiceMetadata = { ...selectedMessage.metadata, transcript: editContent };
+        }
+        await DB.updateMessage(selectedMessage.id, editContent);
+        if (editedVoiceMetadata !== selectedMessage.metadata) {
+            try {
+                await DB.updateMessageMetadata(selectedMessage.id, () => editedVoiceMetadata);
+            } catch (error) {
+                await DB.updateMessage(selectedMessage.id, selectedMessage.content).catch(
+                    rollbackError => console.error('[Chat] voice edit rollback failed', rollbackError),
+                );
+                throw error;
             }
         }
-        // 内容变了旧语音就作废，否则语音条仍会播放编辑前的音频。
+        // Char TTS generated from old text is invalid; real user audio is not.
         if (contentChanged) discardVoiceForMessages([selectedMessage.id]);
         // 同 handleDeleteMessage：正文改了要让云端 fire_pack 跟上。
         if (contentChanged) markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
@@ -3513,7 +3516,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const previewLines = selectedMsgs.slice(0, 4).map(m => {
             const sender = m.role === 'user' ? userProfile.name : char.name;
             const text = m.type === 'voice'
-                ? `[语音] ${m.content.slice(0, 30)}`
+                ? `[语音] ${(getVoiceTranscript(m) || '原声未随转发附带').slice(0, 30)}`
                 : m.type === 'text' ? m.content.slice(0, 30)
                     : `[${m.type === 'image' ? '图片' : m.type === 'emoji' ? '表情' : m.type}]`;
             return `${sender}: ${text}`;
@@ -3528,7 +3531,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             messages: selectedMsgs.map(m => ({
                 role: m.role,
                 type: m.type,
-                content: m.type === 'voice' ? `[语音] ${m.content}` : m.content,
+                // Forwarded history is a text-only snapshot, not an audio attachment.
+                content: m.type === 'voice'
+                    ? `[语音记录] ${getVoiceTranscript(m) || '仅有原声，未转发音频文件'}`
+                    : m.content,
                 timestamp: m.timestamp || Date.now()
             }))
         };
