@@ -40,6 +40,9 @@ try {
  group.innerHTML='<h2>群聊消息 + 红包 + 回执</h2><div class="beauty-preview-body">'+
   renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sully-chat-group-root sample-chat'},React.createElement('div',{className:'sully-chat-messages sample-messages'},partner,self,packet,receipt)))+'</div>';
  const gs=document.createElement('style');gs.textContent=renderChatDecorationSample(preset,'conversation').css;group.prepend(gs);root.append(group);
+ // Image elements can be present before their bytes decode; use the rendered image for assertions.
+ await Promise.all([...root.querySelectorAll<HTMLImageElement>('.sully-chat-avatar-pair img')]
+   .map(img=>img.decode().catch(()=>{})));
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
  const style=(scene:string,selector:string)=>{const node=$(scene,selector);if(!node)throw Error(scene+' missing '+selector);return getComputedStyle(node);};
  const all=scenes.every(scene=>!!$(scene,'.sully-chat-root')&&!!$(scene,'.sully-chat-header')&&!!$(scene,'.sully-chat-inputbar'));
