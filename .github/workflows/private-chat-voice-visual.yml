@@ -1,0 +1,71 @@
+name: Private chat voice native visual
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'components/chat/ChatInputArea.tsx'
+      - 'components/chat/UserVoiceBubble.tsx'
+      - 'components/chat/MessageItem.tsx'
+      - 'utils/userVoiceMessage.ts'
+      - 'tests/private-chat-voice-visual.*'
+      - '.github/workflows/private-chat-voice-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: private-voice-visual-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Compile real preview styling
+        run: pnpm run build:chat-preview
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Capture mobile voice inputs and user voice bar
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort > /tmp/voice-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/tests/private-chat-voice-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=430,1250 --virtual-time-budget=15000 --dump-dom \
+            http://127.0.0.1:5173/tests/private-chat-voice-visual.html > /tmp/voice-dom.html 2>/tmp/voice-chrome.log || true
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+            --window-size=430,1450 --virtual-time-budget=15000 \
+            --screenshot="$GITHUB_WORKSPACE/private-chat-voice-mobile.png" \
+            http://127.0.0.1:5173/tests/private-chat-voice-visual.html
+          test -s private-chat-voice-mobile.png
+          grep -o '<output id="voice-visual-checks"[^<]*[^<]*' /tmp/voice-dom.html | head -c 2000 || true
+          if ! grep -q 'data-voice-visual-ready="true"' /tmp/voice-dom.html; then
+            tail -60 /tmp/voice-vite.log || true
+            tail -30 /tmp/voice-chrome.log || true
+            echo "Mobile composer/voice visual geometry mismatch" >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: private-chat-voice-original-style-mobile
+          path: private-chat-voice-mobile.png
+          if-no-files-found: ignore
+          retention-days: 7
