@@ -1,4 +1,5 @@
-import CharacterImagePanel, { clearCharacterImageProfile, writeCharacterImageProfile } from '../components/character/CharacterImagePanel';
+import CharacterImagePanel from '../components/character/CharacterImagePanel';
+import { clearCharacterImageProfile, writeCharacterImageProfile } from '../utils/characterImageProfile';
 import { readLifeClock, writeLifeClock } from '../utils/sullyLifeClock';
 import CharacterApiPanel from '../components/character/CharacterApiPanel';
 import CharacterSettingsSection from '../components/character/CharacterSettingsSection';
