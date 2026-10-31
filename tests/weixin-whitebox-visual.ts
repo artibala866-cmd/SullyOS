@@ -62,5 +62,17 @@ try {
  };
  root.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';
  const output=document.createElement('output');output.id='weixin-checks';output.textContent=JSON.stringify(checks);root.prepend(output);
- if(root.dataset.ready!=='true')throw Error(JSON.stringify(checks));
+ if(root.dataset.ready!=='true'){
+  const rect=(el:HTMLElement|null)=>{const r=el?.getBoundingClientRect();return r?{x:r.x,y:r.y,w:r.width,h:r.height,right:r.right}:null;};
+  const metrics={
+   card:rect($('transfer','.sully-chat-transfer-card')),
+   header:rect($('transfer','.sully-chat-transfer-header')),
+   icon:rect($('transfer','.sully-chat-transfer-header .sully-chat-transfer-icon')),
+   amount:rect($('transfer','.sully-chat-transfer-card > .sully-chat-transfer-amount')),
+   cardDisplay:style('transfer','.sully-chat-transfer-card')?.display,
+   headerDisplay:style('transfer','.sully-chat-transfer-header')?.display,
+   iconDisplay:style('transfer','.sully-chat-transfer-icon')?.display,
+  };
+  throw Error(JSON.stringify({checks,metrics}));
+ }
 } catch(e){root.dataset.ready='false';root.dataset.error=String(e);const output=document.createElement('output');output.textContent=String(e);root.prepend(output)}
