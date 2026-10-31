@@ -21,7 +21,7 @@
  */
 
 import { constantTimeEqual } from './instantChat';
-import { AMSG_BUNDLE_CHANNEL, AMSG_BUNDLE_VERSION } from '../../../utils/amsgBundleVersion';
+import { AMSG_BUNDLE_CHANNEL } from '../../../utils/amsgBundleVersion';
 
 const CF_API = 'https://api.cloudflare.com/client/v4';
 
@@ -31,7 +31,7 @@ const PREVIEW_BUNDLE_URL = 'https://artibala866-cmd.github.io/SullyOS-Dev-Previe
 const BUNDLE_URL = AMSG_BUNDLE_CHANNEL === 'preview' ? PREVIEW_BUNDLE_URL : STABLE_BUNDLE_URL;
 
 /**
- * 成品包从哪儿取：默认官方那份；配了 AMSG_BUNDLE_URL 就取那儿（自己维护成品包的 fork、
+ * 成品包从哪儿取：正式版取官方，预览版取本测试站；配了 AMSG_BUNDLE_URL 就取那儿（自己维护成品包的 fork、
  * 或者拿一台测试 Worker 试新代码时用）。只认 https，别的一律回落到默认。
  */
 export function resolveBundleUrl(env: Pick<SelfUpdateEnv, 'AMSG_BUNDLE_URL'>): string {
@@ -43,7 +43,7 @@ export function resolveBundleUrl(env: Pick<SelfUpdateEnv, 'AMSG_BUNDLE_URL'>): s
   } catch {
     // 不是个能解析的地址，按默认走
   }
-  console.warn('[amsg:self-update] AMSG_BUNDLE_URL 不是 https 地址，改用默认成品包');
+  console.warn('[amsg:self-update] AMSG_BUNDLE_URL 不是 https 地址，改用当前发布通道默认成品包');
   return BUNDLE_URL;
 }
 
