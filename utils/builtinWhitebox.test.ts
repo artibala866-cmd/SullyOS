@@ -152,7 +152,7 @@ describe('微信 by 白榆 full whitebox native conversion',()=>{
  it('replaces old character CSS without overlay and can set default group theme without changing sound',async()=>{
   const p=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-weixin-baiyu')!.read();
   const local=await decorationPatches(p,['layout','bubbles','background','css'],'character',{id:'c',chromeCustomCss:'.old-theme{color:red}',chatSound:{src:'ding'}} as any,{} as any);
-  expect(local.character.chromeCustomCss).toBe(p.parts.css);
+  expect(normalizeImages(await portableCssImages(local.character.chromeCustomCss!))).toBe(normalizeImages(p.parts.css!));
   expect(local.character.chromeCustomCss).not.toContain('.old-theme');
   expect(local.character.chatDecorationCssIsolated).toBe(true);
   expect(local.character.chatSound).toEqual({src:'ding'});
