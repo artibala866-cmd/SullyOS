@@ -12,14 +12,15 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   expect(Object.keys(p.parts).sort()).toEqual(['bubbles','css','layout']);
   expect(p.parts.background).toBeUndefined();
   expect(css).toContain('原生逐项适配 v7');
+  expect(css).toContain('尺寸与申请按钮适配 v8');
+  expect(css).toContain('content:"拒绝"');
+  expect(css).toContain('content:"同意"');
   expect(css).toContain('background-image:none!important');
   expect(css).not.toContain('池谕原稿视觉补全 v4');
   expect(css).not.toContain('池谕视觉回归修正 v5');
   expect(css).not.toContain('池谕顶栏文字防遮挡 v6');
   expect(css).not.toContain('viewBox%3D%220%200%20360%20780%22');
   expect(css).not.toContain('.sully-chat-group-packet{');
-  expect(css).not.toContain('content:"拒绝"');
-  expect(css).not.toContain('content:"同意"');
  });
  it('references only uploaded source images and its text',()=>{
   const css=read().parts.css!;

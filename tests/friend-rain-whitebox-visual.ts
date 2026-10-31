@@ -81,6 +81,15 @@ try {
 
  const checks={
   responsive,
+  requestLabels:cssStyle('conversation','.sully-chat-header','::before').content.includes('拒绝')
+    && cssStyle('conversation','.sully-chat-header','::after').content.includes('同意'),
+  headerTaller:(rect('conversation','.sully-chat-header')?.height||0)>=135,
+  footerCompact:(rect('conversation','.sully-chat-inputbar')?.height||0)<=96,
+  requestLabelsClearOfProfile:(()=>{
+    const header=rect('conversation','.sully-chat-header');
+    const profile=rect('conversation','.sully-chat-profile');
+    return !!header&&!!profile&&profile.right<=header.right-92;
+  })(),
   nativePrivate:!!$('conversation','.sully-chat-header')&&!!$('conversation','.sully-chat-composer'),
   nativeGroup:!!$('group','.sully-bubble-ai')&&!!$('group','.sully-bubble-user'),
   groupPacket:!!$('group','.sully-chat-group-packet'),
