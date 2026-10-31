@@ -25,6 +25,8 @@ try {
  // The live avatar must replace it without requiring users to reapply the outfit.
  const legacy=structuredClone(preset);
  legacy.parts.css += '\n.sully-chat-root:not(.sully-chat-group-root) .sully-chat-header:has(.sully-chat-back.absolute) .sully-chat-name::after{content:"";position:absolute;left:calc(50% + 5px);top:-56px;width:50px;height:50px;background:url("https://i.postimg.cc/DycRKBL9/image.jpg") center/cover no-repeat!important;}';
+ // Emulate imported previous-version sticker rules too, not just the avatar photo.
+ legacy.parts.css += '\n.sully-chat-back{background-image:url("https://i.postimg.cc/x1x7X8xD/image.png")!important}.sully-chat-back > svg{visibility:hidden!important}.sully-chat-trigger:not([title="停止生成"]){background-image:url("https://i.postimg.cc/0y2F5DCz/image.png")!important}.sully-chat-trigger:not([title="停止生成"]) > svg{visibility:hidden!important}.sully-chat-actions-button{background-image:url("https://i.postimg.cc/qMGWdjyD/image.png")!important}.sully-chat-actions-button > svg{visibility:hidden!important}.sully-chat-input-wrap button[aria-label="表情面板"]{background-image:url("https://i.postimg.cc/rwnbDsnc/image.png")!important}.sully-chat-input-wrap button[aria-label="表情面板"] > svg{visibility:hidden!important}';
  const oldScene=renderChatDecorationSample(legacy,'conversation');
  const legacySection=document.createElement('section');legacySection.className='scene';legacySection.dataset.scene='legacy-pair';
  legacySection.innerHTML='<div class="beauty-preview-body">'+oldScene.markup+'</div>';
@@ -98,7 +100,9 @@ try {
     && style('conversation','.sully-chat-input-wrap button[aria-label="表情面板"] > svg').visibility==='visible',
   oldSavedIconsReset:style('legacy-pair','.sully-chat-back').backgroundImage==='none'
     && style('legacy-pair','.sully-chat-back > svg').visibility==='visible'
-    && style('legacy-pair','.sully-chat-actions-button > svg').visibility==='visible',
+    && style('legacy-pair','.sully-chat-actions-button > svg').visibility==='visible'
+    && style('legacy-pair','.sully-chat-trigger').backgroundImage==='none'
+    && style('legacy-pair','.sully-chat-input-wrap button[aria-label="表情面板"]').backgroundImage==='none',
   phoneFits: (()=>{
     const phone=$('conversation','.sully-chat-header button[aria-label="电话"]')?.getBoundingClientRect();
     const ai=$('conversation','.sully-chat-trigger')?.getBoundingClientRect();
