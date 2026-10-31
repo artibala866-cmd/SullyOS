@@ -23,11 +23,15 @@ export function createRoomFinishPass(renderer){
     // Never touch character shaders, authored textures, or original light/shadow values.
     // Shade smooth mid-tones gently, avoid white skin highlights and black outlines.
     if(detail>.001){
-     vec3 near=(sceneColor(vUv+vec2(pixel.x,0.))+sceneColor(vUv-vec2(pixel.x,0.))
-               +sceneColor(vUv+vec2(0.,pixel.y))+sceneColor(vUv-vec2(0.,pixel.y)))*.25;
+     vec3 near=(sceneColor(vUv+vec2(pixel.x*1.5,0.))+sceneColor(vUv-vec2(pixel.x*1.5,0.))
+               +sceneColor(vUv+vec2(0.,pixel.y*1.5))+sceneColor(vUv-vec2(0.,pixel.y*1.5)))*.25;
      float weight=smoothstep(.045,.18,l)*(1.-smoothstep(.78,.98,l));
      vec3 micro=clamp(c-near,vec3(-.055),vec3(.055));
      c=max(c+micro*detail*weight,vec3(0.));
+     // ReShade-like midtone depth: deepens only existing shaded midtones.
+     // Pure blacks, skin highlights, window glare and paper-white walls stay put.
+     float shadedMidtones=smoothstep(.10,.26,l)*(1.-smoothstep(.48,.73,l));
+     c*=1.-detail*.085*shadedMidtones;
     }
     if(finishOn>.5){
      // Original finish math: unchanged, including all four time-of-day glow strengths.

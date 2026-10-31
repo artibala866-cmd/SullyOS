@@ -223,7 +223,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    }
    const mean=sum/(baseline.length/4),fraction=changed/(baseline.length/4);
    report.finishStats.push({variant:variant.id,meanDifference:mean,changedFraction:fraction});
-   if(mean<.04||mean>12||fraction<.005||fraction>.85)
+   if(mean<.18||mean>12||fraction<.025||fraction>.85)
     throw Error('Unsafe or invisible detail filter '+variant.id+': '+JSON.stringify({mean,fraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
