@@ -1,4 +1,4 @@
-import CharacterImagePanel from '../components/character/CharacterImagePanel';
+import CharacterImagePanel, { clearCharacterImageProfile, writeCharacterImageProfile } from '../components/character/CharacterImagePanel';
 import { readLifeClock, writeLifeClock } from '../utils/sullyLifeClock';
 import CharacterApiPanel from '../components/character/CharacterApiPanel';
 import CharacterSettingsSection from '../components/character/CharacterSettingsSection';
@@ -25,7 +25,7 @@ import { MemoryNodeDB } from '../utils/memoryPalace/db';
 import { applyLinkedArchiveDeletion, LINKED_ARCHIVE_DELETED, type LinkedArchiveDeletionDetail } from '../utils/memoryPalace/linkedArchiveDeletion';
 import ChibiStudio, { ChibiShelfPanel } from '../components/character/ChibiStudio';
 import TokenImg from '../components/os/TokenImg';
-import { resolveBlobRefsDeep, migrateDataUrlToRef, putImageBlob, deleteBlobRef } from '../utils/blobRef';
+import { resolveBlobRefsDeep, migrateDataUrlToRef, putImageBlob, deleteBlobRef, dataUrlToBlob } from '../utils/blobRef';
 import { characterLaunch } from '../utils/characterLaunch';
 import { safeFetchJson, extractContent } from '../utils/safeApi';
 import { fetchMiniMaxVoices, MiniMaxVoiceItem } from '../utils/minimaxVoice';
@@ -1194,6 +1194,7 @@ ${isInitialGeneration ? `
       if (chosen.length === 0) { addToast('请至少选择一个角色', 'error'); return; }
       setSavingCard(true);
       const createdAvatars: string[] = [];
+      const stagedImageProfiles: string[] = [];
       let databaseCommitted = false;
       try {
           const charactersToSave: CharacterProfile[] = [];
@@ -1211,6 +1212,20 @@ ${isInitialGeneration ? `
                   const imageFile = new File([sourceImage], 'imported-avatar.png', { type: sourceImage.type });
                   avatar = await putImageBlob(await processImageToBlob(imageFile, { maxWidth: 900 }));
                   createdAvatars.push(avatar);
+              }
+              if (prepared.source === 'babylink-character' && prepared.imageProfile) {
+                  // BabyLink is a phone card: migrate face-lock and wardrobe into
+                  // Sully's existing per-character image settings, not the AI persona.
+                  const incoming = prepared.imageProfile;
+                  let reference = incoming.reference || '';
+                  if (reference.startsWith('data:image/')) {
+                      reference = await putImageBlob(dataUrlToBlob(reference));
+                      createdAvatars.push(reference);
+                  }
+                  // Stage this *before* the IndexedDB batch commit. An unavailable
+                  // localStorage must abort the import, not silently lose face lock.
+                  writeCharacterImageProfile(newId, { ...incoming, reference });
+                  stagedImageProfiles.push(newId);
               }
               const mounted = prepared.worldbooks.map(toMountedWorldbook);
               for (const book of prepared.worldbooks) booksToSave.set(book.id, book);
@@ -1241,8 +1256,13 @@ ${isInitialGeneration ? `
           addToast('已导入 ' + charactersToSave.length + ' 个角色，世界书 ' + libraryBooks.length + ' 条', 'success');
           window.setTimeout(() => window.location.reload(), 450);
       } catch (error: any) {
-          if (!databaseCommitted) for (const token of createdAvatars) {
-              try { await deleteBlobRef(token); } catch {}
+          if (!databaseCommitted) {
+              for (const id of stagedImageProfiles) {
+                  try { clearCharacterImageProfile(id); } catch {}
+              }
+              for (const token of createdAvatars) {
+                  try { await deleteBlobRef(token); } catch {}
+              }
           }
           console.error('[Character Card] Save failed', error);
           addToast(error?.message || '导入失败，未保存角色', 'error');
