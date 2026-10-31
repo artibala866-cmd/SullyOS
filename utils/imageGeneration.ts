@@ -91,7 +91,9 @@ const readNovelImage = async (blob: Blob): Promise<Blob> => {
   const { default: JSZip } = await import('jszip');
   let archive: InstanceType<typeof JSZip>;
   try {
-    archive = await JSZip.loadAsync(blob);
+    // JSZip accepts Uint8Array consistently across browsers and Node; some
+    // Blob implementations are not recognized, even when the ZIP is valid.
+    archive = await JSZip.loadAsync(new Uint8Array(await blob.arrayBuffer()));
   } catch {
     throw new Error('NAI 返回的 ZIP 已损坏或无法解压');
   }
