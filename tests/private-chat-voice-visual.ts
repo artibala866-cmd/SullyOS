@@ -51,7 +51,9 @@ void (async()=>{try{
  // Persist one genuine WAV in the same IndexedDB Blob store used by Chat.
  const actual=document.createElement('section');actual.className='scene';actual.dataset.scene='real-audio';
  actual.innerHTML='<h2>真实录音：可播放的原声音频和转写</h2><div class="voice-example"></div>';root.appendChild(actual);
+ root.dataset.voiceVisualStage='saving-wav';
  const ref=await putImageBlob(encodeWavFromFloat32(new Float32Array(16000), 16000));
+ root.dataset.voiceVisualStage='wav-saved';
  const audioRoot=createRoot(actual.querySelector('.voice-example')!);
  flushSync(()=>audioRoot.render(React.createElement(UserVoiceBubble, {message: {
   id:13,charId:'preview',role:'user',type:'voice',timestamp:Date.now(),content:'这是实际保存的录音',
