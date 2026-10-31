@@ -4,6 +4,14 @@ on:
     branches: [remove-checkphone-vrworld-lifesim]
     paths:
       - 'presets/chat/weixin-baiyu.json'
+      - 'apps/Chat.tsx'
+      - 'apps/GroupChat.tsx'
+      - 'components/chat/BlobRefStyle.tsx'
+      - 'components/chat/ChatDecorationSample.tsx'
+      - 'components/chat/ChatHeaderShell.tsx'
+      - 'components/chat/ChatInputArea.tsx'
+      - 'components/chat/ChatImage.tsx'
+      - 'components/chat/MessageItem.tsx'
       - 'utils/builtinWhitebox.ts'
       - 'utils/builtinWhitebox.test.ts'
       - 'tests/weixin-whitebox-visual.*'
