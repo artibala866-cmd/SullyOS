@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { gzipSync } from 'node:zlib';
 import type { CharacterProfile, UserProfile } from '../types';
 import { ContextBuilder } from './context';
 import { extractBabyLinkCompressed, normalizeBabyLinkShare } from './babyLinkCard';
+import { readCharacterCardFile } from './sillyTavernCard';
+import { DB } from './db';
 import { isWorldbookEntryActive, toMountedWorldbook } from './worldbook';
 
 const entry = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -78,9 +80,51 @@ describe('BabyLink 1.1.10 share conversion', () => {
         const card = normalizeBabyLinkShare(share([char('甲', ['one'])], [
             book('one', true, [entry('priority', { activation: 'priority', position: 'after-chat' })]),
         ]));
-        expect(card.cards[0].worldbooks[0]).toMatchObject({ constant: true, position: 1, order: -9900 });
+        expect(card.cards[0].worldbooks[0]).toMatchObject({ constant: true, position: 4, depth: 0, role: 0, order: -9900 });
         expect(card.warnings.join(' ')).toContain('无法完全等价');
     });
+    it('inserts after-chat worldbook after the latest user message in the real request', async () => {
+        const bundle = normalizeBabyLinkShare(share([char('对话角色', ['last'])], [
+            book('last', true, [entry('对话后内容', { activation: 'constant', position: 'after-chat', depth: 5 })]),
+        ]));
+        const source = bundle.cards[0];
+        const messages = await ContextBuilder.buildCharacterRequest({
+            char: { ...source.character, id: 'bl-after-chat', avatar: '', memories: [],
+                mountedWorldbooks: source.worldbooks.map(toMountedWorldbook) } as CharacterProfile,
+            user: { name: '测试用户', bio: '' } as UserProfile,
+        }, [{ role: 'user', content: '最后一条用户消息' }]);
+        expect(messages.slice(-2)).toEqual([
+            { role: 'user', content: '最后一条用户消息' },
+            { role: 'system', content: '正文：对话后内容' },
+        ]);
+    });
+    it('rejects non-local books and accepts the full 256 local book references', () => {
+        expect(() => normalizeBabyLinkShare(share([char('甲', ['x'])], [
+            { ...book('x'), scope: 'global-online' },
+        ]))).toThrow('非角色私有');
+        const books = Array.from({ length: 256 }, (_, i) => book('b' + i, true, []));
+        const selected = books.map(b => b.id);
+        expect(normalizeBabyLinkShare(share([char('甲', selected)], books)).cards[0].worldbooks).toHaveLength(0);
+    });
+    it('atomically saves multiple characters and shared lorebook IDs; failures leave no partial data', async () => {
+        const bundle = normalizeBabyLinkShare(share([char('角色甲', ['share']), char('角色乙', ['share'])], [
+            book('share', true, [entry('共享条目')]),
+        ]));
+        const stamp = 'baby-' + crypto.randomUUID();
+        const profiles = bundle.cards.map((card, index) => ({
+            ...card.character, id: stamp + '-' + index, avatar: '', memories: [],
+            mountedWorldbooks: card.worldbooks.map(toMountedWorldbook),
+        } as CharacterProfile));
+        const books = bundle.cards[0].worldbooks;
+        await DB.importCharacterCardsAtomic(profiles, books);
+        expect((await DB.getCharacter(profiles[0].id))?.mountedWorldbooks?.[0].id).toBe(books[0].id);
+        expect((await DB.getCharacter(profiles[1].id))?.mountedWorldbooks?.[0].id).toBe(books[0].id);
+        const partial = { ...profiles[0], id: stamp + '-partial' };
+        await expect(DB.importCharacterCardsAtomic([partial, profiles[0]], [])).rejects.toBeTruthy();
+        expect(await DB.getCharacter(partial.id)).toBeUndefined();
+        expect((await DB.getAllWorldbooks()).filter(b => b.id === books[0].id)).toHaveLength(1);
+    });
+
     it('rejects invalid IDs, enums and excessive payloads without partial results', () => {
         expect(() => normalizeBabyLinkShare(share([char('甲', ['x'])], [book('x'), book('x')]))).toThrow('重复');
         expect(() => normalizeBabyLinkShare(share([char('甲', ['x'])], [book('x', true, [entry('wrong', { activation: 'regex' })])]))).toThrow('激活模式');
@@ -126,6 +170,13 @@ describe('APK-compatible RGB LSB extraction', () => {
         bytes.set(compressed, 4);
         const pixels = encodePixels(bytes);
         expect(extractBabyLinkCompressed(pixels)).toEqual(Uint8Array.from(compressed));
+    });
+    it('detects recognizable gzip when the four-byte payload length is corrupted', () => {
+        const compressed = Uint8Array.from(gzipSync(Buffer.from('{}')));
+        const bytes = new Uint8Array(4 + compressed.length);
+        new DataView(bytes.buffer).setUint32(0, compressed.length + 10000000, false);
+        bytes.set(compressed, 4);
+        expect(() => extractBabyLinkCompressed(encodePixels(bytes))).toThrow('长度信息损坏');
     });
     it('rejects broken gzip and does not pretend to import arbitrary screenshots', () => {
         const bytes = new Uint8Array([0, 0, 0, 4, 99, 99, 99, 99]);
