@@ -47,7 +47,33 @@ try {
  const rect=(scene:string,sel:string)=>$(scene,sel)?.getBoundingClientRect();
  const overlap=(a:DOMRect|undefined,b:DOMRect|undefined)=>!!a&&!!b&&a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
  const cssStyle=(scene:string,sel:string,pseudo?:string)=>{const el=$(scene,sel);if(!el)throw Error('missing '+scene+' '+sel);return getComputedStyle(el,pseudo)};
+
+ // Responsive layout is measured with real browser boxes, not guessed CSS strings.
+ const responsive=[320,360,390,430].every(width=>{
+  const section=root.querySelector<HTMLElement>('[data-scene="conversation"]');
+  const body=section?.querySelector<HTMLElement>('.beauty-preview-body');
+  const app=section?.querySelector<HTMLElement>('.sample-chat');
+  if(!section||!body||!app)return false;
+  const prior=[section.style.width,body.style.width,app.style.width];
+  section.style.width=width+'px';body.style.setProperty('width',width+'px','important');app.style.width=width+'px';
+  const grab=(s:string)=>app.querySelector<HTMLElement>(s);
+  const R=(s:string)=>grab(s)?.getBoundingClientRect();
+  const back=R('.sully-chat-back'),profile=R('.sully-chat-profile'),lightning=R('.sully-chat-trigger');
+  const plus=R('.sully-chat-actions-button'),mic=R('.sully-chat-voice-trigger');
+  const face=R('.sully-chat-input-wrap button[aria-label="表情面板"]'),send=R('.sully-chat-send-button');
+  const textarea=R('.sully-chat-textarea'),composer=R('.sully-chat-composer');
+  const good=!!back&&!!profile&&!!lightning&&!!plus&&!!mic&&!!face&&!!send&&!!textarea&&!!composer
+   && !overlap(back,profile)&&!overlap(profile,lightning)
+   && !overlap(mic,face)&&!overlap(face,send)
+   && !overlap(plus,textarea)&&textarea.width>=90
+   && mic.left>=composer.left&&send.right<=composer.right+2
+   && plus.left>=composer.left;
+  section.style.width=prior[0];body.style.width=prior[1];app.style.width=prior[2];
+  return good;
+ });
+
  const checks={
+  responsive,
   nativePrivate:!!$('conversation','.sully-chat-header')&&!!$('conversation','.sully-chat-composer'),
   nativeGroup:!!$('group','.sully-bubble-ai')&&!!$('group','.sully-bubble-user'),
   groupPacket:!!$('group','.sully-chat-group-packet'),
