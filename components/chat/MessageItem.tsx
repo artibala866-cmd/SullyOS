@@ -333,7 +333,7 @@ export const ThinkingChainBlock: React.FC<{
                     <span className="sully-psyche-author-name">{authorName}</span>
                     <span className="sully-psyche-author-handle">@Evilove</span>
                 </div>}
-                {/* 四角装饰括号 */
+                {/* 四角装饰括号 */}
                 {spec.showCorners && (
                     <>
                         <span aria-hidden className="absolute top-1 left-1 w-2 h-2 border-t border-l pointer-events-none" style={{ borderColor: spec.accent }} />
