@@ -61,6 +61,21 @@ try{
  await send('Runtime.enable');
  const until=Date.now()+420000; // full seat/bed/prop actions plus bath contact-stage screenshots in software WebGL
  const captured=new Set();
+ async function captureRealFrame(stage){
+  // The software WebGL compositor can time out during expensive frame copies.
+  // Retry via Chromium's viewport screenshot path, never reusing old pixels.
+  try{
+   return await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  }catch(first){
+   console.warn('Surface capture timed out for '+stage+': '+String(first));
+   const response=await send('Page.captureScreenshot',{
+    format:'png',fromSurface:false,captureBeyondViewport:false,
+    clip:{x:0,y:0,width:960,height:600,scale:1}
+   });
+   if(!response?.data)throw Error('Real WebGL fallback capture empty: '+stage);
+   return response;
+  }
+ }
  while(Date.now()<until){
   const result=await send('Runtime.evaluate',{expression:'JSON.stringify(window.__home3dSmoke ?? {status:"starting",stage:"waiting for module"})',returnByValue:true});
   const value=result?.result?.value;
@@ -70,7 +85,8 @@ try{
   // These are reviewable evidence, NOT a computer-vision pass/fail verdict.
   const stage=report.captureStage;
   if(stage&&/^[a-z0-9-]{3,40}$/.test(stage)&&!captured.has(stage)){
-   const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+   console.info('WebGL screenshot stage: '+stage);
+   const shot=await captureRealFrame(stage);
    if(!shot?.data)throw Error('Cannot capture the real WebGL frame: '+stage);
    const bytes=Buffer.from(shot.data,'base64');
    if(stage.endsWith('-side')){
@@ -84,7 +100,7 @@ try{
   if(['pass','fail'].includes(report.status))break;
   await delay(1100);
  }
- const screenshot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+ const screenshot=await captureRealFrame('final-scene');
  if(screenshot?.data)writeFileSync(join(output,'scene.png'),Buffer.from(screenshot.data,'base64'));
  writeFileSync(join(output,'result.json'),JSON.stringify(report,null,2));
  console.info('Home3D browser smoke:',JSON.stringify(report));
