@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {resolveCssImageUrls} from '../../utils/cssImageAssets';
 import silentLetter from '../../presets/chat/silent-letter-dark.json';
+import weixinBaiyu from '../../presets/chat/weixin-baiyu.json';
 
 /** Previously applied whitebox CSS is persisted per character or globally. Changing
  * a bundled preset does not update that copy. Upgrade only CSS bearing the known
@@ -25,9 +26,25 @@ export function resolveLegacySilentLetterCss(css: string): string {
 }
 
 
+/** Already-applied whitebox CSS lives on the character/theme, not in the preset.
+ * Bring the original reply lightning back without discarding custom additions or cached images.
+ * The repaired built-in does not need migration; only the recognizable older copies do.
+ */
+const WEIXIN_BAIYU_SIGNATURE = '/* 微信 by 白榆 · SullyOS 原生白框整套转换';
+const WEIXIN_HEADER_FIX = '/* 白榆顶栏原生闪电修复 v2';
+export function isWeixinBaiyuCss(css?: string): boolean {
+    return !!css?.includes(WEIXIN_BAIYU_SIGNATURE);
+}
+export function resolveLegacyWeixinBaiyuCss(css: string): string {
+    if (!isWeixinBaiyuCss(css) || css.includes(WEIXIN_HEADER_FIX)) return css;
+    const start = weixinBaiyu.parts.css.indexOf(WEIXIN_HEADER_FIX);
+    if (start < 0) return css;
+    return css + '\\n' + weixinBaiyu.parts.css.slice(start);
+}
+
 /** Keep persisted CSS independent of the short-lived browser object URLs. */
 export default function BlobRefStyle({css}: {css: string}) {
-    const effectiveCss = resolveLegacySilentLetterCss(css);
+    const effectiveCss = resolveLegacyWeixinBaiyuCss(resolveLegacySilentLetterCss(css));
     const [resolved, setResolved] = useState<{source: string; css: string; alive: () => boolean} | null>(null);
     useEffect(() => {
         if (!effectiveCss.includes('blobref:')) return;
