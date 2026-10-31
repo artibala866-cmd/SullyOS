@@ -29,11 +29,20 @@ jobs:
             "sticker:https://nos.netease.com/vcloud-statistic/nrtc/da835c40-d3c7-4462-ad4b-5c598284837b.png"
             "action:https://nos.netease.com/vcloud-statistic/nrtc/4f7329f5-0fbc-4871-98ea-b2223db71efb.png"
             "microphone:https://nos.netease.com/vcloud-statistic/nrtc/59f469f5-0c70-43ce-ae1e-4c633e9a4e9a.png"
+            "transfer-pending:https://i.postimg.cc/j5CqLH5J/wu-biao-ti38-20260205143013.png"
+            "transfer-received:https://nos.netease.com/ysf/032ae26e2e69a232d3bb904047b34e38.png"
+            "transfer-returned:https://nos.netease.com/ysf/0b5a28d77f1934fdcc6750fd8f9897c6.png"
+            "transfer-expired:https://nos.netease.com/ysf/dfbb30c0b7383f9209c03597b101adfe.png"
+            "packet-pending:https://nos.netease.com/vcloud-statistic/nrtc/502c92ad-2fb3-4986-ad5a-c258cb0c15ce.png"
+            "packet-opened:https://nos.netease.com/vcloud-statistic/nrtc/8e1469a7-4edf-421b-85d8-70eedf36dfb5.png"
           )
           for item in "${urls[@]}"; do
             name="${item%%:*}"
             url="${item#*:}"
-            curl --fail --location --retry 2 --max-time 18 --silent --show-error "$url" -o "/tmp/wy-${name}.png"
+            if ! curl --fail --location --retry 2 --max-time 18 --silent --show-error "$url" -o "/tmp/wy-${name}.png"; then
+              echo "::warning::Could not fetch original ${name}; preserve existing local assets"
+              continue
+            fi
             python - "$name" <<'PY'
           from PIL import Image
           import sys
