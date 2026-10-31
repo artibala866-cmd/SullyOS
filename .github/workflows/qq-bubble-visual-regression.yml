@@ -1,0 +1,75 @@
+name: QQ bubble visual and functional regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'components/chat/MessageItem.tsx'
+      - 'components/chat/ChatConstants.ts'
+      - 'components/chat/ChatDecorationSample.tsx'
+      - 'utils/qqBubbleTheme.ts'
+      - 'utils/qqBubbleTheme.test.ts'
+      - 'tests/qq-bubble-visual.html'
+      - 'tests/qq-bubble-visual.ts'
+      - '.github/workflows/qq-bubble-visual-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: qq-bubble-visual-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run QQ theme, quote, translation, and media regression tests
+        run: pnpm exec vitest run utils/qqBubbleTheme.test.ts
+      - name: Build real chat decoration sample CSS
+        run: pnpm run build:chat-preview
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Render real private chat components in Chromium at mobile width
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/qq-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:5173/tests/qq-bubble-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage \
+            --disable-gpu --window-size=430,900 --virtual-time-budget=10000 \
+            --dump-dom "http://127.0.0.1:5173/tests/qq-bubble-visual.html" > /tmp/qq-visual-dom.html 2>/tmp/qq-chrome.log || true
+          if ! grep -q 'data-qq-rendered="true"' /tmp/qq-visual-dom.html; then
+            tail -80 /tmp/qq-vite.log || true
+            tail -40 /tmp/qq-chrome.log || true
+            grep -o '<output id="qq-visual-smoke"[^<]*[^<]*' /tmp/qq-visual-dom.html || true
+            exit 1
+          fi
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage \
+            --disable-gpu --hide-scrollbars --window-size=430,900 --virtual-time-budget=10000 \
+            --screenshot="$GITHUB_WORKSPACE/qq-bubble-real-components.png" \
+            "http://127.0.0.1:5173/tests/qq-bubble-visual.html"
+          test -s qq-bubble-real-components.png
+          echo "Actual MessageItem-based QQ visual screenshot generated."
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qq-bubble-real-mobile-screenshot
+          path: qq-bubble-real-components.png
+          if-no-files-found: ignore
+          retention-days: 7
