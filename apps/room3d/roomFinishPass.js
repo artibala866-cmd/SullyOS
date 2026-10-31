@@ -7,22 +7,32 @@ export function createRoomFinishPass(renderer){
  let texture=null,halo=null,width=0,height=0;const size=new T.Vector2();
  // The illustrated look reuses its ONE original room draw with a hardware
  // depth attachment. Other styles still use the original framebuffer path.
- let sceneBuffer=null,defocused=null,captured=false;
+ let sceneBuffer=null,blurHorizontal=null,defocused=null,captured=false;
+ // Separable, compact Gaussian blur: neighboring pixels contribute a smooth
+ // continuous profile, never eight detached silhouette copies. Depth weights
+ // prevent foreground people from bleeding into the distant room.
  const depthBlurMaterial=new T.ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,
-  uniforms:{source:{value:null},depth:{value:null},pixel:{value:new T.Vector2()},radius:{value:8}},
+  uniforms:{source:{value:null},depth:{value:null},texel:{value:new T.Vector2()},direction:{value:new T.Vector2(1,0)},radius:{value:1.5}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
-  fragmentShader:`varying vec2 vUv;uniform sampler2D source;uniform sampler2D depth;uniform vec2 pixel;uniform float radius;
+  fragmentShader:`varying vec2 vUv;uniform sampler2D source;uniform sampler2D depth;
+   uniform vec2 texel;uniform vec2 direction;uniform float radius;
    vec3 readSource(vec2 uv){return texture2D(source,clamp(uv,vec2(0.),vec2(1.))).rgb;}
    void main(){
     float centerDepth=texture2D(depth,vUv).r;
-    vec3 sum=readSource(vUv)*.8;float weight=.8;
-    for(int i=0;i<8;i++){
-     float angle=float(i)*.78539816;
-     vec2 uv=clamp(vUv+vec2(cos(angle),sin(angle))*pixel*radius,vec2(0.),vec2(1.));
-     float tap=.65*(1.-smoothstep(.004,.022,abs(texture2D(depth,uv).r-centerDepth)));
-     sum+=readSource(uv)*tap;weight+=tap;
+    vec3 weightedColor=readSource(vUv)*.38;
+    float sumWeight=.38;
+    for(int j=1;j<=3;j++){
+     float k=float(j);
+     float w=j==1?.24:j==2?.065:.005;
+     vec2 offset=direction*texel*radius*k;
+     vec2 uvPlus=clamp(vUv+offset,vec2(0.),vec2(1.));
+     vec2 uvMinus=clamp(vUv-offset,vec2(0.),vec2(1.));
+     float nearPlus=1.-smoothstep(.001,.008,abs(texture2D(depth,uvPlus).r-centerDepth));
+     float nearMinus=1.-smoothstep(.001,.008,abs(texture2D(depth,uvMinus).r-centerDepth));
+     weightedColor+=readSource(uvPlus)*(w*nearPlus)+readSource(uvMinus)*(w*nearMinus);
+     sumWeight+=w*(nearPlus+nearMinus);
     }
-    gl_FragColor=vec4(sum/max(weight,.001),1.);
+    gl_FragColor=vec4(weightedColor/max(sumWeight,.001),1.);
    }`});
  const depthBlurQuad=new FullScreenQuad(depthBlurMaterial);
  const glowMaterial=new T.ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,
@@ -126,13 +136,16 @@ export function createRoomFinishPass(renderer){
   renderer.getDrawingBufferSize(size);
   if(sceneBuffer&&(sceneBuffer.width!==size.x||sceneBuffer.height!==size.y)){
    sceneBuffer.depthTexture.dispose();sceneBuffer.dispose();sceneBuffer=null;
+   blurHorizontal?.dispose();blurHorizontal=null;
    defocused?.dispose();defocused=null;
   }
   if(!sceneBuffer){
    sceneBuffer=new T.WebGLRenderTarget(size.x,size.y,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,depthBuffer:true,stencilBuffer:false,colorSpace:T.SRGBColorSpace});
    sceneBuffer.depthTexture=new T.DepthTexture(size.x,size.y,T.UnsignedIntType);
    sceneBuffer.depthTexture.format=T.DepthFormat;
-   defocused=new T.WebGLRenderTarget(Math.max(1,Math.ceil(size.x/2)),Math.max(1,Math.ceil(size.y/2)),{depthBuffer:false,stencilBuffer:false,minFilter:T.LinearFilter,magFilter:T.LinearFilter});
+   const blurWidth=Math.max(1,Math.ceil(size.x/2)),blurHeight=Math.max(1,Math.ceil(size.y/2));
+   blurHorizontal=new T.WebGLRenderTarget(blurWidth,blurHeight,{depthBuffer:false,stencilBuffer:false,minFilter:T.LinearFilter,magFilter:T.LinearFilter});
+   defocused=new T.WebGLRenderTarget(blurWidth,blurHeight,{depthBuffer:false,stencilBuffer:false,minFilter:T.LinearFilter,magFilter:T.LinearFilter});
   }
  }
  return {
@@ -173,14 +186,20 @@ export function createRoomFinishPass(renderer){
   const clear=renderer.autoClear,target=withDepth?null:renderer.getRenderTarget();renderer.autoClear=false;
   try{
    if(withDepth&&depthStrength>0){
-    depthBlurMaterial.uniforms.source.value=sceneBuffer.texture;
     depthBlurMaterial.uniforms.depth.value=sceneBuffer.depthTexture;
-    depthBlurMaterial.uniforms.pixel.value.set(1/width,1/height);
-    depthBlurMaterial.uniforms.radius.value=T.MathUtils.clamp(Math.min(width,height)*.038,7,24);
+    // Radius is expressed in half-resolution texels. Clamp it on Android:
+    // a broad 24px ring produced the reported window/wardrobe ghosts.
+    depthBlurMaterial.uniforms.radius.value=T.MathUtils.clamp(Math.min(width,height)*.005,1.05,2.1);
+    depthBlurMaterial.uniforms.texel.value.set(1/blurHorizontal.width,1/blurHorizontal.height);
+    depthBlurMaterial.uniforms.source.value=sceneBuffer.texture;
+    depthBlurMaterial.uniforms.direction.value.set(1,0);
+    renderer.setRenderTarget(blurHorizontal);depthBlurQuad.render(renderer);
+    depthBlurMaterial.uniforms.source.value=blurHorizontal.texture;
+    depthBlurMaterial.uniforms.direction.value.set(0,1);
     renderer.setRenderTarget(defocused);depthBlurQuad.render(renderer);
    }
    if(baseFinish&&!illustrated){renderer.setRenderTarget(halo);glowQuad.render(renderer);}
    renderer.setRenderTarget(target);quad.render(renderer);
   }finally{renderer.setRenderTarget(target);renderer.autoClear=clear;}
- },dispose(){texture?.dispose();halo?.dispose();sceneBuffer?.depthTexture?.dispose();sceneBuffer?.dispose();defocused?.dispose();depthBlurQuad.dispose();depthBlurMaterial.dispose();glowQuad.dispose();glowMaterial.dispose();quad.dispose();material.dispose();}};
+ },dispose(){texture?.dispose();halo?.dispose();sceneBuffer?.depthTexture?.dispose();sceneBuffer?.dispose();blurHorizontal?.dispose();defocused?.dispose();depthBlurQuad.dispose();depthBlurMaterial.dispose();glowQuad.dispose();glowMaterial.dispose();quad.dispose();material.dispose();}};
 }
