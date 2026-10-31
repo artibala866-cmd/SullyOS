@@ -5,6 +5,9 @@ on:
     paths:
       - 'presets/chat/friend-request-rain.json'
       - 'utils/builtinWhitebox.ts'
+      - 'components/chat/BlobRefStyle.tsx'
+      - 'components/chat/ChatDecorationSample.tsx'
+      - 'components/chat/MessageItem.tsx'
       - 'utils/friendRequestRainWhitebox.test.ts'
       - 'utils/builtinWhitebox.test.ts'
       - 'tests/friend-rain-whitebox-visual.*'
