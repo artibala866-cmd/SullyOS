@@ -1,0 +1,1035 @@
+/*⁣‍‌‍‍​‍‌‍⁠‍⁠⁠⁠⁠‍‍​​⁠​​‌⁠‍​‌‍‍‌‌‍‍‌⁠​⁠‌‌​‍​‌‌‌‍​‌‍‍‌‍‍⁠⁠‍⁠​‌⁠⁠⁠​​​⁣ ==========================================
+全局变量与间距控制
+========================================== */
+:root {
+  /* 换人说话时的间距（你和对方气泡之间的距离） */
+  --plain-gap-between-groups: 28px;
+  
+  /* 把官方的连发间距清零，我们下面自己写 */
+  --plain-gap-within-group: 0px;
+  /*放开整个消息外壳的最大宽度 */
+  --plain-content-max-width: 85%; 
+  --input-area-min-height: 80px;
+}
+
+/* 1. 自己连发时的间距（除了最后一条，每条下面加空隙） */
+.msg-bubble-wrapper.msg-me.is-first,
+.msg-bubble-wrapper.msg-me.is-mid {
+  margin-bottom: 8px !important; /* 调你这边的连发间距 */
+}
+
+/* 2. 对方连发时的间距（除了最后一条，每条下面加空隙） */
+.msg-bubble-wrapper.msg-them.is-first,
+.msg-bubble-wrapper.msg-them.is-mid {
+  margin-bottom: 10px !important; /* 调对方的连发间距 */
+}
+/* ==========================================
+顶栏：好友申请卡片样式
+========================================== */
+
+/* 1. 顶栏底座：终极自适应版 (保住底部白色高度) */
+.chat-header-custom {
+  /* 总高度 = 固定内容高度(140px) + 安全距离。安卓是140，苹果是140+刘海 */
+  height: calc(82px + env(safe-area-inset-top)) !important;
+  /* 从下往上渐变：底部固定 80px 是白色，80px 以上全透明透出图片 */
+  background-image: linear-gradient(to top, #ffffff 58px, transparent 58px), url('https://nos.netease.com/ysf/73e0368b5bd87713b3c6506c4989f43a.jpeg') !important;
+  background-size: 100% 100%, cover !important;
+  background-position: top center !important;
+  background-repeat: no-repeat !important;
+  border-bottom-left-radius: 0px !important;
+  border-bottom-right-radius: 0px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+  align-items: flex-end !important;
+  padding-bottom: 14px !important;
+}
+
+/* 2. 拍立得头像 */
+.header-profile-section {
+  align-items: flex-start !important;
+  margin-bottom: -5px !important;
+  padding-left: 16px !important;
+}
+.header-avatar-container {
+  width: 68px !important;
+  height: 68px !important;
+  background-color: #fff !important;
+  padding: 4px 4px 10px 4px !important;
+  border-radius: 2px !important;
+  border: 1px solid #eee !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1) !important;
+  transform: rotate(-3deg) !important;
+  margin-top: 22px !important;
+  margin-right: 12px !important;
+  margin-left: -26px !important; /* 头像往左挪 */
+}
+.header-avatar-container img {
+  border-radius: 0 !important;
+}
+
+/* 3. 名字与副标题 */
+.chat-header-title {
+  position: absolute !important; 
+  bottom: 12px !important; /* 关键：改成 bottom，从下往上量。数字你自己微调 */
+  top: auto !important; /* 清除之前的 top */
+  left: 124px !important; 
+  font-size: 16px !important;
+  letter-spacing: -0.5px !important;
+  white-space: nowrap !important; 
+  /* ⬇️ 加上这三行防身 ⬇️ */
+  max-width: 130px !important; /* 最大宽度，具体数字你看着按钮的距离微调 */
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.chat-header-subtitle {
+  font-size: 0 !important; 
+}
+.chat-header-title::after {
+  content: "\A请求添加你为好友";
+  white-space: pre;
+  font-size: 12px;
+  color: #999;
+  display: block;
+  font-weight: normal;
+  margin-top: -18px;
+}
+
+/* 4. 顶栏按钮：返回、隐藏的电话、拒绝、同意 */
+.header-btn-back {
+  position: relative !important;
+  top: 20px !important;
+  left: -6px !important;
+}
+.header-btn-video svg, 
+.header-btn-info svg,
+.header-btn-phone svg {
+  display: none !important;
+}
+
+/* 隐藏但可点击的暗门（电话键） */
+.header-btn-phone {
+  display: block !important;
+  opacity: 0 !important; 
+  width: 30px !important; 
+  height: 32px !important;
+  margin-right: 4px !important; 
+  background: transparent !important;
+  transform: translateX(6px) !important; /* 整体往左移 */
+}
+
+.header-btn-video {
+  background-color: #f0f0f0 !important;
+  border-radius: 4px !important;
+  padding: 6px 12px !important;
+  width: auto !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-right: 10px !important;
+  white-space: nowrap !important; 
+  transform: translateX(4px) !important; /* 整体往左移 */
+}
+.header-btn-video::after {
+  content: "拒绝" !important;
+  font-size: 13px !important;
+  color: #666 !important;
+  font-weight: bold !important;
+}
+.header-btn-info {
+  display: flex !important;
+  background-color: #252525 !important;
+  border-radius: 4px !important;
+  padding: 6px 12px !important;
+  width: auto !important;
+  height: 32px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important; 
+  transform: translateX(-6px) !important; /* 整体往左移 */
+}
+.header-btn-info::after {
+  content: "同意" !important;
+  font-size: 13px !important;
+  color: #fff !important;
+  font-weight: bold !important;
+}
+
+/* ==========================================
+气泡装饰：渐变小爱心 (5颗版，11px)
+========================================== */
+/* 1. 自己发的消息（浅灰 -> 黑，顶部靠右） */
+.msg-plain-me.plain-first::after,
+.msg-plain-me.plain-single::after {
+  content: "" !important;
+  position: absolute !important;
+  top: -13px !important; 
+  right: 6px !important; 
+  width: 63px !important; 
+  height: 11px !important;
+  background-image: 
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23eeeeee'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23cccccc'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23999999'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23555555'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23111111'/%3E%3C/svg%3E") !important;
+  background-size: 11px 11px, 11px 11px, 11px 11px, 11px 11px, 11px 11px !important;
+  background-position: 0 0, 13px 0, 26px 0, 39px 0, 52px 0 !important;
+  background-repeat: no-repeat !important;
+  z-index: 10 !important;
+}
+
+/* 2. 对方发的消息（黑 -> 浅灰，顶部靠左） */
+.msg-plain-them.plain-first::after,
+.msg-plain-them.plain-single::after {
+  content: "" !important;
+  position: absolute !important;
+  top: -13px !important; 
+  left: 6px !important; 
+  width: 63px !important;
+  height: 11px !important;
+  background-image: 
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23111111'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23555555'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23999999'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23cccccc'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23eeeeee'/%3E%3C/svg%3E") !important;
+  background-size: 11px 11px, 11px 11px, 11px 11px, 11px 11px, 11px 11px !important;
+  background-position: 0 0, 13px 0, 26px 0, 39px 0, 52px 0 !important;
+  background-repeat: no-repeat !important;
+  z-index: 10 !important;
+}
+
+  /* 开启独立引用条（必须带上这两行） */
+  .msg-reply-block { display: none !important; }
+  .msg-reply-block-detached { display: flex !important; }
+
+/* ==========================================
+  方案二：不加底色，纯文字带 >> 符号
+  ========================================== */
+  .chat-detail-screen {
+    --reply-detached-bg: transparent;
+    --reply-detached-padding: 2px 4px;
+    --reply-detached-margin-top: 4px;
+    --reply-detached-radius: 0px;
+    /* 在最前面强行加上 >> 符号 */
+    --reply-detached-before-content: ">> ";
+
+    /* 因为没有底色，文字直接显示在聊天背景上，统一用深灰色比较清晰 */
+    --reply-detached-name-color: #555555;
+    --reply-detached-text-color: #888888;
+  }
+/* 修复方案二引用位置不靠边 */
+
+.msg-reply-detached-me {
+  margin-right: -8px !important; /* 我方引用往左推 */
+}
+
+/* ==========================================
+旁白：大引号设计 (终极防切断+对称版)
+========================================== */
+.chat-detail-screen {
+  --narration-bg: transparent;
+  --narration-color: #555555;
+  /* 上下左右都留足空间，把引号包在里面，绝对不切 */
+  --narration-padding: 14px 36px 14px 36px;
+  --narration-radius: 8px;
+  --narration-style: italic;
+}
+.msg-narration-custom {
+  position: relative !important;
+  /* 第一个数字调和上面气泡的距离，第三个数字调和下面气泡的距离 */
+  margin: -4px 32px 20px 32px !important; 
+}
+/* 左上角大引号 */
+.msg-narration-custom::before {
+  content: "“" !important;
+  position: absolute !important;
+  top: 12px !important;
+  left: 16px !important;
+  font-size: 30px !important;
+  color: #cccccc !important;
+  font-family: serif !important;
+  font-style: normal !important; /* 强行掰直，防止被切 */
+  line-height: 1 !important;
+  opacity: 0.6 !important;
+}
+
+/* 右下角大引号 */
+.msg-narration-custom::after {
+  content: "”" !important;
+  position: absolute !important;
+  bottom: -10px !important;
+  right: 15px !important;
+  font-size: 30px !important;
+  color: #cccccc !important;
+  font-family: serif !important;
+  font-style: normal !important; /* 强行掰直，防止被切 */
+  line-height: 1 !important;
+  opacity: 0.6 !important;
+}
+
+/* ==========================================
+独立翻译气泡 (极简黑心版)
+========================================== */
+/* 1. 把自带的翻译按钮改造成右下角的黑心 */
+.msg-translation-wrapper {
+  display: block !important;
+  position: absolute !important; /*脱离排版，绝对不占空间 */
+  bottom: 0 !important;
+  right: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+.msg-translation-btn {
+  position: absolute !important;
+  bottom: -16px !important; 
+  right: 0px !important; 
+  font-size: 0 !important; 
+  background: transparent !important; 
+  box-shadow: none !important; 
+  padding: 0 !important;
+  z-index: 10 !important;
+}
+/* 翻译按钮后面的爱心换成 SVG */
+.msg-translation-btn::after {
+  content: "" !important;
+  display: inline-block !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin-left: 4px !important; /* 跟前面的字拉开点距离 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23000000'/%3E%3C/svg%3E") !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+.msg-translation-btn svg {
+  display: none !important; 
+}
+/* 2. 隐藏原本挤在气泡里的翻译文字 */
+.msg-translation-content {
+  display: none !important;
+}
+/* 3. 独立翻译气泡主体 (无底色居中版 + 变宽) */
+.msg-translation-detached {
+  display: block !important;
+  margin-top: 4px !important;
+  width: fit-content !important;
+  max-width: 90% !important; /* 关键：解开宽度封印，让一行能放更多字 */
+}
+.msg-translation-detached-content {
+  color: #555555 !important;
+  padding: 4px 16px !important; 
+  font-size: 13px !important;
+  display: block !important;
+  text-align: center !important;
+  line-height: 1.6 !important;
+}
+.msg-translation-detached-content::before {
+  content: "—— Tr: ( " !important;
+  font-weight: bold !important;
+  color: #888888 !important;
+}
+.msg-translation-detached-them {
+  align-self: flex-start !important;
+  margin-left: 24px !important; 
+}
+.msg-translation-detached-me {
+  align-self: flex-end !important;
+  margin-right: 16px !important;
+}
+/* ==========================================
+思维链按钮：自定义文字 + 防重叠
+========================================== */
+.chat-detail-screen {
+  --thinking-btn-bg: transparent;
+  --thinking-btn-shadow: none;
+}
+
+/* 1. 把整个思维链区域往下推，给 ovo 留出空间 */
+.nuo-thinking-wrap {
+  margin-top: -4px !important; /* 往下移，数字越大越往下 */
+  margin-bottom: 0px !important; /* 数字越大，离下面的气泡越远 */
+}
+
+/* 2. 隐藏原本的图标和自带的“思维链”文字 */
+.nuo-thinking-icon,
+.nuo-thinking-arrow,
+.nuo-thinking-label {
+  display: none !important;
+}
+
+/* 3. 重新注入你想要的文字（自带括号） */
+.nuo-thinking-btn::after {
+  content: "( 夢 見 一 場 不 會 結 束 的 雨 )" !important; /* 想换字直接改这里 */
+  font-family: serif !important;
+  font-size: 9px !important;
+  color: #666666 !important;
+  letter-spacing: 2px !important;
+  white-space: nowrap !important;
+}
+/* 4. 扩大点击范围 + 修复只有第一个字能点 */
+.nuo-thinking-btn {
+  padding: 16px 170px 16px 0px !important;
+  margin-left: 4px !important; 
+  width: fit-content !important; /* 关键：让按钮外壳跟着字一起变宽 */
+  max-width: none !important; /* 撕掉原框架的最大宽度封印 */
+}
+
+/* ==========================================
+底栏终极重构：黑气泡悬浮顶端 + 文字挂载加号
+========================================== */
+
+/* 1. 让底栏当黑气泡的爹 */
+.input-area-custom {
+  position: relative !important;
+}
+
+/* 2. 扒掉中间层的定位，让黑气泡能穿透它们飞到最上面 */
+.input-row-wrapper,
+.input-action-bar-custom {
+  position: static !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 3. 输入框本体：只保留基础样式 */
+.input-box-custom {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #252525 !important;
+  position: relative !important; 
+  z-index: 2 !important;
+  border-radius: 0px !important;
+  padding-left: 0px !important; 
+  padding-right: 62px !important; 
+}
+.input-box-custom::placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
+/* 4. 黑气泡：直接认底栏当爹，永远在最上方那条线上面 */
+.input-btns-right {
+  background: #252525 !important;
+  border-radius: 20px !important;
+  padding: 0px 7px !important;
+  gap: 0px !important;
+  position: absolute !important; 
+  right: 12px !important; 
+  top: -22px !important; /* 关键：相对底栏顶部往上飞 */
+  bottom: auto !important; 
+  z-index: 10 !important; 
+}
+.input-btns-right::after {
+  content: "" !important;
+  position: absolute !important;
+  z-index: 1 !important;
+  bottom: -4px !important; 
+  right: 8px !important; 
+  width: 14px !important; 
+  height: 14px !important;
+  background: #252525 !important;
+  border-radius: 50% !important;
+  box-shadow: -4px 12px 0 -4px #252525 !important; 
+  pointer-events: none !important;
+}
+
+/* 3. 语音键：圆润爱心 (白) */
+.input-btn-mic svg { display: none !important; }
+.input-btn-mic {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23ffffff'/%3E%3C/svg%3E") !important;
+  background-size: 24px !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+
+/* 4. 表情包键：极简小人 (脑袋拔高1px + 整体放大) */
+.input-btn-sticker svg { display: none !important; }
+.input-btn-sticker {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='7' r='4' fill='%23ffffff'/%3E%3Cpath d='M12 14c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z' fill='%23ffffff'/%3E%3C/svg%3E") !important;
+  background-size: 26px !important; 
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+
+/* 5. AI键：实心圆角矩形向上箭头 (白底黑字) */
+.input-btn-ai svg { display: none !important; }
+.input-btn-ai {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='3' width='18' height='18' rx='6' fill='%23ffffff'/%3E%3Cpath d='M12 16V8m-3 3l3-3 3 3' stroke='%23252525' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-size: 24px !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+
+/* 6. 发送键：空心圆角矩形向上箭头 (白线) */
+.send-btn-custom svg { display: none !important; }
+.send-btn-custom {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='3' width='18' height='18' rx='6' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3Cpath d='M12 16V8m-3 3l3-3 3 3' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-size: 24px !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 解除外框裁剪封印，让尖角露出来 */
+.input-action-bar-custom,
+.input-btns-right {
+  overflow: visible !important;
+}
+
+/* 5. 文字的绝妙新爹：加号按钮！ */
+.input-btn-plus {
+ 
+  /* 保留你原来的加号样式 */
+  width: 32px !important;
+  height: 32px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='8' fill='none' stroke='%23252525' stroke-width='2'/%3E%3Cline x1='9' y1='9' x2='15' y2='15' stroke='%23252525' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  background-size: 32px !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  margin-right: 12px !important;
+  position: relative !important;
+  top: -12px !important;
+}
+.input-btn-plus svg { display: none !important; }
+
+/* ==========================================
+   文字换爹 7.0：幽灵锚点法 (终极完美版)
+========================================== */
+/* 1. 确保底栏是爹，中间层扒掉定位 */
+.input-area-custom { position: relative !important; }
+.input-row-wrapper, .input-action-bar-custom { position: static !important; }
+
+/* 2. 第一行英文 */
+.input-row-wrapper::before {
+  content: "· Dreamed of a rain that wouldn't stop" !important;
+  position: absolute !important;
+  z-index: 1 !important;
+  /* 核心魔法：不写 top 也不写 bottom */
+  top: auto !important; 
+  bottom: auto !important;
+  /* 用 transform 往下微调高度 */
+  transform: translateY(-27px) !important; 
+  left: 54px !important; /* 避开加号 */
+  color: #888888 !important;
+  font-size: 11.2px !important;
+  font-family: sans-serif !important;
+  font-weight: bold !important;
+  background-image: linear-gradient(transparent 55%, #f4f4f4 55%) !important;
+  background-size: 90% 100% !important;
+  background-position: right bottom !important;
+  background-repeat: no-repeat !important;
+  padding: 0 6px !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* 3. 第二行日文 */
+.input-row-wrapper::after {
+  content: "\"  終 · わ · ら · な · い · 雨 · の · 夢 · を · 見 · た  \"" !important;
+  position: absolute !important;
+  z-index: 1 !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: translateY(-10px) !important; 
+  left: 140px !important; 
+  color: #c3c3c3 !important;
+  font-size: 8px !important;
+  font-family: sans-serif !important;
+  font-weight: bold !important;
+  letter-spacing: -0.6px !important;
+  background-image: linear-gradient(transparent 55%, #f4f4f4 55%) !important;
+  background-size: 100% 100% !important;
+  background-position: right bottom !important;
+  background-repeat: no-repeat !important;
+  padding: 0 10px 0 10px !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* 4. 显隐魔法 */
+.input-row-wrapper:has(.input-box-custom:placeholder-shown)::before,
+.input-row-wrapper:has(.input-box-custom:placeholder-shown)::after {
+  opacity: 1 !important;
+}
+
+/* 调整输入框文字的左右位置 */
+.input-box-custom {
+  padding-left: 0px !important; /* 把这个数字改小，字就会往左靠 */
+  padding-right: 62px !important; /* 顺便给右边留点空0*/
+}
+/* 控制图片大小 + 修复位置 */
+.msg-bubble-container img {
+max-width: 110px !important; 
+max-height: 170px !important;
+width: auto !important;
+height: auto !important;
+object-fit: contain !important;
+border-radius: 8px !important;
+}
+/* 我发的图片靠右贴头像 */
+.msg-me .msg-bubble-container img {
+display: block !important;
+margin-left: auto !important;
+}
+/* 对方发的图片靠左贴头像 */
+.msg-them .msg-bubble-container img {
+display: block !important;
+margin-right: auto !important;
+}
+/* 强制缩小引用框里的图片并裁成正方形 */
+.msg-bubble-wrapper .msg-reply-block-detached img,
+.msg-reply-detached-text img {
+    width: 28px !important;
+    height: 28px !important;
+    max-width: 28px !important; 
+    max-height: 28px !important;
+    object-fit: cover !important; 
+    aspect-ratio: 1 / 1 !important; 
+    border-radius: 3px !important;
+    vertical-align: middle !important;
+    display: inline-block !important;
+    margin: 0 28px 0 4px !important;
+}
+/* 引用框内容顶部齐平 + 修复图片戳出边界 */
+.msg-reply-block-detached {
+    align-items: flex-start !important; 
+    padding-right: 14px !important; /* 关键：给右边多留点空隙，别让图片死贴着边缘 */
+}
+/* 名字稍微往下压一点，和图片视觉边缘对齐 */
+.msg-reply-detached-name {
+    margin-top: 0px !important; 
+}
+.msg-image-wrapper, .msg-bubble-container:has(img) {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+/* ==========================================
+转账卡片：天使与恶魔 (完美融合版)
+========================================== */
+.msg-transfer-card {
+  width: 235px !important;
+  height: 114px !important;
+  min-height: 0 !important;
+  border: 0px solid #333333 !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  position: relative !important;
+  display: block !important;
+  overflow: hidden !important;
+}
+.msg-transfer-card * {
+  visibility: hidden !important;
+}
+.msg-transfer-card .msg-transfer-amount,
+.msg-transfer-card .msg-transfer-amount *,
+.msg-transfer-card .msg-transfer-subtitle,
+.msg-transfer-card .msg-transfer-subtitle *,
+.msg-transfer-card .msg-transfer-divider,
+.msg-transfer-card .msg-transfer-divider * {
+  visibility: visible !important;
+}
+.msg-transfer-card::before,
+.msg-transfer-card::after,
+.msg-transfer-card *::before,
+.msg-transfer-card *::after {
+  content: none !important;
+}
+.msg-transfer-card .msg-transfer-divider {
+  position: absolute !important;
+  top: 68% !important;
+  left: 0 !important;
+  width: 100% !important;
+  margin: 0 !important;
+  border-top: 1.5px solid #ffffff !important;
+}
+.msg-transfer-card .msg-transfer-amount {
+  position: absolute !important;
+  top: 8px !important;
+  left: 66px !important;
+  color: #000000 !important;
+  font-weight: bold !important;
+  font-size: 24px !important;
+}
+.msg-transfer-card .msg-transfer-amount::after {
+  content: "我們的世界不应該只剩下彼此了嗎ㅇㅈㅇ" !important;
+  position: absolute !important;
+  top: 34px !important;
+  left: 0 !important;
+  font-size: 9px !important;
+  color: #666666 !important;
+  font-weight: normal !important;
+  white-space: nowrap !important;
+}
+.msg-transfer-card .msg-transfer-subtitle {
+  position: absolute !important;
+  top: 84px !important;
+  left: 0 !important;
+  width: 100% !important;
+  text-align: center !important;
+  color: #ffffff !important;
+  font-size: 10px !important;
+  text-transform: none !important; 
+}
+.msg-transfer-card .msg-transfer-subtitle::before {
+  content: "· " !important;
+}
+.msg-transfer-card .msg-transfer-subtitle::after {
+  content: " ·" !important;
+}
+.msg-transfer-card .msg-transfer-divider::before {
+  position: absolute !important;
+  top: 20px !important; 
+  left: 0 !important;
+  width: 100% !important;
+  text-align: center !important;
+  color: #888888 !important;
+  font-size: 8px !important; 
+  text-transform: none !important; 
+  z-index: 10 !important;
+}
+.msg-transfer-card .msg-transfer-divider::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  width: 100% !important;
+  z-index: 5 !important;
+}
+
+.msg-me .msg-transfer-card {
+  background: linear-gradient(to bottom, #ffffff 65%, #000000 35%) !important;
+}
+.msg-me .msg-transfer-card .msg-transfer-divider::before {
+  content: "You transfer the money to them" !important;
+}
+.msg-me .msg-transfer-card .msg-transfer-divider::after {
+  top: -76px !important; 
+  height: 220px !important;
+  background: url('https://i.postimg.cc/1R20m8QB/IMG-3708.png') no-repeat center/contain !important;
+}
+
+.msg-them .msg-transfer-card {
+  background: linear-gradient(to bottom, #ffffff 65%, #000000 35%) !important;
+}
+.msg-them .msg-transfer-card .msg-transfer-divider::before {
+  content: "Char transfer the money to you" !important;
+}
+.msg-them .msg-transfer-card .msg-transfer-divider::after {
+  top: -76px !important;
+  height: 220px !important;
+  background: url('https://i.postimg.cc/MZN06nSs/IMG-3709.png') no-repeat center/contain !important;
+}
+
+.msg-transfer-card .msg-transfer-amount::before {
+  content: "" !important;
+  position: absolute !important;
+  top: -7px !important;
+  left: -64px !important;
+  width: 64px !important;
+  height: 64px !important;
+  background: url('https://i.postimg.cc/L4wk9JpB/IMG-3703.png') no-repeat center/contain !important;
+}
+.msg-transfer-card.msg-transfer-success .msg-transfer-amount::before {
+  background-image: url('https://i.postimg.cc/x8wLt45C/IMG-3702.png') !important;
+}
+.msg-transfer-card.msg-transfer-rejected .msg-transfer-amount::before {
+  background-image: url('https://i.postimg.cc/xjhGfX23/IMG-3704.png') !important;
+}
+.msg-transfer-card.msg-transfer-expired-card .msg-transfer-amount::before {
+  background-image: url('https://i.postimg.cc/xjhGfX23/IMG-3704.png') !important;
+}
+
+/* ==========================================
+头像与尾巴控制：只在第一条/单条显示 (iMessage 尾巴版)
+========================================== */
+/* 1. 默认让头像隐形但保留占位 (解决贴边问题) */
+.msg-avatar-me-container,
+.msg-avatar-them-container {
+  visibility: hidden !important;
+}
+
+/* 2. 只在第一条或单条时让头像显形 */
+.msg-avatar-me-container.is-first,
+.msg-avatar-me-container.is-single,
+.msg-avatar-them-container.is-first,
+.msg-avatar-them-container.is-single {
+  visibility: visible !important;
+}
+
+/* 3. 基础气泡：圆润、无尾巴状态 */
+.msg-plain-me,
+.msg-plain-them {
+  padding: 8px 12px !important;
+  border-radius: 16px !important;
+  position: relative !important;
+  overflow: visible !important;
+  max-width: 57vw !important;
+}
+.msg-plain-them {
+  background-color: #ffffff !important;
+  color: #000 !important;
+}
+.msg-plain-me {
+  background-color: #000000 !important;
+  color: #fff !important;
+}
+
+/* 4. 默认隐藏所有内凹尾巴 */
+.msg-plain-me::before,
+.msg-plain-them::before {
+  content: none !important;
+}
+
+/* 5. 只在第一条或单条时，画出内凹尖尖尾巴 */
+.msg-plain-me.plain-first::before,
+.msg-plain-me.plain-single::before {
+  content: "" !important;
+  position: absolute !important;
+  z-index: -1 !important;
+  bottom: -0.3px !important;
+  right: -8.6px !important;
+  width: 10px !important;
+  height: 16px !important;
+  border-bottom-left-radius: 8px !important;
+  box-shadow: -6.5px 0 0 0 #000000 !important;
+}
+
+.msg-plain-them.plain-first::before,
+.msg-plain-them.plain-single::before {
+  content: "" !important;
+  position: absolute !important;
+  z-index: -1 !important;
+  bottom: -0.3px !important;
+  left: -8.6px !important;
+  width: 10px !important;
+  height: 16px !important;
+  border-bottom-right-radius: 8px !important;
+  box-shadow: 6.5px 0 0 0 #ffffff !important;
+}
+
+/* 只把第一条/单条气泡往下推，头像留在原地 */
+.msg-plain-me.plain-first,
+.msg-plain-me.plain-single,
+.msg-plain-them.plain-first,
+.msg-plain-them.plain-single {
+  margin-top: 8px !important;
+}
+/* ==========================================
+   白天模式 (强制兜底，防止夜间颜色漏过来)
+========================================== */
+:root {
+  --chat-header-title-color: #000000;
+  --input-box-color: #252525;
+  --input-area-bg: #ffffff;
+  --input-area-border-top: 1px solid #efefef;
+}
+.msg-plain-them {
+  background-color: #ffffff !important; 
+  color: #000000 !important;
+}
+.msg-plain-them.plain-first::before,
+.msg-plain-them.plain-single::before {
+  box-shadow: 6.5px 0 0 0 #ffffff !important;
+}
+.msg-plain-me {
+  background-color: #000000 !important; 
+  color: #ffffff !important;
+}
+.msg-plain-me.plain-first::before,
+.msg-plain-me.plain-single::before {
+  box-shadow: -6.5px 0 0 0 #000000 !important;
+}
+.chat-detail-screen {
+  background-color: transparent !important;
+  background-blend-mode: normal !important;
+}
+
+/* ==========================================
+   跟随系统深浅色模式自动切换 (夜间模式)
+========================================== */
+@media (prefers-color-scheme: dark) {
+  /* 把原本的 :root 换成 .chat-detail-screen，防止变量泄露到白天 */
+  .chat-detail-screen {
+    --input-box-color: #ffffff;
+    --chat-header-title-color: #F0F0F0;
+    --input-area-bg: #1d1d1d;
+    --input-area-border-top: 0px solid #333333;
+    --reply-detached-them-name-color: #D7D7D7;
+    --reply-detached-them-text-color: #C3C3C3;
+    --reply-detached-me-name-color: #D7D7D7;
+    --reply-detached-me-text-color: #C3C3C3;
+    --chat-header-icon-color: #999999;
+    --status-read-color: #C3C3C3;
+    --status-sent-color: #c3c3c3;
+    
+    /* 压暗壁纸 */
+    background-color: rgba(0, 0, 0, 0.5) !important; 
+    background-blend-mode: multiply !important;
+  }
+
+  /* 对方气泡调亮一点的灰 */
+  .msg-plain-them {
+    background-color: #333333 !important; 
+    color: #F0F0F0 !important;
+  }
+  .msg-plain-them.plain-first::before,
+  .msg-plain-them.plain-single::before {
+    box-shadow: 6.5px 0 0 0 #333333 !important;
+  }
+
+  /* 我方气泡保持纯黑 */
+  .msg-plain-me {
+    background-color: #1a1a1a !important; 
+    color: #F0F0F0 !important;
+  }
+  .msg-plain-me.plain-first::before,
+  .msg-plain-me.plain-single::before {
+    box-shadow: -6.5px 0 0 0 #1a1a1a !important;
+  }
+
+  /* 解决顶栏白线 + 压暗顶栏图片 */
+  .chat-header-custom {
+    background-image: linear-gradient(to top, #1d1d1d 58px, rgba(0,0,0,0.5) 58px), url('https://nos.netease.com/ysf/3670e57fa9cc7134dccfd9e24cfa32a4.jpeg') !important;
+    box-shadow: none !important;
+    border-bottom: none !important;
+  }
+
+  .header-avatar-container {
+    background-color: #121212 !important;
+    border-color: #333 !important;
+  }
+
+ /* 夜间模式：输入框上的英文和日文变色 (7.0版) */
+  .input-row-wrapper::before {
+    color: #999999 !important; /* 英文颜色 */
+    background-image: linear-gradient(transparent 55%, #2a292b 55%) !important;
+  }
+  .input-row-wrapper::after {
+    color: #777777 !important; /* 日文颜色 */
+    background-image: linear-gradient(transparent 55%, #2a292b 55%) !important;
+  }
+
+  .header-btn-back {
+    color: #999999 !important; 
+  }
+
+  .header-btn-info { 
+    background-color: #b6b6b6 !important;
+  }
+  .header-btn-info::after {
+    color: #000000 !important;
+  }
+  .header-btn-video { 
+    background-color: #333333 !important;
+  }
+  .header-btn-video::after {
+    color: #aaaaaa !important;
+  }
+
+  .input-btn-plus {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='8' fill='none' stroke='%23b6b6b6' stroke-width='2'/%3E%3Cline x1='9' y1='9' x2='15' y2='15' stroke='%23b6b6b6' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  }
+
+  .input-btns-right {
+    background: #b6b6b6 !important;
+  }
+  .input-btns-right::after {
+    background: #b6b6b6 !important;
+    box-shadow: -4px 12px 0 -4px #b6b6b6 !important;
+  }
+
+  .input-btn-mic {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23252525'/%3E%3C/svg%3E") !important;
+  }
+  .input-btn-sticker {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='7' r='4' fill='%23252525'/%3E%3Cpath d='M12 14c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z' fill='%23252525'/%3E%3C/svg%3E") !important;
+  }
+  .input-btn-ai {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='3' width='18' height='18' rx='6' fill='%23252525'/%3E%3Cpath d='M12 16V8m-3 3l3-3 3 3' stroke='%23b6b6b6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  }
+  .send-btn-custom {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='3' width='18' height='18' rx='6' fill='none' stroke='%23252525' stroke-width='2'/%3E%3Cpath d='M12 16V8m-3 3l3-3 3 3' stroke='%23252525' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  }
+/* 补充：夜间模式下的思维链与翻译文字提亮 */
+  /* 1. 思维链文字变亮 */
+  .nuo-thinking-btn::after {
+    color: #C8C8C8 !important; 
+  }
+/* 2. 思维链展开后的面板提亮 + 半透明毛玻璃 */
+  .chat-detail-screen {
+    --thinking-panel-bg: rgba(44, 44, 46, 0.6); 
+    --thinking-text-color: #e5e5ea; 
+  }
+  /* 2. 独立翻译气泡文字变亮 (浅灰) */
+  .msg-translation-detached-content {
+    color: #C3C3C3 !important; 
+  }
+
+  /* 3. 翻译前缀变更亮 (纯白) */
+  .msg-translation-detached-content::before {
+    color: #D7D7D7 !important; 
+  }
+/* 4. 翻译按钮的爱心变成中间心色 (#999999) + 修复半透明色差 */
+  .msg-translation-btn::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='%23999999'/%3E%3C/svg%3E") !important;
+    opacity: 1 !important;
+  }
+.msg-translation-btn {
+  opacity: 1 !important;
+}
+ /* 旁白夜间模式 */
+  .chat-detail-screen {
+    --narration-color: #BEBEBE; 
+  }
+}
+/* ================================================================
+   🔊 补丁修复：隐形语音转文字触发区 (点击波形图即可展开)by烧酒酒
+   ================================================================ */
+
+/* 1. 解除原生按钮的尺寸封印，维持隐身即可 */
+body, :root {
+  --voice-toggle-opacity: 0 !important;
+  --voice-toggle-size: 1px !important;  
+}
+
+/* 2. 核心：把透明的按钮从最后面抽出来覆在波形图上 */
+.msg-voice-card {
+  position: relative !important;
+}
+
+/* 精准抓取转文字开关，脱离排版 */
+[class*="voice-transcription-toggle"],
+[class*="voice-toggle"] {
+  position: absolute !important;
+  inset: 0 0 0 44px !important;  
+  width: auto !important;
+  height: 100% !important;
+  opacity: 0 !important;       
+  z-index: 10 !important;     
+  margin: 0 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+}
+
+/* 消除原位置残留占位，防止时间戳被往左挤压 */
+.voice-duration {
+  margin-right: 0 !important;
+}
+/* ===== 锁死发送键大小，强制关闭软件自带的缩放/出现动画 ===== */
+.send-btn-custom,
+.send-btn-custom:active,
+.send-btn-custom:focus {
+    transform: scale(1) translateY(0px) !important;
+    transition: none !important; /* 彻底关掉自带的过渡动画 */
+    animation: none !important;  /* 彻底关掉自带的帧动画 */
+}
+/* nuojiji-bubble-config: {"themeStyle":"plain","bubbleStyle":"premium-gradient","partnerBubbleStyle":"#efefef","bubbleTextColor":"","partnerBubbleTextColor":"","avatarSize":34,"avatarShape":"square"} */
