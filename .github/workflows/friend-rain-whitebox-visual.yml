@@ -1,0 +1,66 @@
+name: Friend Rain whitebox native visual
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'presets/chat/friend-request-rain.json'
+      - 'utils/builtinWhitebox.ts'
+      - 'utils/friendRequestRainWhitebox.test.ts'
+      - 'utils/builtinWhitebox.test.ts'
+      - 'tests/friend-rain-whitebox-visual.*'
+      - '.github/workflows/friend-rain-whitebox-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check decoration compatibility and complete theme
+        run: pnpm exec vitest run utils/friendRequestRainWhitebox.test.ts utils/builtinWhitebox.test.ts utils/chatDecoration.test.ts
+      - name: Build chat preview CSS
+        run: pnpm run build:chat-preview
+      - name: Install Chinese glyphs for actual rendered text checks
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Chromium screenshot of native chat components
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/friend-rain-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:5173/tests/friend-rain-whitebox-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --window-size=1640,2170 --virtual-time-budget=15000 --dump-dom http://127.0.0.1:5173/tests/friend-rain-whitebox-visual.html > /tmp/friend-rain-dom.txt 2>/tmp/friend-rain-chrome.log || true
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=1640,2170 --virtual-time-budget=15000 --screenshot="$GITHUB_WORKSPACE/friend-rain-native-chat.png" http://127.0.0.1:5173/tests/friend-rain-whitebox-visual.html
+          if ! grep -q 'data-ready="true"' /tmp/friend-rain-dom.txt; then
+            grep -o '<output[^>]*>[^<]*</output>' /tmp/friend-rain-dom.txt | head -8 || true
+            tail -60 /tmp/friend-rain-vite.log || true
+            tail -40 /tmp/friend-rain-chrome.log || true
+            exit 1
+          fi
+          test -s friend-rain-native-chat.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: friend-rain-native-chat-screenshot
+          path: friend-rain-native-chat.png
+          if-no-files-found: ignore
+          retention-days: 7
