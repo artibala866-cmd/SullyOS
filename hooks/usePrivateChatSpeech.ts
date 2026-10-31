@@ -124,7 +124,8 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
         onFinal: text => {
           if (generation !== generationRef.current) return;
           if (!editedRef.current) setTranscript(text);
-          setStatus('review');
+          // Do not unlock "send" until the accompanying microphone recording
+          // has flushed its last chunk; combined STT calls onEnd only after both.
         },
         onTranscribing: active => {
           if (generation !== generationRef.current) return;
