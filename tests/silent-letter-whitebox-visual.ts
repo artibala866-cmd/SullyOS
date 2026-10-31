@@ -87,7 +87,14 @@ try {
  };
  root.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';
  const output=document.createElement('output');output.id='silent-letter-checks';output.textContent=JSON.stringify(checks);root.prepend(output);
- if(root.dataset.ready==='false') throw Error('Visual assertions failed: '+JSON.stringify(checks));
+ if(root.dataset.ready==='false') {
+  const node=$('conversation','.sully-chat-message-group-first .sully-bubble-ai');
+  const markerCss=node?getComputedStyle(node,'::before').content:'no bubble';
+  const card=node?.closest('.sully-chat-card');
+  const errorDetails={markerCss,cardKind:card?.getAttribute('data-card-kind'),messageClass:node?.closest('.sully-chat-message')?.className,closestCard:card?.outerHTML.slice(0,260),bubbleHtml:node?.outerHTML.slice(0,220)};
+  const debug=document.createElement('output');debug.id='silent-letter-debug';debug.textContent=JSON.stringify(errorDetails);root.prepend(debug);
+  throw Error('Visual assertions failed: '+JSON.stringify(checks));
+ }
 } catch(error) {
  root.dataset.ready='false';root.dataset.error=String(error);
  const output=document.createElement('output');output.id='silent-letter-error';output.textContent=String(error);root.prepend(output);
