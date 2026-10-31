@@ -49,6 +49,24 @@ try {
   groupPacket:same('group','.sully-chat-group-packet','rgb(233, 167, 70)'),
   groupReceipt:!!$('group','.sully-chat-group-packet-receipt'),
   inputNoOverlap:inBounds('conversation'),
+  nativeLightningVisible:(()=>{
+   const icon=$('conversation','.sully-chat-trigger svg'),trigger=$('conversation','.sully-chat-trigger');
+   return !!icon && !!trigger && cssStyle('conversation','.sully-chat-trigger')?.position==='absolute'
+    && getComputedStyle(icon).visibility==='visible'
+    && getComputedStyle(trigger,'::after').content==='none';
+  })(),
+  headerActionsNonOverlapping:(()=>{
+   const back=$('conversation','.sully-chat-back');
+   const phone=$('conversation','.sully-chat-header button[aria-label="电话"]');
+   const reply=$('conversation','.sully-chat-trigger');
+   const name=$('conversation','.sully-chat-name');
+   const header=$('conversation','.sully-chat-header');
+   if(!back||!phone||!reply||!name||!header)return false;
+   const a=back.getBoundingClientRect(),b=phone.getBoundingClientRect(),d=reply.getBoundingClientRect(),n=name.getBoundingClientRect(),h=header.getBoundingClientRect();
+   return a.right<n.left+4&&n.right<b.left+4&&b.right<=d.left+1&&d.right<=h.right+1
+    &&a.width>=28&&b.width>=28&&d.width>=28
+    &&Math.abs(b.top-d.top)<8;
+  })(),
   transferColumnsSeparated:(()=>{
    const icon=$('transfer','.sully-chat-transfer-header .sully-chat-transfer-icon');
    const amount=$('transfer','.sully-chat-transfer-card > .sully-chat-transfer-amount');
