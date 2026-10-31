@@ -80,3 +80,34 @@ describe('iOS 6 glass theme uses SullyOS actual whitebox hooks',()=>{
   expect(group.theme.chatChromeCustomCss).toContain('sully-chat-group-packet');
  });
 });
+
+
+describe('Faint Silk 浅丝 full whitebox conversion by 落吟',()=>{
+ it('is one valid SullyOS outfit without legacy selectors or invisible controls',()=>{
+  const item=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-faint-silk');
+  expect(item).toBeDefined();
+  const preset=item!.read(),css=preset.parts.css!;
+  expect(preset.name).toContain('by落吟');
+  expect(Object.keys(preset.parts).sort()).toEqual(['css','layout']);
+  expect(preset.parts.layout?.chatHeaderAlign).toBe('center');
+  for(const selector of ['.sully-chat-header','.sully-chat-inputbar','.sully-chat-input-wrap','.sully-chat-textarea','.sully-chat-send-button','.sully-bubble-user','.sully-bubble-ai','.sully-voice-bar','.sully-chat-transfer-card','.sully-chat-transfer-receipt','.sully-chat-group-packet','.sully-chat-group-packet-receipt'])
+   expect(css).toContain(selector);
+  for(const legacy of ['.chat-header-custom','.header-profile-section','.input-area-custom','--bubble-me-bg','--transfer-card-bg','[class*="messages"]'])
+   expect(css).not.toContain(legacy);
+  expect(css).not.toMatch(/opacity\s*:\s*0\s*!important|pointer-events\s*:\s*none\s*!important/);
+  expect(css).not.toMatch(/(^|\n)\s*(body|html|:root)\s*[{,]/);
+  expect(css).toContain('pointer-events:none');
+  const another=item!.read();another.parts.css='tampered';expect(item!.read().parts.css).not.toBe('tampered');
+ });
+ it('replaces a character whitebox or applies globally for group, preserving sound',async()=>{
+  const preset=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-faint-silk')!.read();
+  const char=await decorationPatches(preset,['layout','css'],'character',{id:'char',chromeCustomCss:'.sully-chat-back{color:red}',chatSound:{src:'ding'}} as any,{} as any);
+  expect(char.character.chromeCustomCss).toBe(preset.parts.css);
+  expect(char.character.chromeCustomCss).not.toContain('color:red');
+  expect(char.character.chatDecorationCssIsolated).toBe(true);
+  expect(char.character.chatSound).toEqual({src:'ding'});
+  const group=await decorationPatches(preset,['layout','css'],'global',{id:'char'} as any,{} as any);
+  expect(group.theme.chatChromeCustomCss).toContain('.sully-chat-group-packet');
+  expect(group.theme.chatHeaderAlign).toBe('center');
+ });
+});
