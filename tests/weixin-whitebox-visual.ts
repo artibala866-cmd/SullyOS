@@ -46,6 +46,20 @@ try {
   field:same('conversation','.sully-chat-input-wrap',expected('rgb(255, 255, 255)','rgb(41, 41, 41)')),
   userGreen:same('conversation','.sully-bubble-user',expected('rgb(149, 236, 105)','rgb(62, 181, 117)')),
   aiWhite:same('conversation','.sully-bubble-ai',expected('rgb(255, 255, 255)','rgb(42, 42, 44)')),
+
+  aiTextLegible:(()=>{
+   const el=$('conversation','.sully-bubble-ai .sully-facebook-bubble-text');
+   if(!el)return false;
+   const st=getComputedStyle(el);
+   return st.color===expected('rgb(23, 23, 23)','rgb(238, 238, 238)');
+  })(),
+  groupAiTextLegible:(()=>{
+   const el=$('group','.sully-bubble-ai > .relative.z-10.select-text');
+   if(!el)return false;
+   const st=getComputedStyle(el);
+   return st.color===expected('rgb(23, 23, 23)','rgb(238, 238, 238)');
+  })(),
+
   reply:!!$('reply','.sully-chat-reply'),
   voice:!!$('voice-playing','.sully-voice-bar'),
   transfer:same('transfer','.sully-chat-transfer-card','rgb(250, 157, 59)'),
