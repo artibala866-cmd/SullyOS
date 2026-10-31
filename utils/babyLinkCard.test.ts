@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { gzipSync } from 'node:zlib';
 import type { CharacterProfile, UserProfile } from '../types';
 import { ContextBuilder } from './context';
-import { extractBabyLinkCompressed, normalizeBabyLinkShare } from './babyLinkCard';
+import { extractBabyLinkCompressed, normalizeBabyLinkShare, normalizeBabyLinkImageProfile } from './babyLinkCard';
+import { readCharacterImageProfile, writeCharacterImageProfile, clearCharacterImageProfile } from './characterImageProfile';
 import { readCharacterCardFile } from './sillyTavernCard';
 import { DB } from './db';
 import { isWorldbookEntryActive, toMountedWorldbook } from './worldbook';
@@ -189,6 +190,90 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(json).toContain('完整角色背景');
         expect(json).not.toContain('乙的秘密');
         expect(json).not.toContain('已关闭秘密');
+    });
+});
+
+
+describe('BabyLink phone-style image generation profile adaptation', () => {
+    const picture = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+    it('imports embedded face-lock JPEG, active flag, prompts, wardrobe and seed without leaking into chat persona', () => {
+        const profile = {
+            appearancePrompt: '黑色头发', facePrompt: '深色眼睛，稳定五官',
+            referenceImage: picture, referenceImageEnabled: true,
+            referenceImageMode: 'identity', seed: '9917', seedLockEnabled: true,
+            wardrobe: { guidance: '便服', inventory: '黑夹克、灰色卫衣', avoid: '校服' },
+            voomPortraitModeEnabled: true, secretPlatformToken: 'DO_NOT_COPY',
+        };
+        const bundle = normalizeBabyLinkShare(share([char('角色甲', ['book'], { imageProfile: profile })], [
+            book('book', true, [entry('第一条', { activation: 'constant' }), entry('第二条', { activation: 'constant' })]),
+        ]));
+        const result = bundle.cards[0];
+        expect(result.imageProfile).toMatchObject({
+            appearance: '黑色头发', facePrompt: '深色眼睛，稳定五官',
+            reference: picture, referenceEnabled: true, referenceMode: 'identity',
+            seed: '9917', seedLockEnabled: true,
+            wardrobe: { guidance: '便服', inventory: '黑夹克、灰色卫衣', avoid: '校服' },
+        });
+        expect(result.worldbooks).toHaveLength(2);
+        expect(bundle.warnings).toEqual([]);
+        const prompt = JSON.stringify(result.character);
+        expect(prompt).not.toContain('DO_NOT_COPY');
+        expect(prompt).not.toContain('黑夹克');
+        expect(prompt).not.toContain('base64');
+        expect(JSON.stringify(result.imageProfile)).not.toContain('DO_NOT_COPY');
+    });
+    it('keeps a disabled face reference available but never auto-enables it', () => {
+        const bundle = normalizeBabyLinkShare(share([char('角色乙', [], { imageProfile: {
+            referenceImage: picture, referenceImageEnabled: false,
+            referenceImageMode: 'composition', seedLockEnabled: false,
+        } })], []));
+        expect(bundle.cards[0].imageProfile).toMatchObject({
+            reference: picture, referenceEnabled: false, referenceMode: 'composition', seedLockEnabled: false,
+        });
+    });
+    it('selects active reference group by priority when legacy image field is missing', () => {
+        const warnings: string[] = [];
+        const profile = normalizeBabyLinkImageProfile({
+            referenceImageEnabled: true,
+            referenceProfile: { activeGroupId: 'active', groups: [
+                { id: 'other', enabled: true, references: [{ image: 'data:image/png;base64,AA==' }] },
+                { id: 'active', enabled: true, references: [
+                    { image: 'data:image/png;base64,AAAA', enabled: true, priority: 50, purpose: 'identity' },
+                    { image: picture, enabled: true, priority: 1, purpose: 'appearance' },
+                ] },
+            ] },
+        }, warnings);
+        expect(profile?.reference).toBe(picture);
+        expect(warnings).toContain('BabyLink 多张参考图仅迁移当前组的首张；其余参考图可在糯米机中自行添加');
+    });
+    it('blocks external reference paths and malformed seeds without discarding other image settings', () => {
+        const warnings: string[] = [];
+        const result = normalizeBabyLinkImageProfile({
+            referenceImage: 'https://outside.example/private.jpg',
+            seed: 'unsafe', seedLockEnabled: true, facePrompt: '金色眼睛',
+        }, warnings);
+        expect(result).toMatchObject({ reference: '', facePrompt: '金色眼睛', seed: '', seedLockEnabled: false });
+        expect(warnings).toHaveLength(2);
+    });
+    it('writes and removes only the new character native image slot', () => {
+        const storage = new Map<string, string>();
+        vi.stubGlobal('localStorage', {
+            getItem: (key: string) => storage.get(key) ?? null,
+            setItem: (key: string, value: string) => { storage.set(key, value); },
+            removeItem: (key: string) => { storage.delete(key); },
+        });
+        const selected = normalizeBabyLinkImageProfile({
+            appearancePrompt: '白头发', referenceImage: picture, referenceImageEnabled: true,
+        }, []);
+        expect(selected).toBeTruthy();
+        writeCharacterImageProfile('new-babylink-char', { ...selected!, reference: 'blobref:stored-asset' });
+        expect(readCharacterImageProfile('new-babylink-char')).toMatchObject({
+            appearance: '白头发', reference: 'blobref:stored-asset', referenceEnabled: true,
+        });
+        expect(readCharacterImageProfile('another-char').reference).toBe('');
+        clearCharacterImageProfile('new-babylink-char');
+        expect(readCharacterImageProfile('new-babylink-char').reference).toBe('');
+        vi.unstubAllGlobals();
     });
 });
 
