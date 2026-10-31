@@ -143,7 +143,7 @@ describe('resolveObservability', () => {
 });
 
 describe('handleSelfUpdate 上传时带的 metadata', () => {
-  const FAKE_BUNDLE = `// src_default as default\n${'x'.repeat(200 * 1024)}`;
+  const FAKE_BUNDLE = `// src_default as default\nbundleChannel: "preview"\n${'x'.repeat(200 * 1024)}`;
 
   /** 把这次自更新打到 Cloudflare 的每一发都记下来。 */
   const runSelfUpdate = async (observability?: unknown) => {
@@ -151,7 +151,7 @@ describe('handleSelfUpdate 上传时带的 metadata', () => {
     const realFetch = globalThis.fetch;
     globalThis.fetch = (async (input: any, init: any = {}) => {
       const url = String(input);
-      if (url.includes('raw.githubusercontent.com')) return new Response(FAKE_BUNDLE);
+      if (url.includes('amsg-worker.bundle.js') || url.includes('raw.githubusercontent.com')) return new Response(FAKE_BUNDLE);
       const path = new URL(url).pathname;
       const method = init.method ?? 'GET';
       let body: unknown = null;
@@ -220,7 +220,7 @@ describe('handleSelfUpdate 上传时带的 metadata', () => {
 describe('resolveBundleUrl', () => {
   const official = 'https://artibala866-cmd.github.io/SullyOS-Dev-Preview/amsg-worker.bundle.js';
 
-  it('不配就是官方成品包', () => {
+  it('不配默认取本测试站成品包', () => {
     expect(resolveBundleUrl({})).toBe(official);
     expect(resolveBundleUrl({ AMSG_BUNDLE_URL: '   ' })).toBe(official);
   });
@@ -229,7 +229,7 @@ describe('resolveBundleUrl', () => {
     expect(resolveBundleUrl({ AMSG_BUNDLE_URL: 'https://example.com/x/worker.bundle.js' })).toBe('https://example.com/x/worker.bundle.js');
   });
 
-  it('不是 https 一律回落到官方，别把明文 http 或乱填的东西当成品包源', () => {
+  it('不是 https 一律回落到同发布通道，别把明文 http 或乱填的东西当成品包源', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(resolveBundleUrl({ AMSG_BUNDLE_URL: 'http://example.com/w.js' })).toBe(official);
     expect(resolveBundleUrl({ AMSG_BUNDLE_URL: 'not a url' })).toBe(official);
