@@ -2,11 +2,12 @@
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 beforeEach(()=>{vi.resetModules();localStorage.clear();});
 describe('character rendering preference',()=>{
- it('defaults to modern and retains legacy after reload',async()=>{
-  const a=await import('../apps/room3d/chibi/characterStyle');expect(a.getCharacterStyle()).toBe('modern');
+ it('defaults to illustrated and preserves saved styles after reload',async()=>{
+  const a=await import('../apps/room3d/chibi/characterStyle');expect(a.getCharacterStyle()).toBe('illustrated');
   a.setCharacterStyle('legacy');vi.resetModules();const b=await import('../apps/room3d/chibi/characterStyle');expect(b.getCharacterStyle()).toBe('legacy');
   b.setCharacterStyle('illustrated');vi.resetModules();expect((await import('../apps/room3d/chibi/characterStyle')).getCharacterStyle()).toBe('illustrated');
-  localStorage.setItem(a.CHARACTER_STYLE_KEY,'invalid');vi.resetModules();expect((await import('../apps/room3d/chibi/characterStyle')).getCharacterStyle()).toBe('modern');
+  localStorage.setItem(a.CHARACTER_STYLE_KEY,'invalid');vi.resetModules();expect((await import('../apps/room3d/chibi/characterStyle')).getCharacterStyle()).toBe('illustrated');
+  const current=await import('../apps/room3d/chibi/characterStyle');current.setCharacterStyle('modern');vi.resetModules();expect((await import('../apps/room3d/chibi/characterStyle')).getCharacterStyle()).toBe('modern');
  });
  it('notifies local and cross-tab consumers, and releases subscriptions',async()=>{
   const a=await import('../apps/room3d/chibi/characterStyle'),first=vi.fn(),second=vi.fn();const off=a.subscribeCharacterStyle(first),off2=a.subscribeCharacterStyle(second);
