@@ -477,7 +477,7 @@ const MAX_RECORDING_MS = 60_000;
 const MIN_RECORDING_SAMPLES_AT_16K = 3200; // ~0.2s
 
 const startApiStt = async (
-  provider: 'minimax' | 'fishaudio' | 'elevenlabs',
+  provider: 'minimax' | 'fishaudio' | 'elevenlabs' | null,
   lang: string,
   apiConfig: Partial<APIConfig> | null | undefined,
   cb: SttCallbacks,
@@ -572,6 +572,9 @@ const startApiStt = async (
       // Do not publish bytes for cancelled sessions or upload an empty recording.
       if (!cancelled) cb.onAudioCaptured?.(wavBlob, totalSamples / sampleRate);
       if (cancelled) return;
+      // In private-chat free-recording mode the audio IS the message.
+      // Never request a paid API or pretend that a transcript was generated.
+      if (provider === null) return;
       const transcript = await transcribeAudioWithProvider(wavBlob, provider, lang, apiConfig);
       if (cancelled) return;
       if (transcript) {
@@ -620,6 +623,117 @@ const startApiStt = async (
     cb.onEnd?.();
     return { stop: () => {}, cancel: () => {} };
   }
+};
+
+/**
+ * Private chat's free microphone route. This is a REAL audio recorder, unlike
+ * Web SpeechRecognition (which may be exposed by mobile browsers but hang when
+ * the remote speech service is unreachable). Its output is not a transcript.
+ *
+ * MediaRecorder gives mobile browsers their preferred playable audio format;
+ * WebAudio PCM/WAV is a fallback for WebViews without MediaRecorder.
+ * The Call app continues to use startStt() unchanged.
+ */
+export const startPrivateChatRecording = async (cb: SttCallbacks): Promise<SttSession> => {
+  if (!isAudioRecordingSupported()) {
+    cb.onError?.('当前浏览器无法访问麦克风。请使用 HTTPS 页面、允许浏览器麦克风权限，或改用文字模拟语音');
+    cb.onEnd?.();
+    return { stop: () => {}, cancel: () => {} };
+  }
+  if (typeof MediaRecorder === 'undefined') {
+    return startApiStt(null, 'zh-CN', null, cb);
+  }
+
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+  } catch (error: any) {
+    cb.onError?.(friendlyBrowserError(error?.name || error?.message || 'permission-denied', false));
+    cb.onEnd?.();
+    return { stop: () => {}, cancel: () => {} };
+  }
+
+  let recorder: MediaRecorder;
+  try {
+    const preferred = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'];
+    const mimeType = preferred.find(type => {
+      try { return MediaRecorder.isTypeSupported(type); } catch { return false; }
+    });
+    recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  } catch (error: any) {
+    stream.getTracks().forEach(track => track.stop());
+    cb.onError?.('当前设备录音初始化失败：' + (error?.message || '不支持音频编码'));
+    cb.onEnd?.();
+    return { stop: () => {}, cancel: () => {} };
+  }
+
+  let stopped = false;
+  let cancelled = false;
+  let ended = false;
+  const chunks: Blob[] = [];
+  const startedAt = Date.now();
+  const cleanup = () => {
+    window.clearTimeout(autoStopTimer);
+    stream.getTracks().forEach(track => track.stop());
+  };
+  const finish = () => {
+    if (ended) return;
+    ended = true;
+    cleanup();
+    cb.onEnd?.();
+  };
+  recorder.ondataavailable = event => {
+    if (!cancelled && event.data?.size) chunks.push(event.data);
+  };
+  recorder.onerror = () => {
+    if (!cancelled) cb.onError?.('录音设备中断，请重新尝试');
+    finish();
+  };
+  recorder.onstop = () => {
+    if (!cancelled) {
+      const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
+      const durationSec = Math.max(0, (Date.now() - startedAt) / 1000);
+      if (blob.size && durationSec >= 0.2) cb.onAudioCaptured?.(blob, durationSec);
+      else cb.onError?.('录音太短了，请说完再按停止');
+    }
+    finish();
+  };
+  const stopRecorder = () => {
+    if (stopped) return;
+    stopped = true;
+    window.clearTimeout(autoStopTimer);
+    if (recorder.state === 'inactive') finish();
+    else {
+      try { recorder.stop(); }
+      catch (error: any) {
+        if (!cancelled) cb.onError?.('录音结束失败：' + (error?.message || error));
+        finish();
+      }
+    }
+  };
+  const autoStopTimer = window.setTimeout(stopRecorder, MAX_RECORDING_MS);
+  try {
+    recorder.start(250);
+  } catch (error: any) {
+    cb.onError?.('无法开始录音：' + (error?.message || error));
+    finish();
+    return { stop: () => {}, cancel: () => {} };
+  }
+
+  return {
+    stop: stopRecorder,
+    cancel: () => {
+      if (cancelled) return;
+      cancelled = true;
+      chunks.length = 0;
+      stopRecorder();
+      // Revoke captured permission immediately; discard onstop results.
+      cleanup();
+      finish();
+    },
+  };
 };
 
 // No-response watchdog: domestic Android browsers (Via / Quark / UC / Baidu / WeChat X5)
