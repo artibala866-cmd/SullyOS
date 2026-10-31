@@ -10,7 +10,7 @@ describe('user voice must use the actual private-chat pipeline', () => {
     expect(chat).toContain("makeUserVoiceMetadata(text, 'recorded')");
     expect(chat).toContain("makeUserVoiceMetadata(text, 'typed')");
     expect(chat).toContain("handleSendText(undefined, 'voice'");
-    expect(chat).toContain("handleSendText(text, 'voice'");
+    expect(chat).toContain("handleSendText(text || '[语音]', 'voice'");
     expect(chat).toContain("'emoji', 'voice'");
     expect(chat).toContain("speechInput={{ ...privateChatSpeech, confirm: handleConfirmSpeechTranscript }}");
   });
