@@ -144,8 +144,8 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             // No extra lights, textures, geometry, passes, or modifications to modern/legacy.
             float inkToonN = inkFacing + ${face ? '.17' : skin ? '.13' : hair ? '-.04' : '-.08'};
             float inkToonAA = max(fwidth(inkToonN)*1.10,.018);
-            float inkToonHalf = smoothstep(-.42-inkToonAA,-.42+inkToonAA,inkToonN);
-            float inkToonKey = smoothstep(.10-inkToonAA,.10+inkToonAA,inkToonN);
+            float inkToonHalf = smoothstep(.04-inkToonAA,.04+inkToonAA,inkToonN);
+            float inkToonKey = smoothstep(.53-inkToonAA,.53+inkToonAA,inkToonN);
             float inkCast = mix(1.,getShadowMask(),characterRoomEnabled);
             float inkToonCast = smoothstep(.24,.76,inkCast);
             float inkBandValue = ${face ? '.48' : skin ? '.42' : hair ? '.38' : '.37'}
