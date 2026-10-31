@@ -74,6 +74,7 @@ const FRIEND_RAIN_SIGNATURE='/* 请求添加好友 · 雨梦 by 池谕 | SullyOS
 const FRIEND_RAIN_MARKERS=[
  '/* 请求添加好友 · 池谕原稿视觉补全 v4',
  '/* 请求添加好友 · 池谕视觉回归修正 v5',
+ '/* 请求添加好友 · 池谕顶栏文字防遮挡 v6',
 ] as const;
 export function resolveLegacyFriendRequestRainCss(css:string):string {
  if(!css.includes(FRIEND_RAIN_SIGNATURE))return css;
