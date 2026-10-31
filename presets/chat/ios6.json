@@ -1,0 +1,61 @@
+{
+  "format": "sullyos-chat-decoration",
+  "version": 1,
+  "name": "iOS 6 · 复古水晶",
+  "parts": {
+    "layout": {
+      "chatAvatarMode": "grouped",
+      "chatAvatarShape": "circle",
+      "chatAvatarSize": "medium",
+      "chatAvatarVisibility": "both",
+      "chatAvatarPlacement": "beside",
+      "chatAvatarAlign": "bottom",
+      "chatBubbleStyle": "modern",
+      "chatMessageSpacing": "default",
+      "chatShowTimestamp": "always",
+      "chatHeaderStyle": "default",
+      "chatInputStyle": "rounded",
+      "chatChromeStyle": "soft",
+      "chatHeaderAlign": "left",
+      "chatHeaderDensity": "default",
+      "chatStatusStyle": "subtle",
+      "chatSendButtonStyle": "circle",
+      "chatModuleAlign": "center",
+      "chatHideHeaderBuffs": false
+    },
+    "bubbles": {
+      "id": "ios6-crystal",
+      "name": "iOS 6 蓝银水晶气泡",
+      "type": "custom",
+      "user": {
+        "textColor": "#ffffff",
+        "backgroundColor": "#2f81df",
+        "borderRadius": 16,
+        "opacity": 1,
+        "tailMode": "none",
+        "voiceBarBg": "#2f81df",
+        "voiceBarActiveBg": "#1f71d0",
+        "voiceBarBtnColor": "#fff",
+        "voiceBarWaveColor": "#fff",
+        "voiceBarTextColor": "#fff"
+      },
+      "ai": {
+        "textColor": "#1a1a1a",
+        "backgroundColor": "#e8eaf0",
+        "borderRadius": 16,
+        "opacity": 1,
+        "tailMode": "none",
+        "voiceBarBg": "#e8eaf0",
+        "voiceBarActiveBg": "#dadde5",
+        "voiceBarBtnColor": "#586371",
+        "voiceBarWaveColor": "#586371",
+        "voiceBarTextColor": "#1a1a1a"
+      }
+    },
+    "background": {
+      "image": null,
+      "style": "plain"
+    },
+    "css": "/* 用户 ios6.css · 糯米机白框全套适配：仅作用于实际私聊、群聊的 sully 钩子。 */\n.sully-chat-root{\n --ios6-silver:#e8eaf0;--ios6-blue:#2f81df;\n background-color:#d1d5db!important;\n background-image:repeating-linear-gradient(45deg,#d8dce2,#d8dce2 2px,#cdd1d8 2px,#cdd1d8 4px)!important;\n color:#1a1a1a;\n}\n.sully-chat-root .sully-chat-header{\n background:linear-gradient(180deg,#b0bccd 0%,#889bb3 50%,#7085a1 51%,#8295ab 100%)!important;\n border-bottom:1px solid #49586d!important;box-shadow:0 1px 3px #0005!important;\n}\n.sully-chat-root .sully-chat-header .sully-chat-name,\n.sully-chat-root .sully-chat-header .sully-chat-status,\n.sully-chat-root .sully-chat-header .sully-chat-token{\n color:#fff!important;text-shadow:0 -1px 0 #0009!important;\n}\n.sully-chat-root .sully-chat-header .sully-chat-back,\n.sully-chat-root .sully-chat-header .sully-chat-trigger,\n.sully-chat-root .sully-chat-header button[aria-label]{\n background:#0002!important;border:1px solid #0004!important;border-radius:8px!important;\n color:#fff!important;box-shadow:inset 0 1px 0 #fff3,0 1px 2px #0003!important;\n}\n.sully-chat-root .sully-chat-header button[aria-label] svg{color:#fff!important}\n.sully-chat-root .sully-chat-header button[aria-label]:active{background:#0004!important}\n\n/* iOS6 原版冰晶蓝、银灰玻璃气泡：连发气泡按分组圆角连贯显示。 */\n.sully-chat-root .sully-bubble-user,\n.sully-chat-root .sully-bubble-ai{position:relative!important;overflow:visible!important;z-index:1}\n.sully-chat-root .sully-bubble-user{\n background:linear-gradient(180deg,#5da5f5 0%,#2f81df 55%,#1f71d0 100%)!important;\n border:1px solid #1a5bb0!important;color:#fff!important;border-radius:16px 5px 5px 16px!important;\n box-shadow:0 1px 2px #0003,inset 0 1px 0 #ffffff8c!important;text-shadow:0 -1px 0 #0005!important;\n}\n.sully-chat-root .sully-bubble-ai{\n background:linear-gradient(180deg,#fff 0%,#e8eaf0 60%,#dadde5 100%)!important;\n border:1px solid #b0b6c2!important;color:#1a1a1a!important;border-radius:5px 16px 16px 5px!important;\n box-shadow:0 1px 2px #0002,inset 0 1px 0 #fff!important;text-shadow:0 1px 0 #ffffffe6!important;\n}\n.sully-chat-root .sully-bubble-user.sully-bubble-group-first{border-radius:16px 16px 5px 16px!important}\n.sully-chat-root .sully-bubble-user.sully-bubble-group-last{border-radius:16px 5px 16px 16px!important}\n.sully-chat-root .sully-bubble-ai.sully-bubble-group-first{border-radius:16px 16px 16px 5px!important}\n.sully-chat-root .sully-bubble-ai.sully-bubble-group-last{border-radius:5px 16px 16px 16px!important}\n.sully-chat-root .sully-bubble-user.sully-bubble-group-first.sully-bubble-group-last,\n.sully-chat-root .sully-bubble-ai.sully-bubble-group-first.sully-bubble-group-last{border-radius:16px!important}\n.sully-chat-root .sully-chat-message [class*=\"reaction\"],\n.sully-chat-root .sully-chat-interaction{position:relative;z-index:10}\n.sully-chat-root .sully-chat-message-sender{color:#4e5865!important}\n.sully-chat-root .sully-bubble-user .sully-chat-reply{background:#ffffff29!important;color:#fff!important;opacity:1!important}\n.sully-chat-root .sully-bubble-ai .sully-chat-reply{background:#60708b22!important;color:#344153!important;opacity:1!important}\n\n/* 原版冷灰输入栏与独立的发送/等待状态（不再误伤所有禁用按钮）。 */\n.sully-chat-root .sully-chat-inputbar{\n background:linear-gradient(180deg,#d3d7dc,#acb3bd)!important;border-top:1px solid #9198a3!important;\n box-shadow:inset 0 1px 0 #ffffff80!important;\n}\n.sully-chat-root .sully-chat-input-wrap{\n background:#fff!important;border:1px solid #848b98!important;border-radius:16px!important;\n box-shadow:inset 0 1px 3px #0005,0 1px 0 #fffc!important;\n}\n.sully-chat-root .sully-chat-textarea{color:#000!important;background:transparent!important;border:0!important;box-shadow:none!important}\n.sully-chat-root .sully-chat-actions-button,\n.sully-chat-root .sully-chat-input-wrap button{color:#586371!important;filter:drop-shadow(0 1px 0 #fffc)}\n.sully-chat-root .sully-chat-send-button:not(:disabled):not([aria-label=\"停止回复\"]){\n background:linear-gradient(180deg,#74a3e2 0%,#3576ce 50%,#1a5ab9 51%,#3b7dda 100%)!important;\n border:1px solid #18417c!important;border-radius:10px!important;color:#fff!important;\n box-shadow:0 1px 1px #0003,inset 0 1px 0 #fff6!important;\n}\n.sully-chat-root .sully-chat-send-button:disabled,\n.sully-chat-root .sully-chat-send-button[aria-label=\"停止回复\"]{\n background:linear-gradient(180deg,#fff 0%,#e2e5eb 50%,#d1d6e0 51%,#e5e8ef 100%)!important;\n border:1px solid #9aa2b0!important;border-radius:10px!important;color:#606875!important;\n box-shadow:0 1px 1px #0002,inset 0 1px 0 #fff!important;\n}\n/* 保留真正的语音播放、波形与转文字按钮，只有拟物外观变化。 */\n.sully-chat-root .sully-voice-bar{\n background:linear-gradient(180deg,#fff,#dfe4eb)!important;border:1px solid #aeb9c8!important;\n color:#344153!important;box-shadow:inset 0 1px 0 #fff,0 1px 2px #0002!important;\n}\n.sully-chat-root .sully-voice-bar-button{background:linear-gradient(180deg,#fff,#d5dce7)!important;border:1px solid #98a7ba!important;color:#3d618e!important}\n.sully-chat-root .sully-voice-bar-transcript{background:#ffffffe6!important;color:#344153!important}\n\n/* 转账：保留 pending、accepted、returned、接收和退回真实逻辑。 */\n.sully-chat-root .sully-chat-transfer-card{\n background:linear-gradient(180deg,#86b8f4,#4a91e2 49%,#2374d3 50%,#1a60b4)!important;\n border:1px solid #25568e!important;border-radius:15px!important;\n box-shadow:inset 0 1px 0 #ffffff9e,0 2px 5px #0003!important;color:#fff!important;\n}\n.sully-chat-root .sully-chat-transfer-card[data-status=\"accepted\"],\n.sully-chat-root .sully-chat-transfer-card[data-status=\"returned\"]{filter:saturate(.65)}\n.sully-chat-root .sully-chat-transfer-card .sully-chat-transfer-brand,\n.sully-chat-root .sully-chat-transfer-card .sully-chat-transfer-note,\n.sully-chat-root .sully-chat-transfer-card .sully-chat-transfer-recipient{color:#f3f7ff!important}\n.sully-chat-root .sully-chat-transfer-receipt{\n background:linear-gradient(180deg,#fff,#dfe4ec)!important;border:1px solid #adb6c4!important;\n border-radius:12px!important;color:#3a4656!important;box-shadow:inset 0 1px 0 #fff,0 1px 3px #0002!important;\n}\n.sully-chat-root .sully-chat-transfer-dialog{\n background:linear-gradient(180deg,#fff,#e6eaf1)!important;border:1px solid #9baabc!important;border-radius:17px!important;\n}\n.sully-chat-root .sully-chat-transfer-dialog>div:first-child{background:linear-gradient(180deg,#b0bccd,#7085a1 52%,#8295ab)!important}\n.sully-chat-root .sully-chat-transfer-accept{background:linear-gradient(180deg,#74a3e2,#3576ce 50%,#1a5ab9 51%,#3b7dda)!important;color:#fff!important;border:1px solid #18417c!important}\n.sully-chat-root .sully-chat-transfer-return{background:linear-gradient(180deg,#fff,#d8dee8)!important;border:1px solid #aab4c2!important;color:#566273!important}\n\n/* 群聊全局白框沿用界面与气泡，群红包/领取回执套用同一质感。 */\n.sully-chat-root.sully-chat-group-root .sully-chat-group-packet{\n background:linear-gradient(180deg,#8cb9ef,#518ed1 49%,#346cae 50%,#23568c)!important;\n border:1px solid #244a77!important;border-radius:14px!important;color:#fff!important;\n box-shadow:inset 0 1px 0 #ffffff80,0 2px 5px #0003!important;\n}\n.sully-chat-root.sully-chat-group-root .sully-chat-group-packet-receipt{\n background:linear-gradient(180deg,#fff,#dfe4ec)!important;border:1px solid #adb6c4!important;\n border-radius:12px!important;color:#344153!important;box-shadow:inset 0 1px 0 #fff,0 1px 3px #0002!important;\n}\n.sully-chat-root .sully-chat-message-content{min-width:0;overflow-wrap:anywhere}\n"
+  }
+}

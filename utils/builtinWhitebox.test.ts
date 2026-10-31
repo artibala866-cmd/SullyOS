@@ -58,3 +58,25 @@ describe('bundled star orbit outfits',()=>{
   expect(item.read().parts.css).not.toBe('changed');
  });
 });
+
+describe('iOS 6 glass theme uses SullyOS actual whitebox hooks',()=>{
+ it('ships a complete bundle with transfer + group styling, no global selectors',()=>{
+  const item=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-ios6-crystal')!;
+  expect(item).toBeDefined();
+  const p=item.read(),c=p.parts.css!;
+  expect(Object.keys(p.parts).sort()).toEqual(['background','bubbles','css','layout']);
+  expect(p.parts.bubbles?.user.backgroundColor).toBe('#2f81df');
+  expect(p.parts.bubbles?.ai.backgroundColor).toBe('#e8eaf0');
+  for(const cls of ['.sully-chat-header','.sully-chat-inputbar','.sully-chat-send-button','.sully-bubble-user','.sully-bubble-ai','.sully-voice-bar','.sully-chat-transfer-card','.sully-chat-transfer-receipt','.sully-chat-transfer-accept','.sully-chat-transfer-return','.sully-chat-group-packet','.sully-chat-group-packet-receipt'])expect(c).toContain(cls);
+  expect(c).not.toContain('.bubble-me-custom');expect(c).not.toContain('[class*="header"]');expect(c).not.toMatch(/(^|\n)\s*(body|header|nav|footer|button|textarea)\s*[,{}]/);
+  const altered=item.read();altered.parts.css='other';expect(item.read().parts.css).not.toBe('other');
+ });
+ it('does not overwrite sound and can be applied globally for group chat',async()=>{
+  const item=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-ios6-crystal')!;
+  const local=await decorationPatches(item.read(),['layout','bubbles','background','css'],'character',{id:'c',chatSound:{src:'ding'}} as any,{} as any);
+  expect(local.character.chromeCustomCss).toContain('sully-chat-transfer-card');
+  expect(local.character.chatSound).toEqual({src:'ding'});
+  const group=await decorationPatches(item.read(),['layout','bubbles','background','css'],'global',{id:'c'} as any,{} as any);
+  expect(group.theme.chatChromeCustomCss).toContain('sully-chat-group-packet');
+ });
+});
