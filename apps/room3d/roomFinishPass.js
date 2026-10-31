@@ -97,17 +97,24 @@ export function createRoomFinishPass(renderer){
      // lifting every material into flat pastel. Retain the original textures.
      float inkLuma=dot(c,vec3(.2126,.7152,.0722));
      float plane=smoothstep(.20,.82,inkLuma);
-     vec3 inkGrade=mix(vec3(.865,.925,1.065),vec3(1.125,1.059,.974),plane);
+     // An airy film-print split tone: lavender-blue shadows and warm cream
+     // highlights, rather than a grey blanket over the whole room.
+     vec3 inkGrade=mix(vec3(.845,.923,1.104),vec3(1.147,1.068,.974),plane);
      c*=inkGrade;
      float midWeight=smoothstep(.07,.27,inkLuma)*(1.-smoothstep(.78,.97,inkLuma));
-     c+=vec3((inkLuma-.46)*.27)*midWeight;
+     c+=vec3((inkLuma-.46)*.31)*midWeight;
+     // Keep a tangible, delicate pastel veil in mids while preserving eyes,
+     // black fabric, windows and whites. Inspired by Amian's film/grade mix,
+     // not by the many costly DOF and AO effects enabled in that preset.
+     float inkFilm=smoothstep(.13,.33,inkLuma)*(1.-smoothstep(.81,.98,inkLuma));
+     c=mix(c,c*vec3(.972,.984,1.015)+vec3(.035,.022,.028),inkFilm*.82);
      float paintLuma=dot(c,vec3(.2126,.7152,.0722));
      c+= (c-vec3(paintLuma))*.12*midWeight;
      c=max(c,vec3(0.));
      // A thin, luminous paper veil over midtones only. Avoid flat fog over
      // dark hair, eyes, bright skin and white walls; keep authored detail.
      float paperMask=smoothstep(.09,.36,inkLuma)*(1.-smoothstep(.81,.98,inkLuma));
-     c=mix(c,c*vec3(.965,.979,1.008)+vec3(.028,.020,.027),paperMask*.86);
+     c=mix(c,c*vec3(.968,.982,1.012)+vec3(.027,.021,.028),paperMask*.88);
      // Joyce Comic.fx-inspired CURRENT-PIXEL ink. The four surrounding
      // texels are edge DETECTORS only; their colours NEVER enter the output.
      // Unlike fake depth of field this cannot superimpose shifted copies of
@@ -119,17 +126,23 @@ export function createRoomFinishPass(renderer){
      vec3 outlineDx=rightInk-leftInk;
      vec3 outlineDy=upInk-downInk;
      float colourDiscontinuity=max(length(outlineDx),length(outlineDy));
-     float outlineStrength=smoothstep(.17,.57,colourDiscontinuity);
+     // One-pixel current-sample drawing, with a stronger response to the
+     // pale furniture / clothing borders that used to disappear entirely.
+     float outlineStrength=smoothstep(.095,.34,colourDiscontinuity);
      // Ink the boundary pixel itself, never an offset silhouette.
      // Keep light, detailed surfaces crisp without filling them with black.
-     float inkWeight=outlineStrength*mix(.075,.16,smoothstep(.11,.78,paintLuma));
-     c=mix(c,vec3(.070,.057,.071),inkWeight);
+     float inkWeight=outlineStrength*mix(.25,.44,smoothstep(.10,.79,paintLuma));
+     c=mix(c,vec3(.075,.064,.100),inkWeight);
      // Faint pink/cyan pigment sits on the detected edge pixel itself.
      // There are no offset image copies, so moving characters do not ghost.
      float edgeSign=dot(outlineDx+outlineDy,vec3(.20,.63,.17));
      vec3 colouredInk=edgeSign>0.?vec3(.91,.56,.73):vec3(.47,.77,.91);
-     float colouredEdge=outlineStrength*.115*mix(.42,1.,smoothstep(.07,.60,paintLuma))
-                       *(1.-smoothstep(.96,1.03,paintLuma));
+     // Only a narrow pink/cyan pencil tint on the lighter edge pixel:
+     // do not sample displaced scene copies or extend an RGB ghost fringe.
+     float edgeLight=dot(c,vec3(.2126,.7152,.0722));
+     float outerPaper=smoothstep(.17,.53,edgeLight);
+     float colouredEdge=outlineStrength*.185*outerPaper
+                       *(1.-smoothstep(.94,1.03,paintLuma));
      c=mix(c,colouredInk,colouredEdge);
      // Static fine-grain, applied after the lens pass. It is deliberately
      // weakest over clean whites, near-blacks, pupils and dark linework.
@@ -137,7 +150,9 @@ export function createRoomFinishPass(renderer){
      float noise=fract(sin(dot(grainCell,vec2(12.9898,78.233)))*43758.5453)-.5;
      float grainMask=smoothstep(.045,.18,inkLuma)*(1.-smoothstep(.85,1.04,inkLuma));
      float paperTooth=fract(sin(dot(floor(gl_FragCoord.xy*.31),vec2(31.123,57.179)))*31758.5453)-.5;
-     c+=vec3(noise*.025+paperTooth*.009)*grainMask;
+     // Tiny fixed-grain paper fibers: clearly visible at arm's length,
+     // but almost invisible over pupils and clean highlights.
+     c+=vec3(noise*.030+paperTooth*.012)*grainMask;
     }
     gl_FragColor=vec4(max(c,0.),1.);
     #include <colorspace_fragment>
