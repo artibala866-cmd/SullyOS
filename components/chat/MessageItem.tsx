@@ -1018,6 +1018,8 @@ interface MessageItemProps {
     isFirstInGroup: boolean;
     isLastInGroup: boolean;
     activeTheme: ChatTheme;
+    /** Friend Rain whitebox: render the actual avatar on the first, not final, message in a turn. */
+    friendRainWhitebox?: boolean;
     /** Private-chat-only style; never inferred from the theme inside GroupChat. */
     blackWhiteFacebook?: boolean;
     /** Built-in WeChat style for plain text; media and modules remain unchanged. */
@@ -1087,6 +1089,7 @@ const MessageItem = React.memo(({
     isFirstInGroup,
     isLastInGroup,
     activeTheme,
+    friendRainWhitebox = false,
     blackWhiteFacebook = false,
     wechatBubble = false,
     qqBubble = false,
@@ -1139,8 +1142,7 @@ const MessageItem = React.memo(({
     const avatarSizePx = avatarSize === 'small' ? 28 : avatarSize === 'large' ? 48 : 36;
     // Source whitebox 「请求添加好友」 displays the real avatar at the START of a turn,
     // not its end. This affects only this bundle; other themes keep their existing behavior.
-    const friendRainAvatar = activeTheme.id === 'friend-request-rain';
-    const shouldShowAvatar = friendRainAvatar
+    const shouldShowAvatar = friendRainWhitebox
         ? isFirstInGroup
         : avatarMode === 'every_message' || isLastInGroup;
     // 头像绝对定位在气泡底部尖角处，bottom 恒为 0。

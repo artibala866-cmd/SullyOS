@@ -4022,6 +4022,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         );
     }
 
+    // Whitebox bubble IDs are regenerated on apply (decoration-UUID). Detect the active CSS,
+    // never use activeTheme.id to identify Friend Rain's original first-message avatar layout.
+    const friendRainWhitebox = !homePhone && /请求添加好友__引用@池谕\\.css|请求添加好友 · 雨梦 by 池谕/.test(char?.chromeCustomCss || osTheme.chatChromeCustomCss || '');
     const chatChromeStyle = osTheme.chatChromeStyle || 'soft';
     const chatBackgroundStyle = osTheme.chatBackgroundStyle || 'plain';
     const chatRootClass =
@@ -4658,6 +4661,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             isFirstInGroup={breaksWithPrevious}
                             isLastInGroup={breaksWithNext}
                             activeTheme={activeTheme}
+                            friendRainWhitebox={friendRainWhitebox}
                             charAvatar={selectedAvatar}
                             charName={char.name}
                             userAvatar={userProfile.perCharAvatars?.[char.id] || userProfile.avatar}
@@ -4754,6 +4758,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             wechatBubble={wechatBubble}
                             qqBubble={qqBubble}
                                     activeTheme={activeTheme}
+                            friendRainWhitebox={friendRainWhitebox}
                                     charAvatar={char.avatar}
                                     charName={char.name}
                                     userAvatar={userProfile.perCharAvatars?.[char.id] || userProfile.avatar}

@@ -49,10 +49,10 @@ try {
    React.createElement('div',{className:'sully-chat-messages sample-messages'},
      React.createElement(MessageItem,{msg:{...demo,id:30001,role:'assistant',content:'第一条'},activeTheme:preset.parts.bubbles!,
       charName:'示例角色',charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,isFirstInGroup:true,isLastInGroup:false,
-      avatarMode:'grouped',avatarSize:'small',onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},suppressEntranceAnimation:true}),
+      friendRainWhitebox:true,avatarMode:'grouped',avatarSize:'small',onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},suppressEntranceAnimation:true}),
      React.createElement(MessageItem,{msg:{...demo,id:30002,role:'assistant',content:'第二条'},activeTheme:preset.parts.bubbles!,
       charName:'示例角色',charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,isFirstInGroup:false,isLastInGroup:true,
-      avatarMode:'grouped',avatarSize:'small',onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},suppressEntranceAnimation:true})
+      friendRainWhitebox:true,avatarMode:'grouped',avatarSize:'small',onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},suppressEntranceAnimation:true})
   )));
  avatarScene.innerHTML='<h2>头像首条 / 连发不重复</h2><div class="beauty-preview-body">'+avatarMarkup+'</div>';
  const avatarStyle=document.createElement('style');avatarStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
