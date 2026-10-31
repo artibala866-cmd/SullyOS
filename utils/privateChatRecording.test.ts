@@ -231,7 +231,7 @@ describe('combined private-chat audio and words', () => {
     }
     vi.stubGlobal('window', globalThis);
     vi.stubGlobal('SpeechRecognition', Recognizer);
-    (window as any).SpeechRecognition = Recognizer;
+    vi.stubGlobal('SpeechRecognition', Recognizer);
     vi.stubGlobal('MediaRecorder', FakeRecorder);
     const stopTrack = vi.fn();
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => ({
@@ -266,7 +266,7 @@ describe('combined private-chat audio and words', () => {
       abort() { this.onend?.(); }
     }
     vi.stubGlobal('window', globalThis);
-    (window as any).SpeechRecognition = Recognizer;
+    vi.stubGlobal('SpeechRecognition', Recognizer);
     vi.stubGlobal('MediaRecorder', FakeRecorder);
     const stopTrack = vi.fn();
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => ({
@@ -296,7 +296,7 @@ describe('combined private-chat audio and words', () => {
       abort() { this.onend?.(); }
     }
     vi.stubGlobal('window', globalThis);
-    (window as any).SpeechRecognition = Recognizer;
+    vi.stubGlobal('SpeechRecognition', Recognizer);
     vi.stubGlobal('MediaRecorder', FakeRecorder);
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => {
       throw Object.assign(new Error('denied'), { name: 'NotAllowedError' });
