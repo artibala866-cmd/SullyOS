@@ -428,7 +428,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
                         <CaretLeft className="w-5 h-5" weight="bold" />
                     </button>
 
-                    <div onClick={onShowCharsPanel} className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer">
+                    <div onClick={onShowCharsPanel} className="sully-chat-profile flex-1 min-w-0 flex items-center gap-3 cursor-pointer">
                         {renderStandardInfo()}
                     </div>
 
