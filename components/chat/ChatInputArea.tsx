@@ -138,7 +138,9 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     const voiceTriggerRef = useRef<HTMLButtonElement>(null);
     const voiceMenuRef = useRef<HTMLDivElement>(null);
     const inputWrapRef = useRef<HTMLDivElement>(null);
-    useEffect(() => setVoiceMenuOpen(false), [activeCharacterId, selectionMode, showPanel]);
+    // Closing the emoji/actions panel when opening the voice menu must not
+    // immediately close the newly opened menu in the same render.
+    useEffect(() => setVoiceMenuOpen(false), [activeCharacterId, selectionMode]);
     useEffect(() => {
         if (speechInput?.status !== 'idle') setVoiceMenuOpen(false);
     }, [speechInput?.status]);
@@ -807,7 +809,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 </div>
             ) : (
                 <div className="sully-chat-composer px-2.5 py-2.5 flex gap-2 items-end relative">
-                    <button aria-label="聊天功能" aria-expanded={showPanel === 'actions'} onClick={() => setShowPanel(showPanel === 'actions' ? 'none' : 'actions')} className={`sully-chat-actions-button ${actionButtonClass}`}>
+                    <button aria-label="聊天功能" aria-expanded={showPanel === 'actions'} onClick={() => { setVoiceMenuOpen(false); setShowPanel(showPanel === 'actions' ? 'none' : 'actions'); }} className={`sully-chat-actions-button ${actionButtonClass}`}>
                         <Plus className="w-6 h-6" weight="bold" />
                     </button>
                     <div ref={inputWrapRef} className={`sully-chat-input-wrap flex-1 min-w-0 flex items-center px-1 transition-all ${useIOSStandaloneInputFix ? 'overflow-visible' : 'overflow-hidden'} ${inputWrapClass} ${typedVoiceEnabled ? 'ring-1 ring-primary/25' : ''} ${isPixelStyle ? 'focus-within:bg-[#f8f8f8]' : isDiscordStyle ? 'focus-within:bg-slate-800 focus-within:border-white/20' : 'border border-transparent focus-within:bg-white focus-within:border-primary/30'}`}>
@@ -829,7 +831,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             placeholder={typedVoiceEnabled ? '输入语音文字…' : 'Message...'}
                             style={{ height: 'auto' }}
                         />
-                        <button hidden={compactHome} type="button" aria-label="表情面板" onClick={() => setShowPanel(showPanel === 'emojis' ? 'none' : 'emojis')}
+                        <button hidden={compactHome} type="button" aria-label="表情面板" onClick={() => { setVoiceMenuOpen(false); setShowPanel(showPanel === 'emojis' ? 'none' : 'emojis'); }}
                             className={`w-9 h-9 shrink-0 grid place-items-center rounded-full ${isDiscordStyle ? 'text-slate-400 hover:text-neutral-300' : isPixelStyle ? 'text-[#6d6d6d] hover:text-[#696969]' : 'text-slate-400 hover:text-primary'}`}>
                             <Smiley className="w-5 h-5" weight="regular" />
                         </button>
