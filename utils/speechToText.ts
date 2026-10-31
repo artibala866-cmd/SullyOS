@@ -741,44 +741,102 @@ export const startPrivateChatRecording = async (cb: SttCallbacks): Promise<SttSe
 // unreachable or stripped from the WebView — `start()` silently hangs with zero events.
 const SILENT_HANG_WATCHDOG_MS = 7000;
 
+// A real microphone signal does not prove that a browser's remote recognition
+// backend is responding. Keep a separate transcript watchdog and an upper bound.
+const BROWSER_NO_TRANSCRIPT_TIMEOUT_MS = 15_000;
+const BROWSER_MAX_SESSION_MS = 60_000;
+
 const startWeb = (lang: string, cb: SttCallbacks, hasPaidConfigured: boolean): SttSession => {
   const Ctor = getWebCtor();
   if (!Ctor) {
     const hint = hasPaidConfigured
       ? '当前浏览器不支持自带语音识别，请在「通话偏好」或「设置 → 其他 API」切换为已配置的付费语音转文字'
-      : '当前浏览器不支持自带语音识别，可在「设置 → 其他 API」配置 ElevenLabs、鱼声 Fish 或 MiniMax Key 开启高精度语音转文字';
+      : '当前浏览器不支持自带语音识别，请使用手机输入法自带的麦克风，或配置语音识别 API';
     cb.onError?.(hint);
     cb.onEnd?.();
     return { stop: () => {}, cancel: () => {} };
   }
 
-  const rec = new Ctor();
+  let rec: any;
+  try { rec = new Ctor(); }
+  catch (cause: any) {
+    cb.onError?.(friendlyBrowserError(cause?.message || 'start-failed', hasPaidConfigured));
+    cb.onEnd?.();
+    return { stop: () => {}, cancel: () => {} };
+  }
   rec.lang = lang;
   rec.continuous = true;
   rec.interimResults = true;
 
   let finalBuf = '';
   let lastEmitted = '';
-  let gotAnyResult = false;
   let gotAudioSignal = false;
+  let gotAnyResult = false;
   let cancelled = false;
-  let watchdog: number | null = null;
-  const clearWatchdog = () => {
-    if (watchdog !== null) { window.clearTimeout(watchdog); watchdog = null; }
+  let ended = false;
+  let failureReported = false;
+  let initialWatchdog: number | null = null;
+  let transcriptWatchdog: number | null = null;
+  let maxTimer: number | null = null;
+
+  const clearTimers = () => {
+    if (initialWatchdog !== null) window.clearTimeout(initialWatchdog);
+    if (transcriptWatchdog !== null) window.clearTimeout(transcriptWatchdog);
+    if (maxTimer !== null) window.clearTimeout(maxTimer);
+    initialWatchdog = transcriptWatchdog = maxTimer = null;
+  };
+  const finish = () => {
+    if (ended) return;
+    ended = true;
+    clearTimers();
+    if (!cancelled && lastEmitted) cb.onFinal?.(lastEmitted);
+    cb.onEnd?.();
+  };
+  const stopRecognizer = () => {
+    if (ended) return;
+    try { rec.stop(); } catch { finish(); }
+  };
+  const reportFailure = (message: string) => {
+    if (cancelled || ended || failureReported) return;
+    failureReported = true;
+    cb.onError?.(message);
+    stopRecognizer();
+    // Some Android browser/WebViews never emit onend after stop().
+    // Finish synchronously so the input cannot be stuck in transcribing.
+    finish();
+  };
+  const startTranscriptWatchdog = () => {
+    if (transcriptWatchdog !== null) window.clearTimeout(transcriptWatchdog);
+    transcriptWatchdog = window.setTimeout(() => {
+      if (!gotAnyResult) reportFailure(
+        '麦克风已启动，但语音识别服务没有返回文字。请改用输入法麦克风，或在设置中选择已配置的语音识别服务',
+      );
+    }, BROWSER_NO_TRANSCRIPT_TIMEOUT_MS);
   };
 
-  // Preserve the current custom browser watchdog: real audio/speech start counts as a live service.
-  rec.onaudiostart = () => { gotAudioSignal = true; clearWatchdog(); };
-  rec.onspeechstart = () => { gotAudioSignal = true; clearWatchdog(); };
+  rec.onaudiostart = () => {
+    if (cancelled || ended) return;
+    gotAudioSignal = true;
+    if (initialWatchdog !== null) { window.clearTimeout(initialWatchdog); initialWatchdog = null; }
+    if (!gotAnyResult) startTranscriptWatchdog();
+  };
+  rec.onspeechstart = () => {
+    if (cancelled || ended) return;
+    gotAudioSignal = true;
+    if (initialWatchdog !== null) { window.clearTimeout(initialWatchdog); initialWatchdog = null; }
+    if (!gotAnyResult) startTranscriptWatchdog();
+  };
   rec.onresult = (e: any) => {
+    if (cancelled || ended) return;
     gotAnyResult = true;
-    clearWatchdog();
+    if (initialWatchdog !== null) { window.clearTimeout(initialWatchdog); initialWatchdog = null; }
+    if (transcriptWatchdog !== null) { window.clearTimeout(transcriptWatchdog); transcriptWatchdog = null; }
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      const r = e.results[i];
-      const t = r?.[0]?.transcript || '';
-      if (r.isFinal) finalBuf += t;
-      else interim += t;
+      const result = e.results[i];
+      const part = result?.[0]?.transcript || '';
+      if (result.isFinal) finalBuf += part;
+      else interim += part;
     }
     const combined = (finalBuf + interim).trim();
     if (combined) {
@@ -786,52 +844,53 @@ const startWeb = (lang: string, cb: SttCallbacks, hasPaidConfigured: boolean): S
       cb.onPartial?.(combined);
     }
   };
-
-  rec.onerror = (e: any) => {
-    if (cancelled) return;
-    clearWatchdog();
-    if (e?.error === 'aborted') return;
-    cb.onError?.(friendlyBrowserError(e?.error || e?.message || '', hasPaidConfigured));
+  rec.onerror = (event: any) => {
+    if (cancelled || ended) return;
+    if (event?.error === 'aborted') { finish(); return; }
+    reportFailure(friendlyBrowserError(event?.error || event?.message || 'unknown', hasPaidConfigured));
   };
+  rec.onend = finish;
 
-  rec.onend = () => {
-    if (cancelled) return;
-    clearWatchdog();
-    if (lastEmitted) cb.onFinal?.(lastEmitted);
-    cb.onEnd?.();
-  };
-
-  try {
-    rec.start();
-  } catch (e: any) {
-    cb.onError?.(friendlyBrowserError(e?.message || 'start-failed', hasPaidConfigured));
-    cb.onEnd?.();
+  try { rec.start(); }
+  catch (cause: any) {
+    reportFailure(friendlyBrowserError(cause?.message || 'start-failed', hasPaidConfigured));
     return { stop: () => {}, cancel: () => {} };
   }
-
-  watchdog = window.setTimeout(() => {
-    watchdog = null;
-    if (gotAnyResult || gotAudioSignal) return;
-    try { rec.stop(); } catch { /* ignore */ }
-    cb.onError?.(
-      hasPaidConfigured
-        ? '浏览器自带语音识别无响应，可在「通话偏好」切换为 ElevenLabs / 鱼声 Fish / MiniMax 语音识别'
-        : '浏览器自带语音服务无响应，建议在「设置 → 其他 API」配置 ElevenLabs、鱼声 Fish 或 MiniMax Key 使用付费语音转文字'
-    );
-  }, SILENT_HANG_WATCHDOG_MS);
-
+  // Recognizers can finish synchronously (e.g. a WebView refusing permission).
+  if (!ended) {
+    initialWatchdog = window.setTimeout(() => {
+      if (!gotAudioSignal && !gotAnyResult) reportFailure(
+        '浏览器语音识别没有响应。请改用手机输入法麦克风，或在设置中配置语音识别服务',
+      );
+    }, SILENT_HANG_WATCHDOG_MS);
+    maxTimer = window.setTimeout(() => {
+      if (!ended) stopRecognizer();
+      // Real browsers can fail to fire onend even after an explicit stop.
+      finish();
+    }, BROWSER_MAX_SESSION_MS);
+  }
   return {
-    stop: () => { clearWatchdog(); try { rec.stop(); } catch { /* ignore */ } },
+    stop: () => {
+      if (ended) return;
+      stopRecognizer();
+      // On Android the onend event is asynchronous; do not finalize before a
+      // legitimate last speech result can arrive. Timeout protects stuck APIs.
+      if (!ended) {
+        if (initialWatchdog !== null) window.clearTimeout(initialWatchdog);
+        if (transcriptWatchdog !== null) window.clearTimeout(transcriptWatchdog);
+        if (maxTimer !== null) window.clearTimeout(maxTimer);
+        initialWatchdog = transcriptWatchdog = null;
+        maxTimer = window.setTimeout(finish, 1500);
+      }
+    },
     cancel: () => {
-      if (cancelled) return;
+      if (ended) return;
       cancelled = true;
-      clearWatchdog();
       try { rec.abort(); } catch { /* ignore */ }
-      cb.onEnd?.();
+      finish();
     },
   };
 };
-
 const startNative = async (lang: string, cb: SttCallbacks, hasPaidConfigured: boolean): Promise<SttSession> => {
   const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
 
