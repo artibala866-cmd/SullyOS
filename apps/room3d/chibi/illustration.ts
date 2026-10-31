@@ -174,9 +174,9 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkToonCast=smoothstep(.12,.92,mix(1.,getShadowMask(),characterRoomEnabled));
             // Preserve the depth of dark textiles and dark hair instead of
             // washing all surfaces to the same pastel value.
-            float inkShadeStrength=${face ? '.79' : skin ? '.72' : hair ? '.60' : '.62'};
-            float inkMidStrength=${face ? '.94' : skin ? '.92' : hair ? '.86' : '.84'};
-            float inkKeyStrength=${face ? '1.055' : skin ? '1.06' : hair ? '1.00' : '.98'};
+            float inkShadeStrength=${face ? '.85' : skin ? '.79' : hair ? '.68' : '.70'};
+            float inkMidStrength=${face ? '1.00' : skin ? '.99' : hair ? '.94' : '.93'};
+            float inkKeyStrength=${face ? '1.075' : skin ? '1.09' : hair ? '1.035' : '1.03'};
             vec3 inkPigmentShadow=${face || skin ? 'vec3(1.00,.91,.86)' : hair ? 'vec3(.91,.95,1.00)' : 'vec3(.95,.96,1.00)'};
             vec3 inkAmbient=mix(inkPigmentShadow,mix(vec3(1.),roomShadeTint,characterRoomEnabled*.44),inkHalfTone);
             vec3 inkKey=mix(characterRoomTint,roomSunTint,characterRoomEnabled*.64);
@@ -228,7 +228,7 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v14-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v15-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;
