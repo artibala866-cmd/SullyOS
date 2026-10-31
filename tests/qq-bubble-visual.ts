@@ -4,6 +4,9 @@
  */
 import { renderChatDecorationSample } from '../components/chat/ChatDecorationSample';
 import { PRESET_THEMES } from '../components/chat/ChatConstants';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import MessageItem from '../components/chat/MessageItem';
 
 const root = document.getElementById('qq-visual-samples');
 if (!root) throw new Error('QQ visual root missing');
@@ -25,6 +28,25 @@ for (const scene of scenes) {
   root.appendChild(container);
   sections.push(container);
 }
+// Validate a real quoted MessageItem: the legacy bilingual preview may be blank.
+const example = {
+ id: 9931,charId:'qq-smoke',role:'assistant' as const,type:'text' as const,
+ timestamp:Date.now(),content:'这个引用会保持完整，不能截断。',
+ replyTo:{id:9930,name:'桂鱼',content:'我发的参考消息内容很长，引用必须完整显示并自动换行。'}
+};
+const quoteSection=document.createElement('section');
+quoteSection.dataset.qqScene='real-quote';
+quoteSection.style.cssText='width:360px;max-width:100%;margin:12px auto 24px;';
+quoteSection.innerHTML='<div class="sully-chat-root sully-chat-qq">'+renderToStaticMarkup(
+ React.createElement(MessageItem,{
+  msg:example,qqBubble:true,activeTheme:PRESET_THEMES.forest,
+  isFirstInGroup:true,isLastInGroup:true,charAvatar:'/sully/head.png',
+  charName:'示例角色',userAvatar:'/sully/head.png',
+  onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,
+  onToggleSelect:()=>{},showTimestamp:'never'
+ })
+)+'</div>';
+root.appendChild(quoteSection);
 const has = (selector: string) => !!root.querySelector(selector);
 const checks = {
   text: has('.sully-qq-text-message .sully-qq-bubble-text'),

@@ -57,6 +57,9 @@ jobs:
           if ! grep -q 'data-qq-rendered="true"' /tmp/qq-visual-dom.html; then
             tail -80 /tmp/qq-vite.log || true
             tail -30 /tmp/qq-chrome.log || true
+            echo 'QQ smoke flags:'
+            grep -o '<output id="qq-visual-smoke"[^<]*[^<]*' /tmp/qq-visual-dom.html | head -c 1400 || true
+            grep -o 'data-qq-rendered="[^"]*"' /tmp/qq-visual-dom.html | head -c 200 || true
             echo 'Actual Vite rendered DOM tail:'
             tail -c 8000 /tmp/qq-visual-dom.html || true
             exit 1
