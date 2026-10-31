@@ -56,8 +56,9 @@ jobs:
             --dump-dom "http://127.0.0.1:5173/tests/qq-bubble-visual.html" > /tmp/qq-visual-dom.html 2>/tmp/qq-chrome.log || true
           if ! grep -q 'data-qq-rendered="true"' /tmp/qq-visual-dom.html; then
             tail -80 /tmp/qq-vite.log || true
-            tail -40 /tmp/qq-chrome.log || true
-            grep -o '<output id="qq-visual-smoke"[^<]*[^<]*' /tmp/qq-visual-dom.html || true
+            tail -30 /tmp/qq-chrome.log || true
+            echo 'Actual Vite rendered DOM tail:'
+            tail -c 8000 /tmp/qq-visual-dom.html || true
             exit 1
           fi
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage \

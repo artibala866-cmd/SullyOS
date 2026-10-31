@@ -9,6 +9,7 @@ const root = document.getElementById('qq-visual-samples');
 if (!root) throw new Error('QQ visual root missing');
 const scenes = ['conversation','reply','voice-playing','transfer','image'] as const;
 const sections: HTMLElement[] = [];
+try {
 for (const scene of scenes) {
   const { markup, css } = renderChatDecorationSample(
     { parts: { bubbles: PRESET_THEMES.forest } },
@@ -37,3 +38,8 @@ status.id = 'qq-visual-smoke';
 status.textContent = JSON.stringify(checks);
 root.prepend(status);
 root.dataset.qqRendered = Object.values(checks).every(Boolean) ? 'true' : 'false';
+} catch (error) {
+  root.dataset.qqRendered = 'false';
+  root.dataset.qqError = error instanceof Error ? error.stack || error.message : String(error);
+  root.textContent = String(error);
+}

@@ -3,6 +3,10 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body style="margin:0;background:#eeeef0">
   <div id="qq-visual-samples"></div>
+  <script>
+    window.addEventListener('error', (event) => { document.body.dataset.qqVisualError=event.message; });
+    window.addEventListener('unhandledrejection', (event) => { document.body.dataset.qqVisualError=String(event.reason); });
+  </script>
   <script type="module" src="./qq-bubble-visual.ts"></script>
 </body>
 </html>
