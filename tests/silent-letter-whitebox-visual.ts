@@ -3,6 +3,7 @@ import {renderChatDecorationSample} from '../components/chat/ChatDecorationSampl
 import {BUILTIN_WHITEBOX_PRESETS} from '../utils/builtinWhitebox';
 import {resolveLegacySilentLetterCss} from '../components/chat/BlobRefStyle';
 import React from 'react';
+import ChatHeaderShell from '../components/chat/ChatHeaderShell';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {GroupMessageItem,GroupPacketCard} from '../apps/GroupChat';
 import {BEAUTY_PREVIEW_AVATAR} from '../utils/beautyPreviewAssets';
@@ -46,7 +47,15 @@ try {
   avatarShape:'circle' as const,avatarSize:'medium' as const,avatarMode:'grouped' as const,
   bubbleVariant:'modern' as const,messageSpacing:'compact' as const,showTimestamp:'never' as const,
  };
- const member=React.createElement(GroupMessageItem,{
+ const groupHeader=React.createElement(ChatHeaderShell,{
+  selectionMode:false,selectedCount:0,onCancelSelection:()=>{},
+  activeCharacter:{id:'demo-group',name:'示例群聊',avatar:BEAUTY_PREVIEW_AVATAR,activeBuffs:[]},
+  isTyping:false,isSummarizing:false,lastTokenUsage:0,statusText:'3 成员',
+  extraAction:{label:'群聊记忆规则',icon:React.createElement('svg',{viewBox:'0 0 24 24'},React.createElement('path',{d:'M12 4v16'})),onClick:()=>{}},
+  onClose:()=>{},onTriggerAI:()=>{},onShowCharsPanel:()=>{},
+  headerStyle:'default',avatarShape:'circle',headerAlign:'left',headerDensity:'default',statusStyle:'subtle',chromeStyle:'soft',hideBuffs:true
+ });
+  const member=React.createElement(GroupMessageItem,{
   ...baseGroupProps,msg:{...demo,replyTo:{id:10,name:'我',content:'我们哪天出门？'},content:'明天下午去看花。'},
   isUser:false,char:{id:'preview',name:'示例角色',avatar:BEAUTY_PREVIEW_AVATAR} as any,
   styleConfig:preset.parts.bubbles!.ai,
@@ -58,7 +67,7 @@ try {
  const packet=React.createElement(GroupPacketCard,{msg:{...demo,id:18023,type:'transfer',metadata:{}},nameOf:()=>'示例角色'});
  const receipt=React.createElement(GroupPacketCard,{msg:{...demo,id:18024,type:'transfer',metadata:{packetReceipt:'claimed',claimantName:'示例角色',senderName:'我',amount:25}},nameOf:()=>'示例角色'});
  groupSection.innerHTML='<h2>群聊原生消息 / 引用 / 红包 / 回执</h2><div class="beauty-preview-body">'+
-  renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sully-chat-group-root sample-chat'},React.createElement('div',{className:'sully-chat-messages sample-messages'},member,user,packet,receipt)))+'</div>';
+  renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sully-chat-group-root sample-chat'},groupHeader,React.createElement('div',{className:'sully-chat-messages sample-messages'},member,user,packet,receipt)))+'</div>';
  const groupStyle=document.createElement('style');groupStyle.textContent=renderChatDecorationSample(preset,'conversation').css;groupSection.prepend(groupStyle);
  root.append(groupSection);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
@@ -141,6 +150,8 @@ try {
   simulatedCardStack:getComputedStyle($('sim_card','.sully-chat-card[data-card-kind="sim_card"]')!,'::before').content!=='none'&&
     getComputedStyle($('sim_card','.sully-chat-card[data-card-kind="sim_card"]')!,'::after').content!=='none',
   groupMessage:sceneHas('group-chat','.sully-chat-message-sender')&&sceneHas('group-chat','.sully-bubble-ai'),
+  groupHeaderHelpArt:artReplacesSvg('group-chat','button[aria-label="群聊记忆规则"]','prPUomz7'),
+  groupHeaderButtonsClear:noButtonOverlap('group-chat',['.sully-chat-back','.sully-chat-profile','button[aria-label="群聊记忆规则"]','.sully-chat-trigger']),
   groupReply:sceneHas('group-chat','.sully-chat-reply'),
   groupPacket:sceneHas('group-chat','.sully-chat-group-packet'),
   groupReceipt:sceneHas('group-chat','.sully-chat-group-packet-receipt'),
