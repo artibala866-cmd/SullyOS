@@ -58,6 +58,7 @@ import { isBuiltInWechatTheme, WECHAT_BUBBLE_CSS } from '../utils/wechatBubbleTh
 import { isBuiltInQQTheme, QQ_BUBBLE_CSS, shouldStartQQTimeGroup, formatQQTime } from '../utils/qqBubbleTheme';
 import ChatHeader from '../components/chat/ChatHeaderShell';
 import {isFaintSilkPairCss} from '../utils/faintSilkPair';
+import {FAINT_SILK_POLISH_CSS} from '../utils/faintSilkPolish';
 import { Phone } from '@phosphor-icons/react';
 import CharacterEntryTransition from '../components/chat/CharacterEntryTransition';
 import {resolveDecorationTheme} from '../utils/chatDecoration';
@@ -4117,6 +4118,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                  .sully-chat-inputbar{visibility:visible!important;opacity:1!important;pointer-events:auto!important;}
                  .sully-chat-inputbar textarea,.sully-chat-inputbar button{pointer-events:auto!important;visibility:visible!important;}
                `}</style>
+             )}
+
+             {/* 兼容已保存的「浅丝」旧白框：清除贴纸图片与隐藏的原生图标，修复窄屏输入栏。
+                  只作用于浅丝；独立于用户是否重新应用了内置白框。 */}
+             {!homePhone && (isFaintSilkPairCss(char.chromeCustomCss) || (!char.chromeCustomCss && isFaintSilkPairCss(osTheme.chatChromeCustomCss))) && (
+               <style>{FAINT_SILK_POLISH_CSS}</style>
              )}
 
              {/* 记忆整理中 — 顶部浮动胶囊（不阻塞交互，轻量无 backdrop-filter） */}
