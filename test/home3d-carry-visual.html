@@ -305,7 +305,8 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    const c=document.createElement('canvas');c.width=renderer.domElement.width;c.height=renderer.domElement.height;const x=c.getContext('2d');x.drawImage(renderer.domElement,0,0);return x.getImageData(0,0,c.width,c.height).data;
   };
   const render=strength=>{
-   if(strength>.001)finishPass.beginScene();
+   // Draw to the illustrated source every time, including at room-wide zoom.
+   finishPass.beginScene();
    renderer.render(ss,cam);
    const focusDepth=T.MathUtils.clamp((new T.Vector3(0,0,0).project(cam).z+1)*.5,.01,.99);
    finishPass.render('day',{baseFinish:false,detail:0,illustrated:true,focusDepth,cameraSpan:cam.far-cam.near,depthStrength:strength});
