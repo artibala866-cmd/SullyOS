@@ -68,8 +68,9 @@ const writeStartupUpdateCheckMarker = (marker: StartupUpdateCheckMarker): void =
 
 /** 探完版本之后该走哪条路。纯函数，方便钉住这条判断。 */
 export const pickStartupUpdateAction = (
-  probe: Pick<AmsgWorkerVersionProbe, 'state' | 'autoUpdate'>,
+  probe: Pick<AmsgWorkerVersionProbe, 'state' | 'autoUpdate'> & Partial<Pick<AmsgWorkerVersionProbe, 'deployedChannel'>>,
 ): 'self-update' | 'check' | 'none' => {
+  if (AMSG_BUNDLE_CHANNEL === 'preview' && probe.deployedChannel !== 'preview') return 'none';
   if (probe.state === 'outdated') return 'self-update';
   if (probe.state === 'current' && probe.autoUpdate?.supported) return 'check';
   return 'none';
@@ -96,10 +97,8 @@ export const requestStartupUpdateCheck = async (
   } catch {
     return 'worker-unset';
   }
-  // Preview backend bundles are built in the branch CI and NOT yet present
-  // at the stable self-update URL. Quietly auto-updating would downgrade the
-  // user's Worker while the UI incorrectly claims the latest preview.
-  if (AMSG_BUNDLE_CHANNEL === 'preview') return 'skipped';
+  // Existing stable Workers cannot self-update onto the preview channel.
+  // Once installed, preview Workers fetch from this preview site instead.
   if (!shouldRequestStartupUpdateCheck(readStartupUpdateCheckMarker(), buildLabel, nowMs)) return 'throttled';
   writeStartupUpdateCheckMarker({ buildLabel, atMs: nowMs });
 

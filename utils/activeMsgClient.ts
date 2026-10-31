@@ -24,7 +24,7 @@ import {
   UserProfile,
 } from '../types';
 import { getLastRealUserMessageAt } from './amsg2ExpireGuard';
-import { AMSG_BUNDLE_VERSION } from './amsgBundleVersion';
+import { AMSG_BUNDLE_CHANNEL, AMSG_BUNDLE_VERSION } from './amsgBundleVersion';
 import { parseAmsgSelfUpdateState, type AmsgSelfUpdateReport } from './amsgSelfUpdateState';
 import { buildTaskInstruction, resolveSendAtMs } from './amsgFireSchedule';
 import {
@@ -390,6 +390,8 @@ export interface AmsgWorkerVersionProbe {
   state: 'current' | 'outdated' | 'unknown';
   /** 那台 Worker 自报的版本；老 bundle 不报就是 null。 */
   deployed: string | null;
+  /** Worker 的发布通道，未上报的不能自动转到测试版。 */
+  deployedChannel: 'preview' | 'stable' | null;
   /** 本 App 期望的版本，用来在界面上写「更新到 X」。 */
   expected: string;
   /** 自动更新：有没有这个能力 + 最近一次检查。老 bundle 不报这一段就是 null。 */
@@ -3460,14 +3462,21 @@ export const ActiveMsgClient = {
         timer = setTimeout(() => controller.abort(), timeoutMs);
       }
       const { status, body } = await fetchWithAuthRaw('config-check', config, init, '后端版本探测');
-      if (status !== 200 || body?.success !== true) return { state: 'unknown', deployed: null, expected, autoUpdate: null };
+      if (status !== 200 || body?.success !== true) return { state: 'unknown', deployed: null, deployedChannel: null, expected, autoUpdate: null };
       await rememberWorkerBundleVersion(body);
       const deployed = typeof body?.data?.workerVersion === 'string' ? body.data.workerVersion : null;
+      const rawChannel = body?.data?.bundleChannel;
+      const deployedChannel = rawChannel === 'preview' || rawChannel === 'stable' ? rawChannel : null;
       const autoUpdate = parseSelfUpdateReport(body?.data?.selfUpdate);
-      if (!deployed) return { state: 'outdated', deployed: null, expected, autoUpdate };
-      return { state: deployed === expected ? 'current' : 'outdated', deployed, expected, autoUpdate };
+      if (!deployed) return { state: 'outdated', deployed: null, deployedChannel, expected, autoUpdate };
+      // A newer upstream date does not imply preview-only autonomous-contact support.
+      const channelMatches = AMSG_BUNDLE_CHANNEL === 'preview'
+        ? deployedChannel === 'preview'
+        : deployedChannel !== 'preview';
+      return { state: deployed === expected && channelMatches ? 'current' : 'outdated',
+        deployed, deployedChannel, expected, autoUpdate };
     } catch {
-      return { state: 'unknown', deployed: null, expected, autoUpdate: null };
+      return { state: 'unknown', deployed: null, deployedChannel: null, expected, autoUpdate: null };
     } finally {
       if (timer) clearTimeout(timer);
     }

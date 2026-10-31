@@ -31,17 +31,22 @@ describe('pickStartupUpdateAction', () => {
    * 根本不报那一段，但 /self-update 它是有的。这一条就是「存量用户不用自己点一次」的全部依据。
    */
   it('版本对不上 → 直接更新，跟用户点按钮一样', () => {
-    expect(pickStartupUpdateAction({ state: 'outdated', autoUpdate: null })).toBe('self-update');
-    expect(pickStartupUpdateAction({ state: 'outdated', autoUpdate: { supported: false, state: null } })).toBe('self-update');
+    expect(pickStartupUpdateAction({ state: 'outdated', autoUpdate: null, deployedChannel: 'preview' })).toBe('self-update');
+    expect(pickStartupUpdateAction({ state: 'outdated', autoUpdate: { supported: false, state: null }, deployedChannel: 'preview' })).toBe('self-update');
   });
 
   it('版本对得上、有自更新能力 → 敲门让它按指纹自查', () => {
-    expect(pickStartupUpdateAction({ state: 'current', autoUpdate: { supported: true, state: null } })).toBe('check');
+    expect(pickStartupUpdateAction({ state: 'current', autoUpdate: { supported: true, state: null }, deployedChannel: 'preview' })).toBe('check');
+  });
+
+  it('不会触发旧正式版 Worker 的自更新', () => {
+    expect(pickStartupUpdateAction({ state: 'outdated', autoUpdate: null })).toBe('none');
+    expect(pickStartupUpdateAction({ state: 'outdated', autoUpdate: null, deployedChannel: 'stable' })).toBe('none');
   });
 
   it('版本对得上但没钥匙 / 探不到版本 → 什么都不做', () => {
-    expect(pickStartupUpdateAction({ state: 'current', autoUpdate: { supported: false, state: null } })).toBe('none');
-    expect(pickStartupUpdateAction({ state: 'current', autoUpdate: null })).toBe('none');
+    expect(pickStartupUpdateAction({ state: 'current', autoUpdate: { supported: false, state: null }, deployedChannel: 'preview' })).toBe('none');
+    expect(pickStartupUpdateAction({ state: 'current', autoUpdate: null, deployedChannel: 'preview' })).toBe('none');
     expect(pickStartupUpdateAction({ state: 'unknown', autoUpdate: null })).toBe('none');
   });
 });

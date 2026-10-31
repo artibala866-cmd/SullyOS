@@ -218,7 +218,7 @@ describe('handleSelfUpdate 上传时带的 metadata', () => {
 });
 
 describe('resolveBundleUrl', () => {
-  const official = 'https://raw.githubusercontent.com/Tosd0/sullyos-workers/main/amsg/worker.bundle.js';
+  const official = 'https://artibala866-cmd.github.io/SullyOS-Dev-Preview/amsg-worker.bundle.js';
 
   it('不配就是官方成品包', () => {
     expect(resolveBundleUrl({})).toBe(official);

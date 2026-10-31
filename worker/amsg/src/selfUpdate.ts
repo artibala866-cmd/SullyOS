@@ -25,9 +25,10 @@ import { AMSG_BUNDLE_CHANNEL, AMSG_BUNDLE_VERSION } from '../../../utils/amsgBun
 
 const CF_API = 'https://api.cloudflare.com/client/v4';
 
-/** 官方成品代码。跟代配脚本、手册附录指的是同一份。 */
-const BUNDLE_URL =
-  'https://raw.githubusercontent.com/Tosd0/sullyos-workers/main/amsg/worker.bundle.js';
+/** Stay on the same deployment channel as this preview App. */
+const STABLE_BUNDLE_URL = 'https://raw.githubusercontent.com/Tosd0/sullyos-workers/main/amsg/worker.bundle.js';
+const PREVIEW_BUNDLE_URL = 'https://artibala866-cmd.github.io/SullyOS-Dev-Preview/amsg-worker.bundle.js';
+const BUNDLE_URL = AMSG_BUNDLE_CHANNEL === 'preview' ? PREVIEW_BUNDLE_URL : STABLE_BUNDLE_URL;
 
 /**
  * 成品包从哪儿取：默认官方那份；配了 AMSG_BUNDLE_URL 就取那儿（自己维护成品包的 fork、
@@ -269,11 +270,10 @@ export async function fetchLatestBundle(
   if (!code.includes(BUNDLE_FINGERPRINT)) {
     return { ok: false, message: '取回来的文件不像 amsg 的 worker 代码，没有覆盖，当前版本不动。' };
   }
-  // A preview Worker must never silently replace itself with the official
-  // stable bundle that lacks the preview-only autonomous contact safeguards.
-  // Users can install the exact branch-built artifact manually.
-  if (AMSG_BUNDLE_CHANNEL === 'preview' && !code.includes(AMSG_BUNDLE_VERSION)) {
-    return { ok: false, message: '当前成品包来源还不是此预览分支版本；为了防止降级，保留正在运行的 Worker，不进行覆盖。' };
+  // Reject official bundles; exact date checks would block future upgrades.
+  if (AMSG_BUNDLE_CHANNEL === 'preview' &&
+    !/bundleChannel:\s*(?:"preview"|'preview'|AMSG_BUNDLE_CHANNEL)/.test(code)) {
+    return { ok: false, message: '成品包不是测试分支专用 Worker；为防止降级，当前 Worker 保持不变。' };
   }
   const hash = (await sha256Hex(code)).slice(0, 12);
   return { ok: true, bundle: { code, hash, bytes } };

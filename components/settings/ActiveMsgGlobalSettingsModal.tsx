@@ -1421,7 +1421,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
               */}
               <button
                 onClick={handleSelfUpdateWorker}
-                disabled={loading || AMSG_BUNDLE_CHANNEL === 'preview'}
+                disabled={loading || (AMSG_BUNDLE_CHANNEL === 'preview' && workerVersion?.deployedChannel !== 'preview')}
                 className={`w-full py-2.5 font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50 ${
                   workerVersion?.state === 'outdated'
                     ? 'bg-neutral-600 text-white border border-neutral-600'
@@ -1436,9 +1436,15 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
               </button>
               {AMSG_BUNDLE_CHANNEL === 'preview' ? (
                 <p className="text-xs leading-relaxed text-neutral-700">
-                  当前是测试分支版本：官方自动更新源不含本分支的 Worker 修复，因此已禁用此按钮以防降级。
-                  请从本分支最新的「Build and publish SullyOS test site」运行记录下载 amsg-worker-p0 成品包，部署到你自己的 Cloudflare Worker；不需要改动主分支。
+                  当前是测试分支专用 Worker。旧正式版自更新会取原作者的正式包，不能直接升级到测试版。
+                  请先用下方「复制本测试站 Worker 代码」覆盖原 Worker（保留 D1、密钥与 Cron）。之后才可以安全自动更新。
                 </p>
+              ) : null}
+              {AMSG_BUNDLE_CHANNEL === 'preview' ? (
+                <button type="button" onClick={() => void handleCopyWorkerBundle()}
+                  className="w-full py-2.5 font-bold rounded-2xl bg-white border border-slate-300 text-slate-700 active:scale-95 transition-transform">
+                  复制本测试站 Worker 代码
+                </button>
               ) : null}
               {workerVersion?.state === 'outdated' ? (
                 <p className="text-xs leading-relaxed text-neutral-700">
@@ -1461,7 +1467,9 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 </p>
               ) : null}
               <p className="text-xs leading-relaxed text-slate-500">
-                后端自己去取最新代码覆盖自己，你排好的任务和填过的密钥都不动，更新完会自动验证一次。
+                {AMSG_BUNDLE_CHANNEL === 'preview'
+                  ? '已经安装测试版 Worker 后才能自动更新。更新源绑定本测试站，不会回退到原作者正式版。'
+                  : '后端自己去取最新代码覆盖自己，你排好的任务和填过的密钥都不动，更新完会自动验证一次。'}
                 {autoUpdateText
                   ? '平时不用管，想立刻更新就点上面这颗。'
                   : '用一键部署装的可以直接点，装完以后后端还会自己定期更新；老办法装的第一次点会提示补一把钥匙，就在下面补，补完同样自动更新。'}

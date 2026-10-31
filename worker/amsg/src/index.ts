@@ -37,7 +37,7 @@ import {
   summarizeErrorCause,
 } from '@rei-standard/amsg-server/cloudflare';
 import { stripReasoningTags } from '@rei-standard/amsg-shared';
-import { AMSG_BUNDLE_VERSION } from '../../../utils/amsgBundleVersion';
+import { AMSG_BUNDLE_CHANNEL, AMSG_BUNDLE_VERSION } from '../../../utils/amsgBundleVersion';
 // 「上一次推送被判订阅失效」的形状，跟前端体检共用一个类型定义（那份是零依赖纯叶子；
 // 往里加任何浏览器依赖都会连累这个 bundle）。这里只产出事实，红绿灯和文案归前端。
 import type { AmsgPushGoneFailure } from '../../../utils/amsgDiagnostics';
@@ -3553,6 +3553,7 @@ export default {
           // 旧代码执行，版本号对上了不代表新逻辑真的在跑。
           backgroundJobs: true,
           workerVersion: AMSG_BUNDLE_VERSION,
+          bundleChannel: AMSG_BUNDLE_CHANNEL,
           // 自动更新：有没有这个能力（配没配 CF_API_TOKEN，不回值）+ 最近一次检查的结果。
           // 读的是诊断表，D1 没绑上时读不到就是 null，不影响上面那些照常回答。
           selfUpdate: {
