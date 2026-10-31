@@ -11,7 +11,7 @@ if(!root)throw Error('No host');
 try {
  const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-weixin-baiyu')?.read();
  if(!preset)throw Error('Weixin built-in not found');
- for(const scene of ['conversation','reply','voice-playing','transfer','transfer-accepted','transfer-returned','image','emoji','interaction','chat_forward','sim_card','system']){
+ for(const scene of ['conversation','weixin-send','reply','voice-playing','transfer','transfer-accepted','transfer-returned','image','emoji','interaction','chat_forward','sim_card','system']){
   const {markup,css}=renderChatDecorationSample(preset,scene);
   const section=document.createElement('section');section.className='scene';section.dataset.scene=scene;
   section.innerHTML='<h2>'+scene+'</h2><div class="beauty-preview-body">'+markup+'</div>';
@@ -31,10 +31,11 @@ try {
  const bg=(scene:string,selector:string)=>cssStyle(scene,selector)?.backgroundColor;
  const same=(scene:string,selector:string,color:string)=>bg(scene,selector)===color;
  const inBounds=(scene:string)=>{
-  const action=$(scene,'.sully-chat-actions-button'),field=$(scene,'.sully-chat-input-wrap'),send=$(scene,'.sully-chat-send-button');
-  if(!action||!field||!send)return false;
-  const a=action.getBoundingClientRect(),b=field.getBoundingClientRect(),c=send.getBoundingClientRect();
-  return a.width>=25&&b.width>=70&&c.width>=25&&a.right<=b.left+1&&b.right<=c.left+1;
+  const action=$(scene,'.sully-chat-actions-button'),field=$(scene,'.sully-chat-input-wrap'),send=$(scene,'.sully-chat-send-button'),voice=$(scene,'.sully-chat-voice-trigger');
+  if(!action||!field||!send||!voice)return false;
+  const a=action.getBoundingClientRect(),b=field.getBoundingClientRect(),v=voice.getBoundingClientRect();
+  return a.width>=25 && b.width>=70 && v.width>=25 && v.right<=b.left+2 && b.right<=a.left+2
+   && getComputedStyle(send).display==='none';
  };
  const checks={
   chatRoot:same('conversation','.sully-chat-root','rgb(237, 237, 237)'),
@@ -52,6 +53,13 @@ try {
   groupPacket:same('group','.sully-chat-group-packet','rgb(233, 167, 70)'),
   groupReceipt:!!$('group','.sully-chat-group-packet-receipt'),
   inputNoOverlap:inBounds('conversation'),
+  filledInputRealSend:(()=>{
+   const menu=$('weixin-send','.sully-chat-actions-button'),field=$('weixin-send','.sully-chat-input-wrap'),send=$('weixin-send','.sully-chat-send-button');
+   return !!menu&&!!field&&!!send&&getComputedStyle(menu).display==='none'
+     &&getComputedStyle(send).display!=='none'
+     &&getComputedStyle(send.querySelector('svg')!).visibility==='visible'
+     &&field.getBoundingClientRect().right<=send.getBoundingClientRect().left+2;
+  })(),
   headerNoExtraHeight:(()=>{
    const h=$('conversation','.sully-chat-header');
    return !!h && h.getBoundingClientRect().height<=80;
