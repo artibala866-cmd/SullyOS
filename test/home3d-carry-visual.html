@@ -316,12 +316,17 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
   const wideStrength=dreamcoreFocusStrength(cam);
   render(wideStrength);const wideOn=snap('zoom-wide-dreamcore');
   cam.zoom=1.8;cam.updateProjectionMatrix();cam.updateMatrixWorld();
+  renderer.setRenderTarget(null);renderer.render(ss,cam);
+  const diagnostic=document.createElement('canvas');diagnostic.width=renderer.domElement.width;diagnostic.height=renderer.domElement.height;
+  const cx=diagnostic.getContext('2d');cx.drawImage(renderer.domElement,0,0);
+  const rawClose=cx.getImageData(0,0,diagnostic.width,diagnostic.height).data;
   render(0);const closeOff=snap('zoom-close-sharp');
   const closeStrength=dreamcoreFocusStrength(cam);
   render(closeStrength);const closeOn=snap('zoom-close-dreamcore');
   const wideDifference=pixelDifference(wideOff,wideOn),closeDifference=pixelDifference(closeOff,closeOn);
-  report.zoomStats={wideStrength,closeStrength,wideDifference,closeDifference};
-  if(wideStrength!==0||wideDifference>.01||closeStrength<.9||closeDifference<.025||closeDifference>8)
+  const rawChange=pixelDifference(wideOff,rawClose),sharpChange=pixelDifference(wideOff,closeOff);
+  report.zoomStats={wideStrength,closeStrength,wideDifference,closeDifference,rawChange,sharpChange};
+  if(wideStrength!==0||wideDifference>.01||closeStrength<.9||rawChange<.2||sharpChange<.2||closeDifference<.025||closeDifference>8)
    throw Error('Dreamcore zoom focus was inactive in close-up or blurred wide room: '+JSON.stringify(report.zoomStats));
   near.geometry.dispose();far.geometry.dispose();ink.dispose();
  }
