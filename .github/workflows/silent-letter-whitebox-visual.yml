@@ -67,16 +67,17 @@ jobs:
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
             --window-size=1640,2170 --virtual-time-budget=15000 \
             --dump-dom http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html > /tmp/silent-dom.txt 2>/tmp/silent-chrome.log || true
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+            --window-size=1640,2170 --virtual-time-budget=15000 \
+            --screenshot="$GITHUB_WORKSPACE/silent-letter-native-chat.png" \
+            http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html
           if ! grep -q 'data-ready="true"' /tmp/silent-dom.txt; then
+            grep -o '<output[^>]*>[^<]*</output>' /tmp/silent-dom.txt | head -8 || true
             grep -o '<output[^>]*>[^<]*</output>' /tmp/silent-dom.txt | head -5 || true
             tail -60 /tmp/silent-vite.log || true
             tail -40 /tmp/silent-chrome.log || true
             exit 1
           fi
-          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
-            --window-size=1640,2170 --virtual-time-budget=15000 \
-            --screenshot="$GITHUB_WORKSPACE/silent-letter-native-chat.png" \
-            http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html
           test -s silent-letter-native-chat.png
       - uses: actions/upload-artifact@v4
         if: always()
