@@ -13,11 +13,21 @@ const out=join(process.cwd(),celOnly?'home3d-cel-visual':'home3d-carry-visual');
 let binary=process.env.CHROME_BIN||'';
 for(const cmd of ['google-chrome','chromium','chromium-browser'])if(!binary)try{binary=execFileSync('which',[cmd],{encoding:'utf8'}).trim();}catch{}
 if(!binary)throw Error('Chromium is required');
+const readyUrl='http://127.0.0.1:4173/test/home3d-carry-visual.html'+(celOnly?'?cel-only':'');
+// The workflow starts Vite in background. Never open Chrome before it serves
+// the fixture; otherwise a transient ERR_CONNECTION_REFUSED looks like a
+// hung shader and leaves an empty acceptance report for fifteen minutes.
+let served=false;
+for(let until=Date.now()+90000;Date.now()<until;){
+ try{const response=await fetch(readyUrl,{signal:AbortSignal.timeout(4000)});if(response.ok){served=true;break;}}catch{}
+ await delay(500);
+}
+if(!served)throw Error('Vite WebGL fixture did not become reachable: '+readyUrl);
 const profile=mkdtempSync(join(tmpdir(),'sully-carry-'));
 const chrome=spawn(binary,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
  '--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader',
  '--remote-allow-origins=*','--remote-debugging-port=0','--window-size=1280,800',
- '--user-data-dir='+profile,'http://127.0.0.1:4173/test/home3d-carry-visual.html'+(celOnly?'?cel-only':'')],
+ '--user-data-dir='+profile,readyUrl],
  {stdio:['ignore','ignore','pipe']});
 let stderr='',ws,report={status:'starting',errors:[]};chrome.stderr.on('data',v=>stderr=(stderr+v.toString()).slice(-20000));
 try{
@@ -28,17 +38,28 @@ try{
  if(!tab?.webSocketDebuggerUrl)throw Error('No page to inspect');
  ws=new WebSocket(tab.webSocketDebuggerUrl);
  await new Promise((ok,no)=>{const t=setTimeout(()=>no(Error('CDP websocket connection timeout')),12000);ws.addEventListener('open',()=>{clearTimeout(t);ok();},{once:true});ws.addEventListener('error',no,{once:true});});
- const pending=new Map();let next=0;
- ws.addEventListener('message',e=>{const r=JSON.parse(e.data),p=pending.get(r.id);if(!p)return;pending.delete(r.id);clearTimeout(p.t);r.error?p.no(Error(JSON.stringify(r.error))):p.ok(r.result);});
+ const pending=new Map(),diagnostics=[];let next=0;
+ ws.addEventListener('message',e=>{
+  const r=JSON.parse(e.data);
+  if(r.method==='Runtime.exceptionThrown')diagnostics.push(JSON.stringify(r.params?.exceptionDetails).slice(0,1200));
+  if(r.method==='Log.entryAdded'&&r.params?.entry?.level==='error')diagnostics.push(r.params.entry.text?.slice(0,1000));
+  const p=pending.get(r.id);if(!p)return;pending.delete(r.id);clearTimeout(p.t);r.error?p.no(Error(JSON.stringify(r.error))):p.ok(r.result);
+ });
  const send=(method,params={})=>new Promise((ok,no)=>{const id=++next,t=setTimeout(()=>{pending.delete(id);no(Error('CDP '+method+' timeout'));},45000);pending.set(id,{ok,no,t});ws.send(JSON.stringify({id,method,params}));});
  const evaluate=async(expression)=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails).slice(0,700));return r.result?.value;};
- await send('Runtime.enable');await send('Page.enable');
+ await send('Runtime.enable');await send('Page.enable');await send('Log.enable');
+ let emptySceneTicks=0;
  for(let until=Date.now()+900000;Date.now()<until;){
   const value=await evaluate('JSON.stringify(window.__carryVisualAcceptance??{status:"starting",stage:"waiting for scene"})');
   try{report=JSON.parse(value);}catch{}
   if(['pass','fail'].includes(report.status))break;
+  if(report.stage==='waiting for scene'&&++emptySceneTicks>=75){
+   report={status:'fail',stage:'Page module did not initialize',errors:diagnostics.length?diagnostics:['No WebGL fixture module or report after 90s; inspect Vite network/imports']};
+   break;
+  }
   await delay(1200);
  }
+ writeFileSync(join(out,'browser-diagnostics.json'),JSON.stringify(diagnostics,null,2));
  writeFileSync(join(out,'result.json'),JSON.stringify(report,null,2));
  console.log('Carry WebGL review:',JSON.stringify({status:report.status,stage:report.stage,images:report.images?.length,scenarios:report.sequences?.length,errors:report.errors}));
  // Persist available real WebGL frames even when acceptance rejects a pose.
