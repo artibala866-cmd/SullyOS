@@ -34,9 +34,12 @@ describe('user voice must use the actual private-chat pipeline', () => {
     expect(composer).toContain('sully-chat-voice-trigger w-9 h-9');
     expect(composer).toContain('sully-chat-voice-menu absolute bottom-full');
     expect(composer).toContain('flex w-full items-center gap-2.5 rounded-xl'); // stacked items, not two large squares
-    expect(composer).toContain('录音语音');
-    expect(composer).toContain('文字模拟语音');
+    expect(composer).toContain('语音转文字');
+    expect(composer).toContain('输入法语音');
+    expect(composer).toContain('仅发原声（不识别）');
     expect(composer).toContain('恢复普通文字');
+    expect(composer).toContain('void speechInput.startTranscription()');
+    expect(composer).toContain('textareaRef.current?.focus({ preventScroll: true })');
     expect(composer).not.toContain('w-11 h-10 rounded-xl grid place-items-center');
     const mic = composer.indexOf('sully-chat-voice-trigger');
     const inputWrapEnd = composer.indexOf('</div>', mic);
@@ -44,6 +47,19 @@ describe('user voice must use the actual private-chat pipeline', () => {
     expect(inputWrapEnd).toBeGreaterThan(mic); // mic renders in the input wrap
     expect(input).toContain("if (showPanel !== 'none') setShowPanel('none')");
     expect(input).toContain('voiceMenuRef.current?.contains(target)');
+  });
+
+  it('uses real speech recognition first and a working system keyboard mic fallback', () => {
+    const input = read('components/chat/ChatInputArea.tsx');
+    const hook = read('hooks/usePrivateChatSpeech.ts');
+    expect(hook).toContain("startStt('zh-CN', callbacks, apiConfig)");
+    expect(hook).toContain("start('transcribe')");
+    expect(hook).toContain('isBrowserSttSupported()');
+    expect(hook).toContain('当前'); // failure gives a readable Chinese keyboard fallback
+    expect(hook).toContain('输入法语音');
+    expect(input).toContain('改用手机输入法麦克风');
+    expect(input).toContain("speechInput.cancel(); onSelectTypedVoice?.(); textareaRef.current?.focus({ preventScroll: true })");
+    expect(input).toContain("typedVoiceEnabled ? '用输入法麦克风说话…' : 'Message...'");
   });
 
   it('keeps Char TTS distinct and never shows fake audio playback', () => {
