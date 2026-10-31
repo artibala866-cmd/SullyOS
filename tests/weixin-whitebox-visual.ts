@@ -8,7 +8,7 @@ import {BEAUTY_PREVIEW_AVATAR} from '../utils/beautyPreviewAssets';
 const root=document.querySelector<HTMLElement>('#weixin-visual');
 if(!root)throw Error('No host');
 try {
- const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-weixin-crystal')?.read();
+ const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-weixin-baiyu')?.read();
  if(!preset)throw Error('Weixin built-in not found');
  for(const scene of ['conversation','reply','voice-playing','transfer','transfer-accepted','transfer-returned']){
   const {markup,css}=renderChatDecorationSample(preset,scene);
