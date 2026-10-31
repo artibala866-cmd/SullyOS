@@ -1,0 +1,30 @@
+/* Exact original PNGs from the user-supplied 微信by白榆.css.
+ * These selectors only apply to the already-selected built-in theme.
+ * Native card handlers, monetary values and message state are unchanged. */
+.sully-chat-root.sully-wy-native
+ .sully-chat-transfer-card[data-status="pending"] .sully-chat-transfer-header .sully-chat-transfer-icon{
+ background-image:url("../../assets/chat/weixin-baiyu/transfer-pending.png")!important;
+ background-repeat:no-repeat!important;background-size:contain!important;background-position:center!important;
+}
+.sully-chat-root.sully-wy-native.sully-chat-group-root
+ .sully-chat-group-packet[data-status="pending"] > .text-3xl,
+.sully-chat-root.sully-wy-native.sully-chat-group-root
+ .sully-chat-group-packet:not([data-status]) > .text-2xl{
+ background-image:url("../../assets/chat/weixin-baiyu/packet-pending.png")!important;
+ background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;
+}
+.sully-chat-root.sully-wy-native.sully-chat-group-root
+ .sully-chat-group-packet[data-status="done"] > .text-3xl,
+.sully-chat-root.sully-wy-native.sully-chat-group-root
+ .sully-chat-group-packet[data-status="returned"] > .text-3xl,
+.sully-chat-root.sully-wy-native.sully-chat-group-root
+ .sully-chat-group-packet[data-status="expired"] > .text-3xl{
+ background-image:url("../../assets/chat/weixin-baiyu/packet-opened.png")!important;
+ background-size:contain!important;background-repeat:no-repeat!important;background-position:center!important;
+}
+/* Original artwork and native fallback must never render in two separate layers. */
+.sully-chat-root.sully-wy-native .sully-chat-transfer-header .sully-chat-transfer-icon > *,
+.sully-chat-root.sully-wy-native.sully-chat-group-root .sully-chat-group-packet > .text-3xl > *,
+.sully-chat-root.sully-wy-native.sully-chat-group-root .sully-chat-group-packet > .text-2xl > *{
+ display:none!important;
+}
