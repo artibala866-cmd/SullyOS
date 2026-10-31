@@ -57,6 +57,7 @@ const WEIXIN_BAIYU_SIGNATURE = '/* 微信 by 白榆 · SullyOS 原生白框整�
 const WEIXIN_HEADER_FIX = '/* 白榆顶栏原生闪电修复 v2';
 const WEIXIN_NATIVE_FIX = '/* 微信 by 白榆 · 糯米机真实组件深度适配 v3';
 const WEIXIN_DARK_FIX = '/* 微信 by 白榆 · 深色对比度补丁 v4';
+const WEIXIN_NATIVE_ICONS_V5 = '/* 微信 by 白榆 · 真实原稿图标单层替换 v5';
 export function isWeixinBaiyuCss(css?: string): boolean {
     return !!css?.includes(WEIXIN_BAIYU_SIGNATURE);
 }
@@ -64,9 +65,9 @@ export function isWeixinBaiyuCss(css?: string): boolean {
  * Add only missing version patches, preserving user changes, blobrefs and other themes.
  */
 export function resolveLegacyWeixinBaiyuCss(css: string): string {
-    if (!isWeixinBaiyuCss(css) || css.includes(WEIXIN_DARK_FIX)) return css;
+    if (!isWeixinBaiyuCss(css) || css.includes(WEIXIN_NATIVE_ICONS_V5)) return css;
     const latest = weixinBaiyu.parts.css;
-    const missing = [WEIXIN_HEADER_FIX, WEIXIN_NATIVE_FIX, WEIXIN_DARK_FIX].find(marker => !css.includes(marker));
+    const missing = [WEIXIN_HEADER_FIX, WEIXIN_NATIVE_FIX, WEIXIN_DARK_FIX, WEIXIN_NATIVE_ICONS_V5].find(marker => !css.includes(marker));
     if (!missing) return css;
     const index = latest.indexOf(missing);
     if (index < 0) return css;
