@@ -84,6 +84,10 @@ try {
   requestLabels:cssStyle('conversation','.sully-chat-header','::before').content.includes('拒绝')
     && cssStyle('conversation','.sully-chat-header','::after').content.includes('同意'),
   headerTaller:(rect('conversation','.sully-chat-header')?.height||0)>=135,
+  lightningClearOfRequestLabels:(()=>{
+    const h=rect('conversation','.sully-chat-header'),l=rect('conversation','.sully-chat-trigger');
+    return !!h&&!!l&&l.bottom<h.bottom-60;
+  })(),
   footerCompact:(rect('conversation','.sully-chat-inputbar')?.height||0)<=96,
   requestLabelsClearOfProfile:(()=>{
     const header=rect('conversation','.sully-chat-header');
