@@ -32,11 +32,25 @@ describe('incremental Home3D character style switching',()=>{
   expect(mesh.geometry).toBe(originalGeometry);
   geometry.dispose();material.dispose();
  });
+ it('keeps Joyce Comic-style ink sharp and never composites a shifted scene as fake depth of field',()=>{
+  const pass=readFileSync('apps/room3d/roomFinishPass.js','utf8');
+  const editor=readFileSync('apps/room3d/editor.js','utf8');
+  expect(pass).toContain('colourDiscontinuity');
+  expect(pass).toContain('vec3 leftInk=sceneColor(');
+  expect(pass).toContain('c=mix(c,vec3(.050,.041,.050),inkWeight)');
+  // A neighbour can detect an edge but never contribute its displaced
+  // source colour to the output: that produced four clear ghost copies.
+  expect(pass).not.toMatch(/outOfFocus|focusStrength|focusCenter|softened/);
+  expect(pass).not.toMatch(/c\\s*=\\s*mix\\(c,\\s*(?:softened|near)/);
+  expect(pass).toContain('baseFinish&&!illustrated');
+  expect(editor).not.toContain('focusCenter');
+  expect(editor).toContain('清晰漫画描线与轻微胶片颗粒，无重影');
+ });
  it('is only a device preference and leaves current avatar, 29 original seat registrations and homes untouched',()=>{
   const source=readFileSync('apps/room3d/editor.js','utf8');
   expect(source).toContain('data-action="character-style"');
   expect(source).toContain("setCharacterStyle(d.value==='legacy'?'legacy':d.value==='illustrated'?'illustrated':'modern')");
-  expect(source).toContain("['illustrated','手绘线稿 · 梦核电影感']");
+  expect(source).toContain("['illustrated','清晰漫画手绘线 · 轻梦核']");
   expect(source).not.toContain('state.characterStyle=');
   setCharacterStyle('legacy');
   expect(getCharacterStyle()).toBe('legacy');
