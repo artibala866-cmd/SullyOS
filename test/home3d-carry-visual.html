@@ -238,6 +238,13 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    head.rotation.x=restHeadX;actor.finishPose();view('three-quarter');
    setCharacterStyle('modern');renderer.render(scene,camera);
    const orig=styleScreenshot('style-'+variant.id+'-original');
+   // True actor-only pixel mask, obtained with the same unchanged camera/light
+   // and the resident hidden. No ungrounded rectangle or empty floor included.
+   actor.root.visible=false;renderer.render(scene,camera);
+   const maskCanvas=document.createElement('canvas');maskCanvas.width=renderer.domElement.width;maskCanvas.height=renderer.domElement.height;
+   const maskCtx=maskCanvas.getContext('2d');maskCtx.drawImage(renderer.domElement,0,0);
+   const bg=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height).data;
+   actor.root.visible=true;
    setCharacterStyle('illustrated');renderer.render(scene,camera);
    const drawn=styleScreenshot('style-'+variant.id+'-illustrated');
    setCharacterStyle('modern');renderer.render(scene,camera);
@@ -252,13 +259,14 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    report.styleStats.push({variant:variant.id,mean:styleMean,fraction:styleFraction,maxRestoreDifference:styleReversible});
    // Strong-style acceptance: the pictured subject must change, not just
    // occasional background pixels or a one-pixel antialiasing edge.
-   const tw=renderer.domElement.width,th=renderer.domElement.height;
    let focusSum=0,focusChanged=0,focusCount=0;
-   for(let y=Math.floor(th*.10);y<Math.floor(th*.86);y++)for(let x=Math.floor(tw*.30);x<Math.floor(tw*.72);x++){
-    const px=(y*tw+x)*4;
+   for(let px=0;px<orig.length;px+=4){
+    const masked=(Math.abs(orig[px]-bg[px])+Math.abs(orig[px+1]-bg[px+1])+Math.abs(orig[px+2]-bg[px+2]))/3;
+    if(masked<7)continue;
     const d=(Math.abs(orig[px]-drawn[px])+Math.abs(orig[px+1]-drawn[px+1])+Math.abs(orig[px+2]-drawn[px+2]))/3;
     focusSum+=d;focusCount++;if(d>4)focusChanged++;
    }
+   if(!focusCount)throw Error('Actor mask empty '+variant.id);
    const focusMean=focusSum/focusCount,focusShare=focusChanged/focusCount;
    report.styleStats[report.styleStats.length-1].focusMean=focusMean;
    report.styleStats[report.styleStats.length-1].focusShare=focusShare;

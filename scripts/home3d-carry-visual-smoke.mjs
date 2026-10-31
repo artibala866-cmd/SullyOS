@@ -86,7 +86,7 @@ try{
   if(!/^finish-[a-z0-9-]+$/.test(name))throw Error('Unsafe finish frame name '+name);
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
- if((report.finishImages||[]).length!==8||(report.finishStats||[]).length!==4)throw Error('A/B filter coverage incomplete');
+
  for(let i=0;i<(report.styleImages||[]).length;i++){
   const src=await evaluate('document.querySelectorAll(".style-comparison figure img")['+i+']?.src');
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing cel original/new/restored image '+i);
@@ -98,6 +98,7 @@ try{
  if((report.phaseStats||[]).length!==4||!report.phaseStats.every(p=>p.maxRestored<=.01))throw Error('One original lighting phase changed');
 
  if(!report.styleStats.every(x=>x.maxRestoreDifference<=.01))throw Error('Original style changed after switching back');
+ if((report.finishImages||[]).length!==8||(report.finishStats||[]).length!==4)throw Error('A/B filter coverage incomplete');
  if((report.materialImages||[]).length!==36)throw Error('Material coverage incomplete');
  if(!complete)throw Error('Carry WebGL fixture failed/incomplete: '+(report.errors||[]).join(' | ').slice(0,1000));
  const h=await evaluate('document.documentElement.scrollHeight');
