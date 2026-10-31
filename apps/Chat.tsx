@@ -1803,8 +1803,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // Phase 2 will attach explicit voice metadata and the user-side voice bubble.
     const speechSendingRef = useRef(false);
     const handleConfirmSpeechTranscript = () => {
-        if (speechSendingRef.current || privateChatSpeech.status !== 'review' || !privateChatSpeech.transcript.trim() || !char) return;
+        if (speechSendingRef.current || privateChatSpeech.status !== 'review' || !char) return;
         const text = privateChatSpeech.transcript.trim();
+        if (!text && !privateChatSpeech.getAudioDraft()?.blob.size) return;
         const targetCharId = char.id;
         speechSendingRef.current = true;
         // The paid provider's STT and saved WAV share a microphone stream.
@@ -1829,7 +1830,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     if (audioRef) await deleteBlobRefIfUnreferenced(audioRef).catch(() => {});
                     return;
                 }
-                const saved = await handleSendText(text, 'voice', metadata);
+                // The placeholder is only for the persisted envelope; the prompt
+                // normalizer knows this isn't speech-recognition output.
+                const saved = await handleSendText(text || '[语音]', 'voice', metadata);
                 if (saved !== true) {
                     if (audioRef) await deleteBlobRefIfUnreferenced(audioRef).catch(() => {});
                     return;
