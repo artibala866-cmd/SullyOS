@@ -4,32 +4,10 @@ import { generateCharacterImage } from '../../utils/imageGeneration';
 import TokenImg from '../os/TokenImg';
 import { DB } from '../../utils/db';
 import { dataUrlToBlob, deleteBlobRef, deleteBlobRefIfUnreferenced, getBlobForRef, isBlobRef, putImageBlob } from '../../utils/blobRef';
+import { readCharacterImageProfile, writeCharacterImageProfile, type CharacterImageProfile } from '../../utils/characterImageProfile';
 
-const key = (id: string) => 'sully_image_character_v1_' + id;
-export type CharacterImageProfile = {
-  appearance: string;
-  reference: string;
-  /** Separate facial traits must guide generation, not chat roleplay. */
-  facePrompt?: string;
-  referenceEnabled?: boolean;
-  referenceMode?: 'identity' | 'composition';
-  seed?: string;
-  seedLockEnabled?: boolean;
-  wardrobe?: { guidance: string; inventory: string; avoid: string };
-};
-export const readCharacterImageProfile = (id: string): CharacterImageProfile => {
-  try { return { appearance: '', reference: '', ...JSON.parse(localStorage.getItem(key(id)) || '{}') }; }
-  catch { return { appearance: '', reference: '' }; }
-};
-
-/** Shared by the editor and BabyLink importer: use exactly the same scoped key. */
-export const writeCharacterImageProfile = (id: string, profile: CharacterImageProfile): void => {
-  if (!id) throw new Error('角色 ID 缺失，无法保存生图设定');
-  localStorage.setItem(key(id), JSON.stringify(profile));
-};
-export const clearCharacterImageProfile = (id: string): void => {
-  localStorage.removeItem(key(id));
-};
+export { readCharacterImageProfile, writeCharacterImageProfile, clearCharacterImageProfile } from '../../utils/characterImageProfile';
+export type { CharacterImageProfile } from '../../utils/characterImageProfile';
 
 const CharacterImagePanel: React.FC<{ characterId: string }> = ({ characterId }) => {
   const [profile, setProfile] = useState<CharacterImageProfile>(() => readCharacterImageProfile(characterId));
