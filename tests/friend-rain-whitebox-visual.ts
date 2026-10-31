@@ -254,7 +254,7 @@ try {
   const edges=bubbleRects.map(x=>x?.right||0);
   const edgeSpread=Math.max(...edges)-Math.min(...edges);
   const withinRows=bubbleRects.every((b,i)=>!!b&&b.right<=rowRects[i].right-3&&b.left>=rowRects[i].left);
-  const marginConsistent=contentRects.every((c,i)=>!!c&&Math.abs(rowRects[i].right-c.right-48)<=3);
+  const marginConsistent=contentRects.every((c,i)=>!!c&&Math.abs(rowRects[i].right-c.right-48-parseFloat(getComputedStyle(roots[i]).paddingRight))<=3);
   const heartsDetached=roots.filter(x=>x.classList.contains('sully-chat-message-group-first')).every(x=>{
    const b=x.querySelector<HTMLElement>('.sully-bubble-user');
    return !!b&&getComputedStyle(b,'::after').position==='absolute'&&getComputedStyle(b).marginTop==='0px';
