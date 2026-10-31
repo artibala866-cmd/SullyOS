@@ -59,6 +59,7 @@ import { isBuiltInQQTheme, QQ_BUBBLE_CSS, shouldStartQQTimeGroup, formatQQTime }
 import ChatHeader from '../components/chat/ChatHeaderShell';
 import {isFaintSilkPairCss} from '../utils/faintSilkPair';
 import {FAINT_SILK_POLISH_CSS} from '../utils/faintSilkPolish';
+import {FaintSilkIcons} from '../components/chat/FaintSilkIcons';
 import { Phone } from '@phosphor-icons/react';
 import CharacterEntryTransition from '../components/chat/CharacterEntryTransition';
 import {resolveDecorationTheme} from '../utils/chatDecoration';
@@ -4131,6 +4132,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                <style>{FAINT_SILK_POLISH_CSS}</style>
              )}
 
+            {(isFaintSilkPairCss(char.chromeCustomCss) || (!char.chromeCustomCss && isFaintSilkPairCss(osTheme.chatChromeCustomCss))) && <FaintSilkIcons />}
              {/* 记忆整理中 — 顶部浮动胶囊（不阻塞交互，轻量无 backdrop-filter） */}
              {memoryPalaceStatus && (
                  <div
