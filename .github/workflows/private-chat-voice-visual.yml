@@ -31,6 +31,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Compile real preview styling
         run: pnpm run build:chat-preview
+      - name: Install Chinese fonts for accurate mobile screenshots
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:
@@ -55,6 +57,11 @@ jobs:
             --screenshot="$GITHUB_WORKSPACE/private-chat-voice-mobile.png" \
             http://127.0.0.1:5173/tests/private-chat-voice-visual.html
           test -s private-chat-voice-mobile.png
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+            --window-size=360,1450 --virtual-time-budget=15000 \
+            --screenshot="$GITHUB_WORKSPACE/private-chat-voice-narrow.png" \
+            http://127.0.0.1:5173/tests/private-chat-voice-visual.html
+          test -s private-chat-voice-narrow.png
           grep -o '<output id="voice-visual-checks"[^<]*[^<]*' /tmp/voice-dom.html | head -c 2000 || true
           if ! grep -q 'data-voice-visual-ready="true"' /tmp/voice-dom.html; then
             tail -60 /tmp/voice-vite.log || true
@@ -66,6 +73,8 @@ jobs:
         if: always()
         with:
           name: private-chat-voice-original-style-mobile
-          path: private-chat-voice-mobile.png
+          path: |
+            private-chat-voice-mobile.png
+            private-chat-voice-narrow.png
           if-no-files-found: ignore
           retention-days: 7
