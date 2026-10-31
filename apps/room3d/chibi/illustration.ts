@@ -220,8 +220,8 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             // Inner pen shading follows silhouette curvature; it adds a
             // continuous narrow warm-ink contour without flattening the face.
             float inkViewEdge=1.-clamp(abs(dot(normal,normalize(vViewPosition))),0.,1.);
-            float inkFineOutline=smoothstep(.77,.965,inkViewEdge);
-            inkColor*=1.-inkFineOutline*${face ? '.11' : skin ? '.15' : hair ? '.21' : '.19'};
+            float inkFineOutline=smoothstep(.79,.975,inkViewEdge);
+            inkColor*=1.-inkFineOutline*${face ? '.16' : skin ? '.23' : hair ? '.32' : '.28'};
             ${hair ? `// Satin ribbons remain subordinate to the authored hair texture.
             vec3 inkHairHalf=normalize(inkLight+normalize(vViewPosition));
             float inkStrandAngle=abs(dot(normalize(inkLocalStrandView),inkHairHalf));
@@ -247,23 +247,23 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             // tint: it must visibly read as a pen line on light and dark
             // pigments while preserving eyes, mouth and internal painting.
             float inkViewDot=abs(dot(normal,normalize(vViewPosition)));
-            float inkLineAA=max(fwidth(inkViewDot)*1.10,.018);
-            float inkMeshStroke=1.-smoothstep(.07,.20+inkLineAA,inkViewDot);
-            float inkStroke=max(inkMeshStroke*${face ? '.30' : skin ? '.49' : '.64'},${cutoutHair ? 'inkCutoutEdge*.58' : '0.'});
+            float inkLineAA=max(fwidth(inkViewDot)*.96,.016);
+            float inkMeshStroke=1.-smoothstep(.065,.175+inkLineAA,inkViewDot);
+            float inkStroke=max(inkMeshStroke*${face ? '.42' : skin ? '.63' : hair ? '.82' : '.80'},${cutoutHair ? 'inkCutoutEdge*.77' : '0.'});
             // Hand-drawn internal linework follows actual painted boundaries:
             // hair strands, embroidery and clothing folds. One derivative
             // pair costs no extra texture reads and leaves facial ink intact.
             vec3 inkPaintEdge=fwidth(diffuseColor.rgb);
             float inkPaintJump=max(inkPaintEdge.r,max(inkPaintEdge.g,inkPaintEdge.b));
-            float inkInteriorStroke=smoothstep(.078,.30,inkPaintJump);
-            inkInteriorStroke*= ${face ? '.12' : skin ? '.12' : hair ? '.40' : '.34'};
+            float inkInteriorStroke=smoothstep(.070,.25,inkPaintJump);
+            inkInteriorStroke*= ${face ? '.14' : skin ? '.16' : hair ? '.56' : '.46'};
             inkStroke=clamp(max(inkStroke,inkInteriorStroke),0.,.96);
-            vec3 inkLineColour=mix(vec3(.078,.066,.081),diffuseColor.rgb*.09,.17);
+            vec3 inkLineColour=mix(vec3(.066,.057,.082),diffuseColor.rgb*.09,.15);
             outgoingLight=mix(outgoingLight,inkLineColour,inkStroke);` : ''}
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v20-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v21-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;
