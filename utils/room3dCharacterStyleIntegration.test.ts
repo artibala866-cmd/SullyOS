@@ -19,6 +19,10 @@ describe('incremental Home3D character style switching',()=>{
   expect(material.customProgramCacheKey()).toMatch(/-character-illustration-v\d+-modern/);
   expect(mesh.geometry).toBe(originalGeometry);
   expect(material.map).toBe(originalMap);
+  setCharacterIllustration(root,true,'illustrated');
+  expect(material.customProgramCacheKey()).toMatch(/-character-illustration-v\d+-illustrated/);
+  expect(material.map).toBe(originalMap);
+  expect(mesh.geometry).toBe(originalGeometry);
   setCharacterIllustration(root,true,'legacy');
   expect(material.customProgramCacheKey()).toBe(classicKey);
   setCharacterIllustration(root,false);
@@ -31,10 +35,13 @@ describe('incremental Home3D character style switching',()=>{
  it('is only a device preference and leaves current avatar, 29 original seat registrations and homes untouched',()=>{
   const source=readFileSync('apps/room3d/editor.js','utf8');
   expect(source).toContain('data-action="character-style"');
-  expect(source).toContain("setCharacterStyle(d.value==='legacy'?'legacy':'modern')");
+  expect(source).toContain("setCharacterStyle(d.value==='legacy'?'legacy':d.value==='illustrated'?'illustrated':'modern')");
+  expect(source).toContain("['illustrated','插画三渲二 · 新']");
   expect(source).not.toContain('state.characterStyle=');
   setCharacterStyle('legacy');
   expect(getCharacterStyle()).toBe('legacy');
+  setCharacterStyle('illustrated');
+  expect(getCharacterStyle()).toBe('illustrated');
   setCharacterStyle('modern');
   expect(getCharacterStyle()).toBe('modern');
  });
