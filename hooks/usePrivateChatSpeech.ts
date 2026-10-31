@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { APIConfig } from '../types';
-import { startStt, type SttSession } from '../utils/speechToText';
+import { isAudioRecordingSupported, resolveSttProvider, startPrivateChatRecording, startStt, type SttSession } from '../utils/speechToText';
 
 export type PrivateChatSpeechStatus = 'idle' | 'starting' | 'listening' | 'transcribing' | 'review';
 
@@ -55,7 +55,9 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     // Backgrounding the page must never leave the microphone recording silently.
     const interrupt = () => {
       if (document.visibilityState === 'hidden') {
-        if (status === 'starting' || status === 'listening' || status === 'transcribing') cancel();
+        // An Android/browser microphone permission sheet can temporarily hide the page.
+        // Cancelling during "starting" would revoke the recording before permission is granted.
+        if (status === 'listening' || status === 'transcribing') cancel();
       }
     };
     const onPageHide = () => {
@@ -87,7 +89,12 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     let ended = false;
 
     try {
-      const session = await startStt('zh-CN', {
+      // Browser WebSpeech often exposes webkitSpeechRecognition but silently hangs
+      // when its remote backend is unreachable. A user selecting "录音语音"
+      // needs REAL audio, so use local MediaRecorder unless a paid ASR provider
+      // was explicitly selected. Keep native speech fallback on older WebViews.
+      const useLocalRecording = resolveSttProvider(apiConfig) === 'browser' && isAudioRecordingSupported();
+      const callbacks = {
         onAudioCaptured: (blob, durationSec) => {
           if (generation !== generationRef.current || blob.size === 0 || durationSec <= 0) return;
           audioDraftRef.current = { blob, durationSec };
@@ -117,7 +124,10 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
           sessionRef.current = null;
           setStatus('review');
         },
-      }, apiConfig);
+      };
+      const session = useLocalRecording
+        ? await startPrivateChatRecording(callbacks)
+        : await startStt('zh-CN', callbacks, apiConfig);
       if (generation !== generationRef.current || ended) {
         session.cancel();
         return;
