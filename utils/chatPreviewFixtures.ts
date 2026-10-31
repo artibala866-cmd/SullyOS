@@ -52,7 +52,7 @@ export const CHAT_PREVIEW_SCENES:ChatPreviewScene[] = [
  scene('voice','语音',[msg(130,'text','<语音>晚安，明天见。</语音>'),CHAT_TYPE_SAMPLES.voice]),
  scene('voice-loading','语音 · 加载',[msg(131,'text','<语音>晚安。</语音>')],{voiceLoading:true}),
  scene('voice-playing','语音 · 播放与字幕',[msg(132,'text','<语音>晚安，明天见。</语音>')],{voicePlaying:true,expanded:true}),
- scene('reply','引用与双语',[{...msg(140,'text','%%BILINGUAL%%\n[LANG_A]明天一起看海。[/LANG_A]\n[LANG_B]Let’s see the sea tomorrow.[/LANG_B]'),replyTo:{id:0,name:'我',content:'周末有什么安排？'}}]),
+ scene('reply','引用与双语',[{...msg(140,'text','%%BILINGUAL%%\n[LANG_A]明天一起看海。[/LANG_A]\n[LANG_B]Let’s see the sea tomorrow.[/LANG_B]'),replyTo:{id:0,name:'我',content:'周末有什么安排？'}}, {...msg(141,'text','刚找到那家花店，我们明天一起去看看。',undefined,'user'),replyTo:{id:140,name:'示例角色',content:'明天一起看海。'}}]),
  ...Object.entries(CHAT_TYPE_SAMPLES).filter(([type])=>!['text','transfer','voice'].includes(type)).map(([type,message])=>scene(type,({image:'图片',emoji:'表情',collaboration_file:'协同文件',interaction:'互动',system:'系统提示',social_card:'动态分享',chat_forward:'聊天转发',xhs_card:'小红书',score_card:'写歌',music_card:'音乐',mcd_card:'麦当劳',luckin_card:'瑞幸',html_card:'HTML 卡片',news_card:'资讯',vr_card:'彼方',trpg_card:'跑团',novel_card:'笔友会',world_card:'世界',sim_card:'人生体验',phone_card:'查手机',webpage_card:'网页',theater_card:'剧场',room_card:'小屋',life_card:'生活记录',group_topic_card:'群聊话题'} as Record<string,string>)[type], [message])),
  scene('quiz','答题报告',[score(150,'quiz_card',{score:9,total:10,scorePercent:90,courseTitle:'文学小测',chapterTitle:'第一章'})]),
  scene('guidebook','攻略本',[score(151,'guidebook_card',{title:'心动练习',charName:'示例角色',initialAffinity:20,finalAffinity:35,charVerdict:'今天更了解你了。',charNewInsight:'你会记住每一件小事。',rounds:5})]),
