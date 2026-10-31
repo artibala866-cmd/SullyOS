@@ -323,7 +323,7 @@ export const ThinkingChainBlock: React.FC<{
                     boxShadow: spec.cardShadow
                         ? spec.cardShadow
                         : spec.glow
-                            ? `0 2px 8px rgba(20, 10, 30, 0.18), inset 0 0 24px ${spec.glow.replace(/[\d.]+\)$/, '0.06)')}`
+                            ? `0 2px 8px rgba(20, 10, 30, 0.18), inset 0 0 24px ${spec.glow}`
                             : '0 1px 3px rgba(15, 23, 42, 0.08)',
                 }}
             >
