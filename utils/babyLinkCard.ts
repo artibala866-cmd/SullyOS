@@ -1,6 +1,6 @@
 import type { CharacterProfile, Worldbook } from '../types';
 import type { PreparedCharacterCard } from './sillyTavernCard';
-import type { CharacterImageProfile } from '../components/character/CharacterImagePanel';
+import type { CharacterImageProfile } from './characterImageProfile';
 
 /**
  * BabyLink 1.1.10 APK: StImportUnlockModal-NAd1Rh6X.js uses RGB LSBs in
