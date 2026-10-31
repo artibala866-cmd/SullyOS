@@ -19,7 +19,7 @@ try {
  // replace native SVG only AFTER loading and never intercept an existing button.
  const live=document.createElement('section');
  live.className='scene';live.dataset.scene='live-original-icons';
- live.innerHTML='<h2>原始图标实际加载 / 单层兜底 / 原生按钮</h2><div class="beauty-preview-body"><main class="sully-chat-root sample-chat" style="height:600px;display:flex;flex-direction:column;justify-content:flex-end"><div id="weixin-live-input"></div></main></div>';
+ live.innerHTML='<h2>原始图标实际加载 / 单层兜底 / 原生按钮</h2><div class="beauty-preview-body"><main class="sully-chat-root sample-chat sully-wy-native" style="height:600px;display:flex;flex-direction:column;justify-content:flex-end"><div id="weixin-live-input"></div></main></div>';
  const liveStyle=document.createElement('style');
  liveStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
  live.prepend(liveStyle);root.append(live);
@@ -70,7 +70,7 @@ try {
  const group=document.createElement('section');group.className='scene';group.dataset.scene='group';
  const pendingPacket=makePacketMeta({packetType:'direct',totalAmount:25,targetId:'preview',note:'恭喜发财',now:Date.now()});
  const acceptedPacket={...pendingPacket,status:'done' as const,claims:[{claimantId:'preview',amount:25,at:Date.now()}]};
- const groupMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sully-chat-group-root sample-chat'},React.createElement('div',{className:'sully-chat-messages sample-messages'},React.createElement(GroupMessageItem,{...base,msg:demo,isUser:false,char:{id:'preview',name:'示例角色',avatar:BEAUTY_PREVIEW_AVATAR} as any,styleConfig:preset.parts.bubbles!.ai}),React.createElement(GroupMessageItem,{...base,msg:{...demo,id:25002,role:'user',content:'当然，我带相机！'},isUser:true,styleConfig:preset.parts.bubbles!.user}),React.createElement(GroupPacketCard,{msg:{...demo,id:25003,type:'transfer',metadata:{}},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25004,type:'transfer',metadata:{packetReceipt:'claimed',claimantName:'示例角色',senderName:'我',amount:25}},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25005,type:'transfer',metadata:pendingPacket},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25006,type:'transfer',metadata:acceptedPacket},nameOf:()=>'示例角色'}))));
+ const groupMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sully-chat-group-root sample-chat sully-wy-native'},React.createElement('div',{className:'sully-chat-messages sample-messages'},React.createElement(GroupMessageItem,{...base,msg:demo,isUser:false,char:{id:'preview',name:'示例角色',avatar:BEAUTY_PREVIEW_AVATAR} as any,styleConfig:preset.parts.bubbles!.ai}),React.createElement(GroupMessageItem,{...base,msg:{...demo,id:25002,role:'user',content:'当然，我带相机！'},isUser:true,styleConfig:preset.parts.bubbles!.user}),React.createElement(GroupPacketCard,{msg:{...demo,id:25003,type:'transfer',metadata:{}},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25004,type:'transfer',metadata:{packetReceipt:'claimed',claimantName:'示例角色',senderName:'我',amount:25}},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25005,type:'transfer',metadata:pendingPacket},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25006,type:'transfer',metadata:acceptedPacket},nameOf:()=>'示例角色'}))));
  group.innerHTML='<h2>群聊双方消息、红包与领取回执</h2><div class="beauty-preview-body">'+groupMarkup+'</div>';
  const style=document.createElement('style');style.textContent=renderChatDecorationSample(preset,'conversation').css;group.prepend(style);root.append(group);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
@@ -92,6 +92,16 @@ try {
   originalGlyphsSingleLayer,
   nativeActionStillWorks,
   nativeSpeechShortcutWorks,
+  originalTransferArtwork:(()=>{
+   const icon=$('transfer','.sully-chat-transfer-header .sully-chat-transfer-icon');
+   const art=icon?getComputedStyle(icon).backgroundImage:'none';
+   return !!icon&&art.includes('url(')&&!art.includes('nos.netease')&&!art.includes('postimg')&&!art.includes('image/svg+xml');
+  })(),
+  originalGroupPacketArtwork:(()=>{
+   const icon=$('group','.sully-chat-group-packet[data-status="pending"] > .text-3xl');
+   const art=icon?getComputedStyle(icon).backgroundImage:'none';
+   return !!icon&&art.includes('url(')&&!art.includes('nos.netease')&&!art.includes('image/svg+xml');
+  })(),
   chatRoot:same('conversation','.sully-chat-root',expected('rgb(237, 237, 237)','rgb(24, 24, 24)')),
   header:same('conversation','.sully-chat-header',expected('rgb(237, 237, 237)','rgb(17, 17, 17)')),
   input:same('conversation','.sully-chat-inputbar',expected('rgb(247, 247, 247)','rgb(23, 23, 23)')),
