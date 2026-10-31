@@ -134,10 +134,10 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  let viewMode='free';try{if(!onMenu&&localStorage.getItem('sully-home3d-view-mode')==='flat')viewMode='flat';}catch{}
  let showroomPalette='';
  let faceTimer=0;const residentExpressions=new Map();
- let lightMode='auto',lightPhase=null,lightTimer=0,finishEnabled=true,detailEnabled=true;
+ let lightMode='auto',lightPhase=null,lightTimer=0,finishEnabled=true,detailEnabled=false;
  try{finishEnabled=localStorage.getItem('sully-home3d-light-finish')!=='off'}catch{}
  // Added-on image clarity only. Existing materials, lighting, shadows and bloom are untouched.
- try{detailEnabled=localStorage.getItem('sully-home3d-detail-finish')!=='off'}catch{}
+ try{detailEnabled=localStorage.getItem('sully-home3d-detail-finish')==='on'}catch{}
  try{const mode=localStorage.getItem('sully-home3d-light-mode');if(mode==='auto'||Object.hasOwn(ROOM_LIGHT_PHASES,mode))lightMode=mode;}catch{}
  const lightUniforms=createRoomLightUniforms();
  let quality='clear';try{const saved=localStorage.getItem('sully-home3d-quality');if(qualities[saved])quality=saved}catch{}
