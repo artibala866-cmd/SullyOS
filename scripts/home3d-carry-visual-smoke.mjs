@@ -91,10 +91,10 @@ try{
   const src=await evaluate('document.querySelectorAll(".style-comparison figure img")['+i+']?.src');
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing cel original/new/restored image '+i);
   const name=report.styleImages[i].name;
-  if(!/^(?:style|phase)-[a-z0-9-]+$/.test(name))throw Error('Unsafe cel frame name '+name);
+  if(!/^(?:style|phase|close)-[a-z0-9-]+$/.test(name))throw Error('Unsafe cel frame name '+name);
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
- if((report.styleImages||[]).length!==24||(report.styleStats||[]).length!==4)throw Error('Cel A/B and four-phase coverage incomplete');
+ if((report.styleImages||[]).length!==36||(report.styleStats||[]).length!==4)throw Error('Cel A/B and four-phase coverage incomplete');
  if((report.phaseStats||[]).length!==4||!report.phaseStats.every(p=>p.maxRestored<=.01))throw Error('One original lighting phase changed');
 
  if(!report.styleStats.every(x=>x.maxRestoreDifference<=.01))throw Error('Original style changed after switching back');

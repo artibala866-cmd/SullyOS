@@ -252,6 +252,21 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    report.styleStats.push({variant:variant.id,mean:styleMean,fraction:styleFraction,maxRestoreDifference:styleReversible});
    if(styleMean<.05||styleMean>12||styleFraction<.005||styleFraction>.75||styleReversible>.01)
     throw Error('Original look not preserved or cel shader ineffective '+variant.id+': '+JSON.stringify({mean:styleMean,fraction:styleFraction,reversible:styleReversible}));
+   // Close-up at unchanged pose and light to expose real shader detail; use
+   // the orthographic camera zoom, not CSS or interpolated screenshot scaling.
+   {
+    const savedZoom=camera.zoom;camera.zoom=1.85;camera.updateProjectionMatrix();
+    view('three-quarter');
+    setCharacterStyle('modern');renderer.render(scene,camera);
+    const closeOrig=styleScreenshot('close-'+variant.id+'-original');
+    setCharacterStyle('illustrated');renderer.render(scene,camera);
+    styleScreenshot('close-'+variant.id+'-illustrated');
+    setCharacterStyle('modern');renderer.render(scene,camera);
+    const closeRestored=styleScreenshot('close-'+variant.id+'-restored');
+    let max=0;for(let k=0;k<closeOrig.length;k+=4)for(let d=0;d<3;d++)max=Math.max(max,Math.abs(closeOrig[k+d]-closeRestored[k+d]));
+    if(max>.01)throw Error('Close-up original shader did not restore '+variant.id+': '+max);
+    camera.zoom=savedZoom;camera.updateProjectionMatrix();
+   }
    if(variant.id==='black-fair-dark'){
     // Preserve the actual shared room colour uniforms across all four daylight
     // phases and verify switching the optional style cannot remove existing light.
@@ -311,7 +326,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     throw Error('Unsafe or invisible detail filter '+variant.id+': '+JSON.stringify({mean,fraction,subjectMean,subjectFraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
- if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==24||report.phaseImages.length!==12)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
+ if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
  finishPass.dispose();
  if(!celOnly&&(report.images.length!==980||report.timelines.length!==2))throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
