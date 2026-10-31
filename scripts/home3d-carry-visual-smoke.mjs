@@ -57,6 +57,14 @@ try{
   if(!/^material-[a-z0-9-]+$/.test(name))throw Error('Unsafe material frame name '+name);
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
+ for(let i=0;i<(report.finishImages||[]).length;i++){
+  const src=await evaluate('document.querySelectorAll(".finish-comparison figure img")['+i+']?.src');
+  if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing finish A/B WebGL frame '+i);
+  const name=report.finishImages[i].name;
+  if(!/^finish-[a-z0-9-]+$/.test(name))throw Error('Unsafe finish frame name '+name);
+  writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
+ }
+ if((report.finishImages||[]).length!==8||(report.finishStats||[]).length!==4)throw Error('A/B filter coverage incomplete');
  if((report.materialImages||[]).length!==36)throw Error('Material coverage incomplete');
  if(!complete)throw Error('Carry WebGL fixture failed/incomplete: '+(report.errors||[]).join(' | ').slice(0,1000));
  const h=await evaluate('document.documentElement.scrollHeight');

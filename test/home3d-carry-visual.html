@@ -8,7 +8,8 @@ import * as T from 'three';
 import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
 import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial.ts';
 import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe.ts';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],sequences:[],timelines:[],models:[]};
+import {createRoomFinishPass} from '../apps/room3d/roomFinishPass.js';
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -169,6 +170,16 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
   {id:'copper-medium-light',hair:'#b96b46',skin:'#c9967b',outfit:'original'},
  ];
  const materialGallery=document.createElement('main');materialGallery.className='materials';document.body.append(materialGallery);
+ const finishedGallery=document.createElement('main');finishedGallery.className='finish-comparison';document.body.append(finishedGallery);
+ const finishPass=createRoomFinishPass(renderer);
+ const finishScreenshot=(name)=>{
+  const img=document.createElement('img'),fig=document.createElement('figure');
+  img.src=renderer.domElement.toDataURL('image/png');img.alt=name;fig.append(img);
+  finishedGallery.append(fig);report.finishImages.push({name});
+  const sample=document.createElement('canvas');sample.width=renderer.domElement.width;sample.height=renderer.domElement.height;
+  const ctx=sample.getContext('2d');ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,sample.width,sample.height).data;
+ };
+
  renderer.setSize(700,525,false);renderer.setPixelRatio(1);
  for(const variant of materialCases){
   const p=parts(0);p.skin=color(variant.skin);p.eyes=testEyes;p.mouth=testMouth;p.facemark=testMarks;
@@ -197,9 +208,27 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
      await next();
     }
    }
+
+   // Frame-perfect comparison on the real hair, face, wardrobe and ACES renderer.
+   // Both images include the ORIGINAL room finish. Only the optional detail differs.
+   head.rotation.x=restHeadX;actor.finishPose();view('three-quarter');
+   renderer.render(scene,camera);finishPass.render('day',{baseFinish:true,detail:0});
+   const baseline=finishScreenshot('finish-'+variant.id+'-original');
+   renderer.render(scene,camera);finishPass.render('day',{baseFinish:true,detail:.55});
+   const enhanced=finishScreenshot('finish-'+variant.id+'-enhanced');
+   let changed=0,sum=0;
+   for(let k=0;k<baseline.length;k+=4){
+    const d=(Math.abs(baseline[k]-enhanced[k])+Math.abs(baseline[k+1]-enhanced[k+1])+Math.abs(baseline[k+2]-enhanced[k+2]))/3;
+    if(d>.5)changed++;sum+=d;
+   }
+   const mean=sum/(baseline.length/4),fraction=changed/(baseline.length/4);
+   report.finishStats.push({variant:variant.id,meanDifference:mean,changedFraction:fraction});
+   if(mean<.04||mean>12||fraction<.005||fraction>.85)
+    throw Error('Unsafe or invisible detail filter '+variant.id+': '+JSON.stringify({mean,fraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
- if(report.materialImages.length!==36)throw Error('Incomplete material test '+report.materialImages.length);
+ if(report.materialImages.length!==36||report.finishImages.length!==8)throw Error('Incomplete materials and A/B finish '+report.materialImages.length+'/'+report.finishImages.length);
+ finishPass.dispose();
  if(report.images.length!==980||report.timelines.length!==2)throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
 }catch(error){report.errors.push(String(error));report.status='fail';stage('错误');}
