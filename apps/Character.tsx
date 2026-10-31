@@ -4,7 +4,7 @@ import CharacterApiPanel from '../components/character/CharacterApiPanel';
 import CharacterSettingsSection from '../components/character/CharacterSettingsSection';
 import CharacterStatsPanel from '../components/character/CharacterStatsPanel';
 import { characterRemark } from '../utils/characterRemark';
-import { loadCharacterContextMessages } from '../utils/chatContextRange';
+import { loadCharacterContextMessages, DEFAULT_MANUAL_CONTEXT_LIMIT, CONTEXT_RANGE_POLICY_VERSION } from '../utils/chatContextRange';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
@@ -1208,8 +1208,10 @@ ${isInitialGeneration ? `
               refinedMemories: {},
               activeMemoryMonths: [],
               mountedWorldbooks: mounted,
-              contextRangeMode: 'manual',
-              contextLimit: prepared.character.contextLimit ?? 100,
+              contextRangeMode: prepared.character.contextRangeMode ?? 'manual',
+              contextLimit: prepared.character.contextLimit ?? DEFAULT_MANUAL_CONTEXT_LIMIT,
+              contextRangePolicyVersion: prepared.character.contextRangePolicyVersion ?? CONTEXT_RANGE_POLICY_VERSION,
+              emotionConfig: prepared.character.emotionConfig ?? { enabled: false },
           } as CharacterProfile;
           // DB.add is collision-safe; one transaction commits both tables or neither.
           await DB.importCharacterCardAtomic(newChar, prepared.worldbooks);
