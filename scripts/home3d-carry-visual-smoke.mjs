@@ -101,6 +101,15 @@ try{
   if(!/^art-[a-z0-9-]+$/.test(name))throw Error('Unsafe illustrated film frame '+name);
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
+ for(let i=0;i<(report.depthGhostImages||[]).length;i++){
+  const src=await evaluate('document.querySelectorAll(".depth-ghost-comparison figure img")['+i+']?.src');
+  if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing sharp-vs-ghost depth PNG '+i);
+  const name=report.depthGhostImages[i].name;
+  if(!/^depthghost-(on|off)$/.test(name))throw Error('Bad depth ghost PNG name');
+  writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
+ }
+ if((report.depthGhostImages||[]).length!==2||!report.depthGhostStats
+    ||report.depthGhostStats.detachedPixels!==0)throw Error('DOF ghost regression screenshots missing or bad');
  for(let i=0;i<(report.dofImages||[]).length;i++){
   const src=await evaluate('document.querySelectorAll(".dof-comparison figure img")['+i+']?.src');
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing depth-of-field PNG '+i);
