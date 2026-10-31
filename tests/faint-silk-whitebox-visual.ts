@@ -79,13 +79,40 @@ try {
   groupNoExtraPortrait:!$('group-chat','.sully-chat-pair-user-avatar'),
   oldSavedThemeReplaced:!!$('legacy-pair','.sully-chat-pair-user-avatar')
     && ['none','normal'].includes(getComputedStyle($('legacy-pair','.sully-chat-name')!,'::after').content),
-  userGlass:style('conversation','.sully-bubble-user').backgroundColor==='rgba(239, 239, 239, 0.18)',
-  aiGlass:style('conversation','.sully-bubble-ai').backgroundColor==='rgba(239, 239, 239, 0.18)',
-  groupGlass:style('group-chat','.sully-bubble-ai').backgroundColor==='rgba(239, 239, 239, 0.18)',
+  userGlass:style('conversation','.sully-bubble-user').backgroundColor==='rgba(255, 255, 255, 0.61)',
+  aiGlass:style('conversation','.sully-bubble-ai').backgroundColor==='rgba(255, 255, 255, 0.61)',
+  groupGlass:style('group-chat','.sully-bubble-ai').backgroundColor==='rgba(255, 255, 255, 0.61)',
   groupPacket:!!$('group-chat','.sully-chat-group-packet'),
   groupReceipt:!!$('group-chat','.sully-chat-group-packet-receipt'),
-  transferGlass:style('transfer','.sully-chat-transfer-card').backgroundColor==='rgba(239, 239, 239, 0.18)',
+  transferGlass:style('transfer','.sully-chat-transfer-card').backgroundColor==='rgba(255, 255, 255, 0.61)',
   transferReceipt:!!$('transfer-accepted','.sully-chat-transfer-receipt')||!!$('transfer-returned','.sully-chat-transfer-receipt'),
+  // Compare rendered controls rather than source text: sticker backgrounds must disappear,
+  // native buttons must remain visible and be compact on 360px mobile layout.
+  cleanBackIcon:style('conversation','.sully-chat-back').backgroundImage==='none'
+    && style('conversation','.sully-chat-back > svg').visibility==='visible',
+  cleanTriggerIcon:style('conversation','.sully-chat-trigger').backgroundImage==='none'
+    && style('conversation','.sully-chat-trigger > svg').visibility==='visible',
+  cleanActionsIcon:style('conversation','.sully-chat-actions-button').backgroundImage==='none'
+    && style('conversation','.sully-chat-actions-button > svg').visibility==='visible',
+  cleanEmojiIcon:style('conversation','.sully-chat-input-wrap button[aria-label="表情面板"]').backgroundImage==='none'
+    && style('conversation','.sully-chat-input-wrap button[aria-label="表情面板"] > svg').visibility==='visible',
+  oldSavedIconsReset:style('legacy-pair','.sully-chat-back').backgroundImage==='none'
+    && style('legacy-pair','.sully-chat-back > svg').visibility==='visible'
+    && style('legacy-pair','.sully-chat-actions-button > svg').visibility==='visible',
+  phoneFits: (()=>{
+    const phone=$('conversation','.sully-chat-header button[aria-label="电话"]')?.getBoundingClientRect();
+    const ai=$('conversation','.sully-chat-trigger')?.getBoundingClientRect();
+    return !!phone&&!!ai&&phone.right+3<=ai.left&&phone.width>=36&&phone.height>=36;
+  })(),
+  composerFit:(()=>{
+    const composer=$('conversation','.sully-chat-composer')?.getBoundingClientRect();
+    const actions=$('conversation','.sully-chat-actions-button')?.getBoundingClientRect();
+    const input=$('conversation','.sully-chat-input-wrap')?.getBoundingClientRect();
+    const send=$('conversation','.sully-chat-send-button')?.getBoundingClientRect();
+    return !!composer&&!!actions&&!!input&&!!send
+      && actions.right+3<=input.left&&input.right+3<=send.left
+      && input.width>=175&&send.right<=composer.right+2;
+  })(),
   inputVisible:!!$('conversation','.sully-chat-textarea')&&style('conversation','.sully-chat-textarea').visibility!=='hidden',
   backVisible:style('conversation','.sully-chat-back').opacity==='1',
   sendVisible:!!$('silent-letter-send','.sully-chat-send-button')&&style('silent-letter-send','.sully-chat-send-button').visibility!=='hidden',
