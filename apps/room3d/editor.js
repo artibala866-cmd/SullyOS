@@ -73,7 +73,7 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {createWindowDaylight} from './windowDaylightLights.js';
 import {applyWindowSky} from './windowSky.js';
 import {inferWindowAperture,isWindowPane,windowSunPose} from './windowAperture.js';
-import {createRoomFinishPass} from './roomFinishPass.js';
+import {createRoomFinishPass,dreamcoreFocusStrength} from './roomFinishPass.js';
 import {ROOM_LIGHT_PHASES,resolveRoomLightPhase,createRoomLightUniforms,updateRoomLightUniforms} from './roomLighting.js';
 import {isPhoneBrowser,PHONE_BUDGET,furnishingCounts,phoneBudgetError} from './deviceBudget.js';
 import {ROOM_HALF,ROOM_SCALE,MAX_BUILDING_LENGTH} from './dimensions.js';
@@ -204,7 +204,10 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
  }
  function setResidentExpression(id,settings){if(!id)return;residentExpressions.set(id,{eyes:['closed','happy'].includes(settings.eyes)?settings.eyes:'auto',blink:settings.blink!==false});dirty=true;wake();}
  function renderScene(){updateHomelyAttention();if(firstPerson&&!photoSession){syncHomelyCamera();faceHomelyCamera();}const restorePresence=applyHomelyPresence(),restorePoke=applyHomelyPoke();if(interaction?.petId)positionInteraction();syncPortraitRail();syncAutomaticWalls();syncInteriorPresentation();lampGlow.update(finishEnabled&&lightPhase==='night'&&!overview,renderer.domElement.height);walkFeedback.update(elapsed,[current().x*ROOM_STEP.x,current().z*ROOM_STEP.z],!edit&&!overview,Math.max(1,28*(camera.right-camera.left)/(camera.zoom*size.w*.69)));syncResidentLight(visitor);for(const e of comparisonEntries)syncResidentLight(e.visitor);for(const e of socialEntries)syncResidentLight(e.visitor);if(!photoSession){placeComparisonVisitors();placeSocialVisitors();updateResidentFaces();}bathroomEffects.update(objects,!edit&&!overview?visitorActivity:null,elapsed-visitorStart,reducedMotion);const reset=renderer.info.autoReset;renderer.info.autoReset=false;renderer.info.reset();let restoreForeground;try{if(firstPerson){if(homelyAttention?.close&&!photoSession){homelyForeground??=createHomelyForeground({renderer,scene,camera,resident,container:host.parentElement,stage});restoreForeground=homelyForeground.capture(homelyAttention.close,visitor?.getHeadWorldPosition?.());}else homelyForeground?.hide();}const dreamcore=getCharacterStyle()==='illustrated';
-   const depthCapture=dreamcore&&!edit&&!overview&&!firstPerson&&roomFinish.beginScene();
+   // Orthographic field height, rather than distance from camera.position,
+   // distinguishes the wide room from a user-zoomed portrait.
+   const focusAmount=dreamcore?dreamcoreFocusStrength(camera,{edit,overview,firstPerson}):0;
+   const depthCapture=focusAmount>.001&&roomFinish.beginScene();
    if(furnitureStyle==='retro'&&furnitureOutlineEnabled&&lightBudget().outline){furnitureHalo.render(outlinedObjects);}else renderer.render(scene,camera);
    if(finishEnabled||detailEnabled||dreamcore){
    // Ink is applied to each scene pixel without displaced background copies.
@@ -213,7 +216,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const focus=visitor?.getHeadWorldPosition?.()??resident.position.clone().add(new THREE.Vector3(0,1.15,0));
    const focusDepth=THREE.MathUtils.clamp((focus.clone().project(camera).z+1)*.5,.01,.99);
    roomFinish.render(lightPhase,{baseFinish:finishEnabled,detail:detailEnabled?(quality==='eco'?.22:quality==='balanced'?.38:.55):0,
-    illustrated:dreamcore,focusDepth,cameraSpan:camera.far-camera.near,depthStrength:depthCapture?(quality==='eco'?.65:quality==='balanced'?.83:1):0});
+    illustrated:dreamcore,focusDepth,cameraSpan:camera.far-camera.near,depthStrength:depthCapture?focusAmount*(quality==='eco'?.58:quality==='balanced'?.78:1):0});
   }}finally{restoreForeground?.();restorePoke?.();restorePresence?.();renderer.info.autoReset=reset;}}
  const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=false;controls.enablePan=true;controls.screenSpacePanning=true;controls.target.set(0,2,0);
  const effectiveRoomScope=()=>onMenu||viewMode==='flat'?'room':roomScope;
