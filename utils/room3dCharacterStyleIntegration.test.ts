@@ -37,11 +37,14 @@ describe('incremental Home3D character style switching',()=>{
   const editor=readFileSync('apps/room3d/editor.js','utf8');
   expect(pass).toContain('colourDiscontinuity');
   expect(pass).toContain('vec3 leftInk=sceneColor(');
-  expect(pass).toContain('c=mix(c,vec3(.050,.041,.050),inkWeight)');
+  expect(pass).toContain('c=mix(c,vec3(.070,.057,.071),inkWeight)');
+  expect(pass).toContain('float paperMask=');
+  expect(pass).toContain('vec3 colouredInk=');
+  expect(pass).toContain('float paperTooth=');
   // A neighbour can detect an edge but never contribute its displaced
   // source colour to the output: that produced four clear ghost copies.
   expect(pass).not.toMatch(/outOfFocus|focusStrength|focusCenter|softened/);
-  expect(pass).not.toMatch(/c\\s*=\\s*mix\\(c,\\s*(?:softened|near)/);
+  expect(pass).not.toMatch(/c\s*=\s*mix\(c,\s*(?:softened|near)/);
   expect(pass).toContain('baseFinish&&!illustrated');
   expect(editor).not.toContain('focusCenter');
   expect(editor).toContain('清晰漫画描线与轻微胶片颗粒，无重影');
