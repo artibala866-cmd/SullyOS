@@ -114,6 +114,10 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
                 category: 'BabyLink · ' + bookTitle,
                 createdAt: now, updatedAt: now,
                 key: keys, keysecondary: secondaryKeys,
+                // BabyLink scans the entire available chat plus summaries, while Sully
+                // defaults to only four messages. Scan the entire available history
+                // (native supported cap) instead of silently losing old keyword hits.
+                scanDepth: 999,
                 constant, selective: !constant && secondaryKeys.length > 0,
                 selectiveLogic: 0,
                 position: position === 'before-chat' ? 0 : 4,
@@ -129,6 +133,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         }
         bookMap.set(bookId, books);
     }
+    if (totalEntries > 0) warnings.push('BabyLink 关键词原本还会扫描平台记忆摘要；糯米机改为扫描可用聊天历史，摘要触发不完全等价');
     const cards: PreparedCharacterCard[] = raw.characters.map((value, index) => {
         if (!isObject(value)) throw new Error('BabyLink 第 ' + (index + 1) + ' 个角色结构不完整');
         const name = optionalText(value.name, '角色姓名', 160) || optionalText(value.nickname, '角色昵称', 160);
