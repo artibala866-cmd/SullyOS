@@ -1,5 +1,6 @@
 import type { CharacterProfile, Worldbook } from '../types';
 import type { PreparedCharacterCard } from './sillyTavernCard';
+import type { CharacterImageProfile } from '../components/character/CharacterImagePanel';
 
 /**
  * BabyLink 1.1.10 APK: StImportUnlockModal-NAd1Rh6X.js uses RGB LSBs in
@@ -41,6 +42,73 @@ const arrayOfStrings = (value: unknown, field: string, maxItems = 100): string[]
 const uniqueId = (prefix: string): string => prefix + '-' +
     (typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
+
+const validInlinePicture = (value: string): boolean =>
+    /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(value);
+
+/**
+ * BabyLink is also a phone app, so keep its usable image identity settings
+ * separate from roleplay text. Tavern cards must not pass through this mapper.
+ * Imported reference bytes are stored as a blobref by the confirm step.
+ */
+export function normalizeBabyLinkImageProfile(raw: unknown, warnings: string[]): CharacterImageProfile | undefined {
+    if (raw == null) return undefined;
+    if (!isObject(raw)) throw new Error('BabyLink 角色生图设定结构无效');
+    const wardrobe = raw.wardrobe == null ? {} : raw.wardrobe;
+    if (!isObject(wardrobe)) throw new Error('BabyLink 服装设定结构无效');
+    const appearance = optionalText(raw.appearancePrompt, 'appearancePrompt', 6000);
+    const facePrompt = optionalText(raw.facePrompt, 'facePrompt', 4000);
+    const guidance = optionalText(wardrobe.guidance, 'wardrobe.guidance', 4000);
+    const inventory = optionalText(wardrobe.inventory, 'wardrobe.inventory', 4000);
+    const avoid = optionalText(wardrobe.avoid, 'wardrobe.avoid', 3000);
+    if (raw.referenceImageEnabled != null && typeof raw.referenceImageEnabled !== 'boolean')
+        throw new Error('BabyLink 锁脸开关格式无效');
+    if (raw.seedLockEnabled != null && typeof raw.seedLockEnabled !== 'boolean')
+        throw new Error('BabyLink 种子锁定开关格式无效');
+    const referenceMode = raw.referenceImageMode === 'composition' ? 'composition' : 'identity';
+    if (raw.referenceImageMode != null &&
+        raw.referenceImageMode !== 'composition' && raw.referenceImageMode !== 'identity')
+        warnings.push('BabyLink 参考图模式无法对应，已采用人物身份锁定模式');
+    let sourceReference = optionalText(raw.referenceImage, 'referenceImage', 3_000_000);
+    // Newer BabyLink cards may use referenceProfile groups instead of the old
+    // referenceImage field. Sully's current UI consumes one active reference.
+    if (!sourceReference && isObject(raw.referenceProfile) &&
+        Array.isArray(raw.referenceProfile.groups)) {
+        const activeId = raw.referenceProfile.activeGroupId;
+        const groups = raw.referenceProfile.groups.filter(isObject);
+        const active = groups.find(g => g.id === activeId && g.enabled !== false) ??
+            groups.find(g => g.enabled !== false);
+        if (active && Array.isArray(active.references)) {
+            const references = active.references.filter(isObject).filter(item =>
+                item.enabled !== false && (item.purpose == null ||
+                    ['identity', 'appearance', 'composition'].includes(String(item.purpose))));
+            references.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
+            if (references.length) {
+                const candidate = references[0];
+                sourceReference = optionalText(candidate.image ?? candidate.referenceImage, 'referenceProfile.image', 3_000_000);
+            }
+            if (references.length > 1) warnings.push('BabyLink 多张参考图仅迁移当前组的首张；其余参考图可在糯米机中自行添加');
+        }
+    }
+    const reference = sourceReference && validInlinePicture(sourceReference) ? sourceReference : '';
+    if (sourceReference && !reference) {
+        warnings.push('BabyLink 私有或损坏的生图参考图不能跨应用读取，已保留其他生图设定');
+    }
+    const rawSeed = optionalText(raw.seed, 'seed', 120);
+    const validSeed = !rawSeed || (/^\d{1,10}$/.test(rawSeed) && Number(rawSeed) <= 0xffffffff);
+    if (!validSeed && raw.seedLockEnabled === true)
+        warnings.push('BabyLink 随机种子格式不兼容糯米机生图 API，已跳过锁定种子');
+    const seed = validSeed ? rawSeed : '';
+    const imageProfile: CharacterImageProfile = {
+        appearance, facePrompt, reference,
+        referenceEnabled: raw.referenceImageEnabled !== false,
+        referenceMode,
+        seed,
+        seedLockEnabled: raw.seedLockEnabled === true && !!seed,
+        wardrobe: { guidance, inventory, avoid },
+    };
+    return imageProfile;
+}
 
 export interface PreparedBabyLinkBundle {
     source: 'babylink';
@@ -145,6 +213,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         const signature = optionalText(value.signature, '角色签名', 4000) ||
             (isObject(value.initialProfile) ? optionalText(value.initialProfile.signature, 'initialProfile.signature', 4000) : '');
         const persona = optionalText(value.description, '完整人设');
+        const imageProfile = normalizeBabyLinkImageProfile(value.imageProfile, warnings);
         const sourceAvatar = optionalText(value.avatar, '角色头像', 3_000_000);
         // Do not import external platform asset IDs, scripts, credentials, openings or regex.
         const avatar = /^(?:data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+)$/i.test(sourceAvatar)
@@ -179,7 +248,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         const character: PreparedCharacterCard['character'] = {
             name, avatar, description: summary, systemPrompt: prompt, worldview: '',
         };
-        return { source: 'babylink-character', character, worldbooks: books, avatarFile: null, warnings: [] };
+        return { source: 'babylink-character', character, worldbooks: books, avatarFile: null, imageProfile, warnings: [] };
     });
     return { source: 'babylink', cards, warnings };
 }
