@@ -52,8 +52,10 @@ describe('user voice must use the actual private-chat pipeline', () => {
   it('uses real speech recognition first and a working system keyboard mic fallback', () => {
     const input = read('components/chat/ChatInputArea.tsx');
     const hook = read('hooks/usePrivateChatSpeech.ts');
-    expect(hook).toContain("startStt('zh-CN', callbacks, apiConfig)");
+    expect(hook).toContain("startPrivateChatStt('zh-CN', callbacks, apiConfig)");
     expect(hook).toContain("start('transcribe')");
+    expect(read('utils/speechToText.ts')).toContain('export const startPrivateChatStt = async');
+    expect(hook).toContain('getAudioDraft');
     expect(hook).toContain('isBrowserSttSupported()');
     expect(hook).toContain('此浏览器没有可用的语音识别接口');
     expect(hook).toContain('输入法语音');
