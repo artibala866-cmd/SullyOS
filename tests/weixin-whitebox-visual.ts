@@ -49,6 +49,13 @@ try {
   groupPacket:same('group','.sully-chat-group-packet','rgb(233, 167, 70)'),
   groupReceipt:!!$('group','.sully-chat-group-packet-receipt'),
   inputNoOverlap:inBounds('conversation'),
+  transferColumnsSeparated:(()=>{
+   const icon=$('transfer','.sully-chat-transfer-header .sully-chat-transfer-icon');
+   const amount=$('transfer','.sully-chat-transfer-card > .sully-chat-transfer-amount');
+   if(!icon||!amount)return false;
+   const a=icon.getBoundingClientRect(),b=amount.getBoundingClientRect();
+   return a.width>=32 && a.width<=45 && a.right<=b.left+1;
+  })(),
   sendVisible:cssStyle('conversation','.sully-chat-send-button')?.visibility==='visible',
   backVisible:cssStyle('conversation','.sully-chat-back')?.visibility==='visible',
   noHorizontalOverflow:[...root.querySelectorAll<HTMLElement>('.scene')].every(e=>e.scrollWidth<=e.clientWidth+2)
