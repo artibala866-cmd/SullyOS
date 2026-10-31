@@ -8,11 +8,11 @@ import * as T from 'three';
 import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
 import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial.ts';
 import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe.ts';
-import {createRoomFinishPass} from '../apps/room3d/roomFinishPass.js';
+import {createRoomFinishPass,dreamcoreFocusStrength} from '../apps/room3d/roomFinishPass.js';
 import {setCharacterStyle} from '../apps/room3d/chibi/characterStyle.ts';
 import {setCharacterRoomLighting,setCharacterRoomTint} from '../apps/room3d/chibi/illustration.ts';
 import {ROOM_LIGHT_PHASES,createRoomLightUniforms,updateRoomLightUniforms} from '../apps/room3d/roomLighting.js';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],artImages:[],artStats:[],dofImages:[],dofStats:[],depthGhostImages:[],depthGhostStats:null,antiGhostImages:[],antiGhostStats:null,phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],artImages:[],artStats:[],dofImages:[],dofStats:[],depthGhostImages:[],depthGhostStats:null,zoomImages:[],zoomStats:null,antiGhostImages:[],antiGhostStats:null,phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -289,6 +289,42 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    throw Error('Depth-of-field detached ghost or lost sharp foreground: '+JSON.stringify(report.depthGhostStats));
   far.geometry.dispose();near.geometry.dispose();white.dispose();
  }
+ // Real WebGL zoom behavior: a full room must have ZERO DOF;
+ // after user magnifies the camera, the identical scene gains only a hint.
+ {
+  const gallery=document.createElement('main');gallery.className='zoom-comparison';document.body.append(gallery);
+  const ss=new T.Scene();ss.background=new T.Color('#b4a9c2');
+  const cam=new T.OrthographicCamera(-2.55,2.55,1.9125,-1.9125,.1,20);
+  cam.position.set(0,0,5);cam.lookAt(0,0,0);
+  const ink=new T.MeshBasicMaterial({color:'#fff6e7',toneMapped:false});
+  const far=new T.Mesh(new T.PlaneGeometry(.11,1.3),ink);
+  const near=new T.Mesh(new T.PlaneGeometry(.11,1.3),ink);
+  far.position.set(.75,0,-2);near.position.set(-.75,0,0);ss.add(far,near);
+  const snap=name=>{
+   const fig=document.createElement('figure'),img=document.createElement('img');img.src=renderer.domElement.toDataURL('image/png');fig.append(img);gallery.append(fig);report.zoomImages.push({name});
+   const c=document.createElement('canvas');c.width=renderer.domElement.width;c.height=renderer.domElement.height;const x=c.getContext('2d');x.drawImage(renderer.domElement,0,0);return x.getImageData(0,0,c.width,c.height).data;
+  };
+  const render=strength=>{
+   if(strength>.001)finishPass.beginScene();
+   renderer.render(ss,cam);
+   const focusDepth=T.MathUtils.clamp((new T.Vector3(0,0,0).project(cam).z+1)*.5,.01,.99);
+   finishPass.render('day',{baseFinish:false,detail:0,illustrated:true,focusDepth,cameraSpan:cam.far-cam.near,depthStrength:strength});
+  };
+  const pixelDifference=(a,b)=>{let sum=0;for(let i=0;i<a.length;i+=4)sum+=(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]))/3;return sum/(a.length/4);};
+  cam.zoom=.75;cam.updateProjectionMatrix();cam.updateMatrixWorld();
+  render(0);const wideOff=snap('zoom-wide-sharp');
+  const wideStrength=dreamcoreFocusStrength(cam);
+  render(wideStrength);const wideOn=snap('zoom-wide-dreamcore');
+  cam.zoom=1.8;cam.updateProjectionMatrix();cam.updateMatrixWorld();
+  render(0);const closeOff=snap('zoom-close-sharp');
+  const closeStrength=dreamcoreFocusStrength(cam);
+  render(closeStrength);const closeOn=snap('zoom-close-dreamcore');
+  const wideDifference=pixelDifference(wideOff,wideOn),closeDifference=pixelDifference(closeOff,closeOn);
+  report.zoomStats={wideStrength,closeStrength,wideDifference,closeDifference};
+  if(wideStrength!==0||wideDifference>.01||closeStrength<.9||closeDifference<.025||closeDifference>8)
+   throw Error('Dreamcore zoom focus was inactive in close-up or blurred wide room: '+JSON.stringify(report.zoomStats));
+  near.geometry.dispose();far.geometry.dispose();ink.dispose();
+ }
  for(const variant of materialCases){
   const p=parts(0);p.skin=color(variant.skin);p.eyes=testEyes;p.mouth=testMouth;p.facemark=testMarks;
   const preset=approvedPresets[variant.outfit];
@@ -539,7 +575,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     throw Error('Full illustrated film look not visible or too destructive '+variant.id+': '+JSON.stringify({artMean,artFraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
- if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12||report.artImages.length!==8||report.dofImages.length!==2||report.depthGhostImages.length!==2||report.antiGhostImages.length!==2||report.antiGhostStats?.spuriousBright!==0)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
+ if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12||report.artImages.length!==8||report.dofImages.length!==2||report.depthGhostImages.length!==2||report.zoomImages.length!==4||report.antiGhostImages.length!==2||report.antiGhostStats?.spuriousBright!==0)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
  finishPass.dispose();
  if(!celOnly&&(report.images.length!==980||report.timelines.length!==2))throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
