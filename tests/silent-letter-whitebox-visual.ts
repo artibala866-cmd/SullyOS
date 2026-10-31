@@ -12,7 +12,7 @@ if (!root) throw Error('visual host missing');
 try {
  const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-silent-letter-dark')?.read();
  if (!preset) throw Error('built-in outfit missing');
- const scenes=['installed-v2','conversation','silent-letter-send','silent-letter-stop','reply','voice-playing','transfer','transfer-accepted','transfer-returned','psyche','psyche-open','sim_card'];
+ const scenes=['silent-letter-narrow','installed-v2','conversation','silent-letter-send','silent-letter-stop','reply','voice-playing','transfer','transfer-accepted','transfer-returned','psyche','psyche-open','sim_card'];
  for(const scene of scenes) {
   // A returning user's CSS is stored in their character/global settings and
   // is not changed when the built-in JSON is updated. Simulate exactly that.
@@ -28,8 +28,9 @@ try {
   const section=document.createElement('section');
   section.className='scene';
   section.dataset.scene=scene;
+  if(scene==='silent-letter-narrow')section.style.width='320px';
   section.innerHTML='<div class="beauty-preview-body">'+markup+'</div>';
-  const style=document.createElement('style');style.textContent=runtimeCss;section.prepend(style);
+  const style=document.createElement('style');style.textContent=runtimeCss+(scene==='silent-letter-narrow'?'\n.beauty-preview-body{width:320px!important;}':'');section.prepend(style);
   const name=document.createElement('h2');name.textContent=scene;
   section.prepend(name);
   root.append(section);
@@ -82,6 +83,14 @@ try {
  const phone=$('conversation','.sully-chat-header button[aria-label="电话"]');
  const lightning=$('conversation','.sully-chat-trigger');
  const actionRowNoOverlap=!!phone&&!!lightning&&phone.getBoundingClientRect().right<=lightning.getBoundingClientRect().left+1;
+ const noButtonOverlap=(scene:string,selectors:string[])=>{
+  const boxes=selectors.map(s=>$(scene,s)?.getBoundingClientRect());
+  return boxes.every(Boolean)&&boxes.every((a,i)=>boxes.slice(i+1).every(b=>!a||!b||a.right<=b.left+1));
+ };
+ const artReplacesSvg=(scene:string,selector:string,filename:string)=>{
+  const btn=$(scene,selector);const svg=btn?.querySelector('svg');
+  return !!btn&&!!svg&&getComputedStyle(svg).display==='none'&&getComputedStyle(btn).backgroundImage.includes(filename);
+ };
  const checks={
   presetParts:['layout','bubbles','psyche','css'].every(key=>key in preset.parts),
   userBubble:color('conversation','.sully-bubble-user','backgroundColor')==='rgb(26, 26, 26)',
@@ -108,6 +117,14 @@ try {
   oldSendIconReplaced:nativeSvgReplaced('silent-letter-send','.sully-chat-send-button[aria-label="发送文字"]'),
   stopControlPreserved:!!stopButton&&!!stoppedIcon&&getComputedStyle(stoppedIcon).display!=='none'&&getComputedStyle(stopButton,'::after').display==='none',
   headerActionsNotOverlapping:actionRowNoOverlap,
+  silentPhoneArt:artReplacesSvg('conversation','.sully-chat-header button[aria-label="电话"]','H9Q5nB122'),
+  silentStickerArt:artReplacesSvg('conversation','.sully-chat-input-wrap button[aria-label="表情面板"]','DHYhIUp'),
+  silentMicrophoneArt:artReplacesSvg('conversation','.sully-chat-input-wrap .sully-chat-voice-trigger','DcdDRsw'),
+  originalAIArt:artReplacesSvg('conversation','.sully-chat-send-button[aria-label="生成回复"]','n9OXMPV'),
+  disabledAINotGray:parseFloat(getComputedStyle($('conversation','.sully-chat-send-button')!).opacity)>=.8,
+  inputIconsNotOverlapping:noButtonOverlap('conversation',['.sully-chat-actions-button','.sully-chat-input-wrap button[aria-label="表情面板"]','.sully-chat-voice-trigger','.sully-chat-send-button']),
+  narrowInputIconsNotOverlapping:noButtonOverlap('silent-letter-narrow',['.sully-chat-actions-button','.sully-chat-input-wrap button[aria-label="表情面板"]','.sully-chat-voice-trigger','.sully-chat-send-button']),
+  narrowHeaderNotOverlapping:noButtonOverlap('silent-letter-narrow',['.sully-chat-back','.sully-chat-profile','button[aria-label="电话"]','.sully-chat-trigger']),
   header:sceneHas('conversation','.sully-chat-header'),
   input:sceneHas('conversation','.sully-chat-inputbar'),
   reply:sceneHas('reply','.sully-chat-reply'),

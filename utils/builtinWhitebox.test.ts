@@ -41,6 +41,12 @@ describe('bundled star orbit outfits',()=>{
   expect(preset.parts.css).toContain('.sully-chat-voice-menu');
   expect(preset.parts.css).toContain('/* 13. 无声回信独立引用条适配 v4');
   expect(preset.parts.css).toContain('bottom:calc(100% + 7px)');
+  expect(preset.parts.css).toContain('/* 14. 无声回信输入区原作图标与实际热区对齐 v5');
+  expect(preset.parts.css).toContain('DHYhIUp.png');
+  expect(preset.parts.css).toContain('DcdDRsw.png');
+  expect(preset.parts.css).toContain('n9OXMPV.png');
+  expect(preset.parts.css).toContain('H9Q5nB122');
+  expect(preset.parts.css).toContain('.sully-chat-composer > .sully-chat-send-button');
   expect(preset.parts.css).toContain('.sully-chat-trigger:not([title="停止生成"]) > svg');
   expect(preset.parts.css).not.toMatch(/\.msg-transfer-card|\.bubble-me-custom|\.chat-detail-screen/);
   expect(preset.parts.css).not.toMatch(/(?:display:\s*none|visibility:\s*hidden)[^}]*\.sully-chat-send-button/);
@@ -76,6 +82,7 @@ describe('bundled star orbit outfits',()=>{
   expect(migrated).toContain('/* 12. 无声回信原生交互与原作细节补齐 v3');
   expect(migrated).toContain('sully-psyche-author-avatar');
   expect(migrated).toContain('/* 13. 无声回信独立引用条适配 v4');
+  expect(migrated).toContain('/* 14. 无声回信输入区原作图标与实际热区对齐 v5');
   expect(migrated).not.toContain('content:"+"} .sully-chat-avatar-wrap');
   expect(resolveLegacySilentLetterCss(migrated)).toBe(migrated);
   expect(resolveLegacySilentLetterCss(current)).toBe(current);

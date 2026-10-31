@@ -16,6 +16,7 @@ const ICON_REPLACEMENT_START = '/* 11. 贴图是真正的替换图标';
 const ICON_REPLACEMENT_END = '/* 辅助功能：动态文字';
 const SILENT_LETTER_V3 = '/* 12. 无声回信原生交互与原作细节补齐 v3';
 const SILENT_LETTER_V4 = '/* 13. 无声回信独立引用条适配 v4';
+const SILENT_LETTER_V5 = '/* 14. 无声回信输入区原作图标与实际热区对齐 v5';
 export function resolveLegacySilentLetterCss(css: string): string {
     if (css.includes(SILENT_LETTER_V1) && css.includes('.sully-chat-message-avatar:not(.sully-chat-avatar-wrap)')) {
         return silentLetter.parts.css;
@@ -33,6 +34,10 @@ export function resolveLegacySilentLetterCss(css: string): string {
     }
     if (!upgraded.includes(SILENT_LETTER_V4)) {
         const from = silentLetter.parts.css.indexOf(SILENT_LETTER_V4);
+        if (from >= 0) upgraded += '\n' + silentLetter.parts.css.slice(from);
+    }
+    if (!upgraded.includes(SILENT_LETTER_V5)) {
+        const from = silentLetter.parts.css.indexOf(SILENT_LETTER_V5);
         if (from >= 0) upgraded += '\n' + silentLetter.parts.css.slice(from);
     }
     return upgraded;
