@@ -6,6 +6,8 @@ on:
       - 'presets/chat/faint-silk.json'
       - 'utils/faintSilkPair.ts'
       - 'utils/faintSilkPolish.ts'
+      - 'components/chat/FaintSilkIcons.tsx'
+      - 'utils/faintSilkIcons.test.ts'
       - 'apps/GroupChat.tsx'
       - 'apps/Chat.tsx'
       - 'components/chat/ChatHeaderShell.tsx'
@@ -36,12 +38,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Unit tests for full preset and isolation
-        run: pnpm exec vitest run utils/builtinWhitebox.test.ts utils/chatDecoration.test.ts
+        run: pnpm exec vitest run utils/builtinWhitebox.test.ts utils/chatDecoration.test.ts utils/faintSilkIcons.test.ts
       - name: TypeScript check on modified code
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false >/tmp/faint-tsc.txt 2>&1 || true
-          grep -E '^(apps/(Chat|GroupChat)\.tsx|utils/(faintSilkPair|faintSilkPolish|builtinWhitebox(\.test)?)\.ts|components/chat/(ChatHeaderShell|ChatDecorationSample|ChromeCssEditor)\.tsx|tests/faint-silk-whitebox-visual\.ts)[(]' /tmp/faint-tsc.txt >/tmp/faint-errors.txt || true
+          grep -E '^(apps/(Chat|GroupChat)\.tsx|utils/(faintSilkPair|faintSilkPolish|faintSilkIcons\.test|builtinWhitebox(\.test)?)\.ts|components/chat/(FaintSilkIcons|ChatHeaderShell|ChatDecorationSample|ChromeCssEditor)\.tsx|tests/faint-silk-whitebox-visual\.ts)[(]' /tmp/faint-tsc.txt >/tmp/faint-errors.txt || true
           if test -s /tmp/faint-errors.txt; then cat /tmp/faint-errors.txt; exit 1; fi
       - name: Build real native chat preview CSS
         run: pnpm run build:chat-preview
