@@ -184,3 +184,89 @@ describe('APK-compatible RGB LSB extraction', () => {
         expect(extractBabyLinkCompressed(new Uint8ClampedArray(4 * 10))).toBeNull();
     });
 });
+
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('BabyLink PNG dispatcher and browser pixel decoding', () => {
+    const crc32 = (data: Uint8Array) => {
+        let c = 0xffffffff;
+        for (const byte of data) {
+            c ^= byte;
+            for (let n = 0; n < 8; n++) c = (c & 1) ? ((c >>> 1) ^ 0xedb88320) : (c >>> 1);
+        }
+        return (c ^ 0xffffffff) >>> 0;
+    };
+    const join = (...parts: Uint8Array[]): Uint8Array => {
+        const output = new Uint8Array(parts.reduce((n, part) => n + part.length, 0));
+        let index = 0;
+        for (const part of parts) { output.set(part, index); index += part.length; }
+        return output;
+    };
+    const pngChunk = (type: string, data: Uint8Array): Uint8Array => {
+        const output = new Uint8Array(data.length + 12);
+        new DataView(output.buffer).setUint32(0, data.length);
+        output.set(new TextEncoder().encode(type), 4);
+        output.set(data, 8);
+        new DataView(output.buffer).setUint32(output.length - 4, crc32(output.subarray(4, output.length - 4)));
+        return output;
+    };
+    const generatePng = (width: number, height: number, withTavern = false): Uint8Array => {
+        const head = new Uint8Array(13);
+        new DataView(head.buffer).setUint32(0, width);
+        new DataView(head.buffer).setUint32(4, height);
+        head[8] = 8; head[9] = 6;
+        const meta = withTavern ? [pngChunk('tEXt', join(new TextEncoder().encode('chara'),
+            new Uint8Array([0]), new TextEncoder().encode(Buffer.from(JSON.stringify({
+                name: '错误覆盖的酒馆人设', description: '不是来源', personality: '不是本源',
+            })).toString('base64'))))] : [];
+        return join(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+            pngChunk('IHDR', head), ...meta, pngChunk('IDAT', new Uint8Array([0])), pngChunk('IEND', new Uint8Array()));
+    };
+    const createFixture = (raw: unknown, withTavern = false, badLength = false): File => {
+        const compressed = gzipSync(new TextEncoder().encode(JSON.stringify(raw)));
+        const total = new Uint8Array(compressed.length + 4);
+        new DataView(total.buffer).setUint32(0, badLength ? 0xffffffff : compressed.length, false);
+        total.set(compressed, 4);
+        const width = 1080, height = 1350;
+        expect(total.length * 8).toBeLessThan(width * height * 3);
+        const pixels = new Uint8ClampedArray(width * height * 4);
+        for (let n = 0; n < width * height; n++) pixels[n * 4 + 3] = 255;
+        for (let bit = 0; bit < total.length * 8; bit++) {
+            const p = Math.floor(bit / 3), channel = bit % 3;
+            pixels[p * 4 + channel] = ((total[bit >>> 3] >>> (7 - bit % 8)) & 1);
+        }
+        vi.stubGlobal('createImageBitmap', async () => ({ width, height, close: () => {} }));
+        vi.stubGlobal('document', {
+            createElement: () => ({
+                width, height,
+                getContext: () => ({
+                    drawImage: () => {},
+                    getImageData: () => ({ data: pixels }),
+                }),
+            }),
+        });
+        const png = generatePng(width, height, withTavern);
+        return new File([Uint8Array.from(png)], 'original-share.png', { type: 'image/png' });
+    };
+    it('decodes the full PNG -> RGB LSB -> GZIP -> JSON -> native mapping chain', async () => {
+        const file = createFixture(share([
+            char('真实来源甲', ['a']), char('真实来源乙', ['b']),
+        ], [book('a'), book('b', false)]));
+        const parsed = await readCharacterCardFile(file);
+        expect(parsed.source).toBe('babylink');
+        if (parsed.source !== 'babylink') return;
+        expect(parsed.cards.map(c => c.character.name)).toEqual(['真实来源甲', '真实来源乙']);
+        expect(parsed.cards[0].worldbooks[0].disable).toBe(false);
+        expect(parsed.cards[1].worldbooks[0].disable).toBe(true);
+    });
+    it('prefers BabyLink over an appended valid Tavern card', async () => {
+        const result = await readCharacterCardFile(createFixture(share([char('正确名字', [])], []), true));
+        expect(result.source).toBe('babylink');
+        if (result.source === 'babylink') expect(result.cards[0].character.name).toBe('正确名字');
+    });
+    it('rejects damaged BabyLink length even when valid Tavern metadata is appended', async () => {
+        await expect(readCharacterCardFile(createFixture(share([char('损坏', [])], []), true, true)))
+            .rejects.toThrow('长度信息损坏');
+    });
+});
