@@ -58,6 +58,10 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(books[0]).toMatchObject({ key: ['Moon'], order: 350, caseSensitive: true });
         expect(isWorldbookEntryActive(books[0], [{ content: 'moon' }])).toBe(false);
         expect(isWorldbookEntryActive(books[0], [{ content: 'Moon' }])).toBe(true);
+        expect(books[0].scanDepth).toBe(999);
+        expect(isWorldbookEntryActive(books[0], [
+            { content: 'Moon' }, ...Array.from({ length: 8 }, () => ({ content: '旧对话' })),
+        ])).toBe(true);
         expect(isWorldbookEntryActive(books[1], [{ content: '任意' }])).toBe(false);
         expect(isWorldbookEntryActive(books[2], [{ content: '任意' }])).toBe(false);
     });
