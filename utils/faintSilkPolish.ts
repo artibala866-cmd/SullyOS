@@ -1,23 +1,24 @@
 /**
  * Faint Silk (浅丝) mobile-fit repair.
- * Scoped by callers to this outfit only; this CSS deliberately replaces imported
- * sticker icons with functional native Phosphor icons. Older saved whitebox CSS
- * continues to work without re-applying the preset.
+ * Scoped by callers to this outfit only. Preserve the artist's transparent header,
+ * glass bubbles and custom icon assets; this stylesheet ONLY fixes layout/tap
+ * targets and supplies native fallback glyphs while custom images load.
+ * Older saved whitebox CSS works without re-applying the preset.
  */
 export const FAINT_SILK_POLISH_CSS = `
 .sully-chat-root {
-  --faint-ink:#393633;
-  --faint-edge:rgba(104,94,91,.16);
-  --faint-glass:rgba(255,255,255,.61);
-  --faint-muted:rgba(70,65,61,.56);
+  --faint-ink:#262626;
+  --faint-edge:rgba(140,140,140,.35);
+  --faint-glass:rgba(239,239,239,.18);
+  --faint-muted:rgba(38,38,38,.55);
 }
 .sully-chat-root .sully-chat-header {
-  background:rgba(248,247,246,.76)!important;
+  background:transparent!important;
   border:0!important;
-  border-bottom:1px solid rgba(92,82,78,.09)!important;
+  border-bottom:0!important;
   box-shadow:none!important;
-  backdrop-filter:blur(14px)!important;
-  -webkit-backdrop-filter:blur(14px)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
 }
 .sully-chat-root .sully-chat-name{font-size:17px!important;font-weight:600!important;letter-spacing:.15px!important;}
 .sully-chat-root .sully-chat-status{font-size:10px!important;color:#9b948e!important;letter-spacing:.04em;}
@@ -34,7 +35,8 @@ export const FAINT_SILK_POLISH_CSS = `
   border:0!important;background:rgba(255,255,255,.5)!important;
   color:#98918b!important;font-size:9px!important;
 }
-/* Do not paint image stickers on top of native navigation, AI or input buttons. */
+/* Clear stale backgrounds from previously saved CSS. Once each original
+   image finishes loading, FaintSilkIcons restores that artwork in ONE layer. */
 .sully-chat-root .sully-chat-back,
 .sully-chat-root .sully-chat-trigger,
 .sully-chat-root .sully-chat-actions-button,
@@ -53,10 +55,10 @@ export const FAINT_SILK_POLISH_CSS = `
   border-radius:50%!important;
   border:1px solid rgba(118,106,101,.13)!important;
   color:#5d5550!important;
-  background:rgba(255,255,255,.52)!important;
+  background:rgba(255,255,255,.2)!important;
   box-shadow:none!important;
   display:inline-flex!important;align-items:center!important;justify-content:center!important;
-  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  backdrop-filter:blur(10px)!important;-webkit-backdrop-filter:blur(10px)!important;
 }
 .sully-chat-root .sully-chat-header button[aria-label="电话"],
 .sully-chat-root .sully-chat-header button[aria-label="群聊记忆规则"]{right:46px!important;bottom:8px!important;}
@@ -74,13 +76,13 @@ export const FAINT_SILK_POLISH_CSS = `
   width:20px!important;height:20px!important;
   display:block!important;visibility:visible!important;
 }
-/* A single compact composer instead of four unrelated oversized icon stickers. */
+/* Same glass material and controls from the original outfit, fitted to real mobile widths. */
 .sully-chat-root .sully-chat-inputbar{
-  background:rgba(248,247,246,.88)!important;
-  border:0!important;border-top:1px solid rgba(92,82,78,.11)!important;
-  border-radius:0!important;
+  background:rgba(255,255,255,.15)!important;
+  border:0!important;border-top:0!important;
+  border-radius:30px 30px 0 0!important;
   box-shadow:none!important;
-  backdrop-filter:blur(16px)!important;-webkit-backdrop-filter:blur(16px)!important;
+  backdrop-filter:blur(20px) saturate(180%)!important;-webkit-backdrop-filter:blur(16px)!important;
 }
 .sully-chat-root .sully-chat-composer{
   display:flex!important;align-items:center!important;
@@ -103,17 +105,17 @@ export const FAINT_SILK_POLISH_CSS = `
 .sully-chat-root .sully-chat-input-wrap{
   box-sizing:border-box!important;min-width:0!important;flex:1 1 0%!important;
   min-height:42px!important;
-  border:1px solid rgba(118,106,101,.18)!important;
-  border-radius:22px!important;
-  background:rgba(255,255,255,.73)!important;
+  border:0!important;
+  border-radius:24px!important;
+  background:transparent!important;
   box-shadow:none!important;
   backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
   padding-left:3px!important;padding-right:4px!important;
   display:flex!important;align-items:center!important;
 }
 .sully-chat-root .sully-chat-input-wrap:focus-within{
-  border-color:rgba(118,106,101,.43)!important;
-  background:rgba(255,255,255,.94)!important;
+  outline:1px solid rgba(118,106,101,.30)!important;
+  background:rgba(255,255,255,.16)!important;
 }
 .sully-chat-root .sully-chat-textarea{
   min-width:0!important;
@@ -144,12 +146,12 @@ export const FAINT_SILK_POLISH_CSS = `
   display:flex!important;align-items:center!important;justify-content:center!important;
   padding:0!important;
   border:0!important;border-radius:50%!important;
-  background:#6a615c!important;color:#fff!important;
+  background:rgba(255,255,255,.2)!important;color:#51443c!important;
   box-shadow:0 2px 8px rgba(70,56,50,.13)!important;
   background-image:none!important;
 }
 .sully-chat-root .sully-chat-send-button:disabled{
-  color:#aaa39e!important;background:#e7e4e1!important;
+  color:#aaa39e!important;background:rgba(255,255,255,.12)!important;
   box-shadow:none!important;
 }
 .sully-chat-root .sully-chat-send-button > svg{
@@ -164,9 +166,9 @@ export const FAINT_SILK_POLISH_CSS = `
   background:var(--faint-glass)!important;
   background-image:none!important;
   color:var(--faint-ink)!important;
-  padding:8px 12px!important;
+  padding:7px 11px!important;
   font-size:14px!important;
-  line-height:1.5!important;
+  line-height:1.35!important;
   box-shadow:0 1px 2px rgba(70,60,55,.035)!important;
   text-shadow:none!important;
 }
