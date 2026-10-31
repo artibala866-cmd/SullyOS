@@ -69,9 +69,9 @@ try {
    header:rect($('transfer','.sully-chat-transfer-header')),
    icon:rect($('transfer','.sully-chat-transfer-header .sully-chat-transfer-icon')),
    amount:rect($('transfer','.sully-chat-transfer-card > .sully-chat-transfer-amount')),
-   cardDisplay:style('transfer','.sully-chat-transfer-card')?.display,
-   headerDisplay:style('transfer','.sully-chat-transfer-header')?.display,
-   iconDisplay:style('transfer','.sully-chat-transfer-icon')?.display,
+   cardDisplay:cssStyle('transfer','.sully-chat-transfer-card')?.display,
+   headerDisplay:cssStyle('transfer','.sully-chat-transfer-header')?.display,
+   iconDisplay:cssStyle('transfer','.sully-chat-transfer-icon')?.display,
   };
   throw Error(JSON.stringify({checks,metrics}));
  }
