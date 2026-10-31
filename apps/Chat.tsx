@@ -9,7 +9,7 @@ import { stopInstantChat } from '../utils/amsgInstantChat';
 import {resolvePsycheAppearance} from '../utils/psycheAppearance';
 import { startsNewMessageGroup } from '../utils/chatMessageGrouping';
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
-import BlobRefStyle from '../components/chat/BlobRefStyle';
+import BlobRefStyle, { isWeixinBaiyuCss } from '../components/chat/BlobRefStyle';
 import CharacterPhone from '../components/chat/CharacterPhone';
 import { readCharacterAvatarLibrary, CHARACTER_AVATAR_CHANGED } from '../utils/characterAvatarLibrary';
 import { readCharacterPhoneSelfProfile } from '../utils/characterPhoneSelfProfile';
@@ -4419,7 +4419,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 onClose={closeApp}
                 onTriggerAI={handleManualTrigger}
                 triggerIcon={isTyping || instantChatPending ? 'stop' : 'lightning'}
-                hideTrigger={inputPreferences.sendButtonGenerates}
+                hideTrigger={inputPreferences.sendButtonGenerates && !isWeixinBaiyuCss(char.chromeCustomCss || osTheme.chatChromeCustomCss)}
                 onShowCharsPanel={() => setShowPanel('chars')}
                 extraAction={{ label: '电话', icon: <Phone size={21} weight="regular" color="currentColor" />, onClick: () => openApp(AppID.Call) }}
                 onDeleteBuff={(buffId) => {
