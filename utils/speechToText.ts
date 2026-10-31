@@ -180,7 +180,7 @@ const friendlyBrowserError = (raw: string, hasPaidConfigured: boolean): string =
   const suffix = hasPaidConfigured
     ? '可在「通话偏好」或「设置 → 其他 API」切换为已配置的付费语音识别'
     : '可在「设置 → 其他 API」配置 ElevenLabs、鱼声 Fish 或 MiniMax Key 开启高精度语音转文字';
-  if (/not-allowed|permission|denied/i.test(raw)) return '麦克风权限被拒绝，请在浏览器或系统设置里放行';
+  if (/not-allowed|notallowed|permission|denied|securityerror/i.test(raw)) return '麦克风权限被拒绝，请在浏览器或系统设置里放行';
   if (/no-speech/i.test(raw)) return '没听清，再试一次？';
   if (/audio-capture/i.test(raw)) return '找不到可用麦克风';
   if (/network|service-not-allowed/i.test(raw)) return `当前浏览器语音服务不可用，${suffix}`;
