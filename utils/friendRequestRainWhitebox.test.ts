@@ -61,7 +61,7 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   const bad='/* 请求添加好友 · 雨梦 by 池谕 | SullyOS 原生整套白框适配\\n.old-drops{color:red}';
   const corrected=resolveLegacyFriendRequestRainCss(bad);
   expect(corrected).toBe(read().parts.css);
-  expect(resolveLegacyFriendRequestRainCss(corrected)).toBe(corrected);
+  expect(resolveLegacyFriendRequestRainCss(restoredSizing)).toBe(restoredSizing);
   const full=read().parts.css!;
   const v8='/* 请求添加好友 · 尺寸与申请按钮适配 v8';
   const v9='/* 请求添加好友 · 顶区操作与标签去重叠 v9';
@@ -77,12 +77,12 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   const installed=full.slice(0,full.indexOf(v13))+
     '\n/* 请求添加好友 · 头像与整体尺寸回归 v11\n.outdated-header{height:108px}\n'+
     '/* 请求添加好友 · 原文件头部 82px 回归 v12\n.legacy-last{\n height:82px;\n}\n.my-own-header{height:155px!important}';
-  const corrected=resolveLegacyFriendRequestRainCss(installed);
-  expect(corrected).toContain('.my-own-header{height:155px!important}');
-  expect(corrected).toContain(v13);
-  expect(corrected).not.toContain('/* 请求添加好友 · 头像与整体尺寸回归 v11');
-  expect(corrected).not.toContain('/* 请求添加好友 · 原文件头部 82px 回归 v12');
-  expect(resolveLegacyFriendRequestRainCss(corrected)).toBe(corrected);
+  const restoredSizing=resolveLegacyFriendRequestRainCss(installed);
+  expect(restoredSizing).toContain('.my-own-header{height:155px!important}');
+  expect(restoredSizing).toContain(v13);
+  expect(restoredSizing).not.toContain('/* 请求添加好友 · 头像与整体尺寸回归 v11');
+  expect(restoredSizing).not.toContain('/* 请求添加好友 · 原文件头部 82px 回归 v12');
+  expect(resolveLegacyFriendRequestRainCss(restoredSizing)).toBe(restoredSizing);
   expect(resolveLegacyFriendRequestRainCss('.unrelated-theme{color:red}')).toBe('.unrelated-theme{color:red}');
  });
  it('applies character/global parts without modifying sounds or removing native group packet',async()=>{
