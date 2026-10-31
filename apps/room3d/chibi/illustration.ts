@@ -148,9 +148,9 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkToonKey = smoothstep(.10-inkToonAA,.10+inkToonAA,inkToonN);
             float inkCast = mix(1.,getShadowMask(),characterRoomEnabled);
             float inkToonCast = smoothstep(.24,.76,inkCast);
-            float inkBandValue = ${face ? '.63' : skin ? '.57' : hair ? '.43' : '.43'}
-              + ${face ? '.18' : skin ? '.21' : hair ? '.25' : '.23'} * inkToonHalf
-              + ${face ? '.19' : skin ? '.22' : hair ? '.32' : '.34'} * inkToonKey;
+            float inkBandValue = ${face ? '.48' : skin ? '.42' : hair ? '.38' : '.37'}
+              + ${face ? '.17' : skin ? '.20' : hair ? '.21' : '.20'} * inkToonHalf
+              + ${face ? '.25' : skin ? '.29' : hair ? '.30' : '.31'} * inkToonKey;
             inkBandValue *= mix(${face || skin ? '.74' : '.66'},1.,inkToonCast);
             // Keep every original complexion/dye: multiply the painted texel,
             // never paint over the facial expression or replace the authored albedo.
@@ -162,8 +162,8 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             // A clean dark ink contour changes the *style*, but remains inside
             // this same surface shader and does not introduce outline meshes.
             float inkToonView = 1.-abs(dot(normal,normalize(vViewPosition)));
-            float inkInkEdge=smoothstep(.43,.90,inkToonView);
-            inkColor *= 1.-inkInkEdge*${face ? '.16' : skin ? '.23' : hair ? '.39' : '.34'};
+            float inkInkEdge=smoothstep(.32,.86,inkToonView);
+            inkColor *= 1.-inkInkEdge*${face ? '.20' : skin ? '.27' : hair ? '.50' : '.42'};
             ${hair ? `// Local-head strand ribbons; glints are tinted, never metallic white.
             vec3 inkToonHalfVector = normalize(inkLight+normalize(vViewPosition));
             float inkStrand = abs(dot(normalize(inkLocalStrandView),inkToonHalfVector));
@@ -171,7 +171,7 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkSatinWide=(1.-smoothstep(.16,.78,inkStrand))*smoothstep(.24,.80,inkStrandFacing);
             float inkSatinThin=(1.-smoothstep(.08,.28,inkStrand))*smoothstep(.72,.96,inkStrandFacing);
             vec3 inkSatinColor=sqrt(max(diffuseColor.rgb,vec3(0.)))*vec3(.58,.61,.66);
-            inkColor += (1.-clamp(inkColor,0.,1.))*inkSatinColor*(inkSatinWide*.36+inkSatinThin*.08)*inkToonKey*inkToonCast;` : ''}
+            inkColor += (1.-clamp(inkColor,0.,1.))*inkSatinColor*(inkSatinWide*.52+inkSatinThin*.11)*inkToonKey*inkToonCast;` : ''}
             ` : ''}
             vec3 inkView = normalize(vViewPosition);
             float inkFresnel = 1.-clamp(abs(dot(normal,inkView)),0.,1.);
