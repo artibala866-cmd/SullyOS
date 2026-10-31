@@ -134,3 +134,81 @@ describe('real speech-to-text route instead of decorative recording', () => {
     expect(audio).not.toHaveBeenCalled(); // browser recognizer provides text, not a recorded audio file
   });
 });
+
+describe('browser speech recognition resilience', () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  const makeRecognizer = (signal: 'audio' | 'none' | 'result') => {
+    class Recognizer {
+      static current: Recognizer;
+      onresult: ((event: any) => void) | null = null;
+      onend: (() => void) | null = null;
+      onaudiostart: (() => void) | null = null;
+      onspeechstart: (() => void) | null = null;
+      onerror: ((event: any) => void) | null = null;
+      lang = '';
+      continuous = false;
+      interimResults = false;
+      stopCount = 0;
+      constructor() { Recognizer.current = this; }
+      start() {
+        if (signal === 'audio') this.onaudiostart?.();
+        if (signal === 'result') {
+          this.onresult?.({ resultIndex: 0, results: [
+            Object.assign([{ transcript: '真实识别的内容' }], { isFinal: true }),
+          ] });
+        }
+      }
+      stop() { this.stopCount++; this.onend?.(); }
+      abort() { this.onend?.(); }
+    }
+    vi.stubGlobal('window', {
+      SpeechRecognition: Recognizer,
+      setTimeout: globalThis.setTimeout,
+      clearTimeout: globalThis.clearTimeout,
+    });
+    return Recognizer;
+  };
+
+  it('stops an Android browser that starts the mic but never returns any words', async () => {
+    vi.useFakeTimers();
+    const Recognizer = makeRecognizer('audio');
+    const onError = vi.fn(), onEnd = vi.fn(), onFinal = vi.fn();
+    const session = await startStt('zh-CN', { onError, onEnd, onFinal }, { sttProvider: 'browser' });
+    await vi.advanceTimersByTimeAsync(15_050);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(String(onError.mock.calls[0][0])).toContain('没有返回文字');
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(onFinal).not.toHaveBeenCalled();
+    expect(Recognizer.current.stopCount).toBe(1);
+    session.cancel();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends a recognizer with no microphone start event instead of spinning forever', async () => {
+    vi.useFakeTimers();
+    const Recognizer = makeRecognizer('none');
+    const onError = vi.fn(), onEnd = vi.fn();
+    const session = await startStt('zh-CN', { onError, onEnd }, { sttProvider: 'browser' });
+    await vi.advanceTimersByTimeAsync(7_100);
+    expect(String(onError.mock.calls[0][0])).toContain('没有响应');
+    expect(Recognizer.current.stopCount).toBe(1);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    session.stop();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves genuine recognized text and does not trigger a false timeout', async () => {
+    vi.useFakeTimers();
+    const Recognizer = makeRecognizer('result');
+    const onError = vi.fn(), onFinal = vi.fn(), onEnd = vi.fn();
+    const session = await startStt('zh-CN', { onError, onFinal, onEnd }, { sttProvider: 'browser' });
+    await vi.advanceTimersByTimeAsync(16_000);
+    expect(onError).not.toHaveBeenCalled();
+    session.stop();
+    expect(Recognizer.current.stopCount).toBe(1);
+    expect(onFinal).toHaveBeenCalledWith('真实识别的内容');
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+});
