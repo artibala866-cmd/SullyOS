@@ -34,6 +34,8 @@ import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } fr
 // master 上给旧内联表情抽屉加的增量渲染随旧抽屉一并退役。
 import { UsersThree, Money, GearSix, Image as ImageIcon, ArrowsClockwise, PaintBrush, BellSimpleRinging, Code, Question } from '@phosphor-icons/react';
 import ChatHeaderShell from '../components/chat/ChatHeaderShell';
+import {isFaintSilkPairCss} from '../utils/faintSilkPair';
+import {FAINT_SILK_POLISH_CSS} from '../utils/faintSilkPolish';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import ChatInputSettings from '../components/chat/ChatInputSettings';
@@ -1773,6 +1775,10 @@ ${memberTimeline || '(暂无互动记录)'}
                 .sully-bubble-tail-hidden::before,
                 .sully-bubble-tail-hidden::after { content: none !important; display: none !important; }
             `}</style>
+            {/* 浅丝群聊沿用相同的原生按钮外观，老白框也自动修正贴纸图标。 */}
+            {(isFaintSilkPairCss(activeGroup?.chromeCustomCss) || (!activeGroup?.chromeCustomCss && isFaintSilkPairCss(osTheme.chatChromeCustomCss))) && (
+                <style>{FAINT_SILK_POLISH_CSS}</style>
+            )}
             {/* 守护样式（注在用户 CSS 之后）：保证返回键与输入区永远可见可点。 */}
             {(osTheme.chatChromeCustomCss || activeGroup?.chromeCustomCss || groupBubbleCustomCss) && (
                 <style>{`
