@@ -86,7 +86,7 @@ import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 import { useChatAI } from '../hooks/useChatAI';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { usePrivateChatSpeech } from '../hooks/usePrivateChatSpeech';
-import { attachUserVoiceAudio, formatForwardedUserVoice, forwardUserVoiceSnapshot, makeUserVoiceMetadata, reviseUserVoiceTranscript } from '../utils/userVoiceMessage';
+import { attachUserVoiceAudio, forwardUserVoiceSnapshot, makeUserVoiceMetadata, reviseUserVoiceTranscript } from '../utils/userVoiceMessage';
 import { cleanTextForTts, parseVoiceOutput } from '../utils/minimaxTts';
 import { collectVoiceBatchSubtitle, isPoisonedVoiceSubtitle } from '../utils/voiceSubtitle';
 import {
