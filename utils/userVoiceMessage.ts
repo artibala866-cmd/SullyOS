@@ -34,6 +34,17 @@ export function attachUserVoiceAudio(
   return { ...metadata, hasAudio: true, audioRef, durationSec: Math.max(1, Math.ceil(durationSec)) };
 }
 
+/** Correct the words, not the immutable original recording. */
+export function reviseUserVoiceTranscript(metadata: Message['metadata'], correctedText: string) {
+  return { ...metadata, transcript: correctedText.trim() };
+}
+
+/** A forwarded record is a text snapshot, not a second audio attachment. */
+export function formatForwardedUserVoice(message: Message): string {
+  const text = getVoiceTranscript(message);
+  return text ? `[语音记录] ${text}` : '[语音记录] 仅有原声，未转发音频文件';
+}
+
 /** Only saved, referenced audio qualifies for a playable voice bar. */
 export function describeUserVoice(msg: Message): {
   transcript: string;
