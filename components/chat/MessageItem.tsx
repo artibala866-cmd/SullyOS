@@ -1107,6 +1107,7 @@ const MessageItem = React.memo(({
     const isSystem = m.role === 'system';
     const wechatTextMessage = wechatBubble && m.type === 'text' && (m.role === 'user' || m.role === 'assistant') && !voiceData?.url && !voiceLoading && !/<[语語]音[^>]*>/.test(m.content);
     const qqTextMessage = qqBubble && m.type === 'text' && (m.role === 'user' || m.role === 'assistant') && !voiceData?.url && !voiceLoading && !/<[语語]音[^>]*>/.test(m.content);
+    const qqVoiceMessage = qqBubble && m.type === 'text' && !isUser && (!!voiceData?.url || !!voiceLoading || /<[语語]音[^>]*>/.test(m.content));
     const spacingClass = messageSpacing === 'compact' ? (isLastInGroup ? 'mb-3' : 'mb-0.5') : messageSpacing === 'spacious' ? (isLastInGroup ? 'mb-8' : 'mb-2.5') : (isLastInGroup ? 'mb-6' : 'mb-1.5');
     const marginBottom = spacingClass;
     const avatarSizeClass = avatarSize === 'small' ? 'w-7 h-7' : avatarSize === 'large' ? 'w-12 h-12' : 'w-9 h-9';
@@ -1680,6 +1681,9 @@ const MessageItem = React.memo(({
                 blackWhiteFacebook && m.type === 'text' ? 'sully-facebook-text-message' : '',
                 wechatTextMessage ? 'sully-wechat-text-message' : '',
                 qqTextMessage ? 'sully-qq-text-message' : '',
+                qqVoiceMessage ? 'sully-qq-voice-message' : '',
+                qqBubble && m.type === 'image' ? 'sully-qq-image-message' : '',
+                qqBubble && m.type === 'transfer' ? 'sully-qq-transfer-message' : '',
                 `flex items-end ${marginBottom} px-3 group select-none relative transition-[padding] duration-300`,
                 selectionMode ? 'pl-12' : '',
             ].filter(Boolean).join(' ')}
@@ -3340,7 +3344,7 @@ const MessageItem = React.memo(({
                 <div className="sully-qq-quote relative z-10" title={`${m.replyTo.name}：${replyPreview}`}>
                     <div className="sully-qq-quote-head">
                         <span className="sully-qq-quote-name">{m.replyTo.name}</span>
-                        <span className="sully-qq-quote-arrow" aria-hidden="true">↗</span>
+                        <span className="sully-qq-quote-arrow" aria-hidden="true">↑</span>
                     </div>
                     <span className="sully-qq-quote-content">{replyPreview}</span>
                 </div>
@@ -3357,7 +3361,7 @@ const MessageItem = React.memo(({
             {displayContent && !isForeignVoiceMsg && (
             <div className={`sully-facebook-bubble-text ${wechatTextMessage ? 'sully-wechat-bubble-text' : ''} ${qqTextMessage ? 'sully-qq-bubble-text' : ''} relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text`} style={{ color: styleConfig.textColor }}>
                 {renderContent(displayContent)}
-                {showExpandedTranslation && !wechatTextMessage && (
+                {showExpandedTranslation && !wechatTextMessage && !qqTextMessage && (
                     <div className="sully-facebook-translation mt-2.5 pt-2 border-t border-current/15">
                         <div className="mb-1 text-[9px] font-bold tracking-[0.16em] opacity-40 select-none">翻译</div>
                         {renderContent(langBContent)}
@@ -3369,7 +3373,7 @@ const MessageItem = React.memo(({
             {/* Layer 5: 双语「翻译/原文」切换 —— 气泡内右下角，细分隔线压层级，小灰字克制易找 */}
             {showTranslateButton && displayContent && !isForeignVoiceMsg && (
                 <div
-                    className={`relative z-10 mt-2 pt-1.5 flex justify-end ${wechatTextMessage ? 'sully-wechat-translate-action' : ''}`}
+                    className={`relative z-10 mt-2 pt-1.5 flex justify-end ${wechatTextMessage ? 'sully-wechat-translate-action' : ''} ${qqTextMessage ? 'sully-qq-translate-action' : ''}`}
                     style={{ borderTop: '1px solid rgba(127, 127, 127, 0.16)' }}
                 >
                     <button
@@ -3574,6 +3578,9 @@ const MessageItem = React.memo(({
                 );
             })()}
         </div>
+        {qqTextMessage && !isUser && showExpandedTranslation && !isForeignVoiceMsg && (
+            <div className="sully-qq-translation">{renderContent(langBContent)}</div>
+        )}
         {wechatTextMessage && !isUser && showExpandedTranslation && !isForeignVoiceMsg && (
             <div className="sully-wechat-translation-card">
                 <div className="sully-wechat-translation-body">{renderContent(langBContent)}</div>
