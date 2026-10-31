@@ -157,6 +157,7 @@ describe('Character Card PNG decoding', () => {
     it('reads V2 chara metadata', async () => {
         const data = await readCharacterCardFile(file(png({ name: 'chara', raw: v2() })));
         expect(data.source).toBe('tavern-v2');
+        if (data.source === 'babylink') throw new Error('Expected Tavern PNG, got BabyLink');
         expect(data.avatarFile).toBeTruthy();
     });
     it('reads V3 ccv3 metadata and favors V3 over valid backfill', async () => {
@@ -165,6 +166,7 @@ describe('Character Card PNG decoding', () => {
             { name: 'ccv3', raw: v3({ name: 'V3 actual' }) },
         )));
         expect(data.source).toBe('tavern-v3');
+        if (data.source === 'babylink') throw new Error('Expected Tavern PNG, got BabyLink');
         expect(data.character.name).toBe('V3 actual');
     });
     it('does not fall back to V2 when present V3 metadata is invalid', async () => {
