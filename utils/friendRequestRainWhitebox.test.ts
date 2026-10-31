@@ -33,7 +33,7 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
     expect(v15Rules).not.toContain(forbidden);
   }
 
-  const newRules=css.slice(css.indexOf('/* 请求添加好友 · 渐变爱心与首条气泡解耦 v14'));
+  const newRules=css.slice(css.indexOf('/* 请求添加好友 · 渐变爱心与首条气泡解耦 v14'),css.indexOf('/* 请求添加好友 · 气泡内层文字与独立引用遮挡修复 v15'));
   expect(newRules).toContain('.sully-chat-message-content::before');
   expect(newRules).toContain('content:none!important');
   expect(newRules).toContain('.sully-bubble-user.sully-bubble-group-first::after');
