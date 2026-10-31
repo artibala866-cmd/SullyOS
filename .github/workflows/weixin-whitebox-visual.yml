@@ -4,6 +4,8 @@ on:
     branches: [remove-checkphone-vrworld-lifesim]
     paths:
       - 'presets/chat/weixin-baiyu.json'
+      - 'assets/chat/weixin-baiyu/**'
+      - 'components/chat/WeixinOriginalAssets.css'
       - 'apps/Chat.tsx'
       - 'apps/GroupChat.tsx'
       - 'components/chat/BlobRefStyle.tsx'
