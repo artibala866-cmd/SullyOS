@@ -72,7 +72,9 @@ try{
   if(!/^style-[a-z0-9-]+$/.test(name))throw Error('Unsafe cel frame name '+name);
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
- if((report.styleImages||[]).length!==12||(report.styleStats||[]).length!==4)throw Error('Cel A/B material coverage incomplete');
+ if((report.styleImages||[]).length!==24||(report.styleStats||[]).length!==4)throw Error('Cel A/B and four-phase coverage incomplete');
+ if((report.phaseStats||[]).length!==4||!report.phaseStats.every(p=>p.maxRestored<=.01))throw Error('One original lighting phase changed');
+
  if(!report.styleStats.every(x=>x.maxRestoreDifference<=.01))throw Error('Original style changed after switching back');
  if((report.materialImages||[]).length!==36)throw Error('Material coverage incomplete');
  if(!complete)throw Error('Carry WebGL fixture failed/incomplete: '+(report.errors||[]).join(' | ').slice(0,1000));

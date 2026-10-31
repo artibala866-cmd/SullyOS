@@ -10,7 +10,9 @@ import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSoci
 import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe.ts';
 import {createRoomFinishPass} from '../apps/room3d/roomFinishPass.js';
 import {setCharacterStyle} from '../apps/room3d/chibi/characterStyle.ts';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],sequences:[],timelines:[],models:[]};
+import {setCharacterRoomLighting,setCharacterRoomTint} from '../apps/room3d/chibi/illustration.ts';
+import {ROOM_LIGHT_PHASES,createRoomLightUniforms,updateRoomLightUniforms} from '../apps/room3d/roomLighting.js';
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -238,6 +240,36 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    report.styleStats.push({variant:variant.id,mean,fraction,maxRestoreDifference:reversible});
    if(mean<.05||mean>12||fraction<.005||fraction>.75||reversible>.01)
     throw Error('Original look not preserved or cel shader ineffective '+variant.id+': '+JSON.stringify({mean,fraction,reversible}));
+   if(variant.id==='black-fair-dark'){
+    // Preserve the actual shared room colour uniforms across all four daylight
+    // phases and verify switching the optional style cannot remove existing light.
+    const phases=['morning','day','sunset','night'];
+    const lighting=createRoomLightUniforms();lighting.roomShadeSoftness={value:.35};
+    setCharacterRoomLighting(actor.root,lighting);
+    for(const phase of phases){
+      const profile=ROOM_LIGHT_PHASES[phase];
+      updateRoomLightUniforms(lighting,profile);
+      setCharacterRoomTint(actor.root,profile.character);
+      setCharacterStyle('modern');renderer.render(scene,camera);
+      const oldFrame=styleScreenshot('phase-'+phase+'-original');
+      report.phaseImages.push('phase-'+phase+'-original');
+      setCharacterStyle('illustrated');renderer.render(scene,camera);
+      const newFrame=styleScreenshot('phase-'+phase+'-illustrated');
+      report.phaseImages.push('phase-'+phase+'-illustrated');
+      setCharacterStyle('modern');renderer.render(scene,camera);
+      const restoredFrame=styleScreenshot('phase-'+phase+'-restored');
+      report.phaseImages.push('phase-'+phase+'-restored');
+      let delta=0,maxRestored=0;
+      for(let pix=0;pix<oldFrame.length;pix+=4){
+       delta+=Math.abs(oldFrame[pix]-newFrame[pix])+Math.abs(oldFrame[pix+1]-newFrame[pix+1])+Math.abs(oldFrame[pix+2]-newFrame[pix+2]);
+       maxRestored=Math.max(maxRestored,Math.abs(oldFrame[pix]-restoredFrame[pix]),Math.abs(oldFrame[pix+1]-restoredFrame[pix+1]),Math.abs(oldFrame[pix+2]-restoredFrame[pix+2]));
+      }
+      report.phaseStats.push({phase,mean:delta/3/(oldFrame.length/4),maxRestored});
+      if(maxRestored>.01)throw Error('Original '+phase+' lighting no longer restores: '+maxRestored);
+    }
+    updateRoomLightUniforms(lighting,ROOM_LIGHT_PHASES.day);
+    setCharacterRoomTint(actor.root,ROOM_LIGHT_PHASES.day.character);
+   }
    // Frame-perfect comparison on the real hair, face, wardrobe and ACES renderer.
    // Both images include the ORIGINAL room finish. Only the optional detail differs.
    head.rotation.x=restHeadX;actor.finishPose();view('three-quarter');
@@ -268,7 +300,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     throw Error('Unsafe or invisible detail filter '+variant.id+': '+JSON.stringify({mean,fraction,subjectMean,subjectFraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
- if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==12)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
+ if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==24||report.phaseImages.length!==12)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
  finishPass.dispose();
  if(report.images.length!==980||report.timelines.length!==2)throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
