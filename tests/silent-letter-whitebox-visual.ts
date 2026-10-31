@@ -94,7 +94,7 @@ try {
   const markerCss=node?getComputedStyle(node,'::before').content:'no bubble';
   const card=node?.closest('.sully-chat-card');
   const transferNode=$('transfer','.sully-chat-transfer-card');const transferParent=transferNode?.closest('.sully-chat-message-content');
-  const errorDetails={markerCss,cardKind:card?.getAttribute('data-card-kind'),messageClass:node?.closest('.sully-chat-message')?.className,transferWidth:transferNode?.getBoundingClientRect().width,parentWidth:transferParent?.getBoundingClientRect().width,parentMaxWidth:transferParent?getComputedStyle(transferParent).maxWidth:'',closestCard:card?.outerHTML.slice(0,260),bubbleHtml:node?.outerHTML.slice(0,220)};
+  const errorDetails={markerCss,cardKind:card?.getAttribute('data-card-kind'),messageClass:node?.closest('.sully-chat-message')?.className,transferWidth:transferNode?.getBoundingClientRect().width,parentWidth:transferParent?.getBoundingClientRect().width,parentMaxWidth:transferParent?getComputedStyle(transferParent).maxWidth:'',cardWidth:transferNode?.closest('.sully-chat-card')?.getBoundingClientRect().width,surfaceWidth:transferNode?.closest('.sully-chat-card-surface')?.getBoundingClientRect().width,contentWidth:transferNode?.closest('.sully-chat-card-content')?.getBoundingClientRect().width,cardComputedWidth:transferNode?getComputedStyle(transferNode).width:'',cardComputedMax:transferNode?getComputedStyle(transferNode).maxWidth:'',closestCard:card?.outerHTML.slice(0,260),bubbleHtml:node?.outerHTML.slice(0,220)};
   const debug=document.createElement('output');debug.id='silent-letter-debug';debug.textContent=JSON.stringify(errorDetails);root.prepend(debug);
   throw Error('Visual assertions failed: '+JSON.stringify(checks));
  }
