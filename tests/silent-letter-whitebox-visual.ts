@@ -11,7 +11,7 @@ if (!root) throw Error('visual host missing');
 try {
  const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-silent-letter-dark')?.read();
  if (!preset) throw Error('built-in outfit missing');
- const scenes=['conversation','reply','voice-playing','transfer','transfer-accepted','transfer-returned','psyche','psyche-open'];
+ const scenes=['conversation','silent-letter-send','silent-letter-stop','reply','voice-playing','transfer','transfer-accepted','transfer-returned','psyche','psyche-open'];
  for(const scene of scenes) {
   const {markup,css}=renderChatDecorationSample(preset,scene);
   const section=document.createElement('section');
@@ -56,6 +56,16 @@ try {
   return getComputedStyle(el)[property];
  };
  const sceneHas=(scene:string,selector:string)=>!!$(scene,selector);
+ const nativeSvgReplaced=(scene:string,selector:string)=>{
+   const button=$(scene,selector);
+   const svg=button?.querySelector('svg');
+   return !!button && !!svg && getComputedStyle(svg).display==='none' && getComputedStyle(button).pointerEvents!=='none';
+ };
+ const stopButton=$('silent-letter-stop','.sully-chat-trigger[title="停止生成"]');
+ const stoppedIcon=stopButton?.querySelector('svg');
+ const phone=$('conversation','.sully-chat-header button[aria-label="电话"]');
+ const lightning=$('conversation','.sully-chat-trigger');
+ const actionRowNoOverlap=!!phone&&!!lightning&&phone.getBoundingClientRect().right<=lightning.getBoundingClientRect().left+1;
  const checks={
   presetParts:['layout','bubbles','psyche','css'].every(key=>key in preset.parts),
   userBubble:color('conversation','.sully-bubble-user','backgroundColor')==='rgb(26, 26, 26)',
@@ -71,6 +81,13 @@ try {
     return hasImage || (getComputedStyle(node,'::after').content==='none' || getComputedStyle(node,'::after').content==='normal') && getComputedStyle(node).borderTopWidth==='0px';
   }),
   groupedAvatar:[...root.querySelectorAll<HTMLElement>('[data-scene="conversation"] .sully-chat-message-ai:not(.sully-chat-message-group-last) .sully-chat-message-avatar-slot')].every(slot=>!slot.querySelector('.sully-chat-avatar-wrap')),
+  oldBackIconReplaced:nativeSvgReplaced('conversation','.sully-chat-back'),
+  oldPlusIconReplaced:nativeSvgReplaced('conversation','.sully-chat-actions-button'),
+  oldLightningIconReplaced:nativeSvgReplaced('conversation','.sully-chat-trigger'),
+  oldGenerateIconReplaced:nativeSvgReplaced('conversation','.sully-chat-send-button'),
+  oldSendIconReplaced:nativeSvgReplaced('silent-letter-send','.sully-chat-send-button[aria-label="发送文字"]'),
+  stopControlPreserved:!!stopButton&&!!stoppedIcon&&getComputedStyle(stoppedIcon).display!=='none'&&getComputedStyle(stopButton,'::after').display==='none',
+  headerActionsNotOverlapping:actionRowNoOverlap,
   header:sceneHas('conversation','.sully-chat-header'),
   input:sceneHas('conversation','.sully-chat-inputbar'),
   reply:sceneHas('reply','.sully-chat-reply'),
