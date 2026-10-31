@@ -12,7 +12,7 @@ export function createRoomFinishPass(renderer){
   uniforms:{source:{value:null},depth:{value:null},pixel:{value:new T.Vector2()},radius:{value:8}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
   fragmentShader:`varying vec2 vUv;uniform sampler2D source;uniform sampler2D depth;uniform vec2 pixel;uniform float radius;
-   vec3 readSource(vec2 uv){return sRGBTransferEOTF(texture2D(source,clamp(uv,vec2(0.),vec2(1.)))).rgb;}
+   vec3 readSource(vec2 uv){return texture2D(source,clamp(uv,vec2(0.),vec2(1.))).rgb;}
    void main(){
     float centerDepth=texture2D(depth,vUv).r;
     vec3 sum=readSource(vUv)*.8;float weight=.8;
@@ -32,12 +32,12 @@ export function createRoomFinishPass(renderer){
    vec3 bright(vec2 p){vec3 c=sRGBTransferEOTF(texture2D(source,p)).rgb;return c*smoothstep(.58,.94,max(c.r,max(c.g,c.b)));}
    void main(){vec3 halo=vec3(0.);for(int i=0;i<8;i++){float a=float(i)*.78539816;halo+=bright(vUv+vec2(cos(a),sin(a))*pixel*4.);}gl_FragColor=vec4(halo/8.,1.);}`});
  const material=new T.ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,
-  uniforms:{source:{value:null},halo:{value:null},depth:{value:null},defocused:{value:null},focusDepth:{value:.5},cameraSpan:{value:100},depthOfField:{value:0},glow:{value:.12},warmth:{value:0},detail:{value:0},finishOn:{value:1},artStyle:{value:0},pixel:{value:new T.Vector2()}},
+  uniforms:{source:{value:null},halo:{value:null},depth:{value:null},defocused:{value:null},focusDepth:{value:.5},cameraSpan:{value:100},depthOfField:{value:0},sourceLinear:{value:0},glow:{value:.12},warmth:{value:0},detail:{value:0},finishOn:{value:1},artStyle:{value:0},pixel:{value:new T.Vector2()}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
   fragmentShader:`varying vec2 vUv;uniform sampler2D source;uniform sampler2D halo;uniform float glow;uniform float warmth;
    uniform float detail;uniform float finishOn;uniform float artStyle;uniform vec2 pixel;
-   uniform sampler2D depth;uniform sampler2D defocused;uniform float focusDepth;uniform float cameraSpan;uniform float depthOfField;
-   vec3 sceneColor(vec2 uv){return sRGBTransferEOTF(texture2D(source,clamp(uv,vec2(0.),vec2(1.)))).rgb;}
+   uniform sampler2D depth;uniform sampler2D defocused;uniform float focusDepth;uniform float cameraSpan;uniform float depthOfField;uniform float sourceLinear;
+   vec3 sceneColor(vec2 uv){vec4 sampleColor=texture2D(source,clamp(uv,vec2(0.),vec2(1.)));return mix(sRGBTransferEOTF(sampleColor).rgb,sampleColor.rgb,sourceLinear);}
    void main(){
     vec3 c=sceneColor(vUv);
     if(artStyle>.5&&depthOfField>.001){
@@ -157,6 +157,9 @@ export function createRoomFinishPass(renderer){
   material.uniforms.focusDepth.value=T.MathUtils.clamp(Number(focusDepth)||.5,0,1);
   material.uniforms.cameraSpan.value=Math.max(1,Number(cameraSpan)||100);
   material.uniforms.depthOfField.value=withDepth?T.MathUtils.clamp(depthStrength,0,1):0;
+  // WebGL decodes sRGB colour attachments on sampling; the original
+  // framebuffer copy has untagged encoded pixels and still needs EOTF.
+  material.uniforms.sourceLinear.value=withDepth?1:0;
   glowMaterial.uniforms.pixel.value.set(1/width,1/height);
   material.uniforms.pixel.value.set(1/width,1/height);
   material.uniforms.detail.value=T.MathUtils.clamp(Number(detail)||0,0,.7);
