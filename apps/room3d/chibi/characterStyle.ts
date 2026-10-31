@@ -1,6 +1,6 @@
-export type CharacterStyle='modern'|'legacy';
+export type CharacterStyle='modern'|'legacy'|'illustrated';
 export const CHARACTER_STYLE_KEY='sully-home3d-character-style';
-const clean=(value:unknown):CharacterStyle=>value==='legacy'?'legacy':'modern';
+const clean=(value:unknown):CharacterStyle=>value==='legacy'?'legacy':value==='illustrated'?'illustrated':'modern';
 const read=():CharacterStyle=>{try{return clean(localStorage.getItem(CHARACTER_STYLE_KEY));}catch{return 'modern';}};
 let style=read();
 let persisted=true;

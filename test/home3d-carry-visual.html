@@ -9,7 +9,8 @@ import {createVisitor} from '../apps/room3d/chibi/visitor.ts';
 import {createSocialScene,socialActions} from '../apps/room3d/chibi/selectedSocial.ts';
 import {approvedPresets} from '../apps/room3d/chibi/approvedWardrobe.ts';
 import {createRoomFinishPass} from '../apps/room3d/roomFinishPass.js';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],sequences:[],timelines:[],models:[]};
+import {setCharacterStyle} from '../apps/room3d/chibi/characterStyle.ts';
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -169,6 +170,15 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
   {id:'ash-deep-dark',hair:'#c9bbac',skin:'#8f6351',outfit:'sailor'},
   {id:'copper-medium-light',hair:'#b96b46',skin:'#c9967b',outfit:'original'},
  ];
+ const styleGallery=document.createElement('main');styleGallery.className='style-comparison';document.body.append(styleGallery);
+ const styleScreenshot=(name)=>{
+  const fig=document.createElement('figure'),img=document.createElement('img');
+  img.src=renderer.domElement.toDataURL('image/png');img.alt=name;fig.append(img);styleGallery.append(fig);
+  report.styleImages.push({name});
+  const canvas=document.createElement('canvas');canvas.width=renderer.domElement.width;canvas.height=renderer.domElement.height;
+  const ctx=canvas.getContext('2d');ctx.drawImage(renderer.domElement,0,0);
+  return ctx.getImageData(0,0,canvas.width,canvas.height).data;
+ };
  const materialGallery=document.createElement('main');materialGallery.className='materials';document.body.append(materialGallery);
  const finishedGallery=document.createElement('main');finishedGallery.className='finish-comparison';document.body.append(finishedGallery);
  const finishPass=createRoomFinishPass(renderer);
@@ -209,6 +219,25 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     }
    }
 
+   // No filters in this comparison: pure material response with identical
+   // character, clothes, camera, light, and skeletal pose for each shot.
+   head.rotation.x=restHeadX;actor.finishPose();view('three-quarter');
+   setCharacterStyle('modern');renderer.render(scene,camera);
+   const orig=styleScreenshot('style-'+variant.id+'-original');
+   setCharacterStyle('illustrated');renderer.render(scene,camera);
+   const drawn=styleScreenshot('style-'+variant.id+'-illustrated');
+   setCharacterStyle('modern');renderer.render(scene,camera);
+   const restored=styleScreenshot('style-'+variant.id+'-restored');
+   let total=0,changed=0,reversible=0;
+   for(let px=0;px<orig.length;px+=4){
+    const diff=(Math.abs(orig[px]-drawn[px])+Math.abs(orig[px+1]-drawn[px+1])+Math.abs(orig[px+2]-drawn[px+2]))/3;
+    const revers=(Math.abs(orig[px]-restored[px])+Math.abs(orig[px+1]-restored[px+1])+Math.abs(orig[px+2]-restored[px+2]))/3;
+    total+=diff;if(diff>.5)changed++;reversible=Math.max(reversible,revers);
+   }
+   const mean=total/(orig.length/4),fraction=changed/(orig.length/4);
+   report.styleStats.push({variant:variant.id,mean,fraction,maxRestoreDifference:reversible});
+   if(mean<.05||mean>12||fraction<.005||fraction>.75||reversible>.01)
+    throw Error('Original look not preserved or cel shader ineffective '+variant.id+': '+JSON.stringify({mean,fraction,reversible}));
    // Frame-perfect comparison on the real hair, face, wardrobe and ACES renderer.
    // Both images include the ORIGINAL room finish. Only the optional detail differs.
    head.rotation.x=restHeadX;actor.finishPose();view('three-quarter');
@@ -239,7 +268,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     throw Error('Unsafe or invisible detail filter '+variant.id+': '+JSON.stringify({mean,fraction,subjectMean,subjectFraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
- if(report.materialImages.length!==36||report.finishImages.length!==8)throw Error('Incomplete materials and A/B finish '+report.materialImages.length+'/'+report.finishImages.length);
+ if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==12)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
  finishPass.dispose();
  if(report.images.length!==980||report.timelines.length!==2)throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');

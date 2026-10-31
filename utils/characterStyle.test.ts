@@ -5,6 +5,7 @@ describe('character rendering preference',()=>{
  it('defaults to modern and retains legacy after reload',async()=>{
   const a=await import('../apps/room3d/chibi/characterStyle');expect(a.getCharacterStyle()).toBe('modern');
   a.setCharacterStyle('legacy');vi.resetModules();const b=await import('../apps/room3d/chibi/characterStyle');expect(b.getCharacterStyle()).toBe('legacy');
+  b.setCharacterStyle('illustrated');vi.resetModules();expect((await import('../apps/room3d/chibi/characterStyle')).getCharacterStyle()).toBe('illustrated');
   localStorage.setItem(a.CHARACTER_STYLE_KEY,'invalid');vi.resetModules();expect((await import('../apps/room3d/chibi/characterStyle')).getCharacterStyle()).toBe('modern');
  });
  it('notifies local and cross-tab consumers, and releases subscriptions',async()=>{

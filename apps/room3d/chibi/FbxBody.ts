@@ -169,6 +169,8 @@ export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin
         front.map=canBlink&&time%4.3>4.12?asleepMap:awakeMap;
     };
     const back=keep(new T.MeshStandardMaterial({color:skin,roughness:1}));
+    // Back-only unpainted skin: do not label the mixed face/garment atlas as skin.
+    back.userData.illustrationSkin=true;
     const backCloth=keep(new T.MeshStandardMaterial({map:appearance==='outfit'?garmentMap(true):makeTexture([],skin),roughness:1}));
     const root=new T.Group(), body=new T.Group();root.add(body);
     const hairPivot=new T.Group();hairPivot.position.y=.64;body.add(hairPivot);
@@ -250,6 +252,7 @@ export function buildBody(source: T.Group, sourceParts: Parts, appearance: 'skin
     const actionLimbs:Array<{mesh:T.Mesh;side:number;foot:boolean}>=[];
     const ballGeometry=keep(new T.SphereGeometry(.105,16,12));
     const handMaterial=keep(new T.MeshStandardMaterial({color:skin,roughness:1}));
+    handMaterial.userData.illustrationSkin=true;
     for(const side of [-1,1]){
         const shoeCanvas=frontCloth.map?.image as HTMLCanvasElement|undefined;
         let shoeColor=skin;

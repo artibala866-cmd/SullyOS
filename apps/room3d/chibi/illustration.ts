@@ -62,6 +62,9 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
         material.customProgramCacheKey=saved.cache;
         const cacheKey = material.customProgramCacheKey();
         const face=!!material.userData.illustrationFace;
+        const skin=!face&&material.userData.illustrationSkin===true;
+        // An already-painted face canvas can also contain clothing. Never classify
+        // its entire atlas as exposed skin, and never infer material from colour.
         // Only explicit surface metadata may opt into a non-fabric response.
         // Outfit colour is not a reliable material classifier.
         const surface=material.userData.illustrationSurface;
@@ -74,15 +77,26 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
         material.toneMapped = false;
         material.onBeforeCompile = (shader,renderer) => {
           saved.compile.call(material,shader,renderer);
+          // Only the opt-in illustrated look needs the following mesh-local axis.
+          // Hair's parent is the existing animated head bone, so this follows nods
+          // and turns without changing any hair geometry, normals, UV or textures.
+          if(style==='illustrated'&&hair){
+            const anchor='#include <begin_vertex>';
+            if(!shader.vertexShader.includes(anchor))throw new Error('Missing hair shader vertex anchor');
+            shader.vertexShader='varying vec3 inkLocalStrandView;\n'+shader.vertexShader.replace(
+              anchor, anchor+'\ninkLocalStrandView=normalize(mat3(modelViewMatrix)*vec3(0.,1.,0.));',
+            );
+            shader.fragmentShader='varying vec3 inkLocalStrandView;\n'+shader.fragmentShader;
+          }
           shader.uniforms.characterRoomTint=roomTint;
           shader.uniforms.characterRoomEnabled=room.enabled;
           Object.assign(shader.uniforms,room.uniforms);
           shader.fragmentShader='uniform vec3 characterRoomTint;\nuniform float characterRoomEnabled;\nuniform vec3 roomShadeTint;\nuniform vec3 roomSunTint;\nuniform float roomBrightness;\nuniform float roomSunContrast;\n'+shader.fragmentShader;
-          if(style==='modern'){
+          if(style!=='legacy'){
             shader.uniforms.roomShadeSoftness=(room.uniforms as RoomLightUniforms).roomShadeSoftness??{value:0};
             shader.fragmentShader='uniform float roomShadeSoftness;\n'+shader.fragmentShader;
           }
-          if(style==='modern')shader.fragmentShader = shader.fragmentShader.replace('#include <shadowmap_pars_fragment>', '#include <shadowmap_pars_fragment>\n#include <shadowmask_pars_fragment>');
+          if(style!=='legacy')shader.fragmentShader = shader.fragmentShader.replace('#include <shadowmap_pars_fragment>', '#include <shadowmap_pars_fragment>\n#include <shadowmask_pars_fragment>');
           shader.fragmentShader = shader.fragmentShader.replace(
             'vec3 outgoingLight = totalDiffuse + totalSpecular + totalEmissiveRadiance;',
             style==='legacy'?`
@@ -125,6 +139,29 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkBrightness = mix(1.,roomBrightness,characterRoomEnabled);
             float inkForm = .90 + .10*smoothstep(-.1,.85,inkFacing);
             vec3 inkColor = mix(inkShadeColor*inkShadeTint,diffuseColor.rgb*.96*inkForm*inkLitTint,inkLit)*inkBrightness;
+            ${style==='illustrated' ? `// Extra ink/material response only. Everything above (room lighting,
+            // actual shadow mask, tint, authored ramp and brightness) stays intact.
+            float inkShadeShare=clamp(1.-inkLit,0.,1.);
+            ${face ? `// A lightly articulated jaw/cheek shadow; preserve painted
+            // eyes, highlights, expression atlas and original skin colour.
+            inkColor*=1.-.026*inkShadeShare;` : skin ? `
+            // Exposed rear/hand skin only; no blanket atlas classification.
+            inkColor*=1.-.035*inkShadeShare;` : hair ? `
+            // Local-space satin follows the existing head bone. A very soft,
+            // tint-preserving band enhances already authored strands, not a
+            // second plastic-white reflection over the entire hair shell.
+            vec3 inkHairHalf=normalize(inkLight+normalize(vViewPosition));
+            float inkHairDirection=abs(dot(normalize(inkLocalStrandView),inkHairHalf));
+            float inkHairSheen=(1.-smoothstep(.18,.78,inkHairDirection))
+                *smoothstep(.34,.90,clamp(dot(normal,inkHairHalf),0.,1.));
+            float inkPaintMask=smoothstep(.015,.24,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722)));
+            inkColor*=1.-.020*inkShadeShare;
+            inkColor+=(1.-clamp(inkColor,0.,1.))*diffuseColor.rgb*inkHairSheen*inkLit*inkPaintMask*.075;` : leather || metal ? `
+            // Keep the existing resource-authored glints and colours unchanged.` : `
+            // Cloth stays matte: give folded shade a little depth without
+            // touching unshadowed fabric colours or changing room illumination.
+            inkColor*=1.-.060*inkShadeShare;`}
+            ` : ''}
             vec3 inkView = normalize(vViewPosition);
             float inkFresnel = 1.-clamp(abs(dot(normal,inkView)),0.,1.);
             // Material-space edge shaping, not an extra outline mesh/pass.
@@ -139,7 +176,7 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v7-' + style + '-' + face + '-' + hair + '-' + leather + '-' + metal;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v9-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;
