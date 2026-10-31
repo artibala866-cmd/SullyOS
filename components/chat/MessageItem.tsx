@@ -3399,7 +3399,7 @@ const MessageItem = React.memo(({
             {/* Layer 5: 双语「翻译/原文」切换 —— 气泡内右下角，细分隔线压层级，小灰字克制易找 */}
             {showTranslateButton && displayContent && !isForeignVoiceMsg && (
                 <div
-                    className={`relative z-10 mt-2 pt-1.5 flex justify-end ${wechatTextMessage ? 'sully-wechat-translate-action' : ''} ${qqTextMessage ? 'sully-qq-translate-action' : ''}`}
+                    className={`sully-chat-translate-action relative z-10 mt-2 pt-1.5 flex justify-end ${wechatTextMessage ? 'sully-wechat-translate-action' : ''} ${qqTextMessage ? 'sully-qq-translate-action' : ''}`}
                     style={{ borderTop: '1px solid rgba(127, 127, 127, 0.16)' }}
                 >
                     <button

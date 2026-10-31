@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {resolveCssImageUrls} from '../../utils/cssImageAssets';
 import silentLetter from '../../presets/chat/silent-letter-dark.json';
 import weixinBaiyu from '../../presets/chat/weixin-baiyu.json';
+import friendRequestRain from '../../presets/chat/friend-request-rain.json';
 
 /** Previously applied whitebox CSS is persisted per character or globally. Changing
  * a bundled preset does not update that copy. Upgrade only CSS bearing the known
@@ -62,9 +63,20 @@ export function resolveLegacyWeixinBaiyuCss(css: string): string {
     return css + '\n' + latest.slice(index);
 }
 
+
+/** Upgrade previously applied Friend Rain CSS without replacing user additions or cached blobref images. */
+const FRIEND_RAIN_SIGNATURE='/* 请求添加好友 · 雨梦 by 池谕 | SullyOS 原生整套白框适配';
+const FRIEND_RAIN_V4='/* 请求添加好友 · 池谕原稿视觉补全 v4';
+export function resolveLegacyFriendRequestRainCss(css:string):string {
+ if(!css.includes(FRIEND_RAIN_SIGNATURE)||css.includes(FRIEND_RAIN_V4))return css;
+ const full=friendRequestRain.parts.css;
+ const from=full.indexOf(FRIEND_RAIN_V4);
+ return from===-1?css:css+'\n'+full.slice(from);
+}
+
 /** Keep persisted CSS independent of the short-lived browser object URLs. */
 export default function BlobRefStyle({css}: {css: string}) {
-    const effectiveCss = resolveLegacyWeixinBaiyuCss(resolveLegacySilentLetterCss(css));
+    const effectiveCss = resolveLegacyFriendRequestRainCss(resolveLegacyWeixinBaiyuCss(resolveLegacySilentLetterCss(css)));
     const [resolved, setResolved] = useState<{source: string; css: string; alive: () => boolean} | null>(null);
     useEffect(() => {
         if (!effectiveCss.includes('blobref:')) return;

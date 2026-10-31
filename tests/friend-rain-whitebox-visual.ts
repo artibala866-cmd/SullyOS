@@ -10,7 +10,7 @@ if(!root)throw Error('No host');
 try {
  const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-friend-request-rain')?.read();
  if(!preset)throw Error('Friend Rain not found');
- for(const scene of ['conversation','silent-letter-send','silent-letter-stop','reply','voice-playing','transfer','transfer-accepted','transfer-returned']){
+ for(const scene of ['conversation','silent-letter-send','silent-letter-stop','reply','psyche','psyche-open','voice-playing','transfer','transfer-accepted','transfer-returned']){
   const {markup,css}=renderChatDecorationSample(preset,scene);
   const section=document.createElement('section');section.className='scene';section.dataset.scene=scene;
   section.innerHTML='<h2>'+scene+'</h2><div class="beauty-preview-body">'+markup+'</div>';
@@ -37,7 +37,14 @@ try {
   returned:!!$('transfer-returned','.sully-chat-transfer-receipt'),
   reply:!!$('reply','.sully-chat-reply'),
   voice:!!$('voice-playing','.sully-voice-bar'),
-  hearts:cssStyle('conversation','.sully-bubble-user','::after').content.includes('♥'),
+  hearts:cssStyle('conversation','.sully-bubble-user','::after').backgroundImage.includes('data:image/svg+xml'),
+  avatarPolaroid:(rect('conversation','.sully-chat-profile .sully-chat-avatar')?.height||0)>=60,
+  rainHeader:(rect('conversation','.sully-chat-header')?.height||0)>=135,
+  darkFloatingPill:cssStyle('conversation','.sully-chat-composer','::before').backgroundColor==='rgb(37, 37, 37)',
+  bilingualFooter:cssStyle('conversation','.sully-chat-inputbar','::after').content.includes('Dreamed of a rain'),
+  wallpaper:cssStyle('conversation','.sully-chat-root').backgroundImage.includes('data:image/svg+xml'),
+  psyche:!!$('psyche','.sully-psyche-title')&&!!$('psyche-open','.sully-psyche-body'),
+  translated:!!$('reply','.sully-facebook-translation'),
   blackBubble:cssStyle('conversation','.sully-bubble-user').backgroundColor==='rgb(0, 0, 0)',
   whiteBubble:cssStyle('conversation','.sully-bubble-ai').backgroundColor==='rgb(255, 255, 255)',
   backReplaced:cssStyle('conversation','.sully-chat-back > svg').opacity==='0'
@@ -49,7 +56,10 @@ try {
   sendAvailable:!!$('silent-letter-send','.sully-chat-send-button'),
   headerSeparated:!overlap(rect('conversation','.sully-chat-back'),rect('conversation','.sully-chat-trigger')),
   composerSeparated:!overlap(rect('conversation','.sully-chat-actions-button'),rect('conversation','.sully-chat-input-wrap'))
-    &&!overlap(rect('conversation','.sully-chat-input-wrap'),rect('conversation','.sully-chat-send-button')),
+    &&!overlap(rect('conversation','.sully-chat-voice-trigger'),rect('conversation','.sully-chat-input-wrap button[aria-label="表情面板"]'))
+    &&!overlap(rect('conversation','.sully-chat-input-wrap button[aria-label="表情面板"]'),rect('conversation','.sully-chat-send-button')),
+  mic:!!$('conversation','.sully-chat-voice-trigger')
+    && cssStyle('conversation','.sully-chat-voice-trigger','::after').backgroundImage.includes('data:image/svg+xml'),
   composerReadable:(rect('conversation','.sully-chat-input-wrap')?.width||0)>=115,
   clickIntact:['.sully-chat-back','.sully-chat-trigger','.sully-chat-actions-button','.sully-chat-send-button'].every(s=>cssStyle('conversation',s).pointerEvents!=='none'),
   transferInteractive:cssStyle('transfer','.sully-chat-transfer-card').pointerEvents!=='none',
