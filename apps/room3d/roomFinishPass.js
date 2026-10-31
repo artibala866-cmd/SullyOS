@@ -44,9 +44,9 @@ export function createRoomFinishPass(renderer){
      float rawDepth=texture2D(depth,vUv).r;
      float metres=(rawDepth-focusDepth)*cameraSpan;
      // Actual orthographic view depth, not a screen-centre fog vignette.
-     float farBlur=smoothstep(1.0,4.3,metres);
+     float farBlur=smoothstep(.55,2.7,metres);
      float nearBlur=smoothstep(1.8,4.5,-metres)*.28;
-     float aperture=clamp(max(farBlur,nearBlur)*depthOfField,0.,.88);
+     float aperture=clamp(max(farBlur,nearBlur)*depthOfField,0.,.93);
      c=mix(c,texture2D(defocused,vUv).rgb,aperture);
     }
     float l=dot(c,vec3(.2126,.7152,.0722));
@@ -176,7 +176,7 @@ export function createRoomFinishPass(renderer){
     depthBlurMaterial.uniforms.source.value=sceneBuffer.texture;
     depthBlurMaterial.uniforms.depth.value=sceneBuffer.depthTexture;
     depthBlurMaterial.uniforms.pixel.value.set(1/width,1/height);
-    depthBlurMaterial.uniforms.radius.value=T.MathUtils.clamp(Math.min(width,height)*.020,4,16);
+    depthBlurMaterial.uniforms.radius.value=T.MathUtils.clamp(Math.min(width,height)*.038,7,24);
     renderer.setRenderTarget(defocused);depthBlurQuad.render(renderer);
    }
    if(baseFinish&&!illustrated){renderer.setRenderTarget(halo);glowQuad.render(renderer);}
