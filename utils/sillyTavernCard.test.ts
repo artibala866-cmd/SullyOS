@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { CharacterProfile } from '../types';
+import type { CharacterProfile, UserProfile } from '../types';
+import { ContextBuilder } from './context';
 import { DB } from './db';
 import { normalizeCharacterCard, readCharacterCardFile } from './sillyTavernCard';
 import { embedShareInPng, type ShareCardMetadata } from './pngShare';
@@ -217,5 +218,43 @@ describe('atomic character/worldbook persistence', () => {
             id: attemptedId, name: 'should not save', avatar: '', description: '', systemPrompt: '', memories: [],
         } as CharacterProfile, [existing])).rejects.toThrow();
         expect(await DB.getCharacter(attemptedId)).toBeUndefined();
+    });
+});
+
+
+describe('SullyOS chat request round-trip from imported data', () => {
+    it('injects only matching, enabled Tavern entries into the real ContextBuilder request', async () => {
+        const prepared = normalizeCharacterCard(v3({
+            character_book: lore([
+                entry({ id: 91, name: '钟楼线索', keys: ['钟楼'], content: '隐藏的蓝色钟楼', position: 'after_char' }),
+                entry({ id: 92, name: '关闭内容', keys: [], constant: true, enabled: false, content: '被关闭的秘密' }),
+                entry({ id: 93, name: '无人提及', keys: ['海浪'], content: '未触发的海浪', constant: false }),
+            ]),
+        }));
+        const character = { ...prepared.character, id: 'card-runtime-check', avatar: '', memories: [],
+            mountedWorldbooks: prepared.worldbooks.map(toMountedWorldbook) } as CharacterProfile;
+        const user = { name: '用户甲', bio: '' } as UserProfile;
+        const initial = await ContextBuilder.buildCharacterRequest({ char: character, user }, [
+            { role: 'user', content: '今晚有风' },
+        ]);
+        expect(JSON.stringify(initial)).toContain('沉稳');
+        expect(JSON.stringify(initial)).not.toContain('隐藏的蓝色钟楼');
+        const active = await ContextBuilder.buildCharacterRequest({ char: character, user }, [
+            { role: 'user', content: '我们去钟楼看看' },
+        ]);
+        expect(JSON.stringify(active)).toContain('出生在海边的摄影师');
+        expect(JSON.stringify(active)).toContain('隐藏的蓝色钟楼');
+        expect(JSON.stringify(active)).not.toContain('被关闭的秘密');
+        expect(JSON.stringify(active)).not.toContain('未触发的海浪');
+    });
+    it('preserves whole-book disable semantics even if individual entries are enabled', () => {
+        const prepared = normalizeCharacterCard(v3({
+            character_book: lore([entry({ enabled: true, constant: true })], { enabled: false }),
+        }));
+        expect(prepared.worldbooks[0].disable).toBe(true);
+        expect(prepared.warnings.join(' ')).toContain('整体关闭');
+    });
+    it('rejects character cards that contain only a name', () => {
+        expect(() => normalizeCharacterCard(v3({ description: '', personality: '', scenario: '' }))).toThrow('只有姓名');
     });
 });
