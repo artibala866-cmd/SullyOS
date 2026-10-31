@@ -38,7 +38,7 @@ import { COMMON_TIMEZONES } from '../utils/timezone';
 import { toMountedWorldbook } from '../utils/worldbook';
 import { stripSensitiveCardFields } from '../utils/characterCard';
 import { shareOrDownloadFile } from '../utils/shareExport';
-import { readShareText } from '../utils/pngShare';
+import { readCharacterCardFile, type PreparedCharacterCard } from '../utils/sillyTavernCard';
 import { confirmExportSafety } from '../utils/exportGuard';
 import { trackEvent } from '../utils/analytics';
 import { sortCharacterGroups, GROUP_FILTER_UNGROUPED } from '../components/character/CharacterGroupFilter';
@@ -187,6 +187,15 @@ const Character: React.FC = () => {
   }, [characters]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cardImportRef = useRef<HTMLInputElement>(null);
+  const [pendingCard, setPendingCard] = useState<PreparedCharacterCard | null>(null);
+  const [savingCard, setSavingCard] = useState(false);
+  const [cardPreviewUrl, setCardPreviewUrl] = useState('');
+  useEffect(() => {
+      if (!pendingCard?.avatarFile) { setCardPreviewUrl(''); return; }
+      const url = URL.createObjectURL(pendingCard.avatarFile);
+      setCardPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+  }, [pendingCard]);
   
   // Race Condition Guards
   const editingIdRef = useRef<string | null>(null);
@@ -1162,67 +1171,62 @@ ${isInitialGeneration ? `
   const handleImportCard = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-
       try {
-          const json = await readShareText(file, 'character');
-          const data: CharacterExportData = JSON.parse(json);
+          // Pure parsing and validation; the database is untouched until confirmation.
+          const prepared = await readCharacterCardFile(file);
+          setPendingCard(prepared);
+      } catch (error: any) {
+          console.error('[Character Card] Parse failed', error);
+          addToast(error?.message || '角色卡解析失败', 'error');
+      } finally {
+          if (cardImportRef.current) cardImportRef.current.value = '';
+      }
+  };
 
-          if (data.type !== 'sully_character_card') {
-              throw new Error('无效的角色卡文件');
+  const confirmCardImport = async () => {
+      if (!pendingCard || savingCard) return;
+      setSavingCard(true);
+      try {
+          const prepared = pendingCard;
+          const newId = 'char-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
+          let avatar = prepared.character.avatar || '';
+          if (prepared.avatarFile) {
+              avatar = await migrateDataUrlToRef(await processImage(prepared.avatarFile, { maxWidth: 900 }));
+          } else if (avatar.startsWith('data:image/')) {
+              avatar = await migrateDataUrlToRef(avatar);
           }
-
-          // 导入侧同样剥离凭据 / 美化 / 语言 / 运行时状态：即便对方给的是旧版
-          // 角色卡（把 API 密钥等私密字段一起打包了），也不会被写进本地角色，
-          // 不会用发卡人的 key / 主题 / 语言偏好覆盖你自己的。清单见 utils/characterCard.ts。
-          const safeData = stripSensitiveCardFields(data);
-
-          // Sync mounted worldbooks into the global worldbook app so they
-          // appear under their original category (or the character's name
-          // as a sensible fallback when the card has no category set).
-          const incomingMounted = (data.mountedWorldbooks || []).map(wb => ({ ...wb }));
-          const fallbackCategory = `${data.name || '导入角色'} 的世界书`;
-          let importedWbCount = 0;
-          for (const wb of incomingMounted) {
-              if (!wb.id || worldbooks.some(existing => existing.id === wb.id)) continue;
-              const category = wb.category && wb.category.trim() ? wb.category : fallbackCategory;
-              wb.category = category;
-              await addWorldbook({
-                  ...wb,
-                  id: wb.id,
-                  title: wb.title || '未命名设定',
-                  content: wb.content || '',
-                  category,
-                  createdAt: Date.now(),
-                  updatedAt: Date.now(),
-              });
-              importedWbCount++;
-          }
-
+          const mounted = prepared.worldbooks.map(toMountedWorldbook);
           const newChar: CharacterProfile = {
-              ...safeData,
-              id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              ...prepared.character,
+              id: newId,
+              avatar,
+              name: prepared.character.name,
+              description: prepared.character.description,
+              systemPrompt: prepared.character.systemPrompt,
               memories: [],
               refinedMemories: {},
               activeMemoryMonths: [],
-              mountedWorldbooks: incomingMounted,
+              mountedWorldbooks: mounted,
+              contextRangeMode: 'manual',
+              contextLimit: prepared.character.contextLimit ?? 100,
           } as CharacterProfile;
-
-          await DB.saveCharacter(newChar);
+          // DB.add is collision-safe; one transaction commits both tables or neither.
+          await DB.importCharacterCardAtomic(newChar, prepared.worldbooks);
+          const [saved, library] = await Promise.all([DB.getCharacter(newId), DB.getAllWorldbooks()]);
+          if (!saved || saved.mountedWorldbooks?.length !== mounted.length ||
+              prepared.worldbooks.some(book => !library.some(row => row.id === book.id))) {
+              throw new Error('保存事务已提交，但读取校验失败，请检查角色与世界书后再操作');
+          }
+          setPendingCard(null);
           trackEvent('导入角色卡');
-          // 不要调用 addCharacter()——它不是"刷新"，而是真的新建一个空白
-          // "New Character" 并写进 DB，reload 后就会多出一张空白卡。
-          // 导入的角色已经存进了 DB（上一行），reload 时 OSContext 会从
-          // DB 重新读全部角色，导入的角色自然会出现，无需手动刷新 state。
-          setTimeout(() => window.location.reload(), 500);
-
-          const wbToastSuffix = importedWbCount > 0 ? `，并同步 ${importedWbCount} 本世界书` : '';
-          addToast(`角色 ${newChar.name} 导入成功${wbToastSuffix}`, 'success');
-
-      } catch (err: any) {
-          console.error(err);
-          addToast(err.message || '导入失败', 'error');
+          addToast('角色 ' + newChar.name + ' 导入成功，世界书 ' + mounted.length + ' 条', 'success');
+          window.setTimeout(() => window.location.reload(), 450);
+      } catch (error: any) {
+          console.error('[Character Card] Save failed', error);
+          addToast(error?.message || '导入失败，未保存角色', 'error');
       } finally {
-          if (cardImportRef.current) cardImportRef.current.value = '';
+          setSavingCard(false);
       }
   };
 
@@ -2173,6 +2177,34 @@ ${isInitialGeneration ? `
                 )}
                 <p className="text-[10px] text-neutral-400 leading-relaxed bg-neutral-50 p-2.5 rounded-xl">删除分组不会删除角色，组内角色会回到「未分组」。给角色指派分组：进入角色的「设定」页。</p>
             </div>
+        </Modal>
+
+        <Modal
+            isOpen={!!pendingCard}
+            title="确认导入角色卡"
+            onClose={() => { if (!savingCard) setPendingCard(null); }}
+            footer={<div className="flex w-full gap-2">
+                <button disabled={savingCard} onClick={() => setPendingCard(null)} className="flex-1 py-3 bg-neutral-100 text-neutral-600 rounded-2xl font-semibold disabled:opacity-50">取消</button>
+                <button disabled={savingCard} onClick={confirmCardImport} className="flex-1 py-3 bg-[#222222] text-white rounded-2xl font-semibold disabled:opacity-50">{savingCard ? '保存中…' : '确认导入'}</button>
+            </div>}
+        >
+            {pendingCard && <div className="flex flex-col gap-4 py-2">
+                <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-100 shrink-0">
+                        {cardPreviewUrl ? <img src={cardPreviewUrl} alt="角色头像" className="w-full h-full object-cover" /> :
+                            <TokenImg value={pendingCard.character.avatar || ''} alt="角色头像" className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="min-w-0">
+                        <p className="font-semibold text-base text-neutral-900 break-words">{pendingCard.character.name}</p>
+                        <p className="text-xs text-neutral-500 mt-1">人设：{pendingCard.character.description || pendingCard.character.systemPrompt || pendingCard.character.worldview ? '已识别' : '仅有角色姓名'}</p>
+                    </div>
+                </div>
+                <p className="text-sm text-neutral-700">世界书：{pendingCard.worldbooks.length} 条（启用 {pendingCard.worldbooks.filter(book => !book.disable).length}，停用 {pendingCard.worldbooks.filter(book => book.disable).length}）</p>
+                {pendingCard.warnings.length > 0 && <div className="text-xs text-amber-800 bg-amber-50 rounded-xl px-3 py-2 leading-relaxed">
+                    <p className="font-semibold mb-1">部分外部设定无法等价转换：</p>
+                    {pendingCard.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
+                </div>}
+            </div>}
         </Modal>
 
         <Modal
