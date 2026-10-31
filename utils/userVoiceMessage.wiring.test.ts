@@ -98,6 +98,17 @@ describe('user voice must use the actual private-chat pipeline', () => {
     expect(chat).toContain('deleteBlobRefIfUnreferenced');
   });
 
+  it('renders genuinely forwarded audio with the original voice bar and keeps local tokens out of prompts', () => {
+    const item = read('components/chat/MessageItem.tsx');
+    const chat = read('apps/Chat.tsx');
+    const prompt = read('utils/chatPrompts.ts');
+    expect(chat).toContain('forwardUserVoiceSnapshot(m)');
+    expect(item).toContain("msg.type === 'voice' ? (");
+    expect(item).toContain('styleConfig={voiceStyle}');
+    expect(item).toContain('voiceStyle={activeTheme.ai}');
+    expect(prompt).toContain("else if (m.type === 'chat_forward')");
+  });
+
   it('passes both user voice variants to the model history via canonical normalization', () => {
     const prompts = read('utils/chatPrompts.ts');
     const normalizer = read('utils/messageFormat.ts');
