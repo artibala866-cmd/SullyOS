@@ -64,10 +64,19 @@ jobs:
             exit 1
           fi
           test -s weixin-native-chat.png
+          "$chrome" --headless=new --force-dark-mode --no-sandbox --disable-dev-shm-usage --disable-gpu --window-size=1640,2170 --virtual-time-budget=15000 --dump-dom http://127.0.0.1:5173/tests/weixin-whitebox-visual.html > /tmp/weixin-dark-dom.txt 2>/tmp/weixin-dark-chrome.log || true
+          "$chrome" --headless=new --force-dark-mode --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=1640,2170 --virtual-time-budget=15000 --screenshot="$GITHUB_WORKSPACE/weixin-native-chat-dark.png" http://127.0.0.1:5173/tests/weixin-whitebox-visual.html
+          if ! grep -q 'data-ready="true"' /tmp/weixin-dark-dom.txt; then
+            grep -o '<output[^>]*>[^<]*</output>' /tmp/weixin-dark-dom.txt | head -8 || true
+            exit 1
+          fi
+          test -s weixin-native-chat-dark.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: weixin-native-chat-screenshot
-          path: weixin-native-chat.png
+          path: |
+            weixin-native-chat.png
+            weixin-native-chat-dark.png
           if-no-files-found: ignore
           retention-days: 7
