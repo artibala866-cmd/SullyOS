@@ -120,7 +120,7 @@ try {
   silentPhoneArt:artReplacesSvg('conversation','.sully-chat-header button[aria-label="电话"]','H9Q5nB122'),
   silentStickerArt:artReplacesSvg('conversation','.sully-chat-input-wrap button[aria-label="表情面板"]','DHYhIUp'),
   silentMicrophoneArt:artReplacesSvg('conversation','.sully-chat-input-wrap .sully-chat-voice-trigger','DcdDRsw'),
-  originalAIArt:artReplacesSvg('conversation','.sully-chat-send-button[aria-label="生成回复"]','n9OXMPV'),
+  originalSendArt:artReplacesSvg('conversation','.sully-chat-send-button','n9OXMPV'),
   disabledAINotGray:parseFloat(getComputedStyle($('conversation','.sully-chat-send-button')!).opacity)>=.8,
   inputIconsNotOverlapping:noButtonOverlap('conversation',['.sully-chat-actions-button','.sully-chat-input-wrap button[aria-label="表情面板"]','.sully-chat-voice-trigger','.sully-chat-send-button']),
   narrowInputIconsNotOverlapping:noButtonOverlap('silent-letter-narrow',['.sully-chat-actions-button','.sully-chat-input-wrap button[aria-label="表情面板"]','.sully-chat-voice-trigger','.sully-chat-send-button']),
