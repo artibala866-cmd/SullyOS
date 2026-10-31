@@ -36,7 +36,7 @@ describe('incremental Home3D character style switching',()=>{
   const source=readFileSync('apps/room3d/editor.js','utf8');
   expect(source).toContain('data-action="character-style"');
   expect(source).toContain("setCharacterStyle(d.value==='legacy'?'legacy':d.value==='illustrated'?'illustrated':'modern')");
-  expect(source).toContain("['illustrated','插画三渲二 · 新']");
+  expect(source).toContain("['illustrated','手绘线稿 · 梦核电影感']");
   expect(source).not.toContain('state.characterStyle=');
   setCharacterStyle('legacy');
   expect(getCharacterStyle()).toBe('legacy');
