@@ -350,18 +350,24 @@ export const readCharacterCardFile = async (file: File): Promise<PreparedCardImp
         if (prepared.source !== 'sully') throw new Error('糯米机分享块的内容不是原生角色卡');
         return prepared;
     }
-    // BabyLink has GZIP RGB-LSB data, not Tavern tEXt/chara metadata.
-    const babyLink = await decodeBabyLinkPng(file, bytes);
-    if (babyLink) return babyLink;
+    // Prefer explicit, CRC-validated Tavern chunks. Canvas decoding every PNG
+    // before checking these tags is expensive and can reject real cards in test/
+    // browser environments without createImageBitmap.
     const metadata = await readTextMetadata(bytes);
-    if (!metadata.ccv3 && !metadata.chara) {
-        throw new Error('普通 PNG 不含酒馆角色卡数据，请使用未压缩的角色卡原图');
+    if (metadata.ccv3 || metadata.chara) {
+        // V3 takes precedence; never silently fall back to a conflicting V2 backfill.
+        const raw = decodeMetadata(metadata.ccv3 ?? metadata.chara!);
+        const prepared = normalizeCharacterCard(raw);
+        if (prepared.source === 'sully') throw new Error('酒馆 PNG 元数据并非酒馆角色卡');
+        if (metadata.ccv3 && prepared.source !== 'tavern-v3') throw new Error('ccv3 数据版本不匹配');
+        prepared.avatarFile = new File([file], file.name || 'character.png', { type: 'image/png' });
+        return prepared;
     }
-    // V3 takes precedence; never silently fall back to a conflicting V2 backfill.
-    const raw = decodeMetadata(metadata.ccv3 ?? metadata.chara!);
-    const prepared = normalizeCharacterCard(raw);
-    if (prepared.source === 'sully') throw new Error('酒馆 PNG 元数据并非酒馆角色卡');
-    if (metadata.ccv3 && prepared.source !== 'tavern-v3') throw new Error('ccv3 数据版本不匹配');
-    prepared.avatarFile = new File([file], file.name || 'character.png', { type: 'image/png' });
-    return prepared;
+    // BabyLink uses GZIP RGB-LSB rather than Tavern text metadata. Avoid
+    // canvas-only detection when the runtime cannot decode PNG pixels.
+    if (typeof createImageBitmap === 'function' && typeof document !== 'undefined') {
+        const babyLink = await decodeBabyLinkPng(file, bytes);
+        if (babyLink) return babyLink;
+    }
+    throw new Error('普通 PNG 不含有效的角色卡数据，请使用未压缩的酒馆或 BabyLink 角色卡原图');
 };
