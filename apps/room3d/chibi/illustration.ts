@@ -156,6 +156,13 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             vec3 inkWarmKey=mix(characterRoomTint,roomSunTint,characterRoomEnabled);
             vec3 inkIllustrationTint=mix(inkShadeLight,inkWarmKey,inkBrightTone*.72);
             inkColor=diffuseColor.rgb*inkIllustrationTint*inkToonIntensity*inkBrightness;
+            // Painted bright-plane glow for pale hair/skin without bleaching
+            // the black eye artwork, facial expressions or dark clothing.
+            float inkPaintBrightness=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
+            float inkPaintedHighlight=smoothstep(.15,.58,inkPaintBrightness)*inkBrightTone;
+            inkColor+=(1.-clamp(inkColor,0.,1.))
+               *${face || skin ? 'vec3(.065,.035,.028)' : hair ? 'vec3(.062,.075,.091)' : 'vec3(.026,.031,.041)'}
+               *inkPaintedHighlight;
             // Thin colour-preserving drawn contour, not a thick black ring.
             float inkViewEdge=1.-clamp(abs(dot(normal,normalize(vViewPosition))),0.,1.);
             float inkFineOutline=smoothstep(.84,.975,inkViewEdge);
@@ -168,7 +175,7 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkFineSatin=(1.-smoothstep(.08,.34,inkStrandAngle))*smoothstep(.67,.96,inkHairSurface);
             vec3 inkHairPigment=sqrt(max(diffuseColor.rgb,vec3(0.)))*vec3(.45,.49,.55);
             inkColor+=(1.-clamp(inkColor,0.,1.))*inkHairPigment
-                *(inkWideSatin*.24+inkFineSatin*.045)*inkHalfTone*inkToonCast;` : ''}
+                *(inkWideSatin*.38+inkFineSatin*.075)*inkHalfTone*inkToonCast;` : ''}
             ` : ''}
             vec3 inkView = normalize(vViewPosition);
             float inkFresnel = 1.-clamp(abs(dot(normal,inkView)),0.,1.);
@@ -184,7 +191,7 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v11-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v12-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;
