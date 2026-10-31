@@ -1,5 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {BUILTIN_WHITEBOX_PRESETS} from './builtinWhitebox';
+import {resolveLegacySilentLetterCss} from '../components/chat/BlobRefStyle';
 import {decorationPatches} from './chatDecoration';
 import {portableCssImages} from './cssImageAssets';
 
@@ -42,6 +43,15 @@ describe('bundled star orbit outfits',()=>{
   expect(group.theme.chatDefaultBubbleStyle).toBeDefined();
   const fresh=item!.read();fresh.parts.css='tampered';
   expect(item!.read().parts.css).not.toBe('tampered');
+ });
+ it('upgrades an already-applied legacy Silent Letter outfit without touching other character CSS',()=>{
+  const legacy='/* 【糯叽机】无声回信（黑）by黛 — SullyOS 白框适配 */ .sully-chat-message-avatar:not(.sully-chat-avatar-wrap)::after{content:"+"}';
+  const fixed=resolveLegacySilentLetterCss(legacy);
+  expect(fixed).toContain('.sully-chat-profile');
+  expect(fixed).toContain('imonly temporary 2 u');
+  expect(fixed).not.toContain('.sully-chat-message-avatar:not(.sully-chat-avatar-wrap)::after');
+  const other='.sully-chat-header {background: pink!important;}';
+  expect(resolveLegacySilentLetterCss(other)).toBe(other);
  });
  it('keeps builtins unchanged when a returned copy is edited',()=>{
   const item=BUILTIN_WHITEBOX_PRESETS[0];const p=item.read();p.parts.css='changed';
