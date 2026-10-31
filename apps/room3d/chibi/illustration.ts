@@ -71,6 +71,9 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
         const leather=surface==='leather';
         const metal=surface==='metal';
         const hair=!!material.userData.illustrationHair || /hair/.test(object.name);
+        // Cutout hair needs an outline along its *painted alpha*, not a fake
+        // Fresnel shadow across the entire flat sheet.
+        const cutoutHair=hair&&!!material.map&&material.alphaTest>.01;
         originals.set(material,{...saved,style});
         const roomTint=roomTints.get(material)??{value:new T.Color('#ffffff')};roomTints.set(material,roomTint);
         const room=roomLights.get(material)??{enabled:{value:0},uniforms:{roomShadeTint:{value:new T.Color('#ffffff')},roomSunTint:{value:new T.Color('#ffffff')},roomBrightness:{value:1},roomSunContrast:{value:0}}};roomLights.set(material,room);
@@ -87,6 +90,26 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
               anchor, anchor+'\ninkLocalStrandView=normalize(mat3(modelViewMatrix)*vec3(0.,1.,0.));',
             );
             shader.fragmentShader='varying vec3 inkLocalStrandView;\n'+shader.fragmentShader;
+          }
+          if(style==='illustrated'&&cutoutHair){
+            const image=material.map?.image as {width?:number;height?:number}|undefined;
+            const width=Math.max(1,image?.width??1024),height=Math.max(1,image?.height??1024);
+            shader.uniforms.inkHairTexel={value:new T.Vector2(1/width,1/height)};
+            shader.fragmentShader='uniform vec2 inkHairTexel;\n'+shader.fragmentShader;
+            const alphaAnchor='#include <alphatest_fragment>';
+            if(!shader.fragmentShader.includes(alphaAnchor))throw new Error('Missing hair alphatest shader anchor');
+            shader.fragmentShader=shader.fragmentShader.replace(alphaAnchor,`
+              #include <alphatest_fragment>
+              float inkCutoutEdge=0.;
+              #ifdef USE_MAP
+                vec2 inkDelta=inkHairTexel*1.15;
+                float inkNeighbourAlpha=min(
+                  min(texture2D(map,vMapUv+vec2(inkDelta.x,0.)).a,texture2D(map,vMapUv-vec2(inkDelta.x,0.)).a),
+                  min(texture2D(map,vMapUv+vec2(0.,inkDelta.y)).a,texture2D(map,vMapUv-vec2(0.,inkDelta.y)).a)
+                );
+                inkCutoutEdge=(1.-smoothstep(.13,.78,inkNeighbourAlpha))*smoothstep(.19,.70,diffuseColor.a);
+              #endif
+            `);
           }
           shader.uniforms.characterRoomTint=roomTint;
           shader.uniforms.characterRoomEnabled=room.enabled;
@@ -188,10 +211,20 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             inkRim += inkSurfaceGlint;` : ''}
             ${hair && style!=='illustrated' ? `// A broad satin reflection follows the projected vertical strand axis.\n            // Avoid UV-derived tangents: projected/contour hair sheets do not share a reliable UV direction.\n            vec3 inkStrandAxis = normalize(mat3(viewMatrix) * vec3(0.,1.,0.));\n            vec3 inkHalf = normalize(inkLight+inkView);\n            float inkStrandAlignment = abs(dot(inkHalf,inkStrandAxis));\n            float inkHairBand = (1.-smoothstep(.26,.72,inkStrandAlignment))*smoothstep(.42,.92,dot(normal,inkHalf));\n            float inkHairHighlight = inkHairBand*inkLit*.024;\n            inkRim += inkHairHighlight;` : ''}
             vec3 outgoingLight = inkColor + (1.-clamp(inkColor,0.,1.))*inkRim*inkLitTint;
+            ${style==='illustrated' ? `// One-pass 2D ink linework: a narrow dark outline at actual mesh
+            // silhouettes. Keep all colour/lighting calculations above intact.
+            float inkViewDot=abs(dot(normal,normalize(vViewPosition)));
+            float inkLineAA=max(fwidth(inkViewDot)*1.10,.018);
+            float inkMeshStroke=1.-smoothstep(.075,.18+inkLineAA,inkViewDot);
+            float inkStroke=max(inkMeshStroke*.91,${cutoutHair ? 'inkCutoutEdge*.96' : '0.'});
+            // Warm dark brown-black like a hand-inked anime cel, not a
+            // grey Fresnel or a multiply-over-darkened material.
+            vec3 inkLineColour=mix(vec3(.055,.047,.060),diffuseColor.rgb*.12,.18);
+            outgoingLight=mix(outgoingLight,inkLineColour,clamp(inkStroke,0.,1.));` : ''}
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v12-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v13-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;

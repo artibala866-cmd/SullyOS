@@ -269,7 +269,36 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    if(!focusCount)throw Error('Actor mask empty '+variant.id);
    const focusMean=focusSum/focusCount,focusShare=focusChanged/focusCount;
    report.styleStats[report.styleStats.length-1].focusMean=focusMean;
-   report.styleStats[report.styleStats.length-1].focusShare=focusShare;   // The previous strong-cel result crushed dark costumes. Compare actor-only
+   report.styleStats[report.styleStats.length-1].focusShare=focusShare;
+   // A thin ink line must be visible on the real actor edge, even on white
+   // clothing. Isolate silhouette pixels from the unmodified empty backdrop.
+   let edgePixels=0,edgeDarkened=0,edgeDarkening=0;
+   const w=renderer.domElement.width,h=renderer.domElement.height;
+   for(let y=2;y<h-2;y++)for(let x=2;x<w-2;x++){
+    const p=(y*w+x)*4;
+    const r=(Math.abs(orig[p]-bg[p])+Math.abs(orig[p+1]-bg[p+1])+Math.abs(orig[p+2]-bg[p+2]))/3;
+    if(r<18)continue;
+    const lum=(orig[p]*.2126+orig[p+1]*.7152+orig[p+2]*.0722);
+    if(lum<100)continue;
+    let border=false;
+    for(const [dx,dy] of [[-2,0],[2,0],[0,-2],[0,2]]){
+      const k=((y+dy)*w+x+dx)*4;
+      const n=(Math.abs(orig[k]-bg[k])+Math.abs(orig[k+1]-bg[k+1])+Math.abs(orig[k+2]-bg[k+2]))/3;
+      if(n<8){border=true;break;}
+    }
+    if(!border)continue;
+    const nlum=drawn[p]*.2126+drawn[p+1]*.7152+drawn[p+2]*.0722;
+    edgePixels++;if(nlum+22<lum)edgeDarkened++;
+    edgeDarkening+=lum-nlum;
+   }
+   const lineDarkFraction=edgeDarkened/Math.max(1,edgePixels);
+   const lineMeanDarkening=edgeDarkening/Math.max(1,edgePixels);
+   report.styleStats[report.styleStats.length-1].edgePixels=edgePixels;
+   report.styleStats[report.styleStats.length-1].lineDarkFraction=lineDarkFraction;
+   report.styleStats[report.styleStats.length-1].lineMeanDarkening=lineMeanDarkening;
+   if(edgePixels<90||lineDarkFraction<.08)
+     throw Error('No actual dark drawn outline on light actor edges '+variant.id+': '+JSON.stringify({edgePixels,lineDarkFraction,lineMeanDarkening}));
+   // The previous strong-cel result crushed dark costumes. Compare actor-only
    // luminance and the share of nearly-black pixels, not just pixel difference.
    let sumOldLum=0,sumNewLum=0,veryDarkOld=0,veryDarkNew=0;
    for(let px=0;px<orig.length;px+=4){
