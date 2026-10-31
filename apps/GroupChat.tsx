@@ -80,7 +80,7 @@ const GroupPacketCard = ({ msg, nameOf, onOpen }: {
     if (meta?.packetReceipt) {
         const claimed = meta.packetReceipt === 'claimed';
         return (
-            <div className={`px-3 py-2 rounded-xl border text-[11px] flex items-center gap-2 ${claimed ? 'bg-neutral-50 border-neutral-100 text-neutral-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+            <div className={`sully-chat-group-packet-receipt px-3 py-2 rounded-xl border text-[11px] flex items-center gap-2 ${claimed ? 'bg-neutral-50 border-neutral-100 text-neutral-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                 <span>🧧</span>
                 <span>{meta.claimantName} {claimed ? '领取了' : '退回了'} {meta.senderName} 的红包{claimed && meta.amount != null ? ` ¥${meta.amount}` : ''}</span>
             </div>
@@ -90,7 +90,7 @@ const GroupPacketCard = ({ msg, nameOf, onOpen }: {
     // 旧数据（无 packet 判别字段）：legacy 简卡，渲染不变语义
     if (!meta?.packet) {
         return (
-            <div className="w-60 bg-[#a2a2a2] text-white p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden">
+            <div className="sully-chat-group-packet w-60 bg-[#a2a2a2] text-white p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden">
                 <div className="text-2xl">🧧</div>
                 <div className="z-10">
                     <div className="font-bold text-sm tracking-wide">红包 / 转账</div>
@@ -110,7 +110,7 @@ const GroupPacketCard = ({ msg, nameOf, onOpen }: {
     return (
         <div
             onClick={() => onOpen?.(msg)}
-            className={`w-60 p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden active:scale-95 transition-transform cursor-pointer text-white ${opened ? 'bg-[#bebebe]' : 'bg-gradient-to-br from-[#a2a2a2] to-[#686868]'}`}
+            className={`sully-chat-group-packet w-60 p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden active:scale-95 transition-transform cursor-pointer text-white ${opened ? 'bg-[#bebebe]' : 'bg-gradient-to-br from-[#a2a2a2] to-[#686868]'}`}
         >
             <div className="text-3xl drop-shadow-sm">🧧</div>
             <div className="z-10 min-w-0 flex-1 pb-3">
@@ -395,7 +395,7 @@ const GroupMessageItem = React.memo(({
                             />
                         )}
                         {msg.replyTo && (
-                            <div className="relative z-10 mb-1 text-[10px] bg-black/5 p-1.5 rounded-md border-l-2 border-current opacity-60 flex flex-col gap-0.5 max-w-full overflow-hidden">
+                            <div className="sully-chat-reply relative z-10 mb-1 text-[10px] bg-black/5 p-1.5 rounded-md border-l-2 border-current opacity-60 flex flex-col gap-0.5 max-w-full overflow-hidden">
                                 <span className="font-bold opacity-90 truncate">{msg.replyTo.name}</span>
                                 {/* 历史快照里可能原样存着令牌 / data: / 图床 URL，直接截 10 个字
                                     就成了气泡里一串 `blobref:b_`；交给写入端同一个快照函数换占位符 */}
