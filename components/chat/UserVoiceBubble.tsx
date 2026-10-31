@@ -53,7 +53,13 @@ const UserVoiceBubble: React.FC<Props> = ({ message, styleConfig, initiallyExpan
       audio.onerror = () => setIsVoicePlaying(false);
       audioRef.current = audio;
     }
-    void audio.play().then(() => setIsVoicePlaying(true)).catch(() => setIsVoicePlaying(false));
+    void audio.play().then(() => {
+      // The sound may finish while the play() promise is settling, especially
+      // for short clips. Never leave a phantom "playing" indicator.
+      if (audioRef.current === audio) setIsVoicePlaying(!audio.paused && !audio.ended);
+    }).catch(() => {
+      if (audioRef.current === audio) setIsVoicePlaying(false);
+    });
   };
 
   const waveform = (
@@ -63,9 +69,10 @@ const UserVoiceBubble: React.FC<Props> = ({ message, styleConfig, initiallyExpan
           className={`sully-voice-bar-wave-segment w-[2.5px] rounded-full transition-all duration-150 ${isVoicePlaying ? 'animate-pulse' : ''}`}
           style={{
             height: isVoicePlaying ? `${Math.max(3, h + Math.sin(i * 0.8) * 3)}px` : `${Math.max(2, h * 0.4)}px`,
-            backgroundColor: isVoicePlaying
-              ? (vbWave || `rgba(16, 185, 129, ${0.4 + (h / 14) * 0.5})`)
-              : (vbWave ? vbWave + '60' : `rgba(148, 163, 184, ${0.25 + (h / 14) * 0.35})`),
+            // voiceBarWaveColor may be hex, rgb(), var(), or a gradient-aware
+            // theme token. Appending a hex alpha ("60") breaks non-hex values.
+            backgroundColor: vbWave || (isVoicePlaying ? '#10b981' : '#94a3b8'),
+            opacity: isVoicePlaying ? (0.6 + (h / 14) * 0.35) : (0.3 + (h / 14) * 0.35),
             animationDelay: `${i * 60}ms`,
             animationDuration: `${600 + (i % 3) * 200}ms`,
           }}
