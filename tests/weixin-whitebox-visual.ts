@@ -4,13 +4,14 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {renderChatDecorationSample} from '../components/chat/ChatDecorationSample';
 import {BUILTIN_WHITEBOX_PRESETS} from '../utils/builtinWhitebox';
 import {GroupMessageItem,GroupPacketCard} from '../apps/GroupChat';
+import {makePacketMeta} from '../utils/groupChat/redpacket';
 import {BEAUTY_PREVIEW_AVATAR} from '../utils/beautyPreviewAssets';
 const root=document.querySelector<HTMLElement>('#weixin-visual');
 if(!root)throw Error('No host');
 try {
  const preset=BUILTIN_WHITEBOX_PRESETS.find(item=>item.id==='builtin-weixin-baiyu')?.read();
  if(!preset)throw Error('Weixin built-in not found');
- for(const scene of ['conversation','reply','voice-playing','transfer','transfer-accepted','transfer-returned']){
+ for(const scene of ['conversation','reply','voice-playing','transfer','transfer-accepted','transfer-returned','image','emoji','interaction','chat_forward','sim_card','system']){
   const {markup,css}=renderChatDecorationSample(preset,scene);
   const section=document.createElement('section');section.className='scene';section.dataset.scene=scene;
   section.innerHTML='<h2>'+scene+'</h2><div class="beauty-preview-body">'+markup+'</div>';
@@ -19,7 +20,9 @@ try {
  const demo={id:25001,role:'assistant' as const,type:'text' as const,charId:'preview',timestamp:1790386860000,content:'周末一起去看海吧。'};
  const base={userAvatar:BEAUTY_PREVIEW_AVATAR,onImageClick:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},onLongPress:()=>{},onReply:()=>{},nameOf:()=>'示例角色',onPacketClick:()=>{},themeScopeClass:'sully-group-default-theme',isFirstInGroup:true,isLastInGroup:true,avatarShape:'circle' as const,avatarSize:'medium' as const,avatarMode:'grouped' as const,bubbleVariant:'modern' as const,messageSpacing:'default' as const,showTimestamp:'never' as const};
  const group=document.createElement('section');group.className='scene';group.dataset.scene='group';
- const groupMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sully-chat-group-root sample-chat'},React.createElement('div',{className:'sully-chat-messages sample-messages'},React.createElement(GroupMessageItem,{...base,msg:demo,isUser:false,char:{id:'preview',name:'示例角色',avatar:BEAUTY_PREVIEW_AVATAR} as any,styleConfig:preset.parts.bubbles!.ai}),React.createElement(GroupMessageItem,{...base,msg:{...demo,id:25002,role:'user',content:'当然，我带相机！'},isUser:true,styleConfig:preset.parts.bubbles!.user}),React.createElement(GroupPacketCard,{msg:{...demo,id:25003,type:'transfer',metadata:{}},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25004,type:'transfer',metadata:{packetReceipt:'claimed',claimantName:'示例角色',senderName:'我',amount:25}},nameOf:()=>'示例角色'}))));
+ const pendingPacket=makePacketMeta({packetType:'direct',totalAmount:25,targetId:'preview',note:'恭喜发财',now:Date.now()});
+ const acceptedPacket={...pendingPacket,status:'done' as const,claims:[{claimantId:'preview',amount:25,at:Date.now()}]};
+ const groupMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sully-chat-group-root sample-chat'},React.createElement('div',{className:'sully-chat-messages sample-messages'},React.createElement(GroupMessageItem,{...base,msg:demo,isUser:false,char:{id:'preview',name:'示例角色',avatar:BEAUTY_PREVIEW_AVATAR} as any,styleConfig:preset.parts.bubbles!.ai}),React.createElement(GroupMessageItem,{...base,msg:{...demo,id:25002,role:'user',content:'当然，我带相机！'},isUser:true,styleConfig:preset.parts.bubbles!.user}),React.createElement(GroupPacketCard,{msg:{...demo,id:25003,type:'transfer',metadata:{}},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25004,type:'transfer',metadata:{packetReceipt:'claimed',claimantName:'示例角色',senderName:'我',amount:25}},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25005,type:'transfer',metadata:pendingPacket},nameOf:()=>'示例角色'}),React.createElement(GroupPacketCard,{msg:{...demo,id:25006,type:'transfer',metadata:acceptedPacket},nameOf:()=>'示例角色'}))));
  group.innerHTML='<h2>群聊双方消息、红包与领取回执</h2><div class="beauty-preview-body">'+groupMarkup+'</div>';
  const style=document.createElement('style');style.textContent=renderChatDecorationSample(preset,'conversation').css;group.prepend(style);root.append(group);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
@@ -49,6 +52,36 @@ try {
   groupPacket:same('group','.sully-chat-group-packet','rgb(233, 167, 70)'),
   groupReceipt:!!$('group','.sully-chat-group-packet-receipt'),
   inputNoOverlap:inBounds('conversation'),
+  nativePhotoDimensions:(()=>{
+   const img=$('image','.chat-image-thumbnail img');
+   if(!img)return false;
+   const st=getComputedStyle(img);
+   return parseFloat(st.maxWidth)<=170.1 && parseFloat(st.maxHeight)<=200.1 &&
+     st.borderTopLeftRadius==='5px';
+  })(),
+  nativeStickerDimensions:(()=>{
+   const img=$('emoji','.sully-emoji-msg');
+   return !!img && parseFloat(getComputedStyle(img).maxWidth)<=110.1;
+  })(),
+  interactionPill:(()=>{
+   const el=$('interaction','.sully-chat-interaction .group.relative.cursor-pointer > div');
+   if(!el)return false;
+   return getComputedStyle(el).borderTopLeftRadius==='5px';
+  })(),
+  forwardCard:(()=>{
+   const el=$('chat_forward','.sully-chat-card[data-card-kind="chat_forward"]');
+   return !!el && !!el.querySelector('.sully-chat-card-content');
+  })(),
+  simCardPreservesContent:!!$('sim_card','.sully-chat-card[data-card-kind="sim_card"]') && !!$('sim_card','.sully-chat-card[data-card-kind="sim_card"] .sully-chat-card-content')?.textContent?.trim(),
+  groupPacketStates:(()=>{
+   const pending=$('group','.sully-chat-group-packet[data-status="pending"]');
+   const done=$('group','.sully-chat-group-packet[data-status="done"]');
+   return !!pending&&!!done&&getComputedStyle(pending).backgroundColor!==getComputedStyle(done).backgroundColor;
+  })(),
+  groupPacketTextVisible:(()=>{
+   const done=$('group','.sully-chat-group-packet[data-status="done"]');
+   return !!done&&done.textContent?.includes('恭喜发财')&&done.textContent?.includes('已收下');
+  })(),
   nativeLightningVisible:(()=>{
    const icon=$('conversation','.sully-chat-trigger svg'),trigger=$('conversation','.sully-chat-trigger');
    return !!icon && !!trigger && cssStyle('conversation','.sully-chat-trigger')?.position==='absolute'
