@@ -49,6 +49,7 @@ try {
  const cssStyle=(scene:string,sel:string,pseudo?:string)=>{const el=$(scene,sel);if(!el)throw Error('missing '+scene+' '+sel);return getComputedStyle(el,pseudo)};
 
  // Responsive layout is measured with real browser boxes, not guessed CSS strings.
+ const responsiveDiagnostics:Array<Record<string,unknown>>=[];
  const responsive=[320,360,390,430].every(width=>{
   const section=root.querySelector<HTMLElement>('[data-scene="conversation"]');
   const body=section?.querySelector<HTMLElement>('.beauty-preview-body');
@@ -68,6 +69,12 @@ try {
    && !overlap(plus,textarea)&&textarea.width>=90
    && mic.left>=composer.left&&send.right<=composer.right+2
    && plus.left>=composer.left;
+  responsiveDiagnostics.push({width,good,
+   back:back&&[back.left,back.right],profile:profile&&[profile.left,profile.right],
+   lightning:lightning&&[lightning.left,lightning.right],plus:plus&&[plus.left,plus.right],
+   mic:mic&&[mic.left,mic.right],face:face&&[face.left,face.right],
+   send:send&&[send.left,send.right],textarea:textarea&&[textarea.left,textarea.right],
+   composer:composer&&[composer.left,composer.right]});
   section.style.width=prior[0];body.style.width=prior[1];app.style.width=prior[2];
   return good;
  });
@@ -119,5 +126,5 @@ try {
  };
  root.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';
  const output=document.createElement('output');output.textContent=JSON.stringify(checks,null,2);root.prepend(output);
- if(root.dataset.ready!=='true')throw Error(JSON.stringify(checks));
+ if(root.dataset.ready!=='true')throw Error(JSON.stringify({checks,responsiveDiagnostics}));
 }catch(e){root.dataset.ready='false';root.dataset.error=String(e);const output=document.createElement('output');output.textContent=String(e);root.prepend(output)}
