@@ -210,7 +210,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
   const screenshot=(name)=>{
    const fig=document.createElement('figure'),img=document.createElement('img');
    img.src=renderer.domElement.toDataURL('image/png');img.alt=name;
-   ghostGallery.append(fig);report.antiGhostImages.push({name});
+   fig.append(img);ghostGallery.append(fig);report.antiGhostImages.push({name});
    const sample=document.createElement('canvas');
    sample.width=renderer.domElement.width;sample.height=renderer.domElement.height;
    const context=sample.getContext('2d');context.drawImage(renderer.domElement,0,0);
