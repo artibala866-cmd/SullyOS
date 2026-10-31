@@ -3101,22 +3101,20 @@ const MessageItem = React.memo(({
         ...(bubbleVariant === 'ios' ? { boxShadow: '0 10px 24px rgba(148,163,184,0.16)', border: '1px solid rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' } : {}),
     };
 
-    // User voice messages have their own presentation and audio source.
-    // Keep Char TTS generation, playback and <语音> tags in the existing text-only path.
+    // User voice must use the same standalone voice-bar surface and palette as
+    // Char's original voice bar below. Do not wrap it in the user text bubble:
+    // the regular user background is dark and creates an extra oversized box.
+    // Keep the original user-side alignment, selection and reply gestures via commonLayout.
     if (isUser && m.type === 'voice') {
         return commonLayout(
-            <div
-                className={`sully-bubble-user ${bubbleGroupClasses} relative px-3 py-2.5 overflow-visible ${suppressEntranceAnimation ? '' : 'animate-fade-in'}`}
-                style={containerStyle}
-            >
+            <div className={`relative z-10 ${suppressEntranceAnimation ? '' : 'animate-fade-in'}`}>
                 {m.replyTo && (
-                    <div className="mb-2 px-2 py-1 rounded-lg bg-black/10 text-[11px] max-w-full"
-                        style={{ color: styleConfig.textColor }}>
+                    <div className="mb-1.5 max-w-[260px] rounded-xl border border-black/5 bg-black/[0.03] px-3 py-2 text-[11px] text-slate-600">
                         <span className="block font-semibold truncate">{m.replyTo.name}</span>
                         <span className="block truncate opacity-75">{m.replyTo.content}</span>
                     </div>
                 )}
-                <UserVoiceBubble message={m} styleConfig={styleConfig} initiallyExpanded={previewExpanded} />
+                <UserVoiceBubble message={m} styleConfig={activeTheme.ai} initiallyExpanded={previewExpanded} />
             </div>,
         );
     }
