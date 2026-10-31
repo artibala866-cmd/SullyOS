@@ -102,7 +102,7 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
               #include <alphatest_fragment>
               float inkCutoutEdge=0.;
               #ifdef USE_MAP
-                vec2 inkDelta=inkHairTexel*1.15;
+                vec2 inkDelta=inkHairTexel*1.00;
                 float inkNeighbourAlpha=min(
                   min(texture2D(map,vMapUv+vec2(inkDelta.x,0.)).a,texture2D(map,vMapUv-vec2(inkDelta.x,0.)).a),
                   min(texture2D(map,vMapUv+vec2(0.,inkDelta.y)).a,texture2D(map,vMapUv-vec2(0.,inkDelta.y)).a)
@@ -263,7 +263,7 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v19-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v20-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;
