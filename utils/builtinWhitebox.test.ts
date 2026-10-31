@@ -88,8 +88,10 @@ describe('Faint Silk 浅丝 full whitebox conversion by 落吟',()=>{
   expect(item).toBeDefined();
   const preset=item!.read(),css=preset.parts.css!;
   expect(preset.name).toContain('by落吟');
-  expect(Object.keys(preset.parts).sort()).toEqual(['css','layout']);
+  expect(Object.keys(preset.parts).sort()).toEqual(['bubbles','css','layout']);
   expect(preset.parts.layout?.chatHeaderAlign).toBe('center');
+  expect(preset.parts.bubbles?.user.textColor).toBe('#262626');
+  expect(preset.parts.bubbles?.ai.tailMode).toBe('none');
   for(const selector of ['.sully-chat-header','.sully-chat-inputbar','.sully-chat-input-wrap','.sully-chat-textarea','.sully-chat-send-button','.sully-bubble-user','.sully-bubble-ai','.sully-voice-bar','.sully-chat-transfer-card','.sully-chat-transfer-receipt','.sully-chat-group-packet','.sully-chat-group-packet-receipt'])
    expect(css).toContain(selector);
   for(const legacy of ['.chat-header-custom','.header-profile-section','.input-area-custom','--bubble-me-bg','--transfer-card-bg','[class*="messages"]'])
@@ -101,13 +103,14 @@ describe('Faint Silk 浅丝 full whitebox conversion by 落吟',()=>{
  });
  it('replaces a character whitebox or applies globally for group, preserving sound',async()=>{
   const preset=BUILTIN_WHITEBOX_PRESETS.find(x=>x.id==='builtin-faint-silk')!.read();
-  const char=await decorationPatches(preset,['layout','css'],'character',{id:'char',chromeCustomCss:'.sully-chat-back{color:red}',chatSound:{src:'ding'}} as any,{} as any);
+  const char=await decorationPatches(preset,['layout','bubbles','css'],'character',{id:'char',chromeCustomCss:'.sully-chat-back{color:red}',chatSound:{src:'ding'}} as any,{} as any);
   expect(char.character.chromeCustomCss).toBe(preset.parts.css);
   expect(char.character.chromeCustomCss).not.toContain('color:red');
   expect(char.character.chatDecorationCssIsolated).toBe(true);
   expect(char.character.chatSound).toEqual({src:'ding'});
-  const group=await decorationPatches(preset,['layout','css'],'global',{id:'char'} as any,{} as any);
+  const group=await decorationPatches(preset,['layout','bubbles','css'],'global',{id:'char'} as any,{} as any);
   expect(group.theme.chatChromeCustomCss).toContain('.sully-chat-group-packet');
   expect(group.theme.chatHeaderAlign).toBe('center');
+  expect(group.theme.chatDefaultBubbleStyle).toBeDefined();
  });
 });
