@@ -10,6 +10,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState('');
   const [seconds, setSeconds] = useState(0);
+  const [hasAudioDraft, setHasAudioDraft] = useState(false);
   const sessionRef = useRef<SttSession | null>(null);
   // Audio exists only for the paid-STT path, where we share its original stream.
   // Browser and Android native STT remain honest transcript-only fallbacks.
@@ -31,6 +32,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     const active = sessionRef.current;
     sessionRef.current = null;
     audioDraftRef.current = null;
+    setHasAudioDraft(false);
     // Cancelling must discard captured audio, not invoke paid STT via stop().
     active?.cancel();
     setStatus('idle');
@@ -77,6 +79,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     const generation = ++generationRef.current;
     sessionRef.current = null;
     audioDraftRef.current = null;
+    setHasAudioDraft(false);
     stopPendingRef.current = false;
     editedRef.current = false;
     setTranscript('');
@@ -98,6 +101,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
         onAudioCaptured: (blob, durationSec) => {
           if (generation !== generationRef.current || blob.size === 0 || durationSec <= 0) return;
           audioDraftRef.current = { blob, durationSec };
+          setHasAudioDraft(true);
         },
         onPartial: text => {
           if (generation !== generationRef.current) return;
@@ -164,5 +168,5 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
 
   const getAudioDraft = useCallback(() => audioDraftRef.current, []);
 
-  return { status, transcript, error, seconds, start, stop, cancel, editTranscript, getAudioDraft };
+  return { status, transcript, error, seconds, hasAudioDraft, start, stop, cancel, editTranscript, getAudioDraft };
 }
