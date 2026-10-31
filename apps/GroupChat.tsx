@@ -112,7 +112,8 @@ export const GroupPacketCard = ({ msg, nameOf, onOpen }: {
     return (
         <div
             onClick={() => onOpen?.(msg)}
-            data-status={status}\n            className={`sully-chat-group-packet w-60 p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden active:scale-95 transition-transform cursor-pointer text-white ${opened ? 'bg-[#bebebe]' : 'bg-gradient-to-br from-[#a2a2a2] to-[#686868]'}`}
+            data-status={status}
+            className={`sully-chat-group-packet w-60 p-3 rounded-xl flex items-center gap-3 shadow-md relative overflow-hidden active:scale-95 transition-transform cursor-pointer text-white ${opened ? 'bg-[#bebebe]' : 'bg-gradient-to-br from-[#a2a2a2] to-[#686868]'}`}
         >
             <div className="text-3xl drop-shadow-sm">🧧</div>
             <div className="z-10 min-w-0 flex-1 pb-3">
