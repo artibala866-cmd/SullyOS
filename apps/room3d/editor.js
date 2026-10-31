@@ -207,7 +207,10 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    // Orthographic field height, rather than distance from camera.position,
    // distinguishes the wide room from a user-zoomed portrait.
    const focusAmount=dreamcore?dreamcoreFocusStrength(camera,{edit,overview,firstPerson}):0;
-   const depthCapture=focusAmount>.001&&roomFinish.beginScene();
+   // Always capture the illustrated source with the actual scene frame.
+   // On wide shots we skip ONLY blur, not colour capture; copying the old
+   // default framebuffer could reuse a stale previous-zoom image.
+   const sceneCaptured=dreamcore&&roomFinish.beginScene();
    if(furnitureStyle==='retro'&&furnitureOutlineEnabled&&lightBudget().outline){furnitureHalo.render(outlinedObjects);}else renderer.render(scene,camera);
    if(finishEnabled||detailEnabled||dreamcore){
    // Ink is applied to each scene pixel without displaced background copies.
@@ -216,7 +219,7 @@ export async function mountHomeEditor(host,{assetBase,initialState,onChange,onBa
    const focus=visitor?.getHeadWorldPosition?.()??resident.position.clone().add(new THREE.Vector3(0,1.15,0));
    const focusDepth=THREE.MathUtils.clamp((focus.clone().project(camera).z+1)*.5,.01,.99);
    roomFinish.render(lightPhase,{baseFinish:finishEnabled,detail:detailEnabled?(quality==='eco'?.22:quality==='balanced'?.38:.55):0,
-    illustrated:dreamcore,focusDepth,cameraSpan:camera.far-camera.near,depthStrength:depthCapture?focusAmount*(quality==='eco'?.58:quality==='balanced'?.78:1):0});
+    illustrated:dreamcore,focusDepth,cameraSpan:camera.far-camera.near,depthStrength:sceneCaptured?focusAmount*(quality==='eco'?.58:quality==='balanced'?.78:1):0});
   }}finally{restoreForeground?.();restorePoke?.();restorePresence?.();renderer.info.autoReset=reset;}}
  const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=false;controls.enablePan=true;controls.screenSpacePanning=true;controls.target.set(0,2,0);
  const effectiveRoomScope=()=>onMenu||viewMode==='flat'?'room':roomScope;
