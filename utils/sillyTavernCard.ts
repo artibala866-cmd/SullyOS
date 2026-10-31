@@ -50,6 +50,7 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
     if (book.recursive_scanning === true) warnings.push('世界书递归扫描规则无法在糯米机等价执行');
     if (typeof book.token_budget === 'number' && book.token_budget > 0) warnings.push('世界书全局 token_budget 无法按酒馆规则限制');
     const fallbackScanDepth = Number.isFinite(Number(book.scan_depth)) ? Number(book.scan_depth) : undefined;
+    if (book.enabled === false) warnings.push('角色世界书整体关闭，条目已全部按停用状态导入');
     const standardEntries: Record<string, unknown>[] = [];
     for (let n = 0; n < entries.length; n++) {
         const item = entries[n];
@@ -70,7 +71,19 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
         }
         const primary = item.key ?? item.keys ?? [];
         const secondary = item.keysecondary ?? item.secondary_keys ?? [];
-        if (!Array.isArray(primary) || !Array.isArray(secondary)) throw new Error('世界书关键词结构无效');
+        if (!Array.isArray(primary) || !Array.isArray(secondary) ||
+            [...primary, ...secondary].some(k => typeof k !== 'string')) throw new Error('世界书关键词结构无效');
+        const role = item.role;
+        if (role != null && !([0, 1, 2].includes(role))) throw new Error('世界书第 ' + (n + 1) + ' 条使用不支持的角色注入位置');
+        for (const [field, minimum, maximum] of [
+            ['probability', 0, 100], ['depth', 0, 999], ['scanDepth', 0, 999],
+            ['selectiveLogic', 0, 3],
+        ] as const) {
+            if (item[field] != null && (typeof item[field] !== 'number' ||
+                !Number.isFinite(item[field]) || item[field] < minimum || item[field] > maximum)) {
+                throw new Error('世界书第 ' + (n + 1) + ' 条的 ' + field + ' 超出支持范围');
+            }
+        }
         const enabled = bool(item.enabled);
         const disabled = bool(item.disable);
         const entry = {
@@ -83,11 +96,11 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
             selectiveLogic: item.selectiveLogic ?? item.selective_logic ?? 0,
             order: item.order ?? item.insertion_order ?? item.priority ?? 100,
             position,
-            disable: disabled ?? (enabled === undefined ? false : !enabled),
+            disable: book.enabled === false || disabled === true || enabled === false,
             probability: item.probability ?? 100,
             useProbability: bool(item.useProbability) ?? false,
             depth: item.depth ?? 4,
-            role: item.role ?? null,
+            role: role ?? null,
             scanDepth: item.scanDepth ?? fallbackScanDepth ?? null,
             caseSensitive: item.caseSensitive ?? item.case_sensitive ?? null,
             matchWholeWords: item.matchWholeWords ?? item.match_whole_words ?? null,
@@ -155,7 +168,9 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
         if (typeof data[key] === 'string' && data[key].length > MAX_JSON) throw new Error('角色人设正文过大');
     }
     const warnings: string[] = [];
-    const description = normalizeMacros(text(data.description), warnings);
+    const nick = text(data.nickname);
+    const description = normalizeMacros(text(data.description), warnings) +
+        (nick && nick !== name ? '\n【角色昵称】' + normalizeMacros(nick, warnings) : '');
     const personality = normalizeMacros(text(data.personality), warnings);
     const scenario = text(data.scenario);
     // One-time openings, forced user actions and in-person encounter scenes do not belong in a phone persona.
@@ -167,6 +182,9 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
     const systemPrompt = personality ? '【角色性格与行为设定】\n' + personality : '';
     const book = data.character_book;
     const worldbooks = normalizeWorldbooks(book, name, warnings);
+    if (!description.trim() && !personality && !worldview && worldbooks.length === 0) {
+        throw new Error('角色卡只有姓名，没有可导入的人设或世界书');
+    }
     if (source === 'tavern-v3' && data.assets?.some?.((a: any) => a?.uri && a.uri !== 'ccdefault:')) {
         warnings.push('V3 外置素材未导入，仅使用 PNG 本身作为头像');
     }
