@@ -14,7 +14,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: silent-letter-whitebox-\${{ github.ref }}
+  group: silent-letter-whitebox-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   verify:
@@ -55,7 +55,7 @@ jobs:
             if curl -fsS http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html >/dev/null; then break; fi
             sleep 1
           done
-          chrome="\${{ steps.chrome.outputs.chrome-path }}"
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
             --window-size=1640,1430 --virtual-time-budget=15000 \
             --dump-dom http://127.0.0.1:5173/tests/silent-letter-whitebox-visual.html > /tmp/silent-dom.txt 2>/tmp/silent-chrome.log || true
