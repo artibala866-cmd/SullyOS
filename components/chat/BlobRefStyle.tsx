@@ -32,14 +32,19 @@ export function resolveLegacySilentLetterCss(css: string): string {
  */
 const WEIXIN_BAIYU_SIGNATURE = '/* 微信 by 白榆 · SullyOS 原生白框整套转换';
 const WEIXIN_HEADER_FIX = '/* 白榆顶栏原生闪电修复 v2';
+const WEIXIN_NATIVE_FIX = '/* 微信 by 白榆 · 糯米机真实组件深度适配 v3';
 export function isWeixinBaiyuCss(css?: string): boolean {
     return !!css?.includes(WEIXIN_BAIYU_SIGNATURE);
 }
+/** Persisted character and group CSS is a snapshot of the original whitebox.
+ * Add only missing version patches, preserving user changes, blobrefs and other themes.
+ */
 export function resolveLegacyWeixinBaiyuCss(css: string): string {
-    if (!isWeixinBaiyuCss(css) || css.includes(WEIXIN_HEADER_FIX)) return css;
-    const start = weixinBaiyu.parts.css.indexOf(WEIXIN_HEADER_FIX);
-    if (start < 0) return css;
-    return css + '\\n' + weixinBaiyu.parts.css.slice(start);
+    if (!isWeixinBaiyuCss(css) || css.includes(WEIXIN_NATIVE_FIX)) return css;
+    const latest = weixinBaiyu.parts.css;
+    const missingFrom = latest.indexOf(css.includes(WEIXIN_HEADER_FIX) ? WEIXIN_NATIVE_FIX : WEIXIN_HEADER_FIX);
+    if (missingFrom < 0) return css;
+    return css + '\n' + latest.slice(missingFrom);
 }
 
 /** Keep persisted CSS independent of the short-lived browser object URLs. */
