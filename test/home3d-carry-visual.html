@@ -12,7 +12,7 @@ import {createRoomFinishPass} from '../apps/room3d/roomFinishPass.js';
 import {setCharacterStyle} from '../apps/room3d/chibi/characterStyle.ts';
 import {setCharacterRoomLighting,setCharacterRoomTint} from '../apps/room3d/chibi/illustration.ts';
 import {ROOM_LIGHT_PHASES,createRoomLightUniforms,updateRoomLightUniforms} from '../apps/room3d/roomLighting.js';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],artImages:[],artStats:[],dofImages:[],dofStats:[],antiGhostImages:[],antiGhostStats:null,phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],artImages:[],artStats:[],dofImages:[],dofStats:[],depthGhostImages:[],depthGhostStats:null,antiGhostImages:[],antiGhostStats:null,phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -241,6 +241,53 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
   if(spuriousBright>0||maxSatellite>43)
    throw Error('Illustrated film created shifted ghost silhouettes: '+JSON.stringify(report.antiGhostStats));
   bar.geometry.dispose();bar.material.dispose();
+ }
+
+ // A REAL depth-enabled, high-contrast thin window bar at 2m behind focus:
+ // old eight-point blur creates detached bright copies at ±24px. A smooth
+ // background defocus must not recreate those copies or wash the focus plane.
+ {
+  const gallery=document.createElement('main');gallery.className='depth-ghost-comparison';document.body.append(gallery);
+  const ss=new T.Scene();ss.background=new T.Color('#08080d');
+  const cam=new T.OrthographicCamera(-2.55,2.55,1.9125,-1.9125,.1,20);
+  cam.position.set(0,0,5);cam.lookAt(0,0,0);cam.updateProjectionMatrix();cam.updateMatrixWorld();
+  const white=new T.MeshBasicMaterial({color:'#ffffff',toneMapped:false});
+  const far=new T.Mesh(new T.PlaneGeometry(.085,1.55),white),near=new T.Mesh(new T.PlaneGeometry(.085,1.55),white);
+  far.position.set(1.4,0,-2);near.position.set(-1.4,0,0);ss.add(far,near);
+  const snap=name=>{
+   const fig=document.createElement('figure'),img=document.createElement('img');img.src=renderer.domElement.toDataURL('image/png');img.alt=name;fig.append(img);gallery.append(fig);report.depthGhostImages.push({name});
+   const c=document.createElement('canvas');c.width=renderer.domElement.width;c.height=renderer.domElement.height;
+   const x=c.getContext('2d');x.drawImage(renderer.domElement,0,0);return x.getImageData(0,0,c.width,c.height).data;
+  };
+  const focusDepth=T.MathUtils.clamp((new T.Vector3(0,0,0).project(cam).z+1)*.5,.01,.99);
+  const render=strength=>{finishPass.beginScene();renderer.render(ss,cam);finishPass.render('day',{baseFinish:false,detail:0,illustrated:true,focusDepth,cameraSpan:cam.far-cam.near,depthStrength:strength});};
+  render(0);const off=snap('depthghost-off');
+  render(1);const on=snap('depthghost-on');
+  const w=renderer.domElement.width,h=renderer.domElement.height,cy=Math.floor(h/2);
+  const lum=(data,x,y)=>{const k=(y*w+x)*4;return data[k]*.2126+data[k+1]*.7152+data[k+2]*.0722;};
+  const xFar=Math.round((1.4/2.55+1)*w*.5),xNear=Math.round((-1.4/2.55+1)*w*.5);
+  let farMean=0,nearMean=0,maxSatellite=0,detachedPixels=0;
+  for(let y=Math.round(h*.39);y<Math.round(h*.61);y++){
+   for(let delta=-32;delta<=32;delta++){
+    const x=xFar+delta;
+    if(x>=0&&x<w){
+     farMean+=Math.abs(lum(off,x,y)-lum(on,x,y));
+     if(Math.abs(delta)>=16&&lum(off,x,y)<20){
+      const v=lum(on,x,y);maxSatellite=Math.max(maxSatellite,v);
+      if(v>30)detachedPixels++;
+     }
+    }
+    const x2=xNear+delta;
+    if(x2>=0&&x2<w)nearMean+=Math.abs(lum(off,x2,y)-lum(on,x2,y));
+   }
+  }
+  const area=(Math.round(h*.61)-Math.round(h*.39))*65;
+  report.depthGhostStats={farMean:farMean/area,nearMean:nearMean/area,maxSatellite,detachedPixels};
+  if(report.depthGhostStats.farMean<.15||report.depthGhostStats.farMean>28
+    ||maxSatellite>30||detachedPixels>0
+    ||report.depthGhostStats.nearMean>report.depthGhostStats.farMean*.85+2)
+   throw Error('Depth-of-field detached ghost or lost sharp foreground: '+JSON.stringify(report.depthGhostStats));
+  far.geometry.dispose();near.geometry.dispose();white.dispose();
  }
  for(const variant of materialCases){
   const p=parts(0);p.skin=color(variant.skin);p.eyes=testEyes;p.mouth=testMouth;p.facemark=testMarks;
@@ -492,7 +539,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     throw Error('Full illustrated film look not visible or too destructive '+variant.id+': '+JSON.stringify({artMean,artFraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
- if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12||report.artImages.length!==8||report.dofImages.length!==2||report.antiGhostImages.length!==2||report.antiGhostStats?.spuriousBright!==0)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
+ if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12||report.artImages.length!==8||report.dofImages.length!==2||report.depthGhostImages.length!==2||report.antiGhostImages.length!==2||report.antiGhostStats?.spuriousBright!==0)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
  finishPass.dispose();
  if(!celOnly&&(report.images.length!==980||report.timelines.length!==2))throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
