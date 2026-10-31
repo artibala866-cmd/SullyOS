@@ -69,7 +69,7 @@ try{
   const src=await evaluate('document.querySelectorAll(".style-comparison figure img")['+i+']?.src');
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing cel original/new/restored image '+i);
   const name=report.styleImages[i].name;
-  if(!/^style-[a-z0-9-]+$/.test(name))throw Error('Unsafe cel frame name '+name);
+  if(!/^(?:style|phase)-[a-z0-9-]+$/.test(name))throw Error('Unsafe cel frame name '+name);
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
  if((report.styleImages||[]).length!==24||(report.styleStats||[]).length!==4)throw Error('Cel A/B and four-phase coverage incomplete');
