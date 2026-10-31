@@ -1,5 +1,5 @@
 import type { CharacterProfile, Worldbook } from '../types';
-import type { CharacterImageProfile } from '../components/character/CharacterImagePanel';
+import type { CharacterImageProfile } from './characterImageProfile';
 import { stripSensitiveCardFields } from './characterCard';
 import { isPng, pngHasShare, readShareText } from './pngShare';
 import { parseStandardWorldbook } from './worldbook';
