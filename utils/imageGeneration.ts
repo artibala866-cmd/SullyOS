@@ -168,18 +168,28 @@ export async function generateCharacterImage(
   signal?: AbortSignal,
 ): Promise<Blob> {
   if (!config.apiKey?.trim() || !config.model?.trim()) throw new Error('请先在设置中保存生图 API Key 和模型');
-  const promptParts = [config.positive?.trim(), profile.appearance?.trim()].filter(Boolean);
+  // The character-owned profile is shared by manual edits and BabyLink imports.
+  // Never use a disabled reference, but retain it in storage for later re-enabling.
+  const hasReference = !!profile.reference?.trim() && profile.referenceEnabled !== false;
+  const wardrobe = profile.wardrobe;
+  const promptParts = [
+    config.positive?.trim(), profile.appearance?.trim(), profile.facePrompt?.trim(),
+    wardrobe?.guidance?.trim(), wardrobe?.inventory?.trim(),
+  ].filter(Boolean);
+  // A valid identity reference is enough to request a new portrait even when
+  // BabyLink's appearancePrompt and facePrompt are both empty.
+  if (!promptParts.length && hasReference) promptParts.push('A new natural portrait of the referenced character');
   if (!promptParts.length) throw new Error('请先填写角色外貌描述或全局正面提示词');
-  const prompt = promptParts.join(', ') + (config.provider === 'openai' && config.negative?.trim()
-    ? '\n\nAvoid: ' + config.negative.trim()
+  const negative = [config.negative?.trim(), wardrobe?.avoid?.trim()].filter(Boolean).join(', ');
+  const prompt = (config.provider === 'nai' && hasReference && profile.referenceMode !== 'composition'
+    ? ['Preserve the referenced character identity and facial features', ...promptParts].join(', ')
+    : promptParts.join(', ')) + (config.provider === 'openai' && negative
+    ? '\n\nAvoid: ' + negative
     : '');
-  if (!prompt) throw new Error('请先填写角色外貌描述或全局正面提示词');
   const base = stripSlash(config.baseUrl || (config.provider === 'nai' ? 'https://image.novelai.net' : ''));
   if (!/^https:\/\/[^/]+/i.test(base)) throw new Error('请填写有效的 HTTPS 生图 API 地址');
   const auth = { Authorization: 'Bearer ' + config.apiKey.trim() };
   const size = normalizedSize(config);
-  const hasReference = !!profile.reference?.trim();
-
   if (config.provider === 'nai') {
     const steps = Number(config.steps ?? 28);
     const scale = Number(config.scale ?? 5);
@@ -190,7 +200,7 @@ export async function generateCharacterImage(
     const parameters: Record<string, unknown> = {
       width: config.width, height: config.height, steps, scale,
       sampler: config.sampler?.trim() || 'k_euler_ancestral',
-      n_samples: 1, uc: config.negative || '', qualityToggle: true,
+      n_samples: 1, uc: negative, qualityToggle: true,
     };
     // NovelAI V4/4.5 models require V4 caption envelopes in addition to the
     // top-level prompt. Do not send the V4 fields to legacy NAI V3 models.
@@ -199,7 +209,7 @@ export async function generateCharacterImage(
         params_version: 3,
         qualityToggle: false,
         ucPreset: /nai-diffusion-4-5-full|nai-diffusion-4\.5-full/i.test(config.model) ? 3 : 0,
-        negative_prompt: config.negative || '',
+        negative_prompt: negative,
         autoSmea: false,
         dynamic_thresholding: false,
         cfg_rescale: 0,
@@ -212,10 +222,17 @@ export async function generateCharacterImage(
           use_order: true,
         },
         v4_negative_prompt: {
-          caption: { base_caption: config.negative || '', char_captions: [] },
+          caption: { base_caption: negative, char_captions: [] },
           legacy_uc: false,
         },
       });
+    }
+    if (profile.seedLockEnabled && profile.seed?.trim()) {
+      const rawSeed = profile.seed.trim();
+      if (!/^\d{1,10}$/.test(rawSeed) || Number(rawSeed) > 0xffffffff) {
+        throw new Error('角色固定随机种子必须是 0～4294967295 的整数');
+      }
+      parameters.seed = Number(rawSeed);
     }
     if (hasReference) {
       const reference = await readReference(profile.reference);
@@ -243,7 +260,7 @@ export async function generateCharacterImage(
     const format = reference.type === 'image/jpeg' ? 'jpg' : reference.type === 'image/webp' ? 'webp' : 'png';
     const body = new FormData();
     body.append('image', reference, 'reference.' + format);
-    body.append('prompt', identityReferencePrompt(prompt));
+    body.append('prompt', profile.referenceMode === 'composition' ? prompt : identityReferencePrompt(prompt));
     body.append('model', config.model.trim());
     body.append('size', size);
     body.append('n', '1');
