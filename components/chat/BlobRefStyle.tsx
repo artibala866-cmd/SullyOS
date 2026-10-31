@@ -78,9 +78,18 @@ export function resolveLegacyWeixinBaiyuCss(css: string): string {
 /** Replace only the identifiable erroneous initial Friend Rain preset with its faithful file-based adaptation. */
 const FRIEND_RAIN_BAD='/* 请求添加好友 · 雨梦 by 池谕 | SullyOS 原生整套白框适配';
 const FRIEND_RAIN_FIXED='/* 请求添加好友__引用@池谕.css | SullyOS 原生逐项适配 v7';
+const FRIEND_RAIN_PATCHES=[
+ '/* 请求添加好友 · 尺寸与申请按钮适配 v8',
+ '/* 请求添加好友 · 顶区操作与标签去重叠 v9',
+ '/* 请求添加好友 · 原生动作按钮 + 原 SVG 五心 + 用户消息状态 v10',
+] as const;
 export function resolveLegacyFriendRequestRainCss(css:string):string {
- if(css.includes(FRIEND_RAIN_FIXED)||!css.includes(FRIEND_RAIN_BAD))return css;
- return friendRequestRain.parts.css;
+ if(css.includes(FRIEND_RAIN_BAD))return friendRequestRain.parts.css;
+ if(!css.includes(FRIEND_RAIN_FIXED))return css;
+ const missing=FRIEND_RAIN_PATCHES.find(marker=>!css.includes(marker));
+ if(!missing)return css;
+ const index=friendRequestRain.parts.css.indexOf(missing);
+ return index<0?css:css+'\n'+friendRequestRain.parts.css.slice(index);
 }
 
 /** Keep persisted CSS independent of the short-lived browser object URLs. */

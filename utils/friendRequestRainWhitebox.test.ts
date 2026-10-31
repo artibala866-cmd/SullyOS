@@ -54,6 +54,17 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   const corrected=resolveLegacyFriendRequestRainCss(bad);
   expect(corrected).toBe(read().parts.css);
   expect(resolveLegacyFriendRequestRainCss(corrected)).toBe(corrected);
+  const full=read().parts.css!;
+  const v8='/* 请求添加好友 · 尺寸与申请按钮适配 v8';
+  const v9='/* 请求添加好友 · 顶区操作与标签去重叠 v9';
+  const v10='/* 请求添加好友 · 原生动作按钮 + 原 SVG 五心 + 用户消息状态 v10';
+  for(const marker of [v8,v9,v10]){
+    const older=full.slice(0,full.indexOf(marker))+'\n.my-css{color:hotpink}';
+    const migrated=resolveLegacyFriendRequestRainCss(older);
+    expect(migrated).toContain(v10);
+    expect(migrated).toContain('.my-css{color:hotpink}');
+    expect(resolveLegacyFriendRequestRainCss(migrated)).toBe(migrated);
+  }
   expect(resolveLegacyFriendRequestRainCss('.unrelated-theme{color:red}')).toBe('.unrelated-theme{color:red}');
  });
  it('applies character/global parts without modifying sounds or removing native group packet',async()=>{
