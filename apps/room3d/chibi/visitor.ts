@@ -121,12 +121,12 @@ export async function createVisitor(parts:Parts,hair?:HairSettings){
   const arms=body.rig?(['L','R'] as const).map(side=>({side:(side==='L'?1:-1) as 1|-1,points:['upperArm','forearm','hand'].map(part=>body.rig!.bones[side+'_'+part].getWorldPosition(new THREE.Vector3()))})):[];
   return classifyHomelyTouch(point,base,crown,arms);
  },getHeadTopWorldPosition(){root.updateWorldMatrix(true,true);return headAnchor.localToWorld(headTopPoint.clone());},setPhotoExpression:body.setExpressionFace,lookToward:body.lookToward,translatePose,getHeadWorldPosition(){root.updateWorldMatrix(true,false);return body.rig?body.rig.bones.head.localToWorld(new THREE.Vector3(0,.72,0)):body.motionBody.localToWorld(new THREE.Vector3(0,1.2,0));},updateExpression,setActionExpression,get faceState(){return faceState;},rig:body.rig,navigation,finishPose,applySelectedFrame,classicPoint:body.classicPoint,classicContact:body.classicContact,get motionScale(){return motionLeg*body.root.scale.y;},setScaleMultiplier,setWalkMotion,get walkSpeed(){return walkSpeed===undefined?body.rig?1.05:1.45:walkSpeed*body.root.scale.y;},get seatScale(){return body.root.scale.y;},get gamingReach(){return body.rig?{shoulderHeight:bodyHeightY(.59*BLANK_SCALE,body.rig.bodyHeight)*body.root.scale.y,armReach:(body.rig.bones.L_forearm.position.length()+body.rig.bones.L_hand.position.length())*body.root.scale.y}:undefined;},get bedHipHeight(){return body.rig?bodyHeightY(.38*BLANK_SCALE,body.rig.bodyHeight)*body.root.scale.y:0;},get bedHeadToHip(){return body.rig?(standingBounds!.max.y/baseScale-bodyHeightY(.38*BLANK_SCALE,body.rig.bodyHeight))*body.root.scale.y:0;},seatOffset:0,animate(time:number,motion:Motion,posture:Posture='standing',activity?:ActivityPose){actionFace=actionExpression(activity?.bedMode==='bed-talk'?'bed-talk':motion);const walkTime=motion==='walk'&&posture==='standing'&&body.rig&&walkSpeed!==undefined?walkClock.sample(root.getWorldPosition(walkWorldPoint),time,walkSpeed*body.root.scale.y):time;if(motion!=='walk'||posture!=='standing')walkClock.reset();body.animate(walkTime,motion,posture,body.rig&&activity&&(['computer','stream','race','rhythm','eat','hug','pet-contact'].includes(activity.kind)||activity.kind.startsWith('bath-'))?{...activity,handScale:(activity.kind.startsWith('bath-')?1:.7)/body.root.scale.y}:activity);if(body.rig){
-  // A tub's final grounded approach is still a footfall even while the
-  // dedicated bath controller owns the root. Plant the trailing/right foot
-  // using the existing world-space IK, not a second root/navigation writer.
+  // Walking follows the authored gait without a fixed world-toe leash. The
+  // former gait IK held a toe during swing, pulling knees and the pelvis off
+  // their natural path. Only the bathroom's deliberate support foot stays locked.
   const bathPlanted=motion==='bath-soak'&&activity?.bathPhase!=='work'?activity?.bathSupportFoot??null:null;
   footLock.apply({root,rig:body.rig,translatePose},motion==='bath-soak'?activity?.bathElapsed??time:time,walkSpeed===undefined?0:walkSpeed*body.root.scale.y,
-   motion==='walk'&&posture==='standing'||!!bathPlanted,bathPlanted);
+   !!bathPlanted,bathPlanted);
   root.updateWorldMatrix(true,true);body.rig.skeleton.update();
   Object.assign(body.rig.mesh,{boundingBox:null,boundingSphere:null});
  }else footLock.reset();
