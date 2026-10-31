@@ -136,7 +136,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         const persona = optionalText(value.description, '完整人设');
         const sourceAvatar = optionalText(value.avatar, '角色头像', 3_000_000);
         // Do not import external platform asset IDs, scripts, credentials, openings or regex.
-        const avatar = /^(?:data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+|https:\/\/[^\s<>]+)$/i.test(sourceAvatar)
+        const avatar = /^(?:data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+)$/i.test(sourceAvatar)
             ? sourceAvatar : '';
         if (sourceAvatar && !avatar && !warnings.includes('部分 BabyLink 私有头像路径无法跨应用读取，已忽略')) {
             warnings.push('部分 BabyLink 私有头像路径无法跨应用读取，已忽略');
