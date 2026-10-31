@@ -11,7 +11,7 @@ import { useOS } from '../context/OSContext';
 import { AppID, CharacterProfile, CharacterExportData, UserImpression, MemoryFragment } from '../types';
 import { SlidersHorizontal, SpeakerHigh, Books, BookOpen } from '@phosphor-icons/react';
 import Modal from '../components/os/Modal';
-import { processImage } from '../utils/file';
+import { processImage, processImageToBlob } from '../utils/file';
 import { DB } from '../utils/db';
 import { ContextBuilder } from '../utils/context';
 import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, formatMessageForPrompt } from '../utils/messageFormat';
@@ -25,7 +25,7 @@ import { MemoryNodeDB } from '../utils/memoryPalace/db';
 import { applyLinkedArchiveDeletion, LINKED_ARCHIVE_DELETED, type LinkedArchiveDeletionDetail } from '../utils/memoryPalace/linkedArchiveDeletion';
 import ChibiStudio, { ChibiShelfPanel } from '../components/character/ChibiStudio';
 import TokenImg from '../components/os/TokenImg';
-import { resolveBlobRefsDeep, migrateDataUrlToRef } from '../utils/blobRef';
+import { resolveBlobRefsDeep, migrateDataUrlToRef, putImageBlob, deleteBlobRef } from '../utils/blobRef';
 import { characterLaunch } from '../utils/characterLaunch';
 import { safeFetchJson, extractContent } from '../utils/safeApi';
 import { fetchMiniMaxVoices, MiniMaxVoiceItem } from '../utils/minimaxVoice';
@@ -1186,15 +1186,22 @@ ${isInitialGeneration ? `
   const confirmCardImport = async () => {
       if (!pendingCard || savingCard) return;
       setSavingCard(true);
+      let newAvatarToken: string | null = null;
+      let databaseCommitted = false;
       try {
           const prepared = pendingCard;
           const newId = 'char-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto
               ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
           let avatar = prepared.character.avatar || '';
           if (prepared.avatarFile) {
-              avatar = await migrateDataUrlToRef(await processImage(prepared.avatarFile, { maxWidth: 900 }));
+              // Decode to a resized Blob, not a huge data URL; never silently fall
+              // back to storing the whole PNG as a string on IndexedDB failure.
+              newAvatarToken = await putImageBlob(await processImageToBlob(prepared.avatarFile, { maxWidth: 900 }));
+              avatar = newAvatarToken;
           } else if (avatar.startsWith('data:image/')) {
-              avatar = await migrateDataUrlToRef(avatar);
+              const storedAvatar = await migrateDataUrlToRef(avatar);
+              if (storedAvatar === avatar) throw new Error('头像 Blob 保存失败，导入已取消');
+              avatar = storedAvatar;
           }
           const mounted = prepared.worldbooks.map(toMountedWorldbook);
           const newChar: CharacterProfile = {
@@ -1215,6 +1222,7 @@ ${isInitialGeneration ? `
           } as CharacterProfile;
           // DB.add is collision-safe; one transaction commits both tables or neither.
           await DB.importCharacterCardAtomic(newChar, prepared.worldbooks);
+          databaseCommitted = true;
           const [saved, library] = await Promise.all([DB.getCharacter(newId), DB.getAllWorldbooks()]);
           if (!saved || saved.mountedWorldbooks?.length !== mounted.length ||
               prepared.worldbooks.some(book => !library.some(row => row.id === book.id))) {
@@ -1225,6 +1233,12 @@ ${isInitialGeneration ? `
           addToast('角色 ' + newChar.name + ' 导入成功，世界书 ' + mounted.length + ' 条', 'success');
           window.setTimeout(() => window.location.reload(), 450);
       } catch (error: any) {
+          // The avatar blob is created before the character transaction. If the
+          // transaction aborts, remove only the newly created token; never remove
+          // a deduplicated native avatar or an already committed character's image.
+          if (newAvatarToken && !databaseCommitted) {
+              try { await deleteBlobRef(newAvatarToken); } catch {}
+          }
           console.error('[Character Card] Save failed', error);
           addToast(error?.message || '导入失败，未保存角色', 'error');
       } finally {
