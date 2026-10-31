@@ -103,6 +103,11 @@ try {
     && style('legacy-pair','.sully-chat-actions-button > svg').visibility==='visible'
     && style('legacy-pair','.sully-chat-trigger').backgroundImage==='none'
     && style('legacy-pair','.sully-chat-input-wrap button[aria-label="表情面板"]').backgroundImage==='none',
+  badgeDoesNotCoverPair:(()=>{
+    const pair=$('conversation','.sully-chat-avatar-pair')?.getBoundingClientRect();
+    const badge=$('conversation','.sully-chat-floating-status .sully-chat-token')?.getBoundingClientRect();
+    return !!pair&&!!badge&&(badge.left>=pair.right+5||badge.right<=pair.left-5);
+  })(),
   phoneFits: (()=>{
     const phone=$('conversation','.sully-chat-header button[aria-label="电话"]')?.getBoundingClientRect();
     const ai=$('conversation','.sully-chat-trigger')?.getBoundingClientRect();
