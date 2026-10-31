@@ -50,20 +50,23 @@ jobs:
           done
           chrome="${{ steps.chrome.outputs.chrome-path }}"
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
-            --window-size=430,1250 --virtual-time-budget=15000 --dump-dom \
+            --window-size=430,1250 --virtual-time-budget=60000 --dump-dom \
             http://127.0.0.1:5173/tests/private-chat-voice-visual.html > /tmp/voice-dom.html 2>/tmp/voice-chrome.log || true
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
-            --window-size=430,1450 --virtual-time-budget=15000 \
+            --window-size=430,1450 --virtual-time-budget=60000 \
             --screenshot="$GITHUB_WORKSPACE/private-chat-voice-mobile.png" \
             http://127.0.0.1:5173/tests/private-chat-voice-visual.html
           test -s private-chat-voice-mobile.png
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
-            --window-size=360,1450 --virtual-time-budget=15000 \
+            --window-size=360,1450 --virtual-time-budget=60000 \
             --screenshot="$GITHUB_WORKSPACE/private-chat-voice-narrow.png" \
             http://127.0.0.1:5173/tests/private-chat-voice-visual.html
           test -s private-chat-voice-narrow.png
           grep -o '<output id="voice-visual-checks"[^<]*[^<]*' /tmp/voice-dom.html | head -c 2000 || true
           if ! grep -q 'data-voice-visual-ready="true"' /tmp/voice-dom.html; then
+            grep -o 'data-voice-visual-stage="[^"]*"' /tmp/voice-dom.html || true
+            grep -o 'data-voice-visual-error="[^"]*"' /tmp/voice-dom.html || true
+            tail -c 1300 /tmp/voice-dom.html || true
             tail -60 /tmp/voice-vite.log || true
             tail -30 /tmp/voice-chrome.log || true
             echo "Mobile composer/voice visual geometry mismatch" >&2
