@@ -843,7 +843,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                 aria-expanded={voiceMenuOpen}
                                 aria-pressed={typedVoiceEnabled}
                                 disabled={speechInput.status !== 'idle'}
-                                onPointerDown={event => { if (event.button === 0) event.preventDefault(); }}
                                 onClick={() => { if (showPanel !== 'none') setShowPanel('none'); setVoiceMenuOpen(open => !open); }}
                                 className={`sully-chat-voice-trigger w-9 h-9 mr-0.5 shrink-0 grid place-items-center rounded-full transition-colors disabled:opacity-50 ${typedVoiceEnabled || voiceMenuOpen ? 'text-primary bg-primary/10' : isDiscordStyle ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-500 hover:bg-black/5'}`}>
                                 <Microphone size={19} weight={typedVoiceEnabled ? 'fill' : 'regular'} />
