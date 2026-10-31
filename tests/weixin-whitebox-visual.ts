@@ -39,7 +39,8 @@ try {
  const liveMenu=live.querySelector<HTMLButtonElement>('.sully-chat-actions-button');
  const liveVoice=live.querySelector<HTMLButtonElement>('.sully-chat-voice-trigger');
  const liveSticker=live.querySelector<HTMLButtonElement>('button[aria-label="表情面板"]');
- const sourceGlyphs=[liveMenu,liveVoice,liveSticker];
+ const liveMic=live.querySelector<HTMLButtonElement>('button[aria-label="快捷语音转文字"]');
+ const sourceGlyphs=[liveMenu,liveVoice,liveSticker,liveMic];
  const originalGlyphsPresent=sourceGlyphs.every(button=>
    !!button?.querySelector('.sully-wy-source-fallback svg') &&
    !!button?.querySelector('.sully-wy-source-image'));
@@ -52,6 +53,8 @@ try {
     getComputedStyle(button!,'::before').content==='none';
  });
  flushSync(()=>liveMenu?.click());
+ flushSync(()=>liveMic?.click());
+ const nativeSpeechShortcutWorks=presses.voice===1;
  const nativeActionStillWorks=presses.menu===1 &&
   liveMenu?.getAttribute('aria-label')==='聊天功能' &&
   liveVoice?.getAttribute('aria-label')==='选择语音输入方式';
@@ -88,6 +91,7 @@ try {
   originalGlyphsPresent,
   originalGlyphsSingleLayer,
   nativeActionStillWorks,
+  nativeSpeechShortcutWorks,
   chatRoot:same('conversation','.sully-chat-root',expected('rgb(237, 237, 237)','rgb(24, 24, 24)')),
   header:same('conversation','.sully-chat-header',expected('rgb(237, 237, 237)','rgb(17, 17, 17)')),
   input:same('conversation','.sully-chat-inputbar',expected('rgb(247, 247, 247)','rgb(23, 23, 23)')),
@@ -193,19 +197,33 @@ try {
   backVisible:cssStyle('conversation','.sully-chat-back')?.visibility==='visible',
   noHorizontalOverflow:[...root.querySelectorAll<HTMLElement>('.scene')].every(e=>e.scrollWidth<=e.clientWidth+2)
  };
- root.dataset.ready=Object.values(checks).every(Boolean)?'true':'false';
- const output=document.createElement('output');output.id='weixin-checks';output.textContent=JSON.stringify(checks);root.prepend(output);
- if(root.dataset.ready!=='true'){
-  const rect=(el:HTMLElement|null)=>{const r=el?.getBoundingClientRect();return r?{x:r.x,y:r.y,w:r.width,h:r.height,right:r.right}:null;};
-  const metrics={
-   card:rect($('transfer','.sully-chat-transfer-card')),
-   header:rect($('transfer','.sully-chat-transfer-header')),
-   icon:rect($('transfer','.sully-chat-transfer-header .sully-chat-transfer-icon')),
-   amount:rect($('transfer','.sully-chat-transfer-card > .sully-chat-transfer-amount')),
-   cardDisplay:cssStyle('transfer','.sully-chat-transfer-card')?.display,
-   headerDisplay:cssStyle('transfer','.sully-chat-transfer-header')?.display,
-   iconDisplay:cssStyle('transfer','.sully-chat-transfer-icon')?.display,
-  };
-  throw Error(JSON.stringify({checks,metrics}));
- }
+ const finalize=()=>{
+  const allAssetImages=Array.from(live.querySelectorAll<HTMLImageElement>('.sully-wy-source-image'));
+  const allLocalIconsLoaded=allAssetImages.length===4 && allAssetImages.every(img=>img.complete && img.naturalWidth>0);
+  const oneIconPerAction=sourceGlyphs.every(button=>{
+   const glyph=button?.querySelector<HTMLElement>('.sully-wy-source-icon');
+   const img=glyph?.querySelector<HTMLImageElement>('img');
+   const fallback=glyph?.querySelector<HTMLElement>('.sully-wy-source-fallback');
+   if(!glyph||!img||!fallback)return false;
+   const isImage=getComputedStyle(img).display!=='none';
+   const isFallback=getComputedStyle(fallback).display!=='none';
+   return isImage !== isFallback && (!isImage || img.naturalWidth>0);
+  });
+  const all={...checks,allLocalIconsLoaded,oneIconPerAction};
+  root.dataset.ready=Object.values(all).every(Boolean)?'true':'false';
+  const output=document.createElement('output');output.id='weixin-checks';output.textContent=JSON.stringify(all);root.prepend(output);
+  if(root.dataset.ready!=='true'){
+    const rect=(el:HTMLElement|null)=>{const r=el?.getBoundingClientRect();return r?{x:r.x,y:r.y,w:r.width,h:r.height,right:r.right}:null;};
+    const metrics={iconStatus:allAssetImages.map(x=>({src:x.currentSrc,complete:x.complete,width:x.naturalWidth,display:getComputedStyle(x).display})),
+     header:rect($('conversation','.sully-chat-header')),menu:rect(liveMenu),voice:rect(liveVoice),microphone:rect(liveMic)};
+    root.dataset.error=JSON.stringify({all,metrics});
+    const err=document.createElement('output');err.textContent=root.dataset.error;root.prepend(err);
+  }
+ };
+ const localImages=Array.from(live.querySelectorAll<HTMLImageElement>('.sully-wy-source-image'));
+ void Promise.all(localImages.map(img=>new Promise<void>(resolve=>{
+  if(img.complete){resolve();return;}
+  img.addEventListener('load',()=>resolve(),{once:true});
+  img.addEventListener('error',()=>resolve(),{once:true});
+ }))).then(()=>{requestAnimationFrame(finalize)});
 } catch(e){root.dataset.ready='false';root.dataset.error=String(e);const output=document.createElement('output');output.textContent=String(e);root.prepend(output)}
