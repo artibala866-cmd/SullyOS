@@ -865,6 +865,17 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             className={`w-9 h-9 shrink-0 grid place-items-center rounded-full ${isDiscordStyle ? 'text-slate-400 hover:text-neutral-300' : isPixelStyle ? 'text-[#6d6d6d] hover:text-[#696969]' : 'text-slate-400 hover:text-primary'}`}>
                             <WeixinSourceIcon active={weixinOriginalIcons} src={WEIXIN_SOURCE_ICONS.sticker}><Smiley className="w-5 h-5" weight="regular" /></WeixinSourceIcon>
                         </button>
+                        {/* Original 白榆 layout has a second microphone near the sticker.
+                            It is an actual speech-to-text shortcut, not a dead decorative icon;
+                            the left voice control retains its full three-mode native menu. */}
+                        {weixinOriginalIcons && speechInput && !compactHome && (
+                            <button type="button" aria-label="快捷语音转文字" title="语音转文字"
+                                disabled={speechInput.status !== 'idle'}
+                                onClick={() => { setVoiceMenuOpen(false); if (showPanel !== 'none') setShowPanel('none'); onExitTypedVoice?.(); textareaRef.current?.blur(); void speechInput.startTranscription(); }}
+                                className="sully-wy-microphone-quick w-8 h-9 shrink-0 grid place-items-center bg-transparent disabled:opacity-40">
+                                <WeixinSourceIcon active src={WEIXIN_SOURCE_ICONS.microphone}><Microphone size={18} weight="regular" /></WeixinSourceIcon>
+                            </button>
+                        )}
                         {/* Keep the microphone INSIDE the composer field, not as a fourth outer column. */}
                         {speechInput && (
                             <button ref={voiceTriggerRef} type="button"
