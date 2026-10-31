@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { deflateSync } from 'node:zlib';
 import type { CharacterProfile, UserProfile } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
@@ -69,6 +70,7 @@ describe('SillyTavern card normalization', () => {
         expect(result.source).toBe('tavern-v1');
         expect(result.character).toMatchObject({ name: '角色A', description: '森林居民', worldview: '魔法世界' });
         expect(result.character.systemPrompt).toContain('谨慎');
+        expect(result.character.systemPrompt).toContain('森林居民');
         expect(JSON.stringify(result)).not.toContain('不要出现的开场');
     });
     it('imports V2 character identity without greetings, regex, scripts or system jailbreaks', () => {
@@ -243,6 +245,7 @@ describe('SullyOS chat request round-trip from imported data', () => {
             { role: 'user', content: '我们去钟楼看看' },
         ]);
         expect(JSON.stringify(active)).toContain('出生在海边的摄影师');
+        expect(JSON.stringify(active)).toContain('【角色身份与背景】');
         expect(JSON.stringify(active)).toContain('隐藏的蓝色钟楼');
         expect(JSON.stringify(active)).not.toContain('被关闭的秘密');
         expect(JSON.stringify(active)).not.toContain('未触发的海浪');
@@ -256,5 +259,70 @@ describe('SullyOS chat request round-trip from imported data', () => {
     });
     it('rejects character cards that contain only a name', () => {
         expect(() => normalizeCharacterCard(v3({ description: '', personality: '', scenario: '' }))).toThrow('只有姓名');
+    });
+});
+
+
+describe('Deep audit: real-world card compatibility', () => {
+    it('does not treat ordinary name/description JSON as verified Tavern V1', () => {
+        expect(() => normalizeCharacterCard({ name: '列表项', description: '说明' })).toThrow('无法识别');
+    });
+    it('keeps stable lore when scenario mixes world background with an opening', () => {
+        const card = normalizeCharacterCard(v2({
+            scenario: '这座城市的夜晚总在下雨。\n你推开门，初次见面。\n城郊有一座旧钟楼。',
+        }));
+        expect(card.character.worldview).toContain('这座城市的夜晚总在下雨');
+        expect(card.character.worldview).toContain('城郊有一座旧钟楼');
+        expect(card.character.worldview).not.toContain('你推开门');
+    });
+    it('allows a small inline JSON avatar, excludes file URLs and remote tracking URLs', () => {
+        const picture = 'data:image/png;base64,aGVsbG8=';
+        expect(normalizeCharacterCard(v3({ avatar: picture })).character.avatar).toBe(picture);
+        expect(normalizeCharacterCard(v3({ avatar: 'https://tracking.example/avatar.png' })).character.avatar).toBe('');
+        expect(normalizeCharacterCard(v3({ avatar: 'file:///private/avatar.png' })).character.avatar).toBe('');
+    });
+    it('reads supported lorebook controls from extension data and keeps their trigger meaning', () => {
+        const prepared = normalizeCharacterCard(v3({ character_book: lore([
+            entry({ role: 'assistant', position: 4, selectiveLogic: undefined,
+                extensions: { scanDepth: 7, role: 2, probability: 65, useProbability: true,
+                    depth: 2, selectiveLogic: 3 }, secondary_keys: ['警钟'], selective: true,
+                constant: false, case_sensitive: false }),
+        ]) }));
+        const book = prepared.worldbooks[0];
+        expect(book).toMatchObject({
+            scanDepth: 7, role: 2, depth: 2, probability: 65, useProbability: true,
+            selectiveLogic: 3, keysecondary: ['警钟'], constant: false,
+        });
+        expect(isWorldbookEntryActive({ ...book, useProbability: false },
+            [{ content: '钟楼 响起警钟' }])).toBe(true);
+        expect(isWorldbookEntryActive({ ...book, useProbability: false },
+            [{ content: '钟楼 没有别的线索' }])).toBe(false);
+    });
+    it('shows precise warnings for unsupported lorebook behavior, never claims perfect fidelity', () => {
+        const card = normalizeCharacterCard(v3({
+            character_book: lore([entry({ sticky: 4, extensions: { delay: 3, group: 'A' } })]),
+        }));
+        expect(card.warnings.join(' ')).toContain('sticky');
+        expect(card.warnings.join(' ')).toContain('delay');
+    });
+    it('rejects unsupported V3 decorators instead of injecting executable-looking strings into context', () => {
+        expect(() => normalizeCharacterCard(v3({
+            character_book: lore([entry({ content: '@@dont_activate\n不能进上下文' })]),
+        }))).toThrow('@@');
+    });
+    it('reads zTXt and compressed iTXt card metadata without mixing fallback cards', async () => {
+        const raw = new TextEncoder().encode(Buffer.from(JSON.stringify(v3()), 'utf8').toString('base64'));
+        const compressed = Uint8Array.from(deflateSync(raw));
+        const ztxt = png();
+        // Replace generated minimal PNG before IEND with a zTXt chunk.
+        const zipChunk = chunk('zTXt', concat(new TextEncoder().encode('ccv3'), new Uint8Array([0, 0]), compressed));
+        const zipBytes = concat(ztxt.slice(0, -12), zipChunk, ztxt.slice(-12));
+        const zipCard = await readCharacterCardFile(file(zipBytes));
+        expect(zipCard.source).toBe('tavern-v3');
+        const itxtChunk = chunk('iTXt', concat(new TextEncoder().encode('ccv3'),
+            new Uint8Array([0, 1, 0, 0, 0]), compressed));
+        const itxtBytes = concat(ztxt.slice(0, -12), itxtChunk, ztxt.slice(-12));
+        const internationalCard = await readCharacterCardFile(file(itxtBytes));
+        expect(internationalCard.source).toBe('tavern-v3');
     });
 });
