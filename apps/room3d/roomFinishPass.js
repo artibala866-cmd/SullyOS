@@ -44,28 +44,28 @@ export function createRoomFinishPass(renderer){
      // lifting every material into flat pastel. Retain the original textures.
      float inkLuma=dot(c,vec3(.2126,.7152,.0722));
      float plane=smoothstep(.20,.82,inkLuma);
-     vec3 inkGrade=mix(vec3(.935,.953,1.033),vec3(1.043,1.017,.984),plane);
+     vec3 inkGrade=mix(vec3(.900,.938,1.045),vec3(1.087,1.045,.976),plane);
      c*=inkGrade;
      float midWeight=smoothstep(.07,.27,inkLuma)*(1.-smoothstep(.78,.97,inkLuma));
-     c+=vec3((inkLuma-.46)*.10)*midWeight;
+     c+=vec3((inkLuma-.46)*.20)*midWeight;
      float paintLuma=dot(c,vec3(.2126,.7152,.0722));
-     c+= (c-vec3(paintLuma))*.065*midWeight;
+     c+= (c-vec3(paintLuma))*.12*midWeight;
      c=max(c,vec3(0.));
      // A quiet one-pixel drawing edge supports the character's own
      // alpha and silhouette ink. No extra geometry, depth pass or renderer.
      vec3 cx=sceneColor(vUv+vec2(pixel.x,0.))-sceneColor(vUv-vec2(pixel.x,0.));
      vec3 cy=sceneColor(vUv+vec2(0.,pixel.y))-sceneColor(vUv-vec2(0.,pixel.y));
      float inkEdge=smoothstep(.18,.66,length(cx)+length(cy));
-     float lineWeight=mix(.13,.26,smoothstep(.16,.78,paintLuma));
+     float lineWeight=mix(.16,.34,smoothstep(.16,.78,paintLuma));
      c=mix(c,vec3(.044,.039,.056),inkEdge*lineWeight);
      // Portrait focus follows the resident instead of a fixed frame-centre.
      // The centre remains sharp; background/periphery receive a small,
      // smoothly blended lens-like defocus. Quality sets the blur budget.
-     vec2 focusPos=(vUv-focusCenter)*vec2(1.18,.92);
+     vec2 focusPos=(vUv-focusCenter)*vec2(1.80,.78);
      float focalRadius=length(focusPos);
      float outOfFocus=smoothstep(.29,.70,focalRadius)*focusStrength;
      if(outOfFocus>.012){
-      vec2 radius=pixel*mix(3.,12.,focusStrength);
+      vec2 radius=pixel*mix(5.,18.,focusStrength);
       vec3 softened=(sceneColor(vUv+vec2(radius.x,0.))
         +sceneColor(vUv-vec2(radius.x,0.))
         +sceneColor(vUv+vec2(0.,radius.y))
@@ -73,7 +73,7 @@ export function createRoomFinishPass(renderer){
       // Grade distant colours as well, so defocus never reintroduces
       // the flat, ungraded scene over the illustrated foreground.
       float farLuma=dot(softened,vec3(.2126,.7152,.0722));
-      softened*=mix(vec3(.935,.953,1.033),vec3(1.043,1.017,.984),
+      softened*=mix(vec3(.900,.938,1.045),vec3(1.087,1.045,.976),
                     smoothstep(.20,.82,farLuma));
       c=mix(c,softened,outOfFocus*.76);
      }
