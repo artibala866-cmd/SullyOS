@@ -269,6 +269,36 @@ describe('BabyLink PNG dispatcher and browser pixel decoding', () => {
         expect(result.source).toBe('babylink');
         if (result.source === 'babylink') expect(result.cards[0].character.name).toBe('正确名字');
     });
+    it('uses Image/object-URL fallback on mobile engines without createImageBitmap', async () => {
+        const file = createFixture(share([char('无位图接口', [])], []));
+        const revoke = vi.fn();
+        vi.stubGlobal('createImageBitmap', undefined);
+        vi.stubGlobal('URL', { createObjectURL: () => 'blob:local-only', revokeObjectURL: revoke });
+        class LocalImage {
+            naturalWidth = 1080;
+            naturalHeight = 1350;
+            onload: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+            set src(_value: string) { this.onload?.(); }
+        }
+        vi.stubGlobal('Image', LocalImage);
+        const parsed = await readCharacterCardFile(file);
+        expect(parsed.source).toBe('babylink');
+        expect(revoke).toHaveBeenCalledWith('blob:local-only');
+    });
+    it('rejects ordinary re-saved PNGs without detectable LSB data', async () => {
+        const file = createFixture(share([char('不会成功', [])], []));
+        vi.stubGlobal('document', {
+            createElement: () => ({
+                width: 1080, height: 1350,
+                getContext: () => ({
+                    drawImage: () => {},
+                    getImageData: () => ({ data: new Uint8ClampedArray(1080 * 1350 * 4) }),
+                }),
+            }),
+        });
+        await expect(readCharacterCardFile(file)).rejects.toThrow('普通 PNG');
+    });
     it('rejects damaged BabyLink length even when valid Tavern metadata is appended', async () => {
         await expect(readCharacterCardFile(createFixture(share([char('损坏', [])], []), true, true)))
             .rejects.toThrow('长度信息损坏');
