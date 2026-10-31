@@ -12,7 +12,7 @@ import {createRoomFinishPass} from '../apps/room3d/roomFinishPass.js';
 import {setCharacterStyle} from '../apps/room3d/chibi/characterStyle.ts';
 import {setCharacterRoomLighting,setCharacterRoomTint} from '../apps/room3d/chibi/illustration.ts';
 import {ROOM_LIGHT_PHASES,createRoomLightUniforms,updateRoomLightUniforms} from '../apps/room3d/roomLighting.js';
-const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],artImages:[],artStats:[],antiGhostImages:[],antiGhostStats:null,phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
+const report={status:'starting',stage:'boot',errors:[],frames:[],images:[],materialImages:[],finishImages:[],finishStats:[],styleImages:[],styleStats:[],artImages:[],artStats:[],dofImages:[],dofStats:[],antiGhostImages:[],antiGhostStats:null,phaseImages:[],phaseStats:[],sequences:[],timelines:[],models:[]};
 window.__carryVisualAcceptance=report;
 const label=document.querySelector('#status');
 const stage=s=>{report.stage=s;label.textContent=report.status+' · '+s+' · '+report.images.length+' 张真实 WebGL 画面';};
@@ -185,7 +185,9 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
  const materialGallery=document.createElement('main');materialGallery.className='materials';document.body.append(materialGallery);
  const finishedGallery=document.createElement('main');finishedGallery.className='finish-comparison';document.body.append(finishedGallery);
  const artGallery=document.createElement('main');artGallery.className='art-look-comparison';document.body.append(artGallery);
+  const dofGallery=document.createElement('main');dofGallery.className='dof-comparison';document.body.append(dofGallery);
  const artScreenshot=name=>{const fig=document.createElement('figure'),img=document.createElement('img');img.src=renderer.domElement.toDataURL('image/png');img.alt=name;fig.append(img);artGallery.append(fig);report.artImages.push({name});const canvas=document.createElement('canvas');canvas.width=renderer.domElement.width;canvas.height=renderer.domElement.height;const context=canvas.getContext('2d');context.drawImage(renderer.domElement,0,0);return context.getImageData(0,0,canvas.width,canvas.height).data;};
+  const dofScreenshot=name=>{const fig=document.createElement('figure'),img=document.createElement('img');img.src=renderer.domElement.toDataURL('image/png');img.alt=name;fig.append(img);dofGallery.append(fig);report.dofImages.push({name});const sample=document.createElement('canvas');sample.width=renderer.domElement.width;sample.height=renderer.domElement.height;const ctx=sample.getContext('2d');ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,sample.width,sample.height).data;};
  const finishPass=createRoomFinishPass(renderer);
  const finishScreenshot=(name)=>{
   const img=document.createElement('img'),fig=document.createElement('figure');
@@ -438,6 +440,22 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    // Guard both excessive global changes and insufficient character detail.
    if(mean<.10||mean>12||fraction<.025||fraction>.85||subjectMean<.50||subjectMean>18||subjectFraction<.10)
     throw Error('Unsafe or invisible detail filter '+variant.id+': '+JSON.stringify({mean,fraction,subjectMean,subjectFraction}));
+   // Give portrait-focus actual room depth and authored straight background
+   // edges, instead of judging blur against an empty flat wall.
+   const backgroundDecor=new T.Group();
+   const shelfMaterial=new T.MeshStandardMaterial({color:'#8c9db1',roughness:1});
+   const accentMaterial=new T.MeshStandardMaterial({color:'#d8a4ad',roughness:1});
+   for(const x of [-2.0,1.7]){
+    for(const y of [.35,1.1,1.85,2.60]){
+     const rail=new T.Mesh(new T.BoxGeometry(1.45,.075,.16),shelfMaterial);
+     rail.position.set(x,y,-2.8);backgroundDecor.add(rail);
+    }
+    for(const side of [-.7,.7]){
+     const post=new T.Mesh(new T.BoxGeometry(.07,2.75,.16),accentMaterial);
+     post.position.set(x+side,1.3,-2.8);backgroundDecor.add(post);
+    }
+   }
+   scene.add(backgroundDecor);
    // Complete real WebGL illustrated look: same actor, camera, light and room
    // finish, with new painterly ink, paper grain and portrait-focus defocus.
    setCharacterStyle('modern');renderer.render(scene,camera);
@@ -448,6 +466,20 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    const focusDepth=T.MathUtils.clamp((head.getWorldPosition(new T.Vector3()).project(camera).z+1)*.5,.01,.99);
    finishPass.render('day',{baseFinish:true,detail:0,illustrated:true,focusDepth,cameraSpan:camera.far-camera.near,depthStrength:1});
    const artNew=artScreenshot('art-'+variant.id+'-illustrated');
+   if(variant.id==='black-fair-dark'){
+    // Same shader, camera, poses and lighting: capture ONLY depth on/off.
+    finishPass.beginScene();renderer.render(scene,camera);
+    finishPass.render('day',{baseFinish:true,detail:0,illustrated:true,focusDepth,cameraSpan:camera.far-camera.near,depthStrength:0});
+    const sharp=dofScreenshot('dof-off');
+    finishPass.beginScene();renderer.render(scene,camera);
+    finishPass.render('day',{baseFinish:true,detail:0,illustrated:true,focusDepth,cameraSpan:camera.far-camera.near,depthStrength:1});
+    const blurred=dofScreenshot('dof-on');
+    let delta=0;
+    for(let k=0;k<sharp.length;k+=4)delta+=(Math.abs(sharp[k]-blurred[k])+Math.abs(sharp[k+1]-blurred[k+1])+Math.abs(sharp[k+2]-blurred[k+2]))/3;
+    const mean=delta/(sharp.length/4);report.dofStats.push({mean});
+    if(mean<.12||mean>15)throw Error('Depth of field absent or destructive: '+mean);
+   }
+   scene.remove(backgroundDecor);backgroundDecor.traverse(o=>{if(o.isMesh)o.geometry.dispose();});shelfMaterial.dispose();accentMaterial.dispose();
    setCharacterStyle('modern');
    let artChange=0,artChanged=0;
    for(let k=0;k<artBase.length;k+=4){
@@ -460,7 +492,7 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
     throw Error('Full illustrated film look not visible or too destructive '+variant.id+': '+JSON.stringify({artMean,artFraction}));
   }finally{if(actor){scene.remove(actor.root);actor.dispose();}}
  }
- if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12||report.artImages.length!==8||report.antiGhostImages.length!==2||report.antiGhostStats?.spuriousBright!==0)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
+ if(report.materialImages.length!==36||report.finishImages.length!==8||report.styleImages.length!==36||report.phaseImages.length!==12||report.artImages.length!==8||report.dofImages.length!==2||report.antiGhostImages.length!==2||report.antiGhostStats?.spuriousBright!==0)throw Error('Incomplete material, finish and cel shader A/B '+report.materialImages.length+'/'+report.finishImages.length+'/'+report.styleImages.length);
  finishPass.dispose();
  if(!celOnly&&(report.images.length!==980||report.timelines.length!==2))throw Error('Incomplete four-angle/continuous sequences '+report.images.length);
  report.status='pass';stage('完整生成 '+report.images.length+' 张真实 WebGL 帧；需人工审阅穿模和发丝遮挡');
