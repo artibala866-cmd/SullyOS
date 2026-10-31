@@ -2,6 +2,7 @@ import type { CharacterProfile, Worldbook } from '../types';
 import { stripSensitiveCardFields } from './characterCard';
 import { isPng, pngHasShare, readShareText } from './pngShare';
 import { parseStandardWorldbook } from './worldbook';
+import { decodeBabyLinkPng, type PreparedBabyLinkBundle } from './babyLinkCard';
 
 const MAX_JSON = 6 * 1024 * 1024;
 const MAX_PNG = 32 * 1024 * 1024;
@@ -32,12 +33,14 @@ const stableScenario = (scenario: string, warnings: string[]): string => {
 
 /** Strictly normalized, inert data. Nothing here can execute Tavern scripts or API calls. */
 export interface PreparedCharacterCard {
-    source: 'sully' | 'tavern-v1' | 'tavern-v2' | 'tavern-v3';
+    source: 'sully' | 'tavern-v1' | 'tavern-v2' | 'tavern-v3' | 'babylink-character';
     character: Partial<CharacterProfile> & Pick<CharacterProfile, 'name' | 'description' | 'systemPrompt'>;
     worldbooks: Worldbook[];
     avatarFile: File | null;
     warnings: string[];
 }
+
+export type PreparedCardImport = PreparedCharacterCard | PreparedBabyLinkBundle;
 
 const normalizeMacros = (value: string, warnings: string[]): string => {
     const converted = value
@@ -329,7 +332,7 @@ const decodeMetadata = (encoded: string): unknown => {
 };
 
 /** Identify the real bytes, not merely the extension. No writes happen here. */
-export const readCharacterCardFile = async (file: File): Promise<PreparedCharacterCard> => {
+export const readCharacterCardFile = async (file: File): Promise<PreparedCardImport> => {
     if (file.size === 0 || file.size > MAX_PNG) throw new Error('角色卡文件为空或超过 32 MB');
     const signature = new Uint8Array(await file.slice(0, 8).arrayBuffer());
     if (!isPng(signature)) {
@@ -347,6 +350,9 @@ export const readCharacterCardFile = async (file: File): Promise<PreparedCharact
         if (prepared.source !== 'sully') throw new Error('糯米机分享块的内容不是原生角色卡');
         return prepared;
     }
+    // BabyLink has GZIP RGB-LSB data, not Tavern tEXt/chara metadata.
+    const babyLink = await decodeBabyLinkPng(file, bytes);
+    if (babyLink) return babyLink;
     const metadata = await readTextMetadata(bytes);
     if (!metadata.ccv3 && !metadata.chara) {
         throw new Error('普通 PNG 不含酒馆角色卡数据，请使用未压缩的角色卡原图');
