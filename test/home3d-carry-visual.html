@@ -269,8 +269,25 @@ const next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFr
    if(!focusCount)throw Error('Actor mask empty '+variant.id);
    const focusMean=focusSum/focusCount,focusShare=focusChanged/focusCount;
    report.styleStats[report.styleStats.length-1].focusMean=focusMean;
-   report.styleStats[report.styleStats.length-1].focusShare=focusShare;
-   if(focusMean<5||focusShare<.22||focusMean>34)
+   report.styleStats[report.styleStats.length-1].focusShare=focusShare;   // The previous strong-cel result crushed dark costumes. Compare actor-only
+   // luminance and the share of nearly-black pixels, not just pixel difference.
+   let sumOldLum=0,sumNewLum=0,veryDarkOld=0,veryDarkNew=0;
+   for(let px=0;px<orig.length;px+=4){
+    const masked=(Math.abs(orig[px]-bg[px])+Math.abs(orig[px+1]-bg[px+1])+Math.abs(orig[px+2]-bg[px+2]))/3;
+    if(masked<7)continue;
+    const o=orig[px]*.2126+orig[px+1]*.7152+orig[px+2]*.0722;
+    const n=drawn[px]*.2126+drawn[px+1]*.7152+drawn[px+2]*.0722;
+    sumOldLum+=o;sumNewLum+=n;
+    if(o<29)veryDarkOld++;if(n<29)veryDarkNew++;
+   }
+   const luminanceDelta=(sumNewLum-sumOldLum)/focusCount;
+   const addedBlackFraction=(veryDarkNew-veryDarkOld)/focusCount;
+   report.styleStats[report.styleStats.length-1].luminanceDelta=luminanceDelta;
+   report.styleStats[report.styleStats.length-1].addedBlackFraction=addedBlackFraction;
+   if(luminanceDelta< -3||addedBlackFraction>.045)
+    throw Error('Chibi cel turned muddy/dark: '+variant.id+' '+JSON.stringify({luminanceDelta,addedBlackFraction}));
+
+   if(focusMean<2.5||focusShare<.16||focusMean>30)
     throw Error('Illustrated style is not visually distinctive or is destructive: '+variant.id+' '+JSON.stringify({focusMean,focusShare}));
    if(styleMean>32||styleFraction>.90||styleReversible>.01)
     throw Error('Original look not preserved or cel shader ineffective '+variant.id+': '+JSON.stringify({mean:styleMean,fraction:styleFraction,reversible:styleReversible}));

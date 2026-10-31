@@ -139,44 +139,41 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             float inkBrightness = mix(1.,roomBrightness,characterRoomEnabled);
             float inkForm = .90 + .10*smoothstep(-.1,.85,inkFacing);
             vec3 inkColor = mix(inkShadeColor*inkShadeTint,diffuseColor.rgb*.96*inkForm*inkLitTint,inkLit)*inkBrightness;
-            ${style==='illustrated' ? `// Illustration-only material pass: three intentionally distinct
-            // painted light bands driven by the ORIGINAL room light and shadow mask.
-            // No extra lights, textures, geometry, passes, or modifications to modern/legacy.
-            float inkToonN = inkFacing + ${face ? '.17' : skin ? '.13' : hair ? '-.04' : '-.08'};
-            float inkToonAA = max(fwidth(inkToonN)*1.10,.018);
-            float inkToonHalf = smoothstep(.04-inkToonAA,.04+inkToonAA,inkToonN);
-            float inkToonKey = smoothstep(.53-inkToonAA,.53+inkToonAA,inkToonN);
-            float inkCast = mix(1.,getShadowMask(),characterRoomEnabled);
-            float inkToonCast = smoothstep(.24,.76,inkCast);
-            float inkBandValue = ${face ? '.48' : skin ? '.42' : hair ? '.38' : '.37'}
-              + ${face ? '.17' : skin ? '.20' : hair ? '.21' : '.20'} * inkToonHalf
-              + ${face ? '.25' : skin ? '.29' : hair ? '.30' : '.31'} * inkToonKey;
-            inkBandValue *= mix(${face || skin ? '.74' : '.66'},1.,inkToonCast);
-            // Keep every original complexion/dye: multiply the painted texel,
-            // never paint over the facial expression or replace the authored albedo.
-            vec3 inkPaletteShade = ${face || skin ? 'vec3(.92,.77,.73)' : hair ? 'vec3(.74,.77,.90)' : 'vec3(.76,.78,.88)'};
-            vec3 inkToonShadeTint = mix(vec3(1.),roomShadeTint,characterRoomEnabled*.65);
-            vec3 inkToonLightTint = mix(characterRoomTint,roomSunTint,characterRoomEnabled);
-            vec3 inkBandTint = mix(inkPaletteShade*inkToonShadeTint,inkToonLightTint,inkToonKey);
-            inkColor = diffuseColor.rgb * inkBandTint * inkBandValue * inkBrightness;
-            // A clean dark ink contour changes the *style*, but remains inside
-            // this same surface shader and does not introduce outline meshes.
-            float inkToonView = 1.-abs(dot(normal,normalize(vViewPosition)));
-            float inkInkEdge=smoothstep(.32,.86,inkToonView);
-            inkColor *= 1.-inkInkEdge*${face ? '.20' : skin ? '.27' : hair ? '.50' : '.42'};
-            ${hair ? `// Local-head strand ribbons; glints are tinted, never metallic white.
-            vec3 inkToonHalfVector = normalize(inkLight+normalize(vViewPosition));
-            float inkStrand = abs(dot(normalize(inkLocalStrandView),inkToonHalfVector));
-            float inkStrandFacing=clamp(dot(normal,inkToonHalfVector),0.,1.);
-            float inkSatinWide=(1.-smoothstep(.16,.78,inkStrand))*smoothstep(.24,.80,inkStrandFacing);
-            float inkSatinThin=(1.-smoothstep(.08,.28,inkStrand))*smoothstep(.72,.96,inkStrandFacing);
-            vec3 inkSatinColor=sqrt(max(diffuseColor.rgb,vec3(0.)))*vec3(.58,.61,.66);
-            inkColor += (1.-clamp(inkColor,0.,1.))*inkSatinColor*(inkSatinWide*.52+inkSatinThin*.11)*inkToonKey*inkToonCast;` : ''}
+            ${style==='illustrated' ? `// Airy chibi cel: preserve original paint and room lighting,
+            // but shape a luminous soft illustration ramp instead of dark slabs.
+            float inkToonN=inkFacing+${face ? '.18' : skin ? '.13' : hair ? '-.04' : '-.08'};
+            float inkToonAA=max(fwidth(inkToonN)*2.0,.035);
+            float inkHalfTone=smoothstep(-.32-inkToonAA,.14+inkToonAA,inkToonN);
+            float inkBrightTone=smoothstep(.30-inkToonAA,.85+inkToonAA,inkToonN);
+            float inkToonCast=smoothstep(.10,.90,mix(1.,getShadowMask(),characterRoomEnabled));
+            float inkToonIntensity=${face ? '.83' : skin ? '.80' : hair ? '.76' : '.78'}
+                 +${face ? '.14' : skin ? '.17' : hair ? '.19' : '.18'}*inkHalfTone
+                 +${face ? '.085' : skin ? '.09' : hair ? '.10' : '.09'}*inkBrightTone;
+            inkToonIntensity*=mix(${face || skin ? '.88' : '.85'},1.,inkToonCast);
+            // Pastel shadows, not universal purple-grey. Leave dye/eyes as painted.
+            vec3 inkPastelShadow=${face || skin ? 'vec3(.98,.91,.88)' : hair ? 'vec3(.86,.90,.97)' : 'vec3(.91,.93,.97)'};
+            vec3 inkShadeLight=mix(inkPastelShadow,mix(vec3(1.),roomShadeTint,characterRoomEnabled*.55),inkHalfTone);
+            vec3 inkWarmKey=mix(characterRoomTint,roomSunTint,characterRoomEnabled);
+            vec3 inkIllustrationTint=mix(inkShadeLight,inkWarmKey,inkBrightTone*.72);
+            inkColor=diffuseColor.rgb*inkIllustrationTint*inkToonIntensity*inkBrightness;
+            // Thin colour-preserving drawn contour, not a thick black ring.
+            float inkViewEdge=1.-clamp(abs(dot(normal,normalize(vViewPosition))),0.,1.);
+            float inkFineOutline=smoothstep(.84,.975,inkViewEdge);
+            inkColor*=1.-inkFineOutline*${face ? '.09' : skin ? '.12' : hair ? '.19' : '.16'};
+            ${hair ? `// Broad tinted strand ribbon follows the animated head bone.
+            vec3 inkHairHalf=normalize(inkLight+normalize(vViewPosition));
+            float inkStrandAngle=abs(dot(normalize(inkLocalStrandView),inkHairHalf));
+            float inkHairSurface=max(dot(normal,inkHairHalf),0.);
+            float inkWideSatin=(1.-smoothstep(.17,.83,inkStrandAngle))*smoothstep(.20,.83,inkHairSurface);
+            float inkFineSatin=(1.-smoothstep(.08,.34,inkStrandAngle))*smoothstep(.67,.96,inkHairSurface);
+            vec3 inkHairPigment=sqrt(max(diffuseColor.rgb,vec3(0.)))*vec3(.45,.49,.55);
+            inkColor+=(1.-clamp(inkColor,0.,1.))*inkHairPigment
+                *(inkWideSatin*.24+inkFineSatin*.045)*inkHalfTone*inkToonCast;` : ''}
             ` : ''}
             vec3 inkView = normalize(vViewPosition);
             float inkFresnel = 1.-clamp(abs(dot(normal,inkView)),0.,1.);
             // Material-space edge shaping, not an extra outline mesh/pass.
-            float inkContour = smoothstep(.62,.94,inkFresnel)*${face ? '.035' : '.16'}*(1.-inkLit*.5);
+            float inkContour = smoothstep(.62,.94,inkFresnel)*${style==='illustrated' ? face ? '.008' : hair ? '.035' : '.024' : face ? '.035' : '.16'}*(1.-inkLit*.5);
             inkColor *= 1.-inkContour;
             float inkRim = pow(inkFresnel,4.)*smoothstep(-.15,.65,inkFacing)*${style==='illustrated' ? face ? '.003' : hair ? '.010' : '.006' : face ? '.015' : hair ? '.055' : leather ? '.035' : metal ? '.045' : '.018'};
             ${leather || metal ? `// Restrained material-specific glint; no extra light, texture or pass.
@@ -187,7 +184,7 @@ export function setCharacterIllustration(root:T.Object3D, enabled=true, style=ge
             `,
           );
         };
-        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v10-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
+        material.customProgramCacheKey = () => cacheKey + '-character-illustration-v11-' + style + '-' + face + '-' + skin + '-' + hair + '-' + leather + '-' + metal;
       }
       material.userData.characterIllustration = enabled;
       material.needsUpdate = true;
