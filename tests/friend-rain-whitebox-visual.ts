@@ -82,6 +82,32 @@ try {
  heartScene.innerHTML='<h2>五心与短气泡对齐（双方首条/后续）</h2><div class="beauty-preview-body">'+heartMarkup+'</div>';
  const heartStyle=document.createElement('style');heartStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
  heartScene.prepend(heartStyle);root.append(heartScene);
+
+ // Regression: tiny text bubbles with detached quotes should remain readable
+ // and leave independent space for native timestamp/read status.
+ const quoteScene=document.createElement('section');quoteScene.className='scene';quoteScene.dataset.scene='quote-compact';
+ const replySample={name:'示例角色',content:'一段比较长的引用：保持它在气泡外显示，不要被时间或下一条消息遮挡'};
+ const quoteItems=[
+  {id:40501,role:'assistant' as const,first:true,last:true,reply:true},
+  {id:40502,role:'assistant' as const,first:true,last:true,reply:false},
+  {id:40503,role:'user' as const,first:true,last:true,reply:true},
+  {id:40504,role:'user' as const,first:true,last:true,reply:false},
+ ];
+ const quoteMarkup=renderToStaticMarkup(React.createElement('main',{className:'sully-chat-root sample-chat'},
+  React.createElement('div',{className:'sully-chat-messages sample-messages'},
+   ...quoteItems.map(item=>React.createElement(MessageItem,{
+     msg:{...demo,id:item.id,role:item.role,content:'嗯',replyTo:item.reply?replySample:undefined},
+     activeTheme:preset.parts.bubbles!,friendRainWhitebox:true,
+     charName:'示例角色',charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,
+     isFirstInGroup:item.first,isLastInGroup:item.last,showTimestamp:'always',
+     avatarMode:'grouped',avatarSize:'small',
+     onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,
+     onToggleSelect:()=>{},suppressEntranceAnimation:true
+   }))
+  )));
+ quoteScene.innerHTML='<h2>缩小气泡与独立引用不遮挡</h2><div class="beauty-preview-body">'+quoteMarkup+'</div>';
+ const quoteStyle=document.createElement('style');quoteStyle.textContent=renderChatDecorationSample(preset,'conversation').css;
+ quoteScene.prepend(quoteStyle);root.append(quoteScene);
  const $=(scene:string,selector:string)=>root.querySelector<HTMLElement>('[data-scene="'+scene+'"] '+selector);
 
  const rect=(scene:string,sel:string)=>$(scene,sel)?.getBoundingClientRect();
@@ -147,7 +173,40 @@ try {
   return ok;
  });
 
+
+ // Actual browser rectangles at four widths, for both user and Char.
+ const quoteCompactChecks=[320,360,390,430].every(width=>{
+  const body=quoteScene.querySelector<HTMLElement>('.beauty-preview-body');
+  const app=quoteScene.querySelector<HTMLElement>('.sample-chat');
+  if(!body||!app)return false;
+  const oldBody=body.style.width,oldApp=app.style.width;
+  body.style.setProperty('width',width+'px','important');app.style.width=width+'px';
+  const messages=[...app.querySelectorAll<HTMLElement>('.sully-chat-message')];
+  const pairs:[[number,number],[number,number]]=[[0,1],[2,3]];
+  const ok=messages.length===4&&pairs.every(([i,j])=>{
+   const rootMsg=messages[i],next=messages[j];
+   const bubble=rootMsg.querySelector<HTMLElement>('.sully-bubble-user,.sully-bubble-ai');
+   const quote=rootMsg.querySelector<HTMLElement>('.sully-chat-reply');
+   const stamp=rootMsg.querySelector<HTMLElement>('.sully-chat-message-timestamp');
+   const inner=rootMsg.querySelector<HTMLElement>('.sully-facebook-bubble-text');
+   const nextBubble=next.querySelector<HTMLElement>('.sully-bubble-user,.sully-bubble-ai');
+   if(!bubble||!quote||!stamp||!inner||!nextBubble)return false;
+   const b=bubble.getBoundingClientRect(),q=quote.getBoundingClientRect();
+   const t=stamp.getBoundingClientRect(),n=nextBubble.getBoundingClientRect();
+   const singleLineQuote=q.height<=24&&q.width>60;
+   const quoteNoOverlap=q.top>=b.bottom+3&&t.top>=q.bottom+1&&n.top>=t.bottom+1;
+   const quoteInsideScreen=q.left>=-1&&q.right<=width+1;
+   const compact=getComputedStyle(inner).fontSize==='12px'
+     &&getComputedStyle(inner).lineHeight!=='normal'
+     &&getComputedStyle(bubble).paddingLeft==='9px';
+   return singleLineQuote&&quoteNoOverlap&&quoteInsideScreen&&compact;
+  });
+  body.style.width=oldBody;app.style.width=oldApp;
+  return ok;
+ });
+
  const checks={
+  quoteCompactChecks,
   heartAlignment,
   responsive,
   headerRestored:(rect('conversation','.sully-chat-header')?.height||0)>=135 && (rect('conversation','.sully-chat-header')?.height||0)<=165,
