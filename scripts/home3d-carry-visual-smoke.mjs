@@ -101,6 +101,15 @@ try{
   if(!/^art-[a-z0-9-]+$/.test(name))throw Error('Unsafe illustrated film frame '+name);
   writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
  }
+ for(let i=0;i<(report.zoomImages||[]).length;i++){
+  const src=await evaluate('document.querySelectorAll(".zoom-comparison figure img")['+i+']?.src');
+  if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing zoom A/B screenshot '+i);
+  const name=report.zoomImages[i].name;
+  if(!/^zoom-(wide|close)-(sharp|dreamcore)$/.test(name))throw Error('Unsafe zoom screenshot '+name);
+  writeFileSync(join(out,name+'.png'),Buffer.from(src.slice(src.indexOf(',')+1),'base64'));
+ }
+ if((report.zoomImages||[]).length!==4||!report.zoomStats||report.zoomStats.wideStrength!==0||report.zoomStats.wideDifference>.01)
+  throw Error('Whole-room camera must remain fully sharp without DOF');
  for(let i=0;i<(report.depthGhostImages||[]).length;i++){
   const src=await evaluate('document.querySelectorAll(".depth-ghost-comparison figure img")['+i+']?.src');
   if(!src?.startsWith('data:image/png;base64,'))throw Error('Missing sharp-vs-ghost depth PNG '+i);
