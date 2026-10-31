@@ -26,7 +26,7 @@ try {
  const groupSection=document.createElement('section');
  groupSection.className='scene';
  groupSection.dataset.scene='group-chat';
- const demo={id:18021,role:'assistant' as const,type:'text' as const,charId:'preview',timestamp:1790386860000};
+ const demo={id:18021,role:'assistant' as const,type:'text' as const,charId:'preview',timestamp:1790386860000,content:'红包'};
  const baseGroupProps={
   userAvatar:BEAUTY_PREVIEW_AVATAR,onImageClick:()=>{},selectionMode:false,isSelected:false,
   onToggleSelect:()=>{},onLongPress:()=>{},onReply:()=>{},nameOf:()=>'示例角色',
