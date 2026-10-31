@@ -3646,6 +3646,7 @@ const MessageItem = React.memo(({
            prev.isFirstInGroup === next.isFirstInGroup &&
            prev.isLastInGroup === next.isLastInGroup &&
            prev.activeTheme === next.activeTheme &&
+           prev.friendRainWhitebox === next.friendRainWhitebox &&
            prev.blackWhiteFacebook === next.blackWhiteFacebook &&
            prev.wechatBubble === next.wechatBubble &&
            prev.qqBubble === next.qqBubble &&
