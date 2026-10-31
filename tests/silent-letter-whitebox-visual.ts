@@ -64,6 +64,7 @@ try {
   header:sceneHas('conversation','.sully-chat-header'),
   input:sceneHas('conversation','.sully-chat-inputbar'),
   reply:sceneHas('reply','.sully-chat-reply'),
+  replyContrast:color('reply','.sully-bubble-user .sully-chat-reply','color')==='rgb(238, 238, 238)',
   voice:sceneHas('voice-playing','.sully-voice-bar'),
   transfer:sceneHas('transfer','.sully-chat-transfer-card[data-status="pending"]'),
   accepted:sceneHas('transfer-accepted','.sully-chat-transfer-receipt'),
