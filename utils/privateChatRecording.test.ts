@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { startPrivateChatRecording } from './speechToText';
+import { startPrivateChatRecording, startStt } from './speechToText';
 import { makeUserVoiceMetadata } from './userVoiceMessage';
 import { getVoiceTranscript, normalizeMessageContent } from './messageFormat';
 import type { Message } from '../types';
@@ -87,5 +87,50 @@ describe('private chat real microphone recording', () => {
     expect(normalizeMessageContent(msg, 'Char', '用户')).toBe('[语音]');
     msg.metadata = makeUserVoiceMetadata('我今晚有空', 'recorded');
     expect(getVoiceTranscript(msg)).toBe('我今晚有空');
+  });
+});
+
+describe('real speech-to-text route instead of decorative recording', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('passes recognized Chinese words to the final transcript without inventing audio', async () => {
+    class BrowserRecognizer {
+      static current: BrowserRecognizer | null = null;
+      lang = '';
+      continuous = false;
+      interimResults = false;
+      onaudiostart: (() => void) | null = null;
+      onspeechstart: (() => void) | null = null;
+      onresult: ((event: any) => void) | null = null;
+      onend: (() => void) | null = null;
+      onerror: ((event: any) => void) | null = null;
+      constructor() { BrowserRecognizer.current = this; }
+      start() { this.onaudiostart?.(); }
+      stop() { this.onend?.(); }
+      abort() {}
+    }
+    vi.stubGlobal('window', {
+      SpeechRecognition: BrowserRecognizer,
+      setTimeout: globalThis.setTimeout,
+      clearTimeout: globalThis.clearTimeout,
+    });
+    const partial = vi.fn(), final = vi.fn(), end = vi.fn(), audio = vi.fn();
+    const session = await startStt('zh-CN', {
+      onPartial: partial,
+      onFinal: final,
+      onAudioCaptured: audio,
+      onEnd: end,
+    }, { sttProvider: 'browser' });
+    expect(BrowserRecognizer.current?.lang).toBe('zh-CN');
+    const recognized = Object.assign([{ transcript: '你好，今天有空吗？' }], { isFinal: true });
+    BrowserRecognizer.current?.onresult?.({ resultIndex: 0, results: [recognized] });
+    expect(partial).toHaveBeenCalledWith('你好，今天有空吗？');
+    session.stop();
+    expect(final).toHaveBeenCalledWith('你好，今天有空吗？');
+    expect(end).toHaveBeenCalledTimes(1);
+    expect(audio).not.toHaveBeenCalled(); // browser recognizer provides text, not a recorded audio file
   });
 });
