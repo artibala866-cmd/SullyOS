@@ -74,6 +74,20 @@ describe('built-in QQ bubble visual layout', () => {
     expect(QQ_BUBBLE_CSS).toContain('.sully-voice-bar-transcript');
     expect(QQ_BUBBLE_CSS).not.toContain('.sully-chat-transfer-overlay');
   });
+  it('renders a compact horizontal native payment receipt and safe dark mode', () => {
+    const css = QQ_BUBBLE_CSS;
+    expect(css).toContain('height: 94px !important');
+    expect(css).toContain('.sully-chat-transfer-card > .sully-chat-transfer-amount');
+    expect(css).toContain('.sully-chat-transfer-recipient');
+    expect(css).toContain('@media (prefers-color-scheme: dark)');
+    expect(css).not.toContain('.sully-chat-root.sully-chat-qq {');
+    expect(css).not.toContain('.chat-detail-screen');
+    expect(css).not.toContain('pointer-events: none !important');
+    const component = read('components/chat/MessageItem.tsx');
+    expect(component).toContain('data-status={status}');
+    expect(component).toContain('setOpen(true)');
+    expect(component).toContain('onResolveTransfer?.(m, action)');
+  });
   it('wires QQ through the existing picker, live/streamed messages and preview', () => {
     const chat=read('apps/Chat.tsx');
     const preview=read('components/chat/ChatDecorationSample.tsx');

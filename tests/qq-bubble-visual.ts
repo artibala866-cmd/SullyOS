@@ -47,11 +47,23 @@ quoteSection.innerHTML='<div class="sully-chat-root sully-chat-qq">'+renderToSta
  })
 )+'</div>';
 root.appendChild(quoteSection);
+// Real Chromium geometry is checked, not only DOM existence, before screenshot approval.
+const transferCard = root.querySelector<HTMLElement>('[data-qq-scene="transfer"] .sully-chat-transfer-card');
+const transferBox = transferCard?.getBoundingClientRect();
+const transferGeometryOK = !!transferBox && transferBox.width > 215 && transferBox.width <= 241
+  && transferBox.height >= 93 && transferBox.height <= 96;
+const quoteCard = root.querySelector<HTMLElement>('[data-qq-scene="real-quote"] .sully-qq-quote');
+const quoteContent = root.querySelector<HTMLElement>('[data-qq-scene="real-quote"] .sully-qq-quote-content');
+const quoteVisible = !!quoteCard && !!quoteContent
+  && quoteContent.scrollHeight <= quoteContent.clientHeight + 2
+  && quoteContent.textContent?.includes('完整显示') === true;
 const has = (selector: string) => !!root.querySelector(selector);
 const checks = {
   text: has('.sully-qq-text-message .sully-qq-bubble-text'),
   quoted: has('.sully-qq-quote'),
   transfer: has('.sully-qq-transfer-message .sully-chat-transfer-card'),
+  transferGeometryOK,
+  quoteVisible,
   image: has('.sully-qq-image-message .chat-image-thumbnail'),
   scoped: sections.every(section => !!section.querySelector('.sully-chat-qq')),
 };
