@@ -21,8 +21,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: faint-silk-whitebox-${{ github.ref }}
-  cancel-in-progress: true
+  group: faint-silk-whitebox-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
 jobs:
   verify:
     runs-on: ubuntu-latest
