@@ -96,7 +96,7 @@ try {
 
  const checks={
   responsive,
-  headerCompact:(rect('conversation','.sully-chat-header')?.height||0)<=120 && (rect('conversation','.sully-chat-header')?.height||0)>=100,
+  headerCompact:(rect('conversation','.sully-chat-header')?.height||0)<=95 && (rect('conversation','.sully-chat-header')?.height||0)>=80,
   footerCompact:(rect('conversation','.sully-chat-inputbar')?.height||0)<=83,
   requestLabelsClearOfProfile:(()=>{
     const header=rect('conversation','.sully-chat-header');

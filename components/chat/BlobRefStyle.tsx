@@ -83,6 +83,7 @@ const FRIEND_RAIN_PATCHES=[
  '/* 请求添加好友 · 顶区操作与标签去重叠 v9',
  '/* 请求添加好友 · 原生动作按钮 + 原 SVG 五心 + 用户消息状态 v10',
  '/* 请求添加好友 · 头像与整体尺寸回归 v11',
+ '/* 请求添加好友 · 原文件头部 82px 回归 v12',
 ] as const;
 export function resolveLegacyFriendRequestRainCss(css:string):string {
  if(css.includes(FRIEND_RAIN_BAD))return friendRequestRain.parts.css;
