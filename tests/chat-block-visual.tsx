@@ -41,4 +41,5 @@ try {
  result.width=!!document.querySelector('[role="dialog"]')&&document.querySelector('[role="dialog"]')!.getBoundingClientRect().width<=innerWidth;
  const output=document.createElement('output');output.className='checks';output.textContent=JSON.stringify(result);document.body.append(output);
  host.dataset.ready=Object.values(result).every(Boolean)?'true':'false';
-} catch(e) {host.dataset.ready='false';host.dataset.error=String(e);}
+ host.dataset.blockVisualReady=host.dataset.ready;
+} catch(e) {host.dataset.ready='false';host.dataset.blockVisualReady='false';host.dataset.error=String(e);}
