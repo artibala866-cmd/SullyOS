@@ -1,0 +1,62 @@
+name: Chat tool trace across built-in whiteboxes
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/Chat.tsx'
+      - 'components/chat/ChatToolTrace.tsx'
+      - 'utils/chatToolTraceLayout.test.ts'
+      - 'tests/chat-tool-trace-visual.*'
+      - '.github/workflows/chat-tool-trace-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Tool trace layout and formatter regressions
+        run: pnpm exec vitest run utils/chatToolTraceLayout.test.ts utils/amsgToolTrace.test.ts
+      - name: Build preview CSS
+        run: pnpm run build:chat-preview
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Test mounted messages across 10 themes and 4 mobile widths
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/tool-trace-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:5173/tests/chat-tool-trace-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --window-size=900,1000 --virtual-time-budget=18000 --dump-dom http://127.0.0.1:5173/tests/chat-tool-trace-visual.html > /tmp/tool-trace-dom.txt 2>/tmp/tool-trace-chrome.log || true
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=900,1000 --virtual-time-budget=18000 --screenshot="$GITHUB_WORKSPACE/tool-trace-whiteboxes.png" http://127.0.0.1:5173/tests/chat-tool-trace-visual.html
+          if ! grep -q 'data-ready="true"' /tmp/tool-trace-dom.txt; then
+            grep -o '<output[^>]*>[^<]*</output>' /tmp/tool-trace-dom.txt | head -4 || true
+            tail -60 /tmp/tool-trace-vite.log || true
+            tail -30 /tmp/tool-trace-chrome.log || true
+            exit 1
+          fi
+          test -s tool-trace-whiteboxes.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chat-tool-trace-whitebox-screenshot
+          path: tool-trace-whiteboxes.png
+          retention-days: 7
