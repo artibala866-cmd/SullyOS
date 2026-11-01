@@ -179,7 +179,8 @@ describe('原始学习室 Char 陪伴贯穿每个区域的真实页面接线',()
    expect(proactive).not.toContain('loadWorkspacePrivateChatBlock');
    expect(schedule).toContain('学习室提醒</strong>');
    expect(schedule).toContain('Revalidate the visible cue against freshly confirmed workspace changes');
-   expect(schedule).toContain('current.key!==coachEventByChar[charId]?.key');
+   expect(schedule).toContain('recorded!==current.key');
+   expect(schedule).toContain("!recorded.startsWith(current.key+':resume:')");
    expect(schedule).toContain('autoCoachController.current?.abort()');
  });
 

@@ -74,8 +74,21 @@ export function planIssues(data:WorkspaceData):ExecutionPlanIssue[]{
       issues.push({slotId:slot.id,code:'outside_availability',detail:'不在当天设置的可用时间内'});
     const planned=slots.filter(x=>x.date===slot.date&&validPlanSlot(x))
       .reduce((sum,x)=>sum+planSlotMinutes(x),0);
-    if(planned>data.dailyAvailableMinutes)
-      issues.push({slotId:slot.id,code:'over_capacity',detail:'当天已排时长超出日预算'});
+    const validWindows=sameDay.filter(w=>validPlanSlot(w))
+      .map(w=>({start:timeToMinutes(w.start)!,end:timeToMinutes(w.end)!}));
+    const classWindows=data.classes.filter(c=>!c.cancelled&&c.weekday===date.getDay()&&
+      (!c.until||slot.date<=c.until)&&timeToMinutes(c.start)!==null&&
+      timeToMinutes(c.end)!==null&&timeToMinutes(c.end)!>timeToMinutes(c.start)!)
+      .map(c=>({start:timeToMinutes(c.start)!,end:timeToMinutes(c.end)!}));
+    const classBusy=sameDay.length
+      ? mergedDuration(classWindows.flatMap(c=>validWindows.map(w=>({
+          start:Math.max(c.start,w.start),end:Math.min(c.end,w.end),
+        })).filter(i=>i.end>i.start)))
+      : busyClassMinutesForDay(data.classes,date);
+    const capacity=Math.min(Math.max(0,data.dailyAvailableMinutes),sameDay.length
+      ?mergedDuration(validWindows):1440);
+    if(planned+classBusy>capacity)
+      issues.push({slotId:slot.id,code:'over_capacity',detail:'计划加课程占用已超过当天可用预算'});
   }
   return issues;
 }

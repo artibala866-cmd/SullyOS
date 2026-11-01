@@ -104,3 +104,33 @@ jobs:
           echo "Study room target files have no TypeScript diagnostics."
       - name: Verify production application bundle
         run: pnpm run build
+      - name: Run built site and capture 390px / desktop screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          BROWSER="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          if [ -z "$BROWSER" ]; then echo "No browser installed for real screenshot QA"; exit 1; fi
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/study-preview-server.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/ > /dev/null
+          mkdir -p /tmp/study-room-screenshots
+          timeout 50 "$BROWSER" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --virtual-time-budget=8000 --window-size=390,844 \
+            --screenshot=/tmp/study-room-screenshots/mobile-390.png http://127.0.0.1:4173/
+          timeout 50 "$BROWSER" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --virtual-time-budget=8000 --window-size=1366,768 \
+            --screenshot=/tmp/study-room-screenshots/desktop-1366.png http://127.0.0.1:4173/
+          test -s /tmp/study-room-screenshots/mobile-390.png
+          test -s /tmp/study-room-screenshots/desktop-1366.png
+          echo "STUDY_MOBILE_SCREENSHOT_BASE64=$(base64 -w0 /tmp/study-room-screenshots/mobile-390.png)"
+      - name: Upload study-room screenshots for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: study-room-visual-smoke
+          path: /tmp/study-room-screenshots/*.png
+          retention-days: 7

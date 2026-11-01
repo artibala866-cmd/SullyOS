@@ -102,4 +102,16 @@ describe('排单基础数据', () => {
     expect(planIssues(w).some(x=>x.detail.includes('作业截止时间'))).toBe(true);
   });
 
+  it('排程日预算必须扣除当天课程，不能只看画稿时段总和',()=>{
+    const w=emptyWorkspace();
+    w.dailyAvailableMinutes=60;
+    w.commissions=[{...commission('c','2026-11-07',1),remainingMinutes:30}];
+    w.classes=[{id:'lesson',name:'临摹课',weekday:4,start:'13:00',end:'13:45',until:'',teacher:'',location:'',note:''}];
+    w.availability=[{id:'free',date:'2026-11-05',start:'13:00',end:'16:00'}];
+    w.planSlots=[{id:'slot',kind:'commission',itemId:'c',date:'2026-11-05',start:'14:00',end:'14:30'}];
+    expect(planIssues(w).some(issue=>issue.code==='over_capacity')).toBe(true);
+    w.dailyAvailableMinutes=90;
+    expect(planIssues(w).some(issue=>issue.code==='over_capacity')).toBe(false);
+  });
+
 });
