@@ -19,6 +19,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
+import { settleDeletedMusicInviteCards, notifyDeletedMusicInviteCards } from '../utils/musicInviteDeletion';
 import { MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import {HOME_HISTORY_COMMITTED} from '../utils/secretNote';
 import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
@@ -3368,7 +3369,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // A deleted unanswered user message must not be revived by a pending timer.
         if (selectedMessage.role === 'user' && findPendingUserTurn(messages)?.id === deletedId) autoReply.cancel();
         const providerId = selectedMessage.metadata?.activeMsg2?.messageId;
+        await settleDeletedMusicInviteCards(char.id, [selectedMessage]);
         await DB.deleteMessage(deletedId);
+        notifyDeletedMusicInviteCards(char.id, [selectedMessage]);
         cleanupDeletedUserVoiceAudio([selectedMessage]);
         if (typeof providerId === 'string') pruneDeletedPrivateChatLifeEvents(selectedMessage.charId, [providerId]);
         discardVoiceForMessages([deletedId]);
@@ -3561,8 +3564,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             const deletedProviderIds = messages.filter(m => msgIdsToDelete.has(m.id))
                 .map(m => m.metadata?.activeMsg2?.messageId)
                 .filter((id): id is string => typeof id === 'string' && id.length > 0);
+            const removed = messages.filter(m => msgIdsToDelete.has(m.id));
+            await settleDeletedMusicInviteCards(char.id, removed);
             await DB.deleteMessages(ids);
-            cleanupDeletedUserVoiceAudio(messages.filter(m => msgIdsToDelete.has(m.id)));
+            notifyDeletedMusicInviteCards(char.id, removed);
+            cleanupDeletedUserVoiceAudio(removed);
             pruneDeletedPrivateChatLifeEvents(char.id, deletedProviderIds);
             // The remote AMSG fire_pack contains recent chat text. A batch
             // delete must invalidate its snapshot exactly like single delete.
