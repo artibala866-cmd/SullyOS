@@ -8,6 +8,7 @@ on:
       - 'components/character/HomeFigureStudio.tsx'
       - 'components/PhoneShell.tsx'
       - 'utils/retiredSpecialMomentsEntry.test.ts'
+      - 'utils/homeFigureSource.test.ts'
       - '.github/workflows/figure-studio-regression.yml'
   workflow_dispatch:
 permissions:
