@@ -205,6 +205,28 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
+    it('does not change the character attention decision halfway through the unanswered batch', () => {
+        const profile = {normal:{minSeconds:240,maxSeconds:250},
+            conversation:{minSeconds:3,maxSeconds:4},waiting:{minSeconds:2,maxSeconds:3},
+            occupied:{minSeconds:35,maxSeconds:60}};
+        render({naturalPacing:true,lifeActivity:'free',replyAttention:'normal',replyRhythm:profile});
+        send();
+        const original = JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
+        expect(original.replyAttention).toBe('normal');
+        render({replyAttention:'waiting'});
+        send();
+        const after = JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
+        expect(after.replyAttention).toBe('normal');
+        advance(20_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        act(() => root.unmount());
+        root=createRoot(container);
+        render({replyAttention:'waiting'});
+        expect(JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}').replyAttention).toBe('normal');
+        advance(20_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+    });
+
     it('keeps the LAST saved user send time after unmount instead of treating an old batch as idle', () => {
         render({ naturalPacing: true, lifeActivity: 'free' });
         send();
