@@ -15,7 +15,7 @@ import { resolveBubbleCornerRadii, shouldHideBubbleTail } from '../../utils/bubb
 import { isImageValue, useBlobRefUrl } from '../../utils/blobRef';
 import { buildReplySnapshotContent } from '../../utils/applyAssistantPostProcessing';
 import { stripLeakedSourceTags } from '../../utils/sanitize';
-import { privateChatDeliveryFailure } from '../../utils/chatBlock';
+import ChatBlockDeliveryStatus from './ChatBlockDeliveryStatus';
 import TokenImg from '../os/TokenImg';
 import ChatImage from './ChatImage';
 import UserVoiceBubble from './UserVoiceBubble';
@@ -1133,8 +1133,7 @@ const MessageItem = React.memo(({
 }: MessageItemProps) => {
     const isUser = m.role === 'user';
     const isSystem = m.role === 'system';
-    // 与糯叽机原版一致：红色感叹号属于发送当时的消息元数据，不用当前拉黑关系反算。
-    const deliveryFailure = privateChatDeliveryFailure(m);
+
     const wechatTextMessage = wechatBubble && m.type === 'text' && (m.role === 'user' || m.role === 'assistant') && !voiceData?.url && !voiceLoading && !/<[语語]音[^>]*>/.test(m.content);
     const qqTextMessage = qqBubble && m.type === 'text' && (m.role === 'user' || m.role === 'assistant') && !voiceData?.url && !voiceLoading && !/<[语語]音[^>]*>/.test(m.content);
     const qqVoiceMessage = qqBubble && m.type === 'text' && !isUser && (!!voiceData?.url || !!voiceLoading || /<[语語]音[^>]*>/.test(m.content));
@@ -1784,15 +1783,7 @@ const MessageItem = React.memo(({
                     <div className={`${selectionMode ? 'pointer-events-none' : ''} ${blackWhiteFacebook && m.type === 'text' ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''} ${wechatTextMessage ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''} ${qqTextMessage ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''}`}>
                         {<ChatCardSurface message={m}>{content}</ChatCardSurface>}
                     </div>
-                    {deliveryFailure && (
-                        <span role="img" aria-label={deliveryFailure === 'user-rejected' ? '消息已被对方拒收' : '消息发送失败'}
-                            title={deliveryFailure === 'user-rejected' ? '消息已被对方拒收' : '发送失败'}
-                            data-chat-block-delivery={deliveryFailure}
-                            className={`sully-chat-block-failed absolute top-1/2 -translate-y-1/2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-[#e34b49] text-[12px] font-bold leading-none text-white pointer-events-none ${isUser ? '-left-5' : '-right-5'}`}>
-                            !
-                        </span>
-                    )}
-                    {isLastInGroup && showTimestamp !== 'never' && (
+                    <ChatBlockDeliveryStatus message={m} inlineSide={isUser ? 'left' : 'right'} />                    {isLastInGroup && showTimestamp !== 'never' && (
                         <div className={`sully-chat-message-timestamp absolute top-full ${isUser ? 'right-0' : 'left-0'} mt-0.5 px-1 text-[9px] text-slate-400/80 font-medium whitespace-nowrap pointer-events-none ${showTimestamp === 'hover' ? 'opacity-0 group-hover:opacity-100 transition-opacity' : ''}`}>{formatTime(m.timestamp)}</div>
                     )}
                     </div>
