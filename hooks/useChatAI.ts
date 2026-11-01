@@ -36,7 +36,8 @@ import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
 import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContinuation';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
-import { isPrivateChatBlocked } from '../utils/chatBlock';
+import { isPrivateChatBlocked, allowsCharacterToBlock, changeChatBlock } from '../utils/chatBlock';
+import { buildCharacterBlockAutonomyInstruction, buildPrivateChatBlockHistoryContext, extractCharacterBlockDirective } from '../utils/chatBlockAI';
 import {chatPhonePiggybackPrompt} from '../utils/phoneChatPiggyback';
 import {
     computeStreamPreviewBubbles,
@@ -945,7 +946,16 @@ export const useChatAI = ({
                 payload.fullMessages.splice(insertAt, 0, {role:'system',content:workspaceChatBlock});
             }
             payload.fullMessages.unshift({ role: 'system', content: puffAvatarInstruction + avatarInstruction } as any);
+            // 原版拉黑自主动作仅在当前私聊请求中启用，不修改角色卡、世界书及群聊。
+            const privateBlockInstruction = [
+                buildCharacterBlockAutonomyInstruction(char.chatBlock),
+                buildPrivateChatBlockHistoryContext(char.chatBlock),
+            ].filter(Boolean).join('\n\n');
+            if (privateBlockInstruction && !payload.flags.promptBuildSkipped) {
+                payload.fullMessages.unshift({ role: 'system', content: privateBlockInstruction } as any);
+            }
             const systemPrompt = payload.systemPrompt + puffAvatarInstruction + avatarInstruction
+                + (privateBlockInstruction && !payload.flags.promptBuildSkipped ? '\n\n' + privateBlockInstruction : '')
                 + (workspaceChatBlock ? '\n\n'+workspaceChatBlock : '');
             const cleanedApiMessages = payload.cleanedApiMessages;
             // 在续说补丁和本地/即时对话分流前检查最终历史，不能用补出来的 user 掩盖空上下文。
@@ -2050,7 +2060,8 @@ export const useChatAI = ({
             const puffAvatarMatch = /\{\s*"t"\s*:\s*"set_avatar"\s*,\s*(?:"n"\s*:\s*(-?\d+)|"src"\s*:\s*"user_avatar")\s*\}/i.exec(rawAiContent);
             const withoutPuffAvatar = rawAiContent.replace(/\{\s*"t"\s*:\s*"set_avatar"\s*,\s*(?:"n"\s*:\s*-?\d+|"src"\s*:\s*"user_avatar")\s*\}/gi, '').trim();
             const avatarChoiceMatch = /<char_avatar_choice\s+id=["']([^"']+)["']\s*\/>/i.exec(withoutPuffAvatar);
-            const avatarCleanContent = withoutPuffAvatar.replace(/<char_avatar_choice\s+id=["'][^"']+["']\s*\/>/gi, '').trim();
+            const blockDecision = extractCharacterBlockDirective(withoutPuffAvatar);
+            const avatarCleanContent = blockDecision.text.replace(/<char_avatar_choice\s+id=["'][^"']+["']\s*\/>/gi, '').trim();
             const xhsCaches: XhsCaches = {
                 xsecTokenCache: xsecTokenCacheRef.current,
                 noteTitleCache: noteTitleCacheRef.current,
@@ -2060,7 +2071,7 @@ export const useChatAI = ({
             };
             // 状态在本轮 API 请求期间可能变化：拉黑后不得落入此前请求的迟到回复。
             if (isPrivateChatBlocked(charRef.current?.chatBlock)) return;
-            await replyStep(async () => applyAssistantPostProcessing(avatarCleanContent, {
+            if (avatarCleanContent) await replyStep(async () => applyAssistantPostProcessing(avatarCleanContent, {
                 replyRun,
                 char,
                 userProfile,
@@ -2097,6 +2108,15 @@ export const useChatAI = ({
                 skipSecondPassLLM: false,
                 directives: [],
             }));
+            // 原版 [BLOCK_USER:原因] 是模型的独立行为，不当成聊天气泡。
+            // 只有后处理成功、角色权限仍有效且未被另一方向拉黑时才正式保存状态。
+            if (blockDecision.reason && !replyRun.signal.aborted && charRef.current?.id === char.id) {
+                await updateCharacter(char.id, previous => ({
+                    chatBlock: allowsCharacterToBlock(previous.chatBlock) && !isPrivateChatBlocked(previous.chatBlock)
+                        ? changeChatBlock(previous.chatBlock, 'character', true, { reason: blockDecision.reason!, source: 'ai' })
+                        : previous.chatBlock,
+                }));
+            }
             if (puffAvatarMatch) {
                 try {
                     const requestedNumber = puffAvatarMatch[1] === undefined ? null : Number(puffAvatarMatch[1]);
