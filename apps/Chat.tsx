@@ -3,6 +3,7 @@ import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { resolveRealPersonAttention } from '../utils/realPersonReplyRhythm';
 import { findPendingUserTurn } from '../utils/chatContinuation';
+import { findPendingRealPersonUserTurn } from '../utils/realPersonReplyTurn';
 import { isRealPersonModeEnabled, setRealPersonModeEnabled, shouldAutoReplyToUser } from '../utils/realPersonMode';
 import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
@@ -4027,7 +4028,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             // The intent stays durable while this DB read is in flight. If the
             // page hides before verification, retry on the next visible turn.
             const target = char?.id;
-            const latestLocal = findPendingUserTurn(messages);
+            const latestLocal = findPendingRealPersonUserTurn(messages);
             if (!target || activeCharIdRef.current !== target || !latestLocal) return 'discard';
             const manualRevision = manualChatGenerationRevisionRef.current;
             let fresh: Message[];
@@ -4035,8 +4036,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             catch { return 'retry'; }
             if (activeCharIdRef.current !== target || document.hidden || stillEligible?.() === false) return 'retry';
             if (manualChatGenerationRevisionRef.current !== manualRevision) return 'discard';
-            const latestPersisted = findPendingUserTurn(fresh);
-            if (!latestPersisted || latestPersisted.id !== latestLocal.id) return 'discard';
+            const latestPersisted = findPendingRealPersonUserTurn(fresh);
+            if (!latestPersisted) return 'discard'; // Already answered or withdrawn.
+            if (latestPersisted.id !== latestLocal.id) return 'retry'; // Newer saved user turn; never lose it.
             // App-generated system events (music invitations, resolutions,
             // other interactive cards) never become private-chat auto replies.
             // A previously saved auto-reply intent must not resurrect them.
@@ -4050,7 +4052,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             // chatContinuation logic recognize later scheduled proactive notes.
             const lastUserIndex = messages.findIndex(m => m.id === latestLocal.id);
             if (lastUserIndex < 0) return 'discard';
-            triggerAI(messages.slice(0, lastUserIndex + 1));
+            // Busy locks must not consume an otherwise valid user reply intent.
+            const outcome = await triggerAI(messages.slice(0, lastUserIndex + 1), undefined,
+                { automaticUserReply: true });
+            return outcome === 'busy' ? 'retry' : 'discard';
         },
     });
     // Together-listening invitations have their own immediate action responder
