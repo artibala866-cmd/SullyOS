@@ -3,14 +3,14 @@ import { canRealPersonContact, shouldAutoReplyToUser, isRealPersonModeEnabled, s
 
 describe('真人感与主动消息的唯一触发权限', () => {
   const role = (enabled: boolean) => ({ activeMsg2Config: { enabled } }) as any;
-  it('旧用户没有明确开启时不因升级自动消耗 API', () => {
+  it('旧存档保持原版开启默认值及显式关闭优先', () => {
     const store = new Map<string, string>();
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, val: string) => { store.set(key, val); },
     });
     try {
-      expect(isRealPersonModeEnabled()).toBe(false);
+      expect(isRealPersonModeEnabled()).toBe(true);
       setRealPersonModeEnabled(true);
       expect(isRealPersonModeEnabled()).toBe(true);
       setRealPersonModeEnabled(false);
