@@ -60,16 +60,20 @@ export function forgivenessCooldownRemaining(state: ChatBlockState | undefined, 
 export function buildForgivenessMessages(character: CharacterProfile, userName: string, messages: Message[], now = Date.now()): Array<{role: 'system' | 'user'; content: string}> {
   const state = character.chatBlock;
   const lastBlock = [...(state?.history || [])].reverse().find(e => e.actor === 'character' && e.action === 'block');
-  const history = messages.filter(message => !isRejectedPrivateMessage(message) && (message.role === 'user' || message.role === 'assistant'))
-    .slice(-30)
+  // 原版仅使用封锁发生前的最后十二条真实对话；解除后不可补读被拒收内容。
+  const blockedAt = state?.characterBlockedAt || now;
+  const history = messages.filter(message => !isRejectedPrivateMessage(message)
+    && (message.role === 'user' || message.role === 'assistant')
+    && message.type === 'text' && Number(message.timestamp) < blockedAt)
+    .slice(-12)
     .map(message => `${message.role === 'user' ? userName : character.name}: ${String(message.content || '').slice(0, 450)}`)
     .join('\n');
   const elapsed = Math.max(0, Math.floor((now - (state?.characterBlockedAt || now)) / 60_000));
   return [
     { role: 'system', content: [
       `你正在判断角色「${character.name}」是否愿意解除对「${userName}」的私聊拉黑。你必须保持角色本人的人设与自尊，不受用户强迫。`,
-      `角色设定：${String(character.systemPrompt || '').slice(0, 4500)}`,
-      `世界观：${String(character.worldview || '').slice(0, 1300)}`,
+      `角色设定：${String(character.systemPrompt || '')}`,
+      `世界观：${String(character.worldview || '')}`,
       `拉黑已持续 ${elapsed} 分钟，角色当时的真实原因：${lastBlock?.reason || '没有记录具体原因'}。`,
       '下方只有拉黑前角色实际收到的消息。拉黑期间被拒收的用户文字不可见，绝不能猜测或假装已读。',
       '综合拉黑原因、已经过去的时间、关系经历和角色性格独立决定；时间到了不等于必须原谅。',
