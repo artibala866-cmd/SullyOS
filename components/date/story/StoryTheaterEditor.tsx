@@ -89,7 +89,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             <div className='h-16 px-4 flex items-center gap-3'>
                 <button onClick={onCancel} className='w-9 h-9 rounded-full grid place-items-center'><ArrowLeft size={20} /></button>
                 <div><div className='text-[9px] tracking-[.24em] uppercase font-bold text-violet-500'>Story setup</div><div className='font-semibold'>{initial.title ? '调整剧情沙盒' : '新增剧情'}</div></div>
-                <button onClick={save} disabled={saving} className='ml-auto h-9 px-4 rounded-full bg-slate-900 text-white text-xs font-bold disabled:opacity-30'>{saving ? '保存中' : '保存并进入'}</button>
+                <button onClick={save} disabled={saving} className='story-setup-save ml-auto h-9 px-4 rounded-full bg-slate-900 text-white text-xs font-bold disabled:opacity-30'>{saving ? '保存中' : '保存并进入'}</button>
             </div>
         </header>
         {saveError && <p role='alert' className='shrink-0 px-5 py-2 text-xs text-rose-600 bg-rose-50'>{saveError}</p>}
@@ -116,7 +116,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>03 / Memory</div><h2 className='mt-1 text-lg font-semibold'>这段故事是真的吗</h2>
                 <div className='mt-4 grid grid-cols-2 p-1 rounded-xl bg-slate-200'><button disabled={maskLocked} onClick={() => setDraft(current => ({ ...current, mask: { type: 'user' }, writesToCharacterMemory: true, carryCharacterMemory: true, updatedAt: Date.now() }))} className={`py-3 rounded-lg text-[11px] font-bold disabled:opacity-35 ${draft.writesToCharacterMemory ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>真实时间陪伴</button><button disabled={maskLocked} onClick={() => setDraft(current => ({ ...current, writesToCharacterMemory: false, carryCharacterMemory: false, updatedAt: Date.now() }))} className={`py-3 rounded-lg text-[11px] font-bold disabled:opacity-35 ${!draft.writesToCharacterMemory ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>虚构剧场</button></div>
                 {maskLocked && <p className='mt-2 text-[10px] text-slate-400'>故事开始后，真实/虚构模式也会固定；虚构剧场的记忆输入仍可单独调整。</p>}
-                {draft.writesToCharacterMemory ? <div className='mt-5 p-4 rounded-2xl bg-amber-50 border border-amber-200'>
+                {draft.writesToCharacterMemory ? <div className='story-memory-live-card mt-5 p-4 rounded-2xl bg-amber-50 border border-amber-200'>
                     <div className='text-xs font-bold text-amber-800'>记忆输入与输出都会开启</div>
                     <p className='mt-1 text-[10px] leading-5 text-amber-700'>会读取角色既有记忆；你写的内容与故事正文也会分别进入每位角色的正常记忆，作为你们的共同经历。</p>
                     <p className='mt-2 text-[10px] leading-5 text-amber-700'>跟随真实时间：你的输入和角色回复会按各自实际发送的时间记录，无需设置日期。正文中的虚构日期不会改变聊天记录的时间与顺序；如果不希望故事成为共同记忆，请在开始前选择「虚构剧场」。</p>
@@ -162,7 +162,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 <div className='mt-2 flex items-end justify-between gap-4'><div><h2 className='text-lg font-semibold'>静态配置预算</h2><p className='mt-1 text-[10px] leading-5 text-slate-500'>这里只比较角色、世界书、预设与归档；剧场内会按续写实际使用的完整上下文统计历史、召回和本轮输入。</p></div><strong className='text-2xl font-serif'>{Object.values(tokenPreview).reduce((sum, value) => sum + value, 0).toLocaleString()}</strong></div>
                 <div className='mt-4 grid grid-cols-4 gap-2'>{Object.entries({ '角色': tokenPreview.actor, '世界书': tokenPreview.book, '预设': tokenPreview.preset, '归档': tokenPreview.archive }).map(([label, value]) => <div key={label} className='py-3 rounded-xl bg-white border border-slate-200 text-center'><div className='text-[9px] text-slate-400'>{label}</div><div className='mt-1 text-xs font-bold'>{value.toLocaleString()}</div></div>)}</div>
             </section>
-            <button onClick={save} disabled={saving} className='w-full py-4 rounded-2xl bg-slate-900 text-white text-sm font-bold disabled:opacity-30'>{saving ? '正在保存……' : '保存并进入剧情'}</button>
+            <button onClick={save} disabled={saving} className='story-setup-save w-full py-4 rounded-2xl bg-slate-900 text-white text-sm font-bold disabled:opacity-30'>{saving ? '正在保存……' : '保存并进入剧情'}</button>
         </div></main>
     </div>;
 };
