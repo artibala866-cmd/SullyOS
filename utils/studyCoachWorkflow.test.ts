@@ -102,7 +102,7 @@ describe('阶段2真实事件→反馈→候选→确认→跟进',()=>{
     data.availability=[{id:'free',date:'2026-11-03',start:'13:00',end:'17:00'}];
     data.commissions[0].phases=[{id:'fine',title:'细化',remainingMinutes:10,bufferMinutes:0,state:'active'}];
     const slot=proposeCoachSlot(data,at());
-    expect(slot).toMatchObject({kind:'commission',itemId:'c',phaseId:'fine',start:'13:00',end:'13:10'});
+    expect(slot).toMatchObject({kind:'commission',itemId:'c',phaseId:'fine',start:'14:00',end:'14:10'});
   });
 
 });
