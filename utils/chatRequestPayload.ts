@@ -1,4 +1,5 @@
 import { getMemoryPalaceHighWaterMarkForContext, selectCharacterContextMessages } from './chatContextRange';
+import { isRejectedPrivateMessage } from './chatBlock';
 import { expandHomeContextHistory } from './homeContextSegments';
 /**
  * 聊天请求载荷统一构造器
@@ -258,10 +259,11 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     );
     // 正文、召回、世界书扫描和识图共用可见范围；UI 近窗可能仍缓存着范围外旧消息。
     const contextHighWaterMark = input.contextHighWaterMark ?? getMemoryPalaceHighWaterMarkForContext(char.id);
-    const selectedHistory = selectCharacterContextMessages(historyMsgs, char, contextHighWaterMark);
+    const selectedHistory = selectCharacterContextMessages(historyMsgs, char, contextHighWaterMark)
+        .filter(message => !isRejectedPrivateMessage(message));
     const visibleIds = new Set(selectedHistory.map(message => message.id));
     const rawRecentMsgsHint = input.recentMsgsHint && !isChatConversationEntry(input.recallEntryPoint)
-        ? input.recentMsgsHint.filter(message => visibleIds.has(message.id))
+        ? input.recentMsgsHint.filter(message => visibleIds.has(message.id) && !isRejectedPrivateMessage(message))
         : selectedHistory;
     const useVisionDescriptions = input.visionApiConfig?.enabled === true;
     let historyMsgsForPrompt = selectedHistory;
