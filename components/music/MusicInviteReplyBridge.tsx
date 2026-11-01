@@ -137,7 +137,15 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
                 } catch { /* One mounted bridge still serializes this tab. */ }
                 let busy = false;
                 try {
-                    const outcome = await triggerAI(history.slice(-200), undefined, { immediateMusicInvite: true });
+                    // A scheduled proactive bubble may have arrived after the
+                    // invitation. Do not send that assistant tail into the
+                    // normal continuation adapter: it would inject a fake
+                    // "please keep talking" user turn instead of answering
+                    // this actual music invitation.
+                    const invitationIndex = history.findIndex(m => m.id === current.messageId);
+                    if (invitationIndex < 0) { finish(); return; }
+                    const outcome = await triggerAI(history.slice(0, invitationIndex + 1).slice(-200),
+                        undefined, { immediateMusicInvite: true });
                     busy = outcome === 'busy';
                     if (busy) {
                         // Another private reply won the lease after our first
