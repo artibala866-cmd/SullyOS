@@ -34,7 +34,7 @@ function calling（例如携带 `tools` 就报 401），关闭它后首轮会直
 | **自己的 Cloudflare Worker** | 云端 MCP + 手机/不想在电脑跑东西 | 部署 [`worker/mcp-proxy/`](../worker/mcp-proxy/README.md) 到**自己的** CF 账号，代理 URL 填 Worker 地址，建议设 `PROXY_KEY` 防白嫖 |
 
 代理约定统一为 `<代理URL>?target=<url-encoded 服务器URL>`（可选 `X-Proxy-Key` 头）。
-**刻意不走中心 sfworker**：MCP 流量含用户的 Bearer Token / 自定义鉴权头，不应该经过项目方服务器。
+**通用 MCP 刻意不走中心 Worker**：用户自配 MCP 的 Bearer Token / 自定义鉴权头不会经过项目方服务器。唯一特例是设置 → 实时感知 →「电影与剧集 · Orca」的原作者公开免 Key 服务（固定地址 `https://orca-mcp.mmdju.workers.dev/mcp`）：在浏览器直连网络/CORS 失败时，自动通过糯米机 Worker 的固定路径 `/mcp/orca` 重试。此路由不接受 Token 或自定义鉴权头，不是任意目标代理；用户改了 Orca 地址、添加凭据或填写了自己的代理后不触发公共回退。需要先将更新后的 `worker/index.js` 部署到实际运行的 `proxy.friedsully.com` Worker，GitHub 静态网页更新本身不会部署这个 Worker。若公开服务本身离线，中转不会伪造成功。
 
 ## 代码地图
 
