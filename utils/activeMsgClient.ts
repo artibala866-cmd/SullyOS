@@ -7,6 +7,7 @@ import { loadCharacterContextMessages } from './chatContextRange';
 import { ReiClient } from '@rei-standard/amsg-client';
 import { createCloudDataSession } from './amsgCloudData';
 import {autonomyWakeUuid} from './amsgAutonomyIdentity';
+import { isRealPersonModeEnabled, REAL_PERSON_AUTONOMY_INSTRUCTION } from './realPersonMode';
 import { captureCloudOwnerGenerations, rememberCloudOwnerGeneration, stampCloudWrite, captureCloudWriteCheck, invalidateCloudOwnerWrites } from './amsgCloudOwnerGeneration';
 import {
   ActiveMsg2CharacterConfig,
@@ -702,18 +703,16 @@ const buildTimeGapHint = async (charId: string) => {
 // 文案模板本身仍在前端这份代码里维护。
 // includeTime：角色关掉「时间感知」时，这一段里报钟的两行连槽位一起不进模板
 // （见 buildFirePack 的同名判断）。
-const buildLegacyStyleProactiveHint = (targetName: string, includeTime: boolean) => {
+const buildContactContextHint = (targetName: string, includeTime: boolean) => {
   const target = targetName || '对方';
-
   return [
-    '【1.0 风格主动消息提示】',
+    '【主动联系的实际语境】',
     ...(includeTime ? [`现在是 ${AMSG_SLOT_CURRENT_TIME}。`, AMSG_SLOT_AWAY_HINT] : []),
-    `这不是 ${target} 正在和你聊天，而是你突然想起了 ${target}，想主动发条消息给他/她。`,
-    `像真人随手发消息一样自然一点，可以是分享刚看到的东西、轻轻吐槽、问一句近况、突然想念，或者单纯想找 ${target} 聊两句。`,
-    `${target} 不在的这段时间，你自己的日子也在往前过：刚发生的小事、注意到的细节、对之前聊过的话冒出来的后续想法，都比干巴巴的问候更像你。`,
-    '不要写成汇报近况，不要像在完成任务，也不要解释自己为什么会发这条消息。',
-    `关心别变成查岗：不催问 ${target} 在干嘛、怎么还不回；喝水、早睡这类叮嘱偶尔一句是心意，回回都发就成了说教。`,
-    `正文尽量短，通常 1 到 2 句就够；如果 ${target} 很久没来找你，可以轻轻带一点想念、好奇或者小小抱怨。`,
+    `这不是对 ${target} 刚发消息的回复。只有确有具体缘由、符合角色生活和关系时才主动联系。`,
+    '用户明确约定的任务按约定执行；自主联系机会则允许不发。这两者不是一回事。',
+    '最近聊天已结束的内容不要机械重提；日程与网络见闻未经真实确认不能编成已发生的事实。',
+    '不要为了维持活跃而空泛关心、查岗、突然转话题、例行问候，或用固定短句模板敷衍。',
+    '表达的长短、语气和是否沉默，由角色设定、当下事实及实际任务决定。',
   ].join('\n');
 };
 
@@ -807,7 +806,7 @@ export const buildFirePack = async (
         songPool: buildSongPool(char).map((s) => ({ id: s.id, name: s.name, artists: s.artists })),
       }
     : null;
-  const legacyHint = buildLegacyStyleProactiveHint(userProfile.name || '对方', timeAware);
+  const contactHint = buildContactContextHint(userProfile.name || '对方', timeAware);
   // 前台每轮都注入的时差说明（「你身处 X 时区……对方可能在不同时区」）。它是静态文案、
   // 不随时间变，所以打包时就烤进模板；到点由 AMSG_SLOT_USER_CLOCK 补上「对方那边现在
   // 几点」。fire 侧的角色设定是 skipTimeAwareness 建的，整块时间感知都被抹掉了，
@@ -860,10 +859,10 @@ export const buildFirePack = async (
     '【重要规则】',
     '- 这不是回复用户刚刚发来的消息，而是角色主动来找用户聊天。',
     '- 输出只能是最终要发送的消息正文，不要解释，不要写分析，不要加引号。',
-    '- 像真实聊天一样简短自然，优先 1 到 2 句，最多 3 句。',
+    '- 表达长短由角色本来性格与实际内容决定，不为了形式硬凑话题或气泡。',
     '- 可以用换行拆成多个聊天气泡，但不要写时间戳、名字前缀、系统提示。',
     '- 不要出现“作为AI”“系统提示”等元话语。',
-    '- 语气更像真人突然想起对方时发来的私聊，不要像在完成任务。',
+    '- 真实、具体、符合角色就表达；没自然契机时允许沉默，不要像在完成任务。',
     '- 角色设定里描述的查记忆、读日记、联网搜索、逛小红书等能力照常可用：需要时正常输出对应标签，系统会取回结果后让你继续写。',
     ...(recallHint ? [recallHint] : []),
     '',
@@ -893,7 +892,7 @@ export const buildFirePack = async (
     // 一样由 worker 到点现拉现填，拉不到就整段消失。
     `${timeAware ? AMSG_SLOT_TIME_SINCE_USER : ''}${AMSG_SLOT_TASK_LIST}${AMSG_SLOT_REALTIME_WORLD}`,
     '',
-    legacyHint,
+    contactHint,
     '',
     '【本次任务】',
     AMSG_SLOT_TASK_INSTRUCTION,
@@ -1439,7 +1438,7 @@ const buildLimitsEntry = (char: CharacterProfile, updatedAt: number) => ({
   namespace: amsgStateNamespace(char.id),
   owner: { type: 'character', id: char.id, label: char.name },
   key: AMSG_LIMITS_KEY,
-  value: JSON.stringify(buildAmsgLimitsRecord(char.activeMsg2Config, isAmsg2EnabledForChar(char))),
+  value: JSON.stringify(buildAmsgLimitsRecord(char.activeMsg2Config, isAmsg2EnabledForChar(char), isRealPersonModeEnabled() && isAmsg2EnabledForChar(char))),
   updatedAt,
 });
 
@@ -2561,16 +2560,8 @@ export const ActiveMsgClient = {
       const activeApi = resolveApiConfig(char, config, apiConfig);
       // 「本次任务」指令随任务 metadata 走，worker 到点拿它填 fire_pack 的指令槽。
       payload.metadata.amsgTaskInstruction = task.autonomyWakeSlot
-        ? [
-            '【自主联系机会·非用户设置的闹钟】',
-            '这是你生活中想起对方的机会；不必当成必须完成的任务。',
-            '参考最新实际对话。已结束的话题不要追问，不要再问已经吃完饭的人吃饭了吗。',
-            '有真正在意的事、生活里的新发现或自然想分享的东西时，可以主动发一两句。',
-            '需要时可使用已经真实接通的小红书等工具，搜索或浏览后分享；未调用绝不可谎称看过。',
-            '若当下还在忙或睡觉，或者没话想说，就只输出 [[SILENT]]，不要附加解释。',
-            '不要告诉用户有定时器、任务、系统开关或后台。',
-          ].join('\n')
-        : buildTaskInstruction(task.mode, task.promptHint);
+         ? REAL_PERSON_AUTONOMY_INSTRUCTION
+         : buildTaskInstruction(task.mode, task.promptHint);
       // 服务端要求「completePrompt 或 messages」二选一，且 messages 必须非空、
       // content 必须非空字符串，所以这里给一条占位。到点真正发给 LLM 的 messages 由
       // worker 的 onBeforeFire 返回值覆盖（库用 { ...payload, messages } 调 LLM），
