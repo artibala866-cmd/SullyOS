@@ -46,7 +46,7 @@ try{
  if(passed){
   await send('Runtime.evaluate',{expression:"document.querySelector('.home-figure-save').click()"});
   for(let i=0;i<25;i++){
-   const response=await send('Runtime.evaluate',{expression:"JSON.stringify({saved:document.body.dataset.figureSaved,studioVisible:!![...document.querySelectorAll('h2')].find(e=>e.textContent?.includes('QQ捏人 · 手办柜')),figureVisible:document.body.textContent?.includes('编辑家园手办'),errors:[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent)})",returnByValue:true});
+   const response=await send('Runtime.evaluate',{expression:"JSON.stringify({saved:document.body.dataset.figureSaved,studioVisible:!![...document.querySelectorAll('h2')].find(e=>e.textContent?.includes('QQ捏人 · 手办柜')),figureVisible:document.body.textContent?.includes('重新捏'),errors:[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent)})",returnByValue:true});
    saveStatus=JSON.parse(response?.result?.value??'{}');
    if(saveStatus.saved==='true'&&saveStatus.studioVisible&&saveStatus.figureVisible){savedBack=true;break;}
    await delay(300);

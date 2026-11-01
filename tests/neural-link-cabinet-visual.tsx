@@ -38,7 +38,7 @@ try{
   </OSPreviewProvider>
  ));
  if(scene==='source'||scene==='editor'){
-  const edit=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.includes('编辑家园手办')||b.textContent?.includes('捏一个家园手办'));
+  const edit=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.includes('重新捏')||b.textContent?.includes('捏这只'));
   flushSync(()=>edit?.click());
   if(scene==='editor'){
     const resume=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.includes('继续编辑当前家园形象'));
