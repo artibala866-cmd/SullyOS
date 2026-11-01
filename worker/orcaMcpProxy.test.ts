@@ -55,7 +55,7 @@ describe('Orca MCP 安全中转', () => {
     });
 
     it('SSE 不改写，原封不动传回客户端并维持状态码', async () => {
-        const sse = 'event: message\\ndata: {"jsonrpc":"2.0","id":1,"result":{"tools":[]}}\\n\\n';
+        const sse = 'event: message\ndata: {"jsonrpc":"2.0","id":1,"result":{"tools":[]}}\n\n';
         vi.stubGlobal('fetch', vi.fn(async () => new Response(sse, {
             status: 200, headers: { 'Content-Type': 'text/event-stream' },
         })));
