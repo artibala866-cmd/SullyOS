@@ -1712,10 +1712,10 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
 
       if (looksLikeAssistantText) {
         try {
-          // 只有动作没有正文时，无需运行文本后处理，也不写一条空白气泡。
-          if (!onlyInternalBlockAction) {
-            await replyStep(async () => processInboxMessageWithPostProcessing(inboxBody, persistTimestamp, replyRun, typingController.signal));
-          }
+          // 即使本段仅含内部动作，仍必须运行原收件后处理：
+          // 情绪结论、任务销账、段落顺序和记忆尾处理不能因拉黑被跳过。
+          // 纯空文本由原有后处理的可显示内容检查决定是否落库。
+          await replyStep(async () => processInboxMessageWithPostProcessing(inboxBody, persistTimestamp, replyRun, typingController.signal));
           if (instantBlockDecision.action) {
             const latest = await replyStep(() => DB.getCharacter(message.charId));
             if (instantBlockDecision.action.kind === 'block' && latest && allowsCharacterToBlock(latest.chatBlock) && !isPrivateChatBlocked(latest.chatBlock)) {
