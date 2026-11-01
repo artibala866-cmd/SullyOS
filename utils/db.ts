@@ -4331,6 +4331,8 @@ export const DB = {
           await putItems(STORE_MESSAGES, data.messages || [], '聊天记录', true);
           data.messages = undefined as any;
       }, data.messages?.length || 0);
+      // Any read during restore may cache the old repair result; invalidate even when later sections fail.
+      invalidateStoryTimelineRepair(db);
 
       await runSection('聊天主题', data.customThemes !== undefined, async () => {
           await mergeStore(STORE_THEMES, data.customThemes, '聊天主题', true);
