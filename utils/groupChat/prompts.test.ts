@@ -83,6 +83,15 @@ describe('群聊中的 U 与关系连续性', () => {
         expect(prompt).toContain('不要让所有人重复同一种态度');
     });
 
+    it('关闭私聊互通时，两个群聊生成模式都不假装看过私聊', () => {
+        const director = buildDirectorInstruction(history, '无', false);
+        const roundRobin = buildRoundRobinInstruction('小夏', history, '无', false);
+        expect(director).toContain('本群已关闭私聊互通');
+        expect(director).not.toContain('检查每个角色的 [私聊空窗期]');
+        expect(roundRobin).toContain('本群关闭私聊互通');
+        expect(roundRobin).not.toContain('检查 [私聊空窗期]');
+    });
+
     it('轮询模式允许自然沉默，并要求成员从自己与 U 的关系出发', () => {
         const prompt = buildRoundRobinInstruction('小夏', history, '无');
 

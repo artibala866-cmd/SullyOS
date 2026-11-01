@@ -20,6 +20,14 @@ describe('群聊背景注入 · 发言人真实标注', () => {
         expect(getCharNameById(null)).toBeNull();
     });
 
+    it('关闭本群私聊互通时，私聊不得再读取这个群的消息', async () => {
+        await DB.saveMessage({ charId: 'user', groupId: 'g-private-off', role: 'user', type: 'text', content: '只属于关掉的群的暗号ABC' } as any);
+        const closed = [{ id: 'g-private-off', name: '已关闭互通', members: ['char-a'], privateChatSyncEnabled: false }] as any;
+        const parts = await ChatPrompts.buildSystemPromptParts(charA, userProfile, closed, [], [], []);
+        expect(parts.volatileState).not.toContain('暗号ABC');
+        expect(parts.volatileState).not.toContain('已关闭互通');
+    });
+
     it('注入块标注：用户名 / 你（自己） / 真实成员名 / 未知兜底群友', async () => {
         setCharNameRegistry([
             { id: 'char-a', name: '阿一' },

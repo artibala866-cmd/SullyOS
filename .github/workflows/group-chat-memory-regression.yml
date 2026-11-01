@@ -1,0 +1,47 @@
+name: Group and private memory sync regression
+
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/GroupChat.tsx'
+      - 'types.ts'
+      - 'utils/chatPrompts.ts'
+      - 'utils/chatPrompts.groupContext.test.ts'
+      - 'utils/groupChat/**'
+      - '.github/workflows/group-chat-memory-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sully-group-private-memory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test group/private memory and existing group behavior
+        run: pnpm exec vitest run utils/groupChat/timeline.test.ts utils/groupChat/prompts.test.ts utils/chatPrompts.groupContext.test.ts utils/groupChat/dispatch.test.ts utils/contextWorldbook.test.ts
+      - name: Check TypeScript diagnostics for changed code
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/group-memory-tsc.log 2>&1 || true
+          grep -E '^(apps/GroupChat.tsx|types.ts|utils/chatPrompts.ts|utils/groupChat/(timeline|prompts)(\.test)?\.ts|utils/chatPrompts.groupContext.test.ts)[(]' /tmp/group-memory-tsc.log > /tmp/group-memory-target-errors.log || true
+          if [ -s /tmp/group-memory-target-errors.log ]; then
+            cat /tmp/group-memory-target-errors.log
+            exit 1
+          fi
