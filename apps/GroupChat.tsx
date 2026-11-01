@@ -867,7 +867,7 @@ const GroupChat: React.FC = () => {
             // 立即丢弃旧的群记忆召回缓存；授权变更后下一轮由当前权限重建，
             // 不改角色卡/世界书，也不清空长期记忆节点。
             for (const memberId of activeGroup.members) {
-                updateCharacter(memberId, { memoryPalaceInjection: '' });
+                updateCharacter(memberId, { memoryPalaceInjection: '', roomPlatesInjection: '' });
             }
         }
         if (activeGroup.privateChatSyncEnabled !== updates.privateChatSyncEnabled ||
@@ -942,6 +942,12 @@ const GroupChat: React.FC = () => {
             updateCharacter(memberId, { memoryPalaceInjection: '' });
         }
         await deleteGroup(id);
+        // 删除群后不能复用以前的宫殿检索缓存；下轮按剩余群的最新权限重建。
+        if (targetGroup) {
+            for (const memberId of targetGroup.members) {
+                updateCharacter(memberId, { memoryPalaceInjection: '', roomPlatesInjection: '' });
+            }
+        }
         if (activeGroup?.id === id) setView('list');
         addToast('群聊已解散', 'success');
     };
