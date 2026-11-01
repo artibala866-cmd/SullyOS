@@ -17,7 +17,7 @@ import {
 } from '../../utils/musicInviteStatus';
 import type { Emoji, EmojiCategory } from '../../types';
 
-type Invite = { charId: string; messageId: number };
+type Invite = { charId: string; messageId: number; enqueuedAt?: number };
 const RECOVERY_WINDOW_MS = 2 * 60_000;
 const ATTEMPT_KEY = 'sully_music_invite_immediate_attempt_v1:';
 const inviteKey = (item: Invite) => item.charId + ':' + item.messageId;
@@ -49,7 +49,7 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
 
     const enqueue = useCallback((item: Invite) => {
         if (!item.charId || !Number.isSafeInteger(item.messageId) || item.messageId <= 0) return;
-        setQueue(prev => prev.some(p => inviteKey(p) === inviteKey(item)) ? prev : [...prev, item]);
+        setQueue(prev => prev.some(p => inviteKey(p) === inviteKey(item)) ? prev : [...prev, { ...item, enqueuedAt: Date.now() }]);
     }, []);
     const refresh = useCallback(async (charId: string) => {
         if (!charId) return;
@@ -103,7 +103,9 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
             if (!stopped) retryTimer = setTimeout(() => setRetry(n => n + 1), 1200);
         };
         const run = async () => {
-            if (!library || !char || char.id !== current.charId) { defer(); return; }
+            if (Date.now() - (current.enqueuedAt ?? Date.now()) >= RECOVERY_WINDOW_MS) { finish(); return; }
+            if (!char || char.id !== current.charId) { finish(); return; }
+            if (!library) { defer(); return; }
             if (isPrivateChatBlocked(char.chatBlock)) { finish(); return; }
             const api = resolveDialogueApi(apiConfig, char);
             if (!api.baseUrl || !api.model) { finish(); return; }
@@ -129,9 +131,19 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
                     if (localStorage.getItem(key)) { finish(); return; }
                     localStorage.setItem(key, String(Date.now()));
                 } catch { /* One mounted bridge still serializes this tab. */ }
+                let busy = false;
                 try {
-                    await triggerAI(history.slice(-200), undefined, { immediateMusicInvite: true });
-                } finally { finish(); }
+                    const outcome = await triggerAI(history.slice(-200), undefined, { immediateMusicInvite: true });
+                    busy = outcome === 'busy';
+                    if (busy) {
+                        // Another private reply won the lease after our first
+                        // check. That is NOT an attempted music response.
+                        try { localStorage.removeItem(key); } catch {}
+                    }
+                } finally {
+                    if (busy) defer();
+                    else finish();
+                }
             };
             const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
             if (locks?.request) await locks.request('sully-music-invite:' + inviteKey(current),
