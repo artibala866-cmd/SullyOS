@@ -175,6 +175,25 @@ describe('群聊与个人记忆宫殿双向归档', () => {
         expect(extractGroupMemoriesFromBuffer).toHaveBeenCalledTimes(2);
     });
 
+    it('补录新成员时只写该成员记忆，不倒退旧成员已完成的群水位', async () => {
+        const { group, a, b } = await makeGroup();
+        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        const first = await processGroupNewMessages(group, [a, b], '用户');
+        expect(first?.stored).toBe(2);
+        const originalWaterline = getGroupMemoryPalaceHighWaterMark(group.id);
+        const newcomer = {
+            id: group.id + '-newcomer', name: '新成员', memoryPalaceEnabled: true, memories: [],
+        } as unknown as CharacterProfile;
+        await DB.saveCharacter(newcomer);
+        const joinedGroup = { ...group, members: [...group.members, newcomer.id] };
+        await DB.saveGroup(joinedGroup);
+        const replay = await processGroupNewMessages(joinedGroup, [a, b, newcomer], '用户');
+        expect(replay?.stored).toBe(1);
+        expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBe(originalWaterline);
+        expect((await MemoryNodeDB.getByCharId(newcomer.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
+        expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
+    });
+
     it('本群撤销私聊互通后不写入个人记忆', async () => {
         const { group, a, b } = await makeGroup(false);
         const spy = vi.spyOn(DB, 'getGroupMessages');
