@@ -33,7 +33,7 @@ async function clickButton(text: string) {
 }
 describe('见面剧情编辑器真实点击及错误恢复', () => {
     it('空标题不会静默禁用按钮；点击明确提示和聚焦标题', async () => {
-        const save = vi.fn(async () => {});
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
         await render({ ...createStoryTheaterDraft(), characterIds: [actor.id] }, [actor], save);
         const button = [...host!.querySelectorAll('button')].find(b => b.textContent?.trim() === '保存并进入');
         expect(button?.disabled).toBe(false);
@@ -43,7 +43,7 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         expect(save).not.toHaveBeenCalled();
     });
     it('标题有效但未选演员时说明如何进入，不需要猜其他开关', async () => {
-        const save = vi.fn(async () => {});
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
         await render({ ...createStoryTheaterDraft(), title: '雨夜重逢' }, [actor], save);
         await clickButton('保存并进入');
         expect(host!.querySelector('[role=alert]')?.textContent).toContain('让谁参与');
