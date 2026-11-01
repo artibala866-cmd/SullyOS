@@ -3,6 +3,8 @@
  * as evidence of attention; keep one stable decision for an unanswered batch;
  * never infer presence from the wall clock or force extra messages to unlock it.
  */
+import { sampleRealPersonRhythmMs, type RealPersonAttention, type RealPersonReplyRhythm } from './realPersonReplyRhythm';
+
 export type RealPersonLifeActivity = 'free' | 'busy' | 'sleep' | null;
 export type RealPersonReplyPlan = { delayMs: number | null };
 
@@ -13,6 +15,9 @@ export function resolveRealPersonReplyPlan(args: {
     fallbackDelayMs: number;
     lastUserSendAt?: number;
     lastCharacterReplyAt?: number;
+    replyAttention?: RealPersonAttention;
+    replyRhythm?: Partial<RealPersonReplyRhythm>;
+    characterId?: string;
 }): RealPersonReplyPlan {
     const { activity, now } = args;
     const anchor = Number.isFinite(args.firstUnansweredAt) && args.firstUnansweredAt >= 0
@@ -28,6 +33,12 @@ export function resolveRealPersonReplyPlan(args: {
     // earlier part of this batch already waited through a busy period.
     const inputSettle = Math.max(0, (engaged ? 1_700 : 2_800) - Math.max(0, now - latestUser));
     if (activity === 'sleep') return { delayMs: null };
+    // Sample only once from the first user turn; later sends extend quiet time.
+    if (args.replyAttention && args.characterId) {
+        const planned = sampleRealPersonRhythmMs(args.replyAttention, args.characterId, anchor, args.replyRhythm);
+        const floor = args.replyAttention === 'occupied' ? 3_500 : 1_000;
+        return { delayMs: Math.max(floor, planned - elapsed, inputSettle) };
+    }
 
     if (activity === 'busy' && !engaged) {
         // A real occupied slot may delay the FIRST reply, not reset each time
