@@ -28,6 +28,13 @@ export function userBlockedCharacterAt(state: ChatBlockState | null | undefined,
   return userBlocksCharacter(state) && (state?.userBlockedAt || 0) <= at;
 }
 
+/** 请求期间用户可以拉黑或解除拉黑：任何一段生成时间内被用户拉黑的回复，
+ * 一旦作为发送失败保存，不得在解除后变成正常送达。历史消息仍按落库 metadata 显示。
+ */
+export function didCharReplyFailDuringGeneration(blockedAtStart: boolean, blockedAtEnd: boolean): boolean {
+  return blockedAtStart || blockedAtEnd;
+}
+
 /** UI 必须按消息发送当时的状态绘制，不以当前角色关系反算历史感叹号。 */
 export const privateChatDeliveryFailure = (message: Pick<Message, 'role' | 'metadata'>): 'user-rejected' | 'char-send-failed' | null =>
   message.role === 'user' && message.metadata?.chatBlockRejected === true ? 'user-rejected'
