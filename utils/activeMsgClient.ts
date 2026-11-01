@@ -5,6 +5,8 @@ import { resolveDialogueApi } from './characterApi';
 import { stoppedReplyStateEntries } from './amsgStoppedReplyClient';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { isRejectedPrivateMessage } from './chatBlock';
+import { userBlocksCharacter } from './chatBlock';
+import { buildPrivateChatBlockHistoryContext } from './chatBlockAI';
 import { ReiClient } from '@rei-standard/amsg-client';
 import { createCloudDataSession } from './amsgCloudData';
 import {autonomyWakeUuid} from './amsgAutonomyIdentity';
@@ -2948,7 +2950,19 @@ export const ActiveMsgClient = {
       ...(await buildFirePack(char, userProfile, groups, realtimeConfig, undefined, { templateStub })),
       // 先还原图片令牌再算体积预算——反过来会让一份「看着没超」的包在云端胀成几 MB，
       // 而 worker 那边根本解不开令牌（见 resolveChatMessagesForUpload）。
-      chat: { messages: toFirePackChatMessages(await resolveChatMessagesForUpload(chatMessages)), builtAt: now },
+      chat: {
+        messages: [
+          // 即时对话只在本轮插入角色已经被用户拉黑的事实；不改角色卡、世界书和主动消息模板。
+          ...(userBlocksCharacter(char.chatBlock) ? [{
+            role: 'system',
+            content: buildPrivateChatBlockHistoryContext(char.chatBlock) + '\n'
+              + '你仍然能看到用户在这里发送的消息，但你自己的回复在你看来发送失败、对方看不到。'
+              + '严禁若无其事地正常聊天，须遵循性格体现被拉黑的情绪；不要输出系统术语。',
+          }] : []),
+          ...toFirePackChatMessages(await resolveChatMessagesForUpload(chatMessages)),
+        ],
+        builtAt: now,
+      },
     };
 
     const clientTaskId = crypto.randomUUID();
