@@ -30,7 +30,13 @@ export function buildGroupMemberInteractionGuidance(
     userName = '用户',
 ): string {
     const recent = groupMessages.slice(-INTERACTION_TREND_MESSAGE_SCAN_LIMIT);
-    const lastUserIndex = recent.findLastIndex(m => m.role === 'user' && m.charId === 'user');
+    let lastUserIndex = -1;
+    for (let i = recent.length - 1; i >= 0; i--) {
+        if (recent[i].role === 'user' && recent[i].charId === 'user') {
+            lastUserIndex = i;
+            break;
+        }
+    }
     if (lastUserIndex < 0 || recent.length - lastUserIndex - 1 > MAX_MESSAGES_AFTER_USER) return '';
     if (!isGroupUserText(recent[lastUserIndex])) return '';
 
