@@ -13,6 +13,7 @@ import {withAutonomyWakeLock} from './amsgAutonomyLock';
 import {autonomyWakeUuid} from './amsgAutonomyIdentity';
 import {resolveCharTimeZone,wallClockToTimestamp} from './timezone';
 import {isScheduleFeatureOn} from './scheduleFeature';
+import { isRealPersonModeEnabled } from './realPersonMode';
 
 export const AMSG_AUTONOMY_SCHEDULE_EVENT='amsg2-schedule-saved';
 export const isAutonomyWakeTask=(task:Pick<ActiveMsg2TaskRecord,'clientTaskId'>)=>
@@ -65,13 +66,9 @@ export function planAutonomyWakes(
     }
     return [];
   });
-  // APK's ordinary-contact fallback matters: even when a daily-life plan
-  // offers no usable window, the enabled feature must not go permanently
-  // silent. Keep just ONE evening opportunity rather than ignoring the
-  // busy/sleep schedule with two automatic checks.
-  return selected.length ? selected
-    : source.length ? planAutonomyWakes(char,null,now).filter(x=>x.slot==='evening')
-    : selected;
+  // Busy/sleep is a real reason not to contact User; never invent a fallback
+  // wake just to hit a daily count. Unknown schedules still offer an opportunity.
+  return selected;
 }
 
 type Args={char:CharacterProfile;apiConfig:APIConfig;userProfile:UserProfile;
@@ -98,6 +95,40 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
 async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
   const {char}=args;
   if(!char?.id||char.activeMsg2Config?.enabled!==true||inFlight.has(char.id))return;
+  // Turning off real-person mode stops ONLY the optional daily autonomous
+  // contact. Explicit reminders, character-authored tasks and instant chat survive.
+  // This runs before retry backoff, so disabling is never held up by a failed setup.
+  if(!isRealPersonModeEnabled()){
+    inFlight.add(char.id);
+    try {
+      // First commit the stop signal to the cloud gate, then cancel the actual
+      // recurring jobs. Even a failed cancellation must not generate a new reply.
+      await ActiveMsgClient.putCharLimits(char);
+      const remote=await ActiveMsgClient.listRemoteTasksForChar(char.id);
+      const known=[...(char.activeMsg2Config.tasks||[]),...remote];
+      const toCancel=[...new Set(known.filter(isAutonomyWakeTask)
+        .map(t=>('taskUuid' in t ? t.taskUuid : t.uuid)).filter((id):id is string=>!!id))];
+      const cancelled=new Set<string>();const failed:string[]=[];
+      for(const uuid of toCancel){
+        if(isRealPersonModeEnabled())return; // A newer click re-enabled mode.
+        try { await ActiveMsgClient.cancelTask(uuid);cancelled.add(uuid); }
+        catch { failed.push(uuid); }
+      }
+      args.onSave(prev=>({
+        ...(prev||{enabled:true}),
+        tasks:(prev?.tasks||[]).filter(t=>!cancelled.has(t.taskUuid)),
+        lastError:failed.length
+          ? '真人感已关闭，但有 '+failed.length+' 次云端自主联系取消失败；云端已设为禁止触发，请稍后重试'
+          : prev?.lastError?.startsWith('真人感已关闭')?undefined:prev?.lastError,
+      }));
+    }catch(e){
+      const detail=e instanceof Error?e.message.slice(0,150):'未知错误';
+      args.onSave(prev=>({...prev||{enabled:true},
+        lastError:'真人感关闭同步失败：'+detail}));
+      console.warn('[amsg2] 真人感关闭时云端自主联系清理失败',e);
+    }finally{inFlight.delete(char.id)}
+    return;
+  }
   if(Date.now()-(recentFailure.get(char.id)??0)<60000)return;
   const active=(char.activeMsg2Config.tasks||[]).filter(t=>isPendingTask(t,Date.now()));
   // A saved recurring task can silently fail or disappear in the cloud.
@@ -105,6 +136,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
   inFlight.add(char.id);
   try{
     const g=await ActiveMsgClient.getGlobalConfig();
+    if(!isRealPersonModeEnabled())return;
     if(!g.workerUrl?.trim())throw new Error('未配置主动消息 2.0 的云端 Worker');
     // Older Workers accept task creation but don't understand the current
     // autonomous gating and cloud life context. Do NOT create a paid daily
@@ -245,7 +277,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
           replaceTaskUuid:old.taskUuid,apiConfig:args.apiConfig,
           userProfile:args.userProfile,groups:args.groups,realtimeConfig:args.realtimeConfig,
         });
-        if(args.isEnabledNow?.()===false){
+        if(args.isEnabledNow?.()===false||!isRealPersonModeEnabled()){
           await ActiveMsgClient.cancelTask(result.uuid);
           return;
         }
@@ -277,7 +309,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
     }
     const existing=new Set(tasks.filter(isAutonomyWakeTask).map(t=>t.clientTaskId.split(':')[1]));
     for(const target of targets){
-      if(args.isEnabledNow?.()===false)return;
+      if(args.isEnabledNow?.()===false||!isRealPersonModeEnabled())return;
       if(existing.has(target.slot)||tasks.length>=resolveAmsgLimits(char.activeMsg2Config).maxActiveTasks)continue;
       const result=await ActiveMsgClient.scheduleCharacterTask({
         char,config:{...char.activeMsg2Config,tasks},task:{
