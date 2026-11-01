@@ -10,25 +10,33 @@ export const CHAT_AUTO_REPLY_MAX_PENDING_AGE_MS = 48 * 60 * 60_000;
 export const CHAT_AUTO_REPLY_INTENT_PREFIX = 'sully_chat_auto_reply_intent_v1:';
 
 /** The local intent is not a second reply engine or a second billable request. */
-function readIntent(charId: string, now = Date.now()): number {
+type ReplyIntent = { firstUnansweredAt: number; lastUserSendAt: number };
+function readIntentState(charId: string, now = Date.now()): ReplyIntent | null {
     try {
         const raw: unknown = JSON.parse(localStorage.getItem(CHAT_AUTO_REPLY_INTENT_PREFIX + charId) || 'null');
-        const at = (raw as { firstUnansweredAt?: unknown } | null)?.firstUnansweredAt;
+        const data = raw as Partial<ReplyIntent> | null;
+        const at = data?.firstUnansweredAt;
         if (typeof at !== 'number' || !Number.isFinite(at) || at <= 0 || at > now ||
             now - at >= CHAT_AUTO_REPLY_MAX_PENDING_AGE_MS) {
             localStorage.removeItem(CHAT_AUTO_REPLY_INTENT_PREFIX + charId);
-            return 0;
+            return null;
         }
-        return at;
-    } catch { return 0; }
+        const last = data?.lastUserSendAt;
+        return { firstUnansweredAt: at,
+            lastUserSendAt: typeof last === 'number' && Number.isFinite(last)
+                ? Math.max(at, Math.min(last, now)) : at };
+    } catch { return null; }
+}
+function readIntent(charId: string, now = Date.now()): number {
+    return readIntentState(charId, now)?.firstUnansweredAt ?? 0;
 }
 function readOptOutRevision(): string | null {
     try { return localStorage.getItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY); }
     catch { return null; }
 }
-function persistIntent(charId: string, at: number): boolean {
+function persistIntent(charId: string, at: number, lastUserSendAt = at): boolean {
     try {
-        localStorage.setItem(CHAT_AUTO_REPLY_INTENT_PREFIX + charId, JSON.stringify({ firstUnansweredAt: at }));
+        localStorage.setItem(CHAT_AUTO_REPLY_INTENT_PREFIX + charId, JSON.stringify({ firstUnansweredAt: at, lastUserSendAt }));
         return true;
     } catch { return false; }
 }
@@ -90,12 +98,12 @@ export function useChatAutoReply(options: Options) {
                 const old = readIntent(options.conversationId);
                 if (old) removeIntent(options.conversationId, old);
             } else if (options.active) {
-                const savedAt = readIntent(options.conversationId);
-                if (savedAt) {
+                const saved = readIntentState(options.conversationId);
+                if (saved) {
                     work.pending = true;
                     work.persisted = true;
-                    work.firstUnansweredAt = savedAt;
-                    work.lastUserSendAt = savedAt;
+                    work.firstUnansweredAt = saved.firstUnansweredAt;
+                    work.lastUserSendAt = saved.lastUserSendAt;
                 }
             }
         }
@@ -154,7 +162,8 @@ export function useChatAutoReply(options: Options) {
                 // Cancellation while saving still invalidates this callback.
                 const savedAt = readIntent(conversationId!) ||
                     (work.pending ? work.firstUnansweredAt : Date.now());
-                const stored = persistIntent(conversationId!, savedAt);
+                const lastUserSendAt = Date.now();
+                const stored = persistIntent(conversationId!, savedAt, lastUserSendAt);
                 if (workRef.current !== work) {
                     // A newly mounted/returned surface may already be showing
                     // this same Char; hydrate it without resetting its work.
@@ -165,13 +174,13 @@ export function useChatAutoReply(options: Options) {
                         currentWork.pending = true;
                         currentWork.persisted = true;
                         currentWork.firstUnansweredAt = savedAt;
-                        currentWork.lastUserSendAt = Date.now();
+                        currentWork.lastUserSendAt = lastUserSendAt;
                         refresh();
                     }
                     return;
                 }
                 if (!work.pending) work.firstUnansweredAt = savedAt;
-                work.lastUserSendAt = Date.now();
+                work.lastUserSendAt = lastUserSendAt;
                 work.pending = true;
                 work.persisted = stored;
             }
