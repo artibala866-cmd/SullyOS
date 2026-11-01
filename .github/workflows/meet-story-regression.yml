@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/meet-story-regression.yml'
       - 'components/date/story/**'
+      - 'apps/DateApp.tsx'
       - 'utils/storyTheater*.ts'
       - 'utils/storyTheater*.tsx'
       - 'utils/meetingAppearance.ts'
@@ -35,12 +36,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Test story creation, persistence, archives, backups and timeline compatibility
         run: |
-          pnpm exec vitest run utils/storyTheater.test.ts utils/db.storyTheater.test.ts utils/storyTheaterArchive.test.ts utils/storyTheaterMemoryConversion.test.ts utils/storyTheaterTimeline.test.ts utils/storyTheaterBackup.test.ts utils/storyTheaterDeletion.test.ts utils/storyTheaterArchiveView.wiring.test.ts utils/storyTheaterBillingSafety.wiring.test.ts utils/meetingAppearance.test.ts utils/storyTheaterUpstreamIntegration.test.tsx
+          pnpm exec vitest run utils/storyTheater.test.ts utils/db.storyTheater.test.ts utils/storyTheaterArchive.test.ts utils/storyTheaterMemoryConversion.test.ts utils/storyTheaterTimeline.test.ts utils/storyTheaterBackup.test.ts utils/storyTheaterDeletion.test.ts utils/storyTheaterArchiveView.wiring.test.ts utils/storyTheaterBillingSafety.wiring.test.ts utils/meetingAppearance.test.ts utils/storyTheaterUpstreamIntegration.test.tsx utils/storyTheaterEntryFlow.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts
       - name: Check meet and database TypeScript diagnostics
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/meet-story-tsc.log 2>&1 || true
-          grep -E '^(types.ts|utils/db.ts|utils/storyTheater[^/]*\.tsx?|utils/summaryReasoning.ts|utils/meetingAppearance(\.test)?\.ts|utils/beautyShareContract.ts|utils/decorationWorkshop.ts|components/date/story/[^/]+\.tsx?)[(]' /tmp/meet-story-tsc.log > /tmp/meet-story-errors.log || true
+          grep -E '^(types.ts|apps/DateApp.tsx|utils/db.ts|utils/storyTheater[^/]*\.tsx?|utils/summaryReasoning.ts|utils/meetingAppearance(\.test)?\.ts|utils/beautyShareContract.ts|utils/decorationWorkshop.ts|components/date/story/[^/]+\.tsx?)[(]' /tmp/meet-story-tsc.log > /tmp/meet-story-errors.log || true
           if [ -s /tmp/meet-story-errors.log ]; then
             cat /tmp/meet-story-errors.log
             exit 1
