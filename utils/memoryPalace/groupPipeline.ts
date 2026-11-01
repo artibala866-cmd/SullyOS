@@ -131,6 +131,23 @@ export async function deleteGroupMemoriesByGroupId(groupId: string): Promise<{ d
         })();
         const targets = all.filter(n => n.groupId === groupId);
         if (targets.length === 0) return { deleted: 0 };
+        // 先尽力清理远端 pgvector，避免仅删除 IndexedDB 却留下可检索副本。
+        // 远端不可用也要继续删除本地；孤儿群记忆由 vectorSearch 的来源校验拦截。
+        const remote = readRemoteVectorConfig();
+        if (remote) {
+            try {
+                const { deleteVector } = await import('./supabaseVector');
+                let failed = 0;
+                for (let i = 0; i < targets.length; i += 8) {
+                    const batch = targets.slice(i, i + 8);
+                    const outcomes = await Promise.all(batch.map(node => deleteVector(remote, node.id)));
+                    failed += outcomes.filter(ok => !ok).length;
+                }
+                if (failed) console.warn(`[GroupPalace] 群 ${groupId} 远程向量删除失败 ${failed} 条；本地继续删除`);
+            } catch (error) {
+                console.warn('[GroupPalace] 远程群记忆清理失败，本地继续删除:', error);
+            }
+        }
         for (const node of targets) {
             try {
                 await MemoryNodeDB.delete(node.id);
