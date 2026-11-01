@@ -324,8 +324,23 @@ export async function processGroupNewMessages(
                     // ev.vector 声明上有 number[] / Float32Array / Uint8Array 三态，
                     // ensureFloat32 统一（DB 层已经转好，这里是恒等返回），别让
                     // cosineSimilarity 把 Uint8Array 的原始字节当成分量读。
-                    const isDup = existingVectors.some(ev => cosineSimilarity(vector, ensureFloat32(ev.vector)) > DEDUP_THRESHOLD);
-                    if (isDup) {
+                    const duplicate = existingVectors.find(ev => cosineSimilarity(vector, ensureFloat32(ev.vector)) > DEDUP_THRESHOLD);
+                    if (duplicate) {
+                        // 之前本地已存，但远端当时写入失败：重试同步相同的源节点，
+                        // 不能只因本地去重成功就永久丢失这份云端召回。
+                        if (remoteVectorCfg?.enabled && remoteVectorCfg.initialized) {
+                            const existingNode = await MemoryNodeDB.getById(duplicate.memoryId);
+                            if (existingNode?.groupId === group.id) {
+                                try {
+                                    const { upsertVector } = await import('./supabaseVector');
+                                    const ok = await upsertVector(remoteVectorCfg, existingNode.id, member.id,
+                                        duplicate.vector, existingNode, memberEmb.dimensions, memberEmb.model);
+                                    if (!ok) allMembersCompleted = false;
+                                } catch {
+                                    allMembersCompleted = false;
+                                }
+                            }
+                        }
                         console.log(`♻️ [GroupPalace] ${member.name}：重复群记忆跳过 "${draft.content.slice(0, 30)}..."`);
                         continue;
                     }
@@ -359,12 +374,17 @@ export async function processGroupNewMessages(
                     // 节点 + 向量同事务落库；避免向量保存失败后遗留无向量的孤儿记忆。
                     await MemoryNodeDB.saveVectorizedMany([{ node, vector: memVec }]);
 
-                    // 远程向量异步同步（fire-and-forget）
+                    // 云端启用时确认向量写入，失败不推进群游标；
+                    // 下轮会凭本地去重找到同一节点继续补发，避免云端漏记。
                     if (remoteVectorCfg?.enabled && remoteVectorCfg.initialized) {
                         try {
                             const { upsertVector } = await import('./supabaseVector');
-                            upsertVector(remoteVectorCfg, node.id, member.id, vector, node, memberEmb.dimensions, memberEmb.model).catch(() => {});
-                        } catch { /* 忽略动态导入失败 */ }
+                            const ok = await upsertVector(remoteVectorCfg, node.id, member.id,
+                                vector, node, memberEmb.dimensions, memberEmb.model);
+                            if (!ok) allMembersCompleted = false;
+                        } catch {
+                            allMembersCompleted = false;
+                        }
                     }
 
                     existingVectors.push(memVec);
