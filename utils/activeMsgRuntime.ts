@@ -2,7 +2,7 @@ import { createReplyRun, isReplyStopped, withReplyCancellation, type ReplyRun } 
 import { eventForDeliveredAmsg, eventsForVerifiedXhsActions } from './amsgPhoneEvent';
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { loadCharacterContextMessages } from './chatContextRange';
-import { isPrivateChatBlocked, characterBlocksUser, userBlockedCharacterAt, allowsCharacterToBlock, changeChatBlock } from './chatBlock';
+import { characterBlocksUser, userBlockedCharacterAt, allowsCharacterToBlock, changeChatBlock } from './chatBlock';
 import { extractCharacterBlockAction } from './chatBlockAI';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
