@@ -4,7 +4,7 @@ import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { resolveRealPersonAttention } from '../utils/realPersonReplyRhythm';
 import { findPendingUserTurn } from '../utils/chatContinuation';
 import { findPendingRealPersonUserTurn } from '../utils/realPersonReplyTurn';
-import { isRealPersonModeEnabled, setRealPersonModeEnabled, shouldAutoReplyToUser } from '../utils/realPersonMode';
+import { isRealPersonModeEnabled, setRealPersonModeEnabled, shouldAutoReplyToUser, REAL_PERSON_MODE_CHANGED_EVENT, REAL_PERSON_MODE_KEY } from '../utils/realPersonMode';
 import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
@@ -183,6 +183,21 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const localDateKey = useLocalDateKey();
     const [lifeMode, setLifeMode] = useState(() => readLifeClock().mode);
     const [lifePacing, setLifePacing] = useState(isRealPersonModeEnabled);
+    // OSContext and autonomous scheduling already hear this global switch.
+    // A mounted Chat must also hear same-tab and cross-tab changes, otherwise
+    // it can keep answering after the user turned real-person mode off elsewhere.
+    useEffect(() => {
+        const sync = () => setLifePacing(isRealPersonModeEnabled());
+        const fromOtherTab = (event: StorageEvent) => {
+            if (event.key === REAL_PERSON_MODE_KEY) sync();
+        };
+        window.addEventListener(REAL_PERSON_MODE_CHANGED_EVENT, sync);
+        window.addEventListener('storage', fromOtherTab);
+        return () => {
+            window.removeEventListener(REAL_PERSON_MODE_CHANGED_EVENT, sync);
+            window.removeEventListener('storage', fromOtherTab);
+        };
+    }, []);
 
     const [lifeActivityState, setLifeActivityState] = useState<{
         characterId: string | null;
