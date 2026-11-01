@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { ChatBlockState } from '../../types';
 import { allowsCharacterToBlock, characterBlocksUser, userBlocksCharacter } from '../../utils/chatBlock';
+import { forgivenessCooldownRemaining } from '../../utils/chatBlockAI';
 
 export interface ChatBlockModalProps {
   characterName: string;
@@ -55,8 +56,14 @@ const ChatBlockModal: React.FC<ChatBlockModalProps> = ({ characterName, state, o
                 className="h-4 w-4 accent-neutral-700"/>
             </label>
             <p className="mt-2 text-[11px] leading-4 text-neutral-400">
-              两个方向独立保存。角色自主判断及求原谅功能尚未接入；关闭此权限会解除角色对你的拉黑，不会改变你对角色的拉黑。
+              两个方向独立保存。角色可自主判断拉黑或解除拉黑；AI 键求原谅判定后有 30 分钟冷却。关闭此权限仅解除角色对你的拉黑。
             </p>
+            {charBlocked && forgivenessCooldownRemaining(state) > 0 && (
+              <p className="mt-1 text-[11px] text-neutral-500">约 {Math.ceil(forgivenessCooldownRemaining(state) / 60_000)} 分钟后可再次请求</p>
+            )}
+            {charBlocked && state?.lastForgivenessSign && (
+              <p className="mt-1 text-xs text-neutral-500">最近一次判断：{state.lastForgivenessSign}</p>
+            )}
           </div>
         </div>
         {recentEvent && (
