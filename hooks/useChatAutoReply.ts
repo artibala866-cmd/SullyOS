@@ -54,7 +54,7 @@ interface Options {
 
 const newWork = () => ({
     pending: false, sends: new Set<symbol>(), cancelVersion: 0, firstUnansweredAt: 0, persisted: false,
-    checking: false, retryAt: 0, ownerId: null as string | null,
+    checking: false, retryAt: 0, lastUserSendAt: 0, ownerId: null as string | null,
 });
 
 /** Only a successfully saved send in this active conversation creates a candidate. */
@@ -95,6 +95,7 @@ export function useChatAutoReply(options: Options) {
                     work.pending = true;
                     work.persisted = true;
                     work.firstUnansweredAt = savedAt;
+                    work.lastUserSendAt = savedAt;
                 }
             }
         }
@@ -164,11 +165,13 @@ export function useChatAutoReply(options: Options) {
                         currentWork.pending = true;
                         currentWork.persisted = true;
                         currentWork.firstUnansweredAt = savedAt;
+                        currentWork.lastUserSendAt = Date.now();
                         refresh();
                     }
                     return;
                 }
                 if (!work.pending) work.firstUnansweredAt = savedAt;
+                work.lastUserSendAt = Date.now();
                 work.pending = true;
                 work.persisted = stored;
             }
@@ -201,6 +204,8 @@ export function useChatAutoReply(options: Options) {
                 firstUnansweredAt: work.firstUnansweredAt,
                 now,
                 fallbackDelayMs: getNaturalReplyDelay(latest.conversationId || ''),
+                lastUserSendAt: work.lastUserSendAt,
+                lastCharacterReplyAt: latest.lastCharacterReplyAt,
             })
             : { delayMs: CHAT_AUTO_REPLY_DELAY_MS };
         if (plan.delayMs === null) {
