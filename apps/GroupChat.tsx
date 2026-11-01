@@ -494,7 +494,7 @@ export const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, groups, createGroup, updateGroup, deleteGroup, characters, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig } = useOS();
+    const { closeApp, groups, createGroup, updateGroup, deleteGroup, updateCharacter, characters, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     const [activeGroup, setActiveGroup] = useState<GroupProfile | null>(null);
     useAppShortcut(ShortcutAppID.GroupChat, intent => {
@@ -863,6 +863,13 @@ const GroupChat: React.FC = () => {
         }
         // 互通开关/条数影响成员私聊和云端 fire_pack。更新后马上以新的群配置
         // 标记成员快照待刷新（不能使用闭包里尚未更新的 groups）。
+        if (activeGroup.privateChatSyncEnabled !== updates.privateChatSyncEnabled) {
+            // 立即丢弃旧的群记忆召回缓存；授权变更后下一轮由当前权限重建，
+            // 不改角色卡/世界书，也不清空长期记忆节点。
+            for (const memberId of activeGroup.members) {
+                updateCharacter(memberId, { memoryPalaceInjection: '' });
+            }
+        }
         if (activeGroup.privateChatSyncEnabled !== updates.privateChatSyncEnabled ||
             activeGroup.privateContextCap !== updates.privateContextCap ||
             activeGroup.privateChatHistoryLimit !== updates.privateChatHistoryLimit) {
@@ -929,6 +936,10 @@ const GroupChat: React.FC = () => {
                 const ids = msgs.filter(m => m.type === 'group_topic_card' && m.metadata?.groupTopicBox?.groupId === id).map(m => m.id);
                 if (ids.length) await DB.deleteMessages(ids);
             }));
+        }
+        // 解散后旧的运行时召回字符串也必须失效，否则本轮仍可能注入已删群事实。
+        for (const memberId of targetGroup?.members || []) {
+            updateCharacter(memberId, { memoryPalaceInjection: '' });
         }
         await deleteGroup(id);
         if (activeGroup?.id === id) setView('list');
