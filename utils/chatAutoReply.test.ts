@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { resolveRealPersonReplyPlan } from './realPersonReplyTiming';
 import { findPendingUserTurn } from './chatContinuation';
-import { DEFAULT_CHAT_INPUT_PREFERENCES, saveChatInputPreferences } from './chatInputPreferences';
+import { DEFAULT_CHAT_INPUT_PREFERENCES, saveChatInputPreferences, revokePendingChatAutoReplyIntents } from './chatInputPreferences';
+import { setRealPersonModeEnabled } from './realPersonMode';
 
 let root: Root;
 let container: HTMLDivElement;
@@ -276,6 +277,41 @@ describe('two-second automatic reply', () => {
         advance(5000);
         expect(options.onGenerate).not.toHaveBeenCalled();
         expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeNull();
+    });
+
+    it('turning off BASIC auto-reply leaves the real-person saved user turn intact', () => {
+        setRealPersonModeEnabled(true);
+        saveChatInputPreferences({ ...DEFAULT_CHAT_INPUT_PREFERENCES, autoReply: true });
+        send();
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        saveChatInputPreferences({ ...DEFAULT_CHAT_INPUT_PREFERENCES, autoReply: false });
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        advance(2_000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('turning off the final reply channel revokes only auto-reply intents', () => {
+        setRealPersonModeEnabled(true);
+        send();
+        localStorage.setItem('amsg:user-reminder', 'keep');
+        setRealPersonModeEnabled(false);
+        revokePendingChatAutoReplyIntents();
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeNull();
+        expect(localStorage.getItem('amsg:user-reminder')).toBe('keep');
+        advance(15_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+    });
+
+    it('a real sleep slot remains silent despite a reply one minute ago', () => {
+        const lastReply = Date.now() - 60_000;
+        render({ naturalPacing: true, lifeActivity: 'sleep', lastCharacterReplyAt: lastReply });
+        send();
+        advance(70_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        render({ lifeActivity: 'free', lastCharacterReplyAt: lastReply });
+        advance(11_000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
     it('keeps the durable intent when a prerequisite disappears during async DB verification', async () => {
