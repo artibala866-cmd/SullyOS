@@ -12,6 +12,7 @@ on:
       - 'utils/chatBlock*'
       - 'utils/streamPreview*'
       - 'utils/groupChat/memoryScope*'
+      - 'utils/activeMsgRuntime.ts'
       - 'tests/chat-block-visual.*'
       - '.github/workflows/chat-block-framework.yml'
   workflow_dispatch:
@@ -42,7 +43,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/block-tsc.log 2>&1 || true
-          grep -E '^(apps/(Chat|DateApp).tsx|components/chat/(ChatBlockModal|ChatInputArea).tsx|hooks/useChatAI.ts|types.ts|utils/chatBlock(AI(\.test)?|\.test)?\.ts|utils/groupChat/memoryScope(\.test)?\.ts|tests/chat-block-visual.ts)[(]' /tmp/block-tsc.log > /tmp/block-target-errors.log || true
+          grep -E '^(apps/(Chat|DateApp).tsx|components/chat/(ChatBlockModal|ChatInputArea).tsx|hooks/useChatAI.ts|types.ts|utils/chatBlock(AI(\.test)?|\.test)?\.ts|utils/activeMsgRuntime.ts|utils/groupChat/memoryScope(\.test)?\.ts|tests/chat-block-visual.ts)[(]' /tmp/block-tsc.log > /tmp/block-target-errors.log || true
           if [ -s /tmp/block-target-errors.log ]; then cat /tmp/block-target-errors.log; exit 1; fi
       - name: Install Chinese fonts
         run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
