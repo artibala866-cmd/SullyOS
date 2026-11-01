@@ -2727,7 +2727,24 @@ export interface PrivateChatBlockState {
   userUnblockedAt?: number | null;
   charUnblockedUserAt?: number | null;
 }
+export interface ChatBlockEvent {
+  actor: 'user' | 'character';
+  action: 'block' | 'unblock';
+  at: number;
+  reason?: string;
+  source?: 'manual' | 'ai' | 'settings' | 'reconcile';
+}
+/** 两个方向独立的私聊拉黑状态；旧版缺省未拉黑。 */
+export interface ChatBlockState {
+  userBlockedAt?: number;
+  characterBlockedAt?: number;
+  allowCharacterBlockUser?: boolean;
+  history?: ChatBlockEvent[];
+}
+
 export interface CharacterProfile {
+  /** 使用既有角色资料持久化与备份，不新建数据孤岛。 */
+  chatBlock?: ChatBlockState;
   /** 私聊拉黑：不修改角色本体、删除消息、重建数据库。 */
   privateChatBlock?: PrivateChatBlockState;
   /** Local default for this character's dialogue; absent means follow Settings. Never shared in cards. */
