@@ -129,7 +129,8 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
-    it('does not resurrect a late saved send after explicit global auto-reply opt-out', () => {
+    it('does not resurrect a late saved send when BOTH automatic-reply channels are disabled', () => {
+        setRealPersonModeEnabled(false);
         saveChatInputPreferences({ ...DEFAULT_CHAT_INPUT_PREFERENCES, autoReply:true });
         let finish!: (sent: boolean) => void;
         act(() => { finish = controls.beginSend('a'); });
