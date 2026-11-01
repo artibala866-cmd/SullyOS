@@ -8,6 +8,7 @@ on:
       - 'components/character/HomeFigureEditor.tsx'
       - 'tests/neural-link-cabinet-visual.html'
       - 'tests/neural-link-cabinet-visual.tsx'
+      - 'scripts/neural-link-figure-editor-smoke.mjs'
       - '.github/workflows/figure-studio-visual.yml'
   workflow_dispatch:
 permissions:
@@ -43,14 +44,13 @@ jobs:
             sleep 1
           done
           chrome="${{ steps.chrome.outputs.chrome-path }}"
-          for name in empty-shelf saved-shelf empty-cabinet saved-cabinet saved-source saved-editor; do
+          for name in empty-shelf saved-shelf empty-cabinet saved-cabinet saved-source; do
             case "$name" in
               empty-shelf) query='scene=shelf&existing=0';;
               saved-shelf) query='scene=shelf&existing=1';;
               empty-cabinet) query='scene=cabinet&existing=0';;
               saved-cabinet) query='scene=cabinet&existing=1';;
               saved-source) query='scene=source&existing=1';;
-              saved-editor) query='scene=editor&existing=1';;
             esac
             url="http://127.0.0.1:5173/tests/neural-link-cabinet-visual.html?$query"
             "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=430,930 --virtual-time-budget=21000 --dump-dom "$url" >"figure-visual/$name.html" 2>/tmp/figure-chrome.log || true
@@ -65,6 +65,7 @@ jobs:
             test -s "figure-visual/$name.png"
             echo "Verified and captured real React 3D figure scene: $name"
           done
+          CHROME_BIN="$chrome" node scripts/neural-link-figure-editor-smoke.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
