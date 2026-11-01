@@ -39,7 +39,7 @@ function readAppearance(): StoryAppearance {
     }
 }
 
-const STORY_THEME_CSS = `
+export const STORY_THEME_CSS = `
 .story-theme {
   --story-bg: #f3f3f3;
   --story-surface: #ffffff;
