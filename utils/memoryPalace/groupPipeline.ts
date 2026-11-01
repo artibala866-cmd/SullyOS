@@ -316,15 +316,16 @@ export async function processGroupNewMessages(
             // 合法的 [] 代表这批群聊没有值得长期记录的事实；已成功读取，
             // 应推进游标，避免每次打开群都再次调用副 API。超时/解析失败则保留原文重试。
             const latestEmpty = (await DB.getGroups()).find(item => item.id === group.id);
-            if (completed === true && latestEmpty && !deletedGroups.has(group.id)
+            const canAdvanceEmpty = completed === true && !!latestEmpty && !deletedGroups.has(group.id)
                 && latestEmpty.privateChatSyncEnabled !== false
-                && targetMembers.every(member => latestEmpty.members.includes(member.id))) {
+                && targetMembers.every(member => latestEmpty.members.includes(member.id));
+            if (canAdvanceEmpty) {
                 const doneThrough = toProcess[toProcess.length - 1].id;
                 // 个体补录与正常归档使用独立游标，空批次同样要逐个记账。
                 for (const member of targetMembers) setMemberProcessedId(group.id, member.id, doneThrough);
                 if (!replaying) setLastProcessedGroupId(group.id, doneThrough);
             }
-            return { stored: 0, perMemberStored: {}, extracted: 0, processedMessageCount: toProcess.length };
+            return { stored: 0, perMemberStored: {}, extracted: 0, processedMessageCount: toProcess.length, progressed: canAdvanceEmpty };
         }
 
         console.log(`🏰 [GroupPalace] 群 ${group.name}：提取 ${drafts.length} 条群记忆，开始为 ${enabledMembers.length} 个成员各持久化一份`);
