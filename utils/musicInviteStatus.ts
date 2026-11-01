@@ -114,7 +114,9 @@ export const canJoinMusicWithoutPendingInvite = <
  */
 export const explicitMusicInviteDecision = (text: string): 'accept' | 'reject' | null => {
   const normalized = (text || '').trim().replace(/[\s，。！？!、~～]+/g, '').slice(0,100);
-  if (!normalized || /(?:但是|不过|可是|其实|还没|没有|不想|没点|没同意|不接受|取消|开玩笑|骗你的)/.test(normalized)) return null;
+  // Questions/retractions cannot be treated as real button clicks.
+  if (!normalized || /[?？]/.test(text) ||
+      /(?:但是|不过|可是|但|其实|还没|没有|不想|没点|没同意|不接受|不确定|取消|后悔|开玩笑|骗你的|同意了吗|拒绝了吗)/.test(normalized)) return null;
   if (/^(?:(?:我(?:刚刚|刚才|已经|这就|现在)?|刚刚|刚才)?(?:点(?:了)?同意|同意(?:了)?邀请|接受(?:了)?邀请|已同意邀请|已接受邀请)|同意了|点同意了)/.test(normalized)) return 'accept';
   if (/^(?:(?:我(?:刚刚|已经)?|刚刚)?(?:点(?:了)?拒绝|拒绝(?:了)?邀请|已拒绝邀请)|拒绝了)/.test(normalized)) return 'reject';
   return null;
