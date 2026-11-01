@@ -24,7 +24,11 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(extractCharacterBlockDirective('你不要跟我吵了').reason).toBeNull();
     expect(extractCharacterBlockDirective('你刚刚说[BLOCK_USER:开玩笑]对吗？').reason).toBeNull();
     expect(buildCharacterBlockAutonomyInstruction(configureCharacterBlocking(undefined, false))).toBe('');
-    expect(buildCharacterBlockAutonomyInstruction(changeChatBlock(undefined, 'user', true, { at: 10 }))).toBe('');
+    expect(buildCharacterBlockAutonomyInstruction(changeChatBlock(undefined, 'user', true, { at: 10 }))).toContain('严重背叛');
+    // 用户拉黑 Char 不会删除 Char 自己的拉黑权限；发生严重越界后可进入双方互拉黑。
+    const both = changeChatBlock(changeChatBlock(undefined, 'user', true, { at: 10 }), 'character', true, { at: 20, reason: '越界' });
+    expect(buildCharacterBlockAutonomyInstruction(both)).toBe('');
+    expect(buildPrivateChatBlockHistoryContext(changeChatBlock(undefined, 'user', true, { at: 10 }), 300)).toContain('依然可以读到用户新发来的话');
   });
   it('仅提取原版的独立动作行，保留自然回复且不泄露内部标签', () => {
     const parsed = extractCharacterBlockDirective('我需要停止这段对话。\n[BLOCK_USER:严重欺骗与背叛]');
