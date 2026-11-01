@@ -2,7 +2,8 @@ import { createReplyRun, isReplyStopped, withReplyCancellation, type ReplyRun } 
 import { eventForDeliveredAmsg, eventsForVerifiedXhsActions } from './amsgPhoneEvent';
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { loadCharacterContextMessages } from './chatContextRange';
-import { isPrivateChatBlocked } from './chatBlock';
+import { isPrivateChatBlocked, allowsCharacterToBlock, changeChatBlock } from './chatBlock';
+import { extractCharacterBlockDirective } from './chatBlockAI';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
 import { ChatPrompts } from './chatPrompts';
@@ -1698,10 +1699,32 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
         || ASSISTANT_TEXT_TYPES.has(message.messageType);
 
       let routed = false;
+      // 仅原版即时私聊的正文可以触发角色自主拉黑；定时主动消息和其它应用不参与。
+      const instantBlockDecision = looksLikeAssistantText && isInstantReply
+        ? extractCharacterBlockDirective(message.body || '')
+        : { text: message.body || '', reason: null as string | null };
+      const inboxBody = instantBlockDecision.reason ? {
+        ...message,
+        body: instantBlockDecision.text,
+        previewBody: instantBlockDecision.text,
+      } : message;
 
       if (looksLikeAssistantText) {
         try {
-          await replyStep(async () => processInboxMessageWithPostProcessing(message, persistTimestamp, replyRun, typingController.signal));
+          await replyStep(async () => processInboxMessageWithPostProcessing(inboxBody, persistTimestamp, replyRun, typingController.signal));
+          if (instantBlockDecision.reason) {
+            const latest = await replyStep(() => DB.getCharacter(message.charId));
+            if (latest && allowsCharacterToBlock(latest.chatBlock) && !isPrivateChatBlocked(latest.chatBlock)) {
+              const nextBlock = changeChatBlock(latest.chatBlock, 'character', true, { reason: instantBlockDecision.reason, source: 'ai' });
+              await replyStep(() => DB.saveCharacter({ ...latest, chatBlock: nextBlock }));
+              window.dispatchEvent(new CustomEvent('sully-chat-block-state-changed', {
+                detail: { charId: latest.id, chatBlock: nextBlock },
+              }));
+            }
+            // 不允许显示/通知内部动作标记；重试仍持原始消息，确保动作不丢。
+            message.body = instantBlockDecision.text;
+            message.previewBody = instantBlockDecision.text;
+          }
           routed = true;
         } catch (postErr) {
           if (replyRun?.signal.aborted || isReplyStopped(message.taskUuid)) continue;
