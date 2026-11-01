@@ -279,6 +279,12 @@ export function mergePalaceFragmentsIntoMemories(
     }
 
     for (const frag of incoming) {
+        // Story conversion has already persisted this fragment. Runtime sync must never duplicate it
+        // or append its content to an unrelated palace daily summary.
+        if (frag.mood === 'story' && !frag.palaceMemoryId) {
+            if (!result.some(memory => memory.id === frag.id)) result.push(frag);
+            continue;
+        }
         if (frag.palaceMemoryId) {
             // Never merge a new link into a pre-upgrade daily snapshot, even on the same date.
             if (!result.some(memory => memory.palaceMemoryId === frag.palaceMemoryId)) result.push(frag);
