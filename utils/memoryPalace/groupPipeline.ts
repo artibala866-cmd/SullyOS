@@ -105,6 +105,8 @@ function makeSpeakerNameOf(members: CharacterProfile[], userName: string) {
 
 // ─── 并发锁：每个群同时只跑一个处理任务 ─────────────────
 const processingLocks = new Set<string>();
+// 解散群时先标记终止，拦住已经发出网络请求、稍后才回来的旧同步任务。
+const deletedGroups = new Set<string>();
 
 /**
  * 删除某个群的所有群记忆（成员各自存的副本一并清掉）
@@ -114,6 +116,8 @@ const processingLocks = new Set<string>();
  */
 export async function deleteGroupMemoriesByGroupId(groupId: string): Promise<{ deleted: number }> {
     if (!groupId) return { deleted: 0 };
+    deletedGroups.add(groupId);
+    try { localStorage.removeItem(LAST_MSG_KEY_GROUP(groupId)); } catch { /* storage blocked */ }
     try {
         const all = await (async () => {
             // MemoryNodeDB 没有 getAll；走通用 db 表名直查
@@ -169,6 +173,7 @@ export async function processGroupNewMessages(
     reason?: 'lock' | 'hot_zone' | 'threshold' | 'no_config' | 'no_enabled_member' | 'sync_disabled' | 'group_deleted' | 'members_changed';
 } | null> {
     if (!group?.id) return null;
+    if (deletedGroups.has(group.id)) return { stored: 0, perMemberStored: {}, reason: 'group_deleted' };
     const lockKey = group.id;
     if (processingLocks.has(lockKey)) {
         return { stored: 0, perMemberStored: {}, reason: 'lock' };
@@ -179,7 +184,7 @@ export async function processGroupNewMessages(
         // 私聊互通是双向授权；关闭后不再把群记录写入个人记忆宫殿。
         // 以数据库最新群资料为准，避免异步提取期间撤销授权后仍写入。
         const latestGroup = (await DB.getGroups()).find(item => item.id === group.id);
-        if (!latestGroup) return { stored: 0, perMemberStored: {}, reason: 'group_deleted' };
+        if (!latestGroup || deletedGroups.has(group.id)) return { stored: 0, perMemberStored: {}, reason: 'group_deleted' };
         if (latestGroup.privateChatSyncEnabled === false) {
             return { stored: 0, perMemberStored: {}, reason: 'sync_disabled' };
         }
@@ -254,7 +259,7 @@ export async function processGroupNewMessages(
 
         // 提取时群可能已被删除/取消互通/成员退群；绝不使用过期授权继续写个人记忆。
         const currentGroup = (await DB.getGroups()).find(item => item.id === group.id);
-        if (!currentGroup) return { stored: 0, perMemberStored: {}, reason: 'group_deleted' };
+        if (!currentGroup || deletedGroups.has(group.id)) return { stored: 0, perMemberStored: {}, reason: 'group_deleted' };
         if (currentGroup.privateChatSyncEnabled === false) {
             return { stored: 0, perMemberStored: {}, reason: 'sync_disabled' };
         }
@@ -270,7 +275,7 @@ export async function processGroupNewMessages(
             // 取消授权/解散/退出群后立即止损，避免延迟的 embedding 请求写入旧群记忆。
             const latest = (await DB.getGroups()).find(item => item.id === group.id);
             const freshCharacter = (await DB.getAllCharacters()).find(item => item.id === member.id);
-            if (!latest || latest.privateChatSyncEnabled === false) {
+            if (!latest || deletedGroups.has(group.id) || latest.privateChatSyncEnabled === false) {
                 return { stored: totalStored, perMemberStored, reason: latest ? 'sync_disabled' : 'group_deleted' };
             }
             if (!latest.members.includes(member.id) || !freshCharacter?.memoryPalaceEnabled) {
@@ -362,7 +367,7 @@ export async function processGroupNewMessages(
         // 7. 所有仍在群内、已启用记忆的成员都成功（含去重）后才能推进群水位。
         // 部分成员失败不可跳过，否则他们永远追不上旧群记录。
         const finalGroup = (await DB.getGroups()).find(item => item.id === group.id);
-        if (!finalGroup || finalGroup.privateChatSyncEnabled === false) {
+        if (!finalGroup || deletedGroups.has(group.id) || finalGroup.privateChatSyncEnabled === false) {
             return { stored: totalStored, perMemberStored, reason: finalGroup ? 'sync_disabled' : 'group_deleted' };
         }
         if (allMembersCompleted) {
