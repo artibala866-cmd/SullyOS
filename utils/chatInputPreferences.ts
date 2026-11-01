@@ -1,3 +1,5 @@
+import { isRealPersonModeEnabled } from './realPersonMode';
+
 /** 当前设备上的私聊与群聊共用的输入习惯。 */
 export interface ChatInputPreferences {
     sendButtonGenerates: boolean;
@@ -57,19 +59,30 @@ export const saveChatInputPreferences = (preferences: ChatInputPreferences): voi
         localStorage.setItem(CHAT_INPUT_PREFERENCES_KEY, JSON.stringify(next));
         // This is a global switch; off must revoke intents for inactive chars too.
         // Only delete our own intent keys, never chat, AMSG or phone records.
-        if (wasEnabled && !next.autoReply) {
-            const rev = Number(localStorage.getItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY));
-            localStorage.setItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY,
-                String(Number.isSafeInteger(rev) && rev >= 0 ? rev + 1 : 1));
-            const prefix = 'sully_chat_auto_reply_intent_v1:';
-            const keys: string[] = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key?.startsWith(prefix)) keys.push(key);
-            }
-            for (const key of keys) localStorage.removeItem(key);
+        // The plain auto-reply switch is not the master switch for real-person
+        // mode. Revoking both paths is what invalidates saved user-turn intents.
+        if (wasEnabled && !next.autoReply && !isRealPersonModeEnabled()) {
+            revokePendingChatAutoReplyIntents();
         }
     } catch {
         // 存储不可用的 WebView 中仍允许在当前会话使用。
     }
+};
+
+/** Revoke user-turn intents ONLY when both reply permissions are off.
+ * Clearing only our own keys never touches AMSG, music, groups, or schedule.
+ */
+export const revokePendingChatAutoReplyIntents = (): void => {
+    try {
+        const rev = Number(localStorage.getItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY));
+        localStorage.setItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY,
+            String(Number.isSafeInteger(rev) && rev >= 0 ? rev + 1 : 1));
+        const prefix = 'sully_chat_auto_reply_intent_v1:';
+        const keys: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.startsWith(prefix)) keys.push(key);
+        }
+        for (const key of keys) localStorage.removeItem(key);
+    } catch { /* React state still updates when WebView storage is unavailable. */ }
 };
