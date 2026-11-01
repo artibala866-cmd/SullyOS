@@ -166,7 +166,7 @@ export async function processGroupNewMessages(
     extracted?: number;
     /** 本轮处理的群消息条数（用于 result toast 显示信息量） */
     processedMessageCount?: number;
-    reason?: 'lock' | 'hot_zone' | 'threshold' | 'no_config' | 'no_enabled_member';
+    reason?: 'lock' | 'hot_zone' | 'threshold' | 'no_config' | 'no_enabled_member' | 'sync_disabled' | 'group_deleted' | 'members_changed';
 } | null> {
     if (!group?.id) return null;
     const lockKey = group.id;
@@ -176,8 +176,16 @@ export async function processGroupNewMessages(
     processingLocks.add(lockKey);
 
     try {
+        // 私聊互通是双向授权；关闭后不再把群记录写入个人记忆宫殿。
+        // 以数据库最新群资料为准，避免异步提取期间撤销授权后仍写入。
+        const latestGroup = (await DB.getGroups()).find(item => item.id === group.id);
+        if (!latestGroup) return { stored: 0, perMemberStored: {}, reason: 'group_deleted' };
+        if (latestGroup.privateChatSyncEnabled === false) {
+            return { stored: 0, perMemberStored: {}, reason: 'sync_disabled' };
+        }
+
         // 1. 至少要有一个成员开启了记忆宫殿
-        const enabledMembers = members.filter(m => (m as any).memoryPalaceEnabled);
+        const enabledMembers = members.filter(m => m.memoryPalaceEnabled && latestGroup.members.includes(m.id));
         if (enabledMembers.length === 0) {
             return { stored: 0, perMemberStored: {}, reason: 'no_enabled_member' };
         }
@@ -244,17 +252,36 @@ export async function processGroupNewMessages(
         console.log(`🏰 [GroupPalace] 群 ${group.name}：提取 ${drafts.length} 条群记忆，开始为 ${enabledMembers.length} 个成员各持久化一份`);
         onProgress?.(`提取到 ${drafts.length} 条群记忆，正在向量化并存入 ${enabledMembers.length} 个成员的记忆宫殿...`);
 
+        // 提取时群可能已被删除/取消互通/成员退群；绝不使用过期授权继续写个人记忆。
+        const currentGroup = (await DB.getGroups()).find(item => item.id === group.id);
+        if (!currentGroup) return { stored: 0, perMemberStored: {}, reason: 'group_deleted' };
+        if (currentGroup.privateChatSyncEnabled === false) {
+            return { stored: 0, perMemberStored: {}, reason: 'sync_disabled' };
+        }
+
         // 6. 为每个开启记忆宫殿的成员各存一份
         //    每个成员用 ta 自己的 embedding 配置——这样 retrieve 时向量空间一致
         const perMemberStored: Record<string, number> = {};
         const remoteVectorCfg = readRemoteVectorConfig();
         let totalStored = 0;
+        let allMembersCompleted = true;
 
         for (const member of enabledMembers) {
+            // 取消授权/解散/退出群后立即止损，避免延迟的 embedding 请求写入旧群记忆。
+            const latest = (await DB.getGroups()).find(item => item.id === group.id);
+            const freshCharacter = (await DB.getAllCharacters()).find(item => item.id === member.id);
+            if (!latest || latest.privateChatSyncEnabled === false) {
+                return { stored: totalStored, perMemberStored, reason: latest ? 'sync_disabled' : 'group_deleted' };
+            }
+            if (!latest.members.includes(member.id) || !freshCharacter?.memoryPalaceEnabled) {
+                allMembersCompleted = false;
+                continue;
+            }
             const memberEmb = getEmbeddingConfigForMember(member, globalEmb);
             if (!memberEmb) {
                 console.warn(`🏰 [GroupPalace] 成员 ${member.name} 没有 embedding 配置，跳过 ta 这一份`);
                 perMemberStored[member.id] = 0;
+                allMembersCompleted = false;
                 continue;
             }
 
@@ -329,16 +356,22 @@ export async function processGroupNewMessages(
             } catch (e: any) {
                 console.warn(`🏰 [GroupPalace] ${member.name} 持久化群记忆失败: ${e.message}（其他成员继续）`);
                 perMemberStored[member.id] = 0;
+                allMembersCompleted = false;
             }
         }
 
-        // 7. 更新群聊水位线（即使部分成员失败也推进——避免重复提取）
-        if (totalStored > 0) {
+        // 7. 所有仍在群内、已启用记忆的成员都成功（含去重）后才能推进群水位。
+        // 部分成员失败不可跳过，否则他们永远追不上旧群记录。
+        const finalGroup = (await DB.getGroups()).find(item => item.id === group.id);
+        if (!finalGroup || finalGroup.privateChatSyncEnabled === false) {
+            return { stored: totalStored, perMemberStored, reason: finalGroup ? 'sync_disabled' : 'group_deleted' };
+        }
+        if (allMembersCompleted) {
             const newHighWaterMark = toProcess[toProcess.length - 1].id;
             setLastProcessedGroupId(group.id, newHighWaterMark);
             console.log(`✅ [GroupPalace] 群 ${group.name}：处理完成 ${totalStored} 条总入库, hwm ${lastProcessedId} → ${newHighWaterMark}`);
         } else {
-            console.warn(`🏰 [GroupPalace] 群 ${group.name}：所有成员都没存进 0 条，不更新水位线`);
+            console.warn(`🏰 [GroupPalace] 群 ${group.name}：部分成员未完成，本次不更新水位线，后续靠去重重试`);
         }
 
         return {
