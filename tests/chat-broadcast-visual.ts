@@ -17,7 +17,7 @@ try {
   await new Promise(resolve => setTimeout(resolve, 350));
   const pill = document.querySelector<HTMLButtonElement>('.chat-broadcast-pill');
   const color = pill ? getComputedStyle(pill) : null;
-  const rgb = (value: string) => (value.match(/[0-9]+(?:\\.[0-9]+)?/g) || []).slice(0, 3).map(Number);
+  const rgb = (value: string) => (value.match(/[0-9]+/g) || []).slice(0, 3).map(Number);
   const neutral = (value: string) => {
     const c = rgb(value);
     return c.length === 3 && Math.max(...c) - Math.min(...c) <= 2;
@@ -27,7 +27,7 @@ try {
     grayscaleBackground: color && neutral(color.backgroundColor),
     grayscaleBorder: color && neutral(color.borderTopColor),
     grayText: color && neutral(color.color),
-    noGreenGlow: !!pill && !/(emerald|green|rgba\\(110,\\s*220|rgba\\(140,\\s*235|linear-gradient)/i.test(pill.outerHTML),
+    noGreenGlow: !!pill && !/emerald|green|linear-gradient|110, 220|140, 235/i.test(pill.outerHTML),
     singleLineOnPhone: !!pill && pill.getBoundingClientRect().width < window.innerWidth - 24,
     liveDots: !!pill && pill.querySelectorAll('.chat-broadcast-dot').length === 3,
     monochromeIcon: !!pill && pill.querySelector('svg') !== null,
