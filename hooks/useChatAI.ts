@@ -637,7 +637,8 @@ export const useChatAI = ({
         opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean },
     ) => {
         // 阻止用户点击、旧自动回复计时器以及重新生成绕过私聊拉黑。
-        if (isTyping || !char || isPrivateChatBlocked(charRef.current?.chatBlock)) return;
+        if (isTyping || !char || isPrivateChatBlocked(charRef.current?.chatBlock))
+            return opts?.immediateMusicInvite ? 'busy' as const : undefined;
         const effectiveApi = resolveDialogueApi(apiConfig, char, overrideApiConfig);
         if (!effectiveApi.baseUrl) { alert("请先在设置中配置 API URL"); return; }
 
@@ -655,7 +656,7 @@ export const useChatAI = ({
             char, userProfile, groups, realtimeConfig, apiConfig, updateCharacter,
         });
         const releaseReply = acquireChatReply(char.id);
-        if (!releaseReply) return;
+        if (!releaseReply) return opts?.immediateMusicInvite ? 'busy' as const : undefined;
         const replyRun = createReplyRun(char.id);
         amsg2Session.signal = replyRun.signal;
         const replyStep = <T>(operation: () => Promise<T>) => withReplyCancellation(replyRun, operation);
