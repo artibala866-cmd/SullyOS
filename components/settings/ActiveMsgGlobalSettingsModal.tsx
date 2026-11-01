@@ -248,6 +248,9 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
   const [workerVersion, setWorkerVersion] = useState<AmsgWorkerVersionProbe | null>(null);
   /** 自更新成功后 worker 报回来的代码指纹，显示出来好让人确认这次真换了。 */
   const [selfUpdateHash, setSelfUpdateHash] = useState('');
+  // 旧版 Worker 无法感知预览分支：用户需先在 CF 为原 Worker 设定小体积的
+  // AMSG_BUNDLE_URL 变量，才允许手动触发原 Worker 的 /self-update。
+  const [previewSourceReady, setPreviewSourceReady] = useState(false);
   /**
    * 后台任务的定时触发（Worker 的 cron trigger）现在开着没有，见 ActiveMsgClient.getCronTriggerState。
    * null = 这台 Worker 没有这个端点（旧版）或没读到，按钮整个不显示。
@@ -644,15 +647,27 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
       if (result.ok) {
         setSelfUpdateHash(result.bundleHash || '');
         setAttachOpen(false);
-        addToast(result.message, 'success');
-        try {
-          await ActiveMsgClient.connect();
-          await refresh();
-        } catch (error: any) {
+        // 旧正式版允许自更新，但可能仍拉了正式版。不能只信旧 Worker 回的
+        // UPDATED：必须重新读取运行中版本+发布通道，再宣告已升级成功。
+        const observed = await ActiveMsgClient.probeWorkerVersion();
+        setWorkerVersion(observed);
+        if (observed.state !== 'current') {
           addToast(
-            `后端已更新，但紧接着的验证没过：${error?.message || '未知原因'}。手动点一下「重新连接并验证」。`,
-            'error',
+            'Worker 已执行更新请求，但还没验证到本测试版。请检查 Cloudflare 的 AMSG_BUNDLE_URL 是否填写正确，再重新连接验证。',
+            'info',
           );
+        } else {
+          setPreviewSourceReady(false);
+          addToast('已核对云端版本与测试分支一致，Worker 升级成功。', 'success');
+          try {
+            await ActiveMsgClient.connect();
+            await refresh();
+          } catch (error: any) {
+            addToast(
+              `Worker 版本已更新，但连接验证没过：${error?.message || '未知原因'}。手动点「重新连接并验证」。`,
+              'error',
+            );
+          }
         }
       } else {
         addToast(result.message, result.supported ? 'error' : 'info');
@@ -1434,16 +1449,51 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     ? `更新 Worker 到 ${workerVersion.expected}`
                     : '重新检查并更新 Worker'}
               </button>
-              {AMSG_BUNDLE_CHANNEL === 'preview' ? (
-                <p className="text-xs leading-relaxed text-neutral-700">
-                  当前是测试分支专用 Worker。旧正式版自更新会取原作者的正式包，不能直接升级到测试版。
-                  请先用下方「复制本测试站 Worker 代码」覆盖原 Worker（保留 D1、密钥与 Cron）。之后才可以安全自动更新。
-                </p>
+              {AMSG_BUNDLE_CHANNEL === 'preview' && workerVersion?.state === 'outdated' && workerVersion.deployedChannel !== 'preview' ? (
+                <div className="space-y-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+                  <div className="text-xs font-bold text-neutral-800">手机免粘贴大文件升级旧 Worker</div>
+                  <p className="text-xs leading-relaxed text-neutral-600">
+                    不要在 Cloudflare 的 Edit code 中粘贴整份文件。打开原 Worker 的
+                    Settings → Variables and Secrets → Add，新增类型为 Text 的变量：
+                  </p>
+                  <div className="rounded-lg bg-white p-2 text-xs text-neutral-700">
+                    <div className="font-mono font-bold">AMSG_BUNDLE_URL</div>
+                    <div className="mt-1 break-all font-mono">https://artibala866-cmd.github.io/SullyOS-Dev-Preview/amsg-worker.bundle.js</div>
+                  </div>
+                  <button type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText('https://artibala866-cmd.github.io/SullyOS-Dev-Preview/amsg-worker.bundle.js')
+                        .then(() => addToast('更新源短链接已复制', 'success'))
+                        .catch(() => addToast('复制失败，可以手动复制上方链接', 'error'));
+                    }}
+                    className="text-xs font-bold text-neutral-700 underline">复制更新源短链接</button>
+                  <p className="text-xs leading-relaxed text-neutral-600">
+                    保存该变量后回到这里。不要新建 Worker，不要修改 AMSG_MASTER_KEY、VAPID、DB 或 Cron。
+                  </p>
+                  <label className="flex items-start gap-2 text-xs leading-relaxed text-neutral-700">
+                    <input type="checkbox" checked={previewSourceReady}
+                      onChange={(event) => setPreviewSourceReady(event.target.checked)}
+                      className="mt-0.5"/>
+                    <span>我已经在原 Worker 上添加并部署了上述变量</span>
+                  </label>
+                  <button type="button" disabled={loading || !previewSourceReady}
+                    onClick={() => void handleSelfUpdateWorker()}
+                    className="w-full rounded-xl bg-neutral-700 py-2.5 text-xs font-bold text-white disabled:opacity-40">
+                    用原 Worker 自更新到测试版
+                  </button>
+                  <p className="text-[11px] leading-relaxed text-neutral-500">
+                    只传一条更新请求，由云端自己下载完整代码；如果提示缺 CF_API_TOKEN，请使用本页下方的「补装更新能力」。
+                    完成后自动核对实际运行版本，不会仅凭「更新成功」字样宣布完成。
+                  </p>
+                </div>
+              ) : null}
+              {AMSG_BUNDLE_CHANNEL === 'preview' && workerVersion?.deployedChannel === 'preview' ? (
+                <p className="text-xs leading-relaxed text-neutral-600">云端已经运行本测试分支的 Worker，可使用上方按钮更新。</p>
               ) : null}
               {AMSG_BUNDLE_CHANNEL === 'preview' ? (
                 <button type="button" onClick={() => void handleCopyWorkerBundle()}
                   className="w-full py-2.5 font-bold rounded-2xl bg-white border border-slate-300 text-slate-700 active:scale-95 transition-transform">
-                  复制本测试站 Worker 代码
+                  备用：复制本测试站 Worker 代码（电脑操作）
                 </button>
               ) : null}
               {workerVersion?.state === 'outdated' ? (
