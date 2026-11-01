@@ -433,6 +433,8 @@ export function formatMessageWithTime(
  * voice 只要带转写文字就属于语义上下文，应该与文字和卡片一起参与统计与总结。
  */
 export function isMessageSemanticallyRelevant(msg: Message): boolean {
+    // 拉黑期间的本地拒收气泡不是角色收到的事实，不进入记忆归档或语义召回。
+    if (msg.role === 'user' && msg.metadata?.chatBlockRejected === true) return false;
     const type = msg.type as string;
     if (type === 'image' || type === 'emoji') return false;
     if (type === 'voice') return !!getVoiceTranscript(msg);
