@@ -32,6 +32,19 @@ const PROCESS_RATIO = 0.85;
 const DEDUP_THRESHOLD = 0.9;
 
 const LAST_MSG_KEY_GROUP = (groupId: string) => `mp_lastMsgId_group_${groupId}`;
+// 与旧版群总水位并行：新成员或恢复记忆宫殿的成员必须有自己的补录进度。
+// 采用 mp_lastMsgId_ 前缀，让现有完整备份/恢复自动携带这些数值。
+const MEMBER_LAST_MSG_KEY = (groupId: string, memberId: string) => `mp_lastMsgId_group_member_${groupId}_${memberId}`;
+const memberProcessedId = (groupId: string, memberId: string): number => {
+    try {
+        const raw = localStorage.getItem(MEMBER_LAST_MSG_KEY(groupId, memberId));
+        const n = raw === null ? 0 : Number(raw);
+        return Number.isSafeInteger(n) && n > 0 ? n : 0;
+    } catch { return 0; }
+};
+const setMemberProcessedId = (groupId: string, memberId: string, lastId: number): void => {
+    try { localStorage.setItem(MEMBER_LAST_MSG_KEY(groupId, memberId), String(lastId)); } catch {}
+};
 
 function getLastProcessedGroupId(groupId: string): number {
     try {
@@ -117,7 +130,16 @@ const deletedGroups = new Set<string>();
 export async function deleteGroupMemoriesByGroupId(groupId: string): Promise<{ deleted: number }> {
     if (!groupId) return { deleted: 0 };
     deletedGroups.add(groupId);
-    try { localStorage.removeItem(LAST_MSG_KEY_GROUP(groupId)); } catch { /* storage blocked */ }
+    try {
+        localStorage.removeItem(LAST_MSG_KEY_GROUP(groupId));
+        const prefix = 'mp_lastMsgId_group_member_' + groupId + '_';
+        const toClear: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.startsWith(prefix)) toClear.push(key);
+        }
+        toClear.forEach(key => localStorage.removeItem(key));
+    } catch { /* storage blocked */ }
     try {
         const all = await (async () => {
             // MemoryNodeDB 没有 getAll；走通用 db 表名直查
@@ -237,15 +259,23 @@ export async function processGroupNewMessages(
         const hotZoneStartId = textMsgs[hotZoneStartIdx].id;
 
         const lastProcessedId = getLastProcessedGroupId(group.id);
-        const buffer = textMsgs.filter(m => m.id > lastProcessedId && m.id < hotZoneStartId);
+        const laggingMembers = enabledMembers.filter(member => memberProcessedId(group.id, member.id) < lastProcessedId);
+        // 历史群此前只有共享游标，入群的新成员不应直接继承老成员的进度。
+        // 若群已有水位却没有角色水位，先为落后成员补录旧记录；其他成员不会重复存入。
+        const replaying = laggingMembers.length > 0;
+        const targetMembers = replaying ? laggingMembers : enabledMembers;
+        const startId = replaying
+            ? Math.min(...laggingMembers.map(member => memberProcessedId(group.id, member.id)))
+            : lastProcessedId;
+        const buffer = textMsgs.filter(m => m.id > startId && m.id < hotZoneStartId);
 
         if (buffer.length < BUFFER_THRESHOLD_GROUP) {
             console.log(`🏰 [GroupPalace] 群 ${group.name}：缓冲区 ${buffer.length} < ${BUFFER_THRESHOLD_GROUP}，跳过（hwm=${lastProcessedId}, 热区起点 id=${hotZoneStartId}）`);
             return { stored: 0, perMemberStored: {}, reason: 'threshold' };
         }
 
-        // 4. 取前 85%
-        const processCount = Math.ceil(buffer.length * PROCESS_RATIO);
+        // 4. 取前 85%，单次最多 200 条，避免积累千条的旧群一次塞爆副 API。
+        const processCount = Math.min(Math.ceil(buffer.length * PROCESS_RATIO), 200);
         const toProcess = buffer.slice(0, processCount);
         const keptTail = buffer.length - processCount;
         if (toProcess.length === 0) return { stored: 0, perMemberStored: {}, reason: 'threshold' };
@@ -278,7 +308,7 @@ export async function processGroupNewMessages(
         }
 
         console.log(`🏰 [GroupPalace] 群 ${group.name}：提取 ${drafts.length} 条群记忆，开始为 ${enabledMembers.length} 个成员各持久化一份`);
-        onProgress?.(`提取到 ${drafts.length} 条群记忆，正在向量化并存入 ${enabledMembers.length} 个成员的记忆宫殿...`);
+        onProgress?.(`提取到 ${drafts.length} 条群记忆，正在向量化并存入 ${targetMembers.length} 个成员的记忆宫殿...`);
 
         // 提取时群可能已被删除/取消互通/成员退群；绝不使用过期授权继续写个人记忆。
         const currentGroup = (await DB.getGroups()).find(item => item.id === group.id);
@@ -294,7 +324,7 @@ export async function processGroupNewMessages(
         let totalStored = 0;
         let allMembersCompleted = true;
 
-        for (const member of enabledMembers) {
+        for (const member of targetMembers) {
             // 取消授权/解散/退出群后立即止损，避免延迟的 embedding 请求写入旧群记忆。
             const latest = (await DB.getGroups()).find(item => item.id === group.id);
             const freshCharacter = (await DB.getAllCharacters()).find(item => item.id === member.id);
@@ -414,18 +444,22 @@ export async function processGroupNewMessages(
             }
         }
 
-        // 7. 所有仍在群内、已启用记忆的成员都成功（含去重）后才能推进群水位。
-        // 部分成员失败不可跳过，否则他们永远追不上旧群记录。
+        // 7. 只有目标成员全部成功（含去重/云端同步）才能推进进度。
+        // 补录旧成员时不回退共享群水位，防止影响其他成员已有的处理历史。
         const finalGroup = (await DB.getGroups()).find(item => item.id === group.id);
         if (!finalGroup || deletedGroups.has(group.id) || finalGroup.privateChatSyncEnabled === false) {
             return { stored: totalStored, perMemberStored, reason: finalGroup ? 'sync_disabled' : 'group_deleted' };
         }
-        if (allMembersCompleted) {
-            const newHighWaterMark = toProcess[toProcess.length - 1].id;
-            setLastProcessedGroupId(group.id, newHighWaterMark);
-            console.log(`✅ [GroupPalace] 群 ${group.name}：处理完成 ${totalStored} 条总入库, hwm ${lastProcessedId} → ${newHighWaterMark}`);
+        const unchangedMembership = targetMembers.every(member => finalGroup.members.includes(member.id));
+        const newHighWaterMark = toProcess[toProcess.length - 1].id;
+        if (allMembersCompleted && unchangedMembership) {
+            for (const member of targetMembers) {
+                setMemberProcessedId(group.id, member.id, newHighWaterMark);
+            }
+            if (!replaying) setLastProcessedGroupId(group.id, newHighWaterMark);
+            console.log(`✅ [GroupPalace] 群 ${group.name}：${replaying ? '成员补录' : '正常归档'}完成 ${totalStored} 条, hwm ${lastProcessedId} → ${getLastProcessedGroupId(group.id)}`);
         } else {
-            console.warn(`🏰 [GroupPalace] 群 ${group.name}：部分成员未完成，本次不更新水位线，后续靠去重重试`);
+            console.warn(`🏰 [GroupPalace] 群 ${group.name}：成员处理未全部完成/成员变更，保留水位，下次去重重试`);
         }
 
         return {
