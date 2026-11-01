@@ -3999,6 +3999,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         !m.metadata?.homeSceneRecord &&
         !m.metadata?.musicListenInviteResponseTo &&
         !m.metadata?.musicListenInvite &&
+        !m.metadata?.historyImported && !m.metadata?.importedFrom &&
         Number(m.timestamp) > 0)?.timestamp ?? 0;
     // Use the canonical chat's last real answered exchange as attention evidence;
     // a hypothetical incoming user turn lets the pre-send callback decide before DB save.
