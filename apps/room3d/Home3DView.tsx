@@ -69,7 +69,7 @@ export default function Home3DView({value,onChange,onBack,character,user,api,con
  const roomTimeZone=resolveCharTimeZone(character),initialTimeZone=useRef(roomTimeZone);
  useEffect(()=>{editor?.setTimeZone(roomTimeZone);},[editor,roomTimeZone]);
  const [extraItems,setExtraItems]=useState<unknown[]>(),[creatorReady,setCreatorReady]=useState(false);
- const savedState=character?.chibiStudio?.home3D?.state??character?.chibiStudio?.room?.state??character?.chibiStudio?.vr?.state;
+ const savedState=character?.chibiStudio?.home3D?.state;
  useEffect(()=>{let cancelled=false;if(!savedState)return;loadCreatorPartsForRender().then(items=>{if(!cancelled)setExtraItems(items.map(p=>({...p,categoryKey:p.categoryKey})));}).catch(()=>{if(!cancelled)setResidentError('自定义素材读取失败，请退出小屋重试。');});return()=>{cancelled=true};},[savedState]);
  useEffect(()=>{let cancelled=false;if(!editor||suspended||!(previewParts||parts))return;
   setMainReady(false);const currentParts=(previewParts||parts)!,{headSize,bodyHeight,...style}=residentHair,signature=JSON.stringify(style);

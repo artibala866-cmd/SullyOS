@@ -2,7 +2,7 @@ import {homelyPaletteStyle} from '../os/homelyPalette';
 import {homeFigureSeed} from '../../utils/homeFigureSeed';
 import builtinParts from '../../public/like520/parts/manifest.json';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {CreatorIframe, isSullyChar, sullyPresets, type ChibiResult} from '../Like520Event';
+import {CreatorIframe, isSullyChar, sullyPresets, type ChibiResult} from './CreatorIframe';
 import {CreatorRollBridge} from '../../apps/room3d/chibi/CreatorRollBridge';
 import {decodeParts} from '../../apps/room3d/chibi/visitor';
 import {cleanFace} from '../../apps/room3d/chibi/faceAppearance';
