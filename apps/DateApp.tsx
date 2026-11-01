@@ -610,6 +610,8 @@ const DateApp: React.FC = () => {
     useAppShortcut(ShortcutAppID.Date, (intent, isCurrent) => {
         setCameFromChat(false);
         setMeetSurface(intent.entryId === 'story' ? 'story' : 'companion');
+        // Story shortcuts must open the story list, not the companion opening screen.
+        if (intent.entryId === 'story') { setMode('select'); return; }
         const target = characters.find(c => c.id === intent.characterId);
         if (!target) { setMode('select'); return; }
         setActiveCharacterId(target.id);
@@ -694,8 +696,9 @@ const DateApp: React.FC = () => {
 
     // --- Render ---
 
-    if (meetSurface === 'story' && mode === 'select' && !cameFromChat) {
-        return <StoryTheater onSwitchCompanion={() => setMeetSurface('companion')} onClose={closeApp} />;
+    if (meetSurface === 'story' && mode === 'select') {
+        // The tab remains reachable after returning from a chat-originated Meet session.
+        return <StoryTheater onSwitchCompanion={() => setMeetSurface('companion')} onClose={() => cameFromChat ? returnToChat() : closeApp()} />;
     }
 
     if (mode === 'select' || !char) {
