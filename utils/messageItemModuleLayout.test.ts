@@ -121,3 +121,36 @@ describe('MessageItem module layout', () => {
         expect(markup).toContain('-webkit-touch-callout:default');
     });
 });
+
+
+describe('邀请卡片原生多选操作', () => {
+    it.each(['user', 'char'] as const)('%s 的一起听邀请显示多选勾选框，并禁用接受/拒绝/撤回按钮', (inviter) => {
+        const invite: Message = {
+            id: 101, charId: 'char-1',
+            role: inviter === 'char' ? 'assistant' : 'user',
+            type: 'system', content: '[一起听邀请]',
+            timestamp: 200, metadata: { musicListenInvite: true, inviter, status: 'pending' },
+        };
+        const markup = renderToStaticMarkup(React.createElement(MessageItem, {
+            msg: invite, isFirstInGroup: true, isLastInGroup: true,
+            activeTheme, charAvatar: '', charName: '角色', userAvatar: '',
+            onLongPress: vi.fn(), onReply: vi.fn(),
+            selectionMode: true, isSelected: true, onToggleSelect: vi.fn(),
+        }));
+        expect(markup).toContain('data-music-invite-card="101"');
+        expect(markup).toContain('aria-label="选择一起听邀请"');
+        expect(markup).toContain('aria-pressed="true"');
+        expect(markup).toContain('pointer-events-none');
+        expect(markup).toContain('disabled=""');
+    });
+    it('正常模式保留原邀请按钮，不引入额外勾选操作', () => {
+        const invite: Message = {
+            id: 102, charId:'char-1', role:'user', type:'system',
+            content:'[一起听邀请]', timestamp:100,
+            metadata:{ musicListenInvite:true, inviter:'user', status:'pending' },
+        };
+        const markup=renderMessage(invite);
+        expect(markup).toContain('撤回邀请');
+        expect(markup).not.toContain('aria-label="选择一起听邀请"');
+    });
+});
