@@ -54,6 +54,8 @@ describe('见面剧情从点击到真实数据库持久化，再次进入的完�
         await setTitle('真正保存的雨夜');
         await tap('旅行者');
         await tap('保存并进入');
+        // fake-indexeddb completes the readwrite transaction on a later task; React must flush after commit.
+        await act(async () => { await new Promise(resolve => setTimeout(resolve, 80)); });
         const firstSession = host!.querySelector('[data-testid="saved-story-session"]');
         expect(firstSession, `No session: alert=${host!.querySelector('[role="alert"]')?.textContent || 'none'}; buttons=${[...host!.querySelectorAll('button')].map(b=>b.textContent?.trim()).filter(Boolean).slice(0,9).join(',')}; stored=${(await DB.getStoryTheaters()).map(x=>x.title).join(',')}`).not.toBeNull();
         expect(firstSession!.textContent).toContain('真正保存的雨夜');
