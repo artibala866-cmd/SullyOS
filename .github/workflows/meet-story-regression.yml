@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/meet-story-regression.yml'
       - 'components/date/story/**'
+      - 'test/fixtures/story-editor-dark.html'
+      - 'tests/story-editor-dark-visual.tsx'
       - 'apps/DateApp.tsx'
       - 'utils/storyTheater*.ts'
       - 'utils/storyTheater*.tsx'
@@ -41,7 +43,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/meet-story-tsc.log 2>&1 || true
-          grep -E '^(types.ts|apps/DateApp.tsx|utils/db.ts|utils/storyTheater[^/]*\.tsx?|utils/summaryReasoning.ts|utils/meetingAppearance(\.test)?\.ts|utils/beautyShareContract.ts|utils/decorationWorkshop.ts|components/date/story/[^/]+\.tsx?)[(]' /tmp/meet-story-tsc.log > /tmp/meet-story-errors.log || true
+          grep -E '^(types.ts|tests/story-editor-dark-visual.tsx|apps/DateApp.tsx|utils/db.ts|utils/storyTheater[^/]*\.tsx?|utils/summaryReasoning.ts|utils/meetingAppearance(\.test)?\.ts|utils/beautyShareContract.ts|utils/decorationWorkshop.ts|components/date/story/[^/]+\.tsx?)[(]' /tmp/meet-story-tsc.log > /tmp/meet-story-errors.log || true
           if [ -s /tmp/meet-story-errors.log ]; then
             cat /tmp/meet-story-errors.log
             exit 1
@@ -49,3 +51,46 @@ jobs:
           echo "Meet story TypeScript diagnostics clean."
       - name: Verify production Vite bundle
         run: pnpm run build
+
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Render the real story editor in headless Chromium at mobile viewport
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/meet-story
+          pnpm exec vite --host 127.0.0.1 --port 5193 --strictPort > output/meet-story/vite.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsSL http://127.0.0.1:5193/test/fixtures/story-editor-dark.html >/dev/null; then break; fi
+            sleep 1
+          done
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$browser" || { echo 'No Chromium executable on runner'; exit 1; }
+          url='http://127.0.0.1:5193/test/fixtures/story-editor-dark.html'
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage             --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000             --dump-dom "$url" > output/meet-story/rendered-dom.html 2> output/meet-story/chrome.log
+          grep -q 'data-story-gray-ready="true"' output/meet-story/rendered-dom.html || {
+            grep -E 'story-gray-browser-report|storyGrayReady|error' output/meet-story/rendered-dom.html | tail -c 5000 || true
+            cat output/meet-story/chrome.log | tail -45
+            exit 1
+          }
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage             --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000             --screenshot=output/meet-story/story-editor-dark-390.png "$url"             > output/meet-story/screenshot.log 2>&1
+          test -s output/meet-story/story-editor-dark-390.png
+          echo 'PASS: real story editor rendered in Chromium, mobile viewport, gray surfaces and readable text verified'
+      - name: Attach browser screenshot and computed style report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meet-story-mobile-visual
+          path: output/meet-story/
+          if-no-files-found: ignore
