@@ -104,6 +104,7 @@ describe('一起听即时回应与真人感/主动消息隔离', () => {
         await flush();
         expect(state.generated).toHaveBeenCalledTimes(1);
         expect(state.generated.mock.calls[0][2]).toEqual({ immediateMusicInvite: true });
+        expect(state.generated.mock.calls[0][0]).toEqual([state.history[0]]);
     });
 
     it('用户已撤回或拒绝的邀请不触发新消息', async () => {
