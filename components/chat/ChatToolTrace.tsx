@@ -54,7 +54,10 @@ export default function ChatToolTrace({text}: {text:string}) {
             observer?.disconnect();
             window.removeEventListener('resize', measure);
         };
-    }, [text]);
+    // Preset changes can move the bubble column without changing its width or
+    // tool text. Re-anchor after EVERY React update, not only after new text.
+    // A ResizeObserver alone cannot detect position-only CSS changes.
+    });
 
     return (
         <div ref={traceRef} className="sully-chat-tool-trace relative box-border w-full max-w-full min-w-0 mb-4 px-3" role="note">
