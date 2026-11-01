@@ -8,6 +8,7 @@ on:
       - 'utils/memoryPalace/group*.ts'
       - 'utils/memoryPalace/pipeline.ts'
       - 'utils/memoryPalace/vectorSearch.ts'
+      - 'utils/memoryPalace/vectorSearch.groupMemory.test.ts'
       - 'utils/chatContextRange.ts'
       - '.github/workflows/group-memory-continuity.yml'
   workflow_dispatch:
@@ -34,6 +35,7 @@ jobs:
         run: >
           pnpm exec vitest run
           utils/memoryPalace/groupPipeline.test.ts
+          utils/memoryPalace/vectorSearch.groupMemory.test.ts
           utils/groupChat/memoryScope.test.ts
           utils/groupChat/memberMemoryScope.test.ts
           utils/groupChat/topicCardSync.test.ts
