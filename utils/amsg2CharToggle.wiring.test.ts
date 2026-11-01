@@ -40,6 +40,14 @@ describe('角色级开关只有一处判定', () => {
     expect(modal).not.toMatch(/enabled\s*\?\?\s*(true|false)/);
   });
 
+  it('主动消息总开关拨到关闭就立刻执行完整的关闭链路，不需再点第二次确认', () => {
+    expect(modal).toContain('void handleSubmit(true)');
+    expect(modal).toMatch(/disableFromToggle \|\| !enabled/);
+    expect(modal).toMatch(/onSave\(\(prev\) => buildConfig\(prev, \(list\) => list, \{ enabled: false \}\)\)/);
+    expect(modal).toContain('ActiveMsgClient.putCharLimits');
+    expect(modal).toContain('ActiveMsgClient.cancelAllTasksForChar');
+  });
+
   it('工具注入门走同一个判定', () => {
     expect(chatAI).toMatch(/amsg2ToolsInjected = isAmsg2EnabledForChar\(char\)/);
   });
