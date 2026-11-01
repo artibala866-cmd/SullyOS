@@ -116,11 +116,22 @@ export async function vectorSearch(
         try {
             const remoteResults = await remoteSearch(remoteConfig, queryVector, charId, threshold, topK);
             if (remoteResults.length > 0) {
+                // 远程 RPC 旧协议没有 group_id；从当前角色本地节点找回来源。
+                // mng_ 是群个人记忆的专属 ID。若本地节点已不存在，宁可标为未知群
+                // 让最终权限过滤拦下，也不把远程孤儿记忆当普通私聊记忆泄露。
+                const localGroupSources = await Promise.all(remoteResults.map(r =>
+                    r.memoryId.startsWith('mng_')
+                        ? MemoryNodeDB.getById(r.memoryId).catch(() => undefined)
+                        : Promise.resolve(undefined),
+                ));
                 // 远程结果已包含内容，构建轻量 MemoryNode（带 EventBox 字段 + Russell 情感 + 置顶 + 衍生来源）
-                return remoteResults.map(r => ({
+                return remoteResults.map((r, index) => ({
                     node: {
                         id: r.memoryId,
                         charId,
+                        groupId: localGroupSources[index]?.groupId
+                            || (r.memoryId.startsWith('mng_') ? '__unresolved_group__' : undefined),
+                        groupName: localGroupSources[index]?.groupName,
                         content: r.content,
                         room: r.room as any,
                         tags: r.tags,
