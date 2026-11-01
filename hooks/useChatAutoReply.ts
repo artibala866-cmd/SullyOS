@@ -1,4 +1,5 @@
 import { resolveRealPersonReplyPlan } from '../utils/realPersonReplyTiming';
+import { REAL_PERSON_RHYTHM_STATES, type RealPersonAttention, type RealPersonReplyRhythm } from '../utils/realPersonReplyRhythm';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { CHAT_AUTO_REPLY_REVOKE_REVISION_KEY } from '../utils/chatInputPreferences';
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
@@ -9,7 +10,7 @@ export const CHAT_AUTO_REPLY_MAX_PENDING_AGE_MS = 48 * 60 * 60_000;
 export const CHAT_AUTO_REPLY_INTENT_PREFIX = 'sully_chat_auto_reply_intent_v1:';
 
 /** The local intent is not a second reply engine or a second billable request. */
-type ReplyIntent = { firstUnansweredAt: number; lastUserSendAt: number };
+type ReplyIntent = { firstUnansweredAt: number; lastUserSendAt: number; replyAttention?: RealPersonAttention };
 function readIntentState(charId: string, now = Date.now()): ReplyIntent | null {
     try {
         const raw: unknown = JSON.parse(localStorage.getItem(CHAT_AUTO_REPLY_INTENT_PREFIX + charId) || 'null');
@@ -23,7 +24,9 @@ function readIntentState(charId: string, now = Date.now()): ReplyIntent | null {
         const last = data?.lastUserSendAt;
         return { firstUnansweredAt: at,
             lastUserSendAt: typeof last === 'number' && Number.isFinite(last)
-                ? Math.max(at, Math.min(last, now)) : at };
+                ? Math.max(at, Math.min(last, now)) : at,
+            replyAttention: REAL_PERSON_RHYTHM_STATES.includes(data?.replyAttention as RealPersonAttention)
+                ? data?.replyAttention : undefined };
     } catch { return null; }
 }
 function readIntent(charId: string, now = Date.now()): number {
@@ -33,9 +36,9 @@ function readOptOutRevision(): string | null {
     try { return localStorage.getItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY); }
     catch { return null; }
 }
-function persistIntent(charId: string, at: number, lastUserSendAt = at): boolean {
+function persistIntent(charId: string, at: number, lastUserSendAt = at, replyAttention?: RealPersonAttention): boolean {
     try {
-        localStorage.setItem(CHAT_AUTO_REPLY_INTENT_PREFIX + charId, JSON.stringify({ firstUnansweredAt: at, lastUserSendAt }));
+        localStorage.setItem(CHAT_AUTO_REPLY_INTENT_PREFIX + charId, JSON.stringify({ firstUnansweredAt: at, lastUserSendAt, replyAttention }));
         return true;
     } catch { return false; }
 }
@@ -57,11 +60,13 @@ interface Options {
     naturalPacing?: boolean;
     lifeActivity?: 'sleep' | 'busy' | 'free' | null;
     lastCharacterReplyAt?: number;
+    replyAttention?: RealPersonAttention;
+    replyRhythm?: Partial<RealPersonReplyRhythm>;
 }
 
 const newWork = () => ({
     pending: false, sends: new Set<symbol>(), cancelVersion: 0, firstUnansweredAt: 0, persisted: false,
-    checking: false, retryAt: 0, lastUserSendAt: 0, ownerId: null as string | null,
+    checking: false, retryAt: 0, lastUserSendAt: 0, replyAttention: undefined as RealPersonAttention | undefined, ownerId: null as string | null,
 });
 
 /** Only a successfully saved send in this active conversation creates a candidate. */
@@ -80,6 +85,7 @@ export function useChatAutoReply(options: Options) {
         work.checking = false;
         work.persisted = false;
         work.firstUnansweredAt = 0;
+        work.replyAttention = undefined;
         work.cancelVersion++;
         refresh();
     }, []);
@@ -103,6 +109,7 @@ export function useChatAutoReply(options: Options) {
                     work.persisted = true;
                     work.firstUnansweredAt = saved.firstUnansweredAt;
                     work.lastUserSendAt = saved.lastUserSendAt;
+                    work.replyAttention = saved.replyAttention;
                 }
             }
         }
@@ -162,7 +169,8 @@ export function useChatAutoReply(options: Options) {
                 const savedAt = readIntent(conversationId!) ||
                     (work.pending ? work.firstUnansweredAt : Date.now());
                 const lastUserSendAt = Date.now();
-                const stored = persistIntent(conversationId!, savedAt, lastUserSendAt);
+                const replyAttention = work.pending ? work.replyAttention : current.current.replyAttention;
+                const stored = persistIntent(conversationId!, savedAt, lastUserSendAt, replyAttention);
                 if (workRef.current !== work) {
                     // A newly mounted/returned surface may already be showing
                     // this same Char; hydrate it without resetting its work.
@@ -174,12 +182,14 @@ export function useChatAutoReply(options: Options) {
                         currentWork.persisted = true;
                         currentWork.firstUnansweredAt = savedAt;
                         currentWork.lastUserSendAt = lastUserSendAt;
+                        currentWork.replyAttention = replyAttention;
                         refresh();
                     }
                     return;
                 }
                 if (!work.pending) work.firstUnansweredAt = savedAt;
                 work.lastUserSendAt = lastUserSendAt;
+                work.replyAttention = replyAttention;
                 work.pending = true;
                 work.persisted = stored;
             }
@@ -215,6 +225,10 @@ export function useChatAutoReply(options: Options) {
                 fallbackDelayMs: 3_500,
                 lastUserSendAt: work.lastUserSendAt,
                 lastCharacterReplyAt: latest.lastCharacterReplyAt,
+                replyAttention: work.replyAttention === 'occupied' && activity === 'free'
+                    ? (latest.replyAttention || 'normal') : work.replyAttention || latest.replyAttention,
+                replyRhythm: latest.replyRhythm,
+                characterId: latest.conversationId || '',
             })
             : { delayMs: CHAT_AUTO_REPLY_DELAY_MS };
         if (plan.delayMs === null) {
@@ -272,7 +286,8 @@ export function useChatAutoReply(options: Options) {
         }, Math.max(plan.delayMs, work.retryAt - now));
         return () => window.clearTimeout(timer);
     }, [revision, visible, options.enabled, options.active, options.blocked, options.generating,
-        options.conversationId, options.lifeActivity, options.lastCharacterReplyAt, options.naturalPacing, cancel]);
+        options.conversationId, options.lifeActivity, options.lastCharacterReplyAt, options.naturalPacing,
+        options.replyAttention, options.replyRhythm, cancel]);
 
     return { beginSend, cancel, cancelIfPending };
 }
