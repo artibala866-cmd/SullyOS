@@ -10,6 +10,7 @@ import type {LayeringReport} from './garmentLayering';
 import {bodyHeightY,bodyBaseY,bodyHeightSlope} from './bodyHeight';
 import {fitSockSurface} from './fitSockSurface';
 import {halloweenCoverage} from './halloweenCoverage';
+import {splitHalloweenShoeSeam} from './halloweenShoeSkin';
 const assets=new Map<string,Promise<T.Group>>();
 function load(asset:string){let task=assets.get(asset);if(!task){task=loadHomeGLTF(`${import.meta.env.BASE_URL}room3d/wardrobe/${asset}`).then(g=>{g.scene.traverse(o=>{if(o instanceof T.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])m.userData.wardrobeMaterialIndex=g.parser.associations.get(m)?.materials;});g.scene.updateMatrixWorld(true);return g.scene;}).catch(e=>{assets.delete(asset);throw e;});assets.set(asset,task);}return task;}
 type Rig=ReturnType<typeof bindBlankBody>;
@@ -35,6 +36,7 @@ export async function prepareApprovedWardrobe(rig:Rig,value:ApprovedWardrobe,fit
     const values=Array.from({length:attribute.count*attribute.itemSize},(_,i)=>attribute.getComponent(Math.floor(i/attribute.itemSize),i%attribute.itemSize));
     g.setAttribute(name,name==='skinIndex'?new T.Uint16BufferAttribute(values,attribute.itemSize):new T.Float32BufferAttribute(values,attribute.itemSize));
    }
+   if(d.collection==='halloween'&&d.slot==='shoes')splitHalloweenShoeSeam(g,o.skeleton.bones);
    const p=g.attributes.position,n=g.attributes.normal,si=g.attributes.skinIndex,sw=g.attributes.skinWeight;
    const morphIndex=o.morphTargetDictionary?.VNeck;
    if(morphIndex!==undefined){const amount=fitById.get(d.id)!.neckline/100;for(const name of ['position','normal']){const base=g.attributes[name],target=g.morphAttributes[name]?.[morphIndex];if(!base||!target)continue;for(let i=0;i<base.count;i++)for(let axis=0;axis<3;axis++){const v=base.getComponent(i,axis),t=target.getComponent(i,axis);base.setComponent(i,axis,g.morphTargetsRelative?v+t*amount:T.MathUtils.lerp(v,t,amount));}}g.normalizeNormals();g.morphAttributes={};}
