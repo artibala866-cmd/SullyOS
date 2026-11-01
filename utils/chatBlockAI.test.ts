@@ -64,12 +64,13 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     const reblocked = changeChatBlock(next, 'character', true, { at: 400, reason: '新一轮冲突' });
     expect(forgivenessCooldownRemaining(reblocked, 401)).toBe(CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS - 1);
   });
-  it('没有有效结构化决策时不假装角色拒绝或直接解除拉黑', () => {
-    expect(parseForgivenessDecision('{"decision":"unblock","sign":"我愿意再谈谈"}'))
-      .toEqual({ decision: 'unblock', sign: '我愿意再谈谈', valid: true });
-    expect(parseForgivenessDecision('{"decision":"keep","sign":"再给我一点时间"}'))
-      .toEqual({ decision: 'keep', sign: '再给我一点时间', valid: true });
+  it('原版 stay/unblock 决策会解析心软度、内心状态与未发送草稿', () => {
+    expect(parseForgivenessDecision('{"decision":"unblock","softness":87,"thought":"开始心软","status":"有些犹豫","sign":"把手机放在桌上","draft":"我想再聊聊"}'))
+      .toEqual({ decision: 'unblock', sign: '把手机放在桌上', softness: 87, thought: '开始心软', status: '有些犹豫', draft: '我想再聊聊', valid: true });
+    expect(parseForgivenessDecision('{"decision":"stay","softness":3,"sign":"不想说话"}').decision).toBe('stay');
+    expect(parseForgivenessDecision('{"decision":"stay","softness":150}').softness).toBe(100);
     expect(parseForgivenessDecision('模型连接出错').valid).toBe(false);
     expect(parseForgivenessDecision('{"decision":"maybe"}').valid).toBe(false);
+    expect(parseForgivenessDecision('{"decision":"keep"}').valid).toBe(false);
   });
 });
