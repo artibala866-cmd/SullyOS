@@ -257,7 +257,7 @@ export async function processGroupNewMessages(
         const memberNames = members.map(m => m.name);
         const speakerNameOf = makeSpeakerNameOf(members, userName);
         onProgress?.(`正在提取【${group.name}】群记忆...`);
-        const { drafts } = await extractGroupMemoriesFromBuffer(
+        const { drafts, completed } = await extractGroupMemoriesFromBuffer(
             toProcess,
             group.name,
             memberNames,
@@ -267,7 +267,13 @@ export async function processGroupNewMessages(
         );
 
         if (drafts.length === 0) {
-            console.warn(`🏰 [GroupPalace] 群 ${group.name}：提取 0 条群记忆，不更新水位线，下次重试`);
+            // 合法的 [] 代表这批群聊没有值得长期记录的事实；已成功读取，
+            // 应推进游标，避免每次打开群都再次调用副 API。超时/解析失败则保留原文重试。
+            const latestEmpty = (await DB.getGroups()).find(item => item.id === group.id);
+            if (completed === true && latestEmpty && !deletedGroups.has(group.id)
+                && latestEmpty.privateChatSyncEnabled !== false) {
+                setLastProcessedGroupId(group.id, toProcess[toProcess.length - 1].id);
+            }
             return { stored: 0, perMemberStored: {}, extracted: 0, processedMessageCount: toProcess.length };
         }
 
