@@ -75,7 +75,10 @@ export function resolveRealPersonAttention(
   const last = visible.at(-1);
   if (!last || !isUserSpeech(last) || !isValidAt(last.timestamp, now))
     return activity === 'busy' || activity === 'sleep' ? 'occupied' : 'normal';
-  const assistantIndex = visible.findLastIndex(isRealAnswer);
+  let assistantIndex = -1;
+  for (let index = visible.length - 1; index >= 0; index--) {
+    if (isRealAnswer(visible[index])) { assistantIndex = index; break; }
+  }
   if (assistantIndex < 0)
     return activity === 'busy' || activity === 'sleep' ? 'occupied' : 'normal';
   const answer = visible[assistantIndex];
