@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GroupProfile, Message } from '../../types';
-import { allowGroupMemoryInPrivate, filterPrivateGroupMemoryCandidates, filterPrivateGroupTopicCards } from './memoryScope';
+import { allowGroupMemoryInPrivate, filterPrivateGroupMemoryCandidates, filterPrivateGroupTopicCards, isPrivatePalaceSourceMessage } from './memoryScope';
 
 const groups = [
     { id: 'allowed', name: '正常群', members: ['a'], createdAt: 1, privateChatSyncEnabled: true },
@@ -28,6 +28,16 @@ describe('群记忆互通权限 — 不破坏历史数据', () => {
         const result = filterPrivateGroupTopicCards(original, groups);
         expect(result.map(m => m.id)).toEqual([1, 4]);
         expect(original).toHaveLength(6);
+    });
+
+    it('群公共话题盒不再被私聊自动向量化成无 groupId 的私有记忆', () => {
+        expect(isPrivatePalaceSourceMessage(message(5, 'allowed'))).toBe(false);
+        expect(isPrivatePalaceSourceMessage({
+            ...message(6, 'allowed'), type: 'text',
+        })).toBe(true);
+        expect(isPrivatePalaceSourceMessage({
+            ...message(7, 'allowed'), groupId: 'allowed', type: 'text',
+        })).toBe(false);
     });
 
     it('向量检索多种路径的结果均按群当前权限过滤', () => {
