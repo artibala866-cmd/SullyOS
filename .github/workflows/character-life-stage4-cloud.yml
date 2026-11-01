@@ -8,6 +8,16 @@ on:
       - 'utils/amsgCloudPhone*.ts'
       - 'utils/activeMsgClient.ts'
       - 'utils/amsgFirePack.ts'
+      - 'utils/amsgFirePack.test.ts'
+      - 'utils/amsgLimits.ts'
+      - 'utils/amsgLimits.test.ts'
+      - 'utils/amsgAutonomyWake.ts'
+      - 'utils/amsgAutonomyWake.test.ts'
+      - 'utils/realPersonMode.ts'
+      - 'utils/realPersonMode.test.ts'
+      - 'apps/Chat.tsx'
+      - 'components/chat/ChatInputArea.tsx'
+      - 'components/chat/ActiveMsg2SettingsModal.tsx'
       - 'utils/amsgResults.ts'
       - 'utils/amsgBundleVersion.ts'
       - 'utils/characterPhoneChats.ts'
@@ -48,11 +58,13 @@ jobs:
         run: pnpm exec vitest run worker/amsg/src/index.test.ts -t 'Stage 4 AMSG autonomy wake'
       - name: Test cloud phone consent, privacy, idempotence, and established AMSG continuity
         run: pnpm exec vitest run utils/amsgCloudPhone.test.ts utils/amsgCloudPhoneSelection.test.ts utils/amsgCloudPhoneResultApply.test.ts utils/amsgAutonomyWake.test.ts utils/amsgAutonomyBootstrap.test.ts utils/characterPhoneAutonomy.test.ts utils/characterPhoneNpcs.test.ts utils/characterPhoneOpportunity.test.ts utils/characterPhoneChatDeletion.test.ts utils/amsg2Tasks.test.ts
+      - name: Test real-person authorization, cloud silence, messages and intact user replies
+        run: pnpm exec vitest run utils/realPersonMode.test.ts utils/amsgAutonomyPolicy.test.ts utils/amsgFirePack.test.ts utils/amsgLimits.test.ts utils/activeMsgClient.test.ts utils/chatAutoReply.test.ts utils/realPersonReplyTiming.test.ts worker/amsg/src/index.test.ts -t '真人感|real-person|自动|自发联系|频率与额度|renderFirePack|buildFirePack|schedule|real-person pacing|two-second automatic reply'
       - name: Check affected TypeScript modules
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/stage4-tsc.log 2>&1 || true
-          grep -E '^(worker/amsg/src/index.ts|context/OSContext.tsx|components/chat/CharacterPhone.tsx|utils/(amsgCloudPhone|amsgCloudPhoneSelection|amsgCloudPhoneResultApply|activeMsgClient|amsgFirePack|amsgResults|characterPhoneIdentity|characterPhoneChats|characterPhoneNpcs|characterPhoneOpportunity)(\\.test)?\\.ts)[(]' /tmp/stage4-tsc.log > /tmp/stage4-errors.log || true
+          grep -E '^(worker/amsg/src/index(\\.test)?\\.ts|context/OSContext.tsx|apps/Chat.tsx|components/chat/(CharacterPhone|ChatInputArea|ActiveMsg2SettingsModal)\\.tsx|utils/(realPersonMode|amsgAutonomyWake|amsgAutonomyPolicy|amsgLimits|amsgCloudPhone|amsgCloudPhoneSelection|amsgCloudPhoneResultApply|activeMsgClient|amsgFirePack|amsgResults|characterPhoneIdentity|characterPhoneChats|characterPhoneNpcs|characterPhoneOpportunity)(\\.test)?\\.ts)[(]' /tmp/stage4-tsc.log > /tmp/stage4-errors.log || true
           if [ -s /tmp/stage4-errors.log ]; then cat /tmp/stage4-errors.log; exit 1; fi
           echo 'Stage 4 changed-module diagnostics clean.'
       - name: Compile actual Cloudflare Worker bundle
