@@ -46,7 +46,9 @@ const DB_NAME = 'AetherOS_Data';
 // v72: home projection reads only home-source rows, never scans private-chat history.
 // v73: direct home-turn lookups for incremental journal writes.
 // v74: merge master delivery lookup with both home indexes, including existing v73 databases.
-const DB_VERSION = 74;
+// v75: upgrade earlier fork v74 installations which were created before Meet story stores were merged.
+// The upgrade creates only missing stores and never clears existing messages, characters or story data.
+const DB_VERSION = 75;
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分组定义（角色通过 groupId 指向；与群聊 groups 无关）
@@ -2895,7 +2897,7 @@ export const DB = {
   // --- 见面 · 剧情剧场 ---
   getStoryTheaters: async (): Promise<StoryTheaterEntry[]> => {
       const db = await openDB();
-      if (!db.objectStoreNames.contains(STORE_STORY_THEATERS)) return [];
+      if (!db.objectStoreNames.contains(STORE_STORY_THEATERS)) throw new Error('剧情存储表缺失（当前本地数据库版本不兼容），无法读取旧剧情；请确认使用最新测试站并关闭旧标签页后重试，切勿清空数据');
       return new Promise((resolve, reject) => {
           const request = db.transaction(STORE_STORY_THEATERS, 'readonly').objectStore(STORE_STORY_THEATERS).getAll();
           request.onsuccess = () => resolve((request.result || []).sort((a: StoryTheaterEntry, b: StoryTheaterEntry) => b.updatedAt - a.updatedAt));
@@ -2905,12 +2907,13 @@ export const DB = {
 
   saveStoryTheater: async (entry: StoryTheaterEntry): Promise<void> => {
       const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_STORY_THEATERS)) throw new Error('本地剧情数据表尚未升级，不能保存。请关闭所有旧版糯米机页面后刷新最新测试站；不要清空数据库');
       const transaction = db.transaction(STORE_STORY_THEATERS, 'readwrite');
       transaction.objectStore(STORE_STORY_THEATERS).put(entry);
       return new Promise((resolve, reject) => {
           transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error);
-          transaction.onabort = () => reject(transaction.error || new Error('saveStoryTheater aborted'));
+          transaction.onerror = () => reject(transaction.error || new Error('剧情写入失败'));
+          transaction.onabort = () => reject(transaction.error || new Error('剧情写入事务已撤销'));
       });
   },
 
