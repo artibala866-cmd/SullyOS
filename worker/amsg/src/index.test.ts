@@ -889,6 +889,19 @@ describe('频率与额度（到点兜底闸）', () => {
     expect(skipReason(writeState)).toBe('schedule-off');
   });
 
+  it('真人感关闭只禁止自主联系，用户明确排的消息仍可执行', async () => {
+    const auto = makeCtx({
+      metadata: { amsgAutonomyWake: true },
+      charRows: rows({ settings: { autonomyEnabled: false } }),
+    });
+    await expect(amsgHooks.onBeforeFire(auto.ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(auto.writeState)).toBe('schedule-off');
+    expect(auto.ctx.scratch.fire).toBeUndefined();
+
+    const userTask = makeCtx({ charRows: rows({ settings: { autonomyEnabled: false } }) });
+    fired(await amsgHooks.onBeforeFire(userTask.ctx));
+  });
+
   it('角色 2.0 已关（fire_pack 也说关）→ 残留的用户任务同样不发', async () => {
     const { ctx, writeState } = makeCtx({ charRows: rows({ pack: { selfScheduleEnabled: false } }) });
     await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ skip: true });
