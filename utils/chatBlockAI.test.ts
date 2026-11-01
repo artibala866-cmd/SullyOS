@@ -33,11 +33,11 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(extractCharacterBlockDirective('你好\n[UNBLOCK_USER]')).toEqual({ text: '你好', reason: null });
   });
   it('原版在线 JSON 和离线指令都能识别，普通引用与小号专用 main 不生效', () => {
-    expect(extractCharacterBlockAction('我需要冷静。\\n{"t":"block_user","reason":"严重越界"}'))
+    expect(extractCharacterBlockAction('我需要冷静。\n{"t":"block_user","reason":"严重越界"}'))
       .toEqual({ text: '我需要冷静。', action: { kind: 'block', reason: '严重越界' } });
-    expect(extractCharacterBlockAction('再见。\\n{"t":"unblock_user"}'))
+    expect(extractCharacterBlockAction('再见。\n{"t":"unblock_user"}'))
       .toEqual({ text: '再见。', action: { kind: 'unblock' } });
-    expect(extractCharacterBlockAction('再见。\\n[UNBLOCK_USER]'))
+    expect(extractCharacterBlockAction('再见。\n[UNBLOCK_USER]'))
       .toEqual({ text: '再见。', action: { kind: 'unblock' } });
     expect(extractCharacterBlockAction('"[UNBLOCK_USER]"').action).toBeNull();
     expect(extractCharacterBlockAction('{"t":"unblock_user","main":true}').action).toBeNull();
