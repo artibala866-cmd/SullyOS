@@ -634,7 +634,7 @@ export const useChatAI = ({
     const triggerAI = async (
         currentMsgs: Message[],
         overrideApiConfig?: { baseUrl: string; apiKey: string; model: string },
-        opts?: { skipEmotionInjection?: boolean },
+        opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean },
     ) => {
         // 阻止用户点击、旧自动回复计时器以及重新生成绕过私聊拉黑。
         if (isTyping || !char || isPrivateChatBlocked(charRef.current?.chatBlock)) return;
@@ -796,9 +796,14 @@ export const useChatAI = ({
             // false，和「全局没开」同一待遇——下面那条 veto trace 的条件够不到它，
             // 静默走本地。那是用户的主动选择，每条消息刷一遍 warn 就成骚扰了。
             //
-            const instantChatReadiness = await replyStep(async () => resolveInstantChatReadiness(char, {
-                ensureBundleVersion: false,
-            }));
+            // Together-listening invitations are immediate user actions, not
+            // AMSG instant chat or a scheduled real-person contact. Keep them
+            // on the existing local private-chat generation/postprocess path.
+            const instantChatReadiness = opts?.immediateMusicInvite
+                ? { ready: false, reason: 'disabled' as const }
+                : await replyStep(async () => resolveInstantChatReadiness(char, {
+                    ensureBundleVersion: false,
+                }));
             const instantChatOn = instantChatReadiness.ready;
             const instantChatVeto: string | null = (luckinChatOn ? 'luckin-chat'
                 : mcdMiniOpen ? 'mcd'
@@ -1120,7 +1125,7 @@ export const useChatAI = ({
             // 主动消息 2.0 的工具本轮会不会注入：thinking 门要先知道这件事（工具在下面才真正
             // 拼进 tools，但参数取舍必须现在就定）。角色级开关关掉的不注入——否则被用户显式
             // 关掉的功能会被角色一次工具调用重新打开。
-            const amsg2ToolsInjected = isAmsg2EnabledForChar(char) && await replyStep(async () => isAmsg2GlobalReady());
+            const amsg2ToolsInjected = !opts?.immediateMusicInvite && isAmsg2EnabledForChar(char) && await replyStep(async () => isAmsg2GlobalReady());
             if (shouldSendThinkingParams({
                 thinkingActive: !!payload.flags.thinkingActive,
                 legacyToolModeActive: !!toolModeActive,
