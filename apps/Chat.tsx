@@ -1994,6 +1994,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                         ...next,
                         lastForgivenessCheckAt: checkedAt,
                         lastForgivenessSign: judgement.sign,
+                        ...(judgement.softness !== null ? { forgivenessSoftness: judgement.softness } : {}),
+                        lastForgivenessThought: judgement.thought,
+                        lastForgivenessStatus: judgement.status,
+                        forgivenessDrafts: judgement.draft
+                            ? [...(next.forgivenessDrafts || []), { text: judgement.draft, at: checkedAt }].slice(-10)
+                            : (next.forgivenessDrafts || []),
                     } };
                 });
                 addToast(judgement.sign || (judgement.decision === 'unblock'
