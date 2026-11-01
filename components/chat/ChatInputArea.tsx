@@ -5,7 +5,7 @@ import wyOriginalMicrophone from '../../assets/chat/weixin-baiyu/microphone.png?
 import EmojiExportDialog from './EmojiExportDialog';
 import ChatCamera from './ChatCamera';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, Prohibit, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, BellSimpleRinging, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, Microphone, Keyboard, Stop, X, Check, CircleNotch, Waveform } from '@phosphor-icons/react';
+import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, Prohibit, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, BellSimpleRinging, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, Microphone, Keyboard, Stop, X, Check, CircleNotch, Waveform, Prohibit } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import type { PrivateChatSpeechStatus } from '../../hooks/usePrivateChatSpeech';
 import { PRESET_THEMES } from './ChatConstants';
@@ -768,6 +768,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             <LinkSimple className="w-6 h-6" weight="bold" />
           </span>
           <span className="text-xs font-bold">记忆链接</span>
+        </button>,
+        <button key="chat-block" type="button" onClick={() => onPanelAction('chat-block')}
+          className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-[#737373]">
+          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 border-neutral-400/20' : 'bg-neutral-50 border-neutral-100'}`}>
+            <Prohibit className="w-6 h-6" weight="bold" />
+          </span>
+          <span className="text-xs font-bold">拉黑</span>
         </button>,
         <button key="favorites"
           onClick={() => onPanelAction('favorites')}
