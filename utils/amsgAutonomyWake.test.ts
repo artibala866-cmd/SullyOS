@@ -312,6 +312,62 @@ describe('real-person disabled: no autonomous contact, but user reminders surviv
   });
 });
 
+describe('real-person mode changes during an in-flight cloud request',()=>{
+  it('reconciles immediately after the old request settles, without leaving a surprise daily task',async()=>{
+    const {ensureAutonomyWakes}=await import('./amsgAutonomyWake');
+    const {ActiveMsgClient}=await import('./activeMsgClient');
+    const {setRealPersonModeEnabled}=await import('./realPersonMode');
+    const oldGlobal=ActiveMsgClient.getGlobalConfig;
+    const oldRemote=ActiveMsgClient.listRemoteTasksForChar;
+    const oldLimits=ActiveMsgClient.putCharLimits;
+    const oldCancel=ActiveMsgClient.cancelTask;
+    let release!: (value:any)=>void;
+    const hold=new Promise<any>(resolve=>{release=resolve});
+    let config:any={enabled:true,tasks:[
+      {taskUuid:'old-auto',clientTaskId:'autowake:day:old-auto'},
+      {taskUuid:'manual-1',clientTaskId:'manual:1'},
+    ]};
+    const role:any={...char,id:'mode-flip-during-request',activeMsg2Config:config};
+    const cancelled:string[]=[];
+    let refreshes=0;
+    const onRefresh=()=>{refreshes++};
+    window.addEventListener('sully:amsg-autonomy-refresh',onRefresh);
+    (ActiveMsgClient as any).getGlobalConfig=()=>hold;
+    (ActiveMsgClient as any).putCharLimits=async()=>undefined;
+    (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[
+      {uuid:'old-auto',clientTaskId:'autowake:day:old-auto'},
+      {uuid:'manual-1',clientTaskId:'manual:1'},
+    ];
+    (ActiveMsgClient as any).cancelTask=async(id:string)=>{
+      cancelled.push(id);return {uuid:id};
+    };
+    const args={char:role,apiConfig:{} as any,userProfile:{} as any,
+      groups:[],realtimeConfig:{} as any,
+      onSave:(update:(prev:any)=>any)=>{config=update(config);role.activeMsg2Config=config;}};
+    try{
+      setRealPersonModeEnabled(true);
+      const first=ensureAutonomyWakes(args);
+      await Promise.resolve();
+      setRealPersonModeEnabled(false);
+      await ensureAutonomyWakes(args); // Must not disappear into an in-flight guard.
+      release({workerUrl:'https://example.com'});
+      await first;
+      expect(refreshes).toBe(1);
+      // The pending refresh is handled by the existing OSContext runner.
+      await ensureAutonomyWakes(args);
+      expect(cancelled).toEqual(['old-auto']);
+      expect(config.tasks.map((x:any)=>x.taskUuid)).toEqual(['manual-1']);
+    }finally{
+      window.removeEventListener('sully:amsg-autonomy-refresh',onRefresh);
+      setRealPersonModeEnabled(true);
+      (ActiveMsgClient as any).getGlobalConfig=oldGlobal;
+      (ActiveMsgClient as any).listRemoteTasksForChar=oldRemote;
+      (ActiveMsgClient as any).putCharLimits=oldLimits;
+      (ActiveMsgClient as any).cancelTask=oldCancel;
+    }
+  });
+});
+
 describe('AMSG2 schedule toggle is independent from autonomous contact',()=>{
   it('turning off the timetable does not suppress daily wake planning using stale saved busy slots',async()=>{
     const {ensureAutonomyWakes}=await import('./amsgAutonomyWake');
