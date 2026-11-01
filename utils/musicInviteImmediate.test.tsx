@@ -189,3 +189,39 @@ describe('实际说同意但漏了 ACTION 的即时邀请兼容', () => {
         expect(state.join).not.toHaveBeenCalled();
     });
 });
+
+describe('邀请即时回复故障恢复与重复调用上限', () => {
+    it('API 没有存入任何角色回复时，清掉占用标记以允许有限重试', async () => {
+        state.history = [invite()];
+        await act(async () => emit());
+        await flush();
+        expect(state.generated).toHaveBeenCalledTimes(1);
+        expect(localStorage.getItem('sully_music_invite_immediate_attempt_v1:music-char:73')).toBeNull();
+    });
+    it('API 拒绝后保留待回应邀请，并释放一次性回复锁', async () => {
+        state.history = [invite()];
+        state.generated.mockRejectedValueOnce(new Error('network unavailable'));
+        await act(async () => emit());
+        await flush();
+        expect(state.history).toHaveLength(1);
+        expect(localStorage.getItem('sully_music_invite_immediate_attempt_v1:music-char:73')).toBeNull();
+    });
+    it('旧版窗口遗留的请求标记超过冷却时间后不永久卡住邀请', async () => {
+        state.history = [invite()];
+        localStorage.setItem('sully_music_invite_immediate_attempt_v1:music-char:73', String(Date.now()-21_000));
+        state.generated.mockImplementation(async () => {
+            state.history.push({ id: 74, charId: 'music-char', role: 'assistant', type: 'text', content: '我现在有点忙，稍后再听' });
+        });
+        await act(async () => emit());
+        await flush();
+        expect(state.generated).toHaveBeenCalledTimes(1);
+        expect(state.join).not.toHaveBeenCalled();
+    });
+    it('刚启动的同一邀请请求不会因为多标签通知并发重复请求', async () => {
+        state.history = [invite()];
+        localStorage.setItem('sully_music_invite_immediate_attempt_v1:music-char:73', String(Date.now()));
+        await act(async () => emit());
+        await flush();
+        expect(state.generated).not.toHaveBeenCalled();
+    });
+});
