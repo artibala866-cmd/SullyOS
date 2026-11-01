@@ -2976,6 +2976,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }));
       };
 
+      // Instant chat inbox 在 React 外完成角色自主拉黑后，保持内存角色状态与已落库结果一致。
+      // 只合并 chatBlock，不覆盖正在编辑的人设、外观或其它模块。
+      const chatBlockStateChangedHandler = (event: Event) => {
+          const detail = (event as CustomEvent<{ charId?: string; chatBlock?: CharacterProfile['chatBlock'] }>).detail;
+          if (!detail?.charId || !detail.chatBlock) return;
+          setCharacters(previous => previous.map(character =>
+              character.id === detail.charId ? { ...character, chatBlock: detail.chatBlock } : character
+          ));
+      };
+      window.addEventListener('sully-chat-block-state-changed', chatBlockStateChangedHandler);
       window.addEventListener('amsg2-tasks-adopted', tasksAdoptedHandler);
 
       const linkedArchiveDeletedHandler = (event: Event) => {
@@ -2993,6 +3003,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       window.addEventListener('char-music-profile-updated', musicProfileSyncHandler);
       window.addEventListener(MEMORY_AUTO_ARCHIVE_SYNC_EVENT, memoryAutoArchiveSyncHandler);
       return () => {
+          window.removeEventListener('sully-chat-block-state-changed', chatBlockStateChangedHandler);
           window.removeEventListener('amsg2-tasks-adopted', tasksAdoptedHandler);
 
           window.removeEventListener(LINKED_ARCHIVE_DELETED, linkedArchiveDeletedHandler);
