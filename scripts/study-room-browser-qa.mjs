@@ -78,6 +78,19 @@ try{
     console.log('STUDY_BROWSER_UNLOCK_CLICKED='+pressed);
     await sleep(6500);
   }
+  // Clean-profile onboarding overlays legitimately cover the home screen.
+  // Accept the app's notice and skip optional setup only in this throwaway
+  // GitHub CI browser; do not pre-populate user data or bypass production gates.
+  for(const name of ['我已知悉，继续使用','直接跳过引导']){
+    const didClick=await evaluate(`(()=>{
+      const name=${JSON.stringify(name)};
+      const items=[...document.querySelectorAll('button')];
+      const item=items.find(x=>(x.textContent||'').trim()===name&&!x.disabled);
+      if(!item)return false;item.click();return true;
+    })()`);
+    console.log('STUDY_BROWSER_ONBOARDING_'+name+'='+didClick);
+    if(didClick)await sleep(2200);
+  }
   const home=await inspect('HOME');
   const size=await capture('mobile-390',390,844);
   if(!home.text.trim()||home.text.includes('TAP TO UNLOCK')||size<4500){
@@ -90,13 +103,18 @@ try{
     if(!match)return false;match.click();return true;
   })()`);
   console.log('STUDY_BROWSER_CLICKED_ROOM='+clicked);
-  if(!clicked)console.error('VISUAL_BLOCKER: unlocked launcher has no directly selectable study-room entry');
+  if(!clicked){
+    console.error('VISUAL_BLOCKER: unlocked launcher has no directly selectable study-room entry');
+    process.exitCode=1;
+  }
   if(clicked){
     await sleep(5500);
     const inside=await inspect('STUDY');
     await capture('study-mobile-390',390,844);
-    if(!inside.text.includes('学习室')&&!inside.text.includes('专注'))
+    if(!inside.text.includes('学习室')&&!inside.text.includes('专注')){
       console.error('VISUAL_BLOCKER: navigation did not expose the study room');
+      process.exitCode=1;
+    }
   }
   await capture('desktop-1366',1366,768);
 }finally{
