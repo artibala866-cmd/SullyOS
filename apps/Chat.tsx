@@ -2,7 +2,7 @@ import '../components/chat/WeixinOriginalAssets.css';
 import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { findPendingUserTurn } from '../utils/chatContinuation';
-import { canRealPersonContact, isRealPersonModeEnabled, setRealPersonModeEnabled, shouldAutoReplyToUser } from '../utils/realPersonMode';
+import { isRealPersonModeEnabled, setRealPersonModeEnabled, shouldAutoReplyToUser } from '../utils/realPersonMode';
 import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
@@ -4968,7 +4968,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 weixinOriginalIcons={isWeixinBaiyuCss(char.chromeCustomCss || osTheme.chatChromeCustomCss)}
                     compactHome={!!homePhone}
                     lifePacingEnabled={lifePacing}
-                    lifePacingActive={canRealPersonContact(char,lifePacing)}
+                    lifePacingActive={lifePacing}
                     input={input} setInput={handleInputChange}
                     isTyping={isTyping || instantChatPending} selectionMode={selectionMode}
                     showPanel={showPanel} setShowPanel={setShowPanel}
