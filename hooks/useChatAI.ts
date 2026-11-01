@@ -635,14 +635,20 @@ export const useChatAI = ({
     const triggerAI = async (
         currentMsgs: Message[],
         overrideApiConfig?: { baseUrl: string; apiKey: string; model: string },
-        opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean; postUnblockOpening?: { reason: string; elapsedMinutes: number } },
+        opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean; automaticUserReply?: boolean; postUnblockOpening?: { reason: string; elapsedMinutes: number } },
     ) => {
         // 用户拉黑角色时仍可继续私聊：对方读得到用户消息，但对方的回复显示发送失败。
         // 仅角色拉黑用户时正常生成被禁止，该方向由独立求原谅流程接管。
-        if (isTyping || !char || characterBlocksUser(charRef.current?.chatBlock))
-            return opts?.immediateMusicInvite ? 'busy' as const : undefined;
+        if (characterBlocksUser(charRef.current?.chatBlock))
+            return opts?.automaticUserReply ? 'discard' as const : undefined;
+        if (isTyping || !char)
+            return (opts?.immediateMusicInvite || opts?.automaticUserReply) ? 'busy' as const : undefined;
         const effectiveApi = resolveDialogueApi(apiConfig, char, overrideApiConfig);
-        if (!effectiveApi.baseUrl) { alert("请先在设置中配置 API URL"); return; }
+        if (!effectiveApi.baseUrl) {
+            // Automatic retries must not spam modal alerts when the API is unconfigured.
+            if (!opts?.automaticUserReply) alert("请先在设置中配置 API URL");
+            return opts?.automaticUserReply ? 'unavailable' as const : undefined;
+        }
 
         // 重 roll（回溯重生）时不带入上一轮的情绪余波：清掉 buff 注入（buffInjection/activeBuffs）和
         // 意识流（innerState/evolvedNarrative），让主回复与情绪评估两边都从干净状态独立重新生成——
@@ -658,7 +664,7 @@ export const useChatAI = ({
             char, userProfile, groups, realtimeConfig, apiConfig, updateCharacter,
         });
         const releaseReply = acquireChatReply(char.id);
-        if (!releaseReply) return opts?.immediateMusicInvite ? 'busy' as const : undefined;
+        if (!releaseReply) return (opts?.immediateMusicInvite || opts?.automaticUserReply) ? 'busy' as const : undefined;
         const replyRun = createReplyRun(char.id);
         amsg2Session.signal = replyRun.signal;
         const replyStep = <T>(operation: () => Promise<T>) => withReplyCancellation(replyRun, operation);
