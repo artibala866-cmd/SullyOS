@@ -325,7 +325,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         setMessages(rows.filter(message => message.metadata?.source === 'story_theater').sort((a, b) => a.id - b.id));
     }, [threadId]);
 
-    useEffect(() => { void loadMessages(); }, [loadMessages]);
+    useEffect(() => {
+        void loadMessages().catch(error => {
+            console.error('[StoryTheater] initial history load failed', error);
+            addToast(error instanceof Error ? `剧情历史读取失败：${error.message}` : '剧情历史读取失败，请重试', 'error');
+        });
+    }, [loadMessages, addToast]);
     useEffect(() => {
         setContextTokens(0);
         setContextTokensExact(false);
