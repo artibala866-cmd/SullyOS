@@ -7,6 +7,7 @@ import { isRejectedPrivateMessage } from './chatBlock';
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, DailySchedule } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
+import { findPendingMusicInvite } from './musicInviteStatus';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
 import { normalizeMessageContent, stickerNameFromUrl, theaterWhenPhrase } from './messageFormat';
 import { formatTransferRecord } from './transferFormat';
@@ -599,13 +600,21 @@ ${groupLogStr}\n`;
                 isListeningTogether,
                 recentTrackSwitch,
             );
-            const invitation = !forFirePack ? loadMusicPlaybackSnapshot()?.listeningInvites?.[char.id] : undefined;
-            if (invitation === 'pending') {
-                volatileState += '\n### 【一起听邀请】\n对方刚刚邀请你一起听音乐，邀请正在等待你回应。根据你的人设、日程和当前对话，自主决定接受或拒绝。接受时在回复中输出一次 [[MUSIC_ACTION:join]]；拒绝时输出一次 [[MUSIC_ACTION:reject]]。不要假装已经加入，也不要重复发出邀请。\n';
+            // 邀请优先于普通音乐互动：从 IndexedDB 读未回应的真实卡片，
+            // 不信任跨标签页/后台恢复时可能滞后的 React/localStorage 快照。
+            // 这里只决定提示词；接受/拒绝仍由 MusicContext 的原子事务提交。
+            const invitationPending = await DB.getMessagesByCharId(char.id, true)
+                .then(history => !!findPendingMusicInvite(history.filter(m => !m.groupId), 'user'))
+                .catch(err => {
+                    console.warn('[MusicTogether] 读取待回应邀请失败，尝试当前界面快照', err);
+                    return loadMusicPlaybackSnapshot()?.listeningInvites?.[char.id] === 'pending';
+                });
+            if (invitationPending) {
+                volatileState += '\n### 【一起听邀请｜优先处理】\n对方发来的真实一起听邀请仍待回应。请根据你的人设、日程和对话自主选择接受或拒绝：接受时在本轮回复中输出一次 [[MUSIC_ACTION:join]]；拒绝时输出一次 [[MUSIC_ACTION:reject]]。这两个指令会实际处理邀请卡片；不能只说“同意了”“点了接受”而不输出指令，也不要自行宣布已经成功加入。可以同时自然地说话，但不要发新的邀请或使用普通加入/收藏音乐指令代替此次回应。\n';
             }
             // 以前只有用户正在播放歌曲时才给模型音乐工具说明，导致没播放时
             // Char 无法主动邀请，也无法在恢复的空播放器会话中主动结束。
-            if (!forFirePack && !userListeningContext && invitation !== 'pending') {
+            if (!userListeningContext && !invitationPending) {
                 if (isListeningTogether) {
                     volatileState += '\n### 【一起听状态】\n你和对方已经建立一起听会话，目前播放器没有正在播放的歌曲。无需重复加入；如果你确实想退出，可以输出一次 [[MUSIC_ACTION:stop]]，不会停止对方的播放器。\n';
                 } else {
@@ -614,12 +623,18 @@ ${groupLogStr}\n`;
             }
             if (musicBlock) {
                 volatileState += `\n${musicBlock}\n`;
-                if (userListeningContext && promptOptions?.appRules === undefined) {
+                if (userListeningContext && !invitationPending && promptOptions?.appRules === undefined) {
                     volatileState += `\n${ContextBuilder.buildMusicActionGuide(isListeningTogether)}\n`;
                 }
             }
         } catch (e) {
             console.error('Failed to inject music atmosphere:', e);
+        }
+        // 定时主动消息的模板不烘焙“当前谁在播放/是否有待回应邀请”等过期状态，
+        // 但主动发起邀请是一项稳定能力。Worker 在最终送达时重放 music_action，
+        // 由数据库阻止重复邀请或已建立伴听时再次邀请。
+        if (forFirePack && promptOptions?.appRules === undefined) {
+            baseSystemPrompt += '\n### 【主动一起听邀请】\n如果你真想主动邀请对方一起听歌，可以在这条主动消息里输出一次 [[MUSIC_ACTION:invite]]，送达后会生成由对方决定是否接受的邀请卡片。不要假装对方已经同意，也不要为了凑话题频繁邀请。此处不知道对方当前是否正在播放或是否已有待回应邀请，不要自行执行加入/拒绝。\n';
         }
 
         // 群聊背景带时间戳、随群消息实时滚动 → 易变；日记标题/生活记录变化很慢 → 稳定。

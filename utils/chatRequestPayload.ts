@@ -165,7 +165,7 @@ export interface BuildChatPayloadResult {
 /**
  * 用 MusicPlaybackSnapshot 算 user 共听上下文 —— 与 useChatAI.ts:636–666 行为一致。
  */
-function deriveListeningFromSnapshot(
+export function deriveListeningFromSnapshot(
     snap: MusicPlaybackSnapshot | null | undefined,
     charId: string,
 ): { userListeningContext: UserListeningContext | null; isListeningTogether: boolean; musicCfg?: MusicCfg } {
@@ -195,7 +195,8 @@ function deriveListeningFromSnapshot(
             activeIdx: -1,
         };
     }
-    const isListeningTogether = !!(current && playing && listeningTogetherWith.includes(charId));
+    // 一起听属于独立持久化会话；暂停、加载失败和切歌都不代表退出。
+    const isListeningTogether = listeningTogetherWith.includes(charId);
     return { userListeningContext, isListeningTogether, musicCfg: cfg };
 }
 

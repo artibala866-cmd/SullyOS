@@ -35,3 +35,17 @@ describe('deriveRecentTrackSwitchForChar 换歌察觉判定', () => {
         expect(deriveRecentTrackSwitchForChar(stale, 'char-1', false)).toBeNull();
     });
 });
+
+
+describe('一起听会话与实际播放器状态解耦', () => {
+    it('暂停、空曲目与尚未播放不让角色误以为退出会话', async () => {
+        const { deriveListeningFromSnapshot } = await import('./chatRequestPayload');
+        const snapshot = { current: null, playing: false, lyric: [], activeLyricIdx: -1,
+            listeningTogetherWith: ['char-1'], cfg: {} } as any;
+        expect(deriveListeningFromSnapshot(snapshot, 'char-1').isListeningTogether).toBe(true);
+        expect(deriveListeningFromSnapshot(snapshot, 'char-2').isListeningTogether).toBe(false);
+        const selected = { ...snapshot, current: { id: 8, name: '歌曲', artists: '歌手' } };
+        expect(deriveListeningFromSnapshot(selected, 'char-1').isListeningTogether).toBe(true);
+        expect(deriveListeningFromSnapshot(selected, 'char-1').userListeningContext).toBeNull();
+    });
+});

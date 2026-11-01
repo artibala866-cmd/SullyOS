@@ -410,3 +410,24 @@ describe('角色主动邀请：数据库原子回应与切换角色', () => {
     expect(card).toContain("setInviteAnswerError('回应未保存，请重试')");
   });
 });
+
+
+describe('一起听提示词与卡片提交链路的统一防回归', () => {
+  it('待回应邀请查数据库而不是只信可能滞后的音乐界面缓存，并屏蔽普通音乐行动指南', () => {
+    const prompts = readFileSync(new URL('./chatPrompts.ts', import.meta.url), 'utf8');
+    expect(prompts).toContain('DB.getMessagesByCharId(char.id, true)');
+    expect(prompts).toContain("findPendingMusicInvite(history.filter(m => !m.groupId), 'user')");
+    expect(prompts).toContain('if (invitationPending)');
+    expect(prompts).toContain('if (userListeningContext && !invitationPending');
+    expect(prompts).toContain('不能只说“同意了”');
+  });
+  it('主动消息模板保留邀请能力，worker 按原指令产生实际卡片', () => {
+    const prompts = readFileSync(new URL('./chatPrompts.ts', import.meta.url), 'utf8');
+    expect(prompts).toContain('if (forFirePack && promptOptions?.appRules === undefined)');
+    expect(prompts).toContain('[[MUSIC_ACTION:invite]]');
+    const runtime = readFileSync(new URL('./activeMsgRuntime.ts', import.meta.url), 'utf8');
+    expect(runtime).toContain('musicHooks: loadMusicHooks() ?? undefined');
+    const provider = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
+    expect(provider).toContain("metadata: {\n              musicListenInvite: true, inviter: 'char'");
+  });
+});

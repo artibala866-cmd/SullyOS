@@ -437,3 +437,26 @@ describe('classifyLLMOutput — 日程修改走 directive 通道', () => {
   });
 });
 
+
+
+describe('一起听主动消息指令和本地解析器保持同一动作集合', () => {
+  it('worker 识别邀请、接受、拒绝、退出、选歌与收藏，不把动作当普通文字吞掉', () => {
+    const cases: Array<[string, string, string[]]> = [
+      ['invite', 'invite', []],
+      ['join', 'join', []],
+      ['reject', 'reject', []],
+      ['stop', 'stop', []],
+      ['play|起风了', 'play', ['起风了']],
+      ['favorite_current', 'favorite_current', []],
+      ['favorite_track|晴天', 'favorite_track', ['晴天']],
+      ['join_and_add|收藏', 'join_and_add', ['收藏']],
+    ];
+    for (const [directive, verb, args] of cases) {
+      const result = classifyLLMOutput(`来听歌吧[[MUSIC_ACTION:${directive}]]`);
+      expect(result.kind).toBe('finish');
+      if (result.kind !== 'finish') continue;
+      expect(result.cleanedText, directive).toBe('来听歌吧');
+      expect(result.directives, directive).toContainEqual({ type: 'music_action', verb, args });
+    }
+  });
+});
