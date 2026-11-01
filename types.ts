@@ -2727,6 +2727,10 @@ export interface ChatBlockState {
   userBlockedAt?: number;
   characterBlockedAt?: number;
   allowCharacterBlockUser?: boolean;
+  /** 最后一次 AI 求原谅判定；仅成功调用才进入 30 分钟冷却。 */
+  lastForgivenessCheckAt?: number;
+  /** 原版求原谅判定输出的角色状态，不当作真正送达的聊天消息。 */
+  lastForgivenessSign?: string;
   history?: ChatBlockEvent[];
 }
 
