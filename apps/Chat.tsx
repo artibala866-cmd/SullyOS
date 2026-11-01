@@ -1547,7 +1547,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     const sendText = async (customContent?: string, customType?: MessageType, metadata?: any) => {
         if (!char || (!input.trim() && !customContent)) return;
-        if (userBlocksCharacter(char.chatBlock)) { addToast('你已拉黑该角色，请先解除拉黑再发送', 'info'); return false; }
+        if (userBlocksCharacter(charRef.current?.id === char.id ? charRef.current.chatBlock : char.chatBlock)) {
+            addToast('你已拉黑该角色，请先解除拉黑再发送', 'info');
+            return false;
+        }
         // 只累加内存里的计数，这里不发任何请求；页面切走时才按区间报一次。见 utils/analytics.ts
         noteMessageSent();
         // 借用户"发送"这个手势解锁音频上下文，好让稍后 AI 回复时的白框提示音能顺利播放（移动端自动播放策略）。
@@ -1606,10 +1609,17 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             ? await migrateDataUrlToRef(text)
             : text;
 
+        // 图片转换等异步步骤结束后再看最新状态，避免用户在处理期间拉黑却仍发送成功。
+        const currentBlock = charRef.current?.id === char.id ? charRef.current.chatBlock : char.chatBlock;
+        if (userBlocksCharacter(currentBlock)) {
+            addToast('你已拉黑该角色，请先解除拉黑再发送', 'info');
+            return false;
+        }
+
         // 糯叽机原版双向差异：角色拉黑用户后，用户端仍能留下发送记录，
         // 但这条消息实际被拒收，禁止生成卡片、通知角色、触发自动回复或进入 AI 上下文。
         // 用户拉黑角色则在上面直接拒绝发送。拒收标记持久化，解除拉黑后也不能“补读”旧消息。
-        if (characterBlocksUser(char.chatBlock)) {
+        if (characterBlocksUser(currentBlock)) {
             await DB.saveMessage({
                 charId: char.id, role: 'user', type, content: storedContent,
                 metadata: { ...metadata, chatBlockRejected: true, chatBlockRejectedAt: Date.now() },
