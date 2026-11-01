@@ -35,6 +35,10 @@ export interface RealUserMessageLike {
 const isRealUserMessage = (m: RealUserMessageLike): boolean =>
   m.role === 'user'
   && !(m.metadata as { proactiveHint?: unknown } | null | undefined)?.proactiveHint
+  // 一起听邀请和接受/拒绝是音乐 App 的交互记录，不是用户
+  // 在私聊中重新开口。不能误重置自主联系的未回复计数与时间差。
+  && (m.metadata as { musicListenInvite?: unknown } | null | undefined)?.musicListenInvite !== true
+  && (m.metadata as { musicListenInviteResponseTo?: unknown } | null | undefined)?.musicListenInviteResponseTo == null
   // 被角色拉黑时本地保存的拒收消息，并非角色真正收到的用户回复。
   // 不能重置 AMSG 离线时差/未回复计数，解除拉黑后也不能补读。
   && (m.metadata as { chatBlockRejected?: unknown } | null | undefined)?.chatBlockRejected !== true;
