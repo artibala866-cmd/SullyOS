@@ -2,6 +2,7 @@ import { createReplyRun, isReplyStopped, withReplyCancellation, type ReplyRun } 
 import { eventForDeliveredAmsg, eventsForVerifiedXhsActions } from './amsgPhoneEvent';
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { loadCharacterContextMessages } from './chatContextRange';
+import { isPrivateChatBlocked } from './chatBlock';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
 import { ChatPrompts } from './chatPrompts';
@@ -1576,6 +1577,20 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
     // 聊天记录、也没回到收件箱——用户那边只看到「正在输入…」一直亮到 60s 点名判失败，
     // 角色的回复彻底消失。所以整段都得包住，不能只包后处理那一小截。
     try {
+      // 私聊拉黑必须在真正落库前二次校验：worker 可能已生成/投递，
+      // 但原账号的聊天消息不能因后台收件、补收或应用重新启动绕过黑名单。
+      // 只丢弃这条已被认领的消息，不回补到解除拉黑后的聊天历史。
+      const recipient = await replyStep(() => DB.getCharacter(message.charId));
+      if (isPrivateChatBlocked(recipient?.chatBlock)) {
+        activeMsgTrace('runtime-inbox-blocked-dropped', {
+          messageId: message.messageId, charId: message.charId,
+        });
+        if (message.taskUuid && (message.metadata as any)?.amsgUsage) {
+          settleInstantChatApiLog(message.taskUuid, message.metadata);
+        }
+        continue;
+      }
+
       // 'active-msg-received' 事件里的 sentAt 维持原口径（发送时刻优先）：
       // 它只喂 toast / 未读预览，不进聊天记录，别跟落库口径搅在一起。
       const eventSentAt = message.sentAt || message.receivedAt || Date.now();
