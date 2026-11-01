@@ -7,6 +7,7 @@ on:
       - 'apps/DateApp.tsx'
       - 'components/chat/ChatBlockModal.tsx'
       - 'components/chat/ChatBlockDeliveryStatus.tsx'
+      - 'components/chat/MessageItem.tsx'
       - 'utils/applyAssistantPostProcessing.ts'
       - 'utils/activeMsgClient.ts'
       - 'components/chat/ChatInputArea.tsx'
@@ -52,7 +53,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/block-tsc.log 2>&1 || true
-          grep -E '^(apps/(Chat|DateApp).tsx|components/chat/(ChatBlockModal|ChatBlockDeliveryStatus|ChatInputArea).tsx|hooks/useChatAI.ts|types.ts|utils/chatBlock(AI(\.test)?|\.test)?\.ts|utils/groupChat/memoryScope(\.test)?\.ts|tests/chat-block-visual.ts)[(]' /tmp/block-tsc.log > /tmp/block-target-errors.log || true
+          grep -E '^(apps/(Chat|DateApp).tsx|components/chat/(ChatBlockModal|ChatBlockDeliveryStatus|ChatInputArea|MessageItem).tsx|hooks/useChatAI.ts|types.ts|utils/chatBlock(AI(\.test)?|\.test)?\.ts|utils/groupChat/memoryScope(\.test)?\.ts|tests/chat-block-visual.ts)[(]' /tmp/block-tsc.log > /tmp/block-target-errors.log || true
           if [ -s /tmp/block-target-errors.log ]; then cat /tmp/block-target-errors.log; exit 1; fi
       - name: Install Chinese fonts
         run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
