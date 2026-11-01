@@ -69,32 +69,47 @@ export function buildForgivenessMessages(character: CharacterProfile, userName: 
     .map(message => `${message.role === 'user' ? userName : character.name}: ${String(message.content || '').slice(0, 450)}`)
     .join('\n');
   const elapsed = Math.max(0, Math.floor((now - (state?.characterBlockedAt || now)) / 60_000));
+  const hours = elapsed / 60;
+  const stage = hours < 12 ? '刚刚拉黑，仍然受伤或愤怒；不必立刻原谅。'
+    : hours < 72 ? '情绪逐渐冷却，可能仍然冷淡或克制。'
+    : hours < 168 ? '过去了几天，可能开始动摇，但不表示必然心软。'
+    : '已经超过七天，思念与自尊可能交织；是否原谅依然由你决定。';
+  const softness = typeof state?.forgivenessSoftness === 'number' && Number.isFinite(state.forgivenessSoftness)
+    ? Math.max(0, Math.min(100, state.forgivenessSoftness)) : 10;
   return [
     { role: 'system', content: [
       `你正在判断角色「${character.name}」是否愿意解除对「${userName}」的私聊拉黑。你必须保持角色本人的人设与自尊，不受用户强迫。`,
       `角色设定：${String(character.systemPrompt || '')}`,
       `世界观：${String(character.worldview || '')}`,
       `拉黑已持续 ${elapsed} 分钟，角色当时的真实原因：${lastBlock?.reason || '没有记录具体原因'}。`,
-      '下方只有拉黑前角色实际收到的消息。拉黑期间被拒收的用户文字不可见，绝不能猜测或假装已读。',
+      '下方只有拉黑前角色实际收到的消息。拉黑期间被拒收的用户文字不可见；不知道用户是否尝试联系，绝不能猜测或假装已读。',
+      '当前关系阶段：' + stage,
+      '上一次心软度：' + softness + '/100。只能根据自己的回忆、时间、底线、自尊和性格独立调整，可升可降。',
       '综合拉黑原因、已经过去的时间、关系经历和角色性格独立决定；时间到了不等于必须原谅。',
       '不要因为用户按了一次 AI 按钮就自动同意；也不要无理由永久拒绝。',
-      '仅允许输出以下两种有效 JSON 之一：{\"decision\":\"unblock\",\"sign\":\"简短状态\"} 或 {\"decision\":\"keep\",\"sign\":\"简短状态\"}。不得输出额外聊天正文。',
+      '只返回一行 JSON：{\"decision\":\"stay或unblock\",\"softness\":0,\"thought\":\"自己的内心想法\",\"status\":\"简短状态\",\"sign\":\"可观察的短动作\",\"draft\":\"打了但没发送的草稿\"}。decision 只能为 stay 或 unblock，softness 是 0-100 整数，draft 可以为空。没有充分理由默认 stay。不得附加聊天正文。',
     ].join('\n') },
     { role: 'user', content: `双方此前实际对话：\n${history || '（暂无可用的对话记录）'}\n现在请独立判定。` },
   ];
 }
 
-export function parseForgivenessDecision(raw: string): { decision: 'unblock' | 'keep'; sign: string; valid: boolean } {
+export type ForgivenessDecision = { decision: 'unblock' | 'stay'; sign: string; softness: number | null; thought: string; status: string; draft: string; valid: boolean };
+export function parseForgivenessDecision(raw: string): ForgivenessDecision {
   const match = String(raw || '').match(/\{[\s\S]*?\}/);
-  if (!match) return { decision: 'keep', sign: '', valid: false };
+  if (!match) return { decision: 'stay', sign: '', softness: null, thought: '', status: '', draft: '', valid: false };
   try {
     const value = JSON.parse(match[0]);
     return {
-      decision: value?.decision === 'unblock' ? 'unblock' : 'keep',
-      valid: value?.decision === 'unblock' || value?.decision === 'keep',
+      decision: value?.decision === 'unblock' ? 'unblock' : 'stay',
+      valid: value?.decision === 'unblock' || value?.decision === 'stay',
+      softness: Number.isFinite(Number(value?.softness)) && value?.softness !== null
+        ? Math.max(0, Math.min(100, Math.round(Number(value.softness)))) : null,
+      thought: typeof value?.thought === 'string' ? value.thought.trim().slice(0, 700) : '',
+      status: typeof value?.status === 'string' ? value.status.trim().slice(0, 150) : '',
       sign: typeof value?.sign === 'string' ? value.sign.trim().slice(0, 180) : '',
+      draft: typeof value?.draft === 'string' ? value.draft.trim().slice(0, 500) : '',
     };
-  } catch { return { decision: 'keep', sign: '', valid: false }; }
+  } catch { return { decision: 'stay', sign: '', softness: null, thought: '', status: '', draft: '', valid: false }; }
 }
 
 /** 原版 AI 键单独判断心软，不把求原谅当作正常回复。
@@ -105,7 +120,7 @@ export async function requestCharacterForgiveness(args: {
   userName: string;
   messages: Message[];
   apiConfig: APIConfig;
-}): Promise<{ decision: 'unblock' | 'keep'; sign: string }> {
+}): Promise<Omit<ForgivenessDecision, 'valid'>> {
   const { character, userName, messages, apiConfig } = args;
   if (!characterBlocksUser(character.chatBlock)) throw new Error('角色尚未拉黑用户');
   const api = resolveDialogueApi(apiConfig, character);
@@ -128,5 +143,6 @@ export async function requestCharacterForgiveness(args: {
     : Array.isArray(content) ? content.map((part: any) => part?.text || '').join('') : '';
   const parsed = parseForgivenessDecision(raw);
   if (!parsed.valid) throw new Error('角色的拉黑判定结果无效，请重试');
-  return { decision: parsed.decision, sign: parsed.sign };
+  const { valid, ...decision } = parsed;
+  return decision;
 }
