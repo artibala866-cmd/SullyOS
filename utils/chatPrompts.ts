@@ -630,12 +630,9 @@ ${groupLogStr}\n`;
         } catch (e) {
             console.error('Failed to inject music atmosphere:', e);
         }
-        // 定时主动消息的模板不烘焙“当前谁在播放/是否有待回应邀请”等过期状态，
-        // 但主动发起邀请是一项稳定能力。Worker 在最终送达时重放 music_action，
-        // 由数据库阻止重复邀请或已建立伴听时再次邀请。
-        if (forFirePack && promptOptions?.appRules === undefined) {
-            baseSystemPrompt += '\n### 【主动一起听邀请】\n如果你真想主动邀请对方一起听歌，可以在这条主动消息里输出一次 [[MUSIC_ACTION:invite]]，送达后会生成由对方决定是否接受的邀请卡片。不要假装对方已经同意，也不要为了凑话题频繁邀请。此处不知道对方当前是否正在播放或是否已有待回应邀请，不要自行执行加入/拒绝。\n';
-        }
+        // User-triggered music actions stay in the ordinary chat path above.
+        // Autonomous AMSG fire packs must not advertise together-listening
+        // invitations as a reason to contact User or start an unrelated app.
 
         // 群聊背景带时间戳、随群消息实时滚动 → 易变；日记标题/生活记录变化很慢 → 稳定。
         volatileState += groupContextText;
