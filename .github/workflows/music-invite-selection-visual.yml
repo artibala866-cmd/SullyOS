@@ -1,0 +1,66 @@
+name: Music invite card mobile visual acceptance
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'components/chat/MessageItem.tsx'
+      - 'utils/musicInviteDeletion.ts'
+      - 'tests/music-invite-visual.html'
+      - 'tests/music-invite-visual.tsx'
+      - '.github/workflows/music-invite-selection-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sully-music-invite-visual
+  cancel-in-progress: true
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chinese fonts
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Render actual invitation components, interact and capture narrow/mobile screens
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/music-invite-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/tests/music-invite-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          for width in 360 390; do
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu               --window-size="$width,1020" --virtual-time-budget=15000 --dump-dom               http://127.0.0.1:5173/tests/music-invite-visual.html >"/tmp/music-invite-$width.html" 2>/tmp/music-invite-chrome.log || true
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars               --window-size="$width,1020" --virtual-time-budget=15000               --screenshot="$GITHUB_WORKSPACE/music-invite-$width.png"               http://127.0.0.1:5173/tests/music-invite-visual.html
+            test -s "music-invite-$width.png"
+            if ! grep -q 'data-music-invite-visual-ready="true"' "/tmp/music-invite-$width.html"; then
+              grep -o 'data-error="[^"]*"' "/tmp/music-invite-$width.html" || true
+              grep -o '<output[^>]*>[^<]*' "/tmp/music-invite-$width.html" | head -c 1500 || true
+              tail -60 /tmp/music-invite-vite.log || true
+              exit 1
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: music-invite-select-mobile-screenshots
+          path: music-invite-*.png
+          retention-days: 7
+          if-no-files-found: ignore
