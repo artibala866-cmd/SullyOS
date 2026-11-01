@@ -40,6 +40,14 @@ export const MIRRORED_KEYS: readonly string[] = [
     'world_home_api',                    // 家园全局 API 覆盖
     'study_api_config',
     'study_tutor_presets',
+    'sully_pomodoro_v1_coachByChar',
+    'sully_pomodoro_v1_coachLastShown',
+    'sully_pomodoro_v1_coachEventByChar',
+    'sully_pomodoro_v1_focusMinutes',
+    'sully_pomodoro_v1_breakMinutes',
+    'sully_pomodoro_v1_selectedTask',
+    'sully_pomodoro_v1_charId',
+    'sully_pomodoro_v1_lock',
     'push_vapid_v1',                     // VAPID 密钥对，须与浏览器既有推送订阅匹配
     'chat_archive_prompts',
     'chat_active_archive_prompt_id',

@@ -4046,6 +4046,7 @@ export interface FullBackupData {
     luckinLocal?: Record<string, string>;      // 瑞幸：token + 启用状态（存 localStorage）
     mcdLocal?: Record<string, string>;         // 麦当劳：token + 启用状态（存 localStorage）
     home3DLocal?: Record<string, string>;    // 3D 家园显示偏好与拍照滤镜收藏
+    studyRoomLocal?: import('./utils/studyRoomLocalBackup').StudyRoomLocalBackup; // 完整备份的本机专注记录、陪伴设置和消息
     mcpLocal?: Record<string, string>;         // 通用 MCP：用户自配的服务器列表（存 localStorage）
     /** User 免登录音乐喜欢、歌单和历史（旧备份未携带时不清空现有库）。 */
     guestMusicLibrary?: import('./utils/musicLibrary').GuestMusicLibrary;

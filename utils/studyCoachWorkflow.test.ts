@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest';
 import {emptyWorkspace,normalizeWorkspace,workspaceIntegrityWarnings,type WorkspaceData} from './sullyWorkspace';
 import {
   replyToCoach,coachSuppressed,proposeCoachSlot,proposeCoachAction,
-  decideCoachAction,coachFollowUp,coachConfirmedContext,
+  decideCoachAction,coachFollowUp,coachConfirmedContext,dueCoachDeferral,
 } from './studyCoachWorkflow';
 const at=(d='2026-11-02T08:00:00')=>new Date(d);
 const fixture=():WorkspaceData=>{
@@ -77,4 +77,20 @@ describe('阶段2真实事件→反馈→候选→确认→跟进',()=>{
     expect(normalizeWorkspace({commissions:w.commissions}).coachActions).toEqual([]);
     expect(workspaceIntegrityWarnings({...w,coachActions:'corrupt'}).join(',')).toContain('coachActions');
   });
+  it('“稍后”在真实事件仍存在且到点时有可恢复通知，按用户拒绝和 Char 隔离',()=>{
+    const w=fixture(),when=at();
+    const later=replyToCoach(w,'charA','2026-11-02:pending:2','later',when);
+    expect(dueCoachDeferral(later,'charA','2026-11-02:pending:2',when.getTime()+90*60000)).toBeUndefined();
+    expect(dueCoachDeferral(later,'charA','2026-11-02:pending:2',when.getTime()+121*60000)?.eventKey)
+      .toBe('2026-11-02:pending:2');
+    expect(dueCoachDeferral(later,'charB','2026-11-02:pending:2',when.getTime()+121*60000)).toBeUndefined();
+    expect(dueCoachDeferral(later,'charA','2026-11-02:pending:3',when.getTime()+121*60000)).toBeUndefined();
+  });
+  it('已有排满的作业不得再追加任务时段，避免相同任务重复排程',()=>{
+    const w=fixture();
+    w.planSlots=[{id:'already',kind:'homework',itemId:'h',date:'2026-11-03',start:'14:00',end:'14:40'}];
+    w.availability=[{id:'free',date:'2026-11-03',start:'13:00',end:'16:00'}];
+    expect(proposeCoachSlot(w,at())).toMatchObject({kind:'commission',itemId:'c'});
+  });
+
 });

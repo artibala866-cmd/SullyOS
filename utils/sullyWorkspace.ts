@@ -30,8 +30,20 @@ export const validPlanSlot=(s:Pick<WorkspacePlanSlot,'date'|'start'|'end'>)=>isV
 export function planIssues(data:WorkspaceData):ExecutionPlanIssue[]{
   const issues:ExecutionPlanIssue[]=[];
   const slots=data.planSlots||[],availability=data.availability||[];
+  const seenIds=new Set<string>();
+  const mergedDuration=(spans:readonly {start:number;end:number}[]):number=>{
+    let total=0,edge=0;
+    for(const span of [...spans].sort((a,b)=>a.start-b.start)){
+      total+=Math.max(0,span.end-Math.max(edge,span.start));
+      edge=Math.max(edge,span.end);
+    }
+    return total;
+  };
   for(const slot of slots){
-    const duration=planSlotMinutes(slot),a=timeToMinutes(slot.start),b=timeToMinutes(slot.end);
+    const a=timeToMinutes(slot.start),b=timeToMinutes(slot.end);
+    if(!slot.id||seenIds.has(slot.id))
+      issues.push({slotId:slot.id,code:'invalid',detail:'计划时段 ID 为空或重复'});
+    seenIds.add(slot.id);
     if(!validPlanSlot(slot)||a===null||b===null){
       issues.push({slotId:slot.id,code:'invalid',detail:'无效计划日期或时段'});continue;
     }
@@ -39,27 +51,30 @@ export function planIssues(data:WorkspaceData):ExecutionPlanIssue[]{
     const homework=slot.kind==='homework'?data.homework.find(h=>h.id===slot.itemId):undefined;
     if(commission?.dueDate&&slot.date>commission.dueDate)
       issues.push({slotId:slot.id,code:'invalid',detail:'已超过画稿约定交期'});
-    if(homework?.dueAt&&slot.date>homework.dueAt.slice(0,10))
-      issues.push({slotId:slot.id,code:'invalid',detail:'已超过作业交期'});
+    if(homework?.dueAt&&(slot.date>homework.dueAt.slice(0,10)||
+      (slot.date===homework.dueAt.slice(0,10)&&homework.dueAt.includes('T')&&
+        slot.end>homework.dueAt.slice(11,16))))
+      issues.push({slotId:slot.id,code:'invalid',detail:'已超过作业截止时间'});
     if(!((commission&&commission.status==='active')||(homework&&!homework.done))||
       (slot.phaseId&&(!commission?.phases?.some(p=>p.id===slot.phaseId&&p.state!=='done'&&p.state!=='skipped'))))
       issues.push({slotId:slot.id,code:'inactive',detail:'事项或阶段已暂停、结束或不存在'});
-    if(slots.some(other=>other.id!==slot.id&&other.date===slot.date&&
-      (timeToMinutes(other.start)??1440)<b&&(timeToMinutes(other.end)??0)>a))
+    if(slots.some(other=>other!==slot&&other.date===slot.date&&validPlanSlot(other)&&
+      timeToMinutes(other.start)!<b&&timeToMinutes(other.end)!>a))
       issues.push({slotId:slot.id,code:'overlap',detail:'与其他画稿或作业时段重叠'});
     const date=new Date(slot.date+'T12:00:00');
     if(data.classes.some(c=>!c.cancelled&&c.weekday===date.getDay()&&(!c.until||slot.date<=c.until)
       &&(timeToMinutes(c.start)??1440)<b&&(timeToMinutes(c.end)??0)>a))
       issues.push({slotId:slot.id,code:'class',detail:'与现实课程时间重叠'});
-    const windows=availability.filter(w=>w.date===slot.date&&planSlotMinutes(w)>0)
-      .map(w=>({a:Math.max(a,timeToMinutes(w.start)!),b:Math.min(b,timeToMinutes(w.end)!)}))
-      .filter(w=>w.b>w.a).sort((x,y)=>x.a-y.a);
-    if(availability.some(w=>w.date===slot.date)){
-      let covered=0,end=0;for(const w of windows){covered+=Math.max(0,w.b-Math.max(end,w.a));end=Math.max(end,w.b);}
-      if(covered<duration)issues.push({slotId:slot.id,code:'outside_availability',detail:'不在当天设置的可用时间内'});
-    }
-    const total=slots.filter(x=>x.date===slot.date).reduce((sum,x)=>sum+planSlotMinutes(x),0);
-    if(total>data.dailyAvailableMinutes)
+    const sameDay=availability.filter(w=>w.date===slot.date);
+    const windows=sameDay.filter(w=>validPlanSlot(w))
+      .map(w=>({start:Math.max(a,timeToMinutes(w.start)!),end:Math.min(b,timeToMinutes(w.end)!)}))
+      .filter(w=>w.end>w.start);
+    // An invalid availability row must never turn an explicitly constrained day into a free day.
+    if(sameDay.length && mergedDuration(windows)<b-a)
+      issues.push({slotId:slot.id,code:'outside_availability',detail:'不在当天设置的可用时间内'});
+    const planned=slots.filter(x=>x.date===slot.date&&validPlanSlot(x))
+      .reduce((sum,x)=>sum+planSlotMinutes(x),0);
+    if(planned>data.dailyAvailableMinutes)
       issues.push({slotId:slot.id,code:'over_capacity',detail:'当天已排时长超出日预算'});
   }
   return issues;

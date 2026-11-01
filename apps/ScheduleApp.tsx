@@ -10,7 +10,7 @@ import {resolveDialogueApi} from '../utils/characterApi';
 import {buildCompanionOverview,companionMomentText,normalizeStudyCoachSetting,nextStudyCoachPrompt,studyCoachEvent,rememberStudyCoachEvent,studyCoachBrief,isStudyCoachQuietTime,buildStudyRoomReality,companionEntryPrompt,recentCompanionReply,type StudyCoachSetting} from '../utils/studyRoomCompanion';
 import { focusChatAllowance, newWorkspaceId, readWorkspace, mutateWorkspace, localDate, type WorkKind, type WorkspaceData } from '../utils/sullyWorkspace';
 import {
-  coachSuppressed,replyToCoach,proposeCoachAction,decideCoachAction,coachFollowUp,coachConfirmedContext,
+  coachSuppressed,dueCoachDeferral,replyToCoach,proposeCoachAction,decideCoachAction,coachFollowUp,coachConfirmedContext,
   type CoachFeedback,
 } from '../utils/studyCoachWorkflow';
 import {
@@ -252,11 +252,18 @@ const ScheduleApp: React.FC = () => {
           &&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName||''),
         isTimerTab:true, // caller already exits on the separate legacy PDF tab
       });
-      if(!prompt||!latestEvent)return;
-      setCoachPrompt(prompt);
+      if(!latestEvent)return;
+      const deferred=dueCoachDeferral(workspaceSnapshot||undefined,charId,latestEvent.key,when);
+      const deferredKey=deferred?latestEvent.key+':resume:'+deferred.id:'';
+      const canShowDeferred=deferred&&!seen?.seenKeys?.includes(deferredKey)
+        &&document.visibilityState==='visible'&&!assistantOpen&&!coachSettingsOpen&&!exitOpen
+        &&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName||'')
+        &&!coachPrompt&&when-(coachLastShown?.[charId]||0)>=2*60*60*1000;
+      if(!prompt&&!canShowDeferred)return;
+      setCoachPrompt(canShowDeferred?'之前你说两小时后再说：'+latestEvent.text+'。现在方便核对吗？':prompt!);
       setCoachLastShown(prev=>({...prev,[charId]:when}));
       setCoachEventByChar(prev=>({...prev,[charId]:rememberStudyCoachEvent(
-        prev[charId],latestEvent.key,date,
+        prev[charId],canShowDeferred?deferredKey:latestEvent.key,date,
       )}));
     };
     check();
@@ -280,7 +287,9 @@ const ScheduleApp: React.FC = () => {
     }
     const actual=buildStudyRoomReality(workspaceSnapshot,null,'',records,tasks,new Date());
     const current=studyCoachEvent(actual,new Date());
-    if(!current || current.key!==coachEventByChar[charId]?.key)setCoachPrompt('');
+    const recorded=coachEventByChar[charId]?.key||'';
+    if(!current || (recorded!==current.key &&
+      !recorded.startsWith(current.key+':resume:')))setCoachPrompt('');
   },[coachPrompt,tab,session,charId,coachByChar,coachEventByChar,workspaceSnapshot,records,tasks,activeChar?.id]);
   // The optional paid model request is separate from the local reminder timer.
   // No ChatApp prompt, private-chat permission or AMSG schedule is touched.
@@ -474,7 +483,7 @@ const ScheduleApp: React.FC = () => {
   };
   const giveCoachFeedback=async(choice:CoachFeedback)=>{
     if(!charId||coachDecisionBusy||!coachPrompt)return;
-    const eventKey=coachEventByChar[charId]?.key;
+    const eventKey=(coachEventByChar[charId]?.key||'').replace(/:resume:.*$/,'');
     if(!eventKey)return;
     // A user response takes precedence over any optional paid proactive request.
     autoCoachController.current?.abort();
@@ -491,7 +500,7 @@ const ScheduleApp: React.FC = () => {
   };
   const draftCoachPlan=async()=>{
     if(!charId||coachDecisionBusy||!coachPrompt)return;
-    const eventKey=coachEventByChar[charId]?.key;
+    const eventKey=(coachEventByChar[charId]?.key||'').replace(/:resume:.*$/,'');
     if(!eventKey)return;
     autoCoachController.current?.abort();
     setCoachDecisionBusy(true);

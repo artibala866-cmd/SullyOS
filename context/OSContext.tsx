@@ -19,6 +19,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import type { VRSARActivity } from '../types';
 import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, ChatTheme, Toast, FullBackupData, UserProfile, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
 import { DB } from '../utils/db';
+import {exportStudyRoomLocal,restoreStudyRoomLocal} from '../utils/studyRoomLocalBackup';
 import { reportDatabaseFailure } from '../utils/databaseHealth';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
@@ -4268,6 +4269,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               luckinLocal: (mode === 'text_only' || mode === 'full') ? exportLuckinLocal() : undefined,
               mcdLocal: (mode === 'text_only' || mode === 'full') ? exportMcdLocal() : undefined,
               home3DLocal: (mode === 'text_only' || mode === 'full') ? exportHome3DLocal() : undefined,
+              studyRoomLocal: (mode === 'text_only' || mode === 'full') ? exportStudyRoomLocal() : undefined,
               mcpLocal: (mode === 'text_only' || mode === 'full') ? exportMcpLocal() : undefined,
 
               // 免登录音乐资料是用户自己的文本/歌曲元数据；不打包重复音频 Blob。
@@ -5279,6 +5281,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // Restore Study Room settings
           if (data.studyApiConfig) localStorage.setItem('study_api_config', JSON.stringify(data.studyApiConfig));
           if (data.studyTutorPresets) localStorage.setItem('study_tutor_presets', JSON.stringify(data.studyTutorPresets));
+          if (data.studyRoomLocal !== undefined && !restoreStudyRoomLocal(data.studyRoomLocal,localStorage))
+              addToast('学习室本机专注记录备份格式无效，已保留当前设备记录', 'error');
 
           // Restore 云端配置
           if (data.cloudBackupConfig) localStorage.setItem('os_cloud_backup_config', JSON.stringify(data.cloudBackupConfig));

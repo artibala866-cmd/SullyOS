@@ -13,6 +13,20 @@ export function coachSuppressed(data:WorkspaceData|undefined,charId:string,now=D
   return (data.coachActions||[]).some(a=>a.charId===charId&&
     a.kind!=='slot'&&a.state==='applied'&&(a.untilAt||0)>now);
 }
+/** A deferral is an explicit request to re-offer the SAME real event after the chosen delay.
+ * It is not a new fabricated event and cannot bypass quiet hours, role isolation or focus time.
+ */
+export function dueCoachDeferral(
+  data:WorkspaceData|undefined,charId:string,realEventKey:string,now=Date.now(),
+):WorkspaceCoachAction|undefined {
+  if(!data||!charId||!realEventKey)return undefined;
+  return [...(data.coachActions||[])].reverse().find(a=>a.charId===charId&&
+    a.kind==='later'&&a.state==='applied'&&
+    (a.eventKey===realEventKey||(/^\d{4}-\d{2}-\d{2}:/.test(a.eventKey)&&
+      /^\d{4}-\d{2}-\d{2}:/.test(realEventKey)&&a.eventKey.slice(11)===realEventKey.slice(11)))&&
+    Number.isFinite(a.untilAt)&&a.untilAt!<=now&&a.createdAt<=now&&
+    a.untilAt!>=a.createdAt);
+}
 export function replyToCoach(
   data:WorkspaceData,charId:string,eventKey:string,choice:CoachFeedback,now=new Date(),
 ):WorkspaceData{
@@ -32,12 +46,18 @@ export function proposeCoachSlot(
   const today=localDate(now);
   const latest=new Date(now.getFullYear(),now.getMonth(),now.getDate()+7);
   const maxDay=localDate(latest);
+  const unplanned=(kind:WorkKind,id:string,remaining:number)=>Math.max(0,remaining-
+    (data.planSlots||[]).filter(slot=>slot.kind===kind&&slot.itemId===id&&
+      slot.date>=today&&validPlanSlot(slot))
+      .reduce((sum,slot)=>sum+Math.max(0,timeToMinutes(slot.end)!-timeToMinutes(slot.start)!),0));
   const candidates=[
     ...data.homework.filter(h=>!h.done&&h.minutes>0).map(h=>({
-      kind:'homework' as const,itemId:h.id,due:h.dueAt,remaining:h.minutes,phaseId:undefined,
+      kind:'homework' as const,itemId:h.id,due:h.dueAt,
+      remaining:unplanned('homework',h.id,h.minutes),phaseId:undefined,
     })),
     ...data.commissions.filter(c=>c.status==='active'&&c.remainingMinutes>0).map(c=>({
-      kind:'commission' as const,itemId:c.id,due:c.dueDate,remaining:c.remainingMinutes,
+      kind:'commission' as const,itemId:c.id,due:c.dueDate,
+      remaining:unplanned('commission',c.id,c.remainingMinutes),
       phaseId:c.phases?.find(p=>(p.state==='active'||p.state==='todo')&&p.remainingMinutes>0)?.id,
     })),
   ].sort((a,b)=>(dueOf(a.kind,a.due)||'9999').localeCompare(dueOf(b.kind,b.due)||'9999'));
@@ -118,14 +138,18 @@ export function coachFollowUp(data:WorkspaceData|undefined,charId:string,now=new
     .sort((a,b)=>(a.slot!.date+'T'+a.slot!.start).localeCompare(b.slot!.date+'T'+b.slot!.start));
   const upcoming=tracked.find(a=>{
     const slot=a.slot!;
-    if(slot.date<today||slot.date>localDate(new Date(now.getFullYear(),now.getMonth(),now.getDate()+1)))return false;
+    const previous=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1);
+    if(slot.date<localDate(previous)||slot.date>localDate(new Date(now.getFullYear(),now.getMonth(),now.getDate()+1)))return false;
     const item=slot.kind==='commission'?data.commissions.find(c=>c.id===slot.itemId):data.homework.find(h=>h.id===slot.itemId);
     return item&&(slot.kind==='commission'?'status' in item&&item.status==='active':'done' in item&&!item.done);
   });
   if(!upcoming?.slot)return '';
   const slot=upcoming.slot;
+  const nowKey=today+'T'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const ended=slot.date+'T'+slot.end<nowKey;
   return '之前确认的'+(slot.kind==='commission'?'画稿':'作业')+'时间是 '+slot.date+' '+slot.start+'–'+slot.end
-    +'。这是计划，不代表已经完成。';
+    +(ended?'。时间已过去，尚未确认是否实际进行；请核对专注记录和进度。'
+      :'。这是计划，不代表已经完成。');
 }
 /** Bounded user-confirmed facts for this Char's in-room overview only. */
 export function coachConfirmedContext(data:WorkspaceData|undefined,charId:string):string{

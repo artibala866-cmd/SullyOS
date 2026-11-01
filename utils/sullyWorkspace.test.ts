@@ -92,4 +92,14 @@ describe('排单基础数据', () => {
     expect(normalizeWorkspace(w).commissions[0].phases?.[0].title).toBe('草稿');
   });
 
+  it('严检重复时段ID及当天作业的实际截止时刻，不能绕过重叠判断',()=>{
+    const w=emptyWorkspace();
+    w.homework=[{id:'h',classId:'',title:'绘画作业',dueAt:'2026-11-03T14:30',minutes:75,done:false,note:''}];
+    w.planSlots=[{id:'same',kind:'homework',itemId:'h',date:'2026-11-03',start:'14:10',end:'14:45'},
+      {id:'same',kind:'homework',itemId:'h',date:'2026-11-03',start:'14:15',end:'14:25'}];
+    expect(planIssues(w).some(x=>x.code==='invalid'&&x.detail.includes('重复'))).toBe(true);
+    expect(planIssues(w).some(x=>x.code==='overlap')).toBe(true);
+    expect(planIssues(w).some(x=>x.detail.includes('作业截止时间'))).toBe(true);
+  });
+
 });

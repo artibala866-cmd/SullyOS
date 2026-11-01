@@ -128,7 +128,10 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
     return () => { alive = false; };
   }, []);
 
-  useEffect(() => { setPlanChecked([]); }, [planPreview]);
+  // Edits to a proposed start/end time must not silently uncheck the user's selection.
+  // A different request, role or source snapshot still resets approvals.
+  useEffect(() => { setPlanChecked([]); },
+    [planPreview?.sourceVersion,planPreview?.requestedAt,planPreview?.charId]);
   useEffect(()=>{
     if(!loaded || section!=='calendar')return;
     if(selectedClassId && data.classes.some(c=>c.id===selectedClassId))return;
@@ -158,7 +161,17 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       onWorkspaceSnapshot?.(confirmed);
     });
     queue.current=commit;
-    void commit.catch(e=>setError('本地保存冲突或失败，请勿清理浏览器数据：'+String(e)));
+    void commit.catch(async e=>{
+      setError('本地保存冲突或失败，请勿清理浏览器数据：'+String(e));
+      // The form optimistically changed its snapshot; roll back after the whole
+      // same-tab queue settles, never leave a phantom successful local edit.
+      try {
+        await queue.current.catch(()=>{});
+        const latest=await readWorkspace();
+        syncData(()=>latest);
+        onWorkspaceSnapshot?.(latest);
+      }catch{/* preserve error and raw storage; do not guess a replacement */}
+    });
     return commit;
   };
   const resyncAfterFailedWrite=async()=>{
@@ -312,7 +325,17 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
   const saveCommissionEdits=async(id:string,patch:Partial<Commission>)=>{
     try{
       await change(v=>{
-        if(!v.commissions.some(c=>c.id===id))throw new Error('稿件已被删除');
+        const current=v.commissions.find(c=>c.id===id);
+        if(!current)throw new Error('稿件已被删除');
+        if(patch.phases){
+          const active=new Set(patch.phases.filter(p=>p.state!=='done'&&p.state!=='skipped').map(p=>p.id));
+          const detached=(v.planSlots||[]).find(slot=>slot.kind==='commission'&&slot.itemId===id
+            &&slot.phaseId&&!active.has(slot.phaseId));
+          if(detached)throw new Error('阶段仍关联具体执行时段，请先修改或移除时段再结束或删除阶段');
+          const deleted=(current.phases||[]).find(p=>!patch.phases?.some(next=>next.id===p.id)
+            &&v.focusSettlements.some(log=>log.kind==='commission'&&log.itemId===id&&log.phaseId===p.id));
+          if(deleted)throw new Error('阶段已有已结算的历史记录，为保留账本请改为“结束/跳过”，不能删除');
+        }
         return {...v,commissions:v.commissions.map(c=>c.id===id?{...c,...patch}:c)};
       });
     }catch(e){
