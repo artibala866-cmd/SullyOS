@@ -79,7 +79,7 @@ import ConfirmDialog from '../components/os/ConfirmDialog';
 import ChatBlockModal from '../components/chat/ChatBlockModal';
 import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, isRejectedPrivateMessage } from '../utils/chatBlock';
 import { forgivenessCooldownRemaining, requestCharacterForgiveness } from '../utils/chatBlockAI';
-import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
+import { loadChatInputPreferences, saveChatInputPreferences, revokePendingChatAutoReplyIntents } from '../utils/chatInputPreferences';
 import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
 import MemoryRepairPortal from '../components/chat/MemoryRepairPortal';
 import FavoritesPortal from '../components/chat/VoiceFavoritesPortal';
@@ -2181,6 +2181,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 const next = !lifePacing;
                 setLifePacing(next);
                 setRealPersonModeEnabled(next);
+                // Revoking real-person mode must clear pending replies only when
+                // the ordinary auto-reply channel is also switched off.
+                if (!next && !inputPreferences.autoReply) revokePendingChatAutoReplyIntents();
                 addToast(next
                     ? '真人感已开启：发送后会按对话和日程自然接话，无需手动按闪电；主动找你仍由主动消息 2.0 单独授权。'
                     : '真人感已关闭；原有普通自动回复仍按输入设置运行，主动联系也已暂停。', 'info');
@@ -4055,7 +4058,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             // Busy locks must not consume an otherwise valid user reply intent.
             const outcome = await triggerAI(messages.slice(0, lastUserIndex + 1), undefined,
                 { automaticUserReply: true });
-            return outcome === 'busy' ? 'retry' : 'discard';
+            return outcome === 'busy' || outcome === 'unavailable' ? 'retry' : 'discard';
         },
     });
     // Together-listening invitations have their own immediate action responder
