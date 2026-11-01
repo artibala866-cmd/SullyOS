@@ -73,7 +73,7 @@ import { generateCharacterImage } from '../utils/imageGeneration';
 import { describesUserInPhoto } from '../utils/userImageIdentity';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import ChatBlockModal from '../components/chat/ChatBlockModal';
-import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked } from '../utils/chatBlock';
+import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, isRejectedPrivateMessage } from '../utils/chatBlock';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
 import MemoryRepairPortal from '../components/chat/MemoryRepairPortal';
@@ -1547,7 +1547,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     const sendText = async (customContent?: string, customType?: MessageType, metadata?: any) => {
         if (!char || (!input.trim() && !customContent)) return;
-        if (isPrivateChatBlocked(char.chatBlock)) { addToast('当前私聊被拉黑，消息无法发送', 'info'); return false; }
+        if (userBlocksCharacter(char.chatBlock)) { addToast('你已拉黑该角色，请先解除拉黑再发送', 'info'); return false; }
         // 只累加内存里的计数，这里不发任何请求；页面切走时才按区间报一次。见 utils/analytics.ts
         noteMessageSent();
         // 借用户"发送"这个手势解锁音频上下文，好让稍后 AI 回复时的白框提示音能顺利播放（移动端自动播放策略）。
@@ -1605,6 +1605,20 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const storedContent = (type === 'image' || type === 'emoji') && text.startsWith('data:')
             ? await migrateDataUrlToRef(text)
             : text;
+
+        // 糯叽机原版双向差异：角色拉黑用户后，用户端仍能留下发送记录，
+        // 但这条消息实际被拒收，禁止生成卡片、通知角色、触发自动回复或进入 AI 上下文。
+        // 用户拉黑角色则在上面直接拒绝发送。拒收标记持久化，解除拉黑后也不能“补读”旧消息。
+        if (characterBlocksUser(char.chatBlock)) {
+            await DB.saveMessage({
+                charId: char.id, role: 'user', type, content: storedContent,
+                metadata: { ...metadata, chatBlockRejected: true, chatBlockRejectedAt: Date.now() },
+            });
+            setReplyTarget(null);
+            await reloadMessages(visibleCountRef.current);
+            setShowPanel('none');
+            return false;
+        }
 
         const imageChatContext = type === 'image'
             ? messages.slice(-10).map(m => {
@@ -1932,7 +1946,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             });
             return;
         }
-        if (isPrivateChatBlocked(char?.chatBlock)) { addToast('当前私聊被拉黑，无法触发回复', 'info'); return; }
+        if (isPrivateChatBlocked(char?.chatBlock)) {
+            addToast(userBlocksCharacter(char?.chatBlock) ? '你已拉黑该角色，请先解除拉黑' : '对方已将你拉黑，当前不能正常触发回复', 'info');
+            return;
+        }
         triggerAI(messages);
     };
 
@@ -4620,6 +4637,15 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                         <button type="button" className="rounded-full border border-amber-300 bg-white px-3 py-1 font-semibold" onClick={() => { void reloadMessages(visibleCountRef.current); }}>重新读取</button>
                     </div>
                 )}
+                {isPrivateChatBlocked(char.chatBlock) && (
+                    <div role="status" className="mx-4 mb-4 rounded-xl border border-neutral-200 bg-white/80 px-3 py-2.5 text-center text-xs leading-5 text-neutral-600">
+                        {userBlocksCharacter(char.chatBlock) && characterBlocksUser(char.chatBlock)
+                            ? '你们已互相拉黑。你无法向对方发送消息，对方也无法向你正常发消息。'
+                            : userBlocksCharacter(char.chatBlock)
+                                ? '你已拉黑该角色。私聊消息与回复已暂停，可在加号 → 拉黑中解除。'
+                                : '对方已将你拉黑。你的消息会显示为已拒收，角色不会看到这些消息。'}
+                    </div>
+                )}
                 {collapsedCount > 0 && windowedFocusMsgId === null && (
                     <div className="flex justify-center mb-6">
                         <button onClick={async () => {
@@ -4725,6 +4751,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             onOpenCollaborationFile={handleOpenCollaborationFile}
                             thinkingChainOptions={thinkingChainOptions}
                         />
+                        {isRejectedPrivateMessage(m) && (
+                            <div role="status" className="flex justify-end pr-4 pb-1 text-[10px] text-neutral-500">
+                                消息已发出，但被对方拒收了。
+                            </div>
+                        )}
                         {showToolTrace && (
                             <div className={`px-3 mb-4 ${breaksWithNext ? toolTracePullClass : ''}`}>
                                 <div className="ml-12 text-[10px] leading-relaxed text-slate-400">
