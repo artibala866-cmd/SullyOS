@@ -111,74 +111,19 @@ describe('剧情与现实收发时间分离', () => {
     });
 });
 
-describe('线上回复不被剧情抢走', () => {
-    it('剧情后已有线上回复时，孤立旧剧情回到原来的轮次，不重复触发模式切换', async () => {
-        const history = [
-            { id: 1, charId: 'answered', role: 'assistant', type: 'text', content: '旧剧情', timestamp: futureTime,
+
+// Only the Meet-owned storage migration and message ordering are ported here.
+// ChatApp prompt and continuation behavior belong to the unchanged private chat system.
+describe('剧情旧副本本地顺序保护', () => {
+    it('moves old story mirrors without dropping newer user messages', () => {
+        const messages = [
+            { id: 3, charId: 'a', role: 'user', type: 'text', content: '当前输入', timestamp: realTime + 1 },
+            { id: 2, charId: 'a', role: 'assistant', type: 'text', content: '旧剧情', timestamp: futureTime,
                 metadata: { source: 'story_theater_memory' } },
-            { id: 2, charId: 'answered', role: 'user', type: 'text', content: '上一轮线上输入', timestamp: realTime },
-            { id: 3, charId: 'answered', role: 'assistant', type: 'text', content: '上一轮线上回复', timestamp: realTime + 1 },
-            { id: 4, charId: 'answered', role: 'user', type: 'text', content: '这一轮线上输入', timestamp: realTime + 2 },
         ] as Message[];
-        const payload = await buildChatRequestPayload({ char: char('answered'), userProfile: { name: '用户' } as any,
-            groups: [], emojis: [], categories: [], historyMsgs: history, contextLimit: 20, recallEntryPoint: 'chat_app' });
-        expect(payload.cleanedApiMessages[0].content).toContain('旧剧情');
-        expect(payload.systemPrompt).not.toContain('现在已经回到 ChatApp 的文字聊天界面');
-    });
-
-    it('保留晚到的真实线上回复与主动消息的顺序，也不抢走较新的剧情输入', async () => {
-        const make = (id: number, role: Message['role'], source?: string): Message => ({
-            id, charId: 'order', role, type: 'text', content: String(id), timestamp: id, metadata: { source },
-        });
-        const answered = [make(1, 'user'), make(3, 'assistant'), make(2, 'assistant', 'story_theater_memory')];
-        expect(protectPendingChatTurn(answered)).toBe(answered);
-        const newStory = [make(1, 'user'), make(2, 'assistant', 'story_theater_memory')];
-        expect(protectPendingChatTurn(newStory)).toBe(newStory);
-        const scheduled = { ...make(4, 'assistant'), metadata: { activeMsg2: { taskId: 'scheduled' } } };
-        const withProactive = [make(2, 'user'), scheduled, make(1, 'assistant', 'story_theater_memory')];
-        expect(protectPendingChatTurn(withProactive).map(message => message.id)).toEqual([1, 2, 4]);
-        expect(hasUnansweredUserTurn([withProactive[0]], withProactive)).toBe(true);
-        const payload = await buildChatRequestPayload({ char: char('order'), userProfile: { name: '用户' } as any,
-            groups: [], emojis: [], categories: [], historyMsgs: withProactive, contextLimit: 20, recallEntryPoint: 'chat_app' });
-        expect(payload.systemPrompt).toContain('现在已经回到 ChatApp 的文字聊天界面');
-        expect(withChatContinuation(payload.fullMessages, '用户', {
-            unansweredUserTurn: hasUnansweredUserTurn([withProactive[0]], withProactive),
-        }).at(-1)?.content).toContain('刚才说的话还没有人回');
-    });
-
-    it('旧记录修复后，连续重掷仍以新线上输入收尾并注入模式切换', async () => {
-        vi.useFakeTimers({ toFake: ['Date'] });
-        vi.setSystemTime(new Date('2026-10-11T10:01:00Z'));
-        await seedLegacy('chat-story');
-        const userId = await DB.saveMessage({ charId: 'chat-story', role: 'user', type: 'text', content: '今天线上新消息' });
-        for (let roll = 0; roll < 3; roll++) {
-            const range = await loadCharacterContextRange(char('chat-story'));
-            expect(range.messages.at(-1)?.id).toBe(userId);
-            const payload = await buildChatRequestPayload({ char: char('chat-story'), userProfile: { name: '用户' } as any,
-                groups: [], emojis: [], categories: [], historyMsgs: range.messages, contextLimit: range.messages.length,
-                recallEntryPoint: 'chat_app' });
-            expect(payload.cleanedApiMessages.at(-1)).toMatchObject({ role: 'user', content: expect.stringContaining('今天线上新消息') });
-            expect(payload.systemPrompt).toContain('现在已经回到 ChatApp 的文字聊天界面');
-            expect(withChatContinuation(payload.fullMessages, '用户')).toEqual(payload.fullMessages);
-            const replyId = await DB.saveMessage({ charId: 'chat-story', role: 'assistant', type: 'text', content: '线上回复' });
-            await DB.deleteMessages([replyId]);
-        }
-    });
-
-    it.each([false, true])('缺少中央记录的旧副本不会挡住当前输入（worker=%s），也不冒充现实日期', async timelyByWorker => {
-        const history = [
-            { id: 1, charId: 'orphan', role: 'assistant', type: 'text', content: '旧线下正文', timestamp: futureTime,
-                metadata: { source: 'story_theater_memory', theaterTitle: '日常', theaterCentralId: 999 } },
-            { id: 2, charId: 'orphan', role: 'user', type: 'text', content: '今天线上新消息', timestamp: realTime + 86400000 },
-        ] as Message[];
-        const payload = await buildChatRequestPayload({ char: char('orphan'), userProfile: { name: '用户' } as any,
-            groups: [], emojis: [], categories: [], historyMsgs: history, contextLimit: 20,
-            recallEntryPoint: 'chat_app', timelyByWorker });
-        expect(payload.cleanedApiMessages.at(-1)).toMatchObject({ role: 'user', content: expect.stringContaining('今天线上新消息') });
-        expect(payload.systemPrompt).toContain('现在已经回到 ChatApp 的文字聊天界面');
-        const story = payload.cleanedApiMessages.find(message => String(message.content).includes('旧线下正文'))!;
-        expect(String(story.content)).toContain('[剧情：日常]');
-        expect(String(story.content)).not.toContain('2026-10-22');
-        expect(withChatContinuation(payload.fullMessages, '用户')).toEqual(payload.fullMessages);
+        const reordered = protectPendingChatTurn(messages);
+        expect(reordered.map(m => m.id)).toEqual([2, 3]);
+        expect(reordered[1].content).toBe('当前输入');
+        expect(messages.map(m => m.id)).toEqual([3, 2]);
     });
 });
