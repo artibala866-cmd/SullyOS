@@ -15,10 +15,14 @@ describe('剧情重写上下文和保存', () => {
         expect((await loadStoryActorContext(char, 'current', 20)).map(message => message.content)).toEqual(['私聊', '别的剧情']);
     });
     const seed = async (id: string): Promise<Message> => {
-        const centralId = await DB.saveMessage({ charId: id, role: 'assistant', type: 'text', content: '旧回复' });
-        const mirrorId = await DB.saveMessage({ charId: id + '-actor', role: 'assistant', type: 'text', content: '旧回复' });
-        await DB.updateMessageMetadata(centralId, () => ({ theaterMirrorIds: { actor: mirrorId } }));
-        return (await DB.getMessagesByCharId(id, true))[0];
+        const threadId = `story-theater:${id}`;
+        await DB.saveStoryTheaterTurn(
+            { charId: threadId, role: 'assistant', type: 'text', content: '旧回复',
+                timestamp: 1770000000000, metadata: { source: 'story_theater', theaterId: id } },
+            centralId => [{ charId: threadId + '-actor', role: 'assistant', type: 'text', content: '旧回复',
+                timestamp: 1770000000000, metadata: { source: 'story_theater_memory', theaterId: id, theaterCentralId: centralId } }],
+        );
+        return (await DB.getMessagesByCharId(threadId, true))[0];
     };
     it('成功后原位原子替换，中央正文和镜像不会多出一条', async () => {
         const old = await seed('reroll-save');
@@ -27,6 +31,18 @@ describe('剧情重写上下文和保存', () => {
         expect(rows).toHaveLength(1);
         expect(rows[0]).toMatchObject({ id: old.id, content: '新回复', metadata: { theaterPromptTokens: 123 } });
         expect((await DB.getMessagesByCharId(old.charId + '-actor', true))[0].content).toBe('新回复');
+    });
+    it('拒绝把过期镜像索引指向别的会话中正文相同的消息', async () => {
+        const old = await seed('reroll-wrong-link');
+        const foreignId = await DB.saveMessage({ charId: 'unrelated-private-chat',
+            role: 'assistant', type: 'text', content: '旧回复', metadata: { source: 'chat' } });
+        await DB.updateMessageMetadata(old.id, previous => ({
+            ...previous, theaterMirrorIds: { stranger: foreignId },
+        }));
+        const corrupted = await DB.getMessageById(old.id);
+        await expect(replaceStoryTheaterReply(corrupted!, '新回复', {})).rejects.toThrow('引用错误');
+        expect((await DB.getMessageById(foreignId))?.content).toBe('旧回复');
+        expect((await DB.getMessageById(old.id))?.content).toBe('旧回复');
     });
     it('任意镜像在请求期间被编辑，整个事务回滚保留用户修改和原正文', async () => {
         const old = await seed('reroll-conflict');
