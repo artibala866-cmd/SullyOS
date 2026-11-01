@@ -179,6 +179,8 @@ describe('拉黑动作流式预览安全', () => {
   it('原版 BLOCK_USER 内部标记不能闪成聊天气泡', () => {
     expect(computeStreamPreviewBubbles('我不能接受。\n[BLOCK_USER:严重欺骗]')).toEqual(['我不能接受。']);
     expect(computeStreamPreviewBubbles('[BLOCK_USER:严重欺骗]')).toEqual([]);
+    expect(computeStreamPreviewBubbles('{"t":"block_user","reason":"严重欺骗"}')).toEqual([]);
+    expect(computeStreamPreviewBubbles('我先冷静一下\n{"t":"unblock_user"}')).toEqual(['我先冷静一下']);
     expect(computeStreamPreviewBubbles('普通回复\n[BLOCK_US')).toEqual(['普通回复']);
   });
 });
