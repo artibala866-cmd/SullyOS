@@ -1,7 +1,9 @@
 import type { Message } from '../types';
+import { isRejectedPrivateMessage } from './chatBlock';
 
 /** Media references are storage identifiers, not user-visible message summaries. */
-export const chatPreviewText = (message: Pick<Message, 'type' | 'content'>): string => {
+export const chatPreviewText = (message: Pick<Message, 'type' | 'content' | 'role' | 'metadata'>): string => {
+    if (isRejectedPrivateMessage(message)) return '[消息已被对方拒收]';
     if (message.type === 'image') return '[图片]';
     if (message.type === 'emoji') return '[表情]';
     if (/^(blobref:|data:image\/|blob:)/i.test(message.content)) return '[图片]';
