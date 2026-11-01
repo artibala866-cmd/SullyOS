@@ -15,6 +15,10 @@ const ChatBlockModal: React.FC<ChatBlockModalProps> = ({ characterName, state, o
   const [confirming, setConfirming] = useState(false);
   const userBlocked = userBlocksCharacter(state);
   const charBlocked = characterBlocksUser(state);
+  const formattedAt = (at?: number) => typeof at === 'number' && Number.isFinite(at) && at > 0
+    ? new Date(at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '';
+  const recentEvent = state?.history?.[state.history.length - 1];
   return (
     <div className="fixed inset-0 z-[280] flex items-end sm:items-center justify-center bg-black/40 px-3 pb-[max(12px,env(safe-area-inset-bottom))]"
       role="presentation" onClick={onClose}>
@@ -30,7 +34,7 @@ const ChatBlockModal: React.FC<ChatBlockModalProps> = ({ characterName, state, o
           <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
             <div>
               <div className="text-sm font-medium">你拉黑了 {characterName}</div>
-              <p className="mt-1 text-xs text-neutral-500">{userBlocked ? '已拉黑' : '未拉黑'}</p>
+              <p className="mt-1 text-xs text-neutral-500">{userBlocked ? `已拉黑 · ${formattedAt(state?.userBlockedAt)}` : '未拉黑'}</p>
             </div>
             <button type="button" aria-label={userBlocked ? '解除拉黑角色' : '拉黑角色'}
               onClick={() => userBlocked ? onSetUserBlock(false) : setConfirming(true)}
@@ -41,7 +45,7 @@ const ChatBlockModal: React.FC<ChatBlockModalProps> = ({ characterName, state, o
           <div className="rounded-2xl border border-neutral-200 bg-white p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">{characterName} 拉黑了你</span>
-              <span className="text-xs text-neutral-500">{charBlocked ? '已拉黑' : '未拉黑'}</span>
+              <span className="text-xs text-neutral-500">{charBlocked ? `已拉黑 · ${formattedAt(state?.characterBlockedAt)}` : '未拉黑'}</span>
             </div>
             <label className="mt-3 flex items-center justify-between gap-3 text-xs text-neutral-600">
               <span>允许角色自主拉黑我</span>
@@ -51,10 +55,16 @@ const ChatBlockModal: React.FC<ChatBlockModalProps> = ({ characterName, state, o
                 className="h-4 w-4 accent-neutral-700"/>
             </label>
             <p className="mt-2 text-[11px] leading-4 text-neutral-400">
-              角色自主拉黑与求原谅判断尚未接入；当前已保存权限和双方独立状态。
+              两个方向独立保存。角色自主判断及求原谅功能尚未接入；关闭此权限会解除角色对你的拉黑，不会改变你对角色的拉黑。
             </p>
           </div>
         </div>
+        {recentEvent && (
+          <p className="mt-3 text-[11px] leading-4 text-neutral-400">
+            最近一次状态变化：{recentEvent.actor === 'user' ? '你' : characterName}
+            {recentEvent.action === 'block' ? '拉黑' : '解除拉黑'} · {formattedAt(recentEvent.at)}
+          </p>
+        )}
         {confirming && (
           <div className="mt-4 rounded-2xl border border-neutral-300 bg-neutral-100 p-3">
             <p className="text-sm font-medium">确定拉黑 {characterName}？</p>
