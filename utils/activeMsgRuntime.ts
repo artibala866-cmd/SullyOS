@@ -3,7 +3,7 @@ import { eventForDeliveredAmsg, eventsForVerifiedXhsActions } from './amsgPhoneE
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { isPrivateChatBlocked, allowsCharacterToBlock, changeChatBlock } from './chatBlock';
-import { extractCharacterBlockDirective } from './chatBlockAI';
+import { extractCharacterBlockAction } from './chatBlockAI';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
 import { ChatPrompts } from './chatPrompts';
@@ -1701,10 +1701,10 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
       let routed = false;
       // 仅原版即时私聊的正文可以触发角色自主拉黑；定时主动消息和其它应用不参与。
       const instantBlockDecision = looksLikeAssistantText && isInstantReply
-        ? extractCharacterBlockDirective(message.body || '')
-        : { text: message.body || '', reason: null as string | null };
-      const onlyInternalBlockAction = !!instantBlockDecision.reason && !instantBlockDecision.text.trim();
-      const inboxBody = instantBlockDecision.reason ? {
+        ? extractCharacterBlockAction(message.body || '')
+        : { text: message.body || '', action: null };
+      const onlyInternalBlockAction = !!instantBlockDecision.action && !instantBlockDecision.text.trim();
+      const inboxBody = instantBlockDecision.action ? {
         ...message,
         body: instantBlockDecision.text,
         previewBody: instantBlockDecision.text,
@@ -1712,11 +1712,14 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
 
       if (looksLikeAssistantText) {
         try {
-          await replyStep(async () => processInboxMessageWithPostProcessing(inboxBody, persistTimestamp, replyRun, typingController.signal));
-          if (instantBlockDecision.reason) {
+          // 只有动作没有正文时，无需运行文本后处理，也不写一条空白气泡。
+          if (!onlyInternalBlockAction) {
+            await replyStep(async () => processInboxMessageWithPostProcessing(inboxBody, persistTimestamp, replyRun, typingController.signal));
+          }
+          if (instantBlockDecision.action) {
             const latest = await replyStep(() => DB.getCharacter(message.charId));
-            if (latest && allowsCharacterToBlock(latest.chatBlock) && !isPrivateChatBlocked(latest.chatBlock)) {
-              const nextBlock = changeChatBlock(latest.chatBlock, 'character', true, { reason: instantBlockDecision.reason, source: 'ai' });
+            if (instantBlockDecision.action.kind === 'block' && latest && allowsCharacterToBlock(latest.chatBlock) && !isPrivateChatBlocked(latest.chatBlock)) {
+              const nextBlock = changeChatBlock(latest.chatBlock, 'character', true, { reason: instantBlockDecision.action.reason, source: 'ai' });
               await replyStep(() => DB.saveCharacter({ ...latest, chatBlock: nextBlock }));
               window.dispatchEvent(new CustomEvent('sully-chat-block-state-changed', {
                 detail: { charId: latest.id, chatBlock: nextBlock },
@@ -1767,7 +1770,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
             charId: message.charId,
             role: 'assistant',
             type: 'text',
-            content: message.body,
+            content: inboxBody.body,
             timestamp: persistTimestamp,
             metadata: {
               source: 'active_msg_2',
