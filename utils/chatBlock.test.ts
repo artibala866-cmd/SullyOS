@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, isRejectedPrivateMessage, privateChatBlockDirection } from './chatBlock';
+import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, isRejectedPrivateMessage, privateChatBlockDirection, privateChatDeliveryFailure, userBlockedCharacterAt } from './chatBlock';
 describe('original two-way private chat blocking framework', () => {
   it('legacy character starts open', () => {
     expect(isPrivateChatBlocked()).toBe(false);
@@ -42,6 +42,19 @@ describe('original two-way private chat blocking framework', () => {
     expect(isRejectedPrivateMessage({ role: 'user', metadata: { chatBlockRejected: true } } as any)).toBe(true);
     expect(isRejectedPrivateMessage({ role: 'user', metadata: {} } as any)).toBe(false);
     expect(isRejectedPrivateMessage({ role: 'assistant', metadata: { chatBlockRejected: true } } as any)).toBe(false);
+  });
+  it('用户拉黑 Char：用户消息正常，Char 回复发送失败；角色拉黑用户时方向相反', () => {
+    const userBlocked = changeChatBlock(undefined, 'user', true, { at: 100 });
+    expect(userBlockedCharacterAt(userBlocked, 120)).toBe(true);
+    expect(privateChatDeliveryFailure({role:'user', metadata: {}} as any)).toBeNull();
+    expect(privateChatDeliveryFailure({role:'assistant', metadata:{chatBlockSendFailed:true}} as any)).toBe('char-send-failed');
+    expect(privateChatDeliveryFailure({role:'user', metadata:{chatBlockSendFailed:true}} as any)).toBeNull();
+    expect(privateChatDeliveryFailure({role:'user', metadata:{chatBlockRejected:true}} as any)).toBe('user-rejected');
+    expect(privateChatDeliveryFailure({role:'assistant', metadata:{chatBlockRejected:true}} as any)).toBeNull();
+    const unblocked = changeChatBlock(userBlocked, 'user', false, { at: 200 });
+    expect(userBlockedCharacterAt(unblocked, 120)).toBe(true);
+    expect(userBlockedCharacterAt(unblocked, 220)).toBe(false);
+    expect(privateChatDeliveryFailure({role:'assistant', metadata:{chatBlockSendFailed:true}} as any)).toBe('char-send-failed');
   });
   it('events bounded; relationship history persists through unlocks', () => {
     let state = undefined as ReturnType<typeof changeChatBlock> | undefined;
