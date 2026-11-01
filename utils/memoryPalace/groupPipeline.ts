@@ -368,7 +368,9 @@ export async function processGroupNewMessages(
                 ]);
                 // 只拿本群的记忆去重。另一群的共同经历、甚至私聊的相似记忆
                 // 绝不能阻止当前群写下自己的事实及群来源。
-                const groupMemoryIds = new Set(allMemberNodes.filter(node => node.groupId === group.id).map(node => node.id));
+                const sameGroupNodes = allMemberNodes.filter(node => node.groupId === group.id);
+                const groupMemoryIds = new Set(sameGroupNodes.map(node => node.id));
+                const groupContentById = new Map(sameGroupNodes.map(node => [node.id, node.content.trim().replace(/\s+/g, ' ')]));
                 const existingVectors = allMemberVectors.filter(vector => groupMemoryIds.has(vector.memoryId));
 
                 // 6b. 嵌入这个成员的所有 drafts
@@ -384,7 +386,13 @@ export async function processGroupNewMessages(
                     // ev.vector 声明上有 number[] / Float32Array / Uint8Array 三态，
                     // ensureFloat32 统一（DB 层已经转好，这里是恒等返回），别让
                     // cosineSimilarity 把 Uint8Array 的原始字节当成分量读。
-                    const duplicate = existingVectors.find(ev => cosineSimilarity(vector, ensureFloat32(ev.vector)) > DEDUP_THRESHOLD);
+                    // 向量语义相似不代表是同一次事件；原来只比较 cosine 会吞掉
+                    // 同一个群里相近但不同的真实经历。必须同时确认正文对应。
+                    const normalizedDraft = draft.content.trim().replace(/\s+/g, ' ');
+                    const duplicate = existingVectors.find(ev =>
+                        groupContentById.get(ev.memoryId) === normalizedDraft
+                        && cosineSimilarity(vector, ensureFloat32(ev.vector)) > DEDUP_THRESHOLD
+                    );
                     if (duplicate) {
                         // 之前本地已存，但远端当时写入失败：重试同步相同的源节点，
                         // 不能只因本地去重成功就永久丢失这份云端召回。
@@ -457,6 +465,7 @@ export async function processGroupNewMessages(
                     }
 
                     existingVectors.push(memVec);
+                    groupContentById.set(node.id, normalizedDraft);
                     storedForMember++;
                 }
 
