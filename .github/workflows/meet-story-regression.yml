@@ -75,6 +75,9 @@ jobs:
             if curl -fsSL http://127.0.0.1:5193/test/fixtures/story-editor-dark.html >/dev/null; then break; fi
             sleep 1
           done
+          # Runner images can lack Chinese fonts; install for meaningful screenshot inspection.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-wqy-microhei
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$browser" || { echo 'No Chromium executable on runner'; exit 1; }
           url='http://127.0.0.1:5193/test/fixtures/story-editor-dark.html'
@@ -86,7 +89,16 @@ jobs:
           }
           "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage             --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000             --screenshot=output/meet-story/story-editor-dark-390.png "$url"             > output/meet-story/screenshot.log 2>&1
           test -s output/meet-story/story-editor-dark-390.png
-          echo 'PASS: real story editor rendered in Chromium, mobile viewport, gray surfaces and readable text verified'
+          # Chinese text must be legible in screenshots rather than tofu squares.
+          # The virtual machine may not provide a CJK font by default.
+          # Color assertions above already use the live DOM and do not depend on this install.
+          for focus in memory bottom; do
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage               --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000               --dump-dom "${url}?focus=${focus}" > "output/meet-story/${focus}-dom.html"               2> "output/meet-story/${focus}-chrome.log"
+            grep -q 'data-story-gray-ready="true"' "output/meet-story/${focus}-dom.html"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage               --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000               --screenshot="output/meet-story/story-editor-${focus}-390.png" "${url}?focus=${focus}"               > "output/meet-story/${focus}-screenshot.log" 2>&1
+            test -s "output/meet-story/story-editor-${focus}-390.png"
+          done
+          echo 'PASS: real story editor rendered in Chromium, mobile viewport, top/bottom actions, gray panel and readable text verified'
       - name: Attach browser screenshot and computed style report
         if: always()
         uses: actions/upload-artifact@v4
