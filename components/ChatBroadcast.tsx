@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ChatCircleDots, Brain } from '@phosphor-icons/react';
 import { CHAT_GEN_EVENTS, CHAT_VIEW_CHANGED_EVENT, getChatViewSnapshot } from '../utils/chatGenEvents';
 import { AMSG_INSTANT_CHAT_PENDING_EVENT, listInstantChatPendings } from '../utils/amsgInstantChat';
 import { INSTANT_TOTAL_TIMEOUT_MS } from '../worker/amsg/src/instantChat';
@@ -128,25 +129,28 @@ const ChatBroadcast: React.FC = () => {
     return (
         <div className="fixed left-1/2 -translate-x-1/2 z-[999]"
             style={{ top: 'calc(var(--safe-top) + 44px)' }}>
-            <style>{`@keyframes chatbcin{from{opacity:0;transform:translateY(-14px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-                     @keyframes chatbcdot{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}`}</style>
-            <button type="button" onClick={jump}
-                className="relative flex items-center gap-2.5 pl-3 pr-3.5 py-1.5 rounded-full overflow-hidden backdrop-blur-xl cursor-pointer"
+            <style>{`@keyframes chatbcin{from{opacity:0;transform:translateY(-9px)}to{opacity:1;transform:translateY(0)}}
+                     @keyframes chatbcdot{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:.9;transform:translateY(-2px)}}
+                     @media (prefers-reduced-motion: reduce){.chat-broadcast-pill,.chat-broadcast-dot{animation:none!important}}`}</style>
+            <button type="button" onClick={jump} aria-label={`${cur.charName}${extra} ${statusLabel}，点击返回聊天`}
+                className="chat-broadcast-pill relative flex items-center gap-2.5 rounded-full border px-3.5 py-2 cursor-pointer active:scale-[.98] transition-transform"
                 style={{
-                    animation: 'chatbcin .45s cubic-bezier(.2,.9,.3,1.2)',
-                    background: 'linear-gradient(100deg, rgba(20,36,32,.85), rgba(12,22,20,.85))',
-                    border: '1px solid rgba(160,230,200,.28)',
-                    boxShadow: '0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(190,240,215,.16), 0 0 18px rgba(110,220,170,.15)',
+                    animation: 'chatbcin .28s ease-out',
+                    // Instagram-like monochrome: a single neutral gray surface, no green glow or gradients.
+                    background: 'rgba(242, 242, 242, .97)',
+                    borderColor: 'rgba(130, 130, 130, .32)',
+                    color: '#333333',
+                    boxShadow: '0 3px 12px rgba(0, 0, 0, .10)',
                 }}>
-                <span className="relative text-[12px] opacity-85" style={{ filter: 'drop-shadow(0 0 5px rgba(140,235,190,.6))' }}>
-                    {cur.kind === 'reply' ? '💬' : '🫧'}
+                <span className="flex shrink-0 items-center justify-center text-[#414141]" aria-hidden="true">
+                    {cur.kind === 'reply' ? <ChatCircleDots size={16} weight="regular" /> : <Brain size={16} weight="regular" />}
                 </span>
-                <span className="relative text-[11px] tracking-[0.04em] text-white/90 whitespace-nowrap font-light">
-                    <span className="text-emerald-200/90 font-normal">{cur.charName}</span>{extra} {statusLabel}
+                <span className="text-[12px] leading-4 tracking-normal text-[#555555] whitespace-nowrap font-normal">
+                    <span className="text-[#303030] font-medium">{cur.charName}</span>{extra} {statusLabel}
                 </span>
-                <span className="relative flex gap-1">
+                <span className="flex items-center gap-1" aria-hidden="true">
                     {[0, 1, 2].map(i => (
-                        <span key={i} className="w-1 h-1 rounded-full bg-emerald-100/80"
+                        <span key={i} className="chat-broadcast-dot h-1 w-1 rounded-full bg-[#898989]"
                             style={{ animation: 'chatbcdot 1.2s infinite', animationDelay: `${i * 0.2}s` }} />
                     ))}
                 </span>
