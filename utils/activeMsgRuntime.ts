@@ -2,7 +2,7 @@ import { createReplyRun, isReplyStopped, withReplyCancellation, type ReplyRun } 
 import { eventForDeliveredAmsg, eventsForVerifiedXhsActions } from './amsgPhoneEvent';
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { loadCharacterContextMessages } from './chatContextRange';
-import { isPrivateChatBlocked, allowsCharacterToBlock, changeChatBlock } from './chatBlock';
+import { isPrivateChatBlocked, characterBlocksUser, userBlockedCharacterAt, allowsCharacterToBlock, changeChatBlock } from './chatBlock';
 import { extractCharacterBlockAction } from './chatBlockAI';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
@@ -747,6 +747,9 @@ const processInboxMessageWithPostProcessing = async (
     // 这条 push 拆出的每条气泡共用一个时间戳 (跟降级存原稿路径同口径), 见
     // resolveInboxPersistTimestampForMessage。
     messageTimestamp: persistTimestamp,
+    // Char 被用户拉黑仍可在用户屏幕显示回复，只是角色视角发送失败。
+    // 用 push 的实际发送时刻判断，解除拉黑后再补收也不会抹掉红色感叹号。
+    messageSendFailedByUserBlock: userBlockedCharacterAt(char.chatBlock, message.sentAt || persistTimestamp),
     // 三种情况跳过拟人打字延迟、一次性回填，共同点是「用户已经读过这句话了，再演一遍
     // 打字过程只剩干等」：
     //   1. 补收：内容几小时前就在云端生成完了，慢放期间用户插的话还会把时间戳倒挂的
@@ -1588,7 +1591,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
       // 但原账号的聊天消息不能因后台收件、补收或应用重新启动绕过黑名单。
       // 只丢弃这条已被认领的消息，不回补到解除拉黑后的聊天历史。
       const recipient = await replyStep(() => DB.getCharacter(message.charId));
-      if (isPrivateChatBlocked(recipient?.chatBlock)) {
+      if (characterBlocksUser(recipient?.chatBlock)) {
         activeMsgTrace('runtime-inbox-blocked-dropped', {
           messageId: message.messageId, charId: message.charId,
         });
@@ -1786,6 +1789,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
               },
               // 同主路径：SAR 回程载具键不进气泡；这一段的角色外显原稿整段挂上。
               ...stripAmsgSarTransportKeys(message.metadata),
+              ...(userBlockedCharacterAt(recipient?.chatBlock, message.sentAt || persistTimestamp) ? { chatBlockSendFailed: true } : {}),
               ...(() => {
                 const sarSurface = readAmsgSarSurface(message.metadata);
                 return sarSurface ? { sarModuleSurface: sarSurface } : {};
