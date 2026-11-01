@@ -62,7 +62,7 @@ describe('Orca 影视 MCP 直连失败后的专用转发', () => {
         const result = await callMcpTool({ ...cfg, tools: tested.tools }, 'movies_search', { query: '流浪地球' });
         expect(result.success).toBe(true);
         expect(result.data).toMatchObject({ title: '电影测试', query: '流浪地球' });
-        expect(calls.at(-1)).toEqual({ url: RELAY, method: 'tools/call' });
+        expect(calls[calls.length - 1]).toEqual({ url: RELAY, method: 'tools/call' });
         resetMcpSession(cfg.id);
     });
 
