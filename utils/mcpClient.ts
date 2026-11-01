@@ -10,7 +10,9 @@
  * 2. 本地代理 —— node scripts/mcp-proxy.mjs，代理 URL 填 http://localhost:18061
  * 3. 用户自己的 Cloudflare Worker —— worker/mcp-proxy/，部署到用户自己的账号
  * 代理约定统一为 <代理URL>?target=<url-encoded 服务器URL>，可选 X-Proxy-Key 头。
- * 刻意不走中心 sfworker：MCP 流量（含用户的 Bearer Token）不该过项目方的服务器。
+ * 通用 MCP 刻意不走中心 Worker：用户的 Bearer Token 绝不能经过项目方。
+ * 唯一特例：免 Key 的 Orca 公共电影预设，浏览器直连遇网络/CORS 错误后
+ * 可通过固定上游、拒绝鉴权的 /mcp/orca 专用路由重试。
  *
  * JSON-RPC 收发本体（握手、SSE、tools/call、参数还原）住在环境无关叶子
  * mcpFireCore，浏览器和 amsg worker 共用；这里只补浏览器侧的配置、代理包装和会话表。
@@ -28,6 +30,7 @@ import {
     type McpTransportTarget,
 } from './mcpFireCore';
 import { isWorkerReachableUrl } from './amsgToolPack';
+import { getProxyWorkerUrl } from './proxyWorker';
 
 export { MCP_REQUEST_TIMEOUT_MS, normalizeMcpToolArguments };
 export type { McpToolResult };
@@ -208,6 +211,19 @@ export function importMcpLocal(data: Record<string, string> | null | undefined):
 
 const sessions = new Map<string, McpSessionState>();
 
+// 浏览器 CORS 有时不允许直连免鉴权 Orca；中转只允许官方固定 URL 和无凭据预设。
+const ORCA_PUBLIC_MCP_URL = 'https://orca-mcp.mmdju.workers.dev/mcp';
+const orcaRelayReady = new Set<string>();
+const canUsePublicOrcaRelay = (server: McpServerConfig): boolean =>
+    server.presetId === 'realtime.orca' &&
+    server.url.trim() === ORCA_PUBLIC_MCP_URL &&
+    !server.proxyUrl?.trim() &&
+    !server.proxyKey?.trim() &&
+    !server.token?.trim() &&
+    !(server.customHeaders || []).some(h => h.name?.trim() && h.value?.trim());
+const isMcpFetchFailure = (message: string): boolean => message.includes('MCP 请求失败:');
+const orcaRelayEndpoint = (): string => `${getProxyWorkerUrl().replace(/\\/+$/, '')}/mcp/orca`;
+
 const getSession = (serverId: string): McpSessionState => {
     let s = sessions.get(serverId);
     if (!s) {
@@ -219,6 +235,7 @@ const getSession = (serverId: string): McpSessionState => {
 
 export const resetMcpSession = (serverId: string): void => {
     sessions.delete(serverId);
+    orcaRelayReady.delete(serverId);
 };
 
 /** 实际请求地址：配了代理就包成 <proxy>?target=<url>，没配就直连 */
@@ -264,13 +281,14 @@ export const buildMcpRequestHeaders = (
 };
 
 /** 一次请求的目标：代理包装和请求头都是浏览器侧独有的，在这里落地后交给 core。 */
-const targetFor = (server: McpServerConfig): McpTransportTarget => ({
-    url: buildMcpFetchUrl(server),
+const targetFor = (server: McpServerConfig, orcaRelay = false): McpTransportTarget => ({
+    url: orcaRelay ? orcaRelayEndpoint() : buildMcpFetchUrl(server),
     headers: (sessionId, protocolVersion) => buildMcpRequestHeaders(server, sessionId, protocolVersion),
-    // 直连时 fetch 抛 TypeError 十有八九是 CORS，把排查方向直接告诉用户
-    fetchErrorHint: server.proxyUrl
-        ? '请检查代理 URL 是否可访问、代理密钥是否正确。'
-        : '很可能是浏览器 CORS 限制。请在这个服务器的「代理 URL」里配置代理（本地 node scripts/mcp-proxy.mjs 或自部署 worker/mcp-proxy）。',
+    fetchErrorHint: orcaRelay
+        ? 'Orca 公共中转连接失败，请检查糯米机 Worker 是否已部署 /mcp/orca 路由。'
+        : server.proxyUrl
+            ? '请检查代理 URL 是否可访问、代理密钥是否正确。'
+            : '很可能是浏览器 CORS 限制。请在这个服务器的「代理 URL」里配置代理（本地 node scripts/mcp-proxy.mjs 或自部署 worker/mcp-proxy）。',
 });
 
 // ========== 公开 API ==========
@@ -283,7 +301,21 @@ export const discoverMcpTools = async (
     onStage?: (stage: McpConnectionStage) => void,
 ): Promise<McpToolDef[]> => {
     resetMcpSession(server.id);
-    return discoverMcpToolsCore(targetFor(server), getSession(server.id), MCP_REQUEST_TIMEOUT_MS, { onStage });
+    try {
+        return await discoverMcpToolsCore(targetFor(server), getSession(server.id), MCP_REQUEST_TIMEOUT_MS, { onStage });
+    } catch (error: any) {
+        // 只有原作者公开、无凭据的 Orca 预设才能走中心中转。非网络错误绝不重试，
+        // 避免把真正的协议/鉴权问题伪装成 CORS，也不会重发任何其他 MCP 请求。
+        if (!canUsePublicOrcaRelay(server) || !isMcpFetchFailure(String(error?.message || error))) throw error;
+        resetMcpSession(server.id);
+        try {
+            const tools = await discoverMcpToolsCore(targetFor(server, true), getSession(server.id), MCP_REQUEST_TIMEOUT_MS, { onStage });
+            orcaRelayReady.add(server.id);
+            return tools;
+        } catch (relayError: any) {
+            throw new Error(`Orca 直连失败，公共中转也未连接成功：${relayError?.message || relayError}。请确认糯米机 Worker 已部署 /mcp/orca。`);
+        }
+    }
 };
 
 /**
@@ -308,11 +340,22 @@ export const callMcpTool = async (
         );
         if (!approved) return { success: false, error: '用户拒绝了这次 MCP 调用。' };
     }
-    return callMcpToolCore(targetFor(server), getSession(server.id), toolName, args, {
+    const opts = {
         signal,
-        inputSchema: (server.tools || []).find(tool => tool.name === toolName)?.inputSchema,
+        inputSchema: tool?.inputSchema,
         serverLabel: server.name,
-    });
+    };
+    const alreadyRelayed = canUsePublicOrcaRelay(server) && orcaRelayReady.has(server.id);
+    const first = await callMcpToolCore(targetFor(server, alreadyRelayed), getSession(server.id), toolName, args, opts);
+    if (alreadyRelayed || first.success || !canUsePublicOrcaRelay(server) || !isMcpFetchFailure(first.error || '')) return first;
+    signal?.throwIfAborted();
+    resetMcpSession(server.id);
+    const fallback = await callMcpToolCore(targetFor(server, true), getSession(server.id), toolName, args, opts);
+    if (fallback.success) orcaRelayReady.add(server.id);
+    return fallback.success ? fallback : {
+        success: false,
+        error: `Orca 直连失败，公共中转也未连接成功：${fallback.error || '未知错误'}。请确认糯米机 Worker 已部署 /mcp/orca。`,
+    };
 };
 
 /** 测试连接: 验证握手 + tools/list 能通，返回工具清单供持久化 */
