@@ -24,7 +24,7 @@ export const settleDeletedMusicInviteCards = async (
     }, message.id);
     if (settled.resolved) {
       announceMusicInviteDbChanged(charId);
-      window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
+      typeof window !== 'undefined' && window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
         detail: { charId, messageId: message.id, accepted: false },
       }));
     }
@@ -36,7 +36,7 @@ export const notifyDeletedMusicInviteCards = (
 ): void => {
   if (!messages.some(m => m.charId === charId && m.metadata?.musicListenInvite)) return;
   announceMusicInviteDbChanged(charId);
-  window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
+  typeof window !== 'undefined' && window.dispatchEvent(new CustomEvent('music-listen-invite-resolved', {
     detail: { charId },
   }));
 };
