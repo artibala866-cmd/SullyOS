@@ -1703,6 +1703,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
       const instantBlockDecision = looksLikeAssistantText && isInstantReply
         ? extractCharacterBlockDirective(message.body || '')
         : { text: message.body || '', reason: null as string | null };
+      const onlyInternalBlockAction = !!instantBlockDecision.reason && !instantBlockDecision.text.trim();
       const inboxBody = instantBlockDecision.reason ? {
         ...message,
         body: instantBlockDecision.text,
@@ -1865,7 +1866,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
       // persisted chunk enters the life ledger, preventing an extra phone
       // autonomy opportunity for every bubble in that same message.
       if (isLastChunk(message)) {
-        if (phoneEvent) recordCharacterLifeEvent(phoneEvent);
+        if (phoneEvent && !onlyInternalBlockAction) recordCharacterLifeEvent(phoneEvent);
         // One actual XHS tool receipt per delivered cloud turn; no NPC
         // message, social post or speculative browsing is invented.
         for(const event of eventsForVerifiedXhsActions({
@@ -1878,7 +1879,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
 
       // 不管走 post-processing 还是 raw fallback, 单条 inbox message 触发一次 'active-msg-received',
       // 驱动 toast / 未读 / 通知。body 用原文做预览即可。
-      window.dispatchEvent(new CustomEvent('active-msg-received', {
+      if (!onlyInternalBlockAction) window.dispatchEvent(new CustomEvent('active-msg-received', {
         detail: {
           charId: message.charId,
           charName: message.charName,
@@ -1889,7 +1890,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
           source: message.source,
         },
       }));
-      activeMsgTrace('runtime-active-msg-received-dispatched', {
+      if (!onlyInternalBlockAction) activeMsgTrace('runtime-active-msg-received-dispatched', {
         sessionId: (message as any).sessionId || (message.metadata as any)?.sessionId,
         messageId: message.messageId,
         charId: message.charId,
