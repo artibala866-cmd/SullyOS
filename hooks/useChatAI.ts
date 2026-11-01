@@ -969,7 +969,7 @@ export const useChatAI = ({
             // 原版解封后的第一条必须由 Char 主动开口。跳过续说旧话题的默认补丁，
             // 并使用系统情境而非虚构的新 user 气泡触发这一轮。
             if (opts?.postUnblockOpening) {
-                fullMessages.push({ role: 'system', content: buildFirstPostUnblockOpeningInstruction(
+                fullMessages.unshift({ role: 'system', content: buildFirstPostUnblockOpeningInstruction(
                     userProfile.name || '用户', opts.postUnblockOpening.reason, opts.postUnblockOpening.elapsedMinutes,
                 ) } as any);
             }
