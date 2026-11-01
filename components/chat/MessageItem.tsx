@@ -1811,23 +1811,31 @@ const MessageItem = React.memo(({
     if (m.metadata?.musicListenInvite) {
         const fromChar = m.metadata.inviter === 'char';
         return (
-            <div className="flex justify-center py-2">
-                <div className="w-64 rounded-2xl border border-neutral-300 bg-white/90 p-4 text-neutral-800">
+            <div className={`relative flex justify-center py-2 ${selectionMode ? 'pl-10' : ''}`}
+                data-music-invite-card={m.id} {...interactionProps}>
+                {selectionMode && (
+                    <button type="button" aria-label="选择一起听邀请" aria-pressed={isSelected}
+                        className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 ${isSelected ? 'border-primary bg-primary text-white' : 'border-neutral-300 bg-white'}`}
+                        onClick={(event) => { event.stopPropagation(); onToggleSelect(m.id); }}>
+                        {isSelected && <span aria-hidden="true">✓</span>}
+                    </button>
+                )}
+                <div className={`w-64 rounded-2xl border border-neutral-300 bg-white/90 p-4 text-neutral-800 ${selectionMode ? 'pointer-events-none' : ''}`}>
                     <div className="text-xs font-semibold">一起听邀请</div>
                     <div className="mt-2 text-sm">{fromChar ? `${charName} 邀请你一起听音乐` : '你邀请对方一起听音乐'}</div>
                     {inviteAnswer && <div className="mt-3 text-xs text-neutral-500">{inviteAnswer === 'accepted' ? '已接受' : inviteAnswer === 'cancelled' ? '已撤回' : '已拒绝'}</div>}
                     {!fromChar && !inviteAnswer && <>
-                        <button type="button" disabled={inviteCancelling}
+                        <button type="button" disabled={selectionMode || inviteCancelling}
                             className="mt-3 min-h-10 rounded-lg border border-neutral-400 px-3 py-1 text-xs disabled:opacity-50"
                             onClick={cancelMusicInvite}>{inviteCancelling ? '撤回中…' : '撤回邀请'}</button>
                         {inviteCancelError && <div role="status" className="mt-2 text-xs text-neutral-500">{inviteCancelError}</div>}
                     </>}
                     {fromChar && !inviteAnswer && <>
                         <div className="mt-3 flex gap-2">
-                            <button type="button" disabled={!!inviteAnswerPending}
+                            <button type="button" disabled={selectionMode || !!inviteAnswerPending}
                                 className="min-h-10 rounded-lg border border-neutral-400 px-3 py-1 text-xs disabled:opacity-50"
                                 onClick={() => answerIncomingMessage(true)}>{inviteAnswerPending === 'accept' ? '接受中…' : '接受'}</button>
-                            <button type="button" disabled={!!inviteAnswerPending}
+                            <button type="button" disabled={selectionMode || !!inviteAnswerPending}
                                 className="min-h-10 rounded-lg border border-neutral-400 px-3 py-1 text-xs disabled:opacity-50"
                                 onClick={() => answerIncomingMessage(false)}>{inviteAnswerPending === 'reject' ? '拒绝中…' : '拒绝'}</button>
                         </div>
