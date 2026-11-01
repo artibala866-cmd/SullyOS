@@ -327,8 +327,6 @@ export async function processGroupNewMessages(
                         groupId: group.id,
                         groupName: group.name,
                     };
-                    await MemoryNodeDB.save(node);
-
                     const memVec: MemoryVector = {
                         memoryId: node.id,
                         charId: member.id,
@@ -336,7 +334,8 @@ export async function processGroupNewMessages(
                         dimensions: memberEmb.dimensions,
                         model: memberEmb.model,
                     };
-                    await MemoryVectorDB.save(memVec);
+                    // 节点 + 向量同事务落库；避免向量保存失败后遗留无向量的孤儿记忆。
+                    await MemoryNodeDB.saveVectorizedMany([{ node, vector: memVec }]);
 
                     // 远程向量异步同步（fire-and-forget）
                     if (remoteVectorCfg?.enabled && remoteVectorCfg.initialized) {
