@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { readShareFile } from '../../../utils/pngShare';
-import { ArrowLeft, Database, DownloadSimple, FilmSlate, Plus, SpinnerGap, Trash, UploadSimple, UsersThree, X } from '@phosphor-icons/react';
+import { Archive, ArrowLeft, Database, DownloadSimple, FilmSlate, Plus, SpinnerGap, Trash, UploadSimple, UsersThree, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
 import type { StoryTheaterEntry, StoryTheaterMask, StoryTheaterMaskSelection, StoryTheaterPreset } from '../../../types';
@@ -22,6 +22,7 @@ import StoryPresetMaker from './StoryPresetMaker';
 import StoryTheaterEditor from './StoryTheaterEditor';
 import StoryTheaterSession from './StoryTheaterSession';
 import StoryVectorMemoryPanel from './StoryVectorMemoryPanel';
+import StoryArchivePanel from './StoryArchivePanel';
 import { StoryAppearanceButton, StoryTheaterThemeProvider } from './StoryTheaterTheme';
 import { deleteStoryTheaterData } from '../../../utils/storyTheaterDeletion';
 
@@ -30,7 +31,7 @@ interface Props {
     onClose: () => void;
 }
 
-type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors';
+type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors' | 'archives';
 
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
     const { characters, userProfile, addToast, remoteVectorConfig } = useOS();
@@ -53,7 +54,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         setMasks(storedMasks.sort((a, b) => b.updatedAt - a.updatedAt));
     }, []);
 
-    useEffect(() => { void reload(); }, [reload]);
+    useEffect(() => { void reload().catch(error => addToast(error instanceof Error ? `剧情列表读取失败：${error.message}` : '剧情列表读取失败，请检查本地存储', 'error')); }, [reload, addToast]);
 
     const importPreset = useCallback(async (file: File): Promise<StoryTheaterPreset | null> => {
         try {
@@ -152,7 +153,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             const characterIds = selection.type === 'character'
                 ? current.characterIds.filter(id => id !== selection.id)
                 : current.characterIds;
-            const remainingActors = characters.filter(char => characterIds.includes(char.id));
+            const remainingActors = characters.filter(char => characterIds.includes(char.id) || (selection.type === 'character' && selection.id === char.id));
             const validBookIds = new Set(dedupeTheaterWorldbooks(remainingActors).map(book => book.id));
             const characterMemoryDates = { ...current.characterMemoryDates };
             const characterContextLimits = { ...current.characterContextLimits };
@@ -167,7 +168,9 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 ...current,
                 mask: selection,
                 characterIds,
-                selectedWorldbookIds: current.selectedWorldbookIds.filter(id => validBookIds.has(id)),
+                selectedWorldbookIds: Array.from(new Set([...current.selectedWorldbookIds.filter(id => validBookIds.has(id)),
+                    ...(selection.type === 'character' && (current.mask?.type !== 'character' || current.mask.id !== selection.id)
+                        ? (characters.find(char => char.id === selection.id)?.mountedWorldbooks || []).map(book => book.id) : [])])), 
                 characterMemoryDates,
                 characterContextLimits,
                 updatedAt: Date.now(),
@@ -216,11 +219,12 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     />;
 
     if (view === 'vectors' && activeEntry) return <StoryVectorMemoryPanel entry={activeEntry} onBack={() => setView('session')} />;
+    if (view === 'archives' && activeEntry) return <StoryArchivePanel entry={activeEntry} masks={masks} onBack={() => setView('session')} onUpdated={next => { setActiveEntry(next); setEntries(current => current.map(item => item.id === next.id ? next : item)); }} />;
 
     if (view === 'session' && activeEntry) {
         const preset = presets.find(item => item.id === activeEntry.presetId) || BUILTIN_NIGHT_SCREENING_PRESET;
         const hasVectorArchive = (!activeEntry.writesToCharacterMemory && activeEntry.archiveStrategy === 'vector') || activeEntry.archives.some(archive => archive.strategy === 'vector');
-        return <StoryTheaterSession entry={activeEntry} preset={preset} masks={masks} onBack={() => { setActiveEntry(null); setView('list'); }} onEdit={() => void openEntryEditor(activeEntry)} onOpenVectorMemory={hasVectorArchive ? () => setView('vectors') : undefined} onEntryChange={persistEntryInSession} />;
+        return <StoryTheaterSession entry={activeEntry} preset={preset} masks={masks} onBack={() => { setActiveEntry(null); setView('list'); }} onEdit={() => void openEntryEditor(activeEntry)} onOpenArchives={() => setView('archives')} onOpenVectorMemory={hasVectorArchive ? () => setView('vectors') : undefined} onEntryChange={persistEntryInSession} />;
     }
 
     return <div className='h-full w-full flex flex-col bg-stone-100 text-slate-800'>
@@ -257,6 +261,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                                 <div className='min-w-0 flex-1'><h3 className='font-serif font-semibold truncate'>{item.title}</h3><p className='mt-1 text-[10px] text-slate-400 truncate'>{youLabel} · 角色：{cast.map(char => char.name).join('、') || '暂无'} · {item.writesToCharacterMemory ? '进入角色记忆' : vectorEnabled ? '独立向量剧场' : '独立事件盒'}</p></div>
                                 <time className='text-[9px] text-slate-400'>{new Date(item.updatedAt).toLocaleDateString()}</time>
                             </button>
+                            {item.archives.some(archive => archive.strategy === 'summary') && <button onClick={() => { setActiveEntry(item); setView('archives'); }} className='w-10 h-10 shrink-0 rounded-full bg-white border border-slate-200 grid place-items-center text-violet-600' title='查看本剧情事件盒' aria-label='查看本剧情事件盒'><Archive size={17} /></button>}
                             {hasVectorArchive && <button onClick={() => { setActiveEntry(item); setView('vectors'); }} className='w-10 h-10 shrink-0 rounded-full bg-white border border-slate-200 grid place-items-center text-violet-600' title='查看本剧情向量记忆' aria-label='查看本剧情向量记忆'><Database size={17} /></button>}
                             <button onClick={() => setDeletingEntry(item)} className='w-10 h-10 shrink-0 rounded-full grid place-items-center text-rose-400 active:bg-rose-50' title='删除整个剧情' aria-label={`删除剧情 ${item.title}`}><Trash size={17} /></button>
                         </div>;

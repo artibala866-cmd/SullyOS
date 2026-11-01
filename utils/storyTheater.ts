@@ -17,6 +17,11 @@ import {
 import { shareOrDownloadFile } from './shareExport';
 
 export type StoryApiRole = 'system' | 'user' | 'assistant';
+export function hasStoryTheaterParticipant(entry: StoryTheaterEntry, characters: CharacterProfile[]): boolean {
+    return characters.some(char => entry.characterIds.includes(char.id)
+        || (!entry.writesToCharacterMemory && entry.mask?.type === 'character' && entry.mask.id === char.id));
+}
+
 export interface StoryApiMessage { role: StoryApiRole; content: string; }
 
 export interface StoryPromptSlots {
@@ -1461,6 +1466,18 @@ export const memoryTimestampForCharacter = (entry: StoryTheaterEntry, charId: st
     if (!Number.isFinite(storyAnchor)) return realTimestamp;
     return storyAnchor + Math.max(0, realTimestamp - entry.createdAt);
 };
+
+/** Story time stays in metadata; receipt time controls chat ordering. */
+export const storyTimelineTimestampForCharacter = memoryTimestampForCharacter;
+export const createStoryTheaterMirrorMessage = (
+    entry: StoryTheaterEntry, charId: string,
+    central: Pick<Message, 'id' | 'role' | 'content' | 'timestamp'>,
+): Omit<Message, 'id'> => ({
+    charId, role: central.role, type: 'text', content: central.content, timestamp: central.timestamp,
+    metadata: { source: 'story_theater_memory', theaterId: entry.id, theaterTitle: entry.title,
+        theaterCentralId: central.id, theaterTimestampVersion: 1, theaterReceivedAt: central.timestamp,
+        theaterTimelineTimestamp: storyTimelineTimestampForCharacter(entry, charId, central.timestamp) },
+});
 
 export const makeStoryPresetFileName = (name: string): string => {
     const safeName = name.replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) || '剧情预设';
