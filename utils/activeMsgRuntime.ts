@@ -648,6 +648,15 @@ const processInboxMessageWithPostProcessing = async (
     }, offloadedCleanups),
   ));
 
+  // 启动/恢复时 inbox 可能先于 MusicProvider 的 useEffect 到达。
+  // 带音乐指令的推送绝不能在缺少 hooks 时被当成“处理成功”后静默吞掉。
+  // 抛给现有 inbox 重试队列，避免影响其他无音乐动作的推送。
+  const musicHooks = loadMusicHooks();
+  const replayedDirectives = replayDirectives && isLastChunk(message) ? extractDirectives(message) : [];
+  if (!musicHooks && (replayedDirectives.some(d => d.type === 'music_action')
+      || /\[\[MUSIC_ACTION:/.test(message.body || ''))) {
+    throw new Error('MusicProvider 尚未就绪：音乐指令等待原有收件重试流程');
+  }
   await replyStep(async () => applyAssistantPostProcessing(message.body || '', {
     replyRun,
     char,
@@ -719,12 +728,9 @@ const processInboxMessageWithPostProcessing = async (
       notifyScheduleChangeFailed: (note: string) => {
         notifyInboxProcessFailed(message, 'schedule-missed', '后处理', note);
       },
-      // musicHooks: 由 MusicProvider 注册到模块级 slot, 与 useChatAI 同一份, 见 MusicContext.loadMusicHooks.
-      // slot 未填充时 (理论上 MusicProvider 未 mount, 实际单页应用不会发生) 退化为 undefined,
-      // ChatParser 会静默丢弃 MUSIC_ACTION 标签 — 跟 Phase 1 老行为兜底一致, 不会引入新 failure mode.
-      // 注意 snapshot 时序: 这里读取的是 push 送达时的 current song, 而不是 AI 当时看到的那帧.
-      // 本地 fetch 路径也有相同窗口 (LLM 响应耗时内 current 可能漂移), 接受同一 trade-off.
-      musicHooks: loadMusicHooks() ?? undefined,
+      // 与本地聊天共用 MusicProvider 钩子；只有纯非音乐消息允许暂时缺席。
+      // 音乐指令缺钩子时上方已报可重试错误，不能默默吃掉邀请动作。
+      musicHooks: musicHooks ?? undefined,
     },
     skipSecondPassLLM: true,
     // 把 worker hook 塞进 metadata.directives 的副作用结构化重放出来 (POKE/TRANSFER/ADD_EVENT/
@@ -735,7 +741,7 @@ const processInboxMessageWithPostProcessing = async (
     // 这里加 isLastChunk 守卫双保险, 防未来 worker bug 在多条 push 都塞 directives.
     // 老 worker (无 messageIndex/totalMessages 字段) ?? 0 fallback, 0===0 也算 last.
     // replayDirectives=false = 这是重试、且上次已经把副作用跑完了（见 prepareInboxRetry）。
-    directives: replayDirectives && isLastChunk(message) ? extractDirectives(message) : [],
+    directives: replayedDirectives,
     reasoningContent,
     // 这条 push 拆出的每条气泡共用一个时间戳 (跟降级存原稿路径同口径), 见
     // resolveInboxPersistTimestampForMessage。

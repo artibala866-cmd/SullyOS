@@ -426,7 +426,10 @@ describe('一起听提示词与卡片提交链路的统一防回归', () => {
     expect(prompts).toContain('if (forFirePack && promptOptions?.appRules === undefined)');
     expect(prompts).toContain('[[MUSIC_ACTION:invite]]');
     const runtime = readFileSync(new URL('./activeMsgRuntime.ts', import.meta.url), 'utf8');
-    expect(runtime).toContain('musicHooks: loadMusicHooks() ?? undefined');
+    expect(runtime).toContain('const musicHooks = loadMusicHooks();');
+    expect(runtime).toContain("replayedDirectives.some(d => d.type === 'music_action')");
+    expect(runtime).toContain("throw new Error('MusicProvider 尚未就绪");
+    expect(runtime).toContain('musicHooks: musicHooks ?? undefined');
     const provider = readFileSync(new URL('../context/MusicContext.tsx', import.meta.url), 'utf8');
     expect(provider).toContain("metadata: {\n              musicListenInvite: true, inviter: 'char'");
   });
