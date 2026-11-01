@@ -124,7 +124,14 @@ jobs:
             --remote-debugging-port=9222 --remote-allow-origins='*' \
             --user-data-dir=/tmp/sully-study-room-chrome about:blank > /tmp/sully-study-room-chrome.log 2>&1 &
           CHROME_PID=$!
-          node scripts/study-room-browser-qa.mjs
+          node scripts/study-room-browser-qa.mjs || {
+            echo '--- Chrome startup diagnostics ---'
+            tail -80 /tmp/sully-study-room-chrome.log || true
+            echo '--- Preview server diagnostics ---'
+            tail -50 /tmp/study-preview-server.log || true
+            curl -v --max-time 3 http://127.0.0.1:9222/json 2>&1 | tail -30 || true
+            exit 1
+          }
       - name: Upload study-room screenshots for review
         if: always()
         uses: actions/upload-artifact@v4

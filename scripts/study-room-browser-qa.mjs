@@ -12,12 +12,12 @@ async function targets(){
   return r.json();
 }
 let pages=[];
-for(let i=0;i<40;i++){
+for(let i=0;i<150;i++){
   try{pages=await targets();if(pages.some(t=>t.type==='page'))break;}catch{}
-  await sleep(250);
+  await sleep(400);
 }
 const target=pages.find(t=>t.type==='page');
-if(!target)throw new Error('Chrome never exposed a page target');
+if(!target)throw new Error('Chrome never exposed a page target after 60s; CDP 9222 unreachable or no page target');
 const socket=new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((resolve,reject)=>{
   socket.addEventListener('open',resolve,{once:true});
