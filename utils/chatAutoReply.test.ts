@@ -6,6 +6,7 @@ import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { resolveRealPersonReplyPlan } from './realPersonReplyTiming';
 import { findPendingUserTurn } from './chatContinuation';
 import { DEFAULT_CHAT_INPUT_PREFERENCES, saveChatInputPreferences } from './chatInputPreferences';
+import { resolveGroupRealPersonReplyState } from './groupChat/realPersonReply';
 
 let root: Root;
 let container: HTMLDivElement;
@@ -432,5 +433,39 @@ describe('real-person pacing without mechanical nudges', () => {
         act(() => controls.beginSend('other')(true));
         advance(180_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
+    });
+});
+
+describe('群聊真人感沿用原自动回复引擎', () => {
+    const t = Date.parse('2026-10-20T10:00:00Z');
+    const turn = (id: number, role: string, timestamp: number, metadata?: any) =>
+        ({ id, role, type: 'text', timestamp, metadata });
+    it('只有尚未被角色回答的真实用户发言才可以启动群自动回复', () => {
+        const history = [turn(1, 'user', t - 20_000), turn(2, 'assistant', t - 18_000),
+            turn(3, 'user', t - 1_000)];
+        const state = resolveGroupRealPersonReplyState(history, t);
+        expect(state.pendingId).toBe(3);
+        expect(state.lastCharacterReplyAt).toBe(t - 18_000);
+        expect(state.replyAttention).toBe('waiting');
+        expect(resolveGroupRealPersonReplyState([...history, turn(4, 'assistant', t)], t).pendingId).toBeNull();
+    });
+    it('系统卡片和没有发生的群交互不能凭空唤醒自动回复', () => {
+        const history = [turn(1, 'user', t - 20_000), turn(2, 'assistant', t - 10_000),
+            { ...turn(3, 'user', t - 1_000), metadata: { musicListenInvite: true } }];
+        expect(resolveGroupRealPersonReplyState(history, t).pendingId).toBeNull();
+        expect(resolveGroupRealPersonReplyState([...history, turn(4, 'user', t)], t).pendingId).toBe(4);
+        expect(resolveGroupRealPersonReplyState([
+            ...history, { ...turn(5, 'user', t), metadata: { chatBlockRejected: true } }
+        ], t).pendingId).toBeNull();
+    });
+    it('孤立发言不能伪装成连续交谈，过期/系统回复不能制造在线证据', () => {
+        const history = [turn(1, 'user', t - 80 * 60_000), turn(2, 'assistant', t - 70 * 60_000),
+            turn(3, 'user', t - 1_000)];
+        const state = resolveGroupRealPersonReplyState(history, t);
+        expect(state.pendingId).toBe(3);
+        expect(state.replyAttention).toBe('normal');
+        expect(resolveGroupRealPersonReplyState([
+            ...history, { ...turn(4, 'assistant', t + 60_000), type: 'system' }
+        ], t).lastCharacterReplyAt).toBe(t - 70 * 60_000);
     });
 });
