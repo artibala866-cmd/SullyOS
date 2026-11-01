@@ -1,0 +1,54 @@
+name: Group and private memory continuity regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/GroupChat.tsx'
+      - 'utils/groupChat/**'
+      - 'utils/memoryPalace/group*.ts'
+      - 'utils/memoryPalace/pipeline.ts'
+      - 'utils/memoryPalace/vectorSearch.ts'
+      - 'utils/chatContextRange.ts'
+      - '.github/workflows/group-memory-continuity.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sully-group-memory-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Memory extraction, privacy, topic cards and group timeline tests
+        run: >
+          pnpm exec vitest run
+          utils/memoryPalace/groupPipeline.test.ts
+          utils/groupChat/memoryScope.test.ts
+          utils/groupChat/memberMemoryScope.test.ts
+          utils/groupChat/topicCardSync.test.ts
+          utils/groupChat/topicBoxes.test.ts
+          utils/groupChat/timeline.test.ts
+          utils/groupChat/interactionAdaptation.test.ts
+          utils/memoryPalace/autoArchive.test.ts
+      - name: TypeScript check of memory and group changes
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/group-memory-tsc.log 2>&1 || true
+          grep -E '^(apps/GroupChat.tsx|utils/groupChat/[^ ]+\\.tsx?|utils/memoryPalace/(groupPipeline|groupExtraction|pipeline|vectorSearch)\\.tsx?|utils/chatContextRange.ts)[(]' /tmp/group-memory-tsc.log > /tmp/group-memory-errors.log || true
+          if [ -s /tmp/group-memory-errors.log ]; then
+            cat /tmp/group-memory-errors.log
+            exit 1
+          fi
+      - name: Full production bundle
+        run: pnpm run build
