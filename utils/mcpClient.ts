@@ -221,7 +221,8 @@ const canUsePublicOrcaRelay = (server: McpServerConfig): boolean =>
     !server.proxyKey?.trim() &&
     !server.token?.trim() &&
     !(server.customHeaders || []).some(h => h.name?.trim() && h.value?.trim());
-const isMcpFetchFailure = (message: string): boolean => message.includes('MCP 请求失败:');
+const isMcpFetchFailure = (message: string): boolean =>
+    message.includes('MCP 请求失败:') || message.includes('MCP 请求超时');
 const orcaRelayEndpoint = (): string => `${getProxyWorkerUrl().replace(/\/+$/, '')}/mcp/orca`;
 
 const getSession = (serverId: string): McpSessionState => {
@@ -302,7 +303,11 @@ export const discoverMcpTools = async (
 ): Promise<McpToolDef[]> => {
     resetMcpSession(server.id);
     try {
-        return await discoverMcpToolsCore(targetFor(server), getSession(server.id), MCP_REQUEST_TIMEOUT_MS, { onStage });
+        return await discoverMcpToolsCore(
+            targetFor(server), getSession(server.id),
+            canUsePublicOrcaRelay(server) ? 12_000 : MCP_REQUEST_TIMEOUT_MS,
+            { onStage },
+        );
     } catch (error: any) {
         // 只有原作者公开、无凭据的 Orca 预设才能走中心中转。非网络错误绝不重试，
         // 避免把真正的协议/鉴权问题伪装成 CORS，也不会重发任何其他 MCP 请求。
@@ -346,7 +351,8 @@ export const callMcpTool = async (
         serverLabel: server.name,
     };
     const alreadyRelayed = canUsePublicOrcaRelay(server) && orcaRelayReady.has(server.id);
-    const first = await callMcpToolCore(targetFor(server, alreadyRelayed), getSession(server.id), toolName, args, opts);
+    const first = await callMcpToolCore(targetFor(server, alreadyRelayed), getSession(server.id), toolName, args,
+        !alreadyRelayed && canUsePublicOrcaRelay(server) ? { ...opts, timeoutMs: 12_000 } : opts);
     if (alreadyRelayed || first.success || !canUsePublicOrcaRelay(server) || !isMcpFetchFailure(first.error || '')) return first;
     signal?.throwIfAborted();
     resetMcpSession(server.id);
