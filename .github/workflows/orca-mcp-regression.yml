@@ -36,3 +36,20 @@ jobs:
         run: pnpm exec vitest run worker/orcaMcpProxy.test.ts utils/orcaMcpFallback.test.ts
       - name: Check TypeScript
         run: pnpm exec tsc --noEmit --pretty false
+      - name: Probe the live public Worker route (informational)
+        continue-on-error: true
+        run: |
+          node --input-type=module -e '
+            const url = "https://proxy.friedsully.com/mcp/orca";
+            try {
+              const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+              console.log("Live Orca route GET status:", response.status);
+              if (response.status !== 405) {
+                console.error("Expected 405 for existing POST-only Orca route; route may not be deployed.");
+                process.exitCode = 1;
+              }
+            } catch (error) {
+              console.error("Live Worker probe failed:", error.message);
+              process.exitCode = 1;
+            }
+          '
