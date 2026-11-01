@@ -49,8 +49,8 @@ jobs:
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=900,1000 --virtual-time-budget=18000 --screenshot="$GITHUB_WORKSPACE/tool-trace-whiteboxes.png" http://127.0.0.1:5173/tests/chat-tool-trace-visual.html
           if ! grep -q 'data-ready="true"' /tmp/tool-trace-dom.txt; then
             grep -o '<output[^>]*>[^<]*</output>' /tmp/tool-trace-dom.txt | head -4 || true
-            echo '=== DOM snapshot ==='
-            head -c 12000 /tmp/tool-trace-dom.txt || true
+            echo '=== Measured theme failures ==='
+            grep -A 140 '<output id="results"' /tmp/tool-trace-dom.txt | head -141 || true
             echo '=== Vite server ==='
             tail -60 /tmp/tool-trace-vite.log || true
             tail -30 /tmp/tool-trace-chrome.log || true
