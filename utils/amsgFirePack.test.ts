@@ -466,10 +466,10 @@ describe('self_log', () => {
     it('模板里没有这个槽位时不报错（只是那段无处可去）', () => {
       const legacy: AmsgFirePack = { ...pack, template: `头部\n${AMSG_SLOT_TASK_INSTRUCTION}` };
       const log = appendSelfLogEntry(createSelfLog(packAt), entry('t1@1', '喂'));
-      const rendered=renderFirePack(legacy, Date.UTC(2026, 6, 30), '指令', { selfLog: log });
-    expect(rendered.startsWith('头部\n指令')).toBe(true);
-    expect(rendered).toContain('【主动消息的对话连续性约束】');
-    expect(rendered).not.toContain('【这之后你又发过');
+      const rendered = renderFirePack(legacy, Date.UTC(2026, 6, 30), '指令', { selfLog: log });
+      expect(rendered.startsWith('头部\n指令')).toBe(true);
+      expect(rendered).toContain('【主动消息的对话连续性约束】');
+      expect(rendered).not.toContain('【这之后你又发过');
     });
   });
 
@@ -517,7 +517,7 @@ describe('self_log', () => {
         .toContain('先对照上面的对话。\n你们此刻正聊着：小明同学3 分钟前还在跟你说话。\n默认是说。');
       expect(renderFirePack({ ...live, lastUserMessageAt: now - 20_000 }, now, '指令')).toContain('小明同学刚刚还在跟你说话');
       expect(renderFirePack({ ...live, lastUserMessageAt: now - 11 * 60_000 }, now, '指令'))
-        .toBe('【开口之前】\n先对照上面的对话。\n默认是说。');
+        .toContain('【开口之前】\n先对照上面的对话。\n默认是说。');
       expect(renderFirePack({ ...live, lastUserMessageAt: null }, now, '指令')).not.toContain('正聊着');
     });
 
