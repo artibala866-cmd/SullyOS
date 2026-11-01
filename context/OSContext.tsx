@@ -87,6 +87,7 @@ import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { recoverForegroundDailySchedule } from '../utils/dailyScheduleForegroundRecovery';
 import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
 import { reconcileGlobalAutonomyWakes } from '../utils/amsgAutonomyBootstrap';
+import { REAL_PERSON_MODE_CHANGED_EVENT } from '../utils/realPersonMode';
 import { SCHEDULE_CHANGE_EVENT } from '../utils/scheduleChange';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
@@ -2399,6 +2400,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       window.addEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onSchedule);
       window.addEventListener(SCHEDULE_CHANGE_EVENT, onSchedule);
       window.addEventListener('sully:amsg-autonomy-refresh', onChange);
+      window.addEventListener(REAL_PERSON_MODE_CHANGED_EVENT, onChange);
       return () => {
           disposed = true;
           clearTimeout(initial);
@@ -2409,6 +2411,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           window.removeEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onSchedule);
           window.removeEventListener(SCHEDULE_CHANGE_EVENT, onSchedule);
           window.removeEventListener('sully:amsg-autonomy-refresh', onChange);
+          window.removeEventListener(REAL_PERSON_MODE_CHANGED_EVENT, onChange);
       };
   }, [isDataLoaded]);
   // Opt-in changes trigger one prompt cloud reconciliation without re-mounting
