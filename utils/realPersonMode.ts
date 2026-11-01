@@ -8,11 +8,10 @@ export const REAL_PERSON_MODE_KEY = 'sully_life_pacing';
 export const REAL_PERSON_MODE_CHANGED_EVENT = 'sully:real-person-mode-changed';
 
 export function isRealPersonModeEnabled(): boolean {
-  // Auto-reply may spend API credits. Missing/failed storage must never
-  // silently opt every pre-existing user into a newly active reply engine.
-  // Explicit saved 'on' from an older version remains fully compatible.
-  try { return typeof localStorage !== 'undefined' && localStorage.getItem(REAL_PERSON_MODE_KEY) === 'on'; }
-  catch { return false; }
+  // Historical default is ON; keep existing autonomous-contact scheduling
+  // compatible rather than silently disabling saved AMSG2 daily wakes.
+  try { return typeof localStorage === 'undefined' || localStorage.getItem(REAL_PERSON_MODE_KEY) !== 'off'; }
+  catch { return true; }
 }
 
 /** An answer to a saved user turn is NOT unsolicited contact.
