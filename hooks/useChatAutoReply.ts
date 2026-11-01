@@ -218,7 +218,7 @@ export function useChatAutoReply(options: Options) {
         const presence = resolveSchedulePresence(activity, latest.lastCharacterReplyAt, now);
         const plan = latest.naturalPacing
             ? resolveRealPersonReplyPlan({
-                activity: presence === 'online' && activity !== null ? 'free' : activity,
+                activity: activity === 'sleep' ? 'sleep' : presence === 'online' && activity !== null ? 'free' : activity,
                 firstUnansweredAt: work.firstUnansweredAt,
                 now,
                 // Unknown schedule is NOT evidence of sleep or office hours.
