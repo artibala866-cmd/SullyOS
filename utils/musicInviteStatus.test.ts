@@ -528,7 +528,7 @@ describe('即时邀请自然语言回应的高置信度兼容', () => {
     '明确接受才执行：%s', text => expect(explicitMusicInviteDecision(text)).toBe('accept'));
   it.each(['拒绝了邀请，今晚算了', '我点拒绝了'])(
     '明确拒绝才执行：%s', text => expect(explicitMusicInviteDecision(text)).toBe('reject'));
-  it.each(['好啊', '我们下次一起听', '我想同意但是还没点', '我没同意', '你点同意了？', '要不要点同意', '我刚刚点同意了但其实骗你的'])(
+  it.each(['好啊', '我们下次一起听', '我想同意但是还没点', '我没同意', '你点同意了？', '要不要点同意', '我刚刚点同意了但其实骗你的', '点同意了？', '点同意了吗', '我点同意了但又后悔了', '点拒绝了？'])(
     '模糊或否定回复保持待回应：%s', text => expect(explicitMusicInviteDecision(text)).toBeNull());
   it('只有即时邀请桥采用此兼容，不碰普通聊天、世界书、主动消息和日程', () => {
     const bridge = readFileSync(new URL('../components/music/MusicInviteReplyBridge.tsx', import.meta.url), 'utf8');
