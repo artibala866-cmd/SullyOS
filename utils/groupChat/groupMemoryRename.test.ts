@@ -14,14 +14,14 @@ describe('群改名时同步私聊卡片与记忆来源', () => {
             charId: memberId,
             role: 'system',
             type: 'group_topic_card',
-            content: '[群聊公共话题盒：旧群｜一起画画]\\n大家完成了合作。',
+            content: '[群聊公共话题盒：旧群｜一起画画]\n大家完成了合作。',
             metadata: { groupTopicBox: { id: 'box-rename', groupId, title: '一起画画', groupName: '旧群' } },
         });
         await DB.saveMessage({
             charId: memberId,
             role: 'system',
             type: 'group_topic_card',
-            content: '[群聊公共话题盒：别群｜别的事]\\n别的群经历。',
+            content: '[群聊公共话题盒：别群｜别的事]\n别的群经历。',
             metadata: { groupTopicBox: { id: 'box-other', groupId: otherId, title: '别的事', groupName: '别群' } },
         });
         await MemoryNodeDB.save({
