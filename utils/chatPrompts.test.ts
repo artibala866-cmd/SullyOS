@@ -168,3 +168,19 @@ describe('私聊时间间隔提示定位', () => {
         expect(trailingAssistant?.content).not.toContain('距离上一条消息:');
     });
 });
+
+// 绕过 UI 直接调用 ChatPrompts.buildMessageHistory 的旁路也不能让角色读到拒收气泡。
+describe('拉黑期间拒收消息的 AI 上下文隔离', () => {
+    it('直接构建历史时排除拒收文字，保留正常对话', () => {
+        const history = [
+            { id: 11, charId: 'c1', role: 'assistant', type: 'text', content: '之前的正常回复', timestamp: t0 },
+            { id: 12, charId: 'c1', role: 'user', type: 'text', content: '仅我可见的拒收秘密', timestamp: t0 + 1, metadata: { chatBlockRejected: true } },
+            { id: 13, charId: 'c1', role: 'user', type: 'text', content: '解除拉黑后的新消息', timestamp: t0 + 2 },
+        ] as Message[];
+        const { apiMessages } = ChatPrompts.buildMessageHistory(history, 10, char, userProfile, []);
+        const text = JSON.stringify(apiMessages);
+        expect(text).not.toContain('仅我可见的拒收秘密');
+        expect(text).toContain('解除拉黑后的新消息');
+        expect(text).toContain('之前的正常回复');
+    });
+});
