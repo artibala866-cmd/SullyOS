@@ -37,6 +37,7 @@ const BLOCK_RULES: Array<{ open: RegExp; close: RegExp }> = [
 function isLinePreviewable(line: string): boolean {
     if (!line) return false;
     if (line.includes('[[')) return false;                    // SEND_EMOJI / QUOTE / ACTION / RECALL / XHS_* …
+    if (/^\[BLOCK_USER:/i.test(line)) return false;           // 角色自主拉黑是内部动作，不能闪成气泡
     if (/^\[schedule_message\s*\|/i.test(line)) return false; // 定时消息指令
     if (/%%BILINGUAL%%|%%TRANS%%/i.test(line)) return false;
     if (/<\/?(?:[语語]音|字幕|翻译|原文|译文|think|thinking|thought|sully_phone_events)\b/i.test(line)) return false;
