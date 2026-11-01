@@ -171,6 +171,19 @@ describe('私聊时间间隔提示定位', () => {
 
 // 绕过 UI 直接调用 ChatPrompts.buildMessageHistory 的旁路也不能让角色读到拒收气泡。
 describe('拉黑期间拒收消息的 AI 上下文隔离', () => {
+    it('Char 自己的失败回复在下一轮上下文仍标注未送达，不泄露用户实际上看得见', () => {
+        const history = [
+            {id: 201, charId: 'c1', role: 'user', type: 'text', content: '我拉黑你了', timestamp: t0},
+            {id: 202, charId: 'c1', role: 'assistant', type: 'text', content: '我想解释一下', timestamp: t0 + 1, metadata: {chatBlockSendFailed: true}},
+            {id: 203, charId: 'c1', role: 'assistant', type: 'text', content: '新的正常回复', timestamp: t0 + 2},
+        ] as Message[];
+        const { apiMessages } = ChatPrompts.buildMessageHistory(history, 10, char, userProfile, []);
+        const failed = apiMessages.find(m => typeof m.content === 'string' && m.content.includes('我想解释一下'));
+        const regular = apiMessages.find(m => typeof m.content === 'string' && m.content.includes('新的正常回复'));
+        expect(failed?.content).toContain('发送这条消息失败');
+        expect(failed?.content).not.toContain('其实看得见');
+        expect(regular?.content).not.toContain('发送这条消息失败');
+    });
     it('直接构建历史时排除拒收文字，保留正常对话', () => {
         const history = [
             { id: 11, charId: 'c1', role: 'assistant', type: 'text', content: '之前的正常回复', timestamp: t0 },
