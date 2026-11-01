@@ -1721,7 +1721,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
           await replyStep(async () => processInboxMessageWithPostProcessing(inboxBody, persistTimestamp, replyRun, typingController.signal));
           if (instantBlockDecision.action) {
             const latest = await replyStep(() => DB.getCharacter(message.charId));
-            if (instantBlockDecision.action.kind === 'block' && latest && allowsCharacterToBlock(latest.chatBlock) && !isPrivateChatBlocked(latest.chatBlock)) {
+            if (instantBlockDecision.action.kind === 'block' && latest && allowsCharacterToBlock(latest.chatBlock) && !characterBlocksUser(latest.chatBlock)) {
               const nextBlock = changeChatBlock(latest.chatBlock, 'character', true, { reason: instantBlockDecision.action.reason, source: 'ai' });
               await replyStep(() => DB.saveCharacter({ ...latest, chatBlock: nextBlock }));
               window.dispatchEvent(new CustomEvent('sully-chat-block-state-changed', {
