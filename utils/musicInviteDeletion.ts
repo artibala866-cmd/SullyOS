@@ -18,7 +18,7 @@ export const settleDeletedMusicInviteCards = async (
     if (message.charId !== charId || !message.metadata?.musicListenInvite) continue;
     const inviter = message.metadata.inviter === 'char' ? 'char' : 'user';
     const settled = await DB.resolveMusicListeningInvite(charId, inviter, {
-      charId, role: 'user', type: 'system',
+      charId, role: 'system', type: 'system',
       content: '[一起听邀请] 邀请卡片已删除。',
       metadata: { accepted: false, cancelled: true, musicInviteDeleted: true, inviter },
     }, message.id);
