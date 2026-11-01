@@ -201,7 +201,8 @@ export const StoryTheaterThemeProvider: React.FC<React.PropsWithChildren> = ({ c
     const color = reading.id === 'none' ? appearance.color : reading.id === 'night' ? 'dark' : 'light';
 
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(appearance));
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appearance)); }
+        catch { /* Some Android WebViews deny storage writes; retain the active in-memory theme. */ }
     }, [appearance]);
 
     const value = useMemo<StoryThemeContextValue>(() => ({
