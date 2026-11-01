@@ -364,8 +364,15 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   };
 
   const handleToggleEnabled = () => {
+    if (isSubmitting) return;
     const turningOn = !enabled;
     setEnabled(!enabled);
+    if (!turningOn) {
+      // The toggle is the permission switch, not a draft awaiting a second
+      // "Close 2.0" click. Its existing remote-cancellation path runs now.
+      void handleSubmit(true);
+      return;
+    }
     // 顺手把面板上其它角色级设置（maxTokens）一起带上，与
     // buildConfig 的口径一致：这几项本来就只有面板会写。
     if (turningOn) {
@@ -508,10 +515,14 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     trackEvent('取消定时消息', { result: alreadyGone ? '远端已不存在' : 'ok' });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (disableFromToggle = false) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      if (!enabled) {
+      if (disableFromToggle || !enabled) {
+        // Revoke the local master permission immediately, before cloud calls.
+        // Late auto-wake creation and chat tool injection must see "off".
+        onSave((prev) => buildConfig(prev, (list) => list, { enabled: false }));
         // 第一件事：告诉云端这个角色关了。下面逐条取消要花几秒，这期间正在跑的那一轮
         // （尤其是即时对话——它不在取消范围里）还可能顺手给自己排一条；云端先知道「关了」，
         // 这种漏网的到点就会被直接跳过。传不上去也照样往下关：取消本身才是主线。
@@ -703,7 +714,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">
             取消
           </button>
-          <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
+          <button onClick={() => { void handleSubmit(); }} disabled={isSubmitting} className="flex-1 py-3 bg-neutral-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
             {isSubmitting ? '保存中...' : !enabled ? '关闭 2.0' : (editingTaskUuid ? '保存修改' : '新建任务')}
           </button>
         </>
@@ -746,6 +757,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           </div>
           <button
             onClick={handleToggleEnabled}
+            disabled={isSubmitting}
             className={`w-12 h-7 rounded-full transition-colors relative ${enabled ? 'bg-neutral-500' : 'bg-slate-200'}`}
           >
             <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
