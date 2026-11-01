@@ -7,8 +7,6 @@ import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearan
 
 import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellation';
 import { stopInstantChat } from '../utils/amsgInstantChat';
-import { isUserBlockingChar, isCharBlockingUser, isPrivateChatConversationBlocked, privateChatBlockDirection, transitionPrivateChatBlock } from '../utils/privateChatBlock';
-import PrivateChatBlockModal from '../components/chat/PrivateChatBlockModal';
 import {resolvePsycheAppearance} from '../utils/psycheAppearance';
 import { startsNewMessageGroup } from '../utils/chatMessageGrouping';
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
@@ -317,7 +315,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // Reply Logic
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
 
-    const [showPrivateBlockModal, setShowPrivateBlockModal] = useState(false);
     const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'archive-settings' | 'archive-legacy-warning' | 'prompt-editor' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result' | 'chat-block'>('none');
     // 「聊天装扮」悬浮态：不走全屏 modal——圆气泡挂在聊天上，点开小面板边看真聊天边调。
     const [decorationTab, setDecorationTab] = useState<DecorationTab>('layout');
@@ -1550,11 +1547,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const sendText = async (customContent?: string, customType?: MessageType, metadata?: any) => {
         if (!char || (!input.trim() && !customContent)) return;
         if (isPrivateChatBlocked(char.chatBlock)) { addToast('当前私聊被拉黑，消息无法发送', 'info'); return false; }
-        // 框架阶段：阻止本机继续从已拉黑的私聊发消息；不能假装已实现角色拒收的整套剧情。
-        if (isPrivateChatConversationBlocked(char)) {
-            addToast(isCharBlockingUser(char) ? '对方已拉黑你，当前无法正常私聊' : '你已拉黑对方，请先解除拉黑', 'info');
-            return false;
-        }
         // 只累加内存里的计数，这里不发任何请求；页面切走时才按区间报一次。见 utils/analytics.ts
         noteMessageSent();
         // 借用户"发送"这个手势解锁音频上下文，好让稍后 AI 回复时的白框提示音能顺利播放（移动端自动播放策略）。
@@ -1939,16 +1931,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             });
             return;
         }
-        if (isPrivateChatConversationBlocked(char)) {
-            addToast('当前存在拉黑关系，无法生成普通私聊回复', 'info');
-            return;
-        }
         if (isPrivateChatBlocked(char?.chatBlock)) { addToast('当前私聊被拉黑，无法触发回复', 'info'); return; }
         triggerAI(messages);
     };
 
     const handleReroll = async () => {
-        if (isPrivateChatConversationBlocked(char) || isTyping || messages.length === 0) return;
+        if (isPrivateChatBlocked(char?.chatBlock) || isTyping || messages.length === 0) return;
         manualChatGenerationRevisionRef.current++;
         autoReply.cancel();
 
@@ -2041,19 +2029,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
     };
 
-    const handlePrivateBlockChange = (action: 'user-block' | 'user-unblock' | 'allow-char-block' | 'disallow-char-block') => {
-        if (!char) return;
-        if (action === 'user-block') {
-            autoReply.cancel();
-            stopReplyRuns(char.id);
-            void stopInstantChat(char.id).catch(error => console.warn('[ChatBlock] stop instant reply failed', error));
-        }
-        updateCharacter(char.id, previous => ({
-            privateChatBlock: transitionPrivateChatBlock(previous.privateChatBlock, action),
-        }));
-        addToast(action === 'user-block' ? '已拉黑' : action === 'user-unblock' ? '已解除拉黑' : '拉黑许可已更新', 'info');
-    };
-
     const handlePanelAction = (type: string, payload?: any) => {
         // 只统计「打开某个面板 / 开关某个能力」这几个固定入口，名单写死在这里；
         // 选表情、选分类之类的动作不上报。
@@ -2068,7 +2043,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             trackEvent('打开聊天功能面板项', { action: type });
         }
         switch (type) {
-            case 'private-chat-block': setShowPanel('none'); setShowPrivateBlockModal(true); break;
             case 'chat-block': setShowPanel('none'); setModalType('chat-block'); break;
             case 'character-phone': setShowPanel('none'); setCharacterPhoneOpen(true); break;
             case 'collaboration': setShowPanel('none'); setCollaborationOpen(true); break;
@@ -4958,8 +4932,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     customThemes={customThemes} onUpdateTheme={(id) => updateCharacter(char.id, { bubbleStyle: id })}
                     onRemoveTheme={removeCustomTheme} activeThemeId={currentThemeId}
                     onPanelAction={handlePanelAction}
-                    privateChatBlockMenuEnabled={!homePhone}
-                    privateChatBlockStatus={privateChatBlockDirection(char)}
                     onImageSelect={handleImageSelect}
                     onAIGenerate={handleSendAIPhoto}
                     userFaceReferenceAvailable={!!userProfile.imageLockEnabled && !!userProfile.imageReference}
@@ -5140,14 +5112,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             {characterPhoneOpen && char && <CharacterPhone name={chatCharacterDisplayName(char)} characterId={char.id} char={char} userProfile={userProfile} groups={groups} realtimeConfig={realtimeConfig} persona={char.description || ''} api={apiConfig} onApplyAvatar={async (image) => {await updateCharacter(char.id, {avatar:image});}}
                 onPoke={(suffix) => {void handleSendText('[戳一戳]','interaction',suffix ? {pokeSuffix:suffix} : undefined);}}
                 onClose={() => setCharacterPhoneOpen(false)} />}
-            {/* 角色原版拉黑框架：UI 入口在私聊加号；两向状态独立持久化。 */}
-            {showPrivateBlockModal && char && <PrivateChatBlockModal
-                key={char.id} character={char}
-                onClose={() => setShowPrivateBlockModal(false)}
-                onBlockUser={() => handlePrivateBlockChange('user-block')}
-                onUnblockUser={() => handlePrivateBlockChange('user-unblock')}
-                onChangeCharPermission={allowed => handlePrivateBlockChange(allowed ? 'allow-char-block' : 'disallow-char-block')}
-            />}
             {/* Forward Modal */}
             {char && <MemoryContextSelfCheck key={`memory-self-check:${char.id}`} character={char} active={activeApp === AppID.Chat && modalType === 'none'} onDisable={months => {
                 const closing = new Set(months);

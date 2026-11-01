@@ -66,10 +66,6 @@ interface ChatInputAreaProps {
     onExitTypedVoice?: () => void;
     onSendTypedVoice?: () => void;
     compactHome?: boolean;
-    /** 仅私聊加号菜单显现，群聊/静态预览原本的功能格不变。 */
-    privateChatBlockMenuEnabled?: boolean;
-    privateChatBlockStatus?: 'none' | 'user' | 'char' | 'both';
-
     /** Initial page for static decoration previews; does not run menu actions. */
     previewActionsPage?: number;
     input: string;
@@ -139,7 +135,7 @@ interface ChatInputAreaProps {
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     input, setInput, isTyping, selectionMode, compactHome=false, speechInput,
-    weixinOriginalIcons = false, privateChatBlockMenuEnabled = false, privateChatBlockStatus = 'none',
+    weixinOriginalIcons = false,
     typedVoiceEnabled = false, onSelectTypedVoice, onExitTypedVoice, onSendTypedVoice,
     showPanel, setShowPanel, onSend, onDeleteSelected, onForwardSelected, onFavoriteSelected, favoriteSelectedCount = 0, selectedCount,
     sendButtonGenerates = false, enterToSend = true, onGenerate,
@@ -785,15 +781,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           </span>
           <span className="text-xs font-bold">收藏</span>
         </button>
-        ...(privateChatBlockMenuEnabled ? [
-          <button key="private-chat-block" type="button" onClick={() => onPanelAction('private-chat-block')} className="flex flex-col items-center gap-2 text-[#737373] active:scale-95 transition-transform">
-            <span className="w-14 h-14 rounded-2xl grid place-items-center shadow-sm border border-neutral-200 bg-neutral-50 text-neutral-600">
-              <Prohibit className="w-6 h-6" weight="regular" />
-            </span>
-            <span className="text-xs font-bold">{privateChatBlockStatus === 'none' ? '拉黑' : '拉黑管理'}</span>
-          </button>
-        ] : []),
-    ].filter(tile=>!compactHome||['transfer','poke','image','reroll','memory-link','favorites','private-chat-block'].includes(String(tile.key)));
+    ].filter(tile=>!compactHome||['transfer','poke','image','reroll','memory-link','favorites'].includes(String(tile.key)));
     const actionPageCount = Math.max(1, Math.ceil(actionTiles.length / ACTION_PAGE_SIZE));
     useEffect(() => setActionsPage(page => Math.min(page, actionPageCount - 1)), [actionPageCount]);
 

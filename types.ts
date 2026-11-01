@@ -2713,20 +2713,6 @@ export interface MemoryPalaceWaterlineConfig {
   bufferThreshold?: number;
 }
 
-/** 双向私聊拉黑状态：当前角色×当前用户身份，独立于好友、角色删除和聊天历史。 */
-export interface PrivateChatBlockState {
-  /** 用户主动拉黑角色；只由用户菜单变更。 */
-  userBlockedAt?: number | null;
-  /** 角色主动拉黑用户；仅未来经过明确判定的角色行为写入。 */
-  charBlockedUserAt?: number | null;
-  /** 角色拉黑的剧情原因；角色行为阶段负责确定。 */
-  charBlockedUserReason?: string;
-  /** 原版默认允许角色在严重剧情冲突时主动拉黑，用户可关闭此许可。 */
-  allowCharBlockUser?: boolean;
-  /** 保留最近一次关系恢复的时间，避免状态直接失忆。 */
-  userUnblockedAt?: number | null;
-  charUnblockedUserAt?: number | null;
-}
 export interface ChatBlockEvent {
   actor: 'user' | 'character';
   action: 'block' | 'unblock';
@@ -2745,8 +2731,6 @@ export interface ChatBlockState {
 export interface CharacterProfile {
   /** 使用既有角色资料持久化与备份，不新建数据孤岛。 */
   chatBlock?: ChatBlockState;
-  /** 私聊拉黑：不修改角色本体、删除消息、重建数据库。 */
-  privateChatBlock?: PrivateChatBlockState;
   /** Local default for this character's dialogue; absent means follow Settings. Never shared in cards. */
   dialogueApi?: DialogueApiConfig;
   id: string;

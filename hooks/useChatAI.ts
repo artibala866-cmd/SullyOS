@@ -36,7 +36,7 @@ import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
 import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContinuation';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
-import { isPrivateChatConversationBlocked } from '../utils/privateChatBlock';
+import { isPrivateChatBlocked } from '../utils/chatBlock';
 import {chatPhonePiggybackPrompt} from '../utils/phoneChatPiggyback';
 import {
     computeStreamPreviewBubbles,
@@ -637,7 +637,7 @@ export const useChatAI = ({
         opts?: { skipEmotionInjection?: boolean },
     ) => {
         // 阻止用户点击、旧自动回复计时器以及重新生成绕过私聊拉黑。
-        if (isTyping || !char || isPrivateChatConversationBlocked(charRef.current)) return;
+        if (isTyping || !char || isPrivateChatBlocked(charRef.current?.chatBlock)) return;
         const effectiveApi = resolveDialogueApi(apiConfig, char, overrideApiConfig);
         if (!effectiveApi.baseUrl) { alert("请先在设置中配置 API URL"); return; }
 
