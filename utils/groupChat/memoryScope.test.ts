@@ -53,3 +53,14 @@ describe('群记忆互通权限 — 不破坏历史数据', () => {
         expect(candidates).toHaveLength(5);
     });
 });
+
+describe('Char 拉黑拒收内容不得流入记忆宫殿', () => {
+  it('仅排除被角色拒收的 user 消息，不删除历史，也不屏蔽普通私聊', () => {
+    const good = { id: 1, role: 'user', type: 'text', content: '正常消息' } as Message;
+    const denied = { id: 2, role: 'user', type: 'text', content: '拒收消息', metadata: { chatBlockRejected: true } } as Message;
+    const assistant = { id: 3, role: 'assistant', type: 'text', content: '角色回复' } as Message;
+    expect(isPrivatePalaceSourceMessage(good)).toBe(true);
+    expect(isPrivatePalaceSourceMessage(denied)).toBe(false);
+    expect(isPrivatePalaceSourceMessage(assistant)).toBe(true);
+  });
+});
