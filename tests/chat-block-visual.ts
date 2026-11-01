@@ -2,35 +2,64 @@ import React from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import ChatBlockModal from '../components/chat/ChatBlockModal';
+import ChatBlockDeliveryStatus from '../components/chat/ChatBlockDeliveryStatus';
 import { changeChatBlock, configureCharacterBlocking, characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
-import type { ChatBlockState } from '../types';
+import type { ChatBlockState, Message } from '../types';
+
 const host = document.querySelector<HTMLElement>('#visual')!;
 const root = createRoot(host);
 let state: ChatBlockState | undefined;
+const message = (role: Message['role'], metadata?: Message['metadata']) => ({ role, metadata } as Message);
 let closed = 0;
-const render = () => flushSync(() => root.render(React.createElement(ChatBlockModal, {
-  characterName:'陈苍琛', state,
-  onClose:()=>{closed++},
-  onSetUserBlock:(blocked:boolean)=>{state=changeChatBlock(state,'user',blocked,{at:42,source:'manual'});render()},
-  onSetCharacterAllowed:(allowed:boolean)=>{state=configureCharacterBlocking(state,allowed);render()},
-})));
+
+const chatPreview = React.createElement('div', {
+  className: 'mx-auto max-w-md space-y-4 px-5 pt-16', id: 'delivery-visual',
+}, [
+  React.createElement('div', {key:'user', className:'ml-auto w-fit max-w-[80%] rounded-2xl bg-white p-4 text-sm shadow'},
+    ['我拉黑后仍能发消息，等你怎么回复。',
+     React.createElement('div', {id:'blocked-user-message',key:'status'},
+       React.createElement(ChatBlockDeliveryStatus, {message:message('user')}))]),
+  React.createElement('div', {key:'char', className:'mr-auto w-fit max-w-[80%] rounded-2xl bg-white p-4 text-sm shadow'},
+    ['我看见了消息，可我的回复显示发送失败。',
+     React.createElement('div', {id:'blocked-char-reply', key:'status'},
+       React.createElement(ChatBlockDeliveryStatus, {message:message('assistant',{chatBlockSendFailed:true})}))]),
+  React.createElement('div', {id:'rejected-user',key:'denied',className:'ml-auto w-fit max-w-[80%] rounded-2xl bg-white p-3'},
+    React.createElement(ChatBlockDeliveryStatus, {message:message('user',{chatBlockRejected:true})})),
+]);
+const render = () => flushSync(() => root.render(React.createElement(React.Fragment, null,
+  chatPreview,
+  React.createElement(ChatBlockModal, {
+    characterName:'陈苍琛', state, onClose:()=>{closed++},
+    onSetUserBlock:(blocked:boolean)=>{state=changeChatBlock(state,'user',blocked,{at:42,source:'manual'});render()},
+    onSetCharacterAllowed:(allowed:boolean)=>{state=configureCharacterBlocking(state,allowed);render()},
+  })
+)));
 try {
   render();
   const find=(name:string)=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.getAttribute('aria-label')===name);
-  const first = document.querySelector('section[role="dialog"]');
-  const initial=!!first && !!find('拉黑角色') && first.textContent!.includes('允许角色自主拉黑我');
+  const first=document.querySelector('section[role="dialog"]')!;
+  const initial=!!first && !!find('拉黑角色') && first.textContent!.includes('拉黑对方')
+    && !first.textContent!.includes('你拉黑了') && !first.textContent!.includes('拉黑了你');
+  const indicator=document.querySelector<HTMLElement>('#blocked-char-reply [aria-label="消息发送失败"]');
+  const deliveryDirection=!!indicator && getComputedStyle(indicator).backgroundColor==='rgb(239, 68, 68)'
+    && !document.querySelector('#blocked-user-message [role="status"]')
+    && !!document.querySelector('#rejected-user [role="status"]');
   flushSync(()=>find('拉黑角色')?.click());
   const confirmed=!!document.body.textContent?.includes('确认拉黑');
   flushSync(()=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='确认拉黑')?.click());
   const separate= userBlocksCharacter(state) && !characterBlocksUser(state);
-  const shown=!!find('解除拉黑角色') && first?.textContent?.includes('已拉黑');
-  const element=document.querySelector<HTMLElement>('section[role="dialog"]');
-  const surface=element && getComputedStyle(element);
+  const shown=!!find('解除拉黑角色') && first.textContent!.includes('解除拉黑') && !first.textContent!.includes('拉黑了你');
+  const surface=first && getComputedStyle(first);
   const lightSurface=!!surface && surface.backgroundColor==='rgb(250, 250, 250)';
+  const advanced=document.querySelector<HTMLDetailsElement>('details');
+  if(advanced) advanced.open=true;
   const input=document.querySelector<HTMLInputElement>('input[aria-label="允许角色自主拉黑我"]');
   flushSync(()=>input?.click());
   const independent=state?.allowCharacterBlockUser===false && userBlocksCharacter(state);
-  const report={initial,confirmed,separate,shown,lightSurface,independent,closed};
+  state=changeChatBlock(state,'character',true,{at:250});
+  render();
+  const hiddenCharacterBlock=!document.querySelector('section[role="dialog"]')?.textContent?.includes('拉黑了你');
+  const report={initial,deliveryDirection,confirmed,separate,shown,lightSurface,independent,hiddenCharacterBlock,closed};
   const out=document.createElement('output');out.textContent=JSON.stringify(report);host.append(out);
   host.dataset.blockVisualReady=Object.entries(report).filter(([k])=>k!=='closed').every(([,v])=>v===true)?'true':'false';
 }catch(error){host.dataset.blockVisualReady='false';host.dataset.error=String(error);}
