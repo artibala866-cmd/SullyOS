@@ -2,6 +2,7 @@ import {secretNoteContext} from './secretNote';
 import { buildCharacterResponsePrinciples } from './characterResponsePrinciples';
 import { expandHomeContextHistory } from './homeContextSegments';
 import { selectCharacterContextMessages } from './chatContextRange';
+import { isRejectedPrivateMessage } from './chatBlock';
 
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, DailySchedule } from '../types';
 import { ContextBuilder } from './context';
@@ -1099,7 +1100,7 @@ ${voiceActingGuide()}`;
         // 新版上下文范围由 chatContextRange 先按「自适应/拉杆最大范围」取窗；
         // 这里再次校验统一边界，兼容只提供内存快照的入口。
         let effectiveHistory = selectCharacterContextMessages(messages, char, options?.contextHighWaterMark)
-            .filter(m => m.type !== 'vr_card'); // Retired 彼方 cards are never re-injected into AI conversations.
+            .filter(m => m.type !== 'vr_card' && !isRejectedPrivateMessage(m)); // 退役卡片与被角色拒收的消息均不可进入 AI 对话。
         // Memory Palace: 过滤已被记忆宫殿处理过的消息（由向量记忆替代，节省 token）
         if (processedExcludeIds && processedExcludeIds.size > 0) {
             effectiveHistory = effectiveHistory.filter(m => !processedExcludeIds.has(m.id));
