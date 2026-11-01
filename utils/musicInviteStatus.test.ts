@@ -278,7 +278,7 @@ describe('撤回邀请不再留住自动回复倒计时', () => {
     expect(chat).toContain('pending.messageId !== detail.messageId');
     expect(chat).toContain('latest?.metadata?.musicListenInviteResponseTo === pending.messageId');
     expect(chat).toContain('autoReply.cancel()');
-    expect(chat).toContain("if (latestPersisted.metadata?.musicListenInviteResponseTo) return;");
+    expect(chat).toContain("if (latestPersisted.metadata?.musicListenInviteResponseTo) return 'discard';");
     expect(chat).toContain("!findPendingMusicInvite(fresh, 'user', latestPersisted.id)");
   });
 
