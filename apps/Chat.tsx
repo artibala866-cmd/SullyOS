@@ -19,7 +19,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { findPendingMusicInvite, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
+import { MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import {HOME_HISTORY_COMMITTED} from '../utils/secretNote';
 import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
 import { chatCharacterDisplayName } from '../utils/characterRemark';
@@ -3948,9 +3948,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             if (manualChatGenerationRevisionRef.current !== manualRevision) return 'discard';
             const latestPersisted = findPendingUserTurn(fresh);
             if (!latestPersisted || latestPersisted.id !== latestLocal.id) return 'discard';
-            if (latestPersisted.metadata?.musicListenInviteResponseTo) return 'discard';
-            if (latestPersisted.metadata?.musicListenInvite &&
-                !findPendingMusicInvite(fresh, 'user', latestPersisted.id)) return 'discard';
+            // Music invitation / response are app actions, not private-chat text.
+            // Never resurrect a pending or withdrawn invite from a durable
+            // auto-reply intent created by an older version.
+            if (latestPersisted.metadata?.musicListenInvite ||
+                latestPersisted.metadata?.musicListenInviteResponseTo) return 'discard';
             const liveComposer = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
             if (liveComposer?.value.trim() || isTyping || instantChatPending || isProactiveComposing) return 'retry';
             // At most one existing generation route; it decides local vs cloud.
@@ -3961,82 +3963,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             triggerAI(messages.slice(0, lastUserIndex + 1));
         },
     });
-    const pendingMusicInviteReplyRef = useRef<{ charId: string; messageId: number } | null>(null);
-    // Music invitations are real user events in the existing chat DB. They may
-    // enter the SAME auto-reply countdown as a normal user send, but only while
-    // that countdown is enabled and the relevant conversation is active.
-    // This never generates a reply directly, changes a prompt, or bypasses
-    // the existing blocked/generating/visibility and real-person timing gates.
-    useEffect(() => {
-        const onMusicInviteForAutoReply = (event: Event) => {
-            const detail = (event as CustomEvent<{ charId?: string; messageId?: number }>).detail;
-            const charId = detail?.charId;
-            if (!charId || charId !== activeCharIdRef.current ||
-                !Number.isSafeInteger(detail.messageId) ||
-                !inputPreferences.autoReply) return;
-            void DB.getRecentMessagesByCharId(charId, 24).then(recent => {
-                if (activeCharIdRef.current !== charId) return;
-                // The user may have withdrawn the invite while this async
-                // DB read was pending. Never start an auto-reply countdown for
-                // an already answered or cancelled invitation.
-                const invitation = findPendingMusicInvite(recent, 'user', detail.messageId);
-                if (!invitation) return;
-                pendingMusicInviteReplyRef.current = { charId, messageId: detail.messageId! };
-                const finish = autoReply.beginSend(charId);
-                finish(true);
-            }).catch(() => { /* No reliable DB confirmation: leave invitation pending. */ });
-        };
-        const onMusicInviteResolved = (event: Event) => {
-            const detail = (event as CustomEvent<{ charId?: string; messageId?: number }>).detail;
-            const pending = pendingMusicInviteReplyRef.current;
-            if (!pending || pending.charId !== detail?.charId || pending.messageId !== detail.messageId) return;
-            pendingMusicInviteReplyRef.current = null;
-            // Cancel ONLY if the latest user turn is this invitation (or its
-            // withdrawal). A newer normal user message owns its own countdown.
-            void DB.getRecentMessagesByCharId(pending.charId, 24).then(recent => {
-                if (activeCharIdRef.current !== pending.charId) return;
-                const latest = [...recent].reverse().find(m => m.role === 'user' || m.role === 'assistant');
-                if (latest?.id === pending.messageId ||
-                    latest?.metadata?.musicListenInviteResponseTo === pending.messageId) {
-                    autoReply.cancel();
-                }
-            }).catch(() => { /* generation gate separately checks DB truth */ });
-        };
-        const checkRemoteMusicResolution = (charId: string) => {
-            const pending = pendingMusicInviteReplyRef.current;
-            if (!pending || pending.charId !== charId) return;
-            void DB.getMessagesByCharId(charId, true).then(history => {
-                if (pendingMusicInviteReplyRef.current?.messageId !== pending.messageId) return;
-                if (findPendingMusicInvite(history, 'user', pending.messageId)) return;
-                // Another tab committed a response; use the same guarded
-                // cancellation rather than leaving a stale auto-reply timer.
-                onMusicInviteResolved(new CustomEvent('music-listen-invite-resolved', {
-                    detail: { charId, messageId: pending.messageId },
-                }));
-            }).catch(() => { /* DB validation unavailable: generation guard remains authoritative. */ });
-        };
-        const onRemoteMusicChange = (event: StorageEvent) => {
-            if (event.key !== MUSIC_INVITE_DB_CHANGED_KEY) return;
-            const charId = musicInviteChangedCharId(event.newValue);
-            if (charId) checkRemoteMusicResolution(charId);
-        };
-        const onMusicTabVisible = () => {
-            if (document.visibilityState === 'visible' && pendingMusicInviteReplyRef.current) {
-                checkRemoteMusicResolution(pendingMusicInviteReplyRef.current.charId);
-            }
-        };
-        window.addEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
-        window.addEventListener('music-listen-invite-resolved', onMusicInviteResolved);
-        window.addEventListener('storage', onRemoteMusicChange);
-        document.addEventListener('visibilitychange', onMusicTabVisible);
-        return () => {
-            window.removeEventListener('music-listen-invite-created', onMusicInviteForAutoReply);
-            window.removeEventListener('music-listen-invite-resolved', onMusicInviteResolved);
-            window.removeEventListener('storage', onRemoteMusicChange);
-            document.removeEventListener('visibilitychange', onMusicTabVisible);
-        };
-    }, [autoReply.beginSend, autoReply.cancel, inputPreferences.autoReply]);
-
+    // Together-listening invitations have their own immediate action responder
+    // mounted with MusicProvider. They are NOT private-chat auto-reply intents.
     // One-tap life pacing; the shared clock keeps memories unchanged.
     // 角色自定义聊天背景：字段值可能是 blobref 令牌（二进制在 IndexedDB），这里解析成能直接
     // 喂进 CSS url() 的地址；data: / http(s) 之类的非令牌值渲染期原样透传。
