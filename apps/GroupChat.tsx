@@ -29,6 +29,7 @@ import { trackEvent } from '../utils/analytics';
 import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP, clampGroupPrivateHistoryLimit } from '../utils/groupChat/timeline';
 import { buildGroupMemberInteractionGuidance } from '../utils/groupChat/interactionAdaptation';
+import { ensureGroupTopicCardsDelivered } from '../utils/groupChat/topicCardSync';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
@@ -862,7 +863,13 @@ const GroupChat: React.FC = () => {
         }
         saveChatInputPreferences(settingsInputPreferences);
         setInputPreferences(settingsInputPreferences);
-        setActiveGroup({ ...activeGroup, ...updates });
+        const updatedGroup = { ...activeGroup, ...updates };
+        setActiveGroup(updatedGroup);
+        if (updatedGroup.privateChatSyncEnabled !== false) {
+            void ensureGroupTopicCardsDelivered(updatedGroup).then(outcome => {
+                if (outcome.deliveredMemberIds.length) markGroupMembersDirty(outcome.deliveredMemberIds);
+            }).catch(error => console.warn('[GroupChat] 补发群话题卡片失败:', error));
+        }
         setModalType('none');
         addToast('群信息已更新', 'success');
     };
@@ -1375,19 +1382,17 @@ ${memberTimeline || '(暂无互动记录)'}
 
             // 成盒时给所有当前成员一张私聊卡。正文可被私聊上下文/归档正常解析；
             // metadata 保留引用，后续编辑/删除公共盒时同步这些卡片。
-            if (groupForArchive.privateChatSyncEnabled !== false) await Promise.all(groupForArchive.members.map(memberId => DB.saveMessage({
-                charId: memberId,
-                role: 'system',
-                type: 'group_topic_card',
-                content: `[群聊公共话题盒：${groupForArchive.name}｜${box.title}]\n${box.summary}`,
-                metadata: { groupTopicBox: { ...box, groupName: groupForArchive.name } },
-            })));
+            // 先记录公共盒，再按盒 ID 安全投递；某个成员写入失败不再丢失盒子，
+            // 重新进入群聊可补发，重复触发也不会重复写私聊卡片。
+            const cardDelivery = await ensureGroupTopicCardsDelivered(updatedGroup);
             // 话题盒卡片是直接写进成员私聊历史的，也就是 fire_pack 转写的直接来源
             markGroupMembersDirty(groupForArchive.members);
             const remaining = groupTopicPendingCount(allMsgs, box.sourceEndMessageId);
             setTopicPendingCount(remaining);
             addToast(groupForArchive.privateChatSyncEnabled !== false
-                ? `「${box.title}」已成盒，并送达 ${groupForArchive.members.length} 位成员私聊`
+                ? cardDelivery.failedMemberIds.length
+                    ? `「${box.title}」已成盒，部分成员卡片待下次进入群聊补发`
+                    : `「${box.title}」已成盒，并同步 ${cardDelivery.deliveredMemberIds.length} 张私聊卡片`
                 : `「${box.title}」已成盒；私聊互通关闭，未投递私聊卡片`, 'success');
             return true;
         } catch (err: any) {
@@ -1433,7 +1438,12 @@ ${memberTimeline || '(暂无互动记录)'}
 
     // 老群在该接线补上前积累的消息，需要在重新进入时追平；无需让用户手动制造新消息。
     useEffect(() => {
-        if (view === 'chat' && activeGroup) void runGroupMemorySync(activeGroup);
+        if (view !== 'chat' || !activeGroup) return;
+        void runGroupMemorySync(activeGroup);
+        // 旧版本成盒后部分卡片写入失败时补发；读群最新权限并按盒 ID 去重。
+        void ensureGroupTopicCardsDelivered(activeGroup).then(outcome => {
+            if (outcome.deliveredMemberIds.length) markGroupMembersDirty(outcome.deliveredMemberIds);
+        }).catch(error => console.warn('[GroupChat] 补发群话题卡片失败:', error));
     }, [activeGroup?.id, view]);
 
     const saveTopicBoxEdit = async (boxId: string) => {
