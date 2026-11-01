@@ -229,6 +229,23 @@ describe('群聊与个人记忆宫殿双向归档', () => {
         expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
     });
 
+    it('合法空记忆批次推进水位并继续归档，失败的空结果保留水位', async () => {
+        const { group, a, b } = await makeGroup();
+        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        vi.mocked(extractGroupMemoriesFromBuffer).mockResolvedValueOnce({ drafts: [], completed: true });
+        const empty = await processGroupNewMessages(group, [a, b], '用户');
+        expect(empty?.stored).toBe(0);
+        expect(empty?.progressed).toBe(true);
+        expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBeGreaterThan(0);
+
+        // 没有成功提取结果时不能错误推进原文水位。
+        const { group: second, a: c, b: d } = await makeGroup();
+        vi.mocked(extractGroupMemoriesFromBuffer).mockResolvedValueOnce({ drafts: [], completed: false });
+        const failed = await processGroupNewMessages(second, [c, d], '用户');
+        expect(failed?.progressed).toBeUndefined();
+        expect(getGroupMemoryPalaceHighWaterMark(second.id)).toBe(0);
+    });
+
     it('本群撤销私聊互通后不写入个人记忆', async () => {
         const { group, a, b } = await makeGroup(false);
         const spy = vi.spyOn(DB, 'getGroupMessages');
