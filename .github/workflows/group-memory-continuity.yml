@@ -39,6 +39,7 @@ jobs:
           utils/groupChat/memoryScope.test.ts
           utils/groupChat/memberMemoryScope.test.ts
           utils/groupChat/topicCardSync.test.ts
+          utils/groupChat/groupMemoryRename.test.ts
           utils/groupChat/topicBoxes.test.ts
           utils/groupChat/timeline.test.ts
           utils/groupChat/interactionAdaptation.test.ts
