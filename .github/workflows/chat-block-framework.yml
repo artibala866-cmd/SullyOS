@@ -1,0 +1,75 @@
+name: Private chat block framework regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/Chat.tsx'
+      - 'components/chat/ChatBlockModal.tsx'
+      - 'components/chat/ChatInputArea.tsx'
+      - 'hooks/useChatAI.ts'
+      - 'types.ts'
+      - 'utils/chatBlock*'
+      - 'tests/chat-block-visual.*'
+      - '.github/workflows/chat-block-framework.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sully-private-chat-block-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Block state, private chat generation and UI regression
+        run: pnpm exec vitest run utils/chatBlock.test.ts utils/chatAutoReply.test.ts utils/chatGenEvents.test.ts
+      - name: TypeScript regression of changed files
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/block-tsc.log 2>&1 || true
+          grep -E '^(apps/Chat.tsx|components/chat/(ChatBlockModal|ChatInputArea).tsx|hooks/useChatAI.ts|types.ts|utils/chatBlock(\.test)?\.ts|tests/chat-block-visual.ts)[(]' /tmp/block-tsc.log > /tmp/block-target-errors.log || true
+          if [ -s /tmp/block-target-errors.log ]; then cat /tmp/block-target-errors.log; exit 1; fi
+      - name: Install Chinese fonts
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Render real React modal and verify interactions at phone width
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/chat-block-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:5173/tests/chat-block-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --window-size=390,850 --virtual-time-budget=10000 --dump-dom http://127.0.0.1:5173/tests/chat-block-visual.html >/tmp/block-dom.txt 2>/tmp/block-chrome.log || true
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=390,850 --virtual-time-budget=10000 --screenshot="$GITHUB_WORKSPACE/chat-block-mobile.png" http://127.0.0.1:5173/tests/chat-block-visual.html
+          test -s chat-block-mobile.png
+          if ! grep -q 'data-block-visual-ready="true"' /tmp/block-dom.txt; then
+            grep -o 'data-error="[^"]*"' /tmp/block-dom.txt || true
+            grep -o '<output[^>]*>[^<]*' /tmp/block-dom.txt | head -c 1500 || true
+            tail -60 /tmp/chat-block-vite.log || true
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chat-block-framework-mobile-screenshot
+          path: chat-block-mobile.png
+          retention-days: 7
+          if-no-files-found: ignore
