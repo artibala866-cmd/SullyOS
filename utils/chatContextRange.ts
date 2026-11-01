@@ -1,6 +1,7 @@
 import type { CharacterProfile, Message } from '../types';
 import { DB } from './db';
 import { getReliableMemoryPalaceHighWaterMark } from './memoryPalace/highWaterMark';
+import { filterPrivateGroupTopicCards } from './groupChat/memoryScope';
 
 export const CONTEXT_RANGE_POLICY_VERSION = 1;
 export const DEFAULT_MANUAL_CONTEXT_LIMIT = 500;
@@ -177,7 +178,19 @@ export const loadCharacterContextRange = async (
         );
     onTiming?.('读取范围内原文', Math.round(performance.now()-started));
     started = performance.now();
-    const snapshot = computeContextRangeSnapshot(sourceMessages, char, hwm);
+    // 旧群话题卡片仍保留在本地历史，但互通关闭后不再进入私聊 AI 上下文。
+    // 只在候选范围确实包含卡片时读取群配置，普通私聊不增加数据库开销。
+    let authorizedMessages = sourceMessages;
+    if (sourceMessages.some(message => message.type === 'group_topic_card')) {
+        try {
+            authorizedMessages = filterPrivateGroupTopicCards(sourceMessages, await DB.getGroups());
+        } catch (error) {
+            // 配置读取失败时宁可暂不注入卡片，也不能泄露已撤销的群记忆。
+            console.warn('[ChatContextRange] 无法读取群互通权限，暂时隐去群话题卡片', error);
+            authorizedMessages = sourceMessages.filter(message => message.type !== 'group_topic_card');
+        }
+    }
+    const snapshot = computeContextRangeSnapshot(authorizedMessages, char, hwm);
     onTiming?.('计算上下文边界', Math.round(performance.now()-started));
     return snapshot;
 };
