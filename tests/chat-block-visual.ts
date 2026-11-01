@@ -41,7 +41,9 @@ try {
   const initial=!!first && !!find('拉黑角色') && first.textContent!.includes('拉黑对方')
     && !first.textContent!.includes('你拉黑了') && !first.textContent!.includes('拉黑了你');
   const indicator=document.querySelector<HTMLElement>('#blocked-char-reply [aria-label="消息发送失败"]');
-  const deliveryDirection=!!indicator && getComputedStyle(indicator).backgroundColor==='rgb(239, 68, 68)'
+  const parseRgb=(color:string)=> (color.match(/[0-9.]+/g) || []).slice(0,3).map(Number);
+  const [red,green,blue]=parseRgb(indicator ? getComputedStyle(indicator).backgroundColor : '');
+  const deliveryDirection=!!indicator && red > 120 && red > green * 1.3 && red > blue * 1.3
     && !document.querySelector('#blocked-user-message [role="status"]')
     && !!document.querySelector('#rejected-user [role="status"]');
   flushSync(()=>find('拉黑角色')?.click());
@@ -50,7 +52,8 @@ try {
   const separate= userBlocksCharacter(state) && !characterBlocksUser(state);
   const shown=!!find('解除拉黑角色') && first.textContent!.includes('解除拉黑') && !first.textContent!.includes('拉黑了你');
   const surface=first && getComputedStyle(first);
-  const lightSurface=!!surface && surface.backgroundColor==='rgb(250, 250, 250)';
+  const [sr,sg,sb]=parseRgb(surface?.backgroundColor || '');
+  const lightSurface=!!surface && sr >= 235 && sg >= 235 && sb >= 235;
   const advanced=document.querySelector<HTMLDetailsElement>('details');
   if(advanced) advanced.open=true;
   const input=document.querySelector<HTMLInputElement>('input[aria-label="允许角色自主拉黑我"]');
@@ -67,6 +70,6 @@ try {
   const closedDetails=document.querySelector<HTMLDetailsElement>('details');
   if(closedDetails) closedDetails.open=false;
   const report={initial,deliveryDirection,confirmed,separate,shown,lightSurface,independent,hiddenCharacterBlock,closed};
-  const out=document.createElement('output');out.textContent=JSON.stringify(report);host.append(out);
+  const out=document.createElement('output');out.style.display='none';out.textContent=JSON.stringify(report);host.append(out);
   host.dataset.blockVisualReady=Object.entries(report).filter(([k])=>k!=='closed').every(([,v])=>v===true)?'true':'false';
 }catch(error){host.dataset.blockVisualReady='false';host.dataset.error=String(error);}
