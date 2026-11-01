@@ -4,7 +4,7 @@
  * real-person sleep pacing, or the optional send-then-auto-reply preference.
  * This bridge lives under MusicProvider so it stays mounted in MusicApp.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import { useChatAI } from '../../hooks/useChatAI';
 import { loadMusicHooks } from '../../context/MusicContext';
@@ -32,6 +32,9 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
     const [queue, setQueue] = useState<Invite[]>([]);
     const [library, setLibrary] = useState<{ emojis: Emoji[]; categories: EmojiCategory[] } | null>(null);
     const [retry, setRetry] = useState(0);
+    // A failed API call must not permanently consume an invitation. Bounded
+    // retry only when no assistant reply was persisted, never for vague answers.
+    const failedAttemptsRef = useRef(new Map<string, number>());
     const current = queue[0];
     const char = characters.find(c => c.id === current?.charId);
     const visibleLibrary = useMemo(() => char && library
@@ -101,8 +104,8 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
         const finish = () => {
             if (!stopped) setQueue(prev => prev.filter(p => inviteKey(p) !== inviteKey(current)));
         };
-        const defer = () => {
-            if (!stopped) retryTimer = setTimeout(() => setRetry(n => n + 1), 1200);
+        const defer = (delay = 1200) => {
+            if (!stopped) retryTimer = setTimeout(() => setRetry(n => n + 1), delay);
         };
         const run = async () => {
             if (Date.now() - (current.enqueuedAt ?? Date.now()) >= RECOVERY_WINDOW_MS) { finish(); return; }
@@ -133,10 +136,19 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
                     findPendingUserTurn(history)?.id !== current.messageId) { finish(); return; }
                 const key = ATTEMPT_KEY + inviteKey(current);
                 try {
-                    if (localStorage.getItem(key)) { finish(); return; }
+                    const lastAttempt = Number(localStorage.getItem(key) || 0);
+                    // A tab may have closed during a model request. In that
+                    // case the old attempt key is not proof of a saved answer:
+                    // retry after a cooldown, still under the two-minute window.
+                    const elapsed = Date.now() - lastAttempt;
+                    if (lastAttempt > 0 && elapsed >= 0 && elapsed < 20_000) {
+                        defer(Math.max(1200, 20_000 - elapsed));
+                        return;
+                    }
                     localStorage.setItem(key, String(Date.now()));
                 } catch { /* One mounted bridge still serializes this tab. */ }
                 let busy = false;
+                let missingAnswer = false;
                 try {
                     // A scheduled proactive bubble may have arrived after the
                     // invitation. Do not send that assistant tail into the
@@ -163,6 +175,10 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
                             const newAnswers = after.filter(m =>
                                 m.id > lastBeforeReply && m.role === 'assistant' && m.type === 'text' &&
                                 m.metadata?.source !== 'active_msg_2' && !m.metadata?.activeMsg2);
+                            // No persisted reply means the request likely failed.
+                            // Only then retry: a genuine, undecided response must
+                            // remain the Char's choice, not trigger repeated calls.
+                            if (newAnswers.length === 0) missingAnswer = true;
                             const decision = newAnswers.map(m => explicitMusicInviteDecision(m.content))
                                 .find(value => value !== null);
                             const hooks = decision ? loadMusicHooks() : null;
@@ -173,9 +189,21 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
                             }
                         }
                     }
+                } catch (error) {
+                    console.warn('[MusicTogether] 邀请回复生成失败，尝试有限重试', error);
+                    missingAnswer = true;
                 } finally {
-                    if (busy) defer();
-                    else finish();
+                    if (busy) {
+                        defer();
+                    } else if (missingAnswer &&
+                        (failedAttemptsRef.current.get(key) ?? 0) < 2) {
+                        failedAttemptsRef.current.set(key,
+                            (failedAttemptsRef.current.get(key) ?? 0) + 1);
+                        try { localStorage.removeItem(key); } catch {}
+                        defer(1800);
+                    } else {
+                        finish();
+                    }
                 }
             };
             const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
