@@ -37,6 +37,8 @@ jobs:
           pnpm exec tsc --noEmit --pretty false > /tmp/broadcast-ts.log 2>&1 || true
           grep '^components/ChatBroadcast.tsx(' /tmp/broadcast-ts.log > /tmp/broadcast-target-errors.log || true
           if [ -s /tmp/broadcast-target-errors.log ]; then cat /tmp/broadcast-target-errors.log; exit 1; fi
+      - name: Install CJK fonts for legible UI screenshot
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:
