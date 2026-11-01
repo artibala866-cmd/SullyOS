@@ -252,6 +252,7 @@ export function useChatAutoReply(options: Options) {
                 }
                 work.checking = true;
                 const version = work.cancelVersion;
+                const latestSendBoundary = work.lastUserSendAt;
                 const settle = (outcome: void | 'retry' | 'discard') => {
                     if (workRef.current !== work || version !== work.cancelVersion) return;
                     work.checking = false;
@@ -264,7 +265,8 @@ export function useChatAutoReply(options: Options) {
                 };
                 try {
                     const stillEligible = () => workRef.current === work && work.pending &&
-                        work.cancelVersion === version && current.current.conversationId === currentId &&
+                        work.cancelVersion === version && work.sends.size === 0 &&
+                        work.lastUserSendAt === latestSendBoundary && current.current.conversationId === currentId &&
                         current.current.enabled && current.current.active && !current.current.generating &&
                         !current.current.blocked && !document.hidden &&
                         (!work.persisted || readIntent(currentId) === work.firstUnansweredAt);
