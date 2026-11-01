@@ -105,6 +105,21 @@ export const canJoinMusicWithoutPendingInvite = <
     !m.metadata?.musicListenInvite && !m.metadata?.musicListenInviteResponseTo);
 };
 
+
+/**
+ * Narrow compatibility fallback for an IMMEDIATE reply to an actual pending
+ * invitation. Only unambiguous "I clicked accept/refuse" declarations qualify.
+ * This is never applied to normal chat, proactive messages or old history.
+ * Ambiguous speech remains pending instead of guessing on the user's behalf.
+ */
+export const explicitMusicInviteDecision = (text: string): 'accept' | 'reject' | null => {
+  const normalized = (text || '').trim().replace(/[\s，。！？!、~～]+/g, '').slice(0,100);
+  if (!normalized || /(?:但是|不过|可是|其实|还没|没有|不想|没点|没同意|不接受|取消|开玩笑|骗你的)/.test(normalized)) return null;
+  if (/^(?:(?:我(?:刚刚|刚才|已经|这就|现在)?|刚刚|刚才)?(?:点(?:了)?同意|同意(?:了)?邀请|接受(?:了)?邀请|已同意邀请|已接受邀请)|同意了|点同意了)/.test(normalized)) return 'accept';
+  if (/^(?:(?:我(?:刚刚|已经)?|刚刚)?(?:点(?:了)?拒绝|拒绝(?:了)?邀请|已拒绝邀请)|拒绝了)/.test(normalized)) return 'reject';
+  return null;
+};
+
 /** Session invalidation only; the actual active state lives in IndexedDB. */
 export const MUSIC_LISTEN_SESSION_CHANGED_KEY = 'sully_music_listening_session_changed_v2';
 export const announceMusicListenSessionChanged = (charId: string): void => {
