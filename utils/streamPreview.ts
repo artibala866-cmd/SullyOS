@@ -38,6 +38,7 @@ function isLinePreviewable(line: string): boolean {
     if (!line) return false;
     if (line.includes('[[')) return false;                    // SEND_EMOJI / QUOTE / ACTION / RECALL / XHS_* …
     if (/^\[BLOCK_USER:/i.test(line)) return false;           // 角色自主拉黑是内部动作，不能闪成气泡
+    if (/^\{\s*\"t\"\s*:\s*\"(?:block_user|unblock_user)\"/i.test(line)) return false; // 原版结构化动作
     if (/^\[schedule_message\s*\|/i.test(line)) return false; // 定时消息指令
     if (/%%BILINGUAL%%|%%TRANS%%/i.test(line)) return false;
     if (/<\/?(?:[语語]音|字幕|翻译|原文|译文|think|thinking|thought|sully_phone_events)\b/i.test(line)) return false;
@@ -80,7 +81,7 @@ export function computeStreamPreviewBubbles(fullText: string): string[] {
     // Stream the unfinished tail too, but stop before a possible control/tag prefix.
     // This keeps ordinary one-paragraph replies live without flashing partial directives.
     if (!inBlockClose && trailing.trim()) {
-        const markerIndexes = [trailing.indexOf('['), trailing.indexOf('<'), trailing.indexOf('%%')]
+        const markerIndexes = [trailing.indexOf('['), trailing.indexOf('<'), trailing.indexOf('{'), trailing.indexOf('%%')]
             .filter(index => index >= 0);
         const safeEnd = markerIndexes.length > 0 ? Math.min(...markerIndexes) : trailing.length;
         const safeTrailing = trailing.slice(0, safeEnd).trim();
