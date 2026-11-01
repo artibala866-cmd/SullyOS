@@ -978,6 +978,77 @@ export const DB = {
   },
 
   /**
+   * Atomically append a central Meet story turn and all of its normal-memory
+   * mirrors. The central message must never survive without its required mirrors
+   * (or vice versa) when the browser runs out of quota or a request is aborted.
+   * The builder runs synchronously after IndexedDB allocates the central ID.
+   */
+  saveStoryTheaterTurn: async (
+    central: Omit<Message, 'id'>,
+    makeMirrors: (centralId: number) => Array<Omit<Message, 'id'>>,
+  ): Promise<number> => {
+    if (central.metadata?.source !== 'story_theater' || !central.metadata.theaterId) {
+      throw new Error('无效的剧情正文保存请求');
+    }
+    const db = await openDB();
+    return new Promise<number>((resolve, reject) => {
+      const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+      const messages = tx.objectStore(STORE_MESSAGES);
+      let centralId = 0;
+      let failure: unknown;
+      const insertedIds: Array<{charId: string; id: number}> = [];
+      tx.oncomplete = () => {
+        // Match saveMessage's stale-memory-watermark cleanup, but only after commit.
+        try {
+          for (const row of insertedIds) {
+            const key = `mp_lastMsgId_${row.charId}`;
+            const hwm = parseInt(localStorage.getItem(key) || '0', 10) || 0;
+            if (hwm >= row.id) localStorage.removeItem(key);
+          }
+        } catch { /* localStorage unavailable */ }
+        resolve(centralId);
+      };
+      tx.onerror = () => reject(failure || tx.error || new Error('剧情消息事务失败'));
+      tx.onabort = () => reject(failure || tx.error || new Error('剧情与角色记忆副本未能完整保存'));
+      const centralAdd = messages.add(central);
+      centralAdd.onsuccess = () => {
+        try {
+          centralId = centralAdd.result as number;
+          insertedIds.push({charId: central.charId, id: centralId});
+          clearStaleMemoryMirror(tx, central.charId, centralId);
+          const mirrorRows = makeMirrors(centralId);
+          const used = new Set<string>();
+          const ids: Record<string, number> = {};
+          let pending = mirrorRows.length;
+          if (pending === 0) return;
+          for (const mirror of mirrorRows) {
+            if (!mirror.charId || mirror.role !== central.role || mirror.content !== central.content
+                || mirror.metadata?.source !== 'story_theater_memory'
+                || mirror.metadata.theaterId !== central.metadata?.theaterId
+                || mirror.metadata.theaterCentralId !== centralId || used.has(mirror.charId)) {
+              throw new Error('剧情角色记忆副本数据不一致，已取消整轮保存');
+            }
+            used.add(mirror.charId);
+            const req = messages.add(mirror);
+            req.onsuccess = () => {
+              const id = req.result as number;
+              ids[mirror.charId] = id;
+              insertedIds.push({charId: mirror.charId, id});
+              clearStaleMemoryMirror(tx, mirror.charId, id);
+              if (--pending === 0) {
+                messages.put({...central, id: centralId, metadata: {...central.metadata, theaterMirrorIds: ids}});
+              }
+            };
+          }
+        } catch (error) {
+          failure = error;
+          try { tx.abort(); } catch { /* transaction may already have aborted */ }
+        }
+      };
+    });
+  },
+
+  /**
    * A single readwrite transaction spans the pending-invite lookup AND insert.
    * IndexedDB serializes overlapping message-store write transactions across
    * browser tabs. Reading in one transaction and calling saveMessage later did
