@@ -510,10 +510,16 @@ const DateApp: React.FC = () => {
             useVisionDescriptions: apiConfig.visionApi?.enabled === true,
         });
         // Reroll 略调高温度求多样性，但绝不低于用户配置的基线。
+        const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
+        if (inPersonBlock) messages.push({ role: 'system', content: inPersonBlock } as ApiMessage);
         const rawContent = await callLLM(messages, Math.max(resolveDialogueApi(apiConfig, char).temperature ?? 0.85, 0.9));
-        // 生成成功后才删旧回复：以前先删后调 API，请求一失败上一条剧情就永久消失
+        const blockAction = extractCharacterBlockAction(rawContent);
+        // 生成成功后才删旧回复：保留原有重掷语义，同时不泄漏拉黑控制标签。
         await DB.deleteMessage(lastMsg.id);
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: rawContent, metadata: { source: 'date', dateEncounterId: currentEncounterId } });
+        if (blockAction.text) {
+            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: blockAction.text, metadata: { source: 'date', dateEncounterId: currentEncounterId } });
+        }
+        await applyMeetingBlockAction(char.id, blockAction.action);
         markDateTurnDirty(char);
         trackEvent('重掷见面回复', { 目标: '回复' });
 
@@ -523,7 +529,7 @@ const DateApp: React.FC = () => {
         // Memory Palace 后台流程（Reroll 也算一轮新输出）
         runMemoryPalacePostHook(char);
 
-        return rawContent;
+        return blockAction.text;
     };
 
     // --- Editing & Deletion ---
