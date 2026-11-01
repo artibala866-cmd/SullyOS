@@ -16,6 +16,18 @@ export const privateChatBlockDirection = (state?: ChatBlockState | null): 'none'
   return byUser && byCharacter ? 'both' : byUser ? 'user' : byCharacter ? 'character' : 'none';
 };
 
+/** 历史红色感叹号必须按「发送时」判定，不应随解除拉黑回溯变化。
+ * 事件史只保留有限条，缺事件时退回仍有效的 blockedAt。
+ */
+export function userBlockedCharacterAt(state: ChatBlockState | null | undefined, at: number): boolean {
+  if (!Number.isFinite(at) || at <= 0) return userBlocksCharacter(state);
+  const history = (state?.history || [])
+    .filter(e => e.actor === 'user' && Number.isFinite(e.at) && e.at <= at)
+    .sort((a,b) => a.at - b.at);
+  if (history.length) return history[history.length - 1].action === 'block';
+  return userBlocksCharacter(state) && (state?.userBlockedAt || 0) <= at;
+}
+
 /** 被角色拒收的消息只保留在用户本地聊天记录，不得进入角色上下文、总结或后续 AI 输入。 */
 export const isRejectedPrivateMessage = (message: Pick<Message, 'role' | 'metadata'>): boolean =>
   message.role === 'user' && message.metadata?.chatBlockRejected === true;
