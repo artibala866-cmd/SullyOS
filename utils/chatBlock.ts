@@ -1,4 +1,4 @@
-import type { ChatBlockState, ChatBlockEvent } from '../types';
+import type { ChatBlockState, ChatBlockEvent, Message } from '../types';
 /** 拉黑双向独立；框架层不凭空判断剧情、不修改角色人设。 */
 export type ChatBlockActor = 'user' | 'character';
 export const userBlocksCharacter = (state?: ChatBlockState | null): boolean =>
@@ -8,6 +8,17 @@ export const characterBlocksUser = (state?: ChatBlockState | null): boolean =>
 export const allowsCharacterToBlock = (state?: ChatBlockState | null): boolean => state?.allowCharacterBlockUser !== false;
 export const isPrivateChatBlocked = (state?: ChatBlockState | null): boolean =>
   userBlocksCharacter(state) || characterBlocksUser(state);
+
+/** 单向拉黑与双向拉黑分开判断：用户封锁阻止发送，角色封锁使用户消息被拒收。 */
+export const privateChatBlockDirection = (state?: ChatBlockState | null): 'none' | 'user' | 'character' | 'both' => {
+  const byUser = userBlocksCharacter(state);
+  const byCharacter = characterBlocksUser(state);
+  return byUser && byCharacter ? 'both' : byUser ? 'user' : byCharacter ? 'character' : 'none';
+};
+
+/** 被角色拒收的消息只保留在用户本地聊天记录，不得进入角色上下文、总结或后续 AI 输入。 */
+export const isRejectedPrivateMessage = (message: Pick<Message, 'role' | 'metadata'>): boolean =>
+  message.role === 'user' && message.metadata?.chatBlockRejected === true;
 /** 幂等更新 + 有界事件史；解除自己的拉黑不影响对方的独立状态。 */
 export function changeChatBlock(
   previous: ChatBlockState | undefined,
