@@ -466,7 +466,10 @@ describe('self_log', () => {
     it('模板里没有这个槽位时不报错（只是那段无处可去）', () => {
       const legacy: AmsgFirePack = { ...pack, template: `头部\n${AMSG_SLOT_TASK_INSTRUCTION}` };
       const log = appendSelfLogEntry(createSelfLog(packAt), entry('t1@1', '喂'));
-      expect(renderFirePack(legacy, Date.UTC(2026, 6, 30), '指令', { selfLog: log })).toBe('头部\n指令');
+      const rendered=renderFirePack(legacy, Date.UTC(2026, 6, 30), '指令', { selfLog: log });
+    expect(rendered.startsWith('头部\n指令')).toBe(true);
+    expect(rendered).toContain('【主动消息的对话连续性约束】');
+    expect(rendered).not.toContain('【这之后你又发过');
     });
   });
 
