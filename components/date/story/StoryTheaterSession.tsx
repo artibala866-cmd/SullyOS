@@ -1,7 +1,7 @@
 import {meetingAppearance} from '../../../utils/meetingAppearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
-import { generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
+import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, CaretLeft, CaretRight, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
@@ -74,6 +74,7 @@ interface Props {
     onOpenVectorMemory?: () => void;
     onOpenArchives?: () => void;
     onEntryChange: (entry: StoryTheaterEntry) => Promise<void> | void;
+    onArchiveCommitted: (entry: StoryTheaterEntry) => void;
 }
 
 const STORY_PAGE_SIZE = 10;
@@ -273,7 +274,7 @@ export const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) 
     return reading ? <div><div className='meeting-prose'>{blocks.filter(block=>block.kind==='story').map((block,index)=><p key={index}>{block.text}</p>)}</div>{(blocks.some(block=>block.kind!=='story')||relationship)&&<details className='mt-5 text-slate-500'><summary className='cursor-pointer text-xs py-2'>场景与补充</summary>{rendered}</details>}</div> : rendered;
 };
 
-const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, onEdit, onOpenVectorMemory, onOpenArchives, onEntryChange }) => {
+const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, onEdit, onOpenVectorMemory, onOpenArchives, onEntryChange, onArchiveCommitted }) => {
     const { characters, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
     const actors = useMemo(() => characters.filter(char => entry.characterIds.includes(char.id)), [characters, entry.characterIds]);
@@ -608,21 +609,18 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 if (result.error && result.stored === 0 && result.skipped === 0) throw new Error('这批正文没有生成可用的向量记忆');
             }
 
-            await Promise.all(batch.map(message => DB.updateMessageMetadata(message.id, previous => ({ ...previous, theaterArchived: true, theaterArchiveStrategy: entry.archiveStrategy }))));
-            const next: StoryTheaterEntry = {
-                ...entry,
-                archives: [...entry.archives, {
-                    id: makeStoryTheaterId(),
-                    strategy: entry.archiveStrategy,
-                    fromMessageId: first.id,
-                    toMessageId: last.id,
-                    messageCount: batch.length,
-                    ...(summary ? { summary } : {}),
-                    createdAt: Date.now(),
-                }],
-                updatedAt: Date.now(),
-            };
-            await onEntryChange(next);
+            const next = await commitStoryArchiveBatch(entry, batch, {
+                id: makeStoryTheaterId(),
+                strategy: entry.archiveStrategy,
+                fromMessageId: first.id,
+                toMessageId: last.id,
+                messageCount: batch.length,
+                ...(summary ? { summary } : {}),
+                createdAt: Date.now(),
+            });
+            // Already durably committed in the same IndexedDB transaction as the floor flags.
+            // State must update without writing a stale duplicate snapshot over another tab.
+            onArchiveCommitted(next);
             await loadMessages();
             addToast(entry.archiveStrategy === 'summary' ? '旧正文已收进事件盒' : '旧正文已写入独立向量分区', 'success');
             return next;
@@ -634,7 +632,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             archiveLock.current = false;
             setMemoryStatus('');
         }
-    }, [addToast, apiConfig, callCompletion, entry, loadMessages, mask.name, memoryPalaceConfig, onEntryChange, threadId]);
+    }, [addToast, apiConfig, callCompletion, entry, loadMessages, mask.name, memoryPalaceConfig, onArchiveCommitted, threadId]);
 
     const send = useCallback(async (rerollTarget?: Message, continueRequested = false) => {
         if (sendLock.current || !canStart) return;
