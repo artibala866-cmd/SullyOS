@@ -3999,13 +3999,17 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // Memoize ChatInputArea callbacks
     const handleSendCallback = useCallback(() => handleSendText(), [char, input, replyTarget, inputPreferences]);
     const handleCharSelectCallback = useCallback((id: string) => { setActiveCharacterId(id); setShowPanel('none'); }, []);
-    const latestRealReplyAt = [...messages].reverse().find(m => m.role === 'assistant' && Number(m.timestamp) > 0)?.timestamp ?? 0;
-    // A scheduled proactive note is not an answer to the user's earlier text.
+    // Only an actual private-chat reply is evidence that Char is present and
+    // the saved user turn was answered. AMSG pushes, music/system cards and
+    // background scene records must not flip presence online or eat the reply.
     const latestAnsweredAt = [...messages].reverse().find(m => m.role === 'assistant' &&
-        m.metadata?.activeMsg2?.taskId == null && Number(m.timestamp) > 0)?.timestamp ?? 0;
-    // Same rule as the reply gate; status is a schedule-based display, NOT
-    // a character-authored status message or AI-generated short sentence.
-    const schedulePresence = resolveSchedulePresence(lifeActivity, latestRealReplyAt);
+        m.type !== 'system' &&
+        m.metadata?.activeMsg2?.taskId == null &&
+        !m.metadata?.homeSceneRecord &&
+        !m.metadata?.musicListenInviteResponseTo &&
+        !m.metadata?.musicListenInvite &&
+        Number(m.timestamp) > 0)?.timestamp ?? 0;
+    const schedulePresence = resolveSchedulePresence(lifeActivity, latestAnsweredAt);
     const showSchedulePresence = lifePacing && lifeActivity !== null;
     const autoReply = useChatAutoReply({
         // Replying to a user message is the real-person mode's own job; AMSG2
