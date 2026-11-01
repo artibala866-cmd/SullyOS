@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { canRealPersonContact, REAL_PERSON_AUTONOMY_INSTRUCTION } from './realPersonMode';
+import { canRealPersonContact, shouldAutoReplyToUser, REAL_PERSON_AUTONOMY_INSTRUCTION } from './realPersonMode';
 
 describe('真人感与主动消息的唯一触发权限', () => {
   const role = (enabled: boolean) => ({ activeMsg2Config: { enabled } }) as any;
+  it('真人感自己接话无需主动消息 2.0，关闭后保留普通自动回复设置', () => {
+    expect(shouldAutoReplyToUser(true, false)).toBe(true);
+    expect(shouldAutoReplyToUser(true, true)).toBe(true);
+    expect(shouldAutoReplyToUser(false, true)).toBe(true);
+    expect(shouldAutoReplyToUser(false, false)).toBe(false);
+    expect(canRealPersonContact(role(false), true)).toBe(false);
+  });
   it('两者都开启才能启动自主联系', () => {
     expect(canRealPersonContact(role(true), true)).toBe(true);
     expect(canRealPersonContact(role(true), false)).toBe(false);
