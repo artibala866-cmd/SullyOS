@@ -75,7 +75,6 @@ import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormal
 import { getCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { markBackupDone } from '../utils/backupReminder';
 import { normalizeCharacterImpression, normalizeCharacterDefaults } from '../utils/impression';
-import { migrateRetiredVrCharacterFigure, migrateRetiredVrUserFigure } from '../utils/retiredVrFigureMigration';
 import { normalizeModelIds } from '../utils/modelList';
 import {
   CONTEXT_RANGE_POLICY_VERSION,
@@ -1792,23 +1791,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
         let resetAutoContextCount = 0;
         let migratedContextCount = 0;
-        const migratedFigures: CharacterProfile[] = [];
         finalChars = finalChars.map(c => {
           const normalized = normalizeCharacterDefaults(normalizeCharacterImpression(c));
           const migration = migrateCharacterContextRange(normalized);
           if (migration.migrated) migratedContextCount++;
           if (migration.resetAutoContext) resetAutoContextCount++;
-          const figure = migrateRetiredVrCharacterFigure(migration.character);
-          if (figure.changed) migratedFigures.push(figure.value);
-          return figure.value;
+          return migration.character;
         });
-        // Copy only private user-made figures out of the retired VR slot, without deleting
-        // existing user data or changing a 3D home shape. Failures must not block startup.
-        if (migratedContextCount > 0 || migratedFigures.length > 0) {
-          try {
-            const saves = migratedContextCount > 0 ? finalChars : migratedFigures;
-            await Promise.all(saves.map(c => DB.saveCharacter(c)));
-          } catch (error) { console.warn('Legacy figure migration not persisted; original data retained', error); }
+        if (migratedContextCount > 0) {
+          try { await Promise.all(finalChars.map(c => DB.saveCharacter(c))); }
+          catch (error) { console.warn('Context range migration not persisted; original data retained', error); }
         }
         if (resetAutoContextCount > 0) {
           setTimeout(() => addToast(
@@ -1842,12 +1834,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setSongs(dbSongs);
         setCustomThemes(dbThemes);
         if (dbUser) {
-          const figure = migrateRetiredVrUserFigure(dbUser);
-          if (figure.changed) {
-            try { await DB.saveUserProfile(figure.value); }
-            catch (error) { console.warn('User figure migration not persisted; original data retained', error); }
-          }
-          setUserProfile(figure.value);
+          setUserProfile(dbUser);
         }
 
         // amsg2 脏标记兜底补传：上次会话打了脏、但请求还没落地（在飞或躺在退避重排里）
