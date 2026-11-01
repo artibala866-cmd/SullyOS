@@ -27,7 +27,7 @@ import { dateLaunch } from '../utils/dateLaunch';
 import { materializeVisionDescriptions } from '../utils/visionApi';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { buildInPersonContinueInstruction } from '../utils/meetingContinue';
-import { allowsCharacterToBlock, changeChatBlock, characterBlocksUser, isRejectedPrivateMessage, userBlocksCharacter } from '../utils/chatBlock';
+import { allowsCharacterToBlock, changeChatBlock, characterBlocksUser, isRejectedPrivateMessage } from '../utils/chatBlock';
 import { buildInPersonCharBlockInstruction, extractCharacterBlockAction, type CharacterBlockAction } from '../utils/chatBlockAI';
 import {
     buildDateHistoryGroups,
