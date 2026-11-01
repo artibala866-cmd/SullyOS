@@ -80,6 +80,17 @@ type Args={char:CharacterProfile;apiConfig:APIConfig;userProfile:UserProfile;
   isEnabledNow?:()=>boolean;
 };
 const inFlight=new Set<string>();
+// A switch flipped while a cloud request is in flight must be reconciled
+// immediately after that request settles; the ordinary 30-minute poll is too late.
+const startedMode=new Map<string,boolean>();
+const reconcileAfterFlight=new Set<string>();
+const finishFlight=(charId:string)=>{
+  inFlight.delete(charId);
+  startedMode.delete(charId);
+  if(reconcileAfterFlight.delete(charId) && typeof window!=='undefined'){
+    window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
+  }
+};
 const recentFailure=new Map<string,number>();
 /** Only an explicit user action (e.g. enabling 2.0/granting Push permission)
  * removes the transient 60s retry backoff; automatic polling keeps it.
@@ -90,7 +101,14 @@ export function allowImmediateAutonomyWakeRetry(charId:string):void {
 /** Works for characters enabled days ago: called when their chat opens.
  * Backend tasks are daily recurring, not consumed one-shot alarms. */
 export async function ensureAutonomyWakes(args:Args):Promise<void>{
-  return void await withAutonomyWakeLock(args.char?.id||'',()=>ensureAutonomyWakesUnlocked(args));
+  const id=args.char?.id||'';
+  // In older WebViews with no Web Locks, a concurrent request would be
+  // dropped. Record only real mode changes, not ordinary duplicate polls.
+  if(inFlight.has(id)){
+    if(startedMode.get(id)!==isRealPersonModeEnabled())reconcileAfterFlight.add(id);
+    return;
+  }
+  return void await withAutonomyWakeLock(id,()=>ensureAutonomyWakesUnlocked(args));
 }
 async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
   const {char}=args;
@@ -100,6 +118,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
   // This runs before retry backoff, so disabling is never held up by a failed setup.
   if(!isRealPersonModeEnabled()){
     inFlight.add(char.id);
+    startedMode.set(char.id,false);
     try {
       // First commit the stop signal to the cloud gate, then cancel the actual
       // recurring jobs. Even a failed cancellation must not generate a new reply.
@@ -126,7 +145,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
       args.onSave(prev=>({...prev||{enabled:true},
         lastError:'真人感关闭同步失败：'+detail}));
       console.warn('[amsg2] 真人感关闭时云端自主联系清理失败',e);
-    }finally{inFlight.delete(char.id)}
+    }finally{finishFlight(char.id)}
     return;
   }
   if(Date.now()-(recentFailure.get(char.id)??0)<60000)return;
@@ -134,6 +153,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
   // A saved recurring task can silently fail or disappear in the cloud.
   // Never trust "two local rows" as proof that automation is healthy.
   inFlight.add(char.id);
+  startedMode.set(char.id,true);
   try{
     const g=await ActiveMsgClient.getGlobalConfig();
     if(!isRealPersonModeEnabled())return;
@@ -318,7 +338,7 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
         },apiConfig:args.apiConfig,userProfile:args.userProfile,
         groups:args.groups,realtimeConfig:args.realtimeConfig,
       });
-      if(args.isEnabledNow?.()===false){
+      if(args.isEnabledNow?.()===false||!isRealPersonModeEnabled()){
         // User disabled background autonomy while scheduling was in flight.
         // Roll back this newly-created cloud task instead of leaving a
         // billable orphan which the disabled UI will never show.
@@ -356,5 +376,5 @@ async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
       ...(prev||{enabled:true}),lastError:'自主联系建立失败：'+detail,
     }));
     console.warn('[amsg2] 自主联系机会建立失败，下次进入聊天自动重试',e);
-  }finally{inFlight.delete(char.id)}
+  }finally{finishFlight(char.id)}
 }
