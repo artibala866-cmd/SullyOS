@@ -422,10 +422,11 @@ describe('一起听提示词与卡片提交链路的统一防回归', () => {
     expect(prompts).toContain('if (userListeningContext && !invitationPending');
     expect(prompts).toContain('不能只说“同意了”');
   });
-  it('主动消息模板保留邀请能力，worker 按原指令产生实际卡片', () => {
+  it('自主联系不注入音乐邀请，正常私聊与原有音乐动作提交仍可用', () => {
     const prompts = readFileSync(new URL('./chatPrompts.ts', import.meta.url), 'utf8');
-    expect(prompts).toContain('if (forFirePack && promptOptions?.appRules === undefined)');
+    expect(prompts).toContain('if (!forFirePack) try {');
     expect(prompts).toContain('[[MUSIC_ACTION:invite]]');
+    expect(prompts).not.toContain('【主动一起听邀请】');
     const runtime = readFileSync(new URL('./activeMsgRuntime.ts', import.meta.url), 'utf8');
     expect(runtime).toContain('const musicHooks = loadMusicHooks();');
     expect(runtime).toContain("replayedDirectives.some(d => d.type === 'music_action')");
