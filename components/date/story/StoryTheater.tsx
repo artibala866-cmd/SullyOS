@@ -155,13 +155,9 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 : current.characterIds;
             const remainingActors = characters.filter(char => characterIds.includes(char.id) || (selection.type === 'character' && selection.id === char.id));
             const validBookIds = new Set(dedupeTheaterWorldbooks(remainingActors).map(book => book.id));
-            const characterMemoryDates = { ...current.characterMemoryDates };
+
             const characterContextLimits = { ...current.characterContextLimits };
             if (selection.type === 'character') {
-                if (!characterMemoryDates[selection.id]) {
-                    const now = new Date();
-                    characterMemoryDates[selection.id] = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-                }
                 if (characterContextLimits[selection.id] === undefined) characterContextLimits[selection.id] = 100;
             }
             return {
@@ -171,7 +167,6 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 selectedWorldbookIds: Array.from(new Set([...current.selectedWorldbookIds.filter(id => validBookIds.has(id)),
                     ...(selection.type === 'character' && (current.mask?.type !== 'character' || current.mask.id !== selection.id)
                         ? (characters.find(char => char.id === selection.id)?.mountedWorldbooks || []).map(book => book.id) : [])])), 
-                characterMemoryDates,
                 characterContextLimits,
                 updatedAt: Date.now(),
             };
@@ -278,9 +273,10 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         </main>
         {deletingEntry && <div className='fixed inset-0 z-[95] flex items-end justify-center overflow-y-auto overscroll-contain bg-slate-950/35' onClick={() => !deletingStory && setDeletingEntry(null)} role='presentation'>
             <div className='story-safe-sheet w-full sm:max-w-sm rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()} role='dialog' aria-modal='true' aria-labelledby='delete-story-title'>
-                <div className='flex items-start gap-4'><div className='min-w-0 flex-1'><div className='text-[9px] uppercase tracking-[.2em] font-bold text-rose-500'>Delete theater</div><h2 id='delete-story-title' className='mt-1 text-lg font-semibold'>删除整个剧情？</h2></div><button disabled={deletingStory} onClick={() => setDeletingEntry(null)} className='w-9 h-9 shrink-0 rounded-full bg-white border border-slate-200 grid place-items-center text-slate-400 disabled:opacity-30' aria-label='关闭删除确认'><X size={16} /></button></div>
-                <p className='mt-4 text-[11px] leading-6 text-slate-600'>「{deletingEntry.title}」的楼层、事件盒、关系备注和本剧情独立向量会一起删除。</p>
-                {deletingEntry.writesToCharacterMemory && <p className='mt-2 text-[10px] leading-5 text-amber-700'>角色侧仍能定位到的剧情镜像也会删除；已经被记忆宫殿总结成长期记忆的内容不会反向改写。</p>}
+                <div className='flex items-start gap-4'><div className='min-w-0 flex-1'><div className='text-[9px] uppercase tracking-[.2em] font-bold text-rose-500'>删除确认</div><h2 id='delete-story-title' className='mt-1 text-lg font-semibold'>删除整个剧情？</h2></div><button disabled={deletingStory} onClick={() => setDeletingEntry(null)} className='w-9 h-9 shrink-0 rounded-full bg-white border border-slate-200 grid place-items-center text-slate-400 disabled:opacity-30' aria-label='关闭删除确认'><X size={16} /></button></div>
+                <p className='mt-4 text-[11px] leading-6 text-slate-600'>「{deletingEntry.title}」的楼层、事件盒、关系备注和本剧情专属记忆会一起删除。</p>
+                {deletingEntry.writesToCharacterMemory && <p className='mt-2 text-[10px] leading-5 text-amber-700'>同步到角色聊天记录里的剧情陪伴记录也会删除；已经被记忆宫殿总结成长期记忆的内容不会受影响。</p>}
+                {deletingEntry.archives.some(archive => Object.keys(archive.memoryConversions || {}).length > 0) && <p className='mt-2 text-[10px] leading-5 text-amber-700'>已通过事件盒手动转入记忆宫殿或神经链接的记忆会保留，可到对应角色的记忆页面管理。</p>}
                 <p className='mt-2 text-[10px] leading-5 text-slate-400'>其它剧情、普通聊天与角色原有向量记忆不会受影响。删除后无法恢复。</p>
                 <div className='mt-5 grid grid-cols-2 gap-3'><button disabled={deletingStory} onClick={() => setDeletingEntry(null)} className='h-12 rounded-2xl border border-slate-200 bg-white text-xs font-bold text-slate-600 disabled:opacity-30'>取消</button><button disabled={deletingStory} onClick={() => void confirmDeleteEntry()} className='h-12 rounded-2xl bg-rose-600 text-white text-xs font-bold disabled:opacity-40'>{deletingStory ? <SpinnerGap size={17} className='mx-auto animate-spin' /> : '删除整个剧情'}</button></div>
             </div>
