@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, isRejectedPrivateMessage, privateChatBlockDirection, privateChatDeliveryFailure, userBlockedCharacterAt } from './chatBlock';
+import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, isRejectedPrivateMessage, privateChatBlockDirection, privateChatDeliveryFailure, userBlockedCharacterAt, didCharReplyFailDuringGeneration } from './chatBlock';
 describe('original two-way private chat blocking framework', () => {
   it('legacy character starts open', () => {
     expect(isPrivateChatBlocked()).toBe(false);
@@ -55,6 +55,12 @@ describe('original two-way private chat blocking framework', () => {
     expect(userBlockedCharacterAt(unblocked, 120)).toBe(true);
     expect(userBlockedCharacterAt(unblocked, 220)).toBe(false);
     expect(privateChatDeliveryFailure({role:'assistant', metadata:{chatBlockSendFailed:true}} as any)).toBe('char-send-failed');
+  });
+  it('角色回复跨过拉黑解除/重拉黑时仍保留发送失败标记', () => {
+    expect(didCharReplyFailDuringGeneration(true, false)).toBe(true);
+    expect(didCharReplyFailDuringGeneration(false, true)).toBe(true);
+    expect(didCharReplyFailDuringGeneration(true, true)).toBe(true);
+    expect(didCharReplyFailDuringGeneration(false, false)).toBe(false);
   });
   it('events bounded; relationship history persists through unlocks', () => {
     let state = undefined as ReturnType<typeof changeChatBlock> | undefined;
