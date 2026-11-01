@@ -114,6 +114,30 @@ const STORY_THEME_CSS = `
 .story-theme .bg-slate-50, .story-theme .bg-slate-100 { background-color: var(--story-surface) !important; }
 .story-theme .bg-slate-200 { background-color: var(--story-soft) !important; }
 .story-theme .bg-slate-900 { background-color: var(--story-ink) !important; color: var(--story-bg) !important; }
+/* Editor-only dark palette: remove the glaring near-white action buttons and memory notice.
+   The ordinary story theme and all light-mode panels keep their existing colors. */
+.story-theme.story-theme-dark .story-setup-save {
+  background-color: #424242 !important;
+  color: #f0f0f0 !important;
+  border: 1px solid #555555;
+}
+.story-theme.story-theme-dark .story-setup-save:active {
+  background-color: #505050 !important;
+}
+.story-theme.story-theme-dark .story-memory-live-card {
+  background-color: #303030 !important;
+  color: #e8e8e8 !important;
+  border-color: #494949 !important;
+}
+.story-theme.story-theme-dark .story-memory-live-card .text-amber-800 {
+  color: #efefef !important;
+}
+.story-theme.story-theme-dark .story-memory-live-card .text-amber-700 {
+  color: #c9c9c9 !important;
+}
+.story-theme.story-theme-dark .story-memory-live-card .border-amber-200 {
+  border-color: #505050 !important;
+}
 .story-theme .text-slate-900, .story-theme .text-slate-800, .story-theme .text-slate-700, .story-theme .text-slate-600 { color: var(--story-ink) !important; }
 .story-theme .text-slate-500, .story-theme .text-slate-400 { color: var(--story-muted) !important; }
 .story-theme .text-slate-300 { color: var(--story-faint) !important; }
