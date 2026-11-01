@@ -58,7 +58,8 @@ const isUserSpeech = (m: ConversationMessage): boolean =>
 const isRealAnswer = (m: ConversationMessage): boolean =>
   m.role === 'assistant' && m.type !== 'system' && m.metadata?.activeMsg2?.taskId == null &&
   !m.metadata?.homeSceneRecord && !m.metadata?.musicListenInvite &&
-  !m.metadata?.musicListenInviteResponseTo;
+  !m.metadata?.musicListenInviteResponseTo && !m.metadata?.historyImported &&
+  !m.metadata?.importedFrom;
 const isValidAt = (at: unknown, now: number): at is number =>
   typeof at === 'number' && Number.isFinite(at) && at > 0 && at <= now;
 
