@@ -2,6 +2,7 @@
 import React from 'react';
 import { OSProvider } from './context/OSContext';
 import { MusicProvider } from './context/MusicContext';
+import MusicInviteReplyBridge from './components/music/MusicInviteReplyBridge';
 import PhoneShell from './components/PhoneShell';
 import BuildBadge from './components/BuildBadge';
 import DevDebugPanel from './components/DevDebugPanel';
@@ -38,6 +39,7 @@ const App: React.FC = () => {
         >
           <OSProvider>
             <MusicProvider>
+              <MusicInviteReplyBridge />
               <PhoneShell />
             </MusicProvider>
             {/* 挂在 Provider 里面才能直接读 characters（省掉轮询 IndexedDB），
