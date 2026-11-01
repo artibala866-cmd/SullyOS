@@ -3,6 +3,8 @@ import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import ChatBlockModal from '../components/chat/ChatBlockModal';
 import ChatBlockDeliveryStatus from '../components/chat/ChatBlockDeliveryStatus';
+import MessageItem from '../components/chat/MessageItem';
+import type { ChatTheme } from '../types';
 import { changeChatBlock, configureCharacterBlocking, characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
 import type { ChatBlockState, Message } from '../types';
 
@@ -11,6 +13,20 @@ const root = createRoot(host);
 let state: ChatBlockState | undefined;
 const message = (role: Message['role'], metadata?: Message['metadata']) => ({ role, metadata } as Message);
 let closed = 0;
+const transparentAvatar = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+const theme = { user: {}, ai: {} } as ChatTheme;
+const realMessage = (role: Message['role'], id: number, failed = false): Message => ({
+  id, charId: 'c1', role, type: 'text', timestamp: 1730500000000 + id,
+  content: role === 'user' ? '用户拉黑后仍然能够发消息' : '角色看到了，但认为自己的消息没送达',
+  metadata: failed ? (role === 'user' ? { chatBlockRejected: true } : { chatBlockSendFailed: true }) : {},
+} as Message);
+const realItem = (role: Message['role'], id: number, failed = false) => React.createElement(MessageItem, {
+  msg: realMessage(role, id, failed), activeTheme: theme,
+  isFirstInGroup: true, isLastInGroup: true,
+  charName: '陈苍琛', charAvatar: transparentAvatar, userAvatar: transparentAvatar,
+  onLongPress: () => {}, onReply: () => {}, selectionMode: false,
+  isSelected: false, onToggleSelect: () => {}, showTimestamp: 'never',
+});
 
 const chatPreview = React.createElement('div', {
   className: 'mx-auto max-w-md space-y-4 px-5 pt-16', id: 'delivery-visual',
@@ -27,6 +43,11 @@ const chatPreview = React.createElement('div', {
     React.createElement(ChatBlockDeliveryStatus, {message:message('user',{chatBlockRejected:true})})),
 ]);
 const render = () => flushSync(() => root.render(React.createElement(React.Fragment, null,
+  React.createElement('div', {id: 'real-message-render', key: 'real', className: 'mx-auto max-w-md mt-6'}, [
+    React.createElement('div',{id: 'real-user-normal',key:'user'},realItem('user',501,false)),
+    React.createElement('div',{id: 'real-char-failed',key:'char'},realItem('assistant',502,true)),
+    React.createElement('div',{id: 'real-user-rejected',key:'rejected'},realItem('user',503,true)),
+  ]),
   chatPreview,
   React.createElement(ChatBlockModal, {
     characterName:'陈苍琛', state, onClose:()=>{closed++},
@@ -43,6 +64,10 @@ try {
   const initial=!!first && !!find('拉黑角色') && first.textContent!.includes('拉黑对方')
     && !first.textContent!.includes('你拉黑了') && !first.textContent!.includes('拉黑了你');
   const indicator=document.querySelector<HTMLElement>('#blocked-char-reply [aria-label="消息发送失败"]');
+  const integrated=!!document.querySelector('#real-char-failed .sully-chat-block-failed[data-chat-block-delivery="char-send-failed"]')
+    && !!document.querySelector('#real-user-rejected .sully-chat-block-failed[data-chat-block-delivery="user-rejected"]')
+    && !document.querySelector('#real-user-normal .sully-chat-block-failed')
+    && document.querySelectorAll('#real-char-failed .sully-chat-block-failed').length === 1;
   // Chrome 156 会把 Tailwind 颜色保留为 oklch()/color(srgb)，
   // 不能用 rgb() 文本解析；由浏览器画进 1x1 canvas 后读取实际 sRGB 颜色。
   const readColor=(element:Element | null):number[]=>{
@@ -82,7 +107,7 @@ try {
   render();
   const closedDetails=document.querySelector<HTMLDetailsElement>('details');
   if(closedDetails) closedDetails.open=false;
-  const report={initial,deliveryDirection,confirmed,separate,shown,lightSurface,independent,hiddenCharacterBlock,closed,
+  const report={initial,deliveryDirection,integrated,confirmed,separate,shown,lightSurface,independent,hiddenCharacterBlock,closed,
     debugColors:{
       redCss:indicator ? getComputedStyle(indicator).backgroundColor : '',
       sampleRed:[red,green,blue,redAlpha],
