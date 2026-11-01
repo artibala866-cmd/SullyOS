@@ -46,6 +46,7 @@ const messagesFor = (groupId: string, count = 510): Message[] =>
 
 describe('群聊与个人记忆宫殿双向归档', () => {
     beforeEach(() => {
+        vi.restoreAllMocks();
         localStorage.clear();
         vi.clearAllMocks();
         vi.mocked(upsertVector).mockResolvedValue(true);
@@ -121,6 +122,35 @@ describe('群聊与个人记忆宫殿双向归档', () => {
         expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBeGreaterThan(0);
         expect(vi.mocked(upsertVector).mock.calls.length).toBeGreaterThanOrEqual(3);
         expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
+    });
+
+    it('旧群已有共享进度时，新成员仍能补录旧群记忆而不让老成员重复写入', async () => {
+        const { group, a, b } = await makeGroup();
+        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        const initial = await processGroupNewMessages(group, [a, b], '用户');
+        expect(initial?.stored).toBe(2);
+        const originalCursor = getGroupMemoryPalaceHighWaterMark(group.id);
+        const newcomer = { ...a, id: group.id + '-newcomer', name: '新成员' } as CharacterProfile;
+        await DB.saveCharacter(newcomer);
+        const updated = { ...group, members: [...group.members, newcomer.id] };
+        await DB.saveGroup(updated);
+        const replay = await processGroupNewMessages(updated, [a, b, newcomer], '用户');
+        expect(replay?.stored).toBe(1);
+        expect((await MemoryNodeDB.getByCharId(newcomer.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
+        expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
+        expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBe(originalCursor);
+    });
+
+    it('不同群中内容相似也必须各自有可追溯记忆，不能跨群误去重', async () => {
+        const { group, a, b } = await makeGroup();
+        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        await processGroupNewMessages(group, [a, b], '用户');
+        const another: GroupProfile = { ...group, id: group.id + '-another', name: '另一群' };
+        await DB.saveGroup(another);
+        const result = await processGroupNewMessages(another, [a, b], '用户');
+        expect(result?.stored).toBe(2);
+        expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
+        expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === another.id)).toHaveLength(1);
     });
 
     it('本群撤销私聊互通后不写入个人记忆', async () => {
