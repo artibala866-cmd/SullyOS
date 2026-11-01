@@ -60,6 +60,7 @@ async function capture(name,width,height){
   writeFileSync(target,bytes);
   console.log('STUDY_BROWSER_SCREENSHOT='+name+':'+bytes.length+':'+target);
   if(name==='mobile-390')console.log('STUDY_MOBILE_SCREENSHOT_BASE64='+shot.data);
+  if(name==='study-mobile-390')console.log('STUDY_ROOM_SCREENSHOT_BASE64='+shot.data);
   return bytes.length;
 }
 try{
@@ -91,7 +92,25 @@ try{
     console.log('STUDY_BROWSER_ONBOARDING_'+name+'='+didClick);
     if(didClick)await sleep(2200);
   }
+  const closeNavIntro=await evaluate(`(()=>{
+    const buttons=[...document.querySelectorAll('button')];
+    const intro=buttons.find(x=>(x.textContent||'').trim()==='知道了'&&!x.disabled);
+    if(!intro)return false;intro.click();return true;
+  })()`);
+  console.log('STUDY_BROWSER_NAV_INTRO_CLOSED='+closeNavIntro);
+  if(closeNavIntro)await sleep(1200);
+  const returnedHome=await evaluate(`(()=>{
+    const header=[...document.querySelectorAll('h1')].find(h=>(h.textContent||'').trim()==='系统设置');
+    const back=header?.parentElement?.querySelector('button');
+    if(!back)return false;back.click();return true;
+  })()`);
+  console.log('STUDY_BROWSER_RETURNED_HOME='+returnedHome);
+  if(returnedHome)await sleep(2200);
   const home=await inspect('HOME');
+  if(home.links.some(x=>x==='自习室')){
+    console.error('VISUAL_BLOCKER: duplicate home self-study launcher icon still visible');
+    process.exitCode=1;
+  }
   const size=await capture('mobile-390',390,844);
   if(!home.text.trim()||home.text.includes('TAP TO UNLOCK')||size<4500){
     console.error('VISUAL_BLOCKER: built app did not reach an unlocked home screen');
