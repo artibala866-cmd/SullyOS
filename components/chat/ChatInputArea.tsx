@@ -117,6 +117,7 @@ interface ChatInputAreaProps {
     // Proactive messaging
     isProactiveActive?: boolean;
     lifePacingEnabled?: boolean;
+    lifePacingActive?: boolean;
     // 麦当劳 MCP
     mcdConfigured?: boolean;   // 设置里 token 已填且启用
     mcdActivated?: boolean;    // 当前会话已发"麦请求"
@@ -150,7 +151,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     categories = [], activeCategory = 'default',
     onReroll, canReroll,
     isProactiveActive,
-    lifePacingEnabled,
+    lifePacingEnabled, lifePacingActive,
     mcdConfigured = false,
     mcdActivated = false,
     luckinConfigured = false,
@@ -666,11 +667,11 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             </div>}
             <span className="text-xs font-bold">日程</span>
         </button>,
-        <button key="life-pacing" title="仅调整已开启的自动回复节奏，不会单独触发回复；主动消息使用 AMSG 2.0" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+        <button key="life-pacing" title="真人感负责角色生活与自然联系判断，只有同时开启主动消息 2.0 才能自主联系；发送后自动回复仍有独立设置" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${lifePacingEnabled ? 'bg-slate-100 text-[#737373] border-slate-300' : 'bg-white text-[#737373] border-slate-200'}`}>
                 <svg width="26" height="26" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="14" cy="14" r="9"/><path d="M10 11c1-1.5 2.4-1.5 3.5 0M18 11c-1-1.5-2.4-1.5-3.5 0M10 17c2.5 3 5.5 3 8 0"/></svg>
             </div>
-            <span className="text-xs font-bold">真人感 · {lifePacingEnabled ? '开' : '关'}</span>
+            <span className="text-xs font-bold">真人感 · {lifePacingEnabled ? (lifePacingActive ? '运行' : '待启动') : '关'}</span>
         </button>,
         <button key="active-msg-2" onClick={() => onPanelAction('active-msg-2')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
             {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
