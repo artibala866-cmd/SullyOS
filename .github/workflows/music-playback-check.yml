@@ -65,6 +65,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Test music queue, audio events, URLs and invitations
         run: pnpm exec vitest run utils/musicPlaybackState.test.ts utils/charMusicPlaylist.test.ts utils/musicUI.wiring.test.ts utils/musicSourceHealth.test.ts utils/musicCache.race.test.ts utils/musicTogether.test.ts utils/musicTogetherSheet.test.ts utils/musicLibrary.test.ts utils/musicInviteStatus.test.ts utils/musicInviteImmediate.test.tsx utils/musicSessionLifecycle.test.ts utils/chatRequestPayload.trackSwitch.test.ts worker/amsg/src/classifier.test.ts
+      - name: Compile the actual app and Worker with immediate music invitation bridge
+        run: pnpm run build
       - name: Check music TypeScript diagnostics
         shell: bash
         run: |
