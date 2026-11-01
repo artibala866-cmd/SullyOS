@@ -1670,7 +1670,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
 
         const imageChatContext = type === 'image'
-            ? messages.slice(-10).map(m => {
+            ? messages.filter(m => !isRejectedPrivateMessage(m)).slice(-10).map(m => {
                 const sender = m.role === 'user' ? userProfile.name : char.name;
                 const isMedia = m.type === 'image' || m.type === 'emoji' || isImageValue(m.content);
                 const preview = isMedia
