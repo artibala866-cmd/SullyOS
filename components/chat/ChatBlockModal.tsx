@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import type { ChatBlockState } from '../../types';
-import { allowsCharacterToBlock, characterBlocksUser, userBlocksCharacter } from '../../utils/chatBlock';
-import { forgivenessCooldownRemaining } from '../../utils/chatBlockAI';
+import { allowsCharacterToBlock, userBlocksCharacter } from '../../utils/chatBlock';
 
 export interface ChatBlockModalProps {
   characterName: string;
@@ -11,15 +10,10 @@ export interface ChatBlockModalProps {
   onSetCharacterAllowed: (allowed: boolean) => void;
 }
 
-/** 仅是糯叽机两方向独立状态的设置入口；尚未实现 AI 剧情判定时不伪造角色自主决定。 */
+/** 只展示用户自己的拉黑操作，绝不暴露角色是否偷偷拉黑用户。 */
 const ChatBlockModal: React.FC<ChatBlockModalProps> = ({ characterName, state, onClose, onSetUserBlock, onSetCharacterAllowed }) => {
   const [confirming, setConfirming] = useState(false);
   const userBlocked = userBlocksCharacter(state);
-  const charBlocked = characterBlocksUser(state);
-  const formattedAt = (at?: number) => typeof at === 'number' && Number.isFinite(at) && at > 0
-    ? new Date(at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    : '';
-  const recentEvent = state?.history?.[state.history.length - 1];
   return (
     <div className="fixed inset-0 z-[280] flex items-end sm:items-center justify-center bg-black/40 px-3 pb-[max(12px,env(safe-area-inset-bottom))]"
       role="presentation" onClick={onClose}>
@@ -31,51 +25,31 @@ const ChatBlockModal: React.FC<ChatBlockModalProps> = ({ characterName, state, o
             className="rounded-full px-2 py-1 text-lg text-neutral-500">×</button>
         </div>
         <p className="mt-1 text-xs leading-5 text-neutral-500">与 {characterName} 的私聊关系</p>
-        <div className="mt-4 space-y-3">
-          <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
-            <div>
-              <div className="text-sm font-medium">你拉黑了 {characterName}</div>
-              <p className="mt-1 text-xs text-neutral-500">{userBlocked ? `已拉黑 · ${formattedAt(state?.userBlockedAt)}` : '未拉黑'}</p>
-            </div>
-            <button type="button" aria-label={userBlocked ? '解除拉黑角色' : '拉黑角色'}
-              onClick={() => userBlocked ? onSetUserBlock(false) : setConfirming(true)}
-              className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-700">
-              {userBlocked ? '解除拉黑' : '拉黑'}
-            </button>
+        <div className="mt-4 flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
+          <div>
+            <div className="text-sm font-medium">{userBlocked ? '解除拉黑' : '拉黑对方'}</div>
+            <p className="mt-1 text-xs text-neutral-500">{characterName}</p>
           </div>
-          <div className="rounded-2xl border border-neutral-200 bg-white p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{characterName} 拉黑了你</span>
-              <span className="text-xs text-neutral-500">{charBlocked ? `已拉黑 · ${formattedAt(state?.characterBlockedAt)}` : '未拉黑'}</span>
-            </div>
-            <label className="mt-3 flex items-center justify-between gap-3 text-xs text-neutral-600">
-              <span>允许角色自主拉黑我</span>
-              <input type="checkbox" aria-label="允许角色自主拉黑我"
-                checked={allowsCharacterToBlock(state)}
-                onChange={e => onSetCharacterAllowed(e.target.checked)}
-                className="h-4 w-4 accent-neutral-700"/>
-            </label>
-            <p className="mt-2 text-[11px] leading-4 text-neutral-400">
-              两个方向独立保存。角色可自主判断拉黑或解除拉黑；AI 键求原谅判定后有 30 分钟冷却。关闭此权限仅解除角色对你的拉黑。
-            </p>
-            {charBlocked && forgivenessCooldownRemaining(state) > 0 && (
-              <p className="mt-1 text-[11px] text-neutral-500">约 {Math.ceil(forgivenessCooldownRemaining(state) / 60_000)} 分钟后可再次请求</p>
-            )}
-            {charBlocked && state?.lastForgivenessSign && (
-              <p className="mt-1 text-xs text-neutral-500">最近一次判断：{state.lastForgivenessSign}</p>
-            )}
-          </div>
+          <button type="button" aria-label={userBlocked ? '解除拉黑角色' : '拉黑角色'}
+            onClick={() => userBlocked ? onSetUserBlock(false) : setConfirming(true)}
+            className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-700">
+            {userBlocked ? '解除拉黑' : '拉黑'}
+          </button>
         </div>
-        {recentEvent && (
-          <p className="mt-3 text-[11px] leading-4 text-neutral-400">
-            最近一次状态变化：{recentEvent.actor === 'user' ? '你' : characterName}
-            {recentEvent.action === 'block' ? '拉黑' : '解除拉黑'} · {formattedAt(recentEvent.at)}
-          </p>
-        )}
+        <details className="mt-3 rounded-xl border border-neutral-100 px-3 py-2 text-xs text-neutral-500">
+          <summary className="cursor-pointer select-none">角色行为权限</summary>
+          <label className="mt-3 flex items-center justify-between gap-3 text-xs text-neutral-600">
+            <span>允许角色自主决定是否拉黑</span>
+            <input type="checkbox" aria-label="允许角色自主拉黑我"
+              checked={allowsCharacterToBlock(state)}
+              onChange={e => onSetCharacterAllowed(e.target.checked)}
+              className="h-4 w-4 accent-neutral-700"/>
+          </label>
+        </details>
         {confirming && (
           <div className="mt-4 rounded-2xl border border-neutral-300 bg-neutral-100 p-3">
             <p className="text-sm font-medium">确定拉黑 {characterName}？</p>
-            <p className="mt-1 text-xs text-neutral-500">聊天记录会保留。可以随时解除拉黑。</p>
+            <p className="mt-1 text-xs text-neutral-500">聊天记录会保留，你仍能发消息。对方的回复会显示发送失败。</p>
             <div className="mt-3 flex justify-end gap-2">
               <button type="button" onClick={() => setConfirming(false)} className="rounded-lg px-3 py-2 text-xs">取消</button>
               <button type="button" onClick={() => { setConfirming(false); onSetUserBlock(true); }}
