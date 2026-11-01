@@ -711,7 +711,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     >
       <div className="space-y-4 text-sm text-slate-600">
         <p className="text-xs leading-relaxed text-slate-500">
-          2.0 是独立的后台主动联系开关，与「真人感自动回复」分开控制（避免偷偷启用额外收费的 API）。两者都开启时，共用真实聊天及角色日程，主动联系不会打断正在进行的私聊；真正送达的消息也会在查手机的私聊中显示。打开后系统会在前台初始化或恢复时自动向已配置且版本匹配的云端 Worker 登记每日联系机会，无须手动新建第一条任务；之后由 Worker 到点判断是否真的联系（可能选择沉默），每次云端生成仍会消耗主 API。真人感主要调整私聊回复节奏；手机内 NPC 社交仍需其独立开关及运行条件，不能把“云端主动联系”当成离线 NPC 手机活动全部完成。
+          真人感管理角色的生活节奏与自然联系判断；主动消息 2.0 是自主联系的总开关。两者都开启时，才会建立每日联系机会；没有具体话题可以保持沉默，不会为凑次数强行聊天。关掉真人感会清理自动联系机会，但不影响明确设置的定时提醒；普通私聊自动接话另由输入设置控制。云端自动生成会使用主 API，手机内 NPC 社交仍由独立开关管理。
         </p>
 
         <div className="flex items-center justify-between bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
