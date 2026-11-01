@@ -3,6 +3,7 @@ import type { CharacterProfile, GroupProfile, Message } from '../../types';
 import { DB } from '../db';
 import { MemoryNodeDB } from './db';
 import { getEmbeddings } from './embedding';
+import { upsertVector } from './supabaseVector';
 import { extractGroupMemoriesFromBuffer } from './groupExtraction';
 import { deleteGroupMemoriesByGroupId, getGroupMemoryPalaceHighWaterMark, processGroupNewMessages } from './groupPipeline';
 
@@ -10,6 +11,10 @@ vi.mock('./embedding', async (importOriginal) => {
     const original = await importOriginal<typeof import('./embedding')>();
     return { ...original, getEmbeddings: vi.fn(async (texts: string[]) => texts.map(() => new Float32Array([1, 0, 0]))) };
 });
+vi.mock('./supabaseVector', () => ({
+    upsertVector: vi.fn(async () => true),
+    deleteVector: vi.fn(async () => true),
+}));
 vi.mock('./groupExtraction', () => ({
     extractGroupMemoriesFromBuffer: vi.fn(async () => ({
         drafts: [{
@@ -43,6 +48,7 @@ describe('群聊与个人记忆宫殿双向归档', () => {
     beforeEach(() => {
         localStorage.clear();
         vi.clearAllMocks();
+        vi.mocked(upsertVector).mockResolvedValue(true);
         localStorage.setItem('os_memory_palace_config', JSON.stringify({
             lightLLM: { baseUrl: 'https://example.invalid/v1', apiKey: 'test', model: 'test' },
             embedding: { baseUrl: 'https://example.invalid/v1', apiKey: 'test', model: 'test', dimensions: 3 },
@@ -93,6 +99,28 @@ describe('群聊与个人记忆宫殿双向归档', () => {
         expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBeGreaterThan(0);
         expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
         expect((await MemoryNodeDB.getByCharId(b.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
+    });
+
+    it('远端同步失败保留水位，下次对本地相同记忆补传云端而不重复存储', async () => {
+        const { group, a, b } = await makeGroup();
+        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        localStorage.setItem('os_remote_vector_config', JSON.stringify({
+            enabled: true, initialized: true, baseUrl: 'https://example.invalid',
+            apiKey: 'test', tableName: 'memory_vectors',
+        }));
+        let firstUpload = true;
+        vi.mocked(upsertVector).mockImplementation(async () => {
+            if (firstUpload) { firstUpload = false; return false; }
+            return true;
+        });
+        const first = await processGroupNewMessages(group, [a, b], '用户');
+        expect(first?.stored).toBe(2);
+        expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBe(0);
+        const retried = await processGroupNewMessages(group, [a, b], '用户');
+        expect(retried?.stored).toBe(0);
+        expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBeGreaterThan(0);
+        expect(vi.mocked(upsertVector).mock.calls.length).toBeGreaterThanOrEqual(3);
+        expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
     });
 
     it('本群撤销私聊互通后不写入个人记忆', async () => {
