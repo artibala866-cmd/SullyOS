@@ -30,6 +30,7 @@ import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP, clampGroupPrivateHistoryLimit } from '../utils/groupChat/timeline';
 import { buildGroupMemberInteractionGuidance } from '../utils/groupChat/interactionAdaptation';
 import { ensureGroupTopicCardsDelivered } from '../utils/groupChat/topicCardSync';
+import { groupMemberContextForSync } from '../utils/groupChat/memberMemoryScope';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
@@ -1247,17 +1248,7 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         const palaceQueryMsgs = liveGroupMsgs.slice(-30).filter(m => !m.type || m.type === 'text');
         // 本群关闭私聊互通时，禁止把旧的个人宫殿召回/私密印象与摘要
         // 经角色核心档案偷偷带入群聊。只修改本轮临时副本，不动角色持久资料。
-        const memberContext = privateSyncOn ? member : {
-            ...member,
-            memories: [],
-            refinedMemories: {},
-            activeMemoryMonths: [],
-            impression: undefined,
-            selfInsights: [],
-            memoryPalaceEnabled: false,
-            memoryPalaceInjection: '',
-            roomPlatesInjection: '',
-        };
+        const memberContext = groupMemberContextForSync(member, privateSyncOn);
         if (privateSyncOn) {
             await injectMemoryPalace(memberContext, palaceQueryMsgs, undefined, userProfile.name);
         }
