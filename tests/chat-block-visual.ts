@@ -36,6 +36,8 @@ const render = () => flushSync(() => root.render(React.createElement(React.Fragm
 )));
 try {
   render();
+  // Tailwind CDN 在 React 首帧之后异步扫描类名；等真实 CSS 注入后再做像素色彩验收。
+  await new Promise<void>(resolve => setTimeout(resolve, 1500));
   const find=(name:string)=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.getAttribute('aria-label')===name);
   const first=document.querySelector('section[role="dialog"]')!;
   const initial=!!first && !!find('拉黑角色') && first.textContent!.includes('拉黑对方')
@@ -80,7 +82,14 @@ try {
   render();
   const closedDetails=document.querySelector<HTMLDetailsElement>('details');
   if(closedDetails) closedDetails.open=false;
-  const report={initial,deliveryDirection,confirmed,separate,shown,lightSurface,independent,hiddenCharacterBlock,closed};
+  const report={initial,deliveryDirection,confirmed,separate,shown,lightSurface,independent,hiddenCharacterBlock,closed,
+    debugColors:{
+      redCss:indicator ? getComputedStyle(indicator).backgroundColor : '',
+      sampleRed:[red,green,blue,redAlpha],
+      surfaceCss:surface?.backgroundColor,
+      sampleSurface:[sr,sg,sb,lightAlpha],
+    },
+  };
   const out=document.createElement('output');out.style.display='none';out.textContent=JSON.stringify(report);host.append(out);
-  host.dataset.blockVisualReady=Object.entries(report).filter(([k])=>k!=='closed').every(([,v])=>v===true)?'true':'false';
+  host.dataset.blockVisualReady=Object.entries(report).filter(([k])=>k!=='closed' && k!=='debugColors').every(([,v])=>v===true)?'true':'false';
 }catch(error){host.dataset.blockVisualReady='false';host.dataset.error=String(error);}
