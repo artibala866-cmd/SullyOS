@@ -42,7 +42,7 @@ try{
   const buttons=[...document.querySelectorAll<HTMLButtonElement>('button')];
   const all3d=scene==='editor'?(text.includes('3D 形象')&&text.includes('造型间')):scene==='source'?text.includes('3D 家园 · Q 版捏人'):text.includes('3D 家园 · Q 版形象');
   const oldAbsent=!['小小窝','特别时光','彼方','520 EVENT','同步到全部'].some(t=>text.includes(t));
-  const correctCount=scene==='source'||(existing?text.includes('1/1 已上架')||scene==='cabinet':text.includes('0/1 已上架')||scene==='cabinet');
+  const correctCount=scene==='source'||scene==='editor'||(existing?text.includes('1/1 已上架')||scene==='cabinet':text.includes('0/1 已上架')||scene==='cabinet');
   const sourceButtons=scene==='editor'||scene!=='source'||(!!buttons.find(b=>b.textContent?.includes('从头捏一个'))&&(!existing||!!buttons.find(b=>b.textContent?.includes('继续编辑当前家园形象'))));
   const noOverflow=document.documentElement.scrollWidth<=innerWidth+2;
   const imageRendered=!existing||scene==='source'||scene==='editor'||images.some(i=>i.src.startsWith('data:image/svg+xml')&&i.complete);
