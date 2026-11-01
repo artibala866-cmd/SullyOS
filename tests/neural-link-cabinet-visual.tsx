@@ -47,9 +47,21 @@ try{
   const noOverflow=document.documentElement.scrollWidth<=innerWidth+2;
   const imageRendered=!existing||scene==='source'||scene==='editor'||images.some(i=>i.src.startsWith('data:image/svg+xml')&&i.complete);
   const uiInteractive=buttons.filter(b=>b.getBoundingClientRect().width>30).length>=1;
-  const editorControls=scene!=='editor'||buttons.some(b=>b.textContent?.includes('完成并保存'));
-  const checks={all3d,oldAbsent,correctCount,sourceButtons,noOverflow,imageRendered,uiInteractive,editorControls};
-  const output=document.createElement('output');output.id='neural-cabinet-visual-checks';output.textContent=JSON.stringify({scene,existing,checks});output.hidden=true;document.body.append(output);
+  const saveButton=buttons.find(b=>b.textContent?.includes('完成并保存'));
+  const editorControls=scene!=='editor'||!!saveButton;
+  const editorReady=scene!=='editor'||(!!saveButton&&!saveButton.disabled&&!text.includes('正在还原 3D 形象'));
+  const frame=document.querySelector<HTMLIFrameElement>('iframe');
+  const diag=scene==='editor'?{
+    readyState:frame?.contentDocument?.readyState,
+    iframeBody:frame?.contentDocument?.body?.textContent?.slice(0,120),
+    frames:document.querySelectorAll('iframe').length,
+    iframeImages:frame?.contentDocument?.querySelectorAll('.character img').length,
+    iframeCharacter:!!frame?.contentDocument?.querySelector('.character'),
+    error:document.body.dataset.error,
+    disabled:saveButton?.disabled,
+  }:undefined;
+  const checks={all3d,oldAbsent,correctCount,sourceButtons,noOverflow,imageRendered,uiInteractive,editorControls,editorReady};
+  const output=document.createElement('output');output.id='neural-cabinet-visual-checks';output.textContent=JSON.stringify({scene,existing,checks,diag});output.hidden=true;document.body.append(output);
   document.body.dataset.figureVisualReady=Object.values(checks).every(Boolean)?'true':'false';
- },scene==='editor'?3500:1000);
+ },scene==='editor'?11000:1000);
 }catch(e){document.body.dataset.figureVisualReady='false';document.body.dataset.error=String(e instanceof Error?e.stack:e);}
