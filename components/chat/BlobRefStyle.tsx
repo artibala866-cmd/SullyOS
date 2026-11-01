@@ -112,14 +112,29 @@ function stripUnrequestedFriendRainSizing(css:string):string {
  }
  return result;
 }
+// Native transfer receipts share icon, amount and status classes with full cards.
+// Restrict only the original full-card section of already-applied Friend Rain CSS;
+// leave artwork, dimensions, user rules and all unrelated themes untouched.
+const FRIEND_RAIN_TRANSFER_BEGIN='/* 源文件黑白转账及确切的原始贴图';
+const FRIEND_RAIN_TRANSFER_END='/* 原文件没有群聊红包专属 CSS';
+const FRIEND_RAIN_CARD_CHILDREN=[".sully-chat-transfer-icon svg",".sully-chat-transfer-icon",".sully-chat-transfer-amount::after",".sully-chat-transfer-amount",".sully-chat-transfer-status"];
+function scopeFriendRainTransferCardCss(css:string):string {
+ const start=css.indexOf(FRIEND_RAIN_TRANSFER_BEGIN);
+ const end=start<0?-1:css.indexOf(FRIEND_RAIN_TRANSFER_END,start);
+ if(start<0||end<0)return css;
+ let cardSection=css.slice(start,end);
+ for(const child of FRIEND_RAIN_CARD_CHILDREN)
+  cardSection=cardSection.replaceAll('.sully-chat-root '+child+'{','.sully-chat-root .sully-chat-transfer-card '+child+'{');
+ return css.slice(0,start)+cardSection+css.slice(end);
+}
 export function resolveLegacyFriendRequestRainCss(css:string):string {
  if(css.includes(FRIEND_RAIN_BAD))return friendRequestRain.parts.css;
  if(!css.includes(FRIEND_RAIN_FIXED))return css;
  const cleaned=stripUnrequestedFriendRainSizing(css);
  const missing=FRIEND_RAIN_PATCHES.find(marker=>!cleaned.includes(marker));
- if(!missing)return cleaned;
- const index=friendRequestRain.parts.css.indexOf(missing);
- return index<0?cleaned:cleaned+'\n'+friendRequestRain.parts.css.slice(index);
+ const index=missing?friendRequestRain.parts.css.indexOf(missing):-1;
+ const upgraded=index<0?cleaned:cleaned+'\n'+friendRequestRain.parts.css.slice(index);
+ return scopeFriendRainTransferCardCss(upgraded);
 }
 
 /** Keep persisted CSS independent of the short-lived browser object URLs. */

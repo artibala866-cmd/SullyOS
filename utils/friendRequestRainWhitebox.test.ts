@@ -61,6 +61,26 @@ describe('Friend Rain whitebox must be based ONLY on uploaded CSS',()=>{
   expect(css).not.toContain('viewBox%3D%220%200%20360%20780%22');
   expect(css).not.toContain('.sully-chat-group-packet{');
  });
+ it('isolates full-card transfer styling from receipts, including older saved whiteboxes',()=>{
+  const css=read().parts.css!;
+  const children=[".sully-chat-transfer-icon svg",".sully-chat-transfer-icon",".sully-chat-transfer-amount::after",".sully-chat-transfer-amount",".sully-chat-transfer-status"];
+  for(const child of children){
+   expect(css).toContain('.sully-chat-root .sully-chat-transfer-card '+child+'{');
+   expect(css).not.toContain('.sully-chat-root '+child+'{');
+  }
+  expect(css).toContain('width:235px!important');
+  expect(css).toContain('height:114px!important');
+  expect(css).toContain('IMG-3703.png');
+  let oldSavedCss=css;
+  for(const child of children)
+   oldSavedCss=oldSavedCss.replace('.sully-chat-root .sully-chat-transfer-card '+child+'{','.sully-chat-root '+child+'{');
+  expect(resolveLegacyFriendRequestRainCss(oldSavedCss)).toBe(css);
+  expect(resolveLegacyFriendRequestRainCss(css)).toBe(css);
+  const userRule='\\n.my-user-receipt{border:2px solid hotpink}';
+  expect(resolveLegacyFriendRequestRainCss(oldSavedCss+userRule)).toBe(css+userRule);
+  expect(resolveLegacyFriendRequestRainCss('.unrelated-theme .sully-chat-transfer-icon{color:red}'))
+   .toBe('.unrelated-theme .sully-chat-transfer-icon{color:red}');
+ });
  it('references only uploaded source images and its text',()=>{
   const css=read().parts.css!;
   const urls=[...css.matchAll(/https?:\/\/[^\s'")]+/g)].map(m=>m[0]);

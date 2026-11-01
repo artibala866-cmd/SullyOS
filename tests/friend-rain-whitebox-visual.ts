@@ -294,6 +294,25 @@ try {
   groupPacket:!!$('group','.sully-chat-group-packet'),
   groupReceipt:!!$('group','.sully-chat-group-packet-receipt'),
   transfer:cssStyle('transfer','.sully-chat-transfer-card').backgroundImage.includes('gradient'),
+  transferReceiptsIntact:['transfer-accepted','transfer-returned'].every(scene=>{
+    const card=$(scene,'.sully-chat-transfer-receipt');
+    const amount=$(scene,'.sully-chat-transfer-receipt .sully-chat-transfer-amount');
+    const status=$(scene,'.sully-chat-transfer-receipt .sully-chat-transfer-status');
+    const icon=$(scene,'.sully-chat-transfer-receipt .sully-chat-transfer-icon');
+    const svg=$(scene,'.sully-chat-transfer-receipt .sully-chat-transfer-icon svg');
+    if(!card||!amount||!status||!icon||!svg)return false;
+    const r=card.getBoundingClientRect(),a=amount.getBoundingClientRect(),s=status.getBoundingClientRect();
+    return getComputedStyle(amount).position!=='absolute'
+      && getComputedStyle(status).position!=='absolute'
+      && getComputedStyle(amount,'::after').content==='none'
+      && getComputedStyle(icon).backgroundImage==='none'
+      && getComputedStyle(svg).display!=='none'
+      && a.width>0 && s.width>0
+      && a.left>=r.left-1 && a.right<=r.right+1
+      && a.top>=r.top-1 && a.bottom<=r.bottom+1
+      && s.top>=r.top-1 && s.bottom<=r.bottom+1;
+  }),
+
   accepted:!!$('transfer-accepted','.sully-chat-transfer-receipt'),
   returned:!!$('transfer-returned','.sully-chat-transfer-receipt'),
   reply:!!$('reply','.sully-chat-reply'),
