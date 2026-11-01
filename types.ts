@@ -2731,6 +2731,12 @@ export interface ChatBlockState {
   lastForgivenessCheckAt?: number;
   /** 原版求原谅判定输出的角色状态，不当作真正送达的聊天消息。 */
   lastForgivenessSign?: string;
+  /** 原版的心软度（0-100），只通过真正成功的 AI 求原谅判断更新。 */
+  forgivenessSoftness?: number;
+  lastForgivenessThought?: string;
+  lastForgivenessStatus?: string;
+  /** 原版未发送草稿仅属于角色内心，不作为聊天消息送达。 */
+  forgivenessDrafts?: Array<{ text: string; at: number }>;
   history?: ChatBlockEvent[];
 }
 
