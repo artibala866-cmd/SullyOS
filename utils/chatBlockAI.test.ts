@@ -48,18 +48,21 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(payload).toContain('我知道');
     expect(payload).toContain('严重不信任');
     expect(payload).not.toContain('拒收内容是秘密');
+    const afterBlock = [{ id: 4, charId: 'c1', role: 'assistant', type: 'text', content: '封锁之后意外的消息', timestamp: 900 } as Message];
+    expect(JSON.stringify(buildForgivenessMessages(character(blocked), '用户', [...rows, ...afterBlock], 1_000)))
+      .not.toContain('封锁之后意外的消息');
     expect(payload).toContain('解除');
   });
   it('30 分钟冷却只限制角色拉黑方向的成功求原谅判断', () => {
     const blocked = changeChatBlock(undefined, 'character', true, { at: 100 });
-    expect(forgivenessCooldownRemaining(blocked, 200)).toBe(0);
+    expect(forgivenessCooldownRemaining(blocked, 200)).toBe(CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS - 100);
     const checked = { ...blocked, lastForgivenessCheckAt: 200 };
     expect(forgivenessCooldownRemaining(checked, 200)).toBe(CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS);
     expect(forgivenessCooldownRemaining(checked, 200 + CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS)).toBe(0);
     const next = changeChatBlock(checked, 'character', false, { at: 300 });
     expect(next.lastForgivenessCheckAt).toBeUndefined();
     const reblocked = changeChatBlock(next, 'character', true, { at: 400, reason: '新一轮冲突' });
-    expect(forgivenessCooldownRemaining(reblocked, 401)).toBe(0);
+    expect(forgivenessCooldownRemaining(reblocked, 401)).toBe(CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS - 1);
   });
   it('没有有效结构化决策时不假装角色拒绝或直接解除拉黑', () => {
     expect(parseForgivenessDecision('{"decision":"unblock","sign":"我愿意再谈谈"}'))
