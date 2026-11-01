@@ -142,6 +142,10 @@ export function parseCommissionPlanReply(
       if (typeof row.remainingMinutes !== 'number' || !Number.isInteger(row.remainingMinutes)
         || row.remainingMinutes<1 || row.remainingMinutes>10080)
         throw new Error('建议的剩余分钟必须在 1～10080 之间');
+      // Stage-specific remaining time is a user-maintained ledger; a total-only
+      // AI suggestion must never make the stage total inconsistent.
+      if(current.phases?.length&&row.remainingMinutes!==current.remainingMinutes)
+        throw new Error('委托含阶段工时，请先由用户逐阶段修改估算');
       ch.remainingMinutes=row.remainingMinutes as number;
     }
     if (row.priority!==undefined) {
@@ -204,6 +208,9 @@ export function projectCommissionPlan(
     commissions:data.commissions.map(c=>{
       const change=changes.get(c.id);
       if (!change) return c;
+      if(c.phases?.length&&change.remainingMinutes!==undefined&&
+        change.remainingMinutes!==c.remainingMinutes)
+        throw new Error('委托含阶段工时，禁止通过总工时建议覆盖阶段账本');
       // Whitelist is explicit; cannot mutate dueDate, status, client, price etc.
       return {
         ...c,

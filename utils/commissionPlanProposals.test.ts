@@ -123,4 +123,24 @@ describe('Char 排单建议必须经过用户逐项确认',()=>{
     expect(()=>parseCommissionPlanReply(JSON.stringify(proposal),collisionReq,collision)).toThrow('冲突');
   });
 
+  it('有阶段账本时 AI 不能擅自改总工时；阶段不存在时老委托仍可修改',()=>{
+    const w=workspace();w.commissions[0].phases=[{
+      id:'line',title:'线稿',state:'active',remainingMinutes:120,bufferMinutes:0,
+    }];
+    const req=request(w);
+    expect(()=>parseCommissionPlanReply(JSON.stringify({
+      changes:[{id:'a',remainingMinutes:160,reason:'重新估算'}],
+    }),req,w)).toThrow('阶段工时');
+    const ok=parseCommissionPlanReply(JSON.stringify({
+      changes:[{id:'a',priority:1,reason:'先做'}],
+    }),req,w);
+    expect(projectCommissionPlan(w,ok,['a'],today).commissions[0].phases?.[0].remainingMinutes).toBe(120);
+    const forged={...ok,changes:[{id:'a',reason:'隐式改写',remainingMinutes:250}]};
+    expect(()=>projectCommissionPlan(w,forged,['a'],today)).toThrow('阶段账本');
+    const legacy=workspace();
+    expect(parseCommissionPlanReply(JSON.stringify({
+      changes:[{id:'a',remainingMinutes:160,reason:'估算'}],
+    }),request(legacy),legacy).changes[0].remainingMinutes).toBe(160);
+  });
+
 });

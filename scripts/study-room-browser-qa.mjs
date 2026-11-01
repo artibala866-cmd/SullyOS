@@ -69,10 +69,19 @@ try{
   await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await cdp('Page.navigate',{url:'http://127.0.0.1:4173/'});
   await sleep(15000);
-  const initial=await inspect('HOME');
+  const initial=await inspect('LOCK');
+  if(initial.text.includes('TAP TO UNLOCK')){
+    const pressed=await evaluate(`(()=>{
+      const element=document.elementFromPoint(195,765);
+      if(!element)return false;element.click();return true;
+    })()`);
+    console.log('STUDY_BROWSER_UNLOCK_CLICKED='+pressed);
+    await sleep(6500);
+  }
+  const home=await inspect('HOME');
   const size=await capture('mobile-390',390,844);
-  if(!initial.text.trim()||size<4500){
-    console.error('VISUAL_BLOCKER: built app rendered no visible content in fresh Chrome profile');
+  if(!home.text.trim()||home.text.includes('TAP TO UNLOCK')||size<4500){
+    console.error('VISUAL_BLOCKER: built app did not reach an unlocked home screen');
     process.exitCode=1;
   }
   const clicked=await evaluate(`(()=>{
@@ -81,6 +90,7 @@ try{
     if(!match)return false;match.click();return true;
   })()`);
   console.log('STUDY_BROWSER_CLICKED_ROOM='+clicked);
+  if(!clicked)console.error('VISUAL_BLOCKER: unlocked launcher has no directly selectable study-room entry');
   if(clicked){
     await sleep(5500);
     const inside=await inspect('STUDY');

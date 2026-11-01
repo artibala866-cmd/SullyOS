@@ -55,11 +55,16 @@ export function proposeCoachSlot(
       kind:'homework' as const,itemId:h.id,due:h.dueAt,
       remaining:unplanned('homework',h.id,h.minutes),phaseId:undefined,
     })),
-    ...data.commissions.filter(c=>c.status==='active'&&c.remainingMinutes>0).map(c=>({
-      kind:'commission' as const,itemId:c.id,due:c.dueDate,
-      remaining:unplanned('commission',c.id,c.remainingMinutes),
-      phaseId:c.phases?.find(p=>(p.state==='active'||p.state==='todo')&&p.remainingMinutes>0)?.id,
-    })),
+    ...data.commissions.filter(c=>c.status==='active'&&c.remainingMinutes>0).map(c=>{
+      const selectedPhase=c.phases?.find(p=>(p.state==='active'||p.state==='todo')&&p.remainingMinutes>0);
+      const phaseBooked=selectedPhase?(data.planSlots||[]).filter(slot=>slot.kind==='commission'
+        &&slot.itemId===c.id&&slot.phaseId===selectedPhase.id&&slot.date>=today&&validPlanSlot(slot))
+        .reduce((sum,slot)=>sum+(timeToMinutes(slot.end)!-timeToMinutes(slot.start)!),0):0;
+      return {kind:'commission' as const,itemId:c.id,due:c.dueDate,
+        remaining:Math.min(unplanned('commission',c.id,c.remainingMinutes),
+          selectedPhase?Math.max(0,selectedPhase.remainingMinutes-phaseBooked):c.remainingMinutes),
+        phaseId:selectedPhase?.id};
+    }),
   ].sort((a,b)=>(dueOf(a.kind,a.due)||'9999').localeCompare(dueOf(b.kind,b.due)||'9999'));
   const windows=(data.availability||[]).filter(w=>validPlanSlot(w)&&w.date>=today&&w.date<=maxDay)
     .sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
