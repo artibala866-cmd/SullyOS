@@ -36,7 +36,7 @@ import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
 import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContinuation';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
-import { isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, changeChatBlock } from '../utils/chatBlock';
+import { isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, changeChatBlock, didCharReplyFailDuringGeneration } from '../utils/chatBlock';
 import { buildCharacterBlockAutonomyInstruction, buildPrivateChatBlockHistoryContext, buildFirstPostUnblockOpeningInstruction, extractCharacterBlockDirective } from '../utils/chatBlockAI';
 import {chatPhonePiggybackPrompt} from '../utils/phoneChatPiggyback';
 import {
@@ -643,6 +643,8 @@ export const useChatAI = ({
             return opts?.automaticUserReply ? 'discard' as const : undefined;
         if (isTyping || !char)
             return (opts?.immediateMusicInvite || opts?.automaticUserReply) ? 'busy' as const : undefined;
+        // 固定本次回复开始时的投递状态。生成中途解除拉黑，也不能把早已认定发送失败的回复改成送达。
+        const userBlockedAtReplyStart = userBlocksCharacter(charRef.current?.chatBlock ?? char.chatBlock);
         const effectiveApi = resolveDialogueApi(apiConfig, char, overrideApiConfig);
         if (!effectiveApi.baseUrl) {
             // Automatic retries must not spam modal alerts when the API is unconfigured.
@@ -2122,7 +2124,9 @@ export const useChatAI = ({
                 skipSecondPassLLM: false,
                 directives: [],
                 // 逐气泡持久化：不会随解封丢失历史感叹号；不影响用户发出的消息。
-                messageSendFailedByUserBlock: userBlocksCharacter(charRef.current?.chatBlock),
+                messageSendFailedByUserBlock: didCharReplyFailDuringGeneration(
+                    userBlockedAtReplyStart, userBlocksCharacter(charRef.current?.chatBlock),
+                ),
             }));
             // 原版 [BLOCK_USER:原因] 是模型的独立行为，不当成聊天气泡。
             // 只有后处理成功、角色权限仍有效且未被另一方向拉黑时才正式保存状态。
