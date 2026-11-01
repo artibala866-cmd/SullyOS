@@ -33,7 +33,11 @@ export interface RealUserMessageLike {
 
 /** 「真实用户消息」定义与 activeMsgClient.buildTimeGapHint 保持一致。 */
 const isRealUserMessage = (m: RealUserMessageLike): boolean =>
-  m.role === 'user' && !(m.metadata as { proactiveHint?: unknown } | null | undefined)?.proactiveHint;
+  m.role === 'user'
+  && !(m.metadata as { proactiveHint?: unknown } | null | undefined)?.proactiveHint
+  // 被角色拉黑时本地保存的拒收消息，并非角色真正收到的用户回复。
+  // 不能重置 AMSG 离线时差/未回复计数，解除拉黑后也不能补读。
+  && (m.metadata as { chatBlockRejected?: unknown } | null | undefined)?.chatBlockRejected !== true;
 
 export function getLastRealUserMessageAt(messages: RealUserMessageLike[]): number | null {
   for (let i = messages.length - 1; i >= 0; i--) {
