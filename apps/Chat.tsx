@@ -1,6 +1,7 @@
 import '../components/chat/WeixinOriginalAssets.css';
 import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
+import { resolveRealPersonAttention } from '../utils/realPersonReplyRhythm';
 import { findPendingUserTurn } from '../utils/chatContinuation';
 import { isRealPersonModeEnabled, setRealPersonModeEnabled, shouldAutoReplyToUser } from '../utils/realPersonMode';
 import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
@@ -3995,6 +3996,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         !m.metadata?.musicListenInviteResponseTo &&
         !m.metadata?.musicListenInvite &&
         Number(m.timestamp) > 0)?.timestamp ?? 0;
+    // Use the canonical chat's last real answered exchange as attention evidence;
+    // a hypothetical incoming user turn lets the pre-send callback decide before DB save.
+    const attentionNow = Date.now();
+    const replyAttention = resolveRealPersonAttention(
+        [...messages, { role:'user', type:'text', timestamp:attentionNow }], attentionNow, lifeActivity);
     const schedulePresence = resolveSchedulePresence(lifeActivity, latestAnsweredAt);
     const showSchedulePresence = lifePacing && lifeActivity !== null;
     const autoReply = useChatAutoReply({
@@ -4004,6 +4010,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         naturalPacing: lifePacing,
         lifeActivity,
         lastCharacterReplyAt: latestAnsweredAt,
+        replyAttention,
+        replyRhythm: char?.realPersonReplyRhythm,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
         // Hydrated intent must not fire before the persisted chat tail finishes loading.
@@ -4364,6 +4372,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 settingsContextRangeMode={settingsContextRangeMode} setSettingsContextRangeMode={setSettingsContextRangeMode}
                 settingsHideSysLogs={settingsHideSysLogs} setSettingsHideSysLogs={setSettingsHideSysLogs}
                 settingsInputPreferences={settingsInputPreferences} setSettingsInputPreferences={setSettingsInputPreferences}
+                onUpdateRealPersonReplyRhythm={rhythm => updateCharacter(char.id, {realPersonReplyRhythm: rhythm})}
                 contextSuiteAnyEnabled={contextSuiteAnyEnabled}
                 contextSuiteAllEnabled={contextSuiteAllEnabled}
                 onToggleContextSuite={handleToggleContextSuite}
@@ -4963,7 +4972,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onGenerate={handleManualTrigger}
                     sendButtonGenerates={inputPreferences.sendButtonGenerates}
                     enterToSend={inputPreferences.enterToSend}
-                    autoReplyEnabled={inputPreferences.autoReply}
+                    autoReplyEnabled={shouldAutoReplyToUser(lifePacing, inputPreferences.autoReply)}
                     onInputFocusChange={setIsInputFocused}
                     onDeleteSelected={handleBatchDelete}
                     onForwardSelected={handleForwardSelected}
