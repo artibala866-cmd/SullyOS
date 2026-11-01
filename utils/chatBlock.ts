@@ -38,6 +38,8 @@ export function changeChatBlock(
     ...(opts.source ? { source: opts.source } : {}),
   };
   return { ...old, [key]: blocked ? at : undefined,
+    // 新一次角色拉黑必须重新计算心软冷却，不继承旧一轮求原谅状态。
+    ...(actor === 'character' ? { lastForgivenessCheckAt: undefined, lastForgivenessSign: undefined } : {}),
     history: [...(old.history ?? []), event].slice(-40) };
 }
 /** 原版关闭 Char 自主拉黑权限时，同时解除这一方向的拉黑。 */
