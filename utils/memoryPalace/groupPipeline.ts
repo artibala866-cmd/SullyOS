@@ -209,6 +209,8 @@ export async function processGroupNewMessages(
     extracted?: number;
     /** 本轮处理的群消息条数（用于 result toast 显示信息量） */
     processedMessageCount?: number;
+    /** 水位线已实际推进，可以继续尝试下一批旧消息。 */
+    progressed?: boolean;
     reason?: 'lock' | 'hot_zone' | 'threshold' | 'no_config' | 'no_enabled_member' | 'sync_disabled' | 'group_deleted' | 'members_changed';
 } | null> {
     if (!group?.id) return null;
@@ -491,6 +493,7 @@ export async function processGroupNewMessages(
             perMemberStored,
             extracted: drafts.length,
             processedMessageCount: toProcess.length,
+            progressed: allMembersCompleted && unchangedMembership,
         };
     } catch (e: any) {
         console.warn(`❌ [GroupPalace] 群 ${group.name} 处理失败: ${e.message}`);
