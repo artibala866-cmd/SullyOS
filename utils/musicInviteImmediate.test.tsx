@@ -6,10 +6,15 @@ import MusicInviteReplyBridge from '../components/music/MusicInviteReplyBridge';
 
 const state = vi.hoisted(() => ({
     generated: vi.fn(async (..._args: unknown[]) => {}),
+    join: vi.fn(async () => true),
+    reject: vi.fn(async () => {}),
     history: [] as any[],
     blocked: false,
     busy: false,
     configured: true,
+}));
+vi.mock('../context/MusicContext', () => ({
+    loadMusicHooks: () => ({ joinListeningTogether: state.join, rejectListeningInvite: state.reject }),
 }));
 vi.mock('../context/OSContext', () => ({
     useOS: () => ({
@@ -68,6 +73,10 @@ beforeEach(async () => {
     localStorage.clear();
     state.generated.mockReset();
     state.generated.mockResolvedValue(undefined);
+    state.join.mockReset();
+    state.join.mockResolvedValue(true);
+    state.reject.mockReset();
+    state.reject.mockResolvedValue(undefined);
     state.history = [];
     state.blocked = false;
     state.busy = false;
@@ -139,5 +148,44 @@ describe('一起听即时回应与真人感/主动消息隔离', () => {
         await act(async () => emit());
         await flush();
         expect(state.generated).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('实际说同意但漏了 ACTION 的即时邀请兼容', () => {
+    it('本轮明确说点同意，复用已存在的数据库接受动作', async () => {
+        state.history = [invite()];
+        state.generated.mockImplementation(async () => {
+            state.history.push({ id: 74, charId: 'music-char', role: 'assistant', type: 'text',
+                content: '点同意了点同意了！' });
+        });
+        await act(async () => emit());
+        await flush();
+        expect(state.join).toHaveBeenCalledTimes(1);
+        expect(state.join).toHaveBeenCalledWith('music-char');
+        expect(state.reject).not.toHaveBeenCalled();
+    });
+    it('模糊回答或主动消息中的同意字样，不能擅自接受', async () => {
+        state.history = [invite()];
+        state.generated.mockImplementation(async () => {
+            state.history.push({ id: 74, charId: 'music-char', role: 'assistant', type: 'text',
+                content: '我想听，但等一下吧' });
+            state.history.push({ id: 75, charId: 'music-char', role: 'assistant', type: 'text',
+                content: '点同意了', metadata: { activeMsg2: { taskId: 'other' } } });
+        });
+        await act(async () => emit());
+        await flush();
+        expect(state.join).not.toHaveBeenCalled();
+        expect(state.reject).not.toHaveBeenCalled();
+    });
+    it('本轮明确说拒绝，使用同一真实拒绝流程', async () => {
+        state.history = [invite()];
+        state.generated.mockImplementation(async () => {
+            state.history.push({ id: 74, charId: 'music-char', role: 'assistant', type: 'text',
+                content: '拒绝了邀请，今天想安静一会儿' });
+        });
+        await act(async () => emit());
+        await flush();
+        expect(state.reject).toHaveBeenCalledWith('music-char');
+        expect(state.join).not.toHaveBeenCalled();
     });
 });
