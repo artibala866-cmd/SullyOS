@@ -37,7 +37,7 @@ import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContin
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
 import { isPrivateChatBlocked, allowsCharacterToBlock, changeChatBlock } from '../utils/chatBlock';
-import { buildCharacterBlockAutonomyInstruction, buildPrivateChatBlockHistoryContext, extractCharacterBlockDirective } from '../utils/chatBlockAI';
+import { buildCharacterBlockAutonomyInstruction, buildPrivateChatBlockHistoryContext, buildFirstPostUnblockOpeningInstruction, extractCharacterBlockDirective } from '../utils/chatBlockAI';
 import {chatPhonePiggybackPrompt} from '../utils/phoneChatPiggyback';
 import {
     computeStreamPreviewBubbles,
@@ -635,7 +635,7 @@ export const useChatAI = ({
     const triggerAI = async (
         currentMsgs: Message[],
         overrideApiConfig?: { baseUrl: string; apiKey: string; model: string },
-        opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean },
+        opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean; postUnblockOpening?: { reason: string; elapsedMinutes: number } },
     ) => {
         // 阻止用户点击、旧自动回复计时器以及重新生成绕过私聊拉黑。
         if (isTyping || !char || isPrivateChatBlocked(charRef.current?.chatBlock))
@@ -960,12 +960,19 @@ export const useChatAI = ({
             const cleanedApiMessages = payload.cleanedApiMessages;
             // 在续说补丁和本地/即时对话分流前检查最终历史，不能用补出来的 user 掩盖空上下文。
             assertChatHasDialogue(payload.fullMessages);
-            const fullMessages = payload.flags.promptBuildSkipped
+            const fullMessages = payload.flags.promptBuildSkipped || opts?.postUnblockOpening
                 ? payload.fullMessages
                 : withChatContinuation(payload.fullMessages, userProfile.name, {
                     // 生成前收进来的主动消息落在用户刚发的那句之后：该回的是用户那句。
                     unansweredUserTurn: hasUnansweredUserTurn(currentMsgs, contextMsgs),
                 });
+            // 原版解封后的第一条必须由 Char 主动开口。跳过续说旧话题的默认补丁，
+            // 并使用系统情境而非虚构的新 user 气泡触发这一轮。
+            if (opts?.postUnblockOpening) {
+                fullMessages.push({ role: 'system', content: buildFirstPostUnblockOpeningInstruction(
+                    userProfile.name || '用户', opts.postUnblockOpening.reason, opts.postUnblockOpening.elapsedMinutes,
+                ) } as any);
+            }
             // Optional phone side effects share this exact User-facing completion.
             // No detached or second LLM request is made here.
             const phoneEventsInstruction=chatPhonePiggybackPrompt(char.id);
