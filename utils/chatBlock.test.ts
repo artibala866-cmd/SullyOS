@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock } from './chatBlock';
+import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, isRejectedPrivateMessage, privateChatBlockDirection } from './chatBlock';
 describe('original two-way private chat blocking framework', () => {
   it('legacy character starts open', () => {
     expect(isPrivateChatBlocked()).toBe(false);
@@ -30,6 +30,17 @@ describe('original two-way private chat blocking framework', () => {
     expect(characterBlocksUser(restricted)).toBe(false);
     expect(changeChatBlock(restricted, 'character', true, { at: 4 })).toBe(restricted);
     expect(characterBlocksUser(changeChatBlock(configureCharacterBlocking(restricted, true), 'character', true, { at: 5 }))).toBe(true);
+  });
+  it('方向有别：角色拒收不等于用户主动封锁，已拒收消息永久不可见于角色上下文', () => {
+    const userOnly = changeChatBlock(undefined, 'user', true, { at: 5 });
+    const charOnly = changeChatBlock(undefined, 'character', true, { at: 6 });
+    expect(privateChatBlockDirection(userOnly)).toBe('user');
+    expect(privateChatBlockDirection(charOnly)).toBe('character');
+    expect(privateChatBlockDirection(changeChatBlock(userOnly, 'character', true, { at: 7 }))).toBe('both');
+    expect(privateChatBlockDirection()).toBe('none');
+    expect(isRejectedPrivateMessage({ role: 'user', metadata: { chatBlockRejected: true } } as any)).toBe(true);
+    expect(isRejectedPrivateMessage({ role: 'user', metadata: {} } as any)).toBe(false);
+    expect(isRejectedPrivateMessage({ role: 'assistant', metadata: { chatBlockRejected: true } } as any)).toBe(false);
   });
   it('events bounded; relationship history persists through unlocks', () => {
     let state = undefined as ReturnType<typeof changeChatBlock> | undefined;
