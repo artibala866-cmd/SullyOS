@@ -32,12 +32,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Block state, private chat generation and UI regression
-        run: pnpm exec vitest run utils/chatBlock.test.ts utils/chatBlock.flow.test.ts utils/chatAutoReply.test.ts utils/chatGenEvents.test.ts
+        run: pnpm exec vitest run utils/chatBlock.test.ts utils/chatBlockAI.test.ts utils/chatBlock.flow.test.ts utils/chatAutoReply.test.ts utils/chatGenEvents.test.ts
       - name: TypeScript regression of changed files
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/block-tsc.log 2>&1 || true
-          grep -E '^(apps/Chat.tsx|components/chat/(ChatBlockModal|ChatInputArea).tsx|hooks/useChatAI.ts|types.ts|utils/chatBlock(\.test)?\.ts|tests/chat-block-visual.ts)[(]' /tmp/block-tsc.log > /tmp/block-target-errors.log || true
+          grep -E '^(apps/Chat.tsx|components/chat/(ChatBlockModal|ChatInputArea).tsx|hooks/useChatAI.ts|types.ts|utils/chatBlock(AI(\.test)?|\.test)?\.ts|tests/chat-block-visual.ts)[(]' /tmp/block-tsc.log > /tmp/block-target-errors.log || true
           if [ -s /tmp/block-target-errors.log ]; then cat /tmp/block-target-errors.log; exit 1; fi
       - name: Install Chinese fonts
         run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
