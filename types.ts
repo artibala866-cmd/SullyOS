@@ -2319,15 +2319,15 @@ export interface SpecialMomentRecord {
 
 // --- QQ捏人工坊（神经链接） ---
 
-/** 工坊槽位：room=小小窝房间立绘 / vr=彼方 chibi / like520=特别时光 520 大头贴 */
-export type ChibiStudioSlotId = 'room' | 'like520';
+/** 当前可编辑手办展台仅为小小窝。历史节日槽位保留兼容，不再展示或写入。 */
+export type ChibiStudioSlotId = 'room';
 
 export interface ChibiStudioSlot {
     /** 捏人器导出的完整 state（选件+换色+翻转…），再编辑时经 init.savedState 整套还原 */
     state?: any;
     /**
      * 透明 PNG dataURL 兜底展示图。room/vr 的形象本体以各 App 自己的字段为准
-     * （sprites.chibi / vrState.chibi.img）；like520 未通关时靠这里展示 + 预填活动捏人器。
+     * （sprites.chibi / vrState.chibi.img）。
      */
     img?: string;
     updatedAt?: number;
@@ -2340,6 +2340,7 @@ export interface ChibiStudioSlot {
 export interface ChibiStudioData {
     room?: ChibiStudioSlot;
     vr?: ChibiStudioSlot;
+    /** @deprecated 旧节日活动存档字段，只读兼容，不得在新手办流程中写入。 */
     like520?: ChibiStudioSlot;
     home3D?: HomeFigureSlot;
 }
@@ -2981,7 +2982,7 @@ export interface CharacterProfile {
   savedDateState?: DateState;
   specialMomentRecords?: Record<string, SpecialMomentRecord>;
 
-  /** QQ捏人工坊（神经链接）：三处 Q 版形象的捏人器 state 与 520 兜底图，见 ChibiStudioData */
+  /** QQ捏人工坊（神经链接）：保存 Q 版和家园形象可编辑状态，见 ChibiStudioData */
   chibiStudio?: ChibiStudioData;
 
   // 小红书 per-character toggle

@@ -3,7 +3,7 @@ import {homelyPaletteStyle} from '../os/homelyPalette';
 import './homeFigureEditor.css';
 import React, {useState} from 'react';
 import {useOS} from '../../context/OSContext';
-import {CreatorIframe, LIKE520_RECORD_KEY, type ChibiResult} from '../Like520Event';
+import {CreatorIframe, type ChibiResult} from './CreatorIframe';
 const HomeFigureEditor = React.lazy(() => import('./HomeFigureEditor'));
 import {UserCircle,Plus} from '@phosphor-icons/react';
 import TokenImg from '../os/TokenImg';
@@ -17,12 +17,9 @@ export default function HomeFigureStudio({charId, onClose, startEditing = false}
     if (charId && !char) return null;
     const owner = char ?? userProfile, name = owner.name || '你';
     const figure = owner.chibiStudio?.home3D;
-    const baseState = char ? char.chibiStudio?.room?.state : userProfile.chibiStudio?.userChibi?.state;
-    const record = char?.specialMomentRecords?.[LIKE520_RECORD_KEY]?.customData?.charChibi as {state?: unknown; dataUrl?: string} | undefined;
-    const choices = char ? [
-        {id: 'room', label: '小小窝', state: char.chibiStudio?.room?.state, img: char.sprites?.chibi},
-        {id: 'like520', label: '特别时光', state: char.chibiStudio?.like520?.state ?? record?.state, img: char.chibiStudio?.like520?.img ?? record?.dataUrl},
-    ] : [{id: 'chibi', label: '我的 Chibi', state: userProfile.chibiStudio?.userChibi?.state, img: userProfile.chibiStudio?.userChibi?.img}];
+    const choices = char
+        ? [{id: 'room', label: '小小窝', state: char.chibiStudio?.room?.state, img: char.sprites?.chibi}]
+        : [{id: 'chibi', label: '我的 Chibi', state: userProfile.chibiStudio?.userChibi?.state, img: userProfile.chibiStudio?.userChibi?.img}];
     const chooseSource = (state?: unknown, value?: HomeFigureSlot) => {
         setSource({state, value, draftKey: `home_figure_${charId ?? 'user'}_${createLocalId()}`});
         setEditing('home');

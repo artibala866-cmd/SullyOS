@@ -584,7 +584,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
       return () => { cancelled = true; };
   }, [activeCharacterId, lastMsgTimestamp, isDataLoaded, characters]); // Trigger on characters change
 
-  // Schedule widget data loading (shown below SpecialMoments icon)
+  // Schedule widget data loading for the launcher schedule area
   const scheduleChar = useMemo(() => {
       if (!characters || characters.length === 0) return null;
       if (scheduleCharId) return characters.find(c => c.id === scheduleCharId) || characters[0];

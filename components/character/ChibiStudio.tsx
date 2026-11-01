@@ -1,23 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { useOS } from '../../context/OSContext';
-import { CharacterProfile, ChibiStudioSlotId } from '../../types';
+import type { ChibiStudioSlotId } from '../../types';
 import HomeFigureStudio from './HomeFigureStudio';
-import { CreatorIframe, type ChibiResult, LIKE520_RECORD_KEY, isSullyChar, sullyPresets } from '../Like520Event';
+import { CreatorIframe, type ChibiResult, isSullyChar, sullyPresets } from './CreatorIframe';
 import CreatorPartsUploader from './CreatorPartsUploader';
-import { useBlobRefUrl, putImageBlob, dataUrlToBlob, resolveRefToDataUrl } from '../../utils/blobRef';
+import { useBlobRefUrl, putImageBlob, dataUrlToBlob } from '../../utils/blobRef';
 import TokenImg from '../os/TokenImg';
-import { CaretLeft, CaretRight, PencilSimple, ArrowsClockwise, Sparkle, X, FileArrowUp } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, PencilSimple, Sparkle, FileArrowUp } from '@phosphor-icons/react';
 
 // ============================================================
-// QQ捏人工坊（神经链接）—— 手办展示柜
-//
-// 手办柜保留已有的形象槽：小小窝立绘（sprites.chibi，blobref）、
-// 特别时光 520 大头贴
-// （specialMomentRecords.like520_2026.customData.charChibi，dataURL）。
-// 每个展台可单独捏（互不影响），也可以
-// 以某一只为准同步到现有形象槽。捏人器完整 state 存 char.chibiStudio，
-// 再编辑时经 CreatorIframe 的 savedState 整套还原（含换色/翻转）。
-// 图片本体仍写各 App 自己的消费字段——本组件不新增渲染路径。
+// QQ捏人工坊（神经链接）—— 保留小小窝 Q 版手办、3D 家园与自定义素材。
+// 旧节日活动已退役；不再展示、同步或写入旧活动槽位。
 // ============================================================
 
 // 安全区（与 index.html :root 单一来源对齐）：
@@ -27,7 +20,6 @@ import { CaretLeft, CaretRight, PencilSimple, ArrowsClockwise, Sparkle, X, FileA
 //    偶发返回 0）+ 一点手势余量，别让控件贴着 home 条。
 const STUDIO_TOP = 'var(--chrome-top)';
 const STUDIO_BOTTOM = 'calc(2rem + var(--safe-bottom))';
-const STUDIO_SHEET_BOTTOM = 'calc(1.25rem + var(--safe-bottom) + 0.75rem)';
 
 interface SlotMeta {
     id: ChibiStudioSlotId;
@@ -40,7 +32,6 @@ interface SlotMeta {
 
 const SLOTS: SlotMeta[] = [
     { id: 'room', label: '小小窝', en: 'ROOM', desc: '站在房间里的立绘', accent: '#f4a3ca' },
-    { id: 'like520', label: '特别时光', en: '520 EVENT', desc: '520 活动的大头贴', accent: '#f4b78f' },
 ];
 
 const StudioStyle: React.FC = () => (
@@ -72,8 +63,7 @@ interface SlotView {
 const DisplayCase: React.FC<{
     view: SlotView;
     onEdit: () => void;
-    onSync: () => void;
-}> = ({ view, onEdit, onSync }) => {
+}> = ({ view, onEdit }) => {
     const { meta, url } = view;
     return (
         <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
@@ -122,12 +112,6 @@ const DisplayCase: React.FC<{
                         style={{ background: `linear-gradient(135deg, ${meta.accent}cc, ${meta.accent}88)` }}>
                         <PencilSimple size={13} weight="bold" /> {url ? '重新捏' : '捏这只'}
                     </button>
-                    {url && (
-                        <button onClick={onSync}
-                            className="flex-1 rounded-lg py-2 text-[11.5px] font-medium text-indigo-100 border border-white/20 flex items-center justify-center gap-1.5 active:bg-white/10 transition-colors">
-                            <ArrowsClockwise size={13} weight="bold" /> 同步到全部
-                        </button>
-                    )}
                 </div>
             </div>
         </div>
@@ -135,19 +119,16 @@ const DisplayCase: React.FC<{
 };
 
 /**
- * 「手办」tab 用的迷你展示柜：三个槽位横排预览 + 进入手办柜按钮。
+ * 「手办」tab 的小小窝手办预览 + 进入手办柜按钮。
  * 只读展示，编辑/同步都在全屏工坊里做。
  */
 export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> = ({ charId, onOpen }) => {
     const { characters } = useOS();
     const char = characters.find(c => c.id === charId);
-    const studio = char?.chibiStudio;
-    const recChibi = char?.specialMomentRecords?.[LIKE520_RECORD_KEY]?.customData?.charChibi as { dataUrl?: string } | undefined;
-    const roomUrl = useBlobRefUrl(char?.sprites?.['chibi']);
-    const l5Url = useBlobRefUrl(recChibi?.dataUrl || studio?.like520?.img);
+    const roomUrl = useBlobRefUrl(char?.sprites?.chibi);
     if (!char) return null;
-    const urlOf: Record<ChibiStudioSlotId, string | undefined> = { room: roomUrl, like520: l5Url };
-    const dressed = SLOTS.filter(s => !!urlOf[s.id]).length;
+    const urlOf: Record<ChibiStudioSlotId, string | undefined> = { room: roomUrl };
+    const dressed = roomUrl ? 1 : 0;
 
     return (
         <div className="animate-fade-in space-y-4">
@@ -168,7 +149,7 @@ export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> =
                     <span className="ml-auto text-[10px] text-indigo-200/50">{dressed}/{SLOTS.length} 已上架</span>
                 </div>
                 {/* 迷你展台 */}
-                <div className="relative grid grid-cols-2 gap-2 px-3 pb-4 pt-1">
+                <div className="relative grid grid-cols-1 gap-2 px-3 pb-4 pt-1">
                     {SLOTS.map(meta => {
                         const url = urlOf[meta.id];
                         return (
@@ -202,7 +183,7 @@ export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> =
                 🧸 进入手办柜
             </button>
             <p className="text-[10.5px] text-slate-400 leading-relaxed px-1">
-                小小窝立绘与原有活动大头贴在这里独立保存，也可以挑一只「同步到全部」。
+                小小窝 Q 版形象在这里保存和编辑，3D 家园形象也能独立捏。
             </p>
         </div>
     );
@@ -213,121 +194,41 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
     const char = characters.find(c => c.id === charId);
 
     const [editing, setEditing] = useState<ChibiStudioSlotId | null>(null);
-    const [syncConfirm, setSyncConfirm] = useState<ChibiStudioSlotId | null>(null);
-    const [syncing, setSyncing] = useState(false);
     const [showUploader, setShowUploader] = useState(false); // 自定义素材工坊（PSD 批量导入）
     const [showHomeFigure, setShowHomeFigure] = useState(false);
 
     const studio = char?.chibiStudio;
-    const rec = char?.specialMomentRecords?.[LIKE520_RECORD_KEY];
-    const recChibi = rec?.customData?.charChibi as { dataUrl?: string; state?: any } | undefined;
-
-    const rawOf: Record<ChibiStudioSlotId, string | undefined> = {
-        room: char?.sprites?.['chibi'],
-        like520: recChibi?.dataUrl || studio?.like520?.img,
-    };
-    // hooks 数量固定，条件仅在值上
-    const roomUrl = useBlobRefUrl(rawOf.room);
-    const l5Url = useBlobRefUrl(rawOf.like520);
-
+    const roomUrl = useBlobRefUrl(char?.sprites?.chibi);
     const views: SlotView[] = useMemo(() => {
         if (!char) return [];
-        const urlOf: Record<ChibiStudioSlotId, string | undefined> = { room: roomUrl, like520: l5Url };
-        const stateOf: Record<ChibiStudioSlotId, any> = {
-            room: studio?.room?.state,
-            like520: studio?.like520?.state ?? recChibi?.state,
-        };
         return SLOTS.map(meta => ({
             meta,
-            raw: rawOf[meta.id],
-            url: urlOf[meta.id],
-            state: stateOf[meta.id],
-            updatedAt: studio?.[meta.id]?.updatedAt,
+            raw: char.sprites?.chibi,
+            url: roomUrl,
+            state: char.chibiStudio?.room?.state,
+            updatedAt: char.chibiStudio?.room?.updatedAt,
         }));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [char, roomUrl, l5Url]);
+    }, [char, roomUrl]);
 
     if (!char) return null;
     const isSully = isSullyChar(char);
 
-    // ── 单槽写回：图片进各 App 自己的消费字段，state 存 chibiStudio ──
-    const confirmSlot = async (slot: ChibiStudioSlotId, r: ChibiResult) => {
-        const now = Date.now();
-        const slotData = { state: r.state, updatedAt: now };
+    // 只保存小小窝图像与编辑状态，不改动历史活动记录和其他形象。
+    const confirmSlot = async (slot: ChibiStudioSlotId, result: ChibiResult) => {
         try {
-            if (slot === 'room') {
-                // 小小窝立绘走 blobref（与上传路径一致，省配额）
-                const ref = await putImageBlob(dataUrlToBlob(r.transparentDataUrl));
-                updateCharacter(char.id, prev => ({
-                    sprites: { ...(prev.sprites || {}), chibi: ref },
-                    chibiStudio: { ...(prev.chibiStudio || {}), room: slotData },
-                }));
-            } else {
-                updateCharacter(char.id, prev => {
-                    const records = prev.specialMomentRecords || {};
-                    const existing = records[LIKE520_RECORD_KEY];
-                    const updates: Partial<CharacterProfile> = {
-                        chibiStudio: { ...(prev.chibiStudio || {}), like520: { ...slotData, img: r.transparentDataUrl } },
-                    };
-                    // 已通关 520：把回放记录里的大头贴一并换掉；没通关则等活动开场自动穿上
-                    if (existing?.customData) {
-                        updates.specialMomentRecords = {
-                            ...records,
-                            [LIKE520_RECORD_KEY]: {
-                                ...existing,
-                                customData: { ...existing.customData, charChibi: { dataUrl: r.transparentDataUrl, state: r.state } },
-                            },
-                        };
-                    }
-                    return updates;
-                });
-            }
-            addToast(`${SLOTS.find(s => s.id === slot)?.label}的手办已上架 ✓`, 'success');
+            const ref = await putImageBlob(dataUrlToBlob(result.transparentDataUrl));
+            updateCharacter(char.id, prev => ({
+                sprites: { ...(prev.sprites || {}), chibi: ref },
+                chibiStudio: {
+                    ...(prev.chibiStudio || {}),
+                    room: { state: result.state, updatedAt: Date.now() },
+                },
+            }));
+            addToast(`${SLOTS.find(item => item.id === slot)?.label}的手办已上架 ✓`, 'success');
+            setEditing(null);
         } catch (e: any) {
             addToast(`保存失败：${e?.message || e}`, 'error');
         }
-        setEditing(null);
-    };
-
-    // ── 同步到保留的形象槽 ──
-    const syncFrom = async (source: ChibiStudioSlotId) => {
-        const src = views.find(v => v.meta.id === source);
-        if (!src?.raw) return;
-        setSyncing(true);
-        try {
-            // room 槽可能是 blobref，解析为 dataURL 以便给活动图像使用
-            const dataUrl = src.raw.startsWith('data:') ? src.raw : await resolveRefToDataUrl(src.raw);
-            if (!dataUrl.startsWith('data:')) throw new Error('这只手办的图片格式不支持同步');
-            const roomRef = source === 'room' ? src.raw : await putImageBlob(dataUrlToBlob(dataUrl));
-            const state = src.state;
-            const now = Date.now();
-            updateCharacter(char.id, prev => {
-                const records = prev.specialMomentRecords || {};
-                const existing = records[LIKE520_RECORD_KEY];
-                return {
-                    sprites: { ...(prev.sprites || {}), chibi: roomRef },
-                    ...(existing?.customData ? {
-                        specialMomentRecords: {
-                            ...records,
-                            [LIKE520_RECORD_KEY]: {
-                                ...existing,
-                                customData: { ...existing.customData, charChibi: { dataUrl, state } },
-                            },
-                        },
-                    } : {}),
-                    chibiStudio: {
-                        ...prev.chibiStudio,
-                        room: { state, updatedAt: now },
-                        like520: { state, img: dataUrl, updatedAt: now },
-                    },
-                };
-            });
-            addToast('形象已对齐 ✓', 'success');
-        } catch (e: any) {
-            addToast(`同步失败：${e?.message || e}`, 'error');
-        }
-        setSyncing(false);
-        setSyncConfirm(null);
     };
 
     if (showHomeFigure) return <HomeFigureStudio charId={charId} onClose={() => setShowHomeFigure(false)} />;
@@ -382,7 +283,7 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
                     </div>
                 </div>
                 <p className="text-[10.5px] text-indigo-300/55 mt-2 pl-1">
-                    同一角色现有的 Q 版形象——可以各捏各的，也可以挑一只「同步到全部」。
+                    角色的 Q 版形象在此独立保存和编辑，3D 家园形象另行保存。
                 </p>
                 {/* 自定义素材工坊入口：PSD 批量导入自己的部件（正式站用户也能用） */}
                 <button onClick={() => setShowUploader(true)}
@@ -394,46 +295,16 @@ const ChibiStudio: React.FC<{ charId: string; onClose: () => void }> = ({ charId
                 </button>
             </div>
 
-            {/* 展示柜（三层展台）——底部给 home 条留白（iOS 全屏 PWA 用 --safe-bottom 兜底） */}
+            {/* 手办展示柜——底部给 home 条留白（iOS 全屏 PWA 用 --safe-bottom 兜底） */}
             <div className="flex-1 overflow-y-auto no-scrollbar px-4 space-y-4"
                 style={{ paddingBottom: STUDIO_BOTTOM }}>
                 <button onClick={() => setShowHomeFigure(true)} className="w-full min-h-[64px] rounded-2xl border border-white/20 bg-white/10 px-5 py-4 text-left text-white">3D 家园形象 <span className="block text-xs opacity-60 mt-1">{studio?.home3D?.state ? '编辑形象、衣服与体型' : '基于已有手办，捏出家园里的你'}</span></button>
                 {views.map(v => (
                     <DisplayCase key={v.meta.id} view={v}
-                        onEdit={() => setEditing(v.meta.id)}
-                        onSync={() => setSyncConfirm(v.meta.id)} />
+                        onEdit={() => setEditing(v.meta.id)} />
                 ))}
-                {!rec && (
-                    <p className="text-[10px] text-indigo-300/45 text-center px-6 leading-relaxed">
-                        「特别时光」这只捏好后不会立刻出现在活动里——下次进 520 活动时会自动穿上这套造型。
-                    </p>
-                )}
             </div>
 
-            {/* 同步确认弹层 */}
-            {syncConfirm && (() => {
-                const meta = SLOTS.find(s => s.id === syncConfirm)!;
-                return (
-                    <div className="absolute inset-0 z-10 flex items-end justify-center bg-black/60" onClick={() => !syncing && setSyncConfirm(null)}>
-                        <div className="w-full max-w-md rounded-t-2xl p-5 border-t border-white/10"
-                            style={{ background: 'linear-gradient(180deg,#2b2150 0%,#171130 100%)', paddingBottom: STUDIO_SHEET_BOTTOM }}
-                            onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center mb-2">
-                                <span className="text-[14px] font-bold text-white">以「{meta.label}」这只为准？</span>
-                                <button onClick={() => !syncing && setSyncConfirm(null)} className="ml-auto p-1 text-indigo-300/60"><X size={18} /></button>
-                            </div>
-                            <p className="text-[11px] text-indigo-200/60 leading-relaxed mb-4">
-                                两个现有的形象槽会被同步成这套造型。
-                            </p>
-                            <button disabled={syncing} onClick={() => { void syncFrom(syncConfirm); }}
-                                className="w-full rounded-xl py-2.5 text-[13px] font-bold text-white active:scale-[0.98] transition-transform disabled:opacity-60"
-                                style={{ background: `linear-gradient(135deg, ${meta.accent}dd, ${meta.accent}99)` }}>
-                                {syncing ? '同步中…' : '确认同步 ✓'}
-                            </button>
-                        </div>
-                    </div>
-                );
-            })()}
         </div>
     );
 };

@@ -17,7 +17,6 @@ import { createPreloadableLazy, type PreloadableLazy } from './os/preloadableLaz
 
 // 按需懒加载各 App —— 切到对应 App 时才下载/解析其代码块，首屏只加载 Launcher 与外壳，
 // 大体积 App（MemoryPalace / Songwriting 等）不再压在主包里。
-// 默认导出直接 lazy；命名导出（SpecialMomentsApp）用 .then 适配成 { default }。
 // Launcher 保持静态导入：桌面常驻、需要秒开，不走懒加载。
 //
 // App 在用户打开/按下图标时立即加载；性能与网络条件合适时，桌面稳定后也会低优先级串行预热。
@@ -84,9 +83,6 @@ const APP_BY_ID: Partial<Record<AppID, PreloadableLazy>> = {
 // AppIcon 的 pointerdown 只预取用户正在点的 App；失败时由 preloadableLazy 清缓存，点击可正常重试。
 setAppPayloadWarmer((id: AppID) => APP_BY_ID[id]?.preload());
 
-import { Like520Controller, shouldShowLike520Popup } from './Like520Event';
-import { QixiLaunchPopup } from './QixiLaunchPopup';
-import { shouldShowQixiLaunchPopup } from '../utils/qixiLaunchPopup';
 import { UpdateNotificationController, shouldShowUpdateNotification } from './UpdateNotificationEvent';
 import { BackupReminderController } from './BackupReminderEvent';
 import { shouldShowBackupReminder, markBackupReminderShown, daysSinceLastBackup } from '../utils/backupReminder';
@@ -647,41 +643,17 @@ const PhoneShell: React.FC = () => {
     }
   }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, isDataLoaded, isLocked]);
 
-  // 七夕特别活动推送：严格按北京时间 2026-08-19 判断，用户处理后永久不再弹。
-  // 排在版本更新之后、日常维护提醒之前；按钮只带到「特别时光」，不替用户选择角色。
-  const [showQixiLaunchPopup, setShowQixiLaunchPopup] = useState(false);
-  const qixiLaunchAsked = useRef(false);
-  useEffect(() => {
-    if (qixiLaunchAsked.current) return;
-    if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification) return;
-    if (!isDataLoaded || isLocked) return;
-    if (shouldShowQixiLaunchPopup()) {
-      qixiLaunchAsked.current = true;
-      setShowQixiLaunchPopup(true);
-    }
-  }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, isDataLoaded, isLocked]);
-
-  // 520 特别活动弹窗（2026-05-20 当天，且没被 dismiss / completed）
-  // 一次性：用户点过任何按钮就标记 dismissed，下次刷新不再出现；
-  // API 配置改成弹窗内嵌，配完直接进活动，不再需要把弹窗暂存让位给 Settings。
-  const [showLike520Popup, setShowLike520Popup] = useState(false);
-  useEffect(() => {
-    if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || showQixiLaunchPopup) return;
-    if (!isDataLoaded) return;
-    if (shouldShowLike520Popup()) setShowLike520Popup(true);
-  }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, showQixiLaunchPopup, isDataLoaded]);
-
   // 「该备份啦」提醒 — local-first 数据只在本机，隔 N 天（默认 7，可在设置里改）没导出就弹一次
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   useEffect(() => {
-    if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || showQixiLaunchPopup || showLike520Popup) return;
+    if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification) return;
     if (!isDataLoaded || isLocked) return;
     if (shouldShowBackupReminder()) {
       setShowBackupReminder(true);
       // 只报「从未备份 / 已过期」这一个二选一，不报具体天数、也不报用户设的提醒间隔。
       trackEvent('弹出该备份啦提醒', { state: daysSinceLastBackup() == null ? '从未备份' : '已过期' });
     }
-  }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, showQixiLaunchPopup, showLike520Popup, isDataLoaded, isLocked]);
+  }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, isDataLoaded, isLocked]);
 
   const dismissBackupReminder = () => {
     markBackupReminderShown();
@@ -1075,29 +1047,17 @@ const PhoneShell: React.FC = () => {
          <UpdateNotificationController onClose={() => setShowUpdateNotification(false)} />
        )}
 
-       {/* 七夕特别活动推送（北京时间 2026-08-19，当天至多出现一次） */}
-       {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && showQixiLaunchPopup && (
-         <QixiLaunchPopup onClose={() => setShowQixiLaunchPopup(false)} />
-       )}
-
-       {/* 520 特别活动弹窗（2026-05-20 当天，一次性） */}
-       {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && !showQixiLaunchPopup && showLike520Popup && (
-         <Like520Controller
-           onClose={() => setShowLike520Popup(false)}
-         />
-       )}
-
        <FeedbackInvitation
          ready={isDataLoaded && !isLocked && (bootDone || !bootAnimationEnabled)}
-         blocked={activeApp !== AppID.Launcher || !!suspendedCall || !!errorDialog || sysOperation.status !== 'idle' || anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || shouldShowUpdateNotification() || showQixiLaunchPopup || showLike520Popup || showBackupReminder}
+         blocked={activeApp !== AppID.Launcher || !!suspendedCall || !!errorDialog || sysOperation.status !== 'idle' || anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || shouldShowUpdateNotification() || showBackupReminder}
        />
 
        <BeautyRepoInvitation
          ready={isDataLoaded && !isLocked && (bootDone || !bootAnimationEnabled)}
-         blocked={activeApp !== AppID.Launcher || !!suspendedCall || !!errorDialog || sysOperation.status !== 'idle' || anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || shouldShowUpdateNotification() || showQixiLaunchPopup || showLike520Popup || showBackupReminder}
+         blocked={activeApp !== AppID.Launcher || !!suspendedCall || !!errorDialog || sysOperation.status !== 'idle' || anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || shouldShowUpdateNotification() || showBackupReminder}
        />
        {/* 「该备份啦」提醒（local-first 数据只在本机，隔 N 天没导出弹一次） */}
-       {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && !showQixiLaunchPopup && !showLike520Popup && showBackupReminder && (
+       {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && showBackupReminder && (
          <BackupReminderController
            onDismiss={dismissBackupReminder}
            onGoBackup={goBackupFromReminder}
