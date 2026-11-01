@@ -1048,23 +1048,21 @@ describe('buildFirePack 的时区参照系与模板（①）', () => {
     expect((await pack(baseChar())).template).not.toContain('你身处');
   });
 
-  // 回归守卫：1.0 提示块里「生活在继续」和「别查岗」两行。少了它们，连发几条的
-  // 主动消息容易退化成催回复和喝水早睡式说教刷屏。
-  it('1.0 提示块带「日子也在往前过」与「关心别变成查岗」', async () => {
+  // AMSG 主动联系不再靠 1.0 的固定尬聊题库与句数上限驱动。
+  it('主动消息不强制问候或限制句数，只有具体缘由才联系', async () => {
     const { template } = await pack(baseChar());
-    expect(template).toContain('日子也在往前过');
-    expect(template).toContain('关心别变成查岗');
+    expect(template).toContain('【主动联系的实际语境】');
+    expect(template).toContain('只有确有具体缘由');
+    expect(template).not.toContain('【1.0 风格主动消息提示】');
+    expect(template).not.toContain('最多 3 句');
   });
 
-  // 到点说不说由角色看着最新对话自己判。模板得把三样东西交到它手上：正聊着时那行事实的
-  // 落点、「正聊着不等于不说」这条分寸、决定不说时写什么。缺了标记，角色的「不说」就只能
-  // 是空输出，跟模型没写出来分不开。
-  it('【开口之前】带上正聊着的落点、默认是说的分寸、和不说时的标记', async () => {
+  it('【开口之前】不再强迫凑话，具体理由不足时可以不说', async () => {
     const { template } = await pack(baseChar());
     const section = template.slice(template.indexOf('【开口之前】'));
     expect(section).toContain(AMSG_SLOT_LIVE_CHAT);
-    expect(section).toContain('默认是照常说');
-    expect(section).toContain('正聊着不等于不说');
+    expect(section).toContain('没有可信的内容');
+    expect(section).not.toContain('拿不准就说');
     expect(section).toContain(`只写 ${AMSG_SILENT_MARK} 这一个标记`);
   });
 
@@ -1095,7 +1093,7 @@ describe('buildFirePack 的时区参照系与模板（①）', () => {
       expect(template).toContain(AMSG_SLOT_TASK_LIST);
       expect(template).toContain(AMSG_SLOT_REALTIME_WORLD);
       // 1.0 提示块本身还在，只是不报钟了
-      expect(template).toContain('【1.0 风格主动消息提示】');
+      expect(template).toContain('【主动联系的实际语境】');
     });
 
     it('时间感知开着的角色照常有这几行（免得上面几条永远成立）', async () => {
