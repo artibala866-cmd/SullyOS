@@ -3996,11 +3996,24 @@ create table if not exists memory_vectors (
 
                 <details style={{ marginTop: 12 }}>
                     <summary style={{ fontSize: 10, color: '#666666', cursor: 'pointer', userSelect: 'none' }}>
-                        ChatApp 交流步伐
+                        私聊 / 群聊交流步伐
                     </summary>
                     <div style={{ marginTop: 8, background: '#f7f7f7', borderRadius: 12, padding: 14, border: '1px solid #e5e5e5' }}>
                         <div style={{ fontSize: 11, color: '#404040', lineHeight: 1.65, marginBottom: 12 }}>
-                            设置这个角色愿意在多大程度上跟随用户当下的说话步伐。0% 表示该维度完全保持自己，100% 也只会在安全范围内适应，不会改写角色人格。
+                            设置这个角色愿意在多大程度上跟随用户当下的说话步伐。群聊按成员分别生效，且只参考用户在当前群里的文字。0% 表示不跟随，100% 也不会改写角色人格。
+                        </div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#404040', marginBottom: 10 }}>
+                            <input
+                                type="checkbox"
+                                checked={memoryPalaceConfig.featureFlags.interactionAdaptation === true}
+                                onChange={event => updateMemoryPalaceConfig({
+                                    featureFlags: { ...memoryPalaceConfig.featureFlags, interactionAdaptation: event.target.checked },
+                                })}
+                            />
+                            在 ChatApp 私聊中启用交流适应
+                        </label>
+                        <div style={{ fontSize: 10, color: '#777777', lineHeight: 1.55, marginBottom: 12 }}>
+                            此开关只控制 ChatApp 私聊的实验性交流适应；群聊直接按各成员下方五项数值运行，不需要开启此开关。
                         </div>
                         {([
                             ['length', '回复长度'],
@@ -4040,7 +4053,7 @@ create table if not exists memory_vectors (
                             恢复温和默认值
                         </button>
                         <div style={{ fontSize: 10, color: '#666666', lineHeight: 1.55, marginTop: 10 }}>
-                            这里只影响 ChatApp 回复。角色回复不会被拿来反向训练这些数值，其他 App 的写作人格也不会变化。
+                            此处影响当前角色的群聊回复，以及启用上方开关后的 ChatApp 私聊回复；角色回复不会反向训练这些数值，也不会修改其他 App 的写作人格。
                         </div>
                     </div>
                 </details>
