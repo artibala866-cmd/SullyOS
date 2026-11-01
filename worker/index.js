@@ -15,7 +15,7 @@ function corsHeaders(origin) {
   return {
     "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, xi-api-key, Depth, X-Brave-API-Key, X-Notion-API-Key, X-Feishu-Token, X-Xhs-Cookie, X-Xhs-Platform, X-Rnote-API-Key, X-Xhs-Experiment-Ack, X-Netease-Cookie, X-WebDAV-Method, X-WebDAV-Depth, X-WebDAV-Range, X-GitHub-Method, X-GitHub-Api-Version, X-CF-Method, Mcp-Session-Id, Accept, Range",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, xi-api-key, Depth, X-Brave-API-Key, X-Notion-API-Key, X-Feishu-Token, X-Xhs-Cookie, X-Xhs-Platform, X-Rnote-API-Key, X-Xhs-Experiment-Ack, X-Netease-Cookie, X-WebDAV-Method, X-WebDAV-Depth, X-WebDAV-Range, X-GitHub-Method, X-GitHub-Api-Version, X-CF-Method, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID, Accept, Range",
     "Access-Control-Expose-Headers": "Mcp-Session-Id",
     "Access-Control-Max-Age": "86400",
   };
@@ -3994,6 +3994,56 @@ export default {
         return new Response(upstream.body, { status: upstream.status, headers: respHeaders });
       } catch (e) {
         return jsonResponse({ error: 'ElevenLabs upstream fetch failed', detail: String(e && e.message || e) }, { status: 502, origin });
+      }
+    }
+
+    // ========== Orca 影视 MCP 专用浏览器中转 ==========
+    // 仅固定转发原作者的公开免鉴权 MCP，绝不是任意目标的开放代理。
+    // 用户自定义 MCP 的凭据和请求头绝不可经过这个中心 Worker。
+    if (url.pathname === '/mcp/orca') {
+      if (request.method !== 'POST') {
+        return jsonResponse({ error: 'Method not allowed (use MCP Streamable HTTP POST)' }, { status: 405, origin });
+      }
+      if (request.headers.has('Authorization') || request.headers.has('X-Proxy-Key') || request.headers.has('X-MCP-Forward-Headers')) {
+        return jsonResponse({ error: 'Orca 公共中转不接受私人凭据或自定义鉴权头' }, { status: 400, origin });
+      }
+      // 防止把公开中转当成大文件上传入口；只接受 MCP JSON-RPC 报文。
+      const body = await request.text();
+      if (body.length > 65536) {
+        return jsonResponse({ error: 'MCP 请求体过大' }, { status: 413, origin });
+      }
+      let rpc;
+      try { rpc = JSON.parse(body); } catch {
+        return jsonResponse({ error: 'Invalid MCP JSON-RPC' }, { status: 400, origin });
+      }
+      if (rpc?.jsonrpc !== '2.0' || !['initialize', 'notifications/initialized', 'tools/list', 'tools/call', 'ping'].includes(rpc.method)) {
+        return jsonResponse({ error: 'Unsupported MCP method' }, { status: 400, origin });
+      }
+      try {
+        const fwdHeaders = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/event-stream',
+        };
+        for (const h of ['Mcp-Session-Id', 'MCP-Protocol-Version', 'Last-Event-ID']) {
+          const value = request.headers.get(h);
+          if (value) fwdHeaders[h] = value;
+        }
+        const upstream = await fetch('https://orca-mcp.mmdju.workers.dev/mcp', {
+          method: 'POST',
+          headers: fwdHeaders,
+          body,
+          signal: request.signal,
+        });
+        const responseHeaders = new Headers(corsHeaders(origin));
+        for (const h of ['Content-Type', 'Mcp-Session-Id', 'MCP-Protocol-Version', 'Cache-Control']) {
+          const value = upstream.headers.get(h);
+          if (value) responseHeaders.set(h, value);
+        }
+        responseHeaders.set('Cache-Control', 'no-store');
+        responseHeaders.set('Access-Control-Expose-Headers', 'Mcp-Session-Id, MCP-Protocol-Version');
+        return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+      } catch (e) {
+        return jsonResponse({ error: 'Orca MCP upstream unavailable', detail: String(e?.message || e) }, { status: 502, origin });
       }
     }
 
