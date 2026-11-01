@@ -868,7 +868,7 @@ const GroupChat: React.FC = () => {
         setActiveGroup(updatedGroup);
         if (updatedGroup.privateChatSyncEnabled !== false) {
             // 用户重新允许互通时，同步补回符合阈值的旧群个人记忆与公共卡片。
-            void runGroupMemorySync(updatedGroup);
+            void runGroupMemorySync(updatedGroup, 3);
             void ensureGroupTopicCardsDelivered(updatedGroup).then(outcome => {
                 if (outcome.deliveredMemberIds.length) markGroupMembersDirty(outcome.deliveredMemberIds);
             }).catch(error => console.warn('[GroupChat] 补发群话题卡片失败:', error));
@@ -1408,18 +1408,22 @@ ${memberTimeline || '(暂无互动记录)'}
     // 个人群记忆原有管线以前只有清理入口，实际无人调用。现在与公共话题盒
     // 分开运行：不受公共成盒手动/自动模式影响，按成员自己的记忆宫殿授权归档。
     // 打开旧群、发送群消息、导演或轮询完成后都可补跑；按群互斥防重复请求。
-    const runGroupMemorySync = async (group: GroupProfile): Promise<void> => {
+    const runGroupMemorySync = async (group: GroupProfile, maxBatches: number = 1): Promise<void> => {
         if (groupMemoryRunsRef.current.has(group.id) || group.privateChatSyncEnabled === false) return;
         const members = charactersRef.current.filter(member => group.members.includes(member.id) && member.memoryPalaceEnabled);
         if (members.length === 0) return;
         groupMemoryRunsRef.current.add(group.id);
         try {
-            const result = await processGroupNewMessages(group, members, userProfile.name, stage => {
-                if (activeGroupIdRef.current === group.id) setPersonalGroupMemoryStatus(stage);
-            });
-            if (result?.stored) {
-                // 只在个人宫殿真的写入新节点后同步主动消息的上下文缓存。
-                markGroupMembersDirty(Object.keys(result.perMemberStored).filter(id => result.perMemberStored[id] > 0));
+            // 旧群历史分批追平，一次最多处理三批；不积压无限 API 请求，
+            // 部分成员失败或未达到阈值时立即停下，保留原水位供下一次继续。
+            for (let batch = 0; batch < Math.min(3, Math.max(1, maxBatches)); batch++) {
+                const result = await processGroupNewMessages(group, members, userProfile.name, stage => {
+                    if (activeGroupIdRef.current === group.id) setPersonalGroupMemoryStatus(stage);
+                });
+                if (result?.stored) {
+                    markGroupMembersDirty(Object.keys(result.perMemberStored).filter(id => result.perMemberStored[id] > 0));
+                }
+                if (!result?.progressed) break;
             }
         } catch (error) {
             console.warn('[GroupChat] 个人群记忆同步失败（保留原文供下轮重试）:', error);
@@ -1432,7 +1436,7 @@ ${memberTimeline || '(暂无互动记录)'}
     // 老群在该接线补上前积累的消息，需要在重新进入时追平；无需让用户手动制造新消息。
     useEffect(() => {
         if (view !== 'chat' || !activeGroup) return;
-        void runGroupMemorySync(activeGroup);
+        void runGroupMemorySync(activeGroup, 3);
         // 旧版本成盒后部分卡片写入失败时补发；读群最新权限并按盒 ID 去重。
         void ensureGroupTopicCardsDelivered(activeGroup).then(outcome => {
             if (outcome.deliveredMemberIds.length) markGroupMembersDirty(outcome.deliveredMemberIds);
