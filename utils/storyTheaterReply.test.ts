@@ -46,7 +46,7 @@ describe('剧情重写上下文和保存', () => {
     });
     it('任意镜像在请求期间被编辑，整个事务回滚保留用户修改和原正文', async () => {
         const old = await seed('reroll-conflict');
-        const mirrorId = Number((old.metadata?.theaterMirrorIds as Record<string, number>).actor);
+        const mirrorId = Number((old.metadata?.theaterMirrorIds as Record<string, number>)[old.charId + '-actor']);
         await DB.updateMessage(mirrorId, '手动编辑');
         await expect(replaceStoryTheaterReply(old, '新回复', {})).rejects.toThrow('已被修改');
         expect((await DB.getMessagesByCharId(old.charId, true))[0].content).toBe('旧回复');
