@@ -2083,7 +2083,9 @@ export const amsgHooks = {
     // Real-person mode is a separate opt-in layered UNDER the AMSG2 master switch.
     // The small limits state is synced before cancelling remote auto-wakes, so an
     // already-running/stale daily job cannot initiate a new paid conversation.
-    if (!instant && autonomyWake && limitsRecord?.autonomyEnabled === false) {
+    // Missing or stale cloud consent must never start a billable autonomous conversation.
+    // Explicit reminders and normal instant user replies are still independent.
+    if (!instant && autonomyWake && limitsRecord?.autonomyEnabled !== true) {
       await recordSkip(ctx, charId, 'schedule-off', occurrenceMs, taskBrief);
       return { skip: true } as const;
     }
