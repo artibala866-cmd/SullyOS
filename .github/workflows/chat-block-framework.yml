@@ -23,7 +23,7 @@ permissions:
   contents: read
 concurrency:
   group: sully-private-chat-block-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   verify:
     runs-on: ubuntu-latest
