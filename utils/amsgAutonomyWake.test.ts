@@ -26,9 +26,9 @@ describe('AMSG2 automatic, durable contact opportunities',()=>{
    ],now);
    expect(a.map(x=>x.slot)).toEqual(['evening']);
  });
- it('a full busy schedule still retains one restrained APK-style fallback opportunity',()=>{
+ it('never forces a wake when the real schedule has no free window',()=>{
    const found=planAutonomyWakes(char,[{startTime:'00:00',activity:'睡觉'},{startTime:'08:00',activity:'工作'}],now);
-   expect(found.map(x=>x.slot)).toEqual(['evening']);
+   expect(found).toEqual([]);
  });
  it('does not skip tomorrow after a spring DST jump in the role timezone',()=>{
    const ny={id:'dst-spring',customTimezoneEnabled:true,customTimezone:'America/New_York'};
@@ -273,6 +273,43 @@ describe('AMSG2 P1 daily schedule drift, without touching manual reminders',()=>
      (ActiveMsgClient as any).cancelTask=oldCancel;
    }
  });
+});
+
+describe('real-person disabled: no autonomous contact, but user reminders survive',()=>{
+  it('writes cloud stop first and cancels only auto wakes',async()=>{
+    const {ensureAutonomyWakes}=await import('./amsgAutonomyWake');
+    const {ActiveMsgClient}=await import('./activeMsgClient');
+    const {setRealPersonModeEnabled}=await import('./realPersonMode');
+    const oldLimits=ActiveMsgClient.putCharLimits;
+    const oldRemote=ActiveMsgClient.listRemoteTasksForChar;
+    const oldCancel=ActiveMsgClient.cancelTask;
+    const calls:string[]=[];
+    let config:any={enabled:true,tasks:[
+      {taskUuid:'auto-day',clientTaskId:'autowake:day:auto-day'},
+      {taskUuid:'manual',clientTaskId:'user:manual'},
+    ]};
+    const role:any={...char,id:'real-mode-off',activeMsg2Config:config};
+    (ActiveMsgClient as any).putCharLimits=async()=>{calls.push('cloud-off');};
+    (ActiveMsgClient as any).listRemoteTasksForChar=async()=>[
+      {uuid:'auto-day',clientTaskId:'autowake:day:auto-day'},
+      {uuid:'manual',clientTaskId:'user:manual'},
+    ];
+    (ActiveMsgClient as any).cancelTask=async(id:string)=>{calls.push('cancel:'+id);return {uuid:id};};
+    try{
+      setRealPersonModeEnabled(false);
+      await ensureAutonomyWakes({char:role,apiConfig:{} as any,userProfile:{} as any,
+        groups:[],realtimeConfig:{} as any,
+        onSave:update=>{config=update(config);role.activeMsg2Config=config;}});
+      expect(calls).toEqual(['cloud-off','cancel:auto-day']);
+      expect(config.tasks.map((t:any)=>t.taskUuid)).toEqual(['manual']);
+      expect(config.enabled).toBe(true);
+    }finally{
+      setRealPersonModeEnabled(true);
+      (ActiveMsgClient as any).putCharLimits=oldLimits;
+      (ActiveMsgClient as any).listRemoteTasksForChar=oldRemote;
+      (ActiveMsgClient as any).cancelTask=oldCancel;
+    }
+  });
 });
 
 describe('AMSG2 schedule toggle is independent from autonomous contact',()=>{
