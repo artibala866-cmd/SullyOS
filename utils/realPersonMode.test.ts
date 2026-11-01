@@ -1,0 +1,18 @@
+import { describe, expect, it } from 'vitest';
+import { canRealPersonContact, REAL_PERSON_AUTONOMY_INSTRUCTION } from './realPersonMode';
+
+describe('真人感与主动消息的唯一触发权限', () => {
+  const role = (enabled: boolean) => ({ activeMsg2Config: { enabled } }) as any;
+  it('两者都开启才能启动自主联系', () => {
+    expect(canRealPersonContact(role(true), true)).toBe(true);
+    expect(canRealPersonContact(role(true), false)).toBe(false);
+    expect(canRealPersonContact(role(false), true)).toBe(false);
+    expect(canRealPersonContact(null, true)).toBe(false);
+  });
+  it('自主联系没有证据时沉默，不把空泛问候当成任务', () => {
+    expect(REAL_PERSON_AUTONOMY_INSTRUCTION).toContain('[[SILENT]]');
+    expect(REAL_PERSON_AUTONOMY_INSTRUCTION).toContain('时间到了不是聊天理由');
+    expect(REAL_PERSON_AUTONOMY_INSTRUCTION).toContain('不要凭空捏造生活事件');
+    expect(REAL_PERSON_AUTONOMY_INSTRUCTION).not.toContain('拿不准就说');
+  });
+});
