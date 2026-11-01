@@ -74,7 +74,7 @@ export function buildForgivenessMessages(character: CharacterProfile, userName: 
       '下方只有拉黑前角色实际收到的消息。拉黑期间被拒收的用户文字不可见，绝不能猜测或假装已读。',
       '综合拉黑原因、已经过去的时间、关系经历和角色性格独立决定；时间到了不等于必须原谅。',
       '不要因为用户按了一次 AI 按钮就自动同意；也不要无理由永久拒绝。',
-      '只返回一行 JSON：{"decision":"unblock"或"keep","sign":"一句符合角色口吻的简短状态描述"}。不得附加聊天正文。',
+      '仅允许输出以下两种有效 JSON 之一：{\"decision\":\"unblock\",\"sign\":\"简短状态\"} 或 {\"decision\":\"keep\",\"sign\":\"简短状态\"}。不得输出额外聊天正文。',
     ].join('\n') },
     { role: 'user', content: `双方此前实际对话：\n${history || '（暂无可用的对话记录）'}\n现在请独立判定。` },
   ];
