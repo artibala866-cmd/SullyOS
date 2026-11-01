@@ -27,6 +27,8 @@ import { dateLaunch } from '../utils/dateLaunch';
 import { materializeVisionDescriptions } from '../utils/visionApi';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { buildInPersonContinueInstruction } from '../utils/meetingContinue';
+import { allowsCharacterToBlock, changeChatBlock, characterBlocksUser, isRejectedPrivateMessage, userBlocksCharacter } from '../utils/chatBlock';
+import { buildInPersonCharBlockInstruction, extractCharacterBlockAction, type CharacterBlockAction } from '../utils/chatBlockAI';
 import {
     buildDateHistoryGroups,
     formatDateHistoryDate,
@@ -361,6 +363,21 @@ const DateApp: React.FC = () => {
         }
     }, [memoryPalaceConfig, apiConfig, userProfile?.name, updateCharacter, addToast]);
 
+    // 糯叽机原版见面解锁：仅使用糯米机现有见面回复和角色 chatBlock。
+    // 角色在现实见面中决定原谅，才解锁私聊；不会因普通发送自动解锁。
+    const applyMeetingBlockAction = async (charId: string, action: CharacterBlockAction | null) => {
+        if (!action) return;
+        await updateCharacter(charId, previous => {
+            const state = previous.chatBlock;
+            if (action.kind === 'unblock') {
+                if (!characterBlocksUser(state)) return {};
+                return { chatBlock: changeChatBlock(state, 'character', false, { source: 'ai' }) };
+            }
+            if (!allowsCharacterToBlock(state) || userBlocksCharacter(state) || characterBlocksUser(state)) return {};
+            return { chatBlock: changeChatBlock(state, 'character', true, { reason: action.reason, source: 'ai' }) };
+        });
+    };
+
     // --- Session API Logic ---
     const handleSendMessage = async (text: string, kind?: 'continue'): Promise<string> => {
         const currentEncounterId = encounterIdRef.current;
@@ -394,7 +411,7 @@ const DateApp: React.FC = () => {
         // Re-fetch messages. Since we saved the opening in handleEnterSession,
         // 'allMsgs' will now correctly contain: [History..., Opening, UserMsg]
         const allMsgs = await loadCharacterContextMessages(char);
-        const preparedAllMsgs = await materializeVisionDescriptions(allMsgs, apiConfig.visionApi);
+        const preparedAllMsgs = await materializeVisionDescriptions(allMsgs.filter(m => !isRejectedPrivateMessage(m)), apiConfig.visionApi);
 
         // Update local state for display
         if (encounterIdRef.current === currentEncounterId) await loadDateMessages();
@@ -412,9 +429,16 @@ const DateApp: React.FC = () => {
             variant: 'send',
             useVisionDescriptions: apiConfig.visionApi?.enabled === true,
         });
+        // 原版允许被拉黑的双方当面交谈，不能把拒收私聊当成已读内容。
+        const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
+        if (inPersonBlock) messages.push({ role: 'system', content: inPersonBlock } as ApiMessage);
         const rawContent = await callLLM(messages, resolveDialogueApi(apiConfig, char).temperature ?? 0.85);
-        // Keep the original meeting response and message metadata, without retired 彼方 effects.
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: rawContent, metadata: { source: 'date', dateEncounterId: currentEncounterId } });
+        const blockAction = extractCharacterBlockAction(rawContent);
+        // 内部动作先从可见剧情剥除，不能变成气泡或语音正文。
+        if (blockAction.text) {
+            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: blockAction.text, metadata: { source: 'date', dateEncounterId: currentEncounterId } });
+        }
+        await applyMeetingBlockAction(char.id, blockAction.action);
         markDateTurnDirty(char);
 
         // Refresh local state
@@ -423,7 +447,7 @@ const DateApp: React.FC = () => {
         // Memory Palace 后台流程（不阻塞返回，与聊天侧一致）
         runMemoryPalacePostHook(char);
 
-        return rawContent;
+        return blockAction.text;
     };
 
     const handleReroll = async (): Promise<string> => {
@@ -436,7 +460,7 @@ const DateApp: React.FC = () => {
         // Keep the old reply until the replacement request succeeds.
         const allMsgs = await loadCharacterContextMessages(char);
         const validMsgs = allMsgs.filter(m => m.id !== lastMsg.id);
-        const preparedValidMsgs = await materializeVisionDescriptions(validMsgs, apiConfig.visionApi);
+        const preparedValidMsgs = await materializeVisionDescriptions(validMsgs.filter(m => !isRejectedPrivateMessage(m)), apiConfig.visionApi);
         const emojis = await DB.getEmojis();
 
         // 重掷的是开场白（isOpening 锚点消息）：走感知同款 payload 重新生成开场。
