@@ -141,6 +141,22 @@ describe('群聊与个人记忆宫殿双向归档', () => {
         expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBe(originalCursor);
     });
 
+    it('旧共享游标补录必须包含最后不足200条的尾巴，且不回退老水位', async () => {
+        const { group, a, b } = await makeGroup();
+        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        localStorage.setItem('mp_lastMsgId_group_' + group.id, '209');
+        const first = await processGroupNewMessages(group, [a, b], '用户');
+        expect(first?.progressed).toBe(true);
+        expect(first?.processedMessageCount).toBe(200);
+        expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBe(209);
+        const tail = await processGroupNewMessages(group, [a, b], '用户');
+        expect(tail?.progressed).toBe(true);
+        expect(tail?.processedMessageCount).toBe(9);
+        expect(localStorage.getItem('mp_lastMsgId_group_member_' + group.id + '_' + a.id)).toBe('209');
+        expect(localStorage.getItem('mp_lastMsgId_group_member_' + group.id + '_' + b.id)).toBe('209');
+        expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === group.id)).toHaveLength(1);
+    });
+
     it('不同群中内容相似也必须各自有可追溯记忆，不能跨群误去重', async () => {
         const { group, a, b } = await makeGroup();
         vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
