@@ -135,13 +135,15 @@ describe('renderFirePack', () => {
   it('填满全部槽位，currentTime 出现多次也全部替换（自然中文格式，与 buildCoreContext 同款）', () => {
     const now = Date.UTC(2026, 6, 17, 8, 30);
     const rendered = renderFirePack(basePack, now, '本次任务指令');
-    expect(rendered).toBe([
+    expect(rendered.startsWith([
       '当前本地时间：2026年7月17日 周五 早晨 08:30',
       '你们最近没有新的聊天记录。',
       '现在是 2026年7月17日 周五 早晨 08:30。',
       '小明同学最近没有主动来找你说话。',
       '本次任务指令',
-    ].join('\n'));
+    ].join('\n'))).toBe(true);
+    expect(rendered).toContain('【主动消息的对话连续性约束】');
+    expect(rendered).not.toContain('\\n');
     expect(rendered).not.toContain('{{');
   });
 
@@ -190,7 +192,8 @@ describe('对方那边现在几点（AMSG_SLOT_USER_CLOCK）', () => {
 
   it('同一个时区 → 整行消失（同一个钟报两遍就成了两个打架的时间）', () => {
     const out = renderFirePack({ ...nyChar, userTzId: 'America/New_York' }, AT, '指令');
-    expect(out).toBe('当前本地时间（你所在地）：2026年8月2日 周日 上午 09:00');
+    expect(out.startsWith('当前本地时间（你所在地）：2026年8月2日 周日 上午 09:00')).toBe(true);
+    expect(out).not.toContain('对方所在时区参考：');
   });
 
   it('buildUserClockHint 只认 userTz，不吃运行时本地时区', () => {
