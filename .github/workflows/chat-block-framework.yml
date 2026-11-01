@@ -9,6 +9,7 @@ on:
       - 'hooks/useChatAI.ts'
       - 'types.ts'
       - 'utils/chatBlock*'
+      - 'utils/streamPreview*'
       - 'tests/chat-block-visual.*'
       - '.github/workflows/chat-block-framework.yml'
   workflow_dispatch:
@@ -32,7 +33,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Block state, private chat generation and UI regression
-        run: pnpm exec vitest run utils/chatBlock.test.ts utils/chatBlockAI.test.ts utils/chatBlock.flow.test.ts utils/chatAutoReply.test.ts utils/chatGenEvents.test.ts
+        run: pnpm exec vitest run utils/chatBlock.test.ts utils/chatBlockAI.test.ts utils/streamPreview.test.ts utils/chatBlock.flow.test.ts utils/chatAutoReply.test.ts utils/chatGenEvents.test.ts
       - name: TypeScript regression of changed files
         shell: bash
         run: |
