@@ -48,7 +48,9 @@ async function setTitle(title: string) {
 describe('见面剧情从点击到真实数据库持久化，再次进入的完整闭环', () => {
     it('不要求隐藏开关，填写标题和选择角色后进入会话，退出重启仍能打开原剧情', async () => {
         await mount();
-        await tap('新增第一条剧情');
+        const newStory = host!.querySelector('button[aria-label="新建剧情"]') as HTMLButtonElement;
+        expect(newStory).toBeTruthy();
+        await act(async () => newStory.click());
         await setTitle('真正保存的雨夜');
         await tap('旅行者');
         await tap('保存并进入');
