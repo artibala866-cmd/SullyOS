@@ -91,8 +91,8 @@ describe('一起听邀请状态', () => {
 
 describe('撤回邀请的真实持久化流程', () => {
   it('撤回已生效的邀请不再触发私聊自动回复倒计时', () => {
-    const chat = readFileSync(new URL('../apps/Chat.tsx', import.meta.url), 'utf8');
-    expect(chat).toContain("findPendingMusicInvite(recent, 'user', detail.messageId)");
+    const bridge = readFileSync(new URL('../components/music/MusicInviteReplyBridge.tsx', import.meta.url), 'utf8');
+    expect(bridge).toContain("findPendingMusicInvite(history, 'user', current.messageId)");
     expect(findPendingMusicInvite([
       { id: 10, metadata: { musicListenInvite: true } },
       { id: 11, metadata: { musicListenInviteResponseTo: 10, cancelled: true } },
@@ -270,16 +270,19 @@ describe('多标签页并发：IndexedDB 原子邀请交易', () => {
   });
 });
 
-describe('撤回邀请不再留住自动回复倒计时', () => {
-  it('只有关联的邀请撤回才取消计时；其他正常用户消息不受影响', () => {
+describe('音乐即时操作不再误入真人感自动回复', () => {
+  it('音乐邀请由 MusicProvider 全局桥接，普通私聊倒计时只处理真实聊天', () => {
     const chat = readFileSync(new URL('../apps/Chat.tsx', import.meta.url), 'utf8');
-    expect(chat).toContain('pendingMusicInviteReplyRef.current');
-    expect(chat).toContain('onMusicInviteResolved');
-    expect(chat).toContain('pending.messageId !== detail.messageId');
-    expect(chat).toContain('latest?.metadata?.musicListenInviteResponseTo === pending.messageId');
-    expect(chat).toContain('autoReply.cancel()');
-    expect(chat).toContain("if (latestPersisted.metadata?.musicListenInviteResponseTo) return 'discard';");
-    expect(chat).toContain("!findPendingMusicInvite(fresh, 'user', latestPersisted.id)");
+    const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+    const bridge = readFileSync(new URL('../components/music/MusicInviteReplyBridge.tsx', import.meta.url), 'utf8');
+    expect(chat).not.toContain('pendingMusicInviteReplyRef');
+    expect(chat).not.toContain('onMusicInviteForAutoReply');
+    expect(chat).toContain('latestPersisted.metadata?.musicListenInvite ||');
+    expect(chat).toContain('latestPersisted.metadata?.musicListenInviteResponseTo');
+    expect(app).toContain('<MusicInviteReplyBridge />');
+    expect(bridge).toContain('immediateMusicInvite: true');
+    expect(bridge).not.toContain('inputPreferences.autoReply');
+    expect(bridge).not.toContain('canRealPersonContact');
   });
 
   it('待回应记录已经被撤回时不能作为自动回复候选', () => {
@@ -313,15 +316,13 @@ describe('恢复页面与跨标签页撤回的交互防护', () => {
     expect(context).toContain('inviteReadRevision.current.get(charId) !== revision');
   });
 
-  it('跨标签页删除邀请后，聊天自动回复计时会按 DB 判断撤回', () => {
-    const chat = readFileSync(new URL('../apps/Chat.tsx', import.meta.url), 'utf8');
-    expect(chat).toContain('checkRemoteMusicResolution');
-    expect(chat).toContain("window.addEventListener('storage', onRemoteMusicChange)");
-    expect(chat).toContain("window.removeEventListener('storage', onRemoteMusicChange)");
-    expect(chat).toContain("document.addEventListener('visibilitychange', onMusicTabVisible)");
-    expect(chat).toContain("findPendingMusicInvite(history, 'user', pending.messageId)");
-    expect(chat).toContain('onMusicInviteResolved(new CustomEvent(');
-    expect(chat).toContain('autoReply.cancel()');
+  it('跨标签页删除邀请后，即时回复桥使用 DB 判断而不是重开自动倒计时', () => {
+    const bridge = readFileSync(new URL('../components/music/MusicInviteReplyBridge.tsx', import.meta.url), 'utf8');
+    expect(bridge).toContain("window.addEventListener('storage', storage)");
+    expect(bridge).toContain("window.removeEventListener('storage', storage)");
+    expect(bridge).toContain("findPendingMusicInvite(history, 'user', current.messageId)");
+    expect(bridge).toContain('MUSIC_INVITE_DB_CHANGED_KEY');
+    expect(bridge).not.toContain('autoReply.beginSend');
   });
 });
 
