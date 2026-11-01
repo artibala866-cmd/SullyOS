@@ -2,7 +2,7 @@ import '../components/chat/WeixinOriginalAssets.css';
 import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { findPendingUserTurn } from '../utils/chatContinuation';
-import { canRealPersonContact, isRealPersonModeEnabled, setRealPersonModeEnabled } from '../utils/realPersonMode';
+import { canRealPersonContact, isRealPersonModeEnabled, setRealPersonModeEnabled, shouldAutoReplyToUser } from '../utils/realPersonMode';
 import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
@@ -1444,8 +1444,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     const handleInputChange = (val: string) => {
         setInput(val);
-        // New typing revokes a previous successful-send candidate, including its pending async save.
-        if (val.trim()) autoReply.cancelIfPending();
+        // A half-typed follow-up pauses the pending answer; it must not silently erase
+        // the user's previously saved unanswered turn. The reply waits for a clear composer.
         if (val.trim()) localStorage.setItem(draftKey, val);
         else localStorage.removeItem(draftKey);
     };
@@ -2192,10 +2192,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 setLifePacing(next);
                 setRealPersonModeEnabled(next);
                 addToast(next
-                    ? (char?.activeMsg2Config?.enabled === true
-                        ? '真人感已开启，主动消息 2.0 可按真实情境自主联系；没有自然契机就不发。'
-                        : '真人感已准备好；主动消息 2.0 关闭时不会自行找话题或发送消息。')
-                    : '真人感自主联系已暂停；手动提醒和普通消息回复仍按原设置运行。', 'info');
+                    ? '真人感已开启：发送后会按对话和日程自然接话，无需手动按闪电；主动找你仍由主动消息 2.0 单独授权。'
+                    : '真人感已关闭；原有普通自动回复仍按输入设置运行，主动联系也已暂停。', 'info');
                 break;
             }
             case 'mcd-not-configured':
@@ -4008,16 +4006,20 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // Same rule as the reply gate; status is a schedule-based display, NOT
     // a character-authored status message or AI-generated short sentence.
     const schedulePresence = resolveSchedulePresence(lifeActivity, latestRealReplyAt);
-    const showSchedulePresence = canRealPersonContact(char,lifePacing) && lifeActivity !== null;
+    const showSchedulePresence = lifePacing && lifeActivity !== null;
     const autoReply = useChatAutoReply({
-        enabled: inputPreferences.autoReply,
-        naturalPacing: canRealPersonContact(char,lifePacing),
+        // Replying to a user message is the real-person mode's own job; AMSG2
+        // only authorizes a brand-new unsolicited message, never an answer.
+        enabled: shouldAutoReplyToUser(lifePacing, inputPreferences.autoReply),
+        naturalPacing: lifePacing,
         lifeActivity,
         lastCharacterReplyAt: latestAnsweredAt,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
         // Hydrated intent must not fire before the persisted chat tail finishes loading.
-        blocked: messages.length === 0 || isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
+        // A focused but EMPTY input is not evidence the user is still typing.
+        // Keeping focus after Send is normal on phones; do not wait for an extra tap.
+        blocked: messages.length === 0 || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
             || selectionMode || isSummarizing || collaborationOpen || memoryRepairOpen || favoritesOpen
             || showActiveMsg2Modal || showThinkingChainModal
             || mcdAppOpen || luckinAppOpen || showForwardModal || isProactiveComposing,
