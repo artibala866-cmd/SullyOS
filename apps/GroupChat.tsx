@@ -1776,7 +1776,10 @@ ${memberTimeline || '(暂无互动记录)'}
         replyAttention: groupReplyState.replyAttention,
         conversationId: activeGroup?.id || null,
         active: view === 'chat' && !!activeGroup,
-        blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
+        // Focus remains on the phone composer after Send; only actual draft
+        // content means the user is still typing. A focused empty box must
+        // not strand the saved reply intent until a second tap or blur.
+        blocked: !!input.trim() || showPanel !== 'none' || modalType !== 'none'
             || selectionMode || isSummarizing,
         generating: isTyping,
         onGenerate: async (stillEligible) => {
