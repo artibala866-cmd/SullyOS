@@ -63,7 +63,11 @@ describe('见面剧情从点击到真实数据库持久化，再次进入的完�
         expect(saved?.characterIds).toContain(actor.id);
         await unmount();
         await mount();
-        await tap('真正保存的雨夜');
+        await act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
+        // Saved story cards include cast/date metadata; click the card by its h3 title.
+        const savedCard = [...host!.querySelectorAll('button')].find(b => b.querySelector('h3')?.textContent?.trim() === '真正保存的雨夜');
+        expect(savedCard, `saved story card missing: ${host!.textContent?.slice(0,320)}`).toBeTruthy();
+        await act(async () => savedCard!.click());
         expect(host!.querySelector('[data-testid="saved-story-session"]')?.textContent).toContain('真正保存的雨夜');
         expect((await DB.getStoryTheaters()).find(item => item.id === saved!.id)?.title).toBe('真正保存的雨夜');
     });
