@@ -2132,7 +2132,7 @@ export const useChatAI = ({
             // 只有后处理成功、角色权限仍有效且未被另一方向拉黑时才正式保存状态。
             if (blockDecision.reason && !replyRun.signal.aborted && charRef.current?.id === char.id) {
                 await updateCharacter(char.id, previous => ({
-                    chatBlock: allowsCharacterToBlock(previous.chatBlock) && !isPrivateChatBlocked(previous.chatBlock)
+                    chatBlock: allowsCharacterToBlock(previous.chatBlock) && !characterBlocksUser(previous.chatBlock)
                         ? changeChatBlock(previous.chatBlock, 'character', true, { reason: blockDecision.reason!, source: 'ai' })
                         : previous.chatBlock,
                 }));
