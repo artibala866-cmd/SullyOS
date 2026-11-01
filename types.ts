@@ -2741,6 +2741,11 @@ export interface ChatBlockState {
 }
 
 export interface CharacterProfile {
+  /** 真人感的角色专属接话习惯。复用现有角色资料、备份与角色切换，不属于主动消息配置。 */
+  realPersonReplyRhythm?: Partial<Record<
+    'normal' | 'conversation' | 'occupied' | 'waiting',
+    { minSeconds: number; maxSeconds: number }
+  >>;
   /** 使用既有角色资料持久化与备份，不新建数据孤岛。 */
   chatBlock?: ChatBlockState;
   /** Local default for this character's dialogue; absent means follow Settings. Never shared in cards. */
