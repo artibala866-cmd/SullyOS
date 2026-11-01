@@ -57,12 +57,16 @@ describe('limits 记录', () => {
     } as any, true);
     expect(record).toEqual({ v: 1, selfScheduleEnabled: true, dailySendCap: 5, allowSelfForce: true });
     expect(parseAmsgLimitsRecord(JSON.stringify(record))).toEqual(record);
+    const suspended = buildAmsgLimitsRecord({}, true, false);
+    expect(parseAmsgLimitsRecord(JSON.stringify(suspended))?.autonomyEnabled).toBe(false);
+    expect(suspended.selfScheduleEnabled).toBe(true);
   });
 
   it('形状不对 → null（worker 按默认值走）', () => {
     expect(parseAmsgLimitsRecord('')).toBeNull();
     expect(parseAmsgLimitsRecord('{')).toBeNull();
     expect(parseAmsgLimitsRecord(JSON.stringify({ v: 1 }))).toBeNull();
+    expect(parseAmsgLimitsRecord(JSON.stringify({ v: 1, selfScheduleEnabled: true, autonomyEnabled: 'false' }))).toBeNull();
   });
 
   it('pickPacingSettings 不带没设的项', () => {
