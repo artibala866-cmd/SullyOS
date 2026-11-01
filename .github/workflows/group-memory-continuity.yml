@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/group-memory-tsc.log 2>&1 || true
-          grep -E '^(apps/GroupChat.tsx|utils/groupChat/[^ ]+\\.tsx?|utils/memoryPalace/(groupPipeline|groupExtraction|pipeline|vectorSearch)\\.tsx?|utils/chatContextRange.ts)[(]' /tmp/group-memory-tsc.log > /tmp/group-memory-errors.log || true
+          grep -E '^(apps/GroupChat.tsx|utils/groupChat/|utils/memoryPalace/(groupPipeline|groupExtraction|pipeline|vectorSearch).ts|utils/chatContextRange.ts)' /tmp/group-memory-tsc.log > /tmp/group-memory-errors.log || true
           if [ -s /tmp/group-memory-errors.log ]; then
             cat /tmp/group-memory-errors.log
             exit 1
