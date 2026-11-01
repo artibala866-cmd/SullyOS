@@ -17,6 +17,13 @@ export function filterPrivateGroupTopicCards(messages: Message[], groups: GroupP
     });
 }
 
+/** 自动私聊记忆提取不能把群公共卡片加工成无来源标签的个人节点。
+ * 公共卡片仍留在已授权的私聊上下文，真正的长期群记忆由 groupPipeline 独立写入 groupId。
+ */
+export function isPrivatePalaceSourceMessage(message: Message): boolean {
+    return !message.groupId && message.type !== 'group_topic_card';
+}
+
 /** 禁止先前同步的向量群记忆绕过新的私聊互通开关继续回忆。 */
 export function filterPrivateGroupMemoryCandidates<T extends { node: { groupId?: string; charId?: string } }>(
     candidates: T[],
