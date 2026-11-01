@@ -1,0 +1,49 @@
+name: Original author feature portability regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/upstream-feature-port.yml'
+      - 'components/DatabaseGuard.tsx'
+      - 'utils/databaseGuard.test.ts'
+      - 'apps/room3d/HomePhotoMode.tsx'
+      - 'apps/room3d/chibi/approvedClothing.ts'
+      - 'apps/room3d/chibi/halloweenShoeSkin.ts'
+      - 'experiments/chibi/HalloweenWardrobe.tsx'
+      - 'experiments/chibi/WardrobePicker.tsx'
+      - 'experiments/chibi/garment-layering.css'
+      - 'utils/homePhotoUpstreamInterop.test.ts'
+      - 'utils/photoComposition.test.ts'
+      - 'utils/halloweenWardrobeUI.test.ts'
+      - 'utils/halloweenSkinMotion.test.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sully-upstream-port-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run original author and integration regression suites
+        run: |
+          pnpm exec vitest run utils/databaseGuard.test.ts utils/halloweenSkinMotion.test.ts utils/halloweenWardrobeUI.test.ts utils/photoComposition.test.ts utils/homePhotoUpstreamInterop.test.ts
+      - name: Check touched-file TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/upstream-port-tsc.log 2>&1 || true
+          grep -E '^(components/DatabaseGuard.tsx|apps/room3d/(HomePhotoMode.tsx|chibi/(approvedClothing|halloweenShoeSkin).ts)|experiments/chibi/(WardrobePicker|HalloweenWardrobe).tsx|utils/(databaseGuard|halloweenSkinMotion|halloweenWardrobeUI|photoComposition|homePhotoUpstreamInterop).test.ts)[(]' /tmp/upstream-port-tsc.log > /tmp/upstream-port-diagnostics.log || true
+          if [ -s /tmp/upstream-port-diagnostics.log ]; then cat /tmp/upstream-port-diagnostics.log; exit 1; fi
+      - name: Check production build
+        run: pnpm run build
