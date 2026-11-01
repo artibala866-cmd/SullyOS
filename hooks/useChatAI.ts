@@ -36,7 +36,7 @@ import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
 import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContinuation';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
-import { isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, changeChatBlock, didCharReplyFailDuringGeneration } from '../utils/chatBlock';
+import { userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, changeChatBlock, didCharReplyFailDuringGeneration } from '../utils/chatBlock';
 import { buildCharacterBlockAutonomyInstruction, buildPrivateChatBlockHistoryContext, buildFirstPostUnblockOpeningInstruction, extractCharacterBlockDirective } from '../utils/chatBlockAI';
 import {chatPhonePiggybackPrompt} from '../utils/phoneChatPiggyback';
 import {
