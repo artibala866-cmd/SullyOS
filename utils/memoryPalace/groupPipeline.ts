@@ -299,7 +299,7 @@ export async function processGroupNewMessages(
                 allMembersCompleted = false;
                 continue;
             }
-            const memberEmb = getEmbeddingConfigForMember(member, globalEmb);
+            const memberEmb = getEmbeddingConfigForMember(freshCharacter, globalEmb);
             if (!memberEmb) {
                 console.warn(`🏰 [GroupPalace] 成员 ${member.name} 没有 embedding 配置，跳过 ta 这一份`);
                 perMemberStored[member.id] = 0;
@@ -309,7 +309,14 @@ export async function processGroupNewMessages(
 
             try {
                 // 6a. 这个成员现有向量（用于本批去重）
-                const existingVectors = await MemoryVectorDB.getAllByCharId(member.id);
+                const [allMemberVectors, allMemberNodes] = await Promise.all([
+                    MemoryVectorDB.getAllByCharId(member.id),
+                    MemoryNodeDB.getByCharId(member.id),
+                ]);
+                // 只拿本群的记忆去重。另一群的共同经历、甚至私聊的相似记忆
+                // 绝不能阻止当前群写下自己的事实及群来源。
+                const groupMemoryIds = new Set(allMemberNodes.filter(node => node.groupId === group.id).map(node => node.id));
+                const existingVectors = allMemberVectors.filter(vector => groupMemoryIds.has(vector.memoryId));
 
                 // 6b. 嵌入这个成员的所有 drafts
                 const texts = drafts.map(d => d.content);
