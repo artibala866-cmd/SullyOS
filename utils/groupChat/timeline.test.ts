@@ -45,6 +45,27 @@ describe('buildMemberTimeline', () => {
         expect(lines[0]).toContain('g7');
     });
 
+    it('互通开启时群聊消息再多也不会把设置的私聊 20 条挤掉', () => {
+        const privateMsgs = Array.from({ length: 25 }, (_, i) =>
+            msg({ id: i + 1, role: 'user', content: `私聊${i}`, timestamp: i + 1 }));
+        const groupMsgs = Array.from({ length: 80 }, (_, i) =>
+            msg({ id: i + 100, groupId: 'g1', content: `群聊${i}`, timestamp: i + 100 }));
+        const lines = buildMemberTimeline({ privateMsgs, groupMsgs, cap: 40, privateCap: 20, resolveSpeaker }).split('\n');
+        expect(lines).toHaveLength(60);
+        expect(lines.filter(line => line.includes('[私聊]'))).toHaveLength(20);
+        expect(lines.some(line => line.includes('私聊5'))).toBe(true);
+        expect(lines.some(line => line.includes('私聊4'))).toBe(false);
+    });
+
+    it('私聊互通关闭时不注入私聊原文', () => {
+        const lines = buildMemberTimeline({
+            privateMsgs: [], groupMsgs: [msg({ groupId: 'g1', content: '群消息', timestamp: 100 })],
+            cap: 40, resolveSpeaker,
+        });
+        expect(lines).toContain('群消息');
+        expect(lines).not.toContain('[私聊]');
+    });
+
     it('非文本消息用占位符，base64 不会出现在时间线里', () => {
         const groupMsgs = [
             msg({ id: 1, groupId: 'g1', type: 'image', content: 'data:image/jpeg;base64,AAAA', timestamp: 100 }),

@@ -26,6 +26,10 @@ export interface MemberTimelineOptions {
     groupMsgs: Message[];
     /** 合并排序后取末 N 条 */
     cap: number;
+    /** 私聊互通开启时独立保留最近 N 条私聊；不被大量群聊消息挤掉。 */
+    privateCap?: number;
+    /** 私聊原文字数上限（默认仍 80，互通时可适当提高）。 */
+    privateLineMaxChars?: number;
     /** 群消息说话人解析：charId → 显示名（user 角色不经过它） */
     resolveSpeaker: (m: Message) => string;
     /** 表情包 URL → 名称（占位符用） */
@@ -43,21 +47,21 @@ export interface MemberTimelineOptions {
  *   [群聊][07-11 09:02] 小夏: 早啊！
  */
 export function buildMemberTimeline(opts: MemberTimelineOptions): string {
-    const { privateMsgs, groupMsgs, cap, resolveSpeaker, stickerName } = opts;
+    const { privateMsgs, groupMsgs, cap, privateCap, privateLineMaxChars, resolveSpeaker, stickerName } = opts;
 
     const tagged = [
-        ...privateMsgs.slice(-cap).map(m => ({ m, isGroup: false })),
+        ...privateMsgs.slice(-(privateCap ?? cap)).map(m => ({ m, isGroup: false })),
         ...groupMsgs.slice(-cap).map(m => ({ m, isGroup: true })),
     ];
     tagged.sort((a, b) => a.m.timestamp - b.m.timestamp);
 
     return tagged
-        .slice(-cap)
+        .slice(privateCap === undefined ? -cap : -(cap + privateCap))
         .map(({ m, isGroup }) => {
             const tag = isGroup ? '[群聊]' : '[私聊]';
             // 私聊行的"我"= 该成员本人；群聊行用真名，成员才能分清谁说的
             const speaker = m.role === 'user' ? '用户' : (isGroup ? resolveSpeaker(m) : '我');
-            const text = truncate(messageLogText(m, stickerName), LINE_MAX_CHARS);
+            const text = truncate(messageLogText(m, stickerName), !isGroup && privateLineMaxChars ? privateLineMaxChars : LINE_MAX_CHARS);
             return `${tag}[${formatTime(m.timestamp)} · ${formatRelativeAge(m.timestamp)}] ${speaker}: ${text}`;
         })
         .join('\n');

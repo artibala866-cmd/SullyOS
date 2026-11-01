@@ -3225,6 +3225,10 @@ export interface GroupProfile {
      * 不设默认 80。设大点能让活跃群更完整，设小点节省 token、避免某个活跃群把其他群挤掉。
      */
     privateContextCap?: number;
+    /** 开关：群聊与成员自己的私聊互通；旧群缺省开启以延续原有双向背景。 */
+    privateChatSyncEnabled?: boolean;
+    /** 群聊生成时，每个成员最多读取多少条自己的私聊；默认 20。 */
+    privateChatHistoryLimit?: number;
     /**
      * 群提示词里每个成员"私聊+群聊合并时间线"的条数上限（合并排序后取末 N 条）。
      * 不设默认 40。这条时间线是角色群聊表现与私聊感情衔接的关键上下文。

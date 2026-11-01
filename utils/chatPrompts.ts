@@ -441,7 +441,7 @@ export const ChatPrompts = {
         // （之前是把所有群消息混合后切前 200 条，活跃群会吃光配额，安静群完全不出现）
         const groupContextPromise: Promise<string> = (async () => {
             try {
-                const memberGroups = groups.filter(g => g.members.includes(char.id));
+                const memberGroups = groups.filter(g => g.members.includes(char.id) && g.privateChatSyncEnabled !== false);
                 if (memberGroups.length === 0) return '';
                 const perGroup = await Promise.all(
                     memberGroups.map(g => DB.getGroupMessages(g.id).then(msgs => ({

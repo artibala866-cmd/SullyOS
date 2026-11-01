@@ -588,6 +588,8 @@ const GroupChat: React.FC = () => {
     // Create/Edit Group State
     const [tempGroupName, setTempGroupName] = useState('');
     const [tempPrivateContextCap, setTempPrivateContextCap] = useState<number>(80);
+    const [tempPrivateChatSync, setTempPrivateChatSync] = useState(true);
+    const [tempPrivateChatHistoryLimit, setTempPrivateChatHistoryLimit] = useState(20);
     const [tempMemberTimelineCap, setTempMemberTimelineCap] = useState<number>(DEFAULT_MEMBER_TIMELINE_CAP);
     const [tempReplyMode, setTempReplyMode] = useState<'director' | 'roundRobin'>('director');
     const [tempMemberBubbleIndependent, setTempMemberBubbleIndependent] = useState(false);
@@ -832,6 +834,8 @@ const GroupChat: React.FC = () => {
         const updates = {
             name: tempGroupName || activeGroup.name,
             privateContextCap: tempPrivateContextCap,
+            privateChatSyncEnabled: tempPrivateChatSync,
+            privateChatHistoryLimit: Math.max(1, Math.min(200, Math.floor(tempPrivateChatHistoryLimit || 20))),
             memberTimelineCap: tempMemberTimelineCap,
             replyMode: tempReplyMode,
             memberBubbleIndependent: tempMemberBubbleIndependent,
@@ -1144,6 +1148,8 @@ const GroupChat: React.FC = () => {
         setSettingsInputPreferences(loadChatInputPreferences());
         setTempGroupName(activeGroup?.name || '');
         setTempPrivateContextCap(activeGroup?.privateContextCap ?? 80);
+        setTempPrivateChatSync(activeGroup?.privateChatSyncEnabled !== false);
+        setTempPrivateChatHistoryLimit(Math.max(1, Math.min(200, activeGroup?.privateChatHistoryLimit ?? 20)));
         setTempMemberTimelineCap(activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP);
         setTempReplyMode(activeGroup?.replyMode ?? 'director');
         setTempMemberBubbleIndependent(activeGroup?.memberBubbleIndependent ?? false);
@@ -1207,6 +1213,8 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         sharedScene: ReturnType<typeof ContextBuilder.buildGroupSharedScene>,
     ): Promise<string> => {
         const timelineCap = activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP;
+        const privateSyncOn = activeGroup?.privateChatSyncEnabled !== false;
+        const privateHistoryLimit = Math.max(1, Math.min(200, activeGroup?.privateChatHistoryLimit ?? 20));
         // 记忆宫殿检索源用当前群线程（滤掉媒体消息，base64 不能进 embedding query）：
         // 角色应召回与"群里正聊的话题"相关的记忆，而不是私聊近况（旧行为，召回跑偏）
         const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
@@ -1221,15 +1229,19 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         // conversational：群聊同样是用户正在说话的场合（见 buildTimeAwarenessBlock）
         }, { worldbookMessages: liveGroupMsgs, conversational: true }));
         // Get private gap string
-        const privateGapInfo = await getPrivateTimeGap(member.id);
+        const privateGapInfo = privateSyncOn ? await getPrivateTimeGap(member.id) : '';
 
         // 私聊+群聊合并时间线：让角色看清两条线的先后关系，感情才能衔接。
         // 私聊侧遵守角色的原文范围，再与本群独立窗口合并。
-        const privateMsgs = await loadCharacterContextMessages(member);
+        const privateMsgs = privateSyncOn
+            ? (await loadCharacterContextMessages(member)).slice(-privateHistoryLimit)
+            : [];
         const memberTimeline = buildMemberTimeline({
             privateMsgs,
             groupMsgs: liveGroupMsgs,
             cap: timelineCap,
+            privateCap: privateSyncOn ? privateHistoryLimit : undefined,
+            privateLineMaxChars: 240,
             resolveSpeaker: (m) => m.charId === member.id
                 ? '我'
                 : (characters.find(c => c.id === m.charId)?.name || '未知成员'),
@@ -1242,16 +1254,13 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
 <<< 角色档案 START: ${member.name} (ID: ${member.id}) >>>
 ${coreContext}
 
-[重点：私聊状态 (Private Context)]:
+${privateSyncOn ? `[重点：私聊与群聊互通（仅本成员自己的私聊）]:
 - **私聊空窗期**: ${privateGapInfo}
-- **重要指令**: 如果 [私聊空窗期] 显示 "刚刚" 或 "几小时前"，请【忽略】群聊的时间流逝感知。哪怕群里很久没说话，只要你和用户私底下刚聊过，就【严禁】说 "好久不见" 或表现出疏离感。
-- 你的近期互动时间线（按时间排序；[私聊]=你和用户单独聊的，别人看不见；[群聊]=本群公开记录。仅作为你内心状态的底色，不要变成默认反应模板）：
+- 下面包含最近 ${privateMsgs.length} 条你和用户之间的私聊，及本群最近互动，按时间排序。即使群里很久没人说话，也不要误说刚刚聊过的用户好久不见。
+- 私聊只属于你和用户；其他群成员没有因此获得知情权。不要擅自在群里公开对方的私聊原话、隐私或秘密。
+- 已有关系和承诺不会在切换场景时重置，但私聊话题不必变成群聊中心。` : '[私聊互通已关闭：本群不读取成员私聊原文；只参考本群消息和已有角色设定。]'}
+- 最近互动时间线（开启互通时含本成员私聊，按时间排序）：
 ${memberTimeline || '(暂无互动记录)'}
-- **先认清 U**：群聊里的用户，就是你一直在私聊、记忆和印象里认识的同一个人。已经建立的关系、承诺和亲密程度继续成立；公开场合可以换一种表达方式，但不能重置关系或突然把 U 当成普通陌生群友。
-- **关于私聊状态如何影响群聊表现**：
-  · 私聊在吵架 → **可能**有点别扭/冷淡/借题发挥，但**强度由你的性格决定**。情绪稳定的人不会因为私下闹矛盾就在群里失态；脾气大的人才会带情绪到群里。绝大多数情况是"心里有点疙瘩"而不是"摆脸色给所有人看"。
-  · 私聊在甜蜜 → **可能**想低调、不好意思声张，或者反而想隐隐显摆一下，看你性格。**不必每次都"支支吾吾"**——这是套路化反应，不真实。
-  · 关键原则：你是一个完整的人，不是"私聊状态的应激反应器"。群里此刻的状态由你本身、群聊话题和既有关系共同决定；私聊不必抢占群聊中心，但它建立的关系底色不会消失。
 <<< 角色档案 END >>>
 `;
     };
@@ -1329,7 +1338,7 @@ ${memberTimeline || '(暂无互动记录)'}
 
             // 成盒时给所有当前成员一张私聊卡。正文可被私聊上下文/归档正常解析；
             // metadata 保留引用，后续编辑/删除公共盒时同步这些卡片。
-            await Promise.all(groupForArchive.members.map(memberId => DB.saveMessage({
+            if (groupForArchive.privateChatSyncEnabled !== false) await Promise.all(groupForArchive.members.map(memberId => DB.saveMessage({
                 charId: memberId,
                 role: 'system',
                 type: 'group_topic_card',
@@ -1340,7 +1349,9 @@ ${memberTimeline || '(暂无互动记录)'}
             markGroupMembersDirty(groupForArchive.members);
             const remaining = groupTopicPendingCount(allMsgs, box.sourceEndMessageId);
             setTopicPendingCount(remaining);
-            addToast(`「${box.title}」已成盒，并送达 ${groupForArchive.members.length} 位成员私聊`, 'success');
+            addToast(groupForArchive.privateChatSyncEnabled !== false
+                ? `「${box.title}」已成盒，并送达 ${groupForArchive.members.length} 位成员私聊`
+                : `「${box.title}」已成盒；私聊互通关闭，未投递私聊卡片`, 'success');
             return true;
         } catch (err: any) {
             console.warn('[GroupChat] 公共话题盒整理失败:', err);
@@ -1437,7 +1448,7 @@ ${memberTimeline || '(暂无互动记录)'}
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 适配】[html]...[/html] 块要写在某个角色自己的 content 字符串内部；HTML 属性一律用单引号（如 <div style='...'>），避免双引号破坏外层 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const prompt = `${context}\n\n${buildDirectorInstruction({ ...history, text: '（见下方独立消息历史）' }, emojiContextStr)}${htmlPromptExt}\n`;
+            const prompt = `${context}\n\n${buildDirectorInstruction({ ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}\n`;
 
             const data = await completeGroupChatWithMcp({
                 url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1551,7 +1562,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     const htmlPromptExt = activeGroup.htmlModeEnabled
                         ? `\n\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                         : '';
-                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, { ...history, text: '（见下方独立消息历史）' }, emojiContextStr)}${htmlPromptExt}\n`;
+                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, { ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}\n`;
 
                     const data = await completeGroupChatWithMcp({
                         url: `${dialogueApi.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -2130,20 +2141,45 @@ ${memberTimeline || '(暂无互动记录)'}
                         <p className="text-[9px] text-slate-400 mt-1 leading-tight">角色每次发言时参考多少条群聊历史。越多越连贯，但越慢、越费 token。</p>
                     </div>
 
+                    {/* 互通在本群独立开关；旧群保留已有默认行为。 */}
+                    <div className="pt-2 border-t border-slate-100 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <div className="text-sm font-bold text-slate-700">私聊互通</div>
+                                <p className="text-[11px] text-slate-500 leading-relaxed mt-1">群成员能参考各自与用户的私聊；私聊也能参考本群公开消息。不会把 A 的私聊给 B。</p>
+                            </div>
+                            <button type="button" role="switch" aria-checked={tempPrivateChatSync}
+                                aria-label="私聊互通" onClick={() => setTempPrivateChatSync(v => !v)}
+                                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${tempPrivateChatSync ? 'bg-neutral-700' : 'bg-slate-200'}`}>
+                                <span className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${tempPrivateChatSync ? 'translate-x-5' : ''}`} />
+                            </button>
+                        </div>
+                        {tempPrivateChatSync && (
+                            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-2">
+                                <label htmlFor="group-private-history-limit" className="text-xs font-semibold text-slate-700">群聊读取私聊消息数</label>
+                                <input id="group-private-history-limit" type="number" inputMode="numeric" min="1" max="200" step="1"
+                                    value={tempPrivateChatHistoryLimit} onChange={e => setTempPrivateChatHistoryLimit(Number(e.target.value))}
+                                    onBlur={() => setTempPrivateChatHistoryLimit(n => Math.max(1, Math.min(200, Math.floor(n || 20))))}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700" />
+                                <p className="text-[11px] text-slate-500">默认每位成员最近 20 条私聊，可设 1～200 条；仍遵守各自私聊的上下文与归档边界。</p>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Private Chat Group Context Cap */}
-                    <div className="pt-2 border-t border-slate-100">
+                    {tempPrivateChatSync && <div className="pt-2 border-t border-slate-100">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">私聊里"近期群活动"取条数 ({tempPrivateContextCap})</label>
                         <input type="range" min="20" max="500" step="10" value={tempPrivateContextCap} onChange={e => setTempPrivateContextCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-neutral-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>500 (完整)</span></div>
-                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">本群成员在自己的私聊里，最多看到本群最近多少条消息作为"近期群活动"上下文。</p>
-                    </div>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">成员私聊时读取多少条本群公开消息；不会读取其他人的私聊。</p>
+                    </div>}
 
                     {/* Member Timeline Cap */}
                     <div className="pt-2 border-t border-slate-100">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">成员互动时间线条数 ({tempMemberTimelineCap})</label>
                         <input type="range" min="20" max="200" step="10" value={tempMemberTimelineCap} onChange={e => setTempMemberTimelineCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-neutral-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>200 (完整)</span></div>
-                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">群里发言时，每位成员参考的"私聊+群聊合并时间线"条数。这条时间线让角色在群里的感情与私聊衔接。</p>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">本群时间线的群聊条数。开启互通后，私聊原文会另外按上方条数读取，不会被群聊挤掉。</p>
                     </div>
 
                     {/* 公共话题盒：一次总结，全群共享，并在成盒时送达所有成员私聊。 */}
