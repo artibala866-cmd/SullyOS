@@ -28,6 +28,7 @@ import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
 import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP, clampGroupPrivateHistoryLimit } from '../utils/groupChat/timeline';
+import { buildGroupMemberInteractionGuidance } from '../utils/groupChat/interactionAdaptation';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
@@ -1259,12 +1260,17 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
             stickerName: url => stickerNameFromUrl(emojis, url),
         });
 
+        // 五项交流适应只分析本群用户本人发言；所有成员独立算，导演/轮询共享。
+        const interactionGuidance = buildGroupMemberInteractionGuidance(
+            liveGroupMsgs, member.name, member.interactionAccommodation, userProfile.name,
+        );
+
         // Construct Detailed Profile Wrapper
         // CRITICAL FIX: Emphasize Private Context logic
         return `
 <<< 角色档案 START: ${member.name} (ID: ${member.id}) >>>
 ${coreContext}
-
+${interactionGuidance}
 ${privateSyncOn ? `[重点：私聊与群聊互通（仅本成员自己的私聊）]:
 - **私聊空窗期**: ${privateGapInfo}
 - 下面包含最近 ${privateMsgs.length} 条你和用户之间的私聊，及本群最近互动，按时间排序。即使群里很久没人说话，也不要误说刚刚聊过的用户好久不见。
