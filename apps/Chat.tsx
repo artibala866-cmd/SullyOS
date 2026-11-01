@@ -4041,7 +4041,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             if (manualChatGenerationRevisionRef.current !== manualRevision) return 'discard';
             const latestPersisted = findPendingRealPersonUserTurn(fresh);
             if (!latestPersisted) return 'discard'; // Already answered or withdrawn.
-            if (latestPersisted.id !== latestLocal.id) return 'retry'; // Newer saved user turn; never lose it.
+            if (latestPersisted.id !== latestLocal.id) {
+                // A different tab or an asynchronous save can advance IndexedDB
+                // before this mounted Chat's React history catches up. Refresh
+                // the visible tail instead of retrying the same stale ID forever.
+                await reloadMessages(visibleCountRef.current).catch(() => {});
+                return 'retry';
+            }
             // App-generated system events (music invitations, resolutions,
             // other interactive cards) never become private-chat auto replies.
             // A previously saved auto-reply intent must not resurrect them.
