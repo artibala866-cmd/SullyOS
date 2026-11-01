@@ -3948,10 +3948,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             if (manualChatGenerationRevisionRef.current !== manualRevision) return 'discard';
             const latestPersisted = findPendingUserTurn(fresh);
             if (!latestPersisted || latestPersisted.id !== latestLocal.id) return 'discard';
-            // Music invitation / response are app actions, not private-chat text.
-            // Never resurrect a pending or withdrawn invite from a durable
-            // auto-reply intent created by an older version.
-            if (latestPersisted.metadata?.musicListenInvite ||
+            // App-generated system events (music invitations, resolutions,
+            // other interactive cards) never become private-chat auto replies.
+            // A previously saved auto-reply intent must not resurrect them.
+            if (latestPersisted.type === 'system' ||
+                latestPersisted.metadata?.musicListenInvite ||
                 latestPersisted.metadata?.musicListenInviteResponseTo) return 'discard';
             const liveComposer = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
             if (liveComposer?.value.trim() || isTyping || instantChatPending || isProactiveComposing) return 'retry';
