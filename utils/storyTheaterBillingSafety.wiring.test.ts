@@ -19,7 +19,8 @@ const sliceBetween = (source: string, startAnchor: string, endAnchor: string): s
 describe('story theater billing safety wiring', () => {
     it('uses a synchronous mutex instead of React state as the send guard', () => {
         const sendSource = sliceBetween(storySource, 'const send = useCallback', 'const archivedCount =');
-        const guard = sendSource.indexOf('if (sendLock.current || actors.length === 0) return;');
+        const guard = sendSource.indexOf('if (sendLock.current || !canStart) return;');
+        expect(storySource).toContain('const canStart = hasStoryTheaterParticipant(entry, characters);');
         const acquire = sendSource.indexOf('sendLock.current = true;');
         const release = sendSource.indexOf('sendLock.current = false;');
 
