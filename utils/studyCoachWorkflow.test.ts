@@ -45,6 +45,9 @@ describe('阶段2真实事件→反馈→候选→确认→跟进',()=>{
     expect(coachFollowUp(confirmed,'charA',at('2026-11-03T09:00:00'))).toContain('这是计划，不代表已经完成');
     expect(coachFollowUp(confirmed,'charB',at('2026-11-03T09:00:00'))).toBe('');
     expect(coachFollowUp({...confirmed,planSlots:[]},'charA',at('2026-11-03T09:00:00'))).toBe('');
+    const changed={...confirmed,planSlots:confirmed.planSlots?.map(s=>({...s,start:'15:00',end:'15:25'}))};
+    expect(coachFollowUp(changed,'charA',at('2026-11-03T09:00:00'))).toContain('15:00');
+    expect(coachConfirmedContext(changed,'charA')).toContain('已修改或移除');
     expect(()=>decideCoachAction(confirmed,'charA',pending.id,true,at())).toThrow('已撤销');
   });
   it('用户拒绝不改变原业务数据；已过期或冲突建议不能被确认',()=>{

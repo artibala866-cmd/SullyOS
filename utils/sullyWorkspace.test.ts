@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   busyClassMinutesForDay, calculatePlanRisks, planIssues, emptyWorkspace, focusChatAllowance, normalizeWorkspace,
-  orderedCommissions, type Commission,
+  orderedCommissions, workspaceIntegrityWarnings, type Commission,
 } from './sullyWorkspace';
 
 describe('糯米机每五分钟监督配额', () => {
@@ -112,6 +112,19 @@ describe('排单基础数据', () => {
     expect(planIssues(w).some(issue=>issue.code==='over_capacity')).toBe(true);
     w.dailyAvailableMinutes=90;
     expect(planIssues(w).some(issue=>issue.code==='over_capacity')).toBe(false);
+  });
+
+  it('损坏的阶段或重复的具体时段禁止静默丢弃并保存',()=>{
+    const w=emptyWorkspace();
+    w.commissions=[{...commission('c','2026-11-05',1),
+      phases:[{id:'p',title:'草稿',remainingMinutes:20,bufferMinutes:0,state:'active'}]}];
+    w.planSlots=[{id:'repeated',kind:'commission',itemId:'c',date:'2026-11-04',start:'13:00',end:'13:25'},
+      {id:'repeated',kind:'commission',itemId:'c',date:'2026-11-04',start:'14:00',end:'14:25'}];
+    expect(workspaceIntegrityWarnings(w).join(',')).toContain('重复时段');
+    const bad={...w,planSlots:[],commissions:[{...w.commissions[0],
+      phases:[{id:'p',title:'草稿',remainingMinutes:20,bufferMinutes:0,state:'active'},
+              {id:'p',title:'新稿',remainingMinutes:15,bufferMinutes:0,state:'active'}]}]};
+    expect(workspaceIntegrityWarnings(bad).join(',')).toContain('阶段无效或重复');
   });
 
 });

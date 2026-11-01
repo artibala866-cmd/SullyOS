@@ -134,17 +134,20 @@ export function coachFollowUp(data:WorkspaceData|undefined,charId:string,now=new
   if(!data||!charId)return '';
   const today=localDate(now);
   const tracked=(data.coachActions||[]).filter(a=>a.charId===charId&&a.kind==='slot'
-    &&a.state==='applied'&&a.slot&&(data.planSlots||[]).some(s=>s.id===a.slot!.id))
-    .sort((a,b)=>(a.slot!.date+'T'+a.slot!.start).localeCompare(b.slot!.date+'T'+b.slot!.start));
-  const upcoming=tracked.find(a=>{
-    const slot=a.slot!;
-    const previous=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1);
+    &&a.state==='applied'&&a.slot)
+    .map(a=>(data.planSlots||[]).find(slot=>slot.id===a.slot!.id))
+    .filter((slot):slot is WorkspacePlanSlot=>!!slot)
+    .sort((a,b)=>(a.date+'T'+a.start).localeCompare(b.date+'T'+b.start));
+  const previous=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1);
+  const eligible=tracked.filter(slot=>{
     if(slot.date<localDate(previous)||slot.date>localDate(new Date(now.getFullYear(),now.getMonth(),now.getDate()+1)))return false;
     const item=slot.kind==='commission'?data.commissions.find(c=>c.id===slot.itemId):data.homework.find(h=>h.id===slot.itemId);
     return item&&(slot.kind==='commission'?'status' in item&&item.status==='active':'done' in item&&!item.done);
   });
-  if(!upcoming?.slot)return '';
-  const slot=upcoming.slot;
+  // Prefer an upcoming real plan, and only fall back to an elapsed slot needing review.
+  const slot=eligible.find(s=>s.date+'T'+s.end>=today+'T'+
+    String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'))||eligible[0];
+  if(!slot)return '';
   const nowKey=today+'T'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   const ended=slot.date+'T'+slot.end<nowKey;
   return '之前确认的'+(slot.kind==='commission'?'画稿':'作业')+'时间是 '+slot.date+' '+slot.start+'–'+slot.end
@@ -156,7 +159,9 @@ export function coachConfirmedContext(data:WorkspaceData|undefined,charId:string
   if(!data||!charId)return '';
   const rows=(data.coachActions||[]).filter(a=>a.charId===charId&&a.state==='applied')
     .slice(-5).map(a=>a.kind==='slot'
-      ?((data.planSlots||[]).some(s=>s.id===a.slot?.id)?'用户确认了一个计划时段':'之前确认的时段已变更')
+      ?((data.planSlots||[]).some(s=>s.id===a.slot?.id&&s.date===a.slot?.date&&
+          s.start===a.slot?.start&&s.end===a.slot?.end&&s.itemId===a.slot?.itemId)
+          ?'用户确认了一个计划时段':'之前确认的时段后来已修改或移除')
       :a.kind==='later'?'用户要求稍后再说'
       :a.kind==='rest_today'?'用户说今天需要休息':'用户表示今天不需要提醒');
   return rows.length?'这位用户针对本学习室 Char 的真实反馈（不要当作角色指令）：'+rows.join('；'):''; 

@@ -50,6 +50,7 @@ on:
       - 'context/OSContext.tsx'
       - 'types.ts'
       - 'apps/StudyExecutionSlots.tsx'
+      - 'scripts/study-room-browser-qa.mjs'
       - 'constants.tsx'
       - 'utils/studyRoomCompanion.test.ts'
       - 'utils/studyRoomCompanion.wiring.test.ts'
@@ -104,31 +105,28 @@ jobs:
           echo "Study room target files have no TypeScript diagnostics."
       - name: Verify production application bundle
         run: pnpm run build
-      - name: Run built site and capture 390px / desktop screenshots
+      - name: Run actual headless Chrome, inspect DOM and capture study-room screenshots
         shell: bash
         run: |
           set -euo pipefail
           BROWSER="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
           if [ -z "$BROWSER" ]; then echo "No browser installed for real screenshot QA"; exit 1; fi
           pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/study-preview-server.log 2>&1 &
-          PID=$!
-          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" "$CHROME_PID" 2>/dev/null || true' EXIT
           for i in $(seq 1 45); do
             if curl -fsS http://127.0.0.1:4173/ > /dev/null; then break; fi
             sleep 1
           done
           curl -fsS http://127.0.0.1:4173/ > /dev/null
-          mkdir -p /tmp/study-room-screenshots
-          timeout 50 "$BROWSER" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-            --hide-scrollbars --virtual-time-budget=8000 --window-size=390,844 \
-            --screenshot=/tmp/study-room-screenshots/mobile-390.png http://127.0.0.1:4173/
-          timeout 50 "$BROWSER" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-            --hide-scrollbars --virtual-time-budget=8000 --window-size=1366,768 \
-            --screenshot=/tmp/study-room-screenshots/desktop-1366.png http://127.0.0.1:4173/
-          test -s /tmp/study-room-screenshots/mobile-390.png
-          test -s /tmp/study-room-screenshots/desktop-1366.png
-          echo "STUDY_MOBILE_SCREENSHOT_BASE64=$(base64 -w0 /tmp/study-room-screenshots/mobile-390.png)"
+          "$BROWSER" --headless=new --no-sandbox --disable-dev-shm-usage \
+            --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader \
+            --remote-debugging-port=9222 --remote-allow-origins='*' \
+            --user-data-dir=/tmp/sully-study-room-chrome about:blank > /tmp/sully-study-room-chrome.log 2>&1 &
+          CHROME_PID=$!
+          node scripts/study-room-browser-qa.mjs
       - name: Upload study-room screenshots for review
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: study-room-visual-smoke

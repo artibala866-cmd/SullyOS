@@ -304,11 +304,35 @@ export function workspaceIntegrityWarnings(raw:unknown):string[] {
       });
     }
   }
+  // Stage rows and concrete times are real user records. Never silently drop
+  // duplicate or corrupt rows via normalizedRows during any later save.
+  if(Array.isArray(raw.commissions))for(const item of raw.commissions){
+    if(!isRow(item)||item.phases===undefined)continue;
+    if(!Array.isArray(item.phases)){issues.push('委托阶段不是数组');continue;}
+    const ids=new Set<string>();
+    for(const phase of item.phases){
+      if(!isRow(phase)||typeof phase.id!=='string'||!phase.id.trim()||ids.has(phase.id)
+        ||typeof phase.title!=='string'||!phase.title.trim()
+        ||!Number.isInteger(phase.remainingMinutes)||Number(phase.remainingMinutes)<0
+        ||!Number.isInteger(phase.bufferMinutes)||Number(phase.bufferMinutes)<0
+        ||!['todo','active','waiting','skipped','done'].includes(asText(phase.state)))
+        issues.push('委托阶段无效或重复，拒绝覆盖');
+      if(isRow(phase)&&typeof phase.id==='string')ids.add(phase.id);
+    }
+  }
   for(const field of ['planSlots','availability'] as const){
-    if(raw[field]!==undefined&&(!Array.isArray(raw[field])||
-      (raw[field] as unknown[]).some(row=>!isRow(row)||typeof row.id!=='string'||
-        typeof row.date!=='string'||typeof row.start!=='string'||typeof row.end!=='string')))
-      issues.push(field+'包含无效时段');
+    if(raw[field]===undefined)continue;
+    if(!Array.isArray(raw[field])){issues.push(field+'不是数组');continue;}
+    const ids=new Set<string>();
+    for(const row of raw[field] as unknown[]){
+      if(!isRow(row)||typeof row.id!=='string'||!row.id.trim()||ids.has(row.id)
+        ||typeof row.date!=='string'||typeof row.start!=='string'||typeof row.end!=='string'
+        ||!validPlanSlot(row as unknown as WorkspacePlanSlot)
+        ||(field==='planSlots'&&(!['commission','homework'].includes(asText(row.kind))
+          ||typeof row.itemId!=='string'||!row.itemId.trim())))
+        issues.push(field+'含无效或重复时段，拒绝覆盖');
+      if(isRow(row)&&typeof row.id==='string')ids.add(row.id);
+    }
   }
   return issues;
 }
