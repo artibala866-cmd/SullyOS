@@ -44,16 +44,16 @@ export function extractCharacterBlockDirective(raw: string): { text: string; rea
 }
 
 export function buildInPersonCharBlockInstruction(state?: ChatBlockState, userName = '用户'): string {
-  if (!characterBlocksUser(state)) return '';
+  if (!characterBlocksUser(state) && !userBlocksCharacter(state)) return '';
   const reason = [...(state?.history || [])].reverse().find(event =>
     event.actor === 'character' && event.action === 'block')?.reason || '未记录';
   return [
     '【见面剧情·原版拉黑关系的现实会面状态】',
-    '你已经在私聊拉黑了' + userName + '。你仍记得原因：' + reason + '。',
+    characterBlocksUser(state) ? '你已经在私聊拉黑了' + userName + '。你仍记得原因：' + reason + '。' : '你知道' + userName + '已经在私聊拉黑了你，你的原账号信息不能正常送达。',
     '眼前是现实见面，并不是原账号聊天：你能够听到当面说出的内容。',
     '你没有看到拉黑期间私聊里被拒收的任何消息，也不知道用户是否尝试发送；不能把它们当成已读。',
     '你可以冷漠、回避、听对方说或离开；是否原谅由角色原本性格、实际见面剧情和关系推进决定。',
-    '只有剧情里出现真正的和解或值得相信的变化、且你自己决定恢复联系，才另起一行输出 [UNBLOCK_USER]。',
+    characterBlocksUser(state) ? '只有剧情里出现真正的和解或值得相信的变化、且你自己决定恢复联系，才另起一行输出 [UNBLOCK_USER]。' : '用户拉黑你的权力属于用户；即使你想和解也不能替用户解除拉黑。',
     '不许为了结束拉黑而自动解锁，不许把内部标签当对白。',
   ].join('\\n');
 }
