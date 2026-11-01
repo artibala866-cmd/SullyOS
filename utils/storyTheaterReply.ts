@@ -13,8 +13,19 @@ export const STORY_REROLL_INSTRUCTION = '本轮是重新生成：从同一处故
 
 /** 成功后一次事务替换正文和镜像；失败/并发编辑时保留原文，不先删后写。 */
 export async function replaceStoryTheaterReply(original: Message, content: string, metadata: Record<string, unknown>): Promise<void> {
-    const mirrorIds = Object.values((original.metadata?.theaterMirrorIds || {}) as Record<string, number>).map(Number).filter(id => Number.isFinite(id) && id > 0);
-    const ids = [...new Set([original.id, ...mirrorIds])];
+    if (original.role !== 'assistant' || original.metadata?.source !== 'story_theater'
+        || !original.metadata.theaterId || original.charId !== `story-theater:${original.metadata.theaterId}`) {
+        throw new Error('当前消息不是有效的剧情正文，拒绝修改角色记录');
+    }
+    const mirrorEntries = Object.entries((original.metadata.theaterMirrorIds || {}) as Record<string, number>);
+    const expectedById = new Map<number, string>();
+    for (const [charId, id] of mirrorEntries) {
+        if (!charId || !Number.isSafeInteger(id) || id <= 0 || expectedById.has(id)) {
+            throw new Error('剧情角色记忆镜像引用已损坏，拒绝重写');
+        }
+        expectedById.set(id, charId);
+    }
+    const ids = [original.id, ...expectedById.keys()];
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction('messages', 'readwrite');
@@ -27,8 +38,17 @@ export async function replaceStoryTheaterReply(original: Message, content: strin
             const request = store.get(id);
             request.onsuccess = () => {
                 const current = request.result as Message | undefined;
-                if (!current || current.content !== original.content) {
-                    failure = new Error('这条回复已被修改或删除，请刷新后重试');
+                const expectedChar = expectedById.get(id);
+                const validIdentity = id === original.id
+                    ? current?.charId === original.charId && current?.role === 'assistant'
+                        && current?.metadata?.source === 'story_theater'
+                        && current?.metadata?.theaterId === original.metadata?.theaterId
+                    : current?.charId === expectedChar && current?.role === 'assistant'
+                        && current?.metadata?.source === 'story_theater_memory'
+                        && current?.metadata?.theaterId === original.metadata?.theaterId
+                        && current?.metadata?.theaterCentralId === original.id;
+                if (!current || !validIdentity || current.content !== original.content) {
+                    failure = new Error('剧情正文或角色镜像已被修改、删除或引用错误，已保留原数据，请刷新后重试');
                     transaction.abort();
                     return;
                 }
