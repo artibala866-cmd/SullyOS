@@ -10,6 +10,7 @@ import { useChatAI } from '../../hooks/useChatAI';
 import { DB } from '../../utils/db';
 import { ChatPrompts } from '../../utils/chatPrompts';
 import { isChatReplyActive } from '../../utils/chatReplyLock';
+import { findPendingUserTurn } from '../../utils/chatContinuation';
 import { isPrivateChatBlocked } from '../../utils/chatBlock';
 import { resolveDialogueApi } from '../../utils/characterApi';
 import {
@@ -116,8 +117,10 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
             if (!invitation) { finish(); return; }
             // A newer user text belongs to its own response path, never a
             // music-invite auto reply to unrelated conversation content.
-            const lastSpeaker = [...history].reverse().find(m => m.role === 'user' || m.role === 'assistant');
-            if (lastSpeaker?.id !== current.messageId) { finish(); return; }
+            // A scheduled AMSG bubble arriving AFTER the invitation is not
+            // a response to it. Respect the same canonical unanswered-turn
+            // boundary as ordinary Chat, instead of letting AMSG swallow music.
+            if (findPendingUserTurn(history)?.id !== current.messageId) { finish(); return; }
 
             const generate = async () => {
                 if (stopped) return;
@@ -125,7 +128,8 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
                 // Recheck the actual DB AFTER acquiring the cross-tab lock:
                 // withdrawals and another tab's replies must win.
                 history = await DB.getMessagesByCharId(current.charId, true);
-                if (!findPendingMusicInvite(history, 'user', current.messageId)) { finish(); return; }
+                if (!findPendingMusicInvite(history, 'user', current.messageId) ||
+                    findPendingUserTurn(history)?.id !== current.messageId) { finish(); return; }
                 const key = ATTEMPT_KEY + inviteKey(current);
                 try {
                     if (localStorage.getItem(key)) { finish(); return; }
