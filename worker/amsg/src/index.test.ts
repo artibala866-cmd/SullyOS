@@ -150,6 +150,7 @@ const makeCtx = (opts: {
   const charRows = opts.charRows ?? [
     { key: AMSG_FIRE_PACK_KEY, value: firePackValue() },
     { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
+    limitsRow({ autonomyEnabled: true }),
   ];
   const globalRows = opts.globalRows ?? [{ key: AMSG_TOOL_CONFIG_KEY, value: toolConfigValue }];
   const readState = vi.fn(async (namespace: string) =>
@@ -692,7 +693,7 @@ describe('连发上限（到点兜底闸）', () => {
     { key: AMSG_FIRE_PACK_KEY, value: firePackValue(lastUserMessageAt) },
     { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
     { key: AMSG_SELF_LOG_KEY, value: selfLog },
-    limitsRow({ minSendGapMinutes: 0, ...settings }),
+    limitsRow({ autonomyEnabled: true, minSendGapMinutes: 0, ...settings }),
   ];
 
   const lastSkipReason = (writeState: ReturnType<typeof vi.fn>) => {
@@ -831,8 +832,7 @@ describe('频率与额度（到点兜底闸）', () => {
   } = {}) => [
     { key: AMSG_FIRE_PACK_KEY, value: firePackValue(opts.lastUserMessageAt ?? null, opts.pack ?? {}) },
     { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
-    ...(opts.settings || opts.selfScheduleEnabled === false
-      ? [limitsRow(opts.settings ?? {}, opts.selfScheduleEnabled ?? true)] : []),
+    limitsRow({ autonomyEnabled: true, ...(opts.settings ?? {}) }, opts.selfScheduleEnabled ?? true),
     ...(opts.selfLog ? [{ key: AMSG_SELF_LOG_KEY, value: opts.selfLog }] : []),
     ...(opts.daily ? [{ key: AMSG_DAILY_SENDS_KEY, value: JSON.stringify({ v: 1, ...opts.daily }) }] : []),
     ...(opts.presence ? [{ key: AMSG_CHAT_PRESENCE_KEY, value: opts.presence }] : []),
@@ -887,6 +887,29 @@ describe('频率与额度（到点兜底闸）', () => {
     });
     await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ skip: true });
     expect(skipReason(writeState)).toBe('schedule-off');
+  });
+
+  it('云端缺少明确的真人感授权时自动联系拒绝启动，用户明确预约仍保留', async () => {
+    const noConsent = makeCtx({
+      metadata: { amsgAutonomyWake: true },
+      charRows: rows({ settings: { autonomyEnabled: undefined } }),
+    });
+    await expect(amsgHooks.onBeforeFire(noConsent.ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(noConsent.writeState)).toBe('schedule-off');
+    expect(noConsent.ctx.scratch.fire).toBeUndefined();
+
+    const noLimits = makeCtx({
+      metadata: { amsgAutonomyWake: true },
+      charRows: [
+        { key: AMSG_FIRE_PACK_KEY, value: firePackValue() },
+        { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
+      ],
+    });
+    await expect(amsgHooks.onBeforeFire(noLimits.ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(noLimits.writeState)).toBe('schedule-off');
+
+    const manual = makeCtx({ charRows: rows({ settings: { autonomyEnabled: undefined } }) });
+    fired(await amsgHooks.onBeforeFire(manual.ctx));
   });
 
   it('真人感关闭只禁止自主联系，用户明确排的消息仍可执行', async () => {
@@ -1607,6 +1630,7 @@ describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
       cloudPhoneOpportunity: options.offer === false ? null : candidate,
       selfScheduleEnabled: options.authorized !== false,
     }));
+    used.rows.set(AMSG_LIMITS_KEY, limitsRow({ autonomyEnabled: true }).value);
     const scratch: Record<string, unknown> = {};
     const metadata = {
       charId: CHAR_ID, amsgAutonomyWake: true,
