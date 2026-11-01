@@ -222,7 +222,7 @@ const canUsePublicOrcaRelay = (server: McpServerConfig): boolean =>
     !server.token?.trim() &&
     !(server.customHeaders || []).some(h => h.name?.trim() && h.value?.trim());
 const isMcpFetchFailure = (message: string): boolean => message.includes('MCP 请求失败:');
-const orcaRelayEndpoint = (): string => `${getProxyWorkerUrl().replace(/\\/+$/, '')}/mcp/orca`;
+const orcaRelayEndpoint = (): string => `${getProxyWorkerUrl().replace(/\/+$/, '')}/mcp/orca`;
 
 const getSession = (serverId: string): McpSessionState => {
     let s = sessions.get(serverId);
