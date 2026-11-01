@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildMemberTimeline } from './timeline';
+import { buildMemberTimeline, clampGroupPrivateHistoryLimit } from './timeline';
 import { Message } from '../../types';
 
 const msg = (over: Partial<Message>): Message => ({
@@ -15,6 +15,15 @@ const msg = (over: Partial<Message>): Message => ({
 const resolveSpeaker = (m: Message) => (m.charId === 'c1' ? '小夏' : '未知');
 
 describe('buildMemberTimeline', () => {
+    it('数字上限保留默认 20，拒绝坏备份、负值和超大数字', () => {
+        expect(clampGroupPrivateHistoryLimit(undefined)).toBe(20);
+        expect(clampGroupPrivateHistoryLimit(NaN)).toBe(20);
+        expect(clampGroupPrivateHistoryLimit(Infinity)).toBe(20);
+        expect(clampGroupPrivateHistoryLimit(-10)).toBe(1);
+        expect(clampGroupPrivateHistoryLimit(9999)).toBe(200);
+        expect(clampGroupPrivateHistoryLimit(12.9)).toBe(12);
+    });
+
     it('私聊和群聊按时间戳合并升序，带来源标签', () => {
         const privateMsgs = [
             msg({ id: 1, role: 'user', content: '今天好累', timestamp: 1000 }),

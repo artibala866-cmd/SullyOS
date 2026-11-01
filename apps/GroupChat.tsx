@@ -27,7 +27,7 @@ import { GroupPacketMeta, PacketReceiptMeta, ClaimResult, claimPacket, effective
 import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
 import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync';
-import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
+import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP, clampGroupPrivateHistoryLimit } from '../utils/groupChat/timeline';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
@@ -835,7 +835,7 @@ const GroupChat: React.FC = () => {
             name: tempGroupName || activeGroup.name,
             privateContextCap: tempPrivateContextCap,
             privateChatSyncEnabled: tempPrivateChatSync,
-            privateChatHistoryLimit: Math.max(1, Math.min(200, Math.floor(tempPrivateChatHistoryLimit || 20))),
+            privateChatHistoryLimit: clampGroupPrivateHistoryLimit(tempPrivateChatHistoryLimit),
             memberTimelineCap: tempMemberTimelineCap,
             replyMode: tempReplyMode,
             memberBubbleIndependent: tempMemberBubbleIndependent,
@@ -1149,7 +1149,7 @@ const GroupChat: React.FC = () => {
         setTempGroupName(activeGroup?.name || '');
         setTempPrivateContextCap(activeGroup?.privateContextCap ?? 80);
         setTempPrivateChatSync(activeGroup?.privateChatSyncEnabled !== false);
-        setTempPrivateChatHistoryLimit(Math.max(1, Math.min(200, activeGroup?.privateChatHistoryLimit ?? 20)));
+        setTempPrivateChatHistoryLimit(clampGroupPrivateHistoryLimit(activeGroup?.privateChatHistoryLimit));
         setTempMemberTimelineCap(activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP);
         setTempReplyMode(activeGroup?.replyMode ?? 'director');
         setTempMemberBubbleIndependent(activeGroup?.memberBubbleIndependent ?? false);
@@ -1214,7 +1214,7 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
     ): Promise<string> => {
         const timelineCap = activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP;
         const privateSyncOn = activeGroup?.privateChatSyncEnabled !== false;
-        const privateHistoryLimit = Math.max(1, Math.min(200, activeGroup?.privateChatHistoryLimit ?? 20));
+        const privateHistoryLimit = clampGroupPrivateHistoryLimit(activeGroup?.privateChatHistoryLimit);
         // 记忆宫殿检索源用当前群线程（滤掉媒体消息，base64 不能进 embedding query）：
         // 角色应召回与"群里正聊的话题"相关的记忆，而不是私聊近况（旧行为，召回跑偏）
         const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
@@ -2159,7 +2159,7 @@ ${memberTimeline || '(暂无互动记录)'}
                                 <label htmlFor="group-private-history-limit" className="text-xs font-semibold text-slate-700">群聊读取私聊消息数</label>
                                 <input id="group-private-history-limit" type="number" inputMode="numeric" min="1" max="200" step="1"
                                     value={tempPrivateChatHistoryLimit} onChange={e => setTempPrivateChatHistoryLimit(Number(e.target.value))}
-                                    onBlur={() => setTempPrivateChatHistoryLimit(n => Math.max(1, Math.min(200, Math.floor(n || 20))))}
+                                    onBlur={() => setTempPrivateChatHistoryLimit(n => clampGroupPrivateHistoryLimit(n))}
                                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700" />
                                 <p className="text-[11px] text-slate-500">默认每位成员最近 20 条私聊，可设 1～200 条；仍遵守各自私聊的上下文与归档边界。</p>
                             </div>

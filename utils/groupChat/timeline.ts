@@ -3,6 +3,13 @@ import { messageLogText } from './format';
 import { formatRelativeAge } from './relativeTime';
 
 export const DEFAULT_MEMBER_TIMELINE_CAP = 40;
+export const DEFAULT_PRIVATE_HISTORY_LIMIT = 20;
+
+/** 持久化群资料可能来自旧备份：无效上限不能变成 NaN 或无限读取。 */
+export const clampGroupPrivateHistoryLimit = (value: unknown): number => {
+    const n = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : DEFAULT_PRIVATE_HISTORY_LIMIT;
+    return Math.min(200, Math.max(1, n));
+};
 
 /** 时间线单行正文的截断长度——比旧版"50 字"宽松，保住情绪细节又不至于撑爆 prompt */
 const LINE_MAX_CHARS = 80;
