@@ -329,6 +329,8 @@ describe('real-person mode changes during an in-flight cloud request',()=>{
     ]};
     const role:any={...char,id:'mode-flip-during-request',activeMsg2Config:config};
     const cancelled:string[]=[];
+    const oldWindow=Object.getOwnPropertyDescriptor(globalThis,'window');
+    Object.defineProperty(globalThis,'window',{configurable:true,value:new EventTarget()});
     let refreshes=0;
     const onRefresh=()=>{refreshes++};
     window.addEventListener('sully:amsg-autonomy-refresh',onRefresh);
@@ -359,6 +361,8 @@ describe('real-person mode changes during an in-flight cloud request',()=>{
       expect(config.tasks.map((x:any)=>x.taskUuid)).toEqual(['manual-1']);
     }finally{
       window.removeEventListener('sully:amsg-autonomy-refresh',onRefresh);
+      if(oldWindow)Object.defineProperty(globalThis,'window',oldWindow);
+      else delete (globalThis as any).window;
       setRealPersonModeEnabled(true);
       (ActiveMsgClient as any).getGlobalConfig=oldGlobal;
       (ActiveMsgClient as any).listRemoteTasksForChar=oldRemote;
