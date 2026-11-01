@@ -524,6 +524,7 @@ const GroupChat: React.FC = () => {
 
     /** 群公共话题盒整理状态——非空时显示顶部胶囊状态条 */
     const [groupPalaceStatus, setGroupPalaceStatus] = useState<string>('');
+    const [personalGroupMemoryStatus, setPersonalGroupMemoryStatus] = useState<string>('');
 
     // 公共成盒异步完成时使用最新角色名与成员资料，避免长回复期间闭包数据过期。
     const charactersRef = useRef(characters);
@@ -1235,9 +1236,24 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         // 角色应召回与"群里正聊的话题"相关的记忆，而不是私聊近况（旧行为，召回跑偏）
         const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
         const palaceQueryMsgs = liveGroupMsgs.slice(-30).filter(m => !m.type || m.type === 'text');
-        await injectMemoryPalace(member, palaceQueryMsgs, undefined, userProfile.name);
+        // 本群关闭私聊互通时，禁止把旧的个人宫殿召回/私密印象与摘要
+        // 经角色核心档案偷偷带入群聊。只修改本轮临时副本，不动角色持久资料。
+        const memberContext = privateSyncOn ? member : {
+            ...member,
+            memories: [],
+            refinedMemories: {},
+            activeMemoryMonths: [],
+            impression: undefined,
+            selfInsights: [],
+            memoryPalaceEnabled: false,
+            memoryPalaceInjection: '',
+            roomPlatesInjection: '',
+        };
+        if (privateSyncOn) {
+            await injectMemoryPalace(memberContext, palaceQueryMsgs, undefined, userProfile.name);
+        }
         // 角色块：跳过共享场景已包含的部分（用户档案 / 共有 worldview / 共有世界书）
-        const coreContext = (await ContextBuilder.buildCoreContext({ ...member, mountedWorldbooks: [] }, userProfile, true, undefined, {
+        const coreContext = (await ContextBuilder.buildCoreContext({ ...memberContext, mountedWorldbooks: [] }, userProfile, true, undefined, {
             skipUserProfile: true,
             skipWorldview: sharedScene.worldviewIsShared,
             skipWorldbookIds: sharedScene.sharedWorldbookIds,
@@ -1401,7 +1417,7 @@ ${memberTimeline || '(暂无互动记录)'}
         groupMemoryRunsRef.current.add(group.id);
         try {
             const result = await processGroupNewMessages(group, members, userProfile.name, stage => {
-                if (activeGroupIdRef.current === group.id) setGroupPalaceStatus(stage);
+                if (activeGroupIdRef.current === group.id) setPersonalGroupMemoryStatus(stage);
             });
             if (result?.stored) {
                 // 只在个人宫殿真的写入新节点后同步主动消息的上下文缓存。
@@ -1411,7 +1427,7 @@ ${memberTimeline || '(暂无互动记录)'}
             console.warn('[GroupChat] 个人群记忆同步失败（保留原文供下轮重试）:', error);
         } finally {
             groupMemoryRunsRef.current.delete(group.id);
-            if (activeGroupIdRef.current === group.id) setGroupPalaceStatus('');
+            if (activeGroupIdRef.current === group.id) setPersonalGroupMemoryStatus('');
         }
     };
 
@@ -1855,8 +1871,8 @@ ${memberTimeline || '(暂无互动记录)'}
                     .sully-chat-inputbar textarea,.sully-chat-inputbar button{pointer-events:auto!important;visibility:visible!important;}
                 `}</style>
             )}
-            {/* 公共话题盒整理状态 — 不阻塞交互 */}
-            {groupPalaceStatus && (
+            {/* 公共话题盒 / 个人群记忆各自进度，不互相覆盖，不阻塞聊天 */}
+            {(groupPalaceStatus || personalGroupMemoryStatus) && (
                 <div
                     className="absolute top-[100px] left-1/2 z-[150] animate-fade-in"
                     style={{
@@ -1879,9 +1895,9 @@ ${memberTimeline || '(暂无互动记录)'}
                             style={{ borderTopColor: '#717171', animationDuration: '0.9s' }}
                         />
                         <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
-                            公共话题成盒中
+                            {groupPalaceStatus ? '公共话题成盒中' : '群记忆整理中'}
                         </span>
-                        <span className="text-[10px] text-slate-400 truncate">{groupPalaceStatus}</span>
+                        <span className="text-[10px] text-slate-400 truncate">{groupPalaceStatus || personalGroupMemoryStatus}</span>
                     </div>
                 </div>
             )}
@@ -1899,8 +1915,8 @@ ${memberTimeline || '(暂无互动记录)'}
                 }}
                 isTyping={isTyping}
                 isSummarizing={isSummarizing}
-                isMemoryPalaceProcessing={!!groupPalaceStatus}
-                memoryPalaceStatusText={groupPalaceStatus}
+                isMemoryPalaceProcessing={!!(groupPalaceStatus || personalGroupMemoryStatus)}
+                memoryPalaceStatusText={groupPalaceStatus || personalGroupMemoryStatus}
                 lastTokenUsage={lastTokenUsage}
                 tokenBreakdown={tokenBreakdown}
                 statusText={`${activeGroup?.members.length ?? 0} 成员`}
