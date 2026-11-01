@@ -261,6 +261,21 @@ export async function processGroupNewMessages(
         const hotZoneStartId = textMsgs[hotZoneStartIdx].id;
 
         const lastProcessedId = getLastProcessedGroupId(group.id);
+        // 升级前只有一个群总水位。已有本群个人记忆的老成员可继承该进度；
+        // 没有本群记忆证据的新成员仍从 0 补录，避免一刀切导致记忆断层。
+        if (lastProcessedId > 0) {
+            for (const member of enabledMembers) {
+                let hasIndividualCursor = false;
+                try { hasIndividualCursor = localStorage.getItem(MEMBER_LAST_MSG_KEY(group.id, member.id)) !== null; }
+                catch { /* 存储不可用就保守地从头补录 */ }
+                if (!hasIndividualCursor) {
+                    const alreadyStored = await MemoryNodeDB.getByCharId(member.id);
+                    if (alreadyStored.some(node => node.groupId === group.id)) {
+                        setMemberProcessedId(group.id, member.id, lastProcessedId);
+                    }
+                }
+            }
+        }
         const laggingMembers = enabledMembers.filter(member => memberProcessedId(group.id, member.id) < lastProcessedId);
         // 历史群此前只有共享游标，入群的新成员不应直接继承老成员的进度。
         // 若群已有水位却没有角色水位，先为落后成员补录旧记录；其他成员不会重复存入。
