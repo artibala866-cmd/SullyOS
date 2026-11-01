@@ -89,6 +89,8 @@ function buildGroupConversationText(messages: Message[], speakerNameOf: (m: Mess
 
 export interface GroupExtractionResult {
     drafts: GroupMemoryDraft[];
+    /** 明确成功接收结构化结果（包括合法空数组）；格式/请求失败不得推进游标。 */
+    completed?: boolean;
 }
 
 /**
@@ -104,7 +106,7 @@ export async function extractGroupMemoriesFromBuffer(
     speakerNameOf: (m: Message) => string,
     llmConfig: LightLLMConfig,
 ): Promise<GroupExtractionResult> {
-    if (messages.length === 0) return { drafts: [] };
+    if (messages.length === 0) return { drafts: [], completed: true };
 
     const conversationText = buildGroupConversationText(messages, speakerNameOf);
     const memberList = memberNames.join('、');
@@ -158,7 +160,7 @@ ${buildGroupRulesBlock(groupName, memberNames, userLabel)}
         const reply = data.choices?.[0]?.message?.content || '';
         const parsed = safeParseJsonArray(reply);
 
-        if (parsed.length === 0 && reply.trim().length > 0) {
+        if (parsed.length === 0 && reply.trim().length > 0 && !/^\s*\[\s*\]\s*$/.test(reply)) {
             console.warn(`🏰 [GroupExtraction] LLM 返回了内容但 JSON 解析为空数组。原始回复前200字: ${reply.slice(0, 200)}`);
         }
 
@@ -181,9 +183,9 @@ ${buildGroupRulesBlock(groupName, memberNames, userLabel)}
             }));
 
         console.log(`🏰 [GroupExtraction] 从 ${messages.length} 条群消息提取 ${drafts.length} 条群记忆草稿`);
-        return { drafts };
+        return { drafts, completed: parsed.length > 0 || /^\s*\[\s*\]\s*$/.test(reply) };
     } catch (err: any) {
         console.warn(`❌ [GroupExtraction] 群记忆提取失败 (${messages.length} 条消息): ${err.message}`);
-        return { drafts: [] };
+        return { drafts: [], completed: false };
     }
 }
