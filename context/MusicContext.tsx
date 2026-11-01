@@ -1110,6 +1110,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [refreshOutgoingInvite, refreshCommittedMusicSession, refreshAllCommittedMusicSessions]);
 
+  // Same-tab card deletion also invalidates pending invite badges.
+  useEffect(() => {
+    const onResolved = (event: Event) => {
+      const charId = (event as CustomEvent<{ charId?: string }>).detail?.charId;
+      if (charId) void refreshOutgoingInvite(charId).catch(err =>
+        console.warn('[MusicTogether] 邀请变更后刷新失败', err));
+    };
+    window.addEventListener('music-listen-invite-resolved', onResolved);
+    return () => window.removeEventListener('music-listen-invite-resolved', onResolved);
+  }, [refreshOutgoingInvite]);
+
   // Invitation resolution can happen before playSong's declaration below.
   // The ref uses the one global MusicProvider player, never a second audio instance.
   const playSongRef = useRef<(song: Song, opts?: { mediaRecovery?: boolean; awaitPlayback?: boolean }) => Promise<void>>(async () => {});
