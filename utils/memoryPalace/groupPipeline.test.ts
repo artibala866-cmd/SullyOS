@@ -153,6 +153,28 @@ describe('群聊与个人记忆宫殿双向归档', () => {
         expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === another.id)).toHaveLength(1);
     });
 
+    it('合法空数组也分别推进群/角色水位，不重复调用副 API', async () => {
+        const { group, a, b } = await makeGroup();
+        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        vi.mocked(extractGroupMemoriesFromBuffer).mockResolvedValue({ drafts: [], completed: true });
+        const first = await processGroupNewMessages(group, [a, b], '用户');
+        expect(first?.stored).toBe(0);
+        expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBeGreaterThan(0);
+        const second = await processGroupNewMessages(group, [a, b], '用户');
+        expect(second?.reason).toBe('threshold');
+        expect(extractGroupMemoriesFromBuffer).toHaveBeenCalledTimes(1);
+    });
+
+    it('副 API 失败或格式错误不能假装空记忆推进游标', async () => {
+        const { group, a, b } = await makeGroup();
+        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        vi.mocked(extractGroupMemoriesFromBuffer).mockResolvedValue({ drafts: [], completed: false });
+        await processGroupNewMessages(group, [a, b], '用户');
+        expect(getGroupMemoryPalaceHighWaterMark(group.id)).toBe(0);
+        await processGroupNewMessages(group, [a, b], '用户');
+        expect(extractGroupMemoriesFromBuffer).toHaveBeenCalledTimes(2);
+    });
+
     it('本群撤销私聊互通后不写入个人记忆', async () => {
         const { group, a, b } = await makeGroup(false);
         const spy = vi.spyOn(DB, 'getGroupMessages');
