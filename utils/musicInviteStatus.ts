@@ -87,6 +87,15 @@ export const canJoinMusicWithoutPendingInvite = <
     .sort((a, b) => (a.id as number) - (b.id as number));
   const lastOutgoing = [...ordered].reverse().find(m =>
     m.metadata?.musicListenInvite && m.metadata?.inviter !== 'char');
+  // A deleted outgoing invite leaves an invisible cancellation receipt.
+  // Never treat a delayed accept from that old turn as a new voluntary join.
+  const lastDeleted = [...ordered].reverse().find(m =>
+    m.metadata?.musicInviteDeleted === true && m.metadata?.inviter === 'user');
+  if (lastDeleted && (!lastOutgoing || (lastDeleted.id as number) > (lastOutgoing.id as number))) {
+    return ordered.some(m => (m.id as number) > (lastDeleted.id as number) &&
+      m.role === 'user' && m.type !== 'system' &&
+      !m.metadata?.musicListenInvite && !m.metadata?.musicListenInviteResponseTo);
+  }
   if (!lastOutgoing) return true;
   const resolution = ordered.find(m =>
     m.metadata?.musicListenInviteResponseTo === lastOutgoing.id);
