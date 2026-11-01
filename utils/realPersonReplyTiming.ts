@@ -1,6 +1,7 @@
-/** Decision-only schedule-aware timing for an already successful user send.
- * Never edits chat prompts or schedules independent AI work.
- * Sleep can remain silent; a busy user turn waits without any nudge-score unlock.
+/** Timing policy for answering a SAVED user turn, not for starting a conversation.
+ * Key principles adapted from a real-person rhythm model: treat back-and-forth
+ * as evidence of attention; keep one stable decision for an unanswered batch;
+ * never infer presence from the wall clock or force extra messages to unlock it.
  */
 export type RealPersonLifeActivity = 'free' | 'busy' | 'sleep' | null;
 export type RealPersonReplyPlan = { delayMs: number | null };
@@ -10,20 +11,39 @@ export function resolveRealPersonReplyPlan(args: {
     firstUnansweredAt: number;
     now: number;
     fallbackDelayMs: number;
+    lastUserSendAt?: number;
+    lastCharacterReplyAt?: number;
 }): RealPersonReplyPlan {
     const { activity, now } = args;
     const anchor = Number.isFinite(args.firstUnansweredAt) && args.firstUnansweredAt >= 0
         ? Math.trunc(args.firstUnansweredAt) : now;
+    const latestUser = Number.isFinite(args.lastUserSendAt) && (args.lastUserSendAt ?? 0) >= anchor
+        ? Math.min(now, args.lastUserSendAt!) : anchor;
+    const elapsed = Number.isFinite(now) ? Math.max(0, now - anchor) : 0;
+    // Recent actual replies, not an online badge, are evidence that a conversation is underway.
+    const lastReply = args.lastCharacterReplyAt ?? 0;
+    const engaged = Number.isFinite(lastReply) && lastReply > 0 && lastReply <= anchor
+        && anchor - lastReply <= 12 * 60_000;
+    // Keep a short quiet window after the latest successful send, even if the
+    // earlier part of this batch already waited through a busy period.
+    const inputSettle = Math.max(0, (engaged ? 1_700 : 2_800) - Math.max(0, now - latestUser));
     if (activity === 'sleep') return { delayMs: null };
-    if (activity === 'busy') {
-        // This delay is anchored to the first saved user message in the turn.
-        // Further messages don't unlock a fixed reply threshold.
-        const targetWait = 35_000 + (anchor % 75_000);
-        const elapsed = Number.isFinite(now) ? Math.max(0, now - anchor) : 0;
-        return { delayMs: Math.max(3_500, targetWait - elapsed) };
+
+    if (activity === 'busy' && !engaged) {
+        // A real occupied slot may delay the FIRST reply, not reset each time
+        // the user sends another message. More messages never buy instant attention.
+        const busyDelay = 35_000 + (anchor % 75_000);
+        return { delayMs: Math.max(3_500, busyDelay - elapsed, inputSettle) };
     }
-    if (activity === 'free') return { delayMs: 2_500 + (anchor % 3_500) };
+    if (activity === 'free' || (activity === 'busy' && engaged)) {
+        // Stable per unanswered batch, but different turns don't all get the
+        // same robotic delay. Back-and-forth is quicker than a cold start.
+        const jitter = (Math.floor(anchor / 137) + (anchor % 997)) >>> 0;
+        const target = engaged ? 2_100 + jitter % 3_000 : 3_400 + jitter % 4_100;
+        return { delayMs: Math.max(1_000, target - elapsed, inputSettle) };
+    }
     // Missing schedule is unknown, never proof of being busy or sleeping.
     const fallback = Number.isFinite(args.fallbackDelayMs) ? args.fallbackDelayMs : 3_000;
-    return { delayMs: Math.max(2_500, Math.min(9_000, Math.trunc(fallback))) };
+    const bounded = Math.max(2_500, Math.min(9_000, Math.trunc(fallback)));
+    return { delayMs: Math.max(1_000, bounded - elapsed, inputSettle) };
 }
