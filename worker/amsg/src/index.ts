@@ -2080,6 +2080,13 @@ export const amsgHooks = {
     // 关 2.0 时客户端会先把 limits 写成关、再去取消任务——取消扫完之后才冒出来的
     // （正在跑的那一轮顺手排的）、以及取消失败留下的，都在这里拦住，一个 token 都不花。
     const scheduleOff = !pack.selfScheduleEnabled || limitsRecord?.selfScheduleEnabled === false;
+    // Real-person mode is a separate opt-in layered UNDER the AMSG2 master switch.
+    // The small limits state is synced before cancelling remote auto-wakes, so an
+    // already-running/stale daily job cannot initiate a new paid conversation.
+    if (!instant && autonomyWake && limitsRecord?.autonomyEnabled === false) {
+      await recordSkip(ctx, charId, 'schedule-off', occurrenceMs, taskBrief);
+      return { skip: true } as const;
+    }
     if (!instant && (scheduleOff || (selfScheduled && recurring && !limits.allowSelfRecurring))) {
       console.log('[amsg:schedule-off-skip]', {
         taskId: ctx.task.id, charId, selfScheduled, recurring, scheduleOff,
