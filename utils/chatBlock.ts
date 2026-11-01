@@ -28,6 +28,11 @@ export function userBlockedCharacterAt(state: ChatBlockState | null | undefined,
   return userBlocksCharacter(state) && (state?.userBlockedAt || 0) <= at;
 }
 
+/** UI 必须按消息发送当时的状态绘制，不以当前角色关系反算历史感叹号。 */
+export const privateChatDeliveryFailure = (message: Pick<Message, 'role' | 'metadata'>): 'user-rejected' | 'char-send-failed' | null =>
+  message.role === 'user' && message.metadata?.chatBlockRejected === true ? 'user-rejected'
+    : message.role === 'assistant' && message.metadata?.chatBlockSendFailed === true ? 'char-send-failed' : null;
+
 /** 被角色拒收的消息只保留在用户本地聊天记录，不得进入角色上下文、总结或后续 AI 输入。 */
 export const isRejectedPrivateMessage = (message: Pick<Message, 'role' | 'metadata'>): boolean =>
   message.role === 'user' && message.metadata?.chatBlockRejected === true;
