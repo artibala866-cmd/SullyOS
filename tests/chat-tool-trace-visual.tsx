@@ -1,6 +1,7 @@
 /** Real mounted React layout across every bundled whitebox and compact bubble mode. */
 import React from 'react';
 import {createRoot} from 'react-dom/client';
+import {flushSync} from 'react-dom';
 import MessageItem from '../components/chat/MessageItem';
 import ChatToolTrace from '../components/chat/ChatToolTrace';
 import {BUILTIN_WHITEBOX_PRESETS} from '../utils/builtinWhitebox';
@@ -22,20 +23,19 @@ const presets=[
 ];
 const themeStyle=document.createElement('style');
 document.head.append(themeStyle);
-const nextFrame=()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
 const demo=(id:number,content:string,timestamp:number)=>({id,role:'assistant' as const,type:'text' as const,charId:'preview',timestamp,content});
 const common={charName:'示例角色',charAvatar:BEAUTY_PREVIEW_AVATAR,userAvatar:BEAUTY_PREVIEW_AVATAR,
  onLongPress:()=>{},onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},
  avatarShape:'circle' as const,avatarSize:'small' as const,avatarMode:'grouped' as const,
  bubbleVariant:'modern' as const,showTimestamp:'always' as const,suppressEntranceAnimation:true};
-const run=async()=>{
+const run=()=>{
  const records:Array<Record<string,unknown>>=[];
  for(const preset of presets)for(const width of [320,360,390,430]){
   themeStyle.textContent=preset.css;
   stage.style.width=width+'px';
   const first=demo(1001,'嗯',Date.now()-2000000);
   const second=demo(1002,'知道了，我们继续。',Date.now());
-  mount.render(React.createElement('main',{className:'sully-chat-root sample-chat '+preset.classes,style:{width:'100%',minHeight:320,paddingTop:12,background:'transparent'}},
+  flushSync(()=>mount.render(React.createElement('main',{className:'sully-chat-root sample-chat '+preset.classes,style:{width:'100%',minHeight:320,paddingTop:12,background:'transparent'}},
    React.createElement('div',{className:'sully-chat-messages',style:{width:'100%',minWidth:0,overflow:'visible'}},
     React.createElement('div',{'data-row':'trace'},
      React.createElement(MessageItem,{...common,...preset.flags,msg:first,activeTheme:preset.bubble,
@@ -44,8 +44,7 @@ const run=async()=>{
     React.createElement('div',{'data-row':'next'},
      React.createElement(MessageItem,{...common,...preset.flags,msg:second,activeTheme:preset.bubble,
       friendRainWhitebox:preset.name==='builtin-friend-request-rain',isFirstInGroup:true,isLastInGroup:true}))
-   )));
-  await nextFrame();await nextFrame();await nextFrame();
+   ))));
   const select=(selector:string)=>stage.querySelector<HTMLElement>(selector);
   const bubble=select('[data-row="trace"] .sully-bubble-ai');
   const anchor=select('[data-row="trace"] .sully-chat-message-content');
@@ -67,4 +66,4 @@ const run=async()=>{
  document.documentElement.dataset.ready=failed.length===0?'true':'false';
  if(failed.length)throw Error('Tool hints overlap under '+failed.length+' theme/width combinations');
 };
-void run().catch(error=>{document.documentElement.dataset.ready='false';document.documentElement.dataset.error=String(error);output.textContent+='\n'+String(error)});
+try{run()}catch(error){document.documentElement.dataset.ready='false';document.documentElement.dataset.error=String(error);output.textContent+='\n'+String(error)}
