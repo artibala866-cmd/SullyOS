@@ -844,6 +844,17 @@ const GroupChat: React.FC = () => {
         };
         // 走 context 的 updateGroup：同步内存 groups + DB，避免退出后读回旧值
         await updateGroup(activeGroup.id, updates);
+        // 互通开关/条数影响成员私聊和云端 fire_pack。更新后马上以新的群配置
+        // 标记成员快照待刷新（不能使用闭包里尚未更新的 groups）。
+        if (activeGroup.privateChatSyncEnabled !== updates.privateChatSyncEnabled ||
+            activeGroup.privateContextCap !== updates.privateContextCap ||
+            activeGroup.privateChatHistoryLimit !== updates.privateChatHistoryLimit) {
+            const nextGroups = groups.map(g => g.id === activeGroup.id ? { ...g, ...updates } : g);
+            for (const memberId of activeGroup.members) {
+                const member = characters.find(c => c.id === memberId);
+                if (member) markAmsgStateDirty({ char: member, userProfile, groups: nextGroups, realtimeConfig }, 'refresh');
+            }
+        }
         saveChatInputPreferences(settingsInputPreferences);
         setInputPreferences(settingsInputPreferences);
         setActiveGroup({ ...activeGroup, ...updates });
