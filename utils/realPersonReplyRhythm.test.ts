@@ -51,6 +51,12 @@ describe('SullyOS character-specific natural response habits', () => {
       .toBe('normal');
     expect(resolveRealPersonAttention([user(at-30_000),char(at-10_000),user(at,{chatBlockRejected:true})],at,'busy'))
       .toBe('occupied');
+    expect(resolveRealPersonAttention([
+      user(at-30_000),char(at-10_000,{historyImported:true}),user(at),
+    ],at,'free')).toBe('normal');
+    expect(resolveRealPersonAttention([
+      user(at-30_000),char(at-10_000,{importedFrom:'backup'}),user(at),
+    ],at,'busy')).toBe('occupied');
     expect(resolveRealPersonAttention([user(at-30_000,{historyImported:true}),char(at-10_000),user(at)],at,'free'))
       .toBe('normal');
   });
