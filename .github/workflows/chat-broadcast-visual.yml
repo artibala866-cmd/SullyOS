@@ -1,0 +1,77 @@
+name: Chat reply broadcast gray UI visual
+
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'components/ChatBroadcast.tsx'
+      - 'tests/chat-broadcast-visual.*'
+      - '.github/workflows/chat-broadcast-visual.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: chat-broadcast-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Test chat generation signals
+        run: pnpm exec vitest run utils/chatGenEvents.test.ts utils/chatAutoReply.test.ts
+      - name: Check broadcast component diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/broadcast-ts.log 2>&1 || true
+          grep '^components/ChatBroadcast.tsx(' /tmp/broadcast-ts.log > /tmp/broadcast-target-errors.log || true
+          if [ -s /tmp/broadcast-target-errors.log ]; then cat /tmp/broadcast-target-errors.log; exit 1; fi
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Screenshot actual React broadcast on mobile viewport
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort > /tmp/broadcast-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:5173/tests/chat-broadcast-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=390,850 --virtual-time-budget=15000 --dump-dom \
+            http://127.0.0.1:5173/tests/chat-broadcast-visual.html > /tmp/broadcast-dom.txt 2>/tmp/broadcast-chrome.log || true
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+            --window-size=390,850 --virtual-time-budget=15000 \
+            --screenshot="$GITHUB_WORKSPACE/chat-broadcast-gray-mobile.png" \
+            http://127.0.0.1:5173/tests/chat-broadcast-visual.html
+          test -s chat-broadcast-gray-mobile.png
+          if ! grep -q 'data-broadcast-visual-ready="true"' /tmp/broadcast-dom.txt; then
+            grep -o 'data-broadcast-visual-error="[^"]*"' /tmp/broadcast-dom.txt || true
+            grep -o '<output id="broadcast-visual-checks"[^<]*[^<]*' /tmp/broadcast-dom.txt | head -c 1500 || true
+            tail -60 /tmp/broadcast-vite.log || true
+            tail -30 /tmp/broadcast-chrome.log || true
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chat-broadcast-gray-mobile-screenshot
+          path: chat-broadcast-gray-mobile.png
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>聊天悬浮状态框·原生组件视觉验收</title>
+<script src="/vendor/tailwind-3.4.17.js"></script>
+<style>
+:root{--safe-top:48px}
+*{box-sizing:border-box}
+body{margin:0;background:#ededed;color:#292929;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans CJK SC',system-ui,sans-serif}
+.mock-phone{margin:auto;position:relative;width:min(100%,390px);height:780px;background:linear-gradient(#fafafa,#e5e5e5);padding:0 25px}
+.mock-status{height:48px;display:flex;align-items:center;justify-content:space-between;font-weight:600}
+.mock-cover{height:130px;border-radius:30px 30px 0 0;background:linear-gradient(135deg,#c7c7c7,#ebebeb);margin-top:36px}
+.mock-profile{text-align:center;background:#fff;border-radius:0 0 30px 30px;padding:38px 0 28px;position:relative}
+.mock-avatar{position:absolute;top:-30px;left:calc(50% - 30px);height:60px;width:60px;border-radius:50%;background:#bdbdbd;border:4px solid #fff}
+.mock-name{font-size:22px;font-weight:700;margin:6px 0}
+.mock-subtitle{font-size:11px;letter-spacing:2px;color:#a5a5a5}
+.mock-label{font-size:12px;margin-top:14px;color:#777}
+.mock-buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;margin:65px 20px 0;text-align:center;color:#666}
+.mock-button{width:56px;height:56px;background:#fff;border-radius:50%;margin:0 auto 8px;border:1px solid #e8e8e8;box-shadow:0 3px 9px #0001}
+output{position:absolute;bottom:8px;left:15px;font:10px monospace;color:#555;white-space:pre-wrap;max-width:350px}
+</style>
+</head>
+<body>
+<div class="mock-phone">
+ <div class="mock-status"><span>08:47</span><span>5G　▰</span></div>
+ <div class="mock-cover"></div>
+ <div class="mock-profile"><div class="mock-avatar"></div><p class="mock-name">角色档案</p><div class="mock-subtitle">CHARACTER PROFILE</div><div class="mock-label">日常</div></div>
+ <div class="mock-buttons"><div><div class="mock-button"></div>神经链接</div><div><div class="mock-button"></div>记忆宫殿</div></div>
+</div>
+<div id="broadcast-visual"></div>
+<script type="module" src="./chat-broadcast-visual.ts"></script>
+</body>
+</html>
