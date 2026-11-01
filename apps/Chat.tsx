@@ -1617,7 +1617,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             setReplyTarget(null);
             await reloadMessages(visibleCountRef.current);
             setShowPanel('none');
-            return false;
+            // 本地保存成功；语音附件也必须继续保留。是否可触发 AI 另由下方自动回复门控决定。
+            return true;
         }
 
         const imageChatContext = type === 'image'
@@ -1813,7 +1814,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const finish = autoReply.beginSend(char?.id || null);
         try {
             const sent = await sendText(customContent, customType, metadata);
-            finish(sent === true && (!customType || ['text', 'image', 'emoji', 'voice'].includes(customType) || isPoke));
+            finish(sent === true && !characterBlocksUser(charRef.current?.chatBlock)
+                && (!customType || ['text', 'image', 'emoji', 'voice'].includes(customType) || isPoke));
             return sent === true;
         } catch (error) {
             finish(false);
