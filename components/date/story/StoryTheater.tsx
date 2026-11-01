@@ -174,10 +174,14 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     }, [characters, maskLocked]);
 
     const openEntryEditor = useCallback(async (entry: StoryTheaterEntry) => {
-        const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
-        setMaskLocked(rows.some(message => message.metadata?.source === 'story_theater'));
-        setView('editor');
-    }, []);
+        try {
+            const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
+            setMaskLocked(rows.some(message => message.metadata?.source === 'story_theater'));
+            setView('editor');
+        } catch (error) {
+            addToast(error instanceof Error ? `剧情编辑前读取失败：${error.message}` : '剧情读取失败，已保留当前页面', 'error');
+        }
+    }, [addToast]);
 
     if (view === 'preset' && editingPreset) return <StoryPresetMaker key={editingPreset.id}
         preset={editingPreset}
