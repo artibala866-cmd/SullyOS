@@ -36,6 +36,9 @@ const validate=()=>{
             &&values.text.color==='rgb(201, 201, 201)'&&values.heading.color==='rgb(239, 239, 239)'
             &&document.documentElement.scrollWidth<=innerWidth,
     };
+    const focus = new URLSearchParams(location.search).get('focus');
+    if (focus === 'memory') card.scrollIntoView({block:'center',behavior:'instant'});
+    if (focus === 'bottom') buttons[1].scrollIntoView({block:'center',behavior:'instant'});
     document.body.dataset.storyGrayReady=String(report.success);
     const output=document.createElement('output');output.id='story-gray-browser-report';output.hidden=true;
     output.textContent=JSON.stringify(report);document.body.append(output);
