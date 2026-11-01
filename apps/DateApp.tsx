@@ -129,6 +129,8 @@ const DateApp: React.FC = () => {
         try { localStorage.setItem('sully-date-entry-guide-v1', 'seen'); } catch { /* 当前打开期间仍不重复提示 */ }
     };
     const peekRequestRef = useRef(0);
+    // 仅预览不改变关系，确认进入见面后才应用原版拉黑动作。
+    const peekBlockActionRef = useRef<{ charId: string; action: CharacterBlockAction } | null>(null);
     const enteringSessionRef = useRef(false);
 
     // --- NEW: Editing State lifted to here for DB sync ---
@@ -267,6 +269,12 @@ const DateApp: React.FC = () => {
                 }
             }
 
+            // 仅在确认进入会话后执行预览里的原版拉黑动作。
+            if (peekBlockActionRef.current?.charId === char.id) {
+                const action = peekBlockActionRef.current.action;
+                peekBlockActionRef.current = null;
+                await applyMeetingBlockAction(char.id, action);
+            }
             // 2. 切换模式并刷新数据
             if (encounterIdRef.current !== enteringEncounterId) return;
             setMode('session');
@@ -284,12 +292,13 @@ const DateApp: React.FC = () => {
         setMode('peek');
         setPeekLoading(true);
         setPeekStatus('');
+        peekBlockActionRef.current = null;
         setHasSavedOpening(false);
         trackEvent('进入见面感知页');
 
         try {
             const msgs = await loadCharacterContextMessages(c);
-            const preparedMsgs = await materializeVisionDescriptions(msgs, apiConfig.visionApi);
+            const preparedMsgs = await materializeVisionDescriptions(msgs.filter(m => !isRejectedPrivateMessage(m)), apiConfig.visionApi);
             const emojis = await DB.getEmojis();
             const { messages } = (await DatePrompts.buildPeekPayload({
                 char: c,
@@ -299,8 +308,14 @@ const DateApp: React.FC = () => {
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
                 openingMode: selectedOpening,
             }));
+            const inPersonBlock = buildInPersonCharBlockInstruction(c.chatBlock, userProfile?.name || '用户');
+            if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
             const content = await callLLM(messages, resolveDialogueApi(apiConfig, c).temperature ?? 0.85, c);
-            if (requestId === peekRequestRef.current) setPeekStatus(content);
+            const action = extractCharacterBlockAction(content);
+            if (requestId === peekRequestRef.current) {
+                peekBlockActionRef.current = action.action ? { charId: c.id, action: action.action } : null;
+                setPeekStatus(action.text);
+            }
 
         } catch (e: any) {
             if (requestId === peekRequestRef.current) addToast(`开场生成失败：${e.message}`, 'error');
