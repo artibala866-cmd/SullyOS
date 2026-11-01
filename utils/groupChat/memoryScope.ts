@@ -1,4 +1,5 @@
 import type { GroupProfile, Message } from '../../types';
+import { isRejectedPrivateMessage } from '../chatBlock';
 
 /** 群归档数据保留在数据库中；本轮能否出现在个人聊天上下文由群的当前授权决定。 */
 export function allowGroupMemoryInPrivate(groupId: string | undefined, groups: GroupProfile[], charId?: string): boolean {
@@ -21,7 +22,7 @@ export function filterPrivateGroupTopicCards(messages: Message[], groups: GroupP
  * 公共卡片仍留在已授权的私聊上下文，真正的长期群记忆由 groupPipeline 独立写入 groupId。
  */
 export function isPrivatePalaceSourceMessage(message: Message): boolean {
-    return !message.groupId && message.type !== 'group_topic_card';
+    return !message.groupId && message.type !== 'group_topic_card' && !isRejectedPrivateMessage(message);
 }
 
 /** 禁止先前同步的向量群记忆绕过新的私聊互通开关继续回忆。 */
