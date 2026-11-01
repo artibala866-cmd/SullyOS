@@ -601,6 +601,8 @@ export interface PostProcessCtx {
      * 在线送达 vs 离线补收的判定见 activeMsgRuntime.resolveInboxPersistTimestamp。
      */
     messageTimestamp?: number;
+    /** 用户已拉黑角色时，Char 每条回复对自己而言发送失败，但用户仍可看见。 */
+    messageSendFailedByUserBlock?: boolean;
 }
 
 // ─── 主入口 ─────────────────────────────────────────────────────────────────
@@ -653,8 +655,13 @@ export async function applyAssistantPostProcessing(
     // 统一落库入口：ctx.messageTimestamp（若有）盖到每条消息上，保证同一轮拆出的
     // 正文 / 表情 / 卡片 / 系统提示时间戳一致；没传则维持 DB.saveMessage 默认（写库当刻）。
     // 全函数落库一律走这里，别直接调 DB.saveMessage——漏一处就会出现气泡时间戳互相打架。
-    const persistMessage: typeof DB.saveMessage = (msg) =>
-        (ctx.replyRun?.saveMessage ?? DB.saveMessage)(messageTimestamp != null ? { ...msg, timestamp: messageTimestamp } : msg);
+    const persistMessage: typeof DB.saveMessage = (msg) => {
+        const stamped = messageTimestamp != null ? { ...msg, timestamp: messageTimestamp } : msg;
+        const finalMessage = ctx.messageSendFailedByUserBlock && stamped.role === 'assistant'
+            ? { ...stamped, metadata: { ...(stamped.metadata || {}), chatBlockSendFailed: true } }
+            : stamped;
+        return (ctx.replyRun?.saveMessage ?? DB.saveMessage)(finalMessage);
+    };
     const {
         setMessages,
         addToast,
