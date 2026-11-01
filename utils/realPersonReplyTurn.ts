@@ -12,6 +12,8 @@ type ChatTurn = {
     musicListenInviteResponseTo?: unknown;
     homeSceneRecord?: unknown;
     chatBlockRejected?: unknown;
+    historyImported?: unknown;
+    importedFrom?: unknown;
     [key: string]: any;
   };
 };
@@ -20,6 +22,7 @@ export function findPendingRealPersonUserTurn<T extends ChatTurn>(history: reado
     (m.role === 'user' || m.role === 'assistant') &&
     m.type !== 'system' && !m.metadata?.homeSceneRecord &&
     !m.metadata?.musicListenInvite && !m.metadata?.musicListenInviteResponseTo &&
-    !m.metadata?.chatBlockRejected);
+    !m.metadata?.chatBlockRejected &&
+    !m.metadata?.historyImported && !m.metadata?.importedFrom);
   return findPendingUserTurn(conversation);
 }
