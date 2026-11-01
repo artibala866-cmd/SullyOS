@@ -1,5 +1,5 @@
 import { isChatConversationEntry } from './trace';
-import { filterPrivateGroupMemoryCandidates } from '../groupChat/memoryScope';
+import { filterPrivateGroupMemoryCandidates, isPrivatePalaceSourceMessage } from '../groupChat/memoryScope';
 
 import { readMaintenanceSettings } from './maintenanceMode';
 import { loadRangeMessageContents } from './rangeMessagePage';
@@ -1695,7 +1695,7 @@ export async function getMemoryPalaceUnprocessedBufferCount(
     waterlineOverride?: MemoryPalaceWaterlineConfig,
 ): Promise<number> {
     const allMessages = await DB.getMessagesByCharId(charId, true);
-    const semantic = allMessages.filter(m => !m.groupId && isMessageSemanticallyRelevant(m));
+    const semantic = allMessages.filter(m => isPrivatePalaceSourceMessage(m) && isMessageSemanticallyRelevant(m));
     const highWaterMark = await getReliableMemoryPalaceHighWaterMark(charId);
     const waterline = await loadCharacterWaterline(charId, waterlineOverride);
     return countUnprocessedBufferMessages(semantic, highWaterMark, waterline.hotZoneSize);
@@ -1710,7 +1710,7 @@ export async function getMemoryPalaceOneShotPendingCount(
     retainRecentMessages: number = 0,
 ): Promise<number> {
     const allMessages = await DB.getMessagesByCharId(charId, true);
-    const privateMessages = allMessages.filter(message => !message.groupId);
+    const privateMessages = allMessages.filter(isPrivatePalaceSourceMessage);
     const semantic = privateMessages.filter(message => isMessageSemanticallyRelevant(message));
     const highWaterMark = await getReliableMemoryPalaceHighWaterMark(charId);
     return countOneShotPendingMessages(
@@ -2140,7 +2140,7 @@ export async function processNewMessages(
         //    只排除纯视觉资源和无转写的纯音频，避免 URL / base64 污染 LLM。
         const allMessages = await DB.getMessagesByCharId(charId, true, options.drainBuffer === true);
         const privateMessages = allMessages
-            .filter(message => !message.groupId)
+            .filter(isPrivatePalaceSourceMessage)
             .sort((a, b) => a.id - b.id);
         const textMessages = privateMessages
             .filter(m => isMessageSemanticallyRelevant(m))
