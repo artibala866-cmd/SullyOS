@@ -271,7 +271,10 @@ export async function processGroupNewMessages(
         const targetMembers = replaying
             ? laggingMembers.filter(member => memberProcessedId(group.id, member.id) === startId)
             : enabledMembers;
-        const buffer = textMsgs.filter(m => m.id > startId && m.id < hotZoneStartId);
+        // 补录只覆盖老成员已处理的公开群记录，不越过共享游标。
+        // 后续未归档的内容仍由正常全员归档统一处理。
+        const buffer = textMsgs.filter(m =>
+            m.id > startId && (replaying ? m.id <= lastProcessedId : m.id < hotZoneStartId));
 
         // 追平旧群水位时，即使最后只剩几十条也必须补完，
         // 否则补录游标永远卡在老水位前，阻塞整个群的后续归档。
@@ -281,8 +284,9 @@ export async function processGroupNewMessages(
             return { stored: 0, perMemberStored: {}, reason: 'threshold' };
         }
 
-        // 4. 取前 85%，单次最多 200 条，避免积累千条的旧群一次塞爆副 API。
-        const processCount = Math.min(Math.ceil(buffer.length * PROCESS_RATIO), 200);
+        // 4. 常规归档保留 15% 尾部衔接；新成员追平已有水位不必重复留尾，
+        // 否则几十条旧消息会导致多轮无意义的副 API 调用。单批最多 200 条。
+        const processCount = Math.min(replaying ? buffer.length : Math.ceil(buffer.length * PROCESS_RATIO), 200);
         const toProcess = buffer.slice(0, processCount);
         const keptTail = buffer.length - processCount;
         if (toProcess.length === 0) return { stored: 0, perMemberStored: {}, reason: 'threshold' };
