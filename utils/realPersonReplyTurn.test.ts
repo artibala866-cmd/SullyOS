@@ -16,6 +16,11 @@ describe('only an actual user statement triggers real-person replies',()=>{
     expect(findPendingRealPersonUserTurn([{id:2,role:'user',type:'system'}])).toBeNull();
     expect(findPendingRealPersonUserTurn([{...say(1)}, {id:2,role:'assistant',type:'system'}])?.id).toBe(1);
   });
+  it('imported history cannot silently generate new paid replies',()=>{
+    expect(findPendingRealPersonUserTurn([{...say(1),metadata:{historyImported:true}}])).toBeNull();
+    expect(findPendingRealPersonUserTurn([{...say(1),metadata:{importedFrom:'backup'}}])).toBeNull();
+    expect(findPendingRealPersonUserTurn([{...say(1),metadata:{historyImported:true}},say(2)])?.id).toBe(2);
+  });
   it('resolves once the character actually replies; proactive pushes do not count',()=>{
     expect(findPendingRealPersonUserTurn([say(1),proactive(2)])?.id).toBe(1);
     expect(findPendingRealPersonUserTurn([say(1),proactive(2),{id:3,role:'assistant',type:'text'}])).toBeNull();
