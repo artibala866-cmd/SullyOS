@@ -36,7 +36,7 @@ import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
 import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContinuation';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
-import { isPrivateChatBlocked, allowsCharacterToBlock, changeChatBlock } from '../utils/chatBlock';
+import { isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, changeChatBlock } from '../utils/chatBlock';
 import { buildCharacterBlockAutonomyInstruction, buildPrivateChatBlockHistoryContext, buildFirstPostUnblockOpeningInstruction, extractCharacterBlockDirective } from '../utils/chatBlockAI';
 import {chatPhonePiggybackPrompt} from '../utils/phoneChatPiggyback';
 import {
@@ -637,8 +637,9 @@ export const useChatAI = ({
         overrideApiConfig?: { baseUrl: string; apiKey: string; model: string },
         opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean; postUnblockOpening?: { reason: string; elapsedMinutes: number } },
     ) => {
-        // 阻止用户点击、旧自动回复计时器以及重新生成绕过私聊拉黑。
-        if (isTyping || !char || isPrivateChatBlocked(charRef.current?.chatBlock))
+        // 用户拉黑角色时仍可继续私聊：对方读得到用户消息，但对方的回复显示发送失败。
+        // 仅角色拉黑用户时正常生成被禁止，该方向由独立求原谅流程接管。
+        if (isTyping || !char || characterBlocksUser(charRef.current?.chatBlock))
             return opts?.immediateMusicInvite ? 'busy' as const : undefined;
         const effectiveApi = resolveDialogueApi(apiConfig, char, overrideApiConfig);
         if (!effectiveApi.baseUrl) { alert("请先在设置中配置 API URL"); return; }
@@ -2076,8 +2077,8 @@ export const useChatAI = ({
                 commentAuthorNameCache: commentAuthorNameCacheRef.current,
                 commentParentIdCache: commentParentIdCacheRef.current,
             };
-            // 状态在本轮 API 请求期间可能变化：拉黑后不得落入此前请求的迟到回复。
-            if (isPrivateChatBlocked(charRef.current?.chatBlock)) return;
+            // 角色拉黑用户后禁止迟到回复；用户拉黑角色则仍须展示对方的「发送失败」回复。
+            if (characterBlocksUser(charRef.current?.chatBlock)) return;
             if (avatarCleanContent) await replyStep(async () => applyAssistantPostProcessing(avatarCleanContent, {
                 replyRun,
                 char,
@@ -2114,6 +2115,8 @@ export const useChatAI = ({
                 // Phase 0: 本地 fetch 路径保持原逻辑, 不跳 2nd-pass LLM, 也没有结构化 directives。
                 skipSecondPassLLM: false,
                 directives: [],
+                // 逐气泡持久化：不会随解封丢失历史感叹号；不影响用户发出的消息。
+                messageSendFailedByUserBlock: userBlocksCharacter(charRef.current?.chatBlock),
             }));
             // 原版 [BLOCK_USER:原因] 是模型的独立行为，不当成聊天气泡。
             // 只有后处理成功、角色权限仍有效且未被另一方向拉黑时才正式保存状态。
