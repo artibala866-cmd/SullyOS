@@ -2052,6 +2052,8 @@ export const useChatAI = ({
                 commentAuthorNameCache: commentAuthorNameCacheRef.current,
                 commentParentIdCache: commentParentIdCacheRef.current,
             };
+            // 状态在本轮 API 请求期间可能变化：拉黑后不得落入此前请求的迟到回复。
+            if (isPrivateChatBlocked(charRef.current?.chatBlock)) return;
             await replyStep(async () => applyAssistantPostProcessing(avatarCleanContent, {
                 replyRun,
                 char,
