@@ -36,8 +36,7 @@ jobs:
         run: pnpm exec vitest run worker/orcaMcpProxy.test.ts utils/orcaMcpFallback.test.ts
       - name: Build Orca MCP client and UI entrypoints
         run: pnpm exec esbuild utils/mcpClient.ts components/settings/RealtimeMcpPresets.tsx --bundle --platform=browser --format=esm --outdir=/tmp/orca-mcp-build
-      - name: Probe the live public Worker route (informational)
-        continue-on-error: true
+      - name: Verify deployed public Worker route
         run: |
           node --input-type=module -e '
             const url = "https://proxy.friedsully.com/mcp/orca";
