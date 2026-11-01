@@ -145,7 +145,7 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
                     // this actual music invitation.
                     const invitationIndex = history.findIndex(m => m.id === current.messageId);
                     if (invitationIndex < 0) { finish(); return; }
-                    const lastBeforeReply = Math.max(0, ...history.map(m => m.id || 0));
+                    const lastBeforeReply = history.reduce((max, m) => Math.max(max, m.id || 0), 0);
                     const outcome = await triggerAI(history.slice(0, invitationIndex + 1).slice(-200),
                         undefined, { immediateMusicInvite: true });
                     busy = outcome === 'busy';
