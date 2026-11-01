@@ -866,6 +866,8 @@ const GroupChat: React.FC = () => {
         const updatedGroup = { ...activeGroup, ...updates };
         setActiveGroup(updatedGroup);
         if (updatedGroup.privateChatSyncEnabled !== false) {
+            // 用户重新允许互通时，同步补回符合阈值的旧群个人记忆与公共卡片。
+            void runGroupMemorySync(updatedGroup);
             void ensureGroupTopicCardsDelivered(updatedGroup).then(outcome => {
                 if (outcome.deliveredMemberIds.length) markGroupMembersDirty(outcome.deliveredMemberIds);
             }).catch(error => console.warn('[GroupChat] 补发群话题卡片失败:', error));
