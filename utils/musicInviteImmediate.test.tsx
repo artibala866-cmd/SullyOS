@@ -94,6 +94,18 @@ describe('一起听即时回应与真人感/主动消息隔离', () => {
         expect(state.generated.mock.calls[0][2]).toEqual({ immediateMusicInvite: true });
     });
 
+    it('主动消息恰好先送达，不能抢走待回应的音乐邀请', async () => {
+        state.history = [invite(), {
+            id: 74, charId: 'music-char', role: 'assistant', type: 'text',
+            content: '刚刚想到一件事',
+            metadata: { activeMsg2: { taskId: 'autowake:day' } },
+        }];
+        await act(async () => emit());
+        await flush();
+        expect(state.generated).toHaveBeenCalledTimes(1);
+        expect(state.generated.mock.calls[0][2]).toEqual({ immediateMusicInvite: true });
+    });
+
     it('用户已撤回或拒绝的邀请不触发新消息', async () => {
         state.history = [invite(), {
             id: 74, role: 'user', type: 'system', content: '撤回',
