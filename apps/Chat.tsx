@@ -74,6 +74,7 @@ import { describesUserInPhoto } from '../utils/userImageIdentity';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import ChatBlockModal from '../components/chat/ChatBlockModal';
 import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, isRejectedPrivateMessage } from '../utils/chatBlock';
+import { forgivenessCooldownRemaining, requestCharacterForgiveness } from '../utils/chatBlockAI';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
 import MemoryRepairPortal from '../components/chat/MemoryRepairPortal';
@@ -265,6 +266,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // 角色切换「登场」过场是否显示。切换/进入角色时由 useLayoutEffect 在绘制前置真，覆盖住加载、避免闪到新聊天。
     const [showEntry, setShowEntry] = useState(false);
     const [input, setInput] = useState('');
+    const forgivenessInFlightRef = useRef(false);
+    const [forgivenessBusy, setForgivenessBusy] = useState(false);
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
     const [characterPhoneOpen, setCharacterPhoneOpen] = useState(false);
@@ -1947,7 +1950,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     }, [char, reloadMessages, addToast, characters, userProfile, groups, realtimeConfig]);
 
     // 顶栏 ⚡ 手动触发（也是「发完后自动生成」到点时调的那一下）。
-    const handleManualTrigger = () => {
+    const handleManualTrigger = async () => {
         manualChatGenerationRevisionRef.current++;
         autoReply.cancel();
         if (isTyping || instantChatPending) {
@@ -1958,8 +1961,51 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             });
             return;
         }
-        if (isPrivateChatBlocked(char?.chatBlock)) {
-            addToast(userBlocksCharacter(char?.chatBlock) ? '你已拉黑该角色，请先解除拉黑' : '对方已将你拉黑，当前不能正常触发回复', 'info');
+        if (forgivenessInFlightRef.current) return;
+        if (userBlocksCharacter(char?.chatBlock)) {
+            addToast('你已拉黑该角色，请先解除拉黑', 'info');
+            return;
+        }
+        if (characterBlocksUser(char?.chatBlock)) {
+            const target = char;
+            const remaining = forgivenessCooldownRemaining(target.chatBlock);
+            if (remaining > 0) {
+                addToast('对方还没准备重新考虑，请约 ' + Math.ceil(remaining / 60_000) + ' 分钟后再试', 'info');
+                return;
+            }
+            forgivenessInFlightRef.current = true;
+            setForgivenessBusy(true);
+            try {
+                // 与糯叽机原版一致：有草稿也只能留作用户本地拒收，不让角色偷读。
+                if (input.trim()) await sendText();
+                const latest = await DB.getCharacter(target.id);
+                if (!latest || !characterBlocksUser(latest.chatBlock) || userBlocksCharacter(latest.chatBlock)) return;
+                const recent = await DB.getRecentMessagesByCharId(target.id, 100);
+                const judgement = await requestCharacterForgiveness({
+                    character: latest, userName: userProfile.name || '用户', messages: recent, apiConfig,
+                });
+                const checkedAt = Date.now();
+                await updateCharacter(target.id, previous => {
+                    if (!characterBlocksUser(previous.chatBlock) || userBlocksCharacter(previous.chatBlock)) return {};
+                    const next = judgement.decision === 'unblock'
+                        ? changeChatBlock(previous.chatBlock, 'character', false, { at: checkedAt, source: 'ai' })
+                        : previous.chatBlock!;
+                    return { chatBlock: {
+                        ...next,
+                        lastForgivenessCheckAt: checkedAt,
+                        lastForgivenessSign: judgement.sign,
+                    } };
+                });
+                addToast(judgement.sign || (judgement.decision === 'unblock'
+                    ? '对方已决定解除拉黑，可以继续聊天'
+                    : '对方暂时仍不愿意解除拉黑'), 'info');
+            } catch (error: any) {
+                console.warn('[ChatBlock] forgiveness judgement failed', error);
+                addToast(error?.message || '拉黑判定失败，请重试', 'error');
+            } finally {
+                forgivenessInFlightRef.current = false;
+                setForgivenessBusy(false);
+            }
             return;
         }
         triggerAI(messages);
@@ -4584,7 +4630,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             ? '你们已互相拉黑。你无法向对方发送消息，对方也无法向你正常发消息。'
                             : userBlocksCharacter(char.chatBlock)
                                 ? '你已拉黑该角色。私聊消息与回复已暂停，可在加号 → 拉黑中解除。'
-                                : '对方已将你拉黑。你的消息会显示为已拒收，角色不会看到这些消息。'}
+                                : forgivenessBusy ? '正在等待对方决定是否解除拉黑…' : '对方已将你拉黑。你的消息会显示为已拒收，角色不会看到这些消息，AI 键可请求对方重新考虑。'}
                     </div>
                 )}
                 {collapsedCount > 0 && windowedFocusMsgId === null && (
