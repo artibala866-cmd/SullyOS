@@ -484,14 +484,15 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
     const saveCentralAndMirrors = useCallback(async (role: 'user' | 'assistant', content: string, centralMetadata: Record<string, unknown> = {}): Promise<number> => {
         const now = Date.now();
-        const centralId = await DB.saveMessage({ charId: threadId, role, type: 'text', content, timestamp: now, metadata: { source: 'story_theater', theaterId: entry.id, ...centralMetadata } });
-        if (!entry.writesToCharacterMemory) return centralId;
-        const theaterMirrorIds: Record<string, number> = {};
-        for (const actor of memoryActors) {
-            theaterMirrorIds[actor.id] = await DB.saveMessage(createStoryTheaterMirrorMessage(entry, actor.id, { id: centralId, role, content, timestamp: now }));
-        }
-        await DB.updateMessageMetadata(centralId, previous => ({ ...previous, theaterMirrorIds }));
-        return centralId;
+        return DB.saveStoryTheaterTurn(
+            { charId: threadId, role, type: 'text', content, timestamp: now,
+                metadata: { source: 'story_theater', theaterId: entry.id, ...centralMetadata } },
+            centralId => entry.writesToCharacterMemory
+                ? memoryActors.map(actor => createStoryTheaterMirrorMessage(
+                    entry, actor.id, { id: centralId, role, content, timestamp: now },
+                ))
+                : [],
+        );
     }, [entry, memoryActors, threadId]);
 
     const buildActorContexts = useCallback(async (query: string): Promise<string> => {
