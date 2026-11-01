@@ -1454,6 +1454,11 @@ ${voiceActingGuide()}`;
                 }
                 else content = `${timeStr} ${sourceTag} ${content}`;
 
+                // 失败回执属于这条消息的历史事实：不能只在界面画红感叹号，
+                // 否则角色下一轮重读自己的旧回复会误以为已经成功送达。
+                if (m.role === 'assistant' && m.metadata?.chatBlockSendFailed === true && typeof content === 'string') {
+                    content = `[系统送达状态：你当时发送这条消息失败，对方没有收到。你不能据此认为对方看过它。]\n${content}`;
+                }
                 return { role: m.role, content: typeof content === 'string' ? content.trimStart() : content };
             }),
             historySlice // Return original slice for Quote lookup
