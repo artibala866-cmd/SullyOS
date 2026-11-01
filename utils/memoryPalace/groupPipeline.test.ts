@@ -153,6 +153,25 @@ describe('群聊与个人记忆宫殿双向归档', () => {
         expect((await MemoryNodeDB.getByCharId(a.id)).filter(n => n.groupId === another.id)).toHaveLength(1);
     });
 
+    it('同群两件相近但不同的事件，即使 embedding 高度相似也必须分别保留', async () => {
+        const { group, a, b } = await makeGroup();
+        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        vi.mocked(extractGroupMemoriesFromBuffer).mockResolvedValue({
+            completed: true,
+            drafts: [
+                { content: '在【测试群】里，用户周六约定学习。', room: 'study', tags: [], importance: 6, mood: 'neutral', createdAt: 1700000000000 },
+                { content: '在【测试群】里，用户周日约定学习。', room: 'study', tags: [], importance: 6, mood: 'neutral', createdAt: 1700086400000 },
+            ],
+        });
+        const outcome = await processGroupNewMessages(group, [a, b], '用户');
+        expect(outcome?.stored).toBe(4);
+        const notes = (await MemoryNodeDB.getByCharId(a.id)).filter(node => node.groupId === group.id);
+        expect(notes.map(node => node.content)).toEqual(expect.arrayContaining([
+            '在【测试群】里，用户周六约定学习。',
+            '在【测试群】里，用户周日约定学习。',
+        ]));
+    });
+
     it('合法空数组也分别推进群/角色水位，不重复调用副 API', async () => {
         const { group, a, b } = await makeGroup();
         vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
