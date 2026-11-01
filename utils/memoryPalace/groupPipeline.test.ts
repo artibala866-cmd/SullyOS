@@ -231,7 +231,7 @@ describe('群聊与个人记忆宫殿双向归档', () => {
 
     it('合法空记忆批次推进水位并继续归档，失败的空结果保留水位', async () => {
         const { group, a, b } = await makeGroup();
-        vi.spyOn(DB, 'getGroupMessages').mockResolvedValue(messagesFor(group.id));
+        vi.spyOn(DB, 'getGroupMessages').mockImplementation(async id => messagesFor(id));
         vi.mocked(extractGroupMemoriesFromBuffer).mockResolvedValueOnce({ drafts: [], completed: true });
         const empty = await processGroupNewMessages(group, [a, b], '用户');
         expect(empty?.stored).toBe(0);
