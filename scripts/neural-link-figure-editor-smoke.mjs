@@ -41,8 +41,21 @@ try{
  }
  const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
  if(shot?.data)writeFileSync(join(output,'saved-editor.png'),Buffer.from(shot.data,'base64'));
- const report={passed,state,exceptions:exceptions.slice(-8),consoleErrors:messages.slice(-8),url:pageUrl};
+ // Exercise the actual HomeFigureEditor -> HomeFigureStudio -> ChibiStudio save callback path.
+ let savedBack=false,saveStatus={};
+ if(passed){
+  await send('Runtime.evaluate',{expression:"document.querySelector('.home-figure-save').click()"});
+  for(let i=0;i<25;i++){
+   const response=await send('Runtime.evaluate',{expression:"JSON.stringify({saved:document.body.dataset.figureSaved,studioVisible:!![...document.querySelectorAll('h2')].find(e=>e.textContent?.includes('QQ捏人 · 手办柜')),figureVisible:document.body.textContent?.includes('编辑家园手办'),errors:[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent)})",returnByValue:true});
+   saveStatus=JSON.parse(response?.result?.value??'{}');
+   if(saveStatus.saved==='true'&&saveStatus.studioVisible&&saveStatus.figureVisible){savedBack=true;break;}
+   await delay(300);
+  }
+  const back=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  if(back?.data)writeFileSync(join(output,'saved-after-confirm.png'),Buffer.from(back.data,'base64'));
+ }
+ const report={passed:passed&&savedBack,editorReady:passed,savedBack,saveStatus,state,exceptions:exceptions.slice(-8),consoleErrors:messages.slice(-8),url:pageUrl};
  writeFileSync(join(output,'saved-editor-report.json'),JSON.stringify(report,null,2));
  console.info('Real 3D figure editor result:',JSON.stringify(report));
- if(!passed)throw Error('3D Q figure did not reconstruct and unlock saving in Chromium');
+ if(!report.passed)throw Error('3D Q figure did not finish editing and return with saved image/state/hair');
 }finally{try{ws?.close();}catch{}cp.kill('SIGTERM');}

@@ -19,7 +19,16 @@ const character={
   ...(existing?{home3D:{state:homeFigureSeed(undefined,false),img:portrait,hair:{layers:{},extras:[]},updatedAt:Date.now()}}:{})
  }
 };
-const fakeContext={characters:[character],userProfile:{name:'演示用户'},theme:{},updateCharacter:()=>{},updateUserProfile:()=>{}};
+const fakeContext={characters:[character],userProfile:{name:'演示用户'},theme:{},
+ updateCharacter:(id:string,update:any)=>{
+  if(id!==character.id)throw Error('Wrong character received an update');
+  const next=typeof update==='function'?update(character as any):update;
+  Object.assign(character,next);
+  const slot=character.chibiStudio.home3D;
+  document.body.dataset.figureSaved=String(!!slot?.state && !!slot?.img && !!slot?.hair);
+ },
+ updateUserProfile:()=>{}
+};
 try{
  const root=createRoot(host);
  flushSync(()=>root.render(
