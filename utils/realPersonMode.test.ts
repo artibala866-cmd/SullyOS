@@ -1,8 +1,25 @@
-import { describe, expect, it } from 'vitest';
-import { canRealPersonContact, shouldAutoReplyToUser, REAL_PERSON_AUTONOMY_INSTRUCTION } from './realPersonMode';
+import { describe, expect, it, vi } from 'vitest';
+import { canRealPersonContact, shouldAutoReplyToUser, isRealPersonModeEnabled, setRealPersonModeEnabled, REAL_PERSON_AUTONOMY_INSTRUCTION } from './realPersonMode';
 
 describe('真人感与主动消息的唯一触发权限', () => {
   const role = (enabled: boolean) => ({ activeMsg2Config: { enabled } }) as any;
+  it('旧用户没有明确开启时不因升级自动消耗 API', () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, val: string) => { store.set(key, val); },
+    });
+    try {
+      expect(isRealPersonModeEnabled()).toBe(false);
+      setRealPersonModeEnabled(true);
+      expect(isRealPersonModeEnabled()).toBe(true);
+      setRealPersonModeEnabled(false);
+      expect(isRealPersonModeEnabled()).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('真人感自己接话无需主动消息 2.0，关闭后保留普通自动回复设置', () => {
     expect(shouldAutoReplyToUser(true, false)).toBe(true);
     expect(shouldAutoReplyToUser(true, true)).toBe(true);
