@@ -39,7 +39,7 @@ export function buildGroupMemberInteractionGuidance(
     const safeHistory: Message[] = recent.slice(0, lastUserIndex + 1).map(m =>
         isGroupUserText(m)
             ? { ...m, content: m.content.slice(0, MAX_USER_TEXT_CHARS) }
-            : { ...m, role: 'assistant', type: 'text', content: '[群聊其他消息]' },
+            : { ...m, role: 'assistant' as const, type: 'text' as const, content: '[群聊其他消息]' },
     );
     const analysis = analyzeUserInteraction(safeHistory, policy, memberName, userName);
     const guidance = renderInteractionAdaptationGuidance(analysis);
