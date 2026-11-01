@@ -56,9 +56,16 @@ try {
   const input=document.querySelector<HTMLInputElement>('input[aria-label="允许角色自主拉黑我"]');
   flushSync(()=>input?.click());
   const independent=state?.allowCharacterBlockUser===false && userBlocksCharacter(state);
+  state=configureCharacterBlocking(state,true);
   state=changeChatBlock(state,'character',true,{at:250});
   render();
-  const hiddenCharacterBlock=!document.querySelector('section[role="dialog"]')?.textContent?.includes('拉黑了你');
+  const hiddenCharacterBlock=characterBlocksUser(state)
+    && !document.querySelector('section[role="dialog"]')?.textContent?.includes('拉黑了你');
+  // 截图回到用户真正打开设置时的「拉黑对方」初始态。
+  state=undefined;
+  render();
+  const closedDetails=document.querySelector<HTMLDetailsElement>('details');
+  if(closedDetails) closedDetails.open=false;
   const report={initial,deliveryDirection,confirmed,separate,shown,lightSurface,independent,hiddenCharacterBlock,closed};
   const out=document.createElement('output');out.textContent=JSON.stringify(report);host.append(out);
   host.dataset.blockVisualReady=Object.entries(report).filter(([k])=>k!=='closed').every(([,v])=>v===true)?'true':'false';
