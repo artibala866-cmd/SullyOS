@@ -315,6 +315,18 @@ describe('real-person pacing without mechanical nudges', () => {
         advance(delay - 4_500);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
+    it('natural reply waits for the last successfully sent follow-up, not just the first message', () => {
+        render({ naturalPacing:true, lifeActivity:'free' });
+        const at = Date.now();
+        const first = resolveRealPersonReplyPlan({activity:'free',firstUnansweredAt:at,now:at,fallbackDelayMs:5000}).delayMs!;
+        send();
+        advance(first - 500);
+        send();
+        advance(1_500);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        advance(1_500);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
     it('sleep stays quiet regardless of nudges until the actual schedule changes', () => {
         render({ naturalPacing: true, lifeActivity: 'sleep' });
         const originalSendAt = Date.now();
