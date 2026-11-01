@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import type { CharacterProfile, Message } from '../types';
 import { changeChatBlock, configureCharacterBlocking } from './chatBlock';
 import {
-  extractCharacterBlockDirective, buildCharacterBlockAutonomyInstruction,
+  extractCharacterBlockDirective, extractCharacterBlockAction, buildInPersonCharBlockInstruction,
+  buildFirstPostUnblockOpeningInstruction, buildCharacterBlockAutonomyInstruction,
   buildPrivateChatBlockHistoryContext, buildForgivenessMessages,
   forgivenessCooldownRemaining, parseForgivenessDecision,
   CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS,
@@ -29,7 +30,34 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     const parsed = extractCharacterBlockDirective('我需要停止这段对话。\n[BLOCK_USER:严重欺骗与背叛]');
     expect(parsed).toEqual({ text: '我需要停止这段对话。', reason: '严重欺骗与背叛' });
     expect(extractCharacterBlockDirective('[BLOCK_USER:持续伤害]')).toEqual({ text: '', reason: '持续伤害' });
-    expect(extractCharacterBlockDirective('你好\n[UNBLOCK_USER]')).toEqual({ text: '你好\n[UNBLOCK_USER]', reason: null });
+    expect(extractCharacterBlockDirective('你好\n[UNBLOCK_USER]')).toEqual({ text: '你好', reason: null });
+  });
+  it('原版在线 JSON 和离线指令都能识别，普通引用与小号专用 main 不生效', () => {
+    expect(extractCharacterBlockAction('我需要冷静。\\n{"t":"block_user","reason":"严重越界"}'))
+      .toEqual({ text: '我需要冷静。', action: { kind: 'block', reason: '严重越界' } });
+    expect(extractCharacterBlockAction('再见。\\n{"t":"unblock_user"}'))
+      .toEqual({ text: '再见。', action: { kind: 'unblock' } });
+    expect(extractCharacterBlockAction('再见。\\n[UNBLOCK_USER]'))
+      .toEqual({ text: '再见。', action: { kind: 'unblock' } });
+    expect(extractCharacterBlockAction('"[UNBLOCK_USER]"').action).toBeNull();
+    expect(extractCharacterBlockAction('{"t":"unblock_user","main":true}').action).toBeNull();
+    expect(extractCharacterBlockAction('普通消息里出现 [BLOCK_USER:玩笑] 不触发').action).toBeNull();
+  });
+  it('糯米机现有见面可识别拉黑关系，但只有角色能解除自己发起的拉黑', () => {
+    const charBlocked = changeChatBlock(undefined, 'character', true, { at: 100, reason: '无法信任' });
+    expect(buildInPersonCharBlockInstruction(charBlocked, '小明')).toContain('无法信任');
+    expect(buildInPersonCharBlockInstruction(charBlocked, '小明')).toContain('[UNBLOCK_USER]');
+    const userBlocked = changeChatBlock(undefined, 'user', true, { at: 100 });
+    expect(buildInPersonCharBlockInstruction(userBlocked, '小明')).toContain('不能替用户解除拉黑');
+    expect(buildInPersonCharBlockInstruction(undefined)).toBe('');
+  });
+  it('解封后首条是 Char 主动新消息，不回答拉黑前旧话题，也不假装看过被拒收内容', () => {
+    const prompt = buildFirstPostUnblockOpeningInstruction('小明', '严重误会', 90);
+    expect(prompt).toContain('主动');
+    expect(prompt).toContain('严重误会');
+    expect(prompt).toContain('90分钟');
+    expect(prompt).toContain('不能重复');
+    expect(prompt).toContain('没看到');
   });
   it('角色只在正常未拉黑私聊得到自主权限，不改变用户自带人设', () => {
     const prompt = buildCharacterBlockAutonomyInstruction();
