@@ -72,7 +72,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             setSaveError(characters.length === 0
                 ? '目前没有可参与的角色。请先在角色应用中建立角色，再返回创建剧情；无需开启额外开关。'
                 : '请在「让谁参与」选中至少一位角色；或者在虚构剧场的面具箱选择一个已有角色作为自己，开始个人剧情。其他开关均非必需。');
-            castSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            castSection.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
             return;
         }
         setSaveError('');
