@@ -1234,12 +1234,12 @@ export const DB = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
       const store = tx.objectStore(STORE_MESSAGES);
-      deleteSecretNotesForIds(store, uniqueIds);
       for (const id of uniqueIds) {
         const request = store.get(id);
         request.onsuccess = () => {
           const message = request.result as Message | undefined;
           if (!message || message.charId !== charId || !!message.groupId) return;
+          deleteSecretNotesForIds(store, [id]);
           if (message.metadata?.musicListenInvite) {
             // Always write a tombstone, not only when the invite is pending:
             // acceptance may have won the transaction race in another tab.
