@@ -308,8 +308,12 @@ export async function processGroupNewMessages(
             // 应推进游标，避免每次打开群都再次调用副 API。超时/解析失败则保留原文重试。
             const latestEmpty = (await DB.getGroups()).find(item => item.id === group.id);
             if (completed === true && latestEmpty && !deletedGroups.has(group.id)
-                && latestEmpty.privateChatSyncEnabled !== false) {
-                setLastProcessedGroupId(group.id, toProcess[toProcess.length - 1].id);
+                && latestEmpty.privateChatSyncEnabled !== false
+                && targetMembers.every(member => latestEmpty.members.includes(member.id))) {
+                const doneThrough = toProcess[toProcess.length - 1].id;
+                // 个体补录与正常归档使用独立游标，空批次同样要逐个记账。
+                for (const member of targetMembers) setMemberProcessedId(group.id, member.id, doneThrough);
+                if (!replaying) setLastProcessedGroupId(group.id, doneThrough);
             }
             return { stored: 0, perMemberStored: {}, extracted: 0, processedMessageCount: toProcess.length };
         }
@@ -421,6 +425,15 @@ export async function processGroupNewMessages(
                         dimensions: memberEmb.dimensions,
                         model: memberEmb.model,
                     };
+                    // 提取/embedding 等待期间可能撤销互通、解散群或退出成员。
+                    const current = (await DB.getGroups()).find(item => item.id === group.id);
+                    if (!current || deletedGroups.has(group.id)
+                        || current.privateChatSyncEnabled === false
+                        || !current.members.includes(member.id)
+                        || !(await DB.getCharacter(member.id))?.memoryPalaceEnabled) {
+                        allMembersCompleted = false;
+                        break;
+                    }
                     // 节点 + 向量同事务落库；避免向量保存失败后遗留无向量的孤儿记忆。
                     await MemoryNodeDB.saveVectorizedMany([{ node, vector: memVec }]);
 
@@ -479,6 +492,8 @@ export async function processGroupNewMessages(
         console.warn(`❌ [GroupPalace] 群 ${group.name} 处理失败: ${e.message}`);
         return null;
     } finally {
+        // 解散和远程 embedding 返回可能并发；归档任务退出时最后清除一次孤儿群记忆。
+        if (deletedGroups.has(group.id)) await deleteGroupMemoriesByGroupId(group.id);
         processingLocks.delete(lockKey);
     }
 }
