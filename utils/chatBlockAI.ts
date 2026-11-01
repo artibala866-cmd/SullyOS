@@ -1,4 +1,6 @@
-import type { ChatBlockState, CharacterProfile, Message } from '../types';
+import type { ChatBlockState, CharacterProfile, Message, APIConfig } from '../types';
+import { resolveDialogueApi } from './characterApi';
+import { safeFetchJson } from './safeApi';
 import { allowsCharacterToBlock, characterBlocksUser, isRejectedPrivateMessage, userBlocksCharacter } from './chatBlock';
 
 /** 糯叽机原版：自主拉黑与解除拉黑分别判定；不修改角色卡或其它系统。 */
@@ -78,14 +80,48 @@ export function buildForgivenessMessages(character: CharacterProfile, userName: 
   ];
 }
 
-export function parseForgivenessDecision(raw: string): { decision: 'unblock' | 'keep'; sign: string } {
+export function parseForgivenessDecision(raw: string): { decision: 'unblock' | 'keep'; sign: string; valid: boolean } {
   const match = String(raw || '').match(/\{[\s\S]*?\}/);
-  if (!match) return { decision: 'keep', sign: '' };
+  if (!match) return { decision: 'keep', sign: '', valid: false };
   try {
     const value = JSON.parse(match[0]);
     return {
       decision: value?.decision === 'unblock' ? 'unblock' : 'keep',
+      valid: value?.decision === 'unblock' || value?.decision === 'keep',
       sign: typeof value?.sign === 'string' ? value.sign.trim().slice(0, 180) : '',
     };
-  } catch { return { decision: 'keep', sign: '' }; }
+  } catch { return { decision: 'keep', sign: '', valid: false }; }
+}
+
+/** 原版 AI 键单独判断心软，不把求原谅当作正常回复。
+ * 复用当前角色私聊 API，网络/解析失败不记录冷却。
+ */
+export async function requestCharacterForgiveness(args: {
+  character: CharacterProfile;
+  userName: string;
+  messages: Message[];
+  apiConfig: APIConfig;
+}): Promise<{ decision: 'unblock' | 'keep'; sign: string }> {
+  const { character, userName, messages, apiConfig } = args;
+  if (!characterBlocksUser(character.chatBlock)) throw new Error('角色尚未拉黑用户');
+  const api = resolveDialogueApi(apiConfig, character);
+  if (!api.baseUrl || !api.model) throw new Error('请先配置私聊 API');
+  const result = await safeFetchJson(api.baseUrl.replace(/\\/+$/, '') + '/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(api.apiKey ? { Authorization: 'Bearer ' + api.apiKey } : {}),
+    },
+    body: JSON.stringify({
+      model: api.model,
+      messages: buildForgivenessMessages(character, userName, messages),
+      temperature: 0.7,
+    }),
+  });
+  const content = result?.choices?.[0]?.message?.content;
+  const raw = typeof content === 'string' ? content
+    : Array.isArray(content) ? content.map((part: any) => part?.text || '').join('') : '';
+  const parsed = parseForgivenessDecision(raw);
+  if (!parsed.valid) throw new Error('角色的拉黑判定结果无效，请重试');
+  return { decision: parsed.decision, sign: parsed.sign };
 }
