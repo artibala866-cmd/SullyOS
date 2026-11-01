@@ -119,6 +119,7 @@ import { trackEvent, noteMessageSent, presetOrCustom } from '../utils/analytics'
 import { markAmsgStateDirty, markAmsgStateDirtyForAll } from '../utils/amsgStateSync';
 import { AMSG_INSTANT_CHAT_PENDING_EVENT, AMSG_INSTANT_CHAT_PENDING_LS_KEY, getInstantChatPending } from '../utils/amsgInstantChat';
 import { formatAmsgToolTrace } from '../utils/amsgToolTrace';
+import ChatToolTrace from '../components/chat/ChatToolTrace';
 import { formatHours } from '../utils/format';
 import {
     VOICE_FAVORITES_CHANGED_EVENT,
@@ -3984,11 +3985,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         onOpenSettings: () => setShowThinkingChainModal(true),
     }), [char?.thinkingChainStyle, char?.thinkingChainCustomColors, osTheme.chatPsyche]);
 
-    // 工具痕迹那行灰字要贴着气泡走，所以把气泡自带的组间距（MessageItem 里那组
-    // mb-3 / mb-6 / mb-8）抵掉大半。组内的气泡本来就挨着，不用抵。
-    const toolTracePullClass = osTheme.chatMessageSpacing === 'compact' ? '-mt-2'
-        : osTheme.chatMessageSpacing === 'spacious' ? '-mt-6' : '-mt-5';
-
     // Reset active category if it becomes invisible for the current character
     useEffect(() => {
         if (activeCategory !== 'default' && visibleCategories.length > 0 && !visibleCategories.some(c => c.id === activeCategory)) {
@@ -4809,13 +4805,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             thinkingChainOptions={thinkingChainOptions}
                         />
                         <ChatBlockDeliveryStatus message={m}/>
-                        {showToolTrace && (
-                            <div className={`px-3 mb-4 ${breaksWithNext ? toolTracePullClass : ''}`}>
-                                <div className="ml-12 text-[10px] leading-relaxed text-slate-400">
-                                    调用了工具：{toolTraceText}
-                                </div>
-                            </div>
-                        )}
+                        {showToolTrace && <ChatToolTrace text={toolTraceText} />}
                         </div>
                     );
                 })}
