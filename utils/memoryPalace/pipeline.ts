@@ -1,4 +1,5 @@
 import { isChatConversationEntry } from './trace';
+import { filterPrivateGroupMemoryCandidates } from '../groupChat/memoryScope';
 
 import { readMaintenanceSettings } from './maintenanceMode';
 import { loadRangeMessageContents } from './rangeMessagePage';
@@ -1110,7 +1111,17 @@ export async function retrieveMemories(
         // 9. 获取期盼
         const anticipations = await tRetrieve('AnticipationDB.getByCharId', 'IDB', AnticipationDB.getByCharId(charId));
 
-        // 10. 格式化
+        // 10. 只把仍被群授权的旧群记忆传给模型；撤销互通不破坏历史向量。
+        // 在 rerank / 反刍后做最终过滤，所有召回支路都不能绕过该检查。
+        if (results.some(result => Boolean(result.node.groupId))) {
+            try {
+                results = filterPrivateGroupMemoryCandidates(results, await DB.getGroups());
+            } catch (error) {
+                console.warn('[MemoryPalace] 群互通权限读取失败，暂时不注入群记忆', error);
+                results = results.filter(result => !result.node.groupId);
+            }
+        }
+        // 11. 格式化
         const formatted = await tRetrieve('expandAndFormat', 'IDB', expandAndFormat(results, charId, anticipations, userName, formatterCap));
 
         // ── 汇总打印 ──
