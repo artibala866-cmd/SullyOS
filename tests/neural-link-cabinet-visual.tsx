@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {flushSync} from 'react-dom';
 import {OSPreviewProvider} from '../context/OSContext';
 import ChibiStudio,{ChibiShelfPanel} from '../components/character/ChibiStudio';
+import {homeFigureSeed} from '../utils/homeFigureSeed';
 
 const host=document.querySelector<HTMLElement>('#figure-root')!;
 const scene=new URLSearchParams(location.search).get('scene')??'cabinet';
@@ -15,7 +16,7 @@ const character={
   room:{state:{selected:{eyes:'obsolete-room'}}},
   vr:{state:{selected:{eyes:'obsolete-vr'}}},
   like520:{state:{selected:{eyes:'obsolete-event'}}},
-  ...(existing?{home3D:{state:{selected:{skin:'skin_01',eyes:'eyes_01'}},img:portrait,hair:{layers:{},extras:[]},updatedAt:Date.now()}}:{})
+  ...(existing?{home3D:{state:homeFigureSeed(undefined,false),img:portrait,hair:{layers:{},extras:[]},updatedAt:Date.now()}}:{})
  }
 };
 const fakeContext={characters:[character],userProfile:{name:'演示用户'},theme:{},updateCharacter:()=>{},updateUserProfile:()=>{}};
@@ -27,23 +28,28 @@ try{
     :<ChibiStudio charId={character.id} onClose={()=>{document.body.dataset.closed='yes';}}/>}
   </OSPreviewProvider>
  ));
- if(scene==='source'){
+ if(scene==='source'||scene==='editor'){
   const edit=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.includes('编辑家园手办')||b.textContent?.includes('捏一个家园手办'));
   flushSync(()=>edit?.click());
+  if(scene==='editor'){
+    const resume=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.includes('继续编辑当前家园形象'));
+    flushSync(()=>resume?.click());
+  }
  }
  setTimeout(()=>{
   const text=document.body.textContent??'';
   const images=[...document.querySelectorAll<HTMLImageElement>('img')];
   const buttons=[...document.querySelectorAll<HTMLButtonElement>('button')];
-  const all3d=scene==='source'?text.includes('3D 家园 · Q 版捏人'):text.includes('3D 家园 · Q 版形象');
+  const all3d=scene==='editor'?(text.includes('3D 形象')&&text.includes('造型间')):scene==='source'?text.includes('3D 家园 · Q 版捏人'):text.includes('3D 家园 · Q 版形象');
   const oldAbsent=!['小小窝','特别时光','彼方','520 EVENT','同步到全部'].some(t=>text.includes(t));
   const correctCount=scene==='source'||(existing?text.includes('1/1 已上架')||scene==='cabinet':text.includes('0/1 已上架')||scene==='cabinet');
-  const sourceButtons=scene!=='source'||(!!buttons.find(b=>b.textContent?.includes('从头捏一个'))&&(!existing||!!buttons.find(b=>b.textContent?.includes('继续编辑当前家园形象'))));
+  const sourceButtons=scene==='editor'||scene!=='source'||(!!buttons.find(b=>b.textContent?.includes('从头捏一个'))&&(!existing||!!buttons.find(b=>b.textContent?.includes('继续编辑当前家园形象'))));
   const noOverflow=document.documentElement.scrollWidth<=innerWidth+2;
-  const imageRendered=!existing||scene==='source'||images.some(i=>i.src.startsWith('data:image/svg+xml')&&i.complete);
+  const imageRendered=!existing||scene==='source'||scene==='editor'||images.some(i=>i.src.startsWith('data:image/svg+xml')&&i.complete);
   const uiInteractive=buttons.filter(b=>b.getBoundingClientRect().width>30).length>=1;
-  const checks={all3d,oldAbsent,correctCount,sourceButtons,noOverflow,imageRendered,uiInteractive};
+  const editorControls=scene!=='editor'||buttons.some(b=>b.textContent?.includes('完成并保存'));
+  const checks={all3d,oldAbsent,correctCount,sourceButtons,noOverflow,imageRendered,uiInteractive,editorControls};
   const output=document.createElement('output');output.id='neural-cabinet-visual-checks';output.textContent=JSON.stringify({scene,existing,checks});output.hidden=true;document.body.append(output);
   document.body.dataset.figureVisualReady=Object.values(checks).every(Boolean)?'true':'false';
- },1000);
+ },scene==='editor'?3500:1000);
 }catch(e){document.body.dataset.figureVisualReady='false';document.body.dataset.error=String(e instanceof Error?e.stack:e);}

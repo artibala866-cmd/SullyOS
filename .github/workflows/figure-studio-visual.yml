@@ -43,16 +43,17 @@ jobs:
             sleep 1
           done
           chrome="${{ steps.chrome.outputs.chrome-path }}"
-          for name in empty-shelf saved-shelf empty-cabinet saved-cabinet saved-source; do
+          for name in empty-shelf saved-shelf empty-cabinet saved-cabinet saved-source saved-editor; do
             case "$name" in
               empty-shelf) query='scene=shelf&existing=0';;
               saved-shelf) query='scene=shelf&existing=1';;
               empty-cabinet) query='scene=cabinet&existing=0';;
               saved-cabinet) query='scene=cabinet&existing=1';;
               saved-source) query='scene=source&existing=1';;
+              saved-editor) query='scene=editor&existing=1';;
             esac
             url="http://127.0.0.1:5173/tests/neural-link-cabinet-visual.html?$query"
-            "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=430,930 --virtual-time-budget=14000 --dump-dom "$url" >"figure-visual/$name.html" 2>/tmp/figure-chrome.log || true
+            "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=430,930 --virtual-time-budget=21000 --dump-dom "$url" >"figure-visual/$name.html" 2>/tmp/figure-chrome.log || true
             if ! grep -q 'data-figure-visual-ready="true"' "figure-visual/$name.html"; then
               echo "Actual React UI failed: $name"
               grep -o 'data-error="[^"]*"' "figure-visual/$name.html" | head -c 2000 || true
@@ -60,7 +61,7 @@ jobs:
               tail -60 /tmp/figure-vite.log || true
               exit 1
             fi
-            "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size=430,930 --force-device-scale-factor=1 --virtual-time-budget=14000 --screenshot="$GITHUB_WORKSPACE/figure-visual/$name.png" "$url"
+            "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size=430,930 --force-device-scale-factor=1 --virtual-time-budget=21000 --screenshot="$GITHUB_WORKSPACE/figure-visual/$name.png" "$url"
             test -s "figure-visual/$name.png"
             echo "Verified and captured real React 3D figure scene: $name"
           done
