@@ -2,6 +2,7 @@ import '../components/chat/WeixinOriginalAssets.css';
 import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { findPendingUserTurn } from '../utils/chatContinuation';
+import { canRealPersonContact, isRealPersonModeEnabled, setRealPersonModeEnabled } from '../utils/realPersonMode';
 import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
@@ -176,7 +177,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const isProactiveComposing = !!(activeCharacterId && proactiveComposingChars[activeCharacterId]);
     const localDateKey = useLocalDateKey();
     const [lifeMode, setLifeMode] = useState(() => readLifeClock().mode);
-    const [lifePacing, setLifePacing] = useState(() => localStorage.getItem('sully_life_pacing') !== 'off');
+    const [lifePacing, setLifePacing] = useState(isRealPersonModeEnabled);
 
     const [lifeActivityState, setLifeActivityState] = useState<{
         characterId: string | null;
@@ -459,7 +460,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             window.removeEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT,scheduleChanged);
         };
     },[char?.id,char?.activeMsg2Config?.enabled,char?.activeMsg2Config?.tasks?.length,
-        apiConfig,userProfile,groups,realtimeConfig,updateCharacter,activeCharacterId]);
+        apiConfig,userProfile,groups,realtimeConfig,updateCharacter,activeCharacterId,lifePacing]);
     const selectedAvatar = useMemo(() => { if (!char) return ''; const lib = readCharacterAvatarLibrary(char.id); return lib.entries.find(e => e.id === lib.activeId)?.image || char.avatar; }, [char?.id, char?.avatar, avatarRevision]);
     const memoryRepairRound = useMemo(() => {
         let assistantIndex = -1;
@@ -2076,12 +2077,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             case 'life-pacing': {
                 const next = !lifePacing;
                 setLifePacing(next);
-                localStorage.setItem('sully_life_pacing', next ? 'on' : 'off');
+                setRealPersonModeEnabled(next);
                 addToast(next
-                    ? (inputPreferences.autoReply
-                        ? '真人感节奏已开启，将调整原有自动回复的忙闲等待；不显示倒计时。'
-                        : '真人感节奏已开启；需另外开启“发完后自动生成回复”才会自动接话。')
-                    : '真人感节奏已关闭；普通自动回复仍由原有开关控制。', 'info');
+                    ? (char?.activeMsg2Config?.enabled === true
+                        ? '真人感已开启，主动消息 2.0 可按真实情境自主联系；没有自然契机就不发。'
+                        : '真人感已准备好；主动消息 2.0 关闭时不会自行找话题或发送消息。')
+                    : '真人感自主联系已暂停；手动提醒和普通消息回复仍按原设置运行。', 'info');
                 break;
             }
             case 'mcd-not-configured':
@@ -3889,10 +3890,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // Same rule as the reply gate; status is a schedule-based display, NOT
     // a character-authored status message or AI-generated short sentence.
     const schedulePresence = resolveSchedulePresence(lifeActivity, latestRealReplyAt);
-    const showSchedulePresence = lifePacing && lifeActivity !== null;
+    const showSchedulePresence = canRealPersonContact(char,lifePacing) && lifeActivity !== null;
     const autoReply = useChatAutoReply({
         enabled: inputPreferences.autoReply,
-        naturalPacing: lifePacing,
+        naturalPacing: canRealPersonContact(char,lifePacing),
         lifeActivity,
         lastCharacterReplyAt: latestAnsweredAt,
         conversationId: activeCharacterId || null,
@@ -4904,6 +4905,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 weixinOriginalIcons={isWeixinBaiyuCss(char.chromeCustomCss || osTheme.chatChromeCustomCss)}
                     compactHome={!!homePhone}
                     lifePacingEnabled={lifePacing}
+                    lifePacingActive={canRealPersonContact(char,lifePacing)}
                     input={input} setInput={handleInputChange}
                     isTyping={isTyping || instantChatPending} selectionMode={selectionMode}
                     showPanel={showPanel} setShowPanel={setShowPanel}
