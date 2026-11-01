@@ -7,6 +7,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import { useChatAI } from '../../hooks/useChatAI';
+import { loadMusicHooks } from '../../context/MusicContext';
 import { DB } from '../../utils/db';
 import { ChatPrompts } from '../../utils/chatPrompts';
 import { isChatReplyActive } from '../../utils/chatReplyLock';
@@ -14,7 +15,7 @@ import { findPendingUserTurn } from '../../utils/chatContinuation';
 import { isPrivateChatBlocked } from '../../utils/chatBlock';
 import { resolveDialogueApi } from '../../utils/characterApi';
 import {
-    findPendingMusicInvite, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId,
+    findPendingMusicInvite, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId, explicitMusicInviteDecision,
 } from '../../utils/musicInviteStatus';
 import type { Emoji, EmojiCategory } from '../../types';
 
@@ -144,6 +145,7 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
                     // this actual music invitation.
                     const invitationIndex = history.findIndex(m => m.id === current.messageId);
                     if (invitationIndex < 0) { finish(); return; }
+                    const lastBeforeReply = Math.max(0, ...history.map(m => m.id || 0));
                     const outcome = await triggerAI(history.slice(0, invitationIndex + 1).slice(-200),
                         undefined, { immediateMusicInvite: true });
                     busy = outcome === 'busy';
@@ -151,6 +153,25 @@ export default function MusicInviteReplyBridge(): React.ReactElement | null {
                         // Another private reply won the lease after our first
                         // check. That is NOT an attempted music response.
                         try { localStorage.removeItem(key); } catch {}
+                    } else {
+                        // Some models say "点同意了" without returning MUSIC_ACTION.
+                        // Only this actual invitation's NEW explicit assistant answer
+                        // may fall back to the same atomic MusicProvider action.
+                        // Never infer from earlier chat / proactive messages / vague "好".
+                        const after = await DB.getMessagesByCharId(current.charId, true);
+                        if (findPendingMusicInvite(after, 'user', current.messageId)) {
+                            const newAnswers = after.filter(m =>
+                                m.id > lastBeforeReply && m.role === 'assistant' && m.type === 'text' &&
+                                m.metadata?.source !== 'active_msg_2' && !m.metadata?.activeMsg2);
+                            const decision = newAnswers.map(m => explicitMusicInviteDecision(m.content))
+                                .find(value => value !== null);
+                            const hooks = decision ? loadMusicHooks() : null;
+                            if (decision === 'accept' && hooks) {
+                                await hooks.joinListeningTogether(current.charId);
+                            } else if (decision === 'reject' && hooks?.rejectListeningInvite) {
+                                await hooks.rejectListeningInvite(current.charId);
+                            }
+                        }
                     }
                 } finally {
                     if (busy) defer();
