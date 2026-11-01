@@ -268,6 +268,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [input, setInput] = useState('');
     const forgivenessInFlightRef = useRef(false);
     const [forgivenessBusy, setForgivenessBusy] = useState(false);
+    const [pendingUnblockOpening, setPendingUnblockOpening] = useState<{ charId: string; unblockAt: number; reason: string; elapsedMinutes: number } | null>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
     const [characterPhoneOpen, setCharacterPhoneOpen] = useState(false);
@@ -607,6 +608,29 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         updateCharacter,
         updateUserProfile,
     });
+
+    // 原版：角色主动解封后自己先发第一条。只在本轮 AI 判定确实解封后触发一次；
+    // 不修改用户发送记录、不新建聊天功能、不把拒收消息当对方读到的内容。
+    useEffect(() => {
+        const pending = pendingUnblockOpening;
+        if (!pending) return;
+        if (!char || char.id !== pending.charId) {
+            setPendingUnblockOpening(null);
+            return;
+        }
+        const latestAction = [...(char.chatBlock?.history || [])].reverse().find(event => event.actor === 'character');
+        if (latestAction?.action !== 'unblock' || latestAction.at !== pending.unblockAt) return;
+        if (characterBlocksUser(char.chatBlock) || userBlocksCharacter(char.chatBlock)) {
+            setPendingUnblockOpening(null);
+            return;
+        }
+        if (isTyping || instantChatPending) return;
+        setPendingUnblockOpening(null);
+        void triggerAI(messages, undefined, { postUnblockOpening: {
+            reason: pending.reason,
+            elapsedMinutes: pending.elapsedMinutes,
+        } });
+    }, [pendingUnblockOpening, char, isTyping, instantChatPending, triggerAI, messages]);
 
     // --- Voice TTS for chat messages ---
     interface VoiceData { url: string; originalText: string; spokenText?: string; lang?: string; favorite?: boolean; }
@@ -1985,6 +2009,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     character: latest, userName: userProfile.name || '用户', messages: recent, apiConfig,
                 });
                 const checkedAt = Date.now();
+                const lastBlock = [...(latest.chatBlock?.history || [])].reverse().find(event =>
+                    event.actor === 'character' && event.action === 'block');
+                const blockReason = lastBlock?.reason || '';
+                const blockElapsedMinutes = Math.max(0, Math.floor((checkedAt - (latest.chatBlock?.characterBlockedAt || checkedAt)) / 60_000));
                 await updateCharacter(target.id, previous => {
                     if (!characterBlocksUser(previous.chatBlock) || userBlocksCharacter(previous.chatBlock)) return {};
                     const next = judgement.decision === 'unblock'
@@ -2002,6 +2030,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             : (next.forgivenessDrafts || []),
                     } };
                 });
+                if (judgement.decision === 'unblock') {
+                    setPendingUnblockOpening({ charId: target.id, unblockAt: checkedAt, reason: blockReason, elapsedMinutes: blockElapsedMinutes });
+                }
                 addToast(judgement.sign || (judgement.decision === 'unblock'
                     ? '对方已决定解除拉黑，可以继续聊天'
                     : '对方暂时仍不愿意解除拉黑'), 'info');
