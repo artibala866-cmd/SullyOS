@@ -388,7 +388,7 @@ const DateApp: React.FC = () => {
                 if (!characterBlocksUser(state)) return {};
                 return { chatBlock: changeChatBlock(state, 'character', false, { source: 'ai' }) };
             }
-            if (!allowsCharacterToBlock(state) || userBlocksCharacter(state) || characterBlocksUser(state)) return {};
+            if (!allowsCharacterToBlock(state) || characterBlocksUser(state)) return {};
             return { chatBlock: changeChatBlock(state, 'character', true, { reason: action.reason, source: 'ai' }) };
         });
     };
