@@ -139,14 +139,18 @@ export interface AmsgLimitsRecord extends AmsgPacingSettings {
    * 排的），到点时 worker 读到 false 就直接跳过，一个 token 都不花。
    */
   selfScheduleEnabled: boolean;
+  /** Only autonomous daily contact; ordinary user reminders and instant replies are independent. */
+  autonomyEnabled?: boolean;
 }
 
 export const buildAmsgLimitsRecord = (
   config: Partial<AmsgPacingSettings> | null | undefined,
   selfScheduleEnabled: boolean,
+  autonomyEnabled?: boolean,
 ): AmsgLimitsRecord => ({
   v: 1,
   selfScheduleEnabled,
+  ...(autonomyEnabled === undefined ? {} : { autonomyEnabled }),
   ...pickPacingSettings(config),
 });
 
@@ -156,7 +160,8 @@ export const parseAmsgLimitsRecord = (value: string | null | undefined): AmsgLim
   try {
     const parsed = JSON.parse(value) as Partial<AmsgLimitsRecord> | null;
     if (parsed && typeof parsed === 'object' && parsed.v === 1
-      && typeof parsed.selfScheduleEnabled === 'boolean') {
+      && typeof parsed.selfScheduleEnabled === 'boolean'
+       && (parsed.autonomyEnabled === undefined || typeof parsed.autonomyEnabled === 'boolean')) {
       return parsed as AmsgLimitsRecord;
     }
   } catch { /* 非 JSON → null */ }
