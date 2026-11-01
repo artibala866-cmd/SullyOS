@@ -54,7 +54,9 @@ describe('见面剧情从点击到真实数据库持久化，再次进入的完�
         await setTitle('真正保存的雨夜');
         await tap('旅行者');
         await tap('保存并进入');
-        expect(host!.querySelector('[data-testid="saved-story-session"]')?.textContent).toContain('真正保存的雨夜');
+        const firstSession = host!.querySelector('[data-testid="saved-story-session"]');
+        expect(firstSession, `No session: alert=${host!.querySelector('[role="alert"]')?.textContent || 'none'}; buttons=${[...host!.querySelectorAll('button')].map(b=>b.textContent?.trim()).filter(Boolean).slice(0,9).join(',')}; stored=${(await DB.getStoryTheaters()).map(x=>x.title).join(',')}`).not.toBeNull();
+        expect(firstSession!.textContent).toContain('真正保存的雨夜');
         const saved = (await DB.getStoryTheaters()).find(item => item.title === '真正保存的雨夜');
         expect(saved?.characterIds).toContain(actor.id);
         await unmount();
