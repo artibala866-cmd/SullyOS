@@ -2,6 +2,7 @@ import type { CharacterProfile, Message } from '../types';
 import { DB } from './db';
 import { getReliableMemoryPalaceHighWaterMark } from './memoryPalace/highWaterMark';
 import { filterPrivateGroupTopicCards } from './groupChat/memoryScope';
+import { isRejectedPrivateMessage } from './chatBlock';
 
 export const CONTEXT_RANGE_POLICY_VERSION = 1;
 export const DEFAULT_MANUAL_CONTEXT_LIMIT = 500;
@@ -146,6 +147,7 @@ export const computeContextRangeSnapshot = (
 ): ContextRangeSnapshot => {
     const snapshot = computeContextRangeFromRefs(sourceMessages, char, hwm);
     // Boundary-only references have no timestamp. Sort actual dialogue after ID filtering.
+    snapshot.messages = snapshot.messages.filter(message => !isRejectedPrivateMessage(message));
     snapshot.messages.sort((a, b) => a.timestamp - b.timestamp || a.id - b.id);
     return snapshot;
 };
