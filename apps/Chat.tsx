@@ -4771,11 +4771,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             onOpenCollaborationFile={handleOpenCollaborationFile}
                             thinkingChainOptions={thinkingChainOptions}
                         />
-                        {(isRejectedPrivateMessage(m) || m.metadata?.chatBlockSendFailed === true) && (
-                            <div role="status" className={`flex items-center gap-1 pb-1 text-[11px] text-red-500 ${m.role === 'user' ? 'justify-end pr-4' : 'justify-start pl-12'}`}>
-                                <span aria-label="消息发送失败" title={isRejectedPrivateMessage(m) ? '消息已被对方拒收' : '对方已拉黑你，回复发送失败'} className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[11px] font-semibold text-white">!</span>
-                            </div>
-                        )}
+                        <ChatBlockDeliveryStatus message={m}/>
                         {showToolTrace && (
                             <div className={`px-3 mb-4 ${breaksWithNext ? toolTracePullClass : ''}`}>
                                 <div className="ml-12 text-[10px] leading-relaxed text-slate-400">
