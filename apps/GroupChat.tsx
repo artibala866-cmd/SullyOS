@@ -31,6 +31,7 @@ import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP, clampGroupPrivateHist
 import { buildGroupMemberInteractionGuidance } from '../utils/groupChat/interactionAdaptation';
 import { ensureGroupTopicCardsDelivered } from '../utils/groupChat/topicCardSync';
 import { groupMemberContextForSync } from '../utils/groupChat/memberMemoryScope';
+import { syncGroupMemoryName } from '../utils/groupChat/groupMemoryRename';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
@@ -851,6 +852,15 @@ const GroupChat: React.FC = () => {
         };
         // 走 context 的 updateGroup：同步内存 groups + DB，避免退出后读回旧值
         await updateGroup(activeGroup.id, updates);
+        if (updates.name !== activeGroup.name) {
+            // 仅同步群来源名称；绝不重写原聊天记录或历史记忆正文。
+            try {
+                await syncGroupMemoryName(activeGroup.id, updates.name);
+            } catch (error) {
+                console.warn('[GroupChat] 群改名后记忆来源同步失败:', error);
+                addToast('群名已保存，部分旧记忆的来源名称未同步', 'info');
+            }
+        }
         // 互通开关/条数影响成员私聊和云端 fire_pack。更新后马上以新的群配置
         // 标记成员快照待刷新（不能使用闭包里尚未更新的 groups）。
         if (activeGroup.privateChatSyncEnabled !== updates.privateChatSyncEnabled ||
