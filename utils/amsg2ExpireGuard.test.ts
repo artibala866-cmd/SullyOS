@@ -22,6 +22,15 @@ describe('共用叶子', () => {
     expect(getLastRealUserMessageAt([rejected, user(20)])).toBe(20);
   });
 
+  it('一起听邀请、回应和撤回都是 App 操作，不重置主动消息的用户未回复时钟', () => {
+    const invitation = { role: 'user', timestamp: 20, metadata: { musicListenInvite: true } };
+    const accepted = { role: 'user', timestamp: 30, metadata: { musicListenInviteResponseTo: 7, accepted: true } };
+    const withdrawn = { role: 'user', timestamp: 40, metadata: { musicListenInviteResponseTo: 7, cancelled: true } };
+    expect(getLastRealUserMessageAt([user(10), invitation, accepted, withdrawn])).toBe(10);
+    expect(getLastRealUserMessageAt([invitation, accepted, withdrawn])).toBeNull();
+    expect(getLastRealUserMessageAt([invitation, user(50)])).toBe(50);
+  });
+
   it('recurrencePeriodMs：每日 / 每周有周期，一次性没有', () => {
     expect(recurrencePeriodMs('daily')).toBe(24 * 3600_000);
     expect(recurrencePeriodMs('weekly')).toBe(7 * 24 * 3600_000);
