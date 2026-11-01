@@ -205,6 +205,33 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps the LAST saved user send time after unmount instead of treating an old batch as idle', () => {
+        render({ naturalPacing: true, lifeActivity: 'free' });
+        send();
+        advance(1_500);
+        send();
+        const persisted = JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
+        expect(persisted.lastUserSendAt).toBe(Date.now());
+        expect(persisted.lastUserSendAt).toBeGreaterThan(persisted.firstUnansweredAt);
+        act(() => root.unmount());
+        root = createRoot(container);
+        render();
+        advance(1_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        advance(10_000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('can hydrate legacy reply intents that did not include lastUserSendAt', () => {
+        const started = Date.now();
+        localStorage.setItem('sully_chat_auto_reply_intent_v1:a', JSON.stringify({firstUnansweredAt:started}));
+        act(() => root.unmount());
+        root = createRoot(container);
+        render();
+        advance(2000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+
     it('restores the original unanswered intent after unmount and ignores other characters', () => {
         send();
         const saved = localStorage.getItem('sully_chat_auto_reply_intent_v1:a');
