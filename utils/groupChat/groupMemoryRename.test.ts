@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CharacterProfile, MemoryNode } from '../../types';
+import type { CharacterProfile } from '../../types';
 import { DB } from '../db';
 import { MemoryNodeDB } from '../memoryPalace/db';
 import { syncGroupMemoryName } from './groupMemoryRename';
