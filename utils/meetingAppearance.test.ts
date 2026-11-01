@@ -4,9 +4,24 @@ import { decorationPatches, portableDecoration, validateDecoration } from './cha
 import { BEAUTY_CATEGORIES, belongsInBeautyLibrary, decorationCategories } from './beautyCategories';
 import { decorationPreviewScenes, decorationThumbnailPart } from './decorationPreviewScenes';
 import { validateBeautyPackage } from './beautyShareContract';
-import { makeWorkshopPreset, projectWorkshopPreset } from './decorationWorkshop';
+import { makeWorkshopPreset, projectWorkshopPreset, workshopCss, workshopPrompt, checkWorkshopCss } from './decorationWorkshop';
 
 describe('meeting appearance presets', () => {
+    it.each(['date', 'story'] as const)('%s original scoped CSS survives export, import, workshop, and application', async part => {
+        const css = '.meeting-reading { --meeting-paper: #fff0ed; --meeting-font-size: 19px; }';
+        const pack = validateDecoration({ format: 'sullyos-chat-decoration', version: 1, name: '自制书页',
+            parts: { [part]: { preset: 'novel', customCss: css } } });
+        expect(pack.parts[part]?.customCss).toBe(css);
+        expect((validateBeautyPackage(pack).data.parts as any)[part].customCss).toBe(css);
+        expect((await portableDecoration(pack)).parts[part]?.customCss).toBe(css);
+        expect(workshopCss(pack,part)).toBe(css);
+        expect(workshopPrompt(part)).toContain('.meeting-reading');
+        expect(checkWorkshopCss(part,css)).toBe(css);
+        expect(() => checkWorkshopCss(part,'body { display:none }')).toThrow();
+        const changes = await decorationPatches(pack,[part],'character',{id:'c'} as any,{} as any);
+        expect((part === 'date' ? changes.character.dateAppearance : changes.theme.storyAppearance)?.customCss).toBe(css);
+        expect(() => validateMeetingAppearance({preset:'novel',customCss:'body {display:none}'})).toThrow();
+    });
     it('two separate chat categories follow notification sounds', () => {
         const ids = BEAUTY_CATEGORIES.map(([id]) => id);
         expect(ids.slice(ids.indexOf('sound') + 1, ids.indexOf('sound') + 3)).toEqual(['date', 'story']);
