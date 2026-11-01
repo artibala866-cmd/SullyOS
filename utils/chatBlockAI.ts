@@ -106,7 +106,7 @@ export async function requestCharacterForgiveness(args: {
   if (!characterBlocksUser(character.chatBlock)) throw new Error('角色尚未拉黑用户');
   const api = resolveDialogueApi(apiConfig, character);
   if (!api.baseUrl || !api.model) throw new Error('请先配置私聊 API');
-  const result = await safeFetchJson(api.baseUrl.replace(/\\/+$/, '') + '/chat/completions', {
+  const result = await safeFetchJson(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
