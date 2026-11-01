@@ -60,6 +60,76 @@ const sourceKey = (entry: StoryTheaterEntry, archive: StoryTheaterArchive) => JS
 const rowsKey = (messages: Message[]) => JSON.stringify(messages.map(message => [message.id, message.role, message.content]));
 const running = new Set<string>();
 
+/**
+ * Commit an automatic event box and all source-row archive flags atomically.
+ * A failed story write must never leave hidden floors with no corresponding box,
+ * and a failed row write must never leave a phantom box.
+ */
+export async function commitStoryArchiveBatch(
+    snapshot: StoryTheaterEntry,
+    batch: Message[],
+    archive: StoryTheaterArchive,
+): Promise<StoryTheaterEntry> {
+    if (!batch.length || archive.messageCount !== batch.length
+        || archive.fromMessageId !== batch[0].id || archive.toMessageId !== batch[batch.length - 1].id
+        || archive.strategy !== snapshot.archiveStrategy) {
+        throw new Error('剧情归档批次不完整，原文保持不变');
+    }
+    const db = await openDB();
+    return new Promise<StoryTheaterEntry>((resolve, reject) => {
+        const tx = db.transaction(['story_theaters', 'messages'], 'readwrite');
+        const storyStore = tx.objectStore('story_theaters');
+        const messageStore = tx.objectStore('messages');
+        const storyRead = storyStore.get(snapshot.id);
+        const reads = batch.map(message => messageStore.get(message.id));
+        let pending = reads.length + 1;
+        let updated: StoryTheaterEntry;
+        let failure: unknown;
+        tx.oncomplete = () => resolve(updated);
+        tx.onerror = () => reject(failure || tx.error || new Error('剧情归档提交失败'));
+        tx.onabort = () => reject(failure || tx.error || new Error('剧情归档未能完整提交，原文保留'));
+        const finish = () => {
+            if (--pending !== 0) return;
+            try {
+                const fresh = storyRead.result as StoryTheaterEntry | undefined;
+                if (!fresh || fresh.updatedAt !== snapshot.updatedAt
+                    || JSON.stringify(fresh.archives) !== JSON.stringify(snapshot.archives)) {
+                    throw new Error('剧情在归档期间发生变化，未修改旧正文；请重新尝试');
+                }
+                for (const [index, request] of reads.entries()) {
+                    const current = request.result as Message | undefined;
+                    const expected = batch[index];
+                    if (!current || current.charId !== storyTheaterThreadId(snapshot.id)
+                        || current.metadata?.source !== 'story_theater'
+                        || current.metadata.theaterId !== snapshot.id
+                        || current.metadata.theaterArchived
+                        || current.content !== expected.content || current.role !== expected.role) {
+                        throw new Error('剧情原文在归档期间发生变化，未修改旧正文；请重试');
+                    }
+                }
+                if (fresh.archives.some(box => box.id === archive.id)) {
+                    throw new Error('剧情事件盒已经存在，本次不会重复归档');
+                }
+                for (const request of reads) {
+                    const message = request.result as Message;
+                    messageStore.put({ ...message, metadata: {
+                        ...message.metadata, theaterArchived: true, theaterArchiveStrategy: archive.strategy,
+                    } });
+                }
+                updated = {
+                    ...fresh, archives: [...fresh.archives, archive], updatedAt: Date.now(),
+                };
+                storyStore.put(updated);
+            } catch (error) {
+                failure = error;
+                try { tx.abort(); } catch { /* transaction already aborted */ }
+            }
+        };
+        storyRead.onsuccess = finish;
+        for (const request of reads) request.onsuccess = finish;
+    });
+}
+
 export async function regenerateStoryArchiveSummary(entryId: string, archiveId: string, api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>): Promise<StoryTheaterEntry> {
     const key = JSON.stringify([entryId, archiveId]);
     if (running.has(key)) throw new Error('这个事件盒正在重新总结，请稍候');
