@@ -72,7 +72,7 @@ export function buildFirstPostUnblockOpeningInstruction(userName: string, reason
 }
 
 export function buildCharacterBlockAutonomyInstruction(state?: ChatBlockState): string {
-  if (!allowsCharacterToBlock(state) || userBlocksCharacter(state) || characterBlocksUser(state)) return '';
+  if (!allowsCharacterToBlock(state) || characterBlocksUser(state)) return '';
   return [
     '【私聊关系·角色自主拉黑（只针对当前私聊，不涉及群聊或其它应用）】',
     '你可以依照角色原本的人设和真实的对话历史，决定是否拉黑用户，但这是一项极端的关系决定。',
