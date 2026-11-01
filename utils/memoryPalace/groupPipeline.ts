@@ -263,14 +263,21 @@ export async function processGroupNewMessages(
         // 历史群此前只有共享游标，入群的新成员不应直接继承老成员的进度。
         // 若群已有水位却没有角色水位，先为落后成员补录旧记录；其他成员不会重复存入。
         const replaying = laggingMembers.length > 0;
-        const targetMembers = replaying ? laggingMembers : enabledMembers;
+        // 若多个成员落后程度不同，只给当前最落后的那一组处理本批；
+        // 防止进度更靠前的成员被反向覆盖、重复收到更早的群记忆。
         const startId = replaying
             ? Math.min(...laggingMembers.map(member => memberProcessedId(group.id, member.id)))
             : lastProcessedId;
+        const targetMembers = replaying
+            ? laggingMembers.filter(member => memberProcessedId(group.id, member.id) === startId)
+            : enabledMembers;
         const buffer = textMsgs.filter(m => m.id > startId && m.id < hotZoneStartId);
 
-        if (buffer.length < BUFFER_THRESHOLD_GROUP) {
-            console.log(`🏰 [GroupPalace] 群 ${group.name}：缓冲区 ${buffer.length} < ${BUFFER_THRESHOLD_GROUP}，跳过（hwm=${lastProcessedId}, 热区起点 id=${hotZoneStartId}）`);
+        // 追平旧群水位时，即使最后只剩几十条也必须补完，
+        // 否则补录游标永远卡在老水位前，阻塞整个群的后续归档。
+        const minBuffer = replaying ? 1 : BUFFER_THRESHOLD_GROUP;
+        if (buffer.length < minBuffer) {
+            console.log(`🏰 [GroupPalace] 群 ${group.name}：缓冲区 ${buffer.length} < ${minBuffer}，跳过（hwm=${lastProcessedId}, 热区起点 id=${hotZoneStartId}）`);
             return { stored: 0, perMemberStored: {}, reason: 'threshold' };
         }
 
