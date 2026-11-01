@@ -12,6 +12,14 @@ export function isRealPersonModeEnabled(): boolean {
   catch { return true; }
 }
 
+/** An answer to a saved user turn is NOT unsolicited contact.
+ * Private-chat real-person mode answers without requiring AMSG2 permission;
+ * the old basic auto-reply preference still works when real-person mode is off.
+ */
+export function shouldAutoReplyToUser(realPersonEnabled: boolean, basicAutoReplyEnabled: boolean): boolean {
+  return realPersonEnabled || basicAutoReplyEnabled;
+}
+
 export function canRealPersonContact(
   char: Pick<CharacterProfile, 'activeMsg2Config'> | null | undefined,
   modeEnabled = isRealPersonModeEnabled(),
