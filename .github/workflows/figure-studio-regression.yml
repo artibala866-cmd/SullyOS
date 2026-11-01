@@ -1,0 +1,41 @@
+name: Neural-link figure studio regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'components/character/ChibiStudio.tsx'
+      - 'components/character/CreatorIframe.tsx'
+      - 'components/character/HomeFigureStudio.tsx'
+      - 'components/PhoneShell.tsx'
+      - 'utils/retiredSpecialMomentsEntry.test.ts'
+      - '.github/workflows/figure-studio-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sully-figure-studio-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test legacy entry removal and preserved figure editor behaviors
+        run: pnpm exec vitest run utils/retiredSpecialMomentsEntry.test.ts utils/retiredVrFigureMigration.test.ts utils/homeFigureSeed.test.ts utils/homeFigureSource.test.ts utils/homeFigureParts.test.ts utils/homeFigureStyleToggle.test.ts utils/figurePreview.test.ts
+      - name: Check TypeScript diagnostics in changed figure modules
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/figure-studio-tsc.log 2>&1 || true
+          grep -E '^(components/(character/(ChibiStudio|CreatorIframe|HomeFigureStudio)\.tsx|PhoneShell\.tsx)|utils/retiredSpecialMomentsEntry\.test\.ts)[(]' /tmp/figure-studio-tsc.log > /tmp/figure-studio-errors.log || true
+          if [ -s /tmp/figure-studio-errors.log ]; then cat /tmp/figure-studio-errors.log; exit 1; fi
+          echo 'Changed figure-studio modules have no TypeScript diagnostics.'
