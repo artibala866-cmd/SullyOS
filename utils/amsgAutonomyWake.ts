@@ -87,9 +87,6 @@ const reconcileAfterFlight=new Set<string>();
 const finishFlight=(charId:string)=>{
   inFlight.delete(charId);
   startedMode.delete(charId);
-  if(reconcileAfterFlight.delete(charId) && typeof window!=='undefined'){
-    window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
-  }
 };
 const recentFailure=new Map<string,number>();
 /** Only an explicit user action (e.g. enabling 2.0/granting Push permission)
@@ -108,7 +105,13 @@ export async function ensureAutonomyWakes(args:Args):Promise<void>{
     if(startedMode.get(id)!==isRealPersonModeEnabled())reconcileAfterFlight.add(id);
     return;
   }
-  return void await withAutonomyWakeLock(id,()=>ensureAutonomyWakesUnlocked(args));
+  await withAutonomyWakeLock(id,()=>ensureAutonomyWakesUnlocked(args));
+  // Dispatch only AFTER Web Locks / the fallback local lock is released.
+  // Otherwise the OS runner can immediately retry and be rejected by that
+  // still-held lock, leaving an opt-out pending until the next half-hour poll.
+  if(reconcileAfterFlight.delete(id) && typeof window!=='undefined'){
+    window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
+  }
 }
 async function ensureAutonomyWakesUnlocked(args:Args):Promise<void>{
   const {char}=args;
