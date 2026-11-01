@@ -1,4 +1,3 @@
-import { getNaturalReplyDelay } from '../utils/sullyLifeClock';
 import { resolveRealPersonReplyPlan } from '../utils/realPersonReplyTiming';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { CHAT_AUTO_REPLY_REVOKE_REVISION_KEY } from '../utils/chatInputPreferences';
@@ -212,7 +211,8 @@ export function useChatAutoReply(options: Options) {
                 activity: presence === 'online' && activity !== null ? 'free' : activity,
                 firstUnansweredAt: work.firstUnansweredAt,
                 now,
-                fallbackDelayMs: getNaturalReplyDelay(latest.conversationId || ''),
+                // Unknown schedule is NOT evidence of sleep or office hours.
+                fallbackDelayMs: 3_500,
                 lastUserSendAt: work.lastUserSendAt,
                 lastCharacterReplyAt: latest.lastCharacterReplyAt,
             })
