@@ -15,7 +15,7 @@ import { safeResponseJson } from '../utils/safeApi';
 import Modal from '../components/os/Modal';
 import { ContextBuilder } from '../utils/context';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
-import { deleteGroupMemoriesByGroupId } from '../utils/memoryPalace/groupPipeline';
+import { deleteGroupMemoriesByGroupId, processGroupNewMessages } from '../utils/memoryPalace/groupPipeline';
 import { processImage } from '../utils/file';
 import { stickerNameFromUrl } from '../utils/messageFormat';
 import { PRESET_THEMES } from '../components/chat/ChatConstants';
@@ -612,6 +612,9 @@ const GroupChat: React.FC = () => {
     // 生成中的取消句柄：非空 = 正在生成，再点触发按钮 = 停止
     const abortRef = useRef<AbortController | null>(null);
     const topicArchiveLockRef = useRef(false);
+    const groupMemoryRunsRef = useRef(new Set<string>());
+    const activeGroupIdRef = useRef(activeGroup?.id);
+    activeGroupIdRef.current = activeGroup?.id;
     // 白框提示音回合计时（对齐私聊 Chat.tsx 的 soundSyncRef 方案）
     const SOUND_ROUND_GAP_MS = 3000;
     const soundSyncRef = useRef<{ groupId: string | null; maxId: number | null; lastAt: number | null }>({ groupId: null, maxId: null, lastAt: null });
@@ -986,6 +989,7 @@ const GroupChat: React.FC = () => {
             sent = true;
             await refreshMessages(activeGroup.id);
             markGroupMembersDirty(activeGroup.members);
+            void runGroupMemorySync(activeGroup);
 
             // Close panels
             if (type !== 'text' && !inputPreferences.autoReply) {
@@ -1387,6 +1391,35 @@ ${memberTimeline || '(暂无互动记录)'}
         void createNextGroupTopicBox(false);
     };
 
+    // 个人群记忆原有管线以前只有清理入口，实际无人调用。现在与公共话题盒
+    // 分开运行：不受公共成盒手动/自动模式影响，按成员自己的记忆宫殿授权归档。
+    // 打开旧群、发送群消息、导演或轮询完成后都可补跑；按群互斥防重复请求。
+    const runGroupMemorySync = async (group: GroupProfile): Promise<void> => {
+        if (groupMemoryRunsRef.current.has(group.id) || group.privateChatSyncEnabled === false) return;
+        const members = charactersRef.current.filter(member => group.members.includes(member.id) && member.memoryPalaceEnabled);
+        if (members.length === 0) return;
+        groupMemoryRunsRef.current.add(group.id);
+        try {
+            const result = await processGroupNewMessages(group, members, userProfile.name, stage => {
+                if (activeGroupIdRef.current === group.id) setGroupPalaceStatus(stage);
+            });
+            if (result?.stored) {
+                // 只在个人宫殿真的写入新节点后同步主动消息的上下文缓存。
+                markGroupMembersDirty(Object.keys(result.perMemberStored).filter(id => result.perMemberStored[id] > 0));
+            }
+        } catch (error) {
+            console.warn('[GroupChat] 个人群记忆同步失败（保留原文供下轮重试）:', error);
+        } finally {
+            groupMemoryRunsRef.current.delete(group.id);
+            if (activeGroupIdRef.current === group.id) setGroupPalaceStatus('');
+        }
+    };
+
+    // 老群在该接线补上前积累的消息，需要在重新进入时追平；无需让用户手动制造新消息。
+    useEffect(() => {
+        if (view === 'chat' && activeGroup) void runGroupMemorySync(activeGroup);
+    }, [activeGroup?.id, view]);
+
     const saveTopicBoxEdit = async (boxId: string) => {
         if (!activeGroup || !topicTitleDraft.trim() || !topicSummaryDraft.trim()) return;
         const now = Date.now();
@@ -1532,6 +1565,7 @@ ${memberTimeline || '(暂无互动记录)'}
             // 中途报错 / 用户点停也照打：已经落库的那几条同样进了成员的私聊背景
             markGroupMembersDirty(activeGroup.members);
             runGroupTopicArchive();
+            void runGroupMemorySync(activeGroup);
         }
     };
 
@@ -1654,6 +1688,7 @@ ${memberTimeline || '(暂无互动记录)'}
             // 同导演模式：跑到一半被打断也要打脏，已发言成员的话已经落库了
             markGroupMembersDirty(activeGroup.members);
             runGroupTopicArchive();
+            void runGroupMemorySync(activeGroup);
         }
     };
 
