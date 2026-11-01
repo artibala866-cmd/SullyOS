@@ -35,6 +35,8 @@ on:
       - 'scripts/probe-music-sources.mjs'
       - 'utils/musicInviteStatus.test.ts'
       - 'utils/musicInviteDeletion.ts'
+      - 'tests/music-invite-visual.html'
+      - 'tests/music-invite-visual.tsx'
       - 'utils/messageItemModuleLayout.test.ts'
       - 'utils/amsg2ExpireGuard.ts'
       - 'utils/amsg2ExpireGuard.test.ts'
