@@ -1815,7 +1815,7 @@ const MessageItem = React.memo(({
                 data-music-invite-card={m.id} {...interactionProps}>
                 {selectionMode && (
                     <button type="button" aria-label="选择一起听邀请" aria-pressed={isSelected}
-                        className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 ${isSelected ? 'border-primary bg-primary text-white' : 'border-neutral-300 bg-white'}`}
+                        className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 ${isSelected ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-400 bg-white'}`}
                         onClick={(event) => { event.stopPropagation(); onToggleSelect(m.id); }}>
                         {isSelected && <span aria-hidden="true">✓</span>}
                     </button>
