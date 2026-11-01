@@ -15,6 +15,13 @@ describe('共用叶子', () => {
     expect(getLastRealUserMessageAt([assistantPush(2)])).toBe(null);
   });
 
+  it('角色拉黑期间的拒收消息不是有效用户回复，时间差不得被重置', () => {
+    const rejected = { role: 'user', timestamp: 10, metadata: { chatBlockRejected: true } };
+    expect(getLastRealUserMessageAt([user(1), rejected])).toBe(1);
+    expect(getLastRealUserMessageAt([rejected])).toBe(null);
+    expect(getLastRealUserMessageAt([rejected, user(20)])).toBe(20);
+  });
+
   it('recurrencePeriodMs：每日 / 每周有周期，一次性没有', () => {
     expect(recurrencePeriodMs('daily')).toBe(24 * 3600_000);
     expect(recurrencePeriodMs('weekly')).toBe(7 * 24 * 3600_000);
