@@ -4,6 +4,7 @@ import { safelySelectCloudPhoneOpportunity } from './amsgCloudPhoneSelection';
 import { resolveDialogueApi } from './characterApi';
 import { stoppedReplyStateEntries } from './amsgStoppedReplyClient';
 import { loadCharacterContextMessages } from './chatContextRange';
+import { isRejectedPrivateMessage } from './chatBlock';
 import { ReiClient } from '@rei-standard/amsg-client';
 import { createCloudDataSession } from './amsgCloudData';
 import {autonomyWakeUuid} from './amsgAutonomyIdentity';
@@ -689,7 +690,8 @@ const formatHistoryLine =(role: string, content: any, char: CharacterProfile, us
 };
 
 const buildTimeGapHint = async (charId: string) => {
-  const recentMessages = await DB.getRecentMessagesByCharId(charId, 200);
+  const recentMessages = (await DB.getRecentMessagesByCharId(charId, 200))
+    .filter(message => !isRejectedPrivateMessage(message));
   return {
     // 时间差在渲染时刻才算（formatTimeSinceUser），这里只取原始时间戳——
     // 满血链路会把它放进 fire_pack，worker 到点用「fire 时刻」重算，不吃排程时的陈旧值。
