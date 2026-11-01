@@ -47,8 +47,6 @@ import ChatInputArea from '../components/chat/ChatInputArea';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import ChatInputSettings from '../components/chat/ChatInputSettings';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
-import { isRealPersonModeEnabled } from '../utils/realPersonMode';
-import { resolveGroupRealPersonReplyState } from '../utils/groupChat/realPersonReply';
 import TokenImg from '../components/os/TokenImg';
 import { ImageViewer } from '../components/chat/ChatImage';
 import { useBlobRefUrl, migrateDataUrlToRef } from '../utils/blobRef';
@@ -1766,41 +1764,14 @@ ${memberTimeline || '(暂无互动记录)'}
 
     // --- Renderers ---
 
-    const groupReplyState = resolveGroupRealPersonReplyState(messages, Date.now());
     const autoReply = useChatAutoReply({
-        // Keep the group's own auto-reply consent. Real-person mode changes
-        // timing only; it must not silently enable replies in a muted group.
         enabled: inputPreferences.autoReply,
-        naturalPacing: isRealPersonModeEnabled(),
-        lastCharacterReplyAt: groupReplyState.lastCharacterReplyAt,
-        replyAttention: groupReplyState.replyAttention,
         conversationId: activeGroup?.id || null,
         active: view === 'chat' && !!activeGroup,
-        // Focus remains on the phone composer after Send; only actual draft
-        // content means the user is still typing. A focused empty box must
-        // not strand the saved reply intent until a second tap or blur.
-        blocked: !!input.trim() || showPanel !== 'none' || modalType !== 'none'
+        blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
             || selectionMode || isSummarizing,
         generating: isTyping,
-        onGenerate: async (stillEligible) => {
-            const groupId = activeGroup?.id;
-            const pendingId = groupReplyState.pendingId;
-            if (!groupId || pendingId == null) return 'discard';
-            // A remote/member reply can arrive after the timer was armed.
-            // Recheck the persisted group tail before any billable generation.
-            let fresh: Message[];
-            try {
-                fresh = (await DB.getRecentGroupMessagesWithCount(groupId, 24)).messages;
-            } catch { return 'retry'; }
-            if (activeGroup?.id !== groupId || document.hidden || stillEligible?.() === false)
-                return 'retry';
-            if (resolveGroupRealPersonReplyState(fresh, Date.now()).pendingId !== pendingId)
-                return 'discard';
-            // Reuse the existing director / round-robin entry and cancellation
-            // guard. No extra AI flow, group reply timer or independent store.
-            void triggerGroupAI();
-            return 'discard';
-        },
+        onGenerate: () => { void triggerGroupAI(); },
     });
 
     if (view === 'list') {
