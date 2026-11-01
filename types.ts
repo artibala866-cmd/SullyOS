@@ -24,7 +24,6 @@ export enum AppID {
   Novel = 'novel', 
   Bank = 'bank', // New App
   XhsStock = 'xhs_stock', // XHS image stock for publishing
-  SpecialMoments = 'special_moments', // Valentine's Day & future events
   XhsFreeRoam = 'xhs_free_roam', // Character autonomous XHS activity
   Songwriting = 'songwriting', // Songwriting / Lyric creation app
   Call = 'call', // 语音电话测试（MiniMax TTS）
@@ -2319,29 +2318,21 @@ export interface SpecialMomentRecord {
 
 // --- QQ捏人工坊（神经链接） ---
 
-/** 当前可编辑手办展台仅为小小窝。历史节日槽位保留兼容，不再展示或写入。 */
-export type ChibiStudioSlotId = 'room';
-
 export interface ChibiStudioSlot {
     /** 捏人器导出的完整 state（选件+换色+翻转…），再编辑时经 init.savedState 整套还原 */
     state?: any;
     /**
-     * 透明 PNG dataURL 兜底展示图。room/vr 的形象本体以各 App 自己的字段为准
-     * （sprites.chibi / vrState.chibi.img）。
+     * 家园 3D Q 版形象预览图，和 home3D.state、home3D.hair 一起保存。
      */
     img?: string;
     updatedAt?: number;
 }
 
 /**
- * QQ捏人工坊：统一管理一只角色在三处的 Q 版形象，可各捏各的、也可一键同步。
- * 图片本体写进各 App 自己的消费字段，这里主要存「再编辑用的完整 state」。
+ * 3D 家园 Q 版手办使用单一 home3D 编辑槽位。
+ * 历史角色档案可能仍带有旧字段；升级时不主动删除用户的存档数据。
  */
 export interface ChibiStudioData {
-    room?: ChibiStudioSlot;
-    vr?: ChibiStudioSlot;
-    /** @deprecated 旧节日活动存档字段，只读兼容，不得在新手办流程中写入。 */
-    like520?: ChibiStudioSlot;
     home3D?: HomeFigureSlot;
 }
 

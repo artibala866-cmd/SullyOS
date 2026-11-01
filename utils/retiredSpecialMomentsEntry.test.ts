@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 const src=(p:string)=>readFileSync(resolve(__dirname,'..',p),'utf8');
 describe('3D-only cabinet and retired sources',()=>{
@@ -27,5 +27,10 @@ describe('3D-only cabinet and retired sources',()=>{
  });
  it('obsolete VR figure migration no longer recreates deleted slots',()=>{
   expect(context).not.toMatch(/migrateRetiredVr(User|Character)Figure/);
+ });
+ it('retired event controllers and old room migration files are not shipped',()=>{
+  for(const p of ['components/Like520Event.tsx','components/ValentineEvent.tsx','components/WhiteDayEvent.tsx','components/events/qixi/QixiDemoEvent.tsx','utils/retiredVrFigureMigration.ts'])expect(existsSync(resolve(__dirname,'..',p))).toBe(false);
+  expect(existsSync(resolve(__dirname,'../public/like520/character_creator.html'))).toBe(true);
+  expect(existsSync(resolve(__dirname,'../public/like520/parts/manifest.json'))).toBe(true);
  });
 });

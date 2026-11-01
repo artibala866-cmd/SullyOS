@@ -1,4 +1,5 @@
-import type { QixiSceneId } from './qixiMemoryBundle';
+// 历史七夕聊天卡片仍可查看；仅保留解析卡片所需类型，不再加载退役活动引擎。
+type QixiSceneId = 'lostLayer' | 'doubleWish' | 'threadNeedle' | 'offerings' | 'reflection' | 'nightMarket' | 'wordCloud';
 
 export interface QixiChatCardScene {
     id: QixiSceneId;

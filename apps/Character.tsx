@@ -1971,7 +1971,7 @@ ${isInitialGeneration ? `
            </div>
        )}
        
-       {/* QQ捏人工坊：直接写库（sprites / vrState / specialMomentRecords / chibiStudio），
+       {/* 3D 家园手办柜：只写 chibiStudio.home3D，
            关闭时把最新角色数据拉回 formData——否则后续编辑会用旧副本 auto-save 盖掉工坊成果 */}
        {showChibiStudio && formData && (
            <ChibiStudio

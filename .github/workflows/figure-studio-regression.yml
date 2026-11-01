@@ -11,6 +11,13 @@ on:
       - 'apps/room3d/Home3DView.tsx'
       - 'apps/room3d/Home3DSetupEntry.tsx'
       - 'context/OSContext.tsx'
+      - 'types.ts'
+      - 'utils/qixiChatCard.ts'
+      - 'components/Like520Event.tsx'
+      - 'components/ValentineEvent.tsx'
+      - 'components/WhiteDayEvent.tsx'
+      - 'components/events/qixi/**'
+      - 'utils/qixi**'
       - 'components/PhoneShell.tsx'
       - 'utils/retiredSpecialMomentsEntry.test.ts'
       - 'utils/homeFigureSource.test.ts'
@@ -38,6 +45,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Test legacy entry removal and preserved figure editor behaviors
         run: pnpm exec vitest run utils/retiredSpecialMomentsEntry.test.ts utils/homeFigureSeed.test.ts utils/homeFigureSource.test.ts utils/homeFigureParts.test.ts utils/homeFigureStyleToggle.test.ts utils/figurePreview.test.ts
+      - name: Verify production Vite bundle still builds with the 3D dream and creator
+        run: pnpm exec vite build
       - name: Check TypeScript diagnostics in changed figure modules
         shell: bash
         run: |
