@@ -438,69 +438,88 @@ describe('一起听提示词与卡片提交链路的统一防回归', () => {
 });
 
 
-describe('邀请卡片从聊天记录删除时的原子状态与防旧动作复活', () => {
-  it('删除自己的待回应邀请：隐藏撤回回执阻止延迟接受，下个真实用户回合才允许新加入', async () => {
-    const { settleDeletedMusicInviteCards, notifyDeletedMusicInviteCards } = await import('./musicInviteDeletion');
-    const charId = 'music-invite-select-delete-user';
+describe('邀请卡片删除的真实数据库事务与多标签竞态', () => {
+  it('待处理用户邀请与普通消息一起多选删除：生成不可见 system 回执，不把回执当作新用户回合', async () => {
+    const { findPendingUserTurn } = await import('./chatContinuation');
+    const { isVisibleChatMessage } = await import('./chatMessageVisibility');
+    const charId = 'music-multiselect-delete-user-v2';
     const created = await DB.createMusicListeningInvite({
       charId, role: 'user', type: 'system', content: '[一起听邀请]',
       metadata: { musicListenInvite: true, status: 'pending', invitedAt: Date.now() },
     });
     expect(created.status).toBe('created');
-    const card = (await DB.getMessagesByCharId(charId, true)).find(m => m.id === created.messageId)!;
-    await settleDeletedMusicInviteCards(charId, [card]);
-    await DB.deleteMessages([card.id]);
-    notifyDeletedMusicInviteCards(charId, [card]);
+    const normalId = await DB.saveMessage({ charId, role: 'user', type: 'text', content: '旧消息' });
+    await DB.deleteChatMessagesWithMusicInviteGuard(charId, [created.messageId, normalId]);
     const history = await DB.getMessagesByCharId(charId, true);
+    expect(history).toHaveLength(1);
+    expect(history[0].role).toBe('system');
+    expect(history[0].metadata?.musicInviteDeleted).toBe(true);
+    expect(history[0].metadata?.musicListenInviteResponseTo).toBe(created.messageId);
+    expect(isVisibleChatMessage(history[0])).toBe(false);
+    expect(findPendingUserTurn(history)).toBeNull();
     expect(findPendingMusicInvite(history, 'user')).toBeUndefined();
-    expect(history.some(m => m.metadata?.musicInviteDeleted && m.metadata?.musicListenInviteResponseTo === card.id)).toBe(true);
     expect(canJoinMusicWithoutPendingInvite(history)).toBe(false);
     expect((await DB.resolveMusicListeningInvite(charId, 'user', {
-      charId, role: 'assistant', type: 'system', content: '迟到的同意', metadata: { accepted: true },
+      charId, role: 'assistant', type: 'system', content: '迟到接受', metadata: { accepted: true },
     })).resolved).toBe(false);
-    await DB.saveMessage({ charId, role: 'user', type: 'text', content: '重新开始听歌' });
-    expect(canJoinMusicWithoutPendingInvite(await DB.getMessagesByCharId(charId, true))).toBe(true);
+    await DB.saveMessage({ charId, role: 'user', type: 'text', content: '下一轮真的想听' });
+    expect(canJoinMusicWithoutPendingInvite(await DB.getMessagesByCharId(charId,true))).toBe(true);
   });
-  it('删除角色主动邀请只清除邀请，不影响已接受的伴听会话', async () => {
-    const { settleDeletedMusicInviteCards } = await import('./musicInviteDeletion');
-    const charId = 'music-invite-select-delete-char';
+  it('角色发出的已接受邀请从聊天记录删除，不会结束现有一起听或让旧卡片复活', async () => {
+    const charId = 'music-multiselect-delete-char-v2';
     const created = await DB.createMusicListeningInvite({
       charId, role: 'assistant', type: 'system', content: '[一起听邀请]',
-      metadata: { musicListenInvite: true, inviter: 'char', status: 'pending', invitedAt: Date.now() },
+      metadata: { musicListenInvite: true, inviter:'char', status: 'pending', invitedAt: Date.now() },
     });
     expect(created.status).toBe('created');
-    const card = (await DB.getMessagesByCharId(charId, true)).find(m => m.id === created.messageId)!;
-    await settleDeletedMusicInviteCards(charId, [card]);
-    await DB.deleteMessage(card.id);
-    expect(findPendingMusicInvite(await DB.getMessagesByCharId(charId, true), 'char')).toBeUndefined();
     expect((await DB.resolveMusicListeningInvite(charId, 'char', {
-      charId, role: 'user', type: 'system', content: '迟到的接受', metadata: { accepted: true },
-    })).resolved).toBe(false);
-
-    const next = await DB.createMusicListeningInvite({
-      charId, role: 'assistant', type: 'system', content: '[一起听邀请]',
-      metadata: { musicListenInvite: true, inviter: 'char', status: 'pending', invitedAt: Date.now() },
-    });
-    expect(next.status).toBe('created');
-    expect((await DB.resolveMusicListeningInvite(charId, 'char', {
-      charId, role: 'user', type: 'system', content: '接受新邀请', metadata: { accepted: true },
-    }, next.messageId)).resolved).toBe(true);
-    const live = await DB.getMusicListeningSession(charId);
-    expect(live?.active).toBe(true);
-    const acceptedCard = (await DB.getMessagesByCharId(charId,true)).find(m=>m.id===next.messageId)!;
-    await settleDeletedMusicInviteCards(charId,[acceptedCard]);
-    await DB.deleteMessage(acceptedCard.id);
-    expect((await DB.getMusicListeningSession(charId))?.active).toBe(true);
+      charId, role:'user', type:'system', content:'接受', metadata:{accepted:true},
+    }, created.messageId)).resolved).toBe(true);
+    const before = await DB.getMusicListeningSession(charId);
+    expect(before?.active).toBe(true);
+    await DB.deleteChatMessagesWithMusicInviteGuard(charId, [created.messageId]);
+    const history = await DB.getMessagesByCharId(charId,true);
+    expect(history.some(m => m.id === created.messageId)).toBe(false);
+    expect(history.some(m => m.metadata?.musicInviteDeleted && m.metadata?.inviter === 'char')).toBe(true);
+    expect((await DB.getMusicListeningSession(charId))?.sessionId).toBe(before?.sessionId);
   });
-  it('多选删除只处理选中的邀请卡片，普通消息不插入音乐取消记录', async () => {
-    const { settleDeletedMusicInviteCards } = await import('./musicInviteDeletion');
-    const charId = 'music-invite-select-delete-normal';
-    const ordinary = await DB.saveMessage({ charId, role:'user', type:'text', content:'普通对话' });
-    const row = (await DB.getMessagesByCharId(charId,true)).find(m=>m.id===ordinary)!;
-    await settleDeletedMusicInviteCards(charId,[row]);
-    const messages = await DB.getMessagesByCharId(charId,true);
-    expect(messages).toHaveLength(1);
-    expect(messages[0].metadata?.musicInviteDeleted).toBeUndefined();
+  it('已经接受过的用户邀请即使卡片被删，旧 AI 回复也不能变成自主重新加入', async () => {
+    const charId = 'music-multiselect-delete-accepted-v2';
+    const created = await DB.createMusicListeningInvite({
+      charId, role:'user', type:'system', content:'邀请', metadata:{ musicListenInvite:true, invitedAt:Date.now(), status:'pending' },
+    });
+    expect(created.status).toBe('created');
+    expect((await DB.resolveMusicListeningInvite(charId,'user',{
+      charId, role:'assistant', type:'system',content:'接受',metadata:{accepted:true},
+    },created.messageId)).resolved).toBe(true);
+    await DB.deleteChatMessagesWithMusicInviteGuard(charId,[created.messageId]);
+    expect(canJoinMusicWithoutPendingInvite(await DB.getMessagesByCharId(charId,true))).toBe(false);
+  });
+  it('删除与接受同时发生时只产生可解释的终态，且每个 ID 最多一条删除回执', async () => {
+    const charId = 'music-multiselect-race-v2';
+    const created=await DB.createMusicListeningInvite({
+      charId,role:'user',type:'system',content:'邀请',
+      metadata:{musicListenInvite:true,status:'pending',invitedAt:Date.now()},
+    });
+    expect(created.status).toBe('created');
+    const [ , attempt] = await Promise.all([
+      DB.deleteChatMessagesWithMusicInviteGuard(charId,[created.messageId,created.messageId]),
+      DB.resolveMusicListeningInvite(charId,'user',{
+        charId,role:'assistant',type:'system',content:'接受',metadata:{accepted:true},
+      },created.messageId),
+    ]);
+    const history=await DB.getMessagesByCharId(charId,true);
+    expect(findPendingMusicInvite(history,'user')).toBeUndefined();
+    expect(history.filter(m=>m.metadata?.musicInviteDeleted && m.metadata?.musicListenInviteResponseTo===created.messageId)).toHaveLength(1);
+    expect((await DB.getMusicListeningSession(charId))?.active===true).toBe(attempt.resolved);
+  });
+  it('无法越权删除另一角色的消息或意外触碰非选中的普通消息',async()=>{
+    const a='music-multiselect-a-v2',b='music-multiselect-b-v2';
+    const protectedId=await DB.saveMessage({charId:b,role:'user',type:'text',content:'其他角色消息'});
+    const keptId=await DB.saveMessage({charId:a,role:'assistant',type:'text',content:'未勾选消息'});
+    await DB.deleteChatMessagesWithMusicInviteGuard(a,[protectedId]);
+    expect((await DB.getMessagesByCharId(b,true)).some(m=>m.id===protectedId)).toBe(true);
+    expect((await DB.getMessagesByCharId(a,true)).some(m=>m.id===keptId)).toBe(true);
   });
 });
 

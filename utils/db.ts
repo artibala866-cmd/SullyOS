@@ -1217,6 +1217,55 @@ export const DB = {
     });
   },
 
+
+  /**
+   * Private-chat invitation-card deletion, atomically guarded across tabs.
+   * A visible card is removed together with an invisible system tombstone in
+   * ONE IndexedDB transaction. Already accepted invitations retain the active
+   * listening session, but an old AI response cannot resurrect it later.
+   * Normal selected messages use the same existing deletion/secret-note cleanup.
+   */
+  deleteChatMessagesWithMusicInviteGuard: async (charId: string, ids: number[]): Promise<void> => {
+    const uniqueIds = [...new Set(ids.filter(id => Number.isSafeInteger(id) && id > 0))];
+    if (!charId || uniqueIds.length === 0) return;
+    const { preserveContentFavoritesBeforeMessageDeletion } = await import('./contentFavorites');
+    await preserveContentFavoritesBeforeMessageDeletion({ ids: uniqueIds });
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+      const store = tx.objectStore(STORE_MESSAGES);
+      deleteSecretNotesForIds(store, uniqueIds);
+      for (const id of uniqueIds) {
+        const request = store.get(id);
+        request.onsuccess = () => {
+          const message = request.result as Message | undefined;
+          if (!message || message.charId !== charId || !!message.groupId) return;
+          if (message.metadata?.musicListenInvite) {
+            // Always write a tombstone, not only when the invite is pending:
+            // acceptance may have won the transaction race in another tab.
+            // The tombstone is NOT a user turn; otherwise auto-reply can fire
+            // for a deleted invitation no longer visible in private chat.
+            const inviter = message.metadata.inviter === 'char' ? 'char' : 'user';
+            const receipt = store.add({
+              charId, role: 'system', type: 'system',
+              content: '[一起听邀请] 邀请卡片已删除。',
+              timestamp: Date.now(),
+              metadata: {
+                musicListenInviteResponseTo: id, musicInviteDeleted: true,
+                inviter, cancelled: true, accepted: false,
+              },
+            });
+            receipt.onsuccess = () => clearStaleMemoryMirror(tx, charId, receipt.result as number);
+          }
+          store.delete(id);
+        };
+      }
+      tx.oncomplete = () => { announceSecretNotesChanged(); resolve(); };
+      tx.onerror = () => reject(tx.error || new Error('Music invitation card deletion failed'));
+      tx.onabort = () => reject(tx.error || new Error('Music invitation card deletion aborted'));
+    });
+  },
+
   deleteMessage: async (id: number): Promise<void> => {
     const { preserveContentFavoritesBeforeMessageDeletion } = await import('./contentFavorites');
     await preserveContentFavoritesBeforeMessageDeletion({ ids: [id] });
