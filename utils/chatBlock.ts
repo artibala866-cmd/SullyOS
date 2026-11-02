@@ -25,6 +25,11 @@ export function userBlockedCharacterAt(state: ChatBlockState | null | undefined,
     .filter(e => e.actor === 'user' && Number.isFinite(e.at) && e.at <= at)
     .sort((a,b) => a.at - b.at);
   if (history.length) return history[history.length - 1].action === 'block';
+  // 历史只保留 40 条。裁剪时记录当时的状态；否则旧云端消息晚到，
+  // 会把当前一轮新拉黑误判成旧消息的状态，或把旧的失败回复改成成功。
+  const anchor = state?.userBlockHistoryAnchor;
+  if (anchor && at >= anchor.at) return anchor.blocked;
+  if (anchor && at < anchor.at) return false; // 裁剪之前的未知历史，不能用现在的状态倒推
   return userBlocksCharacter(state) && (state?.userBlockedAt || 0) <= at;
 }
 
@@ -39,8 +44,18 @@ export function didCharReplyFailAtDelivery(state: ChatBlockState | null | undefi
     ? userBlockedCharacterAt(state, sentAt)
     : userBlocksCharacter(state);
 }
-export function didCharReplyFailDuringGeneration(blockedAtStart: boolean, blockedAtEnd: boolean): boolean {
-  return blockedAtStart || blockedAtEnd;
+export function didCharReplyFailDuringGeneration(
+  blockedAtStart: boolean, blockedAtEnd: boolean,
+  currentState?: ChatBlockState | null, startedAt?: number, finishedAt: number = Date.now(),
+): boolean {
+  if (blockedAtStart || blockedAtEnd) return true;
+  if (typeof startedAt !== 'number' || !Number.isFinite(startedAt)) return false;
+  // 生成时用户短暂拉黑又解除，首尾两次 boolean 均为 false。
+  // 仍应记住这段回复在生成中曾被拒绝送达，不能在重载后变成成功。
+  return (currentState?.history || []).some(event =>
+    event.actor === 'user' && event.action === 'block'
+    && event.at >= startedAt && event.at <= finishedAt,
+  );
 }
 
 /** UI 必须按消息发送当时的状态绘制，不以当前角色关系反算历史感叹号。 */
@@ -69,14 +84,21 @@ export function changeChatBlock(
     ...(opts.reason?.trim() ? { reason: opts.reason.trim().slice(0, 600) } : {}),
     ...(opts.source ? { source: opts.source } : {}),
   };
+  const allEvents = [...(old.history ?? []), event];
+  const removedEvents = allEvents.slice(0, Math.max(0, allEvents.length - 40));
+  const removedUserEvent = [...removedEvents].reverse().find(e => e.actor === 'user');
+  const userBlockHistoryAnchor = removedUserEvent
+    ? { at: removedUserEvent.at, blocked: removedUserEvent.action === 'block' }
+    : old.userBlockHistoryAnchor;
   return { ...old, [key]: blocked ? at : undefined,
+    ...(userBlockHistoryAnchor ? { userBlockHistoryAnchor } : {}),
     // 新一次角色拉黑必须重新计算心软冷却，不继承旧一轮求原谅状态。
     ...(actor === 'character' ? {
       lastForgivenessCheckAt: blocked ? at : undefined,
       lastForgivenessSign: undefined,
       ...(blocked ? { forgivenessSoftness: 10, lastForgivenessThought: undefined, lastForgivenessStatus: undefined, forgivenessDrafts: [] } : {}),
     } : {}),
-    history: [...(old.history ?? []), event].slice(-40) };
+    history: allEvents.slice(-40) };
 }
 /** 原版关闭 Char 自主拉黑权限时，同时解除这一方向的拉黑。 */
 export function configureCharacterBlocking(previous: ChatBlockState | undefined, allowed: boolean, at?: number): ChatBlockState {
