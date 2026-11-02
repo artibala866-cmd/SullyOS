@@ -2717,6 +2717,8 @@ export interface ChatBlockEvent {
 /** 两个方向独立的私聊拉黑状态；旧版缺省未拉黑。 */
 export interface ChatBlockState {
   userBlockedAt?: number;
+  /** 已裁剪的历史中，最后一次用户拉黑事件（仅用于延迟云端回复按发送时间判定）。 */
+  userBlockHistoryAnchor?: { at: number; blocked: boolean };
   characterBlockedAt?: number;
   allowCharacterBlockUser?: boolean;
   /** 最后一次 AI 求原谅判定；仅成功调用才进入 30 分钟冷却。 */
