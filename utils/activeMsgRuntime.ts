@@ -1592,6 +1592,18 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
       // 'active-msg-received' 事件里的 sentAt 维持原口径（发送时刻优先）：
       // 它只喂 toast / 未读预览，不进聊天记录，别跟落库口径搅在一起。
       const eventSentAt = message.sentAt || message.receivedAt || Date.now();
+      // 任务取消与正在运行的 fire / 已写入 outbox 的推送可能交错。
+      // 云端生成时检查过开关不代表“到本机落库”时仍被允许；
+      // 关闭 2.0 后不再让旧定时正文复活。即时对话独立开关，不在此拦截。
+      if (message.source === 'scheduled') {
+        const currentChar = (await DB.getAllCharacters()).find((item) => item.id === message.charId);
+        if (currentChar?.activeMsg2Config?.enabled === false) {
+          activeMsgTrace('runtime-scheduled-disabled-dropped', {
+            charId: message.charId, messageId: message.messageId, taskUuid: message.taskUuid,
+          });
+          continue;
+        }
+      }
       activeMsgTrace('runtime-inbox-message', {
         sessionId: (message as any).sessionId || (message.metadata as any)?.sessionId,
         messageId: message.messageId,
