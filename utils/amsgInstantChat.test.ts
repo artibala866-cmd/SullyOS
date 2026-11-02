@@ -89,6 +89,7 @@ import {
   resolveInstantChatReadiness,
   sendInstantChatTurn,
   stopInstantChat,
+  supersedeStaleAutoInstantReply,
   setInstantChatPending,
   settleInstantChatApiLog,
   settleInstantChatExpiredNotices,
@@ -1498,6 +1499,64 @@ describe('探测顺手记下 bundle 版本（workerBundleVersion）', () => {
     await ActiveMsgClient.probeWorkerVersion();
     await ActiveMsgClient.probeInstantChatSupportDetailed();
     expect(versionWrites()).toEqual([]);
+  });
+});
+
+describe('automatic cloud replies belong to one exact user turn', () => {
+  it('a newer sent message cancels an old AUTO reply, not manual cloud chat', async () => {
+    const cancel = vi.spyOn(ActiveMsgClient, 'cancelTask').mockResolvedValue({ uuid:'old-auto', alreadyGone:false } as any);
+    const write = vi.spyOn(ActiveMsgClient, 'writeClientStateValue').mockResolvedValue(undefined);
+    const history = vi.spyOn(DB, 'getMessagesByCharId').mockResolvedValue([] as any);
+    setInstantChatPending(CHAR.id, 'manual-round', Date.now(), CHAR.name);
+    expect(supersedeStaleAutoInstantReply(CHAR.id, 30)).toBe(false);
+    expect(getInstantChatPending(CHAR.id)?.uuid).toBe('manual-round');
+    clearInstantChatPending(CHAR.id);
+    setInstantChatPending(CHAR.id, 'old-auto', Date.now(), CHAR.name, 20);
+    expect(supersedeStaleAutoInstantReply(CHAR.id, 20)).toBe(false);
+    expect(getInstantChatPending(CHAR.id)?.autoReplyUserMessageId).toBe(20);
+    expect(supersedeStaleAutoInstantReply(CHAR.id, 21)).toBe(true);
+    expect(getInstantChatPending(CHAR.id)).toBeNull();
+    const { isReplyStopped } = await import('./chatReplyCancellation');
+    expect(isReplyStopped('old-auto')).toBe(true);
+    await vi.waitFor(() => expect(cancel).toHaveBeenCalledWith('old-auto'));
+    await vi.waitFor(() => expect(write).toHaveBeenCalled());
+    expect(history).toHaveBeenCalled();
+    cancel.mockRestore(); write.mockRestore(); history.mockRestore();
+  });
+
+  it('a cloud POST accepted after another user turn is tombstoned and never claims to have replied', async () => {
+    const send = vi.spyOn(ActiveMsgClient,'sendInstantChat')
+      .mockResolvedValue({uuid:'stale-after-202'} as any);
+    const cancel = vi.spyOn(ActiveMsgClient,'cancelTask')
+      .mockResolvedValue({uuid:'stale-after-202',alreadyGone:false} as any);
+    const latest = vi.spyOn(DB,'getRecentMessagesByCharId')
+      .mockResolvedValue([{id:40,role:'user',type:'text',content:'新的话题'}] as any);
+    try {
+      const result = await sendInstantChatTurn({
+        char: CHAR, chatMessages:[{role:'user',content:'旧的话题'}], api:API,
+        userProfile:USER, groups:[], realtimeConfig:{} as any, autoReplyUserMessageId:39,
+      });
+      expect(result).toMatchObject({ok:false,superseded:true});
+      expect(getInstantChatPending(CHAR.id)).toBeNull();
+      const { isReplyStopped } = await import('./chatReplyCancellation');
+      expect(isReplyStopped('stale-after-202')).toBe(true);
+      expect(cancel).toHaveBeenCalledWith('stale-after-202');
+    } finally {send.mockRestore();cancel.mockRestore();latest.mockRestore();}
+  });
+
+  it('an accepted auto cloud reply keeps the user-turn identity across reloads',async()=>{
+    const send=vi.spyOn(ActiveMsgClient,'sendInstantChat')
+      .mockResolvedValue({uuid:'fresh-auto-202'} as any);
+    const latest=vi.spyOn(DB,'getRecentMessagesByCharId')
+      .mockResolvedValue([{id:51,role:'user',type:'text',content:'刚刚发送'}] as any);
+    try {
+      const result=await sendInstantChatTurn({
+        char:CHAR,chatMessages:[{role:'user',content:'刚刚发送'}],api:API,
+        userProfile:USER,groups:[],realtimeConfig:{} as any,autoReplyUserMessageId:51,
+      });
+      expect(result.ok).toBe(true);
+      expect(getInstantChatPending(CHAR.id)?.autoReplyUserMessageId).toBe(51);
+    }finally{send.mockRestore();latest.mockRestore();}
   });
 });
 
