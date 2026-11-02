@@ -55,6 +55,18 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(buildInPersonCharBlockInstruction(userBlocked, '小明')).toContain('不能替用户解除拉黑');
     expect(buildInPersonCharBlockInstruction(undefined)).toBe('');
   });
+  it('双向同时拉黑时 Char 不能假装看到了被自己拒收的消息', () => {
+    const userBlock = changeChatBlock(undefined, 'user', true, { at: 100 });
+    const both = changeChatBlock(userBlock, 'character', true, { at: 200, reason: '信任破裂' });
+    const context = buildPrivateChatBlockHistoryContext(both, 300);
+    expect(context).toContain('互相拉黑');
+    expect(context).toContain('无法读取');
+    expect(context).not.toContain('你依然可以读到用户新发来的话');
+    const scene = buildInPersonCharBlockInstruction(userBlock, '小明');
+    expect(scene).toContain('能读到用户主动发来的话');
+    expect(scene).not.toContain('不知道用户是否尝试发送');
+    expect(buildInPersonCharBlockInstruction(both, '小明')).toContain('被你拒收的用户消息');
+  });
   it('解封后首条是 Char 主动新消息，不回答拉黑前旧话题，也不假装看过被拒收内容', () => {
     const prompt = buildFirstPostUnblockOpeningInstruction('小明', '严重误会', 90);
     expect(prompt).toContain('主动');
