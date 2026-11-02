@@ -117,6 +117,8 @@ export interface ScheduledMessage {
     content: string;
     dueAt: number;
     createdAt: number;
+    /** System notification ID, if one was actually scheduled (older rows omit it). */
+    notificationId?: number;
 }
 
 // Built-in Presets
@@ -2380,6 +2382,20 @@ export const DB = {
           transaction.oncomplete = () => resolve();
           transaction.onerror = () => reject(transaction.error || new Error('定时消息未能保存'));
           transaction.onabort = () => reject(transaction.error || new Error('定时消息未能保存'));
+      });
+  },
+
+  /** All legacy AI-authored deferred chat messages, including future ones.
+   * Used when all initiating features are OFF to revoke pending system alarms.
+   */
+  getScheduledMessagesByCharId: async (charId: string): Promise<ScheduledMessage[]> => {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_SCHEDULED, 'readonly');
+          const request = transaction.objectStore(STORE_SCHEDULED)
+              .index('charId').getAll(IDBKeyRange.only(charId));
+          request.onsuccess = () => resolve((request.result || []) as ScheduledMessage[]);
+          request.onerror = () => reject(request.error);
       });
   },
 
