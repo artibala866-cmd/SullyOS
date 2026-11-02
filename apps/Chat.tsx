@@ -2067,10 +2067,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     addToast('对方的拉黑状态已变化，请重新请求', 'info');
                     return;
                 }
-                const recent = await DB.getRecentMessagesByCharId(target.id, 100);
+                const preBlockMessages = await DB.getLastPrivateTextsBefore(
+                    target.id, latest.chatBlock!.characterBlockedAt!, 12,
+                );
                 const judgement = await requestCharacterForgiveness({
-                    character: latest, userName: userProfile.name || '用户', messages: recent, apiConfig,
-                    withTheater: true, // 原版 withTheater：仅在独立心软检查时生成，非普通消息回复。
+                    character: latest, userName: userProfile.name || '用户',
+                    messages: preBlockMessages, apiConfig,
+                    withTheater: true, // 原版 withTheater：只在独立心软检查中生成第三人称独处片段。
                 });
                 const checkedAt = Date.now();
                 const lastBlock = [...(latest.chatBlock?.history || [])].reverse().find(event =>
