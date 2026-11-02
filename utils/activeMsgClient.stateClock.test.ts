@@ -228,10 +228,10 @@ describe('常规批量同步撞上同一道闸', () => {
     });
     remoteHasFuturePack();
 
-    await sync();
+    await expect(sync()).rejects.toThrow('云端上下文有');
 
     expect(reiClient.getClientState).toHaveBeenCalledWith(NAMESPACE);
-    expect(reiClient.putClientState, '对齐就够了，这一轮不重传').toHaveBeenCalledTimes(1);
+    expect(reiClient.putClientState, '本轮不重传，交给上层待同步队列重试').toHaveBeenCalledTimes(1);
     expect(readStateClockWatermark()).toBe(FUTURE);
   });
 
