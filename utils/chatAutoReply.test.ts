@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { resolveRealPersonReplyPlan } from './realPersonReplyTiming';
-import { findPendingUserTurn } from './chatContinuation';
+import { findPendingUserTurn, withVerifiedUserReplyContinuation } from './chatContinuation';
 import { DEFAULT_CHAT_INPUT_PREFERENCES, saveChatInputPreferences, revokePendingChatAutoReplyIntents } from './chatInputPreferences';
 import { setRealPersonModeEnabled } from './realPersonMode';
 
@@ -389,6 +389,27 @@ describe('two-second automatic reply', () => {
     });
 });
 
+
+describe('automatic user replies never fabricate a new topic or user turn', () => {
+    const user = {role:'user',content:'她居然又和前任复合了'};
+    const scheduled = {role:'assistant',content:'我刚在看手机',metadata:{activeMsg2:{taskId:'autowake:day'}}};
+    it('auto reply uses the original conversation, even when a scheduled bubble arrived after the user', () => {
+        const actual=[user,scheduled];
+        const next=withVerifiedUserReplyContinuation(actual,'用户',{
+            automaticUserReply:true,unansweredUserTurn:true,
+        });
+        expect(next).toBe(actual);
+        expect(next).toHaveLength(2);
+        expect(next.map(m=>m.content)).not.toContain(expect.stringContaining('还想听你接着说'));
+    });
+    it('manual continuation remains unchanged, and no automatic request starts a new story', () => {
+        const manual=withVerifiedUserReplyContinuation([user,scheduled],'用户',{
+            automaticUserReply:false,unansweredUserTurn:true,
+        });
+        expect(manual).toHaveLength(3);
+        expect(String(manual[2].content)).toContain('还没有人回');
+    });
+});
 
 describe('scheduled proactive messages cannot swallow an unanswered user turn', () => {
     const user = { role: 'user', id: 4 };
