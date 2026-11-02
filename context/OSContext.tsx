@@ -87,7 +87,8 @@ import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { recoverForegroundDailySchedule } from '../utils/dailyScheduleForegroundRecovery';
 import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
 import { reconcileGlobalAutonomyWakes } from '../utils/amsgAutonomyBootstrap';
-import { REAL_PERSON_MODE_CHANGED_EVENT } from '../utils/realPersonMode';
+import { REAL_PERSON_MODE_CHANGED_EVENT, isRealPersonModeEnabled } from '../utils/realPersonMode';
+import { allowLegacyAiScheduledDelivery } from '../utils/unsolicitedDeliveryGate';
 import { SCHEDULE_CHANGE_EVENT } from '../utils/scheduleChange';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
@@ -1930,8 +1931,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
       if (!isDataLoaded || characters.length === 0) return;
       let cancelled = false;
+      // The 5-second check used to allow two overlapping async IDB scans.
+      // Both could read the same due row before either deleted it and deliver
+      // two identical messages. Only one scan may claim due rows per mount.
+      let scanRunning = false;
       const checkAllSchedules = async () => {
-          if (cancelled) return;
+          if (cancelled || scanRunning) return;
+          scanRunning = true;
+          try {
           let hasNewMessage = false;
           const unreadUpdates: Record<string, number> = {};
 
@@ -1948,6 +1955,21 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   if (cancelled) return;
                   if (dueMessages.length > 0) {
                       for (const msg of dueMessages) {
+                          // Old local [schedule_message] text is AI-authored and
+                          // survives AMSG cloud cancellation. A user switching ALL
+                          // initiative/life/schedule controls off must never see
+                          // such stale "I just ate cake" messages delivered anew.
+                          // Read the LIVE role, not this interval's render snapshot.
+                          const liveChar = charactersRef.current.find(c => c.id === char.id);
+                          const authorized = !!liveChar && allowLegacyAiScheduledDelivery({
+                              activeMsg2Enabled: liveChar.activeMsg2Config?.enabled === true,
+                              realPersonEnabled: isRealPersonModeEnabled(),
+                              scheduleEnabled: isScheduleFeatureOn(liveChar),
+                          });
+                          if (!authorized) {
+                              await DB.deleteScheduledMessage(msg.id);
+                              continue;
+                          }
                           await DB.saveMessage({
                                charId: msg.charId,
                                role: 'assistant',
@@ -2000,6 +2022,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   return next;
               });
           }
+          } finally { scanRunning = false; }
       };
       schedulerRef.current = setInterval(checkAllSchedules, 5000);
       checkAllSchedules();
