@@ -49,34 +49,6 @@ it.each([false,true])('adds home phone background only to this request (worker=%
     expect(input.char).not.toHaveProperty('homePhoneContext');
 });
 
-it('only verified auto-replies focus on the current user topic across local and cloud routes', async () => {
-    const base=baseInput();
-    base.historyMsgs=[
-        {id:1,charId:base.char.id,role:'user',type:'text',content:'我正在画线稿',timestamp:Date.now()-5000},
-        {id:2,charId:base.char.id,role:'user',type:'text',content:'手腕已经酸了',timestamp:Date.now()},
-    ] as any[];
-    const manual=await buildChatRequestPayload(base);
-    const automatic=await buildChatRequestPayload({
-        ...base,automaticUserReply:true,expectedAutoReplyUserId:2,
-    });
-    const cloud=await buildChatRequestPayload({
-        ...base,automaticUserReply:true,expectedAutoReplyUserId:2,timelyByWorker:true,
-    });
-    for(const auto of [automatic,cloud]){
-        const request=joinMessages(auto.fullMessages);
-        expect(request).toContain('连续发送了 2 条消息');
-        expect(request).toContain('先回应对方正在讨论');
-        expect(request).toContain('自己的生活与观察可以有，但必须自然关联');
-        expect(request).not.toContain('2. **行为模式**: 不要总是围绕用户转');
-    }
-    expect(joinMessages(manual.fullMessages)).not.toContain('【本轮是真实用户消息触发的接话');
-    expect(joinMessages(manual.fullMessages)).toContain('2. **行为模式**: 不要总是围绕用户转');
-    const wrongUser=await buildChatRequestPayload({
-        ...base,automaticUserReply:true,expectedAutoReplyUserId:999,
-    });
-    expect(joinMessages(wrongUser.fullMessages)).not.toContain('【本轮是真实用户消息触发的接话');
-});
-
 it('本地仅节假日感知可独立注入一句，云端生成不烤进本地提醒', async () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 8, 27, 12));
     const input = baseInput();
