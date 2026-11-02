@@ -1460,7 +1460,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // handler, 导致云端回复时用户不在该角色页的话 buff 回不到前端 (只落 DB), 故移除, 同时
     // 避免和 OSContext 双写.
 
+    const composerLastEditAtRef = useRef(0);
     const handleInputChange = (val: string) => {
+        composerLastEditAtRef.current = Date.now();
         setInput(val);
         // A half-typed follow-up pauses the pending answer; it must not silently erase
         // the user's previously saved unanswered turn. The reply waits for a clear composer.
@@ -4030,6 +4032,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         lastCharacterReplyAt: latestAnsweredAt,
         replyAttention,
         replyRhythm: char?.realPersonReplyRhythm,
+        lastComposerActivityAt: composerLastEditAtRef.current,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
         // Hydrated intent must not fire before the persisted chat tail finishes loading.
