@@ -108,9 +108,13 @@ export function buildPrivateChatBlockHistoryContext(state?: ChatBlockState, now:
 
 export function forgivenessCooldownRemaining(state: ChatBlockState | undefined, at: number = Date.now()): number {
   if (!characterBlocksUser(state)) return 0;
+  const blockedAt = state?.characterBlockedAt || 0;
+  // 旧备份可能没有首次检查时间；原版以拉黑当刻为初始冷却起点。
+  // 即使带入旧一轮的 lastCheck，也不能越过当前这次拉黑的 30 分钟。
   const last = state?.lastForgivenessCheckAt;
-  return typeof last === 'number' && Number.isFinite(last) && last > 0
-    ? Math.max(0, CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS - (at - last)) : 0;
+  const lastCheckAt = typeof last === 'number' && Number.isFinite(last) && last > blockedAt
+    ? last : blockedAt;
+  return Math.max(0, CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS - (at - lastCheckAt));
 }
 
 /** 只向求原谅判定提供角色实际收到过的私聊内容；拒收消息绝不可补读。 */
@@ -151,6 +155,32 @@ export function buildForgivenessMessages(character: CharacterProfile, userName: 
 }
 
 export type ForgivenessDecision = { decision: 'unblock' | 'stay'; sign: string; softness: number | null; thought: string; status: string; draft: string; valid: boolean };
+
+/** AI 判定返回后，先确认仍是发起判定时的那轮拉黑。
+ * 用户拉黑 Char 是另一条独立关系，不可阻止 Char 解开自己的拉黑。
+ * 若同一请求期间 Char 已解封再拉黑，旧回复不得把新拉黑误解开。
+ */
+export function applyCharacterForgivenessDecision(
+  state: ChatBlockState | undefined,
+  expectedBlockedAt: number,
+  decision: Omit<ForgivenessDecision, 'valid'>,
+  checkedAt: number,
+): ChatBlockState | undefined {
+  if (!characterBlocksUser(state) || state?.characterBlockedAt !== expectedBlockedAt) return state;
+  const next = decision.decision === 'unblock'
+    ? changeChatBlock(state, 'character', false, { at: checkedAt, source: 'ai' }) : state;
+  return {
+    ...next,
+    lastForgivenessCheckAt: checkedAt,
+    lastForgivenessSign: decision.sign,
+    ...(decision.softness !== null ? { forgivenessSoftness: decision.softness } : {}),
+    lastForgivenessThought: decision.thought,
+    lastForgivenessStatus: decision.status,
+    forgivenessDrafts: decision.draft
+      ? [...(next?.forgivenessDrafts || []), { text: decision.draft, at: checkedAt }].slice(-10)
+      : (next?.forgivenessDrafts || []),
+  };
+}
 export function parseForgivenessDecision(raw: string): ForgivenessDecision {
   const match = String(raw || '').match(/\{[\s\S]*?\}/);
   if (!match) return { decision: 'stay', sign: '', softness: null, thought: '', status: '', draft: '', valid: false };
