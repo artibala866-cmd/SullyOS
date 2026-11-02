@@ -40,6 +40,9 @@ type ConversationMessage = {
   role: string;
   type?: string;
   timestamp?: number;
+  deleted?: boolean;
+  recalled?: boolean;
+  capsuleOriginIds?: unknown;
   metadata?: {
     activeMsg2?: { taskId?: unknown };
     homeSceneRecord?: unknown;
@@ -48,18 +51,40 @@ type ConversationMessage = {
     chatBlockRejected?: unknown;
     historyImported?: unknown;
     importedFrom?: unknown;
+    importedAt?: unknown;
+    chatRecordImportedAt?: unknown;
+    originalTimestamp?: unknown;
+    userComposedAsCharacter?: unknown;
+    aiGenerated?: unknown;
+    offlineAutoReply?: unknown;
+    phoneAutoReply?: unknown;
+    aiPlaceholder?: unknown;
+    conversationMutating?: unknown;
+    deliveryStatus?: unknown;
+    busyFauxAutoReply?: unknown;
+    autoReply?: unknown;
+    countsAsReply?: unknown;
   };
 };
 const isUserSpeech = (m: ConversationMessage): boolean =>
-  m.role === 'user' && m.type !== 'system' && !m.metadata?.chatBlockRejected &&
+  m.role === 'user' && m.type !== 'system' && !m.deleted && !m.recalled &&
+  !m.capsuleOriginIds && !m.metadata?.chatBlockRejected &&
   !m.metadata?.homeSceneRecord && !m.metadata?.musicListenInvite &&
   !m.metadata?.musicListenInviteResponseTo && !m.metadata?.historyImported &&
-  !m.metadata?.importedFrom;
+  !m.metadata?.importedFrom && !m.metadata?.importedAt &&
+  !m.metadata?.chatRecordImportedAt && !m.metadata?.originalTimestamp &&
+  !m.metadata?.userComposedAsCharacter && !m.metadata?.aiGenerated &&
+  !m.metadata?.offlineAutoReply && !m.metadata?.phoneAutoReply &&
+  !m.metadata?.aiPlaceholder && m.metadata?.conversationMutating !== false &&
+  !['pending','rejected','failed'].includes(String(m.metadata?.deliveryStatus || ''));
 const isRealAnswer = (m: ConversationMessage): boolean =>
-  m.role === 'assistant' && m.type !== 'system' && m.metadata?.activeMsg2?.taskId == null &&
+  m.role === 'assistant' && m.type !== 'system' && !m.deleted && !m.recalled &&
+  m.metadata?.activeMsg2?.taskId == null &&
   !m.metadata?.homeSceneRecord && !m.metadata?.musicListenInvite &&
   !m.metadata?.musicListenInviteResponseTo && !m.metadata?.historyImported &&
-  !m.metadata?.importedFrom;
+  !m.metadata?.importedFrom && !m.metadata?.busyFauxAutoReply &&
+  !m.metadata?.phoneAutoReply && !m.metadata?.offlineAutoReply &&
+  !m.metadata?.autoReply && m.metadata?.countsAsReply !== false;
 const isValidAt = (at: unknown, now: number): at is number =>
   typeof at === 'number' && Number.isFinite(at) && at > 0 && at <= now;
 
