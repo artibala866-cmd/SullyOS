@@ -235,7 +235,12 @@ export function useChatAutoReply(options: Options) {
                 lastComposerActivityAt: latest.lastComposerActivityAt,
                 lastUserSendAt: work.lastUserSendAt,
             })
-            : { kind: 'ready' as const, settleMs: CHAT_AUTO_REPLY_DELAY_MS };
+            : { kind: 'ready' as const, settleMs: Math.max(
+                CHAT_AUTO_REPLY_DELAY_MS,
+                latest.lastComposerActivityAt && now >= latest.lastComposerActivityAt
+                    ? Math.max(0, 2_800 - (now - latest.lastComposerActivityAt))
+                    : 0,
+            ) };
         if (readiness.kind === 'wait-availability') return;
         // Technical retries have their own backoff; their wake does not count
         // as a conversational reason to generate. The pending USER TURN does.
