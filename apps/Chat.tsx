@@ -77,7 +77,7 @@ import { describesUserInPhoto } from '../utils/userImageIdentity';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import ChatBlockModal from '../components/chat/ChatBlockModal';
 import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, isRejectedPrivateMessage } from '../utils/chatBlock';
-import { forgivenessCooldownRemaining, requestCharacterForgiveness } from '../utils/chatBlockAI';
+import { forgivenessCooldownRemaining, requestCharacterForgiveness, applyCharacterForgivenessDecision } from '../utils/chatBlockAI';
 import { loadChatInputPreferences, saveChatInputPreferences, revokePendingChatAutoReplyIntents } from '../utils/chatInputPreferences';
 import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
 import MemoryRepairPortal from '../components/chat/MemoryRepairPortal';
@@ -2000,7 +2000,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if (forgivenessInFlightRef.current) return;
         if (characterBlocksUser(char?.chatBlock)) {
             const target = char;
-            const remaining = forgivenessCooldownRemaining(target.chatBlock);
+            // 必须读取最新 DB 状态：跨窗口解除/重新拉黑后，旧 React 快照不能放行冷却。
+            const current = await DB.getCharacter(target.id);
+            if (!current || !characterBlocksUser(current.chatBlock)) {
+                addToast('对方的拉黑状态已变化，请重新进入聊天确认', 'info');
+                return;
+            }
+            const remaining = forgivenessCooldownRemaining(current.chatBlock);
             if (remaining > 0) {
                 addToast('对方还没准备重新考虑，请约 ' + Math.ceil(remaining / 60_000) + ' 分钟后再试', 'info');
                 return;
@@ -2011,7 +2017,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 // 与糯叽机原版一致：有草稿也只能留作用户本地拒收，不让角色偷读。
                 if (input.trim()) await sendText();
                 const latest = await DB.getCharacter(target.id);
-                if (!latest || !characterBlocksUser(latest.chatBlock) || userBlocksCharacter(latest.chatBlock)) return;
+                if (!latest || !characterBlocksUser(latest.chatBlock)) return;
+                if (latest.chatBlock?.characterBlockedAt !== current.chatBlock?.characterBlockedAt) {
+                    addToast('对方的拉黑状态已变化，请重新请求', 'info');
+                    return;
+                }
                 const recent = await DB.getRecentMessagesByCharId(target.id, 100);
                 const judgement = await requestCharacterForgiveness({
                     character: latest, userName: userProfile.name || '用户', messages: recent, apiConfig,
@@ -2022,27 +2032,23 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 const blockReason = lastBlock?.reason || '';
                 const blockElapsedMinutes = Math.max(0, Math.floor((checkedAt - (latest.chatBlock?.characterBlockedAt || checkedAt)) / 60_000));
                 await updateCharacter(target.id, previous => {
-                    if (!characterBlocksUser(previous.chatBlock) || userBlocksCharacter(previous.chatBlock)) return {};
-                    const next = judgement.decision === 'unblock'
-                        ? changeChatBlock(previous.chatBlock, 'character', false, { at: checkedAt, source: 'ai' })
-                        : previous.chatBlock!;
-                    return { chatBlock: {
-                        ...next,
-                        lastForgivenessCheckAt: checkedAt,
-                        lastForgivenessSign: judgement.sign,
-                        ...(judgement.softness !== null ? { forgivenessSoftness: judgement.softness } : {}),
-                        lastForgivenessThought: judgement.thought,
-                        lastForgivenessStatus: judgement.status,
-                        forgivenessDrafts: judgement.draft
-                            ? [...(next.forgivenessDrafts || []), { text: judgement.draft, at: checkedAt }].slice(-10)
-                            : (next.forgivenessDrafts || []),
-                    } };
+                    const next = applyCharacterForgivenessDecision(previous.chatBlock, latest.chatBlock!.characterBlockedAt!, judgement, checkedAt);
+                    return next === previous.chatBlock ? {} : { chatBlock: next };
                 });
-                if (judgement.decision === 'unblock') {
+                // 原版角色自主解封必须先真正落库，才允许发起第一条联系；
+                // 避免 API 判断后另一轮拉黑已发生，却错误提示解封并发送开场。
+                const committed = await DB.getCharacter(target.id);
+                const applied = committed?.chatBlock?.lastForgivenessCheckAt === checkedAt;
+                const unblocked = applied && !characterBlocksUser(committed?.chatBlock);
+                if (!applied) {
+                    addToast('对方的拉黑状态已变化，本次判定未应用', 'info');
+                    return;
+                }
+                if (unblocked && !userBlocksCharacter(committed?.chatBlock)) {
                     setPendingUnblockOpening({ charId: target.id, unblockAt: checkedAt, reason: blockReason, elapsedMinutes: blockElapsedMinutes });
                 }
-                addToast(judgement.sign || (judgement.decision === 'unblock'
-                    ? '对方已决定解除拉黑，可以继续聊天'
+                addToast(judgement.sign || (unblocked
+                    ? (userBlocksCharacter(committed?.chatBlock) ? '对方已解除拉黑，但你仍拉黑了对方' : '对方已决定解除拉黑，可以继续聊天')
                     : '对方暂时仍不愿意解除拉黑'), 'info');
             } catch (error: any) {
                 console.warn('[ChatBlock] forgiveness judgement failed', error);
