@@ -940,6 +940,11 @@ export const useChatAI = ({
                 catch { return 'busy' as const; }
                 const stillPending = findPendingRealPersonUserTurn(liveTail);
                 if (stillPending?.id !== opts.expectedAutoReplyUserId) return 'busy' as const;
+                // The user may have started writing another thought while
+                // memory/vision context was loading. A blank composer is
+                // required at dispatch, not only at the first timer tick.
+                const currentDraft = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
+                if (currentDraft?.value.trim()) return 'busy' as const;
             }
             const avatarLibrary = readCharacterAvatarLibrary(char.id);
             const avatarCandidates = avatarLibrary.autonomousEnabled ? avatarLibrary.entries.filter(e => !!e.visionDescription).slice(0, 24) : [];
