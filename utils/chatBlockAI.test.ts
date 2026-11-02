@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { CharacterProfile, Message } from '../types';
 import { changeChatBlock, configureCharacterBlocking } from './chatBlock';
 import {
-  extractCharacterBlockDirective, extractCharacterBlockAction, buildInPersonCharBlockInstruction,
+  applyInPersonBlockAction, extractCharacterBlockDirective, extractCharacterBlockAction, buildInPersonCharBlockInstruction,
   buildFirstPostUnblockOpeningInstruction, buildCharacterBlockAutonomyInstruction,
   buildPrivateChatBlockHistoryContext, buildForgivenessMessages,
   forgivenessCooldownRemaining, parseForgivenessDecision, extractForgivenessJson, applyCharacterForgivenessDecision,
@@ -46,6 +46,30 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(extractCharacterBlockAction('"[UNBLOCK_USER]"').action).toBeNull();
     expect(extractCharacterBlockAction('{"t":"unblock_user","main":true}').action).toBeNull();
     expect(extractCharacterBlockAction('普通消息里出现 [BLOCK_USER:玩笑] 不触发').action).toBeNull();
+  });
+  it('代码块与未闭合围栏里的指令仅作引用，围栏外仍可执行独立动作', () => {
+    for (const fence of ['```', '~~~~']) {
+      const quoted = `${fence}json\n{"t":"block_user","reason":"示例"}\n[UNBLOCK_USER]\n${fence}`;
+      expect(extractCharacterBlockAction(quoted)).toEqual({ text: quoted, action: null });
+      expect(extractCharacterBlockAction(quoted + '\n[BLOCK_USER:真实越界]').action)
+        .toEqual({ kind: 'block', reason: '真实越界' });
+      expect(extractCharacterBlockAction(`${fence}\n[UNBLOCK_USER]`).action).toBeNull();
+    }
+  });
+  it('迟到的见面和解不能解除新一轮拉黑，用户方向的变化不阻止角色解封', () => {
+    const initial = changeChatBlock(undefined, 'character', true, { at: 100, reason: '旧冲突' });
+    const unblocked = changeChatBlock(initial, 'character', false, { at: 200 });
+    const reblocked = changeChatBlock(unblocked, 'character', true, { at: 300, reason: '新冲突' });
+    expect(applyInPersonBlockAction(reblocked, initial, { kind: 'unblock' })).toBe(reblocked);
+    const both = changeChatBlock(initial, 'user', true, { at: 400 });
+    const result = applyInPersonBlockAction(both, initial, { kind: 'unblock' });
+    expect(result?.characterBlockedAt).toBeUndefined();
+    expect(result?.userBlockedAt).toBe(400);
+    expect(result?.characterUnblockedVia).toBe('offline');
+    // 没有拉黑时开始生成，期间已有另一轮关系变化，旧剧情也不能再次拉黑。
+    expect(applyInPersonBlockAction(unblocked, undefined, { kind: 'block', reason: '迟到' })).toBe(unblocked);
+    const disabled = configureCharacterBlocking(initial, false, 500);
+    expect(applyInPersonBlockAction(disabled, initial, { kind: 'block', reason: '迟到' })).toBe(disabled);
   });
   it('糯米机现有见面可识别拉黑关系，但只有角色能解除自己发起的拉黑', () => {
     const charBlocked = changeChatBlock(undefined, 'character', true, { at: 100, reason: '无法信任' });

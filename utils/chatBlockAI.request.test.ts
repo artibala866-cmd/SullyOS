@@ -56,6 +56,26 @@ describe('拉黑原版心软判定：真实 API 入口集成', () => {
     expect(prompt).toContain('theater');
     expect(prompt).not.toContain('拒收的秘密');
   });
+  it('心软判定挂载真实世界书一次，不让拒收内容或其它场景触发关键词', async () => {
+    mocks.request.mockResolvedValueOnce({ choices: [{ message: { content: '{"decision":"stay"}' } }] });
+    const args = createArgs();
+    args.character.mountedWorldbooks = [
+      { id: 'always', title: '底线', content: '{{char}}珍视{{user}}，但需要真诚。', category: '关系' },
+      { id: 'before', title: '旧事', content: '之前对话触发的设定', constant: false, key: ['之前的对话'], category: '关系' },
+      { id: 'secret', title: '拒收', content: '不该被触发的秘密设定', constant: false, key: ['拒收的秘密'], category: '关系' },
+      { id: 'scene', title: '旁支', content: '不该混入的其它场景', constant: false, key: ['线下场景暗号'], category: '关系' },
+      { id: 'disabled', title: '停用', content: '停用条目不应装载', disable: true, category: '关系' },
+    ];
+    args.messages.push({ id: 3, role: 'user', type: 'text', timestamp: 150, content: '线下场景暗号', metadata: { source: 'date' } } as Message);
+    await requestCharacterForgiveness(args);
+    const payload = JSON.stringify(JSON.parse(mocks.request.mock.calls[0][1].body).messages);
+    expect(payload).toContain('小星珍视用户，但需要真诚。');
+    expect(payload).toContain('之前对话触发的设定');
+    expect(payload).not.toContain('不该被触发的秘密设定');
+    expect(payload).not.toContain('不该混入的其它场景');
+    expect(payload).not.toContain('停用条目不应装载');
+    expect(payload.split(args.character.systemPrompt).length - 1).toBe(1);
+  });
   it('API 失败或无效结果必须抛错，不能伪装成角色拒绝或消耗冷却', async () => {
     mocks.request.mockRejectedValueOnce(new Error('network down'));
     await expect(requestCharacterForgiveness(createArgs())).rejects.toThrow('network down');

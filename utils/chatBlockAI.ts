@@ -13,8 +13,17 @@ export type CharacterBlockAction = { kind: 'block'; reason: string } | { kind: '
 export function extractCharacterBlockAction(raw: string): { text: string; action: CharacterBlockAction | null } {
   let action: CharacterBlockAction | null = null;
   const kept: string[] = [];
+  let fence: { marker: string; length: number } | null = null;
   for (const line of String(raw || '').split(/\r?\n/)) {
     const token = line.trim();
+    // Markdown 示例不是行为指令，包括未闭合代码块；围栏外的独立动作仍可执行。
+    const marker = /^(`{3,}|~{3,})(.*)$/.exec(token);
+    if (marker && (!fence || (marker[1][0] === fence.marker && marker[1].length >= fence.length && !marker[2].trim()))) {
+      fence = fence ? null : { marker: marker[1][0], length: marker[1].length };
+      kept.push(line);
+      continue;
+    }
+    if (fence) { kept.push(line); continue; }
     let parsed: CharacterBlockAction | null = null;
     const block = /^\[BLOCK_USER:([^\]\r\n]{1,600})\]$/i.exec(token);
     if (block?.[1]?.trim()) parsed = { kind: 'block', reason: block[1].trim().slice(0, 200) };
@@ -36,6 +45,25 @@ export function extractCharacterBlockAction(raw: string): { text: string; action
   }
   return { text: kept.join('\n').trim(), action };
 }
+/** 见面结果只能改变其生成时的那轮角色拉黑；用户方向始终独立。
+ * 预览可能停留很久，期间权限切换或重新拉黑后，旧剧情不能改变新关系。
+ */
+export function applyInPersonBlockAction(
+  current: ChatBlockState | undefined,
+  expected: ChatBlockState | undefined,
+  action: CharacterBlockAction,
+): ChatBlockState | undefined {
+  const lastCharacterEvent = (state?: ChatBlockState) =>
+    [...(state?.history || [])].reverse().find(event => event.actor === 'character');
+  if (current?.characterBlockedAt !== expected?.characterBlockedAt
+    || current?.characterUnblockedAt !== expected?.characterUnblockedAt
+    || allowsCharacterToBlock(current) !== allowsCharacterToBlock(expected)
+    || JSON.stringify(lastCharacterEvent(current)) !== JSON.stringify(lastCharacterEvent(expected))) return current;
+  return changeChatBlock(current, 'character', action.kind === 'block', {
+    source: 'ai', ...(action.kind === 'block' ? { reason: action.reason } : { via: 'offline' as const }),
+  });
+}
+
 /** 保持现有本地私聊解析接口；新解析器的作用域仅扩展到原版双向动作。 */
 export function extractCharacterBlockDirective(raw: string): { text: string; reason: string | null } {
   const parsed = extractCharacterBlockAction(raw);
@@ -128,16 +156,20 @@ export function forgivenessCooldownRemaining(state: ChatBlockState | undefined, 
   return Math.max(0, CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS - (at - lastCheckAt));
 }
 
+/** 心软判断的输入边界与私聊 DB 读取一致，公共管线也只扫描这些真实消息。 */
+function forgivenessHistory(character: CharacterProfile, messages: Message[], now: number): Message[] {
+  const blockedAt = character.chatBlock?.characterBlockedAt || now;
+  return messages.filter(message => !isRejectedPrivateMessage(message)
+    && !message.groupId && message.metadata?.source !== 'date' && message.metadata?.source !== 'home'
+    && (message.role === 'user' || message.role === 'assistant')
+    && message.type === 'text' && Number(message.timestamp) < blockedAt).slice(-12);
+}
+
 /** 只向求原谅判定提供角色实际收到过的私聊内容；拒收消息绝不可补读。 */
-export function buildForgivenessMessages(character: CharacterProfile, userName: string, messages: Message[], now = Date.now(), withTheater = false): Array<{role: 'system' | 'user'; content: string}> {
+export function buildForgivenessMessages(character: CharacterProfile, userName: string, messages: Message[], now = Date.now(), withTheater = false, includeProfile = true): Array<{role: 'system' | 'user'; content: string}> {
   const state = character.chatBlock;
   const lastBlock = [...(state?.history || [])].reverse().find(e => e.actor === 'character' && e.action === 'block');
-  // 原版仅使用封锁发生前的最后十二条真实对话；解除后不可补读被拒收内容。
-  const blockedAt = state?.characterBlockedAt || now;
-  const history = messages.filter(message => !isRejectedPrivateMessage(message)
-    && (message.role === 'user' || message.role === 'assistant')
-    && message.type === 'text' && Number(message.timestamp) < blockedAt)
-    .slice(-12)
+  const history = forgivenessHistory(character, messages, now)
     .map(message => `${message.role === 'user' ? userName : character.name}: ${String(message.content || '').slice(0, 450)}`)
     .join('\n');
   const elapsed = Math.max(0, Math.floor((now - (state?.characterBlockedAt || now)) / 60_000));
@@ -151,8 +183,8 @@ export function buildForgivenessMessages(character: CharacterProfile, userName: 
   return [
     { role: 'system', content: [
       `你正在判断角色「${character.name}」是否愿意解除对「${userName}」的私聊拉黑。你必须保持角色本人的人设与自尊，不受用户强迫。`,
-      `角色设定：${String(character.systemPrompt || '')}`,
-      `世界观：${String(character.worldview || '')}`,
+      ...(includeProfile ? [`角色设定：${String(character.systemPrompt || '')}`,
+        `世界观：${String(character.worldview || '')}`] : []),
       `拉黑已持续 ${elapsed} 分钟，角色当时的真实原因：${state?.lastCharacterBlockReason || lastBlock?.reason || '没有记录具体原因'}。`,
       '下方只有拉黑前角色实际收到的消息。拉黑期间被拒收的用户文字不可见；不知道用户是否尝试联系，绝不能猜测或假装已读。',
       '当前关系阶段：' + stage,
@@ -291,6 +323,27 @@ export async function requestCharacterForgiveness(args: {
   const api = resolveDialogueApi(apiConfig, character);
   if (!api.baseUrl || !api.model) throw new Error('请先配置私聊 API');
   const endpoint = api.baseUrl.endsWith('/') ? api.baseUrl.slice(0, -1) : api.baseUrl;
+  // 心软判定也读取挂载世界书，但不拼入其它场景的新消息或动态状态。
+  // 使用本次真实可读历史触发关键词；角色设定只由公共管线装配一次。
+  const { ContextBuilder } = await import('./context');
+  const now = Date.now();
+  const judgementMessages = buildForgivenessMessages(character, userName, messages, now, withTheater, false);
+  const requestMessages = await ContextBuilder.buildCharacterRequest({
+    char: {
+      id: character.id, name: character.name, systemPrompt: character.systemPrompt,
+      worldview: character.worldview, mountedWorldbooks: character.mountedWorldbooks,
+      timeAwarenessEnabled: false,
+    } as CharacterProfile,
+    user: { name: userName } as import('../types').UserProfile,
+    includeDetailedMemories: false,
+    layout: { deferVolatile: true },
+  }, [
+    judgementMessages[0],
+    ...forgivenessHistory(character, messages, now).map(message => ({
+      role: message.role, content: String(message.content || '').slice(0, 450),
+    })),
+    { role: 'system', content: '以上仅为拉黑前实际对话。此刻是你的独处判断，不是收到用户的新消息；不要回复旧对话，按前述格式只返回判定 JSON。' },
+  ]);
   const result = await safeFetchJson(endpoint + '/chat/completions', {
     method: 'POST',
     headers: {
@@ -299,7 +352,7 @@ export async function requestCharacterForgiveness(args: {
     },
     body: JSON.stringify({
       model: api.model,
-      messages: buildForgivenessMessages(character, userName, messages, Date.now(), withTheater),
+      messages: requestMessages,
       temperature: 0.7,
     }),
   });

@@ -27,8 +27,8 @@ import { dateLaunch } from '../utils/dateLaunch';
 import { materializeVisionDescriptions } from '../utils/visionApi';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { buildInPersonContinueInstruction } from '../utils/meetingContinue';
-import { allowsCharacterToBlock, changeChatBlock, characterBlocksUser, isRejectedPrivateMessage } from '../utils/chatBlock';
-import { buildInPersonCharBlockInstruction, extractCharacterBlockAction, type CharacterBlockAction } from '../utils/chatBlockAI';
+import { isRejectedPrivateMessage } from '../utils/chatBlock';
+import { applyInPersonBlockAction, buildInPersonCharBlockInstruction, extractCharacterBlockAction, type CharacterBlockAction } from '../utils/chatBlockAI';
 import {
     buildDateHistoryGroups,
     formatDateHistoryDate,
@@ -130,7 +130,7 @@ const DateApp: React.FC = () => {
     };
     const peekRequestRef = useRef(0);
     // 仅预览不改变关系，确认进入见面后才应用原版拉黑动作。
-    const peekBlockActionRef = useRef<{ charId: string; action: CharacterBlockAction } | null>(null);
+    const peekBlockActionRef = useRef<{ charId: string; action: CharacterBlockAction; expected: CharacterProfile['chatBlock'] } | null>(null);
     const enteringSessionRef = useRef(false);
 
     // --- NEW: Editing State lifted to here for DB sync ---
@@ -271,9 +271,9 @@ const DateApp: React.FC = () => {
 
             // 仅在确认进入会话后执行预览里的原版拉黑动作。
             if (peekBlockActionRef.current?.charId === char.id) {
-                const action = peekBlockActionRef.current.action;
+                const { action, expected } = peekBlockActionRef.current;
                 peekBlockActionRef.current = null;
-                await applyMeetingBlockAction(char.id, action);
+                await applyMeetingBlockAction(char.id, action, expected);
             }
             // 2. 切换模式并刷新数据
             if (encounterIdRef.current !== enteringEncounterId) return;
@@ -313,7 +313,7 @@ const DateApp: React.FC = () => {
             const content = await callLLM(messages, resolveDialogueApi(apiConfig, c).temperature ?? 0.85, c);
             const action = extractCharacterBlockAction(content);
             if (requestId === peekRequestRef.current) {
-                peekBlockActionRef.current = action.action ? { charId: c.id, action: action.action } : null;
+                peekBlockActionRef.current = action.action ? { charId: c.id, action: action.action, expected: c.chatBlock } : null;
                 setPeekStatus(action.text);
             }
 
@@ -380,16 +380,11 @@ const DateApp: React.FC = () => {
 
     // 糯叽机原版见面解锁：仅使用糯米机现有见面回复和角色 chatBlock。
     // 角色在现实见面中决定原谅，才解锁私聊；不会因普通发送自动解锁。
-    const applyMeetingBlockAction = async (charId: string, action: CharacterBlockAction | null) => {
+    const applyMeetingBlockAction = async (charId: string, action: CharacterBlockAction | null, expected: CharacterProfile['chatBlock']) => {
         if (!action) return;
         await updateCharacter(charId, previous => {
-            const state = previous.chatBlock;
-            if (action.kind === 'unblock') {
-                if (!characterBlocksUser(state)) return {};
-                return { chatBlock: changeChatBlock(state, 'character', false, { source: 'ai', via: 'offline' }) };
-            }
-            if (!allowsCharacterToBlock(state) || characterBlocksUser(state)) return {};
-            return { chatBlock: changeChatBlock(state, 'character', true, { reason: action.reason, source: 'ai' }) };
+            const next = applyInPersonBlockAction(previous.chatBlock, expected, action);
+            return next === previous.chatBlock ? {} : { chatBlock: next };
         });
     };
 
@@ -453,7 +448,7 @@ const DateApp: React.FC = () => {
         if (blockAction.text) {
             await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: blockAction.text, metadata: { source: 'date', dateEncounterId: currentEncounterId } });
         }
-        await applyMeetingBlockAction(char.id, blockAction.action);
+        await applyMeetingBlockAction(char.id, blockAction.action, char.chatBlock);
         markDateTurnDirty(char);
 
         // Refresh local state
@@ -502,7 +497,7 @@ const DateApp: React.FC = () => {
             if (content) {
                 await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { ...lastMsg.metadata, source: 'date', isOpening: true } });
             }
-            await applyMeetingBlockAction(char.id, blockDecision.action);
+            await applyMeetingBlockAction(char.id, blockDecision.action, char.chatBlock);
             markDateTurnDirty(char);
             trackEvent('重掷见面回复', { 目标: '开场白' });
             // 阅读模式空会话时顶部渲染的开场 & 退出快照里的 peekStatus 同步成新开场
@@ -541,7 +536,7 @@ const DateApp: React.FC = () => {
         if (blockAction.text) {
             await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: blockAction.text, metadata: { source: 'date', dateEncounterId: currentEncounterId } });
         }
-        await applyMeetingBlockAction(char.id, blockAction.action);
+        await applyMeetingBlockAction(char.id, blockAction.action, char.chatBlock);
         markDateTurnDirty(char);
         trackEvent('重掷见面回复', { 目标: '回复' });
 
