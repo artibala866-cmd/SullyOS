@@ -287,6 +287,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [showEntry, setShowEntry] = useState(false);
     const [input, setInput] = useState('');
     const forgivenessInFlightRef = useRef(false);
+    // AI 已完成而 React 状态尚未确认时仍需锁住新一轮求原谅，防止快速连点跨过冷却。
+    const forgivenessCommitPendingRef = useRef(false);
     const [forgivenessBusy, setForgivenessBusy] = useState(false);
     const [pendingUnblockOpening, setPendingUnblockOpening] = useState<{ charId: string; unblockAt: number; reason: string; elapsedMinutes: number } | null>(null);
     const [pendingForgivenessResolution, setPendingForgivenessResolution] = useState<{
@@ -639,6 +641,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const pending = pendingForgivenessResolution;
         if (!pending) return;
         if (!char || char.id !== pending.charId) {
+            forgivenessCommitPendingRef.current = false;
             setPendingForgivenessResolution(null);
             return;
         }
@@ -649,6 +652,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 && latestAction?.action === 'unblock'
                 && latestAction.at === pending.checkedAt
                 && !characterBlocksUser(state);
+            forgivenessCommitPendingRef.current = false;
             setPendingForgivenessResolution(null);
             if (pending.decision === 'unblock' && !didUnblock) {
                 addToast('角色拉黑状态已变化，本次解除未生效', 'info');
@@ -662,6 +666,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 ? (userBlocksCharacter(state) ? '对方已解除拉黑，但你仍拉黑着对方' : '对方已决定解除拉黑，正准备重新联系')
                 : '对方暂时仍不愿意解除拉黑'), 'info');
         } else if (state?.characterBlockedAt !== pending.blockedAt) {
+            forgivenessCommitPendingRef.current = false;
             setPendingForgivenessResolution(null);
             addToast('角色的拉黑状态已变化，本次判断未应用', 'info');
         }
@@ -2036,7 +2041,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             });
             return;
         }
-        if (forgivenessInFlightRef.current) return;
+        if (forgivenessInFlightRef.current || forgivenessCommitPendingRef.current) return;
         if (characterBlocksUser(char?.chatBlock)) {
             const target = char;
             // 异步 DB 读取前先锁定按钮：快速双击不得并发运行两次求原谅 AI。
@@ -2078,6 +2083,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 });
                 // 本次确认必须等 OSContext 的真实角色状态更新；updateCharacter 不等待内部 saveCharacter。
                 // 判定结果暂存于当前聊天 UI，不以立刻读回的旧 IndexedDB 判定成功/失败。
+                forgivenessCommitPendingRef.current = true;
                 setPendingForgivenessResolution({
                     charId: target.id, blockedAt: latest.chatBlock!.characterBlockedAt!,
                     checkedAt, decision: judgement.decision, sign: judgement.sign,
