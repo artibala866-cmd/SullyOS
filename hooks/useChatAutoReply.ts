@@ -174,7 +174,11 @@ export function useChatAutoReply(options: Options) {
                 // Cancellation while saving still invalidates this callback.
                 const savedAt = readIntent(conversationId!) ||
                     (work.pending ? work.firstUnansweredAt : Date.now());
-                const lastUserSendAt = Date.now();
+                // Two saves can complete inside one millisecond. This is a
+                // per-intent revision boundary, not merely a wall-clock sample;
+                // it must change on EVERY confirmed new send to stop a previous
+                // generation from consuming a newer user turn.
+                const lastUserSendAt = Math.max(Date.now(), work.lastUserSendAt + 1);
                 const replyAttention = work.pending ? work.replyAttention : current.current.replyAttention;
                 const stored = persistIntent(conversationId!, savedAt, lastUserSendAt, replyAttention);
                 if (workRef.current !== work) {
