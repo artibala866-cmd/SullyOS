@@ -34,6 +34,7 @@ import { loadWorkspacePrivateChatBlock } from '../utils/workspacePrivateChat';
 import { acquireChatReply, isChatReplyActive, subscribeChatReplies } from '../utils/chatReplyLock';
 import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
 import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContinuation';
+import { findPendingRealPersonUserTurn } from '../utils/realPersonReplyTurn';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
 import { userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, changeChatBlock, didCharReplyFailDuringGeneration } from '../utils/chatBlock';
@@ -928,6 +929,18 @@ export const useChatAI = ({
                 recallEntryPoint: 'chat_app',
                 onPreparationStage:event=>{if(event.status==='end')perfStages['payload.'+event.stage]=event.ms;},
             })));
+            // Payload preparation can take seconds (vision, memory, collaboration).
+            // Do not spend a model request answering a stale topic if a newer
+            // saved user turn or a real reply arrived while preparing context.
+            // This protects both local and cloud instant chat without a second
+            // generator, semantic classifier, or speculative follow-up.
+            if (opts?.automaticUserReply && opts.expectedAutoReplyUserId !== undefined) {
+                let liveTail: Message[];
+                try { liveTail = await DB.getRecentMessagesByCharId(char.id, 30); }
+                catch { return 'busy' as const; }
+                const stillPending = findPendingRealPersonUserTurn(liveTail);
+                if (stillPending?.id !== opts.expectedAutoReplyUserId) return 'busy' as const;
+            }
             const avatarLibrary = readCharacterAvatarLibrary(char.id);
             const avatarCandidates = avatarLibrary.autonomousEnabled ? avatarLibrary.entries.filter(e => !!e.visionDescription).slice(0, 24) : [];
             // Puff-style: only images in the current user's consecutive turn are numbered.
