@@ -97,7 +97,7 @@ try {
   const surface=first && getComputedStyle(first);
   const [sr,sg,sb,lightAlpha]=readColor(first);
   const lightSurface=!!surface && lightAlpha > 0 && sr >= 235 && sg >= 235 && sb >= 235;
-  const advanced=document.querySelector<HTMLDetailsElement>('details');
+  const advanced=document.querySelector<HTMLDetailsElement>('section[role="dialog"] details');
   if(advanced) advanced.open=true;
   const input=document.querySelector<HTMLInputElement>('input[aria-label="允许角色自主拉黑我"]');
   flushSync(()=>input?.click());
@@ -110,7 +110,7 @@ try {
   // 截图回到用户真正打开设置时的「拉黑对方」初始态。
   state=undefined;
   render();
-  const closedDetails=document.querySelector<HTMLDetailsElement>('details');
+  const closedDetails=document.querySelector<HTMLDetailsElement>('section[role="dialog"] details');
   if(closedDetails) closedDetails.open=false;
   const sceneElement = document.querySelector<HTMLElement>('#forgiveness-scene-preview');
   const sceneDetails = sceneElement?.querySelector<HTMLDetailsElement>('details');
