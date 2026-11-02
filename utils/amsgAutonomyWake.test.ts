@@ -1,5 +1,7 @@
 import {describe,it,expect,beforeEach,afterEach,vi} from 'vitest';
 beforeEach(async()=>{
+  const {setRealPersonModeEnabled}=await import('./realPersonMode');
+  setRealPersonModeEnabled(true);
   const {ActiveMsgClient}=await import('./activeMsgClient');
   vi.spyOn(ActiveMsgClient,'probeWorkerVersion').mockResolvedValue({
     state:'current',deployed:'test',deployedChannel:'preview',expected:'test',autoUpdate:null,

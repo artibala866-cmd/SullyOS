@@ -20,7 +20,9 @@ export function realPersonReplyRevision(): string {
 export function revokePendingChatAutoReplyIntents(): void {
   localRevokeRevision++;
   try {
-    localStorage.setItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY, crypto.randomUUID());
+    const revision = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID() : `${Date.now()}:${localRevokeRevision}:${Math.random()}`;
+    localStorage.setItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY, revision);
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -42,10 +44,12 @@ export function isRealPersonAutoReplyAuthorized(): boolean {
 
 
 export function isRealPersonModeEnabled(): boolean {
-  // Historical default is ON; keep existing autonomous-contact scheduling
-  // compatible rather than silently disabling saved AMSG2 daily wakes.
-  try { return typeof localStorage === 'undefined' || localStorage.getItem(REAL_PERSON_MODE_KEY) !== 'off'; }
-  catch { return true; }
+  // An absent legacy life flag is not permission for paid autonomous behavior.
+  try {
+    const mode = localStorage.getItem(REAL_PERSON_MODE_KEY);
+    return mode === 'on' || (mode !== 'off' &&
+      localStorage.getItem(REAL_PERSON_AUTO_REPLY_CONSENT_KEY) === 'on');
+  } catch { return false; }
 }
 
 /** An answer to a saved user turn is NOT unsolicited contact.
