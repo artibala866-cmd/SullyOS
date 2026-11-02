@@ -33,7 +33,7 @@ import { buildChatRequestPayload } from '../utils/chatRequestPayload';
 import { loadWorkspacePrivateChatBlock } from '../utils/workspacePrivateChat';
 import { acquireChatReply, isChatReplyActive, subscribeChatReplies } from '../utils/chatReplyLock';
 import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
-import { hasUnansweredUserTurn, withChatContinuation } from '../utils/chatContinuation';
+import { hasUnansweredUserTurn, withVerifiedUserReplyContinuation } from '../utils/chatContinuation';
 import { findPendingRealPersonUserTurn } from '../utils/realPersonReplyTurn';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
@@ -992,9 +992,13 @@ export const useChatAI = ({
             assertChatHasDialogue(payload.fullMessages);
             const fullMessages = payload.flags.promptBuildSkipped || opts?.postUnblockOpening
                 ? payload.fullMessages
-                : withChatContinuation(payload.fullMessages, userProfile.name, {
-                    // 生成前收进来的主动消息落在用户刚发的那句之后：该回的是用户那句。
-                    unansweredUserTurn: hasUnansweredUserTurn(currentMsgs, contextMsgs),
+                : withVerifiedUserReplyContinuation(payload.fullMessages, userProfile.name, {
+                    // Actual user-turn replies already have a verified DB anchor
+                    // and topic plan. Never append a fabricated "keep talking"
+                    // user message after an intervening autonomous AMSG bubble.
+                    automaticUserReply: opts?.automaticUserReply === true,
+                    unansweredUserTurn: !opts?.automaticUserReply
+                        && hasUnansweredUserTurn(currentMsgs, contextMsgs),
                 });
             // 原版解封后的第一条必须由 Char 主动开口。跳过续说旧话题的默认补丁，
             // 并使用系统情境而非虚构的新 user 气泡触发这一轮。
