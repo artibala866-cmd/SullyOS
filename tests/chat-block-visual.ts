@@ -53,8 +53,8 @@ const render = () => flushSync(() => root.render(React.createElement(React.Fragm
   React.createElement('div', { id: 'forgiveness-scene-preview', key: 'scene', className: 'mx-auto max-w-[390px]' },
     React.createElement(ChatForgivenessScene, {
       scenes: [
-        { at: 200, blockedAt: 100, title: '草稿箱', body: '他看着空白对话框，写下了几句，却最终没有按下发送。' },
-        { at: 500, blockedAt: 400, title: '没发出去', body: '他又点开了空白窗口，盯着之前打的字。' },
+        { at: Date.parse('2026-11-01T23:10:00Z'), blockedAt: Date.parse('2026-11-01T21:00:00Z'), title: '草稿箱', body: '他看着空白对话框，写下了几句，却最终没有按下发送。' },
+        { at: Date.parse('2026-11-02T01:20:00Z'), blockedAt: Date.parse('2026-11-02T00:00:00Z'), title: '没发出去', body: '他又点开了空白窗口，盯着之前打的字。' },
       ],
     })),
   React.createElement(ChatBlockModal, {
